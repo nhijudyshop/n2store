@@ -293,8 +293,20 @@ async function emitKpiEvent(pool, ev) {
 // =====================================================
 
 // Cache scope per token (5min TTL) — avoid querying assignments on every request.
-const _scopeCache = new Map(); // token → { scope, fetchedAt }
+const _scopeCache = new Map(); // token → { scope, user, fetchedAt }
 const SCOPE_TTL_MS = 5 * 60 * 1000;
+const _SCOPE_CACHE_MAX = 500; // LRU cap (LOW — tránh memory leak: token vô hạn)
+
+// Set + evict entry cũ nhất khi vượt cap (Map giữ thứ tự insert → key đầu = cũ nhất).
+function _scopeCacheSet(token, val) {
+    if (_scopeCache.has(token)) _scopeCache.delete(token); // refresh recency
+    _scopeCache.set(token, val);
+    while (_scopeCache.size > _SCOPE_CACHE_MAX) {
+        const oldest = _scopeCache.keys().next().value;
+        if (oldest === undefined) break;
+        _scopeCache.delete(oldest);
+    }
+}
 
 // Lookup user qua web2_user_sessions token. Returns { id, role, displayName } or null.
 async function _resolveUserFromToken(pool, token) {
@@ -381,14 +393,14 @@ async function applyKpiScope(req, res, next) {
 
         // Admin sees everything
         if (user.role === 'admin') {
-            _scopeCache.set(token, { scope: null, user, fetchedAt: Date.now() });
+            _scopeCacheSet(token, { scope: null, user, fetchedAt: Date.now() });
             return next();
         }
 
         const assignments = await _loadUserAssignments(pool, user.id);
         const scope = assignments.length > 0 ? assignments : null;
         req.kpiScope = scope;
-        _scopeCache.set(token, { scope, user, fetchedAt: Date.now() });
+        _scopeCacheSet(token, { scope, user, fetchedAt: Date.now() });
         return next();
     } catch (e) {
         console.warn('[web2-kpi] applyKpiScope error:', e.message);

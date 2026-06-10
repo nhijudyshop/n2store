@@ -198,56 +198,147 @@
                     }
                 }
 
-                document.addEventListener('click', async (e) => {
+                // Toggle bật/tắt 1 row TRONG DOM ngay (UI-first) — đổi badge + nhãn nút.
+                function _applyToggleRow(row, on) {
+                    const badge = row.querySelector('.lp-badge');
+                    const tBtn = row.querySelector('[data-act="toggle"]');
+                    if (badge) {
+                        badge.className = 'lp-badge ' + (on ? 'lp-on' : 'lp-off');
+                        badge.textContent = on ? 'Đang lấy' : 'Tắt';
+                    }
+                    if (tBtn) tBtn.textContent = on ? 'Tắt' : 'Bật';
+                }
+
+                async function _httpJson(url, opts) {
+                    const r = await fetch(url, opts);
+                    if (!r.ok) throw new Error('HTTP ' + r.status);
+                    return r;
+                }
+
+                document.addEventListener('click', (e) => {
                     const btn = e.target.closest('[data-act]');
                     if (!btn) return;
                     const row = btn.closest('.lp-row');
                     const id = row?.dataset.id;
                     if (!id) return;
                     const act = btn.dataset.act;
-                    try {
-                        if (act === 'toggle') {
-                            const on = btn.textContent.trim() === 'Bật';
-                            await fetch(`${API}/poller-pages/${encodeURIComponent(id)}`, {
-                                method: 'PATCH',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ enabled: on }),
+
+                    if (act === 'toggle') {
+                        const on = btn.textContent.trim() === 'Bật'; // trạng thái MỚI sau toggle
+                        if (window.Web2Optimistic?.run) {
+                            window.Web2Optimistic.run({
+                                snapshot: () => !on, // trạng thái cũ
+                                apply: () => _applyToggleRow(row, on),
+                                run: () =>
+                                    _httpJson(`${API}/poller-pages/${encodeURIComponent(id)}`, {
+                                        method: 'PATCH',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({ enabled: on }),
+                                    }),
+                                rollback: (prevOn) => _applyToggleRow(row, prevOn),
+                                successMsg: on ? 'Đã bật lấy comment' : 'Đã tắt',
+                                errLabel: 'đổi trạng thái trang',
                             });
-                        } else if (act === 'del') {
-                            if (!confirm('Xoá trang này khỏi danh sách tự lấy comment?')) return;
-                            await fetch(`${API}/poller-pages/${encodeURIComponent(id)}`, {
-                                method: 'DELETE',
-                            });
+                            return;
                         }
-                        loadPages();
-                    } catch (err) {
-                        alert('Lỗi: ' + err.message);
+                        // Fallback legacy.
+                        _applyToggleRow(row, on);
+                        _httpJson(`${API}/poller-pages/${encodeURIComponent(id)}`, {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ enabled: on }),
+                        })
+                            .then(() => notify(on ? 'Đã bật lấy comment' : 'Đã tắt', 'success'))
+                            .catch((err) => {
+                                _applyToggleRow(row, !on);
+                                notify('Lỗi đổi trạng thái trang: ' + err.message, 'error');
+                            });
+                        return;
+                    }
+
+                    if (act === 'del') {
+                        if (!confirm('Xoá trang này khỏi danh sách tự lấy comment?')) return;
+                        const next = row.nextSibling;
+                        const parent = row.parentNode;
+                        if (window.Web2Optimistic?.run) {
+                            window.Web2Optimistic.run({
+                                apply: () => row.remove(), // bỏ row khỏi DOM ngay
+                                run: () =>
+                                    _httpJson(`${API}/poller-pages/${encodeURIComponent(id)}`, {
+                                        method: 'DELETE',
+                                    }),
+                                rollback: () => {
+                                    // Khôi phục row về đúng vị trí cũ.
+                                    if (parent) parent.insertBefore(row, next);
+                                },
+                                successMsg: 'Đã xoá trang',
+                                errLabel: 'xoá trang',
+                            });
+                            return;
+                        }
+                        // Fallback legacy.
+                        row.remove();
+                        _httpJson(`${API}/poller-pages/${encodeURIComponent(id)}`, {
+                            method: 'DELETE',
+                        })
+                            .then(() => notify('Đã xoá trang', 'success'))
+                            .catch((err) => {
+                                if (parent) parent.insertBefore(row, next);
+                                notify('Lỗi xoá trang: ' + err.message, 'error');
+                            });
                     }
                 });
 
-                $('#lpAdd').addEventListener('click', async () => {
+                $('#lpAdd').addEventListener('click', () => {
                     const pageId = $('#lpPageId').value.trim();
-                    if (!pageId) return alert('Nhập Page ID');
-                    try {
-                        await fetch(`${API}/poller-pages`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                pageId,
-                                pageName: $('#lpPageName').value.trim() || null,
-                                pageUrl: $('#lpPageUrl').value.trim() || null,
-                            }),
-                        });
+                    if (!pageId) return notify('Nhập Page ID', 'error');
+                    const pageName = $('#lpPageName').value.trim() || null;
+                    const pageUrl = $('#lpPageUrl').value.trim() || null;
+                    const clearForm = () => {
                         $('#lpPageId').value = $('#lpPageName').value = $('#lpPageUrl').value = '';
-                        loadPages();
-                    } catch (err) {
-                        alert('Lỗi: ' + err.message);
+                    };
+
+                    if (window.Web2Optimistic?.run) {
+                        window.Web2Optimistic.run({
+                            apply: clearForm, // clear form ngay (cảm giác tức thì)
+                            run: () =>
+                                _httpJson(`${API}/poller-pages`, {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ pageId, pageName, pageUrl }),
+                                }),
+                            onSuccess: () => loadPages(), // sync list authoritative từ server
+                            successMsg: 'Đã thêm trang',
+                            errLabel: 'thêm trang',
+                        });
+                        return;
                     }
+                    // Fallback legacy.
+                    _httpJson(`${API}/poller-pages`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ pageId, pageName, pageUrl }),
+                    })
+                        .then(() => {
+                            clearForm();
+                            loadPages();
+                            notify('Đã thêm trang', 'success');
+                        })
+                        .catch((err) => notify('Lỗi thêm trang: ' + err.message, 'error'));
                 });
 
                 loadStat();
                 loadPages();
+                // Poll stat 15s = fallback an toàn (GIỮ). Thêm SSE để loadStat NGAY khi
+                // poller push comment mới (web2:live-comments) — số liệu cập nhật realtime.
                 setInterval(loadStat, 15000);
+                if (window.Web2SSE?.subscribe) {
+                    let _statTimer = null;
+                    window.Web2SSE.subscribe('web2:live-comments', () => {
+                        clearTimeout(_statTimer);
+                        _statTimer = setTimeout(loadStat, 800); // debounce gom burst
+                    });
+                }
             })();
         </script>
     </body>
