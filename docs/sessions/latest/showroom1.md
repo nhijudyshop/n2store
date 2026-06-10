@@ -1,4 +1,4 @@
-# Latest Snapshot — `render.com/`
+# Latest Snapshot — `showroom1/`
 
 > Snapshot tự động ghi đè sau mỗi commit chạm folder này. **Không edit thủ công.**
 > Mục đích: khi session cũ chết (vd lỗi image limit), session mới chỉ cần đọc file này là có đủ context để tiếp tục.
@@ -9,17 +9,17 @@
 **Last updated**: 2026-06-10 19:52:35 +07
 **Summary**: feat(showroom1): thêm trường Màu + Size cho sản phẩm
 
-## Files changed in this commit (`render.com/`)
+## Files changed in this commit (`showroom1/`)
 
-- `render.com/routes/showroom-products.js`
+- `showroom1/admin.css`
+- `showroom1/admin.js`
+- `showroom1/index.html`
 
-## Last 5 commits touching `render.com/`
+## Last 5 commits touching `showroom1/`
 
 - `f8a1b4f5f` feat(showroom1): thêm trường Màu + Size cho sản phẩm _(2026-06-10)_
-- `1e236df0e` fix(live-chat): avatar comment livestream (cột trái) + lưu avatar vào web2*live_comments *(2026-06-10)\_
 - `be5ebaaf7` feat(showroom1): panel quản lý desktop 70/30 + lưu SP trên Render _(2026-06-10)_
-- `9cb811f75` feat(kpi): reattribute atomic 1-request, bỏ creds hardcode KPI tab, 'Làm mới' tự reconcile đơn vừa có phiếu _(2026-06-10)_
-- `3f75af39d` fix(kpi): rà soát hệ thống KPI — fix timezone stat*date, audit log trùng, double render + giảm payload/request *(2026-06-10)\_
+- `e8fdf6489` Add files via upload _(2026-06-10)_
 
 ---
 

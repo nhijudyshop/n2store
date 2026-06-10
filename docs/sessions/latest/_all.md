@@ -3,16 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `1e236df` — fix(live-chat): avatar comment livestream (cột trái) + lưu avatar vào web2_live_comments
-**Last updated**: 2026-06-10 19:46:24 +07
-**Latest session**: [`RESUME:20260610-194624-1e236df`](../20260610-194624-1e236df.md)
-**Summary**: fix(live-chat): avatar comment livestream (cột trái) + lưu avatar vào web2_live_comments
+**Latest commit**: `f8a1b4f` — feat(showroom1): thêm trường Màu + Size cho sản phẩm
+**Last updated**: 2026-06-10 19:52:35 +07
+**Latest session**: [`RESUME:20260610-195235-f8a1b4f`](../20260610-195235-f8a1b4f.md)
+**Summary**: feat(showroom1): thêm trường Màu + Size cho sản phẩm
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`live-chat/`](./live-chat.md) — 2 file(s)
-- [`render.com/`](./render.com.md) — 2 file(s)
+- [`render.com/`](./render.com.md) — 1 file(s)
+- [`showroom1/`](./showroom1.md) — 3 file(s)
 
 ## All folder snapshots
 
@@ -52,12 +51,13 @@
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
-- [`render.com/`](./render.com.md) — updated 2026-06-10 19:46
+- [`render.com/`](./render.com.md) — updated 2026-06-10 19:52
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-09 16:10
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
 - [`shared/`](./shared.md) — updated 2026-06-08 14:48
 - [`showroom/`](./showroom.md) — updated 2026-06-10 19:04
+- [`showroom1/`](./showroom1.md) — updated 2026-06-10 19:52
 - [`so-order/`](./so-order.md) — updated 2026-06-08 12:26
 - [`soluong-live/`](./soluong-live.md) — updated 2026-06-08 18:40
 - [`soorder/`](./soorder.md) — updated 2026-05-21 15:39
