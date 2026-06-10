@@ -3,15 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `c7f2a7f` — auto: session update
-**Last updated**: 2026-06-10 20:24:27 +07
-**Latest session**: [`RESUME:20260610-202427-c7f2a7f`](../20260610-202427-c7f2a7f.md)
+**Latest commit**: `aa5ffcf` — auto: session update
+**Last updated**: 2026-06-10 20:25:01 +07
+**Latest session**: [`RESUME:20260610-202501-aa5ffcf`](../20260610-202501-aa5ffcf.md)
 **Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`live-chat/`](./live-chat.md) — 2 file(s)
-- [`render.com/`](./render.com.md) — 12 file(s)
+- [`render.com/`](./render.com.md) — 1 file(s)
 - [`web2/`](./web2.md) — 1 file(s)
 
 ## All folder snapshots
@@ -52,7 +51,7 @@
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
-- [`render.com/`](./render.com.md) — updated 2026-06-10 20:24
+- [`render.com/`](./render.com.md) — updated 2026-06-10 20:25
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-09 16:10
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
@@ -72,4 +71,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-10 20:24
+- [`web2/`](./web2.md) — updated 2026-06-10 20:25
