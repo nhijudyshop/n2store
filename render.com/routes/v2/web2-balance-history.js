@@ -419,74 +419,69 @@ router.post('/:id/reassign', async (req, res) => {
             });
         }
 
-        // Step 1: withdraw từ ví cũ — reference giữ sepay_id để link audit
-        let withdrawResult = null;
-        try {
-            withdrawResult = await web2WalletService.processWithdraw(
-                db,
-                oldPhoneNorm,
-                amount,
-                'sepay',
-                tx.sepay_id,
-                `Reassign giao dịch ${tx.sepay_id} → ${newPhoneNorm}${reasonText ? ` (${reasonText})` : ''}${verifiedByVal ? ` bởi ${verifiedByVal}` : ''}`,
-                verifiedByVal || '(reassign)' // performed_by — audit
-            );
-        } catch (e) {
-            return res.status(400).json({
-                success: false,
-                error: `Không thể trừ ví cũ (${oldPhoneNorm}): ${e.message}`,
-            });
-        }
-
-        // Step 2: deposit vào ví mới — KHÔNG dùng sepay_id (đã đc dùng ở row gốc) →
-        // dùng ref 'reassign' + sepayId variant để idempotent theo row+phone.
+        // Steps 1-3 GỘP TRONG 1 TRANSACTION ATOMIC (BUG FIX — đường tiền):
+        //   Trước đây 3 bước (withdraw ví cũ → deposit ví mới → UPDATE history) chạy
+        //   trên pool, KHÔNG cùng transaction. Rollback thủ công = gọi lại
+        //   processDeposit(oldPhone) → fragile: nếu rollback fail thì tiền lệch.
+        //   processWithdraw/processDeposit nhận `db` là Pool HOẶC PoolClient —
+        //   runWithTx phát hiện client (.release) → KHÔNG mở tx mới, dùng tx của
+        //   caller. Nên truyền `client` của withTransaction → cả 3 bước atomic:
+        //   bước nào throw → withTransaction ROLLBACK toàn bộ, không cần re-credit
+        //   thủ công. Idempotency vẫn giữ: deposit mới dùng reassignRef riêng (không
+        //   đụng sepay_id gốc đã dùng cho withdraw audit).
         const reassignRef = `${tx.sepay_id}:reassign:${newPhoneNorm}`;
+        let withdrawResult = null;
         let depositResult = null;
         try {
-            depositResult = await web2WalletService.processDeposit(
-                db,
-                newPhoneNorm,
-                amount,
-                tx.id,
-                `Reassign từ ${oldPhoneNorm} → bởi ${verifiedByVal || 'admin'}${reasonText ? ` (${reasonText})` : ''}`,
-                null,
-                null,
-                reassignRef,
-                verifiedByVal || '(reassign)' // performed_by — audit
-            );
-        } catch (e) {
-            // Rollback withdraw — re-credit ví cũ để không mất tiền
-            try {
-                await web2WalletService.processDeposit(
-                    db,
+            await withTransaction(db, async (client) => {
+                // Step 1: withdraw từ ví cũ — reference giữ sepay_id để link audit
+                withdrawResult = await web2WalletService.processWithdraw(
+                    client,
                     oldPhoneNorm,
                     amount,
-                    tx.id,
-                    `Rollback reassign fail (deposit new ${newPhoneNorm} fail: ${e.message})`,
-                    null,
-                    null,
-                    `${tx.sepay_id}:rollback:${Date.now()}`
+                    'sepay',
+                    tx.sepay_id,
+                    `Reassign giao dịch ${tx.sepay_id} → ${newPhoneNorm}${reasonText ? ` (${reasonText})` : ''}${verifiedByVal ? ` bởi ${verifiedByVal}` : ''}`,
+                    verifiedByVal || '(reassign)' // performed_by — audit
                 );
-            } catch (rbErr) {
-                console.error('[reassign] CRITICAL: rollback also failed:', rbErr.message);
-            }
+
+                // Step 2: deposit vào ví mới — dùng reassignRef variant để idempotent
+                // theo row+phone (sepay_id gốc đã dùng ở Step 1).
+                depositResult = await web2WalletService.processDeposit(
+                    client,
+                    newPhoneNorm,
+                    amount,
+                    tx.id,
+                    `Reassign từ ${oldPhoneNorm} → bởi ${verifiedByVal || 'admin'}${reasonText ? ` (${reasonText})` : ''}`,
+                    null,
+                    null,
+                    reassignRef,
+                    verifiedByVal || '(reassign)' // performed_by — audit
+                );
+
+                // Step 3: update history row — cùng transaction
+                await client.query(
+                    `UPDATE web2_balance_history
+                     SET linked_customer_phone = $2,
+                         display_name = COALESCE($3, display_name),
+                         match_method = 'manual_reassign',
+                         verified_by = COALESCE($4, verified_by),
+                         verified_at = NOW()
+                     WHERE id = $1`,
+                    [id, newPhoneNorm, name || null, verifiedByVal]
+                );
+            });
+        } catch (e) {
+            // withTransaction đã ROLLBACK toàn bộ → không có tiền nào bị trừ/cộng
+            // dở dang, không cần re-credit thủ công.
+            console.error(
+                `[reassign] CRITICAL: atomic reassign FAILED (id=${id}, ${oldPhoneNorm}→${newPhoneNorm}, amount=${amount}) — đã rollback: ${e.message}`
+            );
             return res.status(500).json({
                 success: false,
-                error: `Không thể cộng ví mới (${newPhoneNorm}): ${e.message}`,
+                error: `Không thể chuyển giao dịch (${oldPhoneNorm} → ${newPhoneNorm}): ${e.message}`,
             });
         }
-
-        // Step 3: update history row
-        await db.query(
-            `UPDATE web2_balance_history
-             SET linked_customer_phone = $2,
-                 display_name = COALESCE($3, display_name),
-                 match_method = 'manual_reassign',
-                 verified_by = COALESCE($4, verified_by),
-                 verified_at = NOW()
-             WHERE id = $1`,
-            [id, newPhoneNorm, name || null, verifiedByVal]
-        );
 
         // Step 4: audit log
         try {

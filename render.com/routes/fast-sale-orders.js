@@ -1142,7 +1142,6 @@ router.post('/', async (req, res) => {
         if (!b.partnerPhone && !b.partnerName) {
             return res.status(400).json({ error: 'partnerPhone or partnerName required' });
         }
-        const number = await nextNumber(pool);
         const lines = Array.isArray(b.orderLines) ? b.orderLines : [];
         // Stock guard cho manual create — same logic as from-native-order.
         if (b.force !== true) {
@@ -1163,93 +1162,114 @@ router.post('/', async (req, res) => {
             ? await lookupCustomerIdByPhone(pool, b.partnerPhone)
             : null;
 
-        const r = await pool.query(
-            `INSERT INTO fast_sale_orders (
-                number, display_stt, source,
-                date_invoice,
-                partner_id, partner_code, partner_name, partner_phone, partner_address, partner_email,
-                city_code, city_name, district_code, district_name, ward_code, ward_name,
-                order_lines, total_quantity,
-                amount_untaxed, amount_tax, amount_discount, amount_total,
-                payment_amount, deposit, residual,
-                delivery_price, cash_on_delivery, carrier_id, carrier_name, tracking_ref, delivery_note,
-                state, show_state,
-                source_type, source_id, source_code,
-                live_campaign_id, live_campaign_name,
-                warehouse_id, warehouse_name, company_id, company_name,
-                crm_team_id, crm_team_name, assigned_user_id, assigned_user_name,
-                comment, tags, created_by, created_by_name,
-                customer_id
-            ) VALUES (
-                $1, nextval('fast_sale_orders_display_stt_seq'), $2,
-                COALESCE($3::timestamptz, NOW()),
-                $4, $5, $6, $7, $8, $9,
-                $10, $11, $12, $13, $14, $15,
-                $16::jsonb, $17,
-                $18, $19, $20, $21,
-                $22, $23, $24,
-                $25, $26, $27, $28, $29, $30,
-                $31, $32,
-                $33, $34, $35,
-                $36, $37,
-                $38, $39, $40, $41,
-                $42, $43, $44, $45,
-                $46, $47::jsonb, $48, $49,
-                $50
-            ) RETURNING *`,
-            [
-                number,
-                b.source || 'NATIVE_WEB',
-                b.dateInvoice || null,
-                b.partnerId || null,
-                b.partnerCode || null,
-                b.partnerName || null,
-                b.partnerPhone || null,
-                b.partnerAddress || null,
-                b.partnerEmail || null,
-                b.cityCode || null,
-                b.cityName || null,
-                b.districtCode || null,
-                b.districtName || null,
-                b.wardCode || null,
-                b.wardName || null,
-                JSON.stringify(lines),
-                totals.qty,
-                totals.untaxed,
-                totals.tax,
-                totals.discount,
-                totals.total,
-                b.paymentAmount || 0,
-                b.deposit || 0,
-                totals.residual,
-                b.deliveryPrice || 0,
-                b.cashOnDelivery || 0,
-                b.carrierId || null,
-                b.carrierName || null,
-                b.trackingRef || null,
-                b.deliveryNote || null,
-                b.state || 'draft',
-                b.showState || null,
-                b.sourceType || 'manual',
-                b.sourceId || null,
-                b.sourceCode || null,
-                b.liveCampaignId || null,
-                b.liveCampaignName || null,
-                b.warehouseId || null,
-                b.warehouseName || null,
-                b.companyId || null,
-                b.companyName || null,
-                b.crmTeamId || null,
-                b.crmTeamName || null,
-                b.assignedUserId || null,
-                b.assignedUserName || null,
-                b.comment || null,
-                JSON.stringify(b.tags || []),
-                b.createdBy || null,
-                b.createdByName || null,
-                customerId,
-            ]
-        );
+        // MEDIUM RACE FIX (2026-06-10): nextNumber() không atomic — 2 manual create
+        // đồng thời cùng ngày sinh cùng number → UNIQUE violation. Retry: nếu INSERT
+        // nhận 23505, recompute nextNumber() rồi thử lại (≤ MAX_NUMBER_RETRIES lần).
+        // INSERT là 1 pool.query độc lập (chưa mở transaction) nên fail không abort gì.
+        let r = null;
+        let lastErr = null;
+        for (let attempt = 0; attempt < MAX_NUMBER_RETRIES; attempt++) {
+            const number = await nextNumber(pool);
+            try {
+                r = await pool.query(
+                    `INSERT INTO fast_sale_orders (
+                        number, display_stt, source,
+                        date_invoice,
+                        partner_id, partner_code, partner_name, partner_phone, partner_address, partner_email,
+                        city_code, city_name, district_code, district_name, ward_code, ward_name,
+                        order_lines, total_quantity,
+                        amount_untaxed, amount_tax, amount_discount, amount_total,
+                        payment_amount, deposit, residual,
+                        delivery_price, cash_on_delivery, carrier_id, carrier_name, tracking_ref, delivery_note,
+                        state, show_state,
+                        source_type, source_id, source_code,
+                        live_campaign_id, live_campaign_name,
+                        warehouse_id, warehouse_name, company_id, company_name,
+                        crm_team_id, crm_team_name, assigned_user_id, assigned_user_name,
+                        comment, tags, created_by, created_by_name,
+                        customer_id
+                    ) VALUES (
+                        $1, nextval('fast_sale_orders_display_stt_seq'), $2,
+                        COALESCE($3::timestamptz, NOW()),
+                        $4, $5, $6, $7, $8, $9,
+                        $10, $11, $12, $13, $14, $15,
+                        $16::jsonb, $17,
+                        $18, $19, $20, $21,
+                        $22, $23, $24,
+                        $25, $26, $27, $28, $29, $30,
+                        $31, $32,
+                        $33, $34, $35,
+                        $36, $37,
+                        $38, $39, $40, $41,
+                        $42, $43, $44, $45,
+                        $46, $47::jsonb, $48, $49,
+                        $50
+                    ) RETURNING *`,
+                    [
+                        number,
+                        b.source || 'NATIVE_WEB',
+                        b.dateInvoice || null,
+                        b.partnerId || null,
+                        b.partnerCode || null,
+                        b.partnerName || null,
+                        b.partnerPhone || null,
+                        b.partnerAddress || null,
+                        b.partnerEmail || null,
+                        b.cityCode || null,
+                        b.cityName || null,
+                        b.districtCode || null,
+                        b.districtName || null,
+                        b.wardCode || null,
+                        b.wardName || null,
+                        JSON.stringify(lines),
+                        totals.qty,
+                        totals.untaxed,
+                        totals.tax,
+                        totals.discount,
+                        totals.total,
+                        b.paymentAmount || 0,
+                        b.deposit || 0,
+                        totals.residual,
+                        b.deliveryPrice || 0,
+                        b.cashOnDelivery || 0,
+                        b.carrierId || null,
+                        b.carrierName || null,
+                        b.trackingRef || null,
+                        b.deliveryNote || null,
+                        b.state || 'draft',
+                        b.showState || null,
+                        b.sourceType || 'manual',
+                        b.sourceId || null,
+                        b.sourceCode || null,
+                        b.liveCampaignId || null,
+                        b.liveCampaignName || null,
+                        b.warehouseId || null,
+                        b.warehouseName || null,
+                        b.companyId || null,
+                        b.companyName || null,
+                        b.crmTeamId || null,
+                        b.crmTeamName || null,
+                        b.assignedUserId || null,
+                        b.assignedUserName || null,
+                        b.comment || null,
+                        JSON.stringify(b.tags || []),
+                        b.createdBy || null,
+                        b.createdByName || null,
+                        customerId,
+                    ]
+                );
+                break; // INSERT thành công → thoát retry loop
+            } catch (insErr) {
+                if (_isUniqueViolation(insErr)) {
+                    lastErr = insErr;
+                    continue; // number trùng — recompute + thử lại
+                }
+                throw insErr;
+            }
+        }
+        if (!r) {
+            throw lastErr || new Error('Không sinh được số PBH (race retry exhausted)');
+        }
         // Stock deduction — same logic as /from-native-order (line 1283).
         // Trừ stock atomic, clamp tại 0. Best-effort: lỗi không chặn flow.
         try {

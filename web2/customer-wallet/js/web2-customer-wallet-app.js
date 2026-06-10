@@ -1099,7 +1099,7 @@
         if (btn) btn.disabled = true;
         try {
             notify('Đang chuẩn bị CSV…', 'info');
-            const result = await fetchAggregate({
+            const result = await fetchAggregateWeb2Only({
                 limit: 500,
                 offset: 0,
                 sort: state.sort,

@@ -272,8 +272,12 @@ async function _resolveSourceOrder(pool, code, type) {
     let walletDeducted = 0;
     try {
         const w = await pool.query(
+            // Filter state<>'cancel': PBH đã huỷ đã hoàn ví khi cancel → KHÔNG
+            // cộng wallet_deducted của nó vào lần hoàn này (tránh hoàn ví dư).
             `SELECT COALESCE(SUM(wallet_deducted),0)::numeric AS s
-             FROM fast_sale_orders WHERE source_type='native_order' AND source_code = $1`,
+             FROM fast_sale_orders
+             WHERE source_type='native_order' AND source_code = $1
+               AND state <> 'cancel'`,
             [code]
         );
         walletDeducted = Number(w.rows[0]?.s) || 0;
@@ -529,43 +533,56 @@ router.post('/', async (req, res) => {
                 }
             }
 
-            const code = await _genCode(pool);
-            const now = Date.now();
-            const hist = [
-                {
-                    ts: now,
-                    action: 'create',
-                    userId: user.id,
-                    userName: user.name,
-                    note: `van_de_shipper / ${reasonS} / COD-${codReduction}`,
-                },
-            ];
-            const ins = await pool.query(
-                `INSERT INTO web2_returns
-                  (code, phone, customer_name, customer_id, method, sub_type, issue, reason,
-                   source_order_code, source_order_type, items, total_amount, wallet_credited,
-                   wallet_tx_id, cod_reduction, payable_carrier, stock_status, status, note,
-                   history, created_at, updated_at, created_by, created_by_name)
-                 VALUES ($1,$2,$3,$4,'shipper_gui','cod_shipper','van_de_shipper',$5,$6,$7,'[]'::jsonb,0,$8,$9,$10,$10,'applied','active',$11,$12::jsonb,$13,$13,$14,$15)
-                 RETURNING *`,
-                [
-                    code,
-                    phone,
-                    b.customerName || null,
-                    b.customerId || null,
-                    reasonS,
-                    sCode,
-                    sType,
-                    walletCredited,
-                    walletTxId,
-                    codReduction,
-                    b.note || null,
-                    JSON.stringify(hist),
-                    now,
-                    user.id,
-                    user.name,
-                ]
-            );
+            // Retry-on-unique ('23505'): _genCode (MAX+1) không atomic → 2 phiếu
+            // cùng lúc có thể sinh trùng code → INSERT lần sau lấy code mới.
+            const SHIPPER_RETRY_MAX = 5;
+            let ins;
+            let code;
+            for (let attempt = 0; ; attempt++) {
+                code = await _genCode(pool);
+                const now = Date.now();
+                const hist = [
+                    {
+                        ts: now,
+                        action: 'create',
+                        userId: user.id,
+                        userName: user.name,
+                        note: `van_de_shipper / ${reasonS} / COD-${codReduction}`,
+                    },
+                ];
+                try {
+                    ins = await pool.query(
+                        `INSERT INTO web2_returns
+                          (code, phone, customer_name, customer_id, method, sub_type, issue, reason,
+                           source_order_code, source_order_type, items, total_amount, wallet_credited,
+                           wallet_tx_id, cod_reduction, payable_carrier, stock_status, status, note,
+                           history, created_at, updated_at, created_by, created_by_name)
+                         VALUES ($1,$2,$3,$4,'shipper_gui','cod_shipper','van_de_shipper',$5,$6,$7,'[]'::jsonb,0,$8,$9,$10,$10,'applied','active',$11,$12::jsonb,$13,$13,$14,$15)
+                         RETURNING *`,
+                        [
+                            code,
+                            phone,
+                            b.customerName || null,
+                            b.customerId || null,
+                            reasonS,
+                            sCode,
+                            sType,
+                            walletCredited,
+                            walletTxId,
+                            codReduction,
+                            b.note || null,
+                            JSON.stringify(hist),
+                            now,
+                            user.id,
+                            user.name,
+                        ]
+                    );
+                    break;
+                } catch (e) {
+                    if (e && e.code === '23505' && attempt < SHIPPER_RETRY_MAX) continue;
+                    throw e;
+                }
+            }
             if (doWithdraw) _notifyWallet(phone);
             _notify('create', code, { phone });
             return res.json({ success: true, return: mapRow(ins.rows[0]) });
@@ -722,48 +739,59 @@ router.post('/:code/approve', async (req, res) => {
     const user = _user(req);
     try {
         await ensureTables(pool);
-        const cur = await pool.query('SELECT * FROM web2_returns WHERE code = $1', [
-            req.params.code,
-        ]);
-        if (!cur.rows[0]) return res.status(404).json({ error: 'Not found' });
-        const row = cur.rows[0];
-        if (row.status !== 'active') return res.status(400).json({ error: 'Phiếu đã huỷ' });
-        if (row.method !== 'shipper_gui' || row.stock_status !== 'pending') {
-            return res.status(400).json({ error: 'Phiếu không ở trạng thái chờ duyệt' });
-        }
-        const items = Array.isArray(row.items) ? row.items : [];
         const now = Date.now();
-        const client = await pool.connect();
+        // FOR UPDATE: lock record return TRƯỚC khi check trạng thái + cộng stock.
+        // Chống 2 admin double-approve (stock cộng 2 lần). Re-check guard SAU khi
+        // lock — admin thua race sẽ thấy stock_status='approved' → reject.
         try {
-            await client.query('BEGIN');
-            // return_qty → stock cho từng SP.
-            for (const it of items) {
-                const qty = Number(it.quantity) || 0;
-                if (!it.productCode || qty <= 0) continue;
-                await client.query(
-                    `UPDATE web2_products
-                     SET return_qty = GREATEST(0, return_qty - $1),
-                         stock = stock + $1,
-                         updated_at = $2
-                     WHERE code = $3`,
-                    [qty, now, it.productCode]
+            await withTransaction(pool, async (client) => {
+                const cur = await client.query(
+                    'SELECT * FROM web2_returns WHERE code = $1 FOR UPDATE',
+                    [req.params.code]
                 );
-            }
-            const hist = Array.isArray(row.history) ? row.history : [];
-            hist.push({ ts: now, action: 'approve', userId: user.id, userName: user.name });
-            await client.query(
-                `UPDATE web2_returns
-                 SET stock_status = 'approved', approved_at = $1, approved_by = $2,
-                     history = $3::jsonb, updated_at = $1
-                 WHERE code = $4`,
-                [now, user.name, JSON.stringify(hist), req.params.code]
-            );
-            await client.query('COMMIT');
+                if (!cur.rows[0]) {
+                    const err = new Error('Not found');
+                    err.httpStatus = 404;
+                    throw err;
+                }
+                const row = cur.rows[0];
+                if (row.status !== 'active') {
+                    const err = new Error('Phiếu đã huỷ');
+                    err.httpStatus = 400;
+                    throw err;
+                }
+                if (row.method !== 'shipper_gui' || row.stock_status !== 'pending') {
+                    const err = new Error('Phiếu không ở trạng thái chờ duyệt');
+                    err.httpStatus = 400;
+                    throw err;
+                }
+                const items = Array.isArray(row.items) ? row.items : [];
+                // return_qty → stock cho từng SP.
+                for (const it of items) {
+                    const qty = Number(it.quantity) || 0;
+                    if (!it.productCode || qty <= 0) continue;
+                    await client.query(
+                        `UPDATE web2_products
+                         SET return_qty = GREATEST(0, return_qty - $1),
+                             stock = stock + $1,
+                             updated_at = $2
+                         WHERE code = $3`,
+                        [qty, now, it.productCode]
+                    );
+                }
+                const hist = Array.isArray(row.history) ? row.history : [];
+                hist.push({ ts: now, action: 'approve', userId: user.id, userName: user.name });
+                await client.query(
+                    `UPDATE web2_returns
+                     SET stock_status = 'approved', approved_at = $1, approved_by = $2,
+                         history = $3::jsonb, updated_at = $1
+                     WHERE code = $4`,
+                    [now, user.name, JSON.stringify(hist), req.params.code]
+                );
+            });
         } catch (e) {
-            await client.query('ROLLBACK');
+            if (e.httpStatus) return res.status(e.httpStatus).json({ error: e.message });
             throw e;
-        } finally {
-            client.release();
         }
         _notify('approve', req.params.code);
         res.json({ success: true });

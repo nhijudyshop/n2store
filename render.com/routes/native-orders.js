@@ -837,8 +837,16 @@ router.post('/from-comment', async (req, res) => {
         }
 
         const now = Date.now();
-        const code = await nextDailyCode(pool);
+        // Mã đơn sinh trong insertWithCodeRetry (retry nếu đụng mã do race).
         const sessionIndex = await nextSessionIndex(pool, b.fbUserId);
+
+        // Campaign group key (JS-side) cho advisory lock — phải khớp logic SQL
+        // bên dưới: bỏ prefix 'STORE '/'HOUSE ' của live_campaign_name; fallback
+        // live_campaign_id; cuối cùng 'NO_CAMPAIGN'.
+        const _campaignGroupKey =
+            (b.liveCampaignName || '').replace(/^(STORE|HOUSE)\s+/i, '').trim() ||
+            b.liveCampaignId ||
+            'NO_CAMPAIGN';
 
         // Note format: '[timestamp] [Tên Page] message' — page name giúp phân
         // biệt khi sau gộp comment từ nhiều page về 1 KH.
@@ -901,61 +909,77 @@ router.post('/from-comment', async (req, res) => {
         // → STT 1..n chung cho cả 2 page (user spec 2026-06-02).
         // Fallback: nếu live_campaign_name rỗng dùng live_campaign_id; nếu cả 2
         // rỗng dùng 'NO_CAMPAIGN' synthetic group.
-        // Race window mỏng — chấp nhận; production scale cần advisory_lock(hashtext(key)).
-        const insert = await pool.query(
-            `INSERT INTO native_orders (
-                code, session_index, display_stt, campaign_stt, source,
-                customer_name, phone, address, note,
-                fb_user_id, fb_user_name, fb_page_id, fb_post_id, fb_comment_id, crm_team_id,
-                products, total_quantity, total_amount,
-                status, tags,
-                live_campaign_id, live_campaign_name,
-                customer_id,
-                created_by, created_by_name, created_at, updated_at
-            ) VALUES (
-                $1, $2, nextval('native_orders_display_stt_seq'),
-                (SELECT COALESCE(MAX(campaign_stt), 0) + 1
-                 FROM native_orders
-                 WHERE COALESCE(
-                     NULLIF(TRIM(REGEXP_REPLACE(COALESCE(live_campaign_name, ''), '^(STORE|HOUSE)\\s+', '', 'i')), ''),
-                     live_campaign_id,
-                     'NO_CAMPAIGN'
-                 ) = COALESCE(
-                     NULLIF(TRIM(REGEXP_REPLACE(COALESCE($14::text, ''), '^(STORE|HOUSE)\\s+', '', 'i')), ''),
-                     $13,
-                     'NO_CAMPAIGN'
-                 )),
-                'NATIVE_WEB',
-                $3, $4, $5, $6,
-                $7, $8, $9, $10, $11, $12,
-                '[]'::jsonb, 0, 0,
-                'draft', '[]'::jsonb,
-                $13, $14,
-                $15,
-                $16, $17, $18, $18
-            ) RETURNING *`,
-            [
-                code,
-                sessionIndex,
-                // Use enriched values (from fb_id lookup) nếu body không có
-                b.customerName || enrichedName || null,
-                enrichedPhone,
-                enrichedAddress,
-                note,
-                b.fbUserId,
-                b.fbUserName || enrichedName || null,
-                b.fbPageId || null,
-                b.fbPostId || null,
-                b.fbCommentId || null,
-                b.crmTeamId ? parseInt(b.crmTeamId, 10) : null,
-                b.liveCampaignId || null,
-                b.liveCampaignName || null,
-                customerId,
-                b.createdBy || null,
-                b.createdByName || null,
-                now,
-            ]
-        );
+        // 2026-06-10: chạy trong transaction + pg_advisory_xact_lock(campaign key)
+        // → MAX+1 tuần tự không trùng STT dưới tải song song; bọc insertWithCodeRetry
+        // → retry nếu đụng mã NJ (race). Lock tự nhả khi COMMIT/ROLLBACK.
+        const insert = await insertWithCodeRetry(pool, async (code) => {
+            const client = await pool.connect();
+            try {
+                await client.query('BEGIN');
+                await lockCampaignSttKey(client, _campaignGroupKey);
+                const r = await client.query(
+                    `INSERT INTO native_orders (
+                        code, session_index, display_stt, campaign_stt, source,
+                        customer_name, phone, address, note,
+                        fb_user_id, fb_user_name, fb_page_id, fb_post_id, fb_comment_id, crm_team_id,
+                        products, total_quantity, total_amount,
+                        status, tags,
+                        live_campaign_id, live_campaign_name,
+                        customer_id,
+                        created_by, created_by_name, created_at, updated_at
+                    ) VALUES (
+                        $1, $2, nextval('native_orders_display_stt_seq'),
+                        (SELECT COALESCE(MAX(campaign_stt), 0) + 1
+                         FROM native_orders
+                         WHERE COALESCE(
+                             NULLIF(TRIM(REGEXP_REPLACE(COALESCE(live_campaign_name, ''), '^(STORE|HOUSE)\\s+', '', 'i')), ''),
+                             live_campaign_id,
+                             'NO_CAMPAIGN'
+                         ) = COALESCE(
+                             NULLIF(TRIM(REGEXP_REPLACE(COALESCE($14::text, ''), '^(STORE|HOUSE)\\s+', '', 'i')), ''),
+                             $13,
+                             'NO_CAMPAIGN'
+                         )),
+                        'NATIVE_WEB',
+                        $3, $4, $5, $6,
+                        $7, $8, $9, $10, $11, $12,
+                        '[]'::jsonb, 0, 0,
+                        'draft', '[]'::jsonb,
+                        $13, $14,
+                        $15,
+                        $16, $17, $18, $18
+                    ) RETURNING *`,
+                    [
+                        code,
+                        sessionIndex,
+                        // Use enriched values (from fb_id lookup) nếu body không có
+                        b.customerName || enrichedName || null,
+                        enrichedPhone,
+                        enrichedAddress,
+                        note,
+                        b.fbUserId,
+                        b.fbUserName || enrichedName || null,
+                        b.fbPageId || null,
+                        b.fbPostId || null,
+                        b.fbCommentId || null,
+                        b.crmTeamId ? parseInt(b.crmTeamId, 10) : null,
+                        b.liveCampaignId || null,
+                        b.liveCampaignName || null,
+                        customerId,
+                        b.createdBy || null,
+                        b.createdByName || null,
+                        now,
+                    ]
+                );
+                await client.query('COMMIT');
+                return r;
+            } catch (e) {
+                await client.query('ROLLBACK').catch(() => {});
+                throw e;
+            } finally {
+                client.release();
+            }
+        });
 
         const order = mapRowToOrder(insert.rows[0]);
 

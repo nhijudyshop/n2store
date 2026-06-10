@@ -385,43 +385,54 @@ router.post('/:id/approve', async (req, res) => {
     if (!phone) {
         return res.status(400).json({ success: false, error: 'phone bắt buộc để duyệt' });
     }
+    // Transaction: lock signal (FOR UPDATE) + linkTransaction (cộng ví) + confirm
+    // + history TRONG CÙNG 1 transaction → idempotency guard hiệu lực (FOR UPDATE
+    // chỉ giữ lock khi trong transaction) + atomic. linkTransaction nhận client
+    // (db param) nên chạy chung transaction này.
+    const client = await pool.connect();
+    let sig = null;
+    let credited = false;
+    let reconciled = false; // GD đã cộng ví đúng SĐT từ trước (vd auto-match QR) → vẫn nối + gửi tin
+    let ckAmount = null;
+    let now = Date.now();
     try {
+        await client.query('BEGIN');
         // Idempotency guard (HIGH — money op double-submit): lock signal + check
         // status. Đã confirmed → trả idempotent success, KHÔNG cộng ví/ghi history
         // lần 2 (tránh double-credit + 2 history entry khi double-submit).
-        const guard = await pool.query(
+        const guard = await client.query(
             `SELECT id, page_id, conversation_id, customer_name, status
              FROM web2_payment_signals WHERE id = $1 FOR UPDATE`,
             [id]
         );
         if (!guard.rows.length) {
+            await client.query('ROLLBACK');
             return res.status(404).json({ success: false, error: 'signal not found' });
         }
         if (guard.rows[0].status === 'confirmed') {
+            await client.query('COMMIT');
             _notify('approve', id);
             return res.json({ success: true, alreadyApproved: true });
         }
-        const sig = guard.rows[0];
+        sig = guard.rows[0];
 
         // Link GD SePay (cộng ví) nếu có txId.
-        let credited = false;
-        let reconciled = false; // GD đã cộng ví đúng SĐT từ trước (vd auto-match QR) → vẫn nối + gửi tin
-        let ckAmount = null;
         if (txId) {
             const balanceHistory = require('./v2/web2-balance-history');
-            const r = await balanceHistory.linkTransaction(pool, {
+            const r = await balanceHistory.linkTransaction(client, {
                 id: txId,
                 phone,
                 name,
                 verifiedBy: u.userName,
             });
             if (r.notFound) {
+                await client.query('ROLLBACK');
                 return res.status(404).json({ success: false, error: 'GD không tồn tại' });
             }
             if (r.alreadyProcessed) {
                 // GD đã được cộng ví trước (auto-match). Nếu cộng cho ĐÚNG SĐT đang
                 // duyệt → coi như hợp lệ: nối tín hiệu + gửi tin (KHÔNG cộng lại).
-                const ti = await pool.query(
+                const ti = await client.query(
                     `SELECT linked_customer_phone, transfer_amount FROM web2_balance_history WHERE id = $1`,
                     [txId]
                 );
@@ -431,6 +442,7 @@ router.post('/:id/approve', async (req, res) => {
                     reconciled = true;
                     ckAmount = Number(ti.rows[0].transfer_amount) || null;
                 } else {
+                    await client.query('ROLLBACK');
                     return res.status(400).json({
                         success: false,
                         error: 'GD đã xử lý cho SĐT khác — không thể link',
@@ -443,8 +455,8 @@ router.post('/:id/approve', async (req, res) => {
         }
 
         // Confirm signal + lưu phone/name (nếu trống) + matched_tx_id.
-        const now = Date.now();
-        await pool.query(
+        now = Date.now();
+        await client.query(
             `UPDATE web2_payment_signals
              SET status = 'confirmed',
                  confirmed_at = $2,
@@ -453,16 +465,17 @@ router.post('/:id/approve', async (req, res) => {
                  customer_name = COALESCE(NULLIF(customer_name, ''), $5),
                  matched_tx_id = COALESCE($6, matched_tx_id),
                  matched_tx_at = CASE WHEN $6 IS NOT NULL THEN $2 ELSE matched_tx_at END
-             WHERE id = $1`,
+             WHERE id = $1 AND status = 'pending'`,
             [id, now, u.userName, phone, name, txId]
         );
-        await _appendHistory(pool, id, {
+        await _appendHistory(client, id, {
             action: 'approve',
             ...u,
             note: txId
                 ? `GD#${txId}${credited ? ' +ví' : reconciled ? ' (đã cộng trước, đối soát)' : ''}`
                 : 'chờ tiền về (chưa cộng ví)',
         });
+        await client.query('COMMIT');
         _notify('approve', id);
         if (txId && _notifyClients) {
             try {
@@ -492,8 +505,11 @@ router.post('/:id/approve', async (req, res) => {
 
         res.json({ success: true, credited, reconciled });
     } catch (e) {
+        await client.query('ROLLBACK').catch(() => {});
         console.error('[WEB2-PAYSIG-API] approve failed:', e.message);
         res.status(500).json({ success: false, error: e.message });
+    } finally {
+        client.release();
     }
 });
 
