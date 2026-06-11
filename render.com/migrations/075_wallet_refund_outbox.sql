@@ -91,8 +91,8 @@ ALTER TABLE pending_wallet_withdrawals ADD COLUMN IF NOT EXISTS refund_requested
 ALTER TABLE pending_wallet_withdrawals ADD COLUMN IF NOT EXISTS refund_reason        TEXT;
 ALTER TABLE pending_wallet_withdrawals ADD COLUMN IF NOT EXISTS refund_requested_by  VARCHAR(100);
 ALTER TABLE pending_wallet_withdrawals ADD COLUMN IF NOT EXISTS refund_retry_count   INTEGER DEFAULT 0;
--- 20 auto-retries (every 5 min ≈ 100 min) before the cron stops and the STUCK alert
--- fires. The row STAYS REFUND_DUE — the refund obligation is never dropped, only
+-- 20 auto-retries (every 5 min ~ 100 min) before the cron stops and the STUCK alert
+-- fires. The row STAYS REFUND_DUE - the refund obligation is never dropped, only
 -- auto-retry pauses (settle manually via POST /:id/process-refund).
 ALTER TABLE pending_wallet_withdrawals ADD COLUMN IF NOT EXISTS refund_max_retries   INTEGER DEFAULT 20;
 ALTER TABLE pending_wallet_withdrawals ADD COLUMN IF NOT EXISTS refund_last_error    TEXT;

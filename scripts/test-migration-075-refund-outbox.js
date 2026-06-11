@@ -29,6 +29,7 @@ const MASTER = {
     user: process.env.PGUSER || process.env.USER || 'postgres',
     password: process.env.PGPASSWORD || undefined,
     database: 'postgres',
+    client_encoding: 'utf8', // match prod (Linux/UTF8) regardless of OS locale
 };
 const MIG_DIR = path.join(__dirname, '..', 'render.com', 'migrations');
 

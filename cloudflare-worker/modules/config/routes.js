@@ -157,6 +157,9 @@ export const ROUTES = {
     // Showroom Products (PostgreSQL - curated catalog cho /showroom1/)
     SHOWROOM_PRODUCTS: { pattern: '/api/showroom-products/*' },
 
+    // Showroom Carts (PostgreSQL - giỏ hàng khách vãng lai /showroom1/, visitor ID)
+    SHOWROOM_CARTS: { pattern: '/api/showroom-carts/*' },
+
     // Admin Firebase (Firestore browser) & Render services
     ADMIN_FIREBASE: { pattern: '/api/admin/firebase/*' },
     ADMIN_RENDER: { pattern: '/api/admin/render/*' },
@@ -259,6 +262,8 @@ export function matchRoute(pathname) {
     if (pathname.startsWith('/api/order-notes/')) return 'ORDER_NOTES';
     if (pathname.startsWith('/api/showroom-products/') || pathname === '/api/showroom-products')
         return 'SHOWROOM_PRODUCTS';
+    if (pathname.startsWith('/api/showroom-carts/') || pathname === '/api/showroom-carts')
+        return 'SHOWROOM_CARTS';
     if (pathname.startsWith('/api/sepay/')) return 'SEPAY';
     if (pathname.startsWith('/api/sepay-home/')) return 'SEPAY_HOME';
     if (pathname.startsWith('/api/realtime/')) return 'REALTIME';

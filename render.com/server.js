@@ -488,6 +488,7 @@ const invoiceStatusRoutes = require('./routes/invoice-status');
 const invoiceMappingRoutes = require('./routes/invoice-mapping');
 const orderNotesRoutes = require('./routes/order-notes');
 const showroomProductsRoutes = require('./routes/showroom-products'); // /showroom1/ curated catalog
+const showroomCartsRoutes = require('./routes/showroom-carts'); // /showroom1/ giỏ hàng khách vãng lai (visitor ID)
 const socialOrdersRoutes = require('./routes/social-orders');
 const socialKpiVerifyRoutes = require('./routes/social-kpi-verify');
 const nativeOrdersRoutes = require('./routes/native-orders');
@@ -613,6 +614,7 @@ app.use('/api/invoice-status', invoiceStatusRoutes);
 app.use('/api/invoice-mapping', invoiceMappingRoutes);
 app.use('/api/order-notes', orderNotesRoutes);
 app.use('/api/showroom-products', showroomProductsRoutes); // /showroom1/ curated catalog
+app.use('/api/showroom-carts', showroomCartsRoutes); // /showroom1/ giỏ hàng khách vãng lai
 // Mount KPI-verify DƯỚI prefix /api/social-orders/ (đã được Cloudflare Worker route sẵn về
 // Render) → tránh phải thêm route mới vào worker. PHẢI mount TRƯỚC socialOrdersRoutes để
 // /api/social-orders/kpi-verify/* khớp router này trước.
@@ -917,6 +919,11 @@ if (orderNotesRoutes.initializeNotifiers) {
 // Initialize SSE notifiers in showroom-products routes (Web 1.0 hub, topic 'showroom_products')
 if (showroomProductsRoutes.initializeNotifiers) {
     showroomProductsRoutes.initializeNotifiers(realtimeSseRoutes.notifyClients);
+}
+
+// Initialize SSE notifiers in showroom-carts routes (Web 1.0 hub, topic 'showroom_carts')
+if (showroomCartsRoutes.initializeNotifiers) {
+    showroomCartsRoutes.initializeNotifiers(realtimeSseRoutes.notifyClients);
 }
 
 // Initialize SSE notifiers in web-warehouse routes

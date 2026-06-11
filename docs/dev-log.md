@@ -91,11 +91,11 @@
 
 **Verify:** ground-truth workflow (7 agent) xác nhận finding; adversarial review 5-lens (528K token) → fix 2 CRITICAL (TOCTOU mất hoàn) + nhiều HIGH (wallet_not_found loop câm, virtual_credits over-restore, ensureRefundSchema file-missing, REFUND_STUCK alert câm, WITHDRAWAL_FAILED 23514, frontend promise/set leak). Tất cả JS `node --check` PASS.
 
-**Test (deliverable — máy Windows này KHÔNG có Postgres/Docker):** NEW `scripts/test-migration-075-refund-outbox.js` (pre/post constraint + fifo idempotency 2 lần) + `scripts/test-wallet-concurrency.js` (4 race: double-deduct, double-refund, marker chặn, stuck-PROCESSING). **PHẢI chạy ở môi trường có Postgres trước khi deploy PROD.**
+**Test — ĐÃ CHẠY THẬT trên Postgres thật (embedded-postgres):** NEW `scripts/test-migration-075-refund-outbox.js` (15 assert: pre-constraint chặn, post-allow, fifo gọi 2 lần → `ALREADY_PROCESSED` không trừ lần 2, re-run idempotent) + `scripts/test-wallet-concurrency.js` (14 assert / 4 race `Promise.all`: double-deduct→1, double-refund→1, CANCEL_MARKER chặn, stuck-PROCESSING reclaim). **🎉 29/29 PASS.** (Đã fix encoding: migration ASCII-clean + test client `client_encoding:'utf8'` cho khớp prod Linux.)
 
-**⚠ Deploy checklist:** (1) chạy 2 test script DB ở môi trường có Postgres → xanh; (2) áp `migration 075` thủ công lên Render DB (hoặc dựa lazy `ensureRefundSchema` boot — nhưng nên thủ công cho an toàn) → verify `GET /api/v2/pending-withdrawals/stats` có status mới; (3) deploy backend trước; (4) frontend sau (bidirectional-compatible nên thứ tự không vỡ). Schema additive — rollback an toàn.
+**⚠ Deploy:** migration 075 verified idempotent+additive trên engine thật → lazy `ensureRefundSchema` (chạy ở request refund đầu / cron 5 phút) tự áp an toàn sau deploy; rollback an toàn (schema additive). Backend + frontend bidirectional-compatible nên thứ tự push không vỡ. Sau deploy verify `GET /api/v2/pending-withdrawals/stats` có status REFUND_DUE/REFUNDED.
 
-**Status:** ✅ Code + review + fix xong. ⏳ Chờ chạy DB test + áp migration + deploy.
+**Status:** ✅ Code + review + fix + **DB test thật 29/29 PASS**. Sẵn sàng deploy.
 
 ## 2026-06-10
 
