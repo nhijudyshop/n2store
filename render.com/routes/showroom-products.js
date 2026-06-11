@@ -66,6 +66,7 @@ async function ensureTables(pool) {
         );
         ALTER TABLE showroom_products ADD COLUMN IF NOT EXISTS colors JSONB NOT NULL DEFAULT '[]'::jsonb;
         ALTER TABLE showroom_products ADD COLUMN IF NOT EXISTS sizes JSONB NOT NULL DEFAULT '[]'::jsonb;
+        ALTER TABLE showroom_products ADD COLUMN IF NOT EXISTS description TEXT;
         CREATE INDEX IF NOT EXISTS idx_showroom_products_sort
             ON showroom_products(active, sort_order ASC, created_at DESC);
     `);
@@ -82,6 +83,13 @@ function sanitizeString(v, maxLen) {
     const t = v.trim();
     if (!t || t.length > maxLen) return null;
     return t;
+}
+// Text nhiều dòng (mô tả SP): giữ newline, cắt bớt thay vì reject khi quá dài
+function sanitizeText(v, maxLen) {
+    if (typeof v !== 'string') return null;
+    const t = v.trim();
+    if (!t) return null;
+    return t.length > maxLen ? t.slice(0, maxLen) : t;
 }
 function toIntOrNull(v) {
     if (v === null || v === undefined || v === '') return null;
@@ -121,6 +129,7 @@ function rowToProduct(r) {
         imageIds: Array.isArray(r.image_ids) ? r.image_ids : [],
         colors: Array.isArray(r.colors) ? r.colors : [],
         sizes: Array.isArray(r.sizes) ? r.sizes : [],
+        description: r.description || null,
         sortOrder: r.sort_order,
         active: r.active,
         createdBy: r.created_by,
@@ -130,10 +139,11 @@ function rowToProduct(r) {
 }
 
 const PRODUCT_COLS =
-    'id, name, price, sale_price, category, badge, image_ids, colors, sizes, sort_order, active, created_by, created_at, updated_at';
+    'id, name, price, sale_price, category, badge, image_ids, colors, sizes, description, sort_order, active, created_by, created_at, updated_at';
 const MAX_COLOR_LEN = 40;
 const MAX_SIZE_LEN = 12;
 const MAX_VARIANTS = 30;
+const MAX_DESC_LEN = 2000;
 
 // =====================================================
 // PRODUCTS
@@ -177,16 +187,17 @@ router.post('/', async (req, res) => {
         const imageIds = normalizeImageIds(req.body?.imageIds);
         const colors = normalizeStrList(req.body?.colors, MAX_COLOR_LEN, MAX_VARIANTS);
         const sizes = normalizeStrList(req.body?.sizes, MAX_SIZE_LEN, MAX_VARIANTS);
+        const description = sanitizeText(req.body?.description, MAX_DESC_LEN);
         const sortOrder = toIntOrNull(req.body?.sortOrder) ?? 0;
         const createdBy = sanitizeString(req.body?.createdBy, 128);
 
         const result = await pool.query(
             `INSERT INTO showroom_products
-                (name, price, sale_price, category, badge, image_ids, colors, sizes, sort_order, created_by)
-             VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7::jsonb, $8::jsonb, $9, $10)
+                (name, price, sale_price, category, badge, image_ids, colors, sizes, description, sort_order, created_by)
+             VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7::jsonb, $8::jsonb, $9, $10, $11)
              RETURNING ${PRODUCT_COLS}`,
             [name, price, salePrice, category, badge, JSON.stringify(imageIds),
-             JSON.stringify(colors), JSON.stringify(sizes), sortOrder, createdBy]
+             JSON.stringify(colors), JSON.stringify(sizes), description, sortOrder, createdBy]
         );
         const product = rowToProduct(result.rows[0]);
         broadcast('created', { id: product.id });
@@ -221,6 +232,7 @@ router.put('/:id', async (req, res) => {
         if (b.imageIds !== undefined) { sets.push(`image_ids = $${i++}::jsonb`); vals.push(JSON.stringify(normalizeImageIds(b.imageIds))); }
         if (b.colors !== undefined) { sets.push(`colors = $${i++}::jsonb`); vals.push(JSON.stringify(normalizeStrList(b.colors, MAX_COLOR_LEN, MAX_VARIANTS))); }
         if (b.sizes !== undefined) { sets.push(`sizes = $${i++}::jsonb`); vals.push(JSON.stringify(normalizeStrList(b.sizes, MAX_SIZE_LEN, MAX_VARIANTS))); }
+        if (b.description !== undefined) { sets.push(`description = $${i++}`); vals.push(sanitizeText(b.description, MAX_DESC_LEN)); }
         if (b.sortOrder !== undefined) { sets.push(`sort_order = $${i++}`); vals.push(toIntOrNull(b.sortOrder) ?? 0); }
         if (b.active !== undefined) { sets.push(`active = $${i++}`); vals.push(!!b.active); }
 
