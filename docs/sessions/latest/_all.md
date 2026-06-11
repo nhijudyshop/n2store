@@ -3,14 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `289881a` — auto: session update
-**Last updated**: 2026-06-11 11:09:47 +07
-**Latest session**: [`RESUME:20260611-110947-289881a`](../20260611-110947-289881a.md)
-**Summary**: auto: session update
+**Latest commit**: `354e8a1` — fix(live-chat): múi giờ GMT+7 — parse Pancake inserted_at UTC naive + migration shift created_time +7h
+**Last updated**: 2026-06-11 11:18:16 +07
+**Latest session**: [`RESUME:20260611-111816-354e8a1`](../20260611-111816-354e8a1.md)
+**Summary**: fix(live-chat): múi giờ GMT+7 — parse Pancake inserted_at UTC naive + migration shift created_time +7h
 
 ## Folders affected in this commit
 
-- [`render.com/`](./render.com.md) — 1 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
+- [`live-chat/`](./live-chat.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -24,7 +25,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-11 10:18
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-08 09:55
-- [`docs/`](./docs.md) — updated 2026-06-11 11:08
+- [`docs/`](./docs.md) — updated 2026-06-11 11:18
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-11 10:18
 - [`downloads/`](./downloads.md) — updated 2026-06-11 08:36
@@ -37,7 +38,7 @@
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-05-21 15:39
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-08 10:28
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
-- [`live-chat/`](./live-chat.md) — updated 2026-06-11 11:08
+- [`live-chat/`](./live-chat.md) — updated 2026-06-11 11:18
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-06-04 20:02
 - [`native-orders/`](./native-orders.md) — updated 2026-06-09 19:12
 - [`nhanhang/`](./nhanhang.md) — updated 2026-05-21 15:39
