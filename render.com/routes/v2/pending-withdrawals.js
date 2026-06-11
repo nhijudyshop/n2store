@@ -22,6 +22,7 @@
 const express = require('express');
 const router = express.Router();
 const { normalizePhone } = require('../../utils/customer-helpers');
+const { executeRefund, ensureRefundSchema } = require('../../services/wallet-refund');
 
 // =====================================================
 // UTILITY FUNCTIONS
@@ -38,29 +39,34 @@ function handleError(res, error, message = 'Internal server error') {
  */
 async function processWithdrawal(db, pendingId) {
     try {
-        // Get pending record
-        const pendingResult = await db.query(`
-            SELECT id, order_id, phone, amount, note, retry_count, max_retries
-            FROM pending_wallet_withdrawals
-            WHERE id = $1 AND status IN ('PENDING', 'PROCESSING')
-            FOR UPDATE SKIP LOCKED
-        `, [pendingId]);
-
-        if (pendingResult.rows.length === 0) {
-            console.log(`[PENDING-WITHDRAW] Record ${pendingId} not found or already processed`);
-            return { success: false, reason: 'not_found_or_locked' };
-        }
-
-        const pending = pendingResult.rows[0];
-
-        // Update status to PROCESSING
-        await db.query(`
+        // ATOMIC claim: flip PENDING (or a stale >10min PROCESSING) -> PROCESSING.
+        // Only ONE worker can win this UPDATE, which closes the double-deduction
+        // race (fix A5 — the old SELECT ... FOR UPDATE SKIP LOCKED was autocommit
+        // and released the lock immediately). Reclaiming a stale PROCESSING row
+        // recovers ones orphaned by a crash mid-processing (fix A9). The fifo
+        // idempotency guard (migration 075) makes a re-run safe even if the prior
+        // attempt actually deducted.
+        const claim = await db.query(`
             UPDATE pending_wallet_withdrawals
             SET status = 'PROCESSING', updated_at = NOW()
             WHERE id = $1
+              AND (
+                  status = 'PENDING'
+                  OR (status = 'PROCESSING' AND updated_at < NOW() - INTERVAL '10 minutes')
+              )
+            RETURNING id, order_id, phone, amount, note, retry_count, max_retries
         `, [pendingId]);
 
-        // Call FIFO withdrawal function
+        if (claim.rows.length === 0) {
+            // Terminal (COMPLETED/FAILED/CANCELLED/REFUNDED), being refunded
+            // (REFUND_DUE), or freshly claimed by another worker. Nothing to do.
+            console.log(`[PENDING-WITHDRAW] Record ${pendingId} not claimable (already processed/locked)`);
+            return { success: false, reason: 'not_claimable' };
+        }
+
+        const pending = claim.rows[0];
+
+        // Call FIFO withdrawal function (atomic; idempotent via migration 075 guard)
         const result = await db.query(`
             SELECT * FROM wallet_withdraw_fifo($1, $2, $3, $4)
         `, [pending.phone, pending.amount, pending.order_id, pending.note]);
@@ -68,17 +74,22 @@ async function processWithdrawal(db, pendingId) {
         const withdrawal = result.rows[0];
 
         if (withdrawal.success) {
-            // Success - mark as completed
+            // Success. If a cancel slipped in and set REFUND_DUE while we were
+            // PROCESSING, KEEP REFUND_DUE (the refund worker settles it) but still
+            // record what was deducted so the refund amount is correct.
             await db.query(`
                 UPDATE pending_wallet_withdrawals
-                SET status = 'COMPLETED',
+                SET status = CASE WHEN status = 'REFUND_DUE' THEN 'REFUND_DUE' ELSE 'COMPLETED' END,
                     virtual_used = $2,
                     real_used = $3,
                     completed_at = NOW(),
                     updated_at = NOW()
-                WHERE id = $1
+                WHERE id = $1 AND status IN ('PROCESSING', 'REFUND_DUE')
             `, [pendingId, withdrawal.virtual_used, withdrawal.real_used]);
 
+            if (withdrawal.error_message === 'ALREADY_PROCESSED') {
+                console.log(`[PENDING-WITHDRAW] ♻️ Idempotent re-run #${pendingId} (order ${pending.order_id}): prior deduction recovered from ledger — NOT deducted again`);
+            }
             console.log(`[PENDING-WITHDRAW] ✅ Completed #${pendingId}: ${pending.amount}đ (virtual: ${withdrawal.virtual_used}, real: ${withdrawal.real_used})`);
 
             return {
@@ -94,35 +105,45 @@ async function processWithdrawal(db, pendingId) {
             const newRetryCount = pending.retry_count + 1;
 
             if (newRetryCount >= pending.max_retries) {
-                // Max retries reached - mark as FAILED
-                await db.query(`
+                // Max retries reached - mark as FAILED, but ONLY if we still own the
+                // row (status PROCESSING). If a cancel set REFUND_DUE, leave it for
+                // the refund worker to reconcile.
+                const failUpd = await db.query(`
                     UPDATE pending_wallet_withdrawals
                     SET status = 'FAILED',
                         retry_count = $2,
                         last_error = $3,
                         last_retry_at = NOW(),
                         updated_at = NOW()
-                    WHERE id = $1
+                    WHERE id = $1 AND status = 'PROCESSING'
                 `, [pendingId, newRetryCount, withdrawal.error_message]);
 
-                // Create alert activity for admin
-                await db.query(`
-                    INSERT INTO customer_activities
-                        (phone, activity_type, title, description, icon, color, metadata)
-                    VALUES ($1, 'WITHDRAWAL_FAILED',
-                        'Trừ ví thất bại - Cần xử lý thủ công',
-                        $2, 'alert-triangle', 'red', $3)
-                `, [
-                    pending.phone,
-                    `Đơn ${pending.order_id}: Không thể trừ ${pending.amount}đ sau ${newRetryCount} lần thử. Lỗi: ${withdrawal.error_message}`,
-                    JSON.stringify({
-                        pending_id: pendingId,
-                        order_id: pending.order_id,
-                        amount: parseFloat(pending.amount),
-                        error: withdrawal.error_message,
-                        retry_count: newRetryCount
-                    })
-                ]);
+                if (failUpd.rowCount > 0) {
+                    // Create alert activity for admin. Wrapped — a customer_activities
+                    // CHECK violation (e.g. activity_type not yet in the constraint) must
+                    // NEVER disrupt the FAILED status flow that already committed above.
+                    try {
+                        await db.query(`
+                            INSERT INTO customer_activities
+                                (phone, activity_type, title, description, icon, color, metadata)
+                            VALUES ($1, 'WITHDRAWAL_FAILED',
+                                'Trừ ví thất bại - Cần xử lý thủ công',
+                                $2, 'alert-triangle', 'red', $3)
+                        `, [
+                            pending.phone,
+                            `Đơn ${pending.order_id}: Không thể trừ ${pending.amount}đ sau ${newRetryCount} lần thử. Lỗi: ${withdrawal.error_message}`,
+                            JSON.stringify({
+                                pending_id: pendingId,
+                                order_id: pending.order_id,
+                                amount: parseFloat(pending.amount),
+                                error: withdrawal.error_message,
+                                retry_count: newRetryCount
+                            })
+                        ]);
+                    } catch (alertErr) {
+                        console.warn('[PENDING-WITHDRAW] WITHDRAWAL_FAILED alert insert failed (non-critical):', alertErr.message);
+                    }
+                }
 
                 console.log(`[PENDING-WITHDRAW] 🚨 FAILED #${pendingId}: Max retries reached - ${withdrawal.error_message}`);
 
@@ -134,7 +155,8 @@ async function processWithdrawal(db, pendingId) {
                     retry_count: newRetryCount
                 };
             } else {
-                // Still have retries - mark as PENDING for next cron run
+                // Still have retries - back to PENDING for next cron run, but ONLY
+                // if we still own the row (status PROCESSING).
                 await db.query(`
                     UPDATE pending_wallet_withdrawals
                     SET status = 'PENDING',
@@ -142,7 +164,7 @@ async function processWithdrawal(db, pendingId) {
                         last_error = $3,
                         last_retry_at = NOW(),
                         updated_at = NOW()
-                    WHERE id = $1
+                    WHERE id = $1 AND status = 'PROCESSING'
                 `, [pendingId, newRetryCount, withdrawal.error_message]);
 
                 console.log(`[PENDING-WITHDRAW] ⏱️ Retry later #${pendingId}: ${withdrawal.error_message} (attempt ${newRetryCount}/${pending.max_retries})`);
@@ -158,7 +180,10 @@ async function processWithdrawal(db, pendingId) {
             }
         }
     } catch (error) {
-        // Unexpected error - mark as pending for retry
+        // Unexpected error - back to PENDING for retry, but ONLY if we still own the
+        // row (status PROCESSING). This prevents resurrecting a CANCELLED / REFUND_DUE
+        // / COMPLETED / REFUNDED row (fix A12). The fifo idempotency guard makes a
+        // retry safe even if the deduction actually committed before the error.
         await db.query(`
             UPDATE pending_wallet_withdrawals
             SET status = 'PENDING',
@@ -166,7 +191,7 @@ async function processWithdrawal(db, pendingId) {
                 last_error = $2,
                 last_retry_at = NOW(),
                 updated_at = NOW()
-            WHERE id = $1
+            WHERE id = $1 AND status = 'PROCESSING'
         `, [pendingId, error.message]);
 
         console.error(`[PENDING-WITHDRAW] ❌ Error processing #${pendingId}:`, error.message);
@@ -196,6 +221,12 @@ router.post('/', async (req, res) => {
     if (!order_id) {
         return res.status(400).json({ success: false, error: 'order_id is required' });
     }
+    // Reject placeholder/garbage order ids — they poison the UNIQUE(order_id,phone)
+    // idempotency key and break refund matching (fix A7). A real order has a real number.
+    const orderIdStr = String(order_id).trim();
+    if (orderIdStr === '' || ['N/A', 'NA', 'UNDEFINED', 'NULL', 'NONE'].includes(orderIdStr.toUpperCase())) {
+        return res.status(400).json({ success: false, error: 'order_id is invalid (placeholder)' });
+    }
     if (!phone) {
         return res.status(400).json({ success: false, error: 'phone is required' });
     }
@@ -218,6 +249,20 @@ router.post('/', async (req, res) => {
 
         if (existingResult.rows.length > 0) {
             const existing = existingResult.rows[0];
+
+            if (existing.status === 'CANCELLED' || existing.status === 'REFUND_DUE' || existing.status === 'REFUNDED') {
+                // Order was cancelled/refunded (often a CANCEL_MARKER placed by the
+                // cancel flow BEFORE this deduction POST arrived). Do NOT deduct —
+                // that would trap money on an already-cancelled order (fix A8).
+                console.log(`[PENDING-WITHDRAW] 🛑 Blocked deduction for order ${order_id} — status ${existing.status}`);
+                return res.json({
+                    success: true,
+                    skipped: true,
+                    blocked_by_cancel: true,
+                    status: existing.status,
+                    message: 'Order was cancelled — wallet deduction blocked'
+                });
+            }
 
             if (existing.status === 'COMPLETED') {
                 // Already completed - return success with existing data
@@ -306,6 +351,7 @@ router.post('/', async (req, res) => {
                 await db.query(`ALTER TABLE customer_activities ADD CONSTRAINT customer_activities_activity_type_check
                     CHECK (activity_type IN (
                         'WALLET_DEPOSIT','WALLET_WITHDRAW','WALLET_VIRTUAL_CREDIT','WALLET_REFUND',
+                        'WITHDRAWAL_FAILED','WALLET_REFUND_STUCK',
                         'TICKET_CREATED','TICKET_UPDATED','TICKET_COMPLETED','TICKET_DELETED',
                         'ORDER_CREATED','ORDER_CANCELLED','ORDER_DELIVERED','ORDER_RETURNED',
                         'MESSAGE_SENT','MESSAGE_RECEIVED','PROFILE_UPDATED','TAG_ADDED','NOTE_ADDED'
@@ -443,6 +489,9 @@ router.get('/stats', async (req, res) => {
                     WHEN 'FAILED' THEN 3
                     WHEN 'COMPLETED' THEN 4
                     WHEN 'CANCELLED' THEN 5
+                    WHEN 'REFUND_DUE' THEN 6
+                    WHEN 'REFUNDED' THEN 7
+                    ELSE 8
                 END
         `);
 
@@ -562,26 +611,21 @@ router.post('/process-pending', async (req, res) => {
     const { limit = 50 } = req.body;
 
     try {
-        // Get pending records older than 1 minute (to avoid racing with immediate processing)
+        await ensureRefundSchema(db);
+
+        // 1) DEDUCTION side: PENDING older than 1 min + stale PROCESSING (>10 min,
+        //    orphaned by a crash — fix A9). processWithdrawal re-claims atomically.
         const pendingResult = await db.query(`
             SELECT id
             FROM pending_wallet_withdrawals
-            WHERE status = 'PENDING'
-              AND created_at < NOW() - INTERVAL '1 minute'
-              AND retry_count < max_retries
+            WHERE retry_count < max_retries
+              AND (
+                  (status = 'PENDING' AND created_at < NOW() - INTERVAL '1 minute')
+                  OR (status = 'PROCESSING' AND updated_at < NOW() - INTERVAL '10 minutes')
+              )
             ORDER BY created_at ASC
             LIMIT $1
         `, [parseInt(limit)]);
-
-        if (pendingResult.rows.length === 0) {
-            return res.json({
-                success: true,
-                message: 'No pending withdrawals to process',
-                processed: 0
-            });
-        }
-
-        console.log(`[PENDING-WITHDRAW] Processing ${pendingResult.rows.length} pending records...`);
 
         let successCount = 0;
         let failCount = 0;
@@ -599,22 +643,74 @@ router.post('/process-pending', async (req, res) => {
             }
         }
 
+        // 2) REFUND side: settle REFUND_DUE rows (cancel after deduction, or a
+        //    PROCESSING claim awaiting reconciliation). Durable outbox = no lost refunds.
+        const refundResult = await db.query(`
+            SELECT id
+            FROM pending_wallet_withdrawals
+            WHERE status = 'REFUND_DUE'
+              AND COALESCE(refund_retry_count, 0) < COALESCE(refund_max_retries, 5)
+            ORDER BY refund_requested_at ASC NULLS FIRST
+            LIMIT $1
+        `, [parseInt(limit)]);
+
+        let refundedCount = 0;
+        let refundPendingCount = 0;
+        for (const row of refundResult.rows) {
+            try {
+                const r = await executeRefund(db, row.id);
+                if (r.refunded) refundedCount++;
+                else refundPendingCount++;
+            } catch (refErr) {
+                console.error(`[PENDING-WITHDRAW] Error refunding #${row.id}:`, refErr.message);
+                refundPendingCount++;
+            }
+        }
+
+        const total = pendingResult.rows.length + refundResult.rows.length;
+        if (total === 0) {
+            return res.json({
+                success: true,
+                message: 'No pending withdrawals or refunds to process',
+                processed: 0
+            });
+        }
+
         const summary = {
             success: true,
-            message: `Processed ${pendingResult.rows.length} pending withdrawals`,
+            message: `Processed ${pendingResult.rows.length} withdrawals, ${refundResult.rows.length} refunds`,
             stats: {
-                total: pendingResult.rows.length,
+                total,
                 success: successCount,
                 failed: failCount,
-                retry_later: retryLaterCount
+                retry_later: retryLaterCount,
+                refunded: refundedCount,
+                refund_pending: refundPendingCount
             }
         };
 
-        console.log(`[PENDING-WITHDRAW] ✅ Cron complete: ${successCount} success, ${failCount} failed, ${retryLaterCount} retry later`);
+        console.log(`[PENDING-WITHDRAW] ✅ Cron complete: deduct(${successCount} ok, ${failCount} fail, ${retryLaterCount} retry) refund(${refundedCount} ok, ${refundPendingCount} pending)`);
 
         res.json(summary);
     } catch (error) {
         handleError(res, error, 'Failed to process pending withdrawals');
+    }
+});
+
+/**
+ * POST /api/v2/pending-withdrawals/:id/process-refund
+ * Admin/accounting: manually settle one REFUND_DUE row that is stuck.
+ */
+router.post('/:id/process-refund', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    const { id } = req.params;
+
+    try {
+        await ensureRefundSchema(db);
+        const result = await executeRefund(db, parseInt(id, 10));
+        res.json({ success: true, result });
+    } catch (error) {
+        handleError(res, error, 'Failed to process refund');
     }
 });
 

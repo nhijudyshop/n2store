@@ -10,6 +10,7 @@ const { withTransaction } = require('../db/with-transaction');
 
 // Import pending withdrawals processor
 const { processWithdrawal } = require('../routes/v2/pending-withdrawals');
+const { executeRefund, ensureRefundSchema } = require('../services/wallet-refund');
 const { cleanupOrderBuffer } = require('../routes/tpos-order-buffer');
 
 // Chạy mỗi giờ để expire virtual credits
@@ -296,23 +297,21 @@ console.log('[CRON] Scheduler started');
 cron.schedule('*/5 * * * *', async () => {
     console.log('[CRON] Running retry-pending-withdrawals...');
     try {
-        // Get pending records older than 1 minute (to avoid racing with immediate processing)
+        await ensureRefundSchema(db);
+
+        // 1) DEDUCTION side: PENDING older than 1 min + stale PROCESSING (>10 min,
+        //    orphaned by a crash). Kept in sync with the /process-pending route.
         const pendingResult = await db.query(`
             SELECT id, order_id, phone, amount, retry_count, max_retries
             FROM pending_wallet_withdrawals
-            WHERE status = 'PENDING'
-              AND created_at < NOW() - INTERVAL '1 minute'
-              AND retry_count < max_retries
+            WHERE retry_count < max_retries
+              AND (
+                  (status = 'PENDING' AND created_at < NOW() - INTERVAL '1 minute')
+                  OR (status = 'PROCESSING' AND updated_at < NOW() - INTERVAL '10 minutes')
+              )
             ORDER BY created_at ASC
             LIMIT 50
         `);
-
-        if (pendingResult.rows.length === 0) {
-            console.log('[CRON] No pending withdrawals to retry');
-            return;
-        }
-
-        console.log(`[CRON] Found ${pendingResult.rows.length} pending withdrawals to retry`);
 
         let successCount = 0;
         let failCount = 0;
@@ -335,8 +334,37 @@ cron.schedule('*/5 * * * *', async () => {
             }
         }
 
+        // 2) REFUND side: settle REFUND_DUE rows (refund outbox — no lost refunds).
+        const refundResult = await db.query(`
+            SELECT id
+            FROM pending_wallet_withdrawals
+            WHERE status = 'REFUND_DUE'
+              AND COALESCE(refund_retry_count, 0) < COALESCE(refund_max_retries, 5)
+            ORDER BY refund_requested_at ASC NULLS FIRST
+            LIMIT 50
+        `);
+
+        let refundedCount = 0;
+        let refundPendingCount = 0;
+        for (const row of refundResult.rows) {
+            try {
+                const r = await executeRefund(db, row.id);
+                if (r.refunded) refundedCount++;
+                else refundPendingCount++;
+            } catch (error) {
+                console.error(`[CRON] Error refunding #${row.id}:`, error.message);
+                refundPendingCount++;
+            }
+        }
+
+        if (pendingResult.rows.length === 0 && refundResult.rows.length === 0) {
+            console.log('[CRON] No pending withdrawals or refunds to settle');
+            return;
+        }
+
         console.log(
-            `[CRON] ✅ Pending withdrawals: ${successCount} success, ${failCount} failed, ${retryLaterCount} retry later`
+            `[CRON] ✅ Wallet outbox: deduct(${successCount} ok, ${failCount} fail, ${retryLaterCount} retry) ` +
+            `refund(${refundedCount} ok, ${refundPendingCount} pending)`
         );
     } catch (error) {
         console.error('[CRON] ❌ Error in retry-pending-withdrawals:', error.message);
