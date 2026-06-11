@@ -1648,6 +1648,68 @@
         return wsData;
     }
 
+    // ── Thu về × CSKH ──────────────────────────────────────────────
+    // Tab "Thu về" export: hỏi CSKH (customer_tickets) số lượng + giá trị món
+    // thu về theo SĐT khách, đồng thời server đánh dấu ticket "đã bàn giao thu
+    // về cho ship" gắn với Number đơn → re-export trả đúng dữ liệu cũ (idempotent).
+    async function fetchReturnHandoverInfo(items) {
+        const orders = items
+            .map((it) => ({
+                order_number: it.Number,
+                // Phone RAW — server normalize (giữ số 0 đầu khớp customer_tickets.phone),
+                // KHÔNG dùng normalizePhone local (strip số 0 đầu → lệch format).
+                phone: it.Phone || it.Ship_Receiver_Phone || it.Telephone || '',
+            }))
+            .filter((o) => o.order_number);
+        if (orders.length === 0) return {};
+
+        const performedBy = window.authManager?.getUserInfo?.()?.displayName || 'anonymous';
+        const resp = await fetch(`${RENDER_URL}/api/v2/tickets/handover-batch`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                orders,
+                performed_by: performedBy,
+                handover_date: todayLocalStr(),
+            }),
+        });
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const result = await resp.json();
+        if (!result.success) throw new Error(result.error || 'handover-batch: invalid response');
+        console.log(
+            `[DELIVERY-REPORT] handover-batch: ${result.matched}/${result.total} đơn khớp ticket CSKH (${result.claimed} đánh dấu mới)`
+        );
+        return result.data || {};
+    }
+
+    // Như buildExcelRows nhưng thêm 2 cột "Số lượng" / "Giá trị" từ ticket CSKH.
+    // Đơn không khớp ticket → 2 cột để trống.
+    function buildExcelRowsReturn(items, handoverMap) {
+        const wsData = [['#', 'Số', 'Khách hàng', 'ĐT', 'Địa chỉ', 'Công nợ', 'Số lượng', 'Giá trị']];
+        let qtyTotal = 0;
+        let valueTotal = 0;
+        items.forEach((item, i) => {
+            const h = handoverMap[item.Number];
+            if (h) {
+                qtyTotal += h.quantity || 0;
+                valueTotal += h.value || 0;
+            }
+            wsData.push([
+                i + 1,
+                item.Number || '',
+                item.PartnerDisplayName || '',
+                item.Phone || '',
+                item.Address || '',
+                item.CashOnDelivery || 0,
+                h ? h.quantity : '',
+                h ? h.value : '',
+            ]);
+        });
+        const total = items.reduce((sum, i) => sum + (i.CashOnDelivery || 0), 0);
+        wsData.push(['', '', '', '', 'Tổng:', total, qtyTotal, valueTotal]);
+        return wsData;
+    }
+
     function autoFitColumns(ws, wsData) {
         const cols = wsData[0].map((_, colIdx) => {
             let maxLen = 0;
@@ -1725,7 +1787,24 @@
             }
 
             const items = state.traSoatMode ? getTabFilteredData() : state.allData || [];
-            const wsData = buildExcelRows(items);
+            let wsData;
+            if (tab === 'return' && state.traSoatMode) {
+                // Tab Thu về: enrich 2 cột Số lượng/Giá trị từ ticket CSKH + đánh dấu
+                // bàn giao ship. API lỗi → vẫn xuất file 6 cột như cũ.
+                let handoverMap = null;
+                try {
+                    handoverMap = await fetchReturnHandoverInfo(items);
+                } catch (e) {
+                    console.warn('[DELIVERY-REPORT] handover-batch failed:', e.message);
+                    alert(
+                        'Không lấy được dữ liệu CSKH (Số lượng/Giá trị): ' + e.message +
+                        '\nVẫn xuất Excel nhưng KHÔNG có 2 cột này.'
+                    );
+                }
+                wsData = handoverMap ? buildExcelRowsReturn(items, handoverMap) : buildExcelRows(items);
+            } else {
+                wsData = buildExcelRows(items);
+            }
 
             const ws = XLSX.utils.aoa_to_sheet(wsData);
             autoFitColumns(ws, wsData);

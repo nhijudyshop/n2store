@@ -2791,6 +2791,12 @@ function renderDashboard(tabName, searchTerm = '') {
             return `<div style="font-size:10px;font-weight:600;color:${s.color};background:${s.bg};padding:1px 6px;border-radius:4px;display:inline-block;margin-top:2px;">${s.label}</div>`;
         };
 
+        // Đã bàn giao thu về cho ship (đánh dấu từ delivery-report Xuất excel tab Thu về)
+        const handoverBadge =
+            t.type === 'RETURN_SHIPPER' && t.handoverAt
+                ? `<div style="font-size:10px;font-weight:600;color:#6d28d9;background:#ede9fe;padding:1px 6px;border-radius:4px;display:inline-block;margin-top:2px;" title="Đã bàn giao thu về cho ship${t.handoverBy ? ' — bởi ' + t.handoverBy : ''}">🚚 Bàn giao ship ${formatDateTime(t.handoverAt)}${t.handoverOrderNumber ? ' · ' + t.handoverOrderNumber : ''}</div>`
+                : '';
+
         tr.innerHTML = `
             <td>
                 <div style="font-weight:bold;font-size:13px;${stateDisplay.isError ? 'color:#ef4444;' : ''}">
@@ -2802,6 +2808,7 @@ function renderDashboard(tabName, searchTerm = '') {
                 <div style="font-size:11px;color:#64748b;">#${t.tposId || '---'}</div>
                 ${stateDisplay.text ? `<div style="font-size:10px;color:${stateDisplay.color};font-weight:500;">${stateDisplay.text}</div>` : ''}
                 ${getStatusBadge()}
+                ${handoverBadge}
                 <div style="font-size:10px;color:#94a3b8;margin-top:2px;font-weight:600;">${formatDateTime(t.createdAt)}</div>
             </td>
             <td>
@@ -3996,6 +4003,21 @@ function buildTicketTimeline(ticket) {
             active: !hasCredit && status === 'PENDING_GOODS',
             cancelled: status === 'CANCELLED' && !hasCredit,
             detail: hasCredit ? `ID: ${ticket.virtualCreditId || ticket.virtual_credit_id}` : '',
+        });
+    }
+
+    // Step 2b: Handover to shipper (RETURN_SHIPPER — đánh dấu từ delivery-report Xuất excel Thu về)
+    if (ticket.type === 'RETURN_SHIPPER' && (ticket.handoverAt || ticket.handover_at)) {
+        const handoverTime = ticket.handoverAt || new Date(ticket.handover_at).getTime();
+        const handoverOrder = ticket.handoverOrderNumber || ticket.handover_order_number;
+        const handoverBy = ticket.handoverBy || ticket.handover_by;
+        steps.push({
+            label: 'Bàn giao ship',
+            time: handoverTime,
+            done: true,
+            active: false,
+            cancelled: false,
+            detail: `Đơn: ${handoverOrder || '—'}` + (handoverBy ? ` — bởi ${handoverBy}` : ''),
         });
     }
 

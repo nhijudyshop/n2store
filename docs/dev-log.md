@@ -33,6 +33,24 @@
 **Status:** ✅ Disk + downgrade xong, extract verified · ⏳ migration chờ build.
 **UPDATE 17:00:** test phân biệt — tpos-pancake CŨNG fail tức thì → chặn toàn workspace.
 **UPDATE 17:05 — CHẨN ĐOÁN CHÍNH XÁC:** Render events API lộ **`pipeline_minutes_exhausted`** — workspace HẾT BUILD MINUTES tháng 6 (hook auto-push mỗi turn → auto-deploy mỗi commit → build ~5-7'/lần npm+poetry+yt-dlp, dù đa số commit chỉ chạm frontend/docs do GH Pages serve). **Fix lâu dài đã áp qua API: Build Filters cho cả 4 services** — fallback chỉ build khi chạm `render.com/**`, tpos-pancake `live-chat/server/**`, facebook `n2store-facebook/**`, realtime `n2store-realtime/**` → cắt ~90% build minutes về sau. **Mở khóa ngay cần user**: Dashboard → Workspace Settings → upgrade plan (Professional) hoặc đợi reset 01/07. Migration thumbnail (cb45ef604) tự deploy ở build thành công kế tiếp.
+### [delivery-report][issue-tracking][render] Liên thông CSKH → Xuất excel Thu về: 2 cột Số lượng/Giá trị + đánh dấu bàn giao ship ✅
+
+**User:** trang CSKH lưu ticket đổi trả/thu về → muốn khi Xuất excel đơn thu về bên Thống Kê Giao Hàng: theo SĐT khách tìm ticket thu về mới nhất chưa nhận hàng + chưa bàn giao → thêm 2 cột Số lượng (SL món thu về) + Giá trị (tổng giá gốc) vào Excel, đồng thời đánh dấu ticket "đã bàn giao thu về cho ship" (ngày giờ) gắn với số đơn → xuất lại lần nữa vẫn ra đúng dữ liệu cũ (idempotent), không bốc ticket mới.
+
+**Đã chốt:** chỉ type `RETURN_SHIPPER`; Giá trị = giá gốc `price × returnQuantity` (không trừ giảm giá note); CHỈ nút Xuất excel ở tab Thu về (sheet THUVE trong xuất Tất cả/Tỉnh/0đ giữ nguyên 6 cột — tránh đánh dấu ngoài ý muốn).
+
+**Backend:**
+
+- NEW [`render.com/migrations/076_ticket_handover_to_shipper.sql`](../render.com/migrations/076_ticket_handover_to_shipper.sql): thêm 4 cột `handover_at/handover_order_number/handover_date/handover_by` vào `customer_tickets` (Web 1.0, additive + idempotent) + unique partial index `handover_order_number` (neo idempotency 1 đơn = 1 ticket mãi mãi) + index claim path `(phone, created_at DESC) WHERE handover_at IS NULL`.
+- `render.com/routes/v2/tickets.js`: lazy bootstrap promise-singleton `ensureHandoverSchema` (pattern wallet-refund 075) + NEW endpoint `POST /api/v2/tickets/handover-batch` (đặt trước `GET /:id`). Per order trong 1 transaction: `pg_advisory_xact_lock(hashtext(order_number))` → lookup ticket đã gắn `handover_order_number` (idempotent, không mutate) → else claim ticket RETURN_SHIPPER + PENDING_GOODS + `handover_at IS NULL` mới nhất theo phone (normalize server, giữ số 0 đầu) `FOR UPDATE` → UPDATE đánh dấu + append `action_history` action `handover_shipper`. Trả `{data: {orderNumber: {ticket_code, quantity, value, already_handed_over}}}`; đơn không match vắng mặt (không lỗi). 1 SSE notify `tickets` cho cả batch khi có claim mới.
+
+**Frontend:**
+
+- `delivery-report/js/delivery-report.js`: NEW `fetchReturnHandoverInfo(items)` (gửi phone RAW — KHÔNG dùng normalizePhone local vì strip số 0 đầu lệch format DB) + `buildExcelRowsReturn` (8 cột, footer Tổng cộng cả qty/value) + hook trong `exportExcel()` chỉ khi `tab === 'return'`. API lỗi → alert + vẫn xuất file 6 cột như cũ.
+- `shared/js/api-service.js`: alias `handoverAt/handoverOrderNumber/handoverBy` vào 3 ticket mappers (search/subscribe/getTicket).
+- `issue-tracking/js/script.js`: badge tím "🚚 Bàn giao ship {giờ} · {số đơn}" trên row RETURN_SHIPPER đã bàn giao + step "Bàn giao ship" trong `buildTicketTimeline` (hiện ở history tab + detail modal). SSE topic `tickets` sẵn có → badge tự refresh khi export bên delivery-report.
+
+**Status:** ✅ code xong — verify prod API bằng ticket TEST sau deploy.
 
 ### [render][live-chat] Trả lời "sao Web 2.0 dùng chatDb?" + dời livestream_snapshots/images sang web2Db ✅
 

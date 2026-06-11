@@ -520,6 +520,9 @@ const ApiService = {
                 vcUsedInOrders: ticket.vc_used_in_orders,
                 returnFromOrderId: ticket.return_from_order_id,
                 returnFromTposId: ticket.return_from_tpos_id,
+                handoverAt: ticket.handover_at ? new Date(ticket.handover_at).getTime() : null,
+                handoverOrderNumber: ticket.handover_order_number || null,
+                handoverBy: ticket.handover_by || null,
                 createdAt: new Date(ticket.created_at).getTime(),
                 updatedAt: ticket.updated_at ? new Date(ticket.updated_at).getTime() : null,
                 completedAt: ticket.completed_at ? new Date(ticket.completed_at).getTime() : null,
@@ -593,6 +596,11 @@ const ApiService = {
                             vcUsedInOrders: ticket.vc_used_in_orders,
                             returnFromOrderId: ticket.return_from_order_id,
                             returnFromTposId: ticket.return_from_tpos_id,
+                            handoverAt: ticket.handover_at
+                                ? new Date(ticket.handover_at).getTime()
+                                : null,
+                            handoverOrderNumber: ticket.handover_order_number || null,
+                            handoverBy: ticket.handover_by || null,
                             createdAt: new Date(ticket.created_at).getTime(),
                             updatedAt: ticket.updated_at
                                 ? new Date(ticket.updated_at).getTime()
@@ -764,6 +772,9 @@ const ApiService = {
                 money: ticket.refund_amount,
                 fixReason: ticket.fix_cod_reason,
                 note: ticket.internal_note,
+                handoverAt: ticket.handover_at ? new Date(ticket.handover_at).getTime() : null,
+                handoverOrderNumber: ticket.handover_order_number || null,
+                handoverBy: ticket.handover_by || null,
                 createdAt: new Date(ticket.created_at).getTime(),
             };
         } catch (error) {

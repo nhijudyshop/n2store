@@ -7,14 +7,15 @@
  * Ticket management endpoints
  *
  * Routes:
- *   GET    /              - List all tickets (paginated, filtered)
- *   GET    /stats         - Get ticket statistics
- *   GET    /:id           - Get ticket detail
- *   POST   /              - Create ticket
- *   PATCH  /:id           - Update ticket
- *   POST   /:id/notes     - Add note to ticket
- *   POST   /:id/resolve   - Resolve ticket with compensation
- *   DELETE /:id           - Delete ticket
+ *   GET    /                 - List all tickets (paginated, filtered)
+ *   GET    /stats            - Get ticket statistics
+ *   POST   /handover-batch   - Mark RETURN_SHIPPER tickets handed over to shipper (delivery-report export)
+ *   GET    /:id              - Get ticket detail
+ *   POST   /                 - Create ticket
+ *   PATCH  /:id              - Update ticket
+ *   POST   /:id/notes        - Add note to ticket
+ *   POST   /:id/resolve      - Resolve ticket with compensation
+ *   DELETE /:id              - Delete ticket
  *
  * Created: 2026-01-12
  * =====================================================
@@ -34,6 +35,43 @@ try {
     sseRouter = { notifyClients: () => {} };
 }
 
+const fs = require('fs');
+const path = require('path');
+
+// ---------------------------------------------------------------------------
+// Lazy schema bootstrap (migration 076 — handover-to-shipper columns).
+// Idempotent, promise-singleton — mirrors services/wallet-refund.js so the
+// handover columns exist even if the manual migration step was skipped.
+// ---------------------------------------------------------------------------
+let _handoverSchemaReady = false;
+let _handoverSchemaPromise = null;
+async function _bootstrapHandoverSchema(db) {
+    const p = path.join(__dirname, '../../migrations/076_ticket_handover_to_shipper.sql');
+    if (!fs.existsSync(p)) {
+        // Do NOT mark ready — keep retrying so the endpoint never runs against a
+        // half-migrated schema without at least logging loudly each cold call.
+        console.error('[Tickets V2] 🚨 migration 076 file NOT FOUND — handover schema NOT bootstrapped (will retry)');
+        return;
+    }
+    const sql = fs.readFileSync(p, 'utf8');
+    await db.query(sql);
+    _handoverSchemaReady = true;
+    console.log('[Tickets V2] Handover schema bootstrapped (migration 076)');
+}
+async function ensureHandoverSchema(db) {
+    if (_handoverSchemaReady) return;
+    // Singleton: concurrent callers on cold start await the SAME run, not N parallel DDLs.
+    if (!_handoverSchemaPromise) {
+        _handoverSchemaPromise = _bootstrapHandoverSchema(db).catch((err) => {
+            console.error('[Tickets V2] Handover schema bootstrap failed:', err.message);
+            // Don't crash — clear the promise so the next call retries.
+        }).finally(() => {
+            _handoverSchemaPromise = null;
+        });
+    }
+    await _handoverSchemaPromise;
+}
+
 // =====================================================
 // UTILITY FUNCTIONS
 // =====================================================
@@ -41,6 +79,22 @@ try {
 function handleError(res, error, message = 'Internal server error') {
     console.error(`[Tickets V2] ${message}:`, error.message);
     res.status(500).json({ success: false, error: message, details: error.message });
+}
+
+/**
+ * Sum quantity + value (original PriceUnit × returned qty, no per-line
+ * discount) across a ticket's products JSONB. Defensive against legacy rows.
+ */
+function computeTicketReturnTotals(ticket) {
+    const products = Array.isArray(ticket.products) ? ticket.products : [];
+    let quantity = 0;
+    let value = 0;
+    for (const p of products) {
+        const q = parseFloat(p?.returnQuantity) || parseFloat(p?.quantity) || 1;
+        quantity += q;
+        value += (parseFloat(p?.price) || 0) * q;
+    }
+    return { quantity, value: Math.round(value) };
 }
 
 // =====================================================
@@ -157,6 +211,138 @@ router.get('/stats', async (req, res) => {
         res.json({ success: true, data: result.rows[0] });
     } catch (error) {
         handleError(res, error, 'Failed to fetch ticket statistics');
+    }
+});
+
+/**
+ * POST /api/v2/tickets/handover-batch
+ * Delivery-report "Xuất excel" (tab Thu về): for each delivery order, return
+ * quantity/value of the customer's RETURN_SHIPPER ticket and mark it as
+ * handed over to the shipper.
+ *
+ * Idempotent per delivery order Number: a ticket already linked to that
+ * Number is returned as-is forever (re-exports never claim a newer ticket).
+ * Otherwise the NEWEST unclaimed PENDING_GOODS RETURN_SHIPPER ticket of the
+ * customer's phone is claimed (handover_at/order_number/date/by + history).
+ *
+ * Body: { orders: [{order_number, phone}], performed_by, handover_date }
+ * Response data keyed by order_number; unmatched orders are absent (not an error).
+ */
+router.post('/handover-batch', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    const { orders, performed_by, handover_date } = req.body;
+
+    if (!Array.isArray(orders) || orders.length === 0) {
+        return res.status(400).json({ success: false, error: 'orders array is required' });
+    }
+
+    const batch = orders.slice(0, 1000);
+    let handoverDate = (typeof handover_date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(handover_date))
+        ? handover_date
+        : null;
+    if (!handoverDate) {
+        // Server runs TZ=Asia/Saigon — local date methods give the +7 date.
+        const d = new Date();
+        handoverDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    }
+
+    try {
+        await ensureHandoverSchema(db);
+
+        const data = {};
+        let claimed = 0;
+
+        await withTransaction(db, async (client) => {
+            for (const order of batch) {
+                const orderNumber = String(order?.order_number || '').trim();
+                if (!orderNumber || data[orderNumber]) continue;
+
+                // Serialize concurrent exports touching the same order number.
+                await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [orderNumber]);
+
+                // 1) Idempotent path: a ticket already linked to this delivery
+                //    order wins forever — no mutation, no history append.
+                const linked = await client.query(
+                    'SELECT * FROM customer_tickets WHERE handover_order_number = $1 LIMIT 1',
+                    [orderNumber]
+                );
+                if (linked.rows.length > 0) {
+                    const t = linked.rows[0];
+                    data[orderNumber] = {
+                        ticket_code: t.ticket_code,
+                        ticket_id: t.id,
+                        ...computeTicketReturnTotals(t),
+                        handover_at: t.handover_at,
+                        handover_by: t.handover_by,
+                        already_handed_over: true
+                    };
+                    continue;
+                }
+
+                // 2) Claim the newest unclaimed RETURN_SHIPPER ticket for this phone.
+                const phone = normalizePhone(order?.phone);
+                if (!phone) continue;
+
+                const candidate = await client.query(`
+                    SELECT * FROM customer_tickets
+                    WHERE phone = $1 AND type = 'RETURN_SHIPPER'
+                      AND status = 'PENDING_GOODS' AND handover_at IS NULL
+                    ORDER BY created_at DESC
+                    LIMIT 1
+                    FOR UPDATE
+                `, [phone]);
+                if (candidate.rows.length === 0) continue;
+
+                const ticket = candidate.rows[0];
+                const actionHistory = ticket.action_history || [];
+                actionHistory.push({
+                    action: 'handover_shipper',
+                    handover_order_number: orderNumber,
+                    handover_date: handoverDate,
+                    performed_by: performed_by || 'system',
+                    performed_at: new Date().toISOString(),
+                    note: `Đã bàn giao thu về cho ship — đơn ${orderNumber}`
+                });
+
+                const updated = await client.query(`
+                    UPDATE customer_tickets
+                    SET handover_at = NOW(),
+                        handover_order_number = $2,
+                        handover_date = $3,
+                        handover_by = $4,
+                        action_history = $5,
+                        updated_at = NOW()
+                    WHERE id = $1
+                    RETURNING *
+                `, [ticket.id, orderNumber, handoverDate, performed_by || 'system', JSON.stringify(actionHistory)]);
+
+                const t = updated.rows[0];
+                claimed++;
+                data[orderNumber] = {
+                    ticket_code: t.ticket_code,
+                    ticket_id: t.id,
+                    ...computeTicketReturnTotals(t),
+                    handover_at: t.handover_at,
+                    handover_by: t.handover_by,
+                    already_handed_over: false
+                };
+            }
+        });
+
+        if (claimed > 0) {
+            // Single notify for the whole batch — issue-tracking refetches on topic 'tickets'.
+            sseRouter.notifyClients('tickets', { action: 'handover', count: claimed, ts: Date.now() }, 'update');
+        }
+
+        res.json({
+            success: true,
+            data,
+            matched: Object.keys(data).length,
+            claimed,
+            total: batch.length
+        });
+    } catch (error) {
+        handleError(res, error, 'Failed to process handover batch');
     }
 });
 
