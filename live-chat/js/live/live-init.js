@@ -93,7 +93,8 @@ const LiveColumnManager = {
         this.restoreSelection();
 
         // SSE: server poller lưu comment mới (web2:live-comments) → reload từ DB
-        // (debounce gom burst). Giúp UI cập nhật cả khi comment đến qua server poller.
+        // (debounce gom burst). SILENT reload: không showLoading/không xóa list —
+        // diff render patch tại chỗ, user không thấy "Đang tải comment...".
         if (window.Web2SSE?.subscribe) {
             window.Web2SSE.subscribe('web2:live-comments', () => {
                 clearTimeout(this._liveCommentsReloadTimer);
@@ -102,25 +103,15 @@ const LiveColumnManager = {
                     const ids = state.selectedCampaignIds
                         ? Array.from(state.selectedCampaignIds)
                         : [];
-                    if (ids.length) this.onMultiCampaignChange(ids);
+                    if (ids.length) this.onMultiCampaignChange(ids, { silent: true });
                 }, 2500);
             });
 
-            // SSE web2:messages — relay (live-chat WS) đẩy event inbox/new_message
-            // qua fallback → reload danh sách comment hiện tại (như user refresh).
-            // Inbox Pancake conversation list (nếu có) tự nhận realtime; ở Live
-            // column ta reload tập campaign đang chọn cho chắc, debounce gom burst.
-            window.Web2SSE.subscribe('web2:messages', () => {
-                clearTimeout(this._messagesReloadTimer);
-                this._messagesReloadTimer = setTimeout(() => {
-                    const state = window.LiveState;
-                    const ids = state.selectedCampaignIds
-                        ? Array.from(state.selectedCampaignIds)
-                        : [];
-                    if (ids.length) this.onMultiCampaignChange(ids);
-                    else this.refresh();
-                }, 600);
-            });
+            // ⚠ KHÔNG subscribe 'web2:messages' để reload cột Live nữa
+            // (bug 2026-06-11: mỗi tin nhắn INBOX bên cột Pancake làm cột Live
+            // full reload + showLoading → trắng toàn bộ panel trái). Tin nhắn
+            // inbox là việc của cột Pancake (pancake-realtime tự xử lý);
+            // comment livestream đã có topic 'web2:live-comments' riêng ở trên.
         }
     },
 
@@ -451,15 +442,22 @@ const LiveColumnManager = {
     /**
      * Handle multiple campaigns selected
      * @param {string[]} campaignIds
+     * @param {{silent?: boolean}} [opts] - silent: reload nền (SSE trigger) —
+     *   GIỮ list đang hiển thị (không showLoading/không clear), giữ nguyên
+     *   SSE subscriptions + caches, diff render patch tại chỗ. Fix bug
+     *   2026-06-11: reload thường làm trắng toàn bộ panel trái.
      */
-    async onMultiCampaignChange(campaignIds) {
+    async onMultiCampaignChange(campaignIds, opts = {}) {
         const state = window.LiveState;
+        const silent = !!opts.silent;
 
-        // Đổi tập comment → reset cap render về N mới nhất (infinite scroll từ đầu).
-        window.LiveCommentList.resetRenderLimit?.();
+        if (!silent) {
+            // Đổi tập comment → reset cap render về N mới nhất (infinite scroll từ đầu).
+            window.LiveCommentList.resetRenderLimit?.();
 
-        // Stop all SSE
-        window.LiveRealtime.stopSSE();
+            // Stop all SSE
+            window.LiveRealtime.stopSSE();
+        }
 
         if (!campaignIds || campaignIds.length === 0) {
             state.selectedCampaign = null;
@@ -469,9 +467,13 @@ const LiveColumnManager = {
             return;
         }
 
-        state.clearAllCaches();
-        state.comments = [];
-        window.LiveCommentList.showLoading();
+        if (silent && state.isLoading) return; // tránh đè reload đang chạy
+
+        if (!silent) {
+            state.clearAllCaches();
+            state.comments = [];
+            window.LiveCommentList.showLoading();
+        }
         state.isLoading = true;
 
         try {
@@ -620,22 +622,33 @@ const LiveColumnManager = {
             // Start SSE for EVERY live post in every campaign. Live SSE
             // stream gắn vào postId — 1 campaign nhiều post → cần SSE đa kênh
             // để không miss realtime comments của các post phụ.
-            campaigns.forEach((c) => {
-                const pageLiveVideos = pageLiveVideosMap.get(c.Facebook_UserId) || [];
-                const livePosts = _resolveCampaignLivePosts(c, state.liveCampaigns, pageLiveVideos);
-                // Active (statusLive=1) hoặc just-ended — cần SSE chính. Old
-                // VOD posts (statusLive=0, đã end lâu) thường không nhận
-                // comment mới → vẫn subscribe vì FB cho phép comment vào VOD.
-                const postIdsToWatch =
-                    livePosts.length > 0
-                        ? livePosts.map((lp) => lp.objectId)
-                        : c.Facebook_LiveId
-                          ? [c.Facebook_LiveId]
-                          : [];
-                postIdsToWatch.forEach((postId) => {
-                    window.LiveRealtime.startSSE(c.Facebook_UserId, postId, c.Facebook_UserName);
+            // Silent reload: KHÔNG stop/start lại SSE (tập campaign không đổi,
+            // churn connection mỗi burst comment = lãng phí + có thể miss event).
+            if (!silent)
+                campaigns.forEach((c) => {
+                    const pageLiveVideos = pageLiveVideosMap.get(c.Facebook_UserId) || [];
+                    const livePosts = _resolveCampaignLivePosts(
+                        c,
+                        state.liveCampaigns,
+                        pageLiveVideos
+                    );
+                    // Active (statusLive=1) hoặc just-ended — cần SSE chính. Old
+                    // VOD posts (statusLive=0, đã end lâu) thường không nhận
+                    // comment mới → vẫn subscribe vì FB cho phép comment vào VOD.
+                    const postIdsToWatch =
+                        livePosts.length > 0
+                            ? livePosts.map((lp) => lp.objectId)
+                            : c.Facebook_LiveId
+                              ? [c.Facebook_LiveId]
+                              : [];
+                    postIdsToWatch.forEach((postId) => {
+                        window.LiveRealtime.startSSE(
+                            c.Facebook_UserId,
+                            postId,
+                            c.Facebook_UserName
+                        );
+                    });
                 });
-            });
 
             // Load session index for all campaigns
             for (const campaign of campaigns) {

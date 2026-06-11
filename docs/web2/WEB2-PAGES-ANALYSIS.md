@@ -138,6 +138,9 @@
 
 **`live-chat/` — Live Chat** · BE `web2-live-comments.js` + poller `web2-livestream-poller.js` · `web2_live_comments` (web2Db ✓) · SSE `web2:live-comments` ✓
 
+> **🆕 2026-06-11 — Mobile/tablet read-mode (`html.lc-mobile`):** detect UA trong `<head>` → mobile/tablet chỉ hiện cột comment Live full màn hình (ẩn cột Pancake + sidebar + topbar phải); input 16px chống iOS zoom, touch target ≥38px; skip init cột Pancake + skip auto-snap iframe/ext-prompt trên mobile. (Phương án trang riêng comments.html đã làm xong nhưng REVERT theo yêu cầu user.)
+> **✅ FIX 2026-06-11:** tin nhắn inbox bên cột Pancake làm cột Live full re-render trắng ("Đang tải comment…") — bỏ subscribe `web2:messages` reload cột Live trong `live-init.js`; SSE `web2:live-comments` reload chuyển **silent** (giữ list hiển thị, không showLoading, không churn SSE, diff render patch tại chỗ).
+
 > **📢 YÊU CẦU USER (2026-06-10): xem comment livestream PHẢI realtime trực tiếp.** Hiện trạng: hop server→browser đã realtime (SSE `web2:live-comments`), nhưng hop upstream Pancake→Render chỉ POLL (server 30s / client 4s) vì không có FB EAA token. Lộ trình đạt realtime thật (ưu tiên trên xuống):
 >
 > 1. **Quick win — adaptive poll:** poller giảm interval xuống 3-5s khi có bài "ĐANG live" (giữ 30-60s khi không live). Gần realtime, không cần hạ tầng mới.

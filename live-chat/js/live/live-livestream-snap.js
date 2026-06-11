@@ -1655,6 +1655,10 @@ Throttle 30s/KH.`;
     // Poll loop sẽ retry mỗi 2s × 60s; nếu extension load muộn (vd user vừa
     // enable rồi reload), lần poll sau sẽ catch + auto-start capture.
     async function _maybeShowAutoSnapBanner() {
+        // Mobile/tablet (html.lc-mobile — chế độ đọc comment): KHÔNG auto-bật
+        // iframe capture + KHÔNG prompt extension (mobile không có extension,
+        // iframe floating che comment) — 2026-06-11.
+        if (document.documentElement.classList.contains('lc-mobile')) return;
         if (STATE.captureStream || STATE.frameBufferTimer) return;
         if (STATE.autoSnapStarting) return;
         const camp = _findActiveLiveCampaign();

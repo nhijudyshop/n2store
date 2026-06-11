@@ -34,9 +34,17 @@
         }
 
         // 4. Initialize Pancake column (may auto-init via DOMContentLoaded)
+        // Mobile/tablet (html.lc-mobile): cột Pancake ẨN (chỉ đọc comment Live)
+        // → skip init để khỏi tải conversations thừa (2026-06-11).
+        const isMobileReadMode = document.documentElement.classList.contains('lc-mobile');
         try {
             const pancakeInit = window.PancakeColumnManager || window.PancakeInit;
-            if (pancakeInit && pancakeInit.initialize && !pancakeInit._initialized) {
+            if (
+                !isMobileReadMode &&
+                pancakeInit &&
+                pancakeInit.initialize &&
+                !pancakeInit._initialized
+            ) {
                 await pancakeInit.initialize('pancakeContent');
                 console.log('[APP] Pancake column initialized');
             }

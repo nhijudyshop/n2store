@@ -120,7 +120,82 @@
             .pk-modal-overlay {
                 z-index: 9999;
             }
+            /* ===== Mobile/tablet (html.lc-mobile, detect qua UA script ở dưới) =====
+               Ưu tiên ĐỌC COMMENT LIVESTREAM: chỉ hiện cột Live (panel trái) full
+               màn hình; ẩn cột chat Pancake + resize handle + topbar phải +
+               sidebar (2026-06-11). !important override inline flex column-manager. */
+            html.lc-mobile #pancakeColumn,
+            html.lc-mobile #resizeHandle,
+            html.lc-mobile .top-bar-divider,
+            html.lc-mobile .top-bar-right,
+            html.lc-mobile .web2-aside,
+            html.lc-mobile #liveColumn .column-header {
+                display: none !important;
+            }
+            html.lc-mobile #liveColumn {
+                flex: 1 1 100% !important;
+                width: 100% !important;
+                max-width: 100% !important;
+                border: none;
+            }
+            /* Topbar gọn — selectors wrap được, chip không tràn */
+            html.lc-mobile .top-bar {
+                padding: 6px 8px;
+                gap: 6px;
+            }
+            html.lc-mobile .top-bar-left {
+                flex-wrap: wrap;
+            }
+            html.lc-mobile #topbarLiveSelectors {
+                flex-wrap: wrap;
+            }
+            /* Touch target thoải mái + KHÔNG để iOS auto-zoom khi focus
+               (input font-size < 16px là trigger zoom) */
+            html.lc-mobile #topbarLiveSelectors .live-filter-select,
+            html.lc-mobile #liveCampaignBtn {
+                min-height: 38px;
+                font-size: 14px;
+            }
+            html.lc-mobile .live-conversation-item {
+                padding: 12px 10px;
+            }
+            html.lc-mobile .live-conversation-item input {
+                font-size: 16px !important;
+                min-height: 38px;
+                border-radius: 8px;
+            }
+            html.lc-mobile .live-conv-message {
+                font-size: 15px;
+                line-height: 1.5;
+            }
+            html.lc-mobile .customer-name {
+                font-size: 15px;
+            }
+            html.lc-mobile .live-action-btn {
+                min-width: 38px;
+                min-height: 38px;
+            }
+            /* Cuộn mượt trên touch */
+            html.lc-mobile .live-conversation-list {
+                -webkit-overflow-scrolling: touch;
+                overscroll-behavior: contain;
+            }
+            html.lc-mobile .dual-column-section {
+                padding: 0;
+            }
         </style>
+        <script>
+            // Detect mobile/tablet → html.lc-mobile (PHẢI chạy trong <head> để
+            // CSS áp ngay, không flash 2 cột). iPadOS khai UA "Macintosh" →
+            // nhận diện qua maxTouchPoints.
+            (function () {
+                var ua = navigator.userAgent || '';
+                var isIpadOs = /Macintosh/.test(ua) && (navigator.maxTouchPoints || 0) > 1;
+                var isMobileTablet =
+                    /Android|iPhone|iPad|iPod|Mobile|Tablet|Silk/i.test(ua) || isIpadOs;
+                if (isMobileTablet) document.documentElement.classList.add('lc-mobile');
+            })();
+        </script>
         <link rel="stylesheet" href="../web2/shared/web2-theme.css?v=20260610a" />
         <link rel="stylesheet" href="css/inventory-panel.css?v=20260610a" />
         <link rel="stylesheet" href="css/live-livestream-gallery.css?v=20260610a" />
@@ -182,6 +257,7 @@
 
                     <!-- Divider -->
                     <div
+                        class="top-bar-divider"
                         style="
                             width: 1px;
                             height: 28px;
@@ -732,7 +808,7 @@
         <script src="js/live/live-realtime.js?v=20260610a"></script>
         <!-- Cột live = FB Graph (web2-fb-live) — Live đã gỡ HOÀN TOÀN, không fallback -->
         <script src="js/live/live-source.js?v=20260610a"></script>
-        <script src="js/live/live-init.js?v=20260610a"></script>
+        <script src="js/live/live-init.js?v=20260611a"></script>
         <script src="js/live/live-campaign-manager.js?v=20260610a"></script>
         <script src="js/live/live-order-history.js?v=20260610a"></script>
         <!-- Enrich SĐT/địa chỉ từ kho KH warehouse Web 2.0 theo fb_id -->
@@ -741,7 +817,7 @@
         <script src="../web2/shared/web2-sse-bridge.js?v=20260610a"></script>
         <script src="../web2/shared/web2-wallet-balance.js?v=20260610a"></script>
         <!-- Livestream Snapshot per customer (📸 button + popover) -->
-        <script src="js/live/live-livestream-snap.js?v=20260610a"></script>
+        <script src="js/live/live-livestream-snap.js?v=20260611a"></script>
         <!-- Kho "Hình Livestream" — chụp iframe thủ công + sidebar gallery -->
         <script src="js/live/live-livestream-gallery.js?v=20260610a"></script>
 
@@ -776,7 +852,7 @@
         <script src="js/pancake/pancake-mode-switcher.js?v=20260610a"></script>
 
         <!-- App Initialization (last - orchestrates everything) -->
-        <script src="js/layout/app-init.js?v=20260610a"></script>
+        <script src="js/layout/app-init.js?v=20260611a"></script>
 
         <!-- Web 2.0 sidebar mount -->
         <script src="../web2/shared/web2-auth.js?v=20260610a"></script>
