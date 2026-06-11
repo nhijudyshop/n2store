@@ -17,7 +17,9 @@
 
 **Files:** render.com/routes/web2-live-comments.js, render.com/services/web2-livestream-poller.js, live-chat/js/shared/utils.js, live-chat/js/live/{live-init,live-api,live-comment-list,live-campaign-manager,live-livestream-snap,live-livestream-gallery,live-order-history,live-customer-panel}.js, live-chat/{index,chat}.html (v=20260611j), CLAUDE.md.
 
-**Status:** ✅ Done — migration tự chạy khi Render deploy (request đầu chạm `ensureTables`).
+**Hậu kiểm + migration #2:** verify trực tiếp pancake.vn REST (posts/conversations/messages) → cả 3 đều **UTC naive** ✓. Sự cố phụ: hook auto-commit của session song song đã commit parse fix **tách rời** migration (`88e456aa3` deploy 04:05Z chưa có migration) → rows ghi đúng trong cửa sổ 04:05–04:13Z bị migration #1 (deploy `289881ad9` boot 04:13Z) +7h đè thành tương lai (E+7h, vd `11:12Z` cho comment `04:12Z`). Fix: **migration #2** (`w2lc_tz_fix2_20260611`) heuristic tự phát hiện `created_time > created_at + 1h` (comment không thể được lưu trước khi xảy ra) → −7h; test local DB 3 case (over-shift/correct/backfill) PASS + idempotent. Bài học: parse fix + data migration PHẢI cùng 1 commit/deploy.
+
+**Status:** ✅ Done — migration #1+#2 tự chạy khi Render deploy (request đầu chạm `ensureTables`); verify created_time khớp giờ thật sau deploy `2012271c7`.
 
 ### [docs][web2] Audit VÒNG 2 toàn bộ 35 trang menu Web 2.0 — verify fix Wave 1+2 + catalog 25 bug mới CONFIRMED ✅
 
