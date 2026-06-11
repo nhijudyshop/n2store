@@ -3,19 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `77fb3cb` — docs(dev-log): chat-db 15GB + realtime starter + nghi hết build minutes Render
-**Last updated**: 2026-06-11 16:49:34 +07
-**Latest session**: [`RESUME:20260611-164934-77fb3cb`](../20260611-164934-77fb3cb.md)
-**Summary**: docs(dev-log): chat-db 15GB + realtime starter + nghi hết build minutes Render
+**Latest commit**: `9cf0b3f` — docs: xác nhận Render chặn build toàn workspace (test 2 service đều fail tức thì)
+**Last updated**: 2026-06-11 16:54:18 +07
+**Latest session**: [`RESUME:20260611-165418-9cf0b3f`](../20260611-165418-9cf0b3f.md)
+**Summary**: docs: xác nhận Render chặn build toàn workspace (test 2 service đều fail tức thì)
 
 ## Folders affected in this commit
 
-- [`balance-history/`](./balance-history.md) — 2 file(s)
 - [`docs/`](./docs.md) — 1 file(s)
-- [`don-inbox/`](./don-inbox.md) — 2 file(s)
-- [`orders-report/`](./orders-report.md) — 3 file(s)
-- [`render.com/`](./render.com.md) — 4 file(s)
-- [`shared/`](./shared.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -29,7 +24,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-11 10:18
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-08 09:55
-- [`docs/`](./docs.md) — updated 2026-06-11 16:49
+- [`docs/`](./docs.md) — updated 2026-06-11 16:54
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-11 16:49
 - [`downloads/`](./downloads.md) — updated 2026-06-11 08:36
