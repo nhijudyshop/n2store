@@ -2,6 +2,22 @@
 
 ## 2026-06-11
 
+### [live-chat] Audit nút Force extract — tìm + fix 3 bug (staff-check sót 830 comment, resolve sai video, extract cả người ẩn) ✅
+
+**User:** "xem nút force extract này hoạt động đúng chưa? Có bug gì không?"
+
+**3 bug CONFIRMED bằng data thật (1371 comment, multi-page House+Store):**
+
+1. **`_isStaffComment` chỉ so `selectedPage`** — multi-page mode selectedPage=House → **830 comment do page "NhiJudy Store" đăng lọt lưới** (đo thật `missedByStaffCheck: 830`). Hậu quả: Force extract tính 830 comment shop vào pending → chụp thumbnail vô ích ~3-4s/cái (~50 phút); harvest gom page Store vào kho KH như khách. **Fix:** check `c._pageId` của chính comment + mọi page trong `allPages` → missed = 0.
+2. **`_resolveCampaignForComment` không dùng `_postId`** — Path 1 `_campaignId` từ DB là parent-campaign id (khác id-space liveCampaigns, 0/1371 match) → rơi xuống match theo PAGE → 2 live cùng 1 page là seek **sai video** → thumbnail sai hàng loạt. **Fix:** thêm Path 1.5 match `comment._postId` ↔ `campaign.Id`/`Facebook_LiveId` (cùng format `pageId_videoId`, so cả bản strip prefix) → resolve đúng 50/50 sample.
+3. **Extract + harvest cả comment của người bị ẨN** — pending/harvest đọc `state.comments` thô (chưa qua filter LiveHiddenCommenters). **Fix:** skip `LiveHiddenCommenters.isHidden(c)` ở pending + harvest (cả chip click lẫn `_runSilentForceExtract`).
+
+**Verified localhost:** sau fix `missedAfterFix: 0`, `samplePostIdResolve: 50/50`, 0 console error. Silent variant hưởng chung fix (dùng cùng `_isStaffComment`).
+
+**Files:** live-chat/js/live/live-livestream-snap.js, live-chat/index.html (bump v=20260611l).
+
+**Status:** ✅ Done.
+
 ### [live-chat] Badge "💬 N" topbar — tổng comment livestream KHÔNG tính người bị ẩn ✅
 
 **User:** "hiện tổng comment của livestream ngoại trừ ẩn".

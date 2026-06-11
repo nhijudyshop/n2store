@@ -371,9 +371,31 @@
         const st = global.LiveState;
         if (!st?.liveCampaigns?.length) return null;
         // Path 1: comment đã có _campaignId
+        // ⚠ DB rows: _campaignId = web2_live_parent_campaigns id (chiến dịch CHA),
+        // KHÔNG cùng id-space với liveCampaigns (FB video) → thường không match,
+        // giữ cho comment live-fetch cũ.
         if (comment._campaignId) {
             const found = st.liveCampaigns.find((c) => c.Id === comment._campaignId);
             if (found) return found;
+        }
+        // Path 1.5 (FIX 2026-06-11): match theo BÀI — DB comment có _postId,
+        // Live campaign (FB video) Id/Facebook_LiveId cùng format `pageId_videoId`.
+        // Thiếu path này: 2 live cùng 1 page → Path 2 (match page) chọn SAI video
+        // → force extract seek nhầm VOD → thumbnail sai hàng loạt.
+        const postId = String(comment._postId || comment.post_id || '');
+        if (postId) {
+            const short = postId.replace(/^\d+_/, '');
+            const byPost = st.liveCampaigns.find((c) => {
+                const lid = String(c.Facebook_LiveId || '');
+                const cid = String(c.Id || '');
+                return (
+                    lid === postId ||
+                    cid === postId ||
+                    (short &&
+                        (lid.replace(/^\d+_/, '') === short || cid.replace(/^\d+_/, '') === short))
+                );
+            });
+            if (byPost) return byPost;
         }
         // Path 2: match qua pageId
         const top = _resolveTopCampaigns(2);
@@ -672,8 +694,15 @@ Throttle 30s/KH.`;
     // -----------------------------------------------------
     function _isStaffComment(c) {
         const st = global.LiveState;
-        const pageObj = st?.selectedPage;
-        return pageObj && c.from?.id === pageObj.Facebook_PageId;
+        const fid = String(c?.from?.id || '');
+        if (!fid) return false;
+        // FIX 2026-06-11: multi-page mode selectedPage chỉ là 1 page → so riêng
+        // selectedPage BỎ SÓT comment do page KHÁC đăng (đo thật: 830 comment
+        // "NhiJudy Store" lọt khi selectedPage=House → force extract chụp vô ích
+        // + harvest page vào kho KH). Check _pageId của chính comment + mọi page.
+        if (c._pageId && fid === String(c._pageId)) return true;
+        if (fid === String(st?.selectedPage?.Facebook_PageId || '')) return true;
+        return (st?.allPages || []).some((p) => String(p.Facebook_PageId) === fid);
     }
 
     async function offlineBatchAll(opts) {
@@ -888,7 +917,12 @@ Throttle 30s/KH.`;
             // trùng SĐT → thêm alt_phones (chính giữ nguyên), field rỗng mới fill.
             try {
                 window.LiveColumnManager?._harvestCommentCustomers?.(
-                    (st?.comments || []).filter((c) => c.from?.id && !_isStaffComment(c))
+                    (st?.comments || []).filter(
+                        (c) =>
+                            c.from?.id &&
+                            !_isStaffComment(c) &&
+                            !global.LiveHiddenCommenters?.isHidden?.(c)
+                    )
                 )
                     .then((j) => {
                         if (j && (j.created || j.altAdded || j.filled || j.linked)) {
@@ -901,9 +935,10 @@ Throttle 30s/KH.`;
                     })
                     .catch(() => {});
             } catch (_) {}
-            // Pending = comment (non-staff) chưa có ảnh bytea thật.
+            // Pending = comment (non-staff, không bị ẩn) chưa có ảnh bytea thật.
             const pending = (st?.comments || []).filter((c) => {
                 if (!c.from?.id || _isStaffComment(c)) return false;
+                if (global.LiveHiddenCommenters?.isHidden?.(c)) return false;
                 const snap = STATE.snapByComment.get(c.id);
                 return !(snap?.thumbnailUrl || '').includes('/api/livestream/snapshot/');
             });
@@ -1026,7 +1061,10 @@ Throttle 30s/KH.`;
                 STATE._lastHarvestTs = nowH;
                 window.LiveColumnManager?._harvestCommentCustomers?.(
                     (global.LiveState?.comments || []).filter(
-                        (c) => c.from?.id && !_isStaffComment(c)
+                        (c) =>
+                            c.from?.id &&
+                            !_isStaffComment(c) &&
+                            !global.LiveHiddenCommenters?.isHidden?.(c)
                     )
                 ).catch(() => {});
             }
