@@ -854,6 +854,90 @@ const LiveCommentList = {
     },
 
     /**
+     * INCREMENTAL prepend comment MỚI (SSE delta) vào ĐẦU list — KHÔNG full
+     * re-render. Dùng cho realtime per-comment (1 dòng/comment, kiểu TPOS).
+     *
+     * Luồng: live-init nghe SSE 'web2:live-comments' → delta fetch DB (since) →
+     * map → gọi hàm này. Dedup theo id; chèn dòng mới vào state.comments đúng vị
+     * trí (state.comments sort newest-first theo created_time) + render CHỈ dòng
+     * mới ở đầu DOM. Nếu dòng mới KHÔNG nằm trọn ở đầu (out-of-order) → fallback
+     * full render cho an toàn.
+     *
+     * @param {Array<object>} newComments - comment shape (xem renderCommentItem).
+     */
+    prependComments(newComments) {
+        const state = window.LiveState;
+        if (!Array.isArray(newComments) || newComments.length === 0) return;
+        const listContainer = document.getElementById('liveCommentList');
+        if (!listContainer) return;
+
+        // Dedup so với state.comments hiện có (theo id string).
+        const existingIds = new Set((state.comments || []).map((c) => String(c.id)));
+        const incomingSeen = new Set();
+        const fresh = [];
+        for (const c of newComments) {
+            if (!c || c.id == null) continue;
+            const key = String(c.id);
+            if (existingIds.has(key) || incomingSeen.has(key)) continue;
+            incomingSeen.add(key);
+            fresh.push(c);
+        }
+        if (fresh.length === 0) return;
+
+        // Sort fresh newest-first (cùng thứ tự với state.comments).
+        const ts = (c) => new Date(c.created_time || 0).getTime();
+        fresh.sort((a, b) => ts(b) - ts(a));
+
+        // Vị trí của comment mới nhất hiện có (đầu danh sách).
+        const all = state.comments || (state.comments = []);
+        const headTs = all.length ? ts(all[0]) : -Infinity;
+
+        // Cập nhật state.comments TRƯỚC (enrichment scan đọc state.comments).
+        // Merge giữ newest-first: dùng splice theo vị trí chèn đúng.
+        for (const c of fresh) {
+            const cts = ts(c);
+            let idx = 0;
+            while (idx < all.length && ts(all[idx]) >= cts) idx++;
+            all.splice(idx, 0, c);
+        }
+
+        // Nếu list đang trống (empty-state) hoặc chưa từng render → full render.
+        const hasRenderedRows = listContainer.querySelector('.live-conversation-item') !== null;
+        if (!hasRenderedRows) {
+            this.resetRenderLimit?.();
+            this.renderComments();
+            return;
+        }
+
+        // Tất cả dòng mới phải ≥ headTs (thuộc về đầu list) mới prepend an toàn.
+        // Nếu có dòng cũ hơn head (out-of-order, comment trễ về) → full render.
+        const allAtTop = fresh.every((c) => ts(c) >= headTs);
+        if (!allAtTop) {
+            this.renderComments();
+            return;
+        }
+
+        // Generation token: nếu full re-render bump _renderGen sau khi ta đọc gen
+        // → vẫn an toàn vì insertAdjacentHTML đồng bộ tức thì (không async). Đọc
+        // gen chỉ để KHÔNG chèn nếu đang có full-render-loop chạy dở (DOM sẽ bị
+        // ghi đè) → khi đó fallback full render.
+        if (this._fullRenderHandle != null || this._chunkHandle != null) {
+            // Render-loop đang chạy → state.comments đã cập nhật, để loop tự dựng.
+            this._pendingDirty = true;
+            return;
+        }
+
+        const html = fresh.map((c) => this.renderCommentItem(c)).join('');
+        listContainer.insertAdjacentHTML('afterbegin', html);
+
+        this.updateLoadMoreIndicator();
+        this._attachWalletBalances();
+        // Trigger enrichment scan (kho/partner) cho dòng mới — kho-enricher đọc
+        // state.comments (đã cập nhật) qua scan().
+        window.LiveKhoEnricher?.scan?.();
+    },
+
+    /**
      * Show loading state in comment list
      */
     showLoading() {

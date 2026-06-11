@@ -470,6 +470,8 @@ const LiveRealtime = {
      */
     disconnectWebSocket() {
         clearTimeout(this.reconnectTimer);
+        // Set cờ TRƯỚC khi close — ws.onclose sẽ không schedule reconnect.
+        this._intentionalClose = true;
         if (this.ws) {
             this.ws.close();
             this.ws = null;

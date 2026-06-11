@@ -21,8 +21,7 @@
     'use strict';
     if (typeof window === 'undefined') return;
 
-    const POLL_MS = 4000; // poll comment mới mỗi 4s (client-side, pages.fm)
-    const LOOKBACK_S = 6 * 3600; // cửa sổ comment 6h
+    const LOOKBACK_S = 6 * 3600; // cửa sổ comment 6h (loadComments vẫn dùng)
 
     function worker() {
         return (
@@ -279,53 +278,24 @@
         return { comments, nextPageUrl: null };
     }
 
-    // ── Realtime: client poll loadComments, dedupe → handleSSEMessage ────
-    const _active = new Map(); // postId → { timer, seen:Set }
-
-    async function startRealtime(pageId, postId, pageName) {
-        const pid = fullPostId(pageId, postId);
-        if (_active.has(pid)) return;
-        const st = { timer: null, seen: new Set() };
-        _active.set(pid, st);
-        const tick = async () => {
-            try {
-                const { comments } = await loadComments(pageId, postId);
-                const fresh = comments.filter((c) => c.id && !st.seen.has(c.id));
-                fresh.forEach((c) => st.seen.add(c.id));
-                if (st.seen.size > 5000) st.seen = new Set(Array.from(st.seen).slice(-2500));
-                if (fresh.length && window.LiveRealtime?.handleSSEMessage) {
-                    // chronological (cũ→mới) cho hiển thị nhất quán
-                    fresh.reverse();
-                    window.LiveRealtime.handleSSEMessage(JSON.stringify(fresh), pageName || '');
-                }
-            } catch (e) {
-                console.warn('[FB-LIVE-SRC] poll fail:', e.message);
-            }
-        };
-        // seed seen từ loadComments hiện có (đã render bởi loadComments lần đầu)
-        try {
-            const { comments } = await loadComments(pageId, postId);
-            comments.forEach((c) => c.id && st.seen.add(c.id));
-        } catch {}
-        st.timer = setInterval(tick, POLL_MS);
-        if (window.LiveCommentList?.updateConnectionStatus) {
-            window.LiveCommentList.updateConnectionStatus(true, 'poll');
-        }
-        console.log('[FB-LIVE-SRC] realtime poll started for post', pid);
+    // ── Realtime: NO-OP (2026-06-11) ────────────────────────────────────
+    // Comment realtime giờ do SERVER POLLER lái: server fetch per-message
+    // comment → upsert web2_live_comments (1 row/comment) → broadcast SSE
+    // topic 'web2:live-comments'. Client KHÔNG còn poll Pancake conversations
+    // nữa (gây dedup-by-person: mỗi person 1 conversation → comment sau ghi đè
+    // comment trước, mất dòng). live-init nghe SSE → delta fetch DB → prepend.
+    //
+    // Giữ hàm exported để caller không vỡ; mọi lời gọi là no-op an toàn.
+    async function startRealtime(_pageId, _postId, _pageName) {
+        // no-op — xem ghi chú trên.
     }
 
-    function stopRealtime(postId) {
-        const stopOne = (id, st) => {
-            clearInterval(st.timer);
-            _active.delete(id);
-        };
-        if (postId) {
-            for (const [id, st] of Array.from(_active.entries())) {
-                if (id.endsWith(String(postId)) || id === String(postId)) stopOne(id, st);
-            }
-        } else {
-            for (const [id, st] of Array.from(_active.entries())) stopOne(id, st);
-        }
+    function stopRealtime(_postId) {
+        // no-op — không còn timer client để dừng.
+    }
+
+    function stopAll() {
+        // no-op — không còn poll client nào để dừng.
     }
 
     // Giữ tên cũ videoId cho caller (postId pages.fm đã full → trả nguyên).
@@ -336,8 +306,9 @@
     window.LiveSource = {
         enabled,
         loadComments,
-        startRealtime,
-        stopRealtime,
+        startRealtime, // no-op (realtime giờ qua server poller + web2:live-comments SSE)
+        stopRealtime, // no-op
+        stopAll, // no-op
         videoId,
         fetchPagesAsCrmTeams,
         fetchVideosAsCampaigns,

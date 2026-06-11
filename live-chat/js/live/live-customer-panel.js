@@ -5,6 +5,21 @@
  * Dependencies: LiveState, LiveApi, SharedUtils, LiveCommentList (for status options)
  */
 
+/**
+ * Escape giá trị nhét vào HTML ATTRIBUTE (double-quoted). SharedUtils.escapeHtml
+ * (textContent→innerHTML) KHÔNG escape dấu " → không an toàn cho attribute.
+ * @param {*} v
+ * @returns {string}
+ */
+function lcpAttr(v) {
+    return String(v ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
 const LiveCustomerPanel = {
     /**
      * Show customer info modal
@@ -55,7 +70,7 @@ const LiveCustomerPanel = {
                 <div style="text-align: center; padding: 40px;">
                     <i data-lucide="alert-circle" style="width: 48px; height: 48px; color: #ef4444;"></i>
                     <p style="margin-top: 12px; color: #ef4444; font-weight: 500;">Lỗi tải thông tin</p>
-                    <p style="color: #6b7280; font-size: 13px;">${error.message}</p>
+                    <p style="color: #6b7280; font-size: 13px;">${SharedUtils.escapeHtml(error.message)}</p>
                     <button onclick="LiveCustomerPanel.closeModal()"
                             style="margin-top: 16px; padding: 8px 16px; background: #3b82f6; color: white; border: none; border-radius: 6px; cursor: pointer;">
                         Đóng
@@ -88,13 +103,14 @@ const LiveCustomerPanel = {
         const statusOptions = window.LiveCommentList.getStatusOptions();
         const currentStatus = partner.StatusText || 'Bình thường';
 
+        // Options dùng data-value/data-text + delegated listener (XSS-safe,
+        // không inline onclick chứa giá trị động).
         const statusOptionsHtml = statusOptions
             .map(
                 (opt) =>
-                    `<div class="status-option" data-value="${opt.value}" style="padding: 8px 12px; cursor: pointer; font-size: 13px;"
-                 onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='transparent'"
-                 onclick="LiveCustomerPanel.selectStatus('${opt.value}', '${opt.text}')">
-                ${opt.text}
+                    `<div class="status-option" data-value="${lcpAttr(opt.value)}" data-text="${lcpAttr(opt.text)}" style="padding: 8px 12px; cursor: pointer; font-size: 13px;"
+                 onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='transparent'">
+                ${SharedUtils.escapeHtml(opt.text)}
             </div>`
             )
             .join('');
@@ -130,7 +146,7 @@ const LiveCustomerPanel = {
                         <button id="statusDropdownBtn" class="status-dropdown-btn"
                                 style="display: flex; align-items: center; gap: 4px; padding: 4px 10px; border: 1px solid #d1d5db; border-radius: 4px; background: white; cursor: pointer; font-size: 13px;"
                                 onclick="LiveCustomerPanel.toggleStatusDropdown()">
-                            <span id="statusText">${currentStatus}</span>
+                            <span id="statusText">${SharedUtils.escapeHtml(currentStatus)}</span>
                             <i data-lucide="chevron-down" style="width: 14px; height: 14px;"></i>
                         </button>
                         <div id="statusDropdown" style="display: none; position: absolute; top: 100%; left: 0; min-width: 160px; background: white; border: 1px solid #d1d5db; border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 1000; margin-top: 4px;">
@@ -140,15 +156,15 @@ const LiveCustomerPanel = {
                 </div>
                 <div class="customer-field">
                     <label>Điện thoại:</label>
-                    <span>${partner.Phone || conversation.Phone || '-'} <span class="w2wb-slot" data-w2wallet-phone="${SharedUtils.escapeHtml(partner.Phone || conversation.Phone || '')}"></span></span>
+                    <span>${SharedUtils.escapeHtml(String(partner.Phone || conversation.Phone || '-'))} <span class="w2wb-slot" data-w2wallet-phone="${lcpAttr(partner.Phone || conversation.Phone || '')}"></span></span>
                 </div>
                 <div class="customer-field">
                     <label>Email:</label>
-                    <span>${partner.Email || '-'}</span>
+                    <span>${SharedUtils.escapeHtml(String(partner.Email || '-'))}</span>
                 </div>
                 <div class="customer-field">
                     <label>Địa chỉ:</label>
-                    <span>${partner.FullAddress || partner.Street || '-'}</span>
+                    <span>${SharedUtils.escapeHtml(String(partner.FullAddress || partner.Street || '-'))}</span>
                 </div>
                 ${
                     partner.Comment
@@ -183,9 +199,9 @@ const LiveCustomerPanel = {
                     </thead>
                     <tbody>
                         <tr>
-                            <td><span class="order-code">${order.Code || order.Id}</span></td>
-                            <td>${order.SessionIndex || '-'}</td>
-                            <td><span class="status-badge ${getStatusClass(order.Status)}" id="orderStatusBadge">${order.StatusText || 'Nháp'}</span></td>
+                            <td><span class="order-code">${SharedUtils.escapeHtml(String(order.Code || order.Id))}</span></td>
+                            <td>${SharedUtils.escapeHtml(String(order.SessionIndex || '-'))}</td>
+                            <td><span class="status-badge ${getStatusClass(order.Status)}" id="orderStatusBadge">${SharedUtils.escapeHtml(String(order.StatusText || 'Nháp'))}</span></td>
                             <td>${formatDate(order.DateCreated)}</td>
                         </tr>
                     </tbody>
@@ -240,7 +256,7 @@ const LiveCustomerPanel = {
                 ${
                     order.Code
                         ? `
-                <button onclick="window.open('https://tomato.live.vn/#/app/saleOnline/facebook/post/${order.Facebook_PostId || ''}/false', '_blank')"
+                <button onclick="window.open('https://tomato.live.vn/#/app/saleOnline/facebook/post/${String(order.Facebook_PostId || '').replace(/[^0-9A-Za-z_.-]/g, '')}/false', '_blank')"
                         style="flex: 1; padding: 10px 16px; background: #3b82f6; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 500;">
                     <i data-lucide="external-link" style="width: 14px; height: 14px; display: inline; vertical-align: middle;"></i>
                     Mở trên Live
@@ -250,6 +266,17 @@ const LiveCustomerPanel = {
                 }
             </div>
         `;
+
+        // Delegated click cho options trạng thái (element được render mới mỗi
+        // lần → guard dataset tự reset, không bind trùng).
+        const statusDd = document.getElementById('statusDropdown');
+        if (statusDd && statusDd.dataset.delegated !== '1') {
+            statusDd.dataset.delegated = '1';
+            statusDd.addEventListener('click', (e) => {
+                const opt = e.target.closest('.status-option[data-value]');
+                if (opt) this.selectStatus(opt.dataset.value, opt.dataset.text);
+            });
+        }
 
         if (window.lucide) lucide.createIcons();
         // Số dư ví Web 2.0 cạnh SĐT (chỉ hiện khi > 0).

@@ -22,6 +22,26 @@ const RECENT_LIVE_WINDOW_MS = 30 * 60 * 1000; // poll thêm 30' sau khi live k�
 const MAX_COMMENT_PAGES = 50; // cap CỨNG số trang phân trang/post mỗi cycle (an toàn)
 const COMMENTS_PER_PAGE = 20; // Pancake trả ~20 conversation/trang (heuristic has_more)
 const POSTS_LOOKBACK_S = 24 * 3600; // quét post 24h gần đây
+const MSG_CONCURRENCY = 4; // số conversation fetch messages song song
+// Watermark theo conversation: convId → last activity stamp. Conversation KHÔNG
+// đổi (không comment mới) → bỏ qua fetch messages (tiết kiệm N call/cycle). Cap để
+// không phình RAM giữa nhiều livestream.
+const _convWatermark = new Map();
+const CONV_WATERMARK_MAX = 5000;
+function _wmGet(convId) {
+    return _convWatermark.get(convId);
+}
+function _wmSet(convId, stamp) {
+    if (_convWatermark.size > CONV_WATERMARK_MAX) {
+        // xoá 1/2 entry cũ nhất (Map giữ thứ tự insert)
+        let n = Math.floor(CONV_WATERMARK_MAX / 2);
+        for (const k of _convWatermark.keys()) {
+            _convWatermark.delete(k);
+            if (--n <= 0) break;
+        }
+    }
+    _convWatermark.set(convId, stamp);
+}
 
 const DEFAULT_PAGES = [
     {
@@ -157,10 +177,12 @@ async function getActiveLivePosts(pageId, jwt) {
 }
 
 // Kéo toàn bộ comment của 1 post (phân trang + dedupe).
-async function fetchPostComments(pageId, pageName, postId, jwt) {
+// 1. Liệt kê các conversation COMMENT của 1 post (mỗi conversation = 1 thread
+//    của 1 khách trên post đó). KHÔNG còn coi conversation = 1 comment.
+async function _listPostConversations(pageId, postId, jwt) {
     const now = Math.floor(Date.now() / 1000);
     const seen = new Set();
-    const comments = [];
+    const convs = [];
     for (let pageNum = 1; pageNum <= MAX_COMMENT_PAGES; pageNum++) {
         const d = await _pfm(
             `pages/${pageId}/conversations?type=COMMENT&since=${now - POSTS_LOOKBACK_S}&until=${now}&post_id=${encodeURIComponent(postId)}&page_number=${pageNum}`,
@@ -172,8 +194,6 @@ async function fetchPostComments(pageId, pageName, postId, jwt) {
               ? d.data
               : [];
         if (!cv.length) break;
-        // Cờ phân trang từ API (ưu tiên hơn heuristic độ dài trang). Pancake có thể
-        // trả has_more / total_pages tuỳ endpoint — đọc nếu có, fallback heuristic.
         const apiHasMore =
             typeof d.has_more === 'boolean'
                 ? d.has_more
@@ -188,46 +208,100 @@ async function fetchPostComments(pageId, pageName, postId, jwt) {
             const id = c.id || c.thread_id || c.thread_key;
             if (!id || seen.has(id)) continue;
             seen.add(id);
-            const from = c.from || (Array.isArray(c.customers) && c.customers[0]) || {};
-            const cust = (Array.isArray(c.customers) && c.customers[0]) || {};
-            const phoneObj = Array.isArray(c.recent_phone_numbers)
-                ? c.recent_phone_numbers[0]
-                : null;
-            comments.push({
-                id: String(id),
-                postId: String(postId),
-                pageId: String(pageId),
-                pageName,
-                fbId: cust.fb_id || from.fb_id || from.id || c.from_psid || null,
-                _custUuid: cust.id || null, // Pancake customer UUID (để fetch SĐT profile)
-                name: from.name || cust.name || '',
-                avatar:
-                    cust.avatar ||
-                    cust.picture?.data?.url ||
-                    cust.profile_pic ||
-                    cust.image_url ||
-                    from.avatar ||
-                    from.picture?.data?.url ||
-                    from.profile_pic ||
-                    null,
-                message: c.snippet || c.last_sent_message || '',
-                createdTime: c.inserted_at || c.last_customer_interactive_at || null,
-                // SĐT: recent_phone_numbers (Pancake detect) HOẶC khách tự gõ trong comment.
-                phone:
-                    (phoneObj ? phoneObj.phone_number || phoneObj.phone || null : null) ||
-                    extractPhoneFromText(c.snippet || c.last_sent_message || ''),
-                hasOrder: !!c.has_livestream_order,
-            });
+            convs.push(c);
             added++;
         }
-        // Dừng phân trang: ưu tiên cờ API has_more/total_pages; nếu API không trả
-        // cờ thì fallback heuristic "trang ngắn hơn 1 page đầy" = hết.
         if (apiHasMore === false) break;
         if (apiHasMore === null && cv.length < COMMENTS_PER_PAGE) break;
-        if (matched > 0 && added === 0) break; // trang lặp (đã thấy hết id)
+        if (matched > 0 && added === 0) break;
     }
-    // Enrich SĐT từ CUSTOMER PROFILE Pancake (comment conversation ~0% có SĐT,
-    // nhưng profile customer có ~88% — recent_phone_numbers lưu từ order/chat cũ).
+    return convs;
+}
+
+// 2. Fetch TỪNG comment (message type=COMMENT) trong 1 conversation. Mỗi message
+//    = 1 dòng riêng (giống TPOS) → người comment liên tục KHÔNG bị đè. id duy nhất
+//    = `${postId}_${messageId}`.
+async function _fetchConversationComments(pageId, pageName, postId, conv, jwt) {
+    const convId = conv.id || conv.thread_id || conv.thread_key;
+    if (!convId) return [];
+    const cust = (Array.isArray(conv.customers) && conv.customers[0]) || {};
+    const custUuid = cust.id || null;
+    const convAvatar =
+        cust.avatar ||
+        cust.picture?.data?.url ||
+        cust.profile_pic ||
+        cust.image_url ||
+        conv.from?.avatar ||
+        conv.from?.picture?.data?.url ||
+        null;
+    let d;
+    try {
+        const cidParam = custUuid ? `?customer_id=${encodeURIComponent(custUuid)}` : '';
+        d = await _pfm(
+            `pages/${pageId}/conversations/${encodeURIComponent(convId)}/messages${cidParam}`,
+            jwt
+        );
+    } catch {
+        return [];
+    }
+    const msgs = Array.isArray(d.messages) ? d.messages : [];
+    const out = [];
+    for (const m of msgs) {
+        // Chỉ lấy COMMENT (bỏ INBOX); bỏ comment đã xoá. Comment ẩn vẫn lấy (đánh dấu).
+        if (m.type && String(m.type).toUpperCase() !== 'COMMENT') continue;
+        if (m.is_removed) continue;
+        const mid = m.id;
+        if (!mid) continue;
+        const text = m.original_message || m.message || '';
+        const phoneInfo = Array.isArray(m.phone_info) ? m.phone_info[0] : null;
+        out.push({
+            id: `${postId}_${mid}`,
+            postId: String(postId),
+            pageId: String(pageId),
+            pageName,
+            fbId: m.from?.id || cust.fb_id || conv.from?.id || null,
+            _custUuid: custUuid,
+            name: m.from?.name || cust.name || conv.from?.name || '',
+            avatar: convAvatar,
+            message: text,
+            createdTime: m.inserted_at || conv.inserted_at || null,
+            phone:
+                (phoneInfo ? phoneInfo.phone_number || phoneInfo.phone || null : null) ||
+                extractPhoneFromText(text),
+            hasOrder: !!conv.has_livestream_order,
+            isHidden: !!m.is_hidden,
+        });
+    }
+    return out;
+}
+
+// Kéo toàn bộ comment (per-message) của 1 post. Watermark conversation: bỏ qua
+// conversation không có hoạt động mới kể từ cycle trước (tiết kiệm message-fetch).
+async function fetchPostComments(pageId, pageName, postId, jwt) {
+    const convs = await _listPostConversations(pageId, postId, jwt);
+    // Lọc conversation cần fetch messages: mới / có activity đổi so với watermark.
+    const toFetch = [];
+    for (const c of convs) {
+        const cid = String(c.id || c.thread_id || c.thread_key || '');
+        if (!cid) continue;
+        const stamp = String(
+            c.updated_at || c.last_sent_at || c.last_customer_interactive_at || c.inserted_at || ''
+        );
+        const prev = _wmGet(cid);
+        if (prev !== undefined && prev === stamp) continue; // không đổi → bỏ qua
+        _wmSet(cid, stamp);
+        toFetch.push(c);
+    }
+    const comments = [];
+    for (let i = 0; i < toFetch.length; i += MSG_CONCURRENCY) {
+        const batch = toFetch.slice(i, i + MSG_CONCURRENCY);
+        const res = await Promise.all(
+            batch.map((c) => _fetchConversationComments(pageId, pageName, postId, c, jwt))
+        );
+        for (const rows of res) if (rows && rows.length) comments.push(...rows);
+    }
+    // Enrich SĐT từ CUSTOMER PROFILE Pancake (comment ~0% có SĐT inline, nhưng
+    // profile customer có ~88% — recent_phone_numbers lưu từ order/chat cũ).
     await _enrichPhonesFromProfile(pageId, comments, jwt);
     return comments;
 }
@@ -419,4 +493,56 @@ async function pollNow() {
     }
 }
 
-module.exports = { start, listLivePostsForAssign, pollNow };
+// On-demand TARGETED: fetch comment per-message của ĐÚNG 1 post (page+post) →
+// upsert + notify. Dùng cho:
+//  • WS relay /ingest: có comment realtime đến → poll ngay post đó (gần-tức-thời).
+//  • Client mở campaign: poll ngay để comment hiện liền (không chờ cycle 5s).
+// Debounce 1.5s/post: gom burst WS event (nhiều comment liên tiếp) thành 1 fetch.
+const _pollPostTimers = new Map(); // `${pageId}:${postId}` → { timer, pending }
+const POLL_POST_DEBOUNCE_MS = 1500;
+async function _doPollPost(pageId, postId) {
+    if (!_web2Pool || !_liveComments) return { ok: false, ran: false };
+    try {
+        const jwt = await getTokenForPage(pageId);
+        if (!jwt) return { ok: false, ran: false, error: 'no jwt' };
+        // pageName best-effort từ enabled pages (không bắt buộc).
+        let pageName = '';
+        try {
+            const pgs = await getEnabledPages();
+            pageName = pgs.find((p) => String(p.page_id) === String(pageId))?.page_name || '';
+        } catch (_) {
+            /* ignore */
+        }
+        const comments = await fetchPostComments(pageId, pageName, String(postId), jwt);
+        let saved = 0;
+        if (comments.length) {
+            saved = await _liveComments.upsertComments(_web2Pool, comments);
+            _liveComments._notify('poll', String(postId));
+        }
+        return { ok: true, ran: true, fetched: comments.length, saved };
+    } catch (e) {
+        console.warn('[LIVE-POLLER] pollPostNow fail:', e.message);
+        return { ok: false, ran: true, error: e.message };
+    }
+}
+function pollPostNow(pageId, postId, { immediate = false } = {}) {
+    if (!pageId || !postId) return Promise.resolve({ ok: false, ran: false });
+    if (immediate) return _doPollPost(pageId, postId);
+    const key = `${pageId}:${postId}`;
+    return new Promise((resolve) => {
+        const existing = _pollPostTimers.get(key);
+        if (existing) {
+            existing.waiters.push(resolve);
+            return;
+        }
+        const entry = { timer: null, waiters: [resolve] };
+        entry.timer = setTimeout(async () => {
+            _pollPostTimers.delete(key);
+            const r = await _doPollPost(pageId, postId);
+            entry.waiters.forEach((w) => w(r));
+        }, POLL_POST_DEBOUNCE_MS);
+        _pollPostTimers.set(key, entry);
+    });
+}
+
+module.exports = { start, listLivePostsForAssign, pollNow, pollPostNow };

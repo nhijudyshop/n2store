@@ -602,10 +602,8 @@
         }
     }
 
-    // Update buffer count trong chip mỗi 5s khi stream active.
-    setInterval(() => {
-        if (STATE.captureStream) renderRealSnapChip();
-    }, 5000);
+    // Update buffer count trong chip mỗi 5s — timer start/stop theo frame buffer
+    // (_startFrameBuffer/_stopFrameBuffer), KHÔNG chạy module-eval mãi mãi.
 
     // -----------------------------------------------------
     // Auto-mode chip — khi mới có comment, tự động snap
@@ -1029,9 +1027,10 @@ Throttle 30s/KH.`;
             if (!camp?.Facebook_LiveId || !pageObj?.Facebook_PageId) {
                 return; // không có live active → bỏ qua
             }
-            // Step 1: backfill metadata cho comments visible
+            // Step 1: backfill metadata cho comments visible (silent — background
+            // run không toast lỗi lên UI, chỉ log).
             try {
-                await offlineBatchAll({ skipExisting: true });
+                await offlineBatchAll({ skipExisting: true, silent: true });
             } catch (e) {
                 console.warn('[snap-auto-extract] backfill fail:', e?.message);
             }
@@ -1065,10 +1064,13 @@ Throttle 30s/KH.`;
                         return;
                     }
                     try {
+                        // timeout 5s — fetch treo không được giữ Promise sống
+                        // quá wall-clock 5 phút ở check trên.
                         const sr = await fetch(
                             API +
                                 '/api/livestream/extract-status?batchId=' +
-                                encodeURIComponent(batchId)
+                                encodeURIComponent(batchId),
+                            { signal: AbortSignal.timeout(5000) }
                         );
                         const sd = await sr.json();
                         if (!sd.success || !sd.status) {
@@ -1197,7 +1199,7 @@ Throttle 30s/KH.`;
                     try {
                         const jpegBase64 = await _captureExtensionFrame();
                         if (jpegBase64) {
-                            buffered = { capturedAt: Date.now(), jpegBase64 };
+                            buffered = { capturedAt: Date.now(), blob: _base64ToBlob(jpegBase64) };
                             // Inject vào buffer luôn để comment sau dùng được.
                             STATE.frameBuffer?.push(buffered);
                             console.log(
@@ -1337,9 +1339,9 @@ Throttle 30s/KH.`;
     // -----------------------------------------------------
     // CAPTURE LEADER LOCK — chỉ 1 MÁY capture tại 1 thời điểm (2026-06-11).
     // Nhiều máy cùng mở live-chat → nhiều nguồn frame POST đè dữ liệu snapshot
-    // lẫn nhau. Lock cross-machine qua web2-generic record (entity
-    // 'capture-lock', code 'global', web2Db). TTL 90s + heartbeat 30s.
-    // SSE 'web2:capture-lock' (generic _notify) → máy bị cướp lock TỰ DỪNG.
+    // lẫn nhau. Server CAS atomic: POST /acquire (cũng là heartbeat — gọi lại
+    // cùng holder = renew ts), POST /release. TTL 90s + heartbeat 30s.
+    // SSE 'web2:capture-lock' → máy bị cướp lock TỰ DỪNG.
     // -----------------------------------------------------
     const LOCK_TTL_MS = 90 * 1000;
     const LOCK_HEARTBEAT_MS = 30 * 1000;
@@ -1358,10 +1360,24 @@ Throttle 30s/KH.`;
         }
         return id;
     }
+    // Holder = máy + tab. localStorage machineId share giữa các tab cùng profile
+    // → 2 tab cùng tưởng mình giữ lock. sessionStorage tabId tách per-tab.
+    function _tabId() {
+        let id = sessionStorage.getItem('web2_capture_tab_id');
+        if (!id) {
+            id = 't_' + Math.random().toString(36).slice(2, 10);
+            sessionStorage.setItem('web2_capture_tab_id', id);
+        }
+        return id;
+    }
+    function _holderId() {
+        return _machineId() + ':' + _tabId();
+    }
     async function _lockFetch(path, opts) {
         const r = await fetch(`${_lockApiBase()}/api/web2/capture-lock${path}`, opts);
         return r.json().catch(() => ({}));
     }
+    // Đọc lock state hiện tại (chỉ để display/decision — KHÔNG dùng cho acquire).
     async function _readLock() {
         try {
             const j = await _lockFetch('/get/global');
@@ -1370,56 +1386,59 @@ Throttle 30s/KH.`;
             return null;
         }
     }
-    // history:[] mỗi lần ghi để generic route không phình mảng history theo heartbeat.
-    async function _writeLock(data) {
-        const body = JSON.stringify({
-            name: 'Capture lock',
-            code: 'global',
-            data: { ...data, history: [] },
-            userName: _user()?.name || null,
+    // POST /acquire — server CAS atomic. force:true = cướp lock vô điều kiện.
+    async function _postAcquire(force) {
+        return _lockFetch('/acquire', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                holder: _holderId(),
+                holderName: _user()?.name || _machineId(),
+                force: !!force,
+                ttlMs: LOCK_TTL_MS,
+            }),
         });
-        const opts = { headers: { 'Content-Type': 'application/json' }, body };
-        let j = null;
-        try {
-            j = await _lockFetch('/update/global', { ...opts, method: 'PATCH' });
-        } catch (_) {}
-        if (!j || !j.success) {
-            try {
-                j = await _lockFetch('/create', { ...opts, method: 'POST' });
-            } catch (_) {}
-        }
-        return !!j?.success;
     }
     // Acquire: {ok:true} hoặc {ok:false, holderName}. interactive → confirm cướp lock.
     async function _acquireCaptureLock(interactive) {
-        const me = _machineId();
-        const cur = await _readLock();
-        const heldByOther =
-            cur && cur.holder && cur.holder !== me && Date.now() - (cur.ts || 0) < LOCK_TTL_MS;
-        if (heldByOther) {
-            const who = cur.holderName || cur.holder;
-            if (!interactive) return { ok: false, holderName: who };
-            const take = confirm(
-                `Máy khác ("${who}") đang capture livestream.\n` +
-                    `Chuyển capture sang máy NÀY? (máy kia sẽ tự dừng để không đè dữ liệu)`
-            );
-            if (!take) return { ok: false, holderName: who };
+        let j = null;
+        try {
+            j = await _postAcquire(false);
+        } catch (_) {}
+        if (j?.success) return { ok: true };
+        // Network/server error (không có current) → fail im lặng, KHÔNG confirm.
+        if (!j?.current) return { ok: false };
+        const who = j.current.holderName || j.current.holder || 'máy khác';
+        if (!interactive) return { ok: false, holderName: who };
+        const take = confirm(
+            `Máy khác ("${who}") đang capture livestream.\n` +
+                `Chuyển capture sang máy NÀY? (máy kia sẽ tự dừng để không đè dữ liệu)`
+        );
+        if (!take) return { ok: false, holderName: who };
+        try {
+            j = await _postAcquire(true);
+        } catch (_) {
+            j = null;
         }
-        const ok = await _writeLock({
-            holder: me,
-            holderName: _user()?.name || me,
-            ts: Date.now(),
-        });
-        return { ok };
+        return j?.success ? { ok: true } : { ok: false, holderName: who };
     }
+    // Heartbeat = gọi lại /acquire cùng holder (server renew ts atomic).
+    // {success:false} = lock bị máy khác force cướp → tự dừng capture.
     function _startLockHeartbeat() {
         _stopLockHeartbeat();
-        STATE._lockHbTimer = setInterval(() => {
-            _writeLock({
-                holder: _machineId(),
-                holderName: _user()?.name || _machineId(),
-                ts: Date.now(),
-            });
+        STATE._lockHbTimer = setInterval(async () => {
+            let j = null;
+            try {
+                j = await _postAcquire(false);
+            } catch (_) {
+                return; // network blip — thử lại tick sau, TTL 90s đủ rộng
+            }
+            if (j && j.success === false) {
+                console.log('[snap-lock] heartbeat mất lock (force takeover) → stop capture');
+                _stopLockHeartbeat();
+                stopRealSnap();
+                _toast('📵 Máy khác đã nhận capture — máy này dừng', 'ok');
+            }
         }, LOCK_HEARTBEAT_MS);
     }
     function _stopLockHeartbeat() {
@@ -1428,24 +1447,27 @@ Throttle 30s/KH.`;
             STATE._lockHbTimer = null;
         }
     }
-    // Chỉ nhả nếu lock còn là của mình (bị cướp thì KHÔNG xoá lock máy kia).
+    // Server chỉ release nếu lock còn là của mình (bị cướp → no-op an toàn).
     async function _releaseCaptureLock() {
         _stopLockHeartbeat();
         try {
-            const cur = await _readLock();
-            if (cur?.holder === _machineId()) {
-                await _writeLock({ holder: null, holderName: null, ts: 0 });
-            }
+            await _lockFetch('/release', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ holder: _holderId() }),
+            });
         } catch (_) {}
     }
     // Máy khác cướp lock → máy này TỰ DỪNG capture (SSE web2:capture-lock).
     function _subscribeLockSse() {
+        if (_subscribeLockSse._done) return;
         if (!global.Web2SSE?.subscribe) return;
+        _subscribeLockSse._done = true;
         global.Web2SSE.subscribe('web2:capture-lock', async () => {
             if (!STATE.captureStream && !STATE.frameBufferTimer) return;
             const cur = await _readLock();
-            if (cur?.holder && cur.holder !== _machineId()) {
-                console.log('[snap-lock] lock taken by', cur.holderName, '→ stop capture');
+            if (cur?.holder && cur.holder !== _holderId()) {
+                console.log('[snap-lock] lock taken by another machine → stop capture');
                 _stopFrameBuffer();
                 stopRealSnap();
                 const wrapper = document.getElementById('live-snap-fb-wrapper');
@@ -1454,18 +1476,22 @@ Throttle 30s/KH.`;
             }
         });
     }
-    // Đóng tab giữa chừng → nhả lock best-effort (keepalive fetch).
+    // Đóng tab giữa chừng → nhả lock best-effort (sendBeacon survive unload).
     window.addEventListener('beforeunload', () => {
         if (!STATE.frameBufferTimer && !STATE.captureStream) return;
         try {
-            fetch(`${_lockApiBase()}/api/web2/capture-lock/update/global`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                keepalive: true,
-                body: JSON.stringify({
-                    data: { holder: null, holderName: null, ts: 0, history: [] },
-                }),
-            });
+            const url = `${_lockApiBase()}/api/web2/capture-lock/release`;
+            const payload = JSON.stringify({ holder: _holderId() });
+            if (navigator.sendBeacon) {
+                navigator.sendBeacon(url, new Blob([payload], { type: 'application/json' }));
+            } else {
+                fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    keepalive: true,
+                    body: payload,
+                });
+            }
         } catch (_) {}
     });
 
@@ -1551,6 +1577,9 @@ Throttle 30s/KH.`;
         const iframe = _ensureEmbeddedIframe(camp);
         if (!iframe) {
             _toast('Không tạo được iframe embed', 'err');
+            // Đã acquire lock nhưng không tới được _startFrameBuffer → nhả ngay,
+            // không thì máy khác bị block tới hết TTL 90s.
+            _releaseCaptureLock();
             return false;
         }
         // Đợi iframe load xong (FB plugin HTML + JS) RỒI thêm 7s buffer cho
@@ -1653,9 +1682,10 @@ Throttle 30s/KH.`;
         } catch (e) {
             console.warn('[snap-embed] fail:', e?.message);
             _toast('Hủy share: ' + e.message, 'err');
-            // Cleanup wrapper nếu user hủy.
+            // Cleanup wrapper nếu user hủy + nhả lock (chưa tới _startFrameBuffer).
             const wrapper = document.getElementById('live-snap-fb-wrapper');
             if (wrapper) wrapper.remove();
+            _releaseCaptureLock();
             return false;
         }
     }
@@ -1933,7 +1963,7 @@ Throttle 30s/KH.`;
                 });
             });
             // Khởi động frame buffer — capture 1 frame mỗi 5s, giữ 720 frames
-            // (1 tiếng). Mỗi entry { capturedAt: ms, jpegBase64 }. Auto-snap
+            // (1 tiếng). Mỗi entry { capturedAt: ms, blob }. Auto-snap
             // sau đó dùng buffer nearest commentTime → frame unique per comment.
             _startFrameBuffer();
             renderRealSnapChip();
@@ -1977,8 +2007,10 @@ Throttle 30s/KH.`;
     const FRAME_BUFFER_MAX = 720;
 
     function _startFrameBuffer() {
-        _stopFrameBuffer(); // safe re-init
-        STATE.frameBuffer = []; // [{ capturedAt: ms, jpegBase64: string }]
+        _stopFrameBuffer(true); // safe re-init — KHÔNG nhả lock vừa acquire
+        // Entry { capturedAt: ms, blob: Blob } — giữ Blob binary thay vì base64
+        // string (~4x retained memory). Convert base64 tại điểm consume (upload).
+        STATE.frameBuffer = [];
         _setupVisibilityWatcher(); // notify user khi switch tab
         // Capture path priority:
         //   1. captureStream (Option B: extension streamId via getUserMedia OR
@@ -1991,9 +2023,9 @@ Throttle 30s/KH.`;
             // Best: work khi tab inactive, no Chrome rate-limit.
             if (STATE.captureStream && STATE.captureVideo?.videoWidth) {
                 try {
-                    const jpegBase64 = await _captureFrameJpeg(0.72, 1280);
-                    if (!jpegBase64) return;
-                    STATE.frameBuffer.push({ capturedAt: Date.now(), jpegBase64 });
+                    const blob = await _captureFrameJpeg(0.72, 1280);
+                    if (!blob) return;
+                    STATE.frameBuffer.push({ capturedAt: Date.now(), blob });
                     if (STATE.frameBuffer.length > FRAME_BUFFER_MAX) {
                         STATE.frameBuffer.splice(0, STATE.frameBuffer.length - FRAME_BUFFER_MAX);
                     }
@@ -2011,7 +2043,10 @@ Throttle 30s/KH.`;
                 try {
                     const jpegBase64 = await _captureExtensionFrame(80);
                     if (!jpegBase64) return;
-                    STATE.frameBuffer.push({ capturedAt: Date.now(), jpegBase64 });
+                    STATE.frameBuffer.push({
+                        capturedAt: Date.now(),
+                        blob: _base64ToBlob(jpegBase64),
+                    });
                     if (STATE.frameBuffer.length > FRAME_BUFFER_MAX) {
                         STATE.frameBuffer.splice(0, STATE.frameBuffer.length - FRAME_BUFFER_MAX);
                     }
@@ -2026,6 +2061,8 @@ Throttle 30s/KH.`;
         // Capture 1 frame ngay khi start, sau đó interval.
         tick();
         STATE.frameBufferTimer = setInterval(tick, FRAME_BUFFER_INTERVAL_MS);
+        // Chip refresh 5s — chỉ sống khi buffer chạy (clear ở _stopFrameBuffer).
+        STATE.chipRefreshTimer = setInterval(renderRealSnapChip, 5000);
         _startLockHeartbeat(); // giữ leader lock suốt phiên capture (1 máy duy nhất)
         const path = STATE.captureStream
             ? '(stream-based, tab inactive OK)'
@@ -2035,14 +2072,21 @@ Throttle 30s/KH.`;
         console.log('[snap-buffer] started — capture mỗi', FRAME_BUFFER_INTERVAL_MS, 'ms', path);
     }
 
-    function _stopFrameBuffer() {
+    // keepLock=true: safe re-init từ _startFrameBuffer — chỉ clear timers/buffer,
+    // KHÔNG nhả lock (lock vừa acquire ngay trước đó, release sẽ mở cửa cho máy
+    // khác chen vào tới khi heartbeat tick đầu 30s sau).
+    function _stopFrameBuffer(keepLock) {
         if (STATE.frameBufferTimer) {
             clearInterval(STATE.frameBufferTimer);
             STATE.frameBufferTimer = null;
         }
+        if (STATE.chipRefreshTimer) {
+            clearInterval(STATE.chipRefreshTimer);
+            STATE.chipRefreshTimer = null;
+        }
         if (STATE.frameBuffer) STATE.frameBuffer = [];
-        // Nhả leader lock (chỉ khi lock còn là của mình — fire-and-forget).
-        _releaseCaptureLock();
+        // Nhả leader lock (server chỉ release nếu còn là của mình — fire-and-forget).
+        if (!keepLock) _releaseCaptureLock();
     }
 
     // Tìm frame buffered có capturedAt gần commentTimeMs nhất.
@@ -2063,7 +2107,28 @@ Throttle 30s/KH.`;
         return null;
     }
 
-    // Capture 1 frame từ stream → JPEG base64. Return null nếu stream chưa sẵn.
+    // Blob → base64 (no "data:image/jpeg;base64," prefix) — convert tại điểm
+    // consume (upload POST), KHÔNG lưu base64 trong buffer (retained memory ~4x).
+    function _blobToBase64(blob) {
+        return new Promise((resolve, reject) => {
+            const fr = new FileReader();
+            fr.onload = () => {
+                const dataUrl = fr.result;
+                resolve(dataUrl.slice(dataUrl.indexOf(',') + 1));
+            };
+            fr.onerror = () => reject(new Error('blob→base64 fail'));
+            fr.readAsDataURL(blob);
+        });
+    }
+    // base64 (no prefix) → Blob — cho path extension (captureVisibleTab trả base64).
+    function _base64ToBlob(b64, mime = 'image/jpeg') {
+        const bin = atob(b64);
+        const arr = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+        return new Blob([arr], { type: mime });
+    }
+
+    // Capture 1 frame từ stream → JPEG Blob. Return null nếu stream chưa sẵn.
     async function _captureFrameJpeg(quality = 0.7, maxWidth = 1280) {
         const v = STATE.captureVideo;
         if (!STATE.captureStream || !v || !v.videoWidth) return null;
@@ -2104,22 +2169,9 @@ Throttle 30s/KH.`;
         canvas.height = targetH;
         const ctx = canvas.getContext('2d');
         ctx.drawImage(v, srcX, srcY, srcW, srcH, 0, 0, targetW, targetH);
+        // Resolve Blob trực tiếp (skip FileReader/base64) — buffer giữ binary.
         return new Promise((resolve) => {
-            canvas.toBlob(
-                (blob) => {
-                    if (!blob) return resolve(null);
-                    const fr = new FileReader();
-                    fr.onload = () => {
-                        const dataUrl = fr.result;
-                        // strip "data:image/jpeg;base64,"
-                        const i = dataUrl.indexOf(',');
-                        resolve(dataUrl.slice(i + 1));
-                    };
-                    fr.readAsDataURL(blob);
-                },
-                'image/jpeg',
-                quality
-            );
+            canvas.toBlob((blob) => resolve(blob || null), 'image/jpeg', quality);
         });
     }
 
@@ -2212,9 +2264,13 @@ Throttle 30s/KH.`;
         const mode = _getSnapMode();
         let imageBase64 = null;
         // Priority 1: caller pass bufferedFrame (auto-mode lookup nearest by commentTime)
-        // → mỗi comment có frame unique từ buffer, không phải current frame.
-        if (opts.bufferedFrame?.jpegBase64) {
-            imageBase64 = opts.bufferedFrame.jpegBase64;
+        // → mỗi comment có frame unique từ buffer (Blob → base64 tại đây).
+        if (opts.bufferedFrame?.blob) {
+            try {
+                imageBase64 = await _blobToBase64(opts.bufferedFrame.blob);
+            } catch (e) {
+                console.warn('[snap] bufferedFrame blob→base64 fail:', e.message);
+            }
         } else if (STATE.extReady && STATE.frameBufferTimer) {
             // Priority 1.5: extension mode + no buffered frame → live capture now
             // via chrome.tabs.captureVisibleTab. Tránh fallback xuống getDisplayMedia
@@ -2236,7 +2292,8 @@ Throttle 30s/KH.`;
             // Nếu stream giờ đã sẵn → capture frame
             if (STATE.captureStream && STATE.captureVideo?.videoWidth) {
                 try {
-                    imageBase64 = await _captureFrameJpeg(0.72, 1280);
+                    const blob = await _captureFrameJpeg(0.72, 1280);
+                    if (blob) imageBase64 = await _blobToBase64(blob);
                 } catch (e) {
                     console.warn('[snap-live] capture frame failed:', e.message);
                 }
@@ -2447,6 +2504,10 @@ Throttle 30s/KH.`;
                     _renderThumbStripFor(id);
                 }
             } catch (e) {
+                // Chunk fail → KHÔNG set entry trong STATE.snapByComment cho các
+                // id này → `.has()` false → lần render row tiếp theo (observer /
+                // _invalidateSnapCacheAndRefresh) gọi _queueSnapByComment sẽ tự
+                // re-queue → natural retry, không cần retry loop riêng.
                 console.warn('[snap] by-comment-ids fail:', e.message);
             }
         }
@@ -2637,7 +2698,7 @@ Throttle 30s/KH.`;
         // Path A: đã có stream active + buffered frame nearest → dùng luôn (instant).
         if (STATE.captureStream && STATE.frameBuffer?.length) {
             const buffered = _findNearestBufferedFrame(commentTimeMs, 60000);
-            if (buffered?.jpegBase64) {
+            if (buffered?.blob) {
                 _toast('⚡ Dùng buffered frame...', 'ok');
                 await _postCapturedSnap({
                     commentId,
@@ -2648,7 +2709,7 @@ Throttle 30s/KH.`;
                     pageObj,
                     camp,
                     videoInfo,
-                    imageBase64: buffered.jpegBase64,
+                    imageBase64: await _blobToBase64(buffered.blob),
                     message: c.message,
                 });
                 return;
@@ -2823,8 +2884,20 @@ Throttle 30s/KH.`;
         );
     }
 
+    // MUTEX: serialize mọi seek/capture trên iframe chung qua promise chain.
+    // Force-extract loop + row-click "Lấy thumbnail" chạy song song → seek đè
+    // nhau → frame sai offset. Chain đảm bảo 1 seek/capture tại 1 thời điểm.
+    let _iframeChain = Promise.resolve();
+
     // Seek iframe tới offsetSec rồi capture 1 frame. Trả jpegBase64 (no prefix) hoặc null.
-    async function _clientCaptureAtOffset(camp, offsetSec) {
+    function _clientCaptureAtOffset(camp, offsetSec) {
+        const doWork = () => _clientCaptureAtOffsetInner(camp, offsetSec);
+        const p = _iframeChain.then(doWork, doWork);
+        // Chain không giữ rejection (caller tự handle) — tránh unhandled rejection.
+        _iframeChain = p.catch(() => {});
+        return p;
+    }
+    async function _clientCaptureAtOffsetInner(camp, offsetSec) {
         const iframe = _ensureEmbeddedIframe(camp);
         if (!iframe) throw new Error('không tạo được iframe FB');
         const url = _buildSeekEmbedUrl(camp, offsetSec);
@@ -2845,8 +2918,8 @@ Throttle 30s/KH.`;
         await new Promise((r) => setTimeout(r, 2600));
         // Capture: ưu tiên getDisplayMedia stream, fallback extension.
         if (STATE.captureStream && STATE.captureVideo?.videoWidth) {
-            const j = await _captureFrameJpeg(0.72, 1280);
-            if (j) return j;
+            const blob = await _captureFrameJpeg(0.72, 1280);
+            if (blob) return _blobToBase64(blob);
         }
         if (STATE.extReady) {
             const j = await _captureExtensionFrame();
@@ -2908,14 +2981,17 @@ Throttle 30s/KH.`;
                 'width=480,height=860,toolbar=no,menubar=no,location=no,status=no,resizable=yes,scrollbars=no'
             );
         });
-        lb.querySelector('.snap-lb-close').addEventListener('click', () => lb.remove());
-        lb.addEventListener('click', () => lb.remove());
-        const escClose = (e) => {
-            if (e.key === 'Escape') {
-                lb.remove();
-                document.removeEventListener('keydown', escClose);
-            }
+        // closeLb dùng cho MỌI path đóng (Escape / nút ✕ / click backdrop) để
+        // listener keydown luôn được gỡ — không leak khi đóng bằng chuột.
+        const closeLb = () => {
+            lb.remove();
+            document.removeEventListener('keydown', escClose);
         };
+        const escClose = (e) => {
+            if (e.key === 'Escape') closeLb();
+        };
+        lb.querySelector('.snap-lb-close').addEventListener('click', closeLb);
+        lb.addEventListener('click', closeLb);
         document.addEventListener('keydown', escClose);
         document.body.appendChild(lb);
     }
@@ -3475,17 +3551,27 @@ Throttle 30s/KH.`;
         // (sau popup, đọc menu, etc.) poll dead → iframe không tự tạo. Giờ poll
         // sống mãi đến khi capture started; cũng có 'campaignsChanged' event
         // listener re-trigger ngay khi user thay đổi selection.
+        // Bound 10 phút — poll 3s gọi tới lock API (qua _enableEmbeddedLiveCapture)
+        // không được chạy vô hạn. Sau 10 phút, 'campaignsChanged' event listener
+        // vẫn re-trigger khi user chọn campaign (không cần poll mãi).
+        const bannerStart = Date.now();
         const bannerTimer = setInterval(() => {
+            if (Date.now() - bannerStart > 600000) {
+                clearInterval(bannerTimer);
+                return;
+            }
             if (STATE.captureStream || STATE.frameBufferTimer) {
                 clearInterval(bannerTimer);
                 return;
             }
+            // Cheap local check TRƯỚC mọi network call: chỉ tiếp khi có live
+            // campaign load. (_maybeShowAutoSnapBanner cũng tự check
+            // _findActiveLiveCampaign — local — trước khi đụng lock API.)
             const st = global.LiveState;
             if (st?.liveCampaigns?.length > 0) {
                 _maybeShowAutoSnapBanner();
             }
         }, 3000);
-        // KHÔNG clearInterval timeout — poll sống cho tới khi capture chạy.
         // Initial inject ngay cho rows hiện có (nếu Live đã render trước script).
         // Observer sẽ handle rows mới sau đó.
         injectSnapButtonsAll();
@@ -3519,8 +3605,8 @@ Throttle 30s/KH.`;
     async function captureCurrentFrame() {
         if (STATE.captureStream && STATE.captureVideo?.videoWidth) {
             try {
-                const jpegBase64 = await _captureFrameJpeg(0.8, 1280);
-                if (jpegBase64) return { jpegBase64, capturedAt: Date.now() };
+                const blob = await _captureFrameJpeg(0.8, 1280);
+                if (blob) return { jpegBase64: await _blobToBase64(blob), capturedAt: Date.now() };
             } catch (e) {
                 console.warn('[gallery-capture] stream frame fail:', e.message);
             }
@@ -3533,9 +3619,15 @@ Throttle 30s/KH.`;
                 console.warn('[gallery-capture] ext frame fail:', e.message);
             }
         }
+        // Buffer giữ Blob — convert base64 để giữ public API shape (gallery).
         const latest = STATE.frameBuffer?.[STATE.frameBuffer.length - 1];
-        if (latest?.jpegBase64) {
-            return { jpegBase64: latest.jpegBase64, capturedAt: latest.capturedAt };
+        if (latest?.blob) {
+            try {
+                return {
+                    jpegBase64: await _blobToBase64(latest.blob),
+                    capturedAt: latest.capturedAt,
+                };
+            } catch (_) {}
         }
         return null;
     }
@@ -3591,7 +3683,7 @@ Throttle 30s/KH.`;
         // Auto offline backfill thumbnail theo thời gian (gọi từ live-init khi
         // load campaign đã end). silent:true → không toast.
         offlineBatchAll,
-        // Debug accessors cho test scripts
+        // Debug accessors cho test scripts (entry buffer: { capturedAt, blob })
         _getStreamActive: () => !!STATE.captureStream,
         _getBufferCount: () => STATE.frameBuffer?.length || 0,
         _getLatestFrame: () => STATE.frameBuffer?.[STATE.frameBuffer.length - 1] || null,

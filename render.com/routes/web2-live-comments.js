@@ -195,11 +195,39 @@ router.post('/ingest', async (req, res) => {
               : body.id
                 ? [body]
                 : [];
+        // WS đẩy CONVERSATION update (không phải từng comment). KHÔNG map conv→1
+        // comment nữa (gây đè comment cũ khi 1 người comment liên tục). Thay vào đó:
+        // trigger poller fetch per-message ĐÚNG post đó (debounce 1.5s gom burst) →
+        // poller tự upsert từng comment + _notify('poll'). Fallback: nếu poller chưa
+        // sẵn sàng thì vẫn map thô để không mất data realtime.
+        const pairs = [];
+        const seenPair = new Set();
+        for (const conv of raw) {
+            const pageId = conv && (conv.page_id || conv.pageId);
+            const postId = conv && (conv.post_id || conv.postId);
+            if (!pageId || !postId) continue;
+            const k = `${pageId}:${postId}`;
+            if (seenPair.has(k)) continue;
+            seenPair.add(k);
+            pairs.push({ pageId: String(pageId), postId: String(postId) });
+        }
+        let poller = null;
+        try {
+            poller = require('../services/web2-livestream-poller');
+        } catch (_) {
+            poller = null;
+        }
+        if (poller?.pollPostNow && pairs.length) {
+            // Fire-and-forget: trả về ngay, poller fetch + notify khi xong (debounced).
+            for (const p of pairs) {
+                poller.pollPostNow(p.pageId, p.postId).catch(() => {});
+            }
+            return res.json({ success: true, triggered: pairs.length });
+        }
+        // Fallback (poller absent): map thô conv→comment để không mất realtime.
         const mapped = raw.map(_mapWsConvToComment).filter((c) => c && c.id);
         if (!mapped.length) return res.json({ success: true, ingested: 0 });
-
         const saved = await upsertComments(pool, mapped);
-        // Broadcast SSE cho từng postId distinct → UI tab khác reload realtime.
         const postIds = [...new Set(mapped.map((c) => c.postId).filter(Boolean))];
         if (postIds.length) {
             for (const pid of postIds) _notify('realtime', pid);
@@ -209,6 +237,39 @@ router.post('/ingest', async (req, res) => {
         res.json({ success: true, ingested: saved });
     } catch (e) {
         console.error('[WEB2-LIVE-COMMENTS] ingest error:', e.message);
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+// POST /poll-now — client mở campaign gọi để poller fetch per-message NGAY post(s)
+// đang chọn (comment hiện liền, không chờ cycle 5s). Body: { posts:[{pageId,postId}] }
+// HOẶC { pageId, postId }. immediate=true (không debounce) để client thấy ngay.
+router.post('/poll-now', async (req, res) => {
+    try {
+        const body = req.body || {};
+        const posts = Array.isArray(body.posts)
+            ? body.posts
+            : body.pageId && body.postId
+              ? [{ pageId: body.pageId, postId: body.postId }]
+              : [];
+        const valid = posts
+            .map((p) => ({ pageId: String(p.pageId || ''), postId: String(p.postId || '') }))
+            .filter((p) => p.pageId && p.postId);
+        if (!valid.length) return res.json({ success: true, polled: 0 });
+        let poller = null;
+        try {
+            poller = require('../services/web2-livestream-poller');
+        } catch (_) {
+            poller = null;
+        }
+        if (!poller?.pollPostNow) return res.json({ success: false, error: 'poller unavailable' });
+        const results = await Promise.all(
+            valid.map((p) => poller.pollPostNow(p.pageId, p.postId, { immediate: true }))
+        );
+        const saved = results.reduce((s, r) => s + (r?.saved || 0), 0);
+        res.json({ success: true, polled: valid.length, saved });
+    } catch (e) {
+        console.error('[WEB2-LIVE-COMMENTS] poll-now error:', e.message);
         res.status(500).json({ success: false, error: e.message });
     }
 });
