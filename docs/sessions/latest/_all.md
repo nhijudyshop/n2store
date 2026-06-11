@@ -3,10 +3,10 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `9cf0b3f` — docs: xác nhận Render chặn build toàn workspace (test 2 service đều fail tức thì)
-**Last updated**: 2026-06-11 16:54:18 +07
-**Latest session**: [`RESUME:20260611-165418-9cf0b3f`](../20260611-165418-9cf0b3f.md)
-**Summary**: docs: xác nhận Render chặn build toàn workspace (test 2 service đều fail tức thì)
+**Latest commit**: `f38a129` — docs: pipeline_minutes_exhausted xác nhận + áp Build Filters 4 services qua API
+**Last updated**: 2026-06-11 17:01:55 +07
+**Latest session**: [`RESUME:20260611-170155-f38a129`](../20260611-170155-f38a129.md)
+**Summary**: docs: pipeline_minutes_exhausted xác nhận + áp Build Filters 4 services qua API
 
 ## Folders affected in this commit
 
@@ -24,7 +24,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-11 10:18
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-08 09:55
-- [`docs/`](./docs.md) — updated 2026-06-11 16:54
+- [`docs/`](./docs.md) — updated 2026-06-11 17:01
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-11 16:49
 - [`downloads/`](./downloads.md) — updated 2026-06-11 08:36
