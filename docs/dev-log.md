@@ -2,6 +2,15 @@
 
 ## 2026-06-11
 
+### [render] DROP 2 bảng livestream cũ trên chat-db (user duyệt) — 802MB → 629MB ✅
+
+- Verify lần cuối: chatDb `livestream_snapshots` 6609 rows + `livestream_images` 5 rows — khớp CHÍNH XÁC log `[LS-MIGRATE] DONE copied=6609/5` bên web2Db (+ extract mới ghi/đọc web2Db OK).
+- `DROP TABLE livestream_snapshots, livestream_images` trên chat-db → **size 802MB → 629MB** (giải phóng 173MB).
+- Còn `livestream_conversations` (8.6MB, 21k rows) trên chatDb — bảng của **n2store-realtime** (Web 1.0 broker, đang phục vụ inbox/orders-report pending-customers) → GIỮ, xử lý ở phiên khai tử realtime sau.
+- web2-db chặn psql external (IP allowlist) — verify qua migrate log + services-overview + app API.
+
+**Status:** ✅ Done — thumbnail/Kho Hình Web 2.0 trọn vẹn trên web2-db, chat-db gọn lại.
+
 ### [render] Spend limit mở khóa build → migrate livestream media chatDb→web2Db HOÀN TẤT ✅
 
 **User:** set spend limit pipeline minutes ($5/1000 phút — thay vì upgrade Professional dư thừa).
