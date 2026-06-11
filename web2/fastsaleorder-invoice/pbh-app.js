@@ -574,8 +574,13 @@
         const numbers = getSelectedNumbers();
         if (!numbers.length) return;
         const isCancel = /hủy/i.test(label);
+        // C1 (2026-06-11): bulk-cancel server giờ restock + hoàn ví từng PBH —
+        // confirm dialog ghi rõ để user biết hậu quả (kho + ví đổi theo).
+        const confirmMsg = isCancel
+            ? `${label} ${numbers.length} đơn? Hệ thống sẽ HOÀN KHO (trả tồn về Kho SP) + HOÀN VÍ (trả lại tiền đã trừ từ ví KH) cho từng PBH.`
+            : `${label} ${numbers.length} đơn?`;
         if (
-            !(await w2pConfirm(`${label} ${numbers.length} đơn?`, {
+            !(await w2pConfirm(confirmMsg, {
                 okText: label,
                 type: isCancel ? 'warning' : 'question',
             }))

@@ -83,9 +83,23 @@ function requireWeb2Admin(req, res, next) {
         });
 }
 
+// Warn throttle — soft mode hit liên tục từ frontend chưa gửi token → chỉ warn
+// 1 lần / route / SOFT_WARN_INTERVAL_MS, tránh spam Render logs.
+const SOFT_WARN_INTERVAL_MS = 60 * 1000;
+const _softWarnLast = new Map(); // "METHOD path" → last warn ts
+
+function _softWarn(req) {
+    const key = `${req.method} ${(req.baseUrl || '') + (req.route?.path || req.path || '')}`;
+    const now = Date.now();
+    if (now - (_softWarnLast.get(key) || 0) < SOFT_WARN_INTERVAL_MS) return;
+    if (_softWarnLast.size > 500) _softWarnLast.clear(); // bound memory
+    _softWarnLast.set(key, now);
+    console.warn(`[WEB2-AUTH][SOFT] unauthenticated ${req.method} ${req.originalUrl || req.path}`);
+}
+
 // Gate MỀM — dùng cho route mà trang frontend đang gọi nhưng CHƯA gửi x-web2-token.
 // Có token hợp lệ → gắn req.web2User. Thiếu/sai token → chỉ 401 khi
-// WEB2_AUTH_ENFORCE === '1'; ngược lại warn rồi next() (sau này bật env là khoá).
+// WEB2_AUTH_ENFORCE === '1'; ngược lại warn (throttled) rồi next() (sau này bật env là khoá).
 function requireWeb2AuthSoft(req, res, next) {
     const enforce = process.env.WEB2_AUTH_ENFORCE === '1';
     resolveWeb2User(req)
@@ -99,9 +113,7 @@ function requireWeb2AuthSoft(req, res, next) {
                     .status(401)
                     .json({ success: false, error: 'Cần đăng nhập Web 2.0 (thiếu/sai token)' });
             }
-            console.warn(
-                `[WEB2-AUTH][SOFT] unauthenticated ${req.method} ${req.originalUrl || req.path}`
-            );
+            _softWarn(req);
             next();
         })
         .catch((e) => {

@@ -160,11 +160,11 @@
         );
     }
     // S7 fix 2026-06-11: chặn javascript:/data: URL từ it.url — chỉ cho
-    // http(s), protocol-relative, path tuyệt đối, fragment. Defense-in-depth
-    // (server-side validation là lớp chính).
+    // http(s), protocol-relative, path tuyệt đối, path tương đối ../,
+    // fragment. Defense-in-depth (server-side validation là lớp chính).
     function safeUrl(u) {
         const s = String(u ?? '').trim();
-        return /^(https?:)?\/\/|^\/|^#/.test(s) ? s : '#';
+        return /^(https?:)?\/\/|^\/|^\.\.\/|^#/.test(s) ? s : '#';
     }
 
     global.Web2NotificationBell = Object.freeze({ mount });

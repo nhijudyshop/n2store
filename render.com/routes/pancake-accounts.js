@@ -25,6 +25,17 @@ function _softAuth(req, res, next) {
     return requireWeb2AuthSoft(req, res, next);
 }
 
+// Warn throttle (1 lần/phút) — list được token-manager gọi mỗi page load.
+let _lastUnauthedListWarn = 0;
+function _warnUnauthedList() {
+    const now = Date.now();
+    if (now - _lastUnauthedListWarn < 60 * 1000) return;
+    _lastUnauthedListWarn = now;
+    console.warn(
+        '[WEB2-AUTH][SOFT] unauthenticated GET /api/pancake-accounts — token vẫn trả (WEB2_AUTH_ENFORCE chưa bật)'
+    );
+}
+
 // true nếu caller có relay-secret HOẶC web2 token hợp lệ.
 async function _isAuthed(req) {
     if (_hasRelaySecret(req)) return true;
@@ -35,11 +46,13 @@ async function _isAuthed(req) {
 }
 
 // Strip secrets khỏi account row. login_password_enc KHÔNG BAO GIỜ trả ra.
-// includeToken=false → bỏ token, trả has_token.
+// includeToken=false → bỏ token, trả has_token + token_preview (8 ký tự cuối,
+// đủ cho UI hiển thị nhận diện — không dùng được làm JWT).
 function _shapeAccount(row, includeToken) {
     const { token, login_password_enc, ...rest } = row; // eslint-disable-line no-unused-vars
     const out = { ...rest, has_token: !!token };
     if (includeToken) out.token = token;
+    else if (token) out.token_preview = String(token).slice(-8);
     return out;
 }
 
@@ -73,9 +86,7 @@ router.get('/', async (req, res) => {
             if (process.env.WEB2_AUTH_ENFORCE === '1') {
                 includeToken = false;
             } else {
-                console.warn(
-                    '[WEB2-AUTH][SOFT] unauthenticated GET /api/pancake-accounts — token vẫn trả (WEB2_AUTH_ENFORCE chưa bật)'
-                );
+                _warnUnauthedList();
                 includeToken = true;
             }
         }

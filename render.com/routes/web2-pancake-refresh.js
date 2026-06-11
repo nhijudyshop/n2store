@@ -56,11 +56,47 @@ function _refreshRecordSuccess(accountId) {
     _refreshFails.delete(accountId);
 }
 
+// ── IP rate-limit cho POST refresh — 5 req/phút theo IP THẬT (chống brute-force
+// proxy login pancake.vn). IP đáng tin: cf-connecting-ip (CF set, không spoof
+// được) → LAST hop của x-forwarded-for (đầu là client-controlled) → socket.
+const REFRESH_IP_MAX = 5;
+const REFRESH_IP_WINDOW_MS = 60 * 1000; // 1 phút
+const _refreshIpHits = new Map(); // ip → { count, firstAt }
+
+function _clientIp(req) {
+    const cf = req.headers['cf-connecting-ip'];
+    if (cf) return String(cf).trim();
+    const xf = req.headers['x-forwarded-for'];
+    if (xf) {
+        const parts = String(xf)
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean);
+        if (parts.length) return parts[parts.length - 1];
+    }
+    return req.ip || req.socket?.remoteAddress || 'unknown';
+}
+
+// true → vượt 5 req/phút (đếm MỌI request refresh, không chỉ fail).
+function _refreshIpLimited(ip) {
+    const now = Date.now();
+    const e = _refreshIpHits.get(ip);
+    if (!e || now - e.firstAt > REFRESH_IP_WINDOW_MS) {
+        _refreshIpHits.set(ip, { count: 1, firstAt: now });
+        return false;
+    }
+    e.count++;
+    return e.count > REFRESH_IP_MAX;
+}
+
 // Cleanup expired buckets (unref → không giữ process sống).
 setInterval(() => {
     const now = Date.now();
     for (const [id, e] of _refreshFails) {
         if (now - e.firstAt > REFRESH_WINDOW_MS) _refreshFails.delete(id);
+    }
+    for (const [ip, e] of _refreshIpHits) {
+        if (now - e.firstAt > REFRESH_IP_WINDOW_MS) _refreshIpHits.delete(ip);
     }
 }, REFRESH_WINDOW_MS).unref?.();
 
@@ -168,7 +204,7 @@ router.get('/status', async (req, res) => {
 // =====================================================
 // PUT /:accountId/credentials — lưu creds mã hoá
 // =====================================================
-router.put('/:accountId/credentials', async (req, res) => {
+router.put('/:accountId/credentials', requireWeb2AuthSoft, async (req, res) => {
     if (!dbPool) return res.status(503).json({ error: 'DB not available' });
     if (!creds.isConfigured())
         return res.status(503).json({ error: 'PANCAKE_CREDS_KEY chưa cấu hình trên server' });
@@ -217,6 +253,11 @@ router.post('/:accountId', requireWeb2AuthSoft, async (req, res) => {
     if (!dbPool) return res.status(503).json({ error: 'DB not available' });
     const accountId = req.params.accountId;
     const body = req.body || {};
+    if (_refreshIpLimited(_clientIp(req))) {
+        return res.status(429).json({
+            error: 'Quá nhiều yêu cầu refresh (tối đa 5/phút). Thử lại sau 1 phút.',
+        });
+    }
     if (_refreshIsBlocked(accountId)) {
         return res.status(429).json({
             error: 'Quá nhiều lần refresh thất bại cho account này. Thử lại sau 15 phút.',

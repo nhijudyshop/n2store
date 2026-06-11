@@ -56,9 +56,27 @@
                 text-align: left;
             }
             td input[type='checkbox'] {
-                width: 18px;
-                height: 18px;
+                width: 15px;
+                height: 15px;
                 cursor: pointer;
+            }
+            td.acts-cell {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 6px 14px;
+            }
+            .act-chk {
+                display: inline-flex;
+                align-items: center;
+                gap: 5px;
+                font-size: 12.5px;
+                cursor: pointer;
+                white-space: nowrap;
+            }
+            .page-slug {
+                font-size: 11px;
+                color: #94a3b8;
+                font-family: monospace;
             }
             .grp-row td {
                 background: linear-gradient(135deg, #ece9f7, #fff);
@@ -73,7 +91,7 @@
             <main class="web2-main perm-main">
                 <h1 style="margin: 0 0 6px">Ma trận phân quyền Web 2.0</h1>
                 <p style="color: #58666e; margin: 0 0 16px; font-size: 13px">
-                    Chọn người dùng → tick quyền view/edit/admin cho từng trang → Save.
+                    Chọn người dùng → tick quyền theo từng action của trang → Save.
                 </p>
                 <div class="perm-tools">
                     <select id="userPick">
@@ -91,10 +109,8 @@
                 <table class="perm-tbl">
                     <thead>
                         <tr>
-                            <th>Trang</th>
-                            <th>View</th>
-                            <th>Edit</th>
-                            <th>Admin</th>
+                            <th style="width: 220px">Trang</th>
+                            <th>Quyền (actions)</th>
                         </tr>
                     </thead>
                     <tbody id="permBody"></tbody>
@@ -120,86 +136,120 @@
                     } catch (_) {}
                     return '';
                 }
-                const PAGE_GROUPS = {
-                    'Bán hàng': [
-                        'native-orders',
-                        'fastsaleorder-invoice',
-                        'reconcile',
-                        'web2-pancake',
-                    ],
-                    'Mua hàng': ['so-order', 'purchase-refund', 'supplier-debt', 'supplier-wallet'],
-                    'Tài chính': ['balance-history', 'customer-wallet'],
-                    'Kho hàng': ['products', 'variants', 'product-category'],
-                    'Báo cáo': ['dashboard', 'audit-log', 'notifications', 'overview'],
-                    'Hệ thống': ['users', 'users-permissions'],
-                };
+                // H7 fix 2026-06-11: registry trang + action lấy từ server
+                // (GET /pages — nguồn chuẩn WEB2_PAGES). Server validate
+                // permissions dạng {slug: [actions]} với action list RIÊNG
+                // từng trang → không hardcode slug/view-edit-admin nữa.
+                const REG = { pages: [], actionLabels: {} };
+                function authHeaders() {
+                    return { 'x-web2-token': authToken() };
+                }
+                async function loadRegistry() {
+                    try {
+                        const r = await fetch(API + '/pages', { credentials: 'include' });
+                        const d = await r.json();
+                        if (d?.success && Array.isArray(d.pages)) {
+                            REG.pages = d.pages;
+                            REG.actionLabels = d.actionLabels || {};
+                        }
+                    } catch {}
+                }
                 async function loadUsers() {
                     try {
-                        const r = await fetch(API + '/list', { credentials: 'include' });
+                        // GET /list gated requireWeb2Auth → gửi kèm x-web2-token.
+                        const r = await fetch(API + '/list', {
+                            credentials: 'include',
+                            headers: authHeaders(),
+                        });
                         const d = await r.json();
                         const sel = document.getElementById('userPick');
-                        if (Array.isArray(d?.items)) {
+                        // Server trả {success, users:[...]} (fallback items cho shape cũ).
+                        const users = Array.isArray(d?.users)
+                            ? d.users
+                            : Array.isArray(d?.items)
+                              ? d.items
+                              : [];
+                        if (users.length) {
                             sel.innerHTML =
                                 '<option value="">Chọn user…</option>' +
-                                d.items
+                                users
                                     .map(
                                         (u) =>
                                             `<option value="${u.id}">${esc(u.username || u.email || u.id)}</option>`
                                     )
                                     .join('');
+                        } else if (r.status === 401 || r.status === 403) {
+                            sel.innerHTML = '<option value="">Cần đăng nhập Web 2.0…</option>';
                         }
                     } catch {}
                 }
+                // perm shape server: { [slug]: [actions] }
                 function renderTable(perm) {
                     const body = document.getElementById('permBody');
                     const html = [];
-                    for (const [grp, pages] of Object.entries(PAGE_GROUPS)) {
-                        html.push(`<tr class="grp-row"><td colspan="4">${esc(grp)}</td></tr>`);
+                    const groups = new Map();
+                    for (const p of REG.pages) {
+                        const g = p.group || 'Khác';
+                        if (!groups.has(g)) groups.set(g, []);
+                        groups.get(g).push(p);
+                    }
+                    for (const [grp, pages] of groups) {
+                        html.push(`<tr class="grp-row"><td colspan="2">${esc(grp)}</td></tr>`);
                         for (const p of pages) {
-                            const pp = perm[p] || {};
-                            html.push(`<tr data-page="${esc(p)}">
-                            <td class="page-cell">${esc(p)}</td>
-                            <td style="text-align:center"><input type="checkbox" data-r="view" ${pp.view ? 'checked' : ''}/></td>
-                            <td style="text-align:center"><input type="checkbox" data-r="edit" ${pp.edit ? 'checked' : ''}/></td>
-                            <td style="text-align:center"><input type="checkbox" data-r="admin" ${pp.admin ? 'checked' : ''}/></td>
+                            const granted = new Set(
+                                Array.isArray(perm[p.slug]) ? perm[p.slug] : []
+                            );
+                            const checks = (p.actions || [])
+                                .map(
+                                    (a) =>
+                                        `<label class="act-chk"><input type="checkbox" data-a="${esc(a)}" ${granted.has(a) ? 'checked' : ''}/>${esc(REG.actionLabels[a] || a)}</label>`
+                                )
+                                .join('');
+                            html.push(`<tr data-page="${esc(p.slug)}">
+                            <td class="page-cell">${esc(p.label || p.slug)}<div class="page-slug">${esc(p.slug)}</div></td>
+                            <td class="acts-cell">${checks}</td>
                         </tr>`);
                         }
                     }
-                    body.innerHTML = html.join('');
+                    body.innerHTML = html.length
+                        ? html.join('')
+                        : '<tr><td colspan="2" style="text-align:center;color:#94a3b8;padding:20px">Không tải được danh sách trang</td></tr>';
                 }
                 async function loadPerm(uid) {
                     try {
-                        const r = await fetch(API + '/' + uid, { credentials: 'include' });
+                        // GET /:id gated requireWeb2Auth, trả {success, user:{permissions}}.
+                        const r = await fetch(API + '/' + uid, {
+                            credentials: 'include',
+                            headers: authHeaders(),
+                        });
                         const d = await r.json();
-                        renderTable(d?.permissions || {});
+                        renderTable(d?.user?.permissions || {});
                     } catch {
                         renderTable({});
                     }
                 }
                 function collectPerm() {
+                    // Build {slug: [actions]} — đúng shape server validate.
                     const out = {};
                     document.querySelectorAll('#permBody tr[data-page]').forEach((tr) => {
-                        const p = tr.dataset.page;
-                        out[p] = {};
+                        const acts = [];
                         tr.querySelectorAll('input[type=checkbox]').forEach((cb) => {
-                            out[p][cb.dataset.r] = cb.checked;
+                            if (cb.checked) acts.push(cb.dataset.a);
                         });
+                        out[tr.dataset.page] = acts;
                     });
                     return out;
                 }
-                function applyRole(role) {
-                    const sets = {
-                        admin: { view: true, edit: true, admin: true },
-                        manager: { view: true, edit: true, admin: false },
-                        staff: { view: true, edit: false, admin: false },
-                    };
-                    const cfg = sets[role];
-                    if (!cfg) return;
-                    document.querySelectorAll('#permBody tr[data-page]').forEach((tr) => {
-                        tr.querySelectorAll('input[type=checkbox]').forEach((cb) => {
-                            cb.checked = cfg[cb.dataset.r];
+                async function applyRole(role) {
+                    // Role template lấy từ server (GET /role-defaults/:role) —
+                    // đồng bộ với ROLE_DEFAULTS thay vì đoán view/edit/admin.
+                    try {
+                        const r = await fetch(API + '/role-defaults/' + encodeURIComponent(role), {
+                            credentials: 'include',
                         });
-                    });
+                        const d = await r.json();
+                        if (d?.success && d.permissions) renderTable(d.permissions);
+                    } catch {}
                 }
                 function esc(s) {
                     const d = document.createElement('div');
@@ -252,10 +302,12 @@
                         btn.textContent = origText;
                     }
                 };
-                document.addEventListener('DOMContentLoaded', () => {
+                document.addEventListener('DOMContentLoaded', async () => {
                     if (window.Web2Sidebar)
                         Web2Sidebar.mount('#web2Aside', { activeRoute: 'users-permissions' });
                     loadUsers();
+                    // Matrix render cần registry trang từ server trước.
+                    await loadRegistry();
                     renderTable({});
                 });
             })();

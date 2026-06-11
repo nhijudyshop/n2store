@@ -1183,22 +1183,39 @@
                 }),
             });
 
-            // Step 3 + 4: cập nhật Ví NCC (supplier wallet) — note có user
-            await updateSupplierWallet(item.supplier, {
-                amount,
-                refundCode,
-                qty,
-                productName: item.name,
-                variant: item.variant,
-                method,
-                userId: userInfo.userId,
-                userName: userInfo.userName,
-            });
+            // Step 3 + 4: cập nhật Ví NCC (supplier wallet) — note có user.
+            // C6 fix 2026-06-11: tách try/catch riêng — phiếu + trừ kho đã xong
+            // ở step 1-2, lỗi ví KHÔNG được nuốt mất thông báo thành công của
+            // phiếu (trước đây rơi vào catch ngoài → toast "Trả NCC thất bại"
+            // dù phiếu đã tạo + approve OK).
+            let walletError = null;
+            try {
+                await updateSupplierWallet(item.supplier, {
+                    amount,
+                    refundCode,
+                    qty,
+                    productName: item.name,
+                    variant: item.variant,
+                    method,
+                    userId: userInfo.userId,
+                    userName: userInfo.userName,
+                });
+            } catch (we) {
+                walletError = we;
+                console.error('[quick refund] wallet update fail:', we);
+            }
 
-            notify(
-                `✓ Đã trả ${qty} ${item.name} cho ${item.supplier} — giảm ví NCC ${fmtMoney(amount)}`,
-                'success'
-            );
+            if (walletError) {
+                notify(
+                    `Phiếu ${refundCode} OK (đã trừ kho) nhưng ghi ví NCC lỗi: ${walletError.message}`,
+                    'warning'
+                );
+            } else {
+                notify(
+                    `✓ Đã trả ${qty} ${item.name} cho ${item.supplier} — giảm ví NCC ${fmtMoney(amount)}`,
+                    'success'
+                );
+            }
             closeQuickRefund();
             // Reload section A (stock đã giảm) + section B (phiếu mới)
             await loadSourceItems();

@@ -856,8 +856,9 @@ router.delete('/:code', async (req, res) => {
                 }
                 const row = cur.rows[0];
                 if (row.status !== 'active') {
+                    // Idempotent: đã huỷ rồi → 409, KHÔNG đụng kho/ví lần 2.
                     const err = new Error('Phiếu đã huỷ');
-                    err.httpStatus = 400;
+                    err.httpStatus = 409;
                     throw err;
                 }
                 const items = Array.isArray(row.items) ? row.items : [];

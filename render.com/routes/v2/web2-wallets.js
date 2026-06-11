@@ -22,6 +22,26 @@ function handleError(res, err, msg = 'Internal error') {
     res.status(500).json({ success: false, error: msg, details: err.message });
 }
 
+// ── Idempotency (money op manual) ────────────────────────────────────
+// Client gửi header `x-idempotency-key` → dùng làm reference_id của tx; trước
+// khi chạy, dup-check web2_wallet_transactions (reference_id = key + cùng type)
+// → đã có tx → trả lại tx cũ (alreadyProcessed), KHÔNG cộng/trừ lần 2.
+// Không gửi header → behavior cũ (không dedupe).
+function _idemKey(req) {
+    const k = String(req.headers['x-idempotency-key'] || '').trim();
+    return k ? k.slice(0, 120) : null;
+}
+
+async function _findIdempotentTx(db, key, type) {
+    const r = await db.query(
+        `SELECT * FROM web2_wallet_transactions
+         WHERE reference_id = $1 AND type = $2
+         ORDER BY id DESC LIMIT 1`,
+        [key, type]
+    );
+    return r.rows[0] || null;
+}
+
 // =====================================================
 // GET /api/web2/wallets — list wallets
 // =====================================================
@@ -82,12 +102,24 @@ router.post('/:phone/withdraw', requireWeb2AuthSoft, async (req, res) => {
         if (!amount || Number(amount) <= 0) {
             return res.status(400).json({ success: false, error: 'amount > 0 required' });
         }
+        const idemKey = _idemKey(req);
+        if (idemKey) {
+            const dup = await _findIdempotentTx(db, idemKey, 'WITHDRAW');
+            if (dup) {
+                return res.json({
+                    success: true,
+                    alreadyProcessed: true,
+                    data: { transaction: dup },
+                });
+            }
+        }
         const result = await web2WalletService.processWithdraw(
             db,
             req.params.phone,
             Number(amount),
-            referenceType,
-            referenceId,
+            // idemKey → reference_type 'manual', reference_id = key (dedupe contract)
+            idemKey ? 'manual' : referenceType,
+            idemKey || referenceId,
             note,
             // performed_by — audit: ƯU TIÊN user từ token (req.web2User), fallback body
             (req.web2User && (req.web2User.display_name || req.web2User.username)) ||
@@ -116,11 +148,25 @@ router.post('/:phone/deposit', requireWeb2AuthSoft, async (req, res) => {
         if (!amount || Number(amount) <= 0) {
             return res.status(400).json({ success: false, error: 'amount > 0 required' });
         }
+        const idemKey = _idemKey(req);
+        if (idemKey) {
+            const dup = await _findIdempotentTx(db, idemKey, 'DEPOSIT');
+            if (dup) {
+                return res.json({
+                    success: true,
+                    alreadyProcessed: true,
+                    data: { transaction: dup },
+                });
+            }
+        }
         const result = await web2WalletService.processDeposit(
             db,
             req.params.phone,
             Number(amount),
-            null,
+            // idemKey → sourceId = key → service lưu reference_id = key (dedupe).
+            // Service set reference_type='balance_history' khi có sourceId — dup-check
+            // ở trên match theo reference_id + type nên vẫn idempotent.
+            idemKey || null,
             note || 'Manual deposit',
             customerId || null,
             null,

@@ -310,7 +310,7 @@
                                 ${rows
                                     .map(
                                         (r) => `<tr>
-                                    <td><strong>${escapeHtml(r.carrierName)}</strong></td>
+                                    <td><strong>${escapeHtml(r.groupName ?? r.carrierName)}</strong></td>
                                     <td class="num">${fmt(r.orderCount)}</td>
                                     <td class="num">${fmt(r.amountTotal)}đ</td>
                                     <td class="num">${fmt(r.codTotal)}đ</td>
