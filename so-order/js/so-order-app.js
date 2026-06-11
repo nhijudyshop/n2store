@@ -1874,23 +1874,85 @@
         if (window.lucide?.createIcons) window.lucide.createIcons();
         try {
             // 1. Upsert pending để có code DB (tạo SP nếu chưa có).
-            const upsertPayload = itemsToProcess.map((it) => ({
-                name: it.name,
-                variant: it.variant,
-                qty: it.qty,
-                costPrice: it.costPriceVnd,
-                sellPrice: it.sellPriceVnd,
-                supplier: it.supplier,
-                imageUrl: it.imageUrl,
-                note: it.note,
-            }));
-            // Mã SP theo rule cho SP mới (giống Lưu Nháp) — tránh KHO-rnd.
-            _assignKhoCodes(upsertPayload);
-            const upsertRes = await window.Web2ProductsApi.upsertPending(upsertPayload);
-            const upsertItems = (upsertRes && upsertRes.items) || [];
+            // FIX H15 (2026-06-11): KHÔNG upsert mù qty đặt gốc — server cộng
+            // pending VÔ ĐIỀU KIỆN, mà pending có thể ĐÃ được đẩy trước đó qua
+            // Lưu Nháp (syncRowsToKho) hoặc đợt nhận trước → cộng LẶP = pending
+            // ảo trong Kho SP. Đọc pending TƯƠI từ Kho ngay trước upsert:
+            //   - SP đã có trong Kho → chỉ upsert phần CÒN THIẾU để
+            //     confirm-partial trừ được: max(0, qtyNhận − pending hiện tại).
+            //     Pending đã đủ → skip upsert, đi thẳng confirm-partial.
+            //   - SP chưa có → upsert qty đặt gốc (tạo CHO_MUA, phần chưa nhận
+            //     tiếp tục chờ — giữ behavior cũ).
+            let freshState = new Map();
+            try {
+                if (window.Web2ProductsCache?.refresh) await window.Web2ProductsCache.refresh();
+                freshState = await _lookupProductStateForRows(
+                    itemsToProcess.map((it) => ({
+                        id: it.key,
+                        productName: it.name,
+                        variant: it.variant,
+                    }))
+                );
+            } catch (lkErr) {
+                // Lookup fail → fallback behavior cũ (upsert qty gốc) bên dưới.
+                console.warn('[so-order] fresh pending lookup fail:', lkErr?.message);
+            }
+            const upsertPayload = [];
+            const upsertOwners = []; // song song payload — item chủ của từng dòng gửi đi
+            for (const it of itemsToProcess) {
+                const ps = freshState.get(it.key);
+                if (ps?.code) it.code = ps.code; // code tươi (seed codeByKey bên dưới)
+                const upsertQty = ps
+                    ? Math.max(0, (receivedMap.get(it.key) || 0) - (Number(ps.pendingQty) || 0))
+                    : it.qty;
+                if (upsertQty <= 0) continue; // pending trong Kho đã đủ → không upsert
+                upsertPayload.push({
+                    name: it.name,
+                    variant: it.variant,
+                    qty: upsertQty,
+                    costPrice: it.costPriceVnd,
+                    sellPrice: it.sellPriceVnd,
+                    supplier: it.supplier,
+                    imageUrl: it.imageUrl,
+                    note: it.note,
+                });
+                upsertOwners.push(it);
+            }
+            let upsertItems = [];
+            if (upsertPayload.length) {
+                // Mã SP theo rule cho SP mới (giống Lưu Nháp) — tránh KHO-rnd.
+                _assignKhoCodes(upsertPayload);
+                const upsertRes = await window.Web2ProductsApi.upsertPending(upsertPayload);
+                upsertItems = (upsertRes && upsertRes.items) || [];
+            }
+            // FIX 1D (2026-06-11): ghép kết quả upsert theo VỊ TRÍ payload —
+            // server trả result 1:1 đúng thứ tự payload (chỉ skip khi
+            // !name||qty<=0, mà payload client đã loại các case đó) nên
+            // upsertItems[i] ↔ upsertOwners[i] kể cả khi có row action='error'
+            // chen giữa (row error GIỮ vị trí nhưng KHÔNG được map — vd Code
+            // collision: code đó thuộc SP KHÁC). Lệch độ dài (server đổi
+            // behavior) → fallback match name, an toàn hơn map mù theo index.
             const codeByKey = new Map();
-            for (let i = 0; i < upsertItems.length && i < itemsToProcess.length; i++) {
-                if (upsertItems[i].code) codeByKey.set(itemsToProcess[i].key, upsertItems[i].code);
+            for (const it of itemsToProcess) {
+                if (it.code) codeByKey.set(it.key, it.code);
+            }
+            if (upsertItems.length === upsertOwners.length) {
+                upsertItems.forEach((ui, i) => {
+                    if (!ui.code || ui.action === 'error') return;
+                    codeByKey.set(upsertOwners[i].key, ui.code);
+                });
+            } else {
+                const normName = (s) =>
+                    String(s || '')
+                        .trim()
+                        .toLowerCase();
+                for (const ui of upsertItems) {
+                    if (!ui.code || ui.action === 'error') continue;
+                    const owner = upsertOwners.find(
+                        (it) => !codeByKey.has(it.key) && normName(it.name) === normName(ui.name)
+                    );
+                    if (owner) codeByKey.set(owner.key, ui.code);
+                }
             }
             // 2. Confirm-purchase-partial với qtyReceived per code.
             const partialItems = itemsToProcess

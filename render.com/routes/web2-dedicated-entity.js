@@ -12,6 +12,7 @@
 // =====================================================================
 
 const express = require('express');
+const { requireWeb2Admin } = require('../middleware/web2-auth');
 
 let _notifyClients = null;
 function initializeNotifiers(notifyClients) {
@@ -258,7 +259,9 @@ function makeDedicatedEntityRouter(tableName, entitySlug) {
     });
 
     // POST /delete-all  { confirm:true }
-    router.post('/delete-all', async (req, res) => {
+    // S1: admin/maintenance-only → gate requireWeb2Admin (token web2_user_sessions,
+    // role='admin') — đồng bộ với /:entity/delete-all của web2-generic.js.
+    router.post('/delete-all', requireWeb2Admin, async (req, res) => {
         const pool = getPool(req);
         if (!pool) return res.status(500).json({ error: 'DB unavailable' });
         if (!req.body || req.body.confirm !== true) {
