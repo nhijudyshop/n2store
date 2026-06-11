@@ -297,6 +297,34 @@ router.post('/sse/test', requireWeb2Admin, (req, res) => {
     res.json({ success: true, server: 'web2', key, clientsNotified: count });
 });
 
+// =====================================================
+// SERVER-TO-SERVER RELAY NOTIFY — live-chat WS relay đẩy event inbox vào đây.
+// GATED bằng x-relay-secret === CLEANUP_SECRET (KHÔNG dùng requireWeb2Admin vì
+// đây là gọi server↔server, không có session admin).
+// Body: { key, data }
+// =====================================================
+router.post('/sse/relay-notify', (req, res) => {
+    const secret = process.env.CLEANUP_SECRET || '';
+    const provided = req.headers['x-relay-secret'] || '';
+    if (secret) {
+        if (provided !== secret) {
+            return res.status(401).json({ success: false, error: 'unauthorized' });
+        }
+    } else {
+        console.warn('[SSE-WEB2] /sse/relay-notify: CLEANUP_SECRET không set — cho qua (dev only)');
+    }
+    const { key, data } = req.body || {};
+    if (!key) return res.status(400).json({ success: false, error: 'Missing key parameter' });
+    let clients = 0;
+    try {
+        clients = notifyClients(key, data || { ts: Date.now() }, 'update');
+    } catch (e) {
+        console.error('[SSE-WEB2] relay-notify error:', e.message);
+        return res.status(500).json({ success: false, error: e.message });
+    }
+    res.json({ success: true, server: 'web2', key, clients });
+});
+
 /**
  * GET /api/realtime/web2/sse/log?since=<seq>&limit=<n>
  * Returns recent admin log entries (connect/notify/disconnect events).

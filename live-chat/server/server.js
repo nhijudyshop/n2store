@@ -21,19 +21,42 @@ if (missingEnv.length) {
 // Global safety net — prevent process exit on unhandled rejection / exception.
 const { sendAlert } = require('./utils/alert');
 process.on('unhandledRejection', (reason, promise) => {
-    const stack = reason && reason.stack || String(reason);
+    const stack = (reason && reason.stack) || String(reason);
     console.error('[PROCESS] Unhandled Rejection:', stack);
     sendAlert('unhandledRejection', String(reason).slice(0, 200), stack);
 });
 process.on('uncaughtException', (err) => {
-    const stack = err && err.stack || String(err);
+    const stack = (err && err.stack) || String(err);
     console.error('[PROCESS] Uncaught Exception:', stack);
-    sendAlert('uncaughtException', err && err.message || String(err), stack);
+    sendAlert('uncaughtException', (err && err.message) || String(err), stack);
 });
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const MAX_EVENTS = parseInt(process.env.MAX_EVENTS || '1000');
+
+// =====================================================
+// REALTIME FORWARD → n2store-fallback (SSE pub/sub Web 2.0)
+// Relay nhận event Pancake WS → forward sang fallback để:
+//   • livestream comment → /api/web2-live-comments/ingest (ghi DB + SSE web2:live-comments)
+//   • inbox conversation/message → /api/realtime/web2/sse/relay-notify (SSE web2:messages)
+// Fire-and-forget; lỗi forward KHÔNG được làm vỡ relay WS.
+// =====================================================
+const FALLBACK_BASE = process.env.FALLBACK_BASE || 'https://n2store-fallback.onrender.com';
+const RELAY_SECRET = process.env.RELAY_SECRET || process.env.CLEANUP_SECRET || '';
+
+function forwardToFallback(path, body) {
+    // Node 18+ có global fetch (file đã dùng fetch cho discoverPageIds).
+    try {
+        fetch(FALLBACK_BASE + path, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-relay-secret': RELAY_SECRET },
+            body: JSON.stringify(body),
+        }).catch((e) => console.warn('[FORWARD] fail:', e.message));
+    } catch (e) {
+        console.warn('[FORWARD] fail:', e.message);
+    }
+}
 
 // =====================================================
 // DATABASE (shared with render.com server)
@@ -49,7 +72,7 @@ if (process.env.DATABASE_URL) {
         idleTimeoutMillis: 30000,
         connectionTimeoutMillis: 10000,
         statement_timeout: 30000,
-        idle_in_transaction_session_timeout: 60000
+        idle_in_transaction_session_timeout: 60000,
     });
 
     // Without this listener, pg.Pool 'error' on idle clients crashes Node.
@@ -59,7 +82,7 @@ if (process.env.DATABASE_URL) {
 
     db.query('SELECT NOW()')
         .then(() => console.log('[DB] PostgreSQL connected'))
-        .catch(err => console.error('[DB] PostgreSQL error:', err.message));
+        .catch((err) => console.error('[DB] PostgreSQL error:', err.message));
 }
 
 // =====================================================
@@ -81,7 +104,7 @@ function initFirebase() {
     try {
         const admin = require('firebase-admin');
         admin.initializeApp({
-            credential: admin.credential.cert({ projectId, clientEmail, privateKey })
+            credential: admin.credential.cert({ projectId, clientEmail, privateKey }),
         });
         firestore = admin.firestore();
         console.log('[FIREBASE] Initialized');
@@ -110,7 +133,9 @@ async function loadTokensFromFirebase() {
             .filter(([, info]) => {
                 // Skip expired tokens
                 if (info.exp && info.exp < Date.now() / 1000) {
-                    console.log(`[FIREBASE] Skipping expired token: ${info.name} (exp: ${new Date(info.exp * 1000).toISOString()})`);
+                    console.log(
+                        `[FIREBASE] Skipping expired token: ${info.name} (exp: ${new Date(info.exp * 1000).toISOString()})`
+                    );
                     return false;
                 }
                 return true;
@@ -119,10 +144,12 @@ async function loadTokensFromFirebase() {
                 userId: info.uid || uid,
                 token: info.token,
                 name: info.name || 'unknown',
-                cookie: info.cookie || `jwt=${info.token}`
+                cookie: info.cookie || `jwt=${info.token}`,
             }));
 
-        console.log(`[FIREBASE] Loaded ${accounts.length} accounts: ${accounts.map(a => a.name).join(', ')}`);
+        console.log(
+            `[FIREBASE] Loaded ${accounts.length} accounts: ${accounts.map((a) => a.name).join(', ')}`
+        );
         return accounts;
     } catch (err) {
         console.error('[FIREBASE] Load error:', err.message);
@@ -136,22 +163,26 @@ async function loadTokensFromFirebase() {
 
 async function discoverPageIds(token) {
     try {
-        const res = await fetch(`https://pancake.vn/api/v1/pages?access_token=${encodeURIComponent(token)}`, {
-            headers: {
-                'Accept': 'application/json, text/plain, */*',
-                'Accept-Language': 'en-US,en;q=0.9,vi;q=0.8',
-                'Origin': 'https://pancake.vn',
-                'Referer': 'https://pancake.vn/multi_pages',
-                'Cookie': `jwt=${token}; locale=vi`,
-                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36',
-                'sec-ch-ua': '"Google Chrome";v="143", "Chromium";v="143"',
-                'sec-ch-ua-mobile': '?0',
-                'sec-ch-ua-platform': '"macOS"',
-                'sec-fetch-dest': 'empty',
-                'sec-fetch-mode': 'cors',
-                'sec-fetch-site': 'same-origin'
+        const res = await fetch(
+            `https://pancake.vn/api/v1/pages?access_token=${encodeURIComponent(token)}`,
+            {
+                headers: {
+                    Accept: 'application/json, text/plain, */*',
+                    'Accept-Language': 'en-US,en;q=0.9,vi;q=0.8',
+                    Origin: 'https://pancake.vn',
+                    Referer: 'https://pancake.vn/multi_pages',
+                    Cookie: `jwt=${token}; locale=vi`,
+                    'User-Agent':
+                        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36',
+                    'sec-ch-ua': '"Google Chrome";v="143", "Chromium";v="143"',
+                    'sec-ch-ua-mobile': '?0',
+                    'sec-ch-ua-platform': '"macOS"',
+                    'sec-fetch-dest': 'empty',
+                    'sec-fetch-mode': 'cors',
+                    'sec-fetch-site': 'same-origin',
+                },
             }
-        });
+        );
 
         if (!res.ok) {
             console.error(`[PANCAKE-API] Failed to fetch pages: ${res.status} ${res.statusText}`);
@@ -161,7 +192,10 @@ async function discoverPageIds(token) {
         const data = await res.json();
 
         if (!data.success || !data.categorized) {
-            console.error('[PANCAKE-API] Unexpected response:', JSON.stringify(data).substring(0, 200));
+            console.error(
+                '[PANCAKE-API] Unexpected response:',
+                JSON.stringify(data).substring(0, 200)
+            );
             return { pageIds: [], pages: [] };
         }
 
@@ -169,10 +203,12 @@ async function discoverPageIds(token) {
         const allPageIds = data.categorized.activated_page_ids || [];
 
         // Filter out Instagram pages (igo_) to avoid subscription errors
-        const pageIds = allPageIds.filter(id => !id.startsWith('igo_'));
-        const pages = allPages.filter(p => !String(p.id).startsWith('igo_'));
+        const pageIds = allPageIds.filter((id) => !id.startsWith('igo_'));
+        const pages = allPages.filter((p) => !String(p.id).startsWith('igo_'));
 
-        console.log(`[PANCAKE-API] Discovered ${pageIds.length} pages: ${pages.map(p => p.name || p.id).join(', ')}`);
+        console.log(
+            `[PANCAKE-API] Discovered ${pageIds.length} pages: ${pages.map((p) => p.name || p.id).join(', ')}`
+        );
         return { pageIds, pages };
     } catch (err) {
         console.error('[PANCAKE-API] Discover pages error:', err.message);
@@ -193,7 +229,7 @@ function storeEvent(type, payload, accountName) {
         type,
         account: accountName,
         timestamp: new Date().toISOString(),
-        payload
+        payload,
     };
 
     eventStore.push(event);
@@ -231,9 +267,13 @@ class PancakeWebSocketClient {
         this.joinErrors = [];
     }
 
-    tag() { return `[WS:${this.name}]`; }
+    tag() {
+        return `[WS:${this.name}]`;
+    }
 
-    makeRef() { return String(this.refCounter++); }
+    makeRef() {
+        return String(this.refCounter++);
+    }
 
     generateClientSession() {
         const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -247,7 +287,7 @@ class PancakeWebSocketClient {
     start(token, userId, pageIds, cookie = null) {
         this.token = token;
         this.userId = userId;
-        this.pageIds = pageIds.map(id => String(id));
+        this.pageIds = pageIds.map((id) => String(id));
         this.cookie = cookie;
         this.reconnectAttempts = 0;
         // Never give up — if we stop reconnecting, the service silently dies
@@ -274,14 +314,16 @@ class PancakeWebSocketClient {
     connect() {
         if (this.isConnected || !this.token) return;
 
-        console.log(`${this.tag()} Connecting... (attempt ${this.reconnectAttempts + 1}/${this.maxReconnectAttempts})`);
+        console.log(
+            `${this.tag()} Connecting... (attempt ${this.reconnectAttempts + 1}/${this.maxReconnectAttempts})`
+        );
 
         const headers = {
-            'Origin': 'https://pancake.vn',
+            Origin: 'https://pancake.vn',
             'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
             'Accept-Language': 'en-US,en;q=0.9,vi;q=0.8',
             'Cache-Control': 'no-cache',
-            'Pragma': 'no-cache'
+            Pragma: 'no-cache',
         };
 
         if (this.cookie) {
@@ -311,7 +353,9 @@ class PancakeWebSocketClient {
                 const cappedAttempts = Math.min(this.reconnectAttempts, 5);
                 const delay = Math.min(2000 * Math.pow(2, cappedAttempts), 60000);
                 this.reconnectAttempts++;
-                console.log(`${this.tag()} Reconnecting in ${delay / 1000}s... (attempt ${this.reconnectAttempts})`);
+                console.log(
+                    `${this.tag()} Reconnecting in ${delay / 1000}s... (attempt ${this.reconnectAttempts})`
+                );
                 clearTimeout(this.reconnectTimer);
                 this.reconnectTimer = setTimeout(() => this.connect(), delay);
             } else {
@@ -352,31 +396,49 @@ class PancakeWebSocketClient {
         if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
 
         const userRef = this.makeRef();
-        this.ws.send(JSON.stringify([
-            userRef, userRef, `users:${this.userId}`, 'phx_join',
-            { accessToken: this.token, userId: this.userId, platform: 'web' }
-        ]));
+        this.ws.send(
+            JSON.stringify([
+                userRef,
+                userRef,
+                `users:${this.userId}`,
+                'phx_join',
+                { accessToken: this.token, userId: this.userId, platform: 'web' },
+            ])
+        );
         console.log(`${this.tag()} Joining users:${this.userId}`);
 
         const pagesRef = this.makeRef();
-        this.ws.send(JSON.stringify([
-            pagesRef, pagesRef, `multiple_pages:${this.userId}`, 'phx_join',
-            {
-                accessToken: this.token,
-                userId: this.userId,
-                clientSession: this.generateClientSession(),
-                pageIds: this.pageIds,
-                platform: 'web'
-            }
-        ]));
-        console.log(`${this.tag()} Joining multiple_pages with ${this.pageIds.length} pages: [${this.pageIds.join(', ')}]`);
+        this.ws.send(
+            JSON.stringify([
+                pagesRef,
+                pagesRef,
+                `multiple_pages:${this.userId}`,
+                'phx_join',
+                {
+                    accessToken: this.token,
+                    userId: this.userId,
+                    clientSession: this.generateClientSession(),
+                    pageIds: this.pageIds,
+                    platform: 'web',
+                },
+            ])
+        );
+        console.log(
+            `${this.tag()} Joining multiple_pages with ${this.pageIds.length} pages: [${this.pageIds.join(', ')}]`
+        );
 
         setTimeout(() => {
             if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
             const statusRef = this.makeRef();
-            this.ws.send(JSON.stringify([
-                pagesRef, statusRef, `multiple_pages:${this.userId}`, 'get_online_status', {}
-            ]));
+            this.ws.send(
+                JSON.stringify([
+                    pagesRef,
+                    statusRef,
+                    `multiple_pages:${this.userId}`,
+                    'get_online_status',
+                    {},
+                ])
+            );
         }, 1000);
     }
 
@@ -393,7 +455,11 @@ class PancakeWebSocketClient {
             } else if (payload.status === 'error') {
                 const errMsg = JSON.stringify(payload.response || {}).substring(0, 200);
                 console.error(`${this.tag()} Join ERROR: topic=${topic} ${errMsg}`);
-                this.joinErrors.push({ topic, error: payload.response, time: new Date().toISOString() });
+                this.joinErrors.push({
+                    topic,
+                    error: payload.response,
+                    time: new Date().toISOString(),
+                });
             }
             return;
         }
@@ -418,6 +484,22 @@ class PancakeWebSocketClient {
                 console.log(`  Customer: ${conv.customers[0].name} (${conv.customers[0].fb_id})`);
             }
             console.log(`${this.tag()} ========================================`);
+
+            // Forward → fallback (realtime push tới browser).
+            if (conv.type === 'COMMENT' && conv.post?.type === 'livestream') {
+                forwardToFallback('/api/web2-live-comments/ingest', { conversations: [conv] });
+                console.log(`[REALTIME] livestream comment → ingest post=${conv.post_id}`);
+            } else {
+                forwardToFallback('/api/realtime/web2/sse/relay-notify', {
+                    key: 'web2:messages',
+                    data: {
+                        action: 'update_conversation',
+                        pageId: conv.page_id,
+                        convId: conv.id,
+                        ts: Date.now(),
+                    },
+                });
+            }
             return;
         }
 
@@ -425,7 +507,13 @@ class PancakeWebSocketClient {
             this.eventsReceived++;
             const message = payload.message || payload;
             const stored = storeEvent('new_message', payload, this.name);
-            console.log(`${this.tag()} #${stored.id} NEW_MESSAGE | from=${message.from?.name || 'unknown'} | "${(message.message || '').substring(0, 80)}"`);
+            console.log(
+                `${this.tag()} #${stored.id} NEW_MESSAGE | from=${message.from?.name || 'unknown'} | "${(message.message || '').substring(0, 80)}"`
+            );
+            forwardToFallback('/api/realtime/web2/sse/relay-notify', {
+                key: 'web2:messages',
+                data: { action: 'new_message', ts: Date.now() },
+            });
             return;
         }
 
@@ -436,11 +524,14 @@ class PancakeWebSocketClient {
             return;
         }
 
-        if (event === 'online_status' || event === 'presence_state' || event === 'presence_diff') return;
+        if (event === 'online_status' || event === 'presence_state' || event === 'presence_diff')
+            return;
 
         this.eventsReceived++;
         storeEvent(event, payload, this.name);
-        console.log(`${this.tag()} EVENT: ${event} | keys: ${Object.keys(payload || {}).join(', ')}`);
+        console.log(
+            `${this.tag()} EVENT: ${event} | keys: ${Object.keys(payload || {}).join(', ')}`
+        );
     }
 
     getStatus() {
@@ -448,14 +539,16 @@ class PancakeWebSocketClient {
             name: this.name,
             connected: this.isConnected,
             connectedAt: this.connectedAt,
-            uptime: this.connectedAt ? Math.round((Date.now() - new Date(this.connectedAt).getTime()) / 1000) : 0,
+            uptime: this.connectedAt
+                ? Math.round((Date.now() - new Date(this.connectedAt).getTime()) / 1000)
+                : 0,
             userId: this.userId,
             pageIds: this.pageIds,
             pageCount: this.pageIds.length,
             eventsReceived: this.eventsReceived,
             reconnectAttempts: this.reconnectAttempts,
             wsState: this.ws ? this.ws.readyState : null,
-            joinErrors: this.joinErrors
+            joinErrors: this.joinErrors,
         };
     }
 }
@@ -484,7 +577,8 @@ async function startClient(token, userId, name, cookie) {
     // Save to DB for future use
     if (db) {
         try {
-            await db.query(`
+            await db.query(
+                `
                 INSERT INTO realtime_credentials (client_type, token, user_id, page_ids, cookie, is_active, updated_at)
                 VALUES ($1, $2, $3, $4, $5, TRUE, NOW())
                 ON CONFLICT (client_type, user_id) DO UPDATE SET
@@ -493,7 +587,9 @@ async function startClient(token, userId, name, cookie) {
                     cookie = EXCLUDED.cookie,
                     is_active = TRUE,
                     updated_at = NOW()
-            `, [`pancake_${name}`, token, userId, JSON.stringify(pageIds), cookie]);
+            `,
+                [`pancake_${name}`, token, userId, JSON.stringify(pageIds), cookie]
+            );
             console.log(`[MANAGER] Saved credentials for ${name} to DB`);
         } catch (e) {
             // Ignore if table structure doesn't support composite key
@@ -522,7 +618,7 @@ async function autoConnect() {
         for (const account of firebaseAccounts) {
             // Stagger connections to avoid rate limiting
             await startClient(account.token, account.userId, account.name, account.cookie);
-            await new Promise(r => setTimeout(r, 2000));
+            await new Promise((r) => setTimeout(r, 2000));
         }
         console.log(`[STARTUP] Started ${clients.size} clients from Firebase`);
         return;
@@ -530,7 +626,9 @@ async function autoConnect() {
 
     // 2. Fallback to PostgreSQL
     if (!db) {
-        console.log('[STARTUP] No Firebase or DB configured. Use POST /api/start to connect manually.');
+        console.log(
+            '[STARTUP] No Firebase or DB configured. Use POST /api/start to connect manually.'
+        );
         return;
     }
 
@@ -540,13 +638,14 @@ async function autoConnect() {
         );
 
         for (const row of result.rows) {
-            const pageIds = typeof row.page_ids === 'string' ? JSON.parse(row.page_ids) : row.page_ids;
+            const pageIds =
+                typeof row.page_ids === 'string' ? JSON.parse(row.page_ids) : row.page_ids;
             if (!row.token || !row.user_id || !pageIds?.length) continue;
 
             const client = new PancakeWebSocketClient(row.user_id.substring(0, 8));
             client.start(row.token, row.user_id, pageIds, row.cookie);
             clients.set(row.user_id, client);
-            await new Promise(r => setTimeout(r, 2000));
+            await new Promise((r) => setTimeout(r, 2000));
         }
         console.log(`[STARTUP] Started ${clients.size} clients from DB`);
     } catch (err) {
@@ -579,7 +678,7 @@ app.use((req, res, next) => {
 // =====================================================
 
 app.get('/', (req, res) => {
-    const connectedCount = [...clients.values()].filter(c => c.isConnected).length;
+    const connectedCount = [...clients.values()].filter((c) => c.isConnected).length;
     res.json({
         service: 'N2Store Pancake WebSocket Client',
         version: '3.0.0',
@@ -593,13 +692,13 @@ app.get('/', (req, res) => {
             'POST /api/start': 'Start client { token, userId, name, cookie }',
             'POST /api/reconnect': 'Reconnect all clients',
             'POST /api/stop': 'Stop all clients',
-            'POST /api/reload': 'Reload tokens from Firebase'
-        }
+            'POST /api/reload': 'Reload tokens from Firebase',
+        },
     });
 });
 
 app.get('/ping', (req, res) => {
-    const connectedCount = [...clients.values()].filter(c => c.isConnected).length;
+    const connectedCount = [...clients.values()].filter((c) => c.isConnected).length;
     const totalEvents = [...clients.values()].reduce((sum, c) => sum + c.eventsReceived, 0);
     res.json({
         success: true,
@@ -608,20 +707,21 @@ app.get('/ping', (req, res) => {
         uptime: process.uptime(),
         eventsReceived: totalEvents,
         eventStoreSize: eventStore.length,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
     });
 });
 
 // Detailed health — pool stats, memory, per-client state
 app.get('/health/detailed', (req, res) => {
     const mem = process.memoryUsage();
-    const connectedCount = [...clients.values()].filter(c => c.isConnected).length;
-    const perClient = [...clients.values()].map(c => ({
-        name: c.name, userId: c.userId,
+    const connectedCount = [...clients.values()].filter((c) => c.isConnected).length;
+    const perClient = [...clients.values()].map((c) => ({
+        name: c.name,
+        userId: c.userId,
         connected: c.isConnected,
         reconnectAttempts: c.reconnectAttempts,
         events: c.eventsReceived,
-        pageCount: c.pageIds?.length || 0
+        pageCount: c.pageIds?.length || 0,
     }));
     res.json({
         service: 'n2store-live-chat',
@@ -630,16 +730,18 @@ app.get('/health/detailed', (req, res) => {
         memory_mb: {
             rss: Math.round(mem.rss / 1024 / 1024),
             heapUsed: Math.round(mem.heapUsed / 1024 / 1024),
-            heapTotal: Math.round(mem.heapTotal / 1024 / 1024)
+            heapTotal: Math.round(mem.heapTotal / 1024 / 1024),
         },
-        db: db ? { pool: { total: db.totalCount, idle: db.idleCount, waiting: db.waitingCount } } : null,
+        db: db
+            ? { pool: { total: db.totalCount, idle: db.idleCount, waiting: db.waitingCount } }
+            : null,
         accounts: { total: clients.size, connected: connectedCount },
         clients: perClient,
         events_received: [...clients.values()].reduce((s, c) => s + c.eventsReceived, 0),
         event_store_size: eventStore.length,
         node_version: process.version,
         pid: process.pid,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
     });
 });
 
@@ -650,9 +752,9 @@ app.get('/api/status', (req, res) => {
     }
     res.json({
         totalClients: clients.size,
-        connectedClients: [...clients.values()].filter(c => c.isConnected).length,
+        connectedClients: [...clients.values()].filter((c) => c.isConnected).length,
         eventStoreSize: eventStore.length,
-        clients: statuses
+        clients: statuses,
     });
 });
 
@@ -667,10 +769,10 @@ app.get('/api/events', (req, res) => {
 
     if (since) {
         const sinceDate = new Date(since);
-        filtered = filtered.filter(e => new Date(e.timestamp) > sinceDate);
+        filtered = filtered.filter((e) => new Date(e.timestamp) > sinceDate);
     }
-    if (type) filtered = filtered.filter(e => e.type === type);
-    if (account) filtered = filtered.filter(e => e.account === account);
+    if (type) filtered = filtered.filter((e) => e.type === type);
+    if (account) filtered = filtered.filter((e) => e.account === account);
 
     const total = filtered.length;
     const results = filtered.slice(offset, offset + limit);
@@ -691,11 +793,21 @@ app.post('/api/start', async (req, res) => {
         return res.status(400).json({ error: 'Missing required: token, userId' });
     }
 
-    const client = await startClient(token, userId, name || userId.substring(0, 8), cookie || `jwt=${token}`);
+    const client = await startClient(
+        token,
+        userId,
+        name || userId.substring(0, 8),
+        cookie || `jwt=${token}`
+    );
     if (!client) {
         return res.status(400).json({ error: 'No pages found for this account' });
     }
-    res.json({ success: true, message: `Client ${client.name} started`, pageCount: client.pageIds.length, pageIds: client.pageIds });
+    res.json({
+        success: true,
+        message: `Client ${client.name} started`,
+        pageCount: client.pageIds.length,
+        pageIds: client.pageIds,
+    });
 });
 
 app.post('/api/reconnect', (req, res) => {
@@ -719,10 +831,16 @@ setInterval(() => {
         if (!client.token) continue;
         if (client.isConnected) continue;
         if (client.reconnectTimer) continue; // already scheduled
-        console.warn(`${client.tag ? client.tag() : '[WS]'} Self-heal: client has no pending reconnect — forcing connect`);
+        console.warn(
+            `${client.tag ? client.tag() : '[WS]'} Self-heal: client has no pending reconnect — forcing connect`
+        );
         client.reconnectAttempts = 0;
         client.maxReconnectAttempts = Infinity;
-        try { client.connect(); } catch (e) { console.error('[Self-heal] connect threw:', e.message); }
+        try {
+            client.connect();
+        } catch (e) {
+            console.error('[Self-heal] connect threw:', e.message);
+        }
     }
 }, 60000);
 
@@ -743,11 +861,15 @@ app.post('/api/reload', async (req, res) => {
 
     // Reload from Firebase
     await autoConnect();
-    const connectedCount = [...clients.values()].filter(c => c.isConnected).length;
+    const connectedCount = [...clients.values()].filter((c) => c.isConnected).length;
     res.json({
         success: true,
         message: `Reloaded: ${clients.size} accounts, ${connectedCount} connecting`,
-        accounts: [...clients.values()].map(c => ({ name: c.name, userId: c.userId, pages: c.pageIds.length }))
+        accounts: [...clients.values()].map((c) => ({
+            name: c.name,
+            userId: c.userId,
+            pages: c.pageIds.length,
+        })),
     });
 });
 
@@ -780,20 +902,26 @@ async function gracefulShutdown(signal) {
     console.log(`[SHUTDOWN] Received ${signal}, closing...`);
     try {
         for (const client of clients.values()) {
-            try { client.stop(); } catch (_) {}
+            try {
+                client.stop();
+            } catch (_) {}
         }
         clients.clear();
     } catch (_) {}
     try {
         await new Promise((resolve) => httpServer.close(resolve));
         console.log('[SHUTDOWN] HTTP server closed');
-    } catch (e) { console.warn('[SHUTDOWN] HTTP close error:', e.message); }
+    } catch (e) {
+        console.warn('[SHUTDOWN] HTTP close error:', e.message);
+    }
     try {
         if (db && typeof db.end === 'function') {
             await Promise.race([db.end(), new Promise((r) => setTimeout(r, 5000))]);
             console.log('[SHUTDOWN] DB pool closed');
         }
-    } catch (e) { console.warn('[SHUTDOWN] DB close error:', e.message); }
+    } catch (e) {
+        console.warn('[SHUTDOWN] DB close error:', e.message);
+    }
     console.log('[SHUTDOWN] Done, exit 0');
     process.exit(0);
 }

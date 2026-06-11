@@ -105,6 +105,22 @@ const LiveColumnManager = {
                     if (ids.length) this.onMultiCampaignChange(ids);
                 }, 2500);
             });
+
+            // SSE web2:messages — relay (live-chat WS) đẩy event inbox/new_message
+            // qua fallback → reload danh sách comment hiện tại (như user refresh).
+            // Inbox Pancake conversation list (nếu có) tự nhận realtime; ở Live
+            // column ta reload tập campaign đang chọn cho chắc, debounce gom burst.
+            window.Web2SSE.subscribe('web2:messages', () => {
+                clearTimeout(this._messagesReloadTimer);
+                this._messagesReloadTimer = setTimeout(() => {
+                    const state = window.LiveState;
+                    const ids = state.selectedCampaignIds
+                        ? Array.from(state.selectedCampaignIds)
+                        : [];
+                    if (ids.length) this.onMultiCampaignChange(ids);
+                    else this.refresh();
+                }, 600);
+            });
         }
     },
 

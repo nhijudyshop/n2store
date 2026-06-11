@@ -148,6 +148,71 @@ async function upsertComments(pool, arr) {
     return saved;
 }
 
+// Map 1 conversation (Pancake WS shape) → comment shape mà upsertComments nhận.
+// Chỉ áp dụng cho livestream comment (conv.type==='COMMENT' && post.type==='livestream').
+function _mapWsConvToComment(conv) {
+    if (!conv || !conv.id) return null;
+    return {
+        id: conv.id,
+        postId: conv.post_id || null,
+        pageId: conv.page_id || null,
+        pageName: null, // upsert giữ page_name cũ nếu đã có (COALESCE), poller fill sau
+        fbId: conv.customers?.[0]?.fb_id || conv.from?.id || null,
+        name: conv.from?.name || conv.customers?.[0]?.name || null,
+        message: conv.snippet || '',
+        createdTime: conv.inserted_at || conv.updated_at || null,
+        phone: conv.recent_phone_numbers?.[0]?.phone_number || null,
+        address: null,
+        hasOrder: conv.has_livestream_order || false,
+        avatar: null,
+    };
+}
+
+// POST /ingest — relay realtime (live-chat WS) đẩy livestream comment vào DB +
+// broadcast SSE web2:live-comments. GATED bằng x-relay-secret === CLEANUP_SECRET.
+// Body: { conversations:[<conv WS shape>] } HOẶC 1 conv ({...}).
+router.post('/ingest', async (req, res) => {
+    // Gate: secret set → bắt buộc match; secret rỗng (dev) → cho qua + warn.
+    const secret = process.env.CLEANUP_SECRET || '';
+    const provided = req.headers['x-relay-secret'] || '';
+    if (secret) {
+        if (provided !== secret) {
+            return res.status(401).json({ success: false, error: 'unauthorized' });
+        }
+    } else {
+        console.warn('[WEB2-LIVE-COMMENTS] /ingest: CLEANUP_SECRET không set — cho qua (dev only)');
+    }
+
+    const pool = getDb(req);
+    if (!pool) return res.status(500).json({ success: false, error: 'DB unavailable' });
+
+    try {
+        const body = req.body || {};
+        const raw = Array.isArray(body.conversations)
+            ? body.conversations
+            : body.conversation
+              ? [body.conversation]
+              : body.id
+                ? [body]
+                : [];
+        const mapped = raw.map(_mapWsConvToComment).filter((c) => c && c.id);
+        if (!mapped.length) return res.json({ success: true, ingested: 0 });
+
+        const saved = await upsertComments(pool, mapped);
+        // Broadcast SSE cho từng postId distinct → UI tab khác reload realtime.
+        const postIds = [...new Set(mapped.map((c) => c.postId).filter(Boolean))];
+        if (postIds.length) {
+            for (const pid of postIds) _notify('realtime', pid);
+        } else {
+            _notify('realtime', null);
+        }
+        res.json({ success: true, ingested: saved });
+    } catch (e) {
+        console.error('[WEB2-LIVE-COMMENTS] ingest error:', e.message);
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
 // POST /bulk — upsert nhiều comment (auto-save khi live load/realtime).
 router.post('/bulk', async (req, res) => {
     const pool = getDb(req);
