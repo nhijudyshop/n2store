@@ -304,9 +304,12 @@ router.post('/handover-batch', async (req, res) => {
                     note: `Đã bàn giao thu về cho ship — đơn ${orderNumber}`
                 });
 
+                // handover_at: naive TIMESTAMP phải chứa GIỜ VN (+7) — pg parser
+                // (db/pool.js OID 1114) append '+07:00' khi đọc, nên NOW() trần
+                // (session UTC) sẽ hiển thị lệch −7h. Xem CLAUDE.md mục múi giờ.
                 const updated = await client.query(`
                     UPDATE customer_tickets
-                    SET handover_at = NOW(),
+                    SET handover_at = (NOW() AT TIME ZONE 'Asia/Ho_Chi_Minh'),
                         handover_order_number = $2,
                         handover_date = $3,
                         handover_by = $4,

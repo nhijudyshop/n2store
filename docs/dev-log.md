@@ -60,7 +60,11 @@
 - `shared/js/api-service.js`: alias `handoverAt/handoverOrderNumber/handoverBy` vào 3 ticket mappers (search/subscribe/getTicket).
 - `issue-tracking/js/script.js`: badge tím "🚚 Bàn giao ship {giờ} · {số đơn}" trên row RETURN_SHIPPER đã bàn giao + step "Bàn giao ship" trong `buildTicketTimeline` (hiện ở history tab + detail modal). SSE topic `tickets` sẵn có → badge tự refresh khi export bên delivery-report.
 
-**Status:** ✅ code xong — verify prod API bằng ticket TEST sau deploy.
+**Verify prod (ticket TEST `0123456788`, order `TEST-HANDOVER-*`):** claim đúng ticket mới nhất (qty 3 / value 330k = 150k×1+90k×2) ✓; re-POST → `already_handed_over: true`, không bốc ticket mới hơn ✓; đơn mới claim ticket mới hơn ✓; action_history đúng 1 entry ✓; phone RAW có space normalize OK ✓.
+
+**Fix ngay sau verify:** `handover_at = NOW()` lưu UTC naive trong khi pg parser (db/pool.js OID 1114) append `+07:00` → badge hiện lệch −7h (bẫy múi giờ CLAUDE.md). Đổi `NOW() AT TIME ZONE 'Asia/Ho_Chi_Minh'` (naive TIMESTAMP chứa giờ VN đúng convention parser). ⚠ Lưu ý: `created_at`/`updated_at` của `customer_tickets` (DEFAULT CURRENT_TIMESTAMP) cũng đang lưu UTC naive → mọi giờ tạo phiếu trên trang CSKH hiển thị lệch −7h từ trước tới giờ — bug có sẵn ngoài scope, CHƯA fix (đụng data cũ + nhiều chỗ hiển thị, cần user quyết).
+
+**Status:** ✅ verify prod pass — đã cleanup ticket TEST (hard delete).
 
 ### [render][live-chat] Trả lời "sao Web 2.0 dùng chatDb?" + dời livestream_snapshots/images sang web2Db ✅
 
