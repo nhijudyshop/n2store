@@ -2,6 +2,18 @@
 
 ## 2026-06-11
 
+### [delivery-report] Ảnh bàn giao v2: phí ship 20k/đơn + bảng Thu về chi tiết + bỏ ô tròn/ký tên ✅
+
+**User bổ sung** (sau v1): −3.400 trên giấy = phí ship 20k × số đơn; thu về ghi rõ tên khách + SL + giá trị món như excel; bỏ cột ô tròn "Gửi trả" ở bảng 0đ; bỏ dòng "Đã nhận (ký tên)".
+
+- **Header 2 cột tính trừ**: TP `tổng − phí ship (N × 20) = Còn lại`; Thu về tương tự bên phải (vd giấy: 110.298 − 3.400 = 106.898; 1.115 − 40 = 1.075). Hằng số `HANDOVER_SHIP_FEE = 20000`.
+- **Bảng THU VỀ chi tiết**: tên KH — SĐT + SL + Giá trị món từ ticket CSKH qua `fetchReturnHandoverInfo` (cùng nguồn cột excel Thu về; API lỗi/không khớp ticket → hiện `—`, vẫn ra ảnh).
+- **Dòng Tổng cuối**: `Tổng — (TP + Thu về) đơn: <còn lại TP + còn lại thu về>` (giấy: tổng 172 đơn: 107.973).
+- Bỏ cột ô tròn Gửi trả (bảng 0đ) + bỏ footer ký tên. Cache-bust `?v=20260611c`.
+- **Test:** Playwright + data ảo, **stub fetch handover-batch** (không ghi đánh dấu ticket prod với đơn TEST) — verify 895−80=815, 1.115−40=1.075, Tổng 6 đơn 1.890, SL/Giá trị đúng map, đơn không ticket ra `—`.
+
+**Status:** ✅ Done.
+
 ### [delivery-report] Nút "Copy ảnh bàn giao" tab Thành phố — sinh ảnh PNG xác nhận cho shipper ✅
 
 **User:** thay tờ giấy viết tay bàn giao đơn TP cho shipper bằng ảnh PNG copy vào clipboard (paste Zalo/chat cho shipper chụp xác nhận).

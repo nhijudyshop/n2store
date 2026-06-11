@@ -1712,9 +1712,12 @@
 
     // ── Copy ảnh bàn giao TP cho shipper ───────────────────────────
     // Sinh ảnh PNG thay tờ giấy viết tay khi bàn giao đơn Thành phố:
-    // header = tổng đơn + tổng CN (chỉ đơn ĐÃ QUÉT), tổng Thu về bên phải,
-    // bảng đơn 0đ (Thu = CashOnDelivery, Giá trị = AmountTotal, ô tròn
-    // trống để shipper tick tay). Tiền đơn vị NGHÌN (110.298 = 110.298.000đ).
+    // header trái = tổng đơn TP + tổng CN − phí ship (20k/đơn) = còn lại,
+    // header phải = Thu về tương tự; bảng THU VỀ chi tiết (tên KH + SL +
+    // giá trị món từ ticket CSKH); bảng đơn 0đ (Thu = CashOnDelivery,
+    // Giá trị = AmountTotal); dòng TỔNG = (TP + Thu về) sau trừ ship.
+    // Chỉ đơn ĐÃ QUÉT. Tiền đơn vị NGHÌN (110.298 = 110.298.000đ).
+    const HANDOVER_SHIP_FEE = 20000; // phí ship shipper 20k/đơn
     function formatThousand(v) {
         return new Intl.NumberFormat('vi-VN').format(Math.round((v || 0) / 1000));
     }
@@ -1737,14 +1740,31 @@
         cityCount,
         cityTotal,
         zeroItems,
-        returnCount,
-        returnTotal,
+        returnItems,
+        returnHandoverMap,
     }) {
         const W = 900;
         const PAD = 40;
         const ROW_H = 38;
+        const SEC_TITLE_H = 34;
+        const COL_HEADER_H = 38;
+        const feeK = HANDOVER_SHIP_FEE / 1000; // 20 (nghìn)
+
+        const returnCount = returnItems.length;
+        const returnTotal = returnItems.reduce((s, i) => s + (i.CashOnDelivery || 0), 0);
+        const cityShip = cityCount * HANDOVER_SHIP_FEE;
+        const cityNet = cityTotal - cityShip;
+        const returnShip = returnCount * HANDOVER_SHIP_FEE;
+        const returnNet = returnTotal - returnShip;
+        const grandCount = cityCount + returnCount;
+        const grandNet = cityNet + returnNet;
+
         const zeroRows = Math.max(zeroItems.length, 1); // 0 đơn → 1 dòng "Không có đơn 0đ"
-        const H = 150 + 44 + 40 + zeroRows * ROW_H + 90;
+        const returnSecH =
+            returnCount > 0 ? SEC_TITLE_H + COL_HEADER_H + returnCount * ROW_H + 10 : 0;
+        const zeroSecH = SEC_TITLE_H + COL_HEADER_H + zeroRows * ROW_H + 10;
+        // header 3 dòng (PAD+16 → +32 → +32) + divider 24
+        const H = PAD + 80 + 24 + returnSecH + zeroSecH + 14 + 34 + 34 + 26;
         const scale = 2;
 
         const canvas = document.createElement('canvas');
@@ -1758,58 +1778,6 @@
         ctx.fillRect(0, 0, W, H);
         ctx.textBaseline = 'middle';
 
-        // Header trái: TP (5/6) — 170 đơn: 110.298
-        let y = PAD + 16;
-        ctx.fillStyle = '#111827';
-        ctx.textAlign = 'left';
-        ctx.font = `bold 28px ${FONT}`;
-        ctx.fillText(`TP (${dateLabel}) — ${formatNumber(cityCount)} đơn:`, PAD, y);
-        const headLeftW = ctx.measureText(
-            `TP (${dateLabel}) — ${formatNumber(cityCount)} đơn:`
-        ).width;
-        ctx.fillStyle = '#b45309';
-        ctx.fillText(` ${formatThousand(cityTotal)}`, PAD + headLeftW, y);
-
-        // Header phải: Thu về shop: 2 đơn: 1.115
-        ctx.textAlign = 'right';
-        ctx.fillStyle = '#7c3aed';
-        ctx.font = `bold 20px ${FONT}`;
-        ctx.fillText(
-            `Thu về shop: ${formatNumber(returnCount)} đơn: ${formatThousand(returnTotal)}`,
-            W - PAD,
-            y
-        );
-
-        // Divider
-        y = PAD + 52;
-        ctx.strokeStyle = '#d1d5db';
-        ctx.lineWidth = 1.5;
-        ctx.beginPath();
-        ctx.moveTo(PAD, y);
-        ctx.lineTo(W - PAD, y);
-        ctx.stroke();
-
-        // Tiêu đề bảng 0đ
-        y += 34;
-        ctx.textAlign = 'left';
-        ctx.fillStyle = '#111827';
-        ctx.font = `bold 20px ${FONT}`;
-        ctx.fillText(`ĐƠN 0đ (${formatNumber(zeroItems.length)} đơn)`, PAD, y);
-
-        // Header bảng: # | Khách hàng — SĐT | Thu | Giá trị | Gửi trả
-        const COL_X = { idx: PAD, name: PAD + 44, thu: 640, value: 750, circle: 820 };
-        y += 38;
-        ctx.font = `bold 15px ${FONT}`;
-        ctx.fillStyle = '#6b7280';
-        ctx.fillText('#', COL_X.idx, y);
-        ctx.fillText('Khách hàng — SĐT', COL_X.name, y);
-        ctx.textAlign = 'right';
-        ctx.fillText('Thu', COL_X.thu, y);
-        ctx.fillText('Giá trị', COL_X.value, y);
-        ctx.textAlign = 'center';
-        ctx.fillText('Gửi trả', COL_X.circle, y);
-
-        // Rows
         const truncate = (text, maxW) => {
             if (ctx.measureText(text).width <= maxW) return text;
             let t = text;
@@ -1818,6 +1786,130 @@
             }
             return t + '…';
         };
+
+        // ── Header trái: TP — tổng / phí ship / còn lại ──
+        let y = PAD + 16;
+        ctx.textAlign = 'left';
+        ctx.fillStyle = '#111827';
+        ctx.font = `bold 26px ${FONT}`;
+        const headLeft = `TP (${dateLabel}) — ${formatNumber(cityCount)} đơn:`;
+        ctx.fillText(headLeft, PAD, y);
+        ctx.fillStyle = '#b45309';
+        ctx.fillText(` ${formatThousand(cityTotal)}`, PAD + ctx.measureText(headLeft).width, y);
+
+        ctx.font = `17px ${FONT}`;
+        ctx.fillStyle = '#6b7280';
+        ctx.fillText(
+            `Phí ship (${formatNumber(cityCount)} × ${feeK}): − ${formatThousand(cityShip)}`,
+            PAD,
+            y + 32
+        );
+        ctx.font = `bold 20px ${FONT}`;
+        ctx.fillStyle = '#047857';
+        ctx.fillText(`Còn lại: ${formatThousand(cityNet)}`, PAD, y + 64);
+
+        // ── Header phải: Thu về — tổng / phí ship / còn lại ──
+        ctx.textAlign = 'right';
+        ctx.fillStyle = '#7c3aed';
+        ctx.font = `bold 20px ${FONT}`;
+        ctx.fillText(
+            `Thu về shop — ${formatNumber(returnCount)} đơn: ${formatThousand(returnTotal)}`,
+            W - PAD,
+            y
+        );
+        if (returnCount > 0) {
+            ctx.font = `17px ${FONT}`;
+            ctx.fillStyle = '#6b7280';
+            ctx.fillText(
+                `Phí ship (${formatNumber(returnCount)} × ${feeK}): − ${formatThousand(returnShip)}`,
+                W - PAD,
+                y + 32
+            );
+            ctx.font = `bold 20px ${FONT}`;
+            ctx.fillStyle = '#047857';
+            ctx.fillText(`Còn lại: ${formatThousand(returnNet)}`, W - PAD, y + 64);
+        }
+
+        const drawDivider = (yy) => {
+            ctx.strokeStyle = '#d1d5db';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.moveTo(PAD, yy);
+            ctx.lineTo(W - PAD, yy);
+            ctx.stroke();
+        };
+
+        const drawRowName = (item, colNameX, maxW, yy) => {
+            ctx.font = `16px ${FONT}`;
+            ctx.fillStyle = '#111827';
+            const name = item.PartnerDisplayName || item.CustomerName || '';
+            const phone = item.Phone || item.Ship_Receiver_Phone || '';
+            ctx.fillText(truncate(`${name}${phone ? ' — ' + phone : ''}`, maxW), colNameX, yy);
+        };
+
+        y = PAD + 80 + 24;
+        drawDivider(y);
+
+        // ── Bảng THU VỀ chi tiết: tên KH + SL + giá trị món (ticket CSKH) ──
+        if (returnCount > 0) {
+            const RCOL = { idx: PAD, name: PAD + 44, sl: 700, value: 820 };
+            y += SEC_TITLE_H;
+            ctx.textAlign = 'left';
+            ctx.fillStyle = '#7c3aed';
+            ctx.font = `bold 20px ${FONT}`;
+            ctx.fillText(`THU VỀ (${formatNumber(returnCount)} đơn)`, PAD, y);
+
+            y += COL_HEADER_H;
+            ctx.font = `bold 15px ${FONT}`;
+            ctx.fillStyle = '#6b7280';
+            ctx.fillText('#', RCOL.idx, y);
+            ctx.fillText('Khách hàng — SĐT', RCOL.name, y);
+            ctx.textAlign = 'right';
+            ctx.fillText('SL', RCOL.sl, y);
+            ctx.fillText('Giá trị', RCOL.value, y);
+
+            returnItems.forEach((item, i) => {
+                y += ROW_H;
+                ctx.strokeStyle = '#f3f4f6';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(PAD, y - ROW_H / 2);
+                ctx.lineTo(W - PAD, y - ROW_H / 2);
+                ctx.stroke();
+
+                ctx.textAlign = 'left';
+                ctx.font = `15px ${FONT}`;
+                ctx.fillStyle = '#9ca3af';
+                ctx.fillText(String(i + 1), RCOL.idx, y);
+                drawRowName(item, RCOL.name, RCOL.sl - RCOL.name - 70, y);
+
+                const h = returnHandoverMap ? returnHandoverMap[item.Number] : null;
+                ctx.textAlign = 'right';
+                ctx.font = `16px ${FONT}`;
+                ctx.fillStyle = '#111827';
+                ctx.fillText(h && h.quantity != null ? formatNumber(h.quantity) : '—', RCOL.sl, y);
+                ctx.fillStyle = '#b45309';
+                ctx.fillText(h && h.value != null ? formatThousand(h.value) : '—', RCOL.value, y);
+            });
+            y += 10;
+        }
+
+        // ── Bảng ĐƠN 0đ: Thu (CN) + Giá trị (AmountTotal) ──
+        const COL_X = { idx: PAD, name: PAD + 44, thu: 700, value: 820 };
+        y += SEC_TITLE_H;
+        ctx.textAlign = 'left';
+        ctx.fillStyle = '#111827';
+        ctx.font = `bold 20px ${FONT}`;
+        ctx.fillText(`ĐƠN 0đ (${formatNumber(zeroItems.length)} đơn)`, PAD, y);
+
+        y += COL_HEADER_H;
+        ctx.font = `bold 15px ${FONT}`;
+        ctx.fillStyle = '#6b7280';
+        ctx.fillText('#', COL_X.idx, y);
+        ctx.fillText('Khách hàng — SĐT', COL_X.name, y);
+        ctx.textAlign = 'right';
+        ctx.fillText('Thu', COL_X.thu, y);
+        ctx.fillText('Giá trị', COL_X.value, y);
 
         if (zeroItems.length === 0) {
             y += ROW_H;
@@ -1828,7 +1920,6 @@
         } else {
             zeroItems.forEach((item, i) => {
                 y += ROW_H;
-                // Kẻ dòng nhạt phía trên row
                 ctx.strokeStyle = '#f3f4f6';
                 ctx.lineWidth = 1;
                 ctx.beginPath();
@@ -1840,51 +1931,37 @@
                 ctx.font = `15px ${FONT}`;
                 ctx.fillStyle = '#9ca3af';
                 ctx.fillText(String(i + 1), COL_X.idx, y);
-
-                ctx.font = `16px ${FONT}`;
-                ctx.fillStyle = '#111827';
-                const name = item.PartnerDisplayName || item.CustomerName || '';
-                const phone = item.Phone || item.Ship_Receiver_Phone || '';
-                ctx.fillText(
-                    truncate(`${name}${phone ? ' — ' + phone : ''}`, COL_X.thu - COL_X.name - 70),
-                    COL_X.name,
-                    y
-                );
+                drawRowName(item, COL_X.name, COL_X.thu - COL_X.name - 70, y);
 
                 ctx.textAlign = 'right';
+                ctx.font = `16px ${FONT}`;
+                ctx.fillStyle = '#111827';
                 ctx.fillText(formatThousand(item.CashOnDelivery), COL_X.thu, y);
                 ctx.fillStyle = '#b45309';
                 ctx.fillText(formatThousand(item.AmountTotal), COL_X.value, y);
-
-                // Ô tròn trống cho shipper tick tay
-                ctx.strokeStyle = '#9ca3af';
-                ctx.lineWidth = 1.5;
-                ctx.beginPath();
-                ctx.arc(COL_X.circle, y, 10, 0, Math.PI * 2);
-                ctx.stroke();
             });
         }
+        y += 10;
 
-        // Footer
-        y += 44;
-        ctx.strokeStyle = '#d1d5db';
-        ctx.lineWidth = 1.5;
-        ctx.beginPath();
-        ctx.moveTo(PAD, y);
-        ctx.lineTo(W - PAD, y);
-        ctx.stroke();
-
-        y += 32;
+        // ── TỔNG (TP + Thu về, đã trừ phí ship) ──
+        y += 14;
+        drawDivider(y);
+        y += 34;
         ctx.textAlign = 'left';
+        ctx.fillStyle = '#111827';
+        ctx.font = `bold 22px ${FONT}`;
+        const grandLabel = `Tổng — ${formatNumber(grandCount)} đơn:`;
+        ctx.fillText(grandLabel, PAD, y);
+        ctx.fillStyle = '#047857';
+        ctx.fillText(` ${formatThousand(grandNet)}`, PAD + ctx.measureText(grandLabel).width, y);
+
+        // ── Footer: chỉ timestamp ──
+        y += 34;
         ctx.font = `14px ${FONT}`;
         ctx.fillStyle = '#9ca3af';
         const now = new Date();
         const ts = `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
         ctx.fillText(`Tạo lúc: ${ts}`, PAD, y);
-        ctx.textAlign = 'right';
-        ctx.font = `16px ${FONT}`;
-        ctx.fillStyle = '#374151';
-        ctx.fillText('Đã nhận (ký tên): ______________', W - PAD, y);
 
         return canvas;
     }
@@ -1930,15 +2007,28 @@
             const returnScanned = (state.allData || []).filter(
                 (i) => isReturnItem(i) && state.scannedNumbers.has(i.Number)
             );
-            const returnTotal = returnScanned.reduce((s, i) => s + (i.CashOnDelivery || 0), 0);
+
+            // SL + giá trị món thu về từ ticket CSKH (như cột excel Thu về).
+            // API lỗi → vẫn tạo ảnh, 2 cột hiện "—".
+            let returnHandoverMap = null;
+            if (returnScanned.length > 0) {
+                try {
+                    returnHandoverMap = await fetchReturnHandoverInfo(returnScanned);
+                } catch (e) {
+                    console.warn(
+                        '[DELIVERY-REPORT] handover-batch failed (ảnh bàn giao):',
+                        e.message
+                    );
+                }
+            }
 
             const canvas = buildHandoverCanvas({
                 dateLabel: handoverDateLabel(),
                 cityCount: scannedItems.length,
                 cityTotal,
                 zeroItems,
-                returnCount: returnScanned.length,
-                returnTotal,
+                returnItems: returnScanned,
+                returnHandoverMap,
             });
             const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
             if (!blob) throw new Error('canvas.toBlob trả về null');
