@@ -2,6 +2,23 @@
 
 ## 2026-06-11
 
+### [live-chat][render] ⏰ Fix múi giờ GMT+7 — comment livestream hiện giờ UTC (03:47 thay vì 10:47) ✅
+
+**User:** "giao diện web 2.0 toàn bộ là gmt+7 → hiển thị ra phải đúng định dạng gmt+7" (kèm screenshot live-chat hiện 03:47). Ghi rule vào memory + CLAUDE.md + dev-log.
+
+**Root cause (2 lớp):** Pancake `inserted_at` = UTC **KHÔNG hậu tố Z** (vd `2026-06-11T03:52:23`) + **Render server chạy `TZ=Asia/Saigon` (+7), không phải UTC** (verify `GET /api/debug/time`) → server `new Date(naiveString)` hiểu thành giờ +7 → epoch lưu `web2_live_comments.created_time` **lệch −7h** (DB ghi `2026-06-10T20:52Z` cho comment thật sự lúc `03:52Z`). Tầng hiển thị `SharedUtils.formatTime` (Asia/Ho_Chi_Minh) vốn đúng nhưng nhận data sai → UI hiện đúng bằng giá trị UTC.
+
+**Fix:**
+
+- **Server:** `web2-live-comments.js` thêm `parseUtcTs()` (append `Z` cho string không timezone, nhận cả epoch ms/s, export dùng chung) dùng cho upsert `created_time`; poller `web2-livestream-poller.js` thêm `_utcMs()` cho `insertedMs` (cửa sổ RECENT_LIVE) + sort posts.
+- **Migration one-time (marker-gated, trong `ensureTables`):** shift `created_time` cũ **+7h** về đúng UTC; marker `web2_migrations.w2lc_tz_fix_20260611` chống double-shift qua restart. Test local DB riêng (create → migrate → idempotent re-run → drop) PASS.
+- **Client (live-chat):** thêm `SharedUtils.toEpochMs()`; thay mọi `new Date(raw).getTime()` trên timestamp Pancake naive: live-init (startMs, sort, \_lastCommentMaxMs), live-api (sort campaigns), live-comment-list (sort prepend + note Pancake), live-campaign-manager (sort comment DB), live-livestream-snap (startMs, comment↔snapshot matching ×6, sort campaigns ×3 — matching lệch 7h là bug thật của auto-snap với data đã fix). Formatter hiển thị chốt `timeZone: 'Asia/Ho_Chi_Minh'`: gallery `_fmtTime`, order-history `fmtTime`, customer-panel `formatDate`.
+- **Rule mới:** CLAUDE.md quy tắc 10 (Múi giờ Web 2.0 = GMT+7) + MEMORY `feedback_web2_timezone_gmt7` — DB lưu UTC đúng, convert +7 CHỈ ở tầng hiển thị; 2 bẫy naive-string + server TZ.
+
+**Files:** render.com/routes/web2-live-comments.js, render.com/services/web2-livestream-poller.js, live-chat/js/shared/utils.js, live-chat/js/live/{live-init,live-api,live-comment-list,live-campaign-manager,live-livestream-snap,live-livestream-gallery,live-order-history,live-customer-panel}.js, live-chat/{index,chat}.html (v=20260611j), CLAUDE.md.
+
+**Status:** ✅ Done — migration tự chạy khi Render deploy (request đầu chạm `ensureTables`).
+
 ### [docs][web2] Audit VÒNG 2 toàn bộ 35 trang menu Web 2.0 — verify fix Wave 1+2 + catalog 25 bug mới CONFIRMED ✅
 
 **User:** "Xem, đọc, phân tích chi tiết tất cả từng trang trong menu web 2.0 → tìm bug/race → cập nhật overview + file MD → kiểm đi kiểm lại → đề xuất cải thiện/tính năng mới."
