@@ -2,6 +2,17 @@
 
 ## 2026-06-11
 
+### [delivery-report] Ảnh bàn giao v3: layout 2 cột GIAO | THU VỀ, thu về KHÔNG tính ship ✅
+
+**User chỉnh** (sau v2): thu về không tính phí ship (bản chất shipper giao 170 đơn TP, tiện đường mang món thu về giúp shop — phí ship chỉ tính đơn giao); ảnh chia 2 cột (trái GIAO, phải THU VỀ), tối ưu khoảng trống để xem Zalo trên điện thoại/PC.
+
+- **Layout 2 cột** (vạch dọc giữa, PAD 24 compact): trái = `GIAO — TP (d/m)` + tổng − phí ship = Còn lại + bảng ĐƠN 0đ (row 32px); phải = `THU VỀ` + tổng + danh sách từng khách (2 dòng/khách: tên + giá trị | SĐT + SL, row 46px).
+- **Tiền**: phí ship CHỈ nhân số đơn giao (`cityCount × 20`). `Tổng = Còn lại TP + tổng thu về` (không trừ gì bên thu về).
+- Footer 1 dòng: Tổng + Tạo lúc. Cache-bust `?v=20260611d`.
+- **Test:** Playwright data ảo + stub handover-batch — 5 đơn giao `895 − 100 = 795`, thu về `1.115` (không trừ), `Tổng 7 đơn: 1.910`, ảnh 1800×704 gọn hơn hẳn v2.
+
+**Status:** ✅ Done.
+
 ### [delivery-report] Ảnh bàn giao v2: phí ship 20k/đơn + bảng Thu về chi tiết + bỏ ô tròn/ký tên ✅
 
 **User bổ sung** (sau v1): −3.400 trên giấy = phí ship 20k × số đơn; thu về ghi rõ tên khách + SL + giá trị món như excel; bỏ cột ô tròn "Gửi trả" ở bảng 0đ; bỏ dòng "Đã nhận (ký tên)".

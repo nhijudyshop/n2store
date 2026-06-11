@@ -1711,13 +1711,13 @@
     }
 
     // ── Copy ảnh bàn giao TP cho shipper ───────────────────────────
-    // Sinh ảnh PNG thay tờ giấy viết tay khi bàn giao đơn Thành phố:
-    // header trái = tổng đơn TP + tổng CN − phí ship (20k/đơn) = còn lại,
-    // header phải = Thu về tương tự; bảng THU VỀ chi tiết (tên KH + SL +
-    // giá trị món từ ticket CSKH); bảng đơn 0đ (Thu = CashOnDelivery,
-    // Giá trị = AmountTotal); dòng TỔNG = (TP + Thu về) sau trừ ship.
+    // Sinh ảnh PNG thay tờ giấy viết tay khi bàn giao đơn Thành phố.
+    // Layout 2 CỘT (tối ưu xem Zalo điện thoại/PC): trái = GIAO (tổng đơn
+    // TP − phí ship 20k/đơn = còn lại + bảng đơn 0đ), phải = THU VỀ (tên
+    // KH + SL + giá trị món từ ticket CSKH — KHÔNG tính ship, shipper tiện
+    // đường mang về giúp shop). Dòng Tổng cuối = còn lại TP + tiền thu về.
     // Chỉ đơn ĐÃ QUÉT. Tiền đơn vị NGHÌN (110.298 = 110.298.000đ).
-    const HANDOVER_SHIP_FEE = 20000; // phí ship shipper 20k/đơn
+    const HANDOVER_SHIP_FEE = 20000; // phí ship shipper 20k/đơn giao
     function formatThousand(v) {
         return new Intl.NumberFormat('vi-VN').format(Math.round((v || 0) / 1000));
     }
@@ -1744,27 +1744,28 @@
         returnHandoverMap,
     }) {
         const W = 900;
-        const PAD = 40;
-        const ROW_H = 38;
-        const SEC_TITLE_H = 34;
-        const COL_HEADER_H = 38;
+        const PAD = 24;
+        const MID = 560; // vạch chia 2 cột: trái GIAO (rộng — chứa bảng 0đ), phải THU VỀ
+        const GAP = 28;
+        const LEFT_R = MID - GAP / 2; // mép phải cột trái
+        const RIGHT_L = MID + GAP / 2; // mép trái cột phải
+        const ZROW_H = 32; // row bảng 0đ (compact)
+        const RROW_H = 46; // row thu về (2 dòng: tên / SĐT + SL + giá trị)
         const feeK = HANDOVER_SHIP_FEE / 1000; // 20 (nghìn)
 
         const returnCount = returnItems.length;
         const returnTotal = returnItems.reduce((s, i) => s + (i.CashOnDelivery || 0), 0);
         const cityShip = cityCount * HANDOVER_SHIP_FEE;
         const cityNet = cityTotal - cityShip;
-        const returnShip = returnCount * HANDOVER_SHIP_FEE;
-        const returnNet = returnTotal - returnShip;
+        // Thu về KHÔNG tính phí ship — shipper tiện đường giao mang về giúp shop
         const grandCount = cityCount + returnCount;
-        const grandNet = cityNet + returnNet;
+        const grandTotal = cityNet + returnTotal;
 
         const zeroRows = Math.max(zeroItems.length, 1); // 0 đơn → 1 dòng "Không có đơn 0đ"
-        const returnSecH =
-            returnCount > 0 ? SEC_TITLE_H + COL_HEADER_H + returnCount * ROW_H + 10 : 0;
-        const zeroSecH = SEC_TITLE_H + COL_HEADER_H + zeroRows * ROW_H + 10;
-        // header 3 dòng (PAD+16 → +32 → +32) + divider 24
-        const H = PAD + 80 + 24 + returnSecH + zeroSecH + 14 + 34 + 34 + 26;
+        const leftH = PAD + 14 + 30 + 26 + 26 + 16 + 30 + 26 + zeroRows * ZROW_H + 6;
+        const rightH = PAD + 14 + 30 + 16 + Math.max(returnCount, 1) * RROW_H + 6;
+        const contentH = Math.max(leftH, rightH);
+        const H = contentH + 16 + 24 + 18; // divider + dòng Tổng + đệm đáy
         const scale = 2;
 
         const canvas = document.createElement('canvas');
@@ -1787,181 +1788,205 @@
             return t + '…';
         };
 
-        // ── Header trái: TP — tổng / phí ship / còn lại ──
-        let y = PAD + 16;
+        // ── CỘT TRÁI: GIAO ──
+        let y = PAD + 14;
         ctx.textAlign = 'left';
         ctx.fillStyle = '#111827';
-        ctx.font = `bold 26px ${FONT}`;
-        const headLeft = `TP (${dateLabel}) — ${formatNumber(cityCount)} đơn:`;
-        ctx.fillText(headLeft, PAD, y);
-        ctx.fillStyle = '#b45309';
-        ctx.fillText(` ${formatThousand(cityTotal)}`, PAD + ctx.measureText(headLeft).width, y);
+        ctx.font = `bold 20px ${FONT}`;
+        ctx.fillText(`GIAO — TP (${dateLabel})`, PAD, y);
 
-        ctx.font = `17px ${FONT}`;
+        y += 30;
+        ctx.font = `bold 18px ${FONT}`;
+        const cityLine = `${formatNumber(cityCount)} đơn:`;
+        ctx.fillText(cityLine, PAD, y);
+        ctx.fillStyle = '#b45309';
+        ctx.fillText(` ${formatThousand(cityTotal)}`, PAD + ctx.measureText(cityLine).width, y);
+
+        y += 26;
+        ctx.font = `15px ${FONT}`;
         ctx.fillStyle = '#6b7280';
         ctx.fillText(
             `Phí ship (${formatNumber(cityCount)} × ${feeK}): − ${formatThousand(cityShip)}`,
             PAD,
-            y + 32
-        );
-        ctx.font = `bold 20px ${FONT}`;
-        ctx.fillStyle = '#047857';
-        ctx.fillText(`Còn lại: ${formatThousand(cityNet)}`, PAD, y + 64);
-
-        // ── Header phải: Thu về — tổng / phí ship / còn lại ──
-        ctx.textAlign = 'right';
-        ctx.fillStyle = '#7c3aed';
-        ctx.font = `bold 20px ${FONT}`;
-        ctx.fillText(
-            `Thu về shop — ${formatNumber(returnCount)} đơn: ${formatThousand(returnTotal)}`,
-            W - PAD,
             y
         );
-        if (returnCount > 0) {
-            ctx.font = `17px ${FONT}`;
-            ctx.fillStyle = '#6b7280';
-            ctx.fillText(
-                `Phí ship (${formatNumber(returnCount)} × ${feeK}): − ${formatThousand(returnShip)}`,
-                W - PAD,
-                y + 32
-            );
-            ctx.font = `bold 20px ${FONT}`;
-            ctx.fillStyle = '#047857';
-            ctx.fillText(`Còn lại: ${formatThousand(returnNet)}`, W - PAD, y + 64);
-        }
 
-        const drawDivider = (yy) => {
-            ctx.strokeStyle = '#d1d5db';
-            ctx.lineWidth = 1.5;
-            ctx.beginPath();
-            ctx.moveTo(PAD, yy);
-            ctx.lineTo(W - PAD, yy);
-            ctx.stroke();
-        };
+        y += 26;
+        ctx.font = `bold 18px ${FONT}`;
+        ctx.fillStyle = '#047857';
+        ctx.fillText(`Còn lại: ${formatThousand(cityNet)}`, PAD, y);
 
-        const drawRowName = (item, colNameX, maxW, yy) => {
-            ctx.font = `16px ${FONT}`;
-            ctx.fillStyle = '#111827';
-            const name = item.PartnerDisplayName || item.CustomerName || '';
-            const phone = item.Phone || item.Ship_Receiver_Phone || '';
-            ctx.fillText(truncate(`${name}${phone ? ' — ' + phone : ''}`, maxW), colNameX, yy);
-        };
+        // Sub-divider cột trái
+        y += 16;
+        ctx.strokeStyle = '#e5e7eb';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(PAD, y);
+        ctx.lineTo(LEFT_R, y);
+        ctx.stroke();
 
-        y = PAD + 80 + 24;
-        drawDivider(y);
-
-        // ── Bảng THU VỀ chi tiết: tên KH + SL + giá trị món (ticket CSKH) ──
-        if (returnCount > 0) {
-            const RCOL = { idx: PAD, name: PAD + 44, sl: 700, value: 820 };
-            y += SEC_TITLE_H;
-            ctx.textAlign = 'left';
-            ctx.fillStyle = '#7c3aed';
-            ctx.font = `bold 20px ${FONT}`;
-            ctx.fillText(`THU VỀ (${formatNumber(returnCount)} đơn)`, PAD, y);
-
-            y += COL_HEADER_H;
-            ctx.font = `bold 15px ${FONT}`;
-            ctx.fillStyle = '#6b7280';
-            ctx.fillText('#', RCOL.idx, y);
-            ctx.fillText('Khách hàng — SĐT', RCOL.name, y);
-            ctx.textAlign = 'right';
-            ctx.fillText('SL', RCOL.sl, y);
-            ctx.fillText('Giá trị', RCOL.value, y);
-
-            returnItems.forEach((item, i) => {
-                y += ROW_H;
-                ctx.strokeStyle = '#f3f4f6';
-                ctx.lineWidth = 1;
-                ctx.beginPath();
-                ctx.moveTo(PAD, y - ROW_H / 2);
-                ctx.lineTo(W - PAD, y - ROW_H / 2);
-                ctx.stroke();
-
-                ctx.textAlign = 'left';
-                ctx.font = `15px ${FONT}`;
-                ctx.fillStyle = '#9ca3af';
-                ctx.fillText(String(i + 1), RCOL.idx, y);
-                drawRowName(item, RCOL.name, RCOL.sl - RCOL.name - 70, y);
-
-                const h = returnHandoverMap ? returnHandoverMap[item.Number] : null;
-                ctx.textAlign = 'right';
-                ctx.font = `16px ${FONT}`;
-                ctx.fillStyle = '#111827';
-                ctx.fillText(h && h.quantity != null ? formatNumber(h.quantity) : '—', RCOL.sl, y);
-                ctx.fillStyle = '#b45309';
-                ctx.fillText(h && h.value != null ? formatThousand(h.value) : '—', RCOL.value, y);
-            });
-            y += 10;
-        }
-
-        // ── Bảng ĐƠN 0đ: Thu (CN) + Giá trị (AmountTotal) ──
-        const COL_X = { idx: PAD, name: PAD + 44, thu: 700, value: 820 };
-        y += SEC_TITLE_H;
-        ctx.textAlign = 'left';
+        // Bảng ĐƠN 0đ (trong cột trái): Thu = CN, Giá trị = AmountTotal
+        y += 30;
         ctx.fillStyle = '#111827';
-        ctx.font = `bold 20px ${FONT}`;
+        ctx.font = `bold 17px ${FONT}`;
         ctx.fillText(`ĐƠN 0đ (${formatNumber(zeroItems.length)} đơn)`, PAD, y);
 
-        y += COL_HEADER_H;
-        ctx.font = `bold 15px ${FONT}`;
+        const ZCOL = { idx: PAD, name: PAD + 26, thu: LEFT_R - 80, value: LEFT_R };
+        y += 26;
+        ctx.font = `bold 13px ${FONT}`;
         ctx.fillStyle = '#6b7280';
-        ctx.fillText('#', COL_X.idx, y);
-        ctx.fillText('Khách hàng — SĐT', COL_X.name, y);
+        ctx.fillText('#', ZCOL.idx, y);
+        ctx.fillText('Khách hàng — SĐT', ZCOL.name, y);
         ctx.textAlign = 'right';
-        ctx.fillText('Thu', COL_X.thu, y);
-        ctx.fillText('Giá trị', COL_X.value, y);
+        ctx.fillText('Thu', ZCOL.thu, y);
+        ctx.fillText('Giá trị', ZCOL.value, y);
 
         if (zeroItems.length === 0) {
-            y += ROW_H;
+            y += ZROW_H;
             ctx.textAlign = 'left';
-            ctx.font = `italic 16px ${FONT}`;
+            ctx.font = `italic 14px ${FONT}`;
             ctx.fillStyle = '#9ca3af';
-            ctx.fillText('Không có đơn 0đ', COL_X.name, y);
+            ctx.fillText('Không có đơn 0đ', ZCOL.name, y);
         } else {
             zeroItems.forEach((item, i) => {
-                y += ROW_H;
+                y += ZROW_H;
                 ctx.strokeStyle = '#f3f4f6';
                 ctx.lineWidth = 1;
                 ctx.beginPath();
-                ctx.moveTo(PAD, y - ROW_H / 2);
-                ctx.lineTo(W - PAD, y - ROW_H / 2);
+                ctx.moveTo(PAD, y - ZROW_H / 2);
+                ctx.lineTo(LEFT_R, y - ZROW_H / 2);
                 ctx.stroke();
 
                 ctx.textAlign = 'left';
-                ctx.font = `15px ${FONT}`;
+                ctx.font = `13px ${FONT}`;
                 ctx.fillStyle = '#9ca3af';
-                ctx.fillText(String(i + 1), COL_X.idx, y);
-                drawRowName(item, COL_X.name, COL_X.thu - COL_X.name - 70, y);
+                ctx.fillText(String(i + 1), ZCOL.idx, y);
+
+                ctx.font = `14px ${FONT}`;
+                ctx.fillStyle = '#111827';
+                const name = item.PartnerDisplayName || item.CustomerName || '';
+                const phone = item.Phone || item.Ship_Receiver_Phone || '';
+                ctx.fillText(
+                    truncate(
+                        `${name}${phone ? ' — ' + phone : ''}`,
+                        ZCOL.thu - ZCOL.name - 50
+                    ),
+                    ZCOL.name,
+                    y
+                );
 
                 ctx.textAlign = 'right';
-                ctx.font = `16px ${FONT}`;
-                ctx.fillStyle = '#111827';
-                ctx.fillText(formatThousand(item.CashOnDelivery), COL_X.thu, y);
+                ctx.fillText(formatThousand(item.CashOnDelivery), ZCOL.thu, y);
                 ctx.fillStyle = '#b45309';
-                ctx.fillText(formatThousand(item.AmountTotal), COL_X.value, y);
+                ctx.fillText(formatThousand(item.AmountTotal), ZCOL.value, y);
             });
         }
-        y += 10;
 
-        // ── TỔNG (TP + Thu về, đã trừ phí ship) ──
-        y += 14;
-        drawDivider(y);
-        y += 34;
+        // ── CỘT PHẢI: THU VỀ (không phí ship) ──
+        let ry = PAD + 14;
+        ctx.textAlign = 'left';
+        ctx.fillStyle = '#7c3aed';
+        ctx.font = `bold 20px ${FONT}`;
+        ctx.fillText('THU VỀ', RIGHT_L, ry);
+
+        ry += 30;
+        ctx.font = `bold 18px ${FONT}`;
+        ctx.fillStyle = '#111827';
+        const retLine = `${formatNumber(returnCount)} đơn:`;
+        ctx.fillText(retLine, RIGHT_L, ry);
+        ctx.fillStyle = '#7c3aed';
+        ctx.fillText(
+            ` ${formatThousand(returnTotal)}`,
+            RIGHT_L + ctx.measureText(retLine).width,
+            ry
+        );
+
+        ry += 16;
+        if (returnCount === 0) {
+            ry += RROW_H / 2 + 8;
+            ctx.font = `italic 14px ${FONT}`;
+            ctx.fillStyle = '#9ca3af';
+            ctx.fillText('Không có món thu về', RIGHT_L, ry);
+        } else {
+            returnItems.forEach((item, i) => {
+                const rowTop = ry;
+                ry += RROW_H;
+                if (i > 0) {
+                    ctx.strokeStyle = '#f3f4f6';
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    ctx.moveTo(RIGHT_L, rowTop);
+                    ctx.lineTo(W - PAD, rowTop);
+                    ctx.stroke();
+                }
+
+                const h = returnHandoverMap ? returnHandoverMap[item.Number] : null;
+                const name = item.PartnerDisplayName || item.CustomerName || '';
+                const phone = item.Phone || item.Ship_Receiver_Phone || '';
+
+                // Dòng 1: tên KH + giá trị món (phải)
+                ctx.textAlign = 'left';
+                ctx.font = `bold 15px ${FONT}`;
+                ctx.fillStyle = '#111827';
+                ctx.fillText(
+                    truncate(`${i + 1}. ${name}`, W - PAD - RIGHT_L - 70),
+                    RIGHT_L,
+                    rowTop + 12
+                );
+                ctx.textAlign = 'right';
+                ctx.fillStyle = '#b45309';
+                ctx.fillText(
+                    h && h.value != null ? formatThousand(h.value) : '—',
+                    W - PAD,
+                    rowTop + 12
+                );
+
+                // Dòng 2: SĐT (trái) + SL (phải)
+                ctx.textAlign = 'left';
+                ctx.font = `13px ${FONT}`;
+                ctx.fillStyle = '#9ca3af';
+                ctx.fillText(phone, RIGHT_L + 16, rowTop + 33);
+                ctx.textAlign = 'right';
+                ctx.fillText(
+                    `SL: ${h && h.quantity != null ? formatNumber(h.quantity) : '—'}`,
+                    W - PAD,
+                    rowTop + 33
+                );
+            });
+        }
+
+        // Vạch dọc chia 2 cột
+        ctx.strokeStyle = '#d1d5db';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(MID, PAD);
+        ctx.lineTo(MID, contentH);
+        ctx.stroke();
+
+        // ── Footer: Tổng + timestamp (1 dòng) ──
+        const fy = contentH + 16;
+        ctx.strokeStyle = '#d1d5db';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(PAD, fy);
+        ctx.lineTo(W - PAD, fy);
+        ctx.stroke();
+
+        const ty = fy + 24;
         ctx.textAlign = 'left';
         ctx.fillStyle = '#111827';
-        ctx.font = `bold 22px ${FONT}`;
+        ctx.font = `bold 19px ${FONT}`;
         const grandLabel = `Tổng — ${formatNumber(grandCount)} đơn:`;
-        ctx.fillText(grandLabel, PAD, y);
+        ctx.fillText(grandLabel, PAD, ty);
         ctx.fillStyle = '#047857';
-        ctx.fillText(` ${formatThousand(grandNet)}`, PAD + ctx.measureText(grandLabel).width, y);
+        ctx.fillText(` ${formatThousand(grandTotal)}`, PAD + ctx.measureText(grandLabel).width, ty);
 
-        // ── Footer: chỉ timestamp ──
-        y += 34;
-        ctx.font = `14px ${FONT}`;
+        ctx.textAlign = 'right';
+        ctx.font = `13px ${FONT}`;
         ctx.fillStyle = '#9ca3af';
         const now = new Date();
         const ts = `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-        ctx.fillText(`Tạo lúc: ${ts}`, PAD, y);
+        ctx.fillText(`Tạo lúc: ${ts}`, W - PAD, ty);
 
         return canvas;
     }
