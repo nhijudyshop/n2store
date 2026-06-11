@@ -8,9 +8,12 @@
 // web2_user_sessions(token, user_id, expires_at). Frontend gửi qua
 // Web2Auth.getStored().token (localStorage 'web2_auth').
 //
-// requireWeb2Auth  — chỉ cần đăng nhập (any active user).
-// requireWeb2Admin — bắt buộc role='admin'.
-// Cả 2 gắn req.web2User = row user nếu hợp lệ.
+// requireWeb2Auth     — chỉ cần đăng nhập (any active user).
+// requireWeb2Admin    — bắt buộc role='admin'.
+// requireWeb2AuthSoft — gate MỀM: resolve user nếu có token; thiếu/sai token chỉ
+//                       chặn 401 khi env WEB2_AUTH_ENFORCE === '1', ngược lại
+//                       console.warn rồi cho qua (transition: frontend chưa gửi token).
+// Cả 3 gắn req.web2User = row user nếu hợp lệ.
 //
 // Pool: req.app.locals.web2Db || req.app.locals.chatDb (web2_user_sessions ở web2Db).
 // =====================================================
@@ -80,4 +83,40 @@ function requireWeb2Admin(req, res, next) {
         });
 }
 
-module.exports = { requireWeb2Auth, requireWeb2Admin, resolveWeb2User, extractToken };
+// Gate MỀM — dùng cho route mà trang frontend đang gọi nhưng CHƯA gửi x-web2-token.
+// Có token hợp lệ → gắn req.web2User. Thiếu/sai token → chỉ 401 khi
+// WEB2_AUTH_ENFORCE === '1'; ngược lại warn rồi next() (sau này bật env là khoá).
+function requireWeb2AuthSoft(req, res, next) {
+    const enforce = process.env.WEB2_AUTH_ENFORCE === '1';
+    resolveWeb2User(req)
+        .then((user) => {
+            if (user) {
+                req.web2User = user;
+                return next();
+            }
+            if (enforce) {
+                return res
+                    .status(401)
+                    .json({ success: false, error: 'Cần đăng nhập Web 2.0 (thiếu/sai token)' });
+            }
+            console.warn(
+                `[WEB2-AUTH][SOFT] unauthenticated ${req.method} ${req.originalUrl || req.path}`
+            );
+            next();
+        })
+        .catch((e) => {
+            console.error('[WEB2-AUTH] requireWeb2AuthSoft error:', e.message);
+            if (enforce) {
+                return res.status(500).json({ success: false, error: 'Lỗi xác thực' });
+            }
+            next();
+        });
+}
+
+module.exports = {
+    requireWeb2Auth,
+    requireWeb2Admin,
+    requireWeb2AuthSoft,
+    resolveWeb2User,
+    extractToken,
+};

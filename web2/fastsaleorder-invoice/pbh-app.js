@@ -928,7 +928,12 @@
                         hour: '2-digit',
                         minute: '2-digit',
                     });
-                    const user = h.userName || h.userId || '<em>không rõ</em>';
+                    // XSS fix (2026-06-11): userName/userId là input client-supplied
+                    // (header x-user-name) → PHẢI escape trước khi vào innerHTML.
+                    const user =
+                        h.userName || h.userId
+                            ? escapeHtml(h.userName || h.userId)
+                            : '<em>không rõ</em>';
                     const src = h.sourcePage
                         ? `<span class="pbh-hist-source">${escapeHtml(h.sourcePage)}</span>`
                         : '';

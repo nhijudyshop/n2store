@@ -1177,7 +1177,7 @@
 
     // SSE: realtime refresh báo cáo công nợ NCC khi data nguồn thay đổi.
     // Sources ảnh hưởng:
-    //   - SePay deposit (wallet:all) — NCC refund/transfer
+    //   - SePay deposit (web2:wallet:* wildcard) — NCC refund/transfer
     //   - web2-products — so-order data feeds via products pending
     //   - web2:fast-sale-orders — PBH ảnh hưởng nếu refund NCC
     // Debounce 1500ms — báo cáo nặng, không cần refresh quá nhanh.
@@ -1198,7 +1198,7 @@
                 applyFilterAndRender();
             }, 1500);
         };
-        _sseUnsubs.push(window.Web2SSE.subscribe('wallet:all', scheduleReload('wallet:all')));
+        _sseUnsubs.push(window.Web2SSE.subscribe('web2:wallet:*', scheduleReload('web2:wallet:*')));
         _sseUnsubs.push(window.Web2SSE.subscribe('web2:products', scheduleReload('web2:products')));
         _sseUnsubs.push(
             window.Web2SSE.subscribe(

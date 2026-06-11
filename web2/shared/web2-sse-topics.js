@@ -14,7 +14,10 @@
         FAST_SALE_ORDERS: 'web2:fast-sale-orders',
         RECONCILE: 'web2:reconcile',
         PURCHASE_REFUND: 'web2:purchase-refund',
-        WALLET_ALL: 'wallet:all',
+        // Wildcard mọi ví KH Web 2.0 (server notifyClientsWildcard('web2:wallet')
+        // match key 'web2:wallet:*'). Giá trị cũ 'wallet:all' là topic Web 1.0
+        // chết — không server Web 2.0 nào publish.
+        WALLET_ALL: 'web2:wallet:*',
         CUSTOMER_WALLET: 'web2:customer-wallet',
         SUPPLIER_WALLET: 'web2:supplier-wallet',
         USERS: 'web2:users',

@@ -22,8 +22,47 @@ const router = express.Router();
 
 const { loginPancake } = require('../services/web2-pancake-login');
 const creds = require('../services/web2-pancake-creds');
+const { requireWeb2AuthSoft } = require('../middleware/web2-auth');
 
 let dbPool = null;
+
+// ── Refresh rate-limit (in-memory) — chống brute-force login qua POST /:accountId.
+// Tối đa REFRESH_MAX_FAILS login-fail / REFRESH_WINDOW_MS per accountId.
+const REFRESH_MAX_FAILS = 5;
+const REFRESH_WINDOW_MS = 15 * 60 * 1000; // 15 phút
+const _refreshFails = new Map(); // accountId → { count, firstAt }
+
+function _refreshIsBlocked(accountId) {
+    const e = _refreshFails.get(accountId);
+    if (!e) return false;
+    if (Date.now() - e.firstAt > REFRESH_WINDOW_MS) {
+        _refreshFails.delete(accountId);
+        return false;
+    }
+    return e.count >= REFRESH_MAX_FAILS;
+}
+
+function _refreshRecordFail(accountId) {
+    const now = Date.now();
+    const e = _refreshFails.get(accountId);
+    if (!e || now - e.firstAt > REFRESH_WINDOW_MS) {
+        _refreshFails.set(accountId, { count: 1, firstAt: now });
+    } else {
+        e.count++;
+    }
+}
+
+function _refreshRecordSuccess(accountId) {
+    _refreshFails.delete(accountId);
+}
+
+// Cleanup expired buckets (unref → không giữ process sống).
+setInterval(() => {
+    const now = Date.now();
+    for (const [id, e] of _refreshFails) {
+        if (now - e.firstAt > REFRESH_WINDOW_MS) _refreshFails.delete(id);
+    }
+}, REFRESH_WINDOW_MS).unref?.();
 
 async function ensureColumns(pool) {
     await pool.query(`
@@ -109,14 +148,14 @@ async function _refreshAccount(accountId, identity, password) {
 }
 
 // =====================================================
-// GET /status — không trả password
+// GET /status — không trả password, KHÔNG trả login_identity (chỉ has_creds)
 // =====================================================
 router.get('/status', async (req, res) => {
     if (!dbPool) return res.status(503).json({ error: 'DB not available' });
     try {
         const r = await dbPool.query(
-            `SELECT account_id, name, fb_name, token_exp, auto_refresh, login_identity,
-                    (login_password_enc IS NOT NULL) AS has_creds,
+            `SELECT account_id, name, fb_name, token_exp, auto_refresh,
+                    (login_identity IS NOT NULL AND login_password_enc IS NOT NULL) AS has_creds,
                     last_refresh_at, last_refresh_status
              FROM pancake_accounts ORDER BY last_used_at DESC`
         );
@@ -155,7 +194,7 @@ router.put('/:accountId/credentials', async (req, res) => {
 // =====================================================
 // DELETE /:accountId/credentials
 // =====================================================
-router.delete('/:accountId/credentials', async (req, res) => {
+router.delete('/:accountId/credentials', requireWeb2AuthSoft, async (req, res) => {
     if (!dbPool) return res.status(503).json({ error: 'DB not available' });
     try {
         await dbPool.query(
@@ -174,10 +213,15 @@ router.delete('/:accountId/credentials', async (req, res) => {
 // POST /:accountId — gia hạn NGAY
 // Dùng creds body (nếu gửi) hoặc creds đã lưu. Nếu body có lưu kèm → mã hoá lưu.
 // =====================================================
-router.post('/:accountId', async (req, res) => {
+router.post('/:accountId', requireWeb2AuthSoft, async (req, res) => {
     if (!dbPool) return res.status(503).json({ error: 'DB not available' });
     const accountId = req.params.accountId;
     const body = req.body || {};
+    if (_refreshIsBlocked(accountId)) {
+        return res.status(429).json({
+            error: 'Quá nhiều lần refresh thất bại cho account này. Thử lại sau 15 phút.',
+        });
+    }
     try {
         let identity = body.identity;
         let password = body.password;
@@ -210,8 +254,11 @@ router.post('/:accountId', async (req, res) => {
         }
 
         const result = await _refreshAccount(accountId, identity, password);
-        if (!result.ok)
+        if (!result.ok) {
+            _refreshRecordFail(accountId);
             return res.status(502).json({ error: 'refresh_failed', reason: result.reason });
+        }
+        _refreshRecordSuccess(accountId);
         res.json({ success: true, ...result });
     } catch (e) {
         res.status(500).json({ error: e.message });

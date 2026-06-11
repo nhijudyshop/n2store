@@ -7,6 +7,7 @@
 
 const express = require('express');
 const router = express.Router();
+const { requireWeb2Admin } = require('../middleware/web2-auth');
 
 // -----------------------------------------------------
 // SSE notifier — injected từ server.js. Sau mỗi DB mutation, broadcast
@@ -27,9 +28,11 @@ function _notify(entity, action, code) {
     }
 }
 
-let _tablesCreated = false;
+// Key theo pool object (WeakSet) thay vì flag module-level: cold-start fallback
+// chatDb không được làm web2Db skip ensureTables (2 pool riêng biệt).
+const _ensuredPools = new WeakSet();
 async function ensureTables(pool) {
-    if (_tablesCreated) return;
+    if (_ensuredPools.has(pool)) return;
     try {
         await pool.query(`
             CREATE TABLE IF NOT EXISTS web2_entities (
@@ -60,7 +63,7 @@ async function ensureTables(pool) {
             CREATE INDEX IF NOT EXISTS idx_web2_records_entity_active_updated
                 ON web2_records(entity_slug, is_active DESC, updated_at DESC);
         `);
-        _tablesCreated = true;
+        _ensuredPools.add(pool);
         console.log('[WEB2-GENERIC] Tables created/verified');
     } catch (e) {
         console.error('[WEB2-GENERIC] Table creation error:', e.message);
@@ -387,16 +390,20 @@ router.patch('/:entity/update/:code', async (req, res) => {
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     if (!validSlug(req.params.entity))
         return res.status(400).json({ error: 'invalid entity slug' });
+    // H12: SELECT → append history JS-side → UPDATE phải atomic. Transaction +
+    // FOR UPDATE row-lock — 2 update đồng thời không mất history / lost update.
+    const client = await pool.connect();
     try {
         await ensureTables(pool);
         const allowed = { name: 'name', data: 'data', isActive: 'is_active' };
         // P1 2026-05-30: auto-append history entry "update" với user info.
-        // Đọc existing data, append new entry, mới ghi lại.
+        // Đọc existing data (FOR UPDATE), append new entry, mới ghi lại.
         const b = req.body || {};
         let dataPayload = b.data;
+        await client.query('BEGIN');
         if (b.userId || b.userName || dataPayload !== undefined) {
-            const existing = await pool.query(
-                `SELECT data FROM web2_records WHERE entity_slug = $1 AND code = $2 LIMIT 1`,
+            const existing = await client.query(
+                `SELECT data FROM web2_records WHERE entity_slug = $1 AND code = $2 LIMIT 1 FOR UPDATE`,
                 [req.params.entity, req.params.code]
             );
             const existingData = existing.rows[0]?.data || {};
@@ -425,23 +432,33 @@ router.patch('/:entity/update/:code', async (req, res) => {
             params.push(k === 'data' ? JSON.stringify(value) : value);
             sets.push(`${col} = $${params.length}`);
         }
-        if (!sets.length) return res.status(400).json({ error: 'No update fields' });
+        if (!sets.length) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ error: 'No update fields' });
+        }
         params.push(Date.now());
         sets.push(`updated_at = $${params.length}`);
         params.push(req.params.entity);
         params.push(req.params.code);
 
-        const r = await pool.query(
+        const r = await client.query(
             `UPDATE web2_records SET ${sets.join(', ')}
              WHERE entity_slug = $${params.length - 1} AND code = $${params.length}
              RETURNING *`,
             params
         );
-        if (!r.rows.length) return res.status(404).json({ error: 'Not found' });
+        if (!r.rows.length) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ error: 'Not found' });
+        }
+        await client.query('COMMIT');
         _notify(req.params.entity, 'update', r.rows[0].code);
         res.json({ success: true, record: mapRow(r.rows[0]) });
     } catch (e) {
+        await client.query('ROLLBACK').catch(() => {});
         res.status(500).json({ error: e.message });
+    } finally {
+        client.release();
     }
 });
 
@@ -449,8 +466,9 @@ router.patch('/:entity/update/:code', async (req, res) => {
 // POST /api/web2/:entity/delete-all
 // Bulk delete TẤT CẢ records của 1 entity. Cần body { confirm: true } để tránh accident.
 // Trả về số rows đã xóa. Không tự VACUUM — caller có thể gọi /_vacuum riêng.
+// S1: admin/maintenance-only → gate requireWeb2Admin (token web2_user_sessions, role='admin').
 // -----------------------------------------------------
-router.post('/:entity/delete-all', async (req, res) => {
+router.post('/:entity/delete-all', requireWeb2Admin, async (req, res) => {
     const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     if (!validSlug(req.params.entity))
@@ -477,8 +495,9 @@ router.post('/:entity/delete-all', async (req, res) => {
 // POST /api/web2/_vacuum
 // Reclaim disk sau khi delete hàng loạt. VACUUM FULL chậm + lock table — chỉ chạy adhoc.
 // Thường VACUUM (không FULL) là đủ.
+// S1: admin/maintenance-only → gate requireWeb2Admin (token web2_user_sessions, role='admin').
 // -----------------------------------------------------
-router.post('/_vacuum', async (req, res) => {
+router.post('/_vacuum', requireWeb2Admin, async (req, res) => {
     const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     if (!req.body || req.body.confirm !== true) {

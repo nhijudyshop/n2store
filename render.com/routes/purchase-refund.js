@@ -10,8 +10,9 @@
 //   POST /api/purchase-refund/:code/approve         draft|sent → approved + stock--
 //   POST /api/purchase-refund/:code/cancel-approve  approved   → sent + stock++ (revert)
 //   POST /api/purchase-refund/:code/refunded        approved   → refunded (no stock)
-//   POST /api/purchase-refund/:code/reject          approved|sent → rejected (no stock impact;
-//                                                                   if was approved → cũng restock)
+//   POST /api/purchase-refund/:code/reject          draft|sent|approved → rejected
+//                                                   (if was approved → restock;
+//                                                    KHÔNG cho từ refunded/rejected)
 //
 // Idempotency:
 //   data.stock_deducted = true sau khi /approve thành công.
@@ -362,7 +363,8 @@ router.post('/:code/refunded', async (req, res) => {
 });
 
 // -----------------------------------------------------
-// POST /:code/reject — bất kỳ → rejected. Nếu đã approved → restock.
+// POST /:code/reject — draft|sent|approved → rejected. Nếu đang approved → restock.
+// KHÔNG cho reject từ refunded (tiền đã hoàn) hoặc rejected (idempotent OK).
 // Body: { reason?: string }
 // -----------------------------------------------------
 router.post('/:code/reject', async (req, res) => {
@@ -370,17 +372,34 @@ router.post('/:code/reject', async (req, res) => {
     const productsPool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!recordsPool || !productsPool) return res.status(500).json({ error: 'DB unavailable' });
     const code = req.params.code;
+    // H4 fix 2026-06-11: cùng pattern /approve + /cancel-approve — 1 transaction
+    // bao trọn (SELECT FOR UPDATE + restock + saveRefundData): khóa record chống
+    // reject đôi / race với approve, atomic restock/record-update.
+    const client = await recordsPool.connect();
+    let committed = false;
     try {
-        const row = await loadRefund(recordsPool, code);
-        if (!row) return res.status(404).json({ error: 'Refund not found' });
+        await client.query('BEGIN');
+        const row = await loadRefund(client, code, true);
+        if (!row) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ error: 'Refund not found' });
+        }
         const data = row.data || {};
-        if (data.status === 'rejected') {
+        const currentStatus = data.status || 'draft';
+        if (currentStatus === 'rejected') {
+            await client.query('ROLLBACK');
             return res.json({ success: true, idempotent: true });
+        }
+        if (!['draft', 'sent', 'approved'].includes(currentStatus)) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({
+                error: `Chỉ reject được từ draft/sent/approved (hiện: ${currentStatus})`,
+            });
         }
         let stockResults = [];
         if (data.stock_deducted) {
             const lines = normalizeLines(parseProducts(data.products));
-            stockResults = await restockStock(productsPool, lines);
+            stockResults = await restockStock(client, lines);
         }
         const userName = req.body?.userName || '(ẩn danh)';
         const newHistory = appendHistory(data, {
@@ -390,7 +409,7 @@ router.post('/:code/reject', async (req, res) => {
             note: `NCC từ chối${stockResults.length ? ` + trả tồn ${stockResults.length} dòng` : ''}. Lý do: ${req.body?.reason || '(không)'}`,
             extra: { stockResults },
         });
-        await saveRefundData(recordsPool, code, {
+        await saveRefundData(client, code, {
             status: 'rejected',
             stock_deducted: false,
             rejected_at: Date.now(),
@@ -398,6 +417,8 @@ router.post('/:code/reject', async (req, res) => {
             rejected_by: userName,
             history: newHistory,
         });
+        await client.query('COMMIT');
+        committed = true;
         _notify('reject', code);
         res.json({
             success: true,
@@ -406,8 +427,15 @@ router.post('/:code/reject', async (req, res) => {
             linesProcessed: stockResults.length,
         });
     } catch (e) {
+        if (!committed) {
+            try {
+                await client.query('ROLLBACK');
+            } catch (_) {}
+        }
         console.error('[PURCHASE-REFUND] /reject error:', e.message);
         res.status(500).json({ error: e.message });
+    } finally {
+        client.release();
     }
 });
 

@@ -907,9 +907,9 @@
     function setupSSE() {
         if (!window.Web2SSE?.subscribe) return;
         STATE.sseUnsub = window.Web2SSE.subscribe('web2:purchase-refund', () => {
-            // Debounce 400ms để tránh load liên tục.
+            // Debounce 600ms (chuẩn 500-600) để gom burst, tránh load liên tục.
             clearTimeout(setupSSE._t);
-            setupSSE._t = setTimeout(() => loadList(), 400);
+            setupSSE._t = setTimeout(() => loadList(), 600);
         });
     }
 
@@ -1230,7 +1230,9 @@
         } catch (e) {
             console.warn('[quick refund] wallet sync init fail:', e.message);
         }
-        const state = SW.load();
+        // C6 fix 2026-06-11: SW.load() là async (IDB read) — thiếu await làm
+        // state = Promise → addTransaction TypeError → ví NCC không bao giờ ghi.
+        const state = await SW.load();
         const productLabel = opts.variant
             ? `${opts.productName} (${opts.variant})`
             : opts.productName;

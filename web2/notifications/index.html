@@ -142,7 +142,7 @@
                         .map((it) => {
                             const cls = it.read_at ? 'read' : 'unread';
                             const meta = new Date(it.created_at).toLocaleString('vi-VN');
-                            return `<a class="noti-row ${cls}" href="${escAttr(it.url || '#')}" data-id="${it.id}">
+                            return `<a class="noti-row ${cls}" href="${escAttr(safeUrl(it.url))}" data-id="${it.id}">
                             <span class="dot"></span>
                             <div>
                                 <div class="noti-title">${esc(it.title)}</div>
@@ -245,9 +245,23 @@
                 }
                 function escAttr(s) {
                     return String(s ?? '').replace(
-                        /[<>"']/g,
-                        (c) => ({ '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]
+                        /[&<>"']/g,
+                        (c) =>
+                            ({
+                                '&': '&amp;',
+                                '<': '&lt;',
+                                '>': '&gt;',
+                                '"': '&quot;',
+                                "'": '&#39;',
+                            })[c]
                     );
+                }
+                // S7 fix 2026-06-11: chặn javascript:/data: URL từ it.url —
+                // chỉ cho http(s), protocol-relative, path tuyệt đối, fragment.
+                // (Server-side validation là lớp chính; đây là defense-in-depth.)
+                function safeUrl(u) {
+                    const s = String(u ?? '').trim();
+                    return /^(https?:)?\/\/|^\/|^#/.test(s) ? s : '#';
                 }
                 document.addEventListener('DOMContentLoaded', () => {
                     if (window.Web2Sidebar)

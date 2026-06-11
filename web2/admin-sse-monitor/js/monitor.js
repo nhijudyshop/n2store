@@ -217,22 +217,48 @@
     }
 
     function subscribeLive() {
-        if (!window.Web2SSE?.subscribe) {
-            $('ssConnLabel').textContent = '⚠ Web2SSE bridge chưa load';
+        // KHÔNG dùng Web2SSE bridge cho topic admin:
+        //  1. Server yêu cầu ?admintoken= cho key web2:_admin:* — bridge không
+        //     append được query param.
+        //  2. Server đẩy admin feed bằng `event: log` — bridge chỉ listen
+        //     update/created/deleted/change nên drop.
+        // → mở EventSource trực tiếp, gắn admintoken từ Web2Auth token.
+        const token = authToken();
+        const url = `${API_BASE}/sse?keys=${encodeURIComponent(ADMIN_TOPIC)}&admintoken=${encodeURIComponent(token)}`;
+        let es;
+        try {
+            es = new EventSource(url);
+        } catch (e) {
+            $('ssConnLabel').textContent = '⚠ EventSource lỗi: ' + e.message;
             $('ssConnDot').classList.add('error');
             return;
         }
-        $('ssConnDot').classList.add('live');
-        $('ssConnLabel').textContent = `live · subscribe ${ADMIN_TOPIC}`;
-        window.Web2SSE.subscribe(ADMIN_TOPIC, (msg) => {
+        es.addEventListener('connected', () => {
+            $('ssConnDot').classList.remove('error');
+            $('ssConnDot').classList.add('live');
+            $('ssConnLabel').textContent = `live · subscribe ${ADMIN_TOPIC}`;
+        });
+        es.addEventListener('log', (ev) => {
             if (paused) return;
-            const entry = msg?.data;
+            let payload = null;
+            try {
+                payload = JSON.parse(ev.data);
+            } catch (_) {
+                return;
+            }
+            const entry = payload?.data;
             if (!entry) return;
             eventCount++;
             $('ssStatEvents').textContent = eventCount;
             $('ssStatBuffer').textContent = '#' + (entry.seq || lastSeq);
             appendLogRow(entry, { fresh: true });
         });
+        es.onerror = () => {
+            // EventSource auto-reconnect; chỉ báo trạng thái.
+            $('ssConnDot').classList.remove('live');
+            $('ssConnDot').classList.add('error');
+            $('ssConnLabel').textContent = '⚠ mất kết nối — đang reconnect…';
+        };
     }
 
     // -----------------------------------------------------

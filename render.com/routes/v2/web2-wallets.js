@@ -15,6 +15,7 @@
 const express = require('express');
 const router = express.Router();
 const web2WalletService = require('../../services/web2-wallet-service');
+const { requireWeb2AuthSoft } = require('../../middleware/web2-auth');
 
 function handleError(res, err, msg = 'Internal error') {
     console.error(`[Web2Wallets] ${msg}:`, err.message);
@@ -74,7 +75,7 @@ router.get('/:phone/transactions', async (req, res) => {
 // POST /api/web2/wallets/:phone/withdraw
 // Body: { amount, referenceType, referenceId, note }
 // =====================================================
-router.post('/:phone/withdraw', async (req, res) => {
+router.post('/:phone/withdraw', requireWeb2AuthSoft, async (req, res) => {
     try {
         const db = req.app.locals.web2Db || req.app.locals.chatDb;
         const { amount, referenceType, referenceId, note, userName } = req.body || {};
@@ -88,7 +89,11 @@ router.post('/:phone/withdraw', async (req, res) => {
             referenceType,
             referenceId,
             note,
-            userName || req.headers['x-user'] || '(staff)' // performed_by — audit
+            // performed_by — audit: ƯU TIÊN user từ token (req.web2User), fallback body
+            (req.web2User && (req.web2User.display_name || req.web2User.username)) ||
+                userName ||
+                req.headers['x-user'] ||
+                '(staff)'
         );
         res.json({ success: true, data: result });
     } catch (e) {
@@ -104,7 +109,7 @@ router.post('/:phone/withdraw', async (req, res) => {
 // Body: { amount, note }
 // Manual admin top-up (vd: thu tiền mặt cộng vào ví)
 // =====================================================
-router.post('/:phone/deposit', async (req, res) => {
+router.post('/:phone/deposit', requireWeb2AuthSoft, async (req, res) => {
     try {
         const db = req.app.locals.web2Db || req.app.locals.chatDb;
         const { amount, note, customerId, userName } = req.body || {};
@@ -120,7 +125,11 @@ router.post('/:phone/deposit', async (req, res) => {
             customerId || null,
             null,
             null,
-            userName || req.headers['x-user'] || '(staff)' // performed_by — audit
+            // performed_by — audit: ƯU TIÊN user từ token (req.web2User), fallback body
+            (req.web2User && (req.web2User.display_name || req.web2User.username)) ||
+                userName ||
+                req.headers['x-user'] ||
+                '(staff)'
         );
         res.json({ success: true, data: result });
     } catch (e) {

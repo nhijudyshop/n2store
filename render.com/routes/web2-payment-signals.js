@@ -22,6 +22,7 @@ const express = require('express');
 const router = express.Router();
 
 const detector = require('../services/web2-payment-signal-detector');
+const { requireWeb2AuthSoft } = require('../middleware/web2-auth');
 
 function getPool(req) {
     return req.app.locals.web2Db || req.app.locals.chatDb;
@@ -61,8 +62,15 @@ async function _appendHistory(db, id, entry) {
     );
 }
 
-// User info từ body (frontend gửi qua Web2UserInfo.attachToBody).
+// User info: ƯU TIÊN user từ token (req.web2User — requireWeb2AuthSoft gắn),
+// fallback body (frontend gửi qua Web2UserInfo.attachToBody — client-controlled).
 function _user(req) {
+    if (req.web2User) {
+        return {
+            userId: req.web2User.id || null,
+            userName: req.web2User.display_name || req.web2User.username || '(ẩn danh)',
+        };
+    }
     const b = req.body || {};
     return {
         userId: b.userId || null,
@@ -257,7 +265,7 @@ router.get('/:id(\\d+)', async (req, res) => {
 // Transaction + SELECT FOR UPDATE row lock → status guard + history append
 // atomic (không mất history entry khi 2 thao tác đồng thời — HIGH RACE fix).
 // Chỉ confirm khi status='pending'; đã confirmed → trả idempotent KHÔNG ghi lại.
-router.post('/:id/confirm', async (req, res) => {
+router.post('/:id/confirm', requireWeb2AuthSoft, async (req, res) => {
     const pool = getPool(req);
     if (!pool) return res.status(500).json({ success: false, error: 'DB unavailable' });
     const id = Number(req.params.id);
@@ -299,7 +307,7 @@ router.post('/:id/confirm', async (req, res) => {
 
 // ─── POST /:id/dismiss — false positive ───────────────────────────────
 // Transaction + FOR UPDATE + status='pending' guard (tránh ghi đè confirmed).
-router.post('/:id/dismiss', async (req, res) => {
+router.post('/:id/dismiss', requireWeb2AuthSoft, async (req, res) => {
     const pool = getPool(req);
     if (!pool) return res.status(500).json({ success: false, error: 'DB unavailable' });
     const id = Number(req.params.id);
@@ -337,7 +345,7 @@ router.post('/:id/dismiss', async (req, res) => {
 });
 
 // ─── POST /:id/link-order — gán đơn thủ công ──────────────────────────
-router.post('/:id/link-order', async (req, res) => {
+router.post('/:id/link-order', requireWeb2AuthSoft, async (req, res) => {
     const pool = getPool(req);
     if (!pool) return res.status(500).json({ success: false, error: 'DB unavailable' });
     const id = Number(req.params.id);
@@ -373,7 +381,7 @@ router.post('/:id/link-order', async (req, res) => {
 //            (1 nguồn logic với PATCH /balance-history/:id/link). Set matched_tx_id.
 //  • no txId → chỉ confirm + lưu phone/name lên signal (chờ tiền về, không cộng ví).
 // Money op → caller giữ await + loading (KHÔNG optimistic).
-router.post('/:id/approve', async (req, res) => {
+router.post('/:id/approve', requireWeb2AuthSoft, async (req, res) => {
     const pool = getPool(req);
     if (!pool) return res.status(500).json({ success: false, error: 'DB unavailable' });
     const id = Number(req.params.id);

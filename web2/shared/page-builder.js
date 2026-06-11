@@ -30,11 +30,16 @@
 (function (global) {
     'use strict';
 
+    // S6 fix 2026-06-11: escape đủ 5 ký tự (DOM textContent→innerHTML KHÔNG
+    // escape quote → attribute-injection khi nhúng vào value="..."/title="...").
     function escapeHtml(s) {
         if (s == null) return '';
-        const div = document.createElement('div');
-        div.textContent = String(s);
-        return div.innerHTML;
+        return String(s)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
     }
 
     // Get nested value: 'data.note' from { data: { note: 'x' } }

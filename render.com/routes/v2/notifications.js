@@ -6,6 +6,25 @@
 
 const express = require('express');
 const router = express.Router();
+const { requireWeb2AuthSoft } = require('../../middleware/web2-auth');
+
+// Validate url của notification — chỉ nhận https:// , http:// , hoặc path '/'
+// (KHÔNG '//' protocol-relative). Ngược lại lưu null — chặn `javascript:` stored
+// XSS (server side của S7; frontend render href từ field này).
+function _safeUrl(u) {
+    if (u == null) return null;
+    const s = String(u).trim();
+    if (!s) return null;
+    if (
+        s.startsWith('https://') ||
+        s.startsWith('http://') ||
+        (s.startsWith('/') && !s.startsWith('//'))
+    ) {
+        return s;
+    }
+    console.warn('[WEB2-NOTIF] url không hợp lệ — lưu null:', s.slice(0, 80));
+    return null;
+}
 
 let _notifyClients = null;
 function initializeNotifiers(notifyClients) {
@@ -119,7 +138,7 @@ router.post('/mark-all-read', async (req, res) => {
 
 // POST / — create notification
 // body: { type, title, body?, severity?, url?, entity_type?, entity_id?, dedupe_key? }
-router.post('/', async (req, res) => {
+router.post('/', requireWeb2AuthSoft, async (req, res) => {
     try {
         const pool = req.app.locals.web2Db || req.app.locals.chatDb;
         const b = req.body || {};
@@ -153,7 +172,7 @@ router.post('/', async (req, res) => {
                 b.title,
                 b.body || null,
                 b.severity || 'info',
-                b.url || null,
+                _safeUrl(b.url),
                 b.dedupe_key || null,
             ]
         );
@@ -169,7 +188,7 @@ router.post('/', async (req, res) => {
 });
 
 // DELETE /:id
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', requireWeb2AuthSoft, async (req, res) => {
     try {
         const pool = req.app.locals.web2Db || req.app.locals.chatDb;
         await pool.query(`DELETE FROM web2_notifications WHERE id = $1`, [req.params.id]);
@@ -185,7 +204,7 @@ router.delete('/:id', async (req, res) => {
 //   2. web2_products stock < 5 (active)
 //   3. web2_customer_wallets balance < 0 (ví KH âm — overdraft)
 //   4. web2_returns phiếu THU VỀ (shipper gửi) chờ duyệt > 20 ngày
-router.get('/scan', async (req, res) => {
+router.get('/scan', requireWeb2AuthSoft, async (req, res) => {
     try {
         const pool = req.app.locals.web2Db || req.app.locals.chatDb;
         const created = [];
@@ -309,7 +328,7 @@ async function _insertDedupe(pool, n) {
             n.title,
             n.body || null,
             n.severity || 'info',
-            n.url || null,
+            _safeUrl(n.url),
             n.dedupe_key || null,
         ]
     );
@@ -352,7 +371,7 @@ async function createNotification(pool, data) {
                 data.title,
                 data.body || null,
                 data.severity || 'info',
-                data.url || null,
+                _safeUrl(data.url),
                 data.dedupe_key || null,
             ]
         );

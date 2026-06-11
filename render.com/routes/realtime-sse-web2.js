@@ -13,7 +13,7 @@
 
 const express = require('express');
 const router = express.Router();
-const { requireWeb2Admin } = require('../middleware/web2-auth');
+const { requireWeb2Admin, resolveWeb2User } = require('../middleware/web2-auth');
 
 // =====================================================
 // SSE CLIENT MANAGEMENT
@@ -75,9 +75,9 @@ function getConnectionStats() {
 // SSE ENDPOINT — GET /api/realtime/web2/sse?keys=web2:foo,web2:bar
 // =====================================================
 
-router.get('/sse', (req, res) => {
+router.get('/sse', async (req, res) => {
     const keysParam = req.query.keys || '';
-    const keys = keysParam
+    let keys = keysParam
         .split(',')
         .map((k) => k.trim())
         .filter((k) => k.length > 0);
@@ -90,6 +90,38 @@ router.get('/sse', (req, res) => {
     }
     if (keys.some((k) => k.length > 500)) {
         return res.status(400).json({ error: 'Key too long (max 500 characters)' });
+    }
+
+    // S5: topic admin (web2:_admin:*) yêu cầu ?admintoken=<token Web2Auth>
+    // hợp lệ với role='admin'. EventSource không gửi header được → dùng query
+    // param (tradeoff: token xuất hiện trong access log — chấp nhận).
+    // Key admin không hợp lệ → bỏ key đó, vẫn cho connect các key thường.
+    const adminKeys = keys.filter((k) => k.startsWith('web2:_admin:'));
+    if (adminKeys.length > 0) {
+        let isAdmin = false;
+        try {
+            const adminToken = String(req.query.admintoken || '').trim();
+            if (adminToken) {
+                const user = await resolveWeb2User({
+                    headers: {},
+                    query: { token: adminToken },
+                    body: null,
+                    app: req.app,
+                });
+                isAdmin = !!user && user.role === 'admin';
+            }
+        } catch (e) {
+            console.error('[SSE-WEB2] admintoken resolve error:', e.message);
+        }
+        if (!isAdmin) {
+            console.warn(
+                `[SSE-WEB2] Dropped admin keys (missing/invalid admintoken): ${adminKeys.join(', ')}`
+            );
+            keys = keys.filter((k) => !k.startsWith('web2:_admin:'));
+            if (keys.length === 0) {
+                return res.status(403).json({ error: 'Admin topics require a valid ?admintoken=' });
+            }
+        }
     }
 
     res.setHeader('Content-Type', 'text/event-stream');
@@ -231,13 +263,20 @@ function notifyClients(key, data, eventType = 'update') {
 function notifyClientsWildcard(keyPrefix, data, eventType = 'update') {
     let totalNotified = 0;
     sseClients.forEach((clients, key) => {
-        if (key.startsWith(keyPrefix) || keyPrefix.startsWith(key + '/')) {
+        // Convention separator là ':' (KHÔNG '/'): subscriber key match khi
+        //   key === prefix              (vd 'web2:wallet')
+        //   key.startsWith(prefix+':')  (vd 'web2:wallet:0123...', 'web2:wallet:*')
+        // → 'web2:wallet-config' KHÔNG match prefix 'web2:wallet'.
+        const isMatch = key === keyPrefix || key.startsWith(keyPrefix + ':');
+        if (isMatch) {
+            // payload.key = CHÍNH key client đã subscribe — bridge client
+            // (web2-sse-bridge.js) exact-match subscribers.get(payload.key).
             const message = JSON.stringify({
-                key: keyPrefix,
+                key,
                 data,
                 timestamp: Date.now(),
                 event: eventType,
-                matchedKey: key,
+                pattern: keyPrefix,
             });
             clients.forEach((client) => {
                 try {
@@ -306,12 +345,15 @@ router.post('/sse/test', requireWeb2Admin, (req, res) => {
 router.post('/sse/relay-notify', (req, res) => {
     const secret = process.env.CLEANUP_SECRET || '';
     const provided = req.headers['x-relay-secret'] || '';
-    if (secret) {
-        if (provided !== secret) {
-            return res.status(401).json({ success: false, error: 'unauthorized' });
-        }
-    } else {
-        console.warn('[SSE-WEB2] /sse/relay-notify: CLEANUP_SECRET không set — cho qua (dev only)');
+    if (!secret) {
+        // Fail-closed: thiếu env → từ chối thay vì cho qua.
+        console.error(
+            '[SSE-WEB2] /sse/relay-notify: CLEANUP_SECRET chưa set — fail-closed, từ chối request'
+        );
+        return res.status(503).json({ success: false, error: 'relay not configured' });
+    }
+    if (provided !== secret) {
+        return res.status(401).json({ success: false, error: 'unauthorized' });
     }
     const { key, data } = req.body || {};
     if (!key) return res.status(400).json({ success: false, error: 'Missing key parameter' });
@@ -359,20 +401,22 @@ try {
     const { web2WalletEvents } = require('../services/web2-wallet-service');
 
     web2WalletEvents.on('web2:wallet:update', (data) => {
-        const { phone, wallet, transaction } = data;
+        const { phone, transaction } = data;
+
+        // S5: KHÔNG broadcast nguyên object wallet/transaction (số dư + PII).
+        // Chỉ gửi tickle {action, phone, ts} — client re-fetch.
+        // eventType 'update' (KHÔNG 'wallet_update') — bridge client chỉ
+        // addEventListener update/created/deleted/change.
+        const tickle = { action: 'update', phone, ts: Date.now() };
 
         // Per-phone topic
         try {
-            notifyClients(
-                `web2:wallet:${phone}`,
-                { action: 'update', phone, wallet, transaction, ts: Date.now() },
-                'wallet_update'
-            );
+            notifyClients(`web2:wallet:${phone}`, tickle, 'update');
         } catch (_) {}
 
-        // Wildcard topic for list pages (admin)
+        // Wildcard topic for list pages (admin) — match 'web2:wallet:*' subscribers
         try {
-            notifyClientsWildcard('web2:wallet', data, 'wallet_update');
+            notifyClientsWildcard('web2:wallet', tickle, 'update');
         } catch (_) {}
 
         // Canonical Web 2.0 customer-wallet topic (page subscribes 'web2:customer-wallet')

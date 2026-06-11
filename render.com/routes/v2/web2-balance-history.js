@@ -18,6 +18,7 @@ const router = express.Router();
 const web2SepayMatching = require('../../services/web2-sepay-matching');
 const web2WalletService = require('../../services/web2-wallet-service');
 const web2ContentParser = require('../../services/web2-content-parser');
+const web2MatchAudit = require('../../services/web2-match-audit');
 const { withTransaction } = require('../../db/with-transaction');
 // SINGLE SOURCE: badge "Đuôi SĐT" trên UI DÙNG ĐÚNG hàm matcher dùng để khớp
 // (web2-content-extractor.extractIdentifier) → badge luôn phản ánh chính xác
@@ -50,69 +51,85 @@ async function linkTransaction(db, { id, phone, name, verifiedBy }) {
         String(verifiedBy || '')
             .trim()
             .slice(0, 100) || null;
-    const r = await db.query(
-        `SELECT id, sepay_id, transfer_amount, transfer_type, debt_added
-         FROM web2_balance_history WHERE id = $1`,
-        [id]
-    );
-    if (r.rows.length === 0) return { linked: false, notFound: true };
-    const tx = r.rows[0];
-    if (tx.debt_added === true) return { linked: false, alreadyProcessed: true };
-    const amount = parseInt(tx.transfer_amount) || 0;
-    if (tx.transfer_type !== 'in' || amount <= 0) {
-        // Non-deposit → chỉ gán phone, không cộng ví.
-        await db.query(
+    // ATOMIC (BUG FIX 2026-06-11): SELECT … FOR UPDATE + processDeposit + UPDATE
+    // history trong CÙNG 1 transaction. Trước đây SELECT không lock + 2 bước rời
+    // → race 2 link song song có thể credit 2 lần / UPDATE lệch. `db` có thể là
+    // Pool HOẶC PoolClient (payment-signals approve truyền client của tx ngoài)
+    // → client thì chạy thẳng trên tx của caller, Pool thì withTransaction.
+    const isClient = !!(db && typeof db.release === 'function');
+    const runTx = (fn) => (isClient ? fn(db) : withTransaction(db, fn));
+    const result = await runTx(async (client) => {
+        const r = await client.query(
+            `SELECT id, sepay_id, transfer_amount, transfer_type, debt_added
+             FROM web2_balance_history WHERE id = $1
+             FOR UPDATE`,
+            [id]
+        );
+        if (r.rows.length === 0) return { linked: false, notFound: true };
+        const tx = r.rows[0];
+        // Re-check SAU lock: link song song vừa credit xong → skip (idempotent).
+        if (tx.debt_added === true) return { linked: false, alreadyProcessed: true };
+        const amount = parseInt(tx.transfer_amount) || 0;
+        if (tx.transfer_type !== 'in' || amount <= 0) {
+            // Non-deposit → chỉ gán phone, không cộng ví.
+            await client.query(
+                `UPDATE web2_balance_history
+                 SET linked_customer_phone = $2,
+                     display_name = COALESCE(display_name, $3),
+                     match_method = 'manual_link',
+                     verified_by = COALESCE($4, verified_by)
+                 WHERE id = $1`,
+                [id, phone, name || null, verifiedByVal]
+            );
+            return { linked: true, credited: false };
+        }
+        const walletResult = await web2WalletService.processDeposit(
+            client,
+            phone,
+            amount,
+            tx.id,
+            'Nap tu CK (manual link)',
+            null,
+            null,
+            tx.sepay_id,
+            verifiedByVal || '(đối soát thủ công)' // performed_by — audit
+        );
+        await client.query(
             `UPDATE web2_balance_history
-             SET linked_customer_phone = $2,
-                 display_name = COALESCE(display_name, $3),
+             SET debt_added = TRUE,
+                 linked_customer_phone = $2,
+                 wallet_processed = TRUE,
+                 verification_status = 'AUTO_APPROVED',
                  match_method = 'manual_link',
+                 display_name = COALESCE(display_name, $3),
+                 verified_at = NOW(),
                  verified_by = COALESCE($4, verified_by)
              WHERE id = $1`,
             [id, phone, name || null, verifiedByVal]
         );
-        return { linked: true, credited: false };
-    }
-    const walletResult = await web2WalletService.processDeposit(
-        db,
-        phone,
-        amount,
-        tx.id,
-        'Nap tu CK (manual link)',
-        null,
-        null,
-        tx.sepay_id,
-        verifiedByVal || '(đối soát thủ công)' // performed_by — audit
-    );
-    await db.query(
-        `UPDATE web2_balance_history
-         SET debt_added = TRUE,
-             linked_customer_phone = $2,
-             wallet_processed = TRUE,
-             verification_status = 'AUTO_APPROVED',
-             match_method = 'manual_link',
-             display_name = COALESCE(display_name, $3),
-             verified_at = NOW(),
-             verified_by = COALESCE($4, verified_by)
-         WHERE id = $1`,
-        [id, phone, name || null, verifiedByVal]
-    );
+        return {
+            linked: true,
+            credited: true,
+            wallet_tx_id: walletResult.transaction?.id,
+            balance:
+                walletResult.wallet?.balance != null ? Number(walletResult.wallet.balance) : null,
+            amount, // số tiền GD vừa cộng (= số tiền khách chuyển khoản)
+        };
+    });
     // 2026-06-06: cộng ví xong (CK/đối soát) → tự áp số dư vào PBH chưa trả của
     // SĐT → đơn thành "đã thanh toán" (trả góp nếu thiếu). Best-effort, KHÔNG
     // chặn kết quả link. Lazy require tránh circular (fast-sale-orders ⇏ balance-history).
-    try {
-        require('../fast-sale-orders')
-            .applyWalletToUnpaidPbhs(db, phone, verifiedByVal || '(CK tự thanh toán)')
-            .catch(() => {});
-    } catch (e) {
-        /* ignore */
+    // Đặt NGOÀI runTx: fire-and-forget không được giữ client sau khi tx commit.
+    if (result.linked && result.credited) {
+        try {
+            require('../fast-sale-orders')
+                .applyWalletToUnpaidPbhs(db, phone, verifiedByVal || '(CK tự thanh toán)')
+                .catch(() => {});
+        } catch (e) {
+            /* ignore */
+        }
     }
-    return {
-        linked: true,
-        credited: true,
-        wallet_tx_id: walletResult.transaction?.id,
-        balance: walletResult.wallet?.balance != null ? Number(walletResult.wallet.balance) : null,
-        amount, // số tiền GD vừa cộng (= số tiền khách chuyển khoản)
-    };
+    return result;
 }
 
 // =====================================================
@@ -283,6 +300,13 @@ router.post('/pending/:id/resolve', async (req, res) => {
             resolvedBy || 'web2-ui'
         );
         if (result?.success && result.transactionId) _tryLinkCkSignal(db, result.transactionId);
+        if (result?.success) {
+            _notifyBalanceHistory(req, {
+                action: 'resolve',
+                id: result.transactionId || id,
+                ts: Date.now(),
+            });
+        }
         res.json({ success: true, data: result });
     } catch (e) {
         handleError(res, e, 'Resolve pending');
@@ -303,6 +327,17 @@ function _tryLinkCkSignal(db, txId) {
             .catch(() => {});
     } catch (e) {
         /* ignore */
+    }
+}
+
+// SSE: báo trang balance-history reload sau mutation (link/resolve/reassign).
+// Best-effort, đặt SAU commit + TRƯỚC res.json (pattern manual-deposit).
+function _notifyBalanceHistory(req, payload) {
+    try {
+        const notify = req.app.locals.web2RealtimeSseNotify;
+        if (notify) notify('web2:balance-history', payload);
+    } catch (e) {
+        /* best-effort */
     }
 }
 
@@ -329,6 +364,7 @@ router.patch('/:id/link', async (req, res) => {
                 .json({ success: false, error: 'Đã được xử lý — không thể link lại' });
         }
         if (result.credited) _tryLinkCkSignal(db, id); // nối tín hiệu CK + gửi tin
+        _notifyBalanceHistory(req, { action: 'link', id, ts: Date.now() });
         res.json({ success: true, data: result });
     } catch (e) {
         handleError(res, e, 'Link');
@@ -432,21 +468,51 @@ router.post('/:id/reassign', async (req, res) => {
         const reassignRef = `${tx.sepay_id}:reassign:${newPhoneNorm}`;
         let withdrawResult = null;
         let depositResult = null;
+        let alreadyReassigned = false;
         try {
             await withTransaction(db, async (client) => {
-                // Step 1: withdraw từ ví cũ — reference giữ sepay_id để link audit
+                // Step 0 (IDEMPOTENCY — BUG FIX 2026-06-11): deposit có dup-check
+                // qua reassignRef nhưng withdraw thì KHÔNG → reassign lặp vòng
+                // A→B→A→B lần 2: withdraw vẫn trừ ví A mà deposit B bị skip →
+                // MẤT TIỀN im lặng. Check reassignRef đã tồn tại = reassign này
+                // từng chạy → KHÔNG withdraw/deposit nữa, chỉ đảm bảo history row
+                // đúng phone mới (idempotent).
+                const dupRe = await client.query(
+                    `SELECT 1 FROM web2_wallet_transactions
+                     WHERE reference_type = 'sepay' AND reference_id = $1
+                     LIMIT 1`,
+                    [reassignRef]
+                );
+                if (dupRe.rows.length > 0) {
+                    alreadyReassigned = true;
+                    await client.query(
+                        `UPDATE web2_balance_history
+                         SET linked_customer_phone = $2,
+                             display_name = COALESCE($3, display_name),
+                             match_method = 'manual_reassign',
+                             verified_by = COALESCE($4, verified_by),
+                             verified_at = NOW()
+                         WHERE id = $1`,
+                        [id, newPhoneNorm, name || null, verifiedByVal]
+                    );
+                    return;
+                }
+
+                // Step 1: withdraw từ ví cũ — reference 'sepay_reassign_out' +
+                // reassignRef (KHÔNG dùng 'sepay'+sepay_id: collide partial unique
+                // index idx_web2_wallet_tx_unique_sepay với row DEPOSIT gốc → 500).
                 withdrawResult = await web2WalletService.processWithdraw(
                     client,
                     oldPhoneNorm,
                     amount,
-                    'sepay',
-                    tx.sepay_id,
+                    'sepay_reassign_out',
+                    reassignRef,
                     `Reassign giao dịch ${tx.sepay_id} → ${newPhoneNorm}${reasonText ? ` (${reasonText})` : ''}${verifiedByVal ? ` bởi ${verifiedByVal}` : ''}`,
                     verifiedByVal || '(reassign)' // performed_by — audit
                 );
 
                 // Step 2: deposit vào ví mới — dùng reassignRef variant để idempotent
-                // theo row+phone (sepay_id gốc đã dùng ở Step 1).
+                // theo row+phone (sepay_id gốc đã dùng cho deposit gốc).
                 depositResult = await web2WalletService.processDeposit(
                     client,
                     newPhoneNorm,
@@ -458,6 +524,13 @@ router.post('/:id/reassign', async (req, res) => {
                     reassignRef,
                     verifiedByVal || '(reassign)' // performed_by — audit
                 );
+                // An toàn tiền: deposit bị skip (đã tồn tại — edge race Step 0 không
+                // bắt được) mà withdraw vừa trừ → throw để ROLLBACK toàn bộ.
+                if (depositResult?.alreadyProcessed === true) {
+                    throw new Error(
+                        `Deposit reassign đã tồn tại (ref=${reassignRef}) — rollback withdraw để tránh mất tiền`
+                    );
+                }
 
                 // Step 3: update history row — cùng transaction
                 await client.query(
@@ -480,6 +553,22 @@ router.post('/:id/reassign', async (req, res) => {
             return res.status(500).json({
                 success: false,
                 error: `Không thể chuyển giao dịch (${oldPhoneNorm} → ${newPhoneNorm}): ${e.message}`,
+            });
+        }
+
+        // Reassign này từng chạy rồi (idempotent) → không có withdraw/deposit
+        // mới, history row đã được đảm bảo đúng phone. Trả sớm, không audit lại.
+        if (alreadyReassigned) {
+            _notifyBalanceHistory(req, { action: 'reassign', id, ts: Date.now() });
+            return res.json({
+                success: true,
+                data: {
+                    reassigned: false,
+                    alreadyReassigned: true,
+                    oldPhone: oldPhoneNorm,
+                    newPhone: newPhoneNorm,
+                    amount,
+                },
             });
         }
 
@@ -506,7 +595,7 @@ router.post('/:id/reassign', async (req, res) => {
                 },
                 amount,
                 decidedBy: verifiedByVal || 'admin',
-                walletTxId: depositResult.transaction?.id,
+                walletTxId: depositResult?.transaction?.id,
                 note: `Reassign: ${oldPhoneNorm} → ${newPhoneNorm}${reasonText ? ` (${reasonText})` : ''}`,
             });
         } catch (auditErr) {
@@ -514,6 +603,7 @@ router.post('/:id/reassign', async (req, res) => {
         }
 
         _tryLinkCkSignal(db, id); // đổi KH → nối tín hiệu CK của KH mới + gửi tin
+        _notifyBalanceHistory(req, { action: 'reassign', id, ts: Date.now() });
         res.json({
             success: true,
             data: {
@@ -521,8 +611,8 @@ router.post('/:id/reassign', async (req, res) => {
                 oldPhone: oldPhoneNorm,
                 newPhone: newPhoneNorm,
                 amount,
-                withdrawTxId: withdrawResult.transaction?.id,
-                depositTxId: depositResult.transaction?.id,
+                withdrawTxId: withdrawResult?.transaction?.id,
+                depositTxId: depositResult?.transaction?.id,
             },
         });
     } catch (e) {
@@ -840,85 +930,91 @@ router.post('/manual-deposit', async (req, res) => {
         const transferType = type === 'deposit' ? 'in' : 'out';
         const matchMethod = type === 'deposit' ? 'manual_deposit' : 'manual_withdraw';
 
-        // Insert row
-        const insertResult = await db.query(
-            `INSERT INTO web2_balance_history (
-                sepay_id, gateway, transaction_date, account_number, code,
-                content, transfer_type, transfer_amount, accumulated,
-                sub_account, reference_code, description, raw_data,
-                linked_customer_phone, display_name, match_method,
-                debt_added, wallet_processed, verification_status, verified_at
-             )
-             VALUES ($1, 'MANUAL', NOW(), 'MANUAL', NULL,
-                     $2, $10, $3, 0,
-                     NULL, $4, $5, $6,
-                     $7, $8, $11,
-                     TRUE, $9, 'AUTO_APPROVED', NOW())
-             ON CONFLICT (sepay_id) DO NOTHING
-             RETURNING id`,
-            [
-                manualSepayId,
-                content,
-                amount,
-                `MANUAL-${manualSepayId}`,
-                note || null,
-                metadataJson,
-                target === 'KH' ? phone : null,
-                name,
-                target === 'KH',
-                transferType,
-                matchMethod,
-            ]
-        );
-
-        if (insertResult.rows.length === 0) {
-            return res.status(409).json({ success: false, error: 'Trùng manual sepay_id (rare)' });
-        }
-        const balanceHistoryId = insertResult.rows[0].id;
-
-        // Credit/Debit ví KH (Postgres web2_customer_wallets)
+        // Insert row + credit/debit ví TRONG CÙNG 1 transaction (BUG FIX
+        // 2026-06-11): trước đây INSERT history (debt_added=TRUE) chạy trước,
+        // wallet op chạy SAU ngoài transaction với rollback thủ công DELETE →
+        // crash giữa chừng = history ghi TRUE mà ví không đổi (lệch tiền).
+        // withTransaction: bước nào throw → ROLLBACK toàn bộ.
+        let balanceHistoryId = null;
         let walletResult = null;
-        if (target === 'KH') {
-            try {
-                const web2WalletService = require('../../services/web2-wallet-service');
-                const opLabel = type === 'deposit' ? 'Nạp tay' : 'Rút tay';
-                const opNote = `${opLabel} bởi ${userName}` + (note ? ` (${note})` : '');
-                if (type === 'deposit') {
-                    walletResult = await web2WalletService.processDeposit(
-                        db,
-                        phone,
+        try {
+            await withTransaction(db, async (client) => {
+                const insertResult = await client.query(
+                    `INSERT INTO web2_balance_history (
+                        sepay_id, gateway, transaction_date, account_number, code,
+                        content, transfer_type, transfer_amount, accumulated,
+                        sub_account, reference_code, description, raw_data,
+                        linked_customer_phone, display_name, match_method,
+                        debt_added, wallet_processed, verification_status, verified_at
+                     )
+                     VALUES ($1, 'MANUAL', NOW(), 'MANUAL', NULL,
+                             $2, $10, $3, 0,
+                             NULL, $4, $5, $6,
+                             $7, $8, $11,
+                             TRUE, $9, 'AUTO_APPROVED', NOW())
+                     ON CONFLICT (sepay_id) DO NOTHING
+                     RETURNING id`,
+                    [
+                        manualSepayId,
+                        content,
                         amount,
-                        balanceHistoryId,
-                        opNote,
-                        customerId,
-                        null,
-                        String(manualSepayId)
-                    );
-                } else {
-                    // Withdraw — signature (db, phone, amount, referenceType, referenceId, note)
-                    // Atomic balance check trong transaction; throw nếu insufficient.
-                    walletResult = await web2WalletService.processWithdraw(
-                        db,
-                        phone,
-                        amount,
-                        'manual_balance_history',
-                        String(balanceHistoryId),
-                        opNote
-                    );
+                        `MANUAL-${manualSepayId}`,
+                        note || null,
+                        metadataJson,
+                        target === 'KH' ? phone : null,
+                        name,
+                        target === 'KH',
+                        transferType,
+                        matchMethod,
+                    ]
+                );
+
+                if (insertResult.rows.length === 0) {
+                    const dupErr = new Error('Trùng manual sepay_id (rare)');
+                    dupErr.statusCode = 409;
+                    throw dupErr;
                 }
-            } catch (e) {
-                console.error(`[manual-deposit] KH wallet ${type} fail:`, e.message);
-                // Rollback balance_history row
-                try {
-                    await db.query(`DELETE FROM web2_balance_history WHERE id = $1`, [
-                        balanceHistoryId,
-                    ]);
-                } catch (_) {}
-                return res.status(500).json({
-                    success: false,
-                    error: `${type === 'deposit' ? 'Nạp' : 'Rút'} ví KH thất bại: ${e.message}`,
-                });
+                balanceHistoryId = insertResult.rows[0].id;
+
+                // Credit/Debit ví KH (Postgres web2_customer_wallets) — nhận client
+                // → chạy chung transaction (runWithTx phát hiện client, không mở tx mới).
+                if (target === 'KH') {
+                    const opLabel = type === 'deposit' ? 'Nạp tay' : 'Rút tay';
+                    const opNote = `${opLabel} bởi ${userName}` + (note ? ` (${note})` : '');
+                    if (type === 'deposit') {
+                        walletResult = await web2WalletService.processDeposit(
+                            client,
+                            phone,
+                            amount,
+                            balanceHistoryId,
+                            opNote,
+                            customerId,
+                            null,
+                            String(manualSepayId)
+                        );
+                    } else {
+                        // Withdraw — signature (db, phone, amount, referenceType, referenceId, note)
+                        // Atomic balance check trong transaction; throw nếu insufficient.
+                        walletResult = await web2WalletService.processWithdraw(
+                            client,
+                            phone,
+                            amount,
+                            'manual_balance_history',
+                            String(balanceHistoryId),
+                            opNote
+                        );
+                    }
+                }
+            });
+        } catch (e) {
+            if (e.statusCode === 409) {
+                return res.status(409).json({ success: false, error: e.message });
             }
+            console.error(`[manual-deposit] atomic ${type} fail (đã rollback):`, e.message);
+            return res.status(500).json({
+                success: false,
+                error: `${type === 'deposit' ? 'Nạp' : 'Rút'} ${target === 'KH' ? 'ví KH ' : ''}thất bại: ${e.message}`,
+            });
         }
 
         // SSE notify: balance-history page refresh + KH wallet event

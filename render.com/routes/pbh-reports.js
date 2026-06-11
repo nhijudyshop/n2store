@@ -11,6 +11,11 @@
 
 const express = require('express');
 const router = express.Router();
+const { requireWeb2AuthSoft } = require('../middleware/web2-auth');
+
+// Gate MỀM toàn bộ route (analytics doanh thu/KH — nhạy cảm). Frontend dashboard
+// chưa gửi x-web2-token → chỉ enforce 401 khi WEB2_AUTH_ENFORCE='1'.
+router.use(requireWeb2AuthSoft);
 
 function num(v) {
     return Number(v || 0);
@@ -110,13 +115,14 @@ router.get('/summary', async (req, res) => {
         });
     } catch (e) {
         console.error('[PBH-REPORTS] summary error:', e.message);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal error' });
     }
 });
 
 // GET /revenue?days=30 — daily revenue chart
 router.get('/revenue', async (req, res) => {
     const pool = req.app.locals.web2Db || req.app.locals.chatDb;
+    if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     try {
         const days = Math.max(1, Math.min(365, parseInt(req.query.days, 10) || 30));
         const r = await pool.query(
@@ -144,7 +150,8 @@ router.get('/revenue', async (req, res) => {
             })),
         });
     } catch (e) {
-        res.status(500).json({ error: e.message });
+        console.error('[PBH-REPORTS] revenue error:', e.message);
+        res.status(500).json({ error: 'Internal error' });
     }
 });
 
@@ -154,6 +161,7 @@ router.get('/revenue', async (req, res) => {
 // report-delivery → tách hoàn toàn, KHÔNG đọc data Web 1.0.
 router.get('/delivery', async (req, res) => {
     const pool = req.app.locals.web2Db || req.app.locals.chatDb;
+    if (!pool) return res.status(500).json({ success: false, error: 'DB unavailable' });
     try {
         const re = /^\d{4}-\d{2}-\d{2}$/;
         const today = new Date().toISOString().slice(0, 10);
@@ -201,13 +209,15 @@ router.get('/delivery', async (req, res) => {
         );
         res.json({ success: true, range: { from, to }, totals, byGroup, byCarrier });
     } catch (e) {
-        res.status(500).json({ success: false, error: e.message });
+        console.error('[PBH-REPORTS] delivery error:', e.message);
+        res.status(500).json({ success: false, error: 'Internal error' });
     }
 });
 
 // GET /top-customers?days=30&limit=10
 router.get('/top-customers', async (req, res) => {
     const pool = req.app.locals.web2Db || req.app.locals.chatDb;
+    if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     try {
         const days = Math.max(1, Math.min(365, parseInt(req.query.days, 10) || 30));
         const limit = Math.max(1, Math.min(100, parseInt(req.query.limit, 10) || 10));
@@ -240,13 +250,15 @@ router.get('/top-customers', async (req, res) => {
             })),
         });
     } catch (e) {
-        res.status(500).json({ error: e.message });
+        console.error('[PBH-REPORTS] top-customers error:', e.message);
+        res.status(500).json({ error: 'Internal error' });
     }
 });
 
 // GET /by-campaign?days=30
 router.get('/by-campaign', async (req, res) => {
     const pool = req.app.locals.web2Db || req.app.locals.chatDb;
+    if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     try {
         const days = Math.max(1, Math.min(365, parseInt(req.query.days, 10) || 30));
         const r = await pool.query(
@@ -275,7 +287,8 @@ router.get('/by-campaign', async (req, res) => {
             })),
         });
     } catch (e) {
-        res.status(500).json({ error: e.message });
+        console.error('[PBH-REPORTS] by-campaign error:', e.message);
+        res.status(500).json({ error: 'Internal error' });
     }
 });
 
@@ -287,6 +300,7 @@ router.get('/by-campaign', async (req, res) => {
 // =====================================================
 router.get('/top-customers-360', async (req, res) => {
     const pool = req.app.locals.web2Db || req.app.locals.chatDb;
+    if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     try {
         const days = Math.max(1, Math.min(365, parseInt(req.query.days, 10) || 30));
         const limit = Math.max(1, Math.min(100, parseInt(req.query.limit, 10) || 10));
@@ -381,7 +395,7 @@ router.get('/top-customers-360', async (req, res) => {
         });
     } catch (e) {
         console.error('[PBH-REPORTS] top-customers-360 error:', e.message);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal error' });
     }
 });
 

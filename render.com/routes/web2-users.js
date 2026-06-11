@@ -17,7 +17,7 @@
 
 const express = require('express');
 const router = express.Router();
-const { requireWeb2Admin } = require('../middleware/web2-auth');
+const { requireWeb2Auth, requireWeb2Admin } = require('../middleware/web2-auth');
 
 // -----------------------------------------------------
 // SSE notifier — broadcast topic 'web2:users' sau mỗi DB mutation
@@ -49,8 +49,19 @@ const LOGIN_WINDOW_MS = 15 * 60 * 1000; // 15 phút
 const _loginFails = new Map(); // ip → { count, firstAt }
 
 function _loginClientIp(req) {
+    // Ưu tiên cf-connecting-ip (Cloudflare set, client KHÔNG spoof được qua CF).
+    const cf = req.headers['cf-connecting-ip'];
+    if (cf) return String(cf).trim();
+    // XFF: proxy APPEND vào cuối → phần tử CUỐI là IP do proxy gần nhất ghi,
+    // phần tử đầu là client-controlled (spoof để né rate-limit).
     const xf = req.headers['x-forwarded-for'];
-    if (xf) return String(xf).split(',')[0].trim();
+    if (xf) {
+        const parts = String(xf)
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean);
+        if (parts.length) return parts[parts.length - 1];
+    }
     return req.ip || req.connection?.remoteAddress || 'unknown';
 }
 
@@ -452,8 +463,8 @@ router.get('/role-defaults/:role', (req, res) => {
     res.json({ success: true, role, permissions: ROLE_DEFAULTS[role]() });
 });
 
-// ── List ────────────────────────────────────────────────────────────
-router.get('/list', async (req, res) => {
+// ── List (gate CỨNG — chứa username/email/phone/permissions toàn bộ user) ──
+router.get('/list', requireWeb2Auth, async (req, res) => {
     const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     try {
@@ -478,7 +489,7 @@ router.get('/list', async (req, res) => {
     }
 });
 
-router.get('/:id(\\d+)', async (req, res) => {
+router.get('/:id(\\d+)', requireWeb2Auth, async (req, res) => {
     const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     try {
@@ -575,6 +586,28 @@ router.patch('/:id(\\d+)', requireWeb2Admin, async (req, res) => {
             vals.push(b.note);
         }
         if (!sets.length) return res.status(400).json({ error: 'Không có gì để update' });
+        // Guard "admin cuối cùng" (như DELETE): không cho set isActive=false hoặc
+        // đổi role khỏi 'admin' nếu target là admin active CUỐI CÙNG.
+        const demoting =
+            (typeof b.isActive === 'boolean' && b.isActive === false) ||
+            (typeof b.role === 'string' && b.role !== 'admin');
+        if (demoting) {
+            const cur = await pool.query('SELECT role, is_active FROM web2_users WHERE id = $1', [
+                id,
+            ]);
+            if (!cur.rows.length) return res.status(404).json({ error: 'Không tìm thấy' });
+            if (cur.rows[0].role === 'admin' && cur.rows[0].is_active === true) {
+                const c = await pool.query(
+                    "SELECT COUNT(*)::int AS n FROM web2_users WHERE role = 'admin' AND is_active = TRUE AND id <> $1",
+                    [id]
+                );
+                if (c.rows[0].n === 0) {
+                    return res
+                        .status(400)
+                        .json({ error: 'Không thể vô hiệu/hạ quyền admin cuối cùng' });
+                }
+            }
+        }
         sets.push(`updated_at = $${i++}`);
         vals.push(Date.now());
         vals.push(id);

@@ -319,6 +319,8 @@
     }
 
     async function confirmReturn() {
+        const btn = document.getElementById('swReturnConfirmBtn');
+        if (btn?.disabled) return; // guard: đang xử lý (chống double-click)
         const selectedRows = [];
         let total = 0;
         document.querySelectorAll('#swReturnBody tr[data-row-id]').forEach((tr) => {
@@ -338,42 +340,47 @@
             notify('Chưa chọn dòng nào để trả', 'warning');
             return;
         }
-        // Stock adjust: trả NCC = xuất kho (giảm stock đã +qty khi sync).
-        // Match qua productName. Best-effort, không chặn ledger nếu fail.
+        if (btn) btn.disabled = true; // chống double-click ghi ledger 2 lần
         try {
-            const agg = suppliers[activeSupplier];
-            const adjustments = [];
-            for (const sel of selectedRows) {
-                const p = agg?.purchases?.find((x) => x.rowId === sel.rowId);
-                if (!p) continue;
-                const matched = window.Web2ProductsCache?.findByNameExact?.(p.productName);
-                if (matched?.code) {
-                    adjustments.push({
-                        code: matched.code,
-                        delta: -sel.qty,
-                        reason: `Trả NCC ${activeSupplier}`,
-                    });
+            // Stock adjust: trả NCC = xuất kho (giảm stock đã +qty khi sync).
+            // Match qua productName. Best-effort, không chặn ledger nếu fail.
+            try {
+                const agg = suppliers[activeSupplier];
+                const adjustments = [];
+                for (const sel of selectedRows) {
+                    const p = agg?.purchases?.find((x) => x.rowId === sel.rowId);
+                    if (!p) continue;
+                    const matched = window.Web2ProductsCache?.findByNameExact?.(p.productName);
+                    if (matched?.code) {
+                        adjustments.push({
+                            code: matched.code,
+                            delta: -sel.qty,
+                            reason: `Trả NCC ${activeSupplier}`,
+                        });
+                    }
                 }
+                if (adjustments.length && window.Web2ProductsApi?.adjustStock) {
+                    await window.Web2ProductsApi.adjustStock(adjustments);
+                    window.Web2ProductsCache?.pushTickle?.({ action: 'supplier-return' });
+                }
+            } catch (e) {
+                console.warn('[supplier-wallet] stock adjust fail:', e.message);
             }
-            if (adjustments.length && window.Web2ProductsApi?.adjustStock) {
-                await window.Web2ProductsApi.adjustStock(adjustments);
-                window.Web2ProductsCache?.pushTickle?.({ action: 'supplier-return' });
-            }
-        } catch (e) {
-            console.warn('[supplier-wallet] stock adjust fail:', e.message);
+            window.SupplierWalletStorage.addTransaction(walletState, activeSupplier, {
+                type: 'return',
+                amount: total,
+                note: `Trả ${selectedRows.length} dòng`,
+                ref: { rowIds: selectedRows.map((r) => r.rowId), rows: selectedRows },
+                performedBy: _swBy(), // audit: ai ghi trả hàng
+            });
+            pushSync();
+            notify(`Đã ghi trả hàng ${fmtVnd(total)} cho ${activeSupplier}`, 'success');
+            document.getElementById('swReturnModal').hidden = true;
+            renderList();
+            openDetail(activeSupplier);
+        } finally {
+            if (btn) btn.disabled = false;
         }
-        window.SupplierWalletStorage.addTransaction(walletState, activeSupplier, {
-            type: 'return',
-            amount: total,
-            note: `Trả ${selectedRows.length} dòng`,
-            ref: { rowIds: selectedRows.map((r) => r.rowId), rows: selectedRows },
-            performedBy: _swBy(), // audit: ai ghi trả hàng
-        });
-        pushSync();
-        notify(`Đã ghi trả hàng ${fmtVnd(total)} cho ${activeSupplier}`, 'success');
-        document.getElementById('swReturnModal').hidden = true;
-        renderList();
-        openDetail(activeSupplier);
     }
 
     // ---------- Create NCC modal ----------
@@ -424,23 +431,30 @@
     }
 
     function confirmPay() {
+        const btn = document.getElementById('swPayConfirmBtn');
+        if (btn?.disabled) return; // guard: đang xử lý (chống double-click)
         const amount = Number(document.getElementById('swPayAmount').value) || 0;
         const note = document.getElementById('swPayNote').value || '';
         if (amount <= 0) {
             notify('Số tiền phải > 0', 'warning');
             return;
         }
-        window.SupplierWalletStorage.addTransaction(walletState, activeSupplier, {
-            type: 'payment',
-            amount,
-            note: note || 'Thanh toán',
-            performedBy: _swBy(), // audit: ai ghi thanh toán
-        });
-        pushSync();
-        notify(`Đã ghi thanh toán ${fmtVnd(amount)} cho ${activeSupplier}`, 'success');
-        document.getElementById('swPayModal').hidden = true;
-        renderList();
-        openDetail(activeSupplier);
+        if (btn) btn.disabled = true; // chống double-click ghi ledger 2 lần
+        try {
+            window.SupplierWalletStorage.addTransaction(walletState, activeSupplier, {
+                type: 'payment',
+                amount,
+                note: note || 'Thanh toán',
+                performedBy: _swBy(), // audit: ai ghi thanh toán
+            });
+            pushSync();
+            notify(`Đã ghi thanh toán ${fmtVnd(amount)} cho ${activeSupplier}`, 'success');
+            document.getElementById('swPayModal').hidden = true;
+            renderList();
+            openDetail(activeSupplier);
+        } finally {
+            if (btn) btn.disabled = false;
+        }
     }
 
     // ---------- Sync ----------
@@ -453,11 +467,21 @@
     // ---------- Init ----------
     async function loadAndRender() {
         soOrderData = await window.SupplierWalletStorage.loadSoOrderData();
-        suppliers = aggregateSuppliers(soOrderData);
-        const mutated = mergeAggregation(walletState, suppliers);
-        if (mutated) {
-            window.SupplierWalletStorage.save(walletState);
-            pushSync();
+        // H5 fix 2026-06-11: loadSoOrderData() trả null khi lỗi load — nếu vẫn
+        // aggregate/merge sẽ set totalPurchased=0 cho MỌI NCC rồi save + pushSync
+        // đẩy state hỏng lên Firestore. Nguồn null → KHÔNG mutate/push, render
+        // với state hiện có.
+        if (soOrderData == null) {
+            console.warn(
+                '[supplier-wallet] loadSoOrderData null — skip merge, render state hiện có'
+            );
+        } else {
+            suppliers = aggregateSuppliers(soOrderData);
+            const mutated = mergeAggregation(walletState, suppliers);
+            if (mutated) {
+                window.SupplierWalletStorage.save(walletState);
+                pushSync();
+            }
         }
         renderList();
         // Poll SePay deposits (refund từ NCC → giảm balance)
@@ -571,9 +595,10 @@
     }
 
     // SSE: realtime auto-refresh khi SePay webhook nhận tiền (refund từ NCC).
-    // Server pipeline (đã có): SePay webhook → wallet-event-processor →
-    // walletEvents.emit('wallet:update') → realtime-sse.js wildcard notify
-    // 'wallet:*'. Subscribe 'wallet:all' để nhận mọi event.
+    // Server pipeline (hub Web 2.0): SePay webhook → web2-wallet-service →
+    // web2WalletEvents → realtime-sse-web2.js broadcast key 'web2:wallet:<phone>'.
+    // Subscribe wildcard 'web2:wallet:*' (server match prefix 'web2:wallet')
+    // để nhận mọi event. Topic cũ 'wallet:all' KHÔNG tồn tại trên hub web2.
     //
     // Khác biệt với customer-wallet: NCC ít khi chuyển tiền cho shop (chỉ khi
     // refund/hoàn), nên rate event thấp. Cùng pattern, debounce 800ms.
@@ -587,9 +612,9 @@
         }
         if (_sseUnsubs.length) return;
 
-        // 1. wallet:all — SePay deposit (refund từ NCC)
+        // 1. web2:wallet:* — SePay deposit (refund từ NCC), wildcard prefix match
         _sseUnsubs.push(
-            window.Web2SSE.subscribe('wallet:all', (msg) => {
+            window.Web2SSE.subscribe('web2:wallet:*', (msg) => {
                 if (_ssePollTimer) clearTimeout(_ssePollTimer);
                 _ssePollTimer = setTimeout(async () => {
                     _ssePollTimer = null;

@@ -588,6 +588,68 @@ async function insertWithCodeRetry(pool, doInsert) {
     throw new Error('insertWithCodeRetry: hết số lần thử sinh mã');
 }
 
+// -----------------------------------------------------
+// 2026-06-11 (C7): biến thể TRONG transaction cho /merge, /split-order,
+// /merge-to-pbh.
+// - Mã sinh MAX-based (cùng cách nextDailyCode) thay vì COUNT(*)+1: /merge
+//   DELETE đơn nguồn → COUNT < MAX → COUNT+1 sinh mã ĐÃ TỒN TẠI → 23505 → 500.
+// - Giờ VN = UTC+7 (cùng công thức nextDailyCode), không dùng giờ server UTC.
+// - 23505 bên trong transaction Postgres làm abort cả transaction → bọc INSERT
+//   bằng SAVEPOINT, ROLLBACK TO SAVEPOINT khi đụng mã rồi recompute + thử lại
+//   (pattern fast-sale-orders.js). `table`/`column` là hằng nội bộ do code gọi
+//   truyền vào, KHÔNG nhận user input.
+function vnDailyPrefix() {
+    const vn = new Date(Date.now() + 7 * 3600 * 1000);
+    return `NJ-${vn.getUTCFullYear()}${pad(vn.getUTCMonth() + 1, 2)}${pad(vn.getUTCDate(), 2)}-`;
+}
+
+async function nextDailyCodeTx(client, table, column) {
+    const prefix = vnDailyPrefix();
+    const r = await client.query(
+        `SELECT ${column} AS code FROM ${table}
+         WHERE ${column} LIKE $1
+         ORDER BY ${column} DESC
+         LIMIT 1`,
+        [prefix + '%']
+    );
+    let seq = 1;
+    if (r.rows.length > 0) {
+        const m = r.rows[0].code.match(/-(\d+)$/);
+        if (m) seq = parseInt(m[1], 10) + 1;
+    }
+    return prefix + pad(seq, 4);
+}
+
+async function insertWithCodeRetryTx(
+    client,
+    doInsert,
+    { table = 'native_orders', column = 'code' } = {}
+) {
+    let code = await nextDailyCodeTx(client, table, column);
+    for (let attempt = 0; attempt < MAX_CODE_RETRY; attempt++) {
+        await client.query('SAVEPOINT sp_code_retry');
+        try {
+            const result = await doInsert(code);
+            await client.query('RELEASE SAVEPOINT sp_code_retry');
+            return result;
+        } catch (e) {
+            const isCodeCollision =
+                e &&
+                e.code === '23505' &&
+                new RegExp(column, 'i').test(
+                    String(e.constraint || '') + ' ' + String(e.detail || '')
+                );
+            if (!isCodeCollision || attempt === MAX_CODE_RETRY - 1) throw e;
+            await client.query('ROLLBACK TO SAVEPOINT sp_code_retry');
+            console.warn(
+                `[NATIVE-ORDERS] mã ${code} bị trùng (race trong tx), thử lại (#${attempt + 1})`
+            );
+            code = await nextDailyCodeTx(client, table, column);
+        }
+    }
+    throw new Error('insertWithCodeRetryTx: hết số lần thử sinh mã');
+}
+
 // 2026-06-10: advisory lock theo campaign group để cấp campaign_stt tuần tự,
 // không trùng dưới tải song song. Dùng trong transaction (pg_advisory_xact_lock
 // — tự nhả khi COMMIT/ROLLBACK). Key = hashtext('web2_native_campaign_stt:'||key).
@@ -2298,23 +2360,16 @@ router.post('/:code/split-order', async (req, res) => {
         }
         const newIndex = Math.max(currentMax, 1) + 1;
 
-        // Generate new code (NJ-YYYYMMDD-XXXX) — tách dùng sequence theo ngày
-        const today = new Date();
-        const pad = (n, w = 2) => String(n).padStart(w, '0');
-        const ymd = `${today.getFullYear()}${pad(today.getMonth() + 1)}${pad(today.getDate())}`;
-        const countQ = await client.query(
-            `SELECT COUNT(*)::int AS n FROM native_orders WHERE code LIKE $1`,
-            [`NJ-${ymd}-%`]
-        );
-        const nextSeq = pad(countQ.rows[0].n + 1, 4);
-        const newCode = `NJ-${ymd}-${nextSeq}`;
+        // Generate new code (NJ-YYYYMMDD-XXXX, giờ VN) — C7: MAX-based + retry
+        // 23505 qua insertWithCodeRetryTx (COUNT+1 cũ sinh mã trùng khi COUNT < MAX).
         const now = Date.now();
 
         // INSERT new order: same customer/contact info, EMPTY products, split_index = newIndex,
         // display_stt = source's display_stt (cùng STT — chỉ khác hậu tố split_index).
         // campaign_stt: inherit parent (split là copy, KPI tính chung beneficiary parent).
-        const insQ = await client.query(
-            `INSERT INTO native_orders (
+        const insQ = await insertWithCodeRetryTx(client, (newCode) =>
+            client.query(
+                `INSERT INTO native_orders (
                 code, session_index, display_stt, campaign_stt, split_index, source,
                 customer_name, phone, address, note,
                 fb_user_id, fb_user_name, fb_page_id, fb_post_id, crm_team_id,
@@ -2333,30 +2388,32 @@ router.post('/:code/split-order', async (req, res) => {
                 $17,
                 $18, $19, $20, $20
             ) RETURNING *`,
-            [
-                newCode,
-                src.session_index,
-                src.display_stt,
-                newIndex,
-                src.source,
-                src.customer_name,
-                src.phone,
-                src.address,
-                src.note,
-                src.fb_user_id,
-                src.fb_user_name,
-                src.fb_page_id,
-                src.fb_post_id,
-                src.crm_team_id,
-                src.live_campaign_id,
-                src.live_campaign_name,
-                src.customer_id,
-                src.created_by,
-                src.created_by_name,
-                now,
-                src.campaign_stt || null, // $21 — inherit parent
-            ]
+                [
+                    newCode,
+                    src.session_index,
+                    src.display_stt,
+                    newIndex,
+                    src.source,
+                    src.customer_name,
+                    src.phone,
+                    src.address,
+                    src.note,
+                    src.fb_user_id,
+                    src.fb_user_name,
+                    src.fb_page_id,
+                    src.fb_post_id,
+                    src.crm_team_id,
+                    src.live_campaign_id,
+                    src.live_campaign_name,
+                    src.customer_id,
+                    src.created_by,
+                    src.created_by_name,
+                    now,
+                    src.campaign_stt || null, // $21 — inherit parent
+                ]
+            )
         );
+        const newCode = insQ.rows[0].code;
 
         await client.query('COMMIT');
 
@@ -2408,14 +2465,23 @@ router.post('/merge', async (req, res) => {
         await client.query('BEGIN');
 
         const placeholders = codes.map((_, i) => `$${i + 1}`).join(',');
+        // H14: FOR UPDATE khóa đơn nguồn — chặn race với confirm/tạo PBH song song.
         const src = await client.query(
-            `SELECT * FROM native_orders WHERE code IN (${placeholders})`,
+            `SELECT * FROM native_orders WHERE code IN (${placeholders}) FOR UPDATE`,
             codes
         );
         if (src.rows.length !== codes.length) {
             await client.query('ROLLBACK');
             return res.status(404).json({
                 error: `Tìm thấy ${src.rows.length}/${codes.length} đơn — có đơn không tồn tại`,
+            });
+        }
+        // H14: chỉ gộp đơn nháp — đơn đã có PBH mà bị DELETE sẽ làm PBH dangling.
+        const nonDraft = src.rows.filter((r) => r.status !== 'draft').map((r) => r.code);
+        if (nonDraft.length) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({
+                error: `Chỉ gộp được đơn nháp. Đơn không hợp lệ: ${nonDraft.join(', ')}`,
             });
         }
         const phones = new Set(src.rows.map((r) => (r.phone || '').trim()));
@@ -2451,21 +2517,17 @@ router.post('/merge', async (req, res) => {
             .filter(Boolean)
             .join('\n---\n');
 
-        // Generate new NW code
-        const today = new Date();
-        const pad = (n, w = 2) => String(n).padStart(w, '0');
-        const ymd = `${today.getFullYear()}${pad(today.getMonth() + 1)}${pad(today.getDate())}`;
-        const todayCountQ = await client.query(
-            `SELECT COUNT(*)::int AS n FROM native_orders WHERE code LIKE $1`,
-            [`NJ-${ymd}-%`]
-        );
-        const nextSeq = pad(todayCountQ.rows[0].n + 1, 4);
-        const newCode = `NJ-${ymd}-${nextSeq}`;
         const now = Date.now();
 
         // Merge tạo đơn mới → cấp campaign_stt mới scope theo base.live_campaign_id.
-        const ins = await client.query(
-            `INSERT INTO native_orders (
+        // H14: advisory lock theo campaign key (khớp scope subquery COALESCE(
+        // live_campaign_id,'NO_CAMPAIGN') bên dưới) → MAX+1 campaign_stt tuần tự.
+        await lockCampaignSttKey(client, base.live_campaign_id);
+        // C7: mã NJ (giờ VN) MAX-based + retry 23505 qua SAVEPOINT — COUNT+1 cũ
+        // sinh mã trùng vì /merge DELETE đơn nguồn làm COUNT < MAX.
+        const ins = await insertWithCodeRetryTx(client, (newCode) =>
+            client.query(
+                `INSERT INTO native_orders (
                 code, display_stt, campaign_stt, source,
                 customer_name, phone, address, note,
                 fb_user_id, fb_user_name, fb_page_id, fb_post_id,
@@ -2488,32 +2550,34 @@ router.post('/merge', async (req, res) => {
                 $19, $20,
                 $21, $22, $23, $23
             ) RETURNING *`,
-            [
-                newCode,
-                base.customer_name,
-                base.phone,
-                base.address,
-                combinedNote,
-                base.fb_user_id,
-                base.fb_user_name,
-                base.fb_page_id,
-                base.fb_post_id,
-                base.crm_team_id,
-                JSON.stringify(combinedProducts),
-                totalQty,
-                totalAmount,
-                base.live_campaign_id,
-                base.live_campaign_name,
-                base.customer_id,
-                JSON.stringify(allCommentIds),
-                allCommentIds.length || sorted.length,
-                JSON.stringify(mergedStts),
-                JSON.stringify(mergedCodes),
-                base.created_by,
-                base.created_by_name,
-                now,
-            ]
+                [
+                    newCode,
+                    base.customer_name,
+                    base.phone,
+                    base.address,
+                    combinedNote,
+                    base.fb_user_id,
+                    base.fb_user_name,
+                    base.fb_page_id,
+                    base.fb_post_id,
+                    base.crm_team_id,
+                    JSON.stringify(combinedProducts),
+                    totalQty,
+                    totalAmount,
+                    base.live_campaign_id,
+                    base.live_campaign_name,
+                    base.customer_id,
+                    JSON.stringify(allCommentIds),
+                    allCommentIds.length || sorted.length,
+                    JSON.stringify(mergedStts),
+                    JSON.stringify(mergedCodes),
+                    base.created_by,
+                    base.created_by_name,
+                    now,
+                ]
+            )
         );
+        const newCode = ins.rows[0].code;
 
         // Delete source native-orders
         await client.query(`DELETE FROM native_orders WHERE code IN (${placeholders})`, codes);
@@ -2601,20 +2665,14 @@ router.post('/merge-to-pbh', async (req, res) => {
             .filter(Boolean)
             .join('\n---\n');
 
-        // Generate new HD number
-        const today = new Date();
-        const pad = (n, w = 2) => String(n).padStart(w, '0');
-        const ymd = `${today.getFullYear()}${pad(today.getMonth() + 1)}${pad(today.getDate())}`;
-        const todayCountQ = await client.query(
-            `SELECT COUNT(*)::int AS n FROM fast_sale_orders WHERE number LIKE $1`,
-            [`NJ-${ymd}-%`]
-        );
-        const nextSeq = pad(todayCountQ.rows[0].n + 1, 4);
-        const newNumber = `NJ-${ymd}-${nextSeq}`;
-
+        // Generate new HD number (NJ-YYYYMMDD-XXXX, giờ VN) — C7: MAX-based +
+        // retry 23505 qua SAVEPOINT (COUNT+1 cũ sinh số trùng khi COUNT < MAX).
         // INSERT new PBH (fast_sale_orders)
-        const ins = await client.query(
-            `INSERT INTO fast_sale_orders (
+        const ins = await insertWithCodeRetryTx(
+            client,
+            (newNumber) =>
+                client.query(
+                    `INSERT INTO fast_sale_orders (
                 number, display_stt, source,
                 partner_name, partner_phone, partner_address,
                 order_lines, total_quantity, amount_untaxed, amount_total,
@@ -2627,20 +2685,23 @@ router.post('/merge-to-pbh', async (req, res) => {
                 'draft', 'native_order', $8, $9,
                 $10, $11, NOW()
             ) RETURNING *`,
-            [
-                newNumber,
-                base.customer_name || '',
-                base.phone || '',
-                base.address || '',
-                JSON.stringify(combinedLines),
-                totalQty,
-                totalAmount,
-                mergedSourceCode,
-                JSON.stringify(mergedStts),
-                base.customer_id || null,
-                combinedComment,
-            ]
+                    [
+                        newNumber,
+                        base.customer_name || '',
+                        base.phone || '',
+                        base.address || '',
+                        JSON.stringify(combinedLines),
+                        totalQty,
+                        totalAmount,
+                        mergedSourceCode,
+                        JSON.stringify(mergedStts),
+                        base.customer_id || null,
+                        combinedComment,
+                    ]
+                ),
+            { table: 'fast_sale_orders', column: 'number' }
         );
+        const newNumber = ins.rows[0].number;
 
         await client.query('COMMIT');
         const newOrder = ins.rows[0];

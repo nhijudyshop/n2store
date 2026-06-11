@@ -103,9 +103,11 @@ function _notify(action, code) {
 // -----------------------------------------------------
 // Auto-create table on first request
 // -----------------------------------------------------
-let _tablesCreated = false;
+// Key theo pool object (WeakSet) thay vì flag module-level: cold-start fallback
+// chatDb không được làm web2Db skip ensureTables (2 pool riêng biệt).
+const _ensuredPools = new WeakSet();
 async function ensureTables(pool) {
-    if (_tablesCreated) return;
+    if (_ensuredPools.has(pool)) return;
     try {
         await pool.query(`
             CREATE TABLE IF NOT EXISTS web2_products (
@@ -249,7 +251,7 @@ async function ensureTables(pool) {
             END $$;
         `);
 
-        _tablesCreated = true;
+        _ensuredPools.add(pool);
         console.log('[WEB2-PRODUCTS] Tables created/verified (+ migration 078)');
     } catch (error) {
         console.error('[WEB2-PRODUCTS] Table creation error:', error.message);
@@ -608,6 +610,9 @@ router.post('/', async (req, res) => {
 router.patch('/:code', async (req, res) => {
     const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
+    // H13: UPDATE products + cascade native_orders + cascade fast_sale_orders
+    // chạy trong 1 transaction (cùng client) — tránh partial update khi crash giữa chừng.
+    const client = await pool.connect();
     try {
         await ensureTables(pool);
         const allowed = {
@@ -638,8 +643,10 @@ router.patch('/:code', async (req, res) => {
         sets.push(`updated_at = $${params.length}`);
         params.push(req.params.code);
 
+        await client.query('BEGIN');
         // Fetch previous row for history diff + stock-vs-pending guard.
-        const prevQ = await pool.query(`SELECT * FROM web2_products WHERE code = $1`, [
+        // FOR UPDATE: row-lock đến hết transaction → serialize PATCH đồng thời.
+        const prevQ = await client.query(`SELECT * FROM web2_products WHERE code = $1 FOR UPDATE`, [
             req.params.code,
         ]);
         const prevMapped = prevQ.rows[0] ? mapRow(prevQ.rows[0]) : null;
@@ -653,6 +660,7 @@ router.patch('/:code', async (req, res) => {
             const newStock = Number(req.body.stock);
             const curPending = Number(prevMapped.pendingQty) || 0;
             if (Number.isFinite(newStock) && newStock < curPending && !req.query.force) {
+                await client.query('ROLLBACK');
                 return res.status(409).json({
                     error: 'stock_less_than_pending',
                     code: req.params.code,
@@ -666,27 +674,20 @@ router.patch('/:code', async (req, res) => {
             }
         }
 
-        const r = await pool.query(
+        const r = await client.query(
             `UPDATE web2_products SET ${sets.join(', ')}
              WHERE code = $${params.length}
              RETURNING *`,
             params
         );
-        if (!r.rows.length) return res.status(404).json({ error: 'Not found' });
+        if (!r.rows.length) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ error: 'Not found' });
+        }
 
-        // Log diff vào history (chỉ field actually changed).
+        // Diff cho history (ghi SAU COMMIT — best-effort, không poison transaction).
         const newMapped = mapRow(r.rows[0]);
         const changes = prevMapped ? _diff(prevMapped, newMapped) : { snapshot: newMapped };
-        if (Object.keys(changes).length > 0) {
-            await _logHistory(
-                pool,
-                r.rows[0].code,
-                'update',
-                changes,
-                _extractUser(req),
-                _extractSourcePage(req) || 'products'
-            );
-        }
 
         // Cascade snapshot fields (imageUrl + name + price) sang các đơn đã chọn
         // sản phẩm này. native_orders.products[] và fast_sale_orders.order_lines[]
@@ -702,6 +703,7 @@ router.patch('/:code', async (req, res) => {
             nativeOrders: 0,
             fastSaleOrders: 0,
         };
+        const postCommitNotifies = []; // SSE chỉ broadcast SAU COMMIT
         if (cascadeFields.length > 0) {
             const newProd = r.rows[0];
             const code = newProd.code;
@@ -721,7 +723,7 @@ router.patch('/:code', async (req, res) => {
                     setNative.push(`'price', to_jsonb(${Number(newProd.price) || 0}::numeric)`);
                 }
                 if (setNative.length > 0) {
-                    const updNative = await pool.query(
+                    const updNative = await client.query(
                         `UPDATE native_orders
                          SET products = (
                                 SELECT jsonb_agg(
@@ -739,23 +741,21 @@ router.patch('/:code', async (req, res) => {
                         [code, now]
                     );
                     cascadeCounts.nativeOrders = updNative.rowCount;
-                    if (updNative.rowCount > 0 && _notifyClients) {
-                        try {
-                            _notifyClients(
-                                'web2:native-orders',
-                                {
-                                    action: 'product-snapshot-sync',
-                                    productCode: code,
-                                    affected: updNative.rowCount,
-                                    ts: now,
-                                },
-                                'update'
-                            );
-                        } catch {}
+                    if (updNative.rowCount > 0) {
+                        postCommitNotifies.push([
+                            'web2:native-orders',
+                            {
+                                action: 'product-snapshot-sync',
+                                productCode: code,
+                                affected: updNative.rowCount,
+                                ts: now,
+                            },
+                        ]);
                     }
                 }
             } catch (cascadeErr) {
                 console.warn('[WEB2-PRODUCTS] cascade native_orders failed:', cascadeErr.message);
+                throw cascadeErr; // trong transaction: phải rollback toàn bộ, không nuốt lỗi
             }
 
             // Cascade tới fast_sale_orders.order_lines (key: productCode, productName, priceUnit)
@@ -771,7 +771,7 @@ router.patch('/:code', async (req, res) => {
                     setPbh.push(`'priceUnit', to_jsonb(${Number(newProd.price) || 0}::numeric)`);
                 }
                 if (setPbh.length > 0) {
-                    const updPbh = await pool.query(
+                    const updPbh = await client.query(
                         `UPDATE fast_sale_orders
                          SET order_lines = (
                                 SELECT jsonb_agg(
@@ -789,19 +789,16 @@ router.patch('/:code', async (req, res) => {
                         [code, now]
                     );
                     cascadeCounts.fastSaleOrders = updPbh.rowCount;
-                    if (updPbh.rowCount > 0 && _notifyClients) {
-                        try {
-                            _notifyClients(
-                                'web2:fast-sale-orders',
-                                {
-                                    action: 'product-snapshot-sync',
-                                    productCode: code,
-                                    affected: updPbh.rowCount,
-                                    ts: now,
-                                },
-                                'update'
-                            );
-                        } catch {}
+                    if (updPbh.rowCount > 0) {
+                        postCommitNotifies.push([
+                            'web2:fast-sale-orders',
+                            {
+                                action: 'product-snapshot-sync',
+                                productCode: code,
+                                affected: updPbh.rowCount,
+                                ts: now,
+                            },
+                        ]);
                     }
                 }
             } catch (cascadeErr) {
@@ -809,9 +806,30 @@ router.patch('/:code', async (req, res) => {
                     '[WEB2-PRODUCTS] cascade fast_sale_orders failed:',
                     cascadeErr.message
                 );
+                throw cascadeErr; // trong transaction: phải rollback toàn bộ, không nuốt lỗi
             }
         }
 
+        await client.query('COMMIT');
+
+        // Post-commit: history (best-effort) + SSE notifies.
+        if (Object.keys(changes).length > 0) {
+            await _logHistory(
+                pool,
+                r.rows[0].code,
+                'update',
+                changes,
+                _extractUser(req),
+                _extractSourcePage(req) || 'products'
+            );
+        }
+        if (_notifyClients) {
+            for (const [topic, payload] of postCommitNotifies) {
+                try {
+                    _notifyClients(topic, payload, 'update');
+                } catch {}
+            }
+        }
         _notify('update', r.rows[0].code);
         res.json({
             success: true,
@@ -819,7 +837,10 @@ router.patch('/:code', async (req, res) => {
             cascade: cascadeFields.length > 0 ? cascadeCounts : undefined,
         });
     } catch (e) {
+        await client.query('ROLLBACK').catch(() => {});
         res.status(500).json({ error: e.message });
+    } finally {
+        client.release();
     }
 });
 
@@ -1295,14 +1316,21 @@ router.post('/confirm-purchase', async (req, res) => {
 router.post('/confirm-purchase-partial', async (req, res) => {
     const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
+    const items = Array.isArray((req.body || {}).items) ? req.body.items : [];
+    if (!items.length) {
+        return res.status(400).json({ error: 'items[] required' });
+    }
+    // C5: FOR UPDATE chỉ có tác dụng trong transaction — pool.query autocommit
+    // làm lock vô hiệu → lost update khi 2 máy cùng nhận hàng. Bọc toàn bộ
+    // SELECT FOR UPDATE + tính newStock + UPDATE trên CÙNG client (như
+    // upsert-pending / confirm-purchase ở trên).
+    const client = await pool.connect();
     try {
         await ensureTables(pool);
-        const items = Array.isArray((req.body || {}).items) ? req.body.items : [];
-        if (!items.length) {
-            return res.status(400).json({ error: 'items[] required' });
-        }
+        await client.query('BEGIN');
         const now = Date.now();
         const results = [];
+        const historyLogs = []; // ghi SAU COMMIT (best-effort, không poison tx)
         for (const it of items) {
             const code = String(it.code || '').trim();
             const qtyReq = Math.max(0, Number(it.qtyReceived) || 0);
@@ -1310,9 +1338,10 @@ router.post('/confirm-purchase-partial', async (req, res) => {
                 results.push({ code: null, action: 'error', error: 'missing code' });
                 continue;
             }
-            const cur = await pool.query(`SELECT * FROM web2_products WHERE code = $1 FOR UPDATE`, [
-                code,
-            ]);
+            const cur = await client.query(
+                `SELECT * FROM web2_products WHERE code = $1 FOR UPDATE`,
+                [code]
+            );
             if (!cur.rows.length) {
                 results.push({ code, action: 'error', error: 'not_found' });
                 continue;
@@ -1330,7 +1359,7 @@ router.post('/confirm-purchase-partial', async (req, res) => {
             else if (newPending === 0 && newStock > 0) newStatus = 'DANG_BAN';
             else if (newPending > 0 && newStock === 0) newStatus = 'CHO_MUA';
             else newStatus = 'DANG_BAN';
-            const upd = await pool.query(
+            const upd = await client.query(
                 `UPDATE web2_products
                    SET stock       = $1,
                        pending_qty = $2,
@@ -1351,23 +1380,30 @@ router.post('/confirm-purchase-partial', async (req, res) => {
                 pendingQty: m.pendingQty,
                 status: m.status,
             });
-            // History log
+            historyLogs.push({
+                code,
+                changes: {
+                    qtyReceived: qtyR,
+                    qtyRequested: qtyReq,
+                    beforeStock: curStock,
+                    afterStock: newStock,
+                    beforePending: curPending,
+                    afterPending: newPending,
+                    beforeStatus: row.status,
+                    afterStatus: newStatus,
+                    supplier: row.supplier,
+                },
+            });
+        }
+        await client.query('COMMIT');
+        // History log (post-commit, best-effort)
+        for (const h of historyLogs) {
             try {
                 await _logHistory(
                     pool,
-                    code,
+                    h.code,
                     'partial-purchase',
-                    {
-                        qtyReceived: qtyR,
-                        qtyRequested: qtyReq,
-                        beforeStock: curStock,
-                        afterStock: newStock,
-                        beforePending: curPending,
-                        afterPending: newPending,
-                        beforeStatus: row.status,
-                        afterStatus: newStatus,
-                        supplier: row.supplier,
-                    },
+                    h.changes,
                     _extractUser(req),
                     _extractSourcePage(req) || 'so-order'
                 );
@@ -1377,8 +1413,11 @@ router.post('/confirm-purchase-partial', async (req, res) => {
         if (processed) _notify('confirm-purchase-partial', null);
         res.json({ success: true, processed, items: results });
     } catch (e) {
+        await client.query('ROLLBACK').catch(() => {});
         console.error('[WEB2-PRODUCTS] confirm-purchase-partial error:', e.message);
         res.status(500).json({ error: e.message });
+    } finally {
+        client.release();
     }
 });
 

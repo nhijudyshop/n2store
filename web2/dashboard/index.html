@@ -195,9 +195,11 @@
                 function fmt(n) {
                     return Number(n || 0).toLocaleString('vi-VN');
                 }
-                async function load() {
+                async function load(opts) {
                     try {
-                        const r = await fetch(API + '/', { credentials: 'include' });
+                        // SSE trigger → ?nocache=1 để bypass cache 30s server-side.
+                        const url = API + '/' + (opts && opts.nocache ? '?nocache=1' : '');
+                        const r = await fetch(url, { credentials: 'include' });
                         const d = await r.json();
                         if (!d.success) return;
                         document.getElementById('kpiRevenue').textContent =
@@ -281,8 +283,8 @@
                     load();
                     if (window.Web2SSE) {
                         // KPI event (emitKpiEvent broadcast) + PBH thay đổi → reload.
-                        Web2SSE.subscribe('web2:kpi-dashboard', () => load());
-                        Web2SSE.subscribe('web2:fast-sale-orders', () => load());
+                        Web2SSE.subscribe('web2:kpi-dashboard', () => load({ nocache: true }));
+                        Web2SSE.subscribe('web2:fast-sale-orders', () => load({ nocache: true }));
                     }
                     setInterval(load, 60000);
                 });

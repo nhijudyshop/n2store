@@ -30,11 +30,37 @@
     const pag = () => $('#pagination');
     const modal = () => $('#productModal');
 
+    // S6 fix 2026-06-11: escape đủ 5 ký tự (DOM textContent→innerHTML KHÔNG
+    // escape quote → attribute-injection khi nhúng vào title="..."/src="...").
     function escapeHtml(s) {
         if (s == null) return '';
-        const div = document.createElement('div');
-        div.textContent = String(s);
-        return div.innerHTML;
+        return String(s)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+    // Escape cho giá trị nhúng vào JS string literal trong inline handler
+    // (onclick="fn('${...}')"): browser decode HTML entity TRƯỚC khi JS parse,
+    // nên escapeHtml một mình không đủ — phải backslash-escape trước rồi mới
+    // escapeHtml bọc ngoài: escapeHtml(escJs(v)).
+    function escJs(s) {
+        if (s == null) return '';
+        return String(s)
+            .replace(/\\/g, '\\\\')
+            .replace(/'/g, "\\'")
+            .replace(/"/g, '\\"')
+            .replace(/</g, '\\x3c')
+            .replace(/>/g, '\\x3e')
+            .replace(/\r/g, '\\r')
+            .replace(/\n/g, '\\n');
+    }
+    // Chỉ render <img src> với scheme an toàn — chặn javascript:, vbscript:,
+    // data:text/html… từ imageUrl do server/user nhập.
+    function safeImageUrl(u) {
+        const s = String(u || '').trim();
+        return /^(https:\/\/|http:\/\/|\/|data:image\/)/i.test(s) ? s : '';
     }
     function fmtPrice(n) {
         return (Number(n) || 0).toLocaleString('vi-VN') + 'đ';
@@ -50,8 +76,9 @@
     // Tách thành helper để dùng được cho cả full renderRows() và in-place
     // update (tránh giật bảng khi SSE event update).
     function _rowHtml(p, n) {
-        const imgHtml = p.imageUrl
-            ? `<img class="product-image" src="${escapeHtml(p.imageUrl)}" alt="" loading="lazy"
+        const imgSrc = safeImageUrl(p.imageUrl);
+        const imgHtml = imgSrc
+            ? `<img class="product-image" src="${escapeHtml(imgSrc)}" alt="" loading="lazy"
                        onerror="this.style.display='none';this.nextElementSibling?.style.setProperty('display','inline-flex');">` +
               `<span class="product-image-placeholder" style="display:none;"><i data-lucide="image"></i></span>`
             : `<span class="product-image-placeholder"><i data-lucide="image"></i></span>`;
@@ -66,7 +93,7 @@
                     <td class="select-cell"><input type="checkbox" class="w2p-checkbox" data-select-code="${escapeHtml(p.code)}"${checked} /></td>
                     <td>${n}</td>
                     <td>${imgHtml}</td>
-                    <td><span class="code-badge code-product" onclick="Web2ProductsApp.copyCode('${escapeHtml(p.code)}')"><i data-lucide="tag"></i>${escapeHtml(p.code)}</span></td>
+                    <td><span class="code-badge code-product" onclick="Web2ProductsApp.copyCode('${escapeHtml(escJs(p.code))}')"><i data-lucide="tag"></i>${escapeHtml(p.code)}</span></td>
                     <td><div style="font-weight:600;">${escapeHtml(p.name)}</div></td>
                     <td class="variant-cell">
                         <div class="variant-stack">${
@@ -108,15 +135,15 @@
                     </td>
                     <td>
                         <div class="row-actions">
-                            <button class="btn-action act-edit" title="Sửa" onclick="Web2ProductsApp.openEdit('${escapeHtml(p.code)}')"><i data-lucide="pencil"></i></button>
-                            <button class="btn-action act-print" title="${Number(p.printCount) > 0 ? `Tem mã vạch đã in ${Number(p.printCount)} lần — tránh in trùng` : 'In tem mã vạch'}" onclick="Web2ProductsApp.printBarcode('${escapeHtml(p.code)}')"><i data-lucide="printer"></i>${
+                            <button class="btn-action act-edit" title="Sửa" onclick="Web2ProductsApp.openEdit('${escapeHtml(escJs(p.code))}')"><i data-lucide="pencil"></i></button>
+                            <button class="btn-action act-print" title="${Number(p.printCount) > 0 ? `Tem mã vạch đã in ${Number(p.printCount)} lần — tránh in trùng` : 'In tem mã vạch'}" onclick="Web2ProductsApp.printBarcode('${escapeHtml(escJs(p.code))}')"><i data-lucide="printer"></i>${
                                 Number(p.printCount) > 0
                                     ? `<span class="print-count-num">${Number(p.printCount)}</span>`
                                     : ''
                             }</button>
-                            <button class="btn-action act-confirm" title="${p.isActive ? 'Tạm dừng' : 'Bán lại'}" onclick="Web2ProductsApp.toggleActive('${escapeHtml(p.code)}', ${!p.isActive})"><i data-lucide="${p.isActive ? 'pause' : 'play'}"></i></button>
-                            <button class="btn-action act-history" title="Lịch sử chỉnh sửa" onclick="Web2ProductsApp.openHistory('${escapeHtml(p.code)}')"><i data-lucide="history"></i></button>
-                            <button class="btn-action act-delete" title="Xóa" onclick="Web2ProductsApp.remove('${escapeHtml(p.code)}')"><i data-lucide="trash-2"></i></button>
+                            <button class="btn-action act-confirm" title="${p.isActive ? 'Tạm dừng' : 'Bán lại'}" onclick="Web2ProductsApp.toggleActive('${escapeHtml(escJs(p.code))}', ${!p.isActive})"><i data-lucide="${p.isActive ? 'pause' : 'play'}"></i></button>
+                            <button class="btn-action act-history" title="Lịch sử chỉnh sửa" onclick="Web2ProductsApp.openHistory('${escapeHtml(escJs(p.code))}')"><i data-lucide="history"></i></button>
+                            <button class="btn-action act-delete" title="Xóa" onclick="Web2ProductsApp.remove('${escapeHtml(escJs(p.code))}')"><i data-lucide="trash-2"></i></button>
                         </div>
                     </td>
                 </tr>`;
@@ -323,7 +350,7 @@
             return `<span class="usage-badge usage-empty" data-code="${escapeHtml(code)}">0 đơn</span>`;
         }
         const totalQty = entries.reduce((s, e) => s + (e.qty || 0), 0);
-        return `<button class="usage-badge usage-has" data-code="${escapeHtml(code)}" onclick="Web2ProductsApp.openUsagePopover('${escapeHtml(code)}', event)" title="${entries.length} đơn × ${totalQty} cái — bấm xem chi tiết"><i data-lucide="link"></i><strong>${entries.length}</strong> đơn · ${totalQty} cái</button>`;
+        return `<button class="usage-badge usage-has" data-code="${escapeHtml(code)}" onclick="Web2ProductsApp.openUsagePopover('${escapeHtml(escJs(code))}', event)" title="${entries.length} đơn × ${totalQty} cái — bấm xem chi tiết"><i data-lucide="link"></i><strong>${entries.length}</strong> đơn · ${totalQty} cái</button>`;
     }
 
     async function _loadUsageForCurrentPage() {

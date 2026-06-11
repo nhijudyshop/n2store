@@ -834,81 +834,108 @@ router.delete('/:code', async (req, res) => {
     const user = _user(req);
     try {
         await ensureTables(pool);
-        const cur = await pool.query('SELECT * FROM web2_returns WHERE code = $1', [
-            req.params.code,
-        ]);
-        if (!cur.rows[0]) return res.status(404).json({ error: 'Not found' });
-        const row = cur.rows[0];
-        if (row.status !== 'active') return res.status(400).json({ error: 'Phiếu đã huỷ' });
-        const items = Array.isArray(row.items) ? row.items : [];
-        const now = Date.now();
-
-        const client = await pool.connect();
+        // FOR UPDATE: lock record TRƯỚC khi check trạng thái + rollback kho/ví.
+        // Chống 2 request huỷ đồng thời cùng pass guard (kho trừ 2 lần + ví rút
+        // 2 lần). Revert ví chạy TRONG cùng transaction (processWithdraw/
+        // processDeposit nhận client → runWithTx chạy trực tiếp trên client) —
+        // crash giữa chừng → rollback toàn bộ, không còn cửa sổ "phiếu huỷ +
+        // kho đã trừ nhưng ví chưa revert". Ví không đủ số dư để thu hồi →
+        // 409, KHÔNG huỷ phiếu (an toàn tiền hơn lệch ví im lặng).
+        let cancelledPhone = null;
+        let walletReverted = false;
         try {
-            await client.query('BEGIN');
-            // Rollback tồn kho:
-            //  - applied / approved → đã vào stock thật → trừ stock.
-            //  - pending → đang ở return_qty → trừ return_qty.
-            if (row.stock_status === 'pending') {
-                await _applyStock(client, items, 'shipper_gui', -1);
-            } else {
-                for (const it of items) {
-                    const qty = Number(it.quantity) || 0;
-                    if (!it.productCode || qty <= 0) continue;
-                    await client.query(
-                        `UPDATE web2_products SET stock = GREATEST(0, stock - $1), updated_at = $2 WHERE code = $3`,
-                        [qty, now, it.productCode]
-                    );
+            await withTransaction(pool, async (client) => {
+                const cur = await client.query(
+                    'SELECT * FROM web2_returns WHERE code = $1 FOR UPDATE',
+                    [req.params.code]
+                );
+                if (!cur.rows[0]) {
+                    const err = new Error('Not found');
+                    err.httpStatus = 404;
+                    throw err;
                 }
-            }
-            const hist = Array.isArray(row.history) ? row.history : [];
-            hist.push({ ts: now, action: 'cancel', userId: user.id, userName: user.name });
-            await client.query(
-                `UPDATE web2_returns SET status = 'cancelled', history = $1::jsonb, updated_at = $2 WHERE code = $3`,
-                [JSON.stringify(hist), now, req.params.code]
-            );
-            await client.query('COMMIT');
+                const row = cur.rows[0];
+                if (row.status !== 'active') {
+                    const err = new Error('Phiếu đã huỷ');
+                    err.httpStatus = 400;
+                    throw err;
+                }
+                const items = Array.isArray(row.items) ? row.items : [];
+                const now = Date.now();
+                // Rollback tồn kho:
+                //  - applied / approved → đã vào stock thật → trừ stock.
+                //  - pending → đang ở return_qty → trừ return_qty.
+                if (row.stock_status === 'pending') {
+                    await _applyStock(client, items, 'shipper_gui', -1);
+                } else {
+                    for (const it of items) {
+                        const qty = Number(it.quantity) || 0;
+                        if (!it.productCode || qty <= 0) continue;
+                        await client.query(
+                            `UPDATE web2_products SET stock = GREATEST(0, stock - $1), updated_at = $2 WHERE code = $3`,
+                            [qty, now, it.productCode]
+                        );
+                    }
+                }
+                // Rollback ví TRONG transaction: credited>0 (đã cộng) → rút lại;
+                // credited<0 (đã trừ — vd Sửa COD trừ công nợ khách) → hoàn lại.
+                const credited = Number(row.wallet_credited) || 0;
+                if (credited !== 0 && row.phone) {
+                    if (credited > 0) {
+                        try {
+                            await web2WalletService.processWithdraw(
+                                client,
+                                row.phone,
+                                credited,
+                                'return',
+                                req.params.code,
+                                `Huỷ thu về ${req.params.code}`,
+                                user.name
+                            );
+                        } catch (e) {
+                            if (String(e.message).includes('Số dư không đủ')) {
+                                const err = new Error('Ví không đủ số dư để thu hồi — xử lý tay');
+                                err.httpStatus = 409;
+                                throw err;
+                            }
+                            throw e;
+                        }
+                    } else {
+                        await web2WalletService.processDeposit(
+                            client,
+                            row.phone,
+                            -credited,
+                            null,
+                            `Hoàn ví huỷ phiếu COD ${req.params.code}`,
+                            row.customer_id || null,
+                            null,
+                            null,
+                            user.name
+                        );
+                    }
+                    walletReverted = true;
+                }
+                const hist = Array.isArray(row.history) ? row.history : [];
+                hist.push({ ts: now, action: 'cancel', userId: user.id, userName: user.name });
+                const upd = await client.query(
+                    `UPDATE web2_returns SET status = 'cancelled', history = $1::jsonb, updated_at = $2
+                     WHERE code = $3 AND status = 'active' RETURNING code`,
+                    [JSON.stringify(hist), now, req.params.code]
+                );
+                if (!upd.rows[0]) {
+                    const err = new Error('Phiếu đã huỷ');
+                    err.httpStatus = 409;
+                    throw err;
+                }
+                cancelledPhone = row.phone;
+            });
         } catch (e) {
-            await client.query('ROLLBACK');
+            if (e.httpStatus) return res.status(e.httpStatus).json({ error: e.message });
             throw e;
-        } finally {
-            client.release();
         }
 
-        // Rollback ví (best-effort): credited>0 (đã cộng) → rút lại; credited<0
-        // (đã trừ — vd Sửa COD trừ công nợ khách) → hoàn lại.
-        const credited = Number(row.wallet_credited) || 0;
-        if (credited !== 0 && row.phone) {
-            try {
-                if (credited > 0) {
-                    await web2WalletService.processWithdraw(
-                        pool,
-                        row.phone,
-                        credited,
-                        'return',
-                        req.params.code,
-                        `Huỷ thu về ${req.params.code}`,
-                        user.name
-                    );
-                } else {
-                    await web2WalletService.processDeposit(
-                        pool,
-                        row.phone,
-                        -credited,
-                        null,
-                        `Hoàn ví huỷ phiếu COD ${req.params.code}`,
-                        row.customer_id || null,
-                        null,
-                        null,
-                        user.name
-                    );
-                }
-                _notifyWallet(row.phone);
-            } catch (e) {
-                console.warn(`[WEB2-RETURNS] rollback wallet ${req.params.code} fail:`, e.message);
-            }
-        }
-        _notify('cancel', req.params.code, { phone: row.phone });
+        if (walletReverted) _notifyWallet(cancelledPhone);
+        _notify('cancel', req.params.code, { phone: cancelledPhone });
         res.json({ success: true });
     } catch (e) {
         console.error('[WEB2-RETURNS] delete error:', e.message);

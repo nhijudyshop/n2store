@@ -56,7 +56,7 @@
                       (
                           it
                       ) => `<a class="w2-bell-item ${it.read_at ? 'read' : 'unread'} sev-${it.severity || 'info'}"
-                              href="${escapeAttr(it.url || '#')}"
+                              href="${escapeAttr(safeUrl(it.url))}"
                               data-id="${it.id}">
                         <div class="w2-bell-item-title">${escapeHtml(it.title)}</div>
                         ${it.body ? `<div class="w2-bell-item-body">${escapeHtml(it.body)}</div>` : ''}
@@ -155,9 +155,16 @@
     }
     function escapeAttr(s) {
         return String(s ?? '').replace(
-            /[<>"']/g,
-            (c) => ({ '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]
+            /[&<>"']/g,
+            (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]
         );
+    }
+    // S7 fix 2026-06-11: chặn javascript:/data: URL từ it.url — chỉ cho
+    // http(s), protocol-relative, path tuyệt đối, fragment. Defense-in-depth
+    // (server-side validation là lớp chính).
+    function safeUrl(u) {
+        const s = String(u ?? '').trim();
+        return /^(https?:)?\/\/|^\/|^#/.test(s) ? s : '#';
     }
 
     global.Web2NotificationBell = Object.freeze({ mount });
