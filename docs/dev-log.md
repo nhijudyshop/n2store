@@ -2,6 +2,16 @@
 
 ## 2026-06-11
 
+### [render] Thực thi tối ưu chi phí theo duyệt của user: chat-db 1GB→15GB + realtime→Starter ✅ · ⚠ Render BUILD bị chặn (nghi hết build minutes)
+
+**User duyệt:** (1) tăng chatDB lên 15GB; (2) downgrade n2store-realtime Standard→Starter; (3) khai tử realtime = phiên sau; (4) web2-db để nguyên.
+
+- **chat-db disk 1GB → 15GB** (PATCH Render API, +$4.2/tháng storage): resize xong `available`, hết sự cố full disk — **force extract test lại end-to-end "✅ Đã lấy thumbnail"** (SDK player seek + verify position + capture + POST lưu OK).
+- **n2store-realtime Standard → Starter** (−$18/tháng): áp xong, WS Pancake vẫn connected. Tổng chi phí ước ≈ $92/tháng (trước $107).
+- **⚠ Render deploy đang bị CHẶN**: 3 deploy liên tiếp (kể cả commit docs-only) `build_failed` sau đúng 3 giây, không có log build lỗi (log 2 build trước đó "Build successful"), status.render.com sạch → nghi **workspace hết build pipeline minutes** (auto-push hook deploy cả ngày). API không lộ quota — user cần mở Render Dashboard xem banner. Hệ quả: migration livestream media (cb45ef604) CHƯA live — sẽ tự áp ở deploy thành công kế tiếp; KHÔNG khẩn vì disk 15GB đã giải cứu.
+
+**Status:** ✅ Disk + downgrade xong, extract verified · ⏳ migration chờ build quota.
+
 ### [render][live-chat] Trả lời "sao Web 2.0 dùng chatDb?" + dời livestream_snapshots/images sang web2Db ✅
 
 **User:** "và sao web 2.0 lại dùng chatDb?" (sau khi phát hiện chatDb full vì livestream_snapshots 172MB).
