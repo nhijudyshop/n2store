@@ -613,6 +613,38 @@ router.post('/offline-batch', express.json({ limit: '5mb' }), async (req, res) =
     }
 });
 
+// POST /wipe-all — XÓA SẠCH thumbnail (livestream_snapshots) + Kho Hình
+// (livestream_images) để force extract lại từ đầu (Web 2.0 beta — user yêu cầu
+// 2026-06-11 sau khi fix SDK player: data cũ chứa poster rác). Gate bằng
+// x-admin-secret === CLEANUP_SECRET (pattern /ingest) + body {confirm:'YES-WIPE'}.
+// TRUNCATE RESTART IDENTITY: giải phóng disk ngay + id đếm lại từ 1.
+router.post('/wipe-all', async (req, res) => {
+    const secret = process.env.CLEANUP_SECRET || '';
+    if (!secret || (req.headers['x-admin-secret'] || '') !== secret) {
+        return res.status(401).json({ success: false, error: 'unauthorized' });
+    }
+    if ((req.body || {}).confirm !== 'YES-WIPE') {
+        return res.status(400).json({ success: false, error: "cần body {confirm:'YES-WIPE'}" });
+    }
+    try {
+        const pool = req.app.locals.web2Db || req.app.locals.chatDb;
+        const before = await pool.query(
+            `SELECT (SELECT COUNT(*) FROM livestream_snapshots)::int AS snaps,
+                    (SELECT COUNT(*) FROM livestream_images)::int AS imgs`
+        );
+        await pool.query(`TRUNCATE livestream_snapshots RESTART IDENTITY`);
+        await pool.query(`TRUNCATE livestream_images RESTART IDENTITY`);
+        _notify('wipe-all', {});
+        console.log(
+            `[livestream-snapshots] WIPE-ALL: deleted snaps=${before.rows[0].snaps} imgs=${before.rows[0].imgs}`
+        );
+        res.json({ success: true, deleted: before.rows[0] });
+    } catch (e) {
+        console.error('[livestream-snapshots] wipe-all fail:', e.message);
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
 router.delete('/snapshot/:id', async (req, res) => {
     try {
         const pool = req.app.locals.web2Db || req.app.locals.chatDb;
