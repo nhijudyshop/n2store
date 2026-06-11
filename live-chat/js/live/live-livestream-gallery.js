@@ -49,9 +49,18 @@
     function _fmtTime(ms) {
         const n = Number(ms);
         if (!Number.isFinite(n)) return '';
-        const d = new Date(n);
-        const pad = (x) => String(x).padStart(2, '0');
-        return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())} ${pad(d.getDate())}/${pad(d.getMonth() + 1)}`;
+        // Hiển thị GMT+7 cố định (quy ước Web 2.0), không phụ thuộc TZ máy.
+        const parts = new Intl.DateTimeFormat('en-GB', {
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            day: '2-digit',
+            month: '2-digit',
+            hour12: false,
+            timeZone: 'Asia/Ho_Chi_Minh',
+        }).formatToParts(new Date(n));
+        const g = (t) => parts.find((p) => p.type === t)?.value || '00';
+        return `${g('hour')}:${g('minute')}:${g('second')} ${g('day')}/${g('month')}`;
     }
     function _snapApi() {
         return global.LiveLivestreamSnap || null;

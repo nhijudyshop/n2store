@@ -124,11 +124,13 @@ const LiveCustomerPanel = {
 
         const formatDate = (dateStr) => {
             if (!dateStr) return '-';
-            const date = new Date(dateStr);
+            const date = SharedUtils.parseTimestamp(dateStr);
+            if (!date) return '-';
+            const tz = { timeZone: 'Asia/Ho_Chi_Minh' };
             return (
-                date.toLocaleDateString('vi-VN') +
+                date.toLocaleDateString('vi-VN', tz) +
                 ' ' +
-                date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+                date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', ...tz })
             );
         };
 

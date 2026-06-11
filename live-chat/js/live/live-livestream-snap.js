@@ -2698,7 +2698,7 @@ Throttle 30s/KH.`;
         const c = st?.comments?.find((x) => x.id === commentId);
         if (!c?.from?.id) throw new Error('comment không có trong state');
         const rawT = c.created_time || c.createdTime || c.inserted_at || c.created_at;
-        const commentTimeMs = rawT ? new Date(rawT).getTime() : NaN;
+        const commentTimeMs = rawT ? (SharedUtils.parseTimestamp(rawT)?.getTime() ?? NaN) : NaN;
         if (!Number.isFinite(commentTimeMs)) throw new Error('comment thiếu thời gian');
         const camp = _resolveCampaignForComment(c);
         if (!camp?.Facebook_LiveId) throw new Error('không tìm được campaign cho comment');
@@ -2757,7 +2757,7 @@ Throttle 30s/KH.`;
         const c = st?.comments?.find((x) => x.id === commentId);
         if (!c?.from?.id) throw new Error('comment không tồn tại trong state');
         const rawT = c.created_time || c.createdTime || c.inserted_at || c.created_at;
-        const commentTimeMs = rawT ? new Date(rawT).getTime() : NaN;
+        const commentTimeMs = rawT ? (SharedUtils.parseTimestamp(rawT)?.getTime() ?? NaN) : NaN;
         if (!Number.isFinite(commentTimeMs)) throw new Error('comment thiếu thời gian');
         const camp = _resolveCampaignForComment(c);
         if (!camp?.Facebook_LiveId) throw new Error('không tìm được campaign');
@@ -3368,7 +3368,7 @@ Throttle 30s/KH.`;
                 togglePopover(customerFbUserId, customerName, btn, e.shiftKey ? null : commentId);
             } else {
                 const commentTime = c?.created_time
-                    ? new Date(c.created_time).getTime()
+                    ? SharedUtils.toEpochMs(c.created_time) || null
                     : c?.createdTime
                       ? Number(c.createdTime)
                       : null;

@@ -22,9 +22,17 @@
     const fmtMoney = (n) => (Number(n || 0) ? Number(n).toLocaleString('vi-VN') + '₫' : '—');
     const fmtTime = (ms) => {
         if (!ms) return '';
-        const d = new Date(Number(ms));
-        const p = (x) => String(x).padStart(2, '0');
-        return `${p(d.getHours())}:${p(d.getMinutes())} ${p(d.getDate())}/${p(d.getMonth() + 1)}`;
+        // Hiển thị GMT+7 cố định (quy ước Web 2.0), không phụ thuộc TZ máy.
+        const parts = new Intl.DateTimeFormat('en-GB', {
+            hour: '2-digit',
+            minute: '2-digit',
+            day: '2-digit',
+            month: '2-digit',
+            hour12: false,
+            timeZone: 'Asia/Ho_Chi_Minh',
+        }).formatToParts(new Date(Number(ms)));
+        const g = (t) => parts.find((p) => p.type === t)?.value || '00';
+        return `${g('hour')}:${g('minute')} ${g('day')}/${g('month')}`;
     };
 
     let _orders = [];
