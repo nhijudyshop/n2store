@@ -2,6 +2,22 @@
 
 ## 2026-06-11
 
+### [showroom1] Chặn gesture "vuốt trái quay về" của webview Zalo/Messenger khi lướt xem ảnh SP ✅
+
+**User:** ở tấm ảnh đầu tiên lướt trái bị quay về Zalo/Messenger (webview hiểu nhầm thành back) → loại bỏ thao tác vuốt-quay-về trong trang; khách muốn quay về thì bấm mũi tên trên thanh trình duyệt.
+
+**Fix 3 lớp (defense in depth — không lớp nào chặn được 100% mọi webview):**
+
+1. CSS `html, body { overscroll-behavior-x: none }` + `.scroll { overscroll-behavior: contain }` — chặn history-swipe Chrome/Android, không chain overscroll ra ngoài.
+2. Carousel card (`bindImgwrap`, index.html) + ảnh lớn detail (`bindSwipe`, detail.js): listener `touchstart {passive:false}` — touch khởi phát **sát mép màn hình (<26px)** → `preventDefault()` chặn edge-swipe gesture hệ thống (pattern giống Swiper `edgeSwipeDetection`).
+3. Cùng 2 chỗ: `touchmove {passive:false}` — đang vuốt ngang trong carousel (`drag && __moved` / `|dx|>6`) → `preventDefault()` nuốt gesture, webview không coi là pan để back/dismiss. `touch-action: pan-y` sẵn có trên cả 2 imgwrap nên scroll dọc không ảnh hưởng.
+
+**Verify (Playwright localhost):** computed style body `overscroll-behavior-x: none`, `.scroll: contain`; TouchEvent giả lập x=10 trên imgwrap → `defaultPrevented=true`, x=200 → `false` (không chặn nhầm vùng giữa); carousel chuột + detail viewer vẫn hoạt động bình thường. ⚠ Gesture thật của Zalo/Messenger iOS chỉ verify được trên điện thoại thật — cần user test lại trong app.
+
+**Files:** showroom1/{index.html, detail.js} (`?v=20260611e`).
+
+**Status:** ✅ Done — commit này → GH Pages.
+
 ### [showroom1] Trang chi tiết SP (bấm ảnh → ảnh lớn swipe + dots) + mô tả sản phẩm (size theo số ký) + Freesize ✅
 
 **User:** bấm vào tấm hình → hiện hình lớn + dấu chấm đếm số ảnh + lướt qua lại; dưới ảnh là thông tin SP (bổ sung mô tả size theo số ký; SP không size mặc định "Freesize"); thêm ô điền mô tả SP bên trang quản lý desktop.

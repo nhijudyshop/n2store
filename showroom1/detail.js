@@ -99,6 +99,24 @@
     };
     w.addEventListener('pointerup', end);
     w.addEventListener('pointercancel', end);
+    // Chặn webview Zalo/Messenger hiểu nhầm vuốt ảnh = "quay về trang trước"
+    // (nhất là ở tấm đầu tiên vuốt qua phải): touch sát mép → chặn edge-swipe;
+    // đang vuốt ngang → nuốt gesture không cho webview xử lý.
+    w.addEventListener(
+      'touchstart',
+      (e) => {
+        const t = e.touches[0];
+        if (t && (t.clientX < 26 || t.clientX > window.innerWidth - 26)) e.preventDefault();
+      },
+      { passive: false }
+    );
+    w.addEventListener(
+      'touchmove',
+      (e) => {
+        if (drag && Math.abs(dx) > 6) e.preventDefault();
+      },
+      { passive: false }
+    );
   }
 
   function go(i) {

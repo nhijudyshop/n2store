@@ -28,6 +28,9 @@
 
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body { margin: 0; padding: 0; }
+  /* Chặn gesture vuốt-ngang-quay-về của trình duyệt/webview (Chrome/Android history swipe).
+     Khách quay về thì bấm mũi tên trên thanh trình duyệt. */
+  html, body { overscroll-behavior-x: none; }
 
   body {
     font-family: var(--font-ui);
@@ -102,6 +105,7 @@
     overflow-x: hidden;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
+    overscroll-behavior: contain; /* không chain overscroll ra ngoài → không kích hoạt gesture quay về */
   }
   .scroll::-webkit-scrollbar { display: none; }
 
@@ -858,6 +862,16 @@
       };
       w.addEventListener('pointerup', end);
       w.addEventListener('pointercancel', end);
+      // Chặn webview Zalo/Messenger hiểu nhầm vuốt ảnh = "quay về trang trước":
+      // 1) touch khởi phát sát mép màn hình → chặn luôn (edge-swipe gesture của hệ thống)
+      w.addEventListener('touchstart', e => {
+        const t = e.touches[0];
+        if(t && (t.clientX < 26 || t.clientX > window.innerWidth - 26)) e.preventDefault();
+      }, { passive: false });
+      // 2) đang vuốt ngang trong carousel → nuốt gesture, không cho webview xử lý
+      w.addEventListener('touchmove', e => {
+        if(drag && w.__moved) e.preventDefault();
+      }, { passive: false });
     }
     // tap ảnh (không phải vuốt) → mở trang xem ảnh lớn + thông tin SP
     w.addEventListener('click', e => {
@@ -999,7 +1013,7 @@
 <!-- Giỏ hàng khách vãng lai (visitor ID) — load TRƯỚC admin.js -->
 <script src="cart.js?v=20260611c"></script>
 <!-- Trang xem chi tiết SP (bấm vào ảnh) -->
-<script src="detail.js?v=20260611d"></script>
+<script src="detail.js?v=20260611e"></script>
 <!-- Shared auth (auto-inits window.authManager) + admin panel -->
 <script type="module" src="../shared/esm/compat.js"></script>
 <script src="admin.js?v=20260611d"></script>
