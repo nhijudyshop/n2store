@@ -3,15 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `f50f1b9` — fix(tickets): handover_at luu gio VN (NOW() AT TIME ZONE Asia/Ho_Chi_Minh) — pg parser append +07:00 nen NOW() tran lech -7h
-**Last updated**: 2026-06-11 17:41:49 +07
-**Latest session**: [`RESUME:20260611-174149-f50f1b9`](../20260611-174149-f50f1b9.md)
-**Summary**: fix(tickets): handover_at luu gio VN (NOW() AT TIME ZONE Asia/Ho_Chi_Minh) — pg parser append +07:00 nen NOW() tran...
+**Latest commit**: `943e783` — chore(cache-bust): bump v= cho delivery-report.js + script.js + api-service.js (feature handover thu ve)
+**Last updated**: 2026-06-11 17:46:06 +07
+**Latest session**: [`RESUME:20260611-174606-943e783`](../20260611-174606-943e783.md)
+**Summary**: chore(cache-bust): bump v= cho delivery-report.js + script.js + api-service.js (feature handover thu ve)
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 2 file(s)
+- [`delivery-report/`](./delivery-report.md) — 1 file(s)
+- [`issue-tracking/`](./issue-tracking.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -24,7 +24,7 @@
 - [`bangkiemhang/`](./bangkiemhang.md) — updated 2026-05-21 15:39
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-11 10:18
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
-- [`delivery-report/`](./delivery-report.md) — updated 2026-06-11 17:37
+- [`delivery-report/`](./delivery-report.md) — updated 2026-06-11 17:46
 - [`docs/`](./docs.md) — updated 2026-06-11 17:41
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-11 16:49
@@ -36,7 +36,7 @@
 - [`inbox/`](./inbox.md) — updated 2026-05-21 15:39
 - [`inventory-tracking/`](./inventory-tracking.md) — updated 2026-06-08 14:12
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-05-21 15:39
-- [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-11 17:37
+- [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-11 17:46
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
 - [`live-chat/`](./live-chat.md) — updated 2026-06-11 16:19
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-06-04 20:02
