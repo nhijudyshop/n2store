@@ -3,10 +3,10 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `0b43f79` — feat(delivery-report): anh ban giao v3 — layout 2 cot GIAO | THU VE, thu ve khong tinh ship
-**Last updated**: 2026-06-11 21:41:22 SEAST
-**Latest session**: [`RESUME:20260611-214122-0b43f79`](../20260611-214122-0b43f79.md)
-**Summary**: Anh ban giao v3: 2 cot trai GIAO (tong - phi ship x don giao = con lai + bang 0d) / phai THU VE (tung khach SL/gia tri, KHONG tru ship); Tong = con lai TP + thu ve
+**Latest commit**: `5574f02` — feat(delivery-report): anh ban giao v4 - bo dong Tong cuoi, SL + gia tri thu ve gop 1 dong (v=20260612a)
+**Last updated**: 2026-06-12 00:05:23 SEAST
+**Latest session**: [`RESUME:20260612-000523-5574f02`](../20260612-000523-5574f02.md)
+**Summary**: Anh ban giao v4: bo dong Tong duoi cung (footer chi con Tao luc), thu ve gop SL + gia tri cung 1 dong canh SDT
 
 ## Folders affected in this commit
 - [`delivery-report/`](./delivery-report.md) — 2 file(s)
@@ -22,8 +22,8 @@
 - [`bangkiemhang/`](./bangkiemhang.md) — updated 2026-05-25 11:43
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-11 11:20
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:16
-- [`delivery-report/`](./delivery-report.md) — updated 2026-06-11 21:41
-- [`docs/`](./docs.md) — updated 2026-06-11 21:41
+- [`delivery-report/`](./delivery-report.md) — updated 2026-06-12 00:05
+- [`docs/`](./docs.md) — updated 2026-06-12 00:05
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-25 11:43
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-11 17:31
 - [`downloads/`](./downloads.md) — updated 2026-06-11 10:13
