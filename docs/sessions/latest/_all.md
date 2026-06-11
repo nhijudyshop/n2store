@@ -3,10 +3,10 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `4a11046` — docs: migrate livestream media sang web2Db hoàn tất (6609 rows) + spend limit mở khóa build
-**Last updated**: 2026-06-11 17:26:28 +07
-**Latest session**: [`RESUME:20260611-172628-4a11046`](../20260611-172628-4a11046.md)
-**Summary**: docs: migrate livestream media sang web2Db hoàn tất (6609 rows) + spend limit mở khóa build
+**Latest commit**: `651a211` — docs: DROP livestream_snapshots/images trên chat-db (đã migrate web2Db) — 802→629MB
+**Last updated**: 2026-06-11 17:31:40 +07
+**Latest session**: [`RESUME:20260611-173140-651a211`](../20260611-173140-651a211.md)
+**Summary**: docs: DROP livestream_snapshots/images trên chat-db (đã migrate web2Db) — 802→629MB
 
 ## Folders affected in this commit
 
@@ -24,7 +24,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-11 10:18
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-08 09:55
-- [`docs/`](./docs.md) — updated 2026-06-11 17:26
+- [`docs/`](./docs.md) — updated 2026-06-11 17:31
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-11 16:49
 - [`downloads/`](./downloads.md) — updated 2026-06-11 08:36
