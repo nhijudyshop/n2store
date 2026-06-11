@@ -2,6 +2,17 @@
 
 ## 2026-06-11
 
+### [live-chat] Badge "💬 N" topbar — tổng comment livestream KHÔNG tính người bị ẩn ✅
+
+**User:** "hiện tổng comment của livestream ngoại trừ ẩn".
+
+- `live-comment-list.js`: `_visibleComments()` lưu `_totalAfterHidden` (đếm SAU filter người ẩn, TRƯỚC cap render 200) → `_updateTotalBadge()` chèn/refresh badge `#liveCommentTotal` ("💬 N", xanh dương) vào ĐẦU `#liveTopbarActions`, gọi mỗi `_renderDispatch` (mọi render path đi qua). Hide/unhide người → badge tự cập nhật (re-render).
+- **Verified localhost:** badge `💬 541` = 1371 tổng − 830 comment shop ẩn ✓; ẩn thêm 1 người (1 comment) → `💬 540`, bỏ ẩn → `💬 541` ✓; server record sạch (2 default); 0 console error.
+
+**Files:** live-chat/js/live/live-comment-list.js, live-chat/index.html (bump v=20260611l).
+
+**Status:** ✅ Done.
+
 ### [live-chat] Ẩn comment theo NGƯỜI + danh sách quản lý — mặc định ẩn "NhiJudy Store"/"NhiJudy House" ✅
 
 **User:** "cho chức năng chọn ẩn comment của người đó và danh sách quản lý, mặc định ẩn 'NhiJudy Store', 'NhiJudy House'" (comment do chính page tự reply tràn list — đo thật: 830/1371 comment là của shop).

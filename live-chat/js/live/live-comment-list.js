@@ -78,8 +78,32 @@ const LiveCommentList = {
         if (window.LiveHiddenCommenters?.list?.()?.length) {
             all = all.filter((c) => !window.LiveHiddenCommenters.isHidden(c));
         }
+        // Tổng comment SAU khi trừ người bị ẩn, TRƯỚC cap render — cho badge
+        // "💬 N" topbar (user 2026-06-11: "hiện tổng comment ngoại trừ ẩn").
+        this._totalAfterHidden = all.length;
         const lim = this._renderLimit || RENDER_LIMIT_INITIAL;
         return lim >= all.length ? all : all.slice(0, lim);
+    },
+
+    /**
+     * Badge "💬 N" trên topbar (#liveTopbarActions) — tổng comment của các
+     * livestream đang chọn, KHÔNG tính comment của người bị ẩn (mặc định 2
+     * page shop). Cập nhật mỗi lần render dispatch.
+     */
+    _updateTotalBadge() {
+        const slot = document.getElementById('liveTopbarActions');
+        if (!slot) return;
+        let el = document.getElementById('liveCommentTotal');
+        if (!el) {
+            el = document.createElement('span');
+            el.id = 'liveCommentTotal';
+            el.title = 'Tổng comment livestream (không tính người bị ẩn 🙈)';
+            el.style.cssText =
+                'display:inline-flex;align-items:center;gap:4px;padding:4px 10px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:14px;font-size:12px;font-weight:700;color:#1d4ed8;white-space:nowrap;flex-shrink:0;';
+            slot.insertBefore(el, slot.firstChild);
+        }
+        const n = this._totalAfterHidden ?? (window.LiveState.comments || []).length;
+        el.innerHTML = `💬 ${n.toLocaleString('vi-VN')}`;
     },
 
     /**
@@ -732,6 +756,7 @@ const LiveCommentList = {
             return;
         }
         const visible = this._visibleComments();
+        this._updateTotalBadge(); // _visibleComments vừa tính _totalAfterHidden
         const rendered = listContainer.querySelectorAll('.live-conversation-item');
         const sameStructure =
             rendered.length > 0 &&
