@@ -57,103 +57,110 @@ const LiveRealtime = {
             this.stopSSE();
         }
 
-        window.LiveApi.getToken().then((token) => {
-            if (!token) {
-                console.error('[Live-RT] No token for SSE');
-                return;
-            }
-
-            const sseUrl = `${state.proxyBaseUrl}/facebook/comments/stream?pageid=${pageId}&postId=${postId}&token=${encodeURIComponent(token)}`;
-            const sseKey = `${pageId}_${postId}`;
-
-            // Track multiple SSE connections
-            if (!state._sseConnections) state._sseConnections = new Map();
-
-            // Don't open duplicate
-            if (state._sseConnections.has(sseKey)) return;
-
-            // Get or init retry state for this key
-            let retry = this._sseRetryState.get(sseKey);
-            if (!retry) {
-                retry = { attempts: 0, timer: null, lastOpenAt: 0 };
-                this._sseRetryState.set(sseKey, retry);
-            }
-            if (retry.timer) {
-                clearTimeout(retry.timer);
-                retry.timer = null;
-            }
-
-            console.log(`[Live-RT] Starting SSE for ${pageName || pageId}...`);
-            const es = new EventSource(sseUrl);
-
-            es.onopen = () => {
-                console.log(`[Live-RT] SSE connected: ${pageName || sseKey}`);
-                state.sseConnected = true;
-                retry.lastOpenAt = Date.now();
-                // Reset attempts only if connection stayed open for >3s (real success)
-                // otherwise leave attempts so backoff continues
-                window.LiveCommentList.updateConnectionStatus(true, 'sse');
-            };
-
-            es.onmessage = (event) => {
-                // First real message = confirmed healthy connection, reset attempts
-                if (retry.attempts > 0) retry.attempts = 0;
-                this.handleSSEMessage(event.data, pageName);
-            };
-
-            es.onerror = () => {
-                // Only react once per error burst
-                if (!state._sseConnections.has(sseKey)) return;
-                state._sseConnections.delete(sseKey);
-                es.close();
-
-                const openedFor = retry.lastOpenAt ? Date.now() - retry.lastOpenAt : 0;
-                // If connection never opened or dropped immediately (<2s), count as retry
-                if (openedFor < 2000) {
-                    retry.attempts++;
-                } else {
-                    // Stable connection dropped — restart attempt counter
-                    retry.attempts = 1;
-                }
-
-                if (state._sseConnections.size === 0) {
-                    state.sseConnected = false;
-                    window.LiveCommentList.updateConnectionStatus(false, 'sse');
-                }
-
-                // Stop retrying after max attempts
-                if (retry.attempts > this.SSE_MAX_RETRIES) {
-                    console.warn(
-                        `[Live-RT] SSE giving up for ${pageName || sseKey} after ${retry.attempts - 1} retries`
-                    );
+        window.LiveApi.getToken()
+            .then((token) => {
+                if (!token) {
+                    console.error('[Live-RT] No token for SSE');
                     return;
                 }
 
-                // Exponential backoff with jitter
-                const base = Math.min(
-                    this.SSE_BASE_DELAY_MS * Math.pow(2, retry.attempts - 1),
-                    this.SSE_MAX_DELAY_MS
-                );
-                const delay = Math.floor(base + Math.random() * 1000);
-                console.warn(
-                    `[Live-RT] SSE error for ${pageName || sseKey}, retry ${retry.attempts}/${this.SSE_MAX_RETRIES} in ${Math.round(delay / 1000)}s`
-                );
+                const sseUrl = `${state.proxyBaseUrl}/facebook/comments/stream?pageid=${pageId}&postId=${postId}&token=${encodeURIComponent(token)}`;
+                const sseKey = `${pageId}_${postId}`;
 
-                retry.timer = setTimeout(() => {
+                // Track multiple SSE connections
+                if (!state._sseConnections) state._sseConnections = new Map();
+
+                // Don't open duplicate
+                if (state._sseConnections.has(sseKey)) return;
+
+                // Get or init retry state for this key
+                let retry = this._sseRetryState.get(sseKey);
+                if (!retry) {
+                    retry = { attempts: 0, timer: null, lastOpenAt: 0 };
+                    this._sseRetryState.set(sseKey, retry);
+                }
+                if (retry.timer) {
+                    clearTimeout(retry.timer);
                     retry.timer = null;
-                    const stillSelected =
-                        state.selectedCampaignIds?.size > 0 || state.selectedCampaign;
-                    if (stillSelected) {
-                        this.startSSE(pageId, postId, pageName);
+                }
+
+                console.log(`[Live-RT] Starting SSE for ${pageName || pageId}...`);
+                const es = new EventSource(sseUrl);
+
+                es.onopen = () => {
+                    // Guard stale: connection đã bị stopSSE/replace → bỏ qua event cũ.
+                    if (state._sseConnections?.get(sseKey) !== es) return;
+                    console.log(`[Live-RT] SSE connected: ${pageName || sseKey}`);
+                    state.sseConnected = true;
+                    retry.lastOpenAt = Date.now();
+                    // Reset attempts only if connection stayed open for >3s (real success)
+                    // otherwise leave attempts so backoff continues
+                    window.LiveCommentList.updateConnectionStatus(true, 'sse');
+                };
+
+                es.onmessage = (event) => {
+                    // Guard stale: connection đã bị stopSSE/replace → bỏ qua event cũ.
+                    if (state._sseConnections?.get(sseKey) !== es) return;
+                    // First real message = confirmed healthy connection, reset attempts
+                    if (retry.attempts > 0) retry.attempts = 0;
+                    this.handleSSEMessage(event.data, pageName);
+                };
+
+                es.onerror = () => {
+                    // Only react once per error burst — so sánh IDENTITY (es) chứ không
+                    // chỉ has(key): tránh es cũ xóa nhầm connection mới cùng key.
+                    if (state._sseConnections.get(sseKey) !== es) return;
+                    state._sseConnections.delete(sseKey);
+                    es.close();
+
+                    const openedFor = retry.lastOpenAt ? Date.now() - retry.lastOpenAt : 0;
+                    // If connection never opened or dropped immediately (<2s), count as retry
+                    if (openedFor < 2000) {
+                        retry.attempts++;
+                    } else {
+                        // Stable connection dropped — restart attempt counter
+                        retry.attempts = 1;
                     }
-                }, delay);
-            };
 
-            state._sseConnections.set(sseKey, es);
+                    if (state._sseConnections.size === 0) {
+                        state.sseConnected = false;
+                        window.LiveCommentList.updateConnectionStatus(false, 'sse');
+                    }
 
-            // Also keep backward compat
-            state.eventSource = es;
-        });
+                    // Stop retrying after max attempts
+                    if (retry.attempts > this.SSE_MAX_RETRIES) {
+                        console.warn(
+                            `[Live-RT] SSE giving up for ${pageName || sseKey} after ${retry.attempts - 1} retries`
+                        );
+                        return;
+                    }
+
+                    // Exponential backoff with jitter
+                    const base = Math.min(
+                        this.SSE_BASE_DELAY_MS * Math.pow(2, retry.attempts - 1),
+                        this.SSE_MAX_DELAY_MS
+                    );
+                    const delay = Math.floor(base + Math.random() * 1000);
+                    console.warn(
+                        `[Live-RT] SSE error for ${pageName || sseKey}, retry ${retry.attempts}/${this.SSE_MAX_RETRIES} in ${Math.round(delay / 1000)}s`
+                    );
+
+                    retry.timer = setTimeout(() => {
+                        retry.timer = null;
+                        const stillSelected =
+                            state.selectedCampaignIds?.size > 0 || state.selectedCampaign;
+                        if (stillSelected) {
+                            this.startSSE(pageId, postId, pageName);
+                        }
+                    }, delay);
+                };
+
+                state._sseConnections.set(sseKey, es);
+
+                // Also keep backward compat
+                state.eventSource = es;
+            })
+            .catch((err) => console.error('[Live-RT] getToken failed:', err));
     },
 
     /**
@@ -327,6 +334,8 @@ const LiveRealtime = {
         if (this.wsConnected || this.wsConnecting) return;
 
         this.wsConnecting = true;
+        // Reset cờ đóng chủ động — connection mới được phép auto-reconnect.
+        this._intentionalClose = false;
 
         try {
             this.ws = new WebSocket(this.wsUrl);
@@ -345,6 +354,8 @@ const LiveRealtime = {
                 window.eventBus.emit('live:wsDisconnected');
                 window.dispatchEvent(new CustomEvent('liveRealtimeDisconnected'));
 
+                // Đóng chủ động (disconnectWebSocket) → KHÔNG schedule reconnect.
+                if (this._intentionalClose) return;
                 if (this.reconnectAttempts < this.maxReconnectAttempts) {
                     const delay = Math.min(2000 * Math.pow(2, this.reconnectAttempts), 60000);
                     this.reconnectAttempts++;

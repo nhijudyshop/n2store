@@ -925,7 +925,7 @@ const LiveCommentList = {
         const sessionInfoRaw = state.sessionIndexMap.get(fromId);
         const sessionInfo = sessionInfoRaw?.source === 'NATIVE_WEB' ? sessionInfoRaw : null;
         const sessionIndexBadge = sessionInfo
-            ? `<span class="session-index-badge" title="STT đơn web: ${sessionInfo.index}${sessionInfo.code ? ' | Mã: ' + sessionInfo.code : ''}">${sessionInfo.index}</span>`
+            ? `<span class="session-index-badge" title="STT đơn web: ${liveAttr(sessionInfo.index)}${sessionInfo.code ? ' | Mã: ' + liveAttr(sessionInfo.code) : ''}">${SharedUtils.escapeHtml(String(sessionInfo.index))}</span>`
             : '';
         // Comment đã được merge vào đơn này chưa?
         const isCommentInOrder =
@@ -1468,24 +1468,40 @@ const LiveCommentList = {
         const commentEl = document.querySelector(`[data-comment-id="${commentId}"]`);
         if (!commentEl) return;
 
+        // Build bằng DOM API + addEventListener trực tiếp (KHÔNG inline onclick
+        // chứa commentId — XSS-safe; replyRow stopPropagation nên delegation
+        // trên list không nhận được click bên trong).
         const replyRow = document.createElement('div');
         replyRow.className = 'live-reply-input-row';
         replyRow.style.cssText =
             'display:flex;gap:6px;padding:8px 12px;background:#f8fafc;border-top:1px solid #e5e7eb;align-items:center;';
-        replyRow.innerHTML = `
-            <input type="text" id="reply-input-${commentId}" placeholder="Trả lời comment..."
-                style="flex:1;padding:6px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;"
-                onkeydown="if(event.key==='Enter')LiveCommentList.sendReply('${commentId}')">
-            <button style="padding:6px 12px;background:#3b82f6;color:white;border:none;border-radius:6px;font-size:12px;cursor:pointer;white-space:nowrap;"
-                onclick="LiveCommentList.sendReply('${commentId}')">Gửi</button>
-            <button style="padding:6px 8px;background:transparent;border:none;cursor:pointer;color:#6b7280;"
-                onclick="this.parentElement.remove()">✕</button>
-        `;
+
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.id = `reply-input-${commentId}`;
+        input.placeholder = 'Trả lời comment...';
+        input.style.cssText =
+            'flex:1;padding:6px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;';
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') this.sendReply(commentId);
+        });
+
+        const sendBtn = document.createElement('button');
+        sendBtn.textContent = 'Gửi';
+        sendBtn.style.cssText =
+            'padding:6px 12px;background:#3b82f6;color:white;border:none;border-radius:6px;font-size:12px;cursor:pointer;white-space:nowrap;';
+        sendBtn.addEventListener('click', () => this.sendReply(commentId));
+
+        const closeBtn = document.createElement('button');
+        closeBtn.textContent = '✕';
+        closeBtn.style.cssText =
+            'padding:6px 8px;background:transparent;border:none;cursor:pointer;color:#6b7280;';
+        closeBtn.addEventListener('click', () => replyRow.remove());
+
+        replyRow.append(input, sendBtn, closeBtn);
         replyRow.addEventListener('click', (e) => e.stopPropagation());
         commentEl.appendChild(replyRow);
-
-        const input = document.getElementById(`reply-input-${commentId}`);
-        if (input) input.focus();
+        input.focus();
     },
 
     /**
@@ -1745,6 +1761,7 @@ const LiveCommentList = {
         const bodyEl = document.getElementById('customerInfoBody');
         if (!modal || !bodyEl) return;
 
+        this._bindCustomerModalDelegation(modal);
         titleEl.textContent = name;
         bodyEl.innerHTML =
             '<div class="loading-container"><div class="loading-spinner"></div><span>Đang tải...</span></div>';
@@ -1796,10 +1813,10 @@ const LiveCommentList = {
                     <div class="customer-section">
                         <h4>Thông tin cơ bản</h4>
                         <div class="customer-field"><label>Tên:</label><span>${SharedUtils.escapeHtml(name)}</span></div>
-                        <div class="customer-field"><label>FB ID:</label><span style="font-family:monospace;font-size:12px;cursor:pointer" onclick="navigator.clipboard.writeText('${fbId}');showNotification?.('Đã copy','success')">${fbId}</span></div>
-                        ${partner?.Phone ? `<div class="customer-field"><label>SĐT:</label><span>${partner.Phone}</span></div>` : ''}
-                        ${partner?.Street ? `<div class="customer-field"><label>Địa chỉ:</label><span>${partner.Street}</span></div>` : ''}
-                        ${partner?.StatusText ? `<div class="customer-field"><label>Trạng thái:</label><span>${partner.StatusText}</span></div>` : ''}
+                        <div class="customer-field"><label>FB ID:</label><span style="font-family:monospace;font-size:12px;cursor:pointer" data-action="copy-text" data-copy="${liveAttr(fbId)}">${SharedUtils.escapeHtml(fbId)}</span></div>
+                        ${partner?.Phone ? `<div class="customer-field"><label>SĐT:</label><span>${SharedUtils.escapeHtml(partner.Phone)}</span></div>` : ''}
+                        ${partner?.Street ? `<div class="customer-field"><label>Địa chỉ:</label><span>${SharedUtils.escapeHtml(partner.Street)}</span></div>` : ''}
+                        ${partner?.StatusText ? `<div class="customer-field"><label>Trạng thái:</label><span>${SharedUtils.escapeHtml(partner.StatusText)}</span></div>` : ''}
                         <p style="margin-top:12px;color:#9ca3af;font-size:12px;">Chưa có dữ liệu Pancake. Khách cần nhắn tin inbox để được sync.</p>
                     </div>
                     <div style="margin-top:16px;text-align:right;">
@@ -1808,10 +1825,33 @@ const LiveCommentList = {
                     </div>`;
             }
         } catch (error) {
-            bodyEl.innerHTML = `<div style="text-align:center;padding:30px;color:#ef4444;">Lỗi: ${error.message}</div>`;
+            bodyEl.innerHTML = `<div style="text-align:center;padding:30px;color:#ef4444;">Lỗi: ${SharedUtils.escapeHtml(error.message)}</div>`;
         }
 
         if (typeof lucide !== 'undefined') lucide.createIcons();
+    },
+
+    /**
+     * Delegated click cho modal info KH (thay inline onclick chứa user data:
+     * copy FB ID/SĐT, mở Live Info). Bind 1 lần (guard dataset.delegated —
+     * modal là element tĩnh trong index.html).
+     * @param {HTMLElement} modal
+     */
+    _bindCustomerModalDelegation(modal) {
+        if (!modal || modal.dataset.delegated === '1') return;
+        modal.dataset.delegated = '1';
+        modal.addEventListener('click', (e) => {
+            const el = e.target.closest('[data-action]');
+            if (!el) return;
+            const d = el.dataset;
+            if (d.action === 'copy-text') {
+                navigator.clipboard.writeText(d.copy || '');
+                window.showNotification?.('Đã copy', 'success');
+            } else if (d.action === 'show-live-info') {
+                window.LiveCustomerPanel.showCustomerInfo(d.fbId, d.name || '');
+                modal.style.display = 'none';
+            }
+        });
     },
 
     /**
@@ -1853,13 +1893,13 @@ const LiveCommentList = {
             <div class="customer-section">
                 <h4><i data-lucide="user" style="width:16px;height:16px;"></i> Thông tin khách hàng</h4>
                 <div class="customer-field"><label>Tên:</label><span><strong>${SharedUtils.escapeHtml(c.name || name)}</strong></span></div>
-                ${c.phone ? `<div class="customer-field"><label>SĐT:</label><span style="cursor:pointer" onclick="navigator.clipboard.writeText('${c.phone}');showNotification?.('Đã copy','success')">${c.phone}</span></div>` : ''}
-                ${c.fb_id ? `<div class="customer-field"><label>FB ID:</label><span style="font-family:monospace;font-size:12px">${c.fb_id}</span></div>` : ''}
-                ${c.global_id ? `<div class="customer-field"><label>Global ID:</label><span style="font-family:monospace;font-size:12px">${c.global_id}</span></div>` : ''}
-                ${c.gender ? `<div class="customer-field"><label>Giới tính:</label><span>${c.gender}</span></div>` : ''}
-                ${c.birthday ? `<div class="customer-field"><label>Sinh nhật:</label><span>${c.birthday}</span></div>` : ''}
-                ${c.lives_in ? `<div class="customer-field"><label>Nơi sống:</label><span>${c.lives_in}</span></div>` : ''}
-                ${c.status && c.status !== 'Bình thường' ? `<div class="customer-field"><label>Trạng thái:</label><span style="color:${c.status === 'Bom hàng' || c.status === 'Nguy hiểm' ? '#ef4444' : '#f59e0b'};font-weight:600">${c.status}</span></div>` : ''}
+                ${c.phone ? `<div class="customer-field"><label>SĐT:</label><span style="cursor:pointer" data-action="copy-text" data-copy="${liveAttr(c.phone)}">${SharedUtils.escapeHtml(c.phone)}</span></div>` : ''}
+                ${c.fb_id ? `<div class="customer-field"><label>FB ID:</label><span style="font-family:monospace;font-size:12px">${SharedUtils.escapeHtml(c.fb_id)}</span></div>` : ''}
+                ${c.global_id ? `<div class="customer-field"><label>Global ID:</label><span style="font-family:monospace;font-size:12px">${SharedUtils.escapeHtml(c.global_id)}</span></div>` : ''}
+                ${c.gender ? `<div class="customer-field"><label>Giới tính:</label><span>${SharedUtils.escapeHtml(c.gender)}</span></div>` : ''}
+                ${c.birthday ? `<div class="customer-field"><label>Sinh nhật:</label><span>${SharedUtils.escapeHtml(c.birthday)}</span></div>` : ''}
+                ${c.lives_in ? `<div class="customer-field"><label>Nơi sống:</label><span>${SharedUtils.escapeHtml(c.lives_in)}</span></div>` : ''}
+                ${c.status && c.status !== 'Bình thường' ? `<div class="customer-field"><label>Trạng thái:</label><span style="color:${c.status === 'Bom hàng' || c.status === 'Nguy hiểm' ? '#ef4444' : '#f59e0b'};font-weight:600">${SharedUtils.escapeHtml(c.status)}</span></div>` : ''}
                 ${c.can_inbox === false ? `<div class="customer-field"><label>Inbox:</label><span style="color:#ef4444">❌ Không thể gửi tin</span></div>` : ''}
             </div>
 
@@ -1899,7 +1939,7 @@ const LiveCommentList = {
             <div style="display:flex;gap:12px;margin-top:20px;">
                 <button onclick="document.getElementById('customerInfoModal').style.display='none'"
                     style="flex:1;padding:10px 16px;background:#f3f4f6;color:#374151;border:none;border-radius:6px;cursor:pointer;font-weight:500;">Đóng</button>
-                <button onclick="LiveCustomerPanel.showCustomerInfo('${fbId}','${SharedUtils.escapeHtml(name)}');document.getElementById('customerInfoModal').style.display='none';"
+                <button data-action="show-live-info" data-fb-id="${liveAttr(fbId)}" data-name="${liveAttr(name)}"
                     style="flex:1;padding:10px 16px;background:#3b82f6;color:white;border:none;border-radius:6px;cursor:pointer;font-weight:500;">
                     Xem Live Info
                 </button>

@@ -75,7 +75,8 @@
                 thumbnailUrl,
             };
             _liveVideoInfoCache.set(cacheKey, { info, fetchedAt: Date.now() });
-            console.log('[snap] live video info:', info);
+            // Log terse — không in title/thumbnailUrl (log noise + URL signed).
+            console.log('[snap] live video info OK — statusLive:', info.statusLive);
             return info;
         } catch (e) {
             console.warn('[snap] fetch live video info fail:', e.message);

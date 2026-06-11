@@ -51,32 +51,25 @@
     function _setupCrossColumnEvents() {
         if (!window.eventBus) return;
 
-        // When Live comment is selected, try to find matching Pancake conversation
-        window.eventBus.on('live:commentSelected', (data) => {
-            if (data.userId && window.PancakeConversationList) {
-                window.PancakeConversationList.highlightByUserId(data.userId);
-            }
-        });
+        // (PancakeConversationList handlers đã gỡ — script không còn load trên
+        // index.html, cột Pancake tách sang chat.html 2026-06-11.)
 
-        // When Pancake saved list updates, notify Live column
+        // When saved list updates, notify Live column
         window.eventBus.on('pancake:savedListUpdated', () => {
             if (window.LiveCommentList) {
                 window.LiveCommentList.updateSavedBadges();
             }
         });
 
-        // When debt data is loaded, update both columns
-        window.eventBus.on('debt:updated', (data) => {
+        // When debt data is loaded, update Live column
+        window.eventBus.on('debt:updated', () => {
             if (window.LiveCommentList) window.LiveCommentList.updateDebtBadges();
-            if (window.PancakeConversationList) window.PancakeConversationList.updateDebtBadges();
         });
 
         // Layout refresh
         window.eventBus.on('layout:refresh', () => {
             const live = window.LiveColumnManager || window.LiveInit;
-            const pancake = window.PancakeColumnManager || window.PancakeInit;
             if (live?.refresh) live.refresh();
-            if (pancake?.refresh) pancake.refresh();
         });
     }
 
