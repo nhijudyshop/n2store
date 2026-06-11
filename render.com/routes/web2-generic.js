@@ -142,6 +142,89 @@ function prettyBytes(b) {
     return (b / 1024 / 1024 / 1024).toFixed(2) + ' GB';
 }
 
+// =====================================================
+// CAPTURE LOCK — atomic compare-and-swap (1 máy capture livestream)
+// Fix TOCTOU: client cũ read-rồi-write → 2 máy cùng thành leader.
+// Giờ acquire/renew/heartbeat = 1 câu SQL atomic; release chỉ khi còn là holder.
+//
+// POST /api/web2/capture-lock/acquire  body {holder, holderName?, force?, ttlMs?}
+//   → {success:true, data}  (lấy được / renew — heartbeat dùng chính endpoint này)
+//   → {success:false, current}  (máy khác đang giữ và chưa hết TTL)
+// POST /api/web2/capture-lock/release  body {holder}
+//   → {success:true|false} — sendBeacon-friendly (Blob type application/json)
+// Backward compat: GET get/global + PATCH update/global (generic) vẫn hoạt động.
+// =====================================================
+const LOCK_SLUG = 'capture-lock';
+const LOCK_CODE = 'global';
+const LOCK_TTL_DEFAULT_MS = 90000;
+
+router.post('/capture-lock/acquire', async (req, res) => {
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
+    if (!pool) return res.status(500).json({ success: false, error: 'DB unavailable' });
+    try {
+        await ensureTables(pool);
+        const b = req.body || {};
+        const holder = String(b.holder || '').slice(0, 120);
+        if (!holder) return res.status(400).json({ success: false, error: 'holder required' });
+        const holderName = String(b.holderName || '').slice(0, 120) || null;
+        const ttlMs = Math.min(Math.max(Number(b.ttlMs) || LOCK_TTL_DEFAULT_MS, 15000), 600000);
+        const force = b.force === true;
+        const now = Date.now();
+        const data = { holder, holderName, ts: now, ttlMs, acquiredVia: force ? 'force' : 'cas' };
+        // Atomic CAS: update chỉ khi lock trống / của mình (renew) / hết TTL / force.
+        const r = await pool.query(
+            `INSERT INTO web2_records (entity_slug, code, name, data, is_active, created_at, updated_at)
+             VALUES ($1, $2, 'Capture Lock', $3::jsonb, TRUE, $4, $4)
+             ON CONFLICT (entity_slug, code) WHERE code IS NOT NULL
+             DO UPDATE SET data = EXCLUDED.data, updated_at = $4
+             WHERE web2_records.data->>'holder' IS NULL
+                OR web2_records.data->>'holder' = ''
+                OR web2_records.data->>'holder' = $5
+                OR COALESCE((web2_records.data->>'ts')::bigint, 0)
+                   + COALESCE((web2_records.data->>'ttlMs')::bigint, ${LOCK_TTL_DEFAULT_MS}) < $4
+                OR $6::boolean
+             RETURNING data`,
+            [LOCK_SLUG, LOCK_CODE, JSON.stringify(data), now, holder, force]
+        );
+        if (r.rows.length > 0) {
+            _notify(LOCK_SLUG, force ? 'force-acquire' : 'acquire', LOCK_CODE);
+            return res.json({ success: true, data: r.rows[0].data });
+        }
+        const cur = await pool.query(
+            `SELECT data FROM web2_records WHERE entity_slug = $1 AND code = $2 LIMIT 1`,
+            [LOCK_SLUG, LOCK_CODE]
+        );
+        return res.json({ success: false, current: cur.rows[0]?.data || null });
+    } catch (e) {
+        console.error('[WEB2-GENERIC] capture-lock acquire error:', e.message);
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+router.post('/capture-lock/release', async (req, res) => {
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
+    if (!pool) return res.status(500).json({ success: false, error: 'DB unavailable' });
+    try {
+        await ensureTables(pool);
+        const holder = String((req.body || {}).holder || '').slice(0, 120);
+        if (!holder) return res.status(400).json({ success: false, error: 'holder required' });
+        const now = Date.now();
+        const r = await pool.query(
+            `UPDATE web2_records
+             SET data = data || jsonb_build_object('holder', null, 'holderName', null, 'ts', 0, 'releasedAt', $3::bigint),
+                 updated_at = $3
+             WHERE entity_slug = $1 AND code = $2 AND data->>'holder' = $4
+             RETURNING data`,
+            [LOCK_SLUG, LOCK_CODE, now, holder]
+        );
+        if (r.rows.length > 0) _notify(LOCK_SLUG, 'release', LOCK_CODE);
+        res.json({ success: r.rows.length > 0 });
+    } catch (e) {
+        console.error('[WEB2-GENERIC] capture-lock release error:', e.message);
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
 // -----------------------------------------------------
 // GET /api/web2/:entity/health
 // -----------------------------------------------------

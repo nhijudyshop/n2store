@@ -228,6 +228,13 @@
                 </div>`;
             })
             .join('');
+        // Báo truncate khi list bị cắt 200 — tránh user tưởng kho chỉ có nhiêu đó.
+        if (STATE.filtered.length > 200) {
+            root.insertAdjacentHTML(
+                'beforeend',
+                `<div class="inv-empty" style="padding:8px 10px;font-size:11.5px">Hiện 200/${STATE.filtered.length} SP — gõ thêm từ khóa để thu hẹp</div>`
+            );
+        }
         attachDragSources();
     }
 
@@ -412,7 +419,7 @@
         };
         try {
             const st = global.LiveState;
-            const c = st?.comments?.find((x) => x.id === commentId);
+            const c = _getCmtMap().get(commentId);
             if (c) {
                 const pageObj = c._pageObj || st.selectedPage;
                 const camp = c._campaignId
@@ -596,7 +603,10 @@
         );
         const popHtml = openPop ? openPop.outerHTML : null;
         const popParent = openPop ? openPop.parentNode : null;
-        if (openPop) openPop.remove();
+        if (openPop) {
+            openPop.remove();
+            _popCleanup?.();
+        }
         _showToast('✓ Đang xóa đơn...', 'ok');
 
         // Step 2 — Backend background
@@ -640,12 +650,13 @@
         }
         if (!commentIds.length) return;
         try {
-            const r = await fetch(
-                API +
-                    '/cart/batch/counts?commentIds=' +
-                    commentIds.map(encodeURIComponent).join(','),
-                { credentials: 'include' }
-            );
+            // POST body thay vì GET query — 200 ids dồn vào URL dễ vượt limit proxy.
+            const r = await fetch(API + '/cart/batch/counts', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ commentIds }),
+            });
             const d = await r.json();
             if (d.success) {
                 STATE.cartCounts = d.counts || {};
@@ -727,11 +738,16 @@
         });
     }
 
+    // Cleanup outside-click listener của popover đang mở (tránh orphan capture
+    // listener khi popover bị đóng bởi path khác: nút ×, toggle, clear order).
+    let _popCleanup = null;
+
     async function togglePopover(commentId, row) {
         const existing = document.querySelector('.inv-cart-popover');
         if (existing) {
             const wasFor = existing.dataset.cmt;
             existing.remove();
+            _popCleanup?.();
             if (wasFor === commentId) return;
         }
         await renderCartPopover(commentId, row);
@@ -794,7 +810,29 @@
             const rect = row.getBoundingClientRect();
             pop.style.top = rect.bottom + 4 + 'px';
             pop.style.left = rect.left + 'px';
-            pop.querySelector('.inv-cart-pop-close').onclick = () => pop.remove();
+            // Outside-click + cleanup: mọi path đóng popover đều phải gỡ listener
+            // capture trên document (tránh orphan listener tích dồn).
+            const _outside = (ev) => {
+                if (!pop.isConnected) {
+                    cleanup();
+                    return;
+                }
+                if (!pop.contains(ev.target)) {
+                    pop.remove();
+                    cleanup();
+                }
+            };
+            const cleanup = () => {
+                cleanup._done = true;
+                document.removeEventListener('click', _outside, { capture: true });
+                if (_popCleanup === cleanup) _popCleanup = null;
+            };
+            _popCleanup?.();
+            _popCleanup = cleanup;
+            pop.querySelector('.inv-cart-pop-close').onclick = () => {
+                pop.remove();
+                cleanup();
+            };
             // Xóa SP khỏi đơn — KHÔNG confirm (UX nhanh)
             pop.querySelectorAll('[data-action="remove"]').forEach((btn) => {
                 btn.onclick = (e) => {
@@ -830,16 +868,8 @@
             // Attach outside-click AFTER current click finishes — tránh badge.click()
             // tự bubble vào listener mới attach → đóng popover ngay tức thì.
             setTimeout(() => {
-                document.addEventListener(
-                    'click',
-                    function _outside(ev) {
-                        if (!pop.contains(ev.target)) {
-                            pop.remove();
-                            document.removeEventListener('click', _outside);
-                        }
-                    },
-                    { capture: true }
-                );
+                if (cleanup._done) return; // đã đóng trước khi listener kịp attach
+                document.addEventListener('click', _outside, { capture: true });
             }, 0);
         } catch (e) {
             console.warn('[InventoryPanel] popover fail:', e.message);
@@ -889,7 +919,9 @@
                 API + '/cart/' + encodeURIComponent(commentId) + '/history?limit=200',
                 { credentials: 'include' }
             );
+            if (!r.ok) throw new Error('HTTP ' + r.status);
             const d = await r.json();
+            if (d && d.success === false) throw new Error(d.error || 'history failed');
             const back = document.createElement('div');
             back.className = 'inv-hist-backdrop';
             const items = d.items || [];
@@ -959,35 +991,24 @@
     // ─────────────────────────────────────────────────────────
     // SSE subscribe: web2:cart event → refresh badges (cross-tab sync)
     // ─────────────────────────────────────────────────────────
+    // Coalesce: 3 topics (cart / native-orders / products) thường fire dồn dập
+    // cùng 1 mutation → gom về 1 timer duy nhất, 1 refresh() (refresh đã bao gồm
+    // refreshCartCounts ở cuối) thay vì 3 debounce riêng chạy song song.
+    let _refreshTimer = null;
+    function _scheduleRefresh() {
+        clearTimeout(_refreshTimer);
+        _refreshTimer = setTimeout(refresh, 800);
+    }
+
     function _subscribeSSE() {
         if (!global.Web2SSE?.subscribe) return;
-        // Anti-lag: debounce 200ms + gom commentIds qua Set. Burst events từ
-        // backend (vd drop + native-orders update fire cùng lúc) → 1 refresh.
-        global.Web2SSE.subscribe('web2:cart', (msg) => {
-            const cid = msg?.data?.commentId;
-            _subscribeSSE._cartIds = _subscribeSSE._cartIds || new Set();
-            if (cid) _subscribeSSE._cartIds.add(cid);
-            clearTimeout(_subscribeSSE._cartTimer);
-            _subscribeSSE._cartTimer = setTimeout(() => {
-                const ids = Array.from(_subscribeSSE._cartIds);
-                _subscribeSSE._cartIds = new Set();
-                if (ids.length) refreshCartCounts(ids);
-                else refreshCartCounts();
-            }, 200);
-        });
+        global.Web2SSE.subscribe('web2:cart', _scheduleRefresh);
         // Sau refactor 1-nguồn: native_orders.products là source. Khi modal
         // Đơn Web edit/delete/PATCH products → backend fire web2:native-orders →
         // Live panel cart badge phải re-fetch counts để đồng bộ.
-        global.Web2SSE.subscribe('web2:native-orders', () => {
-            clearTimeout(_subscribeSSE._noTimer);
-            _subscribeSSE._noTimer = setTimeout(() => refreshCartCounts(), 400);
-        });
+        global.Web2SSE.subscribe('web2:native-orders', _scheduleRefresh);
         // SP update → reload list
-        global.Web2SSE.subscribe('web2:products', () => {
-            // debounce
-            clearTimeout(_subscribeSSE._spTimer);
-            _subscribeSSE._spTimer = setTimeout(refresh, 800);
-        });
+        global.Web2SSE.subscribe('web2:products', _scheduleRefresh);
     }
 
     async function refresh() {

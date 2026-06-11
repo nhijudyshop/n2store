@@ -68,6 +68,9 @@ const PancakeChatWindow = {
                         customerId: conv.customers?.[0]?.id || null,
                     });
                 }
+                // Bump thế hệ messages: loadOlder đang chạy dở sẽ bỏ merge để
+                // không clobber mảng vừa replace (SSE refresh vs scroll-load-older).
+                state._msgGen = (state._msgGen || 0) + 1;
                 // Newest-first từ API → reverse thành oldest-first (panel tự sort lại theo ts).
                 state.messages = (result.messages || []).slice().reverse();
                 state.messageCurrentCount = state.messages.length;
@@ -75,12 +78,14 @@ const PancakeChatWindow = {
             },
 
             async loadOlder(cursor) {
+                const gen = state._msgGen || 0; // capture trước fetch
                 const result = await window.PancakeAPI.fetchMessages(pageId, convId, {
                     currentCount: cursor,
                     customerId: conv.customers?.[0]?.id || null,
                 });
                 const older = (result.messages || []).slice().reverse();
-                if (older.length) {
+                // loadMessages đã replace state.messages trong lúc fetch → bỏ merge
+                if (older.length && (state._msgGen || 0) === gen) {
                     const known = new Set((state.messages || []).map((m) => m.id).filter(Boolean));
                     const fresh = older.filter((m) => m.id && !known.has(m.id));
                     state.messages = [...fresh, ...(state.messages || [])];

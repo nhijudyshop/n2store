@@ -24,7 +24,11 @@
         adapter: null,
         open: false,
         refreshTimer: null,
+        _seq: 0, // chống race open(A) → open(B): chỉ seq mới nhất được đụng STATE/DOM
+        _convCache: new Map(), // pageId::fbUserId → {conv, ts} (TTL 60s, mở lại instant)
     };
+
+    const CONV_CACHE_TTL = 60 * 1000;
 
     function _esc(s) {
         return String(s == null ? '' : s).replace(
@@ -94,6 +98,8 @@
             window.notificationManager?.show?.('Thiếu fbUserId/pageId để mở chat', 'error');
             return;
         }
+        STATE._seq = (STATE._seq || 0) + 1;
+        const seq = STATE._seq; // sau mỗi await: seq khác = open() mới hơn đã chạy → bỏ
         const ov = _ensureOverlay();
         ov.style.display = 'flex';
         STATE.open = true;
@@ -108,18 +114,30 @@
             _hostMsg('⚠ Web2Chat chưa sẵn sàng (web2-chat-client.js chưa load).');
             return;
         }
+        // Cache hội thoại đã resolve theo pageId+fbUserId (TTL 60s) — mở lại
+        // modal cùng KH là instant, khỏi fetch lại.
+        const cacheKey = `${p.pageId}::${p.fbUserId}`;
+        const hit = STATE._convCache.get(cacheKey);
         let conv = null;
-        try {
-            const r = await window.Web2Chat.fetchConversations(p.pageId, p.fbUserId);
-            const convs = (r?.conversations || []).filter(Boolean);
-            conv =
-                convs.find((c) => String(c.type || '').toUpperCase() === 'INBOX') ||
-                convs[0] ||
-                null;
-        } catch (e) {
-            console.warn('[LiveChatModal] fetchConversations fail:', e.message);
+        if (hit) {
+            if (Date.now() - hit.ts < CONV_CACHE_TTL) conv = hit.conv;
+            else STATE._convCache.delete(cacheKey); // hết TTL → evict
         }
-        if (!STATE.open) return; // user đóng trong lúc fetch
+        if (!conv) {
+            try {
+                const r = await window.Web2Chat.fetchConversations(p.pageId, p.fbUserId);
+                const convs = (r?.conversations || []).filter(Boolean);
+                conv =
+                    convs.find((c) => String(c.type || '').toUpperCase() === 'INBOX') ||
+                    convs[0] ||
+                    null;
+                if (conv) STATE._convCache.set(cacheKey, { conv, ts: Date.now() });
+            } catch (e) {
+                console.warn('[LiveChatModal] fetchConversations fail:', e.message);
+            }
+            // user đóng / open() khác đè trong lúc fetch → không đụng STATE/DOM nữa
+            if (seq !== STATE._seq || !STATE.open) return;
+        }
         if (!conv) {
             _hostMsg(
                 `KH <strong>${_esc(p.name || p.fbUserId)}</strong> chưa có hội thoại với page này.<br>` +
@@ -148,6 +166,8 @@
 
     function close() {
         STATE.open = false;
+        clearTimeout(STATE.refreshTimer);
+        STATE.refreshTimer = null;
         if (STATE.overlay) STATE.overlay.style.display = 'none';
         try {
             STATE.panel?.destroy?.();
@@ -165,9 +185,12 @@
             if (!STATE.open || !STATE.panel || !STATE.adapter) return;
             clearTimeout(STATE.refreshTimer);
             STATE.refreshTimer = setTimeout(async () => {
+                const ad = STATE.adapter;
+                if (!STATE.open || !STATE.panel || !ad) return;
                 try {
-                    const r = await STATE.adapter.loadMessages();
-                    if (STATE.open && STATE.panel && r?.messages) {
+                    const r = await ad.loadMessages();
+                    // modal đóng / mở conv khác trong lúc fetch → bỏ kết quả stale
+                    if (STATE.open && STATE.panel && STATE.adapter === ad && r?.messages) {
                         STATE.panel.setMessages(r.messages);
                     }
                 } catch (_) {}

@@ -58,6 +58,10 @@ function _resolveCampaignLivePosts(campaign, allCampaigns, liveVideos) {
 }
 
 const LiveColumnManager = {
+    // Generation counter chống race khi onMultiCampaignChange chạy chồng
+    // (load cũ đang await mà user đổi campaign → load cũ phải bỏ kết quả).
+    _loadGen: 0,
+
     /**
      * Initialize the Live column
      * @param {string} containerId - DOM container ID
@@ -222,6 +226,7 @@ const LiveColumnManager = {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ comments: payload }),
+                signal: AbortSignal.timeout(15000),
             });
         } catch (e) {
             console.warn('[Live-INIT] saveCommentsToDb fail:', e.message);
@@ -274,12 +279,15 @@ const LiveColumnManager = {
      * Setup realtime WebSocket status listeners
      */
     setupRealtimeListeners() {
-        window.addEventListener('liveRealtimeConnected', () => {
+        // Giữ reference handler để destroy() removeEventListener được (tránh leak).
+        this._onRtConnected = () => {
             window.LiveCommentList.updateConnectionStatus(true, 'session');
-        });
-        window.addEventListener('liveRealtimeDisconnected', () => {
+        };
+        this._onRtDisconnected = () => {
             window.LiveCommentList.updateConnectionStatus(false, 'session');
-        });
+        };
+        window.addEventListener('liveRealtimeConnected', this._onRtConnected);
+        window.addEventListener('liveRealtimeDisconnected', this._onRtDisconnected);
     },
 
     /**
@@ -460,6 +468,7 @@ const LiveColumnManager = {
         }
 
         if (!campaignIds || campaignIds.length === 0) {
+            this._loadGen++; // hủy load đang chạy (nếu có) — tránh ghi đè ngược
             state.selectedCampaign = null;
             state.comments = [];
             state.clearAllCaches();
@@ -468,6 +477,10 @@ const LiveColumnManager = {
         }
 
         if (silent && state.isLoading) return; // tránh đè reload đang chạy
+
+        // Mỗi lần load hợp lệ bump generation; sau MỖI await so lại — nếu có
+        // load mới hơn đã start thì bỏ (không ghi state/render đè kết quả mới).
+        const gen = ++this._loadGen;
 
         if (!silent) {
             state.clearAllCaches();
@@ -492,6 +505,7 @@ const LiveColumnManager = {
                     pageLiveVideosMap.set(pid, await _fetchLiveVideosForPage(pid));
                 })
             );
+            if (gen !== this._loadGen) return; // load mới hơn đã start → bỏ
 
             // Load comments from all selected campaigns × all their posts (parallel)
             const results = await Promise.all(
@@ -551,6 +565,7 @@ const LiveColumnManager = {
                     return postResults.flat();
                 })
             );
+            if (gen !== this._loadGen) return; // load mới hơn đã start → bỏ
 
             // Merge live comments → DEDUPE theo id.
             const _seen = new Set();
@@ -574,7 +589,8 @@ const LiveColumnManager = {
             if (postIds.length) {
                 try {
                     const resp = await fetch(
-                        `${state.workerUrl}/api/web2-live-comments?postIds=${encodeURIComponent(postIds.join(','))}&limit=5000`
+                        `${state.workerUrl}/api/web2-live-comments?postIds=${encodeURIComponent(postIds.join(','))}&limit=5000`,
+                        { signal: AbortSignal.timeout(15000) }
                     );
                     const j = await resp.json();
                     if (j.success && Array.isArray(j.data)) {
@@ -583,6 +599,7 @@ const LiveColumnManager = {
                 } catch (e) {
                     console.warn('[Live-INIT] DB comments fetch fail:', e.message);
                 }
+                if (gen !== this._loadGen) return; // load mới hơn đã start → bỏ
             }
             // Live ưu tiên (có _pageObj + enrichment), DB lấp phần thiếu.
             const merged = [];
@@ -686,7 +703,10 @@ const LiveColumnManager = {
             console.error('[Live-INIT] Error loading multi-campaign comments:', error);
             window.LiveCommentList.showError(error.message);
         } finally {
-            state.isLoading = false;
+            // Chỉ load MỚI NHẤT reset isLoading — load cũ (gen stale) reset sẽ
+            // nhả khóa trong khi load mới còn chạy. Load mới luôn có finally
+            // riêng nên không kẹt true.
+            if (gen === this._loadGen) state.isLoading = false;
         }
     },
 
@@ -871,8 +891,10 @@ const LiveColumnManager = {
                     const promise = (async () => {
                         try {
                             const data = await window.LiveApi.getPartnerInfo(crmTeamId, userId);
-                            if (data?.Partner) {
-                                state.partnerCache.set(userId, data.Partner);
+                            // Warehouse trả FLAT object {Id,Name,Phone,...}; shape cũ
+                            // Live là {Partner:{...}} → support cả 2 (defensive).
+                            if (data) {
+                                state.partnerCache.set(userId, data.Partner || data);
                             }
                         } catch {
                             // silently skip 400 errors (user not in this CRM team)
@@ -932,6 +954,7 @@ const LiveColumnManager = {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ fbId: String(fbId), phone: norm(pk) }),
+                signal: AbortSignal.timeout(15000),
             }).catch(() => {});
         }
     },
@@ -982,6 +1005,7 @@ const LiveColumnManager = {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ comments: payload }),
+                signal: AbortSignal.timeout(15000),
             });
             return await r.json().catch(() => null);
         } catch (e) {
@@ -998,10 +1022,9 @@ const LiveColumnManager = {
         if (!window.sharedDebtManager) return;
 
         const phones = [];
-        // SharedCache stores {value, timestamp} internally, iterate via _data
-        for (const [, entry] of state.partnerCache._data) {
-            const partner = entry.value || {};
-            if (partner.Phone) {
+        // Public entries() của SharedCache — TTL được tôn trọng, skip expired.
+        for (const [, partner] of state.partnerCache.entries()) {
+            if (partner && partner.Phone) {
                 phones.push(partner.Phone);
             }
         }
@@ -1085,6 +1108,18 @@ const LiveColumnManager = {
         window.LiveRealtime.stopSSE();
         window.LiveRealtime.disconnectWebSocket();
         window.LiveState.stopCacheCleanup();
+        // Gỡ window listeners + timers (tránh leak khi re-init).
+        if (this._onRtConnected) {
+            window.removeEventListener('liveRealtimeConnected', this._onRtConnected);
+            this._onRtConnected = null;
+        }
+        if (this._onRtDisconnected) {
+            window.removeEventListener('liveRealtimeDisconnected', this._onRtDisconnected);
+            this._onRtDisconnected = null;
+        }
+        clearTimeout(this._campaignChangeTimer);
+        clearTimeout(this._liveCommentsReloadTimer);
+        clearTimeout(this._offlineBatchTimer);
     },
 };
 

@@ -397,14 +397,8 @@ class PancakeTokenManager {
             const parts = token.split('.');
             if (parts.length !== 3) {
                 console.error('[PANCAKE-TOKEN] Token must have 3 parts, got:', parts.length);
-                console.error('[PANCAKE-TOKEN] Parts:', parts);
                 return null;
             }
-
-            // Log each part for debugging
-            console.log('[PANCAKE-TOKEN] Header length:', parts[0]?.length);
-            console.log('[PANCAKE-TOKEN] Payload length:', parts[1]?.length);
-            console.log('[PANCAKE-TOKEN] Signature length:', parts[2]?.length);
 
             // Decode payload (second part)
             const payloadBase64 = parts[1];
@@ -414,14 +408,8 @@ class PancakeTokenManager {
                 return null;
             }
 
-            console.log('[PANCAKE-TOKEN] Attempting to decode payload...');
             const payloadJson = this.base64UrlDecode(payloadBase64);
-
-            console.log('[PANCAKE-TOKEN] Payload decoded, parsing JSON...');
             const payload = JSON.parse(payloadJson);
-
-            console.log('[PANCAKE-TOKEN] Token decoded successfully');
-            console.log('[PANCAKE-TOKEN] Payload contains:', Object.keys(payload).join(', '));
             return payload;
         } catch (error) {
             console.error('[PANCAKE-TOKEN] Error decoding token:', error.message);
@@ -1222,10 +1210,6 @@ class PancakeTokenManager {
 
             console.log('[PANCAKE-TOKEN] ========================================');
             console.log('[PANCAKE-TOKEN] Generating page_access_token for page:', pageId);
-            console.log(
-                '[PANCAKE-TOKEN] Using access_token (JWT):',
-                this.currentToken.substring(0, 50) + '...'
-            );
 
             // Use worker proxy to avoid CORS
             // API: POST https://pages.fm/api/v1/pages/{page_id}/generate_page_access_token?access_token=xxx
@@ -1234,7 +1218,11 @@ class PancakeTokenManager {
                 `access_token=${this.currentToken}`
             );
 
-            console.log('[PANCAKE-TOKEN] API URL:', url);
+            // KHÔNG log url thô — chứa full JWT trong query access_token
+            console.log(
+                '[PANCAKE-TOKEN] API URL:',
+                url.replace(/access_token=[^&]+/, 'access_token=***')
+            );
 
             const response = await fetch(url, {
                 method: 'POST',
@@ -1245,13 +1233,11 @@ class PancakeTokenManager {
             });
 
             const result = await response.json();
-            console.log('[PANCAKE-TOKEN] API Response:', result);
+            // KHÔNG log result thô — chứa full page_access_token
+            console.log('[PANCAKE-TOKEN] API Response success:', result.success);
 
             if (result.success && result.page_access_token) {
-                console.log(
-                    '[PANCAKE-TOKEN] ✅ page_access_token generated:',
-                    result.page_access_token.substring(0, 50) + '...'
-                );
+                console.log('[PANCAKE-TOKEN] ✅ page_access_token generated for page:', pageId);
                 console.log('[PANCAKE-TOKEN] ========================================');
 
                 // Save to Firebase
@@ -1279,27 +1265,29 @@ class PancakeTokenManager {
         // Check cache first
         const cached = this.getPageAccessToken(pageId);
         if (cached) {
-            console.log(
-                '[PANCAKE-TOKEN] ✅ Using CACHED page_access_token:',
-                cached.substring(0, 50) + '...'
-            );
+            console.log('[PANCAKE-TOKEN] ✅ Using CACHED page_access_token for page:', pageId);
             return cached;
         }
 
+        // In-flight dedup: nhiều caller cùng lúc → chỉ generate 1 lần / page
+        this._pendingPageTokenGen = this._pendingPageTokenGen || {};
+        if (this._pendingPageTokenGen[pageId]) return this._pendingPageTokenGen[pageId];
+
         // Generate new token
         console.log('[PANCAKE-TOKEN] ⚠️ No cached token, generating new one...');
-        const newToken = await this.generatePageAccessToken(pageId);
-
-        if (newToken) {
-            console.log(
-                '[PANCAKE-TOKEN] ✅ NEW page_access_token:',
-                newToken.substring(0, 50) + '...'
-            );
-        } else {
-            console.error('[PANCAKE-TOKEN] ❌ Failed to generate page_access_token');
-        }
-
-        return newToken;
+        const genPromise = (async () => {
+            const newToken = await this.generatePageAccessToken(pageId);
+            if (newToken) {
+                console.log('[PANCAKE-TOKEN] ✅ NEW page_access_token for page:', pageId);
+            } else {
+                console.error('[PANCAKE-TOKEN] ❌ Failed to generate page_access_token');
+            }
+            return newToken;
+        })().finally(() => {
+            delete this._pendingPageTokenGen[pageId];
+        });
+        this._pendingPageTokenGen[pageId] = genPromise;
+        return genPromise;
     }
 
     /**

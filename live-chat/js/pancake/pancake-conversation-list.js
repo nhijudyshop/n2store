@@ -130,6 +130,12 @@ const PancakeConversationList = {
             ((debt && debt > 0) || (state.showZeroDebt && debt !== null && debt !== undefined));
         const debtDisplay = hasDebt ? window.SharedUtils.formatDebt(debt) : '';
 
+        // ID đưa vào inline onclick PHẢI sanitize (chống XSS qua data Pancake):
+        // fb id/psid chỉ gồm chữ-số nên strip mọi ký tự lạ là an toàn.
+        const psidSafe = String(
+            conv.from?.id || conv.from_psid || customer.psid || customer.id || ''
+        ).replace(/[^\w.:-]/g, '');
+
         return `
             <div class="pk-conversation-item ${isActive ? 'active' : ''}" data-conv-id="${conv.id}" data-page-id="${conv.page_id}">
                 <div class="pk-avatar">
@@ -157,7 +163,7 @@ const PancakeConversationList = {
                         ${
                             state.activeFilter === 'live-saved'
                                 ? `
-                        <button class="pk-remove-web2-btn" title="Xóa khỏi Lưu Live" onclick="event.stopPropagation(); window.PancakeConversationList.removeFromLiveSaved('${conv.from?.id || conv.from_psid || customer.psid || customer.id || ''}')">
+                        <button class="pk-remove-web2-btn" title="Xóa khỏi Lưu Live" onclick="event.stopPropagation(); window.PancakeConversationList.removeFromLiveSaved('${psidSafe}')">
                             <i data-lucide="minus"></i>
                         </button>`
                                 : ''
@@ -190,7 +196,10 @@ const PancakeConversationList = {
         const lbl = this._pageLabel(pid);
         if (!lbl) return '';
         const active = String(window.PancakeState.selectedPageId || '') === pid;
-        return `<span class="pk-page-badge" onclick="event.stopPropagation(); window.PancakeConversationList.setPageFilter('${pid}')" title="Lọc hội thoại ${lbl.t}" style="cursor:pointer;flex-shrink:0;font-size:9px;font-weight:700;line-height:1;padding:2px 6px;border-radius:999px;color:#fff;background:${lbl.c};${active ? 'outline:2px solid #1e293b;outline-offset:1px;' : ''}">${lbl.t}</span>`;
+        // Sanitize trước khi nhúng vào inline onclick/HTML (chống XSS)
+        const pidSafe = pid.replace(/[^\w.:-]/g, '');
+        const lblSafe = window.SharedUtils.escapeHtml(lbl.t);
+        return `<span class="pk-page-badge" onclick="event.stopPropagation(); window.PancakeConversationList.setPageFilter('${pidSafe}')" title="Lọc hội thoại ${lblSafe}" style="cursor:pointer;flex-shrink:0;font-size:9px;font-weight:700;line-height:1;padding:2px 6px;border-radius:999px;color:#fff;background:${lbl.c};${active ? 'outline:2px solid #1e293b;outline-offset:1px;' : ''}">${lblSafe}</span>`;
     },
     // Lọc hội thoại theo page (badge click). Toggle: click lại badge đang active
     // hoặc gọi null → bỏ lọc. Dùng lại cơ chế state.selectedPageId sẵn có.

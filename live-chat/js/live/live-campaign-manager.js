@@ -56,7 +56,11 @@
     }
 
     async function _api(path, opts) {
-        const r = await fetch(API + path, opts);
+        const r = await fetch(API + path, {
+            signal: AbortSignal.timeout(15000),
+            ...(opts || {}),
+        });
+        if (!r.ok) throw new Error('HTTP ' + r.status);
         return r.json().catch(() => ({}));
     }
 
@@ -73,10 +77,24 @@
         }));
     }
 
+    // Generation counter: render gọi chồng (add/del/assign liên tiếp) → chỉ
+    // lần gọi MỚI NHẤT được ghi DOM, các lần cũ bỏ sau mỗi await.
+    let _renderGen = 0;
+
     async function _render() {
         const body = document.getElementById('lcm-body');
         if (!body) return;
-        const cd = await _api('/campaigns');
+        const gen = ++_renderGen;
+        let cd;
+        try {
+            cd = await _api('/campaigns');
+        } catch (e) {
+            if (gen !== _renderGen) return;
+            body.innerHTML =
+                '<div style="padding:16px;color:#ef4444">Lỗi tải: ' + esc(e.message) + '</div>';
+            return;
+        }
+        if (gen !== _renderGen) return;
         _camps = cd.data || [];
         const posts = _pagePosts();
         // map post→campaign từ /posts (assign hiện tại)
@@ -85,6 +103,7 @@
             const pd = await _api('/posts');
             for (const p of pd.data || []) assignMap[String(p.post_id)] = p.campaign_id;
         } catch {}
+        if (gen !== _renderGen) return;
 
         const campOpts = (sel) =>
             `<option value="">— chưa gom —</option>` +
@@ -235,6 +254,36 @@
         });
     }
 
+    // Banner "← Quay lại live" hiện trên đầu cột comment khi đang xem chiến dịch.
+    function _showBackBanner(campName) {
+        _removeBackBanner();
+        const list = document.getElementById('liveCommentList');
+        if (!list || !list.parentNode) return;
+        const bar = document.createElement('div');
+        bar.id = 'lcm-back-banner';
+        bar.style.cssText =
+            'display:flex;align-items:center;gap:8px;padding:7px 12px;background:#eef2ff;border-bottom:1px solid #c7d2fe;font-size:12.5px;color:#3730a3';
+        bar.innerHTML = `<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">📁 Đang xem chiến dịch${campName ? ': <strong>' + esc(campName) + '</strong>' : ''}</span>
+            <button class="lcm-btn" id="lcm-back-live" style="white-space:nowrap">← Quay lại live</button>`;
+        list.parentNode.insertBefore(bar, list);
+        bar.querySelector('#lcm-back-live').onclick = exitCampaignView;
+    }
+    function _removeBackBanner() {
+        document.getElementById('lcm-back-banner')?.remove();
+    }
+
+    // Thoát chế độ xem chiến dịch → khôi phục comments live ban đầu.
+    function exitCampaignView() {
+        const st = global.LiveState;
+        const mgr = global.LiveColumnManager;
+        _removeBackBanner();
+        if (st && mgr && mgr._origComments) {
+            st.comments = mgr._origComments;
+            mgr._origComments = null;
+            global.LiveCommentList?.renderComments?.();
+        }
+    }
+
     // Xem comment 1 chiến dịch cha → load từ DB (gom mọi bài) vào cột comment.
     async function _viewCampaign(campaignId) {
         try {
@@ -243,6 +292,8 @@
             const st = global.LiveState;
             const mgr = global.LiveColumnManager;
             if (st && mgr?._mapDbComment) {
+                // Giữ comments live gốc để "← Quay lại live" khôi phục được.
+                if (!mgr._origComments) mgr._origComments = st.comments;
                 st.comments = rows.map((r) => mgr._mapDbComment(r));
                 st.comments.sort(
                     (a, b) =>
@@ -250,6 +301,8 @@
                         new Date(a.created_time || 0).getTime()
                 );
                 global.LiveCommentList?.renderComments?.();
+                const camp = _camps.find((c) => String(c.id) === String(campaignId));
+                _showBackBanner(camp?.name || '');
                 _close();
                 global.notificationManager?.show?.(
                     `Xem ${rows.length} comment của chiến dịch`,
@@ -261,7 +314,7 @@
         }
     }
 
-    global.LiveCampaignManager = { mount: _mount, open: _open };
+    global.LiveCampaignManager = { mount: _mount, open: _open, exitCampaignView };
 
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', () => setTimeout(_mount, 1500));

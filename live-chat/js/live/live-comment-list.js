@@ -41,6 +41,22 @@ function liveSvgIcon(name, size = 13, cls = '') {
     return `<svg xmlns="http://www.w3.org/2000/svg"${cls ? ` class="${cls}"` : ''} width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;pointer-events:none;flex-shrink:0;">${p}</svg>`;
 }
 
+/**
+ * Escape giá trị nhét vào HTML ATTRIBUTE (double-quoted). SharedUtils.escapeHtml
+ * (textContent→innerHTML) KHÔNG escape dấu " → không an toàn cho attribute.
+ * Helper này escape đủ &<>"' — dùng cho data-*, value, id, title.
+ * @param {*} v
+ * @returns {string}
+ */
+function liveAttr(v) {
+    return String(v ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
 // Cap render: chỉ dựng N comment MỚI NHẤT trong DOM (comments sorted newest-first).
 // 843 dòng non-virtualized → mỗi render reflow O(n) + inventory-panel/livestream-snap
 // quét all rows → giật. Cap giữ DOM nhỏ (~200) → nhẹ. Nút "xem cũ hơn" tăng cap.
@@ -91,6 +107,7 @@ const LiveCommentList = {
         let sentinel = document.getElementById('liveScrollSentinel');
         if (!hasMore) {
             if (sentinel) sentinel.remove();
+            this._scrollObserver?.disconnect();
             return;
         }
         if (!sentinel) {
@@ -100,7 +117,12 @@ const LiveCommentList = {
         }
         // Luôn để sentinel ở cuối.
         if (list.lastElementChild !== sentinel) list.appendChild(sentinel);
-        // Wire observer 1 lần (root = list scroll container, prefetch trước 400px).
+        // Wire observer (root = list scroll container, prefetch trước 400px).
+        // Nếu list bị rebuild (renderContainer) → root cũ detached → tạo lại.
+        if (this._scrollObserver && this._scrollObserver.root !== list) {
+            this._scrollObserver.disconnect();
+            this._scrollObserver = null;
+        }
         if (!this._scrollObserver) {
             this._scrollObserver = new IntersectionObserver(
                 (entries) => {
@@ -108,9 +130,9 @@ const LiveCommentList = {
                 },
                 { root: list, rootMargin: '0px 0px 400px 0px' }
             );
-        } else {
-            this._scrollObserver.disconnect();
         }
+        // LUÔN disconnect trước khi observe — tránh observe trùng/sentinel cũ.
+        this._scrollObserver.disconnect();
         this._scrollObserver.observe(sentinel);
     },
 
@@ -135,8 +157,16 @@ const LiveCommentList = {
         const sentinel = document.getElementById('liveScrollSentinel');
         const schedule = (cb) => setTimeout(cb, 0);
         const CHUNK = 25;
+        // Generation token: full re-render (renderCommentsNow) bump _renderGen →
+        // batch đang chạy trên DOM/slice cũ phải ABORT, tránh chèn row stale.
+        const gen = (this._renderGen = this._renderGen || 0);
         let i = 0;
         const step = () => {
+            if (gen !== this._renderGen) {
+                // List đã bị full re-render giữa chừng → bỏ batch này.
+                this._loadingOlder = false;
+                return;
+            }
             const parts = [];
             const end = Math.min(i + CHUNK, batch.length);
             for (; i < end; i++) parts.push(this.renderCommentItem(batch[i]));
@@ -247,17 +277,31 @@ const LiveCommentList = {
                 this.clearCampaignSelection();
             });
         }
-        // Close dropdown on outside click
-        document.addEventListener('click', (e) => {
-            const dropdown = document.getElementById('liveCampaignDropdown');
-            if (
-                dropdown &&
-                dropdown.style.display !== 'none' &&
-                !e.target.closest('.live-campaign-multi')
-            ) {
-                dropdown.style.display = 'none';
-            }
-        });
+        // Close dropdown on outside click — bind 1 LẦN (renderContainer có thể gọi
+        // lại setupEventHandlers → guard tránh leak listener trên document).
+        if (!this._docClickHandler) {
+            this._docClickHandler = (e) => {
+                const dropdown = document.getElementById('liveCampaignDropdown');
+                if (
+                    dropdown &&
+                    dropdown.style.display !== 'none' &&
+                    !e.target.closest('.live-campaign-multi')
+                ) {
+                    dropdown.style.display = 'none';
+                }
+            };
+            document.addEventListener('click', this._docClickHandler);
+        }
+
+        // Delegated change cho checkbox campaign (thay inline onchange — XSS-safe).
+        const campaignDropdown = document.getElementById('liveCampaignDropdown');
+        if (campaignDropdown && campaignDropdown.dataset.delegated !== '1') {
+            campaignDropdown.dataset.delegated = '1';
+            campaignDropdown.addEventListener('change', (e) => {
+                const cb = e.target.closest('input[data-camp-id]');
+                if (cb) this.toggleCampaign(cb.dataset.campId);
+            });
+        }
 
         const btnRefresh = document.getElementById('btnLiveRefresh');
         if (btnRefresh) {
@@ -274,6 +318,85 @@ const LiveCommentList = {
                 passive: true,
             });
         }
+
+        this._bindListDelegation();
+    },
+
+    /**
+     * Delegated click cho list comment — THAY toàn bộ inline onclick chứa user
+     * data (XSS-safe). Bind 1 lần trên #liveCommentList (guard dataset.delegated;
+     * element được tạo mới mỗi renderContainer nên guard tự reset).
+     */
+    _bindListDelegation() {
+        const list = document.getElementById('liveCommentList');
+        if (!list || list.dataset.delegated === '1') return;
+        list.dataset.delegated = '1';
+        list.addEventListener('click', (e) => this._onListClick(e, list));
+    },
+
+    /**
+     * Xử lý click delegated trong list comment. Đọc user data qua el.dataset
+     * (browser tự decode entity → giá trị gốc), KHÔNG nhét vào chuỗi JS inline.
+     * @param {MouseEvent} e
+     * @param {HTMLElement} list
+     */
+    _onListClick(e, list) {
+        const actionEl = e.target.closest('[data-action]');
+        if (actionEl && list.contains(actionEl)) {
+            // Inline handler cũ đều có event.stopPropagation() → giữ behavior.
+            e.stopPropagation();
+            const d = actionEl.dataset;
+            switch (d.action) {
+                case 'order-detail':
+                    this.showOrderDetail(d.fromId);
+                    return;
+                case 'show-customer':
+                    this.showPancakeCustomerInfo(d.fromId, d.name || '', d.pageId || '');
+                    return;
+                case 'toggle-status':
+                    this.toggleInlineStatusDropdown(d.fromId);
+                    return;
+                case 'select-status':
+                    this.selectInlineStatus(d.fromId, d.value, d.text);
+                    return;
+                case 'save-phone':
+                    this.saveInlinePhone(d.fromId, `phone-${d.fromId}`);
+                    return;
+                case 'save-address':
+                    this.saveInlineAddress(d.fromId, `addr-${d.fromId}`);
+                    return;
+                case 'create-order':
+                    this.createOrder(d.fromId, d.name || '', d.commentId);
+                    return;
+                case 'show-info':
+                    window.LiveCustomerPanel?.showCustomerInfo(d.fromId, d.name || '');
+                    return;
+                case 'open-chat':
+                    window.LiveChatModal?.open({
+                        fbUserId: d.fromId,
+                        name: d.name || '',
+                        pageId: d.pageId || '',
+                    });
+                    return;
+                case 'reply':
+                    this.showReplyInput(d.commentId, d.fromId);
+                    return;
+                case 'toggle-hide':
+                    window.LiveColumnManager?.toggleHideComment(d.commentId, d.hideNext === 'true');
+                    return;
+                default:
+                    return;
+            }
+        }
+        // Vùng tương tác (input SĐT/địa chỉ, status, reply, link KH) — inline cũ
+        // stopPropagation để KHÔNG select row → giữ nguyên behavior.
+        if (
+            e.target.closest('.live-conv-info, .inline-status-container, .live-reply-input-row, a')
+        ) {
+            return;
+        }
+        const row = e.target.closest('.live-conversation-item');
+        if (row && list.contains(row)) this.selectComment(row.dataset.commentId);
     },
 
     /**
@@ -376,11 +499,10 @@ const LiveCommentList = {
         const badgeColor = isStore
             ? 'background:#fef3c7;color:#92400e'
             : 'background:#dbeafe;color:#1e40af';
-        return `<label data-camp-id="${SharedUtils.escapeHtml(c.Id)}" style="display:flex;align-items:center;gap:8px;padding:6px 12px;cursor:pointer;font-size:12px;transition:background 0.1s;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='transparent'">
-                <input type="checkbox" value="${c.Id}" ${checked ? 'checked' : ''} style="width:16px;height:16px;cursor:pointer;flex-shrink:0;"
-                    onchange="LiveCommentList.toggleCampaign('${c.Id}')">
+        return `<label data-camp-id="${liveAttr(c.Id)}" style="display:flex;align-items:center;gap:8px;padding:6px 12px;cursor:pointer;font-size:12px;transition:background 0.1s;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='transparent'">
+                <input type="checkbox" value="${liveAttr(c.Id)}" data-camp-id="${liveAttr(c.Id)}" ${checked ? 'checked' : ''} style="width:16px;height:16px;cursor:pointer;flex-shrink:0;">
                 <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${SharedUtils.escapeHtml(c.Name)}</span>
-                <span style="${badgeColor};font-size:9px;padding:1px 5px;border-radius:3px;font-weight:600;flex-shrink:0;">${pageName.replace('NhiJudy ', '').replace('Nhi Judy ', '')}</span>
+                <span style="${badgeColor};font-size:9px;padding:1px 5px;border-radius:3px;font-weight:600;flex-shrink:0;">${SharedUtils.escapeHtml(pageName.replace('NhiJudy ', '').replace('Nhi Judy ', ''))}</span>
             </label>`;
     },
 
@@ -627,8 +749,15 @@ const LiveCommentList = {
         const comments = this._visibleComments();
         const schedule = (cb) => setTimeout(cb, 0);
         const CHUNK = 25;
+        // Abort chunk-loop nếu full re-render xảy ra giữa chừng (gen đổi) —
+        // rowMap khi đó trỏ tới element cũ đã bị thay.
+        const gen = (this._renderGen = this._renderGen || 0);
         let i = 0;
         const step = () => {
+            if (gen !== this._renderGen) {
+                this._chunkHandle = null;
+                return;
+            }
             const end = Math.min(i + CHUNK, comments.length);
             while (i < end) {
                 const c = comments[i++];
@@ -663,6 +792,11 @@ const LiveCommentList = {
         const state = window.LiveState;
         const listContainer = document.getElementById('liveCommentList');
         if (!listContainer) return;
+
+        // Bump generation: mọi batch append/patch chunked đang chạy trên DOM cũ
+        // phải abort (xem _appendOlderBatch / _patchRowsChunked). SSE unshift →
+        // structural change → đi qua đây → gen bump cover luôn race SSE.
+        this._renderGen = (this._renderGen || 0) + 1;
 
         if (state.comments.length === 0) {
             listContainer.innerHTML = `
@@ -744,7 +878,7 @@ const LiveCommentList = {
         listContainer.innerHTML = `
             <div class="live-error">
                 <i data-lucide="alert-circle"></i>
-                <span>Lỗi: ${message}</span>
+                <span>Lỗi: ${SharedUtils.escapeHtml(String(message || ''))}</span>
                 <button class="live-btn-retry" onclick="window.eventBus.emit('live:refreshRequested')">Thử lại</button>
             </div>
         `;
@@ -799,7 +933,7 @@ const LiveCommentList = {
             Array.isArray(sessionInfo.commentIds) &&
             sessionInfo.commentIds.includes(id);
         const orderBadge = sessionInfo?.code
-            ? `<span class="order-code-badge" title="Đơn web ${sessionInfo.code}" style="background:#ede9fe;color:#6d28d9;font-size:10px;padding:1px 5px;border-radius:3px;font-weight:600;cursor:pointer" onclick="event.stopPropagation();LiveCommentList.showOrderDetail('${fromId}')">${sessionInfo.code}</span>`
+            ? `<span class="order-code-badge" title="Đơn web ${liveAttr(sessionInfo.code)}" style="background:#ede9fe;color:#6d28d9;font-size:10px;padding:1px 5px;border-radius:3px;font-weight:600;cursor:pointer" data-action="order-detail" data-from-id="${liveAttr(fromId)}">${SharedUtils.escapeHtml(sessionInfo.code)}</span>`
             : '';
 
         // Gradient placeholder
@@ -856,18 +990,23 @@ const LiveCommentList = {
             ? `background:${statusBg};color:${statusColor};border:1px solid ${statusColor}30;`
             : 'background:#f1f5f9;color:#64748b;border:1px solid #e2e8f0;';
 
+        // User data (id/fromId/fromName/pageId…) đi qua data-* attribute (liveAttr
+        // escape cả dấu ") + delegated listener (_onListClick) — KHÔNG inline onclick.
+        const idA = liveAttr(id);
+        const fromIdA = liveAttr(fromId);
+        const nameA = liveAttr(fromName);
+        const pageIdA = liveAttr(commentPageId || '');
         return `
             <div class="live-conversation-item ${isHidden ? 'is-hidden' : ''}"
-                 data-comment-id="${id}"
-                 data-sig="${this._rowSig(comment)}"
-                 onclick="LiveCommentList.selectComment('${id}')">
+                 data-comment-id="${idA}"
+                 data-sig="${this._rowSig(comment)}">
 
                 <!-- Row 1: Avatar + Name + Status + Time -->
                 <div class="live-conv-row1">
                     <div class="live-conv-avatar">
                         ${
                             pictureUrl
-                                ? `<img src="${pictureUrl}" class="avatar-img" alt="${SharedUtils.escapeHtml(fromName)}" loading="lazy" decoding="async" width="40" height="40" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                ? `<img src="${liveAttr(pictureUrl)}" class="avatar-img" alt="${nameA}" loading="lazy" decoding="async" width="40" height="40" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
                                <div class="avatar-placeholder" style="display:none;background:${gradientColor};">${initial}</div>`
                                 : `<div class="avatar-placeholder" style="background:${gradientColor};">${initial}</div>`
                         }
@@ -876,19 +1015,19 @@ const LiveCommentList = {
                     </div>
                     <div class="live-conv-header-info">
                         <div class="live-conv-header">
-                            <span class="customer-name" onclick="event.stopPropagation(); LiveCommentList.showPancakeCustomerInfo('${fromId}', '${SharedUtils.escapeHtml(fromName)}', '${commentPageId || ''}')" title="Xem thông tin">${SharedUtils.escapeHtml(fromName)}</span>
+                            <span class="customer-name" data-action="show-customer" data-from-id="${fromIdA}" data-name="${nameA}" data-page-id="${pageIdA}" title="Xem thông tin">${SharedUtils.escapeHtml(fromName)}</span>
                             ${walletPlaceholder}
                             ${isMultiPage ? `<span class="live-tag" style="${pageBadgeColor}">${SharedUtils.escapeHtml(shortPageName)}</span>` : ''}
                             ${orderBadge || ''}
                             ${isHidden ? '<span class="live-tag" style="background:#fee2e2;color:#dc2626;">Ẩn</span>' : ''}
                         </div>
                     </div>
-                    <div class="inline-status-container" onclick="event.stopPropagation();">
-                        <div id="status-btn-${fromId}" class="live-status-badge" style="${statusBadgeStyle}"
-                             onclick="LiveCommentList.toggleInlineStatusDropdown('${fromId}')">
-                            <span id="status-text-${fromId}">${statusText || 'Trạng thái'}</span>
+                    <div class="inline-status-container">
+                        <div id="status-btn-${fromIdA}" class="live-status-badge" style="${statusBadgeStyle}"
+                             data-action="toggle-status" data-from-id="${fromIdA}">
+                            <span id="status-text-${fromIdA}">${SharedUtils.escapeHtml(statusText) || 'Trạng thái'}</span>
                         </div>
-                        <div id="status-dropdown-${fromId}" class="live-status-dropdown" style="display:none;" data-loaded="0"></div>
+                        <div id="status-dropdown-${fromIdA}" class="live-status-dropdown" style="display:none;" data-loaded="0"></div>
                     </div>
                     <span class="live-conv-time">${timeStr}</span>
                 </div>
@@ -897,13 +1036,13 @@ const LiveCommentList = {
                 <div class="live-conv-message">${SharedUtils.escapeHtml(message)}</div>
 
                 <!-- Row 3: Phone + Address -->
-                <div class="live-conv-info" onclick="event.stopPropagation();">
-                    <input type="text" id="phone-${fromId}" value="${SharedUtils.escapeHtml(phone)}" placeholder="SĐT" style="width:100px;" onclick="event.stopPropagation();">
-                    <button class="live-action-btn" style="width:22px;height:22px;" onclick="event.stopPropagation(); LiveCommentList.saveInlinePhone('${fromId}', 'phone-${fromId}')" title="Lưu SĐT">
+                <div class="live-conv-info">
+                    <input type="text" id="phone-${fromIdA}" value="${liveAttr(phone)}" placeholder="SĐT" style="width:100px;">
+                    <button class="live-action-btn" style="width:22px;height:22px;" data-action="save-phone" data-from-id="${fromIdA}" title="Lưu SĐT">
                         ${liveSvgIcon('save', 11)}
                     </button>
-                    <input type="text" id="addr-${fromId}" value="${SharedUtils.escapeHtml(address)}" placeholder="Địa chỉ" style="flex:1;min-width:100px;" onclick="event.stopPropagation();">
-                    <button class="live-action-btn" style="width:22px;height:22px;" onclick="event.stopPropagation(); LiveCommentList.saveInlineAddress('${fromId}', 'addr-${fromId}')" title="Lưu địa chỉ">
+                    <input type="text" id="addr-${fromIdA}" value="${liveAttr(address)}" placeholder="Địa chỉ" style="flex:1;min-width:100px;">
+                    <button class="live-action-btn" style="width:22px;height:22px;" data-action="save-address" data-from-id="${fromIdA}" title="Lưu địa chỉ">
                         ${liveSvgIcon('save', 11)}
                     </button>
                 </div>
@@ -929,27 +1068,27 @@ const LiveCommentList = {
                             btnIcon = 'plus-square';
                             btnColor = '#7c3aed';
                         }
-                        return `<button class="live-action-btn" id="create-order-${fromId}-${id}" title="${btnTitle}" style="color:${btnColor};" onclick="event.stopPropagation(); LiveCommentList.createOrder('${fromId}', '${SharedUtils.escapeHtml(fromName)}', '${id}')">
+                        return `<button class="live-action-btn" id="create-order-${fromIdA}-${idA}" title="${liveAttr(btnTitle)}" style="color:${btnColor};" data-action="create-order" data-from-id="${fromIdA}" data-name="${nameA}" data-comment-id="${idA}">
                                    ${liveSvgIcon(btnIcon, 13)}
                                </button>`;
                     })()}
-                    <button class="live-action-btn" title="Xem info" onclick="event.stopPropagation(); LiveCustomerPanel.showCustomerInfo('${fromId}', '${SharedUtils.escapeHtml(fromName)}')">
+                    <button class="live-action-btn" title="Xem info" data-action="show-info" data-from-id="${fromIdA}" data-name="${nameA}">
                         ${liveSvgIcon('user', 13)}
                     </button>
                     ${
                         partner.Id
-                            ? `<a class="live-action-btn" title="Mở thẻ KH Web 2.0" href="../web2/partner-customer/index.html?id=${encodeURIComponent(partner.Id)}" target="_blank" rel="noopener" onclick="event.stopPropagation();" style="color:#0891b2;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;">
+                            ? `<a class="live-action-btn" title="Mở thẻ KH Web 2.0" href="../web2/partner-customer/index.html?id=${encodeURIComponent(partner.Id)}" target="_blank" rel="noopener" style="color:#0891b2;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;">
                         ${liveSvgIcon('contact', 13)}
                     </a>`
                             : ''
                     }
-                    <button class="live-action-btn" title="Mở hội thoại chat với khách (full chức năng)" style="color:#2563eb;" onclick="event.stopPropagation(); LiveChatModal.open({ fbUserId: '${fromId}', name: '${SharedUtils.escapeHtml(fromName)}', pageId: '${commentPageId || ''}' })">
+                    <button class="live-action-btn" title="Mở hội thoại chat với khách (full chức năng)" style="color:#2563eb;" data-action="open-chat" data-from-id="${fromIdA}" data-name="${nameA}" data-page-id="${pageIdA}">
                         ${liveSvgIcon('message-circle', 13)}
                     </button>
-                    <button class="live-action-btn" title="Trả lời" onclick="event.stopPropagation(); LiveCommentList.showReplyInput('${id}', '${fromId}')">
+                    <button class="live-action-btn" title="Trả lời" data-action="reply" data-comment-id="${idA}" data-from-id="${fromIdA}">
                         ${liveSvgIcon('reply', 13)}
                     </button>
-                    <button class="live-action-btn" title="${isHidden ? 'Hiện' : 'Ẩn'}" onclick="event.stopPropagation(); LiveColumnManager.toggleHideComment('${id}', ${!isHidden})">
+                    <button class="live-action-btn" title="${isHidden ? 'Hiện' : 'Ẩn'}" data-action="toggle-hide" data-comment-id="${idA}" data-hide-next="${!isHidden}">
                         ${liveSvgIcon(isHidden ? 'eye' : 'eye-off', 13)}
                     </button>
                 </div>
@@ -998,7 +1137,8 @@ const LiveCommentList = {
         const selectedItem = document.querySelector(`[data-comment-id="${commentId}"]`);
         if (selectedItem) selectedItem.classList.add('selected');
 
-        const comment = state.comments.find((c) => c.id === commentId);
+        // So sánh String-safe: commentId từ dataset là string, c.id có thể là number.
+        const comment = state.comments.find((c) => String(c.id) === String(commentId));
         if (comment) {
             window.eventBus.emit('live:commentSelected', { comment });
             window.dispatchEvent(new CustomEvent('liveCommentSelected', { detail: { comment } }));
@@ -1018,8 +1158,8 @@ const LiveCommentList = {
                 .map(
                     (opt) =>
                         `<div class="inline-status-option" style="padding:6px 10px;cursor:pointer;font-size:11px;color:${opt.color};font-weight:600;"
-                 onclick="event.stopPropagation(); LiveCommentList.selectInlineStatus('${userId}', '${opt.value}', '${opt.text}')">
-                ${opt.text}
+                 data-action="select-status" data-from-id="${liveAttr(userId)}" data-value="${liveAttr(opt.value)}" data-text="${liveAttr(opt.text)}">
+                ${SharedUtils.escapeHtml(opt.text)}
             </div>`
                 )
                 .join('');
@@ -1399,7 +1539,7 @@ const LiveCommentList = {
     async createOrder(fromId, fromName, commentId) {
         const state = window.LiveState;
 
-        const comment = state.comments.find((c) => c.id === commentId);
+        const comment = state.comments.find((c) => String(c.id) === String(commentId));
         const pageObj = comment?._pageObj || state.selectedPage;
         const crmTeamId = pageObj?.Id;
         // Resolve the campaign that owns this comment so we can persist it on the
@@ -1530,7 +1670,7 @@ const LiveCommentList = {
             `.live-conversation-item[data-comment-id="${commentId}"]`
         );
         if (!item) return;
-        const comment = state.comments.find((c) => c.id === commentId);
+        const comment = state.comments.find((c) => String(c.id) === String(commentId));
         if (!comment) return;
         const html = this.renderCommentItem(comment);
         const tmp = document.createElement('div');
@@ -1545,7 +1685,9 @@ const LiveCommentList = {
         // from 1→2, other rows for same fromId should now show "2 comments").
         const fromId = comment.from?.id;
         if (!fromId) return;
-        const others = state.comments.filter((c) => c.id !== commentId && c.from?.id === fromId);
+        const others = state.comments.filter(
+            (c) => String(c.id) !== String(commentId) && c.from?.id === fromId
+        );
         if (!others.length) return;
 
         // Defer cross-item refresh qua requestIdleCallback (fallback setTimeout)

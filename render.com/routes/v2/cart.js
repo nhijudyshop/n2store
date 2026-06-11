@@ -282,6 +282,25 @@ router.get('/:commentId', async (req, res) => {
     }
 });
 
+// Shared cho GET + POST /batch/counts — trả qty của draft order theo customer.
+async function _batchCounts(pool, ids) {
+    if (!ids.length) return {};
+    const r = await pool.query(
+        `SELECT fb_user_id, products, total_quantity
+         FROM native_orders
+         WHERE fb_user_id = ANY($1::text[]) AND status = 'draft'`,
+        [ids]
+    );
+    const counts = {};
+    for (const row of r.rows) {
+        const fbUid = row.fb_user_id;
+        const products = Array.isArray(row.products) ? row.products : [];
+        const totalQty = Number(row.total_quantity) || products.reduce((s, p) => s + _qtyOf(p), 0);
+        counts[fbUid] = { items: products.length, qty: totalQty };
+    }
+    return counts;
+}
+
 // GET /batch/counts?commentIds=fbUid1,fbUid2,...
 // Trả qty của draft order cho mỗi customer (fbUserId).
 router.get('/batch/counts', async (req, res) => {
@@ -291,21 +310,21 @@ router.get('/batch/counts', async (req, res) => {
             .split(',')
             .map((s) => s.trim())
             .filter(Boolean);
-        if (!ids.length) return res.json({ success: true, counts: {} });
-        const r = await pool.query(
-            `SELECT fb_user_id, products, total_quantity
-             FROM native_orders
-             WHERE fb_user_id = ANY($1::text[]) AND status = 'draft'`,
-            [ids]
-        );
-        const counts = {};
-        for (const row of r.rows) {
-            const fbUid = row.fb_user_id;
-            const products = Array.isArray(row.products) ? row.products : [];
-            const totalQty =
-                Number(row.total_quantity) || products.reduce((s, p) => s + _qtyOf(p), 0);
-            counts[fbUid] = { items: products.length, qty: totalQty };
-        }
+        const counts = await _batchCounts(pool, ids);
+        res.json({ success: true, counts });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+// POST /batch/counts  body: { commentIds: [...] }
+// Như GET nhưng nhận ids qua body — tránh URL quá dài khi nhiều ids (≤200).
+router.post('/batch/counts', async (req, res) => {
+    try {
+        const pool = req.app.locals.web2Db || req.app.locals.chatDb;
+        const raw = Array.isArray(req.body?.commentIds) ? req.body.commentIds : [];
+        const ids = raw.map((s) => String(s).trim()).filter(Boolean);
+        const counts = await _batchCounts(pool, ids);
         res.json({ success: true, counts });
     } catch (e) {
         res.status(500).json({ success: false, error: e.message });

@@ -34,6 +34,7 @@ const LiveApi = {
 
         let response = await fetch(url, {
             ...options,
+            signal: AbortSignal.timeout(15000),
             headers: {
                 Authorization: `Bearer ${token}`,
                 Accept: 'application/json',
@@ -50,6 +51,7 @@ const LiveApi = {
                 if (newToken) {
                     response = await fetch(url, {
                         ...options,
+                        signal: AbortSignal.timeout(15000),
                         headers: {
                             Authorization: `Bearer ${newToken}`,
                             Accept: 'application/json',
@@ -221,6 +223,7 @@ const LiveApi = {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ fbIds: [String(fbUserId)] }),
+                signal: AbortSignal.timeout(15000),
             });
             const d = await r.json().catch(() => ({}));
             const c = d && d.data && d.data[String(fbUserId)];
@@ -247,6 +250,7 @@ const LiveApi = {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ fbIds: [String(fbUserId)] }),
+            signal: AbortSignal.timeout(15000),
         });
         const d = await r.json().catch(() => ({}));
         const c = d && d.data && d.data[String(fbUserId)];
@@ -255,6 +259,7 @@ const LiveApi = {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(patch),
+            signal: AbortSignal.timeout(15000),
         });
         return pr.ok;
     },
@@ -274,6 +279,7 @@ const LiveApi = {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ status }),
+                signal: AbortSignal.timeout(15000),
             });
             if (r.ok && window.notificationManager) {
                 window.notificationManager.show(`Đã cập nhật trạng thái: ${status}`, 'success');
@@ -306,6 +312,7 @@ const LiveApi = {
                         address: fields.Street,
                         fbId: fbUserId,
                     }),
+                    signal: AbortSignal.timeout(15000),
                 });
                 ok = true;
             } catch (e) {
@@ -333,13 +340,20 @@ const LiveApi = {
             notes: notes || null,
         };
 
-        const response = await fetch(`${state.livePancakeUrl}/api/live-saved`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(requestBody),
-        });
-
-        return await response.json();
+        try {
+            const response = await fetch(`${state.livePancakeUrl}/api/live-saved`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(requestBody),
+                signal: AbortSignal.timeout(15000),
+            });
+            if (!response.ok) {
+                throw new Error(`saveToLive HTTP ${response.status}`);
+            }
+            return await response.json();
+        } catch (error) {
+            throw new Error(`[Live-API] saveToLive fail (${customerId}): ${error.message}`);
+        }
     },
 
     // Ẩn/hiện comment FB → Pancake (Live facebook-graph đã gỡ).

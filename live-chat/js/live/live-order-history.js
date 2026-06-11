@@ -73,8 +73,9 @@
         qs.set('status', 'all');
         qs.set('channel', 'web2_livestream');
         if (ids.length) qs.set('campaignIds', ids.join(','));
-        const r = await fetch(`${_base()}/load?${qs.toString()}`).catch(() => null);
-        const d = r ? await r.json().catch(() => ({})) : {};
+        const r = await fetch(`${_base()}/load?${qs.toString()}`);
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        const d = await r.json().catch(() => ({}));
         const list = d.orders || d.data || [];
         // Sắp theo campaign_stt tăng dần (đơn không STT xuống cuối).
         list.sort((a, b) => {
@@ -151,6 +152,10 @@
             _orders = await _fetchOrders();
         } catch (e) {
             _orders = [];
+            if (body) {
+                body.innerHTML = `<div class="loh-empty" style="color:#ef4444">Lỗi tải đơn: ${esc(e.message)}</div>`;
+            }
+            return;
         }
         _renderBody();
     }

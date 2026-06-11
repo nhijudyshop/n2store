@@ -349,6 +349,7 @@ const PancakeAPI = {
                 `${n2storeUrl}/api/conversations/${convId}/messages?page_id=${pageId}`,
                 { headers }
             );
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
             const data = await response.json();
             if (!data.success) throw new Error(data.error || 'Failed');
             const messages = data.data?.messages || [];
@@ -457,6 +458,7 @@ const PancakeAPI = {
             headers,
             body: JSON.stringify(body),
         });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const data = await response.json();
         if (!data.success) throw new Error(data.error || 'Failed');
         return data.data;

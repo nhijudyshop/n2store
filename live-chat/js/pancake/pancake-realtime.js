@@ -380,7 +380,7 @@ const PancakeRealtime = {
             try {
                 var state = window.PancakeState;
                 state.pagesWithUnread = (await window.PancakeAPI.fetchPagesWithUnreadCount()) || [];
-                window.PancakePageSelector.updateSelectedDisplay();
+                window.PancakePageSelector?.updateSelectedDisplay?.();
                 if (!state.isLoading) {
                     var convs = await window.PancakeAPI.fetchConversations(false);
                     if (convs && convs.length > 0) {
@@ -389,7 +389,7 @@ const PancakeRealtime = {
                         });
                         if (convs.length !== state.conversations.length || hasNew) {
                             state.conversations = convs;
-                            window.PancakeConversationList.renderConversationList();
+                            window.PancakeConversationList?.renderConversationList?.();
                         }
                     }
                 }
@@ -503,12 +503,12 @@ const PancakeRealtime = {
             });
             state.conversations.splice(idx, 1);
             state.conversations.unshift(existing);
-            window.PancakeConversationList.updateConversationInDOM(existing);
+            window.PancakeConversationList?.updateConversationInDOM?.(existing);
         } else {
             state.conversations.unshift(
                 Object.assign({ unread_count: 1, type: conv.type || 'INBOX' }, conv)
             );
-            window.PancakeConversationList.renderConversationList();
+            window.PancakeConversationList?.renderConversationList?.();
         }
 
         if (isActive) {
@@ -537,7 +537,7 @@ const PancakeRealtime = {
                 })
             ) {
                 state.messages.push(message);
-                window.PancakeChatWindow.renderMessages();
+                window.PancakeChatWindow?.renderMessages?.();
             }
         }
     },
@@ -570,8 +570,8 @@ const PancakeRealtime = {
                 });
                 if (newMsgs.length > 0) {
                     state.messages.push.apply(state.messages, newMsgs);
-                    window.PancakeChatWindow.renderMessages();
-                    window.PancakeChatWindow.scrollToBottom();
+                    window.PancakeChatWindow?.renderMessages?.();
+                    window.PancakeChatWindow?.scrollToBottom?.();
                     window.PancakeAPI.markAsRead(pageId, convId);
                 }
             }

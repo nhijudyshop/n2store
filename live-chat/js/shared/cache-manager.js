@@ -85,6 +85,20 @@ class SharedCache {
     }
 
     /**
+     * Iterate live (non-expired) entries as [key, value] pairs.
+     * Dùng public get() để TTL được tôn trọng — entry hết hạn bị skip.
+     * @returns {Array<[string, *]>}
+     */
+    entries() {
+        const out = [];
+        for (const key of Array.from(this._data.keys())) {
+            const value = this.get(key);
+            if (value !== null) out.push([key, value]);
+        }
+        return out;
+    }
+
+    /**
      * Evict the oldest N entries (LRU)
      * @param {number} count
      */

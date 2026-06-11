@@ -283,30 +283,47 @@
         selectEl.value = STATE.filterCampaignId || 'all';
     }
 
+    // Generation counter chống race khi reload gọi chồng (SSE burst + đổi filter):
+    // chỉ lần reload mới nhất được ghi DOM. Đang loading → queue 1 lần trailing.
+    let _gen = 0;
+
     async function reload() {
+        if (STATE.loading) {
+            STATE._reloadQueued = true;
+            return;
+        }
         const aside = ensureSidebar();
         const body = aside.querySelector('#live-lsimg-body');
         const filter = aside.querySelector('#live-lsimg-filter');
         if (!body) return;
-        await _loadCampaignsInto(filter);
+        const g = ++_gen;
         STATE.loading = true;
-        body.innerHTML = `<div class="live-lsimg-empty">Đang tải…</div>`;
         try {
+            await _loadCampaignsInto(filter);
+            if (g !== _gen) return;
+            body.innerHTML = `<div class="live-lsimg-empty">Đang tải…</div>`;
             const qs =
                 STATE.filterCampaignId && STATE.filterCampaignId !== 'all'
                     ? `?liveCampaignId=${encodeURIComponent(STATE.filterCampaignId)}`
                     : '';
             const r = await fetch(API + '/api/livestream-images' + qs, { credentials: 'omit' });
             const d = await r.json();
+            if (g !== _gen) return;
             STATE.images = d.success ? d.images || [] : [];
+            _renderGrid(body);
         } catch (e) {
-            STATE.images = [];
-            body.innerHTML = `<div class="live-lsimg-empty">Lỗi tải: ${_esc(e.message)}</div>`;
+            if (g === _gen) {
+                STATE.images = [];
+                body.innerHTML = `<div class="live-lsimg-empty">Lỗi tải: ${_esc(e.message)}</div>`;
+            }
+        } finally {
             STATE.loading = false;
-            return;
+            // Trailing coalesce: có reload bị queue khi đang loading → chạy 1 lần nữa.
+            if (STATE._reloadQueued) {
+                STATE._reloadQueued = false;
+                reload();
+            }
         }
-        STATE.loading = false;
-        _renderGrid(body);
     }
 
     function _renderGrid(body) {
@@ -334,12 +351,21 @@
                 if (url) global.open(url, '_blank', 'noopener');
             })
         );
-        // Hover ảnh → phóng to (popup nổi bên trái drawer, tránh bị contain/overflow cắt)
-        body.querySelectorAll('.live-lsimg-thumb img').forEach((im) => {
-            im.addEventListener('mouseenter', () => _showPreview(im));
-            im.addEventListener('mouseleave', _hidePreview);
-        });
-        body.addEventListener('scroll', _hidePreview, { passive: true });
+        // Hover ảnh → phóng to (popup nổi bên trái drawer, tránh bị contain/overflow cắt).
+        // Delegated + bind 1 lần trên body (innerHTML rebuild mỗi _renderGrid →
+        // listener per-image/scroll attach lại sẽ leak/chồng).
+        if (!body.dataset.lsimgBound) {
+            body.dataset.lsimgBound = '1';
+            body.addEventListener('mouseover', (e) => {
+                const im = e.target.closest('.live-lsimg-thumb img');
+                if (im) _showPreview(im);
+            });
+            body.addEventListener('mouseout', (e) => {
+                const im = e.target.closest('.live-lsimg-thumb img');
+                if (im && e.relatedTarget !== im) _hidePreview();
+            });
+            body.addEventListener('scroll', _hidePreview, { passive: true });
+        }
     }
 
     // -------------------- hover preview (zoom) --------------------
@@ -537,6 +563,5 @@
         openSidebar,
         closeSidebar,
         reload,
-        _state: STATE,
     };
 })();
