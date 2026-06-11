@@ -2,6 +2,31 @@
 
 ## 2026-06-11
 
+### [live-chat] Tách kiến trúc: index = comment full + Kho SP + capture (1 máy) · chat.html = trang chat Pancake riêng · modal 💬 chat từ comment ✅
+
+**User:** (1) PC bỏ panel phải để panel comment full — mỗi comment có nút mở ĐOẠN HỘI THOẠI full chức năng như native-orders; trang này giữ iframe + chụp thumbnail/Force extract; mobile không capture; **1 máy capture duy nhất** để khỏi đè dữ liệu giữa các máy. (2) Trang riêng cho panel phải để chat với khách — full chức năng. (3) Ghi devlog/MEMORY/CLAUDE: mở browser test web nhớ thêm extension n2store. (4) "cần kho sp để kéo vào comment tạo đơn" → giữ Kho SP panel phải trên index.
+
+**`live-chat/index.html` (Live Comment):**
+
+- GỠ cột chat Pancake + resize handle + Pancake selector topbar → cột comment Live chiếm toàn bộ; panel phải **Kho SP 320px** (`PancakeInventoryPanel.init(#khoSpHost)` — mount thẳng, không qua mode-switcher; nút thu gọn lưu localStorage; drag SP vào comment row tạo đơn giữ nguyên). Mobile (`lc-mobile`) ẩn Kho SP.
+- Mỗi comment row thêm nút **💬 "Mở hội thoại"** → `LiveChatModal.open({fbUserId, name, pageId})` (module MỚI `js/live/live-chat-modal.js`): resolve hội thoại qua `Web2Chat.fetchConversations` (ưu tiên INBOX) → mount **Web2ChatPanel** + adapter `PancakeChatWindow._buildAdapter` (extension-first bypass 24h, sticker, upload, quick reply, Thêm vào KH, mark read — đúng stack native-orders). SSE `web2:messages` refresh thread đang mở (debounce 800ms).
+- Scripts: gỡ pancake UI modules (page-selector/conversation-list/context-menu/realtime/init/mode-switcher) + column/settings-manager; GIỮ pancake core (token-manager/state/api/chat-window) + inventory-panel.
+- Topbar: link "Chat Pancake" → chat.html.
+
+**`live-chat/chat.html` (MỚI — Chat Pancake full):** full pancake stack (page selector, conversation list, chat window Web2ChatPanel, context menu, realtime, Kho SP tab, settings modal JWT accounts, CK review) — pancake-init tự initialize qua `#pancakeContent`. Sidebar: Sale Online → "Chat Pancake". Link ngược về index.
+
+**Capture leader lock — 1 MÁY duy nhất (`live-livestream-snap.js`):** lock cross-machine qua web2-generic record (`/api/web2/capture-lock`, code `global`, web2Db) — TTL 90s, heartbeat 30s (`history:[]` mỗi lần ghi để route không phình mảng history), machineId localStorage. `_enableEmbeddedLiveCapture`: auto path bị máy khác giữ lock → im lặng bỏ qua (poll retry); click tay → confirm CƯỚP lock. SSE `web2:capture-lock` → máy bị cướp **tự dừng capture** + toast. `beforeunload` nhả lock (fetch keepalive); chỉ nhả khi lock còn là của mình. Chip 🎬 hiện "📵 Máy X đang chụp" khi bị block.
+
+**Browser test + extension:** ghi CLAUDE.md (section mới trong Browser Test Scripts) + MEMORY.md + reference_browser_test_scripts.md: mở browser test LUÔN truyền `--ext n2store-extension` (script đã hỗ trợ sẵn qua launchPersistentContext).
+
+**Verified localhost:** index — 0 pancakeColumn, cột Live 778px + Kho SP 320px (6 SP active, search OK), 93 rows × 93 nút 💬, modal chat mở thật cho KH "Liên Trương" (panel mount + 25 messages render), 0 console error. chat.html — 403 conversation items render, sidebar + link 2 chiều OK, 0 error.
+
+**⚠ Lưu ý:** capture lock dùng route generic `/api/web2/capture-lock` (đã có sẵn trên Render — không cần deploy backend). Trang index vẫn giữ pancakeSettingsModal markup (dead-but-harmless, modal chính ở chat.html).
+
+**Files:** live-chat/chat.html (NEW), live-chat/js/live/live-chat-modal.js (NEW), live-chat/index.html, live-chat/js/live/live-comment-list.js (nút 💬 + icon message-circle), live-chat/js/live/live-livestream-snap.js (leader lock), web2/shared/web2-sidebar.js, CLAUDE.md, docs/web2/WEB2-PAGES-ANALYSIS.md.
+
+**Status:** ✅ Done.
+
 ### [live-chat] Mobile/tablet = chế độ ĐỌC COMMENT (chỉ panel trái) + FIX panel trái re-render khi panel phải nhận tin nhắn ✅
 
 **User:** ban đầu yêu cầu trang riêng comments.html → **đổi hướng: revert, chỉ cần detect mobile/tablet và hiện panel comment trái để đọc; giao diện mobile/tablet ưu tiên đọc comment livestream, tối ưu thân thiện.** (Trang comments.html đã tạo + test xong nhưng revert toàn bộ theo yêu cầu — không commit.)

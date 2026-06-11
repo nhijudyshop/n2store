@@ -128,6 +128,9 @@
                     our: '../so-order/index.html',
                 },
                 { label: 'Live Chat', our: '../live-chat/index.html' },
+                // Panel chat Pancake tách thành trang riêng (2026-06-11) —
+                // live-chat/index.html giờ chỉ còn cột comment + capture.
+                { label: 'Chat Pancake', our: '../live-chat/chat.html' },
             ],
         },
         {

@@ -564,7 +564,7 @@
                 return;
             }
             _setSnapMode(MODE_LIVE);
-            await _enableEmbeddedLiveCapture();
+            await _enableEmbeddedLiveCapture({ interactive: true });
         });
         host.appendChild(chip);
         renderRealSnapChip();
@@ -586,6 +586,12 @@
             chip.title = viaExtTab
                 ? `Extension visible tab — chỉ capture khi live-chat là tab focused. Switch tab khác → capture dừng (browser security).`
                 : `Stream FB đang link. Mỗi 5s capture 1 frame vào buffer (giữ 1h). Click chip để NGẮT stream.`;
+        } else if (STATE.lockBlockedBy) {
+            chip.innerHTML = `📵 Máy "<strong>${_esc(STATE.lockBlockedBy)}</strong>" đang chụp`;
+            chip.style.background = '#f1f5f9';
+            chip.style.borderColor = '#cbd5e1';
+            chip.style.color = '#475569';
+            chip.title = `Máy khác đang giữ capture (1 máy duy nhất để không đè dữ liệu).\nClick nếu muốn CHUYỂN capture sang máy này — máy kia sẽ tự dừng.`;
         } else {
             chip.innerHTML = `🎬 Bắt đầu chụp live · click 1 cái mở FB + share`;
             chip.style.background = '#fef3c7';
@@ -1328,6 +1334,141 @@ Throttle 30s/KH.`;
     }
 
     // -----------------------------------------------------
+    // CAPTURE LEADER LOCK — chỉ 1 MÁY capture tại 1 thời điểm (2026-06-11).
+    // Nhiều máy cùng mở live-chat → nhiều nguồn frame POST đè dữ liệu snapshot
+    // lẫn nhau. Lock cross-machine qua web2-generic record (entity
+    // 'capture-lock', code 'global', web2Db). TTL 90s + heartbeat 30s.
+    // SSE 'web2:capture-lock' (generic _notify) → máy bị cướp lock TỰ DỪNG.
+    // -----------------------------------------------------
+    const LOCK_TTL_MS = 90 * 1000;
+    const LOCK_HEARTBEAT_MS = 30 * 1000;
+    function _lockApiBase() {
+        return (
+            global.LiveState?.workerUrl ||
+            global.API_CONFIG?.WORKER_URL ||
+            'https://chatomni-proxy.nhijudyshop.workers.dev'
+        );
+    }
+    function _machineId() {
+        let id = localStorage.getItem('web2_capture_machine_id');
+        if (!id) {
+            id = 'm_' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+            localStorage.setItem('web2_capture_machine_id', id);
+        }
+        return id;
+    }
+    async function _lockFetch(path, opts) {
+        const r = await fetch(`${_lockApiBase()}/api/web2/capture-lock${path}`, opts);
+        return r.json().catch(() => ({}));
+    }
+    async function _readLock() {
+        try {
+            const j = await _lockFetch('/get/global');
+            return j?.record?.data || null;
+        } catch (_) {
+            return null;
+        }
+    }
+    // history:[] mỗi lần ghi để generic route không phình mảng history theo heartbeat.
+    async function _writeLock(data) {
+        const body = JSON.stringify({
+            name: 'Capture lock',
+            code: 'global',
+            data: { ...data, history: [] },
+            userName: _user()?.name || null,
+        });
+        const opts = { headers: { 'Content-Type': 'application/json' }, body };
+        let j = null;
+        try {
+            j = await _lockFetch('/update/global', { ...opts, method: 'PATCH' });
+        } catch (_) {}
+        if (!j || !j.success) {
+            try {
+                j = await _lockFetch('/create', { ...opts, method: 'POST' });
+            } catch (_) {}
+        }
+        return !!j?.success;
+    }
+    // Acquire: {ok:true} hoặc {ok:false, holderName}. interactive → confirm cướp lock.
+    async function _acquireCaptureLock(interactive) {
+        const me = _machineId();
+        const cur = await _readLock();
+        const heldByOther =
+            cur && cur.holder && cur.holder !== me && Date.now() - (cur.ts || 0) < LOCK_TTL_MS;
+        if (heldByOther) {
+            const who = cur.holderName || cur.holder;
+            if (!interactive) return { ok: false, holderName: who };
+            const take = confirm(
+                `Máy khác ("${who}") đang capture livestream.\n` +
+                    `Chuyển capture sang máy NÀY? (máy kia sẽ tự dừng để không đè dữ liệu)`
+            );
+            if (!take) return { ok: false, holderName: who };
+        }
+        const ok = await _writeLock({
+            holder: me,
+            holderName: _user()?.name || me,
+            ts: Date.now(),
+        });
+        return { ok };
+    }
+    function _startLockHeartbeat() {
+        _stopLockHeartbeat();
+        STATE._lockHbTimer = setInterval(() => {
+            _writeLock({
+                holder: _machineId(),
+                holderName: _user()?.name || _machineId(),
+                ts: Date.now(),
+            });
+        }, LOCK_HEARTBEAT_MS);
+    }
+    function _stopLockHeartbeat() {
+        if (STATE._lockHbTimer) {
+            clearInterval(STATE._lockHbTimer);
+            STATE._lockHbTimer = null;
+        }
+    }
+    // Chỉ nhả nếu lock còn là của mình (bị cướp thì KHÔNG xoá lock máy kia).
+    async function _releaseCaptureLock() {
+        _stopLockHeartbeat();
+        try {
+            const cur = await _readLock();
+            if (cur?.holder === _machineId()) {
+                await _writeLock({ holder: null, holderName: null, ts: 0 });
+            }
+        } catch (_) {}
+    }
+    // Máy khác cướp lock → máy này TỰ DỪNG capture (SSE web2:capture-lock).
+    function _subscribeLockSse() {
+        if (!global.Web2SSE?.subscribe) return;
+        global.Web2SSE.subscribe('web2:capture-lock', async () => {
+            if (!STATE.captureStream && !STATE.frameBufferTimer) return;
+            const cur = await _readLock();
+            if (cur?.holder && cur.holder !== _machineId()) {
+                console.log('[snap-lock] lock taken by', cur.holderName, '→ stop capture');
+                _stopFrameBuffer();
+                stopRealSnap();
+                const wrapper = document.getElementById('live-snap-fb-wrapper');
+                if (wrapper) wrapper.remove();
+                _toast(`📵 Máy "${cur.holderName || 'khác'}" đã nhận capture — máy này dừng`, 'ok');
+            }
+        });
+    }
+    // Đóng tab giữa chừng → nhả lock best-effort (keepalive fetch).
+    window.addEventListener('beforeunload', () => {
+        if (!STATE.frameBufferTimer && !STATE.captureStream) return;
+        try {
+            fetch(`${_lockApiBase()}/api/web2/capture-lock/update/global`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                keepalive: true,
+                body: JSON.stringify({
+                    data: { holder: null, holderName: null, ts: 0, history: [] },
+                }),
+            });
+        } catch (_) {}
+    });
+
+    // -----------------------------------------------------
     // EMBEDDED LIVE CAPTURE (1-click, không nhảy tab)
     // Flow: iframe FB embed ẩn → getDisplayMedia preferCurrentTab → Region
     // Capture API cropTo iframe → stream chỉ chứa video FB → buffer chạy.
@@ -1381,7 +1522,7 @@ Throttle 30s/KH.`;
         return iframe;
     }
 
-    async function _enableEmbeddedLiveCapture() {
+    async function _enableEmbeddedLiveCapture(opts) {
         if (STATE.captureStream || STATE.frameBufferTimer) {
             _toast('Đã kết nối rồi', 'ok');
             return true;
@@ -1391,6 +1532,20 @@ Throttle 30s/KH.`;
             _toast('Không có live nào đang chạy', 'err');
             return false;
         }
+        // LEADER LOCK: 1 máy capture duy nhất. Auto path (không interactive)
+        // → máy khác giữ lock thì im lặng bỏ qua (poll loop retry sau, máy kia
+        // unload/hết TTL sẽ tới lượt). Click tay → confirm cướp lock.
+        const lock = await _acquireCaptureLock(!!opts?.interactive);
+        if (!lock.ok) {
+            STATE.lockBlockedBy = lock.holderName || 'máy khác';
+            STATE.autoSnapStarting = false;
+            renderRealSnapChip();
+            if (opts?.interactive) {
+                _toast(`📵 Máy "${STATE.lockBlockedBy}" đang capture — máy này không bật`, 'err');
+            }
+            return false;
+        }
+        STATE.lockBlockedBy = null;
         const wrapperExisted = !!document.getElementById('live-snap-fb-wrapper');
         const iframe = _ensureEmbeddedIframe(camp);
         if (!iframe) {
@@ -1870,6 +2025,7 @@ Throttle 30s/KH.`;
         // Capture 1 frame ngay khi start, sau đó interval.
         tick();
         STATE.frameBufferTimer = setInterval(tick, FRAME_BUFFER_INTERVAL_MS);
+        _startLockHeartbeat(); // giữ leader lock suốt phiên capture (1 máy duy nhất)
         const path = STATE.captureStream
             ? '(stream-based, tab inactive OK)'
             : STATE.extReady
@@ -1884,6 +2040,8 @@ Throttle 30s/KH.`;
             STATE.frameBufferTimer = null;
         }
         if (STATE.frameBuffer) STATE.frameBuffer = [];
+        // Nhả leader lock (chỉ khi lock còn là của mình — fire-and-forget).
+        _releaseCaptureLock();
     }
 
     // Tìm frame buffered có capturedAt gần commentTimeMs nhất.
@@ -3265,6 +3423,7 @@ Throttle 30s/KH.`;
         setupObserver();
         subscribeSSE();
         _wireSnapDelegation();
+        _subscribeLockSse(); // máy khác cướp capture lock → máy này tự dừng
         // Subscribe Live new-comment event cho auto-mode (lazy — eventBus có thể
         // chưa setup tại DOMContentLoaded, fail-safe retry).
         // Cũng subscribe campaignsChanged để re-trigger _maybeShowAutoSnapBanner()

@@ -120,12 +120,38 @@
             .pk-modal-overlay {
                 z-index: 9999;
             }
+            /* Layout 2026-06-11: panel Pancake tách sang chat.html.
+               Cột Live chiếm toàn bộ phần còn lại; Kho SP là panel phải hẹp
+               (kéo SP vào comment tạo đơn), thu gọn được. */
+            #liveColumn {
+                flex: 1 1 auto !important;
+                min-width: 0;
+                max-width: none !important;
+            }
+            #khoSpColumn {
+                flex: 0 0 320px !important;
+                min-width: 280px;
+                border-left: 1px solid var(--gray-200);
+            }
+            #khoSpColumn.collapsed {
+                flex: 0 0 40px !important;
+                min-width: 40px;
+            }
+            #khoSpColumn.collapsed .column-content,
+            #khoSpColumn.collapsed .column-title h2 {
+                display: none;
+            }
+            #khoSpColumn.collapsed .column-header {
+                flex-direction: column;
+                gap: 6px;
+            }
             /* ===== Mobile/tablet (html.lc-mobile, detect qua UA script ở dưới) =====
                Ưu tiên ĐỌC COMMENT LIVESTREAM: chỉ hiện cột Live (panel trái) full
                màn hình; ẩn cột chat Pancake + resize handle + topbar phải +
                sidebar (2026-06-11). !important override inline flex column-manager. */
             html.lc-mobile #pancakeColumn,
             html.lc-mobile #resizeHandle,
+            html.lc-mobile #khoSpColumn,
             html.lc-mobile .top-bar-divider,
             html.lc-mobile .top-bar-right,
             html.lc-mobile .web2-aside,
@@ -266,38 +292,31 @@
                         "
                     ></div>
 
-                    <!-- Pancake side: logo + page selector + settings -->
-                    <div class="top-bar-right" style="flex: 1; gap: 8px; min-width: 0">
-                        <i
-                            data-lucide="layout-grid"
-                            style="width: 18px; height: 18px; color: #f59e0b; flex-shrink: 0"
-                        ></i>
-                        <span
+                    <!-- Right side: link trang Chat Pancake riêng + CK review + snap chips
+                         (2026-06-11: panel chat Pancake đã TÁCH sang chat.html —
+                         trang này chỉ còn cột comment + capture). -->
+                    <div class="top-bar-right" style="flex: 0 0 auto; gap: 8px; min-width: 0">
+                        <a
+                            href="chat.html"
+                            title="Mở trang Chat Pancake (full chức năng chat với khách)"
                             style="
-                                font-weight: 800;
-                                font-size: 13px;
-                                color: var(--gray-900);
+                                display: inline-flex;
+                                align-items: center;
+                                gap: 5px;
+                                padding: 4px 12px;
+                                background: #fef3c7;
+                                border: 1px solid #fcd34d;
+                                border-radius: 14px;
+                                font-size: 12px;
+                                font-weight: 700;
+                                color: #92400e;
+                                text-decoration: none;
                                 flex-shrink: 0;
                             "
-                            >Pancake</span
                         >
-                        <div id="topbarPancakeSelector" style="flex: 1; min-width: 0">
-                            <!-- Will be populated by pancake page selector -->
-                        </div>
-                        <span
-                            id="serverModeIndicator"
-                            class="server-mode-indicator mode-pancake"
-                            style="font-size: 9px; display: none"
-                            >Pancake</span
-                        >
-                        <button
-                            class="btn-icon"
-                            id="btnPancakeSettings"
-                            title="Cài đặt Pancake"
-                            style="width: 28px; height: 28px; display: none"
-                        >
-                            <i data-lucide="settings" style="width: 14px; height: 14px"></i>
-                        </button>
+                            <i data-lucide="layout-grid" style="width: 13px; height: 13px"></i>
+                            Chat Pancake
+                        </a>
                         <button
                             class="btn-icon"
                             id="btnLiveSettings"
@@ -305,13 +324,6 @@
                             style="width: 28px; height: 28px; display: none"
                         >
                             <i data-lucide="sliders" style="width: 14px; height: 14px"></i>
-                        </button>
-                        <button
-                            class="btn-icon"
-                            id="btnColumnSettings"
-                            style="width: 28px; height: 28px"
-                        >
-                            <i data-lucide="columns" style="width: 14px; height: 14px"></i>
                         </button>
                         <button
                             class="btn-icon"
@@ -370,71 +382,42 @@
                     </div>
                 </header>
 
-                <!-- Column Settings Panel -->
-                <div class="settings-panel" id="settingsPanel">
-                    <div class="settings-header">
-                        <h3><i data-lucide="layout"></i> Cài Đặt Vị Trí Cột</h3>
-                        <button class="btn-icon" id="closeSettings"><i data-lucide="x"></i></button>
-                    </div>
-                    <div class="settings-body">
-                        <p class="settings-description">
-                            Chọn thứ tự hiển thị của 2 cột (từ trái qua phải):
-                        </p>
-                        <div class="column-order-config">
-                            <div class="order-item">
-                                <span class="order-label">Cột 1 (Trái):</span>
-                                <select id="column1Select" class="order-select">
-                                    <option value="live">Live</option>
-                                    <option value="pancake">Pancake</option>
-                                </select>
-                            </div>
-                            <div class="order-item">
-                                <span class="order-label">Cột 2 (Phải):</span>
-                                <select id="column2Select" class="order-select">
-                                    <option value="pancake">Pancake</option>
-                                    <option value="live">Live</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="settings-actions">
-                            <button class="btn btn-primary" id="btnApplySettings">
-                                <i data-lucide="check"></i> Áp dụng
-                            </button>
-                            <button class="btn btn-secondary" id="btnResetSettings">
-                                <i data-lucide="rotate-ccw"></i> Đặt lại
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Dual Column Container -->
+                <!-- Cột comment Live (full) + panel Kho SP (kéo SP vào comment
+                     tạo đơn). Panel chat Pancake đã tách sang chat.html; comment
+                     row có nút 💬 mở modal hội thoại full chức năng (2026-06-11). -->
                 <section class="dual-column-section">
                     <div class="dual-column-container" id="dualColumnContainer">
-                        <!-- Column 1 - Live -->
                         <div class="column-wrapper" id="liveColumn" data-column="live">
-                            <div class="column-header">
-                                <div class="column-title">
-                                    <i data-lucide="shopping-cart"></i>
-                                    <h2>Live</h2>
-                                </div>
-                            </div>
                             <div class="column-content" id="liveContent"></div>
                         </div>
 
-                        <!-- Resize Handle -->
-                        <div class="resize-handle" id="resizeHandle">
-                            <div class="handle-line"></div>
-                        </div>
-
-                        <!-- Column 2 - Pancake -->
-                        <div class="column-wrapper" id="pancakeColumn" data-column="pancake">
-                            <div class="column-header">
+                        <!-- Kho SP — drag SP vào comment row để tạo đơn -->
+                        <div class="column-wrapper" id="khoSpColumn" data-column="kho">
+                            <div
+                                class="column-header"
+                                style="
+                                    display: flex;
+                                    align-items: center;
+                                    justify-content: space-between;
+                                "
+                            >
                                 <div class="column-title">
-                                    <i data-lucide="layout-grid"></i>
-                                    <h2>Pancake</h2>
+                                    <i data-lucide="package"></i>
+                                    <h2>Kho SP</h2>
                                 </div>
+                                <button
+                                    class="btn-icon"
+                                    id="btnToggleKho"
+                                    title="Thu gọn / mở Kho SP"
+                                    style="width: 26px; height: 26px"
+                                >
+                                    <i
+                                        data-lucide="chevrons-right"
+                                        style="width: 14px; height: 14px"
+                                    ></i>
+                                </button>
                             </div>
-                            <div class="column-content" id="pancakeContent"></div>
+                            <div class="column-content" id="khoSpHost"></div>
                         </div>
                     </div>
                 </section>
@@ -794,16 +777,15 @@
         <script src="js/shared/debt-manager.js?v=20260610a"></script>
         <script src="js/shared/event-bus.js?v=20260610a"></script>
 
-        <!-- Layout modules (NEW modular) -->
-        <script src="js/layout/column-manager.js?v=20260610a"></script>
-        <script src="js/layout/settings-manager.js?v=20260610a"></script>
+        <!-- Layout modules: column-manager + settings-manager ĐÃ GỠ (2026-06-11
+             single column — app-init tự skip khi window.ColumnManager absent). -->
 
         <!-- Live modules (NEW modular) -->
         <script src="js/live/live-token-manager.js?v=20260610a"></script>
         <script src="js/live/live-state.js?v=20260610a"></script>
         <script src="js/live/live-api.js?v=20260610a"></script>
         <script src="js/live/live-native-orders-api.js?v=20260610a"></script>
-        <script src="js/live/live-comment-list.js?v=20260610a"></script>
+        <script src="js/live/live-comment-list.js?v=20260611a"></script>
         <script src="js/live/live-customer-panel.js?v=20260610a"></script>
         <script src="js/live/live-realtime.js?v=20260610a"></script>
         <!-- Cột live = FB Graph (web2-fb-live) — Live đã gỡ HOÀN TOÀN, không fallback -->
@@ -837,19 +819,47 @@
         <!-- Extension bridge: gửi tin bypass-24h qua N2 extension khi Pancake API lỗi -->
         <script src="../web2/shared/web2-extension-bridge.js?v=20260610a"></script>
 
-        <!-- Pancake modules (NEW modular) -->
+        <!-- Pancake CORE (token/state/api/chat-window adapter) — CHỈ phần cần cho
+             modal hội thoại 💬 trên comment row. UI cột chat (page-selector,
+             conversation-list, realtime, init, inventory) đã TÁCH sang chat.html
+             (2026-06-11). -->
         <script src="js/pancake/pancake-token-manager.js?v=20260610a"></script>
         <script src="js/pancake/pancake-state.js?v=20260610a"></script>
         <script src="js/pancake/pancake-api.js?v=20260610a"></script>
-        <script src="js/pancake/pancake-page-selector.js?v=20260610a"></script>
-        <script src="js/pancake/pancake-conversation-list.js?v=20260610a"></script>
         <script src="js/pancake/pancake-chat-window.js?v=20260610a"></script>
-        <script src="js/pancake/pancake-context-menu.js?v=20260610a"></script>
-        <script src="js/pancake/pancake-realtime.js?v=20260610a"></script>
-        <script src="js/pancake/pancake-init.js?v=20260610a"></script>
-        <!-- Web 2.0 Kho SP panel (tab switcher giữa Chat & Kho) -->
-        <script src="js/pancake/inventory-panel.js?v=20260610a"></script>
-        <script src="js/pancake/pancake-mode-switcher.js?v=20260610a"></script>
+        <!-- Modal hội thoại chat với KH từ comment row (full chức năng như native-orders) -->
+        <script src="js/live/live-chat-modal.js?v=20260611a"></script>
+        <!-- Kho SP panel phải — kéo SP vào comment row tạo đơn (giữ lại 2026-06-11) -->
+        <script src="js/pancake/inventory-panel.js?v=20260611a"></script>
+        <script>
+            // Mount Kho SP vào panel phải (không qua mode-switcher như trước).
+            // Toggle thu gọn lưu localStorage.
+            document.addEventListener('DOMContentLoaded', function () {
+                var KHO_LS = 'web2_livechat_kho_collapsed';
+                var col = document.getElementById('khoSpColumn');
+                var btn = document.getElementById('btnToggleKho');
+                var host = document.getElementById('khoSpHost');
+                var initted = false;
+                function ensureInit() {
+                    if (initted || !host || !window.PancakeInventoryPanel?.init) return;
+                    initted = true;
+                    window.PancakeInventoryPanel.init(host);
+                }
+                function apply(collapsed) {
+                    if (!col) return;
+                    col.classList.toggle('collapsed', collapsed);
+                    if (!collapsed) ensureInit();
+                    try {
+                        localStorage.setItem(KHO_LS, collapsed ? '1' : '0');
+                    } catch (e) {}
+                }
+                if (btn)
+                    btn.addEventListener('click', function () {
+                        apply(!col.classList.contains('collapsed'));
+                    });
+                apply(localStorage.getItem(KHO_LS) === '1');
+            });
+        </script>
 
         <!-- App Initialization (last - orchestrates everything) -->
         <script src="js/layout/app-init.js?v=20260611a"></script>
@@ -859,7 +869,7 @@
         <script src="../web2/shared/web2-optimistic.js?v=20260610a"></script>
         <script src="../web2/shared/web2-user-info.js?v=20260610a"></script>
         <script src="../web2/shared/web2-ck-review.js?v=20260610a"></script>
-        <script src="../web2/shared/web2-sidebar.js?v=20260610a"></script>
+        <script src="../web2/shared/web2-sidebar.js?v=20260611a"></script>
         <script>
             if (window.Web2Sidebar) {
                 try {

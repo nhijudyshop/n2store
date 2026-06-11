@@ -472,6 +472,18 @@ Chạy lại script nếu cần: `bash scripts/add-note-header.sh` (idempotent, 
 
 Project có **4 scripts test dự án qua Playwright** (auto-login + capture errors). Dùng để verify mọi commit lớn, repro bug, debug live.
 
+### 🧩 Mở browser test web → NHỚ thêm extension N2Store (BẮT BUỘC — 2026-06-11)
+
+Khi khởi động browser test (persistent session/smoke/debug), **LUÔN truyền `--ext n2store-extension`**:
+
+```bash
+(tail -f /tmp/n2store-session.fifo) | node scripts/n2store-browser-session.js \
+  --user admin --pass admin@@ --base http://localhost:8080 --ext n2store-extension --http-port 9966
+```
+
+- Script hỗ trợ sẵn `--ext <path>` (comma-separated nhiều ext) → dùng `launchPersistentContext` + `--load-extension` (`chromium.launch` thường KHÔNG load được extension).
+- Lý do: nhiều flow CHỈ chạy khi có extension (auto-snap captureVisibleTab, gửi tin bypass-24h, Global ID resolve, capture leader lock) → test thiếu extension cho false-negative "capture/gửi tin không chạy".
+
 ### ⚡ Quy tắc test — LIVE CODING workflow
 
 - **Localhost = vừa code vừa test luôn** (workflow chuẩn):

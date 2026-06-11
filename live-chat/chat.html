@@ -1,0 +1,617 @@
+<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 module. -->
+<!doctype html>
+<html lang="vi">
+    <head>
+        <meta charset="UTF-8" />
+        <title>Chat Pancake - WEB 2.0</title>
+        <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0" />
+        <meta http-equiv="Pragma" content="no-cache" />
+        <meta http-equiv="Expires" content="0" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+        <!-- CSS -->
+        <link rel="stylesheet" href="css/variables.css?v=20260611a" />
+        <link rel="stylesheet" href="css/layout.css?v=20260611a" />
+        <link rel="stylesheet" href="css/components.css?v=20260611a" />
+        <link rel="stylesheet" href="css/pancake-chat.css?v=20260611a" />
+        <link rel="stylesheet" href="css/pancake/pancake-chat-window.css?v=20260611a" />
+        <link rel="stylesheet" href="../web2/shared/chat-panel/web2-chat-panel.css?v=20260611a" />
+        <link rel="stylesheet" href="../web2/shared/web2-sidebar.css?v=20260611a" />
+        <link rel="stylesheet" href="css/inventory-panel.css?v=20260611a" />
+
+        <!-- ESM Compat -->
+        <script type="module" src="../shared/esm/compat.js?v=20260611a"></script>
+
+        <!-- Storage Migration -->
+        <script src="../shared/js/storage-migration.js?v=20260611a"></script>
+        <script>
+            document.addEventListener('DOMContentLoaded', function () {
+                if (window.StorageMigration) window.StorageMigration.migrateModuleStorage('web2');
+            });
+        </script>
+
+        <!-- Lucide Icons -->
+        <script defer src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
+
+        <!-- Firebase SDKs -->
+        <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-storage-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
+
+        <!-- Fonts -->
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap"
+            rel="stylesheet"
+        />
+        <link rel="stylesheet" href="../shared/css/typography.css?v=20260611a" />
+
+        <style>
+            html,
+            body {
+                height: 100%;
+            }
+            body {
+                margin: 0;
+                font-family:
+                    'Inter',
+                    system-ui,
+                    -apple-system,
+                    sans-serif;
+                background: #ecf0f5;
+            }
+            .web2-shell {
+                display: flex;
+                min-height: 100vh;
+                height: 100vh;
+                width: 100vw;
+                overflow: hidden;
+            }
+            .web2-aside {
+                flex-shrink: 0;
+            }
+            .web2-shell > main.main-content {
+                flex: 1 1 auto;
+                min-width: 0;
+                width: auto;
+                max-width: none;
+                height: 100vh;
+                max-height: 100vh;
+                display: flex;
+                flex-direction: column;
+                overflow: hidden;
+                margin-left: 0 !important;
+                margin-right: 0 !important;
+                transition: none !important;
+            }
+            main.main-content {
+                margin: 0 !important;
+                transition: none !important;
+            }
+            .pk-modal-overlay {
+                z-index: 9999;
+            }
+            /* Cột Pancake full width (trang chỉ có 1 cột) */
+            #pancakeColumn {
+                flex: 1 1 100% !important;
+                width: 100% !important;
+                max-width: 100% !important;
+            }
+        </style>
+        <link rel="stylesheet" href="../web2/shared/web2-theme.css?v=20260611a" />
+    </head>
+
+    <body class="web2-theme">
+        <div class="web2-shell">
+            <aside class="web2-aside" id="web2Aside"></aside>
+            <main class="main-content">
+                <!-- Top Bar -->
+                <header class="top-bar" style="gap: 8px; flex-wrap: wrap">
+                    <div class="top-bar-left" style="flex: 1; gap: 8px; min-width: 0">
+                        <i
+                            data-lucide="layout-grid"
+                            style="width: 18px; height: 18px; color: #f59e0b; flex-shrink: 0"
+                        ></i>
+                        <span
+                            style="
+                                font-weight: 800;
+                                font-size: 13px;
+                                color: var(--gray-900);
+                                flex-shrink: 0;
+                            "
+                            >Chat Pancake</span
+                        >
+                        <div id="topbarPancakeSelector" style="flex: 1; min-width: 0">
+                            <!-- Will be populated by pancake page selector -->
+                        </div>
+                        <span
+                            id="serverModeIndicator"
+                            class="server-mode-indicator mode-pancake"
+                            style="font-size: 9px; display: none"
+                            >Pancake</span
+                        >
+                        <button
+                            class="btn-icon"
+                            id="btnPancakeSettings"
+                            title="Cài đặt Pancake (tài khoản JWT + chat server)"
+                            style="width: 28px; height: 28px"
+                        >
+                            <i data-lucide="settings" style="width: 14px; height: 14px"></i>
+                        </button>
+                        <button
+                            class="btn-icon"
+                            id="btnCkReview"
+                            title="Xét duyệt tín hiệu CK (KH báo đã chuyển khoản)"
+                            style="width: 28px; height: 28px; position: relative"
+                        >
+                            <i data-lucide="badge-check" style="width: 14px; height: 14px"></i>
+                            <span
+                                id="ckReviewCount"
+                                hidden
+                                style="
+                                    position: absolute;
+                                    top: -4px;
+                                    right: -4px;
+                                    background: #ef4444;
+                                    color: #fff;
+                                    border-radius: 9px;
+                                    padding: 0 4px;
+                                    font-size: 9px;
+                                    font-weight: 700;
+                                    line-height: 14px;
+                                "
+                            ></span>
+                        </button>
+                        <button
+                            class="btn-icon"
+                            id="btnRefresh"
+                            title="Làm mới"
+                            style="width: 28px; height: 28px; display: none"
+                        >
+                            <i data-lucide="refresh-cw" style="width: 14px; height: 14px"></i>
+                        </button>
+                        <a
+                            href="index.html"
+                            title="Mở trang Comment Live (cột comment + capture)"
+                            style="
+                                display: inline-flex;
+                                align-items: center;
+                                gap: 5px;
+                                padding: 4px 12px;
+                                background: #ede9fe;
+                                border: 1px solid #c4b5fd;
+                                border-radius: 14px;
+                                font-size: 12px;
+                                font-weight: 700;
+                                color: #6d28d9;
+                                text-decoration: none;
+                                flex-shrink: 0;
+                            "
+                        >
+                            <i data-lucide="shopping-cart" style="width: 13px; height: 13px"></i>
+                            Live Comment
+                        </a>
+                    </div>
+                </header>
+
+                <!-- Single Column — Pancake chat full width -->
+                <section class="dual-column-section">
+                    <div class="dual-column-container" id="dualColumnContainer">
+                        <div class="column-wrapper" id="pancakeColumn" data-column="pancake">
+                            <div class="column-content" id="pancakeContent"></div>
+                        </div>
+                    </div>
+                </section>
+            </main>
+        </div>
+        <!-- /.web2-shell -->
+
+        <!-- Pancake Settings Modal -->
+        <div class="pk-modal-overlay" id="pancakeSettingsModal" style="display: none">
+            <div class="pk-modal-content">
+                <div class="pk-modal-header">
+                    <h3><i data-lucide="settings"></i> Quản lý Pancake Accounts</h3>
+                    <button class="pk-modal-close" onclick="closePancakeSettingsModal()">
+                        <i data-lucide="x"></i>
+                    </button>
+                </div>
+                <div class="pk-modal-body">
+                    <div style="margin-bottom: 20px">
+                        <div
+                            style="
+                                display: flex;
+                                justify-content: space-between;
+                                align-items: center;
+                                margin-bottom: 12px;
+                            "
+                        >
+                            <h4 style="margin: 0; font-size: 15px; color: #374151">
+                                <i
+                                    data-lucide="users"
+                                    style="width: 16px; height: 16px; display: inline"
+                                ></i>
+                                Danh sách tài khoản
+                            </h4>
+                            <button
+                                onclick="showAddAccountForm()"
+                                class="pk-btn pk-btn-primary"
+                                style="font-size: 13px"
+                            >
+                                <i data-lucide="plus" style="width: 14px; height: 14px"></i> Thêm
+                                tài khoản
+                            </button>
+                        </div>
+                        <div
+                            id="pancakeAccountsList"
+                            style="
+                                background: #f9fafb;
+                                border-radius: 8px;
+                                padding: 12px;
+                                max-height: 300px;
+                                overflow-y: auto;
+                            "
+                        >
+                            <div style="text-align: center; color: #9ca3af; padding: 20px">
+                                Đang tải...
+                            </div>
+                        </div>
+                    </div>
+                    <div
+                        id="addAccountForm"
+                        style="
+                            display: none;
+                            margin-bottom: 20px;
+                            padding: 16px;
+                            background: #f3f4f6;
+                            border-radius: 8px;
+                            border: 2px solid #3b82f6;
+                        "
+                    >
+                        <div
+                            style="
+                                display: flex;
+                                justify-content: space-between;
+                                align-items: center;
+                                margin-bottom: 12px;
+                            "
+                        >
+                            <h4 style="margin: 0; font-size: 14px; color: #374151">
+                                Thêm tài khoản mới
+                            </h4>
+                            <button
+                                onclick="hideAddAccountForm()"
+                                style="
+                                    padding: 4px 8px;
+                                    background: transparent;
+                                    border: none;
+                                    cursor: pointer;
+                                    font-size: 16px;
+                                    color: #6b7280;
+                                "
+                            >
+                                <i data-lucide="x" style="width: 16px; height: 16px"></i>
+                            </button>
+                        </div>
+                        <textarea
+                            id="newAccountTokenInput"
+                            placeholder="Nhập JWT token từ cookie pancake.vn..."
+                            style="
+                                width: 100%;
+                                min-height: 100px;
+                                padding: 10px;
+                                border: 1px solid #d1d5db;
+                                border-radius: 6px;
+                                font-family: monospace;
+                                font-size: 11px;
+                                resize: vertical;
+                                box-sizing: border-box;
+                            "
+                            oninput="validateTokenInput()"
+                        ></textarea>
+                        <div
+                            id="tokenValidationMessage"
+                            style="margin-top: 6px; font-size: 11px; color: #6b7280; display: none"
+                        ></div>
+                        <div style="display: flex; gap: 8px; margin-top: 12px">
+                            <button
+                                onclick="addAccountFromCookie()"
+                                class="pk-btn"
+                                style="flex: 1; background: #10b981; color: white; font-size: 13px"
+                            >
+                                Lấy từ Cookie
+                            </button>
+                            <button
+                                onclick="addAccountManual()"
+                                class="pk-btn pk-btn-primary"
+                                style="flex: 1; font-size: 13px"
+                            >
+                                Thêm Token
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="pk-modal-footer">
+                    <button class="pk-btn pk-btn-secondary" onclick="closePancakeSettingsModal()">
+                        Đóng
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== SCRIPTS ===== -->
+        <script>
+            window.__SKIP_LEGACY_NAV_AUTH = true;
+        </script>
+        <script src="../shared/js/firebase-config.js?v=20260611a"></script>
+        <script src="../shared/js/shared-cache-manager.js?v=20260611a"></script>
+        <script src="../shared/js/notification-system.js?v=20260611a"></script>
+        <script src="../shared/js/shop-config.js?v=20260611a"></script>
+
+        <!-- Config -->
+        <script src="js/api-config.js?v=20260611a"></script>
+        <script src="js/config.js?v=20260611a"></script>
+
+        <!-- Shared utilities -->
+        <script src="js/shared/utils.js?v=20260611a"></script>
+        <script src="js/shared/cache-manager.js?v=20260611a"></script>
+        <script src="js/shared/debt-manager.js?v=20260611a"></script>
+        <script src="js/shared/event-bus.js?v=20260611a"></script>
+
+        <!-- Web2Chat client + accounts (PHẢI trước pancake-token-manager) -->
+        <script src="../web2/shared/web2-chat-client.js?v=20260611a"></script>
+        <script src="../web2/shared/web2-pancake-accounts.js?v=20260611a"></script>
+        <!-- Component chat HỢP NHẤT -->
+        <script src="../web2/shared/chat-panel/web2-chat-emoji-data.js?v=20260611a"></script>
+        <script src="../web2/shared/chat-panel/web2-chat-entity-detect.js?v=20260611a"></script>
+        <script src="../web2/shared/chat-panel/web2-chat-sticker-data.js?v=20260611a"></script>
+        <script src="../web2/shared/chat-panel/web2-chat-panel.js?v=20260611a"></script>
+        <script src="../web2/shared/web2-quick-reply.js?v=20260611a"></script>
+        <script src="../web2/shared/web2-extension-bridge.js?v=20260611a"></script>
+        <!-- SSE bridge + ví KH -->
+        <script src="../web2/shared/web2-sse-bridge.js?v=20260611a"></script>
+        <script src="../web2/shared/web2-wallet-balance.js?v=20260611a"></script>
+
+        <!-- Pancake modules — FULL stack (pancake-init tự initialize khi thấy
+             #pancakeContent) -->
+        <script src="js/pancake/pancake-token-manager.js?v=20260611a"></script>
+        <script src="js/pancake/pancake-state.js?v=20260611a"></script>
+        <script src="js/pancake/pancake-api.js?v=20260611a"></script>
+        <script src="js/pancake/pancake-page-selector.js?v=20260611a"></script>
+        <script src="js/pancake/pancake-conversation-list.js?v=20260611a"></script>
+        <script src="js/pancake/pancake-chat-window.js?v=20260611a"></script>
+        <script src="js/pancake/pancake-context-menu.js?v=20260611a"></script>
+        <script src="js/pancake/pancake-realtime.js?v=20260611a"></script>
+        <script src="js/pancake/pancake-init.js?v=20260611a"></script>
+        <script src="js/pancake/inventory-panel.js?v=20260611a"></script>
+        <script src="js/pancake/pancake-mode-switcher.js?v=20260611a"></script>
+
+        <!-- Web 2.0 sidebar mount + helpers -->
+        <script src="../web2/shared/web2-auth.js?v=20260611a"></script>
+        <script src="../web2/shared/web2-optimistic.js?v=20260611a"></script>
+        <script src="../web2/shared/web2-user-info.js?v=20260611a"></script>
+        <script src="../web2/shared/web2-ck-review.js?v=20260611a"></script>
+        <script src="../web2/shared/web2-sidebar.js?v=20260611a"></script>
+        <script>
+            if (window.Web2Sidebar) {
+                try {
+                    Web2Sidebar.mount('#web2Aside', { activeRoute: 'live-chat-chat' });
+                } catch (e) {
+                    console.warn('[sidebar]', e);
+                }
+                if (window.lucide)
+                    try {
+                        window.lucide.createIcons();
+                    } catch {}
+            }
+            // Xét duyệt CK: badge + mở danh sách tín hiệu chờ duyệt.
+            (function () {
+                const btn = document.getElementById('btnCkReview');
+                const cnt = document.getElementById('ckReviewCount');
+                const PROXY = 'https://chatomni-proxy.nhijudyshop.workers.dev';
+                async function refreshCount() {
+                    try {
+                        const r = await fetch(PROXY + '/api/web2/payment-signals/stats', {
+                            credentials: 'include',
+                        });
+                        const d = await r.json();
+                        const n = d?.data?.pending || 0;
+                        cnt.textContent = n;
+                        cnt.hidden = n <= 0;
+                    } catch (e) {
+                        /* ignore */
+                    }
+                }
+                if (btn)
+                    btn.onclick = () =>
+                        window.Web2CkReview?.openSignalList({ onDone: refreshCount });
+                refreshCount();
+                if (window.Web2SSE?.subscribe)
+                    window.Web2SSE.subscribe('web2:payment-signals', refreshCount);
+            })();
+        </script>
+
+        <!-- Inline: Pancake settings modal functions (giống index.html cũ) -->
+        <script>
+            function openPancakeSettingsModal() {
+                document.getElementById('pancakeSettingsModal').style.display = 'flex';
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+                if (window.pancakeTokenManager) {
+                    window.pancakeTokenManager.initialize().then(refreshAccountsList);
+                }
+            }
+            function closePancakeSettingsModal() {
+                document.getElementById('pancakeSettingsModal').style.display = 'none';
+                hideAddAccountForm();
+            }
+            function showAddAccountForm() {
+                document.getElementById('addAccountForm').style.display = 'block';
+                document.getElementById('newAccountTokenInput').value = '';
+                document.getElementById('newAccountTokenInput').focus();
+            }
+            function hideAddAccountForm() {
+                document.getElementById('addAccountForm').style.display = 'none';
+            }
+            function validateTokenInput() {
+                var input = document.getElementById('newAccountTokenInput').value;
+                var msg = document.getElementById('tokenValidationMessage');
+                if (!input || !input.trim()) {
+                    msg.style.display = 'none';
+                    return;
+                }
+                try {
+                    var clean = input.trim();
+                    if (clean.toLowerCase().startsWith('jwt=')) clean = clean.substring(4).trim();
+                    clean = clean
+                        .replace(/^["']|["']$/g, '')
+                        .replace(/\s+/g, '')
+                        .replace(/[;,]+$/g, '');
+                    var parts = clean.split('.');
+                    if (parts.length !== 3) {
+                        msg.innerHTML =
+                            '<span style="color:#f59e0b">Token cần 3 phần (header.payload.signature)</span>';
+                        msg.style.display = 'block';
+                        return;
+                    }
+                    if (window.pancakeTokenManager) {
+                        var payload = window.pancakeTokenManager.decodeToken(clean);
+                        if (payload) {
+                            var exp = window.pancakeTokenManager.isTokenExpired(payload.exp);
+                            var d = new Date(payload.exp * 1000).toLocaleDateString('vi-VN');
+                            msg.innerHTML = exp
+                                ? '<span style="color:#ef4444">Token hết hạn: ' + d + '</span>'
+                                : '<span style="color:#10b981">Token hợp lệ - ' +
+                                  (payload.name || 'N/A') +
+                                  ' - HH: ' +
+                                  d +
+                                  '</span>';
+                            msg.style.display = 'block';
+                            return;
+                        }
+                    }
+                    msg.innerHTML = '<span style="color:#f59e0b">Không thể giải mã token</span>';
+                    msg.style.display = 'block';
+                } catch (e) {
+                    msg.innerHTML = '<span style="color:#ef4444">Lỗi: ' + e.message + '</span>';
+                    msg.style.display = 'block';
+                }
+            }
+            async function addAccountFromCookie() {
+                try {
+                    if (!window.pancakeTokenManager) throw new Error('TokenManager not available');
+                    var token = window.pancakeTokenManager.getTokenFromCookie();
+                    if (!token) throw new Error('Không tìm thấy JWT token trong cookie');
+                    await window.pancakeTokenManager.saveTokenToFirebase(token);
+                    alert('Đã thêm tài khoản từ cookie!');
+                    await refreshAccountsList();
+                    hideAddAccountForm();
+                    if (window.PancakeInit) window.PancakeInit.refresh();
+                } catch (e) {
+                    alert('Lỗi: ' + e.message);
+                }
+            }
+            async function addAccountManual() {
+                try {
+                    var t = document.getElementById('newAccountTokenInput').value.trim();
+                    if (!t) throw new Error('Vui lòng nhập JWT token');
+                    if (!window.pancakeTokenManager) throw new Error('TokenManager not available');
+                    await window.pancakeTokenManager.setTokenManual(t);
+                    alert('Đã thêm tài khoản!');
+                    await refreshAccountsList();
+                    hideAddAccountForm();
+                    if (window.PancakeInit) window.PancakeInit.refresh();
+                } catch (e) {
+                    alert('Lỗi: ' + e.message);
+                }
+            }
+            async function refreshAccountsList() {
+                try {
+                    if (!window.pancakeTokenManager) return;
+                    var accounts = window.pancakeTokenManager.getAllAccounts();
+                    var activeId = window.pancakeTokenManager.activeAccountId;
+                    var list = document.getElementById('pancakeAccountsList');
+                    if (!accounts || Object.keys(accounts).length === 0) {
+                        list.innerHTML =
+                            '<div style="text-align:center;color:#9ca3af;padding:20px">Chưa có tài khoản nào</div>';
+                        return;
+                    }
+                    var html = '';
+                    for (var [id, acc] of Object.entries(accounts)) {
+                        var isActive = id === activeId;
+                        var isExpired = window.pancakeTokenManager.isTokenExpired(acc.exp);
+                        html +=
+                            '<div style="padding:12px;border:' +
+                            (isActive
+                                ? '2px solid #3b82f6;background:#eff6ff'
+                                : '1px solid #e5e7eb;background:white') +
+                            ';border-radius:8px;margin-bottom:8px">' +
+                            '<div style="display:flex;justify-content:space-between;margin-bottom:8px"><div><div style="font-weight:500">' +
+                            (isActive ? '✓ ' : '') +
+                            (acc.name || 'Unknown') +
+                            '</div></div>' +
+                            '<div style="font-size:11px;color:' +
+                            (isExpired ? '#ef4444' : '#10b981') +
+                            '">' +
+                            (isExpired ? 'Hết hạn' : 'Còn hạn') +
+                            '</div></div>' +
+                            '<div style="display:flex;gap:6px">' +
+                            (!isActive && !isExpired
+                                ? '<button onclick="selectAccount(\'' +
+                                  id +
+                                  '\')" style="padding:4px 10px;background:#3b82f6;color:white;border:none;border-radius:4px;cursor:pointer;font-size:11px">Chọn</button>'
+                                : '') +
+                            '<button onclick="deleteAccount(\'' +
+                            id +
+                            '\')" style="padding:4px 10px;background:#ef4444;color:white;border:none;border-radius:4px;cursor:pointer;font-size:11px">Xóa</button></div></div>';
+                    }
+                    list.innerHTML = html;
+                } catch (e) {
+                    console.error('Error refreshing accounts:', e);
+                }
+            }
+            async function selectAccount(id) {
+                try {
+                    await window.pancakeTokenManager.setActiveAccount(id);
+                    alert('Đã chọn tài khoản!');
+                    await refreshAccountsList();
+                    if (window.PancakeInit) window.PancakeInit.refresh();
+                } catch (e) {
+                    alert('Lỗi: ' + e.message);
+                }
+            }
+            async function deleteAccount(id) {
+                if (!confirm('Xóa tài khoản này?')) return;
+                try {
+                    await window.pancakeTokenManager.deleteAccount(id);
+                    await refreshAccountsList();
+                } catch (e) {
+                    alert('Lỗi: ' + e.message);
+                }
+            }
+            async function clearAllPancakeAccounts() {
+                if (!confirm('Xóa TẤT CẢ tài khoản?')) return;
+                try {
+                    await window.pancakeTokenManager.clearToken();
+                    await refreshAccountsList();
+                } catch (e) {
+                    alert('Lỗi: ' + e.message);
+                }
+            }
+
+            // Wire settings button + chatAPISettings compat
+            document.addEventListener('DOMContentLoaded', function () {
+                var btn = document.getElementById('btnPancakeSettings');
+                if (btn) btn.addEventListener('click', openPancakeSettingsModal);
+            });
+            window.chatAPISettings = {
+                isPancake: () => true,
+                isRealtimeEnabled: () => localStorage.getItem('chat_realtime_enabled') !== 'false',
+                getRealtimeMode: () => localStorage.getItem('chat_realtime_mode') || 'server',
+                setRealtimeMode: (m) => localStorage.setItem('chat_realtime_mode', m),
+                setRealtimeEnabled: (e) =>
+                    localStorage.setItem('chat_realtime_enabled', e ? 'true' : 'false'),
+            };
+        </script>
+    </body>
+</html>
