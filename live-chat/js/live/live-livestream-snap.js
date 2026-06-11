@@ -2986,15 +2986,92 @@ Throttle 30s/KH.`;
     // wrapper) → POST imageBase64 (bytea). Không cần yt-dlp/cookies/Graph.
     // Lưu ý: &t= seek chỉ ăn trên VOD (live đã end). Live đang chạy → auto-snap lo.
     // =====================================================
-    function _buildSeekEmbedUrl(camp, offsetSec) {
+    // -----------------------------------------------------
+    // FB SDK Embedded Video Player — seek/capture cho force extract.
+    //
+    // FIX 2026-06-11 (user: "chụp đúng 1 kiểu iframe offline"): iframe plugin
+    // thuần KHÔNG autoplay VOD đã end (chỉ autoplay LIVE) → mọi capture là CÙNG
+    // 1 tấm poster có nút ▶, và `&t=` plugin param không được FB hỗ trợ → 283
+    // thumbnail giống hệt nhau vẫn POST "✓". Verify thật trên page: cả
+    // autoplay=true lẫn t-trong-href đều đứng poster; trong khi FB JS SDK
+    // XFBML player (`xfbml.ready` → instance.play()/seek()/getCurrentPosition)
+    // play + seek VOD muted OK (đo: seek(600) → pos 602 → 604 đang chạy).
+    // Bonus: 1 video = 1 player, seek nhiều offset KHÔNG reload iframe (~2s/
+    // comment thay vì ~10s).
+    // -----------------------------------------------------
+    let _fbSdkPromise = null;
+    const _xfbmlWaiters = new Map(); // div id → resolve(instance)
+    function _ensureFbSdk() {
+        if (global.FB?.XFBML && _fbSdkPromise) return _fbSdkPromise;
+        if (_fbSdkPromise) return _fbSdkPromise;
+        _fbSdkPromise = new Promise((resolve, reject) => {
+            if (global.FB?.XFBML) return resolve(global.FB);
+            const s = document.createElement('script');
+            s.src = 'https://connect.facebook.net/en_US/sdk.js#xfbml=0&version=v19.0';
+            s.onload = () => resolve(global.FB);
+            s.onerror = () => {
+                _fbSdkPromise = null;
+                reject(new Error('FB SDK load fail'));
+            };
+            document.head.appendChild(s);
+        }).then((FB) => {
+            // Subscribe 1 LẦN — route instance về đúng waiter theo div id.
+            FB.Event.subscribe('xfbml.ready', (msg) => {
+                if (msg?.type === 'video' && msg.id && _xfbmlWaiters.has(msg.id)) {
+                    const resolve = _xfbmlWaiters.get(msg.id);
+                    _xfbmlWaiters.delete(msg.id);
+                    resolve(msg.instance);
+                }
+            });
+            return FB;
+        });
+        return _fbSdkPromise;
+    }
+
+    // Dựng XFBML player trong wrapper capture (thay iframe live). Cache theo
+    // video href — cùng video chỉ parse 1 lần, các offset sau chỉ seek().
+    // Wrapper GIỮ NGUYÊN element (Region Capture cropTo đã bind vào nó).
+    async function _ensureSeekPlayer(camp) {
         const fbVideoUrl = _buildFbLiveUrl(camp);
-        if (!fbVideoUrl) return null;
-        // width/height KHỚP _ensureEmbeddedIframe (200 × 386) để capture crop đúng.
-        return (
-            `https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(fbVideoUrl)}` +
-            `&show_text=false&width=200&height=386&autoplay=1&mute=1` +
-            `&allowfullscreen=false&show_share=false&show_captions=false&t=${Math.max(0, offsetSec)}`
-        );
+        if (!fbVideoUrl) throw new Error('không build được URL video');
+        if (STATE._seekPlayer && STATE._seekPlayerHref === fbVideoUrl) {
+            return STATE._seekPlayer;
+        }
+        const FB = await _ensureFbSdk();
+        if (!FB?.XFBML) throw new Error('FB SDK không sẵn sàng');
+        _ensureEmbeddedIframe(camp); // đảm bảo wrapper tồn tại
+        const wrapper = document.getElementById('live-snap-fb-wrapper');
+        if (!wrapper) throw new Error('không có wrapper capture');
+        const HEADER_OFFSET = 30;
+        const divId = 'fbseek_' + Math.random().toString(36).slice(2, 9);
+        const host = document.createElement('div');
+        host.style.cssText = `position:absolute;left:0;top:${-HEADER_OFFSET}px;width:200px;`;
+        const div = document.createElement('div');
+        div.id = divId;
+        div.className = 'fb-video';
+        div.setAttribute('data-href', fbVideoUrl);
+        div.setAttribute('data-width', '200');
+        div.setAttribute('data-allowfullscreen', 'false');
+        div.setAttribute('data-show-captions', 'false');
+        host.appendChild(div);
+        wrapper.innerHTML = ''; // gỡ iframe live (restore lại ở _clientRestoreLive)
+        wrapper.appendChild(host);
+        STATE._seekPlayer = null;
+        STATE._seekPlayerHref = null;
+        const instance = await new Promise((resolve, reject) => {
+            const t = setTimeout(() => {
+                _xfbmlWaiters.delete(divId);
+                reject(new Error('xfbml.ready timeout (player không load)'));
+            }, 15000);
+            _xfbmlWaiters.set(divId, (inst) => {
+                clearTimeout(t);
+                resolve(inst);
+            });
+            FB.XFBML.parse(host);
+        });
+        STATE._seekPlayer = instance;
+        STATE._seekPlayerHref = fbVideoUrl;
+        return instance;
     }
 
     // MUTEX: serialize mọi seek/capture trên iframe chung qua promise chain.
@@ -3011,46 +3088,77 @@ Throttle 30s/KH.`;
         return p;
     }
     async function _clientCaptureAtOffsetInner(camp, offsetSec) {
-        const iframe = _ensureEmbeddedIframe(camp);
-        if (!iframe) throw new Error('không tạo được iframe FB');
-        const url = _buildSeekEmbedUrl(camp, offsetSec);
-        if (!url) throw new Error('không build được URL seek');
-        // Reload iframe tại offset (FB plugin tự seek VOD theo &t=).
-        await new Promise((resolve) => {
-            let settled = false;
-            const done = () => {
-                if (settled) return;
-                settled = true;
-                resolve();
-            };
-            iframe.addEventListener('load', done, { once: true });
-            iframe.src = url;
-            setTimeout(done, 7000); // fallback nếu load event không fire
-        });
-        // Chờ FB player seek + render frame thật.
-        await new Promise((r) => setTimeout(r, 2600));
-        // Capture: ưu tiên getDisplayMedia stream, fallback extension.
+        const target = Math.max(0, Number(offsetSec) || 0);
+        const player = await _ensureSeekPlayer(camp);
+        try {
+            player.mute();
+        } catch (_) {}
+        player.seek(target);
+        player.play();
+        // Đợi player THẬT SỰ ở offset (poll getCurrentPosition ≤8s) — verify
+        // bằng vị trí thay vì chờ cứng → không bao giờ chụp poster ▶ tĩnh.
+        let okPos = false;
+        for (let i = 0; i < 16; i++) {
+            await new Promise((r) => setTimeout(r, 500));
+            let pos = NaN;
+            try {
+                pos = player.getCurrentPosition();
+            } catch (_) {}
+            if (Number.isFinite(pos) && Math.abs(pos - target) < 30) {
+                okPos = true;
+                break;
+            }
+            // Seek đôi khi bị nuốt khi player còn buffering → re-seek giữa chừng.
+            if (i === 7) {
+                try {
+                    player.seek(target);
+                    player.play();
+                } catch (_) {}
+            }
+        }
+        if (!okPos) throw new Error('player không seek tới offset (buffering/DRM?)');
+        await new Promise((r) => setTimeout(r, 600)); // settle frame render
+        let frame = null;
         if (STATE.captureStream && STATE.captureVideo?.videoWidth) {
             const blob = await _captureFrameJpeg(0.72, 1280);
-            if (blob) return _blobToBase64(blob);
+            if (blob) frame = await _blobToBase64(blob);
         }
-        if (STATE.extReady) {
-            const j = await _captureExtensionFrame();
-            if (j) return j;
+        if (!frame && STATE.extReady) {
+            frame = await _captureExtensionFrame();
         }
-        return null;
+        try {
+            player.pause(); // tiết kiệm bandwidth giữa các offset
+        } catch (_) {}
+        if (!frame) throw new Error('capture rỗng');
+        return frame;
     }
 
-    // Reset iframe về live active sau khi force-extract xong (giữ auto-snap buffer chạy tiếp).
+    // Reset wrapper về iframe live thuần sau force-extract (giữ auto-snap buffer
+    // chạy tiếp). GIỮ NGUYÊN wrapper element (Region Capture cropTo bind vào nó)
+    // — chỉ thay children: gỡ XFBML seek-player → iframe live (live autoplay OK
+    // với plugin thuần). Constants khớp _ensureEmbeddedIframe (200 / 30 / 9:16).
     async function _clientRestoreLive(camp) {
-        const iframe = document.querySelector('#live-snap-fb-wrapper iframe');
-        if (!iframe || !camp) return;
+        STATE._seekPlayer = null;
+        STATE._seekPlayerHref = null;
+        const wrapper = document.getElementById('live-snap-fb-wrapper');
+        if (!wrapper || !camp) return;
         const fbVideoUrl = _buildFbLiveUrl(camp);
         if (!fbVideoUrl) return;
+        const WRAPPER_W = 200;
+        const HEADER_OFFSET = 30;
+        const IFRAME_H = Math.round((WRAPPER_W * 16) / 9) + HEADER_OFFSET;
+        wrapper.innerHTML = '';
+        const iframe = document.createElement('iframe');
+        iframe.id = 'live-snap-fb-embed';
+        iframe.allow = 'autoplay; encrypted-media; picture-in-picture';
+        iframe.scrolling = 'no';
+        iframe.frameBorder = '0';
+        iframe.style.cssText = `position:absolute;left:0;top:${-HEADER_OFFSET}px;width:${WRAPPER_W}px;height:${IFRAME_H}px;display:block;border:0;`;
         iframe.src =
             `https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(fbVideoUrl)}` +
-            `&show_text=false&width=200&height=386&autoplay=1&mute=1` +
+            `&show_text=false&width=${WRAPPER_W}&height=${IFRAME_H}&autoplay=1&mute=1` +
             `&allowfullscreen=false&show_share=false&show_captions=false`;
+        wrapper.appendChild(iframe);
     }
 
     // Lightbox zoom — modal full-screen mở ảnh snapshot + nút "Xem live tại giây X".
