@@ -327,7 +327,7 @@
                     >
                         <span style="font-size: 24px; line-height: 1">🩺</span>
                         <h2 style="margin: 0; font-size: 18px; color: #14532d">
-                            Audit + FIX toàn diện 34 trang menu — bug / race condition / cải thiện
+                            Audit toàn diện 35 trang menu — bug / race condition / cải thiện
                         </h2>
                         <span
                             style="
@@ -338,22 +338,42 @@
                                 padding: 3px 10px;
                                 border-radius: 999px;
                             "
-                            >2026-06-10 · ✅ ĐÃ FIX phần lớn · browser-test 34/34 sạch</span
+                            >Vòng 1: 2026-06-10 ✅ fix phần lớn</span
+                        >
+                        <span
+                            style="
+                                background: #fee2e2;
+                                color: #991b1b;
+                                font-size: 12px;
+                                font-weight: 700;
+                                padding: 3px 10px;
+                                border-radius: 999px;
+                            "
+                            >Vòng 2: 2026-06-11 🔴 7C+7S+16H mới ĐANG MỞ</span
                         >
                     </div>
                     <p style="margin: 0 0 12px; font-size: 13px; color: #475569; line-height: 1.6">
-                        Audit (12 agent) + FIX Wave 1+2 toàn bộ frontend + route backend + DB/SSE.
-                        Kết quả audit: <strong>~8 CRITICAL · ~25 HIGH · ~35 MEDIUM</strong> →
+                        <strong>Vòng 1 (2026-06-10):</strong> audit 9 agent + FIX Wave 1+2 — ~8
+                        CRITICAL · ~25 HIGH → đã fix phần lớn, browser-test 34/34 sạch.
+                        <strong>Vòng 2 (2026-06-11):</strong> 8 agent re-audit verify từng bug cũ
+                        bằng code thật + 3 agent đối chứng —
                         <strong style="color: #166534"
-                            >đã fix phần lớn CRITICAL/HIGH, browser-test click UI thật 34/34 trang
-                            sạch</strong
-                        >. Chi tiết + trạng thái fix (⬜/✅) ở
+                            >xác nhận đa số fix vòng 1 đứng vững (Bán Hàng 16/18, Sản phẩm 7/9, 8/8
+                            Top CRITICAL)</strong
+                        >
+                        nhưng phát hiện
+                        <strong style="color: #991b1b"
+                            >cụm bug MỚI: 7 CRITICAL tiền/kho + 7 CRITICAL bảo mật + 16 HIGH</strong
+                        >
+                        (25/25 được confirm độc lập). Danh sách canonical + trạng thái ⬜/✅ ở
                         <a
                             href="https://github.com/nhijudyshop/n2store/blob/main/docs/web2/WEB2-PAGES-ANALYSIS.md"
                             target="_blank"
                             style="font-weight: 700"
                             >docs/web2/WEB2-PAGES-ANALYSIS.md</a
-                        >. ⏳ Fix backend cần deploy Render mới có hiệu lực (frontend đã live).
+                        >
+                        (mục 1). ⏳ Fix backend cần deploy Render mới có hiệu lực (frontend đã
+                        live).
                     </p>
 
                     <p
@@ -381,6 +401,62 @@
                         live-chat trong WEB2-PAGES-ANALYSIS.md.
                     </p>
 
+                    <!-- Vòng 2: bug mới đang mở -->
+                    <div
+                        style="
+                            background: #fef2f2;
+                            border: 1px solid #fecaca;
+                            border-radius: 10px;
+                            padding: 12px 14px;
+                            margin-bottom: 12px;
+                            font-size: 12.5px;
+                            color: #7f1d1d;
+                            line-height: 1.7;
+                        "
+                    >
+                        <div style="font-weight: 700; font-size: 13.5px; margin-bottom: 4px">
+                            🔴 Vòng 2 (2026-06-11) — bug MỚI đang mở (top, full list ở mục 1 file
+                            MD)
+                        </div>
+                        <ul style="margin: 0; padding-left: 18px">
+                            <li>
+                                <strong>Tiền/kho (C1-C7):</strong> <code>bulk-cancel</code> PBH
+                                không restock/hoàn ví + chặn recover
+                                (<code>fast-sale-orders.js:776</code>); DELETE Thu Về race trừ
+                                kho/rút ví ĐÔI (<code>web2-returns.js:837</code>); reassign SePay
+                                lặp vòng mất tiền im lặng + audit log không bao giờ ghi (thiếu
+                                require <code>web2MatchAudit</code>);
+                                <code>confirm-purchase-partial</code> FOR UPDATE ngoài transaction =
+                                vô hiệu; quick refund NCC thiếu <code>await SW.load()</code> → ví
+                                NCC không bao giờ ghi; merge/split đơn sinh mã COUNT+1 → 23505 sau
+                                merge đầu tiên.
+                            </li>
+                            <li>
+                                <strong>Bảo mật (S1-S7):</strong> web2-generic
+                                <code>delete-all</code>/<code>_vacuum</code> public (wipe được 78
+                                entity); payment-signals <code>/approve</code> (cộng ví) không auth;
+                                <code>GET /api/pancake-accounts</code> trả FULL JWT Pancake không
+                                auth; web2-pancake-refresh = proxy brute-force mật khẩu;
+                                <code>GET /sse</code> không auth broadcast số dư ví; stored XSS
+                                attribute-injection (escapeHtml không escape quote — lan 87 trang
+                                qua page-builder); XSS <code>javascript:</code> URL ở notification.
+                            </li>
+                            <li>
+                                <strong>Chức năng chết (H7, H8, H6):</strong> trang Phân quyền chết
+                                hoàn toàn (3 chỗ lệch shape API); báo cáo giao hàng cột Nhà vận
+                                chuyển luôn trống (<code>carrierName</code> vs
+                                <code>groupName</code>); SSE ví đứt 2 lớp (eventType
+                                <code>wallet_update</code> bridge không nghe + wildcard key mismatch
+                                + topic <code>wallet:all</code> không tồn tại).
+                            </li>
+                            <li>
+                                <strong>Lộ trình fix 5 đợt (A-E):</strong> xem mục 5 file MD — đợt A
+                                chặn mất tiền/kho, đợt B auth blanket, đợt C XSS + chức năng chết,
+                                đợt D SSE ví/realtime, đợt E kiến trúc ví NCC.
+                            </li>
+                        </ul>
+                    </div>
+
                     <!-- Top bugs -->
                     <div
                         style="
@@ -395,7 +471,8 @@
                         "
                     >
                         <div style="font-weight: 700; font-size: 13.5px; margin-bottom: 4px">
-                            ✅ Top CRITICAL — ĐÃ FIX (commit 2026-06-10)
+                            ✅ Top CRITICAL vòng 1 — ĐÃ FIX (commit 2026-06-10, verify lại bằng code
+                            thật 2026-06-11: 8/8 đứng vững)
                         </div>
                         <ol style="margin: 0; padding-left: 18px">
                             <li>

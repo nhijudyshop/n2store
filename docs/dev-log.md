@@ -2,6 +2,24 @@
 
 ## 2026-06-11
 
+### [docs][web2] Audit VÒNG 2 toàn bộ 35 trang menu Web 2.0 — verify fix Wave 1+2 + catalog 25 bug mới CONFIRMED ✅
+
+**User:** "Xem, đọc, phân tích chi tiết tất cả từng trang trong menu web 2.0 → tìm bug/race → cập nhật overview + file MD → kiểm đi kiểm lại → đề xuất cải thiện/tính năng mới."
+
+**Phương pháp:** 8 agent re-audit song song theo nhóm trang (đọc frontend + backend route + SSE wiring, verify TỪNG bug vòng 1 bằng code thật) + 3 agent đối chứng adversarial cho 25 phát hiện nghiêm trọng → **25/25 CONFIRMED**.
+
+**Kết quả verify vòng 1 (Wave 1+2 đứng vững):** 8/8 Top CRITICAL fixed thật; Bán Hàng 16/18; Sản phẩm 7/9; reconcile/refunds/delivery state-machine + FOR UPDATE + retry-23505 đều đúng; auth web2-users mutation + rate-limit + WEB2_PAGES đủ.
+
+**Bug MỚI đang mở (full list ở `docs/web2/WEB2-PAGES-ANALYSIS.md` mục 1):**
+
+- 7 CRITICAL tiền/kho: bulk-cancel PBH không restock/hoàn ví + chặn recover; DELETE Thu Về race double; reassign SePay lặp vòng mất tiền (withdraw không idempotent) + audit log không bao giờ ghi (thiếu require web2MatchAudit); confirm-purchase-partial FOR UPDATE ngoài transaction = vô hiệu; quick refund NCC thiếu `await SW.load()` → ví NCC không bao giờ ghi; merge/split sinh mã COUNT+1 → 23505.
+- 7 CRITICAL bảo mật: web2-generic delete-all/\_vacuum public; payment-signals /approve (money) không auth; pancake-accounts leak FULL JWT; web2-pancake-refresh = brute-force proxy; GET /sse broadcast số dư ví không auth; stored XSS attribute-injection (escapeHtml không escape quote, lan 87 trang); XSS javascript: URL notification.
+- 16 HIGH: PBH cancel không hoàn wallet_deducted; trang Phân quyền CHẾT (3 shape mismatch); báo cáo giao hàng cột NVC trống (carrierName vs groupName); SSE ví đứt 2 lớp (eventType wallet_update + wildcard key mismatch + topic wallet:all chết); live-chat delta miss comment UPDATE; v.v.
+
+**Files:** docs/web2/WEB2-PAGES-ANALYSIS.md (viết lại — mục 1 = danh sách bug canonical vòng 2 + lộ trình fix 5 đợt A-E + 10 đề xuất tính năng), web2/overview/index.html (#auditPages: badge vòng 2 + block bug mới đang mở), docs/dev-log.md.
+
+**Status:** ✅ Audit done — bug CHƯA fix (chờ đợt A-E theo lộ trình mục 5 file MD).
+
 ### [live-chat][render] PUSH-only realtime comment (bỏ hoàn toàn polling) + FIX capture lock failover "máy giữ lock không capture" ✅
 
 **User:** (1) tiếp tục refactor "logic đơn giản hơn — server Pancake WS nhận tin nhắn/bình luận 24/7 → lấy comment livestream từ đây xem trực tiếp"; (2) "bỏ hoàn toàn polling ở live-chat — live-chat CẦN TIN NHẮN TRỰC TIẾP"; (3) bug "1 máy capture duy nhất": máy giữ lock nhưng KHÔNG capture → không máy nào chụp.
