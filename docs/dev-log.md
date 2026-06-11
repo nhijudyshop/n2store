@@ -2,6 +2,22 @@
 
 ## 2026-06-11
 
+### [showroom1] Animation "món hàng bay vào giỏ" khi thêm SP ✅
+
+**User:** SP không có size/màu thêm vào giỏ không thấy dấu hiệu gì → muốn icon món hàng bay vào pill giỏ đen dưới cùng để khách biết đã thêm.
+
+**Thay đổi:**
+
+- `cart.js`: hàm `flyToCart(sourceEl, imageUrl)` — viên tròn 46px chứa ảnh SP bay theo đường cong (WAAPI 650ms, midpoint nâng 44px) từ vị trí card → pill, hạ cánh thì remove + `pulsePill()` (tách từ updatePill). Quy đổi tọa độ viewport→local theo scale của `.screen` (admin preview phone bị transform scale). Respect `prefers-reduced-motion` (chỉ pulse). Fallback browser không WAAPI: setTimeout 900ms dọn + pulse. Gắn vào CẢ 2 đường: thêm thẳng (SP không variant, bay từ `.imgwrap`) + sau confirm picker (bay từ `#pickThumb`, lấy rect trước khi sheet đóng).
+- `cart.css`: `.fly-item` (z-index 95, viền paper, shadow) + `.fly-dot` fallback khi SP không có ảnh.
+- `index.html`: `bindAddBag` truyền `card.querySelector('.imgwrap')` làm sourceEl; bump `?v=20260611c`.
+
+**Verify (Playwright localhost):** bấm nút giỏ SP không variant → `.fly-item` xuất hiện giữa đường bay (có img, nằm trong .screen), 900ms sau tự remove + pill `pulse` + count đúng; đường picker confirm cũng bay; không sót element. Cleanup giỏ test.
+
+**Files:** showroom1/{cart.js, cart.css, index.html}.
+
+**Status:** ✅ Done — commit này → GH Pages.
+
 ### [showroom1] UX giỏ hàng v2 theo feedback user: nút giỏ trên card thay tim + sheet chọn size/màu + nâng pill khỏi mép ✅
 
 **User:** (1) pill giỏ bị mép phone che → đưa lên; icon cookie bên trái dư → xóa; (2) icon trái tim đổi thành icon giỏ hàng, khách bấm NÚT để thêm chứ không bấm ảnh; (3) khi thêm cho khách chọn size/màu — giao diện đơn giản nhất cho người ~40 tuổi.

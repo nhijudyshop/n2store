@@ -188,3 +188,19 @@
 .pick-chip:active { transform: scale(.95); }
 .pick-foot .pick-confirm { font-size: 13px; padding: 18px; }
 .pick-foot .btn-clear { font-size: 12px; }
+
+/* ---------- "Món hàng bay vào giỏ" (feedback khi thêm SP) ---------- */
+.fly-item {
+  position: absolute;
+  z-index: 95; /* trên sheet (85/86) + toast (90) */
+  width: 46px; height: 46px;
+  border-radius: 50%;
+  overflow: hidden;
+  pointer-events: none;
+  border: 2px solid var(--paper);
+  background: var(--ink);
+  box-shadow: 0 6px 18px -4px rgba(40,33,24,.5);
+  will-change: transform, opacity;
+}
+.fly-item img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.fly-item .fly-dot { display: block; width: 100%; height: 100%; background: var(--ink); }

@@ -515,7 +515,7 @@
   }
 </style>
 <link rel="stylesheet" href="admin.css?v=20260611b" />
-<link rel="stylesheet" href="cart.css?v=20260611b" />
+<link rel="stylesheet" href="cart.css?v=20260611c" />
 </head>
 <body>
   <!-- Admin panel (desktop + logged in only; filled by admin.js) -->
@@ -812,7 +812,8 @@
       const id = card.dataset.id;
       const p = id && window.Showroom._products ? window.Showroom._products[id] : null;
       if(p && window.ShowroomCart){
-        window.ShowroomCart.addWithOptions(p);
+        // truyền ảnh SP làm điểm xuất phát cho animation "bay vào giỏ"
+        window.ShowroomCart.addWithOptions(p, card.querySelector('.imgwrap') || btn);
       } else {
         showToast('Đã thêm vào giỏ · ' + name); // card demo (không có id)
       }
@@ -984,7 +985,7 @@
 </script>
 
 <!-- Giỏ hàng khách vãng lai (visitor ID) — load TRƯỚC admin.js -->
-<script src="cart.js?v=20260611b"></script>
+<script src="cart.js?v=20260611c"></script>
 <!-- Shared auth (auto-inits window.authManager) + admin panel -->
 <script type="module" src="../shared/esm/compat.js"></script>
 <script src="admin.js?v=20260611b"></script>

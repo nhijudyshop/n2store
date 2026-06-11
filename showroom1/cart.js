@@ -79,11 +79,73 @@
         nEl.hidden = true;
       }
     }
+    if (pulse) pulsePill();
+  }
+  function pulsePill() {
     const pill = $('#idPill');
-    if (pill && pulse) {
-      pill.classList.remove('pulse');
-      void pill.offsetWidth; // restart animation
-      pill.classList.add('pulse');
+    if (!pill) return;
+    pill.classList.remove('pulse');
+    void pill.offsetWidth; // restart animation
+    pill.classList.add('pulse');
+  }
+
+  // ---------- animation "món hàng bay vào giỏ" ----------
+  // Hình tròn nhỏ chứa ảnh SP bay theo đường cong từ vị trí card → pill đen dưới cùng,
+  // pill nảy lên khi "hạ cánh" — để khách biết chắc đã thêm vào giỏ.
+  function flyToCart(sourceEl, imageUrl) {
+    try {
+      const screen = $('.screen');
+      const pill = $('#idPill');
+      if (!screen || !pill || !sourceEl || !sourceEl.getBoundingClientRect) {
+        pulsePill();
+        return;
+      }
+      if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        pulsePill();
+        return;
+      }
+      const SIZE = 46;
+      const sRect = screen.getBoundingClientRect();
+      // admin preview scale phone bằng transform → quy đổi viewport coords về local coords
+      const scale = screen.offsetWidth ? sRect.width / screen.offsetWidth : 1;
+      const local = (r) => ({
+        x: (r.left + r.width / 2 - sRect.left) / scale - SIZE / 2,
+        y: (r.top + r.height / 2 - sRect.top) / scale - SIZE / 2,
+      });
+      const a = local(sourceEl.getBoundingClientRect());
+      const b = local(pill.getBoundingClientRect());
+      const el = document.createElement('div');
+      el.className = 'fly-item';
+      el.style.left = a.x + 'px';
+      el.style.top = a.y + 'px';
+      el.innerHTML =
+        imageUrl && String(imageUrl).startsWith('https://')
+          ? '<img src="' + esc(imageUrl) + '" alt="">'
+          : '<span class="fly-dot"></span>';
+      screen.appendChild(el);
+      const dx = b.x - a.x;
+      const dy = b.y - a.y;
+      let landed = false;
+      const land = () => {
+        if (landed) return;
+        landed = true;
+        el.remove();
+        pulsePill();
+      };
+      if (el.animate) {
+        const anim = el.animate(
+          [
+            { transform: 'translate(0,0) scale(1)', opacity: 1 },
+            { transform: 'translate(' + dx * 0.5 + 'px,' + (dy * 0.5 - 44) + 'px) scale(.72)', opacity: 1, offset: 0.55 },
+            { transform: 'translate(' + dx + 'px,' + dy + 'px) scale(.22)', opacity: 0.3 },
+          ],
+          { duration: 650, easing: 'cubic-bezier(.5,-0.1,.65,1)' }
+        );
+        anim.onfinish = land;
+      }
+      setTimeout(land, 900); // safety: browser cũ không có WAAPI vẫn dọn + pulse
+    } catch (_) {
+      pulsePill();
     }
   }
 
@@ -209,11 +271,13 @@
   }
 
   // Entry point từ nút giỏ trên card: SP có size/màu → mở sheet chọn; không có → thêm luôn
-  function addWithOptions(rawProduct) {
+  // sourceEl (optional): element gốc để chạy animation bay vào giỏ
+  function addWithOptions(rawProduct, sourceEl) {
     if (!rawProduct || !rawProduct.id) return false;
     const prod = normalizeProduct(rawProduct);
     if (!prod.sizes.length && !prod.colors.length) {
       addItem(prod, '', '');
+      flyToCart(sourceEl, prod.image);
       toast('Đã thêm vào giỏ · ' + prod.name);
       return true;
     }
@@ -273,6 +337,7 @@
       }
       addItem(p.prod, p.size, p.color);
       const vt = [p.size, p.color].filter(Boolean).join(' · ');
+      flyToCart($('#pickThumb'), p.prod.image); // lấy rect TRƯỚC khi sheet trượt xuống
       toast('Đã thêm vào giỏ · ' + p.prod.name + (vt ? ' (' + vt + ')' : ''));
       closePicker();
     });
