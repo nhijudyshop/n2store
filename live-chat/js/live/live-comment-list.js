@@ -26,6 +26,8 @@ const _Live_ICON_PATHS = {
     eye: '<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>',
     'eye-off':
         '<path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" x2="22" y1="2" y2="22"/>',
+    'user-x':
+        '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="17" x2="22" y1="8" y2="13"/><line x1="22" x2="17" y1="8" y2="13"/>',
 };
 
 /**
@@ -69,7 +71,13 @@ const LiveCommentList = {
      * @returns {Array}
      */
     _visibleComments() {
-        const all = window.LiveState.comments || [];
+        let all = window.LiveState.comments || [];
+        // Ẩn comment theo NGƯỜI (LiveHiddenCommenters — mặc định 2 page shop).
+        // Filter ở đây = choke point mọi render path; comment vẫn nguyên trong
+        // state, bỏ ẩn là hiện lại ngay không cần refetch.
+        if (window.LiveHiddenCommenters?.list?.()?.length) {
+            all = all.filter((c) => !window.LiveHiddenCommenters.isHidden(c));
+        }
         const lim = this._renderLimit || RENDER_LIMIT_INITIAL;
         return lim >= all.length ? all : all.slice(0, lim);
     },
@@ -383,6 +391,15 @@ const LiveCommentList = {
                     return;
                 case 'toggle-hide':
                     window.LiveColumnManager?.toggleHideComment(d.commentId, d.hideNext === 'true');
+                    return;
+                case 'hide-commenter':
+                    if (
+                        confirm(
+                            `Ẩn TẤT CẢ comment của "${d.name || d.fromId}"?\n(Bỏ ẩn ở nút 🙈 trên topbar — đồng bộ mọi máy)`
+                        )
+                    ) {
+                        window.LiveHiddenCommenters?.hide(d.fromId, d.name || '');
+                    }
                     return;
                 default:
                     return;
@@ -1174,6 +1191,9 @@ const LiveCommentList = {
                     </button>
                     <button class="live-action-btn" title="${isHidden ? 'Hiện' : 'Ẩn'}" data-action="toggle-hide" data-comment-id="${idA}" data-hide-next="${!isHidden}">
                         ${liveSvgIcon(isHidden ? 'eye' : 'eye-off', 13)}
+                    </button>
+                    <button class="live-action-btn" title="Ẩn TẤT CẢ comment của người này (mọi máy — quản lý ở nút 🙈 topbar)" style="color:#dc2626;" data-action="hide-commenter" data-from-id="${fromIdA}" data-name="${nameA}">
+                        ${liveSvgIcon('user-x', 13)}
                     </button>
                 </div>
             </div>

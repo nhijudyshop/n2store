@@ -2,6 +2,19 @@
 
 ## 2026-06-11
 
+### [live-chat] Ẩn comment theo NGƯỜI + danh sách quản lý — mặc định ẩn "NhiJudy Store"/"NhiJudy House" ✅
+
+**User:** "cho chức năng chọn ẩn comment của người đó và danh sách quản lý, mặc định ẩn 'NhiJudy Store', 'NhiJudy House'" (comment do chính page tự reply tràn list — đo thật: 830/1371 comment là của shop).
+
+- **Module MỚI** [`live-chat/js/live/live-hidden-commenters.js`](../live-chat/js/live/live-hidden-commenters.js) (`LiveHiddenCommenters`): lưu **server-side sync mọi máy** qua web2-generic record `/api/web2/live-hidden-commenters` code `global` (`data.commenters=[{fbId,name,hiddenAt,by}]`, ghi kèm `history:[]` chống phình — pattern capture-lock); realtime SSE `web2:live-hidden-commenters` (generic tự notify) → máy khác reload + re-render; 404 lần đầu → seed 2 page mặc định (House `117267091364524`, Store `270136663390370`) + create (409 song song → PATCH lại); offline → fallback defaults local. Match theo `fb_id`, fallback tên normalize (bỏ space, lowercase).
+- **Filter tại `LiveCommentList._visibleComments()`** — choke point MỌI render path (full/patch/sentinel): hide/unhide = re-render tức thì, KHÔNG refetch, comment vẫn nguyên state + DB (bỏ ẩn hiện lại đủ).
+- **UI**: mỗi comment row thêm nút 🚫 `user-x` đỏ "Ẩn TẤT CẢ comment của người này" (confirm trước, UI-first apply ngay + save nền + rollback nếu lỗi); topbar `#liveTopbarActions` thêm nút **"🙈 Ẩn (N)"** mở modal quản lý (list người ẩn + fb_id + ai ẩn + nút "👁 Bỏ ẩn").
+- **Verified localhost** (Playwright): seed đúng 2 page, 830 comment shop biến khỏi list (1371 → 541 visible), server record tạo đúng + history len 1, hide/unhide roundtrip KH thật (2→3→2, server clean), modal 2 rows + unhide btns, 0 console error.
+
+**Files:** live-chat/js/live/live-hidden-commenters.js (NEW), live-chat/js/live/live-comment-list.js (filter + nút user-x + icon + action case), live-chat/index.html (script tag + bump v=20260611k).
+
+**Status:** ✅ Done.
+
 ### [issue-tracking] Stat cards + tab badges đếm theo chip lọc loại + fix "Hoàn Tất Hôm Nay" luôn 0 ✅
 
 **User:** stat thống kê (Chờ Hàng Về / Chờ Đối Soát / Hoàn Tất Hôm Nay) phải theo chip lọc loại (Tất cả loại / Không Nhận Hàng / Thu về Shipper / Khách gửi / Sửa COD) — bấm chip nào stat cập nhật theo chip đó.
