@@ -3,15 +3,20 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `4855451` — auto: session update
-**Last updated**: 2026-06-11 10:02:45 +07
-**Latest session**: [`RESUME:20260611-100245-4855451`](../20260611-100245-4855451.md)
+**Latest commit**: `bfd2fbd` — auto: session update
+**Last updated**: 2026-06-11 10:18:06 +07
+**Latest session**: [`RESUME:20260611-101806-bfd2fbd`](../20260611-101806-bfd2fbd.md)
 **Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`live-chat/`](./live-chat.md) — 21 file(s)
-- [`render.com/`](./render.com.md) — 2 file(s)
+- [`cloudflare-worker/`](./cloudflare-worker.md) — 2 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
+- [`don-inbox/`](./don-inbox.md) — 1 file(s)
+- [`live-chat/`](./live-chat.md) — 7 file(s)
+- [`orders-report/`](./orders-report.md) — 4 file(s)
+- [`render.com/`](./render.com.md) — 9 file(s)
+- [`scripts/`](./scripts.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -22,12 +27,12 @@
 - [`balance-history-home/`](./balance-history-home.md) — updated 2026-05-21 15:39
 - [`balance-history/`](./balance-history.md) — updated 2026-05-22 12:35
 - [`bangkiemhang/`](./bangkiemhang.md) — updated 2026-05-21 15:39
-- [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-08 14:12
+- [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-11 10:18
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-08 09:55
-- [`docs/`](./docs.md) — updated 2026-06-11 09:35
+- [`docs/`](./docs.md) — updated 2026-06-11 10:18
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
-- [`don-inbox/`](./don-inbox.md) — updated 2026-06-06 12:34
+- [`don-inbox/`](./don-inbox.md) — updated 2026-06-11 10:18
 - [`downloads/`](./downloads.md) — updated 2026-06-11 08:36
 - [`facebook-services/`](./facebook-services.md) — updated 2026-05-21 15:39
 - [`fb-ads/`](./fb-ads.md) — updated 2026-05-21 15:39
@@ -38,12 +43,12 @@
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-05-21 15:39
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-08 10:28
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
-- [`live-chat/`](./live-chat.md) — updated 2026-06-11 10:02
+- [`live-chat/`](./live-chat.md) — updated 2026-06-11 10:18
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-06-04 20:02
 - [`native-orders/`](./native-orders.md) — updated 2026-06-09 19:12
 - [`nhanhang/`](./nhanhang.md) — updated 2026-05-21 15:39
 - [`order-management/`](./order-management.md) — updated 2026-05-21 15:39
-- [`orders-report/`](./orders-report.md) — updated 2026-06-10 19:04
+- [`orders-report/`](./orders-report.md) — updated 2026-06-11 10:18
 - [`pancake-extension/`](./pancake-extension.md) — updated 2026-05-21 11:33
 - [`phone-management/`](./phone-management.md) — updated 2026-05-21 15:39
 - [`product-warehouse/`](./product-warehouse.md) — updated 2026-06-04 13:36
@@ -51,9 +56,9 @@
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
-- [`render.com/`](./render.com.md) — updated 2026-06-11 10:02
+- [`render.com/`](./render.com.md) — updated 2026-06-11 10:18
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
-- [`scripts/`](./scripts.md) — updated 2026-06-11 08:36
+- [`scripts/`](./scripts.md) — updated 2026-06-11 10:18
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
 - [`shared/`](./shared.md) — updated 2026-06-11 08:36
 - [`showroom/`](./showroom.md) — updated 2026-06-10 19:04
