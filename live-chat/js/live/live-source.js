@@ -73,7 +73,15 @@
     async function _pfmGet(path, jwt) {
         const sep = path.includes('?') ? '&' : '?';
         const url = `${worker()}/api/pancake/${path}${sep}access_token=${encodeURIComponent(jwt)}`;
-        const r = await fetch(url, { headers: { Accept: 'application/json' } });
+        const r = await fetch(url, {
+            headers: { Accept: 'application/json' },
+            signal: AbortSignal.timeout(15000),
+        });
+        if (!r.ok) {
+            // KHÔNG log url (chứa access_token) — chỉ status + path.
+            console.warn('[Live-SOURCE] pfm HTTP', r.status, path);
+            return {};
+        }
         return r.json().catch(() => ({}));
     }
 
@@ -114,6 +122,7 @@
         try {
             const r = await fetch(`${worker()}/api/pancake-page-tokens`, {
                 headers: { Accept: 'application/json' },
+                signal: AbortSignal.timeout(15000),
             });
             const d = await r.json().catch(() => ({}));
             const toks = d.tokens || {};
