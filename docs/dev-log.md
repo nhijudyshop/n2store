@@ -2,6 +2,14 @@
 
 ## 2026-06-11
 
+### [delivery-report] Ảnh bàn giao v4: bỏ dòng Tổng cuối + SL·giá trị thu về gộp 1 dòng ✅
+
+**User chỉnh** (sau v3): bỏ dòng `Tổng — 172 đơn` dưới cùng; bên THU VỀ gộp SL + giá trị về cùng 1 dòng (trước đó giá trị ở dòng 1, SL ở dòng 2).
+
+- Footer chỉ còn `Tạo lúc` (divider mảnh + timestamp phải). Row thu về: dòng 1 = tên KH, dòng 2 = SĐT (trái) + `SL: 1 · 340` (phải, giá trị cam đậm). Bỏ biến grandCount/grandTotal. Cache-bust `?v=20260612a`. Ảnh test 1800×616 (gọn hơn v3 704).
+
+**Status:** ✅ Done.
+
 ### [delivery-report] Ảnh bàn giao v3: layout 2 cột GIAO | THU VỀ, thu về KHÔNG tính ship ✅
 
 **User chỉnh** (sau v2): thu về không tính phí ship (bản chất shipper giao 170 đơn TP, tiện đường mang món thu về giúp shop — phí ship chỉ tính đơn giao); ảnh chia 2 cột (trái GIAO, phải THU VỀ), tối ưu khoảng trống để xem Zalo trên điện thoại/PC.

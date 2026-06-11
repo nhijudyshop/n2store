@@ -1758,14 +1758,12 @@
         const cityShip = cityCount * HANDOVER_SHIP_FEE;
         const cityNet = cityTotal - cityShip;
         // Thu về KHÔNG tính phí ship — shipper tiện đường giao mang về giúp shop
-        const grandCount = cityCount + returnCount;
-        const grandTotal = cityNet + returnTotal;
 
         const zeroRows = Math.max(zeroItems.length, 1); // 0 đơn → 1 dòng "Không có đơn 0đ"
         const leftH = PAD + 14 + 30 + 26 + 26 + 16 + 30 + 26 + zeroRows * ZROW_H + 6;
         const rightH = PAD + 14 + 30 + 16 + Math.max(returnCount, 1) * RROW_H + 6;
         const contentH = Math.max(leftH, rightH);
-        const H = contentH + 16 + 24 + 18; // divider + dòng Tổng + đệm đáy
+        const H = contentH + 14 + 20 + 12; // divider + dòng timestamp + đệm đáy
         const scale = 2;
 
         const canvas = document.createElement('canvas');
@@ -1924,34 +1922,31 @@
                 const name = item.PartnerDisplayName || item.CustomerName || '';
                 const phone = item.Phone || item.Ship_Receiver_Phone || '';
 
-                // Dòng 1: tên KH + giá trị món (phải)
+                // Dòng 1: tên KH
                 ctx.textAlign = 'left';
                 ctx.font = `bold 15px ${FONT}`;
                 ctx.fillStyle = '#111827';
                 ctx.fillText(
-                    truncate(`${i + 1}. ${name}`, W - PAD - RIGHT_L - 70),
+                    truncate(`${i + 1}. ${name}`, W - PAD - RIGHT_L - 8),
                     RIGHT_L,
                     rowTop + 12
                 );
-                ctx.textAlign = 'right';
-                ctx.fillStyle = '#b45309';
-                ctx.fillText(
-                    h && h.value != null ? formatThousand(h.value) : '—',
-                    W - PAD,
-                    rowTop + 12
-                );
 
-                // Dòng 2: SĐT (trái) + SL (phải)
-                ctx.textAlign = 'left';
+                // Dòng 2: SĐT (trái) + "SL: x · <giá trị>" cùng 1 dòng (phải)
                 ctx.font = `13px ${FONT}`;
                 ctx.fillStyle = '#9ca3af';
                 ctx.fillText(phone, RIGHT_L + 16, rowTop + 33);
+
+                const valStr = h && h.value != null ? formatThousand(h.value) : '—';
+                const slStr = `SL: ${h && h.quantity != null ? formatNumber(h.quantity) : '—'} · `;
                 ctx.textAlign = 'right';
-                ctx.fillText(
-                    `SL: ${h && h.quantity != null ? formatNumber(h.quantity) : '—'}`,
-                    W - PAD,
-                    rowTop + 33
-                );
+                ctx.font = `bold 14px ${FONT}`;
+                ctx.fillStyle = '#b45309';
+                ctx.fillText(valStr, W - PAD, rowTop + 33);
+                const valW = ctx.measureText(valStr).width;
+                ctx.font = `13px ${FONT}`;
+                ctx.fillStyle = '#9ca3af';
+                ctx.fillText(slStr, W - PAD - valW, rowTop + 33);
             });
         }
 
@@ -1963,30 +1958,21 @@
         ctx.lineTo(MID, contentH);
         ctx.stroke();
 
-        // ── Footer: Tổng + timestamp (1 dòng) ──
-        const fy = contentH + 16;
+        // ── Footer: chỉ timestamp ──
+        const fy = contentH + 14;
         ctx.strokeStyle = '#d1d5db';
-        ctx.lineWidth = 1.5;
+        ctx.lineWidth = 1;
         ctx.beginPath();
         ctx.moveTo(PAD, fy);
         ctx.lineTo(W - PAD, fy);
         ctx.stroke();
-
-        const ty = fy + 24;
-        ctx.textAlign = 'left';
-        ctx.fillStyle = '#111827';
-        ctx.font = `bold 19px ${FONT}`;
-        const grandLabel = `Tổng — ${formatNumber(grandCount)} đơn:`;
-        ctx.fillText(grandLabel, PAD, ty);
-        ctx.fillStyle = '#047857';
-        ctx.fillText(` ${formatThousand(grandTotal)}`, PAD + ctx.measureText(grandLabel).width, ty);
 
         ctx.textAlign = 'right';
         ctx.font = `13px ${FONT}`;
         ctx.fillStyle = '#9ca3af';
         const now = new Date();
         const ts = `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-        ctx.fillText(`Tạo lúc: ${ts}`, W - PAD, ty);
+        ctx.fillText(`Tạo lúc: ${ts}`, W - PAD, fy + 18);
 
         return canvas;
     }
