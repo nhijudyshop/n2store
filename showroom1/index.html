@@ -514,8 +514,9 @@
     .subbar { top: 52px; }
   }
 </style>
-<link rel="stylesheet" href="admin.css?v=20260611b" />
+<link rel="stylesheet" href="admin.css?v=20260611d" />
 <link rel="stylesheet" href="cart.css?v=20260611c" />
+<link rel="stylesheet" href="detail.css?v=20260611d" />
 </head>
 <body>
   <!-- Admin panel (desktop + logged in only; filled by admin.js) -->
@@ -827,8 +828,10 @@
     const n = track ? track.children.length : 1;
     let idx = 0, sx = 0, dx = 0, drag = false;
     w.__moved = false;
+    w.__idx = 0;
     function go(i){
       idx = Math.max(0, Math.min(n - 1, i));
+      w.__idx = idx; // detail viewer mở đúng tấm đang xem
       track.style.transform = 'translateX(' + (-idx * 100) + '%)';
       dots.forEach((d, k) => d.classList.toggle('active', k === idx));
     }
@@ -856,6 +859,15 @@
       w.addEventListener('pointerup', end);
       w.addEventListener('pointercancel', end);
     }
+    // tap ảnh (không phải vuốt) → mở trang xem ảnh lớn + thông tin SP
+    w.addEventListener('click', e => {
+      if(e.target.closest('.addbag')) return;
+      if(w.__moved){ w.__moved = false; return; }
+      const card = w.closest('.card');
+      const id = card.dataset.id;
+      const p = id && window.Showroom._products ? window.Showroom._products[id] : null;
+      if(p && window.ShowroomDetail) window.ShowroomDetail.open(p, w.__idx || 0);
+    });
   }
 
   // bind one card's interactive bits (nút thêm giỏ + carousel)
@@ -986,8 +998,10 @@
 
 <!-- Giỏ hàng khách vãng lai (visitor ID) — load TRƯỚC admin.js -->
 <script src="cart.js?v=20260611c"></script>
+<!-- Trang xem chi tiết SP (bấm vào ảnh) -->
+<script src="detail.js?v=20260611d"></script>
 <!-- Shared auth (auto-inits window.authManager) + admin panel -->
 <script type="module" src="../shared/esm/compat.js"></script>
-<script src="admin.js?v=20260611b"></script>
+<script src="admin.js?v=20260611d"></script>
 </body>
 </html>

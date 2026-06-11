@@ -110,6 +110,7 @@
         badge: p.badge,
         colors: p.colors || [],
         sizes: p.sizes || [],
+        description: p.description || null, // detail viewer hiển thị mô tả
         images: (p.imageIds || []).map(imgUrl),
       }));
   }
@@ -343,6 +344,10 @@
           <div class="adm-size-chips" id="fSizes"></div>
         </div>
         <div class="adm-field">
+          <label>Mô tả sản phẩm (size theo số ký, chất liệu…) — hiện khi khách bấm vào ảnh</label>
+          <textarea id="fDesc" maxlength="2000" rows="4" placeholder="VD:&#10;S: dưới 48kg · M: 49-55kg · L: 56-63kg&#10;Chất liệu lụa mềm mát, form suông"></textarea>
+        </div>
+        <div class="adm-field">
           <label>Hình ảnh (kéo vuốt xem nhiều ảnh trên preview)</label>
           <div class="adm-imgs" id="fImgs"></div>
           <input type="file" id="fFile" accept="image/*" multiple hidden>
@@ -427,13 +432,14 @@
     buildDrawer();
     draft = product
       ? { ...product, imageIds: [...(product.imageIds || [])], colors: [...(product.colors || [])], sizes: [...(product.sizes || [])] }
-      : { id: null, name: '', price: 0, salePrice: null, category: 'phukien', badge: 'Mới về', imageIds: [], colors: [], sizes: [] };
+      : { id: null, name: '', price: 0, salePrice: null, category: 'phukien', badge: 'Mới về', imageIds: [], colors: [], sizes: [], description: null };
     drawerEl.querySelector('#admDrawerTitle').textContent = product ? 'Sửa sản phẩm' : 'Thêm sản phẩm';
     drawerEl.querySelector('#fName').value = draft.name || '';
     drawerEl.querySelector('#fPrice').value = draft.price || 0;
     drawerEl.querySelector('#fSale').value = draft.salePrice != null ? draft.salePrice : '';
     drawerEl.querySelector('#fCat').value = draft.category || 'phukien';
     drawerEl.querySelector('#fBadge').value = draft.badge || '';
+    drawerEl.querySelector('#fDesc').value = draft.description || '';
     drawerEl.querySelector('#fColorInput').value = '';
     renderDraftColors();
     renderSizeChips();
@@ -535,6 +541,7 @@
       imageIds: draft.imageIds,
       colors: draft.colors,
       sizes: draft.sizes,
+      description: drawerEl.querySelector('#fDesc').value.trim() || null,
     };
     const u = getUser();
     const saveBtn = drawerEl.querySelector('#admSave');

@@ -2,6 +2,24 @@
 
 ## 2026-06-11
 
+### [showroom1] Trang chi tiết SP (bấm ảnh → ảnh lớn swipe + dots) + mô tả sản phẩm (size theo số ký) + Freesize ✅
+
+**User:** bấm vào tấm hình → hiện hình lớn + dấu chấm đếm số ảnh + lướt qua lại; dưới ảnh là thông tin SP (bổ sung mô tả size theo số ký; SP không size mặc định "Freesize"); thêm ô điền mô tả SP bên trang quản lý desktop.
+
+**Backend (`showroom-products.js`, commit `94aff7799` đã deploy):** cột `description TEXT` (ALTER idempotent), `sanitizeText` (giữ newline, cắt 2000 ký tự), POST/PUT nhận `description`, PRODUCT_COLS + rowToProduct trả về.
+
+**Frontend:**
+
+- NEW `showroom1/detail.js` + `detail.css` — `window.ShowroomDetail.open(product, startIdx)`: sheet gần full màn hình (z-index 84, dưới cart 85/picker 86) trong `.screen`: ảnh LỚN aspect 3:4 swipe pointer-events (cùng pattern carousel card) + **dots đếm số ảnh** (bấm dot nhảy ảnh, active dot giãn dài); dưới ảnh: tên (font display 21px), giá (sale gạch + accent), **Size chips — không có size → chip đen "Freesize"**, Màu chips, **khối mô tả** (multi-line esc + `<br>`, nền kem); nút × đóng + scrim; foot "Thêm vào giỏ" → đóng detail TRƯỚC rồi `ShowroomCart.addWithOptions(p, imgEl)` (picker/fly hiện rõ trên pill).
+- `index.html`: `bindImgwrap` thêm lại click — tap ảnh (không phải vuốt, có dataset.id) → `ShowroomDetail.open(p, w.__idx)` (mở đúng tấm đang xem, `go()` track `w.__idx`); load detail.css/js `?v=20260611d`; bump admin.js/css `?v=20260611d`.
+- `admin.js`: drawer thêm **textarea "Mô tả sản phẩm (size theo số ký, chất liệu…)"** (`#fDesc`, maxlength 2000, placeholder ví dụ size theo kg); openEditor fill + saveDraft gửi `description`; `toPreview` thêm `description`. `admin.css`: style textarea (resize dọc).
+
+**Verify (Playwright localhost):** tap ảnh ĐẦM TAY DÀI HT → detail 5 slides + 5 dots, swipe → dot active đổi, bấm dot về ảnh 1; sizes S/M/L + màu CAM/XANH; ÁO BALO không size → chip "Freesize"; Thêm từ detail: có variant → detail đóng + picker mở, không variant → fly + count; admin nhập mô tả → PUT lưu DB → guest mở detail thấy mô tả đúng (newline → `<br>`). Cleanup: reset description test (thông tin bịa) + empty giỏ test. ⚠ localhost:8080 bị app CRM của session song song chiếm → test trên :8099.
+
+**Files:** showroom1/{detail.js (NEW), detail.css (NEW), index.html, admin.js, admin.css}, render.com/routes/showroom-products.js.
+
+**Status:** ✅ Done — frontend commit này → GH Pages.
+
 ### [showroom1] Animation "món hàng bay vào giỏ" khi thêm SP ✅
 
 **User:** SP không có size/màu thêm vào giỏ không thấy dấu hiệu gì → muốn icon món hàng bay vào pill giỏ đen dưới cùng để khách biết đã thêm.

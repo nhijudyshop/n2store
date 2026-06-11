@@ -265,13 +265,15 @@ body.admin-on .phone-pane { display: flex; }
 }
 .adm-field input[type=text],
 .adm-field input[type=number],
-.adm-field select {
+.adm-field select,
+.adm-field textarea {
   width: 100%; box-sizing: border-box;
   font-family: var(--font-ui, sans-serif); font-size: 14px;
   padding: 11px 13px; border: 1px solid var(--hairline-2, #d8d1c4);
   background: #fff; color: var(--ink, #1a1714); outline: none;
 }
-.adm-field input:focus, .adm-field select:focus { border-color: var(--ink, #1a1714); }
+.adm-field textarea { resize: vertical; min-height: 88px; line-height: 1.6; }
+.adm-field input:focus, .adm-field select:focus, .adm-field textarea:focus { border-color: var(--ink, #1a1714); }
 .adm-field-row { display: flex; gap: 16px; }
 .adm-field-row .adm-field { flex: 1; }
 
