@@ -3,18 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `490b432` — auto: session update
-**Last updated**: 2026-06-11 16:19:32 +07
-**Latest session**: [`RESUME:20260611-161932-490b432`](../20260611-161932-490b432.md)
-**Summary**: auto: session update
+**Latest commit**: `3123092` — fix(live-chat): force extract dùng FB SDK Player API (seek/play/verify position) — hết chụp poster tĩnh
+**Last updated**: 2026-06-11 16:26:51 +07
+**Latest session**: [`RESUME:20260611-162651-3123092`](../20260611-162651-3123092.md)
+**Summary**: fix(live-chat): force extract dùng FB SDK Player API (seek/play/verify position) — hết chụp poster tĩnh
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 2 file(s)
-- [`live-chat/`](./live-chat.md) — 2 file(s)
-- [`render.com/`](./render.com.md) — 1 file(s)
-- [`so-order/`](./so-order.md) — 2 file(s)
-- [`web2/`](./web2.md) — 1 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -28,7 +24,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-11 10:18
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-08 09:55
-- [`docs/`](./docs.md) — updated 2026-06-11 16:19
+- [`docs/`](./docs.md) — updated 2026-06-11 16:26
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-11 10:18
 - [`downloads/`](./downloads.md) — updated 2026-06-11 08:36
