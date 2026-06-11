@@ -156,7 +156,7 @@ async function _autoCleanupOldSnapshots(pool) {
 
 router.use(async (req, res, next) => {
     try {
-        await ensureSchema(req.app.locals.chatDb);
+        await ensureSchema(req.app.locals.web2Db || req.app.locals.chatDb);
         next();
     } catch (e) {
         res.status(500).json({ success: false, error: 'schema: ' + e.message });
@@ -249,7 +249,7 @@ function _mapRow(row) {
 // Body limit cần tăng (Express default 100kb không đủ). Mount middleware riêng route này.
 router.post('/snapshot', express.json({ limit: '5mb' }), async (req, res) => {
     try {
-        const pool = req.app.locals.chatDb;
+        const pool = req.app.locals.web2Db || req.app.locals.chatDb;
         const b = req.body || {};
         if (!b.customerFbUserId) {
             return res.status(400).json({ success: false, error: 'customerFbUserId required' });
@@ -374,7 +374,7 @@ router.post('/snapshot/:id/refresh-thumbnail', (req, res) => {
 // GET /snapshot/:id/image — serve image bytea với Cache-Control immutable.
 router.get('/snapshot/:id/image', async (req, res) => {
     try {
-        const pool = req.app.locals.chatDb;
+        const pool = req.app.locals.web2Db || req.app.locals.chatDb;
         const r = await pool.query(
             `SELECT image_data, image_mime FROM livestream_snapshots WHERE id = $1`,
             [req.params.id]
@@ -397,7 +397,7 @@ router.get('/snapshot/:id/image', async (req, res) => {
 // List snapshots cho 1 hoặc nhiều customer (batch). Sắp xếp created_at desc.
 router.get('/snapshots', async (req, res) => {
     try {
-        const pool = req.app.locals.chatDb;
+        const pool = req.app.locals.web2Db || req.app.locals.chatDb;
         const idsRaw = String(req.query.customerFbUserId || '').trim();
         if (!idsRaw) return res.json({ success: true, snapshots: [] });
         const ids = idsRaw
@@ -422,7 +422,7 @@ router.get('/snapshots', async (req, res) => {
 // Trả {customerId: count} cho badge counter (1 query nhanh).
 router.get('/snapshots/batch-counts', async (req, res) => {
     try {
-        const pool = req.app.locals.chatDb;
+        const pool = req.app.locals.web2Db || req.app.locals.chatDb;
         const idsRaw = String(req.query.customerIds || '').trim();
         if (!idsRaw) return res.json({ success: true, counts: {} });
         const ids = idsRaw
@@ -449,7 +449,7 @@ router.get('/snapshots/batch-counts', async (req, res) => {
 // (Legacy GET: chỉ exact match by comment_id.)
 router.get('/snapshots/by-comment-ids', async (req, res) => {
     try {
-        const pool = req.app.locals.chatDb;
+        const pool = req.app.locals.web2Db || req.app.locals.chatDb;
         const idsRaw = String(req.query.commentIds || '').trim();
         if (!idsRaw) return res.json({ success: true, byCommentId: {} });
         const ids = idsRaw
@@ -504,7 +504,7 @@ router.get('/snapshots/by-comment-ids', async (req, res) => {
 // Returns: { created: N, skipped: M, failed: K, snapshots: [...] }
 router.post('/offline-batch', express.json({ limit: '5mb' }), async (req, res) => {
     try {
-        const pool = req.app.locals.chatDb;
+        const pool = req.app.locals.web2Db || req.app.locals.chatDb;
         const b = req.body || {};
         if (!b.liveVideoId) {
             return res.status(400).json({ success: false, error: 'liveVideoId required' });
@@ -615,7 +615,7 @@ router.post('/offline-batch', express.json({ limit: '5mb' }), async (req, res) =
 
 router.delete('/snapshot/:id', async (req, res) => {
     try {
-        const pool = req.app.locals.chatDb;
+        const pool = req.app.locals.web2Db || req.app.locals.chatDb;
         const r = await pool.query(
             `DELETE FROM livestream_snapshots WHERE id = $1 RETURNING customer_fb_user_id`,
             [req.params.id]
@@ -1078,7 +1078,7 @@ router.post('/extract-frame', express.json({ limit: '500kb' }), async (req, res)
         if (!_ensureExtractDeps()) {
             return res.status(503).json({ success: false, error: 'ffmpeg/yt-dlp not installed' });
         }
-        const pool = req.app.locals.chatDb;
+        const pool = req.app.locals.web2Db || req.app.locals.chatDb;
         const ids = Array.isArray(req.body?.snapshotIds)
             ? req.body.snapshotIds.map(Number).filter(Number.isFinite).slice(0, 200)
             : [];
@@ -1127,7 +1127,7 @@ router.post('/extract-all-pending', express.json({ limit: '500kb' }), async (req
         if (!_ensureExtractDeps()) {
             return res.status(503).json({ success: false, error: 'ffmpeg/yt-dlp not installed' });
         }
-        const pool = req.app.locals.chatDb;
+        const pool = req.app.locals.web2Db || req.app.locals.chatDb;
         const b = req.body || {};
         const limit = Math.min(Math.max(Number(b.limit) || 500, 1), 500);
         const where = [
@@ -1185,7 +1185,7 @@ router.post('/extract-test', express.json({ limit: '50kb' }), async (req, res) =
         if (!_ensureExtractDeps()) {
             return res.json({ ok: false, step: 'deps', error: 'deps not loaded' });
         }
-        const pool = req.app.locals.chatDb;
+        const pool = req.app.locals.web2Db || req.app.locals.chatDb;
         const id = Number(req.body?.snapshotId);
         if (!id) return res.status(400).json({ ok: false, error: 'snapshotId required' });
         const r = await pool.query(
@@ -1300,7 +1300,11 @@ router.get('/stream-url', async (req, res) => {
         if (!pageId || !liveVideoId) {
             return res.status(400).json({ success: false, error: 'pageId + liveVideoId required' });
         }
-        const m = await _resolveM3u8Url(liveVideoId, pageId, req.app.locals.chatDb);
+        const m = await _resolveM3u8Url(
+            liveVideoId,
+            pageId,
+            req.app.locals.web2Db || req.app.locals.chatDb
+        );
         if (!m) {
             return res.status(502).json({ success: false, error: 'resolve fail (Graph + yt-dlp)' });
         }
@@ -1327,6 +1331,7 @@ router.get('/stream-url', async (req, res) => {
 })();
 module.exports = router;
 module.exports.initializeNotifiers = initializeNotifiers;
+module.exports.ensureSchema = ensureSchema; // boot-migrate (web2-livestream-media-migrate) tạo bảng đích trên web2Db
 // Reuse extraction pipeline (yt-dlp + ffmpeg) cho route khác (livestream-images
 // fallback). DRY — tránh duplicate FB VOD frame extraction logic.
 module.exports._extractHelpers = {

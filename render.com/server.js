@@ -805,6 +805,17 @@ try {
 } catch (e) {
     console.error('[LIVE-POLLER] start fail:', e.message);
 }
+// One-time migrate livestream_snapshots + livestream_images chatDb → web2Db
+// (2026-06-11: chatDb 1GB bị FULL vì 2 bảng Web 2.0 này kẹt lại sau tách DB
+// 03/06 — route tạo trước ngày tách, tên không prefix web2_ nên bị sót).
+// Idempotent — dst đủ rows thì skip. KHÔNG drop bảng nguồn (chatDb là prod).
+if (web2Pool) {
+    setTimeout(() => {
+        require('./services/web2-livestream-media-migrate')
+            .migrate({ chatPool: chatDbPool, web2Pool })
+            .catch((e) => console.error('[LS-MIGRATE] fail:', e.message));
+    }, 20000); // sau boot 20s — không tranh connection lúc khởi động
+}
 app.use('/api/web2/pancake-refresh', web2PancakeRefreshRoutes);
 web2PancakeRefreshRoutes.startCron(chatDbPool); // quét mỗi 6h, refresh account auto ≤5 ngày HSD
 

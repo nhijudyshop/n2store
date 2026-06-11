@@ -135,7 +135,7 @@ function _mapRow(row, selfBase) {
 
 router.use(async (req, res, next) => {
     try {
-        await ensureSchema(req.app.locals.chatDb);
+        await ensureSchema(req.app.locals.web2Db || req.app.locals.chatDb);
         next();
     } catch (e) {
         res.status(500).json({ success: false, error: 'schema: ' + e.message });
@@ -153,7 +153,7 @@ router.use(async (req, res, next) => {
 // -----------------------------------------------------
 router.post('/', express.json({ limit: '8mb' }), async (req, res) => {
     try {
-        const pool = req.app.locals.chatDb;
+        const pool = req.app.locals.web2Db || req.app.locals.chatDb;
         const b = req.body || {};
         const capturedAt = Number(b.capturedAt) || Date.now();
         const offsetSec = Number.isFinite(b.offsetSeconds) ? Math.floor(b.offsetSeconds) : null;
@@ -223,7 +223,7 @@ router.post('/', express.json({ limit: '8mb' }), async (req, res) => {
 // GET /image/:id — serve bytea, cache immutable.
 router.get('/image/:id', async (req, res) => {
     try {
-        const pool = req.app.locals.chatDb;
+        const pool = req.app.locals.web2Db || req.app.locals.chatDb;
         const r = await pool.query(
             `SELECT image_data, image_mime FROM livestream_images WHERE id = $1`,
             [req.params.id]
@@ -244,7 +244,7 @@ router.get('/image/:id', async (req, res) => {
 // GET / — list. Query: liveCampaignId? (filter), limit (default 100, max 300).
 router.get('/', async (req, res) => {
     try {
-        const pool = req.app.locals.chatDb;
+        const pool = req.app.locals.web2Db || req.app.locals.chatDb;
         const limit = Math.min(300, Math.max(1, Number(req.query.limit) || 100));
         const campaignId = req.query.liveCampaignId ? String(req.query.liveCampaignId) : null;
         const where = campaignId ? `WHERE live_campaign_id = $1` : '';
@@ -270,7 +270,7 @@ router.get('/', async (req, res) => {
 // GET /campaigns — distinct campaigns có ảnh, để build filter dropdown.
 router.get('/campaigns', async (req, res) => {
     try {
-        const pool = req.app.locals.chatDb;
+        const pool = req.app.locals.web2Db || req.app.locals.chatDb;
         const r = await pool.query(
             `SELECT live_campaign_id, MAX(live_campaign_name) AS live_campaign_name,
                     COUNT(*)::int AS count, MAX(created_at) AS last_at
@@ -294,7 +294,7 @@ router.get('/campaigns', async (req, res) => {
 // DELETE /:id
 router.delete('/:id', async (req, res) => {
     try {
-        const pool = req.app.locals.chatDb;
+        const pool = req.app.locals.web2Db || req.app.locals.chatDb;
         const r = await pool.query(
             `DELETE FROM livestream_images WHERE id = $1 RETURNING live_campaign_id`,
             [req.params.id]
@@ -316,7 +316,7 @@ router.delete('/:id', async (req, res) => {
 // Reuse yt-dlp + ffmpeg helpers từ livestream-snapshots.js (DRY).
 router.post('/:id/extract', express.json({ limit: '50kb' }), async (req, res) => {
     try {
-        const pool = req.app.locals.chatDb;
+        const pool = req.app.locals.web2Db || req.app.locals.chatDb;
         const r = await pool.query(
             `SELECT id, live_video_id, page_id, offset_seconds FROM livestream_images WHERE id = $1`,
             [req.params.id]
@@ -352,7 +352,7 @@ router.post('/:id/extract', express.json({ limit: '50kb' }), async (req, res) =>
         res.json({ success: true, imageSize: buf.length });
     } catch (e) {
         try {
-            await req.app.locals.chatDb.query(
+            await (req.app.locals.web2Db || req.app.locals.chatDb).query(
                 `UPDATE livestream_images SET extract_status = 'fail' WHERE id = $1`,
                 [req.params.id]
             );
@@ -364,3 +364,4 @@ router.post('/:id/extract', express.json({ limit: '50kb' }), async (req, res) =>
 
 module.exports = router;
 module.exports.initializeNotifiers = initializeNotifiers;
+module.exports.ensureSchema = ensureSchema; // boot-migrate (web2-livestream-media-migrate) tạo bảng đích trên web2Db

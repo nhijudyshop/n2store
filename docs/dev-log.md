@@ -2,6 +2,20 @@
 
 ## 2026-06-11
 
+### [render][live-chat] Trả lời "sao Web 2.0 dùng chatDb?" + dời livestream_snapshots/images sang web2Db ✅
+
+**User:** "và sao web 2.0 lại dùng chatDb?" (sau khi phát hiện chatDb full vì livestream_snapshots 172MB).
+
+**Vì sao:** route `livestream-snapshots.js` tạo **23/05**, `livestream-images.js` tạo **02/06** — đều TRƯỚC ngày tách DB (03/06). Khi tách chỉ dời bảng prefix `web2_*`; 2 bảng này tên KHÔNG prefix nên bị sót lại chatDb dù server.js đã chú thích "WEB2.0" và consumer là live-chat. Hệ quả: ảnh bytea Web 2.0 phình làm FULL disk chatDb 1GB (Web 1.0 PROD) → mọi INSERT Web 1.0 nguy cơ fail.
+
+**Fix:**
+
+- 2 route đổi pool `chatDb` → `web2Db || chatDb` (20 chỗ, đúng convention Web 2.0).
+- NEW [`render.com/services/web2-livestream-media-migrate.js`](../render.com/services/web2-livestream-media-migrate.js): boot +20s copy 2 bảng chatDb → web2Db (keyset batch 20 rows vì bytea nặng, `ON CONFLICT (id) DO NOTHING`, GIỮ NGUYÊN id — thumbnail_url chứa `/snapshot/:id`; **setval sequence = MAX(id) nguồn TRƯỚC khi copy** chống snapshot mới cấp id trùng dải cũ; chỉ copy cột chung 2 schema; idempotent — dst ≥ src thì skip). Export `ensureSchema` từ 2 route cho migrate tạo bảng đích (1 nguồn DDL).
+- **KHÔNG drop bảng nguồn trên chatDb** (Web 1.0 prod) — sau khi verify migrate xong, user xác nhận mới DROP (giải phóng ~172MB → hết full disk mà không cần tăng plan).
+
+**Status:** ✅ code xong — đợi deploy Render + verify counts khớp.
+
 ### [live-chat] Force extract chụp "đúng 1 kiểu poster ▶" — root cause + chuyển sang FB SDK Player API ✅ · ⚠ PHÁT HIỆN chatDb FULL DISK
 
 **User:** force extract chạy nhưng mọi thumbnail là CÙNG 1 hình iframe offline (poster + nút ▶).
