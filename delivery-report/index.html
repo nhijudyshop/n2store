@@ -253,6 +253,15 @@
                         <button class="dr-btn dr-btn-info" onclick="DeliveryReport.printView()">
                             <i class="fas fa-print"></i> In
                         </button>
+                        <button
+                            class="dr-btn"
+                            id="drBtnCopyHandover"
+                            onclick="DeliveryReport.copyHandoverImage()"
+                            style="background: #fef3c7; color: #b45309; display: none"
+                            title="Tạo ảnh xác nhận bàn giao đơn Thành phố cho shipper (copy vào clipboard)"
+                        >
+                            <i class="fas fa-camera"></i> Copy ảnh bàn giao
+                        </button>
                     </div>
 
                     <!-- Right-side action group: history + column toggle -->
@@ -564,7 +573,7 @@
         <script src="../shared/js/wallet-pair-utils.js?v=20260526k"></script>
 
         <!-- Delivery Report Logic -->
-        <script src="js/delivery-report.js?v=20260611a"></script>
+        <script src="js/delivery-report.js?v=20260611b"></script>
         <script src="js/cancel-request.js?v=20260526k"></script>
         <script src="js/report.js?v=20260526k"></script>
 

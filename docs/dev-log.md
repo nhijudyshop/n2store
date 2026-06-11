@@ -2,6 +2,17 @@
 
 ## 2026-06-11
 
+### [delivery-report] Nút "Copy ảnh bàn giao" tab Thành phố — sinh ảnh PNG xác nhận cho shipper ✅
+
+**User:** thay tờ giấy viết tay bàn giao đơn TP cho shipper bằng ảnh PNG copy vào clipboard (paste Zalo/chat cho shipper chụp xác nhận).
+
+- **Files:** `delivery-report/index.html` (button `drBtnCopyHandover` cạnh nút In + bump `?v=20260611b`), `delivery-report/js/delivery-report.js` (hàm `copyHandoverImage` + `buildHandoverCanvas` + `formatThousand` + `handoverDateLabel`, expose qua public API, toggle hiển thị trong `updateProvinceExportButtons`).
+- **Nội dung ảnh** (canvas 900px scale 2x, thuần canvas 2D không thêm lib): header trái `TP (d/m) — N đơn: <tổng CN>`, header phải `Thu về shop: N đơn: <tổng CN thu về>`, bảng ĐƠN 0đ (`Tên KH — SĐT đầy đủ` | **Thu** = CashOnDelivery | **Giá trị** = AmountTotal | ô tròn trống "Gửi trả" cho shipper tick tay), footer timestamp + dòng ký tên. Tiền đơn vị **nghìn** (110.298 = 110.298.000đ).
+- **Phạm vi data:** chỉ đơn **ĐÃ QUÉT** (khớp `updateScanCount`); còn đơn chưa quét → `confirm` cảnh báo trước khi tạo. Thu về = đơn `isReturnItem` đã quét trên toàn data. Clipboard fail → fallback tải PNG (`BANGIAO_TP_d_m.png`). Pattern clipboard reuse từ `balance-history/js/balance-verification.js`.
+- **Test:** Playwright localhost, seed data ảo client-side (5 đơn TP trong đó 2 đơn 0đ + 2 thu về + 1 tỉnh) — verify button chỉ hiện tab city (tra soát), confirm "Còn 1 đơn CHƯA quét", ảnh 1800×800 đúng layout (tổng 895 = 770+125, thu về 1.115, truncate tên dài), edge case 0 đơn 0đ/0 thu về OK, chưa quét gì → alert chặn.
+
+**Status:** ✅ Done.
+
 ### [live-chat][render] Wipe sạch Thumbnail + Kho Hình Web 2.0 để force extract lại ✅
 
 **User:** "xóa dữ liệu Thumbnail + Kho Hình Web 2.0 để force extract lại" (data cũ chứa poster rác từ bug iframe trước khi fix SDK player).

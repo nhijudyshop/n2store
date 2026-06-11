@@ -1710,6 +1710,261 @@
         return wsData;
     }
 
+    // ── Copy ảnh bàn giao TP cho shipper ───────────────────────────
+    // Sinh ảnh PNG thay tờ giấy viết tay khi bàn giao đơn Thành phố:
+    // header = tổng đơn + tổng CN (chỉ đơn ĐÃ QUÉT), tổng Thu về bên phải,
+    // bảng đơn 0đ (Thu = CashOnDelivery, Giá trị = AmountTotal, ô tròn
+    // trống để shipper tick tay). Tiền đơn vị NGHÌN (110.298 = 110.298.000đ).
+    function formatThousand(v) {
+        return new Intl.NumberFormat('vi-VN').format(Math.round((v || 0) / 1000));
+    }
+
+    function handoverDateLabel() {
+        const f = DeliveryReportState.filters;
+        const parse = (s) => {
+            const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s || '');
+            return m ? `${Number(m[3])}/${Number(m[2])}` : null;
+        };
+        const from = parse(f.fromDate);
+        const to = parse(f.toDate);
+        if (from && to) return from === to ? from : `${from}–${to}`;
+        const now = new Date();
+        return `${now.getDate()}/${now.getMonth() + 1}`;
+    }
+
+    function buildHandoverCanvas({
+        dateLabel,
+        cityCount,
+        cityTotal,
+        zeroItems,
+        returnCount,
+        returnTotal,
+    }) {
+        const W = 900;
+        const PAD = 40;
+        const ROW_H = 38;
+        const zeroRows = Math.max(zeroItems.length, 1); // 0 đơn → 1 dòng "Không có đơn 0đ"
+        const H = 150 + 44 + 40 + zeroRows * ROW_H + 90;
+        const scale = 2;
+
+        const canvas = document.createElement('canvas');
+        canvas.width = W * scale;
+        canvas.height = H * scale;
+        const ctx = canvas.getContext('2d');
+        ctx.scale(scale, scale);
+
+        const FONT = "-apple-system, 'Segoe UI', Roboto, Arial, sans-serif";
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, W, H);
+        ctx.textBaseline = 'middle';
+
+        // Header trái: TP (5/6) — 170 đơn: 110.298
+        let y = PAD + 16;
+        ctx.fillStyle = '#111827';
+        ctx.textAlign = 'left';
+        ctx.font = `bold 28px ${FONT}`;
+        ctx.fillText(`TP (${dateLabel}) — ${formatNumber(cityCount)} đơn:`, PAD, y);
+        const headLeftW = ctx.measureText(
+            `TP (${dateLabel}) — ${formatNumber(cityCount)} đơn:`
+        ).width;
+        ctx.fillStyle = '#b45309';
+        ctx.fillText(` ${formatThousand(cityTotal)}`, PAD + headLeftW, y);
+
+        // Header phải: Thu về shop: 2 đơn: 1.115
+        ctx.textAlign = 'right';
+        ctx.fillStyle = '#7c3aed';
+        ctx.font = `bold 20px ${FONT}`;
+        ctx.fillText(
+            `Thu về shop: ${formatNumber(returnCount)} đơn: ${formatThousand(returnTotal)}`,
+            W - PAD,
+            y
+        );
+
+        // Divider
+        y = PAD + 52;
+        ctx.strokeStyle = '#d1d5db';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(PAD, y);
+        ctx.lineTo(W - PAD, y);
+        ctx.stroke();
+
+        // Tiêu đề bảng 0đ
+        y += 34;
+        ctx.textAlign = 'left';
+        ctx.fillStyle = '#111827';
+        ctx.font = `bold 20px ${FONT}`;
+        ctx.fillText(`ĐƠN 0đ (${formatNumber(zeroItems.length)} đơn)`, PAD, y);
+
+        // Header bảng: # | Khách hàng — SĐT | Thu | Giá trị | Gửi trả
+        const COL_X = { idx: PAD, name: PAD + 44, thu: 640, value: 750, circle: 820 };
+        y += 38;
+        ctx.font = `bold 15px ${FONT}`;
+        ctx.fillStyle = '#6b7280';
+        ctx.fillText('#', COL_X.idx, y);
+        ctx.fillText('Khách hàng — SĐT', COL_X.name, y);
+        ctx.textAlign = 'right';
+        ctx.fillText('Thu', COL_X.thu, y);
+        ctx.fillText('Giá trị', COL_X.value, y);
+        ctx.textAlign = 'center';
+        ctx.fillText('Gửi trả', COL_X.circle, y);
+
+        // Rows
+        const truncate = (text, maxW) => {
+            if (ctx.measureText(text).width <= maxW) return text;
+            let t = text;
+            while (t.length > 1 && ctx.measureText(t + '…').width > maxW) {
+                t = t.slice(0, -1);
+            }
+            return t + '…';
+        };
+
+        if (zeroItems.length === 0) {
+            y += ROW_H;
+            ctx.textAlign = 'left';
+            ctx.font = `italic 16px ${FONT}`;
+            ctx.fillStyle = '#9ca3af';
+            ctx.fillText('Không có đơn 0đ', COL_X.name, y);
+        } else {
+            zeroItems.forEach((item, i) => {
+                y += ROW_H;
+                // Kẻ dòng nhạt phía trên row
+                ctx.strokeStyle = '#f3f4f6';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(PAD, y - ROW_H / 2);
+                ctx.lineTo(W - PAD, y - ROW_H / 2);
+                ctx.stroke();
+
+                ctx.textAlign = 'left';
+                ctx.font = `15px ${FONT}`;
+                ctx.fillStyle = '#9ca3af';
+                ctx.fillText(String(i + 1), COL_X.idx, y);
+
+                ctx.font = `16px ${FONT}`;
+                ctx.fillStyle = '#111827';
+                const name = item.PartnerDisplayName || item.CustomerName || '';
+                const phone = item.Phone || item.Ship_Receiver_Phone || '';
+                ctx.fillText(
+                    truncate(`${name}${phone ? ' — ' + phone : ''}`, COL_X.thu - COL_X.name - 70),
+                    COL_X.name,
+                    y
+                );
+
+                ctx.textAlign = 'right';
+                ctx.fillText(formatThousand(item.CashOnDelivery), COL_X.thu, y);
+                ctx.fillStyle = '#b45309';
+                ctx.fillText(formatThousand(item.AmountTotal), COL_X.value, y);
+
+                // Ô tròn trống cho shipper tick tay
+                ctx.strokeStyle = '#9ca3af';
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.arc(COL_X.circle, y, 10, 0, Math.PI * 2);
+                ctx.stroke();
+            });
+        }
+
+        // Footer
+        y += 44;
+        ctx.strokeStyle = '#d1d5db';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(PAD, y);
+        ctx.lineTo(W - PAD, y);
+        ctx.stroke();
+
+        y += 32;
+        ctx.textAlign = 'left';
+        ctx.font = `14px ${FONT}`;
+        ctx.fillStyle = '#9ca3af';
+        const now = new Date();
+        const ts = `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+        ctx.fillText(`Tạo lúc: ${ts}`, PAD, y);
+        ctx.textAlign = 'right';
+        ctx.font = `16px ${FONT}`;
+        ctx.fillStyle = '#374151';
+        ctx.fillText('Đã nhận (ký tên): ______________', W - PAD, y);
+
+        return canvas;
+    }
+
+    async function copyHandoverImage() {
+        const state = DeliveryReportState;
+        if (state.activeTab !== 'city' || !state.traSoatMode) return;
+
+        const btn = document.getElementById('drBtnCopyHandover');
+        const btnHtml = btn ? btn.innerHTML : '';
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang tạo...';
+        }
+        const resetBtn = (html) => {
+            if (!btn) return;
+            btn.disabled = false;
+            btn.innerHTML = html || btnHtml;
+        };
+
+        try {
+            const tabData = getTabFilteredData();
+            const scannedItems = tabData.filter((i) => state.scannedNumbers.has(i.Number));
+            const unscannedCount = tabData.length - scannedItems.length;
+            if (scannedItems.length === 0) {
+                alert('Chưa có đơn Thành phố nào được quét — không có gì để bàn giao.');
+                resetBtn();
+                return;
+            }
+            if (unscannedCount > 0) {
+                const ok = confirm(
+                    `Còn ${unscannedCount} đơn Thành phố CHƯA quét.\n` +
+                        `Vẫn tạo ảnh bàn giao với ${scannedItems.length} đơn đã quét?`
+                );
+                if (!ok) {
+                    resetBtn();
+                    return;
+                }
+            }
+
+            const cityTotal = scannedItems.reduce((s, i) => s + (i.CashOnDelivery || 0), 0);
+            const zeroItems = scannedItems.filter(isZeroCOD);
+            const returnScanned = (state.allData || []).filter(
+                (i) => isReturnItem(i) && state.scannedNumbers.has(i.Number)
+            );
+            const returnTotal = returnScanned.reduce((s, i) => s + (i.CashOnDelivery || 0), 0);
+
+            const canvas = buildHandoverCanvas({
+                dateLabel: handoverDateLabel(),
+                cityCount: scannedItems.length,
+                cityTotal,
+                zeroItems,
+                returnCount: returnScanned.length,
+                returnTotal,
+            });
+            const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
+            if (!blob) throw new Error('canvas.toBlob trả về null');
+
+            try {
+                await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+                resetBtn('<i class="fas fa-check"></i> Đã copy!');
+                setTimeout(() => resetBtn(), 2000);
+            } catch (clipErr) {
+                // Browser không hỗ trợ / không cho phép clipboard → tải file PNG
+                console.warn('[DELIVERY-REPORT] clipboard write failed:', clipErr);
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = `BANGIAO_TP_${handoverDateLabel().replace(/[/–]/g, '_')}.png`;
+                a.click();
+                setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+                alert('Không copy được vào clipboard — đã tải ảnh PNG về máy thay thế.');
+                resetBtn();
+            }
+        } catch (error) {
+            console.error('[DELIVERY-REPORT] copyHandoverImage error:', error);
+            alert('Lỗi khi tạo ảnh bàn giao: ' + error.message);
+            resetBtn();
+        }
+    }
+
     function autoFitColumns(ws, wsData) {
         const cols = wsData[0].map((_, colIdx) => {
             let maxLen = 0;
@@ -2094,6 +2349,13 @@
         const isProvince = state.activeTab === 'province' && state.traSoatMode;
         if (tomatoBtn) tomatoBtn.style.display = isProvince ? '' : 'none';
         if (napBtn) napBtn.style.display = isProvince ? '' : 'none';
+
+        // Copy ảnh bàn giao: chỉ tab Thành phố (chế độ tra soát)
+        const handoverBtn = document.getElementById('drBtnCopyHandover');
+        if (handoverBtn) {
+            handoverBtn.style.display =
+                state.activeTab === 'city' && state.traSoatMode ? '' : 'none';
+        }
 
         // All-groups (multi-column) export buttons: visible only for the groups
         // currently rendered in the view (matches column visibility).
@@ -5279,6 +5541,7 @@
         hideOrder: hideOrder,
         printView: printView,
         confirmPrint: confirmPrint,
+        copyHandoverImage: copyHandoverImage,
         openCheckHistory: openCheckHistory,
         getState: () => DeliveryReportState,
     };
