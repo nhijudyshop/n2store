@@ -220,6 +220,7 @@ function initTabs() {
             const allTypeBtn = document.querySelector('#type-tabs .type-tab-btn[data-type="all"]');
             if (allTypeBtn) allTypeBtn.classList.add('active');
             renderDashboard(btn.dataset.tab);
+            updateStats(); // type filter vừa reset về "all" → stats đếm lại toàn bộ
         });
     });
 
@@ -233,6 +234,7 @@ function initTabs() {
                 document.querySelector('.tab-btn.active')?.dataset.tab || 'pending-goods';
             const term = stripAccent(document.getElementById('search-ticket')?.value || '').trim();
             renderDashboard(activeTab, term);
+            updateStats(); // stats cards + tab badges đếm theo loại vừa chọn
         });
     });
 }
@@ -3083,13 +3085,32 @@ window.toggleGuide = function () {
 };
 
 // Helper: Update Stats
+// Stats (3 cards + tab badges) tính theo chip lọc loại đang active (#type-tabs).
+// "Tất cả loại" → đếm toàn bộ; chọn loại → chỉ đếm ticket loại đó.
 function updateStats() {
-    const pendingGoods = TICKETS.filter((t) => t.status === 'PENDING_GOODS').length;
-    const pendingFinance = TICKETS.filter((t) => t.status === 'PENDING_FINANCE').length;
-    const cancelled = TICKETS.filter((t) => t.status === 'CANCELLED').length;
+    const activeTypeBtn = document.querySelector('#type-tabs .type-tab-btn.active');
+    const typeFilter = activeTypeBtn?.dataset.type || 'all';
+    const scoped =
+        typeFilter === 'all' ? TICKETS : TICKETS.filter((t) => t.type === typeFilter);
+
+    const pendingGoods = scoped.filter((t) => t.status === 'PENDING_GOODS').length;
+    const pendingFinance = scoped.filter((t) => t.status === 'PENDING_FINANCE').length;
+    const cancelled = scoped.filter((t) => t.status === 'CANCELLED').length;
+
+    // Hoàn tất hôm nay: status COMPLETED + completedAt rơi vào hôm nay (giờ local GMT+7)
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const todayStartMs = todayStart.getTime();
+    const todayEndMs = todayStartMs + 24 * 60 * 60 * 1000;
+    const completedToday = scoped.filter((t) => {
+        if (t.status !== 'COMPLETED') return false;
+        const doneAt = t.completedAt || t.completed_at || 0;
+        return doneAt >= todayStartMs && doneAt < todayEndMs;
+    }).length;
 
     elements.countPendingGoods.textContent = pendingGoods;
     elements.countPendingFinance.textContent = pendingFinance;
+    if (elements.countCompleted) elements.countCompleted.textContent = completedToday;
 
     elements.badgePendingGoods.textContent = pendingGoods > 0 ? pendingGoods : '';
     elements.badgePendingFinance.textContent = pendingFinance > 0 ? pendingFinance : '';
@@ -3100,7 +3121,7 @@ function updateStats() {
         badgeCancelled.textContent = cancelled > 0 ? cancelled : '';
     }
 
-    // Check for overdue RETURN_SHIPPER tickets (10 days old)
+    // Check for overdue RETURN_SHIPPER tickets (10 days old) — luôn tính trên toàn bộ TICKETS
     checkOverdueTickets();
 }
 

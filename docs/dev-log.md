@@ -2,6 +2,22 @@
 
 ## 2026-06-11
 
+### [issue-tracking] Stat cards + tab badges đếm theo chip lọc loại + fix "Hoàn Tất Hôm Nay" luôn 0 ✅
+
+**User:** stat thống kê (Chờ Hàng Về / Chờ Đối Soát / Hoàn Tất Hôm Nay) phải theo chip lọc loại (Tất cả loại / Không Nhận Hàng / Thu về Shipper / Khách gửi / Sửa COD) — bấm chip nào stat cập nhật theo chip đó.
+
+**Fix (`issue-tracking/js/script.js`):**
+
+1. `updateStats()` đọc chip active `#type-tabs .type-tab-btn.active` → lọc TICKETS theo `t.type` trước khi đếm (cả 3 stat cards + badges tab Chờ Hàng Về / Chờ Đối Soát / Hủy). `checkOverdueTickets()` vẫn tính trên toàn bộ TICKETS (alert quá hạn là global).
+2. Fix bug sẵn có: ô "Hoàn Tất Hôm Nay" (`count-completed-today`) chưa bao giờ được set (luôn 0) → giờ đếm `status === 'COMPLETED'` có `completedAt`/`completed_at` rơi trong hôm nay (local time).
+3. Wire `updateStats()` vào click chip lọc loại + click tab chính (tab switch reset chip về "all" → stats đếm lại toàn bộ).
+
+**Verify (Playwright localhost, 500 tickets thật từ Firebase):** all=78/146/5 khớp breakdown; BOOM=31/113, RETURN_SHIPPER=11/0 (completedToday 4), RETURN_CLIENT=30/0 (1), FIX_COD=6/33; badge Hủy 41=9+18+11+3; completedToday 4+1=5 ✓; chuyển tab → chip reset "all" → stats về 78/146 ✓.
+
+**Files:** issue-tracking/js/script.js.
+
+**Status:** ✅ Done — commit này → GH Pages.
+
 ### [showroom1] Chặn gesture "vuốt trái quay về" của webview Zalo/Messenger khi lướt xem ảnh SP ✅
 
 **User:** ở tấm ảnh đầu tiên lướt trái bị quay về Zalo/Messenger (webview hiểu nhầm thành back) → loại bỏ thao tác vuốt-quay-về trong trang; khách muốn quay về thì bấm mũi tên trên thanh trình duyệt.
