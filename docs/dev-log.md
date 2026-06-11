@@ -11,7 +11,8 @@
 - **⚠ Render deploy đang bị CHẶN**: 3 deploy liên tiếp (kể cả commit docs-only) `build_failed` sau đúng 3 giây, không có log build lỗi (log 2 build trước đó "Build successful"), status.render.com sạch → nghi **workspace hết build pipeline minutes** (auto-push hook deploy cả ngày). API không lộ quota — user cần mở Render Dashboard xem banner. Hệ quả: migration livestream media (cb45ef604) CHƯA live — sẽ tự áp ở deploy thành công kế tiếp; KHÔNG khẩn vì disk 15GB đã giải cứu.
 
 **Status:** ✅ Disk + downgrade xong, extract verified · ⏳ migration chờ build.
-**UPDATE 17:00:** test phân biệt — deploy tpos-pancake (service khác, build nhỏ) CŨNG `build_failed` tức thì → **chặn build TOÀN WORKSPACE xác nhận** (hết build minutes hoặc billing). Không sửa được qua API — user mở Render Dashboard (banner sẽ ghi lý do; Settings → Billing/Usage). Code dời thumbnail sang web2Db (cb45ef604) tự deploy khi build mở lại.
+**UPDATE 17:00:** test phân biệt — tpos-pancake CŨNG fail tức thì → chặn toàn workspace.
+**UPDATE 17:05 — CHẨN ĐOÁN CHÍNH XÁC:** Render events API lộ **`pipeline_minutes_exhausted`** — workspace HẾT BUILD MINUTES tháng 6 (hook auto-push mỗi turn → auto-deploy mỗi commit → build ~5-7'/lần npm+poetry+yt-dlp, dù đa số commit chỉ chạm frontend/docs do GH Pages serve). **Fix lâu dài đã áp qua API: Build Filters cho cả 4 services** — fallback chỉ build khi chạm `render.com/**`, tpos-pancake `live-chat/server/**`, facebook `n2store-facebook/**`, realtime `n2store-realtime/**` → cắt ~90% build minutes về sau. **Mở khóa ngay cần user**: Dashboard → Workspace Settings → upgrade plan (Professional) hoặc đợi reset 01/07. Migration thumbnail (cb45ef604) tự deploy ở build thành công kế tiếp.
 
 ### [render][live-chat] Trả lời "sao Web 2.0 dùng chatDb?" + dời livestream_snapshots/images sang web2Db ✅
 
