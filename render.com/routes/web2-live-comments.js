@@ -68,6 +68,43 @@ async function ensureTables(pool) {
         CREATE INDEX IF NOT EXISTS idx_w2lc_campaign ON web2_live_comments(campaign_id);
         CREATE INDEX IF NOT EXISTS idx_w2lc_created ON web2_live_comments(created_time DESC);
     `);
+    // MIGRATION one-time (marker-gated) 2026-06-11: created_time từng bị lưu
+    // lệch -7h — new Date(inserted_at UTC KHÔNG hậu tố Z) trên server
+    // TZ=Asia/Saigon → epoch -7h → UI hiện giờ UTC thay vì GMT+7. Parse đã fix
+    // (parseUtcTs); rows cũ shift +7h về đúng UTC. Marker chống chạy lặp
+    // (double-shift) qua restart.
+    await pool.query(
+        `CREATE TABLE IF NOT EXISTS web2_migrations (id TEXT PRIMARY KEY, applied_at BIGINT)`
+    );
+    const mig = await pool.query(`SELECT 1 FROM web2_migrations WHERE id = $1`, [
+        'w2lc_tz_fix_20260611',
+    ]);
+    if (!mig.rows.length) {
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+            const u = await client.query(
+                `UPDATE web2_live_comments
+                 SET created_time = created_time + interval '7 hours'
+                 WHERE created_time IS NOT NULL`
+            );
+            await client.query(
+                `INSERT INTO web2_migrations (id, applied_at) VALUES ($1, $2)
+                 ON CONFLICT (id) DO NOTHING`,
+                ['w2lc_tz_fix_20260611', Date.now()]
+            );
+            await client.query('COMMIT');
+            console.log(
+                `[WEB2-LIVE-COMMENTS] tz_fix_20260611: shifted created_time +7h (${u.rowCount} rows)`
+            );
+        } catch (e) {
+            await client.query('ROLLBACK').catch(() => {});
+            console.error('[WEB2-LIVE-COMMENTS] tz_fix_20260611 failed:', e.message);
+            throw e;
+        } finally {
+            client.release();
+        }
+    }
     _tablesReady = true;
 }
 
