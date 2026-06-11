@@ -2,6 +2,26 @@
 
 ## 2026-06-11
 
+### [web2][render] FIX đợt A-D toàn bộ bug audit vòng 2 — 7C tiền/kho + 7C bảo mật + 16H + ~10 MEDIUM ✅
+
+**User:** "làm đi" (fix theo lộ trình 5 đợt của audit vòng 2 sáng nay).
+
+**Cách làm:** 9 agent fix song song theo cụm file không chồng chéo (tránh hoàn toàn `live-chat/` + `web2-live-comments.js`/poller — session khác đang làm) + 1 agent code-review diff trước commit. Review bắt 1 HIGH thật (so-order map kết quả upsert theo name gán nhầm mã khi có row collision chen giữa) → fix lại theo VỊ TRÍ payload + fallback name.
+
+**Đợt A — tiền/kho:** C1 bulk-cancel PBH restock+hoàn ví per-PBH trong tx (`_cancelPbhInTx`); C2 DELETE Thu Về FOR UPDATE + guard + revert kho/ví trong tx; C3 reassign SePay idempotent (dup-check `reassignRef` + withdraw reference `sepay_reassign_out` + guard alreadyProcessed→rollback); C4 thiếu require `web2MatchAudit`; C5 confirm-purchase-partial vào transaction thật; C6 `await SW.load()` + tách toast ví/phiếu; H4 /reject tx + whitelist state; H5 guard null so-order data; H15 so-order double-pending (upsert phần thiếu theo pending tươi); H1 hoàn `wallet_deducted` cả 3 đường cancel; H2 state machine PBH; H3 manual create atomic; C7+H14 merge/split retry-23505 + giờ VN + FOR UPDATE + guard draft + advisory lock STT.
+
+**Đợt B — auth (2 mức chống vỡ prod):** HARD cho delete-all/\_vacuum (generic + dedicated-entity), web2-users GET, SSE admin topic (`?admintoken=`); SOFT (`requireWeb2AuthSoft`, enforce khi env `WEB2_AUTH_ENFORCE=1`) cho payment-signals, pbh-reports, notifications, wallets deposit/withdraw (+ hỗ trợ `x-idempotency-key`), pancake-accounts (strip token list + `x-relay-secret` path), pancake-refresh (+ IP rate-limit 5/phút); H16 IP thật cf-connecting-ip + guard admin cuối ở PATCH.
+
+**Đợt C — XSS + chức năng chết:** S6 escapeHtml 5 ký tự + `escJs` mọi inline onclick + `safeImageUrl` (products-app + page-builder 87 trang, bump `?v=20260611s6`); S7 `safeUrl` chặn `javascript:` (server validate + notifications page + bell); H7 trang Phân quyền viết lại theo API thật (`d.users`, `d.user.permissions`, PUT `{slug:[actions]}` theo registry `GET /pages`, gửi token); H8 `groupName`.
+
+**Đợt D — SSE ví:** H6 fix trọn server-side (eventType `wallet_update`→`update`, wildcard payload key = key client đã subscribe, separator `:`, supplier-wallet/debt đổi `wallet:all`→`web2:wallet:*`, WALLET_ALL đổi value); S5 strip PII payload ví + relay-notify fail-closed; dashboard SSE `?nocache=1`.
+
+**Còn mở:** H11 (live-chat delta miss comment UPDATE — session live-chat đang xử lý folder đó), đợt E kiến trúc ví NCC, MEDIUM 1D còn lại. **Để enforce auth thật:** wire `x-web2-token` vào client theo checklist mục 0 file MD → bật `WEB2_AUTH_ENFORCE=1`.
+
+**Files:** fast-sale-orders.js, web2-returns.js, v2/web2-balance-history.js, web2-products.js, web2-generic.js, web2-dedicated-entity.js, native-orders.js, purchase-refund.js, middleware/web2-auth.js, pancake-accounts.js, web2-pancake-refresh.js, web2-users.js, pbh-reports.js, v2/notifications.js, v2/web2-wallets.js, web2-payment-signals.js, realtime-sse-web2.js + frontend: pbh-app, purchase-refund-app, supplier-wallet-app, supplier-debt-app, so-order-app, web2-products-app, page-builder, users-permissions, report-delivery, notifications, web2-notification-bell, web2-sse-topics, dashboard, admin-sse-monitor (+ bump ?v=). Docs: WEB2-PAGES-ANALYSIS.md (⬜→✅ + sha từng dòng, mục 5 trạng thái đợt, checklist enforce) + overview #auditPages.
+
+**Status:** ✅ Done — commits `22ba307df`, `feb3a0281`, `5e154518b` + docs. Render auto-deploy theo push.
+
 ### [live-chat] Audit nút Force extract — tìm + fix 3 bug (staff-check sót 830 comment, resolve sai video, extract cả người ẩn) ✅
 
 **User:** "xem nút force extract này hoạt động đúng chưa? Có bug gì không?"

@@ -342,14 +342,14 @@
                         >
                         <span
                             style="
-                                background: #fee2e2;
-                                color: #991b1b;
+                                background: #dcfce7;
+                                color: #166534;
                                 font-size: 12px;
                                 font-weight: 700;
                                 padding: 3px 10px;
                                 border-radius: 999px;
                             "
-                            >Vòng 2: 2026-06-11 🔴 7C+7S+16H mới ĐANG MỞ</span
+                            >Vòng 2: 2026-06-11 ✅ đợt A-D ĐÃ FIX (còn H11 + đợt E)</span
                         >
                     </div>
                     <p style="margin: 0 0 12px; font-size: 13px; color: #475569; line-height: 1.6">
@@ -361,19 +361,24 @@
                             >xác nhận đa số fix vòng 1 đứng vững (Bán Hàng 16/18, Sản phẩm 7/9, 8/8
                             Top CRITICAL)</strong
                         >
-                        nhưng phát hiện
-                        <strong style="color: #991b1b"
-                            >cụm bug MỚI: 7 CRITICAL tiền/kho + 7 CRITICAL bảo mật + 16 HIGH</strong
-                        >
-                        (25/25 được confirm độc lập). Danh sách canonical + trạng thái ⬜/✅ ở
+
+                        và phát hiện cụm bug MỚI: 7 CRITICAL tiền/kho + 7 CRITICAL bảo mật + 16 HIGH
+                        (25/25 confirm độc lập) →
+                        <strong style="color: #166534"
+                            >ĐÃ FIX đợt A-D cùng ngày (commits 22ba307df + feb3a0281 + 5e154518b):
+                            C1-C7, S1-S7, H1-H10, H12-H16 + ~10 MEDIUM ✅</strong
+                        >. Còn mở: H11 (live-chat — session khác đang làm), đợt E kiến trúc ví NCC.
+                        Danh sách canonical + trạng thái từng dòng ở
                         <a
                             href="https://github.com/nhijudyshop/n2store/blob/main/docs/web2/WEB2-PAGES-ANALYSIS.md"
                             target="_blank"
                             style="font-weight: 700"
                             >docs/web2/WEB2-PAGES-ANALYSIS.md</a
                         >
-                        (mục 1). ⏳ Fix backend cần deploy Render mới có hiệu lực (frontend đã
-                        live).
+                        (mục 1 + mục 5). ⏳ Fix backend cần deploy Render (auto theo push). ⚠ Auth
+                        page-coupled đang ở chế độ SOFT — bật env
+                        <code>WEB2_AUTH_ENFORCE=1</code> sau khi wire token client (checklist mục 0
+                        file MD).
                     </p>
 
                     <p
@@ -401,22 +406,22 @@
                         live-chat trong WEB2-PAGES-ANALYSIS.md.
                     </p>
 
-                    <!-- Vòng 2: bug mới đang mở -->
+                    <!-- Vòng 2: bug mới — ĐÃ FIX đợt A-D -->
                     <div
                         style="
-                            background: #fef2f2;
-                            border: 1px solid #fecaca;
+                            background: #f0fdf4;
+                            border: 1px solid #bbf7d0;
                             border-radius: 10px;
                             padding: 12px 14px;
                             margin-bottom: 12px;
                             font-size: 12.5px;
-                            color: #7f1d1d;
+                            color: #14532d;
                             line-height: 1.7;
                         "
                     >
                         <div style="font-weight: 700; font-size: 13.5px; margin-bottom: 4px">
-                            🔴 Vòng 2 (2026-06-11) — bug MỚI đang mở (top, full list ở mục 1 file
-                            MD)
+                            ✅ Vòng 2 (2026-06-11) — bug MỚI phát hiện sáng, FIX đợt A-D chiều cùng
+                            ngày (commits 22ba307df + feb3a0281 + 5e154518b; chi tiết mục 1 file MD)
                         </div>
                         <ul style="margin: 0; padding-left: 18px">
                             <li>
@@ -450,9 +455,12 @@
                                 + topic <code>wallet:all</code> không tồn tại).
                             </li>
                             <li>
-                                <strong>Lộ trình fix 5 đợt (A-E):</strong> xem mục 5 file MD — đợt A
-                                chặn mất tiền/kho, đợt B auth blanket, đợt C XSS + chức năng chết,
-                                đợt D SSE ví/realtime, đợt E kiến trúc ví NCC.
+                                <strong>Trạng thái (mục 5 file MD):</strong> ✅ đợt A tiền/kho · ✅
+                                đợt B auth (SOFT-mode — bật <code>WEB2_AUTH_ENFORCE=1</code> sau khi
+                                wire <code>x-web2-token</code> vào client, checklist mục 0 file MD)
+                                · ✅ đợt C XSS + chức năng chết · ✅ đợt D SSE ví/realtime · ⬜ H11
+                                (live-chat delta miss comment UPDATE — session live-chat đang xử lý)
+                                · ⬜ đợt E kiến trúc ví NCC (server route + SSE).
                             </li>
                         </ul>
                     </div>
