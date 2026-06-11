@@ -2,6 +2,24 @@
 
 ## 2026-06-11
 
+### [showroom1] UX giỏ hàng v2 theo feedback user: nút giỏ trên card thay tim + sheet chọn size/màu + nâng pill khỏi mép ✅
+
+**User:** (1) pill giỏ bị mép phone che → đưa lên; icon cookie bên trái dư → xóa; (2) icon trái tim đổi thành icon giỏ hàng, khách bấm NÚT để thêm chứ không bấm ảnh; (3) khi thêm cho khách chọn size/màu — giao diện đơn giản nhất cho người ~40 tuổi.
+
+**Thay đổi:**
+
+- `index.html`: `.floaties` bottom 26→54px (trên mép bo + home indicator); XÓA cookie FAB (button + handler + CSS, gỡ luôn `.fab.chat` chết); CSS `.fav` → `.addbag` (nút tròn trắng 38px nổi shadow, icon lucide `shopping-cart`) áp cho 12 card demo + `buildCardEl`; **bỏ hẳn click-ảnh-thêm-giỏ** trong `bindImgwrap` (ảnh chỉ còn swipe carousel); `bindFav` → `bindAddBag` → gọi `ShowroomCart.addWithOptions(product)` lấy full product từ map mới `window.Showroom._products` (renderGrid build, có sizes/colors/images); bump ?v=20260611b.
+- `cart.js`: item thêm `size`/`color` — **cùng SP khác size/màu = dòng riêng** (find theo productId+size+color, row giỏ tham chiếu theo index); `addWithOptions`: SP không có size/màu → thêm thẳng, có → mở **sheet chọn size/màu** (`#pickSheet`, z-index 86): thumb+tên+giá, chips to 48px chữ 15px, nhóm 1 lựa chọn tự chọn sẵn, bấm "Thêm vào giỏ" thiếu chọn → toast "Bạn chưa chọn size/màu" giữ sheet; nút Đóng. Cart sheet row hiện dòng variant `M · CAM`.
+- `cart.css`: styles `.addbag` ở index, `.pick-*` (chips to dễ bấm), `.cart-variant`.
+- `admin.js/css`: item giỏ khách hiện ` M · CAM` (qua esc(), màu accent).
+- Backend `showroom-carts.js` (đã deploy trước, commit `2de07b4b6`): `sanitizeItems` nhận `size`/`color` (≤40 ký tự, strip `<>`), dedupe theo productId+size+color.
+
+**Verify (Playwright localhost + curl prod):** click ảnh KHÔNG thêm (count 0); nút giỏ SP có variant → picker S/M/L + CAM/XANH; confirm thiếu → toast giữ sheet; chọn M+CAM → "Đã thêm vào giỏ · ĐẦM TAY DÀI HT (M · CAM)"; SP không variant thêm thẳng; giỏ + admin đều hiện variant; PUT prod 2 dòng cùng SP khác size OK; cookie FAB mất, floaties 54px. Cleanup giỏ test (#6 còn 2 item test — không có token để empty, sẽ sạch khi TRUNCATE reset counter).
+
+**Files:** showroom1/{index.html, cart.js, cart.css, admin.js, admin.css}, render.com/routes/showroom-carts.js.
+
+**Status:** ✅ Done — frontend commit này → GH Pages.
+
 ### [live-chat][render] ⏰ Fix múi giờ GMT+7 — comment livestream hiện giờ UTC (03:47 thay vì 10:47) ✅
 
 **User:** "giao diện web 2.0 toàn bộ là gmt+7 → hiển thị ra phải đúng định dạng gmt+7" (kèm screenshot live-chat hiện 03:47). Ghi rule vào memory + CLAUDE.md + dev-log.

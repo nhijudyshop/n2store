@@ -311,20 +311,24 @@
     font-weight: 400;
   }
   .badge.sale { color: var(--accent); }
-  .fav {
+  /* nút thêm vào giỏ trên mỗi card (thay icon trái tim cũ) */
+  .addbag {
     position: absolute;
     top: 9px; right: 9px;
     z-index: 4;
-    width: 30px; height: 30px;
+    width: 38px; height: 38px;
+    border-radius: 50%;
     display: flex; align-items: center; justify-content: center;
-    border: 0; background: none; cursor: pointer; padding: 0;
+    border: 1px solid var(--hairline-2);
+    background: var(--paper);
+    cursor: pointer; padding: 0;
     color: var(--ink);
+    box-shadow: 0 4px 14px -4px rgba(40,33,24,.4);
     transition: transform .15s ease;
   }
-  .fav i { width: 18px; height: 18px; }
-  .fav i svg { stroke-width: 1.4; transition: fill .2s ease; }
-  .fav.on i svg { fill: var(--accent); stroke: var(--accent); }
-  .fav:active { transform: scale(.82); }
+  .addbag i { width: 20px; height: 20px; }
+  .addbag i svg { stroke-width: 1.7; }
+  .addbag:active { transform: scale(.82); }
   .dots {
     position: absolute;
     bottom: 10px; left: 12px; right: auto;
@@ -388,7 +392,8 @@
   .foot .mk { font-family: var(--font-display); font-size: 19px; letter-spacing: .4em; text-indent: .4em; color: var(--muted); margin-top: 16px; }
 
   /* ---------- Floating buttons ---------- */
-  .floaties { position: absolute; bottom: 26px; left: 0; right: 0; z-index: 50; pointer-events: none; }
+  /* bottom 54px: nằm rõ trên mép bo tròn của khung phone + home indicator */
+  .floaties { position: absolute; bottom: 54px; left: 0; right: 0; z-index: 50; pointer-events: none; }
   .fab {
     position: absolute;
     width: 52px; height: 52px;
@@ -400,8 +405,6 @@
     transition: transform .15s ease;
   }
   .fab:active { transform: scale(.9); }
-  .fab.chat { right: 18px; background: var(--ink); color: var(--paper); }
-  .fab.cookie { left: 18px; width: 46px; height: 46px; background: var(--paper); color: var(--ink); border: 1px solid var(--hairline-2); }
   .fab i { width: 22px; height: 22px; }
   .fab i svg { stroke-width: 1.5; }
 
@@ -511,8 +514,8 @@
     .subbar { top: 52px; }
   }
 </style>
-<link rel="stylesheet" href="admin.css?v=20260611" />
-<link rel="stylesheet" href="cart.css?v=20260611a" />
+<link rel="stylesheet" href="admin.css?v=20260611b" />
+<link rel="stylesheet" href="cart.css?v=20260611b" />
 </head>
 <body>
   <!-- Admin panel (desktop + logged in only; filled by admin.js) -->
@@ -566,7 +569,7 @@
                 <div class="slide"><img class="pimg" src="assets/dam_c.png" alt="" draggable="false"></div>
               </div>
               <span class="badge">Mới về</span>
-              <button class="fav" aria-label="Thêm vào yêu thích"><i data-lucide="heart"></i></button>
+              <button class="addbag" aria-label="Thêm vào giỏ"><i data-lucide="shopping-cart"></i></button>
               <div class="dots"><span class="active"></span><span></span><span></span></div>
             </div>
             <div class="meta">
@@ -582,7 +585,7 @@
                 <div class="slide"><img class="pimg" src="assets/ao_b.png" alt="" draggable="false"></div>
               </div>
               <span class="badge">Mới về</span>
-              <button class="fav" aria-label="Thêm vào yêu thích"><i data-lucide="heart"></i></button>
+              <button class="addbag" aria-label="Thêm vào giỏ"><i data-lucide="shopping-cart"></i></button>
               <div class="dots"><span class="active"></span><span></span></div>
             </div>
             <div class="meta">
@@ -598,7 +601,7 @@
                 <div class="slide"><img class="pimg" src="assets/quan_b.png" alt="" draggable="false"></div>
               </div>
               <span class="badge">Mới về</span>
-              <button class="fav" aria-label="Thêm vào yêu thích"><i data-lucide="heart"></i></button>
+              <button class="addbag" aria-label="Thêm vào giỏ"><i data-lucide="shopping-cart"></i></button>
               <div class="dots"><span class="active"></span><span></span></div>
             </div>
             <div class="meta">
@@ -615,7 +618,7 @@
                 <div class="slide"><img class="pimg" src="assets/set_c.png" alt="" draggable="false"></div>
               </div>
               <span class="badge sale">Số lượng cuối</span>
-              <button class="fav" aria-label="Thêm vào yêu thích"><i data-lucide="heart"></i></button>
+              <button class="addbag" aria-label="Thêm vào giỏ"><i data-lucide="shopping-cart"></i></button>
               <div class="dots"><span class="active"></span><span></span><span></span></div>
             </div>
             <div class="meta">
@@ -769,7 +772,6 @@
 
       <!-- floating buttons -->
       <div class="floaties">
-        <button class="fab cookie" id="cookieFab" aria-label="Cookie settings"><i data-lucide="cookie"></i></button>
         <!-- pill mã khách + giỏ hàng (cart.js điền số + bind click) -->
         <button class="fab idpill" id="idPill" aria-label="Giỏ hàng và mã khách của bạn">
           <i data-lucide="shopping-bag"></i><b id="pillId">…</b><span class="pill-n" id="pillN" hidden>0</span>
@@ -791,16 +793,6 @@
   const $ = (s, r=document) => r.querySelector(s);
   const $$ = (s, r=document) => [...r.querySelectorAll(s)];
 
-  let favCount = 0, bagCount = 0;
-  const favCountEl = $('#favCount');
-  const bagCountEl = $('#bagCount');
-
-  function bump(el, n){
-    if(!el) return;
-    if(n > 0){ el.style.display = 'flex'; el.textContent = n; }
-    else { el.style.display = 'none'; }
-  }
-
   // toast
   const toast = $('#toast');
   let toastT;
@@ -811,24 +803,23 @@
     toastT = setTimeout(()=>toast.classList.remove('show'), 1800);
   }
 
-  // product wishlist heart — bind a single fav button
-  function bindFav(btn){
+  // nút giỏ hàng trên card → mở sheet chọn size/màu rồi thêm vào giỏ (cart.js)
+  function bindAddBag(btn){
     btn.addEventListener('click', e => {
       e.stopPropagation();
-      const on = btn.classList.toggle('on');
-      const name = btn.closest('.card').querySelector('.pname').textContent;
-      favCount += on ? 1 : -1;
-      if(favCount < 0) favCount = 0;
-      bump(favCountEl, favCount);
-      showToast(on ? 'Đã lưu · ' + name : 'Đã bỏ khỏi yêu thích');
-      lucide.createIcons();
+      const card = btn.closest('.card');
+      const name = card.querySelector('.pname').textContent;
+      const id = card.dataset.id;
+      const p = id && window.Showroom._products ? window.Showroom._products[id] : null;
+      if(p && window.ShowroomCart){
+        window.ShowroomCart.addWithOptions(p);
+      } else {
+        showToast('Đã thêm vào giỏ · ' + name); // card demo (không có id)
+      }
     });
   }
 
-  // header buttons (#idPill do cart.js bind → mở giỏ hàng)
-  $('#cookieFab').addEventListener('click', ()=> showToast('Tùy chọn cookie'));
-
-  // image carousel (swipe) + quick add to bag on tap — bind a single imgwrap
+  // image carousel (swipe only — thêm giỏ qua nút .addbag, KHÔNG bấm ảnh)
   function bindImgwrap(w){
     const track = w.querySelector('.track');
     const dots = [...w.querySelectorAll('.dots span')];
@@ -842,7 +833,7 @@
     }
     if(track){
       w.addEventListener('pointerdown', e => {
-        if(e.target.closest('.fav')) return;
+        if(e.target.closest('.addbag')) return;
         drag = true; w.__moved = false; sx = e.clientX; dx = 0;
         track.style.transition = 'none';
         try { w.setPointerCapture(e.pointerId); } catch(_) {}
@@ -864,28 +855,12 @@
       w.addEventListener('pointerup', end);
       w.addEventListener('pointercancel', end);
     }
-    w.addEventListener('click', e => {
-      if(e.target.closest('.fav')) return;
-      if(w.__moved){ w.__moved = false; return; }
-      const card = w.closest('.card');
-      const name = card.querySelector('.pname').textContent;
-      // Card thật (từ API) có dataset.id → lưu giỏ server-side qua cart.js.
-      // Card demo hardcode không có id → chỉ toast như cũ.
-      const product = card.dataset.id ? {
-        id: card.dataset.id,
-        name: name,
-        price: Number(card.dataset.price) || 0,
-        image: (card.querySelector('.pimg') || {}).src || null,
-      } : null;
-      if(product && window.ShowroomCart) window.ShowroomCart.add(product);
-      showToast('Đã thêm vào giỏ · ' + name);
-    });
   }
 
-  // bind one card's interactive bits (fav + carousel)
+  // bind one card's interactive bits (nút thêm giỏ + carousel)
   function bindCard(card){
-    const fav = card.querySelector('.fav');
-    if(fav) bindFav(fav);
+    const ab = card.querySelector('.addbag');
+    if(ab) bindAddBag(ab);
     const w = card.querySelector('.imgwrap');
     if(w) bindImgwrap(w);
   }
@@ -986,7 +961,7 @@
     const badge = p.badge ? '<span class="badge'+(sale?' sale':'')+'">'+p.badge+'</span>' : '';
     card.innerHTML =
       '<div class="imgwrap"><div class="track">'+slides+'</div>'+badge+
-        '<button class="fav" aria-label="Thêm vào yêu thích"><i data-lucide="heart"></i></button>'+dots+
+        '<button class="addbag" aria-label="Thêm vào giỏ"><i data-lucide="shopping-cart"></i></button>'+dots+
       '</div>'+
       '<div class="meta"><div class="pname">'+escH(p.name||'')+'</div>'+
         '<div class="price">'+priceMarkup(p)+'</div>'+variantsMarkup(p)+'</div>';
@@ -995,20 +970,23 @@
   function renderGrid(products){
     const grid = $('#grid');
     if(!grid) return;
+    // map SP theo id — cart.js cần full product (sizes/colors/images) cho sheet chọn size/màu
+    window.Showroom._products = {};
+    (products||[]).forEach(p => { if(p.id) window.Showroom._products[p.id] = p; });
     grid.innerHTML = '';
     (products||[]).forEach(p => { const el = buildCardEl(p); grid.appendChild(el); bindCard(el); });
     lucide.createIcons();
   }
 
-  // expose for admin.js
-  window.Showroom = { renderGrid: renderGrid, showToast: showToast };
+  // expose for admin.js + cart.js
+  window.Showroom = { renderGrid: renderGrid, showToast: showToast, _products: {} };
 
 </script>
 
 <!-- Giỏ hàng khách vãng lai (visitor ID) — load TRƯỚC admin.js -->
-<script src="cart.js?v=20260611"></script>
+<script src="cart.js?v=20260611b"></script>
 <!-- Shared auth (auto-inits window.authManager) + admin panel -->
 <script type="module" src="../shared/esm/compat.js"></script>
-<script src="admin.js?v=20260611"></script>
+<script src="admin.js?v=20260611b"></script>
 </body>
 </html>

@@ -71,6 +71,11 @@
   color: var(--ink);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
+.cart-variant {
+  font-size: 11.5px; font-weight: 600;
+  color: var(--ink-soft, #4a443a);
+  margin-top: 3px; letter-spacing: .06em;
+}
 .cart-price { font-size: 11.5px; color: var(--muted, #8d8576); margin-top: 4px; letter-spacing: .04em; }
 .cart-qty {
   display: flex; align-items: center; gap: 0;
@@ -141,3 +146,45 @@
 }
 .cart-cbtn.call { background: var(--ink); color: var(--paper); border-color: var(--ink); }
 .cart-cbtn:active { opacity: .75; }
+
+/* ---------- Sheet chọn size/màu (chữ to, nút to — dễ dùng cho người lớn tuổi) ---------- */
+.sheet.pick-sheet { z-index: 86; }
+.pick-prod {
+  display: flex; align-items: center; gap: 14px;
+  padding: 14px 22px;
+  border-bottom: 1px solid var(--hairline);
+}
+.pick-thumb {
+  width: 62px; height: 78px; flex: 0 0 62px;
+  background: #efe9df; overflow: hidden;
+  display: flex; align-items: center; justify-content: center;
+}
+.pick-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.pick-meta { min-width: 0; }
+.pp-name {
+  font-size: 14.5px; letter-spacing: .03em; color: var(--ink);
+  line-height: 1.4;
+}
+.pp-price { font-size: 13px; color: var(--muted, #8d8576); margin-top: 4px; }
+.pick-group { padding: 14px 22px 6px; }
+.pick-label {
+  font-size: 12px; letter-spacing: .16em; text-transform: uppercase;
+  color: var(--muted, #8d8576);
+  margin-bottom: 11px;
+}
+.pick-chips { display: flex; flex-wrap: wrap; gap: 10px; padding-bottom: 8px; }
+.pick-chip {
+  min-width: 58px; min-height: 48px;
+  padding: 0 20px;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-ui);
+  font-size: 15px; letter-spacing: .04em;
+  border: 1.5px solid var(--hairline-2);
+  background: var(--paper); color: var(--ink);
+  cursor: pointer;
+  transition: all .14s ease;
+}
+.pick-chip.on { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.pick-chip:active { transform: scale(.95); }
+.pick-foot .pick-confirm { font-size: 13px; padding: 18px; }
+.pick-foot .btn-clear { font-size: 12px; }

@@ -430,5 +430,6 @@ body.admin-on .phone-pane { display: flex; }
 }
 .adm-cart-item .q { flex: 0 0 auto; font-weight: 600; color: var(--ink, #1a1714); }
 .adm-cart-item .n { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.adm-cart-item .v { font-style: normal; font-weight: 600; font-size: 11px; color: var(--accent, #6f2233); }
 .adm-cart-item .p { flex: 0 0 auto; color: var(--muted, #8d8576); }
 .adm-empty.sm { padding: 8px 0; font-size: 11px; }

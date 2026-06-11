@@ -1,8 +1,8 @@
 // #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes.
 // Showroom1 — mã định danh khách vãng lai + giỏ hàng server-side.
 // Khách vào trang lần đầu được cấp mã tăng dần từ 1 (POST /api/showroom-carts/visitors),
-// mã hiện trên pill #idPill (thay FAB chat). Thêm SP → lưu giỏ server-side (debounce PUT).
-// Bấm pill → bottom-sheet giỏ hàng (không chuyển trang) + mã to + nút Gọi/Zalo/Messenger.
+// mã hiện trên pill #idPill (thay FAB chat). Bấm nút giỏ trên card → sheet chọn size/màu
+// (UI to, đơn giản) → lưu giỏ server-side (debounce PUT). Bấm pill → bottom-sheet giỏ hàng.
 // Khách chốt đơn bằng cách gọi/nhắn MÃ cho shop → shop tra giỏ trong admin panel.
 // UI-first: mutation hiện ngay, lỗi mạng KHÔNG rollback (cache local + retry) — rollback
 // giỏ trên webview Messenger/Zalo chập chờn sẽ phá ý định mua của khách.
@@ -24,12 +24,14 @@
 
   // ---------- state ----------
   let visitor = null; // {id, token}
-  let items = []; // [{productId, name, price, qty, image}]
+  let items = []; // [{productId, name, price, qty, image, size, color}]
   let dirty = false; // có thay đổi chưa lưu được lên server
   let saveT = null;
   let registering = false;
   let sheetOpen = false;
   let sheetBuilt = false;
+  let pickerBuilt = false;
+  let picking = null; // {prod, size, color} — SP đang chọn size/màu
 
   // ---------- utils ----------
   const $ = (s, r) => (r || document).querySelector(s);
@@ -165,39 +167,159 @@
     dirty = true;
     scheduleSave();
   }
-  function add(product) {
-    if (!product || !product.id) return false;
-    const ex = items.find((it) => it.productId === product.id);
+  function variantText(it) {
+    return [it.size, it.color].filter(Boolean).join(' · ');
+  }
+  // cùng SP nhưng khác size/màu = dòng riêng trong giỏ
+  function findItem(productId, size, color) {
+    return items.find(
+      (it) => it.productId === productId && (it.size || '') === (size || '') && (it.color || '') === (color || '')
+    );
+  }
+  function addItem(prod, size, color) {
+    const ex = findItem(prod.id, size, color);
     if (ex) {
       ex.qty = Math.min(MAX_QTY, (Number(ex.qty) || 1) + 1);
     } else {
       items.push({
-        productId: String(product.id),
-        name: String(product.name || ''),
-        price: Number(product.price) || 0,
+        productId: String(prod.id),
+        name: String(prod.name || ''),
+        price: Number(prod.price) || 0,
         qty: 1,
-        image: typeof product.image === 'string' && product.image.startsWith('https://') ? product.image : null,
+        image: typeof prod.image === 'string' && prod.image.startsWith('https://') ? prod.image : null,
+        size: size || '',
+        color: color || '',
       });
     }
     afterMutate();
-    return true;
-  }
-  function setQty(pid, qty) {
-    const it = items.find((x) => x.productId === pid);
-    if (!it) return;
-    it.qty = Math.max(1, Math.min(MAX_QTY, qty));
-    afterMutate();
-  }
-  function removeItem(pid) {
-    const idx = items.findIndex((x) => x.productId === pid);
-    if (idx === -1) return;
-    const name = items[idx].name;
-    items.splice(idx, 1);
-    afterMutate();
-    toast('Đã bỏ khỏi giỏ · ' + name);
+    if (!visitor && !registering) register(false); // retry đăng ký nếu lần đầu fail
   }
 
-  // ---------- bottom sheet ----------
+  // Chuẩn hóa product từ preview của admin.js (toPreview): {id,name,price,salePrice,sizes,colors,images}
+  function normalizeProduct(p) {
+    const sale = p.salePrice != null && p.salePrice > 0 && p.salePrice < p.price;
+    return {
+      id: String(p.id),
+      name: String(p.name || ''),
+      price: sale ? Number(p.salePrice) : Number(p.price) || 0,
+      image: Array.isArray(p.images) && p.images[0] ? p.images[0] : typeof p.image === 'string' ? p.image : null,
+      sizes: Array.isArray(p.sizes) ? p.sizes.filter(Boolean) : [],
+      colors: Array.isArray(p.colors) ? p.colors.filter(Boolean) : [],
+    };
+  }
+
+  // Entry point từ nút giỏ trên card: SP có size/màu → mở sheet chọn; không có → thêm luôn
+  function addWithOptions(rawProduct) {
+    if (!rawProduct || !rawProduct.id) return false;
+    const prod = normalizeProduct(rawProduct);
+    if (!prod.sizes.length && !prod.colors.length) {
+      addItem(prod, '', '');
+      toast('Đã thêm vào giỏ · ' + prod.name);
+      return true;
+    }
+    openPicker(prod);
+    return true;
+  }
+
+  // ---------- sheet CHỌN SIZE/MÀU (đơn giản, chữ to cho người lớn tuổi) ----------
+  function buildPicker() {
+    if (pickerBuilt) return;
+    const screen = $('.screen');
+    if (!screen) return;
+    const scrim = document.createElement('div');
+    scrim.className = 'sheet-scrim';
+    scrim.id = 'pickScrim';
+    const sheet = document.createElement('div');
+    sheet.className = 'sheet pick-sheet';
+    sheet.id = 'pickSheet';
+    sheet.innerHTML =
+      '<div class="grab"></div>' +
+      '<h3 id="pickTitle">Chọn size &amp; màu</h3>' +
+      '<div class="sheet-body">' +
+        '<div class="pick-prod">' +
+          '<div class="pick-thumb" id="pickThumb"></div>' +
+          '<div class="pick-meta"><div class="pp-name" id="pickName"></div><div class="pp-price" id="pickPrice"></div></div>' +
+        '</div>' +
+        '<div class="pick-group" id="pickSizeGroup"><div class="pick-label">Chọn size</div><div class="pick-chips" id="pickSizes"></div></div>' +
+        '<div class="pick-group" id="pickColorGroup"><div class="pick-label">Chọn màu</div><div class="pick-chips" id="pickColors"></div></div>' +
+      '</div>' +
+      '<div class="sheet-foot pick-foot">' +
+        '<button class="btn-clear" id="pickCancel">Đóng</button>' +
+        '<button class="btn-apply pick-confirm" id="pickConfirm">Thêm vào giỏ</button>' +
+      '</div>';
+    screen.appendChild(scrim);
+    screen.appendChild(sheet);
+    scrim.addEventListener('click', closePicker);
+    sheet.querySelector('#pickCancel').addEventListener('click', closePicker);
+    sheet.querySelector('.grab').addEventListener('click', closePicker);
+    // chọn chip (event delegation cho cả 2 nhóm)
+    sheet.querySelector('.sheet-body').addEventListener('click', (e) => {
+      const chip = e.target.closest('.pick-chip');
+      if (!chip || !picking) return;
+      const group = chip.closest('.pick-chips').id === 'pickSizes' ? 'size' : 'color';
+      picking[group] = chip.dataset.v;
+      renderPickerChips();
+    });
+    sheet.querySelector('#pickConfirm').addEventListener('click', () => {
+      if (!picking) return;
+      const p = picking;
+      if (p.prod.sizes.length && !p.size) {
+        toast('Bạn chưa chọn size');
+        return;
+      }
+      if (p.prod.colors.length && !p.color) {
+        toast('Bạn chưa chọn màu');
+        return;
+      }
+      addItem(p.prod, p.size, p.color);
+      const vt = [p.size, p.color].filter(Boolean).join(' · ');
+      toast('Đã thêm vào giỏ · ' + p.prod.name + (vt ? ' (' + vt + ')' : ''));
+      closePicker();
+    });
+    pickerBuilt = true;
+  }
+
+  function renderPickerChips() {
+    if (!picking) return;
+    const chip = (v, on) =>
+      '<button class="pick-chip' + (on ? ' on' : '') + '" data-v="' + esc(v) + '">' + esc(v) + '</button>';
+    const sg = $('#pickSizeGroup');
+    const cg = $('#pickColorGroup');
+    if (sg) {
+      sg.style.display = picking.prod.sizes.length ? '' : 'none';
+      $('#pickSizes').innerHTML = picking.prod.sizes.map((s) => chip(s, s === picking.size)).join('');
+    }
+    if (cg) {
+      cg.style.display = picking.prod.colors.length ? '' : 'none';
+      $('#pickColors').innerHTML = picking.prod.colors.map((c) => chip(c, c === picking.color)).join('');
+    }
+  }
+
+  function openPicker(prod) {
+    buildPicker();
+    if (!pickerBuilt) return;
+    picking = {
+      prod,
+      // nhóm chỉ có 1 lựa chọn → tự chọn sẵn, khách chỉ cần bấm "Thêm vào giỏ"
+      size: prod.sizes.length === 1 ? prod.sizes[0] : '',
+      color: prod.colors.length === 1 ? prod.colors[0] : '',
+    };
+    $('#pickName').textContent = prod.name;
+    $('#pickPrice').textContent = vnd(prod.price);
+    $('#pickThumb').innerHTML = prod.image ? '<img src="' + esc(prod.image) + '" alt="">' : '';
+    renderPickerChips();
+    $('#pickScrim').classList.add('open');
+    $('#pickSheet').classList.add('open');
+  }
+  function closePicker() {
+    picking = null;
+    const scrim = $('#pickScrim');
+    const sheet = $('#pickSheet');
+    if (scrim) scrim.classList.remove('open');
+    if (sheet) sheet.classList.remove('open');
+  }
+
+  // ---------- bottom sheet GIỎ HÀNG ----------
   function buildSheet() {
     if (sheetBuilt) return;
     const screen = $('.screen');
@@ -229,16 +351,25 @@
     screen.appendChild(sheet);
     scrim.addEventListener('click', close);
     sheet.querySelector('.grab').addEventListener('click', close);
-    // event delegation cho stepper / remove
+    // event delegation cho stepper / remove — row tham chiếu theo index trong items
     sheet.querySelector('#cartRows').addEventListener('click', (e) => {
       const row = e.target.closest('.cart-row');
       if (!row) return;
-      const pid = row.dataset.pid;
-      const it = items.find((x) => x.productId === pid);
+      const idx = parseInt(row.dataset.idx, 10);
+      const it = items[idx];
       if (!it) return;
-      if (e.target.closest('.q-plus')) setQty(pid, (Number(it.qty) || 1) + 1);
-      else if (e.target.closest('.q-minus')) setQty(pid, (Number(it.qty) || 1) - 1);
-      else if (e.target.closest('.cart-rm')) removeItem(pid);
+      if (e.target.closest('.q-plus')) {
+        it.qty = Math.min(MAX_QTY, (Number(it.qty) || 1) + 1);
+        afterMutate();
+      } else if (e.target.closest('.q-minus')) {
+        it.qty = Math.max(1, (Number(it.qty) || 1) - 1);
+        afterMutate();
+      } else if (e.target.closest('.cart-rm')) {
+        const name = it.name;
+        items.splice(idx, 1);
+        afterMutate();
+        toast('Đã bỏ khỏi giỏ · ' + name);
+      }
     });
     sheetBuilt = true;
   }
@@ -253,19 +384,21 @@
     if (idBig) idBig.textContent = idTxt;
 
     if (!items.length) {
-      rowsEl.innerHTML = '<div class="cart-empty">Chưa có sản phẩm<br>Chạm vào ảnh sản phẩm để thêm vào giỏ</div>';
+      rowsEl.innerHTML = '<div class="cart-empty">Chưa có sản phẩm<br>Bấm nút giỏ hàng trên ảnh sản phẩm để thêm</div>';
     } else {
       rowsEl.innerHTML = items
-        .map((it) => {
+        .map((it, idx) => {
           const qty = Number(it.qty) || 1;
           const thumb = it.image
             ? '<img src="' + esc(it.image) + '" alt="" onerror="this.remove()">'
             : '';
+          const vt = variantText(it);
           return (
-            '<div class="cart-row" data-pid="' + esc(it.productId) + '">' +
+            '<div class="cart-row" data-idx="' + idx + '">' +
               '<div class="cart-thumb">' + thumb + '</div>' +
               '<div class="cart-info">' +
                 '<div class="cart-name">' + esc(it.name) + '</div>' +
+                (vt ? '<div class="cart-variant">' + esc(vt) + '</div>' : '') +
                 '<div class="cart-price">' + vnd(it.price) + '</div>' +
               '</div>' +
               '<div class="cart-qty">' +
@@ -288,6 +421,7 @@
   function open() {
     buildSheet();
     if (!sheetBuilt) return;
+    closePicker(); // không mở chồng 2 sheet
     renderSheet();
     sheetOpen = true;
     $('#cartScrim').classList.add('open');
@@ -349,7 +483,7 @@
     } else {
       const ok = await register(false);
       if (!ok) {
-        // thử lại 1 lần sau 5s; ngoài ra add() nào cũng kích hoạt register lại
+        // thử lại 1 lần sau 5s; ngoài ra addItem nào cũng kích hoạt register lại
         setTimeout(() => {
           if (!visitor) register(false);
         }, 5000);
@@ -361,8 +495,14 @@
     });
   }
 
-  // expose cho inline script của index.html
-  window.ShowroomCart = { add: add, open: open, close: close, getCount: getCount };
+  // expose cho inline script của index.html (add = alias addWithOptions)
+  window.ShowroomCart = {
+    add: addWithOptions,
+    addWithOptions: addWithOptions,
+    open: open,
+    close: close,
+    getCount: getCount,
+  };
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);

@@ -675,7 +675,7 @@
     renderCarts();
   }
 
-  // ⚠ name/image của item do KHÁCH tự gửi → mọi field PHẢI qua esc() (chống stored-XSS)
+  // ⚠ name/image/size/color của item do KHÁCH tự gửi → mọi field PHẢI qua esc() (chống stored-XSS)
   function cartRowHtml(c) {
     const itemsHtml = (c.items || [])
       .map((it) => {
@@ -683,7 +683,8 @@
           ? `<img class="adm-cart-thumb" src="${esc(it.image)}" alt="" loading="lazy">`
           : '<span class="adm-cart-thumb ph"></span>';
         const line = (Number(it.price) || 0) * (Number(it.qty) || 0);
-        return `<div class="adm-cart-item">${img}<span class="q">${Number(it.qty) || 0}×</span><span class="n">${esc(it.name)}</span><span class="p">${vnd(line)}</span></div>`;
+        const vt = [it.size, it.color].filter(Boolean).join(' · ');
+        return `<div class="adm-cart-item">${img}<span class="q">${Number(it.qty) || 0}×</span><span class="n">${esc(it.name)}${vt ? ` <em class="v">${esc(vt)}</em>` : ''}</span><span class="p">${vnd(line)}</span></div>`;
       })
       .join('');
     return `
