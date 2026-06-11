@@ -18,6 +18,7 @@ const MAX_ITEMS = 50;
 const MAX_QTY = 99;
 const MAX_NAME_LEN = 200;
 const MAX_PRODUCT_ID_LEN = 64;
+const MAX_VARIANT_LEN = 40; // size / màu
 const MAX_IMAGE_LEN = 500;
 const MAX_ITEMS_JSON_BYTES = 50_000;
 const MAX_RECENT = 100;
@@ -85,8 +86,9 @@ function parseVisitorId(raw) {
     return Number(raw);
 }
 
-// Item names/images là dữ liệu khách tự gửi và sẽ render trong admin panel
+// Item names/images/size/màu là dữ liệu khách tự gửi và sẽ render trong admin panel
 // → strip <> server-side (defense-in-depth, client vẫn phải escape khi render).
+// Dedupe theo productId + size + color (cùng SP khác size/màu = dòng riêng).
 function sanitizeItems(raw) {
     if (!Array.isArray(raw)) return [];
     const seen = new Set();
@@ -94,8 +96,12 @@ function sanitizeItems(raw) {
     for (const x of raw) {
         if (!x || typeof x !== 'object') continue;
         const productId = sanitizeString(x.productId, MAX_PRODUCT_ID_LEN);
-        if (!productId || seen.has(productId)) continue;
+        if (!productId) continue;
         const name = (sanitizeString(x.name, MAX_NAME_LEN) || '').replace(/[<>]/g, '');
+        const size = (sanitizeString(x.size, MAX_VARIANT_LEN) || '').replace(/[<>]/g, '');
+        const color = (sanitizeString(x.color, MAX_VARIANT_LEN) || '').replace(/[<>]/g, '');
+        const key = productId + '|' + size + '|' + color;
+        if (seen.has(key)) continue;
         const price = toIntOrNull(x.price) ?? 0;
         let qty = toIntOrNull(x.qty) ?? 1;
         qty = Math.max(1, Math.min(MAX_QTY, qty));
@@ -103,8 +109,8 @@ function sanitizeItems(raw) {
         if (typeof x.image === 'string' && x.image.startsWith('https://') && x.image.length <= MAX_IMAGE_LEN) {
             image = x.image;
         }
-        seen.add(productId);
-        out.push({ productId, name, price, qty, image });
+        seen.add(key);
+        out.push({ productId, name, price, qty, image, size, color });
         if (out.length >= MAX_ITEMS) break;
     }
     return out;
