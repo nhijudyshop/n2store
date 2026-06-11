@@ -105,6 +105,42 @@ async function ensureTables(pool) {
             client.release();
         }
     }
+    // MIGRATION #2 2026-06-11: deploy 88e456aa3 (parse fix, CHƯA có migration #1)
+    // chạy 04:05–04:13Z đã ghi rows ĐÚNG; migration #1 boot sau đó shift +7h đè
+    // lên các rows này → created_time = E+7h (tương lai). Tự phát hiện: comment
+    // không thể được lưu TRƯỚC khi nó xảy ra → created_time > created_at (epoch
+    // ghi row) + 1h slack = over-shifted → trả về -7h. WHERE tự idempotent
+    // (sau -7h hết match) nhưng vẫn marker-gate cho sạch.
+    const mig2 = await pool.query(`SELECT 1 FROM web2_migrations WHERE id = $1`, [
+        'w2lc_tz_fix2_20260611',
+    ]);
+    if (!mig2.rows.length) {
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+            const u = await client.query(
+                `UPDATE web2_live_comments
+                 SET created_time = created_time - interval '7 hours'
+                 WHERE created_time IS NOT NULL AND created_at IS NOT NULL
+                   AND created_time > to_timestamp(created_at / 1000.0) + interval '1 hour'`
+            );
+            await client.query(
+                `INSERT INTO web2_migrations (id, applied_at) VALUES ($1, $2)
+                 ON CONFLICT (id) DO NOTHING`,
+                ['w2lc_tz_fix2_20260611', Date.now()]
+            );
+            await client.query('COMMIT');
+            console.log(
+                `[WEB2-LIVE-COMMENTS] tz_fix2_20260611: un-shifted ${u.rowCount} over-shifted rows -7h`
+            );
+        } catch (e) {
+            await client.query('ROLLBACK').catch(() => {});
+            console.error('[WEB2-LIVE-COMMENTS] tz_fix2_20260611 failed:', e.message);
+            throw e;
+        } finally {
+            client.release();
+        }
+    }
     _tablesReady = true;
 }
 
