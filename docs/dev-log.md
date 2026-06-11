@@ -2,6 +2,17 @@
 
 ## 2026-06-11
 
+### [render] Spend limit mở khóa build → migrate livestream media chatDb→web2Db HOÀN TẤT ✅
+
+**User:** set spend limit pipeline minutes ($5/1000 phút — thay vì upgrade Professional dư thừa).
+
+- Deploy `dep-d8l8n9d8nd3s73e13t9g` (9559447f3) **live** — build chạy bình thường ngay sau set limit.
+- **[LS-MIGRATE] DONE**: `livestream_snapshots` **6609/6609 rows** + `livestream_images` 5/5 copy sang web2Db (170MB; web2Db 84→254MB). Route đã trỏ web2Db — **extract mới test lại "✅ Đã lấy thumbnail"** = ghi/đọc thumbnail giờ hoàn toàn trên web2Db, đúng yêu cầu "chức năng Web 2.0 đừng lưu chatDb".
+- Redeploy tpos-pancake xóa status Failed (do test phân biệt lúc hết minutes).
+- **CÒN LẠI (chờ user xác nhận):** DROP 2 bảng cũ `livestream_snapshots` (172MB) + `livestream_images` trên **chatDb** → giải phóng dung lượng (chatDb còn 802MB/15GB nên không gấp).
+
+**Status:** ✅ Done.
+
 ### [render] Thực thi tối ưu chi phí theo duyệt của user: chat-db 1GB→15GB + realtime→Starter ✅ · ⚠ Render BUILD bị chặn (nghi hết build minutes)
 
 **User duyệt:** (1) tăng chatDB lên 15GB; (2) downgrade n2store-realtime Standard→Starter; (3) khai tử realtime = phiên sau; (4) web2-db để nguyên.
