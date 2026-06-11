@@ -73,6 +73,23 @@ async function ensureTables(pool) {
 
 const norm = (v) => (v == null ? null : String(v));
 
+// Parse timestamp về Date đúng UTC. Pancake inserted_at = "2026-06-11T03:52:23"
+// (UTC, KHÔNG hậu tố Z); Render server chạy TZ=Asia/Saigon (+7) nên
+// new Date(naiveString) bị hiểu thành giờ +7 → epoch lệch -7h (bug created_time
+// 2026-06-11). String không có timezone PHẢI append 'Z'. Nhận cả epoch ms/s.
+function parseUtcTs(v) {
+    if (v == null || v === '') return null;
+    if (typeof v === 'number' || /^\d+$/.test(String(v))) {
+        const n = Number(v);
+        const d = new Date(n > 9999999999 ? n : n * 1000);
+        return isNaN(d.getTime()) ? null : d;
+    }
+    const s = String(v);
+    const hasTz = /(?:Z|[+-]\d{2}:?\d{2})$/.test(s);
+    const d = new Date(hasTz ? s : s + 'Z');
+    return isNaN(d.getTime()) ? null : d;
+}
+
 // Upsert nhiều comment vào web2_live_comments. Dùng chung cho /bulk + server poller.
 async function upsertComments(pool, arr) {
     if (!Array.isArray(arr) || !arr.length) return 0;
@@ -115,7 +132,7 @@ async function upsertComments(pool, arr) {
                 norm(c.fbId),
                 norm(c.name),
                 c.message == null ? null : String(c.message),
-                c.createdTime ? new Date(c.createdTime) : null,
+                parseUtcTs(c.createdTime),
                 norm(c.phone),
                 c.address == null ? null : String(c.address),
                 !!c.hasOrder,
@@ -608,3 +625,4 @@ module.exports.initializeNotifiers = initializeNotifiers;
 module.exports.upsertComments = upsertComments;
 module.exports.ensureTables = ensureTables;
 module.exports._notify = _notify;
+module.exports.parseUtcTs = parseUtcTs;

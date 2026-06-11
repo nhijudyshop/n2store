@@ -75,6 +75,18 @@ const SharedUtils = {
     },
 
     /**
+     * Timestamp → epoch ms (0 nếu invalid). LUÔN dùng thay new Date(raw).getTime()
+     * vì Pancake inserted_at = UTC KHÔNG hậu tố Z — new Date(naive) trên máy GMT+7
+     * cho epoch lệch -7h (bug múi giờ 2026-06-11).
+     * @param {string|number} timestamp
+     * @returns {number}
+     */
+    toEpochMs(timestamp) {
+        const d = this.parseTimestamp(timestamp);
+        return d ? d.getTime() : 0;
+    },
+
+    /**
      * Format timestamp to human-readable Vietnamese time
      * Uses Asia/Ho_Chi_Minh timezone for accurate display
      * @param {string|number} timestamp

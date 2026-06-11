@@ -65,7 +65,9 @@
                 console.warn('[snap] video not found in FB-live list:', liveVideoId);
                 return null;
             }
-            const startMs = match.DateCreated ? new Date(match.DateCreated).getTime() : null;
+            const startMs = match.DateCreated
+                ? (SharedUtils.parseTimestamp(match.DateCreated)?.getTime() ?? null)
+                : null;
             // FB Graph /{videoId}/thumbnails (is_preferred) — thay /picture 400.
             const thumbnailUrl = match._thumbnail || null;
             const info = {
@@ -309,7 +311,10 @@
         // Tìm campaign matching page, sắp xếp DateCreated desc (mới nhất trước)
         const matching = st.liveCampaigns
             .filter((c) => c.Facebook_UserId === pageObj.Facebook_PageId)
-            .sort((a, b) => new Date(b.DateCreated || 0) - new Date(a.DateCreated || 0));
+            .sort(
+                (a, b) =>
+                    SharedUtils.toEpochMs(b.DateCreated) - SharedUtils.toEpochMs(a.DateCreated)
+            );
         return matching[0] || st.liveCampaigns[0] || null;
     }
 
@@ -320,7 +325,7 @@
         if (!st?.liveCampaigns?.length) return null;
         // Sort by DateCreated desc → live mới nhất trước.
         const sorted = [...st.liveCampaigns].sort(
-            (a, b) => new Date(b.DateCreated || 0) - new Date(a.DateCreated || 0)
+            (a, b) => SharedUtils.toEpochMs(b.DateCreated) - SharedUtils.toEpochMs(a.DateCreated)
         );
         // Ưu tiên live của page pref (Store/House).
         const pref = _getSnapPagePref();
@@ -351,7 +356,10 @@
         if (!st?.liveCampaigns?.length) return [];
         return st.liveCampaigns
             .slice()
-            .sort((a, b) => new Date(b.DateCreated || 0) - new Date(a.DateCreated || 0))
+            .sort(
+                (a, b) =>
+                    SharedUtils.toEpochMs(b.DateCreated) - SharedUtils.toEpochMs(a.DateCreated)
+            )
             .slice(0, limit);
     }
 
@@ -721,7 +729,7 @@ Throttle 30s/KH.`;
             thumbnailUrl: undefined,
             comments: comments.map((c) => {
                 const raw = c.created_time || c.createdTime || c.inserted_at || c.created_at;
-                const t = raw ? new Date(raw).getTime() : NaN;
+                const t = raw ? (SharedUtils.parseTimestamp(raw)?.getTime() ?? NaN) : NaN;
                 return {
                     commentId: c.id,
                     customerFbUserId: c.from.id,
@@ -953,7 +961,9 @@ Throttle 30s/KH.`;
                     for (const c of comments) {
                         const rawT =
                             c.created_time || c.createdTime || c.inserted_at || c.created_at;
-                        const commentTimeMs = rawT ? new Date(rawT).getTime() : NaN;
+                        const commentTimeMs = rawT
+                            ? (SharedUtils.parseTimestamp(rawT)?.getTime() ?? NaN)
+                            : NaN;
                         if (!Number.isFinite(commentTimeMs)) {
                             failed++;
                             _renderProgress({ done, failed }, total);
@@ -1185,7 +1195,7 @@ Throttle 30s/KH.`;
                     comment.createdTime ||
                     comment.inserted_at ||
                     comment.created_at;
-                const parsedT = rawT ? new Date(rawT).getTime() : NaN;
+                const parsedT = rawT ? (SharedUtils.parseTimestamp(rawT)?.getTime() ?? NaN) : NaN;
                 const commentTimeMs = Number.isFinite(parsedT) ? parsedT : Date.now();
                 // Lookup buffered frame nearest commentTime. Window 60s (mỗi
                 // tick 5s → 12 frames/min, đủ wiggle room cho clock skew giữa
@@ -1224,7 +1234,9 @@ Throttle 30s/KH.`;
                     comment.createdTime ||
                     comment.inserted_at ||
                     comment.created_at;
-                const parsed = rawTime ? new Date(rawTime).getTime() : NaN;
+                const parsed = rawTime
+                    ? (SharedUtils.parseTimestamp(rawTime)?.getTime() ?? NaN)
+                    : NaN;
                 const commentTime = Number.isFinite(parsed) ? parsed : Date.now();
                 if (!Number.isFinite(parsed)) {
                     console.warn(
@@ -2295,7 +2307,7 @@ Throttle 30s/KH.`;
                 camp.DateCreated ||
                 null;
             if (startedTime) {
-                startMs = new Date(startedTime).getTime();
+                startMs = SharedUtils.toEpochMs(startedTime) || null;
                 startSource = 'live-campaign(' + (camp.DateCreated ? 'DateCreated' : 'other') + ')';
             }
         }

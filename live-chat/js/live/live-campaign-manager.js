@@ -297,8 +297,8 @@
                 st.comments = rows.map((r) => mgr._mapDbComment(r));
                 st.comments.sort(
                     (a, b) =>
-                        new Date(b.created_time || 0).getTime() -
-                        new Date(a.created_time || 0).getTime()
+                        SharedUtils.toEpochMs(b.created_time) -
+                        SharedUtils.toEpochMs(a.created_time)
                 );
                 global.LiveCommentList?.renderComments?.();
                 const camp = _camps.find((c) => String(c.id) === String(campaignId));

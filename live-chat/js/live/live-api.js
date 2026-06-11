@@ -122,11 +122,10 @@ const LiveApi = {
             const added = campaigns.filter((c) => !have.has(c.Id));
             if (added.length) {
                 state.liveCampaigns = state.liveCampaigns.concat(added);
-                state.liveCampaigns.sort((a, b) => {
-                    const ta = a.DateCreated ? new Date(a.DateCreated).getTime() : 0;
-                    const tb = b.DateCreated ? new Date(b.DateCreated).getTime() : 0;
-                    return tb - ta;
-                });
+                state.liveCampaigns.sort(
+                    (a, b) =>
+                        SharedUtils.toEpochMs(b.DateCreated) - SharedUtils.toEpochMs(a.DateCreated)
+                );
             }
             const hasMore = Object.values(state.liveCampaignCursors).some((c) => !c.done);
             console.log('[Live-API] load more campaigns:', added.length, 'hasMore:', hasMore);

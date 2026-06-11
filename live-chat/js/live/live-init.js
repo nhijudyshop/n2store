@@ -26,7 +26,7 @@ async function _fetchLiveVideosForPage(pageId) {
         const videos = (camps || []).map((c) => ({
             objectId: c.Facebook_LiveId, // pageId_videoId
             title: c.Name || '',
-            startMs: c.DateCreated ? new Date(c.DateCreated).getTime() : null,
+            startMs: c.DateCreated ? SharedUtils.toEpochMs(c.DateCreated) || null : null,
             statusLive: c.StatusLive,
             countComment: 0,
         }));
@@ -45,7 +45,7 @@ function _resolveCampaignLivePosts(campaign, allCampaigns, liveVideos) {
     if (!campaign?.Facebook_UserId) return [];
     const pageCamps = allCampaigns
         .filter((c) => c.Facebook_UserId === campaign.Facebook_UserId)
-        .map((c) => ({ ...c, _ts: new Date(c.DateCreated || 0).getTime() }))
+        .map((c) => ({ ...c, _ts: SharedUtils.toEpochMs(c.DateCreated) }))
         .filter((c) => Number.isFinite(c._ts))
         .sort((a, b) => a._ts - b._ts);
     const campIdx = pageCamps.findIndex((c) => c.Id === campaign.Id);
@@ -158,8 +158,8 @@ const LiveColumnManager = {
             const mapped = j.data.map((row) => this._dbRowToComment(row));
             // Cập nhật _lastCommentMaxMs theo delta (tránh fetch lặp comment cũ).
             this._lastCommentMaxMs = mapped.reduce((mx, c) => {
-                const t = new Date(c.created_time || 0).getTime();
-                return Number.isFinite(t) && t > mx ? t : mx;
+                const t = SharedUtils.toEpochMs(c.created_time);
+                return t > mx ? t : mx;
             }, this._lastCommentMaxMs || 0);
             window.LiveCommentList.prependComments(mapped);
         } catch (e) {
@@ -637,11 +637,10 @@ const LiveColumnManager = {
                 seen2.add(c.id);
                 allComments.push(c);
             }
-            allComments.sort((a, b) => {
-                const ta = new Date(a.created_time || 0).getTime();
-                const tb = new Date(b.created_time || 0).getTime();
-                return tb - ta;
-            });
+            allComments.sort(
+                (a, b) =>
+                    SharedUtils.toEpochMs(b.created_time) - SharedUtils.toEpochMs(a.created_time)
+            );
 
             state.comments = allComments;
             state.selectedCampaign = campaigns[0];
@@ -650,8 +649,8 @@ const LiveColumnManager = {
             // Track max created_time (epoch ms) để SSE delta fetch chỉ lấy comment
             // mới hơn (since=this._lastCommentMaxMs).
             this._lastCommentMaxMs = allComments.reduce((mx, c) => {
-                const t = new Date(c.created_time || 0).getTime();
-                return Number.isFinite(t) && t > mx ? t : mx;
+                const t = SharedUtils.toEpochMs(c.created_time);
+                return t > mx ? t : mx;
             }, 0);
 
             // Update selectedPage to first campaign's page

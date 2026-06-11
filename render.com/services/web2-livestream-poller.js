@@ -48,6 +48,15 @@ function _wmSet(convId, stamp) {
     _convWatermark.set(convId, stamp);
 }
 
+// inserted_at pages.fm = "2026-06-11T03:52:23" (UTC, KHÔNG hậu tố Z). Server
+// Render chạy TZ=Asia/Saigon (+7) → new Date(naive) lệch -7h. PHẢI append Z.
+function _utcMs(s) {
+    if (!s) return 0;
+    const str = String(s);
+    const t = new Date(/(?:Z|[+-]\d{2}:?\d{2})$/.test(str) ? str : str + 'Z').getTime();
+    return Number.isFinite(t) ? t : 0;
+}
+
 const DEFAULT_PAGES = [
     {
         page_id: '117267091364524',
@@ -170,7 +179,7 @@ async function getActiveLivePosts(pageId, jwt) {
     for (const p of posts) {
         const isLive = p.type === 'livestream' || p.is_live_video || p.live_video_id;
         if (!isLive) continue;
-        const insertedMs = p.inserted_at ? new Date(p.inserted_at).getTime() : 0;
+        const insertedMs = _utcMs(p.inserted_at);
         const living = p.live_status === 'LIVE' || p.is_living;
         const recent = insertedMs && Date.now() - insertedMs < RECENT_LIVE_WINDOW_MS;
         // Đang live HOẶC vừa kết thúc trong cửa sổ → poll (gom comment đuôi).
@@ -482,9 +491,7 @@ async function listLivePostsForAssign() {
             console.warn('[LIVE-POLLER] listLivePostsForAssign fail', pg.page_id, e.message);
         }
     }
-    out.sort(
-        (a, b) => (new Date(b.date || 0).getTime() || 0) - (new Date(a.date || 0).getTime() || 0)
-    );
+    out.sort((a, b) => _utcMs(b.date) - _utcMs(a.date));
     return out;
 }
 

@@ -885,7 +885,7 @@ const LiveCommentList = {
         if (fresh.length === 0) return;
 
         // Sort fresh newest-first (cùng thứ tự với state.comments).
-        const ts = (c) => new Date(c.created_time || 0).getTime();
+        const ts = (c) => SharedUtils.toEpochMs(c.created_time);
         fresh.sort((a, b) => ts(b) - ts(a));
 
         // Vị trí của comment mới nhất hiện có (đầu danh sách).
@@ -1965,9 +1965,9 @@ const LiveCommentList = {
                 text: n.message || n.content || '',
                 by: n.created_by?.fb_name || 'Pancake',
                 at: n.created_at
-                    ? new Date(
-                          typeof n.created_at === 'number' ? n.created_at : n.created_at
-                      ).toLocaleString('vi-VN')
+                    ? (SharedUtils.parseTimestamp(n.created_at)?.toLocaleString('vi-VN', {
+                          timeZone: 'Asia/Ho_Chi_Minh',
+                      }) ?? '')
                     : '',
                 src: 'pancake',
             })),
