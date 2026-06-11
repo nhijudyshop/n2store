@@ -371,10 +371,279 @@
         }
     }
 
+    // Track FSO ids whose TPOS cancel already succeeded, so a retry after a refund
+    // failure does NOT double-cancel on TPOS (fix A2 retry-safety).
+    window._tposCancelDoneIds = window._tposCancelDoneIds || new Set();
+
+    // Non-blocking: trả hàng về Web Warehouse khi hủy đơn đã đối soát xong.
+    function _restoreWebWarehouseOnCancel(order, invoiceData, saleOnlineId) {
+        if (!(invoiceData.StateCode === 'CrossCheckComplete' && invoiceData.OrderLines?.length)) return;
+        try {
+            const restoreItems = invoiceData.OrderLines.map((line) => {
+                const nameStr = line.ProductName || line.Name || '';
+                const codeMatch = nameStr.match(/\[([^\]]+)\]/);
+                const productCode = codeMatch ? codeMatch[1].trim() : '';
+                return {
+                    product_code: productCode,
+                    parent_product_code: null,
+                    product_name: nameStr,
+                    variant: null,
+                    quantity: Math.floor(line.ProductUOMQty || 1),
+                    purchase_price: line.PriceUnit || 0,
+                    source_po_id: 'cancel_' + (order.Number || order.Reference || saleOnlineId),
+                };
+            }).filter((i) => i.product_code);
+
+            if (restoreItems.length > 0) {
+                fetch('https://chatomni-proxy.nhijudyshop.workers.dev/api/v2/web-warehouse/batch', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ items: restoreItems }),
+                })
+                    .then((r) => r.json())
+                    .then((res) => {
+                        if (res.success) console.log('[WebWarehouse] Đã trả kho:', restoreItems.length, 'SP');
+                    })
+                    .catch((err) => console.warn('[WebWarehouse] Trả kho lỗi:', err));
+            }
+        } catch (err) {
+            console.warn('[WebWarehouse] Restore error:', err);
+        }
+    }
+
+    // Path-specific DOM updates after a successful cancel (results-modal variant).
+    function _applyCancelDomUpdatesResultsModal(ctx) {
+        const { order, invoiceData, saleOnlineId, reason } = ctx;
+        const row = document
+            .querySelector(`.success-order-checkbox[data-order-id="${order.Id}"]`)
+            ?.closest('tr');
+        if (row) {
+            row.style.backgroundColor = '#fef2f2';
+            row.style.opacity = '0.7';
+            const rowCancelBtn = row.querySelector('.btn-cancel-order');
+            if (rowCancelBtn) {
+                rowCancelBtn.innerHTML = '<i class="fas fa-check"></i> Đã nhờ hủy';
+                rowCancelBtn.disabled = true;
+                rowCancelBtn.style.background = '#9ca3af';
+            }
+        }
+        const mainRow = document.querySelector(`tr[data-order-id="${saleOnlineId}"]`);
+        if (mainRow) {
+            const invoiceCell = mainRow.querySelector('td[data-column="invoice-status"]');
+            if (invoiceCell) {
+                invoiceCell.innerHTML = '<span style="color: #9ca3af;">−</span>';
+            }
+            const fd = window.parent?.FulfillmentData || window.FulfillmentData;
+            if (fd?.injectDeleteEntry) {
+                fd.injectDeleteEntry(saleOnlineId, {
+                    ...invoiceData, ...order, SaleOnlineId: saleOnlineId,
+                    cancelReason: reason, deletedAt: Date.now(),
+                });
+            }
+            const fulfillmentCell = mainRow.querySelector('td[data-column="fulfillment"]');
+            if (fulfillmentCell && typeof window.renderFulfillmentCell === 'function') {
+                fulfillmentCell.innerHTML = window.renderFulfillmentCell({ Id: saleOnlineId });
+            }
+        }
+    }
+
+    // Path-specific DOM updates after a successful cancel (main-table variant).
+    function _applyCancelDomUpdatesMainTable(ctx) {
+        const { order, invoiceData, saleOnlineId, reason } = ctx;
+        const row = document.querySelector(`tr[data-order-id="${saleOnlineId}"]`);
+        if (row) {
+            const invoiceCell = row.querySelector('td[data-column="invoice-status"]');
+            if (invoiceCell && typeof window.renderInvoiceStatusCell === 'function') {
+                invoiceCell.innerHTML = window.renderInvoiceStatusCell({ Id: saleOnlineId });
+            }
+            const fd = window.parent?.FulfillmentData || window.FulfillmentData;
+            if (fd?.injectDeleteEntry) {
+                fd.injectDeleteEntry(saleOnlineId, {
+                    ...invoiceData, ...order, SaleOnlineId: saleOnlineId,
+                    cancelReason: reason, deletedAt: Date.now(),
+                });
+            }
+            const fulfillmentCell = row.querySelector('td[data-column="fulfillment"]');
+            if (fulfillmentCell && typeof window.renderFulfillmentCell === 'function') {
+                fulfillmentCell.innerHTML = window.renderFulfillmentCell({ Id: saleOnlineId });
+            }
+        }
+        delete window._cancelOrderFromMain;
+    }
+
+    // Centralised cancel error handling — always re-enables the button (fix A10).
+    function _handleCancelError(e, btn, originalBtnText, orderNumber) {
+        if (e?.code === 'TPOS_CANCEL_FAILED') {
+            window.notificationManager?.error(e.userMessage || 'Lỗi hủy đơn trên TPOS');
+        } else if (e?.code === 'REFUND_FAILED') {
+            // Modal stays OPEN; user can press "Xác nhận hủy" again to retry (TPOS skipped).
+            window.notificationManager?.error(
+                `⚠️ Đã hủy TPOS nhưng HOÀN VÍ THẤT BẠI — tiền khách CHƯA về ví (đơn ${orderNumber || ''}). ` +
+                `Đã lưu; bấm "Xác nhận hủy" để thử lại hoặc gõ retryWalletOpFailures().`,
+                0
+            );
+        } else {
+            console.error('[WORKFLOW] Error confirming cancel:', e);
+            window.notificationManager?.error('Lỗi khi lưu yêu cầu hủy đơn');
+        }
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = originalBtnText || '<i class="fas fa-check"></i> Xác nhận hủy';
+        }
+    }
+
+    /**
+     * Shared cancel core. Ordering is REFUND-FIRST (right after TPOS cancel, BEFORE
+     * any local mutation): if the refund fails we abort with a clean, retryable state
+     * (InvoiceStatusStore entry untouched, so the !invoiceData guard won't block the
+     * retry — fix A2). TPOS cancel throws instead of returning so the wrapper's
+     * catch/finally always re-enables the button (fix A10). On a refund-failure retry,
+     * the TPOS cancel is skipped via _tposCancelDoneIds.
+     * @throws {Error} with .code 'TPOS_CANCEL_FAILED' or 'REFUND_FAILED' on failure.
+     */
+    async function executeCancelOrder(ctx) {
+        const { order, invoiceData, saleOnlineId, reason } = ctx;
+        const fastSaleOrderId = parseInt(order.Id, 10);
+        const tposKey = String(order.Id);
+
+        // --- Step 1: TPOS cancel (skip if a prior attempt already cancelled it) ---
+        if (fastSaleOrderId && !isNaN(fastSaleOrderId) && !window._tposCancelDoneIds.has(tposKey)) {
+            const cancelResponse = await window.tokenManager.authenticatedFetch(
+                'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/FastSaleOrder/ODataService.ActionCancel',
+                {
+                    method: 'POST',
+                    headers: { accept: 'application/json', 'content-type': 'application/json' },
+                    body: JSON.stringify({ ids: [fastSaleOrderId] }),
+                }
+            );
+            if (!cancelResponse.ok) {
+                const errorText = await cancelResponse.text().catch(() => '');
+                console.error('[WORKFLOW] TPOS cancel API error:', cancelResponse.status, errorText);
+                const e = new Error(`TPOS_CANCEL_FAILED:${cancelResponse.status}`);
+                e.code = 'TPOS_CANCEL_FAILED';
+                e.userMessage = `Lỗi hủy đơn trên TPOS: ${cancelResponse.status}`;
+                throw e;
+            }
+            await cancelResponse.text().catch(() => ''); // drain body (may be empty)
+            window._tposCancelDoneIds.add(tposKey);
+        } else if (window._tposCancelDoneIds.has(tposKey)) {
+            console.log('[WORKFLOW] ⏭️ TPOS already cancelled on a prior attempt, skipping');
+        } else {
+            console.warn('[WORKFLOW] No valid FastSaleOrder ID found, skipping TPOS cancel API');
+        }
+
+        // Canonical identity (same chain the deduction uses — fix A7).
+        let { orderNumber, normalizedPhone } = window.getOrderWalletIdentity
+            ? window.getOrderWalletIdentity(order, invoiceData)
+            : { orderNumber: order.Number || order.Reference || '', normalizedPhone: '' };
+        if (!normalizedPhone) {
+            const raw = order.Partner?.Phone || order.PartnerPhone || order.Partner?.PartnerPhone ||
+                order.ReceiverPhone || order.Phone || '';
+            normalizedPhone = String(raw).replace(/\D/g, '');
+            if (normalizedPhone.startsWith('84') && normalizedPhone.length > 9) {
+                normalizedPhone = '0' + normalizedPhone.substring(2);
+            }
+        }
+        // Mark cancelled so a concurrent deduction batch skips this order (fix A8).
+        if (orderNumber) window._cancelledOrderNumbers?.add(orderNumber);
+
+        // --- Step 2: REFUND WALLET FIRST (before any local mutation) ---
+        // Wait (bounded) for an in-flight deduction batch so the refund sees the row.
+        if (window._walletWithdrawalsPromise) {
+            try {
+                await Promise.race([
+                    Promise.resolve(window._walletWithdrawalsPromise),
+                    new Promise((r) => setTimeout(r, 15000)),
+                ]);
+            } catch (_) {
+                /* deduction batch error is handled by its own surfacing */
+            }
+        }
+        // Throws REFUND_FAILED on network / unexpected server error (abort before mutations).
+        await refundWalletForCancelledOrder(normalizedPhone, orderNumber, order, reason, invoiceData?.Comment);
+
+        // --- Step 3+: local mutations (refund succeeded or durably scheduled) ---
+        await InvoiceStatusDeleteStore.add(
+            saleOnlineId,
+            { ...invoiceData, ...order, SaleOnlineId: saleOnlineId },
+            reason
+        );
+
+        _restoreWebWarehouseOnCancel(order, invoiceData, saleOnlineId);
+
+        // Delete the right invoice line + rollback tag XL (must not block — wrapped).
+        let localCleanupOk = true;
+        try {
+            if (window.InvoiceStatusStore?.delete) {
+                await window.InvoiceStatusStore.delete(saleOnlineId, {
+                    tposId: parseInt(order.Id, 10) || order.Id,
+                    number: order.Number || invoiceData?.Number,
+                });
+                localCleanupOk = _verifyCancelApplied(saleOnlineId, order.Number || invoiceData?.Number);
+                if (typeof window.onPtagBillCancelled === 'function') {
+                    try {
+                        await window.onPtagBillCancelled(saleOnlineId);
+                    } catch (ptagErr) {
+                        console.warn('[WORKFLOW] onPtagBillCancelled failed:', ptagErr?.message);
+                    }
+                }
+            }
+        } catch (delErr) {
+            console.warn('[WORKFLOW] InvoiceStatusStore.delete failed:', delErr?.message);
+            localCleanupOk = false;
+        }
+        if (typeof window._deleteNjdFromDb === 'function') {
+            try { window._deleteNjdFromDb(saleOnlineId); } catch (_) {}
+        }
+
+        // Re-tag OK + status "Nháp" — NON-BLOCKING (refund already done; must not block).
+        // On failure, surface a short warning toast: updateOrderStatus failing leaves the
+        // order in the wrong TPOS state, which the operator needs to know to fix manually.
+        const orderCode = order.Reference || order.Number || '';
+        if (typeof window.quickAssignTag === 'function') {
+            Promise.resolve(window.quickAssignTag(saleOnlineId, orderCode, 'ok'))
+                .catch((e) => {
+                    console.warn('[WORKFLOW] quickAssignTag failed:', e?.message);
+                    window.notificationManager?.warning(`Gắn lại tag OK lỗi cho ${orderCode} — kiểm tra lại tag.`, 4000);
+                });
+        }
+        if (typeof window.updateOrderStatus === 'function') {
+            Promise.resolve(window.updateOrderStatus(saleOnlineId, 'Nháp', 'Nháp', '#f0ad4e'))
+                .catch((e) => {
+                    console.warn('[WORKFLOW] updateOrderStatus failed:', e?.message);
+                    window.notificationManager?.warning(`Đổi trạng thái 'Nháp' lỗi cho ${orderCode} — đổi tay nếu cần.`, 4000);
+                });
+        }
+
+        // Activity log — fire-and-forget (never blocks/throws).
+        if (normalizedPhone) {
+            Promise.resolve(logCancelActivity(normalizedPhone, orderNumber, order, reason))
+                .catch((e) => console.warn('[WORKFLOW] logCancelActivity failed:', e?.message));
+        }
+
+        if (localCleanupOk) {
+            window.notificationManager?.success(ctx.successMessage(order));
+        } else {
+            window.notificationManager?.error(
+                `⚠️ Đã hủy trên TPOS nhưng CHƯA gỡ được phiếu local ${order.Number || order.Reference || ''} (đơn có nhiều phiếu tồn). Bấm ↻ trên ô PBH để đồng bộ lại.`,
+                8000
+            );
+        }
+
+        closeCancelOrderModal();
+        window._tposCancelDoneIds.delete(tposKey); // fully cancelled — clear retry marker
+
+        try {
+            ctx.applyDomUpdates && ctx.applyDomUpdates({ order, invoiceData, saleOnlineId, reason, localCleanupOk });
+        } catch (domErr) {
+            console.warn('[WORKFLOW] DOM update failed:', domErr?.message);
+        }
+    }
+
     async function confirmCancelOrder(index) {
-        // Block double-click: check if button is already disabled
+        // starts-with so 'confirmCancelOrder(' does NOT also match 'confirmCancelOrderFromMain'.
         const confirmBtn = document.querySelector(
-            '#cancelOrderModal button[onclick*="confirmCancelOrder"]'
+            '#cancelOrderModal button[onclick^="confirmCancelOrder("]'
         );
         if (confirmBtn?.disabled) {
             console.warn('[WORKFLOW] ⚠️ Cancel button already disabled, ignoring duplicate click');
@@ -396,14 +665,12 @@
 
         const saleOnlineId = order.SaleOnlineIds?.[0];
         const invoiceData = window.InvoiceStatusStore?.get(saleOnlineId);
-
         if (!invoiceData) {
             window.notificationManager?.error('Không tìm thấy dữ liệu phiếu');
             closeCancelOrderModal();
             return;
         }
 
-        // Disable button to prevent double-click
         const originalBtnText = confirmBtn?.innerHTML;
         if (confirmBtn) {
             confirmBtn.disabled = true;
@@ -411,230 +678,16 @@
         }
 
         try {
-            // Step 1: Call TPOS API to cancel the order
-            // Parse ID to integer - API requires Int64, not string
-            const fastSaleOrderId = parseInt(order.Id, 10);
-            if (fastSaleOrderId && !isNaN(fastSaleOrderId)) {
-                const cancelResponse = await window.tokenManager.authenticatedFetch(
-                    'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/FastSaleOrder/ODataService.ActionCancel',
-                    {
-                        method: 'POST',
-                        headers: {
-                            accept: 'application/json',
-                            'content-type': 'application/json',
-                        },
-                        body: JSON.stringify({ ids: [fastSaleOrderId] }),
-                    }
-                );
-
-                if (!cancelResponse.ok) {
-                    const errorText = await cancelResponse.text();
-                    console.error(
-                        '[WORKFLOW] TPOS cancel API error:',
-                        cancelResponse.status,
-                        errorText
-                    );
-                    window.notificationManager?.error(
-                        `Lỗi hủy đơn trên TPOS: ${cancelResponse.status}`
-                    );
-                    return;
-                }
-
-                // Handle empty response (API may return 200/204 with no body)
-                const responseText = await cancelResponse.text();
-                const cancelResult = responseText ? JSON.parse(responseText) : { success: true };
-            } else {
-                console.warn(
-                    '[WORKFLOW] No valid FastSaleOrder ID found, skipping TPOS cancel API'
-                );
-            }
-
-            // Step 2: Save to delete store
-            await InvoiceStatusDeleteStore.add(
+            await executeCancelOrder({
+                order,
+                invoiceData,
                 saleOnlineId,
-                {
-                    ...invoiceData,
-                    ...order,
-                    SaleOnlineId: saleOnlineId,
-                },
-                reason
-            );
-
-            // Trả lại sản phẩm vào Web Warehouse nếu đã hoàn thành đối soát (non-blocking)
-            if (invoiceData.StateCode === 'CrossCheckComplete' && invoiceData.OrderLines?.length) {
-                try {
-                    const restoreItems = invoiceData.OrderLines.map((line) => {
-                        const nameStr = line.ProductName || line.Name || '';
-                        const codeMatch = nameStr.match(/\[([^\]]+)\]/);
-                        const productCode = codeMatch ? codeMatch[1].trim() : '';
-                        return {
-                            product_code: productCode,
-                            parent_product_code: null,
-                            product_name: nameStr,
-                            variant: null,
-                            quantity: Math.floor(line.ProductUOMQty || 1),
-                            purchase_price: line.PriceUnit || 0,
-                            source_po_id:
-                                'cancel_' + (order.Number || order.Reference || saleOnlineId),
-                        };
-                    }).filter((i) => i.product_code);
-
-                    if (restoreItems.length > 0) {
-                        fetch(
-                            'https://chatomni-proxy.nhijudyshop.workers.dev/api/v2/web-warehouse/batch',
-                            {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ items: restoreItems }),
-                            }
-                        )
-                            .then((r) => r.json())
-                            .then((res) => {
-                                if (res.success)
-                                    console.log(
-                                        '[WebWarehouse] Đã trả kho:',
-                                        restoreItems.length,
-                                        'SP'
-                                    );
-                            })
-                            .catch((err) => console.warn('[WebWarehouse] Trả kho lỗi:', err));
-                    }
-                } catch (err) {
-                    console.warn('[WebWarehouse] Restore error:', err);
-                }
-            }
-
-            // Step 3: Delete from InvoiceStatusStore — xóa ĐÚNG phiếu vừa hủy (theo FSO Id
-            // + Số phiếu), KHÔNG latest-wins → tránh xóa nhầm dòng đã-hủy khác mà để sót
-            // dòng 'open' (orphan) khiến cell vẫn hiện phiếu cũ.
-            let localCleanupOk = true;
-            if (window.InvoiceStatusStore?.delete) {
-                await window.InvoiceStatusStore.delete(saleOnlineId, {
-                    tposId: parseInt(order.Id, 10) || order.Id,
-                    number: order.Number || invoiceData?.Number,
-                });
-                localCleanupOk = _verifyCancelApplied(saleOnlineId, order.Number || invoiceData?.Number);
-                // Rollback tag XL: restore state (tag xử lý + T-tags) trước khi ra đơn
-                if (typeof window.onPtagBillCancelled === 'function') {
-                    await window.onPtagBillCancelled(saleOnlineId);
-                }
-            }
-            // Delete NJD mapping from Render DB
-            if (typeof window._deleteNjdFromDb === 'function') {
-                window._deleteNjdFromDb(saleOnlineId);
-            }
-
-            // Re-add "OK + định danh" tag using quickAssignTag (same as quick-tag-ok button)
-            const orderCode = order.Reference || order.Number || '';
-            if (typeof window.quickAssignTag === 'function') {
-                await window.quickAssignTag(saleOnlineId, orderCode, 'ok');
-            } else {
-                console.warn('[WORKFLOW] quickAssignTag function not available');
-            }
-
-            // Step 5: Update SaleOnline order status to "Nháp"
-            if (typeof window.updateOrderStatus === 'function') {
-                await window.updateOrderStatus(saleOnlineId, 'Nháp', 'Nháp', '#f0ad4e');
-            } else {
-                console.warn('[WORKFLOW] updateOrderStatus function not available');
-            }
-
-            // Step 6: Log cancel activity & refund wallet
-            const orderNumber = order.Number || order.Reference || '';
-            const customerPhone =
-                order.Partner?.Phone ||
-                order.PartnerPhone ||
-                order.Partner?.PartnerPhone ||
-                order.ReceiverPhone ||
-                order.Phone ||
-                '';
-            if (customerPhone) {
-                try {
-                    await logCancelOrderActivity(
-                        customerPhone,
-                        orderNumber,
-                        order,
-                        reason,
-                        invoiceData?.Comment
-                    );
-                } catch (refundErr) {
-                    console.error(
-                        '[WORKFLOW] ❌ Wallet refund/activity failed:',
-                        refundErr.message
-                    );
-                    window.notificationManager?.error(
-                        `⚠️ Đơn đã hủy nhưng hoàn ví thất bại. Liên hệ admin để hoàn ví thủ công cho đơn ${orderNumber}`
-                    );
-                }
-            } else {
-                console.warn(
-                    `[WORKFLOW] No phone found for cancel activity, order: ${orderNumber}`
-                );
-            }
-
-            if (localCleanupOk) {
-                window.notificationManager?.success(
-                    `Đã lưu yêu cầu hủy đơn + gắn lại tag OK: ${order.Number || order.Reference}`
-                );
-            } else {
-                window.notificationManager?.error(
-                    `⚠️ Đã hủy trên TPOS nhưng CHƯA gỡ được phiếu local ${order.Number || order.Reference || ''} (đơn có nhiều phiếu tồn). Bấm ↻ trên ô PBH để đồng bộ lại.`,
-                    8000
-                );
-            }
-            closeCancelOrderModal();
-
-            // Update results modal UI - mark as cancelled
-            const row = document
-                .querySelector(`.success-order-checkbox[data-order-id="${order.Id}"]`)
-                ?.closest('tr');
-            if (row) {
-                row.style.backgroundColor = '#fef2f2';
-                row.style.opacity = '0.7';
-
-                // Update cancel button to show cancelled
-                const rowCancelBtn = row.querySelector('.btn-cancel-order');
-                if (rowCancelBtn) {
-                    rowCancelBtn.innerHTML = '<i class="fas fa-check"></i> Đã nhờ hủy';
-                    rowCancelBtn.disabled = true;
-                    rowCancelBtn.style.background = '#9ca3af';
-                }
-            }
-
-            // Update main table UI - show "−" since invoice was deleted
-            const mainRow = document.querySelector(`tr[data-order-id="${saleOnlineId}"]`);
-            if (mainRow) {
-                const invoiceCell = mainRow.querySelector('td[data-column="invoice-status"]');
-                if (invoiceCell) {
-                    invoiceCell.innerHTML = '<span style="color: #9ca3af;">−</span>';
-                }
-
-                // Update fulfillment ("Ra đơn") cell immediately
-                const fd = window.parent?.FulfillmentData || window.FulfillmentData;
-                if (fd?.injectDeleteEntry) {
-                    fd.injectDeleteEntry(saleOnlineId, {
-                        ...invoiceData,
-                        ...order,
-                        SaleOnlineId: saleOnlineId,
-                        cancelReason: reason,
-                        deletedAt: Date.now(),
-                    });
-                }
-                const fulfillmentCell = mainRow.querySelector('td[data-column="fulfillment"]');
-                if (fulfillmentCell && typeof window.renderFulfillmentCell === 'function') {
-                    fulfillmentCell.innerHTML = window.renderFulfillmentCell({ Id: saleOnlineId });
-                }
-            }
+                reason,
+                successMessage: (o) => `Đã lưu yêu cầu hủy đơn + gắn lại tag OK: ${o.Number || o.Reference}`,
+                applyDomUpdates: _applyCancelDomUpdatesResultsModal,
+            });
         } catch (e) {
-            console.error('[WORKFLOW] Error confirming cancel:', e);
-            window.notificationManager?.error('Lỗi khi lưu yêu cầu hủy đơn');
-
-            // Re-enable button on error
-            if (confirmBtn) {
-                confirmBtn.disabled = false;
-                confirmBtn.innerHTML =
-                    originalBtnText || '<i class="fas fa-check"></i> Xác nhận hủy';
-            }
+            _handleCancelError(e, confirmBtn, originalBtnText, order.Number || order.Reference);
         }
     }
 
@@ -1468,7 +1521,6 @@
      * Confirm cancel order from main table
      */
     async function confirmCancelOrderFromMain() {
-        // Block double-click: check if button is already disabled
         const cancelBtn = document.querySelector(
             '#cancelOrderModal button[onclick*="confirmCancelOrderFromMain"]'
         );
@@ -1492,14 +1544,12 @@
 
         const saleOnlineId = order.SaleOnlineIds?.[0];
         const invoiceData = window.InvoiceStatusStore?.get(saleOnlineId);
-
         if (!invoiceData) {
             window.notificationManager?.error('Không tìm thấy dữ liệu phiếu bán hàng');
             closeCancelOrderModal();
             return;
         }
 
-        // Disable button to prevent double-click
         const originalBtnText = cancelBtn?.innerHTML;
         if (cancelBtn) {
             cancelBtn.disabled = true;
@@ -1507,220 +1557,16 @@
         }
 
         try {
-            // Step 1: Call TPOS API to cancel the order
-            // Parse ID to integer - API requires Int64, not string
-            const fastSaleOrderId = parseInt(order.Id, 10);
-            if (fastSaleOrderId && !isNaN(fastSaleOrderId)) {
-                const cancelResponse = await window.tokenManager.authenticatedFetch(
-                    'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/FastSaleOrder/ODataService.ActionCancel',
-                    {
-                        method: 'POST',
-                        headers: {
-                            accept: 'application/json',
-                            'content-type': 'application/json',
-                        },
-                        body: JSON.stringify({ ids: [fastSaleOrderId] }),
-                    }
-                );
-
-                if (!cancelResponse.ok) {
-                    const errorText = await cancelResponse.text();
-                    console.error(
-                        '[WORKFLOW] TPOS cancel API error:',
-                        cancelResponse.status,
-                        errorText
-                    );
-                    window.notificationManager?.error(
-                        `Lỗi hủy đơn trên TPOS: ${cancelResponse.status}`
-                    );
-                    return;
-                }
-
-                // Handle empty response (API may return 200/204 with no body)
-                const responseText = await cancelResponse.text();
-                const cancelResult = responseText ? JSON.parse(responseText) : { success: true };
-            } else {
-                console.warn(
-                    '[WORKFLOW] No valid FastSaleOrder ID found, skipping TPOS cancel API'
-                );
-            }
-
-            // Step 2: Save to delete store
-            await InvoiceStatusDeleteStore.add(
+            await executeCancelOrder({
+                order,
+                invoiceData,
                 saleOnlineId,
-                {
-                    ...invoiceData,
-                    ...order,
-                    SaleOnlineId: saleOnlineId,
-                },
-                reason
-            );
-
-            // Trả lại sản phẩm vào Web Warehouse nếu đã hoàn thành đối soát (non-blocking)
-            if (invoiceData.StateCode === 'CrossCheckComplete' && invoiceData.OrderLines?.length) {
-                try {
-                    const restoreItems = invoiceData.OrderLines.map((line) => {
-                        const nameStr = line.ProductName || line.Name || '';
-                        const codeMatch = nameStr.match(/\[([^\]]+)\]/);
-                        const productCode = codeMatch ? codeMatch[1].trim() : '';
-                        return {
-                            product_code: productCode,
-                            parent_product_code: null,
-                            product_name: nameStr,
-                            variant: null,
-                            quantity: Math.floor(line.ProductUOMQty || 1),
-                            purchase_price: line.PriceUnit || 0,
-                            source_po_id:
-                                'cancel_' + (order.Number || order.Reference || saleOnlineId),
-                        };
-                    }).filter((i) => i.product_code);
-
-                    if (restoreItems.length > 0) {
-                        fetch(
-                            'https://chatomni-proxy.nhijudyshop.workers.dev/api/v2/web-warehouse/batch',
-                            {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ items: restoreItems }),
-                            }
-                        )
-                            .then((r) => r.json())
-                            .then((res) => {
-                                if (res.success)
-                                    console.log(
-                                        '[WebWarehouse] Đã trả kho:',
-                                        restoreItems.length,
-                                        'SP'
-                                    );
-                            })
-                            .catch((err) => console.warn('[WebWarehouse] Trả kho lỗi:', err));
-                    }
-                } catch (err) {
-                    console.warn('[WebWarehouse] Restore error:', err);
-                }
-            }
-
-            // Step 3: Delete from InvoiceStatusStore — xóa ĐÚNG phiếu vừa hủy (FSO Id + Số
-            // phiếu), KHÔNG latest-wins. LỖI CHÍNH cũ: 29 phiếu tồn → delete latest-wins
-            // xóa nhầm dòng đã-hủy, để sót dòng 'open' → cell mãi hiện 71115 dù báo success.
-            let localCleanupOk = true;
-            if (window.InvoiceStatusStore?.delete) {
-                await window.InvoiceStatusStore.delete(saleOnlineId, {
-                    tposId: parseInt(order.Id, 10) || order.Id,
-                    number: order.Number || invoiceData?.Number,
-                });
-                localCleanupOk = _verifyCancelApplied(saleOnlineId, order.Number || invoiceData?.Number);
-                // Rollback tag XL: restore state (tag xử lý + T-tags) trước khi ra đơn
-                if (typeof window.onPtagBillCancelled === 'function') {
-                    await window.onPtagBillCancelled(saleOnlineId);
-                }
-            }
-            // Delete NJD mapping from Render DB
-            if (typeof window._deleteNjdFromDb === 'function') {
-                window._deleteNjdFromDb(saleOnlineId);
-            }
-
-            // Step 4: Add "OK + định danh" tag using quickAssignTag
-            const orderCode = order.Reference || order.Number || '';
-            if (typeof window.quickAssignTag === 'function') {
-                await window.quickAssignTag(saleOnlineId, orderCode, 'ok');
-            } else {
-                console.warn('[WORKFLOW] quickAssignTag function not available');
-            }
-
-            // Step 5: Update SaleOnline order status to "Nháp"
-            if (typeof window.updateOrderStatus === 'function') {
-                await window.updateOrderStatus(saleOnlineId, 'Nháp', 'Nháp', '#f0ad4e');
-            } else {
-                console.warn('[WORKFLOW] updateOrderStatus function not available');
-            }
-
-            // Step 6: Log cancel activity & refund wallet
-            const orderNumber = order.Number || order.Reference || '';
-            const customerPhone =
-                order.Partner?.Phone ||
-                order.PartnerPhone ||
-                order.Partner?.PartnerPhone ||
-                order.ReceiverPhone ||
-                order.Phone ||
-                '';
-            if (customerPhone) {
-                try {
-                    await logCancelOrderActivity(
-                        customerPhone,
-                        orderNumber,
-                        order,
-                        reason,
-                        invoiceData?.Comment
-                    );
-                } catch (refundErr) {
-                    console.error(
-                        '[WORKFLOW] ❌ Wallet refund/activity failed:',
-                        refundErr.message
-                    );
-                    window.notificationManager?.error(
-                        `⚠️ Đơn đã hủy nhưng hoàn ví thất bại. Liên hệ admin để hoàn ví thủ công cho đơn ${orderNumber}`
-                    );
-                }
-            } else {
-                console.warn(
-                    `[WORKFLOW] No phone found for cancel activity, order: ${orderNumber}`
-                );
-            }
-
-            if (localCleanupOk) {
-                window.notificationManager?.success(
-                    `Đã lưu yêu cầu hủy đơn: ${order.Number || order.Reference}`
-                );
-            } else {
-                window.notificationManager?.error(
-                    `⚠️ Đã hủy trên TPOS nhưng CHƯA gỡ được phiếu local ${order.Number || order.Reference || ''} (đơn có nhiều phiếu tồn). Bấm ↻ trên ô PBH để đồng bộ lại.`,
-                    8000
-                );
-            }
-            closeCancelOrderModal();
-
-            // Hủy xong → ẩn hoàn toàn khỏi cột PHIẾU BÁN HÀNG (user request).
-            // Không tạo synthetic "Huỷ bỏ" nữa; để renderInvoiceStatusCell render "−"
-            // khi InvoiceStatusStore không còn entry latest active.
-
-            // Update main table UI — renderInvoiceStatusCell sẽ trả "−" do entry đã bị xoá.
-            const row = document.querySelector(`tr[data-order-id="${saleOnlineId}"]`);
-            if (row) {
-                const invoiceCell = row.querySelector('td[data-column="invoice-status"]');
-                if (invoiceCell && typeof window.renderInvoiceStatusCell === 'function') {
-                    invoiceCell.innerHTML = window.renderInvoiceStatusCell({ Id: saleOnlineId });
-                }
-
-                // Update fulfillment ("Ra đơn") cell immediately
-                const fd = window.parent?.FulfillmentData || window.FulfillmentData;
-                if (fd?.injectDeleteEntry) {
-                    fd.injectDeleteEntry(saleOnlineId, {
-                        ...invoiceData,
-                        ...order,
-                        SaleOnlineId: saleOnlineId,
-                        cancelReason: reason,
-                        deletedAt: Date.now(),
-                    });
-                }
-                const fulfillmentCell = row.querySelector('td[data-column="fulfillment"]');
-                if (fulfillmentCell && typeof window.renderFulfillmentCell === 'function') {
-                    fulfillmentCell.innerHTML = window.renderFulfillmentCell({ Id: saleOnlineId });
-                }
-            }
-
-            // Clear temp data
-            delete window._cancelOrderFromMain;
-        } catch (error) {
-            console.error('[WORKFLOW] Error saving cancel order:', error);
-            window.notificationManager?.error('Lỗi lưu yêu cầu hủy đơn');
-
-            // Re-enable button on error
-            if (cancelBtn) {
-                cancelBtn.disabled = false;
-                cancelBtn.innerHTML =
-                    originalBtnText || '<i class="fas fa-check"></i> Xác nhận hủy';
-            }
+                reason,
+                successMessage: (o) => `Đã lưu yêu cầu hủy đơn: ${o.Number || o.Reference}`,
+                applyDomUpdates: _applyCancelDomUpdatesMainTable,
+            });
+        } catch (e) {
+            _handleCancelError(e, cancelBtn, originalBtnText, order.Number || order.Reference);
         }
     }
 
@@ -1756,68 +1602,111 @@
      * @param {Object} order - Order data
      * @param {string} reason - Cancellation reason
      */
-    async function logCancelOrderActivity(phone, orderNumber, order, reason, originalNote) {
+    /**
+     * Refund the wallet for a cancelled order. THROWS on network / unexpected server
+     * error so the caller aborts BEFORE any local mutation (fix A1/A2). A durable
+     * server-side schedule (refund_scheduled), a marker, or "nothing to refund" are
+     * all treated as SUCCESS (the refund is guaranteed by the backend outbox).
+     * @throws {Error} with .code 'REFUND_FAILED' on network/unexpected failure.
+     */
+    async function refundWalletForCancelledOrder(phone, orderNumber, order, reason, originalNote) {
         const RENDER_API_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
         const performedBy = window.authManager?.getAuthState()?.username || 'system';
 
+        let normalizedPhone = String(phone || '').replace(/\D/g, '');
+        if (normalizedPhone.startsWith('84') && normalizedPhone.length > 9) {
+            normalizedPhone = '0' + normalizedPhone.substring(2);
+        }
+        if (!normalizedPhone || !orderNumber) {
+            // Nothing safe to refund against (order may have no wallet use). Not an error.
+            console.warn('[WORKFLOW] Refund skipped — missing phone/orderNumber');
+            return;
+        }
+
+        let response;
+        let data;
         try {
-            let normalizedPhone = String(phone).replace(/\D/g, '');
+            response = await fetch(`${RENDER_API_URL}/api/v2/wallets/refund-by-order`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    order_id: orderNumber,
+                    phone: normalizedPhone,
+                    reason: reason,
+                    created_by: performedBy,
+                    original_note: originalNote || '',
+                }),
+            });
+            data = await response.json().catch(() => ({}));
+        } catch (netErr) {
+            console.error('[WORKFLOW] ❌ Wallet refund network error:', netErr.message);
+            window.WalletFailureStore?.add({
+                type: 'REFUND', orderNumber, phone: normalizedPhone, amount: 0,
+                reason, error: netErr.message || 'network_error',
+            });
+            const e = new Error('REFUND_FAILED:network');
+            e.code = 'REFUND_FAILED';
+            e.orderNumber = orderNumber;
+            throw e;
+        }
+
+        if (!response.ok || !data.success) {
+            console.error(`[WORKFLOW] ❌ Refund API error ${response.status}:`, data && data.error);
+            window.WalletFailureStore?.add({
+                type: 'REFUND', orderNumber, phone: normalizedPhone, amount: 0,
+                reason, error: (data && data.error) || `HTTP ${response.status}`,
+            });
+            const e = new Error(`REFUND_FAILED:${response.status}`);
+            e.code = 'REFUND_FAILED';
+            e.orderNumber = orderNumber;
+            throw e;
+        }
+
+        // Success — surface the right message for each backend outcome (new + legacy fields).
+        if (data.refunded) {
+            if (data.already_refunded) {
+                window.notificationManager?.info('Ví đã được hoàn trước đó cho đơn này');
+            } else {
+                const d = data.data || {};
+                window.notificationManager?.info(
+                    `Đã hoàn ${Number(d.refund_amount || 0).toLocaleString('vi-VN')}đ vào ví khách ` +
+                    `(Thật: ${Number(d.real_refunded || 0).toLocaleString('vi-VN')}đ, ` +
+                    `CN: ${Number(d.virtual_refunded || 0).toLocaleString('vi-VN')}đ)`,
+                    5000
+                );
+            }
+        } else if (data.cancelled_pending) {
+            window.notificationManager?.info('Đã hủy giao dịch trừ ví chờ xử lý');
+        } else if (data.marker_created) {
+            window.notificationManager?.info('Đơn chưa bị trừ ví — đã chặn trừ ví về sau');
+        } else if (data.refund_scheduled) {
+            window.notificationManager?.info('Đã ghi nhận hoàn ví — hệ thống sẽ tự hoàn trong giây lát');
+        }
+        // else: {refunded:false, "no withdrawal found"} -> nothing to refund. Success.
+
+        // Clear any earlier recorded refund failure for this order.
+        window.WalletFailureStore?.remove('REFUND', orderNumber, normalizedPhone);
+    }
+
+    /**
+     * Log the ORDER_CANCELLED activity to Customer 360. Never throws (fire-and-forget).
+     */
+    async function logCancelActivity(phone, orderNumber, order, reason) {
+        const RENDER_API_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
+        const performedBy = window.authManager?.getAuthState()?.username || 'system';
+        try {
+            let normalizedPhone = String(phone || '').replace(/\D/g, '');
             if (normalizedPhone.startsWith('84') && normalizedPhone.length > 9) {
                 normalizedPhone = '0' + normalizedPhone.substring(2);
             }
+            if (!normalizedPhone) return;
 
             const amountTotal = parseFloat(order.AmountTotal) || 0;
             const customerName = order.Partner?.Name || order.PartnerDisplayName || '';
 
-            // Step 1: Try to refund wallet if debt was used
-            let refundResult = null;
-            try {
-                const refundResponse = await fetch(
-                    `${RENDER_API_URL}/api/v2/wallets/refund-by-order`,
-                    {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            order_id: orderNumber,
-                            phone: normalizedPhone,
-                            reason: reason,
-                            created_by: performedBy,
-                            original_note: originalNote || '',
-                        }),
-                    }
-                );
-
-                if (!refundResponse.ok) {
-                    const errText = await refundResponse.text().catch(() => '');
-                    console.error(
-                        `[WORKFLOW] ❌ Refund API error ${refundResponse.status}:`,
-                        errText
-                    );
-                } else {
-                    refundResult = await refundResponse.json();
-
-                    if (refundResult.success && refundResult.refunded) {
-                        window.notificationManager?.info(
-                            `Đã hoàn ${refundResult.data.refund_amount.toLocaleString('vi-VN')}đ vào ví khách (Thật: ${refundResult.data.real_refunded.toLocaleString('vi-VN')}đ, CN: ${refundResult.data.virtual_refunded.toLocaleString('vi-VN')}đ)`,
-                            5000
-                        );
-                    } else if (refundResult.success && refundResult.cancelled_pending) {
-                        window.notificationManager?.info('Đã hủy giao dịch trừ ví chờ xử lý');
-                    } else {
-                    }
-                }
-            } catch (refundError) {
-                console.error('[WORKFLOW] ❌ Wallet refund failed:', refundError.message);
-            }
-
-            // Step 2: Log ORDER_CANCELLED activity
             let description = `Hủy đơn hàng #${orderNumber}`;
             if (customerName) description += ` - ${customerName}`;
             description += `. Tổng: ${amountTotal.toLocaleString('vi-VN')}đ. Lý do: ${reason}`;
-
-            if (refundResult?.refunded && refundResult?.data) {
-                description += `. Hoàn ví: ${refundResult.data.refund_amount.toLocaleString('vi-VN')}đ (Thật: ${refundResult.data.real_refunded.toLocaleString('vi-VN')}đ, Công nợ: ${refundResult.data.virtual_refunded.toLocaleString('vi-VN')}đ)`;
-            }
 
             const metadata = {
                 order_number: orderNumber,
@@ -1826,12 +1715,6 @@
                 cancel_reason: reason,
                 source: 'FAST_SALE_CANCEL',
             };
-            if (refundResult?.refunded && refundResult?.data) {
-                metadata.wallet_refunded = true;
-                metadata.refund_amount = refundResult.data.refund_amount;
-                metadata.real_refunded = refundResult.data.real_refunded;
-                metadata.virtual_refunded = refundResult.data.virtual_refunded;
-            }
 
             const activityResponse = await fetch(
                 `${RENDER_API_URL}/api/v2/customers/${normalizedPhone}/activities`,
@@ -1851,18 +1734,35 @@
                     }),
                 }
             );
-
             if (!activityResponse.ok) {
                 const errText = await activityResponse.text().catch(() => '');
-                console.error(
-                    `[WORKFLOW] ❌ Activity API error ${activityResponse.status}:`,
-                    errText
-                );
-            } else {
+                console.error(`[WORKFLOW] ❌ Activity API error ${activityResponse.status}:`, errText);
             }
         } catch (error) {
             console.error('[WORKFLOW] ❌ Error logging cancel activity:', error.message);
         }
+    }
+
+    /**
+     * Backward-compat wrapper (don-inbox/tab-social-invoice.js still calls
+     * window.logCancelOrderActivity). Preserves the OLD swallow-refund-error semantics
+     * for that caller (it does not await): refund failure is recorded + logged but does
+     * not throw out of this wrapper, then the activity is logged.
+     */
+    async function logCancelOrderActivity(phone, orderNumber, order, reason, originalNote) {
+        try {
+            await refundWalletForCancelledOrder(phone, orderNumber, order, reason, originalNote);
+        } catch (e) {
+            console.error('[WORKFLOW] logCancelOrderActivity refund failed (recorded):', e?.message);
+            // The failure is durably stored in WalletFailureStore; surface it NOW (the
+            // caller, e.g. inbox, doesn't reload soon) so the operator sees the sticky toast.
+            window.notificationManager?.error(
+                `⚠️ Hoàn ví đơn ${orderNumber} thất bại — đã lưu, gõ retryWalletOpFailures() để thử lại.`,
+                0
+            );
+            window.WalletFailureStore?.notifyIfAny?.();
+        }
+        await logCancelActivity(phone, orderNumber, order, reason);
     }
 
     // =====================================================

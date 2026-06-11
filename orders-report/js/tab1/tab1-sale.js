@@ -1394,6 +1394,20 @@ async function confirmAndPrintSale() {
                 // Use pending-withdrawals API on Render server directly (not via CF Worker)
                 // The API will: 1) Record pending, 2) Try withdraw, 3) Cron will retry if failed
                 const RENDER_API_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
+                // Guard: never POST a placeholder/empty order key (fix A7). Record + surface instead.
+                const _walletOrderId = String(orderNumber || '').trim();
+                const _validWalletId =
+                    !!_walletOrderId &&
+                    !['N/A', 'NA', 'UNDEFINED', 'NULL', 'NONE'].includes(_walletOrderId.toUpperCase());
+                if (!_validWalletId) {
+                    console.error('[SALE-CONFIRM] ❌ Missing order number — cannot record wallet deduction safely');
+                    window.WalletFailureStore?.add({
+                        type: 'DEDUCT', orderNumber: _walletOrderId || '(thiếu mã)',
+                        phone: normalizedPhone, amount: actualPayment,
+                        source: 'SALE_ORDER', note: saleNote, error: 'missing_order_number',
+                    });
+                    window.notificationManager?.error('⚠️ Thiếu mã đơn — chưa trừ ví. Đã lưu để thử lại.', 0);
+                } else
                 fetch(`${RENDER_API_URL}/api/v2/pending-withdrawals`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -1429,20 +1443,36 @@ async function confirmAndPrintSale() {
                                 saveDebtCache(cache);
                                 updateDebtCellsInTable(normalizedPhone, remainingDebt);
                             }
+                            // Clear any earlier recorded failure for this order.
+                            window.WalletFailureStore?.remove('DEDUCT', _walletOrderId, normalizedPhone);
                         } else {
-                            console.warn(
-                                '[SALE-CONFIRM] ⚠️ Failed to create pending withdrawal:',
+                            console.error(
+                                '[SALE-CONFIRM] ❌ Failed to create pending withdrawal:',
                                 pendingResult.error
                             );
-                            window.notificationManager?.warning(
-                                'Không thể ghi nhận trừ ví, sẽ tự động retry'
+                            window.WalletFailureStore?.add({
+                                type: 'DEDUCT', orderNumber: _walletOrderId,
+                                phone: normalizedPhone, amount: actualPayment,
+                                source: 'SALE_ORDER', note: saleNote,
+                                error: pendingResult.error || 'unknown',
+                            });
+                            window.notificationManager?.error(
+                                `⚠️ Trừ ví thất bại đơn ${_walletOrderId}. Đã lưu — gõ retryWalletOpFailures() để thử lại.`,
+                                0
                             );
                         }
                     })
                     .catch((err) => {
                         console.error('[SALE-CONFIRM] ❌ Error creating pending withdrawal:', err);
-                        window.notificationManager?.warning(
-                            'Lỗi kết nối - Đơn đã tạo, ví sẽ được trừ sau'
+                        window.WalletFailureStore?.add({
+                            type: 'DEDUCT', orderNumber: _walletOrderId,
+                            phone: normalizedPhone, amount: actualPayment,
+                            source: 'SALE_ORDER', note: saleNote,
+                            error: err.message || 'network_error',
+                        });
+                        window.notificationManager?.error(
+                            'Lỗi kết nối khi trừ ví — đã lưu, gõ retryWalletOpFailures() để thử lại.',
+                            0
                         );
                     });
             }

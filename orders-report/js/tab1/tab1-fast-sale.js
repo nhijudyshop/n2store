@@ -1,5 +1,183 @@
 // #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes.
 // ====================================
+// #region WALLET IDENTITY + FAILURE STORE (shared by deduction + refund)
+// ====================================
+// Single source of truth for order identity used by BOTH wallet deduction
+// (tạo đơn) and wallet refund (hủy đơn) so they target the SAME outbox row
+// (fix A7). Plus a localStorage "sổ nợ" of wallet ops that failed, surfaced
+// to the user (fix A1/A4 — no wallet failure stays buried in the console).
+
+const WALLET_API_BASE = 'https://chatomni-proxy.nhijudyshop.workers.dev';
+const WALLET_PLACEHOLDER_IDS = ['N/A', 'NA', 'UNDEFINED', 'NULL', 'NONE', ''];
+
+/**
+ * Compute the canonical wallet identity for an order.
+ * @returns {{orderNumber: string, normalizedPhone: string, valid: boolean}}
+ */
+window.getOrderWalletIdentity = function (order, invoiceData) {
+    order = order || {};
+    invoiceData = invoiceData || {};
+
+    const rawNumber =
+        order.Number ||
+        order.Code ||
+        order.Reference ||
+        invoiceData.Number ||
+        invoiceData.Code ||
+        '';
+    const orderNumber = String(rawNumber).trim();
+
+    const rawPhone =
+        order.Partner?.Phone ||
+        order.PartnerPhone ||
+        order.Telephone ||
+        order.ReceiverPhone ||
+        invoiceData.Partner?.Phone ||
+        invoiceData.PartnerPhone ||
+        '';
+    let normalizedPhone = String(rawPhone || '').replace(/\D/g, '');
+    if (normalizedPhone.startsWith('84') && normalizedPhone.length > 9) {
+        normalizedPhone = '0' + normalizedPhone.substring(2);
+    }
+
+    const valid =
+        !!orderNumber &&
+        !WALLET_PLACEHOLDER_IDS.includes(orderNumber.toUpperCase()) &&
+        !!normalizedPhone;
+
+    return { orderNumber, normalizedPhone, valid };
+};
+
+/**
+ * Persistent ledger of wallet ops that failed client-side (deduct or refund).
+ * Lives in localStorage so a refresh/crash can't lose them.
+ */
+window.WalletFailureStore = {
+    KEY: 'n2_wallet_op_failures',
+    _read() {
+        try {
+            return JSON.parse(localStorage.getItem(this.KEY) || '[]');
+        } catch (_) {
+            return [];
+        }
+    },
+    _write(list) {
+        try {
+            localStorage.setItem(this.KEY, JSON.stringify(list.slice(-100)));
+        } catch (_) {
+            /* storage full / disabled — best effort */
+        }
+    },
+    _key(e) {
+        return `${e.type}|${e.orderNumber}|${e.phone}`;
+    },
+    /** entry: {type:'DEDUCT'|'REFUND', orderNumber, phone, amount, error, source, reason, note} */
+    add(entry) {
+        if (!entry || !entry.orderNumber) return;
+        const k = this._key(entry);
+        const list = this._read().filter((e) => this._key(e) !== k);
+        list.push({ ...entry, ts: Date.now() });
+        this._write(list);
+    },
+    remove(type, orderNumber, phone) {
+        const k = `${type}|${orderNumber}|${phone}`;
+        this._write(this._read().filter((e) => this._key(e) !== k));
+    },
+    all() {
+        return this._read();
+    },
+    clear() {
+        this._write([]);
+    },
+    notifyIfAny() {
+        const list = this._read();
+        if (!list.length) return;
+        const deducts = list.filter((e) => e.type === 'DEDUCT').length;
+        const refunds = list.filter((e) => e.type === 'REFUND').length;
+        const parts = [];
+        if (deducts) parts.push(`${deducts} trừ ví`);
+        if (refunds) parts.push(`${refunds} hoàn ví`);
+        const msg = `⚠️ Có ${list.length} thao tác ví CHƯA HOÀN TẤT (${parts.join(', ')}). ` +
+            `Mở Console gõ retryWalletOpFailures() hoặc bấm thử lại để xử lý.`;
+        if (window.notificationManager?.error) {
+            window.notificationManager.error(msg, 0);
+        }
+        console.warn('[WALLET-FAILURE] Pending wallet ops need attention:', list);
+    },
+};
+
+/** Re-attempt every stored wallet failure. Server is idempotent, so this is safe. */
+window.retryWalletOpFailures = async function () {
+    const list = window.WalletFailureStore.all();
+    if (!list.length) {
+        window.notificationManager?.info('Không có thao tác ví nào cần thử lại');
+        return;
+    }
+    const performedBy = window.authManager?.getAuthState()?.username || 'system';
+    let ok = 0;
+    let fail = 0;
+    for (const e of list) {
+        try {
+            let resp;
+            if (e.type === 'DEDUCT') {
+                resp = await fetch(`${WALLET_API_BASE}/api/v2/pending-withdrawals`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        order_id: e.orderNumber,
+                        order_number: e.orderNumber,
+                        phone: e.phone,
+                        amount: e.amount,
+                        source: e.source || 'FAST_SALE',
+                        note: e.note || `Thử lại trừ ví đơn ${e.orderNumber}`,
+                        created_by: performedBy,
+                    }),
+                });
+            } else {
+                resp = await fetch(`${WALLET_API_BASE}/api/v2/wallets/refund-by-order`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        order_id: e.orderNumber,
+                        phone: e.phone,
+                        reason: e.reason || 'Thử lại hoàn ví',
+                        created_by: performedBy,
+                    }),
+                });
+            }
+            const data = await resp.json().catch(() => ({}));
+            if (resp.ok && data.success) {
+                window.WalletFailureStore.remove(e.type, e.orderNumber, e.phone);
+                ok++;
+            } else {
+                fail++;
+            }
+        } catch (_) {
+            fail++;
+        }
+    }
+    const note = `Thử lại ví: ${ok} thành công${fail ? `, ${fail} vẫn lỗi` : ''}`;
+    window.notificationManager?.[fail ? 'error' : 'success']?.(note);
+    return { ok, fail };
+};
+
+// Cross-flow race guards (fix A8): orders the user cancelled before deduction
+// finished, and a handle to the in-flight deduction batch promise.
+window._cancelledOrderNumbers = window._cancelledOrderNumbers || new Set();
+window._walletWithdrawalsPromise = window._walletWithdrawalsPromise || null;
+
+// Surface any unfinished wallet ops shortly after the page settles.
+(function scheduleWalletFailureNotice() {
+    const run = () => setTimeout(() => window.WalletFailureStore.notifyIfAny(), 1500);
+    if (document.readyState === 'complete') run();
+    else window.addEventListener('load', run, { once: true });
+})();
+
+// ====================================
+// #endregion WALLET IDENTITY + FAILURE STORE
+// ====================================
+
+// ====================================
 // #region IMAGE ZOOM
 // ====================================
 
@@ -3281,18 +3459,15 @@ async function processWalletWithdrawalsForSuccessOrders() {
     let pendingCount = 0;
     let skippedCount = 0;
     let pendingTotal = 0;
+    const failures = [];
 
     for (const order of successOrders) {
-        try {
-            // Get phone number
-            const phone = order.Partner?.Phone || order.PartnerPhone;
-            if (!phone) continue;
+        // Canonical identity — SAME chain the refund flow uses (fix A7).
+        const { orderNumber, normalizedPhone } = window.getOrderWalletIdentity(order);
 
-            // Normalize phone
-            let normalizedPhone = String(phone).replace(/\D/g, '');
-            if (normalizedPhone.startsWith('84') && normalizedPhone.length > 9) {
-                normalizedPhone = '0' + normalizedPhone.substring(2);
-            }
+        try {
+            // No phone -> no wallet to touch.
+            if (!normalizedPhone) continue;
 
             // Check if customer has wallet balance
             const walletData = fastSaleWalletBalances[normalizedPhone];
@@ -3311,7 +3486,22 @@ async function processWalletWithdrawalsForSuccessOrders() {
             const withdrawAmount = Math.min(totalWalletBalance, orderPaymentAmount);
             if (withdrawAmount <= 0) continue;
 
-            const orderNumber = order.Number || order.Code || order.Reference || 'N/A';
+            // A wallet deduction IS due. If we can't produce a clean order key, do
+            // NOT post a poisoned identity ('N/A' etc.) — record as a failure (fix A7).
+            const validId =
+                !!orderNumber &&
+                !['N/A', 'NA', 'UNDEFINED', 'NULL', 'NONE', ''].includes(orderNumber.toUpperCase());
+            if (!validId) {
+                console.error(`[FAST-SALE] ❌ Missing order number for wallet deduction, phone ${normalizedPhone}`);
+                failures.push({ orderNumber: orderNumber || '(thiếu mã)', phone: normalizedPhone, amount: withdrawAmount, reason: 'missing_order_number' });
+                continue;
+            }
+
+            // User cancelled this order before deduction ran — skip (fix A8).
+            if (window._cancelledOrderNumbers?.has(orderNumber)) {
+                console.log(`[FAST-SALE] ⏭️ Skipping deduction for cancelled order ${orderNumber}`);
+                continue;
+            }
 
             // Build detailed note with breakdown
             const amountTotal = parseFloat(order.AmountTotal) || 0;
@@ -3331,10 +3521,8 @@ async function processWalletWithdrawalsForSuccessOrders() {
                 `[FAST-SALE] Creating pending withdrawal for order ${orderNumber}, phone: ${normalizedPhone}, amount: ${withdrawAmount}`
             );
 
-            // Use pending-withdrawals API on Render server directly (not via CF Worker)
-            // This ensures 100% no lost transactions even on network failures
-            const RENDER_API_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
-            const response = await fetch(`${RENDER_API_URL}/api/v2/pending-withdrawals`, {
+            // Use pending-withdrawals API (outbox) — 100% no lost transactions.
+            const response = await fetch(`${WALLET_API_BASE}/api/v2/pending-withdrawals`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -3348,10 +3536,13 @@ async function processWalletWithdrawalsForSuccessOrders() {
                 }),
             });
 
-            const result = await response.json();
+            const result = await response.json().catch(() => ({}));
 
-            if (result.success) {
-                if (result.skipped) {
+            if (response.ok && result.success) {
+                if (result.blocked_by_cancel) {
+                    console.log(`[FAST-SALE] 🛑 Deduction blocked (order cancelled) for ${orderNumber}`);
+                    skippedCount++;
+                } else if (result.skipped) {
                     console.log(`[FAST-SALE] ⏭️ Already processed for ${orderNumber}`);
                     skippedCount++;
                 } else {
@@ -3363,28 +3554,26 @@ async function processWalletWithdrawalsForSuccessOrders() {
 
                     // Update local wallet balance cache (optimistic)
                     if (walletData) {
-                        const estimatedNewBalance = Math.max(
-                            0,
-                            totalWalletBalance - withdrawAmount
-                        );
+                        const estimatedNewBalance = Math.max(0, totalWalletBalance - withdrawAmount);
                         fastSaleWalletBalances[normalizedPhone] = {
-                            balance: Math.max(
-                                0,
-                                (parseFloat(walletData.balance) || 0) - withdrawAmount
-                            ),
+                            balance: Math.max(0, (parseFloat(walletData.balance) || 0) - withdrawAmount),
                             virtualBalance: parseFloat(walletData.virtualBalance) || 0,
                             total: estimatedNewBalance,
                         };
                     }
                 }
+                // Clear any earlier recorded failure for this order on success/skip.
+                window.WalletFailureStore?.remove('DEDUCT', orderNumber, normalizedPhone);
             } else {
-                console.warn(
-                    `[FAST-SALE] ⚠️ Failed to create pending for ${normalizedPhone}:`,
-                    result.error
+                console.error(
+                    `[FAST-SALE] ❌ Failed to create pending for ${orderNumber} / ${normalizedPhone}:`,
+                    result.error || response.status
                 );
+                failures.push({ orderNumber, phone: normalizedPhone, amount: withdrawAmount, note: noteDetails, reason: result.error || `HTTP ${response.status}` });
             }
         } catch (error) {
-            console.error('[FAST-SALE] Error creating pending withdrawal:', error);
+            console.error(`[FAST-SALE] Error creating pending withdrawal for ${orderNumber}:`, error);
+            failures.push({ orderNumber: orderNumber || '(thiếu mã)', phone: normalizedPhone, amount: 0, reason: error.message || 'network_error' });
         }
     }
 
@@ -3398,6 +3587,25 @@ async function processWalletWithdrawalsForSuccessOrders() {
     }
     if (skippedCount > 0) {
         console.log(`[FAST-SALE] ⏭️ Skipped ${skippedCount} already processed withdrawals`);
+    }
+    if (failures.length > 0) {
+        // Persist + surface — never let a deduction failure die in the console (fix A4).
+        for (const f of failures) {
+            window.WalletFailureStore?.add({
+                type: 'DEDUCT',
+                orderNumber: f.orderNumber,
+                phone: f.phone,
+                amount: f.amount,
+                source: 'FAST_SALE',
+                note: f.note,
+                error: f.reason,
+            });
+        }
+        const codes = failures.map((f) => f.orderNumber).join(', ');
+        window.notificationManager?.error(
+            `⚠️ TRỪ VÍ THẤT BẠI ${failures.length} đơn: ${codes}. Đã lưu — gõ retryWalletOpFailures() để thử lại.`,
+            0
+        );
     }
 }
 
@@ -3582,8 +3790,18 @@ function showFastSaleResultsModal(results) {
     // Pre-generate bill images in background (don't await - run async)
     if (fastSaleResultsData.success.length > 0) {
         setTimeout(() => preGenerateBillImages(), 100);
-        // Process wallet withdrawals for successful orders (async)
-        setTimeout(() => processWalletWithdrawalsForSuccessOrders(), 200);
+        // Process wallet withdrawals for successful orders (async). Expose the batch
+        // promise so a concurrent cancel can await it before refunding (fix A8), and
+        // null it on settle so a later cancel doesn't await a stale resolved promise.
+        // Clear cancelled-order markers from any previous batch first, so we never
+        // suppress a legitimate deduction for a reused order number.
+        window._cancelledOrderNumbers?.clear();
+        setTimeout(() => {
+            window._walletWithdrawalsPromise = processWalletWithdrawalsForSuccessOrders()
+                .finally(() => {
+                    window._walletWithdrawalsPromise = null;
+                });
+        }, 200);
         // Log customer activities for successful orders (async)
         setTimeout(() => logOrderCreationActivities(), 300);
     }

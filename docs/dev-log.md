@@ -66,6 +66,37 @@
 
 **Status:** ✅ Done — realtime push LIVE.
 
+### [orders-report][render] Rà soát + sửa flow Tạo đơn / Trừ ví / Hủy đơn / Tag / Hoàn ví (Web 1.0 PROD) ✅
+
+**User:** "KIỂM TRA KỸ FLOW TẠO ĐƠN, TRỪ CÔNG NỢ, HỦY ĐƠN, ĐÁNH/HỦY TAG, HOÀN CÔNG NỢ … đưa ra plan thật chi tiết để sửa chữa" → "thực hiện toàn bộ plan".
+
+**Vấn đề gốc (đã xác minh bằng code):** chiều TRỪ ví dùng outbox (`pending_wallet_withdrawals`) khá tốt, nhưng chiều HOÀN ví KHÔNG có outbox đối xứng + nhiều race/lỗ idempotency → có thể mất tiền khách/shop **im lặng** (chỉ `console.log`). 13 finding A1–A13.
+
+**Thiết kế:** tái dùng bảng `pending_wallet_withdrawals` làm **refund outbox**. 1 row = lifecycle trừ→hoàn của 1 đơn. State machine: `PENDING→PROCESSING→COMPLETED→REFUND_DUE→REFUNDED`; hủy PENDING/FAILED→`CANCELLED`; hủy khi chưa có row → INSERT `CANCEL_MARKER` (amount 0) chiếm `UNIQUE(order_id,phone)` chặn trừ trễ. Idempotency anchor = ledger `wallet_transactions` (`ORDER_PAYMENT` / `ORDER_CANCEL_REFUND`).
+
+**Backend (Render):**
+
+- NEW `migrations/075_wallet_refund_outbox.sql`: mở rộng status CHECK (+REFUND_DUE/REFUNDED, exception-safe cho rolling deploy), relax `amount>=0`, cột refund_* (max_retries=20), index REFUND_DUE/stale-PROCESSING, **`wallet_withdraw_fifo` thêm idempotency guard** (ORDER_PAYMENT đã có → `ALREADY_PROCESSED`, không trừ lần 2 — fix A6).
+- NEW `services/wallet-refund.js`: `executeRefund(db,id)` dùng chung route/cron/admin (1 `withTransaction`, lock outbox→wallet, FOR UPDATE virtual_credits + LEAST cap, reconcile ledger khi `completed_at NULL`, giữ REFUND_DUE khi fail = không bao giờ bỏ nghĩa vụ hoàn, alert `WALLET_REFUND_STUCK` khi max retry) + `ensureRefundSchema` (promise-singleton, không mark ready khi thiếu file).
+- `routes/v2/wallets.js` rewrite `POST /refund-by-order`: marker + **1 UPDATE atomic** `WHERE status IN ('COMPLETED','PROCESSING')` (fix race mất hoàn — TOCTOU), lookup theo order_id/order_number (không bắt buộc phone khớp), bảo toàn shape response cũ.
+- `routes/v2/pending-withdrawals.js`: atomic claim (fix A5 double-deduct + A9 stale-PROCESSING), guarded transitions tôn trọng REFUND_DUE (A12), reject order_id rác (A7), block deduction khi đã hủy (A8), vòng REFUND_DUE + `POST /:id/process-refund`, WITHDRAWAL_FAILED vào CHECK + wrap insert.
+- `cron/scheduler.js`: đồng bộ pick stale-PROCESSING + vòng REFUND_DUE → executeRefund.
+
+**Frontend (orders-report):**
+
+- `tab1-fast-sale.js`: `getOrderWalletIdentity` (1 chain định danh dùng cho CẢ trừ+hoàn — fix A7), `WalletFailureStore` (localStorage sổ nợ ví fail + toast sticky + `retryWalletOpFailures()`), race guards (`_cancelledOrderNumbers` clear mỗi batch, `_walletWithdrawalsPromise` reset null), surface trừ-ví fail (A4).
+- `tab1-fast-sale-workflow.js`: gộp 2 hàm hủy ~250 dòng → `executeCancelOrder(ctx)` core (A11) + wrapper mỏng; **HOÀN VÍ NGAY sau TPOS cancel, TRƯỚC mutation local** — fail thì THROW + dừng + retry sạch (A1/A2); TPOS fail → throw + finally re-enable nút (A10); `_tposCancelDoneIds` skip TPOS khi retry; `refundWalletForCancelledOrder` (throw) + `logCancelActivity` (no-throw) + `logCancelOrderActivity` compat wrapper (don-inbox).
+- `tab1-sale.js`: guard order_id rác + ghi WalletFailureStore cho đơn lẻ.
+- Bump `?v=20260611a` (tab1-orders.html + don-inbox).
+
+**Verify:** ground-truth workflow (7 agent) xác nhận finding; adversarial review 5-lens (528K token) → fix 2 CRITICAL (TOCTOU mất hoàn) + nhiều HIGH (wallet_not_found loop câm, virtual_credits over-restore, ensureRefundSchema file-missing, REFUND_STUCK alert câm, WITHDRAWAL_FAILED 23514, frontend promise/set leak). Tất cả JS `node --check` PASS.
+
+**Test (deliverable — máy Windows này KHÔNG có Postgres/Docker):** NEW `scripts/test-migration-075-refund-outbox.js` (pre/post constraint + fifo idempotency 2 lần) + `scripts/test-wallet-concurrency.js` (4 race: double-deduct, double-refund, marker chặn, stuck-PROCESSING). **PHẢI chạy ở môi trường có Postgres trước khi deploy PROD.**
+
+**⚠ Deploy checklist:** (1) chạy 2 test script DB ở môi trường có Postgres → xanh; (2) áp `migration 075` thủ công lên Render DB (hoặc dựa lazy `ensureRefundSchema` boot — nhưng nên thủ công cho an toàn) → verify `GET /api/v2/pending-withdrawals/stats` có status mới; (3) deploy backend trước; (4) frontend sau (bidirectional-compatible nên thứ tự không vỡ). Schema additive — rollback an toàn.
+
+**Status:** ✅ Code + review + fix xong. ⏳ Chờ chạy DB test + áp migration + deploy.
+
 ## 2026-06-10
 
 ### [web2] FIX toàn diện Web 2.0 (Wave 1+2, 12 agent) + browser-test click UI thật 34/34 trang ✅
