@@ -3,14 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `943e783` — chore(cache-bust): bump v= cho delivery-report.js + script.js + api-service.js (feature handover thu ve)
-**Last updated**: 2026-06-11 17:47:22 +07
-**Latest session**: [`RESUME:20260611-174722-943e783`](../20260611-174722-943e783.md)
-**Summary**: Verify prod handover-batch PASS + fix handover_at gio VN + cache-bust v= 2 trang; cleanup ticket TEST xong
+**Latest commit**: `b972cd3` — feat(delivery-report): nut Copy anh ban giao tab Thanh pho — sinh PNG xac nhan cho shipper
+**Last updated**: 2026-06-11 19:30:46 SEAST
+**Latest session**: [`RESUME:20260611-193046-b972cd3`](../20260611-193046-b972cd3.md)
+**Summary**: delivery-report: nut Copy anh ban giao tab TP (PNG clipboard cho shipper) — header tong TP + Thu ve, bang don 0d Thu/Gia tri/o tron
 
 ## Folders affected in this commit
-- [`delivery-report/`](./delivery-report.md) — 1 file(s)
-- [`issue-tracking/`](./issue-tracking.md) — 1 file(s)
+- [`delivery-report/`](./delivery-report.md) — 2 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
 
 ## All folder snapshots
 - [`.claude/`](./.claude.md) — updated 2026-06-05 10:44
@@ -22,8 +22,8 @@
 - [`bangkiemhang/`](./bangkiemhang.md) — updated 2026-05-25 11:43
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-11 11:20
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:16
-- [`delivery-report/`](./delivery-report.md) — updated 2026-06-11 17:47
-- [`docs/`](./docs.md) — updated 2026-06-11 17:43
+- [`delivery-report/`](./delivery-report.md) — updated 2026-06-11 19:30
+- [`docs/`](./docs.md) — updated 2026-06-11 19:30
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-25 11:43
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-11 17:31
 - [`downloads/`](./downloads.md) — updated 2026-06-11 10:13
