@@ -2,6 +2,25 @@
 
 ## 2026-06-11
 
+### [live-chat] Force extract chụp "đúng 1 kiểu poster ▶" — root cause + chuyển sang FB SDK Player API ✅ · ⚠ PHÁT HIỆN chatDb FULL DISK
+
+**User:** force extract chạy nhưng mọi thumbnail là CÙNG 1 hình iframe offline (poster + nút ▶).
+
+**Root cause (verify thật trên page):** iframe plugin `plugins/video.php` KHÔNG autoplay VOD đã end (chỉ autoplay LIVE) → player đứng poster ▶; `&t=` plugin param không được FB hỗ trợ. Code cũ chờ cứng 2.6s rồi chụp → 283 thumbnail giống hệt nhau vẫn POST "✓". Test cả `autoplay=true` lẫn `t` trong href → vẫn đứng poster.
+
+**Fix — FB JS SDK Embedded Video Player API** (`live-livestream-snap.js`):
+
+- `_ensureFbSdk()` load sdk.js 1 lần + subscribe `xfbml.ready` route instance theo div id; `_ensureSeekPlayer(camp)` dựng XFBML player TRONG wrapper capture (giữ wrapper element — Region Capture cropTo còn bind), cache theo video href — 1 video 1 player, seek nhiều offset KHÔNG reload iframe (~2s/comment thay vì ~10s).
+- `_clientCaptureAtOffsetInner`: `player.mute()+seek(t)+play()` → poll `getCurrentPosition()` tới khi |pos−t|<30s (≤8s, re-seek giữa chừng nếu buffering) → mới capture; fail → throw (comment còn pending) — KHÔNG BAO GIỜ lưu poster tĩnh nữa. `player.pause()` giữa các offset.
+- `_clientRestoreLive`: thay children wrapper → iframe live thuần (live autoplay OK), clear player cache. Gỡ `_buildSeekEmbedUrl` (dead).
+- **Verified:** SDK player seek(600) → pos 602→604 đang chạy thật (đo trên page với VOD thật); flow "Lấy thumbnail" 1 comment chạy tới capture OK — POST fail vì DB (dưới).
+
+**⚠ SỰ CỐ PHÁT HIỆN KHI TEST: chatDb (Web 1.0 PROD, plan 1GB) FULL DISK** — `could not extend file ... No space left on device` khi INSERT `livestream_snapshots`. DB 801MB/1GB (snapshots 172MB + purchase_order_images 159MB + invoice_status 146MB). web2Db bình thường (84MB/15GB). MỌI WRITE Web 1.0 có nguy cơ fail — cần user quyết: upgrade plan / cleanup / VACUUM / dời snapshots sang web2Db. CHƯA tự xử lý (Web 1.0 prod data bảo toàn tuyệt đối).
+
+**Files:** live-chat/js/live/live-livestream-snap.js, live-chat/index.html (bump v=20260611m).
+
+**Status:** ✅ Fix client done · ⚠ chatDb full chờ user quyết.
+
 ### [web2][render] FIX đợt A-D toàn bộ bug audit vòng 2 — 7C tiền/kho + 7C bảo mật + 16H + ~10 MEDIUM ✅
 
 **User:** "làm đi" (fix theo lộ trình 5 đợt của audit vòng 2 sáng nay).
