@@ -3,17 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `1720322` — feat(live-chat): tach 2 trang — index comment full + Kho SP + capture lock 1 may, chat.html chat Pancake rieng, modal hoi thoai tu comment
-**Last updated**: 2026-06-11 09:35:08 +07
-**Latest session**: [`RESUME:20260611-093508-1720322`](../20260611-093508-1720322.md)
-**Summary**: feat(live-chat): tach 2 trang — index comment full + Kho SP + capture lock 1 may, chat.html chat Pancake rieng, mod...
+**Latest commit**: `4855451` — auto: session update
+**Last updated**: 2026-06-11 10:02:45 +07
+**Latest session**: [`RESUME:20260611-100245-4855451`](../20260611-100245-4855451.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`_root/`](./_root.md) — 1 file(s)
-- [`docs/`](./docs.md) — 2 file(s)
-- [`live-chat/`](./live-chat.md) — 7 file(s)
-- [`web2/`](./web2.md) — 1 file(s)
+- [`live-chat/`](./live-chat.md) — 21 file(s)
+- [`render.com/`](./render.com.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -40,7 +38,7 @@
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-05-21 15:39
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-08 10:28
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
-- [`live-chat/`](./live-chat.md) — updated 2026-06-11 09:35
+- [`live-chat/`](./live-chat.md) — updated 2026-06-11 10:02
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-06-04 20:02
 - [`native-orders/`](./native-orders.md) — updated 2026-06-09 19:12
 - [`nhanhang/`](./nhanhang.md) — updated 2026-05-21 15:39
@@ -53,7 +51,7 @@
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
-- [`render.com/`](./render.com.md) — updated 2026-06-11 08:36
+- [`render.com/`](./render.com.md) — updated 2026-06-11 10:02
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-11 08:36
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
