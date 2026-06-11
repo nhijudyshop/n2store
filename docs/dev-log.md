@@ -1,5 +1,26 @@
 # Dev Log
 
+## 2026-06-11
+
+### [live-chat][render] Realtime PUSH thật Pancake WebSocket → SSE (tin nhắn + comment livestream) ✅
+
+**User:** "live-chat cần realtime chứ không cần polling" + cung cấp payload thật livestream comment.
+
+**Bug nền (Render):** service `n2store-tpos-pancake` (Pancake WebSocket relay, code `live-chat/server/server.js`) **fail deploy 1 tháng** vì rootDir trỏ `tpos-pancake/server` (folder đã rename → `live-chat/`). Fix rootDir → `live-chat/server` qua Render API → redeploy → LIVE `1/1 connected`. KHÔNG xóa (đây là engine realtime).
+
+**Kiến trúc realtime (deploy LIVE commit 2a7709656):**
+
+- Relay nhận Pancake WS `pages:update_conversation`/`pages:new_message`. Livestream comment = `conv.type==='COMMENT' && conv.post?.type==='livestream'` (payload thật: post_id, page_id, from, customers[].fb_id, snippet, recent_phone_numbers).
+- `forwardToFallback()`: comment → `POST /api/web2-live-comments/ingest` (secret `x-relay-secret`) → `upsertComments` ghi `web2_live_comments` + `_notify('realtime')` → SSE `web2:live-comments`. Inbox → `POST /api/realtime/web2/sse/relay-notify` → SSE `web2:messages`.
+- Frontend `live-init.js`: subscribe `web2:messages` (debounce 600ms); `web2:live-comments` đã có sẵn.
+- `RELAY_SECRET` set trên relay = `CLEANUP_SECRET` qua Render API.
+
+**E2E verified production:** relay-notify + ingest → SSE client nhận cả `web2:messages` + `web2:live-comments`; `/ingest` gate 401 nếu thiếu secret. ⚠ Còn cần 1 livestream thật để verify Pancake đẩy comment qua WS (relay có log `[REALTIME] livestream comment → ingest`); poller 30s/adaptive 5s vẫn chạy fallback.
+
+**Files:** live-chat/server/server.js, render.com/routes/web2-live-comments.js (+/ingest), render.com/routes/realtime-sse-web2.js (+/sse/relay-notify), live-chat/js/live/live-init.js.
+
+**Status:** ✅ Done — realtime push LIVE.
+
 ## 2026-06-10
 
 ### [web2] FIX toàn diện Web 2.0 (Wave 1+2, 12 agent) + browser-test click UI thật 34/34 trang ✅
