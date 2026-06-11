@@ -19,6 +19,7 @@ const NativeOrdersApi = {
     async _fetchJson(url, options = {}) {
         const response = await fetch(url, {
             ...options,
+            signal: AbortSignal.timeout(15000),
             headers: {
                 Accept: 'application/json',
                 ...(options.headers || {}),

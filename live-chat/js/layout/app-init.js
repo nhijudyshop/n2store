@@ -33,29 +33,13 @@
             console.error('[APP] Live initialization failed:', error);
         }
 
-        // 4. Initialize Pancake column (may auto-init via DOMContentLoaded)
-        // Mobile/tablet (html.lc-mobile): cột Pancake ẨN (chỉ đọc comment Live)
-        // → skip init để khỏi tải conversations thừa (2026-06-11).
-        const isMobileReadMode = document.documentElement.classList.contains('lc-mobile');
-        try {
-            const pancakeInit = window.PancakeColumnManager || window.PancakeInit;
-            if (
-                !isMobileReadMode &&
-                pancakeInit &&
-                pancakeInit.initialize &&
-                !pancakeInit._initialized
-            ) {
-                await pancakeInit.initialize('pancakeContent');
-                console.log('[APP] Pancake column initialized');
-            }
-        } catch (error) {
-            console.error('[APP] Pancake initialization failed:', error);
-        }
+        // (Cột Pancake đã TÁCH sang chat.html 2026-06-11 — #pancakeContent
+        // không còn trên index.html nên bỏ init PancakeColumnManager ở đây.)
 
-        // 5. Wire up cross-column events
+        // 4. Wire up cross-column events
         _setupCrossColumnEvents();
 
-        // 6. Initialize settings modals (inline JS from old index.html)
+        // 5. Initialize settings modals (inline JS from old index.html)
         if (window.SettingsManager) {
             window.SettingsManager.initialize();
             console.log('[APP] SettingsManager initialized');
