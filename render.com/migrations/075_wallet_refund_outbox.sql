@@ -34,6 +34,18 @@ DO $$
 DECLARE
     c RECORD;
 BEGIN
+    -- EARLY EXIT: already migrated. Avoids needless DROP+ADD (AccessExclusiveLock
+    -- on the table) on every boot via ensureRefundSchema.
+    IF EXISTS (
+        SELECT 1 FROM pg_constraint con
+        JOIN pg_class rel ON rel.oid = con.conrelid
+        WHERE rel.relname = 'pending_wallet_withdrawals'
+          AND con.conname = 'pending_wallet_withdrawals_status_check'
+          AND pg_get_constraintdef(con.oid) ILIKE '%REFUND_DUE%'
+    ) THEN
+        RETURN;
+    END IF;
+
     FOR c IN
         SELECT con.conname
         FROM pg_constraint con
@@ -67,6 +79,17 @@ DO $$
 DECLARE
     c RECORD;
 BEGIN
+    -- EARLY EXIT: already migrated (named constraint exists with >= semantics).
+    IF EXISTS (
+        SELECT 1 FROM pg_constraint con
+        JOIN pg_class rel ON rel.oid = con.conrelid
+        WHERE rel.relname = 'pending_wallet_withdrawals'
+          AND con.conname = 'pending_wallet_withdrawals_amount_check'
+          AND pg_get_constraintdef(con.oid) LIKE '%>=%'
+    ) THEN
+        RETURN;
+    END IF;
+
     FOR c IN
         SELECT con.conname
         FROM pg_constraint con

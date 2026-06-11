@@ -413,9 +413,13 @@
         }
 
         try {
-            // Step 1: Call TPOS API to cancel the order (reuse Tab 1 logic)
+            // Step 1: Call TPOS API to cancel the order (reuse Tab 1 logic).
+            // THROW khi fail (không return sớm) để catch luôn re-enable button.
+            // _tposCancelDoneIds (từ workflow.js): retry sau REFUND_FAILED không hủy TPOS lần 2.
             const fastSaleOrderId = parseInt(order.Id, 10);
-            if (fastSaleOrderId && !isNaN(fastSaleOrderId) && window.tokenManager?.authenticatedFetch) {
+            const tposKey = String(order.Id);
+            if (fastSaleOrderId && !isNaN(fastSaleOrderId) && window.tokenManager?.authenticatedFetch
+                && !window._tposCancelDoneIds?.has(tposKey)) {
                 console.log(`[SOCIAL-INVOICE] Calling TPOS API to cancel order ID: ${fastSaleOrderId}`);
                 const cancelResponse = await window.tokenManager.authenticatedFetch('https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/FastSaleOrder/ODataService.ActionCancel', {
                     method: 'POST',
@@ -429,15 +433,29 @@
                 if (!cancelResponse.ok) {
                     const errorText = await cancelResponse.text();
                     console.error('[SOCIAL-INVOICE] TPOS cancel API error:', cancelResponse.status, errorText);
-                    window.notificationManager?.error(`Loi huy don tren TPOS: ${cancelResponse.status}`);
-                    return;
+                    const e = new Error(`TPOS_CANCEL_FAILED:${cancelResponse.status}`);
+                    e.code = 'TPOS_CANCEL_FAILED';
+                    e.userMessage = `Loi huy don tren TPOS: ${cancelResponse.status}`;
+                    throw e;
                 }
 
                 const responseText = await cancelResponse.text();
                 const cancelResult = responseText ? JSON.parse(responseText) : { success: true };
                 console.log('[SOCIAL-INVOICE] TPOS cancel result:', cancelResult);
+                window._tposCancelDoneIds?.add(tposKey);
+            } else if (window._tposCancelDoneIds?.has(tposKey)) {
+                console.log('[SOCIAL-INVOICE] ⏭️ TPOS already cancelled on a prior attempt, skipping');
             } else {
                 console.warn('[SOCIAL-INVOICE] No valid FastSaleOrder ID found, skipping TPOS cancel API');
+            }
+
+            // Step 1b: HOÀN VÍ NGAY sau TPOS cancel, TRƯỚC mọi mutation local (refund-first
+            // — cùng bảo đảm với executeCancelOrder bên orders-report). Hàm này THROW khi
+            // fail → catch giữ modal mở, bấm lại "Xác nhận hủy" là retry sạch.
+            const customerPhone = order.ReceiverPhone || order.Phone || '';
+            const orderNumber = order.Number || order.Reference || '';
+            if (customerPhone && typeof window.refundWalletForCancelledOrder === 'function') {
+                await window.refundWalletForCancelledOrder(customerPhone, orderNumber, order, reason, invoiceData?.Comment);
             }
 
             // Step 2: Ensure currentUserIdentifier is loaded before saving
@@ -528,14 +546,19 @@
                 }
             }
 
-            // Step 5: Log cancel activity (reuse Tab 1 pattern - async, non-blocking)
-            const customerPhone = order.ReceiverPhone || order.Phone || '';
-            const orderNumber = order.Number || order.Reference || '';
-            if (customerPhone && typeof window.logCancelOrderActivity === 'function') {
-                window.logCancelOrderActivity(customerPhone, orderNumber, order, reason);
+            // Step 5: Log cancel activity (activity-only, fire-and-forget — refund đã
+            // chạy ở Step 1b). Fallback wrapper cũ nếu workflow.js cached chưa có export
+            // mới (refund idempotent server-side nên gọi lại vô hại).
+            if (customerPhone) {
+                if (typeof window.logCancelActivity === 'function') {
+                    Promise.resolve(window.logCancelActivity(customerPhone, orderNumber, order, reason)).catch(() => {});
+                } else if (typeof window.logCancelOrderActivity === 'function') {
+                    window.logCancelOrderActivity(customerPhone, orderNumber, order, reason);
+                }
             }
 
             window.notificationManager?.success(`Da luu yeu cau huy don: ${order.Number || order.Reference}`);
+            window._tposCancelDoneIds?.delete(tposKey); // hủy trọn vẹn — xóa marker retry
             closeSocialCancelModal();
 
             // Refresh table
@@ -550,8 +573,20 @@
             delete window._cancelSocialOrderId;
 
         } catch (error) {
-            console.error('[SOCIAL-INVOICE] Error cancelling order:', error);
-            window.notificationManager?.error('Loi luu yeu cau huy don');
+            if (error?.code === 'TPOS_CANCEL_FAILED') {
+                window.notificationManager?.error(error.userMessage || 'Loi huy don tren TPOS');
+            } else if (error?.code === 'REFUND_FAILED') {
+                // TPOS đã hủy nhưng ví CHƯA hoàn — đã ghi WalletFailureStore (shared).
+                // Modal giữ mở: bấm lại "Xac nhan huy" = retry (TPOS được skip).
+                window.notificationManager?.error(
+                    `⚠️ Đã hủy TPOS nhưng HOÀN VÍ THẤT BẠI — tiền khách CHƯA về ví (đơn ${error.orderNumber || ''}). ` +
+                    `Đã lưu sổ nợ; bấm "Xác nhận hủy" để thử lại hoặc gõ retryWalletOpFailures().`,
+                    0
+                );
+            } else {
+                console.error('[SOCIAL-INVOICE] Error cancelling order:', error);
+                window.notificationManager?.error('Loi luu yeu cau huy don');
+            }
 
             if (cancelBtn) {
                 cancelBtn.disabled = false;

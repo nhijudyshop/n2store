@@ -95,6 +95,27 @@
 
 **Status:** ✅ Done.
 
+### [orders-report][don-inbox][render] Vòng 2 audit ví — fix 8 vấn đề còn sót sau refund outbox ✅
+
+**User:** "kiểm tra lại toàn bộ từ đầu xem còn lỗi gì nữa không" → 3 reviewer độc lập (backend/frontend/integration toàn repo) + tự verify → 8 vấn đề → "hiện thực toàn bộ".
+
+**Fix:**
+
+1. **Order-wide cancel guard** ([pending-withdrawals.js](../render.com/routes/v2/pending-withdrawals.js) POST /): check `WHERE order_id=$1 AND status IN (CANCELLED, REFUND_DUE, REFUNDED)` KHÔNG kèm phone — chặn trừ ví đơn đã hủy kể cả khi cancel caller và deduction caller lấy phone từ field khác nhau (ReceiverPhone vs Partner.Phone) → marker UNIQUE(order_id,phone) không đụng.
+2. **don-inbox cancel path** ([tab-social-invoice.js](../don-inbox/js/tab-social-invoice.js)): refund-first (await `window.refundWalletForCancelledOrder` THROW khi fail, TRƯỚC mọi mutation local), TPOS fail → throw thay return (button không kẹt spinner), `_tposCancelDoneIds` skip TPOS khi retry, catch phân loại TPOS_CANCEL_FAILED / REFUND_FAILED (modal giữ mở + retry). Export `refundWalletForCancelledOrder` + `logCancelActivity` từ workflow.js.
+3. **NEW [shared/js/wallet-failure-store.js](../shared/js/wallet-failure-store.js)**: tách `getOrderWalletIdentity` + `WalletFailureStore` + `retryWalletOpFailures` + race guards ra shared (IIFE, load-guard idempotent) — load cả tab1-orders.html + don-inbox/index.html → sổ nợ ví + retry giờ hoạt động ở don-inbox (trước đây toast bảo gõ hàm không tồn tại). Phone chain thêm `order.Phone` + `invoiceData.ReceiverPhone`.
+4. **Panel kế toán thấy REFUND_DUE** ([accountant.js](../balance-history/js/accountant.js)): card "Chờ hoàn ví" + "Đã hoàn ví", alert bar gộp, bảng fetch thêm `?status=REFUND_DUE`, nút **Hoàn ngay** → `POST /:id/process-refund` (executeRefund idempotent).
+5. **Migration 075 early-exit**: DO-block check constraint đã chứa REFUND_DUE / `>=` thì RETURN — không DROP+ADD (AccessExclusiveLock) mỗi boot qua ensureRefundSchema.
+6. **Align COALESCE(refund_max_retries, 20)** ở 2 picker (khớp default 20 + STUCK alert).
+7. **wallets.js** nhánh `not_refund_due` terminal: REFUNDED→already, CANCELLED→no-refund-needed, khác→warn log (không nói dối "sẽ tự hoàn").
+8. **Escape HTML** (`_escHtml`) cho Number/Reference/PartnerDisplayName/ShowState trong 2 modal hủy (XSS-latent); `/:id/cancel` + `cancel-by-order` trả `needs_refund_path:true` khi row PROCESSING/COMPLETED.
+
+**Đã BÁC 2 claim của reviewer sau khi tự verify:** "cửa sổ không-constraint giữa DROP/ADD" (sai — DO-block transactional) và "COALESCE 5 làm row cũ kẹt im lặng" (sai premise — ADD COLUMN DEFAULT backfill mọi row PG11+, hạ HIGH→LOW vẫn fix).
+
+**Verify:** 9 file `node --check` PASS + **re-run DB test trên Postgres thật (embedded-postgres): 29/29 PASS** (migration early-exit + re-run no-op + fifo idempotency + 4 race concurrency). Bump `?v=20260611b` (tab1-orders, don-inbox, balance-history).
+
+**Status:** ✅ Done.
+
 ### [issue-tracking] Stat cards + tab badges đếm theo chip lọc loại + fix "Hoàn Tất Hôm Nay" luôn 0 ✅
 
 **User:** stat thống kê (Chờ Hàng Về / Chờ Đối Soát / Hoàn Tất Hôm Nay) phải theo chip lọc loại (Tất cả loại / Không Nhận Hàng / Thu về Shipper / Khách gửi / Sửa COD) — bấm chip nào stat cập nhật theo chip đó.

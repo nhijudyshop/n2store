@@ -339,7 +339,7 @@ cron.schedule('*/5 * * * *', async () => {
             SELECT id
             FROM pending_wallet_withdrawals
             WHERE status = 'REFUND_DUE'
-              AND COALESCE(refund_retry_count, 0) < COALESCE(refund_max_retries, 5)
+              AND COALESCE(refund_retry_count, 0) < COALESCE(refund_max_retries, 20)
             ORDER BY refund_requested_at ASC NULLS FIRST
             LIMIT 50
         `);

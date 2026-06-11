@@ -2368,8 +2368,10 @@ HẾT HÀNG</textarea
         <script src="../shared/js/wallet-pair-utils.js?v=20260603a"></script>
         <!-- Sale Modal: shared functions (must load AFTER tab-social-sale.js for globals) -->
         <script src="../orders-report/js/utils/sale-modal-common.js?v=20260603a"></script>
+        <!-- Wallet failure store (shared): identity + sổ nợ ví fail + retry — load TRƯỚC sale/workflow -->
+        <script src="../shared/js/wallet-failure-store.js?v=20260611b"></script>
         <!-- Sale Modal: shared creation logic from Tab1 -->
-        <script src="../orders-report/js/tab1/tab1-sale.js?v=20260611a"></script>
+        <script src="../orders-report/js/tab1/tab1-sale.js?v=20260611b"></script>
         <!-- Override confirmAndPrintSale with address sync wrapper (must be right after tab1-sale.js) -->
         <script>
             if (typeof overrideConfirmAndPrintSale === 'function') overrideConfirmAndPrintSale();
@@ -2380,10 +2382,10 @@ HẾT HÀNG</textarea
         <!-- Tab1 Invoice Status Store + Workflow (reuse for Phieu ban hang, Messenger, Huy don) -->
         <script src="../shared/js/base-store.js?v=20260603a"></script>
         <script src="../orders-report/js/tab1/tab1-fast-sale-invoice-status.js?v=20260603a"></script>
-        <script src="../orders-report/js/tab1/tab1-fast-sale-workflow.js?v=20260611a"></script>
+        <script src="../orders-report/js/tab1/tab1-fast-sale-workflow.js?v=20260611b"></script>
 
         <!-- Social Invoice Adapter (bridges social orders with Tab 1 functions) -->
-        <script src="js/tab-social-invoice.js?v=20260603a"></script>
+        <script src="js/tab-social-invoice.js?v=20260611b"></script>
 
         <!-- KPI Reconcile Engine (gate phiếu đã chốt + đối soát trừ hàng trả) -->
         <script src="js/tab-social-kpi-reconcile.js?v=20260605e"></script>

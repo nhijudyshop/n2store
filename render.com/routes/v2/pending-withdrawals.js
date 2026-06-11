@@ -240,6 +240,29 @@ router.post('/', async (req, res) => {
             return res.status(400).json({ success: false, error: 'Invalid phone number' });
         }
 
+        // ORDER-WIDE cancel guard (NO phone filter): a CANCEL_MARKER / refund row for
+        // this order means the order was cancelled, even if the cancel caller derived
+        // the phone from a different field than this deduction caller (e.g. invoice
+        // ReceiverPhone vs TPOS Partner.Phone). UNIQUE(order_id, phone) alone would
+        // NOT collide across differing phones — without this guard the deduction
+        // would proceed on a cancelled order and nobody would ever refund it.
+        const cancelledAny = await db.query(`
+            SELECT id, status, phone FROM pending_wallet_withdrawals
+            WHERE order_id = $1 AND status IN ('CANCELLED', 'REFUND_DUE', 'REFUNDED')
+            LIMIT 1
+        `, [order_id]);
+        if (cancelledAny.rows.length > 0) {
+            const c = cancelledAny.rows[0];
+            console.log(`[PENDING-WITHDRAW] 🛑 Blocked deduction for order ${order_id} — ${c.status} row #${c.id} exists (phone ${c.phone})`);
+            return res.json({
+                success: true,
+                skipped: true,
+                blocked_by_cancel: true,
+                status: c.status,
+                message: 'Order was cancelled — wallet deduction blocked'
+            });
+        }
+
         // Check if record already exists (idempotency check)
         const existingResult = await db.query(`
             SELECT id, status, virtual_used, real_used, wallet_transaction_id, completed_at
@@ -582,9 +605,24 @@ router.post('/:id/cancel', async (req, res) => {
         `, [id, reason || 'Cancelled by admin']);
 
         if (updateResult.rows.length === 0) {
+            // Distinguish "doesn't exist" from "exists but in a state this endpoint
+            // can't cancel" — PROCESSING/COMPLETED rows need the refund path
+            // (POST /api/v2/wallets/refund-by-order) which schedules REFUND_DUE.
+            const cur = await db.query(
+                `SELECT status FROM pending_wallet_withdrawals WHERE id = $1`, [id]
+            );
+            if (cur.rows.length > 0 && ['PROCESSING', 'COMPLETED'].includes(cur.rows[0].status)) {
+                return res.status(409).json({
+                    success: false,
+                    needs_refund_path: true,
+                    status: cur.rows[0].status,
+                    error: `Row is ${cur.rows[0].status} — dùng POST /api/v2/wallets/refund-by-order để hủy + hoàn ví`
+                });
+            }
             return res.status(404).json({
                 success: false,
-                error: 'Record not found or cannot be cancelled (already completed or processing)'
+                status: cur.rows[0] ? cur.rows[0].status : null,
+                error: 'Record not found or cannot be cancelled'
             });
         }
 
@@ -649,7 +687,7 @@ router.post('/process-pending', async (req, res) => {
             SELECT id
             FROM pending_wallet_withdrawals
             WHERE status = 'REFUND_DUE'
-              AND COALESCE(refund_retry_count, 0) < COALESCE(refund_max_retries, 5)
+              AND COALESCE(refund_retry_count, 0) < COALESCE(refund_max_retries, 20)
             ORDER BY refund_requested_at ASC NULLS FIRST
             LIMIT $1
         `, [parseInt(limit)]);
@@ -737,9 +775,24 @@ router.post('/cancel-by-order', async (req, res) => {
         `, [order_id, reason || 'Order cancelled']);
 
         if (updateResult.rows.length === 0) {
+            // Signal callers when the row is mid/post-deduction: cancelling those
+            // requires the refund path (refund-by-order), not this endpoint.
+            const cur = await db.query(`
+                SELECT id, status FROM pending_wallet_withdrawals
+                WHERE order_id = $1 AND status IN ('PROCESSING', 'COMPLETED')
+                LIMIT 1
+            `, [order_id]);
+            if (cur.rows.length > 0) {
+                return res.json({
+                    success: false,
+                    needs_refund_path: true,
+                    status: cur.rows[0].status,
+                    message: `Row is ${cur.rows[0].status} — dùng POST /api/v2/wallets/refund-by-order để hủy + hoàn ví`
+                });
+            }
             return res.json({
                 success: true,
-                message: 'No pending withdrawal found for this order (may already be completed)'
+                message: 'No pending withdrawal found for this order (may already be cancelled/refunded)'
             });
         }
 

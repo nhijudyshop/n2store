@@ -1517,11 +1517,28 @@ router.post('/refund-by-order', async (req, res) => {
                     message: 'Order cancelled — no deduction to refund'
                 });
             }
-            if (result.reason === 'not_refund_due' && result.status === 'REFUNDED') {
+            if (result.reason === 'not_refund_due') {
                 // The cron settled it in the gap between our re-read and executeRefund.
+                if (result.status === 'REFUNDED') {
+                    return res.json({
+                        success: true, refunded: true, already_refunded: true,
+                        message: 'Order already refunded'
+                    });
+                }
+                if (result.status === 'CANCELLED') {
+                    // executeRefund settled it as never-deducted / marker.
+                    return res.json({
+                        success: true, refunded: false,
+                        message: 'Withdrawal already cancelled (no refund needed)'
+                    });
+                }
+                // Any other terminal status here is unexpected — log loudly, do NOT
+                // claim "refund scheduled" (it isn't; nothing is REFUND_DUE anymore).
+                console.warn(`[Wallets V2] ⚠️ executeRefund not_refund_due with status=${result.status} for order ${order_id} (#${pendingId})`);
                 return res.json({
-                    success: true, refunded: true, already_refunded: true,
-                    message: 'Order already refunded'
+                    success: true, refunded: false,
+                    status: result.status,
+                    message: 'Withdrawal state changed concurrently — check and retry if needed'
                 });
             }
             // deduction_in_flight / wallet_not_found / db error -> durably REFUND_DUE.

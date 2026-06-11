@@ -3266,16 +3266,24 @@
             const data = result.data;
             const failedInfo = data.by_status?.FAILED || { count: 0, total_amount: 0 };
             const pendingInfo = data.by_status?.PENDING || { count: 0, total_amount: 0 };
+            const refundDueInfo = data.by_status?.REFUND_DUE || { count: 0, total_amount: 0 };
 
-            // Update alert bar
+            // Update alert bar (trừ ví thất bại HOẶC hoàn ví đang chờ đều cần chú ý)
             const alertBar = document.getElementById('accFailedWithdrawalBar');
             const totalIssues = failedInfo.count + pendingInfo.count;
             if (alertBar) {
-                if (failedInfo.count > 0) {
+                if (failedInfo.count > 0 || refundDueInfo.count > 0) {
                     alertBar.classList.remove('hidden');
                     const textEl = document.getElementById('accFailedWithdrawalText');
                     if (textEl) {
-                        textEl.textContent = `${failedInfo.count} giao dịch trừ ví thất bại (${failedInfo.total_amount.toLocaleString('vi-VN')}đ)`;
+                        const parts = [];
+                        if (failedInfo.count > 0) {
+                            parts.push(`${failedInfo.count} giao dịch trừ ví thất bại (${failedInfo.total_amount.toLocaleString('vi-VN')}đ)`);
+                        }
+                        if (refundDueInfo.count > 0) {
+                            parts.push(`${refundDueInfo.count} đơn chờ hoàn ví (${refundDueInfo.total_amount.toLocaleString('vi-VN')}đ)`);
+                        }
+                        textEl.textContent = parts.join(' • ');
                     }
                 } else {
                     alertBar.classList.add('hidden');
@@ -3285,14 +3293,16 @@
             // Update badge
             const badge = document.getElementById('accFailedWdBadge');
             if (badge) {
-                badge.textContent = failedInfo.count;
-                badge.style.display = failedInfo.count > 0 ? 'inline' : 'none';
+                const badgeCount = failedInfo.count + refundDueInfo.count;
+                badge.textContent = badgeCount;
+                badge.style.display = badgeCount > 0 ? 'inline' : 'none';
             }
 
             // Update stats summary
             const statsEl = document.getElementById('accFailedWdStats');
             if (statsEl) {
                 const completedInfo = data.by_status?.COMPLETED || { count: 0, total_amount: 0 };
+                const refundedInfo = data.by_status?.REFUNDED || { count: 0, total_amount: 0 };
                 statsEl.style.display = 'flex';
                 statsEl.innerHTML = `
                     <div class="failed-wd-stat-card failed">
@@ -3305,10 +3315,20 @@
                         <div class="stat-value">${pendingInfo.count}</div>
                         <div class="stat-amount">${pendingInfo.total_amount.toLocaleString('vi-VN')}đ</div>
                     </div>
+                    <div class="failed-wd-stat-card pending" style="border-color:#3b82f6;" title="Đơn hủy đã trừ ví, hệ thống đang hoàn lại (cron tự xử lý mỗi 5 phút)">
+                        <div class="stat-label">Chờ hoàn ví</div>
+                        <div class="stat-value">${refundDueInfo.count}</div>
+                        <div class="stat-amount">${refundDueInfo.total_amount.toLocaleString('vi-VN')}đ</div>
+                    </div>
                     <div class="failed-wd-stat-card completed">
                         <div class="stat-label">Hoàn thành</div>
                         <div class="stat-value">${completedInfo.count}</div>
                         <div class="stat-amount">${completedInfo.total_amount.toLocaleString('vi-VN')}đ</div>
+                    </div>
+                    <div class="failed-wd-stat-card completed" style="border-color:#0ea5e9;" title="Đơn hủy đã hoàn ví xong">
+                        <div class="stat-label">Đã hoàn ví</div>
+                        <div class="stat-value">${refundedInfo.count}</div>
+                        <div class="stat-amount">${refundedInfo.total_amount.toLocaleString('vi-VN')}đ</div>
                     </div>
                 `;
             }
@@ -3327,14 +3347,17 @@
         tbody.innerHTML = `<tr><td colspan="10" class="acc-empty-state"><div class="empty-text">Đang tải...</div></td></tr>`;
 
         try {
-            // Fetch both FAILED and PENDING records
-            const [failedRes, pendingRes] = await Promise.all([
+            // Fetch FAILED + PENDING (trừ ví) + REFUND_DUE (chờ hoàn ví)
+            const [failedRes, pendingRes, refundDueRes] = await Promise.all([
                 fetch(`${RENDER_API_URL}/api/v2/pending-withdrawals?status=FAILED&limit=50`).then(
                     (r) => r.json()
                 ),
                 fetch(`${RENDER_API_URL}/api/v2/pending-withdrawals?status=PENDING&limit=50`).then(
                     (r) => r.json()
                 ),
+                fetch(`${RENDER_API_URL}/api/v2/pending-withdrawals?status=REFUND_DUE&limit=50`).then(
+                    (r) => r.json()
+                ).catch(() => ({ success: false })),
             ]);
 
             const failedRows = (failedRes.success ? failedRes.data : []).map((r) => ({
@@ -3345,11 +3368,15 @@
                 ...r,
                 _displayStatus: 'PENDING',
             }));
+            const refundDueRows = (refundDueRes.success ? refundDueRes.data : []).map((r) => ({
+                ...r,
+                _displayStatus: 'REFUND_DUE',
+            }));
 
-            const allRows = [...failedRows, ...pendingRows];
+            const allRows = [...failedRows, ...refundDueRows, ...pendingRows];
 
             if (allRows.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="10" class="acc-empty-state"><div class="empty-text">Không có giao dịch trừ ví thất bại</div></td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="10" class="acc-empty-state"><div class="empty-text">Không có giao dịch trừ ví thất bại / chờ hoàn</div></td></tr>`;
                 loadFailedWithdrawalStats();
                 return;
             }
@@ -3371,22 +3398,34 @@
                               ? 'PBH Lẻ'
                               : row.source || '—';
 
+                    const isRefundDue = row._displayStatus === 'REFUND_DUE';
                     const statusHtml = isFailed
                         ? '<span style="background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:4px;font-size:12px;font-weight:600;">Thất bại</span>'
-                        : '<span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:4px;font-size:12px;font-weight:600;">Đang chờ</span>';
+                        : isRefundDue
+                          ? '<span style="background:#dbeafe;color:#1e40af;padding:2px 8px;border-radius:4px;font-size:12px;font-weight:600;">Chờ hoàn ví</span>'
+                          : '<span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:4px;font-size:12px;font-weight:600;">Đang chờ</span>';
 
-                    const retryBtn = `<button class="failed-wd-retry-btn" onclick="AccountantModule.retryWithdrawal(${row.id})" title="Thử lại trừ ví">
+                    const retryBtn = isRefundDue
+                        ? `<button class="failed-wd-retry-btn" style="background:#2563eb;" onclick="AccountantModule.processRefund(${row.id})" title="Hoàn ví ngay (không chờ cron)">
+                    <i data-lucide="undo-2" style="width:12px;height:12px"></i> Hoàn ngay
+                </button>`
+                        : `<button class="failed-wd-retry-btn" onclick="AccountantModule.retryWithdrawal(${row.id})" title="Thử lại trừ ví">
                     <i data-lucide="refresh-cw" style="width:12px;height:12px"></i> Retry
                 </button>`;
 
-                    return `<tr style="${isFailed ? 'background:#fef2f2;' : ''}">
+                    const retryDisplay = isRefundDue
+                        ? `${row.refund_retry_count || 0}/${row.refund_max_retries || 20}`
+                        : `${row.retry_count || 0}/${row.max_retries || 5}`;
+                    const errDisplay = isRefundDue ? (row.refund_last_error || row.last_error || '—') : (row.last_error || '—');
+
+                    return `<tr style="${isFailed ? 'background:#fef2f2;' : isRefundDue ? 'background:#eff6ff;' : ''}">
                     <td>${idx + 1}</td>
                     <td><strong>${row.order_id || '—'}</strong></td>
                     <td>${row.phone || '—'}${row.customer_name ? `<br><small style="color:#6b7280;">${row.customer_name}</small>` : ''}</td>
                     <td style="color:#dc2626;font-weight:700;">${amount.toLocaleString('vi-VN')}đ</td>
                     <td>${sourceLabel}</td>
-                    <td><div class="failed-wd-error" title="${(row.last_error || '').replace(/"/g, '&quot;')}">${row.last_error || '—'}</div></td>
-                    <td>${row.retry_count || 0}/${row.max_retries || 5} ${statusHtml}</td>
+                    <td><div class="failed-wd-error" title="${String(errDisplay).replace(/"/g, '&quot;')}">${errDisplay}</div></td>
+                    <td>${retryDisplay} ${statusHtml}</td>
                     <td>${row.created_by || '—'}</td>
                     <td>${createdAt}${updatedAt ? `<br><small style="color:#94a3b8;">Cập nhật: ${updatedAt}</small>` : ''}</td>
                     <td>${retryBtn}</td>
@@ -3445,6 +3484,45 @@
         }
     }
 
+    /**
+     * Manually settle a REFUND_DUE row right now (instead of waiting for the cron).
+     * Server-side executeRefund is idempotent — safe to call repeatedly.
+     */
+    async function processRefund(id) {
+        if (!confirm(`Hoàn ví ngay cho giao dịch #${id}?`)) return;
+
+        try {
+            const response = await fetch(
+                `${RENDER_API_URL}/api/v2/pending-withdrawals/${id}/process-refund`,
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                }
+            );
+            const result = await response.json();
+            const r = result.result || {};
+
+            if (result.success && r.refunded) {
+                const d = r.data || {};
+                window.notificationManager?.show(
+                    `Đã hoàn ${(d.refund_amount || 0).toLocaleString('vi-VN')}đ vào ví ${d.phone || ''} (giao dịch #${id})`,
+                    'success'
+                );
+            } else if (result.success && (r.zero_amount || r.cancelled_never_deducted)) {
+                window.notificationManager?.show(`#${id}: đơn chưa từng bị trừ — đã đóng, không cần hoàn`, 'info');
+            } else if (result.success && r.refund_scheduled) {
+                window.notificationManager?.show(`#${id}: chưa hoàn được (${r.reason || r.error || 'sẽ tự thử lại'})`, 'info');
+            } else {
+                window.notificationManager?.show(`Hoàn ví thất bại: ${result.error || r.reason || 'unknown'}`, 'error');
+            }
+
+            loadFailedWithdrawals();
+        } catch (error) {
+            console.error('[ACCOUNTANT] Process refund failed:', error);
+            window.notificationManager?.show(`Lỗi: ${error.message}`, 'error');
+        }
+    }
+
     // =====================================================
     // PUBLIC API
     // =====================================================
@@ -3497,6 +3575,7 @@
         showWalletAdjustments,
         // Failed Wallet Withdrawal functions (trừ ví thất bại)
         loadFailedWithdrawals,
+        processRefund,
         loadFailedWithdrawalStats,
         retryWithdrawal,
     };

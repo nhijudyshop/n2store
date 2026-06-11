@@ -258,6 +258,16 @@
     // CANCEL ORDER MODAL
     // =====================================================
 
+    // Escape dữ liệu động (tên KH từ TPOS có thể chứa ký tự HTML) trước khi
+    // chèn vào template insertAdjacentHTML — chống XSS-latent.
+    function _escHtml(v) {
+        return String(v ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
     /**
      * Show modal to enter cancellation reason
      * @param {object} order - Success order data
@@ -291,10 +301,10 @@
                     <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 12px; margin-bottom: 16px;">
                         <p style="margin: 0 0 8px 0; font-weight: 600;">Thông tin đơn:</p>
                         <p style="margin: 0; font-size: 14px;">
-                            <strong>Mã:</strong> ${order.Reference || order.Code || 'N/A'}<br>
-                            <strong>Số phiếu:</strong> ${order.Number || invoiceData.Number || 'N/A'}<br>
-                            <strong>Khách:</strong> ${order.PartnerDisplayName || order.Partner?.PartnerDisplayName || 'N/A'}<br>
-                            <strong>Trạng thái:</strong> ${order.ShowState || invoiceData.ShowState || 'N/A'}
+                            <strong>Mã:</strong> ${_escHtml(order.Reference || order.Code || 'N/A')}<br>
+                            <strong>Số phiếu:</strong> ${_escHtml(order.Number || invoiceData.Number || 'N/A')}<br>
+                            <strong>Khách:</strong> ${_escHtml(order.PartnerDisplayName || order.Partner?.PartnerDisplayName || 'N/A')}<br>
+                            <strong>Trạng thái:</strong> ${_escHtml(order.ShowState || invoiceData.ShowState || 'N/A')}
                         </p>
                     </div>
 
@@ -1453,10 +1463,10 @@
                             <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 12px; margin-bottom: 16px;">
                                 <p style="margin: 0 0 8px 0; font-weight: 600;">Thông tin đơn:</p>
                                 <p style="margin: 0; font-size: 14px;">
-                                    <strong>Mã:</strong> ${order.Reference || 'N/A'}<br>
-                                    <strong>Số phiếu:</strong> ${order.Number || 'N/A'}<br>
-                                    <strong>Khách:</strong> ${order.PartnerDisplayName || 'N/A'}<br>
-                                    <strong>Trạng thái:</strong> ${order.ShowState || 'N/A'}
+                                    <strong>Mã:</strong> ${_escHtml(order.Reference || 'N/A')}<br>
+                                    <strong>Số phiếu:</strong> ${_escHtml(order.Number || 'N/A')}<br>
+                                    <strong>Khách:</strong> ${_escHtml(order.PartnerDisplayName || 'N/A')}<br>
+                                    <strong>Trạng thái:</strong> ${_escHtml(order.ShowState || 'N/A')}
                                 </p>
                             </div>
 
@@ -1821,4 +1831,7 @@
     window.findOrCreateTag = findOrCreateTag;
     window.assignTagsToOrder = assignTagsToOrder;
     window.logCancelOrderActivity = logCancelOrderActivity;
+    // Exported riêng cho don-inbox (refund-first): refund THROW khi fail, activity no-throw.
+    window.refundWalletForCancelledOrder = refundWalletForCancelledOrder;
+    window.logCancelActivity = logCancelActivity;
 })();
