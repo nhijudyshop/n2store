@@ -2,6 +2,31 @@
 
 ## 2026-06-11
 
+### [showroom1] Mã định danh khách vãng lai (visitor ID từ 1) + giỏ hàng server-side + tra cứu admin ✅
+
+**User:** khách lạ bấm link showroom1 (từ Messenger/Zalo) → cấp mã định danh đơn giản tăng dần từ 1, hiện mã thay FAB chat đen; thêm SP → lưu giỏ theo mã; bấm mã → bảng giỏ nhanh không chuyển trang; khách chốt đơn chỉ cần gọi/nhắn mã → shop tra giỏ.
+
+**Backend (Web 1.0 — pool chatDb, theo pattern showroom-products):**
+
+- NEW `render.com/routes/showroom-carts.js` — mount `/api/showroom-carts` (public): `POST /visitors` cấp mã BIGSERIAL từ 1 + token 32-hex (chống đoán ID tuần tự; rate-limit 10/IP/giờ + cap DB 500/giờ; cleanup giỏ rỗng >30 ngày ~4% request); `GET /:id?token=` (404→client tự đăng ký lại, 403 sai token); `PUT /:id` full-replace 1 câu SQL atomic + `sanitizeItems` (max 50 items/50KB, strip `<>` chống stored-XSS vào admin, image phải https://, qty 1–99); `GET /?recent=N|?id=` cho admin (total/itemCount server-side, KHÔNG bao giờ trả token). SSE hub Web 1.0 topic `showroom_carts` broadcast sau PUT.
+- `server.js`: require + mount + `initializeNotifiers(realtimeSseRoutes.notifyClients)`.
+- Cloudflare worker: route `SHOWROOM_CARTS /api/showroom-carts/*` → handleCustomer360Proxy (routes.js pattern + matcher, worker.js case).
+
+**Frontend khách (`showroom1/`):**
+
+- NEW `cart.js` — IIFE: init đọc LS `showroom1_visitor` {id,token} → GET khôi phục giỏ (404/403 → re-register; lỗi mạng → cache `showroom1_cart_cache` offline); chưa có → POST /visitors → toast "Xin chào! Mã khách của bạn: #N" + pill pulse. `window.ShowroomCart={add,open,close,getCount}`. UI-first: mutation render ngay, debounce 800ms PUT, lỗi mạng KHÔNG rollback (cache + retry ở mutation kế/online event/mở sheet); 403/404 khi save → cấp mã mới + re-PUT giữ items. Bottom-sheet (tái dùng CSS `.sheet` sẵn có, append vào `.screen`): rows thumb/tên/giá/stepper/xóa, tạm tính, mã to + hướng dẫn + nút Gọi/Zalo/Messenger (**CONTACT placeholder đầu cart.js — user điền SĐT/Zalo thật**).
+- NEW `cart.css` — pill `.fab.idpill` (thay #chatFab), `.pill-n[hidden]` fix, pillPulse, cart rows/foot. **Fix bug test bắt được: `.sheet` base không z-index còn scrim z-index 80 → scrim chặn click trong sheet → thêm `.sheet.cart-sheet{z-index:85}`** (dưới toast 90).
+- `index.html`: #chatFab → #idPill shell; click ảnh SP build product từ `card.dataset.id/.price` → `ShowroomCart.add()` (card demo không id → toast như cũ); `buildCardEl` set `dataset.id+price` (giá hiệu lực sale); script cart.js?v trước admin.js; bump ?v=20260611a.
+- `admin.js`: `toPreview()` thêm `id` (trước đây BỎ id → guest card không tham chiếu được SP); mục **"Giỏ hàng khách"** cuối panel: list ?recent=30 (mọi field qua esc() — tên SP do khách gửi), search theo mã (lọc local + fallback ?id= server), EventSource RIÊNG `?keys=showroom_carts` chỉ mở khi isAdmin (không nới SSE_URL chung — tránh guest reload SP khi khách sửa giỏ), debounce 500ms. `admin.css`: styles `.adm-carts*`.
+
+**Verify:** curl qua worker: POST→{visitorId:1,token}, PUT sanitize `<script>`→strip, GET 403/404 đúng, list không lộ token, SSE event `update {visitorId,itemCount}` nhận realtime. Playwright localhost: guest auto cấp #2, 20 SP thật đều có dataset.id, add 3 SP → pill count 3 + PUT 200, sheet mở trong khung phone (tổng 790k đúng), stepper/xóa/scrim-close OK, reload giữ mã+giỏ, admin panel hiện 2 giỏ + **SSE: PUT từ ngoài → admin tự update "vừa xong" không reload**, search #1/#999 đúng. Console 0 error (trừ favicon). Cleanup: 2 giỏ test đã empty.
+
+**⚠ Còn lại:** (1) CONTACT trong cart.js là placeholder — cần SĐT + link Zalo thật; (2) visitor #1–#2 đã dùng cho test, khách thật bắt đầu từ #3 (muốn reset về 1 cần TRUNCATE RESTART IDENTITY trên Render DB); (3) token lộ trong query-log worker (GET ?token=) — chấp nhận v1.
+
+**Files:** render.com/routes/showroom-carts.js (NEW), render.com/server.js, cloudflare-worker/{worker.js, modules/config/routes.js}, showroom1/{cart.js (NEW), cart.css (NEW), index.html, admin.js, admin.css}.
+
+**Status:** ✅ Backend + worker đã deploy & verify prod. Frontend commit này → GH Pages.
+
 ### [live-chat] Tách kiến trúc: index = comment full + Kho SP + capture (1 máy) · chat.html = trang chat Pancake riêng · modal 💬 chat từ comment ✅
 
 **User:** (1) PC bỏ panel phải để panel comment full — mỗi comment có nút mở ĐOẠN HỘI THOẠI full chức năng như native-orders; trang này giữ iframe + chụp thumbnail/Force extract; mobile không capture; **1 máy capture duy nhất** để khỏi đè dữ liệu giữa các máy. (2) Trang riêng cho panel phải để chat với khách — full chức năng. (3) Ghi devlog/MEMORY/CLAUDE: mở browser test web nhớ thêm extension n2store. (4) "cần kho sp để kéo vào comment tạo đơn" → giữ Kho SP panel phải trên index.

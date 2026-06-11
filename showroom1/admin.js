@@ -31,6 +31,9 @@
   let paneEl = null;
   let drawerEl = null;
   let scrimEl = null;
+  let carts = []; // giỏ hàng khách vãng lai (mã định danh)
+  let cartsEs = null; // EventSource riêng topic showroom_carts (chỉ mở khi isAdmin)
+  let cartSearchQ = '';
 
   // ---------- utils ----------
   const imgUrl = (id) => `${API}/images/${id}`;
@@ -99,6 +102,7 @@
     return list
       .filter((p) => p.active)
       .map((p) => ({
+        id: p.id, // cart.js cần id để lưu giỏ server-side
         name: p.name,
         price: p.price,
         salePrice: p.salePrice,
@@ -143,8 +147,24 @@
         <span class="adm-count" id="admCount"></span>
         <button class="adm-btn ghost sm" id="admRefresh" title="Làm mới">↻</button>
       </div>
-      <div class="adm-list" id="admList"><div class="adm-empty">Đang tải…</div></div>`;
+      <div class="adm-list" id="admList"><div class="adm-empty">Đang tải…</div></div>
+      <div class="adm-carts">
+        <div class="adm-carts-head">
+          <span class="adm-carts-title">Giỏ hàng khách<small>theo mã định danh</small></span>
+          <input type="text" id="admCartSearch" inputmode="numeric" placeholder="Tìm mã khách… (VD: 12)" autocomplete="off">
+          <button class="adm-btn ghost sm" id="admCartRefresh" title="Làm mới">↻</button>
+        </div>
+        <div class="adm-cart-list" id="admCartList"><div class="adm-empty">Đang tải…</div></div>
+      </div>`;
 
+    paneEl.querySelector('#admCartRefresh').addEventListener('click', () => refreshCarts());
+    paneEl.querySelector('#admCartSearch').addEventListener(
+      'input',
+      debounce((e) => {
+        cartSearchQ = e.target.value.trim();
+        renderCarts();
+      }, 250)
+    );
     paneEl.querySelector('#admAdd').addEventListener('click', () => openEditor(null));
     paneEl.querySelector('#admLogout').addEventListener('click', () => {
       try {
@@ -615,6 +635,121 @@
     } catch (_) {}
   }
 
+  // ====================================================
+  // GIỎ HÀNG KHÁCH (visitor carts — /api/showroom-carts)
+  // ====================================================
+  const CARTS_API = WORKER + '/api/showroom-carts';
+  const CARTS_SSE_URL = WORKER + '/api/realtime/sse?keys=showroom_carts';
+
+  async function cartsApi(path) {
+    const res = await fetch(CARTS_API + (path || ''));
+    let data = null;
+    try {
+      data = await res.json();
+    } catch (_) {}
+    if (!res.ok || (data && data.success === false)) {
+      throw new Error((data && data.error) || `HTTP ${res.status}`);
+    }
+    return data;
+  }
+
+  function timeAgo(ts) {
+    if (!ts) return '';
+    const s = Math.max(0, (Date.now() - ts) / 1000);
+    if (s < 60) return 'vừa xong';
+    if (s < 3600) return Math.floor(s / 60) + ' phút trước';
+    if (s < 86400) return Math.floor(s / 3600) + ' giờ trước';
+    return Math.floor(s / 86400) + ' ngày trước';
+  }
+
+  async function refreshCarts() {
+    if (!isAdmin || !paneEl) return;
+    try {
+      const data = await cartsApi('/?recent=30');
+      carts = (data && data.carts) || [];
+    } catch (err) {
+      const list = paneEl.querySelector('#admCartList');
+      if (list) list.innerHTML = `<div class="adm-empty">Tải giỏ hàng lỗi: ${esc(err.message)}</div>`;
+      return;
+    }
+    renderCarts();
+  }
+
+  // ⚠ name/image của item do KHÁCH tự gửi → mọi field PHẢI qua esc() (chống stored-XSS)
+  function cartRowHtml(c) {
+    const itemsHtml = (c.items || [])
+      .map((it) => {
+        const img = it.image
+          ? `<img class="adm-cart-thumb" src="${esc(it.image)}" alt="" loading="lazy">`
+          : '<span class="adm-cart-thumb ph"></span>';
+        const line = (Number(it.price) || 0) * (Number(it.qty) || 0);
+        return `<div class="adm-cart-item">${img}<span class="q">${Number(it.qty) || 0}×</span><span class="n">${esc(it.name)}</span><span class="p">${vnd(line)}</span></div>`;
+      })
+      .join('');
+    return `
+      <div class="adm-cart-row">
+        <div class="adm-cart-rowhead">
+          <b class="vid">#${Number(c.visitorId)}</b>
+          <span class="ct">${Number(c.itemCount) || 0} SP</span>
+          <b class="tt">${vnd(c.total)}</b>
+          <span class="tm">${esc(timeAgo(c.updatedAt))}</span>
+        </div>
+        <div class="adm-cart-items">${itemsHtml || '<div class="adm-empty sm">Giỏ trống</div>'}</div>
+      </div>`;
+  }
+
+  async function renderCarts() {
+    if (!paneEl) return;
+    const list = paneEl.querySelector('#admCartList');
+    if (!list) return;
+    let show = carts;
+    if (cartSearchQ) {
+      const q = cartSearchQ.replace(/^#/, '');
+      show = carts.filter((c) => String(c.visitorId).includes(q));
+      if (!show.length && /^\d+$/.test(q)) {
+        // mã không nằm trong recent 30 → tra trực tiếp server
+        try {
+          const data = await cartsApi('/?id=' + q);
+          show = (data && data.carts) || [];
+        } catch (_) {
+          show = [];
+        }
+        if (q !== cartSearchQ.replace(/^#/, '')) return; // user đã gõ tiếp — bỏ kết quả cũ
+      }
+      if (!show.length) {
+        list.innerHTML = `<div class="adm-empty">Không tìm thấy mã #${esc(q)}</div>`;
+        return;
+      }
+    }
+    if (!show.length) {
+      list.innerHTML = '<div class="adm-empty">Chưa có giỏ hàng nào.</div>';
+      return;
+    }
+    list.innerHTML = show.map(cartRowHtml).join('');
+  }
+
+  // EventSource RIÊNG cho topic showroom_carts — không nới SSE_URL chung
+  // (subscribe() chạy cho cả guest; nới key sẽ làm mọi guest reload SP mỗi khi 1 khách sửa giỏ)
+  function subscribeCarts() {
+    if (cartsEs) return;
+    try {
+      cartsEs = new EventSource(CARTS_SSE_URL);
+      const onEvt = debounce(() => refreshCarts(), 500);
+      cartsEs.addEventListener('update', onEvt);
+      cartsEs.onerror = () => {
+        /* EventSource tự reconnect */
+      };
+    } catch (_) {}
+  }
+  function closeCarts() {
+    if (cartsEs) {
+      try {
+        cartsEs.close();
+      } catch (_) {}
+      cartsEs = null;
+    }
+  }
+
   // ---------- activate / teardown ----------
   function evaluate() {
     const want = authed() && window.innerWidth >= MIN_DESKTOP;
@@ -624,10 +759,13 @@
       buildPane();
       buildDrawer();
       refresh(); // reload với ?all=1 + render list
+      refreshCarts();
+      subscribeCarts();
     } else if (!want && isAdmin) {
       isAdmin = false;
       document.body.classList.remove('admin-on');
       closeEditor();
+      closeCarts();
       refresh(); // về chế độ guest (chỉ active)
     }
   }

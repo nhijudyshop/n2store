@@ -1,0 +1,143 @@
+/* #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes. */
+/* Showroom1 — visitor ID pill + cart bottom-sheet (guest). Sheet base CSS (.sheet/.sheet-scrim) ở index.html. */
+
+/* ---------- ID pill (thay FAB chat đen) ---------- */
+.fab.idpill {
+  right: 18px;
+  width: auto;
+  min-width: 52px;
+  padding: 0 18px 0 14px;
+  gap: 8px;
+  border-radius: 26px;
+  background: var(--ink);
+  color: var(--paper);
+  font-family: var(--font-ui);
+}
+.fab.idpill b {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: .08em;
+}
+.fab.idpill i { width: 20px; height: 20px; }
+.pill-n {
+  position: absolute;
+  top: -5px; right: -3px;
+  min-width: 19px; height: 19px;
+  border-radius: 10px;
+  background: var(--accent, #b3541e);
+  color: #fff;
+  font-size: 10px; font-weight: 600;
+  display: flex; align-items: center; justify-content: center;
+  padding: 0 5px;
+  border: 2px solid var(--paper);
+  box-sizing: border-box;
+}
+.pill-n[hidden] { display: none !important; }
+@keyframes pillPulse {
+  0%, 100% { transform: scale(1); box-shadow: 0 8px 22px -6px rgba(40,33,24,.5); }
+  50% { transform: scale(1.12); box-shadow: 0 10px 28px -4px rgba(40,33,24,.65); }
+}
+.fab.idpill.pulse { animation: pillPulse .9s ease 3; }
+
+/* ---------- Cart sheet ---------- */
+/* .sheet base không có z-index còn .sheet-scrim z-index:80 → scrim đè sheet, chặn click.
+   Nâng sheet lên 85 (vẫn dưới toast 90). */
+.sheet.cart-sheet { z-index: 85; }
+.cart-sheet .sheet-body { padding: 0; }
+.cart-empty {
+  padding: 44px 26px;
+  text-align: center;
+  font-size: 12px; letter-spacing: .08em;
+  color: var(--muted, #8d8576);
+  line-height: 1.9;
+  text-transform: uppercase;
+}
+.cart-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 13px 18px 13px 22px;
+  border-bottom: 1px solid var(--hairline);
+}
+.cart-thumb {
+  width: 56px; height: 70px;
+  flex: 0 0 56px;
+  background: #efe9df;
+  overflow: hidden;
+  display: flex; align-items: center; justify-content: center;
+}
+.cart-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.cart-info { flex: 1; min-width: 0; }
+.cart-name {
+  font-size: 12.5px; letter-spacing: .04em;
+  color: var(--ink);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.cart-price { font-size: 11.5px; color: var(--muted, #8d8576); margin-top: 4px; letter-spacing: .04em; }
+.cart-qty {
+  display: flex; align-items: center; gap: 0;
+  border: 1px solid var(--hairline-2);
+  flex: 0 0 auto;
+}
+.cart-qty button {
+  width: 28px; height: 28px;
+  border: 0; background: none;
+  font-size: 15px; color: var(--ink);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.cart-qty button:disabled { opacity: .3; cursor: default; }
+.cart-qty b { min-width: 24px; text-align: center; font-size: 12px; font-weight: 600; }
+.cart-rm {
+  width: 28px; height: 28px;
+  border: 0; background: none;
+  color: var(--muted, #8d8576);
+  font-size: 17px; line-height: 1;
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+.cart-rm:active { color: var(--ink); }
+
+/* foot: tổng + mã to + nút liên hệ (đè .sheet-foot row → column) */
+.cart-foot { flex-direction: column; gap: 14px; }
+.cart-total {
+  display: flex; align-items: baseline; justify-content: space-between;
+  font-size: 11px; letter-spacing: .16em; text-transform: uppercase;
+  color: var(--ink-soft, #4a443a);
+}
+.cart-total b { font-size: 16px; letter-spacing: .04em; color: var(--ink); }
+.cart-idblock {
+  text-align: center;
+  padding: 12px 14px 14px;
+  border: 1px solid var(--hairline-2);
+  background: #f6f2ea;
+}
+.cart-idlabel {
+  font-size: 9.5px; letter-spacing: .22em; text-transform: uppercase;
+  color: var(--muted, #8d8576);
+}
+.cart-idbig {
+  font-family: var(--font-display);
+  font-size: 40px; font-weight: 500;
+  letter-spacing: .06em;
+  color: var(--ink);
+  line-height: 1.2;
+  margin-top: 2px;
+}
+.cart-idhint {
+  font-size: 10.5px; line-height: 1.6;
+  color: var(--ink-soft, #4a443a);
+  margin-top: 4px;
+}
+.cart-contacts { display: flex; gap: 10px; }
+.cart-cbtn {
+  flex: 1;
+  padding: 13px 0;
+  text-align: center;
+  text-decoration: none;
+  font-family: var(--font-ui);
+  font-size: 11px; letter-spacing: .14em; text-transform: uppercase;
+  border: 1px solid var(--hairline-2);
+  color: var(--ink);
+  background: var(--paper);
+}
+.cart-cbtn.call { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.cart-cbtn:active { opacity: .75; }
