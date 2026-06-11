@@ -1,9 +1,14 @@
 // #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 — server poller tự lấy comment livestream từ pancake.vn → web2_live_comments.
 // =====================================================================
-// web2-livestream-poller — chạy NỀN trên Render: định kỳ kiểm tra các trang
-// đã bật, nếu trang đang livestream thì kéo TẤT CẢ comment (qua pancake.vn
-// /api/v1 + account JWT — thấy cả comment ẩn / có SĐT, khác pages.fm public)
-// và lưu vào web2_live_comments. Chạy CẢ KHI không có client mở live-chat.
+// web2-livestream-poller — EVENT-DRIVEN fetcher (background poll ĐÃ TẮT
+// 2026-06-11, user: "bỏ hoàn toàn polling ở live-chat").
+//
+// Luồng PUSH-only: relay Pancake WS (live-chat/server, 24/7) nhận event comment
+// → POST /api/web2-live-comments/ingest → pollPostNow(page,post) fetch
+// per-message ĐÚNG post đó (qua pancake.vn /api/v1 + account JWT — thấy cả
+// comment ẩn / có SĐT) → upsert web2_live_comments → SSE web2:live-comments.
+// Client mở campaign → POST /poll-now (one-shot warm-up, không phải polling).
+// `pollNow()` (full cycle on-demand) vẫn dùng được cho lookup KH tier-3.
 //
 // Config: bảng web2_live_poller_pages (seed 2 trang mặc định: NhiJudyHouse,
 // NhiJudyStore). Thêm/bớt trang qua trang settings (sau).
@@ -425,12 +430,17 @@ function start({ web2Pool, chatPool, liveCommentsModule }) {
     }
     if (_started) return;
     _started = true;
+    // BACKGROUND POLL ĐÃ TẮT (user 2026-06-11: "bỏ hoàn toàn polling ở live-chat").
+    // Comment livestream giờ là PUSH-only: relay Pancake WS (live-chat/server)
+    // nhận event 24/7 → POST /ingest → pollPostNow(page,post) fetch per-message
+    // ĐÚNG post có comment mới (event-driven, debounce 1.5s) → upsert + SSE.
+    // start() chỉ init deps (pools + config table) cho pollPostNow/pollNow/
+    // listLivePostsForAssign hoạt động — KHÔNG schedule _loop() cycle nữa.
     ensureConfigTable()
         .then(() => {
             console.log(
-                `[LIVE-POLLER] started — adaptive poll: ${POLL_INTERVAL_LIVE_MS / 1000}s khi LIVE / ${POLL_INTERVAL_IDLE_MS / 1000}s khi idle, ${DEFAULT_PAGES.length} trang mặc định`
+                '[LIVE-POLLER] deps ready — background poll DISABLED, event-driven only (WS relay → pollPostNow)'
             );
-            _loop(); // chạy ngay 1 lần, rồi tự schedule cycle kế theo interval adaptive
         })
         .catch((e) => {
             _started = false;

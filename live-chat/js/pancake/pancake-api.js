@@ -341,13 +341,10 @@ const PancakeAPI = {
     async fetchMessagesN2Store(pageId, convId) {
         try {
             const n2storeUrl = window.PancakeState.n2storeUrl;
-            const liveToken = window.liveTokenManager
-                ? await window.liveTokenManager.getToken()
-                : null;
-            const headers = liveToken ? { Authorization: `Bearer ${liveToken}` } : {};
+            // TPOS token đã gỡ — endpoint n2store-facebook hoạt động không cần Authorization
+            // (chat.html chứng minh: không load live-token-manager mà vẫn fetch được).
             const response = await fetch(
-                `${n2storeUrl}/api/conversations/${convId}/messages?page_id=${pageId}`,
-                { headers }
+                `${n2storeUrl}/api/conversations/${convId}/messages?page_id=${pageId}`
             );
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
             const data = await response.json();
@@ -445,14 +442,13 @@ const PancakeAPI = {
         attachmentType = null
     ) {
         const n2storeUrl = window.PancakeState.n2storeUrl;
-        const liveToken = window.liveTokenManager ? await window.liveTokenManager.getToken() : null;
         const body = { conversation_id: convId, message: text };
         if (attachmentId) {
             body.attachment_id = attachmentId;
             body.attachment_type = attachmentType?.toLowerCase() || 'image';
         }
+        // TPOS token đã gỡ — không gửi Authorization header.
         const headers = { 'Content-Type': 'application/json' };
-        if (liveToken) headers['Authorization'] = `Bearer ${liveToken}`;
         const response = await fetch(`${n2storeUrl}/api/pages/${pageId}/messages`, {
             method: 'POST',
             headers,
@@ -470,9 +466,8 @@ const PancakeAPI = {
 
     async privateReplyN2Store(pageId, commentId, message) {
         const n2storeUrl = window.PancakeState.n2storeUrl;
-        const liveToken = window.liveTokenManager ? await window.liveTokenManager.getToken() : null;
+        // TPOS token đã gỡ — không gửi Authorization header.
         const headers = { 'Content-Type': 'application/json' };
-        if (liveToken) headers['Authorization'] = `Bearer ${liveToken}`;
         const response = await fetch(
             `${n2storeUrl}/api/pages/${pageId}/comments/${commentId}/private-reply`,
             {
@@ -652,13 +647,10 @@ const PancakeAPI = {
     async uploadMediaN2Store(pageId, file) {
         try {
             const n2storeUrl = window.PancakeState.n2storeUrl;
-            const liveToken = window.liveTokenManager
-                ? await window.liveTokenManager.getToken()
-                : null;
             const formData = new FormData();
             formData.append('file', file);
+            // TPOS token đã gỡ — không gửi Authorization header.
             const headers = {};
-            if (liveToken) headers['Authorization'] = `Bearer ${liveToken}`;
             const resp = await fetch(`${n2storeUrl}/api/pages/${pageId}/upload`, {
                 method: 'POST',
                 headers,

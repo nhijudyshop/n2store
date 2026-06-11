@@ -370,34 +370,11 @@ const PancakeRealtime = {
     },
 
     // =====================================================
-    // AUTO-REFRESH FALLBACK
+    // AUTO-REFRESH FALLBACK — ĐÃ GỠ (2026-06-11)
+    // live-chat realtime-only: tin nhắn đến qua WS trực tiếp + SSE web2:messages
+    // (relay server 24/7). KHÔNG polling fetchConversations định kỳ nữa.
+    // Giữ stopAutoRefresh() no-op an toàn cho caller cũ (_onOpen).
     // =====================================================
-
-    startAutoRefresh() {
-        this.stopAutoRefresh();
-        var self = this;
-        this.autoRefreshInterval = setInterval(async function () {
-            try {
-                var state = window.PancakeState;
-                state.pagesWithUnread = (await window.PancakeAPI.fetchPagesWithUnreadCount()) || [];
-                window.PancakePageSelector?.updateSelectedDisplay?.();
-                if (!state.isLoading) {
-                    var convs = await window.PancakeAPI.fetchConversations(false);
-                    if (convs && convs.length > 0) {
-                        var hasNew = convs.some(function (c) {
-                            return c.unread_count > 0;
-                        });
-                        if (convs.length !== state.conversations.length || hasNew) {
-                            state.conversations = convs;
-                            window.PancakeConversationList?.renderConversationList?.();
-                        }
-                    }
-                }
-            } catch (error) {
-                console.warn('[PK-RT] Auto-refresh error:', error.message);
-            }
-        }, this.AUTO_REFRESH_INTERVAL);
-    },
 
     stopAutoRefresh() {
         if (this.autoRefreshInterval) {
@@ -453,8 +430,16 @@ const PancakeRealtime = {
                 }
             }, delay);
         } else {
-            console.log('[PK-RT] Max reconnects reached, falling back to auto-refresh');
-            this.startAutoRefresh();
+            // KHÔNG fallback polling (user 2026-06-11: "bỏ hoàn toàn polling ở
+            // live-chat — cần tin nhắn trực tiếp"). Hết lượt reconnect nhanh →
+            // reset + retry WS chậm 60s vô hạn. Tin nhắn realtime còn đường SSE
+            // web2:messages (relay server 24/7) song song.
+            console.log('[PK-RT] Max fast reconnects reached → slow WS retry 60s (no polling)');
+            this.reconnectAttempts = 0;
+            var self2 = this;
+            this.reconnectTimer = setTimeout(function () {
+                self2.connectServerMode();
+            }, 60000);
         }
     },
 

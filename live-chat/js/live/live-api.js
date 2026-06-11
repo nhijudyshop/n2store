@@ -2,7 +2,7 @@
 /**
  * Live API Layer
  * All Live API calls extracted from live-chat.js
- * Dependencies: LiveState (window.LiveState), liveTokenManager (window.liveTokenManager)
+ * Dependencies: LiveState (window.LiveState), LiveSource, PancakeAPI
  */
 
 const LiveApi = {
@@ -10,60 +10,16 @@ const LiveApi = {
         return window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
     },
     /**
-     * Get current Live token via token manager
-     * @returns {Promise<string|null>}
+     * TPOS token đã gỡ — Web 2.0 dùng Pancake account JWT (pancakeTokenManager)
+     * cho mọi call. Giữ method (trả null) phòng caller cũ còn gọi, không throw.
+     * @returns {Promise<null>}
      */
     async getToken() {
-        if (window.liveTokenManager) {
-            return await window.liveTokenManager.getToken();
-        }
         return null;
     },
 
-    /**
-     * Authenticated fetch with auto-retry on 401
-     * @param {string} url
-     * @param {object} [options]
-     * @returns {Promise<Response>}
-     */
-    async authenticatedFetch(url, options = {}) {
-        const token = await this.getToken();
-        if (!token) {
-            throw new Error('No token available');
-        }
-
-        let response = await fetch(url, {
-            ...options,
-            signal: AbortSignal.timeout(15000),
-            headers: {
-                Authorization: `Bearer ${token}`,
-                Accept: 'application/json',
-                ...options.headers,
-            },
-        });
-
-        // Auto-retry on 401: refresh token and retry once
-        if (response.status === 401) {
-            console.log('[Live-API] Got 401, refreshing token and retrying...');
-            if (window.liveTokenManager?.refresh) {
-                await window.liveTokenManager.refresh();
-                const newToken = await this.getToken();
-                if (newToken) {
-                    response = await fetch(url, {
-                        ...options,
-                        signal: AbortSignal.timeout(15000),
-                        headers: {
-                            Authorization: `Bearer ${newToken}`,
-                            Accept: 'application/json',
-                            ...options.headers,
-                        },
-                    });
-                }
-            }
-        }
-
-        return response;
-    },
+    // authenticatedFetch (TPOS OData Bearer fetch) ĐÃ GỠ — dead code, không có
+    // caller nào trong live-chat. Mọi call warehouse Web 2.0 dùng fetch trực tiếp.
 
     // REWIRE helper: điền Facebook_UserName cho campaign (FB-live) từ allPages.
     _fillCampaignPageNames(camps, state) {

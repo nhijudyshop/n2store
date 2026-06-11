@@ -16,7 +16,7 @@
 - **Tất cả 8 Top CRITICAL** (auth web2-users/SSE-monitor/kpi · `pool`→`client` purchase-refund · `stock:m.quantity`→`m.stock` · `fetchAggregate`→`fetchAggregateWeb2Only` · sinh mã atomic retry/advisory-lock 4 route · bỏ `KHO-<rnd>` · ví NCC — xem ghi chú).
 - **Pattern lỗi lặp** #1-6: data-attr selector (3 trang) · transaction quanh tiền/kho (purchase-refund, web2-returns, fast-sale-orders, native-orders cancel, balance-history reassign) · FOR UPDATE check-then-update · Web2Optimistic cho handler còn thiếu · SSE debounce (reconcile, notifications) · web2-generic `web2Db||chatDb`.
 - **Money atomicity**: web2-returns cộng ví VÀO transaction · balance-history reassign 1 transaction · payment-signals `_appendHistory` + approve idempotency FOR UPDATE.
-- **Realtime live-chat**: adaptive poll (5s khi có bài live / 30s idle) + pagination flag + passive listener.
+- **Realtime live-chat**: PUSH-only từ 2026-06-11 (relay Pancake WS → ingest → SSE; vòng poll nền đã tắt) + pagination flag + passive listener.
 - **Auth**: middleware `render.com/middleware/web2-auth.js` gate mutation (KHÔNG gate login/me/view → không lockout) + rate-limit login + password min 8 + WEB2_PAGES +7 trang.
 
 **⏳ CẦN DEPLOY RENDER để có hiệu lực**: mọi fix BACKEND (route `render.com/`) đã commit nhưng chỉ chạy thật sau khi deploy Render (`POST /services/srv-d4e5pd3gk3sc73bgv600/deploys`). Frontend (GH Pages) đã live. ⚠ Auth enforcement: admin phải đăng nhập hệ thống web2-users (token `web2_auth`) — verify trước khi deploy auth lên prod để tránh khoá nhầm.
@@ -142,21 +142,18 @@
 > **🆕 2026-06-11 — Mobile/tablet read-mode (`html.lc-mobile`):** detect UA trong `<head>` → mobile/tablet chỉ hiện cột comment Live full màn hình (ẩn Kho SP + sidebar + topbar phải); input 16px chống iOS zoom, touch target ≥38px; skip auto-snap iframe/ext-prompt trên mobile (mobile KHÔNG capture — PC lo).
 > **✅ FIX 2026-06-11:** tin nhắn inbox bên cột Pancake làm cột Live full re-render trắng ("Đang tải comment…") — bỏ subscribe `web2:messages` reload cột Live trong `live-init.js`; SSE `web2:live-comments` reload chuyển **silent** (giữ list hiển thị, không showLoading, không churn SSE, diff render patch tại chỗ).
 
-> **📢 YÊU CẦU USER (2026-06-10): xem comment livestream PHẢI realtime trực tiếp.** Hiện trạng: hop server→browser đã realtime (SSE `web2:live-comments`), nhưng hop upstream Pancake→Render chỉ POLL (server 30s / client 4s) vì không có FB EAA token. Lộ trình đạt realtime thật (ưu tiên trên xuống):
->
-> 1. **Quick win — adaptive poll:** poller giảm interval xuống 3-5s khi có bài "ĐANG live" (giữ 30-60s khi không live). Gần realtime, không cần hạ tầng mới.
-> 2. **Realtime thật — tap websocket Pusher của Pancake:** Render giữ 1 kết nối websocket tới kênh realtime Pancake (pancake.vn dùng Pusher cho comment live) → nhận comment push → ghi DB + broadcast SSE ngay. Cần reverse-engineer channel/auth từ JWT account.
-> 3. FB Webhook chính chủ: cần FB App + EAA token (Pancake không cấp) — dài hạn, khó.
->    | Bug | File:Line | Sev |
->    |---|---|---|
->    | SSE reload `loadComments()` KHÔNG giữ filter campaign hiện tại → list nhảy về toàn bộ | `live-comment-list.js` | 🟠 RACE |
->    | Scroll listener thiếu `{passive:true}` (vi phạm MODAL-ANTI-LAG) | `live-comment-list.js:270` | 🟠 |
->    | `selectInlineStatus`/`saveInlinePhone`/`saveInlineAddress` không Web2Optimistic | `live-comment-list.js:1029` | 🟠 |
->    | `showPancakeCustomerInfo` lookup `/api/v2/customers` (Web 1.0) trước, KHÔNG query kho `web2_customers` trước — vi phạm rule lookup | `live-comment-list.js` | 🟡 |
->    | Poller: `cv.length < 20` page-size heuristic fragile; `MAX_COMMENT_PAGES=12` (~240 comment) có thể bỏ sót live dài | `web2-livestream-poller.js:~180` | 🟡 NGHI VẤN |
->    | Multi-post: N interval × 5 page = N×5 request đồng thời không semaphore | `live-source.js` | 🟡 |
->    | `_viewCampaign` load 5000 rows không paginate | `live-campaign-manager.js` | 🟡 |
->    | Kho enricher `attempted` Set không clear khi đổi campaign → data cũ | `live-kho-enricher.js` | 🟡 |
+> **✅ ĐÃ ĐẠT REALTIME THẬT (2026-06-11) — PUSH-only, polling đã BỎ HOÀN TOÀN.** Kiến trúc cuối: relay Pancake WS (`live-chat/server`, service `n2store-tpos-pancake`, 24/7) nhận event comment → `POST /api/web2-live-comments/ingest` → `pollPostNow(page,post)` fetch per-message ĐÚNG post có event (debounce 1.5s) → upsert `web2_live_comments` → SSE `web2:live-comments` → client `_fetchLiveCommentDelta()` (GET since, prepend incremental, không full reload). Vòng poll nền 5s/30s của `web2-livestream-poller.js` đã TẮT (`start()` chỉ init deps); client `poll-now` giữ làm one-shot warm-up khi mở campaign; `pancake-realtime.js` gỡ auto-refresh polling fallback (thay bằng slow WS retry 60s). TPOS SSE/WS transport neuter NO-OP (`live-realtime.js`), TPOS token gỡ khỏi `live-api.js`/`pancake-api.js`.
+> **✅ FIX 2026-06-11 — capture lock failover ("máy giữ lock nhưng không capture → không máy nào chụp"):** heartbeat gắn với capture health thật (`STATE.lastFrameAt`/frame) — stall >75s → tự nhả lock + dừng capture (máy khác takeover ≤90s); cooldown 3 phút chống stall-machine tự cướp lại (xóa khi tab visible); poll standby 3s×10min → 30s vô hạn (không chết); SSE `web2:capture-lock` thêm nhánh standby auto-takeover khi lock được nhả. Verified với lock API production.
+> | Bug | File:Line | Sev |
+> |---|---|---|
+> | SSE reload `loadComments()` KHÔNG giữ filter campaign hiện tại → list nhảy về toàn bộ | `live-comment-list.js` | 🟠 RACE |
+> | Scroll listener thiếu `{passive:true}` (vi phạm MODAL-ANTI-LAG) | `live-comment-list.js:270` | 🟠 |
+> | `selectInlineStatus`/`saveInlinePhone`/`saveInlineAddress` không Web2Optimistic | `live-comment-list.js:1029` | 🟠 |
+> | `showPancakeCustomerInfo` lookup `/api/v2/customers` (Web 1.0) trước, KHÔNG query kho `web2_customers` trước — vi phạm rule lookup | `live-comment-list.js` | 🟡 |
+> | Poller: `cv.length < 20` page-size heuristic fragile; `MAX_COMMENT_PAGES=12` (~240 comment) có thể bỏ sót live dài | `web2-livestream-poller.js:~180` | 🟡 NGHI VẤN |
+> | Multi-post: N interval × 5 page = N×5 request đồng thời không semaphore | `live-source.js` | 🟡 |
+> | `_viewCampaign` load 5000 rows không paginate | `live-campaign-manager.js` | 🟡 |
+> | Kho enricher `attempted` Set không clear khi đổi campaign → data cũ | `live-kho-enricher.js` | 🟡 |
 
 ### 3.3 Mua hàng (3 trang)
 

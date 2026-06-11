@@ -793,8 +793,9 @@ web2PancakeRefreshRoutes.initializeNotifiers(web2RealtimeSseRoutes.notifyClients
 if (web2LiveCommentsRoutes.initializeNotifiers) {
     web2LiveCommentsRoutes.initializeNotifiers(web2RealtimeSseRoutes.notifyClients);
 }
-// Server poller: tự lấy comment livestream (pancake.vn) → web2_live_comments, chạy
-// nền cả khi không có client. Mặc định 2 trang (NhiJudyHouse + NhiJudyStore).
+// Livestream comment fetcher — EVENT-DRIVEN (background poll đã tắt 2026-06-11):
+// relay Pancake WS → /ingest → pollPostNow fetch đúng post → upsert + SSE.
+// start() chỉ init deps (pool + config table), KHÔNG chạy vòng poll nền.
 try {
     require('./services/web2-livestream-poller').start({
         web2Pool: web2Pool || chatDbPool,

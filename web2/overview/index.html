@@ -356,6 +356,31 @@
                         >. ⏳ Fix backend cần deploy Render mới có hiệu lực (frontend đã live).
                     </p>
 
+                    <p
+                        style="
+                            margin: 0 0 12px;
+                            font-size: 12.5px;
+                            color: #334155;
+                            line-height: 1.7;
+                            background: #eff6ff;
+                            border: 1px solid #bfdbfe;
+                            border-radius: 10px;
+                            padding: 10px 14px;
+                        "
+                    >
+                        <strong>🆕 2026-06-11 — Live Chat PUSH-only (bỏ hoàn toàn polling):</strong>
+                        comment livestream giờ realtime thật qua relay Pancake WS 24/7 →
+                        <code>POST /ingest</code> → fetch per-message đúng post →
+                        <code>web2_live_comments</code> → SSE <code>web2:live-comments</code> →
+                        client prepend incremental. Vòng poll nền 5s/30s của
+                        <code>web2-livestream-poller.js</code> đã TẮT; TPOS SSE/WS transport neuter
+                        NO-OP; <code>pancake-realtime.js</code> gỡ auto-refresh polling fallback.
+                        <strong>Capture lock failover:</strong> heartbeat gắn capture health — máy
+                        giữ lock không ra frame &gt;75s → tự nhả lock cho máy khác takeover
+                        (cooldown 3', standby poll vô hạn + SSE takeover tức thì). Chi tiết: mục
+                        live-chat trong WEB2-PAGES-ANALYSIS.md.
+                    </p>
+
                     <!-- Top bugs -->
                     <div
                         style="

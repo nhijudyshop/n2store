@@ -1345,6 +1345,11 @@ Throttle 30s/KH.`;
     // -----------------------------------------------------
     const LOCK_TTL_MS = 90 * 1000;
     const LOCK_HEARTBEAT_MS = 30 * 1000;
+    // Quá lâu không có frame thật nào vào buffer (tab unfocused với captureVisible
+    // Tab, screen lock, stream chết, modal Enter chưa bấm) → leader KHÔNG được
+    // giữ lock nữa: heartbeat tự nhả để máy khác takeover. 75s = heartbeat tick
+    // thứ 3 (90s) sau khi frame cuối — đủ rộng cho startup iframe ~10s + blip.
+    const LOCK_CAPTURE_STALL_MS = 75 * 1000;
     function _lockApiBase() {
         return (
             global.LiveState?.workerUrl ||
@@ -1424,9 +1429,35 @@ Throttle 30s/KH.`;
     }
     // Heartbeat = gọi lại /acquire cùng holder (server renew ts atomic).
     // {success:false} = lock bị máy khác force cướp → tự dừng capture.
+    //
+    // FAILOVER (2026-06-11, user báo "máy giữ lock nhưng không capture → không
+    // máy nào chụp"): heartbeat KHÔNG renew mù quáng nữa — check capture còn
+    // THẬT SỰ ra frame không (STATE.lastFrameAt do frame buffer tick set). Stall
+    // quá LOCK_CAPTURE_STALL_MS → tự nhả lock + dừng capture để máy standby
+    // takeover (qua SSE 'web2:capture-lock' release event hoặc poll retry).
+    // Máy này nếu hồi (tab refocus) sẽ tự re-acquire nếu lock còn trống.
     function _startLockHeartbeat() {
         _stopLockHeartbeat();
         STATE._lockHbTimer = setInterval(async () => {
+            const sinceFrame = Date.now() - (STATE.lastFrameAt || 0);
+            if (sinceFrame > LOCK_CAPTURE_STALL_MS) {
+                console.warn(
+                    `[snap-lock] capture stalled ${Math.round(sinceFrame / 1000)}s không có frame → nhả lock cho máy khác takeover`
+                );
+                _stopFrameBuffer(); // cũng release lock + stop heartbeat
+                stopRealSnap();
+                const wrapper = document.getElementById('live-snap-fb-wrapper');
+                if (wrapper) wrapper.remove();
+                STATE.autoSnapStarting = false; // cho poll loop retry khi máy hồi
+                // Cooldown 3 phút: máy VỪA stall không được auto re-acquire ngay
+                // (release → SSE event → chính nó nhào vào thắng CAS → lại stall
+                // 90s nữa → máy khỏe mãi không tới lượt). Tab visible lại → xóa
+                // cooldown (stall thường do unfocused). Click tay luôn override.
+                STATE._stallCooldownUntil = Date.now() + 180000;
+                renderRealSnapChip();
+                _toast('📵 Capture không ra frame — nhả quyền chụp cho máy khác', 'ok');
+                return;
+            }
             let j = null;
             try {
                 j = await _postAcquire(false);
@@ -1458,13 +1489,28 @@ Throttle 30s/KH.`;
             });
         } catch (_) {}
     }
-    // Máy khác cướp lock → máy này TỰ DỪNG capture (SSE web2:capture-lock).
+    // SSE 'web2:capture-lock' — 2 vai:
+    //   • Đang capture + máy khác cướp lock → máy này TỰ DỪNG.
+    //   • Standby + lock được NHẢ (leader stall/unload/release) → thử acquire
+    //     NGAY (failover tức thì, không đợi poll 3-30s). CAS server đảm bảo
+    //     nhiều standby cùng nhào vào chỉ 1 máy thắng; stagger random giảm herd.
     function _subscribeLockSse() {
         if (_subscribeLockSse._done) return;
         if (!global.Web2SSE?.subscribe) return;
         _subscribeLockSse._done = true;
         global.Web2SSE.subscribe('web2:capture-lock', async () => {
-            if (!STATE.captureStream && !STATE.frameBufferTimer) return;
+            if (!STATE.captureStream && !STATE.frameBufferTimer) {
+                // Standby: lock vừa đổi trạng thái. Nếu đã trống → takeover.
+                const cur = await _readLock();
+                const expired =
+                    cur?.holder &&
+                    (Number(cur.ts) || 0) + (Number(cur.ttlMs) || LOCK_TTL_MS) < Date.now();
+                if (!cur?.holder || expired) {
+                    STATE.autoSnapStarting = false; // cho phép re-entry
+                    setTimeout(() => _maybeShowAutoSnapBanner(), Math.random() * 1500);
+                }
+                return;
+            }
             const cur = await _readLock();
             if (cur?.holder && cur.holder !== _holderId()) {
                 console.log('[snap-lock] lock taken by another machine → stop capture');
@@ -1476,6 +1522,12 @@ Throttle 30s/KH.`;
             }
         });
     }
+    // Tab visible lại → xóa stall-cooldown (capture path captureVisibleTab
+    // hoạt động lại khi focus) để máy này được quyền auto re-acquire.
+    document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) STATE._stallCooldownUntil = 0;
+    });
+
     // Đóng tab giữa chừng → nhả lock best-effort (sendBeacon survive unload).
     window.addEventListener('beforeunload', () => {
         if (!STATE.frameBufferTimer && !STATE.captureStream) return;
@@ -1847,6 +1899,9 @@ Throttle 30s/KH.`;
         if (document.documentElement.classList.contains('lc-mobile')) return;
         if (STATE.captureStream || STATE.frameBufferTimer) return;
         if (STATE.autoSnapStarting) return;
+        // Máy vừa stall-yield lock → nhường máy khác trong cooldown (xem
+        // _startLockHeartbeat). Tab visible lại sẽ xóa cooldown.
+        if (STATE._stallCooldownUntil && Date.now() < STATE._stallCooldownUntil) return;
         const camp = _findActiveLiveCampaign();
         if (!camp?.Facebook_LiveId) return;
 
@@ -2011,6 +2066,9 @@ Throttle 30s/KH.`;
         // Entry { capturedAt: ms, blob: Blob } — giữ Blob binary thay vì base64
         // string (~4x retained memory). Convert base64 tại điểm consume (upload).
         STATE.frameBuffer = [];
+        // Mốc health ban đầu = lúc start (chưa có frame nào). Heartbeat đo stall
+        // từ đây — startup iframe ~10s vẫn nằm trong LOCK_CAPTURE_STALL_MS.
+        STATE.lastFrameAt = Date.now();
         _setupVisibilityWatcher(); // notify user khi switch tab
         // Capture path priority:
         //   1. captureStream (Option B: extension streamId via getUserMedia OR
@@ -2019,12 +2077,16 @@ Throttle 30s/KH.`;
         //   2. extension captureVisibleTab → tab-only crop. Chỉ work khi tab
         //      focused. Fallback nếu user chưa click extension icon.
         const tick = async () => {
+            // Debug/test: giả lập capture chết (frame không vào buffer) để verify
+            // heartbeat stall-failover. Set qua _lockDebug.blockFrames(true).
+            if (STATE._debugBlockFrames) return;
             // Path 1 — stream-based (Option B: extension streamId OR legacy getDisplayMedia)
             // Best: work khi tab inactive, no Chrome rate-limit.
             if (STATE.captureStream && STATE.captureVideo?.videoWidth) {
                 try {
                     const blob = await _captureFrameJpeg(0.72, 1280);
                     if (!blob) return;
+                    STATE.lastFrameAt = Date.now(); // capture health (leader lock failover)
                     STATE.frameBuffer.push({ capturedAt: Date.now(), blob });
                     if (STATE.frameBuffer.length > FRAME_BUFFER_MAX) {
                         STATE.frameBuffer.splice(0, STATE.frameBuffer.length - FRAME_BUFFER_MAX);
@@ -2043,6 +2105,7 @@ Throttle 30s/KH.`;
                 try {
                     const jpegBase64 = await _captureExtensionFrame(80);
                     if (!jpegBase64) return;
+                    STATE.lastFrameAt = Date.now(); // capture health (leader lock failover)
                     STATE.frameBuffer.push({
                         capturedAt: Date.now(),
                         blob: _base64ToBlob(jpegBase64),
@@ -3551,15 +3614,17 @@ Throttle 30s/KH.`;
         // (sau popup, đọc menu, etc.) poll dead → iframe không tự tạo. Giờ poll
         // sống mãi đến khi capture started; cũng có 'campaignsChanged' event
         // listener re-trigger ngay khi user thay đổi selection.
-        // Bound 10 phút — poll 3s gọi tới lock API (qua _enableEmbeddedLiveCapture)
-        // không được chạy vô hạn. Sau 10 phút, 'campaignsChanged' event listener
-        // vẫn re-trigger khi user chọn campaign (không cần poll mãi).
+        // Cadence 2 pha: 3s trong 10 phút đầu (bắt capture sớm), sau đó hạ
+        // xuống 30s nhưng KHÔNG chết — máy standby phải còn cơ hội takeover
+        // khi máy leader chết/stall (TTL 90s hết → acquire CAS thành công).
+        // User báo 2026-06-11: "máy giữ lock nhưng không capture → không máy
+        // nào chụp" — một phần vì poll cũ dừng hẳn sau 10 phút.
         const bannerStart = Date.now();
+        let bannerTick = 0;
         const bannerTimer = setInterval(() => {
-            if (Date.now() - bannerStart > 600000) {
-                clearInterval(bannerTimer);
-                return;
-            }
+            bannerTick++;
+            // Sau 10 phút: chỉ chạy mỗi tick thứ 10 (≈30s) — nhẹ cho lock API.
+            if (Date.now() - bannerStart > 600000 && bannerTick % 10 !== 0) return;
             if (STATE.captureStream || STATE.frameBufferTimer) {
                 clearInterval(bannerTimer);
                 return;
@@ -3687,5 +3752,21 @@ Throttle 30s/KH.`;
         _getStreamActive: () => !!STATE.captureStream,
         _getBufferCount: () => STATE.frameBuffer?.length || 0,
         _getLatestFrame: () => STATE.frameBuffer?.[STATE.frameBuffer.length - 1] || null,
+        // Debug leader-lock failover (test scripts): đọc health + ép stall.
+        _lockDebug: {
+            get: () => ({
+                lastFrameAt: STATE.lastFrameAt || 0,
+                stallCooldownUntil: STATE._stallCooldownUntil || 0,
+                lockBlockedBy: STATE.lockBlockedBy || null,
+                heartbeatOn: !!STATE._lockHbTimer,
+                bufferOn: !!STATE.frameBufferTimer,
+            }),
+            forceStall: () => {
+                STATE.lastFrameAt = Date.now() - 10 * 60 * 1000;
+            },
+            blockFrames: (on) => {
+                STATE._debugBlockFrames = !!on;
+            },
+        },
     };
 })();

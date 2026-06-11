@@ -96,19 +96,17 @@ const LiveColumnManager = {
         // Restore saved page selection (mặc định 'all' → load campaign + auto-chọn)
         this.restoreSelection();
 
-        // SSE: server poller lưu comment mới (web2:live-comments) → reload từ DB
-        // (debounce gom burst). SILENT reload: không showLoading/không xóa list —
-        // diff render patch tại chỗ, user không thấy "Đang tải comment...".
+        // SSE PUSH-only (KHÔNG polling — user 2026-06-11): relay Pancake WS 24/7
+        // nhận comment → /ingest → fetch per-message đúng post → DB → SSE topic
+        // 'web2:live-comments' → đây nhận event → INCREMENTAL delta fetch. Debounce ~400ms gom burst → GET DB chỉ comment mới hơn
+        // (since=_lastCommentMaxMs) → prepend dòng mới vào ĐẦU list (không full
+        // re-render → mượt, kiểu TPOS realtime). KHÔNG reload toàn bộ.
         if (window.Web2SSE?.subscribe) {
             window.Web2SSE.subscribe('web2:live-comments', () => {
                 clearTimeout(this._liveCommentsReloadTimer);
                 this._liveCommentsReloadTimer = setTimeout(() => {
-                    const state = window.LiveState;
-                    const ids = state.selectedCampaignIds
-                        ? Array.from(state.selectedCampaignIds)
-                        : [];
-                    if (ids.length) this.onMultiCampaignChange(ids, { silent: true });
-                }, 2500);
+                    this._fetchLiveCommentDelta();
+                }, 400);
             });
 
             // ⚠ KHÔNG subscribe 'web2:messages' để reload cột Live nữa
@@ -116,6 +114,56 @@ const LiveColumnManager = {
             // full reload + showLoading → trắng toàn bộ panel trái). Tin nhắn
             // inbox là việc của cột Pancake (pancake-realtime tự xử lý);
             // comment livestream đã có topic 'web2:live-comments' riêng ở trên.
+        }
+    },
+
+    /**
+     * Delta fetch comment livestream mới (SSE-driven). GET DB với since=
+     * _lastCommentMaxMs cho các post đang chọn → map → prepend incremental.
+     * Best-effort; lỗi không phá list đang hiển thị.
+     */
+    async _fetchLiveCommentDelta() {
+        const state = window.LiveState;
+        // Tập post đang xem = post của các campaign đang chọn.
+        const ids = state.selectedCampaignIds ? Array.from(state.selectedCampaignIds) : [];
+        if (!ids.length) return;
+        const campaigns = ids
+            .map((id) => state.liveCampaigns.find((c) => c.Id === id))
+            .filter(Boolean);
+        const postIdSet = new Set();
+        for (const campaign of campaigns) {
+            const pageLiveVideos =
+                _liveVideosCachePerPage.get(campaign.Facebook_UserId)?.videos || [];
+            let livePosts = _resolveCampaignLivePosts(
+                campaign,
+                state.liveCampaigns,
+                pageLiveVideos
+            );
+            if (livePosts.length === 0 && campaign.Facebook_LiveId) {
+                livePosts = [{ objectId: campaign.Facebook_LiveId }];
+            }
+            for (const lp of livePosts) if (lp.objectId) postIdSet.add(lp.objectId);
+        }
+        if (!postIdSet.size) return;
+        const since = this._lastCommentMaxMs || 0;
+        try {
+            const resp = await fetch(
+                `${state.workerUrl}/api/web2-live-comments?postIds=${encodeURIComponent(
+                    [...postIdSet].join(',')
+                )}&since=${since}&limit=2000`,
+                { signal: AbortSignal.timeout(15000) }
+            );
+            const j = await resp.json();
+            if (!j.success || !Array.isArray(j.data) || j.data.length === 0) return;
+            const mapped = j.data.map((row) => this._dbRowToComment(row));
+            // Cập nhật _lastCommentMaxMs theo delta (tránh fetch lặp comment cũ).
+            this._lastCommentMaxMs = mapped.reduce((mx, c) => {
+                const t = new Date(c.created_time || 0).getTime();
+                return Number.isFinite(t) && t > mx ? t : mx;
+            }, this._lastCommentMaxMs || 0);
+            window.LiveCommentList.prependComments(mapped);
+        } catch (e) {
+            console.warn('[Live-INIT] live comment delta fetch fail:', e.message);
         }
     },
 
@@ -170,7 +218,8 @@ const LiveColumnManager = {
     },
 
     // Map 1 row web2_live_comments (DB) → comment shape FB-native cho renderer.
-    _mapDbComment(row) {
+    // NGUỒN DUY NHẤT map DB row → comment (dùng cả load đầu + SSE delta prepend).
+    _dbRowToComment(row) {
         const state = window.LiveState;
         const pageObj =
             (state.allPages || []).find((p) => String(p.Facebook_PageId) === String(row.page_id)) ||
@@ -188,14 +237,23 @@ const LiveColumnManager = {
             post_id: row.post_id || null,
             _conv: true,
             _hasOrder: !!row.has_order,
+            phone: row.phone || '',
+            address: row.address || '',
             _phones: row.phone ? [{ phone_number: row.phone }] : [],
             _pageName: row.page_name || pageObj?.Name || '',
             _campaignId: row.campaign_id || null,
+            campaign_id: row.campaign_id || null,
             _pageId: row.page_id || null,
             _pageObj: pageObj,
             _postId: row.post_id || null,
             _fromDb: true,
         };
+    },
+
+    // Backward-compat alias: live-campaign-manager.js gọi _mapDbComment.
+    // Cùng 1 mapper (_dbRowToComment là tên canonical).
+    _mapDbComment(row) {
+        return this._dbRowToComment(row);
     },
 
     // Auto-save comment live-fetch vào web2_live_comments (best-effort, fire-and-forget).
@@ -496,8 +554,9 @@ const LiveColumnManager = {
 
             // Prefetch live videos per page (dedupe). Mỗi campaign có thể link
             // tới NHIỀU Facebook_PostId — Live web "Bài live" show 1 row/post.
-            // User feedback 2026-05-26: "chọn theo campaign nó bị thiếu không
-            // đủ" → resolve all post IDs in campaign date range.
+            // CHỈ dùng để DISCOVER post IDs thuộc campaign (KHÔNG fetch comment
+            // qua Pancake nữa — comment giờ đọc từ DB web2_live_comments do server
+            // poller ghi, 1 row/comment kiểu TPOS).
             const uniquePageIds = Array.from(new Set(campaigns.map((c) => c.Facebook_UserId)));
             const pageLiveVideosMap = new Map();
             await Promise.all(
@@ -507,84 +566,51 @@ const LiveColumnManager = {
             );
             if (gen !== this._loadGen) return; // load mới hơn đã start → bỏ
 
-            // Load comments from all selected campaigns × all their posts (parallel)
-            const results = await Promise.all(
-                campaigns.map(async (campaign) => {
-                    const pageId = campaign.Facebook_UserId;
-                    const pageName = campaign.Facebook_UserName || '';
-                    const page =
-                        state.allPages.find((p) => p.Facebook_PageId === pageId) ||
-                        state.selectedPage;
-                    const pageLiveVideos = pageLiveVideosMap.get(pageId) || [];
-                    let livePosts = _resolveCampaignLivePosts(
-                        campaign,
-                        state.liveCampaigns,
-                        pageLiveVideos
-                    );
-                    // Fallback: campaign chưa có post (Live livevideo empty) hoặc
-                    // resolve fail → dùng campaign.Facebook_LiveId làm post duy nhất.
-                    if (livePosts.length === 0 && campaign.Facebook_LiveId) {
-                        livePosts = [
-                            {
-                                objectId: campaign.Facebook_LiveId,
-                                title: campaign.Name,
-                                startMs: new Date(campaign.DateCreated || 0).getTime(),
-                            },
-                        ];
-                    }
-                    console.log(
-                        `[Live-INIT] Campaign "${campaign.Name}" → ${livePosts.length} live posts`
-                    );
-                    // Load comments từ TỪNG post in parallel + merge
-                    const postResults = await Promise.all(
-                        livePosts.map(async (lp) => {
-                            try {
-                                const result = await window.LiveApi.loadComments(
-                                    pageId,
-                                    lp.objectId
-                                );
-                                (result.comments || []).forEach((c) => {
-                                    c._pageName = pageName;
-                                    c._campaignId = campaign.Id;
-                                    c._campaignName = campaign.Name;
-                                    c._pageId = pageId;
-                                    c._pageObj = page;
-                                    c._postId = lp.objectId;
-                                    c._postTitle = lp.title;
-                                });
-                                return result.comments || [];
-                            } catch (error) {
-                                console.warn(
-                                    `[Live-INIT] Error loading comments for post ${lp.objectId}:`,
-                                    error
-                                );
-                                return [];
-                            }
-                        })
-                    );
-                    return postResults.flat();
-                })
-            );
-            if (gen !== this._loadGen) return; // load mới hơn đã start → bỏ
+            // Resolve danh sách {pageId, postId} cho mọi campaign × mọi post.
+            const postPairs = []; // [{ pageId, postId }]
+            const postIdSet = new Set();
+            for (const campaign of campaigns) {
+                const pageId = campaign.Facebook_UserId;
+                const pageLiveVideos = pageLiveVideosMap.get(pageId) || [];
+                let livePosts = _resolveCampaignLivePosts(
+                    campaign,
+                    state.liveCampaigns,
+                    pageLiveVideos
+                );
+                // Fallback: campaign chưa resolve được post → dùng Facebook_LiveId.
+                if (livePosts.length === 0 && campaign.Facebook_LiveId) {
+                    livePosts = [{ objectId: campaign.Facebook_LiveId }];
+                }
+                for (const lp of livePosts) {
+                    const postId = lp.objectId;
+                    if (!postId || postIdSet.has(postId)) continue;
+                    postIdSet.add(postId);
+                    postPairs.push({ pageId, postId });
+                }
+            }
 
-            // Merge live comments → DEDUPE theo id.
-            const _seen = new Set();
-            const liveComments = results.flat().filter((c) => {
-                const key = c.id || `${c._postId}|${c.from?.id}|${c.created_time}`;
-                if (_seen.has(key)) return false;
-                _seen.add(key);
-                return true;
-            });
+            // Warm-up one-shot: server fetch per-message NGAY cho các post đang
+            // chọn → DB fresh TRƯỚC khi đọc (backfill phần WS relay có thể miss
+            // lúc deploy/restart). Fetch theo sự kiện user mở campaign — KHÔNG
+            // phải polling (vòng poll nền server đã tắt 2026-06-11).
+            // Best-effort: lỗi/timeout không chặn việc đọc DB phía dưới.
+            if (postPairs.length) {
+                try {
+                    await fetch(`${state.workerUrl}/api/web2-live-comments/poll-now`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ posts: postPairs }),
+                        signal: AbortSignal.timeout(15000),
+                    });
+                } catch (e) {
+                    console.warn('[Live-INIT] poll-now fail:', e.message);
+                }
+                if (gen !== this._loadGen) return; // load mới hơn đã start → bỏ
+            }
 
-            // MERGE comment đã lưu DB (web2_live_comments) — server poller lưu ĐỦ
-            // (cả comment ẩn / có SĐT mà pages.fm public thiếu). DB = nguồn đầy đủ
-            // + bền; live fetch = bắt comment mới nhất chưa kịp poll.
-            const postIds = [
-                ...new Set([
-                    ...liveComments.map((c) => c._postId).filter(Boolean),
-                    ...campaigns.map((c) => c.Facebook_LiveId).filter(Boolean),
-                ]),
-            ];
+            // Đọc comment per-message từ DB (web2_live_comments) — NGUỒN DUY NHẤT.
+            // 1 row = 1 comment (cùng người comment nhiều lần = nhiều dòng).
+            const postIds = [...postIdSet];
             let dbComments = [];
             if (postIds.length) {
                 try {
@@ -594,34 +620,39 @@ const LiveColumnManager = {
                     );
                     const j = await resp.json();
                     if (j.success && Array.isArray(j.data)) {
-                        dbComments = j.data.map((row) => this._mapDbComment(row));
+                        dbComments = j.data.map((row) => this._dbRowToComment(row));
                     }
                 } catch (e) {
                     console.warn('[Live-INIT] DB comments fetch fail:', e.message);
                 }
                 if (gen !== this._loadGen) return; // load mới hơn đã start → bỏ
             }
-            // Live ưu tiên (có _pageObj + enrichment), DB lấp phần thiếu.
-            const merged = [];
+
+            // Dedup theo id + sort newest-first (server đã DESC, nhưng đa post merge
+            // nên sort lại cho chắc).
             const seen2 = new Set();
-            for (const c of [...liveComments, ...dbComments]) {
+            const allComments = [];
+            for (const c of dbComments) {
                 if (!c.id || seen2.has(c.id)) continue;
                 seen2.add(c.id);
-                merged.push(c);
+                allComments.push(c);
             }
-            const allComments = merged;
             allComments.sort((a, b) => {
                 const ta = new Date(a.created_time || 0).getTime();
                 const tb = new Date(b.created_time || 0).getTime();
                 return tb - ta;
             });
 
-            // Auto-save comment live-fetch vào DB (client góp phần khi poller miss).
-            if (liveComments.length) this._saveCommentsToDb(liveComments);
-
             state.comments = allComments;
-            state.selectedCampaign = campaigns[0]; // Set first as "active" for SSE
+            state.selectedCampaign = campaigns[0];
             state.hasMore = false; // Disable pagination for multi-campaign
+
+            // Track max created_time (epoch ms) để SSE delta fetch chỉ lấy comment
+            // mới hơn (since=this._lastCommentMaxMs).
+            this._lastCommentMaxMs = allComments.reduce((mx, c) => {
+                const t = new Date(c.created_time || 0).getTime();
+                return Number.isFinite(t) && t > mx ? t : mx;
+            }, 0);
 
             // Update selectedPage to first campaign's page
             if (campaigns[0]) {
@@ -632,40 +663,12 @@ const LiveColumnManager = {
             }
 
             console.log(
-                `[Live-INIT] Loaded ${allComments.length} comments from ${campaigns.length} campaigns`
+                `[Live-INIT] Loaded ${allComments.length} comments (DB) from ${campaigns.length} campaigns`
             );
             window.LiveCommentList.renderComments();
 
-            // Start SSE for EVERY live post in every campaign. Live SSE
-            // stream gắn vào postId — 1 campaign nhiều post → cần SSE đa kênh
-            // để không miss realtime comments của các post phụ.
-            // Silent reload: KHÔNG stop/start lại SSE (tập campaign không đổi,
-            // churn connection mỗi burst comment = lãng phí + có thể miss event).
-            if (!silent)
-                campaigns.forEach((c) => {
-                    const pageLiveVideos = pageLiveVideosMap.get(c.Facebook_UserId) || [];
-                    const livePosts = _resolveCampaignLivePosts(
-                        c,
-                        state.liveCampaigns,
-                        pageLiveVideos
-                    );
-                    // Active (statusLive=1) hoặc just-ended — cần SSE chính. Old
-                    // VOD posts (statusLive=0, đã end lâu) thường không nhận
-                    // comment mới → vẫn subscribe vì FB cho phép comment vào VOD.
-                    const postIdsToWatch =
-                        livePosts.length > 0
-                            ? livePosts.map((lp) => lp.objectId)
-                            : c.Facebook_LiveId
-                              ? [c.Facebook_LiveId]
-                              : [];
-                    postIdsToWatch.forEach((postId) => {
-                        window.LiveRealtime.startSSE(
-                            c.Facebook_UserId,
-                            postId,
-                            c.Facebook_UserName
-                        );
-                    });
-                });
+            // Realtime giờ do server poller + SSE 'web2:live-comments' lái (xem
+            // init()). KHÔNG còn startSSE Live (TPOS) hay client Pancake poll.
 
             // Load session index for all campaigns
             for (const campaign of campaigns) {
@@ -711,87 +714,32 @@ const LiveColumnManager = {
     },
 
     /**
-     * Load comments (initial or append for pagination)
-     * @param {boolean} [append=false]
+     * Load comments (legacy single-campaign entry — backward compat).
+     *
+     * Comment KHÔNG còn fetch qua Pancake conversations nữa (dedup-by-person).
+     * Route qua onMultiCampaignChange (DB per-message). Giữ tên + chữ ký để
+     * caller cũ (refresh / liveChatManager.loadComments) không vỡ. `append`
+     * (pagination Pancake cũ) bỏ — DB load 1 lần đủ, infinite-scroll là client.
+     * @param {boolean} [_append=false] - bỏ (giữ chữ ký).
      */
-    async loadComments(append = false) {
+    async loadComments(_append = false) {
         const state = window.LiveState;
-        if (state.isLoading || !state.selectedPage || !state.selectedCampaign) return;
-
-        state.isLoading = true;
-
-        if (append) {
-            window.LiveCommentList.updateLoadMoreIndicator();
-        } else {
-            state.comments = [];
-            state.nextPageUrl = null;
-            window.LiveCommentList.showLoading();
-        }
-
-        try {
-            const pageId = state.selectedPage.Facebook_PageId;
-            const postId = state.selectedCampaign.Facebook_LiveId;
-
-            // Extract cursor from nextPageUrl for pagination
-            let afterCursor = null;
-            if (append && state.nextPageUrl) {
-                const nextUrl = new URL(state.nextPageUrl);
-                afterCursor = nextUrl.searchParams.get('after');
-            }
-
-            const result = await window.LiveApi.loadComments(pageId, postId, afterCursor);
-
-            // Tag each comment with page name (for multi-page display)
-            const campaignPageName =
-                state.selectedCampaign?.Facebook_UserName || state.selectedPage?.Name || '';
-            result.comments.forEach((c) => {
-                c._pageName = campaignPageName;
-            });
-
-            if (append) {
-                state.comments = [...state.comments, ...result.comments];
-            } else {
-                state.comments = result.comments;
-            }
-
-            state.nextPageUrl = result.nextPageUrl;
-            state.hasMore = !!state.nextPageUrl;
-
-            console.log(
-                '[Live-INIT] Loaded comments:',
-                result.comments.length,
-                'Total:',
-                state.comments.length
-            );
-            window.LiveCommentList.renderComments();
-
-            // After initial load: start SSE + load SessionIndex
-            if (!append) {
-                window.LiveRealtime.startSSE();
-                this.loadSessionIndex();
-            }
-
-            // Load partner info async
-            this.loadPartnerInfoForComments();
-        } catch (error) {
-            console.error('[Live-INIT] Error loading comments:', error);
-            if (!append) {
-                window.LiveCommentList.showError(error.message);
-            }
-        } finally {
-            state.isLoading = false;
-            window.LiveCommentList.updateLoadMoreIndicator();
-        }
+        const ids = state.selectedCampaignIds
+            ? Array.from(state.selectedCampaignIds)
+            : state.selectedCampaign
+              ? [state.selectedCampaign.Id]
+              : [];
+        if (!ids.length) return;
+        await this.onMultiCampaignChange(ids);
     },
 
     /**
-     * Load more comments (pagination)
+     * Load more comments — NO-OP. Phân trang server (Pancake cursor) đã bỏ; DB
+     * load đủ comment 1 lần, "tải thêm" giờ là infinite-scroll CLIENT trong
+     * LiveCommentList (cap render tăng dần). Giữ hàm cho caller cũ.
      */
     async loadMoreComments() {
-        const state = window.LiveState;
-        if (state.hasMore && !state.isLoading) {
-            await this.loadComments(true);
-        }
+        // no-op — infinite scroll do LiveCommentList._appendOlderBatch lo.
     },
 
     /**

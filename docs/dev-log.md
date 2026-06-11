@@ -2,6 +2,28 @@
 
 ## 2026-06-11
 
+### [live-chat][render] PUSH-only realtime comment (bỏ hoàn toàn polling) + FIX capture lock failover "máy giữ lock không capture" ✅
+
+**User:** (1) tiếp tục refactor "logic đơn giản hơn — server Pancake WS nhận tin nhắn/bình luận 24/7 → lấy comment livestream từ đây xem trực tiếp"; (2) "bỏ hoàn toàn polling ở live-chat — live-chat CẦN TIN NHẮN TRỰC TIẾP"; (3) bug "1 máy capture duy nhất": máy giữ lock nhưng KHÔNG capture → không máy nào chụp.
+
+**A. Realtime comment PUSH-only (hoàn tất refactor dở + bỏ polling):**
+
+- Hoàn tất refactor working-tree: `live-realtime.js` neuter TPOS SSE/WS thành NO-OP (giữ shape cho caller); `live-api.js` gỡ TPOS token + authenticatedFetch; `pancake-api.js` gỡ Authorization TPOS; `live-init.js` load comment 100% từ DB `web2_live_comments` (1 row/comment) + SSE `web2:live-comments` → `_fetchLiveCommentDelta()` (GET since=`_lastCommentMaxMs`, debounce 400ms, prepend incremental — không full reload).
+- **Bỏ polling:** server `web2-livestream-poller.js` `start()` KHÔNG chạy `_loop()` cycle 5s/30s nữa — chỉ init deps. Comment giờ PUSH-only: relay Pancake WS (`live-chat/server`, 24/7) → `POST /ingest` → `pollPostNow(page,post)` fetch per-message ĐÚNG post có event (debounce 1.5s) → upsert + SSE. Giữ `pollNow()` on-demand (lookup KH tier-3) + client `POST /poll-now` (one-shot warm-up khi mở campaign — backfill phần relay miss lúc deploy).
+- `pancake-realtime.js` (chat.html): GỠ auto-refresh polling fallback (fetchConversations 30s khi WS chết) → thay bằng slow WS retry 60s vô hạn; tin nhắn còn đường SSE `web2:messages` song song.
+- **Verified localhost:** index 315 comments từ DB + topics `web2:live-comments`/`web2:messages`/`web2:capture-lock` subscribed + delta fetch chạy thật (lastMax advance) + 0 console error; chat.html 75 convs + WS connected + `startAutoRefresh` không còn tồn tại; network 0 call TPOS.
+
+**B. Capture leader lock FAILOVER (`live-livestream-snap.js`):**
+
+- **Root cause:** heartbeat 30s renew lock MÙ QUÁNG khi frame buffer timer còn chạy — máy giữ lock mà capture không ra frame (tab unfocused với captureVisibleTab, screen lock, stream chết, modal Enter chưa bấm) giữ lock VĨNH VIỄN; máy standby chỉ retry 10 phút rồi poll chết hẳn.
+- **Fix:** (1) track `STATE.lastFrameAt` mỗi frame thành công (cả 2 path stream/extension); heartbeat thấy stall > 75s → **tự nhả lock + dừng capture + gỡ iframe** (máy khác takeover ≤90s sau khi frame cuối); (2) cooldown 3 phút chống máy stall tự cướp lại ngay (xóa khi tab visible lại; click tay luôn override); (3) poll standby 2 pha: 3s × 10 phút → 30s VÔ HẠN (không chết nữa); (4) SSE `web2:capture-lock` thêm nhánh standby: lock được nhả/hết TTL → `_maybeShowAutoSnapBanner()` ngay (stagger ≤1.5s, CAS server chống herd).
+- Debug accessors mới `LiveLivestreamSnap._lockDebug` (get/forceStall/blockFrames) cho test script.
+- **Verified production lock API:** capture chạy (heartbeat ON, frames flow) → frames ngừng tự nhiên → đúng 90s sau heartbeat nhả lock (`holder=null, releasedAt` set), cooldown=release+180s, capture/iframe dừng sạch; không tự re-acquire trong cooldown.
+
+**Files:** live-chat/js/live/live-realtime.js, live-api.js, live-init.js, live-livestream-snap.js, js/pancake/pancake-api.js, pancake-realtime.js, index.html + chat.html (bump v=20260611g), render.com/services/web2-livestream-poller.js, render.com/server.js.
+
+**Status:** ✅ Done — cần Render deploy để poller tắt trên prod (auto-deploy theo push).
+
 ### [showroom1] Mã định danh khách vãng lai (visitor ID từ 1) + giỏ hàng server-side + tra cứu admin ✅
 
 **User:** khách lạ bấm link showroom1 (từ Messenger/Zalo) → cấp mã định danh đơn giản tăng dần từ 1, hiện mã thay FAB chat đen; thêm SP → lưu giỏ theo mã; bấm mã → bảng giỏ nhanh không chuyển trang; khách chốt đơn chỉ cần gọi/nhắn mã → shop tra giỏ.
@@ -101,7 +123,7 @@
 
 **Backend (Render):**
 
-- NEW `migrations/075_wallet_refund_outbox.sql`: mở rộng status CHECK (+REFUND_DUE/REFUNDED, exception-safe cho rolling deploy), relax `amount>=0`, cột refund_* (max_retries=20), index REFUND_DUE/stale-PROCESSING, **`wallet_withdraw_fifo` thêm idempotency guard** (ORDER_PAYMENT đã có → `ALREADY_PROCESSED`, không trừ lần 2 — fix A6).
+- NEW `migrations/075_wallet_refund_outbox.sql`: mở rộng status CHECK (+REFUND*DUE/REFUNDED, exception-safe cho rolling deploy), relax `amount>=0`, cột refund*\* (max_retries=20), index REFUND_DUE/stale-PROCESSING, **`wallet_withdraw_fifo` thêm idempotency guard** (ORDER_PAYMENT đã có → `ALREADY_PROCESSED`, không trừ lần 2 — fix A6).
 - NEW `services/wallet-refund.js`: `executeRefund(db,id)` dùng chung route/cron/admin (1 `withTransaction`, lock outbox→wallet, FOR UPDATE virtual_credits + LEAST cap, reconcile ledger khi `completed_at NULL`, giữ REFUND_DUE khi fail = không bao giờ bỏ nghĩa vụ hoàn, alert `WALLET_REFUND_STUCK` khi max retry) + `ensureRefundSchema` (promise-singleton, không mark ready khi thiếu file).
 - `routes/v2/wallets.js` rewrite `POST /refund-by-order`: marker + **1 UPDATE atomic** `WHERE status IN ('COMPLETED','PROCESSING')` (fix race mất hoàn — TOCTOU), lookup theo order_id/order_number (không bắt buộc phone khớp), bảo toàn shape response cũ.
 - `routes/v2/pending-withdrawals.js`: atomic claim (fix A5 double-deduct + A9 stale-PROCESSING), guarded transitions tôn trọng REFUND_DUE (A12), reject order_id rác (A7), block deduction khi đã hủy (A8), vòng REFUND_DUE + `POST /:id/process-refund`, WITHDRAWAL_FAILED vào CHECK + wrap insert.
