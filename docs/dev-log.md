@@ -2,6 +2,19 @@
 
 ## 2026-06-12
 
+### [web2] [render] Cluster GMT+7 (3H20 + revenue_7d + audit-log + 4 client fmt) + verify đợt I/E live ✅
+
+**User:** "continue" sau đợt I+E. Code vào `6020700af` (bị auto-sweep bởi session song song — nội dung đủ).
+
+- **3H20 `pbh-reports.js`:** mọi cast ngày → `(date_invoice AT TIME ZONE 'Asia/Ho_Chi_Minh')::date` + `(NOW() AT TIME ZONE ...)::date` (17 chỗ) — "Doanh thu hôm nay" hết sai mỗi sáng trước 7h; `/delivery` default today theo VN (Intl en-CA).
+- **`dashboard-kpi.js` revenue_7d** pin GMT+7 (đồng bộ revenue_today đã fix trước).
+- **`audit-log.js`** filter from/to: nửa khoảng `[from, to+1)` pin Asia/Ho_Chi_Minh — hết lệch 7h + hết loại trọn ngày cuối.
+- **Client:** supplier-debt helper `vnDate` thay 3 `toISOString().slice(0,10)` (giao dịch 00:00-07:00 VN hết rơi sai kỳ); page-builder `fmtTime` (shared — ăn mọi trang generic) + history-timeline + products modal Lịch sử + balance-history `fmtTime` pin `timeZone: Asia/Ho_Chi_Minh`. Bump `?v=` products/balance-history/supplier-debt.
+- **Maintenance mới:** `DELETE /api/web2-supplier-wallet/supplier/:name` gate `x-admin-secret=CLEANUP_SECRET` — dọn NCC TEST-/sửa data.
+- **Verify đợt I+E trên prod (deploy live):** `/api/web2-quick-replies` auto-seed từ Web 1.0 OK · `/api/web2-supplier-wallet/state` `{empty:true}` đúng · smoke money path PASS: POST /tx sinh `PAY/2026/0001` (sequence), CÙNG txId lần 2 → `alreadyProcessed` (idempotent), return + `rowReturns` lưu qty/amount thật, /state aggregate đúng · batch-summary 3W3 shape OK. Data TEST- dọn qua endpoint maintenance mới sau deploy (Render PG chặn psql ngoài).
+
+**Status:** ✅ GMT+7 cluster đóng toàn bộ. Vòng 3 chỉ còn: bật 2 env (WEB2_AUTH_ENFORCE, WEB2_REQUIRE_DB), module escape shared, MEDIUM lẻ.
+
 ### [delivery-report] [render] Gỡ 3 nút (Xuất excel ×2 + In) + nút "Copy ảnh bàn giao" gửi thêm vào nhóm Telegram ✅
 
 **User yêu cầu:** (1) xóa 3 nút Xuất excel / Xuất excel chi tiết SP từng dòng / In; (2) nút "Copy ảnh bàn giao" (TP) ngoài copy clipboard còn gửi ảnh vào nhóm Telegram qua bot RIÊNG (không liên quan bot Telegram có sẵn), đặt tên có "delivery-report".
