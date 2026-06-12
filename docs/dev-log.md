@@ -2,6 +2,31 @@
 
 ## 2026-06-12
 
+### [web2] [render] [worker] ĐỢT I (tách Web1 dứt điểm) + ĐỢT E (ví NCC server ledger) — vòng 3 ✅
+
+**User:** "đợt I và đợt E". Commit chính `4375bcf77` (+ phần bị auto-sweep vào `7bb139d21`/`5ecfc792f` bởi session song song — nội dung đầy đủ trong HEAD). 2 route server MỚI + 30+ file client/server. 3 agent song song (3W2+3W3 / 3W4 / supplier-debt) + tự code server.
+
+**Đợt I:**
+
+- **3W1**: route mới `render.com/routes/web2-quick-replies.js` — bảng `web2_quick_replies` (web2Db), auto-seed one-time READ-ONLY từ `quick_replies` (Web 1.0) khi bảng rỗng, soft auth mutation, SSE `web2:quick-replies`; client `web2-quick-reply.js` đổi URL `/api/web2-quick-replies`; CF worker thêm route. **Hết cảnh xoá quick-reply ở trang beta mất luôn ở chat Web 1.0 prod.**
+- **3W2**: `web2-msg-template.js` fork Firestore `message_templates` → `web2_message_templates` (one-time copy giữ doc id, legacy read-only).
+- **3W3**: endpoint mới `POST /api/web2/wallets/batch-summary` (ví Web 2.0, shape tương thích bản Web 1.0) — debt-manager + pancake-api live-chat swap URL; `showPancakeCustomerInfo` lookup kho `web2_customers` (xoá 2 URL `/api/v2/customers`).
+- **3W4**: gỡ `broadcastToClients` 17 block khỏi fast-sale-orders/native-orders/refunds/delivery-invoices (1 chỗ bù SSE `promoted-to-confirmed`); 5 trang bỏ PbhRealtime/rtConnect → Web2SSE (report-revenue thêm subscribe mới); `pbh-realtime.js` deprecated. **Đóng SO-ws-sse-double.** ⚠ `scripts/pbh-qa-test.js:402` còn assert WS — đổi sang SSE khi chạy QA.
+- **3W7**: boot guard server.js — cảnh báo to khi web2Pool null (fallback chatDb prod) + env `WEB2_REQUIRE_DB=1` → fail-fast exit(1). Env CHƯA bật trên Render.
+
+**Đợt E (ví NCC: Firestore client-write → server ledger):**
+
+- Route mới `render.com/routes/web2-supplier-wallet.js`: `web2_supplier_ledger` (UNIQUE tx_id — idempotent), `web2_supplier_meta` (code/note/returned_row_ids qty-amount THẬT), sequence bút toán `PAY/<năm>/<seq>` (hết nextMoveName MAX+1 race), `GET /state` shape client cũ, `POST /tx` (transaction + lock meta), `POST /suppliers` (atomic ON CONFLICT — hết saveSupplier/Note RMW), `POST /import` one-time migration từ Firestore (server-guarded khi rỗng), SSE `web2:supplier-wallet`.
+- `supplier-wallet-storage.js`: addTransaction = POST server (await, dual-base CÙNG txId), Sync.push deprecated no-op, bỏ purge 30d (server full audit), applyDeposits txId `tx-sepay-<sid>` (hết dup cross-machine), Sync.init auto-migration.
+- `supplier-wallet-app.js`: confirmPay/confirmReturn await + catch lỗi server (hết fire-and-forget), rowReturns qty/amount thật, stock adjust ưu tiên `p.code` row so-order (E-match-ten), SSE `web2:supplier-wallet` re-pull ledger.
+- `supplier-debt-app.js`: đọc `GET /state` (bỏ 2 Firestore doc reads — GIỮ `web2_so_order`), recordPayment POST /tx (server sinh moveName), saveSupplier/saveSupplierNote → POST /suppliers, SSE subscribe.
+- `purchase-refund-app.js`: updateSupplierWallet await + txId=`tx-refund-<refundCode>` idempotent (caller đã có try/catch "phiếu OK + ví lỗi").
+- `web2-suppliers-cache.js`: bỏ Firestore onSnapshot (3W5) → `GET /suppliers` + SSE; ensure() POST atomic.
+- **Chừa có chủ đích** (ghi mục 1C/6 file MD): so-order Firestore 1-doc; hợp nhất UX 2 đường trả NCC; quick-refund server-atomic endpoint; 3W6 sidebar \_isAdmin.
+- **Verify:** node --check toàn bộ; review tay diff money paths; chưa browser-test runtime (migration tự chạy lần đầu mở trang ví NCC/công nợ).
+
+**Status:** ✅ Done — TOÀN BỘ lộ trình vòng 3 (đợt F+G+H+I+E) hoàn tất. Còn: bật `WEB2_AUTH_ENFORCE=1` (sau wire token raw fetch), `WEB2_REQUIRE_DB=1`, 3H20/GMT+7 cluster, vài MEDIUM 1D.
+
 ### [delivery-report] Ảnh bàn giao v11: fix đơn vị Gửi Kèm (nhập NGHÌN) + Tổng cộng gửi riêng + TMT/NAP có dòng Tổng ✅
 
 **User báo** (test prod v10): giá trị/Thu gửi riêng hiện 0 dù modal có data; ảnh TMT/NAP thiếu dòng Tổng dưới cùng; Tổng chưa tính phần gửi riêng.

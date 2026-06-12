@@ -360,7 +360,7 @@
                                 padding: 3px 10px;
                                 border-radius: 999px;
                             "
-                            >Vòng 3: 2026-06-12 ✅ đợt F+G+H ĐÃ FIX (còn I/E + bật enforce)</span
+                            >Vòng 3: 2026-06-12 ✅ đợt F+G+H+I+E ĐÃ FIX (còn bật enforce)</span
                         >
                     </div>
                     <p style="margin: 0 0 12px; font-size: 13px; color: #475569; line-height: 1.6">
@@ -495,32 +495,44 @@
                                 (cb45ef604).
                             </li>
                             <li>
-                                🔴 <strong>2 vi phạm GHI thật (3W1, 3W2):</strong>
-                                <code>web2-quick-reply.js</code> CRUD thẳng bảng
-                                <code>quick_replies</code> chatDb PROD (xoá từ trang beta = mất ở
-                                chat Web 1.0!) và <code>web2-msg-template.js</code> ghi Firestore
-                                <code>message_templates</code> không prefix (collection prod Web
-                                1.0) → cần fork <code>web2_quick_replies</code> +
-                                <code>web2_message_templates</code>.
+                                ✅
+                                <strong
+                                    >2 vi phạm GHI thật ĐÃ FORK (3W1, 3W2 — fix 4375bcf77):</strong
+                                >
+                                <code>web2_quick_replies</code> (route mới /api/web2-quick-replies,
+                                auto-seed read-only từ Web 1.0) + Firestore
+                                <code>web2_message_templates</code> (one-time copy) — Web 2.0 hết
+                                ghi store Web 1.0.
                             </li>
                             <li>
-                                🟠 <strong>Đọc nhầm nguồn (3W3 + LC-web1-lookup):</strong> live-chat
-                                badge "nợ" đọc ví Web 1.0
-                                (<code>/api/v2/wallets/batch-summary</code>) trong khi cùng màn hình
-                                pill ví Web 2.0 → 2 số dư mâu thuẫn; popup KH gọi
-                                <code>/api/v2/customers</code> trước kho.
+                                ✅
+                                <strong
+                                    >Đọc nhầm nguồn ĐÃ CHỐT 1 NGUỒN (3W3 + LC-web1-lookup — fix
+                                    4375bcf77):</strong
+                                >
+                                badge nợ live-chat →
+                                <code>/api/web2/wallets/batch-summary</code> (ví Web 2.0); popup KH
+                                → kho <code>web2_customers</code> (xoá 2 URL /api/v2/customers Web
+                                1.0).
                             </li>
                             <li>
-                                🟡 <strong>Lệch convention (3W4, 3W5):</strong> pbh-realtime WS
-                                legacy <code>pbh:*</code> trên 4 trang + native-orders (gốc reload
-                                đôi); suppliers-cache còn Firestore <code>onSnapshot</code>. 🟢
+                                ✅
+                                <strong>Lệch convention ĐÃ DỌN (3W4, 3W5 — fix 4375bcf77):</strong>
+                                gỡ WS legacy khỏi 4 route server + 5 trang
+                                (pbh/rf/dlv/report-revenue/native-orders) → 1 kênh Web2SSE duy nhất
+                                (hết reload đôi); suppliers-cache bỏ onSnapshot → server
+                                <code>/api/web2-supplier-wallet/suppliers</code> + SSE. 🟢
                                 <strong>Cố ý hợp lệ:</strong> credential Pancake (<code
                                     >pancake_accounts</code
                                 >
-                                chatDb) shared 2 layer có document. ⚠
-                                <strong>Rủi ro hệ thống (3W7):</strong> fallback
-                                <code>|| chatDb</code> âm thầm khi web2Db down → đề xuất
-                                <code>WEB2_REQUIRE_DB=1</code> fail-fast.
+                                chatDb) shared 2 layer có document. ✅
+                                <strong>Rủi ro hệ thống (3W7):</strong> boot guard cảnh báo to khi
+                                fallback chatDb + env <code>WEB2_REQUIRE_DB=1</code> fail-fast (env
+                                chưa bật — bật trên Render khi muốn). ⬜ còn 3W6 sidebar _isAdmin
+                                (UI gating nhẹ). 🆕 <strong>Đợt E cùng commit:</strong> ví NCC
+                                Firestore client-write → server ledger
+                                <code>/api/web2-supplier-wallet</code> (transaction + idempotent
+                                tx_id + SSE) — đóng ~9 bug cụm đợt E (chi tiết mục 1C file MD).
                             </li>
                         </ul>
                     </div>
