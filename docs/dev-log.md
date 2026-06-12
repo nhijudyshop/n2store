@@ -2,6 +2,17 @@
 
 ## 2026-06-12
 
+### [delivery-report] Ảnh bàn giao v10: section ĐƠN GỬI RIÊNG (từ nút Gửi Kèm) cho cả TP/TMT/NAP ✅
+
+**User:** đơn gửi kèm (gửi riêng) nếu có lấy từ nút Gửi Kèm, thêm phía dưới ĐƠN 0đ: `Đơn gửi riêng: x đơn - K (tổng Thu) - Phí ship: Y · Còn lại: Z` + bảng `Khách hàng—SĐT | Giá trị | Thu` — cả 3 kênh TP/TMT/NAP.
+
+- **send-along.js:** getter public mới `SendAlong.getOrdersForChannel(channel)` — đọc Firestore `delivery_report/data/send_along/<dateKey>` (source of truth, dateKey theo ngày lọc), fallback cache localStorage; trả `[{name, phone, value, collect}]`, bỏ dòng trống.
+- **delivery-report.js:** cả `buildHandoverCanvas` (TP) + `buildGroupHandoverCanvas` (TMT/NAP) nhận `extraItems`; section vẽ dưới ĐƠN 0đ: title `ĐƠN GỬI RIÊNG (x đơn): <tổng Thu>` + dòng `Phí ship (x × phí kênh): − Y · Còn lại: Z` + bảng Giá trị (cam) / Thu (đậm). Phí theo kênh: TP 20k, TMT/NAP 23k. Không có đơn gửi kèm → bỏ hẳn section. Map kênh: TP→'Thành phố', tomato→'TOMATO', nap→'NAP'. Lưu ý: "Còn lại" gửi riêng tự chứa, KHÔNG cộng vào dòng Tổng (Tổng vẫn = TP + thu về).
+- Cache-bust `delivery-report.js?v=20260612g` + `send-along.js?v=20260612c`.
+- **Test:** TP stub 2 đơn (Thu 350+200) → `550 − 40 = 510` ✓; TMT đọc Firestore THẬT ngày 05/06 (user đã nhập kênh TOMATO) → section tự hiện ✓; không có gửi kèm → ảnh như cũ.
+
+**Status:** ✅ Done.
+
 ### [delivery-report] Gửi Kèm: thêm ô "Thu (COD)" mỗi đơn ✅
 
 **User:** thêm 1 ô điền Thu (giá trị thu COD) vào modal Gửi Kèm.

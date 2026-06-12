@@ -404,6 +404,37 @@
         }
     }
 
+    // Đọc đơn gửi kèm của 1 kênh cho ngày lọc hiện tại — ảnh bàn giao
+    // (delivery-report.js) dùng. Firestore source-of-truth, fallback cache
+    // localStorage. Trả [{name, phone, value, collect}] (value/collect = số).
+    async function getOrdersForChannel(channelName) {
+        const dateKey = currentDateKey();
+        let channels = null;
+        try {
+            const ref = getDocRef(dateKey);
+            if (ref) {
+                const snap = await ref.get();
+                if (snap.exists && Array.isArray(snap.data().channels)) {
+                    channels = snap.data().channels;
+                }
+            }
+        } catch (_) {}
+        if (!channels) channels = loadLocal(dateKey) || [];
+
+        const want = String(channelName || '').toLowerCase();
+        const out = [];
+        for (const ch of channels) {
+            if (String(ch.channel || '').toLowerCase() !== want) continue;
+            for (const o of ch.orders || []) {
+                const value = parseValue(o.value);
+                const collect = parseValue(o.collect);
+                if (!String(o.name || '').trim() && !value && !collect) continue;
+                out.push({ name: o.name || '', phone: o.phone || '', value, collect });
+            }
+        }
+        return out;
+    }
+
     window.SendAlong = {
         open,
         close,
@@ -412,6 +443,7 @@
         addOrder,
         removeOrder,
         save,
+        getOrdersForChannel,
         _editChannel,
         _edit,
         _editPhone,

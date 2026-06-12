@@ -1743,6 +1743,7 @@
         zeroItems,
         returnItems,
         returnHandoverMap,
+        extraItems,
     }) {
         const W = 900;
         const PAD = 24;
@@ -1788,6 +1789,14 @@
 
         // Không có đơn 0đ → bỏ hẳn section (không ghi "Không có đơn 0đ")
         const hasZero = zeroItems.length > 0;
+
+        // Đơn gửi riêng (nút Gửi Kèm, kênh tương ứng) — chỉ vẽ khi có
+        const extras = Array.isArray(extraItems) ? extraItems : [];
+        const hasExtra = extras.length > 0;
+        const extraCollect = extras.reduce((s, o) => s + (o.collect || 0), 0);
+        const extraShip = extras.length * HANDOVER_SHIP_FEE;
+        const extraNet = extraCollect - extraShip;
+
         const leftH =
             PAD +
             14 +
@@ -1795,6 +1804,7 @@
             26 +
             26 +
             (hasZero ? 16 + 30 + 26 + zeroItems.length * ZROW_H : 0) +
+            (hasExtra ? 16 + 30 + 24 + 26 + extras.length * ZROW_H : 0) +
             6;
         const rightH = PAD + 126 + (returnCount > 0 ? 20 + rightRowsH : 40) + 4;
         const contentH = Math.max(leftH, rightH);
@@ -1908,6 +1918,86 @@
                 ctx.fillText(formatThousand(item.AmountTotal), ZCOL.value, y);
                 ctx.fillStyle = '#111827';
                 ctx.fillText(formatThousand(item.CashOnDelivery), ZCOL.thu, y);
+            });
+        }
+
+        // ── ĐƠN GỬI RIÊNG (nút Gửi Kèm) — dưới ĐƠN 0đ, chỉ vẽ khi có ──
+        if (hasExtra) {
+            y += 16;
+            ctx.strokeStyle = '#e5e7eb';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(PAD, y);
+            ctx.lineTo(LEFT_R, y);
+            ctx.stroke();
+
+            y += 30;
+            ctx.textAlign = 'left';
+            ctx.font = `bold 17px ${FONT}`;
+            ctx.fillStyle = '#0369a1';
+            const exTitle = `ĐƠN GỬI RIÊNG (${formatNumber(extras.length)} đơn):`;
+            ctx.fillText(exTitle, PAD, y);
+            ctx.fillStyle = '#b45309';
+            ctx.fillText(
+                ` ${formatThousand(extraCollect)}`,
+                PAD + ctx.measureText(exTitle).width,
+                y
+            );
+
+            y += 24;
+            ctx.font = `15px ${FONT}`;
+            ctx.fillStyle = '#6b7280';
+            const exFee = `Phí ship (${formatNumber(extras.length)} × ${feeK}): − ${formatThousand(extraShip)}`;
+            ctx.fillText(exFee, PAD, y);
+            ctx.font = `bold 15px ${FONT}`;
+            ctx.fillStyle = '#047857';
+            ctx.fillText(
+                ` · Còn lại: ${formatThousand(extraNet)}`,
+                PAD + ctx.measureText(exFee).width + 4,
+                y
+            );
+
+            const XCOL = { idx: PAD, name: PAD + 26, value: LEFT_R - 64, thu: LEFT_R };
+            y += 26;
+            ctx.font = `bold 13px ${FONT}`;
+            ctx.fillStyle = '#6b7280';
+            ctx.fillText('#', XCOL.idx, y);
+            ctx.fillText('Khách hàng — SĐT', XCOL.name, y);
+            ctx.textAlign = 'right';
+            ctx.fillText('Giá trị', XCOL.value, y);
+            ctx.fillText('Thu', XCOL.thu, y);
+
+            extras.forEach((o, i) => {
+                y += ZROW_H;
+                ctx.strokeStyle = '#f3f4f6';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(PAD, y - ZROW_H / 2);
+                ctx.lineTo(LEFT_R, y - ZROW_H / 2);
+                ctx.stroke();
+
+                ctx.textAlign = 'left';
+                ctx.font = `13px ${FONT}`;
+                ctx.fillStyle = '#9ca3af';
+                ctx.fillText(String(i + 1), XCOL.idx, y);
+
+                ctx.font = `14px ${FONT}`;
+                ctx.fillStyle = '#111827';
+                ctx.fillText(
+                    truncate(
+                        `${o.name}${o.phone ? ' — ' + o.phone : ''}`,
+                        XCOL.value - XCOL.name - 50
+                    ),
+                    XCOL.name,
+                    y
+                );
+
+                ctx.textAlign = 'right';
+                ctx.fillStyle = '#b45309';
+                ctx.fillText(formatThousand(o.value), XCOL.value, y);
+                ctx.fillStyle = '#111827';
+                ctx.font = `bold 14px ${FONT}`;
+                ctx.fillText(formatThousand(o.collect), XCOL.thu, y);
             });
         }
 
@@ -2075,7 +2165,7 @@
 
     // Ảnh bàn giao 1 CỘT cho nhóm Tỉnh (TMT/NAP) — giống cột trái ảnh TP,
     // 2 kênh này KHÔNG có thu về.
-    function buildGroupHandoverCanvas({ label, dateLabel, count, total, zeroItems }) {
+    function buildGroupHandoverCanvas({ label, dateLabel, count, total, zeroItems, extraItems }) {
         const W = 520;
         const PAD = 24;
         const ZROW_H = 32;
@@ -2084,6 +2174,14 @@
         const net = total - ship;
         // Không có đơn 0đ → bỏ hẳn section (không ghi "Không có đơn 0đ")
         const hasZero = zeroItems.length > 0;
+
+        // Đơn gửi riêng (nút Gửi Kèm, kênh TOMATO/NAP) — chỉ vẽ khi có
+        const extras = Array.isArray(extraItems) ? extraItems : [];
+        const hasExtra = extras.length > 0;
+        const extraCollect = extras.reduce((s, o) => s + (o.collect || 0), 0);
+        const extraShip = extras.length * HANDOVER_SHIP_FEE_PROVINCE;
+        const extraNet = extraCollect - extraShip;
+
         const H =
             PAD +
             14 +
@@ -2091,6 +2189,7 @@
             26 +
             26 +
             (hasZero ? 16 + 30 + 26 + zeroItems.length * ZROW_H : 0) +
+            (hasExtra ? 16 + 30 + 24 + 26 + extras.length * ZROW_H : 0) +
             6 +
             14 +
             20 +
@@ -2205,6 +2304,86 @@
             });
         }
 
+        // ── ĐƠN GỬI RIÊNG (nút Gửi Kèm, kênh TOMATO/NAP) — chỉ vẽ khi có ──
+        if (hasExtra) {
+            y += 16;
+            ctx.strokeStyle = '#e5e7eb';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(PAD, y);
+            ctx.lineTo(W - PAD, y);
+            ctx.stroke();
+
+            y += 30;
+            ctx.textAlign = 'left';
+            ctx.font = `bold 17px ${FONT}`;
+            ctx.fillStyle = '#0369a1';
+            const exTitle = `ĐƠN GỬI RIÊNG (${formatNumber(extras.length)} đơn):`;
+            ctx.fillText(exTitle, PAD, y);
+            ctx.fillStyle = '#b45309';
+            ctx.fillText(
+                ` ${formatThousand(extraCollect)}`,
+                PAD + ctx.measureText(exTitle).width,
+                y
+            );
+
+            y += 24;
+            ctx.font = `15px ${FONT}`;
+            ctx.fillStyle = '#6b7280';
+            const exFee = `Phí ship (${formatNumber(extras.length)} × ${feeK}): − ${formatThousand(extraShip)}`;
+            ctx.fillText(exFee, PAD, y);
+            ctx.font = `bold 15px ${FONT}`;
+            ctx.fillStyle = '#047857';
+            ctx.fillText(
+                ` · Còn lại: ${formatThousand(extraNet)}`,
+                PAD + ctx.measureText(exFee).width + 4,
+                y
+            );
+
+            const XCOL = { idx: PAD, name: PAD + 26, value: W - PAD - 64, thu: W - PAD };
+            y += 26;
+            ctx.font = `bold 13px ${FONT}`;
+            ctx.fillStyle = '#6b7280';
+            ctx.fillText('#', XCOL.idx, y);
+            ctx.fillText('Khách hàng — SĐT', XCOL.name, y);
+            ctx.textAlign = 'right';
+            ctx.fillText('Giá trị', XCOL.value, y);
+            ctx.fillText('Thu', XCOL.thu, y);
+
+            extras.forEach((o, i) => {
+                y += ZROW_H;
+                ctx.strokeStyle = '#f3f4f6';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(PAD, y - ZROW_H / 2);
+                ctx.lineTo(W - PAD, y - ZROW_H / 2);
+                ctx.stroke();
+
+                ctx.textAlign = 'left';
+                ctx.font = `13px ${FONT}`;
+                ctx.fillStyle = '#9ca3af';
+                ctx.fillText(String(i + 1), XCOL.idx, y);
+
+                ctx.font = `14px ${FONT}`;
+                ctx.fillStyle = '#111827';
+                ctx.fillText(
+                    truncate(
+                        `${o.name}${o.phone ? ' — ' + o.phone : ''}`,
+                        XCOL.value - XCOL.name - 50
+                    ),
+                    XCOL.name,
+                    y
+                );
+
+                ctx.textAlign = 'right';
+                ctx.fillStyle = '#b45309';
+                ctx.fillText(formatThousand(o.value), XCOL.value, y);
+                ctx.fillStyle = '#111827';
+                ctx.font = `bold 14px ${FONT}`;
+                ctx.fillText(formatThousand(o.collect), XCOL.thu, y);
+            });
+        }
+
         // Footer: chỉ timestamp (không có thu về nên Còn lại = số bàn giao cuối)
         const fy = y + 6 + 14;
         ctx.strokeStyle = '#d1d5db';
@@ -2267,12 +2446,26 @@
 
             const total = scannedItems.reduce((s, i) => s + (i.CashOnDelivery || 0), 0);
             const zeroItems = scannedItems.filter(isZeroCOD);
+
+            // Đơn gửi riêng (nút Gửi Kèm) của kênh TOMATO/NAP — nếu có
+            let extraItems = [];
+            try {
+                if (window.SendAlong?.getOrdersForChannel) {
+                    extraItems = await window.SendAlong.getOrdersForChannel(
+                        group === 'tomato' ? 'TOMATO' : 'NAP'
+                    );
+                }
+            } catch (e) {
+                console.warn('[DELIVERY-REPORT] đọc đơn gửi kèm lỗi:', e.message);
+            }
+
             const canvas = buildGroupHandoverCanvas({
                 label,
                 dateLabel: handoverDateLabel(),
                 count: scannedItems.length,
                 total,
                 zeroItems,
+                extraItems,
             });
             const copied = await copyCanvasToClipboard(
                 canvas,
@@ -2347,6 +2540,16 @@
                 }
             }
 
+            // Đơn gửi riêng (nút Gửi Kèm) của kênh Thành phố — nếu có
+            let extraItems = [];
+            try {
+                if (window.SendAlong?.getOrdersForChannel) {
+                    extraItems = await window.SendAlong.getOrdersForChannel('Thành phố');
+                }
+            } catch (e) {
+                console.warn('[DELIVERY-REPORT] đọc đơn gửi kèm lỗi:', e.message);
+            }
+
             const canvas = buildHandoverCanvas({
                 dateLabel: handoverDateLabel(),
                 cityCount: scannedItems.length,
@@ -2354,6 +2557,7 @@
                 zeroItems,
                 returnItems: returnScanned,
                 returnHandoverMap,
+                extraItems,
             });
             const copied = await copyCanvasToClipboard(
                 canvas,
