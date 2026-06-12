@@ -27,6 +27,10 @@
 // =====================================================
 
 const express = require('express');
+// LC-pollnow-auth (2026-06-12): mutation + route nặng tài nguyên (yt-dlp/ffmpeg
+// trên 0.5 CPU) gate SOFT — enforce khi WEB2_AUTH_ENFORCE=1. GET /snapshot/:id/image
+// GIỮ public (img src không gửi header).
+const { requireWeb2AuthSoft } = require('../middleware/web2-auth');
 const crypto = require('crypto');
 const router = express.Router();
 
@@ -247,7 +251,7 @@ function _mapRow(row) {
 //   imageMime?     — 'image/jpeg' | 'image/png' (default jpeg)
 // }
 // Body limit cần tăng (Express default 100kb không đủ). Mount middleware riêng route này.
-router.post('/snapshot', express.json({ limit: '5mb' }), async (req, res) => {
+router.post('/snapshot', requireWeb2AuthSoft, express.json({ limit: '5mb' }), async (req, res) => {
     try {
         const pool = req.app.locals.web2Db || req.app.locals.chatDb;
         const b = req.body || {};
@@ -364,7 +368,7 @@ router.post('/snapshot', express.json({ limit: '5mb' }), async (req, res) => {
 // LEGACY: POST /snapshot/:id/refresh-thumbnail — REMOVED per user req
 // 'bỏ hết chức năng lấy thumbnail'. Frame thật giờ qua POST /extract-frame
 // (yt-dlp + ffmpeg server-side) hoặc imageBase64 từ frontend buffer.
-router.post('/snapshot/:id/refresh-thumbnail', (req, res) => {
+router.post('/snapshot/:id/refresh-thumbnail', requireWeb2AuthSoft, (req, res) => {
     res.status(410).json({
         success: false,
         error: 'deprecated — use POST /api/livestream/extract-frame instead',
@@ -502,116 +506,129 @@ router.get('/snapshots/by-comment-ids', async (req, res) => {
 // }
 // Loop create snaps với offsetSec = (createdTime - broadcastStartMs)/1000.
 // Returns: { created: N, skipped: M, failed: K, snapshots: [...] }
-router.post('/offline-batch', express.json({ limit: '5mb' }), async (req, res) => {
-    try {
-        const pool = req.app.locals.web2Db || req.app.locals.chatDb;
-        const b = req.body || {};
-        if (!b.liveVideoId) {
-            return res.status(400).json({ success: false, error: 'liveVideoId required' });
-        }
-        if (!Number.isFinite(Number(b.broadcastStartMs))) {
-            return res
-                .status(400)
-                .json({ success: false, error: 'broadcastStartMs (number) required' });
-        }
-        if (!Array.isArray(b.comments) || b.comments.length === 0) {
-            return res.status(400).json({ success: false, error: 'comments[] required' });
-        }
-        const broadcastStart = Number(b.broadcastStartMs);
-        const skipExisting = b.skipExisting !== false;
-        const user = b.user || {};
-        const created = [];
-        const skipped = [];
-        const failed = [];
+router.post(
+    '/offline-batch',
+    requireWeb2AuthSoft,
+    express.json({ limit: '5mb' }),
+    async (req, res) => {
+        try {
+            const pool = req.app.locals.web2Db || req.app.locals.chatDb;
+            const b = req.body || {};
+            if (!b.liveVideoId) {
+                return res.status(400).json({ success: false, error: 'liveVideoId required' });
+            }
+            if (!Number.isFinite(Number(b.broadcastStartMs))) {
+                return res
+                    .status(400)
+                    .json({ success: false, error: 'broadcastStartMs (number) required' });
+            }
+            if (!Array.isArray(b.comments) || b.comments.length === 0) {
+                return res.status(400).json({ success: false, error: 'comments[] required' });
+            }
+            // LC-pollnow-auth (2026-06-12): cap payload — loop 2 query/row, body
+            // không giới hạn số comment là vector kéo sập route (1 live thật ≤ ~2000).
+            if (b.comments.length > 2000) {
+                return res.status(400).json({
+                    success: false,
+                    error: `comments[] quá lớn (${b.comments.length} > 2000) — chia nhỏ payload`,
+                });
+            }
+            const broadcastStart = Number(b.broadcastStartMs);
+            const skipExisting = b.skipExisting !== false;
+            const user = b.user || {};
+            const created = [];
+            const skipped = [];
+            const failed = [];
 
-        for (const c of b.comments) {
-            try {
-                if (!c.customerFbUserId || !c.createdTime) {
-                    failed.push({
-                        commentId: c.commentId,
-                        reason: 'missing customerFbUserId/createdTime',
-                    });
-                    continue;
-                }
-                const commentTime = Number(c.createdTime);
-                if (!Number.isFinite(commentTime)) {
-                    failed.push({ commentId: c.commentId, reason: 'invalid createdTime' });
-                    continue;
-                }
-                // Idempotency: skip nếu đã có snap với commentId này
-                if (skipExisting && c.commentId) {
-                    const exists = await pool.query(
-                        `SELECT id FROM livestream_snapshots WHERE comment_id = $1 LIMIT 1`,
-                        [c.commentId]
-                    );
-                    if (exists.rowCount > 0) {
-                        skipped.push({ commentId: c.commentId, snapshotId: exists.rows[0].id });
+            for (const c of b.comments) {
+                try {
+                    if (!c.customerFbUserId || !c.createdTime) {
+                        failed.push({
+                            commentId: c.commentId,
+                            reason: 'missing customerFbUserId/createdTime',
+                        });
                         continue;
                     }
-                }
-                const offsetSec =
-                    commentTime > broadcastStart
-                        ? Math.floor((commentTime - broadcastStart) / 1000)
-                        : null;
-                const livestreamUrl = _computeLivestreamUrl(
-                    b.pageUsername || b.pageId,
-                    b.liveVideoId,
-                    offsetSec
-                );
-                // Offline-batch chỉ lưu metadata — KHÔNG lưu thumbnail URL.
-                // Backend POST /extract-frame sẽ điền bytea sau (user req).
-                const thumbnailUrl = null;
-                const r = await pool.query(
-                    `INSERT INTO livestream_snapshots
+                    const commentTime = Number(c.createdTime);
+                    if (!Number.isFinite(commentTime)) {
+                        failed.push({ commentId: c.commentId, reason: 'invalid createdTime' });
+                        continue;
+                    }
+                    // Idempotency: skip nếu đã có snap với commentId này
+                    if (skipExisting && c.commentId) {
+                        const exists = await pool.query(
+                            `SELECT id FROM livestream_snapshots WHERE comment_id = $1 LIMIT 1`,
+                            [c.commentId]
+                        );
+                        if (exists.rowCount > 0) {
+                            skipped.push({ commentId: c.commentId, snapshotId: exists.rows[0].id });
+                            continue;
+                        }
+                    }
+                    const offsetSec =
+                        commentTime > broadcastStart
+                            ? Math.floor((commentTime - broadcastStart) / 1000)
+                            : null;
+                    const livestreamUrl = _computeLivestreamUrl(
+                        b.pageUsername || b.pageId,
+                        b.liveVideoId,
+                        offsetSec
+                    );
+                    // Offline-batch chỉ lưu metadata — KHÔNG lưu thumbnail URL.
+                    // Backend POST /extract-frame sẽ điền bytea sau (user req).
+                    const thumbnailUrl = null;
+                    const r = await pool.query(
+                        `INSERT INTO livestream_snapshots
                      (comment_id, customer_fb_user_id, customer_name, page_id, page_name,
                       live_campaign_id, live_video_id, captured_at, captured_by, captured_by_name,
                       offset_seconds, livestream_url, thumbnail_url, note)
                      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
                      RETURNING id`,
-                    [
-                        c.commentId || null,
-                        c.customerFbUserId,
-                        c.customerName || null,
-                        b.pageId,
-                        b.pageName || null,
-                        b.liveCampaignId || null,
-                        b.liveVideoId,
-                        commentTime,
-                        user.id || null,
-                        user.name || null,
+                        [
+                            c.commentId || null,
+                            c.customerFbUserId,
+                            c.customerName || null,
+                            b.pageId,
+                            b.pageName || null,
+                            b.liveCampaignId || null,
+                            b.liveVideoId,
+                            commentTime,
+                            user.id || null,
+                            user.name || null,
+                            offsetSec,
+                            livestreamUrl,
+                            thumbnailUrl,
+                            c.message ? String(c.message).slice(0, 500) : null,
+                        ]
+                    );
+                    created.push({
+                        commentId: c.commentId,
+                        snapshotId: r.rows[0].id,
                         offsetSec,
-                        livestreamUrl,
-                        thumbnailUrl,
-                        c.message ? String(c.message).slice(0, 500) : null,
-                    ]
-                );
-                created.push({
-                    commentId: c.commentId,
-                    snapshotId: r.rows[0].id,
-                    offsetSec,
-                });
-                _notify('create', { customerFbUserId: c.customerFbUserId, id: r.rows[0].id });
-            } catch (e) {
-                failed.push({ commentId: c.commentId, reason: e.message });
+                    });
+                    _notify('create', { customerFbUserId: c.customerFbUserId, id: r.rows[0].id });
+                } catch (e) {
+                    failed.push({ commentId: c.commentId, reason: e.message });
+                }
             }
+            res.json({
+                success: true,
+                summary: {
+                    total: b.comments.length,
+                    created: created.length,
+                    skipped: skipped.length,
+                    failed: failed.length,
+                },
+                created,
+                skipped,
+                failed,
+            });
+        } catch (e) {
+            console.error('[livestream-snapshots] offline-batch error:', e.message);
+            res.status(500).json({ success: false, error: e.message });
         }
-        res.json({
-            success: true,
-            summary: {
-                total: b.comments.length,
-                created: created.length,
-                skipped: skipped.length,
-                failed: failed.length,
-            },
-            created,
-            skipped,
-            failed,
-        });
-    } catch (e) {
-        console.error('[livestream-snapshots] offline-batch error:', e.message);
-        res.status(500).json({ success: false, error: e.message });
     }
-});
+);
 
 // POST /wipe-all — XÓA SẠCH thumbnail (livestream_snapshots) + Kho Hình
 // (livestream_images) để force extract lại từ đầu (Web 2.0 beta — user yêu cầu
@@ -645,7 +662,7 @@ router.post('/wipe-all', async (req, res) => {
     }
 });
 
-router.delete('/snapshot/:id', async (req, res) => {
+router.delete('/snapshot/:id', requireWeb2AuthSoft, async (req, res) => {
     try {
         const pool = req.app.locals.web2Db || req.app.locals.chatDb;
         const r = await pool.query(
@@ -1105,170 +1122,190 @@ async function _runWorker(pool) {
 
 // POST /extract-frame — batch enqueue snap extraction jobs.
 // Body: { snapshotIds: [Number] } — sẽ lookup snap trong DB để biết liveVideoId + offset.
-router.post('/extract-frame', express.json({ limit: '500kb' }), async (req, res) => {
-    try {
-        if (!_ensureExtractDeps()) {
-            return res.status(503).json({ success: false, error: 'ffmpeg/yt-dlp not installed' });
-        }
-        const pool = req.app.locals.web2Db || req.app.locals.chatDb;
-        const ids = Array.isArray(req.body?.snapshotIds)
-            ? req.body.snapshotIds.map(Number).filter(Number.isFinite).slice(0, 200)
-            : [];
-        if (!ids.length)
-            return res.status(400).json({ success: false, error: 'snapshotIds required' });
-        // Lookup info từ DB.
-        const r = await pool.query(
-            `SELECT id, live_video_id, page_id, offset_seconds, extract_status, image_data
+router.post(
+    '/extract-frame',
+    requireWeb2AuthSoft,
+    express.json({ limit: '500kb' }),
+    async (req, res) => {
+        try {
+            if (!_ensureExtractDeps()) {
+                return res
+                    .status(503)
+                    .json({ success: false, error: 'ffmpeg/yt-dlp not installed' });
+            }
+            const pool = req.app.locals.web2Db || req.app.locals.chatDb;
+            const ids = Array.isArray(req.body?.snapshotIds)
+                ? req.body.snapshotIds.map(Number).filter(Number.isFinite).slice(0, 200)
+                : [];
+            if (!ids.length)
+                return res.status(400).json({ success: false, error: 'snapshotIds required' });
+            // Lookup info từ DB.
+            const r = await pool.query(
+                `SELECT id, live_video_id, page_id, offset_seconds, extract_status, image_data
              FROM livestream_snapshots WHERE id = ANY($1::bigint[])`,
-            [ids]
-        );
-        const batchId = 'ex_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
-        const status = { total: 0, done: 0, failed: 0, drmBlocked: 0, liveActive: 0 };
-        for (const row of r.rows) {
-            // Skip nếu đã extract done với bytea sẵn.
-            if (row.image_data && row.extract_status === 'done') continue;
-            if (!row.live_video_id || !Number.isFinite(row.offset_seconds)) continue;
-            _extractQueue.push({
-                batchId,
-                snapshotId: Number(row.id),
-                offsetSec: Number(row.offset_seconds),
-                liveVideoId: row.live_video_id,
-                pageId: row.page_id,
-            });
-            await pool.query(
-                `UPDATE livestream_snapshots SET extract_status = 'pending' WHERE id = $1`,
-                [row.id]
+                [ids]
             );
-            status.total++;
+            const batchId = 'ex_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+            const status = { total: 0, done: 0, failed: 0, drmBlocked: 0, liveActive: 0 };
+            for (const row of r.rows) {
+                // Skip nếu đã extract done với bytea sẵn.
+                if (row.image_data && row.extract_status === 'done') continue;
+                if (!row.live_video_id || !Number.isFinite(row.offset_seconds)) continue;
+                _extractQueue.push({
+                    batchId,
+                    snapshotId: Number(row.id),
+                    offsetSec: Number(row.offset_seconds),
+                    liveVideoId: row.live_video_id,
+                    pageId: row.page_id,
+                });
+                await pool.query(
+                    `UPDATE livestream_snapshots SET extract_status = 'pending' WHERE id = $1`,
+                    [row.id]
+                );
+                status.total++;
+            }
+            _batchStatus.set(batchId, status);
+            // Fire worker (async, don't block response).
+            setImmediate(() => _runWorker(pool).catch(() => {}));
+            res.json({ success: true, batchId, queued: status.total });
+        } catch (e) {
+            console.error('[lss-extract] enqueue error:', e.message);
+            res.status(500).json({ success: false, error: e.message });
         }
-        _batchStatus.set(batchId, status);
-        // Fire worker (async, don't block response).
-        setImmediate(() => _runWorker(pool).catch(() => {}));
-        res.json({ success: true, batchId, queued: status.total });
-    } catch (e) {
-        console.error('[lss-extract] enqueue error:', e.message);
-        res.status(500).json({ success: false, error: e.message });
     }
-});
+);
 
 // POST /extract-all-pending — force re-extract tất cả snap không có bytea
 // Body: { liveVideoId?, pageId?, limit? (default 500, max 500) }
 // Useful khi live end + VOD đã có nhưng cron chưa retry.
-router.post('/extract-all-pending', express.json({ limit: '500kb' }), async (req, res) => {
-    try {
-        if (!_ensureExtractDeps()) {
-            return res.status(503).json({ success: false, error: 'ffmpeg/yt-dlp not installed' });
-        }
-        const pool = req.app.locals.web2Db || req.app.locals.chatDb;
-        const b = req.body || {};
-        const limit = Math.min(Math.max(Number(b.limit) || 500, 1), 500);
-        const where = [
-            'image_data IS NULL',
-            'offset_seconds IS NOT NULL',
-            'live_video_id IS NOT NULL',
-            "(extract_status IS NULL OR extract_status IN ('pending','fail','live_active'))",
-        ];
-        const args = [];
-        if (b.liveVideoId) {
-            args.push(String(b.liveVideoId));
-            where.push(`live_video_id = $${args.length}`);
-        }
-        if (b.pageId) {
-            args.push(String(b.pageId));
-            where.push(`page_id = $${args.length}`);
-        }
-        args.push(limit);
-        const r = await pool.query(
-            `SELECT id, live_video_id, page_id, offset_seconds
+router.post(
+    '/extract-all-pending',
+    requireWeb2AuthSoft,
+    express.json({ limit: '500kb' }),
+    async (req, res) => {
+        try {
+            if (!_ensureExtractDeps()) {
+                return res
+                    .status(503)
+                    .json({ success: false, error: 'ffmpeg/yt-dlp not installed' });
+            }
+            const pool = req.app.locals.web2Db || req.app.locals.chatDb;
+            const b = req.body || {};
+            const limit = Math.min(Math.max(Number(b.limit) || 500, 1), 500);
+            const where = [
+                'image_data IS NULL',
+                'offset_seconds IS NOT NULL',
+                'live_video_id IS NOT NULL',
+                "(extract_status IS NULL OR extract_status IN ('pending','fail','live_active'))",
+            ];
+            const args = [];
+            if (b.liveVideoId) {
+                args.push(String(b.liveVideoId));
+                where.push(`live_video_id = $${args.length}`);
+            }
+            if (b.pageId) {
+                args.push(String(b.pageId));
+                where.push(`page_id = $${args.length}`);
+            }
+            args.push(limit);
+            const r = await pool.query(
+                `SELECT id, live_video_id, page_id, offset_seconds
              FROM livestream_snapshots
              WHERE ${where.join(' AND ')}
              ORDER BY created_at DESC
              LIMIT $${args.length}`,
-            args
-        );
-        const batchId = 'ex_pending_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
-        const status = { total: 0, done: 0, failed: 0, drmBlocked: 0, liveActive: 0 };
-        for (const row of r.rows) {
-            _extractQueue.push({
-                batchId,
-                snapshotId: Number(row.id),
-                offsetSec: Number(row.offset_seconds),
-                liveVideoId: row.live_video_id,
-                pageId: row.page_id,
-            });
-            await pool.query(
-                `UPDATE livestream_snapshots SET extract_status = 'pending' WHERE id = $1`,
-                [row.id]
+                args
             );
-            status.total++;
+            const batchId =
+                'ex_pending_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+            const status = { total: 0, done: 0, failed: 0, drmBlocked: 0, liveActive: 0 };
+            for (const row of r.rows) {
+                _extractQueue.push({
+                    batchId,
+                    snapshotId: Number(row.id),
+                    offsetSec: Number(row.offset_seconds),
+                    liveVideoId: row.live_video_id,
+                    pageId: row.page_id,
+                });
+                await pool.query(
+                    `UPDATE livestream_snapshots SET extract_status = 'pending' WHERE id = $1`,
+                    [row.id]
+                );
+                status.total++;
+            }
+            _batchStatus.set(batchId, status);
+            setImmediate(() => _runWorker(pool).catch(() => {}));
+            res.json({ success: true, batchId, queued: status.total });
+        } catch (e) {
+            console.error('[lss-extract] pending batch error:', e.message);
+            res.status(500).json({ success: false, error: e.message });
         }
-        _batchStatus.set(batchId, status);
-        setImmediate(() => _runWorker(pool).catch(() => {}));
-        res.json({ success: true, batchId, queued: status.total });
-    } catch (e) {
-        console.error('[lss-extract] pending batch error:', e.message);
-        res.status(500).json({ success: false, error: e.message });
     }
-});
+);
 
 // POST /extract-test — test extract 1 snap SYNCHRONOUSLY + return chi tiết error.
-router.post('/extract-test', express.json({ limit: '50kb' }), async (req, res) => {
-    try {
-        if (!_ensureExtractDeps()) {
-            return res.json({ ok: false, step: 'deps', error: 'deps not loaded' });
-        }
-        const pool = req.app.locals.web2Db || req.app.locals.chatDb;
-        const id = Number(req.body?.snapshotId);
-        if (!id) return res.status(400).json({ ok: false, error: 'snapshotId required' });
-        const r = await pool.query(
-            `SELECT id, live_video_id, page_id, offset_seconds
+router.post(
+    '/extract-test',
+    requireWeb2AuthSoft,
+    express.json({ limit: '50kb' }),
+    async (req, res) => {
+        try {
+            if (!_ensureExtractDeps()) {
+                return res.json({ ok: false, step: 'deps', error: 'deps not loaded' });
+            }
+            const pool = req.app.locals.web2Db || req.app.locals.chatDb;
+            const id = Number(req.body?.snapshotId);
+            if (!id) return res.status(400).json({ ok: false, error: 'snapshotId required' });
+            const r = await pool.query(
+                `SELECT id, live_video_id, page_id, offset_seconds
              FROM livestream_snapshots WHERE id = $1`,
-            [id]
-        );
-        if (!r.rows.length) return res.json({ ok: false, error: 'snap not found' });
-        const row = r.rows[0];
-        const out = {
-            ok: false,
-            snapshotId: id,
-            liveVideoId: row.live_video_id,
-            pageId: row.page_id,
-            offsetSec: row.offset_seconds,
-            steps: [],
-        };
-        // Step 1: yt-dlp get URL
-        out.steps.push('yt-dlp resolve...');
-        const videoIdShort = String(row.live_video_id).replace(/^\d+_/, '');
-        const fbUrl = `https://www.facebook.com/${row.page_id}/videos/${videoIdShort}/`;
-        out.fbUrl = fbUrl;
-        let m3u8 = null;
-        try {
-            const result = await _ytdlp(fbUrl, {
-                getUrl: true,
-                noWarnings: true,
-                noCheckCertificate: true,
-            });
-            m3u8 = typeof result === 'string' ? result.trim().split('\n')[0] : null;
-            out.m3u8 = m3u8 ? m3u8.slice(0, 200) : null;
+                [id]
+            );
+            if (!r.rows.length) return res.json({ ok: false, error: 'snap not found' });
+            const row = r.rows[0];
+            const out = {
+                ok: false,
+                snapshotId: id,
+                liveVideoId: row.live_video_id,
+                pageId: row.page_id,
+                offsetSec: row.offset_seconds,
+                steps: [],
+            };
+            // Step 1: yt-dlp get URL
+            out.steps.push('yt-dlp resolve...');
+            const videoIdShort = String(row.live_video_id).replace(/^\d+_/, '');
+            const fbUrl = `https://www.facebook.com/${row.page_id}/videos/${videoIdShort}/`;
+            out.fbUrl = fbUrl;
+            let m3u8 = null;
+            try {
+                const result = await _ytdlp(fbUrl, {
+                    getUrl: true,
+                    noWarnings: true,
+                    noCheckCertificate: true,
+                });
+                m3u8 = typeof result === 'string' ? result.trim().split('\n')[0] : null;
+                out.m3u8 = m3u8 ? m3u8.slice(0, 200) : null;
+            } catch (e) {
+                out.ytdlpError = String(e?.message || e).slice(0, 1000);
+                out.ytdlpStderr = String(e?.stderr || '').slice(0, 1000);
+                return res.json(out);
+            }
+            if (!m3u8) return res.json({ ...out, error: 'yt-dlp returned no URL' });
+            out.steps.push('ffmpeg seek + extract...');
+            try {
+                const buf = await _extractFrameJpeg(m3u8, row.offset_seconds);
+                out.ok = true;
+                out.imageSize = buf.length;
+            } catch (e) {
+                out.ffmpegError = String(e?.message || e).slice(0, 1000);
+                return res.json(out);
+            }
+            res.json(out);
         } catch (e) {
-            out.ytdlpError = String(e?.message || e).slice(0, 1000);
-            out.ytdlpStderr = String(e?.stderr || '').slice(0, 1000);
-            return res.json(out);
+            res.status(500).json({ ok: false, error: String(e?.message || e).slice(0, 1000) });
         }
-        if (!m3u8) return res.json({ ...out, error: 'yt-dlp returned no URL' });
-        out.steps.push('ffmpeg seek + extract...');
-        try {
-            const buf = await _extractFrameJpeg(m3u8, row.offset_seconds);
-            out.ok = true;
-            out.imageSize = buf.length;
-        } catch (e) {
-            out.ffmpegError = String(e?.message || e).slice(0, 1000);
-            return res.json(out);
-        }
-        res.json(out);
-    } catch (e) {
-        res.status(500).json({ ok: false, error: String(e?.message || e).slice(0, 1000) });
     }
-});
+);
 
 // GET /extract-diag — chẩn đoán deps + thử extract sample.
 router.get('/extract-diag', async (req, res) => {
@@ -1323,7 +1360,7 @@ router.get('/extract-status', (req, res) => {
 // GET /stream-url?pageId=X&liveVideoId=Y
 // Resolve raw FB stream URL qua yt-dlp (cache 5min, share với extract worker).
 // Trả về { url, protocol: 'dash'|'hls'|'unknown' } để frontend chọn player.
-router.get('/stream-url', async (req, res) => {
+router.get('/stream-url', requireWeb2AuthSoft, async (req, res) => {
     try {
         if (!_ensureExtractDeps()) {
             return res.status(503).json({ success: false, error: 'yt-dlp not installed' });

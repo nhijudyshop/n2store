@@ -881,7 +881,11 @@
                     '<div class="w2p-hist-field" style="color:#94a3b8;font-style:italic;">(không có thay đổi field)</div>';
         }
 
-        const user = h.userName || h.userId || '<em>không rõ</em>';
+        // 3H15 FIX (2026-06-12): userName/userId do client tự khai (body/header
+        // x-user-name, lưu web2_product_history) — render thô vào innerHTML là
+        // stored XSS. Escape; fallback HTML tĩnh giữ riêng.
+        const user =
+            h.userName || h.userId ? escapeHtml(h.userName || h.userId) : '<em>không rõ</em>';
         const sourceBadge = h.sourcePage
             ? `<span class="w2p-hist-source" title="Trang chỉnh sửa">${escapeHtml(h.sourcePage)}</span>`
             : '';

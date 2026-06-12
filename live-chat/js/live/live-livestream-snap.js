@@ -711,28 +711,16 @@ Throttle 30s/KH.`;
         const toast = (m, t) => {
             if (!opts.silent) _toast(m, t);
         };
-        const pageObj = _resolvePageObj();
-        if (!pageObj) {
-            toast('Chưa chọn page', 'err');
-            return;
-        }
-        const camp = _resolveActiveCampaign(pageObj);
-        if (!camp) {
-            toast(`Page "${pageObj.Name}" chưa có live campaign`, 'err');
-            return;
-        }
-        const liveVideoId = camp.Facebook_LiveId || null;
-        if (!liveVideoId) {
-            toast('Không tìm được liveVideoId', 'err');
-            return;
-        }
-        const videoInfo = await _fetchLiveVideoInfo(pageObj.Facebook_PageId, liveVideoId);
-        if (!videoInfo?.broadcastStartMs) {
-            toast('Không lấy được broadcast_start_time (Live livevideo fail)', 'err');
-            return;
-        }
-        const allComments = (global.LiveState?.comments || []).filter(
-            (c) => c.from?.id && !_isStaffComment(c)
+        const st = global.LiveState;
+        // 3H9 FIX (2026-06-12): group comment theo campaign/video của CHÍNH
+        // comment đó (_resolveCampaignForComment — match _postId trước) như
+        // vòng byVideo của Force extract, thay vì 1 pageObj + 1 campaign + 1
+        // broadcastStartMs cho TẤT CẢ → multi-campaign (House + Store cùng lúc)
+        // hết cảnh comment live page kia bị tính offset theo video page này
+        // (snapshot sai video + sai giây hàng loạt, auto-trigger silent).
+        // Cũng lọc người-bị-ẩn cho nhất quán với Force extract (1D).
+        const allComments = (st?.comments || []).filter(
+            (c) => c.from?.id && !_isStaffComment(c) && !global.LiveHiddenCommenters?.isHidden?.(c)
         );
         const comments = opts.customerFbUserId
             ? allComments.filter((c) => c.from.id === opts.customerFbUserId)
@@ -746,47 +734,90 @@ Throttle 30s/KH.`;
             );
             return;
         }
-        const payload = {
-            pageId: pageObj.Facebook_PageId,
-            pageName: pageObj.Name,
-            pageUsername: _resolvePageVanity(pageObj),
-            liveCampaignId: camp.Id ? String(camp.Id) : null,
-            liveVideoId,
-            broadcastStartMs: videoInfo.broadcastStartMs,
-            // KHÔNG pass thumbnailUrl generic — backfill / auto offline chỉ lưu metadata.
-            // User dùng button '📸 Chụp' per comment để fill ảnh thật từ FB tab.
-            thumbnailUrl: undefined,
-            comments: comments.map((c) => {
-                const raw = c.created_time || c.createdTime || c.inserted_at || c.created_at;
-                const t = raw ? (SharedUtils.parseTimestamp(raw)?.getTime() ?? NaN) : NaN;
-                return {
-                    commentId: c.id,
-                    customerFbUserId: c.from.id,
-                    customerName: c.from.name || '?',
-                    createdTime: Number.isFinite(t) ? t : Date.now(),
-                    message: c.message || '',
-                };
-            }),
-            skipExisting: opts.skipExisting !== false,
-            user: _user(),
-        };
-        toast(`🔄 Đang backfill ${payload.comments.length} comments...`, 'ok');
+        const byVideo = new Map();
+        let unresolved = 0;
+        for (const c of comments) {
+            const camp = _resolveCampaignForComment(c);
+            const liveVideoId = camp?.Facebook_LiveId || null;
+            if (!liveVideoId) {
+                unresolved++;
+                continue;
+            }
+            if (!byVideo.has(liveVideoId)) byVideo.set(liveVideoId, { camp, comments: [] });
+            byVideo.get(liveVideoId).comments.push(c);
+        }
+        if (!byVideo.size) {
+            toast('Không resolve được campaign/video cho comment nào', 'err');
+            return;
+        }
+        toast(
+            `🔄 Đang backfill ${comments.length - unresolved} comments / ${byVideo.size} video...`,
+            'ok'
+        );
+        const totals = { created: 0, skipped: 0, failed: unresolved };
+        const touchedIds = new Set();
         try {
-            const r = await fetch(API + '/api/livestream/offline-batch', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'omit',
-                body: JSON.stringify(payload),
-            });
-            const d = await r.json();
-            if (!d.success) throw new Error(d.error || 'batch failed');
+            for (const { camp, comments: group } of byVideo.values()) {
+                const pageObj =
+                    st?.allPages?.find((p) => p.Facebook_PageId === camp.Facebook_UserId) ||
+                    _resolvePageObj();
+                let videoInfo = null;
+                if (pageObj) {
+                    try {
+                        videoInfo = await _fetchLiveVideoInfo(
+                            pageObj.Facebook_PageId,
+                            camp.Facebook_LiveId
+                        );
+                    } catch (_) {}
+                }
+                if (!pageObj || !videoInfo?.broadcastStartMs) {
+                    totals.failed += group.length;
+                    continue;
+                }
+                const payload = {
+                    pageId: pageObj.Facebook_PageId,
+                    pageName: pageObj.Name,
+                    pageUsername: _resolvePageVanity(pageObj),
+                    liveCampaignId: camp.Id ? String(camp.Id) : null,
+                    liveVideoId: camp.Facebook_LiveId,
+                    broadcastStartMs: videoInfo.broadcastStartMs,
+                    // KHÔNG pass thumbnailUrl generic — backfill / auto offline chỉ lưu
+                    // metadata. User dùng '📸 Chụp' per comment để fill ảnh thật.
+                    thumbnailUrl: undefined,
+                    comments: group.map((c) => {
+                        const raw =
+                            c.created_time || c.createdTime || c.inserted_at || c.created_at;
+                        const t = raw ? (SharedUtils.parseTimestamp(raw)?.getTime() ?? NaN) : NaN;
+                        return {
+                            commentId: c.id,
+                            customerFbUserId: c.from.id,
+                            customerName: c.from.name || '?',
+                            createdTime: Number.isFinite(t) ? t : Date.now(),
+                            message: c.message || '',
+                        };
+                    }),
+                    skipExisting: opts.skipExisting !== false,
+                    user: _user(),
+                };
+                const r = await fetch(API + '/api/livestream/offline-batch', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'omit',
+                    body: JSON.stringify(payload),
+                });
+                const d = await r.json();
+                if (!d.success) throw new Error(d.error || 'batch failed');
+                totals.created += d.summary?.created || 0;
+                totals.skipped += d.summary?.skipped || 0;
+                totals.failed += d.summary?.failed || 0;
+                group.forEach((c) => touchedIds.add(c.from.id));
+            }
             toast(
-                `✅ Backfill: ${d.summary.created} mới, ${d.summary.skipped} đã có, ${d.summary.failed} fail`,
-                d.summary.failed > 0 ? 'err' : 'ok'
+                `✅ Backfill: ${totals.created} mới, ${totals.skipped} đã có, ${totals.failed} fail`,
+                totals.failed > 0 ? 'err' : 'ok'
             );
-            const ids = Array.from(new Set(comments.map((c) => c.from.id)));
-            refreshCounts(ids);
-            return d;
+            refreshCounts(Array.from(touchedIds));
+            return { success: true, summary: totals };
         } catch (e) {
             toast('Lỗi backfill: ' + e.message, 'err');
             throw e;

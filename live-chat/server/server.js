@@ -784,7 +784,9 @@ app.get('/api/status', (req, res) => {
     });
 });
 
-app.get('/api/events', (req, res) => {
+// 3H8 (2026-06-12): event log chứa NGUYÊN payload Pancake WS (tên KH, fb_id,
+// snippet tin nhắn, recent_phone_numbers) — PII, gate như mutation.
+app.get('/api/events', requireRelaySecret, (req, res) => {
     const since = req.query.since;
     const type = req.query.type;
     const account = req.query.account;
@@ -806,7 +808,7 @@ app.get('/api/events', (req, res) => {
     res.json({ total, offset, limit, events: results });
 });
 
-app.get('/api/events/latest', (req, res) => {
+app.get('/api/events/latest', requireRelaySecret, (req, res) => {
     const limit = parseInt(req.query.limit || '20');
     const events = eventStore.slice(-limit).reverse();
     res.json({ count: events.length, events });

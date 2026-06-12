@@ -352,7 +352,7 @@ router.post('/ingest', async (req, res) => {
 // POST /poll-now — client mở campaign gọi để poller fetch per-message NGAY post(s)
 // đang chọn (comment hiện liền, không chờ cycle 5s). Body: { posts:[{pageId,postId}] }
 // HOẶC { pageId, postId }. immediate=true (không debounce) để client thấy ngay.
-router.post('/poll-now', async (req, res) => {
+router.post('/poll-now', requireWeb2AuthSoft, async (req, res) => {
     try {
         const body = req.body || {};
         const posts = Array.isArray(body.posts)
@@ -362,7 +362,10 @@ router.post('/poll-now', async (req, res) => {
               : [];
         const valid = posts
             .map((p) => ({ pageId: String(p.pageId || ''), postId: String(p.postId || '') }))
-            .filter((p) => p.pageId && p.postId);
+            .filter((p) => p.pageId && p.postId)
+            // LC-pollnow-auth (2026-06-12): cap fan-out — mỗi post là tới 50 trang
+            // conversations + N message-fetch trên pancake.vn; campaign thật ≤ vài post.
+            .slice(0, 10);
         if (!valid.length) return res.json({ success: true, polled: 0 });
         let poller = null;
         try {
@@ -383,7 +386,7 @@ router.post('/poll-now', async (req, res) => {
 });
 
 // POST /bulk — upsert nhiều comment (auto-save khi live load/realtime).
-router.post('/bulk', async (req, res) => {
+router.post('/bulk', requireWeb2AuthSoft, async (req, res) => {
     const pool = getDb(req);
     if (!pool) return res.status(500).json({ success: false, error: 'DB unavailable' });
     const arr = Array.isArray(req.body?.comments) ? req.body.comments : [];
@@ -502,7 +505,7 @@ router.get('/campaigns', async (req, res) => {
 });
 
 // POST /campaigns { name, note } — tạo chiến dịch cha.
-router.post('/campaigns', async (req, res) => {
+router.post('/campaigns', requireWeb2AuthSoft, async (req, res) => {
     const pool = getDb(req);
     if (!pool) return res.status(500).json({ success: false, error: 'DB unavailable' });
     const name = String(req.body?.name || '').trim();
@@ -520,7 +523,7 @@ router.post('/campaigns', async (req, res) => {
 });
 
 // DELETE /campaigns/:id — xoá (gỡ gán post, KHÔNG xoá comment).
-router.delete('/campaigns/:id', async (req, res) => {
+router.delete('/campaigns/:id', requireWeb2AuthSoft, async (req, res) => {
     const pool = getDb(req);
     if (!pool) return res.status(500).json({ success: false, error: 'DB unavailable' });
     try {
@@ -592,7 +595,7 @@ router.get('/page-posts', async (req, res) => {
 });
 
 // POST /campaigns/:id/assign { postId, postTitle, pageId } — gán bài vào chiến dịch.
-router.post('/campaigns/:id/assign', async (req, res) => {
+router.post('/campaigns/:id/assign', requireWeb2AuthSoft, async (req, res) => {
     const pool = getDb(req);
     if (!pool) return res.status(500).json({ success: false, error: 'DB unavailable' });
     const campaignId = Number(req.params.id);
@@ -618,7 +621,7 @@ router.post('/campaigns/:id/assign', async (req, res) => {
 });
 
 // POST /unassign { postId } — gỡ bài khỏi chiến dịch.
-router.post('/unassign', async (req, res) => {
+router.post('/unassign', requireWeb2AuthSoft, async (req, res) => {
     const pool = getDb(req);
     if (!pool) return res.status(500).json({ success: false, error: 'DB unavailable' });
     const postId = String(req.body?.postId || '').trim();
@@ -726,7 +729,7 @@ router.delete('/poller-pages/:pageId', requireWeb2AuthSoft, async (req, res) => 
 // =====================================================================
 
 // POST /saved { customerId, customerName, pageId, pageName, savedBy, notes }
-router.post('/saved', async (req, res) => {
+router.post('/saved', requireWeb2AuthSoft, async (req, res) => {
     const pool = getDb(req);
     if (!pool) return res.status(500).json({ success: false, error: 'DB unavailable' });
     try {
@@ -773,7 +776,7 @@ router.get('/saved/ids', async (req, res) => {
 });
 
 // DELETE /saved/:customerId
-router.delete('/saved/:customerId', async (req, res) => {
+router.delete('/saved/:customerId', requireWeb2AuthSoft, async (req, res) => {
     const pool = getDb(req);
     if (!pool) return res.status(500).json({ success: false, error: 'DB unavailable' });
     try {
