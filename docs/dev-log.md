@@ -2,6 +2,16 @@
 
 ## 2026-06-12
 
+### [web2] [tests] Browser smoke click-như-user-thật: modal Sửa + Lưu trên 35 trang menu Web 2.0 ✅
+
+**User yêu cầu:** "Browser test bằng click như user thật các phần mở modal chỉnh sửa, modal lưu... ở tất cả các trang chi tiết trong thanh menu web 2.0".
+
+- **Harness**: persistent Playwright session (extension) + HTTP API; mỗi trang: nav → hook console/pageerror + wrap fetch → click nút Sửa → detect modal → bấm Lưu (chỉ nút an toàn, không Xóa/Duyệt/Nạp/Rút/Gửi) → bắt mutation status. Report: `downloads/n2store-session/web2-modal-smoke-report.md`.
+- **Kết quả: 0 lỗi console/page error trên cả 35 trang, 0 mutation 4xx/5xx.** 7 trang modal Sửa+Lưu OK (products, variants, customers, product-category, delivery-zone, supplier-debt, printer-settings — đều 200). PBH = view-only by design (modal Chi tiết OK); so-order = edit inline, đợt "Đã nhận" read-only đúng nghiệp vụ (app.js:776); 5 trang trống data; users/kpi/notifications trống vì browser test chưa login `web2_auth` (đúng hành vi sau đợt G).
+- **3 false-positive của harness** (đã verify tay từng trang): modal `position:fixed` làm `offsetParent` check trượt (w2p-popup PBH); modal class `pm-overlay` không chứa "modal" (printer-settings); nút title chứa "sửa" nhưng là Lịch-sử/toggle (pbh-invoice, so-order).
+
+**Status:** ✅ Done — không phát hiện bug mới.
+
 ### [orders-report] Gộp đơn trùng SĐT: fix miss tag "ĐÃ GỘP KHÔNG CHỐT" theo máy + progress UI trong modal ✅
 
 **User:** có máy chạy gộp xong nhưng một số đơn nguồn KHÔNG được gắn tag "ĐÃ GỘP KHÔNG CHỐT"; không có thanh tiến trình theo dõi đang xử lý cụm nào.
