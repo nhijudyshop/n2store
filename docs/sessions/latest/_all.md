@@ -3,15 +3,16 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `57cbec5` — docs(web2): audit vòng 3 — 54 agent re-audit 35 trang + sweep tách Web1⊥Web2 (1C+21H mới, 2 vi phạm ghi chéo)
-**Last updated**: 2026-06-12 09:35:24 +07
-**Latest session**: [`RESUME:20260612-093524-57cbec5`](../20260612-093524-57cbec5.md)
-**Summary**: docs(web2): audit vòng 3 — 54 agent re-audit 35 trang + sweep tách Web1⊥Web2 (1C+21H mới, 2 vi phạm ghi chéo)
+**Latest commit**: `070cdc0` — feat(delivery-report): anh ban giao v5 - khoi phuc dong Tong + phi ship ben Thu ve nhu TP + cot ma san pham (handover-batch tra them product_codes, v=20260612b)
+**Last updated**: 2026-06-12 12:37:35 SEAST
+**Latest session**: [`RESUME:20260612-123735-070cdc0`](../20260612-123735-070cdc0.md)
+**Summary**: Anh ban giao v5: khoi phuc dong Tong, Thu ve tinh phi ship nhu TP, them ma san pham mon thu ve (server tra product_codes)
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 2 file(s)
-- [`web2/`](./web2.md) — 1 file(s)
+- [`delivery-report/`](./delivery-report.md) — 2 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
+- [`render.com/`](./render.com.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -24,8 +25,8 @@
 - [`bangkiemhang/`](./bangkiemhang.md) — updated 2026-05-21 15:39
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-11 10:18
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
-- [`delivery-report/`](./delivery-report.md) — updated 2026-06-12 08:52
-- [`docs/`](./docs.md) — updated 2026-06-12 09:35
+- [`delivery-report/`](./delivery-report.md) — updated 2026-06-12 12:37
+- [`docs/`](./docs.md) — updated 2026-06-12 12:37
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-11 16:49
 - [`downloads/`](./downloads.md) — updated 2026-06-11 08:36
@@ -51,7 +52,7 @@
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
-- [`render.com/`](./render.com.md) — updated 2026-06-11 17:41
+- [`render.com/`](./render.com.md) — updated 2026-06-12 12:37
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-11 10:18
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
