@@ -2,6 +2,16 @@
 
 ## 2026-06-12
 
+### [delivery-report] Ảnh bàn giao v7: nút "Ảnh TMT" + "Ảnh NAP" cho tab Tỉnh (1 cột, không thu về) ✅
+
+**User:** thêm 2 nút Ảnh TMT / Ảnh NAP ở tab Tỉnh (giống nút Copy ảnh bàn giao của Thành phố), ảnh 1 cột như cột trái của ảnh TP — 2 kênh này không có thu về.
+
+- **JS:** hàm mới `buildGroupHandoverCanvas({label, dateLabel, count, total, zeroItems})` — canvas 520px 1 cột: `GIAO — TMT/NAP (d/m)` + tổng − phí ship (N×20) = Còn lại + bảng ĐƠN 0đ (Giá trị | Thu) + footer Tạo lúc (không dòng Tổng vì Còn lại = số cuối). `copyGroupHandoverImage(group)` lọc theo `provinceGroups[Number] === group` (cùng cách chia với renderProvinceView/exportExcelProvince), chỉ đơn ĐÃ QUÉT + confirm nếu còn chưa quét. Extract helper chung `copyCanvasToClipboard(canvas, fileName)` (copy + fallback tải PNG) — copyHandoverImage TP cũng dùng.
+- **HTML:** 2 button `drBtnCopyHandoverTomato` (đỏ) / `drBtnCopyHandoverNap` (xanh) cạnh nút Copy ảnh bàn giao; visibility trong `updateProvinceExportButtons` (chỉ tab Tỉnh + tra soát). Cache-bust `?v=20260612d`.
+- **Test:** Playwright data ảo 2 group — TMT `3 đơn: 2.545 − 60 = 2.485`, NAP `2 đơn: 225 − 40 = 185`, bảng 0đ đúng từng group, nút ẩn ở tab city.
+
+**Status:** ✅ Done.
+
 ### [delivery-report] Nút "Gửi Kèm" — nhập đơn gửi kèm theo kênh, lưu theo ngày lọc tra soát ✅
 
 **User:** thêm nút Gửi Kèm cạnh nút In, nhập các đơn gửi kèm gồm Kênh gửi → mỗi đơn Tên - SĐT (5-10 số) - Giá trị; dấu "+" ngoài ô thêm kênh khác, dấu "+" trong ô kênh thêm đơn của kênh đó; lưu lại theo từng ngày theo ngày lọc hiện tại của tra soát.

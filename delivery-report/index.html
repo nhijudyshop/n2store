@@ -271,6 +271,24 @@
                         >
                             <i class="fas fa-camera"></i> Copy ảnh bàn giao
                         </button>
+                        <button
+                            class="dr-btn"
+                            id="drBtnCopyHandoverTomato"
+                            onclick="DeliveryReport.copyGroupHandoverImage('tomato')"
+                            style="background: #fee2e2; color: #dc2626; display: none"
+                            title="Tạo ảnh xác nhận bàn giao đơn TOMATO cho shipper (copy vào clipboard)"
+                        >
+                            <i class="fas fa-camera"></i> Ảnh TMT
+                        </button>
+                        <button
+                            class="dr-btn"
+                            id="drBtnCopyHandoverNap"
+                            onclick="DeliveryReport.copyGroupHandoverImage('nap')"
+                            style="background: #dbeafe; color: #2563eb; display: none"
+                            title="Tạo ảnh xác nhận bàn giao đơn TỈNH NAP cho shipper (copy vào clipboard)"
+                        >
+                            <i class="fas fa-camera"></i> Ảnh NAP
+                        </button>
                     </div>
 
                     <!-- Right-side action group: history + column toggle -->
@@ -582,7 +600,7 @@
         <script src="../shared/js/wallet-pair-utils.js?v=20260526k"></script>
 
         <!-- Delivery Report Logic -->
-        <script src="js/delivery-report.js?v=20260612c"></script>
+        <script src="js/delivery-report.js?v=20260612d"></script>
         <script src="js/cancel-request.js?v=20260526k"></script>
         <script src="js/report.js?v=20260526k"></script>
         <script src="js/send-along.js?v=20260612a"></script>

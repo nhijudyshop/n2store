@@ -2050,6 +2050,239 @@
         return canvas;
     }
 
+    // Copy canvas PNG vào clipboard; browser chặn → fallback tải file.
+    // Trả về true nếu copy clipboard thành công.
+    async function copyCanvasToClipboard(canvas, fileName) {
+        const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
+        if (!blob) throw new Error('canvas.toBlob trả về null');
+        try {
+            await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+            return true;
+        } catch (clipErr) {
+            console.warn('[DELIVERY-REPORT] clipboard write failed:', clipErr);
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = fileName;
+            a.click();
+            setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+            alert('Không copy được vào clipboard — đã tải ảnh PNG về máy thay thế.');
+            return false;
+        }
+    }
+
+    // Ảnh bàn giao 1 CỘT cho nhóm Tỉnh (TMT/NAP) — giống cột trái ảnh TP,
+    // 2 kênh này KHÔNG có thu về.
+    function buildGroupHandoverCanvas({ label, dateLabel, count, total, zeroItems }) {
+        const W = 520;
+        const PAD = 24;
+        const ZROW_H = 32;
+        const feeK = HANDOVER_SHIP_FEE / 1000;
+        const ship = count * HANDOVER_SHIP_FEE;
+        const net = total - ship;
+        const zeroRows = Math.max(zeroItems.length, 1); // 0 đơn → 1 dòng "Không có đơn 0đ"
+        const H = PAD + 14 + 30 + 26 + 26 + 16 + 30 + 26 + zeroRows * ZROW_H + 6 + 14 + 20 + 12;
+        const scale = 2;
+
+        const canvas = document.createElement('canvas');
+        canvas.width = W * scale;
+        canvas.height = H * scale;
+        const ctx = canvas.getContext('2d');
+        ctx.scale(scale, scale);
+
+        const FONT = "-apple-system, 'Segoe UI', Roboto, Arial, sans-serif";
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, W, H);
+        ctx.textBaseline = 'middle';
+
+        const truncate = (text, maxW) => {
+            if (ctx.measureText(text).width <= maxW) return text;
+            let t = text;
+            while (t.length > 1 && ctx.measureText(t + '…').width > maxW) {
+                t = t.slice(0, -1);
+            }
+            return t + '…';
+        };
+
+        // Header: tổng − phí ship = còn lại
+        let y = PAD + 14;
+        ctx.textAlign = 'left';
+        ctx.fillStyle = '#111827';
+        ctx.font = `bold 20px ${FONT}`;
+        ctx.fillText(`GIAO — ${label} (${dateLabel})`, PAD, y);
+
+        y += 30;
+        ctx.font = `bold 18px ${FONT}`;
+        const countLine = `${formatNumber(count)} đơn:`;
+        ctx.fillText(countLine, PAD, y);
+        ctx.fillStyle = '#b45309';
+        ctx.fillText(` ${formatThousand(total)}`, PAD + ctx.measureText(countLine).width, y);
+
+        y += 26;
+        ctx.font = `15px ${FONT}`;
+        ctx.fillStyle = '#6b7280';
+        ctx.fillText(
+            `Phí ship (${formatNumber(count)} × ${feeK}): − ${formatThousand(ship)}`,
+            PAD,
+            y
+        );
+
+        y += 26;
+        ctx.font = `bold 18px ${FONT}`;
+        ctx.fillStyle = '#047857';
+        ctx.fillText(`Còn lại: ${formatThousand(net)}`, PAD, y);
+
+        y += 16;
+        ctx.strokeStyle = '#e5e7eb';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(PAD, y);
+        ctx.lineTo(W - PAD, y);
+        ctx.stroke();
+
+        // Bảng ĐƠN 0đ: Giá trị (AmountTotal) | Thu (CN)
+        y += 30;
+        ctx.fillStyle = '#111827';
+        ctx.font = `bold 17px ${FONT}`;
+        ctx.fillText(`ĐƠN 0đ (${formatNumber(zeroItems.length)} đơn)`, PAD, y);
+
+        const ZCOL = { idx: PAD, name: PAD + 26, value: W - PAD - 64, thu: W - PAD };
+        y += 26;
+        ctx.font = `bold 13px ${FONT}`;
+        ctx.fillStyle = '#6b7280';
+        ctx.fillText('#', ZCOL.idx, y);
+        ctx.fillText('Khách hàng — SĐT', ZCOL.name, y);
+        ctx.textAlign = 'right';
+        ctx.fillText('Giá trị', ZCOL.value, y);
+        ctx.fillText('Thu', ZCOL.thu, y);
+
+        if (zeroItems.length === 0) {
+            y += ZROW_H;
+            ctx.textAlign = 'left';
+            ctx.font = `italic 14px ${FONT}`;
+            ctx.fillStyle = '#9ca3af';
+            ctx.fillText('Không có đơn 0đ', ZCOL.name, y);
+        } else {
+            zeroItems.forEach((item, i) => {
+                y += ZROW_H;
+                ctx.strokeStyle = '#f3f4f6';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(PAD, y - ZROW_H / 2);
+                ctx.lineTo(W - PAD, y - ZROW_H / 2);
+                ctx.stroke();
+
+                ctx.textAlign = 'left';
+                ctx.font = `13px ${FONT}`;
+                ctx.fillStyle = '#9ca3af';
+                ctx.fillText(String(i + 1), ZCOL.idx, y);
+
+                ctx.font = `14px ${FONT}`;
+                ctx.fillStyle = '#111827';
+                const name = item.PartnerDisplayName || item.CustomerName || '';
+                const phone = item.Phone || item.Ship_Receiver_Phone || '';
+                ctx.fillText(
+                    truncate(
+                        `${name}${phone ? ' — ' + phone : ''}`,
+                        ZCOL.value - ZCOL.name - 50
+                    ),
+                    ZCOL.name,
+                    y
+                );
+
+                ctx.textAlign = 'right';
+                ctx.fillStyle = '#b45309';
+                ctx.fillText(formatThousand(item.AmountTotal), ZCOL.value, y);
+                ctx.fillStyle = '#111827';
+                ctx.fillText(formatThousand(item.CashOnDelivery), ZCOL.thu, y);
+            });
+        }
+
+        // Footer: chỉ timestamp (không có thu về nên Còn lại = số bàn giao cuối)
+        const fy = y + 6 + 14;
+        ctx.strokeStyle = '#d1d5db';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(PAD, fy);
+        ctx.lineTo(W - PAD, fy);
+        ctx.stroke();
+
+        ctx.textAlign = 'right';
+        ctx.font = `13px ${FONT}`;
+        ctx.fillStyle = '#9ca3af';
+        const now = new Date();
+        const ts = `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+        ctx.fillText(`Tạo lúc: ${ts}`, W - PAD, fy + 18);
+
+        return canvas;
+    }
+
+    // Nút "Ảnh TMT" / "Ảnh NAP" trên tab Tỉnh — group theo provinceGroups
+    // (cùng cách chia với renderProvinceView + exportExcelProvince).
+    async function copyGroupHandoverImage(group) {
+        const state = DeliveryReportState;
+        if (state.activeTab !== 'province' || !state.traSoatMode) return;
+
+        const label = group === 'tomato' ? 'TMT' : 'NAP';
+        const btnId = group === 'tomato' ? 'drBtnCopyHandoverTomato' : 'drBtnCopyHandoverNap';
+        const btn = document.getElementById(btnId);
+        const btnHtml = btn ? btn.innerHTML : '';
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang tạo...';
+        }
+        const resetBtn = (html) => {
+            if (!btn) return;
+            btn.disabled = false;
+            btn.innerHTML = html || btnHtml;
+        };
+
+        try {
+            const groups = state.provinceGroups;
+            const groupItems = getTabFilteredData().filter((i) => groups[i.Number] === group);
+            const scannedItems = groupItems.filter((i) => state.scannedNumbers.has(i.Number));
+            const unscannedCount = groupItems.length - scannedItems.length;
+            if (scannedItems.length === 0) {
+                alert(`Chưa có đơn ${label} nào được quét — không có gì để bàn giao.`);
+                resetBtn();
+                return;
+            }
+            if (unscannedCount > 0) {
+                const ok = confirm(
+                    `Còn ${unscannedCount} đơn ${label} CHƯA quét.\n` +
+                        `Vẫn tạo ảnh bàn giao với ${scannedItems.length} đơn đã quét?`
+                );
+                if (!ok) {
+                    resetBtn();
+                    return;
+                }
+            }
+
+            const total = scannedItems.reduce((s, i) => s + (i.CashOnDelivery || 0), 0);
+            const zeroItems = scannedItems.filter(isZeroCOD);
+            const canvas = buildGroupHandoverCanvas({
+                label,
+                dateLabel: handoverDateLabel(),
+                count: scannedItems.length,
+                total,
+                zeroItems,
+            });
+            const copied = await copyCanvasToClipboard(
+                canvas,
+                `BANGIAO_${label}_${handoverDateLabel().replace(/[/–]/g, '_')}.png`
+            );
+            if (copied) {
+                resetBtn('<i class="fas fa-check"></i> Đã copy!');
+                setTimeout(() => resetBtn(), 2000);
+            } else {
+                resetBtn();
+            }
+        } catch (error) {
+            console.error('[DELIVERY-REPORT] copyGroupHandoverImage error:', error);
+            alert('Lỗi khi tạo ảnh bàn giao: ' + error.message);
+            resetBtn();
+        }
+    }
+
     async function copyHandoverImage() {
         const state = DeliveryReportState;
         if (state.activeTab !== 'city' || !state.traSoatMode) return;
@@ -2114,22 +2347,14 @@
                 returnItems: returnScanned,
                 returnHandoverMap,
             });
-            const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
-            if (!blob) throw new Error('canvas.toBlob trả về null');
-
-            try {
-                await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+            const copied = await copyCanvasToClipboard(
+                canvas,
+                `BANGIAO_TP_${handoverDateLabel().replace(/[/–]/g, '_')}.png`
+            );
+            if (copied) {
                 resetBtn('<i class="fas fa-check"></i> Đã copy!');
                 setTimeout(() => resetBtn(), 2000);
-            } catch (clipErr) {
-                // Browser không hỗ trợ / không cho phép clipboard → tải file PNG
-                console.warn('[DELIVERY-REPORT] clipboard write failed:', clipErr);
-                const a = document.createElement('a');
-                a.href = URL.createObjectURL(blob);
-                a.download = `BANGIAO_TP_${handoverDateLabel().replace(/[/–]/g, '_')}.png`;
-                a.click();
-                setTimeout(() => URL.revokeObjectURL(a.href), 5000);
-                alert('Không copy được vào clipboard — đã tải ảnh PNG về máy thay thế.');
+            } else {
                 resetBtn();
             }
         } catch (error) {
@@ -2523,6 +2748,12 @@
         const isProvince = state.activeTab === 'province' && state.traSoatMode;
         if (tomatoBtn) tomatoBtn.style.display = isProvince ? '' : 'none';
         if (napBtn) napBtn.style.display = isProvince ? '' : 'none';
+
+        // Ảnh bàn giao TMT/NAP: chỉ tab Tỉnh (chế độ tra soát)
+        ['drBtnCopyHandoverTomato', 'drBtnCopyHandoverNap'].forEach((id) => {
+            const b = document.getElementById(id);
+            if (b) b.style.display = isProvince ? '' : 'none';
+        });
 
         // Copy ảnh bàn giao: chỉ tab Thành phố (chế độ tra soát)
         const handoverBtn = document.getElementById('drBtnCopyHandover');
@@ -5716,6 +5947,7 @@
         printView: printView,
         confirmPrint: confirmPrint,
         copyHandoverImage: copyHandoverImage,
+        copyGroupHandoverImage: copyGroupHandoverImage,
         openCheckHistory: openCheckHistory,
         getState: () => DeliveryReportState,
     };
