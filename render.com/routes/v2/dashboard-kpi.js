@@ -49,7 +49,10 @@ router.get('/', requireWeb2AuthSoft, async (req, res) => {
         // Revenue 7 days
         try {
             const r = await pool.query(
-                `SELECT date_invoice::date AS d, COALESCE(SUM(amount_total), 0)::bigint AS s
+                // TM-revenue7d-utc FIX (2026-06-12): pin GMT+7 như revenue_today —
+                // ::date trần theo session UTC gom đơn 00:00-07:00 VN về hôm trước.
+                `SELECT (date_invoice AT TIME ZONE 'Asia/Ho_Chi_Minh')::date AS d,
+                        COALESCE(SUM(amount_total), 0)::bigint AS s
                  FROM fast_sale_orders
                  WHERE state = 'done' AND date_invoice > NOW() - INTERVAL '7 days'
                  GROUP BY d ORDER BY d`

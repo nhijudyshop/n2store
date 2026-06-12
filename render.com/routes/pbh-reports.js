@@ -27,6 +27,8 @@ router.get('/summary', async (req, res) => {
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     try {
         const days = Math.max(1, Math.min(365, parseInt(req.query.days, 10) || 30));
+        // 3H20 FIX (2026-06-12): mọi cast ngày pin 'Asia/Ho_Chi_Minh' — session PG là UTC,
+        // ::date/CURRENT_DATE trần làm 'Doanh thu hôm nay' sai mỗi sáng trước 7h.
         const r = await pool.query(
             `
             SELECT
@@ -35,14 +37,14 @@ router.get('/summary', async (req, res) => {
                 COUNT(*) FILTER (WHERE state = 'confirmed')::int AS state_confirmed,
                 COUNT(*) FILTER (WHERE state = 'done')::int AS state_done,
                 COUNT(*) FILTER (WHERE state = 'cancel')::int AS state_cancel,
-                COUNT(*) FILTER (WHERE date_invoice::date = CURRENT_DATE)::int AS today_count,
+                COUNT(*) FILTER (WHERE (date_invoice AT TIME ZONE 'Asia/Ho_Chi_Minh')::date = (NOW() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date)::int AS today_count,
                 COALESCE(SUM(amount_total) FILTER (WHERE state != 'cancel'), 0)::numeric AS total_revenue,
-                COALESCE(SUM(amount_total) FILTER (WHERE date_invoice::date = CURRENT_DATE AND state != 'cancel'), 0)::numeric AS today_revenue,
-                COALESCE(SUM(amount_total) FILTER (WHERE date_invoice >= CURRENT_DATE - INTERVAL '7 days' AND state != 'cancel'), 0)::numeric AS week_revenue,
-                COALESCE(SUM(amount_total) FILTER (WHERE date_invoice >= CURRENT_DATE - INTERVAL '30 days' AND state != 'cancel'), 0)::numeric AS month_revenue,
+                COALESCE(SUM(amount_total) FILTER (WHERE (date_invoice AT TIME ZONE 'Asia/Ho_Chi_Minh')::date = (NOW() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date AND state != 'cancel'), 0)::numeric AS today_revenue,
+                COALESCE(SUM(amount_total) FILTER (WHERE date_invoice >= (NOW() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date - INTERVAL '7 days' AND state != 'cancel'), 0)::numeric AS week_revenue,
+                COALESCE(SUM(amount_total) FILTER (WHERE date_invoice >= (NOW() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date - INTERVAL '30 days' AND state != 'cancel'), 0)::numeric AS month_revenue,
                 COALESCE(SUM(residual) FILTER (WHERE state != 'cancel'), 0)::numeric AS total_residual
             FROM fast_sale_orders
-            WHERE date_invoice >= CURRENT_DATE - ($1 || ' days')::interval
+            WHERE date_invoice >= (NOW() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date - ($1 || ' days')::interval
         `,
             [days]
         );
@@ -128,13 +130,13 @@ router.get('/revenue', async (req, res) => {
         const r = await pool.query(
             `
             SELECT
-                date_invoice::date AS day,
+                (date_invoice AT TIME ZONE 'Asia/Ho_Chi_Minh')::date AS day,
                 COUNT(*)::int AS order_count,
                 COALESCE(SUM(amount_total) FILTER (WHERE state != 'cancel'), 0)::numeric AS revenue,
                 COALESCE(SUM(total_quantity) FILTER (WHERE state != 'cancel'), 0)::int AS qty
             FROM fast_sale_orders
-            WHERE date_invoice >= CURRENT_DATE - ($1 || ' days')::interval
-            GROUP BY date_invoice::date
+            WHERE date_invoice >= (NOW() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date - ($1 || ' days')::interval
+            GROUP BY (date_invoice AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
             ORDER BY day ASC
         `,
             [days]
@@ -164,7 +166,10 @@ router.get('/delivery', async (req, res) => {
     if (!pool) return res.status(500).json({ success: false, error: 'DB unavailable' });
     try {
         const re = /^\d{4}-\d{2}-\d{2}$/;
-        const today = new Date().toISOString().slice(0, 10);
+        // 3H20: default 'hôm nay' theo GMT+7 (toISOString = UTC, lệch trước 7h sáng).
+        const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }).format(
+            new Date()
+        );
         const from = re.test(req.query.from) ? req.query.from : today;
         const to = re.test(req.query.to) ? req.query.to : today;
         // Group theo cột bất kỳ. amount/COD bỏ đơn huỷ. "Đã giao"=shipped, "Huỷ"=cancel.
@@ -177,7 +182,7 @@ router.get('/delivery', async (req, res) => {
                 COUNT(*) FILTER (WHERE fulfillment_shipped_at IS NOT NULL OR fulfillment_delivered_at IS NOT NULL)::int AS shipped_count,
                 COUNT(*) FILTER (WHERE state = 'cancel')::int AS cancel_count
             FROM fast_sale_orders
-            WHERE date_invoice::date BETWEEN $1::date AND $2::date
+            WHERE (date_invoice AT TIME ZONE 'Asia/Ho_Chi_Minh')::date BETWEEN $1::date AND $2::date
             GROUP BY 1
             ORDER BY order_count DESC`;
         const mapRows = (rows) =>
@@ -230,7 +235,7 @@ router.get('/top-customers', async (req, res) => {
                 COALESCE(SUM(amount_total) FILTER (WHERE state != 'cancel'), 0)::numeric AS total_revenue,
                 MAX(date_invoice) AS last_order
             FROM fast_sale_orders
-            WHERE date_invoice >= CURRENT_DATE - ($1 || ' days')::interval
+            WHERE date_invoice >= (NOW() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date - ($1 || ' days')::interval
               AND partner_phone IS NOT NULL
             GROUP BY partner_phone, partner_name
             ORDER BY total_revenue DESC
@@ -269,7 +274,7 @@ router.get('/by-campaign', async (req, res) => {
                 COUNT(*)::int AS order_count,
                 COALESCE(SUM(amount_total) FILTER (WHERE state != 'cancel'), 0)::numeric AS revenue
             FROM fast_sale_orders
-            WHERE date_invoice >= CURRENT_DATE - ($1 || ' days')::interval
+            WHERE date_invoice >= (NOW() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date - ($1 || ' days')::interval
             GROUP BY live_campaign_id, live_campaign_name
             ORDER BY revenue DESC
             LIMIT 50
@@ -316,7 +321,7 @@ router.get('/top-customers-360', async (req, res) => {
                     MAX(customer_name) FILTER (WHERE customer_name IS NOT NULL) AS name_hint
                 FROM native_orders
                 WHERE customer_id IS NOT NULL
-                  AND to_timestamp(created_at / 1000) >= CURRENT_DATE - ($1 || ' days')::interval
+                  AND to_timestamp(created_at / 1000) >= (NOW() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date - ($1 || ' days')::interval
                 GROUP BY customer_id
             ),
             pbh AS (
@@ -329,7 +334,7 @@ router.get('/top-customers-360', async (req, res) => {
                     MAX(partner_name) FILTER (WHERE partner_name IS NOT NULL) AS name_hint
                 FROM fast_sale_orders
                 WHERE customer_id IS NOT NULL
-                  AND date_invoice >= CURRENT_DATE - ($1 || ' days')::interval
+                  AND date_invoice >= (NOW() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date - ($1 || ' days')::interval
                 GROUP BY customer_id
             )
             SELECT
@@ -361,10 +366,10 @@ router.get('/top-customers-360', async (req, res) => {
             SELECT
                 (SELECT COUNT(*)::int FROM native_orders
                  WHERE customer_id IS NULL
-                   AND to_timestamp(created_at / 1000) >= CURRENT_DATE - ($1 || ' days')::interval) AS nw_unlinked,
+                   AND to_timestamp(created_at / 1000) >= (NOW() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date - ($1 || ' days')::interval) AS nw_unlinked,
                 (SELECT COUNT(*)::int FROM fast_sale_orders
                  WHERE customer_id IS NULL
-                   AND date_invoice >= CURRENT_DATE - ($1 || ' days')::interval) AS pbh_unlinked
+                   AND date_invoice >= (NOW() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date - ($1 || ' days')::interval) AS pbh_unlinked
             `,
             [days]
         );

@@ -48,7 +48,8 @@
     function _fmtDateTime(ts) {
         if (!ts) return '—';
         try {
-            return new Date(ts).toLocaleString('vi-VN');
+            // GMT+7 (quy tắc 10)
+            return new Date(ts).toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' });
         } catch {
             return String(ts);
         }

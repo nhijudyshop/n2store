@@ -74,10 +74,15 @@
         if (!iso) return '—';
         try {
             const d = new Date(iso);
+            // GMT+7 (quy tắc 10)
             return (
-                d.toLocaleDateString('vi-VN') +
+                d.toLocaleDateString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' }) +
                 ' ' +
-                d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+                d.toLocaleTimeString('vi-VN', {
+                    timeZone: 'Asia/Ho_Chi_Minh',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                })
             );
         } catch {
             return iso;

@@ -65,18 +65,20 @@
         else console.log(`[${type}]`, msg);
     }
 
+    // GMT+7 (quy tắc 10): getDate()/getHours() theo TZ browser — máy khác múi
+    // giờ hiển thị sai. Pin Asia/Ho_Chi_Minh (shared — sửa 1 lần ăn mọi trang generic).
+    const _fmtTimeVn = new Intl.DateTimeFormat('vi-VN', {
+        timeZone: 'Asia/Ho_Chi_Minh',
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+    });
     function fmtTime(ms) {
         if (!ms) return '';
         const d = new Date(Number(ms));
-        return (
-            [d.getDate(), d.getMonth() + 1, d.getFullYear()]
-                .map((n) => String(n).padStart(2, '0'))
-                .join('/') +
-            ' ' +
-            String(d.getHours()).padStart(2, '0') +
-            ':' +
-            String(d.getMinutes()).padStart(2, '0')
-        );
+        return Number.isNaN(d.getTime()) ? '' : _fmtTimeVn.format(d);
     }
 
     // -------- Mount --------

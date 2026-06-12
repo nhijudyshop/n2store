@@ -136,13 +136,21 @@ router.get('/list', requireWeb2AuthSoft, async (req, res) => {
             params.push('%' + filterUser + '%');
             filters.push(`(user_name ILIKE $${params.length} OR user_id ILIKE $${params.length})`);
         }
+        // 1D-GMT+7 FIX (2026-06-12): from/to là date string 'YYYY-MM-DD' theo
+        // giờ VN — cast trần theo session UTC lệch 7h so với cột Thời gian đang
+        // render, và `<= to` loại cả ngày cuối (to = 00:00). Pin Asia/Ho_Chi_Minh
+        // + nửa khoảng [from, to+1).
         if (from) {
             params.push(from);
-            filters.push(`created_at >= $${params.length}`);
+            filters.push(
+                `created_at >= ($${params.length}::date::timestamp AT TIME ZONE 'Asia/Ho_Chi_Minh')`
+            );
         }
         if (to) {
             params.push(to);
-            filters.push(`created_at <= $${params.length}`);
+            filters.push(
+                `created_at < (($${params.length}::date + 1)::timestamp AT TIME ZONE 'Asia/Ho_Chi_Minh')`
+            );
         }
         const where = filters.length ? 'WHERE ' + filters.join(' AND ') : '';
 

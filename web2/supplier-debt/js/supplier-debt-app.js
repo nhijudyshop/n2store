@@ -19,6 +19,14 @@
 (function () {
     'use strict';
 
+    // GMT+7 (quy tắc 10): bucket/format NGÀY luôn theo Asia/Ho_Chi_Minh —
+    // toISOString() là UTC, giao dịch 00:00-07:00 VN rơi sai kỳ báo cáo.
+    const _vnDateFmt = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
+    function vnDate(tsOrDate) {
+        const d = tsOrDate instanceof Date ? tsOrDate : new Date(Number(tsOrDate) || tsOrDate);
+        return Number.isNaN(d.getTime()) ? '' : _vnDateFmt.format(d);
+    }
+
     const FALLBACK_RATES = {
         VND: 1,
         CNY: 3500,
@@ -385,7 +393,7 @@
                 const amount = Number(tx.amount) || 0;
                 if (amount <= 0) continue;
                 const ts = Number(tx.ts) || 0;
-                const txDate = ts ? new Date(ts).toISOString().slice(0, 10) : '';
+                const txDate = ts ? vnDate(ts) : '';
                 if (from && txDate && txDate < from) {
                     row._txBefore += amount;
                 } else if (isInPeriod(txDate, from, to)) {
@@ -652,7 +660,7 @@
     function openPayModal(supplierKey) {
         const row = STATE.rows.find((r) => r.supplier === supplierKey);
         if (!row) return;
-        const today = new Date().toISOString().slice(0, 10);
+        const today = vnDate(new Date());
         document.getElementById('sdPaySupplier').textContent = row.code
             ? `[${row.code}] ${row.supplier.startsWith(row.code + ' ') ? row.supplier : row.code + ' ' + row.supplier}`
             : row.supplier;
@@ -865,7 +873,7 @@
         }
         for (const t of row.txInPeriod || []) {
             const d = t.ts ? new Date(Number(t.ts)) : null;
-            const dateIso = d ? d.toISOString().slice(0, 10) : '';
+            const dateIso = d ? vnDate(d) : '';
             const timeStr = d
                 ? d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
                 : '';

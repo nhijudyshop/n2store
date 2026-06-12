@@ -422,4 +422,29 @@ router.post('/import', requireWeb2AuthSoft, async (req, res) => {
     }
 });
 
+// =====================================================
+// DELETE /api/web2-supplier-wallet/supplier/:name — maintenance/admin.
+// Xoá 1 NCC + toàn bộ ledger của nó (vd dọn data TEST-). Gate CỨNG
+// x-admin-secret = CLEANUP_SECRET (fail-closed) — không phải page-flow.
+// =====================================================
+router.delete('/supplier/:name', async (req, res) => {
+    const secret = process.env.CLEANUP_SECRET || '';
+    if (!secret || (req.headers['x-admin-secret'] || '') !== secret) {
+        return res.status(401).json({ success: false, error: 'unauthorized' });
+    }
+    const pool = getPool(req);
+    if (!pool) return res.status(500).json({ success: false, error: 'DB unavailable' });
+    try {
+        await ensureTables(pool);
+        const name = String(req.params.name || '').trim();
+        if (!name) return res.status(400).json({ success: false, error: 'name required' });
+        const l = await pool.query(`DELETE FROM web2_supplier_ledger WHERE supplier = $1`, [name]);
+        const m = await pool.query(`DELETE FROM web2_supplier_meta WHERE supplier = $1`, [name]);
+        _notify('supplier-deleted', name);
+        res.json({ success: true, deleted: { ledger: l.rowCount, meta: m.rowCount } });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
 module.exports = router;

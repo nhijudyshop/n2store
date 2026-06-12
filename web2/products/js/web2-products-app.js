@@ -829,6 +829,7 @@
 
     function renderHistEntry(h) {
         const time = new Date(h.createdAt).toLocaleString('vi-VN', {
+            timeZone: 'Asia/Ho_Chi_Minh', // quy tắc 10 GMT+7
             day: '2-digit',
             month: '2-digit',
             year: '2-digit',
