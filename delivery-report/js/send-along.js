@@ -123,7 +123,7 @@
                     </button>
                 </div>
                 <div class="sa-modal-footer">
-                    <div class="sa-grand-total">Tổng cộng: <span id="saGrandTotal">0</span></div>
+                    <div class="sa-grand-total">Tổng GT: <span id="saGrandTotal">0</span> · Tổng Thu: <span id="saGrandCollect">0</span></div>
                     <div style="display:flex; gap:8px; align-items:center">
                         <span class="sa-status" id="saStatus"></span>
                         <button type="button" class="dr-btn dr-btn-primary" onclick="SendAlong.save()">
@@ -186,13 +186,17 @@
                     oninput="SendAlong._editPhone(${ci},${oi},this)">
                 <input type="text" class="sa-input-value" placeholder="Giá trị"
                     inputmode="numeric" value="${o.value ? formatValue(o.value) : ''}"
-                    oninput="SendAlong._editValue(${ci},${oi},this)">
+                    oninput="SendAlong._editAmount(${ci},${oi},'value',this)">
+                <input type="text" class="sa-input-collect" placeholder="Thu (COD)"
+                    inputmode="numeric" value="${o.collect ? formatValue(o.collect) : ''}"
+                    oninput="SendAlong._editAmount(${ci},${oi},'collect',this)">
                 <button type="button" class="sa-btn-icon" title="Xóa đơn"
                     onclick="SendAlong.removeOrder(${ci},${oi})">&times;</button>
             </div>`
             )
             .join('');
         const total = (ch.orders || []).reduce((s, o) => s + parseValue(o.value), 0);
+        const collectTotal = (ch.orders || []).reduce((s, o) => s + parseValue(o.collect), 0);
         return `
         <div class="sa-channel" data-ci="${ci}">
             <div class="sa-channel-head">
@@ -201,11 +205,16 @@
                     onchange="SendAlong._editChannel(${ci},this.value)">
                     ${channelOptionsHtml(ch.channel)}
                 </select>
-                <span class="sa-channel-total">${formatValue(total)}</span>
+                <span class="sa-channel-total">GT ${formatValue(total)} · Thu ${formatValue(collectTotal)}</span>
                 <button type="button" class="sa-btn-icon" title="Xóa kênh"
                     onclick="SendAlong.removeChannel(${ci})">&times;</button>
             </div>
-            <div class="sa-orders">${rows}</div>
+            <div class="sa-orders">
+                <div class="sa-order-head">
+                    <span>Tên</span><span>SĐT</span><span>Giá trị</span><span>Thu (COD)</span><span></span>
+                </div>
+                ${rows}
+            </div>
             <button type="button" class="sa-add-order" onclick="SendAlong.addOrder(${ci})">
                 <i class="fas fa-plus"></i> Thêm đơn
             </button>
@@ -213,23 +222,28 @@
     }
 
     function updateGrandTotal() {
-        const grand = _state.channels.reduce(
-            (s, ch) => s + (ch.orders || []).reduce((t, o) => t + parseValue(o.value), 0),
-            0
-        );
+        let grand = 0;
+        let grandCollect = 0;
+        for (const ch of _state.channels) {
+            for (const o of ch.orders || []) {
+                grand += parseValue(o.value);
+                grandCollect += parseValue(o.collect);
+            }
+        }
         const el = document.getElementById('saGrandTotal');
         if (el) el.textContent = formatValue(grand);
+        const elc = document.getElementById('saGrandCollect');
+        if (elc) elc.textContent = formatValue(grandCollect);
     }
 
     function updateChannelTotal(ci) {
         const card = document.querySelector(`.sa-channel[data-ci="${ci}"]`);
         if (!card) return;
-        const total = (_state.channels[ci]?.orders || []).reduce(
-            (s, o) => s + parseValue(o.value),
-            0
-        );
+        const orders = _state.channels[ci]?.orders || [];
+        const total = orders.reduce((s, o) => s + parseValue(o.value), 0);
+        const collectTotal = orders.reduce((s, o) => s + parseValue(o.collect), 0);
         const el = card.querySelector('.sa-channel-total');
-        if (el) el.textContent = formatValue(total);
+        if (el) el.textContent = `GT ${formatValue(total)} · Thu ${formatValue(collectTotal)}`;
     }
 
     // ---------- Public actions ----------
@@ -270,7 +284,10 @@
     }
 
     function addChannel() {
-        _state.channels.push({ channel: '', orders: [{ name: '', phone: '', value: 0 }] });
+        _state.channels.push({
+            channel: '',
+            orders: [{ name: '', phone: '', value: 0, collect: 0 }],
+        });
         render();
     }
 
@@ -281,7 +298,7 @@
 
     function addOrder(ci) {
         if (!_state.channels[ci]) return;
-        (_state.channels[ci].orders ||= []).push({ name: '', phone: '', value: 0 });
+        (_state.channels[ci].orders ||= []).push({ name: '', phone: '', value: 0, collect: 0 });
         render();
     }
 
@@ -306,11 +323,12 @@
         if (o) o.phone = digits;
         input.classList.toggle('sa-invalid', digits.length > 0 && !isValidPhone(digits));
     }
-    function _editValue(ci, oi, input) {
+    // field: 'value' (Giá trị) hoặc 'collect' (Thu COD)
+    function _editAmount(ci, oi, field, input) {
         const n = parseValue(input.value);
         input.value = n ? formatValue(n) : '';
         const o = _state.channels[ci]?.orders?.[oi];
-        if (o) o.value = n;
+        if (o) o[field] = n;
         updateChannelTotal(ci);
         updateGrandTotal();
     }
@@ -328,7 +346,7 @@
             const ch = _state.channels[ci];
             if (!ch.channel) return 'Vui lòng chọn kênh gửi cho tất cả các ô.';
             for (const o of ch.orders || []) {
-                const hasAny = o.name || o.phone || o.value;
+                const hasAny = o.name || o.phone || o.value || o.collect;
                 if (!hasAny) continue;
                 if (o.phone && !isValidPhone(o.phone))
                     return `Kênh "${ch.channel}": SĐT phải từ 5-10 số.`;
@@ -342,7 +360,9 @@
         return _state.channels
             .map((ch) => ({
                 channel: ch.channel,
-                orders: (ch.orders || []).filter((o) => o.name || o.phone || o.value),
+                orders: (ch.orders || []).filter(
+                    (o) => o.name || o.phone || o.value || o.collect
+                ),
             }))
             .filter((ch) => ch.channel && ch.orders.length);
     }
@@ -395,6 +415,6 @@
         _editChannel,
         _edit,
         _editPhone,
-        _editValue,
+        _editAmount,
     };
 })();

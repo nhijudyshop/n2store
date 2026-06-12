@@ -2,6 +2,17 @@
 
 ## 2026-06-12
 
+### [delivery-report] Gửi Kèm: thêm ô "Thu (COD)" mỗi đơn ✅
+
+**User:** thêm 1 ô điền Thu (giá trị thu COD) vào modal Gửi Kèm.
+
+- Mỗi đơn giờ có 4 ô: Tên – SĐT – **Giá trị** – **Thu (COD)** (+ nút xóa). Thêm header cột trong mỗi card; grid 5 cột (mobile stack, ẩn header).
+- Data model order thêm field `collect`. Tổng theo kênh + footer hiển thị cả 2: `GT … · Thu …` / `Tổng GT … · Tổng Thu …`. Refactor `_editValue` → `_editAmount(ci,oi,field,input)` dùng chung cho Giá trị + Thu. sanitize/validate tính cả `collect` (đơn chỉ có Thu vẫn được giữ).
+- Files: [`delivery-report/js/send-along.js`](../delivery-report/js/send-along.js), [`delivery-report/css/send-along.css`](../delivery-report/css/send-along.css), bump `?v=20260612b`.
+- **Test (Playwright):** nhập Giá trị 150k + Thu 120k/50k → tổng "GT 150.000 · Thu 170.000" + footer đúng; lưu → Firestore/localStorage có `collect`; đóng/mở lại load đúng (120.000, 50.000). Đã dọn data test.
+
+**Status:** ✅ Done.
+
 ### [delivery-report] Ảnh bàn giao v9: phí ship kênh tỉnh (TMT/NAP) = 23k/đơn ✅
 
 **User:** phí ship của kênh TMT và NAP là 23k, tính lại.
