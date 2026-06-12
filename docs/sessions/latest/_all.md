@@ -3,16 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `e25c023` — docs(web2): đánh dấu đợt G ✅ (11b6d0717) — auth blanket + enforce-prep
-**Last updated**: 2026-06-12 14:17:28 +07
-**Latest session**: [`RESUME:20260612-141728-e25c023`](../20260612-141728-e25c023.md)
-**Summary**: docs(web2): đánh dấu đợt G ✅ (11b6d0717) — auth blanket + enforce-prep
+**Latest commit**: `52492ab` — feat(delivery-report): anh ban giao v7 - nut Anh TMT + Anh NAP tab Tinh (canvas 1 cot nhu cot trai TP, khong thu ve, v=20260612d)
+**Last updated**: 2026-06-12 16:44:09 SEAST
+**Latest session**: [`RESUME:20260612-164409-52492ab`](../20260612-164409-52492ab.md)
+**Summary**: Anh ban giao v7: 2 nut Anh TMT / Anh NAP tab Tinh — canvas 1 cot, group theo provinceGroups, khong thu ve
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 2 file(s)
-- [`render.com/`](./render.com.md) — 15 file(s)
-- [`web2/`](./web2.md) — 5 file(s)
+- [`delivery-report/`](./delivery-report.md) — 2 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -25,8 +24,8 @@
 - [`bangkiemhang/`](./bangkiemhang.md) — updated 2026-05-21 15:39
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-11 10:18
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
-- [`delivery-report/`](./delivery-report.md) — updated 2026-06-12 14:02
-- [`docs/`](./docs.md) — updated 2026-06-12 14:17
+- [`delivery-report/`](./delivery-report.md) — updated 2026-06-12 16:44
+- [`docs/`](./docs.md) — updated 2026-06-12 16:44
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-11 16:49
 - [`downloads/`](./downloads.md) — updated 2026-06-11 08:36
