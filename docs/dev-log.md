@@ -2,6 +2,17 @@
 
 ## 2026-06-12
 
+### [delivery-report] Nút "Gửi Kèm" — nhập đơn gửi kèm theo kênh, lưu theo ngày lọc tra soát ✅
+
+**User:** thêm nút Gửi Kèm cạnh nút In, nhập các đơn gửi kèm gồm Kênh gửi → mỗi đơn Tên - SĐT (5-10 số) - Giá trị; dấu "+" ngoài ô thêm kênh khác, dấu "+" trong ô kênh thêm đơn của kênh đó; lưu lại theo từng ngày theo ngày lọc hiện tại của tra soát.
+
+- **Files mới** (tách riêng theo convention): [`delivery-report/js/send-along.js`](../delivery-report/js/send-along.js) + [`delivery-report/css/send-along.css`](../delivery-report/css/send-along.css). Wire vào `delivery-report/index.html` (nút `#drBtnSendAlong` cạnh "In", load css/js `?v=20260612a`).
+- **UI:** modal inject động (`window.SendAlong`). Mỗi card = 1 KÊNH GỬI (dropdown cố định 13 kênh: TOMATO/NAP/Thành phố/GHTK/GHN/Viettel Post/J&T/SPX/Ahamove/Grab/Xe khách/Bưu điện/Khác) + danh sách đơn (Tên, SĐT, Giá trị) + nút "+ Thêm đơn" trong card; nút "+ Thêm kênh" ngoài card. Tổng theo kênh + tổng cộng tự tính. SĐT validate 5-10 số (đỏ inline + chặn lưu); giá trị format nghìn (vi-VN).
+- **Lưu trữ theo ngày:** key = ngày lọc (`drFilterFromDate`, range → `from__to`). Firestore `delivery_report/data/send_along/<dateKey>` (source of truth, cross-machine) + cache `localStorage dr_send_along_v1[<dateKey>]`. Mở modal: load cache ngay rồi override bằng Firestore. Web 1.0 module (Firestore OK).
+- **Test (Playwright, localhost):** nút hiện, modal mở đúng "Ngày 19/05/2026"; thêm 2 kênh + nhiều đơn → tổng kênh/tổng cộng đúng; SĐT "12" highlight đỏ + validate chặn lưu đúng message; lưu OK ("Đã lưu ✓") → localStorage + Firestore đúng shape; đóng/mở lại load đủ 2 kênh; đổi sang 20/05 → rỗng (cô lập theo ngày). Đã dọn data test khỏi Firestore.
+
+**Status:** ✅ Done.
+
 ### [live-chat] [render] FIX đợt H — realtime mất tin nhắn + drag-drop 500 + auto-snap chết + gallery che topbar (3H6, 3H7, 3H8, H11 + crm_team_id BIGINT) ✅
 
 **User báo 6 vấn đề trang live-chat giữa buổi live.** Verify server prod TRƯỚC: relay WS (`n2store-tpos-pancake.onrender.com`) OPEN 20.7h nhận comment realtime, secret relay↔fallback khớp (so hash), DB comment mới nhất cách 22s, SSE hub push OK khi nghe 20s → **toàn chuỗi server KHOẺ, lỗi nằm ở client + 2 bug rời**.
