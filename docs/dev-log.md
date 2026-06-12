@@ -2,6 +2,16 @@
 
 ## 2026-06-12
 
+### [web2] [render] FIX edit sản phẩm 500 — fast_sale_orders THIẾU cột updated_at ✅
+
+**User báo:** "chỉnh sửa sản phẩm web2/products cũng bị lỗi". Repro browser: PATCH `/api/web2-products/HCMM2DEN` → 500 `column "updated_at" of relation "fast_sale_orders" does not exist`. Commit `42d4f0775`.
+
+- **Root cause:** cascade snapshot SP→PBH (`web2-products.js` PATCH, thêm từ `8d89d1c06` 21/05) + migration 078 đều ghi `fast_sale_orders.updated_at` — cột **chưa từng tồn tại** trong schema PBH. Trước đây lỗi bị `console.warn` nuốt (edit "thành công" nhưng PBH không sync — bug ngầm); fix audit H13 (vòng 2) đổi cascade sang `throw` + rollback đúng đắn → lỗi schema lộ ra thành 500 thấy được. Hệ quả phụ: migration 078 fail mỗi boot → `_ensuredPools` không set → ensureTables chạy lại MỖI request (PATCH chậm 4-8s).
+- **Fix:** `ALTER TABLE IF EXISTS fast_sale_orders ADD COLUMN IF NOT EXISTS updated_at BIGINT` idempotent ở **cả 2 ensureTables** (fast-sale-orders đầu file + web2-products ngay trước migration 078 — vì products PATCH có thể chạy trước mọi route PBH sau boot).
+- **Verify:** migration test DB local (UPDATE cascade fail đúng y prod → ADD COLUMN → cascade OK + updated_at ghi đúng → re-run idempotent → DROP DB); browser E2E sau deploy.
+
+**Status:** ✅ Done.
+
 ### [web2] [render] [worker] ĐỢT I (tách Web1 dứt điểm) + ĐỢT E (ví NCC server ledger) — vòng 3 ✅
 
 **User:** "đợt I và đợt E". Commit chính `01cb771dd` (+ phần bị auto-sweep vào `7bb139d21`/`5ecfc792f` bởi session song song — nội dung đầy đủ trong HEAD). 2 route server MỚI + 30+ file client/server. 3 agent song song (3W2+3W3 / 3W4 / supplier-debt) + tự code server.
