@@ -1013,7 +1013,9 @@ const LiveCommentList = {
         // luồng PUSH-only không còn ai emit sau khi bỏ polling (audit vòng 3).
         // Emit SAU khi state cập nhật, TRƯỚC mọi early-return của đường render
         // (full render fallback cũng phải snap). isStaff = page tự comment.
-        if (window.eventBus?.emit) {
+        // Cap 50: batch lớn = backfill/dump cursor reset, KHÔNG phải comment
+        // realtime — auto-snap chụp frame HIỆN TẠI gán cho comment cũ sẽ sai ảnh.
+        if (window.eventBus?.emit && fresh.length <= 50) {
             for (const c of fresh) {
                 try {
                     window.eventBus.emit('live:newComment', {

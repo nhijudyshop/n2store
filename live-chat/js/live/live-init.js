@@ -145,6 +145,11 @@ const LiveColumnManager = {
             for (const lp of livePosts) if (lp.objectId) postIdSet.add(lp.objectId);
         }
         if (!postIdSet.size) return;
+        // Guard: initial load CHƯA xong (cả 2 cursor đều 0) → bỏ qua delta.
+        // Không guard thì since=0 dump cả nghìn row qua prependComments → emit
+        // live:newComment hàng loạt → auto-snap chụp frame HIỆN TẠI gán cho
+        // comment CŨ (sai ảnh). Full load sẽ lấy đủ data ngay sau đó.
+        if (!this._lastCommentMaxMs && !this._lastUpdatedMaxMs) return;
         // Cursor delta = updated_at (epoch ms SERVER gán mỗi upsert) thay vì
         // created_time. Lý do (bug "mất tin nhắn" 2026-06-12): với 2+ campaign,
         // comment post B về trễ mang created_time < max(post A) bị since lọc
