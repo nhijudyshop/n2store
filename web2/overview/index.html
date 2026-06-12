@@ -360,7 +360,7 @@
                                 padding: 3px 10px;
                                 border-radius: 999px;
                             "
-                            >Vòng 3: 2026-06-12 ✅ đợt F+G ĐÃ FIX (còn H/I/E + bật enforce)</span
+                            >Vòng 3: 2026-06-12 ✅ đợt F+G+H ĐÃ FIX (còn I/E + bật enforce)</span
                         >
                     </div>
                     <p style="margin: 0 0 12px; font-size: 13px; color: #475569; line-height: 1.6">
@@ -441,8 +441,8 @@
                             </li>
                             <li>
                                 <strong
-                                    >🟨 Live-chat hậu PUSH-only (3H6-3H9 + H11) — đợt H gần xong
-                                    (commit 276a64355, 2026-06-12):</strong
+                                    >✅ Live-chat hậu PUSH-only (3H6-3H9 + H11) — ĐÃ FIX đợt H
+                                    (commits 276a64355 + cf11709bb, 2026-06-12):</strong
                                 >
                                 ✅ 3H6 auto-snap sống lại (prependComments emit
                                 <code>live:newComment</code> per-comment, verify 5 emit live thật);
@@ -451,19 +451,21 @@
                                 <code>sinceUpdated</code> (updated_at server) + merge-by-id (UPDATE
                                 patch DOM row); ✅ BONUS drag-drop tạo đơn 500:
                                 <code>crm_team_id</code> INT4 tràn FB Page Id 15 chữ số → ALTER
-                                BIGINT (native_orders + fast_sale_orders); 🟨 3H8 relay mutation
-                                routes gate <code>x-relay-secret</code> + "Lưu vào Live" route mới
-                                <code>/api/web2-live-comments/saved</code>
+                                BIGINT (native_orders + fast_sale_orders); ✅ 3H8 relay mutation
+                                routes + GET /api/events* gate <code>x-relay-secret</code> + "Lưu
+                                vào Live" route mới <code>/api/web2-live-comments/saved</code>
                                 (bảng web2_live_saved) + fix host chết n2store-live-chat →
-                                n2store-tpos-pancake. CÒN: 3H9 (offline-batch per-campaign),
-                                /api/events leak PII, LC-pollnow-auth.
+                                n2store-tpos-pancake; ✅ 3H9 offlineBatchAll group
+                                per-campaign/video + lọc người-ẩn; ✅ LC-pollnow-auth: 16 route
+                                live-comments/snapshots gate soft + cap fan-out 10 posts / payload
+                                2000 comments.
                             </li>
                             <li>
-                                <strong>⬜ Khác:</strong> Stored XSS modal Lịch sử SP (3H15); báo
-                                cáo bucket ngày UTC sai trước 7h sáng (3H20). ✅ 3H19 (regression
-                                kpi-assignments 401) + 3H21 phần server/client trung tâm đã fix đợt
-                                G — còn wire token raw fetch native/so-order rồi mới bật
-                                <code>WEB2_AUTH_ENFORCE=1</code>.
+                                <strong>⬜ Khác:</strong> ✅ 3H15 Stored XSS modal Lịch sử SP (fix
+                                cf11709bb); ⬜ báo cáo bucket ngày UTC sai trước 7h sáng (3H20 — đợt
+                                GMT+7). ✅ 3H19 (regression kpi-assignments 401) + 3H21 phần
+                                server/client trung tâm đã fix đợt G — còn wire token raw fetch
+                                native/so-order rồi mới bật <code>WEB2_AUTH_ENFORCE=1</code>.
                             </li>
                         </ul>
                     </div>

@@ -2,6 +2,18 @@
 
 ## 2026-06-12
 
+### [web2] [live-chat] [render] FIX đợt H phần còn lại — 3H9 + 3H8/events + LC-pollnow-auth + 3H15 ✅
+
+**User:** "đợt H". Phần đầu (3H6, 3H7, H11, 3H8 mutation) đã fix bởi session live-chat (`276a64355`); phần còn lại commit `cf11709bb`.
+
+- **3H9 `offlineBatchAll`:** group comment theo campaign/video của CHÍNH comment (`_resolveCampaignForComment` — match `_postId` trước) như vòng byVideo của Force extract, gửi N payload per video — multi-campaign (House+Store cùng lúc) hết snapshot sai video/sai offset khi auto-trigger silent; thêm filter `LiveHiddenCommenters.isHidden` nhất quán. Bump `live-livestream-snap.js?v=20260612i`.
+- **3H8 phần cuối:** relay `GET /api/events` + `/api/events/latest` gate `requireRelaySecret` (event store chứa nguyên payload Pancake WS: tên KH, fb_id, snippet, recent_phone_numbers). Không có frontend nào đọc 2 route này → an toàn.
+- **LC-pollnow-auth:** `web2-live-comments` 8 route (poll-now/bulk/campaigns POST+DELETE/assign/unassign/saved POST+DELETE) gate `requireWeb2AuthSoft` + poll-now cap 10 posts/request (mỗi post fan-out tới 50 trang pancake.vn); `livestream-snapshots` 8 route (snapshot/refresh-thumbnail/offline-batch/DELETE snapshot/extract-frame/extract-all-pending/extract-test/stream-url) gate soft + offline-batch cap 2000 comments/payload. `GET /snapshot/:id/image` GIỮ public (img src không gửi header); `/ingest` giữ x-relay-secret; `/wipe-all` giữ CLEANUP_SECRET.
+- **3H15 (gộp từ nhóm Khác):** escape `userName`/`userId` trong `renderHistEntry` modal Lịch sử SP (stored XSS qua body/header x-user-name) — fallback `<em>không rõ</em>` giữ riêng. Bump `web2-products-app.js?v=20260612h`.
+- **Verify:** `node --check` 5 file OK.
+
+**Status:** ✅ Done — đợt H hoàn tất. Còn đợt I (tách Web1: 3W1-3W7), đợt E (ví NCC), bật `WEB2_AUTH_ENFORCE=1` (sau khi wire token raw fetch).
+
 ### [delivery-report] Ảnh bàn giao v10: section ĐƠN GỬI RIÊNG (từ nút Gửi Kèm) cho cả TP/TMT/NAP ✅
 
 **User:** đơn gửi kèm (gửi riêng) nếu có lấy từ nút Gửi Kèm, thêm phía dưới ĐƠN 0đ: `Đơn gửi riêng: x đơn - K (tổng Thu) - Phí ship: Y · Còn lại: Z` + bảng `Khách hàng—SĐT | Giá trị | Thu` — cả 3 kênh TP/TMT/NAP.
