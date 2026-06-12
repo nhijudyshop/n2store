@@ -440,11 +440,23 @@
                                 ví; cutout/dashboard-kpi/audit-log/notifications-read hở.
                             </li>
                             <li>
-                                <strong>⬜ Live-chat hậu PUSH-only (3H6-3H9) — đợt H:</strong>
-                                auto-snap CHẾT (event <code>live:newComment</code> không còn ai
-                                emit); comment người-bị-ẩn lọt realtime + dòng trùng khi cuộn; relay
-                                server không auth + nút "Lưu vào Live" gọi endpoint không tồn tại
-                                (404); offlineBatchAll gán mọi comment 1 video.
+                                <strong
+                                    >🟨 Live-chat hậu PUSH-only (3H6-3H9 + H11) — đợt H gần xong
+                                    (commit 276a64355, 2026-06-12):</strong
+                                >
+                                ✅ 3H6 auto-snap sống lại (prependComments emit
+                                <code>live:newComment</code> per-comment, verify 5 emit live thật);
+                                ✅ 3H7 lọc người-ẩn mọi path render (<code>_filteredAll()</code>);
+                                ✅ H11 + bug MẤT TIN NHẮN multi-campaign — cursor delta đổi sang
+                                <code>sinceUpdated</code> (updated_at server) + merge-by-id (UPDATE
+                                patch DOM row); ✅ BONUS drag-drop tạo đơn 500:
+                                <code>crm_team_id</code> INT4 tràn FB Page Id 15 chữ số → ALTER
+                                BIGINT (native_orders + fast_sale_orders); 🟨 3H8 relay mutation
+                                routes gate <code>x-relay-secret</code> + "Lưu vào Live" route mới
+                                <code>/api/web2-live-comments/saved</code>
+                                (bảng web2_live_saved) + fix host chết n2store-live-chat →
+                                n2store-tpos-pancake. CÒN: 3H9 (offline-batch per-campaign),
+                                /api/events leak PII, LC-pollnow-auth.
                             </li>
                             <li>
                                 <strong>⬜ Khác:</strong> Stored XSS modal Lịch sử SP (3H15); báo
