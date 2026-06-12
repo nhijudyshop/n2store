@@ -274,13 +274,7 @@ router.post('/from-pbh', async (req, res) => {
             ]
         );
         const o = mapRow(r.rows[0]);
-        if (req.app.locals.broadcastToClients) {
-            req.app.locals.broadcastToClients({
-                type: 'refund:created',
-                order: o,
-                pbhNumber: fso.number,
-            });
-        }
+        // 3W4: WS broadcast đã gỡ — SSE web2:refunds là kênh realtime duy nhất.
         if (req.app.locals.web2RealtimeSseNotify) {
             try {
                 req.app.locals.web2RealtimeSseNotify(
@@ -343,9 +337,7 @@ for (const [path, st] of [
             }
             const row = result.row;
             const o = mapRow(row);
-            if (req.app.locals.broadcastToClients) {
-                req.app.locals.broadcastToClients({ type: `refund:${st}`, order: o });
-            }
+            // 3W4: WS broadcast đã gỡ — SSE web2:refunds là kênh realtime duy nhất.
             // 2026-06-04: SSE web2:refunds → trang Trả hàng tự refresh (realtime).
             if (req.app.locals.web2RealtimeSseNotify) {
                 try {

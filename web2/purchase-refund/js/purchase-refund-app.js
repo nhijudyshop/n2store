@@ -1255,10 +1255,15 @@
             : opts.productName;
         const byUser = opts.userName ? ` · bởi ${opts.userName}` : '';
         const note = `Trả ${opts.qty}× ${productLabel} — ${opts.refundCode} (${opts.method})${byUser}`;
-        SW.addTransaction(state, supplier, {
+        // ĐỢT E (2026-06-12): addTransaction giờ POST server ledger (await,
+        // idempotent theo txId = refundCode — retry không ghi đôi). Lỗi →
+        // throw cho caller (submitQuickRefund đã có try/catch ví riêng, toast
+        // warning "phiếu OK + ví fail"). Hết fire-and-forget Sync.push.
+        await SW.addTransaction(state, supplier, {
             type: 'return',
             amount: opts.amount,
             note,
+            txId: `tx-refund-${opts.refundCode}`,
             ref: {
                 refundCode: opts.refundCode,
                 qty: opts.qty,
@@ -1266,11 +1271,8 @@
                 userId: opts.userId || null,
                 userName: opts.userName || null,
             },
+            performedBy: opts.userName || null,
         });
-        // Push to Firestore (async, fire-and-forget — SSE sẽ broadcast cho tab khác)
-        SW.Sync.push(state).catch((e) =>
-            console.warn('[quick refund] wallet push fail:', e.message)
-        );
     }
 
     function wireQuickModal() {

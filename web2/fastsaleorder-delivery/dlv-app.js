@@ -217,24 +217,7 @@
 
     function init() {
         if (window.lucide) lucide.createIcons();
-        if (window.PbhRealtime) {
-            window.PbhRealtime.subscribe({
-                types: [
-                    'delivery:created',
-                    'delivery:shipping',
-                    'delivery:delivered',
-                    'delivery:returned',
-                    'delivery:cancel',
-                ],
-                onEvent: (msg) => {
-                    console.log('[DLV] realtime reload:', msg.type);
-                    load();
-                    if (msg.type === 'delivery:created') {
-                        notify(`🆕 Phiếu giao mới ${msg.order?.number}`, 'info');
-                    }
-                },
-            });
-        }
+        // 3W4: PbhRealtime (WS) đã gỡ — SSE web2:delivery bên dưới là kênh realtime duy nhất.
         $('#dlvApply').addEventListener('click', applyFilters);
         $('#dlvClear').addEventListener('click', clearFilters);
         $('#dlvReload').addEventListener('click', load);

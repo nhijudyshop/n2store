@@ -798,25 +798,9 @@
         const urlParams = new URLSearchParams(location.search);
         const urlCid = parseInt(urlParams.get('customerId'), 10);
         if (Number.isFinite(urlCid)) STATE.customerId = urlCid;
-        // Realtime auto-refresh khi có PBH mới hoặc state đổi
-        if (window.PbhRealtime) {
-            window.PbhRealtime.subscribe({
-                types: ['pbh:created', 'pbh:cancelled', 'pbh:confirmed', 'pbh:printed'],
-                onEvent: (msg) => {
-                    console.log('[PBH] realtime reload:', msg.type);
-                    load();
-                    if (msg.type === 'pbh:created') {
-                        notify(
-                            `🆕 PBH mới ${msg.order?.number} (${msg.order?.partner?.name})`,
-                            'info'
-                        );
-                    }
-                },
-            });
-        }
-        // SSE bridge — belt-and-suspenders bên cạnh PbhRealtime (WS broker).
-        // Khi native-orders cancel/create PBH → backend emit qua realtimeSseNotify
-        // sang `web2:fast-sale-orders` + `web2:native-orders` → tự reload bảng.
+        // 3W4: PbhRealtime (WS) đã gỡ — SSE bridge bên dưới là kênh realtime duy nhất
+        // (trước đây WS + SSE chạy song song gây reload đôi).
+        // Backend emit `web2:fast-sale-orders` + `web2:native-orders` → tự reload bảng.
         if (window.Web2SSE?.subscribe) {
             let sseTimer = null;
             const reload = (topic) => (msg) => {

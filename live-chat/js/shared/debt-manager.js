@@ -42,6 +42,8 @@ class DebtManager {
     /**
      * Load debt for a batch of phone numbers via wallet API
      * Skips phones already in cache
+     * 3W3 (2026-06-12): nguồn = ví Web 2.0 `web2_customer_wallets` (web2Db) —
+     * KHÔNG còn đọc ví Web 1.0 /api/v2/wallets (tách Web 1.0 ⊥ Web 2.0).
      * @param {string[]} phones - Array of phone numbers
      * @returns {Promise<Map<string, number>>} phone -> debt amount
      */
@@ -66,7 +68,8 @@ class DebtManager {
         const uniquePhones = [...new Set(toFetch)];
 
         try {
-            const response = await fetch(`${this._proxyBaseUrl}/api/v2/wallets/batch-summary`, {
+            // Endpoint Web 2.0 — cùng shape {success, data:{[phone]:{total}}} với route cũ.
+            const response = await fetch(`${this._proxyBaseUrl}/api/web2/wallets/batch-summary`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ phones: uniquePhones }),

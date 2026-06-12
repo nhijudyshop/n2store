@@ -1,5 +1,8 @@
 // #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi.
 // =====================================================
+// DEPRECATED 2026-06-12 (3W4) — đã migrate sang Web2SSE (web2/shared/web2-sse-bridge.js),
+// không page nào load file này nữa. Giữ lại cho git history, KHÔNG dùng cho code mới.
+// =====================================================
 // PBH REALTIME — shared WS client cho PBH/delivery/refund/native-order pages
 // =====================================================
 // Usage:

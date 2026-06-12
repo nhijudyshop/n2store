@@ -74,6 +74,43 @@ router.get('/by-phone/:phone', async (req, res) => {
 });
 
 // =====================================================
+// POST /api/web2/wallets/batch-summary — 3W3 (2026-06-12)
+// Body: { phones: [...] } → { success, data: { [phone]: { total } } }
+// Shape TƯƠNG THÍCH /api/v2/wallets/batch-summary (Web 1.0) để live-chat
+// debt-manager/pancake-api swap URL là xong — nhưng nguồn là ví Web 2.0
+// (web2_customer_wallets), hết cảnh 2 nguồn số dư mâu thuẫn cùng màn hình.
+// =====================================================
+router.post('/batch-summary', async (req, res) => {
+    try {
+        const db = req.app.locals.web2Db || req.app.locals.chatDb;
+        const raw = Array.isArray(req.body?.phones) ? req.body.phones : [];
+        const phones = [
+            ...new Set(
+                raw
+                    .map((p) => {
+                        let s = String(p || '').replace(/\D/g, '');
+                        if (s.startsWith('84') && s.length >= 11) s = '0' + s.slice(2);
+                        return s;
+                    })
+                    .filter((s) => s.length >= 9 && s.length <= 11)
+            ),
+        ].slice(0, 500);
+        if (!phones.length) return res.json({ success: true, data: {} });
+        const r = await db.query(
+            `SELECT phone, balance FROM web2_customer_wallets WHERE phone = ANY($1::text[])`,
+            [phones]
+        );
+        const data = {};
+        for (const row of r.rows) {
+            data[row.phone] = { total: Number(row.balance) || 0 };
+        }
+        res.json({ success: true, data });
+    } catch (e) {
+        handleError(res, e, 'Batch summary');
+    }
+});
+
+// =====================================================
 // GET /api/web2/wallets/:phone/transactions
 // =====================================================
 router.get('/:phone/transactions', async (req, res) => {

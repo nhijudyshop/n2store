@@ -281,7 +281,8 @@
             </main>
         </div>
 
-        <script src="../../web2/shared/pbh-realtime.js?v=20260521b"></script>
+        <!-- 3W4: pbh-realtime.js (WS) đã gỡ — realtime qua web2-sse-bridge.js -->
+        <script src="../shared/web2-sse-bridge.js?v=20260526sse2"></script>
         <script src="../../web2/shared/web2-auth.js?v=20260521b"></script>
         <script src="../shared/web2-user-info.js?v=20260530a"></script>
         <script src="../shared/web2-history-timeline.js?v=20260530a"></script>
@@ -632,17 +633,16 @@
                     });
                 });
                 loadAll();
-                if (window.PbhRealtime) {
-                    window.PbhRealtime.subscribe({
-                        types: [
-                            'pbh:created',
-                            'pbh:cancelled',
-                            'pbh:confirmed',
-                            'native_order:created',
-                        ],
-                        debounceMs: 2000,
-                        onEvent: () => loadAll(),
-                    });
+                // 3W4: thay PbhRealtime (WS) bằng Web2SSE — PBH/đơn web đổi → reload báo cáo.
+                // Debounce 600ms chung 2 topic; loadAll đã có _loadSeq/_loadAbort chống race.
+                if (window.Web2SSE?.subscribe) {
+                    let _sseTimer = null;
+                    const sseReload = () => {
+                        clearTimeout(_sseTimer);
+                        _sseTimer = setTimeout(loadAll, 600);
+                    };
+                    window.Web2SSE.subscribe('web2:fast-sale-orders', sseReload);
+                    window.Web2SSE.subscribe('web2:native-orders', sseReload);
                 }
             });
         </script>

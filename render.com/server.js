@@ -125,6 +125,27 @@ const chatDbPool = require('./db/pool');
 // Falls back to chatDb khi env unset. KHÔNG dùng Neon nữa (đã migrate sang Render).
 const web2Pool = require('./db/web2-pool');
 
+// 3W7 BOOT GUARD (2026-06-12, audit vòng 3): fallback `web2Pool || chatDbPool`
+// là rủi ro HỆ THỐNG — env WEB2_DATABASE_URL thiếu/sai sau 1 lần deploy thì
+// TOÀN BỘ ensureTables + write Web 2.0 (kể cả bytea livestream, ví) âm thầm
+// rơi xuống chatDb PROD Web 1.0 (2 tiền lệ: web2_* leftover tables; chatDb
+// full 1GB vì bytea — cb45ef604). Mặc định: cảnh báo TO. Set WEB2_REQUIRE_DB=1
+// trên Render → fail-fast exit(1) thay vì chạy sai pool.
+if (!web2Pool) {
+    console.error(
+        '\n' +
+            '═'.repeat(70) +
+            '\n⚠⚠⚠  [WEB2-DB] WEB2_DATABASE_URL KHÔNG có / pool init fail —\n' +
+            '⚠⚠⚠  Web 2.0 đang FALLBACK sang chatDb (PROD Web 1.0)!\n' +
+            '⚠⚠⚠  Mọi write web2_* sẽ ghi nhầm DB. Kiểm tra env trên Render.\n' +
+            '═'.repeat(70)
+    );
+    if (process.env.WEB2_REQUIRE_DB === '1') {
+        console.error('[WEB2-DB] WEB2_REQUIRE_DB=1 → fail-fast, refuse to boot.');
+        process.exit(1);
+    }
+}
+
 // Make pool available to routes via app.locals
 app.locals.chatDb = chatDbPool;
 app.locals.web2Db = web2Pool || chatDbPool;
@@ -725,6 +746,20 @@ app.use('/api/web2/unread', web2UnreadRoutes);
 // Schema do web2-payment-signals (detector) ensureSchema quản lý.
 const web2CustomerIntentsRoutes = require('./routes/web2-customer-intents');
 app.use('/api/web2/customer-intents', web2CustomerIntentsRoutes);
+
+// WEB2.0 — Quick replies fork (3W1 2026-06-12): bảng web2_quick_replies trên
+// web2Db, one-time seed read-only từ quick_replies (Web 1.0). Web 2.0 KHÔNG
+// CRUD bảng Web 1.0 nữa. SSE topic web2:quick-replies.
+const web2QuickRepliesRoutes = require('./routes/web2-quick-replies');
+web2QuickRepliesRoutes.initializeNotifiers(web2RealtimeSseRoutes.notifyClients);
+app.use('/api/web2-quick-replies', web2QuickRepliesRoutes);
+
+// WEB2.0 — Supplier wallet server ledger (ĐỢT E 2026-06-12): thay Firestore
+// client-write `web2_supplier_wallet/main`. Bảng web2_supplier_ledger +
+// web2_supplier_meta (web2Db). SSE topic web2:supplier-wallet.
+const web2SupplierWalletRoutes = require('./routes/web2-supplier-wallet');
+web2SupplierWalletRoutes.initializeNotifiers(web2RealtimeSseRoutes.notifyClients);
+app.use('/api/web2-supplier-wallet', web2SupplierWalletRoutes);
 
 // 2026-06-07: config Web 2.0 (deliveryzone, printer) tách khỏi kho generic
 // web2_records → bảng RIÊNG (web2_delivery_zones, web2_printers). Mount TRƯỚC

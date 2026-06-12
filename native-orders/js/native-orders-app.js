@@ -4255,85 +4255,14 @@
         load();
     }
 
-    // ---------- Realtime WebSocket — auto refresh khi có đơn mới/update ----------
-    const RT = { ws: null, reconnectAttempts: 0, debouncedReload: null };
-    function rtConnect() {
-        if (RT.ws && RT.ws.readyState <= 1) return;
-        try {
-            RT.ws = new WebSocket('wss://n2store-fallback.onrender.com');
-        } catch (e) {
-            console.warn('[NativeOrders-RT] WS create failed:', e.message);
-            return setTimeout(rtConnect, 5000);
-        }
-        RT.ws.onopen = () => {
-            RT.reconnectAttempts = 0;
-            console.log('[NativeOrders-RT] ✓ connected');
-        };
-        RT.ws.onclose = () => {
-            const delay = Math.min(30000, 1000 * Math.pow(2, RT.reconnectAttempts++));
-            setTimeout(rtConnect, delay);
-        };
-        RT.ws.onerror = (e) => console.warn('[NativeOrders-RT] error', e);
-        RT.ws.onmessage = (evt) => {
-            let msg;
-            try {
-                msg = JSON.parse(evt.data);
-            } catch {
-                return;
-            }
-            if (!msg.type) return;
-            // Events that affect this page: native_order:* + fast_sale_order:created (auto-promote)
-            if (
-                msg.type === 'native_order:created' ||
-                msg.type === 'native_order:updated' ||
-                msg.type === 'native_order:deleted'
-            ) {
-                rtScheduleReload(msg);
-                // Phase 18: if the interactions modal is open for this order,
-                // refresh its content live (no need to wait for table reload).
-                if (msg.order && msg.type === 'native_order:updated') {
-                    try {
-                        _refreshInteractionsIfOpen(msg.order);
-                    } catch (e) {
-                        console.warn('[NativeOrders-RT] refresh interactions failed:', e.message);
-                    }
-                    // Yellow-flash the row so user notices the live update
-                    if (window.Web2Effects?.highlightRow) {
-                        const code = msg.order.code || msg.code;
-                        const row = code
-                            ? document.querySelector(
-                                  `tr.order-row[data-code="${CSS.escape(code)}"]`
-                              )
-                            : null;
-                        if (row) window.Web2Effects.highlightRow(row);
-                    }
-                }
-            }
-        };
-    }
-    function rtScheduleReload(msg) {
-        // Debounce 500ms — many events trong burst → reload 1 lần
-        if (RT.debouncedReload) clearTimeout(RT.debouncedReload);
-        RT.debouncedReload = setTimeout(() => {
-            console.log('[NativeOrders-RT] reload triggered by', msg.type, msg.action || '');
-            load();
-            // Visual notification
-            if (msg.action === 'comment-merged' && msg.order) {
-                notify(
-                    `📝 Đã gộp comment vào đơn ${msg.order.code} (${msg.order.commentCount} comments)`,
-                    'info'
-                );
-            } else if (msg.action === 'created' && msg.order) {
-                notify(`🆕 Đơn mới ${msg.order.code} (${msg.order.customerName})`, 'info');
-            }
-        }, 500);
-    }
+    // 3W4: gỡ kênh WebSocket legacy (rtConnect → wss://n2store-fallback) — chạy
+    // song song với SSE bên dưới gây reload đôi (bug SO-ws-sse-double).
+    // Lưu ý: live-refresh modal interactions + flash row (cần full order trong
+    // WS payload) không còn — SSE chỉ mang {action, code} → reload bảng debounce.
 
     // ---------- SSE subscription cho data CRUD (Web2SSE bridge) ----------
     // Server side gọi notifyClients('web2:native-orders', { action, code, ts })
     // sau mỗi POST/PATCH/DELETE → client tự reload list.
-    // Khác với rtConnect (chuyên về Pancake messages), SSE bridge này dành
-    // riêng cho data sync giữa các máy cùng xem trang Đơn Web.
     let _sseUnsubscribe = null;
     let _sseUnsubCk = null; // web2:payment-signals (badge "KH báo đã CK")
     let _sseReloadTimer = null;
@@ -4429,7 +4358,7 @@
             if (inp) inp.value = urlSearch;
             STATE.search = urlSearch;
         }
-        rtConnect();
+        // 3W4: bỏ rtConnect() (WS legacy) — SSE là kênh realtime duy nhất.
         _sseConnect();
 
         // 2026-06-05: click badge "💸 KH báo đã CK" → web2-ck-review (đối chiếu GD

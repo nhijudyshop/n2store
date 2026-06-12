@@ -6,7 +6,10 @@
 // Port của orders-report message-template-manager.js — rút gọn, self-contained,
 // dùng Web2Chat + Extension thay vì pancakeDataManager.
 //
-// Firestore collection `message_templates` (SHARED với orders-report) —
+// Firestore collection `web2_message_templates` — FORK 2026-06-12 (3W2, tách
+// Web 1.0 ⊥ Web 2.0): collection cũ `message_templates` là PROD Web 1.0
+// (orders-report message-template-manager.js) — Web 2.0 KHÔNG đụng (chỉ đọc
+// 1 lần để seed copy khi collection mới rỗng).
 // schema: {Name, Content, order, active, createdAt}. Placeholders:
 //   {partner.name}     → order.customerName
 //   {partner.address}  → order.address
@@ -27,6 +30,11 @@
     const TEMPLATES_KEY = 'web2_message_templates_cache';
     const SENT_KEY = 'web2_sent_message_orders';
     const TTL_24H = 24 * 60 * 60 * 1000;
+
+    // 3W2 (2026-06-12): collection RIÊNG Web 2.0 — mọi read/write đi qua đây.
+    // LEGACY = collection Web 1.0 prod (orders-report), CHỈ đọc 1 lần để seed.
+    const COLLECTION = 'web2_message_templates';
+    const LEGACY_COLLECTION = 'message_templates'; // READ-ONLY — KHÔNG ghi/xoá
 
     // Server-side job API (chạy nền ở Render, refresh-safe). Qua CF worker proxy.
     const WORKER_URL =
@@ -97,18 +105,14 @@
         }
         if (!window.db) return _templates;
         try {
-            const snap = await window.db
-                .collection('message_templates')
-                .orderBy('order', 'asc')
-                .get();
+            const snap = await window.db.collection(COLLECTION).orderBy('order', 'asc').get();
             _templates = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-            // Seed default 4 templates if empty
+            // Collection mới rỗng → one-time seed: copy từ collection cũ Web 1.0
+            // (READ-ONLY); cũ cũng rỗng → seed 4 defaults vào collection MỚI.
             if (_templates.length === 0) {
-                await _seedDefaults();
-                const snap2 = await window.db
-                    .collection('message_templates')
-                    .orderBy('order', 'asc')
-                    .get();
+                const copied = await _copyFromLegacy();
+                if (!copied) await _seedDefaults();
+                const snap2 = await window.db.collection(COLLECTION).orderBy('order', 'asc').get();
                 _templates = snap2.docs.map((d) => ({ id: d.id, ...d.data() }));
             }
             try {
@@ -120,6 +124,25 @@
             console.warn('[Web2MsgTemplate] loadTemplates failed:', e?.message || e);
         }
         return _templates;
+    }
+
+    // One-time seed: copy toàn bộ docs từ collection Web 1.0 sang collection MỚI,
+    // giữ nguyên doc id (.doc(oldId).set(data)) để 2 bên đối chiếu được.
+    // Collection cũ CHỈ ĐỌC — không update/delete. Trả false nếu cũ rỗng/lỗi.
+    async function _copyFromLegacy() {
+        if (!window.db) return false;
+        try {
+            const legacySnap = await window.db.collection(LEGACY_COLLECTION).get();
+            if (legacySnap.empty) return false;
+            const batch = window.db.batch();
+            const ref = window.db.collection(COLLECTION);
+            legacySnap.docs.forEach((d) => batch.set(ref.doc(d.id), d.data()));
+            await batch.commit();
+            return true;
+        } catch (e) {
+            console.warn('[Web2MsgTemplate] copyFromLegacy failed:', e?.message || e);
+            return false;
+        }
     }
 
     async function _seedDefaults() {
@@ -160,7 +183,7 @@
             },
         ];
         const batch = window.db.batch();
-        const ref = window.db.collection('message_templates');
+        const ref = window.db.collection(COLLECTION);
         defaults.forEach((t) => batch.set(ref.doc(), t));
         await batch.commit();
     }
@@ -177,12 +200,12 @@
             payload.updatedAt = window.firebase.firestore.FieldValue.serverTimestamp();
         }
         if (data.id) {
-            await window.db.collection('message_templates').doc(data.id).update(payload);
+            await window.db.collection(COLLECTION).doc(data.id).update(payload);
         } else {
             if (window.firebase?.firestore?.FieldValue) {
                 payload.createdAt = window.firebase.firestore.FieldValue.serverTimestamp();
             }
-            const ref = await window.db.collection('message_templates').add(payload);
+            const ref = await window.db.collection(COLLECTION).add(payload);
             data.id = ref.id;
         }
         await _loadTemplates();
@@ -191,7 +214,7 @@
 
     async function _deleteTemplate(id) {
         if (!window.db || !id) return;
-        await window.db.collection('message_templates').doc(id).delete();
+        await window.db.collection(COLLECTION).doc(id).delete();
         await _loadTemplates();
     }
 

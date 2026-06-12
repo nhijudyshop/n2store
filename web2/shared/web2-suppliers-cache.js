@@ -3,10 +3,12 @@
 // Web2 Suppliers — Shared cache (read names + ensure-create)
 // =====================================================
 //
-// Mục đích: dùng chung cho mọi trang Web 2.0 cần dropdown gợi ý NCC từ
-// "Ví NCC" (so-order modal, native-orders, supplier-wallet itself…).
-// Đọc trực tiếp Firestore `web2_supplier_wallet/main` — KHÔNG dùng SSE hub
-// vì supplier-wallet đã có Firestore Sync layer, và list NCC ít khi thay đổi.
+// Mục đích: dùng chung cho mọi trang Web 2.0 cần dropdown gợi ý NCC.
+// ĐỢT E + 3W5 (2026-06-12): nguồn chuyển từ Firestore `web2_supplier_wallet/main`
+// (onSnapshot — vi phạm quy tắc 6 + ensure() RMW lost-update) sang SERVER
+// `/api/web2-supplier-wallet/suppliers` (bảng web2_supplier_meta, web2Db).
+// Realtime: Web2SSE topic `web2:supplier-wallet` (bridge có sẵn thì subscribe,
+// không có thì thôi — list NCC ít đổi, init/refresh là đủ).
 //
 // Public API:
 //   await Web2SuppliersCache.init()              // load names, idempotent
@@ -22,8 +24,8 @@
 
     if (global.Web2SuppliersCache) return;
 
-    const FIRESTORE_COLLECTION = 'web2_supplier_wallet';
-    const FIRESTORE_DOC = 'main';
+    const WORKER_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
+    const API_BASE = `${WORKER_URL}/api/web2-supplier-wallet`;
 
     const state = {
         names: new Set(), // lowercased → original casing kept in `originals`
@@ -43,19 +45,10 @@
             .trim();
     }
 
-    function _getDb() {
-        if (typeof firebase === 'undefined' || !firebase.firestore) return null;
-        try {
-            return firebase.firestore();
-        } catch {
-            return null;
-        }
-    }
-
-    function _setNames(walletsObj) {
+    function _setNames(namesArr) {
         state.names.clear();
         state.originals.clear();
-        for (const name of Object.keys(walletsObj || {})) {
+        for (const name of namesArr || []) {
             const trimmed = String(name || '').trim();
             if (!trimmed) continue;
             const key = _normalize(trimmed);
@@ -76,18 +69,12 @@
         }
     }
 
-    async function _loadFromFirestore() {
-        const db = _getDb();
-        if (!db) return false;
+    async function _loadFromServer() {
         try {
-            const snap = await db.collection(FIRESTORE_COLLECTION).doc(FIRESTORE_DOC).get();
-            if (!snap.exists) {
-                _setNames({});
-                return true;
-            }
-            const payload = snap.data() || {};
-            const wallets = payload.data?.wallets || {};
-            _setNames(wallets);
+            const r = await fetch(`${API_BASE}/suppliers`);
+            const d = await r.json().catch(() => ({}));
+            if (!r.ok || d?.success === false) throw new Error(d?.error || `HTTP ${r.status}`);
+            _setNames((d.data || []).map((x) => x.name));
             return true;
         } catch (e) {
             console.warn('[Web2SuppliersCache] load fail:', e.message);
@@ -95,32 +82,19 @@
         }
     }
 
-    function _attachSnapshot() {
+    // 3W5: realtime qua SSE hub web2 thay Firestore onSnapshot. Bridge không
+    // load trên page → bỏ qua (list NCC ít đổi). Debounce 600ms gom burst.
+    function _attachSse() {
         if (state.unsubSnapshot) return;
-        const db = _getDb();
-        if (!db) return;
+        if (!global.Web2SSE?.subscribe) return;
         try {
-            state.unsubSnapshot = db
-                .collection(FIRESTORE_COLLECTION)
-                .doc(FIRESTORE_DOC)
-                .onSnapshot(
-                    (snap) => {
-                        if (!snap.exists) {
-                            _setNames({});
-                            _notify('snapshot');
-                            return;
-                        }
-                        const payload = snap.data() || {};
-                        const wallets = payload.data?.wallets || {};
-                        _setNames(wallets);
-                        _notify('snapshot');
-                    },
-                    (err) => {
-                        console.warn('[Web2SuppliersCache] snapshot err:', err.message);
-                    }
-                );
+            let timer = null;
+            state.unsubSnapshot = global.Web2SSE.subscribe('web2:supplier-wallet', () => {
+                if (timer) clearTimeout(timer);
+                timer = setTimeout(() => refresh(), 600);
+            });
         } catch (e) {
-            console.warn('[Web2SuppliersCache] snapshot attach fail:', e.message);
+            console.warn('[Web2SuppliersCache] SSE attach fail:', e.message);
         }
     }
 
@@ -128,8 +102,8 @@
         if (state.initialized) return;
         if (state.initPromise) return state.initPromise;
         state.initPromise = (async () => {
-            await _loadFromFirestore();
-            _attachSnapshot();
+            await _loadFromServer();
+            _attachSse();
             state.initialized = true;
             _notify('init');
         })();
@@ -137,7 +111,7 @@
     }
 
     async function refresh() {
-        const ok = await _loadFromFirestore();
+        const ok = await _loadFromServer();
         if (ok) _notify('refresh');
     }
 
@@ -183,49 +157,28 @@
         return [...startsWith, ...contains].slice(0, max);
     }
 
-    // Ghi NCC mới vào Firestore với wallet entry rỗng. Idempotent.
+    // Ghi NCC mới vào meta server. Atomic ON CONFLICT per-row — hết RMW
+    // lost-update của bản Firestore (3W5/đợt E).
     async function ensure(name) {
         const trimmed = String(name || '').trim();
         if (!trimmed) return { ok: false, reason: 'empty' };
         const key = _normalize(trimmed);
         if (state.names.has(key)) return { ok: true, created: false };
-        const db = _getDb();
-        if (!db) {
-            console.warn('[Web2SuppliersCache] no firebase — cannot ensure');
-            return { ok: false, reason: 'no-firestore' };
-        }
         try {
-            // Read-modify-write để giữ wallets khác. Dùng merge với dot-path
-            // sẽ cleaner nhưng Firestore object set merge OK với data.wallets.
-            const ref = db.collection(FIRESTORE_COLLECTION).doc(FIRESTORE_DOC);
-            const snap = await ref.get();
-            const payload = snap.exists ? snap.data() || {} : {};
-            const data = payload.data || { wallets: {} };
-            data.wallets = data.wallets || {};
-            if (data.wallets[trimmed]) {
-                // Local out-of-sync — refresh state.
-                state.names.add(key);
-                state.originals.set(key, trimmed);
-                _notify('ensure-existing');
-                return { ok: true, created: false };
-            }
-            data.wallets[trimmed] = {
-                supplier: trimmed,
-                totalPurchased: 0,
-                paidAmount: 0,
-                returnedAmount: 0,
-                balance: 0,
-                returnedRowIds: {},
-                transactions: [],
-            };
-            await ref.set({ data, lastUpdated: Date.now() }, { merge: true });
+            const r = await fetch(`${API_BASE}/suppliers`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: trimmed }),
+            });
+            const d = await r.json().catch(() => ({}));
+            if (!r.ok || d?.success === false) throw new Error(d?.error || `HTTP ${r.status}`);
             state.names.add(key);
             state.originals.set(key, trimmed);
             _notify('ensure-created');
             return { ok: true, created: true };
         } catch (e) {
             console.warn('[Web2SuppliersCache] ensure fail:', e.message);
-            return { ok: false, reason: 'firestore-error', error: e.message };
+            return { ok: false, reason: 'server-error', error: e.message };
         }
     }
 

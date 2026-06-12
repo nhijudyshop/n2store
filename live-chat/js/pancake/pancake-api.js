@@ -788,6 +788,8 @@ const PancakeAPI = {
 
     /**
      * Load debt data for conversations in bulk
+     * 3W3 (2026-06-12): nguồn = ví Web 2.0 `web2_customer_wallets` (web2Db),
+     * KHÔNG còn đọc ví Web 1.0 /api/v2/wallets. Shape response giữ nguyên.
      */
     async loadDebtForConversations(conversations) {
         const state = window.PancakeState;
@@ -799,7 +801,7 @@ const PancakeAPI = {
         if (phones.length === 0) return;
         const unique = [...new Set(phones)];
         try {
-            const response = await fetch(`${state.proxyBaseUrl}/api/v2/wallets/batch-summary`, {
+            const response = await fetch(`${state.proxyBaseUrl}/api/web2/wallets/batch-summary`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ phones: unique }),

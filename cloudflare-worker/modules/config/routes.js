@@ -148,6 +148,10 @@ export const ROUTES = {
 
     // Web 2.0 Users — user account system (auth + CRUD)
     WEB2_USERS: { pattern: '/api/web2-users/*' },
+    // Web 2.0 Quick Replies — fork 3W1 (bảng web2_quick_replies, web2Db)
+    WEB2_QUICK_REPLIES: { pattern: '/api/web2-quick-replies/*' },
+    // Web 2.0 Supplier Wallet — server ledger ví NCC (đợt E)
+    WEB2_SUPPLIER_WALLET: { pattern: '/api/web2-supplier-wallet/*' },
     // Web 2.0 Live Comments — kho comment livestream (auto-save + đọc lại)
     WEB2_LIVE_COMMENTS: { pattern: '/api/web2-live-comments/*' },
 
@@ -257,6 +261,13 @@ export function matchRoute(pathname) {
     if (pathname === '/api/services-overview' || pathname.startsWith('/api/services-overview/'))
         return 'SERVICES_OVERVIEW';
     if (pathname.startsWith('/api/web2-users/')) return 'WEB2_USERS';
+    if (pathname.startsWith('/api/web2-quick-replies/') || pathname === '/api/web2-quick-replies')
+        return 'WEB2_QUICK_REPLIES';
+    if (
+        pathname.startsWith('/api/web2-supplier-wallet/') ||
+        pathname === '/api/web2-supplier-wallet'
+    )
+        return 'WEB2_SUPPLIER_WALLET';
     if (pathname.startsWith('/api/web2-live-comments/') || pathname === '/api/web2-live-comments')
         return 'WEB2_LIVE_COMMENTS';
     if (pathname.startsWith('/api/order-notes/')) return 'ORDER_NOTES';

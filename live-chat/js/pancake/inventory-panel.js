@@ -267,7 +267,14 @@
     // Drop target: CHỈ Live COMMENTS panel (left column).
     // Pancake conv rows KHÔNG nhận drop (user explicit request).
     // ─────────────────────────────────────────────────────────
+    let _dropDelegated = false;
     function attachDropTargets() {
+        // Guard 1-lần như _dragDelegated: init() có 2 call site độc lập (panel
+        // Kho SP phải ở index.html + mode "Kho" cột Pancake ở mode-switcher),
+        // mỗi nơi guard riêng → mở cả 2 là listener document đăng ký ×2 →
+        // 1 drop = add ×2 SL (bug 2026-06-12).
+        if (_dropDelegated) return;
+        _dropDelegated = true;
         // Anti-lag: dragover fires ~60×/s while dragging. Skip redundant work
         // khi hover stay trên cùng row (chỉ touch DOM khi đổi row).
         let _lastHoverRow = null;

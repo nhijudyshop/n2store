@@ -1,30 +1,55 @@
 // #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 module.
-// Supplier Wallet — storage + Firestore sync.
+// Supplier Wallet — storage. ĐỢT E (2026-06-12, audit vòng 3): SOURCE OF TRUTH
+// chuyển từ Firestore doc `web2_supplier_wallet/main` (client-write,
+// last-write-wins → lost-update 2 tab/2 user, fire-and-forget, purge mất audit)
+// sang SERVER LEDGER `/api/web2-supplier-wallet` (web2Db, transaction +
+// idempotent tx_id, SSE topic web2:supplier-wallet).
 //
-// Schema (localStorage `supplierWallet_v1`, Firestore `web2_supplier_wallet/main` —
-// renamed 2026-05-25 from `supplier_wallet_v1`):
+// Shape state client GIỮ NGUYÊN (app/render không đổi):
 //   {
 //     wallets: {
 //       [supplierName]: {
 //         supplier, totalPurchased, paidAmount, returnedAmount, balance,
 //         returnedRowIds: { [rowId]: { qty, amount, ts } },
-//         transactions: [{ id, ts, type, amount, note, ref }]
+//         transactions: [{ id, ts, type, amount, note, ref, performedBy, moveName }]
 //       }
 //     },
-//     lastUpdated
+//     lastUpdated, lastDepositSync
 //   }
+//   totalPurchased/balance vẫn DERIVE client-side từ so-order (server không lưu).
 //
-// Pattern: Firestore = source of truth; localStorage = warm cache; realtime listener
-// re-applies remote updates (with echo guard).
+// MONEY OP: addTransaction giờ là ASYNC — POST /tx server TRƯỚC (await),
+// thành công mới apply local. Sync.push = no-op (deprecated). Migration
+// one-time: Sync.init thấy server rỗng → đọc Firestore legacy (READ-ONLY)
+// → POST /import (server-guarded chỉ chạy khi rỗng).
 
 (function (global) {
     'use strict';
 
     const STORAGE_KEY = 'supplierWallet_v1'; // localStorage cache — giữ tên cũ để không mất data local
-    const FIRESTORE_COLLECTION = 'web2_supplier_wallet'; // renamed 2026-05-25 from supplier_wallet_v1
+    const FIRESTORE_COLLECTION = 'web2_supplier_wallet'; // LEGACY — chỉ còn đọc 1 lần cho migration
     const FIRESTORE_DOC = 'main';
-    const RETENTION_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+    const RETENTION_MS = 30 * 24 * 60 * 60 * 1000; // legacy const (export compat — không purge nữa)
     const WORKER_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
+    const API_BASE = `${WORKER_URL}/api/web2-supplier-wallet`;
+    const API_FALLBACK = 'https://n2store-fallback.onrender.com/api/web2-supplier-wallet';
+
+    async function _api(path, options) {
+        // Dual-base (worker → Render direct). Mutation idempotent theo txId nên
+        // retry fallback an toàn (server ON CONFLICT trả alreadyProcessed).
+        const opts = options || {};
+        try {
+            const r = await fetch(API_BASE + path, opts);
+            const d = await r.json().catch(() => ({}));
+            if (!r.ok || d?.success === false) throw new Error(d?.error || `HTTP ${r.status}`);
+            return d;
+        } catch (e) {
+            const r = await fetch(API_FALLBACK + path, opts);
+            const d = await r.json().catch(() => ({}));
+            if (!r.ok || d?.success === false) throw new Error(d?.error || `HTTP ${r.status}`);
+            return d;
+        }
+    }
 
     function emptyState() {
         return { wallets: {}, lastUpdated: 0 };
@@ -109,21 +134,10 @@
         }
     }
 
-    // Auto-purge transactions older than 30 days. Returns true if state mutated.
-    function cleanupOldTransactions(state) {
-        const cutoff = Date.now() - RETENTION_MS;
-        let mutated = false;
-        for (const supplier of Object.keys(state.wallets || {})) {
-            const w = state.wallets[supplier];
-            if (!Array.isArray(w.transactions)) {
-                w.transactions = [];
-                continue;
-            }
-            const before = w.transactions.length;
-            w.transactions = w.transactions.filter((t) => Number(t.ts) > cutoff);
-            if (w.transactions.length !== before) mutated = true;
-        }
-        return mutated;
+    // ĐỢT E: KHÔNG purge nữa — server ledger giữ FULL audit (purge 30 ngày cũ
+    // làm mất vết tiền vĩnh viễn, bug E-purge-30d). Giữ export cho compat.
+    function cleanupOldTransactions() {
+        return false;
     }
 
     function getOrCreateWallet(state, supplier) {
@@ -152,21 +166,50 @@
         w.balance = (w.totalPurchased || 0) - (w.paidAmount || 0) - (w.returnedAmount || 0);
     }
 
-    function addTransaction(state, supplier, txn) {
-        const w = getOrCreateWallet(state, supplier);
-        const entry = {
-            id: 'tx-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7),
+    // ĐỢT E: MONEY OP — POST server TRƯỚC (await), thành công mới apply local.
+    // txId sinh client 1 lần → retry/dual-base/2 máy cùng ghi = server dedupe
+    // (alreadyProcessed), hết fire-and-forget + lost-update của bản Firestore.
+    // THROW khi server fail — caller toast lỗi, KHÔNG ghi local lệch server.
+    async function addTransaction(state, supplier, txn) {
+        const txId = txn.txId || 'tx-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7);
+        const d = await _api('/tx', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                supplier,
+                type: txn.type,
+                amount: Number(txn.amount) || 0,
+                note: txn.note || '',
+                ref: txn.ref || null,
+                performedBy: txn.performedBy || null,
+                txId,
+                rowReturns: txn.rowReturns || null,
+            }),
+        });
+        const entry = d.tx || {
+            id: txId,
             ts: Date.now(),
-            type: txn.type, // 'return' | 'payment' | 'purchase' (synthetic)
+            type: txn.type,
             amount: Number(txn.amount) || 0,
             note: txn.note || '',
             ref: txn.ref || null,
-            performedBy: txn.performedBy || null, // audit: ai thao tác
+            performedBy: txn.performedBy || null,
         };
+        if (d.alreadyProcessed) return entry; // server đã có (retry) — không apply đôi
+        const w = getOrCreateWallet(state, supplier);
         w.transactions.push(entry);
         if (entry.type === 'return') {
             w.returnedAmount += entry.amount;
-            if (entry.ref && Array.isArray(entry.ref.rowIds)) {
+            const rowReturns = txn.rowReturns || null;
+            if (rowReturns) {
+                for (const [rid, v] of Object.entries(rowReturns)) {
+                    w.returnedRowIds[rid] = {
+                        qty: Number(v?.qty) || 0,
+                        amount: Number(v?.amount) || 0,
+                        ts: entry.ts,
+                    };
+                }
+            } else if (entry.ref && Array.isArray(entry.ref.rowIds)) {
                 for (const id of entry.ref.rowIds) {
                     w.returnedRowIds[id] = { qty: 0, amount: 0, ts: entry.ts };
                 }
@@ -179,65 +222,83 @@
         return entry;
     }
 
-    // ---- Firestore sync ----
+    // ---- Server sync (ĐỢT E) ----
+    // init: GET /state từ server ledger. Server RỖNG + Firestore legacy còn data
+    // → POST /import one-time (server-guarded: chỉ import khi rỗng, gọi lặp vô
+    // hại) rồi GET lại. push: DEPRECATED no-op — mutation đã ghi server từng
+    // giao dịch qua addTransaction, không còn ghi đè cả doc (gốc lost-update).
+    let _pushWarned = false;
     const Sync = {
-        _db: null,
-        _unsub: null,
-        _isListening: false,
-        _onRemote: null,
-
         async init(_onRemote) {
-            // Firestore listener removed 2026-05-29. _onRemote callback no
-            // longer wired — SSE topics 'wallet:all' + 'web2:wallet:*' xử lý
-            // realtime trong supplier-wallet-app layer.
             try {
-                if (typeof firebase === 'undefined' || !firebase.firestore) {
-                    console.warn('[SupplierWallet.Sync] no firebase — local only');
-                    return false;
+                let d = await _api('/state');
+                if (d?.data?.empty) {
+                    const legacy = await Sync._loadLegacyFirestore();
+                    if (legacy && Object.keys(legacy.wallets || {}).length) {
+                        try {
+                            const imp = await _api('/import', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    wallets: legacy.wallets,
+                                    suppliers: legacy.suppliers,
+                                }),
+                            });
+                            console.log('[SupplierWallet.Sync] migration:', imp?.imported || imp);
+                            d = await _api('/state');
+                        } catch (e) {
+                            console.warn('[SupplierWallet.Sync] import fail:', e.message);
+                        }
+                    }
                 }
-                this._db = firebase.firestore();
-                const remote = await this._load();
-                if (remote) {
-                    // P1 2026-05-30: persist qua IDB
-                    _cachedState = remote;
+                const server = d?.data;
+                if (server?.wallets) {
+                    const local = _cachedState || (await load());
+                    // Giữ field local-only (lastDepositSync, totalPurchased sẽ
+                    // được app derive lại từ so-order ngay sau init).
+                    const merged = {
+                        wallets: server.wallets,
+                        lastUpdated: server.lastUpdated || Date.now(),
+                        lastDepositSync: local?.lastDepositSync || 0,
+                    };
+                    _cachedState = merged;
                     const store = _getStore();
-                    if (store) await store.set(remote);
+                    if (store) await store.set(merged);
                 }
                 return true;
             } catch (e) {
-                console.warn('[SupplierWallet.Sync] init fail:', e.message);
+                console.warn('[SupplierWallet.Sync] init fail (dùng cache local):', e.message);
                 return false;
             }
         },
 
-        async _load() {
-            if (!this._db) return null;
+        // Đọc legacy Firestore 1 LẦN cho migration — READ-ONLY, không ghi/xoá.
+        async _loadLegacyFirestore() {
             try {
-                const snap = await this._db
-                    .collection(FIRESTORE_COLLECTION)
-                    .doc(FIRESTORE_DOC)
-                    .get();
-                if (!snap.exists) return null;
-                const payload = snap.data() || {};
-                return payload.data || null;
+                if (typeof firebase === 'undefined' || !firebase.firestore) return null;
+                const db = firebase.firestore();
+                const [walletSnap, supSnap] = await Promise.all([
+                    db.collection(FIRESTORE_COLLECTION).doc(FIRESTORE_DOC).get(),
+                    db.collection('web2_suppliers').doc('main').get(),
+                ]);
+                const wallets = walletSnap.exists ? walletSnap.data()?.data?.wallets || null : null;
+                const suppliers = supSnap.exists ? supSnap.data()?.data?.suppliers || [] : [];
+                if (!wallets) return null;
+                return { wallets, suppliers };
             } catch (e) {
-                console.warn('[SupplierWallet.Sync] load fail:', e.message);
+                console.warn('[SupplierWallet.Sync] legacy read fail:', e.message);
                 return null;
             }
         },
 
-        async push(state) {
-            if (!this._db) return false;
-            try {
-                await this._db
-                    .collection(FIRESTORE_COLLECTION)
-                    .doc(FIRESTORE_DOC)
-                    .set({ data: state, lastUpdated: Date.now() }, { merge: true });
-                return true;
-            } catch (e) {
-                console.warn('[SupplierWallet.Sync] push fail:', e.message);
-                return false;
+        async push() {
+            if (!_pushWarned) {
+                _pushWarned = true;
+                console.info(
+                    '[SupplierWallet.Sync] push() deprecated (đợt E) — mutation đã ghi server per-tx'
+                );
             }
+            return true;
         },
     };
 
@@ -290,8 +351,10 @@
         return null;
     }
 
-    // Apply deposits: refund money từ NCC chuyển trở lại → type='payment' (giảm balance).
-    function applyDeposits(state, deposits) {
+    // Apply deposits: refund từ NCC → type='payment'. ĐỢT E: ghi qua server
+    // với txId deterministic `tx-sepay-<sid>` → 2 máy cùng poll = server dedupe
+    // (UNIQUE tx_id), hết cảnh nhân đôi cross-machine của bản Firestore.
+    async function applyDeposits(state, deposits) {
         const processed = getProcessedSepayIds(state);
         const supplierNames = Object.keys(state.wallets || {});
         let added = 0;
@@ -303,21 +366,19 @@
             if (amount <= 0) continue;
             const matched = matchSupplier(d.content || '', supplierNames);
             if (!matched) continue;
-            const w = state.wallets[matched];
-            const entry = {
-                id: `tx-sepay-${sid.slice(-12)}`,
-                ts: Number(d.ts) || Date.now(),
-                type: 'payment',
-                amount,
-                note: `SePay refund: ${(d.content || '').slice(0, 160)}`,
-                ref: { sepayId: sid, source: 'sepay', matchedSupplier: matched },
-            };
-            w.transactions.push(entry);
-            w.paidAmount += amount;
-            recalcBalance(w);
-            added++;
+            try {
+                const entry = await addTransaction(state, matched, {
+                    type: 'payment',
+                    amount,
+                    note: `SePay refund: ${(d.content || '').slice(0, 160)}`,
+                    ref: { sepayId: sid, source: 'sepay', matchedSupplier: matched },
+                    txId: `tx-sepay-${sid.slice(-12)}`,
+                });
+                if (entry) added++;
+            } catch (e) {
+                console.warn('[SupplierWallet] applyDeposits tx fail:', e.message);
+            }
         }
-        if (added) save(state);
         return added;
     }
 

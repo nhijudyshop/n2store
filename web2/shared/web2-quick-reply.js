@@ -5,9 +5,12 @@
 //
 // Self-contained quick-reply manager for Web 2.0 chat surfaces.
 //
-// Backed by Render PostgreSQL via `/api/quick-replies` (shared
-// REST endpoint — safe to share with web 1.0 since it has no
-// dependency on web 1.0's window globals; only data).
+// Backed by Render PostgreSQL via `/api/web2-quick-replies` —
+// bảng `web2_quick_replies` trên web2Db, FORK 2026-06-12 (3W1 audit vòng 3)
+// khỏi `/api/web2-quick-replies` (bảng quick_replies chatDb = Web 1.0 PROD).
+// Trước đây "share data" nghĩa là xoá quick-reply ở trang beta Web 2.0
+// MẤT luôn ở chat Web 1.0 → đã tách; server auto-seed one-time (read-only)
+// từ bảng Web 1.0 khi bảng mới rỗng.
 //
 // Features:
 //   - Browse / pick reply via popup modal
@@ -111,7 +114,7 @@
         if (_loadPromise && !forceFresh) return _loadPromise;
         _loadPromise = (async () => {
             try {
-                const r = await fetch(`${WORKER_BASE}/api/quick-replies`);
+                const r = await fetch(`${WORKER_BASE}/api/web2-quick-replies`);
                 if (!r.ok) throw new Error(`HTTP ${r.status}`);
                 const data = await r.json();
                 if (data?.success && Array.isArray(data.replies)) {
@@ -134,7 +137,7 @@
     }
 
     async function addReply(reply) {
-        const r = await fetch(`${WORKER_BASE}/api/quick-replies`, {
+        const r = await fetch(`${WORKER_BASE}/api/web2-quick-replies`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(reply),
@@ -148,7 +151,7 @@
     }
 
     async function updateReply(id, patch) {
-        const r = await fetch(`${WORKER_BASE}/api/quick-replies/${encodeURIComponent(id)}`, {
+        const r = await fetch(`${WORKER_BASE}/api/web2-quick-replies/${encodeURIComponent(id)}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(patch),
@@ -163,7 +166,7 @@
     }
 
     async function deleteReply(id) {
-        const r = await fetch(`${WORKER_BASE}/api/quick-replies/${encodeURIComponent(id)}`, {
+        const r = await fetch(`${WORKER_BASE}/api/web2-quick-replies/${encodeURIComponent(id)}`, {
             method: 'DELETE',
         });
         if (!r.ok) throw new Error(`HTTP ${r.status}`);

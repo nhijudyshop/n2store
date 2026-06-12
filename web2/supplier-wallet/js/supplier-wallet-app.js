@@ -350,10 +350,15 @@
                 for (const sel of selectedRows) {
                     const p = agg?.purchases?.find((x) => x.rowId === sel.rowId);
                     if (!p) continue;
-                    const matched = window.Web2ProductsCache?.findByNameExact?.(p.productName);
-                    if (matched?.code) {
+                    // E-match-ten fix (đợt E): ưu tiên MÃ SP của chính row so-order
+                    // (p.code) — match tên không phân biệt variant trả nhầm SP.
+                    const code =
+                        p.code ||
+                        window.Web2ProductsCache?.findByNameExact?.(p.productName)?.code ||
+                        null;
+                    if (code) {
                         adjustments.push({
-                            code: matched.code,
+                            code,
                             delta: -sel.qty,
                             reason: `Trả NCC ${activeSupplier}`,
                         });
@@ -366,14 +371,23 @@
             } catch (e) {
                 console.warn('[supplier-wallet] stock adjust fail:', e.message);
             }
-            window.SupplierWalletStorage.addTransaction(walletState, activeSupplier, {
-                type: 'return',
-                amount: total,
-                note: `Trả ${selectedRows.length} dòng`,
-                ref: { rowIds: selectedRows.map((r) => r.rowId), rows: selectedRows },
-                performedBy: _swBy(), // audit: ai ghi trả hàng
-            });
-            pushSync();
+            // ĐỢT E: money op — await server ledger; rowReturns lưu qty/amount
+            // THẬT từng dòng (server merge vào returned_row_ids).
+            const rowReturns = {};
+            for (const r of selectedRows) rowReturns[r.rowId] = { qty: r.qty, amount: r.amount };
+            try {
+                await window.SupplierWalletStorage.addTransaction(walletState, activeSupplier, {
+                    type: 'return',
+                    amount: total,
+                    note: `Trả ${selectedRows.length} dòng`,
+                    ref: { rowIds: selectedRows.map((r) => r.rowId), rows: selectedRows },
+                    rowReturns,
+                    performedBy: _swBy(), // audit: ai ghi trả hàng
+                });
+            } catch (e) {
+                notify(`Ghi trả hàng thất bại: ${e.message}`, 'error');
+                return;
+            }
             notify(`Đã ghi trả hàng ${fmtVnd(total)} cho ${activeSupplier}`, 'success');
             document.getElementById('swReturnModal').hidden = true;
             renderList();
@@ -413,9 +427,14 @@
         // (giúp các trang khác đang mở thấy ngay qua snapshot listener).
         window.SupplierWalletStorage.getOrCreateWallet(walletState, rawName);
         window.SupplierWalletStorage.save(walletState);
-        pushSync();
+        // ĐỢT E: NCC mới ghi vào meta server (atomic ON CONFLICT) qua cache.
         if (window.Web2SuppliersCache?.ensure) {
-            window.Web2SuppliersCache.ensure(rawName).catch(() => {});
+            try {
+                await window.Web2SuppliersCache.ensure(rawName);
+            } catch (e) {
+                notify(`Lưu NCC lên server thất bại: ${e.message}`, 'error');
+                return;
+            }
         }
         notify(`Đã tạo NCC "${rawName}"`, 'success');
         document.getElementById('swCreateModal').hidden = true;
@@ -430,7 +449,7 @@
         document.getElementById('swPayModal').hidden = false;
     }
 
-    function confirmPay() {
+    async function confirmPay() {
         const btn = document.getElementById('swPayConfirmBtn');
         if (btn?.disabled) return; // guard: đang xử lý (chống double-click)
         const amount = Number(document.getElementById('swPayAmount').value) || 0;
@@ -441,17 +460,19 @@
         }
         if (btn) btn.disabled = true; // chống double-click ghi ledger 2 lần
         try {
-            window.SupplierWalletStorage.addTransaction(walletState, activeSupplier, {
+            // ĐỢT E: money op — await server, lỗi → toast, KHÔNG ghi local lệch.
+            await window.SupplierWalletStorage.addTransaction(walletState, activeSupplier, {
                 type: 'payment',
                 amount,
                 note: note || 'Thanh toán',
                 performedBy: _swBy(), // audit: ai ghi thanh toán
             });
-            pushSync();
             notify(`Đã ghi thanh toán ${fmtVnd(amount)} cho ${activeSupplier}`, 'success');
             document.getElementById('swPayModal').hidden = true;
             renderList();
             openDetail(activeSupplier);
+        } catch (e) {
+            notify(`Ghi thanh toán thất bại: ${e.message}`, 'error');
         } finally {
             if (btn) btn.disabled = false;
         }
@@ -492,7 +513,7 @@
         const since = Number(walletState.lastDepositSync) || 0;
         const deposits = await window.SupplierWalletStorage.fetchDeposits(since);
         if (!Array.isArray(deposits) || !deposits.length) return;
-        const added = window.SupplierWalletStorage.applyDeposits(walletState, deposits);
+        const added = await window.SupplierWalletStorage.applyDeposits(walletState, deposits);
         const maxTs = deposits.reduce((m, d) => Math.max(m, Number(d.ts) || 0), since);
         if (maxTs > since) {
             walletState.lastDepositSync = maxTs;
@@ -644,13 +665,23 @@
         _sseUnsubs.push(
             window.Web2SSE.subscribe('web2:products', scheduleAggregateReload('web2:products'))
         );
-        // PHASE A2 phụ: web2:supplier-wallet — server cross-broadcast khi
-        // products mutation (xem Phase B1 server side).
+        // ĐỢT E: web2:supplier-wallet giờ là topic CHÍNH của server ledger —
+        // máy khác ghi payment/return/tạo NCC → re-pull /state TRƯỚC rồi mới
+        // derive lại so-order (loadAndRender một mình chỉ render ledger cũ).
         _sseUnsubs.push(
-            window.Web2SSE.subscribe(
-                'web2:supplier-wallet',
-                scheduleAggregateReload('web2:supplier-wallet')
-            )
+            window.Web2SSE.subscribe('web2:supplier-wallet', () => {
+                if (_sseReloadTimer) clearTimeout(_sseReloadTimer);
+                _sseReloadTimer = setTimeout(async () => {
+                    _sseReloadTimer = null;
+                    console.log('[SupplierWallet-SSE] ledger reload (web2:supplier-wallet)');
+                    await window.SupplierWalletStorage.Sync.init();
+                    walletState = await window.SupplierWalletStorage.load();
+                    await loadAndRender();
+                    if (activeSupplier && !document.getElementById('swDetailModal').hidden) {
+                        openDetail(activeSupplier);
+                    }
+                }, 800);
+            })
         );
     }
 
