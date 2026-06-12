@@ -1723,6 +1723,13 @@
         return new Intl.NumberFormat('vi-VN').format(Math.round((v || 0) / 1000));
     }
 
+    // Giá trị nhập ở nút Gửi Kèm theo đơn vị NGHÌN (nhập 300 = 300.000đ —
+    // cùng quy ước giấy viết tay). Ai lỡ nhập full đồng (≥ 10.000) → quy về nghìn.
+    function sendAlongThousand(v) {
+        const n = Number(v) || 0;
+        return n >= 10000 ? Math.round(n / 1000) : n;
+    }
+
     function handoverDateLabel() {
         const f = DeliveryReportState.filters;
         const parse = (s) => {
@@ -1762,8 +1769,17 @@
         const cityNet = cityTotal - cityShip;
         const returnShip = returnCount * HANDOVER_SHIP_FEE;
         const returnNet = returnTotal - returnShip;
-        const grandCount = cityCount + returnCount;
-        const grandTotal = cityNet + returnNet;
+
+        // Đơn gửi riêng (nút Gửi Kèm) — giá trị/Thu đã ở đơn vị NGHÌN
+        const extras = Array.isArray(extraItems) ? extraItems : [];
+        const hasExtra = extras.length > 0;
+        const extraCollectK = extras.reduce((s, o) => s + sendAlongThousand(o.collect), 0);
+        const extraShipK = extras.length * (HANDOVER_SHIP_FEE / 1000);
+        const extraNetK = extraCollectK - extraShipK;
+
+        // Tổng cuối = Còn lại TP + Còn lại thu về + Còn lại gửi riêng
+        const grandCount = cityCount + returnCount + extras.length;
+        const grandTotal = cityNet + returnNet + extraNetK * 1000;
 
         // Mỗi đơn thu về = 1 dòng tên + N dòng sản phẩm (mã/SL/giá trị từ ticket).
         // Server cũ chỉ trả aggregate → fallback gộp 1 dòng. Không khớp ticket → "—".
@@ -1789,13 +1805,6 @@
 
         // Không có đơn 0đ → bỏ hẳn section (không ghi "Không có đơn 0đ")
         const hasZero = zeroItems.length > 0;
-
-        // Đơn gửi riêng (nút Gửi Kèm, kênh tương ứng) — chỉ vẽ khi có
-        const extras = Array.isArray(extraItems) ? extraItems : [];
-        const hasExtra = extras.length > 0;
-        const extraCollect = extras.reduce((s, o) => s + (o.collect || 0), 0);
-        const extraShip = extras.length * HANDOVER_SHIP_FEE;
-        const extraNet = extraCollect - extraShip;
 
         const leftH =
             PAD +
@@ -1939,7 +1948,7 @@
             ctx.fillText(exTitle, PAD, y);
             ctx.fillStyle = '#b45309';
             ctx.fillText(
-                ` ${formatThousand(extraCollect)}`,
+                ` ${formatNumber(extraCollectK)}`,
                 PAD + ctx.measureText(exTitle).width,
                 y
             );
@@ -1947,12 +1956,12 @@
             y += 24;
             ctx.font = `15px ${FONT}`;
             ctx.fillStyle = '#6b7280';
-            const exFee = `Phí ship (${formatNumber(extras.length)} × ${feeK}): − ${formatThousand(extraShip)}`;
+            const exFee = `Phí ship (${formatNumber(extras.length)} × ${feeK}): − ${formatNumber(extraShipK)}`;
             ctx.fillText(exFee, PAD, y);
             ctx.font = `bold 15px ${FONT}`;
             ctx.fillStyle = '#047857';
             ctx.fillText(
-                ` · Còn lại: ${formatThousand(extraNet)}`,
+                ` · Còn lại: ${formatNumber(extraNetK)}`,
                 PAD + ctx.measureText(exFee).width + 4,
                 y
             );
@@ -1994,10 +2003,10 @@
 
                 ctx.textAlign = 'right';
                 ctx.fillStyle = '#b45309';
-                ctx.fillText(formatThousand(o.value), XCOL.value, y);
+                ctx.fillText(formatNumber(sendAlongThousand(o.value)), XCOL.value, y);
                 ctx.fillStyle = '#111827';
                 ctx.font = `bold 14px ${FONT}`;
-                ctx.fillText(formatThousand(o.collect), XCOL.thu, y);
+                ctx.fillText(formatNumber(sendAlongThousand(o.collect)), XCOL.thu, y);
             });
         }
 
@@ -2175,12 +2184,16 @@
         // Không có đơn 0đ → bỏ hẳn section (không ghi "Không có đơn 0đ")
         const hasZero = zeroItems.length > 0;
 
-        // Đơn gửi riêng (nút Gửi Kèm, kênh TOMATO/NAP) — chỉ vẽ khi có
+        // Đơn gửi riêng (nút Gửi Kèm, kênh TOMATO/NAP) — đơn vị NGHÌN
         const extras = Array.isArray(extraItems) ? extraItems : [];
         const hasExtra = extras.length > 0;
-        const extraCollect = extras.reduce((s, o) => s + (o.collect || 0), 0);
-        const extraShip = extras.length * HANDOVER_SHIP_FEE_PROVINCE;
-        const extraNet = extraCollect - extraShip;
+        const extraCollectK = extras.reduce((s, o) => s + sendAlongThousand(o.collect), 0);
+        const extraShipK = extras.length * feeK;
+        const extraNetK = extraCollectK - extraShipK;
+
+        // Tổng cuối = Còn lại kênh + Còn lại gửi riêng
+        const grandCount = count + extras.length;
+        const grandNet = net + extraNetK * 1000;
 
         const H =
             PAD +
@@ -2191,9 +2204,9 @@
             (hasZero ? 16 + 30 + 26 + zeroItems.length * ZROW_H : 0) +
             (hasExtra ? 16 + 30 + 24 + 26 + extras.length * ZROW_H : 0) +
             6 +
-            14 +
-            20 +
-            12;
+            16 +
+            24 +
+            18;
         const scale = 2;
 
         const canvas = document.createElement('canvas');
@@ -2322,7 +2335,7 @@
             ctx.fillText(exTitle, PAD, y);
             ctx.fillStyle = '#b45309';
             ctx.fillText(
-                ` ${formatThousand(extraCollect)}`,
+                ` ${formatNumber(extraCollectK)}`,
                 PAD + ctx.measureText(exTitle).width,
                 y
             );
@@ -2330,12 +2343,12 @@
             y += 24;
             ctx.font = `15px ${FONT}`;
             ctx.fillStyle = '#6b7280';
-            const exFee = `Phí ship (${formatNumber(extras.length)} × ${feeK}): − ${formatThousand(extraShip)}`;
+            const exFee = `Phí ship (${formatNumber(extras.length)} × ${feeK}): − ${formatNumber(extraShipK)}`;
             ctx.fillText(exFee, PAD, y);
             ctx.font = `bold 15px ${FONT}`;
             ctx.fillStyle = '#047857';
             ctx.fillText(
-                ` · Còn lại: ${formatThousand(extraNet)}`,
+                ` · Còn lại: ${formatNumber(extraNetK)}`,
                 PAD + ctx.measureText(exFee).width + 4,
                 y
             );
@@ -2377,28 +2390,37 @@
 
                 ctx.textAlign = 'right';
                 ctx.fillStyle = '#b45309';
-                ctx.fillText(formatThousand(o.value), XCOL.value, y);
+                ctx.fillText(formatNumber(sendAlongThousand(o.value)), XCOL.value, y);
                 ctx.fillStyle = '#111827';
                 ctx.font = `bold 14px ${FONT}`;
-                ctx.fillText(formatThousand(o.collect), XCOL.thu, y);
+                ctx.fillText(formatNumber(sendAlongThousand(o.collect)), XCOL.thu, y);
             });
         }
 
-        // Footer: chỉ timestamp (không có thu về nên Còn lại = số bàn giao cuối)
-        const fy = y + 6 + 14;
+        // ── Footer: Tổng (kênh + gửi riêng, đã trừ ship) + timestamp ──
+        const fy = y + 6 + 16;
         ctx.strokeStyle = '#d1d5db';
-        ctx.lineWidth = 1;
+        ctx.lineWidth = 1.5;
         ctx.beginPath();
         ctx.moveTo(PAD, fy);
         ctx.lineTo(W - PAD, fy);
         ctx.stroke();
+
+        const ty = fy + 24;
+        ctx.textAlign = 'left';
+        ctx.fillStyle = '#111827';
+        ctx.font = `bold 18px ${FONT}`;
+        const grandLabel = `Tổng — ${formatNumber(grandCount)} đơn:`;
+        ctx.fillText(grandLabel, PAD, ty);
+        ctx.fillStyle = '#047857';
+        ctx.fillText(` ${formatThousand(grandNet)}`, PAD + ctx.measureText(grandLabel).width, ty);
 
         ctx.textAlign = 'right';
         ctx.font = `13px ${FONT}`;
         ctx.fillStyle = '#9ca3af';
         const now = new Date();
         const ts = `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-        ctx.fillText(`Tạo lúc: ${ts}`, W - PAD, fy + 18);
+        ctx.fillText(`Tạo lúc: ${ts}`, W - PAD, ty);
 
         return canvas;
     }

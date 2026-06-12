@@ -2,6 +2,17 @@
 
 ## 2026-06-12
 
+### [delivery-report] Ảnh bàn giao v11: fix đơn vị Gửi Kèm (nhập NGHÌN) + Tổng cộng gửi riêng + TMT/NAP có dòng Tổng ✅
+
+**User báo** (test prod v10): giá trị/Thu gửi riêng hiện 0 dù modal có data; ảnh TMT/NAP thiếu dòng Tổng dưới cùng; Tổng chưa tính phần gửi riêng.
+
+- **Root cause 0**: Gửi Kèm nhập đơn vị NGHÌN (gõ 300 = 300.000đ — quy ước giấy tay) nhưng canvas dùng `formatThousand` chia /1000 lần nữa → 0. Fix: helper `sendAlongThousand(v)` (giữ nguyên; lỡ nhập full đồng ≥ 10.000 → tự /1000), section gửi riêng tính + hiển thị bằng nghìn (`formatNumber`).
+- **Tổng**: TP `grandTotal = cityNet + returnNet + extraNetK×1000`, `grandCount` cộng số đơn gửi riêng. TMT/NAP thêm footer `Tổng — N đơn: <Còn lại kênh + Còn lại gửi riêng>` (luôn hiện) + Tạo lúc cùng dòng.
+- Cache-bust `?v=20260612h`.
+- **Test:** TP gửi riêng 1 đơn (GT 300/Thu 200) → `200 − 20 = 180`, Tổng 3 đơn `1.860 = 750 + 930 + 180` ✓; TMT 2 đơn (Thu 100+150) → `250 − 46 = 204`, Tổng `946 = 742 + 204` ✓.
+
+**Status:** ✅ Done.
+
 ### [live-chat] [render] [native-orders] GỠ HẲN crm_team_id — di tích TPOS ✅
 
 **User hỏi "có cần crm_team_id không?"** → trace: không consumer nào đọc (getPartnerInfo bỏ qua tường minh, không UI hiển thị/filter); sau gỡ TPOS giá trị nhét vào = FB Page Id (trùng `fb_page_id`) — chính là thủ phạm bug drag-drop 500 sáng nay. User OK gỡ hẳn (thay vì giữ BIGINT).
