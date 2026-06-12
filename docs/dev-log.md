@@ -2,6 +2,15 @@
 
 ## 2026-06-12
 
+### [delivery-report] Ảnh bàn giao v8: không có đơn 0đ → bỏ hẳn section ĐƠN 0đ (TP + TMT + NAP) ✅
+
+**User:** không có đơn 0 đồng thì bỏ phần ĐƠN 0đ đi, đừng ghi "Không có đơn 0đ" — áp dụng cả Thành phố, NAP, TOMATO.
+
+- `buildHandoverCanvas` (TP) + `buildGroupHandoverCanvas` (TMT/NAP): wrap section ĐƠN 0đ (sub-divider + title + header + rows) trong `if (hasZero)`, height tính động bỏ section khi rỗng; xoá nhánh italic "Không có đơn 0đ". Cache-bust `?v=20260612e`.
+- **Test:** data ảo không đơn 0đ — ảnh TP chỉ còn 2 khối tổng + thu về + Tổng (1800×576), ảnh TMT chỉ header tổng (1040×344); số đúng `Tổng 3 đơn: 1.785 = 855 + 930`.
+
+**Status:** ✅ Done.
+
 ### [delivery-report] Ảnh bàn giao v7: nút "Ảnh TMT" + "Ảnh NAP" cho tab Tỉnh (1 cột, không thu về) ✅
 
 **User:** thêm 2 nút Ảnh TMT / Ảnh NAP ở tab Tỉnh (giống nút Copy ảnh bàn giao của Thành phố), ảnh 1 cột như cột trái của ảnh TP — 2 kênh này không có thu về.

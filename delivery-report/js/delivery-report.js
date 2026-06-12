@@ -1785,8 +1785,16 @@
             0
         );
 
-        const zeroRows = Math.max(zeroItems.length, 1); // 0 đơn → 1 dòng "Không có đơn 0đ"
-        const leftH = PAD + 14 + 30 + 26 + 26 + 16 + 30 + 26 + zeroRows * ZROW_H + 6;
+        // Không có đơn 0đ → bỏ hẳn section (không ghi "Không có đơn 0đ")
+        const hasZero = zeroItems.length > 0;
+        const leftH =
+            PAD +
+            14 +
+            30 +
+            26 +
+            26 +
+            (hasZero ? 16 + 30 + 26 + zeroItems.length * ZROW_H : 0) +
+            6;
         const rightH = PAD + 126 + (returnCount > 0 ? 20 + rightRowsH : 40) + 4;
         const contentH = Math.max(leftH, rightH);
         const H = contentH + 16 + 24 + 18; // divider + dòng Tổng + đệm đáy
@@ -1840,39 +1848,33 @@
         ctx.fillStyle = '#047857';
         ctx.fillText(`Còn lại: ${formatThousand(cityNet)}`, PAD, y);
 
-        // Sub-divider cột trái
-        y += 16;
-        ctx.strokeStyle = '#e5e7eb';
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.moveTo(PAD, y);
-        ctx.lineTo(LEFT_R, y);
-        ctx.stroke();
+        // Bảng ĐƠN 0đ (trong cột trái) — chỉ vẽ khi CÓ đơn 0đ
+        if (hasZero) {
+            // Sub-divider cột trái
+            y += 16;
+            ctx.strokeStyle = '#e5e7eb';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(PAD, y);
+            ctx.lineTo(LEFT_R, y);
+            ctx.stroke();
 
-        // Bảng ĐƠN 0đ (trong cột trái): Thu = CN, Giá trị = AmountTotal
-        y += 30;
-        ctx.fillStyle = '#111827';
-        ctx.font = `bold 17px ${FONT}`;
-        ctx.fillText(`ĐƠN 0đ (${formatNumber(zeroItems.length)} đơn)`, PAD, y);
+            y += 30;
+            ctx.fillStyle = '#111827';
+            ctx.font = `bold 17px ${FONT}`;
+            ctx.fillText(`ĐƠN 0đ (${formatNumber(zeroItems.length)} đơn)`, PAD, y);
 
-        // Cột Giá trị TRƯỚC, Thu SAU (user yêu cầu đổi vị trí 2026-06-12)
-        const ZCOL = { idx: PAD, name: PAD + 26, value: LEFT_R - 64, thu: LEFT_R };
-        y += 26;
-        ctx.font = `bold 13px ${FONT}`;
-        ctx.fillStyle = '#6b7280';
-        ctx.fillText('#', ZCOL.idx, y);
-        ctx.fillText('Khách hàng — SĐT', ZCOL.name, y);
-        ctx.textAlign = 'right';
-        ctx.fillText('Giá trị', ZCOL.value, y);
-        ctx.fillText('Thu', ZCOL.thu, y);
+            // Cột Giá trị TRƯỚC, Thu SAU (user yêu cầu đổi vị trí 2026-06-12)
+            const ZCOL = { idx: PAD, name: PAD + 26, value: LEFT_R - 64, thu: LEFT_R };
+            y += 26;
+            ctx.font = `bold 13px ${FONT}`;
+            ctx.fillStyle = '#6b7280';
+            ctx.fillText('#', ZCOL.idx, y);
+            ctx.fillText('Khách hàng — SĐT', ZCOL.name, y);
+            ctx.textAlign = 'right';
+            ctx.fillText('Giá trị', ZCOL.value, y);
+            ctx.fillText('Thu', ZCOL.thu, y);
 
-        if (zeroItems.length === 0) {
-            y += ZROW_H;
-            ctx.textAlign = 'left';
-            ctx.font = `italic 14px ${FONT}`;
-            ctx.fillStyle = '#9ca3af';
-            ctx.fillText('Không có đơn 0đ', ZCOL.name, y);
-        } else {
             zeroItems.forEach((item, i) => {
                 y += ZROW_H;
                 ctx.strokeStyle = '#f3f4f6';
@@ -2079,8 +2081,19 @@
         const feeK = HANDOVER_SHIP_FEE / 1000;
         const ship = count * HANDOVER_SHIP_FEE;
         const net = total - ship;
-        const zeroRows = Math.max(zeroItems.length, 1); // 0 đơn → 1 dòng "Không có đơn 0đ"
-        const H = PAD + 14 + 30 + 26 + 26 + 16 + 30 + 26 + zeroRows * ZROW_H + 6 + 14 + 20 + 12;
+        // Không có đơn 0đ → bỏ hẳn section (không ghi "Không có đơn 0đ")
+        const hasZero = zeroItems.length > 0;
+        const H =
+            PAD +
+            14 +
+            30 +
+            26 +
+            26 +
+            (hasZero ? 16 + 30 + 26 + zeroItems.length * ZROW_H : 0) +
+            6 +
+            14 +
+            20 +
+            12;
         const scale = 2;
 
         const canvas = document.createElement('canvas');
@@ -2131,37 +2144,31 @@
         ctx.fillStyle = '#047857';
         ctx.fillText(`Còn lại: ${formatThousand(net)}`, PAD, y);
 
-        y += 16;
-        ctx.strokeStyle = '#e5e7eb';
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.moveTo(PAD, y);
-        ctx.lineTo(W - PAD, y);
-        ctx.stroke();
+        // Bảng ĐƠN 0đ — chỉ vẽ khi CÓ đơn 0đ
+        if (hasZero) {
+            y += 16;
+            ctx.strokeStyle = '#e5e7eb';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(PAD, y);
+            ctx.lineTo(W - PAD, y);
+            ctx.stroke();
 
-        // Bảng ĐƠN 0đ: Giá trị (AmountTotal) | Thu (CN)
-        y += 30;
-        ctx.fillStyle = '#111827';
-        ctx.font = `bold 17px ${FONT}`;
-        ctx.fillText(`ĐƠN 0đ (${formatNumber(zeroItems.length)} đơn)`, PAD, y);
+            y += 30;
+            ctx.fillStyle = '#111827';
+            ctx.font = `bold 17px ${FONT}`;
+            ctx.fillText(`ĐƠN 0đ (${formatNumber(zeroItems.length)} đơn)`, PAD, y);
 
-        const ZCOL = { idx: PAD, name: PAD + 26, value: W - PAD - 64, thu: W - PAD };
-        y += 26;
-        ctx.font = `bold 13px ${FONT}`;
-        ctx.fillStyle = '#6b7280';
-        ctx.fillText('#', ZCOL.idx, y);
-        ctx.fillText('Khách hàng — SĐT', ZCOL.name, y);
-        ctx.textAlign = 'right';
-        ctx.fillText('Giá trị', ZCOL.value, y);
-        ctx.fillText('Thu', ZCOL.thu, y);
+            const ZCOL = { idx: PAD, name: PAD + 26, value: W - PAD - 64, thu: W - PAD };
+            y += 26;
+            ctx.font = `bold 13px ${FONT}`;
+            ctx.fillStyle = '#6b7280';
+            ctx.fillText('#', ZCOL.idx, y);
+            ctx.fillText('Khách hàng — SĐT', ZCOL.name, y);
+            ctx.textAlign = 'right';
+            ctx.fillText('Giá trị', ZCOL.value, y);
+            ctx.fillText('Thu', ZCOL.thu, y);
 
-        if (zeroItems.length === 0) {
-            y += ZROW_H;
-            ctx.textAlign = 'left';
-            ctx.font = `italic 14px ${FONT}`;
-            ctx.fillStyle = '#9ca3af';
-            ctx.fillText('Không có đơn 0đ', ZCOL.name, y);
-        } else {
             zeroItems.forEach((item, i) => {
                 y += ZROW_H;
                 ctx.strokeStyle = '#f3f4f6';
