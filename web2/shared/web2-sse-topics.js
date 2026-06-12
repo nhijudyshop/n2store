@@ -23,6 +23,6 @@
         USERS: 'web2:users',
         NOTIFICATIONS: 'web2:notifications',
         KPI_DASHBOARD: 'web2:kpi-dashboard',
-        SUPPLIER_RATING: 'web2:supplier-rating',
+        // SUPPLIER_RATING: bỏ 2026-06-12 — dead topic (registry có, 0 publisher).
     });
 })(typeof window !== 'undefined' ? window : globalThis);

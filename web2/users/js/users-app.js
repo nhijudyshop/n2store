@@ -528,15 +528,10 @@
     }
 
     function _currentSessionUserId() {
-        // Try shared auth + local web2-users session token.
+        // Nguồn chuẩn Web 2.0: localStorage 'web2_auth' qua Web2Auth.
+        // KHÔNG dùng authManager Web 1.0 — khác id-space web2_users → false-positive.
         try {
-            const me = window.authManager?.getAuthData?.();
-            if (me?.userId) return me.userId;
-            const tok = localStorage.getItem('web2_users_session') || '';
-            if (tok) {
-                const parsed = JSON.parse(tok);
-                return parsed?.user?.id || null;
-            }
+            return window.Web2Auth?.getStored?.()?.user?.id || null;
         } catch (_) {}
         return null;
     }

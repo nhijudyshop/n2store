@@ -368,20 +368,27 @@
             }
         };
 
-        // Bỏ qua (sai / false-positive)
-        ov.body.querySelector('.w2ck-dismiss').onclick = async () => {
+        // Bỏ qua (sai / false-positive) — check response, lỗi thì giữ modal (giống approveBtn)
+        const dismissBtn = ov.body.querySelector('.w2ck-dismiss');
+        dismissBtn.onclick = async () => {
+            dismissBtn.disabled = true;
+            dismissBtn.textContent = 'Đang bỏ qua…';
             try {
-                await fetch(`${SIG_API}/${sig.id}/dismiss`, {
+                const r = await fetch(`${SIG_API}/${sig.id}/dismiss`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
                     body: JSON.stringify(userBody()),
                 });
+                const d = await r.json().catch(() => ({}));
+                if (!r.ok || !d.success) throw new Error(d.error || `HTTP ${r.status}`);
                 toast('Đã bỏ qua', 'info');
                 closeOverlay(ov);
                 onDone && onDone();
             } catch (e) {
                 toast('Lỗi: ' + e.message, 'error');
+                dismissBtn.disabled = false;
+                dismissBtn.textContent = 'Bỏ qua (sai)';
             }
         };
         return ov;

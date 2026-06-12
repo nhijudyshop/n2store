@@ -661,6 +661,7 @@ router.post('/:id/auto-match', requireWeb2AuthSoft, async (req, res) => {
         const id = parseInt(req.params.id);
         const { fetchWithTimeout } = require('../../../shared/node/fetch-utils.cjs');
         const result = await web2SepayMatching.processWeb2Match(db, id, fetchWithTimeout);
+        _notifyBalanceHistory(req, { action: 'auto-match', id: req.params.id, ts: Date.now() });
         res.json({ success: true, data: result });
     } catch (e) {
         handleError(res, e, 'Auto-match single');
@@ -683,6 +684,7 @@ router.post('/reprocess-unmatched', requireWeb2AuthSoft, async (req, res) => {
         const { fetchWithTimeout } = require('../../../shared/node/fetch-utils.cjs');
 
         const data = await web2SepayMatching.reprocessUnmatched(db, fetchWithTimeout, { limit });
+        _notifyBalanceHistory(req, { action: 'reprocess', ts: Date.now() });
         res.json({ success: true, data });
     } catch (e) {
         handleError(res, e, 'Reprocess unmatched');
@@ -837,6 +839,9 @@ router.post('/auto-assign', requireWeb2AuthSoft, async (req, res) => {
             }
         }
 
+        // 1D FIX (2026-06-12): mutation hàng loạt phải notify SAU mutation —
+        // tab khác đang mở balance-history/ví KH tự reload (quy ước SSE-first).
+        _notifyBalanceHistory(req, { action: 'auto-assign', ts: Date.now() });
         res.json({
             success: true,
             scanned: rows.length,

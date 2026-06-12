@@ -91,6 +91,11 @@ router.get('/sse', async (req, res) => {
     if (keys.some((k) => k.length > 500)) {
         return res.status(400).json({ error: 'Key too long (max 500 characters)' });
     }
+    // 1D FIX (2026-06-12): cap SỐ LƯỢNG keys — 1 client subscribe hàng nghìn
+    // topic làm phình Map sseClients (memory DoS nhẹ). Page thật ≤ ~8 topics.
+    if (keys.length > 50) {
+        return res.status(400).json({ error: `Too many keys (${keys.length} > 50)` });
+    }
 
     // S5: topic admin (web2:_admin:*) yêu cầu ?admintoken=<token Web2Auth>
     // hợp lệ với role='admin'. EventSource không gửi header được → dùng query
@@ -421,16 +426,12 @@ try {
 
         // Canonical Web 2.0 customer-wallet topic (page subscribes 'web2:customer-wallet')
         try {
+            // 3M-S5r FIX (2026-06-12): topic này subscribe được KHÔNG cần auth —
+            // payload trước đây kèm phone + amount (PII + tài chính). Strip về
+            // tickle như S5 đã làm cho web2:wallet:* — client re-fetch số liệu.
             notifyClients(
                 'web2:customer-wallet',
-                {
-                    action: 'web2_credit',
-                    phone: phone || null,
-                    amount: transaction?.amount || 0,
-                    txType: transaction?.type || null,
-                    walletTxId: transaction?.id || null,
-                    ts: Date.now(),
-                },
+                { action: 'web2_credit', txType: transaction?.type || null, ts: Date.now() },
                 'update'
             );
         } catch (_) {}

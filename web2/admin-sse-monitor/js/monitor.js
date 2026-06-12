@@ -314,6 +314,19 @@
         });
     }
 
+    // Poll stats qua setTimeout chain (không setInterval): tab ẩn → skip fetch
+    // (tiết kiệm bandwidth), tab visible lại → visibilitychange poll ngay.
+    let _statsTimer = null;
+    function _scheduleStatsPoll() {
+        clearTimeout(_statsTimer);
+        _statsTimer = setTimeout(async () => {
+            if (document.visibilityState === 'visible') {
+                await pollStats();
+            }
+            _scheduleStatsPoll();
+        }, STATS_POLL_MS);
+    }
+
     // -----------------------------------------------------
     // Entry
     // -----------------------------------------------------
@@ -327,12 +340,14 @@
         bootstrapLog();
         subscribeLive();
         pollStats();
-        setInterval(pollStats, STATS_POLL_MS);
+        _scheduleStatsPoll();
 
-        // Pause when tab hidden to save bandwidth
+        // Tab quay lại sau khi ẩn → refresh ngay cho fresh data
         document.addEventListener('visibilitychange', () => {
             if (document.visibilityState === 'visible') pollStats();
         });
+        // Dọn timer khi rời trang
+        window.addEventListener('pagehide', () => clearTimeout(_statsTimer));
     }
 
     if (document.readyState === 'loading') {

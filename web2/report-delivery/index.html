@@ -331,8 +331,14 @@
                 }
 
                 async function loadStats() {
-                    const from = $('rdFrom').value || todayLocal();
-                    const to = $('rdTo').value || from;
+                    let from = $('rdFrom').value || todayLocal();
+                    let to = $('rdTo').value || from;
+                    // from > to → hoán đổi cho hợp lệ (yyyy-mm-dd so sánh chuỗi được)
+                    if (from > to) {
+                        [from, to] = [to, from];
+                        $('rdFrom').value = from;
+                        $('rdTo').value = to;
+                    }
                     setLoading(true);
                     try {
                         const r = await fetch(

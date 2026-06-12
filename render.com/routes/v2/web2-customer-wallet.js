@@ -87,6 +87,17 @@ function buildAggregateCte() {
               AND phone IS NOT NULL
             GROUP BY phone
         ),
+        reassign_out AS (
+            -- 1D FIX (2026-06-12): tiền bị CHUYỂN ĐI khi reassign (Sửa KH) —
+            -- total_deposited của ví cũ giữ nguyên nên 'Đã thu' đếm 1 khoản
+            -- trên 2 KH; trừ phần reassign_out để công nợ KH cũ đúng thực tế.
+            SELECT phone,
+                   SUM(amount)::numeric AS reassigned_out
+            FROM web2_wallet_transactions
+            WHERE type = 'WITHDRAW' AND reference_type = 'sepay_reassign_out'
+              AND phone IS NOT NULL
+            GROUP BY phone
+        ),
         all_phones AS (
             SELECT phone FROM web2_customer_wallets WHERE phone IS NOT NULL
             UNION
@@ -101,18 +112,19 @@ function buildAggregateCte() {
                 COALESCE(p.total_purchased, 0)::numeric AS total_purchased,
                 COALESCE(p.pbh_count, 0) AS pbh_count,
                 COALESCE(n.native_count, 0) AS native_count,
-                COALESCE(w.total_deposited, 0)::numeric AS paid_amount,
+                GREATEST(0, COALESCE(w.total_deposited, 0) - COALESCE(ro.reassigned_out, 0))::numeric AS paid_amount,
                 COALESCE(r.total_returned, 0)::numeric AS returned_amount,
                 COALESCE(w.balance, 0)::numeric AS wallet_balance,
                 COALESCE(w.total_deposited, 0)::numeric AS total_deposited,
                 COALESCE(w.total_withdrawn, 0)::numeric AS total_withdrawn,
                 w.customer_id,
-                (COALESCE(p.total_purchased, 0) - COALESCE(w.total_deposited, 0) - COALESCE(r.total_returned, 0))::numeric AS balance
+                (COALESCE(p.total_purchased, 0) - GREATEST(0, COALESCE(w.total_deposited, 0) - COALESCE(ro.reassigned_out, 0)) - COALESCE(r.total_returned, 0))::numeric AS balance
             FROM all_phones ap
             LEFT JOIN web2_customer_wallets w ON w.phone = ap.phone
             LEFT JOIN purchases p ON p.phone = ap.phone
             LEFT JOIN natives n ON n.phone = ap.phone
             LEFT JOIN returns_agg r ON r.phone = ap.phone
+            LEFT JOIN reassign_out ro ON ro.phone = ap.phone
         )
     `;
 }
@@ -440,6 +452,15 @@ router.post('/overlay-by-phones', async (req, res) => {
                 WHERE type = 'WITHDRAW' AND reference_type = 'return'
                   AND phone = ANY($1::text[])
                 GROUP BY phone
+            ),
+            reassign_out AS (
+                -- 1D FIX (2026-06-12): trừ tiền đã CHUYỂN ĐI khi reassign — đồng
+                -- bộ với buildAggregateCte, 1 khoản không đếm 'đã thu' trên 2 KH.
+                SELECT phone, SUM(amount)::numeric AS reassigned_out
+                FROM web2_wallet_transactions
+                WHERE type = 'WITHDRAW' AND reference_type = 'sepay_reassign_out'
+                  AND phone = ANY($1::text[])
+                GROUP BY phone
             )
             SELECT
                 ip.phone,
@@ -447,11 +468,11 @@ router.post('/overlay-by-phones', async (req, res) => {
                 COALESCE(p.pbh_count, 0) AS pbh_count,
                 COALESCE(n.native_count, 0) AS native_count,
                 COALESCE(w.balance, 0)::numeric AS wallet_balance,
-                COALESCE(w.total_deposited, 0)::numeric AS total_deposited,
+                GREATEST(0, COALESCE(w.total_deposited, 0) - COALESCE(ro.reassigned_out, 0))::numeric AS total_deposited,
                 COALESCE(w.total_withdrawn, 0)::numeric AS total_withdrawn,
                 COALESCE(r.total_returned, 0)::numeric AS total_returned,
                 (COALESCE(p.total_purchased, 0)
-                    - COALESCE(w.total_deposited, 0)
+                    - GREATEST(0, COALESCE(w.total_deposited, 0) - COALESCE(ro.reassigned_out, 0))
                     - COALESCE(r.total_returned, 0))::numeric AS balance,
                 w.customer_id
             FROM input_phones ip
@@ -459,6 +480,7 @@ router.post('/overlay-by-phones', async (req, res) => {
             LEFT JOIN purchases p ON p.phone = ip.phone
             LEFT JOIN natives n ON n.phone = ip.phone
             LEFT JOIN returns_agg r ON r.phone = ip.phone
+            LEFT JOIN reassign_out ro ON ro.phone = ip.phone
         `;
         const r = await db.query(sql, [normalized]);
         const data = r.rows.map((row) => ({

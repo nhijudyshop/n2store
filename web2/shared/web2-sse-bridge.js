@@ -86,6 +86,10 @@
         es.addEventListener('created', handleData('created'));
         es.addEventListener('deleted', handleData('deleted'));
         es.addEventListener('change', handleData('change'));
+        // 1D FIX (2026-06-12): POST /sse/test phát eventType 'test' — bridge
+        // không nghe làm recipe verify CLAUDE.md false-negative ("curl thấy
+        // event mà page im lặng").
+        es.addEventListener('test', handleData('test'));
 
         es.onerror = () => {
             // EventSource auto-reconnects, but if connection is closed by

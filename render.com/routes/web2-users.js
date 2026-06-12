@@ -588,32 +588,33 @@ router.patch('/:id(\\d+)', requireWeb2Admin, async (req, res) => {
         if (!sets.length) return res.status(400).json({ error: 'Không có gì để update' });
         // Guard "admin cuối cùng" (như DELETE): không cho set isActive=false hoặc
         // đổi role khỏi 'admin' nếu target là admin active CUỐI CÙNG.
+        // 1D TOCTOU fix: gộp check + UPDATE thành 1 câu atomic (trước đây COUNT
+        // rời rồi UPDATE → 2 request demote song song có thể về 0 admin).
         const demoting =
             (typeof b.isActive === 'boolean' && b.isActive === false) ||
             (typeof b.role === 'string' && b.role !== 'admin');
-        if (demoting) {
-            const cur = await pool.query('SELECT role, is_active FROM web2_users WHERE id = $1', [
-                id,
-            ]);
-            if (!cur.rows.length) return res.status(404).json({ error: 'Không tìm thấy' });
-            if (cur.rows[0].role === 'admin' && cur.rows[0].is_active === true) {
-                const c = await pool.query(
-                    "SELECT COUNT(*)::int AS n FROM web2_users WHERE role = 'admin' AND is_active = TRUE AND id <> $1",
-                    [id]
-                );
-                if (c.rows[0].n === 0) {
+        sets.push(`updated_at = $${i++}`);
+        vals.push(Date.now());
+        vals.push(id);
+        // Chỉ chặn khi target đang là admin active VÀ không còn admin active khác.
+        const lastAdminGuard = demoting
+            ? ` AND (NOT (role = 'admin' AND is_active = TRUE)
+                 OR EXISTS (SELECT 1 FROM web2_users WHERE role = 'admin' AND is_active = TRUE AND id <> $${i}))`
+            : '';
+        const sql = `UPDATE web2_users SET ${sets.join(', ')} WHERE id = $${i}${lastAdminGuard} RETURNING *`;
+        const r = await pool.query(sql, vals);
+        if (!r.rows.length) {
+            if (demoting) {
+                // rowCount=0: phân biệt "không tồn tại" vs "bị guard admin-cuối chặn".
+                const ex = await pool.query('SELECT 1 FROM web2_users WHERE id = $1', [id]);
+                if (ex.rows.length) {
                     return res
                         .status(400)
                         .json({ error: 'Không thể vô hiệu/hạ quyền admin cuối cùng' });
                 }
             }
+            return res.status(404).json({ error: 'Không tìm thấy' });
         }
-        sets.push(`updated_at = $${i++}`);
-        vals.push(Date.now());
-        vals.push(id);
-        const sql = `UPDATE web2_users SET ${sets.join(', ')} WHERE id = $${i} RETURNING *`;
-        const r = await pool.query(sql, vals);
-        if (!r.rows.length) return res.status(404).json({ error: 'Không tìm thấy' });
         _notify('update', r.rows[0].id);
         res.json({ success: true, user: mapRow(r.rows[0]) });
     } catch (e) {
@@ -700,22 +701,25 @@ router.delete('/:id(\\d+)', requireWeb2Admin, async (req, res) => {
         await ensureTables(pool);
         const id = Number(req.params.id);
         // Don't allow deactivating the only active admin.
-        const usr = await pool.query('SELECT role FROM web2_users WHERE id = $1', [id]);
-        if (!usr.rows.length) return res.status(404).json({ error: 'Không tìm thấy' });
-        if (usr.rows[0].role === 'admin') {
-            const c = await pool.query(
-                "SELECT COUNT(*)::int AS n FROM web2_users WHERE role = 'admin' AND is_active = TRUE AND id <> $1",
-                [id]
-            );
-            if (c.rows[0].n === 0) {
-                return res.status(400).json({ error: 'Không thể vô hiệu admin cuối cùng' });
-            }
-        }
+        // 1D TOCTOU fix: gộp check + UPDATE 1 câu atomic (như PATCH) — giữ semantics
+        // cũ: chặn khi target role='admin' (kể cả đang inactive) và không còn admin
+        // active khác.
         const r = await pool.query(
-            'UPDATE web2_users SET is_active = FALSE, updated_at = $1 WHERE id = $2 RETURNING id',
+            `UPDATE web2_users SET is_active = FALSE, updated_at = $1
+             WHERE id = $2
+               AND (role IS DISTINCT FROM 'admin'
+                    OR EXISTS (SELECT 1 FROM web2_users WHERE role = 'admin' AND is_active = TRUE AND id <> $2))
+             RETURNING id`,
             [Date.now(), id]
         );
-        if (!r.rows.length) return res.status(404).json({ error: 'Không tìm thấy' });
+        if (!r.rows.length) {
+            // rowCount=0: phân biệt "không tồn tại" vs "bị guard admin-cuối chặn".
+            const ex = await pool.query('SELECT 1 FROM web2_users WHERE id = $1', [id]);
+            if (ex.rows.length) {
+                return res.status(400).json({ error: 'Không thể vô hiệu admin cuối cùng' });
+            }
+            return res.status(404).json({ error: 'Không tìm thấy' });
+        }
         await pool.query('DELETE FROM web2_user_sessions WHERE user_id = $1', [id]);
         _notify('deactivate', id);
         res.json({ success: true });

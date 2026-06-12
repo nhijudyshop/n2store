@@ -283,7 +283,8 @@
         for (let i = 1; i < sorted.length; i++) {
             const prev = sorted[i - 1];
             const cur = sorted[i];
-            if (cur.fromSTT <= prev.toSTT && prev.userId !== cur.userId) {
+            // Server (PUT /employee-ranges) reject MỌI overlap — kể cả cùng user.
+            if (cur.fromSTT <= prev.toSTT) {
                 errors.push(
                     `Trùng STT giữa ${prev.userName} (${prev.fromSTT}-${prev.toSTT}) và ${cur.userName} (${cur.fromSTT}-${cur.toSTT})`
                 );

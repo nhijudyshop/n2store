@@ -683,7 +683,12 @@
         const acc = _accountsCache.find((a) => a.account_id === id);
         const st = _refreshStatus[id] || {};
         $('credsModalTitle').textContent = `Tự động gia hạn — ${acc?.name || id}`;
-        $('credsIdentity').value = st.login_identity || '';
+        // Server cố ý KHÔNG trả login_identity → đã lưu thì chỉ hiện placeholder
+        const idInput = $('credsIdentity');
+        idInput.value = '';
+        idInput.placeholder = st.has_creds
+            ? 'Đã lưu — nhập lại nếu muốn đổi'
+            : 'Email / SĐT / Tên người dùng Pancake';
         $('credsPassword').value = '';
         $('credsAuto').checked = st.auto_refresh !== false;
         $('credsKeyWarn').style.display = _credsKeyConfigured ? 'none' : 'block';

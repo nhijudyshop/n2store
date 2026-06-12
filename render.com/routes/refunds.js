@@ -212,7 +212,19 @@ router.get('/:number', async (req, res) => {
 // POST /from-pbh — Create refund from PBH
 // Body: { pbhNumber, refundLines:[{productId, quantityReturned, priceUnit}],
 //   refundMode? 'cash'|'wallet'|'exchange', exchangeLines?, reason, note }
-router.post('/from-pbh', async (req, res) => {
+// 1D-refunds-old-flow (2026-06-12): KHAI TỬ — flow này là sổ ghi chết
+// (approve/complete KHÔNG hoàn kho/ví). Trang PBH giờ điều hướng sang
+// web2-returns (Thu về 'khong_nhan_hang' — atomic kho+ví+vòng đời PBH, 3H2).
+// GET /load + /:number GIỮ read-only cho data refunds cũ.
+router.post('/from-pbh', (req, res) => {
+    return res.status(410).json({
+        success: false,
+        error: 'Flow trả hàng cũ đã khai tử — dùng trang Thu về (web2/returns) thay thế',
+        useEndpoint: '/api/web2-returns',
+    });
+});
+
+router.post('/_from-pbh-legacy-disabled', async (req, res) => {
     const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     try {
         await ensureTables(pool);

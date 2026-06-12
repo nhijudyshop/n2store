@@ -321,6 +321,7 @@
                 const d = await r.json();
                 if (seq !== _loadSeq) return; // response cũ — bỏ qua
                 if (!d.success) throw new Error(d.error);
+                // revenue.total = tổng đúng theo range days (month/week chỉ đúng cho 30/7 ngày)
                 $('#kpiGrid').innerHTML = `
                     <div class="kpi-card green">
                         <div class="label">Doanh thu hôm nay</div>
@@ -329,7 +330,7 @@
                     </div>
                     <div class="kpi-card purple">
                         <div class="label">Doanh thu ${currentDays} ngày</div>
-                        <div class="value">${fmtMoney(currentDays >= 30 ? d.revenue.month : d.revenue.week)}</div>
+                        <div class="value">${fmtMoney(d.revenue.total)}</div>
                         <div class="sub">${d.pbh.total} PBH</div>
                     </div>
                     <div class="kpi-card orange">

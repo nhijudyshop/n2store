@@ -522,8 +522,8 @@
     // với KH + đơn được chọn sẵn. POST /api/refunds/from-pbh server trả 410.
     function createRefund(number) {
         const row = STATE.items.find((x) => x.number === number);
-        const phone = row?.partnerPhone || row?.partner_phone || '';
-        const name = row?.partnerName || row?.partner_name || '';
+        const phone = row?.partner?.phone || row?.partnerPhone || '';
+        const name = row?.partner?.name || row?.partnerName || '';
         const q = new URLSearchParams({
             prefillPhone: phone,
             prefillOrder: number,

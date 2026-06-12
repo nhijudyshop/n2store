@@ -923,16 +923,19 @@
             if (state.search) web2Opts.search = state.search;
             if (state.quickFilter === 'vip') web2Opts.status = 'VIP';
             else if (state.quickFilter === 'warning') web2Opts.status = 'Warning';
-            else if (state.quickFilter === 'bomb') web2Opts.status = 'BomHang';
+            // 1D FIX (2026-06-12): kho web2_customers dùng enum 'Bom' (không phải
+            // 'BomHang' TPOS legacy) — giá trị cũ exact-match 0 KH, chip luôn rỗng.
+            else if (state.quickFilter === 'bomb') web2Opts.status = 'Bom';
 
             const web2Result = await window.PartnerCustomerApi.list(web2Opts);
             if (mySeq !== _loadSeq) return;
             const partners = web2Result?.value || [];
             const web2Total = web2Result?.count || partners.length;
 
-            // Extract phones (normalize → 10-digit)
+            // 1D FIX (2026-06-12): dùng normPhone (84xxx → 0xxx) — ví server lưu
+            // '0xxxxxxxxx', gửi raw '84...' overlay không match → KH hiện ví/nợ = 0 sai.
             const phones = partners
-                .map((p) => String(p.Phone || p.Mobile || '').replace(/\D/g, ''))
+                .map((p) => normPhone(p.Phone || p.Mobile || ''))
                 .filter((p) => p.length >= 9 && p.length <= 12);
 
             // Parallel: overlay + stats
@@ -949,7 +952,7 @@
 
             // Merge WEB2 + overlay
             const merged = partners.map((p) => {
-                const phone = String(p.Phone || p.Mobile || '').replace(/\D/g, '');
+                const phone = normPhone(p.Phone || p.Mobile || ''); // key merge cùng chuẩn overlay
                 const o = overlayMap.get(phone) || {};
                 return {
                     phone,
@@ -1077,14 +1080,15 @@
         if (!window.Web2SSE?.subscribe) return;
         // web2:wallet:* — wildcard cho mọi update từ Web 2.0 wallet service
         _sseUnsub = window.Web2SSE.subscribe('web2:wallet:*', (msg) => {
+            // 1D FIX (2026-06-12): payload đã strip PII từ S5 (chỉ {action, phone, ts})
+            // — đọc msg.data.transaction.* luôn undefined nên toast cũ chết im lặng.
+            // Toast generic + re-fetch số dư thật qua refreshSinglePhone.
             const phone = msg?.data?.phone;
-            const amount = msg?.data?.transaction?.amount;
-            const txType = msg?.data?.transaction?.type;
             if (!phone) return;
-            console.log('[CW4-SSE] web2:wallet:update', phone, txType, amount);
+            console.log('[CW4-SSE] web2:wallet:update', phone, msg?.data?.action);
             refreshSinglePhone(phone).catch(() => {});
-            if (amount && Number(amount) > 0 && txType === 'DEPOSIT') {
-                notify(`💳 Ví Web 2.0: +${fmtVnd(amount)} → ${phone}`, 'success');
+            if (msg?.data?.action === 'update' || msg?.data?.action === 'manual-deposit') {
+                notify(`💳 Ví Web 2.0 của ${phone} vừa cập nhật`, 'info');
             }
         });
         // Also subscribe to PBH changes (web2:fast-sale-orders → reload list)

@@ -282,9 +282,19 @@
                         Web2Sidebar.mount('#web2Aside', { activeRoute: 'dashboard' });
                     load();
                     if (window.Web2SSE) {
-                        // KPI event (emitKpiEvent broadcast) + PBH thay đổi → reload.
-                        Web2SSE.subscribe('web2:kpi-dashboard', () => load({ nocache: true }));
-                        Web2SSE.subscribe('web2:fast-sale-orders', () => load({ nocache: true }));
+                        // 1D FIX (2026-06-12): debounce 600ms gom burst — emitKpiEvent
+                        // bắn 1 event/SP/đơn, mỗi event ?nocache=1 là 8 aggregate query
+                        // đập thẳng web2Db (kpi-dashboard.js đã debounce, trang này chưa).
+                        let sseTimer = null;
+                        const reloadDebounced = () => {
+                            if (sseTimer) clearTimeout(sseTimer);
+                            sseTimer = setTimeout(() => {
+                                sseTimer = null;
+                                load({ nocache: true });
+                            }, 600);
+                        };
+                        Web2SSE.subscribe('web2:kpi-dashboard', reloadDebounced);
+                        Web2SSE.subscribe('web2:fast-sale-orders', reloadDebounced);
                     }
                     setInterval(load, 60000);
                 });
