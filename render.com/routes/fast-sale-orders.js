@@ -208,13 +208,18 @@ async function ensureTables(pool) {
     // không consumer nào đọc (xác nhận 2026-06-12); sau gỡ TPOS giá trị nhét
     // vào là FB Page Id (15 chữ số) trùng lặp fb_page_id và từng tràn INT4
     // gây 500. Page của PBH đọc từ đơn nguồn (fb_page_id/fb_page_name).
+    // + ADD updated_at: cascade snapshot SP (web2-products PATCH, 8d89d1c06)
+    // và migration 078 ghi cột này nhưng schema CHƯA TỪNG có → edit SP 500
+    // "column updated_at does not exist" (lộ ra sau khi H13 đổi cascade từ
+    // nuốt-lỗi sang throw — bug user báo 2026-06-12).
     try {
         await pool.query(
-            `ALTER TABLE IF EXISTS fast_sale_orders DROP COLUMN IF EXISTS crm_team_id;
+            `ALTER TABLE IF EXISTS fast_sale_orders ADD COLUMN IF NOT EXISTS updated_at BIGINT;
+             ALTER TABLE IF EXISTS fast_sale_orders DROP COLUMN IF EXISTS crm_team_id;
              ALTER TABLE IF EXISTS fast_sale_orders DROP COLUMN IF EXISTS crm_team_name;`
         );
     } catch (e) {
-        console.warn('[FAST-SALE-ORDERS] migrate drop crm_team warn:', e.message);
+        console.warn('[FAST-SALE-ORDERS] migrate head warn:', e.message);
     }
     try {
         await pool.query(`

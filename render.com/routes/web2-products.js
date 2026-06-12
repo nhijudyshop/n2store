@@ -189,6 +189,15 @@ async function ensureTables(pool) {
             CREATE INDEX IF NOT EXISTS idx_w2ph_user    ON web2_product_history(user_id);
         `);
 
+        // Guard schema chéo (2026-06-12): cascade PATCH + migration 078 bên dưới
+        // ghi fast_sale_orders.updated_at nhưng schema PBH chưa từng có cột này
+        // → edit SP 500 "column updated_at does not exist". Thêm ở đây (ngoài
+        // fast-sale-orders ensureTables) vì products PATCH có thể chạy TRƯỚC
+        // khi bất kỳ route PBH nào được gọi sau boot.
+        await pool.query(
+            `ALTER TABLE IF EXISTS fast_sale_orders ADD COLUMN IF NOT EXISTS updated_at BIGINT`
+        );
+
         // Migration 078: backfill snapshot fields (imageUrl + name + price) cho
         // các đơn đã chọn SP. Trước commit 8d89d1c0 (2026-05-21 02:26 UTC), PATCH
         // web2_products chỉ ghi 1 row, không cascade → snapshot trong native_orders.
