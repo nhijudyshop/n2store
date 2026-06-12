@@ -2,6 +2,16 @@
 
 ## 2026-06-12
 
+### [delivery-report] Ẩn nút Gửi Kèm (hiện sau 3-click tiêu đề) + đổi tên "Copy ảnh bàn giao" → "Ảnh Thành Phố" ✅
+
+**User:** nút Gửi Kèm cho ẩn đi, click 3 lần vào tiêu đề "Thống Kê Giao Hàng" mới thấy (như mấy nút ảnh); nút copy ảnh bàn giao ở tab Thành phố đổi tên thành "Ảnh Thành Phố".
+
+- `index.html`: `#drBtnSendAlong` thêm `style="display:none"` (ẩn mặc định); nút `#drBtnCopyHandover` đổi label "Copy ảnh bàn giao" → "Ảnh Thành Phố" (reset innerHTML trong `copyHandoverImage` dùng innerHTML đã capture nên không cần sửa JS). Bump `delivery-report.js?v=20260612i`.
+- `delivery-report.js` `setupTitleTripleClick`: khi đủ 3 click → `#drBtnSendAlong` `style.display=''` (đặt TRƯỚC nhánh lite-mode để hiện ở MỌI chế độ, không phụ thuộc traSoat/lite).
+- **Test (Playwright):** load page → Gửi Kèm `display:none` (ẩn); click tiêu đề 3 lần → `display:flex` (hiện); nút tab Thành phố hiển thị "Ảnh Thành Phố".
+
+**Status:** ✅ Done.
+
 ### [web2] [render] Cluster GMT+7 (3H20 + revenue_7d + audit-log + 4 client fmt) + verify đợt I/E live ✅
 
 **User:** "continue" sau đợt I+E. Code vào `6020700af` (bị auto-sweep bởi session song song — nội dung đủ).

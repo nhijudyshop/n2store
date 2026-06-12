@@ -181,6 +181,9 @@
             if (clicks >= 3) {
                 clicks = 0;
                 if (timer) clearTimeout(timer);
+                // Nút "Gửi Kèm" ẩn mặc định — hiện sau 3 lần click tiêu đề (mọi chế độ)
+                const saBtn = document.getElementById('drBtnSendAlong');
+                if (saBtn) saBtn.style.display = '';
                 const state = DeliveryReportState;
                 if (state.uiMode !== 'lite') return;
                 if (state.traSoatMode) {
