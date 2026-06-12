@@ -1745,12 +1745,13 @@
     }) {
         const W = 900;
         const PAD = 24;
-        const MID = 560; // vạch chia 2 cột: trái GIAO (rộng — chứa bảng 0đ), phải THU VỀ
+        const MID = 470; // vạch chia 2 cột: thu gọn cột trái, chừa chỗ cho bảng 3 cột THU VỀ
         const GAP = 28;
         const LEFT_R = MID - GAP / 2; // mép phải cột trái
         const RIGHT_L = MID + GAP / 2; // mép trái cột phải
         const ZROW_H = 32; // row bảng 0đ (compact)
-        const RROW_H = 46; // row thu về (2 dòng: tên / SĐT + SL + giá trị)
+        const RNAME_H = 26; // dòng tên KH thu về
+        const RPROD_H = 22; // dòng sản phẩm thu về (mã SP | SL | giá trị)
         const feeK = HANDOVER_SHIP_FEE / 1000; // 20 (nghìn)
 
         const returnCount = returnItems.length;
@@ -1762,9 +1763,31 @@
         const grandCount = cityCount + returnCount;
         const grandTotal = cityNet + returnNet;
 
+        // Mỗi đơn thu về = 1 dòng tên + N dòng sản phẩm (mã/SL/giá trị từ ticket).
+        // Server cũ chỉ trả aggregate → fallback gộp 1 dòng. Không khớp ticket → "—".
+        const returnBlocks = returnItems.map((item) => {
+            const h = returnHandoverMap ? returnHandoverMap[item.Number] : null;
+            let prods = Array.isArray(h?.products) ? h.products.slice() : [];
+            if (prods.length === 0 && h) {
+                prods = [
+                    {
+                        code: (h.product_codes || []).join(', '),
+                        quantity: h.quantity,
+                        value: h.value,
+                    },
+                ];
+            }
+            if (prods.length === 0) prods = [{ code: '', quantity: null, value: null }];
+            return { item, prods };
+        });
+        const rightRowsH = returnBlocks.reduce(
+            (s, b) => s + RNAME_H + b.prods.length * RPROD_H + 8,
+            0
+        );
+
         const zeroRows = Math.max(zeroItems.length, 1); // 0 đơn → 1 dòng "Không có đơn 0đ"
         const leftH = PAD + 14 + 30 + 26 + 26 + 16 + 30 + 26 + zeroRows * ZROW_H + 6;
-        const rightH = PAD + 14 + 30 + 26 + 26 + 16 + Math.max(returnCount, 1) * RROW_H + 14;
+        const rightH = PAD + 126 + (returnCount > 0 ? 20 + rightRowsH : 40) + 4;
         const contentH = Math.max(leftH, rightH);
         const H = contentH + 16 + 24 + 18; // divider + dòng Tổng + đệm đáy
         const scale = 2;
@@ -1832,15 +1855,16 @@
         ctx.font = `bold 17px ${FONT}`;
         ctx.fillText(`ĐƠN 0đ (${formatNumber(zeroItems.length)} đơn)`, PAD, y);
 
-        const ZCOL = { idx: PAD, name: PAD + 26, thu: LEFT_R - 80, value: LEFT_R };
+        // Cột Giá trị TRƯỚC, Thu SAU (user yêu cầu đổi vị trí 2026-06-12)
+        const ZCOL = { idx: PAD, name: PAD + 26, value: LEFT_R - 64, thu: LEFT_R };
         y += 26;
         ctx.font = `bold 13px ${FONT}`;
         ctx.fillStyle = '#6b7280';
         ctx.fillText('#', ZCOL.idx, y);
         ctx.fillText('Khách hàng — SĐT', ZCOL.name, y);
         ctx.textAlign = 'right';
-        ctx.fillText('Thu', ZCOL.thu, y);
         ctx.fillText('Giá trị', ZCOL.value, y);
+        ctx.fillText('Thu', ZCOL.thu, y);
 
         if (zeroItems.length === 0) {
             y += ZROW_H;
@@ -1870,16 +1894,17 @@
                 ctx.fillText(
                     truncate(
                         `${name}${phone ? ' — ' + phone : ''}`,
-                        ZCOL.thu - ZCOL.name - 50
+                        ZCOL.value - ZCOL.name - 50
                     ),
                     ZCOL.name,
                     y
                 );
 
                 ctx.textAlign = 'right';
-                ctx.fillText(formatThousand(item.CashOnDelivery), ZCOL.thu, y);
                 ctx.fillStyle = '#b45309';
                 ctx.fillText(formatThousand(item.AmountTotal), ZCOL.value, y);
+                ctx.fillStyle = '#111827';
+                ctx.fillText(formatThousand(item.CashOnDelivery), ZCOL.thu, y);
             });
         }
 
@@ -1926,64 +1951,66 @@
         ctx.stroke();
         ry += 14;
         if (returnCount === 0) {
-            ry += RROW_H / 2 + 8;
+            ry += 20;
             ctx.font = `italic 14px ${FONT}`;
             ctx.fillStyle = '#9ca3af';
             ctx.fillText('Không có món thu về', RIGHT_L, ry);
         } else {
-            returnItems.forEach((item, i) => {
-                const rowTop = ry;
-                ry += RROW_H;
+            // Header 3 cột: Mã SP | SL | Giá trị (giá trị = đơn giá × SL từng món)
+            const RCOL = { code: RIGHT_L + 16, sl: W - PAD - 80, value: W - PAD };
+            ry += 20;
+            ctx.textAlign = 'left';
+            ctx.font = `bold 13px ${FONT}`;
+            ctx.fillStyle = '#6b7280';
+            ctx.fillText('Mã SP', RCOL.code, ry);
+            ctx.textAlign = 'right';
+            ctx.fillText('SL', RCOL.sl, ry);
+            ctx.fillText('Giá trị', RCOL.value, ry);
+
+            returnBlocks.forEach((block, i) => {
+                const name = block.item.PartnerDisplayName || block.item.CustomerName || '';
+                const phone = block.item.Phone || block.item.Ship_Receiver_Phone || '';
+
+                ry += RNAME_H;
                 if (i > 0) {
                     ctx.strokeStyle = '#f3f4f6';
                     ctx.lineWidth = 1;
                     ctx.beginPath();
-                    ctx.moveTo(RIGHT_L, rowTop);
-                    ctx.lineTo(W - PAD, rowTop);
+                    ctx.moveTo(RIGHT_L, ry - RNAME_H + 8);
+                    ctx.lineTo(W - PAD, ry - RNAME_H + 8);
                     ctx.stroke();
                 }
-
-                const h = returnHandoverMap ? returnHandoverMap[item.Number] : null;
-                const name = item.PartnerDisplayName || item.CustomerName || '';
-                const phone = item.Phone || item.Ship_Receiver_Phone || '';
-
-                // Dòng 1: tên KH (trái) + "SL: x · <giá trị>" cùng 1 dòng (phải)
-                const valStr = h && h.value != null ? formatThousand(h.value) : '—';
-                const slStr = `SL: ${h && h.quantity != null ? formatNumber(h.quantity) : '—'} · `;
-                ctx.textAlign = 'right';
-                ctx.font = `bold 14px ${FONT}`;
-                ctx.fillStyle = '#b45309';
-                ctx.fillText(valStr, W - PAD, rowTop + 12);
-                const valW = ctx.measureText(valStr).width;
-                ctx.font = `13px ${FONT}`;
-                ctx.fillStyle = '#9ca3af';
-                ctx.fillText(slStr, W - PAD - valW, rowTop + 12);
-                const slBlockW = valW + ctx.measureText(slStr).width;
-
                 ctx.textAlign = 'left';
-                ctx.font = `bold 15px ${FONT}`;
+                ctx.font = `bold 14px ${FONT}`;
                 ctx.fillStyle = '#111827';
                 ctx.fillText(
-                    truncate(`${i + 1}. ${name}`, W - PAD - RIGHT_L - slBlockW - 12),
+                    truncate(
+                        `${i + 1}. ${name}${phone ? ' — ' + phone : ''}`,
+                        W - PAD - RIGHT_L - 4
+                    ),
                     RIGHT_L,
-                    rowTop + 12
+                    ry
                 );
 
-                // Dòng 2: SĐT (trái) + mã sản phẩm (phải)
-                ctx.font = `13px ${FONT}`;
-                ctx.fillStyle = '#9ca3af';
-                ctx.fillText(phone, RIGHT_L + 16, rowTop + 33);
-
-                const codes = Array.isArray(h?.product_codes) ? h.product_codes : [];
-                const codeStr = codes.length > 0 ? codes.join(', ') : '—';
-                ctx.textAlign = 'right';
-                ctx.font = `bold 13px ${FONT}`;
-                ctx.fillStyle = '#374151';
-                ctx.fillText(
-                    truncate(codeStr, W - PAD - RIGHT_L - 130),
-                    W - PAD,
-                    rowTop + 33
-                );
+                block.prods.forEach((p) => {
+                    ry += RPROD_H;
+                    ctx.textAlign = 'left';
+                    ctx.font = `bold 13px ${FONT}`;
+                    ctx.fillStyle = '#374151';
+                    ctx.fillText(truncate(p.code || '—', RCOL.sl - RCOL.code - 50), RCOL.code, ry);
+                    ctx.textAlign = 'right';
+                    ctx.font = `13px ${FONT}`;
+                    ctx.fillStyle = '#111827';
+                    ctx.fillText(
+                        p.quantity != null ? formatNumber(p.quantity) : '—',
+                        RCOL.sl,
+                        ry
+                    );
+                    ctx.font = `bold 13px ${FONT}`;
+                    ctx.fillStyle = '#b45309';
+                    ctx.fillText(p.value != null ? formatThousand(p.value) : '—', RCOL.value, ry);
+                });
+                ry += 8;
             });
         }
 

@@ -2,6 +2,16 @@
 
 ## 2026-06-12
 
+### [delivery-report][render] Ảnh bàn giao v6: bảng 0đ đổi chỗ Giá trị↔Thu + Thu về 3 cột Mã SP/SL/Giá trị ✅
+
+**User chỉnh** (sau v5): bảng 0đ đổi vị trí cột Giá trị trước - Thu sau; thu gọn cột trái chừa chỗ cho Thu về; bên Thu về tách rõ 3 cột Mã SP – SL – Giá trị (giá trị = đơn giá × SL từng món).
+
+- **Server** tickets.js: handover-batch trả thêm `products: [{code, quantity, value}]` (helper `extractTicketReturnProducts`, cùng cách tính `computeTicketReturnTotals`) — append-only, giữ `product_codes` + aggregate cũ.
+- **Client** canvas: `MID 560→470` (cột phải rộng 392px); bảng 0đ cột `Giá trị | Thu`; Thu về = header 3 cột + mỗi đơn: dòng tên—SĐT đậm + N dòng sản phẩm (mã trái, SL/giá trị phải). Server cũ chưa deploy → fallback gộp aggregate 1 dòng; không khớp ticket → `—`. Cache-bust `?v=20260612c`.
+- **Test:** stub products 2 món (Q636D 1×340, A125DAMHOA 2×680) + 1 đơn chỉ aggregate — render đúng cả 2 kiểu, Tổng 5 đơn 1.785 = 710 + 1.075.
+
+**Status:** ✅ Done.
+
 ### [docs] [web2] Audit VÒNG 3 toàn bộ 35 trang Web 2.0 + sweep tách Web 1.0 ⊥ Web 2.0 ✅
 
 **User:** xem/đọc/phân tích chi tiết từng trang menu Web 2.0 — hiểu cách vận hành, tìm bug/race condition, đề xuất cải thiện; cập nhật overview + file MD; kiểm tra toàn bộ đã dùng Web 2.0, không dùng Web 1.0.

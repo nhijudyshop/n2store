@@ -108,6 +108,22 @@ function extractTicketProductCodes(ticket) {
         .filter(Boolean);
 }
 
+/**
+ * Chi tiết từng món thu về (mã SP + SL + thành tiền = đơn giá × SL) cho ảnh
+ * bàn giao delivery-report — cùng cách tính với computeTicketReturnTotals.
+ */
+function extractTicketReturnProducts(ticket) {
+    const products = Array.isArray(ticket.products) ? ticket.products : [];
+    return products.map((p) => {
+        const q = parseFloat(p?.returnQuantity) || parseFloat(p?.quantity) || 1;
+        return {
+            code: String(p?.code || p?.DefaultCode || p?.barcode || '').trim(),
+            quantity: q,
+            value: Math.round((parseFloat(p?.price) || 0) * q),
+        };
+    });
+}
+
 // =====================================================
 // ROUTES
 // =====================================================
@@ -284,6 +300,7 @@ router.post('/handover-batch', async (req, res) => {
                         ticket_id: t.id,
                         ...computeTicketReturnTotals(t),
                         product_codes: extractTicketProductCodes(t),
+                        products: extractTicketReturnProducts(t),
                         handover_at: t.handover_at,
                         handover_by: t.handover_by,
                         already_handed_over: true
@@ -338,6 +355,7 @@ router.post('/handover-batch', async (req, res) => {
                     ticket_id: t.id,
                     ...computeTicketReturnTotals(t),
                     product_codes: extractTicketProductCodes(t),
+                    products: extractTicketReturnProducts(t),
                     handover_at: t.handover_at,
                     handover_by: t.handover_by,
                     already_handed_over: false
