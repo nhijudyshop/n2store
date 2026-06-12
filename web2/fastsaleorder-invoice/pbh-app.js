@@ -516,27 +516,20 @@
         }
     }
 
-    async function createRefund(number) {
-        const reason = await w2pPrompt(`Lý do trả hàng?`, {
-            title: `Tạo phiếu trả từ ${number}`,
-            defaultValue: 'Khách đổi/trả',
-            placeholder: 'Nhập lý do (vd: hàng lỗi, sai size)',
-            okText: 'Tạo refund',
-            type: 'warning',
+    // 1D-refunds-old-flow FIX (2026-06-12): flow refunds.js cũ là SỔ GHI CHẾT —
+    // approve/complete không hoàn kho/ví. Nút "Trả hàng" giờ mở trang Thu về
+    // (web2-returns: cộng kho + hoàn ví đúng vòng đời PBH, đã atomic từ 3H2)
+    // với KH + đơn được chọn sẵn. POST /api/refunds/from-pbh server trả 410.
+    function createRefund(number) {
+        const row = STATE.items.find((x) => x.number === number);
+        const phone = row?.partnerPhone || row?.partner_phone || '';
+        const name = row?.partnerName || row?.partner_name || '';
+        const q = new URLSearchParams({
+            prefillPhone: phone,
+            prefillOrder: number,
+            prefillName: name,
         });
-        if (!reason) return;
-        try {
-            const r = await fetch(`${WORKER}/api/refunds/from-pbh`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ pbhNumber: number, reason, refundMode: 'cash' }),
-            });
-            const data = await r.json();
-            if (!r.ok || !data.success) throw new Error(data.error || `HTTP ${r.status}`);
-            notify(`Đã tạo refund ${data.order.number}`, 'success');
-        } catch (e) {
-            notify('Lỗi: ' + e.message, 'error');
-        }
+        window.location.href = `../returns/index.html?${q}`;
     }
 
     function exportCsv() {

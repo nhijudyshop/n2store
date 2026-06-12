@@ -650,43 +650,78 @@ router.post('/:number/pack', async (req, res) => {
     const user = userFromReq(req);
     try {
         await ensureTables(pool);
-        const before = await getPbh(pool, number);
-        if (!before) return res.status(404).json({ error: 'PBH not found' });
-        if (!['draft', 'confirmed', 'done'].includes(before.state)) {
-            return res.status(400).json({ error: `PBH state=${before.state} không thể đóng gói` });
+        // 1D-reconcile-no-lock FIX (2026-06-12): read-then-update cũ không lock,
+        // và whitelist thiếu → PBH shipped/delivered đủ picked_lines bị kéo LÙI
+        // về 'packed'. Giờ: withTransaction + FOR UPDATE + whitelist nguồn
+        // ['pending','picking','picked'] (cùng pattern delivery-invoices._changeState).
+        let stateBefore;
+        try {
+            stateBefore = await withTransaction(pool, async (client) => {
+                const r = await client.query(
+                    `SELECT state, fulfillment_state, order_lines, fulfillment_picked_lines
+                     FROM fast_sale_orders WHERE number = $1 FOR UPDATE`,
+                    [number]
+                );
+                if (r.rows.length === 0) {
+                    const err = new Error('PBH not found');
+                    err.httpStatus = 404;
+                    throw err;
+                }
+                const before = r.rows[0];
+                if (!['draft', 'confirmed', 'done'].includes(before.state)) {
+                    const err = new Error(`PBH state=${before.state} không thể đóng gói`);
+                    err.httpStatus = 400;
+                    throw err;
+                }
+                const sBefore = before.fulfillment_state || 'pending';
+                if (!['pending', 'picking', 'picked'].includes(sBefore)) {
+                    const err = new Error(
+                        `Không đóng gói được từ trạng thái '${sBefore}' (đã packed/shipped/delivered?)`
+                    );
+                    err.httpStatus = 400;
+                    throw err;
+                }
+                if (sBefore !== 'picked') {
+                    // Verify đủ hàng
+                    const lines = Array.isArray(before.order_lines) ? before.order_lines : [];
+                    const picked = Array.isArray(before.fulfillment_picked_lines)
+                        ? before.fulfillment_picked_lines
+                        : [];
+                    const pickedMap = new Map(
+                        picked.map((p) => [normCode(p.productCode), p.picked_qty || 0])
+                    );
+                    const missing = [];
+                    for (const l of lines) {
+                        const code = l.productCode || l.code;
+                        const need = Number(l.quantity) || 0;
+                        const got = pickedMap.get(normCode(code)) || 0;
+                        if (got < need)
+                            missing.push({ code, name: l.productName || l.name, need, got });
+                    }
+                    if (missing.length > 0) {
+                        const err = new Error('Chưa đủ hàng để đóng gói');
+                        err.httpStatus = 400;
+                        err.missing = missing;
+                        throw err;
+                    }
+                }
+                await client.query(
+                    `UPDATE fast_sale_orders
+                     SET fulfillment_state = 'packed',
+                         fulfillment_packed_at = $1,
+                         date_updated = NOW()
+                     WHERE number = $2`,
+                    [Date.now(), number]
+                );
+                return sBefore;
+            });
+        } catch (err) {
+            if (err.httpStatus)
+                return res
+                    .status(err.httpStatus)
+                    .json({ error: err.message, missing: err.missing });
+            throw err;
         }
-        const stateBefore = before.fulfillment_state || 'pending';
-        if (stateBefore !== 'picked') {
-            // Verify đủ hàng
-            const lines = Array.isArray(before.order_lines) ? before.order_lines : [];
-            const picked = Array.isArray(before.fulfillment_picked_lines)
-                ? before.fulfillment_picked_lines
-                : [];
-            const pickedMap = new Map(
-                picked.map((p) => [normCode(p.productCode), p.picked_qty || 0])
-            );
-            const missing = [];
-            for (const l of lines) {
-                const code = l.productCode || l.code;
-                const need = Number(l.quantity) || 0;
-                const got = pickedMap.get(normCode(code)) || 0;
-                if (got < need) missing.push({ code, name: l.productName || l.name, need, got });
-            }
-            if (missing.length > 0) {
-                return res.status(400).json({
-                    error: 'Chưa đủ hàng để đóng gói',
-                    missing,
-                });
-            }
-        }
-        await pool.query(
-            `UPDATE fast_sale_orders
-             SET fulfillment_state = 'packed',
-                 fulfillment_packed_at = $1,
-                 date_updated = NOW()
-             WHERE number = $2`,
-            [Date.now(), number]
-        );
         await logAction(pool, number, 'pack', {}, stateBefore, 'packed', user);
         _notify('pack', number);
         const row = await getPbh(pool, number);
@@ -709,37 +744,55 @@ router.post('/:number/cancel-pack', async (req, res) => {
     const user = userFromReq(req);
     try {
         await ensureTables(pool);
-        const r = await pool.query(
-            `SELECT order_lines, fulfillment_state, fulfillment_picked_lines
-             FROM fast_sale_orders WHERE number = $1`,
-            [number]
-        );
-        if (r.rows.length === 0) return res.status(404).json({ error: 'PBH not found' });
-        const row = r.rows[0];
-        const stateBefore = row.fulfillment_state || 'pending';
-        if (stateBefore !== 'packed') {
-            return res
-                .status(400)
-                .json({ error: `Chỉ hủy đóng gói khi đang ở 'packed' (hiện: ${stateBefore})` });
+        // 1D-reconcile-no-lock FIX: lock + check + UPDATE cùng transaction —
+        // hết race /cancel-pack đua /ship (đọc 'packed' cũ rồi kéo lùi sau khi ship).
+        let stateBefore;
+        let newState;
+        try {
+            ({ stateBefore, newState } = await withTransaction(pool, async (client) => {
+                const r = await client.query(
+                    `SELECT order_lines, fulfillment_state, fulfillment_picked_lines
+                     FROM fast_sale_orders WHERE number = $1 FOR UPDATE`,
+                    [number]
+                );
+                if (r.rows.length === 0) {
+                    const err = new Error('PBH not found');
+                    err.httpStatus = 404;
+                    throw err;
+                }
+                const row = r.rows[0];
+                const sBefore = row.fulfillment_state || 'pending';
+                if (sBefore !== 'packed') {
+                    const err = new Error(
+                        `Chỉ hủy đóng gói khi đang ở 'packed' (hiện: ${sBefore})`
+                    );
+                    err.httpStatus = 400;
+                    throw err;
+                }
+                // Tính lại state từ picked_lines hiện có.
+                const lines = Array.isArray(row.order_lines) ? row.order_lines : [];
+                const picked = Array.isArray(row.fulfillment_picked_lines)
+                    ? row.fulfillment_picked_lines
+                    : [];
+                const totalQty = lines.reduce((s2, l) => s2 + (Number(l.quantity) || 0), 0);
+                const totalPicked = picked.reduce((s2, p) => s2 + (Number(p.picked_qty) || 0), 0);
+                let ns = 'picking';
+                if (totalPicked === 0) ns = 'pending';
+                else if (totalPicked >= totalQty) ns = 'picked';
+                await client.query(
+                    `UPDATE fast_sale_orders
+                     SET fulfillment_state = $1,
+                         fulfillment_packed_at = NULL,
+                         date_updated = NOW()
+                     WHERE number = $2`,
+                    [ns, number]
+                );
+                return { stateBefore: sBefore, newState: ns };
+            }));
+        } catch (err) {
+            if (err.httpStatus) return res.status(err.httpStatus).json({ error: err.message });
+            throw err;
         }
-        // Tính lại state từ picked_lines hiện có.
-        const lines = Array.isArray(row.order_lines) ? row.order_lines : [];
-        const picked = Array.isArray(row.fulfillment_picked_lines)
-            ? row.fulfillment_picked_lines
-            : [];
-        const totalQty = lines.reduce((s, l) => s + (Number(l.quantity) || 0), 0);
-        const totalPicked = picked.reduce((s, p) => s + (Number(p.picked_qty) || 0), 0);
-        let newState = 'picking';
-        if (totalPicked === 0) newState = 'pending';
-        else if (totalPicked >= totalQty) newState = 'picked';
-        await pool.query(
-            `UPDATE fast_sale_orders
-             SET fulfillment_state = $1,
-                 fulfillment_packed_at = NULL,
-                 date_updated = NOW()
-             WHERE number = $2`,
-            [newState, number]
-        );
         await logAction(pool, number, 'cancel-pack', {}, stateBefore, newState, user);
         _notify('cancel-pack', number);
         const updated = await getPbh(pool, number);
@@ -760,22 +813,48 @@ router.post('/:number/ship', async (req, res) => {
     const user = userFromReq(req);
     try {
         await ensureTables(pool);
-        const before = await getPbh(pool, number);
-        if (!before) return res.status(404).json({ error: 'PBH not found' });
-        const stateBefore = before.fulfillment_state || 'pending';
-        if (stateBefore !== 'packed') {
-            return res
-                .status(400)
-                .json({ error: `Phải đóng gói trước khi giao shipper (hiện: ${stateBefore})` });
+        // 1D-reconcile-no-lock FIX: lock + whitelist + chặn PBH đã huỷ
+        // (trước đây không check state → PBH cancel vẫn ship được).
+        let stateBefore;
+        try {
+            stateBefore = await withTransaction(pool, async (client) => {
+                const r = await client.query(
+                    `SELECT state, fulfillment_state FROM fast_sale_orders
+                     WHERE number = $1 FOR UPDATE`,
+                    [number]
+                );
+                if (r.rows.length === 0) {
+                    const err = new Error('PBH not found');
+                    err.httpStatus = 404;
+                    throw err;
+                }
+                if (r.rows[0].state === 'cancel') {
+                    const err = new Error('PBH đã huỷ — không thể giao shipper');
+                    err.httpStatus = 400;
+                    throw err;
+                }
+                const sBefore = r.rows[0].fulfillment_state || 'pending';
+                if (sBefore !== 'packed') {
+                    const err = new Error(
+                        `Phải đóng gói trước khi giao shipper (hiện: ${sBefore})`
+                    );
+                    err.httpStatus = 400;
+                    throw err;
+                }
+                await client.query(
+                    `UPDATE fast_sale_orders
+                     SET fulfillment_state = 'shipped',
+                         fulfillment_shipped_at = $1,
+                         date_updated = NOW()
+                     WHERE number = $2`,
+                    [Date.now(), number]
+                );
+                return sBefore;
+            });
+        } catch (err) {
+            if (err.httpStatus) return res.status(err.httpStatus).json({ error: err.message });
+            throw err;
         }
-        await pool.query(
-            `UPDATE fast_sale_orders
-             SET fulfillment_state = 'shipped',
-                 fulfillment_shipped_at = $1,
-                 date_updated = NOW()
-             WHERE number = $2`,
-            [Date.now(), number]
-        );
         await logAction(pool, number, 'ship', {}, stateBefore, 'shipped', user);
         _notify('ship', number);
         const row = await getPbh(pool, number);
@@ -795,22 +874,45 @@ router.post('/:number/deliver', async (req, res) => {
     const user = userFromReq(req);
     try {
         await ensureTables(pool);
-        const before = await getPbh(pool, number);
-        if (!before) return res.status(404).json({ error: 'PBH not found' });
-        const stateBefore = before.fulfillment_state || 'pending';
-        if (stateBefore !== 'shipped') {
-            return res
-                .status(400)
-                .json({ error: `Phải ship trước khi giao thành công (hiện: ${stateBefore})` });
+        // 1D-reconcile-no-lock FIX: lock + whitelist + chặn PBH đã huỷ.
+        let stateBefore;
+        try {
+            stateBefore = await withTransaction(pool, async (client) => {
+                const r = await client.query(
+                    `SELECT state, fulfillment_state FROM fast_sale_orders
+                     WHERE number = $1 FOR UPDATE`,
+                    [number]
+                );
+                if (r.rows.length === 0) {
+                    const err = new Error('PBH not found');
+                    err.httpStatus = 404;
+                    throw err;
+                }
+                if (r.rows[0].state === 'cancel') {
+                    const err = new Error('PBH đã huỷ — không thể đánh dấu giao thành công');
+                    err.httpStatus = 400;
+                    throw err;
+                }
+                const sBefore = r.rows[0].fulfillment_state || 'pending';
+                if (sBefore !== 'shipped') {
+                    const err = new Error(`Phải ship trước khi giao thành công (hiện: ${sBefore})`);
+                    err.httpStatus = 400;
+                    throw err;
+                }
+                await client.query(
+                    `UPDATE fast_sale_orders
+                     SET fulfillment_state = 'delivered',
+                         fulfillment_delivered_at = $1,
+                         date_updated = NOW()
+                     WHERE number = $2`,
+                    [Date.now(), number]
+                );
+                return sBefore;
+            });
+        } catch (err) {
+            if (err.httpStatus) return res.status(err.httpStatus).json({ error: err.message });
+            throw err;
         }
-        await pool.query(
-            `UPDATE fast_sale_orders
-             SET fulfillment_state = 'delivered',
-                 fulfillment_delivered_at = $1,
-                 date_updated = NOW()
-             WHERE number = $2`,
-            [Date.now(), number]
-        );
         await logAction(pool, number, 'deliver', {}, stateBefore, 'delivered', user);
         _notify('deliver', number);
         const row = await getPbh(pool, number);

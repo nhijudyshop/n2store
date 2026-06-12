@@ -760,6 +760,38 @@
         if (tab === 'pending') switchTab('pending');
         else if (tab === 'list') switchTab('list');
         else switchTab('create');
+        // Prefill từ trang PBH (khai tử flow refunds.js cũ — 1D-refunds-old-flow):
+        // ?prefillPhone=&prefillOrder=&prefillName= → chọn sẵn KH + đơn nguồn,
+        // subType 'khong_nhan_hang' (thu hàng về + hoàn ví đúng vòng đời PBH).
+        const pfPhone = params.get('prefillPhone');
+        const pfOrder = params.get('prefillOrder');
+        if (pfPhone) {
+            (async () => {
+                try {
+                    switchTab('create');
+                    onIssueChange('van_de_khach');
+                    onSubTypeChange('khong_nhan_hang');
+                    const st = document.querySelector(
+                        `input[name="subType"][value="khong_nhan_hang"]`
+                    );
+                    if (st) st.checked = true;
+                    await pickCustomer(pfPhone, params.get('prefillName') || '', null);
+                    await loadCustomerOrders();
+                    if (pfOrder) {
+                        const el = document.querySelector(
+                            `#orderList .rt-order[data-code="${CSS.escape(pfOrder)}"]`
+                        );
+                        if (el) {
+                            await pickOrder(pfOrder, el.dataset.type, el.dataset.total);
+                        } else {
+                            toast(`Không thấy đơn ${pfOrder} trong DS đơn của khách`, 'error');
+                        }
+                    }
+                } catch (e) {
+                    console.warn('[returns] prefill fail:', e.message);
+                }
+            })();
+        }
         if (window.lucide) lucide.createIcons();
     }
 
