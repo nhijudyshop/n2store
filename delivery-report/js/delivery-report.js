@@ -1713,11 +1713,11 @@
     // ── Copy ảnh bàn giao TP cho shipper ───────────────────────────
     // Sinh ảnh PNG thay tờ giấy viết tay khi bàn giao đơn Thành phố.
     // Layout 2 CỘT (tối ưu xem Zalo điện thoại/PC): trái = GIAO (tổng đơn
-    // TP − phí ship 20k/đơn = còn lại + bảng đơn 0đ), phải = THU VỀ (tên
-    // KH + SL + giá trị món từ ticket CSKH — KHÔNG tính ship, shipper tiện
-    // đường mang về giúp shop). Dòng Tổng cuối = còn lại TP + tiền thu về.
+    // TP − phí ship 20k/đơn = còn lại + bảng đơn 0đ), phải = THU VỀ (tổng −
+    // phí ship như bên TP = còn lại + từng khách: tên + SL · giá trị + mã SP
+    // từ ticket CSKH). Dòng Tổng cuối = còn lại TP + còn lại thu về.
     // Chỉ đơn ĐÃ QUÉT. Tiền đơn vị NGHÌN (110.298 = 110.298.000đ).
-    const HANDOVER_SHIP_FEE = 20000; // phí ship shipper 20k/đơn giao
+    const HANDOVER_SHIP_FEE = 20000; // phí ship shipper 20k/đơn
     function formatThousand(v) {
         return new Intl.NumberFormat('vi-VN').format(Math.round((v || 0) / 1000));
     }
@@ -1757,13 +1757,16 @@
         const returnTotal = returnItems.reduce((s, i) => s + (i.CashOnDelivery || 0), 0);
         const cityShip = cityCount * HANDOVER_SHIP_FEE;
         const cityNet = cityTotal - cityShip;
-        // Thu về KHÔNG tính phí ship — shipper tiện đường giao mang về giúp shop
+        const returnShip = returnCount * HANDOVER_SHIP_FEE;
+        const returnNet = returnTotal - returnShip;
+        const grandCount = cityCount + returnCount;
+        const grandTotal = cityNet + returnNet;
 
         const zeroRows = Math.max(zeroItems.length, 1); // 0 đơn → 1 dòng "Không có đơn 0đ"
         const leftH = PAD + 14 + 30 + 26 + 26 + 16 + 30 + 26 + zeroRows * ZROW_H + 6;
-        const rightH = PAD + 14 + 30 + 16 + Math.max(returnCount, 1) * RROW_H + 6;
+        const rightH = PAD + 14 + 30 + 26 + 26 + 16 + Math.max(returnCount, 1) * RROW_H + 14;
         const contentH = Math.max(leftH, rightH);
-        const H = contentH + 14 + 20 + 12; // divider + dòng timestamp + đệm đáy
+        const H = contentH + 16 + 24 + 18; // divider + dòng Tổng + đệm đáy
         const scale = 2;
 
         const canvas = document.createElement('canvas');
@@ -1880,7 +1883,7 @@
             });
         }
 
-        // ── CỘT PHẢI: THU VỀ (không phí ship) ──
+        // ── CỘT PHẢI: THU VỀ (tính phí ship như bên TP) ──
         let ry = PAD + 14;
         ctx.textAlign = 'left';
         ctx.fillStyle = '#7c3aed';
@@ -1899,7 +1902,29 @@
             ry
         );
 
+        ry += 26;
+        ctx.font = `15px ${FONT}`;
+        ctx.fillStyle = '#6b7280';
+        ctx.fillText(
+            `Phí ship (${formatNumber(returnCount)} × ${feeK}): − ${formatThousand(returnShip)}`,
+            RIGHT_L,
+            ry
+        );
+
+        ry += 26;
+        ctx.font = `bold 18px ${FONT}`;
+        ctx.fillStyle = '#047857';
+        ctx.fillText(`Còn lại: ${formatThousand(returnNet)}`, RIGHT_L, ry);
+
+        // Sub-divider cột phải (đối xứng cột trái)
         ry += 16;
+        ctx.strokeStyle = '#e5e7eb';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(RIGHT_L, ry);
+        ctx.lineTo(W - PAD, ry);
+        ctx.stroke();
+        ry += 14;
         if (returnCount === 0) {
             ry += RROW_H / 2 + 8;
             ctx.font = `italic 14px ${FONT}`;
@@ -1922,31 +1947,43 @@
                 const name = item.PartnerDisplayName || item.CustomerName || '';
                 const phone = item.Phone || item.Ship_Receiver_Phone || '';
 
-                // Dòng 1: tên KH
-                ctx.textAlign = 'left';
-                ctx.font = `bold 15px ${FONT}`;
-                ctx.fillStyle = '#111827';
-                ctx.fillText(
-                    truncate(`${i + 1}. ${name}`, W - PAD - RIGHT_L - 8),
-                    RIGHT_L,
-                    rowTop + 12
-                );
-
-                // Dòng 2: SĐT (trái) + "SL: x · <giá trị>" cùng 1 dòng (phải)
-                ctx.font = `13px ${FONT}`;
-                ctx.fillStyle = '#9ca3af';
-                ctx.fillText(phone, RIGHT_L + 16, rowTop + 33);
-
+                // Dòng 1: tên KH (trái) + "SL: x · <giá trị>" cùng 1 dòng (phải)
                 const valStr = h && h.value != null ? formatThousand(h.value) : '—';
                 const slStr = `SL: ${h && h.quantity != null ? formatNumber(h.quantity) : '—'} · `;
                 ctx.textAlign = 'right';
                 ctx.font = `bold 14px ${FONT}`;
                 ctx.fillStyle = '#b45309';
-                ctx.fillText(valStr, W - PAD, rowTop + 33);
+                ctx.fillText(valStr, W - PAD, rowTop + 12);
                 const valW = ctx.measureText(valStr).width;
                 ctx.font = `13px ${FONT}`;
                 ctx.fillStyle = '#9ca3af';
-                ctx.fillText(slStr, W - PAD - valW, rowTop + 33);
+                ctx.fillText(slStr, W - PAD - valW, rowTop + 12);
+                const slBlockW = valW + ctx.measureText(slStr).width;
+
+                ctx.textAlign = 'left';
+                ctx.font = `bold 15px ${FONT}`;
+                ctx.fillStyle = '#111827';
+                ctx.fillText(
+                    truncate(`${i + 1}. ${name}`, W - PAD - RIGHT_L - slBlockW - 12),
+                    RIGHT_L,
+                    rowTop + 12
+                );
+
+                // Dòng 2: SĐT (trái) + mã sản phẩm (phải)
+                ctx.font = `13px ${FONT}`;
+                ctx.fillStyle = '#9ca3af';
+                ctx.fillText(phone, RIGHT_L + 16, rowTop + 33);
+
+                const codes = Array.isArray(h?.product_codes) ? h.product_codes : [];
+                const codeStr = codes.length > 0 ? codes.join(', ') : '—';
+                ctx.textAlign = 'right';
+                ctx.font = `bold 13px ${FONT}`;
+                ctx.fillStyle = '#374151';
+                ctx.fillText(
+                    truncate(codeStr, W - PAD - RIGHT_L - 130),
+                    W - PAD,
+                    rowTop + 33
+                );
             });
         }
 
@@ -1958,21 +1995,30 @@
         ctx.lineTo(MID, contentH);
         ctx.stroke();
 
-        // ── Footer: chỉ timestamp ──
-        const fy = contentH + 14;
+        // ── Footer: Tổng (TP + Thu về, đều đã trừ phí ship) + timestamp ──
+        const fy = contentH + 16;
         ctx.strokeStyle = '#d1d5db';
-        ctx.lineWidth = 1;
+        ctx.lineWidth = 1.5;
         ctx.beginPath();
         ctx.moveTo(PAD, fy);
         ctx.lineTo(W - PAD, fy);
         ctx.stroke();
+
+        const ty = fy + 24;
+        ctx.textAlign = 'left';
+        ctx.fillStyle = '#111827';
+        ctx.font = `bold 19px ${FONT}`;
+        const grandLabel = `Tổng — ${formatNumber(grandCount)} đơn:`;
+        ctx.fillText(grandLabel, PAD, ty);
+        ctx.fillStyle = '#047857';
+        ctx.fillText(` ${formatThousand(grandTotal)}`, PAD + ctx.measureText(grandLabel).width, ty);
 
         ctx.textAlign = 'right';
         ctx.font = `13px ${FONT}`;
         ctx.fillStyle = '#9ca3af';
         const now = new Date();
         const ts = `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-        ctx.fillText(`Tạo lúc: ${ts}`, W - PAD, fy + 18);
+        ctx.fillText(`Tạo lúc: ${ts}`, W - PAD, ty);
 
         return canvas;
     }

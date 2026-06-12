@@ -97,6 +97,17 @@ function computeTicketReturnTotals(ticket) {
     return { quantity, value: Math.round(value) };
 }
 
+/**
+ * Mã sản phẩm các món thu về trong ticket (cho ảnh bàn giao delivery-report).
+ * products[].code = DefaultCode/Barcode lúc tạo ticket — legacy rows thiếu → [].
+ */
+function extractTicketProductCodes(ticket) {
+    const products = Array.isArray(ticket.products) ? ticket.products : [];
+    return products
+        .map((p) => String(p?.code || p?.DefaultCode || p?.barcode || '').trim())
+        .filter(Boolean);
+}
+
 // =====================================================
 // ROUTES
 // =====================================================
@@ -272,6 +283,7 @@ router.post('/handover-batch', async (req, res) => {
                         ticket_code: t.ticket_code,
                         ticket_id: t.id,
                         ...computeTicketReturnTotals(t),
+                        product_codes: extractTicketProductCodes(t),
                         handover_at: t.handover_at,
                         handover_by: t.handover_by,
                         already_handed_over: true
@@ -325,6 +337,7 @@ router.post('/handover-batch', async (req, res) => {
                     ticket_code: t.ticket_code,
                     ticket_id: t.id,
                     ...computeTicketReturnTotals(t),
+                    product_codes: extractTicketProductCodes(t),
                     handover_at: t.handover_at,
                     handover_by: t.handover_by,
                     already_handed_over: false

@@ -16,6 +16,16 @@
 
 ## 2026-06-11
 
+### [delivery-report][render] Ảnh bàn giao v5: khôi phục dòng Tổng + phí ship bên Thu về + cột mã SP ✅
+
+**User chỉnh** (revert 1 phần v4 + bổ sung): hiển thị lại dòng `Tổng` dưới cùng; bên THU VỀ tính phí ship như bên TP (tổng − N×20 = Còn lại); thêm mã sản phẩm món thu về.
+
+- **Server** `render.com/routes/v2/tickets.js`: response handover-batch thêm field `product_codes` (mảng `products[].code` của ticket — append-only, excel cũ không ảnh hưởng; helper `extractTicketProductCodes`).
+- **Client** canvas: cột phải = tổng − phí ship = Còn lại (đối xứng cột trái, có sub-divider); row thu về: dòng 1 = tên + `SL: x · giá trị`, dòng 2 = SĐT + mã SP (đậm, truncate); footer khôi phục `Tổng — N đơn: <còn lại TP + còn lại thu về>` + Tạo lúc. Giữ SL·giá trị cùng 1 dòng (yêu cầu v4). Cache-bust `?v=20260612b`.
+- **Test:** Playwright + stub handover-batch có `product_codes` — verify `1.115 − 40 = 1.075`, `Tổng 6 đơn: 1.890`, mã SP hiện đúng từng khách. ⚠ Mã SP cần Render deploy xong mới có trên prod (client tự fallback `—`).
+
+**Status:** ✅ Done.
+
 ### [delivery-report] Ảnh bàn giao v4: bỏ dòng Tổng cuối + SL·giá trị thu về gộp 1 dòng ✅
 
 **User chỉnh** (sau v3): bỏ dòng `Tổng — 172 đơn` dưới cùng; bên THU VỀ gộp SL + giá trị về cùng 1 dòng (trước đó giá trị ở dòng 1, SL ở dòng 2).
