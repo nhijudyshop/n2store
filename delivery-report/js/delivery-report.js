@@ -1757,7 +1757,6 @@
         returnHandoverMap,
         extraItems,
     }) {
-        const W = 900;
         const PAD = 24;
         const MID = 470; // vạch chia 2 cột: thu gọn cột trái, chừa chỗ cho bảng 3 cột THU VỀ
         const GAP = 28;
@@ -1769,6 +1768,9 @@
         const feeK = HANDOVER_SHIP_FEE / 1000; // 20 (nghìn)
 
         const returnCount = returnItems.length;
+        // Không có thu về → bỏ hẳn cột phải, ảnh thu lại 1 cột
+        const hasReturn = returnCount > 0;
+        const W = hasReturn ? 900 : MID;
         const returnTotal = returnItems.reduce((s, i) => s + (i.CashOnDelivery || 0), 0);
         const cityShip = cityCount * HANDOVER_SHIP_FEE;
         const cityNet = cityTotal - cityShip;
@@ -1820,8 +1822,8 @@
             (hasZero ? 16 + 30 + 26 + zeroItems.length * ZROW_H : 0) +
             (hasExtra ? 16 + 30 + 24 + 26 + extras.length * ZROW_H : 0) +
             6;
-        const rightH = PAD + 126 + (returnCount > 0 ? 20 + rightRowsH : 40) + 4;
-        const contentH = Math.max(leftH, rightH);
+        const rightH = PAD + 126 + 20 + rightRowsH + 4;
+        const contentH = hasReturn ? Math.max(leftH, rightH) : leftH;
         const H = contentH + 16 + 24 + 18; // divider + dòng Tổng + đệm đáy
         const scale = 2;
 
@@ -2012,54 +2014,50 @@
             });
         }
 
-        // ── CỘT PHẢI: THU VỀ (tính phí ship như bên TP) ──
-        let ry = PAD + 14;
-        ctx.textAlign = 'left';
-        ctx.fillStyle = '#7c3aed';
-        ctx.font = `bold 20px ${FONT}`;
-        ctx.fillText('THU VỀ', RIGHT_L, ry);
+        // ── CỘT PHẢI: THU VỀ — chỉ vẽ khi CÓ đơn thu về (0 đơn → ảnh 1 cột) ──
+        if (hasReturn) {
+            let ry = PAD + 14;
+            ctx.textAlign = 'left';
+            ctx.fillStyle = '#7c3aed';
+            ctx.font = `bold 20px ${FONT}`;
+            ctx.fillText('THU VỀ', RIGHT_L, ry);
 
-        ry += 30;
-        ctx.font = `bold 18px ${FONT}`;
-        ctx.fillStyle = '#111827';
-        const retLine = `${formatNumber(returnCount)} đơn:`;
-        ctx.fillText(retLine, RIGHT_L, ry);
-        ctx.fillStyle = '#7c3aed';
-        ctx.fillText(
-            ` ${formatThousand(returnTotal)}`,
-            RIGHT_L + ctx.measureText(retLine).width,
-            ry
-        );
+            ry += 30;
+            ctx.font = `bold 18px ${FONT}`;
+            ctx.fillStyle = '#111827';
+            const retLine = `${formatNumber(returnCount)} đơn:`;
+            ctx.fillText(retLine, RIGHT_L, ry);
+            ctx.fillStyle = '#7c3aed';
+            ctx.fillText(
+                ` ${formatThousand(returnTotal)}`,
+                RIGHT_L + ctx.measureText(retLine).width,
+                ry
+            );
 
-        ry += 26;
-        ctx.font = `15px ${FONT}`;
-        ctx.fillStyle = '#6b7280';
-        ctx.fillText(
-            `Phí ship (${formatNumber(returnCount)} × ${feeK}): − ${formatThousand(returnShip)}`,
-            RIGHT_L,
-            ry
-        );
+            ry += 26;
+            ctx.font = `15px ${FONT}`;
+            ctx.fillStyle = '#6b7280';
+            ctx.fillText(
+                `Phí ship (${formatNumber(returnCount)} × ${feeK}): − ${formatThousand(returnShip)}`,
+                RIGHT_L,
+                ry
+            );
 
-        ry += 26;
-        ctx.font = `bold 18px ${FONT}`;
-        ctx.fillStyle = '#047857';
-        ctx.fillText(`Còn lại: ${formatThousand(returnNet)}`, RIGHT_L, ry);
+            ry += 26;
+            ctx.font = `bold 18px ${FONT}`;
+            ctx.fillStyle = '#047857';
+            ctx.fillText(`Còn lại: ${formatThousand(returnNet)}`, RIGHT_L, ry);
 
-        // Sub-divider cột phải (đối xứng cột trái)
-        ry += 16;
-        ctx.strokeStyle = '#e5e7eb';
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.moveTo(RIGHT_L, ry);
-        ctx.lineTo(W - PAD, ry);
-        ctx.stroke();
-        ry += 14;
-        if (returnCount === 0) {
-            ry += 20;
-            ctx.font = `italic 14px ${FONT}`;
-            ctx.fillStyle = '#9ca3af';
-            ctx.fillText('Không có món thu về', RIGHT_L, ry);
-        } else {
+            // Sub-divider cột phải (đối xứng cột trái)
+            ry += 16;
+            ctx.strokeStyle = '#e5e7eb';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(RIGHT_L, ry);
+            ctx.lineTo(W - PAD, ry);
+            ctx.stroke();
+            ry += 14;
+
             // Header 3 cột: Mã SP | SL | Giá trị (giá trị = đơn giá × SL từng món)
             const RCOL = { code: RIGHT_L + 16, sl: W - PAD - 80, value: W - PAD };
             ry += 20;
@@ -2112,15 +2110,15 @@
                 });
                 ry += 8;
             });
-        }
 
-        // Vạch dọc chia 2 cột
-        ctx.strokeStyle = '#d1d5db';
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.moveTo(MID, PAD);
-        ctx.lineTo(MID, contentH);
-        ctx.stroke();
+            // Vạch dọc chia 2 cột
+            ctx.strokeStyle = '#d1d5db';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(MID, PAD);
+            ctx.lineTo(MID, contentH);
+            ctx.stroke();
+        }
 
         // ── Footer: Tổng (TP + Thu về, đều đã trừ phí ship) + timestamp ──
         const fy = contentH + 16;

@@ -2,6 +2,15 @@
 
 ## 2026-06-12
 
+### [delivery-report] Ảnh bàn giao v12: ảnh Thành phố không có thu về → bỏ hẳn cột THU VỀ (ảnh 1 cột) ✅
+
+**User:** đơn thu về khi gửi ảnh kênh Thành phố nếu = 0 thì khỏi ghi luôn.
+
+- `buildHandoverCanvas`: `hasReturn = returnCount > 0`; không có thu về → `W = MID (470)` (ảnh thu lại 1 cột như TMT/NAP), bỏ toàn bộ cột phải + vạch dọc (wrap `if (hasReturn)`, xoá nhánh "Không có món thu về"); `contentH = hasReturn ? max(leftH, rightH) : leftH`. Có thu về → 2 cột như cũ. Cache-bust `?v=20260612j`.
+- **Test:** không thu về → ảnh 940×640 (1 cột, GIAO + 0đ + Tổng 3 đơn 13.103); có thu về → 2 cột nguyên vẹn (Tổng 4 đơn 14.033 = 13.103 + 930). Test stub luôn cả URL `delivery-report-telegram` (feature mới máy kia) — không bắn ảnh TEST vào nhóm thật.
+
+**Status:** ✅ Done.
+
 ### [web2] [render] Bật WEB2_REQUIRE_DB=1 + MEDIUM-sweep (~25 fix) — đóng gần hết tồn vòng 3 ✅
 
 **User:** "WEB2_REQUIRE_DB=1 và tiếp tục các phần khác". Commits `723d23fc8` + `a90ddc488` + `d9c3ba96b` (2 sweep bởi session song song — nội dung verify đủ).
