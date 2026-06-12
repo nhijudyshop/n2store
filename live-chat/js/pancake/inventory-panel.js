@@ -412,7 +412,6 @@
             fbPageName: null,
             fbPostId: null,
             fbCommentId: commentId || null,
-            crmTeamId: null,
             liveCampaignId: null,
             liveCampaignName: null,
             message: '',
@@ -428,7 +427,6 @@
                 ctx.fbPageId = pageObj?.Facebook_PageId || pageObj?.FacebookPageId || null;
                 ctx.fbPageName = pageObj?.Name || pageObj?.PageName || null;
                 ctx.fbPostId = camp?.Facebook_LiveId || null;
-                ctx.crmTeamId = pageObj?.Id || null;
                 ctx.liveCampaignId = camp?.Id ? String(camp.Id) : null;
                 ctx.liveCampaignName = camp?.Name || null;
                 ctx.message = c.message || '';
@@ -497,7 +495,6 @@
                             fbPageName: ctx.fbPageName,
                             fbPostId: ctx.fbPostId,
                             fbCommentId: ctx.fbCommentId,
-                            crmTeamId: ctx.crmTeamId,
                             liveCampaignId: ctx.liveCampaignId,
                             liveCampaignName: ctx.liveCampaignName,
                             message: ctx.message,

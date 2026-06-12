@@ -204,15 +204,17 @@ const { lookupCustomerIdByPhone } = require('../services/web2-order-customer-ser
 let _ready = false;
 async function ensureTables(pool) {
     if (_ready) return;
-    // MIGRATION (ĐẶT ĐẦU): crm_team_id INTEGER → BIGINT — cùng lỗi native_orders:
-    // sau gỡ TPOS, crmTeamId = FB Page Id (15 chữ số) vượt INT4 → merge-to-pbh
-    // copy crm_team_id sang PBH sẽ 500 "integer out of range" (2026-06-12).
+    // MIGRATION (ĐẶT ĐẦU): DROP crm_team_id + crm_team_name — di tích TPOS,
+    // không consumer nào đọc (xác nhận 2026-06-12); sau gỡ TPOS giá trị nhét
+    // vào là FB Page Id (15 chữ số) trùng lặp fb_page_id và từng tràn INT4
+    // gây 500. Page của PBH đọc từ đơn nguồn (fb_page_id/fb_page_name).
     try {
         await pool.query(
-            `ALTER TABLE IF EXISTS fast_sale_orders ALTER COLUMN crm_team_id TYPE BIGINT`
+            `ALTER TABLE IF EXISTS fast_sale_orders DROP COLUMN IF EXISTS crm_team_id;
+             ALTER TABLE IF EXISTS fast_sale_orders DROP COLUMN IF EXISTS crm_team_name;`
         );
     } catch (e) {
-        console.warn('[FAST-SALE-ORDERS] migrate crm_team_id→BIGINT warn:', e.message);
+        console.warn('[FAST-SALE-ORDERS] migrate drop crm_team warn:', e.message);
     }
     try {
         await pool.query(`
@@ -283,8 +285,6 @@ async function ensureTables(pool) {
                 company_name        VARCHAR(150),
 
                 -- CRM + assignment
-                crm_team_id          BIGINT,
-                crm_team_name        VARCHAR(150),
                 assigned_user_id     VARCHAR(100),
                 assigned_user_name   VARCHAR(255),
 
@@ -458,7 +458,6 @@ function mapRow(row) {
         liveCampaign: { id: row.live_campaign_id, name: row.live_campaign_name },
         warehouse: { id: row.warehouse_id, name: row.warehouse_name },
         company: { id: row.company_id, name: row.company_name },
-        crmTeam: { id: row.crm_team_id, name: row.crm_team_name },
         assignedUser: { id: row.assigned_user_id, name: row.assigned_user_name },
         comment: row.comment,
         tags: row.tags || [],
@@ -802,14 +801,7 @@ async function _bulkStateChange(req, res, newState) {
             [newState, numbers]
         );
         const orders = r.rows.map(mapRow);
-        // Broadcast batch event
-        if (req.app.locals.broadcastToClients && orders.length) {
-            req.app.locals.broadcastToClients({
-                type: newState === 'done' ? 'pbh:bulk-confirmed' : 'pbh:bulk-cancelled',
-                count: orders.length,
-                numbers: orders.map((o) => o.number),
-            });
-        }
+        // 3W4: WS broadcast đã gỡ — SSE _notify bên dưới là kênh realtime duy nhất.
         if (orders.length) _notify(newState === 'done' ? 'bulk-confirm' : 'bulk-cancel', null);
         res.json({ success: true, changed: orders.length, requested: numbers.length, orders });
     } catch (e) {
@@ -922,13 +914,7 @@ router.post('/bulk-cancel', async (req, res) => {
                 );
             } catch {}
         }
-        if (req.app.locals.broadcastToClients && orders.length) {
-            req.app.locals.broadcastToClients({
-                type: 'pbh:bulk-cancelled',
-                count: orders.length,
-                numbers: orders.map((o) => o.number),
-            });
-        }
+        // 3W4: WS broadcast đã gỡ — SSE _notify là kênh realtime duy nhất.
         if (orders.length) _notify('bulk-cancel', null);
         res.json({
             success: true,
@@ -1138,13 +1124,7 @@ router.post('/merge', async (req, res) => {
 
         await client.query('COMMIT');
         const newOrder = mapRow(ins.rows[0]);
-        if (req.app.locals.broadcastToClients) {
-            req.app.locals.broadcastToClients({
-                type: 'pbh:merged',
-                merged: numbers,
-                order: newOrder,
-            });
-        }
+        // 3W4: WS broadcast đã gỡ — SSE _notify là kênh realtime duy nhất.
         _notify('merge', newOrder.number);
         res.json({
             success: true,
@@ -1352,7 +1332,7 @@ router.post('/', async (req, res) => {
                         source_type, source_id, source_code,
                         live_campaign_id, live_campaign_name,
                         warehouse_id, warehouse_name, company_id, company_name,
-                        crm_team_id, crm_team_name, assigned_user_id, assigned_user_name,
+                        assigned_user_id, assigned_user_name,
                         comment, tags, created_by, created_by_name,
                         customer_id
                     ) VALUES (
@@ -1368,9 +1348,9 @@ router.post('/', async (req, res) => {
                         $33, $34, $35,
                         $36, $37,
                         $38, $39, $40, $41,
-                        $42, $43, $44, $45,
-                        $46, $47::jsonb, $48, $49,
-                        $50
+                        $42, $43,
+                        $44, $45::jsonb, $46, $47,
+                        $48
                     ) RETURNING *`,
                         [
                             number,
@@ -1414,8 +1394,6 @@ router.post('/', async (req, res) => {
                             b.warehouseName || null,
                             b.companyId || null,
                             b.companyName || null,
-                            b.crmTeamId || null,
-                            b.crmTeamName || null,
                             b.assignedUserId || null,
                             b.assignedUserName || null,
                             b.comment || null,
@@ -1494,8 +1472,7 @@ router.post('/', async (req, res) => {
         }
 
         const o = mapRow(r.rows[0]);
-        if (req.app.locals.broadcastToClients)
-            req.app.locals.broadcastToClients({ type: 'pbh:created', order: o, manual: true });
+        // 3W4: WS broadcast đã gỡ — SSE _notify là kênh realtime duy nhất.
         _notify('create', o.number);
         // SSE notify web2:products để products page refresh stock
         if (_notifyClients) {
@@ -1664,7 +1641,7 @@ router.post('/from-native-order', async (req, res) => {
                 state, source_type, source_id, source_code,
                 live_campaign_id, live_campaign_name,
                 warehouse_id, warehouse_name, company_id, company_name,
-                crm_team_id, assigned_user_id, assigned_user_name,
+                assigned_user_id, assigned_user_name,
                 comment, tags, created_by, created_by_name,
                 customer_id, split_index, carrier_name, channel
             ) VALUES (
@@ -1673,7 +1650,7 @@ router.post('/from-native-order', async (req, res) => {
                 -- (vd 35-4 = PBH thứ 4 cho native STT 35). Trước đây dùng
                 -- nextval('fast_sale_orders_display_stt_seq') → STT lệch.
                 -- Fallback nextval nếu native không có display_stt (manual PBH).
-                $1, COALESCE($43::integer, nextval('fast_sale_orders_display_stt_seq')), 'NATIVE_WEB',
+                $1, COALESCE($42::integer, nextval('fast_sale_orders_display_stt_seq')), 'NATIVE_WEB',
                 COALESCE($2::timestamptz, NOW()),
                 $3, $4, $5, $6, $7, $8,
                 $9, $10, $11, $12, $13, $14,
@@ -1684,9 +1661,9 @@ router.post('/from-native-order', async (req, res) => {
                 'done', 'native_order', $26, $27,
                 $28, $29,
                 $30, $31, $32, $33,
-                $34, $35, $36,
-                $37, $38::jsonb, $39, $40,
-                $41, $42, $44, $45
+                $34, $35,
+                $36, $37::jsonb, $38, $39,
+                $40, $41, $43, $44
             ) RETURNING *`,
                             [
                                 insertNumber,
@@ -1722,7 +1699,6 @@ router.post('/from-native-order', async (req, res) => {
                                 src.warehouse_name,
                                 src.company_id,
                                 src.company_name,
-                                src.crm_team_id,
                                 src.assigned_employee_id,
                                 src.assigned_employee_name,
                                 src.note,
@@ -1731,9 +1707,9 @@ router.post('/from-native-order', async (req, res) => {
                                 b.createdByName || src.created_by_name,
                                 customerId,
                                 splitIndex,
-                                src.display_stt || null, // $43 — sync STT từ native-order
-                                b.carrierName || null, // $44 — phương thức giao (vd "PBH SHOP") → bill + badge
-                                src.channel || null, // $45 — kênh đơn → bill "PBH INBOX" khi in từ trang PBH
+                                src.display_stt || null, // $42 — sync STT từ native-order
+                                b.carrierName || null, // $43 — phương thức giao (vd "PBH SHOP") → bill + badge
+                                src.channel || null, // $44 — kênh đơn → bill "PBH INBOX" khi in từ trang PBH
                             ]
                         );
                         // Trừ stock TRONG cùng transaction với INSERT PBH → atomic.
@@ -1918,20 +1894,18 @@ router.post('/from-native-order', async (req, res) => {
         }
 
         const o = mapRow(r.rows[0]);
-        if (req.app.locals.broadcastToClients) {
-            req.app.locals.broadcastToClients({
-                type: 'pbh:created',
-                order: o,
-                sourceNativeCode: src.code,
-            });
-            // Cũng emit native_order:updated cho native-orders page biết source status đã đổi
-            req.app.locals.broadcastToClients({
-                type: 'native_order:updated',
-                action: 'promoted-to-confirmed',
-                code: src.code,
-            });
-        }
         _notify('from-native-order', o.number);
+        // 3W4: thay WS native_order:updated cũ — notify thẳng topic native-orders
+        // để trang Đơn Web biết source order đã promoted-to-confirmed.
+        if (_notifyClients) {
+            try {
+                _notifyClients(
+                    'web2:native-orders',
+                    { action: 'promoted-to-confirmed', code: src.code, ts: Date.now() },
+                    'update'
+                );
+            } catch {}
+        }
 
         // Tự xóa cart bên TPOS panel (Kho SP) khi PBH tạo thành công.
         // Cart gắn theo customer (fbUserId) → query native_order.fb_user_id để biết
@@ -2029,8 +2003,6 @@ router.patch('/:number', async (req, res) => {
             liveCampaignName: 'live_campaign_name',
             warehouseId: 'warehouse_id',
             warehouseName: 'warehouse_name',
-            crmTeamId: 'crm_team_id',
-            crmTeamName: 'crm_team_name',
             assignedUserId: 'assigned_user_id',
             assignedUserName: 'assigned_user_name',
             comment: 'comment',
@@ -2234,11 +2206,7 @@ async function syncNativeOrderStatusFromPbh(pool, pbhRow, newState) {
         return { synced: 0, error: e.message };
     }
 }
-function _wsEmit(req, type, order) {
-    if (req.app.locals.broadcastToClients) {
-        req.app.locals.broadcastToClients({ type, order });
-    }
-}
+// 3W4: helper _wsEmit (WS broadcast) đã gỡ — mọi call site đều có _notify SSE kế bên.
 router.post('/:number/cancel', async (req, res) => {
     const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     try {
@@ -2298,7 +2266,6 @@ router.post('/:number/cancel', async (req, res) => {
                 } catch {}
             }
         }
-        _wsEmit(req, 'pbh:cancelled', o);
         _notify('cancel', o.number);
         if (wasNotCancelled) {
             await _logPbhHistory(
@@ -2444,7 +2411,6 @@ router.post('/by-source/:nativeOrderCode/cancel', async (req, res) => {
             [Date.now(), code]
         );
 
-        _wsEmit(req, 'pbh:cancelled', o);
         _notify('cancel', o.number);
 
         // Cũng emit cho native-orders để row update ngay (status badge đổi)
@@ -2515,7 +2481,6 @@ router.post('/:number/confirm', async (req, res) => {
                 );
             } catch {}
         }
-        _wsEmit(req, 'pbh:confirmed', o);
         _notify('confirm', o.number);
         res.json({ success: true, order: o, nativeSync });
     } catch (e) {
@@ -2532,7 +2497,6 @@ router.post('/:number/print', async (req, res) => {
         );
         if (r.rows.length === 0) return res.status(404).json({ error: 'Not found' });
         const o = mapRow(r.rows[0]);
-        _wsEmit(req, 'pbh:printed', o);
         _notify('print', o.number);
         res.json({ success: true, order: o });
     } catch (e) {

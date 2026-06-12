@@ -1784,7 +1784,6 @@ const LiveCommentList = {
 
         const comment = state.comments.find((c) => String(c.id) === String(commentId));
         const pageObj = comment?._pageObj || state.selectedPage;
-        const crmTeamId = pageObj?.Id;
         // Resolve the campaign that owns this comment so we can persist it on the
         // native order (used by native-orders page filter chip).
         const campaignObj = comment?._campaignId
@@ -1836,7 +1835,6 @@ const LiveCommentList = {
                 fbPageName,
                 fbPostId: postId || null,
                 fbCommentId: commentId,
-                crmTeamId: crmTeamId || null,
                 liveCampaignId,
                 liveCampaignName,
                 message,
@@ -1976,8 +1974,9 @@ const LiveCommentList = {
 
     /**
      * Show customer info popup (click on customer name)
-     * Uses Render DB endpoint /api/v2/customers/{phone} (same as orders-report)
-     * Falls back to Pancake conversation search if no phone
+     * 3W3 (2026-06-12): lookup KHO KH Web 2.0 (`web2_customers`, /api/web2/customers)
+     * — KHÔNG còn gọi /api/v2/customers Web 1.0 (bảng customers chatDb).
+     * Rule "kho trước, Pancake sau": kho không có → hiện info cơ bản từ cache Live.
      * @param {string} fbId - Facebook user ID from comment
      * @param {string} name - Customer name
      * @param {string} pageId - Facebook page ID
@@ -2006,27 +2005,51 @@ const LiveCommentList = {
 
             let customerData = null;
 
-            // Strategy 1: Lookup by phone via Render DB (like orders-report does)
+            // Map row lite kho Web 2.0 {id,phone,name,address,email,fbId} → shape
+            // _renderCustomerPopup (snake_case fb_id). Kho lite KHÔNG có wallet/
+            // notes/order stats → popup tự render 0/ẩn các phần đó.
+            const mapWarehouse = (lite) =>
+                lite
+                    ? {
+                          customer: {
+                              name: lite.name || '',
+                              phone: lite.phone || '',
+                              address: lite.address || '',
+                              fb_id: lite.fbId || fbId || '',
+                          },
+                      }
+                    : null;
+
+            // Strategy 1: theo SĐT — kho KH Web 2.0 (web2_customers)
             if (phone) {
                 try {
-                    const resp = await fetch(`${workerUrl}/api/v2/customers/${phone}`);
+                    const resp = await fetch(
+                        `${workerUrl}/api/web2/customers/${encodeURIComponent(phone)}`
+                    );
                     const json = await resp.json();
-                    if (json.success && json.data) {
-                        customerData = json.data;
+                    // Route trả {success, customer} — customer null khi kho không có.
+                    if (json.success && json.customer) {
+                        customerData = mapWarehouse(json.customer);
                     }
                 } catch {
                     /* fallback below */
                 }
             }
 
-            // Strategy 2: Lookup by fb_id via Render DB
+            // Strategy 2: theo fb_id — batch-by-fbid (lấy phần tử ứng với fbId)
             if (!customerData && fbId) {
                 try {
-                    const resp = await fetch(`${workerUrl}/api/v2/customers/by-fb-id/${fbId}`);
+                    const resp = await fetch(`${workerUrl}/api/web2/customers/batch-by-fbid`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ fbIds: [fbId] }),
+                    });
                     const json = await resp.json();
-                    if (json.success && json.data) {
-                        customerData = json.data;
-                    }
+                    // Route trả {success, data: {[fbId]: lite}} — key theo fbId gửi lên.
+                    const lite = json.success
+                        ? json.data?.[fbId] || Object.values(json.data || {})[0]
+                        : null;
+                    if (lite) customerData = mapWarehouse(lite);
                 } catch {
                     /* fallback below */
                 }

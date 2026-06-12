@@ -56,11 +56,8 @@ const LiveCustomerPanel = {
         if (window.lucide) lucide.createIcons();
 
         try {
-            const crmTeamId =
-                state.selectedTeamId || state.selectedPage?.CRMTeamId || state.selectedPage?.Id;
-            if (!crmTeamId) throw new Error('Không xác định được CRM Team ID');
-
-            const data = await window.LiveApi.getPartnerInfo(crmTeamId, customerId);
+            // 2026-06-12: bỏ crmTeamId (di tích TPOS) — warehouse lookup chỉ cần fb_id.
+            const data = await window.LiveApi.getPartnerInfo(customerId);
             if (!data) throw new Error('Không lấy được thông tin khách hàng');
 
             this.renderCustomerInfoModal(data, customerName);

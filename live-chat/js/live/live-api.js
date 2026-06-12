@@ -170,8 +170,9 @@ const LiveApi = {
     },
 
     // ── KH info từ kho warehouse Web 2.0 (Live chatomni/info đã gỡ) ─────
-    async getPartnerInfo(crmTeamId, fbUserId) {
-        void crmTeamId; // giữ chữ ký cũ; tra theo fb_id trong warehouse
+    // 2026-06-12: bỏ tham số crmTeamId (di tích TPOS, từng bị ignore) — tra
+    // theo fb_id trong warehouse.
+    async getPartnerInfo(fbUserId) {
         try {
             const base = LiveApi._getWorkerUrl();
             const r = await fetch(`${base}/api/web2/customers/batch-by-fbid`, {

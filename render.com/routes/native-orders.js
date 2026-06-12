@@ -158,17 +158,14 @@ let _tablesCreated = false;
 async function ensureTables(pool) {
     if (_tablesCreated) return;
     // MIGRATION (ĐẶT ĐẦU — rule MEMORY: ALTER mới phải chạy trước mọi bước khác):
-    // crm_team_id INTEGER → BIGINT. Sau khi gỡ TPOS (2026-06), live-chat gửi
-    // crmTeamId = FB Page Id (15 chữ số, vd 270136663390370) vượt INT4 →
-    // INSERT /from-comment 500 "integer out of range" → drag-drop tạo đơn CHẾT
-    // ở lần đầu mỗi khách (bug user báo 2026-06-12). Idempotent: ALTER TYPE
-    // BIGINT chạy lặp vô hại.
+    // DROP crm_team_id — di tích TPOS, không consumer nào đọc (getPartnerInfo
+    // bỏ qua tường minh, không UI hiển thị); sau gỡ TPOS client còn nhét FB
+    // Page Id 15 chữ số vào làm tràn INT4 → 500 (bug drag-drop 2026-06-12).
+    // Page của đơn đọc fb_page_id/fb_page_name. Idempotent: DROP IF EXISTS.
     try {
-        await pool.query(
-            `ALTER TABLE IF EXISTS native_orders ALTER COLUMN crm_team_id TYPE BIGINT`
-        );
+        await pool.query(`ALTER TABLE IF EXISTS native_orders DROP COLUMN IF EXISTS crm_team_id`);
     } catch (e) {
-        console.warn('[NATIVE-ORDERS] migrate crm_team_id→BIGINT warn:', e.message);
+        console.warn('[NATIVE-ORDERS] migrate drop crm_team_id warn:', e.message);
     }
     try {
         await pool.query(`
@@ -188,7 +185,6 @@ async function ensureTables(pool) {
                 fb_page_id      VARCHAR(100),
                 fb_post_id      VARCHAR(100),
                 fb_comment_id   VARCHAR(100),
-                crm_team_id     BIGINT,
 
                 products        JSONB  DEFAULT '[]'::jsonb,
                 total_quantity  INTEGER DEFAULT 0,
@@ -492,7 +488,6 @@ function mapRowToOrder(row) {
         fbPageId: row.fb_page_id,
         fbPostId: row.fb_post_id,
         fbCommentId: row.fb_comment_id,
-        crmTeamId: row.crm_team_id,
         products: row.products || [],
         totalQuantity: row.total_quantity,
         totalAmount: Number(row.total_amount || 0),
@@ -775,7 +770,7 @@ router.post('/reset-stt', async (req, res) => {
 // POST /api/native-orders/from-comment
 // Body:
 //  { fbUserId, fbUserName, fbPageId, fbPostId, fbCommentId,
-//    crmTeamId, message?, phone?, address?, note?,
+//    message?, phone?, address?, note?,
 //    createdBy?, createdByName? }
 // -----------------------------------------------------
 router.post('/from-comment', async (req, res) => {
@@ -893,8 +888,7 @@ router.post('/from-comment', async (req, res) => {
                          fb_page_name = COALESCE(fb_page_name, $8),
                          fb_post_id   = COALESCE(fb_post_id,   $9),
                          fb_comment_id= COALESCE(fb_comment_id,$10),
-                         crm_team_id  = COALESCE(crm_team_id,  $11),
-                         live_campaign_name = COALESCE(live_campaign_name, $12),
+                         live_campaign_name = COALESCE(live_campaign_name, $11),
                          updated_at = $3
                      WHERE id = $4
                      RETURNING *`,
@@ -909,20 +903,11 @@ router.post('/from-comment', async (req, res) => {
                         b.fbPageName || null,
                         b.fbPostId || null,
                         b.fbCommentId || null,
-                        b.crmTeamId || null,
                         b.liveCampaignName || null,
                     ]
                 );
                 const order = mapRowToOrder(updated.rows[0]);
-                // Broadcast WS event để UI tự refresh
-                if (req.app.locals.broadcastToClients) {
-                    req.app.locals.broadcastToClients({
-                        type: 'native_order:updated',
-                        action: 'comment-merged',
-                        order,
-                        newCommentId: b.fbCommentId || null,
-                    });
-                }
+                // 3W4: WS broadcast đã gỡ — SSE _notify là kênh realtime duy nhất.
                 _notify('comment-merged', order.code);
                 return res.json({ success: true, order, merged: true });
             }
@@ -1013,7 +998,7 @@ router.post('/from-comment', async (req, res) => {
                     `INSERT INTO native_orders (
                         code, session_index, display_stt, campaign_stt, source,
                         customer_name, phone, address, note,
-                        fb_user_id, fb_user_name, fb_page_id, fb_post_id, fb_comment_id, crm_team_id,
+                        fb_user_id, fb_user_name, fb_page_id, fb_post_id, fb_comment_id,
                         products, total_quantity, total_amount,
                         status, tags,
                         live_campaign_id, live_campaign_name,
@@ -1028,18 +1013,18 @@ router.post('/from-comment', async (req, res) => {
                              live_campaign_id,
                              'NO_CAMPAIGN'
                          ) = COALESCE(
-                             NULLIF(TRIM(REGEXP_REPLACE(COALESCE($14::text, ''), '^(STORE|HOUSE)\\s+', '', 'i')), ''),
-                             $13,
+                             NULLIF(TRIM(REGEXP_REPLACE(COALESCE($13::text, ''), '^(STORE|HOUSE)\\s+', '', 'i')), ''),
+                             $12,
                              'NO_CAMPAIGN'
                          )),
                         'NATIVE_WEB',
                         $3, $4, $5, $6,
-                        $7, $8, $9, $10, $11, $12,
+                        $7, $8, $9, $10, $11,
                         '[]'::jsonb, 0, 0,
                         'draft', '[]'::jsonb,
-                        $13, $14,
-                        $15,
-                        $16, $17, $18, $18
+                        $12, $13,
+                        $14,
+                        $15, $16, $17, $17
                     ) RETURNING *`,
                     [
                         code,
@@ -1054,7 +1039,6 @@ router.post('/from-comment', async (req, res) => {
                         b.fbPageId || null,
                         b.fbPostId || null,
                         b.fbCommentId || null,
-                        b.crmTeamId ? parseInt(b.crmTeamId, 10) : null,
                         b.liveCampaignId || null,
                         b.liveCampaignName || null,
                         customerId,
@@ -1101,14 +1085,7 @@ router.post('/from-comment', async (req, res) => {
                 console.warn('[NATIVE-ORDERS] customer upsert failed (non-fatal):', e.message);
             });
 
-        // Broadcast WS event để các trang khác auto-refresh (native-orders list, etc.)
-        if (req.app.locals.broadcastToClients) {
-            req.app.locals.broadcastToClients({
-                type: 'native_order:created',
-                action: 'created',
-                order,
-            });
-        }
+        // 3W4: WS broadcast đã gỡ — SSE _notify là kênh realtime duy nhất.
         _notify('create', order.code);
         res.json({ success: true, order, merged: false });
     } catch (error) {
@@ -1972,13 +1949,7 @@ router.patch('/:code', async (req, res) => {
                 } catch {}
             }
         }
-        if (req.app.locals.broadcastToClients) {
-            req.app.locals.broadcastToClients({
-                type: 'native_order:updated',
-                action: 'patched',
-                order,
-            });
-        }
+        // 3W4: WS broadcast đã gỡ — SSE _notify là kênh realtime duy nhất.
         _notify('update', order.code);
 
         // Sprint 1 KPI: diff productsBefore vs productsNew → emit forecast events.
@@ -2109,13 +2080,7 @@ router.post('/:code/confirm', async (req, res) => {
                 );
             } catch {}
         }
-        if (req.app.locals.broadcastToClients) {
-            req.app.locals.broadcastToClients({
-                type: 'native_order:updated',
-                action: 'confirmed',
-                order,
-            });
-        }
+        // 3W4: WS broadcast đã gỡ — SSE _notify là kênh realtime duy nhất.
         _notify('confirm', code);
         res.json({ success: true, order, pbhSync });
     } catch (e) {
@@ -2266,14 +2231,7 @@ router.post('/:code/cancel', async (req, res) => {
                 );
             } catch {}
         }
-        if (req.app.locals.broadcastToClients) {
-            req.app.locals.broadcastToClients({
-                type: 'native_order:updated',
-                action: 'cancelled',
-                order,
-                reason,
-            });
-        }
+        // 3W4: WS broadcast đã gỡ — SSE _notify là kênh realtime duy nhất.
         _notify('cancel', code);
 
         // Sprint 1 KPI: emit actual_revoked cho từng SP đã có actual_confirmed.
@@ -2339,13 +2297,7 @@ router.delete('/:code', async (req, res) => {
             req.params.code,
         ]);
         if (r.rows.length === 0) return res.status(404).json({ error: 'Not found' });
-        if (req.app.locals.broadcastToClients) {
-            req.app.locals.broadcastToClients({
-                type: 'native_order:deleted',
-                action: 'deleted',
-                code: req.params.code,
-            });
-        }
+        // 3W4: WS broadcast đã gỡ — SSE _notify là kênh realtime duy nhất.
         _notify('delete', req.params.code);
         res.json({ success: true });
     } catch (error) {
@@ -2446,21 +2398,21 @@ router.post('/:code/split-order', async (req, res) => {
                 `INSERT INTO native_orders (
                 code, session_index, display_stt, campaign_stt, split_index, source,
                 customer_name, phone, address, note,
-                fb_user_id, fb_user_name, fb_page_id, fb_post_id, crm_team_id,
+                fb_user_id, fb_user_name, fb_page_id, fb_post_id,
                 products, total_quantity, total_amount,
                 status, tags,
                 live_campaign_id, live_campaign_name,
                 customer_id,
                 created_by, created_by_name, created_at, updated_at
             ) VALUES (
-                $1, $2, $3, $21, $4, $5,
+                $1, $2, $3, $20, $4, $5,
                 $6, $7, $8, $9,
-                $10, $11, $12, $13, $14,
+                $10, $11, $12, $13,
                 '[]'::jsonb, 0, 0,
                 'draft', '[]'::jsonb,
-                $15, $16,
-                $17,
-                $18, $19, $20, $20
+                $14, $15,
+                $16,
+                $17, $18, $19, $19
             ) RETURNING *`,
                 [
                     newCode,
@@ -2476,14 +2428,13 @@ router.post('/:code/split-order', async (req, res) => {
                     src.fb_user_name,
                     src.fb_page_id,
                     src.fb_post_id,
-                    src.crm_team_id,
                     src.live_campaign_id,
                     src.live_campaign_name,
                     src.customer_id,
                     src.created_by,
                     src.created_by_name,
                     now,
-                    src.campaign_stt || null, // $21 — inherit parent
+                    src.campaign_stt || null, // $20 — inherit parent
                 ]
             )
         );
@@ -2496,16 +2447,8 @@ router.post('/:code/split-order', async (req, res) => {
         const updatedSrc = mapRowToOrder(updatedSrcQ.rows[0]);
         const newOrder = mapRowToOrder(insQ.rows[0]);
 
+        // 3W4: WS broadcast đã gỡ — SSE _notify là kênh realtime duy nhất.
         _notify('split-order', newCode);
-
-        if (req.app.locals.broadcastToClients) {
-            req.app.locals.broadcastToClients({
-                type: 'native_order:split',
-                action: 'split-order',
-                source: updatedSrc,
-                created: newOrder,
-            });
-        }
 
         res.json({
             success: true,
@@ -2605,7 +2548,7 @@ router.post('/merge', async (req, res) => {
                 code, display_stt, campaign_stt, source,
                 customer_name, phone, address, note,
                 fb_user_id, fb_user_name, fb_page_id, fb_post_id,
-                crm_team_id, products, total_quantity, total_amount,
+                products, total_quantity, total_amount,
                 status, live_campaign_id, live_campaign_name,
                 customer_id, comment_ids, comment_count,
                 merged_display_stt, merged_codes,
@@ -2614,15 +2557,15 @@ router.post('/merge', async (req, res) => {
                 $1, nextval('native_orders_display_stt_seq'),
                 (SELECT COALESCE(MAX(campaign_stt), 0) + 1
                  FROM native_orders
-                 WHERE COALESCE(live_campaign_id, 'NO_CAMPAIGN') = COALESCE($14, 'NO_CAMPAIGN')),
+                 WHERE COALESCE(live_campaign_id, 'NO_CAMPAIGN') = COALESCE($13, 'NO_CAMPAIGN')),
                 'NATIVE_WEB',
                 $2, $3, $4, $5,
                 $6, $7, $8, $9,
-                $10, $11, $12, $13,
-                'draft', $14, $15,
-                $16, $17, $18,
-                $19, $20,
-                $21, $22, $23, $23
+                $10, $11, $12,
+                'draft', $13, $14,
+                $15, $16, $17,
+                $18, $19,
+                $20, $21, $22, $22
             ) RETURNING *`,
                 [
                     newCode,
@@ -2634,7 +2577,6 @@ router.post('/merge', async (req, res) => {
                     base.fb_user_name,
                     base.fb_page_id,
                     base.fb_post_id,
-                    base.crm_team_id,
                     JSON.stringify(combinedProducts),
                     totalQty,
                     totalAmount,

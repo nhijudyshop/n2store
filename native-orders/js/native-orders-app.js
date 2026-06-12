@@ -2061,7 +2061,6 @@
                     fbPageId: ${escapeHtml(o.fbPageId || '—')}<br>
                     fbPostId: ${escapeHtml(o.fbPostId || '—')}<br>
                     fbCommentId: ${escapeHtml(o.fbCommentId || '—')}<br>
-                    crmTeamId: ${escapeHtml(o.crmTeamId || '—')}<br>
                     sessionIndex: ${escapeHtml(o.sessionIndex || '—')}<br>
                     source: ${escapeHtml(o.source || 'NATIVE_WEB')}
                 </div>

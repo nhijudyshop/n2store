@@ -48,7 +48,6 @@ const NativeOrdersApi = {
      *   backend prefix vào note → user thấy comment đến từ page nào.
      * @param {string} [params.fbPostId]    - Full post id (pageId_postId)
      * @param {string} [params.fbCommentId]
-     * @param {number} [params.crmTeamId]
      * @param {string} [params.message]     - Comment message (stored as note)
      * @param {string} [params.phone]
      * @param {string} [params.address]

@@ -2,6 +2,17 @@
 
 ## 2026-06-12
 
+### [live-chat] [render] [native-orders] GỠ HẲN crm_team_id — di tích TPOS ✅
+
+**User hỏi "có cần crm_team_id không?"** → trace: không consumer nào đọc (getPartnerInfo bỏ qua tường minh, không UI hiển thị/filter); sau gỡ TPOS giá trị nhét vào = FB Page Id (trùng `fb_page_id`) — chính là thủ phạm bug drag-drop 500 sáng nay. User OK gỡ hẳn (thay vì giữ BIGINT).
+
+- **Server:** migration đổi từ ALTER BIGINT → `DROP COLUMN IF EXISTS crm_team_id` (native_orders) + `crm_team_id`/`crm_team_name` (fast_sale_orders), đặt ĐẦU ensureTables, idempotent. Gỡ cột khỏi CREATE TABLE + 4 INSERT (from-comment, split, merge, PBH manual, from-native-order — renumber placeholder $N), COALESCE update path comment-merged, mapper response, PATCH field map, cart.js forward. `tpos-customer-service.js` (Web 1.0) GIỮ NGUYÊN.
+- **Client:** inventory-panel `_resolveCommitContext` + fbContext, live-comment-list `createOrder`, web2-chat-client `enrichCustomer` (server enrich-fb vốn đã ignore), native-orders-app bỏ dòng crmTeamId panel FB context. `getPartnerInfo(crmTeamId, fbUserId)` → `getPartnerInfo(fbUserId)` + đơn giản `loadPartnerInfoForComments` (bỏ map userId→crmTeamId vô nghĩa); sửa luôn bug tiềm ẩn live-customer-panel throw "Không xác định được CRM Team ID" khi page thiếu `.Id`.
+- **Deploy-compat 2 chiều:** client mới + server cũ → field absent → lưu null (OK); client cũ + server mới → field bị bỏ qua (OK).
+- **Verify:** migration test DB local (DROP có cột OK → re-run idempotent skip → INSERT không cột OK → DROP DB); node --check 11 file; bump `?v=20260612i`.
+
+**Status:** ✅ Done.
+
 ### [web2] [live-chat] [render] FIX đợt H phần còn lại — 3H9 + 3H8/events + LC-pollnow-auth + 3H15 ✅
 
 **User:** "đợt H". Phần đầu (3H6, 3H7, H11, 3H8 mutation) đã fix bởi session live-chat (`276a64355`); phần còn lại commit `cf11709bb`.

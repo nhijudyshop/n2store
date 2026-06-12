@@ -849,7 +849,6 @@
                     fbId: key,
                     name: opts.name || '',
                     phone: opts.phone || '',
-                    crmTeamId: opts.crmTeamId || null,
                 }),
             }).catch(() => {});
         } catch (_) {}

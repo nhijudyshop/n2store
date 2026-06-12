@@ -828,42 +828,34 @@ const LiveColumnManager = {
     },
 
     /**
-     * Load partner info for all visible comments (batch, then re-render)
-     * Uses correct CRM Team ID per comment (important for multi-page mode)
+     * Load partner info for all visible comments (batch, then re-render).
+     * Warehouse lookup chỉ cần fb_id (crmTeamId TPOS đã gỡ 2026-06-12).
      */
     async loadPartnerInfoForComments() {
         const state = window.LiveState;
-        const defaultCrmTeamId = state.selectedPage?.Id;
 
-        // Build userId -> crmTeamId mapping from comments
-        const userPageMap = new Map(); // userId -> page child Id
+        const userIds = new Set();
         for (const c of state.comments) {
             const userId = c.from?.id;
-            if (!userId || userPageMap.has(userId)) continue;
-            // Use the comment's tagged page object if available (multi-campaign)
-            const pageObj = c._pageObj;
-            userPageMap.set(userId, pageObj?.Id || defaultCrmTeamId);
+            if (userId) userIds.add(userId);
         }
 
-        if (userPageMap.size === 0) return;
+        if (userIds.size === 0) return;
 
         // Batch fetch (5 concurrent)
-        const entries = Array.from(userPageMap.entries());
+        const entries = Array.from(userIds);
         const batchSize = 5;
         for (let i = 0; i < entries.length; i += batchSize) {
             const batch = entries.slice(i, i + batchSize);
             await Promise.all(
-                batch.map(async ([userId, crmTeamId]) => {
-                    // Warehouse lookup chỉ cần fb_id (userId) — KHÔNG cần crmTeamId
-                    // (guard !crmTeamId cũ thời WEB2 chặn nhầm enrich khi page pages.fm
-                    // không có .Id → SĐT/địa chỉ rỗng).
+                batch.map(async (userId) => {
                     if (state.partnerCache.has(userId)) return;
                     if (state.partnerFetchPromises.has(userId))
                         return state.partnerFetchPromises.get(userId);
 
                     const promise = (async () => {
                         try {
-                            const data = await window.LiveApi.getPartnerInfo(crmTeamId, userId);
+                            const data = await window.LiveApi.getPartnerInfo(userId);
                             // Warehouse trả FLAT object {Id,Name,Phone,...}; shape cũ
                             // Live là {Partner:{...}} → support cả 2 (defensive).
                             if (data) {
