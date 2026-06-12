@@ -287,7 +287,10 @@
                                 class="filter-item inbox-kpi-stat"
                                 id="inboxKpiStatCard"
                                 style="cursor: pointer"
-                                onclick="window.SocialKpiReconcile && window.SocialKpiReconcile.showDetailModal()"
+                                onclick="
+                                    window.SocialKpiReconcile &&
+                                        window.SocialKpiReconcile.showDetailModal()
+                                "
                                 title="Bấm để xem chi tiết KPI từng đơn (NV · STT · mã phiếu · món KPI · món hoàn). Chạy 'đối soát KPI' để trừ hàng trả."
                             >
                                 <i class="fas fa-trophy inbox-kpi-stat-icon"></i>
@@ -313,7 +316,9 @@
                             <button
                                 class="filter-item"
                                 id="btnSocialKpiReconcile"
-                                onclick="window.SocialKpiReconcile && window.SocialKpiReconcile.run()"
+                                onclick="
+                                    window.SocialKpiReconcile && window.SocialKpiReconcile.run()
+                                "
                                 title="Lấy excel món trả 3 tháng từ TPOS, loại KPI các món đã bị trả (per-món)"
                                 style="
                                     cursor: pointer;
@@ -334,7 +339,10 @@
                             <button
                                 class="filter-item"
                                 id="btnSocialKpiDownloadRefund"
-                                onclick="window.SocialKpiReconcile && window.SocialKpiReconcile.downloadRefundExcel()"
+                                onclick="
+                                    window.SocialKpiReconcile &&
+                                        window.SocialKpiReconcile.downloadRefundExcel()
+                                "
                                 title="Tải file refund gốc TPOS để kiểm tra chéo"
                                 style="
                                     display: none;
@@ -1403,7 +1411,7 @@ HẾT HÀNG</textarea
         </script>
         <script src="../shared/js/notification-system.js?v=20260603a"></script>
         <script src="../shared/js/shop-config.js?v=20260603a"></script>
-        <script src="../shared/js/pancake-token-manager.js?v=20260603a"></script>
+        <script src="../shared/js/pancake-token-manager.js?v=20260612en"></script>
         <script src="../shared/js/token-manager.js?v=20260603a"></script>
         <script src="../shared/js/tpos-customer-lookup.js?v=20260603a"></script>
         <script src="../shared/js/customer-creator.js?v=20260603a"></script>

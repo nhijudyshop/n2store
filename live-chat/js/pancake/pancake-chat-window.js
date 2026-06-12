@@ -134,9 +134,17 @@ const PancakeChatWindow = {
                     window.Web2Chat?._internal?.WORKER_URL ||
                     window.API_CONFIG?.WORKER_URL ||
                     'https://chatomni-proxy.nhijudyshop.workers.dev';
+                // ENFORCE-PREP (2026-06-12): route gated soft — gắn x-web2-token.
+                const _h = { 'Content-Type': 'application/json' };
+                try {
+                    const _t =
+                        window.Web2Auth?.getStored?.()?.token ||
+                        JSON.parse(localStorage.getItem('web2_auth') || 'null')?.token;
+                    if (_t) _h['x-web2-token'] = _t;
+                } catch (_) {}
                 const r = await fetch(`${workerUrl}/api/web2/customers/upsert`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: _h,
                     body: JSON.stringify({
                         phone: phone || '',
                         name: name || '',
