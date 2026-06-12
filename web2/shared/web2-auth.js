@@ -154,9 +154,20 @@
         }
     }
 
+    // ENFORCE-PREP (2026-06-12): helper chuẩn gắn x-web2-token cho fetch —
+    // mọi client gọi route soft-gated dùng cái này (hoặc đọc localStorage
+    // 'web2_auth' trực tiếp nếu page không load Web2Auth). Không token → {}.
+    function authHeaders(extra) {
+        const t = getStored()?.token;
+        const h = { ...(extra || {}) };
+        if (t) h['x-web2-token'] = t;
+        return h;
+    }
+
     global.Web2Auth = {
         getStored,
         storeLogin,
+        authHeaders,
         clear,
         verify,
         can,
