@@ -3,15 +3,17 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `23c94d1` — feat(delivery-report): anh ban giao v10 - section DON GUI RIENG tu nut Gui Kem cho ca TP/TMT/NAP (tong Thu - phi ship kenh = Con lai + bang Gia tri/Thu, v=20260612g)
-**Last updated**: 2026-06-12 17:42:06 SEAST
-**Latest session**: [`RESUME:20260612-174206-23c94d1`](../20260612-174206-23c94d1.md)
-**Summary**: Anh ban giao v10: section DON GUI RIENG (SendAlong) duoi DON 0d, ca 3 kenh TP/TMT/NAP
+**Latest commit**: `e7b76e1` — docs(web2): đánh dấu đợt H ✅ hoàn tất (276a64355 + cf11709bb)
+**Last updated**: 2026-06-12 18:12:04 +07
+**Latest session**: [`RESUME:20260612-181204-e7b76e1`](../20260612-181204-e7b76e1.md)
+**Summary**: docs(web2): đánh dấu đợt H ✅ hoàn tất (276a64355 + cf11709bb)
 
 ## Folders affected in this commit
 
-- [`delivery-report/`](./delivery-report.md) — 3 file(s)
-- [`docs/`](./docs.md) — 1 file(s)
+- [`docs/`](./docs.md) — 2 file(s)
+- [`live-chat/`](./live-chat.md) — 3 file(s)
+- [`render.com/`](./render.com.md) — 2 file(s)
+- [`web2/`](./web2.md) — 3 file(s)
 
 ## All folder snapshots
 
@@ -24,8 +26,8 @@
 - [`bangkiemhang/`](./bangkiemhang.md) — updated 2026-05-21 15:39
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-11 10:18
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
-- [`delivery-report/`](./delivery-report.md) — updated 2026-06-12 17:42
-- [`docs/`](./docs.md) — updated 2026-06-12 17:42
+- [`delivery-report/`](./delivery-report.md) — updated 2026-06-12 18:03
+- [`docs/`](./docs.md) — updated 2026-06-12 18:12
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-11 16:49
 - [`downloads/`](./downloads.md) — updated 2026-06-11 08:36
@@ -38,7 +40,7 @@
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-05-21 15:39
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-12 08:52
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
-- [`live-chat/`](./live-chat.md) — updated 2026-06-11 16:19
+- [`live-chat/`](./live-chat.md) — updated 2026-06-12 18:12
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-06-04 20:02
 - [`native-orders/`](./native-orders.md) — updated 2026-06-09 19:12
 - [`nhanhang/`](./nhanhang.md) — updated 2026-05-21 15:39
@@ -51,7 +53,7 @@
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
-- [`render.com/`](./render.com.md) — updated 2026-06-12 14:17
+- [`render.com/`](./render.com.md) — updated 2026-06-12 18:12
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-11 10:18
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
@@ -71,4 +73,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-12 14:17
+- [`web2/`](./web2.md) — updated 2026-06-12 18:12
