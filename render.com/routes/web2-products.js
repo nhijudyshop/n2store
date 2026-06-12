@@ -1009,17 +1009,24 @@ router.post('/adjust-pending', async (req, res) => {
             const delta = Number(adj.delta) || 0;
             if ((!code && !name) || !Number.isFinite(delta) || delta === 0) continue;
 
+            // 3H16 FIX (2026-06-12): FOR UPDATE cả 3 nhánh — trước đây SELECT
+            // không khoá rồi UPDATE pending_qty = giá trị tuyệt đối tính ở JS →
+            // 2 máy so-order chỉnh qty cùng SP đồng thời: delta của request
+            // trước bị ghi đè mất (lost update), và nhánh ghost-delete quyết
+            // định trên data cũ có thể xoá nhầm SP khi pending vừa được cộng.
+            // Cùng pattern upsert-pending (:1127) + confirm-purchase-partial (C5).
             let r;
             if (code) {
-                r = await client.query(`SELECT * FROM web2_products WHERE code = $1 LIMIT 1`, [
-                    code,
-                ]);
+                r = await client.query(
+                    `SELECT * FROM web2_products WHERE code = $1 LIMIT 1 FOR UPDATE`,
+                    [code]
+                );
             } else if (variant) {
                 r = await client.query(
                     `SELECT * FROM web2_products
                      WHERE LOWER(name) = LOWER($1)
                        AND LOWER(COALESCE(variant, '')) = LOWER($2)
-                     ORDER BY id LIMIT 1`,
+                     ORDER BY id LIMIT 1 FOR UPDATE`,
                     [name, variant]
                 );
             } else {
@@ -1027,7 +1034,7 @@ router.post('/adjust-pending', async (req, res) => {
                     `SELECT * FROM web2_products
                      WHERE LOWER(name) = LOWER($1)
                        AND (variant IS NULL OR variant = '')
-                     ORDER BY id LIMIT 1`,
+                     ORDER BY id LIMIT 1 FOR UPDATE`,
                     [name]
                 );
             }

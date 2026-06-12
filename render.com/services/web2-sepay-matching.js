@@ -918,92 +918,142 @@ async function processWeb2Match(db, web2BhId, fetchWithTimeout) {
  * Called by frontend when user picks customer.
  */
 async function resolveWeb2PendingMatch(db, pendingId, selectedPhone, selectedName, resolvedBy) {
-    const r = await db.query(
-        `SELECT id, transaction_id, status FROM web2_pending_matches WHERE id = $1`,
-        [pendingId]
-    );
-    if (r.rows.length === 0) throw new Error('Pending match not found');
-    const pending = r.rows[0];
-    if (pending.status !== 'pending') {
-        throw new Error(`Match already ${pending.status}`);
-    }
-
-    const txRow = await db.query(
-        `SELECT id, sepay_id, transfer_amount FROM web2_balance_history WHERE id = $1`,
-        [pending.transaction_id]
-    );
-    if (txRow.rows.length === 0) throw new Error('Transaction not found');
-    const tx = txRow.rows[0];
-    const amount = parseInt(tx.transfer_amount) || 0;
-
-    if (amount <= 0) throw new Error('Invalid transfer amount');
-
-    const walletResult = await web2WalletService.processDeposit(
-        db,
-        selectedPhone,
-        amount,
-        tx.id,
-        `Nap tu CK (resolved pending)`,
-        null,
-        null,
-        tx.sepay_id
-    );
-
-    // match_method: 'manual_resolve' đã thêm vào constraint (migration ALTER
-    // chạy idempotent ở Render startup) — distinguish "user pick từ multi-match"
-    // vs 'manual_link' "user gán SDT cho row chưa có". Audit log giữ
-    // extractedType='manual_resolve' để trace flow.
-    const verifiedByVal =
-        String(resolvedBy || '')
-            .trim()
-            .slice(0, 100) || null;
-    await db.query(
-        `UPDATE web2_balance_history
-         SET debt_added = TRUE,
-             linked_customer_phone = $2,
-             wallet_processed = TRUE,
-             verification_status = 'AUTO_APPROVED',
-             match_method = 'manual_resolve',
-             display_name = COALESCE(display_name, $3),
-             verified_at = NOW(),
-             verified_by = COALESCE($4, verified_by)
-         WHERE id = $1`,
-        [pending.transaction_id, selectedPhone, selectedName || null, verifiedByVal]
-    );
-
-    await db.query(
-        `UPDATE web2_pending_matches
-         SET status = 'resolved', resolved_at = NOW(), resolved_by = $2,
-             resolution_notes = $3
-         WHERE id = $1`,
-        [pendingId, resolvedBy || null, `Resolved to ${selectedPhone} ${selectedName || ''}`]
-    );
-
-    // Audit log manual resolve
-    await web2MatchAudit.log(db, {
-        transactionId: pending.transaction_id,
-        sepayId: tx.sepay_id,
-        extractedValue: selectedPhone,
-        extractedType: 'manual_resolve',
-        candidates: [{ phone: selectedPhone, name: selectedName }],
-        chosenPhone: selectedPhone,
-        chosenName: selectedName,
-        decisionTier: 'manual_resolve',
-        confidenceScore: 100,
-        confidenceBreakdown: { reason: 'user_picked' },
-        amount,
-        decidedBy: resolvedBy || 'manual',
-        walletTxId: walletResult.transaction?.id,
-        note: `Pending #${pendingId} resolved manually`,
-    });
-
-    return {
-        success: true,
-        phone: selectedPhone,
-        transactionId: pending.transaction_id, // GD balance_history → hook nối tín hiệu CK
-        walletTxId: walletResult.transaction?.id,
-        amount,
+    // 3H13 FIX (2026-06-12): toàn bộ resolve chạy trong 1 transaction + FOR
+    // UPDATE (pending + history). Trước đây: (a) SELECT/UPDATE rời trên pool —
+    // 2 user resolve đồng thời 2 KH khác nhau đều qua check status; (b) KHÔNG
+    // check debt_added / walletResult.alreadyProcessed → GD đã credit ví KH A
+    // vẫn bị ghi đè history sang KH B (tiền 1 nơi, sổ 1 nơi, im lặng).
+    const isPool = typeof db.connect === 'function';
+    const client = isPool ? await db.connect() : db;
+    const _normPhone = (p) => {
+        let s = String(p || '').replace(/\D/g, '');
+        if (s.startsWith('84') && s.length >= 11) s = '0' + s.slice(2);
+        return s;
     };
+    try {
+        if (isPool) await client.query('BEGIN');
+
+        const r = await client.query(
+            `SELECT id, transaction_id, status FROM web2_pending_matches WHERE id = $1 FOR UPDATE`,
+            [pendingId]
+        );
+        if (r.rows.length === 0) throw new Error('Pending match not found');
+        const pending = r.rows[0];
+        if (pending.status !== 'pending') {
+            throw new Error(`Match already ${pending.status}`);
+        }
+
+        const txRow = await client.query(
+            `SELECT id, sepay_id, transfer_amount, debt_added, linked_customer_phone
+             FROM web2_balance_history WHERE id = $1 FOR UPDATE`,
+            [pending.transaction_id]
+        );
+        if (txRow.rows.length === 0) throw new Error('Transaction not found');
+        const tx = txRow.rows[0];
+        const amount = parseInt(tx.transfer_amount) || 0;
+
+        if (amount <= 0) throw new Error('Invalid transfer amount');
+
+        // GD đã credit ví trước đó (link tay / auto-match / resolve khác) →
+        // KHÔNG ghi đè — chuyển KH phải đi flow reassign (có withdraw+deposit bù).
+        if (tx.debt_added) {
+            throw new Error(
+                `Giao dịch đã được cộng ví KH ${tx.linked_customer_phone || '?'} trước đó — dùng "Sửa KH" (reassign) để chuyển, không resolve được nữa`
+            );
+        }
+
+        const walletResult = await web2WalletService.processDeposit(
+            client,
+            selectedPhone,
+            amount,
+            tx.id,
+            `Nap tu CK (resolved pending)`,
+            null,
+            null,
+            tx.sepay_id
+        );
+        // Dedup theo sepay_id bắt được tiền đã ở ví nào đó (edge crash cũ /
+        // race): nếu ví đang giữ tiền KHÁC KH user chọn → throw rollback (giữ
+        // history nguyên trạng), hướng user sang reassign. Cùng KH → tiếp tục
+        // (history update align với tiền).
+        if (walletResult.alreadyProcessed === true) {
+            const heldPhone = _normPhone(walletResult.transaction?.phone);
+            if (heldPhone && heldPhone !== _normPhone(selectedPhone)) {
+                throw new Error(
+                    `Tiền GD này đã nằm ở ví ${heldPhone} — dùng "Sửa KH" (reassign) để chuyển sang ${selectedPhone}`
+                );
+            }
+        }
+
+        // match_method: 'manual_resolve' đã thêm vào constraint (migration ALTER
+        // chạy idempotent ở Render startup) — distinguish "user pick từ multi-match"
+        // vs 'manual_link' "user gán SDT cho row chưa có". Audit log giữ
+        // extractedType='manual_resolve' để trace flow.
+        const verifiedByVal =
+            String(resolvedBy || '')
+                .trim()
+                .slice(0, 100) || null;
+        await client.query(
+            `UPDATE web2_balance_history
+             SET debt_added = TRUE,
+                 linked_customer_phone = $2,
+                 wallet_processed = TRUE,
+                 verification_status = 'AUTO_APPROVED',
+                 match_method = 'manual_resolve',
+                 display_name = COALESCE(display_name, $3),
+                 verified_at = NOW(),
+                 verified_by = COALESCE($4, verified_by)
+             WHERE id = $1`,
+            [pending.transaction_id, selectedPhone, selectedName || null, verifiedByVal]
+        );
+
+        const updPending = await client.query(
+            `UPDATE web2_pending_matches
+             SET status = 'resolved', resolved_at = NOW(), resolved_by = $2,
+                 resolution_notes = $3
+             WHERE id = $1 AND status = 'pending'
+             RETURNING id`,
+            [pendingId, resolvedBy || null, `Resolved to ${selectedPhone} ${selectedName || ''}`]
+        );
+        if (updPending.rows.length === 0) {
+            throw new Error('Pending match vừa được xử lý bởi người khác');
+        }
+
+        if (isPool) await client.query('COMMIT');
+
+        // Audit log SAU commit, best-effort trên db gốc (log() nuốt lỗi bên
+        // trong — để nó TRONG tx thì statement fail sẽ abort tx im lặng mà
+        // code vẫn tưởng COMMIT thành công).
+        await web2MatchAudit.log(db, {
+            transactionId: pending.transaction_id,
+            sepayId: tx.sepay_id,
+            extractedValue: selectedPhone,
+            extractedType: 'manual_resolve',
+            candidates: [{ phone: selectedPhone, name: selectedName }],
+            chosenPhone: selectedPhone,
+            chosenName: selectedName,
+            decisionTier: 'manual_resolve',
+            confidenceScore: 100,
+            confidenceBreakdown: { reason: 'user_picked' },
+            amount,
+            decidedBy: resolvedBy || 'manual',
+            walletTxId: walletResult.transaction?.id,
+            note: `Pending #${pendingId} resolved manually`,
+        });
+
+        return {
+            success: true,
+            phone: selectedPhone,
+            transactionId: pending.transaction_id, // GD balance_history → hook nối tín hiệu CK
+            walletTxId: walletResult.transaction?.id,
+            amount,
+        };
+    } catch (e) {
+        if (isPool) await client.query('ROLLBACK').catch(() => {});
+        throw e;
+    } finally {
+        if (isPool) client.release();
+    }
 }
 
 /**

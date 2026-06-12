@@ -471,6 +471,30 @@ router.post('/:id/reassign', async (req, res) => {
         let alreadyReassigned = false;
         try {
             await withTransaction(db, async (client) => {
+                // 3H12 FIX (2026-06-12): SELECT đầu route chạy NGOÀI tx không lock —
+                // 2 admin reassign cùng GD sang 2 KH KHÁC NHAU đồng thời: cả 2 đọc
+                // oldPhone=P0, reassignRef khác nhau nên Step 0 không chặn → ví P0
+                // bị withdraw ×2. Lock row + re-check phone TƯƠI trong tx: request
+                // thứ 2 (chờ lock xong) thấy linked_customer_phone đã đổi → 409.
+                const lockQ = await client.query(
+                    `SELECT linked_customer_phone, debt_added
+                     FROM web2_balance_history WHERE id = $1 FOR UPDATE`,
+                    [id]
+                );
+                if (!lockQ.rows[0]) {
+                    const err = new Error('Giao dịch không còn tồn tại');
+                    err.httpStatus = 404;
+                    throw err;
+                }
+                const freshOldNorm = normalize(lockQ.rows[0].linked_customer_phone || '');
+                if (freshOldNorm !== oldPhoneNorm || !lockQ.rows[0].debt_added) {
+                    const err = new Error(
+                        `Giao dịch vừa bị thay đổi bởi người khác (KH hiện tại: ${lockQ.rows[0].linked_customer_phone || '—'}) — tải lại rồi thử lại`
+                    );
+                    err.httpStatus = 409;
+                    throw err;
+                }
+
                 // Step 0 (IDEMPOTENCY — BUG FIX 2026-06-11): deposit có dup-check
                 // qua reassignRef nhưng withdraw thì KHÔNG → reassign lặp vòng
                 // A→B→A→B lần 2: withdraw vẫn trừ ví A mà deposit B bị skip →
@@ -547,6 +571,9 @@ router.post('/:id/reassign', async (req, res) => {
         } catch (e) {
             // withTransaction đã ROLLBACK toàn bộ → không có tiền nào bị trừ/cộng
             // dở dang, không cần re-credit thủ công.
+            if (e.httpStatus) {
+                return res.status(e.httpStatus).json({ success: false, error: e.message });
+            }
             console.error(
                 `[reassign] CRITICAL: atomic reassign FAILED (id=${id}, ${oldPhoneNorm}→${newPhoneNorm}, amount=${amount}) — đã rollback: ${e.message}`
             );
@@ -896,11 +923,27 @@ router.post('/manual-deposit', async (req, res) => {
         // FIX: dùng millisecond granularity + random suffix để gần như không trùng,
         // nhưng vẫn fit INTEGER (≤ 2_000_000_000) và LUÔN âm (phân biệt manual vs
         // SePay thật). Range: (ms % 1e8) * 20 + rand[0..19] + 1 ≤ 2_000_000_000.
-        const manualSepayId = -(
-            (Date.now() % 100_000_000) * 20 +
-            Math.floor(Math.random() * 20) +
-            1
-        );
+        //
+        // 3H11 FIX (2026-06-12): client gửi idempotencyKey (UUID sinh 1 lần/lần bấm)
+        // → sepay_id DERIVE từ key (hash FNV-1a) thay vì random. Retry dual-base
+        // (CF Worker timeout 524 SAU khi Render đã COMMIT → client re-POST sang
+        // base fallback) tạo CÙNG sepay_id → ON CONFLICT → trả alreadyProcessed
+        // thay vì nạp/rút tiền LẦN 2.
+        const idempotencyKey =
+            String(body.idempotencyKey || req.headers['x-idempotency-key'] || '')
+                .trim()
+                .slice(0, 80) || null;
+        const _fnv1a = (s) => {
+            let h = 0x811c9dc5;
+            for (let i = 0; i < s.length; i++) {
+                h ^= s.charCodeAt(i);
+                h = Math.imul(h, 0x01000193) >>> 0;
+            }
+            return h >>> 0;
+        };
+        const manualSepayId = idempotencyKey
+            ? -((_fnv1a(idempotencyKey) % 2_000_000_000) + 1)
+            : -((Date.now() % 100_000_000) * 20 + Math.floor(Math.random() * 20) + 1);
 
         // Build content readable cho audit + cho supplier-wallet polling pick up
         // qua name match (NCC). Format: "[Nạp tay] <userName> → <target>:<name> | <note>"
@@ -924,6 +967,7 @@ router.post('/manual-deposit', async (req, res) => {
             note,
             userName,
             userId: body.userId || null,
+            idempotencyKey,
             timestamp: new Date().toISOString(),
         });
 
@@ -970,6 +1014,21 @@ router.post('/manual-deposit', async (req, res) => {
                 );
 
                 if (insertResult.rows.length === 0) {
+                    // 3H11: conflict sepay_id — nếu row sẵn có CÙNG idempotencyKey
+                    // thì đây là RETRY (dual-base/timeout) của chính GD đã commit
+                    // → trả alreadyProcessed, KHÔNG đụng ví lần 2.
+                    if (idempotencyKey) {
+                        const exist = await client.query(
+                            `SELECT id, raw_data->>'idempotencyKey' AS ikey
+                             FROM web2_balance_history WHERE sepay_id = $1 LIMIT 1`,
+                            [manualSepayId]
+                        );
+                        if (exist.rows[0] && exist.rows[0].ikey === idempotencyKey) {
+                            balanceHistoryId = exist.rows[0].id;
+                            walletResult = { alreadyProcessed: true };
+                            return; // skip wallet ops — GD gốc đã làm
+                        }
+                    }
                     const dupErr = new Error('Trùng manual sepay_id (rare)');
                     dupErr.statusCode = 409;
                     throw dupErr;
@@ -1059,6 +1118,7 @@ router.post('/manual-deposit', async (req, res) => {
                 userName,
                 walletTxId: walletResult?.transaction?.id || null,
                 walletNewBalance: walletResult?.wallet?.balance || null,
+                alreadyProcessed: walletResult?.alreadyProcessed === true || undefined,
             },
         });
     } catch (e) {

@@ -400,6 +400,30 @@ router.patch('/:entity/update/:code', async (req, res) => {
         // Đọc existing data (FOR UPDATE), append new entry, mới ghi lại.
         const b = req.body || {};
         let dataPayload = b.data;
+        // 3H10 FIX (2026-06-12): field do STATE MACHINE server quản — client
+        // KHÔNG được ghi đè qua generic update. purchase-refund: PATCH đè
+        // status/stock_deducted (copy stale từ STATE tab khác) rồi /approve
+        // lần nữa → deductStock chạy LẦN 2 = kho trừ đôi. Mọi chuyển trạng
+        // thái CHỈ qua /api/purchase-refund/:code/* (transaction + FOR UPDATE).
+        const PROTECTED_DATA_FIELDS = {
+            'purchase-refund': [
+                'status',
+                'stock_deducted',
+                'approved_at',
+                'approved_by',
+                'approved_by_id',
+                'rejected_at',
+                'rejected_by',
+                'refunded_at',
+                'refunded_by',
+                'history',
+            ],
+        };
+        const protectedFields = PROTECTED_DATA_FIELDS[req.params.entity];
+        if (protectedFields && dataPayload && typeof dataPayload === 'object') {
+            dataPayload = { ...dataPayload };
+            for (const f of protectedFields) delete dataPayload[f];
+        }
         await client.query('BEGIN');
         if (b.userId || b.userName || dataPayload !== undefined) {
             const existing = await client.query(

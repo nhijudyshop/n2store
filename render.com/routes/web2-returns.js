@@ -190,6 +190,19 @@ async function ensureTables(pool) {
             ADD COLUMN IF NOT EXISTS cod_reduction  NUMERIC(14,2) NOT NULL DEFAULT 0,
             ADD COLUMN IF NOT EXISTS payable_carrier NUMERIC(14,2) NOT NULL DEFAULT 0;
     `);
+    // 3H2 (2026-06-12): backstop chống 2 phiếu "không nhận hàng" active cùng 1
+    // đơn nguồn (double-submit/2 user = cộng ví + cộng kho ×2). Pre-check trong
+    // transaction là lớp 1; index này là lớp chốt khi race. try/catch riêng:
+    // data cũ lỡ có dup thì index fail — không chặn boot (warn để dọn tay).
+    try {
+        await pool.query(`
+            CREATE UNIQUE INDEX IF NOT EXISTS uq_web2_returns_knh_active
+            ON web2_returns(source_order_code)
+            WHERE status = 'active' AND sub_type = 'khong_nhan_hang'
+        `);
+    } catch (e) {
+        console.warn('[WEB2-RETURNS] uq_web2_returns_knh_active create failed:', e.message);
+    }
     _tablesCreated = true;
 }
 
@@ -651,6 +664,51 @@ router.post('/', async (req, res) => {
             const now = Date.now();
             try {
                 inserted = await withTransaction(pool, async (client) => {
+                    // 3H2 FIX (2026-06-12): gắn vòng đời PBH nguồn cho phiếu
+                    // "không nhận hàng" — TRONG cùng transaction:
+                    //  1) chặn 2 phiếu active cùng đơn nguồn (pre-check + unique
+                    //     index backstop uq_web2_returns_knh_active);
+                    //  2) lock PBH nguồn FOR UPDATE, đọc wallet_deducted TƯƠI
+                    //     làm số tiền cộng ví (chống race với cancel vừa hoàn);
+                    //  3) sau khi cộng ví + áp kho → zero-out wallet_deducted +
+                    //     SET stock_restored=TRUE để cancel/bulk-cancel/DELETE
+                    //     PBH về sau KHÔNG double hoàn ví + double restock.
+                    let knhPbhIds = [];
+                    if (subType === 'khong_nhan_hang') {
+                        const dup = await client.query(
+                            `SELECT code FROM web2_returns
+                             WHERE source_order_code = $1 AND sub_type = 'khong_nhan_hang'
+                               AND status = 'active' LIMIT 1`,
+                            [sourceOrderCode]
+                        );
+                        if (dup.rows[0]) {
+                            const err = new Error(
+                                `Đã có phiếu thu về ${dup.rows[0].code} (active) cho đơn ${sourceOrderCode}`
+                            );
+                            err.httpStatus = 409;
+                            throw err;
+                        }
+                        const lockQ =
+                            sourceOrderType === 'pbh'
+                                ? await client.query(
+                                      `SELECT id, wallet_deducted FROM fast_sale_orders
+                                       WHERE number = $1 FOR UPDATE`,
+                                      [sourceOrderCode]
+                                  )
+                                : await client.query(
+                                      `SELECT id, wallet_deducted FROM fast_sale_orders
+                                       WHERE source_type = 'native_order' AND source_code = $1
+                                         AND state <> 'cancel'
+                                       ORDER BY id FOR UPDATE`,
+                                      [sourceOrderCode]
+                                  );
+                        knhPbhIds = lockQ.rows.map((r) => r.id);
+                        const freshDeducted = lockQ.rows.reduce(
+                            (s, r) => s + (Number(r.wallet_deducted) || 0),
+                            0
+                        );
+                        walletCredit = freshDeducted > 0 ? freshDeducted : 0;
+                    }
                     await _applyStock(client, items, method, +1);
                     const hist = [
                         {
@@ -709,11 +767,30 @@ router.post('/', async (req, res) => {
                             user.name,
                         ]
                     );
+                    // 3H2: đánh dấu PBH nguồn đã quyết toán qua phiếu thu về.
+                    if (knhPbhIds.length) {
+                        await client.query(
+                            `UPDATE fast_sale_orders
+                             SET wallet_deducted = 0, stock_restored = TRUE, date_updated = NOW()
+                             WHERE id = ANY($1::bigint[])`,
+                            [knhPbhIds]
+                        );
+                    }
                     return ins.rows[0];
                 });
                 walletCreditedFinal = walletCredit > 0;
                 break;
             } catch (e) {
+                if (e && e.httpStatus) {
+                    return res.status(e.httpStatus).json({ error: e.message });
+                }
+                // 3H2: race 2 phiếu cùng đơn nguồn lọt qua pre-check → unique
+                // index backstop bắn 23505 — trả 409 thay vì retry vô ích.
+                if (e && e.code === '23505' && e.constraint === 'uq_web2_returns_knh_active') {
+                    return res.status(409).json({
+                        error: `Đã có phiếu thu về active cho đơn ${sourceOrderCode}`,
+                    });
+                }
                 // Trùng code (race _genCode không atomic) → retry với code mới.
                 if (e && e.code === '23505' && attempt < RETRY_MAX) continue;
                 throw e;
@@ -927,6 +1004,41 @@ router.delete('/:code', async (req, res) => {
                     const err = new Error('Phiếu đã huỷ');
                     err.httpStatus = 409;
                     throw err;
+                }
+                // 3H2: phiếu khong_nhan_hang lúc TẠO đã zero-out wallet_deducted
+                // + SET stock_restored=TRUE trên PBH nguồn. Huỷ phiếu = kho bị
+                // trừ lại + ví bị rút lại (ở trên) → trả cờ về như cũ để vòng
+                // đời PBH (cancel sau này) lại restock/hoàn ví đúng.
+                if (row.sub_type === 'khong_nhan_hang' && row.source_order_code) {
+                    const lockQ =
+                        row.source_order_type === 'pbh'
+                            ? await client.query(
+                                  `SELECT id FROM fast_sale_orders WHERE number = $1 FOR UPDATE`,
+                                  [row.source_order_code]
+                              )
+                            : await client.query(
+                                  `SELECT id FROM fast_sale_orders
+                                   WHERE source_type = 'native_order' AND source_code = $1
+                                   ORDER BY id FOR UPDATE`,
+                                  [row.source_order_code]
+                              );
+                    if (lockQ.rows.length) {
+                        await client.query(
+                            `UPDATE fast_sale_orders
+                             SET stock_restored = FALSE, date_updated = NOW()
+                             WHERE id = ANY($1::bigint[])`,
+                            [lockQ.rows.map((r) => r.id)]
+                        );
+                        const creditedBack = Number(row.wallet_credited) || 0;
+                        if (creditedBack > 0) {
+                            // Trả lump về PBH đầu (split nhiều PBH hiếm; tổng đúng là đủ
+                            // để cancel sau hoàn đúng số tiền).
+                            await client.query(
+                                `UPDATE fast_sale_orders SET wallet_deducted = $1 WHERE id = $2`,
+                                [creditedBack, lockQ.rows[0].id]
+                            );
+                        }
+                    }
                 }
                 cancelledPhone = row.phone;
             });

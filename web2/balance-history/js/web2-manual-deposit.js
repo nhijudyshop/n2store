@@ -145,17 +145,30 @@
         return body;
     }
     async function postManualDeposit(payload) {
+        // 3H11 FIX (2026-06-12): idempotencyKey sinh 1 LẦN cho cả 2 base — CF
+        // Worker timeout 524 SAU khi Render đã COMMIT → retry sang FALLBACK với
+        // CÙNG key → server derive cùng sepay_id → ON CONFLICT trả
+        // alreadyProcessed thay vì nạp/rút tiền lần 2.
+        const withKey = {
+            ...payload,
+            idempotencyKey:
+                payload.idempotencyKey ||
+                (crypto.randomUUID
+                    ? crypto.randomUUID()
+                    : `md-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`),
+        };
+        const body = JSON.stringify(withKey);
         try {
             return await jsonFetch(`${BASE}/manual-deposit`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload),
+                body,
             });
         } catch (e) {
             return await jsonFetch(`${FALLBACK}/manual-deposit`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload),
+                body,
             });
         }
     }

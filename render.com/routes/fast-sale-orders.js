@@ -956,10 +956,15 @@ router.post('/merge', async (req, res) => {
         await ensureTables(pool);
         await client.query('BEGIN');
 
-        // Fetch all source PBHs
+        // Fetch all source PBHs.
+        // 3H1 FIX (2026-06-12): FOR UPDATE — serialize với /cancel|/bulk-cancel|DELETE
+        // (đều lock FOR UPDATE). Cancel commit trước → SELECT này thấy state='cancel'
+        // tươi → reject 400 bên dưới; merge lock trước → cancel chờ tới khi merge
+        // commit (row nguồn đã bị DELETE → cancel thành notFound). Hết cảnh đơn vừa
+        // huỷ + restock vẫn chui vào PBH gộp làm tồn kho dôi.
         const placeholders = numbers.map((_, i) => `$${i + 1}`).join(',');
         const src = await client.query(
-            `SELECT * FROM fast_sale_orders WHERE number IN (${placeholders})`,
+            `SELECT * FROM fast_sale_orders WHERE number IN (${placeholders}) FOR UPDATE`,
             numbers
         );
         if (src.rows.length !== numbers.length) {
@@ -996,6 +1001,16 @@ router.post('/merge', async (req, res) => {
         let totalDiscount = 0;
         let totalAmount = 0;
         let totalShipping = 0;
+        // 3C1 FIX (2026-06-12): carry tiền từ PBH nguồn sang PBH gộp. Trước đây
+        // INSERT bỏ 5 cột này → rơi về DEFAULT 0: wallet_deducted của nguồn biến
+        // mất vĩnh viễn (DELETE raw không hoàn, cancel PBH gộp hoàn 0đ) và
+        // residual/COD về 0 → mất khoản phải thu. Cộng dồn từng cột — mỗi row
+        // nguồn tự giữ invariant residual của nó nên tổng vẫn đúng.
+        let totalPayment = 0;
+        let totalDeposit = 0;
+        let totalResidual = 0;
+        let totalCod = 0;
+        let totalWalletDeducted = 0;
         for (const r of sortedRows) {
             const lines = Array.isArray(r.order_lines) ? r.order_lines : [];
             combinedLines.push(...lines);
@@ -1004,6 +1019,11 @@ router.post('/merge', async (req, res) => {
             totalDiscount += Number(r.amount_discount) || 0;
             totalAmount += Number(r.amount_total) || 0;
             totalShipping += Number(r.delivery_price) || 0;
+            totalPayment += Number(r.payment_amount) || 0;
+            totalDeposit += Number(r.deposit) || 0;
+            totalResidual += Number(r.residual) || 0;
+            totalCod += Number(r.cash_on_delivery) || 0;
+            totalWalletDeducted += Number(r.wallet_deducted) || 0;
         }
         const mergedStts = sortedRows.map((r) => Number(r.display_stt) || 0).filter(Boolean);
         const mergedSourceCode = sortedRows.map((r) => r.number).join('+');
@@ -1038,7 +1058,8 @@ router.post('/merge', async (req, res) => {
                         order_lines, total_quantity, amount_untaxed, amount_discount, amount_total,
                         delivery_price, carrier_id, carrier_name,
                         state, source_type, source_code, merged_display_stt,
-                        live_campaign_id, live_campaign_name, customer_id, comment
+                        live_campaign_id, live_campaign_name, customer_id, comment,
+                        payment_amount, deposit, residual, cash_on_delivery, wallet_deducted
                     ) VALUES (
                         $1, nextval('fast_sale_orders_display_stt_seq'), 'NATIVE_WEB',
                         $2, $3, $4, $5, $6, $7,
@@ -1046,7 +1067,8 @@ router.post('/merge', async (req, res) => {
                         $14, $15, $16, $17, $18,
                         $19, $20, $21,
                         'draft', 'merged', $22, $23,
-                        $24, $25, $26, $27
+                        $24, $25, $26, $27,
+                        $28, $29, $30, $31, $32
                     ) RETURNING *`,
                     [
                         newNumber,
@@ -1076,6 +1098,11 @@ router.post('/merge', async (req, res) => {
                         baseRow.live_campaign_name,
                         baseRow.customer_id,
                         combinedComment,
+                        totalPayment,
+                        totalDeposit,
+                        totalResidual,
+                        totalCod,
+                        totalWalletDeducted,
                     ]
                 );
                 await client.query('RELEASE SAVEPOINT merge_insert');
@@ -2133,7 +2160,14 @@ async function _cancelPbhInTx(client, number, performedBy) {
     if (upd.rows.length === 0) return { notFound: true };
     let restock = null;
     let walletRefunded = 0;
-    if (notCancelled) {
+    // 3H3 FIX (2026-06-12): gate theo CỜ idempotent thay vì state. Trước đây
+    // `if (notCancelled)` → PBH bị sync set state='cancel' (huỷ đơn web cũ)
+    // mà CHƯA restock/hoàn ví thì mọi đường cancel sau đều skip vĩnh viễn.
+    // restockOrderLines tự idempotent (stock_restored), _refundWalletDeducted
+    // tự idempotent (zero-out) → chạy lại an toàn, PBH kẹt cũ tự lành.
+    const needRestock = pr.stock_restored !== true;
+    const needRefund = (Number(pr.wallet_deducted) || 0) > 0;
+    if (needRestock || needRefund) {
         // restockOrderLines dùng client (cùng transaction) → atomic với UPDATE state.
         restock = await restockOrderLines(client, pr);
         walletRefunded = await _refundWalletDeductedForPbh(client, pr, performedBy);
@@ -2610,3 +2644,7 @@ router.validateStock = validateStock;
 router.applyWalletToUnpaidPbhs = applyWalletToUnpaidPbhs;
 
 module.exports = router;
+// 3H3 (2026-06-12): export cho native-orders /:code/cancel huỷ PBH liên kết
+// ĐÚNG NGHĨA (restock + hoàn ví idempotent) trong cùng transaction, thay vì
+// chỉ mirror state qua syncPbhStateFromNativeOrder.
+module.exports._cancelPbhInTx = _cancelPbhInTx;

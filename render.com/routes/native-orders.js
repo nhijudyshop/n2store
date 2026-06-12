@@ -24,6 +24,10 @@ const web2WalletService = require('../services/web2-wallet-service');
 // 2026-06-04: HOÀN ví khi huỷ đơn — refund số tiền đã trừ ví (wallet_deducted)
 // của các PBH liên kết, rồi zero-out để không hoàn lặp (idempotent). Trả tổng đã hoàn.
 //
+// ⚠ 3H3 (2026-06-12): /:code/cancel KHÔNG dùng hàm này nữa — thay bằng
+// fastSale._cancelPbhInTx per-PBH (restock + hoàn ví + state, match cả merged).
+// Giữ hàm cho tham chiếu/flow phụ; hiện không caller nào (eslint: dead code OK).
+//
 // 2026-06-10 (bug 5): `db` có thể là Pool HOẶC client transaction. Khi gọi từ
 // /cancel ta truyền client của transaction đang giữ → deposit ví + zero-out
 // wallet_deducted + UPDATE status='cancelled' COMMIT chung 1 transaction. Nếu
@@ -1760,6 +1764,42 @@ router.patch('/:code', async (req, res) => {
         await ensureTables(pool);
         const body = { ...req.body };
 
+        // 3H4 FIX (2026-06-12): guard state transition cho PATCH. Trước đây PATCH
+        // set status bất kỳ không validate: (a) {status:'cancelled'} bypass hoàn
+        // ví + restock PBH (chỉ POST /:code/cancel làm đủ); (b) cancelled→draft
+        // hồi sinh PBH cancel→'done' không trừ lại kho/ví; (c) sửa products đơn
+        // confirmed làm lệch order_lines PBH (UI khoá modal nhưng API mở).
+        if (body.status !== undefined || Array.isArray(body.products)) {
+            const curQ = await pool.query(`SELECT status FROM native_orders WHERE code = $1`, [
+                req.params.code,
+            ]);
+            if (curQ.rows.length === 0) return res.status(404).json({ error: 'Not found' });
+            const curStatus = curQ.rows[0].status;
+            if (body.status !== undefined && body.status !== curStatus) {
+                const target = String(body.status);
+                if (target === 'cancelled' || target === 'cancel') {
+                    return res.status(400).json({
+                        error: 'Không huỷ đơn qua PATCH — dùng POST /api/native-orders/:code/cancel (có hoàn ví + trả tồn kho PBH)',
+                        useEndpoint: `/api/native-orders/${req.params.code}/cancel`,
+                    });
+                }
+                if (!['draft', 'confirmed'].includes(target)) {
+                    return res.status(400).json({ error: `status không hợp lệ: ${target}` });
+                }
+                if (curStatus === 'cancelled') {
+                    return res.status(409).json({
+                        error: 'Đơn đã huỷ — không hồi sinh qua PATCH (PBH/kho/ví đã quyết toán khi huỷ). Tạo đơn mới thay thế.',
+                    });
+                }
+            }
+            if (Array.isArray(body.products) && curStatus === 'confirmed' && body.force !== true) {
+                return res.status(409).json({
+                    error: 'Đơn đã confirmed (đã có PBH) — sửa products sẽ lệch order_lines của PBH. Gửi force:true nếu chắc chắn.',
+                    needForce: true,
+                });
+            }
+        }
+
         // Sprint 1 KPI: snapshot products HIỆN TẠI để diff với products MỚI sau update.
         // Cần làm TRƯỚC khi UPDATE để có baseline.
         let productsBefore = null;
@@ -2128,7 +2168,7 @@ router.post('/:code/cancel', async (req, res) => {
         const client = await pool.connect();
         let r;
         let refunded = 0;
-        let phone = null;
+        const pbhCancelled = [];
         try {
             await client.query('BEGIN');
             r = await client.query(
@@ -2154,11 +2194,31 @@ router.post('/:code/cancel', async (req, res) => {
                     note: `Đã ở trạng thái cancelled trước đó`,
                 });
             }
-            phone = r.rows[0].phone;
-            // 2026-06-04: hoàn ví số tiền đã thu hộ (nếu có) khi huỷ đơn — CHUNG txn.
-            refunded = await _refundWalletForNativeOrder(client, code, phone, performedBy, {
-                inTransaction: true,
-            });
+            // 3H3 FIX (2026-06-12): huỷ PBH liên kết ĐÚNG NGHĨA trong CÙNG
+            // transaction — _cancelPbhInTx (fast-sale-orders) lock FOR UPDATE
+            // → state='cancel' + restock idempotent (stock_restored) + hoàn
+            // wallet_deducted idempotent (zero-out). Trước đây chỉ mirror state
+            // qua syncPbhStateFromNativeOrder NGOÀI tx → kho đã trừ lúc tạo PBH
+            // không bao giờ trả về (mọi đường restock sau skip vì state đã
+            // 'cancel'). Match cả merged PBH (source_code 'NJ-A+NJ-B').
+            const fastSale = require('./fast-sale-orders');
+            const linkedPbh = await client.query(
+                `SELECT number FROM fast_sale_orders
+                 WHERE source_code = $1
+                    OR source_code LIKE $2
+                    OR source_code LIKE $3
+                    OR source_code LIKE $4
+                 ORDER BY number
+                 FOR UPDATE`,
+                [code, `${code}+%`, `%+${code}+%`, `%+${code}`]
+            );
+            for (const lp of linkedPbh.rows) {
+                const cr = await fastSale._cancelPbhInTx(client, lp.number, performedBy);
+                if (!cr.notFound) {
+                    pbhCancelled.push(lp.number);
+                    refunded += Number(cr.walletRefunded) || 0;
+                }
+            }
             await client.query('COMMIT');
         } catch (txErr) {
             await client.query('ROLLBACK').catch(() => {});
@@ -2168,12 +2228,7 @@ router.post('/:code/cancel', async (req, res) => {
         }
 
         const order = mapRowToOrder(r.rows[0]);
-        // Sync sang PBH: status='cancelled' → PBH state='cancel'.
-        // Note: PBH /:number/cancel có thêm restock logic; ở đây ta chỉ
-        // đổi state PBH qua syncPbhStateFromNativeOrder (đơn giản). Nếu cần
-        // restock chính xác, gọi /by-source/cancel của fast-sale-orders.
-        // (Ngoài transaction tiền: chỉ mirror state PBH, không đụng ví.)
-        const pbhSync = await syncPbhStateFromNativeOrder(pool, code, 'cancelled');
+        const pbhSync = { synced: pbhCancelled.length, numbers: pbhCancelled };
         if (refunded > 0 && req.app.locals.web2RealtimeSseNotify) {
             try {
                 req.app.locals.web2RealtimeSseNotify(
@@ -2188,6 +2243,12 @@ router.post('/:code/cancel', async (req, res) => {
                 req.app.locals.web2RealtimeSseNotify(
                     'web2:fast-sale-orders',
                     { action: 'native-status-sync', code, status: 'cancelled', ts: Date.now() },
+                    'update'
+                );
+                // 3H3: PBH cancel kèm restock → products page refresh stock.
+                req.app.locals.web2RealtimeSseNotify(
+                    'web2:products',
+                    { action: 'native-cancel-restock', code, ts: Date.now() },
                     'update'
                 );
             } catch {}
@@ -2612,16 +2673,26 @@ router.post('/merge-to-pbh', async (req, res) => {
         await ensureTables(pool);
         await client.query('BEGIN');
 
-        // Fetch all native orders
+        // Fetch all native orders.
+        // 3H5 FIX (2026-06-12): FOR UPDATE + guard status='draft' — trước đây
+        // SELECT trần không guard nên gộp được cả đơn cancelled/confirmed và
+        // race với /cancel; đồng bộ với /merge (đơn web) đã làm đúng.
         const placeholders = codes.map((_, i) => `$${i + 1}`).join(',');
         const src = await client.query(
-            `SELECT * FROM native_orders WHERE code IN (${placeholders})`,
+            `SELECT * FROM native_orders WHERE code IN (${placeholders}) FOR UPDATE`,
             codes
         );
         if (src.rows.length !== codes.length) {
             await client.query('ROLLBACK');
             return res.status(404).json({
                 error: `Tìm thấy ${src.rows.length}/${codes.length} đơn — có đơn không tồn tại`,
+            });
+        }
+        const notDraft = src.rows.filter((r) => r.status !== 'draft');
+        if (notDraft.length) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({
+                error: `Chỉ gộp được đơn ở trạng thái 'draft'. Đơn không hợp lệ: ${notDraft.map((r) => `${r.code} (${r.status})`).join(', ')}`,
             });
         }
 
@@ -2631,6 +2702,27 @@ router.post('/merge-to-pbh', async (req, res) => {
             await client.query('ROLLBACK');
             return res.status(400).json({
                 error: `Phải cùng SĐT. Đang có ${phones.size} SĐT: ${Array.from(phones).join(', ')}`,
+            });
+        }
+
+        // 3H5: idempotent — đã có PBH gộp active cho ĐÚNG bộ đơn này → trả lại
+        // PBH cũ thay vì tạo bản thứ 2 (double-submit khi mạng chậm).
+        const mergedSourceCodePre = src.rows
+            .sort((a, b) => (Number(a.display_stt) || 0) - (Number(b.display_stt) || 0))
+            .map((r) => r.code)
+            .join('+');
+        const dupQ = await client.query(
+            `SELECT number FROM fast_sale_orders
+             WHERE source_type = 'native_order' AND source_code = $1 AND state <> 'cancel'
+             LIMIT 1`,
+            [mergedSourceCodePre]
+        );
+        if (dupQ.rows.length) {
+            await client.query('ROLLBACK');
+            return res.status(409).json({
+                error: `Đã có PBH gộp ${dupQ.rows[0].number} cho bộ đơn này`,
+                existingNumber: dupQ.rows[0].number,
+                idempotent: true,
             });
         }
 
@@ -2648,6 +2740,9 @@ router.post('/merge-to-pbh', async (req, res) => {
                 const q = Number(p.quantity) || 0;
                 const price = Number(p.price) || 0;
                 combinedLines.push({
+                    // 3H5 FIX: giữ productCode — thiếu nó PBH gộp không bao giờ
+                    // trừ/hoàn kho được (mọi loop stock skip line không code).
+                    productCode: p.productCode || p.code || null,
                     productName: p.name || p.productName || '',
                     quantity: q,
                     priceUnit: price,
@@ -2660,6 +2755,21 @@ router.post('/merge-to-pbh', async (req, res) => {
         }
         const mergedStts = sorted.map((r) => Number(r.display_stt) || 0).filter(Boolean);
         const mergedSourceCode = sorted.map((r) => r.code).join('+');
+
+        // 3H5 FIX: validate + trừ kho TRONG transaction (đồng bộ từng-line với
+        // from-native-order). force:true bypass check như from-native-order.
+        const fastSaleHelpers = require('./fast-sale-orders');
+        if (req.body?.force !== true) {
+            const violations = await fastSaleHelpers.validateStock(client, combinedLines);
+            if (violations.length > 0) {
+                await client.query('ROLLBACK');
+                return res.status(400).json({
+                    error: 'over_sell',
+                    message: 'Gộp → PBH thất bại: số lượng vượt tồn kho ở 1 hoặc nhiều SP',
+                    violations,
+                });
+            }
+        }
         const combinedComment = sorted
             .map((r) => (r.note ? `[${r.code}] ${r.note}` : null))
             .filter(Boolean)
@@ -2703,6 +2813,29 @@ router.post('/merge-to-pbh', async (req, res) => {
         );
         const newNumber = ins.rows[0].number;
 
+        // 3H5 FIX: trừ kho TRONG cùng transaction (mirror from-native-order —
+        // clamp GREATEST(0)); cancel PBH gộp về sau restock đủ qua stock_restored.
+        const stockNow = Date.now();
+        for (const line of combinedLines) {
+            const lc = line.productCode;
+            const lq = Number(line.quantity) || 0;
+            if (!lc || lq <= 0) continue;
+            await client.query(
+                `UPDATE web2_products
+                 SET stock = GREATEST(0, stock - $1), updated_at = $2
+                 WHERE code = $3`,
+                [lq, stockNow, lc]
+            );
+        }
+        // 3H5 FIX: đơn nguồn → 'confirmed' (đã lên PBH) — chặn user tạo thêm PBH
+        // lẻ qua from-native-order cho từng đơn = double-billing cùng giỏ hàng.
+        const confirmPh = codes.map((_, i) => `$${i + 2}`).join(',');
+        await client.query(
+            `UPDATE native_orders SET status = 'confirmed', updated_at = $1
+             WHERE code IN (${confirmPh})`,
+            [Date.now(), ...codes]
+        );
+
         await client.query('COMMIT');
         const newOrder = ins.rows[0];
 
@@ -2724,6 +2857,12 @@ router.post('/merge-to-pbh', async (req, res) => {
                     ts: Date.now(),
                     from: 'web2:native-orders',
                 },
+                'update'
+            );
+            // 3H5: PBH gộp giờ trừ kho thật → products page refresh stock.
+            realtimeSse(
+                'web2:products',
+                { action: 'merge-to-pbh', number: newNumber, ts: Date.now() },
                 'update'
             );
         }
