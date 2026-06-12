@@ -4,7 +4,7 @@
 
 ### [web2] [render] [worker] ĐỢT I (tách Web1 dứt điểm) + ĐỢT E (ví NCC server ledger) — vòng 3 ✅
 
-**User:** "đợt I và đợt E". Commit chính `4375bcf77` (+ phần bị auto-sweep vào `7bb139d21`/`5ecfc792f` bởi session song song — nội dung đầy đủ trong HEAD). 2 route server MỚI + 30+ file client/server. 3 agent song song (3W2+3W3 / 3W4 / supplier-debt) + tự code server.
+**User:** "đợt I và đợt E". Commit chính `01cb771dd` (+ phần bị auto-sweep vào `7bb139d21`/`5ecfc792f` bởi session song song — nội dung đầy đủ trong HEAD). 2 route server MỚI + 30+ file client/server. 3 agent song song (3W2+3W3 / 3W4 / supplier-debt) + tự code server.
 
 **Đợt I:**
 
