@@ -351,35 +351,152 @@
                             "
                             >Vòng 2: 2026-06-11 ✅ đợt A-D ĐÃ FIX (còn H11 + đợt E)</span
                         >
+                        <span
+                            style="
+                                background: #fef3c7;
+                                color: #92400e;
+                                font-size: 12px;
+                                font-weight: 700;
+                                padding: 3px 10px;
+                                border-radius: 999px;
+                            "
+                            >Vòng 3: 2026-06-12 🔴 1C + 21H mới (chưa fix) + sweep Web1⊥Web2</span
+                        >
                     </div>
                     <p style="margin: 0 0 12px; font-size: 13px; color: #475569; line-height: 1.6">
-                        <strong>Vòng 1 (2026-06-10):</strong> audit 9 agent + FIX Wave 1+2 — ~8
-                        CRITICAL · ~25 HIGH → đã fix phần lớn, browser-test 34/34 sạch.
-                        <strong>Vòng 2 (2026-06-11):</strong> 8 agent re-audit verify từng bug cũ
-                        bằng code thật + 3 agent đối chứng —
+                        <strong>Vòng 1 (2026-06-10):</strong> audit 9 agent + FIX Wave 1+2.
+                        <strong>Vòng 2 (2026-06-11):</strong> 25 bug C1-C7/S1-S7/H1-H16 →
+                        <strong style="color: #166534">ĐÃ FIX đợt A-D cùng ngày ✅</strong>.
+                        <strong>Vòng 3 (2026-06-12):</strong> 54 agent (10 audit nhóm + sweep tách
+                        Web1⊥Web2 + 2 adversarial verifier/finding) —
                         <strong style="color: #166534"
-                            >xác nhận đa số fix vòng 1 đứng vững (Bán Hàng 16/18, Sản phẩm 7/9, 8/8
-                            Top CRITICAL)</strong
+                            >verify lại TOÀN BỘ fix A-D bằng code thật: không regression</strong
                         >
-
-                        và phát hiện cụm bug MỚI: 7 CRITICAL tiền/kho + 7 CRITICAL bảo mật + 16 HIGH
-                        (25/25 confirm độc lập) →
-                        <strong style="color: #166534"
-                            >ĐÃ FIX đợt A-D cùng ngày (commits 22ba307df + feb3a0281 + 5e154518b):
-                            C1-C7, S1-S7, H1-H10, H12-H16 + ~10 MEDIUM ✅</strong
-                        >. Còn mở: H11 (live-chat — session khác đang làm), đợt E kiến trúc ví NCC.
-                        Danh sách canonical + trạng thái từng dòng ở
+                        (trừ 1: kpi-assignments thiếu token sau gate H9), nhưng phát hiện cụm bug
+                        MỚI
+                        <strong style="color: #b91c1c"
+                            >1 CRITICAL + ~21 HIGH (3C1, 3H1-3H21 — CHƯA FIX)</strong
+                        >, tập trung 3 họ: route gộp/tách/sync bỏ quên atomic (merge PBH mất tiền
+                        ví, huỷ đơn web không restock), auth thiếu hẳn ở route tiền ngoài wallets
+                        (balance-history, monitoring revert), hệ quả phụ rework PUSH-only live-chat
+                        (auto-snap chết). Danh sách canonical + lộ trình đợt F-I ở
                         <a
                             href="https://github.com/nhijudyshop/n2store/blob/main/docs/web2/WEB2-PAGES-ANALYSIS.md"
                             target="_blank"
                             style="font-weight: 700"
                             >docs/web2/WEB2-PAGES-ANALYSIS.md</a
                         >
-                        (mục 1 + mục 5). ⏳ Fix backend cần deploy Render (auto theo push). ⚠ Auth
-                        page-coupled đang ở chế độ SOFT — bật env
-                        <code>WEB2_AUTH_ENFORCE=1</code> sau khi wire token client (checklist mục 0
-                        file MD).
+                        (mục 1 + mục 6). ⏳ Fix backend cần deploy Render (auto theo push). ⚠ Auth
+                        SOFT — <strong>blocker bật <code>WEB2_AUTH_ENFORCE=1</code> là 3H21</strong>
+                        (web2-api.js + bell + raw fetch chưa gửi token; generic chưa wire soft).
                     </p>
+
+                    <!-- Vòng 3: bug mới CHƯA FIX -->
+                    <div
+                        style="
+                            background: #fef2f2;
+                            border: 1px solid #fecaca;
+                            border-radius: 10px;
+                            padding: 12px 14px;
+                            margin-bottom: 12px;
+                            font-size: 12.5px;
+                            color: #7f1d1d;
+                            line-height: 1.7;
+                        "
+                    >
+                        <div style="font-weight: 700; font-size: 13.5px; margin-bottom: 4px">
+                            🔴 Vòng 3 (2026-06-12) — bug MỚI CHƯA FIX (mỗi bug đã qua 2 verifier độc
+                            lập hoặc spot-check tay; chi tiết mục 1 file MD)
+                        </div>
+                        <ul style="margin: 0; padding-left: 18px">
+                            <li>
+                                <strong>Tiền/kho (3C1, 3H1-3H5, 3H10-3H13, 3H16):</strong>
+                                <code>/merge</code> PBH MẤT TIỀN VÍ đã trừ + xoá công nợ nguồn
+                                (INSERT thiếu cột tiền, DELETE raw — deterministic); huỷ đơn web
+                                KHÔNG hoàn tồn kho PBH (mọi đường restock sau skip vì state đã
+                                cancel); PATCH đơn web bypass hoàn ví + hồi sinh PBH;
+                                <code>/merge-to-pbh</code> không trừ kho + thiếu productCode; Thu về
+                                "không nhận hàng" double hoàn ví khi PBH bị cancel sau; generic
+                                PATCH ghi đè <code>status/stock_deducted</code> → re-approve double
+                                trừ kho; manual-deposit dual-base retry nạp ×2; reassign song song
+                                double-debit; <code>adjust-pending</code> lost update.
+                            </li>
+                            <li>
+                                <strong>Auth (3H14, 3H17, 3H18 + 1D):</strong> mutation tiền
+                                balance-history/customers + monitoring
+                                <code>/audit/:id/revert</code> (đảo tiền ví) KHÔNG có middleware nào
+                                kể cả soft; payment-signals approve trên signal dismissed vẫn cộng
+                                ví; cutout/dashboard-kpi/audit-log/notifications-read hở.
+                            </li>
+                            <li>
+                                <strong>Live-chat hậu PUSH-only (3H6-3H9):</strong> auto-snap CHẾT
+                                (event <code>live:newComment</code> không còn ai emit); comment
+                                người-bị-ẩn lọt realtime + dòng trùng khi cuộn; relay server không
+                                auth + nút "Lưu vào Live" gọi endpoint không tồn tại (404);
+                                offlineBatchAll gán mọi comment 1 video.
+                            </li>
+                            <li>
+                                <strong>Khác:</strong> Stored XSS modal Lịch sử SP (3H15); báo cáo
+                                bucket ngày UTC sai trước 7h sáng (3H20); regression kpi-assignments
+                                401 (3H19); blocker enforce 3H21.
+                            </li>
+                        </ul>
+                    </div>
+
+                    <!-- Vòng 3: sweep tách Web 1.0 / Web 2.0 -->
+                    <div
+                        style="
+                            background: #eff6ff;
+                            border: 1px solid #bfdbfe;
+                            border-radius: 10px;
+                            padding: 12px 14px;
+                            margin-bottom: 12px;
+                            font-size: 12.5px;
+                            color: #1e3a5f;
+                            line-height: 1.7;
+                        "
+                    >
+                        <div style="font-weight: 700; font-size: 13.5px; margin-bottom: 4px">
+                            🔵 Sweep tách biệt Web 1.0 ⊥ Web 2.0 (vòng 3) — verdict: TỐT ~95%
+                        </div>
+                        <ul style="margin: 0; padding-left: 18px">
+                            <li>
+                                ✅ <strong>Đạt:</strong> 100% route backend pool
+                                <code>web2Db || chatDb</code>; 0 chỗ ghi bảng nghiệp vụ Web 1.0; SSE
+                                đúng hub web2 (wiring matrix đủ); Firestore data prefix
+                                <code>web2_</code>; livestream-snapshots/images đã dời web2Db sạch
+                                (cb45ef604).
+                            </li>
+                            <li>
+                                🔴 <strong>2 vi phạm GHI thật (3W1, 3W2):</strong>
+                                <code>web2-quick-reply.js</code> CRUD thẳng bảng
+                                <code>quick_replies</code> chatDb PROD (xoá từ trang beta = mất ở
+                                chat Web 1.0!) và <code>web2-msg-template.js</code> ghi Firestore
+                                <code>message_templates</code> không prefix (collection prod Web
+                                1.0) → cần fork <code>web2_quick_replies</code> +
+                                <code>web2_message_templates</code>.
+                            </li>
+                            <li>
+                                🟠 <strong>Đọc nhầm nguồn (3W3 + LC-web1-lookup):</strong> live-chat
+                                badge "nợ" đọc ví Web 1.0
+                                (<code>/api/v2/wallets/batch-summary</code>) trong khi cùng màn hình
+                                pill ví Web 2.0 → 2 số dư mâu thuẫn; popup KH gọi
+                                <code>/api/v2/customers</code> trước kho.
+                            </li>
+                            <li>
+                                🟡 <strong>Lệch convention (3W4, 3W5):</strong> pbh-realtime WS
+                                legacy <code>pbh:*</code> trên 4 trang + native-orders (gốc reload
+                                đôi); suppliers-cache còn Firestore <code>onSnapshot</code>. 🟢
+                                <strong>Cố ý hợp lệ:</strong> credential Pancake (<code
+                                    >pancake_accounts</code
+                                >
+                                chatDb) shared 2 layer có document. ⚠
+                                <strong>Rủi ro hệ thống (3W7):</strong> fallback
+                                <code>|| chatDb</code> âm thầm khi web2Db down → đề xuất
+                                <code>WEB2_REQUIRE_DB=1</code> fail-fast.
+                            </li>
+                        </ul>
+                    </div>
 
                     <p
                         style="

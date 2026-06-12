@@ -1,5 +1,19 @@
 # Dev Log
 
+## 2026-06-12
+
+### [docs] [web2] Audit VÒNG 3 toàn bộ 35 trang Web 2.0 + sweep tách Web 1.0 ⊥ Web 2.0 ✅
+
+**User:** xem/đọc/phân tích chi tiết từng trang menu Web 2.0 — hiểu cách vận hành, tìm bug/race condition, đề xuất cải thiện; cập nhật overview + file MD; kiểm tra toàn bộ đã dùng Web 2.0, không dùng Web 1.0.
+
+- **Quy mô:** 54 agent (workflow `wf_a3c6b356-f72`): 9 agent audit nhóm trang + 1 agent sweep contamination Web 1.0 chuyên sâu + 2 adversarial verifier (lens correctness/reproduce) cho mỗi finding CRITICAL/HIGH. Bị đứt 1 lần do session limit → resume với cache.
+- **Verify fix vòng 2 (đợt A-D):** spot-check code thật toàn bộ C1-C7/S1-S7/H1-H16 — **KHÔNG regression**, trừ 1: kpi-assignments thiếu `x-web2-token` sau gate HARD H9 (3H19). 2 fix có residual: S5 (topic `web2:customer-wallet` còn broadcast phone+amount), S6 (escapeHtml 3-ký-tự còn ở variants-app + products-print).
+- **Bug MỚI: 1 CRITICAL + ~21 HIGH (3C1, 3H1-3H21) — CHƯA FIX**, nổi bật: `/merge` PBH mất tiền ví đã trừ + xoá công nợ nguồn (deterministic); huỷ đơn web không hoàn tồn kho PBH; `/merge-to-pbh` không trừ kho; generic PATCH bypass state machine purchase-refund; manual-deposit dual-base retry nạp ×2; reassign double-debit; balance-history/monitoring mutation tiền không auth (kể cả soft); auto-snap live-chat CHẾT (event `live:newComment` không ai emit sau PUSH-only); Stored XSS modal Lịch sử SP; pbh-reports bucket UTC.
+- **Sweep Web1⊥Web2: verdict TỐT ~95%.** 100% pool `web2Db||chatDb`, 0 ghi bảng nghiệp vụ Web 1.0, SSE đúng hub, Firestore prefix đúng. **2 vi phạm GHI thật:** `web2-quick-reply.js` (CRUD bảng `quick_replies` chatDb prod — 3W1) + `web2-msg-template.js` (ghi Firestore `message_templates` không prefix — 3W2). Đọc nhầm nguồn: live-chat badge nợ đọc ví Web 1.0 (3W3) + popup KH `/api/v2/customers` (LC-web1-lookup). Lệch convention: pbh-realtime WS legacy 4 trang (3W4), suppliers-cache onSnapshot (3W5). Rủi ro hệ thống: fallback `|| chatDb` âm thầm (3W7 — đề xuất `WEB2_REQUIRE_DB=1`).
+- **Files:** `docs/web2/WEB2-PAGES-ANALYSIS.md` (viết lại canonical vòng 3: danh sách bug mới + mục 2 tách biệt Web1/Web2 + lộ trình đợt F-I), `web2/overview/index.html` (#auditPages: badge vòng 3 + 2 box mới).
+
+**Status:** ✅ Audit done — bug list canonical sẵn sàng fix theo đợt F (tiền/kho) → G (auth + enforce-prep) → H (live-chat) → I (tách Web1) → E (ví NCC).
+
 ## 2026-06-11
 
 ### [delivery-report] Ảnh bàn giao v4: bỏ dòng Tổng cuối + SL·giá trị thu về gộp 1 dòng ✅
