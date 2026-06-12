@@ -185,10 +185,16 @@
     function _qrKey(code, variant) {
         return String(code) + '' + (variant || '');
     }
+    // S6-residual fix (2026-06-12): bản DOM-based KHÔNG escape quote —
+    // nhúng vào attribute (value="...") là injectable. Chuẩn 5 ký tự.
     function escapeHtml(s) {
-        const div = document.createElement('div');
-        div.textContent = s == null ? '' : String(s);
-        return div.innerHTML;
+        if (s == null) return '';
+        return String(s)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
     }
 
     function stripBrackets(str) {

@@ -21,11 +21,17 @@
     const counter = () => $('#totalCounter');
     const modal = () => $('#variantModal');
 
+    // S6-residual fix (2026-06-12): bản DOM-based KHÔNG escape quote —
+    // nhúng vào attribute (value="...") là injectable. Chuẩn 5 ký tự
+    // (đồng bộ web2/shared/web2-escape.js).
     function escapeHtml(s) {
         if (s == null) return '';
-        const div = document.createElement('div');
-        div.textContent = String(s);
-        return div.innerHTML;
+        return String(s)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
     }
 
     function notify(msg, type = 'info') {

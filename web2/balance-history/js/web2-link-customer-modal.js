@@ -22,7 +22,8 @@
             .replace(/&/g, '&amp;')
             .replace(/</g, '&lt;')
             .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;');
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
     }
     function fmtVnd(n) {
         return Math.round(Number(n) || 0).toLocaleString('vi-VN') + '₫';

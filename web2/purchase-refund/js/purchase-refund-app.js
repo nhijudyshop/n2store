@@ -64,7 +64,8 @@
             .replace(/&/g, '&amp;')
             .replace(/</g, '&lt;')
             .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;');
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
     }
 
     // 2026-06-07: 1 "đơn" = 1 shipment/đợt trong Sổ Order. Group Section A +
