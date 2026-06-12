@@ -413,7 +413,7 @@
             }
         }
 
-        // Finalize: compute opening + ending for Web 2.0 rows + attach code from web2_suppliers
+        // Finalize: compute opening + ending for Web 2.0 rows + attach code từ suppliers meta (server)
         for (const supplier of Object.keys(result)) {
             const row = result[supplier];
             row.opening = row._purchasesBefore - row._txBefore;
