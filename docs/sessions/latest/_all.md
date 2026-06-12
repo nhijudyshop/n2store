@@ -3,10 +3,10 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `3544827` — feat(delivery-report): anh ban giao v8 - khong co don 0d thi bo han section DON 0d (TP + TMT + NAP, v=20260612e)
-**Last updated**: 2026-06-12 17:01:40 SEAST
-**Latest session**: [`RESUME:20260612-170140-3544827`](../20260612-170140-3544827.md)
-**Summary**: Anh ban giao v8: khong co don 0d thi bo han section DON 0d — ap dung ca TP/TMT/NAP
+**Latest commit**: `eda8ba1` — feat(delivery-report): anh ban giao v9 - phi ship kenh tinh TMT/NAP = 23k/don (HANDOVER_SHIP_FEE_PROVINCE, v=20260612f)
+**Last updated**: 2026-06-12 17:20:46 SEAST
+**Latest session**: [`RESUME:20260612-172046-eda8ba1`](../20260612-172046-eda8ba1.md)
+**Summary**: Anh ban giao v9: phi ship kenh tinh TMT/NAP = 23k/don; TP + thu ve giu 20k
 
 ## Folders affected in this commit
 
@@ -24,8 +24,8 @@
 - [`bangkiemhang/`](./bangkiemhang.md) — updated 2026-05-21 15:39
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-11 10:18
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
-- [`delivery-report/`](./delivery-report.md) — updated 2026-06-12 17:01
-- [`docs/`](./docs.md) — updated 2026-06-12 17:01
+- [`delivery-report/`](./delivery-report.md) — updated 2026-06-12 17:20
+- [`docs/`](./docs.md) — updated 2026-06-12 17:20
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-11 16:49
 - [`downloads/`](./downloads.md) — updated 2026-06-11 08:36
