@@ -360,7 +360,7 @@
                                 padding: 3px 10px;
                                 border-radius: 999px;
                             "
-                            >Vòng 3: 2026-06-12 🔴 1C + 21H mới (chưa fix) + sweep Web1⊥Web2</span
+                            >Vòng 3: 2026-06-12 ✅ đợt F tiền/kho ĐÃ FIX (còn G/H/I/E)</span
                         >
                     </div>
                     <p style="margin: 0 0 12px; font-size: 13px; color: #475569; line-height: 1.6">
@@ -374,12 +374,16 @@
                         >
                         (trừ 1: kpi-assignments thiếu token sau gate H9), nhưng phát hiện cụm bug
                         MỚI
-                        <strong style="color: #b91c1c"
-                            >1 CRITICAL + ~21 HIGH (3C1, 3H1-3H21 — CHƯA FIX)</strong
+                        <strong style="color: #b91c1c">1 CRITICAL + ~21 HIGH (3C1, 3H1-3H21)</strong
                         >, tập trung 3 họ: route gộp/tách/sync bỏ quên atomic (merge PBH mất tiền
                         ví, huỷ đơn web không restock), auth thiếu hẳn ở route tiền ngoài wallets
                         (balance-history, monitoring revert), hệ quả phụ rework PUSH-only live-chat
-                        (auto-snap chết). Danh sách canonical + lộ trình đợt F-I ở
+                        (auto-snap chết).
+                        <strong style="color: #166534"
+                            >✅ Đợt F (tiền/kho — 11 bug: 3C1, 3H1-3H5, 3H10-3H13, 3H16) ĐÃ FIX cùng
+                            ngày, commit 904bc62d5</strong
+                        >. Còn mở: đợt G (auth + enforce-prep), H (live-chat), I (tách Web1), E (ví
+                        NCC). Danh sách canonical + lộ trình ở
                         <a
                             href="https://github.com/nhijudyshop/n2store/blob/main/docs/web2/WEB2-PAGES-ANALYSIS.md"
                             target="_blank"
@@ -405,12 +409,16 @@
                         "
                     >
                         <div style="font-weight: 700; font-size: 13.5px; margin-bottom: 4px">
-                            🔴 Vòng 3 (2026-06-12) — bug MỚI CHƯA FIX (mỗi bug đã qua 2 verifier độc
-                            lập hoặc spot-check tay; chi tiết mục 1 file MD)
+                            🔴 Vòng 3 (2026-06-12) — bug MỚI (mỗi bug đã qua 2 verifier độc lập hoặc
+                            spot-check tay; chi tiết mục 1 file MD). ✅ = đã fix đợt F (commit
+                            904bc62d5)
                         </div>
                         <ul style="margin: 0; padding-left: 18px">
                             <li>
-                                <strong>Tiền/kho (3C1, 3H1-3H5, 3H10-3H13, 3H16):</strong>
+                                <strong
+                                    >✅ Tiền/kho (3C1, 3H1-3H5, 3H10-3H13, 3H16) — ĐÃ FIX đợt
+                                    F:</strong
+                                >
                                 <code>/merge</code> PBH MẤT TIỀN VÍ đã trừ + xoá công nợ nguồn
                                 (INSERT thiếu cột tiền, DELETE raw — deterministic); huỷ đơn web
                                 KHÔNG hoàn tồn kho PBH (mọi đường restock sau skip vì state đã
@@ -422,23 +430,23 @@
                                 double-debit; <code>adjust-pending</code> lost update.
                             </li>
                             <li>
-                                <strong>Auth (3H14, 3H17, 3H18 + 1D):</strong> mutation tiền
-                                balance-history/customers + monitoring
+                                <strong>⬜ Auth (3H14, 3H17, 3H18 + 1D) — đợt G:</strong> mutation
+                                tiền balance-history/customers + monitoring
                                 <code>/audit/:id/revert</code> (đảo tiền ví) KHÔNG có middleware nào
                                 kể cả soft; payment-signals approve trên signal dismissed vẫn cộng
                                 ví; cutout/dashboard-kpi/audit-log/notifications-read hở.
                             </li>
                             <li>
-                                <strong>Live-chat hậu PUSH-only (3H6-3H9):</strong> auto-snap CHẾT
-                                (event <code>live:newComment</code> không còn ai emit); comment
-                                người-bị-ẩn lọt realtime + dòng trùng khi cuộn; relay server không
-                                auth + nút "Lưu vào Live" gọi endpoint không tồn tại (404);
-                                offlineBatchAll gán mọi comment 1 video.
+                                <strong>⬜ Live-chat hậu PUSH-only (3H6-3H9) — đợt H:</strong>
+                                auto-snap CHẾT (event <code>live:newComment</code> không còn ai
+                                emit); comment người-bị-ẩn lọt realtime + dòng trùng khi cuộn; relay
+                                server không auth + nút "Lưu vào Live" gọi endpoint không tồn tại
+                                (404); offlineBatchAll gán mọi comment 1 video.
                             </li>
                             <li>
-                                <strong>Khác:</strong> Stored XSS modal Lịch sử SP (3H15); báo cáo
-                                bucket ngày UTC sai trước 7h sáng (3H20); regression kpi-assignments
-                                401 (3H19); blocker enforce 3H21.
+                                <strong>⬜ Khác:</strong> Stored XSS modal Lịch sử SP (3H15); báo
+                                cáo bucket ngày UTC sai trước 7h sáng (3H20); regression
+                                kpi-assignments 401 (3H19); blocker enforce 3H21.
                             </li>
                         </ul>
                     </div>

@@ -19,6 +19,8 @@
 
 **🔴 Vòng 3 phát hiện cụm bug mới:** 1 CRITICAL + ~21 HIGH (mục 1) — 3 họ chính: (a) **các route gộp/tách/sync bị bỏ quên** khi Wave trước làm atomic cho đường chính (merge PBH mất tiền ví, merge-to-pbh không trừ kho, huỷ đơn web không restock, PATCH bypass transition); (b) **auth vẫn mỏng ở route tiền ngoài wallets** (balance-history, monitoring revert, cutout, dashboard-kpi — thiếu hẳn middleware kể cả soft); (c) **hệ quả phụ của rework PUSH-only live-chat** (auto-snap chết vì event không ai emit, filter người-ẩn bị bypass ở path incremental).
 
+**✅ ĐỢT F HOÀN TẤT (2026-06-12, commit `904bc62d5`):** 11 bug tiền/kho đã fix — 3C1 + 3H1-3H5 + 3H10-3H13 + 3H16 (chi tiết từng dòng mục 1). Còn mở: đợt G (auth + enforce-prep: 3H14, 3H17-3H19, 3H21 + cụm 1D auth), đợt H (live-chat: 3H6-3H9 + H11), đợt I (tách Web1: 3W1-3W7), đợt E (ví NCC).
+
 **🔵 Tách biệt Web 1.0 ⊥ Web 2.0 (sweep chuyên sâu — mục 2): nhìn chung TỐT.** 100% route backend dùng pool `web2Db || chatDb`, không ghi bảng nghiệp vụ Web 1.0, SSE đúng hub, Firestore data đã prefix `web2_`. **CHỈ CÒN 2 vi phạm GHI thật sự**: `web2-quick-reply.js` (CRUD bảng `quick_replies` chatDb prod) và `web2-msg-template.js` (ghi Firestore `message_templates` không prefix — collection prod Web 1.0). Còn lại là đọc-nhầm-nguồn ở live-chat (customers + ví), lệch convention (WS legacy, onSnapshot), và shared-credential cố ý (pancake).
 
 **⏳ Fix backend cần deploy Render mới có hiệu lực** (auto-deploy theo push, lưu ý Build Filters chỉ build khi chạm `render.com/**`). Frontend GH Pages tự live sau push.
@@ -37,26 +39,26 @@
 
 ### 1A. CRITICAL — tiền / kho
 
-| #   | Bug                                                                                                                                                                                                                                                                                          | File:Line                       | Verify | Trạng thái |
-| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------- | ------ | ---------- |
-| 3C1 | **/merge PBH làm MẤT TIỀN VÍ đã trừ + xoá công nợ nguồn**: INSERT PBH gộp KHÔNG carry `payment_amount/deposit/residual/cash_on_delivery/wallet_deducted` (rơi về 0), DELETE nguồn raw không hoàn `wallet_deducted`. Deterministic — merge 1 PBH có ví trừ/residual>0 là dính, không cần race | `fast-sale-orders.js:1033-1100` | ✓✓     | ⬜         |
+| #   | Bug                                                                                                                                                                                                                                                                                          | File:Line                       | Verify | Trạng thái     |
+| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------- | ------ | -------------- |
+| 3C1 | **/merge PBH làm MẤT TIỀN VÍ đã trừ + xoá công nợ nguồn**: INSERT PBH gộp KHÔNG carry `payment_amount/deposit/residual/cash_on_delivery/wallet_deducted` (rơi về 0), DELETE nguồn raw không hoàn `wallet_deducted`. Deterministic — merge 1 PBH có ví trừ/residual>0 là dính, không cần race | `fast-sale-orders.js:1033-1100` | ✓✓     | ✅ `904bc62d5` |
 
 ### 1B. HIGH mới (vòng 3)
 
 **Bán Hàng:**
 
-| #   | Bug                                                                                                                                                                                                                      | File:Line                     | Verify | Trạng thái |
-| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------- | ------ | ---------- |
-| 3H1 | /merge SELECT nguồn không FOR UPDATE → race với /cancel: đơn vừa huỷ+restock vẫn vào PBH gộp → tồn kho dôi, ví hoàn nhưng line vẫn bán                                                                                   | `fast-sale-orders.js:961-964` | ✓✓     | ⬜         |
-| 3H2 | Thu về `khong_nhan_hang` không gắn vòng đời PBH nguồn (không zero-out `wallet_deducted`/`stock_restored`) → cancel PBH sau đó = **double hoàn ví + double restock**; không guard 2 phiếu active cùng `source_order_code` | `web2-returns.js:600-713`     | ✓✓     | ⬜         |
+| #   | Bug                                                                                                                                                                                                                      | File:Line                     | Verify | Trạng thái     |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------- | ------ | -------------- |
+| 3H1 | /merge SELECT nguồn không FOR UPDATE → race với /cancel: đơn vừa huỷ+restock vẫn vào PBH gộp → tồn kho dôi, ví hoàn nhưng line vẫn bán                                                                                   | `fast-sale-orders.js:961-964` | ✓✓     | ✅ `904bc62d5` |
+| 3H2 | Thu về `khong_nhan_hang` không gắn vòng đời PBH nguồn (không zero-out `wallet_deducted`/`stock_restored`) → cancel PBH sau đó = **double hoàn ví + double restock**; không guard 2 phiếu active cùng `source_order_code` | `web2-returns.js:600-713`     | ✓✓     | ✅ `904bc62d5` |
 
 **Sale Online (native-orders + so-order):**
 
-| #   | Bug                                                                                                                                                                                                      | File:Line                            | Verify | Trạng thái |
-| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------ | ------ | ---------- |
-| 3H3 | **Huỷ đơn web KHÔNG hoàn tồn kho PBH** — sync chỉ set `state='cancel'`, mọi đường restock sau gate `state !== 'cancel'` → skip vĩnh viễn dù `stock_restored=FALSE`. UI còn hứa "tự trả tồn về kho"       | `native-orders.js:99-115, 2171-2176` | ✓✓     | ⬜         |
-| 3H4 | PATCH /:code không guard transition: `{status:'cancelled'}` bypass hoàn ví+restock; `cancelled→draft` hồi sinh PBH cancel→'done' không trừ lại kho/ví; sửa products đơn confirmed không chặn server-side | `native-orders.js:1797-1846, 86-91`  | ✓✓     | ⬜         |
-| 3H5 | /merge-to-pbh: KHÔNG trừ kho, `combinedLines` thiếu `productCode` (không bao giờ trừ/hoàn được), không FOR UPDATE/guard draft, không idempotent → double-submit 2 PBH + double-bill                      | `native-orders.js:2603-2706`         | ✓✓     | ⬜         |
+| #   | Bug                                                                                                                                                                                                      | File:Line                            | Verify | Trạng thái     |
+| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------ | ------ | -------------- |
+| 3H3 | **Huỷ đơn web KHÔNG hoàn tồn kho PBH** — sync chỉ set `state='cancel'`, mọi đường restock sau gate `state !== 'cancel'` → skip vĩnh viễn dù `stock_restored=FALSE`. UI còn hứa "tự trả tồn về kho"       | `native-orders.js:99-115, 2171-2176` | ✓✓     | ✅ `904bc62d5` |
+| 3H4 | PATCH /:code không guard transition: `{status:'cancelled'}` bypass hoàn ví+restock; `cancelled→draft` hồi sinh PBH cancel→'done' không trừ lại kho/ví; sửa products đơn confirmed không chặn server-side | `native-orders.js:1797-1846, 86-91`  | ✓✓     | ✅ `904bc62d5` |
+| 3H5 | /merge-to-pbh: KHÔNG trừ kho, `combinedLines` thiếu `productCode` (không bao giờ trừ/hoàn được), không FOR UPDATE/guard draft, không idempotent → double-submit 2 PBH + double-bill                      | `native-orders.js:2603-2706`         | ✓✓     | ✅ `904bc62d5` |
 
 **Live Chat:**
 
@@ -69,25 +71,25 @@
 
 **Mua hàng:**
 
-| #    | Bug                                                                                                                                                                                                                  | File:Line                                                | Verify | Trạng thái |
-| ---- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- | ------ | ---------- |
-| 3H10 | Generic PATCH `/api/web2/purchase-refund/update/:code` merge thô `{...existing, ...payload}` — client ghi đè được `status`/`stock_deducted` → re-approve **double trừ kho** (server không strip field state-machine) | `web2-generic.js:409-413` + `purchase-refund.js:193-208` | ✓tay   | ⬜         |
+| #    | Bug                                                                                                                                                                                                                  | File:Line                                                | Verify | Trạng thái     |
+| ---- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- | ------ | -------------- |
+| 3H10 | Generic PATCH `/api/web2/purchase-refund/update/:code` merge thô `{...existing, ...payload}` — client ghi đè được `status`/`stock_deducted` → re-approve **double trừ kho** (server không strip field state-machine) | `web2-generic.js:409-413` + `purchase-refund.js:193-208` | ✓tay   | ✅ `904bc62d5` |
 
 **Tài chính + Khách hàng:**
 
-| #    | Bug                                                                                                                                                                                                       | File:Line                                                               | Verify | Trạng thái |
-| ---- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- | ------ | ---------- |
-| 3H11 | **manual-deposit dual-base retry không idempotent**: CF Worker lỗi/timeout 524 sau khi Render đã COMMIT → client re-POST sang base fallback, server sinh `manualSepayId` MỚI mỗi request → **nạp/rút ×2** | `web2-manual-deposit.js:147-161` + `v2/web2-balance-history.js:899-903` | ✓✓     | ⬜         |
-| 3H12 | Reassign SELECT ngoài tx không FOR UPDATE, không re-check `linked_customer_phone`: 2 admin reassign cùng GD sang 2 KH khác nhau → **ví KH cũ bị withdraw ×2**, 1 GD bank sinh 2×amount credit             | `v2/web2-balance-history.js:403-546`                                    | ✓✓     | ⬜         |
-| 3H13 | `resolveWeb2PendingMatch` không transaction/lock, bỏ qua `alreadyProcessed`/`debt_added` → tiền nằm ví KH A, history ghi KH B (mismatch tiền-sổ im lặng)                                                  | `web2-sepay-matching.js:920-1007`                                       | ✓✓     | ⬜         |
-| 3H14 | **Mutation tiền balance-history + customers KHÔNG có middleware auth nào (kể cả soft)**: manual-deposit/reassign/link/resolve/auto-assign/merge/delete — gate 'admin' chỉ ở client ẩn nút                 | `server.js:673` + `v2/web2-balance-history.js` + `v2/web2-customers.js` | ✓✓     | ⬜         |
+| #    | Bug                                                                                                                                                                                                       | File:Line                                                               | Verify | Trạng thái     |
+| ---- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- | ------ | -------------- |
+| 3H11 | **manual-deposit dual-base retry không idempotent**: CF Worker lỗi/timeout 524 sau khi Render đã COMMIT → client re-POST sang base fallback, server sinh `manualSepayId` MỚI mỗi request → **nạp/rút ×2** | `web2-manual-deposit.js:147-161` + `v2/web2-balance-history.js:899-903` | ✓✓     | ✅ `904bc62d5` |
+| 3H12 | Reassign SELECT ngoài tx không FOR UPDATE, không re-check `linked_customer_phone`: 2 admin reassign cùng GD sang 2 KH khác nhau → **ví KH cũ bị withdraw ×2**, 1 GD bank sinh 2×amount credit             | `v2/web2-balance-history.js:403-546`                                    | ✓✓     | ✅ `904bc62d5` |
+| 3H13 | `resolveWeb2PendingMatch` không transaction/lock, bỏ qua `alreadyProcessed`/`debt_added` → tiền nằm ví KH A, history ghi KH B (mismatch tiền-sổ im lặng)                                                  | `web2-sepay-matching.js:920-1007`                                       | ✓✓     | ✅ `904bc62d5` |
+| 3H14 | **Mutation tiền balance-history + customers KHÔNG có middleware auth nào (kể cả soft)**: manual-deposit/reassign/link/resolve/auto-assign/merge/delete — gate 'admin' chỉ ở client ẩn nút                 | `server.js:673` + `v2/web2-balance-history.js` + `v2/web2-customers.js` | ✓✓     | ⬜             |
 
 **Sản phẩm:**
 
-| #    | Bug                                                                                                                                                                            | File:Line                       | Verify | Trạng thái |
-| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------- | ------ | ---------- |
-| 3H15 | **Stored XSS** modal Lịch sử SP: `userName`/`userId` (client tự khai qua body/header, lưu `web2_product_history`) render innerHTML KHÔNG escape                                | `web2-products-app.js:884, 895` | ✓✓     | ⬜         |
-| 3H16 | `adjust-pending` SELECT không FOR UPDATE rồi UPDATE giá trị tuyệt đối → lost update `pending_qty` (2 máy so-order); nhánh ghost-delete có thể xoá nhầm SP khi pending vừa tăng | `web2-products.js:1013-1068`    | ✓✓     | ⬜         |
+| #    | Bug                                                                                                                                                                            | File:Line                       | Verify | Trạng thái     |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------- | ------ | -------------- |
+| 3H15 | **Stored XSS** modal Lịch sử SP: `userName`/`userId` (client tự khai qua body/header, lưu `web2_product_history`) render innerHTML KHÔNG escape                                | `web2-products-app.js:884, 895` | ✓✓     | ⬜             |
+| 3H16 | `adjust-pending` SELECT không FOR UPDATE rồi UPDATE giá trị tuyệt đối → lost update `pending_qty` (2 máy so-order); nhánh ghost-delete có thể xoá nhầm SP khi pending vừa tăng | `web2-products.js:1013-1068`    | ✓✓     | ✅ `904bc62d5` |
 
 **Tính năng mới:**
 
@@ -265,7 +267,7 @@ Bridge 1 EventSource multiplex; hub Map<topic,Set>; wiring matrix ĐỦ (0 route
 
 ## 6. Lộ trình fix (vòng 3)
 
-1. ⬜ **Đợt F — tiền/kho mới (LÀM TRƯỚC)**: 3C1 + 3H1 (sửa /merge 1 thể: FOR UPDATE + carry tiền) · 3H2 · 3H3 + 3H4 (dồn mọi đường huỷ qua `_cancelPbhInTx`, đổi gate restock sang `stock_restored=FALSE`) · 3H5 · 3H10 (server strip field state-machine theo slug) · 3H11 + 3H12 + 3H13 (idempotency key + FOR UPDATE trong tx) · 3H16.
+1. ✅ **Đợt F — tiền/kho mới (DONE 2026-06-12, commit `904bc62d5`)**: 3C1 + 3H1 (/merge: FOR UPDATE + carry 5 cột tiền) · 3H2 (lock PBH nguồn + zero-out cờ + unique index + DELETE trả cờ) · 3H3 (cancel đơn web → `_cancelPbhInTx` per-PBH cùng tx; gate restock theo cờ — PBH kẹt cũ tự lành) + 3H4 (PATCH guard transition) · 3H5 (merge-to-pbh: guard draft + productCode + trừ kho + idempotent + nguồn→confirmed) · 3H10 (generic strip field state-machine) · 3H11 (idempotencyKey FNV-1a→sepay_id) + 3H12 (reassign FOR UPDATE + re-check) + 3H13 (resolve tx + guard debt_added/alreadyProcessed) · 3H16 (adjust-pending FOR UPDATE).
 2. ⬜ **Đợt G — auth blanket phần 2 + enforce-prep**: 3H14, 3H17 (+ revert vào tx), 3H18, 3H19 (1 dòng), cụm 1D auth (cutout/dashboard-kpi/audit-log/notifications-read/pancake-refresh-status/poller-pages/backfill) · 3H21: `Web2Api._fetchJson` tự attach token + generic wire soft + bell — xong thì bật `WEB2_AUTH_ENFORCE=1` và verify page-flow.
 3. ⬜ **Đợt H — live-chat realtime**: 3H6 (emit `live:newComment` từ prependComments) · 3H7 · 3H8 (relay RELAY_SECRET middleware + thêm/bỏ route live-saved) · 3H9 (group per-campaign như Force extract) · H11 (sinceUpdated + merge theo id) · LC-pollnow-auth + snapshots auth.
 4. ⬜ **Đợt I — tách Web 1.0 dứt điểm**: 3W1 fork `web2_quick_replies` · 3W2 fork `web2_message_templates` · 3W3 + LC-web1-lookup chốt 1 nguồn ví/KH cho live-chat · 3W4 migrate pbh-realtime → Web2SSE + gỡ broadcastToClients khỏi route web2 (giải luôn SO-ws-sse-double) · 3W5 suppliers-cache → SSE · 3W7 boot guard `WEB2_REQUIRE_DB=1`.

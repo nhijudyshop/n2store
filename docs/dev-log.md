@@ -2,6 +2,25 @@
 
 ## 2026-06-12
 
+### [web2] [render] FIX đợt F vòng 3 — 11 bug tiền/kho (3C1, 3H1-3H5, 3H10-3H13, 3H16) ✅
+
+**User:** "đợt F" — fix cụm tiền/kho từ audit vòng 3.
+
+- **Files:** `render.com/routes/fast-sale-orders.js`, `native-orders.js`, `web2-returns.js`, `web2-generic.js`, `v2/web2-balance-history.js`, `web2-products.js`, `services/web2-sepay-matching.js`, `web2/balance-history/js/web2-manual-deposit.js` (+ bump `?v=20260612f`).
+- **3C1+3H1 `/merge` PBH:** SELECT nguồn `FOR UPDATE` (serialize với cancel) + INSERT PBH gộp carry đủ 5 cột tiền `payment_amount/deposit/residual/cash_on_delivery/wallet_deducted` (trước rơi về 0 → mất tiền ví + mất khoản phải thu).
+- **3H3 huỷ đơn web:** thay mirror-state bằng `fastSale._cancelPbhInTx` per-PBH TRONG cùng transaction (restock + hoàn ví idempotent, match cả merged `NJ-A+NJ-B`); gate restock trong `_cancelPbhInTx` đổi từ `state !== 'cancel'` → theo cờ `stock_restored`/`wallet_deducted` (PBH kẹt từ sync cũ tự lành khi có cancel mới). Export `_cancelPbhInTx` từ fast-sale-orders.
+- **3H4 PATCH native-orders:** guard transition — chặn `status:'cancelled'` qua PATCH (chỉ POST /cancel), chặn hồi sinh `cancelled→draft`, sửa `products` đơn confirmed cần `force:true`.
+- **3H5 `/merge-to-pbh`:** FOR UPDATE + guard draft + giữ `productCode` trong combinedLines + `validateStock` + trừ kho trong tx + idempotent theo `source_code` (409 kèm existingNumber) + đơn nguồn → `confirmed` + notify `web2:products`.
+- **3H2 Thu về `khong_nhan_hang`:** trong tx — pre-check 2 phiếu active cùng đơn (409) + unique partial index `uq_web2_returns_knh_active` backstop; lock PBH nguồn FOR UPDATE, ví cộng theo `wallet_deducted` TƯƠI; sau cộng → zero-out + `stock_restored=TRUE` (cancel PBH sau không double); DELETE phiếu trả cờ lại.
+- **3H10 web2-generic:** strip field state-machine (`status/stock_deducted/approved_*/rejected_*/refunded_*/history`) khỏi data payload PATCH slug `purchase-refund` — chặn bypass re-approve double trừ kho.
+- **3H11 manual-deposit:** client sinh `idempotencyKey` (UUID) 1 lần dùng cho cả 2 base; server derive `manualSepayId` từ key (FNV-1a) → retry dual-base ON CONFLICT trả `alreadyProcessed` thay vì nạp/rút ×2.
+- **3H12 reassign:** SELECT history `FOR UPDATE` + re-check `linked_customer_phone` TƯƠI trong tx → request thứ 2 nhận 409 thay vì double-debit ví KH cũ.
+- **3H13 `resolveWeb2PendingMatch`:** bọc transaction + FOR UPDATE (pending + history) + guard `debt_added`/`alreadyProcessed` khác phone → lỗi hướng sang reassign; UPDATE pending `WHERE status=\'pending\'` + rowCount check; audit log dời SAU commit (log() nuốt lỗi — để trong tx sẽ abort im lặng).
+- **3H16 `adjust-pending`:** FOR UPDATE cả 3 nhánh SELECT — hết lost-update pending + ghost-delete nhầm.
+- **Verify:** `node --check` 8 file OK; review diff tay từng đoạn tiền. ⏳ Backend cần deploy Render (commit chạm `render.com/**` → Build Filters SẼ trigger build).
+
+**Status:** ✅ Done — đợt F hoàn tất. Còn đợt G (auth + enforce-prep), H (live-chat), I (tách Web1), E (ví NCC).
+
 ### [delivery-report][render] Ảnh bàn giao v6: bảng 0đ đổi chỗ Giá trị↔Thu + Thu về 3 cột Mã SP/SL/Giá trị ✅
 
 **User chỉnh** (sau v5): bảng 0đ đổi vị trí cột Giá trị trước - Thu sau; thu gọn cột trái chừa chỗ cho Thu về; bên Thu về tách rõ 3 cột Mã SP – SL – Giá trị (giá trị = đơn giá × SL từng món).
