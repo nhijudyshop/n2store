@@ -45,10 +45,13 @@ function mapRow(row) {
 // Tên bảng đến từ map hardcoded (an toàn SQL — không phải user input).
 function makeDedicatedEntityRouter(tableName, entitySlug) {
     const router = express.Router();
-    let _ready = false;
+    // 1D fix: key theo pool (WeakSet) thay vì flag boolean chung — cold-start
+    // fallback chatDb không được làm web2Db skip ensure (2 pool riêng biệt).
+    // Pattern web2-products `_ensuredPools`.
+    const _ensuredPools = new WeakSet();
 
     async function ensure(pool) {
-        if (_ready) return;
+        if (_ensuredPools.has(pool)) return;
         await pool.query(`
             CREATE TABLE IF NOT EXISTS ${tableName} (
                 id          BIGSERIAL PRIMARY KEY,
@@ -84,7 +87,7 @@ function makeDedicatedEntityRouter(tableName, entitySlug) {
         } catch (e) {
             console.warn(`[WEB2-DEDICATED] migrate ${tableName} skip:`, e.message);
         }
-        _ready = true;
+        _ensuredPools.add(pool);
     }
 
     function getPool(req) {
@@ -195,16 +198,25 @@ function makeDedicatedEntityRouter(tableName, entitySlug) {
     });
 
     // PATCH /update/:code  { name?, data?, isActive?, userId?, userName? }
+    // 1D fix (H12 pattern web2-generic): SELECT → merge history JS-side → UPDATE
+    // phải atomic. Transaction + FOR UPDATE row-lock — 2 update đồng thời không
+    // mất history / lost update.
     router.patch('/update/:code', requireWeb2AuthSoft, async (req, res) => {
         const pool = getPool(req);
         if (!pool) return res.status(500).json({ error: 'DB unavailable' });
+        const client = await pool.connect();
         try {
             await ensure(pool);
             const b = req.body || {};
-            const cur = await pool.query(`SELECT * FROM ${tableName} WHERE code = $1 LIMIT 1`, [
-                req.params.code,
-            ]);
-            if (!cur.rows.length) return res.status(404).json({ error: 'Not found' });
+            await client.query('BEGIN');
+            const cur = await client.query(
+                `SELECT * FROM ${tableName} WHERE code = $1 LIMIT 1 FOR UPDATE`,
+                [req.params.code]
+            );
+            if (!cur.rows.length) {
+                await client.query('ROLLBACK');
+                return res.status(404).json({ error: 'Not found' });
+            }
             const now = Date.now();
             const curData = cur.rows[0].data || {};
             let newData = curData;
@@ -222,7 +234,7 @@ function makeDedicatedEntityRouter(tableName, entitySlug) {
                 });
                 newData.history = hist;
             }
-            const r = await pool.query(
+            const r = await client.query(
                 `UPDATE ${tableName}
                     SET name = COALESCE($2, name),
                         data = $3,
@@ -237,10 +249,14 @@ function makeDedicatedEntityRouter(tableName, entitySlug) {
                     now,
                 ]
             );
+            await client.query('COMMIT');
             _notify(entitySlug, 'update', r.rows[0].code);
             res.json({ success: true, record: mapRow(r.rows[0]) });
         } catch (e) {
+            await client.query('ROLLBACK').catch(() => {});
             res.status(500).json({ error: e.message });
+        } finally {
+            client.release();
         }
     });
 
@@ -250,7 +266,11 @@ function makeDedicatedEntityRouter(tableName, entitySlug) {
         if (!pool) return res.status(500).json({ error: 'DB unavailable' });
         try {
             await ensure(pool);
-            await pool.query(`DELETE FROM ${tableName} WHERE code = $1`, [req.params.code]);
+            // 1D fix: code không tồn tại → 404 (giống web2-generic), không _notify.
+            const r = await pool.query(`DELETE FROM ${tableName} WHERE code = $1 RETURNING code`, [
+                req.params.code,
+            ]);
+            if (!r.rows.length) return res.status(404).json({ error: 'Not found' });
             _notify(entitySlug, 'delete', req.params.code);
             res.json({ success: true });
         } catch (e) {

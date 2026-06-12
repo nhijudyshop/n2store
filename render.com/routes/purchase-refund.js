@@ -129,10 +129,15 @@ async function deductStock(pool, lines) {
     for (const [code, qty] of lines) {
         const before = await pool.query(`SELECT stock FROM web2_products WHERE code = $1`, [code]);
         const stockBefore = before.rows[0]?.stock != null ? Number(before.rows[0].stock) : null;
-        await pool.query(
+        const upd = await pool.query(
             `UPDATE web2_products SET stock = COALESCE(stock, 0) - $1, updated_at = $2 WHERE code = $3`,
             [qty, now, code]
         );
+        // 1D fix: mã SP sai trước đây bị nuốt silent → phiếu approved + ví giảm mà
+        // kho không đổi. Caller đều trong transaction → throw = ROLLBACK trọn phiếu.
+        if (upd.rowCount === 0) {
+            throw new Error(`Mã SP ${code} không tồn tại trong kho`);
+        }
         const after = await pool.query(`SELECT stock FROM web2_products WHERE code = $1`, [code]);
         results.push({
             code,
@@ -148,10 +153,14 @@ async function restockStock(pool, lines) {
     const results = [];
     const now = Date.now();
     for (const [code, qty] of lines) {
-        await pool.query(
+        const upd = await pool.query(
             `UPDATE web2_products SET stock = COALESCE(stock, 0) + $1, updated_at = $2 WHERE code = $3`,
             [qty, now, code]
         );
+        // 1D fix: như deductStock — mã SP không tồn tại phải fail rõ, không nuốt silent.
+        if (upd.rowCount === 0) {
+            throw new Error(`Mã SP ${code} không tồn tại trong kho`);
+        }
         const after = await pool.query(`SELECT stock FROM web2_products WHERE code = $1`, [code]);
         results.push({
             code,
@@ -329,13 +338,34 @@ router.post('/:code/refunded', async (req, res) => {
     const recordsPool = req.app.locals.web2Db;
     if (!recordsPool) return res.status(500).json({ error: 'DB unavailable' });
     const code = req.params.code;
+    // 1D fix: cùng pattern /reject — transaction + FOR UPDATE. Trước đây đọc
+    // không lock rồi save → race với cancel-approve: mark 'refunded' trên state
+    // stale trong khi kho đã được trả lại.
+    const client = await recordsPool.connect();
+    let committed = false;
     try {
-        const row = await loadRefund(recordsPool, code);
-        if (!row) return res.status(404).json({ error: 'Refund not found' });
+        await client.query('BEGIN');
+        const row = await loadRefund(client, code, true);
+        if (!row) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ error: 'Refund not found' });
+        }
         const data = row.data || {};
-        if (data.status !== 'approved') {
+        const currentStatus = data.status || 'draft';
+        // Idempotent: đã refunded → trả OK, không ghi thêm gì.
+        if (currentStatus === 'refunded') {
+            await client.query('ROLLBACK');
+            return res.json({
+                success: true,
+                idempotent: true,
+                alreadyDone: true,
+                refund: { code, status: 'refunded' },
+            });
+        }
+        if (currentStatus !== 'approved') {
+            await client.query('ROLLBACK');
             return res.status(400).json({
-                error: `Chỉ mark refunded sau khi approved (hiện: ${data.status})`,
+                error: `Chỉ mark refunded sau khi approved (hiện: ${currentStatus})`,
             });
         }
         const userName = req.body?.userName || '(ẩn danh)';
@@ -345,7 +375,7 @@ router.post('/:code/refunded', async (req, res) => {
             userName,
             note: `NCC đã hoàn tiền (${req.body?.refundMethod || data.refundMethod || 'unknown'})`,
         });
-        await saveRefundData(recordsPool, code, {
+        await saveRefundData(client, code, {
             status: 'refunded',
             refunded_at: Date.now(),
             refundMethod: req.body?.refundMethod || data.refundMethod || null,
@@ -354,11 +384,20 @@ router.post('/:code/refunded', async (req, res) => {
             refunded_by: userName,
             history: newHistory,
         });
+        await client.query('COMMIT');
+        committed = true;
         _notify('refunded', code);
         res.json({ success: true, refund: { code, status: 'refunded' } });
     } catch (e) {
+        if (!committed) {
+            try {
+                await client.query('ROLLBACK');
+            } catch (_) {}
+        }
         console.error('[PURCHASE-REFUND] /refunded error:', e.message);
         res.status(500).json({ error: e.message });
+    } finally {
+        client.release();
     }
 });
 

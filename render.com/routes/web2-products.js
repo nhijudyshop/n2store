@@ -901,6 +901,14 @@ router.post('/adjust-stock', async (req, res) => {
                 warnings.push(`Code "${code}" not found, skipped`);
                 continue;
             }
+            // 1D fix: clamp GREATEST(0) trước đây nuốt im lặng xuất-quá-tồn.
+            // Best-effort warning (delta âm + stock chạm 0 = có thể đã clamp),
+            // không đổi behavior.
+            if (delta < 0 && Number(r.rows[0].stock) === 0) {
+                warnings.push(
+                    `Code "${code}" xuất ${-delta} nhưng tồn chạm 0 — có thể vượt tồn (clamped)`
+                );
+            }
             results.push({ code: r.rows[0].code, stock: r.rows[0].stock, delta });
         }
         await client.query('COMMIT');
@@ -954,14 +962,25 @@ router.delete('/:code', async (req, res) => {
     try {
         await ensureTables(pool);
         const force = req.query.force === '1' || req.query.force === 'true';
-        const r0 = await pool.query(
-            `SELECT code, name, pending_qty, supplier, stock FROM web2_products WHERE code = $1`,
-            [req.params.code]
+        // 1D fix TOCTOU: check pending + DELETE gộp 1 câu atomic — không còn cửa
+        // sổ pending tăng giữa SELECT và DELETE. RETURNING * → snapshot history
+        // đủ cột (trước đây chỉ SELECT 5 cột).
+        const r = await pool.query(
+            `DELETE FROM web2_products
+             WHERE code = $1 AND ($2::boolean OR COALESCE(pending_qty, 0) = 0)
+             RETURNING *`,
+            [req.params.code, force]
         );
-        if (!r0.rows.length) return res.status(404).json({ error: 'Not found' });
-        const cur = r0.rows[0];
-        const curPending = Number(cur.pending_qty) || 0;
-        if (curPending > 0 && !force) {
+        if (!r.rows.length) {
+            // rowCount=0: phân biệt "không tồn tại" (404) vs "còn pending không
+            // force" (409 — giữ behavior cũ để caller cảnh báo user).
+            const r0 = await pool.query(
+                `SELECT code, name, pending_qty, supplier, stock FROM web2_products WHERE code = $1`,
+                [req.params.code]
+            );
+            if (!r0.rows.length) return res.status(404).json({ error: 'Not found' });
+            const cur = r0.rows[0];
+            const curPending = Number(cur.pending_qty) || 0;
             return res.status(409).json({
                 error: 'pending_qty_not_zero',
                 code: cur.code,
@@ -972,13 +991,13 @@ router.delete('/:code', async (req, res) => {
                 message: `SP còn ${curPending} cái chờ mua${cur.supplier ? ' từ ' + cur.supplier : ''}. Xóa sẽ mất số liệu này.`,
             });
         }
-        await pool.query(`DELETE FROM web2_products WHERE code = $1`, [req.params.code]);
-        _notify('delete', cur.code);
+        const deleted = r.rows[0];
+        _notify('delete', deleted.code);
         await _logHistory(
             pool,
-            cur.code,
+            deleted.code,
             'delete',
-            { snapshot: mapRow(cur) },
+            { snapshot: mapRow(deleted) },
             _extractUser(req),
             _extractSourcePage(req) || 'products'
         );
@@ -1141,8 +1160,10 @@ router.post('/upsert-pending', async (req, res) => {
             const supplier = it.supplier ? String(it.supplier).trim() : null;
             if (!name || qty <= 0) continue;
             // Match: name + variant (variant nullable, NULL match NULL)
+            // 1D fix: ưu tiên exact-match variant — SP base (variant NULL, id nhỏ)
+            // không được "thắng" khi SP đúng variant tồn tại (đối xứng adjust-pending).
             const findSql = variant
-                ? `SELECT * FROM web2_products WHERE LOWER(name) = LOWER($1) AND (variant IS NULL OR LOWER(variant) = LOWER($2)) ORDER BY id FOR UPDATE`
+                ? `SELECT * FROM web2_products WHERE LOWER(name) = LOWER($1) AND (variant IS NULL OR LOWER(variant) = LOWER($2)) ORDER BY (LOWER(COALESCE(variant, '')) = LOWER($2)) DESC, id ASC FOR UPDATE`
                 : `SELECT * FROM web2_products WHERE LOWER(name) = LOWER($1) ORDER BY id FOR UPDATE`;
             const findParams = variant ? [name, variant] : [name];
             const existing = await client.query(`${findSql} LIMIT 1`, findParams);

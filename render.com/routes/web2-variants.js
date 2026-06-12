@@ -36,9 +36,12 @@ function _notify(action, id) {
     }
 }
 
-let _tablesCreated = false;
+// 1D fix: key theo pool (WeakSet) thay vì flag boolean chung — cold-start
+// fallback chatDb không được làm web2Db skip ensureTables (2 pool riêng biệt).
+// Pattern web2-products `_ensuredPools`.
+const _ensuredPools = new WeakSet();
 async function ensureTables(pool) {
-    if (_tablesCreated) return;
+    if (_ensuredPools.has(pool)) return;
     try {
         await pool.query(`
             CREATE TABLE IF NOT EXISTS web2_variants (
@@ -63,7 +66,7 @@ async function ensureTables(pool) {
                 ON web2_variants(short_code)
                 WHERE short_code IS NOT NULL;
         `);
-        _tablesCreated = true;
+        _ensuredPools.add(pool);
         console.log('[WEB2-VARIANTS] Tables created/verified');
     } catch (error) {
         console.error('[WEB2-VARIANTS] Table creation error:', error.message);
