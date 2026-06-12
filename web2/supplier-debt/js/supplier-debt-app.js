@@ -1,9 +1,9 @@
 // #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 module.
 // Báo cáo công nợ NCC — period-based report.
 //
-// Data sources:
-//   1. web2_so_order/main (Firestore) — derive purchases per supplier per shipment.
-//   2. web2_supplier_wallet/main (Firestore) — ledger (payment + return transactions).
+// Data sources (ĐỢT E 2026-06-12 — server ledger, audit vòng 3):
+//   1. web2_so_order/main (Firestore) — derive purchases per supplier per shipment (chưa migrate).
+//   2. GET /api/web2-supplier-wallet/state — wallets (ledger payment|return) + suppliers meta.
 //
 // Calc per supplier per period [from, to]:
 //   purchases_before = Σ (qty × costPrice × rate→VND) WHERE shipment.date < from
@@ -13,7 +13,8 @@
 //   credit           = Σ |amount|   WHERE tx.ts in [from, to]
 //   ending           = opening + debit - credit
 //
-// State persistence: localStorage filter prefs only. No write-back.
+// Mutations (thanh toán / tạo NCC / ghi chú) ghi qua POST server — KHÔNG còn
+// client-write Firestore (hết lost-update RMW + nextMoveName MAX+1 race).
 
 (function () {
     'use strict';
@@ -31,7 +32,7 @@
     const STATE = {
         soOrderData: null,
         walletData: null,
-        suppliersList: [], // [{ id, code, name, createdAt }] from Firestore web2_suppliers
+        suppliersList: [], // [{ name, code, note, createdAt }] từ server /state (id cũ bỏ — không nơi nào dùng)
         rows: [], // aggregated supplier rows after filter
         sortField: 'code',
         sortDir: 'asc',
@@ -106,6 +107,35 @@
         return String(date).slice(0, 10) < fromIso;
     }
 
+    // ---------- server API (ĐỢT E — ledger /api/web2-supplier-wallet) ----------
+    const WORKER_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
+    const API_BASE = `${WORKER_URL}/api/web2-supplier-wallet`;
+    const API_FALLBACK = 'https://n2store-fallback.onrender.com/api/web2-supplier-wallet';
+
+    function authHeaders() {
+        const h = { 'Content-Type': 'application/json' };
+        const token = window.Web2Auth?.getStored?.()?.token;
+        if (token) h['x-web2-token'] = token;
+        return h;
+    }
+
+    // Dual-base (worker → Render direct). Mutation idempotent theo txId nên
+    // retry fallback an toàn (server ON CONFLICT trả alreadyProcessed).
+    async function api(path, options) {
+        const opts = options || {};
+        try {
+            const r = await fetch(API_BASE + path, opts);
+            const d = await r.json().catch(() => ({}));
+            if (!r.ok || d?.success === false) throw new Error(d?.error || `HTTP ${r.status}`);
+            return d;
+        } catch (e) {
+            const r = await fetch(API_FALLBACK + path, opts);
+            const d = await r.json().catch(() => ({}));
+            if (!r.ok || d?.success === false) throw new Error(d?.error || `HTTP ${r.status}`);
+            return d;
+        }
+    }
+
     // ---------- load ----------
     async function loadAll() {
         const tasks = [];
@@ -114,60 +144,67 @@
     }
 
     async function loadWeb2() {
+        // so-order vẫn đọc Firestore (chưa migrate); ví NCC + suppliers đọc server ledger.
+        await Promise.all([loadSoOrder(), loadServerState()]);
+    }
+
+    async function loadSoOrder() {
         try {
             if (typeof firebase === 'undefined' || !firebase.firestore) {
                 notify('Firebase chưa sẵn sàng', 'error');
                 return;
             }
             const db = firebase.firestore();
-            const [soSnap, walletSnap, supSnap] = await Promise.all([
-                db.collection('web2_so_order').doc('main').get(),
-                db.collection('web2_supplier_wallet').doc('main').get(),
-                db.collection('web2_suppliers').doc('main').get(),
-            ]);
+            const soSnap = await db.collection('web2_so_order').doc('main').get();
             STATE.soOrderData = soSnap.exists ? soSnap.data()?.data || null : null;
-            STATE.walletData = walletSnap.exists ? walletSnap.data()?.data || null : null;
-            STATE.suppliersList = supSnap.exists
-                ? Array.isArray(supSnap.data()?.data?.suppliers)
-                    ? supSnap.data().data.suppliers
-                    : []
-                : [];
         } catch (e) {
-            console.warn('[supplier-debt] load Web 2.0 fail:', e.message);
-            notify('Lỗi tải dữ liệu Web 2.0: ' + e.message, 'error');
+            console.warn('[supplier-debt] load so-order fail:', e.message);
+            notify('Lỗi tải dữ liệu Sổ Order: ' + e.message, 'error');
         }
     }
 
+    async function loadServerState() {
+        try {
+            const d = await api('/state');
+            // data.wallets shape tương thích doc Firestore cũ ({[supplier]: {…transactions[]}}).
+            STATE.walletData = { wallets: d?.data?.wallets || {} };
+            // suppliers server: [{name, code, note, createdAt}].
+            STATE.suppliersList = Array.isArray(d?.data?.suppliers) ? d.data.suppliers : [];
+        } catch (e) {
+            // Fail → toast + giữ data đã load trước đó (nếu có), KHÔNG fallback Firestore.
+            console.warn('[supplier-debt] load server ledger fail:', e.message);
+            notify('Lỗi tải ví NCC từ server: ' + e.message, 'error');
+            if (!STATE.walletData) STATE.walletData = { wallets: {} };
+            if (!Array.isArray(STATE.suppliersList)) STATE.suppliersList = [];
+        }
+    }
+
+    // Tạo NCC qua server (upsert atomic ON CONFLICT — hết RMW lost-update Firestore).
     async function saveSupplier(code, name) {
-        const db = firebase.firestore();
-        const ref = db.collection('web2_suppliers').doc('main');
-        const snap = await ref.get();
-        const data = snap.exists ? snap.data()?.data || { suppliers: [] } : { suppliers: [] };
-        const list = Array.isArray(data.suppliers) ? data.suppliers : [];
         const codeUp = code.trim().toUpperCase();
+        const list = STATE.suppliersList || [];
+        // Check trùng mã trên list đã load (server upsert theo TÊN, không khoá mã).
         if (list.find((s) => String(s.code).toUpperCase() === codeUp)) {
             throw new Error(`Mã NCC "${codeUp}" đã tồn tại`);
         }
-        list.push({
-            id: 'sup_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
-            code: codeUp,
-            name: name.trim(),
-            note: '',
-            createdAt: Date.now(),
-            updatedAt: Date.now(),
+        const d = await api('/suppliers', {
+            method: 'POST',
+            headers: authHeaders(),
+            body: JSON.stringify({ name: name.trim(), code: codeUp }),
         });
-        await ref.set({ data: { suppliers: list }, lastUpdated: Date.now() }, { merge: true });
+        const sup = d?.supplier || { name: name.trim(), code: codeUp, note: '' };
+        // Update list local để render ngay (full reload qua SSE sau).
+        const idx = list.findIndex((s) => s.name === sup.name);
+        if (idx >= 0) list[idx] = { ...list[idx], ...sup };
+        else list.push({ ...sup, createdAt: Date.now() });
         STATE.suppliersList = list;
     }
 
-    // Save note for a supplier. If supplier doesn't exist in web2_suppliers yet,
-    // auto-create an entry with empty code (legacy/DEMO row).
+    // Lưu ghi chú NCC qua server (upsert theo TÊN — atomic, hết dup/lost-update).
+    // Logic match giữ như cũ: tìm entry theo code → theo name patterns; không có
+    // entry → server tự tạo meta mới với name = rowKey, code rỗng.
     async function saveSupplierNote(rowKey, code, note) {
-        const db = firebase.firestore();
-        const ref = db.collection('web2_suppliers').doc('main');
-        const snap = await ref.get();
-        const data = snap.exists ? snap.data()?.data || { suppliers: [] } : { suppliers: [] };
-        const list = Array.isArray(data.suppliers) ? data.suppliers : [];
+        const list = STATE.suppliersList || [];
         let entry = code
             ? list.find((s) => String(s.code).toUpperCase() === String(code).toUpperCase())
             : null;
@@ -180,20 +217,25 @@
                     rowKey.toLowerCase() === String(s.name).toLowerCase()
             );
         }
-        if (!entry) {
-            // Auto-create entry for legacy/DEMO row with empty code, name = rowKey
-            entry = {
-                id: 'sup_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
-                code: '',
-                name: rowKey,
-                note: '',
-                createdAt: Date.now(),
-            };
-            list.push(entry);
-        }
-        entry.note = String(note || '').trim();
-        entry.updatedAt = Date.now();
-        await ref.set({ data: { suppliers: list }, lastUpdated: Date.now() }, { merge: true });
+        const targetName = entry ? entry.name : rowKey;
+        const noteStr = String(note || '').trim();
+        const d = await api('/suppliers', {
+            method: 'POST',
+            // code rỗng KHÔNG đè code cũ (server NULLIF) — gửi an toàn.
+            headers: authHeaders(),
+            body: JSON.stringify({
+                name: targetName,
+                code: entry?.code || code || '',
+                note: noteStr,
+            }),
+        });
+        const sup = d?.supplier || {
+            name: targetName,
+            code: entry?.code || code || '',
+            note: noteStr,
+        };
+        if (entry) Object.assign(entry, sup);
+        else list.push({ ...sup, createdAt: Date.now() });
         STATE.suppliersList = list;
     }
 
@@ -214,35 +256,36 @@
         return byName?.note || '';
     }
 
-    // Generate next sequential move name for a transaction type within a year.
-    // Format: PAY/2026/NNNN (zero-padded 4 digits). Scans all wallets globally.
-    function nextMoveName(state, type, year) {
-        const prefix = type === 'payment' ? 'PAY' : type === 'return' ? 'RET' : 'TX';
-        const re = new RegExp(`^${prefix}/${year}/(\\d+)$`);
-        let max = 0;
-        for (const supplier of Object.keys(state.wallets || {})) {
-            for (const tx of state.wallets[supplier].transactions || []) {
-                const m = String(tx.moveName || '').match(re);
-                if (m) {
-                    const n = parseInt(m[1], 10);
-                    if (n > max) max = n;
-                }
-            }
-        }
-        return `${prefix}/${year}/${String(max + 1).padStart(4, '0')}`;
-    }
-
-    // Record a payment to a supplier: write transaction to web2_supplier_wallet.
-    // The supplier may not have a wallet yet (legacy/DEMO row) — auto-create.
-    // Dedup: prevent identical (supplier+amount+date+note) trong 3s gần nhất (chống spam).
+    // Ghi thanh toán NCC qua server ledger (POST /tx) — MONEY OP: await server
+    // TRƯỚC, thành công mới apply local. Server TỰ SINH moveName PAY/<năm>/<seq>
+    // từ sequence (hết race MAX+1 client). Idempotent theo txId — retry dual-base
+    // / double-submit → alreadyProcessed, không ghi đôi.
     async function recordPayment(supplierKey, amount, date, note) {
         if (!supplierKey) throw new Error('Thiếu NCC');
         if (!Number.isFinite(amount) || amount <= 0) throw new Error('Số tiền không hợp lệ');
-        const db = firebase.firestore();
-        const ref = db.collection('web2_supplier_wallet').doc('main');
-        const snap = await ref.get();
-        const state = snap.exists ? snap.data()?.data || { wallets: {} } : { wallets: {} };
-        const w = state.wallets[supplierKey] || {
+        const ts = date ? new Date(date + 'T12:00:00+07:00').getTime() : Date.now();
+        const noteStr = note || 'Thanh toán nhà cung cấp';
+        const txId = 'tx-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7);
+        const d = await api('/tx', {
+            method: 'POST',
+            headers: authHeaders(),
+            body: JSON.stringify({
+                supplier: supplierKey,
+                type: 'payment',
+                amount,
+                ts,
+                note: noteStr,
+                ref: { source: 'supplier-debt' },
+                performedBy: window.Web2UserInfo?.get?.()?.userName || null,
+                txId,
+                // KHÔNG gửi moveName — server sinh từ sequence.
+            }),
+        });
+        const tx = d?.tx || { id: txId, ts, type: 'payment', amount, note: noteStr, moveName: '' };
+        // Apply local để caller re-render ngay (SSE web2:supplier-wallet refresh đầy đủ sau).
+        if (!STATE.walletData) STATE.walletData = { wallets: {} };
+        if (!STATE.walletData.wallets) STATE.walletData.wallets = {};
+        const w = STATE.walletData.wallets[supplierKey] || {
             supplier: supplierKey,
             totalPurchased: 0,
             paidAmount: 0,
@@ -251,43 +294,14 @@
             returnedRowIds: {},
             transactions: [],
         };
-        w.transactions = w.transactions || [];
-
-        // Dedup: trong 3s gần nhất có giao dịch giống hệt (amount + date + note)?
-        const ts = date ? new Date(date + 'T12:00:00+07:00').getTime() : Date.now();
-        const noteStr = note || 'Thanh toán nhà cung cấp';
-        const recent = w.transactions.find(
-            (t) =>
-                t.type === 'payment' &&
-                Number(t.amount) === amount &&
-                Number(t.ts) === ts &&
-                String(t.note || '') === noteStr &&
-                Date.now() - (Number(t._createdAt) || Number(t.ts) || 0) < 3000
-        );
-        if (recent) {
-            throw new Error('Đã ghi giao dịch trùng — chờ vài giây trước khi thử lại');
+        w.transactions = Array.isArray(w.transactions) ? w.transactions : [];
+        // Guard: chỉ apply nếu tx chưa có local (alreadyProcessed/retry).
+        if (!w.transactions.some((t) => t.id === tx.id)) {
+            w.transactions.push(tx);
+            w.paidAmount = (Number(w.paidAmount) || 0) + (Number(tx.amount) || amount);
         }
-
-        const year = new Date(ts).getFullYear();
-        const moveName = nextMoveName(state, 'payment', year);
-        const entry = {
-            id: 'tx-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7),
-            ts,
-            type: 'payment',
-            amount,
-            note: noteStr,
-            moveName,
-            ref: { source: 'supplier-debt' },
-            _createdAt: Date.now(),
-        };
-        w.transactions.push(entry);
-        w.paidAmount = (Number(w.paidAmount) || 0) + amount;
-        w.balance = (w.totalPurchased || 0) - (w.paidAmount || 0) - (w.returnedAmount || 0);
-        state.wallets[supplierKey] = w;
-        await ref.set({ data: state, lastUpdated: Date.now() }, { merge: true });
-        // Update in-memory state so next render picks it up
-        STATE.walletData = state;
-        return moveName;
+        STATE.walletData.wallets[supplierKey] = w;
+        return tx.moveName || '';
     }
 
     // Lookup code for a supplier name string.
@@ -413,7 +427,9 @@
         // Add empty rows for suppliers in list that have no purchases yet
         // (so they show up after "Tạo NCC" before any orders are placed).
         for (const s of STATE.suppliersList || []) {
-            const fullName = `${s.code} ${s.name}`;
+            // Meta auto-tạo từ /tx (code rỗng, name = wallet key) → fullName = name,
+            // tránh ghost row " <name>" (leading space) sau khi đổi sang server ledger.
+            const fullName = s.code ? `${s.code} ${s.name}` : s.name;
             const existsExact = result[fullName];
             const existsByCode = Object.values(result).find((r) => r.code === s.code);
             if (existsExact || existsByCode) continue;
@@ -1177,10 +1193,11 @@
 
     // SSE: realtime refresh báo cáo công nợ NCC khi data nguồn thay đổi.
     // Sources ảnh hưởng:
+    //   - web2:supplier-wallet — server ledger mutation (tx/supplier/import, ĐỢT E)
     //   - SePay deposit (web2:wallet:* wildcard) — NCC refund/transfer
     //   - web2-products — so-order data feeds via products pending
     //   - web2:fast-sale-orders — PBH ảnh hưởng nếu refund NCC
-    // Debounce 1500ms — báo cáo nặng, không cần refresh quá nhanh.
+    // Debounce 1500ms (shared timer) — báo cáo nặng, không cần refresh quá nhanh.
     let _sseUnsubs = [];
     let _sseReloadTimer = null;
     function _sseConnect() {
@@ -1198,6 +1215,9 @@
                 applyFilterAndRender();
             }, 1500);
         };
+        _sseUnsubs.push(
+            window.Web2SSE.subscribe('web2:supplier-wallet', scheduleReload('web2:supplier-wallet'))
+        );
         _sseUnsubs.push(window.Web2SSE.subscribe('web2:wallet:*', scheduleReload('web2:wallet:*')));
         _sseUnsubs.push(window.Web2SSE.subscribe('web2:products', scheduleReload('web2:products')));
         _sseUnsubs.push(
