@@ -46,6 +46,19 @@
         else console.log('[ck-review]', msg);
     }
 
+    // ENFORCE-PREP (2026-06-12): gắn x-web2-token cho mutation payment-signals
+    // (approve/dismiss — soft-gate → WEB2_AUTH_ENFORCE=1). Fallback đọc thẳng
+    // localStorage nếu page nhúng component này không load web2-auth.js.
+    function authHeaders(extra) {
+        if (global.Web2Auth?.authHeaders) return global.Web2Auth.authHeaders(extra);
+        try {
+            const t = JSON.parse(localStorage.getItem('web2_auth'))?.token;
+            return t ? { ...(extra || {}), 'x-web2-token': t } : { ...(extra || {}) };
+        } catch {
+            return { ...(extra || {}) };
+        }
+    }
+
     // Lịch sử thao tác (audit: ai detect/duyệt/cộng ví/gửi tin — lúc nào).
     const ACTION_VI = {
         detect: 'Hệ thống nhận',
@@ -349,7 +362,7 @@
                 });
                 const r = await fetch(`${SIG_API}/${sig.id}/approve`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: authHeaders({ 'Content-Type': 'application/json' }), // ENFORCE-PREP (2026-06-12)
                     credentials: 'include',
                     body: JSON.stringify(body),
                 });
@@ -376,7 +389,7 @@
             try {
                 const r = await fetch(`${SIG_API}/${sig.id}/dismiss`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: authHeaders({ 'Content-Type': 'application/json' }), // ENFORCE-PREP (2026-06-12)
                     credentials: 'include',
                     body: JSON.stringify(userBody()),
                 });

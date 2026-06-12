@@ -11,10 +11,23 @@
     const WORKER = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/web2/customers';
     const DIRECT = 'https://n2store-fallback.onrender.com/api/web2/customers';
 
+    // ENFORCE-PREP (2026-06-12): gắn x-web2-token cho mutation /api/web2/customers/*
+    // (create/upsert/merge/:id PATCH/DELETE… — soft-gate → WEB2_AUTH_ENFORCE=1).
+    function _authHeaders() {
+        if (window.Web2Auth?.authHeaders) return window.Web2Auth.authHeaders();
+        try {
+            const t = JSON.parse(localStorage.getItem('web2_auth'))?.token;
+            return t ? { 'x-web2-token': t } : {};
+        } catch {
+            return {};
+        }
+    }
+
     async function _fetch(path, options) {
         const opts = options || {};
         opts.headers = Object.assign(
             { Accept: 'application/json', 'Content-Type': 'application/json' },
+            _authHeaders(), // ENFORCE-PREP (2026-06-12)
             opts.headers || {}
         );
         let lastErr = null;

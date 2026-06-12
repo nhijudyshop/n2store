@@ -51,13 +51,24 @@
         }
         return null;
     }
+    // ENFORCE-PREP (2026-06-12): gắn x-web2-token cho PATCH /api/web2/balance-history/:id/link
+    // (soft-gate → WEB2_AUTH_ENFORCE=1). Fallback đọc localStorage nếu page không load web2-auth.js.
+    function authHeaders(extra) {
+        if (global.Web2Auth?.authHeaders) return global.Web2Auth.authHeaders(extra);
+        try {
+            const t = JSON.parse(localStorage.getItem('web2_auth'))?.token;
+            return t ? { ...(extra || {}), 'x-web2-token': t } : { ...(extra || {}) };
+        } catch {
+            return { ...(extra || {}) };
+        }
+    }
     async function patchJSON(path, body) {
         let last = null;
         for (const base of [PROXY, FALLBACK]) {
             try {
                 const r = await fetch(base + path, {
                     method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: authHeaders({ 'Content-Type': 'application/json' }), // ENFORCE-PREP (2026-06-12)
                     credentials: 'include',
                     body: JSON.stringify(body),
                 });

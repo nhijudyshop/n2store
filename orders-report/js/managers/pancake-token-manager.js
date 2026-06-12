@@ -19,6 +19,21 @@
 const _RENDER_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
 const _CLIENT_API_KEY = window.N2STORE_CLIENT_API_KEY || '';
 
+// ENFORCE-PREP (2026-06-12): /api/pancake-accounts/* sắp gate WEB2_AUTH_ENFORCE=1
+// (GET / strip token nếu unauth; GET /:id, sync, PUT, DELETE bị chặn). File Web 1.0
+// — KHÔNG load web2-auth.js → đọc thẳng localStorage 'web2_auth' (chung origin,
+// page Web 1.0 vẫn có token nếu user từng login Web 2.0).
+function _web2AuthHeaders(extra) {
+    const h = { ...(extra || {}) };
+    try {
+        const t = JSON.parse(localStorage.getItem('web2_auth') || 'null')?.token;
+        if (t) h['x-web2-token'] = t;
+    } catch {
+        /* ignore */
+    }
+    return h;
+}
+
 class PancakeTokenManager {
     constructor() {
         this.firestoreRef = null;
@@ -330,7 +345,12 @@ class PancakeTokenManager {
         try {
             // Load from Render DB (merge into existing accounts)
             const _fetch = window.fetchWithTimeout || fetch;
-            const r = await _fetch(`${_RENDER_URL}/api/pancake-accounts?active=true`, {}, 8000);
+            // ENFORCE-PREP (2026-06-12)
+            const r = await _fetch(
+                `${_RENDER_URL}/api/pancake-accounts?active=true`,
+                { headers: _web2AuthHeaders() },
+                8000
+            );
             if (r.ok) {
                 const data = await r.json();
                 const dbAccounts = data.accounts || [];
@@ -555,7 +575,7 @@ class PancakeTokenManager {
                     const _fetch = window.fetchWithTimeout || fetch;
                     const r = await _fetch(
                         `${_RENDER_URL}/api/pancake-accounts/${this.activeAccountId}`,
-                        {},
+                        { headers: _web2AuthHeaders() }, // ENFORCE-PREP (2026-06-12)
                         6000
                     );
                     if (r.ok) {
@@ -641,7 +661,8 @@ class PancakeTokenManager {
             try {
                 fetch(`${_RENDER_URL}/api/pancake-accounts/sync`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    // ENFORCE-PREP (2026-06-12)
+                    headers: _web2AuthHeaders({ 'Content-Type': 'application/json' }),
                     body: JSON.stringify({
                         accounts: { [accountId]: data },
                     }),
@@ -1393,7 +1414,7 @@ class PancakeTokenManager {
         try {
             const r = await _fetch(
                 'https://chatomni-proxy.nhijudyshop.workers.dev/api/pancake-accounts?active=true',
-                {},
+                { headers: _web2AuthHeaders() }, // ENFORCE-PREP (2026-06-12)
                 8000
             );
             if (r.ok) {

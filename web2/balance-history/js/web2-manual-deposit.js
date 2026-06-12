@@ -138,8 +138,21 @@
         document.head.appendChild(style);
     }
 
+    // ENFORCE-PREP (2026-06-12): gắn x-web2-token cho /api/web2/balance-history/manual-deposit
+    // (soft-gate → WEB2_AUTH_ENFORCE=1). Choke point: jsonFetch. GIỮ NGUYÊN idempotencyKey logic.
+    function authHeaders(extra) {
+        if (window.Web2Auth?.authHeaders) return window.Web2Auth.authHeaders(extra);
+        try {
+            const t = JSON.parse(localStorage.getItem('web2_auth'))?.token;
+            return t ? { ...(extra || {}), 'x-web2-token': t } : { ...(extra || {}) };
+        } catch {
+            return { ...(extra || {}) };
+        }
+    }
+
     async function jsonFetch(url, options) {
-        const r = await fetch(url, options);
+        const opts = { ...(options || {}), headers: authHeaders((options || {}).headers) }; // ENFORCE-PREP (2026-06-12)
+        const r = await fetch(url, opts);
         const body = await r.json().catch(() => ({}));
         if (!r.ok) throw new Error(body?.error || `HTTP ${r.status}`);
         return body;

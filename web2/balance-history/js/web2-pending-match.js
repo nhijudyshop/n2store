@@ -21,8 +21,21 @@
     const BASE = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/web2/balance-history';
     const DIRECT_BASE = 'https://n2store-fallback.onrender.com/api/web2/balance-history';
 
+    // ENFORCE-PREP (2026-06-12): gắn x-web2-token cho /api/web2/balance-history/pending/:id/resolve
+    // + :id/link (soft-gate → WEB2_AUTH_ENFORCE=1). Choke point: jsonFetch.
+    function authHeaders(extra) {
+        if (window.Web2Auth?.authHeaders) return window.Web2Auth.authHeaders(extra);
+        try {
+            const t = JSON.parse(localStorage.getItem('web2_auth'))?.token;
+            return t ? { ...(extra || {}), 'x-web2-token': t } : { ...(extra || {}) };
+        } catch {
+            return { ...(extra || {}) };
+        }
+    }
+
     async function jsonFetch(url, options) {
-        const r = await fetch(url, options);
+        const opts = { ...(options || {}), headers: authHeaders((options || {}).headers) }; // ENFORCE-PREP (2026-06-12)
+        const r = await fetch(url, opts);
         const ct = r.headers.get('content-type') || '';
         const body = ct.includes('json') ? await r.json() : await r.text();
         if (!r.ok) {

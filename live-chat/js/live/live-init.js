@@ -62,6 +62,20 @@ const LiveColumnManager = {
     // (load cũ đang await mà user đổi campaign → load cũ phải bỏ kết quả).
     _loadGen: 0,
 
+    // ENFORCE-PREP (2026-06-12): gắn x-web2-token cho route soft-gated (WEB2_AUTH_ENFORCE).
+    // Không token (chưa login web2) → bỏ qua header, request vẫn đi (server enforce → 401).
+    _w2AuthHeaders(extra) {
+        if (window.Web2Auth?.authHeaders) return window.Web2Auth.authHeaders(extra);
+        const h = { ...(extra || {}) };
+        try {
+            const t = JSON.parse(localStorage.getItem('web2_auth') || 'null')?.token;
+            if (t) h['x-web2-token'] = t;
+        } catch {
+            /* no token */
+        }
+        return h;
+    },
+
     /**
      * Initialize the Live column
      * @param {string} containerId - DOM container ID
@@ -303,7 +317,8 @@ const LiveColumnManager = {
             if (!payload.length) return;
             await fetch(`${window.LiveState.workerUrl}/api/web2-live-comments/bulk`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                // ENFORCE-PREP (2026-06-12)
+                headers: LiveColumnManager._w2AuthHeaders({ 'Content-Type': 'application/json' }),
                 body: JSON.stringify({ comments: payload }),
                 signal: AbortSignal.timeout(15000),
             });
@@ -619,7 +634,10 @@ const LiveColumnManager = {
                 try {
                     await fetch(`${state.workerUrl}/api/web2-live-comments/poll-now`, {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        // ENFORCE-PREP (2026-06-12)
+                        headers: LiveColumnManager._w2AuthHeaders({
+                            'Content-Type': 'application/json',
+                        }),
                         body: JSON.stringify({ posts: postPairs }),
                         signal: AbortSignal.timeout(15000),
                     });
@@ -968,7 +986,8 @@ const LiveColumnManager = {
         try {
             const r = await fetch(`${state.workerUrl}/api/web2/customers/harvest-comments`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                // ENFORCE-PREP (2026-06-12)
+                headers: LiveColumnManager._w2AuthHeaders({ 'Content-Type': 'application/json' }),
                 body: JSON.stringify({ comments: payload }),
                 signal: AbortSignal.timeout(15000),
             });

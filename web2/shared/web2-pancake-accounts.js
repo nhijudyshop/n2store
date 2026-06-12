@@ -56,8 +56,26 @@
         return Date.now() / 1000 >= Number(exp);
     }
 
+    // ENFORCE-PREP (2026-06-12): gắn x-web2-token cho route soft-gated
+    // (WEB2_AUTH_ENFORCE=1). Page load web2-auth.js → Web2Auth.authHeaders;
+    // không load → đọc thẳng localStorage 'web2_auth' (chung origin).
+    function _authHeaders(extra) {
+        if (window.Web2Auth?.authHeaders) return window.Web2Auth.authHeaders(extra);
+        const h = { ...(extra || {}) };
+        try {
+            const t = JSON.parse(localStorage.getItem('web2_auth') || 'null')?.token;
+            if (t) h['x-web2-token'] = t;
+        } catch {
+            /* ignore */
+        }
+        return h;
+    }
+
     async function _json(url, init) {
-        const r = await fetch(url, init);
+        // ENFORCE-PREP (2026-06-12): _json là choke point của CẢ
+        // /api/pancake-accounts/* lẫn /api/web2/pancake-refresh/*.
+        const opts = { ...(init || {}), headers: _authHeaders(init?.headers) };
+        const r = await fetch(url, opts);
         const t = await r.text();
         let d = null;
         try {

@@ -4,6 +4,20 @@
 // =====================================================
 
 const PancakeAPI = {
+    // ENFORCE-PREP (2026-06-12): gắn x-web2-token cho route soft-gated (WEB2_AUTH_ENFORCE).
+    // Không token (chưa login web2) → bỏ qua header, request vẫn đi (server enforce → 401).
+    _w2AuthHeaders(extra) {
+        if (window.Web2Auth?.authHeaders) return window.Web2Auth.authHeaders(extra);
+        const h = { ...(extra || {}) };
+        try {
+            const t = JSON.parse(localStorage.getItem('web2_auth') || 'null')?.token;
+            if (t) h['x-web2-token'] = t;
+        } catch {
+            /* no token */
+        }
+        return h;
+    },
+
     // Messages cache
     messagesCache: new Map(),
     MESSAGES_CACHE_DURATION: 2 * 60 * 1000,
@@ -846,7 +860,8 @@ const PancakeAPI = {
         try {
             const resp = await fetch(
                 `${state.proxyBaseUrl}/api/web2-live-comments/saved/${encodeURIComponent(customerId)}`,
-                { method: 'DELETE' }
+                // ENFORCE-PREP (2026-06-12)
+                { method: 'DELETE', headers: PancakeAPI._w2AuthHeaders() }
             );
             const data = await resp.json();
             if (data.success) {

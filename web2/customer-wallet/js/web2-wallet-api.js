@@ -97,13 +97,26 @@
         return window.Web2UserInfo?.get?.()?.userName || window.Web2UserInfo?.label?.() || null;
     }
 
+    // ENFORCE-PREP (2026-06-12): gắn x-web2-token cho mutation ví
+    // (/api/web2/wallets/:phone/withdraw|deposit — soft-gate → WEB2_AUTH_ENFORCE=1).
+    // Fallback đọc thẳng localStorage nếu page không load web2-auth.js.
+    function _authHeaders(extra) {
+        if (window.Web2Auth?.authHeaders) return window.Web2Auth.authHeaders(extra);
+        try {
+            const t = JSON.parse(localStorage.getItem('web2_auth'))?.token;
+            return t ? { ...(extra || {}), 'x-web2-token': t } : { ...(extra || {}) };
+        } catch {
+            return { ...(extra || {}) };
+        }
+    }
+
     async function deposit(phone, amount, note, customerId) {
         const p = normPhone(phone);
         if (!p) throw new Error('Phone không hợp lệ');
         const url = `${BASE}/${encodeURIComponent(p)}/deposit`;
         return await jsonFetch(url, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: _authHeaders({ 'Content-Type': 'application/json' }), // ENFORCE-PREP (2026-06-12)
             body: JSON.stringify({ amount, note, customerId, userName: _userName() }),
         });
     }
@@ -114,7 +127,7 @@
         const url = `${BASE}/${encodeURIComponent(p)}/withdraw`;
         return await jsonFetch(url, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: _authHeaders({ 'Content-Type': 'application/json' }), // ENFORCE-PREP (2026-06-12)
             body: JSON.stringify({
                 amount,
                 referenceType,

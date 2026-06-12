@@ -6705,9 +6705,24 @@
                 }
                 let created = null;
                 try {
+                    // ENFORCE-PREP (2026-06-12): /api/web2/customers/upsert sắp
+                    // gate WEB2_AUTH_ENFORCE=1 — gắn x-web2-token.
+                    const upsertHeaders = { 'Content-Type': 'application/json' };
+                    if (window.Web2Auth?.authHeaders) {
+                        Object.assign(upsertHeaders, window.Web2Auth.authHeaders());
+                    } else {
+                        try {
+                            const t = JSON.parse(
+                                localStorage.getItem('web2_auth') || 'null'
+                            )?.token;
+                            if (t) upsertHeaders['x-web2-token'] = t;
+                        } catch {
+                            /* ignore */
+                        }
+                    }
                     const r = await fetch(`${WORKER_URL}/api/web2/customers/upsert`, {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: upsertHeaders,
                         body: JSON.stringify({
                             phone: phone || order.phone || '',
                             name: name || order.customerName || '',

@@ -34,10 +34,26 @@
     const API_BASE = `${WORKER_URL}/api/web2-supplier-wallet`;
     const API_FALLBACK = 'https://n2store-fallback.onrender.com/api/web2-supplier-wallet';
 
+    // ENFORCE-PREP (2026-06-12): POST /tx|/suppliers|/import sắp gate
+    // WEB2_AUTH_ENFORCE=1. Page load web2-auth.js → Web2Auth.authHeaders;
+    // không load → đọc thẳng localStorage 'web2_auth'.
+    function _authHeaders(extra) {
+        if (global.Web2Auth?.authHeaders) return global.Web2Auth.authHeaders(extra);
+        const h = { ...(extra || {}) };
+        try {
+            const t = JSON.parse(localStorage.getItem('web2_auth') || 'null')?.token;
+            if (t) h['x-web2-token'] = t;
+        } catch {
+            /* ignore */
+        }
+        return h;
+    }
+
     async function _api(path, options) {
         // Dual-base (worker → Render direct). Mutation idempotent theo txId nên
         // retry fallback an toàn (server ON CONFLICT trả alreadyProcessed).
-        const opts = options || {};
+        // ENFORCE-PREP (2026-06-12): _api là choke point — gắn x-web2-token mặc định.
+        const opts = { ...(options || {}), headers: _authHeaders(options?.headers) };
         try {
             const r = await fetch(API_BASE + path, opts);
             const d = await r.json().catch(() => ({}));

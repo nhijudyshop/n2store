@@ -151,6 +151,16 @@
         <script>
             (function () {
                 const API = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/web2/audit-log';
+                // ENFORCE-PREP (2026-06-12): gắn x-web2-token cho /api/web2/audit-log/* (soft-gate → WEB2_AUTH_ENFORCE=1)
+                function AUTHH(extra) {
+                    if (window.Web2Auth?.authHeaders) return window.Web2Auth.authHeaders(extra);
+                    try {
+                        const t = JSON.parse(localStorage.getItem('web2_auth'))?.token;
+                        return t ? { ...(extra || {}), 'x-web2-token': t } : { ...(extra || {}) };
+                    } catch {
+                        return { ...(extra || {}) };
+                    }
+                }
                 async function load() {
                     const e = document.getElementById('fEntity').value;
                     const u = document.getElementById('fUser').value;
@@ -164,6 +174,7 @@
                     q.set('limit', '200');
                     const r = await fetch(API + '/list?' + q.toString(), {
                         credentials: 'include',
+                        headers: AUTHH(), // ENFORCE-PREP (2026-06-12)
                     });
                     const d = await r.json();
                     // Fix 2026-06-03: generic /api/web2/:entity trả `records`, route cũ

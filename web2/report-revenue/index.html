@@ -301,6 +301,17 @@
                 return _loadAbort ? _loadAbort.signal : undefined;
             }
 
+            // ENFORCE-PREP (2026-06-12): gắn x-web2-token cho /api/pbh-reports/* (soft-gate → WEB2_AUTH_ENFORCE=1)
+            function AUTHH(extra) {
+                if (window.Web2Auth?.authHeaders) return window.Web2Auth.authHeaders(extra);
+                try {
+                    const t = JSON.parse(localStorage.getItem('web2_auth'))?.token;
+                    return t ? { ...(extra || {}), 'x-web2-token': t } : { ...(extra || {}) };
+                } catch {
+                    return { ...(extra || {}) };
+                }
+            }
+
             function fmtMoney(n) {
                 const v = Number(n) || 0;
                 if (v >= 1e9) return (v / 1e9).toFixed(2) + ' tỷ';
@@ -317,6 +328,7 @@
             async function loadSummary(seq) {
                 const r = await fetch(`${WORKER}/api/pbh-reports/summary?days=${currentDays}`, {
                     signal: _signal(),
+                    headers: AUTHH(), // ENFORCE-PREP (2026-06-12)
                 });
                 const d = await r.json();
                 if (seq !== _loadSeq) return; // response cũ — bỏ qua
@@ -367,6 +379,7 @@
             async function loadRevenueChart(seq) {
                 const r = await fetch(`${WORKER}/api/pbh-reports/revenue?days=${currentDays}`, {
                     signal: _signal(),
+                    headers: AUTHH(), // ENFORCE-PREP (2026-06-12)
                 });
                 const d = await r.json();
                 if (seq !== _loadSeq) return;
@@ -400,7 +413,7 @@
             async function loadTopCustomers(seq) {
                 const r = await fetch(
                     `${WORKER}/api/pbh-reports/top-customers?days=${currentDays}&limit=10`,
-                    { signal: _signal() }
+                    { signal: _signal(), headers: AUTHH() } // ENFORCE-PREP (2026-06-12)
                 );
                 const d = await r.json();
                 if (seq !== _loadSeq) return;
@@ -434,6 +447,7 @@
             async function loadByCampaign(seq) {
                 const r = await fetch(`${WORKER}/api/pbh-reports/by-campaign?days=${currentDays}`, {
                     signal: _signal(),
+                    headers: AUTHH(), // ENFORCE-PREP (2026-06-12)
                 });
                 const d = await r.json();
                 if (seq !== _loadSeq) return;
@@ -467,7 +481,7 @@
             async function loadTopCustomers360(seq) {
                 const r = await fetch(
                     `${WORKER}/api/pbh-reports/top-customers-360?days=${currentDays}&limit=15`,
-                    { signal: _signal() }
+                    { signal: _signal(), headers: AUTHH() } // ENFORCE-PREP (2026-06-12)
                 );
                 const d = await r.json();
                 if (seq !== _loadSeq) return;

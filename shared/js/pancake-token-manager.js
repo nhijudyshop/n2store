@@ -15,6 +15,21 @@
 const _RENDER_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
 const _CLIENT_API_KEY = window.N2STORE_CLIENT_API_KEY || '';
 
+// ENFORCE-PREP (2026-06-12): /api/pancake-accounts/* sắp gate WEB2_AUTH_ENFORCE=1
+// (GET / strip token nếu unauth; sync/PUT/DELETE bị chặn). File Web 1.0 — KHÔNG
+// load web2-auth.js → đọc thẳng localStorage 'web2_auth' (chung origin, page
+// Web 1.0 vẫn có token nếu user từng login Web 2.0).
+function _web2AuthHeaders(extra) {
+    const h = { ...(extra || {}) };
+    try {
+        const t = JSON.parse(localStorage.getItem('web2_auth') || 'null')?.token;
+        if (t) h['x-web2-token'] = t;
+    } catch {
+        /* ignore */
+    }
+    return h;
+}
+
 class PancakeTokenManager {
     constructor() {
         this.currentToken = null;
@@ -476,6 +491,7 @@ class PancakeTokenManager {
         try {
             const resp = await fetch(`${_RENDER_URL}/api/pancake-accounts?active=true`, {
                 signal: AbortSignal.timeout(7000),
+                headers: _web2AuthHeaders(), // ENFORCE-PREP (2026-06-12)
             });
             if (!resp.ok) return false;
             const data = await resp.json();
@@ -897,7 +913,8 @@ class PancakeTokenManager {
             try {
                 await fetch(`${_RENDER_URL}/api/pancake-accounts/sync`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    // ENFORCE-PREP (2026-06-12)
+                    headers: _web2AuthHeaders({ 'Content-Type': 'application/json' }),
                     body: JSON.stringify({ accounts: { [accountId]: data } }),
                 });
                 console.log('[PANCAKE-TOKEN] ✅ Account saved to Render DB:', accountId);
@@ -985,6 +1002,7 @@ class PancakeTokenManager {
             try {
                 await fetch(`${_RENDER_URL}/api/pancake-accounts/${accountId}`, {
                     method: 'DELETE',
+                    headers: _web2AuthHeaders(), // ENFORCE-PREP (2026-06-12)
                 });
             } catch (e) {
                 console.warn('[PANCAKE-TOKEN] Render DB delete failed:', e.message);

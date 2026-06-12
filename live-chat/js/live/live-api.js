@@ -9,6 +9,19 @@ const LiveApi = {
     _getWorkerUrl() {
         return window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
     },
+    // ENFORCE-PREP (2026-06-12): gắn x-web2-token cho route soft-gated (WEB2_AUTH_ENFORCE).
+    // Không token (chưa login web2) → bỏ qua header, request vẫn đi (server enforce → 401).
+    _w2AuthHeaders(extra) {
+        if (window.Web2Auth?.authHeaders) return window.Web2Auth.authHeaders(extra);
+        const h = { ...(extra || {}) };
+        try {
+            const t = JSON.parse(localStorage.getItem('web2_auth') || 'null')?.token;
+            if (t) h['x-web2-token'] = t;
+        } catch {
+            /* no token */
+        }
+        return h;
+    },
     /**
      * TPOS token đã gỡ — Web 2.0 dùng Pancake account JWT (pancakeTokenManager)
      * cho mọi call. Giữ method (trả null) phòng caller cũ còn gọi, không throw.
@@ -301,7 +314,8 @@ const LiveApi = {
             // audit 3H8). Route mới: web2-live-comments/saved (web2Db).
             const response = await fetch(`${state.workerUrl}/api/web2-live-comments/saved`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                // ENFORCE-PREP (2026-06-12)
+                headers: LiveApi._w2AuthHeaders({ 'Content-Type': 'application/json' }),
                 body: JSON.stringify(requestBody),
                 signal: AbortSignal.timeout(15000),
             });

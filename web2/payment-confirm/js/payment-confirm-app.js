@@ -51,6 +51,19 @@
         }
     }
 
+    // ENFORCE-PREP (2026-06-12): gắn x-web2-token cho mutation payment-signals
+    // (confirm/dismiss/link-order — soft-gate → WEB2_AUTH_ENFORCE=1). Trang này
+    // KHÔNG load web2-auth.js → fallback đọc thẳng localStorage 'web2_auth'.
+    function authHeaders(extra) {
+        if (window.Web2Auth?.authHeaders) return window.Web2Auth.authHeaders(extra);
+        try {
+            const t = JSON.parse(localStorage.getItem('web2_auth'))?.token;
+            return t ? { ...(extra || {}), 'x-web2-token': t } : { ...(extra || {}) };
+        } catch {
+            return { ...(extra || {}) };
+        }
+    }
+
     // Body kèm user info (cho history "ai xác nhận"). Web2UserInfo.attachToBody
     // thêm userId/userName; fallback đọc trực tiếp Web2UserInfo.get().
     function userBody(extra) {
@@ -241,7 +254,7 @@
         const run = () =>
             fetch(API + '/' + id + '/' + act, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: authHeaders({ 'Content-Type': 'application/json' }), // ENFORCE-PREP (2026-06-12)
                 credentials: 'include',
                 body: JSON.stringify(userBody()),
             }).then((r) => r.json());
@@ -282,7 +295,7 @@
         if (!orderCode) return;
         fetch(API + '/' + sig.id + '/link-order', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: authHeaders({ 'Content-Type': 'application/json' }), // ENFORCE-PREP (2026-06-12)
             credentials: 'include',
             body: JSON.stringify(
                 userBody({ orderType: orderType.trim(), orderCode: orderCode.trim() })

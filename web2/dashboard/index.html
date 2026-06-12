@@ -195,11 +195,24 @@
                 function fmt(n) {
                     return Number(n || 0).toLocaleString('vi-VN');
                 }
+                // ENFORCE-PREP (2026-06-12): gắn x-web2-token cho /api/web2/dashboard-kpi (soft-gate → WEB2_AUTH_ENFORCE=1)
+                function AUTHH(extra) {
+                    if (window.Web2Auth?.authHeaders) return window.Web2Auth.authHeaders(extra);
+                    try {
+                        const t = JSON.parse(localStorage.getItem('web2_auth'))?.token;
+                        return t ? { ...(extra || {}), 'x-web2-token': t } : { ...(extra || {}) };
+                    } catch {
+                        return { ...(extra || {}) };
+                    }
+                }
                 async function load(opts) {
                     try {
                         // SSE trigger → ?nocache=1 để bypass cache 30s server-side.
                         const url = API + '/' + (opts && opts.nocache ? '?nocache=1' : '');
-                        const r = await fetch(url, { credentials: 'include' });
+                        const r = await fetch(url, {
+                            credentials: 'include',
+                            headers: AUTHH(), // ENFORCE-PREP (2026-06-12)
+                        });
                         const d = await r.json();
                         if (!d.success) return;
                         document.getElementById('kpiRevenue').textContent =

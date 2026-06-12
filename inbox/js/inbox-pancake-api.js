@@ -10,6 +10,21 @@
 
 const INBOX_WORKER_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
 
+// ENFORCE-PREP (2026-06-12): /api/pancake-accounts/* sắp gate WEB2_AUTH_ENFORCE=1
+// (POST /sync, PUT /:id bị chặn nếu thiếu token). File Web 1.0 — KHÔNG load
+// web2-auth.js → đọc thẳng localStorage 'web2_auth' (chung origin, page Web 1.0
+// vẫn có token nếu user từng login Web 2.0).
+function _inboxWeb2AuthHeaders(extra) {
+    const h = { ...(extra || {}) };
+    try {
+        const t = JSON.parse(localStorage.getItem('web2_auth') || 'null')?.token;
+        if (t) h['x-web2-token'] = t;
+    } catch {
+        /* ignore */
+    }
+    return h;
+}
+
 const InboxApiConfig = {
     WORKER_URL: INBOX_WORKER_URL,
 
@@ -527,7 +542,8 @@ class InboxTokenManager {
                     : 'https://chatomni-proxy.nhijudyshop.workers.dev';
             fetch(`${workerUrl}/api/pancake-accounts/sync`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                // ENFORCE-PREP (2026-06-12)
+                headers: _inboxWeb2AuthHeaders({ 'Content-Type': 'application/json' }),
                 body: JSON.stringify({ accounts: this.accounts }),
             })
                 .then((r) => r.json())
@@ -699,7 +715,8 @@ class InboxPancakeAPI {
             const pageData = pages.map((p) => ({ id: p.id, name: p.name || p.id }));
             fetch(`${workerUrl}/api/pancake-accounts/${accountId}`, {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
+                // ENFORCE-PREP (2026-06-12)
+                headers: _inboxWeb2AuthHeaders({ 'Content-Type': 'application/json' }),
                 body: JSON.stringify({ pages: pageData }),
             })
                 .then((r) => r.json())

@@ -55,11 +55,28 @@
         document.head.appendChild(s);
     }
 
+    // ENFORCE-PREP (2026-06-12): gắn x-web2-token cho route soft-gated (WEB2_AUTH_ENFORCE).
+    // Không token (chưa login web2) → bỏ qua header, request vẫn đi (server enforce → 401).
+    function _w2AuthHeaders(extra) {
+        if (global.Web2Auth?.authHeaders) return global.Web2Auth.authHeaders(extra);
+        const h = { ...(extra || {}) };
+        try {
+            const t = JSON.parse(localStorage.getItem('web2_auth') || 'null')?.token;
+            if (t) h['x-web2-token'] = t;
+        } catch {
+            /* no token */
+        }
+        return h;
+    }
+
     async function _api(path, opts) {
-        const r = await fetch(API + path, {
+        const o = {
             signal: AbortSignal.timeout(15000),
             ...(opts || {}),
-        });
+        };
+        // ENFORCE-PREP (2026-06-12): choke point — mọi call (campaigns/assign/unassign…) đi qua đây.
+        o.headers = _w2AuthHeaders(o.headers);
+        const r = await fetch(API + path, o);
         if (!r.ok) throw new Error('HTTP ' + r.status);
         return r.json().catch(() => ({}));
     }

@@ -110,6 +110,21 @@
     // REST API
     // -----------------------------------------------------
 
+    // ENFORCE-PREP (2026-06-12): POST/PUT/DELETE /api/web2-quick-replies sắp
+    // gate WEB2_AUTH_ENFORCE=1 (GET không gate). Page load web2-auth.js →
+    // Web2Auth.authHeaders; không load → đọc thẳng localStorage 'web2_auth'.
+    function _authHeaders(extra) {
+        if (global.Web2Auth?.authHeaders) return global.Web2Auth.authHeaders(extra);
+        const h = { ...(extra || {}) };
+        try {
+            const t = JSON.parse(localStorage.getItem('web2_auth') || 'null')?.token;
+            if (t) h['x-web2-token'] = t;
+        } catch {
+            /* ignore */
+        }
+        return h;
+    }
+
     async function loadReplies(forceFresh) {
         if (_loadPromise && !forceFresh) return _loadPromise;
         _loadPromise = (async () => {
@@ -139,7 +154,8 @@
     async function addReply(reply) {
         const r = await fetch(`${WORKER_BASE}/api/web2-quick-replies`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            // ENFORCE-PREP (2026-06-12)
+            headers: _authHeaders({ 'Content-Type': 'application/json' }),
             body: JSON.stringify(reply),
         });
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
@@ -153,7 +169,8 @@
     async function updateReply(id, patch) {
         const r = await fetch(`${WORKER_BASE}/api/web2-quick-replies/${encodeURIComponent(id)}`, {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
+            // ENFORCE-PREP (2026-06-12)
+            headers: _authHeaders({ 'Content-Type': 'application/json' }),
             body: JSON.stringify(patch),
         });
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
@@ -168,6 +185,7 @@
     async function deleteReply(id) {
         const r = await fetch(`${WORKER_BASE}/api/web2-quick-replies/${encodeURIComponent(id)}`, {
             method: 'DELETE',
+            headers: _authHeaders(), // ENFORCE-PREP (2026-06-12)
         });
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         _replies = _replies.filter((x) => x.id !== id);

@@ -1314,12 +1314,22 @@
         // viền giảm chất lượng nhẹ — đổi lấy tốc độ trên điện thoại.
         return blobToImage(await mod.removeBackground(blob, { model: 'isnet_quint8' }));
     }
+    // ENFORCE-PREP (2026-06-12): gắn x-web2-token cho /api/web2/cutout/* (soft-gate → WEB2_AUTH_ENFORCE=1)
+    function authHeaders(extra) {
+        if (window.Web2Auth?.authHeaders) return window.Web2Auth.authHeaders(extra);
+        try {
+            const t = JSON.parse(localStorage.getItem('web2_auth'))?.token;
+            return t ? { ...(extra || {}), 'x-web2-token': t } : { ...(extra || {}) };
+        } catch {
+            return { ...(extra || {}) };
+        }
+    }
     async function cloudCutout(canvas) {
         const dataUrl = canvas.toDataURL('image/png');
         // withoutbg: free 50/tháng, full HD, KHÔNG watermark. Hết quota → fallback @imgly.
         const res = await fetch(`${CUTOUT_API}/withoutbg`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: authHeaders({ 'Content-Type': 'application/json' }), // ENFORCE-PREP (2026-06-12)
             body: JSON.stringify({ image: dataUrl }),
         });
         let j;

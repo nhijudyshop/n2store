@@ -220,6 +220,17 @@
                 // 2026-06-03: web2 — tổng hợp từ fast_sale_orders (web2Db), bỏ /api/v2 Web 1.0
                 const API = `${WORKER}/api/pbh-reports/delivery`;
 
+                // ENFORCE-PREP (2026-06-12): gắn x-web2-token cho /api/pbh-reports/* (soft-gate → WEB2_AUTH_ENFORCE=1)
+                function AUTHH(extra) {
+                    if (window.Web2Auth?.authHeaders) return window.Web2Auth.authHeaders(extra);
+                    try {
+                        const t = JSON.parse(localStorage.getItem('web2_auth'))?.token;
+                        return t ? { ...(extra || {}), 'x-web2-token': t } : { ...(extra || {}) };
+                    } catch {
+                        return { ...(extra || {}) };
+                    }
+                }
+
                 const fmt = (n) => Number(n || 0).toLocaleString('vi-VN');
                 const todayLocal = () => {
                     const d = new Date();
@@ -342,7 +353,8 @@
                     setLoading(true);
                     try {
                         const r = await fetch(
-                            `${API}?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`
+                            `${API}?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`,
+                            { headers: AUTHH() } // ENFORCE-PREP (2026-06-12)
                         );
                         if (!r.ok) throw new Error(`HTTP ${r.status}`);
                         const data = await r.json();

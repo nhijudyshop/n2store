@@ -210,7 +210,23 @@
                 }
 
                 async function _httpJson(url, opts) {
-                    const r = await fetch(url, opts);
+                    // ENFORCE-PREP (2026-06-12): choke point — gắn x-web2-token cho mọi
+                    // mutation poller-pages (POST/PATCH/DELETE soft-gated, WEB2_AUTH_ENFORCE).
+                    // Không token (chưa login web2) → bỏ qua header (server enforce → 401).
+                    const o = { ...(opts || {}) };
+                    if (window.Web2Auth?.authHeaders) {
+                        o.headers = window.Web2Auth.authHeaders(o.headers);
+                    } else {
+                        try {
+                            const t = JSON.parse(
+                                localStorage.getItem('web2_auth') || 'null'
+                            )?.token;
+                            if (t) o.headers = { ...(o.headers || {}), 'x-web2-token': t };
+                        } catch {
+                            /* no token */
+                        }
+                    }
+                    const r = await fetch(url, o);
                     if (!r.ok) throw new Error('HTTP ' + r.status);
                     return r;
                 }

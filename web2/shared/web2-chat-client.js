@@ -62,6 +62,22 @@
         return Date.now() / 1000 >= Number(epochSeconds) - 30; // 30s safety
     }
 
+    // ENFORCE-PREP (2026-06-12): gắn x-web2-token cho route soft-gated
+    // (WEB2_AUTH_ENFORCE=1) — GET /api/pancake-accounts strip token nếu unauth.
+    // Page load web2-auth.js → Web2Auth.authHeaders; không load → đọc thẳng
+    // localStorage 'web2_auth' (chung origin).
+    function _authHeaders(extra) {
+        if (window.Web2Auth?.authHeaders) return window.Web2Auth.authHeaders(extra);
+        const h = { ...(extra || {}) };
+        try {
+            const t = JSON.parse(localStorage.getItem('web2_auth') || 'null')?.token;
+            if (t) h['x-web2-token'] = t;
+        } catch {
+            /* ignore */
+        }
+        return h;
+    }
+
     function getJwt() {
         try {
             const token = localStorage.getItem(LS.JWT);
@@ -126,6 +142,7 @@
                 const [accRes, ptRes] = await Promise.all([
                     fetch(`${WORKER_URL}/api/pancake-accounts?active=true`, {
                         signal: ctrl.signal,
+                        headers: _authHeaders(), // ENFORCE-PREP (2026-06-12)
                     }).catch((e) => ({ _err: e })),
                     fetch(`${WORKER_URL}/api/pancake-page-tokens`, {
                         signal: ctrl.signal,

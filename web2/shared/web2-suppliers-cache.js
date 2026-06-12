@@ -157,6 +157,21 @@
         return [...startsWith, ...contains].slice(0, max);
     }
 
+    // ENFORCE-PREP (2026-06-12): POST /suppliers sắp gate WEB2_AUTH_ENFORCE=1.
+    // Page load web2-auth.js → Web2Auth.authHeaders; không load → đọc thẳng
+    // localStorage 'web2_auth'.
+    function _authHeaders(extra) {
+        if (global.Web2Auth?.authHeaders) return global.Web2Auth.authHeaders(extra);
+        const h = { ...(extra || {}) };
+        try {
+            const t = JSON.parse(localStorage.getItem('web2_auth') || 'null')?.token;
+            if (t) h['x-web2-token'] = t;
+        } catch {
+            /* ignore */
+        }
+        return h;
+    }
+
     // Ghi NCC mới vào meta server. Atomic ON CONFLICT per-row — hết RMW
     // lost-update của bản Firestore (3W5/đợt E).
     async function ensure(name) {
@@ -167,7 +182,8 @@
         try {
             const r = await fetch(`${API_BASE}/suppliers`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                // ENFORCE-PREP (2026-06-12)
+                headers: _authHeaders({ 'Content-Type': 'application/json' }),
                 body: JSON.stringify({ name: trimmed }),
             });
             const d = await r.json().catch(() => ({}));

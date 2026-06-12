@@ -18,6 +18,21 @@
     if (global.LiveLivestreamSnap) return;
 
     const API = global.SHOP_CONFIG?.RENDER_API_URL || 'https://n2store-fallback.onrender.com';
+
+    // ENFORCE-PREP (2026-06-12): gắn x-web2-token cho route soft-gated (WEB2_AUTH_ENFORCE)
+    // — snapshot/offline-batch/extract-frame/extract-all-pending/DELETE snapshot.
+    // Không token (chưa login web2) → bỏ qua header, request vẫn đi (server enforce → 401).
+    function _w2AuthHeaders(extra) {
+        if (global.Web2Auth?.authHeaders) return global.Web2Auth.authHeaders(extra);
+        const h = { ...(extra || {}) };
+        try {
+            const t = JSON.parse(localStorage.getItem('web2_auth') || 'null')?.token;
+            if (t) h['x-web2-token'] = t;
+        } catch {
+            /* no token */
+        }
+        return h;
+    }
     const LS_KEY_SNAP_PAGE = 'web2_snap_live_page'; // 'store' | 'house'
     const LS_KEY_SNAP_MODE = 'web2_snap_mode'; // 'live' (default) | 'lazy'
     const LS_KEY_AUTO_MODE = 'web2_snap_auto'; // 'on' | 'off' (default 'on')
@@ -801,7 +816,8 @@ Throttle 30s/KH.`;
                 };
                 const r = await fetch(API + '/api/livestream/offline-batch', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    // ENFORCE-PREP (2026-06-12)
+                    headers: _w2AuthHeaders({ 'Content-Type': 'application/json' }),
                     credentials: 'omit',
                     body: JSON.stringify(payload),
                 });
@@ -877,7 +893,8 @@ Throttle 30s/KH.`;
         try {
             const r = await fetch(API + '/api/livestream/offline-batch', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                // ENFORCE-PREP (2026-06-12)
+                headers: _w2AuthHeaders({ 'Content-Type': 'application/json' }),
                 credentials: 'omit',
                 body: JSON.stringify(payload),
             });
@@ -1116,7 +1133,8 @@ Throttle 30s/KH.`;
             // Step 2: queue extract-all-pending
             const r = await fetch(API + '/api/livestream/extract-all-pending', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                // ENFORCE-PREP (2026-06-12)
+                headers: _w2AuthHeaders({ 'Content-Type': 'application/json' }),
                 credentials: 'omit',
                 body: JSON.stringify({
                     liveVideoId: camp.Facebook_LiveId,
@@ -1384,7 +1402,8 @@ Throttle 30s/KH.`;
         };
         const r = await fetch(API + '/api/livestream/offline-batch', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            // ENFORCE-PREP (2026-06-12)
+            headers: _w2AuthHeaders({ 'Content-Type': 'application/json' }),
             credentials: 'omit',
             body: JSON.stringify(payload),
         });
@@ -1401,7 +1420,8 @@ Throttle 30s/KH.`;
         if (newSnapId) {
             fetch(API + '/api/livestream/extract-frame', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                // ENFORCE-PREP (2026-06-12)
+                headers: _w2AuthHeaders({ 'Content-Type': 'application/json' }),
                 credentials: 'omit',
                 body: JSON.stringify({ snapshotIds: [Number(newSnapId)] }),
             }).catch(() => {});
@@ -2451,7 +2471,8 @@ Throttle 30s/KH.`;
         try {
             const r = await fetch(API + '/api/livestream/snapshot', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                // ENFORCE-PREP (2026-06-12)
+                headers: _w2AuthHeaders({ 'Content-Type': 'application/json' }),
                 credentials: 'omit',
                 body: JSON.stringify({
                     commentId,
@@ -2587,6 +2608,8 @@ Throttle 30s/KH.`;
             }
             const r = await fetch(API + '/api/livestream/snapshot/' + resolvedId, {
                 method: 'DELETE',
+                // ENFORCE-PREP (2026-06-12)
+                headers: _w2AuthHeaders(),
                 credentials: 'omit',
             });
             const d = await r.json();
@@ -2879,7 +2902,8 @@ Throttle 30s/KH.`;
             try {
                 const r = await fetch(API + '/api/livestream/extract-frame', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    // ENFORCE-PREP (2026-06-12)
+                    headers: _w2AuthHeaders({ 'Content-Type': 'application/json' }),
                     credentials: 'omit',
                     body: JSON.stringify({ snapshotIds: [snapId] }),
                 });
@@ -2945,7 +2969,8 @@ Throttle 30s/KH.`;
         try {
             const r = await fetch(API + '/api/livestream/offline-batch', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                // ENFORCE-PREP (2026-06-12)
+                headers: _w2AuthHeaders({ 'Content-Type': 'application/json' }),
                 credentials: 'omit',
                 body: JSON.stringify({
                     pageId: p.pageObj.Facebook_PageId,
@@ -2982,7 +3007,8 @@ Throttle 30s/KH.`;
     async function _postCapturedSnap(p) {
         const r = await fetch(API + '/api/livestream/snapshot', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            // ENFORCE-PREP (2026-06-12)
+            headers: _w2AuthHeaders({ 'Content-Type': 'application/json' }),
             credentials: 'omit',
             body: JSON.stringify({
                 commentId: p.commentId,
@@ -3362,7 +3388,8 @@ Throttle 30s/KH.`;
             if (needExtract.length) {
                 fetch(API + '/api/livestream/extract-frame', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    // ENFORCE-PREP (2026-06-12)
+                    headers: _w2AuthHeaders({ 'Content-Type': 'application/json' }),
                     credentials: 'omit',
                     body: JSON.stringify({ snapshotIds: needExtract }),
                 }).catch(() => {});
@@ -3454,7 +3481,8 @@ Throttle 30s/KH.`;
                     try {
                         const r = await fetch(API + '/api/livestream/extract-frame', {
                             method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
+                            // ENFORCE-PREP (2026-06-12)
+                            headers: _w2AuthHeaders({ 'Content-Type': 'application/json' }),
                             credentials: 'omit',
                             body: JSON.stringify({ snapshotIds: [Number(id)] }),
                         });
@@ -3478,6 +3506,8 @@ Throttle 30s/KH.`;
                     try {
                         const r = await fetch(API + '/api/livestream/snapshot/' + id, {
                             method: 'DELETE',
+                            // ENFORCE-PREP (2026-06-12)
+                            headers: _w2AuthHeaders(),
                             credentials: 'omit',
                         });
                         const d = await r.json();

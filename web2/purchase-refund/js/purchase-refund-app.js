@@ -127,8 +127,27 @@
     };
 
     // ---------- API ----------
+    // ENFORCE-PREP (2026-06-12): /api/web2/purchase-refund/* (generic
+    // create/update/delete) sắp gate WEB2_AUTH_ENFORCE=1. SM_API
+    // /api/purchase-refund/* không gate nhưng thêm header vô hại — gắn ở
+    // choke point fetchJson cho mọi call. Page load web2-auth.js →
+    // Web2Auth.authHeaders; không load → đọc thẳng localStorage 'web2_auth'.
+    function _authHeaders(extra) {
+        if (window.Web2Auth?.authHeaders) return window.Web2Auth.authHeaders(extra);
+        const h = { ...(extra || {}) };
+        try {
+            const t = JSON.parse(localStorage.getItem('web2_auth') || 'null')?.token;
+            if (t) h['x-web2-token'] = t;
+        } catch {
+            /* ignore */
+        }
+        return h;
+    }
+
     async function fetchJson(url, opts) {
-        const r = await fetch(url, opts);
+        // ENFORCE-PREP (2026-06-12): gắn x-web2-token mặc định.
+        const o = { ...(opts || {}), headers: _authHeaders(opts?.headers) };
+        const r = await fetch(url, o);
         const text = await r.text();
         let data;
         try {
