@@ -9,7 +9,8 @@
 - **Server:** migration đổi từ ALTER BIGINT → `DROP COLUMN IF EXISTS crm_team_id` (native_orders) + `crm_team_id`/`crm_team_name` (fast_sale_orders), đặt ĐẦU ensureTables, idempotent. Gỡ cột khỏi CREATE TABLE + 4 INSERT (from-comment, split, merge, PBH manual, from-native-order — renumber placeholder $N), COALESCE update path comment-merged, mapper response, PATCH field map, cart.js forward. `tpos-customer-service.js` (Web 1.0) GIỮ NGUYÊN.
 - **Client:** inventory-panel `_resolveCommitContext` + fbContext, live-comment-list `createOrder`, web2-chat-client `enrichCustomer` (server enrich-fb vốn đã ignore), native-orders-app bỏ dòng crmTeamId panel FB context. `getPartnerInfo(crmTeamId, fbUserId)` → `getPartnerInfo(fbUserId)` + đơn giản `loadPartnerInfoForComments` (bỏ map userId→crmTeamId vô nghĩa); sửa luôn bug tiềm ẩn live-customer-panel throw "Không xác định được CRM Team ID" khi page thiếu `.Id`.
 - **Deploy-compat 2 chiều:** client mới + server cũ → field absent → lưu null (OK); client cũ + server mới → field bị bỏ qua (OK).
-- **Verify:** migration test DB local (DROP có cột OK → re-run idempotent skip → INSERT không cột OK → DROP DB); node --check 11 file; bump `?v=20260612i`.
+- **Verify:** migration test DB local (DROP có cột OK → re-run idempotent skip → INSERT không cột OK → DROP DB); node --check 11 file; bump `?v=20260612i`. Verify online sau deploy: from-comment OK không crmTeamId, mapper response sạch field, PBH load sạch `crmTeam`.
+- **BONUS phát hiện khi E2E:** `attachDropTargets()` KHÔNG có guard 1-lần (khác `attachDragSources`) trong khi `init()` có 2 call site độc lập (panel Kho SP phải `index.html` + mode "Kho" cột Pancake `pancake-mode-switcher`) → mở cả 2 là drop listener document đăng ký ×2 → **1 kéo thả cộng SL ×2**. Fix `_dropDelegated` guard (`inventory-panel.js?v=20260612j`), verify single drop → qty=1. (Fix vào HEAD qua auto-commit `7bb139d21` do race với session đợt I.)
 
 **Status:** ✅ Done.
 
