@@ -3,16 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `8947639` — fix(web2): đợt escape — module web2-escape.js shared + S6-residual (variants/print DOM-based → 5 ký tự) + cluster 4-ký-tự thêm nháy đơn (6 file)
-**Last updated**: 2026-06-12 19:04:39 +07
-**Latest session**: [`RESUME:20260612-190439-8947639`](../20260612-190439-8947639.md)
-**Summary**: fix(web2): đợt escape — module web2-escape.js shared + S6-residual (variants/print DOM-based → 5 ký tự) + c...
+**Latest commit**: `4af5637` — docs(web2): đợt GMT+7 + escape ✅ hoàn tất (6020700af + 8947639bb)
+**Last updated**: 2026-06-12 19:05:55 +07
+**Latest session**: [`RESUME:20260612-190555-4af5637`](../20260612-190555-4af5637.md)
+**Summary**: docs(web2): đợt GMT+7 + escape ✅ hoàn tất (6020700af + 8947639bb)
 
 ## Folders affected in this commit
 
-- [`delivery-report/`](./delivery-report.md) — 2 file(s)
 - [`docs/`](./docs.md) — 2 file(s)
-- [`web2/`](./web2.md) — 14 file(s)
 
 ## All folder snapshots
 
@@ -26,7 +24,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-12 18:34
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-12 19:04
-- [`docs/`](./docs.md) — updated 2026-06-12 19:04
+- [`docs/`](./docs.md) — updated 2026-06-12 19:05
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-11 16:49
 - [`downloads/`](./downloads.md) — updated 2026-06-11 08:36
