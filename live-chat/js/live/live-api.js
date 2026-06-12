@@ -296,7 +296,9 @@ const LiveApi = {
         };
 
         try {
-            const response = await fetch(`${state.livePancakeUrl}/api/live-saved`, {
+            // 2026-06-12: /api/live-saved trên relay KHÔNG tồn tại (404 vĩnh viễn —
+            // audit 3H8). Route mới: web2-live-comments/saved (web2Db).
+            const response = await fetch(`${state.workerUrl}/api/web2-live-comments/saved`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(requestBody),

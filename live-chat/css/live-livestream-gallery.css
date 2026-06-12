@@ -58,13 +58,15 @@
 }
 
 /* ---------- sidebar drawer ---------- */
+/* top = 48px (chiều cao .top-bar layout.css) — top:0 trước đây đè lên topbar,
+   che nút "Chụp Live"/"Snap live"/"Force extract" khi mở Kho Hình (2026-06-12). */
 .live-lsimg-sidebar {
     position: fixed;
-    top: 0;
+    top: 48px;
     right: 0;
     width: 380px;
     max-width: 92vw;
-    height: 100vh;
+    height: calc(100vh - 48px);
     background: #fafafa;
     border-left: 1px solid var(--lsimg-border);
     box-shadow: -8px 0 24px rgba(0, 0, 0, 0.12);

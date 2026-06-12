@@ -67,7 +67,9 @@ const LiveState = {
     workerUrl: window.API_CONFIG
         ? window.API_CONFIG.WORKER_URL
         : 'https://chatomni-proxy.nhijudyshop.workers.dev',
-    livePancakeUrl: 'https://n2store-live-chat.onrender.com',
+    // Relay WS server — service Render giữ tên CŨ 'n2store-tpos-pancake' (folder đã
+    // rename live-chat). 'n2store-live-chat.onrender.com' KHÔNG tồn tại (no-server).
+    livePancakeUrl: 'https://n2store-tpos-pancake.onrender.com',
     // CF Worker proxy — strips /api/ prefix then forwards to tomato.live.vn
     // (so `${liveBaseUrl}/rest/...` becomes tomato.live.vn/rest/... upstream while
     // the browser sees CORS headers from Cloudflare).

@@ -67,17 +67,28 @@ const RENDER_LIMIT_STEP = 200;
 
 const LiveCommentList = {
     /**
+     * Toàn bộ comment SAU filter người-ẩn, TRƯỚC cap render. Đây là nguồn DUY
+     * NHẤT cho mọi đường render (full render / infinite-scroll append / SSE
+     * prepend) — 3H7: trước đây _appendOlderBatch + prependComments đọc
+     * state.comments thô → người-ẩn lọt DOM + offset lệch gây dòng trùng khi cuộn.
+     * @returns {Array}
+     */
+    _filteredAll() {
+        let all = window.LiveState.comments || [];
+        if (window.LiveHiddenCommenters?.list?.()?.length) {
+            all = all.filter((c) => !window.LiveHiddenCommenters.isHidden(c));
+        }
+        return all;
+    },
+
+    /**
      * Danh sách comment HIỂN THỊ (cap N mới nhất). Comments đã sort newest-first.
      * @returns {Array}
      */
     _visibleComments() {
-        let all = window.LiveState.comments || [];
         // Ẩn comment theo NGƯỜI (LiveHiddenCommenters — mặc định 2 page shop).
-        // Filter ở đây = choke point mọi render path; comment vẫn nguyên trong
-        // state, bỏ ẩn là hiện lại ngay không cần refetch.
-        if (window.LiveHiddenCommenters?.list?.()?.length) {
-            all = all.filter((c) => !window.LiveHiddenCommenters.isHidden(c));
-        }
+        // Comment vẫn nguyên trong state, bỏ ẩn là hiện lại ngay không cần refetch.
+        const all = this._filteredAll();
         // Tổng comment SAU khi trừ người bị ẩn, TRƯỚC cap render — cho badge
         // "💬 N" topbar (user 2026-06-11: "hiện tổng comment ngoại trừ ẩn").
         this._totalAfterHidden = all.length;
@@ -131,11 +142,12 @@ const LiveCommentList = {
      * scroll, KHÔNG rebuild toàn list.
      */
     _ensureScrollSentinel() {
-        const state = window.LiveState;
         const list = document.getElementById('liveCommentList');
         if (!list) return;
         const lim = this._renderLimit || RENDER_LIMIT_INITIAL;
-        const hasMore = (state.comments?.length || 0) > lim;
+        // Đếm theo danh sách ĐÃ lọc người-ẩn (3H7) — đếm raw làm sentinel sống
+        // mãi dù hết comment hiển thị.
+        const hasMore = this._filteredAll().length > lim;
         let sentinel = document.getElementById('liveScrollSentinel');
         if (!hasMore) {
             if (sentinel) sentinel.remove();
@@ -174,11 +186,12 @@ const LiveCommentList = {
      */
     _appendOlderBatch() {
         if (this._loadingOlder) return;
-        const state = window.LiveState;
         const list = document.getElementById('liveCommentList');
         if (!list) return;
         const oldLim = this._renderLimit || RENDER_LIMIT_INITIAL;
-        const all = state.comments || [];
+        // 3H7: slice trên danh sách ĐÃ lọc người-ẩn — cùng nguồn với
+        // _visibleComments, offset khớp → không lọt người ẩn / không dòng trùng.
+        const all = this._filteredAll();
         if (oldLim >= all.length) {
             this._ensureScrollSentinel();
             return;
@@ -913,18 +926,71 @@ const LiveCommentList = {
         const listContainer = document.getElementById('liveCommentList');
         if (!listContainer) return;
 
-        // Dedup so với state.comments hiện có (theo id string).
-        const existingIds = new Set((state.comments || []).map((c) => String(c.id)));
+        // Tách incoming thành FRESH (id chưa có) và UPDATE (id đã có — H11:
+        // poller fill phone/has_order/sửa message; cursor updated_at re-fetch
+        // row cũ có thay đổi → merge vào state + patch DOM thay vì skip).
+        const byId = new Map((state.comments || []).map((c) => [String(c.id), c]));
         const incomingSeen = new Set();
         const fresh = [];
+        const updates = [];
         for (const c of newComments) {
             if (!c || c.id == null) continue;
             const key = String(c.id);
-            if (existingIds.has(key) || incomingSeen.has(key)) continue;
+            if (incomingSeen.has(key)) continue;
             incomingSeen.add(key);
-            fresh.push(c);
+            if (byId.has(key)) updates.push(c);
+            else fresh.push(c);
         }
-        if (fresh.length === 0) return;
+
+        // ===== UPDATE path: merge field vào object state hiện có (giữ reference
+        // — enricher/inventory giữ con trỏ vào object này) + patch DOM row.
+        let patched = 0;
+        for (const inc of updates) {
+            const cur = byId.get(String(inc.id));
+            const changed =
+                (inc.message || '') !== (cur.message || '') ||
+                (inc.phone || '') !== (cur.phone || '') ||
+                (inc.address || '') !== (cur.address || '') ||
+                !!inc._hasOrder !== !!cur._hasOrder ||
+                (inc.from?.name || '') !== (cur.from?.name || '');
+            // Luôn cập nhật cursor _updatedAt; field khác chỉ khi đổi.
+            if (inc._updatedAt) cur._updatedAt = inc._updatedAt;
+            if (!changed) continue;
+            cur.message = inc.message || cur.message;
+            if (inc.phone) {
+                cur.phone = inc.phone;
+                cur._phones = inc._phones?.length ? inc._phones : cur._phones;
+            }
+            if (inc.address) cur.address = inc.address;
+            cur._hasOrder = !!inc._hasOrder || !!cur._hasOrder;
+            if (inc.from?.name) cur.from = { ...cur.from, ...inc.from };
+            if (inc.campaign_id) {
+                cur.campaign_id = inc.campaign_id;
+                cur._campaignId = inc._campaignId || inc.campaign_id;
+            }
+            // Patch DOM row nếu đang render. Bỏ qua khi user đang gõ trong row
+            // (input SĐT/địa chỉ inline) — tránh nuốt focus/giá trị đang nhập;
+            // state đã đúng, full render sau sẽ đồng bộ.
+            const rowEl = listContainer.querySelector(
+                `.live-conversation-item[data-comment-id="${CSS.escape(String(cur.id))}"]`
+            );
+            if (rowEl && !rowEl.contains(document.activeElement)) {
+                try {
+                    rowEl.outerHTML = this.renderCommentItem(cur);
+                    patched++;
+                } catch (e) {
+                    console.warn('[LiveCommentList] patch row fail:', e.message);
+                }
+            }
+        }
+
+        if (fresh.length === 0) {
+            if (patched) {
+                this._attachWalletBalances();
+                window.LiveKhoEnricher?.scan?.();
+            }
+            return;
+        }
 
         // Sort fresh newest-first (cùng thứ tự với state.comments).
         const ts = (c) => SharedUtils.toEpochMs(c.created_time);
@@ -943,6 +1009,31 @@ const LiveCommentList = {
             all.splice(idx, 0, c);
         }
 
+        // 3H6: phát live:newComment cho auto-snap (live-livestream-snap nghe) —
+        // luồng PUSH-only không còn ai emit sau khi bỏ polling (audit vòng 3).
+        // Emit SAU khi state cập nhật, TRƯỚC mọi early-return của đường render
+        // (full render fallback cũng phải snap). isStaff = page tự comment.
+        if (window.eventBus?.emit) {
+            for (const c of fresh) {
+                try {
+                    window.eventBus.emit('live:newComment', {
+                        comment: c,
+                        isStaff: !!c.from?.id && String(c.from.id) === String(c._pageId || ''),
+                    });
+                } catch (e) {
+                    console.warn('[LiveCommentList] emit live:newComment fail:', e.message);
+                }
+            }
+        }
+
+        // DOM chỉ chèn dòng KHÔNG bị ẩn theo người (3H7) — state giữ nguyên đủ
+        // để bỏ ẩn là hiện lại. Toàn bộ ẩn → chỉ cần cập nhật badge tổng.
+        const isHidden = (c) =>
+            window.LiveHiddenCommenters?.list?.()?.length
+                ? window.LiveHiddenCommenters.isHidden(c)
+                : false;
+        const freshVisible = fresh.filter((c) => !isHidden(c));
+
         // Nếu list đang trống (empty-state) hoặc chưa từng render → full render.
         const hasRenderedRows = listContainer.querySelector('.live-conversation-item') !== null;
         if (!hasRenderedRows) {
@@ -951,9 +1042,14 @@ const LiveCommentList = {
             return;
         }
 
+        if (freshVisible.length === 0) {
+            this.updateLoadMoreIndicator();
+            return;
+        }
+
         // Tất cả dòng mới phải ≥ headTs (thuộc về đầu list) mới prepend an toàn.
         // Nếu có dòng cũ hơn head (out-of-order, comment trễ về) → full render.
-        const allAtTop = fresh.every((c) => ts(c) >= headTs);
+        const allAtTop = freshVisible.every((c) => ts(c) >= headTs);
         if (!allAtTop) {
             this.renderComments();
             return;
@@ -969,7 +1065,7 @@ const LiveCommentList = {
             return;
         }
 
-        const html = fresh.map((c) => this.renderCommentItem(c)).join('');
+        const html = freshVisible.map((c) => this.renderCommentItem(c)).join('');
         listContainer.insertAdjacentHTML('afterbegin', html);
 
         this.updateLoadMoreIndicator();

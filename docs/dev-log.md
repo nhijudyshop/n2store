@@ -2,6 +2,21 @@
 
 ## 2026-06-12
 
+### [live-chat] [render] FIX đợt H — realtime mất tin nhắn + drag-drop 500 + auto-snap chết + gallery che topbar (3H6, 3H7, 3H8, H11 + crm_team_id BIGINT) ✅
+
+**User báo 6 vấn đề trang live-chat giữa buổi live.** Verify server prod TRƯỚC: relay WS (`n2store-tpos-pancake.onrender.com`) OPEN 20.7h nhận comment realtime, secret relay↔fallback khớp (so hash), DB comment mới nhất cách 22s, SSE hub push OK khi nghe 20s → **toàn chuỗi server KHOẺ, lỗi nằm ở client + 2 bug rời**.
+
+- **Mất tin nhắn / chưa realtime (H11 + mới):** cursor delta client dùng `created_time >= since` — với 2+ campaign, comment post B về trễ mang created_time < max(post A) bị loại **VĨNH VIỄN**; comment bị UPDATE (poller fill phone/has_order) không đổi created_time → không re-render. Fix: server GET thêm filter `sinceUpdated` trên `updated_at` (epoch ms server gán mỗi upsert, đã có sẵn trong schema) + trả `updated_at`; client (`live-init.js`) chuyển cursor sang `_lastUpdatedMaxMs` (overlap 3s, fallback `since` khi server cũ); `prependComments` tách incoming thành FRESH/UPDATE — UPDATE merge field vào object state (giữ reference) + patch DOM row (skip khi user đang gõ trong row), FRESH như cũ. Verified live: 200→228 comments tự prepend trong lúc test, update-merge giữ 1 dòng + DOM patch.
+- **Drag-drop tạo đơn 500 (bug user #4):** repro qua browser → `POST /api/v2/cart/<fbId>/add` 500 ở lần TẠO DRAFT đầu tiên mỗi khách. Root cause: `native_orders.crm_team_id INTEGER` nhưng sau gỡ TPOS client gửi `crmTeamId = FB Page Id` (15 chữ số, vd 270136663390370) vượt INT4 → `/from-comment` INSERT "integer out of range". Fix: migration idempotent `ALTER COLUMN crm_team_id TYPE BIGINT` đặt ĐẦU ensureTables ở CẢ `native_orders` + `fast_sale_orders` (merge-to-pbh copy cột này). Test migration trên DB local riêng (INSERT fail INT4 → ALTER → OK → re-ALTER idempotent → DROP DB). Đơn test NJ-20260612-0002 đã xoá.
+- **Auto-snap chết (3H6, bug user #5):** `live:newComment` không còn ai emit sau rework PUSH-only → `prependComments` emit cho mỗi comment FRESH (payload `{comment, isStaff}`, isStaff = page tự comment). Verified: 5 emit thật từ live đang chạy, payload đủ id/name/\_pageId.
+- **3H7:** `_filteredAll()` helper lọc người-ẩn dùng chung — `_appendOlderBatch` + `_ensureScrollSentinel` + prepend DOM đều qua filter (hết lọt người ẩn + dòng trùng khi cuộn do offset lệch).
+- **Gallery che topbar (bug user #6):** `.live-lsimg-sidebar` top 0 → 48px + height `calc(100vh - 48px)` (`live-livestream-gallery.css`). Verified: sidebar mở top=48px, chip "📷 Chụp Live" elementFromPoint không bị che.
+- **3H8 (một phần):** nút "+ Lưu vào Live" POST `/api/live-saved` vào host **không tồn tại** (`n2store-live-chat.onrender.com` — service thật tên cũ `n2store-tpos-pancake`) và route cũng không có ở đâu → 404 vĩnh viễn. Fix: bộ route mới `/api/web2-live-comments/saved` (POST + GET /ids + DELETE /:customerId, bảng `web2_live_saved` web2Db) + client (`live-api.js`, `pancake-api.js`) trỏ sang; sửa `livePancakeUrl` 2 file state về host đúng; relay gate 4 mutation routes (`/api/start|stop|reload|reconnect`) bằng `x-relay-secret`; `forwardToFallback` thêm 1 retry sau 2s (loss point khi fallback cold-start). Còn mở: `/api/events*` leak PII (giữ cho debug), 3H9 offline-batch per-campaign.
+- **Polling (user #3):** xác nhận KHÔNG còn vòng poll nào trên path comment — server background loop OFF (poller chỉ event-driven qua /ingest), client chỉ SSE + debounce; giữ nguyên PUSH-only.
+- **Files:** `render.com/routes/web2-live-comments.js`, `native-orders.js`, `fast-sale-orders.js`, `live-chat/server/server.js`, `live-chat/js/live/{live-init,live-comment-list,live-api,live-state}.js`, `live-chat/js/pancake/{pancake-api,pancake-state}.js`, `live-chat/css/live-livestream-gallery.css`.
+
+**Status:** ✅ Done — code + browser-verify localhost (extension loaded). ⏳ Render deploy (fallback + relay đều trúng Build Filters) → verify online sinceUpdated + /saved/ids.
+
 ### [web2] [render] FIX đợt G vòng 3 — auth blanket + enforce-prep (3H14, 3H17-3H19, 3H21 + 7 nhóm 1D) ✅
 
 **User:** "đợt G". Commit code `11b6d0717` (19 files).

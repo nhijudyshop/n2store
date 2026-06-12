@@ -829,7 +829,9 @@ const PancakeAPI = {
     async loadLiveSavedIds() {
         const state = window.PancakeState;
         try {
-            const resp = await fetch(`${state.livePancakeUrl}/api/live-saved/ids`);
+            // 2026-06-12: dời từ relay /api/live-saved (route không tồn tại — 404,
+            // audit 3H8) sang web2-live-comments/saved (web2Db).
+            const resp = await fetch(`${state.proxyBaseUrl}/api/web2-live-comments/saved/ids`);
             const data = await resp.json();
             state.liveSavedIds = data.success ? new Set(data.data) : new Set();
         } catch {
@@ -841,7 +843,7 @@ const PancakeAPI = {
         const state = window.PancakeState;
         try {
             const resp = await fetch(
-                `${state.livePancakeUrl}/api/live-saved/${encodeURIComponent(customerId)}`,
+                `${state.proxyBaseUrl}/api/web2-live-comments/saved/${encodeURIComponent(customerId)}`,
                 { method: 'DELETE' }
             );
             const data = await resp.json();

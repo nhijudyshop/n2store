@@ -144,6 +144,21 @@ async function ensureTables(pool) {
             client.release();
         }
     }
+    // "Lưu Live" — danh sách khách được đánh dấu giữ lại sau buổi live (nút
+    // "+ Lưu vào Live" + filter tab "Lưu Live" cột Pancake). Trước 2026-06-12
+    // client POST /api/live-saved vào relay — route KHÔNG tồn tại → 404 vĩnh
+    // viễn (audit 3H8). Chuyển về đây (web2Db, prefix web2_) cho đúng convention.
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS web2_live_saved (
+            customer_id   VARCHAR(50) PRIMARY KEY,    -- FB user id (Pancake from.id)
+            customer_name VARCHAR(255),
+            page_id       VARCHAR(50),
+            page_name     VARCHAR(255),
+            saved_by      VARCHAR(120),
+            notes         TEXT,
+            created_at    BIGINT
+        );
+    `);
     _tablesReady = true;
 }
 
@@ -407,9 +422,15 @@ router.get('/', async (req, res) => {
         if (pageIds.length) add('page_id = ANY($?)', pageIds);
         if (req.query.campaignId) add('campaign_id = $?', String(req.query.campaignId));
         if (req.query.since) add('created_time >= $?', new Date(Number(req.query.since)));
+        // Delta cursor theo updated_at (epoch ms server-assigned, bump mỗi upsert).
+        // Vì sao KHÔNG dùng created_time làm cursor delta: (a) comment bị UPDATE
+        // (poller fill phone/has_order) không đổi created_time → client không thấy
+        // (H11); (b) multi-post: comment post B về trễ với created_time < max(post A)
+        // bị `created_time >= since` loại VĨNH VIỄN → "mất tin nhắn" (2026-06-12).
+        if (req.query.sinceUpdated) add('updated_at >= $?', Number(req.query.sinceUpdated) || 0);
         const limit = Math.min(Number(req.query.limit) || 1000, 5000);
         const sql = `SELECT id, post_id, page_id, page_name, campaign_id, fb_id, customer_name,
-                            message, created_time, phone, address, has_order, avatar
+                            message, created_time, phone, address, has_order, avatar, updated_at
                      FROM web2_live_comments
                      ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
                      ORDER BY created_time DESC LIMIT ${limit}`;
@@ -693,6 +714,73 @@ router.delete('/poller-pages/:pageId', requireWeb2AuthSoft, async (req, res) => 
             String(req.params.pageId),
         ]);
         _notify('poller-pages', null);
+        res.json({ success: true });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+// =====================================================================
+// "Lưu Live" — thay thế /api/live-saved (relay) đã chết 404 (audit 3H8).
+// Client: live-api.saveToLive + pancake-api.loadLiveSavedIds/removeFromLiveSaved.
+// =====================================================================
+
+// POST /saved { customerId, customerName, pageId, pageName, savedBy, notes }
+router.post('/saved', async (req, res) => {
+    const pool = getDb(req);
+    if (!pool) return res.status(500).json({ success: false, error: 'DB unavailable' });
+    try {
+        await ensureTables(pool);
+        const b = req.body || {};
+        if (!b.customerId)
+            return res.status(400).json({ success: false, error: 'customerId bắt buộc' });
+        await pool.query(
+            `INSERT INTO web2_live_saved (customer_id, customer_name, page_id, page_name, saved_by, notes, created_at)
+             VALUES ($1,$2,$3,$4,$5,$6,$7)
+             ON CONFLICT (customer_id) DO UPDATE SET
+                customer_name = COALESCE(EXCLUDED.customer_name, web2_live_saved.customer_name),
+                page_id = COALESCE(EXCLUDED.page_id, web2_live_saved.page_id),
+                page_name = COALESCE(EXCLUDED.page_name, web2_live_saved.page_name),
+                notes = COALESCE(EXCLUDED.notes, web2_live_saved.notes)`,
+            [
+                String(b.customerId),
+                norm(b.customerName),
+                norm(b.pageId),
+                norm(b.pageName),
+                norm(b.savedBy),
+                norm(b.notes),
+                Date.now(),
+            ]
+        );
+        res.json({ success: true });
+    } catch (e) {
+        console.error('[WEB2-LIVE-COMMENTS] saved add error:', e.message);
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+// GET /saved/ids → { success, data: [customer_id, ...] }
+router.get('/saved/ids', async (req, res) => {
+    const pool = getDb(req);
+    if (!pool) return res.status(500).json({ success: false, error: 'DB unavailable' });
+    try {
+        await ensureTables(pool);
+        const r = await pool.query('SELECT customer_id FROM web2_live_saved');
+        res.json({ success: true, data: r.rows.map((x) => x.customer_id) });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+// DELETE /saved/:customerId
+router.delete('/saved/:customerId', async (req, res) => {
+    const pool = getDb(req);
+    if (!pool) return res.status(500).json({ success: false, error: 'DB unavailable' });
+    try {
+        await ensureTables(pool);
+        await pool.query('DELETE FROM web2_live_saved WHERE customer_id = $1', [
+            String(req.params.customerId),
+        ]);
         res.json({ success: true });
     } catch (e) {
         res.status(500).json({ success: false, error: e.message });

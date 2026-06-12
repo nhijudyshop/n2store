@@ -47,15 +47,41 @@ const RELAY_SECRET = process.env.RELAY_SECRET || process.env.CLEANUP_SECRET || '
 
 function forwardToFallback(path, body) {
     // Node 18+ có global fetch (file đã dùng fetch cho discoverPageIds).
-    try {
+    // 1 retry sau 2s: fallback restart/cold-start làm rớt forward = comment
+    // KHÔNG realtime (audit vòng 3 — loss point A1). Vẫn fire-and-forget với
+    // relay WS; chỉ thêm 1 nhịp thử lại, không queue dài (poll-now warm-up
+    // client bù phần mất lâu hơn).
+    const doPost = () =>
         fetch(FALLBACK_BASE + path, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'x-relay-secret': RELAY_SECRET },
             body: JSON.stringify(body),
-        }).catch((e) => console.warn('[FORWARD] fail:', e.message));
+        }).then((r) => {
+            if (!r.ok && r.status !== 401) throw new Error(`HTTP ${r.status}`);
+            return r;
+        });
+    try {
+        doPost().catch((e1) => {
+            setTimeout(() => {
+                doPost().catch((e2) =>
+                    console.warn('[FORWARD] fail (sau retry):', e1.message, '|', e2.message)
+                );
+            }, 2000);
+        });
     } catch (e) {
         console.warn('[FORWARD] fail:', e.message);
     }
+}
+
+// Gate mutation routes (/api/start /api/stop /api/reload /api/reconnect) bằng
+// x-relay-secret — audit 3H8: không auth thì ai cũng kill được relay realtime
+// giữa buổi live. GET status/events giữ mở cho debug (không mutation).
+function requireRelaySecret(req, res, next) {
+    if (!RELAY_SECRET) return next(); // dev: secret rỗng → cho qua
+    if ((req.headers['x-relay-secret'] || '') !== RELAY_SECRET) {
+        return res.status(401).json({ success: false, error: 'unauthorized' });
+    }
+    next();
 }
 
 // =====================================================
@@ -786,7 +812,7 @@ app.get('/api/events/latest', (req, res) => {
     res.json({ count: events.length, events });
 });
 
-app.post('/api/start', async (req, res) => {
+app.post('/api/start', requireRelaySecret, async (req, res) => {
     const { token, userId, name, cookie } = req.body;
 
     if (!token || !userId) {
@@ -810,7 +836,7 @@ app.post('/api/start', async (req, res) => {
     });
 });
 
-app.post('/api/reconnect', (req, res) => {
+app.post('/api/reconnect', requireRelaySecret, (req, res) => {
     let count = 0;
     for (const client of clients.values()) {
         if (client.token) {
@@ -844,7 +870,7 @@ setInterval(() => {
     }
 }, 60000);
 
-app.post('/api/stop', (req, res) => {
+app.post('/api/stop', requireRelaySecret, (req, res) => {
     for (const client of clients.values()) {
         client.stop();
     }
@@ -852,7 +878,7 @@ app.post('/api/stop', (req, res) => {
     res.json({ success: true, message: 'All clients stopped' });
 });
 
-app.post('/api/reload', async (req, res) => {
+app.post('/api/reload', requireRelaySecret, async (req, res) => {
     // Stop all existing clients
     for (const client of clients.values()) {
         client.stop();

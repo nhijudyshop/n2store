@@ -157,6 +157,19 @@ function _notify(action, code) {
 let _tablesCreated = false;
 async function ensureTables(pool) {
     if (_tablesCreated) return;
+    // MIGRATION (ĐẶT ĐẦU — rule MEMORY: ALTER mới phải chạy trước mọi bước khác):
+    // crm_team_id INTEGER → BIGINT. Sau khi gỡ TPOS (2026-06), live-chat gửi
+    // crmTeamId = FB Page Id (15 chữ số, vd 270136663390370) vượt INT4 →
+    // INSERT /from-comment 500 "integer out of range" → drag-drop tạo đơn CHẾT
+    // ở lần đầu mỗi khách (bug user báo 2026-06-12). Idempotent: ALTER TYPE
+    // BIGINT chạy lặp vô hại.
+    try {
+        await pool.query(
+            `ALTER TABLE IF EXISTS native_orders ALTER COLUMN crm_team_id TYPE BIGINT`
+        );
+    } catch (e) {
+        console.warn('[NATIVE-ORDERS] migrate crm_team_id→BIGINT warn:', e.message);
+    }
     try {
         await pool.query(`
             CREATE TABLE IF NOT EXISTS native_orders (
@@ -175,7 +188,7 @@ async function ensureTables(pool) {
                 fb_page_id      VARCHAR(100),
                 fb_post_id      VARCHAR(100),
                 fb_comment_id   VARCHAR(100),
-                crm_team_id     INTEGER,
+                crm_team_id     BIGINT,
 
                 products        JSONB  DEFAULT '[]'::jsonb,
                 total_quantity  INTEGER DEFAULT 0,

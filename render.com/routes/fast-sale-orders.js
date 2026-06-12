@@ -204,6 +204,16 @@ const { lookupCustomerIdByPhone } = require('../services/web2-order-customer-ser
 let _ready = false;
 async function ensureTables(pool) {
     if (_ready) return;
+    // MIGRATION (ĐẶT ĐẦU): crm_team_id INTEGER → BIGINT — cùng lỗi native_orders:
+    // sau gỡ TPOS, crmTeamId = FB Page Id (15 chữ số) vượt INT4 → merge-to-pbh
+    // copy crm_team_id sang PBH sẽ 500 "integer out of range" (2026-06-12).
+    try {
+        await pool.query(
+            `ALTER TABLE IF EXISTS fast_sale_orders ALTER COLUMN crm_team_id TYPE BIGINT`
+        );
+    } catch (e) {
+        console.warn('[FAST-SALE-ORDERS] migrate crm_team_id→BIGINT warn:', e.message);
+    }
     try {
         await pool.query(`
             -- Migration 070: FastSaleOrder (PBH) schema
@@ -273,7 +283,7 @@ async function ensureTables(pool) {
                 company_name        VARCHAR(150),
 
                 -- CRM + assignment
-                crm_team_id          INTEGER,
+                crm_team_id          BIGINT,
                 crm_team_name        VARCHAR(150),
                 assigned_user_id     VARCHAR(100),
                 assigned_user_name   VARCHAR(255),

@@ -145,22 +145,36 @@ const LiveColumnManager = {
             for (const lp of livePosts) if (lp.objectId) postIdSet.add(lp.objectId);
         }
         if (!postIdSet.size) return;
-        const since = this._lastCommentMaxMs || 0;
+        // Cursor delta = updated_at (epoch ms SERVER gán mỗi upsert) thay vì
+        // created_time. Lý do (bug "mất tin nhắn" 2026-06-12): với 2+ campaign,
+        // comment post B về trễ mang created_time < max(post A) bị since lọc
+        // VĨNH VIỄN; và comment bị UPDATE (poller fill phone/has_order — H11)
+        // không đổi created_time nên không bao giờ re-render. updated_at là
+        // đồng hồ server đơn điệu → không dính skew giữa pages/posts.
+        // Overlap 3s + prependComments merge-by-id → fetch lặp vô hại.
+        const sinceUpdated = Math.max(0, (this._lastUpdatedMaxMs || 0) - 3000);
+        const cursorParam = this._lastUpdatedMaxMs
+            ? `sinceUpdated=${sinceUpdated}`
+            : `since=${this._lastCommentMaxMs || 0}`; // fallback server cũ chưa trả updated_at
         try {
             const resp = await fetch(
                 `${state.workerUrl}/api/web2-live-comments?postIds=${encodeURIComponent(
                     [...postIdSet].join(',')
-                )}&since=${since}&limit=2000`,
+                )}&${cursorParam}&limit=2000`,
                 { signal: AbortSignal.timeout(15000) }
             );
             const j = await resp.json();
             if (!j.success || !Array.isArray(j.data) || j.data.length === 0) return;
             const mapped = j.data.map((row) => this._dbRowToComment(row));
-            // Cập nhật _lastCommentMaxMs theo delta (tránh fetch lặp comment cũ).
+            // Cập nhật cả 2 cursor theo delta (tránh fetch lặp comment cũ).
             this._lastCommentMaxMs = mapped.reduce((mx, c) => {
                 const t = SharedUtils.toEpochMs(c.created_time);
                 return t > mx ? t : mx;
             }, this._lastCommentMaxMs || 0);
+            this._lastUpdatedMaxMs = mapped.reduce(
+                (mx, c) => (c._updatedAt > mx ? c._updatedAt : mx),
+                this._lastUpdatedMaxMs || 0
+            );
             window.LiveCommentList.prependComments(mapped);
         } catch (e) {
             console.warn('[Live-INIT] live comment delta fetch fail:', e.message);
@@ -247,6 +261,8 @@ const LiveColumnManager = {
             _pageObj: pageObj,
             _postId: row.post_id || null,
             _fromDb: true,
+            // Epoch ms server gán mỗi upsert — cursor delta SSE (xem _fetchLiveCommentDelta).
+            _updatedAt: Number(row.updated_at) || 0,
         };
     },
 
@@ -646,12 +662,17 @@ const LiveColumnManager = {
             state.selectedCampaign = campaigns[0];
             state.hasMore = false; // Disable pagination for multi-campaign
 
-            // Track max created_time (epoch ms) để SSE delta fetch chỉ lấy comment
-            // mới hơn (since=this._lastCommentMaxMs).
+            // Track cursor cho SSE delta fetch: ưu tiên updated_at (server-assigned,
+            // bắt cả UPDATE + comment về trễ — xem _fetchLiveCommentDelta), giữ
+            // created_time làm fallback khi server cũ chưa trả updated_at.
             this._lastCommentMaxMs = allComments.reduce((mx, c) => {
                 const t = SharedUtils.toEpochMs(c.created_time);
                 return t > mx ? t : mx;
             }, 0);
+            this._lastUpdatedMaxMs = allComments.reduce(
+                (mx, c) => (c._updatedAt > mx ? c._updatedAt : mx),
+                0
+            );
 
             // Update selectedPage to first campaign's page
             if (campaigns[0]) {
