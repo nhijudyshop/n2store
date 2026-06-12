@@ -1384,25 +1384,131 @@ async function markPartnerAsBoom(phone, noteText) {
 }
 
 function checkExistingReturnTicket(orderId) {
-    if (!orderId) return { exists: false, ticketCode: null };
+    if (!orderId) return { exists: false, blocking: false, needsConfirm: false };
 
-    // Search in local TICKETS array for existing RETURN tickets (exclude CANCELLED)
-    const existingTicket = TICKETS.find(
+    // Các phiếu hoàn (Khách gửi / Thu về) của đơn này, loại trừ CANCELLED.
+    const returnTickets = TICKETS.filter(
         (ticket) =>
             ticket.orderId === orderId &&
             (ticket.type === 'RETURN_CLIENT' || ticket.type === 'RETURN_SHIPPER') &&
             ticket.status !== 'CANCELLED'
     );
 
-    if (existingTicket) {
+    if (returnTickets.length === 0) {
+        return { exists: false, blocking: false, needsConfirm: false };
+    }
+
+    // Có phiếu ĐANG XỬ LÝ (chưa hoàn tất) → chặn cứng, không cho 2 phiếu song song.
+    const inProgress = returnTickets.find((t) => t.status !== 'COMPLETED');
+    if (inProgress) {
         return {
             exists: true,
-            ticketCode: existingTicket.ticketCode,
-            ticketType: existingTicket.type,
+            blocking: true,
+            needsConfirm: false,
+            ticketCode: inProgress.ticketCode,
+            ticketType: inProgress.type,
         };
     }
 
-    return { exists: false, ticketCode: null };
+    // Mọi phiếu hoàn cũ đều COMPLETED → cho tạo "lượt trả bổ sung" nhưng cần xác nhận + lý do.
+    return {
+        exists: true,
+        blocking: false,
+        needsConfirm: true,
+        completedTickets: returnTickets, // tất cả đều COMPLETED ở nhánh này
+    };
+}
+
+/**
+ * Dialog xác nhận tạo "lượt trả bổ sung" cho đơn ĐÃ có phiếu hoàn COMPLETED.
+ * Bắt buộc nhập lý do (để lưu vết audit vào note phiếu mới).
+ * @param {Array} completedTickets - các phiếu hoàn cũ (đều COMPLETED) của đơn
+ * @returns {Promise<{confirmed: boolean, reason: string}>}
+ */
+function confirmSupplementaryReturn(completedTickets) {
+    return new Promise((resolve) => {
+        const esc = (s) =>
+            String(s == null ? '' : s)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
+
+        const rows = (completedTickets || [])
+            .map((t) => {
+                const qty = Array.isArray(t.products)
+                    ? t.products.reduce(
+                          (s, p) => s + (Number(p.returnQuantity ?? p.quantity) || 0),
+                          0
+                      )
+                    : 0;
+                const val = Number(t.money ?? t.refundAmount ?? 0) || 0;
+                const label = t.type === 'RETURN_CLIENT' ? 'Khách gửi' : 'Thu về';
+                return `<li><b>${esc(t.ticketCode || '(chưa có mã)')}</b> · ${esc(label)} · ${qty} món · ${formatCurrency(val)}</li>`;
+            })
+            .join('');
+
+        const overlay = document.createElement('div');
+        overlay.className = 'custom-confirm-overlay';
+        const modal = document.createElement('div');
+        modal.className = 'custom-confirm-modal';
+        modal.innerHTML = `
+            <div class="custom-confirm-header">
+                <i data-lucide="alert-triangle" class="custom-confirm-icon"></i>
+                <h3>Trả bổ sung — đơn đã có phiếu hoàn tất</h3>
+            </div>
+            <div class="custom-confirm-body" style="text-align:left;">
+                <p style="margin:0 0 8px;">Đơn này đã trả xong qua các phiếu sau:</p>
+                <ul style="margin:0 0 12px;padding-left:18px;font-size:13px;color:#334155;line-height:1.6;">${rows}</ul>
+                <p style="margin:0 0 6px;">Bạn đang tạo <b>LƯỢT TRẢ BỔ SUNG</b> (phiếu mới, độc lập). Nhập lý do để lưu vết:</p>
+                <textarea id="supplementaryReasonInput" rows="2" placeholder="VD: Phát hiện thêm 1 áo B2523V bị lỗi đường may"
+                    style="width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:8px;padding:8px 10px;font-size:13px;font-family:inherit;resize:vertical;"></textarea>
+            </div>
+            <div class="custom-confirm-footer">
+                <button class="custom-confirm-btn custom-confirm-cancel"><i data-lucide="x"></i>Hủy</button>
+                <button class="custom-confirm-btn custom-confirm-ok" disabled style="opacity:0.5;cursor:not-allowed;"><i data-lucide="check"></i>Xác nhận tạo bổ sung</button>
+            </div>
+        `;
+        overlay.appendChild(modal);
+        document.body.appendChild(overlay);
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+        requestAnimationFrame(() => overlay.classList.add('show'));
+
+        const reasonEl = modal.querySelector('#supplementaryReasonInput');
+        const okBtn = modal.querySelector('.custom-confirm-ok');
+        const cancelBtn = modal.querySelector('.custom-confirm-cancel');
+
+        const syncOk = () => {
+            const ok = reasonEl.value.trim().length >= 3;
+            okBtn.disabled = !ok;
+            okBtn.style.opacity = ok ? '1' : '0.5';
+            okBtn.style.cursor = ok ? 'pointer' : 'not-allowed';
+        };
+        reasonEl.addEventListener('input', syncOk);
+
+        const close = (result) => {
+            overlay.classList.remove('show');
+            document.removeEventListener('keydown', onKey);
+            setTimeout(() => {
+                overlay.remove();
+                resolve(result);
+            }, 200);
+        };
+        const onKey = (e) => {
+            if (e.key === 'Escape') close({ confirmed: false, reason: '' });
+        };
+
+        cancelBtn.onclick = () => close({ confirmed: false, reason: '' });
+        okBtn.onclick = () => {
+            const reason = reasonEl.value.trim();
+            if (reason.length < 3) return;
+            close({ confirmed: true, reason });
+        };
+        overlay.onclick = (e) => {
+            if (e.target === overlay) close({ confirmed: false, reason: '' });
+        };
+        document.addEventListener('keydown', onKey);
+        setTimeout(() => reasonEl.focus(), 50);
+    });
 }
 
 async function handleSubmitTicket() {
@@ -1601,15 +1707,28 @@ async function handleSubmitTicket() {
 
     if (!customerPhone) return alert('Không tìm thấy thông tin số điện thoại khách hàng!');
 
-    // VALIDATION: Check for duplicate RETURN tickets (1 đơn = 1 ticket hoàn hàng)
+    // VALIDATION: phiếu hoàn (1 đơn). Chặn nếu còn phiếu ĐANG XỬ LÝ; cho phép "trả bổ sung"
+    // nếu mọi phiếu hoàn cũ đã COMPLETED (kèm xác nhận + lý do để audit).
     if ((type === 'RETURN_CLIENT' || type === 'RETURN_SHIPPER') && tposOrderId) {
         const existingReturn = checkExistingReturnTicket(tposOrderId);
-        if (existingReturn.exists) {
+        if (existingReturn.blocking) {
             const typeLabel =
                 existingReturn.ticketType === 'RETURN_CLIENT' ? 'Khách gửi về' : 'Thu về';
             return alert(
-                `Đơn hàng này đã có ticket hoàn hàng!\n\nMã ticket: ${existingReturn.ticketCode}\nLoại: ${typeLabel}\n\nMỗi đơn hàng chỉ được tạo 1 ticket hoàn hàng.`
+                `Đơn hàng này đang có phiếu hoàn hàng XỬ LÝ DỞ!\n\nMã phiếu: ${existingReturn.ticketCode}\nLoại: ${typeLabel}\n\nHoàn tất phiếu này trước khi tạo phiếu mới.`
             );
+        }
+        if (existingReturn.needsConfirm) {
+            const { confirmed, reason } = await confirmSupplementaryReturn(
+                existingReturn.completedTickets
+            );
+            if (!confirmed) return; // user hủy → không tạo phiếu
+            const oldCodes = (existingReturn.completedTickets || [])
+                .map((t) => t.ticketCode)
+                .filter(Boolean)
+                .join(', ');
+            const tag = `[TRẢ BỔ SUNG${oldCodes ? ' #' + oldCodes : ''}] ${reason}`;
+            note = note ? `${tag}\n${note}` : tag;
         }
     }
 

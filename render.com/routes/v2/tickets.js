@@ -445,14 +445,17 @@ router.post('/', async (req, res) => {
     }
 
     try {
-        // FRAUD PREVENTION: Check for duplicate RETURN tickets (1 order = 1 return ticket)
+        // FRAUD PREVENTION: Chặn phiếu hoàn TRÙNG khi đơn còn phiếu hoàn ĐANG XỬ LÝ.
+        // Nới luật (2026-06-12): nếu mọi phiếu hoàn cũ đã COMPLETED → cho tạo "lượt trả bổ sung"
+        // (phát sinh món lỗi sau khi đã trả xong). Chỉ chặn khi còn phiếu dở (PENDING_*),
+        // tránh 2 phiếu chạy song song. Frontend thêm dialog xác nhận + ghi lý do để audit.
         if ((type === 'RETURN_CLIENT' || type === 'RETURN_SHIPPER') && order_id) {
             const existingReturn = await db.query(`
                 SELECT id, ticket_code, type
                 FROM customer_tickets
                 WHERE order_id = $1
                   AND type IN ('RETURN_CLIENT', 'RETURN_SHIPPER')
-                  AND status != 'CANCELLED'
+                  AND status NOT IN ('CANCELLED', 'COMPLETED')
                 LIMIT 1
             `, [order_id]);
 
@@ -462,7 +465,7 @@ router.post('/', async (req, res) => {
                 return res.status(400).json({
                     success: false,
                     error: 'DUPLICATE_RETURN_TICKET',
-                    message: `Đơn hàng ${order_id} đã có ticket hoàn hàng: ${existing.ticket_code} (${typeLabel})`,
+                    message: `Đơn hàng ${order_id} đang có phiếu hoàn hàng XỬ LÝ DỞ: ${existing.ticket_code} (${typeLabel}). Hoàn tất phiếu này trước khi tạo phiếu mới.`,
                     existing_ticket: {
                         id: existing.id,
                         ticket_code: existing.ticket_code,

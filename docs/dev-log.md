@@ -11,6 +11,22 @@
 
 **Status:** ✅ Đợt GMT+7 + escape hoàn tất → toàn bộ các đợt named của vòng 3 (F/G/H/I/E/GMT+7+escape) ĐÓNG.
 
+### [issue-tracking] [render] Cho phép "lượt trả bổ sung" trên đơn đã trả xong (Khách gửi/Thu về) ✅
+
+**User:** đơn đã khách gửi & Hoàn Tất, hôm nay phát hiện thêm 1 món lỗi muốn đổi trả nhưng báo "đơn đã trả rồi không trả nữa". Đề xuất + làm: tạo phiếu MỚI độc lập + cơ chế cảnh báo/đánh dấu (không gộp/sửa phiếu cũ, không đụng ví/TPOS).
+
+- **Nguyên nhân:** guard "1 đơn = 1 ticket hoàn hàng" (chống gian lận) lọc `status != 'CANCELLED'` ở **cả 2 tầng** → ticket COMPLETED vẫn bị chặn tạo phiếu mới.
+- **Backend `render.com/routes/v2/tickets.js`** (guard RETURN, ~L449): đổi `status != 'CANCELLED'` → `status NOT IN ('CANCELLED','COMPLETED')`. Chỉ chặn khi đơn còn phiếu hoàn ĐANG XỬ LÝ (`PENDING_*`); phiếu cũ COMPLETED → cho tạo "trả bổ sung". Message lỗi cập nhật "xử lý dở". **Không đụng** guard BOOM/FIX_COD. Không migration (chỉ đổi điều kiện query).
+- **Frontend `issue-tracking/js/script.js`:**
+  - `checkExistingReturnTicket(orderId)` rewrite → 3 nhánh: `{blocking}` (còn phiếu PENDING_* → chặn cứng) / `{needsConfirm, completedTickets}` (mọi phiếu hoàn cũ COMPLETED → cần xác nhận) / `{exists:false}`.
+  - Thêm modal promise-based `confirmSupplementaryReturn(completedTickets)` → liệt kê phiếu cũ (mã · loại · SL món · giá trị), **ô lý do bắt buộc** (≥3 ký tự mới bật nút), trả `{confirmed, reason}`. Tái dùng class CSS `custom-confirm-overlay`.
+  - `handleSubmitTicket`: nhánh `blocking` → alert chặn; nhánh `needsConfirm` → await modal, hủy thì dừng, xác nhận thì chèn tiền tố `[TRẢ BỔ SUNG #<mã phiếu cũ>] <lý do>` vào `note` để lưu vết audit (không cần cột DB mới).
+  - Bump `script.js?v=20260612a`.
+- **Ví & TPOS giữ nguyên:** mỗi ticket cộng ví theo `compensation_amount` riêng (`reference_id = ticket_code`); resolve phiếu bổ sung → TPOS `alreadyRefunded=true` tự bỏ qua hoàn lần 2. Không sửa wallet-event-processor/resolve endpoint.
+- **Test (Playwright, localhost, KHÔNG ghi DB thật):** node --check 2 file PASS · page load 0 lỗi từ code mới (4 error còn lại là backend local offline) · modal render đúng list + format tiền · OK khoá đến khi lý do ≥3 ký tự · Confirm → `{confirmed:true,reason}` · Cancel/Escape → `{confirmed:false}`, overlay gỡ sạch. Logic filter `checkExistingReturnTicket` verify qua đọc code (biến `TICKETS` là closure, không inject qua window được).
+
+**Status:** ✅ Done. Lưu ý: backend cần redeploy Render để guard mới có hiệu lực.
+
 ### [delivery-report] Ẩn nút Gửi Kèm (hiện sau 3-click tiêu đề) + đổi tên "Copy ảnh bàn giao" → "Ảnh Thành Phố" ✅
 
 **User:** nút Gửi Kèm cho ẩn đi, click 3 lần vào tiêu đề "Thống Kê Giao Hàng" mới thấy (như mấy nút ảnh); nút copy ảnh bàn giao ở tab Thành phố đổi tên thành "Ảnh Thành Phố".
