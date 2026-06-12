@@ -15,6 +15,9 @@
 const express = require('express');
 const router = express.Router();
 const web2MatchAudit = require('../../services/web2-match-audit');
+// 3H17 (2026-06-12): mutation (revert = đảo tiền ví, replay, blacklist) là endpoint
+// nguy hiểm NGOÀI page-flow → gate HARD requireWeb2Admin; GET gate SOFT.
+const { requireWeb2Admin, requireWeb2AuthSoft } = require('../../middleware/web2-auth');
 const web2WebhookRetry = require('../../services/web2-webhook-retry');
 const web2Blacklist = require('../../services/web2-blacklist');
 
@@ -31,7 +34,7 @@ function getDb(req) {
 // GET /api/web2/monitoring/stats
 // Daily aggregated stats for dashboard
 // =====================================================
-router.get('/stats', async (req, res) => {
+router.get('/stats', requireWeb2AuthSoft, async (req, res) => {
     try {
         const db = getDb(req);
         const sinceMs = parseInt(req.query.since) || Date.now() - 7 * 86400 * 1000;
@@ -117,7 +120,7 @@ router.get('/stats', async (req, res) => {
 // =====================================================
 // GET /api/web2/monitoring/audit
 // =====================================================
-router.get('/audit', async (req, res) => {
+router.get('/audit', requireWeb2AuthSoft, async (req, res) => {
     try {
         const db = getDb(req);
         const result = await web2MatchAudit.list(db, {
@@ -141,16 +144,26 @@ router.get('/audit', async (req, res) => {
 // Undo a match within 5-min window
 // Body: { revertedBy: 'username' }
 // =====================================================
-router.post('/audit/:id/revert', async (req, res) => {
+router.post('/audit/:id/revert', requireWeb2Admin, async (req, res) => {
     try {
         const db = getDb(req);
         const id = parseInt(req.params.id);
-        const revertedBy = req.body?.revertedBy || 'unknown';
+        // 3H17: route đã gate requireWeb2Admin → lấy danh tính từ req.web2User
+        const revertedBy =
+            req.web2User?.display_name ||
+            req.web2User?.username ||
+            req.body?.revertedBy ||
+            'unknown';
         const result = await web2MatchAudit.revert(db, id, revertedBy);
         res.json({ success: true, data: result });
     } catch (e) {
         const code = e.code || null;
-        if (code === 'WINDOW_EXPIRED' || code === 'ALREADY_REVERTED' || code === 'NO_CREDIT') {
+        if (
+            code === 'WINDOW_EXPIRED' ||
+            code === 'ALREADY_REVERTED' ||
+            code === 'NO_CREDIT' ||
+            code === 'WALLET_REVERT_FAILED'
+        ) {
             return res.status(400).json({ success: false, error: e.message, code });
         }
         if (code === 'NOT_FOUND') {
@@ -163,7 +176,7 @@ router.post('/audit/:id/revert', async (req, res) => {
 // =====================================================
 // GET /api/web2/monitoring/retry-queue
 // =====================================================
-router.get('/retry-queue', async (req, res) => {
+router.get('/retry-queue', requireWeb2AuthSoft, async (req, res) => {
     try {
         const db = getDb(req);
         const stats = await web2WebhookRetry.getStats(db);
@@ -188,7 +201,7 @@ router.get('/retry-queue', async (req, res) => {
 // cột "body" sau cutover DB 2026-06-03). Idempotent, an toàn gọi nhiều lần.
 // Body (optional): { status: 'permanent_failure' | 'all' } — mặc định cả 2.
 // =====================================================
-router.post('/retry-queue/replay', async (req, res) => {
+router.post('/retry-queue/replay', requireWeb2Admin, async (req, res) => {
     try {
         const db = getDb(req);
         const scope = String(req.body?.status || 'all').toLowerCase();
@@ -214,7 +227,7 @@ router.post('/retry-queue/replay', async (req, res) => {
 // =====================================================
 // GET /api/web2/monitoring/blacklist
 // =====================================================
-router.get('/blacklist', async (req, res) => {
+router.get('/blacklist', requireWeb2AuthSoft, async (req, res) => {
     try {
         const db = getDb(req);
         const items = await web2Blacklist.listAll(db);
@@ -228,7 +241,7 @@ router.get('/blacklist', async (req, res) => {
 // POST /api/web2/monitoring/blacklist
 // Body: { pattern, reason, addedBy }
 // =====================================================
-router.post('/blacklist', async (req, res) => {
+router.post('/blacklist', requireWeb2Admin, async (req, res) => {
     try {
         const db = getDb(req);
         const { pattern, type, reason, addedBy } = req.body || {};
@@ -245,7 +258,7 @@ router.post('/blacklist', async (req, res) => {
 // =====================================================
 // DELETE /api/web2/monitoring/blacklist/:id  → deactivate
 // =====================================================
-router.delete('/blacklist/:id', async (req, res) => {
+router.delete('/blacklist/:id', requireWeb2Admin, async (req, res) => {
     try {
         const db = getDb(req);
         const id = parseInt(req.params.id);

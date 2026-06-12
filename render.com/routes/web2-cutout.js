@@ -16,6 +16,30 @@
 const express = require('express');
 const router = express.Router();
 const svc = require('../services/web2-cutout-service');
+// 1D-auth (2026-06-12): API tách nền TRẢ PHÍ (PhotoRoom/withoutbg/fal) — gate SOFT
+// + rate-limit IP để người lạ không hammer drain quota. Enforce khi WEB2_AUTH_ENFORCE=1.
+const { requireWeb2AuthSoft } = require('../middleware/web2-auth');
+const _cutoutHits = new Map(); // ip → [timestamps]
+const CUTOUT_RATE_LIMIT = 20; // req/phút/IP (page-flow thật ~1-3 req/phút)
+function cutoutRateLimit(req, res, next) {
+    const ip =
+        req.headers['cf-connecting-ip'] ||
+        String(req.headers['x-forwarded-for'] || '')
+            .split(',')
+            .pop()
+            .trim() ||
+        req.socket?.remoteAddress ||
+        'unknown';
+    const now = Date.now();
+    const hits = (_cutoutHits.get(ip) || []).filter((t) => now - t < 60_000);
+    if (hits.length >= CUTOUT_RATE_LIMIT) {
+        return res.status(429).json({ success: false, error: 'Rate limit: tối đa 20 ảnh/phút' });
+    }
+    hits.push(now);
+    _cutoutHits.set(ip, hits);
+    if (_cutoutHits.size > 1000) _cutoutHits.clear(); // chống phình map
+    next();
+}
 
 // Body lớn (ảnh base64) — parser riêng cho router này.
 const jsonLarge = express.json({ limit: '16mb' });
@@ -24,7 +48,7 @@ router.get('/status', (req, res) => {
     res.json({ success: true, engines: svc.engines() });
 });
 
-router.post('/withoutbg', jsonLarge, async (req, res) => {
+router.post('/withoutbg', requireWeb2AuthSoft, cutoutRateLimit, jsonLarge, async (req, res) => {
     try {
         const { image } = req.body || {};
         if (!image) return res.status(400).json({ success: false, error: 'Thiếu ảnh (image)' });
@@ -42,7 +66,7 @@ router.post('/withoutbg', jsonLarge, async (req, res) => {
     }
 });
 
-router.post('/birefnet', jsonLarge, async (req, res) => {
+router.post('/birefnet', requireWeb2AuthSoft, cutoutRateLimit, jsonLarge, async (req, res) => {
     try {
         const { image } = req.body || {};
         if (!image) return res.status(400).json({ success: false, error: 'Thiếu ảnh (image)' });
@@ -60,7 +84,7 @@ router.post('/birefnet', jsonLarge, async (req, res) => {
     }
 });
 
-router.post('/photoroom', jsonLarge, async (req, res) => {
+router.post('/photoroom', requireWeb2AuthSoft, cutoutRateLimit, jsonLarge, async (req, res) => {
     try {
         const { image } = req.body || {};
         if (!image) return res.status(400).json({ success: false, error: 'Thiếu ảnh (image)' });

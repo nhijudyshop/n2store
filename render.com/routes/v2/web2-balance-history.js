@@ -19,6 +19,8 @@ const web2SepayMatching = require('../../services/web2-sepay-matching');
 const web2WalletService = require('../../services/web2-wallet-service');
 const web2ContentParser = require('../../services/web2-content-parser');
 const web2MatchAudit = require('../../services/web2-match-audit');
+// 3H14 (2026-06-12): mọi route MUTATION tiền gate SOFT — enforce khi env WEB2_AUTH_ENFORCE=1.
+const { requireWeb2AuthSoft } = require('../../middleware/web2-auth');
 const { withTransaction } = require('../../db/with-transaction');
 // SINGLE SOURCE: badge "Đuôi SĐT" trên UI DÙNG ĐÚNG hàm matcher dùng để khớp
 // (web2-content-extractor.extractIdentifier) → badge luôn phản ánh chính xác
@@ -284,7 +286,7 @@ router.get('/pending', async (req, res) => {
 // POST /api/web2/balance-history/pending/:id/resolve
 // Body: { phone, name?, resolvedBy? }
 // =====================================================
-router.post('/pending/:id/resolve', async (req, res) => {
+router.post('/pending/:id/resolve', requireWeb2AuthSoft, async (req, res) => {
     try {
         const db = req.app.locals.web2Db || req.app.locals.chatDb;
         const id = parseInt(req.params.id);
@@ -346,7 +348,7 @@ function _notifyBalanceHistory(req, payload) {
 // Body: { phone, name? }
 // Gán SĐT thủ công cho transaction chưa có phone — auto credit ví.
 // =====================================================
-router.patch('/:id/link', async (req, res) => {
+router.patch('/:id/link', requireWeb2AuthSoft, async (req, res) => {
     try {
         const db = req.app.locals.web2Db || req.app.locals.chatDb;
         const id = parseInt(req.params.id);
@@ -383,7 +385,7 @@ router.patch('/:id/link', async (req, res) => {
 //   5. Audit log
 // Idempotency: nếu reassign cùng KH với hiện tại → no-op return.
 // =====================================================
-router.post('/:id/reassign', async (req, res) => {
+router.post('/:id/reassign', requireWeb2AuthSoft, async (req, res) => {
     try {
         const db = req.app.locals.web2Db || req.app.locals.chatDb;
         const id = parseInt(req.params.id);
@@ -394,7 +396,9 @@ router.post('/:id/reassign', async (req, res) => {
         const verifiedByVal =
             String(verifiedBy || '')
                 .trim()
-                .slice(0, 100) || null;
+                .slice(0, 100) ||
+            req.web2User?.display_name ||
+            null;
         const reasonText =
             String(reason || '')
                 .trim()
@@ -651,7 +655,7 @@ router.post('/:id/reassign', async (req, res) => {
 // POST /api/web2/balance-history/:id/auto-match
 // Single-row reprocess — chạy lại processWeb2Match với extractor mới.
 // =====================================================
-router.post('/:id/auto-match', async (req, res) => {
+router.post('/:id/auto-match', requireWeb2AuthSoft, async (req, res) => {
     try {
         const db = req.app.locals.web2Db || req.app.locals.chatDb;
         const id = parseInt(req.params.id);
@@ -672,7 +676,7 @@ router.post('/:id/auto-match', async (req, res) => {
 // Web 2.0 = 100% auto: không có khái niệm "manual" hay "cũ" cho user.
 // Body: { limit?: number, dryRun?: boolean }
 // =====================================================
-router.post('/reprocess-unmatched', async (req, res) => {
+router.post('/reprocess-unmatched', requireWeb2AuthSoft, async (req, res) => {
     try {
         const db = req.app.locals.web2Db || req.app.locals.chatDb;
         const limit = Math.min(parseInt(req.body?.limit) || 200, 500);
@@ -740,7 +744,7 @@ function _nameTokens(content) {
         .filter((w) => w.length >= 2 && !_NAME_STOPWORDS.has(w) && !/^\d/.test(w));
 }
 
-router.post('/auto-assign', async (req, res) => {
+router.post('/auto-assign', requireWeb2AuthSoft, async (req, res) => {
     try {
         const db = req.app.locals.web2Db || req.app.locals.chatDb;
         if (!db) return res.status(500).json({ success: false, error: 'DB unavailable' });
@@ -866,7 +870,7 @@ router.post('/auto-assign', async (req, res) => {
 // FOR UPDATE lock + balance comparison. NCC qua Firestore (chưa enforce ở
 // backend — sẽ check ở supplier-wallet client trước khi POST).
 // =====================================================
-router.post('/manual-deposit', async (req, res) => {
+router.post('/manual-deposit', requireWeb2AuthSoft, async (req, res) => {
     try {
         const db = req.app.locals.web2Db || req.app.locals.chatDb;
         const body = req.body || {};
@@ -876,7 +880,7 @@ router.post('/manual-deposit', async (req, res) => {
         const name = String(body.name || '').trim();
         const phone = String(body.phone || '').replace(/\D/g, '');
         const note = String(body.note || '').trim();
-        const userName = String(body.userName || 'system').trim();
+        const userName = String(body.userName || req.web2User?.display_name || 'system').trim();
         const customerId = Number(body.customerId) || null;
 
         if (!['KH', 'NCC'].includes(target)) {
@@ -1136,7 +1140,7 @@ router.post('/manual-deposit', async (req, res) => {
 //
 // Body (optional): { dryRun?: boolean }
 // =====================================================
-router.post('/cleanup-stale-pending', async (req, res) => {
+router.post('/cleanup-stale-pending', requireWeb2AuthSoft, async (req, res) => {
     try {
         const db = req.app.locals.web2Db || req.app.locals.chatDb;
         const dryRun = req.body?.dryRun === true;

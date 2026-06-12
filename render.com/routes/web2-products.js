@@ -6,6 +6,8 @@
 // =====================================================
 
 const express = require('express');
+// 1D-auth (2026-06-12): route maintenance bulk-mutation gate admin (chuẩn S1).
+const { requireWeb2Admin } = require('../middleware/web2-auth');
 const router = express.Router();
 
 // -----------------------------------------------------
@@ -1431,7 +1433,7 @@ router.post('/confirm-purchase-partial', async (req, res) => {
 // Backfill supplier cho SP cũ chưa có supplier field.
 // Body: { prefixMap: { 'HN': 'HÀ NỘI', 'HC': 'HƯƠNG CHÂU', 'HC1': 'HẢI CHÂU', ... } }
 // Match longer prefix first (HC1 trước HC để tránh prefix collision).
-router.post('/backfill-supplier', async (req, res) => {
+router.post('/backfill-supplier', requireWeb2Admin, async (req, res) => {
     const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     try {

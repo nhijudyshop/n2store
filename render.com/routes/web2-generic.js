@@ -7,7 +7,9 @@
 
 const express = require('express');
 const router = express.Router();
-const { requireWeb2Admin } = require('../middleware/web2-auth');
+// 3H21 (2026-06-12): CRUD generic wire SOFT để bật được WEB2_AUTH_ENFORCE=1
+// (trước đây không tham chiếu middleware nào → bật enforce vẫn mở toang 78 entity).
+const { requireWeb2Admin, requireWeb2AuthSoft } = require('../middleware/web2-auth');
 
 // -----------------------------------------------------
 // SSE notifier — injected từ server.js. Sau mỗi DB mutation, broadcast
@@ -326,7 +328,7 @@ router.get('/:entity/get/:code', async (req, res) => {
 // POST /api/web2/:entity/create
 // Body: { code?, name, data?, createdBy? }
 // -----------------------------------------------------
-router.post('/:entity/create', async (req, res) => {
+router.post('/:entity/create', requireWeb2AuthSoft, async (req, res) => {
     const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     if (!validSlug(req.params.entity))
@@ -344,8 +346,12 @@ router.post('/:entity/create', async (req, res) => {
                 {
                     ts: now,
                     action: 'create',
-                    userId: b.userId || b.createdBy || null,
-                    userName: b.userName || data.createdByName || '(ẩn danh)',
+                    userId: req.web2User?.id ?? (b.userId || b.createdBy || null),
+                    userName:
+                        req.web2User?.display_name ||
+                        b.userName ||
+                        data.createdByName ||
+                        '(ẩn danh)',
                     sourcePage: b.sourcePage || null,
                     note: null,
                 },
@@ -385,7 +391,7 @@ router.post('/:entity/create', async (req, res) => {
 // -----------------------------------------------------
 // PATCH /api/web2/:entity/update/:code
 // -----------------------------------------------------
-router.patch('/:entity/update/:code', async (req, res) => {
+router.patch('/:entity/update/:code', requireWeb2AuthSoft, async (req, res) => {
     const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     if (!validSlug(req.params.entity))
@@ -439,8 +445,8 @@ router.patch('/:entity/update/:code', async (req, res) => {
             history.push({
                 ts: Date.now(),
                 action: 'update',
-                userId: b.userId || null,
-                userName: b.userName || '(ẩn danh)',
+                userId: req.web2User?.id ?? (b.userId || null),
+                userName: req.web2User?.display_name || b.userName || '(ẩn danh)',
                 sourcePage: b.sourcePage || null,
                 note: b.updateNote || null,
             });
@@ -557,7 +563,7 @@ router.post('/_vacuum', requireWeb2Admin, async (req, res) => {
 // -----------------------------------------------------
 // DELETE /api/web2/:entity/delete/:code
 // -----------------------------------------------------
-router.delete('/:entity/delete/:code', async (req, res) => {
+router.delete('/:entity/delete/:code', requireWeb2AuthSoft, async (req, res) => {
     const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     if (!validSlug(req.params.entity))
@@ -583,7 +589,7 @@ router.delete('/:entity/delete/:code', async (req, res) => {
 // Returns: { success, total, inserted, skipped }
 // Designed for seeders importing thousands of rows. Cap: 5000 records / call.
 // -----------------------------------------------------
-router.post('/:entity/bulk-create', async (req, res) => {
+router.post('/:entity/bulk-create', requireWeb2AuthSoft, async (req, res) => {
     const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     if (!validSlug(req.params.entity))

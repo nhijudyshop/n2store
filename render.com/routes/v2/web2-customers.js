@@ -20,6 +20,8 @@
 // =====================================================================
 
 const express = require('express');
+// 3H14 (2026-06-12): mutation kho KH gate SOFT — enforce khi env WEB2_AUTH_ENFORCE=1.
+const { requireWeb2AuthSoft } = require('../../middleware/web2-auth');
 const router = express.Router();
 const {
     getOrCreateWeb2Customer,
@@ -583,7 +585,7 @@ router.get('/:phone', async (req, res) => {
 });
 
 // ─── POST /create — tạo KH mới (CRUD UI) ───────────────────────────────
-router.post('/create', async (req, res) => {
+router.post('/create', requireWeb2AuthSoft, async (req, res) => {
     const db = getPool(req);
     const b = req.body || {};
     const phone = normPhoneWeb2(b.phone);
@@ -639,7 +641,7 @@ router.post('/create', async (req, res) => {
 });
 
 // ─── POST /upsert — upsert theo SĐT (chat → "Thêm KH"). KHÔNG TPOS. ─────
-router.post('/upsert', async (req, res) => {
+router.post('/upsert', requireWeb2AuthSoft, async (req, res) => {
     const db = getPool(req);
     const b = req.body || {};
     const phone = normPhoneWeb2(b.phone);
@@ -666,7 +668,7 @@ router.post('/upsert', async (req, res) => {
 
 // ─── POST /enrich-fb — link fb_id vào kho (Web2Chat tự gọi). KHÔNG TPOS. ─
 // Body: { fbId(psid), name?, phone?, globalId?, fbPageId? }. Idempotent.
-router.post('/enrich-fb', async (req, res) => {
+router.post('/enrich-fb', requireWeb2AuthSoft, async (req, res) => {
     const db = getPool(req);
     const fbId = String(req.body?.fbId || '').trim();
     const name = String(req.body?.name || '').trim();
@@ -716,7 +718,7 @@ router.post('/enrich-fb', async (req, res) => {
 
 // ─── POST /merge — gộp 2 KH trùng (keep primary, di chuyển đơn + xoá phụ) ─
 // Body: { primaryId, secondaryId }. Repoint native_orders/fast_sale_orders.
-router.post('/merge', async (req, res) => {
+router.post('/merge', requireWeb2AuthSoft, async (req, res) => {
     const db = getPool(req);
     const primaryId = parseInt(req.body?.primaryId, 10);
     const secondaryId = parseInt(req.body?.secondaryId, 10);
@@ -801,7 +803,7 @@ router.post('/merge', async (req, res) => {
 });
 
 // ─── PATCH /:id — sửa KH (mọi trang). KHÔNG TPOS. :id = web2_customers.id ─
-router.patch('/:id', async (req, res) => {
+router.patch('/:id', requireWeb2AuthSoft, async (req, res) => {
     const db = getPool(req);
     const id = parseInt(req.params.id, 10);
     if (!Number.isFinite(id)) {
@@ -878,7 +880,7 @@ router.patch('/:id', async (req, res) => {
 });
 
 // ─── DELETE /:id — xoá KH (guard: nếu có đơn → soft-archive is_active=false) ─
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', requireWeb2AuthSoft, async (req, res) => {
     const db = getPool(req);
     const id = parseInt(req.params.id, 10);
     if (!Number.isFinite(id)) {
@@ -913,7 +915,7 @@ router.delete('/:id', async (req, res) => {
 // ─── POST /add-alt-phone {fbId?|customerId?, phone} ────────────────────
 // KH đã có trong kho (theo fbId/id) nhưng SĐT mới khác phone chính → lưu vào
 // alt_phones (KHÔNG ghi đè phone chính). "Ưu tiên kho KH, thêm SĐT phụ".
-router.post('/add-alt-phone', async (req, res) => {
+router.post('/add-alt-phone', requireWeb2AuthSoft, async (req, res) => {
     const pool = getPool(req);
     const phone = req.body?.phone;
     const fbId = req.body?.fbId;
@@ -939,7 +941,7 @@ router.post('/add-alt-phone', async (req, res) => {
 // 2026-06-09): KHÔNG ghi đè SĐT/địa chỉ/tên sẵn có. Trùng SĐT → thêm vào
 // alt_phones (phone chính giữ nguyên, vẫn là CHÍNH). Field rỗng mới fill.
 // KH chưa có trong kho → tạo mới. Idempotent, best-effort từng comment.
-router.post('/harvest-comments', async (req, res) => {
+router.post('/harvest-comments', requireWeb2AuthSoft, async (req, res) => {
     const db = getPool(req);
     const list = Array.isArray(req.body?.comments) ? req.body.comments : [];
     const stats = { created: 0, linked: 0, altAdded: 0, filled: 0, skipped: 0, processed: 0 };

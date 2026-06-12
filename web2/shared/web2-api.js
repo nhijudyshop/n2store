@@ -13,10 +13,22 @@
 
     const WORKER = 'https://chatomni-proxy.nhijudyshop.workers.dev';
 
+    // 3H21 (2026-06-12): tự gắn x-web2-token (Web2Auth, localStorage 'web2_auth')
+    // cho MỌI call generic — điều kiện tiên quyết bật WEB2_AUTH_ENFORCE=1 mà
+    // không gãy 80+ trang page-builder. Không có token → header bỏ qua (soft).
+    function _authHeaders() {
+        try {
+            const t = global.Web2Auth?.getStored?.()?.token;
+            return t ? { 'x-web2-token': t } : {};
+        } catch {
+            return {};
+        }
+    }
+
     async function _fetchJson(url, options = {}) {
         const res = await fetch(url, {
             ...options,
-            headers: { Accept: 'application/json', ...(options.headers || {}) },
+            headers: { Accept: 'application/json', ..._authHeaders(), ...(options.headers || {}) },
         });
         let data = null;
         try {

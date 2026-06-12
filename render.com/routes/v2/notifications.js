@@ -75,7 +75,7 @@ router.use(async (req, res, next) => {
 });
 
 // GET /list?unreadOnly=1&limit=50
-router.get('/list', async (req, res) => {
+router.get('/list', requireWeb2AuthSoft, async (req, res) => {
     try {
         const pool = req.app.locals.web2Db || req.app.locals.chatDb;
         const limit = Math.min(Number(req.query.limit) || 50, 200);
@@ -97,7 +97,7 @@ router.get('/list', async (req, res) => {
 });
 
 // GET /unread-count
-router.get('/unread-count', async (req, res) => {
+router.get('/unread-count', requireWeb2AuthSoft, async (req, res) => {
     try {
         const pool = req.app.locals.web2Db || req.app.locals.chatDb;
         const rs = await pool.query(
@@ -110,7 +110,7 @@ router.get('/unread-count', async (req, res) => {
 });
 
 // POST /:id/read
-router.post('/:id/read', async (req, res) => {
+router.post('/:id/read', requireWeb2AuthSoft, async (req, res) => {
     try {
         const pool = req.app.locals.web2Db || req.app.locals.chatDb;
         await pool.query(
@@ -125,7 +125,7 @@ router.post('/:id/read', async (req, res) => {
 });
 
 // POST /mark-all-read
-router.post('/mark-all-read', async (req, res) => {
+router.post('/mark-all-read', requireWeb2AuthSoft, async (req, res) => {
     try {
         const pool = req.app.locals.web2Db || req.app.locals.chatDb;
         await pool.query(`UPDATE web2_notifications SET read_at = NOW() WHERE read_at IS NULL`);

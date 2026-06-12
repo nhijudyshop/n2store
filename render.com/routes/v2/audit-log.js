@@ -10,6 +10,8 @@
 // =====================================================
 
 const express = require('express');
+// 1D-auth (2026-06-12): audit log lộ wallet adjustments + SĐT + tên user nội bộ → gate SOFT.
+const { requireWeb2AuthSoft } = require('../../middleware/web2-auth');
 const router = express.Router();
 
 // Cache kết quả _tableExists (MEDIUM perf): 4 lần check serial/request ~40ms.
@@ -37,7 +39,7 @@ async function _tableExists(pool, table) {
 }
 
 // GET /list?entity=&user=&from=&to=&limit=100&offset=0
-router.get('/list', async (req, res) => {
+router.get('/list', requireWeb2AuthSoft, async (req, res) => {
     try {
         const pool = req.app.locals.web2Db || req.app.locals.chatDb;
         const limit = Math.min(Number(req.query.limit) || 100, 500);
@@ -162,7 +164,7 @@ router.get('/list', async (req, res) => {
 });
 
 // GET /entities — danh sách entity types có data
-router.get('/entities', async (req, res) => {
+router.get('/entities', requireWeb2AuthSoft, async (req, res) => {
     const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     const out = [];
     const map = [

@@ -64,7 +64,14 @@
     // ─────────────────────────────────────────────────────────
     async function loadUsers() {
         try {
-            const r = await fetch(`${USERS_API}/list?limit=500&includeInactive=0`);
+            // 3H19 FIX (2026-06-12): GET /list gate HARD (H9) — thiếu token là 401
+            // → dropdown NV rỗng, trang phân công chết. Gửi x-web2-token như PUT.
+            const r = await fetch(`${USERS_API}/list?limit=500&includeInactive=0`, {
+                headers: { 'x-web2-token': authToken() },
+            });
+            if (r.status === 401) {
+                notify('Cần đăng nhập Web 2.0 (admin) để xem danh sách nhân viên', 'error');
+            }
             const d = await r.json();
             STATE.users = (d.users || []).map((u) => ({
                 id: u.id,

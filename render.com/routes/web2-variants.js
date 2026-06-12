@@ -15,6 +15,8 @@
 //   is_active   — bool — true = đang dùng, false = ẩn (soft-delete)
 
 const express = require('express');
+// 1D-auth (2026-06-12): route maintenance bulk-mutation gate admin (chuẩn S1).
+const { requireWeb2Admin } = require('../middleware/web2-auth');
 const router = express.Router();
 
 // -----------------------------------------------------
@@ -261,7 +263,7 @@ router.get('/suggest-short-code', async (req, res) => {
 
 // POST /backfill-short-codes — assign short_code cho tất cả variants chưa có.
 // Idempotent: chỉ touch row có short_code IS NULL.
-router.post('/backfill-short-codes', async (req, res) => {
+router.post('/backfill-short-codes', requireWeb2Admin, async (req, res) => {
     const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     try {

@@ -9,10 +9,22 @@
     let _unread = 0;
     let _open = false;
 
+    // 3H21 (2026-06-12): gắn x-web2-token — auth là token-based, credentials:
+    // 'include' (cookie) vô nghĩa với backend; thiếu header thì bật enforce là
+    // bell chết im lặng (catch {} nuốt lỗi).
+    function _authHeaders() {
+        try {
+            const t = global.Web2Auth?.getStored?.()?.token;
+            return t ? { 'x-web2-token': t } : {};
+        } catch {
+            return {};
+        }
+    }
+
     async function _fetchUnreadCount() {
         try {
             const r = await fetch(API_BASE + '/api/web2/notifications/unread-count', {
-                credentials: 'include',
+                headers: _authHeaders(),
             });
             const d = await r.json();
             if (d.success) _unread = d.count;
@@ -21,7 +33,7 @@
     async function _fetchList() {
         try {
             const r = await fetch(API_BASE + '/api/web2/notifications/list?limit=20', {
-                credentials: 'include',
+                headers: _authHeaders(),
             });
             const d = await r.json();
             if (d.success) _items = d.items;
@@ -31,7 +43,7 @@
         try {
             await fetch(API_BASE + '/api/web2/notifications/' + id + '/read', {
                 method: 'POST',
-                credentials: 'include',
+                headers: _authHeaders(),
             });
         } catch {}
     }
@@ -39,7 +51,7 @@
         try {
             await fetch(API_BASE + '/api/web2/notifications/mark-all-read', {
                 method: 'POST',
-                credentials: 'include',
+                headers: _authHeaders(),
             });
         } catch {}
     }

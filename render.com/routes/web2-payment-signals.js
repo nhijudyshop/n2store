@@ -422,6 +422,19 @@ router.post('/:id/approve', requireWeb2AuthSoft, async (req, res) => {
             _notify('approve', id);
             return res.json({ success: true, alreadyApproved: true });
         }
+        // 3H18 FIX (2026-06-12): guard cũ chỉ chặn 'confirmed' — signal đang
+        // 'dismissed' (duyệt chéo 2 staff / openReview từ trang khác) vẫn lọt:
+        // linkTransaction CỘNG VÍ + auto-reply khách, nhưng UPDATE bên dưới có
+        // điều kiện AND status='pending' match 0 row → signal kẹt dismissed
+        // vĩnh viễn dù tiền đã cộng. Giờ: mọi status ≠ pending → 409 rõ ràng.
+        if (guard.rows[0].status !== 'pending') {
+            await client.query('ROLLBACK');
+            return res.status(409).json({
+                success: false,
+                error: `Signal đang ở trạng thái '${guard.rows[0].status}' — chỉ duyệt được signal pending. Reload danh sách rồi thử lại.`,
+                status: guard.rows[0].status,
+            });
+        }
         sig = guard.rows[0];
 
         // Link GD SePay (cộng ví) nếu có txId.

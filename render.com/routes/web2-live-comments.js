@@ -17,6 +17,9 @@
 
 'use strict';
 const express = require('express');
+// 1D-auth (2026-06-12): mutation cấu hình poller gate SOFT (enforce qua env) —
+// anonymous không tắt được thu comment giữa buổi live.
+const { requireWeb2AuthSoft } = require('../middleware/web2-auth');
 const router = express.Router();
 
 function getDb(req) {
@@ -640,7 +643,7 @@ router.get('/poller-pages', async (req, res) => {
 });
 
 // POST /poller-pages { pageId, pageName, pageUrl } — thêm/cập nhật trang.
-router.post('/poller-pages', async (req, res) => {
+router.post('/poller-pages', requireWeb2AuthSoft, async (req, res) => {
     const pool = getDb(req);
     if (!pool) return res.status(500).json({ success: false, error: 'DB unavailable' });
     const pageId = String(req.body?.pageId || '').trim();
@@ -656,6 +659,7 @@ router.post('/poller-pages', async (req, res) => {
                 enabled = true`,
             [pageId, req.body?.pageName || null, req.body?.pageUrl || null, Date.now()]
         );
+        _notify('poller-pages', null); // tab/máy khác sync trạng thái cấu hình
         res.json({ success: true });
     } catch (e) {
         res.status(500).json({ success: false, error: e.message });
@@ -663,7 +667,7 @@ router.post('/poller-pages', async (req, res) => {
 });
 
 // PATCH /poller-pages/:pageId { enabled } — bật/tắt.
-router.patch('/poller-pages/:pageId', async (req, res) => {
+router.patch('/poller-pages/:pageId', requireWeb2AuthSoft, async (req, res) => {
     const pool = getDb(req);
     if (!pool) return res.status(500).json({ success: false, error: 'DB unavailable' });
     try {
@@ -672,6 +676,7 @@ router.patch('/poller-pages/:pageId', async (req, res) => {
             !!req.body?.enabled,
             String(req.params.pageId),
         ]);
+        _notify('poller-pages', null);
         res.json({ success: true });
     } catch (e) {
         res.status(500).json({ success: false, error: e.message });
@@ -679,7 +684,7 @@ router.patch('/poller-pages/:pageId', async (req, res) => {
 });
 
 // DELETE /poller-pages/:pageId
-router.delete('/poller-pages/:pageId', async (req, res) => {
+router.delete('/poller-pages/:pageId', requireWeb2AuthSoft, async (req, res) => {
     const pool = getDb(req);
     if (!pool) return res.status(500).json({ success: false, error: 'DB unavailable' });
     try {
@@ -687,6 +692,7 @@ router.delete('/poller-pages/:pageId', async (req, res) => {
         await pool.query('DELETE FROM web2_live_poller_pages WHERE page_id = $1', [
             String(req.params.pageId),
         ]);
+        _notify('poller-pages', null);
         res.json({ success: true });
     } catch (e) {
         res.status(500).json({ success: false, error: e.message });

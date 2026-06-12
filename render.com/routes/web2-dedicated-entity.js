@@ -12,7 +12,7 @@
 // =====================================================================
 
 const express = require('express');
-const { requireWeb2Admin } = require('../middleware/web2-auth');
+const { requireWeb2Admin, requireWeb2AuthSoft } = require('../middleware/web2-auth');
 
 let _notifyClients = null;
 function initializeNotifiers(notifyClients) {
@@ -151,7 +151,7 @@ function makeDedicatedEntityRouter(tableName, entitySlug) {
     });
 
     // POST /create  { code?, name, data?, userId?, userName?, sourcePage? }
-    router.post('/create', async (req, res) => {
+    router.post('/create', requireWeb2AuthSoft, async (req, res) => {
         const pool = getPool(req);
         if (!pool) return res.status(500).json({ error: 'DB unavailable' });
         try {
@@ -195,7 +195,7 @@ function makeDedicatedEntityRouter(tableName, entitySlug) {
     });
 
     // PATCH /update/:code  { name?, data?, isActive?, userId?, userName? }
-    router.patch('/update/:code', async (req, res) => {
+    router.patch('/update/:code', requireWeb2AuthSoft, async (req, res) => {
         const pool = getPool(req);
         if (!pool) return res.status(500).json({ error: 'DB unavailable' });
         try {
@@ -245,7 +245,7 @@ function makeDedicatedEntityRouter(tableName, entitySlug) {
     });
 
     // DELETE /delete/:code
-    router.delete('/delete/:code', async (req, res) => {
+    router.delete('/delete/:code', requireWeb2AuthSoft, async (req, res) => {
         const pool = getPool(req);
         if (!pool) return res.status(500).json({ error: 'DB unavailable' });
         try {

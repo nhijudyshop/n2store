@@ -161,82 +161,102 @@ async function list(db, opts = {}) {
  */
 const UNDO_WINDOW_MS = 5 * 60 * 1000;
 async function revert(db, auditId, revertedBy, windowMs = UNDO_WINDOW_MS) {
-    const r = await db.query(`SELECT * FROM web2_match_audit WHERE id = $1`, [auditId]);
-    if (r.rows.length === 0) {
-        const err = new Error('Audit not found');
-        err.code = 'NOT_FOUND';
-        throw err;
-    }
-    const audit = r.rows[0];
-    if (audit.reverted) {
-        const err = new Error('Already reverted');
-        err.code = 'ALREADY_REVERTED';
-        throw err;
-    }
-    const ageMs = Date.now() - new Date(audit.decided_at).getTime();
-    if (ageMs > windowMs) {
-        const err = new Error(
-            `Revert window expired (${Math.round(ageMs / 60000)} min > ${Math.round(windowMs / 60000)} min)`
-        );
-        err.code = 'WINDOW_EXPIRED';
-        throw err;
-    }
-    if (!audit.chosen_phone || !audit.amount) {
-        const err = new Error('No wallet credit to revert (chosen_phone or amount missing)');
-        err.code = 'NO_CREDIT';
-        throw err;
-    }
-
-    // Withdraw the previously credited amount via web2 wallet service
-    let withdrawTxId = null;
+    // 3H17 FIX (2026-06-12): toàn bộ revert trong 1 transaction + FOR UPDATE.
+    // Trước đây SELECT không lock + withdraw + 2 UPDATE rời nhau: (a) 2 revert
+    // song song cùng qua check `audit.reverted` → trừ ví ×2; (b) withdraw lỗi
+    // bị NUỐT mà vẫn reset history + mark reverted → "sổ reset, tiền chưa rút".
+    // Giờ: lock row → guard → withdraw TRONG tx (lỗi ví = throw rollback hết).
+    const isPool = typeof db.connect === 'function';
+    const client = isPool ? await db.connect() : db;
     try {
-        const web2WalletService = require('./web2-wallet-service');
-        const wd = await web2WalletService.processWithdraw(
-            db,
-            audit.chosen_phone,
-            Number(audit.amount),
-            'audit_revert',
-            String(auditId),
-            `REVERT match audit #${auditId} (was credit for sepay ${audit.sepay_id || 'unknown'})`
+        if (isPool) await client.query('BEGIN');
+
+        const r = await client.query(`SELECT * FROM web2_match_audit WHERE id = $1 FOR UPDATE`, [
+            auditId,
+        ]);
+        if (r.rows.length === 0) {
+            const err = new Error('Audit not found');
+            err.code = 'NOT_FOUND';
+            throw err;
+        }
+        const audit = r.rows[0];
+        if (audit.reverted) {
+            const err = new Error('Already reverted');
+            err.code = 'ALREADY_REVERTED';
+            throw err;
+        }
+        const ageMs = Date.now() - new Date(audit.decided_at).getTime();
+        if (ageMs > windowMs) {
+            const err = new Error(
+                `Revert window expired (${Math.round(ageMs / 60000)} min > ${Math.round(windowMs / 60000)} min)`
+            );
+            err.code = 'WINDOW_EXPIRED';
+            throw err;
+        }
+        if (!audit.chosen_phone || !audit.amount) {
+            const err = new Error('No wallet credit to revert (chosen_phone or amount missing)');
+            err.code = 'NO_CREDIT';
+            throw err;
+        }
+
+        // Withdraw the previously credited amount — TRONG transaction. Ví không
+        // đủ số dư → throw WALLET_REVERT_FAILED, rollback toàn bộ (an toàn tiền
+        // hơn reset sổ khi tiền chưa rút như trước).
+        let withdrawTxId = null;
+        try {
+            const web2WalletService = require('./web2-wallet-service');
+            const wd = await web2WalletService.processWithdraw(
+                client,
+                audit.chosen_phone,
+                Number(audit.amount),
+                'audit_revert',
+                String(auditId),
+                `REVERT match audit #${auditId} (was credit for sepay ${audit.sepay_id || 'unknown'})`
+            );
+            withdrawTxId = wd?.transaction?.id || null;
+        } catch (e) {
+            const err = new Error(`Không rút lại được tiền ví ${audit.chosen_phone}: ${e.message}`);
+            err.code = 'WALLET_REVERT_FAILED';
+            throw err;
+        }
+
+        // Reset balance_history row (allow re-linking)
+        await client.query(
+            `UPDATE web2_balance_history
+             SET linked_customer_phone = NULL,
+                 debt_added = FALSE,
+                 wallet_processed = FALSE,
+                 verification_status = NULL,
+                 match_method = NULL,
+                 display_name = NULL,
+                 verified_at = NULL
+             WHERE id = $1`,
+            [audit.transaction_id]
         );
-        withdrawTxId = wd?.transaction?.id || null;
+
+        // Mark audit reverted
+        await client.query(
+            `UPDATE web2_match_audit
+             SET reverted = TRUE, reverted_at = NOW(), reverted_by = $2,
+                 note = COALESCE(note, '') || '\nReverted by ' || $2
+             WHERE id = $1`,
+            [auditId, revertedBy || 'unknown']
+        );
+
+        if (isPool) await client.query('COMMIT');
+        return {
+            auditId,
+            transactionId: audit.transaction_id,
+            revertedPhone: audit.chosen_phone,
+            revertedAmount: audit.amount,
+            withdrawTxId,
+        };
     } catch (e) {
-        // Wallet insufficient or other error — log but continue with audit revert
-        console.warn(
-            `[web2-match-audit] revert withdraw failed for audit ${auditId}: ${e.message}`
-        );
+        if (isPool) await client.query('ROLLBACK').catch(() => {});
+        throw e;
+    } finally {
+        if (isPool) client.release();
     }
-
-    // Reset balance_history row (allow re-linking)
-    await db.query(
-        `UPDATE web2_balance_history
-         SET linked_customer_phone = NULL,
-             debt_added = FALSE,
-             wallet_processed = FALSE,
-             verification_status = NULL,
-             match_method = NULL,
-             display_name = NULL,
-             verified_at = NULL
-         WHERE id = $1`,
-        [audit.transaction_id]
-    );
-
-    // Mark audit reverted
-    await db.query(
-        `UPDATE web2_match_audit
-         SET reverted = TRUE, reverted_at = NOW(), reverted_by = $2,
-             note = COALESCE(note, '') || '\nReverted by ' || $2
-         WHERE id = $1`,
-        [auditId, revertedBy || 'unknown']
-    );
-
-    return {
-        auditId,
-        transactionId: audit.transaction_id,
-        revertedPhone: audit.chosen_phone,
-        revertedAmount: audit.amount,
-        withdrawTxId,
-    };
 }
 
 module.exports = {

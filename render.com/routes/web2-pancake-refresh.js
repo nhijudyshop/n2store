@@ -186,7 +186,7 @@ async function _refreshAccount(accountId, identity, password) {
 // =====================================================
 // GET /status — không trả password, KHÔNG trả login_identity (chỉ has_creds)
 // =====================================================
-router.get('/status', async (req, res) => {
+router.get('/status', requireWeb2AuthSoft, async (req, res) => {
     if (!dbPool) return res.status(503).json({ error: 'DB not available' });
     try {
         const r = await dbPool.query(

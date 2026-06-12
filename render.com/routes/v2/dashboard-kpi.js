@@ -1,6 +1,8 @@
 // #Note: WEB2.0 module. F01 Dashboard KPI aggregate endpoint.
 
 const express = require('express');
+// 1D-auth (2026-06-12): KPI lộ doanh thu + partner_name → gate SOFT (enforce qua env).
+const { requireWeb2AuthSoft } = require('../../middleware/web2-auth');
 const router = express.Router();
 
 let _notifyClients = null;
@@ -11,7 +13,7 @@ function initializeNotifiers(notifyClients) {
 // Simple in-memory cache 30s
 const _cache = { ts: 0, data: null };
 
-router.get('/', async (req, res) => {
+router.get('/', requireWeb2AuthSoft, async (req, res) => {
     try {
         const pool = req.app.locals.web2Db || req.app.locals.chatDb;
         const now = Date.now();
