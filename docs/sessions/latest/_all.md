@@ -3,15 +3,13 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `90b2180` — docs(web2): MEDIUM-sweep + WEB2_REQUIRE_DB=1 ✅ (723d23fc8/a90ddc488/d9c3ba96b)
-**Last updated**: 2026-06-12 19:40:35 +07
-**Latest session**: [`RESUME:20260612-194035-90b2180`](../20260612-194035-90b2180.md)
-**Summary**: docs(web2): MEDIUM-sweep + WEB2_REQUIRE_DB=1 ✅ (723d23fc8/a90ddc488/d9c3ba96b)
+**Latest commit**: `e1010c4` — auto: session update
+**Last updated**: 2026-06-12 19:45:52 +07
+**Latest session**: [`RESUME:20260612-194552-e1010c4`](../20260612-194552-e1010c4.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 2 file(s)
-- [`render.com/`](./render.com.md) — 4 file(s)
 - [`web2/`](./web2.md) — 1 file(s)
 
 ## All folder snapshots
@@ -72,4 +70,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-12 19:40
+- [`web2/`](./web2.md) — updated 2026-06-12 19:45
