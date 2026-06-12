@@ -468,6 +468,22 @@
                                 phần server/client trung tâm đã fix đợt G — còn wire token raw fetch
                                 native/so-order rồi mới bật <code>WEB2_AUTH_ENFORCE=1</code>.
                             </li>
+                            <li>
+                                <strong
+                                    >✅ MEDIUM-sweep + env (12/06 tối — commits
+                                    723d23fc8/a90ddc488/d9c3ba96b):</strong
+                                >
+                                bật <code>WEB2_REQUIRE_DB=1</code> trên Render (fail-fast live);
+                                reconcile pack/ship/deliver/cancel-pack transaction + whitelist (hết
+                                kéo lùi shipped→packed); KHAI TỬ flow refunds cũ — nút "Trả hàng"
+                                PBH → Thu về prefill, <code>/from-pbh</code> 410; ~21 MEDIUM/LOW:
+                                admin-cuối TOCTOU, /refunded tx, dedicated-entity
+                                PATCH/DELETE/_ready, variants WeakSet, upsert-pending variant
+                                exact-match, DELETE products atomic, deductStock rowCount, Bomb
+                                filter, phones84 overlay, trừ reassign_out khỏi "Đã thu",
+                                S5-residual strip, /sse cap 50 keys, dashboard debounce, monitor
+                                pause tab ẩn, card doanh thu N ngày, hint mật khẩu 8…
+                            </li>
                         </ul>
                     </div>
 

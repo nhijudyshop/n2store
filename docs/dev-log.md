@@ -2,6 +2,19 @@
 
 ## 2026-06-12
 
+### [web2] [render] Bật WEB2_REQUIRE_DB=1 + MEDIUM-sweep (~25 fix) — đóng gần hết tồn vòng 3 ✅
+
+**User:** "WEB2_REQUIRE_DB=1 và tiếp tục các phần khác". Commits `723d23fc8` + `a90ddc488` + `d9c3ba96b` (2 sweep bởi session song song — nội dung verify đủ).
+
+- **ENV:** `WEB2_REQUIRE_DB=1` set qua Render API (PUT env-vars/KEY) + manual deploy → **live** — server giờ fail-fast exit(1) nếu WEB2_DATABASE_URL mất thay vì âm thầm ghi chatDb prod (3W7 active).
+- **1D-reconcile-no-lock ✅:** 4 route `/pack /ship /deliver /cancel-pack` vào withTransaction + FOR UPDATE + whitelist (pack chỉ từ pending/picking/picked; ship/deliver chặn PBH cancel).
+- **1D-refunds-old-flow KHAI TỬ ✅:** nút "Trả hàng" PBH → `../returns/index.html?prefillPhone=&prefillOrder=` (returns-app thêm prefill: auto pick KH + đơn + subType khong_nhan_hang); server `POST /api/refunds/from-pbh` → **410 Gone** (GET read-only giữ).
+- **Atomicity (agent):** web2-users demote/delete admin-cuối gộp 1 câu atomic · purchase-refund `/refunded` transaction + whitelist + idempotent · dedicated-entity PATCH pattern H12 + DELETE 404 + `_ready`→WeakSet · variants `_tablesCreated`→WeakSet · upsert-pending exact-variant-match DESC · DELETE products 1 câu RETURNING \* · adjust-stock warning khi clamp · deductStock/restockStock rowCount=0 → throw rollback.
+- **Hiển thị/UX (agent):** report-revenue card dùng `revenue.total` · hint mật khẩu 8 · users-app A5 đọc Web2Auth (bỏ authManager Web 1.0) · kpi-assignments overlap rule khớp server · monitor pause tab ẩn (setTimeout-chain) · ck-review dismiss check response + disable nút · pancake-settings placeholder "Đã lưu" · report-delivery swap from>to.
+- **SSE/TC (tự làm):** S5-residual strip PII topic `web2:customer-wallet` · `/sse` cap 50 keys/connection · xoá dead topic `supplier-rating` · bridge nghe eventType `test` · auto-assign/auto-match/reprocess `_notifyBalanceHistory` · dashboard SSE debounce 600ms · customer-wallet: Bomb→`'Bom'`, phones 84 normalize, toast theo payload strip, aggregate+overlay trừ CTE `sepay_reassign_out` (hết đếm "đã thu" ×2 sau reassign).
+
+**Status:** ✅ Done. Tồn còn lại (mục 1C/1D MD): TC-cụm (phone-norm paths, merge alt_phones, wallet nextTick, deposit unique index), SP pgString/variants-render, TM (kpi default-open, notifications cron, firebase compat), BC (printer 404, token plaintext), HT (bridge refocus/churn, ?v= fragment, page-shell), LC (campaign-5000, enricher, sse-nhiễm), 3W6, exportCsv ví KH, PATCH customers validate — và quyết định bật `WEB2_AUTH_ENFORCE=1`.
+
 ### [web2] Đợt escape — module shared + S6-residual + cluster 4-ký-tự ✅ (`8947639bb`)
 
 - **`web2/shared/web2-escape.js` MỚI** — 1 nguồn `Web2Escape.{escapeHtml (5 ký tự), escJs, safeUrl, safeImageUrl}`. Trang mới load module này thay vì copy hàm (gốc S6 là copy-paste drift 3 thế hệ/15 file).
@@ -18,10 +31,10 @@
 - **Nguyên nhân:** guard "1 đơn = 1 ticket hoàn hàng" (chống gian lận) lọc `status != 'CANCELLED'` ở **cả 2 tầng** → ticket COMPLETED vẫn bị chặn tạo phiếu mới.
 - **Backend `render.com/routes/v2/tickets.js`** (guard RETURN, ~L449): đổi `status != 'CANCELLED'` → `status NOT IN ('CANCELLED','COMPLETED')`. Chỉ chặn khi đơn còn phiếu hoàn ĐANG XỬ LÝ (`PENDING_*`); phiếu cũ COMPLETED → cho tạo "trả bổ sung". Message lỗi cập nhật "xử lý dở". **Không đụng** guard BOOM/FIX_COD. Không migration (chỉ đổi điều kiện query).
 - **Frontend `issue-tracking/js/script.js`:**
-  - `checkExistingReturnTicket(orderId)` rewrite → 3 nhánh: `{blocking}` (còn phiếu PENDING_* → chặn cứng) / `{needsConfirm, completedTickets}` (mọi phiếu hoàn cũ COMPLETED → cần xác nhận) / `{exists:false}`.
-  - Thêm modal promise-based `confirmSupplementaryReturn(completedTickets)` → liệt kê phiếu cũ (mã · loại · SL món · giá trị), **ô lý do bắt buộc** (≥3 ký tự mới bật nút), trả `{confirmed, reason}`. Tái dùng class CSS `custom-confirm-overlay`.
-  - `handleSubmitTicket`: nhánh `blocking` → alert chặn; nhánh `needsConfirm` → await modal, hủy thì dừng, xác nhận thì chèn tiền tố `[TRẢ BỔ SUNG #<mã phiếu cũ>] <lý do>` vào `note` để lưu vết audit (không cần cột DB mới).
-  - Bump `script.js?v=20260612a`.
+    - `checkExistingReturnTicket(orderId)` rewrite → 3 nhánh: `{blocking}` (còn phiếu PENDING\_\* → chặn cứng) / `{needsConfirm, completedTickets}` (mọi phiếu hoàn cũ COMPLETED → cần xác nhận) / `{exists:false}`.
+    - Thêm modal promise-based `confirmSupplementaryReturn(completedTickets)` → liệt kê phiếu cũ (mã · loại · SL món · giá trị), **ô lý do bắt buộc** (≥3 ký tự mới bật nút), trả `{confirmed, reason}`. Tái dùng class CSS `custom-confirm-overlay`.
+    - `handleSubmitTicket`: nhánh `blocking` → alert chặn; nhánh `needsConfirm` → await modal, hủy thì dừng, xác nhận thì chèn tiền tố `[TRẢ BỔ SUNG #<mã phiếu cũ>] <lý do>` vào `note` để lưu vết audit (không cần cột DB mới).
+    - Bump `script.js?v=20260612a`.
 - **Ví & TPOS giữ nguyên:** mỗi ticket cộng ví theo `compensation_amount` riêng (`reference_id = ticket_code`); resolve phiếu bổ sung → TPOS `alreadyRefunded=true` tự bỏ qua hoàn lần 2. Không sửa wallet-event-processor/resolve endpoint.
 - **Test (Playwright, localhost, KHÔNG ghi DB thật):** node --check 2 file PASS · page load 0 lỗi từ code mới (4 error còn lại là backend local offline) · modal render đúng list + format tiền · OK khoá đến khi lý do ≥3 ký tự · Confirm → `{confirmed:true,reason}` · Cancel/Escape → `{confirmed:false}`, overlay gỡ sạch. Logic filter `checkExistingReturnTicket` verify qua đọc code (biến `TICKETS` là closure, không inject qua window được).
 
