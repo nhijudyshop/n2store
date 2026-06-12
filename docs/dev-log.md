@@ -2,6 +2,18 @@
 
 ## 2026-06-12
 
+### [delivery-report] [render] Gỡ 3 nút (Xuất excel ×2 + In) + nút "Copy ảnh bàn giao" gửi thêm vào nhóm Telegram ✅
+
+**User yêu cầu:** (1) xóa 3 nút Xuất excel / Xuất excel chi tiết SP từng dòng / In; (2) nút "Copy ảnh bàn giao" (TP) ngoài copy clipboard còn gửi ảnh vào nhóm Telegram qua bot RIÊNG (không liên quan bot Telegram có sẵn), đặt tên có "delivery-report".
+
+- **Files:** `delivery-report/index.html` (xóa 3 button, tooltip mới, bump `v=20260612i`), `delivery-report/js/delivery-report.js` (tách `canvasToBlob`/`copyBlobToClipboard`, thêm `sendHandoverImageToTelegram`, wire vào `copyHandoverImage`: copy clipboard trước → gửi TG sau, nút báo "Đã copy + gửi TG!" / alert nếu TG lỗi nhưng clipboard vẫn OK), route MỚI `render.com/routes/delivery-report-telegram.js` (Web 1.0 module — `GET /status`, `POST /send-photo` base64 PNG → Telegram `sendPhoto` multipart, rate-limit 30/min, max 9MB), mount `server.js` tại `/api/delivery-report-telegram`.
+- **Env mới trên Render (n2store-fallback):** `DELIVERY_REPORT_TELEGRAM_BOT_TOKEN` + `DELIVERY_REPORT_TELEGRAM_CHAT_ID` — TÁCH BIỆT hoàn toàn `TELEGRAM_BOT_TOKEN`/`TELEGRAM_ADMIN_CHAT_ID` của bot Gemini/alert cũ. Client gọi thẳng `n2store-fallback.onrender.com` (không qua CF worker — worker route theo whitelist path).
+- **Hàm `exportExcel`/`printView` giữ nguyên trong JS** (dead code từ UI nhưng không xóa — dễ khôi phục nút nếu cần).
+- **Verify:** node --check 3 file; mini-express smoke: `/status` → `configured:false`, `/send-photo` không env → 503 message rõ ràng.
+- **Còn chờ:** user tạo bot qua @BotFather + tạo group + lấy chat_id → set env Render → deploy → test gửi thật.
+
+**Status:** ✅ Code done — chờ token bot từ user để kích hoạt.
+
 ### [web2] [render] FIX edit sản phẩm 500 — fast_sale_orders THIẾU cột updated_at ✅
 
 **User báo:** "chỉnh sửa sản phẩm web2/products cũng bị lỗi". Repro browser: PATCH `/api/web2-products/HCMM2DEN` → 500 `column "updated_at" of relation "fast_sale_orders" does not exist`. Commit `42d4f0775`.

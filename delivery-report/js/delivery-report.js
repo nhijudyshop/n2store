@@ -1685,7 +1685,9 @@
     // Như buildExcelRows nhưng thêm 2 cột "Số lượng" / "Giá trị" từ ticket CSKH.
     // Đơn không khớp ticket → 2 cột để trống.
     function buildExcelRowsReturn(items, handoverMap) {
-        const wsData = [['#', 'Số', 'Khách hàng', 'ĐT', 'Địa chỉ', 'Công nợ', 'Số lượng', 'Giá trị']];
+        const wsData = [
+            ['#', 'Số', 'Khách hàng', 'ĐT', 'Địa chỉ', 'Công nợ', 'Số lượng', 'Giá trị'],
+        ];
         let qtyTotal = 0;
         let valueTotal = 0;
         items.forEach((item, i) => {
@@ -1914,10 +1916,7 @@
                 const name = item.PartnerDisplayName || item.CustomerName || '';
                 const phone = item.Phone || item.Ship_Receiver_Phone || '';
                 ctx.fillText(
-                    truncate(
-                        `${name}${phone ? ' — ' + phone : ''}`,
-                        ZCOL.value - ZCOL.name - 50
-                    ),
+                    truncate(`${name}${phone ? ' — ' + phone : ''}`, ZCOL.value - ZCOL.name - 50),
                     ZCOL.name,
                     y
                 );
@@ -2103,11 +2102,7 @@
                     ctx.textAlign = 'right';
                     ctx.font = `13px ${FONT}`;
                     ctx.fillStyle = '#111827';
-                    ctx.fillText(
-                        p.quantity != null ? formatNumber(p.quantity) : '—',
-                        RCOL.sl,
-                        ry
-                    );
+                    ctx.fillText(p.quantity != null ? formatNumber(p.quantity) : '—', RCOL.sl, ry);
                     ctx.font = `bold 13px ${FONT}`;
                     ctx.fillStyle = '#b45309';
                     ctx.fillText(p.value != null ? formatThousand(p.value) : '—', RCOL.value, ry);
@@ -2152,11 +2147,15 @@
         return canvas;
     }
 
-    // Copy canvas PNG vào clipboard; browser chặn → fallback tải file.
-    // Trả về true nếu copy clipboard thành công.
-    async function copyCanvasToClipboard(canvas, fileName) {
+    async function canvasToBlob(canvas) {
         const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
         if (!blob) throw new Error('canvas.toBlob trả về null');
+        return blob;
+    }
+
+    // Copy blob PNG vào clipboard; browser chặn → fallback tải file.
+    // Trả về true nếu copy clipboard thành công.
+    async function copyBlobToClipboard(blob, fileName) {
         try {
             await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
             return true;
@@ -2170,6 +2169,35 @@
             alert('Không copy được vào clipboard — đã tải ảnh PNG về máy thay thế.');
             return false;
         }
+    }
+
+    async function copyCanvasToClipboard(canvas, fileName) {
+        return copyBlobToClipboard(await canvasToBlob(canvas), fileName);
+    }
+
+    // Gửi ảnh bàn giao vào nhóm Telegram qua bot RIÊNG của delivery-report
+    // (Render route /api/delivery-report-telegram — gọi thẳng n2store-fallback,
+    // không qua CF worker vì worker route theo path whitelist).
+    const DELIVERY_REPORT_TELEGRAM_API =
+        'https://n2store-fallback.onrender.com/api/delivery-report-telegram';
+
+    async function sendHandoverImageToTelegram(blob, caption) {
+        const dataUrl = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = () => reject(new Error('Không đọc được ảnh PNG'));
+            reader.readAsDataURL(blob);
+        });
+        const res = await fetch(`${DELIVERY_REPORT_TELEGRAM_API}/send-photo`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ image: dataUrl, caption }),
+        });
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok || !json.success) {
+            throw new Error(json.error || `HTTP ${res.status}`);
+        }
+        return json;
     }
 
     // Ảnh bàn giao 1 CỘT cho nhóm Tỉnh (TMT/NAP) — giống cột trái ảnh TP,
@@ -2301,10 +2329,7 @@
                 const name = item.PartnerDisplayName || item.CustomerName || '';
                 const phone = item.Phone || item.Ship_Receiver_Phone || '';
                 ctx.fillText(
-                    truncate(
-                        `${name}${phone ? ' — ' + phone : ''}`,
-                        ZCOL.value - ZCOL.name - 50
-                    ),
+                    truncate(`${name}${phone ? ' — ' + phone : ''}`, ZCOL.value - ZCOL.name - 50),
                     ZCOL.name,
                     y
                 );
@@ -2581,15 +2606,36 @@
                 returnHandoverMap,
                 extraItems,
             });
-            const copied = await copyCanvasToClipboard(
-                canvas,
+            const blob = await canvasToBlob(canvas);
+            const copied = await copyBlobToClipboard(
+                blob,
                 `BANGIAO_TP_${handoverDateLabel().replace(/[/–]/g, '_')}.png`
             );
-            if (copied) {
-                resetBtn('<i class="fas fa-check"></i> Đã copy!');
-                setTimeout(() => resetBtn(), 2000);
-            } else {
-                resetBtn();
+
+            // Gửi ảnh vào nhóm Telegram (bot riêng delivery-report) — clipboard đã xong
+            try {
+                if (btn) {
+                    btn.innerHTML = '<i class="fas fa-paper-plane"></i> Đang gửi Telegram...';
+                }
+                await sendHandoverImageToTelegram(
+                    blob,
+                    `📦 Bàn giao Thành phố ${handoverDateLabel()} — ${scannedItems.length} đơn`
+                );
+                resetBtn(
+                    copied
+                        ? '<i class="fas fa-check-double"></i> Đã copy + gửi TG!'
+                        : '<i class="fas fa-check"></i> Đã gửi TG!'
+                );
+                setTimeout(() => resetBtn(), 2500);
+            } catch (tgError) {
+                console.error('[DELIVERY-REPORT] gửi Telegram lỗi:', tgError);
+                alert(
+                    (copied ? 'Ảnh ĐÃ copy vào clipboard nhưng ' : '') +
+                        'gửi Telegram thất bại: ' +
+                        tgError.message
+                );
+                resetBtn(copied ? '<i class="fas fa-check"></i> Đã copy (TG lỗi)' : undefined);
+                setTimeout(() => resetBtn(), 3000);
             }
         } catch (error) {
             console.error('[DELIVERY-REPORT] copyHandoverImage error:', error);
@@ -2685,11 +2731,14 @@
                 } catch (e) {
                     console.warn('[DELIVERY-REPORT] handover-batch failed:', e.message);
                     alert(
-                        'Không lấy được dữ liệu CSKH (Số lượng/Giá trị): ' + e.message +
-                        '\nVẫn xuất Excel nhưng KHÔNG có 2 cột này.'
+                        'Không lấy được dữ liệu CSKH (Số lượng/Giá trị): ' +
+                            e.message +
+                            '\nVẫn xuất Excel nhưng KHÔNG có 2 cột này.'
                     );
                 }
-                wsData = handoverMap ? buildExcelRowsReturn(items, handoverMap) : buildExcelRows(items);
+                wsData = handoverMap
+                    ? buildExcelRowsReturn(items, handoverMap)
+                    : buildExcelRows(items);
             } else {
                 wsData = buildExcelRows(items);
             }
@@ -3677,7 +3726,8 @@
                         if (!r.ok) return; // không chắc → coi còn sống
                         const j = await r.json();
                         const row = (j.value || []).find((x) => x.Number === code);
-                        if (!row) dead.add(code); // không còn trên TPOS → chết
+                        if (!row)
+                            dead.add(code); // không còn trên TPOS → chết
                         else if (row.State === 'cancel') dead.add(code); // đã huỷ → chết
                         // còn lại (open/paid/draft...) → còn sống, KHÔNG ẩn
                     } catch (e) {

@@ -181,20 +181,6 @@
                             <span id="drBtnSearchText">Tìm kiếm</span>
                         </button>
                         <button
-                            class="dr-btn dr-btn-success"
-                            id="drBtnExport"
-                            onclick="DeliveryReport.exportExcel()"
-                        >
-                            <i class="fas fa-file-excel"></i> Xuất excel
-                        </button>
-                        <button
-                            class="dr-btn dr-btn-warning"
-                            id="drBtnExportDetail"
-                            onclick="DeliveryReport.exportExcel()"
-                        >
-                            <i class="fas fa-file-excel"></i> Xuất excel chi tiết sản phẩm từng dòng
-                        </button>
-                        <button
                             class="dr-btn"
                             id="drBtnExportTomato"
                             onclick="DeliveryReport.exportExcelProvince('tomato')"
@@ -251,9 +237,6 @@
                         >
                             <i class="fas fa-file-excel"></i> THU VỀ
                         </button>
-                        <button class="dr-btn dr-btn-info" onclick="DeliveryReport.printView()">
-                            <i class="fas fa-print"></i> In
-                        </button>
                         <button
                             class="dr-btn dr-btn-send-along"
                             id="drBtnSendAlong"
@@ -267,7 +250,7 @@
                             id="drBtnCopyHandover"
                             onclick="DeliveryReport.copyHandoverImage()"
                             style="background: #fef3c7; color: #b45309; display: none"
-                            title="Tạo ảnh xác nhận bàn giao đơn Thành phố cho shipper (copy vào clipboard)"
+                            title="Tạo ảnh xác nhận bàn giao đơn Thành phố cho shipper (copy vào clipboard + gửi nhóm Telegram)"
                         >
                             <i class="fas fa-camera"></i> Copy ảnh bàn giao
                         </button>
@@ -600,7 +583,7 @@
         <script src="../shared/js/wallet-pair-utils.js?v=20260526k"></script>
 
         <!-- Delivery Report Logic -->
-        <script src="js/delivery-report.js?v=20260612h"></script>
+        <script src="js/delivery-report.js?v=20260612i"></script>
         <script src="js/cancel-request.js?v=20260526k"></script>
         <script src="js/report.js?v=20260526k"></script>
         <script src="js/send-along.js?v=20260612c"></script>

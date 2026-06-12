@@ -482,6 +482,7 @@ const { saveRealtimeUpdate, upsertPendingCustomer } = require('./routes/realtime
 const geminiRoutes = require('./routes/gemini');
 const deepseekRoutes = require('./routes/deepseek');
 const telegramBotRoutes = require('./routes/telegram-bot');
+const deliveryReportTelegramRoutes = require('./routes/delivery-report-telegram'); // Web 1.0 — bot Telegram riêng cho delivery-report
 const uploadImageRoutes = require('./routes/upload');
 const quyTrinhRoutes = require('./routes/quy-trinh');
 const goongPlacesRoutes = require('./routes/goong-places');
@@ -612,6 +613,7 @@ app.use('/api/realtime', realtimeRoutes);
 app.use('/api/gemini', geminiRoutes);
 app.use('/api/deepseek', deepseekRoutes);
 app.use('/api/telegram', telegramBotRoutes);
+app.use('/api/delivery-report-telegram', deliveryReportTelegramRoutes); // Web 1.0 — ảnh bàn giao → nhóm Telegram
 app.use('/api/upload', uploadImageRoutes);
 app.use('/api/quy-trinh', quyTrinhRoutes);
 app.use('/api/goong-places', goongPlacesRoutes);
