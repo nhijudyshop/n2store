@@ -2,6 +2,15 @@
 
 ## 2026-06-12
 
+### [delivery-report] Ảnh bàn giao v9: phí ship kênh tỉnh (TMT/NAP) = 23k/đơn ✅
+
+**User:** phí ship của kênh TMT và NAP là 23k, tính lại.
+
+- Hằng số mới `HANDOVER_SHIP_FEE_PROVINCE = 23000` dùng trong `buildGroupHandoverCanvas` (TMT/NAP); TP + thu về giữ `HANDOVER_SHIP_FEE = 20000`. Cache-bust `?v=20260612f`.
+- **Test:** TMT `2.545 − 46 (2×23) = 2.499`, NAP `225 − 23 = 202` ✓.
+
+**Status:** ✅ Done.
+
 ### [delivery-report] Ảnh bàn giao v8: không có đơn 0đ → bỏ hẳn section ĐƠN 0đ (TP + TMT + NAP) ✅
 
 **User:** không có đơn 0 đồng thì bỏ phần ĐƠN 0đ đi, đừng ghi "Không có đơn 0đ" — áp dụng cả Thành phố, NAP, TOMATO.

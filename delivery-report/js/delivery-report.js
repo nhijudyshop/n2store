@@ -1717,7 +1717,8 @@
     // phí ship như bên TP = còn lại + từng khách: tên + SL · giá trị + mã SP
     // từ ticket CSKH). Dòng Tổng cuối = còn lại TP + còn lại thu về.
     // Chỉ đơn ĐÃ QUÉT. Tiền đơn vị NGHÌN (110.298 = 110.298.000đ).
-    const HANDOVER_SHIP_FEE = 20000; // phí ship shipper 20k/đơn
+    const HANDOVER_SHIP_FEE = 20000; // phí ship shipper 20k/đơn (Thành phố + thu về)
+    const HANDOVER_SHIP_FEE_PROVINCE = 23000; // phí ship 23k/đơn kênh tỉnh (TMT/NAP)
     function formatThousand(v) {
         return new Intl.NumberFormat('vi-VN').format(Math.round((v || 0) / 1000));
     }
@@ -2078,8 +2079,8 @@
         const W = 520;
         const PAD = 24;
         const ZROW_H = 32;
-        const feeK = HANDOVER_SHIP_FEE / 1000;
-        const ship = count * HANDOVER_SHIP_FEE;
+        const feeK = HANDOVER_SHIP_FEE_PROVINCE / 1000; // kênh tỉnh 23k/đơn
+        const ship = count * HANDOVER_SHIP_FEE_PROVINCE;
         const net = total - ship;
         // Không có đơn 0đ → bỏ hẳn section (không ghi "Không có đơn 0đ")
         const hasZero = zeroItems.length > 0;
