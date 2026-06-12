@@ -360,7 +360,7 @@
                                 padding: 3px 10px;
                                 border-radius: 999px;
                             "
-                            >Vòng 3: 2026-06-12 ✅ đợt F tiền/kho ĐÃ FIX (còn G/H/I/E)</span
+                            >Vòng 3: 2026-06-12 ✅ đợt F+G ĐÃ FIX (còn H/I/E + bật enforce)</span
                         >
                     </div>
                     <p style="margin: 0 0 12px; font-size: 13px; color: #475569; line-height: 1.6">
@@ -430,8 +430,11 @@
                                 double-debit; <code>adjust-pending</code> lost update.
                             </li>
                             <li>
-                                <strong>⬜ Auth (3H14, 3H17, 3H18 + 1D) — đợt G:</strong> mutation
-                                tiền balance-history/customers + monitoring
+                                <strong
+                                    >✅ Auth (3H14, 3H17, 3H18, 3H19 + 1D) — ĐÃ FIX đợt G (commit
+                                    11b6d0717):</strong
+                                >
+                                mutation tiền balance-history/customers + monitoring
                                 <code>/audit/:id/revert</code> (đảo tiền ví) KHÔNG có middleware nào
                                 kể cả soft; payment-signals approve trên signal dismissed vẫn cộng
                                 ví; cutout/dashboard-kpi/audit-log/notifications-read hở.
@@ -445,8 +448,10 @@
                             </li>
                             <li>
                                 <strong>⬜ Khác:</strong> Stored XSS modal Lịch sử SP (3H15); báo
-                                cáo bucket ngày UTC sai trước 7h sáng (3H20); regression
-                                kpi-assignments 401 (3H19); blocker enforce 3H21.
+                                cáo bucket ngày UTC sai trước 7h sáng (3H20). ✅ 3H19 (regression
+                                kpi-assignments 401) + 3H21 phần server/client trung tâm đã fix đợt
+                                G — còn wire token raw fetch native/so-order rồi mới bật
+                                <code>WEB2_AUTH_ENFORCE=1</code>.
                             </li>
                         </ul>
                     </div>

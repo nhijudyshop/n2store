@@ -2,6 +2,21 @@
 
 ## 2026-06-12
 
+### [web2] [render] FIX đợt G vòng 3 — auth blanket + enforce-prep (3H14, 3H17-3H19, 3H21 + 7 nhóm 1D) ✅
+
+**User:** "đợt G". Commit code `11b6d0717` (19 files).
+
+- **3H14:** balance-history 8 mutation (resolve/link/reassign/auto-match/reprocess/auto-assign/manual-deposit/cleanup) + customers 8 mutation (create/upsert/enrich-fb/merge/PATCH/DELETE/add-alt-phone/harvest) gate `requireWeb2AuthSoft`; `verifiedBy`/`userName` fallback `req.web2User.display_name`.
+- **3H17:** monitoring `revert`/`replay`/blacklist gate **HARD** `requireWeb2Admin` (GET soft); `web2-match-audit.revert()` viết lại: transaction + FOR UPDATE, lỗi ví → `WALLET_REVERT_FAILED` rollback toàn bộ (trước nuốt lỗi → "sổ reset, tiền chưa rút"); revertedBy từ `req.web2User`.
+- **3H18:** payment-signals `/approve` guard mọi status ≠ `pending` → 409 (trước chỉ chặn confirmed → approve trên dismissed cộng ví + nhắn khách mà status kẹt).
+- **3H19:** kpi-assignments `loadUsers()` gửi `x-web2-token` + toast 401 (bump `?v=20260612g`).
+- **1D auth (7 nhóm):** cutout soft + rate-limit 20 ảnh/phút/IP · dashboard-kpi GET soft · audit-log /list+/entities soft · notifications list/unread/read/mark-all soft · pancake-refresh GET /status soft · poller-pages mutations soft + `_notify` SSE (tab khác sync) · backfill-supplier + backfill-short-codes gate admin.
+- **3H21 enforce-prep:** web2-generic create/update/delete/bulk-create + dedicated-entity CRUD wire soft (trước không tham chiếu middleware → bật enforce vẫn mở 78 entity); history identity ưu tiên `req.web2User` (chống spoof); client `Web2Api._fetchJson` + notification-bell tự gắn `x-web2-token` (bỏ `credentials:'include'` vô nghĩa với token-based).
+- **⚠ `WEB2_AUTH_ENFORCE=1` CHƯA bật** — còn wire token vào raw fetch native-orders-app/so-order-app + checklist client vòng 2 (4 token-manager pancake, payment-confirm, pancake-settings, pbh-reports dashboard, ví KH) → bật env Render → browser-verify. Checklist ở mục 6 đợt G file MD.
+- **Verify:** `node --check` 18 file OK; import path middleware đúng (`../../` cho v2/, `../` cho routes/).
+
+**Status:** ✅ Done — đợt G hoàn tất (enforce flip là bước riêng). Còn đợt H (live-chat), I (tách Web1), E (ví NCC).
+
 ### [web2] [render] FIX đợt F vòng 3 — 11 bug tiền/kho (3C1, 3H1-3H5, 3H10-3H13, 3H16) ✅
 
 **User:** "đợt F" — fix cụm tiền/kho từ audit vòng 3.
