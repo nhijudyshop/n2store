@@ -2,6 +2,15 @@
 
 ## 2026-06-12
 
+### [web2] Đợt escape — module shared + S6-residual + cluster 4-ký-tự ✅ (`8947639bb`)
+
+- **`web2/shared/web2-escape.js` MỚI** — 1 nguồn `Web2Escape.{escapeHtml (5 ký tự), escJs, safeUrl, safeImageUrl}`. Trang mới load module này thay vì copy hàm (gốc S6 là copy-paste drift 3 thế hệ/15 file).
+- **S6-residual:** `web2-variants-app.js` + `web2-products-print.js` bản DOM-based (textContent→innerHTML, KHÔNG escape quote — injectable trong attribute `value="..."`) → 5 ký tự.
+- **Cluster 4-ký-tự:** thêm `.replace(/'/g,'&#39;')` vào balance-history ×4 file + purchase-refund-app + web2-history-timeline.
+- Bump `?v=20260612esc` 4 trang. Cleanup TEST-NCC-SMOKE qua endpoint maintenance mới (`deleted: {ledger:2, meta:1}`, /state về `empty:true` — migration thật không bị chặn).
+
+**Status:** ✅ Đợt GMT+7 + escape hoàn tất → toàn bộ các đợt named của vòng 3 (F/G/H/I/E/GMT+7+escape) ĐÓNG.
+
 ### [delivery-report] Ẩn nút Gửi Kèm (hiện sau 3-click tiêu đề) + đổi tên "Copy ảnh bàn giao" → "Ảnh Thành Phố" ✅
 
 **User:** nút Gửi Kèm cho ẩn đi, click 3 lần vào tiêu đề "Thống Kê Giao Hàng" mới thấy (như mấy nút ảnh); nút copy ảnh bàn giao ở tab Thành phố đổi tên thành "Ảnh Thành Phố".
