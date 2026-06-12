@@ -58,9 +58,9 @@
 - **Env mới trên Render (n2store-fallback):** `DELIVERY_REPORT_TELEGRAM_BOT_TOKEN` + `DELIVERY_REPORT_TELEGRAM_CHAT_ID` — TÁCH BIỆT hoàn toàn `TELEGRAM_BOT_TOKEN`/`TELEGRAM_ADMIN_CHAT_ID` của bot Gemini/alert cũ. Client gọi thẳng `n2store-fallback.onrender.com` (không qua CF worker — worker route theo whitelist path).
 - **Hàm `exportExcel`/`printView` giữ nguyên trong JS** (dead code từ UI nhưng không xóa — dễ khôi phục nút nếu cần).
 - **Verify:** node --check 3 file; mini-express smoke: `/status` → `configured:false`, `/send-photo` không env → 503 message rõ ràng.
-- **Còn chờ:** user tạo bot qua @BotFather + tạo group + lấy chat_id → set env Render → deploy → test gửi thật.
+- **Kích hoạt xong (cùng ngày):** bot `@delivery_n2bot` (DeliveryReport), group "Delivery" chat_id `-5344714256` (lấy qua getUpdates sau khi user add bot — lưu ý privacy mode: tin thường KHÔNG tới bot, chỉ `my_chat_member`/lệnh `/` mới thấy). 2 env set qua Render API `PUT /env-vars/{KEY}` + manual deploy `dep-d8lvgn4m0tmc73atavog`. E2E verified: `POST /send-photo` prod → ảnh vào group OK (messageId 5). ⚠ Bẫy: check `/status` NGAY khi deploy flip "live" có thể dính instance cũ đang drain → `configured:false` giả; chờ vài giây check lại.
 
-**Status:** ✅ Code done — chờ token bot từ user để kích hoạt.
+**Status:** ✅ Done — live end-to-end.
 
 ### [web2] [render] FIX edit sản phẩm 500 — fast_sale_orders THIẾU cột updated_at ✅
 
