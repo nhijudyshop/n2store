@@ -26,7 +26,7 @@
             href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
             rel="stylesheet"
         />
-        <link rel="stylesheet" href="css/tab1-orders.css?v=20260521b" />
+        <link rel="stylesheet" href="css/tab1-orders.css?v=20260612a" />
         <link rel="stylesheet" href="css/message-template-modal.css?v=20260521b" />
         <link rel="stylesheet" href="css/quick-reply-modal.css?v=20260521b" />
         <!-- Extracted CSS files -->
@@ -2752,7 +2752,7 @@
         <script src="js/tab1/tab1-bulk-tags.js?v=20260521b"></script>
 
         <!-- 6b. Processing Tags: Tag xử lý chốt đơn -->
-        <script src="js/tab1/tab1-processing-tags.js?v=20260521b"></script>
+        <script src="js/tab1/tab1-processing-tags.js?v=20260612a"></script>
 
         <!-- 6b1a. Bulk subtag KHÔNG ĐỂ HÀNG: gán hàng loạt theo STT -->
         <script src="js/tab1/tab1-bulk-subtag-khong-de-hang.js?v=20260521b"></script>
@@ -2811,7 +2811,7 @@
         <!-- 12. Chat Products: will be rebuilt -->
 
         <!-- 13. Merge: Order merge functions (lines 19145-20743) -->
-        <script src="js/tab1/tab1-merge.js?v=20260606b"></script>
+        <script src="js/tab1/tab1-merge.js?v=20260612a"></script>
 
         <!-- 13b. Merge SP Chờ Live: chuyển giỏ có flag CHO_LIVE sang live mới nhất cùng SĐT -->
         <script src="js/tab1/tab1-merge-live-waiting.js?v=20260521b"></script>
@@ -2919,6 +2919,17 @@
                         >
                             <i class="fas fa-times"></i>
                         </button>
+                    </div>
+                </div>
+
+                <!-- Progress bar khi đang gộp (2026-06-12) — JS điều khiển, ẩn mặc định -->
+                <div class="merge-progress-bar" id="mergeProgressBar" hidden>
+                    <div class="merge-progress-track">
+                        <div class="merge-progress-fill"></div>
+                    </div>
+                    <div class="merge-progress-info">
+                        <span class="merge-progress-text"></span>
+                        <span class="merge-progress-counts"></span>
                     </div>
                 </div>
 

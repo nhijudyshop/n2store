@@ -329,6 +329,10 @@
             }
         })(),
         _isLoaded: false, // true khi data đã load xong từ API — guard cho auto-tag
+        // Fix 2026-06-12 (merge miss tag): _isLoaded chỉ false TRƯỚC first-load / sau clear().
+        // Refresh (polling 15s / SSE) KHÔNG hạ cờ nữa — reload là incremental, data luôn valid;
+        // hạ cờ mỗi 15s tạo cửa sổ vài giây làm toggleOrderFlag/resetOrderTagsForMerge skip im lặng.
+        _hasLoadedOnce: false,
         _historyStore: new Map(), // Key = orderCode, Value = history[] — TÁCH RIÊNG, không bị removeOrder() xóa
 
         getHistory(orderCode) {
@@ -391,6 +395,7 @@
             this._idToCodeIndex.clear();
             this._historyStore.clear();
             this._isLoaded = false;
+            this._hasLoadedOnce = false;
         },
         getTTagDefinitions() {
             return this._tTagDefinitions;
@@ -495,10 +500,39 @@
         }
     }
 
+    // ===== Reload mutex (fix 2026-06-12 — merge miss tag) =====
+    // Flow gộp đơn pause reload trong lúc gắn tag để tránh reload in-flight setOrderData()
+    // đè state CŨ từ server lên tag vừa gắn trong RAM (race clobber → mất tag trên UI,
+    // batch-save sau đó có thể persist state cũ). Resume sẽ chạy lại reload nếu có pending.
+    let _reloadPaused = false;
+    let _reloadPending = false;
+
+    function pauseProcessingTagReload() {
+        _reloadPaused = true;
+    }
+
+    function resumeProcessingTagReload() {
+        _reloadPaused = false;
+        if (_reloadPending) {
+            _reloadPending = false;
+            loadProcessingTags();
+        }
+    }
+
     async function loadProcessingTags() {
         // KHÔNG reset _activeFilter / _activeFlagFilters ở đây — đó là user state,
         // nếu reset thì mỗi 15s polling sẽ làm filter biến mất khi user đang tương tác bảng.
-        ProcessingTagState._isLoaded = false;
+        if (_reloadPaused) {
+            // Đang merge — defer reload, chạy lại 1 lần khi resume
+            _reloadPending = true;
+            console.log(`${PTAG_LOG} loadProcessingTags deferred (reload paused — merge in progress)`);
+            return;
+        }
+        // CHỈ hạ _isLoaded trước FIRST load — refresh giữ true (data incremental, không bao giờ trống).
+        // Hạ cờ mỗi lần reload tạo cửa sổ vài giây làm các flow ghi tag skip im lặng (bug merge miss tag).
+        if (!ProcessingTagState._hasLoadedOnce) {
+            ProcessingTagState._isLoaded = false;
+        }
         try {
             // 1. Load config (T-tag definitions, custom flags) từ endpoint riêng
             // KHÔNG gọi clear() — dùng incremental update để tránh window trống data
@@ -559,6 +593,7 @@
             renderPanelContent();
             _ptagRefreshAllRows();
             ProcessingTagState._isLoaded = true;
+            ProcessingTagState._hasLoadedOnce = true;
             console.log(`${PTAG_LOG} Loaded tags for ${orderCodes.length} orders`);
 
             // Nếu user đang có filter active → re-apply qua performTableSearch để bảng phản
@@ -696,7 +731,7 @@
     // Retry với exponential backoff: tránh mất tag khi network thoáng qua
     // (Cloudflare proxy / Render timeout vài giây). Memory state có thể đã chuyển
     // sang HOAN_TAT nhưng DB chưa → F5 là mất → đơn kẹt "CHỜ ĐI ĐƠN".
-    async function saveProcessingTagToAPI(orderCode, data, retryCount = 0) {
+    async function saveProcessingTagToAPI(orderCode, data, retryCount = 0, options = {}) {
         const MAX_RETRY = 3;
         const DELAYS_MS = [500, 1500, 4500];
         try {
@@ -717,7 +752,7 @@
                     `${PTAG_LOG} saveProcessingTagToAPI retry ${retryCount + 1}/${MAX_RETRY} for ${orderCode}: ${e?.message || e}`
                 );
                 await new Promise((r) => setTimeout(r, DELAYS_MS[retryCount]));
-                return saveProcessingTagToAPI(orderCode, data, retryCount + 1);
+                return saveProcessingTagToAPI(orderCode, data, retryCount + 1, options);
             }
             console.error(
                 `${PTAG_LOG} saveProcessingTagToAPI giving up for ${orderCode} after ${MAX_RETRY} retries:`,
@@ -725,6 +760,10 @@
             );
             // Queue cho reconcile catch lần sau (page F5 hoặc post-create reconcile)
             _queueRetryBillCreated(orderCode);
+            // critical: true (flow merge) → caller PHẢI biết save fail — throw thay vì nuốt
+            if (options.critical) {
+                throw e;
+            }
         }
     }
 
@@ -1349,11 +1388,16 @@
      * @param {string} source - actor name dùng cho history
      */
     async function resetOrderTagsForMerge(orderCode, newState, source) {
+        // Fix 2026-06-12: KHÔNG silent-skip nữa — trước đây return im lặng khi _isLoaded=false
+        // (cửa sổ reload polling 15s) → đơn nguồn mất tag "ĐÃ GỘP KHÔNG CHỐT" mà caller vẫn
+        // tưởng thành công. Giờ: chờ tối đa 10s, hết timeout → THROW để flow merge ghi nhận fail.
         if (!ProcessingTagState._isLoaded) {
-            console.warn(
-                `${PTAG_LOG} Skip resetOrderTagsForMerge(${orderCode}) — data not loaded yet`
-            );
-            return;
+            const loaded = await _waitForPtagLoaded(10_000);
+            if (!loaded) {
+                throw new Error(
+                    `XL state chưa load xong sau 10s — không thể reset tag cho ${orderCode}`
+                );
+            }
         }
         const prev = ProcessingTagState.getOrderData(orderCode);
         const data = {
@@ -1389,7 +1433,8 @@
 
         _ptagRefreshRow(orderCode);
         renderPanelContent();
-        await saveProcessingTagToAPI(orderCode, data);
+        // critical: true → save fail sau retry sẽ THROW để flow merge ghi nhận (không nuốt)
+        await saveProcessingTagToAPI(orderCode, data, 0, { critical: true });
         // KHÔNG sync sang TPOS — đây là flow merge chỉ ghi Tag XL theo yêu cầu
     }
 
@@ -6971,6 +7016,12 @@
     window.mergeConfigDefs = mergeConfigDefs;
     // Tag XL reset helper — dùng cho flow gộp đơn (chỉ ghi Tag XL web, không sync TPOS)
     window.resetOrderTagsForMerge = resetOrderTagsForMerge;
+    // Merge-flow reliability helpers (fix 2026-06-12 — merge miss tag):
+    // - waitForProcessingTagsLoaded: gate trước khi gắn tag (thay vì skip im lặng khi state chưa load)
+    // - pause/resumeProcessingTagReload: mutex chặn reload polling/SSE clobber tag vừa gắn trong RAM
+    window.waitForProcessingTagsLoaded = _waitForPtagLoaded;
+    window.pauseProcessingTagReload = pauseProcessingTagReload;
+    window.resumeProcessingTagReload = resumeProcessingTagReload;
 
     // Cleanup empty tags
     window._ptagCleanupEmptyTags = _ptagCleanupEmptyTags;

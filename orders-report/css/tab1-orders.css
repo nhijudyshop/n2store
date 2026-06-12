@@ -3946,6 +3946,114 @@ button[onclick*='showAddProductForm'] {
     border-radius: 12px;
 }
 
+/* ===== Merge progress (2026-06-12) — modal giữ mở khi gộp ===== */
+
+.merge-progress-bar {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 10px 20px;
+    background: #faf5ff;
+    border-bottom: 1px solid #e9d5ff;
+}
+
+/* UA [hidden] bị author display:flex đè (specificity hòa) → phải ép lại */
+.merge-progress-bar[hidden] {
+    display: none !important;
+}
+
+.merge-progress-track {
+    height: 8px;
+    background: #ede9fe;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.merge-progress-fill {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, #a855f7, #6366f1);
+    border-radius: 4px;
+    transition: width 0.3s ease;
+}
+
+.merge-progress-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    font-size: 13px;
+    color: #4b5563;
+}
+
+.merge-progress-text {
+    font-weight: 600;
+    color: #6d28d9;
+}
+
+.merge-progress-counts {
+    white-space: nowrap;
+    font-weight: 600;
+}
+
+/* Badge trạng thái từng cụm (inject vào .merge-cluster-header khi đang gộp) */
+.merge-cluster-status {
+    margin-left: auto;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 700;
+    white-space: nowrap;
+    background: rgba(255, 255, 255, 0.25);
+    color: white;
+    max-width: 45%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.merge-cluster-status[data-state='done'] {
+    background: #22c55e;
+}
+
+.merge-cluster-status[data-state='merging'],
+.merge-cluster-status[data-state='tagging'] {
+    background: #f59e0b;
+    color: #1f2937;
+}
+
+.merge-cluster-status[data-state='partial'],
+.merge-cluster-status[data-state='tagfail'],
+.merge-cluster-status[data-state='locked'],
+.merge-cluster-status[data-state='conflict'] {
+    background: #fbbf24;
+    color: #7c2d12;
+}
+
+.merge-cluster-status[data-state='error'] {
+    background: #ef4444;
+}
+
+/* Card đang xử lý: viền nổi bật */
+.merge-cluster-card.merge-cluster-active {
+    border-color: #f59e0b;
+    box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.25);
+}
+
+/* Cụm không được chọn khi đang gộp: mờ đi */
+.merge-cluster-card.merge-cluster-skipped {
+    opacity: 0.4;
+    filter: grayscale(0.6);
+}
+
+/* Khi đang gộp: khóa thao tác trực quan */
+.merge-modal.merge-processing .merge-history-btn,
+.merge-modal.merge-processing .merge-btn-cancel,
+.merge-modal.merge-processing .merge-modal-close,
+.merge-modal.merge-processing .merge-select-all-label {
+    opacity: 0.4;
+    pointer-events: none;
+}
+
 /* Cluster Table */
 .merge-cluster-table-wrapper {
     overflow-x: auto;

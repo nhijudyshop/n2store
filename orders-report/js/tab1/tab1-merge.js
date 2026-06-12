@@ -637,13 +637,21 @@ async function executeBulkMergeOrderProducts() {
             return { success: false, message: 'Cancelled by user' };
         }
 
-        // Show loading indicator
+        // Progress toast update-in-place (2026-06-12): show() trả notifId, message render
+        // bằng innerHTML → nhúng <span> rồi update textContent theo từng cụm (i/N + counts).
+        let progressNotifId = null;
         if (window.notificationManager) {
-            window.notificationManager.show(
-                `Đang gộp sản phẩm cho ${mergeableGroups.length} SĐT...`,
-                'info'
+            progressNotifId = window.notificationManager.show(
+                `<span id="mergeBulkProgressText">Đang gộp sản phẩm cho ${mergeableGroups.length} SĐT…</span>`,
+                'info',
+                0,
+                { showProgress: false }
             );
         }
+        const _bulkProgress = (msg) => {
+            const el = document.getElementById('mergeBulkProgressText');
+            if (el) el.textContent = msg;
+        };
 
         // Load available tags trước để tag assignment có Id đúng
         try {
@@ -652,84 +660,121 @@ async function executeBulkMergeOrderProducts() {
             console.warn('[MERGE-BULK] loadAvailableTags fail:', e);
         }
 
-        // Execute merge for each phone group
+        // Execute merge for each phone group.
+        // Pause reload Tag XL trong suốt vòng lặp — tránh polling/SSE reload clobber tag
+        // vừa gắn (race mất "ĐÃ GỘP KHÔNG CHỐT"). Resume trong finally kể cả khi exception.
         const results = [];
-        for (let i = 0; i < mergeableGroups.length; i++) {
-            const group = mergeableGroups[i];
-            console.log(
-                `[MERGE-BULK] Processing ${i + 1}/${mergeableGroups.length}: Phone ${group.Telephone}`
-            );
+        const counts = { ok: 0, warn: 0, fail: 0 };
+        if (typeof window.pauseProcessingTagReload === 'function') {
+            window.pauseProcessingTagReload();
+        }
+        try {
+            for (let i = 0; i < mergeableGroups.length; i++) {
+                const group = mergeableGroups[i];
+                console.log(
+                    `[MERGE-BULK] Processing ${i + 1}/${mergeableGroups.length}: Phone ${group.Telephone}`
+                );
+                _bulkProgress(
+                    `Đang gộp ${i + 1}/${mergeableGroups.length} — SĐT ${group.Telephone} (✅${counts.ok} ⚠️${counts.warn} ❌${counts.fail})`
+                );
 
-            const result = await executeMergeOrderProducts(group);
-            results.push({ order: group, result });
+                const result = await executeMergeOrderProducts(group);
+                const entry = { order: group, result, tagResult: null };
+                results.push(entry);
 
-            // Gán tag sau khi merge (BUG-2: bulk path trước đây skip tag — gây mất audit trail).
-            // Enrich cluster với Details từ pre-merge snapshot (result.preMergeTargetDetails/
-            // preMergeSourceDetails) để history có sản phẩm thực thay vì rỗng.
-            if (result.success || result.partial) {
-                const baseCluster = {
-                    phone: group.Telephone,
-                    targetOrder: {
-                        ...group._targetOrder,
-                        Details: result.preMergeTargetDetails || [],
-                    },
-                    sourceOrders: group._sourceOrders.map((s, i) => ({
-                        ...s,
-                        Details: (result.preMergeSourceDetails || [])[i] || [],
-                    })),
-                    orders: group._allOrders, // DESC — assignTagsAfterMerge sort nội bộ nên thứ tự không matter
-                    mergedProducts: result.mergedProducts || [],
-                };
-                const clusterForTagging = result.partial
-                    ? buildPartialTagCluster(baseCluster, result.sourceClearResults)
-                    : baseCluster;
+                // Gán tag sau khi merge (BUG-2: bulk path trước đây skip tag — gây mất audit trail).
+                // Enrich cluster với Details từ pre-merge snapshot (result.preMergeTargetDetails/
+                // preMergeSourceDetails) để history có sản phẩm thực thay vì rỗng.
+                if (result.success || result.partial) {
+                    const baseCluster = {
+                        phone: group.Telephone,
+                        targetOrder: {
+                            ...group._targetOrder,
+                            Details: result.preMergeTargetDetails || [],
+                        },
+                        sourceOrders: group._sourceOrders.map((s, i) => ({
+                            ...s,
+                            Details: (result.preMergeSourceDetails || [])[i] || [],
+                        })),
+                        orders: group._allOrders, // DESC — assignTagsAfterMerge sort nội bộ nên thứ tự không matter
+                        mergedProducts: result.mergedProducts || [],
+                    };
+                    const clusterForTagging = result.partial
+                        ? buildPartialTagCluster(baseCluster, result.sourceClearResults)
+                        : baseCluster;
 
-                try {
-                    const tagResult = await assignTagsAfterMerge(clusterForTagging);
-                    if (!tagResult.success) {
+                    try {
+                        const tagResult = await assignTagsAfterMerge(clusterForTagging);
+                        entry.tagResult = tagResult;
+                        if (!tagResult.success) {
+                            console.warn(
+                                `[MERGE-BULK] Tag assignment fail for ${group.Telephone}:`,
+                                tagResult.error
+                            );
+                        }
+                    } catch (tagErr) {
+                        entry.tagResult = { success: false, error: tagErr?.message || String(tagErr), failures: [] };
                         console.warn(
-                            `[MERGE-BULK] Tag assignment fail for ${group.Telephone}:`,
-                            tagResult.error
+                            `[MERGE-BULK] Tag assignment error for ${group.Telephone}:`,
+                            tagErr
                         );
                     }
-                } catch (tagErr) {
-                    console.warn(
-                        `[MERGE-BULK] Tag assignment error for ${group.Telephone}:`,
-                        tagErr
-                    );
+
+                    // Save history với Details đầy đủ (không còn empty products như trước)
+                    if (typeof saveMergeHistory === 'function') {
+                        try {
+                            const historyRef = await saveMergeHistory(
+                                baseCluster,
+                                result,
+                                result.errorResponse || null
+                            );
+                            if (entry.tagResult) {
+                                await updateMergeHistoryTagResult(historyRef, entry.tagResult);
+                            }
+                        } catch (historyErr) {
+                            console.warn(
+                                `[MERGE-BULK] saveMergeHistory fail for ${group.Telephone}:`,
+                                historyErr
+                            );
+                        }
+                    }
+
+                    // Mark PBH merge-cancelled cho source đã clear
+                    const clearedIds = (result.sourceClearResults || [])
+                        .filter((r) => r.cleared)
+                        .map((r) => r.sourceId);
+                    if (
+                        clearedIds.length > 0 &&
+                        typeof markSourceOrdersMergeCancelled === 'function'
+                    ) {
+                        try {
+                            markSourceOrdersMergeCancelled(clearedIds);
+                        } catch (pbhErr) {
+                            console.warn(
+                                `[MERGE-BULK] markSourceOrdersMergeCancelled fail for ${group.Telephone}:`,
+                                pbhErr
+                            );
+                        }
+                    }
                 }
 
-                // Save history với Details đầy đủ (không còn empty products như trước)
-                if (typeof saveMergeHistory === 'function') {
-                    try {
-                        await saveMergeHistory(baseCluster, result, result.errorResponse || null);
-                    } catch (historyErr) {
-                        console.warn(
-                            `[MERGE-BULK] saveMergeHistory fail for ${group.Telephone}:`,
-                            historyErr
-                        );
-                    }
-                }
+                // Cập nhật counter theo phân loại (dùng chung classify với modal flow)
+                counts[_mergeClassifyResult(entry).bucket]++;
+                _bulkProgress(
+                    `Xong ${i + 1}/${mergeableGroups.length} cụm (✅${counts.ok} ⚠️${counts.warn} ❌${counts.fail})`
+                );
 
-                // Mark PBH merge-cancelled cho source đã clear
-                const clearedIds = (result.sourceClearResults || [])
-                    .filter((r) => r.cleared)
-                    .map((r) => r.sourceId);
-                if (clearedIds.length > 0 && typeof markSourceOrdersMergeCancelled === 'function') {
-                    try {
-                        markSourceOrdersMergeCancelled(clearedIds);
-                    } catch (pbhErr) {
-                        console.warn(
-                            `[MERGE-BULK] markSourceOrdersMergeCancelled fail for ${group.Telephone}:`,
-                            pbhErr
-                        );
-                    }
+                // Small delay to avoid rate limiting
+                if (i < mergeableGroups.length - 1) {
+                    await new Promise((resolve) => setTimeout(resolve, 500));
                 }
             }
-
-            // Small delay to avoid rate limiting
-            if (i < mergeableGroups.length - 1) {
-                await new Promise((resolve) => setTimeout(resolve, 500));
+        } finally {
+            if (typeof window.resumeProcessingTagReload === 'function') {
+                window.resumeProcessingTagReload();
+            }
+            if (progressNotifId != null && window.notificationManager) {
+                window.notificationManager.remove(progressNotifId);
             }
         }
 
@@ -748,10 +793,14 @@ async function executeBulkMergeOrderProducts() {
                 !r.result.locked
         );
         const failureCount = results.length - successCount;
+        // Cụm gộp SP OK/partial nhưng GẮN TAG FAIL (thiếu "ĐÃ GỘP KHÔNG CHỐT")
+        const tagFailList = results.filter(
+            (r) => (r.result.success || r.result.partial) && r.tagResult && !r.tagResult.success
+        );
 
         // Show summary — tập hợp tất cả failure categories
         if (window.notificationManager) {
-            if (failureCount === 0) {
+            if (failureCount === 0 && tagFailList.length === 0) {
                 window.notificationManager.show(
                     `Đã gộp sản phẩm thành công cho ${successCount} đơn hàng!`,
                     'success',
@@ -783,12 +832,27 @@ async function executeBulkMergeOrderProducts() {
                         `❌ ${genericFails.length} LỖI: ${genericFails.map((r) => r.order.Telephone).join(', ')}`
                     );
                 }
+                if (tagFailList.length > 0) {
+                    const details = tagFailList
+                        .map((r) => {
+                            const stts = (r.tagResult.failures || [])
+                                .map((f) => f.stt)
+                                .filter((s) => s != null);
+                            return `${r.order.Telephone}${stts.length ? ` (STT: ${stts.join(',')})` : ''}`;
+                        })
+                        .join('; ');
+                    parts.push(
+                        `🏷️ ${tagFailList.length} GẮN TAG LỖI (thiếu "ĐÃ GỘP KHÔNG CHỐT"): ${details}`
+                    );
+                }
                 const level =
-                    partialList.length > 0 || concurrencyList.length > 0 ? 'error' : 'warning';
+                    partialList.length > 0 || concurrencyList.length > 0 || tagFailList.length > 0
+                        ? 'error'
+                        : 'warning';
                 window.notificationManager.show(
                     `Gộp ${successCount}/${results.length} đơn. ${parts.join(' | ')}`,
                     level,
-                    12000
+                    15000
                 );
             }
         }
@@ -1356,12 +1420,291 @@ function updateConfirmButtonState() {
  * Close the merge modal
  */
 function closeMergeDuplicateOrdersModal() {
+    // Đang gộp → chặn đóng (tránh user tưởng xong rồi tắt giữa chừng)
+    if (_mergeModalProcessing) {
+        if (window.notificationManager) {
+            window.notificationManager.show(
+                'Đang gộp đơn — vui lòng đợi hoàn tất rồi mới đóng.',
+                'warning',
+                3000
+            );
+        }
+        return;
+    }
     const modal = document.getElementById('mergeDuplicateOrdersModal');
     modal.classList.remove('show');
 
     // Reset state
     mergeClustersData = [];
     selectedMergeClusters.clear();
+    _mergeProgressReset();
+    // Restore nút confirm về mặc định (sau khi gộp xong nút này biến thành "Đóng")
+    const confirmBtn = document.getElementById('confirmMergeBtn');
+    if (confirmBtn) {
+        confirmBtn.innerHTML = '<i class="fas fa-check"></i> Xác nhận Gộp Đơn';
+        confirmBtn.onclick = confirmMergeSelectedClusters;
+    }
+}
+
+// =====================================================
+// MERGE PROGRESS UI (2026-06-12) — modal giữ MỞ khi gộp:
+// progress bar tổng (i/N + counts) + badge trạng thái từng cụm trên card.
+// =====================================================
+
+let _mergeModalProcessing = false;
+
+const _MERGE_STATUS_LABELS = {
+    waiting: '⬜ Chờ',
+    merging: '⏳ Đang gộp SP…',
+    tagging: '🏷️ Đang gắn tag…',
+    done: '✅ Xong',
+    partial: '⚠️ Dang dở',
+    tagfail: '🏷️⚠️ Tag lỗi',
+    locked: '🔒 Bị lock',
+    conflict: '🔀 Conflict',
+    error: '❌ Lỗi',
+};
+
+/** Gắn/cập nhật badge trạng thái trên card cụm. */
+function _mergeSetClusterStatus(clusterId, state, detail = '') {
+    const card = document.querySelector(
+        `.merge-cluster-card[data-cluster-id="${typeof CSS !== 'undefined' && CSS.escape ? CSS.escape(String(clusterId)) : String(clusterId)}"]`
+    );
+    if (!card) return;
+    let badge = card.querySelector('.merge-cluster-status');
+    if (!badge) {
+        badge = document.createElement('span');
+        badge.className = 'merge-cluster-status';
+        const header = card.querySelector('.merge-cluster-header');
+        if (header) {
+            header.appendChild(badge);
+        } else {
+            card.prepend(badge);
+        }
+    }
+    badge.dataset.state = state;
+    const label = _MERGE_STATUS_LABELS[state] || state;
+    badge.textContent = detail ? `${label} — ${detail}` : label;
+    badge.title = detail || label;
+    card.classList.toggle('merge-cluster-active', state === 'merging' || state === 'tagging');
+    if (state === 'merging') {
+        try {
+            card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        } catch {}
+    }
+}
+
+/** Cập nhật progress bar tổng: done/total + SĐT đang xử lý + counts ✅⚠️❌. */
+function _mergeProgressUpdate(done, total, currentLabel, counts) {
+    const bar = document.getElementById('mergeProgressBar');
+    if (!bar) return;
+    bar.hidden = false;
+    const fill = bar.querySelector('.merge-progress-fill');
+    const text = bar.querySelector('.merge-progress-text');
+    const countEl = bar.querySelector('.merge-progress-counts');
+    if (fill) fill.style.width = `${total > 0 ? Math.round((done / total) * 100) : 0}%`;
+    if (text) text.textContent = currentLabel;
+    if (countEl && counts) {
+        countEl.textContent = `✅ ${counts.ok}   ⚠️ ${counts.warn}   ❌ ${counts.fail}`;
+    }
+}
+
+function _mergeProgressReset() {
+    const bar = document.getElementById('mergeProgressBar');
+    if (!bar) return;
+    bar.hidden = true;
+    const fill = bar.querySelector('.merge-progress-fill');
+    if (fill) fill.style.width = '0%';
+    const text = bar.querySelector('.merge-progress-text');
+    if (text) text.textContent = '';
+    const countEl = bar.querySelector('.merge-progress-counts');
+    if (countEl) countEl.textContent = '';
+}
+
+/** Khóa/mở controls của modal khi đang gộp + đánh dấu cụm không chọn. */
+function _mergeSetProcessingMode(on) {
+    _mergeModalProcessing = on;
+    const modal = document.getElementById('mergeDuplicateOrdersModal');
+    if (!modal) return;
+    modal.classList.toggle('merge-processing', on);
+    modal
+        .querySelectorAll('.merge-cluster-checkbox, #mergeSelectAllCheckbox')
+        .forEach((cb) => (cb.disabled = on));
+    modal
+        .querySelectorAll('.merge-history-btn, .merge-btn-cancel, .merge-modal-close')
+        .forEach((btn) => (btn.disabled = on));
+    const confirmBtn = document.getElementById('confirmMergeBtn');
+    if (confirmBtn) {
+        confirmBtn.disabled = on;
+        if (on) {
+            confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang gộp...';
+        }
+    }
+    // Dim các cụm không được chọn
+    document.querySelectorAll('.merge-cluster-card').forEach((card) => {
+        const selected = selectedMergeClusters.has(card.dataset.clusterId);
+        card.classList.toggle('merge-cluster-skipped', on && !selected);
+    });
+    // Cảnh báo nếu user đóng tab/trang giữa chừng
+    if (on) {
+        window.addEventListener('beforeunload', _mergeBeforeUnloadGuard);
+    } else {
+        window.removeEventListener('beforeunload', _mergeBeforeUnloadGuard);
+    }
+}
+
+function _mergeBeforeUnloadGuard(e) {
+    e.preventDefault();
+    e.returnValue = 'Đang gộp đơn — rời trang sẽ làm dở dang. Vẫn thoát?';
+    return e.returnValue;
+}
+
+/** Sau khi gộp xong: mở lại controls, nút confirm → "Đóng" (close sẽ tự restore nút). */
+function _mergeFinishProcessingMode() {
+    _mergeSetProcessingMode(false);
+    const confirmBtn = document.getElementById('confirmMergeBtn');
+    if (confirmBtn) {
+        confirmBtn.disabled = false;
+        confirmBtn.innerHTML = '<i class="fas fa-times"></i> Đóng';
+        confirmBtn.onclick = () => closeMergeDuplicateOrdersModal();
+    }
+}
+
+/**
+ * Phân loại kết quả 1 cụm (merge + tag) → badge state + bucket đếm + detail hiển thị.
+ */
+function _mergeClassifyResult({ result, tagResult }) {
+    const tagFailed = tagResult && !tagResult.success;
+    let tagDetail = '';
+    if (tagFailed) {
+        const sttList = (tagResult.failures || []).map((f) => f.stt).filter((s) => s != null);
+        tagDetail = sttList.length
+            ? `tag lỗi STT ${sttList.join(', ')}`
+            : `tag lỗi: ${tagResult.error || 'không rõ'}`;
+    }
+    if (result.success) {
+        return tagFailed
+            ? { badge: 'tagfail', bucket: 'warn', detail: tagDetail }
+            : { badge: 'done', bucket: 'ok', detail: '' };
+    }
+    if (result.partial) {
+        const d = `STT nguồn chưa clear: ${(result.failedSourceSTTs || []).join(',')}`;
+        return {
+            badge: tagFailed ? 'tagfail' : 'partial',
+            bucket: 'warn',
+            detail: tagFailed ? `${d}; ${tagDetail}` : d,
+        };
+    }
+    if (result.concurrencyConflict) {
+        return {
+            badge: 'conflict',
+            bucket: 'warn',
+            detail: 'user khác sửa đơn — load lại rồi thử lại',
+        };
+    }
+    if (result.locked) {
+        return { badge: 'locked', bucket: 'warn', detail: 'tab khác đang gộp' };
+    }
+    return { badge: 'error', bucket: 'fail', detail: result.message || 'Lỗi không xác định' };
+}
+
+/**
+ * Vòng lặp gộp từng cụm — tách riêng để confirmMergeSelectedClusters bọc try/finally
+ * (resume reload + mở khóa modal kể cả khi exception giữa chừng).
+ * Mutate `results` + `counts` in-place để finally đọc được trạng thái tới đâu.
+ */
+async function _runMergeClustersLoop(selectedClusters, results, counts) {
+    for (let i = 0; i < selectedClusters.length; i++) {
+        const cluster = selectedClusters[i];
+        console.log(
+            `[MERGE-MODAL] Processing ${i + 1}/${selectedClusters.length}: Phone ${cluster.phone}`
+        );
+        _mergeProgressUpdate(
+            i,
+            selectedClusters.length,
+            `Đang gộp cụm ${i + 1}/${selectedClusters.length} — SĐT ${cluster.phone}`,
+            counts
+        );
+        _mergeSetClusterStatus(cluster.id, 'merging');
+
+        const mergeData = {
+            Telephone: cluster.phone,
+            TargetOrderId: cluster.targetOrder.Id,
+            TargetSTT: cluster.targetOrder.SessionIndex,
+            SourceOrderIds: cluster.sourceOrders.map((o) => o.Id),
+            SourceSTTs: cluster.sourceOrders.map((o) => o.SessionIndex),
+            IsMerged: true,
+        };
+
+        const result = await executeMergeOrderProducts(mergeData);
+        const entry = { cluster, result, tagResult: null };
+        results.push(entry);
+
+        // Save merge history to Firebase (before tag assignment to capture original tags)
+        const historyRef = await saveMergeHistory(cluster, result, result.errorResponse || null);
+
+        // Assign tags trong 2 trường hợp:
+        // 1) success=true: gán tag đầy đủ cho target + tất cả source
+        // 2) partial=true: target đã có đủ products → vẫn cần tag target, CHỈ gán "ĐÃ GỘP KHÔNG CHỐT"
+        //    cho các source đã clear thành công (source chưa clear giữ nguyên tag cũ để user retry)
+        const clusterForTagging = result.success
+            ? cluster
+            : result.partial
+              ? buildPartialTagCluster(cluster, result.sourceClearResults)
+              : null;
+
+        if (clusterForTagging) {
+            _mergeSetClusterStatus(cluster.id, 'tagging');
+            console.log(
+                `[MERGE-MODAL] Assigning tags for cluster ${cluster.phone} (${result.partial ? 'partial' : 'full'})`
+            );
+            const tagResult = await assignTagsAfterMerge(clusterForTagging);
+            entry.tagResult = tagResult;
+            // Append kết quả tag vào history record (đã save trước đó để giữ originalTags)
+            await updateMergeHistoryTagResult(historyRef, tagResult);
+            if (tagResult.success) {
+                console.log(`[MERGE-MODAL] ✅ Tags assigned for cluster ${cluster.phone}`);
+            } else {
+                console.warn(
+                    `[MERGE-MODAL] ⚠️ Tag assignment failed for cluster ${cluster.phone}:`,
+                    tagResult.error
+                );
+            }
+        }
+
+        // Sync InvoiceStatusStore (PBH) cho source đã clear → đánh dấu merge-cancelled local
+        if (result.success || result.partial) {
+            const clearedIds = (result.sourceClearResults || [])
+                .filter((r) => r.cleared)
+                .map((r) => r.sourceId);
+            if (
+                clearedIds.length > 0 &&
+                typeof window.markSourceOrdersMergeCancelled === 'function'
+            ) {
+                try {
+                    window.markSourceOrdersMergeCancelled(clearedIds);
+                } catch (e) {
+                    console.warn(`[MERGE-MODAL] markSourceOrdersMergeCancelled failed:`, e);
+                }
+            }
+        }
+
+        // Badge kết quả cuối + counter
+        const state = _mergeClassifyResult(entry);
+        _mergeSetClusterStatus(cluster.id, state.badge, state.detail);
+        counts[state.bucket]++;
+        _mergeProgressUpdate(
+            i + 1,
+            selectedClusters.length,
+            `Xong cụm ${i + 1}/${selectedClusters.length} — SĐT ${cluster.phone}`,
+            counts
+        );
+
+        // Small delay to avoid rate limiting
+        if (i < selectedClusters.length - 1) {
+            await new Promise((resolve) => setTimeout(resolve, 500));
+        }
+    }
 }
 
 /**
@@ -1393,88 +1736,42 @@ async function confirmMergeSelectedClusters() {
         return;
     }
 
-    // Close modal and show loading
-    closeMergeDuplicateOrdersModal();
+    // 2026-06-12: modal giữ MỞ khi gộp — progress bar tổng + badge trạng thái từng cụm
+    // ngay trên card (user theo dõi được đang xử lý cụm nào, kết quả ra sao).
+    _mergeSetProcessingMode(true);
+    selectedClusters.forEach((c) => _mergeSetClusterStatus(c.id, 'waiting'));
+    const counts = { ok: 0, warn: 0, fail: 0 };
+    _mergeProgressUpdate(
+        0,
+        selectedClusters.length,
+        `Chuẩn bị gộp ${selectedClusters.length} cụm…`,
+        counts
+    );
 
-    if (window.notificationManager) {
-        window.notificationManager.show(
-            `Đang gộp sản phẩm cho ${selectedClusters.length} cụm...`,
-            'info'
-        );
+    // Pause reload Tag XL (polling 15s / SSE) trong suốt quá trình gộp — tránh reload
+    // in-flight đè state cũ lên tag "ĐÃ GỘP KHÔNG CHỐT" vừa gắn (race mất tag).
+    if (typeof window.pauseProcessingTagReload === 'function') {
+        window.pauseProcessingTagReload();
     }
 
-    // Load available tags before merge (needed for tag assignment)
-    await loadAvailableTags();
-
-    // Execute merge for each selected cluster
     const results = [];
-    for (let i = 0; i < selectedClusters.length; i++) {
-        const cluster = selectedClusters[i];
-        console.log(
-            `[MERGE-MODAL] Processing ${i + 1}/${selectedClusters.length}: Phone ${cluster.phone}`
+    try {
+        // Load available tags before merge (needed for tag assignment)
+        await loadAvailableTags();
+
+        await _runMergeClustersLoop(selectedClusters, results, counts);
+    } finally {
+        // LUÔN resume reload + mở khóa modal — kể cả khi có exception giữa chừng
+        if (typeof window.resumeProcessingTagReload === 'function') {
+            window.resumeProcessingTagReload();
+        }
+        _mergeProgressUpdate(
+            selectedClusters.length,
+            selectedClusters.length,
+            `Hoàn tất ${results.length}/${selectedClusters.length} cụm — ${counts.ok} OK, ${counts.warn} cảnh báo, ${counts.fail} lỗi`,
+            counts
         );
-
-        const mergeData = {
-            Telephone: cluster.phone,
-            TargetOrderId: cluster.targetOrder.Id,
-            TargetSTT: cluster.targetOrder.SessionIndex,
-            SourceOrderIds: cluster.sourceOrders.map((o) => o.Id),
-            SourceSTTs: cluster.sourceOrders.map((o) => o.SessionIndex),
-            IsMerged: true,
-        };
-
-        const result = await executeMergeOrderProducts(mergeData);
-        results.push({ cluster, result });
-
-        // Save merge history to Firebase (before tag assignment to capture original tags)
-        await saveMergeHistory(cluster, result, result.errorResponse || null);
-
-        // Assign tags trong 2 trường hợp:
-        // 1) success=true: gán tag đầy đủ cho target + tất cả source
-        // 2) partial=true: target đã có đủ products → vẫn cần tag target, CHỈ gán "ĐÃ GỘP KHÔNG CHỐT"
-        //    cho các source đã clear thành công (source chưa clear giữ nguyên tag cũ để user retry)
-        const clusterForTagging = result.success
-            ? cluster
-            : result.partial
-              ? buildPartialTagCluster(cluster, result.sourceClearResults)
-              : null;
-
-        if (clusterForTagging) {
-            console.log(
-                `[MERGE-MODAL] Assigning tags for cluster ${cluster.phone} (${result.partial ? 'partial' : 'full'})`
-            );
-            const tagResult = await assignTagsAfterMerge(clusterForTagging);
-            if (tagResult.success) {
-                console.log(`[MERGE-MODAL] ✅ Tags assigned for cluster ${cluster.phone}`);
-            } else {
-                console.warn(
-                    `[MERGE-MODAL] ⚠️ Tag assignment failed for cluster ${cluster.phone}:`,
-                    tagResult.error
-                );
-            }
-        }
-
-        // Sync InvoiceStatusStore (PBH) cho source đã clear → đánh dấu merge-cancelled local
-        if (result.success || result.partial) {
-            const clearedIds = (result.sourceClearResults || [])
-                .filter((r) => r.cleared)
-                .map((r) => r.sourceId);
-            if (
-                clearedIds.length > 0 &&
-                typeof window.markSourceOrdersMergeCancelled === 'function'
-            ) {
-                try {
-                    window.markSourceOrdersMergeCancelled(clearedIds);
-                } catch (e) {
-                    console.warn(`[MERGE-MODAL] markSourceOrdersMergeCancelled failed:`, e);
-                }
-            }
-        }
-
-        // Small delay to avoid rate limiting
-        if (i < selectedClusters.length - 1) {
-            await new Promise((resolve) => setTimeout(resolve, 500));
-        }
+        _mergeFinishProcessingMode();
     }
 
     // Count successes, partials, failures — phân loại concurrency & locked
@@ -1491,12 +1788,16 @@ async function confirmMergeSelectedClusters() {
             !r.result.concurrencyConflict &&
             !r.result.locked
     );
+    // Cụm gộp SP OK/partial nhưng GẮN TAG FAIL (thiếu "ĐÃ GỘP KHÔNG CHỐT" → rủi ro chốt trùng)
+    const tagFailList = results.filter(
+        (r) => (r.result.success || r.result.partial) && r.tagResult && !r.tagResult.success
+    );
 
     // Show summary — TẬP HỢP tất cả failure categories, không ẩn qua else-if chain
     if (window.notificationManager) {
         const totalFail =
             partialList.length + concurrencyList.length + lockedList.length + genericFails.length;
-        if (totalFail === 0) {
+        if (totalFail === 0 && tagFailList.length === 0) {
             window.notificationManager.show(
                 `Đã gộp sản phẩm thành công cho ${successCount} cụm đơn hàng!`,
                 'success',
@@ -1528,12 +1829,27 @@ async function confirmMergeSelectedClusters() {
                     `❌ ${genericFails.length} LỖI khác: ${genericFails.map((r) => r.cluster.phone).join(', ')}`
                 );
             }
+            if (tagFailList.length > 0) {
+                const details = tagFailList
+                    .map((r) => {
+                        const stts = (r.tagResult.failures || [])
+                            .map((f) => f.stt)
+                            .filter((s) => s != null);
+                        return `${r.cluster.phone}${stts.length ? ` (STT: ${stts.join(',')})` : ''}`;
+                    })
+                    .join('; ');
+                parts.push(
+                    `🏷️ ${tagFailList.length} cụm GẮN TAG LỖI (thiếu "ĐÃ GỘP KHÔNG CHỐT"): ${details} — kiểm tra Tag XL các đơn này`
+                );
+            }
             const level =
-                partialList.length > 0 || concurrencyList.length > 0 ? 'error' : 'warning';
+                partialList.length > 0 || concurrencyList.length > 0 || tagFailList.length > 0
+                    ? 'error'
+                    : 'warning';
             window.notificationManager.show(
                 `Gộp ${successCount}/${results.length} cụm. ${parts.join(' | ')}`,
                 level,
-                12000
+                15000
             );
         }
     }
@@ -1600,7 +1916,7 @@ function getMergeHistoryUserInfo() {
 async function saveMergeHistory(cluster, result, errorResponse = null) {
     if (!db) {
         console.warn('[MERGE-HISTORY] Firebase not available, cannot save history');
-        return;
+        return null;
     }
 
     try {
@@ -1676,10 +1992,35 @@ async function saveMergeHistory(cluster, result, errorResponse = null) {
             totalMergedProducts: mergedProductsData.length,
         };
 
-        await db.collection(MERGE_HISTORY_COLLECTION).add(historyEntry);
+        const docRef = await db.collection(MERGE_HISTORY_COLLECTION).add(historyEntry);
         console.log('[MERGE-HISTORY] Saved history entry for phone:', cluster.phone);
+        // Trả docRef để caller update thêm kết quả gắn tag (tagFailures) sau khi tagging xong
+        return docRef;
     } catch (error) {
         console.error('[MERGE-HISTORY] Error saving history:', error);
+        return null;
+    }
+}
+
+/**
+ * Update history entry với kết quả gắn tag (chạy SAU assignTagsAfterMerge).
+ * History được save TRƯỚC tagging (để giữ originalTags) nên kết quả tag phải append sau.
+ */
+async function updateMergeHistoryTagResult(docRef, tagResult) {
+    if (!docRef || !tagResult) return;
+    try {
+        await docRef.update({
+            tagSuccess: !!tagResult.success,
+            tagFailures: (tagResult.failures || []).map((f) => ({
+                stt: f.stt ?? null,
+                code: f.code || '',
+                step: f.step || '',
+                error: f.error || '',
+            })),
+            tagError: tagResult.success ? null : tagResult.error || 'Unknown tag error',
+        });
+    } catch (e) {
+        console.warn('[MERGE-HISTORY] updateMergeHistoryTagResult fail:', e?.message || e);
     }
 }
 
@@ -2232,6 +2573,23 @@ async function assignTagXLAfterMerge(cluster) {
 
         console.log('[MERGE-PTAG] Starting Tag XL-only assignment for cluster:', cluster.phone);
 
+        // Gate (fix 2026-06-12 — merge miss tag): chờ XL state sẵn sàng thay vì để
+        // toggleOrderFlag/assignTTagToOrder/resetOrderTagsForMerge skip im lặng khi
+        // _isLoaded=false (cửa sổ reload) → đơn nguồn mất "ĐÃ GỘP KHÔNG CHỐT".
+        if (typeof window.waitForProcessingTagsLoaded === 'function') {
+            const ready = await window.waitForProcessingTagsLoaded(10_000);
+            if (!ready) {
+                return {
+                    success: false,
+                    error: 'XL state chưa load xong sau 10s — chưa gắn tag, hãy thử lại',
+                    failures: [],
+                };
+            }
+        }
+
+        // Gom lỗi từng bước — KHÔNG nuốt: caller hiển thị summary + lưu vào merge history
+        const failures = []; // [{stt, code, step, error}]
+
         // ===== Tính merge tag id + name =====
         const allSTTs = cluster.orders
             .map((o) => o.SessionIndex)
@@ -2347,6 +2705,12 @@ async function assignTagXLAfterMerge(cluster) {
             }
         } catch (e) {
             console.error(`[MERGE-PTAG] Failed to add merge flag to target ${targetCode}:`, e);
+            failures.push({
+                stt: cluster.targetOrder.SessionIndex,
+                code: targetCode,
+                step: 'target-merge-flag',
+                error: e?.message || String(e),
+            });
         }
 
         // ===== SOURCES: reset cat/tTags, giữ NGUYÊN mọi flag GOP_* của source + add marker mới =====
@@ -2372,16 +2736,32 @@ async function assignTagXLAfterMerge(cluster) {
                 }
                 const sourceFlags = Array.from(mergedFlagMap.values());
 
-                await window.resetOrderTagsForMerge(
-                    sourceCode,
-                    {
-                        category: 3,
-                        subTag: 'DA_GOP_KHONG_CHOT',
-                        flags: sourceFlags,
-                        tTags: [],
-                    },
-                    'Hệ thống (gộp đơn)'
-                );
+                const resetPayload = {
+                    category: 3,
+                    subTag: 'DA_GOP_KHONG_CHOT',
+                    flags: sourceFlags,
+                    tTags: [],
+                };
+                await window.resetOrderTagsForMerge(sourceCode, resetPayload, 'Hệ thống (gộp đơn)');
+
+                // Verify-after-write (fix 2026-06-12): đọc lại state — bắt được cả trường hợp
+                // reload in-flight vừa clobber tag trong RAM. Sai → retry đúng 1 lần.
+                const _sourceTagOk = () =>
+                    window.ProcessingTagState.getOrderData(sourceCode)?.subTag ===
+                    'DA_GOP_KHONG_CHOT';
+                if (!_sourceTagOk()) {
+                    console.warn(
+                        `[MERGE-PTAG] Verify fail source ${sourceCode} (subTag != DA_GOP_KHONG_CHOT) — retry 1 lần`
+                    );
+                    await window.resetOrderTagsForMerge(
+                        sourceCode,
+                        resetPayload,
+                        'Hệ thống (gộp đơn)'
+                    );
+                    if (!_sourceTagOk()) {
+                        throw new Error('verify sau ghi: subTag != DA_GOP_KHONG_CHOT (sau retry)');
+                    }
+                }
                 console.log(
                     `[MERGE-PTAG] ✅ Source STT ${sourceOrder.SessionIndex}: reset → cat=3/DA_GOP_KHONG_CHOT + ${sourceFlags.length} GOP_* flag(s)`
                 );
@@ -2400,6 +2780,12 @@ async function assignTagXLAfterMerge(cluster) {
                 }
             } catch (e) {
                 console.error(`[MERGE-PTAG] resetOrderTagsForMerge source ${sourceCode} fail:`, e);
+                failures.push({
+                    stt: sourceOrder.SessionIndex,
+                    code: sourceCode,
+                    step: 'source-reset-tag',
+                    error: e?.message || String(e),
+                });
             }
         }
 
@@ -2407,10 +2793,21 @@ async function assignTagXLAfterMerge(cluster) {
             window.renderPanelContent();
         }
 
-        return { success: true, mergeTagId, mergeTagName };
+        // Return TRUNG THỰC (fix 2026-06-12): trước đây luôn success:true kể cả khi
+        // mọi source fail → caller log "✅ Tags assigned" giả, user không hề biết.
+        if (failures.length > 0) {
+            const error = failures
+                .map((f) => `STT ${f.stt} (${f.step}): ${f.error}`)
+                .join('; ');
+            console.warn(
+                `[MERGE-PTAG] ⚠️ ${failures.length} tag failure(s) for cluster ${cluster.phone}: ${error}`
+            );
+            return { success: false, failures, mergeTagId, mergeTagName, error };
+        }
+        return { success: true, failures: [], mergeTagId, mergeTagName };
     } catch (error) {
         console.error('[MERGE-PTAG] Error assigning Tag XL:', error);
-        return { success: false, error: error.message };
+        return { success: false, error: error.message, failures: [] };
     }
 }
 

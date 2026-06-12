@@ -2,6 +2,18 @@
 
 ## 2026-06-12
 
+### [orders-report] Gộp đơn trùng SĐT: fix miss tag "ĐÃ GỘP KHÔNG CHỐT" theo máy + progress UI trong modal ✅
+
+**User:** có máy chạy gộp xong nhưng một số đơn nguồn KHÔNG được gắn tag "ĐÃ GỘP KHÔNG CHỐT"; không có thanh tiến trình theo dõi đang xử lý cụm nào.
+
+- **Nguyên nhân gốc (4 lỗ hổng):** (R1) `resetOrderTagsForMerge`/`toggleOrderFlag`/`assignTTagToOrder` **silent-skip** khi `_isLoaded=false` — mà `loadProcessingTags()` hạ cờ ở ĐẦU MỖI reload; máy nào SSE rớt → polling 15s → cứ 15s có cửa sổ vài giây skip tag im lặng (giải thích "máy này bị máy kia không"); (R2) `assignTagXLAfterMerge` **luôn return success:true** kể cả mọi source fail (catch nuốt); (R3) reload in-flight clobber tag vừa gắn trong RAM; (R4) `saveProcessingTagToAPI` bỏ cuộc im lặng sau 3 retry.
+- **Fix tab1-processing-tags.js:** `_hasLoadedOnce` — refresh KHÔNG hạ `_isLoaded` nữa (chỉ false trước first-load/sau clear) · `resetOrderTagsForMerge` chờ `_waitForPtagLoaded(10s)` rồi THROW nếu timeout (hết silent-skip) · `saveProcessingTagToAPI` thêm option `{critical:true}` → fail sau retry thì throw (merge path dùng) · expose `window.waitForProcessingTagsLoaded` + `pause/resumeProcessingTagReload` (mutex reload khi merge — pause set pending, resume chạy lại).
+- **Fix tab1-merge.js:** `assignTagXLAfterMerge` gate chờ state + gom `failures[{stt,code,step,error}]` + **verify-after-write** (đọc lại subTag, retry 1 lần) + return trung thực · 2 flow (modal + bulk) bọc pause/resume trong try/finally · summary thêm category `🏷️ GẮN TAG LỖI` kèm STT · history Firestore append `tagSuccess/tagFailures` (saveMergeHistory trả docRef + `updateMergeHistoryTagResult`).
+- **Progress UI (user chọn):** modal GIỮ MỞ khi gộp — progress bar tổng (i/N + SĐT + ✅⚠️❌) trên body + badge trạng thái từng cụm trên card (⬜Chờ→⏳Gộp SP→🏷️Gắn tag→✅/⚠️dang dở/🏷️⚠️tag lỗi/🔒/🔀/❌), khóa controls + chặn đóng + beforeunload guard khi đang chạy, cụm không chọn mờ đi, xong → nút "Đóng". Bulk flow (không modal) dùng toast update-in-place i/N. Markup `#mergeProgressBar` (tab1-orders.html) + CSS `merge-progress-*`/`merge-cluster-status` (tab1-orders.css, có rule `[hidden]` ép display:none). Bump `?v=20260612a` 3 file.
+- **Test (localhost + Playwright, KHÔNG ghi API thật):** A1 cờ giữ true khi refresh ✅ · pause→reload deferred, resume→chạy lại ✅ · `resetOrderTagsForMerge` khi state chưa load → throw sau đúng 10s thay vì silent return ✅ · dry-run full flow 3 cụm stub (success/tag-fail/partial): badge chuyển state đúng, progress 100%, summary toast đủ 2 category, nút Đóng restore, pause/resume 1/1 ✅.
+
+**Status:** ✅ Done.
+
 ### [delivery-report] Ảnh bàn giao v12: ảnh Thành phố không có thu về → bỏ hẳn cột THU VỀ (ảnh 1 cột) ✅
 
 **User:** đơn thu về khi gửi ảnh kênh Thành phố nếu = 0 thì khỏi ghi luôn.
