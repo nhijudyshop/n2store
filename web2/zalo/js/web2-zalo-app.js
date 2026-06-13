@@ -556,7 +556,7 @@
                             c.last_msg_sender_uid === 'me' ? 'Bạn' : c.last_sender_name || '';
                         if (who && who !== name) preview = `${who}: ${preview}`;
                     }
-                    return `<div class="wz-conv-item ${c.id === state.conv.activeId ? 'is-active' : ''}" data-id="${c.id}" role="button" tabindex="0" aria-label="Hội thoại với ${esc(name)}">
+                    return `<div class="wz-conv-item ${String(c.id) === String(state.conv.activeId) ? 'is-active' : ''}" data-id="${c.id}" role="button" tabindex="0" aria-label="Hội thoại với ${esc(name)}">
                 ${avatarHtml(c.avatar_url, name, 'wz-conv-av' + (group ? ' is-group' : ''))}
                 <div class="wz-conv-meta">
                     <div class="wz-conv-name">${esc(name)}</div>

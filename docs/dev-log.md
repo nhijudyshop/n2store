@@ -2,6 +2,35 @@
 
 ## 2026-06-13
 
+### [web2] [shared] Zalo chat → ĐƯA ENGINE VÀO SHARED, trang khác tham chiếu là dùng (mountChat) ✅ live-verified
+
+**User:** "Zalo này các phần quan trọng, chức năng → bỏ vào shared web 2.0 để sau này các phần cần dùng thì tham chiếu tới là dùng được → dễ quản lý, bảo trì."
+
+**Tái cấu trúc (1 nguồn, hết trùng lặp):**
+
+- **Di dời engine** vào `web2/shared/`: `web2-zalo-api.js` (ZaloApi client) + `zalo-chat/*` (9 module WZChat + 3 CSS + mới `chat-view.js`). Trước nằm trong `web2/zalo/js/` → giờ shared, mọi trang tham chiếu được.
+- **Controller chung `WZChat.mountConversation(container, conv, opts)`** (`shared/zalo-chat/chat-view.js`): dựng 1 hội thoại đầy đủ (header + tin + composer + realtime + tools/lightbox/load-older + optimistic send) vào BẤT KỲ container. Là NGUỒN DUY NHẤT logic khung chat.
+- **Refactor `web2/zalo/js/web2-zalo-app.js`** dùng controller chung → **xoá ~410 dòng trùng** (1290→877 dòng): openConversation chỉ còn delegate `WZChat.mountConversation`; bỏ renderChat/renderBody/send\*/bubbleKind/\_doReact/\_loadOlder… (đã ở shared).
+- **`Web2Zalo.mountChat(container, {phone|convId|conv})`** + **`loadChatEngine()`** (`shared/web2-zalo.js`): trang khác chỉ cần `<script src="../shared/web2-zalo.js">` rồi gọi `Web2Zalo.mountChat(el,{convId})` → tự nạp động engine (CSS+11 JS, suy `SHARED_BASE` từ `document.currentScript.src`) + resolve hội thoại + render. KHÔNG cần include thủ công.
+
+**Fix khi refactor:** `c.id` là BIGINT→string (pg) còn click truyền Number → `find`/`is-active` so sánh String (không thì hội thoại không mở).
+
+**Verify live (Playwright):** (1) trang web2/zalo qua controller chung: "Nhi Judy Store" nhóm 12 bubble, 3 tên thật ("Nhi Judy Store"/"Mai Thanh"/"Nhijudy Ơi"), composer OK, 0 lỗi. (2) `Web2Zalo.mountChat({convId:3})` trên trang **native-orders** (không có engine sẵn) → engine tự nạp (`hadEngineBefore:false→engineLoadedNow:true`), render đủ chat widget nổi, 0 lỗi.
+
+**Cách dùng cho trang khác:**
+
+```html
+<script src="../shared/web2-zalo.js?v=20260613L"></script>
+<div id="zaloChat" style="height:480px"></div>
+<script>
+    Web2Zalo.mountChat('#zaloChat', { convId: 3 }); // hoặc { phone:'09...' } / { conv }
+</script>
+```
+
+**Files:** di dời `web2/shared/web2-zalo-api.js` + `web2/shared/zalo-chat/{chat-store,lightbox,emoji-picker,sticker-picker,reactions,bubbles,composer,realtime,chat-actions,chat-view}.js` + `chat-{bubbles,composer,lightbox}.css`; sửa `web2/shared/web2-zalo.js` (+mountChat/loadChatEngine), `web2/zalo/js/web2-zalo-app.js` (delegate), `web2/zalo/index.html` (repath `?v=20260613L`).
+
+**Status:** ✅ live-verified localhost (page + embed). Push → GH Pages ~2-4 phút.
+
 ### [live-chat] Rebuild panel Chat Pancake trên NGUỒN CHUNG Web2Chat + realtime SSE (single source) ✅ (verified localhost)
 
 **User:** "xóa panel chat pancake này và làm lại đúng phần này — các phần kia tham chiếu tới 1 nguồn pancake" → "nếu shared web 2.0 đã đủ chức năng thì xóa stack riêng (PancakeAPI/State/Realtime) và build lại dùng shared" → "dùng riêng là đụng rule web 2.0 — ưu tiên 1 nguồn chung để quản lý/bảo trì". Bug gốc: tin nhắn render **bong bóng rỗng** (chỉ timestamp, không nội dung).
