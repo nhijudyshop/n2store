@@ -2,6 +2,33 @@
 
 ## 2026-06-13
 
+### [web2] [render] MEDIUM-cleanup vòng 3 — đợt cuối (~16 mục: race/leak/UX/escape/firebase) ✅
+
+**User:** "tiếp tục". 2 agent song song (`b21df92b5`) + server batch tự làm (`0661129d1`).
+
+**Server (`0661129d1`):**
+
+- from-comment 2 draft race: re-check draft DƯỚI advisory lock → request 2 merge vào draft của request 1 thay vì tạo đơn trùng.
+- DELETE native-orders: chặn xoá đơn còn PBH active (409, kèm số PBH) trừ `?force=1` — hết PBH mồ côi.
+- relay `realtime_credentials` fallback: load `LIKE 'pancake%'` (save dùng `pancake_<name>` → 0 match khi Firebase outage → relay 0 client im lặng).
+- pbh-reports `/summary`: native/delivery/refund counts lọc theo `days` (cùng cutoff rolling) thay vì all-time.
+- livestream-snapshots `_batchStatus`: sweep 10' xoá batch đã xong + cap 200 (memory leak chậm).
+- so-order in-tem: `upsert-pending {resolveOnly:true}` mới — chỉ tra/tạo MÃ, KHÔNG cộng pending_qty (gốc H15 — in tem trước đây upsert qty gốc → pending ảo → confirm-purchase convert thành tồn ảo).
+- live auto-snap: lọc `LiveHiddenCommenters.isHidden` (đồng bộ Force extract — hết phí capture comment shop).
+
+**Agent (`b21df92b5`):**
+
+- Gỡ Firebase compat SDK thừa: kpi ×2 (3 thẻ + firestore-compat ~470KB), services-dashboard/delivery-zone/printer-settings (2 thẻ + firebase-config) — verify 0 ref runtime.
+- TC phone-norm: `normPhoneWeb2` strict (84→0, trả null nếu ≠10 số) áp /create /upsert /enrich-fb /PATCH; PATCH reject name rỗng + phone rác.
+- CSV formula injection export công nợ NCC (prefix nháy đơn khi cell `= + - @`).
+- page-builder saveModal chống double-submit; exportCsv ví KH filter vip/warning/bomb export từ data màn hình.
+
+**Escape residual** (đã fix `8947639bb` từ trước — MD stale, nay đánh dấu ✅): variants-app/products-print 5 ký tự + cluster 4-ký-tự.
+
+**Còn tồn (ít rủi ro, kiến trúc):** TC merge alt_phones/ví orphan + wallet nextTick + deposit unique index · SP pgString/variants double-render · TM kpi default-open/notifications cron/forecast-actual dead · BC printer .bat 404 + token plaintext/`?token=` · HT bridge refocus/churn + `?v=` fragment + page-shell dead · LC campaign-5000/enricher Set/sse-nhiễm · 3W6 sidebar \_isAdmin · manualSepayId wrap · so-order Firestore 1-doc.
+
+**Status:** ✅ Done — phần lớn MEDIUM/LOW vòng 3 đã đóng. Tồn còn lại đều LOW/kiến trúc.
+
 ### [web2] [render] 🔒 BẬT WEB2_AUTH_ENFORCE=1 — auth Web 2.0 nay bắt buộc ✅
 
 **User:** "bật enforce". ENFORCE-PREP commit `248532b73`, deploy `07f4a0e02` (live, env `WEB2_AUTH_ENFORCE=1`).
