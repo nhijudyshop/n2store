@@ -182,7 +182,7 @@
 - ✅ `01cb771dd` **3W4**: `pbh-realtime.js` — WS legacy `wss://n2store-fallback` (`broadcastToClients` hub chung Web 1.0) với bare topics `pbh:*`/`native_order:*`/`delivery:*`/`refund:*`; phạm vi RỘNG hơn ghi nhận cũ: **4 trang** (report-revenue, fastsaleorder-invoice/-delivery/-refund) + native-orders + **4 route server** broadcast song song cả 2 kênh (gốc của SO-ws-sse-double). Migrate → Web2SSE rồi gỡ broadcastToClients khỏi route Web 2.0.
 - ✅ `01cb771dd` **3W5**: `web2-suppliers-cache.js:104-125` dùng Firestore `onSnapshot` (vi phạm quy tắc 6 — Web 2.0 không Firestore listener; collection prefix đúng). Server đã có topic `web2:supplier-wallet` → có đường migrate. Kèm `ensure()` RMW lost-update (1D).
 - ✅ **3W6** (`web2-sidebar.js?v=20260613c`, 37 trang): `_isAdmin()` ƯU TIÊN role `Web2Auth.getStored().user.role` (hệ auth Web 2.0), chỉ fallback auth Web 1.0 (`loginindex_auth`/`userType`) khi chưa login web2 — hết trộn 2 hệ auth cho UI gating (server vẫn gate độc lập qua `requireWeb2Admin`).
-- ⬜ Trang Web 2.0 còn load Firebase compat SDK thừa: kpi ×2 (cả **firestore-compat** ~470KB), services-dashboard, delivery-zone, printer-settings.
+- ✅ Firebase compat SDK ĐÃ GỠ khỏi kpi ×2 / services-dashboard / delivery-zone / printer-settings (verify 2026-06-13: 0 thẻ `firebase-*-compat` mỗi trang; dòng này trước ghi nhầm vẫn còn).
 
 ### 2.5 🟢 Shared CỐ Ý — chấp nhận, giữ trong danh mục theo dõi
 
