@@ -27,7 +27,12 @@
 
 **Files:** `render.com/{db/web2-zalo-schema,services/web2-zalo-zca,routes/web2-zalo}.js`, `web2/zalo/js/chat/bubbles.js`, `web2/zalo/css/chat-bubbles.css` (`?v=20260613i`). Commits `fa8661c70`.
 
-**Status:** ✅ Composer fix live-verified. 🔄 Tin nhóm fix deploy `fa8661c` (selfListen + resolve tên) đang build — verify tên resolve sau khi live.
+**Status:** ✅ Composer fix live-verified. ✅ Tin nhóm fix `fa8661c` LIVE — tên resolve thật ("Mai Thanh", "Nhijudy Ơi" + avatar, hết UID).
+
+**C. Nhầm TÊN NHÓM vs NGƯỜI NHẮN CUỐI (user báo tiếp):** group "Nhi Judy Store" có member cũng tên "Nhi Judy Store" → lẫn lộn. Fix:
+
+- `_persistIncoming` **ghi đè display_name nhóm bằng tên người gửi** (latent, selfListen kích hoạt) → nhóm KHÔNG đụng display_name (chỉ tên nhóm từ sync); user thread = tên người gửi.
+- Thêm cột `last_msg_sender_uid` (in→uid, out→'me') + backfill; endpoint conversations LEFT JOIN `web2_zalo_members` + resolve 1-call `getGroupMembersInfo`; FE list nhóm hiện **"Tên: tin"** (out→"Bạn: tin"). Commit `d9bcc5030`, deploy verify.
 
 ### [live-chat] FIX force-extract fail 100% — XFBML seek player "xfbml.ready timeout" ✅ (verified live)
 

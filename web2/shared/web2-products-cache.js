@@ -81,19 +81,8 @@
         return true;
     }
 
-    function _ensureFirestore() {
-        if (state.db) return state.db;
-        if (typeof firebase === 'undefined' || !firebase.firestore) {
-            return null;
-        }
-        try {
-            state.db = firebase.firestore();
-            return state.db;
-        } catch (e) {
-            console.warn('[Web2ProductsCache] firestore() failed:', e.message);
-            return null;
-        }
-    }
+    // C8-cleanup (2026-06-13): _ensureFirestore() ĐÃ GỠ — Firestore tickle bỏ từ
+    // 2026-05-29 (realtime qua SSE `web2:products`), hàm này không còn caller → dead.
 
     // P1 2026-05-30: Persistent cache → IndexedDB (chuyển từ localStorage).
     // Lý do: localStorage limit 5-10MB, sync API block main thread; IndexedDB
