@@ -84,11 +84,13 @@
         },
         // so-order Lưu Nháp: upsert items với status='CHO_MUA' + pending_qty.
         // items: [{name, variant, qty, costPrice, sellPrice, supplier, imageUrl, note}]
-        async upsertPending(items) {
+        async upsertPending(items, opts) {
+            // MEDIUM-cleanup (2026-06-13): opts.resolveOnly = chỉ lấy mã, KHÔNG
+            // cộng pending (in tem). Mặc định cũ (cộng pending) giữ nguyên.
             return _fetchJson(`${BASE}/upsert-pending`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ items }),
+                body: JSON.stringify({ items, resolveOnly: opts?.resolveOnly === true }),
             });
         },
         // Mua hàng confirm: status='DANG_BAN' + stock += pending_qty.

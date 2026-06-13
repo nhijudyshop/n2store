@@ -1241,6 +1241,10 @@ Throttle 30s/KH.`;
         if (!_isAutoMode()) return;
         const comment = payload?.comment;
         if (!comment || payload.isStaff) return;
+        // MEDIUM-cleanup (2026-06-13): bỏ qua người-bị-ẩn (mặc định 2 page shop)
+        // — Force extract đã lọc isHidden, path auto thì chưa → phí capture +
+        // POST snapshot cho comment shop tự reply.
+        if (global.LiveHiddenCommenters?.isHidden?.(comment)) return;
         const customerFbUserId = comment.from?.id;
         const customerName = comment.from?.name || '?';
         const commentId = comment.id;

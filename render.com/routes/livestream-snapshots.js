@@ -702,6 +702,35 @@ const _extractQueue = []; // { snapshotId, offsetSec, liveVideoId, pageId, batch
 const _m3u8Cache = new Map(); // liveVideoId → { url, fetchedAt }
 const _M3U8_CACHE_TTL = 5 * 60 * 1000;
 const _batchStatus = new Map(); // batchId → { total, done, failed, drmBlocked }
+// MEDIUM-cleanup (2026-06-13): _batchStatus tích luỹ vô hạn (mỗi batch manual/
+// extract-all/retry-cron tạo 1 entry, không có chỗ xoá → memory leak chậm).
+// Sweep mỗi 10' xoá batch ĐÃ XONG (done+failed >= total — client đã poll) +
+// hard cap 200 entry mới nhất (Map giữ thứ tự insert) chống phình.
+setInterval(
+    () => {
+        try {
+            for (const [id, st] of _batchStatus) {
+                if (
+                    st &&
+                    Number(st.total) > 0 &&
+                    Number(st.done || 0) + Number(st.failed || 0) >= st.total
+                )
+                    _batchStatus.delete(id);
+            }
+            const MAX = 200;
+            if (_batchStatus.size > MAX) {
+                let drop = _batchStatus.size - MAX;
+                for (const k of _batchStatus.keys()) {
+                    if (drop-- <= 0) break;
+                    _batchStatus.delete(k);
+                }
+            }
+        } catch (e) {
+            console.warn('[livestream] _batchStatus sweep fail:', e.message);
+        }
+    },
+    10 * 60 * 1000
+).unref?.();
 let _workerRunning = false;
 
 // FB Graph API — resolve URL video playable cho ffmpeg. Thử nhiều chiến lược +

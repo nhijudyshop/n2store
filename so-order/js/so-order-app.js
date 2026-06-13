@@ -2086,7 +2086,12 @@
                     note: it.note,
                 }));
                 _assignKhoCodes(upsertPayload);
-                const r = await window.Web2ProductsApi.upsertPending(upsertPayload);
+                // MEDIUM-cleanup (2026-06-13): in tem chỉ cần MÃ — resolveOnly:true
+                // để KHÔNG cộng pending_qty (trước đây upsert qty gốc → double-pending,
+                // pending ảo bị confirm-purchase convert thành tồn ảo). Gốc H15.
+                const r = await window.Web2ProductsApi.upsertPending(upsertPayload, {
+                    resolveOnly: true,
+                });
                 const ui = (r && r.items) || [];
                 for (let i = 0; i < ui.length && i < needCode.length; i++) {
                     if (ui[i].code) codeByKey.set(needCode[i].key, ui[i].code);

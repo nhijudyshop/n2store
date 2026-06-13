@@ -1145,6 +1145,11 @@ router.post('/upsert-pending', async (req, res) => {
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     const items = Array.isArray((req.body || {}).items) ? req.body.items : [];
     if (!items.length) return res.json({ success: true, created: 0, updated: 0, items: [] });
+    // MEDIUM-cleanup (2026-06-13): resolveOnly = chỉ tra/tạo SP lấy MÃ (in tem),
+    // KHÔNG cộng pending_qty — path "In tem" so-order trước đây upsert qty gốc
+    // → tái nhiễm double-pending (gốc H15). SP mới tạo với pending=0; SP có sẵn
+    // chỉ trả code, không UPDATE.
+    const resolveOnly = (req.body || {}).resolveOnly === true;
     const client = await pool.connect();
     try {
         await ensureTables(pool);
@@ -1158,7 +1163,7 @@ router.post('/upsert-pending', async (req, res) => {
             const variant = it.variant ? String(it.variant).trim() : null;
             const qty = Math.max(0, Number(it.qty) || 0);
             const supplier = it.supplier ? String(it.supplier).trim() : null;
-            if (!name || qty <= 0) continue;
+            if (!name || (qty <= 0 && !resolveOnly)) continue;
             // Match: name + variant (variant nullable, NULL match NULL)
             // 1D fix: ưu tiên exact-match variant — SP base (variant NULL, id nhỏ)
             // không được "thắng" khi SP đúng variant tồn tại (đối xứng adjust-pending).
@@ -1201,7 +1206,7 @@ router.post('/upsert-pending', async (req, res) => {
                             it.note || null,
                             Number(it.costPrice) || 0,
                             variant,
-                            qty,
+                            resolveOnly ? 0 : qty,
                             supplier,
                             now,
                         ]
@@ -1226,6 +1231,18 @@ router.post('/upsert-pending', async (req, res) => {
                 }
             } else {
                 const row = existing.rows[0];
+                if (resolveOnly) {
+                    // Chỉ cần mã — không đụng pending/status của SP có sẵn.
+                    results.push({
+                        code: row.code,
+                        name: row.name,
+                        action: 'resolved',
+                        status: row.status,
+                        pendingQty: Number(row.pending_qty) || 0,
+                        stock: Number(row.stock) || 0,
+                    });
+                    continue;
+                }
                 const curStock = Number(row.stock) || 0;
                 const curPending = Number(row.pending_qty) || 0;
                 const newPending = curPending + qty;
