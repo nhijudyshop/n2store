@@ -2857,6 +2857,100 @@ window.addEventListener('load', () => {
         });
     }
 
+    // =====================================================================
+    // DEV/TEST — sinh dữ liệu ngẫu nhiên. 2 lối vào:
+    //   • Nút "Điền ngẫu nhiên" trong modal Tạo Đơn Hàng → fillModalRandom()
+    //   • Nút "Tạo data ngẫu nhiên" trên thanh công cụ → generateRandomOrders(n)
+    // Chỉ tạo đơn NHÁP (Web 2.0 beta) để test nhanh — KHÔNG dùng cho data thật.
+    // generateRandomOrders đi qua đúng luồng handleOrderSubmit (shipment dedup,
+    // invoiceGroupId, sync Kho SP, auto-create NCC) để giống thao tác tay 100%.
+    // =====================================================================
+    const _RAND = {
+        products: [
+            'ÁO THUN TRƠN',
+            'ÁO SƠ MI LỤA',
+            'QUẦN JEAN ỐNG RỘNG',
+            'VÁY HOA NHÍ',
+            'ÁO KHOÁC DÙ',
+            'CHÂN VÁY XẾP LY',
+            'SET ÁO DÀI CÁCH TÂN',
+            'ÁO HOODIE NỈ',
+            'QUẦN SHORT KAKI',
+            'ĐẦM MAXI ĐI BIỂN',
+            'ÁO BLAZER',
+            'QUẦN TÂY CẠP CAO',
+        ],
+        colors: ['Trắng', 'Đen', 'Đỏ', 'Xanh Navy', 'Be', 'Hồng', 'Vàng', 'Xám'],
+        sizes: ['S', 'M', 'L', 'XL', 'Freesize'],
+        suppliers: ['HÀ NỘI', 'HƯƠNG CHÂU', 'QUẢNG CHÂU', 'XƯỞNG SỈ A', 'KHO TÂN BÌNH'],
+    };
+    function _rPick(a) {
+        return a[Math.floor(Math.random() * a.length)];
+    }
+    function _rInt(min, max) {
+        return Math.floor(Math.random() * (max - min + 1)) + min;
+    }
+    function _rImg(tag) {
+        return `https://picsum.photos/seed/so${tag}${_rInt(1, 99999)}/500/500`;
+    }
+    function _randomRow(isVnd) {
+        const cost = isVnd ? _rInt(3, 30) * 10000 : _rInt(20, 300);
+        let sell = cost * (1.5 + Math.random());
+        sell = isVnd ? Math.round(sell / 1000) * 1000 : Math.round(sell);
+        return _newModalRow({
+            productName: _rPick(_RAND.products),
+            variant: `${_rPick(_RAND.colors)} / ${_rPick(_RAND.sizes)}`,
+            qty: _rInt(1, 50),
+            costPrice: cost,
+            sellPrice: Math.max(sell, cost),
+            productImage: _rImg('p'),
+            invoiceImage: _rImg('inv'),
+        });
+    }
+
+    // Điền dữ liệu ngẫu nhiên vào modal Tạo Đơn Hàng đang mở (1-4 dòng SP, đủ ảnh).
+    function fillModalRandom() {
+        const form = document.getElementById('soOrderForm');
+        if (!form) return;
+        const tab = window.SoOrderStorage.getActiveTab(state);
+        const isVnd = (tab?.currency || 'VND') === 'VND';
+        const eta = new Date(Date.now() + _rInt(3, 30) * 86400000);
+        form.elements.supplier.value = _rPick(_RAND.suppliers);
+        form.elements.shipBatch.value = String(_rInt(1, 9));
+        form.elements.shipCaseCount.value = _rInt(1, 10);
+        form.elements.shipWeightKg.value = _rInt(5, 80);
+        form.elements.shipContractAmount.value = isVnd ? _rInt(50, 500) * 100000 : _rInt(500, 5000);
+        if (form.elements.shipExpectedDeliveryDate) {
+            form.elements.shipExpectedDeliveryDate.value = eta.toISOString().slice(0, 10);
+        }
+        if (form.elements.note) form.elements.note.value = 'Đơn test ngẫu nhiên';
+        form.elements.status.value = 'draft';
+        modalRows = Array.from({ length: _rInt(1, 4) }, () => _randomRow(isVnd));
+        renderModalRows();
+        updateModalGrandTotals();
+    }
+
+    // Tạo nhiều đơn ngẫu nhiên — mỗi đơn 1 lô riêng (batch unique để không gộp).
+    async function generateRandomOrders(count) {
+        const n = Number(count) || 0;
+        if (n <= 0) return;
+        const btn = document.getElementById('soGenRandomBtn');
+        if (btn) btn.disabled = true;
+        try {
+            for (let i = 0; i < n; i++) {
+                openOrderModal(null);
+                fillModalRandom();
+                const form = document.getElementById('soOrderForm');
+                form.elements.shipBatch.value = `T${Date.now().toString(36).slice(-3)}${i}`;
+                form.requestSubmit();
+                await new Promise((r) => setTimeout(r, 320));
+            }
+            notify(`✓ Đã tạo ${n} đơn ngẫu nhiên`, 'success');
+        } finally {
+            if (btn) btn.disabled = false;
+        }
+    }
+
     function openOrderModal(rowId, shipmentId) {
         const tab = window.SoOrderStorage.getActiveTab(state);
         // Guard: rows đã nhận → không mở modal edit. User phải revert status
@@ -4344,6 +4438,12 @@ window.addEventListener('load', () => {
         document
             .getElementById('soCreateOrderBtn')
             .addEventListener('click', () => openOrderModal(null));
+        document.getElementById('soGenRandomBtn')?.addEventListener('click', () => {
+            const c = prompt('Tạo bao nhiêu đơn ngẫu nhiên?', '5');
+            if (c === null) return;
+            generateRandomOrders(parseInt(c, 10) || 0);
+        });
+        document.getElementById('soModalFillRandomBtn')?.addEventListener('click', fillModalRandom);
         document.getElementById('soTrashBtn')?.addEventListener('click', openTrashModal);
         document.getElementById('soColumnSettingsBtn').addEventListener('click', openColumnModal);
         document.getElementById('soTabDeleteBtn').addEventListener('click', handleTabDelete);

@@ -92,6 +92,15 @@
                             <span>Thùng rác</span>
                             <span id="soTrashCount" class="so-trash-count" hidden>0</span>
                         </button>
+                        <button
+                            id="soGenRandomBtn"
+                            class="btn-secondary"
+                            type="button"
+                            title="Tạo nhiều đơn ngẫu nhiên để test (data nháp Web 2.0)"
+                        >
+                            <i data-lucide="dices"></i>
+                            Tạo data ngẫu nhiên
+                        </button>
                         <button id="soCreateOrderBtn" class="btn-primary" type="button">
                             <i data-lucide="plus-square"></i>
                             Tạo Đơn Hàng
@@ -344,6 +353,14 @@
                             <span class="so-foot-final-label">THÀNH TIỀN:</span>
                             <span class="so-foot-final-value" id="soModalFinalAmount">0₫</span>
                         </div>
+                        <button
+                            class="btn-secondary"
+                            type="button"
+                            id="soModalFillRandomBtn"
+                            title="Điền dữ liệu ngẫu nhiên vào form (1-4 SP + ảnh)"
+                        >
+                            <i data-lucide="dices"></i> Điền ngẫu nhiên
+                        </button>
                         <button class="btn-secondary" type="button" data-so-close>Hủy</button>
                         <button class="btn-primary" type="submit" form="soOrderForm">
                             <i data-lucide="save"></i> Lưu (Nháp)
@@ -506,6 +523,6 @@
         <script src="../web2/shared/web2-suppliers-cache.js?v=20260612en"></script>
         <script src="../web2/shared/web2-product-code.js?v=20260610a"></script>
         <script src="js/so-order-storage.js?v=20260610a"></script>
-        <script src="js/so-order-app.js?v=20260613a"></script>
+        <script src="js/so-order-app.js?v=20260613b"></script>
     </body>
 </html>

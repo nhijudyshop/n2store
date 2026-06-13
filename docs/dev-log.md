@@ -2,6 +2,17 @@
 
 ## 2026-06-13
 
+### [so-order] 2 nút sinh dữ liệu ngẫu nhiên để test (toolbar + modal) ✅
+
+**User:** thêm nhiều dữ liệu test → thêm nút tạo dữ liệu ngẫu nhiên ở bảng + nút điền dữ liệu ngẫu nhiên ở modal tạo đơn hàng.
+
+- **Nút "Tạo data ngẫu nhiên"** (toolbar, cạnh "Tạo Đơn Hàng", `#soGenRandomBtn`): `prompt` hỏi số lượng → `generateRandomOrders(n)` loop: `openOrderModal(null)` → `fillModalRandom()` → batch unique → `requestSubmit()` → đi qua **đúng luồng `handleOrderSubmit`** (shipment dedup, invoiceGroupId, auto-create NCC vào Ví NCC, sync Kho SP tạo SP "CHỜ MUA") để giống thao tác tay 100%. await 320ms/đơn, disable nút khi chạy.
+- **Nút "Điền ngẫu nhiên"** (modal Tạo Đơn Hàng, cạnh Hủy/Lưu, `#soModalFillRandomBtn`): `fillModalRandom()` điền supplier (pool 5 NCC) + ship metadata (batch/kiện/kg/HĐ/ETA) + 1-4 dòng SP ngẫu nhiên (tên/màu/size/SL/giá nhập/giá bán + **2 ảnh picsum/dòng**). Giá theo currency tab (VND nghìn / CNY nhỏ). Render ngay → thumbnail ảnh hiện liền.
+- **Code**: block `_RAND`/`_rPick`/`_rInt`/`_rImg`/`_randomRow`/`fillModalRandom`/`generateRandomOrders` thêm trước `openOrderModal` trong [so-order-app.js](so-order/js/so-order-app.js); wire 2 nút trong init; HTML 2 nút + bump `?v=20260613b`.
+- **Test (Playwright localhost):** modal fill → XƯỞNG SỈ A, 2 SP, total 12.754.000₫, 2 thumbnail/dòng ✅; Lưu → "Đã thêm 2 dòng + 2 SP CHỜ MUA" ✅; toolbar gen 4 đơn → "✓ Đã tạo 4 đơn", bảng 7→25 dòng ✅. Backend verify: `web2_products`=8 (linked CHỜ MUA, cross-page link), `web2_so_order` Firestore 7.403 bytes.
+
+**Status:** ✅ Done.
+
 ### [web2] [render] MEDIUM-cleanup vòng 3 — đợt cuối (~16 mục: race/leak/UX/escape/firebase) ✅
 
 **User:** "tiếp tục". 2 agent song song (`b21df92b5`) + server batch tự làm (`0661129d1`).
