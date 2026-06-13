@@ -2,6 +2,22 @@
 
 ## 2026-06-13
 
+### [render] [web2] [shared] Web 2.0 audit vòng 3 — MEDIUM-cleanup đợt 2 (TM/TC/SP/HT/LC/BC) ✅
+
+**User:** "continue / tiếp tục" — dọn nốt backlog MEDIUM/LOW mục 1C–1D của [WEB2-PAGES-ANALYSIS.md](web2/WEB2-PAGES-ANALYSIS.md).
+
+**Commits:** `21da4b762` (fixes) + `d57969738` (xoá page-shell.js). Tất cả JS pass `node --check`.
+
+- **TM (kpi.js + audit-log.js):** `/kpi` default-open → no-viewer + `WEB2_AUTH_ENFORCE=1` trả 401 (kpi-dashboard đã gửi `x-web2-token` nên an toàn) · `/backlog/:id/reclassify` gate `requireWeb2Admin` (0 frontend caller) · `/forecast` + `/actual` dead (chỉ comment stale ref) → gate `requireWeb2AuthSoft` + deprecate · audit-log 0 bảng → trả `warning` + `console.warn` thay vì empty im lặng.
+- **TC (web2-customers.js merge + web2-wallet-isolation.js):** merge KH giữ phone phụ + union `alt_phones`/`alt_addresses`/`fb_psids` (primary thắng) + cảnh báo nếu secondary còn số dư ví · partial UNIQUE INDEX `idx_web2_wallet_tx_unique_manual` (reference_id,type) WHERE reference_type IN manual/balance_history (hết race nạp tay trùng).
+- **SP (web2-variants-app.js):** double-render → reload đi DUY NHẤT qua SSE `web2:variants` debounce 600ms (bỏ reload từ cache-subscriber, giữ cache.init data nóng).
+- **HT (web2-sse-bridge.js):** refocus reopen dùng `lastEventAt || lastConnectedAt` (chỉ reopen khi im lặng thật >60s) · `?v=` đồng nhất `20260613b` cho bridge trên 28 trang · **xoá `web2/shared/page-shell.js`** (dead, 0 trang dùng — page-builder `Web2Page` thay thế) + sửa docs UI-FIRST/CLAUDE.md.
+- **LC (live-chat):** campaign limit 5000→1500 + warn/notify khi chạm cap · enricher `LiveKhoEnricher.reset()` clear Set khi đổi campaign · `_fetchLiveCommentDelta` guard return sớm khi đang xem campaign cha (`_origComments!=null`) → không advance cursor/prepend nhầm.
+- **BC (printer-settings):** `.bat`/`.ps1` URL dùng `new URL('../../scripts/...', location.href)` thay `location.origin` → hết 404 trên GH Pages subpath.
+- **ck-dashboard:** SSE `web2:payment-signals` debounce 550ms (trước burst 2-3 fetch tức thì).
+
+**Cập nhật:** [WEB2-PAGES-ANALYSIS.md](web2/WEB2-PAGES-ANALYSIS.md) flip ⬜→✅/🟨 (TM/TC/SP/HT/BC/LC + roadmap mục 8,10) · [web2/overview/index.html](../web2/overview/index.html) #auditPages thêm li "MEDIUM-cleanup đợt 2".
+
 ### [render] [shared] [chat] Realtime banner báo Render/Cloudflare down + fix Build Filter + empty-state chat ✅
 
 **User:** "khi nào server render, cloudflare bị lỗi thì hiện lên web theo realtime" + báo lỗi "Khách chưa có SĐT" lúc đang dùng bình thường.

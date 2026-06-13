@@ -1,32 +1,38 @@
 name: Deploy Cloudflare Worker
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - 'cloudflare-worker/**'
-      - 'shared/universal/**'
+    push:
+        branches:
+            - main
+        paths:
+            - 'cloudflare-worker/**'
+            - 'shared/universal/**'
+
+# 1 wrangler deploy duy nhất tại một thời điểm; push mới hủy job cũ đang chạy.
+# Group KHÁC deploy-firebase nên không hủy nhầm nhau.
+concurrency:
+    group: deploy-cloudflare-${{ github.ref }}
+    cancel-in-progress: true
 
 jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    name: Deploy Worker
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+    deploy:
+        runs-on: ubuntu-latest
+        name: Deploy Worker
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
+            - name: Setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: '20'
 
-      - name: Install dependencies
-        working-directory: ./cloudflare-worker
-        run: npm install
+            - name: Install dependencies
+              working-directory: ./cloudflare-worker
+              run: npm install
 
-      - name: Deploy to Cloudflare
-        working-directory: ./cloudflare-worker
-        run: npx wrangler deploy
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+            - name: Deploy to Cloudflare
+              working-directory: ./cloudflare-worker
+              run: npx wrangler deploy
+              env:
+                  CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}

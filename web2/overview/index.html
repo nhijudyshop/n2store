@@ -505,6 +505,24 @@
                                     trang Web 1.0. Rollback: env =0 + redeploy.</span
                                 >
                             </li>
+                            <li>
+                                <strong
+                                    >✅ MEDIUM-cleanup đợt 2 (13/06 — commits
+                                    21da4b762/d57969738):</strong
+                                >
+                                <strong>TM</strong> kpi default-open (no-token+enforce→401) +
+                                reclassify gate admin + forecast/actual dead gate soft + audit-log
+                                bảng thiếu → warning thay vì im lặng; <strong>TC</strong> merge KH
+                                giữ phone phụ + union alt_phones/alt_addresses/fb_psids + cảnh báo
+                                ví orphan + UNIQUE index manual-deposit (hết race nạp trùng);
+                                <strong>SP</strong> variants double-render → reload chỉ qua SSE
+                                debounce 600ms; <strong>HT</strong> bridge refocus dùng lastEventAt
+                                (+ <code>?v=</code> đồng nhất 28 trang) ·
+                                <strong>page-shell.js đã XOÁ</strong> (dead, page-builder thay) +
+                                docs khớp; <strong>LC</strong> campaign cap 1500+warn, enricher Set
+                                reset khi đổi campaign, SSE delta không nhiễm campaign view;
+                                <strong>BC</strong> printer .bat 404 GH Pages.
+                            </li>
                         </ul>
                     </div>
 
@@ -2333,7 +2351,7 @@ permission_templates    (role: admin/manager/staff)</pre
                             <ul>
                                 <li>
                                     HTML: load <code>web2-sse-bridge.js</code> TRƯỚC script app
-                                    (trang page-shell/page-builder đã có sẵn).
+                                    (trang page-builder đã có sẵn).
                                 </li>
                                 <li>
                                     Page JS trong <code>init()</code>:

@@ -157,13 +157,13 @@ function someOp(...args) {
 - `web2/bulk-import/`, `web2/print-export/`, `web2/smart-match/`
 - `web2/admin-sse-monitor/`, `web2/services-dashboard/`, `web2/overview/`
 
-### Page-shell pages (87 TPOS-clone)
+### Page-builder pages (87 TPOS-clone)
 
-Auto-có qua `web2/shared/page-shell.js` preload.
+Auto-có qua `web2/shared/page-builder.js` (`Web2Page`) preload. (File `page-shell.js`/`Web2Shell` cũ đã bị xoá 2026-06-13 — dead code, 0 trang dùng; page-builder thay thế hoàn toàn.)
 
 ## Pages CHƯA có helper (cần thêm khi refactor)
 
-Nếu page tự build (không qua page-shell) và chưa có `<script src=".../web2-optimistic.js">` — thêm vào trước script app chính:
+Nếu page tự build (không qua page-builder) và chưa có `<script src=".../web2-optimistic.js">` — thêm vào trước script app chính:
 
 ```html
 <script src="../shared/web2-optimistic.js?v=20260601a"></script>
