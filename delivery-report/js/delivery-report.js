@@ -2992,6 +2992,11 @@
             }
             if (bar) bar.style.display = 'none';
 
+            // Ẩn lại nút "Gửi Kèm" cùng tab Thành phố/Tỉnh khi tắt tra soát
+            // (triple-click chỉ reveal trong phiên tra soát — thoát thì ẩn về mặc định)
+            const saBtn = document.getElementById('drBtnSendAlong');
+            if (saBtn) saBtn.style.display = 'none';
+
             // Hide province/all-groups view if active
             const provinceView = document.getElementById('drProvinceView');
             if (provinceView) provinceView.style.display = 'none';
