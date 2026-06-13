@@ -58,6 +58,33 @@
     color: var(--wz-blue-600);
     margin: 0 0 3px 12px;
 }
+/* Nhóm: cột avatar người gửi bên trái bong bóng (Zalo style) */
+.wz-msg.has-sender .wz-msg-sender {
+    margin-left: 41px;
+}
+.wz-msg-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 7px;
+    max-width: 100%;
+}
+.wz-g-av {
+    width: 30px;
+    flex-shrink: 0;
+    align-self: flex-end;
+}
+.wz-g-avatar {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    object-fit: cover;
+    display: grid;
+    place-items: center;
+    background: linear-gradient(135deg, var(--wz-blue-soft), #f3edff);
+    color: var(--wz-blue);
+    font-weight: 700;
+    font-size: 12px;
+}
 
 /* ── wrap (tools + bubble) ──────────────────────────────────────────── */
 .wz-msg-wrap {

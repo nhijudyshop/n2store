@@ -177,23 +177,34 @@
                 .filter(Boolean)
                 .join(' ');
 
-            // tên người gửi (group, tin in, đầu nhóm)
-            const senderLbl =
-                isGroup && m.direction === 'in' && !grouped && m.sender_uid
-                    ? `<div class="wz-msg-sender">${esc(m.senderName || m.sender_uid)}</div>`
-                    : '';
+            // Nhóm + tin đến: hiện avatar (cột trái) + tên thật người gửi (đầu nhóm).
+            const showSender = isGroup && m.direction === 'in';
+            const senderName = m.sender_name || m.sender_uid || '';
+            const nameLbl =
+                showSender && !grouped ? `<div class="wz-msg-sender">${esc(senderName)}</div>` : '';
 
             const inner = m.recalled
                 ? '<span class="wz-msg-recalled"><i data-lucide="rotate-ccw"></i> Tin nhắn đã được thu hồi</span>'
                 : replyRow(m) + body(m, kind);
 
+            const wrapHtml = `<div class="wz-msg-wrap">${m.recalled ? '' : tools(m)}<div class="wz-msg-bubble">${inner}</div></div>`;
+            // avatar người gửi chỉ ở tin CUỐI của 1 lượt (Zalo style) — dùng next msg
+            const next = msgs[i + 1];
+            const lastOfRun =
+                !next ||
+                next.direction !== m.direction ||
+                (next.sender_uid || '') !== (m.sender_uid || '');
+            const rowHtml = showSender
+                ? `<div class="wz-msg-row">
+                    <div class="wz-g-av">${lastOfRun ? WZ.avatarHtml(m.sender_avatar, senderName, 'wz-g-avatar') : ''}</div>
+                    ${wrapHtml}
+                   </div>`
+                : wrapHtml;
+
             const isLastOut = (m.msg_id || m.cli_msg_id) === lastOutId;
-            html += `<div class="${cls}" data-msgid="${id}" data-cli="${esc(m.cli_msg_id || '')}" data-dir="${m.direction}" data-mtype="${esc(m.msg_type || 'text')}">
-                ${senderLbl}
-                <div class="wz-msg-wrap">
-                    ${m.recalled ? '' : tools(m)}
-                    <div class="wz-msg-bubble">${inner}</div>
-                </div>
+            html += `<div class="${cls}${showSender ? ' has-sender' : ''}" data-msgid="${id}" data-cli="${esc(m.cli_msg_id || '')}" data-dir="${m.direction}" data-mtype="${esc(m.msg_type || 'text')}">
+                ${nameLbl}
+                ${rowHtml}
                 ${m.recalled ? '' : reactionsRow(m)}
                 <div class="wz-msg-meta">${WZ.fmtTime(m.sent_at)} ${statusTick(m, isLastOut)}</div>
             </div>`;
