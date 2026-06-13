@@ -3,24 +3,29 @@
 > Snapshot tự động ghi đè sau mỗi commit chạm folder này. **Không edit thủ công.**
 > Mục đích: khi session cũ chết (vd lỗi image limit), session mới chỉ cần đọc file này là có đủ context để tiếp tục.
 
-**Latest session**: `RESUME:20260612-200245-2a4021b`
-**Session file**: [`./20260612-200245-2a4021b.md`](../20260612-200245-2a4021b.md)
-**Commit**: `2a4021b` — fix(orders-report): gộp đơn trùng SĐT — hết miss tag "ĐÃ GỘP KHÔNG CHỐT" theo máy + progress UI trong modal
-**Last updated**: 2026-06-12 20:02:45 +07
-**Summary**: fix(orders-report): gộp đơn trùng SĐT — hết miss tag ĐÃ GỘP KHÔNG CHỐT theo máy (silent-skip _isLoaded + reload clobber) + progress UI modal từng cụm
+**Latest session**: `RESUME:20260613-110713-0901f3f`
+**Session file**: [`./20260613-110713-0901f3f.md`](../20260613-110713-0901f3f.md)
+**Commit**: `0901f3f` — docs(web2): đánh dấu MEDIUM-cleanup đợt cuối ✅ (b21df92b5 + 0661129d1 + 8947639bb)
+**Last updated**: 2026-06-13 11:07:13 +07
+**Summary**: docs(web2): đánh dấu MEDIUM-cleanup đợt cuối ✅ (b21df92b5 + 0661129d1 + 8947639bb)
 
 ## Files changed in this commit (`so-order/`)
+
 - `so-order/index.html`
+- `so-order/js/so-order-app.js`
 
 ## Last 5 commits touching `so-order/`
+
+- `0661129d1` fix(web2): MEDIUM-cleanup batch 2 — from-comment race, DELETE native guard, relay client*type, /summary range, batchStatus leak, in-tem double-pending, auto-snap hidden filter *(2026-06-13)\_
 - `248532b73` feat(web2): ENFORCE-PREP — wire x-web2-token toàn bộ client gọi route soft-gated _(2026-06-12)_
 - `7bb139d21` auto: session update _(2026-06-12)_
 - `5e154518b` fix(web2): H15 so-order double-pending (upsert phần thiếu theo pending tươi + map kết quả theo vị trí) + gate admin delete-all web2-dedicated-entity _(2026-06-11)_
 - `330bd95eb` auto: session update _(2026-06-10)_
-- `e512f88df` refactor(web2): quét sạch chữ 'tpos' trong Web 2.0 (identifiers/UI/comments) _(2026-06-08)_
 
 ---
+
 **Để tiếp tục context trong session mới:**
+
 1. Đọc file session ở trên để xem Files Modified + Next Steps đã điền (nếu Claude turn trước fill rồi).
 2. Cần lùi xa hơn → `git show <sha>` theo list commit trên.
-3. Hoặc paste token `RESUME:20260612-200245-2a4021b` cho Claude walk chain theo CLAUDE.md protocol.
+3. Hoặc paste token `RESUME:20260613-110713-0901f3f` cho Claude walk chain theo CLAUDE.md protocol.
