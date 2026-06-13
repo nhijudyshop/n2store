@@ -2,31 +2,6 @@
 
 ## 2026-06-13
 
-### [live-chat] [shared] Redesign đợt 8 — skin "Chatwoot light" + THƯ VIỆN FX shared tái dùng (web2-fx.css) ✅
-
-**User:** revert dark Midnight Neon → "nền sáng, chat tham khảo Chatwoot làm theo màu sáng" + "viết shared web 2.0 css để các trang sau này dùng lại". Ultracode ON → dùng workflow research + review.
-
-**Quy trình (2 workflow):**
-
-- **Research workflow** (5 agent song song): lấy palette Chatwoot **verbatim từ tailwind.config v2.17.0** (woot blue `#1F93FF` + slate) + recipe thật cho 4 phong cách (faux-glass không blur / soft-UI / glow / animate.css), tất cả anti-lag + light.
-- **Review workflow** (3 agent adversarial): anti-lag + cross-page + a11y WCAG.
-
-**Sản phẩm chính — `web2/shared/web2-fx.css` (THƯ VIỆN SHARED TÁI DÙNG):** glass (`.w2-glass`, `.w2-glass-blur` opt-in modal), soft-UI (`.w2-soft`, `.w2-soft-i`, `.w2-soft-panel`), glow (`.w2-glow-cta`, `.w2-glow-pill`, `.w2-focus-glow`), animation (`@keyframes w2fx-*` + `.w2-anim-up/in/pop`, `.w2-bump`, `.w2-shimmer`, `.w2-press`, `.w2-hover-lift`) + reduced-motion. Token `--w2fx-*` đọc `--web2-primary` (override per-trang). **ZERO side-effect toàn cục** (chỉ class `.w2-*` opt-in + `:root` thêm var mới, không clobber) → trang web2 SAU NÀY chỉ cần `<link>` + gắn class. Header file có hướng dẫn dùng.
-
-**Áp dụng live-chat:**
-
-- `pancake-redesign-tokens.css`: retune `--pkr-*` → palette Chatwoot (woot `#1F93FF` + slate neutrals + semantic). Live-chat-only file nên scoped, không đụng trang khác.
-- `live-chat/css/chat-lightskin.css` (mới, load CUỐI): binding fx lên `.pk-*`/`.w2cp-*` — glass (chat header/search/mode-switch), soft (rows/inv-card/panel), glow (send/unread/focus/active accent).
-- Link cả 2 vào `chat.html` + `index.html` (index thiếu token file → thêm luôn). `?v=20260613ls1`.
-
-**Fix từ review (3 HIGH, 0 critical):**
-
-1. **anti-lag**: bỏ `box-shadow` khỏi `transition` trên `.pk-conversation-item` (list cuộn) + `.inv-card` + `.pk-search-box` + `.w2-soft-i` + `.w2-glow-cta` → shadow đổi tức thì, chỉ transform animate.
-2. **a11y focus ring** (WCAG 1.4.11): `rgba(.2)` ~1.25:1 FAIL → vòng ĐẶC `0 0 0 2px #fff, 0 0 0 4px blue-600` (4.66:1) cho `--pkr-ring-primary` + `--w2fx-glow-focus`.
-3. **a11y text** (1.4.3): `--pkr-text-muted #779bbb` (2.9:1 FAIL chữ nhỏ) → `#5c7796` (~4.5:1). Unread pill nền solid `blue-600` cho chữ 11px trắng đọc được.
-
-**Verify:** screenshot desktop — nền sáng, woot blue (Store/unread/bubble out), tên full, chip màu, soft-shadow row + active tint, composer pill. braces OK, 0 box-shadow-in-transition, link order đúng (tokens→theme→fx→lightskin). **Status:** ✅ Done. ⏳ Bubble-out #1F93FF body text ~3.15:1 (MEDIUM, giữ đúng brand Chatwoot — chấp nhận).
-
 ### [live-chat] Redesign đợt 7 — conversation row kiểu Telegram/Intercom: FIX tên cắt "..." + layout hiện đại ✅
 
 **User:** "giao diện tổng thể không ổn, tên dài bị '...' → tìm github phần CSS/giao diện trending để làm giống, hiện đại, hiệu ứng tương lai."
