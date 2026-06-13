@@ -3,10 +3,10 @@
 > Snapshot tự động ghi đè sau mỗi commit chạm folder này. **Không edit thủ công.**
 > Mục đích: khi session cũ chết (vd lỗi image limit), session mới chỉ cần đọc file này là có đủ context để tiếp tục.
 
-**Latest session**: `RESUME:20260613-112308-40f6280`
-**Session file**: [`./20260613-112308-40f6280.md`](../20260613-112308-40f6280.md)
-**Commit**: `40f6280` — auto: session update
-**Last updated**: 2026-06-13 11:23:08 +07
+**Latest session**: `RESUME:20260613-114339-12ad549`
+**Session file**: [`./20260613-114339-12ad549.md`](../20260613-114339-12ad549.md)
+**Commit**: `12ad549` — auto: session update
+**Last updated**: 2026-06-13 11:43:39 +07
 **Summary**: auto: session update
 
 ## Files changed in this commit (`native-orders/`)
@@ -15,11 +15,11 @@
 
 ## Last 5 commits touching `native-orders/`
 
+- `12ad549cd` auto: session update _(2026-06-13)_
+- `d5b84c1fd` fix(web2-sse): reload-on-reconnect — re-fetch sau khi SSE nối lại _(2026-06-13)_
 - `40f62805f` auto: session update _(2026-06-13)_
 - `248532b73` feat(web2): ENFORCE-PREP — wire x-web2-token toàn bộ client gọi route soft-gated _(2026-06-12)_
 - `59738a0e1` auto: session update _(2026-06-12)_
-- `7bb139d21` auto: session update _(2026-06-12)_
-- `c719b9de4` refactor(web2): gỡ hẳn crm*team_id/crm_team_name — di tích TPOS (DROP COLUMN native_orders + fast_sale_orders, client ngừng gửi, getPartnerInfo bỏ tham số chết) *(2026-06-12)\_
 
 ---
 
@@ -27,4 +27,4 @@
 
 1. Đọc file session ở trên để xem Files Modified + Next Steps đã điền (nếu Claude turn trước fill rồi).
 2. Cần lùi xa hơn → `git show <sha>` theo list commit trên.
-3. Hoặc paste token `RESUME:20260613-112308-40f6280` cho Claude walk chain theo CLAUDE.md protocol.
+3. Hoặc paste token `RESUME:20260613-114339-12ad549` cho Claude walk chain theo CLAUDE.md protocol.
