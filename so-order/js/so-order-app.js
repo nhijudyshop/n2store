@@ -3181,7 +3181,7 @@ window.addEventListener('load', () => {
                 if (oldMatch?.name && oldQty > 0) {
                     adjustKhoPending([{ ...oldMatch, delta: -oldQty }]);
                 }
-                syncRowsToKho([r], tab).catch(() => {});
+                syncRowsToKho([r], tab, sharedFields.supplier).catch(() => {});
             }
         } else if (modalMode === 'edit-shipment' && editingShipmentId) {
             // P1 2026-05-30: bulk update nguyên shipment.
@@ -3232,7 +3232,7 @@ window.addEventListener('load', () => {
                 'success'
             );
             if (addedRows.length > 0) {
-                syncRowsToKho(addedRows, tab).catch(() => {});
+                syncRowsToKho(addedRows, tab, sharedFields.supplier).catch(() => {});
             }
         } else {
             let sh = window.SoOrderStorage.findShipment(tab, shipMeta);
@@ -3264,7 +3264,7 @@ window.addEventListener('load', () => {
                 });
             }
             notify(`Đã thêm ${validRows.length} dòng order (Nháp)`, 'success');
-            syncRowsToKho(validRows, tab).catch(() => {});
+            syncRowsToKho(validRows, tab, sharedFields.supplier).catch(() => {});
         }
         hideModal('soOrderModal');
         pushSync();
@@ -3374,7 +3374,7 @@ window.addEventListener('load', () => {
     //   - UI đã apply trước khi gọi → không có gì để "apply optimistic" thêm.
     //   - Rollback push Kho không có ý nghĩa (không undo được row Sổ Order đã ghi).
     //   - Đổi return Promise→undefined sẽ phá hợp đồng .catch() của các call site.
-    async function syncRowsToKho(rows, tab) {
+    async function syncRowsToKho(rows, tab, orderSupplier) {
         if (!window.Web2ProductsApi || !window.Web2ProductsCache) return;
         const cache = window.Web2ProductsCache;
         await cache.init();
@@ -3397,7 +3397,10 @@ window.addEventListener('load', () => {
                     qty,
                     sellPrice: sellVnd,
                     costPrice: costVnd,
-                    supplier: (r.supplier || '').trim() || null,
+                    // NCC nằm ở sharedFields (per-đơn), modalRow không có field
+                    // supplier → phải nhận orderSupplier để mã SP có prefix NCC
+                    // đúng (vd XSAAODEN) thay vì fallback KHO.
+                    supplier: (r.supplier || orderSupplier || '').trim() || null,
                     imageUrl: r.productImage || null,
                     note: trimLabel,
                 };

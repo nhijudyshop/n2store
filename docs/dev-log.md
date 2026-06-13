@@ -2,6 +2,16 @@
 
 ## 2026-06-13
 
+### [so-order] Fix SP tạo từ Sổ Order mất NCC → mã SP fallback KHO (bug có sẵn) ✅
+
+**User:** điền ngẫu nhiên vào bảng cũng phải tạo sản phẩm ở products theo đúng logic.
+
+- **Bug (pre-existing, không phải do generator):** `syncRowsToKho` đọc `r.supplier` từ `modalRow`, nhưng `_newModalRow` KHÔNG có field `supplier` (NCC nằm ở `sharedFields` — per-đơn, không per-dòng) → `supplier=null` → `_assignKhoCodes` rơi về prefix mặc định `KHO` cho MỌI SP (KHOAO, KHODAM…), supplier cột = None. Generator tạo nhiều data nên lộ rõ.
+- **Fix:** `syncRowsToKho(rows, tab, orderSupplier)` — nhận NCC của đơn, `supplier: (r.supplier || orderSupplier || '').trim() || null`. Wire 3 call site trong `handleOrderSubmit` (create / edit / edit-shipment) truyền `sharedFields.supplier`. Fix CHUNG cho cả thao tác tay lẫn generator.
+- **Test (Playwright localhost):** gen 4 đơn sau fix → 8 SP mới có mã prefix NCC đúng: `XSADAM` (XƯỞNG SỈ A→XSA), `HNAO/HNAO2/HNAO3` (HÀ NỘI→HN), `QCAO/QCMM/QCQUAN…` (QUẢNG CHÂU→QC), cột supplier điền đúng. (8 SP cũ giữ prefix KHO vì tạo trước fix.) Màu/size chỉ vào mã khi biến thể có trong Kho Biến Thể + shortCode — đúng logic web2-products. Bump `?v=20260613c`.
+
+**Status:** ✅ Done.
+
 ### [so-order] 2 nút sinh dữ liệu ngẫu nhiên để test (toolbar + modal) ✅
 
 **User:** thêm nhiều dữ liệu test → thêm nút tạo dữ liệu ngẫu nhiên ở bảng + nút điền dữ liệu ngẫu nhiên ở modal tạo đơn hàng.
