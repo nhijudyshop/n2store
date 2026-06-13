@@ -1,7 +1,11 @@
 // #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi.
-// Sổ Order — localStorage persistence + Firestore sync.
+// Sổ Order — IndexedDB cache + Postgres sync (web2Db).
 //
-// Schema (localStorage key = `soOrder_v1`, Firestore doc = `web2_so_order/main`):
+// C8 (2026-06-13): nguồn chuẩn chuyển từ Firestore `web2_so_order/main` →
+// Postgres `web2_so_order` (`/api/web2-so-order`, optimistic version, auth, SSE).
+// Firestore chỉ còn dùng cho migration 1 lần (Sync._migrateFromFirestore).
+//
+// Schema (IDB key `so_order_storage:main`, Postgres web2_so_order.data JSONB):
 //   {
 //     tabs: [
 //       {

@@ -19,7 +19,7 @@
 
 const express = require('express');
 const router = express.Router();
-const { requireWeb2AuthSoft } = require('../middleware/web2-auth');
+const { requireWeb2AuthSoft, requireWeb2Admin } = require('../middleware/web2-auth');
 
 const DOC_ID = 'main';
 
@@ -169,6 +169,21 @@ router.post('/save', requireWeb2AuthSoft, async (req, res) => {
         });
     } catch (e) {
         console.error('[WEB2-SO-ORDER] /save error:', e.message);
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+// POST /reset — xoá doc 'main' (beta wipe / cleanup test). Admin only.
+router.post('/reset', requireWeb2Admin, async (req, res) => {
+    const pool = getPool(req);
+    if (!pool) return res.status(500).json({ success: false, error: 'DB unavailable' });
+    try {
+        await ensureTables(pool);
+        await pool.query(`DELETE FROM web2_so_order WHERE doc_id = $1`, [DOC_ID]);
+        _notify('reset', 0);
+        res.json({ success: true });
+    } catch (e) {
+        console.error('[WEB2-SO-ORDER] /reset error:', e.message);
         res.status(500).json({ success: false, error: e.message });
     }
 });

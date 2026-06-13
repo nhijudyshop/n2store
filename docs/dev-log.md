@@ -2,6 +2,12 @@
 
 ## 2026-06-13
 
+### [so-order] Data ngẫu nhiên dùng biến thể THẬT từ Kho Biến Thể (đúng với kho biến thể) ✅
+
+**User:** "ok và đúng với kho biến thể" — data random phải dùng màu/size có thật trong Kho Biến Thể (bỏ "Xanh Navy" hardcoded lạ).
+
+**Fix** [so-order/js/so-order-app.js](../so-order/js/so-order-app.js): `_RAND.colors` bỏ "Xanh Navy"; thêm `_variantPools()` đọc `Web2VariantsCache.getAll()` → lấy `value` group "Màu" + "Size"/"Cỡ" làm pool; `_randomRow` dùng `_variantPools()` thay `_RAND.colors/sizes` (fallback hardcoded khi cache rỗng). → mọi biến thể random đều registered → `findByValueExact` khớp → mã SP encode đủ màu/size, đúng shortCode kho (DEN/BE/XD/XL2…).
+
 ### [so-order] Mã SP mất màu/size khi nhận hàng — biến thể gộp "Màu / Size" tra cứu fail ✅
 
 **User:** "HCQUAN2 ấy" (chỉ mã SP vô nghĩa).
