@@ -3,15 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `4c07d17` — docs(web2): đợt LOW — wallet emit post-commit + 3W6 sidebar + SSE resync (flip ⬜→✅)
-**Last updated**: 2026-06-13 11:48:04 +07
-**Latest session**: [`RESUME:20260613-114804-4c07d17`](../20260613-114804-4c07d17.md)
-**Summary**: docs(web2): đợt LOW — wallet emit post-commit + 3W6 sidebar + SSE resync (flip ⬜→✅)
+**Latest commit**: `7b492d7` — auto: session update
+**Last updated**: 2026-06-13 11:52:23 +07
+**Latest session**: [`RESUME:20260613-115223-7b492d7`](../20260613-115223-7b492d7.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 2 file(s)
-- [`web2/`](./web2.md) — 1 file(s)
+- [`orders-report/`](./orders-report.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -44,7 +43,7 @@
 - [`native-orders/`](./native-orders.md) — updated 2026-06-13 11:43
 - [`nhanhang/`](./nhanhang.md) — updated 2026-05-21 15:39
 - [`order-management/`](./order-management.md) — updated 2026-05-21 15:39
-- [`orders-report/`](./orders-report.md) — updated 2026-06-13 11:20
+- [`orders-report/`](./orders-report.md) — updated 2026-06-13 11:52
 - [`pancake-extension/`](./pancake-extension.md) — updated 2026-05-21 11:33
 - [`phone-management/`](./phone-management.md) — updated 2026-05-21 15:39
 - [`product-warehouse/`](./product-warehouse.md) — updated 2026-06-04 13:36
