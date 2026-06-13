@@ -2,6 +2,26 @@
 
 ## 2026-06-13
 
+### [live-chat] Fix kéo SP vào comment giật/lỗi + undo toast bị iframe FB live che ✅
+
+**User:** "kéo sản phẩm vào comment lâu lâu bị lỗi với không mướt → warning hoàn tác bị iframe che".
+
+**Root cause:**
+
+1. **Giật + lâu lâu lỗi (drop trượt/sai dòng):** khi đang live, comment mới về liên tục → `LiveCommentList.renderComments()`/`prependComments()` churn DOM ngay giữa lúc kéo: `_patchRowsChunked` `old.replaceWith(neo)`, `renderCommentsNow` `innerHTML=''`, prepend `rowEl.outerHTML`. Dòng đích dưới con trỏ bị thay/xoá → drop rơi vào khoảng trống (`if(!row)return` im lặng) hoặc nhầm dòng khác; đồng thời churn DOM = giật. **Không có guard nào cho thao tác kéo.**
+2. **Undo toast bị iframe che:** undo toast `z-index:10000` ở `bottom:24px;right:24px`, trong khi floating FB live iframe (`live-livestream-snap.js:1688`) `z-index:99000` ở `bottom:8px;right:8px` (200×356px) → cùng góc dưới-phải + z-index thấp hơn → nút "Hoàn tác" bị video đè.
+
+**Fix:**
+
+1. Cờ `LiveState._dragActive`: inventory-panel bật khi `dragstart` (card SP), tắt khi `dragend` (+ belt-and-suspenders ở document dragend). comment-list HOÃN mọi re-render khi cờ bật — `_renderDispatch` set `_renderDeferred`; `prependComments` buffer comment SSE vào `_dragDeferredPrepend`; 2 chunk-loop (`_patchRowsChunked`/`renderCommentsNow`) tạm dừng (poll 150ms). `dragend` (listener document bind 1 lần) → `_flushDeferredAfterDrag()` xả: replay prepend đã buffer + render lại. Drop target ổn định suốt thao tác kéo → hết trượt/sai dòng + hết giật.
+2. CSS: base `.inv-toast` z-index 10000 → **99600** (trên iframe 99000 + snap chip 99500, dưới snap modal 99998+). Undo toast `.inv-toast-undo` dời ra **giữa-dưới** (`left:50%;transform:translateX(-50%)` + keyframe `invToastUndoSlide`) — khai báo SAU base để thắng source-order — tránh hẳn vùng video góc phải. Bump asset version `?v=20260613f` → `g`.
+
+**Verify (browser session + extension):** drag defer/flush PASS toàn bộ qua eval — `afterDispatch_deferred:true`, `buffered:1`, `stateUnchanged_duringDrag:true`, `afterFlush_dragActive:false/renderDeferred:false/bufferNull:true`, `dragEndHandlerWired:true`. CSS: undo toast `centered:true` (rectCenterX 720 === viewport center), `zIndex:99600`, `transform:translateX(-50%)`. 0 page error.
+
+**Files:** [live-chat/js/pancake/inventory-panel.js](../live-chat/js/pancake/inventory-panel.js), [live-chat/js/live/live-comment-list.js](../live-chat/js/live/live-comment-list.js), [live-chat/css/inventory-panel.css](../live-chat/css/inventory-panel.css), [live-chat/index.html](../live-chat/index.html).
+
+**Status:** ✅ Done.
+
 ### [delivery-report] Fix nút "Gửi Kèm" không ẩn khi tắt tra soát ✅
 
 **User:** nút Gửi Kèm ban đầu ẩn, bật tra soát + bấm tiêu đề 3 lần thì hiện (cùng tab Thành phố/Tỉnh), nhưng tắt tra soát thì Gửi Kèm vẫn hiện luôn thay vì ẩn lại cùng các tab.
