@@ -613,36 +613,56 @@
     // above so the page works offline. Doc: `web2_so_order/main`.
     // -----------------------------------------------------------
 
-    const FIRESTORE_COLLECTION = 'web2_so_order';
-    const FIRESTORE_DOC = 'main';
-
+    // C8 (2026-06-13): Sync layer chuyển từ Firestore → Postgres web2Db
+    // (`/api/web2-so-order`). GIỮ NGUYÊN 5 method public
+    // (init/pullOnce/pushToFirestore/flush/teardown) → so-order-app.js KHÔNG đổi.
+    // Cải thiện: single source Postgres, optimistic concurrency qua `version`
+    // (hết last-write-wins — ghi đè stale → 409 báo conflict), auth (enforce),
+    // SSE `web2:so-order` realtime push (thay pull-on-focus đơn thuần).
+    // Migration 1 LẦN: server rỗng + Firestore còn data → copy lên server.
+    const SO_API_BASE =
+        (typeof window !== 'undefined' &&
+            (window.API_CONFIG?.WORKER_URL || window.LiveState?.workerUrl)) ||
+        'https://chatomni-proxy.nhijudyshop.workers.dev';
     const PUSH_DEBOUNCE_MS = 400;
 
+    function _soAuthHeaders(extra) {
+        const h = { 'Content-Type': 'application/json', ...(extra || {}) };
+        try {
+            if (window.Web2Auth?.authHeaders) return window.Web2Auth.authHeaders(h);
+            const t = JSON.parse(localStorage.getItem('web2_auth') || '{}')?.token;
+            if (t) h['x-web2-token'] = t;
+        } catch {
+            /* ignore */
+        }
+        return h;
+    }
+
     const Sync = {
-        _db: null,
         _onRemoteUpdate: null,
+        _onConflict: null,
         _localLastUpdated: 0,
+        _localVersion: 0, // optimistic concurrency token (server bump mỗi save)
         _pushTimer: null,
         _pendingState: null,
-        _onConflict: null,
+        _sseUnsub: null,
 
         async init(onRemoteUpdate, onConflict) {
             this._onRemoteUpdate = onRemoteUpdate || null;
             this._onConflict = onConflict || null;
             try {
-                if (typeof firebase === 'undefined' || !firebase.firestore) {
-                    console.warn('[SoOrderStorage.Sync] Firebase not loaded — local-only mode');
-                    return false;
-                }
-                this._db = firebase.firestore();
-                const loaded = await this._loadFromFirestore();
-                if (loaded) {
-                    // P1 2026-05-30: persist qua IDB store thay vì localStorage
+                const loaded = await this._loadFromServer();
+                if (loaded && !loaded.empty) {
                     _cachedState = loaded.data;
                     const store = _getStore();
                     if (store) await store.set(loaded.data);
                     this._localLastUpdated = loaded.lastUpdated || 0;
+                    this._localVersion = loaded.version || 0;
+                } else {
+                    // Server rỗng → migration 1 lần từ Firestore (nếu còn data).
+                    await this._migrateFromFirestore();
                 }
+                this._subscribeSSE();
                 return true;
             } catch (e) {
                 console.warn('[SoOrderStorage.Sync] init failed:', e.message);
@@ -650,36 +670,93 @@
             }
         },
 
-        async _loadFromFirestore() {
-            if (!this._db) return null;
+        async _loadFromServer() {
             try {
-                const docRef = this._db.collection(FIRESTORE_COLLECTION).doc(FIRESTORE_DOC);
-                const snap = await docRef.get();
-                if (!snap.exists) return null;
-                const payload = snap.data() || {};
-                if (!payload.data) return null;
-                return { data: payload.data, lastUpdated: payload.lastUpdated || 0 };
+                const r = await fetch(`${SO_API_BASE}/api/web2-so-order/get`, {
+                    headers: _soAuthHeaders(),
+                });
+                if (!r.ok) return null;
+                const j = await r.json();
+                if (!j || !j.success) return null;
+                if (j.empty || !j.data) return { empty: true };
+                return {
+                    data: j.data,
+                    lastUpdated: j.lastUpdated || 0,
+                    version: j.version || 0,
+                };
             } catch (e) {
                 console.warn('[SoOrderStorage.Sync] load failed:', e.message);
                 return null;
             }
         },
 
-        // Pull latest from Firestore. Call on visibilitychange/focus.
-        // Applies update only when remote is newer than what this client
-        // last wrote (so it doesn't clobber in-flight local edits).
+        // Migration 1 lần Firestore → Postgres khi server rỗng. Best-effort
+        // (Firebase compat vẫn load trên trang). Sau migration server là nguồn chuẩn.
+        async _migrateFromFirestore() {
+            try {
+                if (typeof firebase === 'undefined' || !firebase.firestore) return;
+                const snap = await firebase
+                    .firestore()
+                    .collection('web2_so_order')
+                    .doc('main')
+                    .get();
+                if (!snap.exists) return;
+                const payload = snap.data() || {};
+                if (!payload.data || !Array.isArray(payload.data.tabs) || !payload.data.tabs.length)
+                    return;
+                const r = await fetch(`${SO_API_BASE}/api/web2-so-order/save`, {
+                    method: 'POST',
+                    headers: _soAuthHeaders(),
+                    body: JSON.stringify({ data: payload.data, baseVersion: 0 }),
+                });
+                const j = await r.json().catch(() => ({}));
+                if (j && j.success) {
+                    _cachedState = payload.data;
+                    const store = _getStore();
+                    if (store) await store.set(payload.data);
+                    this._localLastUpdated = j.lastUpdated || Date.now();
+                    this._localVersion = j.version || 1;
+                    console.log('[SoOrderStorage.Sync] migrated Firestore→Postgres');
+                } else if (j && j.conflict && j.server) {
+                    // Máy khác migrate trước → dùng server.
+                    _cachedState = j.server.data;
+                    const store = _getStore();
+                    if (store) await store.set(j.server.data);
+                    this._localLastUpdated = j.server.lastUpdated || 0;
+                    this._localVersion = j.server.version || 0;
+                }
+            } catch (e) {
+                console.warn('[SoOrderStorage.Sync] migrate skip:', e.message);
+            }
+        },
+
+        _subscribeSSE() {
+            try {
+                if (this._sseUnsub || !window.Web2SSE || !window.Web2SSE.subscribe) return;
+                this._sseUnsub = window.Web2SSE.subscribe('web2:so-order', (evt) => {
+                    // Bỏ qua event do chính mình vừa ghi (version <= local).
+                    const v = Number(evt && evt.data && evt.data.version) || 0;
+                    if (v && v <= this._localVersion) return;
+                    this.pullOnce();
+                });
+            } catch {
+                /* ignore */
+            }
+        },
+
+        // Pull latest from server (SSE remote change / visibilitychange/focus).
+        // Áp dụng chỉ khi server version > local (không đè local edit in-flight).
         async pullOnce() {
-            const loaded = await this._loadFromFirestore();
-            if (!loaded) return false;
-            if (loaded.lastUpdated <= this._localLastUpdated) return false;
-            // Remote is newer. If user has uncommitted local changes pending
-            // a debounced push, flag a conflict instead of overwriting.
+            const loaded = await this._loadFromServer();
+            if (!loaded || loaded.empty) return false;
+            if ((loaded.version || 0) <= this._localVersion) return false;
+            // Server mới hơn. Có local pending push → conflict thay vì đè.
             if (this._pushTimer && this._onConflict) {
-                this._onConflict(loaded);
+                this._onConflict({ data: loaded.data, lastUpdated: loaded.lastUpdated });
                 return false;
             }
-            this._localLastUpdated = loaded.lastUpdated;
-            // P1 2026-05-30: IDB persist thay vì localStorage
+            this._localVersion = loaded.version || 0;
+            this._localLastUpdated = loaded.lastUpdated || 0;
             _cachedState = loaded.data;
             const store = _getStore();
             if (store) await store.set(loaded.data);
@@ -687,11 +764,9 @@
             return true;
         },
 
-        // Debounced push — gom nhiều mutation liên tiếp thành 1 write.
-        // Called from app's pushSync() after every mutation. Safe to call
-        // repeatedly; only fires after PUSH_DEBOUNCE_MS of quiet.
+        // Debounced push (giữ TÊN pushToFirestore — giờ ghi Postgres). Gom mutation
+        // liên tiếp thành 1 write sau PUSH_DEBOUNCE_MS.
         pushToFirestore(state) {
-            if (!this._db) return false;
             this._pendingState = state;
             if (this._pushTimer) return true;
             this._pushTimer = setTimeout(() => {
@@ -702,22 +777,42 @@
         },
 
         async _flushPending() {
-            if (!this._db || !this._pendingState) return;
+            if (!this._pendingState) return;
             const stateSnapshot = this._pendingState;
             this._pendingState = null;
-            const ts = Date.now();
             try {
-                const docRef = this._db.collection(FIRESTORE_COLLECTION).doc(FIRESTORE_DOC);
-                await docRef.set({ data: stateSnapshot, lastUpdated: ts }, { merge: true });
-                this._localLastUpdated = ts;
+                const r = await fetch(`${SO_API_BASE}/api/web2-so-order/save`, {
+                    method: 'POST',
+                    headers: _soAuthHeaders(),
+                    body: JSON.stringify({
+                        data: stateSnapshot,
+                        baseVersion: this._localVersion,
+                    }),
+                });
+                const j = await r.json().catch(() => ({}));
+                if (j && j.success) {
+                    this._localVersion = j.version || this._localVersion + 1;
+                    this._localLastUpdated = j.lastUpdated || Date.now();
+                } else if (r.status === 409 && j && j.conflict && j.server) {
+                    // Máy khác vừa ghi giữa chừng → cập nhật version + báo conflict
+                    // (giữ behavior cũ: user chọn refresh / giữ chỉnh sửa). Lần push
+                    // kế tiếp dùng version mới → thắng (last-writer sau khi user biết).
+                    this._localVersion = j.server.version || this._localVersion;
+                    this._localLastUpdated = j.server.lastUpdated || this._localLastUpdated;
+                    if (this._onConflict)
+                        this._onConflict({
+                            data: j.server.data,
+                            lastUpdated: j.server.lastUpdated,
+                        });
+                } else {
+                    console.warn('[SoOrderStorage.Sync] push failed:', (j && j.error) || r.status);
+                }
             } catch (e) {
                 console.warn('[SoOrderStorage.Sync] push failed:', e.message);
             }
         },
 
-        // Force-flush any pending debounced write immediately.
-        // Call on visibilitychange→hidden / beforeunload so user doesn't
-        // lose the last few edits when closing the tab.
+        // Force-flush pending debounced write (visibilitychange→hidden / beforeunload).
         async flush() {
             if (!this._pushTimer) return;
             clearTimeout(this._pushTimer);
@@ -729,6 +824,14 @@
             if (this._pushTimer) {
                 clearTimeout(this._pushTimer);
                 this._pushTimer = null;
+            }
+            if (this._sseUnsub) {
+                try {
+                    this._sseUnsub();
+                } catch {
+                    /* ignore */
+                }
+                this._sseUnsub = null;
             }
         },
     };

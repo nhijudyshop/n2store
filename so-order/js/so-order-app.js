@@ -2880,10 +2880,32 @@ window.addEventListener('load', () => {
             'ÁO BLAZER',
             'QUẦN TÂY CẠP CAO',
         ],
-        colors: ['Trắng', 'Đen', 'Đỏ', 'Xanh Navy', 'Be', 'Hồng', 'Vàng', 'Xám'],
+        // Fallback khi Kho Biến Thể chưa load. Ưu tiên lấy biến thể THẬT từ
+        // Web2VariantsCache (xem _variantPools) để data random LUÔN dùng màu/size
+        // đã đăng ký → mã SP encode đủ màu/size, không sinh "Xanh Navy" lạ.
+        colors: ['Trắng', 'Đen', 'Đỏ', 'Be', 'Hồng', 'Vàng', 'Xám'],
         sizes: ['S', 'M', 'L', 'XL', 'Freesize'],
         suppliers: ['HÀ NỘI', 'HƯƠNG CHÂU', 'QUẢNG CHÂU', 'XƯỞNG SỈ A', 'KHO TÂN BÌNH'],
     };
+    // Lấy pool màu/size từ Kho Biến Thể THẬT (group "Màu" / "Size"|"Cỡ"). Đảm bảo
+    // mọi biến thể random đều có trong cache → findByValueExact khớp → mã encode đủ
+    // màu/size. Cache rỗng → fallback _RAND hardcoded.
+    function _variantPools() {
+        const all = (window.Web2VariantsCache?.getAll && window.Web2VariantsCache.getAll()) || [];
+        const colors = [];
+        const sizes = [];
+        for (const v of all) {
+            const val = String(v.value || '').trim();
+            if (!val) continue;
+            const g = (v.groupName || '').toLowerCase();
+            if (g.includes('size') || g.includes('cỡ') || g.includes('co')) sizes.push(val);
+            else if (g.includes('màu') || g.includes('mau')) colors.push(val);
+        }
+        return {
+            colors: colors.length ? colors : _RAND.colors,
+            sizes: sizes.length ? sizes : _RAND.sizes,
+        };
+    }
     function _rPick(a) {
         return a[Math.floor(Math.random() * a.length)];
     }
@@ -2897,9 +2919,10 @@ window.addEventListener('load', () => {
         const cost = isVnd ? _rInt(3, 30) * 10000 : _rInt(20, 300);
         let sell = cost * (1.5 + Math.random());
         sell = isVnd ? Math.round(sell / 1000) * 1000 : Math.round(sell);
+        const pools = _variantPools();
         return _newModalRow({
             productName: _rPick(_RAND.products),
-            variant: `${_rPick(_RAND.colors)} / ${_rPick(_RAND.sizes)}`,
+            variant: `${_rPick(pools.colors)} / ${_rPick(pools.sizes)}`,
             qty: _rInt(1, 50),
             costPrice: cost,
             sellPrice: Math.max(sell, cost),
