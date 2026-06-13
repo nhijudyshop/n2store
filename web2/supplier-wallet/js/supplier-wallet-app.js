@@ -41,12 +41,19 @@
     }
     // A2 (2026-06-13): 1 dòng mua được coi "đã trả ĐỦ" khi qty đã trả >= qty mua.
     // `entry` = web2_supplier_meta.returned_row_ids[rowId]: dạng mới {qty,amount,ts}
-    // (object) hoặc legacy truthy (boolean true = trả đủ). Trả 1 phần → CHƯA đủ →
-    // dòng còn xuất hiện trong modal trả + KHÔNG gắn badge 'is-returned'.
+    // (object) hoặc legacy truthy (boolean true = trả đủ). Trả 1 phần (qty>0 &
+    // qty<qty mua) → CHƯA đủ → dòng còn xuất hiện trong modal trả + không badge.
+    //
+    // ⚠ AN TOÀN với data legacy {qty:0} (C18 — fallback cũ ghi qty:0 khi thiếu
+    // rowReturns): qty<=0 nghĩa là entry rác/legacy boolean-style → coi như ĐÃ TRẢ
+    // ĐỦ (KHÔNG cho trả lại → tránh over-refund ví NCC). Partial return THẬT luôn
+    // có qty>0 (rowReturns gửi qty thật). C18 đã chặn ghi mới {qty:0}.
     function _isRowFullyReturned(entry, orderedQty) {
         if (!entry) return false;
         if (typeof entry === 'object') {
-            return (Number(entry.qty) || 0) >= (Number(orderedQty) || 0);
+            const q = Number(entry.qty) || 0;
+            if (q <= 0) return true; // legacy/garbage {qty:0} → coi đã trả đủ (an toàn)
+            return q >= (Number(orderedQty) || 0);
         }
         return true; // legacy boolean → coi như trả đủ
     }

@@ -216,6 +216,9 @@
         w.transactions.push(entry);
         if (entry.type === 'return') {
             w.returnedAmount += entry.amount;
+            // C18 (2026-06-13): CHỈ ghi returnedRowIds khi có rowReturns (qty/amount
+            // THẬT). Bỏ fallback {qty:0,amount:0} theo ref.rowIds — entry qty:0 là
+            // rác, gây rủi ro over-refund (filter A2 coi qty:0 = chưa trả đủ).
             const rowReturns = txn.rowReturns || null;
             if (rowReturns) {
                 for (const [rid, v] of Object.entries(rowReturns)) {
@@ -224,10 +227,6 @@
                         amount: Number(v?.amount) || 0,
                         ts: entry.ts,
                     };
-                }
-            } else if (entry.ref && Array.isArray(entry.ref.rowIds)) {
-                for (const id of entry.ref.rowIds) {
-                    w.returnedRowIds[id] = { qty: 0, amount: 0, ts: entry.ts };
                 }
             }
         } else if (entry.type === 'payment') {
@@ -353,16 +352,20 @@
     }
 
     // Match deposit content vs supplier name. Tránh false positive bằng cách yêu cầu
-    // supplier name normalized length ≥ 4 và xuất hiện như từ riêng (boundary check).
+    // supplier name normalized length ≥ 4 và xuất hiện như TỪ NGUYÊN (cả 2 phía space).
+    // C12 (2026-06-13): TRƯỚC đây còn check prefix-only `includes(' '+n)` + suffix-only
+    // `includes(n+' ')` → "chuyen huanlong" KHỚP NHẦM NCC "huan" (vì ' huanlong' chứa
+    // ' huan') → SePay refund gán sai NCC. Giờ CHỈ match cả-2-phía-space + sort theo
+    // độ dài giảm dần → NCC tên dài hơn ("huanlong") được xét trước, thắng trước.
     function matchSupplier(content, supplierNames) {
         const c = ' ' + normalize(content) + ' ';
         if (c.trim().length < 4) return null;
-        for (const name of supplierNames) {
-            const n = normalize(name);
-            if (n.length < 4) continue;
-            if (c.includes(' ' + n + ' ') || c.includes(' ' + n) || c.includes(n + ' ')) {
-                return name;
-            }
+        const sorted = (supplierNames || [])
+            .map((name) => ({ name, n: normalize(name) }))
+            .filter((x) => x.n.length >= 4)
+            .sort((a, b) => b.n.length - a.n.length);
+        for (const { name, n } of sorted) {
+            if (c.includes(' ' + n + ' ')) return name;
         }
         return null;
     }

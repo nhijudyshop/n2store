@@ -256,12 +256,15 @@ router.post('/tx', requireWeb2AuthSoft, async (req, res) => {
                 tx: existing.rows.length ? mapTx(existing.rows[0]) : null,
             });
         }
-        // returnedRowIds: lưu qty/amount thật, merge từng row.
+        // returnedRowIds: CHỈ lưu khi có rowReturns (qty/amount THẬT).
+        // C18 (2026-06-13): bỏ fallback ghi {qty:0,amount:0} theo ref.rowIds —
+        // entry qty:0 là rác (không phân biệt được "trả 0" với "đã trả đủ") + gây
+        // rủi ro over-refund khi filter A2 coi qty:0 = chưa trả. Thiếu rowReturns →
+        // KHÔNG ghi returned_row_ids (ledger tx vẫn ghi đủ — không chặn money op).
         if (type === 'return') {
             const cur = metaQ.rows[0]?.returned_row_ids || {};
             const rowReturns =
                 b.rowReturns && typeof b.rowReturns === 'object' ? b.rowReturns : null;
-            const rowIds = Array.isArray(b.ref?.rowIds) ? b.ref.rowIds : [];
             let mutated = false;
             if (rowReturns) {
                 for (const [rid, v] of Object.entries(rowReturns)) {
@@ -270,11 +273,6 @@ router.post('/tx', requireWeb2AuthSoft, async (req, res) => {
                         amount: Number(v?.amount) || 0,
                         ts,
                     };
-                    mutated = true;
-                }
-            } else {
-                for (const rid of rowIds) {
-                    cur[rid] = { qty: 0, amount: 0, ts };
                     mutated = true;
                 }
             }
