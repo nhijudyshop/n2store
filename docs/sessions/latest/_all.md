@@ -3,16 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `eba151f` — fix(so-order): mã SP encode màu/size — tách biến thể gộp 'Màu / Size' khi tra cứu override
-**Last updated**: 2026-06-13 15:24:08 +07
-**Latest session**: [`RESUME:20260613-152408-eba151f`](../20260613-152408-eba151f.md)
-**Summary**: fix(so-order): mã SP encode màu/size — tách biến thể gộp 'Màu / Size' khi tra cứu override
+**Latest commit**: `5620b5b` — auto: session update
+**Last updated**: 2026-06-13 15:28:55 +07
+**Latest session**: [`RESUME:20260613-152855-5620b5b`](../20260613-152855-5620b5b.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`live-chat/`](./live-chat.md) — 3 file(s)
-- [`so-order/`](./so-order.md) — 2 file(s)
+- [`render.com/`](./render.com.md) — 2 file(s)
+- [`so-order/`](./so-order.md) — 3 file(s)
 
 ## All folder snapshots
 
@@ -53,14 +52,14 @@
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
-- [`render.com/`](./render.com.md) — updated 2026-06-13 15:09
+- [`render.com/`](./render.com.md) — updated 2026-06-13 15:28
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-11 10:18
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
 - [`shared/`](./shared.md) — updated 2026-06-13 14:55
 - [`showroom/`](./showroom.md) — updated 2026-06-10 19:04
 - [`showroom1/`](./showroom1.md) — updated 2026-06-10 19:52
-- [`so-order/`](./so-order.md) — updated 2026-06-13 15:24
+- [`so-order/`](./so-order.md) — updated 2026-06-13 15:28
 - [`soluong-live/`](./soluong-live.md) — updated 2026-06-08 18:40
 - [`soorder/`](./soorder.md) — updated 2026-05-21 15:39
 - [`soquy/`](./soquy.md) — updated 2026-05-21 15:39
