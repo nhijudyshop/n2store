@@ -3,15 +3,16 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `5bf1141` — feat(web2,shared): native-orders-based shared FX — faux-glass + soft-UI card + barba-style page transition (no PJAX); wire live-chat + native-orders
-**Last updated**: 2026-06-13 22:57:38 +07
-**Latest session**: [`RESUME:20260613-225738-5bf1141`](../20260613-225738-5bf1141.md)
-**Summary**: feat(web2,shared): native-orders-based shared FX — faux-glass + soft-UI card + barba-style page transition (no PJAX...
+**Latest commit**: `2d1e4a7` — auto: session update
+**Last updated**: 2026-06-13 23:05:16 +07
+**Latest session**: [`RESUME:20260613-230516-2d1e4a7`](../20260613-230516-2d1e4a7.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`web2/`](./web2.md) — 1 file(s)
+- [`live-chat/`](./live-chat.md) — 2 file(s)
+- [`native-orders/`](./native-orders.md) — 1 file(s)
+- [`web2/`](./web2.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -39,9 +40,9 @@
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-06-13 14:55
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-12 19:21
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
-- [`live-chat/`](./live-chat.md) — updated 2026-06-13 22:56
+- [`live-chat/`](./live-chat.md) — updated 2026-06-13 23:05
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-06-04 20:02
-- [`native-orders/`](./native-orders.md) — updated 2026-06-13 22:56
+- [`native-orders/`](./native-orders.md) — updated 2026-06-13 23:05
 - [`nhanhang/`](./nhanhang.md) — updated 2026-06-13 19:51
 - [`order-management/`](./order-management.md) — updated 2026-05-21 15:39
 - [`orders-report/`](./orders-report.md) — updated 2026-06-13 14:55
@@ -72,4 +73,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-13 22:57
+- [`web2/`](./web2.md) — updated 2026-06-13 23:05
