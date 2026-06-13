@@ -230,6 +230,96 @@ router.post('/capture-lock/release', async (req, res) => {
     }
 });
 
+// =====================================================
+// A4 (2026-06-13): live-hidden-commenters — APPEND/REMOVE 1 phần tử ATOMIC.
+// TRƯỚC đây client gửi TOÀN BỘ mảng `commenters` qua PATCH update/global →
+// 2 máy ẩn 2 người cùng lúc đọc state cũ → ghi đè nhau → MẤT 1 người (lost write).
+// Giờ: server tự append/remove 1 phần tử trong 1 câu SQL (row-lock của UPDATE/
+// upsert = atomic, không read-modify-write). Endpoint generic update/global VẪN
+// giữ (backward-compat client cũ) nhưng client mới gọi /hide|/unhide.
+// =====================================================
+const LHC_SLUG = 'live-hidden-commenters';
+const LHC_CODE = 'global';
+
+// POST /api/web2/live-hidden-commenters/hide/:fbId  body {name?, userName?}
+router.post('/live-hidden-commenters/hide/:fbId', requireWeb2AuthSoft, async (req, res) => {
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
+    if (!pool) return res.status(500).json({ success: false, error: 'DB unavailable' });
+    try {
+        await ensureTables(pool);
+        const fbId = String(req.params.fbId || '').trim();
+        if (!fbId) return res.status(400).json({ success: false, error: 'fbId required' });
+        const now = Date.now();
+        const entry = {
+            fbId,
+            name: String((req.body || {}).name || '').slice(0, 200),
+            hiddenAt: now,
+            by:
+                (req.web2User && (req.web2User.display_name || req.web2User.username)) ||
+                String((req.body || {}).userName || '').slice(0, 120) ||
+                'user',
+        };
+        // Upsert: tạo record nếu chưa có; nếu có thì append entry CHỈ KHI fbId chưa
+        // tồn tại (NOT data.commenters @> [{fbId}]) → idempotent, atomic row-level.
+        const r = await pool.query(
+            `INSERT INTO web2_records (entity_slug, code, name, data, is_active, created_at, updated_at)
+             VALUES ($1, $2, 'Live hidden commenters',
+                     jsonb_build_object('commenters', jsonb_build_array($3::jsonb), 'history', '[]'::jsonb),
+                     TRUE, $4, $4)
+             ON CONFLICT (entity_slug, code) WHERE code IS NOT NULL
+             DO UPDATE SET
+                 data = jsonb_set(COALESCE(web2_records.data, '{}'::jsonb), '{commenters}',
+                          COALESCE(web2_records.data->'commenters', '[]'::jsonb) || $3::jsonb),
+                 updated_at = $4
+             WHERE NOT (COALESCE(web2_records.data->'commenters', '[]'::jsonb) @> $5::jsonb)
+             RETURNING *`,
+            [LHC_SLUG, LHC_CODE, JSON.stringify(entry), now, JSON.stringify([{ fbId }])]
+        );
+        // r.rows.length===0 → fbId đã có sẵn (idempotent) → vẫn success.
+        _notify(LHC_SLUG, 'hide', LHC_CODE);
+        res.json({
+            success: true,
+            record: r.rows[0] ? mapRow(r.rows[0]) : null,
+            alreadyHidden: r.rows.length === 0,
+        });
+    } catch (e) {
+        console.error('[WEB2-GENERIC] live-hidden hide error:', e.message);
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+// POST /api/web2/live-hidden-commenters/unhide/:fbId
+router.post('/live-hidden-commenters/unhide/:fbId', requireWeb2AuthSoft, async (req, res) => {
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
+    if (!pool) return res.status(500).json({ success: false, error: 'DB unavailable' });
+    try {
+        await ensureTables(pool);
+        const fbId = String(req.params.fbId || '').trim();
+        if (!fbId) return res.status(400).json({ success: false, error: 'fbId required' });
+        const now = Date.now();
+        // Lọc bỏ phần tử có fbId trong 1 câu (subquery đọc OLD data của chính row →
+        // atomic dưới row-lock của UPDATE).
+        const r = await pool.query(
+            `UPDATE web2_records
+             SET data = jsonb_set(COALESCE(data, '{}'::jsonb), '{commenters}',
+                   COALESCE((
+                       SELECT jsonb_agg(e)
+                       FROM jsonb_array_elements(COALESCE(data->'commenters', '[]'::jsonb)) e
+                       WHERE e->>'fbId' <> $3
+                   ), '[]'::jsonb)),
+                 updated_at = $4
+             WHERE entity_slug = $1 AND code = $2
+             RETURNING *`,
+            [LHC_SLUG, LHC_CODE, fbId, now]
+        );
+        _notify(LHC_SLUG, 'unhide', LHC_CODE);
+        res.json({ success: true, record: r.rows[0] ? mapRow(r.rows[0]) : null });
+    } catch (e) {
+        console.error('[WEB2-GENERIC] live-hidden unhide error:', e.message);
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
 // -----------------------------------------------------
 // GET /api/web2/:entity/health
 // -----------------------------------------------------

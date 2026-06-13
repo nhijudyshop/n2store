@@ -2,6 +2,20 @@
 
 ## 2026-06-13
 
+### [docs] Nghiên cứu + plan tích hợp Zalo cho Web 2.0 (chưa code) ✅
+
+**User:** "Tìm github các phần liên quan zalo đọc hiểu tất cả để coi có thể phát triển gì cho web 2.0" → chọn cả 3 đợt + nguyên tắc: **tạo 1 trang Zalo duy nhất quản lý, các trang khác tham chiếu tới — chỉ có 1 nguồn Zalo**; chỉ cần báo cáo, chưa code.
+
+**Nghiên cứu GitHub:** lib lõi `RFS-ADRENO/zca-js` (516★, npm, v2.1.2 3/2026 — "Pancake cho Zalo", điều khiển acc cá nhân qua WS listener); CRM blueprint `locphamnguyen/ZaloCRM` (146★, pipeline+lead-scoring+webhook); pattern relay `diendh/zca-bridge` (giống `live-chat/server`); `deplao-builder`. Kênh chính thức: ZNS (~200đ/tin template, gửi mọi SĐT, an toàn) + OA chat.
+
+**Phát hiện:** n2store đã có ~90% hạ tầng — zca-js map 1-1 với Pancake (relay WS, web2_customers.phone là khoá Zalo, msg-send job/worker, SSE bridge); Zalo KHÔNG có rule 24h như FB.
+
+**Thiết kế:** kiến trúc "Trang Zalo = nguồn duy nhất" (`web2/zalo/` + `/api/web2-zalo/*` + bảng `web2_zalo_*` pool web2Db + SSE `web2:zalo:*` + helper chung `Web2Zalo` kiểu `Web2WalletBalance.attachBalances`) — trang khác chỉ gọi helper/API, không chạm Zalo trực tiếp. Lộ trình 3 đợt: 🟢 ZNS thông báo đơn (làm trước, an toàn) → 🟡 chat 2 chiều zca-js (acc phụ + proxy) → 🔵 CRM nâng cao.
+
+**Files:** MỚI [docs/web2/ZALO-INTEGRATION.md](web2/ZALO-INTEGRATION.md) (research + kiến trúc + lộ trình + checklist + rủi ro).
+
+**Status:** ✅ Done (research/plan — chờ user duyệt đợt để code).
+
 ### [products] Fix tem QR: tên SP bẻ GIỮA từ ("ÁO KHOÁC DÙ" → "KHOÁ"+"C") — wrap theo space + auto fit ✅
 
 **User:** "thông minh mấy space đi → ví dụ 'ÁO KHOÁC DÙ' nhưng hình bị xuống hàng chữ C".

@@ -176,7 +176,9 @@
             _rebuildNameSet();
             _rerender();
             _renderManagerBody(); // modal đang mở thì cập nhật
-            return _save();
+            // A4 (2026-06-13): endpoint append ATOMIC thay vì gửi cả mảng (chống
+            // lost-write khi 2 máy ẩn cùng lúc). Server tự thêm 1 phần tử.
+            return _hideRemote(fbId, entry);
         };
         const rollback = () => {
             _map.delete(fbId);
@@ -202,7 +204,8 @@
         _rebuildNameSet();
         _rerender();
         _renderManagerBody();
-        _save()
+        // A4 (2026-06-13): endpoint remove ATOMIC thay vì gửi cả mảng.
+        _unhideRemote(fbId)
             .then(() => _toast(`👁 Đã hiện lại comment của "${prev.name || fbId}"`, 'success'))
             .catch((e) => {
                 _map.set(fbId, prev);
@@ -211,6 +214,36 @@
                 _renderManagerBody();
                 _toast(`Lỗi lưu danh sách ẩn: ${e.message}`, 'error');
             });
+    }
+
+    // A4: append/remove 1 phần tử atomic server-side. Có auth header (enforce live).
+    function _lhcHeaders() {
+        const h = { 'Content-Type': 'application/json' };
+        if (global.Web2Auth?.authHeaders) return global.Web2Auth.authHeaders(h);
+        try {
+            const t = JSON.parse(localStorage.getItem('web2_auth') || '{}')?.token;
+            if (t) h['x-web2-token'] = t;
+        } catch {}
+        return h;
+    }
+    async function _hideRemote(fbId, entry) {
+        const r = await fetch(`${_apiBase()}/hide/${encodeURIComponent(fbId)}`, {
+            method: 'POST',
+            headers: _lhcHeaders(),
+            body: JSON.stringify({ name: entry.name || '', userName: entry.by || null }),
+            signal: AbortSignal.timeout(10000),
+        });
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+    }
+    async function _unhideRemote(fbId) {
+        const r = await fetch(`${_apiBase()}/unhide/${encodeURIComponent(fbId)}`, {
+            method: 'POST',
+            headers: _lhcHeaders(),
+            signal: AbortSignal.timeout(10000),
+        });
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
     }
 
     function list() {
