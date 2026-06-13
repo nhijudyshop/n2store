@@ -2,6 +2,27 @@
 
 ## 2026-06-13
 
+### [web2] [render] Zalo Hội thoại: hiện ảnh/sticker/file trong chat + avatar an toàn + đồng bộ danh bạ → hội thoại ✅ (frontend live-verified)
+
+**User (2 lỗi từ ảnh chụp trang `web2/zalo`):** (1) chưa hiện danh sách tất cả đoạn hội thoại cũ; (2) chưa hiện avatar + hình ảnh (ảnh trong tin nhắn hiện ra dạng URL chữ).
+
+**Research (GitHub/npm zca-js v2.1.2 + đọc source cài sẵn):** zca-js **KHÔNG có API liệt kê hội thoại gần đây / lịch sử 1-1 với người lạ** — hội thoại chỉ chảy về realtime qua WebSocket listener từ lúc kết nối. Backfill khả dĩ duy nhất = seed từ **danh bạ (`getAllFriends`) + nhóm (`getAllGroups`+`getGroupInfo`)**. Tin ảnh: listener trả `content` = `TAttachmentContent {href, thumb, params}`, `msgType='chat.photo'` (→ ảnh), `chat.sticker/chat.video.msg/share.file/chat.link/...`.
+
+**Fix:**
+
+- **`services/web2-zalo-zca.js`**: `_normMessage` mới — phân loại `msgType` (image/gif/sticker/video/voice/file/link/...) + trích `attachments [{type,url,thumb,href,title}]` (parse `content.params`), caption tách riêng. Thêm `getRoster()` (gộp friends+groups chuẩn hoá) + `isConnected()`.
+- **`routes/web2-zalo.js`**: `_persistIncoming` lưu `attachments` (JSONB) + `last_msg_text` nhãn media tiếng Việt (`[Hình ảnh]`/`[Sticker]`/...). Route mới `POST /accounts/:key/sync-conversations` (seed bạn+nhóm vào `web2_zalo_conversations`, KHÔNG đụng last_msg). Mở chat → **lazy resolve avatar/tên** qua `getUserInfo` khi thiếu (best-effort, 1 lần/thread).
+- **Frontend `web2-zalo-app.js`**: helper `avatarHtml` (`<img referrerpolicy=no-referrer>` + fallback chữ cái đầu khi CDN Zalo lỗi); `bubbleKind`/`bubbleBody` render bong bóng ảnh/sticker/video/file/link; **bắt cả legacy** (tin cũ `msg_type='link'`/`text` mà content là URL ảnh zdn.vn → vẫn render ảnh); nút **Đồng bộ** ở đầu danh sách + auto-sync 1 lần khi acc đã kết nối mà list rỗng. `web2-zalo-api.js`: thêm `syncConversations`.
+- **CSS**: bong bóng media (ảnh bo góc, sticker nền trong, video play overlay, file/link), header danh sách + nút `.wz-iconbtn`, avatar nhóm.
+
+**Verify live (Playwright, localhost FE + prod API):** mở "Camera Chạy Bằng Cơm" → URL ảnh chữ cũ **render thành ảnh thật** (`naturalWidth=1829`, 0 lỗi console); nút Đồng bộ + nhãn `[Hình ảnh]` hiện trong list. ⚠ Avatar + đồng bộ danh bạ cần **deploy Render** (sync route + lazy-resolve là backend) mới hoạt động; avatar tạm hiện chữ cái đầu tới khi build xong (~3-5 phút).
+
+**Giới hạn thật (đã báo user):** hội thoại với **KH lạ (không phải bạn bè)** nhắn TRƯỚC khi kết nối tool **không backfill được** (giới hạn zca-js) — chỉ chảy về realtime từ lúc kết nối; nút Đồng bộ chỉ nạp bạn bè + nhóm.
+
+**Files:** [services/web2-zalo-zca.js](../render.com/services/web2-zalo-zca.js), [routes/web2-zalo.js](../render.com/routes/web2-zalo.js), [web2/zalo/js/web2-zalo-app.js](../web2/zalo/js/web2-zalo-app.js), [web2-zalo-api.js](../web2/zalo/js/web2-zalo-api.js), [css/web2-zalo.css](../web2/zalo/css/web2-zalo.css) (index.html `?v=20260613c`).
+
+**Status:** ✅ Frontend done + live-verified. 🔄 Backend (sync/avatar) chờ Render deploy verify.
+
 ### [live-chat] Chụp livestream qua Element Capture (occlusion-immune) — video ẩn/đè/tab nền vẫn chụp 100% ✅
 
 **User:** "làm 1 popup share đi" (chấp nhận getDisplayMedia popup để video có thể thu nhỏ/bị đè vẫn chụp) — "sợ bật popup nó lag".

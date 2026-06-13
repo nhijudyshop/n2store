@@ -610,6 +610,77 @@
     border-color: var(--wz-blue);
     box-shadow: 0 0 0 3px var(--wz-blue-soft);
 }
+/* Header danh sách hội thoại: ô tìm + nút đồng bộ danh bạ */
+.wz-conv-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 11px;
+    border-bottom: 1px solid var(--wz-line);
+    position: sticky;
+    top: 0;
+    background: #fbfcfe;
+    z-index: 2;
+}
+.wz-conv-head .wz-conv-search {
+    flex: 1;
+    padding: 0;
+    border: 0;
+    position: static;
+    background: transparent;
+}
+.wz-iconbtn {
+    flex-shrink: 0;
+    width: 38px;
+    height: 38px;
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--wz-line);
+    border-radius: 10px;
+    background: #fff;
+    color: var(--wz-muted);
+    cursor: pointer;
+    transition:
+        background var(--wz-fast) ease,
+        color var(--wz-fast) ease,
+        border-color var(--wz-fast) ease;
+}
+.wz-iconbtn:hover:not(:disabled) {
+    background: var(--wz-blue-soft);
+    color: var(--wz-blue);
+    border-color: var(--wz-blue-border);
+}
+.wz-iconbtn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+.wz-iconbtn.is-busy i {
+    animation: wzSpin 0.8s linear infinite;
+}
+.wz-iconbtn i {
+    width: 17px;
+    height: 17px;
+}
+@keyframes wzSpin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+.wz-conv-empty {
+    color: var(--wz-muted);
+    font-style: italic;
+    opacity: 0.75;
+}
+.wz-conv-av img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: inherit;
+}
+.wz-conv-av.is-group {
+    background: linear-gradient(135deg, #fef3c7, #ffe4e6);
+    color: var(--wz-warn);
+}
 .wz-conv-item {
     display: flex;
     gap: 11px;
@@ -735,6 +806,90 @@
 }
 .wz-msg.in .wz-msg-time {
     color: var(--wz-muted);
+}
+/* ── Bong bóng đính kèm: ảnh / sticker / video / file / link ─────────── */
+.wz-msg.has-media {
+    padding: 5px;
+    max-width: 60%;
+}
+.wz-msg.is-sticker {
+    background: transparent !important;
+    box-shadow: none;
+    padding: 2px 2px 0;
+}
+.wz-msg-media {
+    display: block;
+    border-radius: 12px;
+    overflow: hidden;
+    max-width: 240px;
+    background: var(--wz-line-soft);
+}
+.wz-msg-media img {
+    display: block;
+    width: 100%;
+    height: auto;
+    max-height: 320px;
+    object-fit: cover;
+}
+.wz-msg-sticker {
+    display: block;
+    width: 116px;
+    height: auto;
+    max-height: 116px;
+    object-fit: contain;
+}
+.wz-msg-video {
+    position: relative;
+}
+.wz-msg-play {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    pointer-events: none;
+}
+.wz-msg-play i {
+    width: 40px;
+    height: 40px;
+    color: #fff;
+    background: rgba(0, 0, 0, 0.46);
+    border-radius: 999px;
+    padding: 9px;
+}
+.wz-msg-file {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 4px 6px;
+    color: inherit;
+    text-decoration: none;
+    font-weight: 600;
+}
+.wz-msg.out .wz-msg-file {
+    color: #fff;
+}
+.wz-msg-file i {
+    width: 19px;
+    height: 19px;
+    flex-shrink: 0;
+}
+.wz-msg-linkbox {
+    color: inherit;
+    text-decoration: underline;
+    word-break: break-all;
+}
+.wz-msg-cap {
+    margin-top: 6px;
+    padding: 0 6px 2px;
+    font-size: 13px;
+    line-height: 1.4;
+}
+.wz-msg-muted {
+    opacity: 0.7;
+    font-style: italic;
+}
+.wz-msg.has-media .wz-msg-time {
+    padding: 0 6px 2px;
 }
 .wz-chat-compose {
     display: flex;

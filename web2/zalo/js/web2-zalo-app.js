@@ -609,41 +609,59 @@
         } catch {}
     }
 
-    // 1 bong bóng: ảnh / sticker / video / file / link / text (+ caption).
-    function bubbleBody(m) {
+    // URL hữu ích nhất của 1 message (attachment hoặc content nếu là URL trần).
+    function _msgUrl(m) {
+        const a = (Array.isArray(m.attachments) ? m.attachments : [])[0] || {};
+        return String(a.href || a.url || a.thumb || m.content || '').trim();
+    }
+    // Loại hiển thị thực tế (ổn định cho class + body). Bắt cả legacy: msg_type
+    // 'link'/'text' nhưng content là URL ảnh → render ảnh.
+    function bubbleKind(m) {
         const type = m.msg_type || 'text';
-        const atts = Array.isArray(m.attachments) ? m.attachments : [];
-        const a = atts[0] || {};
-        const cap = m.content ? `<div class="wz-msg-cap">${esc(m.content)}</div>` : '';
+        const a = (Array.isArray(m.attachments) ? m.attachments : [])[0] || {};
+        const hasMedia = !!(a.url || a.thumb || a.href);
+        if (type === 'image' || type === 'gif') return hasMedia ? 'image' : _legacyKind(m);
+        if (type === 'sticker') return hasMedia ? 'sticker' : _legacyKind(m);
+        if (type === 'video') return hasMedia ? 'video' : _legacyKind(m);
+        if (type === 'file') return hasMedia ? 'file' : 'text';
+        return _legacyKind(m);
+    }
+    function _legacyKind(m) {
+        const t = _msgUrl(m);
+        if (t && (IMG_URL_RE.test(t) || ZDN_IMG_RE.test(t))) return 'image';
+        if ((m.msg_type === 'link' || (t && URL_RE.test(t))) && !/\s/.test(t)) return 'link';
+        return 'text';
+    }
 
-        if ((type === 'image' || type === 'gif') && (a.thumb || a.url)) {
-            return `<a class="wz-msg-media" href="${esc(a.url || a.thumb)}" target="_blank" rel="noopener noreferrer">
-                <img src="${esc(a.thumb || a.url)}" alt="${esc(a.title || 'Hình ảnh')}" loading="lazy" referrerpolicy="no-referrer"></a>${cap}`;
+    // 1 bong bóng theo kind đã tính (ảnh / sticker / video / file / link / text).
+    function bubbleBody(m, kind) {
+        const a = (Array.isArray(m.attachments) ? m.attachments : [])[0] || {};
+        const cap =
+            m.content && kind !== 'link' && _msgUrl(m) !== (m.content || '').trim()
+                ? `<div class="wz-msg-cap">${esc(m.content)}</div>`
+                : '';
+        const url = _msgUrl(m);
+
+        if (kind === 'image') {
+            const src = a.thumb || a.url || url;
+            const full = a.url || a.href || url || src;
+            return `<a class="wz-msg-media" href="${esc(full)}" target="_blank" rel="noopener noreferrer">
+                <img src="${esc(src)}" alt="${esc(a.title || 'Hình ảnh')}" loading="lazy" referrerpolicy="no-referrer"></a>${cap}`;
         }
-        if (type === 'sticker' && (a.url || a.thumb)) {
-            return `<img class="wz-msg-sticker" src="${esc(a.url || a.thumb)}" alt="sticker" loading="lazy" referrerpolicy="no-referrer">`;
+        if (kind === 'sticker') {
+            return `<img class="wz-msg-sticker" src="${esc(a.url || a.thumb || url)}" alt="sticker" loading="lazy" referrerpolicy="no-referrer">`;
         }
-        if (type === 'video' && (a.thumb || a.url || a.href)) {
-            return `<a class="wz-msg-media wz-msg-video" href="${esc(a.url || a.href || a.thumb)}" target="_blank" rel="noopener noreferrer">
+        if (kind === 'video') {
+            return `<a class="wz-msg-media wz-msg-video" href="${esc(a.url || a.href || a.thumb || url)}" target="_blank" rel="noopener noreferrer">
                 ${a.thumb ? `<img src="${esc(a.thumb)}" alt="video" loading="lazy" referrerpolicy="no-referrer">` : ''}
                 <span class="wz-msg-play"><i data-lucide="play"></i></span></a>${cap}`;
         }
-        if (type === 'file') {
-            const href = a.url || a.href || '#';
-            return `<a class="wz-msg-file" href="${esc(href)}" target="_blank" rel="noopener noreferrer"><i data-lucide="file"></i><span>${esc(a.title || 'Tệp đính kèm')}</span></a>${cap}`;
+        if (kind === 'file') {
+            return `<a class="wz-msg-file" href="${esc(a.url || a.href || '#')}" target="_blank" rel="noopener noreferrer"><i data-lucide="file"></i><span>${esc(a.title || 'Tệp đính kèm')}</span></a>${cap}`;
         }
-        if (type === 'link') {
+        if (kind === 'link') {
             const href = a.href || a.url || m.content || '';
             return `<a class="wz-msg-linkbox" href="${esc(href)}" target="_blank" rel="noopener noreferrer">${esc(m.content || href)}</a>`;
-        }
-        // text — legacy: nếu content là URL ảnh trần thì vẫn render ảnh / link.
-        const txt = (m.content || '').trim();
-        if (txt && (IMG_URL_RE.test(txt) || ZDN_IMG_RE.test(txt))) {
-            return `<a class="wz-msg-media" href="${esc(txt)}" target="_blank" rel="noopener noreferrer">
-                <img src="${esc(txt)}" alt="Hình ảnh" loading="lazy" referrerpolicy="no-referrer"></a>`;
-        }
-        if (txt && URL_RE.test(txt) && !/\s/.test(txt)) {
-            return `<a class="wz-msg-linkbox" href="${esc(txt)}" target="_blank" rel="noopener noreferrer">${esc(txt)}</a>`;
         }
         return esc(m.content || '') || '<span class="wz-msg-muted">[Tin nhắn]</span>';
     }
@@ -658,10 +676,10 @@
         const name = c.display_name || c.zalo_uid || c.thread_id;
         const bubbles = state.conv.messages
             .map((m) => {
-                const type = m.msg_type || 'text';
-                const media = type !== 'text' && type !== 'link';
-                return `<div class="wz-msg ${m.direction === 'out' ? 'out' : 'in'}${media ? ' has-media' : ''}${type === 'sticker' ? ' is-sticker' : ''}">
-            ${bubbleBody(m)}
+                const kind = bubbleKind(m);
+                const media = kind !== 'text' && kind !== 'link';
+                return `<div class="wz-msg ${m.direction === 'out' ? 'out' : 'in'}${media ? ' has-media' : ''}${kind === 'sticker' ? ' is-sticker' : ''}">
+            ${bubbleBody(m, kind)}
             <div class="wz-msg-time">${fmtTime(m.sent_at)}</div>
         </div>`;
             })
@@ -756,7 +774,7 @@
             const res = await window.ZaloApi.self(accountKey);
             const u = res.data?.profile || res.data || {};
             box.innerHTML = `<div class="wz-lookup-result">
-                ${u.avatar ? `<img src="${esc(u.avatar)}">` : `<span class="wz-acc-avatar" style="width:64px;height:64px;font-size:24px">${esc(initial(u.displayName))}</span>`}
+                ${avatarHtml(u.avatar, u.displayName || u.zaloName || 'Tôi', 'wz-acc-avatar', 'width:64px;height:64px;font-size:24px;border-radius:18px')}
                 <div>
                     <div style="font-weight:700;font-size:16px">${esc(u.displayName || u.zaloName || 'Tôi')}</div>
                     <div class="wz-acc-sub">UID: ${esc(u.userId || u.uid || '—')}</div>

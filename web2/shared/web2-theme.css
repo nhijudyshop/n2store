@@ -1220,3 +1220,18 @@ body:has(.web2-shell) .btn:focus-visible {
         animation: none !important;
     }
 }
+
+/* ── Mobile: bảng rộng tự cuộn ngang (safety net mọi trang) ─────────── */
+/* Nhiều trang chưa có @media cho bảng → trên màn nhỏ bảng tràn/ép cột.
+   Hack responsive-table chuẩn: table thành block + overflow-x → cuộn ngang. */
+@media (max-width: 760px) {
+    .web2-theme .data-table,
+    .web2-theme .balance-table,
+    body:has(.web2-shell) .main-content table:not(.no-mobile-scroll),
+    body:has(.web2-shell) .web2-main table:not(.no-mobile-scroll) {
+        display: block;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        white-space: nowrap;
+    }
+}
