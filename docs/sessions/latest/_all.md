@@ -3,14 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `7b492d7` — auto: session update
-**Last updated**: 2026-06-13 11:52:23 +07
-**Latest session**: [`RESUME:20260613-115223-7b492d7`](../20260613-115223-7b492d7.md)
-**Summary**: auto: session update
+**Latest commit**: `2eeea4d` — docs(orders-report): dev-log — In PBH lấy Người bán theo Tên hiển thị account TPOS đang dùng
+**Last updated**: 2026-06-13 11:55:44 +07
+**Latest session**: [`RESUME:20260613-115544-2eeea4d`](../20260613-115544-2eeea4d.md)
+**Summary**: docs(orders-report): dev-log — In PBH lấy Người bán theo Tên hiển thị account TPOS đang dùng
 
 ## Folders affected in this commit
 
-- [`orders-report/`](./orders-report.md) — 1 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -25,7 +25,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-12 18:34
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-13 10:49
-- [`docs/`](./docs.md) — updated 2026-06-13 11:48
+- [`docs/`](./docs.md) — updated 2026-06-13 11:55
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-12 20:05
 - [`downloads/`](./downloads.md) — updated 2026-06-12 20:06
