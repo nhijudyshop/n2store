@@ -3339,12 +3339,23 @@ window.addEventListener('load', () => {
             // Prefix theo TAB active (không phải cột NCC). Tab không xác định →
             // "KHO" → mã KHO+LOẠI+MÀU+SIZE (vd KHOAODEN) thay vì KHO-<rnd> server sinh.
             const supplierName = activeTabLabel || 'KHO';
-            // override màu/size từ biến thể đã chọn (priority hơn extract từ tên SP)
+            // override màu/size từ biến thể đã chọn (priority hơn extract từ tên SP).
+            // ⚠ Biến thể so-order là chuỗi GỘP "Màu / Size" (vd "Đen / XL") →
+            // findByValueExact("Đen / XL") = null (cache lưu "Đen", "XL" RIÊNG).
+            // → trước đây override fail → mã rớt màu/size → trùng (HCQUAN/HCQUAN2/
+            // HCQUAN3 cho 3 SP khác variant). FIX: tách "/" tra cứu TỪNG phần.
             let overrideColorShort = null;
             let overrideSizeShort = null;
             if (it.variant && window.Web2VariantsCache?.findByValueExact) {
-                const v = window.Web2VariantsCache.findByValueExact(it.variant);
-                if (v && v.shortCode) {
+                const parts = String(it.variant)
+                    .split('/')
+                    .map((s) => s.trim())
+                    .filter(Boolean);
+                // Variant 1 giá trị (không có "/") → vẫn lookup nguyên chuỗi.
+                const lookups = parts.length ? parts : [String(it.variant).trim()];
+                for (const part of lookups) {
+                    const v = window.Web2VariantsCache.findByValueExact(part);
+                    if (!v || !v.shortCode) continue;
                     const grp = (v.groupName || '').toLowerCase();
                     if (grp.includes('size') || grp.includes('cỡ') || grp.includes('co')) {
                         overrideSizeShort = v.shortCode.toUpperCase();

@@ -2,6 +2,25 @@
 
 ## 2026-06-13
 
+### [so-order] Mã SP mất màu/size khi nhận hàng — biến thể gộp "Màu / Size" tra cứu fail ✅
+
+**User:** "HCQUAN2 ấy" (chỉ mã SP vô nghĩa).
+
+**Bug:** 3 SP khác biến thể nhận cùng prefix+type ra mã trùng kiểu counter: `HCQUAN` (QUẦN TÂY CẠP CAO Đen/XL), `HCQUAN2` (QUẦN TÂY CẠP CAO Be/XL), `HCQUAN3` (QUẦN SHORT KAKI Xanh Navy/M) — **mất hẳn MÀU+SIZE** trong mã (rule là `<PREFIX><LOẠI><MÀU><SIZE>`).
+
+**Root cause:** [so-order/js/so-order-app.js](../so-order/js/so-order-app.js) `_assignKhoCodes` lookup override màu/size bằng `Web2VariantsCache.findByValueExact(it.variant)` với `it.variant` là chuỗi **GỘP** `"Đen / XL"` → cache lưu `"Đen"`, `"XL"` RIÊNG → `findByValueExact("Đen / XL")` = **null** → không có override → mã rớt màu/size. Verify live: `findByValueExact("Đen / XL")`=null; `"Đen"`→DEN(Màu), `"XL"`→XL2(Size), `"Be"`→BE(Màu).
+
+**Fix:** tách `it.variant` theo `/`, tra cứu TỪNG phần, gán `overrideColorShort`/`overrideSizeShort` theo `groupName` (size vs màu). Variant 1 giá trị (không `/`) vẫn lookup nguyên chuỗi (backward-compat).
+
+**Verify (engine, sau reload):** `QUẦN TÂY CẠP CAO [Đen/XL]`→`HCQUANDENXL2`, `[Be/XL]`→`HCQUAN2BEXL2` (counter giữa type↔màu đúng rule), `QUẦN SHORT KAKI [Xanh Navy/M]`→`HCQUAN3M`.
+
+**⚠ 2 lưu ý:**
+
+- SP **đang có** trong kho (HCQUAN/HCQUAN2/HCQUAN3) là data random tạo TRƯỚC fix → vẫn giữ mã cũ; fix chỉ áp cho receive MỚI. Beta → wipe + re-receive để regen mã đúng.
+- **"Xanh Navy" KHÔNG có trong Kho Biến Thể** (chỉ có Xanh Dương=XD, Xanh Lá=XL) → màu này không encode được tới khi thêm vào Kho Biến Thể (data random dùng màu chưa đăng ký).
+
+**Status:** ✅ Done (generation). Regen data cũ chờ user.
+
 ### [render] [web2] Audit Web 2.0 — FIX TOÀN BỘ backlog (14/15 item) + adversarial review ✅
 
 **User:** "Làm tất cả web 2.0 đang beta test nên cứ code cho chính xác hoàn thiện." → Workflow điều tra 18 item (19 agent) → spec chính xác → implement theo 5 batch file-ownership (money/auth thủ công tuần tự) → adversarial review 8 vùng (48 agent) → fix bug thật.

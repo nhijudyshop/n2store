@@ -708,3 +708,22 @@
         transform: translate(-50%, 0);
     }
 }
+
+/* Slot CỐ ĐỊNH video livestream — dock đỉnh cột Kho SP (in-flow, reserved →
+   hết float đè SP/comment; 2026-06-13). Wrapper #live-snap-fb-wrapper mount vào
+   đây (position:relative). :empty → tự co khi stop capture (mọi path remove
+   wrapper). collapsed → ẩn (capture tự skip frame rỗng qua guard rect<2). */
+#live-video-dock {
+    flex: 0 0 auto;
+    display: flex;
+    justify-content: center;
+    padding: 6px;
+    background: #fff;
+    border-bottom: 1px solid #e5e7eb;
+}
+#live-video-dock:empty {
+    display: none;
+}
+#khoSpColumn.collapsed #live-video-dock {
+    display: none;
+}

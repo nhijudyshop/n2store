@@ -138,6 +138,14 @@
         extCapturePending: new Map(), // requestId → { resolve, reject, timer }
     };
 
+    // Kích thước khung video FB live. DỌC 9:16. Dock vào ĐỈNH cột Kho SP (in-flow,
+    // reserved — hết float đè UI; 2026-06-13). Compact (~160) để chừa chỗ cho SP.
+    // Dùng CHUNG cho _ensureEmbeddedIframe + _ensureSeekPlayer + _clientRestoreLive
+    // (1 nguồn — đổi 1 chỗ, capture/seek đồng bộ). HEADER ~30px FB plugin bar.
+    const SNAP_VIDEO_W = 160;
+    const SNAP_VIDEO_HEADER = 30;
+    const SNAP_VIDEO_H = Math.round((SNAP_VIDEO_W * 16) / 9); // 284 — vùng video 9:16
+
     // -----------------------------------------------------
     // N2Store Extension bridge — chrome.tabs.captureVisibleTab via postMessage.
     // Khi extension active, capture frame KHÔNG cần getDisplayMedia popup.
@@ -243,6 +251,9 @@
         }).catch(() => null);
         if (!img.naturalWidth) return null;
         const rect = wrapper.getBoundingClientRect();
+        // Dock ẩn (Kho SP collapsed → display:none) hoặc ngoài màn → rect ~0 →
+        // skip, tránh crop pixel rác. Auto-snap tick tự bỏ frame null.
+        if (rect.width < 2 || rect.height < 2) return null;
         // Tab capture trả về vùng visible viewport. Crop bằng rect viewport coords.
         // dpr scaling: nếu image natural lớn hơn viewport thì có scale factor.
         const dpr = img.naturalWidth / window.innerWidth;
@@ -1658,6 +1669,25 @@ Throttle 30s/KH.`;
     // Capture API cropTo iframe → stream chỉ chứa video FB → buffer chạy.
     // User chỉ bấm 1 lần "BẤM 1 LẦN", không bao giờ rời live-chat tab.
     // -----------------------------------------------------
+    // Slot CỐ ĐỊNH cho video livestream: đỉnh cột Kho SP (#khoSpColumn), in-flow,
+    // TRÊN #khoSpHost → reserved area, KHÔNG float đè SP/comment nữa (2026-06-13).
+    // CSS #live-video-dock ở inventory-panel.css: flex:0 0 auto, :empty→display:none
+    // (mọi path remove wrapper → dock tự co), collapsed→ẩn. Trả null nếu chưa có
+    // cột (layout chưa dựng) → _ensureEmbeddedIframe fallback fixed góc dưới-phải.
+    function _ensureVideoDock() {
+        const col = document.getElementById('khoSpColumn');
+        if (!col) return null;
+        let dock = document.getElementById('live-video-dock');
+        if (!dock) {
+            dock = document.createElement('div');
+            dock.id = 'live-video-dock';
+            const host = document.getElementById('khoSpHost');
+            if (host && host.parentElement === col) col.insertBefore(dock, host);
+            else col.insertBefore(dock, col.firstChild);
+        }
+        return dock;
+    }
+
     function _ensureEmbeddedIframe(camp) {
         let wrapper = document.getElementById('live-snap-fb-wrapper');
         if (wrapper) return wrapper.querySelector('iframe');
@@ -1676,18 +1706,23 @@ Throttle 30s/KH.`;
         // FB live từ điện thoại = DỌC (9:16). Khung ngang 16:9 → FB letterbox =
         // đen 2 bên (user feedback 2026-06-06). Đổi khung sang DỌC 9:16 → video dọc
         // fill full, hết đen 2 bên (và frame capture cũng full, không bake viền đen).
-        const WRAPPER_W = 200;
-        const WRAPPER_H = Math.round((WRAPPER_W * 16) / 9); // 356 — 9:16 video area (dọc)
-        const HEADER_OFFSET = 30; // FB plugin header bar (~30px, gần như cố định theo control bar)
+        const WRAPPER_W = SNAP_VIDEO_W;
+        const WRAPPER_H = SNAP_VIDEO_H; // 9:16 video area (dọc)
+        const HEADER_OFFSET = SNAP_VIDEO_HEADER; // FB plugin header bar
         const IFRAME_W = WRAPPER_W;
         const IFRAME_H = WRAPPER_H + HEADER_OFFSET; // total iframe height = video + header
 
         const embedUrl = `https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(fbVideoUrl)}&show_text=false&width=${IFRAME_W}&height=${IFRAME_H}&autoplay=1&mute=1&allowfullscreen=false&show_share=false&show_captions=false`;
         wrapper = document.createElement('div');
         wrapper.id = 'live-snap-fb-wrapper';
-        wrapper.style.cssText = `position:fixed;bottom:8px;right:8px;width:${WRAPPER_W}px;height:${WRAPPER_H}px;border:2px solid #dc2626;border-radius:8px;z-index:99000;background:#000;box-shadow:0 4px 12px rgba(0,0,0,0.3);overflow:hidden;`;
+        // Dock vào đỉnh cột Kho SP (in-flow, reserved). Fallback fixed góc dưới-phải
+        // nếu layout chưa có cột Kho SP (defensive — capture vẫn chạy).
+        const dock = _ensureVideoDock();
+        wrapper.style.cssText = dock
+            ? `position:relative;width:${WRAPPER_W}px;height:${WRAPPER_H}px;border:2px solid #dc2626;border-radius:8px;background:#000;box-shadow:0 2px 8px rgba(0,0,0,0.25);overflow:hidden;flex:0 0 auto;`
+            : `position:fixed;bottom:8px;right:8px;width:${WRAPPER_W}px;height:${WRAPPER_H}px;border:2px solid #dc2626;border-radius:8px;z-index:99000;background:#000;box-shadow:0 4px 12px rgba(0,0,0,0.3);overflow:hidden;`;
 
-        // No scale transform — iframe rendered AT wrapper width (320). Chỉ
+        // No scale transform — iframe rendered AT wrapper width. Chỉ
         // translate up by HEADER_OFFSET để skip FB plugin header.
         const iframe = document.createElement('iframe');
         iframe.id = 'live-snap-fb-embed';
@@ -1702,7 +1737,7 @@ Throttle 30s/KH.`;
         // Minimize button đã gỡ — khi minimize iframe display:none → tab
         // capture trả pixel trống (44x44 pill không có video) → buffer toàn
         // frame rỗng. Giữ iframe luôn open để capture liên tục.
-        document.body.appendChild(wrapper);
+        (dock || document.body).appendChild(wrapper);
         return iframe;
     }
 
@@ -3103,15 +3138,15 @@ Throttle 30s/KH.`;
         _ensureEmbeddedIframe(camp); // đảm bảo wrapper tồn tại
         const wrapper = document.getElementById('live-snap-fb-wrapper');
         if (!wrapper) throw new Error('không có wrapper capture');
-        const HEADER_OFFSET = 30;
+        const HEADER_OFFSET = SNAP_VIDEO_HEADER;
         const divId = 'fbseek_' + Math.random().toString(36).slice(2, 9);
         const host = document.createElement('div');
-        host.style.cssText = `position:absolute;left:0;top:${-HEADER_OFFSET}px;width:200px;`;
+        host.style.cssText = `position:absolute;left:0;top:${-HEADER_OFFSET}px;width:${SNAP_VIDEO_W}px;`;
         const div = document.createElement('div');
         div.id = divId;
         div.className = 'fb-video';
         div.setAttribute('data-href', fbVideoUrl);
-        div.setAttribute('data-width', '200');
+        div.setAttribute('data-width', String(SNAP_VIDEO_W));
         div.setAttribute('data-allowfullscreen', 'false');
         div.setAttribute('data-show-captions', 'false');
         host.appendChild(div);
@@ -3205,9 +3240,9 @@ Throttle 30s/KH.`;
         if (!wrapper || !camp) return;
         const fbVideoUrl = _buildFbLiveUrl(camp);
         if (!fbVideoUrl) return;
-        const WRAPPER_W = 200;
-        const HEADER_OFFSET = 30;
-        const IFRAME_H = Math.round((WRAPPER_W * 16) / 9) + HEADER_OFFSET;
+        const WRAPPER_W = SNAP_VIDEO_W;
+        const HEADER_OFFSET = SNAP_VIDEO_HEADER;
+        const IFRAME_H = SNAP_VIDEO_H + HEADER_OFFSET;
         wrapper.innerHTML = '';
         const iframe = document.createElement('iframe');
         iframe.id = 'live-snap-fb-embed';
