@@ -3,15 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `27ed932` — feat(web2,shared): add web2-motion.js (Motion engine, ESM) + dev-log đợt 9 — animation = Motion thay barba
-**Last updated**: 2026-06-13 23:07:19 +07
-**Latest session**: [`RESUME:20260613-230719-27ed932`](../20260613-230719-27ed932.md)
-**Summary**: feat(web2,shared): add web2-motion.js (Motion engine, ESM) + dev-log đợt 9 — animation = Motion thay barba
+**Latest commit**: `c61c7cb` — auto: session update
+**Last updated**: 2026-06-13 23:19:26 +07
+**Latest session**: [`RESUME:20260613-231926-c61c7cb`](../20260613-231926-c61c7cb.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`web2/`](./web2.md) — 1 file(s)
+- [`web2/`](./web2.md) — 8 file(s)
 
 ## All folder snapshots
 
@@ -72,4 +71,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-13 23:07
+- [`web2/`](./web2.md) — updated 2026-06-13 23:19
