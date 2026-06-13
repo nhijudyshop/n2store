@@ -441,3 +441,122 @@
     width: 14px;
     height: 14px;
 }
+
+/* ============================================================ */
+/* FAUX-GLASS — kính mờ GIẢ (KHÔNG backdrop-filter → an toàn scroll/large) */
+/* Dùng cho header/sticky bar. Đọc --web2-* (palette native-orders).        */
+/* ============================================================ */
+.w2fx-glass {
+    position: relative;
+    background-image:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0.62)),
+        linear-gradient(rgba(0, 104, 255, 0.04), rgba(0, 104, 255, 0.04));
+    background-color: var(--web2-surface, #fff);
+    border: 1px solid rgba(16, 24, 40, 0.08);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.9),
+        0 2px 10px rgba(16, 24, 40, 0.06);
+}
+/* OPT-IN blur THẬT — CHỈ overlay/modal/popover nhỏ KHÔNG cuộn */
+.w2fx-glass-blur {
+    background: rgba(255, 255, 255, 0.72);
+    -webkit-backdrop-filter: blur(14px) saturate(160%);
+    backdrop-filter: blur(14px) saturate(160%);
+    border: 1px solid rgba(255, 255, 255, 0.6);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.85),
+        0 8px 24px rgba(16, 24, 40, 0.14);
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .w2fx-glass-blur {
+        background-image: linear-gradient(
+            180deg,
+            rgba(255, 255, 255, 0.85),
+            rgba(255, 255, 255, 0.62)
+        );
+        background-color: var(--web2-surface, #fff);
+    }
+}
+
+/* ============================================================ */
+/* SOFT-UI CARD — nổi khối mềm contrast-safe (light). hover lift bằng transform. */
+/* ============================================================ */
+.w2fx-card {
+    background: var(--web2-surface, #fff);
+    border: 1px solid var(--web2-border-btn, #e3e8ee);
+    border-radius: 12px;
+    box-shadow:
+        0 1px 2px rgba(16, 24, 40, 0.06),
+        0 2px 6px rgba(16, 24, 40, 0.06);
+}
+.w2fx-card-i {
+    transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.w2fx-card-i:hover {
+    box-shadow:
+        0 2px 4px rgba(16, 24, 40, 0.07),
+        0 10px 20px rgba(16, 24, 40, 0.1);
+    transform: translateY(-2px);
+}
+.w2fx-card-i:active {
+    transform: translateY(0);
+}
+
+/* ============================================================ */
+/* BARBA-STYLE PAGE TRANSITION — curtain wipe (KHÔNG PJAX).                 */
+/* Controller: web2-page-transition.js. Anti-lag: transform/opacity only.  */
+/* default = ẩn trên đỉnh; .cover = che; .reveal = trượt xuống biến mất.    */
+/* ============================================================ */
+.w2fx-curtain {
+    position: fixed;
+    inset: 0;
+    z-index: 100000;
+    pointer-events: none;
+    background: linear-gradient(135deg, var(--web2-primary, #0068ff), #0047b3 90%);
+    transform: translate3d(0, -100%, 0);
+    transition: transform 0.4s cubic-bezier(0.76, 0, 0.24, 1);
+    will-change: transform;
+}
+.w2fx-curtain.cover {
+    transform: translate3d(0, 0, 0);
+    pointer-events: all;
+}
+.w2fx-curtain.reveal {
+    transform: translate3d(0, 100%, 0);
+}
+/* logo/spinner giữa màn che (tùy chọn — controller chèn) */
+.w2fx-curtain__mark {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    opacity: 0.95;
+}
+/* Nội dung trang vào mượt khi load (opt-in: thêm .w2fx-page-enter cho main) */
+@keyframes w2fxPageEnter {
+    from {
+        opacity: 0;
+        transform: translate3d(0, 10px, 0);
+    }
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+.w2fx-page-enter {
+    animation: w2fxPageEnter 0.34s cubic-bezier(0.05, 0.7, 0.1, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .w2fx-card-i,
+    .w2fx-page-enter {
+        animation: none !important;
+        transition: none !important;
+        transform: none !important;
+    }
+    .w2fx-curtain {
+        display: none !important;
+    }
+}
