@@ -315,7 +315,7 @@
     background-color: #f0f7ff;
 }
 
-.filter-radio-label input[type="radio"] {
+.filter-radio-label input[type='radio'] {
     position: absolute;
     opacity: 0;
     width: 0;
@@ -337,13 +337,13 @@
     border-color: #1890ff;
 }
 
-.filter-radio-label input[type="radio"]:checked~.filter-radio-custom {
+.filter-radio-label input[type='radio']:checked ~ .filter-radio-custom {
     border-color: #1890ff;
     background-color: #1890ff;
     box-shadow: 0 0 0 3px rgba(24, 144, 255, 0.12);
 }
 
-.filter-radio-label input[type="radio"]:checked~.filter-radio-custom::after {
+.filter-radio-label input[type='radio']:checked ~ .filter-radio-custom::after {
     content: '';
     position: absolute;
     top: 50%;
@@ -361,7 +361,7 @@
     font-weight: 450;
 }
 
-.filter-radio-label input[type="radio"]:checked~.filter-radio-text {
+.filter-radio-label input[type='radio']:checked ~ .filter-radio-text {
     color: #1890ff;
     font-weight: 600;
 }
@@ -386,7 +386,7 @@
     background-color: #f0f7ff;
 }
 
-.filter-checkbox-label input[type="checkbox"] {
+.filter-checkbox-label input[type='checkbox'] {
     position: absolute;
     opacity: 0;
     width: 0;
@@ -408,13 +408,13 @@
     border-color: #1890ff;
 }
 
-.filter-checkbox-label input[type="checkbox"]:checked~.filter-checkbox-custom {
+.filter-checkbox-label input[type='checkbox']:checked ~ .filter-checkbox-custom {
     border-color: #1890ff;
     background-color: #1890ff;
     box-shadow: 0 0 0 3px rgba(24, 144, 255, 0.12);
 }
 
-.filter-checkbox-label input[type="checkbox"]:checked~.filter-checkbox-custom::after {
+.filter-checkbox-label input[type='checkbox']:checked ~ .filter-checkbox-custom::after {
     content: '';
     position: absolute;
     top: 1px;
@@ -433,7 +433,7 @@
     flex: 1;
 }
 
-.filter-checkbox-label input[type="checkbox"]:checked~.filter-checkbox-text {
+.filter-checkbox-label input[type='checkbox']:checked ~ .filter-checkbox-text {
     color: #1890ff;
     font-weight: 600;
 }
@@ -675,7 +675,9 @@
     border: 1px solid #e2e8f0;
     border-radius: 8px;
     padding-right: 30px;
-    transition: border-color 0.2s, box-shadow 0.2s;
+    transition:
+        border-color 0.2s,
+        box-shadow 0.2s;
 }
 
 .cashbook-top-bar .search-bar:focus-within {
@@ -828,7 +830,7 @@
     background-color: #f0f7ff;
 }
 
-.column-toggle-item input[type="checkbox"] {
+.column-toggle-item input[type='checkbox'] {
     margin-right: 10px;
     width: 14px;
     height: 14px;
@@ -1157,14 +1159,14 @@
 }
 
 /* Star Icon */
-.cashbook-table td i[data-lucide="star"] {
+.cashbook-table td i[data-lucide='star'] {
     width: 16px;
     height: 16px;
     cursor: pointer;
     transition: transform 0.15s ease;
 }
 
-.cashbook-table td i[data-lucide="star"]:hover {
+.cashbook-table td i[data-lucide='star']:hover {
     transform: scale(1.2);
 }
 
@@ -1473,11 +1475,11 @@
     height: 16px;
 }
 
-.k-datetime-input i[data-lucide="calendar"] {
+.k-datetime-input i[data-lucide='calendar'] {
     right: 30px;
 }
 
-.k-datetime-input i[data-lucide="clock"] {
+.k-datetime-input i[data-lucide='clock'] {
     right: 8px;
 }
 
@@ -2076,7 +2078,7 @@
     user-select: none;
 }
 
-.category-check-label input[type="checkbox"] {
+.category-check-label input[type='checkbox'] {
     position: absolute;
     opacity: 0;
     width: 0;
@@ -2097,12 +2099,12 @@
     border-color: #1890ff;
 }
 
-.category-check-label input[type="checkbox"]:checked~.category-check-custom {
+.category-check-label input[type='checkbox']:checked ~ .category-check-custom {
     border-color: #1890ff;
     background-color: #1890ff;
 }
 
-.category-check-label input[type="checkbox"]:checked~.category-check-custom::after {
+.category-check-label input[type='checkbox']:checked ~ .category-check-custom::after {
     content: '';
     position: absolute;
     top: 1px;
@@ -3060,11 +3062,22 @@
     border-bottom: 1px solid rgba(203, 213, 225, 0.4);
 }
 
-.report-detail-table thead th:nth-child(1) { width: 120px; }
-.report-detail-table thead th:nth-child(2) { width: 110px; }
-.report-detail-table thead th:nth-child(3) { width: 80px; }
-.report-detail-table thead th:nth-child(4) { width: 120px; padding-right: 30px; }
-.report-detail-table thead th:nth-child(5) { width: auto; }
+.report-detail-table thead th:nth-child(1) {
+    width: 120px;
+}
+.report-detail-table thead th:nth-child(2) {
+    width: 110px;
+}
+.report-detail-table thead th:nth-child(3) {
+    width: 80px;
+}
+.report-detail-table thead th:nth-child(4) {
+    width: 120px;
+    padding-right: 30px;
+}
+.report-detail-table thead th:nth-child(5) {
+    width: auto;
+}
 
 .report-detail-table tbody td:nth-child(4) {
     padding-right: 30px;
@@ -3111,7 +3124,10 @@
     color: #334155;
     cursor: pointer;
     font-weight: 500;
-    transition: background 0.15s, border-color 0.15s, color 0.15s;
+    transition:
+        background 0.15s,
+        border-color 0.15s,
+        color 0.15s;
 }
 
 .report-page-btn:hover:not(:disabled) {
@@ -3201,7 +3217,6 @@
    ===================================================== */
 
 @media (max-width: 1024px) {
-
     .cashbook-sidebar,
     .report-sidebar {
         width: 240px;
@@ -3246,7 +3261,6 @@
 }
 
 @media (max-width: 768px) {
-
     /* --- LAYOUT --- */
     .cashbook-layout,
     .report-layout {
@@ -3454,7 +3468,9 @@
         border: 1px solid #f1f5f9;
         box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
         cursor: pointer;
-        transition: transform 0.15s ease, box-shadow 0.15s ease;
+        transition:
+            transform 0.15s ease,
+            box-shadow 0.15s ease;
     }
 
     .m-voucher-card:active {
@@ -3633,7 +3649,8 @@
     }
 
     /* === APP-LIKE MOBILE LAYOUT === */
-    html, body {
+    html,
+    body {
         overflow-x: hidden !important;
         width: 100% !important;
         max-width: 100vw !important;
@@ -3701,7 +3718,9 @@
         align-items: center;
         justify-content: center;
         cursor: pointer;
-        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        transition:
+            transform 0.2s ease,
+            box-shadow 0.2s ease;
     }
 
     .mobile-fab-btn:active {
@@ -3783,16 +3802,6 @@
     .fab-icon-cn {
         background: #fef3c7;
         color: #92400e;
-    }
-
-    .fab-icon-ai {
-        background: linear-gradient(135deg, #667eea, #764ba2);
-        color: #fff;
-    }
-
-    /* Ẩn nút AI chat floating mặc định trên mobile */
-    .ai-chat-fab {
-        display: none !important;
     }
 }
 
@@ -4127,7 +4136,6 @@
     font-weight: 500;
 }
 
-
 /* ==================== CONFIRM DELETE MODAL ==================== */
 .k-modal-confirm {
     width: 400px;
@@ -4246,7 +4254,9 @@
     color: #334155;
     background: #fff;
     cursor: pointer;
-    transition: border-color 0.2s, box-shadow 0.2s;
+    transition:
+        border-color 0.2s,
+        box-shadow 0.2s;
     min-width: 160px;
 }
 
@@ -4264,7 +4274,9 @@
     font-size: 13px;
     color: #334155;
     background: #fff;
-    transition: border-color 0.2s, box-shadow 0.2s;
+    transition:
+        border-color 0.2s,
+        box-shadow 0.2s;
 }
 
 .edit-history-date-input:focus {
@@ -4300,7 +4312,9 @@
     color: #334155;
     background: #fff;
     box-sizing: border-box;
-    transition: border-color 0.2s, box-shadow 0.2s;
+    transition:
+        border-color 0.2s,
+        box-shadow 0.2s;
 }
 
 .edit-history-search:focus {
@@ -4772,7 +4786,6 @@
     line-height: 1.5;
 }
 
-
 /* =====================================================
    UPLOAD PROGRESS OVERLAY
    ===================================================== */
@@ -4841,7 +4854,7 @@
 }
 
 .voucher-thumb:hover {
-    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
 .voucher-thumb-zoom {
@@ -4852,7 +4865,7 @@
     max-height: min(500px, 80vh);
     object-fit: contain;
     border-radius: 8px;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
     border: 2px solid #fff;
     background: #fff;
     pointer-events: none;
@@ -4952,7 +4965,9 @@
     background: #fff;
     font-size: 13px;
     color: #334155;
-    transition: border-color 0.2s, background 0.2s;
+    transition:
+        border-color 0.2s,
+        background 0.2s;
 }
 
 .payroll-cell-btn:hover {
@@ -5003,7 +5018,9 @@
     outline: none;
     box-sizing: border-box;
     background: transparent;
-    transition: border-color 0.2s, background 0.2s;
+    transition:
+        border-color 0.2s,
+        background 0.2s;
 }
 
 .payroll-note-input:hover {
@@ -5192,7 +5209,7 @@
 }
 
 .payroll-toggle-slider:before {
-    content: "";
+    content: '';
     position: absolute;
     height: 16px;
     width: 16px;
@@ -5348,10 +5365,18 @@
     vertical-align: middle;
 }
 
-.ad-dot--ontime { background: #1890ff; }
-.ad-dot--late { background: #a855f7; }
-.ad-dot--incomplete { background: #ef4444; }
-.ad-dot--absent { background: #d1d5db; }
+.ad-dot--ontime {
+    background: #1890ff;
+}
+.ad-dot--late {
+    background: #a855f7;
+}
+.ad-dot--incomplete {
+    background: #ef4444;
+}
+.ad-dot--absent {
+    background: #d1d5db;
+}
 
 .ad-day-status {
     font-size: 10px;
@@ -5397,7 +5422,9 @@
     margin-left: 4px;
     vertical-align: middle;
     border-radius: 4px;
-    transition: color 0.15s, background 0.15s;
+    transition:
+        color 0.15s,
+        background 0.15s;
 }
 
 .payroll-emp-detail-btn:hover {
@@ -5475,7 +5502,9 @@
     border: none;
     border-bottom: 2px solid transparent;
     cursor: pointer;
-    transition: color 0.15s, border-color 0.15s;
+    transition:
+        color 0.15s,
+        border-color 0.15s;
     white-space: nowrap;
 }
 .att-tab:hover {
@@ -5505,7 +5534,7 @@
     cursor: pointer;
     margin-right: 16px;
 }
-.att-radio input[type="radio"] {
+.att-radio input[type='radio'] {
     appearance: none;
     -webkit-appearance: none;
     width: 18px;
@@ -5517,10 +5546,10 @@
     transition: border-color 0.15s;
     flex-shrink: 0;
 }
-.att-radio input[type="radio"]:checked {
+.att-radio input[type='radio']:checked {
     border-color: #4f6ef7;
 }
-.att-radio input[type="radio"]:checked::after {
+.att-radio input[type='radio']:checked::after {
     content: '';
     position: absolute;
     top: 3px;
@@ -5541,7 +5570,7 @@
     cursor: pointer;
     min-width: 70px;
 }
-.att-checkbox-group input[type="checkbox"] {
+.att-checkbox-group input[type='checkbox'] {
     appearance: none;
     -webkit-appearance: none;
     width: 18px;
@@ -5550,14 +5579,16 @@
     border-radius: 4px;
     position: relative;
     cursor: pointer;
-    transition: border-color 0.15s, background 0.15s;
+    transition:
+        border-color 0.15s,
+        background 0.15s;
     flex-shrink: 0;
 }
-.att-checkbox-group input[type="checkbox"]:checked {
+.att-checkbox-group input[type='checkbox']:checked {
     background: #4f6ef7;
     border-color: #4f6ef7;
 }
-.att-checkbox-group input[type="checkbox"]:checked::after {
+.att-checkbox-group input[type='checkbox']:checked::after {
     content: '';
     position: absolute;
     top: 1px;

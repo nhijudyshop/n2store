@@ -2,6 +2,22 @@
 
 ## 2026-06-13
 
+### [shared] [nhanhang] [soquy] Gỡ hoàn toàn widget AI chat nổi khỏi toàn bộ trang ✅
+
+**User:** "bỏ widget ai web 2.0 đi" → (kèm ảnh nút chat tím nổi góc phải trang live-chat) → "xóa AI widget khỏi navigation-modern.js luôn đi".
+
+**Bối cảnh:** Widget AI chat nổi (`shared/js/ai-chat-widget.js` — FAB `.ai-chat-fab` "Trợ lý AI", chat Gemini/DeepSeek, admin-only) được `navigation-modern.js` tự inject trên MỌI trang load nav. Nó hiện cả trên `live-chat/` (Web 2.0 — load navigation-modern chỉ để có SePay banner). User muốn gỡ hẳn.
+
+**Đã làm (gỡ sạch, không để dead code):**
+
+- `shared/js/navigation-modern.js`: xóa nguyên IIFE `loadAIChatWidget()` (chỉ còn 1 comment breadcrumb "đã gỡ 2026-06-13").
+- **Xóa file** `shared/js/ai-chat-widget.js` (−1231 dòng, orphaned — chỉ navigation-modern load nó).
+- `nhanhang/index.html` + `nhanhang/js/main.js`: gỡ nút FAB `#fabOpenAI` "Trợ lý AI" + handler `AIChatWidget.toggle()`.
+- `soquy/index.html` + `soquy/js/soquy-main.js`: gỡ nút FAB `#fabOpenAI` + handler tương tự.
+- `nhanhang/css/modern-styles.css` + `soquy/css/soquy.css`: gỡ rule `.fab-icon-ai` + `.ai-chat-fab` (orphaned).
+
+**Verify:** grep toàn repo (excl dist/node_modules) → 0 reference active (`AIChatWidget|ai-chat-widget|fabOpenAI|fab-icon-ai|loadAIChatWidget`). `node --check` pass 3 file JS. CSS brace balance OK. navigation-modern vẫn load bình thường cho nav + SePay banner. **Status:** ✅ Done.
+
 ### [live-chat] Force-extract: đúng video theo chiến dịch + thông báo khi video bị xóa ✅ (verified)
 
 **User:** "force extract phải lấy đúng video livestream được chọn theo chiến dịch, nếu video bị xóa thì thông báo".
