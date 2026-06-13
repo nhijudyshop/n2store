@@ -3,14 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `ee302a2` — fix(products): tem QR giá dài bị cắt — auto thu nhỏ .ql-qr-price cho vừa cột
-**Last updated**: 2026-06-13 13:59:20 +07
-**Latest session**: [`RESUME:20260613-135920-ee302a2`](../20260613-135920-ee302a2.md)
-**Summary**: fix(products): tem QR giá dài bị cắt — auto thu nhỏ .ql-qr-price cho vừa cột
+**Latest commit**: `f4232cf` — auto: session update
+**Last updated**: 2026-06-13 14:05:45 +07
+**Latest session**: [`RESUME:20260613-140545-f4232cf`](../20260613-140545-f4232cf.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
+- [`delivery-report/`](./delivery-report.md) — 2 file(s)
+- [`web2/`](./web2.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -24,7 +25,7 @@
 - [`bangkiemhang/`](./bangkiemhang.md) — updated 2026-05-21 15:39
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-12 18:34
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
-- [`delivery-report/`](./delivery-report.md) — updated 2026-06-13 10:49
+- [`delivery-report/`](./delivery-report.md) — updated 2026-06-13 14:05
 - [`docs/`](./docs.md) — updated 2026-06-13 13:59
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-12 20:05
@@ -71,4 +72,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-13 13:55
+- [`web2/`](./web2.md) — updated 2026-06-13 14:05
