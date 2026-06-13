@@ -20,9 +20,9 @@ const DELIVERY_TRANSITIONS = {
     cancel: new Set([]), // terminal
 };
 
-let _ready = false;
+const _ensuredPools = new WeakSet();
 async function ensureTables(pool) {
-    if (_ready) return;
+    if (_ensuredPools.has(pool)) return;
     try {
         await pool.query(`
             -- Migration 071: delivery_invoices (Phiếu Giao Hàng)
@@ -83,7 +83,7 @@ async function ensureTables(pool) {
 
             CREATE SEQUENCE IF NOT EXISTS delivery_invoices_display_stt_seq START 1;
         `);
-        _ready = true;
+        _ensuredPools.add(pool);
         console.log('[DELIVERY-INVOICES] Tables created/verified (migration 071)');
     } catch (e) {
         console.error('[DELIVERY-INVOICES] migration error:', e.message);

@@ -18,9 +18,9 @@ const REFUND_TRANSITIONS = {
     cancel: new Set([]), // terminal
 };
 
-let _ready = false;
+const _ensuredPools = new WeakSet();
 async function ensureTables(pool) {
-    if (_ready) return;
+    if (_ensuredPools.has(pool)) return;
     try {
         await pool.query(`
             -- Migration 072: refunds (Trả hàng)
@@ -71,7 +71,7 @@ async function ensureTables(pool) {
 
             CREATE SEQUENCE IF NOT EXISTS refunds_display_stt_seq START 1;
         `);
-        _ready = true;
+        _ensuredPools.add(pool);
         console.log('[REFUNDS] Tables created/verified (migration 072)');
     } catch (e) {
         console.error('[REFUNDS] migration error:', e.message);

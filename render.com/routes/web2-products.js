@@ -723,15 +723,22 @@ router.patch('/:code', async (req, res) => {
             // Build SET expressions for native_orders.products (key shape: productCode)
             // products[*] có: productCode, name, price, imageUrl
             try {
+                // C14 (2026-06-13): VALUE tham số hoá ($N) thay vì pgString inline —
+                // key name là literal cứng (an toàn), giá trị đi qua params (hết
+                // rủi ro SQL string-build dù pgString có escape).
                 const setNative = [];
+                const pNative = [code, now]; // $1=code, $2=now
                 if (req.body.imageUrl !== undefined) {
-                    setNative.push(`'imageUrl', to_jsonb(${pgString(newProd.image_url)}::text)`);
+                    pNative.push(newProd.image_url);
+                    setNative.push(`'imageUrl', to_jsonb($${pNative.length}::text)`);
                 }
                 if (req.body.name !== undefined) {
-                    setNative.push(`'name', to_jsonb(${pgString(newProd.name)}::text)`);
+                    pNative.push(newProd.name);
+                    setNative.push(`'name', to_jsonb($${pNative.length}::text)`);
                 }
                 if (req.body.price !== undefined) {
-                    setNative.push(`'price', to_jsonb(${Number(newProd.price) || 0}::numeric)`);
+                    pNative.push(Number(newProd.price) || 0);
+                    setNative.push(`'price', to_jsonb($${pNative.length}::numeric)`);
                 }
                 if (setNative.length > 0) {
                     const updNative = await client.query(
@@ -749,7 +756,7 @@ router.patch('/:code', async (req, res) => {
                             updated_at = $2
                          WHERE products @> jsonb_build_array(jsonb_build_object('productCode', $1::text))
                          RETURNING code`,
-                        [code, now]
+                        pNative
                     );
                     cascadeCounts.nativeOrders = updNative.rowCount;
                     if (updNative.rowCount > 0) {
@@ -772,14 +779,18 @@ router.patch('/:code', async (req, res) => {
             // Cascade tới fast_sale_orders.order_lines (key: productCode, productName, priceUnit)
             try {
                 const setPbh = [];
+                const pPbh = [code, now]; // $1=code, $2=now
                 if (req.body.imageUrl !== undefined) {
-                    setPbh.push(`'imageUrl', to_jsonb(${pgString(newProd.image_url)}::text)`);
+                    pPbh.push(newProd.image_url);
+                    setPbh.push(`'imageUrl', to_jsonb($${pPbh.length}::text)`);
                 }
                 if (req.body.name !== undefined) {
-                    setPbh.push(`'productName', to_jsonb(${pgString(newProd.name)}::text)`);
+                    pPbh.push(newProd.name);
+                    setPbh.push(`'productName', to_jsonb($${pPbh.length}::text)`);
                 }
                 if (req.body.price !== undefined) {
-                    setPbh.push(`'priceUnit', to_jsonb(${Number(newProd.price) || 0}::numeric)`);
+                    pPbh.push(Number(newProd.price) || 0);
+                    setPbh.push(`'priceUnit', to_jsonb($${pPbh.length}::numeric)`);
                 }
                 if (setPbh.length > 0) {
                     const updPbh = await client.query(
@@ -797,7 +808,7 @@ router.patch('/:code', async (req, res) => {
                             updated_at = $2
                          WHERE order_lines @> jsonb_build_array(jsonb_build_object('productCode', $1::text))
                          RETURNING number`,
-                        [code, now]
+                        pPbh
                     );
                     cascadeCounts.fastSaleOrders = updPbh.rowCount;
                     if (updPbh.rowCount > 0) {
@@ -855,14 +866,8 @@ router.patch('/:code', async (req, res) => {
     }
 });
 
-// SQL-safe string literal builder cho cascade jsonb_build_object — chỉ dùng cho
-// giá trị đã trust (lấy từ DB row sau UPDATE thành công). Vì jsonb_build_object
-// args là expressions không phải $-params, ta phải embed inline. Escape ' bằng
-// '' và quote literal.
-function pgString(s) {
-    if (s == null) return 'NULL';
-    return "'" + String(s).replace(/'/g, "''") + "'";
-}
+// C14 (2026-06-13): pgString() đã GỠ — cascade snapshot giờ dùng VALUE tham số
+// hoá ($N) trong jsonb_build_object (key name vẫn literal cứng). Hết string-build.
 
 // -----------------------------------------------------
 // POST /api/web2/products/adjust-stock

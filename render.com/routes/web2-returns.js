@@ -136,9 +136,9 @@ function _user(req) {
 // -----------------------------------------------------
 // Auto-create table on first request (idempotent)
 // -----------------------------------------------------
-let _tablesCreated = false;
+const _ensuredPools = new WeakSet();
 async function ensureTables(pool) {
-    if (_tablesCreated) return;
+    if (_ensuredPools.has(pool)) return;
     // ALTER ADD COLUMN mới đặt ĐẦU (rule web2-wallet-isolation regression): cột
     // return_qty trên web2_products = tồn kho thu về chờ duyệt (shipper_gui).
     await pool.query(`
@@ -203,7 +203,7 @@ async function ensureTables(pool) {
     } catch (e) {
         console.warn('[WEB2-RETURNS] uq_web2_returns_knh_active create failed:', e.message);
     }
-    _tablesCreated = true;
+    _ensuredPools.add(pool);
 }
 
 function getPool(req) {

@@ -1,0 +1,213 @@
+// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 MODULE — Zalo schema (web2Db).
+// =====================================================================
+// ensureWeb2ZaloSchema(pool) — tạo toàn bộ bảng web2_zalo_* (idempotent).
+//
+// Nguồn DUY NHẤT của dữ liệu Zalo trong Web 2.0 (trang web2/zalo/).
+// 2 loại tài khoản trong CÙNG bảng web2_zalo_accounts:
+//   • account_type='personal' → zca-js (đăng nhập QR/cookie, chat 2 chiều)
+//   • account_type='oa'       → Zalo OA chính thức (ZNS, tin tư vấn)
+//
+// Quy tắc migration (bài học web2-wallet-schema):
+//   ALTER TABLE IF EXISTS ... ADD COLUMN đặt ĐẦU ensureSchema, trong try/catch
+//   riêng — ALTER IF EXISTS là no-op khi bảng chưa có, không bao giờ throw.
+// =====================================================================
+
+'use strict';
+
+// WeakSet keyed theo pool object: route nhận web2Db HOẶC fallback chatDb lúc
+// cold-start → tránh pool đầu mark ready khiến pool thứ 2 skip tạo bảng.
+const _ensuredPools = new WeakSet();
+
+async function ensureWeb2ZaloSchema(pool) {
+    if (!pool || _ensuredPools.has(pool)) return;
+    try {
+        // ── 0. ADD COLUMN trên bảng đã sống ở prod (web2_customers) — ĐẦU TIÊN ──
+        //    Gộp identity Zalo vào kho KH theo SĐT (UNIQUE phone sẵn có).
+        try {
+            await pool.query(`
+                ALTER TABLE IF EXISTS web2_customers
+                    ADD COLUMN IF NOT EXISTS zalo_uid         VARCHAR(100),
+                    ADD COLUMN IF NOT EXISTS zalo_followed_oa BOOLEAN DEFAULT false;
+            `);
+        } catch (e) {
+            console.error('[web2-zalo-schema] web2_customers ALTER warn:', e.message);
+        }
+
+        // ── 1. Tài khoản Zalo (personal qua zca-js HOẶC OA chính thức) ──────────
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS web2_zalo_accounts (
+                id            BIGSERIAL PRIMARY KEY,
+                account_key   VARCHAR(80) UNIQUE NOT NULL,   -- uuid (personal) | oa_id (oa)
+                account_type  VARCHAR(10) NOT NULL DEFAULT 'personal', -- personal | oa
+                label         VARCHAR(255),
+                zalo_uid      VARCHAR(100),                  -- own user id (personal)
+                oa_id         VARCHAR(80),                   -- OA id (oa)
+                display_name  VARCHAR(255),
+                avatar_url    TEXT,
+                -- personal (zca-js) session (nhạy cảm — không log/echo):
+                session       JSONB,                         -- {cookie, imei, userAgent, language}
+                proxy_url     TEXT,
+                -- oa (official) credentials/tokens:
+                app_id        VARCHAR(80),
+                oa_secret     TEXT,
+                access_token  TEXT,
+                refresh_token TEXT,
+                token_expires BIGINT,                        -- epoch ms
+                status        VARCHAR(20) NOT NULL DEFAULT 'disconnected',
+                                -- disconnected|qr_pending|scanned|connected|banned|error|token_ok
+                status_msg    TEXT,
+                is_active     BOOLEAN NOT NULL DEFAULT true,
+                meta          JSONB NOT NULL DEFAULT '{}'::jsonb,
+                last_connected_at BIGINT,
+                created_at    BIGINT NOT NULL,
+                updated_at    BIGINT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_web2_zalo_acc_type   ON web2_zalo_accounts(account_type);
+            CREATE INDEX IF NOT EXISTS idx_web2_zalo_acc_active ON web2_zalo_accounts(is_active);
+            CREATE INDEX IF NOT EXISTS idx_web2_zalo_acc_oa     ON web2_zalo_accounts(oa_id) WHERE oa_id IS NOT NULL;
+        `);
+
+        // ── 2. Hội thoại (1 dòng / account × thread) ────────────────────────────
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS web2_zalo_conversations (
+                id            BIGSERIAL PRIMARY KEY,
+                account_key   VARCHAR(80) NOT NULL,
+                thread_id     VARCHAR(100) NOT NULL,         -- zalo uid (user) | group id
+                thread_type   VARCHAR(10) NOT NULL DEFAULT 'user', -- user | group
+                zalo_uid      VARCHAR(100),
+                display_name  VARCHAR(255),
+                avatar_url    TEXT,
+                customer_id   BIGINT,                        -- FK → web2_customers.id (nullable)
+                phone         VARCHAR(20),
+                last_msg_at   BIGINT,
+                last_msg_text TEXT,
+                unread_count  INTEGER NOT NULL DEFAULT 0,
+                meta          JSONB NOT NULL DEFAULT '{}'::jsonb,
+                created_at    BIGINT NOT NULL,
+                updated_at    BIGINT NOT NULL,
+                UNIQUE (account_key, thread_id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_web2_zalo_conv_acc      ON web2_zalo_conversations(account_key);
+            CREATE INDEX IF NOT EXISTS idx_web2_zalo_conv_uid      ON web2_zalo_conversations(zalo_uid);
+            CREATE INDEX IF NOT EXISTS idx_web2_zalo_conv_phone    ON web2_zalo_conversations(phone) WHERE phone IS NOT NULL;
+            CREATE INDEX IF NOT EXISTS idx_web2_zalo_conv_customer ON web2_zalo_conversations(customer_id) WHERE customer_id IS NOT NULL;
+            CREATE INDEX IF NOT EXISTS idx_web2_zalo_conv_last     ON web2_zalo_conversations(last_msg_at DESC NULLS LAST);
+        `);
+
+        // ── 3. Tin nhắn (append-only) ───────────────────────────────────────────
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS web2_zalo_messages (
+                id            BIGSERIAL PRIMARY KEY,
+                msg_id        TEXT,                          -- zalo message id (dedup, nullable)
+                account_key   VARCHAR(80) NOT NULL,
+                thread_id     VARCHAR(100) NOT NULL,
+                thread_type   VARCHAR(10) NOT NULL DEFAULT 'user',
+                direction     VARCHAR(10) NOT NULL,          -- in | out
+                msg_type      VARCHAR(30) NOT NULL DEFAULT 'text', -- text|image|file|sticker|zns|template
+                content       TEXT,
+                attachments   JSONB NOT NULL DEFAULT '[]'::jsonb,
+                sender_uid    VARCHAR(100),
+                send_status   VARCHAR(20) DEFAULT 'sent',    -- sent|failed|pending
+                error_msg     TEXT,
+                sent_at       BIGINT NOT NULL,
+                created_at    BIGINT NOT NULL
+            );
+            CREATE UNIQUE INDEX IF NOT EXISTS uq_web2_zalo_msg_id ON web2_zalo_messages(account_key, msg_id) WHERE msg_id IS NOT NULL;
+            CREATE INDEX IF NOT EXISTS idx_web2_zalo_msg_thread ON web2_zalo_messages(account_key, thread_id, sent_at DESC);
+            CREATE INDEX IF NOT EXISTS idx_web2_zalo_msg_failed ON web2_zalo_messages(send_status) WHERE send_status = 'failed';
+        `);
+
+        // ── 4. ZNS templates (cache từ OA) ──────────────────────────────────────
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS web2_zns_templates (
+                id               BIGSERIAL PRIMARY KEY,
+                template_id      VARCHAR(80) UNIQUE NOT NULL,
+                oa_id            VARCHAR(80),
+                template_name    VARCHAR(255) NOT NULL,
+                template_quality VARCHAR(20),
+                status           VARCHAR(20) DEFAULT 'ENABLE',
+                params           JSONB NOT NULL DEFAULT '[]'::jsonb,
+                preview_url      TEXT,
+                is_active        BOOLEAN NOT NULL DEFAULT true,
+                created_at       BIGINT NOT NULL,
+                updated_at       BIGINT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_web2_zns_tpl_oa     ON web2_zns_templates(oa_id);
+            CREATE INDEX IF NOT EXISTS idx_web2_zns_tpl_active ON web2_zns_templates(is_active);
+        `);
+
+        // ── 5. ZNS send log (append-only, 1 dòng / lần gửi) ─────────────────────
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS web2_zns_log (
+                id          BIGSERIAL PRIMARY KEY,
+                log_id      TEXT UNIQUE NOT NULL DEFAULT gen_random_uuid()::text,
+                oa_id       VARCHAR(80),
+                template_id VARCHAR(80) NOT NULL,
+                phone       VARCHAR(20) NOT NULL,
+                customer_id BIGINT,
+                params      JSONB NOT NULL DEFAULT '{}'::jsonb,
+                status      VARCHAR(20) NOT NULL DEFAULT 'pending', -- pending|sent|failed
+                zalo_msg_id TEXT,
+                quota_cost  INTEGER,
+                order_ref   VARCHAR(80),
+                error_msg   TEXT,
+                sent_by     VARCHAR(100),
+                sent_at     BIGINT,
+                created_at  BIGINT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_web2_zns_log_phone   ON web2_zns_log(phone);
+            CREATE INDEX IF NOT EXISTS idx_web2_zns_log_status  ON web2_zns_log(status);
+            CREATE INDEX IF NOT EXISTS idx_web2_zns_log_ref     ON web2_zns_log(order_ref) WHERE order_ref IS NOT NULL;
+            CREATE INDEX IF NOT EXISTS idx_web2_zns_log_created ON web2_zns_log(created_at DESC);
+        `);
+
+        // ── 6. Bulk send jobs ───────────────────────────────────────────────────
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS web2_zalo_send_jobs (
+                id          BIGSERIAL PRIMARY KEY,
+                job_id      TEXT UNIQUE NOT NULL DEFAULT gen_random_uuid()::text,
+                account_key VARCHAR(80),
+                job_type    VARCHAR(30) NOT NULL DEFAULT 'zns', -- zns | chat
+                template_id VARCHAR(80),
+                params_base JSONB NOT NULL DEFAULT '{}'::jsonb,
+                message     TEXT,
+                status      VARCHAR(20) NOT NULL DEFAULT 'pending', -- pending|running|done|failed|cancelled
+                total       INTEGER NOT NULL DEFAULT 0,
+                sent        INTEGER NOT NULL DEFAULT 0,
+                failed      INTEGER NOT NULL DEFAULT 0,
+                created_by  VARCHAR(100),
+                started_at  BIGINT,
+                finished_at BIGINT,
+                created_at  BIGINT NOT NULL,
+                updated_at  BIGINT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_web2_zalo_jobs_status ON web2_zalo_send_jobs(status);
+        `);
+
+        // ── 7. Bulk send items ──────────────────────────────────────────────────
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS web2_zalo_send_items (
+                id          BIGSERIAL PRIMARY KEY,
+                job_id      TEXT NOT NULL,
+                phone       VARCHAR(20),
+                thread_id   VARCHAR(100),
+                customer_id BIGINT,
+                params      JSONB NOT NULL DEFAULT '{}'::jsonb,
+                status      VARCHAR(20) NOT NULL DEFAULT 'pending', -- pending|sent|failed|skip
+                zalo_msg_id TEXT,
+                error_msg   TEXT,
+                sent_at     BIGINT,
+                created_at  BIGINT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_web2_zalo_items_job    ON web2_zalo_send_items(job_id);
+            CREATE INDEX IF NOT EXISTS idx_web2_zalo_items_status ON web2_zalo_send_items(job_id, status);
+        `);
+
+        _ensuredPools.add(pool);
+        console.log('[web2-zalo-schema] all Zalo tables ready (web2Db)');
+    } catch (e) {
+        console.error('[web2-zalo-schema] ensureSchema failed:', e.message);
+    }
+}
+
+module.exports = { ensureWeb2ZaloSchema };

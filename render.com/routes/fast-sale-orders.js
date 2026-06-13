@@ -201,9 +201,9 @@ const { lookupCustomerIdByPhone } = require('../services/web2-order-customer-ser
 // -----------------------------------------------------
 // Schema + auto-migrate
 // -----------------------------------------------------
-let _ready = false;
+const _ensuredPools = new WeakSet();
 async function ensureTables(pool) {
-    if (_ready) return;
+    if (_ensuredPools.has(pool)) return;
     // MIGRATION (ĐẶT ĐẦU): DROP crm_team_id + crm_team_name — di tích TPOS,
     // không consumer nào đọc (xác nhận 2026-06-12); sau gỡ TPOS giá trị nhét
     // vào là FB Page Id (15 chữ số) trùng lặp fb_page_id và từng tràn INT4
@@ -387,7 +387,7 @@ async function ensureTables(pool) {
             CREATE INDEX IF NOT EXISTS idx_fsoh_pbh     ON fast_sale_order_history(pbh_number, created_at DESC);
             CREATE INDEX IF NOT EXISTS idx_fsoh_created ON fast_sale_order_history(created_at DESC);
         `);
-        _ready = true;
+        _ensuredPools.add(pool);
         console.log('[FAST-SALE-ORDERS] Tables created/verified (migration 070)');
     } catch (e) {
         console.error('[FAST-SALE-ORDERS] migration error:', e.message);

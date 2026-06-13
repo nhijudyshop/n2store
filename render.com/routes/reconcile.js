@@ -51,9 +51,9 @@ function _notify(action, number, extra = {}) {
 // -----------------------------------------------------
 // Schema (chỉ tạo bảng audit log; cột fulfillment_* đã có ở fast-sale-orders.js migration 076)
 // -----------------------------------------------------
-let _ready = false;
+const _ensuredPools = new WeakSet();
 async function ensureTables(pool) {
-    if (_ready) return;
+    if (_ensuredPools.has(pool)) return;
     try {
         await pool.query(`
             -- Migration 076b: Audit log cho mọi mutation fulfillment
@@ -71,7 +71,7 @@ async function ensureTables(pool) {
             CREATE INDEX IF NOT EXISTS idx_pbh_log_number ON pbh_fulfillment_logs(pbh_number);
             CREATE INDEX IF NOT EXISTS idx_pbh_log_created ON pbh_fulfillment_logs(created_at DESC);
         `);
-        _ready = true;
+        _ensuredPools.add(pool);
         console.log('[RECONCILE] Tables created/verified (migration 076b)');
     } catch (e) {
         console.error('[RECONCILE] migration error:', e.message);

@@ -33,9 +33,9 @@ function _notify(action, data) {
 }
 
 // ---- Schema ----
-let _schemaReady = false;
+const _ensuredPools = new WeakSet();
 async function ensureSchema(pool) {
-    if (_schemaReady || !pool) return;
+    if (_ensuredPools.has(pool) || !pool) return;
     await pool.query(`
         CREATE TABLE IF NOT EXISTS livestream_images (
             id BIGSERIAL PRIMARY KEY,
@@ -61,7 +61,7 @@ async function ensureSchema(pool) {
         CREATE INDEX IF NOT EXISTS idx_lsimg_created
             ON livestream_images(created_at DESC);
     `);
-    _schemaReady = true;
+    _ensuredPools.add(pool);
     console.log('[livestream-images] schema ready');
     _autoCleanupOld(pool).catch(() => {});
     if (!ensureSchema._cleanupTimer) {

@@ -154,9 +154,9 @@ function _notify(action, code) {
 // -----------------------------------------------------
 // Auto-create table on first request
 // -----------------------------------------------------
-let _tablesCreated = false;
+const _ensuredPools = new WeakSet();
 async function ensureTables(pool) {
-    if (_tablesCreated) return;
+    if (_ensuredPools.has(pool)) return;
     // MIGRATION (ĐẶT ĐẦU — rule MEMORY: ALTER mới phải chạy trước mọi bước khác):
     // DROP crm_team_id — di tích TPOS, không consumer nào đọc (getPartnerInfo
     // bỏ qua tường minh, không UI hiển thị); sau gỡ TPOS client còn nhét FB
@@ -456,7 +456,7 @@ async function ensureTables(pool) {
             END $$;
         `);
 
-        _tablesCreated = true;
+        _ensuredPools.add(pool);
         console.log('[NATIVE-ORDERS] Tables created/verified (migration 080: campaign_stt)');
     } catch (error) {
         console.error('[NATIVE-ORDERS] Table creation error:', error.message);

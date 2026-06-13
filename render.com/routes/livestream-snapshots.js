@@ -45,9 +45,9 @@ function _notify(action, data) {
     } catch {}
 }
 
-let _schemaReady = false;
+const _ensuredPools = new WeakSet();
 async function ensureSchema(pool) {
-    if (_schemaReady || !pool) return;
+    if (_ensuredPools.has(pool) || !pool) return;
     await pool.query(`
         CREATE TABLE IF NOT EXISTS livestream_snapshots (
             id BIGSERIAL PRIMARY KEY,
@@ -115,7 +115,7 @@ async function ensureSchema(pool) {
             `[livestream-snapshots] post-crop-fix TRUNCATE done — deleted ${before.rows[0].c} rows`
         );
     }
-    _schemaReady = true;
+    _ensuredPools.add(pool);
     console.log('[livestream-snapshots] schema ready');
     _autoCleanupOldSnapshots(pool).catch(() => {});
     if (!ensureSchema._cleanupTimer) {
