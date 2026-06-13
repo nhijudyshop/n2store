@@ -2,6 +2,18 @@
 
 ## 2026-06-13
 
+### [orders] In PBH — "Người bán" theo "Tên hiển thị" của tài khoản TPOS đang dùng ✅
+
+**User:** "Nút [In hàng loạt PBH] sẽ in lại theo tên người bán cập nhật theo [modal Tài khoản TPOS, ô Tên hiển thị] → tên người bán ở bill." Chọn: dùng "Tên hiển thị" (label) account đang chọn làm tên Người bán; áp dụng CẢ batch lẫn in lẻ.
+
+**Files:** [orders-report/js/utils/bill-service.js](../orders-report/js/utils/bill-service.js)
+
+- Thêm helper `getActiveSellerName()` = `window.billTokenManager.getActiveLabel()` (= ô "Tên hiển thị" của account TPOS đang dùng) + `escapeBillHtml()`.
+- **Custom/fallback bill** (`generateCustomBillHTML`): seller name ưu tiên `getActiveSellerName()` trước `authManager.displayName` / `User.Name`. Escape giá trị khi nhét HTML.
+- **TPOS server-rendered bill** (`fetchTPOSBillHTML`): override text "Người bán" bằng regex (capture 3 nhóm: prefix `<strong>` + name + `</div>`), chạy TRƯỚC bước chèn STT nên STT vẫn match div mới. Cả 2 đường batch (`openCombinedTPOSPrintPopup`→`fetchTPOSBillHTML`, `openCombinedPrintPopup`→`generateCustomBillHTML`) + in lẻ (`fetchAndPrintTPOSBill`, `openPrintPopup`) tự kế thừa.
+
+**Verify:** `node --check` pass · regex test (literal "á" + entity `&#225;`, có escape `<KT>`) override + chèn STT đúng thứ tự · **live** (browser session): `activeLabel="nvkt"` khớp modal; `generateCustomBillHTML(...)` render "Người bán: **nvkt**". Đổi "Tên hiển thị" → in ra tên mới.
+
 ### [render] [web2] Web 2.0 audit — đợt LOW (wallet emit post-commit + 3W6 sidebar admin-gating) ✅
 
 **User:** "continue" — dọn tiếp backlog LOW/kiến trúc.
