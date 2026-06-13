@@ -1,10 +1,14 @@
 // #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 — wrapper mỏng bọc Web2ChatPanel (component chat hợp nhất). Giữ public API cũ cho conversation-list + realtime.
 // =====================================================================
-// PancakeChatWindow — TỪ 2026-06-07 chỉ là wrapper mỏng quanh Web2ChatPanel
+// PancakeChatWindow — wrapper mỏng quanh Web2ChatPanel
 // (web2/shared/chat-panel/web2-chat-panel.js). UI/render/emoji/reply/pagination
-// nằm trong component chung; file này CHỈ build ADAPTER bọc PancakeAPI/PancakeState
-// (fetch/send/upload + extension-first bypass 24h) và giữ nguyên public surface mà
-// pancake-conversation-list.js + pancake-realtime.js đang gọi:
+// nằm trong component chung; file này CHỈ build ADAPTER.
+//
+// TỪ 2026-06-13: ADAPTER dùng NGUỒN CHUNG `Web2Chat` (web2/shared/web2-chat-client.js)
+// cho TOÀN BỘ data fetch/send/upload — KHÔNG còn gọi PancakeAPI.* (đường trùng) hay
+// nhánh serverMode 'n2store' (Graph wrapper trả shape khác → bong bóng rỗng). Đúng
+// rule Web 2.0: 1 nguồn Pancake chung để quản lý/bảo trì. Extension-first (bypass 24h)
+// vẫn giữ. Public surface không đổi (conversation-list + realtime vẫn gọi như cũ):
 //   renderChatWindow(conv)  — mở chat (mount panel + open)
 //   renderMessages()        — realtime: đồng bộ panel từ PancakeState.messages
 //   scrollToBottom()
@@ -60,30 +64,35 @@ const PancakeChatWindow = {
             },
 
             async loadMessages() {
-                let result;
-                if (state.serverMode === 'n2store') {
-                    result = await window.PancakeAPI.fetchMessagesN2Store(pageId, convId);
-                } else {
-                    result = await window.PancakeAPI.fetchMessages(pageId, convId, {
-                        customerId: conv.customers?.[0]?.id || null,
-                    });
-                }
+                // NGUỒN CHUNG: Web2Chat.fetchMessages (JWT direct → official PAT fallback).
+                // Trả {ok, messages, customers, ...}; messages có field `message` đúng shape
+                // Pancake → panel render được nội dung (hết bong bóng rỗng).
+                const customerId = conv.customers?.[0]?.id || null;
+                const r = await window.Web2Chat.fetchMessages(pageId, convId, customerId);
                 // Bump thế hệ messages: loadOlder đang chạy dở sẽ bỏ merge để
                 // không clobber mảng vừa replace (SSE refresh vs scroll-load-older).
                 state._msgGen = (state._msgGen || 0) + 1;
                 // Newest-first từ API → reverse thành oldest-first (panel tự sort lại theo ts).
-                state.messages = (result.messages || []).slice().reverse();
-                state.messageCurrentCount = state.messages.length;
-                return { messages: state.messages.slice(), hasMore: state.messages.length > 0 };
+                const msgs =
+                    r && r.ok && Array.isArray(r.messages) ? r.messages.slice().reverse() : [];
+                state.messages = msgs;
+                state.messageCurrentCount = msgs.length;
+                // Cập nhật customers (global_id cho extension send) nếu API trả về.
+                if (r && Array.isArray(r.customers) && r.customers.length)
+                    conv.customers = r.customers;
+                return { messages: msgs.slice(), hasMore: msgs.length > 0 };
             },
 
             async loadOlder(cursor) {
                 const gen = state._msgGen || 0; // capture trước fetch
-                const result = await window.PancakeAPI.fetchMessages(pageId, convId, {
-                    currentCount: cursor,
-                    customerId: conv.customers?.[0]?.id || null,
-                });
-                const older = (result.messages || []).slice().reverse();
+                const r = await window.Web2Chat.fetchMessages(
+                    pageId,
+                    convId,
+                    conv.customers?.[0]?.id || null,
+                    { currentCount: cursor }
+                );
+                const older =
+                    r && r.ok && Array.isArray(r.messages) ? r.messages.slice().reverse() : [];
                 // loadMessages đã replace state.messages trong lúc fetch → bỏ merge
                 if (older.length && (state._msgGen || 0) === gen) {
                     const known = new Set((state.messages || []).map((m) => m.id).filter(Boolean));
@@ -179,15 +188,16 @@ const PancakeChatWindow = {
         };
     },
 
-    // ===================== SEND (port từ bản cũ) =====================
+    // ===================== SEND =====================
     // Thử N2 Extension TRƯỚC (bypass 24h, gửi cả ảnh/âm thanh/video/tệp), lỗi/không
-    // có extension → fallback Pancake API.
+    // có extension → fallback NGUỒN CHUNG Web2Chat (upload + sendMessage). KHÔNG còn
+    // dùng PancakeAPI hay nhánh serverMode 'n2store'.
     async _performSend(conv, convId, text, att) {
-        const state = window.PancakeState;
         const pageId = conv.page_id;
         const customerId = conv.customers?.[0]?.id || null;
         const action = conv.type === 'COMMENT' ? 'reply_comment' : 'reply_inbox';
 
+        // 1) Extension-first
         if ((text || att) && (await this._trySendViaExtension(conv, text, att))) {
             return {
                 via: 'extension',
@@ -200,44 +210,51 @@ const PancakeChatWindow = {
             };
         }
 
-        let contentIds = [];
-        let attachmentId = null;
-        let attachmentType = null;
+        // 2) Fallback Web2Chat (nguồn chung): upload media (nếu có) → content_id → send
+        const attachments = [];
         if (att && att.file) {
-            if (state.serverMode === 'n2store') {
-                const up = await window.PancakeAPI.uploadMediaN2Store(pageId, att.file);
-                if (up.success && up.attachment_id) {
-                    attachmentId = up.attachment_id;
-                    attachmentType = up.attachment_type;
-                } else throw new Error('Upload tệp thất bại (Pancake)');
-            } else {
-                const up = await window.PancakeAPI.uploadMedia(pageId, att.file);
-                if (up.success && up.id) {
-                    contentIds = [up.id];
-                    attachmentType = up.attachment_type;
-                } else throw new Error('Upload tệp thất bại (Pancake)');
-            }
+            const up = await window.Web2Chat.uploadMedia(pageId, att.file);
+            if (up && up.ok && up.id) attachments.push({ content_id: up.id });
+            else throw new Error('Upload tệp thất bại (' + (up?.reason || 'Pancake') + ')');
         }
 
-        let sent;
-        if (state.serverMode === 'n2store') {
-            sent = await window.PancakeAPI.sendMessageN2Store(
-                pageId,
-                convId,
-                text,
-                action,
-                attachmentId,
-                attachmentType
-            );
-        } else {
-            sent = await window.PancakeAPI.sendMessage(pageId, convId, {
-                text,
-                action,
-                customerId,
-                content_ids: contentIds,
-                attachment_type: attachmentType,
-            });
+        let res = await window.Web2Chat.sendMessage(pageId, convId, {
+            text,
+            action,
+            customerId,
+            attachments,
+        });
+        // Thiếu page_access_token (hoặc FB #105) → mint PAT rồi thử lại 1 lần.
+        if (
+            res &&
+            !res.ok &&
+            (res.reason === 'no_page_access_token' || res.e_code === 105) &&
+            window.Web2Chat.generatePageAccessToken
+        ) {
+            const g = await window.Web2Chat.generatePageAccessToken(pageId);
+            if (g && g.ok)
+                res = await window.Web2Chat.sendMessage(pageId, convId, {
+                    text,
+                    action,
+                    customerId,
+                    attachments,
+                });
         }
+        if (!res || !res.ok) throw new Error(res?.reason || 'Gửi tin thất bại');
+
+        // Map message Pancake → shape `sent` panel/realtime dùng.
+        const m = res.message && typeof res.message === 'object' ? res.message : {};
+        const sent = {
+            id: m.id || 'pk_' + Date.now(),
+            message:
+                m.message ||
+                m.original_message ||
+                text ||
+                (attachments.length ? '[Tệp đính kèm]' : ''),
+            from: m.from || { id: pageId, name: 'You' },
+            inserted_at: m.inserted_at || new Date().toISOString(),
+            attachments: m.attachments,
+        };
         return { via: 'pancake', sent };
     },
 

@@ -27,8 +27,6 @@
     'use strict';
 
     const STORAGE_KEY = 'supplierWallet_v1'; // localStorage cache — giữ tên cũ để không mất data local
-    const FIRESTORE_COLLECTION = 'web2_supplier_wallet'; // LEGACY — chỉ còn đọc 1 lần cho migration
-    const FIRESTORE_DOC = 'main';
     const RETENTION_MS = 30 * 24 * 60 * 60 * 1000; // legacy const (export compat — không purge nữa)
     const WORKER_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
     const API_BASE = `${WORKER_URL}/api/web2-supplier-wallet`;
@@ -272,7 +270,6 @@
                 return false;
             }
         },
-
 
         async push() {
             if (!_pushWarned) {

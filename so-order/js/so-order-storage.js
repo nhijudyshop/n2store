@@ -662,10 +662,9 @@
                     if (store) await store.set(loaded.data);
                     this._localLastUpdated = loaded.lastUpdated || 0;
                     this._localVersion = loaded.version || 0;
-                } else {
-                    // Server rỗng → migration 1 lần từ Firestore (nếu còn data).
-                    await this._migrateFromFirestore();
                 }
+                // C8-cleanup (2026-06-13): bỏ migration Firestore (đã migrate xong;
+                // server Postgres là nguồn chuẩn). Server rỗng → dùng state mặc định.
                 this._subscribeSSE();
                 return true;
             } catch (e) {
@@ -691,46 +690,6 @@
             } catch (e) {
                 console.warn('[SoOrderStorage.Sync] load failed:', e.message);
                 return null;
-            }
-        },
-
-        // Migration 1 lần Firestore → Postgres khi server rỗng. Best-effort
-        // (Firebase compat vẫn load trên trang). Sau migration server là nguồn chuẩn.
-        async _migrateFromFirestore() {
-            try {
-                if (typeof firebase === 'undefined' || !firebase.firestore) return;
-                const snap = await firebase
-                    .firestore()
-                    .collection('web2_so_order')
-                    .doc('main')
-                    .get();
-                if (!snap.exists) return;
-                const payload = snap.data() || {};
-                if (!payload.data || !Array.isArray(payload.data.tabs) || !payload.data.tabs.length)
-                    return;
-                const r = await fetch(`${SO_API_BASE}/api/web2-so-order/save`, {
-                    method: 'POST',
-                    headers: _soAuthHeaders(),
-                    body: JSON.stringify({ data: payload.data, baseVersion: 0 }),
-                });
-                const j = await r.json().catch(() => ({}));
-                if (j && j.success) {
-                    _cachedState = payload.data;
-                    const store = _getStore();
-                    if (store) await store.set(payload.data);
-                    this._localLastUpdated = j.lastUpdated || Date.now();
-                    this._localVersion = j.version || 1;
-                    console.log('[SoOrderStorage.Sync] migrated Firestore→Postgres');
-                } else if (j && j.conflict && j.server) {
-                    // Máy khác migrate trước → dùng server.
-                    _cachedState = j.server.data;
-                    const store = _getStore();
-                    if (store) await store.set(j.server.data);
-                    this._localLastUpdated = j.server.lastUpdated || 0;
-                    this._localVersion = j.server.version || 0;
-                }
-            } catch (e) {
-                console.warn('[SoOrderStorage.Sync] migrate skip:', e.message);
             }
         },
 
