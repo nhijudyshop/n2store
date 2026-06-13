@@ -2,6 +2,26 @@
 
 ## 2026-06-13
 
+### [ci] Sửa race condition deploy GitHub Actions (concurrency + paths-ignore + gỡ CF deploy đôi) ✅
+
+**User:** "đang deploy quá nhiều, liên tục lên github/render/cloudflare — có hạn chế gì gây race condition hay bug không? → ok fix hoàn toàn và kiểm lại."
+
+**Bug gốc phát hiện:**
+
+- **Không có `concurrency` ở mọi workflow** → push A rồi push B liên tiếp (đúng pattern auto-commit + save-session) → 2 job deploy chạy song song; job chậm hoàn tất SAU đè **bản cũ** lên production. Race "deploy stale" kinh điển.
+- **Cloudflare Worker deploy 2 lần song song**: `deploy.yml` (bước Deploy Worker) + `deploy-cloudflare-worker.yml` (paths filter) cùng chạy `wrangler deploy` khi push chạm `cloudflare-worker/**` → đua, version cuối bất định.
+- **`deploy.yml` chạy MỌI push** (không paths-ignore) → commit docs/session-resume/markdown cũng full `npm ci` + `build:vite` + deploy Firebase. 1 task = 2 push = 2 deploy thừa.
+
+**Fix:**
+
+- `deploy.yml`: thêm `concurrency: deploy-firebase-${{ github.ref }}` + `cancel-in-progress: true`. Thêm `paths-ignore` (`docs/**`, `**.md`, `serect_dont_push.txt`, `render.com/**`, `cloudflare-worker/**`, `.github/**`). **Gỡ hẳn** 2 step Deploy Cloudflare Worker khỏi `deploy.yml`.
+- `deploy-cloudflare-worker.yml`: thêm `concurrency: deploy-cloudflare-${{ github.ref }}` + `cancel-in-progress` (group KHÁC nên không hủy nhầm). Nguồn DUY NHẤT deploy Worker.
+- `cleanup-cancelled-orders.yml`: thêm `concurrency` + `cancel-in-progress: false` (queue, không abort giữa lúc xóa).
+
+**Verify (recheck, không còn bug):** 4 workflow valid YAML (pyyaml OK). Không còn dangling ref `worker_deploy`/`worker_changes`. `vite.config.js` đã exclude `render.com`/`cloudflare-worker`/`docs`/`shared` khỏi entry; grep xác nhận 0 import/asset frontend phụ thuộc 2 dir đó qua domain Firebase. `shared/**` KHÔNG ignore (Firebase `public:"."`). Push mixed (docs+code) vẫn deploy bình thường.
+
+**Residual (ngoài tầm workflow file):** Render auto-deploy tự dedup bên Render (Build Filters đã áp); SSE rớt mỗi lần Render restart (client cần auto-reconnect + reload bù) — chưa sửa đợt này.
+
 ### [render] [web2] [shared] Web 2.0 audit vòng 3 — MEDIUM-cleanup đợt 2 (TM/TC/SP/HT/LC/BC) ✅
 
 **User:** "continue / tiếp tục" — dọn nốt backlog MEDIUM/LOW mục 1C–1D của [WEB2-PAGES-ANALYSIS.md](web2/WEB2-PAGES-ANALYSIS.md).
