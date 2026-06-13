@@ -3,15 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `fd28924` — feat(live-chat/redesign): đợt 5 — mode-switcher segmented pill + mobile single-pane swap (list↔chat trượt + back btn + composer safe-area)
-**Last updated**: 2026-06-13 21:20:00 +07
-**Latest session**: [`RESUME:20260613-212000-fd28924`](../20260613-212000-fd28924.md)
-**Summary**: feat(live-chat/redesign): đợt 5 — mode-switcher segmented pill + mobile single-pane swap (list↔chat trượt +...
+**Latest commit**: `d749fae` — feat(live-chat): redesign đợt 6 — nút bớt thô (squircle icon kênh, tactile press, send soft-depth gradient, mode-switcher lucide), dọn teal leftover
+**Last updated**: 2026-06-13 21:36:42 +07
+**Latest session**: [`RESUME:20260613-213642-d749fae`](../20260613-213642-d749fae.md)
+**Summary**: feat(live-chat): redesign đợt 6 — nút bớt thô (squircle icon kênh, tactile press, send soft-depth gradient,...
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 2 file(s)
-- [`live-chat/`](./live-chat.md) — 9 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
+- [`live-chat/`](./live-chat.md) — 4 file(s)
 - [`web2/`](./web2.md) — 1 file(s)
 
 ## All folder snapshots
@@ -27,7 +27,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-13 15:41
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-13 14:33
-- [`docs/`](./docs.md) — updated 2026-06-13 21:20
+- [`docs/`](./docs.md) — updated 2026-06-13 21:36
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-13 14:55
 - [`downloads/`](./downloads.md) — updated 2026-06-13 19:16
@@ -40,7 +40,7 @@
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-06-13 14:55
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-12 19:21
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
-- [`live-chat/`](./live-chat.md) — updated 2026-06-13 21:20
+- [`live-chat/`](./live-chat.md) — updated 2026-06-13 21:36
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-06-04 20:02
 - [`native-orders/`](./native-orders.md) — updated 2026-06-13 19:51
 - [`nhanhang/`](./nhanhang.md) — updated 2026-06-13 19:51
@@ -73,4 +73,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-13 21:20
+- [`web2/`](./web2.md) — updated 2026-06-13 21:36
