@@ -78,6 +78,26 @@ zca.configure({
     },
 });
 
+// Preview ngắn cho danh sách hội thoại (media → nhãn tiếng Việt)
+const _MEDIA_LABEL = {
+    image: '[Hình ảnh]',
+    gif: '[Ảnh động]',
+    sticker: '[Sticker]',
+    video: '[Video]',
+    voice: '[Tin nhắn thoại]',
+    file: '[Tệp đính kèm]',
+    location: '[Vị trí]',
+    contact: '[Danh thiếp]',
+    attachment: '[Đính kèm]',
+};
+function _msgPreview(msg) {
+    if (!msg.msgType || msg.msgType === 'text' || msg.msgType === 'link')
+        return (msg.content || (msg.msgType === 'link' ? '[Liên kết]' : '')).slice(0, 500);
+    const cap = (msg.content || '').trim();
+    const label = _MEDIA_LABEL[msg.msgType] || '[Đính kèm]';
+    return (cap ? `${label} ${cap}` : label).slice(0, 500);
+}
+
 async function _persistIncoming(msg) {
     if (!_pool || !msg?.threadId) return;
     const ts = now();
@@ -100,16 +120,16 @@ async function _persistIncoming(msg) {
             msg.threadType === 'group' ? null : msg.senderUid,
             msg.senderName || null,
             ts,
-            (msg.content || '').slice(0, 500),
+            _msgPreview(msg),
             msg.direction === 'in' ? 1 : 0,
         ]
     );
     const convId = rows[0]?.id;
-    // insert message (dedup theo msg_id)
+    // insert message (dedup theo msg_id) — giữ attachments (ảnh/sticker/file)
     await _pool.query(
         `INSERT INTO web2_zalo_messages
-            (msg_id, account_key, thread_id, thread_type, direction, msg_type, content, sender_uid, send_status, sent_at, created_at)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'sent',$9,$10)
+            (msg_id, account_key, thread_id, thread_type, direction, msg_type, content, attachments, sender_uid, send_status, sent_at, created_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9,'sent',$10,$11)
          ON CONFLICT DO NOTHING`,
         [
             msg.msgId,
@@ -119,6 +139,7 @@ async function _persistIncoming(msg) {
             msg.direction,
             msg.msgType || 'text',
             msg.content || '',
+            JSON.stringify(Array.isArray(msg.attachments) ? msg.attachments : []),
             msg.senderUid || null,
             msg.sentAt || ts,
             ts,
@@ -253,12 +274,10 @@ router.post('/accounts/:key/reconnect', async (req, res) => {
             req.params.key,
         ]);
         if (!rows[0]?.session)
-            return res
-                .status(400)
-                .json({
-                    success: false,
-                    error: 'Chưa có session để kết nối lại — cần đăng nhập QR',
-                });
+            return res.status(400).json({
+                success: false,
+                error: 'Chưa có session để kết nối lại — cần đăng nhập QR',
+            });
         const r = await zca.loginWithCredentials(req.params.key, rows[0].session, rows[0].label);
         res.json({ success: true, ...r });
     } catch (e) {
@@ -305,6 +324,64 @@ router.get('/accounts/:key/self', async (req, res) => {
 router.get('/accounts/:key/friends', async (req, res) => {
     try {
         res.json({ success: true, data: await zca.getAllFriends(req.params.key) });
+    } catch (e) {
+        res.status(400).json({ success: false, error: e.message });
+    }
+});
+
+// Đồng bộ danh bạ (bạn bè + nhóm) → seed hội thoại để hiện "tất cả hội thoại".
+// Lưu ý: zca-js không có API lịch sử hội thoại 1-1 với người lạ — danh sách này
+// chỉ gồm bạn bè + nhóm; KH lạ sẽ chảy về realtime qua listener khi có tin mới.
+router.post('/accounts/:key/sync-conversations', async (req, res) => {
+    try {
+        const db = getDb(req);
+        const key = req.params.key;
+        const roster = await zca.getRoster(key);
+        const ts = now();
+        let n = 0;
+        for (const u of roster.users) {
+            await db.query(
+                `INSERT INTO web2_zalo_conversations
+                    (account_key, thread_id, thread_type, zalo_uid, display_name, avatar_url, phone, unread_count, created_at, updated_at)
+                 VALUES ($1,$2,'user',$3,$4,$5,$6,0,$7,$7)
+                 ON CONFLICT (account_key, thread_id) DO UPDATE SET
+                    display_name=COALESCE(EXCLUDED.display_name, web2_zalo_conversations.display_name),
+                    avatar_url=COALESCE(EXCLUDED.avatar_url, web2_zalo_conversations.avatar_url),
+                    phone=COALESCE(EXCLUDED.phone, web2_zalo_conversations.phone),
+                    zalo_uid=COALESCE(EXCLUDED.zalo_uid, web2_zalo_conversations.zalo_uid),
+                    updated_at=$7`,
+                [
+                    key,
+                    u.uid,
+                    u.uid,
+                    u.name || null,
+                    u.avatar || null,
+                    u.phone ? String(u.phone).replace(/\D/g, '') || null : null,
+                    ts,
+                ]
+            );
+            n++;
+        }
+        for (const g of roster.groups) {
+            await db.query(
+                `INSERT INTO web2_zalo_conversations
+                    (account_key, thread_id, thread_type, display_name, avatar_url, unread_count, created_at, updated_at)
+                 VALUES ($1,$2,'group',$3,$4,0,$5,$5)
+                 ON CONFLICT (account_key, thread_id) DO UPDATE SET
+                    display_name=COALESCE(EXCLUDED.display_name, web2_zalo_conversations.display_name),
+                    avatar_url=COALESCE(EXCLUDED.avatar_url, web2_zalo_conversations.avatar_url),
+                    updated_at=$5`,
+                [key, g.gid, g.name || null, g.avatar || null, ts]
+            );
+            n++;
+        }
+        _notify('web2:zalo:messages', 'update', key);
+        res.json({
+            success: true,
+            synced: n,
+            users: roster.users.length,
+            groups: roster.groups.length,
+        });
     } catch (e) {
         res.status(400).json({ success: false, error: e.message });
     }
@@ -371,6 +448,23 @@ router.get('/conversations', async (req, res) => {
     }
 });
 
+// getUserInfo (zca) trả nhiều shape khác nhau → lấy profile có avatar/tên
+function _pickProfile(info, uid) {
+    if (!info || typeof info !== 'object') return null;
+    const buckets = [
+        info.changed_profiles,
+        info.unchanged_profiles,
+        info.profiles,
+        info, // đôi khi { [uid]: {...} } hoặc thẳng profile
+    ];
+    for (const b of buckets) {
+        if (!b || typeof b !== 'object') continue;
+        const p = b[uid] || b.profile || (b.avatar || b.displayName || b.zaloName ? b : null);
+        if (p && (p.avatar || p.displayName || p.zaloName)) return p;
+    }
+    return null;
+}
+
 router.get('/conversations/:id/messages', async (req, res) => {
     try {
         const db = getDb(req);
@@ -379,6 +473,25 @@ router.get('/conversations/:id/messages', async (req, res) => {
         ).rows[0];
         if (!conv)
             return res.status(404).json({ success: false, error: 'Không tìm thấy hội thoại' });
+        // Lười resolve avatar/tên khi mở chat (1 lần / thread, best-effort, không chặn).
+        if (conv.thread_type === 'user' && !conv.avatar_url && zca.isConnected(conv.account_key)) {
+            try {
+                const uid = conv.zalo_uid || conv.thread_id;
+                const prof = _pickProfile(await zca.getUserInfo(conv.account_key, uid), uid);
+                const av = prof?.avatar || '';
+                const nm = prof?.zaloName || prof?.displayName || '';
+                if (av || nm) {
+                    await db.query(
+                        `UPDATE web2_zalo_conversations SET avatar_url=COALESCE($1,avatar_url), display_name=COALESCE($2,display_name), updated_at=$3 WHERE id=$4`,
+                        [av || null, nm || null, now(), conv.id]
+                    );
+                    if (av) conv.avatar_url = av;
+                    if (nm) conv.display_name = nm;
+                }
+            } catch (e) {
+                /* best-effort — không chặn xem tin */
+            }
+        }
         const lim = Math.min(parseInt(req.query.limit, 10) || 50, 200);
         const { rows } = await db.query(
             `SELECT * FROM web2_zalo_messages WHERE account_key=$1 AND thread_id=$2 ORDER BY sent_at DESC LIMIT $3`,

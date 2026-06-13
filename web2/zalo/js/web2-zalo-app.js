@@ -19,6 +19,31 @@
     const notify = (m, t) => window.notificationManager?.show?.(m, t || 'info');
     const initial = (s) => (String(s || '?').trim()[0] || '?').toUpperCase();
 
+    // ── Avatar: <img> với fallback chữ cái đầu khi ảnh Zalo lỗi (CDN chặn / hết hạn).
+    //    referrerpolicy=no-referrer cần cho zdn.vn / zaloapp.com.
+    window.__wzAvErr = function (img) {
+        try {
+            const span = document.createElement('span');
+            span.className = img.className;
+            const st = img.getAttribute('style');
+            if (st) span.setAttribute('style', st);
+            span.textContent = img.getAttribute('data-init') || '?';
+            img.replaceWith(span);
+        } catch {}
+    };
+    function avatarHtml(url, name, cls, style) {
+        const init = esc(initial(name));
+        const st = style ? ` style="${style}"` : '';
+        if (url)
+            return `<img class="${cls}"${st} src="${esc(url)}" alt="" loading="lazy" referrerpolicy="no-referrer" data-init="${init}" onerror="window.__wzAvErr(this)">`;
+        return `<span class="${cls}"${st}>${init}</span>`;
+    }
+
+    // URL ảnh trần (legacy: tin cũ lưu URL ảnh dưới dạng text → vẫn render ảnh).
+    const IMG_URL_RE = /^https?:\/\/\S+\.(?:jpe?g|png|gif|webp|bmp|heic)(?:\?\S*)?$/i;
+    const ZDN_IMG_RE = /^https?:\/\/[^\s]*\b(?:zdn\.vn|zadn\.vn|zaloapp\.com)\/[^\s]+$/i;
+    const URL_RE = /^https?:\/\/\S+$/i;
+
     // Modal a11y: lưu focus, focus vào field đầu, trả focus khi đóng (Esc/backdrop bound riêng).
     let _lastFocus = null;
     const FOCUSABLE =
@@ -112,6 +137,7 @@
         qr: { key: null, timer: null },
     };
     let _convUnsub = null;
+    const _autoSynced = new Set(); // account đã auto seed danh bạ (tránh lặp)
 
     // ===================================================================
     // TABS
@@ -195,9 +221,7 @@
                 : a.zaloUid
                   ? 'UID ' + esc(a.zaloUid)
                   : 'Cá nhân';
-        const avatar = a.avatarUrl
-            ? `<img class="wz-acc-avatar" src="${esc(a.avatarUrl)}" alt="">`
-            : `<span class="wz-acc-avatar">${esc(initial(dn))}</span>`;
+        const avatar = avatarHtml(a.avatarUrl, dn, 'wz-acc-avatar');
         const acts = [];
         if (t === 'personal') {
             if (a.status === 'connected') {
@@ -453,19 +477,60 @@
             const res = await window.ZaloApi.conversations({
                 accountKey: state.conv.accountKey,
                 search: state.conv.search,
-                limit: 100,
+                limit: 200,
             });
             state.conv.list = res.data || [];
             state.conv.total = res.total || 0;
             renderConvList();
+            maybeAutoSync();
         } catch (e) {
             $('#wzConvList').innerHTML = `<div class="wz-empty">✗ ${esc(e.message)}</div>`;
         }
     }
 
+    // Lần đầu chọn 1 acc đã kết nối mà danh sách rỗng → tự seed danh bạ (1 lần).
+    function maybeAutoSync() {
+        const key = state.conv.accountKey;
+        if (!key || state.conv.list.length || state.conv.search || _autoSynced.has(key)) return;
+        const acc = state.accounts.find((a) => a.accountKey === key);
+        if (acc && acc.status === 'connected') {
+            _autoSynced.add(key);
+            syncConversations(true);
+        }
+    }
+
+    async function syncConversations(silent) {
+        const key = state.conv.accountKey;
+        if (!key) {
+            if (!silent) notify('Chọn tài khoản cá nhân đã kết nối trước', 'warning');
+            return;
+        }
+        _autoSynced.add(key);
+        const btn = $('#wzConvSync');
+        setBusy(btn, true);
+        try {
+            const r = await window.ZaloApi.syncConversations(key);
+            if (!silent)
+                notify(
+                    `Đã đồng bộ ${r.synced || 0} hội thoại (${r.users || 0} bạn · ${r.groups || 0} nhóm)`,
+                    'success'
+                );
+            await loadConversations();
+        } catch (e) {
+            if (!silent) notify('✗ ' + e.message, 'error');
+            else $('#wzConvSync')?.classList.remove('is-busy');
+        } finally {
+            setBusy($('#wzConvSync'), false);
+        }
+    }
+
     function renderConvList() {
         const box = $('#wzConvList');
-        const head = `<div class="wz-conv-search"><input id="wzConvSearch" type="search" placeholder="Tìm hội thoại…" value="${esc(state.conv.search)}"></div>`;
+        const canSync = !!state.conv.accountKey;
+        const head = `<div class="wz-conv-head">
+            <div class="wz-conv-search"><input id="wzConvSearch" type="search" placeholder="Tìm hội thoại…" value="${esc(state.conv.search)}"></div>
+            <button class="wz-iconbtn" id="wzConvSync" type="button" ${canSync ? '' : 'disabled'} title="Đồng bộ danh bạ (bạn bè + nhóm) thành hội thoại" aria-label="Đồng bộ danh bạ"><i data-lucide="refresh-cw"></i></button>
+        </div>`;
         if (!state.conv.list.length) {
             const acc = state.conv.accountKey;
             box.innerHTML =
@@ -473,42 +538,45 @@
                 `<div class="wz-empty">
                     <span class="wz-empty-ic"><i data-lucide="messages-square"></i></span>
                     <span class="wz-empty-title">${acc ? 'Chưa có hội thoại' : 'Chọn tài khoản'}</span>
-                    <span class="wz-empty-sub">${acc ? 'Tin nhắn khách gửi tới sẽ tự hiện ở đây theo thời gian thực.' : 'Chọn một tài khoản cá nhân đã kết nối ở trên để xem hội thoại.'}</span>
+                    <span class="wz-empty-sub">${acc ? 'Bấm <b>Đồng bộ</b> để nạp danh bạ &amp; nhóm. Tin khách gửi tới sẽ tự hiện theo thời gian thực.' : 'Chọn một tài khoản cá nhân đã kết nối ở trên để xem hội thoại.'}</span>
                 </div>`;
             if (window.lucide) lucide.createIcons();
-            bindConvSearch();
+            bindConvHead();
             return;
         }
         box.innerHTML =
             head +
             state.conv.list
-                .map(
-                    (
-                        c
-                    ) => `<div class="wz-conv-item ${c.id === state.conv.activeId ? 'is-active' : ''}" data-id="${c.id}" role="button" tabindex="0" aria-label="Hội thoại với ${esc(c.display_name || c.zalo_uid || c.thread_id)}">
-                ${c.avatar_url ? `<img class="wz-conv-av" src="${esc(c.avatar_url)}">` : `<span class="wz-conv-av">${esc(initial(c.display_name))}</span>`}
+                .map((c) => {
+                    const name = c.display_name || c.zalo_uid || c.thread_id;
+                    const group = c.thread_type === 'group';
+                    return `<div class="wz-conv-item ${c.id === state.conv.activeId ? 'is-active' : ''}" data-id="${c.id}" role="button" tabindex="0" aria-label="Hội thoại với ${esc(name)}">
+                ${avatarHtml(c.avatar_url, name, 'wz-conv-av' + (group ? ' is-group' : ''))}
                 <div class="wz-conv-meta">
-                    <div class="wz-conv-name">${esc(c.display_name || c.zalo_uid || c.thread_id)}</div>
-                    <div class="wz-conv-last">${esc((c.last_msg_text || '').slice(0, 40))}</div>
+                    <div class="wz-conv-name">${esc(name)}</div>
+                    <div class="wz-conv-last">${c.last_msg_text ? esc(c.last_msg_text.slice(0, 48)) : '<span class="wz-conv-empty">Chưa có tin nhắn</span>'}</div>
                 </div>
                 ${c.unread_count > 0 ? `<span class="wz-conv-unread">${c.unread_count}</span>` : ''}
-            </div>`
-                )
+            </div>`;
+                })
                 .join('');
-        bindConvSearch();
+        if (window.lucide) lucide.createIcons();
+        bindConvHead();
     }
 
-    function bindConvSearch() {
+    function bindConvHead() {
         const inp = $('#wzConvSearch');
-        if (!inp) return;
-        let t;
-        inp.addEventListener('input', (e) => {
-            clearTimeout(t);
-            t = setTimeout(() => {
-                state.conv.search = e.target.value.trim();
-                loadConversations();
-            }, 300);
-        });
+        if (inp) {
+            let t;
+            inp.addEventListener('input', (e) => {
+                clearTimeout(t);
+                t = setTimeout(() => {
+                    state.conv.search = e.target.value.trim();
+                    loadConversations();
+                }, 300);
+            });
+        }
+        $('#wzConvSync')?.addEventListener('click', () => syncConversations(false));
     }
 
     async function openConversation(id) {
@@ -541,6 +609,45 @@
         } catch {}
     }
 
+    // 1 bong bóng: ảnh / sticker / video / file / link / text (+ caption).
+    function bubbleBody(m) {
+        const type = m.msg_type || 'text';
+        const atts = Array.isArray(m.attachments) ? m.attachments : [];
+        const a = atts[0] || {};
+        const cap = m.content ? `<div class="wz-msg-cap">${esc(m.content)}</div>` : '';
+
+        if ((type === 'image' || type === 'gif') && (a.thumb || a.url)) {
+            return `<a class="wz-msg-media" href="${esc(a.url || a.thumb)}" target="_blank" rel="noopener noreferrer">
+                <img src="${esc(a.thumb || a.url)}" alt="${esc(a.title || 'Hình ảnh')}" loading="lazy" referrerpolicy="no-referrer"></a>${cap}`;
+        }
+        if (type === 'sticker' && (a.url || a.thumb)) {
+            return `<img class="wz-msg-sticker" src="${esc(a.url || a.thumb)}" alt="sticker" loading="lazy" referrerpolicy="no-referrer">`;
+        }
+        if (type === 'video' && (a.thumb || a.url || a.href)) {
+            return `<a class="wz-msg-media wz-msg-video" href="${esc(a.url || a.href || a.thumb)}" target="_blank" rel="noopener noreferrer">
+                ${a.thumb ? `<img src="${esc(a.thumb)}" alt="video" loading="lazy" referrerpolicy="no-referrer">` : ''}
+                <span class="wz-msg-play"><i data-lucide="play"></i></span></a>${cap}`;
+        }
+        if (type === 'file') {
+            const href = a.url || a.href || '#';
+            return `<a class="wz-msg-file" href="${esc(href)}" target="_blank" rel="noopener noreferrer"><i data-lucide="file"></i><span>${esc(a.title || 'Tệp đính kèm')}</span></a>${cap}`;
+        }
+        if (type === 'link') {
+            const href = a.href || a.url || m.content || '';
+            return `<a class="wz-msg-linkbox" href="${esc(href)}" target="_blank" rel="noopener noreferrer">${esc(m.content || href)}</a>`;
+        }
+        // text — legacy: nếu content là URL ảnh trần thì vẫn render ảnh / link.
+        const txt = (m.content || '').trim();
+        if (txt && (IMG_URL_RE.test(txt) || ZDN_IMG_RE.test(txt))) {
+            return `<a class="wz-msg-media" href="${esc(txt)}" target="_blank" rel="noopener noreferrer">
+                <img src="${esc(txt)}" alt="Hình ảnh" loading="lazy" referrerpolicy="no-referrer"></a>`;
+        }
+        if (txt && URL_RE.test(txt) && !/\s/.test(txt)) {
+            return `<a class="wz-msg-linkbox" href="${esc(txt)}" target="_blank" rel="noopener noreferrer">${esc(txt)}</a>`;
+        }
+        return esc(m.content || '') || '<span class="wz-msg-muted">[Tin nhắn]</span>';
+    }
+
     function renderChat(keepScroll) {
         const main = $('#wzChatMain');
         const c = state.conv.activeConv;
@@ -548,18 +655,21 @@
             main.innerHTML = `<div class="wz-chat-empty">Chọn một hội thoại để xem tin nhắn</div>`;
             return;
         }
+        const name = c.display_name || c.zalo_uid || c.thread_id;
         const bubbles = state.conv.messages
-            .map(
-                (m) => `<div class="wz-msg ${m.direction === 'out' ? 'out' : 'in'}">
-            ${esc(m.content || '')}
+            .map((m) => {
+                const type = m.msg_type || 'text';
+                const media = type !== 'text' && type !== 'link';
+                return `<div class="wz-msg ${m.direction === 'out' ? 'out' : 'in'}${media ? ' has-media' : ''}${type === 'sticker' ? ' is-sticker' : ''}">
+            ${bubbleBody(m)}
             <div class="wz-msg-time">${fmtTime(m.sent_at)}</div>
-        </div>`
-            )
+        </div>`;
+            })
             .join('');
         main.innerHTML = `
             <div class="wz-chat-head">
-                ${c.avatar_url ? `<img class="wz-conv-av" style="width:32px;height:32px" src="${esc(c.avatar_url)}">` : `<span class="wz-conv-av" style="width:32px;height:32px">${esc(initial(c.display_name))}</span>`}
-                <span>${esc(c.display_name || c.zalo_uid || c.thread_id)}</span>
+                ${avatarHtml(c.avatar_url, name, 'wz-conv-av' + (c.thread_type === 'group' ? ' is-group' : ''), 'width:34px;height:34px')}
+                <span>${esc(name)}</span>
             </div>
             <div class="wz-chat-body" id="wzChatBody">${bubbles || '<div class="wz-chat-empty">Chưa có tin nhắn</div>'}</div>
             <div class="wz-chat-compose">
@@ -623,7 +733,7 @@
                 return;
             }
             box.innerHTML = `<div class="wz-lookup-result">
-                ${u.avatar ? `<img src="${esc(u.avatar)}">` : `<span class="wz-acc-avatar" style="width:64px;height:64px;font-size:24px">${esc(initial(u.displayName || u.zaloName))}</span>`}
+                ${avatarHtml(u.avatar, u.displayName || u.zaloName, 'wz-acc-avatar', 'width:64px;height:64px;font-size:24px;border-radius:18px')}
                 <div>
                     <div style="font-weight:700;font-size:16px">${esc(u.displayName || u.zaloName || '—')}</div>
                     <div class="wz-acc-sub">UID: ${esc(u.userId || u.uid || '—')}</div>

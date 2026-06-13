@@ -59,29 +59,92 @@ function _setStatus(accountKey, status, msg) {
     }
 }
 
-// ── Chuẩn hoá 1 message từ zca-js → shape lưu DB ────────────────────────
+// zalo msgType (zca) → loại nội bộ (ổn định cho UI render bubble)
+function _classifyMsgType(zMsgType) {
+    switch (zMsgType) {
+        case 'webchat':
+            return 'text';
+        case 'chat.photo':
+            return 'image';
+        case 'chat.gif':
+            return 'gif';
+        case 'chat.sticker':
+            return 'sticker';
+        case 'chat.video.msg':
+            return 'video';
+        case 'chat.voice':
+            return 'voice';
+        case 'share.file':
+            return 'file';
+        case 'chat.link':
+            return 'link';
+        case 'chat.location.new':
+            return 'location';
+        case 'chat.recommended':
+            return 'contact';
+        case 'chat.doodle':
+            return 'image';
+        default:
+            return zMsgType && zMsgType !== 'webchat' ? 'attachment' : 'text';
+    }
+}
+
+// content (TAttachmentContent) → 1 attachment chuẩn {type,url,thumb,href,title}
+function _extractAttachment(kind, content) {
+    if (!content || typeof content !== 'object') return null;
+    let params = {};
+    try {
+        if (typeof content.params === 'string') params = JSON.parse(content.params) || {};
+        else if (content.params && typeof content.params === 'object') params = content.params;
+    } catch {}
+    const url =
+        content.href ||
+        params.normalUrl ||
+        params.hdUrl ||
+        params.oriUrl ||
+        params.url ||
+        content.thumb ||
+        params.thumbUrl ||
+        '';
+    const thumb = content.thumb || params.thumbUrl || params.normalUrl || url || '';
+    return {
+        type: kind,
+        url: url || '',
+        thumb: thumb || '',
+        href: content.href || '',
+        title: content.title || content.description || '',
+    };
+}
+
+// ── Chuẩn hoá 1 message từ zca-js → shape lưu DB (text + attachments) ────
 function _normMessage(accountKey, m) {
     const isGroup = ThreadType && m?.type === ThreadType.Group;
     const d = m?.data || {};
-    let content = d.content;
-    let msgType = 'text';
-    if (content && typeof content === 'object') {
-        // attachment/sticker/photo → giữ raw, lấy title nếu có
-        msgType = content.action || content.type || (content.href ? 'link' : 'attachment');
-        content =
-            content.title ||
-            content.description ||
-            content.href ||
-            JSON.stringify(content).slice(0, 500);
+    const kind = _classifyMsgType(d.msgType);
+    const rawContent = d.content;
+
+    let text = '';
+    const attachments = [];
+    if (rawContent && typeof rawContent === 'object') {
+        // ảnh/sticker/file/link/... → giữ URL trong attachments, caption ở text
+        const att = _extractAttachment(kind, rawContent);
+        if (att && (att.url || att.thumb || att.href)) attachments.push(att);
+        // caption: chỉ giữ title/description (KHÔNG nhét href làm text — sẽ render media)
+        if (kind === 'link') text = rawContent.title || rawContent.href || '';
+        else text = rawContent.title || rawContent.description || '';
+    } else {
+        text = rawContent == null ? '' : String(rawContent);
     }
+
     return {
         accountKey,
         msgId: d.msgId || d.cliMsgId || d.globalMsgId || null,
         threadId: String(m?.threadId || ''),
         threadType: isGroup ? 'group' : 'user',
         direction: m?.isSelf ? 'out' : 'in',
-        msgType,
-        content: content == null ? '' : String(content),
+        msgType: kind,
+        content: String(text || ''),
+        attachments,
         senderUid: d.uidFrom || null,
         senderName: d.dName || null,
         sentAt: Number(d.ts) || now(),
@@ -268,6 +331,56 @@ async function getAllGroups(accountKey) {
     return api.getAllGroups();
 }
 
+// ── Roster để backfill hội thoại (bạn bè + nhóm) ────────────────────────
+// zca-js KHÔNG có API liệt kê hội thoại gần đây / lịch sử 1-1 với người lạ.
+// Nên danh sách "tất cả hội thoại cũ" chỉ có thể seed từ danh bạ (bạn) + nhóm;
+// tin nhắn của KH lạ sẽ chỉ chảy về realtime qua listener từ thời điểm kết nối.
+async function getRoster(accountKey) {
+    const api = _requireApi(accountKey);
+    const out = { users: [], groups: [] };
+    try {
+        const fr = await api.getAllFriends();
+        const arr = Array.isArray(fr) ? fr : fr?.data || fr?.friends || [];
+        out.users = arr
+            .map((f) => ({
+                uid: String(f.userId || f.uid || f.id || ''),
+                name: f.zaloName || f.displayName || f.dName || f.username || '',
+                avatar: f.avatar || f.avatar_25 || '',
+                phone: f.phoneNumber || f.phone || '',
+            }))
+            .filter((u) => u.uid);
+    } catch (e) {
+        console.warn('[web2-zalo-zca] getAllFriends:', e.message);
+    }
+    try {
+        const groups = await api.getAllGroups();
+        const verMap = groups?.gridVerMap || {};
+        let infoMap = groups?.gridInfoMap || null;
+        const ids = Object.keys(infoMap || verMap);
+        if (ids.length && !infoMap) {
+            const info = await api.getGroupInfo(ids).catch(() => null);
+            infoMap = info?.gridInfoMap || {};
+        }
+        out.groups = ids
+            .map((id) => {
+                const g = (infoMap && infoMap[id]) || {};
+                return {
+                    gid: String(id),
+                    name: g.name || g.groupName || '',
+                    avatar: g.fullAvt || g.avt || g.avatar || '',
+                };
+            })
+            .filter((g) => g.gid);
+    } catch (e) {
+        console.warn('[web2-zalo-zca] getAllGroups:', e.message);
+    }
+    return out;
+}
+
+function isConnected(accountKey) {
+    return !!_sessions.get(accountKey)?.api;
+}
+
 async function fetchSelf(accountKey) {
     const api = _requireApi(accountKey);
     return api.fetchAccountInfo();
@@ -338,6 +451,8 @@ module.exports = {
     getMultiUsersByPhones,
     getAllFriends,
     getAllGroups,
+    getRoster,
+    isConnected,
     fetchSelf,
     getGroupChatHistory,
     disconnect,

@@ -105,6 +105,11 @@
             return _fetch('/lookup' + _qs({ accountKey, phone, uid }), { method: 'GET' });
         },
         // conversations + messages
+        syncConversations(key) {
+            return _fetch(`/accounts/${encodeURIComponent(key)}/sync-conversations`, {
+                method: 'POST',
+            });
+        },
         conversations(params) {
             return _fetch('/conversations' + _qs(params), { method: 'GET' });
         },
