@@ -236,6 +236,11 @@
                     </label>`;
                 })
                 .join('');
+            // Bớt 1 bước: khách chỉ có 1 đơn → tự chọn luôn.
+            if (orders.length === 1 && !STATE.sourceOrder) {
+                const o = orders[0];
+                pickOrder(o.number, o.source, o.totalAmount);
+            }
         } catch (err) {
             $('orderList').innerHTML =
                 `<div class="rt-muted">Lỗi tải đơn: ${esc(err.message)}</div>`;
@@ -329,7 +334,14 @@
                        </div>`
             )
             .join('');
-        box.innerHTML = `<div class="rt-oi-title">${title} (${STATE.lines.length})</div>` + rows;
+        // Nút Chọn/Bỏ tất cả — gộp N lần tick thành 1 click (vẫn để user chủ động, không auto-check vì là thao tác cộng ví).
+        const allOn = STATE.lines.length > 0 && STATE.lines.every((l) => l.checked);
+        const selAllBtn = partial
+            ? `<button type="button" id="rtSelAll" class="rt-selall">${allOn ? 'Bỏ chọn tất cả' : 'Chọn tất cả'}</button>`
+            : '';
+        box.innerHTML =
+            `<div class="rt-oi-title"><span>${title} (${STATE.lines.length})</span>${selAllBtn}</div>` +
+            rows;
     }
 
     function toggleLine(i, checked) {
@@ -717,6 +729,13 @@
         $('orderItems').addEventListener('change', (e) => {
             const cb = e.target.closest('[data-line]');
             if (cb) toggleLine(Number(cb.dataset.line), cb.checked);
+        });
+        $('orderItems').addEventListener('click', (e) => {
+            if (!e.target.closest('#rtSelAll')) return;
+            const allOn = STATE.lines.length > 0 && STATE.lines.every((l) => l.checked);
+            STATE.lines.forEach((l) => (l.checked = !allOn));
+            renderOrderItems();
+            renderSummary();
         });
         $('orderItems').addEventListener('input', (e) => {
             const q = e.target.closest('[data-lineqty]');

@@ -393,6 +393,30 @@ select.rt-input {
     letter-spacing: 0.02em;
     color: var(--rt-muted);
     margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+.rt-selall {
+    appearance: none;
+    border: 1px solid #bcdcff;
+    background: #e8f2ff;
+    color: #0058da;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: none;
+    letter-spacing: 0;
+    padding: 3px 10px;
+    border-radius: 999px;
+    cursor: pointer;
+    transition:
+        filter 0.12s ease,
+        box-shadow 0.12s ease;
+}
+.rt-selall:hover {
+    filter: brightness(0.98);
+    box-shadow: 0 1px 4px rgba(0, 104, 255, 0.18);
 }
 .rt-oi-row {
     display: flex;
