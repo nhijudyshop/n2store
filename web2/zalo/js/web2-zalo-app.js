@@ -550,11 +550,18 @@
                 .map((c) => {
                     const name = c.display_name || c.zalo_uid || c.thread_id;
                     const group = c.thread_type === 'group';
+                    // Nhóm: hiện "Người gửi cuối: tin" → KHÔNG nhầm tên nhóm với người nhắn.
+                    let preview = c.last_msg_text || '';
+                    if (group && preview) {
+                        const who =
+                            c.last_msg_sender_uid === 'me' ? 'Bạn' : c.last_sender_name || '';
+                        if (who) preview = `${who}: ${preview}`;
+                    }
                     return `<div class="wz-conv-item ${c.id === state.conv.activeId ? 'is-active' : ''}" data-id="${c.id}" role="button" tabindex="0" aria-label="Hội thoại với ${esc(name)}">
                 ${avatarHtml(c.avatar_url, name, 'wz-conv-av' + (group ? ' is-group' : ''))}
                 <div class="wz-conv-meta">
                     <div class="wz-conv-name">${esc(name)}</div>
-                    <div class="wz-conv-last">${c.last_msg_text ? esc(c.last_msg_text.slice(0, 48)) : '<span class="wz-conv-empty">Chưa có tin nhắn</span>'}</div>
+                    <div class="wz-conv-last">${preview ? esc(preview.slice(0, 52)) : '<span class="wz-conv-empty">Chưa có tin nhắn</span>'}</div>
                 </div>
                 ${c.unread_count > 0 ? `<span class="wz-conv-unread">${c.unread_count}</span>` : ''}
             </div>`;

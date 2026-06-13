@@ -587,17 +587,14 @@
         if (_suppliersLoadPromise && !force) return _suppliersLoadPromise;
         _suppliersLoadPromise = (async () => {
             try {
-                if (typeof firebase === 'undefined' || !firebase.firestore) {
-                    console.warn('[products] Firebase chưa load — fallback empty supplier list');
+                // C8 (2026-06-13): đọc so-order từ Postgres (Web2SoOrder), KHÔNG còn
+                // Firestore (đã migrate; Firestore frozen → tab labels cũ).
+                if (!window.Web2SoOrder || !window.Web2SoOrder.load) {
+                    console.warn('[products] Web2SoOrder reader chưa load — empty supplier list');
                     return [];
                 }
-                const snap = await firebase
-                    .firestore()
-                    .collection('web2_so_order')
-                    .doc('main')
-                    .get();
-                if (!snap.exists) return [];
-                const data = snap.data()?.data || {};
+                const data = await window.Web2SoOrder.load();
+                if (!data) return [];
                 const set = new Set();
                 // PREFIX mã SP lấy theo TAB Sổ Order (HÀ NỘI / HƯƠNG CHÂU), KHÔNG
                 // phải cột NCC per-row → dropdown chỉ liệt kê label tab.
@@ -608,7 +605,7 @@
                 _suppliersFromSoOrder = Array.from(set).sort();
                 return _suppliersFromSoOrder;
             } catch (e) {
-                console.warn('[products] load suppliers từ web2_so_order fail:', e.message);
+                console.warn('[products] load suppliers từ so-order fail:', e.message);
                 return [];
             }
         })();

@@ -134,14 +134,19 @@ async function _persistIncoming(msg) {
     const isNew = ins.rowCount > 0;
     const unreadDelta = isNew && msg.direction === 'in' ? 1 : 0;
     // 2) upsert conversation — chỉ cộng unread khi tin THỰC SỰ mới.
+    //    ⚠ NHÓM: display_name = tên NHÓM (từ sync/getGroupInfo), KHÔNG đụng tới —
+    //    tránh nhầm tên hội thoại với tên người nhắn cuối. User thread: tên = người gửi.
+    const convName = msg.threadType === 'group' ? null : msg.senderName || null;
+    const lastSenderUid = msg.direction === 'out' ? 'me' : msg.senderUid || null;
     const { rows } = await _pool.query(
         `INSERT INTO web2_zalo_conversations
             (account_key, thread_id, thread_type, zalo_uid, display_name, last_msg_at, last_msg_text,
-             unread_count, created_at, updated_at)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$6,$6)
+             unread_count, last_msg_sender_uid, created_at, updated_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$6,$6)
          ON CONFLICT (account_key, thread_id) DO UPDATE SET
             last_msg_at=$6, last_msg_text=$7,
             unread_count=web2_zalo_conversations.unread_count + $8,
+            last_msg_sender_uid=$9,
             display_name=COALESCE(EXCLUDED.display_name, web2_zalo_conversations.display_name),
             updated_at=$6`,
         [
@@ -149,10 +154,11 @@ async function _persistIncoming(msg) {
             msg.threadId,
             msg.threadType || 'user',
             msg.threadType === 'group' ? null : msg.senderUid,
-            msg.senderName || null,
+            convName,
             ts,
             _msgPreview(msg),
             unreadDelta,
+            lastSenderUid,
         ]
     );
     // Chỉ broadcast khi tin mới (tránh refetch thừa khi tin lặp).
@@ -519,23 +525,68 @@ router.get('/conversations', async (req, res) => {
         const params = [];
         if (accountKey) {
             params.push(accountKey);
-            where.push(`account_key=$${params.length}`);
+            where.push(`c.account_key=$${params.length}`);
         }
         if (search) {
             params.push('%' + search + '%');
             where.push(
-                `(display_name ILIKE $${params.length} OR phone ILIKE $${params.length} OR zalo_uid ILIKE $${params.length})`
+                `(c.display_name ILIKE $${params.length} OR c.phone ILIKE $${params.length} OR c.zalo_uid ILIKE $${params.length})`
             );
         }
         const wsql = where.length ? 'WHERE ' + where.join(' AND ') : '';
         const total = (
-            await db.query(`SELECT COUNT(*)::int n FROM web2_zalo_conversations ${wsql}`, params)
+            await db.query(`SELECT COUNT(*)::int n FROM web2_zalo_conversations c ${wsql}`, params)
         ).rows[0].n;
         params.push(lim, off);
+        // LEFT JOIN members → tên người NHẮN CUỐI (cho nhóm hiện "Tên: tin").
+        // last_msg_sender_uid='me' → shop (frontend hiện "Bạn").
         const { rows } = await db.query(
-            `SELECT * FROM web2_zalo_conversations ${wsql} ORDER BY last_msg_at DESC NULLS LAST LIMIT $${params.length - 1} OFFSET $${params.length}`,
+            `SELECT c.*, m.display_name AS last_sender_name
+               FROM web2_zalo_conversations c
+               LEFT JOIN web2_zalo_members m
+                 ON m.account_key = c.account_key AND m.uid = c.last_msg_sender_uid
+             ${wsql} ORDER BY c.last_msg_at DESC NULLS LAST LIMIT $${params.length - 1} OFFSET $${params.length}`,
             params
         );
+        // Resolve 1 lần tên người-nhắn-cuối còn thiếu (nhóm) → 1 call getGroupMembersInfo.
+        if (accountKey && zca.isConnected(accountKey)) {
+            const need = [
+                ...new Set(
+                    rows
+                        .filter(
+                            (r) =>
+                                r.thread_type === 'group' &&
+                                r.last_msg_sender_uid &&
+                                r.last_msg_sender_uid !== 'me' &&
+                                !r.last_sender_name
+                        )
+                        .map((r) => String(r.last_msg_sender_uid))
+                ),
+            ];
+            if (need.length) {
+                try {
+                    const resolved = await zca.getGroupMembersInfo(accountKey, need);
+                    const ts = now();
+                    for (const [uid, info] of Object.entries(resolved)) {
+                        await db.query(
+                            `INSERT INTO web2_zalo_members (account_key, uid, display_name, avatar, updated_at)
+                             VALUES ($1,$2,$3,$4,$5)
+                             ON CONFLICT (account_key, uid) DO UPDATE SET
+                                display_name=EXCLUDED.display_name, avatar=EXCLUDED.avatar, updated_at=EXCLUDED.updated_at`,
+                            [accountKey, uid, info.name || null, info.avatar || null, ts]
+                        );
+                    }
+                    for (const r of rows) {
+                        if (r.thread_type === 'group' && !r.last_sender_name) {
+                            const info = resolved[String(r.last_msg_sender_uid)];
+                            if (info?.name) r.last_sender_name = info.name;
+                        }
+                    }
+                } catch (e) {
+                    /* best-effort */
+                }
+            }
+        }
         res.json({ success: true, data: rows, total });
     } catch (e) {
         res.status(500).json({ success: false, error: e.message });
@@ -735,7 +786,7 @@ async function _persistOut(db, p) {
         ]
     );
     await db.query(
-        `UPDATE web2_zalo_conversations SET last_msg_at=$1, last_msg_text=$2, updated_at=$1 WHERE account_key=$3 AND thread_id=$4`,
+        `UPDATE web2_zalo_conversations SET last_msg_at=$1, last_msg_text=$2, last_msg_sender_uid='me', updated_at=$1 WHERE account_key=$3 AND thread_id=$4`,
         [ts, _outPreview(p).slice(0, 500), p.accountKey, p.threadId]
     );
     _notify('web2:zalo:messages', 'update', p.msgId);

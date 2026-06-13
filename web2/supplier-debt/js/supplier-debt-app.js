@@ -152,19 +152,19 @@
     }
 
     async function loadWeb2() {
-        // so-order vẫn đọc Firestore (chưa migrate); ví NCC + suppliers đọc server ledger.
+        // C8 (2026-06-13): so-order đọc Postgres (Web2SoOrder), KHÔNG còn Firestore
+        // (đã migrate; Firestore frozen → công nợ sẽ stale). Ví NCC + suppliers = server ledger.
         await Promise.all([loadSoOrder(), loadServerState()]);
     }
 
     async function loadSoOrder() {
         try {
-            if (typeof firebase === 'undefined' || !firebase.firestore) {
-                notify('Firebase chưa sẵn sàng', 'error');
+            if (!window.Web2SoOrder || !window.Web2SoOrder.load) {
+                console.warn('[supplier-debt] Web2SoOrder reader chưa load');
+                STATE.soOrderData = null;
                 return;
             }
-            const db = firebase.firestore();
-            const soSnap = await db.collection('web2_so_order').doc('main').get();
-            STATE.soOrderData = soSnap.exists ? soSnap.data()?.data || null : null;
+            STATE.soOrderData = await window.Web2SoOrder.load();
         } catch (e) {
             console.warn('[supplier-debt] load so-order fail:', e.message);
             notify('Lỗi tải dữ liệu Sổ Order: ' + e.message, 'error');

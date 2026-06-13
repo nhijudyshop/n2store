@@ -405,8 +405,8 @@
     }
 
     // Load so-order data (read-only) to derive purchases.
-    // P1 2026-05-30: soOrder_v1 chuyển sang IDB. Đọc IDB → fallback Firestore
-    // → fallback localStorage legacy.
+    // C8 (2026-06-13): so-order chuyển Postgres → đọc qua Web2SoOrder.load()
+    // (KHÔNG còn Firestore — đã frozen sau migrate). Fallback IDB local (offline).
     async function _readSoOrderLocal() {
         if (global.Web2IdbStore) {
             try {
@@ -425,19 +425,15 @@
 
     async function loadSoOrderData() {
         try {
-            if (typeof firebase === 'undefined' || !firebase.firestore) {
-                return await _readSoOrderLocal();
-            }
-            const db = firebase.firestore();
-            const snap = await db.collection('web2_so_order').doc('main').get();
-            if (snap.exists) {
-                const payload = snap.data() || {};
-                if (payload.data) return payload.data;
+            // Postgres trước (nguồn chuẩn). Lỗi/empty → IDB local (cache offline).
+            if (global.Web2SoOrder && global.Web2SoOrder.load) {
+                const data = await global.Web2SoOrder.load();
+                if (data) return data;
             }
             return await _readSoOrderLocal();
         } catch (e) {
             console.warn('[SupplierWallet] loadSoOrderData fail:', e.message);
-            return null;
+            return await _readSoOrderLocal();
         }
     }
 

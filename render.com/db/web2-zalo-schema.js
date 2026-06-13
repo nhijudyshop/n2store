@@ -52,7 +52,21 @@ async function ensureWeb2ZaloSchema(pool) {
                     ADD COLUMN IF NOT EXISTS last_read_at     BIGINT,
                     ADD COLUMN IF NOT EXISTS is_pinned        BOOLEAN NOT NULL DEFAULT false,
                     ADD COLUMN IF NOT EXISTS is_muted         BOOLEAN NOT NULL DEFAULT false,
-                    ADD COLUMN IF NOT EXISTS muted_until      BIGINT;
+                    ADD COLUMN IF NOT EXISTS muted_until      BIGINT,
+                    ADD COLUMN IF NOT EXISTS last_msg_sender_uid VARCHAR(100);
+            `);
+            // Backfill last_msg_sender_uid từ tin gần nhất (chỉ rows còn NULL → idempotent).
+            await pool.query(`
+                UPDATE web2_zalo_conversations c
+                   SET last_msg_sender_uid = sub.suid
+                  FROM (
+                    SELECT DISTINCT ON (account_key, thread_id) account_key, thread_id,
+                           CASE WHEN direction='out' THEN 'me' ELSE sender_uid END AS suid
+                      FROM web2_zalo_messages
+                     ORDER BY account_key, thread_id, sent_at DESC
+                  ) sub
+                 WHERE c.account_key = sub.account_key AND c.thread_id = sub.thread_id
+                   AND c.last_msg_sender_uid IS NULL;
             `);
         } catch (e) {
             console.error('[web2-zalo-schema] chat-cols ALTER warn:', e.message);
@@ -112,6 +126,7 @@ async function ensureWeb2ZaloSchema(pool) {
                 is_pinned     BOOLEAN NOT NULL DEFAULT false,
                 is_muted      BOOLEAN NOT NULL DEFAULT false,
                 muted_until   BIGINT,
+                last_msg_sender_uid VARCHAR(100),
                 meta          JSONB NOT NULL DEFAULT '{}'::jsonb,
                 created_at    BIGINT NOT NULL,
                 updated_at    BIGINT NOT NULL,

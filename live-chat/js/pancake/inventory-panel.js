@@ -64,14 +64,13 @@
     }
 
     // ─────────────────────────────────────────────────────────
-    // Load NCC tabs từ Firestore web2_so_order
+    // Load NCC tabs từ so-order Postgres (C8 — Web2SoOrder, thay Firestore)
     // ─────────────────────────────────────────────────────────
     async function loadTabsFromSoOrder() {
         try {
-            if (typeof firebase === 'undefined' || !firebase.firestore) return [];
-            const snap = await firebase.firestore().collection('web2_so_order').doc('main').get();
-            if (!snap.exists) return [];
-            const data = snap.data()?.data || {};
+            if (!window.Web2SoOrder || !window.Web2SoOrder.load) return [];
+            const data = await window.Web2SoOrder.load();
+            if (!data) return [];
             const names = [];
             const seen = new Set();
             for (const tab of data.tabs || []) {
