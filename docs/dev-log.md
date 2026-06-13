@@ -2,6 +2,21 @@
 
 ## 2026-06-13
 
+### [web2] [shared] Hướng native-orders + shared FX + barba-style page transition (đợt 9) 🔄
+
+**User:** revert Chatwoot (xấu) → "lấy native-orders làm giao diện chủ đạo; shared css web2 = native-orders làm chính + 4 phong cách (faux-glass/soft-UI/glow/animate.css) anti-lag light" → animation dùng **barba.js** (chốt: barba-style nhẹ KHÔNG PJAX vì 40 trang app nặng Firebase/SSE/Pancake).
+
+**Phát hiện:** native-orders primary = `#0068ff` (Zalo blue) = **GIỐNG** token live-chat `--pkr`. Khác biệt chỉ font/nền/component-feel. `web2/shared/web2-effects.css` (shared FX) ĐÃ có fade/slide/pop/pulse/spin/flash/shimmer/hover-lift/scale/glow/press/underline/stagger + page-head-mini.
+
+**Đã làm:**
+
+- **Revert đợt 8** Chatwoot skin về đợt 7 (commit `2d8ddc80e`).
+- **Mở rộng `web2/shared/web2-effects.css`** (bổ sung 2 phong cách thiếu): `.w2fx-glass` (faux-glass KHÔNG backdrop-filter → an toàn scroll) + `.w2fx-glass-blur` (opt-in modal); `.w2fx-card` / `.w2fx-card-i` (soft-UI card light, hover-lift transform); **barba-style `.w2fx-curtain`** (page-transition wipe) + `.w2fx-page-enter`. Đọc `--web2-*` (palette native-orders). reduced-motion reset.
+- **`web2/shared/web2-page-transition.js`** (MỚI, tái dùng): controller barba-style KHÔNG PJAX — chặn click link nội bộ → kéo màn che (transform) → `location.href` điều hướng THẬT → trang mới reveal. An toàn cho app nặng (init chạy bình thường). Same-origin only, bỏ qua hash/external/\_blank/download/modifier/`data-no-transition`. bfcache `pageshow` reveal lại. reduced-motion → tắt hẳn.
+- **Wire:** `live-chat/chat.html` + `live-chat/index.html` (thêm web2-effects.css + page-transition.js) + `native-orders/index.html` (thêm page-transition.js — đã có effects.css). `?v=20260613no1`.
+
+**Verify desktop:** curtain reveal đúng (KHÔNG kẹt che), web2-effects.css loaded, controller active, list/chat render bình thường, 0 vỡ. JS parse OK, braces OK. **Status:** 🔄 transition mượt cần xem live (wipe khi click nav) — chờ user xác nhận trên trình duyệt.
+
 ### [live-chat] Redesign đợt 7 — conversation row kiểu Telegram/Intercom: FIX tên cắt "..." + layout hiện đại ✅
 
 **User:** "giao diện tổng thể không ổn, tên dài bị '...' → tìm github phần CSS/giao diện trending để làm giống, hiện đại, hiệu ứng tương lai."
