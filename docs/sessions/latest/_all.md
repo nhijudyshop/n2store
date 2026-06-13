@@ -3,16 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `65fad3a` — auto: session update
-**Last updated**: 2026-06-13 15:07:09 +07
-**Latest session**: [`RESUME:20260613-150709-65fad3a`](../20260613-150709-65fad3a.md)
+**Latest commit**: `35e25e3` — auto: session update
+**Last updated**: 2026-06-13 15:07:17 +07
+**Latest session**: [`RESUME:20260613-150717-35e25e3`](../20260613-150717-35e25e3.md)
 **Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 3 file(s)
-- [`web2/`](./web2.md) — 6 file(s)
+- [`render.com/`](./render.com.md) — 1 file(s)
 
 ## All folder snapshots
 
