@@ -2,6 +2,24 @@
 
 ## 2026-06-13
 
+### [render] [web2] Audit Web 2.0 — FIX TOÀN BỘ backlog (14/15 item) + adversarial review ✅
+
+**User:** "Làm tất cả web 2.0 đang beta test nên cứ code cho chính xác hoàn thiện." → Workflow điều tra 18 item (19 agent) → spec chính xác → implement theo 5 batch file-ownership (money/auth thủ công tuần tự) → adversarial review 8 vùng (48 agent) → fix bug thật.
+
+**Commits:** `ccf8b4a3b` (B1) · `1c08315ec` (B2) · `76b4261b5` (B3) · `147e0a0fc` (B4) · `e7c58bb35`+`8b6bdf9ae` (B5) · `e17ddbcab` (review-fixes). Tất cả node --check pass.
+
+- **A1** fast-sale-orders `/from-native-order`: advisory lock `pg_advisory_xact_lock(source_id)` + re-check PBH dưới lock → double-submit (2 máy/double-click) trả idempotent thay vì PBH TRÙNG; recompute splitIndex/number dưới lock; retry bump cả lockedSplitIndex (review [5]).
+- **A2+C18+[11]+[12]** ví NCC partial-return (cụm money — quan trọng nhất): `_isRowFullyReturned` so qty đã trả ≥ qty mua (qty≤0 legacy→đã đủ, chống over-refund); **returnedRowIds CỘNG DỒN delta** thay ghi đè ở 3 nơi (server /tx, C9, client storage) — trả nhiều đợt tích luỹ đúng; modal trả max=SL còn lại (mua−đã trả) + tag "đã trả N"; bỏ fallback `{qty:0}`.
+- **A3** supplier-debt: bỏ dòng so-order `draft`/`cancelled` khỏi công nợ (giữ `ordered`/`partial_received`/`received`).
+- **A4** hidden-commenters: endpoint atomic `/live-hidden-commenters/hide|unhide/:fbId` (jsonb upsert append-if-absent / array filter, 1 câu) thay client gửi cả mảng → hết lost-write 2 máy ẩn cùng lúc.
+- **C7** token hash at-rest: `web2_user_sessions.token_hash`; session mới lưu HASH (sha256) cả `token`(PK) lẫn `token_hash` → DB không plaintext; 4 verify-site dual-match + 42703 fallback (review [2]) + boot ALTER → **ZERO-LOCKOUT, verify prod login→me→gated→logout = 200/200/401→200**.
+- **C9** quick-refund ATOMIC: 1 endpoint create+approve(trừ kho)+ghi ledger ví trong 1 transaction → hết phiếu draft mồ côi; idempotent record+txId; live-verified (400 validation).
+- **C11** picker total từ toàn textarea (cộng dồn) · **C12** sepay match whole-word+longest-first (hết "huanlong"→"huan") · **C14** 8 route đổi flag boolean→WeakSet (cold-start corruption) + cascade pgString→tham số hoá · **C16** bridge `_prevTopicsStr` (hết churn EventSource) · **C17** manualSepayId wrap 27.7h→11.5 ngày · **B5** notifications cron 10' (web2Db, không fallback chatDb — review [21]).
+- **Adversarial review:** 24 finding → fix bug thật (returnedRowIds over-refund CRITICAL, modal remaining, cron pool, C7 fallback, A1 splitIndex); loại false-positive (C7 login hash-in-both = đúng design no-plaintext đã live-verify; C16 readyState guard đúng; B5 noti best-effort không cần tx).
+- **C8** (so-order Firestore 1-doc → Postgres): **DEFER có chủ đích** — migration kiến trúc multi-week (bảng normalized + CRUD API + migration data + image storage + viết lại sync). = F1 trong IMPROVEMENT-PLAN.md. Không half-migrate (rủi ro data so-order đang dùng).
+
+**Cập nhật:** WEB2-PAGES-ANALYSIS.md flip ⬜→✅ + overview #auditPages + memory.
+
 ### [render] [web2] Nhận hàng so-order → Kho SP realtime + BỎ giật bảng (SSE codes[] + in-place batch) ✅
 
 **User:** "so-order đã nhận hàng → bên kho products không cập nhật tồn kho/trạng thái; realtime + kho products bị giật bảng quá (bỏ giật bảng)."
@@ -17,9 +35,15 @@
 - [web2/products/js/web2-products-api.js](../web2/products/js/web2-products-api.js): `getBatch(codes)`.
 - [web2/products/js/web2-products-app.js](../web2/products/js/web2-products-app.js): `_updateRowsBatch(codes)` (fetch + `_updateRowInPlace` từng code on-page, không reload); SSE callback viết lại — chỉ `create`/`delete` full reload; mọi update-like → patch in-place theo `affected = codes||[code]`; `load()` **dim-not-blank** (làm mờ thay vì xoá trắng khi đã có row) hết spinner flash.
 
-**⚠ Cần Render deploy mới ăn `codes[]`** — client feature-detect `getBatch` + fallback full reload (404 `/batch` → `debouncedFullLoad`), nên deploy frontend↔backend không cần đúng thứ tự.
+**⚠ Cần Render deploy mới ăn `codes[]`** — client feature-detect `getBatch` + fallback full reload (404 `/batch` → `debouncedFullLoad`), nên deploy frontend↔backend không cần đúng thứ tự. Deploy `dep-d8mgus5ckfvc73e813ag` LIVE 2026-06-13.
 
-**Verify:** đang test live sau deploy (so-order receive → products in-place update tồn/trạng thái, 0 giật; Admin SSE Monitor thấy `codes:[...]`).
+**Verify (Playwright live localhost → prod worker/Render, sau deploy):**
+
+- Single: POST `confirm-purchase-partial {items:[{code:HNDAM,qtyReceived:5}]}` → SSE log `web2:products confirm-purchase-partial HNDAM` (codes truyền qua) → row HNDAM patch in-place `Tồn 0→5`, status `CHO_MUA → MUA 1 PHẦN (5 đã nhận · 9 chờ)`; **sentinel ở row khác SỐNG** (không full reload) + `loadingRow=false` → 0 giật.
+- Bulk 2 mã: `[{HNDAM,9},{HCAO4,3}]` → SSE `...confirm-purchase-partial HNDAM,HCAO4` → cả 2 row patch in-place (HNDAM `5→14`, `Đang bán` khi pending=0); sentinel sống, 0 giật.
+- `/batch?codes=...` route live.
+
+**Status:** ✅ Done.
 
 ### [web2] [render] [worker] Zalo single-source — BUILD v1 (đăng nhập QR + chat + tra cứu + ZNS) ✅
 
