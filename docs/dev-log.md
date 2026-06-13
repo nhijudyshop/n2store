@@ -2,6 +2,18 @@
 
 ## 2026-06-13
 
+### [delivery-report] Fix nút "Gửi Kèm" không ẩn khi tắt tra soát ✅
+
+**User:** nút Gửi Kèm ban đầu ẩn, bật tra soát + bấm tiêu đề 3 lần thì hiện (cùng tab Thành phố/Tỉnh), nhưng tắt tra soát thì Gửi Kèm vẫn hiện luôn thay vì ẩn lại cùng các tab.
+
+**Nguyên nhân:** triple-click set `drBtnSendAlong.style.display=''` (delivery-report.js:184-186) nhưng nhánh exit của `traSoat()` chỉ ẩn `drTraSoatBar` (chứa tab Thành phố/Tỉnh), không reset nút Gửi Kèm.
+
+**Fix:** nhánh exit `traSoat()` thêm `drBtnSendAlong.style.display='none'` để ẩn lại cùng tab khi tắt tra soát. Bump `delivery-report.js?v=20260613d`.
+
+**Files:** [delivery-report/js/delivery-report.js](../delivery-report/js/delivery-report.js), [delivery-report/index.html](../delivery-report/index.html).
+
+**Status:** ✅ Done.
+
 ### [docs] Nghiên cứu + plan tích hợp Zalo cho Web 2.0 (chưa code) ✅
 
 **User:** "Tìm github các phần liên quan zalo đọc hiểu tất cả để coi có thể phát triển gì cho web 2.0" → chọn cả 3 đợt + nguyên tắc: **tạo 1 trang Zalo duy nhất quản lý, các trang khác tham chiếu tới — chỉ có 1 nguồn Zalo**; chỉ cần báo cáo, chưa code.
