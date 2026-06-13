@@ -3,16 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `2d1e4a7` — auto: session update
-**Last updated**: 2026-06-13 23:05:16 +07
-**Latest session**: [`RESUME:20260613-230516-2d1e4a7`](../20260613-230516-2d1e4a7.md)
-**Summary**: auto: session update
+**Latest commit**: `27ed932` — feat(web2,shared): add web2-motion.js (Motion engine, ESM) + dev-log đợt 9 — animation = Motion thay barba
+**Last updated**: 2026-06-13 23:07:19 +07
+**Latest session**: [`RESUME:20260613-230719-27ed932`](../20260613-230719-27ed932.md)
+**Summary**: feat(web2,shared): add web2-motion.js (Motion engine, ESM) + dev-log đợt 9 — animation = Motion thay barba
 
 ## Folders affected in this commit
 
-- [`live-chat/`](./live-chat.md) — 2 file(s)
-- [`native-orders/`](./native-orders.md) — 1 file(s)
-- [`web2/`](./web2.md) — 2 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
+- [`web2/`](./web2.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -27,7 +26,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-13 15:41
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-13 14:33
-- [`docs/`](./docs.md) — updated 2026-06-13 22:57
+- [`docs/`](./docs.md) — updated 2026-06-13 23:07
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-13 14:55
 - [`downloads/`](./downloads.md) — updated 2026-06-13 19:16
@@ -73,4 +72,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-13 23:05
+- [`web2/`](./web2.md) — updated 2026-06-13 23:07
