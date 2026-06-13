@@ -3,14 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `6b301a8` — feat(web2/returns): giảm bước tạo phiếu — auto-pick đơn (khách 1 đơn) + nút Chọn tất cả SP
-**Last updated**: 2026-06-13 18:20:27 +07
-**Latest session**: [`RESUME:20260613-182027-6b301a8`](../20260613-182027-6b301a8.md)
-**Summary**: feat(web2/returns): giảm bước tạo phiếu — auto-pick đơn (khách 1 đơn) + nút Chọn tất cả SP
+**Latest commit**: `2a90d4d` — auto: session update
+**Last updated**: 2026-06-13 18:27:23 +07
+**Latest session**: [`RESUME:20260613-182723-2a90d4d`](../20260613-182723-2a90d4d.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
+- [`live-chat/`](./live-chat.md) — 2 file(s)
+- [`so-order/`](./so-order.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -38,7 +39,7 @@
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-06-13 14:55
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-12 19:21
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
-- [`live-chat/`](./live-chat.md) — updated 2026-06-13 18:12
+- [`live-chat/`](./live-chat.md) — updated 2026-06-13 18:27
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-06-04 20:02
 - [`native-orders/`](./native-orders.md) — updated 2026-06-13 18:12
 - [`nhanhang/`](./nhanhang.md) — updated 2026-05-21 15:39
@@ -58,7 +59,7 @@
 - [`shared/`](./shared.md) — updated 2026-06-13 14:55
 - [`showroom/`](./showroom.md) — updated 2026-06-10 19:04
 - [`showroom1/`](./showroom1.md) — updated 2026-06-10 19:52
-- [`so-order/`](./so-order.md) — updated 2026-06-13 18:12
+- [`so-order/`](./so-order.md) — updated 2026-06-13 18:27
 - [`soluong-live/`](./soluong-live.md) — updated 2026-06-08 18:40
 - [`soorder/`](./soorder.md) — updated 2026-05-21 15:39
 - [`soquy/`](./soquy.md) — updated 2026-05-21 15:39
