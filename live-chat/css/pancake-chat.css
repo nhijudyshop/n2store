@@ -22,50 +22,9 @@
 /* =====================================================
    CSS VARIABLES
    ===================================================== */
-:root {
-    /* Pancake Colors */
-    --pk-primary: #00a884;
-    --pk-primary-light: #25d366;
-    --pk-primary-dark: #008069;
-
-    /* Chat Colors */
-    --pk-chat-bg: #efeae2;
-    --pk-chat-bg-pattern: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23d9d9d9' fill-opacity='0.2'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
-
-    /* Message Colors */
-    --pk-msg-incoming: #ffffff;
-    --pk-msg-outgoing: #d9fdd3;
-    --pk-msg-outgoing-alt: #dcf8c6;
-
-    /* UI Colors */
-    --pk-sidebar-bg: #ffffff;
-    --pk-header-bg: #f0f2f5;
-    --pk-hover-bg: #f5f6f6;
-    --pk-active-bg: #e9edef;
-    --pk-border: #e9edef;
-    --pk-divider: #e9edef;
-
-    /* Text Colors */
-    --pk-text-primary: #111b21;
-    --pk-text-secondary: #667781;
-    --pk-text-tertiary: #8696a0;
-    --pk-text-timestamp: #667781;
-
-    /* Badge Colors */
-    --pk-badge-unread: #25d366;
-    --pk-badge-warning: #f59e0b;
-    --pk-badge-red: #ef4444;
-
-    /* Quick Reply Colors */
-    --pk-qr-blue: #3b82f6;
-    --pk-qr-orange: #f97316;
-    --pk-qr-red: #ef4444;
-    --pk-qr-purple: #2a96ff;
-    --pk-qr-green: #22c55e;
-    --pk-qr-teal: #14b8a6;
-    --pk-qr-pink: #ec4899;
-    --pk-qr-yellow: #eab308;
-}
+/* Legacy --pk-* :root ĐÃ XÓA (2026-06-13, redesign). Token chuyển sang --pkr-*
+ * (xanh Zalo #0068ff) ở css/pancake-redesign-tokens.css — load TRƯỚC file này.
+ * Mọi var() trong file đã rename var(--pk-…) → var(--pkr-…). */
 
 /* =====================================================
    PANCAKE CHAT CONTAINER
@@ -75,7 +34,7 @@
     flex-direction: column;
     height: 100%;
     width: 100%;
-    background: var(--pk-sidebar-bg);
+    background: var(--pkr-sidebar-bg);
     overflow: hidden;
 }
 
@@ -89,7 +48,7 @@
     justify-content: space-between;
     height: 56px;
     background: #ffffff;
-    border-bottom: 1px solid var(--pk-border);
+    border-bottom: 1px solid var(--pkr-border);
     padding: 0 16px;
     flex-shrink: 0;
 }
@@ -107,7 +66,7 @@
     margin-right: 16px;
     font-weight: 600;
     font-size: 16px;
-    color: var(--pk-primary);
+    color: var(--pkr-primary);
 }
 
 .pk-header-tab {
@@ -120,18 +79,18 @@
     border-radius: 6px;
     font-size: 14px;
     font-weight: 500;
-    color: var(--pk-text-secondary);
+    color: var(--pkr-text-secondary);
     cursor: pointer;
     transition: all 0.2s;
 }
 
 .pk-header-tab:hover {
-    background: var(--pk-hover-bg);
-    color: var(--pk-text-primary);
+    background: var(--pkr-hover-bg);
+    color: var(--pkr-text-primary);
 }
 
 .pk-header-tab.active {
-    background: var(--pk-primary);
+    background: var(--pkr-primary);
     color: #ffffff;
 }
 
@@ -155,14 +114,14 @@
     border: none;
     background: transparent;
     border-radius: 50%;
-    color: var(--pk-text-secondary);
+    color: var(--pkr-text-secondary);
     cursor: pointer;
     transition: all 0.2s;
 }
 
 .pk-header-icon-btn:hover {
-    background: var(--pk-hover-bg);
-    color: var(--pk-text-primary);
+    background: var(--pkr-hover-bg);
+    color: var(--pkr-text-primary);
 }
 
 .pk-header-icon-btn svg {
@@ -241,7 +200,7 @@
     align-items: center;
     justify-content: center;
     height: 100%;
-    color: var(--pk-text-secondary);
+    color: var(--pkr-text-secondary);
 }
 
 .pk-tab-placeholder svg {
@@ -255,7 +214,7 @@
     font-size: 20px;
     font-weight: 600;
     margin: 0 0 8px 0;
-    color: var(--pk-text-primary);
+    color: var(--pkr-text-primary);
 }
 
 .pk-tab-placeholder p {
@@ -272,10 +231,10 @@
     max-width: 400px;
     height: 100%;
     max-height: 100%;
-    border-right: 1px solid var(--pk-border);
+    border-right: 1px solid var(--pkr-border);
     display: flex;
     flex-direction: column;
-    background: var(--pk-sidebar-bg);
+    background: var(--pkr-sidebar-bg);
     flex-shrink: 0;
     overflow: hidden;
 }
@@ -283,8 +242,8 @@
 /* Search Header */
 .pk-search-header {
     padding: 10px 12px;
-    background: var(--pk-header-bg);
-    border-bottom: 1px solid var(--pk-border);
+    background: var(--pkr-header-bg);
+    border-bottom: 1px solid var(--pkr-border);
 }
 
 .pk-search-wrapper {
@@ -301,13 +260,13 @@
     border-radius: 8px;
     padding: 0 12px;
     height: 36px;
-    border: 1px solid var(--pk-border);
+    border: 1px solid var(--pkr-border);
 }
 
 .pk-search-box i {
     width: 16px;
     height: 16px;
-    color: var(--pk-text-tertiary);
+    color: var(--pkr-text-tertiary);
     flex-shrink: 0;
 }
 
@@ -317,12 +276,12 @@
     outline: none;
     padding: 0 10px;
     font-size: 13px;
-    color: var(--pk-text-primary);
+    color: var(--pkr-text-primary);
     background: transparent;
 }
 
 .pk-search-box input::placeholder {
-    color: var(--pk-text-tertiary);
+    color: var(--pkr-text-tertiary);
 }
 /* Spinner nhỏ trên input khi API đang tìm, không ẩn local results */
 .pk-search-box input.pk-searching {
@@ -337,9 +296,9 @@
     gap: 6px;
     padding: 8px 12px;
     background: #ffffff;
-    border: 1px solid var(--pk-border);
+    border: 1px solid var(--pkr-border);
     border-radius: 8px;
-    color: var(--pk-text-secondary);
+    color: var(--pkr-text-secondary);
     font-size: 13px;
     cursor: pointer;
     white-space: nowrap;
@@ -347,7 +306,7 @@
 }
 
 .pk-filter-btn:hover {
-    background: var(--pk-hover-bg);
+    background: var(--pkr-hover-bg);
 }
 
 .pk-filter-btn i {
@@ -380,17 +339,17 @@
     padding: 12px;
     gap: 12px;
     cursor: pointer;
-    border-bottom: 1px solid var(--pk-border);
+    border-bottom: 1px solid var(--pkr-border);
     transition: background 0.15s ease;
     position: relative;
 }
 
 .pk-conversation-item:hover {
-    background: var(--pk-hover-bg);
+    background: var(--pkr-hover-bg);
 }
 
 .pk-conversation-item.active {
-    background: var(--pk-active-bg);
+    background: var(--pkr-active-bg);
 }
 
 /* Avatar */
@@ -426,7 +385,7 @@
     min-width: 18px;
     height: 18px;
     padding: 0 5px;
-    background: var(--pk-badge-warning);
+    background: var(--pkr-badge-warning);
     border-radius: 9px;
     color: white;
     font-size: 11px;
@@ -456,7 +415,7 @@
 .pk-conversation-name {
     font-size: 14px;
     font-weight: 600;
-    color: var(--pk-text-primary);
+    color: var(--pkr-text-primary);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -464,14 +423,14 @@
 
 .pk-conversation-time {
     font-size: 11px;
-    color: var(--pk-text-tertiary);
+    color: var(--pkr-text-tertiary);
     white-space: nowrap;
     flex-shrink: 0;
 }
 
 .pk-conversation-preview {
     font-size: 13px;
-    color: var(--pk-text-secondary);
+    color: var(--pkr-text-secondary);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -480,7 +439,7 @@
 
 .pk-conversation-preview.unread {
     font-weight: 500;
-    color: var(--pk-text-primary);
+    color: var(--pkr-text-primary);
 }
 
 /* Tags Container */
@@ -675,7 +634,7 @@
     min-width: 0;
     height: 100%;
     max-height: 100%;
-    background: var(--pk-chat-bg);
+    background: var(--pkr-chat-bg);
     overflow: hidden;
 }
 
@@ -685,8 +644,8 @@
     align-items: center;
     justify-content: space-between;
     padding: 10px 16px;
-    background: var(--pk-header-bg);
-    border-bottom: 1px solid var(--pk-border);
+    background: var(--pkr-header-bg);
+    border-bottom: 1px solid var(--pkr-border);
     flex-shrink: 0;
 }
 
@@ -729,7 +688,7 @@
     gap: 8px;
     font-size: 15px;
     font-weight: 600;
-    color: var(--pk-text-primary);
+    color: var(--pkr-text-primary);
 }
 
 .pk-location-badge {
@@ -751,7 +710,7 @@
 
 .pk-chat-status {
     font-size: 12px;
-    color: var(--pk-text-tertiary);
+    color: var(--pkr-text-tertiary);
     margin-top: 2px;
 }
 
@@ -770,14 +729,14 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    color: var(--pk-text-secondary);
+    color: var(--pkr-text-secondary);
     cursor: pointer;
     transition: all 0.15s ease;
 }
 
 .pk-header-btn:hover {
-    background: var(--pk-hover-bg);
-    color: var(--pk-text-primary);
+    background: var(--pkr-hover-bg);
+    color: var(--pkr-text-primary);
 }
 
 .pk-header-btn i {
@@ -790,8 +749,8 @@
     flex: 1;
     overflow-y: auto;
     padding: 16px;
-    background: var(--pk-chat-bg);
-    background-image: var(--pk-chat-bg-pattern);
+    background: var(--pkr-chat-bg);
+    background-image: var(--pkr-chat-bg-pattern);
     display: flex;
     flex-direction: column;
     gap: 8px;
@@ -819,7 +778,7 @@
     padding: 6px 14px;
     border-radius: 8px;
     font-size: 12px;
-    color: var(--pk-text-secondary);
+    color: var(--pkr-text-secondary);
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
@@ -848,18 +807,18 @@
 }
 
 .pk-message.incoming .pk-message-bubble {
-    background: var(--pk-msg-incoming);
+    background: var(--pkr-msg-incoming);
     border-top-left-radius: 0;
 }
 
 .pk-message.outgoing .pk-message-bubble {
-    background: var(--pk-msg-outgoing);
+    background: var(--pkr-msg-outgoing);
     border-top-right-radius: 0;
 }
 
 .pk-message-text {
     font-size: 14px;
-    color: var(--pk-text-primary);
+    color: var(--pkr-text-primary);
     line-height: 1.45;
     white-space: pre-wrap;
 }
@@ -925,21 +884,21 @@
     align-items: center;
     gap: 8px;
     padding: 10px 14px;
-    background: var(--pk-header-bg);
+    background: var(--pkr-header-bg);
     border-radius: 8px;
-    color: var(--pk-text-primary);
+    color: var(--pkr-text-primary);
     text-decoration: none;
     transition: background 0.15s;
 }
 
 .pk-message-file a:hover {
-    background: var(--pk-hover-bg);
+    background: var(--pkr-hover-bg);
 }
 
 .pk-message-file i {
     width: 20px;
     height: 20px;
-    color: var(--pk-primary);
+    color: var(--pkr-primary);
 }
 
 .pk-message-file span {
@@ -984,12 +943,12 @@
 
 .pk-message-time {
     font-size: 11px;
-    color: var(--pk-text-tertiary);
+    color: var(--pkr-text-tertiary);
 }
 
 .pk-message-sender {
     font-size: 11px;
-    color: var(--pk-primary);
+    color: var(--pkr-primary);
     font-weight: 500;
 }
 
@@ -1047,8 +1006,8 @@
     display: flex;
     align-items: center;
     padding: 10px 16px;
-    background: var(--pk-header-bg);
-    border-top: 1px solid var(--pk-border);
+    background: var(--pkr-header-bg);
+    border-top: 1px solid var(--pkr-border);
     gap: 12px;
     flex-shrink: 0;
 }
@@ -1067,14 +1026,14 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    color: var(--pk-text-secondary);
+    color: var(--pkr-text-secondary);
     cursor: pointer;
     transition: all 0.15s ease;
 }
 
 .pk-input-btn:hover {
-    background: var(--pk-hover-bg);
-    color: var(--pk-text-primary);
+    background: var(--pkr-hover-bg);
+    color: var(--pkr-text-primary);
 }
 
 .pk-input-btn i {
@@ -1089,11 +1048,11 @@
     background: #ffffff;
     border-radius: 8px;
     padding: 8px 12px;
-    border: 1px solid var(--pk-border);
+    border: 1px solid var(--pkr-border);
 }
 
 .pk-chat-input-wrapper:focus-within {
-    border-color: var(--pk-primary);
+    border-color: var(--pkr-primary);
     box-shadow: 0 0 0 2px rgba(0, 168, 132, 0.1);
 }
 
@@ -1102,7 +1061,7 @@
     border: none;
     outline: none;
     font-size: 14px;
-    color: var(--pk-text-primary);
+    color: var(--pkr-text-primary);
     resize: none;
     max-height: 100px;
     min-height: 24px;
@@ -1111,14 +1070,14 @@
 }
 
 .pk-chat-input::placeholder {
-    color: var(--pk-text-tertiary);
+    color: var(--pkr-text-tertiary);
 }
 
 .pk-send-btn {
     width: 40px;
     height: 40px;
     border: none;
-    background: var(--pk-primary);
+    background: var(--pkr-primary);
     border-radius: 50%;
     display: flex;
     align-items: center;
@@ -1130,11 +1089,11 @@
 }
 
 .pk-send-btn:hover {
-    background: var(--pk-primary-dark);
+    background: var(--pkr-primary-dark);
 }
 
 .pk-send-btn:disabled {
-    background: var(--pk-text-tertiary);
+    background: var(--pkr-text-tertiary);
     cursor: not-allowed;
 }
 
@@ -1150,15 +1109,15 @@
     gap: 8px;
     padding: 8px 16px;
     background: #fff;
-    border-top: 1px solid var(--pk-border);
+    border-top: 1px solid var(--pkr-border);
     font-size: 13px;
-    color: var(--pk-text-secondary);
+    color: var(--pkr-text-secondary);
 }
 
 .pk-reply-from i {
     width: 16px;
     height: 16px;
-    color: var(--pk-primary);
+    color: var(--pkr-primary);
 }
 
 /* Chỉ báo kênh gửi (N2 Extension bypass 24h / Pancake API) — đẩy về phải */
@@ -1176,8 +1135,8 @@
     align-items: center;
     justify-content: space-between;
     padding: 8px 16px;
-    background: var(--pk-header-bg);
-    border-bottom: 1px solid var(--pk-border);
+    background: var(--pkr-header-bg);
+    border-bottom: 1px solid var(--pkr-border);
     font-size: 13px;
 }
 
@@ -1274,7 +1233,7 @@
 }
 
 .pk-reply-from strong {
-    color: var(--pk-primary);
+    color: var(--pkr-primary);
     font-weight: 600;
 }
 
@@ -1291,7 +1250,7 @@
     gap: 12px;
     padding: 40px 20px;
     text-align: center;
-    color: var(--pk-text-secondary);
+    color: var(--pkr-text-secondary);
 }
 
 .pk-search-loading .pk-loading-spinner {
@@ -1303,7 +1262,7 @@
 .pk-search-error i {
     width: 48px;
     height: 48px;
-    color: var(--pk-text-tertiary);
+    color: var(--pkr-text-tertiary);
 }
 
 .pk-search-error {
@@ -1317,7 +1276,7 @@
 .pk-clear-search-btn {
     margin-top: 8px;
     padding: 8px 16px;
-    background: var(--pk-primary);
+    background: var(--pkr-primary);
     color: white;
     border: none;
     border-radius: 6px;
@@ -1327,7 +1286,7 @@
 }
 
 .pk-clear-search-btn:hover {
-    background: var(--pk-primary-hover);
+    background: var(--pkr-primary-hover);
 }
 
 /* =====================================================
@@ -1340,14 +1299,14 @@
     justify-content: center;
     gap: 8px;
     padding: 12px;
-    color: var(--pk-text-secondary);
+    color: var(--pkr-text-secondary);
     font-size: 13px;
 }
 
 .pk-no-more-messages {
     text-align: center;
     padding: 16px;
-    color: var(--pk-text-tertiary);
+    color: var(--pkr-text-tertiary);
     font-size: 12px;
     font-style: italic;
 }
@@ -1361,7 +1320,7 @@
     background: white;
     border-radius: 8px;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-    border: 1px solid var(--pk-border);
+    border: 1px solid var(--pkr-border);
     min-width: 180px;
     padding: 4px 0;
 }
@@ -1376,7 +1335,7 @@
     background: none;
     cursor: pointer;
     font-size: 13px;
-    color: var(--pk-text-primary);
+    color: var(--pkr-text-primary);
     transition: background 0.15s ease;
 }
 
@@ -1387,7 +1346,7 @@
 .pk-context-menu-item i {
     width: 16px;
     height: 16px;
-    color: var(--pk-text-secondary);
+    color: var(--pkr-text-secondary);
 }
 
 .pk-menu-arrow {
@@ -1396,7 +1355,7 @@
 
 .pk-context-menu-divider {
     height: 1px;
-    background: var(--pk-border);
+    background: var(--pkr-border);
     margin: 4px 0;
 }
 
@@ -1407,7 +1366,7 @@
     background: white;
     border-radius: 8px;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-    border: 1px solid var(--pk-border);
+    border: 1px solid var(--pkr-border);
     min-width: 200px;
     max-height: 300px;
     overflow-y: auto;
@@ -1417,8 +1376,8 @@
     padding: 10px 16px;
     font-size: 12px;
     font-weight: 600;
-    color: var(--pk-text-secondary);
-    border-bottom: 1px solid var(--pk-border);
+    color: var(--pkr-text-secondary);
+    border-bottom: 1px solid var(--pkr-border);
 }
 
 .pk-tags-menu-list {
@@ -1435,7 +1394,7 @@
     background: none;
     cursor: pointer;
     font-size: 13px;
-    color: var(--pk-text-primary);
+    color: var(--pkr-text-primary);
     transition: background 0.15s ease;
 }
 
@@ -1456,7 +1415,7 @@
 .pk-no-tags {
     padding: 16px;
     text-align: center;
-    color: var(--pk-text-tertiary);
+    color: var(--pkr-text-tertiary);
     font-size: 13px;
 }
 
@@ -1490,17 +1449,17 @@
     max-width: 260px;
     padding: 6px 10px;
     background: #fff;
-    border: 1px solid var(--pk-border);
+    border: 1px solid var(--pkr-border);
     border-radius: 6px;
     font-size: 12px;
-    color: var(--pk-text-primary);
+    color: var(--pkr-text-primary);
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
 }
 
 .pk-attach-chip small {
-    color: var(--pk-text-tertiary);
+    color: var(--pkr-text-tertiary);
 }
 
 .pk-preview-remove {
@@ -1534,7 +1493,7 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    color: var(--pk-text-tertiary);
+    color: var(--pkr-text-tertiary);
     padding: 40px;
     text-align: center;
 }
@@ -1542,7 +1501,7 @@
 .pk-empty-state i {
     width: 80px;
     height: 80px;
-    color: var(--pk-text-tertiary);
+    color: var(--pkr-text-tertiary);
     opacity: 0.5;
     margin-bottom: 20px;
 }
@@ -1550,7 +1509,7 @@
 .pk-empty-state h3 {
     font-size: 18px;
     font-weight: 600;
-    color: var(--pk-text-secondary);
+    color: var(--pkr-text-secondary);
     margin-bottom: 8px;
 }
 
@@ -1572,8 +1531,8 @@
 .pk-loading-spinner {
     width: 32px;
     height: 32px;
-    border: 3px solid var(--pk-border);
-    border-top-color: var(--pk-primary);
+    border: 3px solid var(--pkr-border);
+    border-top-color: var(--pkr-primary);
     border-radius: 50%;
     animation: pk-spin 0.8s linear infinite;
 }
@@ -1752,8 +1711,8 @@
    ===================================================== */
 .pk-page-selector {
     padding: 10px 12px;
-    background: var(--pk-header-bg);
-    border-bottom: 1px solid var(--pk-border);
+    background: var(--pkr-header-bg);
+    border-bottom: 1px solid var(--pkr-border);
 }
 
 .pk-page-selector-btn {
@@ -1763,19 +1722,19 @@
     width: 100%;
     padding: 8px 12px;
     background: #ffffff;
-    border: 1px solid var(--pk-border);
+    border: 1px solid var(--pkr-border);
     border-radius: 8px;
     cursor: pointer;
     transition: all 0.15s ease;
 }
 
 .pk-page-selector-btn:hover {
-    background: var(--pk-hover-bg);
-    border-color: var(--pk-primary);
+    background: var(--pkr-hover-bg);
+    border-color: var(--pkr-primary);
 }
 
 .pk-page-selector-btn.active {
-    border-color: var(--pk-primary);
+    border-color: var(--pkr-primary);
     box-shadow: 0 0 0 2px rgba(0, 168, 132, 0.1);
 }
 
@@ -1810,7 +1769,7 @@
 .pk-page-name {
     font-size: 13px;
     font-weight: 600;
-    color: var(--pk-text-primary);
+    color: var(--pkr-text-primary);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -1818,14 +1777,14 @@
 
 .pk-page-hint {
     font-size: 11px;
-    color: var(--pk-text-tertiary);
+    color: var(--pkr-text-tertiary);
 }
 
 .pk-page-unread-badge {
     min-width: 20px;
     height: 20px;
     padding: 0 6px;
-    background: var(--pk-badge-warning);
+    background: var(--pkr-badge-warning);
     border-radius: 10px;
     color: white;
     font-size: 11px;
@@ -1839,7 +1798,7 @@
 .pk-page-selector-icon {
     width: 16px;
     height: 16px;
-    color: var(--pk-text-tertiary);
+    color: var(--pkr-text-tertiary);
     flex-shrink: 0;
     transition: transform 0.2s ease;
 }
@@ -1855,7 +1814,7 @@
     left: 12px;
     right: 12px;
     background: white;
-    border: 1px solid var(--pk-border);
+    border: 1px solid var(--pkr-border);
     border-radius: 8px;
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
     max-height: 300px;
@@ -1870,10 +1829,10 @@
 
 .pk-page-dropdown-header {
     padding: 10px 12px;
-    border-bottom: 1px solid var(--pk-border);
+    border-bottom: 1px solid var(--pkr-border);
     font-size: 12px;
     font-weight: 600;
-    color: var(--pk-text-secondary);
+    color: var(--pkr-text-secondary);
     text-transform: uppercase;
     letter-spacing: 0.5px;
 }
@@ -1885,7 +1844,7 @@
     padding: 10px 12px;
     cursor: pointer;
     transition: background 0.15s ease;
-    border-bottom: 1px solid var(--pk-border);
+    border-bottom: 1px solid var(--pkr-border);
 }
 
 .pk-page-item:last-child {
@@ -1893,7 +1852,7 @@
 }
 
 .pk-page-item:hover {
-    background: var(--pk-hover-bg);
+    background: var(--pkr-hover-bg);
 }
 
 .pk-page-item.active {
@@ -1902,7 +1861,7 @@
 
 .pk-page-item.all-pages {
     background: #f0fdf4;
-    border-bottom: 2px solid var(--pk-border);
+    border-bottom: 2px solid var(--pkr-border);
 }
 
 .pk-page-item.all-pages:hover {
@@ -1921,7 +1880,7 @@
 
 .pk-page-item .pk-page-hint {
     font-size: 12px;
-    color: var(--pk-text-secondary);
+    color: var(--pkr-text-secondary);
 }
 
 .pk-page-item .pk-page-unread-badge {
@@ -1949,8 +1908,8 @@
 .pk-filter-tabs {
     display: flex;
     padding: 0 12px;
-    background: var(--pk-header-bg);
-    border-bottom: 1px solid var(--pk-border);
+    background: var(--pkr-header-bg);
+    border-bottom: 1px solid var(--pkr-border);
     gap: 4px;
 }
 
@@ -1962,20 +1921,20 @@
     border-bottom: 2px solid transparent;
     font-size: 12px;
     font-weight: 500;
-    color: var(--pk-text-secondary);
+    color: var(--pkr-text-secondary);
     cursor: pointer;
     transition: all 0.15s ease;
     text-align: center;
 }
 
 .pk-filter-tab:hover {
-    color: var(--pk-text-primary);
-    background: var(--pk-hover-bg);
+    color: var(--pkr-text-primary);
+    background: var(--pkr-hover-bg);
 }
 
 .pk-filter-tab.active {
-    color: var(--pk-primary);
-    border-bottom-color: var(--pk-primary);
+    color: var(--pkr-primary);
+    border-bottom-color: var(--pkr-primary);
     font-weight: 600;
 }
 
@@ -1986,7 +1945,7 @@
     min-width: 16px;
     height: 16px;
     padding: 0 4px;
-    background: var(--pk-badge-warning);
+    background: var(--pkr-badge-warning);
     border-radius: 8px;
     color: white;
     font-size: 10px;
@@ -2060,7 +2019,7 @@
     height: 40px;
     border-radius: 50%;
     background: white;
-    border: 1px solid var(--pk-border);
+    border: 1px solid var(--pkr-border);
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
     cursor: pointer;
     display: none;
@@ -2075,7 +2034,7 @@
 }
 
 .pk-scroll-to-bottom:hover {
-    background: var(--pk-hover-bg);
+    background: var(--pkr-hover-bg);
     transform: scale(1.05);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
@@ -2083,7 +2042,7 @@
 .pk-scroll-to-bottom i {
     width: 20px;
     height: 20px;
-    color: var(--pk-text-secondary);
+    color: var(--pkr-text-secondary);
 }
 
 .pk-new-msg-badge {
@@ -2092,7 +2051,7 @@
     right: -6px;
     min-width: 20px;
     height: 20px;
-    background: var(--pk-primary);
+    background: var(--pkr-primary);
     color: white;
     border-radius: 10px;
     font-size: 11px;
@@ -2117,8 +2076,8 @@
     left: 0;
     width: 320px;
     max-height: 280px;
-    background: var(--pk-sidebar-bg);
-    border: 1px solid var(--pk-border);
+    background: var(--pkr-sidebar-bg);
+    border: 1px solid var(--pkr-border);
     border-radius: 12px;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
     z-index: 1000;
@@ -2130,8 +2089,8 @@
     display: flex;
     gap: 4px;
     padding: 8px;
-    border-bottom: 1px solid var(--pk-border);
-    background: var(--pk-header-bg);
+    border-bottom: 1px solid var(--pkr-border);
+    background: var(--pkr-header-bg);
 }
 
 .pk-emoji-cat {
@@ -2149,11 +2108,11 @@
 }
 
 .pk-emoji-cat:hover {
-    background: var(--pk-hover-bg);
+    background: var(--pkr-hover-bg);
 }
 
 .pk-emoji-cat.active {
-    background: var(--pk-primary);
+    background: var(--pkr-primary);
     color: white;
 }
 
@@ -2183,7 +2142,7 @@
 }
 
 .pk-emoji-item:hover {
-    background: var(--pk-hover-bg);
+    background: var(--pkr-hover-bg);
     transform: scale(1.1);
 }
 
@@ -2193,7 +2152,7 @@
     align-items: center;
     gap: 4px;
     padding: 8px 12px;
-    background: var(--pk-msg-incoming);
+    background: var(--pkr-msg-incoming);
     border-radius: 18px;
     width: fit-content;
     margin: 8px 0;
@@ -2202,7 +2161,7 @@
 .pk-typing-dot {
     width: 8px;
     height: 8px;
-    background: var(--pk-text-secondary);
+    background: var(--pkr-text-secondary);
     border-radius: 50%;
     animation: pk-typing-bounce 1.4s infinite ease-in-out;
 }
@@ -2243,24 +2202,24 @@
 .pk-message-status svg {
     width: 14px;
     height: 14px;
-    color: var(--pk-text-secondary);
+    color: var(--pkr-text-secondary);
 }
 
 .pk-message-status.sent svg {
-    color: var(--pk-text-secondary);
+    color: var(--pkr-text-secondary);
 }
 
 .pk-message-status.delivered svg {
-    color: var(--pk-text-secondary);
+    color: var(--pkr-text-secondary);
 }
 
 .pk-message-status.seen svg {
-    color: var(--pk-primary);
+    color: var(--pkr-primary);
 }
 
 /* Private Reply Button */
 .pk-private-reply-btn {
-    background: var(--pk-primary);
+    background: var(--pkr-primary);
     color: white;
     border: none;
     border-radius: 6px;
@@ -2274,7 +2233,7 @@
 }
 
 .pk-private-reply-btn:hover {
-    background: var(--pk-primary-dark);
+    background: var(--pkr-primary-dark);
 }
 
 .pk-private-reply-btn svg {
@@ -2300,14 +2259,14 @@
     border: none;
     padding: 4px;
     cursor: pointer;
-    color: var(--pk-text-secondary);
+    color: var(--pkr-text-secondary);
     border-radius: 4px;
     transition: all 0.2s;
 }
 
 .pk-comment-action-btn:hover {
-    background: var(--pk-hover-bg);
-    color: var(--pk-primary);
+    background: var(--pkr-hover-bg);
+    color: var(--pkr-primary);
 }
 
 .pk-comment-action-btn svg {
@@ -2386,7 +2345,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    color: var(--pk-text-secondary);
+    color: var(--pkr-text-secondary);
     cursor: pointer;
     transition: all 0.15s;
 }
@@ -2508,14 +2467,14 @@
     align-items: center;
     justify-content: space-between;
     padding: 16px 20px;
-    border-bottom: 1px solid var(--pk-border);
+    border-bottom: 1px solid var(--pkr-border);
 }
 
 .pk-modal-header h3 {
     margin: 0;
     font-size: 16px;
     font-weight: 600;
-    color: var(--pk-text-primary);
+    color: var(--pkr-text-primary);
     display: flex;
     align-items: center;
     gap: 8px;
@@ -2534,7 +2493,7 @@
     background: transparent;
     border-radius: 6px;
     font-size: 20px;
-    color: var(--pk-text-tertiary);
+    color: var(--pkr-text-tertiary);
     cursor: pointer;
     display: flex;
     align-items: center;
@@ -2543,8 +2502,8 @@
 }
 
 .pk-modal-close:hover {
-    background: var(--pk-hover-bg);
-    color: var(--pk-text-primary);
+    background: var(--pkr-hover-bg);
+    color: var(--pkr-text-primary);
 }
 
 .pk-modal-body {
@@ -2554,7 +2513,7 @@
 .pk-modal-info {
     margin: 0 0 12px 0;
     font-size: 14px;
-    color: var(--pk-text-secondary);
+    color: var(--pkr-text-secondary);
 }
 
 .pk-modal-warning {
@@ -2580,7 +2539,7 @@
 .pk-modal-textarea {
     width: 100%;
     padding: 12px;
-    border: 1px solid var(--pk-border);
+    border: 1px solid var(--pkr-border);
     border-radius: 8px;
     font-size: 14px;
     font-family: inherit;
@@ -2600,7 +2559,7 @@
     justify-content: flex-end;
     gap: 10px;
     padding: 16px 20px;
-    border-top: 1px solid var(--pk-border);
+    border-top: 1px solid var(--pkr-border);
 }
 
 .pk-modal-btn {
@@ -2617,8 +2576,8 @@
 }
 
 .pk-modal-btn-cancel {
-    background: var(--pk-hover-bg);
-    color: var(--pk-text-secondary);
+    background: var(--pkr-hover-bg);
+    color: var(--pkr-text-secondary);
 }
 
 .pk-modal-btn-cancel:hover {

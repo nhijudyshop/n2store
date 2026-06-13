@@ -40,12 +40,8 @@
     --pancake-color: #f59e0b;
     --pancake-bg: #fffbeb;
 
-    /* Pancake Chat Theme */
-    --pk-primary: #00a884;
-    --pk-primary-dark: #008f6f;
-    --pk-message-out: #d9fdd3;
-    --pk-message-in: #ffffff;
-    --pk-chat-bg: #efeae2;
+    /* Pancake Chat Theme — legacy --pk-* ĐÃ XÓA (2026-06-13), chuyển --pkr-* (xanh Zalo)
+     * ở live-chat/css/pancake-redesign-tokens.css. */
 
     /* Shadows */
     --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);

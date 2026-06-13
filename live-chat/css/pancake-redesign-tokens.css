@@ -1,0 +1,208 @@
+/* #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 — design tokens redesign Chat Pancake + Kho SP (Phương án C "Zalo Bento Commerce"). Load TRƯỚC pancake-chat.css. */
+/* =====================================================================
+ * Namespace --pkr-* cô lập, KHÔNG đụng --web2-* theme chung.
+ * --pkr-primary alias về --web2-primary để vẫn theo theme toàn cục (xanh Zalo).
+ * Xem docs/web2/CHAT-REDESIGN-BLUEPRINT.md.
+ * ===================================================================== */
+:root {
+    /* ── PRIMARY (Zalo Blue), 500 = anchor ── */
+    --pkr-blue-50: #eef5ff;
+    --pkr-blue-100: #d9e8ff;
+    --pkr-blue-200: #bcd6ff;
+    --pkr-blue-300: #8fbaff;
+    --pkr-blue-400: #5996ff;
+    --pkr-blue-500: #0068ff;
+    --pkr-blue-600: #0058db;
+    --pkr-blue-700: #0047b3;
+    --pkr-blue-800: #073a8c;
+    --pkr-blue-900: #0a316e;
+
+    /* Anchor THẲNG vào Zalo blue #0068ff (user chốt) — KHÔNG alias --web2-primary
+     * vì trang live-chat hiện set --web2-primary = teal #00a884 (Pancake green). */
+    --pkr-primary: var(--pkr-blue-500);
+    --pkr-primary-hover: var(--pkr-blue-600);
+    --pkr-primary-active: var(--pkr-blue-700);
+    --pkr-primary-soft: var(--pkr-blue-50);
+    --pkr-on-primary: #ffffff;
+
+    /* ── ACCENT (teal — tiết chế: House badge, live/realtime) ── */
+    --pkr-accent-500: #06b6d4;
+    --pkr-accent-600: #0891b2;
+    --pkr-accent-soft: #e0f7fb;
+
+    /* ── SEMANTIC ── */
+    --pkr-success-50: #ecfdf3;
+    --pkr-success-500: #12b76a;
+    --pkr-success-600: #039855;
+    --pkr-warning-50: #fffaeb;
+    --pkr-warning-500: #f79009;
+    --pkr-warning-600: #dc6803;
+    --pkr-error-50: #fef3f2;
+    --pkr-error-500: #f04438;
+    --pkr-error-600: #d92d20;
+    --pkr-online: #31a24c;
+
+    /* ── NEUTRALS (cool slate-tinted) ── */
+    --pkr-gray-25: #fcfcfd;
+    --pkr-gray-50: #f8fafc;
+    --pkr-gray-100: #f1f4f9;
+    --pkr-gray-200: #e6eaf0;
+    --pkr-gray-300: #d2d9e3;
+    --pkr-gray-400: #98a4b5;
+    --pkr-gray-500: #667085;
+    --pkr-gray-700: #344054;
+    --pkr-gray-800: #1d2939;
+    --pkr-gray-900: #101828;
+
+    /* ── SURFACE / TEXT / BORDER (light) ── */
+    --pkr-bg: #f8fafc;
+    --pkr-surface: #ffffff;
+    --pkr-surface-sunken: #f1f4f9;
+    --pkr-surface-hover: #f1f4f9;
+    --pkr-border: #e6eaf0;
+    --pkr-border-strong: #d2d9e3;
+    --pkr-divider: #eef1f6;
+    --pkr-text: #1d2939;
+    --pkr-text-strong: #101828;
+    --pkr-text-secondary: #667085;
+    --pkr-text-muted: #98a4b5;
+    --pkr-text-on-blue: #ffffff;
+
+    /* ── BUBBLE tokens ── */
+    --pkr-bubble-out-bg: var(--pkr-primary);
+    --pkr-bubble-out-text: #ffffff;
+    --pkr-bubble-in-bg: #f1f4f9;
+    --pkr-bubble-in-text: #1d2939;
+
+    /* ── TYPOGRAPHY ── */
+    --pkr-font: 'Be Vietnam Pro', 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    --pkr-text-h1: 1.5rem;
+    --pkr-text-h2: 1.25rem;
+    --pkr-text-h3: 1.0625rem;
+    --pkr-text-body-lg: 1rem; /* 16px — input/composer (chống zoom iOS) */
+    --pkr-text-body: 0.9375rem; /* 15px */
+    --pkr-text-bubble: 0.97rem; /* ~15.5px */
+    --pkr-text-label: 0.875rem; /* 14px button/tab/chip */
+    --pkr-text-caption: 0.78rem; /* 12.5px time/meta/SL */
+    --pkr-text-overline: 0.6875rem; /* 11px badge */
+    --pkr-fw-regular: 400;
+    --pkr-fw-medium: 500;
+    --pkr-fw-semibold: 600;
+    --pkr-fw-bold: 700;
+    --pkr-lh-tight: 1.25;
+    --pkr-lh-snug: 1.4;
+    --pkr-lh-normal: 1.5;
+
+    /* ── SPACING (base 4px) ── */
+    --pkr-sp-1: 4px;
+    --pkr-sp-2: 8px;
+    --pkr-sp-3: 12px;
+    --pkr-sp-4: 16px;
+    --pkr-sp-5: 20px;
+    --pkr-sp-6: 24px;
+    --pkr-sp-8: 32px;
+
+    /* ── RADIUS (mềm, tăng dần theo cấp) ── */
+    --pkr-r-xs: 6px;
+    --pkr-r-sm: 8px;
+    --pkr-r-md: 10px;
+    --pkr-r-lg: 14px;
+    --pkr-r-xl: 18px; /* bubble */
+    --pkr-r-2xl: 22px; /* panel/sheet/composer */
+    --pkr-r-full: 9999px;
+    --pkr-bubble-tail: 6px;
+
+    /* ── ELEVATION (nhẹ, ≤24px blur — anti-lag) ── */
+    --pkr-shadow-xs: 0 1px 2px rgba(16, 24, 40, 0.05);
+    --pkr-shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.06), 0 1px 3px rgba(16, 24, 40, 0.1);
+    --pkr-shadow-md: 0 2px 4px rgba(16, 24, 40, 0.06), 0 4px 8px rgba(16, 24, 40, 0.08);
+    --pkr-shadow-lg: 0 4px 8px rgba(16, 24, 40, 0.05), 0 8px 16px rgba(16, 24, 40, 0.1);
+    --pkr-shadow-xl: 0 8px 16px rgba(16, 24, 40, 0.06), 0 12px 24px rgba(16, 24, 40, 0.12);
+    --pkr-ring-primary: 0 0 0 3px rgba(0, 104, 255, 0.18);
+    --pkr-ring-error: 0 0 0 3px rgba(240, 68, 56, 0.18);
+
+    /* ── MOTION (M3-derived) ── */
+    --pkr-dur-instant: 100ms;
+    --pkr-dur-fast: 150ms;
+    --pkr-dur-base: 220ms;
+    --pkr-dur-slow: 300ms;
+    --pkr-ease-emphasized: cubic-bezier(0.2, 0, 0, 1);
+    --pkr-ease-decel: cubic-bezier(0.05, 0.7, 0.1, 1);
+    --pkr-ease-accel: cubic-bezier(0.3, 0, 0.8, 0.15);
+    --pkr-ease-standard: cubic-bezier(0.2, 0, 0, 1);
+    --pkr-ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+    /* ── Z-INDEX ── */
+    --pkr-z-sticky: 100;
+    --pkr-z-dropdown: 400;
+    --pkr-z-drag: 600;
+    --pkr-z-overlay: 900;
+    --pkr-z-sheet: 1000;
+    --pkr-z-toast: 1200;
+
+    /* ── LAYOUT dims ── */
+    --pkr-list-w: clamp(300px, 28vw, 360px);
+    --pkr-row-h: 68px;
+    --pkr-avatar: 48px;
+    --pkr-bubble-maxw: min(75%, 560px);
+    --pkr-gap-group: 10px;
+    --pkr-gap-same: 2px;
+    --pkr-composer-maxh: 120px;
+
+    /* ── Mobile app-height (keyboard-aware, set bởi pancake-mobile-shell.js) ── */
+    --pkr-app-h: 100dvh;
+    --pkr-kb: 0px;
+    --pkr-safe-b: env(safe-area-inset-bottom);
+
+    /* ── LEGACY COMPAT: tên cũ migrate từ --pk-* (pancake-chat.css + variables.css)
+     *    đã XÓA. Giá trị = redesign Zalo-blue (thay theme xanh-lá WhatsApp cũ).
+     *    Bubble thật làm ở đợt 3 (web2-chat-panel); các --pkr-msg-* chỉ phục vụ
+     *    legacy .pk-message rules (đa số dead sau khi chuyển Web2ChatPanel). ── */
+    --pkr-primary-light: var(--pkr-blue-400);
+    --pkr-primary-dark: var(--pkr-blue-700);
+    --pkr-chat-bg: var(--pkr-bg);
+    --pkr-chat-bg-pattern: none;
+    --pkr-msg-incoming: var(--pkr-bubble-in-bg);
+    --pkr-msg-outgoing: var(--pkr-blue-100);
+    --pkr-msg-outgoing-alt: var(--pkr-blue-50);
+    --pkr-message-out: var(--pkr-blue-100);
+    --pkr-message-in: var(--pkr-bubble-in-bg);
+    --pkr-sidebar-bg: var(--pkr-surface);
+    --pkr-header-bg: var(--pkr-surface-sunken);
+    --pkr-hover-bg: var(--pkr-surface-hover);
+    --pkr-active-bg: var(--pkr-blue-50);
+    --pkr-text-primary: var(--pkr-text-strong);
+    --pkr-text-tertiary: var(--pkr-text-muted);
+    --pkr-text-timestamp: var(--pkr-text-secondary);
+    --pkr-badge-unread: var(--pkr-primary);
+    --pkr-badge-warning: var(--pkr-warning-500);
+    --pkr-badge-red: var(--pkr-error-500);
+    --pkr-qr-blue: var(--pkr-blue-500);
+    --pkr-qr-orange: #f97316;
+    --pkr-qr-red: var(--pkr-error-500);
+    --pkr-qr-purple: #7c3aed;
+    --pkr-qr-green: var(--pkr-success-500);
+    --pkr-qr-teal: var(--pkr-accent-500);
+    --pkr-qr-pink: #ec4899;
+    --pkr-qr-yellow: #eab308;
+}
+
+/* Dark mode (optional, theo [data-theme="dark"] toàn cục) */
+[data-theme='dark'] {
+    --pkr-bg: #0b1220;
+    --pkr-surface: #131c2e;
+    --pkr-surface-sunken: #0e1626;
+    --pkr-surface-hover: #1b2740;
+    --pkr-border: #243049;
+    --pkr-border-strong: #324063;
+    --pkr-divider: #1a2438;
+    --pkr-text: #e6ebf4;
+    --pkr-text-strong: #f5f8fd;
+    --pkr-text-secondary: #95a3bd;
+    --pkr-text-muted: #5e6e8c;
+    --pkr-primary: #4d94ff;
+    --pkr-primary-soft: #16243f;
+    --pkr-bubble-in-bg: #1a2438;
+    --pkr-bubble-in-text: #e6ebf4;
+    --pkr-bubble-out-bg: #2f7bff;
+}
