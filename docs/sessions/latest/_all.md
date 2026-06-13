@@ -3,15 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `b89f32c` — auto: session update
-**Last updated**: 2026-06-13 19:53:01 +07
-**Latest session**: [`RESUME:20260613-195301-b89f32c`](../20260613-195301-b89f32c.md)
-**Summary**: auto: session update
+**Latest commit**: `0424dbb` — refactor(web2-zalo): dua engine chat vao shared (web2/shared/web2-zalo-api + zalo-chat/_) + controller chung WZChat.mountConversation + Web2Zalo.mountChat drop-in cho trang khac; app.js delegate (-410 dong trung)
+**Last updated**: 2026-06-13 19:57:35 +07
+**Latest session**: [`RESUME:20260613-195735-0424dbb`](../20260613-195735-0424dbb.md)
+**Summary**: refactor(web2-zalo): dua engine chat vao shared (web2/shared/web2-zalo-api + zalo-chat/_) + controller chung WZChat.m...
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`web2/`](./web2.md) — 1 file(s)
+- [`web2/`](./web2.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -26,7 +26,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-13 15:41
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-13 14:33
-- [`docs/`](./docs.md) — updated 2026-06-13 19:53
+- [`docs/`](./docs.md) — updated 2026-06-13 19:57
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-13 14:55
 - [`downloads/`](./downloads.md) — updated 2026-06-13 19:16
@@ -72,4 +72,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-13 19:53
+- [`web2/`](./web2.md) — updated 2026-06-13 19:57
