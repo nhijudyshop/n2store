@@ -2,6 +2,16 @@
 
 ## 2026-06-13
 
+### [web2] [shared] native-orders = giao diện chủ đạo → phủ shared `web2-theme.css` cho 100% trang web2 (đợt 10) ✅
+
+**User:** "lấy native-orders làm giao diện chủ đạo → tạo css web2 shared từ native-orders → tất cả web2 dùng css này."
+
+**Khảo sát:** shared design-system ĐÃ TỒN TẠI = `web2/shared/web2-theme.css` (header file ghi rõ "Chuẩn UI cho TOÀN BỘ Web 2.0, lấy native-orders/css làm baseline"; self-contained: tokens `--web2-*` #0068ff + clone `.web2-btn`/`.data-table`/`.web2-label`/page-head + overlay normalize `.btn`/`.modal`/`.tab`/`.badge`/`.pagination`, scoped `.web2-theme`/`.web2-shell`, anti-lag). **29/38 trang đã load** (gồm cả live-chat).
+
+**Đã làm:** thêm `<link ... web2/shared/web2-theme.css>` (load cuối `</head>`) cho **8 trang còn thiếu**: customer-wallet, fastsaleorder-delivery, fastsaleorder-refund, login, pancake-settings, payment-confirm, report-delivery, report-revenue. **GIỮ native-orders/index.html NGUYÊN** (là nguồn — không nạp overlay derived từ chính nó để khỏi bị token `--web2-bg-app` đè lệch). → **38/38 trang web2 dùng shared design (native-orders source) trừ chính native-orders là nguồn.**
+
+**Verify (screenshot):** report-revenue + payment-confirm (2 trang mới adopt) render đẹp + nhất quán native-orders (card accent màu, KPI, tab underline, data-table, stat cards), 0 vỡ. `?v=20260613ns1`. **Status:** ✅ Done.
+
 ### [web2] [shared] Hướng native-orders + shared FX (glass/soft) + animation engine = MOTION (đợt 9) ✅
 
 **User:** revert Chatwoot (xấu) → "lấy native-orders làm giao diện chủ đạo; shared css web2 = native-orders làm chính + 4 phong cách (faux-glass/soft-UI/glow/animate.css) anti-lag light" → animation thử **barba.js** rồi đổi **Motion** (motion.dev / github motiondivision/motion).
