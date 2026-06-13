@@ -19,9 +19,20 @@ function _hasRelaySecret(req) {
     return !!secret && req.headers['x-relay-secret'] === secret;
 }
 
-// requireWeb2AuthSoft + chấp nhận relay-secret cho service nội bộ.
+// Web 1.0 (orders-report) giữ X-API-Key = CLIENT_API_KEY — key này đã được trust
+// để phát Pancake JWT qua /api/auth/token/pancake (server.js requireApiKey). Chấp
+// nhận nó như 1 credential authed ở đây để Web 1.0 đọc full token kể cả khi
+// WEB2_AUTH_ENFORCE='1'. CHỈ THÊM nhánh OR — không siết/bỏ path web2-token nên
+// Web 2.0 không bị ảnh hưởng. (ENFORCE-PREP 2026-06-13)
+function _hasClientApiKey(req) {
+    const key = process.env.CLIENT_API_KEY || '';
+    return !!key && req.headers['x-api-key'] === key;
+}
+
+// requireWeb2AuthSoft + chấp nhận relay-secret / client-api-key cho caller nội bộ.
 function _softAuth(req, res, next) {
     if (_hasRelaySecret(req)) return next();
+    if (_hasClientApiKey(req)) return next();
     return requireWeb2AuthSoft(req, res, next);
 }
 
@@ -39,6 +50,7 @@ function _warnUnauthedList() {
 // true nếu caller có relay-secret HOẶC web2 token hợp lệ.
 async function _isAuthed(req) {
     if (_hasRelaySecret(req)) return true;
+    if (_hasClientApiKey(req)) return true;
     if (req.web2User) return true;
     const user = await resolveWeb2User(req).catch(() => null);
     if (user) req.web2User = user;

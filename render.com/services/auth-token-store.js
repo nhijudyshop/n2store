@@ -18,6 +18,47 @@ const _locks = new Map();
  */
 function createAuthTokenStore(pool) {
 
+    // ── Pancake fallback ─────────────────────────────────────────────────
+    // Web 2.0 auto-renews `pancake_accounts.token` (cron/extension/saved-creds
+    // login). The legacy auth_token_cache row for 'pancake' is only filled by a
+    // browser push via /api/realtime/start and nobody refreshes it. When that
+    // cache is missing/stale, read the freshest still-valid token straight from
+    // pancake_accounts so Web 1.0 (orders-report chat) gets the token Web 2.0
+    // saved. READ-ONLY: never writes auth_token_cache (avoid racing the
+    // /api/realtime/start upsert). Returns null on empty/error (never throws).
+    async function _getFreshPancakeAccountToken() {
+        try {
+            const r = await pool.query(
+                `SELECT token, token_exp FROM pancake_accounts
+                 WHERE token IS NOT NULL
+                   AND (token_exp IS NULL OR token_exp > extract(epoch from now()))
+                 ORDER BY (token_exp IS NOT NULL) DESC, token_exp DESC, last_used_at DESC NULLS LAST
+                 LIMIT 1`
+            );
+            if (r.rows.length === 0) return null;
+            let token = String(r.rows[0].token || '');
+            if (token.startsWith('jwt=')) token = token.slice(4); // defensive
+            if (!token) return null;
+
+            // Derive expires_at: prefer token_exp column (epoch seconds); else
+            // decode JWT exp; else null (client re-validates and discards stale).
+            let exp = r.rows[0].token_exp ? Number(r.rows[0].token_exp) : null;
+            if (!exp) {
+                try {
+                    const payload = JSON.parse(
+                        Buffer.from(token.split('.')[1], 'base64url').toString('utf8')
+                    );
+                    if (payload && payload.exp) exp = Number(payload.exp);
+                } catch (_) { /* leave null */ }
+            }
+            const expires_at = exp ? new Date(exp * 1000) : null;
+            return { token, refresh_token: null, expires_at, metadata: { source: 'pancake_accounts' } };
+        } catch (e) {
+            console.warn('[AUTH-STORE] pancake_accounts fallback failed:', e.message);
+            return null;
+        }
+    }
+
     async function getToken(provider) {
         const row = await pool.query(
             'SELECT token, refresh_token, expires_at, metadata FROM auth_token_cache WHERE provider = $1',
@@ -27,9 +68,19 @@ function createAuthTokenStore(pool) {
             const t = row.rows[0];
             const msUntilExpire = new Date(t.expires_at).getTime() - Date.now();
 
-            // Pancake: browser-pushed JWT, no server refresh — always return what we have.
-            // Client decodes exp and decides if still usable; it will re-push when it re-logs in.
+            // Pancake: browser-pushed JWT, no server refresh. If the cached token
+            // is still valid, return it. If stale, fall back to the auto-renewed
+            // token in pancake_accounts; only as a last resort return the stale
+            // cache row (preserves the old "always return what we have" behavior).
             if (provider === 'pancake') {
+                if (msUntilExpire > 0) {
+                    return { token: t.token, refresh_token: null, expires_at: t.expires_at, metadata: t.metadata };
+                }
+                const fresh = await _getFreshPancakeAccountToken();
+                if (fresh) {
+                    console.log('[AUTH-STORE] pancake cache stale → served fresh token from pancake_accounts');
+                    return fresh;
+                }
                 return { token: t.token, refresh_token: null, expires_at: t.expires_at, metadata: t.metadata };
             }
 
@@ -39,7 +90,14 @@ function createAuthTokenStore(pool) {
             // Token near expiry → try refresh
             console.log(`[AUTH-STORE] Token ${provider} expiring soon (${Math.round(msUntilExpire / 3600000)}h), refreshing...`);
         } else if (provider === 'pancake') {
-            // No pancake token in DB yet — browser hasn't pushed one
+            // No pancake token in auth_token_cache — try the auto-renewed token in
+            // pancake_accounts before giving up.
+            const fresh = await _getFreshPancakeAccountToken();
+            if (fresh) {
+                console.log('[AUTH-STORE] pancake cache empty → served fresh token from pancake_accounts');
+                return fresh;
+            }
+            // No usable token in either store — browser hasn't pushed one
             throw new Error('pancake:not_found — browser must push token via /api/realtime/start first');
         }
         // No token or expired → refresh
