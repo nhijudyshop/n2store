@@ -1696,9 +1696,11 @@ Throttle 30s/KH.`;
         // Dock vào đỉnh cột Kho SP (in-flow, reserved). Fallback fixed góc dưới-phải
         // nếu layout chưa có cột Kho SP (defensive — capture vẫn chạy).
         const dock = _ensureVideoDock();
+        // isolation:isolate → tạo stacking context cho Element Capture (restrictTo
+        // yêu cầu element form a stacking context). Vô hại cho hiển thị dock/fixed.
         wrapper.style.cssText = dock
-            ? `position:relative;width:${WRAPPER_W}px;height:${WRAPPER_H}px;border:2px solid #dc2626;border-radius:8px;background:#000;box-shadow:0 2px 8px rgba(0,0,0,0.25);overflow:hidden;flex:0 0 auto;`
-            : `position:fixed;bottom:8px;right:8px;width:${WRAPPER_W}px;height:${WRAPPER_H}px;border:2px solid #dc2626;border-radius:8px;z-index:99000;background:#000;box-shadow:0 4px 12px rgba(0,0,0,0.3);overflow:hidden;`;
+            ? `position:relative;width:${WRAPPER_W}px;height:${WRAPPER_H}px;border:2px solid #dc2626;border-radius:8px;background:#000;box-shadow:0 2px 8px rgba(0,0,0,0.25);overflow:hidden;flex:0 0 auto;isolation:isolate;`
+            : `position:fixed;bottom:8px;right:8px;width:${WRAPPER_W}px;height:${WRAPPER_H}px;border:2px solid #dc2626;border-radius:8px;z-index:99000;background:#000;box-shadow:0 4px 12px rgba(0,0,0,0.3);overflow:hidden;isolation:isolate;`;
 
         // No scale transform — iframe rendered AT wrapper width. Chỉ
         // translate up by HEADER_OFFSET để skip FB plugin header.
@@ -1781,18 +1783,18 @@ Throttle 30s/KH.`;
             // rồi, chỉ cần 500ms để frame buffer query rect ổn định.
             await new Promise((r) => setTimeout(r, 500));
         }
-        // Path A — N2Store Extension đang chạy: skip getDisplayMedia. Frame
-        // buffer dùng chrome.tabs.captureVisibleTab (tab focused only) hoặc
-        // tab stream (tab inactive OK) tùy việc user đã click extension icon.
-        if (STATE.extReady) {
+        // AUTO-START (không có user gesture): getDisplayMedia BẮT BUỘC gesture nên
+        // không gọi được → dùng extension captureVisibleTab im lặng (foreground).
+        // INTERACTIVE (user bấm 🎬) → xuống dưới: getDisplayMedia + Element Capture
+        // (occlusion-immune — video tí hon/bị đè/tab nền vẫn chụp chuẩn). Hủy share
+        // → fallback về extension captureVisibleTab (catch ở dưới).
+        if (STATE.extReady && !opts?.interactive) {
             _startFrameBuffer();
             renderRealSnapChip();
             renderAutoModeChip();
             const hint = document.getElementById('live-snap-fb-hint');
             if (hint) hint.remove();
-            _toast('✅ Auto-snap qua extension — không cần share popup', 'ok');
-            // Modal Enter đã trigger sớm hơn ở EXTENSION_VERSION handler. Nếu
-            // user chưa bấm Enter (modal đang chờ) thì stream chưa wire.
+            _toast('✅ Auto-snap qua extension (foreground) — không popup', 'ok');
             return true;
         }
         try {
@@ -1801,24 +1803,38 @@ Throttle 30s/KH.`;
                     displaySurface: 'browser',
                     width: { ideal: 1280 },
                     height: { ideal: 720 },
+                    // Cap fps THẤP: buffer chỉ sample ~5s/lần nên không cần fps cao →
+                    // giảm tải compositor/encode = giảm lag (user lo "bật popup lag").
+                    frameRate: { ideal: 4, max: 8 },
                 },
                 audio: false,
                 preferCurrentTab: true,
                 selfBrowserSurface: 'include',
                 surfaceSwitching: 'exclude',
             });
-            // Region Capture: crop vào WRAPPER (visible bounding box, đã skip FB
-            // header qua transform). Chromium 104+. KHÔNG crop iframe element vì
-            // iframe rendered ngoài viewport (vùng FB header) cũng được tính.
-            if (window.CropTarget?.fromElement) {
+            // Element Capture (restrictTo) — Chrome 132+: chụp ĐÚNG pixel của wrapper,
+            // BỎ QUA mọi thứ đè lên + ngoài element (occlusion-immune) → video có thể
+            // tí hon / cho UI đè / tab nền vẫn chụp chuẩn. Ưu tiên. Fallback Region
+            // Capture (cropTo, Chrome 104+) — crop theo bounding box (KHÔNG miễn đè).
+            // restrictTo cần element tạo stacking context (wrapper có isolation:isolate).
+            const track = stream.getVideoTracks()[0];
+            const wrapper = document.getElementById('live-snap-fb-wrapper');
+            let restricted = false;
+            if (wrapper && window.RestrictionTarget?.fromElement && track.restrictTo) {
                 try {
-                    const wrapper = document.getElementById('live-snap-fb-wrapper');
+                    const rt = await RestrictionTarget.fromElement(wrapper);
+                    await track.restrictTo(rt);
+                    restricted = true;
+                    console.log('[snap] Element Capture restrictTo wrapper ✓ (occlusion-immune)');
+                } catch (e) {
+                    console.warn('[snap] restrictTo fail → thử Region Capture:', e.message);
+                }
+            }
+            if (!restricted && wrapper && window.CropTarget?.fromElement && track.cropTo) {
+                try {
                     const cropTarget = await CropTarget.fromElement(wrapper);
-                    const track = stream.getVideoTracks()[0];
-                    if (track.cropTo) {
-                        await track.cropTo(cropTarget);
-                        console.log('[snap] Region Capture cropped to wrapper ✓');
-                    }
+                    await track.cropTo(cropTarget);
+                    console.log('[snap] Region Capture cropTo wrapper ✓');
                 } catch (e) {
                     console.warn('[snap] cropTo fail (full tab capture):', e.message);
                 }
@@ -1851,6 +1867,17 @@ Throttle 30s/KH.`;
             return true;
         } catch (e) {
             console.warn('[snap-embed] fail:', e?.message);
+            // User hủy share / không cấp quyền → nếu có extension thì fallback
+            // captureVisibleTab (im lặng, foreground) để vẫn chụp được, KHÔNG fail.
+            if (STATE.extReady) {
+                _toast('Đã hủy share → dùng extension (foreground)', 'ok');
+                _startFrameBuffer();
+                renderRealSnapChip();
+                renderAutoModeChip();
+                const hint = document.getElementById('live-snap-fb-hint');
+                if (hint) hint.remove();
+                return true;
+            }
             _toast('Hủy share: ' + e.message, 'err');
             // Cleanup wrapper nếu user hủy + nhả lock (chưa tới _startFrameBuffer).
             const wrapper = document.getElementById('live-snap-fb-wrapper');

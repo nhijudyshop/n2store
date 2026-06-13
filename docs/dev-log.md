@@ -2,6 +2,40 @@
 
 ## 2026-06-13
 
+### [live-chat] Chụp livestream qua Element Capture (occlusion-immune) — video ẩn/đè/tab nền vẫn chụp 100% ✅
+
+**User:** "làm 1 popup share đi" (chấp nhận getDisplayMedia popup để video có thể thu nhỏ/bị đè vẫn chụp) — "sợ bật popup nó lag".
+
+**Bối cảnh:** Task A (extension tabCapture im lặng) đã bỏ vì `getMediaStreamId` bắt buộc bấm icon extension/phiên (verify thật). Research: "ẩn/đè vẫn chụp" CHỈ làm được qua **Element Capture** (`restrictTo`) trên self-capture `getDisplayMedia` — Chrome 132+ (verify test browser Chrome 147: `RestrictionTarget`+`restrictTo` có sẵn).
+
+**Fix** (`live-livestream-snap.js`):
+
+- Path getDisplayMedia: `CropTarget.cropTo` → **ưu tiên `RestrictionTarget.fromElement` + `track.restrictTo`** (Element Capture — chụp ĐÚNG pixel wrapper, bỏ qua thứ đè lên + ngoài element → occlusion-immune). Fallback `cropTo` (Region Capture, không miễn đè) nếu restrictTo fail/cũ.
+- **Chỉ INTERACTIVE (user bấm 🎬) mới getDisplayMedia** (popup cần user gesture). AUTO-start (không gesture) → vẫn extension captureVisibleTab im lặng. Hủy share → fallback extension (không fail cứng).
+- **Chống lag** (đúng lo ngại user): cap `frameRate {ideal:4,max:8}` (buffer chỉ sample ~5s/lần nên không cần fps cao → giảm tải compositor/encode); Element Capture chỉ vùng video nhỏ.
+- Wrapper thêm `isolation:isolate` (restrictTo yêu cầu element tạo stacking context).
+
+**Verify:** API có sẵn (Chrome 147), syntax OK, load 0 lỗi. Flow share-popup + restrictTo thật cần user bấm 🎬 + chấp nhận picker trên live thật (không auto-test được) — user verify giúp.
+
+**Files:** [live-chat/js/live/live-livestream-snap.js](../live-chat/js/live/live-livestream-snap.js) (index.html đã ?v=20260613j).
+
+**Status:** ✅ Done (API+load verified; share-flow chờ verify live).
+
+### [web2] [shared] Re-skin TOÀN BỘ Web 2.0 sang phong cách trang Zalo (xanh #0068ff) ✅ (live-verified)
+
+**User:** "đây là giao diện/animation gì? Tôi muốn TOÀN BỘ Web 2.0 dùng giao diện, animation này" → chốt: re-skin theme chung + đổi sang **xanh Zalo #0068ff**.
+
+**Cách làm (đòn bẩy cao, ít rủi ro):** sửa 3 file CSS chung (load cuối → auto override 36 trang + page-builder), KHÔNG viết lại markup từng trang.
+
+- `web2/shared/web2-theme.css`: recolor token tím `#7266ba`→xanh `#0068ff` + soften neutrals (bg `#f5f7fb`, line `#e6e9ef`, text `#0f172a/#475569`); thay 14 chỗ hardcode tím (rgba/gradient); **THÊM "Zalo Refresh Pack"**: bo góc mềm (btn 9px, card/modal 12-18px, input 10px), soft shadow, hover-lift + active-scale + focus-ring, skeleton `.w2-skel`, busy spinner `.is-busy`, scrollbar mảnh, reduced-motion.
+- `native-orders/css/native-orders.css`: token primary tím→xanh.
+- `web2/shared/web2-sidebar.css`: 4 gradient tím→xanh.
+- 38 HTML: bump `?v=20260613z` cache-bust shared CSS.
+
+**Verify live (Playwright):** dashboard (stat cards), products (table dày), customers, product-category (page-builder), zalo — tất cả xanh/bo góc/soft shadow/animation, KHÔNG vỡ layout. Commit `584cd3291`.
+
+**Status:** ✅ Done (re-skin giao diện global). Phần "cải tiến chức năng/usability từng trang" = chương trình nhiều đợt (đang chờ user chọn ưu tiên).
+
 ### [live-chat] Video livestream dock đỉnh cột Kho SP (hết float đè) + Force extract đa nhiệm (pool song song + chạy nền) ✅
 
 **User:** (1) video FB live float góc dưới-phải đè lên Kho SP/comment → muốn "inline góc phải trên, cố định phần video"; (2) "force extract cho chạy đa nhiệm".
