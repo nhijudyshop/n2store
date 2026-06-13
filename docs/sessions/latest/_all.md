@@ -3,15 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `c430917` — feat(delivery-report): caption Telegram Anh Thanh Pho them so don thu ve (v=20260613b)
-**Last updated**: 2026-06-13 10:49:34 +07
-**Latest session**: [`RESUME:20260613-104934-c430917`](../20260613-104934-c430917.md)
-**Summary**: feat(delivery-report): caption Telegram Anh Thanh Pho them so don thu ve (v=20260613b)
+**Latest commit**: `123b5c2` — docs(web2): 🔒 WEB2_AUTH_ENFORCE=1 ĐÃ BẬT (13/06) — verify prod xong, đánh dấu MD/overview/dev-log
+**Last updated**: 2026-06-13 10:53:16 +07
+**Latest session**: [`RESUME:20260613-105316-123b5c2`](../20260613-105316-123b5c2.md)
+**Summary**: docs(web2): 🔒 WEB2_AUTH_ENFORCE=1 ĐÃ BẬT (13/06) — verify prod xong, đánh dấu MD/overview/dev-log
 
 ## Folders affected in this commit
 
-- [`delivery-report/`](./delivery-report.md) — 2 file(s)
-- [`docs/`](./docs.md) — 1 file(s)
+- [`docs/`](./docs.md) — 2 file(s)
+- [`web2/`](./web2.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -25,7 +25,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-12 18:34
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-13 10:49
-- [`docs/`](./docs.md) — updated 2026-06-13 10:49
+- [`docs/`](./docs.md) — updated 2026-06-13 10:53
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-12 20:05
 - [`downloads/`](./downloads.md) — updated 2026-06-12 20:06
@@ -71,4 +71,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-12 20:05
+- [`web2/`](./web2.md) — updated 2026-06-13 10:53
