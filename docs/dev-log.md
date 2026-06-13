@@ -44,6 +44,8 @@ Migration nguồn chuẩn Sổ Order từ **Firestore `web2_so_order/main` → P
 
 **Fix** [so-order/js/so-order-app.js](../so-order/js/so-order-app.js): `_RAND.colors` bỏ "Xanh Navy"; thêm `_variantPools()` đọc `Web2VariantsCache.getAll()` → lấy `value` group "Màu" + "Size"/"Cỡ" làm pool; `_randomRow` dùng `_variantPools()` thay `_RAND.colors/sizes` (fallback hardcoded khi cache rỗng). → mọi biến thể random đều registered → `findByValueExact` khớp → mã SP encode đủ màu/size, đúng shortCode kho (DEN/BE/XD/XL2…).
 
+**Wipe + regen (user duyệt "Wipe sạch SP + Sổ Order → regen", GIỮ variants/khách/ví):** xoá 34 web2_products (force DELETE) + clear 16 shipments Sổ Order (giữ 2 tab) → gen 6 đơn mới. Kết quả: 14 SP mã đều encode màu+size đúng (`HCDAMHONGXL2`, `HCQUAN2XLL`, `HCQUAN3XD28`, `HCQUANDEN29`, `HCAO2BE28`…), **0 "Xanh Navy"**. Variants/customers/wallets KHÔNG đụng.
+
 ### [so-order] Mã SP mất màu/size khi nhận hàng — biến thể gộp "Màu / Size" tra cứu fail ✅
 
 **User:** "HCQUAN2 ấy" (chỉ mã SP vô nghĩa).
