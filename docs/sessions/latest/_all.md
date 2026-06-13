@@ -3,16 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `07f4a0e` — chore(web2): wipe data giao dịch Web 2.0 để test lại — giữ 64270 KH + 5627 live comments Pancake; add firestore-wipe script
-**Last updated**: 2026-06-13 10:41:15 +07
-**Latest session**: [`RESUME:20260613-104115-07f4a0e`](../20260613-104115-07f4a0e.md)
-**Summary**: chore(web2): wipe data giao dịch Web 2.0 để test lại — giữ 64270 KH + 5627 live comments Pancake; add fire...
+**Latest commit**: `e16915f` — feat(delivery-report): nut Anh Thanh Pho auto-dien SL DON SHIP + THU VE vao Bao cao nhom THANH PHO (chi dien khi trong, v=20260613a)
+**Last updated**: 2026-06-13 10:46:13 +07
+**Latest session**: [`RESUME:20260613-104613-e16915f`](../20260613-104613-e16915f.md)
+**Summary**: feat(delivery-report): nut Anh Thanh Pho auto-dien SL DON SHIP + THU VE vao Bao cao nhom THANH PHO (chi dien khi tron...
 
 ## Folders affected in this commit
 
+- [`delivery-report/`](./delivery-report.md) — 3 file(s)
 - [`docs/`](./docs.md) — 1 file(s)
-- [`orders-report/`](./orders-report.md) — 3 file(s)
-- [`render.com/`](./render.com.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -25,8 +24,8 @@
 - [`bangkiemhang/`](./bangkiemhang.md) — updated 2026-05-21 15:39
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-12 18:34
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
-- [`delivery-report/`](./delivery-report.md) — updated 2026-06-12 19:55
-- [`docs/`](./docs.md) — updated 2026-06-13 10:41
+- [`delivery-report/`](./delivery-report.md) — updated 2026-06-13 10:46
+- [`docs/`](./docs.md) — updated 2026-06-13 10:46
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-12 20:05
 - [`downloads/`](./downloads.md) — updated 2026-06-12 20:06
