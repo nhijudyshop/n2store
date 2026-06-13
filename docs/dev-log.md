@@ -2,6 +2,21 @@
 
 ## 2026-06-13
 
+### [products] Fix tem QR: giá DÀI bị cắt mất số — auto thu nhỏ cho vừa cột ✅
+
+**User:** "tem sản phẩm giá bị mất" (giá `1.081.500` in ra cụt còn `1.081.5(`).
+
+**Context:** Layout QR (`web2-products-print.js` nhánh `isQr`) đặt giá trong cột chữ phải `.ql-text` (`overflow:hidden`) ở 1 dòng `white-space:nowrap`. `fitText()` chỉ auto thu nhỏ `.ql-qr-variant` + `.ql-qr-code`, KHÔNG đụng giá → giá dài tràn bề ngang cột → bị cắt. Lỗi nằm ở module DÙNG CHUNG nên cả Kho SP lẫn so-order đều dính.
+
+**Files:**
+
+- [web2/products/js/web2-products-print.js](../web2/products/js/web2-products-print.js): wrapper giá thêm class `ql-qr-price`; thêm `.ql-qr-price` vào selector `fitText()` (giảm font 0.5px tới khi `scrollWidth<=clientWidth`, min 3.5px) → giá tự thu nhỏ vừa cột.
+- [web2/products/index.html](../web2/products/index.html) + [so-order/index.html](../so-order/index.html): bump cache-bust `?v=20260613price`.
+
+**Verify (Playwright live, so-order):** in tem SP `XSAMM` giá `1.081.500` biến thể `Xám / S` → `.ql-qr-price` text đầy đủ `1.081.500`, fontSize tự co `8.5px`, `scrollW(39)==clientW(39)` overflow=false. Screenshot xác nhận giá hiện đủ.
+
+**Status:** ✅ Done.
+
 ### [so-order] [web2] Prefix mã SP lấy theo TAB Sổ Order (không phải cột NCC) ✅
 
 **User:** "không phải NCC mà lấy ở hình 1 theo tab → còn tạo ở kho thì cho chọn theo tab hình 1 luôn, không chọn thì ghi KHO."
