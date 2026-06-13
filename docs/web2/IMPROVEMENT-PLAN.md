@@ -25,6 +25,15 @@
 | `web2/live-campaign/`, `partner-customer/`, `partner-supplier/`, `product-category/` | Postgres `web2_records`                                        | SSE `web2:<slug>` (generic)            | `/api/web2/<slug>/list`                                                | `/api/web2/<slug>/*`                                                        |
 | `web2/users/`                                                                        | Postgres `web2_users`                                          | SSE `web2:users`                       | `/api/web2-users/list` + `/pages`                                      | `/api/web2-users/*`                                                         |
 
+> **🟦 AUDIT 2026-06-13 — C8 (so-order Firestore 1-doc → Postgres) = F1, DEFER có chủ đích.** Đây là item DUY NHẤT của backlog audit Web 2.0 chưa làm (14/15 còn lại đã đóng). Lý do defer: migration kiến trúc multi-week, KHÔNG half-migrate (rủi ro data so-order — công cụ mua hàng đang dùng). **Plan khi làm 1 đợt riêng:**
+>
+> 1. **Schema** (web2Db): `so_orders(id, active_tab_id, user_id, locked_until, ...)` + `so_shipments(order_id FK, date, batch, contract_*, ...)` + `so_rows(shipment_id FK, invoice_group_id, supplier, product_name, variant, qty, sell_price, cost_price, status, product_image TEXT, invoice_image TEXT, ...)`. CASCADE delete. Migration idempotent + test trên local DB (pattern `scripts/test-migration-social-tags.js`).
+> 2. **CRUD API** `/api/web2-so-order/*` — `requireWeb2AuthSoft` (enforce live), mọi mutation qua `withTransaction` (upsert tab/shipment/row atomic). SSE `web2:so-order`.
+> 3. **Migration data** Firestore `web2_so_order/main` → Postgres (script 1 lần, dual-write window để rollback an toàn).
+> 4. **Image**: base64 hiện tại → giữ trong TEXT trước (MVP), refactor sang object storage (Cloudflare R2) sau (ticket riêng) — KHÔNG Bunny.
+> 5. **Client** `so-order-storage.js`: IDB cache + Postgres (thay Firestore); flush on `beforeunload`; idempotency key `lastModifiedAt`; bỏ URL hardcode workers.dev.
+> 6. **Test**: cross-device sync, partial fail rollback, enforce=1, công cụ nhận hàng/in tem không vỡ.
+
 ### 1.2 8 frictions phát hiện
 
 | #   | Friction                                                     | Severity          | Where                                                                                                   |

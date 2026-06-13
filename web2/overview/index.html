@@ -534,6 +534,27 @@
                                 <strong>SSE bridge</strong> reload-on-reconnect (synthetic
                                 <code>resync</code> khi nối lại → hết "data cũ" sau deploy backend).
                             </li>
+                            <li>
+                                <strong
+                                    >✅ AUDIT FIX TOÀN BỘ (13/06 — 14/15 item, workflow điều tra 19
+                                    agent + adversarial review 48 agent):</strong
+                                >
+                                <strong>A1</strong> PBH double-submit (advisory lock theo source_id)
+                                · <strong>A2/C18/[11]/[12]</strong> ví NCC partial-return: trả đủ
+                                khi qty≥mua, returnedRowIds CỘNG DỒN delta (hết over-refund), modal
+                                max=SL còn lại · <strong>A3</strong> công nợ loại draft/cancelled ·
+                                <strong>A4</strong> hidden-commenters endpoint atomic
+                                hide/unhide/:fbId · <strong>C7</strong> token hash at-rest
+                                (zero-lockout, live-verified) · <strong>C9</strong> quick-refund
+                                ATOMIC 1 transaction (hết draft mồ côi) ·
+                                <strong>C11</strong> picker cộng dồn · <strong>C12</strong> sepay
+                                whole-word match · <strong>C14</strong> 8 route flag→WeakSet
+                                (cold-start) + cascade tham số hoá · <strong>C16</strong> bridge hết
+                                churn · <strong>C17</strong> manualSepayId wrap 11.5 ngày ·
+                                <strong>B5</strong> notifications cron 10'. Commits
+                                <code>ccf8b4a3b…e17ddbcab</code>. <strong>DEFER C8</strong> so-order
+                                Firestore→Postgres (kiến trúc multi-week, = F1).
+                            </li>
                         </ul>
                     </div>
 
