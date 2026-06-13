@@ -928,7 +928,9 @@
                         labelInner += `<div class="barcode-pname" style="${nameStyleQr}text-align:left;"><${bTag}>${escapeHtml(label.name)}</${bTag}></div>`;
                     }
                     if (showPrice) {
-                        labelInner += `<div style="${codeLeft}"><${bTag} class="barcode-price">${displayPrice}${currencyStr}</${bTag}></div>`;
+                        // class ql-qr-price → fitText auto thu nhỏ cho VỪA bề ngang
+                        // cột chữ (giá dài 1.081.500 không bị cắt mất số/“đ”).
+                        labelInner += `<div class="ql-qr-price" style="${codeLeft}"><${bTag} class="barcode-price">${displayPrice}${currencyStr}</${bTag}></div>`;
                     }
                     labelInner += `</div></div>`;
                 } else if (printType === 'new') {
@@ -1174,7 +1176,7 @@ ${SCRIPT_OPEN}>
     // theo % cạnh QR) → mã/biến thể DÀI hiện đủ, không tràn che thêm module QR.
     // nowrap để scrollWidth phản ánh tràn. Giảm dần 0.5px, min 3.5px.
     function fitText(){
-        document.querySelectorAll('.ql-qr-variant, .ql-qr-code').forEach(function(el){
+        document.querySelectorAll('.ql-qr-variant, .ql-qr-code, .ql-qr-price').forEach(function(el){
             var guard=0, fs=parseFloat(getComputedStyle(el).fontSize)||6;
             while(el.scrollWidth > el.clientWidth + 0.5 && fs > 3.5 && guard < 40){
                 fs -= 0.5; el.style.fontSize = fs + 'px'; guard++;
