@@ -588,13 +588,25 @@
         renderConvList();
         try {
             const res = await window.ZaloApi.messages(id, 100);
-            state.conv.activeConv = res.conversation;
+            const conv = res.conversation;
+            state.conv.activeConv = conv;
             state.conv.messages = res.data || [];
+            state.conv.hasMore = !!res.hasMore;
+            window.WZChat?.store?.setConversation(conv, conv.account_key, state.conv.messages);
             renderChat();
-            if (window.Web2SSE?.subscribe)
+            // realtime: tin mới + reaction/recall/seen + typing
+            if (window.WZChat?.subscribeRealtime) {
+                _convUnsub = window.WZChat.subscribeRealtime(id, conv.thread_id, {
+                    refetch: () => refreshActiveMessages(),
+                    onTyping: (on) => setTyping(on),
+                });
+            } else if (window.Web2SSE?.subscribe) {
                 _convUnsub = window.Web2SSE.subscribe(`web2:zalo:conv:${id}`, () =>
                     refreshActiveMessages()
                 );
+            }
+            // báo đã xem (best-effort)
+            window.WZChat?.actions?.markSeen(conv.account_key, conv);
         } catch (e) {
             $('#wzChatMain').innerHTML = `<div class="wz-chat-empty">✗ ${esc(e.message)}</div>`;
         }
@@ -603,9 +615,17 @@
     async function refreshActiveMessages() {
         if (!state.conv.activeId) return;
         try {
+            // giữ các tin đang gửi optimistic (chưa có msg_id) khi đồng bộ lại
+            const pending = state.conv.messages.filter(
+                (m) => m.send_status === 'sending' || m.send_status === 'failed'
+            );
             const res = await window.ZaloApi.messages(state.conv.activeId, 100);
-            state.conv.messages = res.data || [];
-            renderChat(true);
+            const fresh = res.data || [];
+            const ids = new Set(fresh.map((m) => String(m.msg_id)));
+            const stillPending = pending.filter((p) => !p.msg_id || !ids.has(String(p.msg_id)));
+            state.conv.messages = fresh.concat(stillPending);
+            window.WZChat?.store?.setMessages(state.conv.messages);
+            renderBody({ keepScroll: true });
         } catch {}
     }
 
@@ -666,7 +686,21 @@
         return esc(m.content || '') || '<span class="wz-msg-muted">[Tin nhắn]</span>';
     }
 
-    function renderChat(keepScroll) {
+    // Fallback render khi module WZChat chưa load (giữ tương thích).
+    function _legacyBubbles() {
+        return state.conv.messages
+            .map((m) => {
+                const kind = bubbleKind(m);
+                const media = kind !== 'text' && kind !== 'link';
+                return `<div class="wz-msg ${m.direction === 'out' ? 'out' : 'in'}${media ? ' has-media' : ''}${kind === 'sticker' ? ' is-sticker' : ''}">
+                    <div class="wz-msg-bubble">${bubbleBody(m, kind)}</div>
+                    <div class="wz-msg-meta">${fmtTime(m.sent_at)}</div></div>`;
+            })
+            .join('');
+    }
+
+    // Shell khung chat (head + body + composer) — dựng 1 lần mỗi lần mở hội thoại.
+    function renderChat() {
         const main = $('#wzChatMain');
         const c = state.conv.activeConv;
         if (!c) {
@@ -674,62 +708,324 @@
             return;
         }
         const name = c.display_name || c.zalo_uid || c.thread_id;
-        const bubbles = state.conv.messages
-            .map((m) => {
-                const kind = bubbleKind(m);
-                const media = kind !== 'text' && kind !== 'link';
-                return `<div class="wz-msg ${m.direction === 'out' ? 'out' : 'in'}${media ? ' has-media' : ''}${kind === 'sticker' ? ' is-sticker' : ''}">
-            ${bubbleBody(m, kind)}
-            <div class="wz-msg-time">${fmtTime(m.sent_at)}</div>
-        </div>`;
-            })
-            .join('');
         main.innerHTML = `
             <div class="wz-chat-head">
                 ${avatarHtml(c.avatar_url, name, 'wz-conv-av' + (c.thread_type === 'group' ? ' is-group' : ''), 'width:34px;height:34px')}
-                <span>${esc(name)}</span>
+                <span class="wz-chat-head-name">${esc(name)}</span>
             </div>
-            <div class="wz-chat-body" id="wzChatBody">${bubbles || '<div class="wz-chat-empty">Chưa có tin nhắn</div>'}</div>
-            <div class="wz-chat-compose">
-                <textarea id="wzComposeInput" rows="1" placeholder="Nhập tin nhắn… (Enter để gửi)"></textarea>
-                <button class="wz-btn wz-btn-primary" id="wzComposeSend"><i data-lucide="send"></i></button>
-            </div>`;
+            <div class="wz-chat-body" id="wzChatBody"></div>
+            <button class="wz-scroll-fab" id="wzScrollFab" hidden aria-label="Cuộn xuống cuối"><i data-lucide="chevron-down"></i></button>
+            <div id="wzComposeRoot"></div>`;
         if (window.lucide) lucide.createIcons();
-        const body = $('#wzChatBody');
-        if (body) body.scrollTop = body.scrollHeight;
-        $('#wzComposeSend')?.addEventListener('click', sendChat);
-        const ci = $('#wzComposeInput');
-        ci?.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                sendChat();
-            }
-        });
-        ci?.addEventListener('input', () => {
-            ci.style.height = 'auto';
-            ci.style.height = Math.min(ci.scrollHeight, 120) + 'px';
-        });
+
+        // composer (module) hoặc fallback tối giản
+        const composeRoot = $('#wzComposeRoot');
+        if (window.WZChat?.mountComposer) {
+            window.WZChat.mountComposer(composeRoot, {
+                conv: c,
+                account: c.account_key,
+                onSendText,
+                onSendMedia,
+                onSendFile,
+                onSendSticker,
+            });
+            const ci = composeRoot.querySelector('.wz-compose-input');
+            ci?.addEventListener('input', () =>
+                window.WZChat.actions?.emitTyping(c.account_key, c)
+            );
+        } else {
+            composeRoot.outerHTML = `<div class="wz-chat-compose"><textarea id="wzComposeInput" rows="1" placeholder="Nhập tin nhắn…"></textarea><button class="wz-btn wz-btn-primary" id="wzComposeSend"><i data-lucide="send"></i></button></div>`;
+            $('#wzComposeSend')?.addEventListener('click', () => {
+                const t = $('#wzComposeInput').value.trim();
+                if (t) {
+                    $('#wzComposeInput').value = '';
+                    onSendText(t);
+                }
+            });
+        }
+        _bindChatBody();
+        renderBody();
     }
 
-    async function sendChat() {
-        const inp = $('#wzComposeInput');
-        const text = inp.value.trim();
+    // Render lại danh sách tin (không đụng composer → giữ state soạn).
+    function renderBody(opts) {
+        const body = $('#wzChatBody');
+        if (!body) return;
+        const o = opts || {};
+        const wasNear = _nearBottom(body);
+        const prevH = body.scrollHeight;
+        const prevTop = body.scrollTop;
+
         const c = state.conv.activeConv;
-        if (!text || !c) return;
-        inp.value = '';
-        // UI-first: append bubble ngay
-        state.conv.messages.push({ direction: 'out', content: text, sent_at: Date.now() });
-        renderChat();
+        const list =
+            window.WZChat?.renderMessages?.(state.conv.messages, c) ??
+            _legacyBubbles() ??
+            '<div class="wz-chat-empty">Chưa có tin nhắn</div>';
+        const older =
+            state.conv.hasMore && state.conv.messages.length
+                ? `<button class="wz-load-older" id="wzLoadOlder">Tải tin cũ hơn</button>`
+                : '';
+        body.innerHTML = older + list;
+        if (window.lucide) lucide.createIcons();
+
+        if (o.prepend) {
+            // giữ vị trí khi nạp tin cũ ở đầu
+            body.scrollTop = prevTop + (body.scrollHeight - prevH);
+        } else if (o.keepScroll && !wasNear) {
+            body.scrollTop = prevTop;
+        } else {
+            body.scrollTop = body.scrollHeight;
+        }
+    }
+
+    function _nearBottom(el) {
+        return el.scrollHeight - el.scrollTop - el.clientHeight < 120;
+    }
+
+    function setTyping(on) {
+        const body = $('#wzChatBody');
+        if (!body) return;
+        let t = body.querySelector('.wz-typing');
+        if (on && !t) {
+            t = document.createElement('div');
+            t.className = 'wz-typing';
+            t.innerHTML = '<span></span><span></span><span></span>';
+            body.appendChild(t);
+            if (_nearBottom(body)) body.scrollTop = body.scrollHeight;
+        } else if (!on && t) {
+            t.remove();
+        }
+    }
+
+    // ── optimistic out ─────────────────────────────────────────────────
+    let _tempId = 0;
+    function _optimisticOut(msg) {
+        msg.cli_msg_id = msg.cli_msg_id || 'temp_' + ++_tempId;
+        msg.send_status = 'sending';
+        msg.sent_at = msg.sent_at || Date.now();
+        msg.reactions = msg.reactions || {};
+        state.conv.messages.push(msg);
+        renderBody();
+        return msg;
+    }
+    function _reconcile(tempCli, patch, ok) {
+        const m = state.conv.messages.find((x) => x.cli_msg_id === tempCli);
+        if (m) {
+            Object.assign(m, patch);
+            m.send_status = ok ? 'sent' : 'failed';
+        }
+        renderBody({ keepScroll: true });
+    }
+    function _findMsg(id, cli) {
+        return state.conv.messages.find(
+            (m) => String(m.msg_id) === String(id) || String(m.cli_msg_id) === String(cli || id)
+        );
+    }
+
+    async function onSendText(text) {
+        const c = state.conv.activeConv;
+        if (!c || !text) return;
+        const reply = window.WZChat?.store?.getReplyTarget?.() || null;
+        const temp = _optimisticOut({
+            direction: 'out',
+            msg_type: 'text',
+            content: text,
+            reply_to_preview: reply ? reply.content || window.WZChat?._previewOf?.(reply) : null,
+        });
+        temp._retry = () => _sendTextRaw(text, reply, temp.cli_msg_id);
+        await _sendTextRaw(text, reply, temp.cli_msg_id);
+    }
+    async function _sendTextRaw(text, reply, tempCli) {
+        const c = state.conv.activeConv;
         try {
-            await window.ZaloApi.sendMessage({
+            const r = await window.ZaloApi.sendMessage({
                 accountKey: c.account_key,
                 threadId: c.thread_id,
                 text,
                 threadType: c.thread_type,
+                replyTo: reply ? { msgId: reply.msg_id, preview: reply.content || '' } : null,
             });
+            _reconcile(tempCli, { msg_id: r.msgId, cli_msg_id: r.cliMsgId || tempCli }, true);
         } catch (e) {
             notify('✗ Gửi lỗi: ' + e.message, 'error');
-            refreshActiveMessages();
+            _reconcile(tempCli, {}, false);
+        }
+    }
+
+    async function onSendMedia(items, caption) {
+        const c = state.conv.activeConv;
+        if (!c || !items?.length) return;
+        const atts = items.map((it) => ({ type: 'image', url: it.dataUrl, thumb: it.dataUrl }));
+        const temp = _optimisticOut({
+            direction: 'out',
+            msg_type: 'image',
+            content: caption || '',
+            attachments: atts,
+        });
+        const files = items.map((it) => ({ base64: it.dataUrl, filename: it.name, mime: it.mime }));
+        temp._retry = () => _sendMediaRaw(files, caption, temp.cli_msg_id, atts);
+        await _sendMediaRaw(files, caption, temp.cli_msg_id, atts);
+    }
+    async function _sendMediaRaw(files, caption, tempCli, atts) {
+        const c = state.conv.activeConv;
+        try {
+            const r = await window.ZaloApi.sendImage({
+                accountKey: c.account_key,
+                threadId: c.thread_id,
+                threadType: c.thread_type,
+                caption,
+                files,
+            });
+            _reconcile(tempCli, { msg_id: r.msgId, attachments: r.attachments || atts }, true);
+        } catch (e) {
+            notify('✗ Gửi ảnh lỗi: ' + e.message, 'error');
+            _reconcile(tempCli, {}, false);
+        }
+    }
+
+    async function onSendFile(item) {
+        const c = state.conv.activeConv;
+        if (!c || !item) return;
+        const temp = _optimisticOut({
+            direction: 'out',
+            msg_type: 'file',
+            content: '',
+            attachments: [{ type: 'file', title: item.name }],
+        });
+        try {
+            const r = await window.ZaloApi.sendFile({
+                accountKey: c.account_key,
+                threadId: c.thread_id,
+                threadType: c.thread_type,
+                file: { base64: item.dataUrl, filename: item.name, mime: item.mime },
+            });
+            _reconcile(temp.cli_msg_id, { msg_id: r.msgId, attachments: r.attachments }, true);
+        } catch (e) {
+            notify('✗ Gửi tệp lỗi: ' + e.message, 'error');
+            _reconcile(temp.cli_msg_id, {}, false);
+        }
+    }
+
+    async function onSendSticker(s) {
+        const c = state.conv.activeConv;
+        if (!c || !s) return;
+        const temp = _optimisticOut({
+            direction: 'out',
+            msg_type: 'sticker',
+            attachments: [{ type: 'sticker', url: s.url }],
+        });
+        try {
+            const r = await window.ZaloApi.sendSticker({
+                accountKey: c.account_key,
+                threadId: c.thread_id,
+                threadType: c.thread_type,
+                sticker: s,
+            });
+            _reconcile(temp.cli_msg_id, { msg_id: r.msgId }, true);
+        } catch (e) {
+            notify('✗ ' + e.message, 'error');
+            _reconcile(temp.cli_msg_id, {}, false);
+        }
+    }
+
+    // ── delegated handlers trên khung tin (lightbox + tools + load older) ──
+    function _bindChatBody() {
+        const body = $('#wzChatBody');
+        if (!body) return;
+        body.addEventListener('click', (e) => {
+            if (e.target.closest('#wzLoadOlder')) return _loadOlder();
+            const lb = e.target.closest('[data-lb]');
+            if (lb && window.WZChat?.openLightbox) {
+                const imgs = window.WZChat.collectThreadImages(body);
+                const img = lb.querySelector('img');
+                const full = img?.dataset.full || img?.src;
+                window.WZChat.openLightbox(
+                    imgs.length ? imgs : [full],
+                    Math.max(0, imgs.indexOf(full))
+                );
+                return;
+            }
+            const tool = e.target.closest('[data-act]');
+            if (!tool) return;
+            const msgEl = tool.closest('.wz-msg');
+            const m = _findMsg(msgEl?.dataset.msgid, msgEl?.dataset.cli);
+            const act = tool.dataset.act;
+            if (act === 'retry') return m?._retry?.();
+            if (!m) return;
+            if (act === 'reply') return window.WZChat?.composer?.setReply(m);
+            if (act === 'react')
+                return window.WZChat?.openReactionBar(tool, (key) => _doReact(m, key));
+            if (act === 'recall') return _doRecall(m);
+            if (act === 'forward') return _doForward(m, tool);
+        });
+        // scroll FAB hiện khi cuộn lên
+        body.addEventListener(
+            'scroll',
+            () => {
+                const fab = $('#wzScrollFab');
+                if (fab) fab.hidden = _nearBottom(body);
+            },
+            { passive: true }
+        );
+        $('#wzScrollFab')?.addEventListener('click', () => {
+            body.scrollTop = body.scrollHeight;
+        });
+    }
+
+    function _doReact(m, key) {
+        const c = state.conv.activeConv;
+        const emoji = window.WZChat.reactionEmoji(key);
+        window.WZChat.store.patchReaction(m.msg_id || m.cli_msg_id, emoji, 'me');
+        renderBody({ keepScroll: true });
+        window.WZChat.actions
+            .react(c.account_key, c, m, key)
+            .catch((e) => notify('✗ ' + e.message, 'error'));
+    }
+    function _doRecall(m) {
+        if (!confirm('Thu hồi tin nhắn này?')) return;
+        const c = state.conv.activeConv;
+        m.recalled = true;
+        renderBody({ keepScroll: true });
+        window.WZChat.actions.recall(c.account_key, c, m).catch((e) => {
+            m.recalled = false;
+            renderBody({ keepScroll: true });
+            notify('✗ Thu hồi lỗi: ' + e.message, 'error');
+        });
+    }
+    function _doForward(m, anchor) {
+        const c = state.conv.activeConv;
+        const items = state.conv.list
+            .filter((x) => x.id !== state.conv.activeId)
+            .slice(0, 40)
+            .map((x) => ({ label: x.display_name || x.thread_id, value: x.thread_id }));
+        if (!items.length) return notify('Không có hội thoại để chuyển tiếp', 'warning');
+        window.WZChat.openMenu(anchor, items, (threadId) => {
+            if (!threadId) return;
+            window.WZChat.actions
+                .forward(c.account_key, c, m, [threadId])
+                .then(() => notify('Đã chuyển tiếp', 'success'))
+                .catch((e) => notify('✗ ' + e.message, 'error'));
+        });
+    }
+
+    async function _loadOlder() {
+        const c = state.conv.activeConv;
+        const oldest = state.conv.messages[0]?.sent_at;
+        if (!c || !oldest) return;
+        const btn = $('#wzLoadOlder');
+        if (btn) btn.textContent = 'Đang tải…';
+        try {
+            const res = await window.ZaloApi.loadHistory(state.conv.activeId, {
+                limit: 50,
+                before: oldest,
+            });
+            const older = res.data || [];
+            state.conv.messages = older.concat(state.conv.messages);
+            state.conv.hasMore = res.hasMore;
+            renderBody({ prepend: true });
+        } catch (e) {
+            notify('✗ ' + e.message, 'error');
+            if (btn) btn.textContent = 'Tải tin cũ hơn';
         }
     }
 

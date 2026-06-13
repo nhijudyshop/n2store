@@ -113,14 +113,51 @@
         conversations(params) {
             return _fetch('/conversations' + _qs(params), { method: 'GET' });
         },
-        messages(convId, limit) {
+        messages(convId, limit, before) {
             return _fetch(
-                `/conversations/${encodeURIComponent(convId)}/messages` + _qs({ limit }),
+                `/conversations/${encodeURIComponent(convId)}/messages` + _qs({ limit, before }),
+                { method: 'GET' }
+            );
+        },
+        loadHistory(convId, { limit, before } = {}) {
+            return _fetch(
+                `/conversations/${encodeURIComponent(convId)}/messages` + _qs({ limit, before }),
                 { method: 'GET' }
             );
         },
         sendMessage(body) {
             return _fetch('/send-message', { method: 'POST', body: JSON.stringify(body) });
+        },
+        // ── chat đầy đủ: ảnh/file/sticker/reaction/recall/forward/typing/seen ──
+        sendImage(body) {
+            return _fetch('/send-image', { method: 'POST', body: JSON.stringify(body) });
+        },
+        sendFile(body) {
+            return _fetch('/send-file', { method: 'POST', body: JSON.stringify(body) });
+        },
+        sendSticker(body) {
+            return _fetch('/send-sticker', { method: 'POST', body: JSON.stringify(body) });
+        },
+        react(body) {
+            return _fetch('/react', { method: 'POST', body: JSON.stringify(body) });
+        },
+        recall(body) {
+            return _fetch('/recall', { method: 'POST', body: JSON.stringify(body) });
+        },
+        forward(body) {
+            return _fetch('/forward', { method: 'POST', body: JSON.stringify(body) });
+        },
+        typing(body) {
+            return _fetch('/typing', { method: 'POST', body: JSON.stringify(body) });
+        },
+        seen(body) {
+            return _fetch('/seen', { method: 'POST', body: JSON.stringify(body) });
+        },
+        stickers(accountKey, q) {
+            return _fetch('/stickers' + _qs({ accountKey, q }), { method: 'GET' });
+        },
+        quickReplies(accountKey) {
+            return _fetch('/quick-replies' + _qs({ accountKey }), { method: 'GET' });
         },
         // OA + ZNS
         oaConnect(body) {

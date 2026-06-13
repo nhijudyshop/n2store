@@ -1,0 +1,485 @@
+/* #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. | WEB2.0 — Zalo chat bubbles (gom nhóm, reply, reaction, recall, grid, ticks). */
+/* Load SAU web2-zalo.css → override cấu trúc .wz-msg cũ (bubble dời vào .wz-msg-bubble). */
+
+/* ── message column ─────────────────────────────────────────────────── */
+.wz-chat-body {
+    gap: 2px;
+    padding: 16px 18px 8px;
+}
+.wz-msg {
+    /* reset bong bóng cũ — giờ .wz-msg là cột chứa sender/wrap/reactions/meta */
+    max-width: 76%;
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    background: none !important;
+    box-shadow: none;
+    border-radius: 0;
+    margin-top: 10px;
+    animation: wzMsgIn 0.18s var(--wz-ease);
+}
+.wz-msg.grouped {
+    margin-top: 2px;
+}
+.wz-msg.in {
+    align-self: flex-start;
+    align-items: flex-start;
+}
+.wz-msg.out {
+    align-self: flex-end;
+    align-items: flex-end;
+}
+.wz-msg-sender {
+    font-size: 11.5px;
+    font-weight: 700;
+    color: var(--wz-blue-600);
+    margin: 0 0 3px 12px;
+}
+
+/* ── wrap (tools + bubble) ──────────────────────────────────────────── */
+.wz-msg-wrap {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    max-width: 100%;
+}
+.wz-msg.out .wz-msg-wrap {
+    flex-direction: row;
+}
+.wz-msg.in .wz-msg-wrap {
+    flex-direction: row-reverse;
+    justify-content: flex-end;
+}
+
+/* ── bubble ─────────────────────────────────────────────────────────── */
+.wz-msg-bubble {
+    position: relative;
+    padding: 8px 12px;
+    border-radius: 16px;
+    font-size: 13.5px;
+    line-height: 1.45;
+    word-break: break-word;
+    box-shadow: var(--wz-shadow-1);
+    min-width: 0;
+}
+.wz-msg.in .wz-msg-bubble {
+    background: #fff;
+    color: var(--wz-ink);
+    border-bottom-left-radius: 5px;
+}
+.wz-msg.out .wz-msg-bubble {
+    background: linear-gradient(135deg, var(--wz-blue), #2a96ff);
+    color: #fff;
+    border-bottom-right-radius: 5px;
+}
+.wz-msg.grouped.in .wz-msg-bubble {
+    border-top-left-radius: 7px;
+}
+.wz-msg.grouped.out .wz-msg-bubble {
+    border-top-right-radius: 7px;
+}
+.wz-msg.has-media .wz-msg-bubble {
+    padding: 4px;
+    overflow: hidden;
+}
+.wz-msg.is-sticker .wz-msg-bubble {
+    background: transparent !important;
+    box-shadow: none;
+    padding: 0;
+}
+
+/* ── reply quote in bubble ──────────────────────────────────────────── */
+.wz-msg-reply {
+    display: flex;
+    gap: 7px;
+    align-items: stretch;
+    margin: -1px 0 6px;
+    padding: 4px 8px;
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.06);
+    font-size: 12px;
+    opacity: 0.92;
+}
+.wz-msg.out .wz-msg-reply {
+    background: rgba(255, 255, 255, 0.18);
+}
+.wz-msg-reply-bar {
+    width: 3px;
+    border-radius: 3px;
+    background: currentColor;
+    opacity: 0.6;
+    flex-shrink: 0;
+}
+.wz-msg-reply-txt {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* ── recalled ───────────────────────────────────────────────────────── */
+.wz-msg.is-recalled .wz-msg-bubble {
+    background: var(--wz-line-soft) !important;
+    color: var(--wz-muted);
+    box-shadow: none;
+}
+.wz-msg-recalled {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-style: italic;
+    font-size: 12.5px;
+}
+.wz-msg-recalled i {
+    width: 14px;
+    height: 14px;
+}
+
+/* ── caption / muted ────────────────────────────────────────────────── */
+.wz-msg-cap {
+    padding: 6px 8px 2px;
+    font-size: 13px;
+    line-height: 1.4;
+}
+.wz-msg-muted {
+    opacity: 0.7;
+    font-style: italic;
+}
+
+/* ── media ──────────────────────────────────────────────────────────── */
+.wz-msg-media {
+    display: block;
+    border: 0;
+    padding: 0;
+    background: var(--wz-line-soft);
+    border-radius: 12px;
+    overflow: hidden;
+    cursor: pointer;
+    max-width: 260px;
+}
+.wz-msg-media img {
+    display: block;
+    width: 100%;
+    height: auto;
+    max-height: 340px;
+    object-fit: cover;
+}
+.wz-msg-sticker {
+    display: block;
+    width: 124px;
+    height: auto;
+    max-height: 124px;
+    object-fit: contain;
+}
+.wz-msg-video {
+    position: relative;
+}
+.wz-msg-play {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    pointer-events: none;
+}
+.wz-msg-play i {
+    width: 40px;
+    height: 40px;
+    color: #fff;
+    background: rgba(0, 0, 0, 0.46);
+    border-radius: 999px;
+    padding: 9px;
+}
+.wz-msg-voice {
+    height: 38px;
+    max-width: 230px;
+}
+.wz-msg-file {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 6px 8px;
+    color: inherit;
+    text-decoration: none;
+    font-weight: 600;
+}
+.wz-msg-file i {
+    width: 19px;
+    height: 19px;
+    flex-shrink: 0;
+}
+.wz-msg-linkbox {
+    color: inherit;
+    text-decoration: underline;
+    word-break: break-all;
+}
+
+/* ── image grid (album nhiều ảnh / 1 tin) ───────────────────────────── */
+.wz-msg-grid {
+    display: grid;
+    gap: 3px;
+    border-radius: 12px;
+    overflow: hidden;
+    max-width: 270px;
+}
+.wz-grid-2 {
+    grid-template-columns: 1fr 1fr;
+}
+.wz-grid-3,
+.wz-grid-4 {
+    grid-template-columns: 1fr 1fr;
+}
+.wz-grid-cell {
+    position: relative;
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+    aspect-ratio: 1;
+    overflow: hidden;
+    background: var(--wz-line-soft);
+}
+.wz-grid-cell img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+.wz-grid-more {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    background: rgba(0, 0, 0, 0.5);
+    color: #fff;
+    font-weight: 700;
+    font-size: 18px;
+}
+
+/* ── reactions chips (đè đáy bubble) ────────────────────────────────── */
+.wz-msg-reactions {
+    display: flex;
+    gap: 3px;
+    margin: -7px 6px 0;
+    z-index: 1;
+}
+.wz-rchip {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    background: #fff;
+    border: 1px solid var(--wz-line);
+    border-radius: 999px;
+    padding: 1px 6px;
+    font-size: 12px;
+    box-shadow: var(--wz-shadow-1);
+}
+.wz-rchip b {
+    font-size: 10.5px;
+    color: var(--wz-muted);
+    font-weight: 700;
+}
+
+/* ── meta (time + ticks) ────────────────────────────────────────────── */
+.wz-msg-meta {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 10.5px;
+    color: var(--wz-muted);
+    margin: 3px 4px 0;
+}
+.wz-msg.grouped:not(:hover) .wz-msg-meta {
+    /* gom nhóm: chỉ hiện giờ ở tin cuối / khi hover để đỡ rối */
+    height: 0;
+    margin: 0;
+    overflow: hidden;
+    opacity: 0;
+}
+.wz-msg:hover .wz-msg-meta,
+.wz-msg:last-child .wz-msg-meta {
+    height: auto;
+    margin: 3px 4px 0;
+    opacity: 1;
+}
+.wz-tick {
+    font-size: 10px;
+}
+.wz-tick.seen {
+    color: var(--wz-blue);
+    font-weight: 700;
+}
+.wz-tick.sent {
+    color: var(--wz-muted);
+}
+.wz-tick.sending {
+    opacity: 0.6;
+}
+.wz-tick.failed {
+    color: var(--wz-danger);
+    border: 0;
+    background: none;
+    cursor: pointer;
+    font-weight: 700;
+    padding: 0;
+}
+.wz-msg.is-failed .wz-msg-bubble {
+    opacity: 0.7;
+}
+
+/* ── hover tools ────────────────────────────────────────────────────── */
+.wz-msg-tools {
+    display: flex;
+    gap: 1px;
+    opacity: 0;
+    transition: opacity var(--wz-fast) ease;
+    flex-shrink: 0;
+    pointer-events: none;
+}
+.wz-msg:hover .wz-msg-tools {
+    opacity: 1;
+    pointer-events: auto;
+}
+.wz-msg-tool {
+    width: 26px;
+    height: 26px;
+    display: grid;
+    place-items: center;
+    border: 0;
+    border-radius: 999px;
+    background: #fff;
+    color: var(--wz-muted);
+    cursor: pointer;
+    box-shadow: var(--wz-shadow-1);
+    transition:
+        color var(--wz-fast) ease,
+        background var(--wz-fast) ease;
+}
+.wz-msg-tool:hover {
+    color: var(--wz-blue);
+    background: var(--wz-blue-soft);
+}
+.wz-msg-tool i {
+    width: 14px;
+    height: 14px;
+}
+
+/* ── dividers ───────────────────────────────────────────────────────── */
+.wz-date-divider {
+    display: flex;
+    justify-content: center;
+    margin: 14px 0 6px;
+}
+.wz-date-divider span {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--wz-muted);
+    background: rgba(255, 255, 255, 0.85);
+    border: 1px solid var(--wz-line);
+    border-radius: 999px;
+    padding: 3px 12px;
+}
+.wz-unread-divider {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 8px 0;
+    color: var(--wz-danger);
+    font-size: 11px;
+    font-weight: 700;
+}
+.wz-unread-divider::before,
+.wz-unread-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--wz-danger-soft);
+}
+
+/* ── typing indicator ───────────────────────────────────────────────── */
+.wz-typing {
+    align-self: flex-start;
+    display: flex;
+    gap: 4px;
+    padding: 10px 14px;
+    background: #fff;
+    border-radius: 16px;
+    border-bottom-left-radius: 5px;
+    box-shadow: var(--wz-shadow-1);
+    margin-top: 6px;
+    width: fit-content;
+}
+.wz-typing span {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--wz-muted);
+    animation: wzTyping 1.2s infinite ease-in-out;
+}
+.wz-typing span:nth-child(2) {
+    animation-delay: 0.2s;
+}
+.wz-typing span:nth-child(3) {
+    animation-delay: 0.4s;
+}
+@keyframes wzTyping {
+    0%,
+    60%,
+    100% {
+        transform: translateY(0);
+        opacity: 0.4;
+    }
+    30% {
+        transform: translateY(-4px);
+        opacity: 1;
+    }
+}
+
+/* ── scroll-to-bottom FAB ───────────────────────────────────────────── */
+.wz-chat-main {
+    position: relative;
+}
+.wz-scroll-fab {
+    position: absolute;
+    right: 16px;
+    bottom: 86px;
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    border: 1px solid var(--wz-line);
+    background: #fff;
+    color: var(--wz-blue);
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+    box-shadow: var(--wz-shadow-2);
+    z-index: 4;
+}
+.wz-scroll-fab[hidden] {
+    display: none;
+}
+.wz-scroll-fab i {
+    width: 20px;
+    height: 20px;
+}
+
+/* ── load older ─────────────────────────────────────────────────────── */
+.wz-load-older {
+    display: block;
+    margin: 6px auto 12px;
+    padding: 5px 16px;
+    border: 1px solid var(--wz-line);
+    border-radius: 999px;
+    background: #fff;
+    color: var(--wz-muted);
+    font-size: 12px;
+    cursor: pointer;
+}
+.wz-load-older:hover {
+    color: var(--wz-blue);
+    border-color: var(--wz-blue-border);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .wz-msg,
+    .wz-typing span {
+        animation: none !important;
+    }
+}
