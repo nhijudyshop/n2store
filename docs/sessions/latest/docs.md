@@ -3,10 +3,10 @@
 > Snapshot tự động ghi đè sau mỗi commit chạm folder này. **Không edit thủ công.**
 > Mục đích: khi session cũ chết (vd lỗi image limit), session mới chỉ cần đọc file này là có đủ context để tiếp tục.
 
-**Latest session**: `RESUME:20260613-111439-d507369`
-**Session file**: [`./20260613-111439-d507369.md`](../20260613-111439-d507369.md)
-**Commit**: `d507369` — auto: session update
-**Last updated**: 2026-06-13 11:14:39 +07
+**Latest session**: `RESUME:20260613-112052-21da4b7`
+**Session file**: [`./20260613-112052-21da4b7.md`](../20260613-112052-21da4b7.md)
+**Commit**: `21da4b7` — auto: session update
+**Last updated**: 2026-06-13 11:20:52 +07
 **Summary**: auto: session update
 
 ## Files changed in this commit (`docs/`)
@@ -15,11 +15,11 @@
 
 ## Last 5 commits touching `docs/`
 
+- `21da4b762` auto: session update _(2026-06-13)_
+- `1a4ba7421` fix(so-order): SP tạo từ Sổ Order nhận NCC từ sharedFields → mã SP có prefix NCC đúng (hết fallback KHO) _(2026-06-13)_
+- `cd4661638` chore(session): RESUME:20260613-111439-d507369 _(2026-06-13)_
 - `d2190c0aa` feat(so-order): 2 nút sinh data ngẫu nhiên — toolbar tạo N đơn + modal điền 1-4 SP kèm ảnh (test data) _(2026-06-13)_
 - `39fd05a16` chore(session): RESUME:20260613-110713-0901f3f _(2026-06-13)_
-- `0901f3f18` docs(web2): đánh dấu MEDIUM-cleanup đợt cuối ✅ (b21df92b5 + 0661129d1 + 8947639bb) _(2026-06-13)_
-- `2605bf90d` chore(session): RESUME:20260613-110020-53de5e2 _(2026-06-13)_
-- `a1575fe62` chore(session): RESUME:20260613-105904-b21df92 _(2026-06-13)_
 
 ---
 
@@ -27,4 +27,4 @@
 
 1. Đọc file session ở trên để xem Files Modified + Next Steps đã điền (nếu Claude turn trước fill rồi).
 2. Cần lùi xa hơn → `git show <sha>` theo list commit trên.
-3. Hoặc paste token `RESUME:20260613-111439-d507369` cho Claude walk chain theo CLAUDE.md protocol.
+3. Hoặc paste token `RESUME:20260613-112052-21da4b7` cho Claude walk chain theo CLAUDE.md protocol.
