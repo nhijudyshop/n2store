@@ -2,6 +2,27 @@
 
 ## 2026-06-13
 
+### [web2] [render] [worker] Zalo single-source — BUILD v1 (đăng nhập QR + chat + tra cứu + ZNS) ✅
+
+**User:** "cho đăng ký Zalo OA là chức năng sẽ phát triển… làm tất cả chức năng: đăng nhập tài khoản (QR/api), lấy tin nhắn, nhắn tin, xem thông tin người dùng/người khác… tạo 1 trang zalo riêng quản lý, các trang khác tham chiếu tới — chỉ có 1 nguồn zalo."
+
+**Kiến trúc** (sau understand workflow 9-agent + enumerate zca-js API 140 method): zca-js (`require('zca-js')` CJS OK trên render) chạy **trong process Render fallback** (sở hữu web2Db + SSE hub + CF proxy), re-login từ session DB khi boot. 2 kênh trong 1 nguồn: **personal** (zca-js: QR/cookie login, listener WS, send, getUserInfo/findUser, friends/groups) + **OA** (official: token refresh xoay, ZNS template, tin tư vấn cs). Mọi trang khác chỉ gọi `Web2Zalo.*` → `/api/web2-zalo/*`, KHÔNG chạm Zalo trực tiếp.
+
+**Files MỚI:**
+
+- `render.com/db/web2-zalo-schema.js` — `web2_zalo_accounts/conversations/messages` + `web2_zns_templates/log` + `web2_zalo_send_jobs/items` + ALTER `web2_customers` (zalo_uid). Idempotent, ADD COLUMN đầu, WeakSet pool guard.
+- `render.com/services/web2-zalo-zca.js` — session manager zca-js (Map đa acc, QR login non-blocking + poll, listener→persist, restore-on-boot, defensive require).
+- `render.com/services/web2-zalo-oa.js` — OA token store/refresh + ZNS + cs + sync template (global fetch).
+- `render.com/routes/web2-zalo.js` — `/api/web2-zalo/*` (accounts/login-qr/qr/reconnect/disconnect, conversations/messages/send-message, lookup, oa/connect, send-zns, zns/log) + `_notify` SSE + restoreSessions.
+- `web2/shared/web2-zalo.js` — helper `Web2Zalo` (sendZNS/sendMessage/getConversation/openChat/attachZaloButtons/status) — cổng duy nhất + nút Zalo drop-in `[data-w2zalo-phone]`.
+- `web2/zalo/index.html` + `js/web2-zalo-api.js` + `js/web2-zalo-app.js` + `css/web2-zalo.css` — 4 tab: Tài khoản / Hội thoại / Tra cứu / ZNS. Giờ GMT+7.
+
+**Files SỬA:** `render.com/server.js` (require+ensureSchema+restoreSessions+initializeNotifiers+mount `/api/web2-zalo`), `render.com/package.json` (`zca-js@^2.1.2`), `cloudflare-worker/modules/config/routes.js`+`worker.js` (route `WEB2_ZALO`→fallback), `web2/shared/web2-sidebar.js` (menu "Zalo" + WEB2_PAGES). Doc [docs/web2/ZALO-INTEGRATION.md](web2/ZALO-INTEGRATION.md) §0.
+
+**Verify:** `node --check` toàn bộ + `require('./routes/web2-zalo')` load OK (zca-js resolve). Adversarial review 4-agent đã chạy. **Chưa test live** — cần deploy Render + quét QR acc phụ + cấu hình OA. SSE: `web2:zalo:{accounts,messages,conv:<id>}`. zca-js KHÔNG chính thức → dùng acc phụ.
+
+**Status:** ✅ Build xong (chờ deploy + cấu hình live).
+
 ### [live-chat] Fix kéo SP vào comment giật/lỗi + undo toast bị iframe FB live che ✅
 
 **User:** "kéo sản phẩm vào comment lâu lâu bị lỗi với không mướt → warning hoàn tác bị iframe che".
@@ -75,9 +96,9 @@
     - **File LIVE là `shared/js/pancake-token-manager.js`** (orders-report/inbox/... load qua `../shared/js/...?v=`; bản `orders-report/js/managers/pancake-token-manager.js` đã migrate đi, KHÔNG còn HTML nào load — vẫn sync edit cho khỏi lệch). `_web2AuthHeaders()` gắn thêm `X-API-Key = _CLIENT_API_KEY` (cả 2 call site `loadAccounts` + `getTokenFromFirestore` tự nhận). Bump `?v=20260612en`→`20260613pk` trên 5 HTML load file shared: tab1-orders, tab-kpi-commission (orders-report) + facebook-services, don-inbox, invoice-compare. Worker `handleRenderFallbackProxy` forward đủ header (chỉ xoá host/cf-\*) → key tới Render. Key khớp `CLIENT_API_KEY` env (probe direct host 200, không 401).
 - **Fix A (defensive backend hardening):** `render.com/services/auth-token-store.js` `getToken('pancake')` — khi `auth_token_cache` rỗng/hết hạn thì fallback đọc token tươi nhất còn hạn từ `pancake_accounts` (read-only, pancake-only guard, never throw). Hiện cache còn tươi (exp 2026-09-08) + endpoint không qua worker nên chưa kích hoạt cho Web1, nhưng đúng & an toàn cho mọi caller gọi trực tiếp n2store-fallback + future-proof. Không đụng provider TPOS / realtime / Web 2.0 (consumer duy nhất là `/api/auth/token/:provider`).
 - **⚠ PIVOT CORS (verify Playwright live):** header tuỳ biến `X-API-Key` từ browser bị **CORS preflight của Cloudflare worker chặn** (`Failed to fetch`) → `loadAccounts` rớt → 0 account (chat vẫn vỡ). `x-web2-token` qua được vì worker đã allow header đó. Fix lại: **dùng QUERY PARAM `?client_key=<KEY>`** (simple request, không preflight) thay vì header.
-  - `shared/js/pancake-token-manager.js`: bỏ `X-API-Key` header trong `_web2AuthHeaders`; thêm helper `_ckUrl()` append `?client_key=` cho 3 call site (`?active=true`, `/sync`, `DELETE /:id`). Bump 5 HTML `?v=20260613pk`→`pk2`.
-  - `render.com/routes/pancake-accounts.js` `_hasClientApiKey`: đọc cả `req.headers['x-api-key']` LẪN `req.query.client_key` (header cho node/server-to-server; query cho browser). Key vốn public ở page source nên query-param không tăng rủi ro.
-  - Note: bản `shared/browser/pancake-token-manager.js` (ESM) KHÔNG gọi `/api/pancake-accounts` (token source khác) → không cần sửa. Active instance ở tab1-orders là `shared/js`.
+    - `shared/js/pancake-token-manager.js`: bỏ `X-API-Key` header trong `_web2AuthHeaders`; thêm helper `_ckUrl()` append `?client_key=` cho 3 call site (`?active=true`, `/sync`, `DELETE /:id`). Bump 5 HTML `?v=20260613pk`→`pk2`.
+    - `render.com/routes/pancake-accounts.js` `_hasClientApiKey`: đọc cả `req.headers['x-api-key']` LẪN `req.query.client_key` (header cho node/server-to-server; query cho browser). Key vốn public ở page source nên query-param không tăng rủi ro.
+    - Note: bản `shared/browser/pancake-token-manager.js` (ESM) KHÔNG gọi `/api/pancake-accounts` (token source khác) → không cần sửa. Active instance ở tab1-orders là `shared/js`.
 - **Không** đụng `web2/`, không migration, không bảng mới, không đụng cron Web 2.0.
 
 **Status:** ✅ Done — verify Playwright live: với `web2_auth` rỗng (đúng cảnh user), `getToken()` trả JWT thật qua `?client_key`; no-key vẫn strip (enforce intact).

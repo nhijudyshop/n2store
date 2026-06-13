@@ -1,9 +1,40 @@
 # Zalo Integration cho Web 2.0 — Nghiên cứu + Kiến trúc + Lộ trình
 
-> **Trạng thái:** RESEARCH / PLAN — **CHƯA code** (2026-06-13).
-> Doc này tổng hợp nghiên cứu hệ sinh thái Zalo trên GitHub, đối chiếu với hạ tầng messaging hiện có của n2store, và thiết kế kiến trúc "**Trang Zalo là nguồn dữ liệu duy nhất**" + lộ trình 3 đợt.
+> **Trạng thái:** ✅ **ĐÃ BUILD v1** (2026-06-13) — code Đợt 1 (OA/ZNS) + Đợt 2 (zca-js chat/login/lookup) đã xong, chờ deploy + cấu hình OA/đăng nhập acc thật để chạy live.
+> Doc này tổng hợp nghiên cứu hệ sinh thái Zalo trên GitHub, kiến trúc "**Trang Zalo là nguồn dữ liệu duy nhất**", và lộ trình 3 đợt.
 >
-> **Nguyên tắc cốt lõi (user yêu cầu 2026-06-13):** Tạo **1 trang Zalo duy nhất** (`web2/zalo/`) quản lý toàn bộ dữ liệu + chức năng Zalo. Mọi trang khác cần Zalo → **tham chiếu tới nguồn này qua API/helper chung**, KHÔNG tự gọi Zalo API trực tiếp. **Chỉ có 1 nguồn Zalo.**
+> **Nguyên tắc cốt lõi (user yêu cầu 2026-06-13):** Tạo **1 trang Zalo duy nhất** (`web2/zalo/`) quản lý toàn bộ dữ liệu + chức năng Zalo. Mọi trang khác cần Zalo → **tham chiếu tới nguồn này qua API/helper chung** (`Web2Zalo`), KHÔNG tự gọi Zalo API trực tiếp. **Chỉ có 1 nguồn Zalo.**
+
+---
+
+## 0. Trạng thái triển khai (đã build 2026-06-13)
+
+**Kiến trúc thực tế:** zca-js chạy **trong process Render fallback** (`render.com`), KHÔNG ở live-chat/server — vì Render fallback đã sở hữu web2Db + SSE hub + được CF proxy (CORS/retry). zca re-login từ session lưu DB khi boot (giống Pancake relay autoConnect).
+
+**Files đã tạo:**
+
+| Lớp     | File                                                                                         | Vai trò                                                                                                                                        |
+| ------- | -------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| Schema  | `render.com/db/web2-zalo-schema.js`                                                          | `web2_zalo_accounts/conversations/messages` + `web2_zns_templates/log` + `web2_zalo_send_jobs/items` + ALTER `web2_customers` (zalo_uid)       |
+| zca-js  | `render.com/services/web2-zalo-zca.js`                                                       | Phiên cá nhân: QR/cookie login, listener WS, send, getUserInfo/findUser, friends/groups, restore-on-boot                                       |
+| OA/ZNS  | `render.com/services/web2-zalo-oa.js`                                                        | Token store/refresh (xoay refresh_token), ZNS template, tin tư vấn cs, sync template                                                           |
+| Routes  | `render.com/routes/web2-zalo.js`                                                             | `/api/web2-zalo/*` — accounts, login-qr, qr poll, conversations, messages, send-message, lookup, oa/connect, send-zns, zns/log + `_notify` SSE |
+| Wiring  | `render.com/server.js`                                                                       | require + ensureSchema + restoreSessions + initializeNotifiers + mount `/api/web2-zalo`                                                        |
+| Dep     | `render.com/package.json`                                                                    | `zca-js@^2.1.2`                                                                                                                                |
+| Helper  | `web2/shared/web2-zalo.js`                                                                   | `Web2Zalo.{sendZNS,sendMessage,getConversation,openChat,attachZaloButtons,status}` — cổng duy nhất cho mọi trang                               |
+| Page    | `web2/zalo/index.html` + `js/web2-zalo-api.js` + `js/web2-zalo-app.js` + `css/web2-zalo.css` | 4 tab: Tài khoản / Hội thoại / Tra cứu / ZNS                                                                                                   |
+| Worker  | `cloudflare-worker/{modules/config/routes.js,worker.js}`                                     | Route `WEB2_ZALO` → Render fallback                                                                                                            |
+| Sidebar | `web2/shared/web2-sidebar.js`                                                                | Menu "Zalo" trong "Tính năng mới" + WEB2_PAGES                                                                                                 |
+
+**SSE topics:** `web2:zalo:accounts`, `web2:zalo:messages`, `web2:zalo:conv:<id>`.
+
+**Cần làm để chạy LIVE:**
+
+1. Deploy Render (`render.com/**` đổi → build chạy `npm install` kéo zca-js). Verify `/api/web2-zalo/status` trả `zcaAvailable:true`.
+2. **Chat cá nhân:** mở trang Zalo → tab Tài khoản → "Thêm tài khoản cá nhân" → quét QR bằng acc Zalo **phụ**. Session lưu DB, tự reconnect khi Render restart.
+3. **ZNS:** đăng ký OA tại developers.zalo.me → "Kết nối Zalo OA" (App ID/Secret/Authorization Code) → duyệt template → gửi.
+
+**Hạn chế v1 (TODO):** (a) `web2_zalo_conversations.phone` chưa map từ uid (cần findUser để liên kết SĐT↔uid) → `getConversation(phone)` của helper chỉ trả khi đã có map; (b) gửi ảnh/file qua zca chưa làm (mới text); (c) bulk-send tables đã tạo nhưng worker chưa code (Đợt 2 polish); (d) auth route-level chưa siết (dựa vào lớp app login + CF) — KHÔNG bao giờ trả token/session ra client.
 
 ---
 
