@@ -2,6 +2,42 @@
 
 ## 2026-06-13
 
+### [web2] Zalo page UX overhaul — friendly onboarding + a11y + fix invisible modal inputs ✅ (live-verified)
+
+**User:** "tham khảo tất cả nguồn google, github, ai support/animation/ui sites để cải thiện, thân thiện người dùng trang web2/zalo".
+
+**Research** (WebSearch nhiều nguồn: chat UI 2026, micro-interactions/CSS GPU, Aceternity/Magic UI, empty-state-as-onboarding Notion/Slack, skeleton shimmer, ARIA APG tabs/modal). Áp dụng kiểu **light "friendly professional"** (CRM tool, không flashy landing).
+
+**🐛 Bug critical phát hiện khi test live** (review code KHÔNG bắt được — cần computed CSS): modal OA/Add **input + nút primary VÔ HÌNH** vì `--wz-*` token scope ở `.wz-main` nhưng modal là sibling body-level ngoài `.wz-main` → `var()` undefined → border/bg trống. **Fix:** chuyển token định nghĩa lên `.web2-theme` (body) → modal inherit.
+
+**Cải thiện (verify live qua Playwright screenshots):**
+
+- Onboarding 2 thẻ lựa chọn giàu thông tin (icon badge, mô tả, tag "AN TOÀN" cho OA, CTA mũi tên) thay vì 2 ô dashed phẳng.
+- Empty states thân thiện (icon+title+sub+hướng dẫn) cho hội thoại/lookup; skeleton shimmer khi load.
+- Thay `prompt()` thêm acc bằng **modal** (label + cảnh báo acc phụ).
+- Micro-interactions: hover lift + active scale, focus-visible ring, gradient primary, tab indicator, QR pulse ring, message-bubble/panel/modal entrance (transform/opacity, GPU).
+- A11y: ARIA tablist/tab/tabpanel + roving tabindex + ←/→/Home/End; modal focus-in + return focus + Esc; label `for`/`id`; choice card role=button + Enter/Space; `prefers-reduced-motion` tắt mọi motion.
+- Busy spinner cho nút async; compose textarea auto-grow; responsive 560/860px; `inputmode=numeric` cho SĐT.
+
+**Files:** [web2/zalo/css/web2-zalo.css](../web2/zalo/css/web2-zalo.css) (rewrite, token→.web2-theme), [web2/zalo/index.html](../web2/zalo/index.html) (ARIA + add-modal + QR frame), [web2/zalo/js/web2-zalo-app.js](../web2/zalo/js/web2-zalo-app.js) (skeleton, modal helpers, ARIA tabs, busy, autosize, friendly empties). Bump `?v=20260613b`.
+
+**Verify:** node --check OK; live screenshots: accounts onboarding, OA modal (inputs HIỆN), chat empty, add modal — đều đẹp. Adversarial review 3-agent (a11y/app-logic/css) đã chạy.
+
+**Status:** ✅ Done.
+
+### [render] [web2] [worker] C8 — so-order Firestore → Postgres (web2Db) ✅ phase 1 (live-verified)
+
+**User:** "tiếp tục" (sau audit 14/15) → làm nốt C8 (item defer cuối).
+
+Migration nguồn chuẩn Sổ Order từ **Firestore `web2_so_order/main` → Postgres `web2_so_order`** (1 doc JSONB + `version`), GIỮ shape `{tabs,activeTabId}` (chưa normalize ra rows — phase 2 optional).
+
+- **Server** `render.com/routes/web2-so-order.js` (mới): `GET /get` + `POST /save` (optimistic version: ghi đè stale → **409 conflict** trả server, hết last-write-wins) + `POST /reset` (admin) + SSE `web2:so-order` + `requireWeb2AuthSoft` + ensureTables WeakSet. Mount `/api/web2-so-order` + wire notifier.
+- **Client** `so-order/js/so-order-storage.js` Sync: Firestore→Postgres, **5 method public GIỮ NGUYÊN** → so-order-app.js KHÔNG đổi. `_localVersion` optimistic, SSE realtime push, migration 1 lần từ Firestore khi server rỗng.
+- **Worker** `cloudflare-worker`: thêm route `WEB2_SO_ORDER` (`/api/web2-so-order/*` → Render) — path mới chưa proxy → browser nhận HTML 404.
+- **Verify API prod:** /get→401 no-token, empty→v0, create→v1, **STALE baseVersion→409** ✓, correct→v2; /reset→200.
+- **Verify browser (localhost + ext + web2 login):** mở so-order → migration Firestore→Postgres **14 shipments / 2 tab** ✓; server Postgres persist version=2 + 14 shipments ✓; reload → load từ Postgres (KHÔNG re-migrate, 14 shipments, **0 console error**) ✓; version bump 1→2→3 (save round-trip OK) ✓; SSE subscribed ✓.
+- **Cải thiện vs Firestore:** single source Postgres · optimistic concurrency · auth enforce · realtime SSE push. so-order giờ cần login web2 (như cả suite). IMPROVEMENT-PLAN F1 phase 1 done.
+
 ### [so-order] Data ngẫu nhiên dùng biến thể THẬT từ Kho Biến Thể (đúng với kho biến thể) ✅
 
 **User:** "ok và đúng với kho biến thể" — data random phải dùng màu/size có thật trong Kho Biến Thể (bỏ "Xanh Navy" hardcoded lạ).

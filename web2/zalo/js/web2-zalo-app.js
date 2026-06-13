@@ -439,9 +439,15 @@
         const box = $('#wzConvList');
         const head = `<div class="wz-conv-search"><input id="wzConvSearch" type="search" placeholder="Tìm hội thoại…" value="${esc(state.conv.search)}"></div>`;
         if (!state.conv.list.length) {
+            const acc = state.conv.accountKey;
             box.innerHTML =
                 head +
-                `<div class="wz-empty">Chưa có hội thoại.<br>Tin nhắn đến sẽ tự hiện ở đây.</div>`;
+                `<div class="wz-empty">
+                    <span class="wz-empty-ic"><i data-lucide="messages-square"></i></span>
+                    <span class="wz-empty-title">${acc ? 'Chưa có hội thoại' : 'Chọn tài khoản'}</span>
+                    <span class="wz-empty-sub">${acc ? 'Tin nhắn khách gửi tới sẽ tự hiện ở đây theo thời gian thực.' : 'Chọn một tài khoản cá nhân đã kết nối ở trên để xem hội thoại.'}</span>
+                </div>`;
+            if (window.lucide) lucide.createIcons();
             bindConvSearch();
             return;
         }
