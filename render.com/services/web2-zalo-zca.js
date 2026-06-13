@@ -334,7 +334,7 @@ function startQrLogin(accountKey, label) {
     const s = { status: 'qr_pending', qr: null, startedAt: now(), label };
     _sessions.set(accountKey, s);
 
-    const zalo = new Zalo();
+    const zalo = new Zalo({ selfListen: true, checkUpdate: false, logging: false });
     const cb = (event) => {
         const cur = _sessions.get(accountKey) || {};
         const t = event?.type;
@@ -375,7 +375,7 @@ async function loginWithCredentials(accountKey, credentials, label) {
     const existing = _sessions.get(accountKey);
     if (existing?.api) return { status: 'connected', alreadyConnected: true };
     _setStatus(accountKey, 'connecting');
-    const zalo = new Zalo();
+    const zalo = new Zalo({ selfListen: true, checkUpdate: false, logging: false });
     const api = await zalo.login(credentials);
     await _afterLogin(accountKey, api, label);
     return { status: 'connected' };
@@ -599,6 +599,26 @@ async function getGroupChatHistory(accountKey, groupId, lastMsgId, count) {
     return api.getGroupChatHistory({ groupId: String(groupId), lastMsgId, count: count || 50 });
 }
 
+// Resolve tên + avatar của thành viên nhóm theo uid (group message dName rỗng).
+// Trả { uid: {name, avatar} }.
+async function getGroupMembersInfo(accountKey, uids) {
+    const api = _requireApi(accountKey);
+    const arr = [...new Set((Array.isArray(uids) ? uids : [uids]).map(String).filter(Boolean))];
+    if (!arr.length) return {};
+    const r = await api.getGroupMembersInfo(arr);
+    const profiles = r?.profiles || {};
+    const out = {};
+    for (const [uid, p] of Object.entries(profiles)) {
+        out[uid] = { name: p.zaloName || p.displayName || '', avatar: p.avatar || '' };
+    }
+    return out;
+}
+
+// uid của chính tài khoản (để phân biệt tin mình gửi trong nhóm).
+function getOwnUid(accountKey) {
+    return _sessions.get(accountKey)?.info?.uid || null;
+}
+
 function disconnect(accountKey) {
     const s = _sessions.get(accountKey);
     try {
@@ -672,6 +692,8 @@ module.exports = {
     isConnected,
     fetchSelf,
     getGroupChatHistory,
+    getGroupMembersInfo,
+    getOwnUid,
     disconnect,
     status,
     statusAll,

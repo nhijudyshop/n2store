@@ -174,6 +174,19 @@ async function ensureWeb2ZaloSchema(pool) {
             CREATE INDEX IF NOT EXISTS idx_web2_zalo_media_created ON web2_zalo_media(created_at DESC);
         `);
 
+        // ── 3c. Cache thành viên (uid → tên + avatar) — resolve tên người gửi ──
+        //    trong NHÓM (group message dName rỗng → phải getGroupMembersInfo).
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS web2_zalo_members (
+                account_key  VARCHAR(80) NOT NULL,
+                uid          VARCHAR(100) NOT NULL,
+                display_name VARCHAR(255),
+                avatar       TEXT,
+                updated_at   BIGINT NOT NULL,
+                PRIMARY KEY (account_key, uid)
+            );
+        `);
+
         // ── 4. ZNS templates (cache từ OA) ──────────────────────────────────────
         await pool.query(`
             CREATE TABLE IF NOT EXISTS web2_zns_templates (

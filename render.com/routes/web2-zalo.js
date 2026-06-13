@@ -559,6 +559,70 @@ function _pickProfile(info, uid) {
     return null;
 }
 
+// Gắn tên + avatar người gửi cho tin NHÓM (uid → tên thật). Cache web2_zalo_members
+// + resolve uid còn thiếu qua getGroupMembersInfo. Tin của shop → tên TK + 'Bạn'.
+async function _attachGroupSenders(db, conv, rows) {
+    const ownUid = zca.isConnected(conv.account_key) ? zca.getOwnUid(conv.account_key) : null;
+    const uids = [
+        ...new Set(
+            rows
+                .filter(
+                    (r) =>
+                        r.direction === 'in' &&
+                        r.sender_uid &&
+                        String(r.sender_uid) !== String(ownUid)
+                )
+                .map((r) => String(r.sender_uid))
+        ),
+    ];
+    const nameMap = {};
+    if (uids.length) {
+        const { rows: cached } = await db.query(
+            `SELECT uid, display_name, avatar FROM web2_zalo_members WHERE account_key=$1 AND uid = ANY($2::text[])`,
+            [conv.account_key, uids]
+        );
+        for (const c of cached) nameMap[c.uid] = { name: c.display_name, avatar: c.avatar };
+        const missing = uids.filter((u) => !nameMap[u]);
+        if (missing.length && zca.isConnected(conv.account_key)) {
+            try {
+                const resolved = await zca.getGroupMembersInfo(conv.account_key, missing);
+                const ts = now();
+                for (const [uid, info] of Object.entries(resolved)) {
+                    nameMap[uid] = { name: info.name, avatar: info.avatar };
+                    await db.query(
+                        `INSERT INTO web2_zalo_members (account_key, uid, display_name, avatar, updated_at)
+                         VALUES ($1,$2,$3,$4,$5)
+                         ON CONFLICT (account_key, uid) DO UPDATE SET
+                            display_name=EXCLUDED.display_name, avatar=EXCLUDED.avatar, updated_at=EXCLUDED.updated_at`,
+                        [conv.account_key, uid, info.name || null, info.avatar || null, ts]
+                    );
+                }
+            } catch (e) {
+                /* best-effort — không chặn xem tin */
+            }
+        }
+    }
+    const acc =
+        (
+            await db.query(
+                `SELECT display_name, avatar_url FROM web2_zalo_accounts WHERE account_key=$1`,
+                [conv.account_key]
+            )
+        ).rows[0] || {};
+    for (const r of rows) {
+        if (r.direction === 'out' || (ownUid && String(r.sender_uid) === String(ownUid))) {
+            r.sender_name = acc.display_name || 'Bạn';
+            r.sender_avatar = acc.avatar_url || null;
+        } else if (r.sender_uid) {
+            const m = nameMap[String(r.sender_uid)];
+            if (m) {
+                if (m.name) r.sender_name = m.name;
+                r.sender_avatar = m.avatar || null;
+            }
+        }
+    }
+}
+
 router.get('/conversations/:id/messages', async (req, res) => {
     try {
         const db = getDb(req);
@@ -617,6 +681,10 @@ router.get('/conversations/:id/messages', async (req, res) => {
                     [req.params.id, lastMsgId, now()]
                 )
                 .catch(() => {});
+        }
+        // NHÓM: resolve tên + avatar người gửi (uid → tên thật) để hiện đúng cấu trúc.
+        if (conv.thread_type === 'group') {
+            await _attachGroupSenders(db, conv, rows);
         }
         res.json({ success: true, conversation: conv, data: rows.reverse(), hasMore });
     } catch (e) {
