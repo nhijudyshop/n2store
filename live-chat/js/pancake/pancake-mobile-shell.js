@@ -36,10 +36,27 @@
     }
 
     // ── Single-pane swap (mobile): list ↔ chat ──
+    function ensureBackBtn() {
+        var win =
+            document.getElementById('pkChatWindow') || document.querySelector('.pk-chat-window');
+        if (!win || win.querySelector('.pk-mobile-back')) return;
+        var btn = document.createElement('button');
+        btn.className = 'pk-mobile-back';
+        btn.type = 'button';
+        btn.setAttribute('aria-label', 'Quay lại danh sách');
+        btn.innerHTML = '<i data-lucide="arrow-left"></i>';
+        btn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            showList();
+        });
+        win.appendChild(btn);
+        if (global.lucide) global.lucide.createIcons();
+    }
     function setView(view) {
         var c = container();
         if (!c) return;
         if (view === 'chat') {
+            ensureBackBtn();
             c.setAttribute('data-view', 'chat');
             c.classList.add('pk-view-chat');
         } else {

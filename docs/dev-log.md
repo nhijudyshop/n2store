@@ -2,6 +2,21 @@
 
 ## 2026-06-13
 
+### [live-chat] Redesign TOÀN BỘ giao diện Chat Pancake + Kho SP — "Zalo Bento Commerce" (5 đợt) ✅
+
+**User:** "xóa toàn bộ giao diện chat pancake, kho sp hiện tại làm lại hiện đại hơn → research github/ai ui/animation/google, tối ưu điện thoại, hiệu ứng đẹp dễ dùng" → chốt **Phương án C "Zalo Bento Commerce"** (workflow research 6-agent + 3 phương án previews) → "kiểm lại --pk-\* và xóa đi".
+
+**Scope:** CHỈ lớp VISUAL, GIỮ data/logic vừa rebuild (Web2Chat/SSE/send/scroll). Blueprint: [docs/web2/CHAT-REDESIGN-BLUEPRINT.md](web2/CHAT-REDESIGN-BLUEPRINT.md).
+
+- **Đợt 0:** tokens `pancake-redesign-tokens.css` (namespace `--pkr-*` xanh Zalo #0068ff) + `chat-motion.css` (keyframes compositor-friendly + reduced-motion) + `pancake-mobile-shell.js` (visualViewport `--pkr-app-h/--pkr-kb` + single-pane swap + swipe-back). **XÓA SẠCH legacy `--pk-*`** (theme xanh-lá WhatsApp #00a884): rename 150 `var(--pk-…)`→`var(--pkr-…)` ở pancake-chat.css, xóa :root cũ ở pancake-chat.css + variables.css, thêm LEGACY COMPAT alias. Verify 0 `--pk-*` còn lại, `--pkr-primary=#0068ff`.
+- **Đợt 1:** conversation list Soft Depth — rows bo góc + accent bar trái khi active, filter chips pill scroll-x sticky, search pill bo tròn focus-ring, avatar 48px, unread badge xanh Zalo, class `is-unread`.
+- **Đợt 2:** empty-state icon trong vòng tròn xanh mềm + token hoá.
+- **Đợt 4 (điểm nhấn C):** Kho SP **BENTO** — `@container` query (container-type trên `.inv-panel`): grid ảnh 3:4 nhiều cột khi rộng / list khi hẹp; thẻ giá đậm xanh; **stock tiers màu** (>15 xanh / ≤15 amber / ≤5 + hết đỏ); OOS grayscale; nút **+ tap-to-add** chèn SP vào composer (mobile-friendly, drag native giữ nguyên). ⚠ Fix bug `@container` query trên chính element có container-type (1 card khổng lồ 1064px) → chuyển container-type lên cha.
+- **Đợt 3 (SHARED):** `web2-chat-panel.css` bubble Zalo-blue (out=#0068ff/white, in=slate, tail bo) + daysep pill sticky + composer pill sunken + touch 44px + input 16px (chống zoom iOS). Dùng `var(--pkr-X, fallback)` → native-orders/balance-history KHÔNG vỡ (verify load OK). Bubble out verify `rgb(0,104,255)`.
+- **Đợt 5:** mode-switcher **segmented control** (track sunken, active = pill trắng chữ xanh) + mobile single-pane CSS (≤767px list↔chat full-screen trượt + nút back nổi + composer safe-area) + wire `showChat()` vào selectConversation.
+
+**Verify localhost:** conversation list + Kho SP bento (4 cột, stock badge màu) + chat bubble xanh + segmented pill — tất cả render đẹp, 0 JS error, realtime/data nguyên. Commits `c4ed81498`→. ⏳ Mobile single-pane (320px) + tap-to-add cần test thiết bị thật. **Status:** ✅ Done (5 đợt, verified desktop localhost).
+
 ### [web2] [shared] Zalo chat → ĐƯA ENGINE VÀO SHARED, trang khác tham chiếu là dùng (mountChat) ✅ live-verified
 
 **User:** "Zalo này các phần quan trọng, chức năng → bỏ vào shared web 2.0 để sau này các phần cần dùng thì tham chiếu tới là dùng được → dễ quản lý, bảo trì."

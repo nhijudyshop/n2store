@@ -223,6 +223,8 @@ const PancakeConversationList = {
         state.activeConversation = conv;
         this.renderConversationList();
         window.PancakeChatWindow.renderChatWindow(conv);
+        // Mobile: chuyển sang view chat full-screen (single-pane swap)
+        if (window.Web2PancakeMobile?.showChat) window.Web2PancakeMobile.showChat();
     },
 
     /**

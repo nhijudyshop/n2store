@@ -2713,3 +2713,57 @@
 .pk-toast-error {
     background: #ef4444;
 }
+
+/* =====================================================================
+ * REDESIGN đợt 5 — MOBILE single-pane swap (≤767px): list ↔ chat full-screen.
+ * data-view trên .pancake-chat-container (set bởi pancake-mobile-shell.js).
+ * ===================================================================== */
+@media (max-width: 767px) {
+    .pancake-chat-container .pk-conversation-list {
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+        border-right: 0;
+    }
+    .pancake-chat-container .pk-conversations-layout {
+        position: relative;
+        overflow: hidden;
+    }
+    /* chat-window trượt từ phải; mặc định ẩn (đang xem list) */
+    .pancake-chat-container .pk-chat-window {
+        position: absolute;
+        inset: 0;
+        transform: translateX(100%);
+        transition: transform var(--pkr-dur-slow, 280ms) var(--pkr-ease-decel, ease);
+        z-index: 5;
+        background: var(--pkr-bg);
+    }
+    .pancake-chat-container[data-view='chat'] .pk-chat-window {
+        transform: none;
+    }
+    /* nút back nổi (mobile, chỉ hiện khi đang xem chat) */
+    .pk-mobile-back {
+        display: none;
+        position: absolute;
+        top: 8px;
+        left: 8px;
+        z-index: 7;
+        width: 38px;
+        height: 38px;
+        border: none;
+        border-radius: var(--pkr-r-full);
+        background: var(--pkr-surface);
+        color: var(--pkr-primary);
+        box-shadow: var(--pkr-shadow-md);
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+    }
+    .pancake-chat-container[data-view='chat'] .pk-mobile-back {
+        display: inline-flex;
+    }
+    /* composer dính trên bàn phím + safe-area (visualViewport → --pkr-kb) */
+    .pancake-chat-container .w2cp-input-bar {
+        padding-bottom: calc(12px + var(--pkr-safe-b, 0px));
+    }
+}
