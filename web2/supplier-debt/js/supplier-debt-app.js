@@ -348,6 +348,10 @@
                 for (const r of sh.rows || []) {
                     const supplier = (r.supplier || '').trim();
                     if (!supplier) continue;
+                    // A3 (2026-06-13): KHÔNG tính công nợ cho dòng 'draft' (Nháp — chưa
+                    // chốt đơn) và 'cancelled' (Đã Hủy). Các trạng thái phát sinh nợ:
+                    // 'ordered' (Đã Đặt — đã chốt mua), 'partial_received', 'received'.
+                    if (r.status === 'draft' || r.status === 'cancelled') continue;
                     const qty = Number(r.qty) || 0;
                     const costVnd = (Number(r.costPrice) || 0) * rate;
                     const subtotal = qty * costVnd;

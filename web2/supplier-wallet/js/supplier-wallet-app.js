@@ -39,6 +39,17 @@
     function fmtVnd(n) {
         return Math.round(Number(n) || 0).toLocaleString('vi-VN') + '₫';
     }
+    // A2 (2026-06-13): 1 dòng mua được coi "đã trả ĐỦ" khi qty đã trả >= qty mua.
+    // `entry` = web2_supplier_meta.returned_row_ids[rowId]: dạng mới {qty,amount,ts}
+    // (object) hoặc legacy truthy (boolean true = trả đủ). Trả 1 phần → CHƯA đủ →
+    // dòng còn xuất hiện trong modal trả + KHÔNG gắn badge 'is-returned'.
+    function _isRowFullyReturned(entry, orderedQty) {
+        if (!entry) return false;
+        if (typeof entry === 'object') {
+            return (Number(entry.qty) || 0) >= (Number(orderedQty) || 0);
+        }
+        return true; // legacy boolean → coi như trả đủ
+    }
     // Audit: tên staff ghi trả/thanh toán NCC → lưu vào transaction (kiểm tra khi sai).
     function _swBy() {
         return (
@@ -235,7 +246,11 @@
         );
         tbody.innerHTML = sorted
             .map((p) => {
-                const returned = !!w.returnedRowIds[p.rowId];
+                // A2 (2026-06-13): 'Đã trả' khi qty đã trả >= qty mua, KHÔNG phải chỉ
+                // cần có entry. returnedRowIds[rowId] = {qty,amount,ts} (object) hoặc
+                // truthy legacy (boolean cũ = trả đủ). Trả 1 phần (qty<p.qty) → CHƯA
+                // returned → vẫn cho trả tiếp.
+                const returned = _isRowFullyReturned(w.returnedRowIds[p.rowId], p.qty);
                 return `<tr class="${returned ? 'is-returned' : ''}">
                     <td>${escapeHtml(fmtDateVN(p.date))}</td>
                     <td>${escapeHtml(p.productName || '—')}</td>
@@ -280,7 +295,9 @@
         if (!agg) return;
         document.getElementById('swReturnSupplier').textContent = activeSupplier;
         const tbody = document.getElementById('swReturnBody');
-        const available = agg.purchases.filter((p) => !w.returnedRowIds[p.rowId]);
+        const available = agg.purchases.filter(
+            (p) => !_isRowFullyReturned(w.returnedRowIds[p.rowId], p.qty)
+        );
         if (!available.length) {
             tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:#94a3b8;padding:24px;">Không còn dòng nào để trả</td></tr>`;
         } else {

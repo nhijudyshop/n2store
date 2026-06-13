@@ -950,9 +950,15 @@ router.post('/manual-deposit', requireWeb2AuthSoft, async (req, res) => {
             }
             return h >>> 0;
         };
+        // C17 (2026-06-13): fallback (không idempotencyKey) TRƯỚC đây
+        // `(Date.now() % 100_000_000) * 20 + rand(20)` → wrap mỗi 100M ms = 27.7h →
+        // collision DETERMINISTIC (2 GD cách ~27.7h cùng ms-mod → trùng sepay_id →
+        // ON CONFLICT DO NOTHING → throw 409 "trùng manual sepay_id" + rollback ví).
+        // Đổi: wrap mỗi 1B ms (~11.5 ngày) + random 0..9999 (trải rộng trong cùng
+        // ms-bucket). Max = 1_000_000_000 + 9_999 < 2.1B (an toàn INT4).
         const manualSepayId = idempotencyKey
             ? -((_fnv1a(idempotencyKey) % 2_000_000_000) + 1)
-            : -((Date.now() % 100_000_000) * 20 + Math.floor(Math.random() * 20) + 1);
+            : -((Date.now() % 1_000_000_000) + Math.floor(Math.random() * 10_000) + 1);
 
         // Build content readable cho audit + cho supplier-wallet polling pick up
         // qua name match (NCC). Format: "[Nạp tay] <userName> → <target>:<name> | <note>"

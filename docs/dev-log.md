@@ -8,12 +8,31 @@
 
 - **Root cause (verify bằng probe prod):** `WEB2_AUTH_ENFORCE` đang BẬT trên prod → `GET /api/pancake-accounts` **strip token** cho caller chưa authed. Commit ENFORCE-PREP (2026-06-12) wire `x-web2-token` (đọc localStorage `web2_auth`) vào Web1 token-manager, NHƯNG Web1 KHÔNG bao giờ ghi `web2_auth` (chỉ `web2/shared/web2-auth.js` ghi) → user chưa login Web 2.0 cùng browser → header rỗng → token bị strip. Probe: `worker /api/pancake-accounts?active=true` → 6 accounts nhưng `withTokenField=0` (token rỗng), `has_token=6`. Web1 `loadAccounts` line 358 `if(!acc.token) continue` skip sạch → no JWT → 102. (Priority-0 `/api/auth/token/pancake` KHÔNG được worker route — 404 — nên không cứu được.)
 - **Fix B (un-breaker — additive, không siết path web2-token):** `CLIENT_API_KEY` (X-API-Key, đã được trust phát Pancake JWT qua `/api/auth/token/pancake`) thành credential authed hợp lệ cho `/api/pancake-accounts`.
-  - `render.com/routes/pancake-accounts.js`: thêm `_hasClientApiKey(req)` → vào `_isAuthed` + `_softAuth` (chỉ thêm nhánh OR; Web 2.0 web2-token không đổi).
-  - `orders-report/js/managers/pancake-token-manager.js`: `_web2AuthHeaders()` gắn thêm `X-API-Key = _CLIENT_API_KEY` (cả 2 call site `loadAccounts` + `getTokenFromFirestore` tự nhận). Worker `handleRenderFallbackProxy` forward đủ header (chỉ xoá host/cf-*) → key tới Render. Key đã khớp `CLIENT_API_KEY` env (probe direct host 200, không 401).
+    - `render.com/routes/pancake-accounts.js`: thêm `_hasClientApiKey(req)` → vào `_isAuthed` + `_softAuth` (chỉ thêm nhánh OR; Web 2.0 web2-token không đổi).
+    - `orders-report/js/managers/pancake-token-manager.js`: `_web2AuthHeaders()` gắn thêm `X-API-Key = _CLIENT_API_KEY` (cả 2 call site `loadAccounts` + `getTokenFromFirestore` tự nhận). Worker `handleRenderFallbackProxy` forward đủ header (chỉ xoá host/cf-\*) → key tới Render. Key đã khớp `CLIENT_API_KEY` env (probe direct host 200, không 401).
 - **Fix A (defensive backend hardening):** `render.com/services/auth-token-store.js` `getToken('pancake')` — khi `auth_token_cache` rỗng/hết hạn thì fallback đọc token tươi nhất còn hạn từ `pancake_accounts` (read-only, pancake-only guard, never throw). Hiện cache còn tươi (exp 2026-09-08) + endpoint không qua worker nên chưa kích hoạt cho Web1, nhưng đúng & an toàn cho mọi caller gọi trực tiếp n2store-fallback + future-proof. Không đụng provider TPOS / realtime / Web 2.0 (consumer duy nhất là `/api/auth/token/:provider`).
 - **Không** đụng `web2/`, không migration, không bảng mới, không đụng cron Web 2.0.
 
 **Status:** ✅ Done (chờ deploy verify).
+
+### [web2] Kho SP: ẩn cột "ĐANG DÙNG" + drawer chi tiết SP (4 tab) ✅
+
+**User:** "1/ Ẩn cột đang dùng. 2/ Bấm vào sản phẩm expand ra chi tiết tất cả về SP có nhiều tab: NCC nào, ở đơn hàng nào, lịch sử chỉnh sửa có tên user, chỉnh sửa chi tiết." → chọn **Drawer trượt phải** + **file riêng**.
+
+**Files:**
+
+- [web2/products/index.html](../web2/products/index.html): bỏ `<th>` ĐANG DÙNG; load `css/web2-product-detail.css` + `js/web2-product-detail.js`; bump app.js `?v=20260613det`.
+- [web2/products/js/web2-products-app.js](../web2/products/js/web2-products-app.js): bỏ `<td class="usage-cell">` khỏi `_rowHtml`; colspan 12→11; export thêm `getProduct`/`getUsage`/`PROXY_BASE` cho module detail. (`_loadUsageForCurrentPage` giữ nguyên — vẫn prefetch usage vào STATE để tab "Đơn hàng" đọc tức thì; `if(cell)` guard nên td đã bỏ không lỗi.)
+- **MỚI** [web2/products/css/web2-product-detail.css](../web2/products/css/web2-product-detail.css) + [web2/products/js/web2-product-detail.js](../web2/products/js/web2-product-detail.js): `window.Web2ProductDetail`. Bấm row (ngoài nút thao tác/checkbox/badge) → drawer slide-in phải, 4 tab lazy-load:
+    - **Tổng quan**: NCC/nguồn, biến thể+tồn (màu cảnh báo <5/=0), trạng thái pill, giá mua/bán, ghi chú, in tem/copy.
+    - **Đơn hàng**: reuse usage (`getUsage` → fallback `Web2ProductsApi.usage`), gom theo chiến dịch, link sang native-orders; badge số đơn trên tab.
+    - **Lịch sử**: fetch `/api/web2-products/:code/history`, timeline action+user+diff field (GMT+7).
+    - **Sửa**: form inline (name/giá mua/giá bán/tồn/trạng thái/ghi chú) → **chỉ PATCH field thay đổi** (diff vs bản gốc) tránh đụng `stock` SP pending (server chặn 409 khi stock<pending_qty); nút ⚙ mở form đầy đủ (ảnh/biến thể/mã/NCC).
+    - Anti-lag: transform/opacity, overscroll contain, ESC + click overlay đóng, lock scroll `.main-content`.
+
+**Verify (Playwright live localhost + ext):** cột ĐANG DÙNG biến mất (headers còn 10); bấm row → drawer mở, 4 tab đúng; Tổng quan hiện NCC=HÀ NỘI/biến thể/giá/trạng thái; Đơn hàng + Lịch sử render empty-state đúng; **Sửa note → lưu**: note persist + history ghi `update` changes=[note] (user "(ẩn danh)" do session test thiếu Web2Auth — fallback đúng); đổi chỉ note KHÔNG còn 409 (diff payload bỏ stock). 0 lỗi console.
+
+**Status:** ✅ Done.
 
 ### [products] Fix tem QR: giá DÀI bị cắt mất số — auto thu nhỏ cho vừa cột ✅
 

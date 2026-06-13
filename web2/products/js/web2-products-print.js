@@ -830,13 +830,13 @@
         // không bị cắt ở đáy dòng 2. max-height = 2×nameLineH → clip đúng 2 dòng.
         const nameLineH = lineH + 2;
         const nameStyle =
-            `word-wrap:break-word;overflow:hidden;margin-bottom:1px;line-height:${nameLineH}px;` +
+            `overflow-wrap:normal;word-break:keep-all;overflow:hidden;margin-bottom:1px;line-height:${nameLineH}px;` +
             `max-height:${nameLineH * 2}px;`;
         // 2026-06-09: layout QR có cột chữ CAO (full chiều cao tem) + font to → cho
         // tên TỐI ĐA 3 DÒNG (không phải 2) để tên dài (Áo Khoác Dạ Tweed) không bị
         // cắt khi cột hẹp. Default vertical vẫn 2 dòng (ít chỗ dọc vì có barcode).
         const nameStyleQr =
-            `word-wrap:break-word;overflow:hidden;margin-bottom:1px;line-height:${nameLineH}px;` +
+            `overflow-wrap:normal;word-break:keep-all;overflow:hidden;margin-bottom:1px;line-height:${nameLineH}px;` +
             `max-height:${nameLineH * 3}px;`;
 
         // Group labels into sheets (cols labels per sheet)
@@ -1187,14 +1187,35 @@ ${SCRIPT_OPEN}>
     // cho VỪA hộp 3 dòng (max-height) → không cắt chữ. Tên ngắn giữ font to. Giảm
     // font + line-height đồng bộ 0.5px tới khi scrollHeight<=clientHeight, min 6px.
     function fitName(){
+        var MIN_FS = 6; // sàn font dễ đọc cho raster nhiệt
         document.querySelectorAll('.barcode-pname').forEach(function(el){
             var guard=0, fs=parseFloat(getComputedStyle(el).fontSize)||10;
             var lh=parseFloat(getComputedStyle(el).lineHeight)||fs+2;
             var ratio = lh/fs;
-            while(el.scrollHeight > el.clientHeight + 0.5 && fs > 6 && guard < 40){
+            function tooTall(){ return el.scrollHeight > el.clientHeight + 0.5; }
+            // tooWide: 1 từ đơn rộng hơn cột (overflow-wrap:normal nên KHÔNG bẻ
+            // giữa từ → từ tràn ngang) → scrollWidth > clientWidth.
+            function tooWide(){ return el.scrollWidth > el.clientWidth + 0.5; }
+            // Thu nhỏ khi tràn CHIỀU CAO (quá số dòng max-height) HOẶC CHIỀU NGANG
+            // (1 từ rộng hơn cột). guard 60 cho 2 chiều cùng cần giảm.
+            while((tooTall() || tooWide()) && fs > MIN_FS && guard < 60){
                 fs -= 0.5; el.style.fontSize = fs + 'px';
                 el.style.lineHeight = (fs*ratio).toFixed(1) + 'px';
                 guard++;
+            }
+            // CỨU CÁNH CUỐI: font đã chạm sàn mà 1 token bệnh lý (không khoảng
+            // trắng, vd SKU/từ dài) vẫn rộng hơn cột → cho phép bẻ giữa từ còn hơn
+            // bị cắt cụt mép phải (overflow:hidden). Bật break rồi chạy lại pass
+            // chiều cao vì bẻ thêm dòng có thể vượt max-height.
+            if (tooWide()){
+                el.style.overflowWrap = 'anywhere';
+                el.style.wordBreak = 'break-word';
+                guard = 0;
+                while(tooTall() && fs > MIN_FS && guard < 60){
+                    fs -= 0.5; el.style.fontSize = fs + 'px';
+                    el.style.lineHeight = (fs*ratio).toFixed(1) + 'px';
+                    guard++;
+                }
             }
         });
     }

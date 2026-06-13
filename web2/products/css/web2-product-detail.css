@@ -1,0 +1,470 @@
+/* #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 module. */
+/* =========================================================================
+   WEB 2.0 — KHO SP · Drawer chi tiết sản phẩm (slide-in phải)
+   Bấm vào 1 dòng SP → drawer trượt từ phải, tabs: Tổng quan / Đơn hàng /
+   Lịch sử / Sửa. Compositor-only transition (transform/opacity) theo
+   docs/web2/MODAL-ANTI-LAG.md. KHÔNG backdrop-filter blur, shadow ≤ 24px.
+   ========================================================================= */
+
+/* Hint: row bấm được */
+#productsTbody tr[data-code] {
+    cursor: pointer;
+}
+#productsTbody tr[data-code].w2pd-row-active {
+    background: #f5f3ff;
+}
+
+/* Overlay nền mờ */
+.w2pd-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.38);
+    opacity: 0;
+    transition: opacity var(--duration-normal, 240ms) ease;
+    z-index: 1200;
+    contain: layout style paint;
+}
+.w2pd-overlay.is-open {
+    opacity: 1;
+}
+
+/* Drawer panel */
+.w2pd-drawer {
+    position: fixed;
+    top: 0;
+    right: 0;
+    height: 100vh;
+    width: min(520px, 94vw);
+    background: #fff;
+    box-shadow: -8px 0 24px rgba(15, 23, 42, 0.18);
+    transform: translateX(100%);
+    transition: transform var(--duration-normal, 240ms) cubic-bezier(0.16, 1, 0.3, 1);
+    z-index: 1201;
+    display: flex;
+    flex-direction: column;
+    contain: layout style paint;
+    overscroll-behavior: contain;
+}
+.w2pd-drawer.is-open {
+    transform: translateX(0);
+}
+
+/* Header */
+.w2pd-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 18px;
+    border-bottom: 1px solid var(--gray-200, #e5e7eb);
+    background: linear-gradient(135deg, #7c3aed, #a855f7);
+    color: #fff;
+}
+.w2pd-head-img {
+    width: 52px;
+    height: 52px;
+    border-radius: 10px;
+    object-fit: cover;
+    background: rgba(255, 255, 255, 0.2);
+    flex-shrink: 0;
+}
+.w2pd-head-img-ph {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 52px;
+    height: 52px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.18);
+    flex-shrink: 0;
+}
+.w2pd-head-info {
+    flex: 1;
+    min-width: 0;
+}
+.w2pd-head-name {
+    font-weight: 700;
+    font-size: 15px;
+    line-height: 1.25;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+}
+.w2pd-head-code {
+    font-size: 12px;
+    opacity: 0.92;
+    margin-top: 2px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.w2pd-close {
+    border: none;
+    background: rgba(255, 255, 255, 0.2);
+    color: #fff;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    font-size: 20px;
+    line-height: 1;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background var(--duration-fast, 150ms) ease;
+}
+.w2pd-close:hover {
+    background: rgba(255, 255, 255, 0.34);
+}
+
+/* Tabs */
+.w2pd-tabs {
+    display: flex;
+    gap: 2px;
+    padding: 0 12px;
+    border-bottom: 1px solid var(--gray-200, #e5e7eb);
+    background: var(--gray-50, #f9fafb);
+    flex-shrink: 0;
+}
+.w2pd-tab {
+    appearance: none;
+    border: none;
+    background: transparent;
+    padding: 12px 14px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--gray-500, #6b7280);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: color var(--duration-fast, 150ms) ease;
+}
+.w2pd-tab:hover {
+    color: #7c3aed;
+}
+.w2pd-tab.is-active {
+    color: #6d28d9;
+    border-bottom-color: #7c3aed;
+}
+.w2pd-tab i {
+    width: 15px;
+    height: 15px;
+}
+.w2pd-tab-badge {
+    font-size: 11px;
+    background: #ede9fe;
+    color: #6d28d9;
+    border-radius: 999px;
+    padding: 1px 7px;
+    font-weight: 700;
+}
+
+/* Body (scroll) */
+.w2pd-body {
+    flex: 1;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 18px;
+    -webkit-overflow-scrolling: touch;
+}
+.w2pd-pane {
+    display: none;
+}
+.w2pd-pane.is-active {
+    display: block;
+}
+
+/* ── Tổng quan ── */
+.w2pd-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 16px;
+}
+.w2pd-stat {
+    background: var(--gray-50, #f9fafb);
+    border: 1px solid var(--gray-200, #e5e7eb);
+    border-radius: 10px;
+    padding: 10px 12px;
+}
+.w2pd-stat-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--gray-500, #6b7280);
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+.w2pd-stat-label i {
+    width: 13px;
+    height: 13px;
+}
+.w2pd-stat-value {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--gray-900, #111827);
+    margin-top: 3px;
+    word-break: break-word;
+}
+.w2pd-stat.span2 {
+    grid-column: 1 / -1;
+}
+.w2pd-stat-value.buy {
+    color: #0891b2;
+}
+.w2pd-stat-value.sell {
+    color: #dc2626;
+}
+.w2pd-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+}
+.w2pd-pill.ok {
+    background: #dcfce7;
+    color: #15803d;
+}
+.w2pd-pill.off {
+    background: #f1f5f9;
+    color: #64748b;
+}
+.w2pd-pill.warn {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+/* ── Đơn hàng / Lịch sử list ── */
+.w2pd-loading,
+.w2pd-empty {
+    text-align: center;
+    padding: 32px 16px;
+    color: var(--gray-500, #6b7280);
+    font-size: 13px;
+}
+.w2pd-camp {
+    margin-bottom: 14px;
+}
+.w2pd-camp-title {
+    font-size: 12px;
+    font-weight: 700;
+    color: #6d28d9;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 6px;
+}
+.w2pd-camp-title i {
+    width: 14px;
+    height: 14px;
+}
+.w2pd-order {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border: 1px solid var(--gray-200, #e5e7eb);
+    border-radius: 8px;
+    margin-bottom: 5px;
+    text-decoration: none;
+    color: var(--gray-800, #1f2937);
+    transition: border-color var(--duration-fast, 150ms) ease;
+}
+.w2pd-order:hover {
+    border-color: #a855f7;
+    background: #faf5ff;
+}
+.w2pd-order-stt {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--gray-500, #6b7280);
+    flex-shrink: 0;
+}
+.w2pd-order-cust {
+    flex: 1;
+    min-width: 0;
+    font-size: 13px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.w2pd-order-qty {
+    font-weight: 700;
+    color: #7c3aed;
+    flex-shrink: 0;
+}
+.w2pd-order-status {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-weight: 600;
+    flex-shrink: 0;
+}
+
+/* History timeline */
+.w2pd-hist {
+    display: flex;
+    gap: 10px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--gray-100, #f3f4f6);
+}
+.w2pd-hist-marker {
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+.w2pd-hist-body {
+    flex: 1;
+    min-width: 0;
+}
+.w2pd-hist-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+}
+.w2pd-hist-user {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    color: var(--gray-600, #4b5563);
+}
+.w2pd-hist-user i {
+    width: 11px;
+    height: 11px;
+}
+.w2pd-hist-source {
+    background: var(--gray-100, #f3f4f6);
+    color: var(--gray-500, #6b7280);
+    border-radius: 5px;
+    padding: 1px 6px;
+    font-size: 10px;
+}
+.w2pd-hist-time {
+    color: var(--gray-400, #9ca3af);
+    font-size: 11px;
+    margin-left: auto;
+}
+.w2pd-hist-field {
+    font-size: 12px;
+    margin-top: 4px;
+    color: var(--gray-700, #374151);
+    line-height: 1.5;
+}
+.w2pd-hist-field-name {
+    font-weight: 600;
+    color: var(--gray-500, #6b7280);
+}
+.w2pd-hist-before {
+    color: #dc2626;
+    text-decoration: line-through;
+    opacity: 0.8;
+}
+.w2pd-hist-after {
+    color: #15803d;
+    font-weight: 600;
+}
+
+/* ── Sửa chi tiết (inline form) ── */
+.w2pd-form-field {
+    margin-bottom: 14px;
+}
+.w2pd-form-field label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--gray-600, #4b5563);
+    margin-bottom: 5px;
+}
+.w2pd-form-field input,
+.w2pd-form-field textarea,
+.w2pd-form-field select {
+    width: 100%;
+    padding: 9px 11px;
+    border: 1px solid var(--gray-300, #d1d5db);
+    border-radius: 8px;
+    font-size: 14px;
+    font-family: inherit;
+    box-sizing: border-box;
+    transition: border-color var(--duration-fast, 150ms) ease;
+}
+.w2pd-form-field input:focus,
+.w2pd-form-field textarea:focus,
+.w2pd-form-field select:focus {
+    outline: none;
+    border-color: #7c3aed;
+    box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.14);
+}
+.w2pd-form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+.w2pd-form-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 18px;
+}
+.w2pd-btn {
+    flex: 1;
+    padding: 11px;
+    border-radius: 9px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    transition:
+        background var(--duration-fast, 150ms) ease,
+        opacity var(--duration-fast, 150ms) ease;
+}
+.w2pd-btn i {
+    width: 16px;
+    height: 16px;
+}
+.w2pd-btn-save {
+    background: linear-gradient(135deg, #7c3aed, #a855f7);
+    color: #fff;
+}
+.w2pd-btn-save:hover {
+    opacity: 0.92;
+}
+.w2pd-btn-save:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+.w2pd-btn-ghost {
+    background: var(--gray-100, #f3f4f6);
+    color: var(--gray-700, #374151);
+    flex: 0 0 auto;
+    padding-left: 16px;
+    padding-right: 16px;
+}
+.w2pd-btn-ghost:hover {
+    background: var(--gray-200, #e5e7eb);
+}
+.w2pd-form-hint {
+    font-size: 12px;
+    color: var(--gray-500, #6b7280);
+    margin-top: 12px;
+    text-align: center;
+}
+
+@media (max-width: 560px) {
+    .w2pd-grid,
+    .w2pd-form-row {
+        grid-template-columns: 1fr;
+    }
+}
