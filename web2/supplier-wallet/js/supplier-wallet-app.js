@@ -309,18 +309,25 @@
             tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:#94a3b8;padding:24px;">Không còn dòng nào để trả</td></tr>`;
         } else {
             tbody.innerHTML = available
-                .map(
-                    (
-                        p
-                    ) => `<tr data-row-id="${escapeHtml(p.rowId)}" data-cost="${p.costVnd}" data-qty="${p.qty}">
+                .map((p) => {
+                    // [12] (2026-06-13): SL CÒN LẠI = SL mua − SL đã trả tích luỹ
+                    // (returnedRowIds[rowId].qty). max/value/data-qty/total dùng remaining
+                    // → KHÔNG cho trả quá phần còn lại (tránh over-refund khi trả nhiều đợt).
+                    const already = Number(w.returnedRowIds[p.rowId]?.qty) || 0;
+                    const remaining = Math.max(0, (Number(p.qty) || 0) - already);
+                    const alreadyTag =
+                        already > 0
+                            ? ` <span style="color:#16a34a;font-size:11px;">(đã trả ${already})</span>`
+                            : '';
+                    return `<tr data-row-id="${escapeHtml(p.rowId)}" data-cost="${p.costVnd}" data-qty="${remaining}">
                 <td><input type="checkbox" class="sw-return-check" /></td>
                 <td>${escapeHtml(p.productName || '—')}</td>
                 <td>${escapeHtml(p.variant || '—')}</td>
-                <td class="num">${p.qty}</td>
-                <td class="num"><input type="number" class="sw-return-qty" min="0" max="${p.qty}" value="${p.qty}" /></td>
-                <td class="num sw-return-line-total">${fmtVnd(p.qty * p.costVnd)}</td>
-            </tr>`
-                )
+                <td class="num">${remaining}${alreadyTag}</td>
+                <td class="num"><input type="number" class="sw-return-qty" min="0" max="${remaining}" value="${remaining}" /></td>
+                <td class="num sw-return-line-total">${fmtVnd(remaining * p.costVnd)}</td>
+            </tr>`;
+                })
                 .join('');
         }
         recalcReturnTotal();

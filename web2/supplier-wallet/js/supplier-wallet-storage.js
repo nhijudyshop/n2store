@@ -222,9 +222,12 @@
             const rowReturns = txn.rowReturns || null;
             if (rowReturns) {
                 for (const [rid, v] of Object.entries(rowReturns)) {
+                    // [11] (2026-06-13): cộng dồn delta lần trả (optimistic local —
+                    // server /tx cũng cộng dồn; reload /state đọc lại bản accumulated).
+                    const prev = w.returnedRowIds[rid] || {};
                     w.returnedRowIds[rid] = {
-                        qty: Number(v?.qty) || 0,
-                        amount: Number(v?.amount) || 0,
+                        qty: (Number(prev.qty) || 0) + (Number(v?.qty) || 0),
+                        amount: (Number(prev.amount) || 0) + (Number(v?.amount) || 0),
                         ts: entry.ts,
                     };
                 }

@@ -803,13 +803,26 @@ router.get('/me', async (req, res) => {
         await ensureTables(pool);
         const token = String(req.query.token || req.headers['x-web2-token'] || '');
         if (!token) return res.status(401).json({ error: 'Thiếu token' });
-        const r = await pool.query(
-            `SELECT u.* FROM web2_user_sessions s
-                JOIN web2_users u ON u.id = s.user_id
-              WHERE (s.token_hash = $1 OR (s.token_hash IS NULL AND s.token = $2))
-                AND s.expires_at > $3 AND u.is_active = TRUE`,
-            [hashWeb2Token(token), token, Date.now()]
-        );
+        let r;
+        try {
+            r = await pool.query(
+                `SELECT u.* FROM web2_user_sessions s
+                    JOIN web2_users u ON u.id = s.user_id
+                  WHERE (s.token_hash = $1 OR (s.token_hash IS NULL AND s.token = $2))
+                    AND s.expires_at > $3 AND u.is_active = TRUE`,
+                [hashWeb2Token(token), token, Date.now()]
+            );
+        } catch (qe) {
+            if (qe && qe.code === '42703') {
+                // C7: cột token_hash chưa có (boot window) → verify plaintext.
+                r = await pool.query(
+                    `SELECT u.* FROM web2_user_sessions s
+                        JOIN web2_users u ON u.id = s.user_id
+                      WHERE s.token = $1 AND s.expires_at > $2 AND u.is_active = TRUE`,
+                    [token, Date.now()]
+                );
+            } else throw qe;
+        }
         if (!r.rows.length) return res.status(401).json({ error: 'Token không hợp lệ/hết hạn' });
         res.json({ success: true, user: mapRow(r.rows[0]) });
     } catch (e) {

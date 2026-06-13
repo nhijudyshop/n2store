@@ -13,7 +13,9 @@ const { processWithdrawal } = require('../routes/v2/pending-withdrawals');
 const { executeRefund, ensureRefundSchema } = require('../services/wallet-refund');
 const { cleanupOrderBuffer } = require('../routes/tpos-order-buffer');
 // B5 (2026-06-13): web2 notifications scan cron — pool web2Db (bảng web2_*).
-const web2DbPool = require('../db/web2-pool') || db;
+// KHÔNG fallback sang chatDb (db) — Web1⊥Web2: chatDb không có bảng web2_*; null →
+// cron skip (if !web2DbPool). Prod luôn có WEB2_DATABASE_URL nên pool tồn tại.
+const web2DbPool = require('../db/web2-pool');
 const { scanAndCreateNotifications } = require('../routes/v2/notifications');
 
 // Chạy mỗi giờ để expire virtual credits

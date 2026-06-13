@@ -1767,9 +1767,11 @@ router.post('/from-native-order', async (req, res) => {
                 } catch (txErr) {
                     if (_isUniqueViolation(txErr)) {
                         // number trùng → tăng split suffix rồi thử lại. Giữ đúng quy ước
-                        // "src.code-N": nếu chưa có suffix thì bắt đầu từ -(splitIndex+attempt+2).
+                        // "src.code-N". [5] (2026-06-13): bump CẢ lockedSplitIndex để
+                        // split_index khớp suffix number (tránh lệch khi retry hiếm).
                         lastErr = txErr;
-                        insertNumber = `${src.code}-${lockedSplitIndex + attempt + 1}`;
+                        lockedSplitIndex = lockedSplitIndex + 1;
+                        insertNumber = `${src.code}-${lockedSplitIndex}`;
                         continue;
                     }
                     throw txErr;

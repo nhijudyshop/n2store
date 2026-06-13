@@ -317,15 +317,29 @@ function _scopeCacheSet(token, val) {
 async function _resolveUserFromToken(pool, token) {
     if (!token) return null;
     try {
-        const r = await pool.query(
-            `SELECT u.id, u.role, u.display_name, u.username
-             FROM web2_user_sessions s
-             JOIN web2_users u ON u.id = s.user_id
-             WHERE (s.token_hash = $1 OR (s.token_hash IS NULL AND s.token = $2))
-               AND s.expires_at > $3 AND u.is_active = TRUE
-             LIMIT 1`,
-            [hashWeb2Token(token), token, Date.now()]
-        );
+        let r;
+        try {
+            r = await pool.query(
+                `SELECT u.id, u.role, u.display_name, u.username
+                 FROM web2_user_sessions s
+                 JOIN web2_users u ON u.id = s.user_id
+                 WHERE (s.token_hash = $1 OR (s.token_hash IS NULL AND s.token = $2))
+                   AND s.expires_at > $3 AND u.is_active = TRUE
+                 LIMIT 1`,
+                [hashWeb2Token(token), token, Date.now()]
+            );
+        } catch (qe) {
+            if (qe && qe.code === '42703') {
+                r = await pool.query(
+                    `SELECT u.id, u.role, u.display_name, u.username
+                     FROM web2_user_sessions s
+                     JOIN web2_users u ON u.id = s.user_id
+                     WHERE s.token = $1 AND s.expires_at > $2 AND u.is_active = TRUE
+                     LIMIT 1`,
+                    [token, Date.now()]
+                );
+            } else throw qe;
+        }
         if (!r.rows.length) return null;
         return {
             id: r.rows[0].id,
