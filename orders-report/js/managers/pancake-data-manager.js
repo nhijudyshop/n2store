@@ -179,8 +179,11 @@ class PancakeDataManager {
 
             let data = await res.json();
 
-            // Token error → retry with fresh token
-            if (data.error_code === 105 || data.error_code === 100) {
+            // Token error → retry once with a fresh token.
+            // 102 = "Invalid access_token" (token hết hạn) — trước đây KHÔNG được
+            // xử lý → fetchPages trả [] âm thầm → pages rỗng → chat hiện nhầm
+            // "Khách chưa có SĐT" + tên page ra ID thô. Gộp 102 vào nhánh retry.
+            if (data.error_code === 105 || data.error_code === 100 || data.error_code === 102) {
                 const newToken = await this.tm?.getToken?.(true);
                 if (newToken) {
                     const url2 = PancakeApiConfig.buildUrl.pancake(
@@ -196,15 +199,29 @@ class PancakeDataManager {
                 this.pages = data.categorized.activated.filter((p) => !p.id.startsWith('igo_'));
                 this.pageIds = this.pages.map((p) => p.id);
                 this._lastPageFetch = Date.now();
+                this.pagesLoadError = null; // clear: load thành công
                 // Extract page_access_tokens from pages response
                 if (this.tm?.extractPageTokensFromPages) {
                     this.tm.extractPageTokensFromPages(this.pages);
                 }
                 return this.pages;
             }
+            // Load KHÔNG thành công (vd token invalid 102 vẫn sau retry). Ghi lại
+            // lý do để caller phân biệt "không tải được page" vs "không có conv".
+            this.pagesLoadError = {
+                code: data.error_code || null,
+                message: data.message || 'pages response không hợp lệ',
+                at: Date.now(),
+            };
+            console.warn('[PDM] fetchPages: pages không load được —', this.pagesLoadError);
             return [];
         } catch (e) {
             console.error('[PDM] fetchPages error:', e);
+            this.pagesLoadError = {
+                code: 'EXCEPTION',
+                message: e?.message || String(e),
+                at: Date.now(),
+            };
             return [];
         }
     }

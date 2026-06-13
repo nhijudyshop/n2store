@@ -2,6 +2,30 @@
 
 ## 2026-06-13
 
+### [chat] Fix triệt để "Khách chưa có SĐT" giả — gốc là pages Pancake không load (token 102) ✅
+
+**User:** "debug sửa triệt để lỗi này" — chat liên tục hiện "Khách chưa có SĐT trên 270136663390370".
+
+**Debug live (Playwright + feval trong iframe tab1-orders):**
+
+- Manh mối: page hiện ra **ID thô `270136663390370`** thay vì tên → `270136663390370` chính là **NhiJudy Store** (theo `n2store-extension/.../pancake-bump.js`). ID thô = `pdm.pages` rỗng lúc mở chat.
+- Inspect: `pdm.pages=[]`, `pageIds=[]`, `_lastPageFetch=null` dù token có. Gọi raw `/api/pancake/pages` → **`{error_code:102, message:"Invalid access_token", success:false}`**.
+- `fetchPages` chỉ retry token khi error_code **100/105**, KHÔNG xử lý **102** → trả `[]` âm thầm → pages rỗng → lookup conv thiếu ngữ cảnh page → trượt hết → hiện nhầm "Khách chưa có SĐT" (thực ra token Pancake hết hạn / pages chưa load).
+
+**Fix (orders-report, Web 1.0 — additive, có điều kiện nên an toàn):**
+
+1. [pancake-data-manager.js](../orders-report/js/managers/pancake-data-manager.js) `fetchPages`: gộp **102** vào nhánh retry-với-token-mới (cùng 100/105); khi vẫn fail → set `this.pagesLoadError = {code,message,at}` để caller phân biệt "không tải được page" vs "không có conv".
+2. [tab1-chat-core.js](../orders-report/js/tab1/tab1-chat-core.js):
+    - **Self-heal** đầu `_doFindAndLoadConversation`: nếu `pdm.pages` rỗng → `await pdm.fetchPages(true)` 1 lần (sửa race mở chat trước khi pages load xong).
+    - Nhánh `!conv`: nếu pages vẫn rỗng → `_renderPagesNotLoadedState()` **"🔑 Chưa tải được danh sách trang Pancake — token hết hạn, Thử lại / tải lại trang"** (kèm mã lỗi), thay vì "Khách chưa có SĐT". Thứ tự: pages-rỗng → backend-down → phone-setter.
+    - `_resolvePageName()` + `_KNOWN_PAGES` map (`270136663390370→NhiJudy Store`, `117267091364524→Nhi Judy House`) → KHÔNG bao giờ hiện ID thô nữa (dùng ở 3 chỗ pageName).
+
+**Test live:** `openChatModal(...)` với pages rỗng (token 102 trên session test) → render đúng "🔑 Chưa tải được danh sách trang Pancake… token Pancake hết hạn…" + `pagesLoadError={code:102}` + có nút Thử lại ✅.
+
+**⚠ Giới hạn:** token Pancake invalid (102) là nguyên nhân _thật_ khiến pages không load — fix này làm thông điệp ĐÚNG + tự thử lại + không hiện ID thô, NHƯNG để chat hoạt động lại hoàn toàn cần **token Pancake hợp lệ** (re-auth/refresh nguồn token). Test trên session localhost khôi phục từ secret (có thể cũ) nên trạng thái token có thể nặng hơn prod.
+
+**Status:** ✅ Done (code). Cần xác nhận cơ chế refresh token Pancake để dứt điểm root.
+
 ### [orders] In PBH — "Người bán" theo "Tên hiển thị" của tài khoản TPOS đang dùng ✅
 
 **User:** "Nút [In hàng loạt PBH] sẽ in lại theo tên người bán cập nhật theo [modal Tài khoản TPOS, ô Tên hiển thị] → tên người bán ở bill." Chọn: dùng "Tên hiển thị" (label) account đang chọn làm tên Người bán; áp dụng CẢ batch lẫn in lẻ.

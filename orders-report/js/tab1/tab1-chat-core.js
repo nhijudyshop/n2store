@@ -328,6 +328,47 @@ function _renderBackendDownState() {
         </div>`;
 }
 
+// Known Pancake pages — fallback khi pdm.pages chưa load (token Pancake hết
+// hạn / race lúc mở chat) nên không resolve được tên → tránh hiện ID thô như
+// "270136663390370". Nguồn: n2store-extension/content/pancake-bump.js.
+const _KNOWN_PAGES = {
+    270136663390370: 'NhiJudy Store',
+    117267091364524: 'Nhi Judy House',
+};
+
+function _resolvePageName(pageId) {
+    const pdm = window.pancakeDataManager;
+    const fromPdm = (pdm?.pages || []).find((p) => String(p.id) === String(pageId))?.name;
+    return fromPdm || _KNOWN_PAGES[pageId] || pageId;
+}
+
+/**
+ * Empty-state khi danh sách trang Pancake (pdm.pages) KHÔNG load được — gần như
+ * luôn do token Pancake hết hạn (API trả error_code 102) hoặc mở chat trước khi
+ * pages load xong. Đây là nguyên nhân thật của "Khách chưa có SĐT" giả: pages
+ * rỗng → lookup không có ngữ cảnh page → trượt hết. Cho user thông điệp ĐÚNG +
+ * nút tải lại, thay vì đổ lỗi khách thiếu SĐT.
+ */
+function _renderPagesNotLoadedState(reason) {
+    const detail = reason?.code
+        ? `Mã lỗi Pancake: ${_escapeHtml ? _escapeHtml(String(reason.code)) : reason.code}`
+        : '';
+    return `
+        <div class="chat-empty-state" style="text-align:center;padding:32px 18px;color:#475569;">
+            <div style="font-size:40px;margin-bottom:8px;">🔑</div>
+            <p style="margin:0 0 6px;font-weight:600;color:#d97706;">Chưa tải được danh sách trang Pancake</p>
+            <p style="margin:0 0 16px;color:#6b7280;font-size:13px;line-height:1.5;">
+                Thường do token Pancake hết hạn. Đây không phải khách thiếu SĐT —
+                bấm Thử lại; nếu vẫn lỗi, tải lại trang (hoặc đăng nhập lại Pancake).
+            </p>
+            <button type="button" onclick="window.openChatModal(...(window._chatRetryArgs||[]))"
+                style="padding:8px 20px;background:#3b82f6;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:600;">
+                🔄 Thử lại
+            </button>
+            ${detail ? `<div style="margin-top:10px;font-size:11px;color:#9ca3af;">${detail}</div>` : ''}
+        </div>`;
+}
+
 async function _setPhoneForCurrentCustomer(targetPageId, phone) {
     const fbId = window.currentChatPSID || null;
     const globalId = window.currentConversationData?.customers?.[0]?.global_id || null;
@@ -1156,6 +1197,19 @@ async function _doFindAndLoadConversation(pageId, psid, type, loadToken, opts) {
     const pdm = window.pancakeDataManager;
     if (!pdm) throw new Error('pancakeDataManager not available');
 
+    // Self-heal: nếu danh sách trang Pancake chưa load (mở chat trước khi
+    // fetchPages xong, hoặc token vừa hết hạn) thì lookup sẽ thiếu ngữ cảnh
+    // page → trượt hết → hiện nhầm "Khách chưa có SĐT". Thử load 1 lần ở đây.
+    // Nếu vẫn rỗng → nhánh !conv bên dưới sẽ hiện đúng "chưa tải được trang".
+    if ((!pdm.pages || pdm.pages.length === 0) && typeof pdm.fetchPages === 'function') {
+        try {
+            await pdm.fetchPages(true);
+        } catch (_) {
+            /* để nhánh !conv xử lý empty-state */
+        }
+        if (loadToken != null && loadToken !== window._chatLoadSeq) return;
+    }
+
     // Reset picker carry-over from a previous lookup. The name-search block
     // below sets this only when it detects homonym ambiguity; clearing here
     // ensures we don't render a stale picker if this lookup resolves cleanly.
@@ -1764,8 +1818,7 @@ async function _doFindAndLoadConversation(pageId, psid, type, loadToken, opts) {
     if (!conv) {
         const messagesEl = document.getElementById('chatMessages');
         if (messagesEl) {
-            const pageName =
-                (pdm.pages || []).find((p) => String(p.id) === String(pageId))?.name || pageId;
+            const pageName = _resolvePageName(pageId);
             // Owner-requested 2026-05-11: when no conv resolves (typically because
             // the customer's phone hasn't been captured on the target page yet so
             // our phone-based lookup chain can't find them), surface a "Khách
@@ -1811,15 +1864,27 @@ async function _doFindAndLoadConversation(pageId, psid, type, loadToken, opts) {
                 // a Render redeploy". Probe reachability to tell them apart and
                 // avoid the misleading "Khách chưa có SĐT" when it's really an
                 // outage/restart window.
-                const reachable = await _probeBackendReachable();
-                if (_isStale()) return; // a newer chat-open superseded us
-                if (!reachable) {
-                    messagesEl.innerHTML = _renderBackendDownState();
+                // Ưu tiên 1: pages Pancake chưa load (token hết hạn / 102) —
+                // nguyên nhân thật phổ biến nhất của "chưa có SĐT" giả. Đã thử
+                // self-heal fetchPages ở đầu hàm; nếu vẫn rỗng → báo đúng.
+                if (!pdm.pages || pdm.pages.length === 0) {
+                    messagesEl.innerHTML = _renderPagesNotLoadedState(pdm.pagesLoadError);
                 } else {
-                    messagesEl.innerHTML = showPhoneSetter
-                        ? _renderSetPhoneEmptyState(safePageName, { persisted })
-                        : '<div class="chat-empty-state"><p>Không tìm thấy cuộc hội thoại với khách hàng này.</p></div>';
-                    if (showPhoneSetter) _wireSetPhoneEmptyState(pageId);
+                    // The lookup chain swallows network errors, so a null `conv`
+                    // can mean EITHER "no phone mapping" OR "backend was down during
+                    // a Render redeploy". Probe reachability to tell them apart and
+                    // avoid the misleading "Khách chưa có SĐT" when it's really an
+                    // outage/restart window.
+                    const reachable = await _probeBackendReachable();
+                    if (_isStale()) return; // a newer chat-open superseded us
+                    if (!reachable) {
+                        messagesEl.innerHTML = _renderBackendDownState();
+                    } else {
+                        messagesEl.innerHTML = showPhoneSetter
+                            ? _renderSetPhoneEmptyState(safePageName, { persisted })
+                            : '<div class="chat-empty-state"><p>Không tìm thấy cuộc hội thoại với khách hàng này.</p></div>';
+                        if (showPhoneSetter) _wireSetPhoneEmptyState(pageId);
+                    }
                 }
             }
         }
@@ -2607,8 +2672,7 @@ function _appendConvPickerBelow(convs, pageId, loadToken) {
     if (!messagesEl) return;
 
     const pdm = window.pancakeDataManager;
-    const pageName =
-        (pdm?.pages || []).find((p) => String(p.id) === String(pageId))?.name || pageId;
+    const pageName = _resolvePageName(pageId);
 
     let html = `<div class="chat-conv-picker" style="border-top:1px solid var(--ap-outline-variant);margin-top:12px;padding-top:12px;">
         <div class="chat-conv-picker-title">Đoạn hội thoại khác trên ${_escapeHtml(pageName)}</div>`;
@@ -2657,8 +2721,7 @@ function _showConversationPicker(convs, pageId, loadToken) {
     if (!messagesEl) return;
 
     const pdm = window.pancakeDataManager;
-    const pageName =
-        (pdm?.pages || []).find((p) => String(p.id) === String(pageId))?.name || pageId;
+    const pageName = _resolvePageName(pageId);
 
     let html = `<div class="chat-conv-picker">
         <div class="chat-conv-picker-title">Chọn cuộc hội thoại trên ${_escapeHtml(pageName)}</div>`;
