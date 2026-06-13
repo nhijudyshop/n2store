@@ -3,22 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `bed1cb3` — fix(web2): Batch 5b audit — C7 token hash at-rest (zero-lockout, backward-compat)
-**Last updated**: 2026-06-13 14:55:12 +07
-**Latest session**: [`RESUME:20260613-145512-bed1cb3`](../20260613-145512-bed1cb3.md)
-**Summary**: fix(web2): Batch 5b audit — C7 token hash at-rest (zero-lockout, backward-compat)
+**Latest commit**: `b64a5da` — auto: session update
+**Last updated**: 2026-06-13 14:57:34 +07
+**Latest session**: [`RESUME:20260613-145734-b64a5da`](../20260613-145734-b64a5da.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`cloudflare-worker/`](./cloudflare-worker.md) — 2 file(s)
-- [`docs/`](./docs.md) — 1 file(s)
-- [`don-inbox/`](./don-inbox.md) — 1 file(s)
-- [`facebook-services/`](./facebook-services.md) — 1 file(s)
-- [`invoice-compare/`](./invoice-compare.md) — 1 file(s)
-- [`orders-report/`](./orders-report.md) — 2 file(s)
-- [`render.com/`](./render.com.md) — 18 file(s)
-- [`shared/`](./shared.md) — 1 file(s)
-- [`web2/`](./web2.md) — 6 file(s)
+- [`docs/`](./docs.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -33,7 +25,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-13 14:55
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-13 14:33
-- [`docs/`](./docs.md) — updated 2026-06-13 14:55
+- [`docs/`](./docs.md) — updated 2026-06-13 14:57
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-13 14:55
 - [`downloads/`](./downloads.md) — updated 2026-06-12 20:06
