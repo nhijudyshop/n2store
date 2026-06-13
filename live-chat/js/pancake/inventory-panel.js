@@ -273,10 +273,15 @@
             e.dataTransfer.setData('application/x-web2-product', card.getAttribute('data-product'));
             e.dataTransfer.effectAllowed = 'copy';
             card.classList.add('dragging');
+            // Báo comment-list HOÃN re-render trong lúc kéo: enrichment/SSE churn
+            // DOM (replaceWith / innerHTML='' / outerHTML) hủy drop target dưới con
+            // trỏ → drop trượt hoặc rơi nhầm dòng + giật. dragend xả lại (live-comment-list).
+            if (global.LiveState) global.LiveState._dragActive = true;
         });
         root.addEventListener('dragend', (e) => {
             const card = e.target.closest('.inv-card');
             if (card) card.classList.remove('dragging');
+            if (global.LiveState) global.LiveState._dragActive = false;
         });
     }
 
@@ -324,6 +329,9 @@
                 _lastHoverRow.classList.remove('inv-drop-hover');
                 _lastHoverRow = null;
             }
+            // Belt-and-suspenders: cờ luôn được tắt khi kết thúc kéo (kể cả khi
+            // drag bị hủy ngoài vùng drop). comment-list cũng tự tắt + xả ở dragend.
+            if (global.LiveState) global.LiveState._dragActive = false;
         });
         document.addEventListener('drop', (e) => {
             const row = e.target.closest('.live-conversation-item');

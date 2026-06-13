@@ -846,8 +846,6 @@
             return;
         }
         const lines = [];
-        let addedQty = 0;
-        let addedAmount = 0;
         for (const aggId of PICKER_STATE.selectedCodes) {
             const it = PICKER_STATE.items.find((x) => x.aggId === aggId);
             if (!it) continue;
@@ -856,18 +854,30 @@
             const nameWithVariant = it.variant ? `${it.name} (${it.variant})` : it.name;
             const price = Number(it.price) || 0;
             lines.push(`${it.code} | ${nameWithVariant} | ${qty} | ${price}`);
-            addedQty += qty;
-            addedAmount += qty * price;
         }
         const textarea = $('prForm').elements['productsText'];
         const existing = (textarea.value || '').trim();
         textarea.value = existing ? `${existing}\n${lines.join('\n')}` : lines.join('\n');
 
-        // Auto fill totalQty + totalAmount nếu trống
+        // C11 (2026-06-13): recompute totalQty + totalAmount từ TOÀN BỘ textarea
+        // (gồm cả các lần pick trước), KHÔNG chỉ batch hiện tại. Trước đây chỉ điền
+        // batch cuối + guard `!value` → pick nhiều lần ⇒ tổng thiếu ⇒ trừ ví NCC
+        // sai. Picker là nguồn chuẩn của danh sách → set đè; muốn tổng tuỳ chỉnh
+        // (chiết khấu) thì sửa tay SAU lần pick cuối. Dòng format: `code|name|qty|price`.
         const qtyInp = $('prForm').elements['totalQty'];
         const amtInp = $('prForm').elements['totalAmount'];
-        if (qtyInp && !qtyInp.value) qtyInp.value = addedQty;
-        if (amtInp && !amtInp.value) amtInp.value = addedAmount;
+        let totalQtyAll = 0;
+        let totalAmountAll = 0;
+        for (const line of textarea.value.split('\n')) {
+            const parts = line.split('|').map((s) => s.trim());
+            if (parts.length < 4) continue;
+            const lq = Number(parts[2]) || 0;
+            const lp = Number(parts[3]) || 0;
+            totalQtyAll += lq;
+            totalAmountAll += lq * lp;
+        }
+        if (qtyInp) qtyInp.value = totalQtyAll;
+        if (amtInp) amtInp.value = totalAmountAll;
 
         closePicker();
         notify(`✓ Đã thêm ${lines.length} SP vào danh sách`, 'success');
@@ -1150,13 +1160,17 @@
 
         const userInfo = _currentUserInfo();
         try {
-            // Step 1: tạo phiếu draft + seed history với entry "create"
-            const createPayload = {
-                code: refundCode,
-                name: refundName,
-                createdBy: userInfo.userId,
-                data: {
-                    supplierName: item.supplier,
+            // C9 (2026-06-13): 1 LẦN GỌI ATOMIC thay 3 bước rời (create→approve→
+            // wallet). Server tạo phiếu (approved) + trừ kho + ghi ledger ví NCC
+            // trong 1 transaction → approve fail KHÔNG còn để lại phiếu draft mồ côi.
+            const productName = item.variant ? `${item.name} (${item.variant})` : item.name;
+            await fetchJson(`${SM_API}/quick-refund`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    code: refundCode,
+                    name: refundName,
+                    supplier: item.supplier,
                     supplierCode: null,
                     refundDate: today.toISOString().slice(0, 10),
                     reason,
@@ -1164,80 +1178,20 @@
                     totalQty: qty,
                     totalAmount: amount,
                     note,
-                    products: [
-                        {
-                            code: item.code,
-                            name: item.variant ? `${item.name} (${item.variant})` : item.name,
-                            qty,
-                            price,
-                        },
-                    ],
-                    status: 'draft',
+                    products: [{ code: item.code, name: productName, qty, price }],
                     sourcePurchaseCode: item.sources?.[0]?.ship || null,
-                    createdByName: userInfo.userName,
-                    history: [
-                        {
-                            ts: Date.now(),
-                            action: 'create',
-                            userId: userInfo.userId,
-                            userName: userInfo.userName,
-                            note: `Tạo phiếu trả ${qty}× ${item.name}${item.variant ? ' (' + item.variant + ')' : ''} cho ${item.supplier}`,
-                        },
-                    ],
-                },
-            };
-            await fetchJson(`${GENERIC_API}/create`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(createPayload),
-            });
-
-            // Step 2: auto-approve → trừ stock + server append history entry
-            await fetchJson(`${SM_API}/${encodeURIComponent(refundCode)}/approve`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
                     userId: userInfo.userId,
                     userName: userInfo.userName,
-                    sourcePage: userInfo.sourcePage,
                 }),
             });
 
-            // Step 3 + 4: cập nhật Ví NCC (supplier wallet) — note có user.
-            // C6 fix 2026-06-11: tách try/catch riêng — phiếu + trừ kho đã xong
-            // ở step 1-2, lỗi ví KHÔNG được nuốt mất thông báo thành công của
-            // phiếu (trước đây rơi vào catch ngoài → toast "Trả NCC thất bại"
-            // dù phiếu đã tạo + approve OK).
-            let walletError = null;
-            try {
-                await updateSupplierWallet(item.supplier, {
-                    amount,
-                    refundCode,
-                    qty,
-                    productName: item.name,
-                    variant: item.variant,
-                    method,
-                    userId: userInfo.userId,
-                    userName: userInfo.userName,
-                });
-            } catch (we) {
-                walletError = we;
-                console.error('[quick refund] wallet update fail:', we);
-            }
-
-            if (walletError) {
-                notify(
-                    `Phiếu ${refundCode} OK (đã trừ kho) nhưng ghi ví NCC lỗi: ${walletError.message}`,
-                    'warning'
-                );
-            } else {
-                notify(
-                    `✓ Đã trả ${qty} ${item.name} cho ${item.supplier} — giảm ví NCC ${fmtMoney(amount)}`,
-                    'success'
-                );
-            }
+            notify(
+                `✓ Đã trả ${qty} ${item.name} cho ${item.supplier} — giảm ví NCC ${fmtMoney(amount)}`,
+                'success'
+            );
             closeQuickRefund();
-            // Reload section A (stock đã giảm) + section B (phiếu mới)
+            // Reload section A (stock đã giảm) + section B (phiếu mới). Ví NCC cập
+            // nhật realtime qua SSE web2:supplier-wallet (server đã _notify).
             await loadSourceItems();
             await loadList();
         } catch (e) {

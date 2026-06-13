@@ -612,7 +612,9 @@
     border-color: #f87171;
 }
 
-/* Undo toast (sticky 5s với nút hoàn tác) */
+/* Undo toast (sticky 5s với nút hoàn tác). Dời ra GIỮA-dưới: nút "Hoàn tác" là
+   actionable, KHÔNG được nằm dưới iframe FB live floating (góc dưới-phải) — center
+   tránh hẳn vùng video + dễ thấy. Override right/animation của base .inv-toast. */
 .inv-toast-undo {
     background: #1c1f25 !important;
     padding: 10px 14px !important;
@@ -620,6 +622,20 @@
     align-items: center;
     gap: 12px;
     max-width: 480px;
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+    animation: invToastUndoSlide 180ms ease;
+}
+@keyframes invToastUndoSlide {
+    from {
+        opacity: 0;
+        transform: translate(-50%, 16px);
+    }
+    to {
+        opacity: 1;
+        transform: translate(-50%, 0);
+    }
 }
 .inv-toast-undo .inv-toast-msg {
     flex: 1;
@@ -659,7 +675,9 @@
     position: fixed;
     bottom: 24px;
     right: 24px;
-    z-index: 10000;
+    /* Trên iframe FB live floating (z-index 99000, góc dưới-phải) + snap chip
+       (99500) để toast không bị video đè. Dưới snap modal blocking (99998+). */
+    z-index: 99600;
     padding: 10px 16px;
     border-radius: 8px;
     background: #1c1f25;

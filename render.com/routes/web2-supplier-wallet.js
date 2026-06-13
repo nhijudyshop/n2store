@@ -447,4 +447,8 @@ router.delete('/supplier/:name', async (req, res) => {
     }
 });
 
+// C9 (2026-06-13): export ensureTables để purchase-refund /quick-refund (atomic
+// create+approve+ledger) tạo bảng ledger nếu cold-start chưa có. Không đổi hành vi.
+router.ensureLedgerTables = ensureTables;
+
 module.exports = router;

@@ -365,6 +365,36 @@ const LiveCommentList = {
         }
 
         this._bindListDelegation();
+
+        // Kéo SP vào comment: dragstart (inventory-panel) bật LiveState._dragActive
+        // → mọi re-render bị hoãn (tránh hủy drop target + giật). dragend → xả phần
+        // đã hoãn. Bind 1 LẦN trên document (guard tránh leak listener).
+        if (!this._dragEndFlushHandler) {
+            this._dragEndFlushHandler = () => this._flushDeferredAfterDrag();
+            document.addEventListener('dragend', this._dragEndFlushHandler);
+        }
+    },
+
+    /**
+     * Xả các re-render đã hoãn trong lúc kéo SP. Gọi khi dragend (mọi loại kéo —
+     * nếu không có gì hoãn thì no-op). Tắt cờ trước, rồi replay prepend SSE đã
+     * buffer + render lại nếu có dispatch bị hoãn.
+     */
+    _flushDeferredAfterDrag() {
+        if (window.LiveState) window.LiveState._dragActive = false;
+        const buffered = this._dragDeferredPrepend;
+        this._dragDeferredPrepend = null;
+        if (buffered && buffered.length) {
+            try {
+                this.prependComments(buffered);
+            } catch (e) {
+                console.warn('[LiveCommentList] flush prepend fail:', e.message);
+            }
+        }
+        if (this._renderDeferred) {
+            this._renderDeferred = false;
+            this.renderComments();
+        }
     },
 
     /**
@@ -759,6 +789,13 @@ const LiveCommentList = {
      */
     _renderDispatch() {
         const state = window.LiveState;
+        // Đang KÉO SP từ Kho vào comment → KHÔNG churn DOM (full wipe / replaceWith
+        // hủy drop target dưới con trỏ → drop trượt hoặc sai dòng + giật). Hoãn,
+        // dragend (setupEventHandlers → _flushDeferredAfterDrag) sẽ render lại.
+        if (state?._dragActive) {
+            this._renderDeferred = true;
+            return;
+        }
         const listContainer = document.getElementById('liveCommentList');
         if (!listContainer) return;
         // Full render chunked đang chạy → KHÔNG cắt (cắt = restart từ 0 = thrash,
@@ -809,6 +846,12 @@ const LiveCommentList = {
         const gen = (this._renderGen = this._renderGen || 0);
         let i = 0;
         const step = () => {
+            // Drag bắt đầu giữa chừng → tạm dừng patch (replaceWith) tới khi thả,
+            // tránh thay dòng đích dưới con trỏ. Poll nhẹ 150ms (không busy-loop).
+            if (window.LiveState?._dragActive) {
+                this._chunkHandle = setTimeout(step, 150);
+                return;
+            }
             if (gen !== this._renderGen) {
                 this._chunkHandle = null;
                 return;
@@ -885,6 +928,12 @@ const LiveCommentList = {
         listContainer.innerHTML = '';
         let i = 0;
         const step = () => {
+            // Drag bắt đầu giữa chừng → tạm dừng append tới khi thả (giữ DOM ổn
+            // định cho drop target). Poll nhẹ 150ms.
+            if (window.LiveState?._dragActive) {
+                this._fullRenderHandle = setTimeout(step, 150);
+                return;
+            }
             const parts = [];
             const end = Math.min(i + CHUNK, comments.length);
             for (; i < end; i++) parts.push(this.renderCommentItem(comments[i]));
@@ -925,6 +974,14 @@ const LiveCommentList = {
         if (!Array.isArray(newComments) || newComments.length === 0) return;
         const listContainer = document.getElementById('liveCommentList');
         if (!listContainer) return;
+
+        // Đang KÉO SP → buffer comment SSE tới, replay sau dragend. Giữ list ổn
+        // định trong lúc kéo (chèn fresh-row / outerHTML patch giữa chừng sẽ hủy
+        // drop target dưới con trỏ → drop trượt). Comment chỉ trễ ~vài giây.
+        if (state?._dragActive) {
+            (this._dragDeferredPrepend || (this._dragDeferredPrepend = [])).push(...newComments);
+            return;
+        }
 
         // Tách incoming thành FRESH (id chưa có) và UPDATE (id đã có — H11:
         // poller fill phone/has_order/sửa message; cursor updated_at re-fetch

@@ -24,6 +24,8 @@
 
 const express = require('express');
 const router = express.Router();
+// C9: dùng ensureLedgerTables để /quick-refund tạo bảng ledger nếu cold-start.
+const supplierWalletRoutes = require('./web2-supplier-wallet');
 
 // -----------------------------------------------------
 // SSE notifier injected từ server.js. Topic 'web2:purchase-refund'.
@@ -256,6 +258,181 @@ router.post('/:code/approve', async (req, res) => {
             } catch (_) {}
         }
         console.error('[PURCHASE-REFUND] /approve error:', e.message);
+        res.status(500).json({ error: e.message });
+    } finally {
+        client.release();
+    }
+});
+
+// -----------------------------------------------------
+// C9 (2026-06-13): POST /quick-refund — ATOMIC create + approve + ghi ví NCC.
+// TRƯỚC đây client gọi 3 bước rời (create → approve → wallet); nếu approve FAIL
+// sau create → để lại phiếu draft MỒ CÔI (kho chưa trừ, ví chưa ghi, list rối).
+// Giờ gộp 1 transaction: tạo phiếu (status=approved) + trừ kho + ghi ledger ví
+// NCC (type=return). Lỗi bất kỳ → ROLLBACK trọn → KHÔNG còn draft mồ côi.
+// Idempotent: record theo (entity_slug, code); ledger theo txId=tx-refund-<code>.
+// KHÔNG đụng /tx live (inline ledger pattern để zero-regression money path).
+// Body: { code, name?, supplier|supplierName, supplierCode?, refundDate?, reason?,
+//   refundMethod?, totalQty?, totalAmount, note?, products:[{code,name,qty,price}],
+//   sourcePurchaseCode?, userId?, userName?, rowReturns? }
+// -----------------------------------------------------
+router.post('/quick-refund', async (req, res) => {
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
+    if (!pool) return res.status(500).json({ error: 'DB unavailable' });
+    const b = req.body || {};
+    const code = String(b.code || '').trim();
+    const supplier = String(b.supplier || b.supplierName || '').trim();
+    if (!code) return res.status(400).json({ error: 'code required' });
+    if (!supplier) return res.status(400).json({ error: 'supplier required' });
+    const products = parseProducts(b.products);
+    const lines = normalizeLines(products);
+    if (lines.size === 0)
+        return res.status(400).json({ error: 'products rỗng (không có SP hợp lệ)' });
+    const amount = Number(b.totalAmount) || 0;
+    if (amount <= 0) return res.status(400).json({ error: 'totalAmount phải > 0' });
+    const userName = b.userName || '(ẩn danh)';
+    const userId = b.userId || null;
+    const now = Date.now();
+    const txId = `tx-refund-${code}`;
+
+    // Cold-start: đảm bảo bảng ledger NCC tồn tại (best-effort, không chặn).
+    try {
+        await supplierWalletRoutes.ensureLedgerTables(pool);
+    } catch (e) {
+        console.warn('[PURCHASE-REFUND] ensureLedgerTables warn:', e.message);
+    }
+
+    const client = await pool.connect();
+    let committed = false;
+    try {
+        await client.query('BEGIN');
+
+        // 1. Tạo phiếu (approved + stock_deducted) — idempotent theo (entity_slug, code).
+        const data = {
+            supplierName: supplier,
+            supplierCode: b.supplierCode || null,
+            refundDate: b.refundDate || new Date(now).toISOString().slice(0, 10),
+            reason: b.reason || '',
+            refundMethod: b.refundMethod || '',
+            totalQty: Number(b.totalQty) || 0,
+            totalAmount: amount,
+            note: b.note || '',
+            products,
+            status: 'approved',
+            stock_deducted: true,
+            approved_at: now,
+            approved_by: userName,
+            approved_by_id: userId,
+            sourcePurchaseCode: b.sourcePurchaseCode || null,
+            createdByName: userName,
+            history: [
+                {
+                    ts: now,
+                    action: 'create',
+                    userId,
+                    userName,
+                    note: `Tạo phiếu trả (quick) cho ${supplier}`,
+                },
+                {
+                    ts: now,
+                    action: 'approve',
+                    userId,
+                    userName,
+                    note: 'Duyệt + trừ kho (atomic quick-refund)',
+                },
+            ],
+        };
+        const recIns = await client.query(
+            `INSERT INTO web2_records (entity_slug, code, name, data, is_active, created_by, created_at, updated_at)
+             VALUES ('purchase-refund', $1, $2, $3::jsonb, TRUE, $4, $5, $5)
+             ON CONFLICT (entity_slug, code) WHERE code IS NOT NULL DO NOTHING
+             RETURNING *`,
+            [code, b.name || `Trả hàng ${supplier}`, JSON.stringify(data), userId, now]
+        );
+        if (recIns.rows.length === 0) {
+            // code đã tồn tại (retry / double-submit) → phiếu đã tạo+approve trước đó →
+            // idempotent, KHÔNG trừ kho/ghi ví lần nữa.
+            const existing = await loadRefund(client, code, false);
+            await client.query('ROLLBACK');
+            return res.json({
+                success: true,
+                idempotent: true,
+                refund: { code, status: existing?.data?.status || 'approved' },
+            });
+        }
+
+        // 2. Trừ kho (deductStock throw nếu mã SP không tồn tại → ROLLBACK trọn phiếu).
+        const stockResults = await deductStock(client, lines);
+
+        // 3. Ghi ledger ví NCC type='return' (idempotent theo txId). Inline pattern
+        //    của web2-supplier-wallet /tx — KHÔNG gọi /tx (giữ money path live nguyên).
+        await client.query(
+            `INSERT INTO web2_supplier_meta (supplier, created_at, updated_at)
+             VALUES ($1, $2, $2) ON CONFLICT (supplier) DO NOTHING`,
+            [supplier, now]
+        );
+        const metaQ = await client.query(
+            `SELECT returned_row_ids FROM web2_supplier_meta WHERE supplier = $1 FOR UPDATE`,
+            [supplier]
+        );
+        const led = await client.query(
+            `INSERT INTO web2_supplier_ledger
+                (tx_id, supplier, ts, type, amount, note, ref, performed_by, move_name, created_at)
+             VALUES ($1, $2, $3, 'return', $4, $5, $6, $7, NULL, $8)
+             ON CONFLICT (tx_id) DO NOTHING RETURNING *`,
+            [
+                txId,
+                supplier,
+                now,
+                amount,
+                b.note || `Trả hàng ${code}`,
+                JSON.stringify({
+                    refundCode: code,
+                    qty: Number(b.totalQty) || 0,
+                    method: b.refundMethod || null,
+                    userId,
+                    userName,
+                }),
+                userName,
+                now,
+            ]
+        );
+        // returned_row_ids: lưu qty/amount THẬT nếu client gửi rowReturns (xem C18).
+        const rowReturns = b.rowReturns && typeof b.rowReturns === 'object' ? b.rowReturns : null;
+        if (rowReturns) {
+            const cur = metaQ.rows[0]?.returned_row_ids || {};
+            for (const [rid, v] of Object.entries(rowReturns)) {
+                cur[rid] = { qty: Number(v?.qty) || 0, amount: Number(v?.amount) || 0, ts: now };
+            }
+            await client.query(
+                `UPDATE web2_supplier_meta SET returned_row_ids = $2::jsonb, updated_at = $3 WHERE supplier = $1`,
+                [supplier, JSON.stringify(cur), now]
+            );
+        }
+
+        await client.query('COMMIT');
+        committed = true;
+        _notify('approve', code);
+        try {
+            req.app.locals.web2RealtimeSseNotify?.(
+                'web2:supplier-wallet',
+                { action: 'tx', supplier, ts: now },
+                'update'
+            );
+        } catch {}
+        res.json({
+            success: true,
+            refund: { code, status: 'approved' },
+            stock: stockResults,
+            wallet: { txId, amount, alreadyCredited: led.rows.length === 0 },
+        });
+    } catch (e) {
+        if (!committed) {
+            try {
+                await client.query('ROLLBACK');
+            } catch (_) {}
+        }
+        console.error('[PURCHASE-REFUND] /quick-refund error:', e.message);
         res.status(500).json({ error: e.message });
     } finally {
         client.release();
