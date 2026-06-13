@@ -2,6 +2,33 @@
 
 ## 2026-06-13
 
+### [web2] [render] Zalo chat: tin NHÓM đúng cấu trúc — tên + avatar người gửi thật (hết UID) + bắt tin shop tự gửi ✅
+
+**User:** "giao diện quá khó dùng → không thấy thanh ghi text, nút gửi" rồi "nghiên cứu kĩ github/api zalo/google… phần nhóm, tin nhắn… để đưa tin nhắn vào đúng cấu trúc, vị trí".
+
+**2 đợt fix:**
+
+**A. Composer ẩn (layout):** khung chat dùng `calc(100vh-210px)` sai → composer tràn dưới viewport + lớp phủ "Thả ảnh/tệp" (`[hidden]` bị `display:flex` đè) che ô soạn. Fix: panel chat **flex-column fill-viewport + box-sizing:border-box** (composer ghim đáy, body cuộn) + `.wz-drop-overlay[hidden]/.wz-reply-bar[hidden]/.wz-tray[hidden]{display:none!important}`. Verify: composer/input/send `visible=true`. Commits `fd2b40d2f`.
+
+**B. Cấu trúc tin nhóm (nghiên cứu zca-js source + github):** group message hiện **UID thô** làm tên người gửi (`5923059383675268554`) vì:
+
+- zca `dName` rỗng cho group → phải resolve qua **`getGroupMembersInfo(uids)`** → `{displayName, avatar}`.
+- FE còn dùng sai field `m.senderName` (DB là `m.sender_name`).
+- `selfListen=false` mặc định → tin shop tự gửi từ app điện thoại bị listener BỎ QUA → mọi tin đều `in` (sai vị trí trái/phải).
+
+**Fix:**
+
+- Service: `new Zalo({selfListen:true})` (bắt tin `isSelf` = `uidFrom=='0'` → `out`, dedup theo msg_id); thêm `getGroupMembersInfo(accountKey,uids)` + `getOwnUid`.
+- Schema: bảng cache `web2_zalo_members(account_key,uid→display_name,avatar)`.
+- Route messages: `_attachGroupSenders` — gom sender_uid của tin nhóm → cache `web2_zalo_members` → resolve uid thiếu qua zca → gắn `sender_name`+`sender_avatar` vào response; tin shop → tên TK + 'Bạn'.
+- FE bubbles: hiện **avatar tròn (30px) bên trái + tên thật** cho tin nhóm đến (Zalo style, avatar ở tin cuối mỗi lượt), dùng đúng `m.sender_name`/`m.sender_avatar`.
+
+**zca facts (verified source):** `isSelf = data.uidFrom=="0"`; listener `GroupMessage(ctx.uid,msg)` skip self khi `!selfListen`; `getGroupMembersInfo` → `{profiles:{uid:{displayName,zaloName,avatar,...}}}`; Options.selfListen default false (context.js). Ref: [RFS-ADRENO/zca-js](https://github.com/RFS-ADRENO/zca-js).
+
+**Files:** `render.com/{db/web2-zalo-schema,services/web2-zalo-zca,routes/web2-zalo}.js`, `web2/zalo/js/chat/bubbles.js`, `web2/zalo/css/chat-bubbles.css` (`?v=20260613i`). Commits `fa8661c70`.
+
+**Status:** ✅ Composer fix live-verified. 🔄 Tin nhóm fix deploy `fa8661c` (selfListen + resolve tên) đang build — verify tên resolve sau khi live.
+
 ### [live-chat] FIX force-extract fail 100% — XFBML seek player "xfbml.ready timeout" ✅ (verified live)
 
 **Triệu chứng (browser test data thật, 1278 comment, campaign VOD thật):** Force extract = **`0 OK / 277 fail`**, xong ~48s. Warn: `[force-parallel] build player fail: xfbml.ready timeout`. Auto-snap live VẪN OK (191 thumbnail — vì dùng bare iframe + captureVisibleTab, KHÔNG dùng FB SDK).
