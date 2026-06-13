@@ -2,6 +2,10 @@
 
 ## 2026-06-13
 
+### [web2] De-purple đợt cuối — dọn tím sót ở zalo CSS + native-orders ✅
+
+Còn sót vài chỗ (file `web2/zalo/*` bị loại khỏi pass trước + accent native-orders): `#6d28d9`/`#7c3aed`/`#f3edff` (badge "Cá nhân" tab Tài khoản, gradient native-orders) → xanh (`#0058da`/`#0068ff`/`#e8f2ff`). **Sweep toàn repo: 0 purple.** Push GitHub đã thông (user cấp lại quyền) — origin `d0baba193`.
+
 ### [web2] [render] Zalo Hội thoại → CHAT ĐẦY ĐỦ như Zalo (ảnh/file/sticker/emoji/reply/reaction/recall/forward/typing/seen + lightbox) ✅ (live-verified UI)
 
 **User:** "Nghiên cứu github → làm giao diện để tương tác, chat với khách đầy đủ chức năng như zalo."
