@@ -360,7 +360,7 @@
                                 padding: 3px 10px;
                                 border-radius: 999px;
                             "
-                            >Vòng 3: 2026-06-12 ✅ đợt F+G+H+I+E ĐÃ FIX (còn bật enforce)</span
+                            >Vòng 3: ✅ F+G+H+I+E + MEDIUM-sweep + 🔒 ENFORCE ĐÃ BẬT (13/06)</span
                         >
                     </div>
                     <p style="margin: 0 0 12px; font-size: 13px; color: #475569; line-height: 1.6">
@@ -391,8 +391,11 @@
                             >docs/web2/WEB2-PAGES-ANALYSIS.md</a
                         >
                         (mục 1 + mục 6). ⏳ Fix backend cần deploy Render (auto theo push). ⚠ Auth
-                        SOFT — <strong>blocker bật <code>WEB2_AUTH_ENFORCE=1</code> là 3H21</strong>
-                        (web2-api.js + bell + raw fetch chưa gửi token; generic chưa wire soft).
+                        auth Web 2.0 nay
+                        <strong>BẮT BUỘC — <code>WEB2_AUTH_ENFORCE=1</code> ĐÃ BẬT 13/06</strong>
+                        (deploy 07f4a0e02; ENFORCE-PREP 248532b73 wire ~30 client file + verify prod
+                        401/200/8 trang 0-lỗi) (web2-api.js + bell + raw fetch chưa gửi token;
+                        generic chưa wire soft).
                     </p>
 
                     <!-- Vòng 3: bug mới CHƯA FIX -->
@@ -483,6 +486,24 @@
                                 filter, phones84 overlay, trừ reassign_out khỏi "Đã thu",
                                 S5-residual strip, /sse cap 50 keys, dashboard debounce, monitor
                                 pause tab ẩn, card doanh thu N ngày, hint mật khẩu 8…
+                            </li>
+                            <li>
+                                <strong
+                                    >🔒 ENFORCE ĐÃ BẬT (13/06 — ENFORCE-PREP 248532b73, deploy
+                                    07f4a0e02):</strong
+                                >
+                                <code>WEB2_AUTH_ENFORCE=1</code> live — route gated trả 401 nếu
+                                thiếu/sai <code>x-web2-token</code>. Wire token ~30 client file
+                                (helper <code>Web2Auth.authHeaders()</code> + fallback inline
+                                localStorage <code>web2_auth</code> cho cả file Web 1.0 cùng
+                                origin). Verify prod: gated no-token→401 / with-token→200 /
+                                ungated→200; pancake-accounts strip token khi unauth; 8 trang money
+                                load <strong>0 × 401</strong>.
+                                <span style="color: #b45309"
+                                    >⚠ Máy chưa từng login <code>web2/login</code> sẽ 401 thao tác
+                                    ghi (token 30 ngày, chung origin) — kể cả đọc token Pancake ở
+                                    trang Web 1.0. Rollback: env =0 + redeploy.</span
+                                >
                             </li>
                         </ul>
                     </div>

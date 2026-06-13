@@ -2,6 +2,20 @@
 
 ## 2026-06-13
 
+### [web2] [render] 🔒 BẬT WEB2_AUTH_ENFORCE=1 — auth Web 2.0 nay bắt buộc ✅
+
+**User:** "bật enforce". ENFORCE-PREP commit `248532b73`, deploy `07f4a0e02` (live, env `WEB2_AUTH_ENFORCE=1`).
+
+- **Wire token (~30 client file):** helper mới `Web2Auth.authHeaders(extra)` (web2-auth.js); file Web 1.0 (pancake-token-manager shared+orders-report, inbox-pancake-api) đọc inline `localStorage.web2_auth` (chung origin). 3 agent song song:
+    - **live-chat/livestream:** live-api/live-init/campaign-manager (\_api)/livestream-snap (13 call sites)/pancake-chat-window upsert/livestream-poller poller-pages.
+    - **tài chính/pages:** pbh-reports (report-revenue/delivery inline), dashboard-kpi, audit-log, notifications page, ck-review + ck-assign-picker, wallet-api deposit/withdraw, balance-history ×4 jsonFetch, customers-api, photo-studio cutout.
+    - **pancake/NCC:** web2-pancake-accounts (\_json) + web2-chat-client, shared/js + orders-report pancake-token-manager (Web 1.0), inbox-pancake-api, quick-reply mutations, supplier-wallet-storage \_api, suppliers-cache ensure, purchase-refund fetchJson, native-orders upsert. Bump ?v=20260612en ~40 script tags.
+- **Server-side:** không đổi (đã sẵn `requireWeb2AuthSoft` enforce theo env). Extension + internal server calls KHÔNG gọi HTTP route gated (function-call/relay-secret) — an toàn.
+- **Verify prod (curl + browser):** gated GET/POST no-token→401, with-token→200; ungated GET (supplier-wallet/state, quick-replies, products/health, customers/list)→200; `/api/pancake-accounts` list strip token khi unauth (chỉ token_preview), trả full khi auth; **8 trang money** (dashboard/audit-log/notifications/report-revenue/customer-wallet/supplier-wallet/customers/native-orders) browser-load **0 × 401** với token inject. Env `WEB2_AUTH_ENFORCE=1` + `WEB2_REQUIRE_DB=1` đều xác nhận on.
+- **⚠ Vận hành:** browser chưa login `web2/login` 1 lần → 401 thao tác ghi (token 30 ngày, localStorage chung origin nhijudy.store) — gồm cả đọc token Pancake ở trang Web 1.0 (orders-report/inbox). Rollback: PUT env `WEB2_AUTH_ENFORCE=0` + redeploy (~2-4 phút).
+
+**Status:** ✅ Done — enforce live + verified. Hoàn tất TOÀN BỘ lộ trình vòng 3 (F/G/H/I/E + MEDIUM-sweep + GMT+7 + escape + 2 env enforce/require-db). Tồn còn lại: MEDIUM lẻ ít rủi ro (TC-cụm phone-norm, SP pgString, TM kpi-default-open/cron/firebase-compat, BC printer404/token-plaintext, HT bridge-refocus/page-shell, LC campaign-5000/enricher, 3W6, exportCsv ví KH).
+
 ### [delivery-report] Nút "Ảnh Thành Phố" auto-điền SL ĐƠN SHIP + THU VỀ vào Báo cáo (nhóm THÀNH PHỐ) ✅
 
 **User:** bấm "Ảnh Thành Phố" → có data thu về (3 đơn: 1.899) → muốn modal Báo cáo auto điền SL ĐƠN SHIP + THU VỀ theo data có sẵn, vẫn chỉnh sửa lại được. (User chọn: nhóm **THÀNH PHỐ**, **chỉ điền khi ô trống**.)
