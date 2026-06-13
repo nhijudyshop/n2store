@@ -2607,6 +2607,28 @@
                 returnHandoverMap,
                 extraItems,
             });
+            // Auto-điền SL ĐƠN SHIP + THU VỀ vào Báo cáo (nhóm THÀNH PHỐ) từ data thu về.
+            // SL ĐƠN SHIP ← số đơn thu về đã quét; THU VỀ ← tổng giá trị thu về (gross COD,
+            // khớp dòng "N đơn: X" trên ảnh). Chỉ điền khi ô trống — không đè giá trị sửa tay.
+            try {
+                if (window.DeliveryReportReport?.autofillCityReturns) {
+                    const isoDate = String(state.filters?.fromDate || '').slice(0, 10);
+                    const returnTotal = returnScanned.reduce(
+                        (s, i) => s + (i.CashOnDelivery || 0),
+                        0
+                    );
+                    if (/^\d{4}-\d{2}-\d{2}$/.test(isoDate)) {
+                        window.DeliveryReportReport.autofillCityReturns(
+                            isoDate,
+                            returnScanned.length,
+                            returnTotal
+                        );
+                    }
+                }
+            } catch (e) {
+                console.warn('[DELIVERY-REPORT] auto-điền Báo cáo (thu về) lỗi:', e.message);
+            }
+
             const blob = await canvasToBlob(canvas);
             const copied = await copyBlobToClipboard(
                 blob,

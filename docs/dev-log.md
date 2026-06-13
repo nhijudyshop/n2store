@@ -2,6 +2,18 @@
 
 ## 2026-06-13
 
+### [delivery-report] Nút "Ảnh Thành Phố" auto-điền SL ĐƠN SHIP + THU VỀ vào Báo cáo (nhóm THÀNH PHỐ) ✅
+
+**User:** bấm "Ảnh Thành Phố" → có data thu về (3 đơn: 1.899) → muốn modal Báo cáo auto điền SL ĐƠN SHIP + THU VỀ theo data có sẵn, vẫn chỉnh sửa lại được. (User chọn: nhóm **THÀNH PHỐ**, **chỉ điền khi ô trống**.)
+
+- **Files:** `delivery-report/js/report.js`, `delivery-report/js/delivery-report.js`, `delivery-report/index.html`.
+- **report.js** — thêm `autofillCityReturns(isoDate, returnCount, returnValue)` (export qua `window.DeliveryReportReport`): load override ngày đó từ server trước (biết ô trống/đã sửa tay), rồi set override nhóm `city` — `slShip ← returnCount`, `thuVe ← returnValue` (VND gross). **Mỗi field độc lập, CHỈ điền khi đang trống/0** (không đè giá trị user sửa tay). Modal đang mở → `scheduleRender()`. Persist qua API `/api/v2/delivery-assignments/overrides` sẵn có (SSE đồng bộ máy khác).
+- **delivery-report.js** `copyHandoverImage()` — sau khi build canvas, tính `returnTotal = Σ CashOnDelivery(returnScanned)` + lấy `isoDate = filters.fromDate.slice(0,10)` → gọi `autofillCityReturns(isoDate, returnScanned.length, returnTotal)`. Mapping khớp ảnh: "N đơn: X" → SL ĐƠN SHIP = N, THU VỀ = X (gross, ví dụ 3 đơn → SL 3, THU VỀ 1.899.000).
+- **Editable:** ô vẫn là input thường, user sửa lại bình thường; lần bấm sau nếu đã có giá trị → giữ nguyên.
+- Bump `?v=20260613a` (delivery-report.js + report.js). `node --check` cả 2 file OK.
+
+**Status:** ✅ Done.
+
 ### [render][web2] Wipe data giao dịch Web 2.0 để test lại (giữ KH + data Pancake) ✅
 
 **User:** xóa hết dữ liệu web 2.0 để test lại toàn bộ chức năng, chừa lại dữ liệu khách hàng + các dữ liệu fetch từ Pancake về.

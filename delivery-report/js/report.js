@@ -2762,6 +2762,39 @@
         document.body.classList.remove('dr-mode-report');
     }
 
+    // Auto-điền SL ĐƠN SHIP + THU VỀ cho nhóm THÀNH PHỐ (city) từ nút "Ảnh Thành Phố".
+    // SL ĐƠN SHIP ← số đơn thu về; THU VỀ ← tổng giá trị thu về (VND).
+    // CHỈ điền khi ô đang trống — KHÔNG ghi đè giá trị user đã sửa tay (mỗi field độc lập).
+    //   isoDate: 'YYYY-MM-DD' (ngày thật, từ filter fromDate)
+    async function autofillCityReturns(isoDate, returnCount, returnValue) {
+        if (!isoDate) return;
+        const slShip = Math.max(0, Math.round(Number(returnCount) || 0));
+        const thuVe = Math.max(0, Math.round(Number(returnValue) || 0));
+        if (!slShip && !thuVe) return; // không có thu về → không điền
+
+        // Load override ngày này từ server trước, để biết ô đang trống hay đã có giá trị tay
+        try {
+            await loadOverridesRange(isoDate, isoDate);
+        } catch (_) {}
+
+        const cur = getOverride(isoDate, 'city');
+        const patch = {};
+        if (slShip && !(Number(cur.slShip) > 0)) patch.slShip = slShip;
+        if (thuVe && !(Number(cur.thuVe) > 0)) patch.thuVe = thuVe;
+        if (!Object.keys(patch).length) return; // đã có giá trị → giữ nguyên, không đụng
+
+        setOverride(isoDate, 'city', patch);
+
+        // Modal báo cáo đang mở → repaint để thấy ngay
+        const modal = document.getElementById('drReportModal');
+        if (modal && modal.classList.contains('open')) {
+            try {
+                scheduleRender();
+            } catch (_) {}
+        }
+        return patch;
+    }
+
     function setupTripleClick() {
         const hint = document.getElementById('drPresetHint');
         if (!hint || hint.dataset.reportBound === '1') return;
@@ -2789,5 +2822,5 @@
     });
 
     // Expose for debug / programmatic open
-    window.DeliveryReportReport = { open, close };
+    window.DeliveryReportReport = { open, close, autofillCityReturns };
 })();
