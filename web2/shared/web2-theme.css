@@ -1235,3 +1235,8 @@ body:has(.web2-shell) .btn:focus-visible {
         white-space: nowrap;
     }
 }
+
+/* Ẩn source-pill (tên bảng DB kỹ thuật web2_*) khỏi UI sản xuất — DB-badge riêng đã đủ. */
+.source-pill {
+    display: none !important;
+}

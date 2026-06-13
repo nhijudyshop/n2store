@@ -2,6 +2,10 @@
 
 ## 2026-06-13
 
+### [web2] Polish UX: ẩn source-pill (tên bảng DB kỹ thuật) khỏi UI ✅
+
+Audit consistency: 4 trang (products/variants/returns/native-orders) hiện raw `web2_products`/`web2_returns`/`source=NATIVE_WEB` ở header — vô nghĩa với user. Ẩn global `.source-pill{display:none!important}` ở `web2/shared/web2-theme.css` + `native-orders/css/web2-theme.css` (DB-badge "DB Render 2.0" riêng vẫn còn). Verify live products: source-pill ẩn, db-badge còn. customer-wallet "Hard reset" đã có confirm rõ ràng → không cần sửa.
+
 ### [live-chat] Encode JPEG off main-thread (OffscreenCanvas+Worker) + rVFC — hết giật khi chụp ✅
 
 **User:** "ok" làm tiếp jank-killer từ research (OffscreenCanvas + Worker + requestVideoFrameCallback).
