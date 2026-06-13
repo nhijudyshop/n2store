@@ -1028,7 +1028,10 @@
     }
 
     function csvEscape(s) {
-        const str = String(s == null ? '' : s);
+        let str = String(s == null ? '' : s);
+        // MEDIUM-cleanup (2026-06-13): chống CSV formula injection — tên NCC/ghi chú do user nhập;
+        // cell bắt đầu = + - @ \t \r → Excel/Sheets thực thi như công thức. Prefix nháy đơn để vô hiệu.
+        if (/^[=+\-@\t\r]/.test(str.trimStart())) str = "'" + str;
         if (/[",\n]/.test(str)) return '"' + str.replace(/"/g, '""') + '"';
         return str;
     }

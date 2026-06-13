@@ -124,12 +124,20 @@ async function ensureWeb2CustomersSchema(pool) {
     }
 }
 
-// ─── Chuẩn hoá SĐT → 10 số đuôi (0xxxxxxxxx) ────────────────────────────
+// ─── Chuẩn hoá SĐT → 10 số đuôi (0xxxxxxxxx), STRICT ────────────────────
+// MEDIUM-cleanup (2026-06-13): TC-phone-norm. Trước đây trả `s || null` →
+// cho chuỗi <10 số (phone rác) lọt vào cột `phone` UNIQUE. Giờ:
+//   strip non-digit → '84'+9số → '0'+9số → CHỈ trả khi đúng `^0\d{9}$`,
+//   không hợp lệ → null. Mọi caller (write/lookup-exact/search) đều muốn
+//   giá trị 10 số chuẩn hoặc null; `searchWeb2CustomersByPhone` tự dùng
+//   `digits` thô cho suffix-LIKE nên không phụ thuộc junk passthrough.
 function normPhone(p) {
     let s = String(p || '').replace(/\D/g, '');
-    if (s.length > 10) s = s.slice(-10);
+    // '84' + 9 số (=11 digits, SĐT di động VN từ Pancake/FB) → '0' + 9 số.
+    if (s.startsWith('84') && s.length === 11) s = '0' + s.slice(2);
+    else if (s.length > 10) s = s.slice(-10);
     if (s && !s.startsWith('0') && s.length === 9) s = '0' + s;
-    return s.length === 10 ? s : s || null;
+    return /^0\d{9}$/.test(s) ? s : null;
 }
 
 function _historyEntry(action, extra = {}) {

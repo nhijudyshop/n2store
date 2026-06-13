@@ -16,10 +16,7 @@
         <link rel="stylesheet" href="../../native-orders/css/native-orders.css?v=20260521b" />
         <link rel="stylesheet" href="../../native-orders/css/web2-theme.css?v=20260521b" />
         <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
-        <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
-        <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
-        <!-- Firestore SDK đã gỡ: trang KHÔNG dùng firebase.firestore() (printers lưu server + localStorage). -->
-        <script src="../../shared/js/firebase-config.js?v=20260521b"></script>
+        <!-- MEDIUM-cleanup (2026-06-13): gỡ Firebase compat SDK (app+auth) + firebase-config — printers lưu server + localStorage, KHÔNG firebase.firestore(). -->
         <script src="../../shared/js/shared-auth-manager.js?v=20260521b"></script>
         <script src="../../shared/js/notification-system.js?v=20260521b"></script>
         <link rel="stylesheet" href="../../web2/shared/web2-theme.css?v=20260522d" />

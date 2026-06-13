@@ -591,6 +591,14 @@ router.post('/create', requireWeb2AuthSoft, async (req, res) => {
     const phone = normPhoneWeb2(b.phone);
     const name = String(b.name || '').trim();
     if (!name) return res.status(400).json({ success: false, error: 'name required' });
+    // MEDIUM-cleanup (2026-06-13): TC-phone-norm. Client GỬI phone nhưng không
+    // normalize được thành 10 số (0xxxxxxxxx) → reject thay vì lưu rác/null vào
+    // cột UNIQUE. Không gửi phone (KH FB-only) → phone=null, vẫn cho tạo.
+    if (b.phone !== undefined && String(b.phone).trim() !== '' && !phone) {
+        return res
+            .status(400)
+            .json({ success: false, error: 'SĐT không hợp lệ (cần 10 số dạng 0xxxxxxxxx)' });
+    }
     try {
         const now = Date.now();
         const altPhones = sanitizeAltPhones(b.altPhones, phone);
@@ -816,8 +824,30 @@ router.patch('/:id', requireWeb2AuthSoft, async (req, res) => {
         params.push(val);
         sets.push(`${col} = $${params.length}`);
     };
-    if (b.name !== undefined) setCol('name', String(b.name).trim());
-    if (b.phone !== undefined) setCol('phone', normPhoneWeb2(b.phone));
+    // MEDIUM-cleanup (2026-06-13): bug "name rỗng + phone rác <10 số ghi thẳng".
+    // Chỉ validate khi client GỬI field (undefined = không đổi → giữ nguyên).
+    if (b.name !== undefined) {
+        const nm = String(b.name).trim();
+        if (!nm) return res.status(400).json({ success: false, error: 'name không được rỗng' });
+        setCol('name', nm);
+    }
+    if (b.phone !== undefined) {
+        // TC-phone-norm: phone gửi lên phải normalize được thành 10 số 0xxxxxxxxx.
+        // Cho phép xoá phone (gửi '' / null) → set null; gửi giá trị rác → reject.
+        const raw = String(b.phone == null ? '' : b.phone).trim();
+        if (raw === '') {
+            setCol('phone', null);
+        } else {
+            const np = normPhoneWeb2(b.phone);
+            if (!np) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'SĐT không hợp lệ (cần 10 số dạng 0xxxxxxxxx)',
+                });
+            }
+            setCol('phone', np);
+        }
+    }
     if (b.email !== undefined) setCol('email', b.email || null);
     if (b.address !== undefined) setCol('address', b.address || null);
     if (b.ward !== undefined) setCol('ward', b.ward || null);

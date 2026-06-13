@@ -994,6 +994,61 @@ router.post('/from-comment', async (req, res) => {
             try {
                 await client.query('BEGIN');
                 await lockCampaignSttKey(client, _campaignGroupKey);
+                // MEDIUM-cleanup (2026-06-13): RE-CHECK draft DƯỚI advisory lock.
+                // Draft-check ở trên (~831) chạy NGOÀI lock → 2 comment song song
+                // cùng fbUser+campaign đều thấy "chưa có draft" → 2 đơn trùng.
+                // Giờ request thứ 2 (sau khi chờ lock) thấy draft của request 1
+                // đã COMMIT → MERGE vào nó thay vì INSERT (atomic trong cùng lock).
+                if (b.fbUserId && b.liveCampaignId) {
+                    const lateDraft = await client.query(
+                        `SELECT * FROM native_orders
+                         WHERE fb_user_id = $1 AND live_campaign_id = $2 AND status = 'draft'
+                         ORDER BY created_at DESC LIMIT 1 FOR UPDATE`,
+                        [b.fbUserId, b.liveCampaignId]
+                    );
+                    if (lateDraft.rows.length > 0) {
+                        const src = lateDraft.rows[0];
+                        const mergedCommentIds = Array.from(
+                            new Set([
+                                ...(src.comment_ids || []),
+                                ...(src.fb_comment_id ? [src.fb_comment_id] : []),
+                                ...(b.fbCommentId ? [b.fbCommentId] : []),
+                            ])
+                        );
+                        const pageTag = b.fbPageName ? `[${String(b.fbPageName).trim()}] ` : '';
+                        const mergedNote = b.message
+                            ? `${src.note || ''}${src.note ? '\n---\n' : ''}[${new Date().toLocaleString('vi-VN')}] ${pageTag}${b.message}`
+                            : src.note;
+                        const upd = await client.query(
+                            `UPDATE native_orders
+                             SET note = $1, comment_ids = $2::jsonb,
+                                 comment_count = comment_count + 1,
+                                 message_count = COALESCE(message_count, 0) + 1,
+                                 customer_id = COALESCE(customer_id, $5),
+                                 fb_user_name = COALESCE(fb_user_name, $6),
+                                 fb_page_id = COALESCE(fb_page_id, $7),
+                                 fb_page_name = COALESCE(fb_page_name, $8),
+                                 fb_post_id = COALESCE(fb_post_id, $9),
+                                 fb_comment_id = COALESCE(fb_comment_id, $10),
+                                 updated_at = $3
+                             WHERE id = $4 RETURNING *`,
+                            [
+                                mergedNote,
+                                JSON.stringify(mergedCommentIds),
+                                Date.now(),
+                                src.id,
+                                customerId,
+                                b.fbUserName || enrichedName || null,
+                                b.fbPageId || null,
+                                b.fbPageName || null,
+                                b.fbPostId || null,
+                                b.fbCommentId || null,
+                            ]
+                        );
+                        await client.query('COMMIT');
+                        return upd; // shape {rows:[row]} như INSERT — code sinh dư bỏ qua
+                    }
+                }
                 const r = await client.query(
                     `INSERT INTO native_orders (
                         code, session_index, display_stt, campaign_stt, source,
@@ -2293,12 +2348,34 @@ router.delete('/:code', async (req, res) => {
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     try {
         await ensureTables(pool);
+        const code = req.params.code;
+        // MEDIUM-cleanup (2026-06-13): chặn xoá đơn còn PBH active liên kết —
+        // hard-delete trước đây để lại PBH mồ côi (source_code trỏ đơn không tồn
+        // tại → sync 2 chiều/cancel/enrich badge gãy). Cho ?force=1 để vẫn xoá
+        // được data rác (đối chiếu fast-sale-orders DELETE chỉ cho draft-only).
+        const force = req.query.force === '1' || req.query.force === 'true';
+        if (!force) {
+            const linked = await pool.query(
+                `SELECT number FROM fast_sale_orders
+                 WHERE state <> 'cancel'
+                   AND (source_code = $1
+                        OR source_code LIKE $2 OR source_code LIKE $3 OR source_code LIKE $4)
+                 LIMIT 5`,
+                [code, `${code}+%`, `%+${code}+%`, `%+${code}`]
+            );
+            if (linked.rows.length > 0) {
+                return res.status(409).json({
+                    error: `Đơn còn PBH liên kết (${linked.rows.map((x) => x.number).join(', ')}) — huỷ/xoá PBH trước, hoặc dùng ?force=1`,
+                    linkedPbh: linked.rows.map((x) => x.number),
+                });
+            }
+        }
         const r = await pool.query(`DELETE FROM native_orders WHERE code = $1 RETURNING code`, [
-            req.params.code,
+            code,
         ]);
         if (r.rows.length === 0) return res.status(404).json({ error: 'Not found' });
         // 3W4: WS broadcast đã gỡ — SSE _notify là kênh realtime duy nhất.
-        _notify('delete', req.params.code);
+        _notify('delete', code);
         res.json({ success: true });
     } catch (error) {
         res.status(500).json({ error: error.message });

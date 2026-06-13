@@ -659,8 +659,12 @@ async function autoConnect() {
     }
 
     try {
+        // MEDIUM-cleanup (2026-06-13): startClient lưu client_type = 'pancake_<name>'
+        // (line ~616) nhưng fallback này load WHERE client_type = 'pancake' →
+        // KHÔNG match row nào → khi Firebase outage relay khởi động với 0 client
+        // (realtime comment chết im lặng). Đổi sang LIKE 'pancake%'.
         const result = await db.query(
-            `SELECT token, user_id, page_ids, cookie FROM realtime_credentials WHERE client_type = 'pancake' AND is_active = TRUE`
+            `SELECT token, user_id, page_ids, cookie FROM realtime_credentials WHERE client_type LIKE 'pancake%' AND is_active = TRUE`
         );
 
         for (const row of result.rows) {

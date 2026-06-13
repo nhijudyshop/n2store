@@ -588,6 +588,11 @@
                 else if (f.key === 'name') payload.name = v;
                 else setPath(payload, f.key, v);
             }
+            // MEDIUM-cleanup (2026-06-13): chống double-submit — disable nút Lưu trong khi await
+            // api.create/update để double-click không tạo 2 bản ghi.
+            const btn = root.querySelector('#w2pModalSave');
+            if (btn?.disabled) return;
+            if (btn) btn.disabled = true;
             try {
                 if (editing) {
                     await api.update(STATE.editingCode, { name: payload.name, data: payload.data });
@@ -600,6 +605,8 @@
                 load();
             } catch (e) {
                 notify('Lỗi: ' + e.message, 'error');
+            } finally {
+                if (btn) btn.disabled = false;
             }
         }
         async function removeRecord(code) {
