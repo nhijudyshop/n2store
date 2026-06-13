@@ -33,6 +33,31 @@ async function ensureWeb2ZaloSchema(pool) {
             console.error('[web2-zalo-schema] web2_customers ALTER warn:', e.message);
         }
 
+        // ── 0b. Cột chat đầy đủ (reply/reaction/recall/seen) — ĐẶT ĐẦU, IF EXISTS ──
+        //    Bảng web2_zalo_messages/conversations đã sống ở prod (web2Db) → ALTER
+        //    idempotent. Fresh install lấy từ CREATE bên dưới (đã thêm cùng cột).
+        try {
+            await pool.query(`
+                ALTER TABLE IF EXISTS web2_zalo_messages
+                    ADD COLUMN IF NOT EXISTS cli_msg_id       TEXT,
+                    ADD COLUMN IF NOT EXISTS reply_to_msg_id  TEXT,
+                    ADD COLUMN IF NOT EXISTS reply_to_preview TEXT,
+                    ADD COLUMN IF NOT EXISTS reactions        JSONB NOT NULL DEFAULT '{}'::jsonb,
+                    ADD COLUMN IF NOT EXISTS recalled         BOOLEAN NOT NULL DEFAULT false,
+                    ADD COLUMN IF NOT EXISTS recalled_at      BIGINT,
+                    ADD COLUMN IF NOT EXISTS recalled_by      VARCHAR(100),
+                    ADD COLUMN IF NOT EXISTS seen_at          BIGINT;
+                ALTER TABLE IF EXISTS web2_zalo_conversations
+                    ADD COLUMN IF NOT EXISTS last_read_msg_id TEXT,
+                    ADD COLUMN IF NOT EXISTS last_read_at     BIGINT,
+                    ADD COLUMN IF NOT EXISTS is_pinned        BOOLEAN NOT NULL DEFAULT false,
+                    ADD COLUMN IF NOT EXISTS is_muted         BOOLEAN NOT NULL DEFAULT false,
+                    ADD COLUMN IF NOT EXISTS muted_until      BIGINT;
+            `);
+        } catch (e) {
+            console.error('[web2-zalo-schema] chat-cols ALTER warn:', e.message);
+        }
+
         // ── 1. Tài khoản Zalo (personal qua zca-js HOẶC OA chính thức) ──────────
         await pool.query(`
             CREATE TABLE IF NOT EXISTS web2_zalo_accounts (
@@ -82,6 +107,11 @@ async function ensureWeb2ZaloSchema(pool) {
                 last_msg_at   BIGINT,
                 last_msg_text TEXT,
                 unread_count  INTEGER NOT NULL DEFAULT 0,
+                last_read_msg_id TEXT,
+                last_read_at  BIGINT,
+                is_pinned     BOOLEAN NOT NULL DEFAULT false,
+                is_muted      BOOLEAN NOT NULL DEFAULT false,
+                muted_until   BIGINT,
                 meta          JSONB NOT NULL DEFAULT '{}'::jsonb,
                 created_at    BIGINT NOT NULL,
                 updated_at    BIGINT NOT NULL,
@@ -99,13 +129,21 @@ async function ensureWeb2ZaloSchema(pool) {
             CREATE TABLE IF NOT EXISTS web2_zalo_messages (
                 id            BIGSERIAL PRIMARY KEY,
                 msg_id        TEXT,                          -- zalo message id (dedup, nullable)
+                cli_msg_id    TEXT,                          -- client msg id (cần cho recall/react/seen)
                 account_key   VARCHAR(80) NOT NULL,
                 thread_id     VARCHAR(100) NOT NULL,
                 thread_type   VARCHAR(10) NOT NULL DEFAULT 'user',
                 direction     VARCHAR(10) NOT NULL,          -- in | out
-                msg_type      VARCHAR(30) NOT NULL DEFAULT 'text', -- text|image|file|sticker|zns|template
+                msg_type      VARCHAR(30) NOT NULL DEFAULT 'text', -- text|image|file|sticker|video|voice|link|zns|template
                 content       TEXT,
                 attachments   JSONB NOT NULL DEFAULT '[]'::jsonb,
+                reply_to_msg_id  TEXT,                       -- quote: msg_id gốc
+                reply_to_preview TEXT,                       -- quote: preview ngắn
+                reactions     JSONB NOT NULL DEFAULT '{}'::jsonb, -- {icon: [uid,...]}
+                recalled      BOOLEAN NOT NULL DEFAULT false, -- thu hồi (undo)
+                recalled_at   BIGINT,
+                recalled_by   VARCHAR(100),
+                seen_at       BIGINT,                        -- KH đã xem tin out
                 sender_uid    VARCHAR(100),
                 send_status   VARCHAR(20) DEFAULT 'sent',    -- sent|failed|pending
                 error_msg     TEXT,
@@ -115,6 +153,7 @@ async function ensureWeb2ZaloSchema(pool) {
             CREATE UNIQUE INDEX IF NOT EXISTS uq_web2_zalo_msg_id ON web2_zalo_messages(account_key, msg_id) WHERE msg_id IS NOT NULL;
             CREATE INDEX IF NOT EXISTS idx_web2_zalo_msg_thread ON web2_zalo_messages(account_key, thread_id, sent_at DESC);
             CREATE INDEX IF NOT EXISTS idx_web2_zalo_msg_failed ON web2_zalo_messages(send_status) WHERE send_status = 'failed';
+            CREATE INDEX IF NOT EXISTS idx_web2_zalo_msg_reply  ON web2_zalo_messages(reply_to_msg_id) WHERE reply_to_msg_id IS NOT NULL;
         `);
 
         // ── 4. ZNS templates (cache từ OA) ──────────────────────────────────────
