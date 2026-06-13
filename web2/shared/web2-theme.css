@@ -48,26 +48,27 @@
 
 /* ─── Color tokens (idempotent — same values như native-orders.css) ─── */
 :root {
-    --web2-primary: #7266ba;
-    --web2-primary-hover: #5e51ac;
-    --web2-success: #27c24c;
-    --web2-success-hover: #20a73e;
-    --web2-info: #23b7e5;
-    --web2-info-hover: #1ba0cb;
-    --web2-warning: #fad733;
-    --web2-danger: #f05050;
-    --web2-danger-hover: #e23b3b;
-    --web2-text: #333;
-    --web2-text-2: #4c4c4c;
-    --web2-text-3: #58666e;
-    --web2-text-faded: #808080;
-    --web2-border: #cccccc;
-    --web2-border-btn: #dee5e7;
-    --web2-bg-app: #f0f3f4;
-    --web2-bg-light: #edf1f2;
-    --web2-bg-cell-head: #f0eeee;
-    --web2-link: #337ab7;
-    --web2-link-hover: #245a8c;
+    /* 2026-06-13: re-skin sang hệ "friendly professional" xanh Zalo (đồng bộ trang web2/zalo). */
+    --web2-primary: #0068ff;
+    --web2-primary-hover: #0058da;
+    --web2-success: #16a34a;
+    --web2-success-hover: #15803d;
+    --web2-info: #0ea5e9;
+    --web2-info-hover: #0284c7;
+    --web2-warning: #f59e0b;
+    --web2-danger: #ef4444;
+    --web2-danger-hover: #dc2626;
+    --web2-text: #0f172a;
+    --web2-text-2: #1e293b;
+    --web2-text-3: #475569;
+    --web2-text-faded: #94a3b8;
+    --web2-border: #e6e9ef;
+    --web2-border-btn: #e6e9ef;
+    --web2-bg-app: #f5f7fb;
+    --web2-bg-light: #eef2f7;
+    --web2-bg-cell-head: #f8fafc;
+    --web2-link: #0068ff;
+    --web2-link-hover: #0058da;
 }
 
 /* ─── Base typography — WEB2 Segoe UI (force) ───────── */
@@ -244,7 +245,7 @@ body:has(.web2-shell) .data-table tbody tr:hover {
 .web2-theme .filters input:focus,
 .web2-theme .filters select:focus {
     border-color: var(--web2-primary);
-    box-shadow: 0 0 0 2px rgba(114, 102, 186, 0.15);
+    box-shadow: 0 0 0 2px rgba(0, 104, 255, 0.15);
 }
 
 /* ─── Pagination ────────────────────────────────────── */
@@ -511,29 +512,33 @@ body.web2-theme.modal-open {
 
 /* ─── Extended color tokens (soft surfaces) ──────────── */
 :root {
-    /* Soft tints — alpha 8-15% của primary palette để overlay surface */
-    --web2-primary-soft: #ece9f7; /* primary @ 92% L */
-    --web2-primary-soft-2: #ddd6f3; /* primary @ 87% L */
-    --web2-primary-tint: rgba(114, 102, 186, 0.08);
-    --web2-success-soft: #e3f7e8;
-    --web2-success-soft-2: #c8efd3;
-    --web2-success-tint: rgba(39, 194, 76, 0.08);
-    --web2-info-soft: #e0f4fc;
-    --web2-info-soft-2: #bfe7f5;
-    --web2-info-tint: rgba(35, 183, 229, 0.08);
-    --web2-warning-soft: #fdf4d3;
-    --web2-warning-soft-2: #fce99b;
-    --web2-warning-tint: rgba(250, 215, 51, 0.12);
-    --web2-danger-soft: #fde2e2;
-    --web2-danger-soft-2: #f9bdbd;
-    --web2-danger-tint: rgba(240, 80, 80, 0.08);
-    --web2-neutral-soft: #eef1f3;
+    /* Soft tints — tone-on-tone xanh Zalo cho surface quan trọng */
+    --web2-primary-soft: #e8f2ff;
+    --web2-primary-soft-2: #bcdcff;
+    --web2-primary-tint: rgba(0, 104, 255, 0.08);
+    --web2-success-soft: #dcfce7;
+    --web2-success-soft-2: #bbf7d0;
+    --web2-success-tint: rgba(22, 163, 74, 0.08);
+    --web2-info-soft: #e0f2fe;
+    --web2-info-soft-2: #bae6fd;
+    --web2-info-tint: rgba(14, 165, 233, 0.08);
+    --web2-warning-soft: #fef3c7;
+    --web2-warning-soft-2: #fde68a;
+    --web2-warning-tint: rgba(245, 158, 11, 0.12);
+    --web2-danger-soft: #fee2e2;
+    --web2-danger-soft-2: #fecaca;
+    --web2-danger-tint: rgba(239, 68, 68, 0.08);
+    --web2-neutral-soft: #eef2f7;
     /* Money colors */
-    --web2-money-in: #1ca73f; /* darker green for readability */
-    --web2-money-out: #d63838;
-    /* Shadow soft */
-    --web2-shadow-primary: 0 2px 8px rgba(114, 102, 186, 0.18);
-    --web2-shadow-card: 0 1px 3px rgba(15, 23, 42, 0.06);
+    --web2-money-in: #16a34a;
+    --web2-money-out: #dc2626;
+    /* Shadow + motion */
+    --web2-shadow-primary: 0 6px 22px rgba(0, 104, 255, 0.22);
+    --web2-shadow-card: 0 1px 3px rgba(15, 23, 42, 0.07);
+    --web2-shadow-2: 0 6px 22px rgba(15, 23, 42, 0.1);
+    --web2-radius: 12px;
+    --web2-radius-sm: 9px;
+    --web2-ease: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 /* ─── Body canvas — soft gradient cho không gian rộng ─ */
@@ -547,17 +552,17 @@ body:has(.web2-shell) {
 /* ─── Primary button — gradient subtle + accent shadow ─ */
 .web2-theme .btn-primary,
 body:has(.web2-shell) .btn-primary {
-    background: linear-gradient(180deg, #7e72c4, var(--web2-primary));
+    background: linear-gradient(180deg, #2a96ff, var(--web2-primary));
     box-shadow: var(--web2-shadow-primary);
 }
 .web2-theme .btn-primary:hover,
 body:has(.web2-shell) .btn-primary:hover {
     background: linear-gradient(180deg, var(--web2-primary), var(--web2-primary-hover));
-    box-shadow: 0 3px 12px rgba(114, 102, 186, 0.28);
+    box-shadow: 0 3px 12px rgba(0, 104, 255, 0.28);
 }
 .web2-theme .btn-success,
 body:has(.web2-shell) .btn-success {
-    background: linear-gradient(180deg, #34d05a, var(--web2-success));
+    background: linear-gradient(180deg, #22c55e, var(--web2-success));
     box-shadow: 0 2px 8px rgba(39, 194, 76, 0.18);
 }
 .web2-theme .btn-success:hover,
@@ -566,12 +571,12 @@ body:has(.web2-shell) .btn-success:hover {
 }
 .web2-theme .btn-danger,
 body:has(.web2-shell) .btn-danger {
-    background: linear-gradient(180deg, #f56565, var(--web2-danger));
+    background: linear-gradient(180deg, #f87171, var(--web2-danger));
     box-shadow: 0 2px 8px rgba(240, 80, 80, 0.18);
 }
 .web2-theme .btn-info,
 body:has(.web2-shell) .btn-info {
-    background: linear-gradient(180deg, #36c2eb, var(--web2-info));
+    background: linear-gradient(180deg, #38bdf8, var(--web2-info));
     box-shadow: 0 2px 8px rgba(35, 183, 229, 0.18);
 }
 
@@ -792,7 +797,7 @@ body:has(.web2-shell) .counter-pill {
 .web2-theme .tab-button.active::after,
 .web2-theme .main-tab.active::after {
     background: linear-gradient(90deg, var(--web2-primary), var(--web2-info));
-    box-shadow: 0 1px 4px rgba(114, 102, 186, 0.25);
+    box-shadow: 0 1px 4px rgba(0, 104, 255, 0.25);
 }
 
 /* ─── Filter chips active state ────────────────────── */
@@ -804,7 +809,7 @@ body:has(.web2-shell) .counter-pill {
 }
 .web2-theme .chip-select:focus-within,
 .web2-theme .chip-select-wrapper:focus-within {
-    box-shadow: 0 0 0 2px rgba(114, 102, 186, 0.15);
+    box-shadow: 0 0 0 2px rgba(0, 104, 255, 0.15);
 }
 
 /* ─── Bulk action toolbar — accent row khi đã chọn ───── */
@@ -824,7 +829,7 @@ body:has(.web2-shell) input:focus,
 body:has(.web2-shell) select:focus,
 body:has(.web2-shell) textarea:focus {
     border-color: var(--web2-primary);
-    box-shadow: 0 0 0 3px rgba(114, 102, 186, 0.12);
+    box-shadow: 0 0 0 3px rgba(0, 104, 255, 0.12);
     outline: none;
 }
 
