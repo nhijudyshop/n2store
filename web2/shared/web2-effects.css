@@ -502,61 +502,10 @@
     transform: translateY(0);
 }
 
-/* ============================================================ */
-/* BARBA-STYLE PAGE TRANSITION — curtain wipe (KHÔNG PJAX).                 */
-/* Controller: web2-page-transition.js. Anti-lag: transform/opacity only.  */
-/* default = ẩn trên đỉnh; .cover = che; .reveal = trượt xuống biến mất.    */
-/* ============================================================ */
-.w2fx-curtain {
-    position: fixed;
-    inset: 0;
-    z-index: 100000;
-    pointer-events: none;
-    background: linear-gradient(135deg, var(--web2-primary, #0068ff), #0047b3 90%);
-    transform: translate3d(0, -100%, 0);
-    transition: transform 0.4s cubic-bezier(0.76, 0, 0.24, 1);
-    will-change: transform;
-}
-.w2fx-curtain.cover {
-    transform: translate3d(0, 0, 0);
-    pointer-events: all;
-}
-.w2fx-curtain.reveal {
-    transform: translate3d(0, 100%, 0);
-}
-/* logo/spinner giữa màn che (tùy chọn — controller chèn) */
-.w2fx-curtain__mark {
-    position: absolute;
-    inset: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #fff;
-    opacity: 0.95;
-}
-/* Nội dung trang vào mượt khi load (opt-in: thêm .w2fx-page-enter cho main) */
-@keyframes w2fxPageEnter {
-    from {
-        opacity: 0;
-        transform: translate3d(0, 10px, 0);
-    }
-    to {
-        opacity: 1;
-        transform: none;
-    }
-}
-.w2fx-page-enter {
-    animation: w2fxPageEnter 0.34s cubic-bezier(0.05, 0.7, 0.1, 1) both;
-}
-
 @media (prefers-reduced-motion: reduce) {
-    .w2fx-card-i,
-    .w2fx-page-enter {
+    .w2fx-card-i {
         animation: none !important;
         transition: none !important;
         transform: none !important;
-    }
-    .w2fx-curtain {
-        display: none !important;
     }
 }
