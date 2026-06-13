@@ -753,8 +753,46 @@ router.post('/merge', requireWeb2AuthSoft, async (req, res) => {
             new Set([...(p.tags || []), ...(s.tags || [])].map((t) => JSON.stringify(t)))
         ).map((t) => JSON.parse(t));
         const mergedAliases = Array.from(new Set([...(p.aliases || []), ...(s.aliases || [])]));
+        // MEDIUM-cleanup (2026-06-13): TRƯỚC đây merge VỨT phone phụ (COALESCE giữ
+        // phone primary) + KHÔNG gộp alt_phones/alt_addresses/fb_psids → mất danh
+        // tính KH phụ. Giờ gộp đủ; phone secondary (nếu primary đã có phone khác)
+        // → đẩy vào alt_phones để ví (web2_customer_wallets keyed by phone, KHÔNG
+        // bị xoá khi DELETE customer) vẫn truy được qua overlay.
+        const _norm = (x) => String(x || '').trim();
+        const altPhones = new Set([
+            ...(Array.isArray(p.alt_phones) ? p.alt_phones.map(_norm) : []),
+            ...(Array.isArray(s.alt_phones) ? s.alt_phones.map(_norm) : []),
+        ]);
+        if (_norm(s.phone) && _norm(s.phone) !== _norm(p.phone)) altPhones.add(_norm(s.phone));
+        altPhones.delete('');
+        altPhones.delete(_norm(p.phone)); // phone chính không nằm trong alt
+        const altAddresses = new Set([
+            ...(Array.isArray(p.alt_addresses) ? p.alt_addresses.map(_norm) : []),
+            ...(Array.isArray(s.alt_addresses) ? s.alt_addresses.map(_norm) : []),
+        ]);
+        if (_norm(s.address) && _norm(s.address) !== _norm(p.address))
+            altAddresses.add(_norm(s.address));
+        altAddresses.delete('');
+        altAddresses.delete(_norm(p.address));
+        const mergedFbPsids = { ...(s.fb_psids || {}), ...(p.fb_psids || {}) }; // primary thắng
+
+        // Ghi nhận ví phụ (nếu còn số dư) vào history để truy vết.
+        let walletNote = '';
+        if (_norm(s.phone) && _norm(s.phone) !== _norm(p.phone)) {
+            try {
+                const w = await client.query(
+                    'SELECT balance FROM web2_customer_wallets WHERE phone = $1',
+                    [_norm(s.phone)]
+                );
+                const bal = Number(w.rows[0]?.balance || 0);
+                if (bal !== 0)
+                    walletNote = ` · ví phụ ${_norm(s.phone)} còn ${bal}đ (giữ trong alt_phones)`;
+            } catch (_) {}
+        }
         const hist = Array.isArray(p.history) ? p.history.slice() : [];
-        hist.push(_historyEntry('merge', { note: `gộp KH #${secondaryId} (${s.name})` }));
+        hist.push(
+            _historyEntry('merge', { note: `gộp KH #${secondaryId} (${s.name})${walletNote}` })
+        );
         await client.query(
             `UPDATE web2_customers SET
                 name      = CASE WHEN name IN ('','Khách hàng mới') THEN $2 ELSE name END,
@@ -765,6 +803,9 @@ router.post('/merge', requireWeb2AuthSoft, async (req, res) => {
                 global_id = COALESCE(NULLIF(global_id,''), $7),
                 tags      = $8::jsonb,
                 aliases   = $9::jsonb,
+                alt_phones    = $15::jsonb,
+                alt_addresses = $16::jsonb,
+                fb_psids      = $17::jsonb,
                 total_orders = total_orders + $10,
                 total_spent  = total_spent + $11,
                 bom_count    = bom_count + $12,
@@ -786,6 +827,9 @@ router.post('/merge', requireWeb2AuthSoft, async (req, res) => {
                 Number(s.bom_count || 0),
                 JSON.stringify(hist),
                 Date.now(),
+                JSON.stringify([...altPhones]),
+                JSON.stringify([...altAddresses]),
+                JSON.stringify(mergedFbPsids),
             ]
         );
         // Repoint đơn (best-effort, native_orders/fast_sale_orders dùng customer_id).

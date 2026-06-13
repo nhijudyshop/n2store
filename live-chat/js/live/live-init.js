@@ -138,6 +138,13 @@ const LiveColumnManager = {
      */
     async _fetchLiveCommentDelta() {
         const state = window.LiveState;
+        // MEDIUM-cleanup (2026-06-13): đang xem chiến dịch CHA (_viewCampaign active,
+        // LiveColumnManager._origComments != null) → PAUSE delta. Nếu không, SSE
+        // 'web2:live-comments' vẫn fetch theo selectedCampaignIds rồi prepend vào
+        // view chiến dịch → nhiễm comment live + mất comment khi "← Quay lại live".
+        // KHÔNG advance cursor (_lastCommentMaxMs/_lastUpdatedMaxMs giữ nguyên) để
+        // khi thoát campaign view, delta tiếp tục từ đúng mốc cũ.
+        if (window.LiveColumnManager?._origComments) return;
         // Tập post đang xem = post của các campaign đang chọn.
         const ids = state.selectedCampaignIds ? Array.from(state.selectedCampaignIds) : [];
         if (!ids.length) return;
@@ -556,6 +563,10 @@ const LiveColumnManager = {
         if (!silent) {
             // Đổi tập comment → reset cap render về N mới nhất (infinite scroll từ đầu).
             window.LiveCommentList.resetRenderLimit?.();
+
+            // MEDIUM-cleanup (2026-06-13): clear enricher Set khi đổi campaign —
+            // tránh Set phình + để KH của campaign mới được re-enrich từ kho.
+            window.LiveKhoEnricher?.reset?.();
 
             // Stop all SSE
             window.LiveRealtime.stopSSE();

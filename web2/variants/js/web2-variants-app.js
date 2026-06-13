@@ -432,17 +432,17 @@
 
         load();
 
+        // MEDIUM-cleanup (2026-06-13): khử double-render. Trước đây cache-subscriber
+        // (tickle/refresh → load() undebounced) chạy SONG SONG với SSE debounced
+        // bên dưới → 2 đường reload trùng. Giữ init cache (cho data nóng) nhưng BỎ
+        // reload từ cache-subscriber; reload đi DUY NHẤT qua SSE debounced.
         if (window.Web2VariantsCache) {
-            window.Web2VariantsCache.init().then(() => {
-                window.Web2VariantsCache.subscribe((reason) => {
-                    if (reason === 'tickle' || reason === 'refresh') load();
-                });
-            });
+            window.Web2VariantsCache.init().catch(() => {});
         }
 
         // 2026-06-04: SSE canonical (web2:variants) — backend web2-variants.js
         // _notify mọi CRUD. Đồng bộ cross-tab/cross-máy không cần refresh. Debounce
-        // 600ms gom burst. (Cache Firestore tickler ở trên là legacy, giữ tạm.)
+        // 600ms gom burst. Đây là ĐƯỜNG RELOAD DUY NHẤT (xem MEDIUM-cleanup trên).
         if (window.Web2SSE?.subscribe) {
             let _sseT = null;
             window.Web2SSE.subscribe('web2:variants', () => {

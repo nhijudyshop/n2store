@@ -266,6 +266,46 @@ async function ensureSchema(pool) {
             );
         }
 
+        // 7b. MEDIUM-cleanup (2026-06-13): lá chắn cho NẠP/RÚT TAY (manual,
+        //     balance_history). 3H11 đã thêm idempotencyKey route-level nhưng
+        //     pre-check vẫn READ COMMITTED → race hẹp double-credit. Partial
+        //     UNIQUE (reference_id, type) WHERE reference_type IN ('manual',
+        //     'balance_history','manual_balance_history') khoá cứng. Dup-check trước.
+        try {
+            const dup2 = await pool.query(
+                `SELECT reference_id, type, COUNT(*) AS cnt
+                 FROM web2_wallet_transactions
+                 WHERE reference_type IN ('manual','balance_history','manual_balance_history')
+                   AND reference_id IS NOT NULL
+                 GROUP BY reference_id, type
+                 HAVING COUNT(*) > 1
+                 ORDER BY cnt DESC LIMIT 20`
+            );
+            if (dup2.rows.length > 0) {
+                const sample = dup2.rows
+                    .map((r) => `${r.reference_id}/${r.type}×${r.cnt}`)
+                    .join(', ');
+                console.warn(
+                    `[web2-wallet-isolation] ⚠ DUP manual deposits tồn tại — KHÔNG tạo unique index. ` +
+                        `Dọn dup trước (${dup2.rows.length} nhóm): ${sample}`
+                );
+            } else {
+                await pool.query(
+                    `CREATE UNIQUE INDEX IF NOT EXISTS idx_web2_wallet_tx_unique_manual
+                     ON web2_wallet_transactions (reference_id, type)
+                     WHERE reference_type IN ('manual','balance_history','manual_balance_history')`
+                );
+                console.log(
+                    '[web2-wallet-isolation] unique index idx_web2_wallet_tx_unique_manual ready (anti double manual-credit)'
+                );
+            }
+        } catch (e) {
+            console.error(
+                '[web2-wallet-isolation] manual anti-dup index step failed (boot tiếp tục):',
+                e.message
+            );
+        }
+
         _ready = true;
         console.log('[web2-wallet-isolation] schema ready — TRUE ISOLATION mode (no triggers)');
     } catch (e) {

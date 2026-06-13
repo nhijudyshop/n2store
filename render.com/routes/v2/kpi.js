@@ -23,7 +23,7 @@
 
 const express = require('express');
 const crypto = require('crypto');
-const { requireWeb2Admin } = require('../../middleware/web2-auth');
+const { requireWeb2Admin, requireWeb2AuthSoft } = require('../../middleware/web2-auth');
 
 const router = express.Router();
 
@@ -690,7 +690,10 @@ router.put('/employee-ranges/:campaignName', requireWeb2Admin, async (req, res) 
 });
 
 // GET /forecast?campaign_id=&user_id=
-router.get('/forecast', async (req, res) => {
+// MEDIUM-cleanup (2026-06-13): DEAD endpoint — kpi-dashboard.js chỉ gọi /kpi +
+// /events (không gọi /forecast, /actual; comment đầu file stale). Giữ làm legacy
+// nhưng gate soft để không lộ KPI ẩn danh; cân nhắc xoá hẳn đợt sau.
+router.get('/forecast', requireWeb2AuthSoft, async (req, res) => {
     try {
         const pool = req.app.locals.web2Db || req.app.locals.chatDb;
         const conds = ['1=1'];
@@ -729,7 +732,7 @@ router.get('/forecast', async (req, res) => {
 });
 
 // GET /actual?campaign_id=&user_id=
-router.get('/actual', async (req, res) => {
+router.get('/actual', requireWeb2AuthSoft, async (req, res) => {
     try {
         const pool = req.app.locals.web2Db || req.app.locals.chatDb;
         const conds = ['1=1'];
@@ -838,6 +841,13 @@ router.get('/kpi', async (req, res) => {
         const token =
             req.headers['x-web2-token'] || req.headers['x-user-token'] || req.query.token || null;
         const viewer = await _resolveUserFromToken(pool, token);
+        // MEDIUM-cleanup (2026-06-13): TRƯỚC đây không token → viewer=null →
+        // selfOnly=false → trả KPI MỌI nhân viên (default-open). Giờ bắt buộc
+        // token hợp lệ (kpi-dashboard đã gửi x-web2-token). enforce flip cũng
+        // chặn, nhưng route này tự resolve token nên gate tay cho chắc.
+        if (process.env.WEB2_AUTH_ENFORCE === '1' && !viewer) {
+            return res.status(401).json({ success: false, error: 'Cần đăng nhập Web 2.0' });
+        }
         const selfOnly = !!(viewer && viewer.role !== 'admin');
 
         // Load đơn (loại cancelled) theo campaign. campaign_id rỗng = mọi campaign.
@@ -982,7 +992,9 @@ router.get('/backlog', async (req, res) => {
 // Body: { decision: 'approve_backlog' | 'reclassify_native', reviewerUserId, reviewerName, note }
 // approve_backlog → mark reviewed (emit compensating với qty_delta=0, type=reclassify_backlog approve)
 // reclassify_native → emit reclassify_backlog event (compensating) + forecast_add native (count KPI)
-router.post('/backlog/:id/reclassify', async (req, res) => {
+// MEDIUM-cleanup (2026-06-13): 0 frontend caller — gate admin (mutation reclassify
+// KPI event là thao tác nhạy cảm; nếu sống lại phải qua admin).
+router.post('/backlog/:id/reclassify', requireWeb2Admin, async (req, res) => {
     try {
         const pool = req.app.locals.web2Db || req.app.locals.chatDb;
         const eventId = Number(req.params.id);

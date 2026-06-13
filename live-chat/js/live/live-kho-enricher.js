@@ -110,6 +110,20 @@
         });
     }
 
+    // MEDIUM-cleanup (2026-06-13): clear khi đổi campaign/page. Trước đây `attempted`
+    // + `pending` chỉ add, không bao giờ clear → Set phình theo thời gian VÀ khi đổi
+    // campaign các KH cũ vẫn bị coi "đã hỏi" → không re-enrich cho danh sách mới.
+    // (Giữ nguyên việc add vào `attempted` NGAY tại flush kể cả request fail —
+    //  đó là guard chống loop vô hạn cố ý, xem comment ở flush().)
+    function reset() {
+        pending = new Set();
+        attempted = new Set();
+        if (flushTimer) {
+            clearTimeout(flushTimer);
+            flushTimer = null;
+        }
+    }
+
     function init() {
         if (!window.LiveState || !window.LiveCommentList) {
             setTimeout(init, 500);
@@ -134,5 +148,5 @@
         init();
     }
 
-    window.LiveKhoEnricher = { scan, flush };
+    window.LiveKhoEnricher = { scan, flush, reset, clearAttempted: reset };
 })();

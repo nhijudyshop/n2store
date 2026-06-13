@@ -412,11 +412,17 @@
         wireTabs();
         reloadAll();
         if (window.Web2SSE?.subscribe) {
+            // MEDIUM-cleanup (2026-06-13): debounce 550ms 1 timer chung — mỗi
+            // event burst trước đây bắn 2-3 fetch (pending+wait+history) tức thì.
+            let _signalT = null;
             window.Web2SSE.subscribe('web2:payment-signals', () => {
-                loadCol('pending', true);
-                loadCol('wait', true);
-                // Tab Lịch sử đang mở → cập nhật luôn (CK vừa duyệt/khớp/gửi tin).
-                if (!document.getElementById('ckdHistoryPane').hidden) loadHistory(true);
+                clearTimeout(_signalT);
+                _signalT = setTimeout(() => {
+                    loadCol('pending', true);
+                    loadCol('wait', true);
+                    // Tab Lịch sử đang mở → cập nhật luôn (CK vừa duyệt/khớp/gửi tin).
+                    if (!document.getElementById('ckdHistoryPane').hidden) loadHistory(true);
+                }, 550);
             });
             window.Web2SSE.subscribe('web2:customer-intents', () => loadCol('intents', true));
             // Badge "Tin nhắn chưa đọc" cập nhật ngầm dù đang ở tab Đối soát.

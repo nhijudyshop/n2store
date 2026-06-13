@@ -2,6 +2,24 @@
 
 ## 2026-06-13
 
+### [render] [shared] [chat] Realtime banner báo Render/Cloudflare down + fix Build Filter + empty-state chat ✅
+
+**User:** "khi nào server render, cloudflare bị lỗi thì hiện lên web theo realtime" + báo lỗi "Khách chưa có SĐT" lúc đang dùng bình thường.
+
+**Chẩn đoán gốc:** lỗi "Khách chưa có SĐT" trong chat orders-report KHÔNG phải code chat lỗi (file không đổi từ 17/05). Render `n2store-fallback` để `autoDeploy=yes` + `buildFilter=None` → **MỌI** commit (kể cả `auto: session update`/RESUME của Stop hook, frontend, docs) đều build lại + restart server 3-5'. Trong cửa sổ restart, chat gọi `/api/v2/customers/by-phone` fail → lookup chain nuốt lỗi network → `conv=null` → hiện nhầm empty-state "chưa có SĐT".
+
+**Fix #1 (gốc rễ) — Render Build Filter:** PATCH `srv-d4e5pd3gk3sc73bgv600` → `buildFilter.paths=["render.com/**"]`. Từ giờ commit frontend/docs/session KHÔNG restart server. Cần deploy backend mà commit không chạm `render.com/` → `POST /deploys` tay.
+
+**Fix #2 — Banner monitor realtime** ([shared/js/service-health-monitor.js](../shared/js/service-health-monitor.js) mới): client ping Render `/health` + Cloudflare worker (GET self-answered tại edge) mỗi 25s (8s timeout, ngưỡng 2 fail liên tiếp tránh blip). Down → banner đỏ fixed top z-index 2147483000 "Mất kết nối: <dịch vụ> — đang thử lại…"; 5xx/503 → vàng "chập chờn"; recovered → toast xanh "Đã kết nối lại" rồi tự ẩn; `navigator.onLine=false` → "Mất kết nối mạng". Pause khi tab hidden, ping ngay khi focus lại. Lý do client-side polling: server chết thì không tự push được (SSE tắt theo). Auto-nạp idempotent qua [navigation-modern.js](../shared/js/navigation-modern.js) (Web1) + [web2-sidebar.js](../web2/shared/web2-sidebar.js) (Web2) + [shared-auth-manager.js](../shared/js/shared-auth-manager.js) (rộng nhất) → derive root từ src của chính script. Debug: `window.__n2ServiceHealthMonitor.check()`.
+
+- **Test live (Playwright localhost + ext):** monitor load OK trên orders-report; patch fetch reject 2 dịch vụ → 2 tick → banner đỏ "⚠ Mất kết nối: Máy chủ (Render) + Cloudflare proxy — đang thử lại…" hiện (translateY(0), bg #dc2626) ✅; restore fetch → toast xanh "✓ Đã kết nối lại máy chủ" → auto-hide (translateY(-110%)) ✅.
+
+**Fix #3 — Empty-state chat phân biệt backend-down vs chưa-map-SĐT** ([orders-report/js/tab1/tab1-chat-core.js](../orders-report/js/tab1/tab1-chat-core.js)): trong nhánh `!conv`, `_probeBackendReachable()` (đọc state monitor + fetch `/health` 4.5s) — nếu unreachable → `_renderBackendDownState()` "Mất kết nối máy chủ, có thể đang khởi động lại — Thử lại" thay vì "Khách chưa có SĐT". `window._chatRetryArgs` set sớm ở `openChatModal` để nút Thử lại luôn chạy.
+
+**Lưu ý phân phối:** shared JS đổi nội dung nhưng `?v=` chưa bump (auto-bump hook chỉ cover `<folder>/js`), GH Pages `max-age=600` → tới user trong ~10' hoặc hard-refresh ngay.
+
+**Status:** ✅ Done. Build Filter live ngay; banner/empty-state propagate sau deploy.
+
 ### [so-order] Fix SP tạo từ Sổ Order mất NCC → mã SP fallback KHO (bug có sẵn) ✅
 
 **User:** điền ngẫu nhiên vào bảng cũng phải tạo sản phẩm ở products theo đúng logic.

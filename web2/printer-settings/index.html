@@ -818,7 +818,10 @@
                 }, 200);
             }
             function batContent() {
-                const url = location.origin + '/scripts/print-bridge.ps1';
+                // MEDIUM-cleanup (2026-06-13): build URL theo vị trí trang (../../ từ
+                // /web2/printer-settings/ = root) — location.origin + '/scripts/...'
+                // bị 404 trên GH Pages (project dưới /n2store/).
+                const url = new URL('../../scripts/print-bridge.ps1', location.href).href;
                 // .bat: tải .ps1 → tạo launcher chạy ẩn → bỏ vào Startup → chạy ngay.
                 return [
                     '@echo off',
@@ -853,7 +856,10 @@
             });
             $('btnDownloadPs1').addEventListener('click', async () => {
                 try {
-                    const r = await fetch(location.origin + '/scripts/print-bridge.ps1');
+                    // MEDIUM-cleanup (2026-06-13): URL theo vị trí trang (tránh 404 GH Pages).
+                    const r = await fetch(
+                        new URL('../../scripts/print-bridge.ps1', location.href).href
+                    );
                     if (!r.ok) throw new Error('HTTP ' + r.status);
                     _download('print-bridge.ps1', await r.text());
                 } catch (e) {

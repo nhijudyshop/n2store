@@ -270,6 +270,64 @@ function _renderSetPhoneEmptyState(pageName, opts = {}) {
         </div>`;
 }
 
+/**
+ * Quick reachability probe for the backend. Distinguishes "backend is down /
+ * restarting" from "genuinely no phone mapping". Without this, a Render
+ * redeploy window makes the conv-lookup chain (which swallows network errors)
+ * return null → the UI wrongly shows "Khách chưa có SĐT". Returns true if the
+ * Render health endpoint answers within the timeout.
+ */
+async function _probeBackendReachable() {
+    // Fast path: if the shared health monitor already knows a service is down,
+    // trust it without waiting on another round-trip.
+    const mon = window.__n2ServiceHealthMonitor;
+    if (mon?.state) {
+        if (mon.state.render?.status === 'down' || mon.state.worker?.status === 'down') {
+            return false;
+        }
+    }
+    try {
+        const ctrl = new AbortController();
+        const to = setTimeout(() => ctrl.abort(), 4500);
+        try {
+            const res = await fetch('https://n2store-fallback.onrender.com/health', {
+                method: 'GET',
+                cache: 'no-store',
+                credentials: 'omit',
+                signal: ctrl.signal,
+            });
+            // Any HTTP response (even 503 degraded) means the server process is
+            // up and able to serve the conv lookup → treat as reachable.
+            return res.status < 500 || res.status === 503;
+        } finally {
+            clearTimeout(to);
+        }
+    } catch (_) {
+        return false; // timeout / network / abort → backend unreachable
+    }
+}
+
+/**
+ * Empty-state shown when the conv lookup returned nothing AND the backend is
+ * unreachable — almost always a Render redeploy/restart window. Offers a real
+ * retry instead of the misleading "Khách chưa có SĐT".
+ */
+function _renderBackendDownState() {
+    return `
+        <div class="chat-empty-state" style="text-align:center;padding:32px 18px;color:#475569;">
+            <div style="font-size:40px;margin-bottom:8px;">🔌</div>
+            <p style="margin:0 0 6px;font-weight:600;color:#dc2626;">Mất kết nối máy chủ</p>
+            <p style="margin:0 0 16px;color:#6b7280;font-size:13px;line-height:1.5;">
+                Máy chủ có thể đang khởi động lại sau cập nhật. Đây không phải lỗi của khách —
+                thử lại sau vài giây là tra được hội thoại.
+            </p>
+            <button type="button" onclick="window.openChatModal(...(window._chatRetryArgs||[]))"
+                style="padding:8px 20px;background:#3b82f6;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:600;">
+                🔄 Thử lại
+            </button>
+        </div>`;
+}
+
 async function _setPhoneForCurrentCustomer(targetPageId, phone) {
     const fbId = window.currentChatPSID || null;
     const globalId = window.currentConversationData?.customers?.[0]?.global_id || null;
@@ -714,6 +772,9 @@ window.openChatModal = async function (orderId, pageId, psid, conversationType) 
     window.currentChatOrderId = orderId;
     window.currentChatChannelId = pageId;
     window.currentChatPSID = psid;
+    // Stash retry args early so ANY deep empty-state (incl. backend-down inside
+    // the lookup chain) can offer a working "Thử lại" without escaping issues.
+    window._chatRetryArgs = [orderId, pageId, psid, conversationType];
     window.currentConversationType = conversationType;
     window.currentConversationId = null;
     window.currentConversationData = null;
@@ -1745,10 +1806,21 @@ async function _doFindAndLoadConversation(pageId, psid, type, loadToken, opts) {
                 // One-shot: clear so a subsequent unrelated lookup doesn't reuse it.
                 window._chatPickerCandidates = null;
             } else {
-                messagesEl.innerHTML = showPhoneSetter
-                    ? _renderSetPhoneEmptyState(safePageName, { persisted })
-                    : '<div class="chat-empty-state"><p>Không tìm thấy cuộc hội thoại với khách hàng này.</p></div>';
-                if (showPhoneSetter) _wireSetPhoneEmptyState(pageId);
+                // The lookup chain swallows network errors, so a null `conv`
+                // can mean EITHER "no phone mapping" OR "backend was down during
+                // a Render redeploy". Probe reachability to tell them apart and
+                // avoid the misleading "Khách chưa có SĐT" when it's really an
+                // outage/restart window.
+                const reachable = await _probeBackendReachable();
+                if (_isStale()) return; // a newer chat-open superseded us
+                if (!reachable) {
+                    messagesEl.innerHTML = _renderBackendDownState();
+                } else {
+                    messagesEl.innerHTML = showPhoneSetter
+                        ? _renderSetPhoneEmptyState(safePageName, { persisted })
+                        : '<div class="chat-empty-state"><p>Không tìm thấy cuộc hội thoại với khách hàng này.</p></div>';
+                    if (showPhoneSetter) _wireSetPhoneEmptyState(pageId);
+                }
             }
         }
         return;

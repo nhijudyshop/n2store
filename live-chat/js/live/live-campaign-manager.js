@@ -302,10 +302,23 @@
     }
 
     // Xem comment 1 chiến dịch cha → load từ DB (gom mọi bài) vào cột comment.
+    // MEDIUM-cleanup (2026-06-13): giảm limit mặc định 5000 → 1500 (1 request
+    // kéo 5000 row map+sort+render 1 lần gây lag). Khi chạm cap → cảnh báo user
+    // chỉ thấy 1500 comment mới nhất (phân trang đầy đủ để sau, tránh phá UX).
+    const VIEW_LIMIT = 1500;
     async function _viewCampaign(campaignId) {
         try {
-            const d = await _api('/?campaignId=' + encodeURIComponent(campaignId) + '&limit=5000');
+            const d = await _api(
+                '/?campaignId=' + encodeURIComponent(campaignId) + '&limit=' + VIEW_LIMIT
+            );
             const rows = d.data || [];
+            if (rows.length >= VIEW_LIMIT) {
+                console.warn(
+                    '[LiveCampaignManager] chạm cap ' +
+                        VIEW_LIMIT +
+                        ' comment — chỉ hiển thị phần mới nhất.'
+                );
+            }
             const st = global.LiveState;
             const mgr = global.LiveColumnManager;
             if (st && mgr?._mapDbComment) {
@@ -322,7 +335,9 @@
                 _showBackBanner(camp?.name || '');
                 _close();
                 global.notificationManager?.show?.(
-                    `Xem ${rows.length} comment của chiến dịch`,
+                    rows.length >= VIEW_LIMIT
+                        ? `Xem ${rows.length} comment mới nhất của chiến dịch (giới hạn ${VIEW_LIMIT})`
+                        : `Xem ${rows.length} comment của chiến dịch`,
                     'info'
                 );
             }

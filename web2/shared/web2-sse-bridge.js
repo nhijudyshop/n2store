@@ -34,6 +34,10 @@
     let reconnectAttempts = 0;
     let reconnectTimer = null;
     let lastConnectedAt = 0;
+    // MEDIUM-cleanup (2026-06-13): track thời điểm nhận event GẦN NHẤT (không phải
+    // chỉ lúc connect). Refocus check dùng cái này để chỉ force-reopen khi THẬT SỰ
+    // im lặng quá lâu, tránh reopen mỗi >60s dù connection vẫn sống & nhận event.
+    let lastEventAt = 0;
 
     function _openConnection() {
         if (reconnectTimer) {
@@ -60,9 +64,11 @@
         es.addEventListener('connected', () => {
             reconnectAttempts = 0;
             lastConnectedAt = Date.now();
+            lastEventAt = Date.now();
         });
 
         const handleData = (eventType) => (ev) => {
+            lastEventAt = Date.now(); // MEDIUM-cleanup (2026-06-13): connection còn sống
             let payload = null;
             try {
                 payload = JSON.parse(ev.data);
@@ -171,7 +177,10 @@
     if (typeof document !== 'undefined') {
         document.addEventListener('visibilitychange', () => {
             if (document.visibilityState === 'visible' && subscribers.size) {
-                const since = Date.now() - lastConnectedAt;
+                // MEDIUM-cleanup (2026-06-13): dùng lastEventAt (event gần nhất) thay
+                // vì lastConnectedAt (lúc connect) → chỉ reopen khi im lặng quá lâu
+                // THẬT SỰ, không force-reopen connection đang sống & nhận event đều.
+                const since = Date.now() - (lastEventAt || lastConnectedAt);
                 if (!es || es.readyState !== EventSource.OPEN || since > 60000) {
                     _openConnection();
                 }
