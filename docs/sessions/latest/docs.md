@@ -3,23 +3,24 @@
 > Snapshot tự động ghi đè sau mỗi commit chạm folder này. **Không edit thủ công.**
 > Mục đích: khi session cũ chết (vd lỗi image limit), session mới chỉ cần đọc file này là có đủ context để tiếp tục.
 
-**Latest session**: `RESUME:20260613-160713-34edf93`
-**Session file**: [`./20260613-160713-34edf93.md`](../20260613-160713-34edf93.md)
-**Commit**: `34edf93` — feat(live-chat): chụp livestream qua Element Capture (restrictTo) — video ẩn/đè/tab nền vẫn chụp 100%
-**Last updated**: 2026-06-13 16:07:14 +07
-**Summary**: feat(live-chat): chụp livestream qua Element Capture (restrictTo) — video ẩn/đè/tab nền vẫn chụp 100%
+**Latest session**: `RESUME:20260613-162308-1d7c484`
+**Session file**: [`./20260613-162308-1d7c484.md`](../20260613-162308-1d7c484.md)
+**Commit**: `1d7c484` — auto: session update
+**Last updated**: 2026-06-13 16:23:08 +07
+**Summary**: auto: session update
 
 ## Files changed in this commit (`docs/`)
 
 - `docs/dev-log.md`
+- `docs/web2/WEB2-UX-AUDIT.md`
 
 ## Last 5 commits touching `docs/`
 
+- `a8baed286` feat(web2-zalo): render ảnh/sticker/file trong chat + avatar an toàn (referrerpolicy+fallback) + đồng bộ danh bạ→hội thoại _(2026-06-13)_
+- `4749673dc` chore(session): RESUME:20260613-161109-aa26007 _(2026-06-13)_
+- `9b2e4e909` chore(session): RESUME:20260613-160713-34edf93 _(2026-06-13)_
 - `34edf9301` feat(live-chat): chụp livestream qua Element Capture (restrictTo) — video ẩn/đè/tab nền vẫn chụp 100% _(2026-06-13)_
 - `3e3102e93` chore(session): RESUME:20260613-155932-5de0e3a _(2026-06-13)_
-- `d07a83e7d` chore(session): RESUME:20260613-154935-0991424 _(2026-06-13)_
-- `09914243f` feat(live-chat): video dock đỉnh cột Kho SP (hết float đè UI) + force extract đa nhiệm (pool 3 luồng song song + chạy nền, bấm lại=hủy) _(2026-06-13)_
-- `48fbed07a` chore(session): RESUME:20260613-154310-ede6ede _(2026-06-13)_
 
 ---
 
@@ -27,4 +28,4 @@
 
 1. Đọc file session ở trên để xem Files Modified + Next Steps đã điền (nếu Claude turn trước fill rồi).
 2. Cần lùi xa hơn → `git show <sha>` theo list commit trên.
-3. Hoặc paste token `RESUME:20260613-160713-34edf93` cho Claude walk chain theo CLAUDE.md protocol.
+3. Hoặc paste token `RESUME:20260613-162308-1d7c484` cho Claude walk chain theo CLAUDE.md protocol.
