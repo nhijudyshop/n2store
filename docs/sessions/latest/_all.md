@@ -3,14 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `1f27b42` — auto: session update
-**Last updated**: 2026-06-13 23:45:36 +07
-**Latest session**: [`RESUME:20260613-234536-1f27b42`](../20260613-234536-1f27b42.md)
-**Summary**: auto: session update
+**Latest commit**: `42d3b9f` — refactor(live-chat): rebuild CSS phase A — xóa 2398 dòng dead (live-chat.css+modern.css), fix index --pkr token bug, +blueprint
+**Last updated**: 2026-06-13 23:47:38 +07
+**Latest session**: [`RESUME:20260613-234738-42d3b9f`](../20260613-234738-42d3b9f.md)
+**Summary**: refactor(live-chat): rebuild CSS phase A — xóa 2398 dòng dead (live-chat.css+modern.css), fix index --pkr token b...
 
 ## Folders affected in this commit
 
-- [`live-chat/`](./live-chat.md) — 3 file(s)
+- [`docs/`](./docs.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -25,7 +25,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-13 15:41
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-13 14:33
-- [`docs/`](./docs.md) — updated 2026-06-13 23:28
+- [`docs/`](./docs.md) — updated 2026-06-13 23:47
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-13 14:55
 - [`downloads/`](./downloads.md) — updated 2026-06-13 19:16
