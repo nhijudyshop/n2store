@@ -3,15 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `2d8ddc8` — revert: gỡ skin Chatwoot-light đợt 8 (xấu) — về đợt 7; sẽ làm lại theo native-orders
-**Last updated**: 2026-06-13 22:49:08 +07
-**Latest session**: [`RESUME:20260613-224908-2d8ddc8`](../20260613-224908-2d8ddc8.md)
-**Summary**: revert: gỡ skin Chatwoot-light đợt 8 (xấu) — về đợt 7; sẽ làm lại theo native-orders
+**Latest commit**: `d84126c` — auto: session update
+**Last updated**: 2026-06-13 22:55:59 +07
+**Latest session**: [`RESUME:20260613-225559-d84126c`](../20260613-225559-d84126c.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`live-chat/`](./live-chat.md) — 4 file(s)
+- [`live-chat/`](./live-chat.md) — 2 file(s)
+- [`native-orders/`](./native-orders.md) — 1 file(s)
 - [`web2/`](./web2.md) — 1 file(s)
 
 ## All folder snapshots
@@ -40,9 +40,9 @@
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-06-13 14:55
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-12 19:21
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
-- [`live-chat/`](./live-chat.md) — updated 2026-06-13 22:49
+- [`live-chat/`](./live-chat.md) — updated 2026-06-13 22:55
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-06-04 20:02
-- [`native-orders/`](./native-orders.md) — updated 2026-06-13 19:51
+- [`native-orders/`](./native-orders.md) — updated 2026-06-13 22:55
 - [`nhanhang/`](./nhanhang.md) — updated 2026-06-13 19:51
 - [`order-management/`](./order-management.md) — updated 2026-05-21 15:39
 - [`orders-report/`](./orders-report.md) — updated 2026-06-13 14:55
@@ -73,4 +73,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-13 22:49
+- [`web2/`](./web2.md) — updated 2026-06-13 22:55
