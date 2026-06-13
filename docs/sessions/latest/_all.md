@@ -3,15 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `8d8b0f6` — test(web2): browser smoke click-như-user 35 trang menu — modal Sửa+Lưu 7 trang OK, 0 lỗi, 3 false-positive detector đã verify tay
-**Last updated**: 2026-06-12 20:06:10 +07
-**Latest session**: [`RESUME:20260612-200610-8d8b0f6`](../20260612-200610-8d8b0f6.md)
-**Summary**: test(web2): browser smoke click-như-user 35 trang menu — modal Sửa+Lưu 7 trang OK, 0 lỗi, 3 false-positive de...
+**Latest commit**: `9c26422` — feat(orders-report): đơn gộp hiển STT các đơn nối '+' và đóng khung vuông (vd 243 + 678)
+**Last updated**: 2026-06-13 10:24:07 +07
+**Latest session**: [`RESUME:20260613-102407-9c26422`](../20260613-102407-9c26422.md)
+**Summary**: feat(orders-report): đơn gộp hiển STT các đơn nối '+' và đóng khung vuông (vd 243 + 678)
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`downloads/`](./downloads.md) — 1 file(s)
+- [`orders-report/`](./orders-report.md) — 3 file(s)
 
 ## All folder snapshots
 
@@ -25,7 +25,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-12 18:34
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-12 19:55
-- [`docs/`](./docs.md) — updated 2026-06-12 20:06
+- [`docs/`](./docs.md) — updated 2026-06-13 10:24
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-12 20:05
 - [`downloads/`](./downloads.md) — updated 2026-06-12 20:06
@@ -43,7 +43,7 @@
 - [`native-orders/`](./native-orders.md) — updated 2026-06-12 20:05
 - [`nhanhang/`](./nhanhang.md) — updated 2026-05-21 15:39
 - [`order-management/`](./order-management.md) — updated 2026-05-21 15:39
-- [`orders-report/`](./orders-report.md) — updated 2026-06-12 20:05
+- [`orders-report/`](./orders-report.md) — updated 2026-06-13 10:24
 - [`pancake-extension/`](./pancake-extension.md) — updated 2026-05-21 11:33
 - [`phone-management/`](./phone-management.md) — updated 2026-05-21 15:39
 - [`product-warehouse/`](./product-warehouse.md) — updated 2026-06-04 13:36
