@@ -27,6 +27,11 @@ function _web2AuthHeaders(extra) {
     } catch {
         /* ignore */
     }
+    // ENFORCE-PREP (2026-06-13): kèm X-API-Key (CLIENT_API_KEY) — key này server đã
+    // trust phát Pancake JWT qua /api/auth/token/pancake. Cho phép đọc full token từ
+    // /api/pancake-accounts kể cả khi WEB2_AUTH_ENFORCE='1' & chưa login Web 2.0
+    // (không có web2_auth). Giữ chat + multi-account gửi tin không vỡ khi bật enforce.
+    if (_CLIENT_API_KEY) h['X-API-Key'] = _CLIENT_API_KEY;
     return h;
 }
 
