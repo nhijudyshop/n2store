@@ -2,6 +2,17 @@
 
 ## 2026-06-13
 
+### [web2] UX per-page đợt 1 (products / customers / dashboard) theo roadmap audit ✅
+
+Tiếp tục từ roadmap `docs/web2/WEB2-UX-AUDIT.md` — fix high-impact các trang traffic cao:
+
+- **products** (`web2-products-app.js`): autofocus ô **Tên SP** thay NCC khi thêm (verify live: ô Tên có focus ring); **Enter-to-save** trong modal (trừ textarea/select/button); error row có nút **"Thử lại"** (expose `load()`).
+- **customers** (`customers-app.js`): `saveModal` GIỮ modal mở khi đang lưu (busy spinner) → lỗi thì hiện inline `#wcModalError`, **KHÔNG đóng modal mất data** (trước: đóng trước khi gọi API).
+- **dashboard** (`index.html` inline): **skeleton `.w2-skel`** cho 4 KPI lần đầu; bỏ silent-failure — lỗi/`!success` → KPI về '—' + toast lỗi (trước: `console.warn` im lặng).
+- **Cache-bust**: bump `web2-sidebar.js?v=20260613z` toàn bộ 38 HTML (palette + notification autoload mới propagate prod) + products-app/customers-app JS.
+
+Verify: node --check OK; products modal live (focus Tên + 0 error). Còn lại theo roadmap: variants, so-order, reconcile, supplier-debt, returns, report-revenue, kpi, audit-log…
+
 ### [web2] [shared] Hiện đại hoá UX toàn Web 2.0: Command Palette + de-purple triệt để + global fixes + UX audit ✅
 
 **User:** "tham khảo mọi nguồn → cải thiện toàn bộ Web 2.0 thành web hiện đại nhất, chức năng đa dụng dễ dùng" (chọn cả 3 hướng: global / per-page / audit).
