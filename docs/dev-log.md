@@ -2,6 +2,23 @@
 
 ## 2026-06-13
 
+### [web2] [shared] Hiện đại hoá UX toàn Web 2.0: Command Palette + de-purple triệt để + global fixes + UX audit ✅
+
+**User:** "tham khảo mọi nguồn → cải thiện toàn bộ Web 2.0 thành web hiện đại nhất, chức năng đa dụng dễ dùng" (chọn cả 3 hướng: global / per-page / audit).
+
+**Global features + fixes (1 lần → mọi trang):**
+
+- **Command Palette** `web2/shared/web2-command-palette.js` (Ctrl/⌘K hoặc `/`): tìm fuzzy + bỏ dấu, nhảy mọi trang, keyboard + a11y. Auto-load qua sidebar.
+- **De-purple TRIỆT ĐỂ** (token recolor chỉ cover style token-driven; còn hardcode rải rác): map `#7266ba/#5e51ac/#7c3aed/#4338ca/#a855f7/rgba(114,102,186)…`→xanh trong **24 page CSS + 11 HTML inline-style + 19 JS** (vd nút "Tải" audit-log tím→xanh, verified). 0 purple còn lại.
+- **Mobile**: bảng rộng auto cuộn ngang ≤760px (safety net mọi trang) trong web2-theme.css.
+- **Toast**: auto-load `notification-system.js` qua sidebar → mọi trang có `notificationManager` (audit: 3 trang thiếu).
+
+**UX Audit (workflow 5-agent, 119 phát hiện / 29 high / 7 global):** roadmap `docs/web2/WEB2-UX-AUDIT.md` — checklist high-impact per-page (skeleton loading, Esc/Enter modal, error+retry, autofocus, empty-state, mobile @media) cho đợt per-page tiếp theo.
+
+**Verify live:** audit-log nút "Tải" xanh; dashboard/products/customers/page-builder không vỡ; palette gõ "khach"→"Khách Hàng". Commits trước: `584cd3291` (re-skin), `570a1f855` (palette).
+
+**Status:** ✅ Global xong. Per-page high-impact (29 mục) = đợt tiếp theo theo roadmap.
+
 ### [web2] [render] Zalo Hội thoại: hiện ảnh/sticker/file trong chat + avatar an toàn + đồng bộ danh bạ → hội thoại ✅ (frontend live-verified)
 
 **User (2 lỗi từ ảnh chụp trang `web2/zalo`):** (1) chưa hiện danh sách tất cả đoạn hội thoại cũ; (2) chưa hiện avatar + hình ảnh (ảnh trong tin nhắn hiện ra dạng URL chữ).
