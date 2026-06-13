@@ -340,7 +340,7 @@
                 particleCount: opts.particleCount ?? 90,
                 spread: opts.spread ?? 75,
                 origin: opts.origin || { y: 0.7 },
-                colors: opts.colors || ['#7c3aed', '#a855f7', '#fbbf24', '#10b981', '#3b82f6'],
+                colors: opts.colors || ['#0068ff', '#2a96ff', '#fbbf24', '#10b981', '#3b82f6'],
                 ...opts,
             });
         } catch {

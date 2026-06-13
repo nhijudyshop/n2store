@@ -135,7 +135,7 @@
             infoEl?.parentNode?.insertBefore(chip, infoEl);
         }
         chip.innerHTML = `
-            <i data-lucide="user-circle" style="width:14px;height:14px;color:#7c3aed;"></i>
+            <i data-lucide="user-circle" style="width:14px;height:14px;color:#0068ff;"></i>
             Đang lọc theo Khách hàng #${STATE.customerId}
             <button onclick="PbhApp.clearCustomerFilter()" title="Bỏ lọc" style="background:transparent;border:none;color:#5b21b6;cursor:pointer;font-size:14px;line-height:1;padding:0 0 0 6px;">×</button>`;
         if (window.lucide) lucide.createIcons();
@@ -194,7 +194,7 @@
                     <td>
                         <div class="web2-row-actions">
                             <button class="web2-btn web2-btn-primary web2-btn-xs" title="Chi tiết" onclick="PbhApp.detail('${escapeHtml(o.number)}')"><i data-lucide="eye" style="width:12px;height:12px;"></i></button>
-                            ${o.customerId ? `<button class="web2-btn web2-btn-default web2-btn-xs" title="Khách hàng 360° (id ${o.customerId})" style="color:#7c3aed;" onclick="PbhApp.openCustomer(${o.customerId})"><i data-lucide="user-circle" style="width:12px;height:12px;"></i></button>` : ''}
+                            ${o.customerId ? `<button class="web2-btn web2-btn-default web2-btn-xs" title="Khách hàng 360° (id ${o.customerId})" style="color:#0068ff;" onclick="PbhApp.openCustomer(${o.customerId})"><i data-lucide="user-circle" style="width:12px;height:12px;"></i></button>` : ''}
                             ${/* Nút Xác nhận + Hủy đã bỏ — PBH state auto sync theo native-orders.status. Muốn huỷ phải qua native-orders → cancelOrder (huỷ cả đơn + restock). */ ''}
                             <button class="web2-btn web2-btn-default web2-btn-xs" title="Lịch sử PBH (tạo / chỉnh sửa / huỷ)" style="color:#8b5cf6;" onclick="PbhApp.openHistory('${escapeHtml(o.number)}')"><i data-lucide="history" style="width:12px;height:12px;"></i></button>
                             <button class="web2-btn web2-btn-default web2-btn-xs" title="In" onclick="PbhApp.print('${escapeHtml(o.number)}')"><i data-lucide="printer" style="width:12px;height:12px;"></i></button>
@@ -432,7 +432,7 @@
                 <div style="background:#fff;border-radius:10px;max-width:760px;width:100%;padding:0;box-shadow:0 16px 48px rgba(0,0,0,0.15);">
                     <div style="padding:14px 18px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;justify-content:space-between;gap:8px;">
                         <strong id="c360Title" style="font-size:14px;color:#1f2937;flex:1;">Khách hàng 360°</strong>
-                        <button id="c360FilterBtn" class="web2-btn web2-btn-default web2-btn-sm" style="color:#7c3aed;" title="Lọc tất cả PBH của khách này">
+                        <button id="c360FilterBtn" class="web2-btn web2-btn-default web2-btn-sm" style="color:#0068ff;" title="Lọc tất cả PBH của khách này">
                             <i data-lucide="filter" style="width:12px;height:12px;"></i> Lọc PBH
                         </button>
                         <button id="c360Close" style="background:transparent;border:none;font-size:18px;cursor:pointer;color:#6b7280;">×</button>
@@ -985,7 +985,7 @@
         s.textContent = `
             .pbh-history-modal{position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:9500;display:flex;align-items:flex-start;justify-content:center;padding:40px 20px;overflow:auto;}
             .pbh-history-box{background:#fff;border-radius:14px;width:min(780px,100%);max-height:calc(100vh - 80px);display:flex;flex-direction:column;overflow:hidden;box-shadow:0 25px 60px rgba(0,0,0,.25);}
-            .pbh-history-head{padding:14px 20px;background:linear-gradient(135deg,#8b5cf6,#a855f7);color:#fff;display:flex;align-items:center;gap:10px;}
+            .pbh-history-head{padding:14px 20px;background:linear-gradient(135deg,#8b5cf6,#2a96ff);color:#fff;display:flex;align-items:center;gap:10px;}
             .pbh-history-close{margin-left:auto;background:rgba(255,255,255,.2);border:0;color:#fff;width:28px;height:28px;border-radius:7px;cursor:pointer;font-size:18px;line-height:1;}
             .pbh-history-close:hover{background:rgba(255,255,255,.35);}
             .pbh-history-body{padding:12px 0;overflow:auto;flex:1;}
@@ -1008,7 +1008,7 @@
             .pbh-hist-prod th,.pbh-hist-prod td{padding:4px 6px;border-bottom:1px solid #e2e8f0;text-align:left;}
             .pbh-hist-prod th{background:#f1f5f9;color:#475569;font-weight:600;}
             .pbh-hist-prod .num{text-align:right;}
-            .pbh-hist-prod code{font-size:10px;background:#fff;padding:1px 4px;border-radius:3px;color:#7c3aed;}
+            .pbh-hist-prod code{font-size:10px;background:#fff;padding:1px 4px;border-radius:3px;color:#0068ff;}
         `;
         document.head.appendChild(s);
     }

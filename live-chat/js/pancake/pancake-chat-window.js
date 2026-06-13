@@ -55,7 +55,7 @@ const PancakeChatWindow = {
                 return (state.quickReplies || []).map((q) => ({
                     label: q.label,
                     template: q.template || '',
-                    color: q.color || '#7c3aed',
+                    color: q.color || '#0068ff',
                 }));
             },
 

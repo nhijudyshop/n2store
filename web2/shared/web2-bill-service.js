@@ -642,7 +642,7 @@ html, body { margin: 0; padding: 0; background: #fff; }
             '<button type="button" data-bp-close style="padding:8px 14px;border-radius:8px;border:1px solid #e2e8f0;' +
             'background:#fff;color:#475569;font-size:13px;font-weight:600;cursor:pointer;">Đóng</button>' +
             '<button type="button" data-bp-print style="padding:8px 14px;border-radius:8px;border:0;' +
-            'background:#7c3aed;color:#fff;font-size:13px;font-weight:600;cursor:pointer;">🖨 In bill</button>' +
+            'background:#0068ff;color:#fff;font-size:13px;font-weight:600;cursor:pointer;">🖨 In bill</button>' +
             '</div>' +
             '</div>';
         document.body.appendChild(overlay);

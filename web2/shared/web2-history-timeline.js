@@ -114,7 +114,7 @@
 .w2-timeline-cancel-approve .w2-timeline-marker { border-color: #d97706; background: #fef3c7; }
 .w2-timeline-refunded .w2-timeline-marker { border-color: #059669; background: #d1fae5; }
 .w2-timeline-reject .w2-timeline-marker { border-color: #dc2626; background: #fee2e2; }
-.w2-timeline-purchase .w2-timeline-marker { border-color: #7c3aed; background: #ede9fe; }
+.w2-timeline-purchase .w2-timeline-marker { border-color: #0068ff; background: #ede9fe; }
 .w2-timeline-payment .w2-timeline-marker { border-color: #16a34a; background: #dcfce7; }
 .w2-timeline-return .w2-timeline-marker { border-color: #f59e0b; background: #fef3c7; }
 .w2-timeline-body { flex: 1; min-width: 0; }

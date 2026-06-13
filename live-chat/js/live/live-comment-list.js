@@ -1339,7 +1339,7 @@ const LiveCommentList = {
                         if (!sessionInfo) {
                             btnTitle = 'Tạo đơn web';
                             btnIcon = 'shopping-cart';
-                            btnColor = '#7c3aed';
+                            btnColor = '#0068ff';
                         } else if (isCommentInOrder) {
                             btnTitle = `Comment đã thêm vào đơn ${sessionInfo.code}`;
                             btnIcon = 'check-square';
@@ -1347,7 +1347,7 @@ const LiveCommentList = {
                         } else {
                             btnTitle = `Thêm comment vào đơn ${sessionInfo.code}`;
                             btnIcon = 'plus-square';
-                            btnColor = '#7c3aed';
+                            btnColor = '#0068ff';
                         }
                         return `<button class="live-action-btn" id="create-order-${fromIdA}-${idA}" title="${liveAttr(btnTitle)}" style="color:${btnColor};" data-action="create-order" data-from-id="${fromIdA}" data-name="${nameA}" data-comment-id="${idA}">
                                    ${liveSvgIcon(btnIcon, 13)}

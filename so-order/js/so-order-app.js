@@ -2262,7 +2262,7 @@ body{font-family:'Inter',sans-serif;margin:0;padding:8mm;background:#fff;color:#
 .bc-name{font-size:12px;font-weight:600;margin-top:1mm;line-height:1.3}
 @media print {.no-print{display:none}}
 .no-print{position:sticky;top:0;background:#fff;border-bottom:1px solid #e2e8f0;padding:8px 0 12px;margin-bottom:10px;display:flex;gap:8px;justify-content:center}
-.btn{background:#4338ca;color:#fff;border:0;padding:8px 18px;border-radius:6px;font-weight:600;cursor:pointer}
+.btn{background:#0058da;color:#fff;border:0;padding:8px 18px;border-radius:6px;font-weight:600;cursor:pointer}
 .btn-2{background:#f1f5f9;color:#334155;border:1px solid #cbd5e1}
 </style></head><body>
 <div class="no-print">

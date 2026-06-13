@@ -434,7 +434,7 @@
             '#10b981',
             '#3b82f6',
             '#06b6d4',
-            '#a855f7',
+            '#2a96ff',
         ];
         const s = (name || '').split('').reduce((a, c) => a + c.charCodeAt(0), 0);
         return colors[s % colors.length];
@@ -1269,7 +1269,7 @@
                             })()}
                             ${
                                 o.customerId
-                                    ? `<button class="web2-btn web2-btn-default web2-btn-xs" title="Khách hàng 360° (id ${o.customerId})" style="color:#7c3aed;"
+                                    ? `<button class="web2-btn web2-btn-default web2-btn-xs" title="Khách hàng 360° (id ${o.customerId})" style="color:#0068ff;"
                                 onclick="event.stopPropagation();NativeOrdersApp.openCustomer(${o.customerId})">
                                 <i data-lucide="user-circle" style="width:12px;height:12px;"></i>
                             </button>`
@@ -1584,7 +1584,7 @@
             else document.body.appendChild(chip);
         }
         chip.innerHTML = `
-            <i data-lucide="user-circle" style="width:14px;height:14px;color:#7c3aed;"></i>
+            <i data-lucide="user-circle" style="width:14px;height:14px;color:#0068ff;"></i>
             Đang lọc theo Khách hàng #${STATE.customerId}
             <button onclick="NativeOrdersApp.clearCustomerFilter()" title="Bỏ lọc" style="background:transparent;border:none;color:#5b21b6;cursor:pointer;font-size:14px;line-height:1;padding:0 0 0 6px;">×</button>`;
         if (window.lucide) lucide.createIcons();
@@ -2879,7 +2879,7 @@
                     <div class="w2p-form-body" style="padding:16px 20px;">${opts.html}</div>
                     <div style="padding:12px 20px 18px;display:flex;justify-content:flex-end;gap:8px;">
                         <button type="button" data-action="cancel" style="padding:8px 16px;border-radius:8px;border:1px solid #e2e8f0;background:#fff;color:#475569;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;">${escapeHtml(opts.cancelText || 'Huỷ')}</button>
-                        <button type="button" data-action="ok" ${opts.okDisabled ? 'disabled' : ''} style="padding:8px 16px;border-radius:8px;border:1px solid transparent;background:${opts.okDisabled ? '#cbd5e1' : '#7c3aed'};color:#fff;font-size:13px;font-weight:600;cursor:${opts.okDisabled ? 'not-allowed' : 'pointer'};font-family:inherit;">${escapeHtml(opts.okText || 'OK')}</button>
+                        <button type="button" data-action="ok" ${opts.okDisabled ? 'disabled' : ''} style="padding:8px 16px;border-radius:8px;border:1px solid transparent;background:${opts.okDisabled ? '#cbd5e1' : '#0068ff'};color:#fff;font-size:13px;font-weight:600;cursor:${opts.okDisabled ? 'not-allowed' : 'pointer'};font-family:inherit;">${escapeHtml(opts.okText || 'OK')}</button>
                     </div>
                 </div>`;
             document.body.appendChild(root);
@@ -3877,7 +3877,7 @@
                 </fieldset>
                 <div id="bulkProgress" style="display:none;font-size:12px;color:#475569;">
                     <div style="height:8px;background:#e2e8f0;border-radius:4px;overflow:hidden;">
-                        <div id="bulkProgressBar" style="height:100%;background:#7c3aed;width:0;transition:width 200ms;"></div>
+                        <div id="bulkProgressBar" style="height:100%;background:#0068ff;width:0;transition:width 200ms;"></div>
                     </div>
                     <div id="bulkProgressLabel" style="margin-top:6px;"></div>
                 </div>
@@ -3917,7 +3917,7 @@
             <div class="w2p-card" style="max-width:480px;padding:22px 26px;">
                 <strong style="font-size:15px;color:#0f172a;display:block;margin-bottom:12px;">Đang tạo PBH…</strong>
                 <div style="height:8px;background:#e2e8f0;border-radius:4px;overflow:hidden;">
-                    <div id="pgBar" style="height:100%;background:#7c3aed;width:0;transition:width 200ms;"></div>
+                    <div id="pgBar" style="height:100%;background:#0068ff;width:0;transition:width 200ms;"></div>
                 </div>
                 <div id="pgLabel" style="margin-top:8px;font-size:12px;color:#475569;">0 / ${validCount}</div>
                 <ul id="pgList" style="margin:10px 0 0;padding:0;list-style:none;max-height:180px;overflow:auto;font-size:12px;"></ul>
@@ -4578,7 +4578,7 @@
                 <div style="background:#fff;border-radius:10px;max-width:760px;width:100%;padding:0;box-shadow:0 16px 48px rgba(0,0,0,0.15);">
                     <div style="padding:14px 18px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;justify-content:space-between;gap:8px;">
                         <strong id="c360Title" style="font-size:14px;color:#1f2937;flex:1;">Khách hàng 360°</strong>
-                        <button id="c360FilterBtn" class="web2-btn web2-btn-default web2-btn-sm" style="color:#7c3aed;" title="Lọc tất cả đơn web của khách này">
+                        <button id="c360FilterBtn" class="web2-btn web2-btn-default web2-btn-sm" style="color:#0068ff;" title="Lọc tất cả đơn web của khách này">
                             <i data-lucide="filter" style="width:12px;height:12px;"></i> Lọc đơn
                         </button>
                         <button id="c360Close" style="background:transparent;border:none;font-size:18px;cursor:pointer;color:#6b7280;">×</button>
@@ -4733,10 +4733,10 @@
                 : '';
         const avatarHtml =
             order.fbUserId && order.fbPageId
-                ? `<img src="${escapeHtml(_avatarUrl(order.fbUserId, order.fbPageId))}" alt="${escapeHtml(order.customerName || order.fbUserName || '?')}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;flex-shrink:0;background:linear-gradient(135deg,#7c3aed 0%,#a855f7 100%);" loading="eager" onerror="this.outerHTML='<div style=&quot;width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#7c3aed 0%,#a855f7 100%);color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-weight:700;font-size:14px;&quot;>${escapeHtml(initials).replace(/'/g, '&#39;')}</div>'" />`
-                : `<div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#7c3aed 0%,#a855f7 100%);color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-weight:700;font-size:14px;">${escapeHtml(initials)}</div>`;
+                ? `<img src="${escapeHtml(_avatarUrl(order.fbUserId, order.fbPageId))}" alt="${escapeHtml(order.customerName || order.fbUserName || '?')}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;flex-shrink:0;background:linear-gradient(135deg,#0068ff 0%,#2a96ff 100%);" loading="eager" onerror="this.outerHTML='<div style=&quot;width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#0068ff 0%,#2a96ff 100%);color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-weight:700;font-size:14px;&quot;>${escapeHtml(initials).replace(/'/g, '&#39;')}</div>'" />`
+                : `<div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#0068ff 0%,#2a96ff 100%);color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-weight:700;font-size:14px;">${escapeHtml(initials)}</div>`;
         const codeBadge = order.code
-            ? `<span style="background:#e0e7ff;color:#4338ca;font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px;">${escapeHtml(order.code)}</span>`
+            ? `<span style="background:#e0e7ff;color:#0058da;font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px;">${escapeHtml(order.code)}</span>`
             : '';
         const pageBadge = order.fbPageId
             ? `<span style="background:#dbeafe;color:#1e40af;font-size:10px;font-weight:600;padding:1px 6px;border-radius:4px;">Page …${escapeHtml(String(order.fbPageId).slice(-6))}</span>`
@@ -5071,7 +5071,7 @@
                         <div class="w2-fm-col w2-fm-col-cats">
                             <div class="w2-fm-section">Thẻ hội thoại</div>
                             <button type="button" class="w2-fm-cat" data-cat="include-tags">
-                                <i data-lucide="tag" style="width:13px;height:13px;color:#7c3aed;"></i>
+                                <i data-lucide="tag" style="width:13px;height:13px;color:#0068ff;"></i>
                                 <span class="w2-fm-cat-label">Có chứa thẻ</span>
                                 <span class="w2-fm-cat-count" data-for="include-tags"></span>
                                 <i data-lucide="chevron-right" style="width:13px;height:13px;color:#94a3b8;"></i>
@@ -5085,7 +5085,7 @@
                             <div class="w2-fm-divider"></div>
                             <div class="w2-fm-section">Điều kiện</div>
                             <button type="button" class="w2-fm-cat" data-cat="conditions">
-                                <i data-lucide="puzzle" style="width:13px;height:13px;color:#7c3aed;"></i>
+                                <i data-lucide="puzzle" style="width:13px;height:13px;color:#0068ff;"></i>
                                 <span class="w2-fm-cat-label">Điều kiện</span>
                                 <span class="w2-fm-cat-count" data-for="conditions"></span>
                                 <i data-lucide="chevron-right" style="width:13px;height:13px;color:#94a3b8;"></i>
@@ -6648,7 +6648,7 @@
                 return (_loadQuickTags() || []).map((t) => ({
                     label: t.label,
                     template: t.tpl || t.label,
-                    color: t.color || '#7c3aed',
+                    color: t.color || '#0068ff',
                 }));
             },
             async loadMessages() {
@@ -7051,7 +7051,7 @@
         host.style.display = '';
         const preview = r.text || (r.hasMedia ? '[Đính kèm]' : '[Tin nhắn]');
         host.innerHTML = `<div class="w2-chat-reply-bar">
-            <i data-lucide="corner-up-left" style="width:14px;height:14px;color:#7c3aed;"></i>
+            <i data-lucide="corner-up-left" style="width:14px;height:14px;color:#0068ff;"></i>
             <span class="preview">Trả lời <strong>${escapeHtml(r.from)}</strong>${escapeHtml(preview)}</span>
             <button type="button" data-action="cancel-reply" title="Huỷ trả lời">×</button>
         </div>`;
@@ -7202,7 +7202,7 @@
         const desc = post?.description || '';
         const adUrl = att.url || '';
         return `<a href="${escapeHtml(adUrl)}" target="_blank" rel="noopener" style="display:block;margin-top:4px;text-decoration:none;color:inherit;background:rgba(0,0,0,0.05);border-radius:8px;padding:6px;max-width:240px;">
-            <div style="display:flex;align-items:center;gap:6px;font-size:10px;font-weight:700;color:#7c3aed;margin-bottom:4px;">
+            <div style="display:flex;align-items:center;gap:6px;font-size:10px;font-weight:700;color:#0068ff;margin-bottom:4px;">
                 <span>📣 Click từ Quảng cáo</span>
             </div>
             ${thumb ? `<img src="${escapeHtml(_workerProxy(thumb))}" style="width:100%;max-height:140px;border-radius:6px;display:block;object-fit:cover;" loading="lazy" />` : ''}
@@ -7455,7 +7455,7 @@
             }
             .w2-chat-tool:hover { background: #f1f5f9; color: #0f172a; border-color: #cbd5e1; }
             .w2-chat-phone { cursor: pointer; user-select: none; transition: color 0.15s; }
-            .w2-chat-phone:hover { color: #7c3aed; }
+            .w2-chat-phone:hover { color: #0068ff; }
 
             /* Thread container — keep native scroll behaviour. Inspected
                Pancake.vn's own admin inbox (rc-virtual-list backed) and they
@@ -7563,7 +7563,7 @@
                 font-weight: 600;
             }
             .w2-inbox-sb-filter-count {
-                background: #7c3aed;
+                background: #0068ff;
                 color: #fff;
                 font-size: 11px;
                 font-weight: 700;
@@ -7647,7 +7647,7 @@
             .w2-fm-cat-label { flex: 1; }
             .w2-fm-cat-count {
                 background: #e0e7ff;
-                color: #4338ca;
+                color: #0058da;
                 font-size: 10px;
                 font-weight: 700;
                 padding: 1px 6px;
@@ -7720,7 +7720,7 @@
             .w2-fm-row input[type="checkbox"] {
                 width: 14px;
                 height: 14px;
-                accent-color: #7c3aed;
+                accent-color: #0068ff;
                 cursor: pointer;
             }
             .w2-fm-tag-chip {
@@ -7857,7 +7857,7 @@
                 gap: 6px;
                 margin-bottom: -1px;
             }
-            .interactions-tab.is-active { color: #7c3aed; border-bottom-color: #7c3aed; }
+            .interactions-tab.is-active { color: #0068ff; border-bottom-color: #0068ff; }
             .w2-inbox-tab-badge {
                 background: #cbd5e1;
                 color: #fff;
@@ -7868,7 +7868,7 @@
                 min-width: 18px;
                 text-align: center;
             }
-            .w2-inbox-tab-badge.is-active { background: #7c3aed; }
+            .w2-inbox-tab-badge.is-active { background: #0068ff; }
 
             /* ─── INBOX RIGHT PANEL ─────────────────────────────── */
             .w2-inbox-right {
@@ -7896,7 +7896,7 @@
                 border-bottom: 3px solid transparent;
                 margin-bottom: -1px;
             }
-            .w2-inbox-right-tab.is-active { color: #7c3aed; border-bottom-color: #7c3aed; }
+            .w2-inbox-right-tab.is-active { color: #0068ff; border-bottom-color: #0068ff; }
             .w2-inbox-right-body {
                 flex: 1;
                 min-height: 0;
@@ -7923,7 +7923,7 @@
                 margin-bottom: 8px;
             }
             .w2-section-action {
-                font-size: 11px; color: #7c3aed; text-decoration: none; font-weight: 600;
+                font-size: 11px; color: #0068ff; text-decoration: none; font-weight: 600;
             }
             .w2-section-action:hover { text-decoration: underline; }
             .w2-info-row {
@@ -7953,7 +7953,7 @@
                 outline: 0;
                 font-family: inherit;
             }
-            .w2-input:focus { border-color: #7c3aed; box-shadow: 0 0 0 3px rgba(124,58,237,0.1); }
+            .w2-input:focus { border-color: #0068ff; box-shadow: 0 0 0 3px rgba(124,58,237,0.1); }
             .w2-form-row { margin-top: 6px; }
             .w2-form-row-2col {
                 display: grid;
@@ -7988,7 +7988,7 @@
             .w2-customer-card-avatar {
                 width: 32px; height: 32px;
                 border-radius: 50%;
-                background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%);
+                background: linear-gradient(135deg, #0068ff 0%, #2a96ff 100%);
                 color: #fff;
                 font-size: 13px;
                 font-weight: 700;
@@ -8111,7 +8111,7 @@
                 opacity: 0.92;
             }
             .w2-chat-row.is-in .w2-chat-quoted {
-                border-left-color: #7c3aed;
+                border-left-color: #0068ff;
                 background: #f1f5f9;
             }
             .w2-chat-quoted-from {
@@ -8154,7 +8154,7 @@
                 flex-shrink: 0;
             }
             .w2-chat-row:hover .w2-chat-reply-btn { opacity: 1; }
-            .w2-chat-reply-btn:hover { background: #ede9fe; color: #7c3aed; }
+            .w2-chat-reply-btn:hover { background: #ede9fe; color: #0068ff; }
 
             /* "Replying to X" bar above input */
             .w2-chat-reply-bar {
@@ -8162,7 +8162,7 @@
                 align-items: center;
                 gap: 8px;
                 background: #f1f5f9;
-                border-left: 3px solid #7c3aed;
+                border-left: 3px solid #0068ff;
                 padding: 6px 10px;
                 border-radius: 6px;
                 margin-bottom: 6px;
@@ -8175,7 +8175,7 @@
                 overflow: hidden;
                 text-overflow: ellipsis;
             }
-            .w2-chat-reply-bar .preview strong { color: #7c3aed; margin-right: 6px; }
+            .w2-chat-reply-bar .preview strong { color: #0068ff; margin-right: 6px; }
             .w2-chat-reply-bar button {
                 width: 22px; height: 22px;
                 background: transparent;
@@ -8201,7 +8201,7 @@
             #orderInteractionsModal .w2p-card { background:#fff; }
             #msgInput:focus {
                 outline: none;
-                border-color: #7c3aed !important;
+                border-color: #0068ff !important;
                 box-shadow: 0 0 0 3px rgba(124,58,237,0.12);
             }
         `;
@@ -8236,7 +8236,7 @@
     }
 
     function _loadOlderIndicatorHtml() {
-        return `<div id="msgLoadOlder" style="align-self:center;font-size:11px;color:#7c3aed;padding:4px 0;cursor:pointer;">↑ Cuộn lên để tải tin cũ hơn</div>`;
+        return `<div id="msgLoadOlder" style="align-self:center;font-size:11px;color:#0068ff;padding:4px 0;cursor:pointer;">↑ Cuộn lên để tải tin cũ hơn</div>`;
     }
 
     /**
@@ -8431,7 +8431,7 @@
         _chatState.loadingOlder = true;
         const indicator = document.getElementById('msgLoadOlder');
         if (indicator)
-            indicator.innerHTML = `<span style="color:#7c3aed;">⏳ Đang tải tin cũ…</span>`;
+            indicator.innerHTML = `<span style="color:#0068ff;">⏳ Đang tải tin cũ…</span>`;
         try {
             const cursor = _chatState.cursor || _chatState.msgs.length;
             const r = await window.Web2Chat.fetchMessages(
@@ -8641,7 +8641,7 @@
         if (!window.Web2Chat.hasTokensFor(order.fbPageId)) {
             threadEl.innerHTML = `<div style="color:#dc2626;font-size:12px;padding:14px;text-align:center;line-height:1.5;">
                 Chưa cấu hình token Pancake cho page <code>${escapeHtml(order.fbPageId)}</code>.<br>
-                <a href="../web2/pancake-settings/index.html" target="_blank" style="color:#7c3aed;">Mở Cấu hình Pancake (Web 2.0) →</a>
+                <a href="../web2/pancake-settings/index.html" target="_blank" style="color:#0068ff;">Mở Cấu hình Pancake (Web 2.0) →</a>
             </div>`;
             return;
         }
@@ -9096,7 +9096,7 @@
                             <a href="${fbPermalink(cid)}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:#3b82f6;text-decoration:none;padding:4px 8px;border:1px solid #dbeafe;border-radius:4px;">
                                 <i data-lucide="facebook" style="width:11px;height:11px;"></i> Facebook
                             </a>
-                            <a href="${pancakeUrl(cid)}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:#7c3aed;text-decoration:none;padding:4px 8px;border:1px solid #ede9fe;border-radius:4px;">
+                            <a href="${pancakeUrl(cid)}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:#0068ff;text-decoration:none;padding:4px 8px;border:1px solid #ede9fe;border-radius:4px;">
                                 <i data-lucide="external-link" style="width:11px;height:11px;"></i> WEB2 Pancake
                             </a>
                         </div>

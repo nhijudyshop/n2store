@@ -2109,7 +2109,7 @@ Throttle 30s/KH.`;
                     </p>
                     <div style="display:flex;gap:8px;justify-content:flex-end;">
                         <button class="snap-tut-skip" style="background:transparent;border:1px solid #cbd5e1;color:#475569;padding:8px 14px;border-radius:6px;font-size:13px;cursor:pointer;">Bỏ qua, không hỏi lại</button>
-                        <button class="snap-tut-ok" style="background:#7c3aed;border:none;color:#fff;padding:8px 18px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;">Tiếp tục</button>
+                        <button class="snap-tut-ok" style="background:#0068ff;border:none;color:#fff;padding:8px 18px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;">Tiếp tục</button>
                     </div>
                 </div>
             `;

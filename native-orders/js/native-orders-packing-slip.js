@@ -77,7 +77,7 @@
                 </div>
                 <div style="display:flex;justify-content:flex-end;gap:10px;padding:14px 20px;border-top:1px solid #eef2f7;background:#f8fafc;">
                     <button id="noPsCancel" style="height:40px;padding:0 18px;border:1px solid #cbd5e1;background:#fff;border-radius:8px;font-weight:600;cursor:pointer;color:#475569;">Hủy</button>
-                    <button id="noPsPrint" style="height:40px;padding:0 20px;border:0;background:#7266ba;color:#fff;border-radius:8px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:7px;">🖨 In Phiếu Soạn Hàng</button>
+                    <button id="noPsPrint" style="height:40px;padding:0 20px;border:0;background:#0068ff;color:#fff;border-radius:8px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:7px;">🖨 In Phiếu Soạn Hàng</button>
                 </div>
             </div>`;
         document.body.appendChild(ov);

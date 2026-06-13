@@ -44,7 +44,7 @@
             label: 'DB Web 2.0',
             tooltip: 'Trang dùng cả Render Postgres + Firestore',
             bg: 'linear-gradient(135deg, #dbeafe 0%, #fef3c7 100%)',
-            color: '#7c3aed',
+            color: '#0068ff',
             border: '#c4b5fd',
             icon: '⚡',
         },

@@ -226,7 +226,7 @@
             }
             .w2-qr-dropdown-item .shortcut {
                 font-family: ui-monospace, monospace;
-                color: #7c3aed;
+                color: #0068ff;
                 font-weight: 600;
                 margin-right: 6px;
             }
@@ -256,7 +256,7 @@
                 padding: 0 8px;
                 height: 38px;
                 cursor: pointer;
-                color: #7c3aed;
+                color: #0068ff;
                 display: inline-flex;
                 align-items: center;
                 gap: 4px;
@@ -289,7 +289,7 @@
                 margin-bottom: 6px; cursor: pointer;
             }
             .w2-qr-row:hover { background: #f8fafc; }
-            .w2-qr-row .col-shortcut { font-family: ui-monospace, monospace; color: #7c3aed; font-weight: 600; min-width: 80px; }
+            .w2-qr-row .col-shortcut { font-family: ui-monospace, monospace; color: #0068ff; font-weight: 600; min-width: 80px; }
             .w2-qr-row .col-msg { flex: 1; color: #0f172a; font-size: 12px; }
             .w2-qr-row .col-msg .topic-pill { font-size: 10px; padding: 1px 6px; border-radius: 999px; color:#fff; margin-right: 6px; vertical-align: middle; }
             .w2-qr-row .col-act { display: flex; gap: 4px; }
@@ -525,13 +525,13 @@
         overlay.innerHTML = `
             <div class="w2-qr-modal" role="dialog">
                 <header>
-                    <i data-lucide="zap" style="width:18px;height:18px;color:#7c3aed;"></i>
+                    <i data-lucide="zap" style="width:18px;height:18px;color:#0068ff;"></i>
                     <h3>Trả lời nhanh</h3>
                     <button class="w2-qr-icon-btn" data-act="close" title="Đóng"><i data-lucide="x" style="width:14px;height:14px;"></i></button>
                 </header>
                 <div class="body" id="w2qrList">Đang load…</div>
                 <div class="footer">
-                    <button class="w2-qr-icon-btn" data-act="add" style="width:auto;padding:0 10px;height:32px;font-size:12px;font-weight:600;color:#7c3aed;border-color:#ddd6fe;">
+                    <button class="w2-qr-icon-btn" data-act="add" style="width:auto;padding:0 10px;height:32px;font-size:12px;font-weight:600;color:#0068ff;border-color:#ddd6fe;">
                         <i data-lucide="plus" style="width:13px;height:13px;"></i> Thêm mẫu mới
                     </button>
                 </div>
@@ -563,7 +563,7 @@
         overlay.innerHTML = `
             <div class="w2-qr-modal" style="width:min(520px,92vw);">
                 <header>
-                    <i data-lucide="${isEdit ? 'pencil' : 'plus'}" style="width:18px;height:18px;color:#7c3aed;"></i>
+                    <i data-lucide="${isEdit ? 'pencil' : 'plus'}" style="width:18px;height:18px;color:#0068ff;"></i>
                     <h3>${isEdit ? 'Sửa' : 'Thêm'} mẫu trả lời</h3>
                     <button class="w2-qr-icon-btn" data-act="close-form"><i data-lucide="x" style="width:14px;height:14px;"></i></button>
                 </header>
@@ -585,7 +585,7 @@
                 </div>
                 <div class="footer">
                     <button class="w2-qr-icon-btn" data-act="cancel" style="width:auto;padding:0 12px;height:32px;font-size:12px;">Huỷ</button>
-                    <button class="w2-qr-icon-btn" data-act="save" style="width:auto;padding:0 12px;height:32px;font-size:12px;background:#7c3aed;color:#fff;border-color:#7c3aed;font-weight:600;">
+                    <button class="w2-qr-icon-btn" data-act="save" style="width:auto;padding:0 12px;height:32px;font-size:12px;background:#0068ff;color:#fff;border-color:#0068ff;font-weight:600;">
                         ${isEdit ? 'Lưu' : 'Tạo'}
                     </button>
                 </div>

@@ -306,7 +306,7 @@
             el.innerHTML = qr
                 .map(
                     (q) =>
-                        `<button class="w2cp-quick-btn" data-w2cp-tpl="${esc(q.template || '')}" style="background:${esc(q.color || '#7c3aed')}">${esc(q.label || '')}</button>`
+                        `<button class="w2cp-quick-btn" data-w2cp-tpl="${esc(q.template || '')}" style="background:${esc(q.color || '#0068ff')}">${esc(q.label || '')}</button>`
                 )
                 .join('');
         }

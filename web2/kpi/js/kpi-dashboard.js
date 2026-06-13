@@ -105,7 +105,7 @@
         }
         const scopeBadge =
             data.viewer?.scope === 'self'
-                ? `<span style="font-size:11px;color:#7266ba;font-weight:600;">(chỉ KPI của bạn)</span>`
+                ? `<span style="font-size:11px;color:#0068ff;font-weight:600;">(chỉ KPI của bạn)</span>`
                 : '';
         const unassignedRow =
             uF || uA

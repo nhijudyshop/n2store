@@ -309,7 +309,7 @@ const PancakeColumnManager = {
             // giờ qua badge Store/House trên từng hội thoại (#2). Giữ gear settings
             // ở cuối hàng filter-tabs. Badge filter active hiện nút "✕ Bỏ lọc".
             '<div class="pk-filter-tabs"><button class="pk-filter-tab active" data-filter="all">Tất cả</button><button class="pk-filter-tab" data-filter="inbox">Inbox</button><button class="pk-filter-tab" data-filter="comment">Comment</button><button class="pk-filter-tab" data-filter="live-saved">Lưu Live</button>' +
-            '<button id="pkPageFilterClear" class="pk-page-filter-clear" style="display:none;margin-left:6px;border:0;background:#eef2ff;color:#4338ca;border-radius:6px;padding:3px 8px;font-size:11px;font-weight:600;cursor:pointer;" onclick="window.PancakeConversationList.setPageFilter(null)">✕ Bỏ lọc page</button>' +
+            '<button id="pkPageFilterClear" class="pk-page-filter-clear" style="display:none;margin-left:6px;border:0;background:#eef2ff;color:#0058da;border-radius:6px;padding:3px 8px;font-size:11px;font-weight:600;cursor:pointer;" onclick="window.PancakeConversationList.setPageFilter(null)">✕ Bỏ lọc page</button>' +
             '<button class="pk-action-icon-btn" style="margin-left:auto;" title="Cài đặt Pancake" onclick="openPancakeSettingsModal()"><i data-lucide="settings"></i></button></div>' +
             '<div class="pk-search-header"><div class="pk-search-wrapper"><div class="pk-search-box"><i data-lucide="search"></i><input type="text" id="pkSearchInput" placeholder="Tìm kiếm"></div></div></div>' +
             '<div class="pk-conversations" id="pkConversations"><div class="pk-loading"><div class="pk-loading-spinner"></div></div></div>' +

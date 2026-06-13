@@ -321,8 +321,8 @@
 .w2p-print-table td.w2p-print-check-cell input[type=checkbox]{cursor:pointer;margin:0}
 /* Footer — .modal-footer */
 .w2p-print-footer{padding:15px;border-top:1px solid #e5e5e5;text-align:left}
-/* WEB2 purple primary — verified rgb(114,102,186) từ tomato.tpos.vn */
-.w2p-print-btn-primary{display:inline-block;padding:5px 10px;font-size:12px;font-weight:400;color:#fff;background:#7266ba;border:1px solid #7266ba;border-radius:3px;cursor:pointer;line-height:1.5;margin-right:5px}
+/* WEB2 primary — Zalo blue #0068ff (re-skin 2026-06-13) */
+.w2p-print-btn-primary{display:inline-block;padding:5px 10px;font-size:12px;font-weight:400;color:#fff;background:#0068ff;border:1px solid #0068ff;border-radius:3px;cursor:pointer;line-height:1.5;margin-right:5px}
 .w2p-print-btn-primary:hover{background:#6457a8;border-color:#6457a8}
 .w2p-print-btn-primary:disabled{opacity:.65;cursor:not-allowed}
 .w2p-print-btn-default{display:inline-block;padding:6px 12px;font-size:12px;font-weight:400;color:#333;background:#fff;border:1px solid #ccc;border-radius:3px;cursor:pointer;line-height:1.5}
