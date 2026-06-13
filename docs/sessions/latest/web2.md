@@ -3,23 +3,23 @@
 > Snapshot tự động ghi đè sau mỗi commit chạm folder này. **Không edit thủ công.**
 > Mục đích: khi session cũ chết (vd lỗi image limit), session mới chỉ cần đọc file này là có đủ context để tiếp tục.
 
-**Latest session**: `RESUME:20260613-200702-e269b5e`
-**Session file**: [`./20260613-200702-e269b5e.md`](../20260613-200702-e269b5e.md)
-**Commit**: `e269b5e` — fix(web2/chat-panel): scroll-to-bottom robust — re-scroll khi ảnh load + cờ \_forceBottom (mở conv + sau gửi tin)
-**Last updated**: 2026-06-13 20:07:02 +07
-**Summary**: fix(web2/chat-panel): scroll-to-bottom robust — re-scroll khi ảnh load + cờ \_forceBottom (mở conv + sau gửi...
+**Latest session**: `RESUME:20260613-212000-fd28924`
+**Session file**: [`./20260613-212000-fd28924.md`](../20260613-212000-fd28924.md)
+**Commit**: `fd28924` — feat(live-chat/redesign): đợt 5 — mode-switcher segmented pill + mobile single-pane swap (list↔chat trượt + back btn + composer safe-area)
+**Last updated**: 2026-06-13 21:20:00 +07
+**Summary**: feat(live-chat/redesign): đợt 5 — mode-switcher segmented pill + mobile single-pane swap (list↔chat trượt +...
 
 ## Files changed in this commit (`web2/`)
 
-- `web2/shared/chat-panel/web2-chat-panel.js`
+- `web2/shared/chat-panel/web2-chat-panel.css`
 
 ## Last 5 commits touching `web2/`
 
+- `449f639c0` feat(live-chat/redesign): đợt 3 — chat bubble Zalo-blue Soft Depth (out=#0068ff/white, in=slate, tail bo) + daysep pill + composer pill sunken + touch 44px (SHARED, var fallback an toàn native-orders/balance-history) _(2026-06-13)_
 - `e269b5e09` fix(web2/chat-panel): scroll-to-bottom robust — re-scroll khi ảnh load + cờ _forceBottom (mở conv + sau gửi tin) _(2026-06-13)\_
 - `0424dbb0b` refactor(web2-zalo): dua engine chat vao shared (web2/shared/web2-zalo-api + zalo-chat/\*) + controller chung WZChat.mountConversation + Web2Zalo.mountChat drop-in cho trang khac; app.js delegate (-410 dong trung) _(2026-06-13)_
 - `b89f32ca6` auto: session update _(2026-06-13)_
 - `123e6d54a` auto: session update _(2026-06-13)_
-- `63446c668` auto: session update _(2026-06-13)_
 
 ---
 
@@ -27,4 +27,4 @@
 
 1. Đọc file session ở trên để xem Files Modified + Next Steps đã điền (nếu Claude turn trước fill rồi).
 2. Cần lùi xa hơn → `git show <sha>` theo list commit trên.
-3. Hoặc paste token `RESUME:20260613-200702-e269b5e` cho Claude walk chain theo CLAUDE.md protocol.
+3. Hoặc paste token `RESUME:20260613-212000-fd28924` cho Claude walk chain theo CLAUDE.md protocol.
