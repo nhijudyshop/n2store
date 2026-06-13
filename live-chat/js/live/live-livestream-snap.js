@@ -2274,7 +2274,9 @@ Throttle 30s/KH.`;
             // (chrome rate-limit ~2/sec OK với 5s interval).
             if (STATE.extReady) {
                 try {
-                    const jpegBase64 = await _captureExtensionFrame(80);
+                    // Qua throttle chung → không đua quota captureVisibleTab với pool
+                    // force-extract (cùng 1 hàng đợi 550ms).
+                    const jpegBase64 = await _captureExtensionFrameThrottled();
                     if (!jpegBase64) return;
                     STATE.lastFrameAt = Date.now(); // capture health (leader lock failover)
                     STATE.frameBuffer.push({
@@ -3425,7 +3427,11 @@ Throttle 30s/KH.`;
     let _extCapChain = Promise.resolve();
     function _captureExtensionFrameThrottled(targetEl) {
         const p = _extCapChain.then(() => _captureExtensionFrame(targetEl));
-        const gap = () => new Promise((r) => setTimeout(r, 480));
+        // 550ms gap = ~1.8 capture/giây < giới hạn Chrome captureVisibleTab 2/giây.
+        // 480ms (~2.08/s) trước đây thỉnh thoảng vượt → MAX_CAPTURE_VISIBLE_TAB quota.
+        // MỌI captureVisibleTab tần suất cao (3 worker pool + auto-snap) đi chung
+        // chain này → tổng luôn dưới ngưỡng.
+        const gap = () => new Promise((r) => setTimeout(r, 550));
         _extCapChain = p.then(gap, gap);
         return p;
     }

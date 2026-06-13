@@ -2,6 +2,22 @@
 
 ## 2026-06-13
 
+### [live-chat] FIX force-extract fail 100% — XFBML seek player "xfbml.ready timeout" ✅ (verified live)
+
+**Triệu chứng (browser test data thật, 1278 comment, campaign VOD thật):** Force extract = **`0 OK / 277 fail`**, xong ~48s. Warn: `[force-parallel] build player fail: xfbml.ready timeout`. Auto-snap live VẪN OK (191 thumbnail — vì dùng bare iframe + captureVisibleTab, KHÔNG dùng FB SDK).
+
+**Chẩn đoán (browser, nhiều test):** dựng 1 XFBML player đơn → OK 2s; 3 concurrent (subscriber CỤC BỘ) → 3/3 OK; faithful repro pool (waiter-map riêng) → 3/3 OK. NHƯNG code thật dùng **1 subscriber CHUNG** trong `_ensureFbSdk` route qua Map `_xfbmlWaiters` → **không route đúng trong ngữ cảnh force-extract** → mọi build chờ hết 15s timeout → fail toàn bộ.
+
+**Fix:** `_buildSeekPlayer` + `_ensureSeekPlayer` đăng ký **subscriber `FB.Event.subscribe('xfbml.ready')` CỤC BỘ per-build** (match `msg.id === divId`, unsubscribe khi xong) thay vì dựa subscriber chung + `_xfbmlWaiters`. Timeout 15s→25s (tải nặng). **Verify live: build hết timeout (`buildFailWarn:false`), progress leo thật `0/331 → 1✓...11✓`, thumbnail bắt đầu điền.**
+
+**Fix kèm — quota captureVisibleTab:** 3 worker pool + auto-snap cùng gọi captureVisibleTab → vượt giới hạn Chrome ~2/giây (`MAX_CAPTURE_VISIBLE_TAB_CALLS_PER_SECOND`). Throttle `_captureExtensionFrameThrottled` 480ms (~2.08/s) → **550ms (~1.8/s)** + route **auto-snap đi chung throttle** → mọi captureVisibleTab tần suất cao 1 hàng đợi, dưới ngưỡng.
+
+**Còn lại (bản chất, không fix được):** `seek fail (buffering/DRM)` — vài offset VOD FB không seek được → comment đó skip (đúng thiết kế).
+
+**Files:** [live-chat/js/live/live-livestream-snap.js](../live-chat/js/live/live-livestream-snap.js), [live-chat/index.html](../live-chat/index.html) (snap.js ?v=20260613d). MEMORY [[reference_fb_live_capture_options]].
+
+**Status:** ✅ Done (fix chính verified live; throttle là cải tiến tính toán + auto-snap route — user re-test xác nhận giảm fail).
+
 ### [docs] Quy ước browser test Web 2.0: mở overview trước ✅
 
 User: "browser test web 2.0 thì mặc định mở `web2/overview/index.html` trước rồi chuyển đến trang test". Ghi vào 3 nơi: CLAUDE.md (section Browser Test Scripts, mục mới "🧭 Browser test Web 2.0 → MỞ overview TRƯỚC"), MEMORY.md + memory file `feedback_web2_browser_test_overview_first.md`, dev-log này. Lý do: overview warm shared bootstrap (sidebar/auth/SSE bridge/theme/command palette/notification) → vào thẳng trang con dễ thiếu context, false-negative. KHÔNG áp dụng Web 1.0.
