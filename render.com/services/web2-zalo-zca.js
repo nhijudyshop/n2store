@@ -251,20 +251,18 @@ function _attachListener(accountKey, api) {
             console.warn(`[web2-zalo-zca] ${label} cb err:`, err.message);
         }
     };
+    // Tên event ĐÚNG theo zca-js v2.1.2 (apis/listen.js): message, reaction, undo,
+    // typing, seen_messages, delivered_messages (KHÔNG có bản số ít).
     listener.on(
         'typing',
         _safe((e) => _cb.onTyping?.(_normTyping(accountKey, e)), 'typing')
-    );
-    listener.on(
-        'seen_message',
-        _safe((e) => _cb.onSeen?.(_normSeen(accountKey, e)), 'seen')
     );
     listener.on(
         'seen_messages',
         _safe((e) => _cb.onSeen?.(_normSeen(accountKey, e)), 'seen')
     );
     listener.on(
-        'delivered_message',
+        'delivered_messages',
         _safe((e) => _cb.onDelivered?.(_normSeen(accountKey, e)), 'delivered')
     );
     listener.on(

@@ -165,18 +165,49 @@ function _notifyThread(accountKey, threadId, action, code) {
     if (threadId) _notify(`web2:zalo:thread:${threadId}`, action, code);
 }
 
-// Inbound: KH thả cảm xúc lên tin (add-only). reactions JSONB = {icon: [uid,...]}.
+// zca reaction VALUE (vd '/-heart') → emoji, để client render chip nhất quán
+// với reaction shop tự thả (vốn lưu emoji). Emoji (non-ASCII) thì giữ nguyên.
+const _ZCA_VALUE_EMOJI = {
+    '/-heart': '❤️',
+    '/-strong': '👍',
+    ':>': '😆',
+    ':o': '😮',
+    ':-((': '😢',
+    ':-h': '😡',
+    ':-*': '😘',
+    '--b': '😞',
+    '/-ok': '👌',
+    '/-no': '🙅',
+    '/-rose': '🌹',
+    '/-break': '💔',
+    '/-weak': '👎',
+    ":')": '😂',
+    ':((': '😢',
+    ':))': '😆',
+    '/-beer': '🍺',
+    '/-thanks': '🙏',
+    '/-loveu': '😍',
+    ';xx': '😍',
+};
+function _iconToEmoji(icon) {
+    if (!icon) return '👍';
+    if (_ZCA_VALUE_EMOJI[icon]) return _ZCA_VALUE_EMOJI[icon];
+    return /[^\x00-\x7F]/.test(icon) ? icon : '👍'; // có ký tự unicode = emoji sẵn
+}
+
+// Inbound: KH thả cảm xúc lên tin (add-only). reactions JSONB = {emoji: [uid,...]}.
 async function _persistReaction(e) {
     if (!_pool || !e.msgId || !e.icon) return;
+    const emoji = _iconToEmoji(e.icon);
     const { rows } = await _pool.query(
         `SELECT id, reactions FROM web2_zalo_messages WHERE account_key=$1 AND (msg_id=$2 OR cli_msg_id=$3) LIMIT 1`,
         [e.accountKey, e.msgId, e.cliMsgId || '']
     );
     if (!rows[0]) return;
     const reactions = rows[0].reactions || {};
-    const set = new Set(reactions[e.icon] || []);
+    const set = new Set(reactions[emoji] || []);
     set.add(String(e.uidFrom || 'kh'));
-    reactions[e.icon] = [...set];
+    reactions[emoji] = [...set];
     await _pool.query(`UPDATE web2_zalo_messages SET reactions=$1::jsonb WHERE id=$2`, [
         JSON.stringify(reactions),
         rows[0].id,
