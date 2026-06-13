@@ -129,7 +129,7 @@
             chip = document.createElement('div');
             chip.id = 'pbhCustomerChip';
             chip.style.cssText =
-                'display:inline-flex;align-items:center;gap:8px;padding:6px 12px;background:#ede9fe;color:#5b21b6;border:1px solid #c4b5fd;border-radius:999px;font-size:12px;font-weight:600;margin:8px 0 12px 0;';
+                'display:inline-flex;align-items:center;gap:8px;padding:6px 12px;background:#e8f2ff;color:#004bb5;border:1px solid #bcdcff;border-radius:999px;font-size:12px;font-weight:600;margin:8px 0 12px 0;';
             const infoEl =
                 document.querySelector('.search-info') || document.querySelector('.search-section');
             infoEl?.parentNode?.insertBefore(chip, infoEl);
@@ -137,7 +137,7 @@
         chip.innerHTML = `
             <i data-lucide="user-circle" style="width:14px;height:14px;color:#0068ff;"></i>
             Đang lọc theo Khách hàng #${STATE.customerId}
-            <button onclick="PbhApp.clearCustomerFilter()" title="Bỏ lọc" style="background:transparent;border:none;color:#5b21b6;cursor:pointer;font-size:14px;line-height:1;padding:0 0 0 6px;">×</button>`;
+            <button onclick="PbhApp.clearCustomerFilter()" title="Bỏ lọc" style="background:transparent;border:none;color:#004bb5;cursor:pointer;font-size:14px;line-height:1;padding:0 0 0 6px;">×</button>`;
         if (window.lucide) lucide.createIcons();
     }
 
@@ -196,7 +196,7 @@
                             <button class="web2-btn web2-btn-primary web2-btn-xs" title="Chi tiết" onclick="PbhApp.detail('${escapeHtml(o.number)}')"><i data-lucide="eye" style="width:12px;height:12px;"></i></button>
                             ${o.customerId ? `<button class="web2-btn web2-btn-default web2-btn-xs" title="Khách hàng 360° (id ${o.customerId})" style="color:#0068ff;" onclick="PbhApp.openCustomer(${o.customerId})"><i data-lucide="user-circle" style="width:12px;height:12px;"></i></button>` : ''}
                             ${/* Nút Xác nhận + Hủy đã bỏ — PBH state auto sync theo native-orders.status. Muốn huỷ phải qua native-orders → cancelOrder (huỷ cả đơn + restock). */ ''}
-                            <button class="web2-btn web2-btn-default web2-btn-xs" title="Lịch sử PBH (tạo / chỉnh sửa / huỷ)" style="color:#8b5cf6;" onclick="PbhApp.openHistory('${escapeHtml(o.number)}')"><i data-lucide="history" style="width:12px;height:12px;"></i></button>
+                            <button class="web2-btn web2-btn-default web2-btn-xs" title="Lịch sử PBH (tạo / chỉnh sửa / huỷ)" style="color:#2a96ff;" onclick="PbhApp.openHistory('${escapeHtml(o.number)}')"><i data-lucide="history" style="width:12px;height:12px;"></i></button>
                             <button class="web2-btn web2-btn-default web2-btn-xs" title="In" onclick="PbhApp.print('${escapeHtml(o.number)}')"><i data-lucide="printer" style="width:12px;height:12px;"></i></button>
                             ${o.state !== 'cancel' ? `<button class="web2-btn web2-btn-info web2-btn-xs" title="Tạo phiếu giao" onclick="PbhApp.createDelivery('${escapeHtml(o.number)}')"><i data-lucide="truck" style="width:12px;height:12px;"></i></button>` : ''}
                             ${o.state !== 'cancel' ? `<button class="web2-btn web2-btn-warning web2-btn-xs" title="Trả hàng" onclick="PbhApp.createRefund('${escapeHtml(o.number)}')"><i data-lucide="undo-2" style="width:12px;height:12px;"></i></button>` : ''}
@@ -497,7 +497,7 @@
                 </div>`;
             body.innerHTML = `
                 <div style="display:flex;gap:14px;margin-bottom:16px;flex-wrap:wrap;">
-                    <div style="background:#ede9fe;color:#5b21b6;padding:10px 14px;border-radius:8px;flex:1;min-width:140px;">
+                    <div style="background:#e8f2ff;color:#004bb5;padding:10px 14px;border-radius:8px;flex:1;min-width:140px;">
                         <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.04em;">Đơn web (NW)</div>
                         <div style="font-size:18px;font-weight:700;">${summary.native.count}</div>
                         <div style="font-size:11px;">${fmtMoney(summary.native.totalAmount)}</div>
@@ -894,7 +894,7 @@
                 create: { label: 'Tạo mới', color: '#16a34a', icon: 'plus-circle' },
                 cancel: { label: 'Huỷ', color: '#dc2626', icon: 'x-octagon' },
                 update: { label: 'Cập nhật', color: '#3b82f6', icon: 'pencil' },
-                print: { label: 'In', color: '#8b5cf6', icon: 'printer' },
+                print: { label: 'In', color: '#2a96ff', icon: 'printer' },
             };
             listEl.innerHTML = list
                 .map((h) => {
@@ -985,7 +985,7 @@
         s.textContent = `
             .pbh-history-modal{position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:9500;display:flex;align-items:flex-start;justify-content:center;padding:40px 20px;overflow:auto;}
             .pbh-history-box{background:#fff;border-radius:14px;width:min(780px,100%);max-height:calc(100vh - 80px);display:flex;flex-direction:column;overflow:hidden;box-shadow:0 25px 60px rgba(0,0,0,.25);}
-            .pbh-history-head{padding:14px 20px;background:linear-gradient(135deg,#8b5cf6,#2a96ff);color:#fff;display:flex;align-items:center;gap:10px;}
+            .pbh-history-head{padding:14px 20px;background:linear-gradient(135deg,#2a96ff,#2a96ff);color:#fff;display:flex;align-items:center;gap:10px;}
             .pbh-history-close{margin-left:auto;background:rgba(255,255,255,.2);border:0;color:#fff;width:28px;height:28px;border-radius:7px;cursor:pointer;font-size:18px;line-height:1;}
             .pbh-history-close:hover{background:rgba(255,255,255,.35);}
             .pbh-history-body{padding:12px 0;overflow:auto;flex:1;}
@@ -997,7 +997,7 @@
             .pbh-hist-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px;font-size:12px;color:#475569;}
             .pbh-hist-meta strong{font-size:13px;}
             .pbh-hist-user{display:inline-flex;align-items:center;gap:4px;background:#f1f5f9;padding:2px 8px;border-radius:999px;color:#475569;font-weight:500;}
-            .pbh-hist-source{background:#ede9fe;color:#6d28d9;font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px;text-transform:uppercase;letter-spacing:.4px;}
+            .pbh-hist-source{background:#e8f2ff;color:#0058da;font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px;text-transform:uppercase;letter-spacing:.4px;}
             .pbh-hist-time{margin-left:auto;font-size:11px;color:#94a3b8;}
             .pbh-hist-body{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px 12px;font-size:12px;}
             .pbh-hist-field{margin:3px 0;color:#475569;}

@@ -361,8 +361,8 @@
     color: #0f766e;
 }
 .rc-state-shipped {
-    background: #ede9fe;
-    color: #6d28d9;
+    background: #e8f2ff;
+    color: #0058da;
 }
 .rc-state-delivered {
     background: #dcfce7;
@@ -628,7 +628,7 @@
 }
 .w2-timeline-manual-pick .w2-timeline-marker {
     border-color: #0068ff;
-    background: #ede9fe;
+    background: #e8f2ff;
 }
 .w2-timeline-pack .w2-timeline-marker {
     border-color: #2563eb;
@@ -1027,8 +1027,8 @@
 }
 .rc-audit-cam {
     display: inline-block;
-    background: #ede9fe;
-    color: #6d28d9;
+    background: #e8f2ff;
+    color: #0058da;
     font-size: 0.68rem;
     font-weight: 700;
     padding: 1px 7px;

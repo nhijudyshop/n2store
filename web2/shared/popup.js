@@ -46,7 +46,7 @@
         success: { bg: '#d1fae5', fg: '#065f46', accent: '#10b981' },
         warning: { bg: '#fef3c7', fg: '#92400e', accent: '#f59e0b' },
         error: { bg: '#fee2e2', fg: '#991b1b', accent: '#ef4444' },
-        question: { bg: '#ede9fe', fg: '#5b21b6', accent: '#0068ff' },
+        question: { bg: '#e8f2ff', fg: '#004bb5', accent: '#0068ff' },
     };
 
     function ensureRoot() {
@@ -224,7 +224,7 @@
             .w2p-textarea { resize: vertical; min-height: 80px; }
             .w2p-input:focus, .w2p-textarea:focus, .w2p-select:focus {
                 border-color: #0068ff;
-                box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.18);
+                box-shadow: 0 0 0 3px rgba(0, 104, 255, 0.18);
             }
         `;
         document.head.appendChild(style);

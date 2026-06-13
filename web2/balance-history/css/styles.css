@@ -110,7 +110,7 @@ body {
 }
 
 .stat-purple {
-    background: linear-gradient(135deg, var(--secondary), #a78bfa);
+    background: linear-gradient(135deg, var(--secondary), #7cc0ff);
 }
 
 .stat-info h3 {
@@ -2383,7 +2383,7 @@ body {
 }
 
 .amount-virtual {
-    color: #8b5cf6;
+    color: #2a96ff;
     font-weight: 600;
 }
 

@@ -67,7 +67,7 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    background: linear-gradient(135deg, #f5f1ff, #fff);
+    background: linear-gradient(135deg, #eef5ff, #fff);
 }
 .w2-bell-head strong {
     font-size: 14px;
@@ -101,7 +101,7 @@
     background: #f9fafb;
 }
 .w2-bell-item.unread {
-    background: #f5f1ff;
+    background: #eef5ff;
 }
 .w2-bell-item.unread:hover {
     background: #e8f2ff;
@@ -147,5 +147,5 @@
     border-top: 1px solid #f3f4f6;
 }
 .w2-bell-foot:hover {
-    background: #f5f1ff;
+    background: #eef5ff;
 }

@@ -60,7 +60,7 @@
     --pk-qr-blue: #3b82f6;
     --pk-qr-orange: #f97316;
     --pk-qr-red: #ef4444;
-    --pk-qr-purple: #8b5cf6;
+    --pk-qr-purple: #2a96ff;
     --pk-qr-green: #22c55e;
     --pk-qr-teal: #14b8a6;
     --pk-qr-pink: #ec4899;
@@ -1785,7 +1785,7 @@
     width: 32px;
     height: 32px;
     border-radius: 50%;
-    background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+    background: linear-gradient(135deg, #3b82f6 0%, #2a96ff 100%);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -2421,7 +2421,7 @@
     align-items: center;
     gap: 6px;
     padding: 6px 12px !important;
-    background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+    background: linear-gradient(135deg, #3b82f6 0%, #2a96ff 100%);
     color: white !important;
     border-radius: 6px;
     font-size: 12px;
@@ -2620,7 +2620,7 @@
 }
 
 .pk-modal-btn-primary {
-    background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+    background: linear-gradient(135deg, #3b82f6 0%, #2a96ff 100%);
     color: white;
 }
 

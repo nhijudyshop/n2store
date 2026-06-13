@@ -48,10 +48,10 @@
 }
 
 .so-tab-pill.is-active {
-    background: linear-gradient(135deg, #6d28d9, #0068ff);
+    background: linear-gradient(135deg, #0058da, #0068ff);
     border-color: transparent;
     color: #fff;
-    box-shadow: 0 2px 8px rgba(124, 58, 237, 0.25);
+    box-shadow: 0 2px 8px rgba(0, 104, 255, 0.25);
 }
 
 .so-tab-pill-cur {
@@ -64,14 +64,14 @@
 
 .so-tab-pill:not(.is-active) .so-tab-pill-cur {
     background: #eef2ff;
-    color: #6d28d9;
+    color: #0058da;
 }
 
 .so-tab-add {
     appearance: none;
     background: #fff;
     border: 1px dashed #c7d0db;
-    color: #6d28d9;
+    color: #0058da;
     width: 32px;
     height: 32px;
     border-radius: 50%;
@@ -165,7 +165,7 @@
 
 .so-cell-supplier {
     font-weight: 600;
-    color: #6d28d9;
+    color: #0058da;
 }
 .so-cell-supplier-name {
     margin-bottom: 6px;
@@ -209,11 +209,11 @@
 /* P1 2026-05-30: NCC + Ảnh Hóa Đơn merged cell (rowspan) — visual cue */
 .so-cell-merged {
     background: linear-gradient(180deg, #faf5ff 0%, #fff 100%);
-    border-right: 2px solid #c4b5fd;
+    border-right: 2px solid #bcdcff;
     vertical-align: middle;
 }
 .so-cell-supplier.so-cell-merged {
-    color: #5b21b6;
+    color: #004bb5;
     font-size: 14px;
     font-weight: 700;
 }
@@ -321,8 +321,8 @@
     cursor: pointer;
 }
 .so-cell-img-missing:hover {
-    background: repeating-linear-gradient(45deg, #ede9fe, #ede9fe 6px, #ddd6fe 6px, #ddd6fe 12px);
-    color: #6d28d9;
+    background: repeating-linear-gradient(45deg, #e8f2ff, #e8f2ff 6px, #dbeafe 6px, #dbeafe 12px);
+    color: #0058da;
 }
 
 /* Pencil overlay — góc trên-phải, hiện trên hover của cell */
@@ -335,7 +335,7 @@
     border: none;
     border-radius: 5px;
     background: rgba(255, 255, 255, 0.92);
-    color: #6d28d9;
+    color: #0058da;
     cursor: pointer;
     display: none;
     align-items: center;
@@ -348,7 +348,7 @@
     display: inline-flex;
 }
 .so-cell-img-edit:hover {
-    background: #ede9fe;
+    background: #e8f2ff;
 }
 .so-cell-img-edit i {
     width: 12px;
@@ -756,12 +756,12 @@
 }
 
 .so-total-pill-strong {
-    background: linear-gradient(135deg, #ede9fe, #f5f3ff);
-    border-color: #c4b5fd;
+    background: linear-gradient(135deg, #e8f2ff, #f5f3ff);
+    border-color: #bcdcff;
 }
 
 .so-total-pill-strong .so-total-value {
-    color: #6d28d9;
+    color: #0058da;
 }
 
 /* Buttons (local; reuse web2-theme.css if present) */
@@ -786,9 +786,9 @@
 }
 
 .btn-primary {
-    background: linear-gradient(135deg, #6d28d9, #0068ff);
+    background: linear-gradient(135deg, #0058da, #0068ff);
     color: #fff;
-    box-shadow: 0 2px 8px rgba(124, 58, 237, 0.25);
+    box-shadow: 0 2px 8px rgba(0, 104, 255, 0.25);
 }
 
 .btn-primary:hover {
@@ -1109,7 +1109,7 @@
 .so-field select:focus,
 .so-field textarea:focus {
     border-color: #0068ff;
-    box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.12);
+    box-shadow: 0 0 0 3px rgba(0, 104, 255, 0.12);
 }
 
 .so-field-small {
@@ -1121,7 +1121,7 @@
 }
 
 .so-currency-hint {
-    color: #6d28d9;
+    color: #0058da;
     font-weight: 700;
     font-size: 11px;
     margin-left: 4px;
@@ -1209,7 +1209,7 @@
 .counter-pill {
     padding: 4px 10px;
     background: #eef2ff;
-    color: #6d28d9;
+    color: #0058da;
     border-radius: 999px;
     font-size: 12px;
     font-weight: 600;
@@ -1253,7 +1253,7 @@
 .so-page-title i {
     width: 22px;
     height: 22px;
-    color: #6d28d9;
+    color: #0058da;
 }
 
 .so-page-title h1 {
@@ -1271,7 +1271,7 @@
 .so-page-counters .counter-pill {
     padding: 4px 10px;
     background: #eef2ff;
-    color: #6d28d9;
+    color: #0058da;
     border-radius: 999px;
     font-size: 12px;
     font-weight: 600;
@@ -1281,10 +1281,10 @@
 
 .so-shipment-head td {
     padding: 0 !important;
-    background: linear-gradient(90deg, #f5f3ff 0%, #ede9fe 50%, #f8fafc 100%) !important;
-    border-bottom: 1px solid #c4b5fd !important;
+    background: linear-gradient(90deg, #f5f3ff 0%, #e8f2ff 50%, #f8fafc 100%) !important;
+    border-bottom: 1px solid #bcdcff !important;
     border-right: none !important;
-    border-top: 2px solid #c4b5fd !important;
+    border-top: 2px solid #bcdcff !important;
 }
 .so-table tbody tr.so-shipment-head:first-child td {
     border-top: none !important;
@@ -1311,13 +1311,13 @@
     cursor: pointer;
     padding: 4px;
     border-radius: 6px;
-    color: #6d28d9;
+    color: #0058da;
     display: inline-flex;
     align-items: center;
 }
 
 .so-shipment-toggle:hover {
-    background: rgba(124, 58, 237, 0.12);
+    background: rgba(0, 104, 255, 0.12);
 }
 
 .so-shipment-toggle i {
@@ -1336,7 +1336,7 @@
 .so-shipment-meta i {
     width: 14px;
     height: 14px;
-    color: #6d28d9;
+    color: #0058da;
 }
 
 .so-shipment-meta strong {
@@ -1345,8 +1345,8 @@
 }
 
 .so-shipment-batch {
-    background: #ede9fe;
-    color: #6d28d9;
+    background: #e8f2ff;
+    color: #0058da;
     padding: 2px 8px;
     border-radius: 999px;
     font-weight: 700;
@@ -1397,7 +1397,7 @@
 }
 .so-shipment-edit-pill:hover {
     background: #fff;
-    border-color: #c4b5fd;
+    border-color: #bcdcff;
 }
 .so-shipment-edit-pill.is-editing {
     background: #fff;
@@ -1449,7 +1449,7 @@
     padding: 0 8px;
     font-size: 11px;
     font-weight: 700;
-    color: #6d28d9;
+    color: #0058da;
     text-transform: uppercase;
     letter-spacing: 0.05em;
 }
@@ -1597,7 +1597,7 @@
 
 .so-input-v2:focus {
     border-color: #0068ff;
-    box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.12);
+    box-shadow: 0 0 0 3px rgba(0, 104, 255, 0.12);
 }
 
 select.so-input-v2 {
@@ -1707,7 +1707,7 @@ select.so-input-v2 {
 }
 
 .so-input-money:focus {
-    box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.12);
+    box-shadow: 0 0 0 3px rgba(0, 104, 255, 0.12);
 }
 
 .so-img-cell-v2 {
@@ -2018,8 +2018,8 @@ select.so-input-v2 {
     padding: 8px 14px;
     border-radius: 8px;
     background: #f3f0ff;
-    color: #6d28d9;
-    border: 1px dashed #c4b5fd;
+    color: #0058da;
+    border: 1px dashed #bcdcff;
     font-weight: 600;
     cursor: pointer;
     transition:
@@ -2027,8 +2027,8 @@ select.so-input-v2 {
         border-color 0.15s;
 }
 .so-modal-add-row-btn:hover {
-    background: #ede9fe;
-    border-color: #a78bfa;
+    background: #e8f2ff;
+    border-color: #7cc0ff;
 }
 .so-modal-add-row-btn i {
     width: 16px;
@@ -2188,8 +2188,8 @@ select.so-input-v2 {
     margin-left: 6px;
     padding: 1px 6px;
     border-radius: 4px;
-    background: #ede9fe;
-    color: #6d28d9;
+    background: #e8f2ff;
+    color: #0058da;
     font-size: 11px;
     font-weight: 600;
     vertical-align: middle;
@@ -2254,7 +2254,7 @@ select.so-input-v2 {
     font-size: 12px;
 }
 .so-variant-empty a {
-    color: #6d28d9;
+    color: #0058da;
     font-weight: 600;
     text-decoration: none;
 }
@@ -2263,13 +2263,13 @@ select.so-input-v2 {
 
 /* Toggle button "Chỉnh sửa bảng" — purple gradient khi ON */
 #soEditTableBtn.is-active {
-    background: linear-gradient(135deg, #6d28d9, #0068ff);
+    background: linear-gradient(135deg, #0058da, #0068ff);
     color: #fff;
     border-color: transparent;
-    box-shadow: 0 2px 8px rgba(124, 58, 237, 0.25);
+    box-shadow: 0 2px 8px rgba(0, 104, 255, 0.25);
 }
 #soEditTableBtn.is-active:hover {
-    box-shadow: 0 4px 12px rgba(124, 58, 237, 0.35);
+    box-shadow: 0 4px 12px rgba(0, 104, 255, 0.35);
 }
 
 /* Whole-table edit mode — row background hint nhẹ + padding chặt hơn */
@@ -2298,7 +2298,7 @@ body.so-edit-table-mode .so-data-row [data-cell-field]:not(.so-cell-edit):hover 
 }
 .so-data-row [data-cell-field]:hover {
     background: #fafaff;
-    box-shadow: inset 0 -1px 0 rgba(124, 58, 237, 0.35);
+    box-shadow: inset 0 -1px 0 rgba(0, 104, 255, 0.35);
 }
 
 .so-edit-input,
@@ -2322,14 +2322,14 @@ body.so-edit-table-mode .so-data-row [data-cell-field]:not(.so-cell-edit):hover 
 }
 .so-edit-input:hover,
 .so-edit-select:hover {
-    box-shadow: inset 0 0 0 1px #c4b5fd;
+    box-shadow: inset 0 0 0 1px #bcdcff;
 }
 .so-edit-input:focus,
 .so-edit-select:focus {
     outline: none;
     background: #fff;
     border-color: #0068ff;
-    box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.18);
+    box-shadow: 0 0 0 2px rgba(0, 104, 255, 0.18);
 }
 .so-edit-num {
     text-align: right;
@@ -2539,8 +2539,8 @@ body.so-edit-table-mode .so-data-row [data-cell-field]:not(.so-cell-edit):hover 
 }
 .so-trash-tab {
     padding: 2px 8px;
-    background: #ede9fe;
-    color: #5b21b6;
+    background: #e8f2ff;
+    color: #004bb5;
     border-radius: 999px;
     font-size: 11px;
     letter-spacing: 0.02em;

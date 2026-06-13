@@ -426,8 +426,8 @@
     // Gradient color for avatar placeholder (consistent per name)
     function avatarColor(name) {
         const colors = [
-            '#6366f1',
-            '#8b5cf6',
+            '#2a96ff',
+            '#2a96ff',
             '#ec4899',
             '#ef4444',
             '#f59e0b',
@@ -1427,10 +1427,16 @@
         const tb = tbody();
         if (!orders.length) {
             tb.replaceChildren();
+            const hasFilter = !!(STATE.search || STATE.filter || STATE.activeTab);
             tb.insertAdjacentHTML(
                 'beforeend',
-                `<tr><td colspan="16" class="empty-row">Không có đơn nào khớp bộ lọc</td></tr>`
+                `<tr><td colspan="16" class="empty-row" style="padding:40px;text-align:center;color:#64748b">
+                    <i data-lucide="package-open" style="width:38px;height:38px;color:#bcdcff;display:block;margin:0 auto 8px"></i>
+                    <div style="font-weight:700;color:#0f172a;margin-bottom:3px">${hasFilter ? 'Không có đơn khớp bộ lọc' : 'Chưa có đơn nào'}</div>
+                    <div style="font-size:13px">${hasFilter ? 'Thử đổi bộ lọc / từ khoá tìm kiếm.' : 'Đơn web mới sẽ hiện ở đây.'}</div>
+                </td></tr>`
             );
+            if (window.lucide) lucide.createIcons();
             tb._rowSigs = new Map();
             return;
         }
@@ -1578,7 +1584,7 @@
             chip = document.createElement('div');
             chip.id = 'nativeOrdersCustomerChip';
             chip.style.cssText =
-                'display:inline-flex;align-items:center;gap:8px;padding:6px 12px;background:#ede9fe;color:#5b21b6;border:1px solid #c4b5fd;border-radius:999px;font-size:12px;font-weight:600;margin:8px 0 12px 0;';
+                'display:inline-flex;align-items:center;gap:8px;padding:6px 12px;background:#e8f2ff;color:#004bb5;border:1px solid #bcdcff;border-radius:999px;font-size:12px;font-weight:600;margin:8px 0 12px 0;';
             const anchor = $('#searchInfo') || controlBar() || tbody()?.closest('table');
             if (anchor && anchor.parentNode) anchor.parentNode.insertBefore(chip, anchor);
             else document.body.appendChild(chip);
@@ -1586,7 +1592,7 @@
         chip.innerHTML = `
             <i data-lucide="user-circle" style="width:14px;height:14px;color:#0068ff;"></i>
             Đang lọc theo Khách hàng #${STATE.customerId}
-            <button onclick="NativeOrdersApp.clearCustomerFilter()" title="Bỏ lọc" style="background:transparent;border:none;color:#5b21b6;cursor:pointer;font-size:14px;line-height:1;padding:0 0 0 6px;">×</button>`;
+            <button onclick="NativeOrdersApp.clearCustomerFilter()" title="Bỏ lọc" style="background:transparent;border:none;color:#004bb5;cursor:pointer;font-size:14px;line-height:1;padding:0 0 0 6px;">×</button>`;
         if (window.lucide) lucide.createIcons();
     }
 
@@ -4661,7 +4667,7 @@
                     : '';
             body.innerHTML = `
                 <div style="display:flex;gap:14px;margin-bottom:16px;flex-wrap:wrap;">
-                    <div style="background:#ede9fe;color:#5b21b6;padding:10px 14px;border-radius:8px;flex:1;min-width:140px;">
+                    <div style="background:#e8f2ff;color:#004bb5;padding:10px 14px;border-radius:8px;flex:1;min-width:140px;">
                         <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.04em;">Đơn web (NW)</div>
                         <div style="font-size:18px;font-weight:700;">${nativeTotal.count}</div>
                         <div style="font-size:11px;">${money(nativeTotal.amount)}</div>
@@ -7558,8 +7564,8 @@
             }
             .w2-inbox-sb-filter:hover { background: #dfe2e7; color: #1d2939; }
             .w2-inbox-sb-filter.is-active {
-                background: #ede9fe;
-                color: #6d28d9;
+                background: #e8f2ff;
+                color: #0058da;
                 font-weight: 600;
             }
             .w2-inbox-sb-filter-count {
@@ -7643,7 +7649,7 @@
                 gap: 8px;
             }
             .w2-fm-cat:hover { background: #eef2f6; }
-            .w2-fm-cat.is-active { background: #ede9fe; color: #6d28d9; font-weight: 600; }
+            .w2-fm-cat.is-active { background: #e8f2ff; color: #0058da; font-weight: 600; }
             .w2-fm-cat-label { flex: 1; }
             .w2-fm-cat-count {
                 background: #e0e7ff;
@@ -7686,7 +7692,7 @@
                 outline: none;
                 background: #fff;
             }
-            .w2-fm-sub-search input:focus { border-color: #c4b5fd; box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.12); }
+            .w2-fm-sub-search input:focus { border-color: #bcdcff; box-shadow: 0 0 0 3px rgba(0, 104, 255, 0.12); }
             .w2-fm-sub-search-icon {
                 position: absolute;
                 left: 18px;
@@ -7953,7 +7959,7 @@
                 outline: 0;
                 font-family: inherit;
             }
-            .w2-input:focus { border-color: #0068ff; box-shadow: 0 0 0 3px rgba(124,58,237,0.1); }
+            .w2-input:focus { border-color: #0068ff; box-shadow: 0 0 0 3px rgba(0, 104, 255,0.1); }
             .w2-form-row { margin-top: 6px; }
             .w2-form-row-2col {
                 display: grid;
@@ -8154,7 +8160,7 @@
                 flex-shrink: 0;
             }
             .w2-chat-row:hover .w2-chat-reply-btn { opacity: 1; }
-            .w2-chat-reply-btn:hover { background: #ede9fe; color: #0068ff; }
+            .w2-chat-reply-btn:hover { background: #e8f2ff; color: #0068ff; }
 
             /* "Replying to X" bar above input */
             .w2-chat-reply-bar {
@@ -8202,7 +8208,7 @@
             #msgInput:focus {
                 outline: none;
                 border-color: #0068ff !important;
-                box-shadow: 0 0 0 3px rgba(124,58,237,0.12);
+                box-shadow: 0 0 0 3px rgba(0, 104, 255,0.12);
             }
         `;
         const el = document.createElement('style');
@@ -9096,7 +9102,7 @@
                             <a href="${fbPermalink(cid)}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:#3b82f6;text-decoration:none;padding:4px 8px;border:1px solid #dbeafe;border-radius:4px;">
                                 <i data-lucide="facebook" style="width:11px;height:11px;"></i> Facebook
                             </a>
-                            <a href="${pancakeUrl(cid)}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:#0068ff;text-decoration:none;padding:4px 8px;border:1px solid #ede9fe;border-radius:4px;">
+                            <a href="${pancakeUrl(cid)}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:#0068ff;text-decoration:none;padding:4px 8px;border:1px solid #e8f2ff;border-radius:4px;">
                                 <i data-lucide="external-link" style="width:11px;height:11px;"></i> WEB2 Pancake
                             </a>
                         </div>

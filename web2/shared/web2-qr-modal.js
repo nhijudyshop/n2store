@@ -72,8 +72,8 @@
   border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer;
   border: 1px solid #d1d5db; background: #fff; color: #374151; text-decoration: none; }
 .w2qr-btn:hover { background: #f9fafb; }
-.w2qr-btn-primary { background: #6366f1; color: #fff; border-color: #6366f1; }
-.w2qr-btn-primary:hover { background: #4f46e5; }
+.w2qr-btn-primary { background: #2a96ff; color: #fff; border-color: #2a96ff; }
+.w2qr-btn-primary:hover { background: #0058da; }
 .w2qr-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 @media (max-width: 640px) { .w2qr-content { grid-template-columns: 1fr; } }
         `;

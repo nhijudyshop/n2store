@@ -303,8 +303,8 @@
 
 /* quoted reply */
 .w2cp-quoted {
-    border-left: 3px solid #a78bfa;
-    background: rgba(124, 58, 237, 0.06);
+    border-left: 3px solid #7cc0ff;
+    background: rgba(0, 104, 255, 0.06);
     border-radius: 6px;
     padding: 4px 8px;
     margin-bottom: 4px;
@@ -354,7 +354,7 @@
     opacity: 1;
 }
 .w2cp-reply-btn:hover {
-    background: #ede9fe;
+    background: #e8f2ff;
     color: #0068ff;
 }
 .w2cp-row.is-flash .w2cp-bubble {
@@ -363,10 +363,10 @@
 @keyframes w2cp-flash {
     0%,
     100% {
-        box-shadow: 0 0 0 0 rgba(124, 58, 237, 0);
+        box-shadow: 0 0 0 0 rgba(0, 104, 255, 0);
     }
     30% {
-        box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.35);
+        box-shadow: 0 0 0 3px rgba(0, 104, 255, 0.35);
     }
 }
 
@@ -516,7 +516,7 @@
     gap: 8px;
     padding: 6px 12px;
     background: #f5f3ff;
-    border-top: 1px solid #ede9fe;
+    border-top: 1px solid #e8f2ff;
     flex: 0 0 auto;
 }
 .w2cp-reply-bar.visible {
@@ -651,7 +651,7 @@
 }
 .w2cp-input:focus {
     border-color: #0068ff;
-    box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.12);
+    box-shadow: 0 0 0 3px rgba(0, 104, 255, 0.12);
 }
 .w2cp-send-btn {
     width: 40px;
@@ -670,7 +670,7 @@
         transform 0.1s;
 }
 .w2cp-send-btn:hover {
-    background: #6d28d9;
+    background: #0058da;
 }
 .w2cp-send-btn:active {
     transform: scale(0.94);
@@ -768,7 +768,7 @@
     padding: 4px;
 }
 .w2cp-sticker-item:hover {
-    border-color: #c4b5fd;
+    border-color: #bcdcff;
 }
 .w2cp-sticker-item img {
     width: 100%;

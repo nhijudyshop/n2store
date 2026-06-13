@@ -149,7 +149,7 @@
 
 .ts-stat.verified {
     color: #0068ff;
-    border-color: #c4b5fd;
+    border-color: #bcdcff;
     background: #f5f3ff;
 }
 
@@ -380,7 +380,7 @@
 
 .btn-edit-ts:hover {
     background: #e0e7ff;
-    color: #4f46e5;
+    color: #0058da;
     border-color: #a5b4fc;
 }
 

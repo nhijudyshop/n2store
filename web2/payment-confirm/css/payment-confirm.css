@@ -55,8 +55,8 @@
     border-bottom-color: #0058da;
 }
 .pc-tab .pc-count {
-    background: #ede9fe;
-    color: #6d28d9;
+    background: #e8f2ff;
+    color: #0058da;
     border-radius: 10px;
     padding: 1px 8px;
     font-size: 11px;
@@ -136,8 +136,8 @@
     flex-wrap: wrap;
 }
 .pc-kw {
-    background: #ede9fe;
-    color: #6d28d9;
+    background: #e8f2ff;
+    color: #0058da;
     border-radius: 5px;
     padding: 1px 7px;
     font-size: 11px;

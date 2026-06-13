@@ -25,14 +25,14 @@
 :root {
     /* Live Primary Colors */
     --live-primary: #0068ff;
-    --live-primary-light: #8b5cf6;
-    --live-primary-dark: #6d28d9;
+    --live-primary-light: #2a96ff;
+    --live-primary-dark: #0058da;
     --live-secondary: #3b82f6;
 
     /* Comment Colors */
     --live-comment-bg: #f8fafc;
     --live-comment-incoming: #ffffff;
-    --live-comment-outgoing: #ede9fe;
+    --live-comment-outgoing: #e8f2ff;
 
     /* UI Colors */
     --live-sidebar-bg: #ffffff;
@@ -591,12 +591,12 @@
 
 @keyframes liveNewComment {
     0% {
-        background-color: rgba(124, 58, 237, 0.2);
+        background-color: rgba(0, 104, 255, 0.2);
         transform: translateX(-10px);
     }
 
     50% {
-        background-color: rgba(124, 58, 237, 0.1);
+        background-color: rgba(0, 104, 255, 0.1);
     }
 
     100% {
@@ -630,7 +630,7 @@
 
 .live-input-wrapper:focus-within {
     border-color: var(--live-primary);
-    box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.1);
+    box-shadow: 0 0 0 2px rgba(0, 104, 255, 0.1);
 }
 
 .live-input {
@@ -1013,7 +1013,7 @@
 
 .live-page-item.selected {
     background: linear-gradient(135deg, #f3e8ff, #fff);
-    border: 1px solid #c4b5fd;
+    border: 1px solid #bcdcff;
 }
 
 .live-page-avatar {
@@ -1097,7 +1097,7 @@
 .live-add-page-form .live-input:focus {
     outline: none;
     border-color: var(--live-primary);
-    box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.1);
+    box-shadow: 0 0 0 2px rgba(0, 104, 255, 0.1);
 }
 
 .web2-btn-primary {
@@ -1117,7 +1117,7 @@
 }
 
 .web2-btn-primary:hover {
-    background: var(--live-primary-dark, #6d28d9);
+    background: var(--live-primary-dark, #0058da);
 }
 
 .web2-btn-primary svg {
@@ -1133,7 +1133,7 @@
 }
 
 .live-page-item.custom-page:hover {
-    background: linear-gradient(135deg, #ede9fe, #fff);
+    background: linear-gradient(135deg, #e8f2ff, #fff);
 }
 
 .live-remove-page-btn {
@@ -1301,7 +1301,7 @@
 
 @keyframes liveHighlight {
     0% {
-        background: rgba(124, 58, 237, 0.3);
+        background: rgba(0, 104, 255, 0.3);
     }
 
     100% {

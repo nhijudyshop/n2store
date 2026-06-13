@@ -135,10 +135,10 @@
 @keyframes w2fxPulseSoft {
     0%,
     100% {
-        box-shadow: 0 0 0 0 rgba(124, 58, 237, 0.45);
+        box-shadow: 0 0 0 0 rgba(0, 104, 255, 0.45);
     }
     50% {
-        box-shadow: 0 0 0 6px rgba(124, 58, 237, 0);
+        box-shadow: 0 0 0 6px rgba(0, 104, 255, 0);
     }
 }
 .w2fx-pulse-soft {
@@ -218,7 +218,7 @@
         border-color 0.2s ease-out;
 }
 .w2fx-hover-glow:hover {
-    box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.15);
+    box-shadow: 0 0 0 3px rgba(0, 104, 255, 0.15);
     border-color: #0068ff;
 }
 
@@ -329,7 +329,7 @@
 .page-head-title i {
     width: 20px;
     height: 20px;
-    color: #6d28d9;
+    color: #0058da;
 }
 
 .page-head-counters {
@@ -349,7 +349,7 @@
 
 .page-head-counters .counter-pill {
     background: #eef2ff;
-    color: #6d28d9;
+    color: #0058da;
 }
 
 .page-head-counters .source-pill {
@@ -417,7 +417,7 @@
 .w2fx-drop-target:focus,
 .w2fx-drop-target:focus-within {
     border-color: #0068ff;
-    box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.18);
+    box-shadow: 0 0 0 3px rgba(0, 104, 255, 0.18);
 }
 
 .w2fx-drop-target.is-dragover {

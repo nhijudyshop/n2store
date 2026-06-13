@@ -5,10 +5,10 @@
 
 :root {
     /* Core Colors */
-    --primary: #6366f1;
-    --primary-dark: #4f46e5;
-    --primary-light: #818cf8;
-    --secondary: #8b5cf6;
+    --primary: #2a96ff;
+    --primary-dark: #0058da;
+    --primary-light: #7cc0ff;
+    --secondary: #2a96ff;
     --success: #10b981;
     --danger: #ef4444;
     --warning: #f59e0b;

@@ -252,7 +252,7 @@
                 </div>
                 <div class="w2pd-stat">
                     <div class="w2pd-stat-label"><i data-lucide="package"></i>Tồn kho</div>
-                    <div class="w2pd-stat-value" style="color:${stockColor};">${stock}${Number(p.returnQty) > 0 ? ` <span style="font-size:11px;color:#6d28d9;">(+${Number(p.returnQty)} thu về)</span>` : ''}</div>
+                    <div class="w2pd-stat-value" style="color:${stockColor};">${stock}${Number(p.returnQty) > 0 ? ` <span style="font-size:11px;color:#0058da;">(+${Number(p.returnQty)} thu về)</span>` : ''}</div>
                 </div>
                 <div class="w2pd-stat">
                     <div class="w2pd-stat-label"><i data-lucide="activity"></i>Trạng thái</div>
@@ -326,7 +326,7 @@
         entries.forEach((e) => (totalQty += Number(e.qty) || 0));
 
         let html = `<div style="font-size:13px;color:var(--gray-500,#6b7280);margin-bottom:12px;">
-            <strong style="color:#6d28d9;">${entries.length}</strong> đơn · tổng <strong style="color:#6d28d9;">${totalQty}</strong> cái</div>`;
+            <strong style="color:#0058da;">${entries.length}</strong> đơn · tổng <strong style="color:#0058da;">${totalQty}</strong> cái</div>`;
         for (const [, g] of groups) {
             html += `<div class="w2pd-camp"><div class="w2pd-camp-title"><i data-lucide="megaphone"></i>${esc(g.name || '(không có chiến dịch)')}</div>`;
             for (const it of g.items) {
@@ -355,7 +355,7 @@
         update: { label: 'Cập nhật', color: '#3b82f6', icon: 'pencil' },
         delete: { label: 'Xoá', color: '#dc2626', icon: 'trash-2' },
         'stock-adjust': { label: 'Điều chỉnh tồn', color: '#f59e0b', icon: 'package' },
-        'toggle-active': { label: 'Đổi trạng thái', color: '#8b5cf6', icon: 'toggle-left' },
+        'toggle-active': { label: 'Đổi trạng thái', color: '#2a96ff', icon: 'toggle-left' },
         'confirm-purchase': { label: 'Mua hàng', color: '#0ea5e9', icon: 'shopping-cart' },
         'upsert-pending': { label: 'Đặt nháp', color: '#94a3b8', icon: 'clock' },
     };

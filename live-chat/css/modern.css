@@ -5,10 +5,10 @@
 
 :root {
     /* Core Colors */
-    --primary: #6366f1;
-    --primary-dark: #4f46e5;
-    --primary-light: #818cf8;
-    --secondary: #8b5cf6;
+    --primary: #2a96ff;
+    --primary-dark: #0058da;
+    --primary-light: #7cc0ff;
+    --secondary: #2a96ff;
     --success: #10b981;
     --danger: #ef4444;
     --warning: #f59e0b;
@@ -88,7 +88,8 @@ html {
     -moz-osx-font-smoothing: grayscale;
 }
 
-body {font-size: 0.875rem;
+body {
+    font-size: 0.875rem;
     line-height: 1.6;
     color: var(--text-primary);
     background: var(--gray-50);
@@ -369,11 +370,11 @@ button {
     transition: flex var(--transition);
 }
 
-.column-wrapper[data-column="live"] {
+.column-wrapper[data-column='live'] {
     border-right: none;
 }
 
-.column-wrapper[data-column="pancake"] {
+.column-wrapper[data-column='pancake'] {
     border-left: none;
 }
 
@@ -387,12 +388,12 @@ button {
     flex-shrink: 0;
 }
 
-.column-wrapper[data-column="live"] .column-header {
+.column-wrapper[data-column='live'] .column-header {
     background: var(--live-bg);
     border-bottom-color: rgba(59, 130, 246, 0.2);
 }
 
-.column-wrapper[data-column="pancake"] .column-header {
+.column-wrapper[data-column='pancake'] .column-header {
     background: var(--pancake-bg);
     border-bottom-color: rgba(245, 158, 11, 0.2);
 }
@@ -408,11 +409,11 @@ button {
     height: 22px;
 }
 
-.column-wrapper[data-column="live"] .column-title i {
+.column-wrapper[data-column='live'] .column-title i {
     color: var(--live-color);
 }
 
-.column-wrapper[data-column="pancake"] .column-title i {
+.column-wrapper[data-column='pancake'] .column-title i {
     color: var(--pancake-color);
 }
 
@@ -421,11 +422,11 @@ button {
     font-weight: 600;
 }
 
-.column-wrapper[data-column="live"] .column-title h2 {
+.column-wrapper[data-column='live'] .column-title h2 {
     color: var(--live-color);
 }
 
-.column-wrapper[data-column="pancake"] .column-title h2 {
+.column-wrapper[data-column='pancake'] .column-title h2 {
     color: var(--pancake-color);
 }
 
@@ -548,7 +549,7 @@ button {
         height: 50%;
     }
 
-    .column-wrapper[data-column="live"] {
+    .column-wrapper[data-column='live'] {
         border-right: none;
         border-bottom: 1px solid var(--border);
     }
@@ -613,7 +614,6 @@ button {
    ===================================================== */
 
 @media (prefers-reduced-motion: reduce) {
-
     *,
     *::before,
     *::after {

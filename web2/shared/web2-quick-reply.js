@@ -222,7 +222,7 @@
             }
             .w2-qr-dropdown-item:hover,
             .w2-qr-dropdown-item.active {
-                background: #ede9fe;
+                background: #e8f2ff;
             }
             .w2-qr-dropdown-item .shortcut {
                 font-family: ui-monospace, monospace;
@@ -263,7 +263,7 @@
                 font-size: 12px;
                 font-weight: 600;
             }
-            .w2-qr-fab:hover { background: #ede9fe; }
+            .w2-qr-fab:hover { background: #e8f2ff; }
             .w2-qr-modal-overlay {
                 position: fixed; inset: 0; background: rgba(15,23,42,0.45);
                 z-index: 10000; display: flex; align-items: center; justify-content: center;
@@ -531,7 +531,7 @@
                 </header>
                 <div class="body" id="w2qrList">Đang load…</div>
                 <div class="footer">
-                    <button class="w2-qr-icon-btn" data-act="add" style="width:auto;padding:0 10px;height:32px;font-size:12px;font-weight:600;color:#0068ff;border-color:#ddd6fe;">
+                    <button class="w2-qr-icon-btn" data-act="add" style="width:auto;padding:0 10px;height:32px;font-size:12px;font-weight:600;color:#0068ff;border-color:#dbeafe;">
                         <i data-lucide="plus" style="width:13px;height:13px;"></i> Thêm mẫu mới
                     </button>
                 </div>

@@ -63,7 +63,7 @@
         .loh-row{cursor:pointer}
         .loh-row:hover{background:#f0f9ff}
         .loh-stt{display:inline-flex;min-width:26px;justify-content:center;background:#e0f2fe;color:#0369a1;border-radius:6px;padding:2px 6px;font-weight:700;font-size:12px}
-        .loh-code{color:#6d28d9;font-weight:600;font-size:11.5px}
+        .loh-code{color:#0058da;font-weight:600;font-size:11.5px}
         .loh-name{font-weight:600}
         .loh-empty{padding:28px;text-align:center;color:#9ca3af;font-size:13px}`;
         document.head.appendChild(s);

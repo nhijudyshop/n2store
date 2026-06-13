@@ -38,9 +38,9 @@
 .variant-pill {
     display: inline-block;
     padding: 2px 8px;
-    background: #ede9fe;
-    color: #6d28d9;
-    border: 1px solid #ddd6fe;
+    background: #e8f2ff;
+    color: #0058da;
+    border: 1px solid #dbeafe;
     border-radius: 6px;
     font-weight: 600;
     line-height: 1.4;
@@ -57,7 +57,7 @@
 .field-aux-link {
     float: right;
     font-size: 11px;
-    color: #6d28d9;
+    color: #0058da;
     text-decoration: none;
     display: inline-flex;
     align-items: center;
@@ -66,10 +66,10 @@
     padding: 2px 8px;
     border-radius: 999px;
     background: #f3f0ff;
-    border: 1px solid #ddd6fe;
+    border: 1px solid #dbeafe;
 }
 .field-aux-link:hover {
-    background: #ede9fe;
+    background: #e8f2ff;
 }
 .field-aux-link i {
     width: 11px;
@@ -151,7 +151,7 @@
     font-size: 12px;
 }
 .variant-suggest-empty a {
-    color: #6d28d9;
+    color: #0058da;
     font-weight: 600;
     text-decoration: none;
 }
@@ -312,7 +312,7 @@
     outline: none;
 }
 .pm-image-drop:hover {
-    border-color: #c4b5fd;
+    border-color: #bcdcff;
     background: #faf5ff;
 }
 .pm-image-drop .w2fx-drop-hint {
@@ -365,15 +365,15 @@
     border-color: #e2e8f0;
 }
 .usage-badge.usage-has {
-    background: linear-gradient(135deg, #faf5ff, #ede9fe);
-    color: #6d28d9;
-    border-color: #c4b5fd;
+    background: linear-gradient(135deg, #faf5ff, #e8f2ff);
+    color: #0058da;
+    border-color: #bcdcff;
     cursor: pointer;
 }
 .usage-badge.usage-has:hover {
-    background: linear-gradient(135deg, #ede9fe, #ddd6fe);
+    background: linear-gradient(135deg, #e8f2ff, #dbeafe);
     transform: translateY(-1px);
-    box-shadow: 0 2px 6px rgba(124, 58, 237, 0.18);
+    box-shadow: 0 2px 6px rgba(0, 104, 255, 0.18);
 }
 .usage-badge.usage-has i {
     width: 11px;
@@ -521,11 +521,11 @@
 
 /* ===== History modal — lịch sử chỉnh sửa SP ===== */
 .btn-action.act-history {
-    color: #8b5cf6;
+    color: #2a96ff;
     background: #f5f3ff;
 }
 .btn-action.act-history:hover {
-    background: #ddd6fe;
+    background: #dbeafe;
 }
 
 /* Print barcode action — amber (printer icon) */
@@ -562,7 +562,7 @@
 }
 .w2p-history-head {
     padding: 14px 20px;
-    background: linear-gradient(135deg, #8b5cf6, #2a96ff);
+    background: linear-gradient(135deg, #2a96ff, #2a96ff);
     color: #fff;
     display: flex;
     align-items: center;
@@ -644,8 +644,8 @@
     font-weight: 500;
 }
 .w2p-hist-source {
-    background: #ede9fe;
-    color: #6d28d9;
+    background: #e8f2ff;
+    color: #0058da;
     font-size: 10px;
     font-weight: 700;
     padding: 2px 8px;

@@ -3,7 +3,7 @@
 
 :root {
     --lsimg-accent: #0068ff;
-    --lsimg-accent-soft: #ede9fe;
+    --lsimg-accent-soft: #e8f2ff;
     --lsimg-border: #e5e7eb;
     --lsimg-text: #374151;
     --lsimg-radius: 14px;
@@ -38,11 +38,11 @@
 }
 .live-lsimg-chip--capture {
     background: var(--lsimg-accent-soft);
-    border-color: #c4b5fd;
-    color: #5b21b6;
+    border-color: #bcdcff;
+    color: #004bb5;
 }
 .live-lsimg-chip--capture:hover {
-    background: #ddd6fe;
+    background: #dbeafe;
 }
 .live-lsimg-chip--capture.is-busy {
     opacity: 0.6;

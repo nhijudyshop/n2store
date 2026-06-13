@@ -2,6 +2,17 @@
 
 ## 2026-06-13
 
+### [web2] UX per-page đợt 3 (users-permissions/report-revenue/native-orders) + de-purple sâu (violet/indigo scale) ✅
+
+- **users-permissions**: thay 5 `alert()` bằng toast (`notificationManager`, helper `_toast`).
+- **report-revenue**: skeleton `.w2-skel` cho kpi-grid + chart thay text "Đang tải".
+- **native-orders**: empty-state có icon + phân biệt "lọc không thấy" vs "chưa có đơn".
+- **so-order**: đã có sẵn Esc-close + empty-state (không cần sửa).
+- **De-purple SÂU**: lần trước chỉ map palette TPOS; nay quét thêm **Tailwind violet/purple/indigo** (`#6d28d9 #8b5cf6 #5b21b6 #9333ea #4f46e5 #6366f1 #a78bfa …` + rgba tương ứng) → xanh, trên **54 file** CSS+HTML+JS (vd nút "30 ngày" report-revenue tím→xanh). 0 còn lại.
+- Bump native-orders-app.js `?v=20260613z`.
+
+Verify: node --check toàn bộ JS OK; nav report-revenue/users-permissions 0 JS error; nút active xanh. Còn roadmap (defer, ít traffic): reconcile/supplier-debt mobile split-layout, returns giảm bước, so-order loading flash.
+
 ### [web2] UX per-page đợt 2 (variants / kpi / audit-log) theo roadmap audit ✅
 
 - **variants** (`web2-variants-app.js` + index): Enter-to-save modal; empty-state phân biệt "đang filter không thấy" vs "kho trống"; modal `min-width: min(480px, calc(100vw-32px))` (hết tràn mobile).

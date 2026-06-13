@@ -60,8 +60,8 @@
 }
 .ckd-count {
     margin-left: auto;
-    background: #ede9fe;
-    color: #6d28d9;
+    background: #e8f2ff;
+    color: #0058da;
     border-radius: 10px;
     padding: 1px 9px;
     font-size: 12px;
@@ -99,8 +99,8 @@
     flex-wrap: wrap;
 }
 .ckd-kw {
-    background: #ede9fe;
-    color: #6d28d9;
+    background: #e8f2ff;
+    color: #0058da;
     border-radius: 5px;
     padding: 0 6px;
     font-size: 10px;

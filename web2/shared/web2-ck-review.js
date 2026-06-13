@@ -438,9 +438,9 @@
         .w2ck-list,.w2ck-txlist{display:grid;gap:8px}
         .w2ck-row,.w2ck-subject{background:#f8fafc;border-radius:10px;padding:10px 12px}
         .w2ck-row{display:flex;justify-content:space-between;align-items:center;gap:12px;border-left:4px solid #14b8a6}
-        .w2ck-subject{border-left:4px solid #6366f1;margin-bottom:12px}
+        .w2ck-subject{border-left:4px solid #2a96ff;margin-bottom:12px}
         .w2ck-cust{font-weight:700;color:#1e293b;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-        .w2ck-kw{background:#ede9fe;color:#6d28d9;border-radius:5px;padding:1px 7px;font-size:11px;font-weight:700}
+        .w2ck-kw{background:#e8f2ff;color:#0058da;border-radius:5px;padding:1px 7px;font-size:11px;font-weight:700}
         .w2ck-msg{color:#475569;font-size:13px;margin-top:2px}
         .w2ck-meta{color:#94a3b8;font-size:11px;margin-top:3px}
         .w2ck-order{color:#0058da;font-size:12px;margin-top:3px;font-weight:600}

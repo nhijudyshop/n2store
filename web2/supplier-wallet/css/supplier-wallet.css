@@ -18,7 +18,7 @@
 .sw-page-title i {
     width: 22px;
     height: 22px;
-    color: #6d28d9;
+    color: #0058da;
 }
 .sw-page-title h1 {
     font-size: 18px;
@@ -74,7 +74,7 @@
 .sw-search-wrap input:focus {
     outline: none;
     border-color: #0068ff;
-    box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.15);
+    box-shadow: 0 0 0 3px rgba(0, 104, 255, 0.15);
 }
 .sw-sort-wrap {
     display: flex;
@@ -169,7 +169,7 @@
     margin-bottom: 12px;
 }
 .sw-empty-state a {
-    color: #6d28d9;
+    color: #0058da;
     font-weight: 600;
 }
 
@@ -309,7 +309,7 @@
     border-bottom: 2px solid transparent;
 }
 .sw-tab.is-active {
-    color: #6d28d9;
+    color: #0058da;
     border-bottom-color: #0068ff;
 }
 
@@ -406,7 +406,7 @@
 .sw-field input:focus {
     outline: none;
     border-color: #0068ff;
-    box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.15);
+    box-shadow: 0 0 0 3px rgba(0, 104, 255, 0.15);
 }
 
 .sw-txn-type {

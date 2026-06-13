@@ -280,14 +280,14 @@
     color: #991b1b;
 }
 .w2bh-chip.chip-manual-all {
-    background: #ede9fe;
-    color: #5b21b6;
+    background: #e8f2ff;
+    color: #004bb5;
 }
 .w2bh-user-action {
-    color: #5b21b6;
+    color: #004bb5;
     font-weight: 700;
     padding-right: 4px;
-    border-right: 1px solid #c4b5fd;
+    border-right: 1px solid #bcdcff;
     margin-right: 4px;
 }
 .w2bh-user-badge-unknown {

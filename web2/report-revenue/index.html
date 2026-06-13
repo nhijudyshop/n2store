@@ -50,9 +50,9 @@
                 font-size: 13px;
             }
             .range-select button.active {
-                background: #6d28d9;
+                background: #0058da;
                 color: #fff;
-                border-color: #6d28d9;
+                border-color: #0058da;
             }
             .kpi-grid {
                 display: grid;
@@ -88,7 +88,7 @@
                 border-top: 3px solid #10b981;
             }
             .kpi-card.purple {
-                border-top: 3px solid #6d28d9;
+                border-top: 3px solid #0058da;
             }
             .kpi-card.orange {
                 border-top: 3px solid #f59e0b;
@@ -126,7 +126,7 @@
             }
             .bar {
                 flex: 1;
-                background: linear-gradient(180deg, #8b5cf6, #6d28d9);
+                background: linear-gradient(180deg, #2a96ff, #0058da);
                 border-radius: 4px 4px 0 0;
                 min-height: 4px;
                 position: relative;
@@ -244,12 +244,22 @@
                     </div>
                 </div>
 
-                <div class="kpi-grid" id="kpiGrid"><div class="loading">Đang tải KPI...</div></div>
+                <div class="kpi-grid" id="kpiGrid">
+                    <span class="w2-skel" style="height: 88px; border-radius: 12px"></span>
+                    <span class="w2-skel" style="height: 88px; border-radius: 12px"></span>
+                    <span class="w2-skel" style="height: 88px; border-radius: 12px"></span>
+                    <span class="w2-skel" style="height: 88px; border-radius: 12px"></span>
+                </div>
 
                 <div class="panels">
                     <div class="panel">
                         <h3>📈 Doanh thu theo ngày</h3>
-                        <div id="revenueChart" class="loading">Đang tải...</div>
+                        <div id="revenueChart" class="loading">
+                            <span
+                                class="w2-skel"
+                                style="display: block; height: 240px; border-radius: 10px"
+                            ></span>
+                        </div>
                     </div>
                     <div class="panel">
                         <h3>📦 Phân loại đơn theo trạng thái</h3>
@@ -468,7 +478,7 @@
                                 <tr>
                                     <td>${esc(c.name)}</td>
                                     <td class="right">${c.orderCount}</td>
-                                    <td class="right" style="color:#6d28d9">${fmtMoney(c.revenue)}</td>
+                                    <td class="right" style="color:#0058da">${fmtMoney(c.revenue)}</td>
                                 </tr>
                             `
                                 )
@@ -514,7 +524,7 @@
                                     (c, i) => `
                                 <tr>
                                     <td>${i + 1}</td>
-                                    <td><strong>${esc(c.name || '—')}</strong>${c.status ? ` <span style="font-size:10px;color:#0068ff;background:#ede9fe;padding:1px 5px;border-radius:3px;">${esc(c.status)}</span>` : ''}</td>
+                                    <td><strong>${esc(c.name || '—')}</strong>${c.status ? ` <span style="font-size:10px;color:#0068ff;background:#e8f2ff;padding:1px 5px;border-radius:3px;">${esc(c.status)}</span>` : ''}</td>
                                     <td><code style="font-size:11px">${esc(c.phone || '—')}</code></td>
                                     <td class="right">${c.nw.count} <span style="color:#9ca3af;font-size:11px;">/ ${fmtMoney(c.nw.total)}</span></td>
                                     <td class="right">${c.pbh.count} <span style="color:#9ca3af;font-size:11px;">/ ${fmtMoney(c.pbh.total)}</span></td>
@@ -593,7 +603,7 @@
                         </div>`;
                     body.innerHTML = `
                         <div style="display:flex;gap:14px;margin-bottom:16px;flex-wrap:wrap;">
-                            <div style="background:#ede9fe;color:#5b21b6;padding:10px 14px;border-radius:8px;flex:1;min-width:140px;">
+                            <div style="background:#e8f2ff;color:#004bb5;padding:10px 14px;border-radius:8px;flex:1;min-width:140px;">
                                 <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.04em;">Đơn web</div>
                                 <div style="font-size:18px;font-weight:700;">${summary.native.count}</div>
                                 <div style="font-size:11px;">${m(summary.native.totalAmount)}</div>

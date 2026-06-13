@@ -102,7 +102,7 @@
                                 : '<span class="variant-empty">—</span>'
                         }<span class="stock-badge ${stockClass}" title="Tồn kho"><i data-lucide="package"></i>Tồn: ${p.stock ?? 0}</span>${
                             Number(p.returnQty) > 0
-                                ? `<span class="stock-badge" title="Có ${Number(p.returnQty)} tồn kho THU VỀ đang chờ duyệt (Shipper gửi). Vào trang Thu về để duyệt → cộng vào tồn thật." style="background:#ede9fe;color:#6d28d9;border-color:#ddd6fe;"><i data-lucide="undo-2"></i>Thu về: ${Number(p.returnQty)}</span>`
+                                ? `<span class="stock-badge" title="Có ${Number(p.returnQty)} tồn kho THU VỀ đang chờ duyệt (Shipper gửi). Vào trang Thu về để duyệt → cộng vào tồn thật." style="background:#e8f2ff;color:#0058da;border-color:#dbeafe;"><i data-lucide="undo-2"></i>Thu về: ${Number(p.returnQty)}</span>`
                                 : ''
                         }</div>
                     </td>
@@ -883,7 +883,7 @@
             update: { label: 'Cập nhật', color: '#3b82f6', icon: 'pencil' },
             delete: { label: 'Xoá', color: '#dc2626', icon: 'trash-2' },
             'stock-adjust': { label: 'Điều chỉnh tồn', color: '#f59e0b', icon: 'package' },
-            'toggle-active': { label: 'Đổi trạng thái', color: '#8b5cf6', icon: 'toggle-left' },
+            'toggle-active': { label: 'Đổi trạng thái', color: '#2a96ff', icon: 'toggle-left' },
             'confirm-purchase': { label: 'Mua hàng', color: '#0ea5e9', icon: 'shopping-cart' },
             'upsert-pending': { label: 'Đặt nháp', color: '#94a3b8', icon: 'clock' },
         };

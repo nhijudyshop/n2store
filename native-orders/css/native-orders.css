@@ -46,7 +46,7 @@
     --accent: var(--web2-primary);
     --accent-dark: var(--web2-primary-hover);
     --native: var(--web2-primary);
-    --native-bg: #ede9fe;
+    --native-bg: #e8f2ff;
     --native-text: var(--web2-primary);
     --success: var(--web2-success);
     --success-dark: var(--web2-success-hover);
@@ -795,8 +795,8 @@ body {
 /* Chỉnh tay */
 .no-delivery-badge.is-manual {
     background: #f5f3ff;
-    color: #6d28d9;
-    border-color: #ddd6fe;
+    color: #0058da;
+    border-color: #dbeafe;
 }
 /* ── Popover menu chọn phương thức ───────────────────────────────── */
 .no-delivery-menu {
@@ -1019,7 +1019,7 @@ body {
     padding: 2px 6px;
     font-size: 10.5px;
     font-weight: 600;
-    color: #6366f1;
+    color: #2a96ff;
     background: #eef2ff;
     border: 1px solid #c7d2fe;
     border-radius: 4px;
@@ -1033,11 +1033,11 @@ body {
 }
 .web2-fetch-web2-btn:hover {
     background: #c7d2fe;
-    border-color: #818cf8;
+    border-color: #7cc0ff;
     color: #4338ca;
 }
 .web2-fetch-web2-btn:focus-visible {
-    outline: 2px solid #818cf8;
+    outline: 2px solid #7cc0ff;
     outline-offset: 1px;
 }
 .web2-fetch-web2-btn:disabled {
@@ -1094,7 +1094,7 @@ body {
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
 }
 .native-cust-panel .ncp-avatar-fallback {
-    background: linear-gradient(135deg, #7c3aed, #6366f1);
+    background: linear-gradient(135deg, #7c3aed, #2a96ff);
     color: white;
     font-weight: 700;
     font-size: 22px;
@@ -1176,8 +1176,8 @@ body {
     gap: 5px;
 }
 .native-cust-panel .ncp-tag {
-    background: #ede9fe;
-    color: #6d28d9;
+    background: #e8f2ff;
+    color: #0058da;
     padding: 2px 8px;
     border-radius: 12px;
     font-size: 11px;
@@ -1477,7 +1477,7 @@ body {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%);
+    background: linear-gradient(135deg, #f5f3ff 0%, #e8f2ff 100%);
 }
 .modal-header h3 {
     margin: 0;
@@ -2283,8 +2283,8 @@ body {
     height: 16px;
 }
 .no-channel-tab:hover {
-    border-color: #a78bfa;
-    color: #6d28d9;
+    border-color: #7cc0ff;
+    color: #0058da;
 }
 .no-channel-tab.is-active {
     background: #7c3aed;
@@ -2343,7 +2343,7 @@ body {
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    color: #6d28d9;
+    color: #0058da;
     font-size: 1rem;
 }
 .no-add-modal-head i {
@@ -2378,7 +2378,7 @@ body {
 .no-add-modal-body input:focus {
     outline: none;
     border-color: #7c3aed;
-    box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.15);
+    box-shadow: 0 0 0 3px rgba(0, 104, 255, 0.15);
 }
 .no-add-row {
     display: grid;
@@ -2637,7 +2637,7 @@ body {
     gap: 5px;
     font-size: 12.5px;
     font-weight: 700;
-    color: #6d28d9;
+    color: #0058da;
     white-space: nowrap;
 }
 .no-kpi-label i {

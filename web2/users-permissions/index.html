@@ -268,9 +268,13 @@
                         .querySelectorAll('#permBody input[type=checkbox]')
                         .forEach((cb) => (cb.checked = false));
                 };
+                const _toast = (m, t) =>
+                    window.notificationManager
+                        ? notificationManager.show(m, t || 'info')
+                        : alert(m);
                 document.getElementById('btnSave').onclick = async () => {
                     const uid = document.getElementById('userPick').value;
-                    if (!uid) return alert('Chọn user trước');
+                    if (!uid) return _toast('Chọn user trước', 'warning');
                     const btn = document.getElementById('btnSave');
                     if (btn.disabled) return; // tránh double-submit
                     const perm = collectPerm();
@@ -289,14 +293,14 @@
                         });
                         const d = await r.json().catch(() => ({}));
                         if (r.status === 401 || r.status === 403) {
-                            alert('Cần đăng nhập admin để lưu phân quyền.');
+                            _toast('Cần đăng nhập admin để lưu phân quyền.', 'error');
                         } else if (r.ok && d.success) {
-                            alert('Lưu thành công');
+                            _toast('Lưu phân quyền thành công', 'success');
                         } else {
-                            alert('Lỗi: ' + (d.error || 'HTTP ' + r.status));
+                            _toast('Lỗi: ' + (d.error || 'HTTP ' + r.status), 'error');
                         }
                     } catch (e) {
-                        alert('Lỗi mạng: ' + (e.message || e));
+                        _toast('Lỗi mạng: ' + (e.message || e), 'error');
                     } finally {
                         btn.disabled = false;
                         btn.textContent = origText;
