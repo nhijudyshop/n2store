@@ -744,6 +744,8 @@
     display: flex;
     flex-direction: column;
     min-width: 0;
+    min-height: 0; /* cho phép body (flex:1) co lại + cuộn thay vì đẩy composer ra ngoài */
+    overflow: hidden;
 }
 .wz-chat-head {
     padding: 13px 16px;
@@ -755,7 +757,8 @@
     background: #fff;
 }
 .wz-chat-body {
-    flex: 1;
+    flex: 1 1 auto;
+    min-height: 0; /* BẮT BUỘC: flex item cuộn được thay vì phình theo nội dung */
     overflow-y: auto;
     overscroll-behavior: contain;
     padding: 18px;

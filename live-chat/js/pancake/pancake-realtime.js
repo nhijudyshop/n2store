@@ -545,20 +545,24 @@ const PancakeRealtime = {
                 customerId: customerId,
             });
             if (result && result.messages) {
+                // Xoá ext_ optimistic placeholders trước dedup (ext_xxx ≠ real FB id → duplicate)
+                state.messages = state.messages.filter(function (m) {
+                    return !String(m.id || '').startsWith('ext_') && !m._temp;
+                });
                 var existingIds = new Set(
                     state.messages.map(function (m) {
                         return m.id;
                     })
                 );
                 var newMsgs = result.messages.filter(function (m) {
-                    return !existingIds.has(m.id) && !m._temp;
+                    return !existingIds.has(m.id);
                 });
                 if (newMsgs.length > 0) {
                     state.messages.push.apply(state.messages, newMsgs);
-                    window.PancakeChatWindow?.renderMessages?.();
-                    window.PancakeChatWindow?.scrollToBottom?.();
-                    window.PancakeAPI.markAsRead(pageId, convId);
                 }
+                window.PancakeChatWindow?.renderMessages?.();
+                window.PancakeChatWindow?.scrollToBottom?.();
+                window.PancakeAPI.markAsRead(pageId, convId);
             }
         } catch (error) {
             console.error('[PK-RT] Fetch new messages error:', error);

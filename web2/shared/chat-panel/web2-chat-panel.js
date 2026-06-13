@@ -89,10 +89,24 @@
         return `<div class="w2cp-bub-av" style="background:${grad};">${initialOf(name)}${img}</div>`;
     }
 
+    // Pancake inserted_at = UTC không hậu tố Z → new Date(str) trên Chrome interpret as local (+7)
+    // → lệch 7 tiếng. Append 'Z' nếu string không có timezone info.
+    function parseTs(ts) {
+        if (!ts) return null;
+        if (
+            typeof ts === 'string' &&
+            !ts.includes('Z') &&
+            !ts.includes('+') &&
+            !/T\d{2}:\d{2}:\d{2}-/.test(ts)
+        ) {
+            return new Date(ts + 'Z');
+        }
+        return new Date(ts);
+    }
     function fmtTime(ts) {
         if (!ts) return '';
-        const d = new Date(ts);
-        if (isNaN(d)) return '';
+        const d = parseTs(ts);
+        if (!d || isNaN(d)) return '';
         return d.toLocaleString('vi-VN', {
             hour: '2-digit',
             minute: '2-digit',
@@ -102,8 +116,9 @@
     }
     function msgTs(m) {
         const t = m && (m.inserted_at || m.created_time || m.timestamp);
-        const n = t ? Date.parse(t) : 0;
-        return isNaN(n) ? 0 : n;
+        if (!t) return 0;
+        const d = parseTs(t);
+        return d && !isNaN(d.getTime()) ? d.getTime() : 0;
     }
 
     // ---- Render 1 attachment (media) ----
@@ -537,7 +552,9 @@
             };
             const onSuccess = (res) => {
                 st.messages = st.messages.filter((m) => m.id !== tempId);
-                if (res && res.sent) st.messages.push(res.sent);
+                // Dedup: realtime setMessages có thể đã push res.sent trước khi onSuccess chạy
+                if (res && res.sent && !st.messages.some((m) => m.id === res.sent.id))
+                    st.messages.push(res.sent);
                 st.isAtBottom = true;
                 renderAll();
             };
