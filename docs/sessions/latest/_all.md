@@ -3,15 +3,16 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `9c26422` — feat(orders-report): đơn gộp hiển STT các đơn nối '+' và đóng khung vuông (vd 243 + 678)
-**Last updated**: 2026-06-13 10:24:07 +07
-**Latest session**: [`RESUME:20260613-102407-9c26422`](../20260613-102407-9c26422.md)
-**Summary**: feat(orders-report): đơn gộp hiển STT các đơn nối '+' và đóng khung vuông (vd 243 + 678)
+**Latest commit**: `07f4a0e` — chore(web2): wipe data giao dịch Web 2.0 để test lại — giữ 64270 KH + 5627 live comments Pancake; add firestore-wipe script
+**Last updated**: 2026-06-13 10:41:15 +07
+**Latest session**: [`RESUME:20260613-104115-07f4a0e`](../20260613-104115-07f4a0e.md)
+**Summary**: chore(web2): wipe data giao dịch Web 2.0 để test lại — giữ 64270 KH + 5627 live comments Pancake; add fire...
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
 - [`orders-report/`](./orders-report.md) — 3 file(s)
+- [`render.com/`](./render.com.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -25,7 +26,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-12 18:34
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-12 19:55
-- [`docs/`](./docs.md) — updated 2026-06-13 10:24
+- [`docs/`](./docs.md) — updated 2026-06-13 10:41
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-12 20:05
 - [`downloads/`](./downloads.md) — updated 2026-06-12 20:06
@@ -43,7 +44,7 @@
 - [`native-orders/`](./native-orders.md) — updated 2026-06-12 20:05
 - [`nhanhang/`](./nhanhang.md) — updated 2026-05-21 15:39
 - [`order-management/`](./order-management.md) — updated 2026-05-21 15:39
-- [`orders-report/`](./orders-report.md) — updated 2026-06-13 10:24
+- [`orders-report/`](./orders-report.md) — updated 2026-06-13 10:41
 - [`pancake-extension/`](./pancake-extension.md) — updated 2026-05-21 11:33
 - [`phone-management/`](./phone-management.md) — updated 2026-05-21 15:39
 - [`product-warehouse/`](./product-warehouse.md) — updated 2026-06-04 13:36
@@ -51,7 +52,7 @@
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
-- [`render.com/`](./render.com.md) — updated 2026-06-12 19:40
+- [`render.com/`](./render.com.md) — updated 2026-06-13 10:41
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-11 10:18
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
