@@ -268,9 +268,15 @@ router.post('/tx', requireWeb2AuthSoft, async (req, res) => {
             let mutated = false;
             if (rowReturns) {
                 for (const [rid, v] of Object.entries(rowReturns)) {
+                    // [11] (2026-06-13): CỘNG DỒN qty/amount thay vì ghi đè. rowReturns
+                    // gửi DELTA của lần trả này (xem supplier-wallet-app confirmReturn).
+                    // Trả 1 phần nhiều lần (3 rồi 2 / SL mua 5) → returned_row_ids phải
+                    // tích luỹ = 5, KHÔNG phải 2 (ghi đè) → tránh A2 coi 2<5 còn trả được
+                    // ⇒ OVER-REFUND. Merge dưới FOR UPDATE meta nên atomic.
+                    const prev = cur[rid] || {};
                     cur[rid] = {
-                        qty: Number(v?.qty) || 0,
-                        amount: Number(v?.amount) || 0,
+                        qty: (Number(prev.qty) || 0) + (Number(v?.qty) || 0),
+                        amount: (Number(prev.amount) || 0) + (Number(v?.amount) || 0),
                         ts,
                     };
                     mutated = true;
