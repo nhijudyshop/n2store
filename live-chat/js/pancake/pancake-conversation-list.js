@@ -136,39 +136,45 @@ const PancakeConversationList = {
             conv.from?.id || conv.from_psid || customer.psid || customer.id || ''
         ).replace(/[^\w.:-]/g, '');
 
+        // ===== REDESIGN đợt 7: row kiểu Telegram/Intercom — tên CHIẾM TRỌN dòng
+        // (hết "..."), chỉ báo kênh/SĐT = badge overlay góc avatar, unread = pill
+        // bên phải preview. Bỏ cột actions phải (thủ phạm bóp tên). =====
+        const chBadge = `<span class="pk-ch-badge ${isInbox ? 'inbox' : 'comment'}" title="${isInbox ? 'Tin nhắn' : 'Bình luận'}"><i data-lucide="${isInbox ? 'message-circle' : 'message-square'}"></i></span>`;
+        const phoneBadge = hasPhone
+            ? `<span class="pk-ch-badge phone" title="Có SĐT"><i data-lucide="phone"></i></span>`
+            : '';
+        const removeBtn =
+            state.activeFilter === 'live-saved'
+                ? `<button class="pk-remove-web2-btn" title="Xóa khỏi Lưu Live" onclick="event.stopPropagation(); window.PancakeConversationList.removeFromLiveSaved('${psidSafe}')"><i data-lucide="minus"></i></button>`
+                : '';
+        const hasMeta = !!tags || hasDebt;
+
         return `
             <div class="pk-conversation-item ${isActive ? 'active' : ''} ${isUnread ? 'is-unread' : ''}" data-conv-id="${conv.id}" data-page-id="${conv.page_id}">
                 <div class="pk-avatar">
                     ${avatar}
-                    ${unreadCount > 0 ? `<span class="pk-unread-badge">${unreadCount > 9 ? '9+' : unreadCount}</span>` : ''}
+                    ${chBadge}
+                    ${phoneBadge}
                 </div>
                 <div class="pk-conversation-content">
                     <div class="pk-conversation-header">
                         <span class="pk-conversation-name">${escapeHtml(name)}</span>
+                        <span class="pk-conversation-time">${time}</span>
+                    </div>
+                    <div class="pk-conversation-sub">
                         ${this._pageBadge(conv)}
-                        <span class="pk-conversation-time" style="margin-left:auto;">${time}</span>
+                        <span class="pk-conversation-preview ${isUnread ? 'unread' : ''}">${escapeHtml(this._parseMessageHtml(preview))}</span>
+                        ${unreadCount > 0 ? `<span class="pk-unread-pill">${unreadCount > 99 ? '99+' : unreadCount}</span>` : ''}
                     </div>
-                    <div class="pk-conversation-preview ${isUnread ? 'unread' : ''}">${escapeHtml(this._parseMessageHtml(preview))}</div>
-                    <div class="pk-conversation-meta" style="display:flex;align-items:center;gap:6px;margin-top:4px;">
-                        ${tags ? `<div class="pk-tags-container" style="display:inline-flex;">${tags}</div>` : ''}
-                        ${hasDebt ? `<span class="pk-debt-badge" style="padding:2px 6px;background:#fef2f2;color:#dc2626;border-radius:4px;font-size:10px;font-weight:600;">Nợ: ${debtDisplay}</span>` : ''}
-                    </div>
-                </div>
-                <div class="pk-conversation-actions">
-                    <div class="pk-action-icons">
-                        ${hasPhone ? `<span class="pk-icon-indicator has-phone" title="Có SĐT"><i data-lucide="phone"></i></span>` : ''}
-                        <span class="pk-icon-indicator ${isInbox ? 'inbox' : 'comment'}" title="${isInbox ? 'Tin nhắn' : 'Bình luận'}">
-                            <i data-lucide="${isInbox ? 'message-circle' : 'message-square'}"></i>
-                        </span>
-                        ${
-                            state.activeFilter === 'live-saved'
-                                ? `
-                        <button class="pk-remove-web2-btn" title="Xóa khỏi Lưu Live" onclick="event.stopPropagation(); window.PancakeConversationList.removeFromLiveSaved('${psidSafe}')">
-                            <i data-lucide="minus"></i>
-                        </button>`
-                                : ''
-                        }
-                    </div>
+                    ${
+                        hasMeta
+                            ? `<div class="pk-conversation-meta">
+                        ${tags ? `<div class="pk-tags-container">${tags}</div>` : ''}
+                        ${hasDebt ? `<span class="pk-debt-badge">Nợ: ${debtDisplay}</span>` : ''}
+                    </div>`
+                            : ''
+                    }
+                    ${removeBtn}
                 </div>
             </div>`;
     },
@@ -298,16 +304,17 @@ const PancakeConversationList = {
             }
             if (timeEl) timeEl.textContent = window.SharedUtils.formatTime(conv.updated_at);
 
-            const avatarContainer = el.querySelector('.pk-avatar');
-            let badgeEl = el.querySelector('.pk-unread-badge');
+            const subEl = el.querySelector('.pk-conversation-sub');
+            let pillEl = el.querySelector('.pk-unread-pill');
             if (conv.unread_count > 0) {
-                if (badgeEl) {
-                    badgeEl.textContent = conv.unread_count > 9 ? '9+' : conv.unread_count;
-                } else if (avatarContainer) {
-                    const newBadge = document.createElement('span');
-                    newBadge.className = 'pk-unread-badge';
-                    newBadge.textContent = conv.unread_count > 9 ? '9+' : conv.unread_count;
-                    avatarContainer.appendChild(newBadge);
+                const txt = conv.unread_count > 99 ? '99+' : conv.unread_count;
+                if (pillEl) {
+                    pillEl.textContent = txt;
+                } else if (subEl) {
+                    const newPill = document.createElement('span');
+                    newPill.className = 'pk-unread-pill';
+                    newPill.textContent = txt;
+                    subEl.appendChild(newPill);
                 }
             }
             if (container.firstChild !== el) {

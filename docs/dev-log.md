@@ -2,6 +2,26 @@
 
 ## 2026-06-13
 
+### [live-chat] Redesign đợt 7 — conversation row kiểu Telegram/Intercom: FIX tên cắt "..." + layout hiện đại ✅
+
+**User:** "giao diện tổng thể không ổn, tên dài bị '...' → tìm github phần CSS/giao diện trending để làm giống, hiện đại, hiệu ứng tương lai."
+
+**Research:** chat list trending (Telegram / Intercom / Chatwoot) — pattern chung: avatar + chỉ báo kênh = **badge overlay góc avatar** (không cột phải), tên **chiếm trọn dòng**, unread = **pill** bên phải preview.
+
+**Nguồn lỗi "..." (đọc kỹ markup):** row cũ = `[avatar][content][cột actions phải]`; dòng tên lại chứa cả `name + badge "Store" + time` → tên bị bóp 2 phía → cắt sớm.
+
+**Tái cấu trúc (JS `pancake-conversation-list.js` + CSS `pancake-chat.css`):**
+
+- **Bỏ hẳn cột `.pk-conversation-actions` phải** (thủ phạm). Chỉ báo kênh (inbox/comment) + SĐT → **`.pk-ch-badge` overlay góc avatar** (kênh góc phải-dưới, phone góc trái-dưới, viền trắng 2px + shadow — kiểu Messenger/Zalo).
+- **Dòng 1** = `name` (flex:1, min-width:0, ellipsis, letter-spacing -.01em) + `time` (shrink:0). Tên **chiếm trọn chiều ngang** → hết cắt sớm. Unread → time đổi xanh đậm.
+- **Dòng 2** `.pk-conversation-sub` = `[page chip Store/House]` + `preview` (flex:1 ellipsis) + **`.pk-unread-pill`** (gradient xanh + glow, kiểu Telegram).
+- **Dòng meta** (page/tags/debt) → chỉ render khi CÓ tags/debt (`hasMeta`) → đa số row gọn 2 dòng.
+- **Hiệu ứng "tương lai":** active row = **gradient ngang + inset ring glow** + thanh accent trái **gradient + box-shadow glow**; unread pill gradient + glow; avatar ring 1px.
+- **XÓA CSS chết** (`đọc→xóa→viết lại`): `.pk-conversation-actions`, `.pk-action-icons`, `.pk-icon-indicator` (đợt 6, giờ không render nữa), `.pk-action-btn*` legacy. Thêm `.pk-conversation-meta` + `.pk-debt-badge` (trước inline). `updateConversationInDOM` đổi `.pk-unread-badge`(avatar)→`.pk-unread-pill`(sub).
+- **Polish:** search header thêm hairline bottom (tách lớp, không blur — anti-lag).
+
+**Verify (screenshot desktop):** tên hiển thị ĐẦY ĐỦ (Hương Nhiên, Phương Quáchh, Dung Nguyễn…) hết cắt; badge kênh/phone overlay avatar đúng; unread pill gradient+glow; page chip Store/House; debt "-99" xuống dòng meta. braces OK, conv-list.js parse OK, 0 dead selector. Bump `?v=20260613re`. **Status:** ✅ Done (verified desktop).
+
 ### [live-chat] [shared] Redesign đợt 6 — nút bớt "thô": tactile press + soft-depth + icon đậm + dọn teal ✅
 
 **User:** "các nút ở hình quá thô → research github/ai ui/animation/google các loại button, font, hiệu ứng thịnh hành nhất → đọc CHI TIẾT từng dòng CSS hiện tại TRƯỚC → xóa đi & thêm lại bằng CSS mới (không bị css cũ đè)."
