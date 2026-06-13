@@ -2,6 +2,22 @@
 
 ## 2026-06-13
 
+### [live-chat] Rebuild CSS trên shared native-orders — Phase A: xóa dead + fix token + blueprint (đợt 12) 🔄
+
+**User:** "Xóa và làm lại toàn bộ CSS live-chat" (trên nền shared native-orders).
+
+**Workflow phân tích 5-agent** → blueprint [`docs/web2/LIVECHAT-CSS-REBUILD.md`](web2/LIVECHAT-CSS-REBUILD.md). Kết quả: 8054 dòng CSS, chat pane = SHARED Web2ChatPanel `.w2cp-*` (OFF-LIMITS), 103/167 `.pk-` chết, 2 file orphan zero-ref.
+
+**Phase A (an toàn, verified — ĐÃ làm):**
+
+- **Xóa 2 file dead 100% (zero ref, không link đâu):** `live-chat.css` (1754) + `modern.css` (644) = **2398 dòng dead** gỡ sạch.
+- **Fix latent bug:** index.html dùng `--pkr` (qua pancake-chat.css) nhưng KHÔNG load `pancake-redesign-tokens.css` → undefined. Đã thêm link.
+- Verify smoke: chat.html (list + mode-switch) + index.html (live comments + video + Kho SP) render đủ, 0 vỡ.
+
+**Phase B (staged — lộ trình trong blueprint, chưa làm):** retoken `--pkr`→`--web2`; trim `pancake-chat.css` (xóa chat-pane cũ ~663-2253 + cruft đợt 1-8, GIỮ conversation-list/filter/modal); xóa `chat-motion.css` + `pancake-chat-window.css` (sau khi confirm `.pk-chat-window` container); trim `layout.css`; bỏ dần `components.css`/`variables.css` dùng shared. **Class surface bắt buộc giữ** liệt kê đầy đủ trong blueprint.
+
+**Status:** 🔄 Phase A ✅ (−2398 dòng dead + fix bug). Phase B (surgical trim ~2700 dòng) cần làm cẩn thận theo blueprint, có verify từng bước.
+
 ### [web2] [shared] Dọn cross-folder dep — chuyển native-orders CSS vào shared (đợt 11) ✅
 
 **User:** "Dọn cross-folder dep" (21 trang link chéo `../../native-orders/css/*`).
