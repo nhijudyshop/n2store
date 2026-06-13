@@ -2,6 +2,23 @@
 
 ## 2026-06-13
 
+### [live-chat] Force-extract: đúng video theo chiến dịch + thông báo khi video bị xóa ✅ (verified)
+
+**User:** "force extract phải lấy đúng video livestream được chọn theo chiến dịch, nếu video bị xóa thì thông báo".
+
+**Đúng video theo chiến dịch:** đã có sẵn — `_resolveCampaignForComment(c)` map mỗi comment → video CỦA NÓ (Path 1.5: match theo `_postId`/`Facebook_LiveId`, fix "2 live cùng page chọn sai video"). Group `byVideo` theo `camp.Facebook_LiveId`, seek qua `_buildFbLiveUrl(camp)`. KHÔNG đổi.
+
+**Thông báo video bị xóa (MỚI):** trước đây video không còn → `_fetchLiveVideoInfo` trả `null` → runner fail âm thầm. Giờ:
+
+- `_fetchLiveVideoInfo`: video không có trong list FB-live của page (đã xóa/unpublish/hết hạn) → trả `{notFound:true}` (phân biệt với `null`=lỗi mạng).
+- Helper `_forceExtractVideoBlocked(pageObj, videoInfo, camp, count)` toast lý do RÕ RÀNG, dùng ở CẢ 2 runner (parallel + serial): page thiếu / **🚫 video đã XÓA** / lỗi mạng-quyền / thiếu giờ bắt đầu — kèm tên chiến dịch + số comment bỏ qua.
+
+**Verify (browser data thật + seed liveId giả):** toast `🚫 Video livestream "TEST VIDEO ĐÃ XÓA" đã bị XÓA / không còn trên Facebook — 1 comment không chụp được` ✓.
+
+**Files:** [live-chat/js/live/live-livestream-snap.js](../live-chat/js/live/live-livestream-snap.js), [live-chat/index.html](../live-chat/index.html) (snap.js ?v=20260613e).
+
+**Status:** ✅ Done (verified).
+
 ### [web2] [render] Zalo chat: tin NHÓM đúng cấu trúc — tên + avatar người gửi thật (hết UID) + bắt tin shop tự gửi ✅
 
 **User:** "giao diện quá khó dùng → không thấy thanh ghi text, nút gửi" rồi "nghiên cứu kĩ github/api zalo/google… phần nhóm, tin nhắn… để đưa tin nhắn vào đúng cấu trúc, vị trí".
