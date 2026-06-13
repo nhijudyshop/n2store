@@ -1629,10 +1629,39 @@ router.post('/from-native-order', async (req, res) => {
         let r = null;
         {
             let insertNumber = number;
+            let lockedSplitIndex = splitIndex;
             let lastErr = null;
             for (let attempt = 0; attempt < MAX_NUMBER_RETRIES; attempt++) {
                 try {
                     r = await withTransaction(pool, async (client) => {
+                        // A1 (2026-06-13): advisory lock theo source_id → serialize các
+                        // /from-native-order đồng thời cùng 1 native-order. Chống
+                        // double-submit (double-click / 2 máy) tạo 2 PBH cho 1 đơn:
+                        // request thứ 2 ĐỢI request 1 COMMIT, re-check thấy PBH đã có →
+                        // trả idempotent thay vì INSERT thêm. (Trước đây check ngoài
+                        // transaction → 2 request cùng thấy 0 PBH → cùng INSERT → request
+                        // 2 dính 23505 number → bump suffix → thành 2 PBH trùng đơn.)
+                        await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
+                            `web2_pbh_src:${src.id}`,
+                        ]);
+                        if (attempt === 0) {
+                            const sib = await client.query(
+                                `SELECT * FROM fast_sale_orders
+                                 WHERE source_type = 'native_order' AND source_id = $1
+                                 ORDER BY split_index ASC, date_created ASC`,
+                                [src.id]
+                            );
+                            if (sib.rows.length > 0 && !splitMode) {
+                                return { __idempotent: true, rows: [sib.rows[0]] };
+                            }
+                            // Recompute splitIndex/number DƯỚI lock (fresh) — split đồng
+                            // thời cũng được serialize → index liên tục, number không trùng.
+                            lockedSplitIndex = sib.rows.length + 1;
+                            insertNumber =
+                                lockedSplitIndex === 1
+                                    ? src.code
+                                    : `${src.code}-${lockedSplitIndex}`;
+                        }
                         const insRes = await client.query(
                             `INSERT INTO fast_sale_orders (
                 number, display_stt, source,
@@ -1711,7 +1740,7 @@ router.post('/from-native-order', async (req, res) => {
                                 b.createdBy || src.created_by,
                                 b.createdByName || src.created_by_name,
                                 customerId,
-                                splitIndex,
+                                lockedSplitIndex,
                                 src.display_stt || null, // $42 — sync STT từ native-order
                                 b.carrierName || null, // $43 — phương thức giao (vd "PBH SHOP") → bill + badge
                                 src.channel || null, // $44 — kênh đơn → bill "PBH INBOX" khi in từ trang PBH
@@ -1740,7 +1769,7 @@ router.post('/from-native-order', async (req, res) => {
                         // number trùng → tăng split suffix rồi thử lại. Giữ đúng quy ước
                         // "src.code-N": nếu chưa có suffix thì bắt đầu từ -(splitIndex+attempt+2).
                         lastErr = txErr;
-                        insertNumber = `${src.code}-${splitIndex + attempt + 1}`;
+                        insertNumber = `${src.code}-${lockedSplitIndex + attempt + 1}`;
                         continue;
                     }
                     throw txErr;
@@ -1751,6 +1780,16 @@ router.post('/from-native-order', async (req, res) => {
                     lastErr ||
                     new Error('Không sinh được số PBH từ native-order (race retry exhausted)')
                 );
+            }
+            // A1: request thua race → re-check dưới lock thấy PBH đã có → trả idempotent
+            // (KHÔNG chạy tiếp các bước mark-converted/returnCodes — đã chạy ở request đầu).
+            if (r.__idempotent) {
+                return res.json({
+                    success: true,
+                    order: mapRow(r.rows[0]),
+                    idempotent: true,
+                    note: 'Đã có PBH (race-checked). Gửi ?split=true để tạo PBH bổ sung (tách đơn).',
+                });
             }
         }
 
