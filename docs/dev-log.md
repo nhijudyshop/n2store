@@ -10,6 +10,7 @@
 - **report.js** — thêm `autofillCityReturns(isoDate, returnCount, returnValue)` (export qua `window.DeliveryReportReport`): load override ngày đó từ server trước (biết ô trống/đã sửa tay), rồi set override nhóm `city` — `slShip ← returnCount`, `thuVe ← returnValue` (VND gross). **Mỗi field độc lập, CHỈ điền khi đang trống/0** (không đè giá trị user sửa tay). Modal đang mở → `scheduleRender()`. Persist qua API `/api/v2/delivery-assignments/overrides` sẵn có (SSE đồng bộ máy khác).
 - **delivery-report.js** `copyHandoverImage()` — sau khi build canvas, tính `returnTotal = Σ CashOnDelivery(returnScanned)` + lấy `isoDate = filters.fromDate.slice(0,10)` → gọi `autofillCityReturns(isoDate, returnScanned.length, returnTotal)`. Mapping khớp ảnh: "N đơn: X" → SL ĐƠN SHIP = N, THU VỀ = X (gross, ví dụ 3 đơn → SL 3, THU VỀ 1.899.000).
 - **Editable:** ô vẫn là input thường, user sửa lại bình thường; lần bấm sau nếu đã có giá trị → giữ nguyên.
+- **Caption Telegram** thêm số đơn thu về: `📦 Bàn giao Thành phố {ngày} — {N} đơn · {M} thu về` (chỉ thêm ` · M thu về` khi M>0). Bump delivery-report.js `?v=20260613b`.
 - Bump `?v=20260613a` (delivery-report.js + report.js). `node --check` cả 2 file OK.
 
 **Status:** ✅ Done.

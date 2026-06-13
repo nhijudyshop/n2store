@@ -2642,7 +2642,8 @@
                 }
                 await sendHandoverImageToTelegram(
                     blob,
-                    `📦 Bàn giao Thành phố ${handoverDateLabel()} — ${scannedItems.length} đơn`
+                    `📦 Bàn giao Thành phố ${handoverDateLabel()} — ${scannedItems.length} đơn` +
+                        (returnScanned.length > 0 ? ` · ${returnScanned.length} thu về` : '')
                 );
                 resetBtn(
                     copied
