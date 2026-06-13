@@ -42,8 +42,8 @@
         </script>
 
         <!-- External CSS -->
-        <link rel="stylesheet" href="../shared/css/modern.css?v=20260521b" />
-        <link rel="stylesheet" href="css/soquy.css?v=20260521b" />
+        <link rel="stylesheet" href="../shared/css/modern.css?v=20260613b" />
+        <link rel="stylesheet" href="css/soquy.css?v=20260613b" />
 
         <!-- Firebase SDKs -->
         <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
@@ -51,16 +51,16 @@
         <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-storage-compat.js"></script>
 
         <!-- Firebase Configuration (SHARED) -->
-        <script src="../shared/js/firebase-config.js?v=20260521b"></script>
+        <script src="../shared/js/firebase-config.js?v=20260613b"></script>
 
         <!-- ES Module: Shared utilities (auto-initializes authManager, notificationManager) -->
-        <script type="module" src="../shared/esm/compat.js?v=20260521b"></script>
+        <script type="module" src="../shared/esm/compat.js?v=20260613b"></script>
 
         <!-- Fallback for file:// protocol -->
         <script>
             if (window.location.protocol === 'file:') {
                 document.write(
-                    '<script src="../shared/js/shared-auth-manager.js?v=20260521b"><\/script>'
+                    '<script src="../shared/js/shared-auth-manager.js?v=20260613b"><\/script>'
                 );
                 document.write(
                     '<script>if(typeof AuthManager!=="undefined")window.authManager=new AuthManager({redirectUrl:"../index.html"});<\/script>'
@@ -78,14 +78,14 @@
         ></script>
 
         <!-- Navigation (deferred) -->
-        <script defer src="../shared/js/navigation-modern.js?v=20260521b"></script>
+        <script defer src="../shared/js/navigation-modern.js?v=20260613b"></script>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
         <link
             href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap"
             rel="stylesheet"
         />
-        <link rel="stylesheet" href="../shared/css/typography.css?v=20260521b" />
+        <link rel="stylesheet" href="../shared/css/typography.css?v=20260613b" />
         <!-- typography:shared -->
     </head>
 
@@ -909,10 +909,6 @@
                     <!-- Mobile FAB -->
                     <div class="mobile-fab-container" id="mobileFabContainer">
                         <div class="mobile-fab-menu" id="mobileFabMenu">
-                            <button class="mobile-fab-item" id="fabOpenAI">
-                                <span class="mobile-fab-item-label">Trợ lý AI</span>
-                                <span class="mobile-fab-item-icon fab-icon-ai">AI</span>
-                            </button>
                             <button class="mobile-fab-item" id="fabCreateReceipt">
                                 <span class="mobile-fab-item-label">Phiếu thu</span>
                                 <span class="mobile-fab-item-icon fab-icon-receipt">Thu</span>
@@ -3220,16 +3216,16 @@
 
         <!-- ==================== SCRIPTS ==================== -->
         <!-- Permission System -->
-        <script src="../shared/js/permissions-helper.js?v=20260521b"></script>
-        <script src="js/soquy-permissions.js?v=20260521b"></script>
+        <script src="../shared/js/permissions-helper.js?v=20260613b"></script>
+        <script src="js/soquy-permissions.js?v=20260613b"></script>
 
-        <script src="js/soquy-config.js?v=20260521b"></script>
-        <script src="js/soquy-database.js?v=20260521b"></script>
-        <script src="js/soquy-ui.js?v=20260521b"></script>
-        <script src="js/soquy-report.js?v=20260521b"></script>
-        <script src="js/soquy-edit-history.js?v=20260521b"></script>
-        <script src="js/soquy-main.js?v=20260521b"></script>
-        <script src="js/attendance.js?v=20260521b"></script>
+        <script src="js/soquy-config.js?v=20260613b"></script>
+        <script src="js/soquy-database.js?v=20260613b"></script>
+        <script src="js/soquy-ui.js?v=20260613b"></script>
+        <script src="js/soquy-report.js?v=20260613b"></script>
+        <script src="js/soquy-edit-history.js?v=20260613b"></script>
+        <script src="js/soquy-main.js?v=20260613b"></script>
+        <script src="js/attendance.js?v=20260613b"></script>
         <script>
             // Employee views - both visible by default (timesheet shown, schedule hidden)
             // No switching logic needed - tab click goes directly to #employee

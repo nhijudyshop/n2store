@@ -820,15 +820,6 @@ function bindMobileFabEvents() {
             toggleForm();
         });
     }
-
-    // Trợ lý AI
-    const fabAI = document.getElementById('fabOpenAI');
-    if (fabAI) {
-        fabAI.addEventListener('click', () => {
-            mobileFabContainer.classList.remove('open');
-            if (window.AIChatWidget?.toggle) window.AIChatWidget.toggle();
-        });
-    }
 }
 
 // =====================================================

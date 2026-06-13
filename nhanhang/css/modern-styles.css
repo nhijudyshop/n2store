@@ -2260,16 +2260,6 @@ button:focus-visible {
         background: #f0fdf4;
         color: #16a34a;
     }
-    .fab-icon-ai {
-        background: linear-gradient(135deg, #667eea, #764ba2);
-        color: #fff;
-    }
-
-    /* --- ẨN AI CHAT FAB MẶC ĐỊNH --- */
-    .ai-chat-fab {
-        display: none !important;
-    }
-
     /* --- SCROLL CHÍNH: padding bottom --- */
     .gallery-section .card-body {
         padding-bottom: 80px;

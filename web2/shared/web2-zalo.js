@@ -17,6 +17,11 @@
     'use strict';
     if (global.Web2Zalo) return;
 
+    // Thư mục shared (suy từ src của chính script này) → load engine chat động.
+    const _selfSrc = (document.currentScript && document.currentScript.src) || '';
+    const SHARED_BASE = _selfSrc.replace(/\/web2-zalo\.js(?:\?.*)?$/, '') || '../shared';
+    const ENGINE_VER = '20260613L';
+
     const WORKER =
         (global.API_CONFIG && global.API_CONFIG.WORKER_URL) ||
         'https://chatomni-proxy.nhijudyshop.workers.dev';
@@ -168,6 +173,103 @@
         document.addEventListener('DOMContentLoaded', _wireClick);
     else _wireClick();
 
+    // ── Chat engine loader (cho trang khác chỉ include web2-zalo.js) ───────
+    const ENGINE_JS = [
+        'web2-zalo-api.js',
+        'zalo-chat/chat-store.js',
+        'zalo-chat/lightbox.js',
+        'zalo-chat/emoji-picker.js',
+        'zalo-chat/sticker-picker.js',
+        'zalo-chat/reactions.js',
+        'zalo-chat/bubbles.js',
+        'zalo-chat/composer.js',
+        'zalo-chat/realtime.js',
+        'zalo-chat/chat-actions.js',
+        'zalo-chat/chat-view.js',
+    ];
+    const ENGINE_CSS = [
+        'zalo-chat/chat-bubbles.css',
+        'zalo-chat/chat-composer.css',
+        'zalo-chat/chat-lightbox.css',
+    ];
+    function _hasScript(url) {
+        const base = url.split('?')[0];
+        return Array.from(document.scripts).some((s) => s.src && s.src.indexOf(base) !== -1);
+    }
+    function _loadScript(url) {
+        return new Promise((res, rej) => {
+            if (_hasScript(url)) return res();
+            const el = document.createElement('script');
+            el.src = url;
+            el.onload = res;
+            el.onerror = () => rej(new Error('Không tải được ' + url));
+            document.head.appendChild(el);
+        });
+    }
+    function _loadCss(url) {
+        const base = url.split('?')[0];
+        const has = Array.from(document.querySelectorAll('link[rel=stylesheet]')).some(
+            (l) => l.href && l.href.indexOf(base) !== -1
+        );
+        if (has) return;
+        const l = document.createElement('link');
+        l.rel = 'stylesheet';
+        l.href = url;
+        document.head.appendChild(l);
+    }
+    let _enginePromise = null;
+    function loadChatEngine() {
+        if (global.WZChat && global.WZChat.mountConversation) return Promise.resolve();
+        if (_enginePromise) return _enginePromise;
+        _enginePromise = (async () => {
+            // deps tuỳ chọn: lucide (icon), SSE bridge (realtime)
+            if (!global.lucide)
+                await _loadScript('https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js').catch(
+                    () => {}
+                );
+            if (!global.Web2SSE)
+                await _loadScript(`${SHARED_BASE}/web2-sse-bridge.js?v=${ENGINE_VER}`).catch(
+                    () => {}
+                );
+            ENGINE_CSS.forEach((c) => _loadCss(`${SHARED_BASE}/${c}?v=${ENGINE_VER}`));
+            for (const j of ENGINE_JS) await _loadScript(`${SHARED_BASE}/${j}?v=${ENGINE_VER}`);
+            if (global.lucide)
+                try {
+                    global.lucide.createIcons();
+                } catch {}
+        })();
+        return _enginePromise;
+    }
+
+    // ── mountChat(container, opts) — nhúng 1 hội thoại Zalo vào trang khác ──
+    //   opts: { conv } | { convId } | { phone }  (+ getForwardTargets?)
+    async function mountChat(container, opts = {}) {
+        const el = typeof container === 'string' ? document.querySelector(container) : container;
+        if (!el) throw new Error('Web2Zalo.mountChat: container không tồn tại');
+        el.innerHTML = '<div class="wz-chat-empty">Đang tải hội thoại…</div>';
+        await loadChatEngine();
+        let conv = opts.conv || null;
+        if (!conv && opts.phone) {
+            const r = await getConversation(opts.phone).catch(() => ({}));
+            conv = r.data || null;
+        }
+        if (!conv && opts.convId) {
+            const r = await global.ZaloApi.messages(opts.convId, 1).catch(() => ({}));
+            conv = r.conversation || null;
+        }
+        if (!conv || !conv.id) {
+            el.innerHTML =
+                '<div class="wz-chat-empty">Chưa có hội thoại Zalo' +
+                (opts.phone ? ' với SĐT ' + normPhone(opts.phone) : '') +
+                '.</div>';
+            return null;
+        }
+        return global.WZChat.mountConversation(el, conv, {
+            getForwardTargets: opts.getForwardTargets,
+            autoSeen: opts.autoSeen,
+        });
+    }
+
     global.Web2Zalo = {
         sendZNS,
         sendMessage,
@@ -176,5 +278,7 @@
         openChat,
         attachZaloButtons,
         normPhone,
+        loadChatEngine,
+        mountChat,
     };
 })(window);

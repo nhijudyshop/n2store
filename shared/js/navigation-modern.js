@@ -6642,55 +6642,10 @@ setTimeout(() => {
 }, 2000); // Wait 2 seconds for Firebase to be ready
 
 // =====================================================
-// AI CHAT WIDGET LOADER
-// Load floating AI chat widget on all pages
-// Gated: chỉ load cho userType === 'admin-authenticated'
+// AI CHAT WIDGET — ĐÃ GỠ (2026-06-13)
+// Widget AI chat nổi (ai-chat-widget.js) đã gỡ khỏi toàn bộ trang theo
+// yêu cầu. File widget đã xóa; KHÔNG load lại ở đây.
 // =====================================================
-(function loadAIChatWidget() {
-    // Check if already loaded
-    if (window.AIChatWidget) {
-        return;
-    }
-
-    // Opt-out: Web 2.0 surfaces (vd live-chat) set cờ này để KHÔNG load
-    // widget AI chat nổi — navigation-modern vẫn load cho SePay banner.
-    if (window.__DISABLE_AI_CHAT_WIDGET) {
-        return;
-    }
-
-    // Admin-only: chỉ load widget cho admin-authenticated users
-    try {
-        if (localStorage.getItem('userType') !== 'admin-authenticated') {
-            return;
-        }
-    } catch (e) {
-        return;
-    }
-
-    // Determine script path based on current page location
-    const currentPath = window.location.pathname;
-    let basePath = '../shared/js/';
-
-    // Handle different directory depths
-    // BUG FIX 2026-04-28: trước đây dùng `'js/'` → resolve sai cho subdir 2-level
-    // (vd `purchase-orders/goods-receiving/`) → 404. Phải là `'shared/js/'`.
-    if (currentPath.includes('/n2store/') && !currentPath.includes('/n2store/js/')) {
-        const parts = currentPath
-            .split('/n2store/')[1]
-            ?.split('/')
-            .filter((p) => p && !p.includes('.html'));
-        if (parts && parts.length > 1) {
-            basePath = '../'.repeat(parts.length) + 'shared/js/';
-        }
-    }
-
-    // Create and load the script
-    const script = document.createElement('script');
-    script.src = basePath + 'ai-chat-widget.js';
-    script.async = true;
-    script.onerror = () => console.warn('[AI Widget] Failed to load widget script');
-    document.head.appendChild(script);
-})();
 
 // =====================================================
 // N2STORE EXTENSION INSTALL PROMPT

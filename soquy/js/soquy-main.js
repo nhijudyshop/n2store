@@ -238,13 +238,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Voucher type checkboxes
         if (els.receiptCheckbox) {
-            els.receiptCheckbox.addEventListener('change', () => ui.handleVoucherTypeFilterChange());
+            els.receiptCheckbox.addEventListener('change', () =>
+                ui.handleVoucherTypeFilterChange()
+            );
         }
         if (els.paymentCNCheckbox) {
-            els.paymentCNCheckbox.addEventListener('change', () => ui.handleVoucherTypeFilterChange());
+            els.paymentCNCheckbox.addEventListener('change', () =>
+                ui.handleVoucherTypeFilterChange()
+            );
         }
         if (els.paymentKDCheckbox) {
-            els.paymentKDCheckbox.addEventListener('change', () => ui.handleVoucherTypeFilterChange());
+            els.paymentKDCheckbox.addEventListener('change', () =>
+                ui.handleVoucherTypeFilterChange()
+            );
         }
 
         // Category filter
@@ -277,7 +283,9 @@ document.addEventListener('DOMContentLoaded', () => {
             els.statusPaidCheckbox.addEventListener('change', () => ui.handleStatusFilterChange());
         }
         if (els.statusCancelledCheckbox) {
-            els.statusCancelledCheckbox.addEventListener('change', () => ui.handleStatusFilterChange());
+            els.statusCancelledCheckbox.addEventListener('change', () =>
+                ui.handleStatusFilterChange()
+            );
         }
 
         // Creator filter
@@ -321,32 +329,44 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Action buttons (throttled to prevent double-click issues)
         if (els.btnCreateReceipt) {
-            els.btnCreateReceipt.addEventListener('click', throttleClick(() => {
-                if (!SoquyPermissions.checkAction('create_receipt')) return;
-                state.editingVoucherId = null;
-                ui.openReceiptModal();
-            }));
+            els.btnCreateReceipt.addEventListener(
+                'click',
+                throttleClick(() => {
+                    if (!SoquyPermissions.checkAction('create_receipt')) return;
+                    state.editingVoucherId = null;
+                    ui.openReceiptModal();
+                })
+            );
         }
         if (els.btnCreatePaymentCN) {
-            els.btnCreatePaymentCN.addEventListener('click', throttleClick(() => {
-                if (!SoquyPermissions.checkAction('create_payment')) return;
-                state.editingVoucherId = null;
-                ui.openPaymentModal('cn');
-            }));
+            els.btnCreatePaymentCN.addEventListener(
+                'click',
+                throttleClick(() => {
+                    if (!SoquyPermissions.checkAction('create_payment')) return;
+                    state.editingVoucherId = null;
+                    ui.openPaymentModal('cn');
+                })
+            );
         }
         if (els.btnCreatePaymentKD) {
-            els.btnCreatePaymentKD.addEventListener('click', throttleClick(() => {
-                if (!SoquyPermissions.checkAction('create_payment')) return;
-                state.editingVoucherId = null;
-                ui.openPaymentModal('kd');
-            }));
+            els.btnCreatePaymentKD.addEventListener(
+                'click',
+                throttleClick(() => {
+                    if (!SoquyPermissions.checkAction('create_payment')) return;
+                    state.editingVoucherId = null;
+                    ui.openPaymentModal('kd');
+                })
+            );
         }
         if (els.btnExportFile) {
-            els.btnExportFile.addEventListener('click', throttleClick(() => {
-                const sd = document.getElementById('settingsDropdown');
-                if (sd) sd.style.display = 'none';
-                ui.handleExport();
-            }));
+            els.btnExportFile.addEventListener(
+                'click',
+                throttleClick(() => {
+                    const sd = document.getElementById('settingsDropdown');
+                    if (sd) sd.style.display = 'none';
+                    ui.handleExport();
+                })
+            );
         }
 
         // Category validation: toggle save button on category change
@@ -370,13 +390,16 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         // Removed: overlay click no longer closes receipt modal (prevents accidental dismissal)
         if (els.btnSaveReceipt) {
-            els.btnSaveReceipt.addEventListener('click', throttleClick(() => {
-                if (state.editingVoucherId) {
-                    ui.saveEditedVoucher(config.VOUCHER_TYPES.RECEIPT);
-                } else {
-                    ui.saveReceipt();
-                }
-            }));
+            els.btnSaveReceipt.addEventListener(
+                'click',
+                throttleClick(() => {
+                    if (state.editingVoucherId) {
+                        ui.saveEditedVoucher(config.VOUCHER_TYPES.RECEIPT);
+                    } else {
+                        ui.saveReceipt();
+                    }
+                })
+            );
         }
         // Payment modal events (throttled)
         if (els.btnClosePayment) {
@@ -387,22 +410,28 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         // Removed: overlay click no longer closes payment modal (prevents accidental dismissal)
         if (els.btnSavePayment) {
-            els.btnSavePayment.addEventListener('click', throttleClick(() => {
-                if (state.editingVoucherId) {
-                    ui.saveEditedVoucher(config.VOUCHER_TYPES.PAYMENT);
-                } else {
-                    ui.savePayment();
-                }
-            }));
+            els.btnSavePayment.addEventListener(
+                'click',
+                throttleClick(() => {
+                    if (state.editingVoucherId) {
+                        ui.saveEditedVoucher(config.VOUCHER_TYPES.PAYMENT);
+                    } else {
+                        ui.savePayment();
+                    }
+                })
+            );
         }
         // Detail modal events (throttled)
         if (els.btnCloseDetail) {
             els.btnCloseDetail.addEventListener('click', throttleClick(ui.closeDetailModal));
         }
         if (els.detailOverlay) {
-            els.detailOverlay.addEventListener('click', throttleClick(() => {
-                if (!ui.isModalJustOpened()) ui.closeDetailModal();
-            }));
+            els.detailOverlay.addEventListener(
+                'click',
+                throttleClick(() => {
+                    if (!ui.isModalJustOpened()) ui.closeDetailModal();
+                })
+            );
         }
 
         // Cancel modal events (throttled)
@@ -410,9 +439,12 @@ document.addEventListener('DOMContentLoaded', () => {
             els.btnCloseCancel.addEventListener('click', throttleClick(ui.closeCancelModal));
         }
         if (els.cancelOverlay) {
-            els.cancelOverlay.addEventListener('click', throttleClick(() => {
-                if (!ui.isModalJustOpened()) ui.closeCancelModal();
-            }));
+            els.cancelOverlay.addEventListener(
+                'click',
+                throttleClick(() => {
+                    if (!ui.isModalJustOpened()) ui.closeCancelModal();
+                })
+            );
         }
         if (els.btnDismissCancel) {
             els.btnDismissCancel.addEventListener('click', throttleClick(ui.closeCancelModal));
@@ -435,19 +467,21 @@ document.addEventListener('DOMContentLoaded', () => {
             els.btnLastPage.addEventListener('click', () => ui.goToPage(state.totalPages));
         }
         if (els.pageSizeSelect) {
-            els.pageSizeSelect.addEventListener('change', (e) => ui.handlePageSizeChange(e.target.value));
+            els.pageSizeSelect.addEventListener('change', (e) =>
+                ui.handlePageSizeChange(e.target.value)
+            );
         }
 
         // Select all checkbox
         if (els.selectAllCheckbox) {
             els.selectAllCheckbox.addEventListener('change', (e) => {
                 const checkboxes = document.querySelectorAll('.voucher-checkbox');
-                checkboxes.forEach(cb => cb.checked = e.target.checked);
+                checkboxes.forEach((cb) => (cb.checked = e.target.checked));
             });
         }
 
         // Amount input formatting with live thousand separator
-        [els.receiptAmount, els.paymentAmount].forEach(input => {
+        [els.receiptAmount, els.paymentAmount].forEach((input) => {
             if (input) {
                 input.addEventListener('focus', () => {
                     // Keep formatted value on focus
@@ -471,22 +505,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Column toggle button (throttled)
         if (els.btnColumnToggle) {
-            els.btnColumnToggle.addEventListener('click', throttleClick((e) => {
-                e.stopPropagation();
-                ui.toggleColumnDropdown();
-            }));
+            els.btnColumnToggle.addEventListener(
+                'click',
+                throttleClick((e) => {
+                    e.stopPropagation();
+                    ui.toggleColumnDropdown();
+                })
+            );
         }
 
         // Settings dropdown toggle (throttled)
         const btnSettingsToggle = document.getElementById('btnSettingsToggle');
         const settingsDropdown = document.getElementById('settingsDropdown');
         if (btnSettingsToggle && settingsDropdown) {
-            btnSettingsToggle.addEventListener('click', throttleClick((e) => {
-                e.stopPropagation();
-                const isOpen = settingsDropdown.style.display !== 'none';
-                settingsDropdown.style.display = isOpen ? 'none' : 'block';
-                if (typeof lucide !== 'undefined') lucide.createIcons();
-            }));
+            btnSettingsToggle.addEventListener(
+                'click',
+                throttleClick((e) => {
+                    e.stopPropagation();
+                    const isOpen = settingsDropdown.style.display !== 'none';
+                    settingsDropdown.style.display = isOpen ? 'none' : 'block';
+                    if (typeof lucide !== 'undefined') lucide.createIcons();
+                })
+            );
             document.addEventListener('click', (e) => {
                 if (!settingsDropdown.contains(e.target) && e.target !== btnSettingsToggle) {
                     settingsDropdown.style.display = 'none';
@@ -495,74 +535,115 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         const btnSettingsDeleteAll = document.getElementById('btnSettingsDeleteAll');
         if (btnSettingsDeleteAll) {
-            btnSettingsDeleteAll.addEventListener('click', throttleClick(() => {
-                if (settingsDropdown) settingsDropdown.style.display = 'none';
-                ui.deleteAllVouchers();
-            }));
+            btnSettingsDeleteAll.addEventListener(
+                'click',
+                throttleClick(() => {
+                    if (settingsDropdown) settingsDropdown.style.display = 'none';
+                    ui.deleteAllVouchers();
+                })
+            );
         }
 
         // Import button & modal events (throttled)
         if (els.btnImportFile) {
-            els.btnImportFile.addEventListener('click', throttleClick(() => {
-                const sd = document.getElementById('settingsDropdown');
-                if (sd) sd.style.display = 'none';
-                ui.openImportModal();
-            }));
+            els.btnImportFile.addEventListener(
+                'click',
+                throttleClick(() => {
+                    const sd = document.getElementById('settingsDropdown');
+                    if (sd) sd.style.display = 'none';
+                    ui.openImportModal();
+                })
+            );
         }
         if (els.btnCloseImport) {
-            els.btnCloseImport.addEventListener('click', throttleClick(() => ui.closeImportModal()));
+            els.btnCloseImport.addEventListener(
+                'click',
+                throttleClick(() => ui.closeImportModal())
+            );
         }
         if (els.btnCancelImport) {
-            els.btnCancelImport.addEventListener('click', throttleClick(() => ui.closeImportModal()));
+            els.btnCancelImport.addEventListener(
+                'click',
+                throttleClick(() => ui.closeImportModal())
+            );
         }
         if (els.importOverlay) {
-            els.importOverlay.addEventListener('click', throttleClick(() => {
-                if (!ui.isModalJustOpened()) ui.closeImportModal();
-            }));
+            els.importOverlay.addEventListener(
+                'click',
+                throttleClick(() => {
+                    if (!ui.isModalJustOpened()) ui.closeImportModal();
+                })
+            );
         }
         if (els.importFileInput) {
             els.importFileInput.addEventListener('change', (e) => ui.handleImportFileChange(e));
         }
         if (els.btnConfirmImport) {
-            els.btnConfirmImport.addEventListener('click', throttleClick(() => ui.confirmImport()));
+            els.btnConfirmImport.addEventListener(
+                'click',
+                throttleClick(() => ui.confirmImport())
+            );
         }
         if (els.btnDeleteAllVouchers) {
-            els.btnDeleteAllVouchers.addEventListener('click', throttleClick(() => ui.deleteAllVouchers()));
+            els.btnDeleteAllVouchers.addEventListener(
+                'click',
+                throttleClick(() => ui.deleteAllVouchers())
+            );
         }
 
         // Category management modal events (throttled)
         if (els.btnManageReceiptCategory) {
-            els.btnManageReceiptCategory.addEventListener('click', throttleClick(() => {
-                if (!SoquyPermissions.checkAction('manage_categories')) return;
-                ui.openCategoryModal('receipt');
-            }));
+            els.btnManageReceiptCategory.addEventListener(
+                'click',
+                throttleClick(() => {
+                    if (!SoquyPermissions.checkAction('manage_categories')) return;
+                    ui.openCategoryModal('receipt');
+                })
+            );
         }
         if (els.btnManagePaymentCategory) {
-            els.btnManagePaymentCategory.addEventListener('click', throttleClick(() => {
-                if (!SoquyPermissions.checkAction('manage_categories')) return;
-                const catType = state.paymentSubType === 'kd' ? 'payment_kd' : 'payment_cn';
-                ui.openCategoryModal(catType);
-            }));
+            els.btnManagePaymentCategory.addEventListener(
+                'click',
+                throttleClick(() => {
+                    if (!SoquyPermissions.checkAction('manage_categories')) return;
+                    const catType = state.paymentSubType === 'kd' ? 'payment_kd' : 'payment_cn';
+                    ui.openCategoryModal(catType);
+                })
+            );
         }
         if (els.btnCloseCategory) {
-            els.btnCloseCategory.addEventListener('click', throttleClick(() => ui.closeCategoryModal()));
+            els.btnCloseCategory.addEventListener(
+                'click',
+                throttleClick(() => ui.closeCategoryModal())
+            );
         }
         if (els.categoryOverlay) {
-            els.categoryOverlay.addEventListener('click', throttleClick(() => {
-                if (!ui.isModalJustOpened()) ui.closeCategoryModal();
-            }));
+            els.categoryOverlay.addEventListener(
+                'click',
+                throttleClick(() => {
+                    if (!ui.isModalJustOpened()) ui.closeCategoryModal();
+                })
+            );
         }
         if (els.btnSaveNewCategory) {
-            els.btnSaveNewCategory.addEventListener('click', throttleClick(() => ui.saveNewCategory()));
+            els.btnSaveNewCategory.addEventListener(
+                'click',
+                throttleClick(() => ui.saveNewCategory())
+            );
         }
         if (els.btnDeleteSelectedCategories) {
-            els.btnDeleteSelectedCategories.addEventListener('click', throttleClick(() => ui.deleteSelectedCategories()));
+            els.btnDeleteSelectedCategories.addEventListener(
+                'click',
+                throttleClick(() => ui.deleteSelectedCategories())
+            );
         }
         if (els.selectAllCategories) {
-            els.selectAllCategories.addEventListener('change', (e) => ui.handleSelectAllCategories(e.target.checked));
+            els.selectAllCategories.addEventListener('change', (e) =>
+                ui.handleSelectAllCategories(e.target.checked)
+            );
         }
         // Category tab toggle buttons
-        document.querySelectorAll('.category-tab-btn').forEach(btn => {
+        document.querySelectorAll('.category-tab-btn').forEach((btn) => {
             btn.addEventListener('click', () => {
                 ui.handleCategoryTabSwitch(btn.dataset.catTab);
             });
@@ -579,33 +660,53 @@ document.addEventListener('DOMContentLoaded', () => {
         // Inline source creation in category modal (throttled)
         const btnCreateSourceInline = document.getElementById('btnCreateSourceInline');
         if (btnCreateSourceInline) {
-            btnCreateSourceInline.addEventListener('click', throttleClick(() => {
-                if (!SoquyPermissions.checkAction('manage_sources')) return;
-                ui.toggleInlineSourceCreate();
-            }));
+            btnCreateSourceInline.addEventListener(
+                'click',
+                throttleClick(() => {
+                    if (!SoquyPermissions.checkAction('manage_sources')) return;
+                    ui.toggleInlineSourceCreate();
+                })
+            );
         }
         const btnSaveInlineSource = document.getElementById('btnSaveInlineSource');
         if (btnSaveInlineSource) {
-            btnSaveInlineSource.addEventListener('click', throttleClick(() => ui.saveInlineSource()));
+            btnSaveInlineSource.addEventListener(
+                'click',
+                throttleClick(() => ui.saveInlineSource())
+            );
         }
 
         // Source management modal events (throttled)
         if (els.btnCloseSource) {
-            els.btnCloseSource.addEventListener('click', throttleClick(() => ui.closeSourceModal()));
+            els.btnCloseSource.addEventListener(
+                'click',
+                throttleClick(() => ui.closeSourceModal())
+            );
         }
         if (els.sourceOverlay) {
-            els.sourceOverlay.addEventListener('click', throttleClick(() => {
-                if (!ui.isModalJustOpened()) ui.closeSourceModal();
-            }));
+            els.sourceOverlay.addEventListener(
+                'click',
+                throttleClick(() => {
+                    if (!ui.isModalJustOpened()) ui.closeSourceModal();
+                })
+            );
         }
         if (els.btnSaveNewSource) {
-            els.btnSaveNewSource.addEventListener('click', throttleClick(() => ui.saveNewSource()));
+            els.btnSaveNewSource.addEventListener(
+                'click',
+                throttleClick(() => ui.saveNewSource())
+            );
         }
         if (els.btnDeleteSelectedSources) {
-            els.btnDeleteSelectedSources.addEventListener('click', throttleClick(() => ui.deleteSelectedSources()));
+            els.btnDeleteSelectedSources.addEventListener(
+                'click',
+                throttleClick(() => ui.deleteSelectedSources())
+            );
         }
         if (els.selectAllSources) {
-            els.selectAllSources.addEventListener('change', (e) => ui.handleSelectAllSources(e.target.checked));
+            els.selectAllSources.addEventListener('change', (e) =>
+                ui.handleSelectAllSources(e.target.checked)
+            );
         }
         if (els.newSourceCode) {
             els.newSourceCode.addEventListener('keydown', (e) => {
@@ -645,12 +746,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
         function switchToTab(tabName) {
             // Update button active states
-            document.querySelectorAll('.tab-header-btn').forEach(b => {
+            document.querySelectorAll('.tab-header-btn').forEach((b) => {
                 b.classList.toggle('active', b.dataset.tab === tabName);
             });
 
             // Update content visibility
-            document.querySelectorAll('.tab-content').forEach(content => {
+            document.querySelectorAll('.tab-content').forEach((content) => {
                 content.classList.toggle('active', content.id === `${tabName}TabContent`);
             });
 
@@ -667,10 +768,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (report) {
                     report.loadReportFilterState();
                     const rs = report.reportState;
-                    document.querySelectorAll('input[name="reportType"]').forEach(r => {
+                    document.querySelectorAll('input[name="reportType"]').forEach((r) => {
                         r.checked = r.value === rs.reportType;
                     });
-                    document.querySelectorAll('input[name="reportFundType"]').forEach(r => {
+                    document.querySelectorAll('input[name="reportFundType"]').forEach((r) => {
                         r.checked = r.value === rs.fundType;
                     });
                     const rts = document.getElementById('reportTimeFilterSelect');
@@ -690,7 +791,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        document.querySelectorAll('.tab-header-btn').forEach(btn => {
+        document.querySelectorAll('.tab-header-btn').forEach((btn) => {
             btn.addEventListener('click', () => switchToTab(btn.dataset.tab));
         });
 
@@ -708,7 +809,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // =====================================================
         // FILTER SECTION COLLAPSE/EXPAND
         // =====================================================
-        document.querySelectorAll('.filter-section-header').forEach(header => {
+        document.querySelectorAll('.filter-section-header').forEach((header) => {
             header.addEventListener('click', (e) => {
                 // Don't toggle if clicking inside an input/select within the header
                 if (e.target.closest('input, select')) return;
@@ -740,9 +841,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const btnMobileFilter = document.getElementById('btnMobileFilter');
-        if (btnMobileFilter) btnMobileFilter.addEventListener('click', throttleClick(openMobileFilter));
-        if (mobileFilterCloseBtn) mobileFilterCloseBtn.addEventListener('click', throttleClick(closeMobileFilter));
-        if (mobileFilterOverlay) mobileFilterOverlay.addEventListener('click', throttleClick(closeMobileFilter));
+        if (btnMobileFilter)
+            btnMobileFilter.addEventListener('click', throttleClick(openMobileFilter));
+        if (mobileFilterCloseBtn)
+            mobileFilterCloseBtn.addEventListener('click', throttleClick(closeMobileFilter));
+        if (mobileFilterOverlay)
+            mobileFilterOverlay.addEventListener('click', throttleClick(closeMobileFilter));
 
         // =====================================================
         // MOBILE: FAB (Floating Action Button)
@@ -751,10 +855,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const mobileFabContainer = document.getElementById('mobileFabContainer');
 
         if (mobileFabBtn && mobileFabContainer) {
-            mobileFabBtn.addEventListener('click', throttleClick((e) => {
-                e.stopPropagation();
-                mobileFabContainer.classList.toggle('open');
-            }));
+            mobileFabBtn.addEventListener(
+                'click',
+                throttleClick((e) => {
+                    e.stopPropagation();
+                    mobileFabContainer.classList.toggle('open');
+                })
+            );
 
             document.addEventListener('click', (e) => {
                 if (!mobileFabContainer.contains(e.target)) {
@@ -767,38 +874,37 @@ document.addEventListener('DOMContentLoaded', () => {
             const fabCreateReceipt = document.getElementById('fabCreateReceipt');
 
             if (fabCreatePaymentCN) {
-                fabCreatePaymentCN.addEventListener('click', throttleClick(() => {
-                    mobileFabContainer.classList.remove('open');
-                    if (!SoquyPermissions.checkAction('create_payment')) return;
-                    state.editingVoucherId = null;
-                    ui.openPaymentModal('cn');
-                }));
+                fabCreatePaymentCN.addEventListener(
+                    'click',
+                    throttleClick(() => {
+                        mobileFabContainer.classList.remove('open');
+                        if (!SoquyPermissions.checkAction('create_payment')) return;
+                        state.editingVoucherId = null;
+                        ui.openPaymentModal('cn');
+                    })
+                );
             }
             if (fabCreatePaymentKD) {
-                fabCreatePaymentKD.addEventListener('click', throttleClick(() => {
-                    mobileFabContainer.classList.remove('open');
-                    if (!SoquyPermissions.checkAction('create_payment')) return;
-                    state.editingVoucherId = null;
-                    ui.openPaymentModal('kd');
-                }));
+                fabCreatePaymentKD.addEventListener(
+                    'click',
+                    throttleClick(() => {
+                        mobileFabContainer.classList.remove('open');
+                        if (!SoquyPermissions.checkAction('create_payment')) return;
+                        state.editingVoucherId = null;
+                        ui.openPaymentModal('kd');
+                    })
+                );
             }
             if (fabCreateReceipt) {
-                fabCreateReceipt.addEventListener('click', throttleClick(() => {
-                    mobileFabContainer.classList.remove('open');
-                    if (!SoquyPermissions.checkAction('create_receipt')) return;
-                    state.editingVoucherId = null;
-                    ui.openReceiptModal();
-                }));
-            }
-
-            const fabOpenAI = document.getElementById('fabOpenAI');
-            if (fabOpenAI) {
-                fabOpenAI.addEventListener('click', throttleClick(() => {
-                    mobileFabContainer.classList.remove('open');
-                    if (window.AIChatWidget && window.AIChatWidget.toggle) {
-                        window.AIChatWidget.toggle();
-                    }
-                }));
+                fabCreateReceipt.addEventListener(
+                    'click',
+                    throttleClick(() => {
+                        mobileFabContainer.classList.remove('open');
+                        if (!SoquyPermissions.checkAction('create_receipt')) return;
+                        state.editingVoucherId = null;
+                        ui.openReceiptModal();
+                    })
+                );
             }
         }
     }
@@ -814,7 +920,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const rs = report.reportState;
 
         // Report type radios
-        document.querySelectorAll('input[name="reportType"]').forEach(radio => {
+        document.querySelectorAll('input[name="reportType"]').forEach((radio) => {
             radio.addEventListener('change', () => {
                 if (radio.checked) {
                     rs.reportType = radio.value;
@@ -824,7 +930,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         // Report fund type radios
-        document.querySelectorAll('input[name="reportFundType"]').forEach(radio => {
+        document.querySelectorAll('input[name="reportFundType"]').forEach((radio) => {
             radio.addEventListener('change', () => {
                 if (radio.checked) {
                     rs.fundType = radio.value;
@@ -910,14 +1016,28 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // Initialize searchable dropdowns for report filters
-        report.initReportFilterDropdown('reportFilterCategory', 'reportFilterCategoryDropdown', 'category');
-        report.initReportFilterDropdown('reportFilterSource', 'reportFilterSourceDropdown', 'source');
-        report.initReportFilterDropdown('reportFilterCreator', 'reportFilterCreatorDropdown', 'creator');
+        report.initReportFilterDropdown(
+            'reportFilterCategory',
+            'reportFilterCategoryDropdown',
+            'category'
+        );
+        report.initReportFilterDropdown(
+            'reportFilterSource',
+            'reportFilterSourceDropdown',
+            'source'
+        );
+        report.initReportFilterDropdown(
+            'reportFilterCreator',
+            'reportFilterCreatorDropdown',
+            'creator'
+        );
 
         // Top transactions tabs (Nhóm 9)
-        document.querySelectorAll('#reportTopTabs .report-mini-tab').forEach(tab => {
+        document.querySelectorAll('#reportTopTabs .report-mini-tab').forEach((tab) => {
             tab.addEventListener('click', () => {
-                document.querySelectorAll('#reportTopTabs .report-mini-tab').forEach(t => t.classList.remove('active'));
+                document
+                    .querySelectorAll('#reportTopTabs .report-mini-tab')
+                    .forEach((t) => t.classList.remove('active'));
                 tab.classList.add('active');
                 rs.topTab = tab.dataset.topTab;
                 report.renderTopOnly();
@@ -940,21 +1060,27 @@ document.addEventListener('DOMContentLoaded', () => {
             const catSection = document.querySelector('.report-section--category');
             if (catSection) catSection.style.gridColumn = '1 / -1';
 
-            toggleTrendBtn.addEventListener('click', throttleClick(function() {
-                const section = document.getElementById('trendSection');
-                if (!section) return;
-                const isHidden = section.style.display === 'none';
-                section.style.display = isHidden ? '' : 'none';
-                this.classList.toggle('active', isHidden);
-                // Keep category section full-width regardless — user wants
-                // "Chi tiết theo loại" hiển thị full khung mặc định, scroll xuống xem các bảng khác.
-            }));
+            toggleTrendBtn.addEventListener(
+                'click',
+                throttleClick(function () {
+                    const section = document.getElementById('trendSection');
+                    if (!section) return;
+                    const isHidden = section.style.display === 'none';
+                    section.style.display = isHidden ? '' : 'none';
+                    this.classList.toggle('active', isHidden);
+                    // Keep category section full-width regardless — user wants
+                    // "Chi tiết theo loại" hiển thị full khung mặc định, scroll xuống xem các bảng khác.
+                })
+            );
         }
 
         // Export report button
         const btnExportReport = document.getElementById('btnExportReport');
         if (btnExportReport) {
-            btnExportReport.addEventListener('click', throttleClick(() => report.exportReport()));
+            btnExportReport.addEventListener(
+                'click',
+                throttleClick(() => report.exportReport())
+            );
         }
     }
 
