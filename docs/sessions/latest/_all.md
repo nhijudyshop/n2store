@@ -3,16 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `93d29ce` — docs(web2): 3W6 ✅ trong đợt I (sửa dòng còn lệch) — sidebar \_isAdmin ưu tiên Web2Auth role
-**Last updated**: 2026-06-13 13:55:43 +07
-**Latest session**: [`RESUME:20260613-135543-93d29ce`](../20260613-135543-93d29ce.md)
-**Summary**: docs(web2): 3W6 ✅ trong đợt I (sửa dòng còn lệch) — sidebar \_isAdmin ưu tiên Web2Auth role
+**Latest commit**: `ee302a2` — fix(products): tem QR giá dài bị cắt — auto thu nhỏ .ql-qr-price cho vừa cột
+**Last updated**: 2026-06-13 13:59:20 +07
+**Latest session**: [`RESUME:20260613-135920-ee302a2`](../20260613-135920-ee302a2.md)
+**Summary**: fix(products): tem QR giá dài bị cắt — auto thu nhỏ .ql-qr-price cho vừa cột
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`so-order/`](./so-order.md) — 1 file(s)
-- [`web2/`](./web2.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -27,7 +25,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-12 18:34
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-13 10:49
-- [`docs/`](./docs.md) — updated 2026-06-13 13:55
+- [`docs/`](./docs.md) — updated 2026-06-13 13:59
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-12 20:05
 - [`downloads/`](./downloads.md) — updated 2026-06-12 20:06
