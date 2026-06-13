@@ -21,17 +21,44 @@
 
     // Modal a11y: lưu focus, focus vào field đầu, trả focus khi đóng (Esc/backdrop bound riêng).
     let _lastFocus = null;
+    const FOCUSABLE =
+        'a[href],button:not([disabled]),input,select,textarea,[tabindex]:not([tabindex="-1"])';
     function showModal(sel) {
         _lastFocus = document.activeElement;
         const m = $(sel);
         if (!m) return;
         m.hidden = false;
-        const f = m.querySelector('input,select,textarea,button:not(.wz-modal-close)');
-        setTimeout(() => f?.focus(), 50);
+        // Focus vào field đầu (bỏ qua nút đóng); QR modal không có input → focus nút đóng.
+        const first =
+            m.querySelector('input,select,textarea,button:not(.wz-modal-close)') ||
+            m.querySelector('.wz-modal-close');
+        first?.focus();
+        // Focus trap: Tab/Shift+Tab xoay vòng trong modal (WCAG 2.1.2 / APG dialog).
+        m._trap = (e) => {
+            if (e.key !== 'Tab') return;
+            const f = m.querySelectorAll(FOCUSABLE);
+            if (!f.length) return;
+            const a = f[0],
+                z = f[f.length - 1];
+            if (e.shiftKey && document.activeElement === a) {
+                e.preventDefault();
+                z.focus();
+            } else if (!e.shiftKey && document.activeElement === z) {
+                e.preventDefault();
+                a.focus();
+            }
+        };
+        m.addEventListener('keydown', m._trap);
     }
     function hideModal(sel) {
         const m = $(sel);
-        if (m) m.hidden = true;
+        if (m) {
+            m.hidden = true;
+            if (m._trap) {
+                m.removeEventListener('keydown', m._trap);
+                m._trap = null;
+            }
+        }
         if (_lastFocus && _lastFocus.focus) _lastFocus.focus();
     }
     function setBusy(btn, on) {
@@ -178,7 +205,7 @@
                     `<button class="wz-btn wz-btn-sm" data-act="chat" data-key="${esc(a.accountKey)}"><i data-lucide="messages-square"></i> Chat</button>`
                 );
                 acts.push(
-                    `<button class="wz-btn wz-btn-sm" data-act="disconnect" data-key="${esc(a.accountKey)}"><i data-lucide="power"></i></button>`
+                    `<button class="wz-btn wz-btn-sm" data-act="disconnect" data-key="${esc(a.accountKey)}" aria-label="Ngắt kết nối ${esc(dn)}" title="Ngắt kết nối"><i data-lucide="power"></i></button>`
                 );
             } else if (a.hasSession) {
                 acts.push(
@@ -195,7 +222,7 @@
             );
         }
         acts.push(
-            `<button class="wz-btn wz-btn-sm" data-act="delete" data-key="${esc(a.accountKey)}" title="Xoá"><i data-lucide="trash-2"></i></button>`
+            `<button class="wz-btn wz-btn-sm" data-act="delete" data-key="${esc(a.accountKey)}" aria-label="Xoá tài khoản ${esc(dn)}" title="Xoá"><i data-lucide="trash-2"></i></button>`
         );
         return `<div class="wz-acc-card">
             <div class="wz-acc-top">
@@ -300,6 +327,7 @@
                 if (r.image && $('#wzQrImg')) {
                     $('#wzQrImg').src = r.image;
                     $('#wzQrImg').style.visibility = 'visible';
+                    $('#wzQrFrame')?.classList.remove('is-waiting'); // tắt vòng xoay khi đã có QR
                 }
                 const lbl = STATUS_LABEL[r.status] || r.status || '';
                 $('#wzQrStatus').innerHTML = r.scanned?.name
@@ -457,7 +485,7 @@
                 .map(
                     (
                         c
-                    ) => `<div class="wz-conv-item ${c.id === state.conv.activeId ? 'is-active' : ''}" data-id="${c.id}">
+                    ) => `<div class="wz-conv-item ${c.id === state.conv.activeId ? 'is-active' : ''}" data-id="${c.id}" role="button" tabindex="0" aria-label="Hội thoại với ${esc(c.display_name || c.zalo_uid || c.thread_id)}">
                 ${c.avatar_url ? `<img class="wz-conv-av" src="${esc(c.avatar_url)}">` : `<span class="wz-conv-av">${esc(initial(c.display_name))}</span>`}
                 <div class="wz-conv-meta">
                     <div class="wz-conv-name">${esc(c.display_name || c.zalo_uid || c.thread_id)}</div>
@@ -714,7 +742,13 @@
     // ===================================================================
     function bind() {
         // Tabs: click + keyboard (←/→/Home/End) theo ARIA APG tablist
+        // APG manual-activation: ←/→/Home/End CHỈ di chuyển focus (roving tabindex);
+        // Enter/Space (hoặc click) mới kích hoạt panel → không fetch mỗi lần bấm mũi tên.
         const tabs = Array.from(document.querySelectorAll('.wz-tab'));
+        const focusTab = (j) => {
+            tabs.forEach((t, k) => (t.tabIndex = k === j ? 0 : -1));
+            tabs[j].focus();
+        };
         tabs.forEach((b, i) => {
             b.addEventListener('click', () => switchTab(b.dataset.tab));
             b.addEventListener('keydown', (e) => {
@@ -725,8 +759,10 @@
                 else if (e.key === 'End') j = tabs.length - 1;
                 if (j !== null) {
                     e.preventDefault();
-                    tabs[j].focus();
-                    switchTab(tabs[j].dataset.tab);
+                    focusTab(j);
+                } else if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    switchTab(b.dataset.tab, true);
                 }
             });
         });
@@ -774,6 +810,13 @@
         $('#wzConvList').addEventListener('click', (e) => {
             const item = e.target.closest('.wz-conv-item');
             if (item) openConversation(Number(item.dataset.id));
+        });
+        $('#wzConvList').addEventListener('keydown', (e) => {
+            const item = e.target.closest('.wz-conv-item');
+            if (item && (e.key === 'Enter' || e.key === ' ')) {
+                e.preventDefault();
+                openConversation(Number(item.dataset.id));
+            }
         });
 
         // lookup

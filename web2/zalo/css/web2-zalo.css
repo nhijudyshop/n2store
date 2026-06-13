@@ -22,7 +22,7 @@
     --wz-radius: 16px;
     --wz-shadow-1: 0 1px 2px rgba(15, 23, 42, 0.04), 0 1px 3px rgba(15, 23, 42, 0.06);
     --wz-shadow-2: 0 6px 22px rgba(15, 23, 42, 0.1);
-    --wz-shadow-glow: 0 8px 28px rgba(0, 104, 255, 0.22);
+    --wz-shadow-glow: 0 6px 22px rgba(0, 104, 255, 0.22);
     --wz-ease: cubic-bezier(0.16, 1, 0.3, 1);
     --wz-fast: 0.16s;
     --wz-mid: 0.26s;
@@ -728,8 +728,13 @@
 }
 .wz-msg-time {
     font-size: 10px;
-    opacity: 0.62;
     margin-top: 3px;
+}
+.wz-msg.out .wz-msg-time {
+    color: rgba(255, 255, 255, 0.88);
+}
+.wz-msg.in .wz-msg-time {
+    color: var(--wz-muted);
 }
 .wz-chat-compose {
     display: flex;
@@ -927,15 +932,15 @@
 }
 .wz-chip.sent {
     background: var(--wz-ok-soft);
-    color: var(--wz-ok);
+    color: #14532d; /* ≥4.5:1 trên nền xanh nhạt (text 11px) */
 }
 .wz-chip.failed {
     background: var(--wz-danger-soft);
-    color: var(--wz-danger);
+    color: #991b1b;
 }
 .wz-chip.pending {
     background: var(--wz-warn-soft);
-    color: var(--wz-warn);
+    color: #92400e;
 }
 
 /* ── Modal (anti-lag: modal-content + modal-body) ───────────────────── */
@@ -965,7 +970,7 @@
     max-height: 90vh;
     display: flex;
     flex-direction: column;
-    box-shadow: 0 24px 60px rgba(15, 23, 42, 0.28);
+    box-shadow: 0 12px 24px rgba(15, 23, 42, 0.2);
     animation: wzModalIn var(--wz-mid) var(--wz-ease);
 }
 @keyframes wzFade {
@@ -1048,6 +1053,7 @@
         border-bottom: 1px solid var(--wz-line);
     }
     .wz-chat-main {
+        height: 70vh; /* bounded → .wz-chat-body (flex:1) cuộn được trên mobile */
         min-height: 420px;
     }
 }
