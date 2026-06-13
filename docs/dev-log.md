@@ -2,6 +2,31 @@
 
 ## 2026-06-13
 
+### [live-chat] Video livestream dock đỉnh cột Kho SP (hết float đè) + Force extract đa nhiệm (pool song song + chạy nền) ✅
+
+**User:** (1) video FB live float góc dưới-phải đè lên Kho SP/comment → muốn "inline góc phải trên, cố định phần video"; (2) "force extract cho chạy đa nhiệm".
+
+**Bối cảnh quan trọng (research vendor docs):** chụp iframe FB là cross-origin → KHÔNG đọc pixel trực tiếp; cơ chế hiện tại = extension `captureVisibleTab` (chụp viewport → crop rect wrapper) → **bắt buộc video hiển thị + không bị đè + tab active**. Element/Region Capture (occlusion-immune) CHỈ chạy trên self-capture `getDisplayMedia` (reject trên `tabCapture`). User chốt: giữ extension, dock video hiện (chấp nhận phải hiển thị).
+
+**Task B — Dock video (thay float):**
+
+- Constants chung `SNAP_VIDEO_W=160 / HEADER=30 / H=284` (1 nguồn cho `_ensureEmbeddedIframe` + `_ensureSeekPlayer` + `_clientRestoreLive`).
+- `_ensureVideoDock()` tạo `#live-video-dock` chèn TRÊN `#khoSpHost` trong `#khoSpColumn` (flex column) → video in-flow, reserved, SP cuộn dưới. Wrapper `position:relative` trong dock (fallback fixed góc dưới-phải nếu chưa có cột).
+- CSS: `#live-video-dock{flex:0 0 auto}` + `:empty→display:none` (mọi path remove wrapper tự co) + `collapsed→none`. Guard `_captureExtensionFrame`: rect<2 → skip (dock ẩn không chụp rác).
+- Verify browser: dock đỉnh cột, SP nằm dưới (không đè), `:empty`/`collapsed` ẩn, wrapper in-viewport, 0 console error.
+
+**Task C — Force extract đa nhiệm (CẢ HAI):**
+
+- **Chạy nền:** bỏ `confirm()` chặn + bỏ khóa chip (pointerEvents) → user vẫn kéo SP/duyệt comment khi chạy; bấm chip lần nữa = HỦY (`STATE._forceExtractCancel`, check trong mọi loop).
+- **Pool song song:** khi `extReady` → 3 worker XFBML player (strip tạm góc dưới-trái, hiển thị để captureVisibleTab crop per-worker) cùng seek/capture từ 1 queue → ~2-3× nhanh. `_buildSeekPlayer` (worker-scoped), `_captureExtensionFrameThrottled` (chain ~480ms né rate-limit Chrome 2/s), `_workerSeekCapture`, `_runForceExtractParallel`. Không `extReady` (chỉ getDisplayMedia, cropTo bind 1 wrapper) → `_runForceExtractSerial` (giữ NGUYÊN logic cũ, +cancel). `_captureExtensionFrame(targetEl)` generalize (guard arg không phải Element).
+- Pool dùng strip riêng, KHÔNG đụng dock → khỏi restore iframe live; serial mới restore.
+
+**Lưu ý verify:** load sạch 0 lỗi + serial fallback giữ hành vi cũ. Path POOL song song cần **live VOD thật + extension** để verify end-to-end (chưa repro được tự động). Force-extract non-destructive (chỉ fill thumbnail thiếu) nên rủi ro thấp.
+
+**Files:** [live-chat/js/live/live-livestream-snap.js](../live-chat/js/live/live-livestream-snap.js), [live-chat/css/inventory-panel.css](../live-chat/css/inventory-panel.css), [live-chat/index.html](../live-chat/index.html) (?v=20260613i). Còn lại (chưa làm, chờ user): Task A — extension `tabCapture` cho chụp tab-nền không popup (auto-publish CWS).
+
+**Status:** ✅ Done (B verified; C: load OK + serial OK, pool chờ verify live).
+
 ### [web2] Zalo page UX overhaul — friendly onboarding + a11y + fix invisible modal inputs ✅ (live-verified)
 
 **User:** "tham khảo tất cả nguồn google, github, ai support/animation/ui sites để cải thiện, thân thiện người dùng trang web2/zalo".

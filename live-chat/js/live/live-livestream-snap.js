@@ -227,8 +227,14 @@
 
     // Capture tab + crop vào iframe wrapper rect → JPEG base64 (không có prefix
     // data:image/jpeg;base64,). Trả về null nếu fail.
-    async function _captureExtensionFrame() {
-        const wrapper = document.getElementById('live-snap-fb-wrapper');
+    async function _captureExtensionFrame(targetEl) {
+        // targetEl: element cần crop (mặc định wrapper dock). Force-extract song
+        // song truyền wrapper của từng worker. Guard: bỏ qua arg không phải Element
+        // (call cũ truyền quality number `_captureExtensionFrame(80)` — vô hại).
+        const wrapper =
+            targetEl instanceof Element
+                ? targetEl
+                : document.getElementById('live-snap-fb-wrapper');
         if (!wrapper) return null;
         let dataUrl;
         try {
@@ -1009,18 +1015,13 @@ Throttle 30s/KH.`;
                 _toast('Chưa có capture — mở live + bật capture trước đã', 'err');
                 return;
             }
-            if (
-                !confirm(
-                    `Chụp thumbnail client-side cho ${pending.length} comment chưa có ảnh?\n` +
-                        `(seek VOD + capture ~3-4s/comment, chỉ ăn khi live đã end)`
-                )
-            )
-                return;
+            // CHẠY NỀN (2026-06-13): KHÔNG confirm chặn, KHÔNG khóa chip — user vẫn
+            // kéo SP / duyệt comment trong khi trích xuất. Bấm chip lần nữa = HỦY.
             chip.dataset.running = '1';
-            chip.style.opacity = '0.85';
-            chip.style.pointerEvents = 'none';
+            STATE._forceExtractCancel = false;
+            const isCancelled = () => STATE._forceExtractCancel === true;
 
-            // Group theo video (Facebook_LiveId) — mỗi video seek iframe riêng.
+            // Group theo video (Facebook_LiveId) — mỗi video 1 nhóm comment.
             const byVideo = new Map();
             for (const c of pending) {
                 const camp = _resolveCampaignForComment(c);
@@ -1030,73 +1031,50 @@ Throttle 30s/KH.`;
                 byVideo.get(k).comments.push(c);
             }
             const total = pending.length;
-            let done = 0;
-            let failed = 0;
+            const stats = { done: 0, failed: 0 };
+            const onProgress = () =>
+                _renderProgress({ done: stats.done, failed: stats.failed }, total);
+            onProgress();
+            // ĐA NHIỆM: extReady → POOL 3 luồng song song (capture per-worker qua
+            // captureVisibleTab, worker hiển thị ở strip). Không extReady (chỉ
+            // getDisplayMedia stream — cropTo bind 1 wrapper, không pool được) → serial.
+            const usePool = !!STATE.extReady;
             const activeCamp = _findActiveLiveCampaign();
             try {
-                for (const { camp, comments } of byVideo.values()) {
-                    const pageObj = st.allPages?.find(
-                        (p) => p.Facebook_PageId === camp.Facebook_UserId
+                if (usePool) {
+                    await _runForceExtractParallel(
+                        byVideo,
+                        st,
+                        total,
+                        3,
+                        isCancelled,
+                        onProgress,
+                        stats
                     );
-                    let videoInfo = null;
-                    if (pageObj) {
-                        try {
-                            videoInfo = await _fetchLiveVideoInfo(
-                                pageObj.Facebook_PageId,
-                                camp.Facebook_LiveId
-                            );
-                        } catch (_) {}
-                    }
-                    if (!pageObj || !videoInfo?.broadcastStartMs) {
-                        failed += comments.length;
-                        _renderProgress({ done, failed }, total);
-                        continue;
-                    }
-                    for (const c of comments) {
-                        const rawT =
-                            c.created_time || c.createdTime || c.inserted_at || c.created_at;
-                        const commentTimeMs = rawT
-                            ? (SharedUtils.parseTimestamp(rawT)?.getTime() ?? NaN)
-                            : NaN;
-                        if (!Number.isFinite(commentTimeMs)) {
-                            failed++;
-                            _renderProgress({ done, failed }, total);
-                            continue;
-                        }
-                        const offsetSec = Math.max(
-                            0,
-                            Math.floor((commentTimeMs - videoInfo.broadcastStartMs) / 1000)
-                        );
-                        try {
-                            const imageBase64 = await _clientCaptureAtOffset(camp, offsetSec);
-                            if (!imageBase64) throw new Error('capture rỗng');
-                            await _postCapturedSnap({
-                                commentId: c.id,
-                                customerFbUserId: c.from.id,
-                                customerName: c.from.name || '?',
-                                commentTimeMs,
-                                offsetSec,
-                                pageObj,
-                                camp,
-                                videoInfo,
-                                imageBase64,
-                                message: c.message,
-                            });
-                            done++;
-                        } catch (e) {
-                            failed++;
-                            console.warn('[force-client] fail', c.id, e.message);
-                        }
-                        _renderProgress({ done, failed }, total);
-                    }
+                } else {
+                    await _runForceExtractSerial(
+                        byVideo,
+                        st,
+                        total,
+                        isCancelled,
+                        onProgress,
+                        stats
+                    );
                 }
-                _toast(`Client extract: ${done} OK, ${failed} fail`, done > 0 ? 'ok' : 'err');
+                _toast(
+                    `Force extract: ${stats.done} OK, ${stats.failed} fail` +
+                        (isCancelled() ? ' (đã dừng)' : ''),
+                    stats.done > 0 ? 'ok' : 'err'
+                );
             } catch (e) {
                 _toast('Lỗi force extract: ' + e.message, 'err');
             } finally {
+                // Serial dùng player dock → restore iframe live. Pool dùng strip
+                // riêng, KHÔNG đụng dock → khỏi restore (tránh rebuild iframe thừa).
                 try {
-                    if (activeCamp) await _clientRestoreLive(activeCamp);
+                    if (!usePool && activeCamp) await _clientRestoreLive(activeCamp);
                 } catch (_) {}
+                STATE._forceExtractCancel = false;
                 _invalidateSnapCacheAndRefresh();
                 setTimeout(_resetChip, 2500);
             }
@@ -3227,6 +3205,280 @@ Throttle 30s/KH.`;
         } catch (_) {}
         if (!frame) throw new Error('capture rỗng');
         return frame;
+    }
+
+    // ─────────────────────────────────────────────────────────
+    // FORCE EXTRACT ĐA NHIỆM (2026-06-13): pool nhiều XFBML player seek/capture
+    // SONG SONG + chạy NỀN (không confirm chặn, không khóa UI — bấm lại = hủy).
+    // 1 player = 1 offset tại 1 thời điểm → K player = K comment cùng lúc. Capture
+    // qua extension captureVisibleTab (crop rect TỪNG worker) — bắt buộc worker
+    // hiển thị + không bị đè (strip tạm). Chỉ bật khi extReady; else serial fallback
+    // (dùng player dock chung qua _clientCaptureAtOffset).
+    // ─────────────────────────────────────────────────────────
+
+    // Dựng 1 XFBML seek player trong wrapperEl bất kỳ (worker-scoped, không cache
+    // STATE). Trả instance. Tách từ _ensureSeekPlayer để pool có nhiều player.
+    async function _buildSeekPlayer(fbVideoUrl, wrapperEl) {
+        const FB = await _ensureFbSdk();
+        if (!FB?.XFBML) throw new Error('FB SDK không sẵn sàng');
+        const HEADER_OFFSET = SNAP_VIDEO_HEADER;
+        const divId = 'fbseek_' + Math.random().toString(36).slice(2, 9);
+        const host = document.createElement('div');
+        host.style.cssText = `position:absolute;left:0;top:${-HEADER_OFFSET}px;width:${SNAP_VIDEO_W}px;`;
+        const div = document.createElement('div');
+        div.id = divId;
+        div.className = 'fb-video';
+        div.setAttribute('data-href', fbVideoUrl);
+        div.setAttribute('data-width', String(SNAP_VIDEO_W));
+        div.setAttribute('data-allowfullscreen', 'false');
+        div.setAttribute('data-show-captions', 'false');
+        host.appendChild(div);
+        wrapperEl.innerHTML = '';
+        wrapperEl.appendChild(host);
+        return await new Promise((resolve, reject) => {
+            const t = setTimeout(() => {
+                _xfbmlWaiters.delete(divId);
+                reject(new Error('xfbml.ready timeout'));
+            }, 15000);
+            _xfbmlWaiters.set(divId, (inst) => {
+                clearTimeout(t);
+                resolve(inst);
+            });
+            FB.XFBML.parse(host);
+        });
+    }
+
+    // Throttle captureVisibleTab: Chrome rate-limit ~2/giây toàn cục → nhiều worker
+    // gọi đè nhau sẽ reject. Chain min ~480ms giữa 2 capture. Trả frame ngay,
+    // chỉ delay slot kế tiếp.
+    let _extCapChain = Promise.resolve();
+    function _captureExtensionFrameThrottled(targetEl) {
+        const p = _extCapChain.then(() => _captureExtensionFrame(targetEl));
+        const gap = () => new Promise((r) => setTimeout(r, 480));
+        _extCapChain = p.then(gap, gap);
+        return p;
+    }
+
+    // Strip tạm chứa N worker player (hiển thị để captureVisibleTab crop được).
+    // Góc dưới-trái (ít đè UID nhất: dock video ở phải-trên, undo toast giữa-dưới).
+    function _ensureWorkerStrip(n) {
+        let strip = document.getElementById('live-snap-workers');
+        if (strip) return strip;
+        strip = document.createElement('div');
+        strip.id = 'live-snap-workers';
+        strip.style.cssText =
+            'position:fixed;left:8px;bottom:8px;z-index:99000;display:flex;gap:6px;align-items:flex-end;padding:22px 6px 6px;background:rgba(15,23,42,0.92);border:1px solid #334155;border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,0.4);';
+        const label = document.createElement('div');
+        label.style.cssText =
+            'position:absolute;top:4px;left:8px;font:600 10.5px Inter,system-ui,sans-serif;color:#cbd5e1;white-space:nowrap;';
+        label.textContent = `⚡ Trích xuất ${n} luồng — chạy nền`;
+        strip.appendChild(label);
+        strip._wrappers = [];
+        for (let i = 0; i < n; i++) {
+            const w = document.createElement('div');
+            w.className = 'live-snap-worker';
+            w.style.cssText = `position:relative;width:${SNAP_VIDEO_W}px;height:${SNAP_VIDEO_H}px;border:2px solid #f59e0b;border-radius:6px;background:#000;overflow:hidden;flex:0 0 auto;`;
+            strip.appendChild(w);
+            strip._wrappers.push(w);
+        }
+        document.body.appendChild(strip);
+        return strip;
+    }
+    function _removeWorkerStrip() {
+        document.getElementById('live-snap-workers')?.remove();
+    }
+
+    // Seek + capture trên 1 worker player (giống _clientCaptureAtOffsetInner nhưng
+    // player + wrapper riêng + capture qua extension throttled). Trả base64 hoặc null.
+    async function _workerSeekCapture(player, wrapperEl, offsetSec, isCancelled) {
+        const target = Math.max(0, Number(offsetSec) || 0);
+        try {
+            player.mute();
+        } catch (_) {}
+        player.seek(target);
+        player.play();
+        let okPos = false;
+        for (let i = 0; i < 16; i++) {
+            if (isCancelled()) return null;
+            await new Promise((r) => setTimeout(r, 500));
+            let pos = NaN;
+            try {
+                pos = player.getCurrentPosition();
+            } catch (_) {}
+            if (Number.isFinite(pos) && Math.abs(pos - target) < 30) {
+                okPos = true;
+                break;
+            }
+            if (i === 7) {
+                try {
+                    player.seek(target);
+                    player.play();
+                } catch (_) {}
+            }
+        }
+        if (!okPos) throw new Error('seek fail (buffering/DRM)');
+        await new Promise((r) => setTimeout(r, 600)); // settle frame render
+        const frame = await _captureExtensionFrameThrottled(wrapperEl);
+        try {
+            player.pause();
+        } catch (_) {}
+        if (!frame) throw new Error('capture rỗng');
+        return frame;
+    }
+
+    // Pool song song: mỗi video dựng K player (cùng href, seek khác offset), K worker
+    // rút comment từ queue chung tới hết. stats.{done,failed} cập nhật in-place.
+    async function _runForceExtractParallel(byVideo, st, total, K, isCancelled, onProgress, stats) {
+        const strip = _ensureWorkerStrip(K);
+        const workers = strip._wrappers.slice(0, K);
+        try {
+            for (const { camp, comments } of byVideo.values()) {
+                if (isCancelled()) break;
+                const pageObj = st.allPages?.find(
+                    (p) => p.Facebook_PageId === camp.Facebook_UserId
+                );
+                let videoInfo = null;
+                if (pageObj) {
+                    try {
+                        videoInfo = await _fetchLiveVideoInfo(
+                            pageObj.Facebook_PageId,
+                            camp.Facebook_LiveId
+                        );
+                    } catch (_) {}
+                }
+                if (!pageObj || !videoInfo?.broadcastStartMs) {
+                    stats.failed += comments.length;
+                    onProgress();
+                    continue;
+                }
+                const fbVideoUrl = _buildFbLiveUrl(camp);
+                // Dựng K player cho video này (song song).
+                const players = await Promise.all(
+                    workers.map((w) =>
+                        _buildSeekPlayer(fbVideoUrl, w).catch((e) => {
+                            console.warn('[force-parallel] build player fail:', e.message);
+                            return null;
+                        })
+                    )
+                );
+                if (!players.some(Boolean)) {
+                    stats.failed += comments.length;
+                    onProgress();
+                    continue;
+                }
+                const queue = comments.slice();
+                const runWorker = async (player, wrapperEl) => {
+                    if (!player) return;
+                    while (queue.length && !isCancelled()) {
+                        const c = queue.shift();
+                        const rawT =
+                            c.created_time || c.createdTime || c.inserted_at || c.created_at;
+                        const commentTimeMs = rawT
+                            ? (SharedUtils.parseTimestamp(rawT)?.getTime() ?? NaN)
+                            : NaN;
+                        if (!Number.isFinite(commentTimeMs)) {
+                            stats.failed++;
+                            onProgress();
+                            continue;
+                        }
+                        const offsetSec = Math.max(
+                            0,
+                            Math.floor((commentTimeMs - videoInfo.broadcastStartMs) / 1000)
+                        );
+                        try {
+                            const imageBase64 = await _workerSeekCapture(
+                                player,
+                                wrapperEl,
+                                offsetSec,
+                                isCancelled
+                            );
+                            if (isCancelled()) return;
+                            if (!imageBase64) throw new Error('capture rỗng');
+                            await _postCapturedSnap({
+                                commentId: c.id,
+                                customerFbUserId: c.from.id,
+                                customerName: c.from.name || '?',
+                                commentTimeMs,
+                                offsetSec,
+                                pageObj,
+                                camp,
+                                videoInfo,
+                                imageBase64,
+                                message: c.message,
+                            });
+                            stats.done++;
+                        } catch (e) {
+                            stats.failed++;
+                            console.warn('[force-parallel] fail', c.id, e.message);
+                        }
+                        onProgress();
+                    }
+                };
+                await Promise.all(players.map((p, i) => runWorker(p, workers[i])));
+            }
+        } finally {
+            _removeWorkerStrip();
+        }
+    }
+
+    // Serial fallback (không extReady): dùng player dock chung qua _clientCaptureAtOffset.
+    async function _runForceExtractSerial(byVideo, st, total, isCancelled, onProgress, stats) {
+        for (const { camp, comments } of byVideo.values()) {
+            if (isCancelled()) break;
+            const pageObj = st.allPages?.find((p) => p.Facebook_PageId === camp.Facebook_UserId);
+            let videoInfo = null;
+            if (pageObj) {
+                try {
+                    videoInfo = await _fetchLiveVideoInfo(
+                        pageObj.Facebook_PageId,
+                        camp.Facebook_LiveId
+                    );
+                } catch (_) {}
+            }
+            if (!pageObj || !videoInfo?.broadcastStartMs) {
+                stats.failed += comments.length;
+                onProgress();
+                continue;
+            }
+            for (const c of comments) {
+                if (isCancelled()) break;
+                const rawT = c.created_time || c.createdTime || c.inserted_at || c.created_at;
+                const commentTimeMs = rawT
+                    ? (SharedUtils.parseTimestamp(rawT)?.getTime() ?? NaN)
+                    : NaN;
+                if (!Number.isFinite(commentTimeMs)) {
+                    stats.failed++;
+                    onProgress();
+                    continue;
+                }
+                const offsetSec = Math.max(
+                    0,
+                    Math.floor((commentTimeMs - videoInfo.broadcastStartMs) / 1000)
+                );
+                try {
+                    const imageBase64 = await _clientCaptureAtOffset(camp, offsetSec);
+                    if (isCancelled()) break;
+                    if (!imageBase64) throw new Error('capture rỗng');
+                    await _postCapturedSnap({
+                        commentId: c.id,
+                        customerFbUserId: c.from.id,
+                        customerName: c.from.name || '?',
+                        commentTimeMs,
+                        offsetSec,
+                        pageObj,
+                        camp,
+                        videoInfo,
+                        imageBase64,
+                        message: c.message,
+                    });
+                    stats.done++;
+                } catch (e) {
+                    stats.failed++;
+                    console.warn('[force-client] fail', c.id, e.message);
+                }
+                onProgress();
+            }
+        }
     }
 
     // Reset wrapper về iframe live thuần sau force-extract (giữ auto-snap buffer
