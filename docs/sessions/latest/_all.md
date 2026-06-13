@@ -3,18 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `34edf93` — feat(live-chat): chụp livestream qua Element Capture (restrictTo) — video ẩn/đè/tab nền vẫn chụp 100%
-**Last updated**: 2026-06-13 16:07:14 +07
-**Latest session**: [`RESUME:20260613-160713-34edf93`](../20260613-160713-34edf93.md)
-**Summary**: feat(live-chat): chụp livestream qua Element Capture (restrictTo) — video ẩn/đè/tab nền vẫn chụp 100%
+**Latest commit**: `aa26007` — auto: session update
+**Last updated**: 2026-06-13 16:11:09 +07
+**Latest session**: [`RESUME:20260613-161109-aa26007`](../20260613-161109-aa26007.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`live-chat/`](./live-chat.md) — 3 file(s)
-- [`native-orders/`](./native-orders.md) — 2 file(s)
-- [`so-order/`](./so-order.md) — 1 file(s)
-- [`web2/`](./web2.md) — 36 file(s)
+- [`render.com/`](./render.com.md) — 2 file(s)
+- [`web2/`](./web2.md) — 4 file(s)
 
 ## All folder snapshots
 
@@ -55,7 +52,7 @@
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
-- [`render.com/`](./render.com.md) — updated 2026-06-13 15:41
+- [`render.com/`](./render.com.md) — updated 2026-06-13 16:11
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-11 10:18
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
@@ -75,4 +72,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-13 16:07
+- [`web2/`](./web2.md) — updated 2026-06-13 16:11
