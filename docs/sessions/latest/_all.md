@@ -3,18 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `1d7c484` — auto: session update
-**Last updated**: 2026-06-13 16:23:08 +07
-**Latest session**: [`RESUME:20260613-162308-1d7c484`](../20260613-162308-1d7c484.md)
-**Summary**: auto: session update
+**Latest commit**: `e980190` — feat(web2): de-purple triệt để toàn Web 2.0 + global UX (command palette, mobile-table, toast autoload, UX audit)
+**Last updated**: 2026-06-13 16:25:31 +07
+**Latest session**: [`RESUME:20260613-162531-e980190`](../20260613-162531-e980190.md)
+**Summary**: feat(web2): de-purple triệt để toàn Web 2.0 + global UX (command palette, mobile-table, toast autoload, UX audit)
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 2 file(s)
-- [`live-chat/`](./live-chat.md) — 9 file(s)
-- [`native-orders/`](./native-orders.md) — 3 file(s)
-- [`so-order/`](./so-order.md) — 3 file(s)
-- [`web2/`](./web2.md) — 46 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -29,7 +25,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-13 15:41
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-13 14:33
-- [`docs/`](./docs.md) — updated 2026-06-13 16:23
+- [`docs/`](./docs.md) — updated 2026-06-13 16:25
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-13 14:55
 - [`downloads/`](./downloads.md) — updated 2026-06-12 20:06
