@@ -65,7 +65,7 @@
     --pkr-text: #293f51;
     --pkr-text-strong: #1b2836;
     --pkr-text-secondary: #37546d;
-    --pkr-text-muted: #779bbb;
+    --pkr-text-muted: #5c7796;
     --pkr-text-on-blue: #ffffff;
 
     /* ── BUBBLE tokens ── */
@@ -118,7 +118,7 @@
     --pkr-shadow-md: 0 2px 4px rgba(16, 24, 40, 0.06), 0 4px 8px rgba(16, 24, 40, 0.08);
     --pkr-shadow-lg: 0 4px 8px rgba(16, 24, 40, 0.05), 0 8px 16px rgba(16, 24, 40, 0.1);
     --pkr-shadow-xl: 0 8px 16px rgba(16, 24, 40, 0.06), 0 12px 24px rgba(16, 24, 40, 0.12);
-    --pkr-ring-primary: 0 0 0 3px rgba(31, 147, 255, 0.2);
+    --pkr-ring-primary: 0 0 0 2px var(--pkr-surface, #fff), 0 0 0 4px var(--pkr-blue-600);
     --pkr-ring-error: 0 0 0 3px rgba(240, 68, 56, 0.18);
 
     /* ── MOTION (M3-derived) ── */
