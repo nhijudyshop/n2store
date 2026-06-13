@@ -2,6 +2,16 @@
 
 ## 2026-06-13
 
+### [web2] returns: giảm bước tạo phiếu thu về (auto-pick đơn + Chọn tất cả SP) ✅
+
+Theo roadmap audit (returns 7-bước). 2 giảm-bước an toàn:
+
+- **Auto-pick đơn** khi khách chỉ có **1 đơn** → bỏ 1 click (`loadCustomerOrders` tự gọi `pickOrder`).
+- **Nút "Chọn tất cả / Bỏ chọn"** ở danh sách SP thu-về-1-phần → gộp N lần tick thành 1 click. KHÔNG auto-check sẵn (đây là thao tác cộng ví — giữ user chủ động).
+- CSS `.rt-selall` (pill xanh) + `.rt-oi-title` flex. Bump `?v=20260613z`.
+
+Verify live: trang load sạch (theme xanh, skeleton search KH), pick KH OK, form render; `node --check` OK. Đường dẫn đơn→SP chỉ verify bằng logic (clone `0123456788` không có đơn returnable — không seed đơn ảo cho thay đổi 2-dòng). Money op (submit) GIỮ nguyên await + canSubmit gating.
+
 ### [live-chat] Tối ưu hiệu năng chụp/embed livestream (ít giật, ít tốn tài nguyên) ✅
 
 **User:** "nghiên cứu thêm github → chụp/inline/nhúng livestream → nhanh không giật lag, không tốn tài nguyên".
