@@ -2,6 +2,26 @@
 
 ## 2026-06-13
 
+### [so-order] [web2] Prefix mã SP lấy theo TAB Sổ Order (không phải cột NCC) ✅
+
+**User:** "không phải NCC mà lấy ở hình 1 theo tab → còn tạo ở kho thì cho chọn theo tab hình 1 luôn, không chọn thì ghi KHO."
+
+**Context:** prefix mã SP (vd `HC` trong `HCAO`) trước lấy từ cột NCC per-row (`it.supplier` / `#pmSupplier` mix cả NCC). Quy ước đúng của shop: prefix lấy theo **tab Sổ Order** (`HÀ NỘI`→HN / `HƯƠNG CHÂU`→HC). Engine [web2/shared/web2-product-code.js](../web2/shared/web2-product-code.js) giữ nguyên (generic theo `supplierName`) — chỉ đổi nguồn đưa vào ở 2 caller.
+
+**Files:**
+
+- [so-order/js/so-order-app.js](../so-order/js/so-order-app.js) `_assignKhoCodes`: bỏ gom NCC từ `Web2SuppliersCache` + `it.supplier`; build `supplierPrefixMap` từ `state.tabs[*].label`; mọi SP của lô dùng `activeTabLabel` (= `getActiveTab(state).label`) làm prefix; tab rỗng → `KHO`.
+- [web2/products/js/web2-products-app.js](../web2/products/js/web2-products-app.js): `loadSuppliersFromSoOrder` chỉ trả `tabs[*].label` (bỏ scan `rows[*].supplier`); dropdown wording "Chọn tab Sổ Order"; **fix** `openCreate` set `pmSupplier='KHO'` SAU khi `populateSupplierDropdown()` async resolve (trước đó set trước → option KHO chưa tồn tại → value rớt "").
+- [web2/products/index.html](../web2/products/index.html): option tĩnh "— Chọn tab Sổ Order —".
+
+**Verify (Playwright live localhost + extension):**
+
+- Engine unit: `HƯƠNG CHÂU/ÁO…`→`HCAO`, `HÀ NỘI/QUẦN ĐỎ SIZE 32`→`HNQUANDOS32`, no-tab/`ĐẦM HỒNG`→`KHODAMHONG`.
+- Kho SP: dropdown = `KHO`/`HÀ NỘI`/`HƯƠNG CHÂU`, default **KHO**; chọn HƯƠNG CHÂU + "ÁO ĐỎ SIZE 32" → suggest `HCAO5DOS32` (hint prefix=HC).
+- so-order: load 0 lỗi console, `state.tabs`=[HÀ NỘI, HƯƠNG CHÂU], engine sẵn sàng.
+
+**Status:** ✅ Done.
+
 ### [render] [web2] TC-cụm ĐÓNG — lookup KH theo SĐT phụ (alt_phones) ✅
 
 **User:** "continue" — dọn nốt TC-cụm.
