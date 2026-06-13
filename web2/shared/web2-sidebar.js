@@ -55,6 +55,8 @@
         if (!global.Popup) inject('popup.js', '20260514');
         if (!global.DeliveryMethodPicker) inject('delivery-method-picker.js', '20260604nj4');
         if (!global.Web2Auth) inject('web2-auth.js', '20260518a');
+        // Command palette toàn cục (Ctrl/Cmd+K) — có mặt mọi trang Web 2.0.
+        if (!global.Web2CommandPalette) inject('web2-command-palette.js', '20260613a');
     })();
 
     // Group definitions matching WEB2 sidebar structure.
