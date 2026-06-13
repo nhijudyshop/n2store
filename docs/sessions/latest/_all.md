@@ -3,15 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `b49de22` — fix(chat): 'Khách chưa có SĐT' giả — gốc là pages Pancake không load (token 102)
-**Last updated**: 2026-06-13 12:10:05 +07
-**Latest session**: [`RESUME:20260613-121005-b49de22`](../20260613-121005-b49de22.md)
-**Summary**: fix(chat): 'Khách chưa có SĐT' giả — gốc là pages Pancake không load (token 102)
+**Latest commit**: `04c086b` — feat(live-chat): toggle ẩn/hiện SP hết hàng (stock=0) trong panel Kho SP
+**Last updated**: 2026-06-13 13:23:23 +07
+**Latest session**: [`RESUME:20260613-132323-04c086b`](../20260613-132323-04c086b.md)
+**Summary**: feat(live-chat): toggle ẩn/hiện SP hết hàng (stock=0) trong panel Kho SP
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`orders-report/`](./orders-report.md) — 2 file(s)
+- [`live-chat/`](./live-chat.md) — 3 file(s)
 
 ## All folder snapshots
 
@@ -26,7 +26,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-12 18:34
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-13 10:49
-- [`docs/`](./docs.md) — updated 2026-06-13 12:10
+- [`docs/`](./docs.md) — updated 2026-06-13 13:23
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-12 20:05
 - [`downloads/`](./downloads.md) — updated 2026-06-12 20:06
@@ -39,7 +39,7 @@
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-06-12 20:05
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-12 19:21
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
-- [`live-chat/`](./live-chat.md) — updated 2026-06-13 11:43
+- [`live-chat/`](./live-chat.md) — updated 2026-06-13 13:23
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-06-04 20:02
 - [`native-orders/`](./native-orders.md) — updated 2026-06-13 11:43
 - [`nhanhang/`](./nhanhang.md) — updated 2026-05-21 15:39
