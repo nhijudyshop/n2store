@@ -3,14 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `8259e7a` — feat(delivery-report): nut Anh Thanh Pho bo clipboard, gui Telegram thanh cong thi reload trang
-**Last updated**: 2026-06-13 14:06:34 +07
-**Latest session**: [`RESUME:20260613-140634-8259e7a`](../20260613-140634-8259e7a.md)
-**Summary**: feat(delivery-report): nut Anh Thanh Pho bo clipboard, gui Telegram thanh cong thi reload trang
+**Latest commit**: `9e181f9` — auto: session update
+**Last updated**: 2026-06-13 14:10:38 +07
+**Latest session**: [`RESUME:20260613-141038-9e181f9`](../20260613-141038-9e181f9.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
+- [`web2/`](./web2.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -71,4 +71,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-13 14:05
+- [`web2/`](./web2.md) — updated 2026-06-13 14:10
