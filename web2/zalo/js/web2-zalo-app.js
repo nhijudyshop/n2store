@@ -594,7 +594,8 @@
             _view = null;
         }
         renderConvList(); // highlight hội thoại active
-        const conv = state.conv.list.find((c) => c.id === id);
+        // id từ dataset (Number) vs c.id (BIGINT → string từ pg) → so sánh dạng String.
+        const conv = state.conv.list.find((c) => String(c.id) === String(id));
         if (!conv) {
             $('#wzChatMain').innerHTML =
                 `<div class="wz-chat-empty">Không tìm thấy hội thoại</div>`;
