@@ -2,6 +2,24 @@
 
 ## 2026-06-13
 
+### [live-chat] Encode JPEG off main-thread (OffscreenCanvas+Worker) + rVFC — hết giật khi chụp ✅
+
+**User:** "ok" làm tiếp jank-killer từ research (OffscreenCanvas + Worker + requestVideoFrameCallback).
+
+**Vì sao:** research 3-agent kết luận JPEG **encode** là phần nặng nhất của capture (drawImage rẻ); chạy trên main-thread → giật. Đây là path getDisplayMedia/Element Capture (cái user lo "popup lag").
+
+**Fix (`live-livestream-snap.js`):**
+
+- **Worker encode inline** (Blob URL, lazy + reuse): nhận `ImageBitmap` → `OffscreenCanvas.convertToBlob('image/jpeg')` → trả Blob. `_getEncodeWorker()` + `_encodeBitmapInWorker(bitmap,q)`.
+- `_captureFrameJpeg`: ưu tiên `createImageBitmap(video, sx,sy,sw,sh, {resizeWidth,resizeHeight,resizeQuality:'low'})` (crop+resize 1 op GPU rẻ) → encode trong worker (KHÔNG block main-thread). **Fallback canvas.toBlob (main-thread, hành vi cũ)** nếu thiếu API/worker lỗi → worst case = như cũ.
+- **rVFC**: trước khi chụp (path stream) đợi 1 frame MỚI present qua `requestVideoFrameCallback` (timeout 400ms) → né frame đen/trùng lúc seek/buffering.
+
+**Verify (browser + extension):** API đủ (Worker/OffscreenCanvas/createImageBitmap/convertToBlob/rVFC = true); chạy thử đúng kỹ thuật → ra JPEG Blob off-thread (`ok:true, size:1420`); load 0 lỗi sau cả 2 edit. Path thật chỉ chạy khi có captureStream (getDisplayMedia, cần user bấm 🎬) — cơ chế đã verify, capture thật user test live.
+
+**Files:** [live-chat/js/live/live-livestream-snap.js](../live-chat/js/live/live-livestream-snap.js), [live-chat/index.html](../live-chat/index.html) (snap.js ?v=20260613-ab). Lưu kiến thức: MEMORY [[reference_fb_live_capture_options]].
+
+**Status:** ✅ Done (cơ chế verified; fallback an toàn về cách cũ).
+
 ### [web2] returns: giảm bước tạo phiếu thu về (auto-pick đơn + Chọn tất cả SP) ✅
 
 Theo roadmap audit (returns 7-bước). 2 giảm-bước an toàn:

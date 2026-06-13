@@ -2235,6 +2235,26 @@ Throttle 30s/KH.`;
             // Best: work khi tab inactive, no Chrome rate-limit.
             if (STATE.captureStream && STATE.captureVideo?.videoWidth) {
                 try {
+                    // rVFC: đợi 1 frame MỚI được present trước khi chụp → né frame
+                    // đen/trùng (lúc seek/buffering). Timeout 400ms phòng video pause.
+                    const cv = STATE.captureVideo;
+                    if (typeof cv.requestVideoFrameCallback === 'function') {
+                        await new Promise((res) => {
+                            let done = false;
+                            const fin = () => {
+                                if (!done) {
+                                    done = true;
+                                    res();
+                                }
+                            };
+                            try {
+                                cv.requestVideoFrameCallback(() => fin());
+                            } catch (_) {
+                                fin();
+                            }
+                            setTimeout(fin, 400);
+                        });
+                    }
                     const blob = await _captureFrameJpeg(0.72, 1280);
                     if (!blob) return;
                     STATE.lastFrameAt = Date.now(); // capture health (leader lock failover)
@@ -2443,6 +2463,21 @@ Throttle 30s/KH.`;
             targetW = maxWidth;
             targetH = Math.round(srcH * (maxWidth / srcW));
         }
+        // ƯU TIÊN off-thread: createImageBitmap crop+resize (1 op GPU, rẻ) → encode
+        // JPEG trong worker (convertToBlob) → KHÔNG block main-thread = hết giật.
+        if (_getEncodeWorker()) {
+            try {
+                const bmp = await createImageBitmap(v, srcX, srcY, srcW, srcH, {
+                    resizeWidth: targetW,
+                    resizeHeight: targetH,
+                    resizeQuality: 'low',
+                });
+                return await _encodeBitmapInWorker(bmp, quality); // bitmap close trong worker
+            } catch (e) {
+                // worker/createImageBitmap lỗi → rơi xuống canvas main-thread (an toàn).
+            }
+        }
+        // FALLBACK (main-thread): canvas drawImage + toBlob — hành vi cũ.
         if (!STATE.captureCanvas) {
             STATE.captureCanvas = document.createElement('canvas');
         }
