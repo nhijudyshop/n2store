@@ -35,35 +35,36 @@
     }
 
     async function _fetch(path, options = {}) {
-        const run = async (base) => {
-            const res = await fetch(base + path, {
-                ...options,
-                headers: {
-                    Accept: 'application/json',
-                    ..._authHeaders(),
-                    ...(options.headers || {}),
-                },
-            });
-            let data = null;
+        const headers = {
+            Accept: 'application/json',
+            ..._authHeaders(),
+            ...(options.headers || {}),
+        };
+        let lastErr = null;
+        for (const base of [BASE, DIRECT_BASE]) {
+            let res;
             try {
-                data = await res.json();
+                res = await fetch(base + path, { ...options, headers });
+            } catch (e) {
+                lastErr = e; // lỗi mạng/CORS → thử base kế
+                continue;
+            }
+            let data = {};
+            try {
+                data = (await res.json()) || {};
             } catch {}
-            if (!res.ok && data?.success !== true) {
-                if (res.status >= 400 && res.status < 500 && data?.error) return data;
-                throw new Error(data?.error || `HTTP ${res.status}`);
+            if (res.status >= 500) {
+                lastErr = new Error(data.error || `HTTP ${res.status}`);
+                continue; // server lỗi → thử fallback base
+            }
+            // 4xx HOẶC 200 {success:false} → throw (caller catch xử lý), KHÔNG double-hit
+            if (!res.ok || data.success === false) {
+                throw new Error(data.error || `HTTP ${res.status}`);
             }
             return data;
-        };
-        try {
-            return await run(BASE);
-        } catch (e) {
-            try {
-                return await run(DIRECT_BASE);
-            } catch (e2) {
-                console.warn('[Web2Zalo] fetch fail', path, e2.message);
-                throw e2;
-            }
         }
+        console.warn('[Web2Zalo] fetch fail', path, lastErr?.message);
+        throw lastErr || new Error('Network error');
     }
 
     function normPhone(p) {

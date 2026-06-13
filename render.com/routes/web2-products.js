@@ -76,10 +76,21 @@ function _extractSourcePage(req) {
     return req.body?.sourcePage || req.headers['x-source-page'] || null;
 }
 
-function _notify(action, code) {
+// _notify(action, codeOrCodes) — broadcast SSE web2:products sau DB commit.
+//   codeOrCodes: string (1 SP) | string[] (bulk op nhiều SP) | null.
+// Payload luôn có CẢ `code` (single hoặc null) LẪN `codes` (array hoặc null) →
+// client patch đúng các row bị đổi tại chỗ (KHÔNG full reload → KHÔNG giật bảng).
+// Chỉ chứa MÃ SP nội bộ (vd KHOAOTRANG) + action + ts — KHÔNG PII (client tự re-fetch).
+function _notify(action, codeOrCodes) {
     if (!_notifyClients) return;
+    const codes = Array.isArray(codeOrCodes)
+        ? [...new Set(codeOrCodes.filter(Boolean))]
+        : codeOrCodes
+          ? [codeOrCodes]
+          : null;
+    const code = Array.isArray(codeOrCodes) ? null : codeOrCodes || null;
     try {
-        _notifyClients('web2:products', { action, code: code || null, ts: Date.now() }, 'update');
+        _notifyClients('web2:products', { action, code, codes, ts: Date.now() }, 'update');
         // PHASE B1: cross-broadcast cho supplier-wallet (Ví NCC) khi stock change.
         // Lý do: supplier debt = Σ(qty × costPrice). Stock change qua adjust-stock /
         // upsert-pending / confirm-purchase ảnh hưởng debt → page Ví NCC tự refresh.
@@ -93,7 +104,7 @@ function _notify(action, code) {
         if (stockAffectingActions.has(action)) {
             _notifyClients(
                 'web2:supplier-wallet',
-                { action, code: code || null, ts: Date.now(), from: 'web2:products' },
+                { action, code, codes, ts: Date.now(), from: 'web2:products' },
                 'update'
             );
         }
@@ -528,6 +539,31 @@ router.get('/:code/history', async (req, res) => {
 });
 
 // -----------------------------------------------------
+// GET /api/web2/products/batch?codes=A,B,C
+// Lấy nhiều SP 1 lượt — client SSE patch nhiều row tại chỗ sau bulk op
+// (confirm-purchase-partial, …) mà KHÔNG full reload. PHẢI khai báo TRƯỚC
+// route '/:code' nếu không Express bắt 'batch' làm :code.
+// -----------------------------------------------------
+router.get('/batch', async (req, res) => {
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
+    if (!pool) return res.status(500).json({ error: 'DB unavailable' });
+    const codes = String(req.query.codes || '')
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
+    if (!codes.length) return res.json({ success: true, products: [] });
+    try {
+        await ensureTables(pool);
+        const r = await pool.query(`SELECT * FROM web2_products WHERE code = ANY($1::text[])`, [
+            codes,
+        ]);
+        res.json({ success: true, products: r.rows.map(mapRow) });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// -----------------------------------------------------
 // GET /api/web2/products/:code
 // -----------------------------------------------------
 router.get('/:code', async (req, res) => {
@@ -917,7 +953,11 @@ router.post('/adjust-stock', async (req, res) => {
             results.push({ code: r.rows[0].code, stock: r.rows[0].stock, delta });
         }
         await client.query('COMMIT');
-        if (results.length) _notify('adjust-stock', null);
+        if (results.length)
+            _notify(
+                'adjust-stock',
+                results.map((r) => r.code)
+            );
         res.json({ success: true, results, warnings });
     } catch (e) {
         await client.query('ROLLBACK').catch(() => {});
@@ -948,7 +988,11 @@ router.post('/mark-printed', async (req, res) => {
         r.rows.forEach((row) => {
             counts[row.code] = Number(row.print_count || 0);
         });
-        if (r.rows.length) _notify('mark-printed', null);
+        if (r.rows.length)
+            _notify(
+                'mark-printed',
+                r.rows.map((x) => x.code)
+            );
         res.json({ success: true, counts });
     } catch (e) {
         console.error('[WEB2-PRODUCTS] /mark-printed error:', e.message);
@@ -1120,7 +1164,11 @@ router.post('/adjust-pending', async (req, res) => {
             });
         }
         await client.query('COMMIT');
-        if (results.length) _notify('adjust-pending', null);
+        if (results.length)
+            _notify(
+                'adjust-pending',
+                results.map((r) => r.code)
+            );
         res.json({ success: true, results, warnings });
     } catch (e) {
         await client.query('ROLLBACK').catch(() => {});
@@ -1283,7 +1331,11 @@ router.post('/upsert-pending', async (req, res) => {
             }
         }
         await client.query('COMMIT');
-        if (created || updated) _notify('upsert-pending', null);
+        if (created || updated)
+            _notify(
+                'upsert-pending',
+                results.map((r) => r.code)
+            );
         res.json({ success: true, created, updated, items: results });
     } catch (e) {
         await client.query('ROLLBACK').catch(() => {});
@@ -1343,7 +1395,11 @@ router.post('/confirm-purchase', async (req, res) => {
         `;
         const r = await client.query(sql, params);
         await client.query('COMMIT');
-        if (r.rows.length) _notify('confirm-purchase', null);
+        if (r.rows.length)
+            _notify(
+                'confirm-purchase',
+                r.rows.map((x) => x.code)
+            );
         res.json({
             success: true,
             confirmed: r.rows.length,
@@ -1470,9 +1526,11 @@ router.post('/confirm-purchase-partial', async (req, res) => {
                 );
             } catch (_) {}
         }
-        const processed = results.filter((r) => r.action === 'partial-purchase').length;
-        if (processed) _notify('confirm-purchase-partial', null);
-        res.json({ success: true, processed, items: results });
+        const partialCodes = results
+            .filter((r) => r.action === 'partial-purchase')
+            .map((r) => r.code);
+        if (partialCodes.length) _notify('confirm-purchase-partial', partialCodes);
+        res.json({ success: true, processed: partialCodes.length, items: results });
     } catch (e) {
         await client.query('ROLLBACK').catch(() => {});
         console.error('[WEB2-PRODUCTS] confirm-purchase-partial error:', e.message);

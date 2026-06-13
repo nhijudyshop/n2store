@@ -33,18 +33,25 @@
         );
         let lastErr = null;
         for (const base of [BASE, DIRECT]) {
+            let res;
             try {
-                const res = await fetch(base + path, opts);
-                const ct = res.headers.get('content-type') || '';
-                const data = ct.includes('application/json') ? await res.json() : {};
-                if (!res.ok && data.success !== true) {
-                    if (res.status >= 400 && res.status < 500 && data.error) return data;
-                    throw new Error(data.error || `HTTP ${res.status}`);
-                }
-                return data;
+                res = await fetch(base + path, opts);
             } catch (e) {
-                lastErr = e;
+                lastErr = e; // lỗi mạng/CORS → thử base kế (fallback)
+                continue;
             }
+            const ct = res.headers.get('content-type') || '';
+            const data = ct.includes('application/json') ? await res.json().catch(() => ({})) : {};
+            if (res.status >= 500) {
+                lastErr = new Error(data.error || `HTTP ${res.status}`);
+                continue; // server lỗi → thử fallback base
+            }
+            // 2xx/4xx có phản hồi rõ ràng → KHÔNG double-hit base kia.
+            // Thất bại (4xx HOẶC 200 {success:false}) → throw để caller catch xử lý.
+            if (!res.ok || data.success === false) {
+                throw new Error(data.error || `HTTP ${res.status}`);
+            }
+            return data;
         }
         throw lastErr || new Error('Network error');
     }

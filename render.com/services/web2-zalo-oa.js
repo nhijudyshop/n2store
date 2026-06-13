@@ -56,7 +56,20 @@ async function _loadDefaultOa(pool) {
 }
 
 // ── Refresh access_token (xoay refresh_token) ───────────────────────────
+// ⚠ Zalo XOAY refresh_token mỗi lần dùng → gọi refresh song song = token cũ bị
+//   vô hiệu → OA khoá tới khi auth lại. Dedup promise theo account để mọi caller
+//   đồng thời (vd vòng bulk ZNS) chờ CÙNG 1 lần refresh.
+const _refreshInFlight = new Map(); // account_key|id -> Promise<token>
+
 async function refreshToken(pool, account) {
+    const key = account?.account_key || account?.id || 'default';
+    if (_refreshInFlight.has(key)) return _refreshInFlight.get(key);
+    const p = _doRefresh(pool, account).finally(() => _refreshInFlight.delete(key));
+    _refreshInFlight.set(key, p);
+    return p;
+}
+
+async function _doRefresh(pool, account) {
     if (!account?.app_id || !account?.oa_secret || !account?.refresh_token) {
         throw new Error('OA thiếu app_id / secret / refresh_token — cần kết nối lại');
     }

@@ -226,10 +226,12 @@
 
     function pollQr(key) {
         clearInterval(state.qr.timer);
+        let errCount = 0;
         state.qr.timer = setInterval(async () => {
             if (state.qr.key !== key) return clearInterval(state.qr.timer);
             try {
                 const r = await window.ZaloApi.qr(key);
+                errCount = 0;
                 if (r.image && $('#wzQrImg')) {
                     $('#wzQrImg').src = r.image;
                     $('#wzQrImg').style.visibility = 'visible';
@@ -248,7 +250,15 @@
                 } else if (r.status === 'qr_expired' || r.status === 'declined') {
                     clearInterval(state.qr.timer);
                 }
-            } catch {}
+            } catch (e) {
+                // chịu được vài lần lỗi mạng tạm thời; quá ngưỡng thì dừng + báo
+                if (++errCount >= 4) {
+                    clearInterval(state.qr.timer);
+                    const el = $('#wzQrStatus');
+                    if (el)
+                        el.innerHTML = `<span class="wz-err">${esc(e.message || 'Lỗi mạng — đóng và thử lại')}</span>`;
+                }
+            }
         }, 1500);
     }
 

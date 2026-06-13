@@ -291,6 +291,36 @@
         return true;
     }
 
+    // Patch NHIỀU row tại chỗ sau bulk op (confirm-purchase-partial, adjust-stock…).
+    // Chỉ fetch + swap các code đang hiển thị trên page hiện tại → KHÔNG full reload,
+    // KHÔNG giật bảng, giữ scroll + selection. Trả {handled, anyOnPage}:
+    //   - handled=true  → đã patch xong (hoặc không có code nào on-page) → KHÔNG cần reload
+    //   - handled=false → fetch lỗi → caller fallback full reload
+    async function _updateRowsBatch(codes) {
+        const onPage = (codes || []).filter((c) => STATE.products.some((p) => p.code === c));
+        if (!onPage.length) return { handled: true, anyOnPage: false };
+        let products = [];
+        try {
+            if (window.Web2ProductsApi.getBatch) {
+                const r = await window.Web2ProductsApi.getBatch(onPage);
+                products = r?.products || [];
+            } else {
+                const settled = await Promise.allSettled(
+                    onPage.map((c) => window.Web2ProductsApi.get(c))
+                );
+                products = settled
+                    .filter((s) => s.status === 'fulfilled' && s.value?.product)
+                    .map((s) => s.value.product);
+            }
+        } catch (e) {
+            console.warn('[Web2Products] batch fetch failed:', e?.message || e);
+            return { handled: false, anyOnPage: true };
+        }
+        if (!products.length) return { handled: false, anyOnPage: true };
+        products.forEach((p) => _updateRowInPlace(p.code, p));
+        return { handled: true, anyOnPage: true };
+    }
+
     function renderPagination() {
         const totalPages = Math.max(1, Math.ceil(STATE.total / STATE.limit));
         const cur = STATE.page;
@@ -483,9 +513,18 @@
     async function load() {
         if (STATE.loading) return;
         STATE.loading = true;
-        tbody().innerHTML = `<tr><td colspan="11" class="loading-row">
-            <div class="spinner"></div>Đang tải dữ liệu...
-        </td></tr>`;
+        // Anti-flash: nếu bảng ĐÃ có dòng (reload do create/delete/fallback) → làm mờ
+        // thay vì xoá trắng → không nháy. Chỉ hiện spinner cho lần tải đầu / bảng rỗng.
+        const tb = tbody();
+        const hadRows = tb.children.length && !tb.querySelector('.empty-row, .loading-row');
+        if (hadRows) {
+            tb.style.opacity = '0.55';
+            tb.style.pointerEvents = 'none';
+        } else {
+            tb.innerHTML = `<tr><td colspan="11" class="loading-row">
+                <div class="spinner"></div>Đang tải dữ liệu...
+            </td></tr>`;
+        }
         try {
             const resp = await window.Web2ProductsApi.list({
                 search: STATE.search || undefined,
@@ -509,6 +548,9 @@
             notify('Lỗi tải dữ liệu: ' + e.message, 'error');
         } finally {
             STATE.loading = false;
+            const t = tbody();
+            t.style.opacity = '';
+            t.style.pointerEvents = '';
         }
     }
 
@@ -1347,27 +1389,34 @@
         };
 
         window.Web2SSE.subscribe('web2:products', async (msg) => {
-            const { action, code } = msg.data || {};
-            console.log('[Web2Products-SSE] web2:products', action, code || '');
-            // Single-product UPDATE: refresh just that row, keep position.
-            if (action === 'update' && code) {
-                const onPage = STATE.products.some((p) => p.code === code);
-                if (onPage) {
-                    try {
-                        const r = await window.Web2ProductsApi.get(code);
-                        if (r?.product) _updateRowInPlace(code, r.product);
-                        return;
-                    } catch (e) {
-                        console.warn('[Web2Products-SSE] in-place fetch failed:', e?.message);
-                        // fall through to full load
-                    }
+            const { action, code, codes } = msg.data || {};
+            // affected = mọi code bị đổi (bulk op gửi codes[], CRUD đơn gửi code).
+            const affected = codes && codes.length ? codes : code ? [code] : [];
+            console.log(
+                '[Web2Products-SSE] web2:products',
+                action,
+                affected.length ? affected.join(',') : '(no code)'
+            );
+
+            // create/delete đổi TỔNG số dòng / phân trang → buộc full reload.
+            if (action === 'create' || action === 'delete') {
+                if (action === 'delete' && code) STATE.selectedCodes.delete(code);
+                debouncedFullLoad();
+                return;
+            }
+
+            // Mọi action update-like (update / confirm-purchase / confirm-purchase-partial
+            // / upsert-pending / adjust-stock / adjust-pending / mark-printed): patch
+            // CHỈ các row bị đổi tại chỗ → KHÔNG full reload → KHÔNG giật bảng.
+            if (affected.length) {
+                try {
+                    const res = await _updateRowsBatch(affected);
+                    if (res.handled) return; // đã patch (hoặc không có code nào on-page)
+                } catch (e) {
+                    console.warn('[Web2Products-SSE] batch in-place failed, fallback:', e?.message);
                 }
             }
-            // Delete → cũng xóa khỏi selection (giữ Set clean across re-renders)
-            if (action === 'delete' && code) {
-                STATE.selectedCodes.delete(code);
-            }
-            // create/delete/bulk-stock → full load (total changes)
+            // Không xác định được code (vd backfill-supplier codes=null) → full reload an toàn.
             debouncedFullLoad();
         });
 

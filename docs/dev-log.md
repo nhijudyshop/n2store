@@ -2,6 +2,25 @@
 
 ## 2026-06-13
 
+### [render] [web2] Nhận hàng so-order → Kho SP realtime + BỎ giật bảng (SSE codes[] + in-place batch) ✅
+
+**User:** "so-order đã nhận hàng → bên kho products không cập nhật tồn kho/trạng thái; realtime + kho products bị giật bảng quá (bỏ giật bảng)."
+
+**Root cause (workflow 3 agent điều tra):**
+
+- Receive ("Nhận hàng") là **bulk op**: client gọi `upsertPending([...])` + raw POST `/confirm-purchase-partial {items:[...]}` (so-order-app.js:1924,1958). Server `_notify('confirm-purchase-partial', null)` — **code=null** (web2-products.js).
+- Products SSE handler: chỉ in-place khi `action==='update' && code`; mọi event null-code → `debouncedFullLoad()` → `load()` → `renderRows()` **thay sạch tbody.innerHTML = giật bảng**. Bulk receive luôn rơi vào nhánh này → giật + (race `STATE.loading`/debounce coalesce 2 event) đôi khi mất update.
+
+**Fix hợp nhất — bulk SSE mang `codes[]`, patch CHỈ row bị đổi tại chỗ:**
+
+- [render.com/routes/web2-products.js](../render.com/routes/web2-products.js): `_notify(action, codeOrCodes)` emit cả `code` (single|null) LẪN `codes` (array|null) — payload `{action,code,codes,ts}`, chỉ MÃ SP nội bộ KHÔNG PII. 6 call site bulk truyền codes thật: adjust-stock/mark-printed/adjust-pending/upsert-pending/confirm-purchase/confirm-purchase-partial (backfill-supplier giữ null = full reload có chủ đích). Thêm route `GET /batch?codes=A,B,C` (TRƯỚC `/:code`).
+- [web2/products/js/web2-products-api.js](../web2/products/js/web2-products-api.js): `getBatch(codes)`.
+- [web2/products/js/web2-products-app.js](../web2/products/js/web2-products-app.js): `_updateRowsBatch(codes)` (fetch + `_updateRowInPlace` từng code on-page, không reload); SSE callback viết lại — chỉ `create`/`delete` full reload; mọi update-like → patch in-place theo `affected = codes||[code]`; `load()` **dim-not-blank** (làm mờ thay vì xoá trắng khi đã có row) hết spinner flash.
+
+**⚠ Cần Render deploy mới ăn `codes[]`** — client feature-detect `getBatch` + fallback full reload (404 `/batch` → `debouncedFullLoad`), nên deploy frontend↔backend không cần đúng thứ tự.
+
+**Verify:** đang test live sau deploy (so-order receive → products in-place update tồn/trạng thái, 0 giật; Admin SSE Monitor thấy `codes:[...]`).
+
 ### [web2] [render] [worker] Zalo single-source — BUILD v1 (đăng nhập QR + chat + tra cứu + ZNS) ✅
 
 **User:** "cho đăng ký Zalo OA là chức năng sẽ phát triển… làm tất cả chức năng: đăng nhập tài khoản (QR/api), lấy tin nhắn, nhắn tin, xem thông tin người dùng/người khác… tạo 1 trang zalo riêng quản lý, các trang khác tham chiếu tới — chỉ có 1 nguồn zalo."

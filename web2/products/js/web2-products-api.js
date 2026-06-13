@@ -45,6 +45,16 @@
             return _fetchJson(`${BASE}/${encodeURIComponent(code)}`);
         },
         /**
+         * GET /api/web2-products/batch?codes=A,B,C — lấy nhiều SP 1 lượt.
+         * Dùng cho SSE in-place patch nhiều row (bulk op) → không full reload.
+         * Returns {success, products: [...]}
+         */
+        async getBatch(codes) {
+            if (!Array.isArray(codes) || !codes.length) return { success: true, products: [] };
+            const qs = new URLSearchParams({ codes: codes.join(',') });
+            return _fetchJson(`${BASE}/batch?${qs}`);
+        },
+        /**
          * GET /api/web2-products/usage?codes=A,B,C
          * Returns {success, usage: { code: [{orderCode, displayStt, customerName, ...}] }}
          */
