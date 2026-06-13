@@ -3,18 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `e4f48d8` — docs(web2): C8 done phase 1 — so-order Firestore→Postgres (15/15 audit ĐÓNG)
-**Last updated**: 2026-06-13 15:40:59 +07
-**Latest session**: [`RESUME:20260613-154059-e4f48d8`](../20260613-154059-e4f48d8.md)
-**Summary**: docs(web2): C8 done phase 1 — so-order Firestore→Postgres (15/15 audit ĐÓNG)
+**Latest commit**: `ede6ede` — docs(dev-log): verify wipe+regen data so-order/SP đúng Kho Biến Thể (0 Xanh Navy)
+**Last updated**: 2026-06-13 15:43:10 +07
+**Latest session**: [`RESUME:20260613-154310-ede6ede`](../20260613-154310-ede6ede.md)
+**Summary**: docs(dev-log): verify wipe+regen data so-order/SP đúng Kho Biến Thể (0 Xanh Navy)
 
 ## Folders affected in this commit
 
-- [`cloudflare-worker/`](./cloudflare-worker.md) — 2 file(s)
-- [`docs/`](./docs.md) — 3 file(s)
-- [`render.com/`](./render.com.md) — 1 file(s)
-- [`so-order/`](./so-order.md) — 1 file(s)
-- [`web2/`](./web2.md) — 3 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -26,10 +22,10 @@
 - [`balance-history-home/`](./balance-history-home.md) — updated 2026-05-21 15:39
 - [`balance-history/`](./balance-history.md) — updated 2026-06-11 16:49
 - [`bangkiemhang/`](./bangkiemhang.md) — updated 2026-05-21 15:39
-- [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-13 15:40
+- [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-13 15:41
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-13 14:33
-- [`docs/`](./docs.md) — updated 2026-06-13 15:40
+- [`docs/`](./docs.md) — updated 2026-06-13 15:43
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-13 14:55
 - [`downloads/`](./downloads.md) — updated 2026-06-12 20:06
@@ -55,14 +51,14 @@
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
-- [`render.com/`](./render.com.md) — updated 2026-06-13 15:40
+- [`render.com/`](./render.com.md) — updated 2026-06-13 15:41
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-11 10:18
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
 - [`shared/`](./shared.md) — updated 2026-06-13 14:55
 - [`showroom/`](./showroom.md) — updated 2026-06-10 19:04
 - [`showroom1/`](./showroom1.md) — updated 2026-06-10 19:52
-- [`so-order/`](./so-order.md) — updated 2026-06-13 15:40
+- [`so-order/`](./so-order.md) — updated 2026-06-13 15:41
 - [`soluong-live/`](./soluong-live.md) — updated 2026-06-08 18:40
 - [`soorder/`](./soorder.md) — updated 2026-05-21 15:39
 - [`soquy/`](./soquy.md) — updated 2026-05-21 15:39
@@ -75,4 +71,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-13 15:40
+- [`web2/`](./web2.md) — updated 2026-06-13 15:41
