@@ -66,8 +66,9 @@
         _pop.setAttribute('role', 'dialog');
         _pop.setAttribute('aria-label', 'Chọn emoji');
         const rec = recents();
+        // Không có search box (không có emoji→keyword map → search rỗng gây bug);
+        // recents + categories đủ dùng, scroll nhanh.
         _pop.innerHTML = `
-            <div class="wz-pop-search"><input type="search" placeholder="Tìm emoji…" aria-label="Tìm emoji" class="wz-emoji-search"></div>
             <div class="wz-emoji-scroll">
                 ${rec.length ? `<div class="wz-emoji-cat">Gần đây</div><div class="wz-emoji-grid">${gridHtml(rec)}</div>` : ''}
                 ${Object.entries(CATS)
@@ -87,20 +88,6 @@
                 onPick?.(b.textContent);
             }
         });
-        const search = _pop.querySelector('.wz-emoji-search');
-        search.addEventListener('input', () => {
-            const q = search.value.trim().toLowerCase();
-            const scroll = _pop.querySelector('.wz-emoji-scroll');
-            if (!q) {
-                _pop.querySelectorAll('.wz-emoji-cat,.wz-emoji-grid').forEach(
-                    (el) => (el.style.display = '')
-                );
-                return;
-            }
-            // lọc thô: hiện tất cả emoji (không có nhãn) — emoji search đơn giản theo tất cả
-            _pop.querySelectorAll('.wz-emoji-cat').forEach((el) => (el.style.display = 'none'));
-        });
-        setTimeout(() => search.focus(), 30);
         setTimeout(() => document.addEventListener('click', onDoc, true), 0);
     };
     WZ.closeEmojiPicker = close;

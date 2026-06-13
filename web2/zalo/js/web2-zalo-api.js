@@ -119,9 +119,10 @@
                 { method: 'GET' }
             );
         },
-        loadHistory(convId, { limit, before } = {}) {
+        loadHistory(convId, { limit, before, beforeId } = {}) {
             return _fetch(
-                `/conversations/${encodeURIComponent(convId)}/messages` + _qs({ limit, before }),
+                `/conversations/${encodeURIComponent(convId)}/messages` +
+                    _qs({ limit, before, beforeId }),
                 { method: 'GET' }
             );
         },

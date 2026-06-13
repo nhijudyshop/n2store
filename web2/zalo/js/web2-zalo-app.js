@@ -1010,7 +1010,8 @@
 
     async function _loadOlder() {
         const c = state.conv.activeConv;
-        const oldest = state.conv.messages[0]?.sent_at;
+        const oldestMsg = state.conv.messages[0];
+        const oldest = oldestMsg?.sent_at;
         if (!c || !oldest) return;
         const btn = $('#wzLoadOlder');
         if (btn) btn.textContent = 'Đang tải…';
@@ -1018,6 +1019,7 @@
             const res = await window.ZaloApi.loadHistory(state.conv.activeId, {
                 limit: 50,
                 before: oldest,
+                beforeId: oldestMsg?.id,
             });
             const older = res.data || [];
             state.conv.messages = older.concat(state.conv.messages);
@@ -1268,11 +1270,13 @@
         window.Web2SSE.subscribe('web2:zalo:accounts', () => {
             if (state.tab === 'accounts') loadAccounts();
         });
+        // CHỈ refresh DANH SÁCH hội thoại ở đây (debounce). Tin của hội thoại
+        // đang mở do subscribeRealtime (thread topic) lo → tránh double refetch.
+        let _listT;
         window.Web2SSE.subscribe('web2:zalo:messages', () => {
-            if (state.tab === 'chat') {
-                loadConversations();
-                refreshActiveMessages();
-            }
+            if (state.tab !== 'chat') return;
+            clearTimeout(_listT);
+            _listT = setTimeout(() => loadConversations(), 600);
         });
     }
 

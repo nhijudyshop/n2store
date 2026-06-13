@@ -26,6 +26,9 @@
     }
 
     async function addFiles(fileList, kind) {
+        // Khoá theo hội thoại lúc bắt đầu đọc file: nếu user đổi hội thoại trước
+        // khi FileReader xong → bỏ, tránh đính kèm nhầm thread.
+        const convAtStart = store().get().conv;
         for (const file of fileList) {
             if (!file) continue;
             if (file.size > MAX_FILE) {
@@ -35,6 +38,7 @@
             const isImg = /^image\//.test(file.type);
             const dataUrl = await readFile(file);
             if (!dataUrl) continue;
+            if (store().get().conv !== convAtStart) return; // đã đổi hội thoại
             store().addPending({
                 file,
                 dataUrl,

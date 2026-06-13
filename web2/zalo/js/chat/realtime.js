@@ -33,14 +33,12 @@
             refetch();
         };
 
+        // CHỈ subscribe thread topic — đã cover message/reaction/recall/seen/typing.
+        // (Conv-id topic redundant → bỏ để tránh double refetch; tin mới broadcast
+        //  qua web2:zalo:thread:<id> từ _persistIncoming.)
         if (threadId) {
             try {
                 subs.push(window.Web2SSE.subscribe(`web2:zalo:thread:${threadId}`, handle));
-            } catch {}
-        }
-        if (convId) {
-            try {
-                subs.push(window.Web2SSE.subscribe(`web2:zalo:conv:${convId}`, () => refetch()));
             } catch {}
         }
 

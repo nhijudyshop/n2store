@@ -106,37 +106,14 @@ function _msgPreview(msg) {
 async function _persistIncoming(msg) {
     if (!_pool || !msg?.threadId) return;
     const ts = now();
-    // upsert conversation
-    const { rows } = await _pool.query(
-        `INSERT INTO web2_zalo_conversations
-            (account_key, thread_id, thread_type, zalo_uid, display_name, last_msg_at, last_msg_text,
-             unread_count, created_at, updated_at)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$6,$6)
-         ON CONFLICT (account_key, thread_id) DO UPDATE SET
-            last_msg_at=$6, last_msg_text=$7,
-            unread_count=web2_zalo_conversations.unread_count + $8,
-            display_name=COALESCE(EXCLUDED.display_name, web2_zalo_conversations.display_name),
-            updated_at=$6
-         RETURNING id`,
-        [
-            msg.accountKey,
-            msg.threadId,
-            msg.threadType || 'user',
-            msg.threadType === 'group' ? null : msg.senderUid,
-            msg.senderName || null,
-            ts,
-            _msgPreview(msg),
-            msg.direction === 'in' ? 1 : 0,
-        ]
-    );
-    const convId = rows[0]?.id;
-    // insert message (dedup theo msg_id) — giữ attachments + cli_msg_id + reply
-    await _pool.query(
+    // 1) INSERT message TRƯỚC (dedup theo msg_id) → biết tin có thật sự mới không.
+    //    Tránh cộng unread 2 lần khi cùng 1 tin tới lặp (webhook/relay double-fire).
+    const ins = await _pool.query(
         `INSERT INTO web2_zalo_messages
             (msg_id, cli_msg_id, account_key, thread_id, thread_type, direction, msg_type, content, attachments,
              reply_to_msg_id, reply_to_preview, sender_uid, send_status, sent_at, created_at)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10,$11,$12,'sent',$13,$14)
-         ON CONFLICT DO NOTHING`,
+         ON CONFLICT DO NOTHING RETURNING id`,
         [
             msg.msgId,
             msg.cliMsgId || null,
@@ -154,9 +131,35 @@ async function _persistIncoming(msg) {
             ts,
         ]
     );
-    _notify('web2:zalo:messages', msg.direction === 'in' ? 'create' : 'update', msg.msgId);
-    if (convId) _notify(`web2:zalo:conv:${convId}`, 'create', String(convId));
-    if (msg.threadId) _notify(`web2:zalo:thread:${msg.threadId}`, 'message', msg.msgId);
+    const isNew = ins.rowCount > 0;
+    const unreadDelta = isNew && msg.direction === 'in' ? 1 : 0;
+    // 2) upsert conversation — chỉ cộng unread khi tin THỰC SỰ mới.
+    const { rows } = await _pool.query(
+        `INSERT INTO web2_zalo_conversations
+            (account_key, thread_id, thread_type, zalo_uid, display_name, last_msg_at, last_msg_text,
+             unread_count, created_at, updated_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$6,$6)
+         ON CONFLICT (account_key, thread_id) DO UPDATE SET
+            last_msg_at=$6, last_msg_text=$7,
+            unread_count=web2_zalo_conversations.unread_count + $8,
+            display_name=COALESCE(EXCLUDED.display_name, web2_zalo_conversations.display_name),
+            updated_at=$6`,
+        [
+            msg.accountKey,
+            msg.threadId,
+            msg.threadType || 'user',
+            msg.threadType === 'group' ? null : msg.senderUid,
+            msg.senderName || null,
+            ts,
+            _msgPreview(msg),
+            unreadDelta,
+        ]
+    );
+    // Chỉ broadcast khi tin mới (tránh refetch thừa khi tin lặp).
+    if (isNew) {
+        _notify('web2:zalo:messages', msg.direction === 'in' ? 'create' : 'update', msg.msgId);
+        if (msg.threadId) _notify(`web2:zalo:thread:${msg.threadId}`, 'message', msg.msgId);
+    }
 }
 
 // Thread-keyed topic cho realtime conv-level (typing/reaction/recall/seen) —
@@ -196,23 +199,26 @@ function _iconToEmoji(icon) {
 }
 
 // Inbound: KH thả cảm xúc lên tin (add-only). reactions JSONB = {emoji: [uid,...]}.
+// ATOMIC: 1 UPDATE tự đọc-ghi dưới row lock (READ COMMITTED) → không mất reaction
+// khi 2 event tới gần nhau (KH + shop). jsonb_set + append-distinct.
 async function _persistReaction(e) {
     if (!_pool || !e.msgId || !e.icon) return;
     const emoji = _iconToEmoji(e.icon);
-    const { rows } = await _pool.query(
-        `SELECT id, reactions FROM web2_zalo_messages WHERE account_key=$1 AND (msg_id=$2 OR cli_msg_id=$3) LIMIT 1`,
-        [e.accountKey, e.msgId, e.cliMsgId || '']
+    const uid = String(e.uidFrom || 'kh');
+    const { rowCount } = await _pool.query(
+        `UPDATE web2_zalo_messages
+            SET reactions = jsonb_set(
+                COALESCE(reactions, '{}'::jsonb),
+                ARRAY[$4::text],
+                (SELECT to_jsonb(array_agg(v)) FROM (
+                    SELECT jsonb_array_elements_text(COALESCE(reactions->$4, '[]'::jsonb)) AS v
+                    UNION SELECT $5::text
+                ) s),
+                true)
+          WHERE account_key=$1 AND (msg_id=$2 OR cli_msg_id=$3)`,
+        [e.accountKey, e.msgId, e.cliMsgId || '', emoji, uid]
     );
-    if (!rows[0]) return;
-    const reactions = rows[0].reactions || {};
-    const set = new Set(reactions[emoji] || []);
-    set.add(String(e.uidFrom || 'kh'));
-    reactions[emoji] = [...set];
-    await _pool.query(`UPDATE web2_zalo_messages SET reactions=$1::jsonb WHERE id=$2`, [
-        JSON.stringify(reactions),
-        rows[0].id,
-    ]);
-    _notifyThread(e.accountKey, e.threadId, 'reaction', e.msgId);
+    if (rowCount) _notifyThread(e.accountKey, e.threadId, 'reaction', e.msgId);
 }
 
 // Inbound/own: thu hồi tin.
@@ -582,16 +588,23 @@ router.get('/conversations/:id/messages', async (req, res) => {
         }
         const lim = Math.min(parseInt(req.query.limit, 10) || 50, 200);
         const before = req.query.before ? Number(req.query.before) : null;
-        // Keyset pagination: tải tin cũ hơn `before` (sent_at) khi cuộn lên.
+        const beforeId = req.query.beforeId ? Number(req.query.beforeId) : null;
+        // Keyset pagination composite (sent_at, id): nhiều tin cùng sent_at vẫn
+        // không bị nhảy/lặp. ORDER BY sent_at DESC, id DESC.
         const params = [conv.account_key, conv.thread_id];
         let beforeSql = '';
         if (before) {
-            params.push(before);
-            beforeSql = ` AND sent_at < $${params.length}`;
+            if (beforeId) {
+                params.push(before, beforeId);
+                beforeSql = ` AND (sent_at < $${params.length - 1} OR (sent_at = $${params.length - 1} AND id < $${params.length}))`;
+            } else {
+                params.push(before);
+                beforeSql = ` AND sent_at < $${params.length}`;
+            }
         }
         params.push(lim);
         const { rows } = await db.query(
-            `SELECT * FROM web2_zalo_messages WHERE account_key=$1 AND thread_id=$2${beforeSql} ORDER BY sent_at DESC LIMIT $${params.length}`,
+            `SELECT * FROM web2_zalo_messages WHERE account_key=$1 AND thread_id=$2${beforeSql} ORDER BY sent_at DESC, id DESC LIMIT $${params.length}`,
             params
         );
         const hasMore = rows.length === lim;
@@ -919,26 +932,29 @@ router.post('/seen', async (req, res) => {
             `UPDATE web2_zalo_conversations SET unread_count=0, last_read_at=$2 WHERE id=$1`,
             [convId, now()]
         );
-        // gửi seen lên Zalo cho tin inbound chưa seen (best-effort, raw có sẵn cột)
+        // gửi seen lên Zalo cho tin inbound chưa seen (best-effort, raw có sẵn cột).
+        // idTo = thread (uid KH / group id), KHÔNG phải accountKey của shop.
         try {
-            const { rows } = await db.query(
-                `SELECT msg_id, cli_msg_id, sender_uid FROM web2_zalo_messages
-                  WHERE account_key=$1 AND thread_id=$2 AND direction='in' ORDER BY sent_at DESC LIMIT 1`,
-                [accountKey, threadId]
-            );
-            if (rows[0]?.msg_id) {
-                await zca.sendSeen(
-                    accountKey,
-                    [
-                        {
-                            msgId: rows[0].msg_id,
-                            cliMsgId: rows[0].cli_msg_id,
-                            uidFrom: rows[0].sender_uid,
-                            idTo: accountKey,
-                        },
-                    ],
-                    req.body.threadType
+            if (threadId) {
+                const { rows } = await db.query(
+                    `SELECT msg_id, cli_msg_id, sender_uid FROM web2_zalo_messages
+                      WHERE account_key=$1 AND thread_id=$2 AND direction='in' ORDER BY sent_at DESC LIMIT 1`,
+                    [accountKey, threadId]
                 );
+                if (rows[0]?.msg_id) {
+                    await zca.sendSeen(
+                        accountKey,
+                        [
+                            {
+                                msgId: rows[0].msg_id,
+                                cliMsgId: rows[0].cli_msg_id,
+                                uidFrom: rows[0].sender_uid,
+                                idTo: threadId,
+                            },
+                        ],
+                        req.body.threadType
+                    );
+                }
             }
         } catch {}
         res.json({ success: true });
