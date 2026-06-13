@@ -4664,6 +4664,17 @@ window.addEventListener('load', () => {
     }
 
     async function init() {
+        // Skeleton trong lúc await load (IDB + Firestore seed) → hết "nháy trống" lần đầu.
+        const _tb0 = document.getElementById('soTableBody');
+        if (_tb0) {
+            _tb0.innerHTML = Array.from({ length: 4 })
+                .map(
+                    () =>
+                        '<tr class="so-skel-row"><td colspan="20" style="padding:10px 14px">' +
+                        '<span class="w2-skel" style="display:block;height:42px;border-radius:10px"></span></td></tr>'
+                )
+                .join('');
+        }
         // P1 2026-05-30: load() giờ async (IDB read). Await trước khi render.
         state = await window.SoOrderStorage.load();
         applyEditTableModeUi();
