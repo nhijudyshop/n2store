@@ -1282,6 +1282,49 @@ function _buildGioTrongBadge(order) {
     </div>`;
 }
 
+// (2026-06-13) STT hiển thị cho đơn gộp: nối các STT đã gộp bằng " + " và đóng
+// khung vuông (vd "243 + 678"). Hai nguồn:
+//   1. Đơn gộp thật trên TPOS → có tag "GỘP X Y" → parse số từ tên tag.
+//   2. Đơn gộp ảo (performTableSearch) → AllSTTs hoặc SessionIndex đã chứa " + ".
+// Đơn thường giữ nguyên SessionIndex.
+function _buildSttDisplay(order) {
+    const plain = order.SessionIndex != null ? String(order.SessionIndex) : '';
+    let mergedNumbers = null;
+
+    // 1. Tag "GỘP X Y" trên đơn đã gộp thật
+    if (order.Tags) {
+        try {
+            const tags = JSON.parse(order.Tags);
+            if (Array.isArray(tags)) {
+                const mergeTag = tags.find((t) => /^gộp\s/i.test((t.Name || '').trim()));
+                if (mergeTag) {
+                    const nums = mergeTag.Name.match(/\d+/g) || [];
+                    if (nums.length > 1) mergedNumbers = nums;
+                }
+            }
+        } catch (e) {}
+    }
+
+    // 2. Fallback đơn gộp ảo
+    if (!mergedNumbers) {
+        if (Array.isArray(order.AllSTTs) && order.AllSTTs.length > 1) {
+            mergedNumbers = order.AllSTTs.map(String);
+        } else if (plain.includes('+')) {
+            mergedNumbers = plain
+                .split('+')
+                .map((s) => s.trim())
+                .filter(Boolean);
+        }
+    }
+
+    if (mergedNumbers && mergedNumbers.length > 1) {
+        const label = mergedNumbers.join(' + ');
+        return `<span class="stt-merged-box" title="Đơn gộp STT ${label}">${label}</span>`;
+    }
+
+    return `<span>${plain}</span>`;
+}
+
 function createRowHTML(order) {
     if (!order || !order.Id) return '';
     let tagsHTML = '';
@@ -1374,7 +1417,7 @@ function createRowHTML(order) {
             <td data-column="stt" class="stt-clickable" onclick="toggleProductDetail('${order.Id}', this)" title="Click để xem chi tiết sản phẩm">
                 <div style="display: flex; align-items: center; justify-content: center; gap: 4px; flex-wrap: wrap;">
                     ${window.StockStatusEngine?.renderBadge?.(order.Id) || ''}
-                    <span>${order.SessionIndex || ''}</span>
+                    ${_buildSttDisplay(order)}
                     ${mergedIcon}
                     ${typeof renderKpiBadge === 'function' ? renderKpiBadge(order.Code) : ''}
                 </div>

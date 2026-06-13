@@ -4878,6 +4878,19 @@ td[data-column].hidden {
     font-size: 12px;
 }
 
+/* (2026-06-13) Đơn gộp: STT = các STT đã gộp nối " + ", đóng khung vuông */
+.stt-merged-box {
+    display: inline-block;
+    border: 2px solid #2563eb;
+    border-radius: 4px;
+    padding: 2px 8px;
+    background: #fff;
+    color: #1e3a8a;
+    font-weight: 700;
+    line-height: 1.2;
+    white-space: nowrap;
+}
+
 /* Highlight animation for realtime updates */
 .product-row-highlight {
     animation: highlightRow 2s ease-out;
