@@ -555,7 +555,7 @@
                     if (group && preview) {
                         const who =
                             c.last_msg_sender_uid === 'me' ? 'Bạn' : c.last_sender_name || '';
-                        if (who) preview = `${who}: ${preview}`;
+                        if (who && who !== name) preview = `${who}: ${preview}`;
                     }
                     return `<div class="wz-conv-item ${c.id === state.conv.activeId ? 'is-active' : ''}" data-id="${c.id}" role="button" tabindex="0" aria-label="Hội thoại với ${esc(name)}">
                 ${avatarHtml(c.avatar_url, name, 'wz-conv-av' + (group ? ' is-group' : ''))}

@@ -66,16 +66,8 @@
             .trim();
     }
 
-    function _ensureFirestore() {
-        if (state.db) return state.db;
-        if (typeof firebase === 'undefined' || !firebase.firestore) return null;
-        try {
-            state.db = firebase.firestore();
-            return state.db;
-        } catch {
-            return null;
-        }
-    }
+    // C8-cleanup (2026-06-13): _ensureFirestore() ĐÃ GỠ — Firestore tickle bỏ từ
+    // 2026-05-29 (realtime qua SSE `web2:variants`), hàm này không còn caller → dead.
 
     async function _loadList() {
         if (!global.Web2VariantsApi) return;

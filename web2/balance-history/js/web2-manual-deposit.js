@@ -378,16 +378,17 @@
         }, 250);
     }
 
-    // ───────────── NCC select (Firestore) + Tạo mới button ─────────────
+    // ───────────── NCC select (server ledger ví NCC) + Tạo mới button ─────────────
+    // C8-cleanup (2026-06-13): đọc NCC từ server ledger `/api/web2-supplier-wallet/state`
+    // (đợt E) — KHÔNG còn Firestore `web2_supplier_wallet` (đã frozen → NCC cũ/stale).
     async function loadNccList() {
         if (_nccLoaded) return;
         const select = document.getElementById('w2mdNccSelect');
         try {
-            if (!window.firebase?.firestore) throw new Error('Firestore chưa load');
-            const db = window.firebase.firestore();
-            const snap = await db.collection('web2_supplier_wallet').doc('main').get();
-            const data = snap.exists ? snap.data() || {} : {};
-            const wallets = data.wallets || {};
+            const r = await jsonFetch(
+                'https://chatomni-proxy.nhijudyshop.workers.dev/api/web2-supplier-wallet/state'
+            );
+            const wallets = (r && r.wallets) || {};
             const names = Object.keys(wallets)
                 .filter(Boolean)
                 .sort((a, b) => a.localeCompare(b, 'vi'));

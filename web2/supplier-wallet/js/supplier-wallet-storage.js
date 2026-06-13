@@ -249,26 +249,9 @@
     const Sync = {
         async init(_onRemote) {
             try {
-                let d = await _api('/state');
-                if (d?.data?.empty) {
-                    const legacy = await Sync._loadLegacyFirestore();
-                    if (legacy && Object.keys(legacy.wallets || {}).length) {
-                        try {
-                            const imp = await _api('/import', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({
-                                    wallets: legacy.wallets,
-                                    suppliers: legacy.suppliers,
-                                }),
-                            });
-                            console.log('[SupplierWallet.Sync] migration:', imp?.imported || imp);
-                            d = await _api('/state');
-                        } catch (e) {
-                            console.warn('[SupplierWallet.Sync] import fail:', e.message);
-                        }
-                    }
-                }
+                // C8-cleanup (2026-06-13): bỏ migration legacy Firestore (đợt E đã
+                // import xong từ 2026-06-12; server ledger là nguồn chuẩn). Hết firebase.
+                const d = await _api('/state');
                 const server = d?.data;
                 if (server?.wallets) {
                     const local = _cachedState || (await load());
@@ -290,24 +273,6 @@
             }
         },
 
-        // Đọc legacy Firestore 1 LẦN cho migration — READ-ONLY, không ghi/xoá.
-        async _loadLegacyFirestore() {
-            try {
-                if (typeof firebase === 'undefined' || !firebase.firestore) return null;
-                const db = firebase.firestore();
-                const [walletSnap, supSnap] = await Promise.all([
-                    db.collection(FIRESTORE_COLLECTION).doc(FIRESTORE_DOC).get(),
-                    db.collection('web2_suppliers').doc('main').get(),
-                ]);
-                const wallets = walletSnap.exists ? walletSnap.data()?.data?.wallets || null : null;
-                const suppliers = supSnap.exists ? supSnap.data()?.data?.suppliers || [] : [];
-                if (!wallets) return null;
-                return { wallets, suppliers };
-            } catch (e) {
-                console.warn('[SupplierWallet.Sync] legacy read fail:', e.message);
-                return null;
-            }
-        },
 
         async push() {
             if (!_pushWarned) {
