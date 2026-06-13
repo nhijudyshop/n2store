@@ -2,6 +2,30 @@
 
 ## 2026-06-13
 
+### [web2] [render] Zalo Hội thoại → CHAT ĐẦY ĐỦ như Zalo (ảnh/file/sticker/emoji/reply/reaction/recall/forward/typing/seen + lightbox) ✅ (live-verified UI)
+
+**User:** "Nghiên cứu github → làm giao diện để tương tác, chat với khách đầy đủ chức năng như zalo."
+
+**Quy trình (ultracode, 3 workflow):** (1) research+design workflow (4 agent) đọc source zca-js v2.1.2 + UX Zalo/github + codebase → build spec `docs/web2/ZALO-CHAT-BUILD-SPEC.md`; (2) implement theo spec; (3) review workflow (4 dimension × verify) → 11 finding, fix hết HIGH+MEDIUM.
+
+**Backend (`render.com`):**
+
+- Schema: thêm `cli_msg_id, reply_to_msg_id, reply_to_preview, reactions JSONB, recalled+recalled_at+recalled_by, seen_at` (messages); `last_read_*, is_pinned, is_muted` (conv); bảng `web2_zalo_media` (bytea tự host ảnh/file shop gửi vì `sendMessage` không trả URL).
+- zca service: `send()` trả `cliMsgId`+quote; thêm `sendMedia/sendSticker/react/recall/forward/sendTyping/sendSeen/getStickers/getQuickMessages`; listener `typing/seen_messages/delivered_messages/reaction/undo` (tên ĐÚNG theo apis/listen.js) + normalizer; `_normMessage` thêm reply+cliMsgId.
+- Routes: `/send-image /send-file /send-sticker /react /recall /forward /typing /seen /stickers /quick-replies /media/:id`; `/send-message` reply+cliMsgId; messages keyset pagination `(sent_at,id)` + `last_read`. SSE thread-keyed `web2:zalo:thread:<id>` cho typing/reaction/recall/seen.
+
+**Frontend (`web2/zalo/js/chat/*` — 9 module `WZChat.*`, tách vì app.js >800 dòng):** chat-store, lightbox, emoji-picker, sticker-picker, reactions, bubbles (gom nhóm theo người gửi, vạch ngày GMT+7, vạch chưa đọc, quote reply, hàng cảm xúc, trạng thái thu hồi, lưới ảnh album, ticks đã gửi/đã xem, hover tools), composer (text+ảnh+file+dán+kéo-thả+emoji+sticker+reply bar+quick reply), realtime (SSE patch typing/seen/reaction/recall), chat-actions. app.js delegate renderChat→WZChat + optimistic send/reconcile/retry. 3 CSS: chat-bubbles/composer/lightbox.
+
+**Review fixes (11):** ATOMIC reaction JSONB (jsonb_set 1-UPDATE, hết lost-update khi 2 reaction tới gần); inbound reaction zca-code→emoji (đồng nhất với reaction shop); unread chỉ +1 khi tin THỰC mới (INSERT-first RETURNING); `sendSeen` idTo=threadId (không phải accountKey); load-older composite keyset `(sent_at,id)`; global SSE chỉ refresh DANH SÁCH (per-thread lo tin active); composer drop file khi đổi hội thoại giữa chừng; bỏ search emoji rỗng + sub conv-id thừa.
+
+**Verify (Playwright localhost, KHÔNG gửi tin KH thật):** 9 module load 0 lỗi; mở hội thoại → composer 6 nút + 11 bubble (.wz-msg-bubble) + hover tools + meta + date divider; emoji picker 200 emoji + chèn input; reaction bar 6 mục; lightbox mở/đóng ảnh zdn.vn OK. Gửi ảnh/sticker/reaction/recall thật cần acc shop tự-thread (chưa test gửi để tránh nhắn KH thật).
+
+**Giới hạn (zca-js):** lịch sử 1-1 với người lạ không backfill (chỉ realtime forward); reaction add-only (không gỡ); gửi video cần URL host sẵn (defer); failed-send at-least-once (retry có thể trùng nếu tin đã tới).
+
+**Files:** `render.com/{db/web2-zalo-schema,services/web2-zalo-zca,routes/web2-zalo}.js`, `web2/zalo/js/web2-zalo-{api,app}.js`, `web2/zalo/js/chat/*.js` (9), `web2/zalo/css/chat-*.css` (3), `index.html ?v=20260613e`, `docs/web2/ZALO-CHAT-BUILD-SPEC.md`. Commits `abf8c1c49`→`58f6281f1`.
+
+**Status:** ✅ UI live-verified. 🔄 Backend deploy `58f6281` (atomic reactions etc.) đang queue.
+
 ### [web2] UX per-page đợt 3 (users-permissions/report-revenue/native-orders) + de-purple sâu (violet/indigo scale) ✅
 
 - **users-permissions**: thay 5 `alert()` bằng toast (`notificationManager`, helper `_toast`).

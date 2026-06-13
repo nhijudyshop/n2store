@@ -1804,8 +1804,9 @@ Throttle 30s/KH.`;
                     width: { ideal: 1280 },
                     height: { ideal: 720 },
                     // Cap fps THẤP: buffer chỉ sample ~5s/lần nên không cần fps cao →
-                    // giảm tải compositor/encode = giảm lag (user lo "bật popup lag").
-                    frameRate: { ideal: 4, max: 8 },
+                    // giảm tải compositor/encode = giảm lag. 2-4 đủ tươi cho cả
+                    // auto-snap (5s) lẫn seek-fallback, mà nhẹ hơn nhiều 4/8.
+                    frameRate: { ideal: 2, max: 4 },
                 },
                 audio: false,
                 preferCurrentTab: true,
@@ -1818,6 +1819,11 @@ Throttle 30s/KH.`;
             // Capture (cropTo, Chrome 104+) — crop theo bounding box (KHÔNG miễn đè).
             // restrictTo cần element tạo stacking context (wrapper có isolation:isolate).
             const track = stream.getVideoTracks()[0];
+            // contentHint='detail': ưu tiên sắc nét (ảnh SP đọc được) hơn mượt
+            // chuyển động — đúng cho chụp thumbnail tĩnh, nhẹ pipeline. (hint, an toàn)
+            try {
+                track.contentHint = 'detail';
+            } catch (_) {}
             const wrapper = document.getElementById('live-snap-fb-wrapper');
             let restricted = false;
             if (wrapper && window.RestrictionTarget?.fromElement && track.restrictTo) {
@@ -2375,7 +2381,14 @@ Throttle 30s/KH.`;
         const canvas = STATE.captureCanvas;
         canvas.width = targetW;
         canvas.height = targetH;
-        const ctx = canvas.getContext('2d');
+        // alpha:false → JPEG không cần kênh alpha; compositor bỏ qua alpha →
+        // readback/encode nhẹ hơn. desynchronized:true giảm latency hàng đợi.
+        const ctx =
+            STATE._captureCtx ||
+            (STATE._captureCtx = canvas.getContext('2d', {
+                alpha: false,
+                desynchronized: true,
+            }));
         ctx.drawImage(v, srcX, srcY, srcW, srcH, 0, 0, targetW, targetH);
         // Resolve Blob trực tiếp (skip FileReader/base64) — buffer giữ binary.
         return new Promise((resolve) => {

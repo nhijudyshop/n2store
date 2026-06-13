@@ -716,6 +716,9 @@
     padding: 6px;
     background: #fff;
     border-bottom: 1px solid #e5e7eb;
+    /* Cô lập repaint/relayout của iframe FB live khỏi phần còn lại của trang →
+       hết giật khi cuộn list comment/SP. KHÔNG size-contain (dock cao theo video). */
+    contain: layout paint;
 }
 #live-video-dock:empty {
     display: none;
