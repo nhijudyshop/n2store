@@ -3,24 +3,21 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `44d46ac` — auto: session update
-**Last updated**: 2026-06-13 18:46:58 +07
-**Latest session**: [`RESUME:20260613-184658-44d46ac`](../20260613-184658-44d46ac.md)
-**Summary**: auto: session update
+**Latest commit**: `fd2b40d` — fix(web2-zalo): composer hien day du - panel flex fill-viewport (border-box) + an drop-overlay/reply-bar/tray ([hidden] bi display:flex de)
+**Last updated**: 2026-06-13 18:47:14 +07
+**Latest session**: [`RESUME:20260613-184714-fd2b40d`](../20260613-184714-fd2b40d.md)
+**Summary**: fix(web2-zalo): composer hien day du - panel flex fill-viewport (border-box) + an drop-overlay/reply-bar/tray ([hidde...
 
 ## Folders affected in this commit
 
-- [`_root/`](./_root.md) — 1 file(s)
-- [`downloads/`](./downloads.md) — 2 file(s)
-- [`live-chat/`](./live-chat.md) — 3 file(s)
-- [`web2/`](./web2.md) — 4 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
 
 ## All folder snapshots
 
 - [`.claude/`](./.claude.md) — updated 2026-06-05 10:42
 - [`.github/`](./.github.md) — updated 2026-06-13 11:30
 - [`AI/`](./AI.md) — updated 2026-05-21 15:39
-- [`_root/`](./_root.md) — updated 2026-06-13 18:46
+- [`_root/`](./_root.md) — updated 2026-06-13 18:47
 - [`aikol-studio/`](./aikol-studio.md) — updated 2026-05-21 15:39
 - [`balance-history-home/`](./balance-history-home.md) — updated 2026-05-21 15:39
 - [`balance-history/`](./balance-history.md) — updated 2026-06-11 16:49
@@ -28,10 +25,10 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-13 15:41
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-13 14:33
-- [`docs/`](./docs.md) — updated 2026-06-13 18:37
+- [`docs/`](./docs.md) — updated 2026-06-13 18:47
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-13 14:55
-- [`downloads/`](./downloads.md) — updated 2026-06-13 18:46
+- [`downloads/`](./downloads.md) — updated 2026-06-13 18:47
 - [`facebook-services/`](./facebook-services.md) — updated 2026-06-13 14:55
 - [`fb-ads/`](./fb-ads.md) — updated 2026-05-21 15:39
 - [`firebase-stats/`](./firebase-stats.md) — updated 2026-05-21 15:39
@@ -41,7 +38,7 @@
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-06-13 14:55
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-12 19:21
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
-- [`live-chat/`](./live-chat.md) — updated 2026-06-13 18:46
+- [`live-chat/`](./live-chat.md) — updated 2026-06-13 18:47
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-06-04 20:02
 - [`native-orders/`](./native-orders.md) — updated 2026-06-13 18:37
 - [`nhanhang/`](./nhanhang.md) — updated 2026-05-21 15:39
@@ -74,4 +71,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-13 18:46
+- [`web2/`](./web2.md) — updated 2026-06-13 18:47
