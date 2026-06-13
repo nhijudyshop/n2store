@@ -2,6 +2,16 @@
 
 ## 2026-06-13
 
+### [render] [web2] Web 2.0 audit — đợt LOW (wallet emit post-commit + 3W6 sidebar admin-gating) ✅
+
+**User:** "continue" — dọn tiếp backlog LOW/kiến trúc.
+
+- **Wallet emit stale-read race** (`render.com/db/with-transaction.js` + `render.com/services/web2-wallet-service.js`): trước đây `processDeposit`/`processWithdraw` emit SSE ví bằng `process.nextTick` → bắn TRƯỚC khi outer `COMMIT` xong → client re-fetch đọc số dư cũ. Fix: thêm hàng đợi post-commit hook `client._afterCommit` trong `withTransaction` (flush SAU COMMIT thật, best-effort không chặn nhau) + helper `emitAfterCommit()` đẩy emit vào hook nếu client có queue, fallback `process.nextTick` cho client thô. Mọi caller wallet-service (web2-returns, fast-sale-orders) đều đi qua `withTransaction(pool, …)` nên đường hook là đường chính. Deploy `d5b84c1fd`.
+- **3W6 sidebar admin-gating** (`web2/shared/web2-sidebar.js?v=20260613c`, 37 trang): `_isAdmin()` ƯU TIÊN role `Web2Auth.getStored().user.role` (hệ auth Web 2.0), chỉ fallback auth Web 1.0 (`loginindex_auth`/`userType`) khi chưa login web2 → hết trộn 2 hệ auth cho UI gating (server vẫn gate độc lập qua `requireWeb2Admin`). Đồng nhất `?v=` (trước phân mảnh 6 giá trị).
+- **(Song song)** Re-fetch-on-reconnect bridge ✅ `d5b84c1fd` (synthetic event `resync` khi SSE nối lại → page re-fetch, hết "data cũ" sau deploy backend) — roadmap mục 8 đóng.
+
+**Cập nhật:** WEB2-PAGES-ANALYSIS.md (TC wallet-nextTick ✅, 3W6 ✅, HT/roadmap #8 ✅) + overview #auditPages.
+
 ### [web2] [shared] SSE reload-on-reconnect — re-fetch sau khi nối lại (hết "data không sync" khi deploy backend) ✅
 
 **User:** "implement reload-on-reconnect" (tiếp nối phân tích residual của fix CI deploy).

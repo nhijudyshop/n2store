@@ -523,6 +523,17 @@
                                 reset khi đổi campaign, SSE delta không nhiễm campaign view;
                                 <strong>BC</strong> printer .bat 404 GH Pages.
                             </li>
+                            <li>
+                                <strong>✅ Đợt LOW (13/06 — commit d5b84c1fd):</strong>
+                                wallet emit ví chuyển sang post-commit hook
+                                (<code>withTransaction._afterCommit</code>) thay
+                                <code>process.nextTick</code> → hết stale-read race (SSE bắn trước
+                                COMMIT, client đọc số dư cũ); <strong>3W6</strong> sidebar
+                                <code>_isAdmin()</code> ưu tiên role Web2Auth (hết trộn auth Web
+                                1.0, <code>?v=20260613c</code> 37 trang);
+                                <strong>SSE bridge</strong> reload-on-reconnect (synthetic
+                                <code>resync</code> khi nối lại → hết "data cũ" sau deploy backend).
+                            </li>
                         </ul>
                     </div>
 
