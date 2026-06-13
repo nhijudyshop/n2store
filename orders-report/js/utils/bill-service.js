@@ -107,6 +107,21 @@ const BillService = (function () {
     }
 
     /**
+     * Format STT value for bill print. Đơn gộp (chuỗi chứa "+", vd "243 + 678")
+     * được đóng khung vuông; STT đơn lẻ trả về nguyên văn.
+     * Dùng viền đen để in nhiệt rõ nét (không màu).
+     * @param {string} sttDisplay
+     * @returns {string} HTML
+     */
+    function formatBillStt(sttDisplay) {
+        const val = String(sttDisplay || '');
+        if (val.includes('+')) {
+            return `<span style="display:inline-block;border:1.5px solid #000;border-radius:3px;padding:0 6px;font-weight:bold;">${val}</span>`;
+        }
+        return val;
+    }
+
+    /**
      * Generate bill HTML from order data (EXACT TPOS template copy)
      *
      * This is a fallback bill template that matches TPOS bill format EXACTLY.
@@ -984,7 +999,7 @@ ${hasVirtualDebt ? `<span style="font-weight:bold; color:#c00;">** CÓ ĐƠN THU
 ${
     sttDisplay
         ? `                            <div>
-                                <strong>STT:</strong> ${sttDisplay}
+                                <strong>STT:</strong> ${formatBillStt(sttDisplay)}
                             </div>`
         : ''
 }
@@ -1790,19 +1805,14 @@ ${
                 throw new Error('No HTML returned from TPOS API');
             }
 
-            // Get STT from order data
-            let sttDisplay = '';
-            if (orderData?.IsMerged && orderData?.OriginalOrders?.length > 1) {
-                const allSTTs = orderData.OriginalOrders.map((o) => o.SessionIndex)
-                    .filter((stt) => stt)
-                    .sort((a, b) => (parseInt(a) || 0) - (parseInt(b) || 0));
-                sttDisplay = allSTTs.join(', ');
-            } else {
-                sttDisplay = orderData?.SessionIndex || '';
-            }
+            // Get STT from order data — merge-aware (TPOS tag "GỘP X Y", IsMerged,
+            // TAG XL flag) qua getMergedSttDisplay → đơn gộp ra "243 + 678".
+            const sttDisplay = getMergedSttDisplay(orderData);
             // Modify HTML to add STT below "Người bán" if STT exists
             let modifiedHtml = result.html;
             if (sttDisplay) {
+                // Đơn gộp đóng khung vuông; đơn lẻ in số trần
+                const sttHtml = formatBillStt(sttDisplay);
                 // HTML may have "á" as either literal or HTML entity (&#225;)
                 const nguoiBanRegex =
                     /(<div[^>]*>\s*<strong>Người\s+b(?:á|&#225;|&aacute;)n:<\/strong>[^<]*<\/div>)/i;
@@ -1810,7 +1820,7 @@ ${
                 if (nguoiBanRegex.test(modifiedHtml)) {
                     modifiedHtml = modifiedHtml.replace(
                         nguoiBanRegex,
-                        `$1\n                            <div><strong>STT:</strong> ${sttDisplay}</div>`
+                        `$1\n                            <div><strong>STT:</strong> ${sttHtml}</div>`
                     );
                 }
             }

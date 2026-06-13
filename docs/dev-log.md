@@ -13,6 +13,16 @@
 
 **Status:** ✅ Done.
 
+### [orders-report] Bill PBH in ra: STT đơn gộp cũng nối " + " và đóng khung vuông ✅
+
+**User:** trong bill PBH in ra phần STT cũng làm vậy (như bảng đơn).
+
+- **Nguyên nhân:** `fetchTPOSBillHTML` (bill-service.js) tính STT chỉ từ `IsMerged`/`OriginalOrders`, **bỏ qua tag `GỘP X Y`** → đơn gộp THẬT trên TPOS (đơn lẻ có tag, không có OriginalOrders) rơi về `SessionIndex` đơn → in "STT: 678". Trong khi template fallback (`generateCustomBillHTML`) đã dùng `getMergedSttDisplay` đúng.
+- **Fix bill-service.js:** `fetchTPOSBillHTML` dùng `getMergedSttDisplay(orderData)` (đã có sẵn, ưu tiên tag `GỘP X Y` → `IsMerged` → TAG XL flag `GOP_*` → fallback SessionIndex) → đơn gộp ra `243 + 678`. Thêm helper `formatBillStt(sttDisplay)`: chuỗi chứa `+` → bọc `<span>` viền đen `1.5px solid #000` + radius 3px + bold (khung vuông, viền đen cho in nhiệt). Áp cho cả 2 path: TPOS-fetched bill + template fallback (`<strong>STT:</strong> ${formatBillStt(sttDisplay)}`).
+- **Test (Playwright localhost):** `getMergedSttDisplay({SessionIndex:678, Tags:[{Name:"GỘP 243 678"}]})` → `243 + 678`; đơn lẻ → `500`. Regex inject vào fragment "Người bán" → `<div><strong>STT:</strong> <span style="border:1.5px solid #000...">243 + 678</span></div>` ✅. Bump `?v=20260613a` (tab1-orders.html + tab-pending-delete.html).
+
+**Status:** ✅ Done.
+
 ## 2026-06-12
 
 ### [web2] [tests] Browser smoke click-như-user-thật: modal Sửa + Lưu trên 35 trang menu Web 2.0 ✅
