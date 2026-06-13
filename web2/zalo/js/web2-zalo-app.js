@@ -19,6 +19,27 @@
     const notify = (m, t) => window.notificationManager?.show?.(m, t || 'info');
     const initial = (s) => (String(s || '?').trim()[0] || '?').toUpperCase();
 
+    // Modal a11y: lưu focus, focus vào field đầu, trả focus khi đóng (Esc/backdrop bound riêng).
+    let _lastFocus = null;
+    function showModal(sel) {
+        _lastFocus = document.activeElement;
+        const m = $(sel);
+        if (!m) return;
+        m.hidden = false;
+        const f = m.querySelector('input,select,textarea,button:not(.wz-modal-close)');
+        setTimeout(() => f?.focus(), 50);
+    }
+    function hideModal(sel) {
+        const m = $(sel);
+        if (m) m.hidden = true;
+        if (_lastFocus && _lastFocus.focus) _lastFocus.focus();
+    }
+    function setBusy(btn, on) {
+        if (!btn) return;
+        btn.classList.toggle('is-busy', !!on);
+        btn.disabled = !!on;
+    }
+
     function fmtTime(ms) {
         if (!ms) return '';
         try {
@@ -68,15 +89,19 @@
     // ===================================================================
     // TABS
     // ===================================================================
-    function switchTab(tab) {
+    function switchTab(tab, focusPanel) {
         state.tab = tab;
-        document
-            .querySelectorAll('.wz-tab')
-            .forEach((b) => b.classList.toggle('is-active', b.dataset.tab === tab));
+        document.querySelectorAll('.wz-tab').forEach((b) => {
+            const on = b.dataset.tab === tab;
+            b.classList.toggle('is-active', on);
+            b.setAttribute('aria-selected', on ? 'true' : 'false');
+            b.tabIndex = on ? 0 : -1;
+        });
         ['accounts', 'chat', 'lookup', 'zns'].forEach((t) => {
             const p = $('#wzPanel' + t[0].toUpperCase() + t.slice(1));
             if (p) p.hidden = t !== tab;
         });
+        if (focusPanel) $('#wzPanel' + tab[0].toUpperCase() + tab.slice(1))?.focus();
         if (tab === 'accounts') loadAccounts();
         else if (tab === 'chat') loadConversations();
         else if (tab === 'lookup') fillAccountSelect('#wzLookupAccount');
@@ -89,7 +114,22 @@
     // ===================================================================
     // ACCOUNTS
     // ===================================================================
+    function skelCards(n) {
+        return Array.from({ length: n || 2 })
+            .map(
+                () => `<div class="wz-skel-card">
+                    <div class="wz-skel-row"><div class="wz-skel" style="width:48px;height:48px;border-radius:14px"></div>
+                        <div style="flex:1"><div class="wz-skel" style="width:60%;height:14px;margin-bottom:7px"></div><div class="wz-skel" style="width:40%;height:11px"></div></div></div>
+                    <div class="wz-skel" style="width:45%;height:12px"></div>
+                    <div class="wz-skel" style="width:100%;height:30px;border-radius:9px"></div>
+                </div>`
+            )
+            .join('');
+    }
+
     async function loadAccounts() {
+        const grid = $('#wzAccGrid');
+        if (!state.accounts.length) grid.innerHTML = skelCards(2);
         try {
             const res = await window.ZaloApi.status();
             state.zcaAvailable = res.zcaAvailable !== false;
@@ -97,7 +137,12 @@
             renderAccounts();
             renderStatusStrip(res);
         } catch (e) {
-            $('#wzAccGrid').innerHTML = `<div class="wz-empty">✗ ${esc(e.message)}</div>`;
+            // Backend chưa deploy / lỗi mạng → vẫn cho onboarding (2 lựa chọn) thay vì màn lỗi cụt
+            state.accounts = [];
+            renderAccounts();
+            renderStatusStrip({ zcaAvailable: false });
+        } finally {
+            grid.setAttribute('aria-busy', 'false');
         }
     }
 
@@ -166,22 +211,40 @@
         </div>`;
     }
 
+    function choiceCardsHtml() {
+        return (
+            `<div class="wz-acc-card wz-choice" id="wzAddPersonal" role="button" tabindex="0" aria-label="Thêm tài khoản cá nhân">
+                <div class="wz-acc-top">
+                    <span class="wz-choice-ic personal"><i data-lucide="user-plus"></i></span>
+                    <div><h3>Tài khoản cá nhân</h3></div>
+                </div>
+                <p>Đăng nhập bằng QR → chat 2 chiều với khách như người thật, không giới hạn 24h như Facebook.</p>
+                <span class="wz-choice-cta">Thêm & quét QR <i data-lucide="arrow-right"></i></span>
+            </div>` +
+            `<div class="wz-acc-card wz-choice" id="wzAddOa" role="button" tabindex="0" aria-label="Kết nối Zalo OA">
+                <div class="wz-acc-top">
+                    <span class="wz-choice-ic oa"><i data-lucide="badge-check"></i></span>
+                    <div><h3>Zalo OA <span class="wz-tag-safe">An toàn</span></h3></div>
+                </div>
+                <p>Tài khoản chính thức → gửi ZNS thông báo đơn (~200đ/tin) tới mọi SĐT. Không rủi ro khoá.</p>
+                <span class="wz-choice-cta">Kết nối OA <i data-lucide="arrow-right"></i></span>
+            </div>`
+        );
+    }
+
     function renderAccounts() {
         const grid = $('#wzAccGrid');
         const cards = state.accounts.map(accCardHtml).join('');
-        grid.innerHTML =
-            cards +
-            `<div class="wz-acc-card is-add" id="wzAddPersonal"><i data-lucide="user-plus"></i><div>Thêm tài khoản cá nhân</div></div>` +
-            `<div class="wz-acc-card is-add" id="wzAddOa"><i data-lucide="badge-check"></i><div>Kết nối Zalo OA</div></div>`;
+        grid.innerHTML = cards + choiceCardsHtml();
         if (window.lucide) lucide.createIcons();
     }
 
-    async function onAccAction(act, key) {
+    async function onAccAction(act, key, btn) {
         const a = state.accounts.find((x) => x.accountKey === key);
         try {
             if (act === 'qr') return startQr(key);
             if (act === 'reconnect') {
-                notify('Đang kết nối lại…', 'info');
+                setBusy(btn, true);
                 await window.ZaloApi.reconnect(key);
                 notify('Đã gửi yêu cầu kết nối lại', 'success');
                 setTimeout(loadAccounts, 1500);
@@ -195,7 +258,7 @@
                 notify('Đã xoá', 'success');
                 loadAccounts();
             } else if (act === 'sync') {
-                notify('Đang đồng bộ template…', 'info');
+                setBusy(btn, true);
                 const r = await window.ZaloApi.syncTemplates(key);
                 notify(`Đã đồng bộ ${r.synced || 0} template`, 'success');
             } else if (act === 'chat') {
@@ -204,6 +267,8 @@
             }
         } catch (e) {
             notify('✗ ' + e.message, 'error');
+        } finally {
+            setBusy(btn, false);
         }
     }
 
@@ -265,35 +330,43 @@
     function openQrModal(msg) {
         $('#wzQrImg').src = '';
         $('#wzQrImg').style.visibility = 'hidden';
+        $('#wzQrFrame')?.classList.add('is-waiting');
         $('#wzQrStatus').textContent = msg || '';
-        $('#wzQrModal').hidden = false;
+        showModal('#wzQrModal');
     }
     function closeQrModal() {
         clearInterval(state.qr.timer);
         state.qr.key = null;
-        $('#wzQrModal').hidden = true;
+        hideModal('#wzQrModal');
     }
 
-    async function addPersonal() {
-        const label = (
-            prompt('Tên gợi nhớ cho tài khoản Zalo (vd "Zalo shop phụ"):', 'Zalo shop') || ''
-        ).trim();
-        if (label === '') return;
+    // ── Add personal account modal (thay prompt() — thân thiện hơn) ────────
+    function addPersonal() {
+        $('#wzAddLabel').value = 'Zalo shop';
+        showModal('#wzAddModal');
+    }
+    async function saveAddPersonal() {
+        const label = ($('#wzAddLabel').value || '').trim() || 'Zalo shop';
+        const btn = $('#wzAddSave');
+        setBusy(btn, true);
         try {
             const r = await window.ZaloApi.createAccount(label);
+            hideModal('#wzAddModal');
             await loadAccounts();
             if (r.data?.accountKey) startQr(r.data.accountKey);
         } catch (e) {
             notify('✗ ' + e.message, 'error');
+        } finally {
+            setBusy(btn, false);
         }
     }
 
     // ── OA connect modal ─────────────────────────────────────────────────
     function openOaModal() {
-        $('#wzOaModal').hidden = false;
+        showModal('#wzOaModal');
     }
     function closeOaModal() {
-        $('#wzOaModal').hidden = true;
+        hideModal('#wzOaModal');
     }
     async function saveOa() {
         const body = {
@@ -307,8 +380,10 @@
             $('#wzOaErr').textContent = 'Cần App ID, Secret và Authorization Code';
             return;
         }
+        $('#wzOaErr').textContent = '';
+        const btn = $('#wzOaSave');
+        setBusy(btn, true);
         try {
-            $('#wzOaSave').disabled = true;
             await window.ZaloApi.oaConnect(body);
             closeOaModal();
             notify('Đã kết nối Zalo OA', 'success');
@@ -316,7 +391,7 @@
         } catch (e) {
             $('#wzOaErr').textContent = e.message;
         } finally {
-            $('#wzOaSave').disabled = false;
+            setBusy(btn, false);
         }
     }
 
@@ -461,11 +536,16 @@
         const body = $('#wzChatBody');
         if (body) body.scrollTop = body.scrollHeight;
         $('#wzComposeSend')?.addEventListener('click', sendChat);
-        $('#wzComposeInput')?.addEventListener('keydown', (e) => {
+        const ci = $('#wzComposeInput');
+        ci?.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
                 sendChat();
             }
+        });
+        ci?.addEventListener('input', () => {
+            ci.style.height = 'auto';
+            ci.style.height = Math.min(ci.scrollHeight, 120) + 'px';
         });
     }
 
@@ -585,8 +665,9 @@
                 return;
             }
         }
+        const btn = $('#wzZnsSend');
+        setBusy(btn, true);
         try {
-            $('#wzZnsSend').disabled = true;
             const sentBy = window.Web2UserInfo?.get?.('web2/zalo')?.userName || null;
             await window.ZaloApi.sendZns({ phone, templateId, data, sentBy });
             notify('Đã gửi ZNS', 'success');
@@ -595,7 +676,7 @@
         } catch (e) {
             errEl.textContent = e.message;
         } finally {
-            $('#wzZnsSend').disabled = false;
+            setBusy(btn, false);
         }
     }
 
@@ -626,16 +707,47 @@
     // BIND + INIT
     // ===================================================================
     function bind() {
-        document
-            .querySelectorAll('.wz-tab')
-            .forEach((b) => b.addEventListener('click', () => switchTab(b.dataset.tab)));
+        // Tabs: click + keyboard (←/→/Home/End) theo ARIA APG tablist
+        const tabs = Array.from(document.querySelectorAll('.wz-tab'));
+        tabs.forEach((b, i) => {
+            b.addEventListener('click', () => switchTab(b.dataset.tab));
+            b.addEventListener('keydown', (e) => {
+                let j = null;
+                if (e.key === 'ArrowRight') j = (i + 1) % tabs.length;
+                else if (e.key === 'ArrowLeft') j = (i - 1 + tabs.length) % tabs.length;
+                else if (e.key === 'Home') j = 0;
+                else if (e.key === 'End') j = tabs.length - 1;
+                if (j !== null) {
+                    e.preventDefault();
+                    tabs[j].focus();
+                    switchTab(tabs[j].dataset.tab);
+                }
+            });
+        });
 
-        // account grid (delegated)
-        $('#wzAccGrid').addEventListener('click', (e) => {
+        // account grid (delegated click + keyboard cho choice cards)
+        const grid = $('#wzAccGrid');
+        const gridActivate = (e) => {
             if (e.target.closest('#wzAddPersonal')) return addPersonal();
             if (e.target.closest('#wzAddOa')) return openOaModal();
             const btn = e.target.closest('[data-act]');
-            if (btn) onAccAction(btn.dataset.act, btn.dataset.key);
+            if (btn) onAccAction(btn.dataset.act, btn.dataset.key, btn);
+        };
+        grid.addEventListener('click', gridActivate);
+        grid.addEventListener('keydown', (e) => {
+            if ((e.key === 'Enter' || e.key === ' ') && e.target.closest('.wz-choice')) {
+                e.preventDefault();
+                gridActivate(e);
+            }
+        });
+
+        // Add-personal modal
+        $('#wzAddSave').addEventListener('click', saveAddPersonal);
+        $('#wzAddCancel').addEventListener('click', () => hideModal('#wzAddModal'));
+        $('#wzAddClose').addEventListener('click', () => hideModal('#wzAddModal'));
+        $('#wzAddBackdrop').addEventListener('click', () => hideModal('#wzAddModal'));
+        $('#wzAddLabel').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') saveAddPersonal();
         });
 
         // QR modal
@@ -644,6 +756,7 @@
 
         // OA modal
         $('#wzOaClose').addEventListener('click', closeOaModal);
+        $('#wzOaCancel').addEventListener('click', closeOaModal);
         $('#wzOaBackdrop').addEventListener('click', closeOaModal);
         $('#wzOaSave').addEventListener('click', saveOa);
 
@@ -670,8 +783,9 @@
 
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
-                if (!$('#wzQrModal').hidden) closeQrModal();
-                if (!$('#wzOaModal').hidden) closeOaModal();
+                if (!$('#wzAddModal').hidden) hideModal('#wzAddModal');
+                else if (!$('#wzQrModal').hidden) closeQrModal();
+                else if (!$('#wzOaModal').hidden) closeOaModal();
             }
         });
     }

@@ -152,6 +152,8 @@ export const ROUTES = {
     WEB2_QUICK_REPLIES: { pattern: '/api/web2-quick-replies/*' },
     // Web 2.0 Supplier Wallet — server ledger ví NCC (đợt E)
     WEB2_SUPPLIER_WALLET: { pattern: '/api/web2-supplier-wallet/*' },
+    // Web 2.0 Sổ Order — server storage Postgres (C8, thay Firestore)
+    WEB2_SO_ORDER: { pattern: '/api/web2-so-order/*' },
     // Web 2.0 Live Comments — kho comment livestream (auto-save + đọc lại)
     WEB2_LIVE_COMMENTS: { pattern: '/api/web2-live-comments/*' },
     // Web 2.0 Zalo — nguồn duy nhất: personal (zca-js) + OA/ZNS
@@ -270,6 +272,8 @@ export function matchRoute(pathname) {
         pathname === '/api/web2-supplier-wallet'
     )
         return 'WEB2_SUPPLIER_WALLET';
+    if (pathname.startsWith('/api/web2-so-order/') || pathname === '/api/web2-so-order')
+        return 'WEB2_SO_ORDER';
     if (pathname.startsWith('/api/web2-live-comments/') || pathname === '/api/web2-live-comments')
         return 'WEB2_LIVE_COMMENTS';
     if (pathname.startsWith('/api/web2-zalo/') || pathname === '/api/web2-zalo') return 'WEB2_ZALO';
