@@ -2,6 +2,27 @@
 
 ## 2026-06-13
 
+### [live-chat] Tối ưu hiệu năng chụp/embed livestream (ít giật, ít tốn tài nguyên) ✅
+
+**User:** "nghiên cứu thêm github → chụp/inline/nhúng livestream → nhanh không giật lag, không tốn tài nguyên".
+
+**Research:** 3 agent (MDN/Chrome/W3C/GitHub) hội tụ — bottleneck KHÔNG phải drawImage mà là (a) fps capture thừa, (b) JPEG encode trên main thread, (c) iframe repaint lan ra cả trang. Chi tiết + nguồn lưu MEMORY [[reference_fb_live_capture_options]].
+
+**Áp (an toàn, giá trị cao):**
+
+- `getDisplayMedia` `frameRate` 4/8 → **2/4** (buffer chỉ sample 5s/lần → fps cao là phí compositor) + `track.contentHint='detail'` (sắc nét ảnh SP, nhẹ pipeline).
+- `_captureFrameJpeg`: context `{alpha:false, desynchronized:true}` (cache `STATE._captureCtx`) — JPEG bỏ alpha → readback/encode nhẹ. (canvas reuse + downscale + toBlob-blob đã có sẵn.)
+- CSS `#live-video-dock` thêm `contain: layout paint` → cô lập repaint/relayout của iframe FB live khỏi cả trang → hết giật khi cuộn list. (KHÔNG size-contain → dock vẫn cao theo video.)
+- Xác nhận đã tối ưu sẵn: dock dùng **bare `plugins/video.php` iframe** (KHÔNG load FB SDK); SDK chỉ load cho force-extract seek; wrapper có `isolation:isolate`.
+
+**Chưa làm (đề xuất, lớn hơn):** chuyển JPEG encode sang **OffscreenCanvas + Web Worker** (`createImageBitmap`→`convertToBlob`) + trigger `requestVideoFrameCallback` thay `setInterval` (né frame đen/trùng) — fix jank triệt để nhất nhưng cần thêm worker file. Chờ user.
+
+**Verify:** node --check OK; thay đổi là data/CSS/hint không thể vỡ load; flow getDisplayMedia/restrictTo cần user bấm 🎬 test live. ?v=20260613b (snap.js + inventory-panel.css).
+
+**Files:** [live-chat/js/live/live-livestream-snap.js](../live-chat/js/live/live-livestream-snap.js), [live-chat/css/inventory-panel.css](../live-chat/css/inventory-panel.css), [live-chat/index.html](../live-chat/index.html).
+
+**Status:** ✅ Done (subset an toàn; OffscreenCanvas-worker chờ user duyệt).
+
 ### [web2] De-purple đợt cuối — dọn tím sót ở zalo CSS + native-orders ✅
 
 Còn sót vài chỗ (file `web2/zalo/*` bị loại khỏi pass trước + accent native-orders): `#6d28d9`/`#7c3aed`/`#f3edff` (badge "Cá nhân" tab Tài khoản, gradient native-orders) → xanh (`#0058da`/`#0068ff`/`#e8f2ff`). **Sweep toàn repo: 0 purple.** Push GitHub đã thông (user cấp lại quyền) — origin `d0baba193`.
