@@ -25,8 +25,8 @@
         const sw = document.createElement('div');
         sw.className = 'pk-mode-switch';
         sw.innerHTML = `
-            <button data-mode="chat" type="button"><span>💬 Chat Pancake</span></button>
-            <button data-mode="kho" type="button"><span>📦 Kho SP</span></button>
+            <button data-mode="chat" type="button"><i data-lucide="messages-square"></i><span>Chat Pancake</span></button>
+            <button data-mode="kho" type="button"><i data-lucide="package"></i><span>Kho SP</span></button>
         `;
         return sw;
     }
@@ -87,6 +87,13 @@
         switcher.querySelectorAll('button').forEach((btn) => {
             btn.addEventListener('click', () => applyMode(btn.dataset.mode));
         });
+
+        // Render lucide icons trong switcher (messages-square / package)
+        if (global.lucide?.createIcons) {
+            try {
+                global.lucide.createIcons();
+            } catch {}
+        }
 
         // Apply default
         applyMode(getMode());

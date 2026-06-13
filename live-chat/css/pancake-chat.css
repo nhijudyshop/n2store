@@ -563,42 +563,51 @@
     align-items: center;
 }
 
+/* ===== REDESIGN đợt 6: channel/phone indicators — squircle soft-chips ===== */
 .pk-icon-indicator {
-    width: 24px;
-    height: 24px;
+    width: 22px;
+    height: 22px;
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 50%;
+    border-radius: 7px; /* squircle thay vòng tròn phẳng — hiện đại, bớt thô */
+    box-shadow: inset 0 0 0 1px rgba(16, 24, 40, 0.05);
+    transition: transform var(--pkr-dur-fast) var(--pkr-ease-spring);
 }
 
-.pk-icon-indicator i {
-    width: 14px;
-    height: 14px;
+.pk-icon-indicator:hover {
+    transform: translateY(-1px) scale(1.08);
 }
 
-/* Phone indicator - has phone (green) */
+.pk-icon-indicator i,
+.pk-icon-indicator svg {
+    width: 13px;
+    height: 13px;
+    stroke-width: 2.2; /* nét đậm hơn — icon bớt mảnh/yếu */
+}
+
+/* has phone — refined green */
 .pk-icon-indicator.has-phone {
-    background: #dcfce7;
-    color: #16a34a;
+    background: var(--pkr-success-50);
+    color: var(--pkr-success-600);
 }
 
-/* Phone indicator - no phone (gray) */
+/* no phone — neutral slate */
 .pk-icon-indicator.no-phone {
-    background: #f3f4f6;
-    color: #9ca3af;
+    background: var(--pkr-gray-100);
+    color: var(--pkr-gray-400);
 }
 
-/* Conversation type - inbox (blue) */
+/* inbox channel — Zalo blue (đồng bộ theme, thay #2563eb lệch tông) */
 .pk-icon-indicator.inbox {
-    background: #dbeafe;
-    color: #2563eb;
+    background: var(--pkr-blue-50);
+    color: var(--pkr-blue-600);
 }
 
-/* Conversation type - comment (orange) */
+/* comment channel — warm amber (đồng bộ token warning) */
 .pk-icon-indicator.comment {
-    background: #ffedd5;
-    color: #ea580c;
+    background: var(--pkr-warning-50);
+    color: var(--pkr-warning-600);
 }
 
 /* Remove from Live saved button */
@@ -1097,7 +1106,7 @@
 
 .pk-chat-input-wrapper:focus-within {
     border-color: var(--pkr-primary);
-    box-shadow: 0 0 0 2px rgba(0, 168, 132, 0.1);
+    box-shadow: var(--pkr-ring-primary); /* fix: bỏ ring teal #00a884 leftover → Zalo blue */
 }
 
 .pk-chat-input {
@@ -1786,7 +1795,7 @@
 
 .pk-page-selector-btn.active {
     border-color: var(--pkr-primary);
-    box-shadow: 0 0 0 2px rgba(0, 168, 132, 0.1);
+    box-shadow: var(--pkr-ring-primary); /* fix: teal leftover → Zalo blue */
 }
 
 .pk-page-avatar {
@@ -2053,12 +2062,12 @@
 
 @keyframes pkConvUpdated {
     0% {
-        background-color: rgba(0, 168, 132, 0.3);
+        background-color: rgba(0, 104, 255, 0.3);
         transform: scale(1.02);
     }
 
     50% {
-        background-color: rgba(0, 168, 132, 0.15);
+        background-color: rgba(0, 104, 255, 0.15);
     }
 
     100% {

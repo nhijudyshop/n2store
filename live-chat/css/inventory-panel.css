@@ -11,6 +11,10 @@
 }
 .pk-mode-switch button {
     flex: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
     padding: 8px 12px;
     background: transparent;
     border: none;
@@ -22,15 +26,25 @@
     transition:
         background-color var(--pkr-dur-base, 200ms) var(--pkr-ease-standard, ease),
         color var(--pkr-dur-base, 200ms) var(--pkr-ease-standard, ease),
-        box-shadow var(--pkr-dur-base, 200ms) var(--pkr-ease-standard, ease);
+        box-shadow var(--pkr-dur-base, 200ms) var(--pkr-ease-standard, ease),
+        transform var(--pkr-dur-fast, 150ms) var(--pkr-ease-spring, ease);
 }
 .pk-mode-switch button:hover {
     color: var(--pkr-text-strong, #0058da);
+}
+.pk-mode-switch button:active {
+    transform: scale(0.96); /* tactile press */
 }
 .pk-mode-switch button.active {
     background: var(--pkr-surface, #fff);
     color: var(--pkr-primary, #0068ff);
     box-shadow: var(--pkr-shadow-sm, 0 1px 3px rgba(0, 0, 0, 0.12));
+}
+.pk-mode-switch button i,
+.pk-mode-switch button svg {
+    width: 16px;
+    height: 16px;
+    stroke-width: 2.1;
 }
 .pk-mode-switch button .badge {
     display: inline-block;

@@ -493,16 +493,24 @@
 .w2cp-quick-btn {
     border: none;
     border-radius: 999px;
-    padding: 3px 11px;
+    padding: 5px 13px;
     font-size: 12px;
     font-weight: 600;
+    letter-spacing: 0.01em;
     color: #fff;
     cursor: pointer;
     text-shadow: 0 1px 1px rgba(0, 0, 0, 0.18);
-    transition: filter 0.15s;
+    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.12); /* depth nhẹ — chip nổi khỏi nền */
+    transition:
+        filter 0.15s,
+        transform var(--pkr-dur-fast, 0.15s) var(--pkr-ease-spring, ease);
 }
 .w2cp-quick-btn:hover {
     filter: brightness(1.06);
+    transform: translateY(-1px);
+}
+.w2cp-quick-btn:active {
+    transform: scale(0.94);
 }
 
 /* ---- Reply preview bar (đang trả lời tin) ---- */
@@ -589,11 +597,21 @@
     justify-content: center;
     transition:
         background 0.15s,
-        color 0.15s;
+        color 0.15s,
+        transform var(--pkr-dur-fast, 0.15s) var(--pkr-ease-spring, ease);
 }
 .w2cp-input-btn:hover {
     background: var(--pkr-blue-50, #f1f5f9);
     color: var(--pkr-primary, #0068ff);
+}
+.w2cp-input-btn:active {
+    transform: scale(0.88); /* tactile press feedback */
+}
+.w2cp-input-btn i,
+.w2cp-input-btn svg {
+    width: 21px;
+    height: 21px;
+    stroke-width: 2; /* nét chắc hơn — bớt mảnh/thô */
 }
 .w2cp-input-wrap {
     flex: 1;
@@ -660,26 +678,35 @@
     height: 44px;
     border: none;
     border-radius: 50%;
-    background: var(--pkr-primary, #0068ff);
+    background: linear-gradient(145deg, var(--pkr-blue-400, #5996ff), var(--pkr-primary, #0068ff));
     color: #fff;
     cursor: pointer;
     flex: 0 0 auto;
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    box-shadow: 0 4px 12px rgba(0, 104, 255, 0.32); /* soft depth tĩnh, ≤24px (anti-lag) */
     transition:
-        background 0.15s,
+        filter 0.15s,
         transform var(--pkr-dur-fast, 0.15s) var(--pkr-ease-spring, ease);
 }
 .w2cp-send-btn:hover {
-    background: var(--pkr-primary-hover, #0058da);
+    transform: translateY(-1px); /* nhấc nhẹ — depth, KHÔNG animate shadow */
+    filter: brightness(1.05);
 }
 .w2cp-send-btn:active {
     transform: scale(0.9);
 }
 .w2cp-send-btn:disabled {
     opacity: 0.4;
+    box-shadow: none;
     cursor: not-allowed;
+}
+.w2cp-send-btn i,
+.w2cp-send-btn svg {
+    width: 20px;
+    height: 20px;
+    stroke-width: 2.2;
 }
 
 /* ---- Emoji / sticker picker ---- */

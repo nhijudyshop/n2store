@@ -2,6 +2,24 @@
 
 ## 2026-06-13
 
+### [live-chat] [shared] Redesign đợt 6 — nút bớt "thô": tactile press + soft-depth + icon đậm + dọn teal ✅
+
+**User:** "các nút ở hình quá thô → research github/ai ui/animation/google các loại button, font, hiệu ứng thịnh hành nhất → đọc CHI TIẾT từng dòng CSS hiện tại TRƯỚC → xóa đi & thêm lại bằng CSS mới (không bị css cũ đè)."
+
+**Phương pháp (đúng yêu cầu):** đọc từng rule + truy nguồn render thật (chat window = `Web2ChatPanel` `.w2cp-*`, list = `.pk-*`, mode-switcher = `.pk-mode-switch`) + xác nhận KHÔNG có rule chéo đè selector mục tiêu → **thay khối tại chỗ** (in-place Edit, không append).
+
+**Trending áp dụng (2026):** rounded/**squircle**, **tactile press** `:active scale`, **soft depth** (shadow tĩnh ≤24px — anti-lag), icon **stroke đậm** 2–2.2, hover **lift** `translateY(-1px)`, transition cụ thể (không `all`).
+
+- **Icon kênh list** `.pk-icon-indicator` (pancake-chat.css): 24px vòng tròn phẳng outline mảnh lệch tông → **22px squircle** (radius 7px) + inset ring + icon 13px stroke 2.2 + hover spring; palette hài hòa token: phone=success-50/600, inbox=**blue-50/600** (thay #2563eb), comment=warning-50/600, no-phone=gray.
+- **Composer** `.w2cp-input-btn` (SHARED web2-chat-panel.css): thêm `:active scale(.88)` + icon 21px stroke 2.
+- **Nút gửi** `.w2cp-send-btn` (SHARED): nền **gradient** blue-400→primary + **soft glow tĩnh** `0 4px 12px rgba(0,104,255,.32)` + hover lift, giữ spring `:active scale(.9)`, icon 20px.
+- **Tag chip** `.w2cp-quick-btn` (SHARED): padding 3→5px, +shadow nhẹ, hover lift + `:active scale(.94)`.
+- **Mode-switcher** `.pk-mode-switch` (inventory-panel.css) + `pancake-mode-switcher.js`: nút flex + `:active scale(.96)` + icon 16px; **đổi emoji 💬/📦 → lucide** `messages-square`/`package` (sạch, có thiết kế) + `lucide.createIcons()` sau wrap.
+- **Dọn teal leftover** (#00a884 / rgba(0,168,132)) còn sót: ring `.pk-chat-input-wrapper`, `.pk-page-selector-btn.active`, keyframe `pkConvUpdated` → tất cả về `--pkr-ring-primary` / rgba(0,104,255). Sweep: 0 giá trị teal còn lại (chỉ còn comment).
+- SHARED edits dùng `var(--pkr-X, fallback)` → native-orders/balance-history hưởng cùng (đồng bộ), không vỡ.
+
+**Verify localhost (screenshot):** icon kênh squircle hài hòa xanh/lá/cam, mode-switcher icon lucide (hết emoji), list render đủ, 0 JS error, layout nguyên. Bump `?v=20260613rc` (pancake-chat.css, web2-chat-panel.css, inventory-panel.css, mode-switcher.js). **Status:** ✅ Done (verified desktop). ⏳ Composer/send button cần mở 1 chat trên thiết bị để soi cận.
+
 ### [live-chat] Redesign TOÀN BỘ giao diện Chat Pancake + Kho SP — "Zalo Bento Commerce" (5 đợt) ✅
 
 **User:** "xóa toàn bộ giao diện chat pancake, kho sp hiện tại làm lại hiện đại hơn → research github/ai ui/animation/google, tối ưu điện thoại, hiệu ứng đẹp dễ dùng" → chốt **Phương án C "Zalo Bento Commerce"** (workflow research 6-agent + 3 phương án previews) → "kiểm lại --pk-\* và xóa đi".
