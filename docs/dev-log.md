@@ -2,20 +2,21 @@
 
 ## 2026-06-13
 
-### [web2] [shared] Hướng native-orders + shared FX + barba-style page transition (đợt 9) 🔄
+### [web2] [shared] Hướng native-orders + shared FX (glass/soft) + animation engine = MOTION (đợt 9) ✅
 
-**User:** revert Chatwoot (xấu) → "lấy native-orders làm giao diện chủ đạo; shared css web2 = native-orders làm chính + 4 phong cách (faux-glass/soft-UI/glow/animate.css) anti-lag light" → animation dùng **barba.js** (chốt: barba-style nhẹ KHÔNG PJAX vì 40 trang app nặng Firebase/SSE/Pancake).
+**User:** revert Chatwoot (xấu) → "lấy native-orders làm giao diện chủ đạo; shared css web2 = native-orders làm chính + 4 phong cách (faux-glass/soft-UI/glow/animate.css) anti-lag light" → animation thử **barba.js** rồi đổi **Motion** (motion.dev / github motiondivision/motion).
 
 **Phát hiện:** native-orders primary = `#0068ff` (Zalo blue) = **GIỐNG** token live-chat `--pkr`. Khác biệt chỉ font/nền/component-feel. `web2/shared/web2-effects.css` (shared FX) ĐÃ có fade/slide/pop/pulse/spin/flash/shimmer/hover-lift/scale/glow/press/underline/stagger + page-head-mini.
 
 **Đã làm:**
 
 - **Revert đợt 8** Chatwoot skin về đợt 7 (commit `2d8ddc80e`).
-- **Mở rộng `web2/shared/web2-effects.css`** (bổ sung 2 phong cách thiếu): `.w2fx-glass` (faux-glass KHÔNG backdrop-filter → an toàn scroll) + `.w2fx-glass-blur` (opt-in modal); `.w2fx-card` / `.w2fx-card-i` (soft-UI card light, hover-lift transform); **barba-style `.w2fx-curtain`** (page-transition wipe) + `.w2fx-page-enter`. Đọc `--web2-*` (palette native-orders). reduced-motion reset.
-- **`web2/shared/web2-page-transition.js`** (MỚI, tái dùng): controller barba-style KHÔNG PJAX — chặn click link nội bộ → kéo màn che (transform) → `location.href` điều hướng THẬT → trang mới reveal. An toàn cho app nặng (init chạy bình thường). Same-origin only, bỏ qua hash/external/\_blank/download/modifier/`data-no-transition`. bfcache `pageshow` reveal lại. reduced-motion → tắt hẳn.
-- **Wire:** `live-chat/chat.html` + `live-chat/index.html` (thêm web2-effects.css + page-transition.js) + `native-orders/index.html` (thêm page-transition.js — đã có effects.css). `?v=20260613no1`.
+- **Mở rộng `web2/shared/web2-effects.css`** (bổ sung 2 phong cách thiếu, GIỮ): `.w2fx-glass` (faux-glass KHÔNG backdrop-filter → an toàn scroll) + `.w2fx-glass-blur` (opt-in modal); `.w2fx-card` / `.w2fx-card-i` (soft-UI card light, hover-lift transform). Đọc `--web2-*` (palette native-orders). reduced-motion reset.
+- **Barba thử rồi GỠ**: từng làm `web2-page-transition.js` (curtain wipe no-PJAX) — user đổi ý → **đã xoá controller + CSS `.w2fx-curtain`/`.w2fx-page-enter`**.
+- **Animation engine = MOTION** — `web2/shared/web2-motion.js` (MỚI, ESM `type="module"`): `import { animate, inView, stagger } from cdn.jsdelivr.net/npm/motion@11/+esm` (WAAPI, 120fps GPU). API tái dùng `window.Web2Motion`: `animate/inView/stagger/staggerIn/reveal/pop/enabled`. AUTO enter-on-load: stagger reveal block tĩnh (`.top-bar`/`.page-head-mini`/`.tab-navigation`/`.w2fx-card`/`[data-w2-motion]`). **Fail-safe**: CDN fail hoặc reduced-motion → KHÔNG đụng opacity (phần tử hiện bình thường); `reveal/staggerIn` guard `enabled` trước khi set opacity:0. KHÔNG đụng điều hướng → an toàn app nặng.
+- **Wire:** `live-chat/chat.html` + `live-chat/index.html` (web2-effects.css + `<script type=module web2-motion.js>`) + `native-orders/index.html` (web2-motion.js — đã có effects.css). `?v=...mo1`.
 
-**Verify desktop:** curtain reveal đúng (KHÔNG kẹt che), web2-effects.css loaded, controller active, list/chat render bình thường, 0 vỡ. JS parse OK, braces OK. **Status:** 🔄 transition mượt cần xem live (wipe khi click nav) — chờ user xác nhận trên trình duyệt.
+**Verify desktop:** badge `Web2Motion enabled=true animate=function` — Motion CDN load OK, page render bình thường, auto entrance chạy + settled, 0 vỡ. braces OK, sạch barba. **Status:** ✅ Done. Tái dùng trang khác: `<script type="module" src="../shared/web2-motion.js">` + dùng `Web2Motion.reveal('.selector')` / class `.w2fx-*`.
 
 ### [live-chat] Redesign đợt 7 — conversation row kiểu Telegram/Intercom: FIX tên cắt "..." + layout hiện đại ✅
 
