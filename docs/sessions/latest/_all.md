@@ -3,14 +3,13 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `46c7a30` — feat(live-chat): redesign đợt 7 — conversation row Telegram/Intercom, FIX tên cắt '...', badge overlay avatar + unread pill gradient, bỏ cột actions + CSS chết
-**Last updated**: 2026-06-13 21:55:16 +07
-**Latest session**: [`RESUME:20260613-215516-46c7a30`](../20260613-215516-46c7a30.md)
-**Summary**: feat(live-chat): redesign đợt 7 — conversation row Telegram/Intercom, FIX tên cắt '...', badge overlay avatar...
+**Latest commit**: `f50dafa` — auto: session update
+**Last updated**: 2026-06-13 22:34:55 +07
+**Latest session**: [`RESUME:20260613-223455-f50dafa`](../20260613-223455-f50dafa.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
 - [`live-chat/`](./live-chat.md) — 3 file(s)
 
 ## All folder snapshots
@@ -39,7 +38,7 @@
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-06-13 14:55
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-12 19:21
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
-- [`live-chat/`](./live-chat.md) — updated 2026-06-13 21:55
+- [`live-chat/`](./live-chat.md) — updated 2026-06-13 22:34
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-06-04 20:02
 - [`native-orders/`](./native-orders.md) — updated 2026-06-13 19:51
 - [`nhanhang/`](./nhanhang.md) — updated 2026-06-13 19:51
