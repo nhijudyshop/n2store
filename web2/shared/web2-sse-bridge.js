@@ -38,6 +38,31 @@
     // chỉ lúc connect). Refocus check dùng cái này để chỉ force-reopen khi THẬT SỰ
     // im lặng quá lâu, tránh reopen mỗi >60s dù connection vẫn sống & nhận event.
     let lastEventAt = 0;
+    // reload-on-reconnect (2026-06-13): sau khi SSE đứt (deploy backend restart, mạng
+    // chập) rồi nối lại, server KHÔNG replay event đã phát trong cửa sổ đứt → page hiển
+    // thị data cũ ("data không sync" khi deploy backend dày). Khi reconnect, bắn synthetic
+    // event 'resync' để mọi page re-fetch 1 lần. Bỏ qua reopen do đổi topic (không mất data).
+    let everConnected = false;
+    let suppressResyncOnce = false;
+
+    function _dispatchResync() {
+        for (const [topic, subs] of subscribers) {
+            if (!subs || !subs.size) continue;
+            for (const cb of subs) {
+                try {
+                    cb({
+                        topic,
+                        eventType: 'resync',
+                        data: null,
+                        timestamp: Date.now(),
+                        resync: true,
+                    });
+                } catch (e) {
+                    console.error('[Web2SSE] resync subscriber error', e);
+                }
+            }
+        }
+    }
 
     function _openConnection() {
         if (reconnectTimer) {
@@ -62,9 +87,17 @@
         }
 
         es.addEventListener('connected', () => {
+            const isReconnect = everConnected;
+            everConnected = true;
             reconnectAttempts = 0;
             lastConnectedAt = Date.now();
             lastEventAt = Date.now();
+            // Chỉ resync khi đây là LẦN NỐI LẠI (đứt rồi lên), KHÔNG phải connect đầu
+            // tiên, và KHÔNG phải reopen do đổi topic (suppressResyncOnce).
+            if (isReconnect && !suppressResyncOnce) {
+                _dispatchResync();
+            }
+            suppressResyncOnce = false;
         });
 
         const handleData = (eventType) => (ev) => {
@@ -128,6 +161,8 @@
         }
         _refreshConnectionForTopicChange._t = setTimeout(() => {
             _refreshConnectionForTopicChange._t = null;
+            // Reopen vì đổi topic (server vẫn sống suốt) → KHÔNG mất data → đừng resync.
+            suppressResyncOnce = true;
             _openConnection();
         }, 50);
     }

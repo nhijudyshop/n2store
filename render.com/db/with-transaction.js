@@ -52,7 +52,7 @@ async function withTransaction(pool, fn) {
     if (typeof pool.release === 'function') {
         throw new Error(
             'withTransaction: received a PoolClient (has .release). Pass the Pool, ' +
-            'or call your queries directly on the client you already have.'
+                'or call your queries directly on the client you already have.'
         );
     }
     if (typeof fn !== 'function') {
@@ -60,10 +60,25 @@ async function withTransaction(pool, fn) {
     }
 
     const client = await pool.connect();
+    // Post-commit hook queue: callbacks registered DURING fn (vd emit SSE ví) chỉ
+    // được chạy SAU khi COMMIT thật xong → tránh stale-read race (trước đây
+    // wallet-service emit bằng process.nextTick → SSE bắn TRƯỚC COMMIT → client
+    // re-fetch đọc số dư cũ). Đăng ký qua client._afterCommit.push(fn).
+    client._afterCommit = [];
     try {
         await client.query('BEGIN');
         const result = await fn(client);
         await client.query('COMMIT');
+        // COMMIT thành công → data đã durable → flush hooks (best-effort, không
+        // để 1 hook lỗi chặn hook khác hay làm fail cả transaction đã commit).
+        const hooks = client._afterCommit || [];
+        for (const hook of hooks) {
+            try {
+                hook();
+            } catch (hookErr) {
+                console.error('[withTransaction] afterCommit hook failed:', hookErr.message);
+            }
+        }
         return result;
     } catch (err) {
         // Best-effort rollback. Swallow rollback errors to not mask the original.
@@ -74,6 +89,8 @@ async function withTransaction(pool, fn) {
         }
         throw err;
     } finally {
+        // Xoá queue trước khi release để client tái sử dụng không giữ hook cũ.
+        client._afterCommit = null;
         client.release();
     }
 }

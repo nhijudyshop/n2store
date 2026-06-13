@@ -315,9 +315,20 @@
     }
 
     // Admin gating — items with `adminOnly: true` only render if current user is admin.
-    // Same pattern as shared/js/navigation-modern.js for consistency.
+    // 3W6 (2026-06-13): Web 2.0 page → ƯU TIÊN role từ Web2Auth (hệ auth của Web
+    // 2.0). Chỉ fallback sang auth Web 1.0 (loginindex_auth/userType) khi chưa có
+    // Web2Auth user — tránh trộn 2 hệ auth cho UI gating. (Server vẫn gate độc lập
+    // qua requireWeb2Admin nên đây chỉ là ẩn/hiện item.)
     function _isAdmin() {
         try {
+            const w2user =
+                typeof window !== 'undefined' && window.Web2Auth?.getStored
+                    ? window.Web2Auth.getStored()?.user
+                    : null;
+            if (w2user && w2user.role) {
+                return String(w2user.role).toLowerCase() === 'admin';
+            }
+            // Fallback Web 1.0 auth (khi Web2Auth chưa load / chưa login web2)
             const authStr =
                 localStorage.getItem('loginindex_auth') ||
                 sessionStorage.getItem('loginindex_auth') ||

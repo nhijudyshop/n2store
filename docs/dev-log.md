@@ -2,6 +2,18 @@
 
 ## 2026-06-13
 
+### [web2] [shared] SSE reload-on-reconnect — re-fetch sau khi nối lại (hết "data không sync" khi deploy backend) ✅
+
+**User:** "implement reload-on-reconnect" (tiếp nối phân tích residual của fix CI deploy).
+
+**Vấn đề:** Mỗi deploy backend = Render restart = mọi kết nối SSE đứt. [web2-sse-bridge.js](../web2/shared/web2-sse-bridge.js) ĐÃ có auto-reconnect (onerror backoff) + reopen-on-visibility, NHƯNG **thiếu reload sau khi nối lại**. SSE không replay event đã phát trong cửa sổ đứt → nếu user A mutate ngay sau khi server sống lại trong khi máy B còn backoff chưa nối → B miss event → UI B đứng yên (data cũ) tới khi có event kế hoặc tự F5. Đúng cảm giác "data không sync" khi deploy backend dày.
+
+**Fix (chỉ 1 file `web2-sse-bridge.js`):** thêm `_dispatchResync()` bắn synthetic event `{eventType:'resync', data:null, resync:true}` tới mọi subscriber khi `connected` fire mà **là lần nối lại** (`everConnected===true`), KHÔNG phải connect đầu, và KHÔNG phải reopen do đổi topic (`suppressResyncOnce` set trong `_refreshConnectionForTopicChange`). Bắt được cả native EventSource auto-reconnect lẫn reconnect thủ công vì server gửi `connected` trên mọi kết nối mới.
+
+**Tương thích consumer (audit 78 subscribe sites):** mọi callback dùng optional chaining (`msg?.data?.x`, `msg.data?.action`, `data = msg?.data || msg`) → `data:null` KHÔNG crash; page nào cũng reload trên resync (reconcile `_scheduleSseList`, variants `_scheduleRefresh`, wallet `loadAndRender`/`invalidate(null)`). Bump cache `?v=20260613b → 20260613c` trên cả 28 file load bridge.
+
+**Verify:** `node --check` pass. Harness Node mock EventSource (`/tmp/sse-resync-test.js`): chuỗi `update , resync , update` = EXPECTED → **✅ PASS** (first-connect không bắn · drop+reconnect bắn resync · topic-change không bắn thừa).
+
 ### [ci] Sửa race condition deploy GitHub Actions (concurrency + paths-ignore + gỡ CF deploy đôi) ✅
 
 **User:** "đang deploy quá nhiều, liên tục lên github/render/cloudflare — có hạn chế gì gây race condition hay bug không? → ok fix hoàn toàn và kiểm lại."

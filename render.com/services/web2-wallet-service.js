@@ -112,6 +112,29 @@ function runWithTx(db, fn) {
     throw new Error('runWithTx: invalid db argument');
 }
 
+/**
+ * Emit wallet event SAU khi transaction COMMIT thật xong (tránh stale-read
+ * race). Nếu `client` đến từ withTransaction (có queue `_afterCommit`) → đăng ký
+ * hook chạy post-COMMIT. Nếu không (client thô / pool) → fallback process.nextTick
+ * (best-effort, hành vi legacy). Mọi caller wallet-service hiện đi qua
+ * withTransaction nên đường hook là đường chính.
+ */
+function emitAfterCommit(client, normPhone, payload) {
+    const doEmit = () => {
+        try {
+            web2WalletEvents.emit('web2:wallet:update', payload);
+            web2WalletEvents.emit(`web2:wallet:${normPhone}`, payload);
+        } catch (e) {
+            console.warn('[Web2WalletService] emit failed:', e.message);
+        }
+    };
+    if (client && Array.isArray(client._afterCommit)) {
+        client._afterCommit.push(doEmit);
+    } else {
+        process.nextTick(doEmit);
+    }
+}
+
 // =============================================================
 // Public API
 // =============================================================
@@ -231,21 +254,14 @@ async function processDeposit(
                 alreadyProcessed: false,
             };
 
-            // 6. Emit event AFTER commit (caller may be inside outer txn)
-            process.nextTick(() => {
-                try {
-                    const payload = {
-                        phone: normPhone,
-                        wallet: result.wallet,
-                        transaction: result.transaction,
-                        type: 'deposit',
-                        ts: Date.now(),
-                    };
-                    web2WalletEvents.emit('web2:wallet:update', payload);
-                    web2WalletEvents.emit(`web2:wallet:${normPhone}`, payload);
-                } catch (e) {
-                    console.warn('[Web2WalletService] emit failed:', e.message);
-                }
+            // 6. Emit event SAU khi COMMIT thật (qua _afterCommit hook — tránh
+            // stale-read race; caller có thể đang trong outer txn).
+            emitAfterCommit(client, normPhone, {
+                phone: normPhone,
+                wallet: result.wallet,
+                transaction: result.transaction,
+                type: 'deposit',
+                ts: Date.now(),
             });
 
             return result;
@@ -357,20 +373,12 @@ async function processWithdraw(
             transaction: txInsert.rows[0],
         };
 
-        process.nextTick(() => {
-            try {
-                const payload = {
-                    phone: normPhone,
-                    wallet: result.wallet,
-                    transaction: result.transaction,
-                    type: 'withdraw',
-                    ts: Date.now(),
-                };
-                web2WalletEvents.emit('web2:wallet:update', payload);
-                web2WalletEvents.emit(`web2:wallet:${normPhone}`, payload);
-            } catch (e) {
-                console.warn('[Web2WalletService] emit failed:', e.message);
-            }
+        emitAfterCommit(client, normPhone, {
+            phone: normPhone,
+            wallet: result.wallet,
+            transaction: result.transaction,
+            type: 'withdraw',
+            ts: Date.now(),
         });
 
         return result;
