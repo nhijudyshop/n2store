@@ -205,13 +205,27 @@
 
     async function refresh() {
         const root = $('#kpiContent');
-        root.innerHTML = `<div class="kpi-empty"><p>Đang tải…</p></div>`;
-        if (STATE.view === 'audit') {
-            const events = await loadEvents();
-            renderEventsLog(events);
-        } else {
-            const data = await loadKpi();
-            renderLeaderboard(data);
+        // Skeleton thay text "Đang tải…"
+        root.innerHTML =
+            `<div class="kpi-empty" style="text-align:left">` +
+            '<span class="w2-skel" style="display:block;height:18px;width:45%;margin:6px 0;border-radius:6px"></span>' +
+            '<span class="w2-skel" style="display:block;height:44px;width:100%;margin:8px 0;border-radius:8px"></span>'.repeat(
+                3
+            ) +
+            `</div>`;
+        try {
+            if (STATE.view === 'audit') {
+                renderEventsLog(await loadEvents());
+            } else {
+                renderLeaderboard(await loadKpi());
+            }
+        } catch (e) {
+            const msg = (e && e.message ? e.message : String(e)).replace(/[<>&]/g, '');
+            root.innerHTML = `<div class="kpi-empty"><i data-lucide="alert-triangle"></i><p>Lỗi tải KPI: ${msg}</p><button class="btn btn-sm" id="kpiRetry"><i data-lucide="refresh-cw"></i> Thử lại</button></div>`;
+            if (window.lucide) lucide.createIcons();
+            $('#kpiRetry')?.addEventListener('click', refresh);
+            if (window.notificationManager)
+                notificationManager.show('Lỗi tải KPI: ' + msg, 'error');
         }
     }
 

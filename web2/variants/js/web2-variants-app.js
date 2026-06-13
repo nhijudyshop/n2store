@@ -42,8 +42,13 @@
     function renderRows() {
         const items = STATE.variants;
         if (!items.length) {
+            const filtering = STATE.search || STATE.group;
             tbody().innerHTML = `<tr><td colspan="6" class="empty-row">
-                Chưa có biến thể nào — bấm "Thêm Biến Thể" để tạo
+                ${
+                    filtering
+                        ? 'Không tìm thấy biến thể phù hợp — thử bỏ filter hoặc đổi từ khoá.'
+                        : 'Chưa có biến thể nào — bấm "Thêm Biến Thể" để tạo'
+                }
             </td></tr>`;
             return;
         }
@@ -427,7 +432,15 @@
             if (val) suggestShortCode();
         });
         document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && modal()?.classList.contains('active')) closeModal();
+            if (!modal()?.classList.contains('active')) return;
+            if (e.key === 'Escape') return closeModal();
+            if (e.key === 'Enter' && !e.isComposing) {
+                const tag = document.activeElement?.tagName;
+                if (tag !== 'TEXTAREA' && tag !== 'SELECT' && tag !== 'BUTTON') {
+                    e.preventDefault();
+                    saveModal();
+                }
+            }
         });
 
         load();
