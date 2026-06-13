@@ -514,7 +514,11 @@
         </script>
 
         <script src="../web2/products/js/web2-products-api.js?v=20260613a"></script>
-        <script src="../web2/products/js/web2-products-print.js?v=20260610a"></script>
+        <!-- In tem SP: dùng CHUNG nguồn với web2/products (Web2Printer + Web2QR + print module),
+             load đúng thứ tự để QR bake biến thể + routing máy in giống hệt trang Kho SP. -->
+        <script src="../web2/shared/web2-printer.js?v=20260605i"></script>
+        <script src="../web2/shared/web2-qr.js?v=20260609c"></script>
+        <script src="../web2/products/js/web2-products-print.js?v=20260612esc"></script>
         <script src="../web2/variants/js/web2-variants-api.js?v=20260610a"></script>
         <script src="../web2/shared/web2-sse-bridge.js?v=20260613c"></script>
         <script src="../web2/shared/web2-idb-store.js?v=20260610a"></script>

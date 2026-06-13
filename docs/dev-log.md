@@ -2,6 +2,20 @@
 
 ## 2026-06-13
 
+### [so-order] In tem SP dùng CHUNG nguồn với Kho SP (web2/products) ✅
+
+**User:** "in tem sản phẩm chưa giống bên products → chuyển về dùng chung nguồn với products".
+
+**Context:** Nút "In tem" trong panel Nhận hàng (`soReceivePrintBtn` → `printLabelsFromReceivePanel` → `openBarcodePrintModal`) ĐÃ delegate sang `Web2ProductsPrint.open()`. Nhưng so-order/index.html chỉ load `web2-products-print.js`, **THIẾU 2 dependency** `web2-printer.js` + `web2-qr.js` mà trang products load trước đó. Hậu quả: `window.Web2QR`/`window.Web2Printer` undefined → tem QR rơi về fallback davidshimjs (biến thể KHÔNG bake vào giữa QR, vẽ overlay HTML thay thế) + bỏ routing máy in → khác hình bên products.
+
+**Files:**
+
+- [so-order/index.html](../so-order/index.html): thêm `../web2/shared/web2-printer.js?v=20260605i` + `../web2/shared/web2-qr.js?v=20260609c` TRƯỚC `web2-products-print.js`; bump print module `?v=20260610a`→`20260612esc` để dùng đúng asset như products.
+
+**Verify (Playwright live localhost):** trên so-order, `typeof window.Web2QR==='object'`, `Web2QR.toDataUrl==='function'`, `Web2Printer==='object'`, `Web2ProductsPrint==='object'` — đủ y hệt trang Kho SP. In tem giờ ra QR bake biến thể + style rounded giống hệt products.
+
+**Status:** ✅ Done.
+
 ### [chat] Toggle ẩn/hiện SP hết hàng (stock=0) trong panel Kho SP (live-chat) ✅
 
 **User:** "cho toggle ẩn hiện stock = 0".
