@@ -2343,6 +2343,74 @@ Throttle 30s/KH.`;
     }
 
     // Capture 1 frame từ stream → JPEG Blob. Return null nếu stream chưa sẵn.
+    // ─────────────────────────────────────────────────────────
+    // ENCODE OFF MAIN-THREAD (2026-06-13): JPEG encode là phần NẶNG nhất của capture
+    // (drawImage rẻ). Chuyển encode sang Web Worker + OffscreenCanvas.convertToBlob →
+    // không block main-thread = hết giật. Worker inline (Blob URL), tạo lazy + reuse.
+    // Có fallback canvas.toBlob (main-thread) nếu thiếu API (OffscreenCanvas/Worker/
+    // createImageBitmap) hoặc worker lỗi → worst case = hành vi cũ.
+    // ─────────────────────────────────────────────────────────
+    let _encodeWorker; // undefined=chưa init, false=không khả dụng, Worker=ok
+    let _encodeSeq = 0;
+    const _encodeWaiters = new Map();
+    function _getEncodeWorker() {
+        if (_encodeWorker !== undefined) return _encodeWorker;
+        try {
+            if (
+                typeof Worker === 'undefined' ||
+                typeof OffscreenCanvas === 'undefined' ||
+                typeof createImageBitmap !== 'function'
+            ) {
+                _encodeWorker = false;
+                return false;
+            }
+            const src = `let oc=null,ctx=null;self.onmessage=async(e)=>{const{id,bitmap,quality}=e.data;try{if(!oc||oc.width!==bitmap.width||oc.height!==bitmap.height){oc=new OffscreenCanvas(bitmap.width,bitmap.height);ctx=oc.getContext('2d',{alpha:false});}ctx.drawImage(bitmap,0,0);bitmap.close();const blob=await oc.convertToBlob({type:'image/jpeg',quality});self.postMessage({id,blob});}catch(err){try{bitmap.close&&bitmap.close();}catch(_){}; self.postMessage({id,error:String(err&&err.message||err)});}};`;
+            const url = URL.createObjectURL(new Blob([src], { type: 'text/javascript' }));
+            const w = new Worker(url);
+            URL.revokeObjectURL(url);
+            w.onmessage = (e) => {
+                const waiter = _encodeWaiters.get(e.data.id);
+                if (!waiter) return;
+                _encodeWaiters.delete(e.data.id);
+                if (e.data.error) waiter.reject(new Error(e.data.error));
+                else waiter.resolve(e.data.blob);
+            };
+            w.onerror = () => {}; // waiters tự timeout → fallback
+            _encodeWorker = w;
+            return w;
+        } catch (_) {
+            _encodeWorker = false;
+            return false;
+        }
+    }
+    // Encode 1 ImageBitmap → JPEG Blob trong worker. bitmap được close trong worker.
+    function _encodeBitmapInWorker(bitmap, quality) {
+        const w = _getEncodeWorker();
+        if (!w) {
+            try {
+                bitmap.close && bitmap.close();
+            } catch (_) {}
+            return Promise.reject(new Error('no encode worker'));
+        }
+        const id = ++_encodeSeq;
+        return new Promise((resolve, reject) => {
+            _encodeWaiters.set(id, { resolve, reject });
+            try {
+                w.postMessage({ id, bitmap, quality }, [bitmap]);
+            } catch (e) {
+                _encodeWaiters.delete(id);
+                reject(e);
+                return;
+            }
+            setTimeout(() => {
+                if (_encodeWaiters.has(id)) {
+                    _encodeWaiters.delete(id);
+                    reject(new Error('encode timeout'));
+                }
+            }, 4000);
+        });
+    }
+
     async function _captureFrameJpeg(quality = 0.7, maxWidth = 1280) {
         const v = STATE.captureVideo;
         if (!STATE.captureStream || !v || !v.videoWidth) return null;
