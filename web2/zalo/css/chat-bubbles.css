@@ -1,6 +1,29 @@
 /* #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. | WEB2.0 — Zalo chat bubbles (gom nhóm, reply, reaction, recall, grid, ticks). */
 /* Load SAU web2-zalo.css → override cấu trúc .wz-msg cũ (bubble dời vào .wz-msg-bubble). */
 
+/* ── Layout fit-viewport: panel flex-column → chat fills, composer pinned ──
+   Sửa lỗi calc(100vh-210px) cũ làm composer tràn dưới màn hình. Panel chiếm
+   trọn chiều cao còn lại (sau header+tabs ~146px), hàng chọn TK + chat là
+   flex children; chat flex:1 → body cuộn, composer luôn thấy ở đáy. */
+#wzPanelChat {
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box; /* padding nằm TRONG height → composer không tràn */
+    height: calc(100vh - 150px);
+    min-height: 480px;
+    padding-bottom: 12px;
+    overflow: hidden;
+}
+#wzPanelChat > .wz-row {
+    flex-shrink: 0;
+}
+#wzPanelChat .wz-chat {
+    flex: 1 1 auto;
+    min-height: 0;
+    height: auto; /* override .wz-chat height:calc(100vh-210px) cũ */
+    margin-top: 12px;
+}
+
 /* ── message column ─────────────────────────────────────────────────── */
 .wz-chat-body {
     gap: 2px;

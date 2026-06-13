@@ -14,7 +14,7 @@ const PancakeConversationList = {
         const state = window.PancakeState;
         const { escapeHtml } = window.SharedUtils;
 
-        if (state.isSearching) return;
+        // isSearching guard removed — local results stay visible while API fetches
 
         let filtered = state.searchResults !== null ? state.searchResults : state.conversations;
 
@@ -257,12 +257,10 @@ const PancakeConversationList = {
     async performApiSearch(query) {
         if (!query || query.length < 2) return;
         const state = window.PancakeState;
-        state.isSearching = true;
-        const container = document.getElementById('pkConversations');
-        if (container) {
-            container.innerHTML = `<div class="pk-search-loading"><div class="pk-loading-spinner"></div>
-                <span>Đang tìm kiếm "${window.SharedUtils.escapeHtml(query)}"...</span></div>`;
-        }
+        // Không dùng isSearching + full-spinner nữa — local results vẫn hiển thị
+        // Chỉ thêm badge nhỏ trên search input để báo đang gọi API
+        const input = document.getElementById('pkSearchInput');
+        if (input) input.classList.add('pk-searching');
         try {
             const result = await window.PancakeAPI.searchConversations(query);
             state.searchResults = result?.conversations || [];
@@ -271,7 +269,7 @@ const PancakeConversationList = {
             state.searchResults = [];
             this.renderConversationList();
         } finally {
-            state.isSearching = false;
+            if (input) input.classList.remove('pk-searching');
         }
     },
 

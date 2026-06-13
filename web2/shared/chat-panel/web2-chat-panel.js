@@ -505,6 +505,10 @@
             const cont = $('[data-w2cp="messages"]');
             if (!cont) return;
             cont.scrollTop = cont.scrollHeight;
+            // rAF: đợi browser layout xong sau khi innerHTML set (images chưa load)
+            requestAnimationFrame(() => {
+                cont.scrollTop = cont.scrollHeight;
+            });
             st.isAtBottom = true;
             st.newCount = 0;
             updateScrollUi();

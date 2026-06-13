@@ -185,6 +185,14 @@
     line-height: 1;
 }
 
+/* ── [hidden] override (class display:flex/grid đè UA [hidden]{display:none}) ──
+   Bắt buộc: nếu thiếu, overlay/reply-bar/tray LUÔN hiện, che ô soạn tin. */
+.wz-drop-overlay[hidden],
+.wz-reply-bar[hidden],
+.wz-tray[hidden] {
+    display: none !important;
+}
+
 /* ── drop overlay ───────────────────────────────────────────────────── */
 .wz-drop-overlay {
     position: absolute;
