@@ -168,23 +168,19 @@
     gap: 1px;
     position: relative;
 }
+/* daysep → pill giữa, dính top khi cuộn */
 .w2cp-daysep {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    align-self: stretch;
-    margin: 10px 0 4px;
-    font-size: 10px;
-    font-weight: 700;
-    color: #94a3b8;
-    letter-spacing: 0.8px;
-}
-.w2cp-daysep::before,
-.w2cp-daysep::after {
-    content: '';
-    flex: 1;
-    height: 1px;
-    background: #e2e8f0;
+    align-self: center;
+    margin: 12px 0 6px;
+    padding: 3px 12px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--pkr-text-secondary, #64748b);
+    background: var(--pkr-surface-sunken, #eef1f6);
+    border-radius: var(--pkr-r-md, 10px);
+    position: sticky;
+    top: 4px;
+    z-index: 2;
 }
 
 .w2cp-row {
@@ -236,32 +232,32 @@
     width: 26px;
     flex: 0 0 auto;
 }
+/* ===== REDESIGN đợt 3: bubble Zalo Soft Depth ===== */
 .w2cp-bubble {
-    padding: 7px 11px;
-    border-radius: 14px;
-    font-size: 13px;
+    padding: 9px 13px;
+    border-radius: var(--pkr-r-xl, 18px);
+    font-size: var(--pkr-text-bubble, 15px);
     line-height: 1.42;
     word-break: break-word;
     position: relative;
 }
 .w2cp-row.is-in .w2cp-bubble {
-    background: #fff;
-    color: #0f172a;
-    border-bottom-left-radius: 4px;
-    box-shadow: 0 1px 1px rgba(0, 0, 0, 0.06);
+    background: var(--pkr-bubble-in-bg, #f1f4f9);
+    color: var(--pkr-bubble-in-text, #0f172a);
+    border-bottom-left-radius: var(--pkr-bubble-tail, 6px);
 }
 .w2cp-row.is-out .w2cp-bubble {
-    background: #dcf8c6;
-    color: #0f172a;
-    border-bottom-right-radius: 4px;
+    background: var(--pkr-bubble-out-bg, #0068ff);
+    color: var(--pkr-bubble-out-text, #fff);
+    border-bottom-right-radius: var(--pkr-bubble-tail, 6px);
 }
 .w2cp-txt {
     white-space: pre-wrap;
 }
 .w2cp-time {
-    font-size: 10px;
-    color: #94a3b8;
-    margin: 1px 6px 3px;
+    font-size: 11px;
+    color: var(--pkr-text-muted, #94a3b8);
+    margin: 2px 6px 3px;
 }
 .w2cp-row.is-in .w2cp-time {
     margin-left: 38px;
@@ -581,13 +577,13 @@
     gap: 2px;
 }
 .w2cp-input-btn {
-    width: 32px;
-    height: 32px;
+    width: 40px;
+    height: 40px;
     border: none;
     background: transparent;
-    color: #64748b;
+    color: var(--pkr-text-secondary, #64748b);
     cursor: pointer;
-    border-radius: 8px;
+    border-radius: var(--pkr-r-full, 9999px);
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -596,8 +592,8 @@
         color 0.15s;
 }
 .w2cp-input-btn:hover {
-    background: #f1f5f9;
-    color: #0068ff;
+    background: var(--pkr-blue-50, #f1f5f9);
+    color: var(--pkr-primary, #0068ff);
 }
 .w2cp-input-wrap {
     flex: 1;
@@ -639,26 +635,32 @@
 .w2cp-input {
     width: 100%;
     box-sizing: border-box;
-    border: 1px solid #d1d5db;
-    border-radius: 18px;
-    padding: 8px 14px;
-    font-size: 13px;
+    border: 1px solid var(--pkr-border, #d1d5db);
+    background: var(--pkr-surface-sunken, #f1f4f9);
+    border-radius: var(--pkr-r-2xl, 22px);
+    padding: 10px 14px;
+    font-size: var(--pkr-text-body-lg, 16px); /* ≥16px chống zoom iOS */
     line-height: 1.4;
     resize: none;
     outline: none;
-    max-height: 100px;
+    max-height: var(--pkr-composer-maxh, 120px);
     font-family: inherit;
+    transition:
+        border-color 0.15s,
+        box-shadow 0.15s,
+        background 0.15s;
 }
 .w2cp-input:focus {
-    border-color: #0068ff;
-    box-shadow: 0 0 0 3px rgba(0, 104, 255, 0.12);
+    border-color: var(--pkr-blue-300, #0068ff);
+    background: var(--pkr-surface, #fff);
+    box-shadow: var(--pkr-ring-primary, 0 0 0 3px rgba(0, 104, 255, 0.18));
 }
 .w2cp-send-btn {
-    width: 40px;
-    height: 40px;
+    width: 44px;
+    height: 44px;
     border: none;
     border-radius: 50%;
-    background: #0068ff;
+    background: var(--pkr-primary, #0068ff);
     color: #fff;
     cursor: pointer;
     flex: 0 0 auto;
@@ -667,13 +669,17 @@
     justify-content: center;
     transition:
         background 0.15s,
-        transform 0.1s;
+        transform var(--pkr-dur-fast, 0.15s) var(--pkr-ease-spring, ease);
 }
 .w2cp-send-btn:hover {
-    background: #0058da;
+    background: var(--pkr-primary-hover, #0058da);
 }
 .w2cp-send-btn:active {
-    transform: scale(0.94);
+    transform: scale(0.9);
+}
+.w2cp-send-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
 }
 
 /* ---- Emoji / sticker picker ---- */
