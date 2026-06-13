@@ -240,15 +240,18 @@
 }
 
 /* Search Header */
+/* ===== REDESIGN đợt 1: search pill sticky ===== */
 .pk-search-header {
-    padding: 10px 12px;
-    background: var(--pkr-header-bg);
-    border-bottom: 1px solid var(--pkr-border);
+    padding: var(--pkr-sp-2) var(--pkr-sp-3);
+    background: var(--pkr-surface);
+    position: sticky;
+    top: 0;
+    z-index: var(--pkr-z-sticky);
 }
 
 .pk-search-wrapper {
     display: flex;
-    gap: 8px;
+    gap: var(--pkr-sp-2);
     align-items: center;
 }
 
@@ -256,17 +259,25 @@
     flex: 1;
     display: flex;
     align-items: center;
-    background: #ffffff;
-    border-radius: 8px;
-    padding: 0 12px;
-    height: 36px;
-    border: 1px solid var(--pkr-border);
+    background: var(--pkr-surface-sunken);
+    border-radius: var(--pkr-r-full);
+    padding: 0 var(--pkr-sp-3);
+    height: 40px;
+    border: 1px solid transparent;
+    transition:
+        border-color var(--pkr-dur-fast) var(--pkr-ease-standard),
+        box-shadow var(--pkr-dur-fast) var(--pkr-ease-standard);
+}
+.pk-search-box:focus-within {
+    border-color: var(--pkr-blue-300);
+    box-shadow: var(--pkr-ring-primary);
+    background: var(--pkr-surface);
 }
 
 .pk-search-box i {
     width: 16px;
     height: 16px;
-    color: var(--pkr-text-tertiary);
+    color: var(--pkr-text-muted);
     flex-shrink: 0;
 }
 
@@ -274,14 +285,14 @@
     flex: 1;
     border: none;
     outline: none;
-    padding: 0 10px;
-    font-size: 13px;
-    color: var(--pkr-text-primary);
+    padding: 0 var(--pkr-sp-2);
+    font-size: var(--pkr-text-body-lg); /* ≥16px chống zoom iOS */
+    color: var(--pkr-text-strong);
     background: transparent;
 }
 
 .pk-search-box input::placeholder {
-    color: var(--pkr-text-tertiary);
+    color: var(--pkr-text-muted);
 }
 /* Spinner nhỏ trên input khi API đang tìm, không ẩn local results */
 .pk-search-box input.pk-searching {
@@ -334,48 +345,78 @@
     background: #aaa;
 }
 
+/* ===== REDESIGN đợt 1: Soft Depth conversation row ===== */
 .pk-conversation-item {
     display: flex;
-    padding: 12px;
-    gap: 12px;
+    padding: var(--pkr-sp-2) var(--pkr-sp-3);
+    gap: var(--pkr-sp-3);
+    align-items: center;
+    min-height: var(--pkr-row-h);
+    margin: 2px var(--pkr-sp-2);
+    border-radius: var(--pkr-r-lg);
     cursor: pointer;
-    border-bottom: 1px solid var(--pkr-border);
-    transition: background 0.15s ease;
     position: relative;
+    transition: background-color var(--pkr-dur-fast) var(--pkr-ease-standard);
 }
 
 .pk-conversation-item:hover {
-    background: var(--pkr-hover-bg);
+    background: var(--pkr-surface-hover);
 }
 
 .pk-conversation-item.active {
-    background: var(--pkr-active-bg);
+    background: var(--pkr-blue-50);
+}
+/* Thanh accent trái khi active */
+.pk-conversation-item.active::before {
+    content: '';
+    position: absolute;
+    left: -2px;
+    top: 10px;
+    bottom: 10px;
+    width: 3px;
+    border-radius: 0 3px 3px 0;
+    background: var(--pkr-primary);
 }
 
 /* Avatar */
 .pk-avatar {
     position: relative;
     flex-shrink: 0;
+    width: var(--pkr-avatar);
+    height: var(--pkr-avatar);
 }
 
 .pk-avatar img {
-    width: 50px;
-    height: 50px;
+    width: var(--pkr-avatar);
+    height: var(--pkr-avatar);
     border-radius: 50%;
     object-fit: cover;
+    background: var(--pkr-surface-sunken);
 }
 
 .pk-avatar-placeholder {
-    width: 50px;
-    height: 50px;
+    width: var(--pkr-avatar);
+    height: var(--pkr-avatar);
     border-radius: 50%;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, var(--pkr-blue-400) 0%, var(--pkr-blue-600) 100%);
     display: flex;
     align-items: center;
     justify-content: center;
-    color: white;
+    color: #fff;
     font-size: 18px;
-    font-weight: 600;
+    font-weight: var(--pkr-fw-semibold);
+}
+
+/* Online dot (optional, .pk-avatar__status--online thêm trong render) */
+.pk-avatar__status--online {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--pkr-online);
+    border: 2px solid var(--pkr-surface);
 }
 
 .pk-unread-badge {
@@ -385,15 +426,15 @@
     min-width: 18px;
     height: 18px;
     padding: 0 5px;
-    background: var(--pkr-badge-warning);
-    border-radius: 9px;
-    color: white;
+    background: var(--pkr-primary);
+    border-radius: var(--pkr-r-full);
+    color: #fff;
     font-size: 11px;
-    font-weight: 600;
+    font-weight: var(--pkr-fw-bold);
     display: flex;
     align-items: center;
     justify-content: center;
-    border: 2px solid white;
+    border: 2px solid var(--pkr-surface);
 }
 
 /* Conversation Content */
@@ -402,44 +443,47 @@
     min-width: 0;
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 3px;
 }
 
 .pk-conversation-header {
     display: flex;
     justify-content: space-between;
-    align-items: flex-start;
-    gap: 8px;
+    align-items: center;
+    gap: var(--pkr-sp-2);
 }
 
 .pk-conversation-name {
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--pkr-text-primary);
+    font-size: var(--pkr-text-h3);
+    font-weight: var(--pkr-fw-semibold);
+    color: var(--pkr-text-strong);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
+.pk-conversation-item.is-unread .pk-conversation-name {
+    font-weight: var(--pkr-fw-bold);
+}
 
 .pk-conversation-time {
-    font-size: 11px;
-    color: var(--pkr-text-tertiary);
+    font-size: var(--pkr-text-caption);
+    color: var(--pkr-text-secondary);
     white-space: nowrap;
     flex-shrink: 0;
 }
 
 .pk-conversation-preview {
-    font-size: 13px;
+    font-size: var(--pkr-text-body);
     color: var(--pkr-text-secondary);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    line-height: 1.4;
+    line-height: var(--pkr-lh-snug);
 }
 
 .pk-conversation-preview.unread {
-    font-weight: 500;
-    color: var(--pkr-text-primary);
+    font-weight: var(--pkr-fw-semibold);
+    color: var(--pkr-text-strong);
 }
 
 /* Tags Container */
@@ -1904,38 +1948,53 @@
     height: 18px;
 }
 
-/* Filter Tabs */
+/* ===== REDESIGN đợt 1: Filter chips (pill, scroll-x, sticky) ===== */
 .pk-filter-tabs {
     display: flex;
-    padding: 0 12px;
-    background: var(--pkr-header-bg);
-    border-bottom: 1px solid var(--pkr-border);
-    gap: 4px;
+    align-items: center;
+    gap: 6px;
+    padding: var(--pkr-sp-2) var(--pkr-sp-3);
+    background: var(--pkr-surface);
+    overflow-x: auto;
+    scroll-snap-type: x proximity;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    position: sticky;
+    top: 0;
+    z-index: var(--pkr-z-sticky);
+}
+.pk-filter-tabs::-webkit-scrollbar {
+    display: none;
 }
 
 .pk-filter-tab {
-    flex: 1;
-    padding: 10px 8px;
-    background: transparent;
-    border: none;
-    border-bottom: 2px solid transparent;
-    font-size: 12px;
-    font-weight: 500;
+    flex: 0 0 auto;
+    height: 34px;
+    padding: 0 14px;
+    background: var(--pkr-surface);
+    border: 1px solid var(--pkr-border);
+    border-radius: var(--pkr-r-full);
+    font-size: var(--pkr-text-caption);
+    font-weight: var(--pkr-fw-medium);
     color: var(--pkr-text-secondary);
     cursor: pointer;
-    transition: all 0.15s ease;
-    text-align: center;
+    white-space: nowrap;
+    transition:
+        background-color var(--pkr-dur-fast) var(--pkr-ease-standard),
+        color var(--pkr-dur-fast) var(--pkr-ease-standard),
+        border-color var(--pkr-dur-fast) var(--pkr-ease-standard);
 }
 
 .pk-filter-tab:hover {
-    color: var(--pkr-text-primary);
-    background: var(--pkr-hover-bg);
+    color: var(--pkr-text-strong);
+    background: var(--pkr-surface-hover);
 }
 
 .pk-filter-tab.active {
-    color: var(--pkr-primary);
-    border-bottom-color: var(--pkr-primary);
-    font-weight: 600;
+    color: var(--pkr-blue-700);
+    background: var(--pkr-blue-50);
+    border-color: var(--pkr-blue-200);
+    font-weight: var(--pkr-fw-semibold);
 }
 
 .pk-filter-tab-badge {
@@ -1945,11 +2004,11 @@
     min-width: 16px;
     height: 16px;
     padding: 0 4px;
-    background: var(--pkr-badge-warning);
-    border-radius: 8px;
-    color: white;
+    background: var(--pkr-primary);
+    border-radius: var(--pkr-r-full);
+    color: #fff;
     font-size: 10px;
-    font-weight: 600;
+    font-weight: var(--pkr-fw-bold);
     margin-left: 4px;
 }
 

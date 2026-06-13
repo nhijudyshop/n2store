@@ -137,7 +137,7 @@ const PancakeConversationList = {
         ).replace(/[^\w.:-]/g, '');
 
         return `
-            <div class="pk-conversation-item ${isActive ? 'active' : ''}" data-conv-id="${conv.id}" data-page-id="${conv.page_id}">
+            <div class="pk-conversation-item ${isActive ? 'active' : ''} ${isUnread ? 'is-unread' : ''}" data-conv-id="${conv.id}" data-page-id="${conv.page_id}">
                 <div class="pk-avatar">
                     ${avatar}
                     ${unreadCount > 0 ? `<span class="pk-unread-badge">${unreadCount > 9 ? '9+' : unreadCount}</span>` : ''}
