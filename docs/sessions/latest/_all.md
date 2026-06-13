@@ -3,18 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `1203275` — feat(web2): UX per-page đợt 1 — products/customers/dashboard + bump sidebar.js cache-bust
-**Last updated**: 2026-06-13 16:32:40 +07
-**Latest session**: [`RESUME:20260613-163240-1203275`](../20260613-163240-1203275.md)
-**Summary**: feat(web2): UX per-page đợt 1 — products/customers/dashboard + bump sidebar.js cache-bust
+**Latest commit**: `2a6531c` — auto: session update
+**Last updated**: 2026-06-13 16:35:27 +07
+**Latest session**: [`RESUME:20260613-163527-2a6531c`](../20260613-163527-2a6531c.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`live-chat/`](./live-chat.md) — 2 file(s)
-- [`native-orders/`](./native-orders.md) — 1 file(s)
-- [`so-order/`](./so-order.md) — 1 file(s)
-- [`web2/`](./web2.md) — 34 file(s)
+- [`web2/`](./web2.md) — 3 file(s)
 
 ## All folder snapshots
 
@@ -75,4 +71,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-13 16:32
+- [`web2/`](./web2.md) — updated 2026-06-13 16:35
