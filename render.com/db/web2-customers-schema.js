@@ -101,6 +101,9 @@ async function ensureWeb2CustomersSchema(pool) {
             CREATE INDEX IF NOT EXISTS idx_web2_customers_pancake   ON web2_customers(pancake_customer_id) WHERE pancake_customer_id IS NOT NULL;
             CREATE INDEX IF NOT EXISTS idx_web2_customers_active    ON web2_customers(is_active);
             CREATE INDEX IF NOT EXISTS idx_web2_customers_tags      ON web2_customers USING gin (tags);
+            -- GIN cho alt_phones: tra cứu KH theo SĐT phụ (alt_phones ?| $list) dùng index,
+            -- không seq-scan toàn bảng trên path enricher batch-by-phone (2026-06-13).
+            CREATE INDEX IF NOT EXISTS idx_web2_customers_alt_phones ON web2_customers USING gin (alt_phones);
         `);
         // unaccent + trigram cho name ILIKE không dấu (best-effort, có thể bị chặn)
         try {

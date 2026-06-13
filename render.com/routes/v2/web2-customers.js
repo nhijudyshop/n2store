@@ -192,8 +192,10 @@ router.get('/list', async (req, res) => {
                 const nameMatch = useUnaccent
                     ? `unaccent(name) ILIKE unaccent($${i})`
                     : `name ILIKE $${i}`;
+                // alt_phones (JSONB): tra cứu theo SĐT phụ cũng phải ra KH (2026-06-13)
+                const altMatch = `EXISTS (SELECT 1 FROM jsonb_array_elements_text(COALESCE(alt_phones,'[]'::jsonb)) ap WHERE ap ILIKE $${i})`;
                 conds.push(
-                    `(phone ILIKE $${i} OR ${nameMatch} OR fb_id ILIKE $${i} OR global_id ILIKE $${i})`
+                    `(phone ILIKE $${i} OR ${nameMatch} OR fb_id ILIKE $${i} OR global_id ILIKE $${i} OR ${altMatch})`
                 );
             }
             if (status) {
@@ -299,20 +301,38 @@ router.post('/batch-by-phone', async (req, res) => {
     if (!phones.length) return res.json({ success: true, data: {} });
     const list = phones.slice(0, 500);
     try {
+        // Match cả phone chính LẪN alt_phones (SĐT phụ) — tra theo số phụ vẫn ra KH (2026-06-13).
+        // `alt_phones ?| $1` dùng GIN index idx_web2_customers_alt_phones (BitmapOr với
+        // index phone) → không seq-scan toàn bảng 64k rows trên path enricher.
         const r = await db.query(
-            `SELECT id, phone, name, address, status FROM web2_customers WHERE phone = ANY($1)`,
+            `SELECT id, phone, name, address, status, alt_phones
+             FROM web2_customers
+             WHERE phone = ANY($1) OR alt_phones ?| $1`,
             [list]
         );
+        const toCompat = (row, phone) => ({
+            Id: row.id,
+            Name: row.name || '',
+            Phone: phone,
+            Status: row.status || '',
+            Address: row.address || '',
+        });
         const map = {};
+        // Phone chính trước (ưu tiên cao hơn alt khi 1 số là chính của KH này, phụ của KH khác)
         for (const row of r.rows) {
-            if (row.phone)
-                map[row.phone] = {
-                    Id: row.id,
-                    Name: row.name || '',
-                    Phone: row.phone,
-                    Status: row.status || '',
-                    Address: row.address || '',
-                };
+            if (row.phone && list.includes(row.phone) && !map[row.phone]) {
+                map[row.phone] = toCompat(row, row.phone);
+            }
+        }
+        // Rồi map các SĐT phụ được hỏi → KH tương ứng (chỉ fill khi chưa có từ phone chính)
+        const requested = new Set(list);
+        for (const row of r.rows) {
+            const alts = Array.isArray(row.alt_phones) ? row.alt_phones : [];
+            for (const alt of alts) {
+                if (alt && requested.has(alt) && !map[alt]) {
+                    map[alt] = toCompat(row, alt);
+                }
+            }
         }
         res.json({ success: true, data: map });
     } catch (e) {
@@ -331,11 +351,12 @@ router.get('/search', async (req, res) => {
         const like = `%${q}%`;
         let r;
         try {
-            // accent-insensitive name + phone/fb match
+            // accent-insensitive name + phone/fb match + alt_phones (SĐT phụ)
             r = await db.query(
                 `SELECT id, phone, name, email, address, fb_id
                  FROM web2_customers
                  WHERE unaccent(name) ILIKE unaccent($1) OR phone ILIKE $1 OR fb_id ILIKE $1
+                    OR EXISTS (SELECT 1 FROM jsonb_array_elements_text(COALESCE(alt_phones,'[]'::jsonb)) ap WHERE ap ILIKE $1)
                  ORDER BY updated_at DESC NULLS LAST
                  LIMIT $2`,
                 [like, limit]
@@ -346,6 +367,7 @@ router.get('/search', async (req, res) => {
                 `SELECT id, phone, name, email, address, fb_id
                  FROM web2_customers
                  WHERE name ILIKE $1 OR phone ILIKE $1 OR fb_id ILIKE $1
+                    OR EXISTS (SELECT 1 FROM jsonb_array_elements_text(COALESCE(alt_phones,'[]'::jsonb)) ap WHERE ap ILIKE $1)
                  ORDER BY updated_at DESC NULLS LAST
                  LIMIT $2`,
                 [like, limit]

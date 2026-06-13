@@ -554,16 +554,8 @@
                 if (!snap.exists) return [];
                 const data = snap.data()?.data || {};
                 const set = new Set();
-                // Tabs[*].shipments[*].rows[*].supplier
-                for (const tab of data.tabs || []) {
-                    for (const sh of tab.shipments || []) {
-                        for (const r of sh.rows || []) {
-                            const s = (r.supplier || '').trim();
-                            if (s) set.add(s);
-                        }
-                    }
-                }
-                // Tabs[*].label nếu là tên NCC (vd "HÀ NỘI" có thể là label tab)
+                // PREFIX mã SP lấy theo TAB Sổ Order (HÀ NỘI / HƯƠNG CHÂU), KHÔNG
+                // phải cột NCC per-row → dropdown chỉ liệt kê label tab.
                 for (const tab of data.tabs || []) {
                     const lbl = (tab.label || tab.name || '').trim();
                     if (lbl) set.add(lbl);
@@ -588,18 +580,19 @@
         if (!sel) return;
         const currentVal = sel.value;
         const suppliers = await loadSuppliersFromSoOrder();
-        const opts = ['<option value="">— Chọn NCC từ Sổ Order —</option>'];
-        // SP tạo TRỰC TIẾP tại Kho (không qua Sổ Order) → NCC = "KHO", mã prefix KHO.
+        const opts = ['<option value="">— Chọn tab Sổ Order —</option>'];
+        // SP tạo TRỰC TIẾP tại Kho (không chọn tab) → prefix mã = "KHO".
         opts.push(
             `<option value="KHO"${currentVal === 'KHO' ? ' selected' : ''}>KHO (tạo trực tiếp tại Kho)</option>`
         );
-        // Nếu SP đang edit có supplier không nằm trong list so-order (legacy) →
+        // Nếu SP đang edit có giá trị không nằm trong list tab (legacy) →
         // prepend làm option riêng để tránh mất giá trị khi save lại.
-        if (currentVal && !suppliers.includes(currentVal)) {
+        if (currentVal && currentVal !== 'KHO' && !suppliers.includes(currentVal)) {
             opts.push(
                 `<option value="${escapeHtml(currentVal)}" selected>${escapeHtml(currentVal)} (legacy — không có trong Sổ Order)</option>`
             );
         }
+        // Tab Sổ Order (HÀ NỘI / HƯƠNG CHÂU …) → prefix HN / HC.
         for (const s of suppliers) {
             opts.push(
                 `<option value="${escapeHtml(s)}"${s === currentVal ? ' selected' : ''}>${escapeHtml(s)}</option>`
@@ -607,7 +600,7 @@
         }
         if (!suppliers.length) {
             opts.push(
-                '<option value="" disabled>(Sổ Order chưa có NCC nào — thêm tab + dòng trong so-order trước)</option>'
+                '<option value="" disabled>(Sổ Order chưa có tab nào — thêm tab trong so-order trước)</option>'
             );
         }
         sel.innerHTML = opts.join('');
@@ -677,7 +670,7 @@
         }
         if (!supplierName) {
             if (!silent) {
-                notify('Cần chọn NCC từ dropdown (lấy từ tabs Sổ Order)', 'warning');
+                notify('Cần chọn tab Sổ Order (HÀ NỘI / HƯƠNG CHÂU) — hoặc KHO', 'warning');
                 $('#pmSupplier')?.focus();
             }
             return;
@@ -748,8 +741,11 @@
         $('#pmNote').value = '';
         $('#pmIsActive').value = 'true';
         updateImagePreview('');
-        populateSupplierDropdown();
-        if ($('#pmSupplier')) $('#pmSupplier').value = 'KHO';
+        // populateSupplierDropdown async (await load tabs từ Firestore) → set KHO
+        // SAU khi rebuild xong, nếu set trước thì option KHO chưa tồn tại → value rớt "".
+        populateSupplierDropdown().then(() => {
+            if ($('#pmSupplier')) $('#pmSupplier').value = 'KHO';
+        });
         modal().classList.add('active');
         if (window.lucide) lucide.createIcons();
         setTimeout(() => $('#pmSupplier')?.focus(), 50);

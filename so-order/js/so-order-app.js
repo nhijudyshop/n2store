@@ -3279,9 +3279,10 @@ window.addEventListener('load', () => {
      * Best-effort: lỗi network không chặn flow chính, chỉ warn.
      */
     // Sinh mã SP theo rule (Web2ProductCode) cho danh sách items sắp upsert vào
-    // Kho. Mỗi item cần {name, variant, supplier}. Gắn item.code = mã rule (vd
-    // HNAODEN, HC1QUANXDS5). Mã CHỈ áp dụng khi server INSERT SP mới — SP đã có
-    // (match name+variant) giữ mã cũ. Thiếu NCC / lỗi → bỏ code, server tự sinh.
+    // Kho. Mỗi item cần {name, variant}. Gắn item.code = mã rule (vd HNAODEN,
+    // HCAO2). PREFIX lấy theo TAB Sổ Order đang active (HÀ NỘI→HN / HƯƠNG CHÂU→HC),
+    // KHÔNG phải cột NCC per-row. Mã CHỈ áp dụng khi server INSERT SP mới — SP đã
+    // có (match name+variant) giữ mã cũ. Lỗi → bỏ code, server tự sinh.
     // Mirror logic getColorShortMap + suggestProductCode của web2-products-app.js.
     function _assignKhoCodes(items) {
         if (!window.Web2ProductCode || !Array.isArray(items) || !items.length) return items;
@@ -3303,19 +3304,27 @@ window.addEventListener('load', () => {
         } catch (_) {
             /* variants cache chưa sẵn — bỏ qua, suggest fallback extract từ tên */
         }
-        // supplierPrefixMap từ list NCC + các NCC trong items
-        const supplierNames = new Set();
+        // PREFIX mã SP lấy theo TAB Sổ Order (HÀ NỘI→HN / HƯƠNG CHÂU→HC), KHÔNG
+        // phải cột NCC per-row. Mọi SP nhận trong 1 lô đều thuộc tab đang active.
+        const tabLabels = [];
         try {
-            (window.Web2SuppliersCache?.getNames?.() || []).forEach(
-                (n) => n && supplierNames.add(n)
-            );
+            for (const t of state?.tabs || []) {
+                const lbl = (t.label || '').trim();
+                if (lbl) tabLabels.push(lbl);
+            }
         } catch (_) {
-            /* suppliers cache chưa sẵn */
+            /* state chưa sẵn */
         }
-        for (const it of items) if (it && it.supplier) supplierNames.add(it.supplier);
-        const supplierPrefixMap = window.Web2ProductCode.buildPrefixMap([...supplierNames]);
-        // NCC "KHO" (SP tạo trực tiếp tại Kho) → prefix literal "KHO".
+        const supplierPrefixMap = window.Web2ProductCode.buildPrefixMap(tabLabels);
+        // Tab không xác định → prefix literal "KHO".
         supplierPrefixMap['KHO'] = 'KHO';
+        // Label tab đang active = nguồn prefix cho mọi SP của lô này.
+        let activeTabLabel = '';
+        try {
+            activeTabLabel = (window.SoOrderStorage.getActiveTab(state)?.label || '').trim();
+        } catch (_) {
+            /* state chưa sẵn */
+        }
         // existingCodes từ Kho — push mã mới sinh vào để counter không trùng trong batch
         let existingCodes = [];
         try {
@@ -3327,10 +3336,9 @@ window.addEventListener('load', () => {
         }
         for (const it of items) {
             if (!it || !it.name) continue;
-            // SP không có NCC (user bỏ trống ô NCC) → default "KHO" giống trang
-            // Kho SP (web2-products openCreate). Mã sẽ là KHO+LOẠI+MÀU+SIZE (vd
-            // KHOAODEN) thay vì KHO-<rnd> do server sinh — đúng định dạng products.
-            const supplierName = (it.supplier && String(it.supplier).trim()) || 'KHO';
+            // Prefix theo TAB active (không phải cột NCC). Tab không xác định →
+            // "KHO" → mã KHO+LOẠI+MÀU+SIZE (vd KHOAODEN) thay vì KHO-<rnd> server sinh.
+            const supplierName = activeTabLabel || 'KHO';
             // override màu/size từ biến thể đã chọn (priority hơn extract từ tên SP)
             let overrideColorShort = null;
             let overrideSizeShort = null;

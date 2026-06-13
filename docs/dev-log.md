@@ -2,6 +2,17 @@
 
 ## 2026-06-13
 
+### [render] [web2] TC-cụm ĐÓNG — lookup KH theo SĐT phụ (alt_phones) ✅
+
+**User:** "continue" — dọn nốt TC-cụm.
+
+- **Bug:** tra cứu KH bằng số là **SĐT phụ** (`alt_phones` JSONB) không ra — `/list`, `/search`, `/batch-by-phone` chỉ match cột `phone` chính. Số phụ lưu khi merge KH / harvest comment trùng số → lookup trượt.
+- **Fix** (`render.com/routes/v2/web2-customers.js`): `/list` + `/search` thêm `OR EXISTS (SELECT 1 FROM jsonb_array_elements_text(COALESCE(alt_phones,'[]'::jsonb)) ap WHERE ap ILIKE $i)`; `/batch-by-phone` (path enricher nóng) dùng `alt_phones ?| $1` (indexable) + map kết quả về đúng số phụ được hỏi (phone chính ưu tiên hơn alt khi 1 số là chính của KH khác).
+- **Index** (`render.com/db/web2-customers-schema.js`): thêm GIN `idx_web2_customers_alt_phones ON web2_customers USING gin (alt_phones)` (idempotent, chạy lần boot) → `?|` không seq-scan 64k rows.
+- **performedBy/verifiedBy:** xác nhận đã đóng từ ENFORCE-PREP — route ví ưu tiên `req.web2User` (token), fallback `'(staff)'` (không còn `'admin'`); ck-assign-picker gửi `verifiedBy` + token.
+
+→ **TC-cụm trong WEB2-PAGES-ANALYSIS.md flip 🟨→✅.**
+
 ### [so-order] In tem SP dùng CHUNG nguồn với Kho SP (web2/products) ✅
 
 **User:** "in tem sản phẩm chưa giống bên products → chuyển về dùng chung nguồn với products".
