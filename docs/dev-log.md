@@ -2,6 +2,21 @@
 
 ## 2026-06-13
 
+### [live-chat] Rebuild panel Chat Pancake trên NGUỒN CHUNG Web2Chat + realtime SSE (single source) ✅ (verified localhost)
+
+**User:** "xóa panel chat pancake này và làm lại đúng phần này — các phần kia tham chiếu tới 1 nguồn pancake" → "nếu shared web 2.0 đã đủ chức năng thì xóa stack riêng (PancakeAPI/State/Realtime) và build lại dùng shared" → "dùng riêng là đụng rule web 2.0 — ưu tiên 1 nguồn chung để quản lý/bảo trì". Bug gốc: tin nhắn render **bong bóng rỗng** (chỉ timestamp, không nội dung).
+
+**Nguyên nhân bubble rỗng:** `PancakeChatWindow` adapter gọi `PancakeAPI.fetchMessages`/nhánh `serverMode==='n2store'` (Graph wrapper trả shape khác `message`) thay vì nguồn chung `Web2Chat`. Panel chỉ đọc `m.message||m.text||m.content` → rỗng.
+
+**Đã rebuild (4 phase, single source):**
+
+- **Phase 1 — DATA:** `pancake-chat-window.js` adapter `loadMessages`/`loadOlder`/`_performSend` → gọi thẳng `Web2Chat.fetchMessages/sendMessage/uploadMedia` (extension-first vẫn giữ). Bỏ nhánh `n2store`.
+- **Phase 3 — Realtime:** thay TOÀN BỘ `pancake-realtime.js` (WebSocket Phoenix client) → subscribe `Web2SSE.subscribe('web2:messages')`. Relay server (`live-chat/server`) đã đẩy Pancake WS → SSE sẵn. Tickle `{action,pageId,convId,ts}` → debounce refetch active (Web2Chat) + refresh list.
+- **Phase 4 — Token:** `PancakeAPI.getToken`→`Web2Chat.getJwt`, `getPageAccessToken`→`Web2Chat.getPageAccessToken`+generate. 1 nguồn token. (Fix luôn lỗi token 9-char stale trong browser test.)
+- **Phase 2 — Conversations/search:** `searchConversations`→loop `Web2Chat.searchConversations` per-page + dedupe. **Xóa dead methods** `fetchMessages`/`sendMessage`/`uploadMedia`/`sendPrivateReply` + tất cả `*N2Store` + `_doSearch`/`messagesCache`/`clearMessagesCache`. `fetchConversations`/`fetchMoreConversations` giữ (multi-page inbox-specific, không trùng Web2Chat) nhưng dùng token chung.
+
+**Verify localhost** (token thật synced từ Render DB): 3 pages + 52 hội thoại, search "huynh thanh dat" ra kết quả, mở conv → 25 messages render **CÓ nội dung** (hết bubble rỗng), scroll xuống đáy đúng (requestAnimationFrame), `PancakeRealtime.isConnected=true` subscribed `web2:messages`, `PancakeAPI.fetchMessages=undefined` (single-source confirmed), 0 JS error. Gửi tin chưa live-test (tránh nhắn khách thật — send path verify qua code). **Files:** `pancake-chat-window.js`, `pancake-realtime.js` (rewrite), `pancake-api.js`, `pancake-init.js`, `chat.html` (cache-bust `?v=20260613rb`). **Status:** ✅ Done (verified localhost).
+
 ### [shared] [nhanhang] [soquy] Gỡ hoàn toàn widget AI chat nổi khỏi toàn bộ trang ✅
 
 **User:** "bỏ widget ai web 2.0 đi" → (kèm ảnh nút chat tím nổi góc phải trang live-chat) → "xóa AI widget khỏi navigation-modern.js luôn đi".
