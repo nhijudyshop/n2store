@@ -26,7 +26,11 @@ function _hasRelaySecret(req) {
 // Web 2.0 không bị ảnh hưởng. (ENFORCE-PREP 2026-06-13)
 function _hasClientApiKey(req) {
     const key = process.env.CLIENT_API_KEY || '';
-    return !!key && req.headers['x-api-key'] === key;
+    if (!key) return false;
+    // Header cho caller server-to-server/Node. Browser KHÔNG gửi được header tuỳ
+    // biến X-API-Key (CORS preflight của worker chặn) → chấp nhận thêm ?client_key
+    // (query param = simple request, không preflight). Key vốn đã public ở frontend.
+    return req.headers['x-api-key'] === key || (req.query && req.query.client_key === key);
 }
 
 // requireWeb2AuthSoft + chấp nhận relay-secret / client-api-key cho caller nội bộ.

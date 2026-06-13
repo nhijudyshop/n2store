@@ -27,12 +27,20 @@ function _web2AuthHeaders(extra) {
     } catch {
         /* ignore */
     }
-    // ENFORCE-PREP (2026-06-13): kèm X-API-Key (CLIENT_API_KEY) — key này server đã
-    // trust phát Pancake JWT qua /api/auth/token/pancake. Cho phép đọc full token từ
-    // /api/pancake-accounts kể cả khi WEB2_AUTH_ENFORCE='1' & chưa login Web 2.0
-    // (không có web2_auth). Giữ chat + multi-account gửi tin không vỡ khi bật enforce.
-    if (_CLIENT_API_KEY) h['X-API-Key'] = _CLIENT_API_KEY;
     return h;
+}
+
+// ENFORCE-PREP (2026-06-13): CLIENT_API_KEY là credential server đã trust (phát
+// Pancake JWT qua /api/auth/token/pancake). Web 1.0 KHÔNG có web2_auth nếu chưa
+// login Web 2.0 → gửi key này để đọc full token từ /api/pancake-accounts kể cả khi
+// WEB2_AUTH_ENFORCE='1'. Dùng QUERY PARAM (không phải header X-API-Key) vì header
+// tuỳ biến bị CORS preflight của Cloudflare worker chặn ("Failed to fetch"); query
+// param là "simple request", không preflight. Key vốn đã public trong page source
+// nên không tăng rủi ro lộ. Server: _hasClientApiKey đọc cả header lẫn ?client_key.
+function _ckUrl(url) {
+    if (!_CLIENT_API_KEY) return url;
+    const sep = url.includes('?') ? '&' : '?';
+    return `${url}${sep}client_key=${encodeURIComponent(_CLIENT_API_KEY)}`;
 }
 
 class PancakeTokenManager {
@@ -494,7 +502,7 @@ class PancakeTokenManager {
      */
     async _loadAccountsFromRenderDB() {
         try {
-            const resp = await fetch(`${_RENDER_URL}/api/pancake-accounts?active=true`, {
+            const resp = await fetch(_ckUrl(`${_RENDER_URL}/api/pancake-accounts?active=true`), {
                 signal: AbortSignal.timeout(7000),
                 headers: _web2AuthHeaders(), // ENFORCE-PREP (2026-06-12)
             });
@@ -916,7 +924,7 @@ class PancakeTokenManager {
 
             // Save to Render DB (async)
             try {
-                await fetch(`${_RENDER_URL}/api/pancake-accounts/sync`, {
+                await fetch(_ckUrl(`${_RENDER_URL}/api/pancake-accounts/sync`), {
                     method: 'POST',
                     // ENFORCE-PREP (2026-06-12)
                     headers: _web2AuthHeaders({ 'Content-Type': 'application/json' }),
@@ -1005,7 +1013,7 @@ class PancakeTokenManager {
 
             // Delete from Render DB
             try {
-                await fetch(`${_RENDER_URL}/api/pancake-accounts/${accountId}`, {
+                await fetch(_ckUrl(`${_RENDER_URL}/api/pancake-accounts/${accountId}`), {
                     method: 'DELETE',
                     headers: _web2AuthHeaders(), // ENFORCE-PREP (2026-06-12)
                 });

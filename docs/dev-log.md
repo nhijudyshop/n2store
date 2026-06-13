@@ -74,9 +74,13 @@
     - `render.com/routes/pancake-accounts.js`: thêm `_hasClientApiKey(req)` → vào `_isAuthed` + `_softAuth` (chỉ thêm nhánh OR; Web 2.0 web2-token không đổi).
     - **File LIVE là `shared/js/pancake-token-manager.js`** (orders-report/inbox/... load qua `../shared/js/...?v=`; bản `orders-report/js/managers/pancake-token-manager.js` đã migrate đi, KHÔNG còn HTML nào load — vẫn sync edit cho khỏi lệch). `_web2AuthHeaders()` gắn thêm `X-API-Key = _CLIENT_API_KEY` (cả 2 call site `loadAccounts` + `getTokenFromFirestore` tự nhận). Bump `?v=20260612en`→`20260613pk` trên 5 HTML load file shared: tab1-orders, tab-kpi-commission (orders-report) + facebook-services, don-inbox, invoice-compare. Worker `handleRenderFallbackProxy` forward đủ header (chỉ xoá host/cf-\*) → key tới Render. Key khớp `CLIENT_API_KEY` env (probe direct host 200, không 401).
 - **Fix A (defensive backend hardening):** `render.com/services/auth-token-store.js` `getToken('pancake')` — khi `auth_token_cache` rỗng/hết hạn thì fallback đọc token tươi nhất còn hạn từ `pancake_accounts` (read-only, pancake-only guard, never throw). Hiện cache còn tươi (exp 2026-09-08) + endpoint không qua worker nên chưa kích hoạt cho Web1, nhưng đúng & an toàn cho mọi caller gọi trực tiếp n2store-fallback + future-proof. Không đụng provider TPOS / realtime / Web 2.0 (consumer duy nhất là `/api/auth/token/:provider`).
+- **⚠ PIVOT CORS (verify Playwright live):** header tuỳ biến `X-API-Key` từ browser bị **CORS preflight của Cloudflare worker chặn** (`Failed to fetch`) → `loadAccounts` rớt → 0 account (chat vẫn vỡ). `x-web2-token` qua được vì worker đã allow header đó. Fix lại: **dùng QUERY PARAM `?client_key=<KEY>`** (simple request, không preflight) thay vì header.
+  - `shared/js/pancake-token-manager.js`: bỏ `X-API-Key` header trong `_web2AuthHeaders`; thêm helper `_ckUrl()` append `?client_key=` cho 3 call site (`?active=true`, `/sync`, `DELETE /:id`). Bump 5 HTML `?v=20260613pk`→`pk2`.
+  - `render.com/routes/pancake-accounts.js` `_hasClientApiKey`: đọc cả `req.headers['x-api-key']` LẪN `req.query.client_key` (header cho node/server-to-server; query cho browser). Key vốn public ở page source nên query-param không tăng rủi ro.
+  - Note: bản `shared/browser/pancake-token-manager.js` (ESM) KHÔNG gọi `/api/pancake-accounts` (token source khác) → không cần sửa. Active instance ở tab1-orders là `shared/js`.
 - **Không** đụng `web2/`, không migration, không bảng mới, không đụng cron Web 2.0.
 
-**Status:** ✅ Done (chờ deploy verify).
+**Status:** ✅ Done — verify Playwright live: với `web2_auth` rỗng (đúng cảnh user), `getToken()` trả JWT thật qua `?client_key`; no-key vẫn strip (enforce intact).
 
 ### [web2] Kho SP: ẩn cột "ĐANG DÙNG" + drawer chi tiết SP (4 tab) ✅
 
