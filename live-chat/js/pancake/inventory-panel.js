@@ -229,16 +229,22 @@
                 const imgHtml = img
                     ? `<img class="inv-img" src="${escapeHtml(img)}" alt="" loading="lazy" onerror="this.style.display='none'">`
                     : `<div class="inv-img-placeholder">📦</div>`;
-                const isOos = (Number(p.stock) || 0) <= 0;
+                const stock = Number(p.stock) || 0;
+                const isOos = stock <= 0;
+                // stock tier badge màu: hết / nguy cấp ≤5 / sắp hết ≤15 / còn
+                const tier = isOos ? 'zero' : stock <= 5 ? 'crit' : stock <= 15 ? 'low' : '';
                 return `<div class="inv-card${isOos ? ' oos' : ''}" draggable="true" data-product='${productJson}'>
-                    ${imgHtml}
+                    <div class="inv-card-imgwrap">
+                        ${imgHtml}
+                        ${isOos ? '' : `<button class="inv-card-add" title="Thêm SP vào ô soạn tin" data-add-product='${productJson}'><i data-lucide="plus"></i></button>`}
+                    </div>
                     <div class="inv-card-body">
                         <div class="inv-card-code">${escapeHtml(p.code)}</div>
                         <div class="inv-card-name" title="${escapeHtml(p.name)}">${escapeHtml(p.name)}</div>
                         <div class="inv-card-meta">
                             <span class="inv-card-price">${fmtPrice(p.price)}</span>
                             ${p.variant ? `<span class="inv-card-variant">${escapeHtml(p.variant)}</span>` : ''}
-                            <span class="inv-card-stock${(p.stock ?? 0) === 0 ? ' zero' : ''}">SL ${p.stock ?? 0}</span>
+                            <span class="inv-card-stock${tier ? ' ' + tier : ''}">SL ${stock}</span>
                         </div>
                     </div>
                 </div>`;
@@ -252,6 +258,52 @@
             );
         }
         attachDragSources();
+        attachAddButtons();
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
+    // ─────────────────────────────────────────────────────────
+    // Tap-to-add: nút "+" trên card → chèn SP vào ô soạn tin của hội thoại
+    // đang mở (mobile-friendly thay drag). Drag (drop vào live-comment) vẫn giữ.
+    // ─────────────────────────────────────────────────────────
+    let _addDelegated = false;
+    function attachAddButtons() {
+        if (_addDelegated) return;
+        _addDelegated = true;
+        const root = document.getElementById('invList');
+        if (!root) return;
+        root.addEventListener('click', (e) => {
+            const btn = e.target.closest('.inv-card-add');
+            if (!btn) return;
+            e.stopPropagation();
+            let product;
+            try {
+                product = JSON.parse(btn.getAttribute('data-add-product'));
+            } catch {
+                return;
+            }
+            _addProductToComposer(product, btn);
+        });
+    }
+
+    // Chèn dòng SP (mã · tên · giá) vào textarea composer của Web2ChatPanel đang mở.
+    function _addProductToComposer(product, btn) {
+        const ta = document.querySelector('#pkChatWindow [data-w2cp="input"]');
+        if (!ta) {
+            if (global.notificationManager?.show)
+                global.notificationManager.show('Mở 1 hội thoại để thêm SP', 'warning');
+            return;
+        }
+        const line = `${product.code} · ${product.name}${product.price ? ' · ' + fmtPrice(product.price) : ''}`;
+        ta.value = (ta.value ? ta.value.replace(/\s*$/, '') + '\n' : '') + line;
+        ta.dispatchEvent(new Event('input', { bubbles: true }));
+        ta.focus();
+        // feedback pop
+        if (btn) {
+            btn.classList.add('pk-added');
+            setTimeout(() => btn.classList.remove('pk-added'), 200);
+        }
+        if (global.navigator?.vibrate) global.navigator.vibrate(10);
     }
 
     // ─────────────────────────────────────────────────────────

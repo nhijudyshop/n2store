@@ -1531,35 +1531,42 @@
 /* =====================================================
    EMPTY STATE
    ===================================================== */
+/* ===== REDESIGN đợt 2: empty-state icon trong vòng tròn xanh mềm ===== */
 .pk-empty-state {
     flex: 1;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    color: var(--pkr-text-tertiary);
-    padding: 40px;
+    color: var(--pkr-text-muted);
+    padding: var(--pkr-sp-8);
     text-align: center;
 }
 
 .pk-empty-state i {
-    width: 80px;
-    height: 80px;
-    color: var(--pkr-text-tertiary);
-    opacity: 0.5;
-    margin-bottom: 20px;
+    width: 40px;
+    height: 40px;
+    color: var(--pkr-primary);
+    opacity: 1;
+    margin-bottom: var(--pkr-sp-4);
+    padding: 20px;
+    box-sizing: content-box;
+    background: var(--pkr-blue-50);
+    border-radius: var(--pkr-r-full);
 }
 
 .pk-empty-state h3 {
-    font-size: 18px;
-    font-weight: 600;
-    color: var(--pkr-text-secondary);
-    margin-bottom: 8px;
+    font-size: var(--pkr-text-h3);
+    font-weight: var(--pkr-fw-semibold);
+    color: var(--pkr-text-strong);
+    margin-bottom: var(--pkr-sp-2);
 }
 
 .pk-empty-state p {
-    font-size: 14px;
+    font-size: var(--pkr-text-body);
+    color: var(--pkr-text-secondary);
     max-width: 300px;
+    line-height: var(--pkr-lh-snug);
 }
 
 /* =====================================================
