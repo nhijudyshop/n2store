@@ -402,7 +402,13 @@ router.post('/quick-refund', async (req, res) => {
         if (rowReturns) {
             const cur = metaQ.rows[0]?.returned_row_ids || {};
             for (const [rid, v] of Object.entries(rowReturns)) {
-                cur[rid] = { qty: Number(v?.qty) || 0, amount: Number(v?.amount) || 0, ts: now };
+                // [11]: cộng dồn delta (xem web2-supplier-wallet /tx).
+                const prev = cur[rid] || {};
+                cur[rid] = {
+                    qty: (Number(prev.qty) || 0) + (Number(v?.qty) || 0),
+                    amount: (Number(prev.amount) || 0) + (Number(v?.amount) || 0),
+                    ts: now,
+                };
             }
             await client.query(
                 `UPDATE web2_supplier_meta SET returned_row_ids = $2::jsonb, updated_at = $3 WHERE supplier = $1`,
