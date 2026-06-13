@@ -306,3 +306,21 @@ if (typeof window !== 'undefined' && window.AuthManager) {
         module.exports = { AuthManager };
     }
 }
+
+// --- Auto-load Service Health Monitor (idempotent, infra-level Web1+Web2) ---
+(function () {
+    if (typeof document === 'undefined' || window.__n2HealthMonitorLoaded) return;
+    try {
+        var cs = document.currentScript;
+        var src = (cs && cs.src) || '';
+        var m = src.match(/^(.*?)\/(?:shared|web2\/shared)\//);
+        var root = m ? m[1] : location.origin || '';
+        window.__n2HealthMonitorLoaded = true;
+        var el = document.createElement('script');
+        el.src = root + '/shared/js/service-health-monitor.js?v=20260613a';
+        el.async = true;
+        (document.head || document.documentElement).appendChild(el);
+    } catch (e) {
+        /* non-fatal */
+    }
+})();
