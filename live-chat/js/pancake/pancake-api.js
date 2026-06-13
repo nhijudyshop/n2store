@@ -18,9 +18,6 @@ const PancakeAPI = {
         return h;
     },
 
-    // Messages cache
-    messagesCache: new Map(),
-    MESSAGES_CACHE_DURATION: 2 * 60 * 1000,
     CACHE_DURATION: 5 * 60 * 1000,
     lastPageFetchTime: null,
     lastFetchTime: null,
@@ -32,14 +29,28 @@ const PancakeAPI = {
     // =====================================================
 
     async getToken() {
-        if (!window.pancakeTokenManager) {
-            console.error('[PK-API] pancakeTokenManager not available');
-            return null;
+        // NGUỒN CHUNG (2026-06-13): JWT lấy từ Web2Chat (web2-chat-client.js) — 1 nguồn
+        // token cho cả Web 2.0. Fallback token-manager nếu Web2Chat chưa load.
+        if (window.Web2Chat && typeof window.Web2Chat.getJwt === 'function') {
+            const t = window.Web2Chat.getJwt();
+            if (t) return t;
         }
-        return window.pancakeTokenManager.getToken();
+        if (window.pancakeTokenManager) return window.pancakeTokenManager.getToken();
+        return null;
     },
 
     async getPageAccessToken(pageId) {
+        // NGUỒN CHUNG: PAT từ Web2Chat; thiếu → generate; fallback token-manager.
+        if (window.Web2Chat && typeof window.Web2Chat.getPageAccessToken === 'function') {
+            const pat = window.Web2Chat.getPageAccessToken(pageId);
+            if (pat) return pat;
+            if (typeof window.Web2Chat.generatePageAccessToken === 'function') {
+                try {
+                    const g = await window.Web2Chat.generatePageAccessToken(pageId);
+                    if (g && g.ok && g.token) return g.token;
+                } catch (_) {}
+            }
+        }
         return window.pancakeTokenManager?.getOrGeneratePageAccessToken(pageId) || null;
     },
 
@@ -282,201 +293,11 @@ const PancakeAPI = {
     },
 
     // =====================================================
-    // MESSAGES
+    // MESSAGES / SEND — ĐÃ DỜI sang NGUỒN CHUNG Web2Chat (2026-06-13).
+    // fetchMessages/sendMessage/uploadMedia + biến thể *N2Store đã XÓA: chat-window
+    // adapter + realtime giờ gọi thẳng Web2Chat (web2-chat-client.js). Xem
+    // pancake-chat-window.js + pancake-realtime.js. KHÔNG thêm lại đường data trùng ở đây.
     // =====================================================
-
-    /**
-     * Fetch messages for a conversation
-     * @param {string} pageId
-     * @param {string} convId
-     * @param {Object} options - { currentCount, customerId, forceRefresh }
-     * @returns {Promise<Object>}
-     */
-    async fetchMessages(pageId, convId, options = {}) {
-        const { currentCount = null, customerId = null, forceRefresh = false } = options;
-        const cacheKey = `${pageId}_${convId}`;
-        try {
-            if (pageId.startsWith('igo_')) return { messages: [], fromCache: false };
-            if (!forceRefresh && currentCount === null) {
-                const cached = this.messagesCache.get(cacheKey);
-                if (cached && Date.now() - cached.timestamp < this.MESSAGES_CACHE_DURATION) {
-                    return { ...cached, fromCache: true };
-                }
-            }
-            const jwtToken = await window.pancakeTokenManager?.getToken();
-            if (!jwtToken) throw new Error('No JWT token');
-
-            const endpoint = `pages/${pageId}/conversations/${convId}/messages`;
-            let url = window.API_CONFIG.buildUrl.pancakeDirect(
-                endpoint,
-                pageId,
-                jwtToken,
-                jwtToken
-            );
-            if (customerId) url += `&customer_id=${customerId}`;
-            if (currentCount !== null) url += `&current_count=${currentCount}`;
-
-            const response = await API_CONFIG.smartFetch(
-                url,
-                {
-                    method: 'GET',
-                    headers: { 'Content-Type': 'application/json' },
-                },
-                3,
-                true
-            );
-            if (!response.ok) throw new Error(`HTTP ${response.status}`);
-
-            const data = await response.json();
-            const customers = data.customers || data.conv_customers || [];
-            const result = {
-                messages: data.messages || [],
-                conversation: data.conversation || null,
-                customers,
-                customerId: customers[0]?.id || null,
-                fromCache: false,
-            };
-
-            if (currentCount === null && result.messages.length > 0) {
-                this.messagesCache.set(cacheKey, { ...result, timestamp: Date.now() });
-            }
-            return result;
-        } catch (error) {
-            console.error('[PK-API] fetchMessages error:', error);
-            const cached = this.messagesCache.get(cacheKey);
-            if (cached) return { ...cached, fromCache: true, error: error.message };
-            return { messages: [], fromCache: false, error: error.message };
-        }
-    },
-
-    /**
-     * Fetch messages via N2Store (Facebook Graph API)
-     */
-    async fetchMessagesN2Store(pageId, convId) {
-        try {
-            const n2storeUrl = window.PancakeState.n2storeUrl;
-            // TPOS token đã gỡ — endpoint n2store-facebook hoạt động không cần Authorization
-            // (chat.html chứng minh: không load live-token-manager mà vẫn fetch được).
-            const response = await fetch(
-                `${n2storeUrl}/api/conversations/${convId}/messages?page_id=${pageId}`
-            );
-            if (!response.ok) throw new Error(`HTTP ${response.status}`);
-            const data = await response.json();
-            if (!data.success) throw new Error(data.error || 'Failed');
-            const messages = data.data?.messages || [];
-            return { messages, pageMessages: messages, totalMessages: messages.length };
-        } catch (error) {
-            console.error('[PK-API] fetchMessagesN2Store error:', error);
-            return { messages: [], pageMessages: [] };
-        }
-    },
-
-    // =====================================================
-    // SEND MESSAGE
-    // =====================================================
-
-    async sendMessage(pageId, convId, messageData) {
-        let pageAccessToken = await this.getPageAccessToken(pageId);
-        if (!pageAccessToken) throw new Error('No page_access_token');
-        const {
-            text,
-            attachments = [],
-            action = 'reply_inbox',
-            customerId,
-            content_ids = [],
-            attachment_type,
-        } = messageData;
-        const payload = { action, message: text || '', conversation_id: convId };
-        if (content_ids.length > 0) payload.content_ids = content_ids;
-        else if (attachments.length > 0)
-            payload.content_ids = attachments.map((a) => a.content_id || a.id).filter(Boolean);
-        if (customerId) payload.customer_id = customerId;
-
-        const doPost = async (token) => {
-            const url = window.API_CONFIG.buildUrl.pancakeOfficial(
-                `pages/${pageId}/conversations/${convId}/messages`,
-                token
-            );
-            const response = await API_CONFIG.smartFetch(url, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload),
-            });
-            if (!response.ok) throw new Error(`Send failed: ${response.status}`);
-            return response.json();
-        };
-
-        let data = await doPost(pageAccessToken);
-
-        // Pancake returns HTTP 200 with success:false for app-level errors.
-        // error_code 105 = "access_token renewed please use new access_token" →
-        // mint a fresh page token via Web2Chat and retry ONCE, but only if the new
-        // token actually differs (avoids duplicate sends when it's unchanged).
-        if (
-            data &&
-            data.success === false &&
-            data.error_code === 105 &&
-            window.Web2Chat &&
-            typeof window.Web2Chat.generatePageAccessToken === 'function'
-        ) {
-            try {
-                const gen = await window.Web2Chat.generatePageAccessToken(pageId);
-                if (gen && gen.ok && gen.token && gen.token !== pageAccessToken) {
-                    pageAccessToken = gen.token;
-                    if (window.pancakeTokenManager?.savePageAccessToken) {
-                        await window.pancakeTokenManager.savePageAccessToken(pageId, gen.token);
-                    }
-                    data = await doPost(pageAccessToken);
-                }
-            } catch (e) {
-                console.warn('[PK-API] page token renew on 105 failed:', e.message);
-            }
-        }
-
-        // Surface app-level failures instead of silently returning the error
-        // object as if the message was sent (the chat window then shows a toast
-        // and removes the optimistic bubble).
-        if (data && data.success === false) {
-            const reason =
-                data.message ||
-                (data.error_code != null
-                    ? `Pancake error #${data.error_code}`
-                    : 'Gửi tin nhắn thất bại');
-            throw new Error(reason);
-        }
-        return data.message || data;
-    },
-
-    async sendMessageN2Store(
-        pageId,
-        convId,
-        text,
-        action = 'reply_inbox',
-        attachmentId = null,
-        attachmentType = null
-    ) {
-        const n2storeUrl = window.PancakeState.n2storeUrl;
-        const body = { conversation_id: convId, message: text };
-        if (attachmentId) {
-            body.attachment_id = attachmentId;
-            body.attachment_type = attachmentType?.toLowerCase() || 'image';
-        }
-        // TPOS token đã gỡ — không gửi Authorization header.
-        const headers = { 'Content-Type': 'application/json' };
-        const response = await fetch(`${n2storeUrl}/api/pages/${pageId}/messages`, {
-            method: 'POST',
-            headers,
-            body: JSON.stringify(body),
-        });
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        const data = await response.json();
-        if (!data.success) throw new Error(data.error || 'Failed');
-        return data.data;
-    },
-
-    async sendPrivateReply(pageId, convId, text, customerId = null) {
-        return this.sendMessage(pageId, convId, { text, action: 'private_replies', customerId });
-    },
 
     async privateReplyN2Store(pageId, commentId, message) {
         const n2storeUrl = window.PancakeState.n2storeUrl;
@@ -499,63 +320,46 @@ const PancakeAPI = {
     // SEARCH
     // =====================================================
 
+    // NGUỒN CHUNG (2026-06-13): tìm qua Web2Chat.searchConversations (per-page),
+    // loop các page + gộp + dedupe theo id. Bỏ _doSearch (đường HTTP trùng).
     async searchConversations(query, pageIds = null) {
         try {
             if (!query) return { conversations: [], customerId: null };
-            const token = await this.getToken();
-            if (!token) throw new Error('No token');
+            if (!window.Web2Chat || typeof window.Web2Chat.searchConversations !== 'function')
+                return { conversations: [], customerId: null };
             const state = window.PancakeState;
-            let searchPageIds = pageIds || state.pageIds;
-            searchPageIds = searchPageIds.filter((id) => !id.startsWith('igo_'));
+            let searchPageIds = pageIds || state._searchablePageIds || state.pageIds || [];
+            searchPageIds = searchPageIds.filter((id) => id && !String(id).startsWith('igo_'));
             if (searchPageIds.length === 0) {
                 await this.fetchPages();
-                searchPageIds = state.pageIds.filter((id) => !id.startsWith('igo_'));
+                searchPageIds = (state.pageIds || []).filter(
+                    (id) => id && !String(id).startsWith('igo_')
+                );
             }
-            if (state._searchablePageIds) searchPageIds = state._searchablePageIds;
-
-            const encoded = encodeURIComponent(query);
-            const result = await this._doSearch(token, encoded, searchPageIds);
-            if (result.success) return result;
-
-            // Handle error_code 122
-            if (result.errorCode === 122 && searchPageIds.length > 1 && !state._searchablePageIds) {
-                const working = [];
-                for (const pid of searchPageIds) {
-                    const test = await this._doSearch(token, encoded, [pid]);
-                    if (test.success || (test.errorCode !== 122 && test.errorCode !== 429))
-                        working.push(pid);
-                    await new Promise((r) => setTimeout(r, 500));
-                }
-                if (working.length > 0) {
-                    state._searchablePageIds = working;
-                    await new Promise((r) => setTimeout(r, 1000));
-                    const retry = await this._doSearch(token, encoded, working);
-                    if (retry.success) return retry;
+            const results = await Promise.all(
+                searchPageIds.map((pid) =>
+                    window.Web2Chat.searchConversations(pid, query).catch(() => ({
+                        ok: false,
+                        conversations: [],
+                    }))
+                )
+            );
+            const seen = new Set();
+            const conversations = [];
+            for (const r of results) {
+                if (!r || !r.ok || !Array.isArray(r.conversations)) continue;
+                for (const c of r.conversations) {
+                    if (c && c.id && !seen.has(c.id)) {
+                        seen.add(c.id);
+                        conversations.push(c);
+                    }
                 }
             }
-            return { conversations: [], customerId: null };
+            const customerId = conversations[0]?.customers?.[0]?.id || null;
+            return { conversations, customerId };
         } catch (error) {
             console.error('[PK-API] searchConversations error:', error);
             return { conversations: [], customerId: null };
-        }
-    },
-
-    async _doSearch(token, encodedQuery, pageIds) {
-        const qs = `q=${encodedQuery}&access_token=${token}&cursor_mode=true`;
-        const url = window.API_CONFIG.buildUrl.pancake('conversations/search', qs);
-        const formData = new FormData();
-        formData.append('page_ids', pageIds.join(','));
-        try {
-            const response = await fetch(url, { method: 'POST', body: formData });
-            if (!response.ok) return { success: false, errorCode: response.status };
-            const data = await response.json();
-            if (data.error_code || !data.success)
-                return { success: false, errorCode: data.error_code, message: data.message };
-            const conversations = data.conversations || [];
-            const customerId = conversations[0]?.customers?.[0]?.id || null;
-            return { success: true, conversations, customerId };
-        } catch (err) {
-            return { success: false, errorCode: 0, message: err.message };
         }
     },
 
@@ -631,56 +435,7 @@ const PancakeAPI = {
         }
     },
 
-    // =====================================================
-    // MEDIA UPLOAD
-    // =====================================================
-
-    async uploadMedia(pageId, file) {
-        try {
-            const pat = await this.getPageAccessToken(pageId);
-            if (!pat) throw new Error('No page_access_token');
-            const url = window.API_CONFIG.buildUrl.pancakeOfficial(
-                `pages/${pageId}/upload_contents`,
-                pat
-            );
-            const formData = new FormData();
-            formData.append('file', file);
-            const resp = await fetch(url, { method: 'POST', body: formData });
-            if (!resp.ok) throw new Error(`Upload failed: ${resp.status}`);
-            const data = await resp.json();
-            return {
-                id: data.id,
-                attachment_type: data.attachment_type || 'PHOTO',
-                success: data.success !== false,
-            };
-        } catch (error) {
-            return { id: null, success: false, error: error.message };
-        }
-    },
-
-    async uploadMediaN2Store(pageId, file) {
-        try {
-            const n2storeUrl = window.PancakeState.n2storeUrl;
-            const formData = new FormData();
-            formData.append('file', file);
-            // TPOS token đã gỡ — không gửi Authorization header.
-            const headers = {};
-            const resp = await fetch(`${n2storeUrl}/api/pages/${pageId}/upload`, {
-                method: 'POST',
-                headers,
-                body: formData,
-            });
-            const data = await resp.json();
-            if (!data.success) throw new Error(data.error || 'Upload failed');
-            return {
-                attachment_id: data.attachment_id || data.id,
-                attachment_type: data.attachment_type || 'IMAGE',
-                success: true,
-            };
-        } catch (error) {
-            return { attachment_id: null, success: false, error: error.message };
-        }
-    },
+    // MEDIA UPLOAD — đã dời sang Web2Chat.uploadMedia (nguồn chung, 2026-06-13).
 
     // =====================================================
     // CUSTOMER INFO / NOTES / COMMENTS
@@ -871,14 +626,6 @@ const PancakeAPI = {
             return false;
         } catch {
             return false;
-        }
-    },
-
-    clearMessagesCache(pageId = null, convId = null) {
-        if (pageId && convId) {
-            this.messagesCache.delete(`${pageId}_${convId}`);
-        } else {
-            this.messagesCache.clear();
         }
     },
 };

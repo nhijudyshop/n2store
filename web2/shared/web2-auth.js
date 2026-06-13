@@ -164,6 +164,28 @@
         return h;
     }
 
+    // =====================================================
+    // PAGE GUARD — BẮT BUỘC đăng nhập Web 2.0 (2026-06-13).
+    // Mọi trang Web 2.0 load web2-auth.js → tự kiểm tra: chưa có token hợp lệ
+    // (getStored null/hết hạn) → redirect /web2/login?next=<trang hiện tại>.
+    // CHẠY SỚM lúc script load (web2-auth.js nằm sớm trong <head>/<body>) → hạn
+    // chế flash nội dung trước redirect. Chỉ áp Web 2.0 (KHÔNG trang nào của Web
+    // 1.0 load file này — đã verify). Skip: chính trang login (tránh loop) +
+    // opt-out window.__WEB2_GUARD_OFF = true (trang public đặc biệt nếu có).
+    // =====================================================
+    function guardPage() {
+        try {
+            const path = location.pathname || '';
+            if (/\/web2\/login\//.test(path)) return; // trang login tự skip
+            if (global.__WEB2_GUARD_OFF) return;
+            if (getStored()) return; // đã đăng nhập (token chưa hết hạn) → cho qua
+            const next = location.pathname + location.search;
+            location.replace(loginUrl() + '?next=' + encodeURIComponent(next));
+        } catch (e) {
+            /* guard lỗi KHÔNG được chặn page → bỏ qua */
+        }
+    }
+
     global.Web2Auth = {
         getStored,
         storeLogin,
@@ -174,7 +196,11 @@
         requireAuth,
         logout,
         loginUrl,
+        guardPage,
         STORAGE_KEY,
         API,
     };
+
+    // Tự chạy guard ngay khi load (bắt buộc đăng nhập).
+    guardPage();
 })(window);

@@ -77,8 +77,10 @@
                 (c) => c.Facebook_LiveId === liveVideoId || c.Id === videoId
             );
             if (!match) {
-                console.warn('[snap] video not found in FB-live list:', liveVideoId);
-                return null;
+                // Video KHÔNG còn trong list FB-live của page → đã bị XÓA / unpublish /
+                // hết hạn. Trả notFound (khác null=lỗi mạng) để force-extract báo rõ.
+                console.warn('[snap] video not found in FB-live list (deleted?):', liveVideoId);
+                return { notFound: true };
             }
             const startMs = match.DateCreated
                 ? (SharedUtils.parseTimestamp(match.DateCreated)?.getTime() ?? null)
@@ -3505,6 +3507,36 @@ Throttle 30s/KH.`;
 
     // Pool song song: mỗi video dựng K player (cùng href, seek khác offset), K worker
     // rút comment từ queue chung tới hết. stats.{done,failed} cập nhật in-place.
+    // Kiểm tra 1 video group có xử lý được không; nếu KHÔNG → toast lý do RÕ RÀNG
+    // (page thiếu / video đã XÓA / lỗi mạng / thiếu giờ bắt đầu) + trả true để bail.
+    // Phân biệt videoInfo: null = lỗi mạng/quyền; {notFound:true} = video đã xóa.
+    function _forceExtractVideoBlocked(pageObj, videoInfo, camp, count) {
+        const nm = String(camp?.Name || camp?.Facebook_LiveId || 'live').slice(0, 34);
+        if (!pageObj) {
+            _toast(`⚠ Không tìm thấy trang FB của "${nm}" — bỏ ${count} comment`, 'err');
+            return true;
+        }
+        if (!videoInfo) {
+            _toast(
+                `⚠ Không lấy được thông tin video "${nm}" (lỗi mạng/quyền) — bỏ ${count} comment, thử lại`,
+                'err'
+            );
+            return true;
+        }
+        if (videoInfo.notFound) {
+            _toast(
+                `🚫 Video livestream "${nm}" đã bị XÓA / không còn trên Facebook — ${count} comment không chụp được`,
+                'err'
+            );
+            return true;
+        }
+        if (!videoInfo.broadcastStartMs) {
+            _toast(`⚠ Không lấy được giờ bắt đầu live "${nm}" — bỏ ${count} comment`, 'err');
+            return true;
+        }
+        return false;
+    }
+
     async function _runForceExtractParallel(byVideo, st, total, K, isCancelled, onProgress, stats) {
         const strip = _ensureWorkerStrip(K);
         const workers = strip._wrappers.slice(0, K);
@@ -3523,7 +3555,7 @@ Throttle 30s/KH.`;
                         );
                     } catch (_) {}
                 }
-                if (!pageObj || !videoInfo?.broadcastStartMs) {
+                if (_forceExtractVideoBlocked(pageObj, videoInfo, camp, comments.length)) {
                     stats.failed += comments.length;
                     onProgress();
                     continue;
@@ -3612,7 +3644,7 @@ Throttle 30s/KH.`;
                     );
                 } catch (_) {}
             }
-            if (!pageObj || !videoInfo?.broadcastStartMs) {
+            if (_forceExtractVideoBlocked(pageObj, videoInfo, camp, comments.length)) {
                 stats.failed += comments.length;
                 onProgress();
                 continue;

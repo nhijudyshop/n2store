@@ -32,19 +32,10 @@ const PancakeColumnManager = {
         // Bind all events
         this._bindEvents();
 
-        // Initialize realtime - default to server mode (browser direct WS fails cross-origin)
-        var realtimeMode = window.chatAPISettings
-            ? window.chatAPISettings.getRealtimeMode()
-            : 'server';
-        if (realtimeMode === 'browser') {
-            var connected = await window.PancakeRealtime.connect();
-            if (!connected) {
-                console.log('[PK-INIT] Browser WS failed, falling back to server mode');
-                await window.PancakeRealtime.connectServerMode();
-            }
-        } else {
-            await window.PancakeRealtime.connectServerMode();
-        }
+        // Realtime: SSE `web2:messages` (nguồn chung) — KHÔNG còn WebSocket riêng.
+        // connect()/connectServerMode() đều = wire SSE (idempotent), relay server
+        // đã chạy 24/7 đẩy tin Pancake → SSE. Xem pancake-realtime.js.
+        await window.PancakeRealtime.connect();
 
         // Listen for realtime manager events (from realtime-manager.js)
         window.addEventListener('realtimeConversationUpdate', function (e) {

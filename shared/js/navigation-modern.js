@@ -6652,6 +6652,12 @@ setTimeout(() => {
         return;
     }
 
+    // Opt-out: Web 2.0 surfaces (vd live-chat) set cờ này để KHÔNG load
+    // widget AI chat nổi — navigation-modern vẫn load cho SePay banner.
+    if (window.__DISABLE_AI_CHAT_WIDGET) {
+        return;
+    }
+
     // Admin-only: chỉ load widget cho admin-authenticated users
     try {
         if (localStorage.getItem('userType') !== 'admin-authenticated') {
