@@ -15,6 +15,7 @@
 - **Nút gửi** `.w2cp-send-btn` (SHARED): nền **gradient** blue-400→primary + **soft glow tĩnh** `0 4px 12px rgba(0,104,255,.32)` + hover lift, giữ spring `:active scale(.9)`, icon 20px.
 - **Tag chip** `.w2cp-quick-btn` (SHARED): padding 3→5px, +shadow nhẹ, hover lift + `:active scale(.94)`.
 - **Mode-switcher** `.pk-mode-switch` (inventory-panel.css) + `pancake-mode-switcher.js`: nút flex + `:active scale(.96)` + icon 16px; **đổi emoji 💬/📦 → lucide** `messages-square`/`package` (sạch, có thiết kế) + `lucide.createIcons()` sau wrap.
+- **Header tools** `.w2cp-tool` (↻ refresh / ⌄ chevron — SHARED): viền xám phẳng → hover **tint Zalo blue** (bg blue-50 + viền blue-200 + chữ primary) + `:active scale(.9)` + icon 17px stroke 2 + radius 9px. **`.w2cp-loc-badge`** harmonize #2563eb → blue-600 (đồng tông). (batch 2 — sau khi mở hội thoại review)
 - **Dọn teal leftover** (#00a884 / rgba(0,168,132)) còn sót: ring `.pk-chat-input-wrapper`, `.pk-page-selector-btn.active`, keyframe `pkConvUpdated` → tất cả về `--pkr-ring-primary` / rgba(0,104,255). Sweep: 0 giá trị teal còn lại (chỉ còn comment).
 - SHARED edits dùng `var(--pkr-X, fallback)` → native-orders/balance-history hưởng cùng (đồng bộ), không vỡ.
 

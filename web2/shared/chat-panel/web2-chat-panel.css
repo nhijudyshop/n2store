@@ -49,8 +49,8 @@
     gap: 3px;
     font-size: 11px;
     font-weight: 500;
-    color: #2563eb;
-    background: #eff6ff;
+    color: var(--pkr-blue-600, #0058db); /* harmonize → Zalo blue (thay #2563eb) */
+    background: var(--pkr-blue-50, #eef5ff);
     padding: 1px 7px;
     border-radius: 999px;
 }
@@ -65,22 +65,32 @@
     align-items: center;
     justify-content: center;
     gap: 4px;
-    border: 1px solid #e2e8f0;
+    border: 1px solid var(--pkr-border, #e6eaf0);
     background: #fff;
-    color: #475569;
-    border-radius: 8px;
+    color: var(--pkr-text-secondary, #475569);
+    border-radius: 9px;
     width: 30px;
     height: 30px;
     cursor: pointer;
     transition:
         background 0.15s,
         color 0.15s,
-        border-color 0.15s;
+        border-color 0.15s,
+        transform var(--pkr-dur-fast, 0.15s) var(--pkr-ease-spring, ease);
 }
 .w2cp-tool:hover {
-    background: #f1f5f9;
-    color: #0f172a;
-    border-color: #cbd5e1;
+    background: var(--pkr-blue-50, #eef5ff);
+    color: var(--pkr-primary, #0068ff);
+    border-color: var(--pkr-blue-200, #bcd6ff);
+}
+.w2cp-tool:active {
+    transform: scale(0.9); /* tactile press */
+}
+.w2cp-tool i,
+.w2cp-tool svg {
+    width: 17px;
+    height: 17px;
+    stroke-width: 2;
 }
 
 /* ---- Avatar ---- */
