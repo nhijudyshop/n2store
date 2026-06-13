@@ -3,17 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `e30d993` — refactor(web2,shared): dọn cross-folder dep — move native-orders css → web2/shared (web2-base + web2-components), repoint 31 files
-**Last updated**: 2026-06-13 23:28:11 +07
-**Latest session**: [`RESUME:20260613-232811-e30d993`](../20260613-232811-e30d993.md)
-**Summary**: refactor(web2,shared): dọn cross-folder dep — move native-orders css → web2/shared (web2-base + web2-components...
+**Latest commit**: `1f27b42` — auto: session update
+**Last updated**: 2026-06-13 23:45:36 +07
+**Latest session**: [`RESUME:20260613-234536-1f27b42`](../20260613-234536-1f27b42.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`native-orders/`](./native-orders.md) — 1 file(s)
-- [`so-order/`](./so-order.md) — 1 file(s)
-- [`web2/`](./web2.md) — 23 file(s)
+- [`live-chat/`](./live-chat.md) — 3 file(s)
 
 ## All folder snapshots
 
@@ -41,7 +38,7 @@
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-06-13 14:55
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-12 19:21
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
-- [`live-chat/`](./live-chat.md) — updated 2026-06-13 23:05
+- [`live-chat/`](./live-chat.md) — updated 2026-06-13 23:45
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-06-04 20:02
 - [`native-orders/`](./native-orders.md) — updated 2026-06-13 23:28
 - [`nhanhang/`](./nhanhang.md) — updated 2026-06-13 19:51
