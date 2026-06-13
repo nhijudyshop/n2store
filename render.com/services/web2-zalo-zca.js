@@ -18,22 +18,34 @@
 // ── Defensive require (không crash server nếu lib lỗi cài) ──────────────
 let Zalo = null;
 let ThreadType = null;
+let Reactions = null;
 let _libErr = null;
 try {
     const zca = require('zca-js');
     Zalo = zca.Zalo;
     ThreadType = zca.ThreadType;
+    Reactions = zca.Reactions || {};
 } catch (e) {
     _libErr = e.message;
     console.warn('[web2-zalo-zca] zca-js chưa sẵn sàng:', e.message);
 }
 
 const QR_TTL_MS = 5 * 60 * 1000; // QR sống 5 phút
+const _tt = (threadType) => (threadType === 'group' ? ThreadType.Group : ThreadType.User);
 
 // accountKey → { api, status, qr, info, lastError, startedAt }
 const _sessions = new Map();
 
-let _cb = { onMessage: null, onStatus: null, persistSession: null };
+let _cb = {
+    onMessage: null,
+    onStatus: null,
+    persistSession: null,
+    onTyping: null,
+    onSeen: null,
+    onDelivered: null,
+    onReaction: null,
+    onUndo: null,
+};
 
 function configure(cb) {
     _cb = Object.assign(_cb, cb || {});
@@ -136,19 +148,81 @@ function _normMessage(accountKey, m) {
         text = rawContent == null ? '' : String(rawContent);
     }
 
+    // quote (reply) đến nếu có
+    let replyTo = null;
+    if (d.quote && (d.quote.msgId || d.quote.globalMsgId || d.quote.cliMsgId)) {
+        replyTo = {
+            msgId: String(d.quote.msgId || d.quote.globalMsgId || ''),
+            preview: String(d.quote.content || '').slice(0, 120),
+            senderName: d.quote.fromD || d.quote.dName || null,
+        };
+    }
+
     return {
         accountKey,
         msgId: d.msgId || d.cliMsgId || d.globalMsgId || null,
+        cliMsgId: d.cliMsgId || null,
         threadId: String(m?.threadId || ''),
         threadType: isGroup ? 'group' : 'user',
         direction: m?.isSelf ? 'out' : 'in',
         msgType: kind,
         content: String(text || ''),
         attachments,
+        replyTo,
         senderUid: d.uidFrom || null,
         senderName: d.dName || null,
         sentAt: Number(d.ts) || now(),
         raw: d,
+    };
+}
+
+// ── Normalizers cho event realtime (typing/seen/reaction/undo) ──────────
+function _normTyping(accountKey, e) {
+    const d = e?.data || e || {};
+    return {
+        accountKey,
+        threadId: String(d.uid || d.gid || d.threadId || e?.threadId || ''),
+        isGroup: !!(d.gid || (ThreadType && e?.type === ThreadType.Group)),
+        senderUid: d.uid || null,
+        ts: now(),
+    };
+}
+function _normSeen(accountKey, e) {
+    const d = e?.data || e || {};
+    const seen = Array.isArray(d) ? d : d.seen || d.msgIds || [];
+    return {
+        accountKey,
+        threadId: String(e?.threadId || d.threadId || d.idTo || ''),
+        msgIds: (Array.isArray(seen) ? seen : [seen])
+            .map((x) => String(x?.msgId || x))
+            .filter(Boolean),
+        ts: now(),
+    };
+}
+function _normReaction(accountKey, e) {
+    const d = e?.data || {};
+    const c = d.content || {};
+    return {
+        accountKey,
+        threadId: String(e?.threadId || ''),
+        msgId: String(c.rMsg?.[0]?.gMsgID || c.rMsg?.[0]?.msgId || d.msgId || ''),
+        cliMsgId: String(c.rMsg?.[0]?.cMsgID || d.cliMsgId || ''),
+        uidFrom: d.uidFrom || null,
+        icon: c.rIcon || c.icon || '',
+        rType: c.rType,
+        ts: now(),
+    };
+}
+function _normUndo(accountKey, e) {
+    const d = e?.data || {};
+    const c = d.content || {};
+    return {
+        accountKey,
+        threadId: String(e?.threadId || ''),
+        msgId: String(c.globalMsgId || c.gMsgID || d.msgId || ''),
+        cliMsgId: String(c.cliMsgId || c.cMsgID || d.cliMsgId || ''),
+        uidFrom: d.uidFrom || null,
+        ts: now(),
     };
 }
 
@@ -169,6 +243,38 @@ function _attachListener(accountKey, api) {
             console.warn('[web2-zalo-zca] onMessage cb err:', e.message);
         }
     });
+    // Realtime phụ trợ: gõ phím, đã xem, đã nhận, thả cảm xúc, thu hồi.
+    const _safe = (fn, label) => (e) => {
+        try {
+            fn(e);
+        } catch (err) {
+            console.warn(`[web2-zalo-zca] ${label} cb err:`, err.message);
+        }
+    };
+    listener.on(
+        'typing',
+        _safe((e) => _cb.onTyping?.(_normTyping(accountKey, e)), 'typing')
+    );
+    listener.on(
+        'seen_message',
+        _safe((e) => _cb.onSeen?.(_normSeen(accountKey, e)), 'seen')
+    );
+    listener.on(
+        'seen_messages',
+        _safe((e) => _cb.onSeen?.(_normSeen(accountKey, e)), 'seen')
+    );
+    listener.on(
+        'delivered_message',
+        _safe((e) => _cb.onDelivered?.(_normSeen(accountKey, e)), 'delivered')
+    );
+    listener.on(
+        'reaction',
+        _safe((e) => _cb.onReaction?.(_normReaction(accountKey, e)), 'reaction')
+    );
+    listener.on(
+        'undo',
+        _safe((e) => _cb.onUndo?.(_normUndo(accountKey, e)), 'undo')
+    );
     listener.onConnected?.(() => _setStatus(accountKey, 'connected'));
     listener.onClosed?.((code, reason) =>
         _setStatus(accountKey, 'disconnected', `closed ${code} ${reason || ''}`)
@@ -296,14 +402,118 @@ function _requireApi(accountKey) {
 }
 
 // ── Hành động (chỉ personal) ────────────────────────────────────────────
-async function send(accountKey, threadId, text, threadType) {
+// Lấy {msgId, cliMsgId} từ result api.sendMessage (shape {message:{msgId}, attachment:[]} | {msgId} | [])
+function _pickSendIds(res) {
+    const m = res?.message || (Array.isArray(res) ? res[0] : res) || {};
+    return {
+        msgId:
+            m.msgId ||
+            res?.msgId ||
+            (Array.isArray(res?.attachment) ? res.attachment[0]?.msgId : null) ||
+            null,
+        cliMsgId: m.cliMsgId || res?.cliMsgId || null,
+    };
+}
+
+// Gửi text (kèm quote/reply nếu có). quote = SendMessageQuote lấy từ raw tin gốc.
+async function send(accountKey, threadId, text, threadType, quote) {
     const api = _requireApi(accountKey);
-    const tt = threadType === 'group' ? ThreadType.Group : ThreadType.User;
-    const res = await api.sendMessage(String(text), String(threadId), tt);
-    // shape: {msgId, ...} hoặc array
-    const msgId =
-        res?.msgId || res?.message?.msgId || (Array.isArray(res) ? res[0]?.msgId : null) || null;
-    return { success: true, msgId, raw: res };
+    const tt = _tt(threadType);
+    const payload = quote ? { msg: String(text), quote } : String(text);
+    const res = await api.sendMessage(payload, String(threadId), tt);
+    return { success: true, ..._pickSendIds(res), raw: res };
+}
+
+// Gửi ảnh/file: sources = [{ data: Buffer, filename, metadata:{totalSize,width?,height?} }].
+// api.sendMessage tự upload Buffer lên Zalo CDN + gửi (KHÔNG trả URL → route tự host bytea).
+async function sendMedia(accountKey, threadId, sources, caption, threadType) {
+    const api = _requireApi(accountKey);
+    const tt = _tt(threadType);
+    const res = await api.sendMessage(
+        { msg: String(caption || ''), attachments: sources },
+        String(threadId),
+        tt
+    );
+    return { success: true, ..._pickSendIds(res), raw: res };
+}
+
+async function sendSticker(accountKey, threadId, sticker, threadType) {
+    const api = _requireApi(accountKey);
+    const res = await api.sendSticker(
+        { id: Number(sticker.id), cateId: Number(sticker.cateId), type: Number(sticker.type) },
+        String(threadId),
+        _tt(threadType)
+    );
+    return { success: true, msgId: res?.msgId || null, raw: res };
+}
+
+// Thả cảm xúc (add-only — zca KHÔNG có removeReaction). iconKey = tên enum Reactions (vd 'HEART').
+async function react(accountKey, threadId, msgId, cliMsgId, iconKey, threadType) {
+    const api = _requireApi(accountKey);
+    const icon = Reactions[iconKey] != null ? Reactions[iconKey] : iconKey;
+    const res = await api.addReaction(icon, {
+        data: { msgId: String(msgId), cliMsgId: String(cliMsgId) },
+        threadId: String(threadId),
+        type: _tt(threadType),
+    });
+    return { success: true, msgIds: res?.msgIds || [], raw: res };
+}
+
+// Thu hồi tin mình gửi.
+async function recall(accountKey, threadId, msgId, cliMsgId, threadType) {
+    const api = _requireApi(accountKey);
+    const res = await api.undo(
+        { msgId: String(msgId), cliMsgId: String(cliMsgId) },
+        String(threadId),
+        _tt(threadType)
+    );
+    return { success: true, status: res?.status, raw: res };
+}
+
+async function forward(accountKey, message, threadIds, threadType) {
+    const api = _requireApi(accountKey);
+    const ids = (Array.isArray(threadIds) ? threadIds : [threadIds]).map(String);
+    const res = await api.forwardMessage({ message: String(message) }, ids, _tt(threadType));
+    return { success: true, raw: res };
+}
+
+async function sendTyping(accountKey, threadId, threadType) {
+    const api = _requireApi(accountKey);
+    await api.sendTypingEvent(String(threadId), _tt(threadType));
+    return { success: true };
+}
+
+// Báo đã xem. messages = mảng raw tin inbound (chứa msgId/cliMsgId/uidFrom/...).
+async function sendSeen(accountKey, messages, threadType) {
+    const api = _requireApi(accountKey);
+    const arr = Array.isArray(messages) ? messages : [messages];
+    await api.sendSeenEvent(arr, _tt(threadType));
+    return { success: true };
+}
+
+// Tìm sticker theo keyword → trả chi tiết (url để render + id/cateId/type để gửi).
+async function getStickers(accountKey, keyword) {
+    const api = _requireApi(accountKey);
+    const ids = await api.getStickers(String(keyword || 'hi'));
+    const idArr = (Array.isArray(ids) ? ids : []).slice(0, 40);
+    if (!idArr.length) return { success: true, stickers: [] };
+    const details = await api.getStickersDetail(idArr).catch(() => []);
+    const stickers = (Array.isArray(details) ? details : [])
+        .map((s) => ({
+            id: s.id,
+            cateId: s.cateId,
+            type: s.type,
+            url: s.stickerWebpUrl || s.stickerUrl || '',
+            text: s.text || '',
+        }))
+        .filter((s) => s.url && s.id);
+    return { success: true, stickers };
+}
+
+async function getQuickMessages(accountKey) {
+    const api = _requireApi(accountKey);
+    const r = await api.getQuickMessageList();
+    return { success: true, items: r?.items || r || [] };
 }
 
 async function getUserInfo(accountKey, uid) {
@@ -446,6 +656,15 @@ module.exports = {
     loginWithCredentials,
     getQr,
     send,
+    sendMedia,
+    sendSticker,
+    react,
+    recall,
+    forward,
+    sendTyping,
+    sendSeen,
+    getStickers,
+    getQuickMessages,
     getUserInfo,
     findUser,
     getMultiUsersByPhones,

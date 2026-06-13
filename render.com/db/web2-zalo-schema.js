@@ -156,6 +156,24 @@ async function ensureWeb2ZaloSchema(pool) {
             CREATE INDEX IF NOT EXISTS idx_web2_zalo_msg_reply  ON web2_zalo_messages(reply_to_msg_id) WHERE reply_to_msg_id IS NOT NULL;
         `);
 
+        // ── 3b. Media tự host (ảnh/file shop GỬI) — bytea, serve qua /media/:id ──
+        //    Lý do: api.sendMessage upload ảnh lên Zalo CDN nhưng KHÔNG trả URL về
+        //    → lưu bản copy bytea để UI shop hiển thị lại ảnh đã gửi sau reload.
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS web2_zalo_media (
+                id          BIGSERIAL PRIMARY KEY,
+                account_key VARCHAR(80),
+                mime        VARCHAR(100) NOT NULL DEFAULT 'application/octet-stream',
+                filename    VARCHAR(255),
+                data        BYTEA NOT NULL,
+                width       INTEGER,
+                height      INTEGER,
+                size        INTEGER,
+                created_at  BIGINT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_web2_zalo_media_created ON web2_zalo_media(created_at DESC);
+        `);
+
         // ── 4. ZNS templates (cache từ OA) ──────────────────────────────────────
         await pool.query(`
             CREATE TABLE IF NOT EXISTS web2_zns_templates (

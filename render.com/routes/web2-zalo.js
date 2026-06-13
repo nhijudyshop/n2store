@@ -76,6 +76,11 @@ zca.configure({
     persistSession: async (accountKey, creds, info, label) => {
         await _saveSession(accountKey, creds, info, label);
     },
+    onReaction: (e) =>
+        _persistReaction(e).catch((er) => console.warn('[WEB2-ZALO] react:', er.message)),
+    onUndo: (e) => _persistRecall(e).catch((er) => console.warn('[WEB2-ZALO] undo:', er.message)),
+    onSeen: (e) => _persistSeen(e).catch((er) => console.warn('[WEB2-ZALO] seen:', er.message)),
+    onTyping: (e) => _notifyThread(e.accountKey, e.threadId, 'typing', e.senderUid),
 });
 
 // Preview ngắn cho danh sách hội thoại (media → nhãn tiếng Việt)
@@ -125,14 +130,16 @@ async function _persistIncoming(msg) {
         ]
     );
     const convId = rows[0]?.id;
-    // insert message (dedup theo msg_id) — giữ attachments (ảnh/sticker/file)
+    // insert message (dedup theo msg_id) — giữ attachments + cli_msg_id + reply
     await _pool.query(
         `INSERT INTO web2_zalo_messages
-            (msg_id, account_key, thread_id, thread_type, direction, msg_type, content, attachments, sender_uid, send_status, sent_at, created_at)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9,'sent',$10,$11)
+            (msg_id, cli_msg_id, account_key, thread_id, thread_type, direction, msg_type, content, attachments,
+             reply_to_msg_id, reply_to_preview, sender_uid, send_status, sent_at, created_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10,$11,$12,'sent',$13,$14)
          ON CONFLICT DO NOTHING`,
         [
             msg.msgId,
+            msg.cliMsgId || null,
             msg.accountKey,
             msg.threadId,
             msg.threadType || 'user',
@@ -140,6 +147,8 @@ async function _persistIncoming(msg) {
             msg.msgType || 'text',
             msg.content || '',
             JSON.stringify(Array.isArray(msg.attachments) ? msg.attachments : []),
+            msg.replyTo?.msgId || null,
+            msg.replyTo?.preview || null,
             msg.senderUid || null,
             msg.sentAt || ts,
             ts,
@@ -147,6 +156,54 @@ async function _persistIncoming(msg) {
     );
     _notify('web2:zalo:messages', msg.direction === 'in' ? 'create' : 'update', msg.msgId);
     if (convId) _notify(`web2:zalo:conv:${convId}`, 'create', String(convId));
+    if (msg.threadId) _notify(`web2:zalo:thread:${msg.threadId}`, 'message', msg.msgId);
+}
+
+// Thread-keyed topic cho realtime conv-level (typing/reaction/recall/seen) —
+// không cần lookup conv id từ threadId.
+function _notifyThread(accountKey, threadId, action, code) {
+    if (threadId) _notify(`web2:zalo:thread:${threadId}`, action, code);
+}
+
+// Inbound: KH thả cảm xúc lên tin (add-only). reactions JSONB = {icon: [uid,...]}.
+async function _persistReaction(e) {
+    if (!_pool || !e.msgId || !e.icon) return;
+    const { rows } = await _pool.query(
+        `SELECT id, reactions FROM web2_zalo_messages WHERE account_key=$1 AND (msg_id=$2 OR cli_msg_id=$3) LIMIT 1`,
+        [e.accountKey, e.msgId, e.cliMsgId || '']
+    );
+    if (!rows[0]) return;
+    const reactions = rows[0].reactions || {};
+    const set = new Set(reactions[e.icon] || []);
+    set.add(String(e.uidFrom || 'kh'));
+    reactions[e.icon] = [...set];
+    await _pool.query(`UPDATE web2_zalo_messages SET reactions=$1::jsonb WHERE id=$2`, [
+        JSON.stringify(reactions),
+        rows[0].id,
+    ]);
+    _notifyThread(e.accountKey, e.threadId, 'reaction', e.msgId);
+}
+
+// Inbound/own: thu hồi tin.
+async function _persistRecall(e) {
+    if (!_pool || (!e.msgId && !e.cliMsgId)) return;
+    await _pool.query(
+        `UPDATE web2_zalo_messages SET recalled=true, recalled_at=$1, recalled_by=$2
+          WHERE account_key=$3 AND (msg_id=$4 OR cli_msg_id=$5)`,
+        [now(), e.uidFrom || null, e.accountKey, e.msgId || '', e.cliMsgId || '']
+    );
+    _notifyThread(e.accountKey, e.threadId, 'recall', e.msgId || e.cliMsgId);
+}
+
+// Inbound: KH đã xem → đánh dấu mọi tin OUT chưa seen trong thread.
+async function _persistSeen(e) {
+    if (!_pool || !e.threadId) return;
+    await _pool.query(
+        `UPDATE web2_zalo_messages SET seen_at=$1
+          WHERE account_key=$2 AND thread_id=$3 AND direction='out' AND seen_at IS NULL`,
+        [now(), e.accountKey, e.threadId]
+    );
+    _notifyThread(e.accountKey, e.threadId, 'seen', e.threadId);
 }
 
 async function _updateAccStatus(accountKey, status, txt) {
@@ -493,15 +550,31 @@ router.get('/conversations/:id/messages', async (req, res) => {
             }
         }
         const lim = Math.min(parseInt(req.query.limit, 10) || 50, 200);
+        const before = req.query.before ? Number(req.query.before) : null;
+        // Keyset pagination: tải tin cũ hơn `before` (sent_at) khi cuộn lên.
+        const params = [conv.account_key, conv.thread_id];
+        let beforeSql = '';
+        if (before) {
+            params.push(before);
+            beforeSql = ` AND sent_at < $${params.length}`;
+        }
+        params.push(lim);
         const { rows } = await db.query(
-            `SELECT * FROM web2_zalo_messages WHERE account_key=$1 AND thread_id=$2 ORDER BY sent_at DESC LIMIT $3`,
-            [conv.account_key, conv.thread_id, lim]
+            `SELECT * FROM web2_zalo_messages WHERE account_key=$1 AND thread_id=$2${beforeSql} ORDER BY sent_at DESC LIMIT $${params.length}`,
+            params
         );
-        // reset unread
-        await db
-            .query(`UPDATE web2_zalo_conversations SET unread_count=0 WHERE id=$1`, [req.params.id])
-            .catch(() => {});
-        res.json({ success: true, conversation: conv, data: rows.reverse() });
+        const hasMore = rows.length === lim;
+        // Mở mới (không phân trang) → reset unread + đánh dấu last_read.
+        if (!before) {
+            const lastMsgId = rows[0]?.msg_id || null;
+            await db
+                .query(
+                    `UPDATE web2_zalo_conversations SET unread_count=0, last_read_msg_id=COALESCE($2,last_read_msg_id), last_read_at=$3 WHERE id=$1`,
+                    [req.params.id, lastMsgId, now()]
+                )
+                .catch(() => {});
+        }
+        res.json({ success: true, conversation: conv, data: rows.reverse(), hasMore });
     } catch (e) {
         res.status(500).json({ success: false, error: e.message });
     }
@@ -525,31 +598,412 @@ router.get('/conversation/:phone', async (req, res) => {
 // =====================================================================
 // GỬI TIN — personal (zca). Persist out msg + SSE.
 // =====================================================================
+
+// Lưu 1 tin OUT + cập nhật conversation + SSE. Dùng chung cho text/ảnh/file/sticker.
+async function _persistOut(db, p) {
+    const ts = now();
+    const { rows } = await db.query(
+        `INSERT INTO web2_zalo_messages
+            (msg_id, cli_msg_id, account_key, thread_id, thread_type, direction, msg_type, content, attachments,
+             reply_to_msg_id, reply_to_preview, send_status, sent_at, created_at)
+         VALUES ($1,$2,$3,$4,$5,'out',$6,$7,$8::jsonb,$9,$10,'sent',$11,$11)
+         ON CONFLICT DO NOTHING RETURNING id`,
+        [
+            p.msgId || null,
+            p.cliMsgId || null,
+            p.accountKey,
+            p.threadId,
+            p.threadType || 'user',
+            p.msgType || 'text',
+            p.content || '',
+            JSON.stringify(Array.isArray(p.attachments) ? p.attachments : []),
+            p.replyToMsgId || null,
+            p.replyToPreview || null,
+            ts,
+        ]
+    );
+    await db.query(
+        `UPDATE web2_zalo_conversations SET last_msg_at=$1, last_msg_text=$2, updated_at=$1 WHERE account_key=$3 AND thread_id=$4`,
+        [ts, _outPreview(p).slice(0, 500), p.accountKey, p.threadId]
+    );
+    _notify('web2:zalo:messages', 'update', p.msgId);
+    if (p.threadId) _notify(`web2:zalo:thread:${p.threadId}`, 'message', p.msgId);
+    return { id: rows[0]?.id, sentAt: ts };
+}
+function _outPreview(p) {
+    if (p.msgType === 'image') return '[Hình ảnh]' + (p.content ? ' ' + p.content : '');
+    if (p.msgType === 'file') return '[Tệp đính kèm]';
+    if (p.msgType === 'sticker') return '[Sticker]';
+    return p.content || '';
+}
+
 router.post('/send-message', async (req, res) => {
     try {
         const db = getDb(req);
-        const { accountKey, threadId, text, threadType } = req.body || {};
+        const { accountKey, threadId, text, threadType, replyTo } = req.body || {};
         if (!accountKey || !threadId || !text)
             return res
                 .status(400)
                 .json({ success: false, error: 'Thiếu accountKey/threadId/text' });
-        const r = await zca.send(accountKey, threadId, text, threadType);
-        const ts = now();
-        await db.query(
-            `INSERT INTO web2_zalo_messages (msg_id, account_key, thread_id, thread_type, direction, msg_type, content, send_status, sent_at, created_at)
-             VALUES ($1,$2,$3,$4,'out','text',$5,'sent',$6,$6) ON CONFLICT DO NOTHING`,
-            [r.msgId, accountKey, threadId, threadType || 'user', String(text), ts]
-        );
-        await db.query(
-            `UPDATE web2_zalo_conversations SET last_msg_at=$1, last_msg_text=$2, updated_at=$1 WHERE account_key=$3 AND thread_id=$4`,
-            [ts, String(text).slice(0, 500), accountKey, threadId]
-        );
-        _notify('web2:zalo:messages', 'update', r.msgId);
-        res.json({ success: true, msgId: r.msgId });
+        // reply: client gửi quote thô (raw tin gốc) → pass thẳng cho zca
+        const r = await zca.send(accountKey, threadId, text, threadType, replyTo?.quote || null);
+        const saved = await _persistOut(db, {
+            accountKey,
+            threadId,
+            threadType,
+            msgType: 'text',
+            content: String(text),
+            msgId: r.msgId,
+            cliMsgId: r.cliMsgId,
+            replyToMsgId: replyTo?.msgId || null,
+            replyToPreview: replyTo?.preview || null,
+        });
+        res.json({
+            success: true,
+            msgId: r.msgId,
+            cliMsgId: r.cliMsgId,
+            id: saved.id,
+            sentAt: saved.sentAt,
+        });
     } catch (e) {
         res.status(400).json({ success: false, error: e.message });
     }
 });
+
+// ── Gửi ảnh (1..n) — base64 → bytea self-host + gửi Zalo ────────────────
+router.post('/send-image', async (req, res) => {
+    try {
+        const db = getDb(req);
+        const { accountKey, threadId, threadType, caption, files } = req.body || {};
+        if (!accountKey || !threadId || !Array.isArray(files) || !files.length)
+            return res
+                .status(400)
+                .json({ success: false, error: 'Thiếu accountKey/threadId/files' });
+        const sources = [];
+        const attachments = [];
+        for (const f of files.slice(0, 12)) {
+            const buf = _b64ToBuffer(f.base64);
+            if (!buf) continue;
+            const mediaUrl = await _storeMedia(
+                db,
+                accountKey,
+                buf,
+                f.mime || 'image/jpeg',
+                f.filename,
+                f.width,
+                f.height
+            );
+            sources.push({
+                data: buf,
+                filename: _safeFilename(f.filename, 'photo.jpg'),
+                metadata: {
+                    totalSize: buf.length,
+                    width: f.width || undefined,
+                    height: f.height || undefined,
+                },
+            });
+            attachments.push({
+                type: 'image',
+                url: mediaUrl,
+                thumb: mediaUrl,
+                title: f.filename || '',
+            });
+        }
+        if (!sources.length)
+            return res.status(400).json({ success: false, error: 'File ảnh không hợp lệ' });
+        const r = await zca.sendMedia(accountKey, threadId, sources, caption, threadType);
+        const saved = await _persistOut(db, {
+            accountKey,
+            threadId,
+            threadType,
+            msgType: 'image',
+            content: caption || '',
+            attachments,
+            msgId: r.msgId,
+            cliMsgId: r.cliMsgId,
+        });
+        res.json({
+            success: true,
+            msgId: r.msgId,
+            attachments,
+            id: saved.id,
+            sentAt: saved.sentAt,
+        });
+    } catch (e) {
+        res.status(400).json({ success: false, error: e.message });
+    }
+});
+
+// ── Gửi file/tài liệu ───────────────────────────────────────────────────
+router.post('/send-file', async (req, res) => {
+    try {
+        const db = getDb(req);
+        const { accountKey, threadId, threadType, caption, file } = req.body || {};
+        if (!accountKey || !threadId || !file?.base64)
+            return res.status(400).json({ success: false, error: 'Thiếu file' });
+        const buf = _b64ToBuffer(file.base64);
+        if (!buf) return res.status(400).json({ success: false, error: 'File không hợp lệ' });
+        const mediaUrl = await _storeMedia(
+            db,
+            accountKey,
+            buf,
+            file.mime || 'application/octet-stream',
+            file.filename
+        );
+        const sources = [
+            {
+                data: buf,
+                filename: _safeFilename(file.filename, 'file.bin'),
+                metadata: { totalSize: buf.length },
+            },
+        ];
+        const r = await zca.sendMedia(accountKey, threadId, sources, caption, threadType);
+        const attachments = [
+            {
+                type: 'file',
+                url: mediaUrl,
+                href: mediaUrl,
+                title: file.filename || 'Tệp đính kèm',
+                size: buf.length,
+            },
+        ];
+        const saved = await _persistOut(db, {
+            accountKey,
+            threadId,
+            threadType,
+            msgType: 'file',
+            content: caption || '',
+            attachments,
+            msgId: r.msgId,
+            cliMsgId: r.cliMsgId,
+        });
+        res.json({
+            success: true,
+            msgId: r.msgId,
+            attachments,
+            id: saved.id,
+            sentAt: saved.sentAt,
+        });
+    } catch (e) {
+        res.status(400).json({ success: false, error: e.message });
+    }
+});
+
+// ── Gửi sticker ─────────────────────────────────────────────────────────
+router.post('/send-sticker', async (req, res) => {
+    try {
+        const db = getDb(req);
+        const { accountKey, threadId, threadType, sticker } = req.body || {};
+        if (!accountKey || !threadId || !sticker?.id)
+            return res.status(400).json({ success: false, error: 'Thiếu sticker' });
+        const r = await zca.sendSticker(accountKey, threadId, sticker, threadType);
+        const attachments = sticker.url
+            ? [{ type: 'sticker', url: sticker.url, thumb: sticker.url }]
+            : [];
+        const saved = await _persistOut(db, {
+            accountKey,
+            threadId,
+            threadType,
+            msgType: 'sticker',
+            content: '',
+            attachments,
+            msgId: r.msgId,
+        });
+        res.json({ success: true, msgId: r.msgId, id: saved.id, sentAt: saved.sentAt });
+    } catch (e) {
+        res.status(400).json({ success: false, error: e.message });
+    }
+});
+
+// ── Thả cảm xúc (shop) ─────────────────────────────────────────────────
+router.post('/react', async (req, res) => {
+    try {
+        const db = getDb(req);
+        const { accountKey, threadId, msgId, cliMsgId, icon, threadType } = req.body || {};
+        if (!accountKey || !threadId || !msgId || !icon)
+            return res.status(400).json({ success: false, error: 'Thiếu tham số' });
+        await zca.react(accountKey, threadId, msgId, cliMsgId, icon, threadType);
+        // ghi reactions của shop (uid 'me') + SSE
+        await _persistReaction({
+            accountKey,
+            threadId,
+            msgId,
+            cliMsgId,
+            uidFrom: 'me',
+            icon: _reactionEmoji(icon),
+        });
+        res.json({ success: true });
+    } catch (e) {
+        res.status(400).json({ success: false, error: e.message });
+    }
+});
+
+// ── Thu hồi tin shop ───────────────────────────────────────────────────
+router.post('/recall', async (req, res) => {
+    try {
+        const { accountKey, threadId, msgId, cliMsgId, threadType } = req.body || {};
+        if (!accountKey || !threadId || !msgId)
+            return res.status(400).json({ success: false, error: 'Thiếu tham số' });
+        await zca.recall(accountKey, threadId, msgId, cliMsgId, threadType);
+        await _persistRecall({ accountKey, threadId, msgId, cliMsgId, uidFrom: 'me' });
+        res.json({ success: true });
+    } catch (e) {
+        res.status(400).json({ success: false, error: e.message });
+    }
+});
+
+// ── Chuyển tiếp tin tới nhiều thread ───────────────────────────────────
+router.post('/forward', async (req, res) => {
+    try {
+        const { accountKey, message, threadIds, threadType } = req.body || {};
+        if (!accountKey || !message || !Array.isArray(threadIds) || !threadIds.length)
+            return res.status(400).json({ success: false, error: 'Thiếu message/threadIds' });
+        await zca.forward(accountKey, message, threadIds, threadType);
+        res.json({ success: true });
+    } catch (e) {
+        res.status(400).json({ success: false, error: e.message });
+    }
+});
+
+// ── Báo đang gõ (outbound, throttle ở client) ──────────────────────────
+router.post('/typing', async (req, res) => {
+    try {
+        const { accountKey, threadId, threadType } = req.body || {};
+        if (!accountKey || !threadId) return res.json({ success: false });
+        await zca.sendTyping(accountKey, threadId, threadType).catch(() => {});
+        res.json({ success: true });
+    } catch (e) {
+        res.json({ success: false });
+    }
+});
+
+// ── Báo đã xem (khi mở chat) ───────────────────────────────────────────
+router.post('/seen', async (req, res) => {
+    try {
+        const db = getDb(req);
+        const { accountKey, convId, threadId } = req.body || {};
+        if (!accountKey || !convId)
+            return res.status(400).json({ success: false, error: 'Thiếu convId' });
+        await db.query(
+            `UPDATE web2_zalo_conversations SET unread_count=0, last_read_at=$2 WHERE id=$1`,
+            [convId, now()]
+        );
+        // gửi seen lên Zalo cho tin inbound chưa seen (best-effort, raw có sẵn cột)
+        try {
+            const { rows } = await db.query(
+                `SELECT msg_id, cli_msg_id, sender_uid FROM web2_zalo_messages
+                  WHERE account_key=$1 AND thread_id=$2 AND direction='in' ORDER BY sent_at DESC LIMIT 1`,
+                [accountKey, threadId]
+            );
+            if (rows[0]?.msg_id) {
+                await zca.sendSeen(
+                    accountKey,
+                    [
+                        {
+                            msgId: rows[0].msg_id,
+                            cliMsgId: rows[0].cli_msg_id,
+                            uidFrom: rows[0].sender_uid,
+                            idTo: accountKey,
+                        },
+                    ],
+                    req.body.threadType
+                );
+            }
+        } catch {}
+        res.json({ success: true });
+    } catch (e) {
+        res.status(400).json({ success: false, error: e.message });
+    }
+});
+
+// ── Sticker search + quick replies ─────────────────────────────────────
+router.get('/stickers', async (req, res) => {
+    try {
+        const { accountKey, q } = req.query;
+        if (!accountKey) return res.status(400).json({ success: false, error: 'Thiếu accountKey' });
+        res.json(await zca.getStickers(accountKey, q));
+    } catch (e) {
+        res.status(400).json({ success: false, error: e.message });
+    }
+});
+router.get('/quick-replies', async (req, res) => {
+    try {
+        const { accountKey } = req.query;
+        if (!accountKey) return res.status(400).json({ success: false, error: 'Thiếu accountKey' });
+        res.json(await zca.getQuickMessages(accountKey));
+    } catch (e) {
+        res.status(400).json({ success: false, error: e.message });
+    }
+});
+
+// ── Serve media tự host (ảnh/file shop đã gửi) ─────────────────────────
+router.get('/media/:id', async (req, res) => {
+    try {
+        const db = getDb(req);
+        const { rows } = await db.query(
+            `SELECT mime, filename, data FROM web2_zalo_media WHERE id=$1`,
+            [req.params.id]
+        );
+        if (!rows[0]) return res.status(404).send('Not found');
+        res.setHeader('Content-Type', rows[0].mime || 'application/octet-stream');
+        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+        res.send(rows[0].data);
+    } catch (e) {
+        res.status(500).send('error');
+    }
+});
+
+// ── Helpers media ───────────────────────────────────────────────────────
+function _b64ToBuffer(b64) {
+    if (!b64 || typeof b64 !== 'string') return null;
+    const m = b64.match(/^data:[^;]+;base64,(.*)$/);
+    try {
+        return Buffer.from(m ? m[1] : b64, 'base64');
+    } catch {
+        return null;
+    }
+}
+function _safeFilename(name, fallback) {
+    const n = String(name || '')
+        .replace(/[^\w.\-]/g, '_')
+        .slice(0, 80);
+    return /\.[a-z0-9]+$/i.test(n) ? n : fallback;
+}
+const MEDIA_BASE =
+    process.env.WEB2_MEDIA_BASE || 'https://n2store-fallback.onrender.com/api/web2-zalo/media';
+async function _storeMedia(db, accountKey, buf, mime, filename, width, height) {
+    const { rows } = await db.query(
+        `INSERT INTO web2_zalo_media (account_key, mime, filename, data, width, height, size, created_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id`,
+        [
+            accountKey,
+            mime || 'application/octet-stream',
+            filename || null,
+            buf,
+            width || null,
+            height || null,
+            buf.length,
+            now(),
+        ]
+    );
+    return `${MEDIA_BASE}/${rows[0].id}`;
+}
+// emoji hiển thị cho reaction icon enum (lưu vào reactions JSONB cho client render)
+const _REACTION_EMOJI = {
+    HEART: '❤️',
+    LIKE: '👍',
+    HAHA: '😆',
+    WOW: '😮',
+    CRY: '😢',
+    ANGRY: '😡',
+    KISS: '😘',
+    SAD: '😞',
+    OK: '👌',
+    NO: '🙅',
+};
+function _reactionEmoji(iconKey) {
+    return _REACTION_EMOJI[iconKey] || iconKey;
+}
 
 // =====================================================================
 // OA — kết nối, ZNS, tin tư vấn, template
