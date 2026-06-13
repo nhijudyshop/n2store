@@ -122,6 +122,28 @@ const BillService = (function () {
     }
 
     /**
+     * Tên "Người bán" in trên bill = "Tên hiển thị" của tài khoản TPOS đang dùng
+     * (modal Tài khoản TPOS → ô "Tên hiển thị"). Trả về '' nếu chưa có account.
+     * @returns {string}
+     */
+    function getActiveSellerName() {
+        try {
+            return (window.billTokenManager?.getActiveLabel?.() || '').trim();
+        } catch (e) {
+            return '';
+        }
+    }
+
+    /** Escape text trước khi nhét vào HTML bill (label do user tự nhập). */
+    function escapeBillHtml(str) {
+        return String(str == null ? '' : str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
+    /**
      * Generate bill HTML from order data (EXACT TPOS template copy)
      *
      * This is a fallback bill template that matches TPOS bill format EXACTLY.
@@ -285,8 +307,10 @@ const BillService = (function () {
             (isValidDropdownCarrier ? carrierFromDropdown : '') ||
             '';
 
-        // Seller name
+        // Seller name — ưu tiên "Tên hiển thị" của tài khoản TPOS đang dùng
+        // (modal Tài khoản TPOS), fallback về displayName / User.Name như cũ.
         const sellerName =
+            getActiveSellerName() ||
             window.authManager?.currentUser?.displayName ||
             defaultData.User?.Name ||
             orderResult?.User?.Name ||
@@ -992,7 +1016,7 @@ ${hasVirtualDebt ? `<span style="font-weight:bold; color:#c00;">** CÓ ĐƠN THU
                                                     ${
                                                         sellerName
                                                             ? `<div>
-                                <strong>Người bán:</strong> ${sellerName}
+                                <strong>Người bán:</strong> ${escapeBillHtml(sellerName)}
                             </div>`
                                                             : ''
                                                     }
@@ -1808,8 +1832,23 @@ ${
             // Get STT from order data — merge-aware (TPOS tag "GỘP X Y", IsMerged,
             // TAG XL flag) qua getMergedSttDisplay → đơn gộp ra "243 + 678".
             const sttDisplay = getMergedSttDisplay(orderData);
-            // Modify HTML to add STT below "Người bán" if STT exists
             let modifiedHtml = result.html;
+
+            // Override "Người bán" bằng "Tên hiển thị" của tài khoản TPOS đang dùng
+            // (server TPOS render sẵn tên cũ → in lại theo account đang chọn).
+            const sellerOverride = getActiveSellerName();
+            if (sellerOverride) {
+                const sellerRegex =
+                    /(<div[^>]*>\s*<strong>Người\s+b(?:á|&#225;|&aacute;)n:<\/strong>)([^<]*)(<\/div>)/i;
+                if (sellerRegex.test(modifiedHtml)) {
+                    modifiedHtml = modifiedHtml.replace(
+                        sellerRegex,
+                        `$1 ${escapeBillHtml(sellerOverride)}$3`
+                    );
+                }
+            }
+
+            // Modify HTML to add STT below "Người bán" if STT exists
             if (sttDisplay) {
                 // Đơn gộp đóng khung vuông; đơn lẻ in số trần
                 const sttHtml = formatBillStt(sttDisplay);
