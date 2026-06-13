@@ -18,12 +18,14 @@
     const API = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/v2';
     const PROXY = 'https://chatomni-proxy.nhijudyshop.workers.dev';
     const LS_TAB_KEY = 'web2_pancake_active_tab';
+    const LS_SHOW_OOS_KEY = 'web2_pancake_show_oos'; // toggle hiện SP hết hàng (stock=0)
     const DEFAULT_TAB = 'kho'; // user: mặc định là Kho
 
     const STATE = {
         tabs: [], // ['HÀ NỘI', 'HƯƠNG CHÂU', ...]
         activeTab: 'ALL', // 'ALL' or tab name
         searchQuery: '',
+        showOutOfStock: localStorage.getItem(LS_SHOW_OOS_KEY) === '1', // mặc định ẩn SP hết hàng
         products: [], // full list từ /api/web2-products/list
         filtered: [], // sau khi apply tab + search
         cartCounts: {}, // { commentId: { items, qty } }
@@ -112,9 +114,12 @@
 
         STATE.filtered = STATE.products.filter((p) => {
             if (p.isActive === false) return false;
-            // Bỏ SP hết hàng (SL=0) khỏi panel — user request không cho drag
-            const stock = Number(p.stock) || 0;
-            if (stock <= 0) return false;
+            // Bỏ SP hết hàng (SL=0) khỏi panel — user request không cho drag.
+            // Có toggle bật để vẫn hiện SP hết hàng khi cần.
+            if (!STATE.showOutOfStock) {
+                const stock = Number(p.stock) || 0;
+                if (stock <= 0) return false;
+            }
             // Tab filter: exact supplier
             if (tabUpper) {
                 const sup = asciiUpper(p.supplier || '');
@@ -148,7 +153,13 @@
                     <button id="invRefresh" title="Tải lại từ DB">↻</button>
                 </div>
                 <div class="inv-tabs" id="invTabs"></div>
-                <div class="inv-stats" id="invStats"></div>
+                <div class="inv-stats">
+                    <span id="invStats"></span>
+                    <label class="inv-oos-toggle" title="Hiện cả SP hết hàng (tồn = 0)">
+                        <input type="checkbox" id="invShowOos" ${STATE.showOutOfStock ? 'checked' : ''} />
+                        <span>Hiện SP hết hàng</span>
+                    </label>
+                </div>
                 <div class="inv-list" id="invList">
                     <div class="inv-loading">Đang tải kho SP…</div>
                 </div>
@@ -162,6 +173,11 @@
             _searchTimer = setTimeout(applyFilter, 150);
         });
         document.getElementById('invRefresh').addEventListener('click', refresh);
+        document.getElementById('invShowOos').addEventListener('change', (e) => {
+            STATE.showOutOfStock = e.target.checked;
+            localStorage.setItem(LS_SHOW_OOS_KEY, STATE.showOutOfStock ? '1' : '0');
+            applyFilter();
+        });
     }
 
     function renderTabs() {
@@ -214,7 +230,8 @@
                 const imgHtml = img
                     ? `<img class="inv-img" src="${escapeHtml(img)}" alt="" loading="lazy" onerror="this.style.display='none'">`
                     : `<div class="inv-img-placeholder">📦</div>`;
-                return `<div class="inv-card" draggable="true" data-product='${productJson}'>
+                const isOos = (Number(p.stock) || 0) <= 0;
+                return `<div class="inv-card${isOos ? ' oos' : ''}" draggable="true" data-product='${productJson}'>
                     ${imgHtml}
                     <div class="inv-card-body">
                         <div class="inv-card-code">${escapeHtml(p.code)}</div>

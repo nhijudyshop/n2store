@@ -127,10 +127,31 @@
 }
 
 .inv-stats {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
     padding: 4px 12px;
     font-size: 11px;
     color: #94a3b8;
     background: #fafbfc;
+}
+.inv-oos-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+    user-select: none;
+    color: #64748b;
+    white-space: nowrap;
+}
+.inv-oos-toggle input {
+    cursor: pointer;
+    margin: 0;
+    accent-color: #7266ba;
+}
+.inv-oos-toggle:hover {
+    color: #5e51ac;
 }
 
 .inv-list {
@@ -165,6 +186,15 @@
     transition:
         box-shadow 100ms,
         border-color 100ms;
+}
+/* SP hết hàng (tồn=0) khi bật toggle hiện — làm mờ để phân biệt với SP còn hàng. */
+.inv-card.oos {
+    background: #f8fafc;
+    border-style: dashed;
+    opacity: 0.62;
+}
+.inv-card.oos:hover {
+    opacity: 1;
 }
 .inv-card * {
     pointer-events: none;

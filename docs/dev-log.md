@@ -2,6 +2,20 @@
 
 ## 2026-06-13
 
+### [chat] Toggle ẩn/hiện SP hết hàng (stock=0) trong panel Kho SP (live-chat) ✅
+
+**User:** "cho toggle ẩn hiện stock = 0".
+
+**Context:** Panel Kho SP (right rail live-chat) lấy đúng từ Web 2.0 products (`/api/web2-products/list`), nhưng cố tình lọc ẩn SP hết hàng (`stock<=0`). Khi kho chỉ có SP `CHO_MUA` (tồn 0) → panel rỗng "0 / 16 SP". Thêm toggle để user tự chọn.
+
+**Files:**
+
+- [inventory-panel.js](../live-chat/js/pancake/inventory-panel.js): thêm `STATE.showOutOfStock` (default tắt, persist `localStorage['web2_pancake_show_oos']`); gate điều kiện `stock<=0` trong `applyFilter` theo toggle; checkbox "Hiện SP hết hàng" trong stats bar + listener; card stock=0 thêm class `.oos`.
+- [inventory-panel.css](../live-chat/css/inventory-panel.css): `.inv-stats` flex space-between, `.inv-oos-toggle`, `.inv-card.oos` (mờ + viền dashed, hover sáng lại).
+- index.html: bump cache-bust `?v=20260613c`.
+
+**Status:** ✅ Done — mặc định vẫn ẩn SP hết hàng như cũ; bật toggle thì 16 SP CHO_MUA hiện ra (làm mờ).
+
 ### [chat] Fix triệt để "Khách chưa có SĐT" giả — gốc là pages Pancake không load (token 102) ✅
 
 **User:** "debug sửa triệt để lỗi này" — chat liên tục hiện "Khách chưa có SĐT trên 270136663390370".
