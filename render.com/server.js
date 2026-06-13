@@ -772,6 +772,11 @@ const web2SupplierWalletRoutes = require('./routes/web2-supplier-wallet');
 web2SupplierWalletRoutes.initializeNotifiers(web2RealtimeSseRoutes.notifyClients);
 app.use('/api/web2-supplier-wallet', web2SupplierWalletRoutes);
 
+// C8 (2026-06-13): Sổ Order server storage (Postgres web2Db thay Firestore).
+const web2SoOrderRoutes = require('./routes/web2-so-order');
+web2SoOrderRoutes.initializeNotifiers(web2RealtimeSseRoutes.notifyClients);
+app.use('/api/web2-so-order', web2SoOrderRoutes);
+
 // WEB2.0 — Zalo single-source (2026-06-13): NGUỒN DUY NHẤT mọi dữ liệu/chức năng
 // Zalo. personal (zca-js: đăng nhập QR/cookie, chat 2 chiều, xem thông tin) + OA
 // (ZNS, tin tư vấn). Bảng web2_zalo_* (web2Db). SSE web2:zalo:*. Mount root-level
