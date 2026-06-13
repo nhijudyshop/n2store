@@ -18,6 +18,15 @@
 // Pool: req.app.locals.web2Db || req.app.locals.chatDb (web2_user_sessions ở web2Db).
 // =====================================================
 
+const crypto = require('crypto');
+
+// C7 (2026-06-13): hash token để lookup/lưu HASH thay vì plaintext at-rest.
+// SHA-256 hex (token là 256-bit random nên không cần salt/slow-hash — chống
+// DB-dump dùng token trực tiếp là đủ). DÙNG CHUNG cho login/verify/logout/me/kpi.
+function hashWeb2Token(token) {
+    return crypto.createHash('sha256').update(String(token)).digest('hex');
+}
+
 function getPool(req) {
     return req.app.locals.web2Db || req.app.locals.chatDb;
 }
@@ -37,13 +46,33 @@ async function resolveWeb2User(req) {
     if (!token) return null;
     const pool = getPool(req);
     if (!pool) return null;
-    const r = await pool.query(
-        `SELECT u.* FROM web2_user_sessions s
-            JOIN web2_users u ON u.id = s.user_id
-          WHERE s.token = $1 AND s.expires_at > $2 AND u.is_active = TRUE`,
-        [token, Date.now()]
-    );
-    return r.rows[0] || null;
+    // C7: match bằng token_hash (session mới) HOẶC plaintext (session cũ token_hash
+    // NULL) → zero-lockout khi deploy. ⚠ Cột token_hash do web2-users.ensureTables
+    // (lazy) thêm → có thể CHƯA tồn tại trong cửa sổ boot ngay sau deploy. Nếu query
+    // ném "column does not exist" (42703) → fallback query plaintext-only để KHÔNG
+    // khoá toàn bộ auth. Khi migration chạy xong, nhánh hash hoạt động.
+    try {
+        const r = await pool.query(
+            `SELECT u.* FROM web2_user_sessions s
+                JOIN web2_users u ON u.id = s.user_id
+              WHERE (s.token_hash = $1 OR (s.token_hash IS NULL AND s.token = $2))
+                AND s.expires_at > $3 AND u.is_active = TRUE`,
+            [hashWeb2Token(token), token, Date.now()]
+        );
+        return r.rows[0] || null;
+    } catch (e) {
+        if (e && e.code === '42703') {
+            // token_hash column chưa có (boot window) → verify plaintext như cũ.
+            const r2 = await pool.query(
+                `SELECT u.* FROM web2_user_sessions s
+                    JOIN web2_users u ON u.id = s.user_id
+                  WHERE s.token = $1 AND s.expires_at > $2 AND u.is_active = TRUE`,
+                [token, Date.now()]
+            );
+            return r2.rows[0] || null;
+        }
+        throw e;
+    }
 }
 
 function requireWeb2Auth(req, res, next) {
@@ -131,4 +160,5 @@ module.exports = {
     requireWeb2AuthSoft,
     resolveWeb2User,
     extractToken,
+    hashWeb2Token,
 };

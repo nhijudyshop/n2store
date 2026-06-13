@@ -77,6 +77,7 @@
                 { label: 'Lịch sử thao tác', our: '../web2/audit-log/index.html' },
                 { label: 'Đối soát CK', our: '../web2/ck-dashboard/index.html' },
                 { label: 'Studio chụp tách nền', our: '../web2/photo-studio/index.html' },
+                { label: 'Zalo', our: '../web2/zalo/index.html' },
                 { label: 'Phân quyền', our: '../web2/users-permissions/index.html' },
                 {
                     label: 'SSE Monitor (Admin)',
@@ -306,6 +307,7 @@
         'web2/photo-studio/index.html',
         'web2/users-permissions/index.html',
         'web2/admin-sse-monitor/index.html',
+        'web2/zalo/index.html',
     ]);
     function isWeb2Item(item) {
         if (!item || !item.our) return false;

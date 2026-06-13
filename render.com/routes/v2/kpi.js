@@ -23,7 +23,11 @@
 
 const express = require('express');
 const crypto = require('crypto');
-const { requireWeb2Admin, requireWeb2AuthSoft } = require('../../middleware/web2-auth');
+const {
+    requireWeb2Admin,
+    requireWeb2AuthSoft,
+    hashWeb2Token,
+} = require('../../middleware/web2-auth');
 
 const router = express.Router();
 
@@ -317,9 +321,10 @@ async function _resolveUserFromToken(pool, token) {
             `SELECT u.id, u.role, u.display_name, u.username
              FROM web2_user_sessions s
              JOIN web2_users u ON u.id = s.user_id
-             WHERE s.token = $1 AND s.expires_at > $2 AND u.is_active = TRUE
+             WHERE (s.token_hash = $1 OR (s.token_hash IS NULL AND s.token = $2))
+               AND s.expires_at > $3 AND u.is_active = TRUE
              LIMIT 1`,
-            [token, Date.now()]
+            [hashWeb2Token(token), token, Date.now()]
         );
         if (!r.rows.length) return null;
         return {

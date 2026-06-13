@@ -17,7 +17,7 @@
 
 const express = require('express');
 const router = express.Router();
-const { requireWeb2Auth, requireWeb2Admin } = require('../middleware/web2-auth');
+const { requireWeb2Auth, requireWeb2Admin, hashWeb2Token } = require('../middleware/web2-auth');
 
 // -----------------------------------------------------
 // SSE notifier — broadcast topic 'web2:users' sau mỗi DB mutation
@@ -382,8 +382,14 @@ async function ensureTables(pool) {
             created_at    BIGINT NOT NULL,
             expires_at    BIGINT NOT NULL
         );
+        -- C7 (2026-06-13): token_hash để KHÔNG lưu token plaintext at-rest. Session
+        -- MỚI lưu HASH (sha256) trong cả token (PK) lẫn token_hash; verify bằng hash.
+        -- Session CŨ (token_hash NULL) vẫn match plaintext tới khi hết hạn (≤30d) →
+        -- zero-lockout khi deploy, không cần backfill (tránh phụ thuộc pgcrypto).
+        ALTER TABLE web2_user_sessions ADD COLUMN IF NOT EXISTS token_hash VARCHAR(64);
         CREATE INDEX IF NOT EXISTS idx_web2_user_sessions_user ON web2_user_sessions(user_id);
         CREATE INDEX IF NOT EXISTS idx_web2_user_sessions_exp  ON web2_user_sessions(expires_at);
+        CREATE INDEX IF NOT EXISTS idx_web2_user_sessions_hash ON web2_user_sessions(token_hash) WHERE token_hash IS NOT NULL;
     `);
 
     // Seed default admin if table is empty.
@@ -764,12 +770,15 @@ router.post('/login', async (req, res) => {
             return res.status(401).json({ error: 'Sai thông tin đăng nhập' });
         }
         _loginRecordSuccess(ip);
-        const token = crypto.randomBytes(32).toString('hex');
+        const token = crypto.randomBytes(32).toString('hex'); // raw — trả client, KHÔNG lưu
+        const tokenHash = hashWeb2Token(token);
         const now = Date.now();
+        // C7: lưu HASH trong cả token (PK) lẫn token_hash → DB không có plaintext.
+        // Client giữ raw token (localStorage); verify bằng hash(incoming)=token_hash.
         await pool.query(
-            `INSERT INTO web2_user_sessions (token, user_id, created_at, expires_at)
-             VALUES ($1, $2, $3, $4)`,
-            [token, user.id, now, now + TOKEN_TTL_MS]
+            `INSERT INTO web2_user_sessions (token, token_hash, user_id, created_at, expires_at)
+             VALUES ($1, $1, $2, $3, $4)`,
+            [tokenHash, user.id, now, now + TOKEN_TTL_MS]
         );
         await pool.query('UPDATE web2_users SET last_login_at = $1 WHERE id = $2', [now, user.id]);
         // Cleanup expired sessions opportunistically (cheap query)
@@ -797,8 +806,9 @@ router.get('/me', async (req, res) => {
         const r = await pool.query(
             `SELECT u.* FROM web2_user_sessions s
                 JOIN web2_users u ON u.id = s.user_id
-              WHERE s.token = $1 AND s.expires_at > $2 AND u.is_active = TRUE`,
-            [token, Date.now()]
+              WHERE (s.token_hash = $1 OR (s.token_hash IS NULL AND s.token = $2))
+                AND s.expires_at > $3 AND u.is_active = TRUE`,
+            [hashWeb2Token(token), token, Date.now()]
         );
         if (!r.rows.length) return res.status(401).json({ error: 'Token không hợp lệ/hết hạn' });
         res.json({ success: true, user: mapRow(r.rows[0]) });
@@ -815,7 +825,11 @@ router.post('/logout', async (req, res) => {
     try {
         const token = String((req.body || {}).token || req.headers['x-web2-token'] || '');
         if (!token) return res.json({ success: true });
-        await pool.query('DELETE FROM web2_user_sessions WHERE token = $1', [token]);
+        // C7: xoá session theo hash (session mới) HOẶC plaintext (session cũ).
+        await pool.query('DELETE FROM web2_user_sessions WHERE token_hash = $1 OR token = $2', [
+            hashWeb2Token(token),
+            token,
+        ]);
         res.json({ success: true });
     } catch (e) {
         console.error('[WEB2-USERS] logout error:', e.message);

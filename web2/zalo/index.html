@@ -1,0 +1,290 @@
+<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 module — Trang Zalo (nguồn duy nhất: tài khoản, chat, tra cứu, ZNS). -->
+<!doctype html>
+<html lang="vi">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta http-equiv="Cache-Control" content="no-cache, must-revalidate" />
+        <title>Zalo - WEB 2.0</title>
+        <meta name="web2-db" content="render" />
+
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+            rel="stylesheet"
+        />
+
+        <link rel="stylesheet" href="../shared/web2-sidebar.css?v=20260613c" />
+        <link rel="stylesheet" href="../../native-orders/css/web2-theme.css?v=20260613c" />
+        <link rel="stylesheet" href="../shared/web2-theme.css?v=20260613c" />
+        <link rel="stylesheet" href="css/web2-zalo.css?v=20260613a" />
+
+        <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
+
+        <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+        <script src="../../shared/js/firebase-config.js?v=20260613a"></script>
+        <script src="../../shared/js/notification-system.js?v=20260613a"></script>
+    </head>
+    <body class="web2-theme">
+        <div class="web2-shell">
+            <aside class="web2-aside" id="web2Aside"></aside>
+            <main class="main-content wz-main">
+                <header class="wz-page-head">
+                    <nav class="wz-breadcrumb" aria-label="Breadcrumb">
+                        <span>Web 2.0</span><span class="sep">/</span><span>Tính năng mới</span
+                        ><span class="sep">/</span><span>Zalo</span>
+                    </nav>
+                    <div class="wz-title-row">
+                        <span class="wz-title-ic"><i data-lucide="message-circle"></i></span>
+                        <h1>Zalo</h1>
+                        <div class="wz-status-strip" id="wzStatusStrip"></div>
+                    </div>
+                </header>
+
+                <nav class="wz-tabs" aria-label="Zalo tabs">
+                    <button class="wz-tab is-active" data-tab="accounts">
+                        <i data-lucide="users"></i> Tài khoản
+                    </button>
+                    <button class="wz-tab" data-tab="chat">
+                        <i data-lucide="messages-square"></i> Hội thoại
+                    </button>
+                    <button class="wz-tab" data-tab="lookup">
+                        <i data-lucide="user-search"></i> Tra cứu
+                    </button>
+                    <button class="wz-tab" data-tab="zns">
+                        <i data-lucide="bell-ring"></i> ZNS
+                    </button>
+                </nav>
+
+                <!-- TAB: Tài khoản -->
+                <section class="wz-panel" id="wzPanelAccounts">
+                    <p class="wz-acc-sub" style="margin: 4px 0 0">
+                        Quản lý mọi tài khoản Zalo của shop ở một nơi. <b>Cá nhân</b> (đăng nhập QR
+                        — chat 2 chiều, không giới hạn 24h) · <b>OA</b> (chính thức — ZNS thông báo
+                        đơn). ⚠ Tài khoản cá nhân nên dùng acc phụ (zca-js không chính thức, có thể
+                        bị khoá).
+                    </p>
+                    <div class="wz-acc-grid" id="wzAccGrid">
+                        <div class="wz-loading">Đang tải…</div>
+                    </div>
+                </section>
+
+                <!-- TAB: Hội thoại -->
+                <section class="wz-panel" id="wzPanelChat" hidden>
+                    <div class="wz-row" style="align-items: center">
+                        <div class="wz-field" style="max-width: 280px">
+                            <label>Tài khoản cá nhân</label>
+                            <select id="wzChatAccount" class="wz-select"></select>
+                        </div>
+                    </div>
+                    <div class="wz-chat">
+                        <div class="wz-conv-list" id="wzConvList">
+                            <div class="wz-loading">Đang tải…</div>
+                        </div>
+                        <div class="wz-chat-main" id="wzChatMain">
+                            <div class="wz-chat-empty">Chọn một hội thoại để xem tin nhắn</div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- TAB: Tra cứu -->
+                <section class="wz-panel" id="wzPanelLookup" hidden>
+                    <div class="wz-card">
+                        <h3>Xem thông tin người dùng Zalo</h3>
+                        <div class="wz-row">
+                            <div class="wz-field" style="max-width: 260px">
+                                <label>Tài khoản tra cứu (cá nhân)</label>
+                                <select id="wzLookupAccount" class="wz-select"></select>
+                            </div>
+                            <div class="wz-field" style="max-width: 220px">
+                                <label>Số điện thoại</label>
+                                <input
+                                    id="wzLookupPhone"
+                                    type="text"
+                                    placeholder="0xxxxxxxxx"
+                                    autocomplete="off"
+                                />
+                            </div>
+                            <button class="wz-btn wz-btn-primary" id="wzLookupBtn">
+                                <i data-lucide="search"></i> Tra cứu
+                            </button>
+                            <button class="wz-btn" id="wzLookupSelf">
+                                <i data-lucide="user"></i> Thông tin của tôi
+                            </button>
+                        </div>
+                        <div id="wzLookupResult"></div>
+                    </div>
+                </section>
+
+                <!-- TAB: ZNS -->
+                <section class="wz-panel" id="wzPanelZns" hidden>
+                    <div class="wz-card">
+                        <h3>Gửi ZNS (Zalo Notification Service)</h3>
+                        <p class="wz-acc-sub" style="margin: -6px 0 14px">
+                            Thông báo template chính thức tới bất kỳ SĐT nào (~200đ/tin). Cần kết
+                            nối OA ở tab Tài khoản trước. Template:
+                            <b id="wzZnsTplCount">0</b> (đồng bộ ở thẻ OA).
+                        </p>
+                        <div class="wz-row">
+                            <div class="wz-field" style="max-width: 200px">
+                                <label>SĐT <span class="req">*</span></label>
+                                <input
+                                    id="wzZnsPhone"
+                                    type="text"
+                                    placeholder="0xxxxxxxxx"
+                                    autocomplete="off"
+                                />
+                            </div>
+                            <div class="wz-field">
+                                <label>Template <span class="req">*</span></label>
+                                <select id="wzZnsTemplate" class="wz-select"></select>
+                            </div>
+                        </div>
+                        <div class="wz-field" style="margin-top: 10px">
+                            <label>template_data (JSON)</label>
+                            <textarea
+                                id="wzZnsData"
+                                rows="3"
+                                placeholder='{"order_code":"DH123","amount":"250.000đ"}'
+                            ></textarea>
+                        </div>
+                        <div class="wz-err" id="wzZnsErr"></div>
+                        <button
+                            class="wz-btn wz-btn-primary"
+                            id="wzZnsSend"
+                            style="margin-top: 8px"
+                        >
+                            <i data-lucide="send"></i> Gửi ZNS
+                        </button>
+                    </div>
+                    <div class="wz-card">
+                        <div
+                            style="
+                                display: flex;
+                                align-items: center;
+                                justify-content: space-between;
+                            "
+                        >
+                            <h3 style="margin: 0">Lịch sử gửi ZNS</h3>
+                            <button class="wz-btn wz-btn-sm" id="wzZnsReloadLog">
+                                <i data-lucide="refresh-cw"></i> Tải lại
+                            </button>
+                        </div>
+                        <div id="wzZnsLog"></div>
+                    </div>
+                </section>
+            </main>
+        </div>
+
+        <!-- QR login modal -->
+        <div
+            class="wz-modal"
+            id="wzQrModal"
+            hidden
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="wzQrTitle"
+        >
+            <div class="wz-modal-backdrop" id="wzQrBackdrop"></div>
+            <div class="wz-modal-panel modal-content">
+                <header class="wz-modal-head">
+                    <h2 id="wzQrTitle">Đăng nhập Zalo bằng QR</h2>
+                    <button class="wz-modal-close" id="wzQrClose" type="button" aria-label="Đóng">
+                        <i data-lucide="x"></i>
+                    </button>
+                </header>
+                <div class="wz-modal-body modal-body">
+                    <div class="wz-qr-box">
+                        <img class="wz-qr-img" id="wzQrImg" alt="Mã QR Zalo" />
+                        <div class="wz-qr-hint" id="wzQrStatus">Đang tạo mã QR…</div>
+                        <div class="wz-qr-hint">
+                            Mở Zalo trên điện thoại → <b>Cá nhân → Quét mã QR</b> → quét mã trên để
+                            đăng nhập.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- OA connect modal -->
+        <div
+            class="wz-modal"
+            id="wzOaModal"
+            hidden
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="wzOaTitle"
+        >
+            <div class="wz-modal-backdrop" id="wzOaBackdrop"></div>
+            <div class="wz-modal-panel modal-content">
+                <header class="wz-modal-head">
+                    <h2 id="wzOaTitle">Kết nối Zalo OA</h2>
+                    <button class="wz-modal-close" id="wzOaClose" type="button" aria-label="Đóng">
+                        <i data-lucide="x"></i>
+                    </button>
+                </header>
+                <div class="wz-modal-body modal-body">
+                    <p class="wz-acc-sub" style="margin: 0 0 12px">
+                        Tạo app + OA tại <b>developers.zalo.me</b>, lấy App ID / Secret Key và
+                        <b>Authorization Code</b> (từ luồng OAuth của OA), rồi dán vào đây.
+                    </p>
+                    <div class="wz-field" style="margin-bottom: 10px">
+                        <label>App ID <span class="req">*</span></label
+                        ><input id="wzOaAppId" type="text" autocomplete="off" />
+                    </div>
+                    <div class="wz-field" style="margin-bottom: 10px">
+                        <label>Secret Key <span class="req">*</span></label
+                        ><input id="wzOaSecret" type="password" autocomplete="off" />
+                    </div>
+                    <div class="wz-field" style="margin-bottom: 10px">
+                        <label>Authorization Code <span class="req">*</span></label
+                        ><input id="wzOaCode" type="text" autocomplete="off" />
+                    </div>
+                    <div class="wz-row">
+                        <div class="wz-field">
+                            <label>OA ID</label><input id="wzOaId" type="text" autocomplete="off" />
+                        </div>
+                        <div class="wz-field">
+                            <label>Tên OA</label
+                            ><input id="wzOaName" type="text" autocomplete="off" />
+                        </div>
+                    </div>
+                    <div class="wz-err" id="wzOaErr" style="margin-top: 8px"></div>
+                </div>
+                <footer class="wz-modal-foot">
+                    <button
+                        class="wz-btn"
+                        id="wzOaCancelClose"
+                        type="button"
+                        onclick="document.getElementById('wzOaModal').hidden = true"
+                    >
+                        <i data-lucide="x"></i> Hủy
+                    </button>
+                    <button class="wz-btn wz-btn-primary" id="wzOaSave" type="button">
+                        <i data-lucide="link"></i> Kết nối
+                    </button>
+                </footer>
+            </div>
+        </div>
+
+        <!-- Shared Web 2.0 modules -->
+        <script src="../shared/web2-auth.js?v=20260613c"></script>
+        <script src="../shared/web2-user-info.js?v=20260613c"></script>
+        <script src="../shared/web2-optimistic.js?v=20260613c"></script>
+        <script src="../shared/web2-sidebar.js?v=20260613c"></script>
+        <script src="../shared/web2-sse-bridge.js?v=20260613c"></script>
+
+        <!-- Page scripts -->
+        <script src="js/web2-zalo-api.js?v=20260613a"></script>
+        <script src="js/web2-zalo-app.js?v=20260613a"></script>
+
+        <script>
+            if (window.Web2Sidebar)
+                Web2Sidebar.mount('#web2Aside', { activeUrl: window.location.href });
+            if (window.lucide) window.lucide.createIcons();
+        </script>
+    </body>
+</html>

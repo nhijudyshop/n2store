@@ -214,6 +214,15 @@ chatDbPool
             blacklist
                 .ensureSchema(w2SchemaPool)
                 .catch((e) => console.warn('[web2-blacklist] init warn:', e.message));
+            // C7 (2026-06-13): thêm cột token_hash cho web2_user_sessions NGAY lúc boot
+            // (web2-users.ensureTables là lazy) → resolveWeb2User dùng nhánh hash ngay,
+            // tránh cửa sổ fallback plaintext. Idempotent.
+            w2SchemaPool
+                .query(
+                    `ALTER TABLE IF EXISTS web2_user_sessions ADD COLUMN IF NOT EXISTS token_hash VARCHAR(64);
+                     CREATE INDEX IF NOT EXISTS idx_web2_user_sessions_hash ON web2_user_sessions(token_hash) WHERE token_hash IS NOT NULL;`
+                )
+                .catch((e) => console.warn('[web2-auth] token_hash migration warn:', e.message));
             // 2026-06-04: DROP orphan inventory_* trên web2Db. inventory-tracking
             // là module Web 1.0 (data ở chatDb); các bảng inventory_* trên web2Db
             // là leftover từ đợt seed supplier-debt (route web2-supplier-debt đã gỡ).
@@ -762,6 +771,19 @@ app.use('/api/web2-quick-replies', web2QuickRepliesRoutes);
 const web2SupplierWalletRoutes = require('./routes/web2-supplier-wallet');
 web2SupplierWalletRoutes.initializeNotifiers(web2RealtimeSseRoutes.notifyClients);
 app.use('/api/web2-supplier-wallet', web2SupplierWalletRoutes);
+
+// WEB2.0 — Zalo single-source (2026-06-13): NGUỒN DUY NHẤT mọi dữ liệu/chức năng
+// Zalo. personal (zca-js: đăng nhập QR/cookie, chat 2 chiều, xem thông tin) + OA
+// (ZNS, tin tư vấn). Bảng web2_zalo_* (web2Db). SSE web2:zalo:*. Mount root-level
+// /api/web2-zalo → KHÔNG bị shadow bởi catch-all /api/web2. restoreSessions() re-login
+// acc personal từ session đã lưu khi boot (giống Pancake relay autoConnect).
+const web2ZaloRoutes = require('./routes/web2-zalo');
+web2ZaloRoutes.initializeNotifiers(web2RealtimeSseRoutes.notifyClients);
+web2ZaloRoutes
+    .ensureSchema(web2Pool || chatDbPool)
+    .then(() => web2ZaloRoutes.restoreSessions && web2ZaloRoutes.restoreSessions())
+    .catch((e) => console.warn('[web2-zalo] schema warn:', e.message));
+app.use('/api/web2-zalo', web2ZaloRoutes);
 
 // 2026-06-07: config Web 2.0 (deliveryzone, printer) tách khỏi kho generic
 // web2_records → bảng RIÊNG (web2_delivery_zones, web2_printers). Mount TRƯỚC

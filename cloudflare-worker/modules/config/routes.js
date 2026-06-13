@@ -154,6 +154,8 @@ export const ROUTES = {
     WEB2_SUPPLIER_WALLET: { pattern: '/api/web2-supplier-wallet/*' },
     // Web 2.0 Live Comments — kho comment livestream (auto-save + đọc lại)
     WEB2_LIVE_COMMENTS: { pattern: '/api/web2-live-comments/*' },
+    // Web 2.0 Zalo — nguồn duy nhất: personal (zca-js) + OA/ZNS
+    WEB2_ZALO: { pattern: '/api/web2-zalo/*' },
 
     // Order Notes (PostgreSQL - CSKH notes history per order)
     ORDER_NOTES: { pattern: '/api/order-notes/*' },
@@ -270,6 +272,7 @@ export function matchRoute(pathname) {
         return 'WEB2_SUPPLIER_WALLET';
     if (pathname.startsWith('/api/web2-live-comments/') || pathname === '/api/web2-live-comments')
         return 'WEB2_LIVE_COMMENTS';
+    if (pathname.startsWith('/api/web2-zalo/') || pathname === '/api/web2-zalo') return 'WEB2_ZALO';
     if (pathname.startsWith('/api/order-notes/')) return 'ORDER_NOTES';
     if (pathname.startsWith('/api/showroom-products/') || pathname === '/api/showroom-products')
         return 'SHOWROOM_PRODUCTS';
