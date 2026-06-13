@@ -3,25 +3,24 @@
 > Snapshot tự động ghi đè sau mỗi commit chạm folder này. **Không edit thủ công.**
 > Mục đích: khi session cũ chết (vd lỗi image limit), session mới chỉ cần đọc file này là có đủ context để tiếp tục.
 
-**Latest session**: `RESUME:20260613-184658-44d46ac`
-**Session file**: [`./20260613-184658-44d46ac.md`](../20260613-184658-44d46ac.md)
-**Commit**: `44d46ac` — auto: session update
-**Last updated**: 2026-06-13 18:46:58 +07
+**Latest session**: `RESUME:20260613-190730-6aaad40`
+**Session file**: [`./20260613-190730-6aaad40.md`](../20260613-190730-6aaad40.md)
+**Commit**: `6aaad40` — auto: session update
+**Last updated**: 2026-06-13 19:07:30 +07
 **Summary**: auto: session update
 
 ## Files changed in this commit (`live-chat/`)
 
-- `live-chat/css/pancake-chat.css`
 - `live-chat/index.html`
-- `live-chat/js/pancake/pancake-conversation-list.js`
+- `live-chat/js/live/live-livestream-snap.js`
 
 ## Last 5 commits touching `live-chat/`
 
+- `6aaad40dd` auto: session update _(2026-06-13)_
 - `44d46ac18` auto: session update _(2026-06-13)_
 - `75690ae3e` auto: session update _(2026-06-13)_
 - `6806b7f4f` perf(live-chat): encode JPEG off main-thread (OffscreenCanvas+Worker) + rVFC trigger _(2026-06-13)_
 - `2a90d4de4` auto: session update _(2026-06-13)_
-- `5359cec83` auto: session update _(2026-06-13)_
 
 ---
 
@@ -29,4 +28,4 @@
 
 1. Đọc file session ở trên để xem Files Modified + Next Steps đã điền (nếu Claude turn trước fill rồi).
 2. Cần lùi xa hơn → `git show <sha>` theo list commit trên.
-3. Hoặc paste token `RESUME:20260613-184658-44d46ac` cho Claude walk chain theo CLAUDE.md protocol.
+3. Hoặc paste token `RESUME:20260613-190730-6aaad40` cho Claude walk chain theo CLAUDE.md protocol.
