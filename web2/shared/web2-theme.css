@@ -1060,3 +1060,163 @@ body:has(.web2-shell) textarea:focus {
         z-index: 100;
     }
 }
+
+/* =====================================================
+ * ZALO REFRESH PACK (2026-06-13)
+ * Bo góc mềm + soft shadow + micro-interactions đồng bộ phong cách trang
+ * web2/zalo cho TOÀN BỘ Web 2.0. Load CUỐI → override radius/flat cũ.
+ * Chỉ transform/opacity (GPU). Tôn trọng prefers-reduced-motion.
+ * ===================================================== */
+
+/* ── Bo góc mềm (thay radius 2-4px phẳng) ───────────── */
+.web2-theme .btn,
+body:has(.web2-shell) .btn {
+    border-radius: var(--web2-radius-sm);
+    transition:
+        transform 0.16s var(--web2-ease),
+        box-shadow 0.16s ease,
+        background 0.12s,
+        border-color 0.12s,
+        color 0.12s;
+}
+.web2-theme .btn-sm,
+body:has(.web2-shell) .btn-sm {
+    border-radius: 8px;
+}
+.web2-theme .filters-section input,
+.web2-theme .filters-section select,
+.web2-theme .filters input,
+.web2-theme .filters select,
+.web2-theme input[type='text'],
+.web2-theme input[type='search'],
+.web2-theme input[type='number'],
+.web2-theme input[type='tel'],
+.web2-theme input[type='date'],
+.web2-theme input[type='time'],
+.web2-theme select,
+.web2-theme textarea,
+body:has(.web2-shell) input[type='text'],
+body:has(.web2-shell) select {
+    border-radius: 10px;
+}
+.web2-theme .page-btn,
+body:has(.web2-shell) .page-btn {
+    border-radius: 9px;
+}
+.web2-theme .web2-card,
+.web2-theme .section-card,
+.web2-theme .stat-card,
+body:has(.web2-shell) .web2-card {
+    border-radius: var(--web2-radius);
+    box-shadow: var(--web2-shadow-card);
+}
+.web2-theme .modal-content,
+.web2-theme .modal-dialog,
+.web2-theme [class*='modal-content'],
+.web2-theme [class*='modal-dialog'] {
+    border-radius: 18px;
+    box-shadow: 0 12px 24px rgba(15, 23, 42, 0.2);
+}
+
+/* ── Nút: hover nhấc nhẹ + active nhấn + focus ring ─── */
+.web2-theme .btn:hover,
+body:has(.web2-shell) .btn:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--web2-shadow-card);
+}
+.web2-theme .btn:active,
+body:has(.web2-shell) .btn:active {
+    transform: scale(0.98);
+}
+.web2-theme .btn-primary:hover,
+body:has(.web2-shell) .btn-primary:hover {
+    box-shadow: var(--web2-shadow-primary);
+}
+.web2-theme .btn:focus-visible,
+.web2-theme .page-btn:focus-visible,
+.web2-theme a:focus-visible,
+body:has(.web2-shell) .btn:focus-visible {
+    outline: 2px solid var(--web2-primary);
+    outline-offset: 2px;
+}
+
+/* ── Card hover nhấc nhẹ ────────────────────────────── */
+.web2-theme .web2-card:hover,
+.web2-theme .section-card:hover,
+.web2-theme .stat-card:hover {
+    box-shadow: var(--web2-shadow-2);
+    transform: translateY(-2px);
+}
+
+/* ── Skeleton shimmer dùng chung (.w2-skel) ─────────── */
+.web2-theme .w2-skel {
+    position: relative;
+    overflow: hidden;
+    background: #eaeef4;
+    border-radius: 8px;
+}
+.web2-theme .w2-skel::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.65), transparent);
+    animation: w2-shimmer 1.3s infinite;
+}
+@keyframes w2-shimmer {
+    100% {
+        transform: translateX(100%);
+    }
+}
+
+/* ── Busy spinner dùng chung trên nút (.is-busy) ────── */
+.web2-theme .btn.is-busy {
+    color: transparent !important;
+    pointer-events: none;
+    position: relative;
+}
+.web2-theme .btn.is-busy::after {
+    content: '';
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    border: 2px solid currentColor;
+    border-top-color: transparent;
+    border-radius: 50%;
+    color: #fff;
+    animation: w2-spin 0.7s linear infinite;
+}
+.web2-theme
+    .btn:not(.btn-primary):not(.btn-success):not(.btn-danger):not(.btn-info).is-busy::after {
+    color: var(--web2-primary);
+}
+
+/* ── Scrollbar mảnh đồng bộ ─────────────────────────── */
+.web2-theme *::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+.web2-theme *::-webkit-scrollbar-thumb {
+    background: #cdd5e0;
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+}
+.web2-theme *::-webkit-scrollbar-thumb:hover {
+    background: #b6c0cf;
+    background-clip: content-box;
+}
+
+/* ── Reduced motion: tắt lift/shimmer/spin ──────────── */
+@media (prefers-reduced-motion: reduce) {
+    .web2-theme .btn:hover,
+    .web2-theme .web2-card:hover,
+    .web2-theme .section-card:hover,
+    .web2-theme .stat-card:hover {
+        transform: none;
+    }
+    .web2-theme .w2-skel::after,
+    .web2-theme .btn.is-busy::after {
+        animation: none !important;
+    }
+}

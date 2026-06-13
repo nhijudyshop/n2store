@@ -18,8 +18,8 @@
     --web2-border-btn: #dee5e7; /* default button border */
 
     /* WEB2 button colors */
-    --web2-primary: #7266ba; /* btn-primary (F10) — purple */
-    --web2-primary-hover: #5e51ac;
+    --web2-primary: #0068ff; /* btn-primary — Zalo blue (re-skin 2026-06-13) */
+    --web2-primary-hover: #0058da;
     --web2-success: #27c24c; /* btn-success (F9) — green */
     --web2-success-hover: #20a73e;
     --web2-info: #23b7e5; /* btn-info (Cập nhật) — cyan */

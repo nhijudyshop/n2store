@@ -67,7 +67,7 @@
     width: 30px;
     height: 30px;
     border-radius: 50%;
-    background: linear-gradient(135deg, #4338ca, #7c3aed);
+    background: linear-gradient(135deg, #0058da, #2a96ff);
     color: #fff;
     display: flex;
     align-items: center;
@@ -170,7 +170,7 @@
     justify-content: center;
     gap: 5px;
     padding: 6px 12px;
-    background: linear-gradient(135deg, #4338ca, #7c3aed);
+    background: linear-gradient(135deg, #0058da, #2a96ff);
     color: #fff;
     border: 0;
     border-radius: 5px;
@@ -506,7 +506,7 @@ body.web2-sidebar-collapsed .web2-aside .web2-nav-w2tag {
     min-width: 18px;
     height: 18px;
     padding: 0 5px;
-    background: linear-gradient(135deg, #7c3aed, #a855f7);
+    background: linear-gradient(135deg, #0068ff, #2a96ff);
     color: #fff;
     font-size: 10px;
     font-weight: 700;
@@ -516,7 +516,7 @@ body.web2-sidebar-collapsed .web2-aside .web2-nav-w2tag {
     box-shadow: 0 1px 3px rgba(124, 58, 237, 0.35);
 }
 .web2-nav-group.is-open .web2-nav-w2badge {
-    background: linear-gradient(135deg, #a855f7, #c084fc);
+    background: linear-gradient(135deg, #2a96ff, #7cc0ff);
 }
 body.web2-sidebar-collapsed .web2-aside .web2-nav-w2badge {
     /* Trong collapsed mode (icon only), badge floats trên icon ở góc trên-phải */
