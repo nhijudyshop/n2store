@@ -2,6 +2,17 @@
 
 ## 2026-06-13
 
+### [render][web2] Wipe data giao dịch Web 2.0 để test lại (giữ KH + data Pancake) ✅
+
+**User:** xóa hết dữ liệu web 2.0 để test lại toàn bộ chức năng, chừa lại dữ liệu khách hàng + các dữ liệu fetch từ Pancake về.
+
+- **Postgres (web2Db)** — `POST /api/admin/web2-data-reset {mode:'wipe', target:'web2-all', confirm:'YES-RESET'}` (direct n2store-fallback, x-admin-secret). Auto-backup `*_bak_20260613_1028` trước truncate. Wipe 21 bảng giao dịch: SP/đơn/PBH/refund/return/cart/KPI/match/msg-queue/intent/blacklist + **ví KH** (web2_customer_wallets, wallet_transactions, balance_history, payment_signals — "xóa tiền giữ KH" theo user chọn).
+- **Supplier wallet (server ledger)** — `web2_supplier_ledger`/`web2_supplier_meta` KHÔNG nằm trong web2-all → xóa NCC "HÀ NỘI" qua `DELETE /api/web2-supplier-wallet/supplier/:name` (ledger 0, meta 1). Lý do PHẢI xóa: client re-import từ Firestore khi Postgres rỗng → nếu để Firestore còn data sẽ undo wipe.
+- **Firestore** — script mới `render.com/scripts/web2-firestore-wipe.js` (firebase-admin, đọc creds qua env, KHÔNG hardcode) set EMPTY 4 doc: `web2_so_order/main` `{tabs:[],activeTabId:null}`, `web2_supplier_wallet/main` `{wallets:{}}`, `web2_suppliers/main` `{suppliers:[]}`, `web2_customer_wallet/main` `{wallets:{}}`. Set empty (KHÔNG delete doc) vì init Firestore-first chỉ override local khi doc tồn tại.
+- **GIỮ NGUYÊN (verified):** `web2_customers` = **64,270 KH**, `web2_live_comments` (Pancake) = **5,627**, partner-customer/web2_records, config (variants/users/entities/qr). `web2_unread_messages:2` + `web2_balance_history:2` xuất hiện lại = data LIVE mới sau wipe (Pancake ingest/SePay), không phải sót.
+
+**Status:** ✅ Done.
+
 ### [orders-report] Đơn gộp: STT hiển thị = các STT đã gộp nối " + " và đóng khung vuông ✅
 
 **User:** đơn gộp thì STT sẽ là STT 2 đơn gộp cộng (vd `243 + 678`) và đóng khung vuông lại.
