@@ -48,7 +48,7 @@
 }
 
 .so-tab-pill.is-active {
-    background: linear-gradient(135deg, #6d28d9, #7c3aed);
+    background: linear-gradient(135deg, #6d28d9, #0068ff);
     border-color: transparent;
     color: #fff;
     box-shadow: 0 2px 8px rgba(124, 58, 237, 0.25);
@@ -786,7 +786,7 @@
 }
 
 .btn-primary {
-    background: linear-gradient(135deg, #6d28d9, #7c3aed);
+    background: linear-gradient(135deg, #6d28d9, #0068ff);
     color: #fff;
     box-shadow: 0 2px 8px rgba(124, 58, 237, 0.25);
 }
@@ -1108,7 +1108,7 @@
 .so-field input:focus,
 .so-field select:focus,
 .so-field textarea:focus {
-    border-color: #7c3aed;
+    border-color: #0068ff;
     box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.12);
 }
 
@@ -1171,7 +1171,7 @@
 }
 
 .so-col-toggle input {
-    accent-color: #7c3aed;
+    accent-color: #0068ff;
     width: 16px;
     height: 16px;
 }
@@ -1401,7 +1401,7 @@
 }
 .so-shipment-edit-pill.is-editing {
     background: #fff;
-    border-color: #7c3aed;
+    border-color: #0068ff;
     border-style: solid;
     padding: 0;
 }
@@ -1596,7 +1596,7 @@
 }
 
 .so-input-v2:focus {
-    border-color: #7c3aed;
+    border-color: #0068ff;
     box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.12);
 }
 
@@ -1730,7 +1730,7 @@ select.so-input-v2 {
 .so-img-cell-v2:hover,
 .so-img-cell-v2:focus,
 .so-img-cell-v2:focus-within {
-    border-color: #7c3aed;
+    border-color: #0068ff;
     background: #faf5ff;
 }
 
@@ -2263,7 +2263,7 @@ select.so-input-v2 {
 
 /* Toggle button "Chỉnh sửa bảng" — purple gradient khi ON */
 #soEditTableBtn.is-active {
-    background: linear-gradient(135deg, #6d28d9, #7c3aed);
+    background: linear-gradient(135deg, #6d28d9, #0068ff);
     color: #fff;
     border-color: transparent;
     box-shadow: 0 2px 8px rgba(124, 58, 237, 0.25);
@@ -2328,7 +2328,7 @@ body.so-edit-table-mode .so-data-row [data-cell-field]:not(.so-cell-edit):hover 
 .so-edit-select:focus {
     outline: none;
     background: #fff;
-    border-color: #7c3aed;
+    border-color: #0068ff;
     box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.18);
 }
 .so-edit-num {
@@ -2411,7 +2411,7 @@ body.so-edit-table-mode .so-data-row [data-cell-field]:not(.so-cell-edit):hover 
 .so-supplier-item-existing {
     padding: 2px 8px;
     background: #eef2ff;
-    color: #4338ca;
+    color: #0058da;
     border-radius: 999px;
     font-size: 10px;
     font-weight: 700;
@@ -2601,7 +2601,7 @@ body.so-edit-table-mode .so-data-row [data-cell-field]:not(.so-cell-edit):hover 
 .so-inline-img-drop:hover,
 .so-inline-img-drop:focus,
 .so-inline-img-drop:focus-within {
-    border-color: #7c3aed;
+    border-color: #0068ff;
     background: #faf5ff;
 }
 .so-inline-img-drop .w2fx-drop-hint {

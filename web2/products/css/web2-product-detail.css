@@ -56,7 +56,7 @@
     gap: 12px;
     padding: 16px 18px;
     border-bottom: 1px solid var(--gray-200, #e5e7eb);
-    background: linear-gradient(135deg, #7c3aed, #a855f7);
+    background: linear-gradient(135deg, #0068ff, #2a96ff);
     color: #fff;
 }
 .w2pd-head-img {
@@ -139,11 +139,11 @@
     transition: color var(--duration-fast, 150ms) ease;
 }
 .w2pd-tab:hover {
-    color: #7c3aed;
+    color: #0068ff;
 }
 .w2pd-tab.is-active {
     color: #6d28d9;
-    border-bottom-color: #7c3aed;
+    border-bottom-color: #0068ff;
 }
 .w2pd-tab i {
     width: 15px;
@@ -275,7 +275,7 @@
     transition: border-color var(--duration-fast, 150ms) ease;
 }
 .w2pd-order:hover {
-    border-color: #a855f7;
+    border-color: #2a96ff;
     background: #faf5ff;
 }
 .w2pd-order-stt {
@@ -294,7 +294,7 @@
 }
 .w2pd-order-qty {
     font-weight: 700;
-    color: #7c3aed;
+    color: #0068ff;
     flex-shrink: 0;
 }
 .w2pd-order-status {
@@ -401,7 +401,7 @@
 .w2pd-form-field textarea:focus,
 .w2pd-form-field select:focus {
     outline: none;
-    border-color: #7c3aed;
+    border-color: #0068ff;
     box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.14);
 }
 .w2pd-form-row {
@@ -435,7 +435,7 @@
     height: 16px;
 }
 .w2pd-btn-save {
-    background: linear-gradient(135deg, #7c3aed, #a855f7);
+    background: linear-gradient(135deg, #0068ff, #2a96ff);
     color: #fff;
 }
 .w2pd-btn-save:hover {

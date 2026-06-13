@@ -24,7 +24,7 @@
    ===================================================== */
 :root {
     /* Live Primary Colors */
-    --live-primary: #7c3aed;
+    --live-primary: #0068ff;
     --live-primary-light: #8b5cf6;
     --live-primary-dark: #6d28d9;
     --live-secondary: #3b82f6;
@@ -359,7 +359,7 @@
     width: 48px;
     height: 48px;
     border-radius: 50%;
-    background: linear-gradient(135deg, #7c3aed 0%, #3b82f6 100%);
+    background: linear-gradient(135deg, #0068ff 0%, #3b82f6 100%);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1319,7 +1319,7 @@
     width: 48px;
     height: 48px;
     border-radius: 50%;
-    background: linear-gradient(135deg, #7c3aed, #3b82f6);
+    background: linear-gradient(135deg, #0068ff, #3b82f6);
     display: flex;
     align-items: center;
     justify-content: center;

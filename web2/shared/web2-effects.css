@@ -219,7 +219,7 @@
 }
 .w2fx-hover-glow:hover {
     box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.15);
-    border-color: #7c3aed;
+    border-color: #0068ff;
 }
 
 /* Press-down feedback */
@@ -416,7 +416,7 @@
 
 .w2fx-drop-target:focus,
 .w2fx-drop-target:focus-within {
-    border-color: #7c3aed;
+    border-color: #0068ff;
     box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.18);
 }
 

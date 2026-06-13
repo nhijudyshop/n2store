@@ -514,13 +514,13 @@
                                     (c, i) => `
                                 <tr>
                                     <td>${i + 1}</td>
-                                    <td><strong>${esc(c.name || '—')}</strong>${c.status ? ` <span style="font-size:10px;color:#7c3aed;background:#ede9fe;padding:1px 5px;border-radius:3px;">${esc(c.status)}</span>` : ''}</td>
+                                    <td><strong>${esc(c.name || '—')}</strong>${c.status ? ` <span style="font-size:10px;color:#0068ff;background:#ede9fe;padding:1px 5px;border-radius:3px;">${esc(c.status)}</span>` : ''}</td>
                                     <td><code style="font-size:11px">${esc(c.phone || '—')}</code></td>
                                     <td class="right">${c.nw.count} <span style="color:#9ca3af;font-size:11px;">/ ${fmtMoney(c.nw.total)}</span></td>
                                     <td class="right">${c.pbh.count} <span style="color:#9ca3af;font-size:11px;">/ ${fmtMoney(c.pbh.total)}</span></td>
                                     <td class="right" style="color:#10b981;font-weight:700;">${fmtMoney(c.combinedTotal)}</td>
                                     <td>
-                                        <button class="web2-btn web2-btn-default web2-btn-xs" title="Xem khách 360°" style="color:#7c3aed;" onclick="openCustomerModal(${c.customerId})">
+                                        <button class="web2-btn web2-btn-default web2-btn-xs" title="Xem khách 360°" style="color:#0068ff;" onclick="openCustomerModal(${c.customerId})">
                                             <i data-lucide="user-circle" style="width:12px;height:12px;"></i>
                                         </button>
                                     </td>

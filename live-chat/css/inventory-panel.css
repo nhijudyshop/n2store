@@ -23,13 +23,13 @@
         color 120ms;
 }
 .pk-mode-switch button:hover {
-    background: rgba(114, 102, 186, 0.08);
-    color: #5e51ac;
+    background: rgba(0, 104, 255, 0.08);
+    color: #0058da;
 }
 .pk-mode-switch button.active {
-    background: linear-gradient(135deg, #7266ba, #5e51ac);
+    background: linear-gradient(135deg, #0068ff, #0058da);
     color: #fff;
-    box-shadow: 0 1px 3px rgba(114, 102, 186, 0.32);
+    box-shadow: 0 1px 3px rgba(0, 104, 255, 0.32);
 }
 .pk-mode-switch button .badge {
     display: inline-block;
@@ -41,8 +41,8 @@
     font-weight: 700;
 }
 .pk-mode-switch button:not(.active) .badge {
-    background: rgba(114, 102, 186, 0.15);
-    color: #5e51ac;
+    background: rgba(0, 104, 255, 0.15);
+    color: #0058da;
 }
 
 /* Mode content slots — chỉ 1 active hiển thị */
@@ -78,8 +78,8 @@
     font-size: 13px;
 }
 .inv-search-wrap input:focus {
-    outline: 2px solid rgba(114, 102, 186, 0.32);
-    border-color: #7266ba;
+    outline: 2px solid rgba(0, 104, 255, 0.32);
+    border-color: #0068ff;
 }
 .inv-search-wrap button {
     padding: 6px 10px;
@@ -115,15 +115,15 @@
     flex-shrink: 0;
 }
 .inv-tab:hover {
-    background: rgba(114, 102, 186, 0.08);
-    border-color: rgba(114, 102, 186, 0.32);
-    color: #5e51ac;
+    background: rgba(0, 104, 255, 0.08);
+    border-color: rgba(0, 104, 255, 0.32);
+    color: #0058da;
 }
 .inv-tab.active {
-    background: linear-gradient(135deg, #7266ba, #5e51ac);
+    background: linear-gradient(135deg, #0068ff, #0058da);
     color: #fff;
-    border-color: #5e51ac;
-    box-shadow: 0 1px 3px rgba(114, 102, 186, 0.32);
+    border-color: #0058da;
+    box-shadow: 0 1px 3px rgba(0, 104, 255, 0.32);
 }
 
 .inv-stats {
@@ -148,10 +148,10 @@
 .inv-oos-toggle input {
     cursor: pointer;
     margin: 0;
-    accent-color: #7266ba;
+    accent-color: #0068ff;
 }
 .inv-oos-toggle:hover {
-    color: #5e51ac;
+    color: #0058da;
 }
 
 .inv-list {
@@ -202,8 +202,8 @@
     -webkit-user-drag: none;
 }
 .inv-card:hover {
-    border-color: #7266ba;
-    box-shadow: 0 2px 6px rgba(114, 102, 186, 0.12);
+    border-color: #0068ff;
+    box-shadow: 0 2px 6px rgba(0, 104, 255, 0.12);
 }
 .inv-card:active {
     cursor: grabbing;
@@ -236,7 +236,7 @@
 .inv-card-code {
     font-size: 11px;
     font-weight: 700;
-    color: #5e51ac;
+    color: #0058da;
     font-family: 'SFMono-Regular', ui-monospace, monospace;
 }
 .inv-card-name {
@@ -283,14 +283,10 @@
    bỏ transform: scale để tránh repaint subtree row khi kéo qua list dài. */
 .pk-conversation-item.inv-drop-hover,
 .live-conversation-item.inv-drop-hover {
-    background: linear-gradient(
-        90deg,
-        rgba(114, 102, 186, 0.22),
-        rgba(22, 163, 74, 0.08)
-    ) !important;
+    background: linear-gradient(90deg, rgba(0, 104, 255, 0.22), rgba(22, 163, 74, 0.08)) !important;
     box-shadow:
-        inset 4px 0 0 #7266ba,
-        0 0 0 2px rgba(114, 102, 186, 0.4);
+        inset 4px 0 0 #0068ff,
+        0 0 0 2px rgba(0, 104, 255, 0.4);
     border-radius: 6px;
     position: relative;
     z-index: 2;
@@ -305,11 +301,11 @@
     font-size: 11px;
     font-weight: 700;
     color: #fff;
-    background: #7266ba;
+    background: #0068ff;
     padding: 2px 9px;
     border-radius: 999px;
     pointer-events: none;
-    box-shadow: 0 1px 4px rgba(114, 102, 186, 0.5);
+    box-shadow: 0 1px 4px rgba(0, 104, 255, 0.5);
     white-space: nowrap;
 }
 
@@ -425,7 +421,7 @@
     background: #fafbfc;
 }
 .inv-cart-item-code {
-    color: #5e51ac;
+    color: #0058da;
     font-family: 'SFMono-Regular', ui-monospace, monospace;
     font-weight: 700;
     font-size: 11px;
@@ -592,7 +588,7 @@
     border-radius: 3px;
     font-family: 'SFMono-Regular', ui-monospace, monospace;
     font-size: 11px;
-    color: #5e51ac;
+    color: #0058da;
 }
 
 /* Nút xóa đơn trong popover head */

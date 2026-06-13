@@ -31,7 +31,7 @@
 .sd-page-title i {
     width: 24px;
     height: 24px;
-    color: #4338ca;
+    color: #0058da;
 }
 
 .sd-page-counters {
@@ -95,7 +95,7 @@
 
 .sd-filter-group input:focus {
     outline: none;
-    border-color: #4338ca;
+    border-color: #0058da;
     box-shadow: 0 0 0 3px rgba(67, 56, 202, 0.1);
 }
 
@@ -126,7 +126,7 @@
 
 .sd-radio-label input[type='radio'] {
     margin: 0;
-    accent-color: #4338ca;
+    accent-color: #0058da;
 }
 
 .sd-filter-actions {
@@ -162,7 +162,7 @@
 }
 
 .btn-primary {
-    background: #4338ca;
+    background: #0058da;
     color: #fff;
 }
 
@@ -262,13 +262,13 @@
 
 .sd-expand-btn:hover {
     background: #eef2ff;
-    border-color: #4338ca;
-    color: #4338ca;
+    border-color: #0058da;
+    color: #0058da;
 }
 
 .sd-main-row.is-expanded .sd-expand-btn {
-    background: #4338ca;
-    border-color: #4338ca;
+    background: #0058da;
+    border-color: #0058da;
     color: #fff;
 }
 
@@ -342,12 +342,12 @@
 
 .sd-table th.sortable.is-sort-asc::after {
     content: ' ↑';
-    color: #4338ca;
+    color: #0058da;
 }
 
 .sd-table th.sortable.is-sort-desc::after {
     content: ' ↓';
-    color: #4338ca;
+    color: #0058da;
 }
 
 .sd-table tbody tr {
@@ -402,7 +402,7 @@
     font-family: 'SF Mono', Menlo, Monaco, monospace;
     font-size: 0.8125rem;
     font-weight: 700;
-    color: #4338ca;
+    color: #0058da;
     background: #eef2ff;
     padding: 3px 9px;
     border-radius: 4px;
@@ -461,7 +461,7 @@
     margin-top: 3px;
     font-size: 0.78rem;
     font-style: italic;
-    color: #4338ca;
+    color: #0058da;
     line-height: 1.4;
     white-space: pre-wrap;
     word-break: break-word;
@@ -494,11 +494,11 @@
     border-top: 1px solid #e2e8f0;
     margin-top: 6px;
     padding-top: 8px;
-    color: #4338ca;
+    color: #0058da;
 }
 
 .sd-pay-row-strong strong {
-    color: #4338ca;
+    color: #0058da;
     font-size: 1rem;
 }
 
@@ -518,7 +518,7 @@
 
 .sd-form-field textarea:focus {
     outline: none;
-    border-color: #4338ca;
+    border-color: #0058da;
     box-shadow: 0 0 0 3px rgba(67, 56, 202, 0.1);
 }
 
@@ -557,7 +557,7 @@
 
 .sd-form-field input:focus {
     outline: none;
-    border-color: #4338ca;
+    border-color: #0058da;
     box-shadow: 0 0 0 3px rgba(67, 56, 202, 0.1);
 }
 
@@ -771,7 +771,7 @@
 }
 
 .sd-stat-strong .sd-stat-value {
-    color: #4338ca;
+    color: #0058da;
 }
 
 .sd-detail-tabs {
@@ -796,12 +796,12 @@
 }
 
 .sd-tab:hover {
-    color: #4338ca;
+    color: #0058da;
 }
 
 .sd-tab.is-active {
-    color: #4338ca;
-    border-bottom-color: #4338ca;
+    color: #0058da;
+    border-bottom-color: #0058da;
 }
 
 .sd-detail-panel[hidden] {
@@ -883,7 +883,7 @@
 }
 
 .sd-congno-table tbody td.num:last-child strong {
-    color: #4338ca;
+    color: #0058da;
 }
 
 /* Responsive */

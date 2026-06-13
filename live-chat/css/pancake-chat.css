@@ -519,7 +519,7 @@
 
 .pk-tag-badge.purple {
     background: #f3e8ff;
-    color: #7c3aed;
+    color: #0068ff;
 }
 
 .pk-tag-badge.pink {
@@ -732,7 +732,7 @@
     gap: 4px;
     padding: 2px 8px;
     background: #e0e7ff;
-    color: #4338ca;
+    color: #0058da;
     border-radius: 4px;
     font-size: 11px;
     font-weight: 500;
@@ -1160,7 +1160,7 @@
     margin-left: auto;
     font-size: 11px;
     font-weight: 600;
-    color: #7c3aed;
+    color: #0068ff;
     white-space: nowrap;
 }
 

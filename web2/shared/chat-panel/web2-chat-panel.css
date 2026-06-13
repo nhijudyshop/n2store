@@ -314,7 +314,7 @@
 }
 .w2cp-quoted-from {
     font-weight: 600;
-    color: #7c3aed;
+    color: #0068ff;
     font-size: 11px;
 }
 
@@ -355,7 +355,7 @@
 }
 .w2cp-reply-btn:hover {
     background: #ede9fe;
-    color: #7c3aed;
+    color: #0068ff;
 }
 .w2cp-row.is-flash .w2cp-bubble {
     animation: w2cp-flash 1s ease;
@@ -532,7 +532,7 @@
     text-overflow: ellipsis;
 }
 .w2cp-reply-bar .preview strong {
-    color: #7c3aed;
+    color: #0068ff;
     margin-right: 6px;
 }
 .w2cp-reply-bar button {
@@ -597,7 +597,7 @@
 }
 .w2cp-input-btn:hover {
     background: #f1f5f9;
-    color: #7c3aed;
+    color: #0068ff;
 }
 .w2cp-input-wrap {
     flex: 1;
@@ -650,7 +650,7 @@
     font-family: inherit;
 }
 .w2cp-input:focus {
-    border-color: #7c3aed;
+    border-color: #0068ff;
     box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.12);
 }
 .w2cp-send-btn {
@@ -658,7 +658,7 @@
     height: 40px;
     border: none;
     border-radius: 50%;
-    background: #7c3aed;
+    background: #0068ff;
     color: #fff;
     cursor: pointer;
     flex: 0 0 auto;
@@ -709,8 +709,8 @@
     cursor: pointer;
 }
 .w2cp-picker-tab.active {
-    color: #7c3aed;
-    box-shadow: inset 0 -2px 0 #7c3aed;
+    color: #0068ff;
+    box-shadow: inset 0 -2px 0 #0068ff;
 }
 .w2cp-emoji-cats {
     display: flex;

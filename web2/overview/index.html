@@ -57,7 +57,7 @@
                         flex-wrap: wrap;
                         background: #fff;
                         border: 1px solid #e2e8f0;
-                        border-left: 5px solid #7266ba;
+                        border-left: 5px solid #0068ff;
                         border-radius: 14px;
                         padding: 16px 20px;
                         margin: 0 0 20px;
@@ -3178,7 +3178,7 @@ permission_templates    (role: admin/manager/staff)</pre
                     const name =
                         user.displayName || user.username || user.email || user.name || 'User';
                     const role = user.role ? ` · ${user.role}` : '';
-                    statusEl.innerHTML = `✅ Đang đăng nhập: <b style="color:#7266ba">${name}</b><span style="color:#64748b;font-weight:500">${role}</span>`;
+                    statusEl.innerHTML = `✅ Đang đăng nhập: <b style="color:#0068ff">${name}</b><span style="color:#64748b;font-weight:500">${role}</span>`;
                     actsEl.innerHTML =
                         usersLink +
                         `<button id="ovAuthLogout" style="height:38px;padding:0 16px;border-radius:9px;font-size:13.5px;font-weight:700;background:#fff;color:#dc2626;border:1px solid #fecaca;cursor:pointer;">Đăng xuất</button>`;
@@ -3199,9 +3199,9 @@ permission_templates    (role: admin/manager/staff)</pre
                         btn(
                             `${loginUrl}?next=${next}`,
                             '→ Đăng nhập',
-                            '#7266ba',
+                            '#0068ff',
                             '#fff',
-                            '#7266ba'
+                            '#0068ff'
                         ) + usersLink;
                 }
             }

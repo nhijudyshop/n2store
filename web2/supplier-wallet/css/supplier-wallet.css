@@ -73,7 +73,7 @@
 }
 .sw-search-wrap input:focus {
     outline: none;
-    border-color: #7c3aed;
+    border-color: #0068ff;
     box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.15);
 }
 .sw-sort-wrap {
@@ -310,7 +310,7 @@
 }
 .sw-tab.is-active {
     color: #6d28d9;
-    border-bottom-color: #7c3aed;
+    border-bottom-color: #0068ff;
 }
 
 .sw-table {
@@ -405,7 +405,7 @@
 }
 .sw-field input:focus {
     outline: none;
-    border-color: #7c3aed;
+    border-color: #0068ff;
     box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.15);
 }
 

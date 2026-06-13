@@ -29,7 +29,7 @@
 .kpi-page-title i {
     width: 22px;
     height: 22px;
-    color: var(--web2-primary, #7266ba);
+    color: var(--web2-primary, #0068ff);
 }
 .kpi-page-actions {
     display: flex;
@@ -49,8 +49,8 @@
 }
 .kpi-select:focus {
     outline: none;
-    border-color: var(--web2-primary, #7266ba);
-    box-shadow: 0 0 0 2px rgba(114, 102, 186, 0.15);
+    border-color: var(--web2-primary, #0068ff);
+    box-shadow: 0 0 0 2px rgba(0, 104, 255, 0.15);
 }
 
 .kpi-tabs {
@@ -79,8 +79,8 @@
     height: 14px;
 }
 .kpi-tab.active {
-    color: var(--web2-primary, #7266ba);
-    border-bottom-color: var(--web2-primary, #7266ba);
+    color: var(--web2-primary, #0068ff);
+    border-bottom-color: var(--web2-primary, #0068ff);
 }
 .kpi-tab:hover:not(.active) {
     color: var(--web2-text, #333);
@@ -135,7 +135,7 @@
     color: var(--web2-text, #333);
 }
 .kpi-stats strong {
-    color: var(--web2-primary, #7266ba);
+    color: var(--web2-primary, #0068ff);
     font-weight: 700;
 }
 
@@ -196,7 +196,7 @@
 .kpi-table input[type='number']:focus,
 .kpi-table select:focus {
     outline: none;
-    border-color: var(--web2-primary, #7266ba);
+    border-color: var(--web2-primary, #0068ff);
 }
 
 .kpi-row-delete {
@@ -268,7 +268,7 @@
 }
 .kpi-history-item {
     padding: 10px 12px;
-    border-left: 3px solid var(--web2-primary, #7266ba);
+    border-left: 3px solid var(--web2-primary, #0068ff);
     background: var(--web2-bg-light, #edf1f2);
     margin-bottom: 8px;
     border-radius: 0 4px 4px 0;

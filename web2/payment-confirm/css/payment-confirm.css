@@ -48,11 +48,11 @@
     gap: 7px;
 }
 .pc-tab:hover {
-    color: #5e51ac;
+    color: #0058da;
 }
 .pc-tab.active {
-    color: #5e51ac;
-    border-bottom-color: #5e51ac;
+    color: #0058da;
+    border-bottom-color: #0058da;
 }
 .pc-tab .pc-count {
     background: #ede9fe;
@@ -63,7 +63,7 @@
     font-weight: 700;
 }
 .pc-tab.active .pc-count {
-    background: #5e51ac;
+    background: #0058da;
     color: #fff;
 }
 
@@ -159,7 +159,7 @@
     margin-top: 4px;
 }
 .pc-order a {
-    color: #5e51ac;
+    color: #0058da;
     font-weight: 600;
     text-decoration: none;
 }
@@ -183,7 +183,7 @@
     list-style: revert;
 }
 .pc-history > summary:hover {
-    color: #5e51ac;
+    color: #0058da;
 }
 .pc-history[open] > summary {
     margin-bottom: 6px;
