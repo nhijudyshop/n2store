@@ -123,7 +123,16 @@ router.get('/list', requireWeb2AuthSoft, async (req, res) => {
         }
 
         if (blocks.length === 0) {
-            return res.json({ success: true, items: [], total: 0 });
+            // MEDIUM-cleanup (2026-06-13): TRƯỚC đây trả empty IM LẶNG khi cả 4
+            // bảng audit thiếu (hoặc _tableExists nuốt lỗi → false) → không phân
+            // biệt "0 audit" với "bảng lỗi". Thêm warning + log để admin biết.
+            console.warn('[audit-log] 0 bảng audit khả dụng — kiểm tra schema/connection');
+            return res.json({
+                success: true,
+                items: [],
+                total: 0,
+                warning: 'Không có bảng lịch sử nào khả dụng (schema chưa tạo hoặc lỗi kết nối)',
+            });
         }
 
         const filters = [];
