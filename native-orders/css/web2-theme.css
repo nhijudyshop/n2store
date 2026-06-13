@@ -585,3 +585,8 @@ body.web2-theme .data-table th {
 .source-pill {
     display: none !important;
 }
+
+/* Ẩn source-pill (tên bảng DB kỹ thuật web2_*) khỏi UI sản xuất — DB-badge riêng đã đủ. */
+.source-pill {
+    display: none !important;
+}
