@@ -49,7 +49,12 @@ router.get('/summary', async (req, res) => {
             [days]
         );
 
-        // Native orders + delivery + refund counts
+        // Native orders + delivery + refund counts.
+        // MEDIUM-cleanup (2026-06-13): trước đây 3 query này đếm ALL-TIME cạnh
+        // các KPI có range `days` → gây hiểu lầm số liệu cùng kỳ. Giờ lọc theo
+        // CÙNG cutoff (rolling window now - days) — native created_at là BIGINT
+        // epoch ms, dlv/refunds là TIMESTAMPTZ → dùng to_timestamp.
+        const cutoffMs = Date.now() - days * 86400000;
         const native = await pool
             .query(
                 `
@@ -58,7 +63,9 @@ router.get('/summary', async (req, res) => {
                 COUNT(*) FILTER (WHERE status = 'draft')::int AS native_draft,
                 COUNT(*) FILTER (WHERE status = 'confirmed')::int AS native_confirmed
             FROM native_orders
-        `
+            WHERE created_at >= $1
+        `,
+                [cutoffMs]
             )
             .catch(() => ({ rows: [{}] }));
 
@@ -71,7 +78,9 @@ router.get('/summary', async (req, res) => {
                 COUNT(*) FILTER (WHERE state = 'shipping')::int AS dlv_shipping,
                 COUNT(*) FILTER (WHERE state = 'delivered')::int AS dlv_delivered
             FROM delivery_invoices
-        `
+            WHERE date_created >= to_timestamp($1::bigint / 1000.0)
+        `,
+                [cutoffMs]
             )
             .catch(() => ({ rows: [{}] }));
 
@@ -82,8 +91,9 @@ router.get('/summary', async (req, res) => {
                 COUNT(*)::int AS total,
                 COALESCE(SUM(amount_refund), 0)::numeric AS total_refund_amount
             FROM refunds
-            WHERE state = 'completed'
-        `
+            WHERE state = 'completed' AND date_created >= to_timestamp($1::bigint / 1000.0)
+        `,
+                [cutoffMs]
             )
             .catch(() => ({ rows: [{}] }));
 

@@ -1103,14 +1103,23 @@
         if (btn) btn.disabled = true;
         try {
             notify('Đang chuẩn bị CSV…', 'info');
-            const result = await fetchAggregateWeb2Only({
-                limit: 500,
-                offset: 0,
-                sort: state.sort,
-                filter: state.quickFilter,
-                search: state.search,
-            });
-            const items = result?.data || [];
+            // MEDIUM-cleanup (2026-06-13): vip/warning/bomb là filter trạng thái WEB2 (warehouse) —
+            // server /aggregate KHÔNG hiểu (chỉ debt/has_balance/paid_off) nên trước đây ignore filter
+            // → CSV khác list màn hình. Với các filter này export ĐÚNG data đang hiển thị (state.rows).
+            const STATUS_FILTERS = ['vip', 'warning', 'bomb'];
+            let items;
+            if (STATUS_FILTERS.includes(state.quickFilter)) {
+                items = state.rows || [];
+            } else {
+                const result = await fetchAggregateWeb2Only({
+                    limit: 500,
+                    offset: 0,
+                    sort: state.sort,
+                    filter: state.quickFilter,
+                    search: state.search,
+                });
+                items = result?.data || [];
+            }
             if (!items.length) {
                 notify('Không có KH nào để xuất', 'warning');
                 return;
