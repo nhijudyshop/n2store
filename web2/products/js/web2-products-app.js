@@ -108,7 +108,6 @@
                     </td>
                     <td class="price-cell price-buy">${fmtPrice(priceBuy)}</td>
                     <td class="price-cell price-sell">${fmtPrice(priceSell)}</td>
-                    <td class="usage-cell">${renderUsageBadge(p.code)}</td>
                     <td class="note-cell" title="${escapeHtml(p.note || '')}">${escapeHtml(p.note || '—')}</td>
                     <td>
                         ${(() => {
@@ -152,7 +151,7 @@
     function renderRows() {
         const items = STATE.products;
         if (!items.length) {
-            tbody().innerHTML = `<tr><td colspan="12" class="empty-row">
+            tbody().innerHTML = `<tr><td colspan="11" class="empty-row">
                 Chưa có sản phẩm — bấm "Thêm SP" để tạo
             </td></tr>`;
             _updateSelectAllState();
@@ -484,7 +483,7 @@
     async function load() {
         if (STATE.loading) return;
         STATE.loading = true;
-        tbody().innerHTML = `<tr><td colspan="12" class="loading-row">
+        tbody().innerHTML = `<tr><td colspan="11" class="loading-row">
             <div class="spinner"></div>Đang tải dữ liệu...
         </td></tr>`;
         try {
@@ -504,7 +503,7 @@
             _loadUsageForCurrentPage();
         } catch (e) {
             console.error(e);
-            tbody().innerHTML = `<tr><td colspan="12" class="empty-row" style="color:#ef4444;">
+            tbody().innerHTML = `<tr><td colspan="11" class="empty-row" style="color:#ef4444;">
                 Lỗi tải: ${escapeHtml(e.message)}
             </td></tr>`;
             notify('Lỗi tải dữ liệu: ' + e.message, 'error');
@@ -1520,6 +1519,10 @@
         openUsagePopover,
         openHistory,
         printBarcode,
+        // Accessors cho drawer chi tiết (web2-product-detail.js — feature riêng).
+        getProduct: (code) => STATE.products.find((p) => p.code === code) || null,
+        getUsage: (code) => STATE.usage[code] || null,
+        PROXY_BASE,
     };
 
     if (document.readyState === 'loading') {

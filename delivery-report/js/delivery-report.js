@@ -2630,12 +2630,9 @@
             }
 
             const blob = await canvasToBlob(canvas);
-            const copied = await copyBlobToClipboard(
-                blob,
-                `BANGIAO_TP_${handoverDateLabel().replace(/[/–]/g, '_')}.png`
-            );
 
-            // Gửi ảnh vào nhóm Telegram (bot riêng delivery-report) — clipboard đã xong
+            // Gửi ảnh vào nhóm Telegram (bot riêng delivery-report).
+            // Bỏ clipboard — gửi TG thành công thì refresh lại trang.
             try {
                 if (btn) {
                     btn.innerHTML = '<i class="fas fa-paper-plane"></i> Đang gửi Telegram...';
@@ -2645,20 +2642,13 @@
                     `📦 Bàn giao Thành phố ${handoverDateLabel()} — ${scannedItems.length} đơn` +
                         (returnScanned.length > 0 ? ` · ${returnScanned.length} thu về` : '')
                 );
-                resetBtn(
-                    copied
-                        ? '<i class="fas fa-check-double"></i> Đã copy + gửi TG!'
-                        : '<i class="fas fa-check"></i> Đã gửi TG!'
-                );
-                setTimeout(() => resetBtn(), 2500);
+                resetBtn('<i class="fas fa-check"></i> Đã gửi TG — đang tải lại...');
+                // Gửi thành công → refresh lại trang
+                setTimeout(() => window.location.reload(), 600);
             } catch (tgError) {
                 console.error('[DELIVERY-REPORT] gửi Telegram lỗi:', tgError);
-                alert(
-                    (copied ? 'Ảnh ĐÃ copy vào clipboard nhưng ' : '') +
-                        'gửi Telegram thất bại: ' +
-                        tgError.message
-                );
-                resetBtn(copied ? '<i class="fas fa-check"></i> Đã copy (TG lỗi)' : undefined);
+                alert('Gửi Telegram thất bại: ' + tgError.message);
+                resetBtn();
                 setTimeout(() => resetBtn(), 3000);
             }
         } catch (error) {
