@@ -204,101 +204,111 @@ router.delete('/:id', requireWeb2AuthSoft, async (req, res) => {
 //   2. web2_products stock < 5 (active)
 //   3. web2_customer_wallets balance < 0 (ví KH âm — overdraft)
 //   4. web2_returns phiếu THU VỀ (shipper gửi) chờ duyệt > 20 ngày
-router.get('/scan', requireWeb2AuthSoft, async (req, res) => {
-    try {
-        const pool = req.app.locals.web2Db || req.app.locals.chatDb;
-        const created = [];
+// B5 (2026-06-13): scan logic tách thành pure function để cron gọi được (cron
+// KHÔNG thể HTTP GET route do requireWeb2AuthSoft). Route /scan + cron scheduler
+// cùng gọi hàm này. Dedupe atomic qua unique index uq_web2_noti_dedupe_hour +
+// _insertDedupe pre-check 1h → an toàn chạy song song (manual GET + cron).
+async function scanAndCreateNotifications(pool) {
+    const created = [];
 
-        // 1. PBH draft > 24h
-        const draftRs = await pool.query(
-            `SELECT number FROM fast_sale_orders
+    // 1. PBH draft > 24h
+    const draftRs = await pool.query(
+        `SELECT number FROM fast_sale_orders
              WHERE state = 'draft' AND date_created < NOW() - INTERVAL '24 hours'
              LIMIT 50`
-        );
-        for (const r of draftRs.rows) {
-            await _insertDedupe(pool, {
-                type: 'pbh_draft_stale',
-                title: `PBH ${r.number} chờ xác nhận > 24h`,
-                severity: 'warning',
-                entity_type: 'fast_sale_order',
-                entity_id: r.number,
-                url: `/web2/fastsaleorder-invoice/index.html?search=${encodeURIComponent(r.number)}`,
-                dedupe_key: `pbh_draft:${r.number}`,
-            });
-            created.push(r.number);
-        }
+    );
+    for (const r of draftRs.rows) {
+        await _insertDedupe(pool, {
+            type: 'pbh_draft_stale',
+            title: `PBH ${r.number} chờ xác nhận > 24h`,
+            severity: 'warning',
+            entity_type: 'fast_sale_order',
+            entity_id: r.number,
+            url: `/web2/fastsaleorder-invoice/index.html?search=${encodeURIComponent(r.number)}`,
+            dedupe_key: `pbh_draft:${r.number}`,
+        });
+        created.push(r.number);
+    }
 
-        // 2. Stock < 5 (only active)
-        const stockRs = await pool.query(
-            `SELECT code, name, stock FROM web2_products
+    // 2. Stock < 5 (only active)
+    const stockRs = await pool.query(
+        `SELECT code, name, stock FROM web2_products
              WHERE is_active = true AND stock < 5 AND stock >= 0
              LIMIT 50`
-        );
-        for (const r of stockRs.rows) {
-            await _insertDedupe(pool, {
-                type: 'stock_low',
-                title: `Hàng sắp hết: ${r.code} — ${r.name} (còn ${r.stock})`,
-                severity: r.stock === 0 ? 'danger' : 'warning',
-                entity_type: 'product',
-                entity_id: r.code,
-                url: `/web2/products/index.html?search=${encodeURIComponent(r.code)}`,
-                dedupe_key: `stock_low:${r.code}`,
-            });
-            created.push(r.code);
-        }
+    );
+    for (const r of stockRs.rows) {
+        await _insertDedupe(pool, {
+            type: 'stock_low',
+            title: `Hàng sắp hết: ${r.code} — ${r.name} (còn ${r.stock})`,
+            severity: r.stock === 0 ? 'danger' : 'warning',
+            entity_type: 'product',
+            entity_id: r.code,
+            url: `/web2/products/index.html?search=${encodeURIComponent(r.code)}`,
+            dedupe_key: `stock_low:${r.code}`,
+        });
+        created.push(r.code);
+    }
 
-        // 3. Ví KH âm (overdraft) — web2_customer_wallets balance < 0. Defensive
-        // (bảng isolated, tạo từ customer_wallets) → bọc try/catch.
-        try {
-            const odRs = await pool.query(
-                `SELECT phone, balance FROM web2_customer_wallets
+    // 3. Ví KH âm (overdraft) — web2_customer_wallets balance < 0. Defensive
+    // (bảng isolated, tạo từ customer_wallets) → bọc try/catch.
+    try {
+        const odRs = await pool.query(
+            `SELECT phone, balance FROM web2_customer_wallets
                  WHERE balance < 0 ORDER BY balance ASC LIMIT 50`
-            );
-            for (const r of odRs.rows) {
-                const amt = Math.abs(Number(r.balance) || 0).toLocaleString('vi-VN');
-                await _insertDedupe(pool, {
-                    type: 'wallet_overdraft',
-                    title: `Ví KH âm: ${r.phone || '(không SĐT)'} (-${amt}₫)`,
-                    severity: 'danger',
-                    entity_type: 'customer_wallet',
-                    entity_id: r.phone || null,
-                    url: r.phone
-                        ? `/web2/balance-history/index.html?search=${encodeURIComponent(r.phone)}`
-                        : null,
-                    dedupe_key: `wallet_overdraft:${r.phone || 'unknown'}`,
-                });
-                created.push(r.phone || 'overdraft');
-            }
-        } catch (e) {
-            console.warn('[notifications/scan] wallet_overdraft check fail:', e.message);
+        );
+        for (const r of odRs.rows) {
+            const amt = Math.abs(Number(r.balance) || 0).toLocaleString('vi-VN');
+            await _insertDedupe(pool, {
+                type: 'wallet_overdraft',
+                title: `Ví KH âm: ${r.phone || '(không SĐT)'} (-${amt}₫)`,
+                severity: 'danger',
+                entity_type: 'customer_wallet',
+                entity_id: r.phone || null,
+                url: r.phone
+                    ? `/web2/balance-history/index.html?search=${encodeURIComponent(r.phone)}`
+                    : null,
+                dedupe_key: `wallet_overdraft:${r.phone || 'unknown'}`,
+            });
+            created.push(r.phone || 'overdraft');
         }
+    } catch (e) {
+        console.warn('[notifications/scan] wallet_overdraft check fail:', e.message);
+    }
 
-        // 4. Phiếu THU VỀ (Shipper gửi) treo chờ duyệt > 20 ngày → nhắc duyệt.
-        // Duyệt xong return_qty mới cộng vào tồn thật. Xem web2-returns.js.
-        try {
-            const retRs = await pool.query(
-                `SELECT code, customer_name FROM web2_returns
+    // 4. Phiếu THU VỀ (Shipper gửi) treo chờ duyệt > 20 ngày → nhắc duyệt.
+    // Duyệt xong return_qty mới cộng vào tồn thật. Xem web2-returns.js.
+    try {
+        const retRs = await pool.query(
+            `SELECT code, customer_name FROM web2_returns
                  WHERE method = 'shipper_gui' AND stock_status = 'pending' AND status = 'active'
                    AND created_at < (EXTRACT(EPOCH FROM NOW()) * 1000) - (20 * 24 * 3600 * 1000)
                  LIMIT 50`
-            );
-            for (const r of retRs.rows) {
-                await _insertDedupe(pool, {
-                    type: 'return_overdue',
-                    title: `Thu về ${r.code} chờ duyệt > 20 ngày${r.customer_name ? ' — ' + r.customer_name : ''}`,
-                    severity: 'warning',
-                    entity_type: 'web2_return',
-                    entity_id: r.code,
-                    url: `/web2/returns/index.html?tab=pending&search=${encodeURIComponent(r.code)}`,
-                    dedupe_key: `return_overdue:${r.code}`,
-                });
-                created.push(r.code);
-            }
-        } catch (e) {
-            console.warn('[notifications/scan] return_overdue check fail:', e.message);
+        );
+        for (const r of retRs.rows) {
+            await _insertDedupe(pool, {
+                type: 'return_overdue',
+                title: `Thu về ${r.code} chờ duyệt > 20 ngày${r.customer_name ? ' — ' + r.customer_name : ''}`,
+                severity: 'warning',
+                entity_type: 'web2_return',
+                entity_id: r.code,
+                url: `/web2/returns/index.html?tab=pending&search=${encodeURIComponent(r.code)}`,
+                dedupe_key: `return_overdue:${r.code}`,
+            });
+            created.push(r.code);
         }
+    } catch (e) {
+        console.warn('[notifications/scan] return_overdue check fail:', e.message);
+    }
 
-        _notifyUpdate();
+    _notifyUpdate();
+    return created;
+}
+
+// GET /scan — manual trigger (cũng được cron gọi mỗi 10' qua scheduler.js).
+router.get('/scan', requireWeb2AuthSoft, async (req, res) => {
+    try {
+        const pool = req.app.locals.web2Db || req.app.locals.chatDb;
+        const created = await scanAndCreateNotifications(pool);
         res.json({ success: true, created: created.length, sample: created.slice(0, 10) });
     } catch (e) {
         res.status(500).json({ success: false, error: e.message });
@@ -387,3 +397,4 @@ async function createNotification(pool, data) {
 module.exports = router;
 module.exports.initializeNotifiers = initializeNotifiers;
 module.exports.createNotification = createNotification;
+module.exports.scanAndCreateNotifications = scanAndCreateNotifications; // B5: cron gọi

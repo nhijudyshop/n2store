@@ -44,6 +44,9 @@
     // event 'resync' để mọi page re-fetch 1 lần. Bỏ qua reopen do đổi topic (không mất data).
     let everConnected = false;
     let suppressResyncOnce = false;
+    // C16 (2026-06-13): tập topic của EventSource đang mở (sorted CSV) — tránh
+    // reopen khi tập không đổi. Cập nhật trong _openConnection.
+    let _prevTopicsStr = '';
 
     function _dispatchResync() {
         for (const [topic, subs] of subscribers) {
@@ -76,7 +79,11 @@
             es = null;
         }
         const topics = Array.from(subscribers.keys());
-        if (!topics.length) return;
+        if (!topics.length) {
+            _prevTopicsStr = '';
+            return;
+        }
+        _prevTopicsStr = topics.slice().sort().join(','); // C16: nhớ tập topic đang mở
         const url = `${SSE_BASE}?keys=${encodeURIComponent(topics.join(','))}`;
         try {
             es = new EventSource(url);
@@ -161,6 +168,15 @@
         }
         _refreshConnectionForTopicChange._t = setTimeout(() => {
             _refreshConnectionForTopicChange._t = null;
+            // C16 (2026-06-13): chỉ reopen khi tập topic THỰC SỰ đổi so với lần
+            // connect gần nhất. Tránh churn (close+open EventSource + reattach
+            // listeners) khi subscribe/unsubscribe gộp lại không đổi tập topic
+            // (vd subscribe rồi unsubscribe trong cửa sổ debounce; hoặc đã có
+            // EventSource đúng keys rồi). _prevTopicsStr cập nhật ở _openConnection.
+            const topicsStr = Array.from(subscribers.keys()).sort().join(',');
+            if (topicsStr === _prevTopicsStr && es && es.readyState !== 2 /* CLOSED */) {
+                return;
+            }
             // Reopen vì đổi topic (server vẫn sống suốt) → KHÔNG mất data → đừng resync.
             suppressResyncOnce = true;
             _openConnection();

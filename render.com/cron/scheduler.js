@@ -12,6 +12,9 @@ const { withTransaction } = require('../db/with-transaction');
 const { processWithdrawal } = require('../routes/v2/pending-withdrawals');
 const { executeRefund, ensureRefundSchema } = require('../services/wallet-refund');
 const { cleanupOrderBuffer } = require('../routes/tpos-order-buffer');
+// B5 (2026-06-13): web2 notifications scan cron — pool web2Db (bảng web2_*).
+const web2DbPool = require('../db/web2-pool') || db;
+const { scanAndCreateNotifications } = require('../routes/v2/notifications');
 
 // Chạy mỗi giờ để expire virtual credits
 cron.schedule('0 * * * *', async () => {
@@ -364,7 +367,7 @@ cron.schedule('*/5 * * * *', async () => {
 
         console.log(
             `[CRON] ✅ Wallet outbox: deduct(${successCount} ok, ${failCount} fail, ${retryLaterCount} retry) ` +
-            `refund(${refundedCount} ok, ${refundPendingCount} pending)`
+                `refund(${refundedCount} ok, ${refundPendingCount} pending)`
         );
     } catch (error) {
         console.error('[CRON] ❌ Error in retry-pending-withdrawals:', error.message);
@@ -590,6 +593,25 @@ cron.schedule('*/5 * * * *', async () => {
         }
     } catch (error) {
         console.error('[CRON] ❌ Error cleaning regen locks:', error.message);
+    }
+});
+
+// =====================================================
+// B5: WEB2 NOTIFICATIONS SCAN — mỗi 10 phút
+// Quét pain points Web 2.0 (PBH draft >24h, stock thấp, ví KH âm, thu về quá
+// hạn >20 ngày) → tạo noti (dedupe atomic qua unique index theo giờ). TRƯỚC đây
+// route GET /scan chỉ chạy khi gọi tay → noti gần như không bao giờ sinh. Dùng
+// web2Db (bảng web2_*); _notifyUpdate trong hàm tự broadcast SSE web2:notifications.
+// =====================================================
+cron.schedule('*/10 * * * *', async () => {
+    try {
+        if (!web2DbPool) return;
+        const created = await scanAndCreateNotifications(web2DbPool);
+        if (created && created.length) {
+            console.log(`[CRON] ✅ Web2 notifications scan: ${created.length} noti mới`);
+        }
+    } catch (error) {
+        console.error('[CRON] ❌ Web2 notifications scan error:', error.message);
     }
 });
 
