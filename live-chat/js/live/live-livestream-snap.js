@@ -3275,15 +3275,28 @@ Throttle 30s/KH.`;
         wrapper.appendChild(host);
         STATE._seekPlayer = null;
         STATE._seekPlayerHref = null;
+        // Subscriber CỤC BỘ per-build (xem _buildSeekPlayer) — không dùng subscriber
+        // chung (route fail → xfbml.ready timeout). 25s cho tải nặng.
         const instance = await new Promise((resolve, reject) => {
-            const t = setTimeout(() => {
-                _xfbmlWaiters.delete(divId);
-                reject(new Error('xfbml.ready timeout (player không load)'));
-            }, 15000);
-            _xfbmlWaiters.set(divId, (inst) => {
+            let settled = false;
+            const handler = (msg) => {
+                if (settled || !msg || msg.type !== 'video' || msg.id !== divId) return;
+                settled = true;
                 clearTimeout(t);
-                resolve(inst);
-            });
+                try {
+                    FB.Event.unsubscribe('xfbml.ready', handler);
+                } catch (_) {}
+                resolve(msg.instance);
+            };
+            const t = setTimeout(() => {
+                if (settled) return;
+                settled = true;
+                try {
+                    FB.Event.unsubscribe('xfbml.ready', handler);
+                } catch (_) {}
+                reject(new Error('xfbml.ready timeout (player không load)'));
+            }, 25000);
+            FB.Event.subscribe('xfbml.ready', handler);
             FB.XFBML.parse(host);
         });
         STATE._seekPlayer = instance;
@@ -3378,15 +3391,30 @@ Throttle 30s/KH.`;
         host.appendChild(div);
         wrapperEl.innerHTML = '';
         wrapperEl.appendChild(host);
+        // Subscriber CỤC BỘ cho lần build này (match msg.id === divId) thay vì dựa
+        // subscriber chung _ensureFbSdk + _xfbmlWaiters — subscriber chung không
+        // route đúng trong ngữ cảnh force-extract (xfbml.ready timeout toàn bộ,
+        // verify 2026-06-13: local subscriber 3/3 OK, shared fail). 25s cho tải nặng.
         return await new Promise((resolve, reject) => {
-            const t = setTimeout(() => {
-                _xfbmlWaiters.delete(divId);
-                reject(new Error('xfbml.ready timeout'));
-            }, 15000);
-            _xfbmlWaiters.set(divId, (inst) => {
+            let settled = false;
+            const handler = (msg) => {
+                if (settled || !msg || msg.type !== 'video' || msg.id !== divId) return;
+                settled = true;
                 clearTimeout(t);
-                resolve(inst);
-            });
+                try {
+                    FB.Event.unsubscribe('xfbml.ready', handler);
+                } catch (_) {}
+                resolve(msg.instance);
+            };
+            const t = setTimeout(() => {
+                if (settled) return;
+                settled = true;
+                try {
+                    FB.Event.unsubscribe('xfbml.ready', handler);
+                } catch (_) {}
+                reject(new Error('xfbml.ready timeout'));
+            }, 25000);
+            FB.Event.subscribe('xfbml.ready', handler);
             FB.XFBML.parse(host);
         });
     }
