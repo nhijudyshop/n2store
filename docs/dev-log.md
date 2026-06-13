@@ -2,6 +2,19 @@
 
 ## 2026-06-13
 
+### [web2] [shared] Dọn cross-folder dep — chuyển native-orders CSS vào shared (đợt 11) ✅
+
+**User:** "Dọn cross-folder dep" (21 trang link chéo `../../native-orders/css/*`).
+
+**Đã làm:** `git mv` native-orders CSS → `web2/shared/` (single source):
+
+- `native-orders/css/native-orders.css` → **`web2/shared/web2-base.css`** (baseline: tokens `:root` `--web2-*`, layout, tab, filter, data-table, button).
+- `native-orders/css/web2-theme.css` → **`web2/shared/web2-components.css`** (`.web2-*` Bootstrap-clone: label/btn/cell/count-pill).
+- Repoint 31 file (kể cả native-orders + so-order + dist bundle): `../../native-orders/css/X` → `../shared/X`, `../native-orders/css/X` → `../web2/shared/X`. **0 ref cross-folder còn lại.**
+- Không url() asset tương đối → move an toàn, computed style y hệt.
+
+**Verify:** native-orders render Y HỆT sau move (master không đổi). **Status:** ✅ Done. Shared design giờ gồm: web2-sidebar + web2-base + web2-components + web2-theme(overlay) + web2-effects + web2-motion.
+
 ### [web2] [shared] native-orders = giao diện chủ đạo → phủ shared `web2-theme.css` cho 100% trang web2 (đợt 10) ✅
 
 **User:** "lấy native-orders làm giao diện chủ đạo → tạo css web2 shared từ native-orders → tất cả web2 dùng css này."
