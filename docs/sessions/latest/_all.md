@@ -3,15 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `04c086b` — feat(live-chat): toggle ẩn/hiện SP hết hàng (stock=0) trong panel Kho SP
-**Last updated**: 2026-06-13 13:23:23 +07
-**Latest session**: [`RESUME:20260613-132323-04c086b`](../20260613-132323-04c086b.md)
-**Summary**: feat(live-chat): toggle ẩn/hiện SP hết hàng (stock=0) trong panel Kho SP
+**Latest commit**: `ad01d13` — fix(so-order): in tem dùng chung nguồn web2/products — load Web2QR + Web2Printer
+**Last updated**: 2026-06-13 13:36:02 +07
+**Latest session**: [`RESUME:20260613-133602-ad01d13`](../20260613-133602-ad01d13.md)
+**Summary**: fix(so-order): in tem dùng chung nguồn web2/products — load Web2QR + Web2Printer
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`live-chat/`](./live-chat.md) — 3 file(s)
+- [`so-order/`](./so-order.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -26,7 +26,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-12 18:34
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-13 10:49
-- [`docs/`](./docs.md) — updated 2026-06-13 13:23
+- [`docs/`](./docs.md) — updated 2026-06-13 13:36
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-12 20:05
 - [`downloads/`](./downloads.md) — updated 2026-06-12 20:06
@@ -59,7 +59,7 @@
 - [`shared/`](./shared.md) — updated 2026-06-13 11:23
 - [`showroom/`](./showroom.md) — updated 2026-06-10 19:04
 - [`showroom1/`](./showroom1.md) — updated 2026-06-10 19:52
-- [`so-order/`](./so-order.md) — updated 2026-06-13 11:43
+- [`so-order/`](./so-order.md) — updated 2026-06-13 13:36
 - [`soluong-live/`](./soluong-live.md) — updated 2026-06-08 18:40
 - [`soorder/`](./soorder.md) — updated 2026-05-21 15:39
 - [`soquy/`](./soquy.md) — updated 2026-05-21 15:39
