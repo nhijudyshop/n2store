@@ -3,17 +3,16 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `8ddb60b` — auto: session update
-**Last updated**: 2026-06-13 19:31:57 +07
-**Latest session**: [`RESUME:20260613-193157-8ddb60b`](../20260613-193157-8ddb60b.md)
-**Summary**: auto: session update
+**Latest commit**: `124fe74` — refactor(web2): gỡ dead Firebase — 8 trang firebase-free + fix manual-deposit stale ledger
+**Last updated**: 2026-06-13 19:39:20 +07
+**Latest session**: [`RESUME:20260613-193920-124fe74`](../20260613-193920-124fe74.md)
+**Summary**: refactor(web2): gỡ dead Firebase — 8 trang firebase-free + fix manual-deposit stale ledger
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`live-chat/`](./live-chat.md) — 3 file(s)
-- [`render.com/`](./render.com.md) — 2 file(s)
-- [`web2/`](./web2.md) — 10 file(s)
+- [`live-chat/`](./live-chat.md) — 1 file(s)
+- [`so-order/`](./so-order.md) — 2 file(s)
+- [`web2/`](./web2.md) — 13 file(s)
 
 ## All folder snapshots
 
@@ -41,7 +40,7 @@
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-06-13 14:55
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-12 19:21
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
-- [`live-chat/`](./live-chat.md) — updated 2026-06-13 19:31
+- [`live-chat/`](./live-chat.md) — updated 2026-06-13 19:39
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-06-04 20:02
 - [`native-orders/`](./native-orders.md) — updated 2026-06-13 19:07
 - [`nhanhang/`](./nhanhang.md) — updated 2026-05-21 15:39
@@ -61,7 +60,7 @@
 - [`shared/`](./shared.md) — updated 2026-06-13 14:55
 - [`showroom/`](./showroom.md) — updated 2026-06-10 19:04
 - [`showroom1/`](./showroom1.md) — updated 2026-06-10 19:52
-- [`so-order/`](./so-order.md) — updated 2026-06-13 18:27
+- [`so-order/`](./so-order.md) — updated 2026-06-13 19:39
 - [`soluong-live/`](./soluong-live.md) — updated 2026-06-08 18:40
 - [`soorder/`](./soorder.md) — updated 2026-05-21 15:39
 - [`soquy/`](./soquy.md) — updated 2026-05-21 15:39
@@ -74,4 +73,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-13 19:31
+- [`web2/`](./web2.md) — updated 2026-06-13 19:39
