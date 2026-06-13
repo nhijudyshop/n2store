@@ -504,13 +504,40 @@
         function scrollToBottom() {
             const cont = $('[data-w2cp="messages"]');
             if (!cont) return;
-            cont.scrollTop = cont.scrollHeight;
-            // rAF: đợi browser layout xong sau khi innerHTML set (images chưa load)
-            requestAnimationFrame(() => {
-                cont.scrollTop = cont.scrollHeight;
-            });
             st.isAtBottom = true;
             st.newCount = 0;
+            // _forceBottom: trong lúc cuộn-đáy chủ động, ảnh/avatar load làm scrollHeight
+            // tăng → scroll event flip isAtBottom=false → kẹt giữa chừng. Cờ này bảo
+            // listener bỏ qua transient cho tới khi layout ổn định.
+            st._forceBottom = true;
+            const jump = () => {
+                cont.scrollTop = cont.scrollHeight;
+            };
+            jump();
+            // 2 rAF liên tiếp: đợi browser reflow sau khi innerHTML set.
+            requestAnimationFrame(() => {
+                jump();
+                requestAnimationFrame(jump);
+            });
+            // Ảnh/avatar load SAU innerHTML → height tăng → re-scroll mỗi khi 1 ảnh xong
+            // (chỉ khi vẫn đang ép xuống đáy, không cướp scroll của user).
+            cont.querySelectorAll('img').forEach((img) => {
+                if (img.complete) return;
+                const reJump = () => {
+                    if (st._forceBottom) jump();
+                };
+                img.addEventListener('load', reJump, { once: true });
+                img.addEventListener('error', reJump, { once: true });
+            });
+            // Belt-and-suspenders: 2 nhịp trễ bắt layout muộn rồi nhả cờ.
+            clearTimeout(st._forceBottomT);
+            st._forceBottomMid = setTimeout(() => {
+                if (st._forceBottom) jump();
+            }, 150);
+            st._forceBottomT = setTimeout(() => {
+                if (st._forceBottom) jump();
+                st._forceBottom = false;
+            }, 550);
             updateScrollUi();
         }
         function updateScrollUi() {
@@ -770,6 +797,11 @@
                     () => {
                         const atBottom =
                             cont.scrollHeight - cont.scrollTop - cont.clientHeight < 100;
+                        // Đang ép cuộn-đáy chủ động (ảnh đang load đẩy height) → bỏ qua
+                        // transient "chưa tới đáy", tránh kẹt giữa chừng. Khi thật sự
+                        // tới đáy thì nhả cờ luôn.
+                        if (st._forceBottom && !atBottom) return;
+                        if (atBottom) st._forceBottom = false;
                         st.isAtBottom = atBottom;
                         if (atBottom) st.newCount = 0;
                         updateScrollUi();
