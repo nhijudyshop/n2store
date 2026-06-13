@@ -1,4 +1,4 @@
-/* #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 — design tokens redesign Chat Pancake + Kho SP (Phương án C "Zalo Bento Commerce"). Load TRƯỚC pancake-chat.css. */
+/* #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 — design tokens redesign Chat Pancake + Kho SP (Chatwoot light palette — woot blue #1F93FF). Load TRƯỚC pancake-chat.css. */
 /* =====================================================================
  * Namespace --pkr-* cô lập, KHÔNG đụng --web2-* theme chung.
  * --pkr-primary alias về --web2-primary để vẫn theo theme toàn cục (xanh Zalo).
@@ -6,16 +6,16 @@
  * ===================================================================== */
 :root {
     /* ── PRIMARY (Zalo Blue), 500 = anchor ── */
-    --pkr-blue-50: #eef5ff;
-    --pkr-blue-100: #d9e8ff;
-    --pkr-blue-200: #bcd6ff;
-    --pkr-blue-300: #8fbaff;
-    --pkr-blue-400: #5996ff;
-    --pkr-blue-500: #0068ff;
-    --pkr-blue-600: #0058db;
-    --pkr-blue-700: #0047b3;
-    --pkr-blue-800: #073a8c;
-    --pkr-blue-900: #0a316e;
+    --pkr-blue-50: #ebf5ff;
+    --pkr-blue-100: #c2e1ff;
+    --pkr-blue-200: #99ceff;
+    --pkr-blue-300: #70baff;
+    --pkr-blue-400: #47a6ff;
+    --pkr-blue-500: #1f93ff;
+    --pkr-blue-600: #1976cc;
+    --pkr-blue-700: #135899;
+    --pkr-blue-800: #0c3b66;
+    --pkr-blue-900: #061d33;
 
     /* Anchor THẲNG vào Zalo blue #0068ff (user chốt) — KHÔNG alias --web2-primary
      * vì trang live-chat hiện set --web2-primary = teal #00a884 (Pancake green). */
@@ -32,13 +32,13 @@
 
     /* ── SEMANTIC ── */
     --pkr-success-50: #ecfdf3;
-    --pkr-success-500: #12b76a;
+    --pkr-success-500: #44ce4b;
     --pkr-success-600: #039855;
     --pkr-warning-50: #fffaeb;
-    --pkr-warning-500: #f79009;
+    --pkr-warning-500: #ffc532;
     --pkr-warning-600: #dc6803;
     --pkr-error-50: #fef3f2;
-    --pkr-error-500: #f04438;
+    --pkr-error-500: #ff382d;
     --pkr-error-600: #d92d20;
     --pkr-online: #31a24c;
 
@@ -57,22 +57,22 @@
     /* ── SURFACE / TEXT / BORDER (light) ── */
     --pkr-bg: #f8fafc;
     --pkr-surface: #ffffff;
-    --pkr-surface-sunken: #f1f4f9;
-    --pkr-surface-hover: #f1f4f9;
-    --pkr-border: #e6eaf0;
-    --pkr-border-strong: #d2d9e3;
-    --pkr-divider: #eef1f6;
-    --pkr-text: #1d2939;
-    --pkr-text-strong: #101828;
-    --pkr-text-secondary: #667085;
-    --pkr-text-muted: #98a4b5;
+    --pkr-surface-sunken: #f8fafc;
+    --pkr-surface-hover: #f1f5f8;
+    --pkr-border: #e4ebf1;
+    --pkr-border-strong: #cfdae6;
+    --pkr-divider: #ebf0f5;
+    --pkr-text: #293f51;
+    --pkr-text-strong: #1b2836;
+    --pkr-text-secondary: #37546d;
+    --pkr-text-muted: #779bbb;
     --pkr-text-on-blue: #ffffff;
 
     /* ── BUBBLE tokens ── */
     --pkr-bubble-out-bg: var(--pkr-primary);
     --pkr-bubble-out-text: #ffffff;
-    --pkr-bubble-in-bg: #f1f4f9;
-    --pkr-bubble-in-text: #1d2939;
+    --pkr-bubble-in-bg: #f1f5f8;
+    --pkr-bubble-in-text: #293f51;
 
     /* ── TYPOGRAPHY ── */
     --pkr-font: 'Be Vietnam Pro', 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
@@ -118,7 +118,7 @@
     --pkr-shadow-md: 0 2px 4px rgba(16, 24, 40, 0.06), 0 4px 8px rgba(16, 24, 40, 0.08);
     --pkr-shadow-lg: 0 4px 8px rgba(16, 24, 40, 0.05), 0 8px 16px rgba(16, 24, 40, 0.1);
     --pkr-shadow-xl: 0 8px 16px rgba(16, 24, 40, 0.06), 0 12px 24px rgba(16, 24, 40, 0.12);
-    --pkr-ring-primary: 0 0 0 3px rgba(0, 104, 255, 0.18);
+    --pkr-ring-primary: 0 0 0 3px rgba(31, 147, 255, 0.2);
     --pkr-ring-error: 0 0 0 3px rgba(240, 68, 56, 0.18);
 
     /* ── MOTION (M3-derived) ── */
