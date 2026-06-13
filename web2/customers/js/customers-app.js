@@ -372,19 +372,30 @@
         body.userId = actor.userId;
         body.userName = actor.userName;
         const editing = state.editing;
-        closeModal();
-        // Money/validation-strict? Không — KH info, dùng UI-first.
+        // GIỮ modal mở khi đang lưu → lỗi thì không mất data user đã nhập.
+        $('#wcModalError').textContent = '';
+        const btn = $('#wcModalSave');
+        if (btn) {
+            btn.classList.add('is-busy');
+            btn.disabled = true;
+        }
         const runFn = editing
             ? () => window.CustomersApi.update(editing.id, body)
             : () => window.CustomersApi.create(body);
         try {
             const res = await runFn();
             if (res.success === false) throw new Error(res.error || 'Lưu thất bại');
+            closeModal();
             notify(editing ? 'Đã cập nhật KH' : 'Đã thêm KH', 'success');
             load();
         } catch (e) {
-            notify('✗ ' + e.message, 'error');
-            // Mở lại modal để user sửa (giữ data đã nhập là khó — báo lỗi là đủ).
+            // Modal vẫn mở, hiện lỗi inline — user sửa & lưu lại, KHÔNG mất dữ liệu.
+            $('#wcModalError').textContent = e.message || 'Lưu thất bại';
+        } finally {
+            if (btn) {
+                btn.classList.remove('is-busy');
+                btn.disabled = false;
+            }
         }
     }
 

@@ -544,7 +544,11 @@
             console.error(e);
             tbody().innerHTML = `<tr><td colspan="11" class="empty-row" style="color:#ef4444;">
                 Lỗi tải: ${escapeHtml(e.message)}
+                <button class="btn btn-sm" style="margin-left:10px" onclick="Web2ProductsApp.load()">
+                    <i data-lucide="refresh-cw"></i> Thử lại
+                </button>
             </td></tr>`;
+            if (window.lucide) lucide.createIcons();
             notify('Lỗi tải dữ liệu: ' + e.message, 'error');
         } finally {
             STATE.loading = false;
@@ -789,7 +793,8 @@
         });
         modal().classList.add('active');
         if (window.lucide) lucide.createIcons();
-        setTimeout(() => $('#pmSupplier')?.focus(), 50);
+        // Focus ô Tên SP (field user nhập tay đầu) thay vì NCC (auto-fill 'KHO').
+        setTimeout(() => ($('#pmName') || $('#pmSupplier'))?.focus(), 50);
     }
     function openEdit(code) {
         const p = STATE.products.find((x) => x.code === code);
@@ -1522,7 +1527,16 @@
         // Intentionally NOT closing on overlay click — protect in-progress data.
         // Only X button / Hủy button / ESC close the modal.
         document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && modal()?.classList.contains('active')) closeModal();
+            if (!modal()?.classList.contains('active')) return;
+            if (e.key === 'Escape') return closeModal();
+            // Enter để lưu nhanh (trừ khi đang gõ textarea hoặc đang chọn dropdown).
+            if (e.key === 'Enter' && !e.isComposing) {
+                const tag = document.activeElement?.tagName;
+                if (tag !== 'TEXTAREA' && tag !== 'SELECT' && tag !== 'BUTTON') {
+                    e.preventDefault();
+                    saveModal();
+                }
+            }
         });
 
         // Image preview on input
@@ -1560,6 +1574,7 @@
     }
 
     window.Web2ProductsApp = {
+        load,
         openEdit,
         toggleActive,
         remove,
