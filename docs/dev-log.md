@@ -2,6 +2,23 @@
 
 ## 2026-06-13
 
+### [products] Fix tem QR: tên SP bẻ GIỮA từ ("ÁO KHOÁC DÙ" → "KHOÁ"+"C") — wrap theo space + auto fit ✅
+
+**User:** "thông minh mấy space đi → ví dụ 'ÁO KHOÁC DÙ' nhưng hình bị xuống hàng chữ C".
+
+**Root cause** (module dùng chung `web2-products-print.js`, verified lines 832-840 + fitName 1189-1200): cả 2 style tên (`nameStyle`, `nameStyleQr`) mở đầu bằng `word-wrap:break-word` → khi 1 token rộng hơn cột chữ QR (~10mm) thì bẻ GIỮA từ (KHOÁC→KHOÁ+C). `fitName` chỉ thu nhỏ khi tràn CHIỀU CAO, không xét chiều ngang → text bẻ-giữa-từ vẫn vừa 3 dòng → fitName không kích hoạt → split vĩnh viễn.
+
+**Fix** (hybrid, qua workflow 6-agent: 3 lens strategy + 2 audit + synth):
+
+1. CSS: thay `word-wrap:break-word` → `overflow-wrap:normal;word-break:keep-all` ở CẢ nameStyle + nameStyleQr → chỉ wrap tại khoảng trắng (ÁO / KHOÁC / DÙ), không bẻ giữa từ.
+2. JS `fitName`: thu nhỏ font khi tràn CHIỀU CAO **HOẶC CHIỀU NGANG** (`scrollWidth>clientWidth`) → token rộng nhất luôn vừa cột (không bị cắt cụt). Sàn `MIN_FS=6`. Cứu cánh cuối: token bệnh lý không-khoảng-trắng vẫn rộng hơn cột ở 6px → bật `overflow-wrap:anywhere` rồi chạy lại pass chiều cao (bẻ còn hơn cắt mép phải).
+
+**Files:** [web2/products/js/web2-products-print.js](../web2/products/js/web2-products-print.js); bump `?v=20260613wrap` ở [web2/products/index.html](../web2/products/index.html) + [so-order/index.html](../so-order/index.html).
+
+**Verify (Playwright live, so-order, 4 ca):** `ÁO KHOÁC DÙ`→3 dòng từ nguyên (fs 10.5, wide=false); `ÁO KHOÁC DẠ TWEED LÓT LÔNG`→fit 3 dòng fs 7; `NGUYỄN`→1 dòng; `AOKHOACDUMAUDENSIEUNHE` (không space)→fallback `anywhere/break-word` fs 6, KHÔNG cắt. Screenshot xác nhận.
+
+**Status:** ✅ Done.
+
 ### [orders-report] [render] Fix chat lỗi 102: Web 1.0 đọc được Pancake JWT mà Web 2.0 đã lưu (X-API-Key trust) ✅
 
 **User:** chat Web 1.0 (`orders-report/main.html`) lỗi "Chưa tải được danh sách trang Pancake — Mã lỗi Pancake: 102", acc không tự gia hạn / không lấy được JWT. Web 2.0 (`web2/pancake-settings`) luôn tự renew và có sẵn token. Muốn Web 1.0 lấy chính token Web 2.0 đã lưu mà KHÔNG ảnh hưởng tính năng có sẵn của cả 2 layer.
