@@ -2,6 +2,15 @@
 
 ## 2026-06-13
 
+### [web2] UX per-page đợt 2 (variants / kpi / audit-log) theo roadmap audit ✅
+
+- **variants** (`web2-variants-app.js` + index): Enter-to-save modal; empty-state phân biệt "đang filter không thấy" vs "kho trống"; modal `min-width: min(480px, calc(100vw-32px))` (hết tràn mobile).
+- **kpi** (`kpi-dashboard.js`): `refresh()` bọc try/catch + **skeleton `.w2-skel`** thay text "Đang tải…"; lỗi → UI lỗi + nút "Thử lại" + toast.
+- **audit-log** (`index.html` inline): `load()` bọc try/catch + skeleton; lỗi → "Lỗi tải" + "Thử lại" + toast (trước: crash im lặng).
+- Bump JS `?v=20260613z` (variants/kpi).
+
+Verify: node --check toàn bộ (kể cả inline) OK; nav 3 trang 0 JS error. Còn roadmap: so-order, reconcile, supplier-debt, returns, report-revenue, native-orders, users-permissions.
+
 ### [web2] UX per-page đợt 1 (products / customers / dashboard) theo roadmap audit ✅
 
 Tiếp tục từ roadmap `docs/web2/WEB2-UX-AUDIT.md` — fix high-impact các trang traffic cao:

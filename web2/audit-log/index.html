@@ -172,15 +172,33 @@
                     if (f) q.set('from', f);
                     if (t) q.set('to', t);
                     q.set('limit', '200');
-                    const r = await fetch(API + '/list?' + q.toString(), {
-                        credentials: 'include',
-                        headers: AUTHH(), // ENFORCE-PREP (2026-06-12)
-                    });
-                    const d = await r.json();
+                    const body = document.getElementById('auditBody');
+                    body.innerHTML =
+                        '<tr><td colspan="7" style="padding:14px"><span class="w2-skel" style="display:block;height:16px;border-radius:6px;margin:6px 0"></span><span class="w2-skel" style="display:block;height:16px;border-radius:6px;margin:6px 0"></span><span class="w2-skel" style="display:block;height:16px;border-radius:6px;margin:6px 0"></span></td></tr>';
+                    let d;
+                    try {
+                        const r = await fetch(API + '/list?' + q.toString(), {
+                            credentials: 'include',
+                            headers: AUTHH(), // ENFORCE-PREP (2026-06-12)
+                        });
+                        if (!r.ok) throw new Error('HTTP ' + r.status);
+                        d = await r.json();
+                    } catch (err) {
+                        body.innerHTML =
+                            '<tr><td colspan="7" style="padding:20px;text-align:center;color:#dc2626">Lỗi tải: ' +
+                            esc(err.message || err) +
+                            ' <button class="btn btn-sm" style="margin-left:8px" onclick="document.getElementById(\'btnLoad\').click()"><i data-lucide="refresh-cw"></i> Thử lại</button></td></tr>';
+                        if (window.lucide) lucide.createIcons();
+                        if (window.notificationManager)
+                            notificationManager.show(
+                                'Lỗi tải lịch sử: ' + (err.message || err),
+                                'error'
+                            );
+                        return;
+                    }
                     // Fix 2026-06-03: generic /api/web2/:entity trả `records`, route cũ
                     // trả `items`. Normalize để không crash `.length` sau tách DB web2Db.
                     const items = d.items || d.records || d.data || [];
-                    const body = document.getElementById('auditBody');
                     if (!d.success || !items.length) {
                         body.innerHTML =
                             '<tr><td colspan="7" style="padding: 20px; text-align: center; color: #94a3b8">Không có data</td></tr>';
