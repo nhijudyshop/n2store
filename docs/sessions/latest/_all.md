@@ -3,25 +3,24 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `40f6280` — auto: session update
-**Last updated**: 2026-06-13 11:23:08 +07
-**Latest session**: [`RESUME:20260613-112308-40f6280`](../20260613-112308-40f6280.md)
-**Summary**: auto: session update
+**Latest commit**: `83401da` — ci: fix deploy race condition — concurrency + paths-ignore + gỡ CF deploy đôi
+**Last updated**: 2026-06-13 11:30:12 +07
+**Latest session**: [`RESUME:20260613-113012-83401da`](../20260613-113012-83401da.md)
+**Summary**: ci: fix deploy race condition — concurrency + paths-ignore + gỡ CF deploy đôi
 
 ## Folders affected in this commit
 
-- [`live-chat/`](./live-chat.md) — 1 file(s)
-- [`native-orders/`](./native-orders.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 1 file(s)
-- [`shared/`](./shared.md) — 1 file(s)
-- [`so-order/`](./so-order.md) — 1 file(s)
-- [`web2/`](./web2.md) — 24 file(s)
+- [`.github/`](./.github.md) — 3 file(s)
+- [`_root/`](./_root.md) — 1 file(s)
+- [`docs/`](./docs.md) — 3 file(s)
+- [`web2/`](./web2.md) — 2 file(s)
 
 ## All folder snapshots
 
 - [`.claude/`](./.claude.md) — updated 2026-06-05 10:42
+- [`.github/`](./.github.md) — updated 2026-06-13 11:30
 - [`AI/`](./AI.md) — updated 2026-05-21 15:39
-- [`_root/`](./_root.md) — updated 2026-06-11 11:05
+- [`_root/`](./_root.md) — updated 2026-06-13 11:30
 - [`aikol-studio/`](./aikol-studio.md) — updated 2026-05-21 15:39
 - [`balance-history-home/`](./balance-history-home.md) — updated 2026-05-21 15:39
 - [`balance-history/`](./balance-history.md) — updated 2026-06-11 16:49
@@ -29,7 +28,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-12 18:34
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-13 10:49
-- [`docs/`](./docs.md) — updated 2026-06-13 11:20
+- [`docs/`](./docs.md) — updated 2026-06-13 11:30
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-12 20:05
 - [`downloads/`](./downloads.md) — updated 2026-06-12 20:06
@@ -75,4 +74,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-13 11:23
+- [`web2/`](./web2.md) — updated 2026-06-13 11:30
