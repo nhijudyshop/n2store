@@ -3,14 +3,16 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `f50dafa` — auto: session update
-**Last updated**: 2026-06-13 22:34:55 +07
-**Latest session**: [`RESUME:20260613-223455-f50dafa`](../20260613-223455-f50dafa.md)
-**Summary**: auto: session update
+**Latest commit**: `dc5e119` — feat(web2,live-chat): skin Chatwoot-light + shared FX lib web2-fx.css (tái dùng) — glass/soft/glow/animation, fix anti-lag + a11y focus/contrast
+**Last updated**: 2026-06-13 22:40:37 +07
+**Latest session**: [`RESUME:20260613-224037-dc5e119`](../20260613-224037-dc5e119.md)
+**Summary**: feat(web2,live-chat): skin Chatwoot-light + shared FX lib web2-fx.css (tái dùng) — glass/soft/glow/animation, fix...
 
 ## Folders affected in this commit
 
-- [`live-chat/`](./live-chat.md) — 3 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
+- [`live-chat/`](./live-chat.md) — 2 file(s)
+- [`web2/`](./web2.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -25,7 +27,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-13 15:41
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-13 14:33
-- [`docs/`](./docs.md) — updated 2026-06-13 21:55
+- [`docs/`](./docs.md) — updated 2026-06-13 22:40
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-13 14:55
 - [`downloads/`](./downloads.md) — updated 2026-06-13 19:16
@@ -38,7 +40,7 @@
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-06-13 14:55
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-12 19:21
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
-- [`live-chat/`](./live-chat.md) — updated 2026-06-13 22:34
+- [`live-chat/`](./live-chat.md) — updated 2026-06-13 22:40
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-06-04 20:02
 - [`native-orders/`](./native-orders.md) — updated 2026-06-13 19:51
 - [`nhanhang/`](./nhanhang.md) — updated 2026-06-13 19:51
@@ -71,4 +73,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-13 21:44
+- [`web2/`](./web2.md) — updated 2026-06-13 22:40
