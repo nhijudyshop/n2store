@@ -1040,7 +1040,6 @@ body:has(.web2-shell) textarea:focus {
         padding: 0 14px;
     }
     /* Modal full-screen on mobile */
-    body:has(.web2-shell) .w2-bulk-modal,
     body:has(.web2-shell) .modal-content,
     body:has(.web2-shell) .popup-content {
         width: 100% !important;

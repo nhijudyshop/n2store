@@ -2,6 +2,12 @@
 
 ## 2026-06-14
 
+### [web2][shared] Dọn dead code `web2-bulk-import.js` (đã thay bằng Web2Import) ✅
+
+**User:** "dọn đi".
+
+Xoá `web2/shared/web2-bulk-import.js` (`Web2BulkImport` — Excel+SheetJS+endpoint) — verify **0 reference** (không script tag, không JS dùng) + không hợp use-case (products không có route `/bulk`, so-order local-first). Đã thay bằng `Web2Import` (commit trước). Gỡ luôn selector mồ côi `.w2-bulk-modal` khỏi rule mobile-fullscreen trong `web2/shared/web2-theme.css` (giữ `.modal-content`/`.popup-content`). Grep cuối: 0 trace `Web2BulkImport`/`w2-bulk-`. **Files:** −`web2/shared/web2-bulk-import.js`, `web2/shared/web2-theme.css`. **Status:** ✅ frontend-only.
+
 ### [web2][shared] Browser-verify Firebase removal (sạch) + fix ví-pill N+1 → batch-summary ✅
 
 **User:** "browser test vào kiểm tra những gì bạn nghi ngờ để làm cho triệt để hết đi".
