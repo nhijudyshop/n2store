@@ -300,6 +300,64 @@ async function scanAndCreateNotifications(pool) {
         console.warn('[notifications/scan] return_overdue check fail:', e.message);
     }
 
+    // 5. Đợt Sổ Order cũ chưa nhận đủ hàng (Hướng E 2026-06-14) — nhắc theo dõi NCC.
+    // so-order = 1 doc JSONB web2_so_order (C8); parse trong JS (1 doc, rẻ). Đợt có
+    // ngày tạo > 21 ngày mà còn SP status≠'received' → nhắc. Dedupe 12h (điều kiện
+    // sống dài → tránh spam mỗi giờ như alert biến động nhanh). Link qua deep-link ?tab=.
+    try {
+        const soRs = await pool.query(`SELECT data FROM web2_so_order WHERE doc_id = 'main'`);
+        const doc = soRs.rows[0]?.data;
+        if (doc && Array.isArray(doc.tabs)) {
+            const cutoff = Date.now() - 21 * 24 * 3600 * 1000;
+            let added = 0;
+            for (const tab of doc.tabs) {
+                for (const sh of tab.shipments || []) {
+                    if (added >= 25) break;
+                    const d = sh.date ? Date.parse(sh.date) : NaN;
+                    if (!d || d > cutoff) continue;
+                    const pending = (sh.rows || []).filter((r) => r && r.status !== 'received');
+                    if (!pending.length) continue;
+                    const sups = [
+                        ...new Set(pending.map((r) => (r.supplier || '').trim()).filter(Boolean)),
+                    ];
+                    const supLabel =
+                        sups.slice(0, 2).join(', ') +
+                        (sups.length > 2 ? ` +${sups.length - 2}` : '');
+                    const dedupeKey = `so_unreceived:${sh.id}`;
+                    // Dedupe 12h riêng (không dùng _insertDedupe 1h) — điều kiện dài hạn.
+                    const dup = await pool.query(
+                        `SELECT id FROM web2_notifications
+                         WHERE dedupe_key = $1 AND created_at > NOW() - INTERVAL '12 hours' LIMIT 1`,
+                        [dedupeKey]
+                    );
+                    if (dup.rowCount > 0) continue;
+                    await pool.query(
+                        `INSERT INTO web2_notifications
+                         (type, entity_type, entity_id, title, severity, url, dedupe_key)
+                         VALUES ($1,$2,$3,$4,$5,$6,$7)
+                         ON CONFLICT (dedupe_key, (date_trunc('hour', created_at AT TIME ZONE 'UTC')))
+                             WHERE dedupe_key IS NOT NULL DO NOTHING`,
+                        [
+                            'so_shipment_unreceived',
+                            'so_shipment',
+                            sh.id || null,
+                            `Đợt ${sh.batch || sh.date} (${tab.label || ''}) chưa nhận ${pending.length} SP${supLabel ? ' — ' + supLabel : ''}`,
+                            'info',
+                            _safeUrl(
+                                `/so-order/index.html?tab=${encodeURIComponent(tab.id || '')}`
+                            ),
+                            dedupeKey,
+                        ]
+                    );
+                    created.push(sh.id || 'so_unreceived');
+                    added++;
+                }
+            }
+        }
+    } catch (e) {
+        console.warn('[notifications/scan] so_unreceived check fail:', e.message);
+    }
+
     _notifyUpdate();
     return created;
 }

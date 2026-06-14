@@ -2,6 +2,18 @@
 
 ## 2026-06-14
 
+### [render] Hướng E — automation: alert "Đợt Sổ Order cũ chưa nhận đủ hàng" vào notification cron ✅
+
+**User:** "D, E, C". E = automation qua hạ tầng sẵn có.
+
+**Khảo sát:** `scanAndCreateNotifications(pool)` (B5) đã chạy cron mỗi 10' với 4 alert: PBH draft >24h, tồn <5, ví KH âm, thu-về quá hạn. Hạ tầng noti đầy đủ (bảng `web2_notifications` + SSE `web2:notifications` + bell sidebar). **Công nợ/ví NCC = derive client-side từ so-order → KHÔNG query sạch server-side**; Zalo automation cần module Zalo live (quét QR) → không verify autonomous được. Nên E làm phần **clean + giá trị**: alert đợt Sổ Order cũ chưa nhận.
+
+**Làm:** thêm block 5 vào `scanAndCreateNotifications`: đọc 1 doc JSONB `web2_so_order` (C8) → parse JS, đợt có `date` > 21 ngày mà còn row `status≠'received'` → noti `so_shipment_unreceived` (severity info, gom NCC, link deep-link `?tab=`). **Dedupe 12h riêng** (không dùng `_insertDedupe` 1h) vì điều kiện sống dài → tránh spam mỗi giờ. Cap 25 đợt/lần.
+
+**Không làm (nêu rõ):** công nợ NCC quá hạn (cần normalize so-order ra rows = C8 phase 2, defer); Zalo nhắc nợ (cần Zalo live).
+
+**Files:** `render.com/routes/v2/notifications.js`. `node --check` PASS. **Status:** ✅ (chờ Render deploy verify qua `/scan`).
+
 ### [web2][render][worker] Hướng D — dọn nốt Firestore Web 2.0 → Postgres ✅
 
 **User:** "D, E, C" (làm tiếp 3 hướng). D = dọn Firestore (nối tiếp Task 1 gỡ firebase).
