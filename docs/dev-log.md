@@ -2,6 +2,27 @@
 
 ## 2026-06-14
 
+### [web2][live-chat][render] Quét + gỡ TPOS khỏi Web 2.0 (workflow 7-agent) + fix N+1 enrich comment ✅
+
+**User:** "Quét lại tất cả tpos trên web 2.0 và xóa những gì liên quan tpos đi — WEB 2.0 LÀ KHÔNG DÙNG VÀ LIÊN QUAN TPOS" + "Làm đi" (N+1 sweep).
+
+**Quét:** workflow 7 agent (fe web2/native-orders/so-order/live-chat/wallets, be routes+services, shared-loaders, N+1) → 84 findings. Phần lớn KEEP (43, đã là warehouse-backed, `PartnerCustomerApi` chỉ là alias của `web2-customer-lookup.js` đọc `/api/web2/customers/*`, KHÔNG gọi TPOS) + comment lịch sử "đã gỡ" (giữ).
+
+**Đã gỡ (verify từng cái trước):**
+
+1. **token-manager.js (TPOS bearer) gỡ khỏi 4 trang** web2/customers, customer-wallet, balance-history, supplier-debt — trang KHÔNG dùng `window.tokenManager` (grep sạch), shared file giữ nguyên cho Web 1.0. (live-chat dùng `pancake-token-manager.js` riêng, KHÔNG đụng.)
+2. **facebook-routes.js (web2-realtime)**: gỡ `TPOS_API_URL` (tomato.tpos.vn), `fetchTokensFromTPOS`, `saveTokensToFile` (dead), nhánh `if(tposToken)` trong `getPageToken`, route `/api/refresh-tokens` (0 caller), bỏ parse `tposToken` ở 8 endpoint. Token Page giờ = **env `PAGE_TOKEN_<pageId>`** (verify 4 page token tồn tại trên web2-realtime) + cache file boot. Client đã `// TPOS token đã gỡ` (pancake-api.js:304) → an toàn, behavior-preserving.
+3. **api-config.js** (live-chat): gỡ `Live_ODATA` + `buildUrl.liveOData` + alias (dead config, 0 caller).
+4. **live-api.js**: gỡ `getToken()` stub TPOS (0 caller; `getPartnerInfo` lẻ giữ — customer-panel dùng).
+5. **web2-deeplink.js**: bỏ `tpos-pancake` khỏi regex app-root (folder đã rename `live-chat`).
+6. **Xóa file orphan** `web2/customer-wallet/js/customer-wallet-app.js` (855 dòng, 0 ref repo-wide; trang load `web2-customer-wallet-app.js`).
+
+**Fix N+1 (item "Làm đi"):** `live-init.loadPartnerInfoForComments` trước loop từng fb_id gọi `batch-by-fbid` với mảng 1 phần tử (N request). Thêm `LiveApi.getPartnerInfoBatch(ids)` (chunk 500) → gom hết fb_id chưa cache → **1 request**. Verify browser: `getPartnerInfoBatch([5])` = 1 call/5 ids; live-chat 1232 comment → 4 batch call (gồm LiveKhoEnricher), partnerCache 107, 0 error.
+
+**Browser test:** 4 trang web2 + live-chat đăng nhập = **0 console error**; getToken/Live_ODATA undefined (đã gỡ), LiveApi.getPartnerInfoBatch=function. facebook-routes `node --check` OK (deploy mới hiệu lực).
+
+**Files:** `web2/{customers,customer-wallet,balance-history,supplier-debt}/index.html`, `web2/shared/{web2-deeplink,web2-customer-lookup}.js`, `live-chat/js/api-config.js`, `live-chat/js/live/{live-api,live-init}.js`, `live-chat/{index,chat}.html` (bump v), `live-chat/server/facebook-routes.js`, xóa `web2/customer-wallet/js/customer-wallet-app.js`. **Status:** ✅ FE (GH Pages) + facebook-routes cần deploy web2-realtime. **CÒN ASK user:** permission registry `loadTpos`/`syncTpos`/`tpos-pancake` (web2-users.js), cột DB `tpos_id`/`tpos_data` lineage, 5 N+1 cần endpoint batch mới + env dead `TPOS_CLIENT_ID/USERNAME` web2-realtime.
+
 ### [web2][zalo][render] Tên hội thoại USER (1-1) bị thành tên SHOP khi shop nhắn cuối — heal ✅
 
 **User:** "khách này tên Nguyễn Tâm không phải My Njd, My Njd chat cuối nên hiện My Njd → coi response tin nhắn zalo".
