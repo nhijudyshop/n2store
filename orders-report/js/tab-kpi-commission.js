@@ -765,6 +765,7 @@ const KPICommission = {
             orders: document.getElementById('kpiOrdersView'),
             inbox: document.getElementById('kpiInboxView'),
             'check-history': document.getElementById('kpiCheckHistoryView'),
+            livestream: document.getElementById('kpiLivestreamView'),
         };
         Object.entries(views).forEach(([key, el]) => {
             if (!el) return;
@@ -778,7 +779,164 @@ const KPICommission = {
             // Đảm bảo store đã init (idempotent — promise reused)
             this._orderCheckStore.init().catch(() => {});
             this._renderCheckHistory();
+        } else if (name === 'livestream') {
+            this.renderLivestreamKpiView();
         }
+    },
+
+    // ========================================
+    // KPI LIVESTREAM (SP bán thêm — cột "BH")
+    // Đọc trực tiếp /kpi-livestream-flag/list, gom theo chiến dịch live.
+    // Chỉ đếm SL (không tính tiền). Lọc preset ngày phía client (chuỗi +7).
+    // ========================================
+    _livePreset: '30d',
+    _liveRows: null,
+
+    /** Bind preset buttons tab KPI Livestream (idempotent). */
+    _bindLivestreamPresets() {
+        const btns = document.querySelectorAll('[data-live-preset]');
+        btns.forEach((btn) => {
+            if (btn.__livePresetBound) return;
+            btn.__livePresetBound = true;
+            btn.addEventListener('click', () => {
+                this._livePreset = btn.dataset.livePreset;
+                btns.forEach((b) => b.classList.toggle('is-active', b === btn));
+                this.renderLivestreamKpiView();
+            });
+        });
+    },
+
+    /** "YYYY-MM-DD" của 1 instant theo GMT+7 (Vietnam, không DST). */
+    _gmt7DateStr(ms) {
+        return new Intl.DateTimeFormat('en-CA', {
+            timeZone: 'Asia/Ho_Chi_Minh',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+        }).format(new Date(ms));
+    },
+
+    /** Lọc rows theo preset, so sánh trên phần ngày (YYYY-MM-DD, +7). */
+    _filterLiveRowsByPreset(rows, preset) {
+        if (!Array.isArray(rows)) return [];
+        if (!preset || preset === 'all') return rows;
+        const DAY = 86400000;
+        const today = this._gmt7DateStr(Date.now());
+        let pass;
+        if (preset === 'today') {
+            pass = (d) => d === today;
+        } else if (preset === '7d') {
+            const min = this._gmt7DateStr(Date.now() - 6 * DAY);
+            pass = (d) => d >= min;
+        } else if (preset === 'thismonth') {
+            const ym = today.slice(0, 7);
+            pass = (d) => d.slice(0, 7) === ym;
+        } else {
+            // 30d (default)
+            const min = this._gmt7DateStr(Date.now() - 29 * DAY);
+            pass = (d) => d >= min;
+        }
+        return rows.filter((r) => pass(String(r.updatedAt || '').slice(0, 10)));
+    },
+
+    /**
+     * Render tab KPI Livestream: fetch list (cache), lọc preset, gom theo
+     * chiến dịch live, sort theo tổng SL desc.
+     * @param {boolean} [forceReload] bỏ cache, fetch lại từ server.
+     */
+    async renderLivestreamKpiView(forceReload) {
+        const tbody = document.getElementById('kpiLivestreamBody');
+        if (!tbody) return;
+        this._bindLivestreamPresets();
+        document
+            .querySelectorAll('[data-live-preset]')
+            .forEach((b) => b.classList.toggle('is-active', b.dataset.livePreset === this._livePreset));
+
+        if (forceReload || !this._liveRows) {
+            tbody.innerHTML =
+                '<tr><td colspan="5" style="text-align:center;padding:24px;color:#9ca3af">Đang tải...</td></tr>';
+            try {
+                const KPI_API = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/realtime';
+                const res = await fetch(`${KPI_API}/kpi-livestream-flag/list?days=365`);
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                const data = await res.json();
+                this._liveRows = Array.isArray(data.rows) ? data.rows : [];
+            } catch (e) {
+                console.warn('[KPI Live] load failed:', e?.message);
+                tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:24px;color:#ef4444">Lỗi tải dữ liệu: ${e?.message || e}</td></tr>`;
+                return;
+            }
+        }
+
+        const esc = (s) =>
+            String(s == null ? '' : s).replace(
+                /[&<>"]/g,
+                (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]
+            );
+        const fmtTime = (s) => {
+            const m = String(s || '').match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+            return m ? `${m[3]}/${m[2]} ${m[4]}:${m[5]}` : esc(s);
+        };
+
+        const rows = this._filterLiveRowsByPreset(this._liveRows, this._livePreset);
+
+        // Group theo campaign
+        const groups = new Map(); // campaignKey -> { name, rows:[], qty }
+        let totalQty = 0;
+        for (const r of rows) {
+            const name = (r.campaignName || '').trim() || 'Không xác định / Đơn lẻ';
+            const key = name;
+            if (!groups.has(key)) groups.set(key, { name, rows: [], qty: 0 });
+            const g = groups.get(key);
+            g.rows.push(r);
+            g.qty += Number(r.quantity) || 0;
+            totalQty += Number(r.quantity) || 0;
+        }
+        const sorted = Array.from(groups.values()).sort((a, b) => b.qty - a.qty);
+
+        // Summary
+        const setText = (id, v) => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = v;
+        };
+        setText('kpiLiveCampaignCount', sorted.length);
+        setText('kpiLiveLineCount', rows.length);
+        setText('kpiLiveQtyTotal', totalQty);
+
+        const empty = document.getElementById('kpiLiveEmpty');
+        const wrapper = document.getElementById('kpiLiveTableWrapper');
+        if (rows.length === 0) {
+            if (empty) empty.style.display = '';
+            if (wrapper) wrapper.style.display = 'none';
+            tbody.innerHTML = '';
+            return;
+        }
+        if (empty) empty.style.display = 'none';
+        if (wrapper) wrapper.style.display = '';
+
+        tbody.innerHTML = sorted
+            .map((g) => {
+                const header = `
+                <tr class="kpi-live-group">
+                    <td colspan="2"><strong>📡 ${esc(g.name)}</strong></td>
+                    <td style="text-align:center"><strong>${g.qty}</strong></td>
+                    <td colspan="2">${g.rows.length} dòng SP</td>
+                </tr>`;
+                const items = g.rows
+                    .map(
+                        (r) => `
+                <tr>
+                    <td style="padding-left:20px">${esc(r.productName)}${r.productCode ? `<div style="font-size:11px;color:#6b7280">Mã: ${esc(r.productCode)}</div>` : ''}</td>
+                    <td>${esc(r.orderCode)}</td>
+                    <td style="text-align:center">${Number(r.quantity) || 0}</td>
+                    <td>${esc(r.setByUserName || '')}</td>
+                    <td>${fmtTime(r.updatedAt)}</td>
+                </tr>`
+                    )
+                    .join('');
+                return header + items;
+            })
+            .join('');
     },
 
     /** Bind preset buttons + custom date range trong inbox tab. */

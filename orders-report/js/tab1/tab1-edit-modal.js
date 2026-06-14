@@ -198,6 +198,15 @@ async function updateModalWithData(data) {
         }
     }
 
+    // Load BH (livestream) flags song song — cùng lý do tránh race như KPI flags.
+    if (data.Code && window.KpiLivestreamFlagStore) {
+        try {
+            await window.KpiLivestreamFlagStore.load(data.Code);
+        } catch (e) {
+            console.warn('[EditModal] load BH livestream flags failed:', e?.message);
+        }
+    }
+
     switchEditTab('info');
 
     // 🔄 Refresh inline search UI after data is loaded
@@ -405,6 +414,35 @@ async function checkWalletOnPhoneChange(orderId, orderData, oldPhone, newPhone) 
     }
 }
 
+/**
+ * Build 1 dòng <tr> SP cho bảng modal Sửa đơn hàng (dùng chung renderProductsTab +
+ * refreshProductsTableOnly). Cột KPI + BH loại trừ lẫn nhau: tick cái này → disable cái kia.
+ */
+function _buildEditProductRow(p, i, orderCode) {
+    const isSale = !!(orderCode && p.ProductId && window.KpiSaleFlagStore
+        ? window.KpiSaleFlagStore.get(orderCode, p.ProductId)
+        : false);
+    const isBh = !!(orderCode && p.ProductId && window.KpiLivestreamFlagStore
+        ? window.KpiLivestreamFlagStore.get(orderCode, p.ProductId)
+        : false);
+    const baseDisabled = !p.ProductId || !orderCode;
+    const kpiDisabled = baseDisabled || isBh; // không tick KPI khi đã là BH
+    const bhDisabled = baseDisabled || isSale; // không tick BH khi đã là KPI
+    return `
+        <tr class="product-row" data-index="${i}">
+            <td>${i + 1}</td>
+            <td>${p.ImageUrl ? `<img src="${window.TPOSImageProxy ? window.TPOSImageProxy.proxyImageUrl(p.ImageUrl) : p.ImageUrl}" class="product-image" loading="lazy" onerror="this.style.display='none'">` : ''}</td>
+            <td><div>${p.ProductNameGet || p.ProductName}</div><div style="font-size: 11px; color: #6b7280;">Mã: ${p.ProductCode || 'N/A'}</div></td>
+            <td style="text-align: center;"><div class="quantity-controls"><button onclick="updateProductQuantity(${i}, -1)" class="qty-btn"><i class="fas fa-minus"></i></button><input type="number" class="quantity-input" value="${p.Quantity || 1}" onchange="updateProductQuantity(${i}, 0, this.value)" min="1"><button onclick="updateProductQuantity(${i}, 1)" class="qty-btn"><i class="fas fa-plus"></i></button></div></td>
+            <td style="text-align: right;">${(p.Price || 0).toLocaleString('vi-VN')}đ</td>
+            <td style="text-align: right; font-weight: 600;">${((p.Quantity || 0) * (p.Price || 0)).toLocaleString('vi-VN')}đ</td>
+            <td><input type="text" class="note-input" value="${p.Note || ''}" onchange="updateProductNote(${i}, this.value)"></td>
+            <td style="text-align: center;"><input type="checkbox" class="kpi-sale-check" data-product-id="${p.ProductId || ''}" ${isSale ? 'checked' : ''} ${kpiDisabled ? 'disabled' : ''} onchange="handleKpiSaleToggle('${orderCode.replace(/'/g, "\\'")}', ${p.ProductId || 'null'}, this.checked)" title="Tick = SP bán hàng, được tính KPI"></td>
+            <td style="text-align: center;"><input type="checkbox" class="bh-live-check" data-product-id="${p.ProductId || ''}" ${isBh ? 'checked' : ''} ${bhDisabled ? 'disabled' : ''} onchange="handleBhLiveToggle(${i}, this.checked, this)" title="Tick = SP bán thêm livestream (KPI Livestream)"></td>
+            <td style="text-align: center;"><div class="action-buttons"><button onclick="editProductDetail(${i})" class="btn-product-action btn-edit-item" title="Sửa"><i class="fas fa-edit"></i></button><button onclick="removeProduct(${i})" class="btn-product-action btn-delete-item" title="Xóa"><i class="fas fa-trash"></i></button></div></td>
+        </tr>`;
+}
+
 function renderProductsTab(data) {
     const inlineSearchHTML = `
         <div class="product-search-inline">
@@ -425,33 +463,16 @@ function renderProductsTab(data) {
     }
 
     const orderCode = data.Code || '';
-    const productsHTML = data.Details.map((p, i) => {
-        const isSale = !!(orderCode && p.ProductId && window.KpiSaleFlagStore
-            ? window.KpiSaleFlagStore.get(orderCode, p.ProductId)
-            : false);
-        const disabled = !p.ProductId || !orderCode;
-        return `
-        <tr class="product-row" data-index="${i}">
-            <td>${i + 1}</td>
-            <td>${p.ImageUrl ? `<img src="${window.TPOSImageProxy ? window.TPOSImageProxy.proxyImageUrl(p.ImageUrl) : p.ImageUrl}" class="product-image" loading="lazy" onerror="this.style.display='none'">` : ''}</td>
-            <td><div>${p.ProductNameGet || p.ProductName}</div><div style="font-size: 11px; color: #6b7280;">Mã: ${p.ProductCode || 'N/A'}</div></td>
-            <td style="text-align: center;"><div class="quantity-controls"><button onclick="updateProductQuantity(${i}, -1)" class="qty-btn"><i class="fas fa-minus"></i></button><input type="number" class="quantity-input" value="${p.Quantity || 1}" onchange="updateProductQuantity(${i}, 0, this.value)" min="1"><button onclick="updateProductQuantity(${i}, 1)" class="qty-btn"><i class="fas fa-plus"></i></button></div></td>
-            <td style="text-align: right;">${(p.Price || 0).toLocaleString('vi-VN')}đ</td>
-            <td style="text-align: right; font-weight: 600;">${((p.Quantity || 0) * (p.Price || 0)).toLocaleString('vi-VN')}đ</td>
-            <td><input type="text" class="note-input" value="${p.Note || ''}" onchange="updateProductNote(${i}, this.value)"></td>
-            <td style="text-align: center;"><input type="checkbox" class="kpi-sale-check" data-product-id="${p.ProductId || ''}" ${isSale ? 'checked' : ''} ${disabled ? 'disabled' : ''} onchange="handleKpiSaleToggle('${orderCode.replace(/'/g, "\\'")}', ${p.ProductId || 'null'}, this.checked)" title="Tick = SP bán hàng, được tính KPI"></td>
-            <td style="text-align: center;"><div class="action-buttons"><button onclick="editProductDetail(${i})" class="btn-product-action btn-edit-item" title="Sửa"><i class="fas fa-edit"></i></button><button onclick="removeProduct(${i})" class="btn-product-action btn-delete-item" title="Xóa"><i class="fas fa-trash"></i></button></div></td>
-        </tr>`;
-    }).join('');
+    const productsHTML = data.Details.map((p, i) => _buildEditProductRow(p, i, orderCode)).join('');
 
     return `
         <div class="info-card">
             ${inlineSearchHTML}
             <h4 style="margin-top: 24px;"><i class="fas fa-box"></i> Danh sách sản phẩm (${data.Details.length})</h4>
             <table class="products-table">
-                <thead><tr><th>#</th><th>Ảnh</th><th>Sản phẩm</th><th style="text-align: center;">SL</th><th style="text-align: right;">Đơn giá</th><th style="text-align: right;">Thành tiền</th><th>Ghi chú</th><th style="text-align: center;" title="Tick để đánh dấu SP là bán hàng, tính KPI">KPI</th><th style="text-align: center;">Thao tác</th></tr></thead>
+                <thead><tr><th>#</th><th>Ảnh</th><th>Sản phẩm</th><th style="text-align: center;">SL</th><th style="text-align: right;">Đơn giá</th><th style="text-align: right;">Thành tiền</th><th>Ghi chú</th><th style="text-align: center;" title="Tick để đánh dấu SP là bán hàng, tính KPI">KPI</th><th style="text-align: center;" title="Tick = SP bán thêm livestream (hiện trong tab KPI Livestream)">BH</th><th style="text-align: center;">Thao tác</th></tr></thead>
                 <tbody id="productsTableBody">${productsHTML}</tbody>
-                <tfoot style="background: #f9fafb; font-weight: 600;"><tr><td colspan="3" style="text-align: right;">Tổng cộng:</td><td style="text-align: center;" id="totalQuantity">${data.TotalQuantity || 0}</td><td></td><td style="text-align: right; color: #3b82f6;" id="totalAmount">${(data.TotalAmount || 0).toLocaleString('vi-VN')}đ</td><td colspan="3"></td></tr></tfoot>
+                <tfoot style="background: #f9fafb; font-weight: 600;"><tr><td colspan="3" style="text-align: right;">Tổng cộng:</td><td style="text-align: center;" id="totalQuantity">${data.TotalQuantity || 0}</td><td></td><td style="text-align: right; color: #3b82f6;" id="totalAmount">${(data.TotalAmount || 0).toLocaleString('vi-VN')}đ</td><td colspan="4"></td></tr></tfoot>
             </table>
         </div>`;
 }
@@ -469,6 +490,9 @@ async function handleKpiSaleToggle(orderCode, productId, checked) {
     }
     try {
         await window.KpiSaleFlagStore.set(orderCode, productId, checked);
+        // Mutual exclusion: tick KPI → disable BH cùng dòng (và ngược lại khi bỏ tick).
+        const bhCb = document.querySelector(`.bh-live-check[data-product-id="${productId}"]`);
+        if (bhCb) bhCb.disabled = checked;
     } catch (e) {
         console.error('[KPI Toggle] set failed:', e?.message);
         if (window.notificationManager?.error) {
@@ -480,6 +504,53 @@ async function handleKpiSaleToggle(orderCode, productId, checked) {
     }
 }
 window.handleKpiSaleToggle = handleKpiSaleToggle;
+
+/**
+ * Handler cho checkbox "BH" (bán thêm livestream) trên từng dòng SP.
+ * Gọi bởi onchange trong _buildEditProductRow(). Lưu flag + snapshot (campaign,
+ * tên SP, SL, seller, KH) để tab KPI Livestream self-contained.
+ * BH KHÔNG cộng tiền KPI → không trigger recalc. Loại trừ lẫn nhau với KPI.
+ */
+async function handleBhLiveToggle(index, checked, el) {
+    if (!currentEditOrderData || !currentEditOrderData.Details) return;
+    const p = currentEditOrderData.Details[index];
+    const orderCode = currentEditOrderData.Code || '';
+    if (!p || !p.ProductId || !orderCode) return;
+    if (!window.KpiLivestreamFlagStore) {
+        console.warn('[BH Toggle] KpiLivestreamFlagStore chưa sẵn sàng');
+        if (el) el.checked = !checked;
+        return;
+    }
+    const snapshot = {
+        productCode: p.ProductCode || '',
+        productName: p.ProductNameGet || p.ProductName || '',
+        quantity: p.Quantity || 1,
+        price: p.Price || 0,
+        campaignId: currentEditOrderData.CRMTeam?.Id ?? currentEditOrderData.CRMTeamId ?? null,
+        campaignName: currentEditOrderData.CRMTeam?.Name || '',
+        sellerName: currentEditOrderData.User?.Name || '',
+        customerName: currentEditOrderData.Name || '',
+    };
+    try {
+        await window.KpiLivestreamFlagStore.set(orderCode, p.ProductId, checked, snapshot);
+        // Mutual exclusion: tick BH → disable KPI cùng dòng (và ngược lại khi bỏ tick).
+        const row = el ? el.closest('tr') : null;
+        const kpiCb = row
+            ? row.querySelector('.kpi-sale-check')
+            : document.querySelector(`.kpi-sale-check[data-product-id="${p.ProductId}"]`);
+        if (kpiCb) kpiCb.disabled = checked;
+        if (window.showSaveIndicator) {
+            showSaveIndicator('success', checked ? 'Đã đánh dấu bán thêm livestream' : 'Đã bỏ đánh dấu BH');
+        }
+    } catch (e) {
+        console.error('[BH Toggle] set failed:', e?.message);
+        if (window.notificationManager?.error) {
+            window.notificationManager.error(`Không lưu được đánh dấu BH: ${e?.message || e}`);
+        }
+        if (el) el.checked = !checked;
+    }
+}
+window.handleBhLiveToggle = handleBhLiveToggle;
 
 function renderDeliveryTab(data) {
     return `<div class="empty-state"><p>Thông tin giao hàng</p></div>`;
@@ -1156,7 +1227,8 @@ function editProductDetail(index) {
     const row = document.querySelector(`#productsTableBody tr[data-index='${index}']`);
     const product = currentEditOrderData.Details[index];
     const priceCell = row.querySelector('td:nth-child(5)');
-    const actionCell = row.querySelector('td:nth-child(8) .action-buttons');
+    // Dùng class thay nth-child để không phụ thuộc số cột (đã thêm cột BH).
+    const actionCell = row.querySelector('.action-buttons');
     priceCell.innerHTML = `<input type="number" class="edit-input" id="price-edit-${index}" value="${product.Price || 0}">`;
     actionCell.innerHTML = `
         <button onclick="saveProductDetail(${index})" class="btn-product-action btn-save-item" title="Lưu"><i class="fas fa-check"></i></button>
@@ -1222,24 +1294,7 @@ function refreshProductsTableOnly() {
     }
 
     const orderCode = data.Code || '';
-    tbody.innerHTML = data.Details.map((p, i) => {
-        const isSale = !!(orderCode && p.ProductId && window.KpiSaleFlagStore
-            ? window.KpiSaleFlagStore.get(orderCode, p.ProductId)
-            : false);
-        const disabled = !p.ProductId || !orderCode;
-        return `
-        <tr class="product-row" data-index="${i}">
-            <td>${i + 1}</td>
-            <td>${p.ImageUrl ? `<img src="${window.TPOSImageProxy ? window.TPOSImageProxy.proxyImageUrl(p.ImageUrl) : p.ImageUrl}" class="product-image" loading="lazy" onerror="this.style.display='none'">` : ''}</td>
-            <td><div>${p.ProductNameGet || p.ProductName}</div><div style="font-size: 11px; color: #6b7280;">Mã: ${p.ProductCode || 'N/A'}</div></td>
-            <td style="text-align: center;"><div class="quantity-controls"><button onclick="updateProductQuantity(${i}, -1)" class="qty-btn"><i class="fas fa-minus"></i></button><input type="number" class="quantity-input" value="${p.Quantity || 1}" onchange="updateProductQuantity(${i}, 0, this.value)" min="1"><button onclick="updateProductQuantity(${i}, 1)" class="qty-btn"><i class="fas fa-plus"></i></button></div></td>
-            <td style="text-align: right;">${(p.Price || 0).toLocaleString('vi-VN')}đ</td>
-            <td style="text-align: right; font-weight: 600;">${((p.Quantity || 0) * (p.Price || 0)).toLocaleString('vi-VN')}đ</td>
-            <td><input type="text" class="note-input" value="${p.Note || ''}" onchange="updateProductNote(${i}, this.value)"></td>
-            <td style="text-align: center;"><input type="checkbox" class="kpi-sale-check" data-product-id="${p.ProductId || ''}" ${isSale ? 'checked' : ''} ${disabled ? 'disabled' : ''} onchange="handleKpiSaleToggle('${orderCode.replace(/'/g, "\\'")}', ${p.ProductId || 'null'}, this.checked)" title="Tick = SP bán hàng, được tính KPI"></td>
-            <td style="text-align: center;"><div class="action-buttons"><button onclick="editProductDetail(${i})" class="btn-product-action btn-edit-item" title="Sửa"><i class="fas fa-edit"></i></button><button onclick="removeProduct(${i})" class="btn-product-action btn-delete-item" title="Xóa"><i class="fas fa-trash"></i></button></div></td>
-        </tr>`;
-    }).join('');
+    tbody.innerHTML = data.Details.map((p, i) => _buildEditProductRow(p, i, orderCode)).join('');
 
     // Update product count header
     const h4 = tbody.closest('.info-card')?.querySelector('h4');

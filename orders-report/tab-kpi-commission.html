@@ -115,6 +115,16 @@
                 >
                     <i data-lucide="clipboard-check"></i> Lịch sử kiểm tra
                 </button>
+                <button
+                    class="kpi-subtab"
+                    data-kpi-subtab="livestream"
+                    type="button"
+                    role="tab"
+                    onclick="KPICommission.switchKpiSubTab('livestream')"
+                    title="SP bán thêm trong livestream (tick cột BH ở modal Sửa đơn hàng) — gom theo chiến dịch live"
+                >
+                    <i data-lucide="radio"></i> KPI Livestream
+                </button>
             </nav>
 
             <!-- ===== VIEW: KPI ĐƠN HÀNG (existing — campaign-driven) ===== -->
@@ -658,6 +668,96 @@
                 </div>
             </div>
             <!-- /#kpiCheckHistoryView -->
+
+            <!-- ===== VIEW: KPI LIVESTREAM (SP bán thêm livestream — cột "BH") ===== -->
+            <div id="kpiLivestreamView" class="kpi-subtab-view" style="display: none">
+                <div class="kpi-inbox-toolbar">
+                    <div class="kpi-inbox-toolbar-title">
+                        <i data-lucide="radio"></i>
+                        <span>KPI Livestream — SP bán thêm</span>
+                        <small
+                            >Các SP được tick cột "BH" trong modal Sửa đơn hàng — gom theo chiến
+                            dịch live. Chỉ ghi nhận số lượng (không tính tiền).</small
+                        >
+                    </div>
+                    <div class="kpi-inbox-filter-group">
+                        <div class="kpi-inbox-presets" role="tablist" aria-label="Khoảng thời gian">
+                            <button class="kpi-inbox-preset" data-live-preset="today" type="button">
+                                Hôm nay
+                            </button>
+                            <button class="kpi-inbox-preset" data-live-preset="7d" type="button">
+                                7 ngày
+                            </button>
+                            <button
+                                class="kpi-inbox-preset is-active"
+                                data-live-preset="30d"
+                                type="button"
+                            >
+                                30 ngày
+                            </button>
+                            <button
+                                class="kpi-inbox-preset"
+                                data-live-preset="thismonth"
+                                type="button"
+                            >
+                                Tháng này
+                            </button>
+                            <button class="kpi-inbox-preset" data-live-preset="all" type="button">
+                                Tất cả
+                            </button>
+                        </div>
+                        <button
+                            class="kpi-icon-btn"
+                            type="button"
+                            onclick="KPICommission.renderLivestreamKpiView(true)"
+                            title="Tải lại"
+                        >
+                            <i data-lucide="refresh-cw"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="kpi-inbox-summary">
+                    <div class="kpi-inbox-stat">
+                        <div class="kpi-inbox-stat-label">Số chiến dịch</div>
+                        <div class="kpi-inbox-stat-value" id="kpiLiveCampaignCount">0</div>
+                    </div>
+                    <div class="kpi-inbox-stat">
+                        <div class="kpi-inbox-stat-label">Số dòng SP</div>
+                        <div class="kpi-inbox-stat-value" id="kpiLiveLineCount">0</div>
+                    </div>
+                    <div class="kpi-inbox-stat kpi-inbox-stat-primary">
+                        <div class="kpi-inbox-stat-label">Tổng SL bán thêm</div>
+                        <div class="kpi-inbox-stat-value" id="kpiLiveQtyTotal">0</div>
+                    </div>
+                </div>
+
+                <div class="section-card">
+                    <div class="section-card-header">
+                        <h3 class="section-card-title">
+                            <i data-lucide="shopping-bag"></i> SP bán thêm livestream theo chiến dịch
+                        </h3>
+                    </div>
+                    <div id="kpiLiveEmpty" class="empty-state" style="display: none">
+                        <p>Chưa có SP nào được đánh dấu "BH" trong khoảng thời gian này.</p>
+                    </div>
+                    <div class="table-wrapper" id="kpiLiveTableWrapper">
+                        <table class="kpi-main-table kpi-live-table">
+                            <thead>
+                                <tr>
+                                    <th>Chiến dịch / Sản phẩm</th>
+                                    <th>Mã ĐH</th>
+                                    <th style="text-align: center">SL</th>
+                                    <th>Người tick</th>
+                                    <th>Thời gian</th>
+                                </tr>
+                            </thead>
+                            <tbody id="kpiLivestreamBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <!-- /#kpiLivestreamView -->
         </div>
 
         <!-- ===== MODAL LEVEL 1: Employee Orders (11.6) ===== -->

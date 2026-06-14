@@ -1466,6 +1466,206 @@ router.delete('/kpi-sale-flag/:orderCode/:productId', async (req, res) => {
 });
 
 // =====================================================
+// KPI LIVESTREAM FLAG (cột "BH" / Bán hàng livestream)
+// Feature RIÊNG, song song với kpi_sale_flag — KHÔNG đụng bảng/route KPI thường.
+// BH chỉ ghi nhận số lượng SP bán thêm livestream, gom theo chiến dịch live.
+// Bảng tự-tạo lazy (ensureLivestreamFlagTable) → không phụ thuộc migration 077.
+// =====================================================
+
+let _livestreamFlagTableEnsured = false;
+async function ensureLivestreamFlagTable(pool) {
+    if (_livestreamFlagTableEnsured) return;
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS kpi_livestream_flag (
+            order_code            VARCHAR(50)  NOT NULL,
+            product_id            BIGINT       NOT NULL,
+            is_livestream_product BOOLEAN      NOT NULL DEFAULT FALSE,
+            product_code          VARCHAR(100),
+            product_name          TEXT,
+            quantity              INTEGER      NOT NULL DEFAULT 1,
+            price                 BIGINT       NOT NULL DEFAULT 0,
+            campaign_id           VARCHAR(100),
+            campaign_name         TEXT,
+            seller_name           VARCHAR(255),
+            customer_name         TEXT,
+            set_by_user_id        VARCHAR(255),
+            set_by_user_name      VARCHAR(255),
+            created_at            TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at            TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (order_code, product_id)
+        );
+    `);
+    await pool.query(
+        `CREATE INDEX IF NOT EXISTS idx_kpi_livestream_flag_order ON kpi_livestream_flag(order_code)`
+    );
+    await pool.query(
+        `CREATE INDEX IF NOT EXISTS idx_kpi_livestream_flag_campaign ON kpi_livestream_flag(campaign_id)`
+    );
+    await pool.query(
+        `CREATE INDEX IF NOT EXISTS idx_kpi_livestream_flag_updated ON kpi_livestream_flag(updated_at DESC)`
+    );
+    _livestreamFlagTableEnsured = true;
+    console.log('[REALTIME-DB] kpi_livestream_flag table ensured');
+}
+
+/**
+ * GET /api/realtime/kpi-livestream-flag/list?days=90
+ * Trả MỌI row is_livestream_product=TRUE trong `days` gần nhất (default 90, max 365).
+ * `updated_at` format chuỗi giờ địa phương +7 (Render TZ=Asia/Saigon) — KHÔNG hậu tố Z,
+ * client hiển thị/lọc thẳng. Client tự group theo campaign + lọc preset ngày.
+ *
+ * IMPORTANT: route này phải nằm TRƯỚC `:orderCode` route, ngược lại Express
+ * sẽ match `:orderCode = "list"`.
+ */
+router.get('/kpi-livestream-flag/list', async (req, res) => {
+    try {
+        const pool = req.app.locals.chatDb;
+        if (!pool) return res.status(500).json({ error: 'Database not available' });
+        await ensureLivestreamFlagTable(pool);
+
+        const days = Math.min(Math.max(parseInt(req.query.days, 10) || 90, 1), 365);
+        const result = await pool.query(
+            `SELECT order_code, product_id, product_code, product_name, quantity, price,
+                    campaign_id, campaign_name, seller_name, customer_name,
+                    set_by_user_id, set_by_user_name,
+                    to_char(updated_at, 'YYYY-MM-DD"T"HH24:MI:SS') AS updated_at_local
+             FROM kpi_livestream_flag
+             WHERE is_livestream_product = TRUE
+               AND updated_at >= NOW() - ($1::int * INTERVAL '1 day')
+             ORDER BY updated_at DESC
+             LIMIT 5000`,
+            [days]
+        );
+
+        res.json({
+            rows: result.rows.map((r) => ({
+                orderCode: r.order_code,
+                productId: Number(r.product_id),
+                productCode: r.product_code,
+                productName: r.product_name,
+                quantity: Number(r.quantity) || 0,
+                price: Number(r.price) || 0,
+                campaignId: r.campaign_id,
+                campaignName: r.campaign_name,
+                sellerName: r.seller_name,
+                customerName: r.customer_name,
+                setByUserId: r.set_by_user_id,
+                setByUserName: r.set_by_user_name,
+                updatedAt: r.updated_at_local, // chuỗi +7, không Z
+            })),
+        });
+    } catch (error) {
+        console.error('[REALTIME-DB] GET /kpi-livestream-flag/list error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
+ * GET /api/realtime/kpi-livestream-flag/:orderCode
+ * Trả flags BH của 1 đơn (cho modal pre-load). Không row → [].
+ */
+router.get('/kpi-livestream-flag/:orderCode', async (req, res) => {
+    try {
+        const { orderCode } = req.params;
+        const pool = req.app.locals.chatDb;
+        if (!pool) return res.status(500).json({ error: 'Database not available' });
+        await ensureLivestreamFlagTable(pool);
+
+        const result = await pool.query(
+            `SELECT order_code, product_id, is_livestream_product
+             FROM kpi_livestream_flag WHERE order_code = $1`,
+            [orderCode]
+        );
+
+        res.json({
+            flags: result.rows.map((r) => ({
+                orderCode: r.order_code,
+                productId: Number(r.product_id),
+                isLivestreamProduct: r.is_livestream_product,
+            })),
+        });
+    } catch (error) {
+        console.error('[REALTIME-DB] GET /kpi-livestream-flag error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
+ * PUT /api/realtime/kpi-livestream-flag/:orderCode/:productId
+ * Body: { isLivestreamProduct: boolean, productCode?, productName?, quantity?,
+ *         price?, campaignId?, campaignName?, sellerName?, customerName?,
+ *         userId?, userName? }
+ * Upsert flag + snapshot cho 1 line.
+ */
+router.put('/kpi-livestream-flag/:orderCode/:productId', async (req, res) => {
+    try {
+        const { orderCode, productId } = req.params;
+        const b = req.body || {};
+        const pool = req.app.locals.chatDb;
+        if (!pool) return res.status(500).json({ error: 'Database not available' });
+        await ensureLivestreamFlagTable(pool);
+
+        if (typeof b.isLivestreamProduct !== 'boolean') {
+            return res.status(400).json({ error: 'isLivestreamProduct must be boolean' });
+        }
+        const pid = Number(productId);
+        if (!Number.isFinite(pid) || pid <= 0) {
+            return res.status(400).json({ error: 'Invalid productId' });
+        }
+
+        const result = await pool.query(
+            `INSERT INTO kpi_livestream_flag
+               (order_code, product_id, is_livestream_product, product_code, product_name,
+                quantity, price, campaign_id, campaign_name, seller_name, customer_name,
+                set_by_user_id, set_by_user_name, updated_at)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, CURRENT_TIMESTAMP)
+             ON CONFLICT (order_code, product_id) DO UPDATE SET
+               is_livestream_product = EXCLUDED.is_livestream_product,
+               product_code  = EXCLUDED.product_code,
+               product_name  = EXCLUDED.product_name,
+               quantity      = EXCLUDED.quantity,
+               price         = EXCLUDED.price,
+               campaign_id   = EXCLUDED.campaign_id,
+               campaign_name = EXCLUDED.campaign_name,
+               seller_name   = EXCLUDED.seller_name,
+               customer_name = EXCLUDED.customer_name,
+               set_by_user_id   = EXCLUDED.set_by_user_id,
+               set_by_user_name = EXCLUDED.set_by_user_name,
+               updated_at = CURRENT_TIMESTAMP
+             RETURNING order_code, product_id, is_livestream_product`,
+            [
+                orderCode,
+                pid,
+                b.isLivestreamProduct,
+                b.productCode || null,
+                b.productName || null,
+                Number.isFinite(Number(b.quantity)) ? Number(b.quantity) : 1,
+                Number.isFinite(Number(b.price)) ? Number(b.price) : 0,
+                b.campaignId != null ? String(b.campaignId) : null,
+                b.campaignName || null,
+                b.sellerName || null,
+                b.customerName || null,
+                b.userId || null,
+                b.userName || null,
+            ]
+        );
+
+        const row = result.rows[0];
+        res.json({
+            success: true,
+            flag: {
+                orderCode: row.order_code,
+                productId: Number(row.product_id),
+                isLivestreamProduct: row.is_livestream_product,
+            },
+        });
+    } catch (error) {
+        console.error('[REALTIME-DB] PUT /kpi-livestream-flag error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// =====================================================
 // REPORT ORDER DETAILS API
 // =====================================================
 

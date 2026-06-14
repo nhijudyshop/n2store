@@ -35,6 +35,20 @@
 **Verify (browser session, admin/admin@@):** 3 tab OK — services: 45 USD/2 DB/8 svc/4 proc; pages: 10 group/37 card/summary [37,37,27,0]; sse: `live · web2:_admin:sse-log` 4 sub/200 log row. 2 redirect land đúng tab. **0 console error.** Screenshot 3 tab đẹp. **Status:** ✅ verified live.
 
 **Files:** `web2/system/{index.html,css/system.css,js/{system-app,system-services,system-sse}.js}` (mới), `web2/{admin-sse-monitor,services-dashboard}/index.html` (redirect, xóa js/css), `web2/shared/web2-sidebar.js`, `render.com/routes/web2-users.js`, `scripts/n2store-smoke-all-pages.js`, `web2/overview/index.html`, `CLAUDE.md`. `node --check` PASS.
+### [orders-report][KPI] Cột "BH" (bán thêm livestream) + tab "KPI Livestream" ✅
+
+**User:** modal "Sửa đơn hàng" → tab Sản phẩm: thêm cột **BH (Bán hàng)** tick như KPI để đánh dấu SP bán thêm livestream; thêm sub-tab **KPI Livestream** trong trang "KPI - Hoa Hồng" ghi nhận toàn bộ SP bán thêm. Bổ sung: **tick BH thì không tick được KPI và ngược lại**.
+
+**Quyết định (AskUserQuestion):** tab gom theo **chiến dịch live**; BH **chỉ đếm số lượng** (không tính tiền); phạm vi v1 **chỉ modal Sửa đơn hàng**.
+
+**Làm — feature RIÊNG song song kpi_sale_flag (append-only, KHÔNG đụng KPI thường):**
+
+1. **Backend** (`render.com`): migration `077_create_kpi_livestream_flag.sql` (bảng `kpi_livestream_flag` PK (order_code, product_id) + cột snapshot denormalized: product_name/quantity/campaign_name/seller_name/customer_name) + `run-migration-077.js` (env `DATABASE_URL`, không hardcode). Routes trong `realtime-db.js` (pool `chatDb` Web 1.0): `ensureLivestreamFlagTable` lazy + `GET /kpi-livestream-flag/list?days=N` (khai báo TRƯỚC `:orderCode`; `updated_at` dạng chuỗi +7 không Z) + `GET /:orderCode` + `PUT /:orderCode/:productId` (upsert + snapshot). Không sửa server.js (đã mount `/api/realtime`).
+2. **Store** `orders-report/js/managers/kpi-livestream-flag-store.js` (`window.KpiLivestreamFlagStore`) mirror KpiSaleFlagStore nhưng gọn: load/get/set(+snapshot)/invalidate, **KHÔNG** trigger kpiManager. Include trong `tab1-orders.html` sau kpi-sale-flag-store.
+3. **Modal** `tab1-edit-modal.js`: thêm cột header **BH** + checkbox `.bh-live-check`; gộp row-template 2 hàm (renderProductsTab + refreshProductsTableOnly) vào helper `_buildEditProductRow` (KPI disable khi isBh, BH disable khi isSale = loại trừ lẫn nhau). Handler `handleBhLiveToggle(i, checked, el)` lưu snapshot (campaign từ `CRMTeam`, seller từ `User.Name`, KH từ `Name`). `handleKpiSaleToggle` thêm chiều ngược (disable BH). Sửa `editProductDetail` dùng `.action-buttons` (class) thay `nth-child(8)` vì thêm cột (fix luôn bug latent cũ). tfoot colspan 3→4.
+4. **Tab KPI Livestream** (`tab-kpi-commission.html/.js/.css`): sub-tab thứ 4 (`data-kpi-subtab="livestream"`, icon `radio`) + view `#kpiLivestreamView` (toolbar preset ngày + summary số chiến dịch/dòng SP/tổng SL + bảng gom theo campaign). `switchKpiSubTab` thêm `livestream`; `renderLivestreamKpiView` fetch `/kpi-livestream-flag/list` → lọc preset (so sánh ngày +7) → group campaign sort theo SL desc. CSS `.kpi-live-group`.
+
+**Files:** `render.com/migrations/077_create_kpi_livestream_flag.sql` (mới), `render.com/run-migration-077.js` (mới), `render.com/routes/realtime-db.js`, `orders-report/js/managers/kpi-livestream-flag-store.js` (mới), `orders-report/tab1-orders.html`, `orders-report/js/tab1/tab1-edit-modal.js`, `orders-report/tab-kpi-commission.html`, `orders-report/js/tab-kpi-commission.js`, `orders-report/css/tab-kpi-commission.css`. `node --check` PASS toàn bộ. **Status:** ⏳ chờ verify (deploy backend trước → smoke route → test modal + tab).
 
 ### [render][web2-realtime] Consolidate Render: gộp tpos-pancake + facebook → web2-realtime, xóa 3 service ✅
 

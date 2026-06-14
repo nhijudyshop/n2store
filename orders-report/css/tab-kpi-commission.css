@@ -3547,3 +3547,17 @@ body {
     background: #f3f4f6;
     color: #6b7280;
 }
+
+/* ===== KPI Livestream (SP bán thêm — cột "BH") ===== */
+.kpi-live-table tbody tr.kpi-live-group td {
+    background: #eef2ff;
+    border-top: 2px solid #c7d2fe;
+    color: #3730a3;
+    font-size: 13px;
+}
+.kpi-live-table tbody tr.kpi-live-group td strong {
+    color: #3730a3;
+}
+.kpi-live-table tbody tr:not(.kpi-live-group):hover td {
+    background: #f8fafc;
+}
