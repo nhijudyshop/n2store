@@ -277,15 +277,11 @@ Project có 2 layer song song. Khi chạm code/data phải biết nó thuộc la
 - Có prefix `web2_`: `web2_products`, `web2_variants`, `web2_records`, `web2_entities`
 - Liên quan Web 2.0 nhưng KHÔNG prefix (legacy): `native_orders`, `fast_sale_orders`, `balance_history` (SePay)
 
-**Firestore collections** (Web 2.0 data — **convention thống nhất `web2_` prefix từ 2026-05-25**):
+**Firestore collections** — ⚠ **Web 2.0 ĐÃ MIGRATE KHỎI FIRESTORE sang Postgres (web2Db) — cập nhật 2026-06-14**:
 
-- `web2_so_order/main` — Sổ Order (rename từ `so_order_v2`)
-- `web2_supplier_wallet/main` — Ví NCC (rename từ `supplier_wallet_v1`)
-- `web2_customer_wallet/main` — Ví KH (rename từ `customer_wallet_v1`)
-- `web2_suppliers/main` — Danh sách NCC (rename từ `suppliers_v1`)
-- Mọi Firestore collection mới của Web 2.0 PHẢI dùng prefix `web2_`. **Không dùng suffix `_v1`/`_v2`** — gây confuse với "Web 1.0/2.0".
-
-> Lý do rename: suffix `_v1` thoạt nhìn giống "Web 1.0". Chuẩn hoá sang prefix `web2_` cho rõ. Lịch sử: xem [docs/dev-log.md](docs/dev-log.md) entry 2026-05-25.
+- **KHÔNG còn dùng Firestore cho data Web 2.0.** Các collection cũ `web2_so_order/main`, `web2_supplier_wallet/main`, `web2_customer_wallet/main`, `web2_suppliers/main` (rename từ `so_order_v2`/`supplier_wallet_v1`…) đã **chuyển hết sang Postgres**: Sổ Order → `web2_so_order` (C8 xong 13/06, đọc `/api/web2-so-order/get`), Ví NCC → `web2_supplier_meta`+`web2_supplier_ledger`, Ví KH → `web2_customer_wallets`, NCC → `web2_supplier_meta`+SSE. Firestore doc `/main` còn tồn tại vật lý nhưng **drained/legacy** (chỉ `render.com/scripts/web2-firestore-wipe.js` đụng).
+- **Firebase active DUY NHẤT của Web 2.0**: service `web2-realtime` đọc Firestore `pancake_tokens/accounts` lúc boot để lấy token Pancake (fallback Postgres `realtime_credentials`); collection này dùng CHUNG với Web 1.0. **Zalo session = Postgres `web2_zalo_accounts.session`, KHÔNG Firestore.**
+- **Data Web 2.0 MỚI → Postgres `web2_*` (web2Db)**, KHÔNG tạo Firestore collection mới. SDK `firebase-firestore-compat` đã gỡ khỏi các trang web2 (dead). Chi tiết: [docs/guides/RENDER_SERVERS_GUIDE.md](docs/guides/RENDER_SERVERS_GUIDE.md) §"DB + Firebase Web 2.0".
 
 ### Legacy N2Store — không phải Web 2.0
 

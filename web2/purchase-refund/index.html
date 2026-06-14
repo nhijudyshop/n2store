@@ -9,12 +9,7 @@
         <link rel="stylesheet" href="../shared/web2-sidebar.css?v=20260613z" />
         <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
 
-        <!-- Firebase Compat (Firestore) — cần cho picker load so-order data -->
-        <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
-        <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
-        <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
-
-        <script src="../../shared/js/firebase-config.js?v=20260530a"></script>
+        <!-- Firebase SDK gỡ 2026-06-14: so-order đã sang Postgres (/api/web2-so-order), picker không dùng Firestore -->
         <script src="../../shared/js/notification-system.js?v=20260521b"></script>
         <link rel="stylesheet" href="css/purchase-refund.css?v=20260607a" />
         <link rel="stylesheet" href="../../web2/shared/web2-theme.css?v=20260613z" />
