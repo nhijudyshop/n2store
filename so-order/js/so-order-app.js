@@ -4690,74 +4690,86 @@ window.addEventListener('load', () => {
             if (!dl) return;
             const _dlTab = dl.param('tab');
             const _dlSup = dl.param('supplier');
-            if (_dlTab) {
-                const match = (state.tabs || []).find((t) => t.id === _dlTab);
-                if (match && state.activeTabId !== _dlTab) {
-                    state.activeTabId = _dlTab;
-                    window.SoOrderStorage.save(state);
-                    renderAll(); // re-render with new active tab
+            if (!_dlTab && !_dlSup) return;
+            // normalize('NFC'): param URL có thể decode ra NFD (dấu tách rời) còn data
+            // lưu NFC → toLowerCase() không khớp. Chuẩn hoá cả 2 vế về NFC.
+            const norm = (s) => (s || '').normalize('NFC').trim().toLowerCase();
+            const target = _dlSup ? norm(_dlSup) : null;
+
+            // Tìm tab + shipment chứa NCC trong state (so-order chỉ render TAB ACTIVE,
+            // shipment có thể collapse → NCC ở tab khác / đợt thu gọn không có trong DOM).
+            let owningTab = null;
+            let owningSh = null;
+            if (target) {
+                for (const t of state.tabs || []) {
+                    for (const sh of t.shipments || []) {
+                        if ((sh.rows || []).some((r) => norm(r.supplier) === target)) {
+                            owningTab = t;
+                            owningSh = sh;
+                            break;
+                        }
+                    }
+                    if (owningTab) break;
                 }
             }
-            if (_dlSup) {
-                const norm = (s) => (s || '').trim().toLowerCase();
-                const target = norm(_dlSup);
-                // Tìm <tr> khớp NCC (case-insensitive) trong DOM tab đang render.
-                const findInDom = () => {
-                    const allRows = document.querySelectorAll(
-                        '#soTableBody tr.so-data-row[data-supplier]'
-                    );
-                    for (const tr of allRows) {
-                        if (norm(tr.dataset.supplier) === target) return tr;
-                    }
-                    return null;
-                };
-                let found = findInDom();
-                // FIX deep-link (2026-06-14): so-order chỉ render TAB ĐANG ACTIVE +
-                // shipment có thể đang collapse → NCC ở tab khác / đợt thu gọn sẽ
-                // không có trong DOM. Quét toàn bộ state tìm tab + shipment chứa NCC,
-                // switch tab + mở shipment rồi tìm lại. Khắc phục link ví/công nợ →
-                // so-order khi NCC không thuộc tab hiện tại.
-                if (!found) {
-                    let owningTab = null;
-                    let owningSh = null;
-                    for (const t of state.tabs || []) {
-                        for (const sh of t.shipments || []) {
-                            if ((sh.rows || []).some((r) => norm(r.supplier) === target)) {
-                                owningTab = t;
-                                owningSh = sh;
-                                break;
-                            }
-                        }
-                        if (owningTab) break;
-                    }
-                    if (owningTab) {
-                        let changed = false;
-                        if (state.activeTabId !== owningTab.id) {
-                            state.activeTabId = owningTab.id;
-                            changed = true;
-                        }
-                        if (owningSh && owningSh.collapsed) {
-                            owningSh.collapsed = false;
-                            changed = true;
-                        }
-                        if (changed) {
-                            window.SoOrderStorage.save(state);
-                            renderAll();
-                        }
-                        found = findInDom();
-                    }
+            // Tab đích: ưu tiên ?tab= hợp lệ, else tab chứa NCC.
+            const wantTabId =
+                _dlTab && (state.tabs || []).some((t) => t.id === _dlTab)
+                    ? _dlTab
+                    : owningTab
+                      ? owningTab.id
+                      : null;
+
+            const findInDom = () => {
+                const rows = document.querySelectorAll(
+                    '#soTableBody tr.so-data-row[data-supplier]'
+                );
+                for (const tr of rows) {
+                    if (norm(tr.dataset.supplier) === target) return tr;
                 }
+                return null;
+            };
+
+            // FIX deep-link (2026-06-14): pull Postgres khi init chạy SAU _applyDeeplink
+            // → reset activeTabId về cũ, làm switch tab 1 lần bị ghi đè. Retry tối đa
+            // 6× / ~2.4s: mỗi lần RE-ASSERT tab đích + mở shipment, rồi scroll khi row
+            // xuất hiện. Robust với cả timing lẫn reset; tự dừng khi tìm thấy.
+            let tries = 0;
+            const tick = () => {
+                tries++;
+                let changed = false;
+                if (wantTabId && state.activeTabId !== wantTabId) {
+                    state.activeTabId = wantTabId;
+                    changed = true;
+                }
+                if (owningSh && owningSh.collapsed) {
+                    owningSh.collapsed = false;
+                    changed = true;
+                }
+                if (changed) {
+                    window.SoOrderStorage.save(state);
+                    renderAll();
+                }
+                if (!target) return; // chỉ ?tab= → switch xong là đủ
+                const found = findInDom();
                 if (found) {
                     found.scrollIntoView({ behavior: 'smooth', block: 'center' });
                     found.classList.add('w2-deeplink-flash');
                     setTimeout(() => found.classList.remove('w2-deeplink-flash'), 2400);
-                } else if (window.notificationManager?.show) {
+                    return;
+                }
+                if (tries < 6) {
+                    setTimeout(tick, 400);
+                    return;
+                }
+                if (window.notificationManager?.show) {
                     window.notificationManager.show(
                         'Không thấy dòng nào của NCC: ' + _dlSup,
                         'info'
                     );
                 }
-            }
+            };
+            tick();
         })();
 
         wireToolbar();
