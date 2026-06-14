@@ -182,22 +182,8 @@
     grid-template-columns: 1fr; /* hẹp: 1 cột (list ngang) */
     align-content: start;
 }
-/* rộng dần → bento grid nhiều cột (card dọc, ảnh 3:4) */
-@container (min-width: 300px) {
-    .inv-list {
-        grid-template-columns: repeat(2, 1fr);
-    }
-}
-@container (min-width: 500px) {
-    .inv-list {
-        grid-template-columns: repeat(3, 1fr);
-    }
-}
-@container (min-width: 720px) {
-    .inv-list {
-        grid-template-columns: repeat(4, 1fr);
-    }
-}
+/* 2026-06-14: LIST 1 cột ở MỌI bề rộng (user: list + thumbnail nhỏ + hover phóng to).
+   Bỏ bento grid nhiều cột. */
 .inv-loading,
 .inv-empty {
     grid-column: 1 / -1;
@@ -262,12 +248,22 @@
 }
 .inv-img,
 .inv-img-placeholder {
-    width: 64px;
-    height: 64px;
+    width: 56px;
+    height: 56px;
     border-radius: var(--pkr-r-md, 10px);
     object-fit: cover;
     display: block;
     background: var(--pkr-surface-sunken, #f3f4f6);
+}
+/* thumbnail bật pointer-events (vượt .inv-card * none) để hover-zoom shared kích hoạt */
+.inv-img {
+    pointer-events: auto;
+    cursor: zoom-in;
+    -webkit-user-drag: none;
+    transition: transform var(--pkr-dur-fast) var(--pkr-ease-standard);
+}
+.inv-img:hover {
+    transform: scale(1.04);
 }
 .inv-img-placeholder {
     display: inline-flex;
@@ -344,11 +340,10 @@
 
 /* nút "+" tap-to-add (chèn SP vào chat) — pointer-events ghi đè .inv-card * */
 .inv-card-add {
-    position: absolute;
-    right: 4px;
-    bottom: 4px;
-    width: 30px;
-    height: 30px;
+    flex: 0 0 auto;
+    align-self: center;
+    width: 32px;
+    height: 32px;
     border: none;
     border-radius: var(--pkr-r-full);
     background: var(--pkr-primary);
@@ -375,33 +370,7 @@
     display: none;
 }
 
-/* ── BENTO (rộng): card dọc, ảnh 3:4 full-width ── */
-@container (min-width: 300px) {
-    .inv-card {
-        flex-direction: column;
-        gap: var(--pkr-sp-2);
-        padding: var(--pkr-sp-2);
-    }
-    .inv-card-imgwrap {
-        width: 100%;
-    }
-    .inv-img,
-    .inv-img-placeholder {
-        width: 100%;
-        height: auto;
-        aspect-ratio: 3 / 4;
-        border-radius: var(--pkr-r-md);
-    }
-    .inv-card-name {
-        -webkit-line-clamp: 2;
-    }
-    .inv-card-add {
-        right: 6px;
-        bottom: 6px;
-        width: 34px;
-        height: 34px;
-    }
-}
+/* (Đã bỏ khối @container BENTO — Kho SP luôn LIST ngang ở mọi bề rộng.) */
 
 /* `inv-has-order` chỉ là marker drop-target (add cho MỌI row để kéo-thả SP),
    KHÔNG phải "khách đã có đơn" → KHÔNG vẽ badge/border ở đây (gây hiểu nhầm

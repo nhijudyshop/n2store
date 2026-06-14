@@ -236,7 +236,6 @@
                 return `<div class="inv-card${isOos ? ' oos' : ''}" draggable="true" data-product='${productJson}'>
                     <div class="inv-card-imgwrap">
                         ${imgHtml}
-                        ${isOos ? '' : `<button class="inv-card-add" title="Thêm SP vào ô soạn tin" data-add-product='${productJson}'><i data-lucide="plus"></i></button>`}
                     </div>
                     <div class="inv-card-body">
                         <div class="inv-card-code">${escapeHtml(p.code)}</div>
@@ -247,6 +246,7 @@
                             <span class="inv-card-stock${tier ? ' ' + tier : ''}">SL ${stock}</span>
                         </div>
                     </div>
+                    ${isOos ? '' : `<button class="inv-card-add" title="Thêm SP vào ô soạn tin" data-add-product='${productJson}'><i data-lucide="plus"></i></button>`}
                 </div>`;
             })
             .join('');
