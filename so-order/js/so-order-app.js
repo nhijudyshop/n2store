@@ -4475,6 +4475,231 @@ window.addEventListener('load', () => {
         });
     }
 
+    // ───────────────────────────────────────────────────────────────────
+    // Import dữ liệu (CSV/JSON qua Web2Import) — gom dòng theo NCC + ngày +
+    // đợt thành các LÔ MỚI trong tab đang mở. Reuse syncRowsToKho như submit.
+    // ───────────────────────────────────────────────────────────────────
+    function _normImportDate(s) {
+        s = String(s || '').trim();
+        if (!s) return '';
+        if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+        const m = s.match(/^(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{4})$/);
+        if (m) return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
+        return '';
+    }
+
+    function _soImportConfig() {
+        const STATUS_MAP = {
+            nhap: 'draft',
+            draft: 'draft',
+            dadat: 'ordered',
+            ordered: 'ordered',
+            danhan: 'received',
+            received: 'received',
+            dahuy: 'cancelled',
+            huy: 'cancelled',
+            cancelled: 'cancelled',
+        };
+        const today = new Date().toISOString().slice(0, 10);
+        return {
+            title: 'Nhập Sổ Order',
+            entityLabel: 'dòng order',
+            fileBaseName: 'mau-so-order',
+            columns: [
+                {
+                    key: 'supplier',
+                    label: 'NCC',
+                    type: 'string',
+                    aliases: ['nha cung cap', 'ncc', 'supplier'],
+                    hint: 'Nhà cung cấp — gom lô + sinh mã Kho',
+                },
+                {
+                    key: 'date',
+                    label: 'Ngày',
+                    type: 'string',
+                    aliases: ['ngay', 'date', 'ngay tao'],
+                    hint: 'YYYY-MM-DD (trống = hôm nay)',
+                },
+                {
+                    key: 'batch',
+                    label: 'Đợt',
+                    type: 'string',
+                    aliases: ['dot', 'batch', 'lo'],
+                    hint: 'VD: 1, 2A',
+                },
+                {
+                    key: 'productName',
+                    label: 'Tên sản phẩm',
+                    required: true,
+                    type: 'string',
+                    aliases: ['ten san pham', 'ten', 'san pham', 'product', 'productname'],
+                    hint: 'Bắt buộc',
+                },
+                {
+                    key: 'variant',
+                    label: 'Biến thể',
+                    type: 'string',
+                    aliases: ['bien the', 'variant'],
+                    hint: 'VD: Trắng - M',
+                },
+                {
+                    key: 'qty',
+                    label: 'SL',
+                    type: 'number',
+                    aliases: ['so luong', 'sl', 'qty', 'quantity'],
+                    hint: 'Số lượng',
+                },
+                {
+                    key: 'costPrice',
+                    label: 'Giá nhập',
+                    type: 'number',
+                    aliases: ['gia nhap', 'gia mua', 'cost', 'costprice'],
+                    hint: 'Theo tiền tệ của tab',
+                },
+                {
+                    key: 'sellPrice',
+                    label: 'Giá bán',
+                    type: 'number',
+                    aliases: ['gia ban', 'sell', 'sellprice'],
+                    hint: 'Theo tiền tệ của tab',
+                },
+                {
+                    key: 'note',
+                    label: 'Ghi chú',
+                    type: 'string',
+                    aliases: ['ghi chu', 'note'],
+                },
+                {
+                    key: 'costNote',
+                    label: 'Ghi chú CP',
+                    type: 'string',
+                    aliases: ['ghi chu cp', 'costnote', 'ghi chu chi phi'],
+                },
+                {
+                    key: 'status',
+                    label: 'Trạng thái',
+                    type: 'enum',
+                    aliases: ['trang thai', 'status'],
+                    enumMap: STATUS_MAP,
+                    enumValues: ['Nháp', 'Đã đặt', 'Đã nhận', 'Đã hủy'],
+                    hint: 'Mặc định Nháp',
+                },
+            ],
+            sampleRows: [
+                {
+                    supplier: 'XƯỞNG A',
+                    date: today,
+                    batch: '1',
+                    productName: 'ÁO SƠ MI',
+                    variant: 'Trắng - M',
+                    qty: 10,
+                    costPrice: 45000,
+                    sellPrice: 120000,
+                    note: '',
+                    costNote: '',
+                    status: 'Nháp',
+                },
+                {
+                    supplier: 'XƯỞNG A',
+                    date: today,
+                    batch: '1',
+                    productName: 'CHÂN VÁY CHỮ A',
+                    variant: 'Đen - S',
+                    qty: 6,
+                    costPrice: 60000,
+                    sellPrice: 150000,
+                    note: 'Hàng đẹp',
+                    costNote: '',
+                    status: 'Nháp',
+                },
+            ],
+            onCommit: _commitSoImport,
+        };
+    }
+
+    async function _commitSoImport(rows) {
+        const tab = window.SoOrderStorage.getActiveTab(state);
+        if (!tab) {
+            return {
+                ok: 0,
+                fail: rows.length,
+                errors: [{ row: '', error: 'Không có tab đang mở' }],
+            };
+        }
+        const today = new Date().toISOString().slice(0, 10);
+        // Gom theo NCC + ngày + đợt → mỗi nhóm là 1 LÔ mới.
+        const groups = new Map();
+        for (const r of rows) {
+            const supplier = (r.supplier || '').trim();
+            const date = _normImportDate(r.date) || today;
+            const batch = (r.batch || '').trim();
+            const key = `${supplier}||${date}||${batch}`;
+            if (!groups.has(key)) groups.set(key, { supplier, date, batch, items: [] });
+            groups.get(key).items.push(r);
+        }
+
+        let ok = 0;
+        let fail = 0;
+        const errors = [];
+        const suppliersSeen = new Set();
+        for (const g of groups.values()) {
+            try {
+                const sh = window.SoOrderStorage.addShipment(state, tab.id, {
+                    date: g.date,
+                    batch: g.batch,
+                    caseCount: 0,
+                    weightKg: 0,
+                    contractAmount: 0,
+                    contractCurrency: tab.currency || 'VND',
+                });
+                if (!sh) throw new Error('Không tạo được lô');
+                const invoiceGroupId = `inv-imp-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+                const khoRows = [];
+                for (const r of g.items) {
+                    const productName = (r.productName || '').trim();
+                    const variant = (r.variant || '').trim();
+                    window.SoOrderStorage.addRow(state, tab.id, sh.id, {
+                        supplier: g.supplier,
+                        productName,
+                        variant,
+                        qty: Number(r.qty) || 0,
+                        sellPrice: Number(r.sellPrice) || 0,
+                        costPrice: Number(r.costPrice) || 0,
+                        note: (r.note || '').trim(),
+                        costNote: (r.costNote || '').trim(),
+                        status: r.status || 'draft',
+                        invoiceGroupId,
+                    });
+                    khoRows.push({
+                        productName,
+                        variant,
+                        qty: Number(r.qty) || 0,
+                        sellPrice: Number(r.sellPrice) || 0,
+                        costPrice: Number(r.costPrice) || 0,
+                        supplier: g.supplier,
+                        productImage: '',
+                    });
+                    ok++;
+                }
+                if (g.supplier && !suppliersSeen.has(g.supplier)) {
+                    suppliersSeen.add(g.supplier);
+                    _ensureSupplierAsync(g.supplier);
+                }
+                // Đối chiếu / tạo SP trong Kho (fire-and-forget, như submit thường).
+                syncRowsToKho(khoRows, tab, g.supplier).catch(() => {});
+            } catch (e) {
+                fail += g.items.length;
+                errors.push({
+                    row: '',
+                    error: `Lô ${g.supplier || '(không NCC)'} ${g.date}: ${e.message}`,
+                });
+            }
+        }
+        pushSync();
+        renderAll();
+        return { ok, fail, errors };
+    }
+
     function wireToolbar() {
         document
             .getElementById('soAddTabBtn')
@@ -4489,6 +4714,15 @@ window.addEventListener('load', () => {
             const c = prompt('Tạo bao nhiêu đơn ngẫu nhiên?', '5');
             if (c === null) return;
             generateRandomOrders(parseInt(c, 10) || 0);
+        });
+        // Import dữ liệu CSV/JSON + tải file mẫu (NGUỒN CHUNG Web2Import).
+        document.getElementById('soImportBtn')?.addEventListener('click', () => {
+            if (!window.Web2Import) return notify('Module nhập dữ liệu chưa load', 'error');
+            window.Web2Import.open(_soImportConfig());
+        });
+        document.getElementById('soSampleBtn')?.addEventListener('click', () => {
+            if (!window.Web2Import) return notify('Module nhập dữ liệu chưa load', 'error');
+            window.Web2Import.downloadSample(_soImportConfig());
         });
         document.getElementById('soModalFillRandomBtn')?.addEventListener('click', fillModalRandom);
         document.getElementById('soTrashBtn')?.addEventListener('click', openTrashModal);
