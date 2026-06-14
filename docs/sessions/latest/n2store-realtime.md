@@ -1,4 +1,4 @@
-# Latest Snapshot — `render.com/`
+# Latest Snapshot — `n2store-realtime/`
 
 > Snapshot tự động ghi đè sau mỗi commit chạm folder này. **Không edit thủ công.**
 > Mục đích: khi session cũ chết (vd lỗi image limit), session mới chỉ cần đọc file này là có đủ context để tiếp tục.
@@ -9,17 +9,17 @@
 **Last updated**: 2026-06-14 12:24:40 +07
 **Summary**: auto: session update
 
-## Files changed in this commit (`render.com/`)
+## Files changed in this commit (`n2store-realtime/`)
 
-- `render.com/server.js`
+- `n2store-realtime/server.js`
 
-## Last 5 commits touching `render.com/`
+## Last 5 commits touching `n2store-realtime/`
 
 - `6e100ed17` auto: session update _(2026-06-14)_
-- `5eaba56fa` feat(web2): Hướng C — KPI 'Sổ Order/NCC' lên dashboard (kết nối B+E) _(2026-06-14)_
-- `709822e32` feat(web2): Hướng E — alert 'Đợt Sổ Order cũ chưa nhận hàng' vào notification cron _(2026-06-14)_
-- `8bdfc3fc8` feat(web2): Hướng D — dọn nốt Firestore Web 2.0 → Postgres _(2026-06-14)_
-- `3caa1e9d6` feat(live-chat): comment mobile v3 — dùng chung nguồn desktop (avatar/thumbnail/ẩn-người) + hết giật _(2026-06-14)_
+- `93a88bf75` auto: session update _(2026-05-15)_
+- `28303f652` fix(realtime): drop page-dedup in pool, broker dedups events instead; bypass worker proxy for start-multi _(2026-05-15)_
+- `ba8d5e295` feat(realtime): multi-account broker pool + persist verified pages to DB _(2026-05-15)_
+- `4dbd5576a` feat(realtime-broker): join per-page Phoenix channel so new*message events flow *(2026-05-15)\_
 
 ---
 
