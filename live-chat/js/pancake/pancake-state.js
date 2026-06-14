@@ -49,10 +49,11 @@ const PancakeState = {
 
     // URLs
     proxyBaseUrl: 'https://chatomni-proxy.nhijudyshop.workers.dev',
-    // Relay WS server — service Render giữ tên CŨ 'n2store-tpos-pancake' (folder đã
-    // rename live-chat). 'n2store-live-chat.onrender.com' KHÔNG tồn tại (no-server).
-    livePancakeUrl: 'https://n2store-tpos-pancake.onrender.com',
-    n2storeUrl: 'https://n2store-facebook.onrender.com',
+    // Relay WS server + FB Graph — service Render 'web2-realtime' (gộp từ
+    // n2store-tpos-pancake + n2store-facebook, 2026-06-14). FB private-reply +
+    // serverMode='n2store' chat đều qua n2storeUrl = web2-realtime.
+    livePancakeUrl: 'https://web2-realtime.onrender.com',
+    n2storeUrl: 'https://web2-realtime.onrender.com',
 
     // Debt
     showDebt: true,

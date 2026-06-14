@@ -3548,7 +3548,7 @@ class PancakeDataManager {
      * @returns {string}
      */
     getN2StoreUrl() {
-        return window.pancakeChatManager?.n2storeUrl || 'https://n2store-facebook.onrender.com';
+        return window.pancakeChatManager?.n2storeUrl || 'https://web2-realtime.onrender.com';
     }
 
     /**
