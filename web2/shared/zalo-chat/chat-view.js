@@ -30,10 +30,7 @@
         // Tên hiển thị header: nhóm chưa có tên (đang chờ heal) → 'Nhóm Zalo',
         // KHÔNG lộ id số. Đồng bộ với fallback của danh sách hội thoại.
         function headName() {
-            return (
-                conv.display_name ||
-                (conv.thread_type === 'group' ? 'Nhóm Zalo' : conv.zalo_uid || conv.thread_id)
-            );
+            return conv.display_name || (conv.thread_type === 'group' ? 'Nhóm Zalo' : 'Khách Zalo');
         }
         // Cập nhật header tại chỗ khi tên/avatar đổi (sau reload heal) — KHÔNG remount
         // composer/body để giữ scroll + nội dung đang soạn.

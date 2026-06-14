@@ -2,6 +2,24 @@
 
 ## 2026-06-14
 
+### [web2][zalo][render] Tên hội thoại USER (1-1) bị thành tên SHOP khi shop nhắn cuối — heal ✅
+
+**User:** "khách này tên Nguyễn Tâm không phải My Njd, My Njd chat cuối nên hiện My Njd → coi response tin nhắn zalo".
+
+**Bằng chứng (API live conv id=42):** thread_type=user, thread_id=`5479751765142014707` (uid KHÁCH), tin `in` từ khách, tin `out` cuối từ shop (uid `852368102374576684`), nhưng `display_name='My Njd'` = tên SHOP. 5 conv dính đều `last_msg_sender_uid='me'` (id 44/42/15/47/37).
+
+**Root cause (cùng họ bug, nhánh USER + tin GỬI ĐI):** ingest `_persistIncoming` đặt `convName=senderName` cho user thread **bất kể chiều**; tin shop gửi (out/isSelf) → senderName = tên shop → ghi đè tên khách qua COALESCE.
+
+**Fix:**
+
+1. **Ingest** [web2-zalo.js](render.com/routes/web2-zalo.js): `useSender = threadType!=='group' && direction==='in'` → out không đụng tên/uid hội thoại; `zalo_uid=COALESCE(existing, EXCLUDED)` (giữ uid khách).
+2. **Heal** `_repairConvNames` (rename từ `_repairGroupNames`): thêm nhánh USER — fix conv `display_name NULL | == tên shop | (last_sender='me' & chưa heal)`, resolve **theo `thread_id`** (= uid KHÁCH, KHÔNG zalo_uid vì có thể bị nhiễm uid SHOP) → `getUserInfo` → force tên khách + self-correct `zalo_uid=thread_id`. Lazy-heal khi mở chat cũng đổi sang TTL-gate + resolve thread_id. Chạy nền on connect/boot + endpoint thủ công.
+3. **Frontend** [web2-zalo-app.js](web2/zalo/js/web2-zalo-app.js) + [chat-view.js](web2/shared/zalo-chat/chat-view.js): user chưa có tên → "Khách Zalo" (không lộ id số). Bump `?v=20260614b`.
+
+**Review:** workflow 11-agent → 5 finding confirmed, fix hết: (#1 HIGH) resolve theo zalo_uid bị nhiễm uid shop → đổi sang thread_id + self-correct; (#2) stamp info_synced_at khi resolve rỗng → đóng băng → chỉ stamp khi có tên; (#3) placeholder user; (#4) getUserInfo repo-loop không timeout → `_withTimeout` 2s; (#5) broaden detect bằng `last_sender='me' & info_synced_at NULL`.
+
+**Status:** ✅ `node -c` + require-load PASS. Cần deploy web2-api (chạm render.com).
+
 ### [docs] CLAUDE.md: browser test FIFO/cổng động — tránh tranh chấp đa phiên ✅
 
 **Bối cảnh:** khi browser-verify fix "mở nhầm page", top frame tự nhảy sang web2. Điều tra: có **2 phiên `n2store-browser-session.js` song song** (1 của tôi + 1 từ shell-snapshot Claude khác) đọc CHUNG `/tmp/n2store-session.fifo` + cùng `--http-port 9966` → lệnh `nav` rơi nhầm phiên. KHÔNG phải bug app (orders-report chỉ redirect tới login khi auth fail). Test fix vẫn chuẩn (gửi qua HTTP `/cmd` thẳng PID).
