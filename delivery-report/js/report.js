@@ -656,13 +656,19 @@
         return { count, collectDong, valueDong };
     }
 
+    // Đóng góp RÒNG của Gửi Kèm vào TỔNG TẤT CẢ = COD GK − (SL GK × phí ship kênh).
+    // Mỗi đơn gửi kèm trừ phí ship của kênh đó, cộng lại tiền Thu (COD) thu được.
+    function sendAlongNet(count, collectDong, tab) {
+        return collectDong - count * getShipFee(tab);
+    }
+
     // 2 ô <td> SL GK / COD GK (read-only). count=0 → muted để bớt nhiễu.
     function gkCellsHtml(count, collectDong) {
         const slCls = count ? 'num' : 'num muted';
         const codCls = collectDong ? 'num' : 'num muted';
         return (
-            `<td class="${slCls}" title="Số lượng đơn Gửi Kèm (theo kênh)">${formatNumber(count)}</td>` +
-            `<td class="${codCls}" title="Tổng COD đơn Gửi Kèm (theo kênh)">${formatMoney(collectDong)}</td>`
+            `<td class="${slCls}" title="Số đơn Gửi Kèm — mỗi đơn trừ phí ship kênh vào TỔNG TẤT CẢ">${formatNumber(count)}</td>` +
+            `<td class="${codCls}" title="Tổng COD đơn Gửi Kèm — cộng vào TỔNG TẤT CẢ">${formatMoney(collectDong)}</td>`
         );
     }
 
@@ -1080,9 +1086,9 @@
             '<th class="num">PHÍ SHIP</th>' +
             '<th class="num input-col" title="Số đơn ship riêng, trừ khỏi TỔNG TẤT CẢ (SL × 23.000)">SL ĐƠN SHIP</th>' +
             '<th class="num input-col" title="Tiền thu về, cộng thêm vào TỔNG TẤT CẢ">THU VỀ</th>' +
-            '<th class="num" title="Số lượng đơn Gửi Kèm của kênh trong ngày">SL GK</th>' +
-            '<th class="num" title="Tổng COD đơn Gửi Kèm của kênh trong ngày">COD GK</th>' +
-            '<th class="num">TỔNG TẤT CẢ</th>' +
+            '<th class="num" title="Số đơn Gửi Kèm của kênh — mỗi đơn TRỪ phí ship kênh vào TỔNG TẤT CẢ">SL GK</th>' +
+            '<th class="num" title="Tổng COD đơn Gửi Kèm của kênh — CỘNG vào TỔNG TẤT CẢ">COD GK</th>' +
+            '<th class="num" title="TIỀN − PHÍ SHIP − SL ĐƠN SHIP×phí − SL GK×phí ship kênh + COD GK + THU VỀ">TỔNG TẤT CẢ</th>' +
             '<th class="num input-col">BO NHẬN CK</th>' +
             (showCk ? '<th class="num input-col">CK TRƯỚC</th>' : '') +
             '<th class="num">TỔNG CÒN LẠI</th>' +
@@ -1244,7 +1250,13 @@
                     sumCkTruoc += Number(ov.ckTruoc) || 0;
                     if (ov.approved) anyApproved = true;
                 }
-                const totalAll = sumMoney - sumShipFee - sumSlShip * getShipFee(tab) + sumThuVe;
+                const _gkAgg = sendAlongSum(sources, tab);
+                const totalAll =
+                    sumMoney -
+                    sumShipFee -
+                    sumSlShip * getShipFee(tab) +
+                    sumThuVe +
+                    sendAlongNet(_gkAgg.count, _gkAgg.collectDong, tab);
                 const totalLeftRaw = totalAll - sumBoCK - (showCk ? sumCkTruoc : 0);
                 // Duyệt vẫn cộng vào tổng (2026-05-31) — khớp giá trị ô đang hiển thị
                 total += totalLeftRaw;
@@ -1289,7 +1301,13 @@
                 const thuVe = useMerge(merge.thuVe) ? Number(merge.thuVe) : sumThuVe;
                 const boCK = useMerge(merge.boCK) ? Number(merge.boCK) : sumBoCK;
                 const ckTruoc = useMerge(merge.ckTruoc) ? Number(merge.ckTruoc) : sumCkTruoc;
-                const totalAll = sumMoney - sumShipFee - slShip * getShipFee(tab) + thuVe;
+                const _gkMerge = sendAlongSum(childDates, tab);
+                const totalAll =
+                    sumMoney -
+                    sumShipFee -
+                    slShip * getShipFee(tab) +
+                    thuVe +
+                    sendAlongNet(_gkMerge.count, _gkMerge.collectDong, tab);
                 const totalLeftRaw = totalAll - boCK - (showCk ? ckTruoc : 0);
                 total += totalLeftRaw;
                 continue;
@@ -1303,7 +1321,13 @@
             const thuVe = Number(ov.thuVe) || 0;
             const boCK = Number(ov.boCK) || 0;
             const ckTruoc = Number(ov.ckTruoc) || 0;
-            const totalAll = sys.money - shipFee - slShip * getShipFee(tab) + thuVe;
+            const _gk = sendAlongFor(d, tab);
+            const totalAll =
+                sys.money -
+                shipFee -
+                slShip * getShipFee(tab) +
+                thuVe +
+                sendAlongNet(_gk.count, _gk.collectDong, tab);
             const totalLeftRaw = totalAll - boCK - (showCk ? ckTruoc : 0);
             total += totalLeftRaw;
         }
@@ -1372,7 +1396,11 @@
             const ov = getOverride(d, state.activeTab);
             const slShip = Number(ov.slShip) || 0;
             const thuVe = Number(ov.thuVe) || 0;
-            const totalAll = money - shipFee - slShip * getShipFee(state.activeTab) + thuVe;
+            const gk = sendAlongFor(d, state.activeTab);
+            // TỔNG TẤT CẢ: mỗi đơn Gửi Kèm trừ phí ship của kênh + cộng COD GK (gkNet).
+            const gkNet = sendAlongNet(gk.count, gk.collectDong, state.activeTab);
+            const totalAll =
+                money - shipFee - slShip * getShipFee(state.activeTab) + thuVe + gkNet;
             const boCK = Number(ov.boCK) || 0;
             const ckTruoc = Number(ov.ckTruoc) || 0;
             const approved = !!ov.approved;
@@ -1382,7 +1410,6 @@
             // dòng chỉ mờ đi qua class .is-approved. Totals cũng cộng bình thường.
             const totalLeftDisplay = totalLeftRaw;
             const note = ov.note || '';
-            const gk = sendAlongFor(d, state.activeTab);
             if (!isChild) {
                 // Child rows skip cộng totals — đã cộng vào merge row parent
                 totals.slDon += slDon;
@@ -1471,7 +1498,11 @@
             const useMerge = (mv) => mv != null && mv !== '' && Number(mv) !== 0;
             const slShip = useMerge(merge.slShip) ? Number(merge.slShip) : sumSlShip;
             const thuVe = useMerge(merge.thuVe) ? Number(merge.thuVe) : sumThuVe;
-            const totalAll = sumMoney - sumShipFee - slShip * getShipFee(state.activeTab) + thuVe;
+            const gkMerge = sendAlongSum(childDates, state.activeTab);
+            // TỔNG TẤT CẢ: trừ phí ship mỗi đơn Gửi Kèm + cộng COD GK (net theo cả nhóm).
+            const gkMergeNet = sendAlongNet(gkMerge.count, gkMerge.collectDong, state.activeTab);
+            const totalAll =
+                sumMoney - sumShipFee - slShip * getShipFee(state.activeTab) + thuVe + gkMergeNet;
             const boCK = useMerge(merge.boCK) ? Number(merge.boCK) : sumBoCK;
             const ckTruoc = useMerge(merge.ckTruoc) ? Number(merge.ckTruoc) : sumCkTruoc;
             const approved = !!merge.approved;
@@ -1481,7 +1512,6 @@
             // Duyệt KHÔNG zero TỔNG CÒN LẠI nữa (2026-05-31) — giữ nguyên giá trị,
             // dòng chỉ mờ đi qua class .is-approved. Totals cũng cộng bình thường.
             const totalLeftDisplay = totalLeftRaw;
-            const gkMerge = sendAlongSum(childDates, state.activeTab);
             totals.slDon += sumSlDon;
             totals.money += sumMoney;
             totals.shipFee += sumShipFee;
@@ -1625,13 +1655,16 @@
                 if (ov.approved) anyApproved = true;
                 else allApproved = false;
             }
-            const totalAll = sumMoney - sumShipFee - sumSlShip * getShipFee(tab) + sumThuVe;
+            const gkAgg = sendAlongSum(sourceDates, tab);
+            // TỔNG TẤT CẢ: trừ phí ship mỗi đơn Gửi Kèm + cộng COD GK (net theo các ngày dồn).
+            const gkAggNet = sendAlongNet(gkAgg.count, gkAgg.collectDong, tab);
+            const totalAll =
+                sumMoney - sumShipFee - sumSlShip * getShipFee(tab) + sumThuVe + gkAggNet;
             // ATRƯỜNG NHẬN CK xóa hẳn → không trừ. CK TRƯỚC chỉ trừ khi cột còn (showCk).
             const totalLeftRaw = totalAll - sumBoCK - (showCk ? sumCkTruoc : 0);
             // Duyệt KHÔNG zero TỔNG CÒN LẠI nữa (2026-05-31) — giữ nguyên giá trị,
             // dòng chỉ mờ đi qua class .is-approved. Totals cũng cộng bình thường.
             const totalLeftDisplay = totalLeftRaw;
-            const gkAgg = sendAlongSum(sourceDates, tab);
             // Tổng row tally
             totals.slDon += sumSlDon;
             totals.money += sumMoney;

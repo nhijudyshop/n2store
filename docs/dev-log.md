@@ -435,6 +435,16 @@ Cũng nâng `_applyDeeplink`: quét toàn state tìm tab+shipment chứa NCC →
 
 **Status:** ✅ Done.
 
+### [delivery-report] Báo cáo: Gửi Kèm tác động TỔNG TẤT CẢ (− phí ship/đơn + COD GK) ✅
+
+**User:** "cột SL GK: mỗi SL trừ tiền ship theo phí ship của kênh đó vào TỔNG TẤT CẢ" + (hỏi chốt) cộng luôn COD GK vào tổng.
+
+**Công thức mới:** `TỔNG TẤT CẢ = TIỀN − PHÍ SHIP − SL ĐƠN SHIP×phí − (SL GK × phí ship kênh) + COD GK + THU VỀ`. Net Gửi Kèm `gkNet = COD GK − SL GK×getShipFee(tab)` (phí ship dùng đúng setting per-kênh: TOMATO/NAP 23k, Thành phố 20k — chỉnh ở popover ⚙). Helper `sendAlongNet(count, collectDong, tab)`. Fold gkNet vào **cả 6 chỗ** tính `totalAll`: 3 row builder (single/merge/aggregate) + 3 nhánh `computeTotalLeftForTab` (chip tổng còn lại per-tab đầu bảng) → totals footer + TỔNG CÒN LẠI + chip tab tự khớp. Cột SL GK/COD GK vẫn hiển thị raw; chỉ TỔNG TẤT CẢ đổi math. Tooltip header cập nhật công thức.
+
+**Verify (Playwright):** TOMATO gkNet=+4.000 (50k−2×23k)→TỔNG 2.850.000; Thành phố +30.000 (50k−1×20k)→9.165.000; NAP −23.000 (0−1×23k)→9.215.000. `tong === expected` cả 3 tab; chip tab khớp; 0 lỗi parse khi load. `?v=20260614g`.
+
+**Status:** ✅ Done.
+
 ## 2026-06-13
 
 ### [live-chat] Rebuild CSS trên shared native-orders — Phase A: xóa dead + fix token + blueprint (đợt 12) 🔄
