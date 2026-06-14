@@ -9,6 +9,51 @@
 import { fetchWithRetry } from '../utils/fetch-utils.js';
 import { errorResponse, proxyResponseWithCors, CORS_HEADERS } from '../utils/cors-utils.js';
 
+// =====================================================
+// WEB 2.0 BACKEND SPLIT (2026-06-14)
+// =====================================================
+// Backend Web 2.0 đã tách sang service Render riêng `web2-api` (project
+// web2.0n2store, chạy cùng codebase render.com với WEB2_ONLY=1). Mọi path Web 2.0
+// route sang web2-api; path Web 1.0 vẫn n2store-fallback. Web1⊥Web2.
+// Đổi URL khi service đổi (Render gắn suffix ngẫu nhiên vào subdomain).
+const FALLBACK_ORIGIN = 'https://n2store-fallback.onrender.com';
+const WEB2_API_ORIGIN = 'https://web2-api-kv04.onrender.com';
+
+/**
+ * Path có thuộc backend Web 2.0 không (→ route sang web2-api).
+ * Chỉ match prefix Web 2.0 rõ ràng; mọi path khác giữ nguyên n2store-fallback.
+ * @param {string} p pathname
+ * @returns {boolean}
+ */
+export function isWeb2Path(p) {
+    if (p.startsWith('/api/web2')) return true; // /api/web2-*, /api/web2/*
+    if (p.startsWith('/api/native-orders')) return true;
+    if (p.startsWith('/api/fast-sale-orders')) return true;
+    if (p.startsWith('/api/reconcile')) return true;
+    if (p.startsWith('/api/wallet-deposits')) return true;
+    if (p.startsWith('/api/purchase-refund')) return true;
+    if (p.startsWith('/api/services-overview')) return true;
+    if (p.startsWith('/api/livestream')) return true; // /api/livestream(-images)
+    if (p.startsWith('/api/realtime/web2')) return true; // web2 SSE hub
+    // /api/v2/* — CHỈ các feature Web 2.0 piggy-back (Web 1.0 v2 core giữ fallback)
+    if (
+        /^\/api\/v2\/(notifications|audit-log|supplier-aging|dashboard-kpi|smart-match|inventory-forecast|supplier-360|cart|kpi|web2-)/.test(
+            p
+        )
+    )
+        return true;
+    return false;
+}
+
+/**
+ * Origin Render đích cho 1 pathname: web2-api nếu là path Web 2.0, ngược lại fallback.
+ * @param {string} pathname
+ * @returns {string}
+ */
+export function renderOriginFor(pathname) {
+    return isWeb2Path(pathname) ? WEB2_API_ORIGIN : FALLBACK_ORIGIN;
+}
+
 /**
  * Handle /api/proxy
  * Generic proxy endpoint
@@ -364,7 +409,7 @@ export async function handleRenderMiscProxy(request, url, pathname) {
  * @returns {Promise<Response>}
  */
 async function handleRenderFallbackProxy(request, url, pathname, tag) {
-    const targetUrl = `https://n2store-fallback.onrender.com${pathname}${url.search}`;
+    const targetUrl = `${renderOriginFor(pathname)}${pathname}${url.search}`;
 
     const acceptHeader = request.headers.get('Accept') || '';
     const isSSE = acceptHeader.includes('text/event-stream') || pathname.endsWith('/sse');
@@ -504,7 +549,7 @@ export async function handleCustomer360Proxy(request, url, pathname) {
         apiPath = pathname.replace(/^\/api\//, '');
     }
 
-    const targetUrl = `https://n2store-fallback.onrender.com/api/${apiPath}${url.search}`;
+    const targetUrl = `${renderOriginFor(pathname)}/api/${apiPath}${url.search}`;
 
     console.log('[CUSTOMER360] Proxying to:', targetUrl);
 
