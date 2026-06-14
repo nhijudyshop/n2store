@@ -314,56 +314,83 @@ async function fetchPostComments(pageId, pageName, postId, jwt) {
         );
         for (const rows of res) if (rows && rows.length) comments.push(...rows);
     }
-    // Enrich SĐT từ CUSTOMER PROFILE Pancake (comment ~0% có SĐT inline, nhưng
-    // profile customer có ~88% — recent_phone_numbers lưu từ order/chat cũ).
-    await _enrichPhonesFromProfile(pageId, comments, jwt);
+    // Enrich SĐT + avatar + địa chỉ từ CUSTOMER PROFILE Pancake (comment list ~0%
+    // có inline; profile customer có phone ~88% + avatar + address ship cũ).
+    await _enrichFromProfile(pageId, comments, jwt);
     return comments;
 }
 
-// Cache SĐT theo customer UUID (TTL 6h) — tránh fetch lại mỗi cycle. Cache PROMISE
-// (không phải value) để 2 fetch concurrent cùng uuid share 1 request (chống race).
-const _custPhoneCache = new Map(); // uuid → { promise, ts }
-const CUST_PHONE_TTL_MS = 6 * 3600 * 1000;
-const PHONE_FETCH_CONCURRENCY = 4;
+// Cache PROFILE (phone + avatar + address) theo customer UUID (TTL 6h) — tránh
+// fetch lại mỗi cycle. Trước chỉ cache phone; mở rộng để fill avatar + address
+// (CÙNG 1 request /customers/:uuid — comment list pages.fm ~0% kèm avatar/address
+// nên phải lấy từ profile). Cache PROMISE (không phải value) để 2 fetch concurrent
+// cùng uuid share 1 request (chống race).
+const _custProfileCache = new Map(); // uuid → { promise, ts }
+const CUST_PROFILE_TTL_MS = 6 * 3600 * 1000;
+const PROFILE_FETCH_CONCURRENCY = 4;
 
-async function _doFetchCustomerPhone(pageId, uuid, jwt) {
-    let phone = null;
+function _firstPhone(arr) {
+    if (!Array.isArray(arr) || !arr.length) return null;
+    const p = arr[0];
+    return (typeof p === 'string' ? p : p.phone_number || p.phone || p.captured) || null;
+}
+function _profileAvatar(c) {
+    return c.avatar || c.picture?.data?.url || c.profile_pic || c.image_url || c.fb_avatar || null;
+}
+function _profileAddress(c) {
+    if (c.address && String(c.address).trim()) return String(c.address).trim();
+    // Pancake hay để địa chỉ ship ở recent_addresses / shop_customer_addresses.
+    const ra = c.recent_addresses || c.shop_customer_addresses || c.addresses;
+    if (Array.isArray(ra) && ra.length) {
+        const a = ra[0];
+        const s = typeof a === 'string' ? a : a.address || a.full_address || a.value || '';
+        if (s && String(s).trim()) return String(s).trim();
+    }
+    return null;
+}
+
+async function _doFetchCustomerProfile(pageId, uuid, jwt) {
+    const out = { phone: null, avatar: null, address: null };
     try {
         const d = await _pfm(`pages/${pageId}/customers/${encodeURIComponent(uuid)}`, jwt);
         const c = d.customer || d.data || d || {};
-        const arr = c.recent_phone_numbers;
-        if (Array.isArray(arr) && arr.length) {
-            const p = arr[0];
-            phone = (typeof p === 'string' ? p : p.phone_number || p.phone || p.captured) || null;
-        }
+        out.phone = _firstPhone(c.recent_phone_numbers);
+        out.avatar = _profileAvatar(c);
+        out.address = _profileAddress(c);
     } catch (_) {
-        /* bỏ qua */
+        /* bỏ qua — giữ null */
     }
-    return phone;
+    return out;
 }
 
-function _fetchCustomerPhone(pageId, uuid, jwt) {
-    const cached = _custPhoneCache.get(uuid);
-    if (cached && Date.now() - cached.ts < CUST_PHONE_TTL_MS) return cached.promise;
-    const promise = _doFetchCustomerPhone(pageId, uuid, jwt);
-    _custPhoneCache.set(uuid, { promise, ts: Date.now() });
+function _fetchCustomerProfile(pageId, uuid, jwt) {
+    const cached = _custProfileCache.get(uuid);
+    if (cached && Date.now() - cached.ts < CUST_PROFILE_TTL_MS) return cached.promise;
+    const promise = _doFetchCustomerProfile(pageId, uuid, jwt);
+    _custProfileCache.set(uuid, { promise, ts: Date.now() });
     return promise;
 }
 
-async function _enrichPhonesFromProfile(pageId, comments, jwt) {
-    // Chỉ enrich comment CHƯA có phone + có customer UUID.
-    const need = comments.filter((c) => !c.phone && c._custUuid);
+async function _enrichFromProfile(pageId, comments, jwt) {
+    // Enrich comment THIẾU phone HOẶC avatar HOẶC address + có customer UUID.
+    // (comment list pages.fm ~0% có avatar/address → lấy từ profile; cùng request
+    // đã dùng cho phone nên hầu như không thêm call — cache 6h theo uuid.)
+    const need = comments.filter((c) => c._custUuid && (!c.phone || !c.avatar || !c.address));
     const uuids = [...new Set(need.map((c) => c._custUuid))];
-    const phoneByUuid = {};
-    for (let i = 0; i < uuids.length; i += PHONE_FETCH_CONCURRENCY) {
-        const batch = uuids.slice(i, i + PHONE_FETCH_CONCURRENCY);
-        const res = await Promise.all(batch.map((u) => _fetchCustomerPhone(pageId, u, jwt)));
+    const byUuid = {};
+    for (let i = 0; i < uuids.length; i += PROFILE_FETCH_CONCURRENCY) {
+        const batch = uuids.slice(i, i + PROFILE_FETCH_CONCURRENCY);
+        const res = await Promise.all(batch.map((u) => _fetchCustomerProfile(pageId, u, jwt)));
         batch.forEach((u, k) => {
-            if (res[k]) phoneByUuid[u] = res[k];
+            byUuid[u] = res[k];
         });
     }
     for (const c of need) {
-        if (phoneByUuid[c._custUuid]) c.phone = phoneByUuid[c._custUuid];
+        const p = byUuid[c._custUuid];
+        if (!p) continue;
+        if (!c.phone && p.phone) c.phone = p.phone;
+        if (!c.avatar && p.avatar) c.avatar = p.avatar;
+        if (!c.address && p.address) c.address = p.address;
     }
 }
 
