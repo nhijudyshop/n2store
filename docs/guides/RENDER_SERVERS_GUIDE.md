@@ -38,8 +38,30 @@
 
 ---
 
-## ⚠️ TRẠNG THÁI THỰC TẾ (cập nhật 2026-06-14 — verified qua Render API + logs)
+## ✅ CONSOLIDATION 2026-06-14 (chiều) — gộp về 3 web service
 
+**Đã XÓA 3 service**: `n2store-tpos-pancake`, `n2store-facebook`, `n2store-aikol-scraper`.
+**Đã TẠO** `web2-realtime` (`srv-d8n45k4vikkc73cg3nrg`, starter, rootDir `live-chat/server`) =
+relay Pancake WS (cũ tpos-pancake) **+** Facebook Graph API (cũ facebook, port vào
+`live-chat/server/facebook-routes.js`). Frontend `livePancakeUrl`/`n2storeUrl` → `web2-realtime.onrender.com`.
+
+**5 resource còn lại (tất cả đều cần):**
+
+| Resource           | Loại           | Vai trò                                                                              |
+| ------------------ | -------------- | ------------------------------------------------------------------------------------ |
+| `web2-realtime`    | web (starter)  | **MỚI** — Pancake WS relay + FB Graph (private-reply, n2store-mode chat) cho Web 2.0 |
+| `n2store-realtime` | web (starter)  | Web 1.0 inbox WS (pending_customers/livestream/labels) — layer riêng                 |
+| `n2store-fallback` | web (standard) | Hub API chính (2 pool PG, 2 SSE, cron, TPOS realtime)                                |
+| `n2store-chat-db`  | postgres       | DB Web 1.0                                                                           |
+| `n2store-web2-db`  | postgres       | DB Web 2.0                                                                           |
+
+> Tiết kiệm: bỏ facebook ($7) + tpos-pancake ($7) gộp thành web2-realtime ($7) ⇒ −$7/tháng; aikol-scraper (suspended) đã xóa hẳn.
+
+---
+
+## ⚠️ TRẠNG THÁI THỰC TẾ (cập nhật 2026-06-14 sáng — verified qua Render API + logs)
+
+> Bảng/Server bên dưới mô tả lúc CHƯA consolidate (sáng 14/06). Xem mục CONSOLIDATION ở trên cho topology hiện tại.
 > Phần Server 1–5 bên dưới có vài chỗ ĐÃ LỖI THỜI. Bảng này là nguồn đúng nhất. Mọi service đều **region Singapore, always-on** (starter/standard KHÔNG sleep — chỉ free mới sleep).
 
 | Service                   | Plan                              | rootDir                   | Health path | Trạng thái                                                                                                                                                                                                                                                         |

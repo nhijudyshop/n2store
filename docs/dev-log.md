@@ -2,6 +2,24 @@
 
 ## 2026-06-14
 
+### [render][web2-realtime] Consolidate Render: gộp tpos-pancake + facebook → web2-realtime, xóa 3 service ✅
+
+**User:** "xóa n2store-facebook + n2store-aikol-scraper → xóa và build lại tpos-pancake đặt tên web2-realtime → web2-realtime nhận tất cả tính năng realtime của web2" + "xóa các server dư thừa".
+
+**Quyết định (AskUserQuestion):** (1) tạo mới (không rename); (2) gộp TẤT CẢ endpoint FB vào web2-realtime.
+
+**Làm — thứ tự an toàn (tạo+verify TRƯỚC, xóa SAU):**
+
+1. **Port FB Graph** → `live-chat/server/facebook-routes.js` (private-reply, conversations, messages, send, upload, find-by-psid, read, refresh-tokens). Token: cache TPOS CRM → refetch → **fallback env `PAGE_TOKEN_<pageId>`** (đảm bảo private-reply chạy dù cache rỗng — live-chat reply KHÔNG gửi TPOS token). Mount vào relay + thêm CORS. Deps: cors/multer/form-data/node-fetch. package.json → name `web2-realtime` v3.
+2. **Tạo service** `web2-realtime` (`srv-d8n45k4vikkc73cg3nrg`, starter, singapore, rootDir `live-chat/server`, healthCheckPath `/ping`) qua Render API, **copy 25 env** từ tpos-pancake. **Verify live**: banner v3 accounts 1/1 connected 4 pages + `/api/facebook-status` ok + private-reply route 400 "message required" (không 404) + CORS `*`.
+3. **Đổi 4 URL frontend** (live-state/pancake-state/pancake-data-manager) `livePancakeUrl`+`n2storeUrl` → `web2-realtime.onrender.com`.
+4. **Xóa 3 service** (Render API DELETE → 204, verify 404): `n2store-tpos-pancake`, `n2store-facebook`, `n2store-aikol-scraper` (suspended).
+5. **Dọn repo**: xóa folder `n2store-facebook/`; cập nhật `service-costs.js` (registry + plan map + quick-links: 1 entry web2-realtime, realtime sửa Standard→Starter $7 đúng thực tế), overview note, RENDER_SERVERS_GUIDE (banner consolidation).
+
+**Kết quả:** 5 resource còn lại đều cần (web2-realtime, n2store-realtime, n2store-fallback, n2store-chat-db, n2store-web2-db). Tiết kiệm −$7/tháng. Còn nguyên Web1⊥Web2 (n2store-realtime=Web1.0 inbox giữ riêng).
+
+**Files:** `live-chat/server/{facebook-routes.js,server.js,package.json,render.yaml,.gitignore}`, `live-chat/js/{live/live-state.js,pancake/pancake-state.js}`, `shared/js/pancake-data-manager.js`, `service-costs/js/service-costs.js`, `web2/overview/index.html`, xóa `n2store-facebook/`. `node --check` PASS. **Status:** ✅ verified live.
+
 ### [delivery-report] Nút "Ảnh Thành Phố" gửi kèm FILE EXCEL (2 sheet: THÀNH PHỐ + THU VỀ) ✅
 
 **User:** "thành phố chưa có gửi file excel" (mở rộng tính năng Excel sang nút TP, sau TMT/NAP).
