@@ -3,14 +3,17 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `8a76cb4` — feat(delivery-report): bo nut xuat Excel o tab Tinh + Tat ca + Don 0d (giu o combo)
-**Last updated**: 2026-06-14 12:39:09 +07
-**Latest session**: [`RESUME:20260614-123909-8a76cb4`](../20260614-123909-8a76cb4.md)
-**Summary**: feat(delivery-report): bo nut xuat Excel o tab Tinh + Tat ca + Don 0d (giu o combo)
+**Latest commit**: `08ec998` — auto: session update
+**Last updated**: 2026-06-14 12:55:37 +07
+**Latest session**: [`RESUME:20260614-125537-08ec998`](../20260614-125537-08ec998.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
+- [`delivery-report/`](./delivery-report.md) — 2 file(s)
 - [`docs/`](./docs.md) — 1 file(s)
+- [`live-chat/`](./live-chat.md) — 8 file(s)
+- [`shared/`](./shared.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -24,8 +27,8 @@
 - [`bangkiemhang/`](./bangkiemhang.md) — updated 2026-05-21 15:39
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-14 11:53
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
-- [`delivery-report/`](./delivery-report.md) — updated 2026-06-14 12:38
-- [`docs/`](./docs.md) — updated 2026-06-14 12:39
+- [`delivery-report/`](./delivery-report.md) — updated 2026-06-14 12:55
+- [`docs/`](./docs.md) — updated 2026-06-14 12:55
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-13 14:55
 - [`downloads/`](./downloads.md) — updated 2026-06-13 19:16
@@ -38,7 +41,7 @@
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-06-13 14:55
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-12 19:21
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
-- [`live-chat/`](./live-chat.md) — updated 2026-06-14 12:24
+- [`live-chat/`](./live-chat.md) — updated 2026-06-14 12:55
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-06-04 20:02
 - [`n2store-facebook/`](./n2store-facebook.md) — updated 2026-06-14 12:24
 - [`n2store-realtime/`](./n2store-realtime.md) — updated 2026-06-14 12:30
@@ -57,7 +60,7 @@
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-11 10:18
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
-- [`shared/`](./shared.md) — updated 2026-06-13 19:51
+- [`shared/`](./shared.md) — updated 2026-06-14 12:55
 - [`showroom/`](./showroom.md) — updated 2026-06-10 19:04
 - [`showroom1/`](./showroom1.md) — updated 2026-06-10 19:52
 - [`so-order/`](./so-order.md) — updated 2026-06-14 12:20
