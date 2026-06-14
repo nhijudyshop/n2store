@@ -172,16 +172,26 @@
         return (w && String(w.address || '').trim()) || '';
     }
     const ordered = (c) => c.has_order === true || c.has_order === 't' || c.has_order === 1;
+    const ST_CLS = {
+        bom: 'st-bom',
+        vip: 'st-vip',
+        danger: 'st-danger',
+        warn: 'st-warn',
+        than: 'st-known',
+        si: 'st-known',
+        normal: 'st-known',
+        other: 'st-known',
+    };
     function statusOf(c) {
         if (ordered(c)) return { label: '✓ Đã tạo đơn', cls: 'st-order' };
         const w = whInfo(c);
-        const s = String((w && w.status) || '').toLowerCase();
-        if (s.includes('vip')) return { label: 'VIP', cls: 'st-vip' };
-        if (s.includes('bom')) return { label: 'Bom hàng', cls: 'st-bom' };
-        if (s.includes('danger') || s.includes('nguy'))
-            return { label: 'Nguy hiểm', cls: 'st-danger' };
-        if (s.includes('warn') || s.includes('cảnh')) return { label: 'Cảnh báo', cls: 'st-warn' };
-        if (w) return { label: 'Khách quen', cls: 'st-known' };
+        if (w) {
+            // Trạng thái KH lấy ở KHO web2_customers (w.status) → nhãn VN (LiveStatus shared).
+            const n = window.LiveStatus
+                ? window.LiveStatus.normalize(w.status)
+                : { label: w.status || 'Khách quen', key: 'other' };
+            return { label: n.label, cls: ST_CLS[n.key] || 'st-known' };
+        }
         return { label: 'Mới', cls: 'st-new' };
     }
 

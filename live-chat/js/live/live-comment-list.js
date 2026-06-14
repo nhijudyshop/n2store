@@ -768,7 +768,7 @@ const LiveCommentList = {
         const s = [
             phone,
             address,
-            partner.StatusText || '',
+            partner.StatusText || (kho && kho.status) || '',
             si?.code || '',
             si?.index || '',
             inOrder ? 1 : 0,
@@ -1235,13 +1235,17 @@ const LiveCommentList = {
 
         // Partner info from cache
         const partner = state.partnerCache.get(fromId) || {};
-        const statusText = partner.StatusText || '';
+        const kho = state.customerKhoCache?.get(fromId);
+        // Trạng thái KH: lấy ở KHO web2_customers (kho.status) — map nhãn VN qua
+        // LiveStatus shared; fallback CRM partner.StatusText nếu có (giữ tương thích).
+        const khoStatusLabel =
+            window.LiveStatus && kho?.status ? window.LiveStatus.normalize(kho.status).label : '';
+        const statusText = khoStatusLabel || partner.StatusText || '';
         const statusColor = this.getStatusColor(statusText);
         const statusBg = statusColor ? `${statusColor}18` : '';
         // SĐT/địa chỉ: warehouse trước → kho KH → SĐT Pancake CỦA CHÍNH COMMENT
         // (recent_phone_numbers — khách comment kèm SĐT ở Pancake) lấp chỗ trống
         // cho KH chưa có trong kho. "Lấy thông tin khách ở Pancake nếu có".
-        const kho = state.customerKhoCache?.get(fromId);
         const pancakePhone = (() => {
             const arr = comment._phones;
             const ph = Array.isArray(arr) && arr.length ? arr[0] : null;
