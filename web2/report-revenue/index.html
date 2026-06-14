@@ -250,6 +250,8 @@
                     <span class="w2-skel" style="height: 88px; border-radius: 12px"></span>
                     <span class="w2-skel" style="height: 88px; border-radius: 12px"></span>
                     <span class="w2-skel" style="height: 88px; border-radius: 12px"></span>
+                    <span class="w2-skel" style="height: 88px; border-radius: 12px"></span>
+                    <span class="w2-skel" style="height: 88px; border-radius: 12px"></span>
                 </div>
 
                 <div class="panels">
@@ -264,18 +266,33 @@
                     </div>
                     <div class="panel">
                         <h3>📦 Phân loại đơn theo trạng thái</h3>
-                        <div id="stateBreakdown" class="loading">...</div>
+                        <div id="stateBreakdown" class="loading">
+                            <span
+                                class="w2-skel"
+                                style="display: block; height: 64px; border-radius: 8px"
+                            ></span>
+                        </div>
                     </div>
                 </div>
 
                 <div class="panels">
                     <div class="panel">
                         <h3>🏆 Top khách hàng</h3>
-                        <div id="topCustomers" class="loading">...</div>
+                        <div id="topCustomers" class="loading">
+                            <span
+                                class="w2-skel"
+                                style="display: block; height: 180px; border-radius: 8px"
+                            ></span>
+                        </div>
                     </div>
                     <div class="panel">
                         <h3>📣 Theo chiến dịch</h3>
-                        <div id="byCampaign" class="loading">...</div>
+                        <div id="byCampaign" class="loading">
+                            <span
+                                class="w2-skel"
+                                style="display: block; height: 180px; border-radius: 8px"
+                            ></span>
+                        </div>
                     </div>
                 </div>
 
@@ -286,7 +303,12 @@
                             id="topCustomers360Hint"
                             style="font-size: 12px; color: #6b7280; margin-bottom: 8px"
                         ></div>
-                        <div id="topCustomers360" class="loading">...</div>
+                        <div id="topCustomers360" class="loading">
+                            <span
+                                class="w2-skel"
+                                style="display: block; height: 200px; border-radius: 8px"
+                            ></span>
+                        </div>
                     </div>
                 </div>
             </main>
@@ -640,8 +662,20 @@
                     // Request bị hủy do đổi filter → bỏ qua, không hiện lỗi.
                     if (e.name === 'AbortError' || seq !== _loadSeq) return;
                     console.error('[reports] load error', e);
-                    $('#kpiGrid').innerHTML =
-                        `<div class="loading" style="color:#dc2626">Lỗi tải dữ liệu: ${esc(e.message)}</div>`;
+                    window.notificationManager?.show(
+                        'Không tải được báo cáo. Thử lại sau.',
+                        'error'
+                    );
+                    const errBlock = `<div class="loading" style="color:#dc2626;padding:20px 16px;">
+                        Lỗi tải dữ liệu.
+                        <button onclick="loadAll()" style="margin-left:8px;padding:4px 12px;background:#0068ff;color:#fff;border:none;border-radius:5px;cursor:pointer;font-size:13px;">Thử lại</button>
+                    </div>`;
+                    $('#kpiGrid').innerHTML = errBlock;
+                    $('#revenueChart').innerHTML = errBlock;
+                    $('#stateBreakdown').innerHTML = errBlock;
+                    $('#topCustomers').innerHTML = errBlock;
+                    $('#byCampaign').innerHTML = errBlock;
+                    $('#topCustomers360').innerHTML = errBlock;
                 }
             }
 

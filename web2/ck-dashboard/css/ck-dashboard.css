@@ -294,3 +294,29 @@
     font-weight: 700;
     color: #0ea5e9;
 }
+
+/* ── Mobile breakpoint ── */
+@media (max-width: 640px) {
+    .ckd-main {
+        padding: 12px 16px;
+    }
+    .ckd-cols {
+        grid-template-columns: 1fr;
+    }
+    .ckd-hist-filter {
+        flex-direction: column;
+    }
+    .ckd-hist-filter select,
+    .ckd-hist-filter input,
+    .ckd-hist-filter button {
+        width: 100%;
+        box-sizing: border-box;
+    }
+    .ckd-stats {
+        gap: 8px;
+    }
+    .ckd-stat {
+        min-width: 0;
+        flex: 1 1 calc(50% - 4px);
+    }
+}

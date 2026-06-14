@@ -900,3 +900,16 @@
         grid-template-columns: repeat(2, 1fr);
     }
 }
+
+/* Task 5 (2026-06-14): mobile — horizontal scroll + hide less-critical columns */
+@media (max-width: 640px) {
+    .sd-table-wrap {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    /* Hide "Nợ đầu kỳ" (opening balance) — least actionable on small screens */
+    .sd-table th:nth-child(5),
+    .sd-table td:nth-child(5) {
+        display: none;
+    }
+}

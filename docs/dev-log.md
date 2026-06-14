@@ -2,6 +2,21 @@
 
 ## 2026-06-14
 
+### [web2] UX đợt B — 17 trang: skeleton loading + error+retry + mobile @media + keyboard/focus + empty-state ✅
+
+**User (3 việc):** 1/gỡ firebase dead-code 2/Web 2.0 bắt buộc login 3/nghiên cứu IMPROVEMENT-PLAN + web2 md → đề xuất hướng. Sau khi present → user: "làm đi" → triển khai đợt B (29 high-impact của `docs/web2/WEB2-UX-AUDIT.md`).
+
+**Cách làm:** 7 agent song song chia theo TRANG (mỗi file 1 chủ → không clobber). 1 agent chết giữa chừng (socket) → re-run group (users-permissions/customers/customer-wallet/ck-dashboard). Validate: `node --check` mọi JS đổi (PASS), 0 conflict marker, verify closure refs resolve (`clearFilters` hoisted, returns `clearCustomer`/`btnSubmit` tồn tại).
+
+- **Loading/skeleton** `.w2-skel`: audit-log, notifications, dashboard, kpi, report-revenue (6 card + chart/table), so-order, supplier-debt, supplier-wallet, reconcile.
+- **Error+Thử lại**: audit-log, notifications, dashboard, kpi, report-revenue (cả 6 section), products, users-permissions (alert→notificationManager).
+- **Mobile @media**: audit-log, ck-dashboard, products, variants, supplier-debt, reconcile, users-permissions.
+- **Forms/keyboard/focus**: products (Enter-save + focus pmName), variants (Enter-save), supplier-debt (date change→auto-filter), returns (Esc/Enter), customers (modal giữ mở khi lỗi + spinner).
+- **Empty-state**: native-orders (inbox + 'Xóa bộ lọc'), notifications (bell-off).
+- **Discoverability**: so-order (cursor:cell + hint), customer-wallet ('Hard reset'→'Xoá cache' amber).
+
+**Files (29):** audit-log, notifications, dashboard, kpi, report-revenue, so-order, supplier-debt, supplier-wallet, reconcile, native-orders, returns, products, variants, users-permissions, customer-wallet, ck-dashboard (HTML/JS/CSS). Bump `?v=20260614ux`. Doc: `docs/web2/WEB2-UX-AUDIT.md` mục "✅ Đợt B". **Status:** ✅ (nhiều task agent báo "đã có sẵn" từ session trước — chỉ bổ sung phần thiếu).
+
 ### [live-chat][render] Comment mobile v3 — DÙNG CHUNG NGUỒN với index.html: avatar thật + thumbnail + ẩn-theo-người + hết giật ✅
 
 **User (5 ý):** 1/ẩn comment (modal "Người bị ẩn" như desktop) 2/hiện tên bài livestream 3/hiện thumbnail 4/dùng chung nguồn với `live-chat/index.html` đỡ tốn tài nguyên 5/trang bị **giật/treo** → debug & fix hết.

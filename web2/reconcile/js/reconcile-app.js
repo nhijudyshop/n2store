@@ -105,6 +105,16 @@
 
     // ---------- load list ----------
     async function loadList() {
+        // Show skeleton while fetching
+        const ul = document.getElementById('rcPbhList');
+        const empty = document.getElementById('rcEmpty');
+        if (ul) {
+            ul.innerHTML =
+                '<li class="w2-skel" style="height:62px;border-radius:8px;margin-bottom:4px;"></li>'.repeat(
+                    4
+                );
+        }
+        if (empty) empty.hidden = true;
         try {
             const q = new URLSearchParams({ state: STATE.filterState });
             if (STATE.search) q.set('search', STATE.search);
@@ -112,6 +122,7 @@
             STATE.items = res.items || [];
             renderList();
         } catch (e) {
+            if (ul) ul.innerHTML = '';
             notify('Lỗi tải DS PBH: ' + e.message, 'error');
         }
     }

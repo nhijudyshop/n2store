@@ -1427,15 +1427,26 @@
         const tb = tbody();
         if (!orders.length) {
             tb.replaceChildren();
-            const hasFilter = !!(STATE.search || STATE.filter || STATE.activeTab);
+            const hasFilter = !!(
+                STATE.search ||
+                (STATE.status && STATE.status !== 'all') ||
+                (STATE.selectedCampaignIds && STATE.selectedCampaignIds.length)
+            );
+            const clearBtn = hasFilter
+                ? `<button onclick="window._noClearFilters&&window._noClearFilters()" style="margin-top:12px;padding:7px 18px;background:#0068ff;color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;"><i data-lucide="x-circle" style="width:15px;height:15px;"></i>Xóa bộ lọc</button>`
+                : '';
             tb.insertAdjacentHTML(
                 'beforeend',
                 `<tr><td colspan="16" class="empty-row" style="padding:40px;text-align:center;color:#64748b">
-                    <i data-lucide="package-open" style="width:38px;height:38px;color:#bcdcff;display:block;margin:0 auto 8px"></i>
+                    <i data-lucide="${hasFilter ? 'search-x' : 'inbox'}" style="width:38px;height:38px;color:#bcdcff;display:block;margin:0 auto 8px"></i>
                     <div style="font-weight:700;color:#0f172a;margin-bottom:3px">${hasFilter ? 'Không có đơn khớp bộ lọc' : 'Chưa có đơn nào'}</div>
                     <div style="font-size:13px">${hasFilter ? 'Thử đổi bộ lọc / từ khoá tìm kiếm.' : 'Đơn web mới sẽ hiện ở đây.'}</div>
+                    ${clearBtn}
                 </td></tr>`
             );
+            // Wire clear-filters button — clearFilters() is a closure in this IIFE,
+            // so expose it transiently via a module-scoped var checked in the handler.
+            window._noClearFilters = clearFilters;
             if (window.lucide) lucide.createIcons();
             tb._rowSigs = new Map();
             return;

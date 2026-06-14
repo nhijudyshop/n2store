@@ -44,3 +44,34 @@
 .page-head-action {
     margin-left: 8px;
 }
+
+/* ===== Modal responsive ===== */
+#variantModal .modal-content {
+    min-width: min(480px, calc(100vw - 32px));
+}
+
+/* ===== Mobile responsive — variants table ===== */
+/* 768px: ẩn cột ưu tiên thấp (THỨ TỰ, VIẾT TẮT) */
+@media (max-width: 768px) {
+    /* THỨ TỰ — cột thứ 5 (.sort-cell) */
+    #variantsTable thead tr th:nth-child(5),
+    #variantsTable tbody tr td:nth-child(5) {
+        display: none;
+    }
+    /* VIẾT TẮT — cột thứ 4 */
+    #variantsTable thead tr th:nth-child(4),
+    #variantsTable tbody tr td:nth-child(4) {
+        display: none;
+    }
+}
+
+/* 640px: bảng cuộn ngang */
+@media (max-width: 640px) {
+    .table-scroll {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    .table-scroll .data-table {
+        min-width: 480px;
+    }
+}

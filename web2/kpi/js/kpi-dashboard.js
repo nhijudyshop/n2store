@@ -35,12 +35,19 @@
     }
 
     async function loadCampaigns() {
+        const sel = $('#kpiCampaignFilter');
+        if (sel) {
+            sel.innerHTML = '<option value="" disabled selected>Đang tải chiến dịch…</option>';
+            sel.disabled = true;
+        }
         try {
             const r = await fetch(NATIVE_CAMPAIGNS_API);
             const d = await r.json();
             STATE.campaigns = d.campaigns || [];
         } catch (e) {
             STATE.campaigns = [];
+        } finally {
+            if (sel) sel.disabled = false;
         }
     }
 

@@ -808,6 +808,30 @@
         grid-template-columns: 1fr;
     }
 }
+@media (max-width: 768px) {
+    .rc-main {
+        padding: 10px 10px 8px;
+        height: auto;
+        overflow: visible;
+    }
+    .rc-layout {
+        display: flex;
+        flex-direction: column;
+        overflow: visible;
+    }
+    .rc-list-panel,
+    .rc-detail-panel {
+        width: 100%;
+        min-height: 0;
+    }
+    .rc-list-panel {
+        max-height: 50vh;
+        overflow: hidden;
+    }
+    .rc-detail-panel {
+        min-height: 60vh;
+    }
+}
 
 /* ====================================================== */
 /* 2026-06-06: Modal lịch sử đối soát — filter đối chiếu camera */

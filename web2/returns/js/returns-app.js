@@ -760,6 +760,23 @@
             if (!e.target.closest('#custSearch') && !e.target.closest('#custResults'))
                 $('custResults').hidden = true;
         });
+
+        document.addEventListener('keydown', (e) => {
+            // Escape — clear selected customer when one is chosen
+            if (e.key === 'Escape' && STATE.customer) {
+                e.preventDefault();
+                clearCustomer();
+                return;
+            }
+            // Enter — submit when create tab is active and button is enabled
+            if (e.key === 'Enter' && STATE.tab === 'create') {
+                const btn = $('btnSubmit');
+                if (btn && !btn.disabled && document.activeElement !== btn) {
+                    e.preventDefault();
+                    btn.click();
+                }
+            }
+        });
     }
 
     function init() {

@@ -622,6 +622,20 @@
         const purged = window.SupplierWalletStorage.cleanupOldTransactions(walletState);
         if (purged) window.SupplierWalletStorage.save(walletState);
         wireUi();
+        // Task 6 (2026-06-14): loading placeholder trước khi fetch so-order + aggregate.
+        const _listEl = document.getElementById('swList');
+        if (_listEl && !Object.keys(walletState.wallets || {}).length) {
+            _listEl.innerHTML =
+                '<div style="padding:20px;text-align:center;color:#64748b;display:flex;flex-direction:column;align-items:center;gap:12px">' +
+                Array.from({ length: 3 })
+                    .map(
+                        () =>
+                            '<div class="w2-skel" style="width:100%;max-width:520px;height:76px;border-radius:12px"></div>'
+                    )
+                    .join('') +
+                '<span style="font-size:13px;font-weight:500">Đang tải danh sách NCC…</span>' +
+                '</div>';
+        }
         // Web2ProductsCache để match productName → code khi adjust stock lúc trả hàng.
         // Init async không chặn render — return modal có check optional.
         if (window.Web2ProductsCache?.init) {

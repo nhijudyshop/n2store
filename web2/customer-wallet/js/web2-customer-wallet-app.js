@@ -1052,7 +1052,7 @@
     async function hardReset() {
         if (
             !confirm(
-                'Hard reset?\n• Xoá toàn bộ localStorage cache\n• Reload data từ /api/web2/* (KHÔNG Firestore)\n\nDữ liệu Web 2.0 backend không bị xoá.'
+                'Xoá cache localStorage?\n• Xoá toàn bộ dữ liệu cache trên trình duyệt\n• Tải lại dữ liệu mới nhất từ server (/api/web2/*)\n\n⚠ Chỉ cache trình duyệt bị xoá — dữ liệu trên server không bị ảnh hưởng.'
             )
         )
             return;

@@ -27,7 +27,18 @@
 - Toast: auto-load `notification-system.js` qua sidebar → mọi trang có `notificationManager`.
 - Sẵn class dùng chung: `.w2-skel` (skeleton shimmer), `.is-busy` (spinner nút).
 
-## 🟥 High-impact còn lại (per-page) — checklist
+## ✅ Đợt B High-impact — ĐÃ LÀM (2026-06-14)
+
+> 17 trang fix song song (7 agent). Tất cả JS `node --check` pass, 0 conflict marker.
+
+- **Loading/skeleton** (`.w2-skel`): audit-log, notifications, dashboard (recentBody), kpi (campaign select), report-revenue (6 KPI cards + chart/table shimmer), so-order (loading row + edit-mode hint), supplier-debt (5 skel rows), supplier-wallet (skel cards), reconcile (skel list).
+- **Error-handling + Thử lại**: audit-log (try/catch + retry + toast), notifications (try/catch + retry), dashboard (catch toast + error row), kpi (try/catch + retry), report-revenue (error+retry vào cả 6 section), products (retry button), users-permissions (alert → notificationManager).
+- **Mobile @media**: audit-log (ẩn cột Page/ID), ck-dashboard (`.ckd-cols` 1 cột ≤640px), products (ẩn STT/giá mua/ghi chú + scroll), variants (modal clamp + ẩn cột), supplier-debt (≤640px overflow), reconcile (`.rc-layout` stack), users-permissions (table overflow-x).
+- **Forms/keyboard/focus**: products (Enter-to-save + focus pmName), variants (Enter-to-save), supplier-debt (date `change` → auto-filter), returns (Esc clear / Enter submit), customers (saveModal giữ modal mở khi lỗi + spinner).
+- **Empty-state**: native-orders (inbox icon + 'Xóa bộ lọc'), notifications (bell-off icon).
+- **Discoverability**: so-order (cursor:cell + hint edit-mode), customer-wallet ('Hard reset' → 'Xoá cache' amber trash-2).
+
+## 🟥 High-impact còn lại (per-page) — checklist (✅ đã xử lý đợt B 2026-06-14)
 
 - [ ] **all** (loading) [global]: Không có skeleton loading. Tất cả 4 trang (notifications, audit-log, users-permissions, livestream-poller) dùng plain text 'Đang tải…' hoặc 'Đang tải danh sách
     - → Thay placeholder text bằng 2-3 `.w2-skel` rows có chiều cao giống row thật khi page bắt đầu fetch. Ví dụ notifications: trong `notiList` init innerHTML nên là 3 skeleton rows thay vì `<div class='noti

@@ -1080,6 +1080,15 @@
             STATE.page = 1;
             applyFilterAndRender();
         });
+        // Task 4 (2026-06-14): date change → auto-filter + reload (keep Áp dụng button).
+        const _onDateChange = async () => {
+            readFilters();
+            STATE.page = 1;
+            await loadAll();
+            applyFilterAndRender();
+        };
+        document.getElementById('sdDateFrom')?.addEventListener('change', _onDateChange);
+        document.getElementById('sdDateTo')?.addEventListener('change', _onDateChange);
         document.querySelectorAll('input[name="sdDisplay"]').forEach((r) => {
             r.addEventListener('change', () => {
                 STATE.filters.display = r.value;
@@ -1200,6 +1209,18 @@
         updateSortIcons();
         setDefaultDateRange();
         readFilters();
+        // Loading skeleton (Task 3, 2026-06-14)
+        const _tb = document.getElementById('sdTableBody');
+        if (_tb) {
+            _tb.innerHTML = Array.from({ length: 5 })
+                .map(
+                    () =>
+                        '<tr><td colspan="8" style="padding:10px 14px">' +
+                        '<span class="w2-skel" style="display:block;height:36px;border-radius:8px"></span>' +
+                        '</td></tr>'
+                )
+                .join('');
+        }
         await loadAll();
         applyFilterAndRender();
         if (window.lucide?.createIcons) window.lucide.createIcons();

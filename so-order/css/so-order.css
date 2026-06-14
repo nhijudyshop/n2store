@@ -2658,3 +2658,33 @@ body.so-edit-table-mode .so-data-row [data-cell-field]:not(.so-cell-edit):hover 
     font-weight: 600;
     margin-left: auto;
 }
+
+/* ── Edit-table mode: discoverability hint + cursor:cell (Task 2, 2026-06-14) ── */
+.so-edit-table-hint {
+    display: none; /* hidden by default; shown only in edit-table mode */
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 8px;
+    padding: 7px 12px;
+    background: #fefce8;
+    border: 1px solid #fde68a;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 500;
+    color: #78350f;
+}
+.so-edit-table-hint i {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+}
+body.so-edit-table-mode .so-edit-table-hint {
+    display: flex;
+}
+/* cursor:cell on editable cells in edit-table mode */
+body.so-edit-table-mode .so-table tbody td.so-cell-edit {
+    cursor: cell;
+}
+body.so-edit-table-mode .so-data-row:hover td.so-cell-edit {
+    background: #fef3c7;
+}

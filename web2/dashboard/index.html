@@ -174,7 +174,48 @@
                                 <th>Thời gian</th>
                             </tr>
                         </thead>
-                        <tbody id="recentBody"></tbody>
+                        <tbody id="recentBody">
+                            <tr>
+                                <td colspan="5">
+                                    <span
+                                        class="w2-skel"
+                                        style="display: block; height: 18px; border-radius: 4px"
+                                    ></span>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td colspan="5">
+                                    <span
+                                        class="w2-skel"
+                                        style="display: block; height: 18px; border-radius: 4px"
+                                    ></span>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td colspan="5">
+                                    <span
+                                        class="w2-skel"
+                                        style="display: block; height: 18px; border-radius: 4px"
+                                    ></span>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td colspan="5">
+                                    <span
+                                        class="w2-skel"
+                                        style="display: block; height: 18px; border-radius: 4px"
+                                    ></span>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td colspan="5">
+                                    <span
+                                        class="w2-skel"
+                                        style="display: block; height: 18px; border-radius: 4px"
+                                    ></span>
+                                </td>
+                            </tr>
+                        </tbody>
                     </table>
                 </div>
             </main>
@@ -297,11 +338,16 @@
                             const el = document.getElementById(id);
                             if (el) el.textContent = '—';
                         });
-                        if (window.notificationManager)
-                            notificationManager.show(
-                                'Lỗi tải KPI: ' + (err.message || err),
-                                'error'
-                            );
+                        window.notificationManager?.show(
+                            'Không tải được Dashboard KPI. Thử lại sau.',
+                            'error'
+                        );
+                        // Visible error state in table + charts
+                        const errHtml = `<tr><td colspan="5" style="text-align:center;color:#dc2626;padding:18px 8px;">
+                            Lỗi tải dữ liệu.
+                            <button onclick="load()" style="margin-left:8px;padding:4px 12px;background:#0068ff;color:#fff;border:none;border-radius:5px;cursor:pointer;font-size:13px;">Thử lại</button>
+                        </td></tr>`;
+                        document.getElementById('recentBody').innerHTML = errHtml;
                     }
                 }
                 function esc(s) {

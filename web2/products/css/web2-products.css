@@ -817,3 +817,39 @@
 .w2p-bulk-btn-primary:active {
     transform: translateY(0);
 }
+
+/* ===== Mobile responsive — products table ===== */
+/* 768px: ẩn cột ưu tiên thấp (GIÁ MUA, GHI CHÚ, STT) */
+@media (max-width: 768px) {
+    /* STT (#) — cột thứ 2 */
+    .data-table thead tr th:nth-child(2),
+    .data-table tbody tr td:nth-child(2) {
+        display: none;
+    }
+    /* GIÁ MUA — cột thứ 7 */
+    .data-table thead tr th:nth-child(7),
+    .data-table tbody tr td:nth-child(7) {
+        display: none;
+    }
+    /* GHI CHÚ — cột thứ 9 */
+    .data-table thead tr th:nth-child(9),
+    .data-table tbody tr td:nth-child(9) {
+        display: none;
+    }
+    /* Co modal lại */
+    #productModal .modal-content {
+        min-width: min(480px, calc(100vw - 32px)) !important;
+        max-width: calc(100vw - 32px) !important;
+    }
+}
+
+/* 640px: bảng cuộn ngang, không vỡ layout */
+@media (max-width: 640px) {
+    .table-scroll {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    .table-scroll .data-table {
+        min-width: 540px;
+    }
+}
