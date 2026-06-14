@@ -12,7 +12,7 @@
 
 **Không làm (nêu rõ):** công nợ NCC quá hạn (cần normalize so-order ra rows = C8 phase 2, defer); Zalo nhắc nợ (cần Zalo live).
 
-**Files:** `render.com/routes/v2/notifications.js`. `node --check` PASS. **Status:** ✅ (chờ Render deploy verify qua `/scan`).
+**Files:** `render.com/routes/v2/notifications.js`. `node --check` PASS. **Status:** ✅ **VERIFIED LIVE**: `/scan` chạy clean (14 noti, đa số `stock_low` thật); block mới chạy không lỗi; data hiện 14 đợt đều ngày 2026-06-13 (oldest=hôm qua) → 0 đợt >21 ngày → 0 alert `so_shipment_unreceived` ĐÚNG (client-side đếm độc lập cũng = 0). Sẽ fire khi đợt thật quá 21 ngày.
 
 ### [web2][render][worker] Hướng D — dọn nốt Firestore Web 2.0 → Postgres ✅
 
