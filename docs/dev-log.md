@@ -30,7 +30,7 @@
 
 **Verify:** mọi file `node --check` PASS, 0 firebase logic còn trong web2-msg-template.js. Endpoint cần deploy Render+worker mới curl-verify được.
 
-**Files:** purchase-refund (HTML+JS), web2-msg-templates.js (mới), server.js, worker.js, routes.js, web2-msg-template.js. **Status:** ✅ (chờ deploy verify live).
+**Files:** purchase-refund (HTML+JS), web2-msg-templates.js (mới), server.js, worker.js, routes.js, web2-msg-template.js. **Status:** ✅ **VERIFIED LIVE**: GET auto-seed 4 default vào Postgres; CRUD round-trip qua session (create TEST-D2-tpl → appeared → delete → removed, finalCount về 4); worker proxy OK.
 
 ### [web2] Cross-page deep-linking (Hướng B) — liên kết NCC: công nợ ↔ ví ↔ sổ order, so-order → Kho SP ✅
 
