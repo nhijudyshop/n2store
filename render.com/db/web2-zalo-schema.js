@@ -53,7 +53,8 @@ async function ensureWeb2ZaloSchema(pool) {
                     ADD COLUMN IF NOT EXISTS is_pinned        BOOLEAN NOT NULL DEFAULT false,
                     ADD COLUMN IF NOT EXISTS is_muted         BOOLEAN NOT NULL DEFAULT false,
                     ADD COLUMN IF NOT EXISTS muted_until      BIGINT,
-                    ADD COLUMN IF NOT EXISTS last_msg_sender_uid VARCHAR(100);
+                    ADD COLUMN IF NOT EXISTS last_msg_sender_uid VARCHAR(100),
+                    ADD COLUMN IF NOT EXISTS info_synced_at   BIGINT;
             `);
             // Backfill last_msg_sender_uid từ tin gần nhất (chỉ rows còn NULL → idempotent).
             await pool.query(`
@@ -127,6 +128,7 @@ async function ensureWeb2ZaloSchema(pool) {
                 is_muted      BOOLEAN NOT NULL DEFAULT false,
                 muted_until   BIGINT,
                 last_msg_sender_uid VARCHAR(100),
+                info_synced_at BIGINT,                       -- lần cuối lấy tên/avatar NHÓM từ zca (gate repair)
                 meta          JSONB NOT NULL DEFAULT '{}'::jsonb,
                 created_at    BIGINT NOT NULL,
                 updated_at    BIGINT NOT NULL,

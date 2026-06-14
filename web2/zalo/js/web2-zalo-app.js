@@ -547,8 +547,10 @@
             head +
             state.conv.list
                 .map((c) => {
-                    const name = c.display_name || c.zalo_uid || c.thread_id;
                     const group = c.thread_type === 'group';
+                    // Nhóm chưa có tên (đang chờ heal từ zca) → placeholder, KHÔNG lộ id số.
+                    const name =
+                        c.display_name || (group ? 'Nhóm Zalo' : c.zalo_uid || c.thread_id);
                     // Nhóm: hiện "Người gửi cuối: tin" → KHÔNG nhầm tên nhóm với người nhắn.
                     let preview = c.last_msg_text || '';
                     if (group && preview) {

@@ -45,6 +45,7 @@ let _cb = {
     onDelivered: null,
     onReaction: null,
     onUndo: null,
+    onConnected: null, // fire khi acc kết nối xong (boot/QR) → route repair tên nhóm
 };
 
 function configure(cb) {
@@ -322,6 +323,12 @@ async function _afterLogin(accountKey, api, label) {
     }
     _attachListener(accountKey, api);
     _setStatus(accountKey, 'connected');
+    // Sau khi kết nối: route tự sửa lại tên NHÓM (bug cũ lưu tên người nhắn cuối).
+    try {
+        _cb.onConnected?.(accountKey);
+    } catch (e) {
+        console.warn('[web2-zalo-zca] onConnected cb err:', e.message);
+    }
 }
 
 // ── Đăng nhập QR (không await — trả ngay, browser poll getQr) ───────────
@@ -614,6 +621,26 @@ async function getGroupMembersInfo(accountKey, uids) {
     return out;
 }
 
+// Lấy tên + avatar NHÓM theo group id (để sửa display_name nhóm bị bug cũ).
+// Trả { gid: {name, avatar} } — chỉ những gid resolve được.
+async function getGroupsInfo(accountKey, gids) {
+    const api = _requireApi(accountKey);
+    const ids = [...new Set((Array.isArray(gids) ? gids : [gids]).map(String).filter(Boolean))];
+    if (!ids.length) return {};
+    const info = await api.getGroupInfo(ids).catch(() => null);
+    const map = info?.gridInfoMap || {};
+    const out = {};
+    for (const id of ids) {
+        const g = map[id];
+        if (!g) continue;
+        out[id] = {
+            name: g.name || g.groupName || '',
+            avatar: g.fullAvt || g.avt || g.avatar || '',
+        };
+    }
+    return out;
+}
+
 // uid của chính tài khoản (để phân biệt tin mình gửi trong nhóm).
 function getOwnUid(accountKey) {
     return _sessions.get(accountKey)?.info?.uid || null;
@@ -693,6 +720,7 @@ module.exports = {
     fetchSelf,
     getGroupChatHistory,
     getGroupMembersInfo,
+    getGroupsInfo,
     getOwnUid,
     disconnect,
     status,

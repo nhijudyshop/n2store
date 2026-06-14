@@ -765,6 +765,205 @@
         }
     }
 
+    // ---------- Import dữ liệu (CSV/JSON qua Web2Import) ----------
+    // Schema cột Kho SP. `code` để trống → tự sinh theo NCC + tên (Web2ProductCode).
+    function _productImportConfig() {
+        return {
+            title: 'Nhập Kho Sản Phẩm',
+            entityLabel: 'sản phẩm',
+            fileBaseName: 'mau-kho-san-pham',
+            columns: [
+                {
+                    key: 'name',
+                    label: 'Tên sản phẩm',
+                    required: true,
+                    type: 'string',
+                    aliases: ['ten san pham', 'ten', 'product', 'name', 'ten sp'],
+                    hint: 'Bắt buộc',
+                },
+                {
+                    key: 'code',
+                    label: 'Mã SP',
+                    type: 'string',
+                    aliases: ['ma sp', 'ma', 'code', 'sku'],
+                    hint: 'Để trống sẽ tự sinh theo NCC + tên',
+                },
+                {
+                    key: 'variant',
+                    label: 'Biến thể',
+                    type: 'string',
+                    aliases: ['bien the', 'variant', 'mau size', 'mau-size'],
+                    hint: 'VD: Đỏ - L',
+                },
+                {
+                    key: 'supplier',
+                    label: 'NCC',
+                    type: 'string',
+                    aliases: ['nha cung cap', 'ncc', 'supplier', 'tab'],
+                    hint: 'Dùng sinh mã (HÀ NỘI / HƯƠNG CHÂU / KHO)',
+                },
+                {
+                    key: 'originalPrice',
+                    label: 'Giá mua',
+                    type: 'number',
+                    aliases: ['gia mua', 'gia nhap', 'cost', 'originalprice'],
+                    hint: 'Số, mặc định 0',
+                },
+                {
+                    key: 'price',
+                    label: 'Giá bán',
+                    type: 'number',
+                    aliases: ['gia ban', 'price', 'sell', 'sellprice'],
+                    hint: 'Số, mặc định 0',
+                },
+                {
+                    key: 'stock',
+                    label: 'Tồn kho',
+                    type: 'number',
+                    aliases: ['ton kho', 'stock', 'sl ton', 'quantity', 'sl'],
+                    hint: 'Số, mặc định 0',
+                },
+                {
+                    key: 'note',
+                    label: 'Ghi chú',
+                    type: 'string',
+                    aliases: ['ghi chu', 'note', 'tag'],
+                },
+                {
+                    key: 'imageUrl',
+                    label: 'Ảnh (URL)',
+                    type: 'string',
+                    aliases: ['anh', 'image', 'imageurl', 'hinh', 'hinh anh'],
+                },
+                {
+                    key: 'isActive',
+                    label: 'Trạng thái',
+                    type: 'bool',
+                    aliases: ['trang thai', 'status', 'active'],
+                    enumValues: ['Đang bán', 'Tạm dừng'],
+                    hint: 'Đang bán / Tạm dừng (mặc định Đang bán)',
+                },
+            ],
+            sampleRows: [
+                {
+                    name: 'ÁO THUN BASIC',
+                    code: '',
+                    variant: 'Đỏ - L',
+                    supplier: 'HÀ NỘI',
+                    originalPrice: 85000,
+                    price: 150000,
+                    stock: 12,
+                    note: 'HÀNG MỚI',
+                    imageUrl: '',
+                    isActive: 'Đang bán',
+                },
+                {
+                    name: 'QUẦN JEAN ỐNG SUÔNG',
+                    code: '',
+                    variant: 'Xanh - 30',
+                    supplier: 'HƯƠNG CHÂU',
+                    originalPrice: 120000,
+                    price: 250000,
+                    stock: 5,
+                    note: '',
+                    imageUrl: '',
+                    isActive: 'Đang bán',
+                },
+            ],
+            onDone: () => load(),
+            onCommit: _commitProductImport,
+        };
+    }
+
+    async function _commitProductImport(rows, { onProgress } = {}) {
+        const user = window.AuthManager?.getCurrentUser?.() || {};
+        const histMeta = {
+            userId: user.uid || user.email || null,
+            userName: user.displayName || user.email || null,
+            sourcePage: 'products-import',
+        };
+        // existingCodes từ cache full để auto-gen không trùng xuyên bảng.
+        let existingCodes = [];
+        const _cacheAll = window.Web2ProductsCache?.getAll?.();
+        if (Array.isArray(_cacheAll) && _cacheAll.length)
+            existingCodes = _cacheAll.map((p) => p.code).filter(Boolean);
+        else existingCodes = STATE.products.map((p) => p.code).filter(Boolean);
+        existingCodes = existingCodes.slice();
+
+        const suppliers = collectExistingSuppliers();
+        const colorShortMap = getColorShortMap();
+
+        let ok = 0;
+        let fail = 0;
+        const errors = [];
+        const total = rows.length;
+        for (let i = 0; i < rows.length; i++) {
+            const r = rows[i];
+            const rowNo = i + 2; // +2: dòng 1 là header trong file
+            try {
+                const name = (r.name || '').trim();
+                const variant = (r.variant || '').trim();
+                const supplier = (r.supplier || '').trim();
+                let code = (r.code || '').trim();
+                // Auto-sinh mã nếu để trống.
+                if (!code && window.Web2ProductCode) {
+                    const supName = supplier || 'KHO';
+                    const prefixMap = window.Web2ProductCode.buildPrefixMap(
+                        suppliers.includes(supName) ? suppliers : [...suppliers, supName]
+                    );
+                    prefixMap['KHO'] = 'KHO';
+                    try {
+                        const res = window.Web2ProductCode.suggest({
+                            supplierName: supName,
+                            productName: variant ? `${name} ${variant}` : name,
+                            existingCodes,
+                            supplierPrefixMap: prefixMap,
+                            colorShortMap,
+                        });
+                        code = res?.code || '';
+                    } catch (_) {
+                        /* suggest lỗi → fallback dưới */
+                    }
+                }
+                if (!code) {
+                    // Fallback: ASCII-upper từ tên + số thứ tự, tránh mã rác rỗng.
+                    const base = (window.Web2ProductCode?.toAsciiUpper?.(name) || 'SP')
+                        .replace(/[^A-Z0-9]/g, '')
+                        .slice(0, 10);
+                    let cand = base || 'SP';
+                    let n = 1;
+                    while (existingCodes.includes(cand)) cand = `${base}${++n}`;
+                    code = cand;
+                }
+                existingCodes.push(code);
+
+                const payload = {
+                    code,
+                    name,
+                    supplier: supplier || null,
+                    variant: variant || null,
+                    price: Number(r.price) || 0,
+                    originalPrice: Number(r.originalPrice) || 0,
+                    stock: Number(r.stock) || 0,
+                    imageUrl: (r.imageUrl || '').trim() || null,
+                    note: (r.note || '').trim() || null,
+                    isActive: r.isActive === undefined ? true : r.isActive !== false,
+                    createdBy: user.uid || user.email || null,
+                    ...histMeta,
+                };
+                await window.Web2ProductsApi.create(payload);
+                ok++;
+            } catch (e) {
+                fail++;
+                errors.push({ row: rowNo, error: e?.message || 'Lỗi không xác định' });
+            }
+            if (onProgress) onProgress({ done: i + 1, total });
+        }
+        // Đồng bộ cache + reload list.
+        window.Web2ProductsCache?.pushTickle?.({ action: 'import', count: ok });
+        return { ok, fail, errors };
+    }
+
     // ---------- Modal ----------
     function openCreate() {
         STATE.editingCode = null;
@@ -1473,6 +1672,15 @@
     function init() {
         if (window.lucide) lucide.createIcons();
         $('#btnCreateProduct')?.addEventListener('click', openCreate);
+        // Import dữ liệu CSV/JSON + tải file mẫu (NGUỒN CHUNG Web2Import).
+        $('#btnImportProducts')?.addEventListener('click', () => {
+            if (!window.Web2Import) return notify('Module nhập dữ liệu chưa load', 'error');
+            window.Web2Import.open(_productImportConfig());
+        });
+        $('#btnSampleProducts')?.addEventListener('click', () => {
+            if (!window.Web2Import) return notify('Module nhập dữ liệu chưa load', 'error');
+            window.Web2Import.downloadSample(_productImportConfig());
+        });
         _setupSse();
 
         // Bulk selection wiring (P1 2026-05-30)
