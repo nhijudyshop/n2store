@@ -627,7 +627,9 @@ async function getGroupsInfo(accountKey, gids) {
     const api = _requireApi(accountKey);
     const ids = [...new Set((Array.isArray(gids) ? gids : [gids]).map(String).filter(Boolean))];
     if (!ids.length) return {};
-    const info = await api.getGroupInfo(ids).catch(() => null);
+    // KHÔNG nuốt lỗi: lỗi API/mạng → throw để caller (lazy-heal/repair) KHÔNG đánh
+    // dấu info_synced_at (tránh đóng băng tên nhóm sai 6h vì 1 lần lỗi tạm thời).
+    const info = await api.getGroupInfo(ids);
     const map = info?.gridInfoMap || {};
     const out = {};
     for (const id of ids) {
