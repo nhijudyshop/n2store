@@ -8,8 +8,10 @@
 
 require('dotenv').config();
 const express = require('express');
+const cors = require('cors');
 const WebSocket = require('ws');
 const { Pool } = require('pg');
+const facebookRoutes = require('./facebook-routes'); // WEB2.0: FB Graph (merged from n2store-facebook)
 
 // Startup env validation — DB optional (falls back to Firebase). Warn for clarity.
 const REQUIRED_ENV = ['FIREBASE_PROJECT_ID', 'FIREBASE_CLIENT_EMAIL', 'FIREBASE_PRIVATE_KEY'];
@@ -696,6 +698,9 @@ app.use((req, res, next) => {
     next();
 });
 
+// CORS — frontend (nhijudy.store / github.io) gọi FB Graph endpoints cross-origin
+app.use(cors({ origin: '*' }));
+
 app.use(express.json());
 
 // Request logging (skip noisy health-check probes — Render pings every ~5s)
@@ -705,6 +710,10 @@ app.use((req, res, next) => {
     }
     next();
 });
+
+// Facebook Graph API routes (merged from n2store-facebook 2026-06-14):
+// /api/pages/*, /api/conversations/*, /api/refresh-tokens, /api/facebook-status
+app.use(facebookRoutes);
 
 // =====================================================
 // ROUTES

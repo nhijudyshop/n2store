@@ -1,23 +1,38 @@
 # Render.com deployment configuration
-# Service: n2store-live-chat (Pancake WebSocket Client - Multi-Account)
+# Service: web2-realtime — Web 2.0 Realtime (Pancake WebSocket relay + Facebook Graph API)
+# Gộp từ n2store-tpos-pancake + n2store-facebook (2026-06-14). Secrets set ở dashboard.
 
 services:
-  - type: web
-    name: n2store-live-chat
-    env: node
-    rootDir: live-chat/server
-    buildCommand: npm install
-    startCommand: npm start
-    envVars:
-      - key: NODE_ENV
-        value: production
-      - key: DATABASE_URL
-        sync: false
-      - key: FIREBASE_PROJECT_ID
-        sync: false
-      - key: FIREBASE_CLIENT_EMAIL
-        sync: false
-      - key: FIREBASE_PRIVATE_KEY
-        sync: false
-      - key: MAX_EVENTS
-        value: 1000
+    - type: web
+      name: web2-realtime
+      env: node
+      rootDir: live-chat/server
+      buildCommand: npm install
+      startCommand: npm start
+      healthCheckPath: /ping
+      envVars:
+          - key: NODE_ENV
+            value: production
+          - key: MAX_EVENTS
+            value: 1000
+          # --- secrets (sync:false, set in dashboard / via API) ---
+          - key: DATABASE_URL
+            sync: false
+          - key: FIREBASE_PROJECT_ID
+            sync: false
+          - key: FIREBASE_CLIENT_EMAIL
+            sync: false
+          - key: FIREBASE_PRIVATE_KEY
+            sync: false
+          - key: RELAY_SECRET
+            sync: false
+          - key: FALLBACK_BASE
+            sync: false
+          - key: TELEGRAM_BOT_TOKEN
+            sync: false
+          - key: TELEGRAM_ADMIN_CHAT_ID
+            sync: false
+          # --- Facebook Graph (merged) — TPOS CRM token source + per-page fallback ---
+          - key: APP_SECRET
+            sync: false
+          # PAGE_TOKEN_<pageId> = FB page access token (fallback khi cache rỗng)
