@@ -2,6 +2,24 @@
 
 ## 2026-06-14
 
+### [render][web2][worker] Tách backend Web 2.0 sang service riêng `web2-api` (Web1⊥Web2 service-level) ✅
+
+**User:** "n2store-fallback là của web 1.0 → làm riêng cho web 2.0 hoặc chuyển tất cả web 2.0 qua [project web2.0n2store]". Chọn (AskUserQuestion): **service web2-api riêng** chạy lại codebase render.com ở chế độ web2-only.
+
+**Vấn đề:** API Web 2.0 (~45 route + hub SSE web2 + crons) thật ra vẫn nằm trong monolith `n2store-fallback` (Web 1.0). Cloudflare worker route toàn bộ `/api/*` → fallback.
+
+**Làm — flag-gated, reversible, deploy code-trước-infra-sau:**
+
+1. **Flags `server.js` + `cron/scheduler.js`** (commit `58af65dee`): `WEB2_ONLY=1` → tắt mọi background job Web 1.0 (TPOS sync/WS, invoice poller, SIP, cron/scheduler, aikol); `DISABLE_WEB2_JOBS=1` → tắt cron Web 2.0. Mặc định 2 cờ unset = hành vi y hệt cũ (boot-test 2 mode: default web1Jobs=on, WEB2_ONLY web1Jobs=off no-crash). Chuyển web2 noti-scan cron ra khỏi scheduler (nay Web1-only) → server.js gated DISABLE_WEB2_JOBS.
+2. **Service `web2-api`** (Render API, id `srv-d8n53oflk1mc739bi9gg`, `web2-api-kv04.onrender.com`, project web2.0n2store): copy 58 env từ fallback + WEB2_ONLY=1, rootDir render.com, plan starter, health `/health`. Verify LIVE: /health 200 (2 DB), services-overview ok:true, ổn định.
+3. **Worker cutover** (commit `d04b01c53`, GH Action deploy): `isWeb2Path(pathname)` → origin web2-api, còn lại fallback (2 forwarder `handleRenderFallbackProxy`+`handleCustomer360Proxy`). Verify: worker services-overview process.uptime = web2-api ≠ fallback; frontend e2e (system/products/native-orders/balance-history) data load 0 error.
+4. **fallback `DISABLE_WEB2_JOBS=1`** + redeploy (dừng cron web2 trùng; web1 /health 200). Double-cron window an toàn (claim atomic `FOR UPDATE SKIP LOCKED` + idempotent).
+5. **Relay `FALLBACK_BASE` → web2-api** (sửa lỗi audit phát hiện): relay forward `/api/web2-live-comments/ingest` + `/api/realtime/web2/sse/relay-notify` — nếu giữ fallback (web2 jobs off) → **mất live-comments + inbox SSE**.
+
+**Audit đối nghịch (workflow 14 agent, 33 findings/10 high)** → fix (commit `805a08866`): isWeb2Path += `/api/delivery-invoices` + `/api/refunds` (web2Db+SSE, trước route nhầm fallback → mutation notify sai hub); repoint 22 ref hardcoded `n2store-fallback` → `web2-api-kv04` (livestream snap/gallery/comments-mobile + thumbnail_url/zalo MEDIA_BASE default + relay default + 16 file web2 secondary base). Verify `/api/refunds/health`+`/api/delivery-invoices/health` = `{ok:true}` via web2-api. Giữ pbh-realtime.js wss (web2-api WS idle). **DEFER**: SePay web2 fan-out notify cross-instance (degradation, không mất data — data ghi đúng web2Db, refresh thấy).
+
+**Kết quả:** Web 2.0 (web2-api + web2-realtime relay + web2-db) độc lập hoàn toàn trong project web2.0n2store. fallback = Web 1.0 thuần. Reversible (revert worker / flip env). 3 service live + new code. Cost +~$7/mo (starter). Chi tiết: MEMORY [[reference_render_services]].
+
 ### [live-chat] Realtime comment livestream: shared module append-only + self-tick time + địa chỉ desktop ✅
 
 **User (4 ý):** (1) bỏ poller comment, comment mới → APPEND không re-render, làm 1 SHARED dùng chung index.html + comments-mobile.html; (2) index.html chưa hiện địa chỉ KH; (3) cải thiện toàn bộ; (4) "Vừa xong" có bộ đếm riêng tự tick (60s→1 phút…) vì append thì chỉ thời gian cần đổi.
@@ -35,6 +53,7 @@
 **Verify (browser session, admin/admin@@):** 3 tab OK — services: 45 USD/2 DB/8 svc/4 proc; pages: 10 group/37 card/summary [37,37,27,0]; sse: `live · web2:_admin:sse-log` 4 sub/200 log row. 2 redirect land đúng tab. **0 console error.** Screenshot 3 tab đẹp. **Status:** ✅ verified live.
 
 **Files:** `web2/system/{index.html,css/system.css,js/{system-app,system-services,system-sse}.js}` (mới), `web2/{admin-sse-monitor,services-dashboard}/index.html` (redirect, xóa js/css), `web2/shared/web2-sidebar.js`, `render.com/routes/web2-users.js`, `scripts/n2store-smoke-all-pages.js`, `web2/overview/index.html`, `CLAUDE.md`. `node --check` PASS.
+
 ### [orders-report][KPI] Cột "BH" (bán thêm livestream) + tab "KPI Livestream" ✅
 
 **User:** modal "Sửa đơn hàng" → tab Sản phẩm: thêm cột **BH (Bán hàng)** tick như KPI để đánh dấu SP bán thêm livestream; thêm sub-tab **KPI Livestream** trong trang "KPI - Hoa Hồng" ghi nhận toàn bộ SP bán thêm. Bổ sung: **tick BH thì không tick được KPI và ngược lại**.

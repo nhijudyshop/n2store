@@ -38,6 +38,30 @@
 
 ---
 
+## ✅ SPLIT 2026-06-14 (tối) — Backend Web 2.0 tách sang `web2-api` (Web1 ⊥ Web2 service-level)
+
+**Trước:** API Web 2.0 (~45 route + hub SSE web2 + crons) chạy chung trong monolith `n2store-fallback` (Web 1.0). **Sau:** tách sang service riêng **`web2-api`** trong project **web2.0n2store**.
+
+| Service          | id                                                        | flag                     | vai trò                                                                                          |
+| ---------------- | --------------------------------------------------------- | ------------------------ | ------------------------------------------------------------------------------------------------ |
+| **web2-api**     | `srv-d8n53oflk1mc739bi9gg` (`web2-api-kv04.onrender.com`) | `WEB2_ONLY=1`            | Backend Web 2.0 — cùng codebase `render.com`, tắt mọi job Web 1.0. Có cả 2 pool (chatDb+web2Db). |
+| n2store-fallback | `srv-d4e5pd3gk3sc73bgv600`                                | `DISABLE_WEB2_JOBS=1`    | Hub Web 1.0 — vẫn mount route web2 (vô hại) nhưng không chạy cron/job web2.                      |
+| web2-realtime    | `srv-d8n45k4vikkc73cg3nrg`                                | `FALLBACK_BASE=web2-api` | Relay forward web2 → web2-api (ingest + relay-notify).                                           |
+
+**Cờ (`render.com/server.js`):**
+
+- `WEB2_ONLY=1` → tắt job Web 1.0: TPOS sync/WS, invoice poller, SIP, `cron/scheduler`, aikol-queue, autoConnect realtime.
+- `DISABLE_WEB2_JOBS=1` → tắt cron Web 2.0: sepay retry/reprocess, livestream-poller, pancake-refresh, unread-reconcile, msg-send-worker, noti-scan.
+- Mặc định 2 cờ unset = hành vi cũ. Route mount cả 2 bên; **Cloudflare worker quyết định traffic** (`isWeb2Path` → web2-api, còn lại fallback).
+
+**Routing worker** (`cloudflare-worker/modules/handlers/proxy-handler.js`): `renderOriginFor(pathname)` trong 2 forwarder `handleRenderFallbackProxy` + `handleCustomer360Proxy`. `isWeb2Path`: `/api/web2*`, native-orders, fast-sale-orders, delivery-invoices, refunds, reconcile, wallet-deposits, purchase-refund, services-overview, livestream, realtime/web2, `/api/v2/(notifications|audit-log|supplier-aging|dashboard-kpi|smart-match|inventory-forecast|supplier-360|cart|kpi|web2-)`.
+
+**⚠ DEFER**: SePay (`/api/sepay`) vẫn → fallback (web1); web2 fan-out notify (CK→ví KH) bắn hub fallback → client web2-api miss SSE realtime (data ghi đúng web2Db, refresh thấy). Fix sau: cross-instance relay-notify.
+
+**Rollback**: revert worker (web2 → fallback lại) + xoá `WEB2_ONLY`/`DISABLE_WEB2_JOBS`. web2-api có thể xoá (không ảnh hưởng tới khi worker route về).
+
+---
+
 ## ✅ CONSOLIDATION 2026-06-14 (chiều) — gộp về 3 web service
 
 **Đã XÓA 3 service**: `n2store-tpos-pancake`, `n2store-facebook`, `n2store-aikol-scraper`.
