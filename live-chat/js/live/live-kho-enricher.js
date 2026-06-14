@@ -3,13 +3,17 @@
 // LiveKhoEnricher — LẤP CHỖ TRỐNG SĐT/địa chỉ ở mỗi dòng comment khi Live
 // Partner (chatomni/info) không có thông tin liên hệ. Khách mới comment
 // thường CHƯA là Partner CRM → row trống. Nhưng khách đó có thể đã có sẵn
-// trong KHO KHÁCH HÀNG (Web 1.0 Render DB `customers`) — match theo fb_id
-// (comment luôn có fb_id). Batch lookup qua POST /api/v2/customers/batch
-// {fb_ids:[...]} → fill state.customerKhoCache → renderCommentItem dùng làm
-// fallback (Live trước, kho KH lấp chỗ trống — KHÔNG ghi đè partnerCache).
+// trong KHO KHÁCH HÀNG warehouse Web 2.0 (`web2_customers`).
 //
-// Lưu ý layering: gọi API Web 1.0 (không đọc DB trực tiếp) — đúng pattern
-// rule 5b; trang này đã gọi /api/v2/customers/* sẵn (showPancakeCustomerInfo).
+// DUAL-LOOKUP (2026-06-14, parity với comments-mobile.js): match theo CẢ
+//   (a) fb_id  → POST /api/web2/customers/batch-by-fbid
+//   (b) phone  → POST /api/web2/customers/batch-by-phone
+// vì nhiều KH trong kho key theo SĐT (import từ đơn) KHÔNG có fb_id → lookup
+// fb_id-only (bản cũ) miss → index.html không hiện địa chỉ dù kho có. Kết quả
+// đổ vào state.customerKhoCache[fbId] → renderCommentItem dùng fallback (Live
+// trước, kho KH lấp chỗ trống — KHÔNG ghi đè partnerCache).
+//
+// Layering: gọi API Web 2.0 (không đọc DB trực tiếp) — đúng rule 5b.
 // =====================================================================
 
 (function () {
@@ -18,9 +22,11 @@
     if (typeof window === 'undefined') return;
 
     const PENDING_DEBOUNCE = 600;
-    const BATCH_CAP = 200; // cap fb_ids/request — tránh payload lớn khi list dài
-    let pending = new Set(); // fb_ids chờ flush
-    let attempted = new Set(); // fb_ids đã hỏi kho (kể cả miss) — không hỏi lại
+    const BATCH_CAP = 200; // cap fb_ids/phones per request — tránh payload lớn
+    let pendingFb = new Set(); // fb_ids chờ flush
+    let pendingPhone = new Set(); // phones (normalized) chờ flush
+    let attemptedFb = new Set(); // fb_ids đã hỏi kho (kể cả miss)
+    let attemptedPhone = new Set(); // phones đã hỏi kho
     let flushTimer = null;
     let scanScheduled = false;
 
@@ -31,20 +37,38 @@
         return s;
     }
 
-    // Thu fb_ids cần enrich: có trong comment, CHƯA có Phone từ Live partnerCache,
-    // CHƯA hỏi kho lần nào.
-    function gatherFbIds() {
+    // SĐT của 1 comment: DB (c.phone) → _phones[0] → regex trong message.
+    function commentPhone(c) {
+        if (c.phone) return normPhone(c.phone);
+        const arr = c._phones;
+        const ph = Array.isArray(arr) && arr.length ? arr[0] : null;
+        if (ph) return normPhone(typeof ph === 'string' ? ph : ph.phone_number || ph.phone || '');
+        const m = String(c.message || '')
+            .replace(/[.\s()\-_]/g, '')
+            .match(/(?:\+?84|0)(\d{9})(?!\d)/);
+        return m ? '0' + m[1] : '';
+    }
+
+    // Comment cần enrich = chưa có SĐT/địa chỉ từ Live partnerCache & kho cache.
+    function needsEnrich(state, c) {
+        const fbId = c.from?.id;
+        const partner = fbId && state.partnerCache?.get(fbId);
+        if (partner && (partner.Phone || partner.Street)) return false;
+        const kho = fbId && state.customerKhoCache?.get(fbId);
+        if (kho && (kho.phone || kho.address)) return false;
+        return true;
+    }
+
+    function gather() {
         const state = window.LiveState;
-        if (!state || !Array.isArray(state.comments)) return [];
-        const ids = new Set();
+        if (!state || !Array.isArray(state.comments)) return;
         for (const c of state.comments) {
+            if (!needsEnrich(state, c)) continue;
             const fbId = c.from?.id;
-            if (!fbId || attempted.has(fbId)) continue;
-            const partner = state.partnerCache?.get(fbId);
-            if (partner && partner.Phone) continue; // Live đã có SĐT → bỏ qua
-            ids.add(fbId);
+            if (fbId && !attemptedFb.has(fbId)) pendingFb.add(fbId);
+            const phone = commentPhone(c);
+            if (phone && phone.length >= 9 && !attemptedPhone.has(phone)) pendingPhone.add(phone);
         }
-        return Array.from(ids);
     }
 
     function scheduleFlush() {
@@ -52,50 +76,89 @@
         flushTimer = setTimeout(flush, PENDING_DEBOUNCE);
     }
 
+    async function postBatch(url, body) {
+        try {
+            const resp = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+            });
+            const json = await resp.json();
+            return json && json.success ? json.data || {} : {};
+        } catch (e) {
+            console.warn('[LiveKhoEnricher] batch fail:', e.message);
+            return {};
+        }
+    }
+
     async function flush() {
         flushTimer = null;
         const state = window.LiveState;
         if (!state) return;
-        const fbIds = Array.from(pending).slice(0, BATCH_CAP);
-        pending = new Set(Array.from(pending).slice(BATCH_CAP)); // giữ phần dư cho lần sau
-        if (!fbIds.length) return;
 
-        // Đánh dấu đã hỏi NGAY (kể cả request fail) để không loop vô hạn.
-        for (const id of fbIds) attempted.add(id);
+        const fbIds = Array.from(pendingFb).slice(0, BATCH_CAP);
+        pendingFb = new Set(Array.from(pendingFb).slice(BATCH_CAP));
+        const phones = Array.from(pendingPhone).slice(0, BATCH_CAP);
+        pendingPhone = new Set(Array.from(pendingPhone).slice(BATCH_CAP));
+        if (!fbIds.length && !phones.length) return;
+
+        // Đánh dấu đã hỏi NGAY (kể cả request fail) → không loop vô hạn.
+        for (const id of fbIds) attemptedFb.add(id);
+        for (const p of phones) attemptedPhone.add(p);
 
         const workerUrl = state.workerUrl;
-        try {
-            // 2026-06-07: đọc kho KH warehouse Web 2.0 (Live + Web1.0 customers đã gỡ).
-            const resp = await fetch(`${workerUrl}/api/web2/customers/batch-by-fbid`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ fbIds: fbIds }),
+        const jobs = [];
+        if (fbIds.length)
+            jobs.push(postBatch(`${workerUrl}/api/web2/customers/batch-by-fbid`, { fbIds }));
+        else jobs.push(Promise.resolve({}));
+        if (phones.length)
+            jobs.push(postBatch(`${workerUrl}/api/web2/customers/batch-by-phone`, { phones }));
+        else jobs.push(Promise.resolve({}));
+
+        const [byFb, byPhoneRaw] = await Promise.all(jobs);
+
+        // Chuẩn hoá phoneMap theo SĐT normalized.
+        const byPhone = {};
+        for (const k of Object.keys(byPhoneRaw)) byPhone[normPhone(k)] = byPhoneRaw[k];
+
+        let merged = 0;
+        const setKho = (fbId, rec) => {
+            if (!fbId || !rec) return;
+            const phone = normPhone(rec.phone || rec.Phone);
+            const address = rec.address || rec.Address || '';
+            if (!phone && !address) return;
+            // Không ghi đè nếu đã có cache đầy đủ.
+            const ex = state.customerKhoCache.get(fbId);
+            if (ex && ex.phone && ex.address) return;
+            state.customerKhoCache.set(fbId, {
+                phone,
+                address,
+                name: rec.name || rec.Name || (ex && ex.name) || '',
+                status: rec.status || rec.Status || (ex && ex.status) || '',
             });
-            const json = await resp.json();
-            const map = json && json.success ? json.data || {} : {};
-            let merged = 0;
-            for (const fbId of Object.keys(map)) {
-                const c = map[fbId] || {};
-                const phone = normPhone(c.phone);
-                const address = c.address || '';
-                if (!phone && !address) continue;
-                state.customerKhoCache.set(fbId, {
-                    phone,
-                    address,
-                    name: c.name || '',
-                    status: c.status || '',
-                });
-                merged++;
+            merged++;
+        };
+
+        // (a) fb_id hits → set trực tiếp theo fbId.
+        for (const fbId of Object.keys(byFb)) setKho(fbId, byFb[fbId]);
+
+        // (b) phone hits → áp cho MỌI comment có SĐT khớp (key theo fbId của comment đó).
+        if (Object.keys(byPhone).length) {
+            for (const c of state.comments) {
+                const fbId = c.from?.id;
+                if (!fbId) continue;
+                const existing = state.customerKhoCache.get(fbId);
+                if (existing && existing.phone && existing.address) continue;
+                const rec = byPhone[commentPhone(c)];
+                if (rec) setKho(fbId, rec);
             }
-            if (merged && window.LiveCommentList?.renderComments) {
-                window.LiveCommentList.renderComments();
-            }
-        } catch (e) {
-            console.warn('[LiveKhoEnricher] flush fail:', e.message);
         }
 
-        // Còn phần dư (list rất dài) → flush tiếp.
-        if (pending.size) scheduleFlush();
+        if (merged && window.LiveCommentList?.renderComments) {
+            window.LiveCommentList.renderComments();
+        }
+
+        if (pendingFb.size || pendingPhone.size) scheduleFlush();
     }
 
     function scan() {
@@ -103,21 +166,17 @@
         scanScheduled = true;
         requestAnimationFrame(() => {
             scanScheduled = false;
-            const fbIds = gatherFbIds();
-            if (!fbIds.length) return;
-            for (const id of fbIds) pending.add(id);
-            scheduleFlush();
+            gather();
+            if (pendingFb.size || pendingPhone.size) scheduleFlush();
         });
     }
 
-    // MEDIUM-cleanup (2026-06-13): clear khi đổi campaign/page. Trước đây `attempted`
-    // + `pending` chỉ add, không bao giờ clear → Set phình theo thời gian VÀ khi đổi
-    // campaign các KH cũ vẫn bị coi "đã hỏi" → không re-enrich cho danh sách mới.
-    // (Giữ nguyên việc add vào `attempted` NGAY tại flush kể cả request fail —
-    //  đó là guard chống loop vô hạn cố ý, xem comment ở flush().)
+    // Clear khi đổi campaign/page (KH cũ không còn bị coi "đã hỏi" cho list mới).
     function reset() {
-        pending = new Set();
-        attempted = new Set();
+        pendingFb = new Set();
+        pendingPhone = new Set();
+        attemptedFb = new Set();
+        attemptedPhone = new Set();
         if (flushTimer) {
             clearTimeout(flushTimer);
             flushTimer = null;
@@ -129,7 +188,6 @@
             setTimeout(init, 500);
             return;
         }
-        // Mỗi lần render danh sách comment → scan để bắt user mới (realtime/load thêm).
         const orig = window.LiveCommentList.renderComments;
         if (orig && !window.LiveCommentList.__khoEnricherWrapped) {
             window.LiveCommentList.renderComments = function () {

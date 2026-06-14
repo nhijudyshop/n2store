@@ -2,6 +2,23 @@
 
 ## 2026-06-14
 
+### [live-chat] Realtime comment livestream: shared module append-only + self-tick time + địa chỉ desktop ✅
+
+**User (4 ý):** (1) bỏ poller comment, comment mới → APPEND không re-render, làm 1 SHARED dùng chung index.html + comments-mobile.html; (2) index.html chưa hiện địa chỉ KH; (3) cải thiện toàn bộ; (4) "Vừa xong" có bộ đếm riêng tự tick (60s→1 phút…) vì append thì chỉ thời gian cần đổi.
+
+**Map (workflow 4 agent):** desktop đã push-only + `prependComments` (append) nhưng time tuyệt đối tĩnh + địa chỉ bỏ qua `comment.address`; **mobile có poller 60s/90s + full `innerHTML` rebuild** mỗi SSE; server `web2_live_comments` có cột address, GET trả sẵn, SSE payload chỉ tickle.
+
+**Làm:**
+
+1. **2 module SHARED** (`live-chat/js/shared/`): `live-time.js` (`LiveTime`: relative "Vừa xong/N phút/N giờ" GMT+7 + MỘT setInterval 30s quét `[data-live-ts]` chỉ đổi textContent — KHÔNG re-render); `live-comments-stream.js` (`LiveCommentsStream`: SSE `web2:live-comments` + cursor `updated_at` + debounce 400ms delta-fetch + dedup → `onDelta(rows)`, `allowGlobal` cho mobile).
+2. **Desktop** (`live-init.js`): thay block SSE inline + `_fetchLiveCommentDelta` → dùng `LiveCommentsStream` (onDelta→`prependComments`), tách `_resolveSelectedPostIds`, `primeCursor` sau initial load. `live-comment-list.js`: time → `LiveTime.markup` (data-live-ts), địa chỉ/SĐT fallback `comment.address`/`comment.phone` từ DB + `_rowSig` đồng bộ.
+3. **Mobile** (`comments-mobile.js`): BỎ poller comment 60s; SSE → `LiveCommentsStream` → `applyDelta` (prepend card mới / patch card cũ theo data-id — KHÔNG full rebuild); time → `LiveTime.markup`; prime cursor sau load; giữ loadPosts 90s.
+4. **Địa chỉ desktop (#2)** (`live-kho-enricher.js`): nâng từ lookup fb_id-only → **DUAL fb_id + phone** (`batch-by-fbid` + `batch-by-phone`) như mobile — KH key theo SĐT trong kho giờ cũng fill địa chỉ.
+
+**Browser-verified (localhost, web2 login):** desktop — LiveTime/Stream loaded, `liveStream:true`, 18 ticker nodes, time "2 phút" relative, 0 console errors, SĐT từ DB hiện đúng 3/3. mobile — 100 cards, 100 ticker nodes, time "1 phút", 0 errors, 62 địa chỉ + 69 SĐT hiển thị (warehouse enrich OK).
+
+**Files:** `live-chat/js/shared/{live-time.js,live-comments-stream.js}` (mới), `live-chat/js/live/{live-comment-list.js,live-init.js,comments-mobile.js,live-kho-enricher.js}`, `live-chat/{index.html,comments-mobile.html}`. `node --check` PASS hết. **Status:** ✅
+
 ### [web2] Trang "Cấu hình & Hệ thống" — gộp services-dashboard + admin-sse-monitor + danh sách trang ✅
 
 **User:** "build 1 trang trong web 2.0 phần cấu hình thanh menu: xem render server, database render, xem log realtime, các trang dùng… gộp `services-dashboard` + `admin-sse-monitor` vào trang mới".

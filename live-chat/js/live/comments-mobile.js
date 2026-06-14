@@ -282,7 +282,7 @@
                 ${avatarHtml(c)}
                 <div class="c-id">
                     <div class="c-name">${esc(nameOf(c))}${pg ? `<span class="pgbadge ${pg.c}">${esc(pg.t)}</span>` : ''}</div>
-                    <div class="c-time">${esc(fmtTime(c.created_time))}</div>
+                    ${window.LiveTime ? window.LiveTime.markup(c.created_time, { tag: 'div', cls: 'c-time' }) : `<div class="c-time">${esc(fmtTime(c.created_time))}</div>`}
                 </div>
                 <span class="st ${st.cls}">${esc(st.label)}</span>
             </div>
@@ -532,6 +532,7 @@
             ALL = data;
             scheduleRender();
             topId = newTop;
+            primeFromData(data); // prime cursor cho LiveCommentsStream (SSE delta append)
             if (hadNew) showNewPill();
             // enrich kho + thumbnail (chỉ N đầu) song song → re-render coalesced.
             Promise.allSettled([
@@ -640,25 +641,122 @@
         { passive: true }
     );
 
-    // ---------- realtime SSE ----------
-    let sseT;
+    // ---------- realtime SSE (engine SHARED LiveCommentsStream — BỎ poller comment) ----------
+    let stream = null;
+
+    function primeFromData(data) {
+        if (!stream || !data || !data.length) return;
+        let u = 0,
+            c = 0;
+        for (const r of data) {
+            const uu = Number(r.updated_at) || 0;
+            if (uu > u) u = uu;
+            const cc = window.LiveTime ? window.LiveTime.parseMs(r.created_time) : 0;
+            if (cc > c) c = cc;
+        }
+        stream.primeCursor({ updatedMs: u, createdMs: c });
+    }
+
+    function cardSel(id) {
+        return '.card[data-id="' + String(id).replace(/["\\]/g, '\\$&') + '"]';
+    }
+
+    // Enrich KH (kho) + thumbnail cho các dòng MỚI rồi patch đúng card đó.
+    async function enrichDelta(rows) {
+        await Promise.allSettled([
+            enrichWarehouse(rows),
+            fetchThumbs(rows.slice(0, THUMB_SCAN).map((c) => c.id)).then((t) => {
+                THUMBS = Object.assign({}, THUMBS, t);
+            }),
+        ]);
+        for (const r of rows) {
+            const cur = ALL.find((x) => String(x.id) === String(r.id));
+            const el = listEl.querySelector(cardSel(r.id));
+            if (cur && el) el.outerHTML = cardHtml(cur);
+        }
+    }
+
+    // APPEND incremental — KHÔNG full re-render. Dòng MỚI → prepend card lên đầu;
+    // dòng CŨ (server fill phone/has_order) → patch đúng card theo data-id.
+    function applyDelta(rows) {
+        if (!rows || !rows.length) return;
+        // Chưa render gì (boot lỗi / list rỗng) → merge rồi render 1 lần (không lặp).
+        if (!ALL.length || !listEl.querySelector('.card')) {
+            const seen = {};
+            ALL.forEach((x, i) => (seen[String(x.id)] = i));
+            const fresh0 = [];
+            rows.forEach((r) => {
+                const i = seen[String(r.id)];
+                if (i != null) ALL[i] = Object.assign({}, ALL[i], r);
+                else {
+                    ALL.unshift(r);
+                    fresh0.push(r);
+                }
+            });
+            scheduleRender();
+            if (fresh0.length) enrichDelta(fresh0);
+            return;
+        }
+        const fresh = [];
+        for (const r of rows) {
+            const idx = ALL.findIndex((x) => String(x.id) === String(r.id));
+            if (idx >= 0) {
+                ALL[idx] = Object.assign({}, ALL[idx], r);
+                const el = listEl.querySelector(cardSel(r.id));
+                if (el) el.outerHTML = cardHtml(ALL[idx]);
+            } else {
+                fresh.push(r);
+            }
+        }
+        if (fresh.length) {
+            // delta trả DESC (mới nhất trước) → unshift đảo để giữ DESC trong ALL.
+            for (let i = fresh.length - 1; i >= 0; i--) ALL.unshift(fresh[i]);
+            const vis = fresh.filter(visible);
+            if (vis.length) {
+                listEl.insertAdjacentHTML('afterbegin', vis.map(cardHtml).join(''));
+                if (window.scrollY > 240) showNewPill();
+                topId = String(ALL[0] && ALL[0].id) || topId;
+            }
+            enrichDelta(fresh);
+        }
+        const vn = ALL.filter(visible).length;
+        countEl.textContent = vn + (vn >= LIMIT ? '+' : '') + ' comment';
+        if (hideCountEl) hideCountEl.textContent = hiddenCount();
+    }
+
     function wireSse() {
-        if (!window.Web2SSE || !window.Web2SSE.subscribe) return;
-        window.Web2SSE.subscribe('web2:live-comments', () => {
-            clearTimeout(sseT);
-            sseT = setTimeout(() => load({ silent: true }), 800);
+        if (!window.LiveCommentsStream) {
+            // Fallback (engine chưa load): SSE → silent full reload như cũ.
+            if (!window.Web2SSE || !window.Web2SSE.subscribe) return;
+            let sseT;
+            window.Web2SSE.subscribe('web2:live-comments', () => {
+                clearTimeout(sseT);
+                sseT = setTimeout(() => load({ silent: true }), 800);
+            });
+            return;
+        }
+        stream = window.LiveCommentsStream.create({
+            allowGlobal: true, // mobile xem toàn cục (hoặc 1 post nếu đã chọn)
+            getWorkerUrl: () => WORKER,
+            getPostIds: () => (selectedPost ? [selectedPost.post_id] : []),
+            mapRow: (r) => r,
+            getCreatedMs: (r) => (window.LiveTime ? window.LiveTime.parseMs(r.created_time) : 0),
+            onDelta: (rows) => applyDelta(rows),
         });
+        stream.start();
     }
 
     // ---------- boot ----------
     load();
     loadPosts();
     wireSse();
-    setInterval(() => load({ silent: true }), 60000);
+    // BỎ poller comment 60s (user 2026-06-14): realtime push qua SSE delta + append.
+    // Giữ loadPosts 90s (danh sách bài live không có SSE riêng).
     setInterval(loadPosts, 90000);
     document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible') {
-            load({ silent: true });
+            if (stream) stream.fetchNow();
+            else load({ silent: true });
             loadPosts();
         }
     });
