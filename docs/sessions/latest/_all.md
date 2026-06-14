@@ -3,17 +3,16 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `e0b2cc6` — fix(orders-report,render): Web1 realtime TIN NHẮN — fix race/đè + gỡ hệ trùng realtime_updates
-**Last updated**: 2026-06-14 16:52:54 +07
-**Latest session**: [`RESUME:20260614-165254-e0b2cc6`](../20260614-165254-e0b2cc6.md)
-**Summary**: fix(orders-report,render): Web1 realtime TIN NHẮN — fix race/đè + gỡ hệ trùng realtime_updates
+**Latest commit**: `768d518` — feat(orders-report,render): match badge cột TIN NHẮN theo SĐT (fallback PSID)
+**Last updated**: 2026-06-14 17:17:07 +07
+**Latest session**: [`RESUME:20260614-171707-768d518`](../20260614-171707-768d518.md)
+**Summary**: feat(orders-report,render): match badge cột TIN NHẮN theo SĐT (fallback PSID)
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`orders-report/`](./orders-report.md) — 2 file(s)
-- [`render-data-manager/`](./render-data-manager.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 2 file(s)
+- [`orders-report/`](./orders-report.md) — 4 file(s)
+- [`render.com/`](./render.com.md) — 3 file(s)
 
 ## All folder snapshots
 
@@ -28,7 +27,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-14 15:18
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-14 13:12
-- [`docs/`](./docs.md) — updated 2026-06-14 16:52
+- [`docs/`](./docs.md) — updated 2026-06-14 17:17
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-13 14:55
 - [`downloads/`](./downloads.md) — updated 2026-06-13 19:16
@@ -48,7 +47,7 @@
 - [`native-orders/`](./native-orders.md) — updated 2026-06-14 15:18
 - [`nhanhang/`](./nhanhang.md) — updated 2026-06-13 19:51
 - [`order-management/`](./order-management.md) — updated 2026-05-21 15:39
-- [`orders-report/`](./orders-report.md) — updated 2026-06-14 16:52
+- [`orders-report/`](./orders-report.md) — updated 2026-06-14 17:17
 - [`pancake-extension/`](./pancake-extension.md) — updated 2026-05-21 11:33
 - [`phone-management/`](./phone-management.md) — updated 2026-05-21 15:39
 - [`product-warehouse/`](./product-warehouse.md) — updated 2026-06-04 13:36
@@ -56,7 +55,7 @@
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-06-14 16:52
-- [`render.com/`](./render.com.md) — updated 2026-06-14 16:52
+- [`render.com/`](./render.com.md) — updated 2026-06-14 17:17
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-14 14:01
 - [`service-costs/`](./service-costs.md) — updated 2026-06-14 13:09
