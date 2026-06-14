@@ -215,6 +215,20 @@
         const fbids = [
             ...new Set(data.map((c) => c.fb_id && String(c.fb_id)).filter(Boolean)),
         ].filter((f) => !custMap.fb[f]);
+        if (!phones.length && !fbids.length) return;
+        // NGUỒN CHUNG (shared) — cùng engine enrich với desktop (LiveCustomerSync).
+        if (window.LiveCustomerSync) {
+            const res = await window.LiveCustomerSync.enrich({
+                workerUrl: WORKER,
+                phones,
+                fbIds: fbids,
+            });
+            for (const k of Object.keys(res.byPhone || {}))
+                custMap.phone[normP(k)] = res.byPhone[k];
+            for (const k of Object.keys(res.byFbId || {})) custMap.fb[String(k)] = res.byFbId[k];
+            return;
+        }
+        // Fallback (module chưa load): fetch trực tiếp.
         const jobs = [];
         if (phones.length)
             jobs.push(
@@ -543,6 +557,9 @@
             scheduleRender();
             topId = newTop;
             primeFromData(data); // prime cursor cho LiveCommentsStream (SSE delta append)
+            // KH mới từ comment → kho web2_customers (shared, dùng chung desktop).
+            if (window.LiveCustomerSync)
+                window.LiveCustomerSync.harvest(data, { workerUrl: WORKER });
             if (hadNew) showNewPill();
             // enrich kho + thumbnail (chỉ N đầu) song song → re-render coalesced.
             Promise.allSettled([
@@ -690,6 +707,8 @@
     // dòng CŨ (server fill phone/has_order) → patch đúng card theo data-id.
     function applyDelta(rows) {
         if (!rows || !rows.length) return;
+        // KH mới từ comment realtime → kho web2_customers (shared).
+        if (window.LiveCustomerSync) window.LiveCustomerSync.harvest(rows, { workerUrl: WORKER });
         // Chưa render gì (boot lỗi / list rỗng) → merge rồi render 1 lần (không lặp).
         if (!ALL.length || !listEl.querySelector('.card')) {
             const seen = {};

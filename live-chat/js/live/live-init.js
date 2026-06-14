@@ -127,7 +127,11 @@ const LiveColumnManager = {
                 // != null) → giữ cursor, không nhiễm comment live vào view campaign.
                 shouldFetch: () => !window.LiveColumnManager?._origComments,
                 mapRow: (row) => this._dbRowToComment(row),
-                onDelta: (rows) => window.LiveCommentList.prependComments(rows),
+                onDelta: (rows) => {
+                    window.LiveCommentList.prependComments(rows);
+                    // KH MỚI từ comment realtime → kho web2_customers (shared).
+                    this._harvestCommentCustomers(rows);
+                },
             });
             this._liveStream.start();
         } else if (window.Web2SSE?.subscribe) {
@@ -729,6 +733,8 @@ const LiveColumnManager = {
                     createdMs: this._lastCommentMaxMs,
                 });
             }
+            // KH từ load đầu → kho web2_customers (shared, dedupe/non-overwrite).
+            this._harvestCommentCustomers(allComments);
 
             // Update selectedPage to first campaign's page
             if (campaigns[0]) {
@@ -983,52 +989,17 @@ const LiveColumnManager = {
         const state = window.LiveState;
         const list = Array.isArray(comments) ? comments : state.comments || [];
         if (!list.length) return null;
-        const norm = (s) =>
-            String(s || '')
-                .replace(/\D/g, '')
-                .slice(-10);
-        const phoneOf = (c) => {
-            const a = c._phones;
-            const ph = Array.isArray(a) && a.length ? a[0] : null;
-            if (ph) {
-                const v = typeof ph === 'string' ? ph : ph.phone_number || ph.phone || '';
-                if (norm(v).length === 10) return norm(v);
-            }
-            const m = String(c.message || '')
-                .replace(/[.\s()\-_]/g, '')
-                .match(/(?:\+?84|0)(\d{9})(?!\d)/);
-            return m ? '0' + m[1] : '';
-        };
-        const payload = [];
-        const seen = new Set();
-        for (const c of list) {
-            const fbId = c.from?.id ? String(c.from.id) : '';
-            if (!fbId) continue;
-            const phone = phoneOf(c);
-            const dk = fbId + '|' + phone;
-            if (seen.has(dk)) continue;
-            seen.add(dk);
-            payload.push({
-                fbId,
-                name: c.from?.name || '',
-                phone: phone || undefined,
-                fbPageId: c._pageObj?.Facebook_PageId || c._pageObj?.Id || undefined,
-            });
-        }
-        if (!payload.length) return null;
-        try {
-            const r = await fetch(`${state.workerUrl}/api/web2/customers/harvest-comments`, {
-                method: 'POST',
-                // ENFORCE-PREP (2026-06-12)
+        // DELEGATE sang LiveCustomerSync shared (dùng chung mobile): gom KH mới
+        // từ comment → /harvest-comments (server non-overwrite, _notify web2:customers
+        // → trang web2/customers tự reload). Dedupe + debounce trong module.
+        if (window.LiveCustomerSync) {
+            window.LiveCustomerSync.harvest(list, {
+                workerUrl: state.workerUrl,
                 headers: LiveColumnManager._w2AuthHeaders({ 'Content-Type': 'application/json' }),
-                body: JSON.stringify({ comments: payload }),
-                signal: AbortSignal.timeout(15000),
             });
-            return await r.json().catch(() => null);
-        } catch (e) {
-            console.warn('[Live-INIT] harvestCommentCustomers fail:', e.message);
-            return null;
+            return { queued: list.length };
         }
+        return null;
     },
 
     /**

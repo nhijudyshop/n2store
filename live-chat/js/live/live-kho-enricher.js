@@ -107,19 +107,26 @@
         for (const p of phones) attemptedPhone.add(p);
 
         const workerUrl = state.workerUrl;
-        const jobs = [];
-        if (fbIds.length)
-            jobs.push(postBatch(`${workerUrl}/api/web2/customers/batch-by-fbid`, { fbIds }));
-        else jobs.push(Promise.resolve({}));
-        if (phones.length)
-            jobs.push(postBatch(`${workerUrl}/api/web2/customers/batch-by-phone`, { phones }));
-        else jobs.push(Promise.resolve({}));
-
-        const [byFb, byPhoneRaw] = await Promise.all(jobs);
-
-        // Chuẩn hoá phoneMap theo SĐT normalized.
-        const byPhone = {};
-        for (const k of Object.keys(byPhoneRaw)) byPhone[normPhone(k)] = byPhoneRaw[k];
+        let byFb = {};
+        let byPhone = {};
+        if (window.LiveCustomerSync) {
+            // NGUỒN CHUNG (shared) — cùng engine enrich với mobile.
+            const res = await window.LiveCustomerSync.enrich({ workerUrl, fbIds, phones });
+            byFb = res.byFbId || {};
+            byPhone = res.byPhone || {};
+        } else {
+            // Fallback (module chưa load): fetch trực tiếp.
+            const jobs = [];
+            if (fbIds.length)
+                jobs.push(postBatch(`${workerUrl}/api/web2/customers/batch-by-fbid`, { fbIds }));
+            else jobs.push(Promise.resolve({}));
+            if (phones.length)
+                jobs.push(postBatch(`${workerUrl}/api/web2/customers/batch-by-phone`, { phones }));
+            else jobs.push(Promise.resolve({}));
+            const [fb, byPhoneRaw] = await Promise.all(jobs);
+            byFb = fb;
+            for (const k of Object.keys(byPhoneRaw)) byPhone[normPhone(k)] = byPhoneRaw[k];
+        }
 
         let merged = 0;
         const setKho = (fbId, rec) => {

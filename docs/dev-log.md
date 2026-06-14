@@ -2,6 +2,18 @@
 
 ## 2026-06-14
 
+### [live-chat] Status KH từ kho web2 + bidirectional sync (3 trang dùng chung nguồn shared) ✅
+
+**User (tiếp):** (1) treo comments-mobile coi render tất cả; (2) Trạng thái KH lấy ở kho KH web2; (3) 3 trang comments-mobile + index + web2/customers gắn kết: 2 trang comment dùng chung 1 nguồn shared, KH MỚI → update vào kho customers, data CÓ SẴN ở kho → update qua 2 trang comment. Kiến trúc: load all comment livestream ban đầu → append comment mới theo `post.type==='livestream'`.
+
+**Phân tích:** relay `live-chat/server` đã lọc forward CHỈ COMMENT `post.type==='livestream'` → DB `web2_live_comments` livestream-only → client load all + append SSE delta = đúng (#1 đạt từ refactor trước). Status cũ: mobile gom "Khách quen"/"Mới", desktop dùng CRM `partner.StatusText`. Kho `web2_customers.status`="Normal" (verify batch-by-phone) + có địa chỉ. Harvest (write→kho) ĐÃ có desktop (snap), MOBILE CHƯA.
+
+**Làm:** (1) `live-status.js` (`LiveStatus` shared) map status kho→nhãn VN; desktop+mobile lấy status TỪ KHO. (2) `live-customer-sync.js` (`LiveCustomerSync` shared) 2 chiều: `enrich` đọc kho (batch phone+fbid) + `harvest` ghi KH mới→`/harvest-comments` (dedupe/debounce, server non-overwrite, \_notify web2:customers). (3) Wire: desktop live-kho-enricher + mobile enrichWarehouse đọc qua LiveCustomerSync.enrich; harvest cả 2 trang (desktop onDelta/initial, mobile load/applyDelta).
+
+**Browser-verified (localhost):** mobile status "Bình thường"80/"Mới"23 từ kho (0 err, harvest+batch fire); desktop status "Bình thường"70, liveStream true, harvest fire.
+
+**Files:** `live-chat/js/shared/{live-status.js,live-customer-sync.js}` mới + `live-chat/js/live/{live-comment-list,live-init,live-kho-enricher,comments-mobile}.js` + `live-chat/{index,comments-mobile}.html` (bump ?v=w2c). `node --check` PASS. **Status:** ✅
+
 ### [web2][render] SePay realtime cross-instance forward (fallback → web2-api SSE hub) ✅
 
 **Tiếp nối tách web2-api:** `/api/sepay` vẫn ở fallback (Web 1.0), nhưng web2 fan-out (CK→ví KH) phát SSE notify trên fallback — client web2 subscribe ở hub web2-api → **miss realtime** (data vẫn ghi đúng web2Db). User: "Làm luôn".
