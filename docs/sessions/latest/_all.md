@@ -3,22 +3,23 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `cee3b76` — auto: session update
-**Last updated**: 2026-06-14 19:00:09 +07
-**Latest session**: [`RESUME:20260614-190009-cee3b76`](../20260614-190009-cee3b76.md)
-**Summary**: auto: session update
+**Latest commit**: `ef24e86` — docs(claude): browser test FIFO/cổng động — tránh tranh chấp đa phiên
+**Last updated**: 2026-06-14 19:04:01 +07
+**Latest session**: [`RESUME:20260614-190401-ef24e86`](../20260614-190401-ef24e86.md)
+**Summary**: docs(claude): browser test FIFO/cổng động — tránh tranh chấp đa phiên
 
 ## Folders affected in this commit
 
+- [`_root/`](./_root.md) — 1 file(s)
 - [`docs/`](./docs.md) — 1 file(s)
-- [`web2/`](./web2.md) — 4 file(s)
+- [`render.com/`](./render.com.md) — 1 file(s)
 
 ## All folder snapshots
 
 - [`.claude/`](./.claude.md) — updated 2026-06-05 10:42
 - [`.github/`](./.github.md) — updated 2026-06-13 11:30
 - [`AI/`](./AI.md) — updated 2026-05-21 15:39
-- [`_root/`](./_root.md) — updated 2026-06-14 18:31
+- [`_root/`](./_root.md) — updated 2026-06-14 19:04
 - [`aikol-studio/`](./aikol-studio.md) — updated 2026-05-21 15:39
 - [`balance-history-home/`](./balance-history-home.md) — updated 2026-05-21 15:39
 - [`balance-history/`](./balance-history.md) — updated 2026-06-11 16:49
@@ -26,7 +27,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-14 15:18
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-14 18:47
-- [`docs/`](./docs.md) — updated 2026-06-14 19:00
+- [`docs/`](./docs.md) — updated 2026-06-14 19:04
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-13 14:55
 - [`downloads/`](./downloads.md) — updated 2026-06-13 19:16
@@ -54,7 +55,7 @@
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-06-14 16:52
-- [`render.com/`](./render.com.md) — updated 2026-06-14 18:57
+- [`render.com/`](./render.com.md) — updated 2026-06-14 19:04
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-14 14:01
 - [`service-costs/`](./service-costs.md) — updated 2026-06-14 13:09
