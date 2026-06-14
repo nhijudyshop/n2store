@@ -3,17 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `e55bea2` — chore(render): dọn repo sau consolidation web2-realtime
-**Last updated**: 2026-06-14 13:09:12 +07
-**Latest session**: [`RESUME:20260614-130912-e55bea2`](../20260614-130912-e55bea2.md)
-**Summary**: chore(render): dọn repo sau consolidation web2-realtime
+**Latest commit**: `367711f` — feat(delivery-report): Báo cáo thêm 2 cột SL GK / COD GK (gửi kèm theo kênh)
+**Last updated**: 2026-06-14 13:12:29 +07
+**Latest session**: [`RESUME:20260614-131229-367711f`](../20260614-131229-367711f.md)
+**Summary**: feat(delivery-report): Báo cáo thêm 2 cột SL GK / COD GK (gửi kèm theo kênh)
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 2 file(s)
-- [`n2store-facebook/`](./n2store-facebook.md) — 6 file(s)
-- [`service-costs/`](./service-costs.md) — 1 file(s)
-- [`web2/`](./web2.md) — 1 file(s)
+- [`delivery-report/`](./delivery-report.md) — 3 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -27,8 +25,8 @@
 - [`bangkiemhang/`](./bangkiemhang.md) — updated 2026-05-21 15:39
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-14 11:53
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
-- [`delivery-report/`](./delivery-report.md) — updated 2026-06-14 12:55
-- [`docs/`](./docs.md) — updated 2026-06-14 13:09
+- [`delivery-report/`](./delivery-report.md) — updated 2026-06-14 13:12
+- [`docs/`](./docs.md) — updated 2026-06-14 13:12
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-13 14:55
 - [`downloads/`](./downloads.md) — updated 2026-06-13 19:16
