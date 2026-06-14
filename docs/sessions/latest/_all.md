@@ -3,14 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `c2a8ce7` — refactor(live-chat): cleanup leftover dead (attach-preview/quick-reply 72 dong); giu layout/components/variables (JS+token con dung)
-**Last updated**: 2026-06-14 08:11:46 +07
-**Latest session**: [`RESUME:20260614-081146-c2a8ce7`](../20260614-081146-c2a8ce7.md)
-**Summary**: refactor(live-chat): cleanup leftover dead (attach-preview/quick-reply 72 dong); giu layout/components/variables (JS+...
+**Latest commit**: `8c29858` — docs(dev-log): live-chat CSS rebuild hoan tat — 8054→4944 dong (-3110 dead), chat verified
+**Last updated**: 2026-06-14 08:13:12 +07
+**Latest session**: [`RESUME:20260614-081312-8c29858`](../20260614-081312-8c29858.md)
+**Summary**: docs(dev-log): live-chat CSS rebuild hoan tat — 8054→4944 dong (-3110 dead), chat verified
 
 ## Folders affected in this commit
 
-- [`live-chat/`](./live-chat.md) — 3 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -25,7 +25,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-13 15:41
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-13 14:33
-- [`docs/`](./docs.md) — updated 2026-06-14 08:07
+- [`docs/`](./docs.md) — updated 2026-06-14 08:13
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-13 14:55
 - [`downloads/`](./downloads.md) — updated 2026-06-13 19:16
