@@ -27,8 +27,35 @@
 
         container.classList.add('wz-chat-main');
 
+        // Tên hiển thị header: nhóm chưa có tên (đang chờ heal) → 'Nhóm Zalo',
+        // KHÔNG lộ id số. Đồng bộ với fallback của danh sách hội thoại.
+        function headName() {
+            return (
+                conv.display_name ||
+                (conv.thread_type === 'group' ? 'Nhóm Zalo' : conv.zalo_uid || conv.thread_id)
+            );
+        }
+        // Cập nhật header tại chỗ khi tên/avatar đổi (sau reload heal) — KHÔNG remount
+        // composer/body để giữ scroll + nội dung đang soạn.
+        function updateHead() {
+            const nm = headName();
+            const nameEl = container.querySelector('.wz-chat-head-name');
+            if (nameEl) nameEl.textContent = nm;
+            const avOld = container.querySelector('.wz-chat-head .wz-conv-av');
+            if (avOld) {
+                const tmp = document.createElement('div');
+                tmp.innerHTML = WZ.avatarHtml(
+                    conv.avatar_url,
+                    nm,
+                    'wz-conv-av' + (conv.thread_type === 'group' ? ' is-group' : ''),
+                    'width:34px;height:34px'
+                );
+                const avNew = tmp.firstElementChild;
+                if (avNew) avOld.replaceWith(avNew);
+            }
+        }
         function shell() {
-            const name = conv.display_name || conv.zalo_uid || conv.thread_id;
+            const name = headName();
             container.innerHTML = `
                 <div class="wz-chat-head">
                     ${WZ.avatarHtml(conv.avatar_url, name, 'wz-conv-av' + (conv.thread_type === 'group' ? ' is-group' : ''), 'width:34px;height:34px')}
@@ -308,6 +335,7 @@
                 messages = res.data || [];
                 hasMore = !!res.hasMore;
                 WZ.store?.setConversation(conv, account, messages);
+                updateHead(); // tên/avatar nhóm có thể vừa được server heal → cập nhật header
                 renderBody();
             } catch (e) {
                 opts.onError?.(e);
