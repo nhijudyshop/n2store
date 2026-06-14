@@ -2,6 +2,13 @@
 
 ## 2026-06-14
 
+### [shared] Thêm "Comment Live 📱" vào sidebar (Sale Online) ✅
+
+**User:** thêm livestream điện thoại vào thanh menu.
+
+- `web2/shared/web2-sidebar.js`: thêm item `{ label: 'Comment Live 📱', our: '../live-chat/comments-mobile.html' }` ngay sau "Chat Pancake" trong nhóm **Sale Online** + đăng ký `live-chat/comments-mobile.html` vào `WEB2_PAGES` (badge "WEB 2.0").
+- Verify: nav overview → anchor render đúng href `../../live-chat/comments-mobile.html`, label "Comment Live 📱 - WEB 2.0". Parse OK.
+
 ### [live-chat][render] Viewer comment mobile — avatar/địa chỉ/trạng thái + ẨN comment shop + CHỌN livestream ✅
 
 **User (5 ý):** 1/không thấy avatar 2/thêm ẩn comment, mặc định ẩn NhiJudy House/Store 3/không thấy địa chỉ + trạng thái KH 4/lọc comment từ livestream 5/cho chọn post livestream (đang/đã live).

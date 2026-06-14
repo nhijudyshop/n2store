@@ -139,6 +139,8 @@
                 // Panel chat Pancake tách thành trang riêng (2026-06-11) —
                 // live-chat/index.html giờ chỉ còn cột comment + capture.
                 { label: 'Chat Pancake', our: '../live-chat/chat.html' },
+                // Viewer comment livestream tối ưu ĐIỆN THOẠI (chỉ-xem) — 2026-06-14.
+                { label: 'Comment Live 📱', our: '../live-chat/comments-mobile.html' },
             ],
         },
         {
@@ -295,6 +297,7 @@
         'native-orders/index.html',
         'so-order/index.html',
         'live-chat/index.html',
+        'live-chat/comments-mobile.html',
         'web2/purchase-refund/index.html',
         'web2/supplier-debt/index.html',
         'web2/supplier-wallet/index.html',
