@@ -3,14 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `7e48783` — auto: session update
-**Last updated**: 2026-06-14 08:24:51 +07
-**Latest session**: [`RESUME:20260614-082451-7e48783`](../20260614-082451-7e48783.md)
-**Summary**: auto: session update
+**Latest commit**: `cee6951` — feat(live-chat): Kho SP grid-card -> LIST hang ngang + thumbnail 56px + hover-zoom (shared web2-effects)
+**Last updated**: 2026-06-14 08:26:32 +07
+**Latest session**: [`RESUME:20260614-082632-cee6951`](../20260614-082632-cee6951.md)
+**Summary**: feat(live-chat): Kho SP grid-card -> LIST hang ngang + thumbnail 56px + hover-zoom (shared web2-effects)
 
 ## Folders affected in this commit
 
-- [`live-chat/`](./live-chat.md) — 4 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -25,7 +25,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-13 15:41
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-13 14:33
-- [`docs/`](./docs.md) — updated 2026-06-14 08:13
+- [`docs/`](./docs.md) — updated 2026-06-14 08:26
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-13 14:55
 - [`downloads/`](./downloads.md) — updated 2026-06-13 19:16
