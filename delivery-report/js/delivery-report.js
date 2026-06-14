@@ -3109,11 +3109,7 @@
 
     function updateProvinceExportButtons() {
         const state = DeliveryReportState;
-        const tomatoBtn = document.getElementById('drBtnExportTomato');
-        const napBtn = document.getElementById('drBtnExportNap');
         const isProvince = state.activeTab === 'province' && state.traSoatMode;
-        if (tomatoBtn) tomatoBtn.style.display = isProvince ? '' : 'none';
-        if (napBtn) napBtn.style.display = isProvince ? '' : 'none';
 
         // Ảnh bàn giao TMT/NAP: chỉ tab Tỉnh (chế độ tra soát)
         ['drBtnCopyHandoverTomato', 'drBtnCopyHandoverNap'].forEach((id) => {
@@ -3128,13 +3124,9 @@
                 state.activeTab === 'city' && state.traSoatMode ? '' : 'none';
         }
 
-        // All-groups (multi-column) export buttons: visible only for the groups
-        // currently rendered in the view (matches column visibility).
-        const isMulti =
-            state.traSoatMode &&
-            (state.activeTab === 'all' ||
-                state.activeTab === 'zero' ||
-                state.activeTab === 'combo');
+        // All-groups (multi-column) export buttons: CHỈ tab combo
+        // ("TOMATO + BÁN HÀNG SHOP"). Đã bỏ ở Tất cả + Đơn 0đ theo yêu cầu.
+        const isMulti = state.traSoatMode && state.activeTab === 'combo';
         const activeGroups = new Set(isMulti ? getActiveGroups() : []);
         const btnGroupMap = {
             drBtnExportGrpTomato: 'tomato',
