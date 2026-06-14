@@ -1411,7 +1411,7 @@ function createRowHTML(order) {
             : '';
 
     return `
-        <tr class="${rowClass} ${mergedClass} ${window.StockStatusEngine?.getStockRowClass?.(order.Id) || ''}" data-psid="${order.Facebook_ASUserId || ''}" data-page-id="${pageId}" data-order-id="${order.Id}">
+        <tr class="${rowClass} ${mergedClass} ${window.StockStatusEngine?.getStockRowClass?.(order.Id) || ''}" data-psid="${order.Facebook_ASUserId || ''}" data-page-id="${pageId}" data-phone="${(order.Telephone || '').replace(/\D/g, '')}" data-order-id="${order.Id}">
             <td><input type="checkbox" value="${order.Id}" ${selectedOrderIds.has(order.Id) ? 'checked' : ''} /></td>
             ${actionsHTML}
             <td data-column="stt" class="stt-clickable" onclick="toggleProductDetail('${order.Id}', this)" title="Click để xem chi tiết sản phẩm">

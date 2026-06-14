@@ -2278,6 +2278,14 @@ console.log(
 const realtimeClient = new RealtimeClient();
 realtimeClient.setDb(chatDbPool); // Pass PostgreSQL pool for saving updates
 
+// (2026-06-14) Cột `phone` cho pending_customers — để match badge cột TIN NHẮN
+// theo SĐT (fallback khi PSID TPOS lệch PSID Pancake: đơn comment/livestream,
+// khác page). Idempotent, chạy 1 lần lúc boot (không có migration runner riêng).
+chatDbPool
+    .query('ALTER TABLE IF EXISTS pending_customers ADD COLUMN IF NOT EXISTS phone VARCHAR(20)')
+    .then(() => console.log('[SCHEMA] pending_customers.phone ensured'))
+    .catch((e) => console.warn('[SCHEMA] ensure pending_customers.phone failed:', e.message));
+
 // API to start the Pancake client from the browser
 app.post('/api/realtime/start', async (req, res) => {
     // Defense-in-depth: Pancake WS realtime là Web 1.0 (chatDb). web2-api

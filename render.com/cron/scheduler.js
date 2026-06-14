@@ -685,6 +685,14 @@ cron.schedule('*/5 * * * *', async () => {
                     );
                     const shopSentLast = !!lastSenderId && lastSenderId === String(row.page_id);
                     const unread = typeof conv.unread_count === 'number' ? conv.unread_count : null;
+                    // SĐT từ conv đầy đủ (recent_phone_numbers auto-extract từ nội
+                    // dung tin nhắn). Backfill pending_customers.phone → cho phép
+                    // match badge theo SĐT khi PSID TPOS lệch PSID Pancake. Tận
+                    // dụng fetch conv sẵn có của cron → KHÔNG thêm API call nào.
+                    const convPhone =
+                        conv.recent_phone_numbers?.[0]?.phone_number ||
+                        conv.conv_phone_numbers?.[0]?.phone_number ||
+                        null;
 
                     if (shopSentLast || unread === 0) {
                         await db.query(
@@ -700,12 +708,21 @@ cron.schedule('*/5 * * * *', async () => {
                             `UPDATE pending_customers
                              SET message_count = $3,
                                  last_message_snippet = $4,
-                                 last_message_time = NOW()
+                                 last_message_time = NOW(),
+                                 phone = COALESCE($5, phone)
                              WHERE psid = $1 AND page_id = $2`,
-                            [row.psid, row.page_id, unread, newSnip]
+                            [row.psid, row.page_id, unread, newSnip, convPhone]
                         );
                         updated++;
                     } else {
+                        // Aligned: vẫn backfill phone nếu DB còn thiếu (1 lần/khách).
+                        if (convPhone) {
+                            await db.query(
+                                `UPDATE pending_customers SET phone = $3
+                                 WHERE psid = $1 AND page_id = $2 AND (phone IS NULL OR phone = '')`,
+                                [row.psid, row.page_id, convPhone]
+                            );
+                        }
                         aligned++;
                     }
                 } catch (e) {

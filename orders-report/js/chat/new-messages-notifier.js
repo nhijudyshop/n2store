@@ -122,41 +122,67 @@
     // BADGE APPLICATION
     // =====================================================
 
+    /**
+     * Chuẩn hoá SĐT VN để match 2 chiều: order.Telephone (TPOS) ↔ Pancake
+     * recent_phone_numbers (lưu ở pending_customers.phone). Bỏ ký tự không phải
+     * số; 84xxxxxxxxx → 0xxxxxxxxx. Trả '' nếu không giống SĐT (loại nhiễu).
+     */
+    function _normPhone(raw) {
+        if (!raw) return '';
+        let d = String(raw).replace(/\D/g, '');
+        if (!d) return '';
+        if (d.startsWith('84') && d.length >= 10) d = '0' + d.slice(2);
+        if (d.length < 8 || d.length > 12) return '';
+        return d;
+    }
+
     function _applyBadgesToRows() {
-        // Build lookup map: psid → pending data
-        const pendingMap = new Map();
+        // Build 2 lookup maps: PSID và SĐT chuẩn hoá → pending.
+        // Match ưu tiên PSID; fallback PHONE cho ca PSID TPOS lệch PSID Pancake
+        // (đơn comment/livestream, khác page). Phone là khoá ổn định nhất — xem
+        // docs/pancake §14 priority global_id → phone → fb_id.
+        const byPsid = new Map();
+        const byPhone = new Map();
         _pendingCustomers.forEach((pc) => {
             const key = String(pc.psid || pc.from_psid || pc.fbId || '');
+            const phoneKey = _normPhone(pc.phone || pc.phone_number);
+            const count = pc.inboxCount || pc.unread_count || 0;
             if (key) {
-                const existing = pendingMap.get(key);
-                if (existing) {
-                    existing.inboxCount += pc.inboxCount || pc.unread_count || 0;
-                } else {
-                    pendingMap.set(key, {
+                const ex = byPsid.get(key);
+                if (ex) ex.inboxCount += count;
+                else
+                    byPsid.set(key, {
                         psid: key,
                         pageId: String(pc.pageId || pc.page_id || ''),
-                        inboxCount: pc.inboxCount || pc.unread_count || 0,
+                        inboxCount: count,
                         snippet: pc.snippet || pc.lastMessage || '',
                         timestamp: pc.timestamp || pc.updated_at || null,
                     });
-                }
+            }
+            if (phoneKey) {
+                const ex = byPhone.get(phoneKey);
+                if (ex) ex.inboxCount += count;
+                else byPhone.set(phoneKey, { phone: phoneKey, inboxCount: count });
             }
         });
 
-        // Find all table rows with psid
+        // Find all table rows with psid hoặc phone
         const rows = document.querySelectorAll('tr[data-psid], tr[data-fb-id]');
         let matched = 0;
         rows.forEach((row) => {
             const psid = row.dataset.psid || row.dataset.fbId || '';
-            if (!psid) return;
+            const phone = _normPhone(row.dataset.phone);
+            if (!psid && !phone) return;
 
-            const pending = pendingMap.get(String(psid));
+            // Ưu tiên PSID; nếu PSID không khớp → fallback theo SĐT.
+            let pending = (psid && byPsid.get(String(psid))) || null;
+            if (!pending && phone) pending = byPhone.get(phone) || null;
+
             const shouldHaveClass = !!pending;
             const hasClass = row.classList.contains('pending-customer-row');
 
             // CHỈ toggle class khi state thực sự đổi — tránh 51 rows × invalidate style
             // mỗi lần có tin mới (gây "nháy bảng" do browser repaint composite full table).
-            // Trước: class.remove() chạy trên cả 51 rows kể cả không có pending.
             if (shouldHaveClass !== hasClass) {
                 if (shouldHaveClass) {
                     row.classList.add('pending-customer-row');
@@ -179,7 +205,7 @@
         });
 
         console.log(
-            `[NOTIFIER] reapply: ${pendingMap.size} pending, ${rows.length} rows, ${matched} matched`
+            `[NOTIFIER] reapply: ${byPsid.size} psid / ${byPhone.size} phone, ${rows.length} rows, ${matched} matched`
         );
     }
 
@@ -336,6 +362,7 @@
                 psid: key,
                 pageId: String(pc.pageId || pc.page_id || ''),
                 customerName: pc.customerName || pc.customer_name || '',
+                phone: pc.phone || pc.phone_number || '',
                 inboxCount: pc.inboxCount || pc.unread_count || pc.message_count || 0,
                 snippet: pc.snippet || pc.lastMessage || '',
                 timestamp: pc.timestamp || pc.updated_at || null,

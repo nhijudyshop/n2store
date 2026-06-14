@@ -2,6 +2,21 @@
 
 ## 2026-06-14
 
+### [orders-report][render] Cột TIN NHẮN: match badge theo SĐT (fallback PSID) — fix TPOS PSID ≠ Pancake PSID ✅
+
+**User:** "có cách match nào khác như match sđt cho dễ không? Tại vì pid tpos khác pid pancake nên khó match" → "kiểm rồi làm hết đi".
+
+**Verify trước (docs/pancake §5,§14,§17):** WS event `pages:update_conversation` CHỈ mang `unread_count/last_sent_by/snippet/seen` — **KHÔNG có phone**. Phone (`recent_phone_numbers[]`) chỉ ở conv REST đầy đủ. Thứ tự match chuẩn của hệ: `global_id → phone → fb_id`. Chat-open ĐÃ fallback phone; chỉ badge realtime kẹt PSID-only. Reconcile cron (5') ĐÃ fetch conv đầy đủ mỗi pending → trích phone ở đó = 0 API mới.
+
+**Làm (match psid HOẶC phone):**
+
+- **Server**: `pending_customers` thêm cột `phone` (idempotent ALTER lúc boot, server.js sau setDb). `upsertPendingCustomer` nhận+lưu phone (COALESCE). GET `/pending-customers` trả `phone`. Reconcile cron ([scheduler.js](render.com/cron/scheduler.js)) trích `conv.recent_phone_numbers[0].phone_number` → backfill phone (UPDATE khi count đổi + backfill khi aligned, WHERE phone IS NULL).
+- **Frontend**: row thêm `data-phone` (order.Telephone digits, [tab1-table.js:1414](orders-report/js/tab1/tab1-table.js#L1414)). tab1-init map+group giữ phone. Notifier ([new-messages-notifier.js](orders-report/js/chat/new-messages-notifier.js)): `_normPhone` (VN, 84→0), `_applyBadgesToRows` build `byPsid`+`byPhone`, mỗi row match **PSID trước, fallback SĐT** → badge cột messages. Bump `?v=20260614b`.
+
+**Cơ chế:** đơn comment/livestream/khác-page có `Facebook_ASUserId` lệch `from_psid` Pancake → trước miss badge; giờ khớp qua SĐT (order.Telephone ↔ pending.phone do cron backfill). Phone chỉ là _fallback_ khi PSID không khớp → không tăng false-positive cho ca PSID đúng.
+
+`node --check` PASS 6 file. **Cần deploy fallback.** **Status:** ✅ — MEMORY [[reference_web1_realtime_msg_column]].
+
 ### [orders-report][render] Cột TIN NHẮN realtime (Web 1.0): fix race/đè + gỡ hệ trùng `realtime_updates` ✅
 
 **User:** "kiểm tra server render, db render web 1.0 về nhận tin nhắn realtime ở cột tin nhắn → bug, race condition, trùng tính năng gây đè". Sau phân tích (audit 30-agent): C (chẩn đoán live) → B (fix full) → "được thì xóa đi làm lại".

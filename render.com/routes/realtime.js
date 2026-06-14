@@ -119,7 +119,8 @@ router.get('/pending-customers', async (req, res) => {
                 last_message_snippet,
                 last_message_time,
                 message_count,
-                type
+                type,
+                phone
             FROM pending_customers
             ORDER BY last_message_time DESC
             LIMIT $1
@@ -297,28 +298,31 @@ async function upsertPendingCustomer(db, data) {
 
         // INSERT: dùng count truyền vào (hoặc 1 nếu không có).
         // UPDATE: nếu unreadCount provided, SET = nó (authoritative); else bump.
+        // $6 = phone (nullable). Lưu để match badge theo SĐT khi PSID lệch.
         const query = useUnread
             ? `
                 INSERT INTO pending_customers
-                (psid, page_id, customer_name, last_message_snippet, last_message_time, message_count, type)
-                VALUES ($1, $2, $3, $4, NOW(), $6, $5)
+                (psid, page_id, customer_name, last_message_snippet, last_message_time, message_count, type, phone)
+                VALUES ($1, $2, $3, $4, NOW(), $7, $5, $6)
                 ON CONFLICT (psid, page_id)
                 DO UPDATE SET
                     customer_name = COALESCE(EXCLUDED.customer_name, pending_customers.customer_name),
                     last_message_snippet = EXCLUDED.last_message_snippet,
                     last_message_time = NOW(),
-                    message_count = $6
+                    message_count = $7,
+                    phone = COALESCE(EXCLUDED.phone, pending_customers.phone)
             `
             : `
                 INSERT INTO pending_customers
-                (psid, page_id, customer_name, last_message_snippet, last_message_time, message_count, type)
-                VALUES ($1, $2, $3, $4, NOW(), 1, $5)
+                (psid, page_id, customer_name, last_message_snippet, last_message_time, message_count, type, phone)
+                VALUES ($1, $2, $3, $4, NOW(), 1, $5, $6)
                 ON CONFLICT (psid, page_id)
                 DO UPDATE SET
                     customer_name = COALESCE(EXCLUDED.customer_name, pending_customers.customer_name),
                     last_message_snippet = EXCLUDED.last_message_snippet,
                     last_message_time = NOW(),
-                    message_count = pending_customers.message_count + 1
+                    message_count = pending_customers.message_count + 1,
+                    phone = COALESCE(EXCLUDED.phone, pending_customers.phone)
             `;
 
         const params = [
@@ -327,6 +331,7 @@ async function upsertPendingCustomer(db, data) {
             data.customerName,
             data.snippet ? data.snippet.substring(0, 200) : null,
             data.type || 'INBOX',
+            data.phone || null,
         ];
         if (useUnread) params.push(initialCount);
 
