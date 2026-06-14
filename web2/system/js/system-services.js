@@ -241,7 +241,10 @@
         const cards = [
             { label: '🕒 Uptime', value: proc.uptimePretty || '—' },
             { label: '🧠 RSS Memory', value: fmtBytes(mem.rss) },
-            { label: '📦 Heap Used', value: `${fmtBytes(mem.heapUsed)} / ${fmtBytes(mem.heapTotal)}` },
+            {
+                label: '📦 Heap Used',
+                value: `${fmtBytes(mem.heapUsed)} / ${fmtBytes(mem.heapTotal)}`,
+            },
             { label: '🟢 Node.js', value: proc.nodeVersion || '—' },
         ];
         grid.innerHTML = cards
