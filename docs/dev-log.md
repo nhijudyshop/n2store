@@ -2,6 +2,21 @@
 
 ## 2026-06-14
 
+### [orders-report] Bấm cột TIN NHẮN mở NHẦM PAGE — bỏ ghi đè preferred-page + TTL ✅
+
+**User:** "bấm cột tin nhắn mở modal -> nhiều khi nhầm page phải đổi tay lại -> page lưu ở cache / nhầm page ở đơn / lý do khác".
+
+**Root cause (đúng giả thuyết cache):** [tab1-chat-core.js:807](orders-report/js/tab1/tab1-chat-core.js#L807) `openChatModal` đọc `_getPreferredPage(psid)` (localStorage `chat_preferred_pages` = `{psid:pageId}`) rồi **GHI ĐÈ VÔ ĐIỀU KIỆN** page của đơn — kể cả khi page đơn đúng + có conv. Cache **không TTL**, **key theo PSID page-scoped** (giả định sai). Lưu khi đổi tay (`switchChatPage`→`_savePreferredPage` [:2905](orders-report/js/tab1/tab1-chat-core.js#L2905)) → mỗi lần đổi tay poison vĩnh viễn mọi đơn cùng psid → ping-pong "phải đổi tay lại". Phụ: drift cross-page nhận "1 tên trùng" chưa verify SĐT ([:1411](orders-report/js/tab1/tab1-chat-core.js#L1411)); đơn `Facebook_PostId` rỗng → channelId rỗng.
+
+**Fix (4 edit tab1-chat-core.js, bump `?v=20260614c`):**
+
+1. Bỏ ghi đè: preferredPage CHỈ dùng khi đơn KHÔNG có page (`!pageId`). Page của đơn luôn thắng.
+2. Truyền `opts.preferredPage` xuống `_findAndLoadConversation`.
+3. Fallback có kiểm soát: page đơn không có conv → thử preferred-page TRƯỚC drift, **chỉ nhận khi `_convHasPhoneVerify` true** (SĐT khớp recent_phone_numbers) → hit thì chuyển ngữ cảnh (gửi tin đúng page). Không phá page đúng, không nhảy nhầm.
+4. TTL 7 ngày cho map (format `{p,t}` + backward-compat đọc string cũ); dọn hết hạn khi save.
+
+Giữ tính năng "nhớ page đã đổi" (qua fallback) mà diệt triệu chứng. `node --check` PASS. **Frontend-only** (GH Pages, không cần deploy Render). **Status:** ✅ — MEMORY [[reference_web1_realtime_msg_column]].
+
 ### [orders-report][render] Cột TIN NHẮN: match badge theo SĐT (fallback PSID) — fix TPOS PSID ≠ Pancake PSID ✅
 
 **User:** "có cách match nào khác như match sđt cho dễ không? Tại vì pid tpos khác pid pancake nên khó match" → "kiểm rồi làm hết đi".

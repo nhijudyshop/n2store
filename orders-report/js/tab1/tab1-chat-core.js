@@ -803,9 +803,14 @@ window.openChatModal = async function (orderId, pageId, psid, conversationType) 
 
     conversationType = conversationType || 'INBOX';
 
-    // Check if user previously switched to a different page for this customer
+    // Preferred page = page user đã đổi tay trước đó cho customer này.
+    // KHÔNG ghi đè page của ĐƠN nữa: override vô điều kiện = mở NHẦM page khi
+    // page đơn vốn đúng, và poison vĩnh viễn theo psid (page-scoped) → "phải đổi
+    // tay lại" lặp đi lặp lại (bug 2026-06-14). Chỉ dùng preferredPage khi:
+    //   • đơn KHÔNG có page (Facebook_PostId rỗng) → làm page mở đầu
+    //   • fallback thử SAU khi page của đơn không có conv (truyền xuống find)
     const preferredPage = _getPreferredPage(psid);
-    if (preferredPage && preferredPage !== pageId) {
+    if (!pageId && preferredPage) {
         pageId = preferredPage;
     }
 
@@ -1025,6 +1030,9 @@ window.openChatModal = async function (orderId, pageId, psid, conversationType) 
     try {
         await _findAndLoadConversation(pageId, psid, conversationType, myToken, {
             signal: mySignal,
+            // Fallback page (đã đổi tay trước đó) — chỉ thử khi page đơn trượt.
+            preferredPage:
+                preferredPage && String(preferredPage) !== String(pageId) ? preferredPage : null,
         });
         // Auto-focus chat input so user can type immediately
         setTimeout(() => {
@@ -1325,6 +1333,48 @@ async function _doFindAndLoadConversation(pageId, psid, type, loadToken, opts) {
             } catch (e) {
                 if (e?.name === 'AbortError') throw e;
                 console.warn('[Chat-Core] phone-search failed:', e?.message);
+            }
+        }
+    }
+
+    // ─── FALLBACK: page user đã đổi tay trước đó (preferred-page) ───
+    // Page của ĐƠN không có conv → thử TRỰC TIẾP trên preferred-page TRƯỚC khi
+    // drift toàn cục. Tôn trọng lựa chọn đã nhớ nhưng KHÔNG ghi đè page đúng của
+    // đơn (chỉ chạy khi page đơn đã trượt). Chỉ nhận khi SĐT verify được
+    // (recent_phone_numbers chứa SĐT của đơn) → tránh nhảy nhầm. Hit → chuyển
+    // ngữ cảnh sang preferred-page (gửi tin cũng đi đúng page đó).
+    if (!conv && opts?.preferredPage && String(opts.preferredPage) !== String(pageId)) {
+        const pp = String(opts.preferredPage);
+        const phone = _phoneNorm(window.currentChatPhone);
+        if (phone && pdm.searchConversationsOnPage) {
+            try {
+                const res = await pdm.searchConversationsOnPage(pp, phone, {
+                    signal: opts?.signal,
+                });
+                if (_isStale()) return;
+                const matched = (res.conversations || []).filter(
+                    (c) => String(c.page_id) === pp && _convHasPhoneVerify(c, phone) === true
+                );
+                matched.sort((a, b) => {
+                    if (a.type === 'INBOX' && b.type !== 'INBOX') return -1;
+                    if (a.type !== 'INBOX' && b.type === 'INBOX') return 1;
+                    return (
+                        new Date(b.last_customer_interactive_at || b.updated_at || 0).getTime() -
+                        new Date(a.last_customer_interactive_at || a.updated_at || 0).getTime()
+                    );
+                });
+                if (matched.length > 0) {
+                    conv = matched.find((c) => c.type === type) || matched[0];
+                    pageId = pp;
+                    window.currentChatChannelId = pp;
+                    window.currentSendPageId = pp;
+                    if (!window._pageConvPickerCache) window._pageConvPickerCache = new Map();
+                    window._pageConvPickerCache.set(pp, { convs: matched, loadToken });
+                    console.log(`[Chat-Core] ✓ Preferred-page fallback hit on ${pp}`);
+                }
+            } catch (e) {
+                if (e?.name === 'AbortError') throw e;
+                console.warn('[Chat-Core] preferred-page fallback failed:', e?.message);
             }
         }
     }
@@ -3026,11 +3076,21 @@ function _parseTimestamp(ts) {
 const PREF_PAGE_KEY = 'chat_preferred_pages';
 const PREF_PAGE_MAX = 200; // max entries to keep
 
+const PREF_PAGE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 ngày — map cũ tự hết hạn
+
 function _getPreferredPage(psid) {
     if (!psid) return null;
     try {
         const map = JSON.parse(localStorage.getItem(PREF_PAGE_KEY) || '{}');
-        return map[psid] || null;
+        const entry = map[psid];
+        if (!entry) return null;
+        // Backward-compat: format cũ lưu string pageId trực tiếp (không TTL).
+        if (typeof entry === 'string') return entry || null;
+        if (entry && entry.p) {
+            if (entry.t && Date.now() - entry.t > PREF_PAGE_TTL_MS) return null; // hết hạn
+            return entry.p;
+        }
+        return null;
     } catch {
         return null;
     }
@@ -3040,9 +3100,14 @@ function _savePreferredPage(psid, pageId) {
     if (!psid || !pageId) return;
     try {
         const map = JSON.parse(localStorage.getItem(PREF_PAGE_KEY) || '{}');
-        map[psid] = pageId;
+        map[psid] = { p: String(pageId), t: Date.now() };
 
-        // Trim old entries if too many
+        // Dọn entry hết hạn trước, rồi cắt FIFO nếu vẫn quá nhiều.
+        const now = Date.now();
+        for (const k of Object.keys(map)) {
+            const e = map[k];
+            if (e && typeof e === 'object' && e.t && now - e.t > PREF_PAGE_TTL_MS) delete map[k];
+        }
         const keys = Object.keys(map);
         if (keys.length > PREF_PAGE_MAX) {
             keys.slice(0, keys.length - PREF_PAGE_MAX).forEach((k) => delete map[k]);
