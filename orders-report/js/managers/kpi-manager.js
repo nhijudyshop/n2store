@@ -262,6 +262,13 @@
                 } catch (e) {}
             }
         }
+        // Không có TPOS token ở window/parent/top → fetch "đơn thật" sẽ trả [] (silent).
+        // Log rõ để lần sau iframe nào quên load token-manager.js là thấy ngay, không
+        // còn phải dò bug "Làm mới dữ liệu không fetch được" như 2026-06-14.
+        console.warn(
+            '[KPI] _getTposAuthHeader: KHÔNG tìm thấy window.tokenManager (window/parent/top) — ' +
+                'snapshot đơn thật TPOS sẽ KHÔNG fetch được. Trang này có load shared/js/token-manager.js chưa?'
+        );
         return null;
     }
 

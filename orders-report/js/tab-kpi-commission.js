@@ -5758,9 +5758,11 @@ const KPICommission = {
         } catch (e) {
             return 0;
         }
-        const todo = [...missing]
-            .map((code) => ({ code, orderId: map.get(code) }))
-            .filter((x) => x.orderId);
+        // KHÔNG lọc theo orderId: nguồn "đơn thật" hiện là PHIẾU BÁN HÀNG
+        // (KPI_FINAL_SOURCE='invoice' → fetchInvoiceLinesFromTPOS dùng orderCode, KHÔNG
+        // cần orderId). Lọc orderId làm rơi đơn fetch được → kẹt "Chưa có snapshot".
+        // orderId vẫn truyền (null OK) để lưu kèm + phòng khi đổi nguồn sang saleonline.
+        const todo = [...missing].map((code) => ({ code, orderId: map.get(code) || null }));
         if (todo.length === 0) return 0;
 
         console.log(`[KPI Tab] Snapshot sweep: ${todo.length} đơn thiếu — đang fetch TPOS…`);

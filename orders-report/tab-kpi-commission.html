@@ -1135,10 +1135,20 @@
             }
         </script>
 
+        <!-- TPOS Bearer Token Manager — BẮT BUỘC cho KPI snapshot "đơn thật".
+             KPI tab chạy trong iframe; main.html (parent/top) KHÔNG load token-manager
+             (xem comment "DO NOT load: token-manager" trong main.html). Thiếu file này
+             → window.tokenManager undefined → kpi-manager._getTposAuthHeader() trả null
+             → fetch TPOS trả [] (silent) → "Làm mới dữ liệu" KHÔNG fetch được đơn thật
+             → snapshot không lưu → banner "Chưa có snapshot đơn thật" kẹt mãi.
+             Đọc bearer từ localStorage (đã login ở tab1, cùng origin). Cần Firebase SDK
+             (đã load ở <head>). -->
+        <script src="../shared/js/token-manager.js?v=20260614kpi"></script>
+
         <!-- KPI Commission Tab JS (11.8) -->
         <script src="../shared/js/attribute-values-loader.js?v=20260521b"></script>
         <script src="../shared/js/warehouse-api.js?v=20260521b"></script>
-        <script src="js/managers/kpi-manager.js?v=20260610b"></script>
+        <script src="js/managers/kpi-manager.js?v=20260614kpi"></script>
         <script src="js/managers/kpi-audit-logger.js?v=20260610a"></script>
 
         <!-- Pancake stack for tab "Tin nhắn" trong modal L2.
@@ -1147,6 +1157,6 @@
         <script src="../shared/js/pancake-token-manager.js?v=20260613pk2"></script>
         <script src="js/managers/pancake-data-manager.js?v=20260521b"></script>
 
-        <script src="js/tab-kpi-commission.js?v=20260614a"></script>
+        <script src="js/tab-kpi-commission.js?v=20260614b"></script>
     </body>
 </html>
