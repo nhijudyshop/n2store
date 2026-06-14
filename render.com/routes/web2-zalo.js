@@ -778,17 +778,23 @@ router.get('/conversations/:id/messages', async (req, res) => {
             }
         }
         // Nhóm: heal tên + avatar NHÓM (bug cũ lưu tên người nhắn cuối) — lazy, gate TTL.
+        // Timeout 2s: zca chậm KHÔNG được nghẽn tải tin. Lỗi/timeout → KHÔNG stamp
+        // info_synced_at (giữ row đủ điều kiện heal lần mở sau, tránh đóng băng tên sai).
         if (
             conv.thread_type === 'group' &&
             zca.isConnected(conv.account_key) &&
             (!conv.info_synced_at || now() - Number(conv.info_synced_at) > GROUP_NAME_TTL_MS)
         ) {
             try {
-                const info = await zca.getGroupsInfo(conv.account_key, [conv.thread_id]);
+                const info = await Promise.race([
+                    zca.getGroupsInfo(conv.account_key, [conv.thread_id]),
+                    new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 2000)),
+                ]);
                 const g = info[String(conv.thread_id)];
                 const nm = (g?.name || '').trim();
                 const av = g?.avatar || '';
                 const ts = now();
+                // Chỉ ghi (kể cả stamp info_synced_at) khi đã RESOLVE info từ zca.
                 await db.query(
                     `UPDATE web2_zalo_conversations
                         SET display_name=COALESCE($1,display_name), avatar_url=COALESCE($2,avatar_url),
@@ -798,7 +804,7 @@ router.get('/conversations/:id/messages', async (req, res) => {
                 if (nm) conv.display_name = nm;
                 if (av) conv.avatar_url = av;
             } catch (e) {
-                /* best-effort — không chặn xem tin */
+                /* best-effort — lỗi/timeout: không chặn xem tin, không stamp → thử lại lần sau */
             }
         }
         const lim = Math.min(parseInt(req.query.limit, 10) || 50, 200);
