@@ -1,5 +1,19 @@
 # Dev Log
 
+## 2026-06-14
+
+### [live-chat] Kho SP: grid-card → LIST hàng ngang + thumbnail nhỏ + hover phóng to ✅
+
+**User:** "danh sách sản phẩm cho thành list với hình nhỏ, hover vào phóng to ảnh."
+
+**Đã làm (inventory-panel — chat.html + index.html):**
+
+- **CSS** (`inventory-panel.css`): **bỏ 2 khối `@container` BENTO** (grid nhiều cột + card dọc ảnh 3:4) → Kho SP LUÔN là **list 1 cột hàng ngang** ở mọi bề rộng. Thumbnail `.inv-img` 64→**56px**. Nút `+` (`.inv-card-add`) từ absolute-overlay-ảnh → **static flex child, sang phải row** (self-center).
+- **JS** (`inventory-panel.js`): chuyển `<button.inv-card-add>` RA NGOÀI `.inv-card-imgwrap`, đặt sau `.inv-card-body` → thành cột phải của row.
+- **Hover phóng to = SHARED hover-zoom**: load `web2/shared/web2-effects.js` (trước đó live-chat chỉ có .css) → auto-zoom mọi `<img>` trong `.web2-shell` qua `.w2fx-zoom-popup`. `.inv-img` set `pointer-events:auto` (vượt `.inv-card * {pointer-events:none}`) + `cursor:zoom-in` + hover `scale(1.04)` → hover thumbnail hiện preview lớn cạnh con trỏ (cơ chế dùng chung native-orders).
+
+**Verify:** smoke Kho SP — list hàng ngang (thumb 56px trái + mã/tên/giá + SL badge + nút + phải), braces 117/117 OK, parse OK, web2-effects.js loaded. Zoom hoạt động với SP có ảnh thật (test data dùng placeholder 📦). `?v=20260614inv1`. **Status:** ✅ Done.
+
 ## 2026-06-13
 
 ### [live-chat] Rebuild CSS trên shared native-orders — Phase A: xóa dead + fix token + blueprint (đợt 12) 🔄
