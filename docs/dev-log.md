@@ -2,6 +2,16 @@
 
 ## 2026-06-14
 
+### [delivery-report] Nút "Ảnh TMT" + "Ảnh NAP" gửi nhóm Telegram (giống "Ảnh Thành Phố") ✅
+
+**User:** "cho 2 nút Ảnh TMT + Ảnh NAP gửi lên telegram giống nút Ảnh Thành Phố".
+
+**Khảo sát:** nút "Ảnh Thành Phố" (`copyHandoverImage`) build canvas → `canvasToBlob` → `sendHandoverImageToTelegram(blob, caption)` (Render route `/api/delivery-report-telegram/send-photo`, bot riêng) → reload trang khi gửi OK. 2 nút TMT/NAP (`copyGroupHandoverImage`) chỉ `copyCanvasToClipboard`.
+
+**Làm:** trong `copyGroupHandoverImage`, thay nhánh clipboard bằng đúng flow Telegram của nút TP: `canvasToBlob` → set nút "Đang gửi Telegram..." → `sendHandoverImageToTelegram(blob, "📦 Bàn giao ${label} ${dateLabel} — N đơn")` (label = TMT/NAP) → thành công thì reload, lỗi thì alert + reset nút. Cập nhật tooltip 2 nút "(copy vào clipboard)" → "(gửi nhóm Telegram)". Bump `delivery-report.js?v=20260614a`.
+
+**Files:** `delivery-report/js/delivery-report.js`, `delivery-report/index.html`. `node --check` PASS. **Status:** ✅ (không test live vì send Telegram là side-effect vào nhóm giao hàng thật; logic copy y hệt nút TP đã chạy ổn).
+
 ### [web2][render] Hướng C — đào sâu analytics: KPI "Sổ Order / NCC" lên dashboard ✅
 
 **User:** "D, E, C". C = đào sâu analytics đã có. Chọn deepening **kết nối 3 hướng**: dashboard surface tín hiệu Sổ Order/NCC (cùng nguồn Hướng E) + click mở so-order (deep-link Hướng B).
