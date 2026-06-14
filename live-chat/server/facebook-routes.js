@@ -7,12 +7,10 @@
  *   - live-chat private-reply (nhắn riêng từ comment) — đường DUY NHẤT đang dùng
  *   - serverMode='n2store' full-chat (conversations/messages/send/upload/find/read)
  *
- * Token Page Access:
- *   1) cache (nạp từ TPOS CRM khi request kèm TPOS Bearer) trong TTL 5'
- *   2) refetch TPOS nếu request có tpos_token
- *   3) FALLBACK env PAGE_TOKEN_<pageId> (FB page token cấp sẵn trong env) →
- *      đảm bảo private-reply chạy được kể cả khi chưa ai nạp token (live-chat
- *      reply KHÔNG gửi TPOS token).
+ * Token Page Access (TPOS đã gỡ 2026-06-14 — Web 2.0 không dùng TPOS):
+ *   1) cache seed từ fb-tokens.json lúc boot (TTL 5') nếu có
+ *   2) env PAGE_TOKEN_<pageId> (FB page token cấp sẵn trong env) — nguồn chính,
+ *      đảm bảo private-reply luôn chạy (live-chat reply KHÔNG gửi token).
  */
 const express = require('express');
 const multer = require('multer');
@@ -28,9 +26,6 @@ const router = express.Router();
 
 // Facebook Graph API
 const FB_GRAPH_URL = 'https://graph.facebook.com/v21.0';
-// TPOS CRM API — nguồn Page Access Token
-const TPOS_API_URL =
-    'https://tomato.tpos.vn/odata/CRMTeam/ODataService.GetAllFacebook?$expand=Childs';
 
 const TOKEN_FILE = path.join(__dirname, 'fb-tokens.json');
 let tokenCache = {};
@@ -50,72 +45,18 @@ function loadTokensFromFile() {
     }
 }
 
-function saveTokensToFile() {
-    try {
-        fs.writeFileSync(
-            TOKEN_FILE,
-            JSON.stringify(
-                { tokens: tokenCache, timestamp: lastFetchTime, savedAt: new Date().toISOString() },
-                null,
-                2
-            )
-        );
-    } catch (error) {
-        console.error('[FB] Error saving tokens:', error.message);
-    }
-}
 loadTokensFromFile();
 
-async function fetchTokensFromTPOS(tposToken) {
-    try {
-        console.log('[FB] Fetching Facebook tokens from TPOS CRM...');
-        const response = await fetch(TPOS_API_URL, {
-            headers: { Authorization: `Bearer ${tposToken}`, Accept: 'application/json' },
-        });
-        if (!response.ok) throw new Error(`TPOS API error: ${response.status}`);
-        const data = await response.json();
-        const tokens = {};
-        for (const account of data.value || []) {
-            if (account.Facebook_PageId && account.Facebook_PageToken) {
-                tokens[account.Facebook_PageId] = {
-                    token: account.Facebook_PageToken,
-                    name: account.Facebook_PageName || account.Name,
-                };
-            }
-            for (const child of account.Childs || []) {
-                if (child.Facebook_PageId && child.Facebook_PageToken) {
-                    tokens[child.Facebook_PageId] = {
-                        token: child.Facebook_PageToken,
-                        name: child.Facebook_PageName || child.Name,
-                    };
-                }
-            }
-        }
-        console.log(`[FB] Found ${Object.keys(tokens).length} page tokens`);
-        tokenCache = tokens;
-        lastFetchTime = Date.now();
-        saveTokensToFile();
-        return tokens;
-    } catch (error) {
-        console.error('[FB] Error fetching tokens:', error.message);
-        return {};
-    }
-}
-
 /**
- * Page Access Token: cache → refetch (nếu có tposToken) → env PAGE_TOKEN_<id>.
+ * Page Access Token: env PAGE_TOKEN_<id> (nguồn chính) → cache seed từ
+ * fb-tokens.json lúc boot (fallback). TPOS CRM fetch đã gỡ 2026-06-14 —
+ * Web 2.0 không dùng TPOS; live-chat reply KHÔNG gửi TPOS token.
  */
-async function getPageToken(pageId, tposToken) {
+async function getPageToken(pageId) {
     const now = Date.now();
     if (tokenCache[pageId] && now - lastFetchTime < CACHE_TTL) {
         return tokenCache[pageId].token;
     }
-    if (tposToken) {
-        tokenCache = await fetchTokensFromTPOS(tposToken);
-        lastFetchTime = now;
-        if (tokenCache[pageId]?.token) return tokenCache[pageId].token;
-    }
-    // Fallback: FB page token cấp sẵn trong env (đảm bảo private-reply luôn chạy)
     const envTok = process.env[`PAGE_TOKEN_${pageId}`];
     if (envTok) return envTok;
     return tokenCache[pageId]?.token || null;
@@ -138,32 +79,16 @@ router.get('/api/facebook-status', (req, res) => {
     });
 });
 
-// ---- Refresh tokens (manual) ----
-router.post('/api/refresh-tokens', async (req, res) => {
-    const tposToken = req.headers.authorization?.replace('Bearer ', '') || req.body.tpos_token;
-    if (!tposToken) return res.status(400).json({ success: false, error: 'TPOS token required' });
-    tokenCache = await fetchTokensFromTPOS(tposToken);
-    lastFetchTime = Date.now();
-    res.json({
-        success: true,
-        message: `Loaded ${Object.keys(tokenCache).length} page tokens`,
-        pages: Object.keys(tokenCache).map((id) => ({ id, name: tokenCache[id].name })),
-    });
-});
-
 // ---- Conversations ----
 router.get('/api/pages/:pageId/conversations', async (req, res) => {
     try {
         const { pageId } = req.params;
-        const tposToken = req.headers.authorization?.replace('Bearer ', '') || req.query.tpos_token;
-        const token = await getPageToken(pageId, tposToken);
+        const token = await getPageToken(pageId);
         if (!token)
-            return res
-                .status(400)
-                .json({
-                    success: false,
-                    error: `No token for page ${pageId}. Refresh tokens first.`,
-                });
+            return res.status(400).json({
+                success: false,
+                error: `No token for page ${pageId}. Refresh tokens first.`,
+            });
 
         const fields = 'id,participants,updated_time,unread_count,snippet,can_reply';
         const url = `${FB_GRAPH_URL}/${pageId}/conversations?fields=${fields}&access_token=${token}`;
@@ -204,8 +129,7 @@ router.get('/api/conversations/:convId/messages', async (req, res) => {
     try {
         const { convId } = req.params;
         const { page_id } = req.query;
-        const tposToken = req.headers.authorization?.replace('Bearer ', '') || req.query.tpos_token;
-        const token = await getPageToken(page_id, tposToken);
+        const token = await getPageToken(page_id);
         if (!token)
             return res.status(400).json({ success: false, error: `No token for page ${page_id}` });
 
@@ -296,8 +220,7 @@ router.post('/api/pages/:pageId/messages', async (req, res) => {
     try {
         const { pageId } = req.params;
         const { conversation_id, recipient_id, message, attachment_id, attachment_type } = req.body;
-        const tposToken = req.headers.authorization?.replace('Bearer ', '') || req.body.tpos_token;
-        const token = await getPageToken(pageId, tposToken);
+        const token = await getPageToken(pageId);
         if (!token)
             return res.status(400).json({ success: false, error: `No token for page ${pageId}` });
 
@@ -372,8 +295,7 @@ router.post('/api/pages/:pageId/messages', async (req, res) => {
 router.post('/api/pages/:pageId/upload', upload.single('file'), async (req, res) => {
     try {
         const { pageId } = req.params;
-        const tposToken = req.headers.authorization?.replace('Bearer ', '') || req.query.tpos_token;
-        const token = await getPageToken(pageId, tposToken);
+        const token = await getPageToken(pageId);
         if (!token)
             return res.status(400).json({ success: false, error: `No token for page ${pageId}` });
         if (!req.file) return res.status(400).json({ success: false, error: 'No file uploaded' });
@@ -417,8 +339,7 @@ router.post('/api/pages/:pageId/comments/:commentId/private-reply', async (req, 
     try {
         const { pageId, commentId } = req.params;
         const { message } = req.body;
-        const tposToken = req.headers.authorization?.replace('Bearer ', '') || req.body.tpos_token;
-        const token = await getPageToken(pageId, tposToken);
+        const token = await getPageToken(pageId);
         if (!token)
             return res.status(400).json({ success: false, error: `No token for page ${pageId}` });
         if (!message) return res.status(400).json({ success: false, error: 'message required' });
@@ -461,8 +382,7 @@ router.get('/api/pages/:pageId/conversations/find-by-psid', async (req, res) => 
     try {
         const { pageId } = req.params;
         const { psid } = req.query;
-        const tposToken = req.headers.authorization?.replace('Bearer ', '') || req.query.tpos_token;
-        const token = await getPageToken(pageId, tposToken);
+        const token = await getPageToken(pageId);
         if (!token)
             return res.status(400).json({ success: false, error: `No token for page ${pageId}` });
         if (!psid) return res.status(400).json({ success: false, error: 'psid required' });
@@ -503,8 +423,7 @@ router.get('/api/pages/:pageId/conversations/find-by-psid', async (req, res) => 
 router.post('/api/pages/:pageId/conversations/:convId/read', async (req, res) => {
     try {
         const { pageId, convId } = req.params;
-        const tposToken = req.headers.authorization?.replace('Bearer ', '') || req.body.tpos_token;
-        const token = await getPageToken(pageId, tposToken);
+        const token = await getPageToken(pageId);
         if (!token) return res.status(400).json({ success: false, error: 'No token for page' });
 
         const convUrl = `${FB_GRAPH_URL}/${convId}?fields=participants&access_token=${token}`;

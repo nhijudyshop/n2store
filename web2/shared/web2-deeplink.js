@@ -27,7 +27,7 @@
         const mWeb2 = p.match(/^(.*\/)web2\//);
         if (mWeb2) return mWeb2[1];
         // Trang ở root-level (so-order/, native-orders/): cắt segment cuối (folder + file)
-        const mRoot = p.match(/^(.*\/)(?:so-order|native-orders|live-chat|tpos-pancake)\//);
+        const mRoot = p.match(/^(.*\/)(?:so-order|native-orders|live-chat)\//);
         if (mRoot) return mRoot[1];
         // Fallback: thư mục cha của file hiện tại
         const parts = p.split('/');

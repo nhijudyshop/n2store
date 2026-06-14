@@ -13,25 +13,13 @@ const API_CONFIG = {
     // Primary Worker URL
     WORKER_URL: WORKER_URL,
 
-    // Live OData API (SaleOnline_Order, AuditLog, etc.)
-    Live_ODATA: `${WORKER_URL}/api/odata`,
+    // TPOS OData (Live_ODATA) đã gỡ 2026-06-14: Web 2.0 không dùng TPOS — dead config.
 
     // Pancake API (Pages, Conversations) - Via Cloudflare Worker proxy
     PANCAKE: `${WORKER_URL}/api/pancake`,
 
     // Helper functions
     buildUrl: {
-        /**
-         * Build Live OData URL
-         * @param {string} endpoint - e.g., "SaleOnline_Order/ODataService.GetView"
-         * @param {string} params - Query string (optional)
-         * @returns {string} - Full URL through worker
-         */
-        liveOData: (endpoint, params = '') => {
-            const baseUrl = `${WORKER_URL}/api/odata/${endpoint}`;
-            return params ? `${baseUrl}?${params}` : baseUrl;
-        },
-
         /**
          * Build Pancake API URL
          * @param {string} endpoint - e.g., "pages", "conversations"
@@ -79,7 +67,7 @@ const API_CONFIG = {
          */
         facebookSend: () => {
             return `${WORKER_URL}/api/facebook-send`;
-        }
+        },
     },
 
     /**
@@ -98,9 +86,9 @@ const API_CONFIG = {
     getStatus: function () {
         return {
             primary: WORKER_URL,
-            current: WORKER_URL
+            current: WORKER_URL,
         };
-    }
+    },
 };
 
 // Export for use in other files
@@ -110,6 +98,5 @@ if (typeof window !== 'undefined') {
 
 console.log('[API-CONFIG] API configuration loaded:', {
     worker: WORKER_URL,
-    liveOData: API_CONFIG.Live_ODATA,
-    pancake: API_CONFIG.PANCAKE
+    pancake: API_CONFIG.PANCAKE,
 });

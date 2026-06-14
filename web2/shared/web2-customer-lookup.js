@@ -1,7 +1,7 @@
 // #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 — tra cứu KH từ kho warehouse (thay partner-customer-api WEB2).
 // =====================================================================
-// Web2CustomerLookup — thay partner-customer-api.js (WEB2 Partner OData).
-// Đọc kho KH warehouse Web 2.0 (/api/web2/customers/*), warehouse riêng.
+// Web2CustomerLookup — thay partner-customer-api.js (TPOS OData đã gỡ 2026-06).
+// Đọc kho KH warehouse Web 2.0 (/api/web2/customers/*) — KHÔNG gọi TPOS.
 //
 // Giữ global `window.PartnerCustomerApi` (interface cũ) để balance-history /
 // customer-wallet không phải đổi code: listByPhones, list, STATUS_TEXT,

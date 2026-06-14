@@ -22,18 +22,6 @@ const LiveApi = {
         }
         return h;
     },
-    /**
-     * TPOS token đã gỡ — Web 2.0 dùng Pancake account JWT (pancakeTokenManager)
-     * cho mọi call. Giữ method (trả null) phòng caller cũ còn gọi, không throw.
-     * @returns {Promise<null>}
-     */
-    async getToken() {
-        return null;
-    },
-
-    // authenticatedFetch (TPOS OData Bearer fetch) ĐÃ GỠ — dead code, không có
-    // caller nào trong live-chat. Mọi call warehouse Web 2.0 dùng fetch trực tiếp.
-
     // REWIRE helper: điền Facebook_UserName cho campaign (FB-live) từ allPages.
     _fillCampaignPageNames(camps, state) {
         if (!Array.isArray(camps) || !state?.allPages) return;
@@ -210,6 +198,47 @@ const LiveApi = {
             console.warn('[Live-API] getPartnerInfo (warehouse) fail:', e.message);
             return null;
         }
+    },
+
+    // Batch tra KH warehouse theo NHIỀU fb_id trong 1 request (chống N+1).
+    // Trả Map<fbId, partnerLike|null>. Chunk 500 (cap endpoint).
+    async getPartnerInfoBatch(fbUserIds) {
+        const out = new Map();
+        const ids = Array.from(new Set((fbUserIds || []).map(String).filter(Boolean)));
+        if (!ids.length) return out;
+        const base = LiveApi._getWorkerUrl();
+        for (let i = 0; i < ids.length; i += 500) {
+            const chunk = ids.slice(i, i + 500);
+            try {
+                const r = await fetch(`${base}/api/web2/customers/batch-by-fbid`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ fbIds: chunk }),
+                    signal: AbortSignal.timeout(20000),
+                });
+                const d = await r.json().catch(() => ({}));
+                const data = (d && d.data) || {};
+                for (const id of chunk) {
+                    const c = data[id];
+                    out.set(
+                        id,
+                        c
+                            ? {
+                                  Id: c.id,
+                                  Name: c.name || '',
+                                  Phone: c.phone || '',
+                                  Street: c.address || '',
+                                  Status: c.status || '',
+                                  _web2: true,
+                              }
+                            : null
+                    );
+                }
+            } catch (e) {
+                console.warn('[Live-API] getPartnerInfoBatch (warehouse) fail:', e.message);
+            }
+        }
+        return out;
     },
 
     // resolve fb_id → warehouse id rồi PATCH.

@@ -891,44 +891,25 @@ const LiveColumnManager = {
     async loadPartnerInfoForComments() {
         const state = window.LiveState;
 
+        // Chỉ fetch fb_id CHƯA có trong cache (gom hết, KHÔNG loop từng cái).
         const userIds = new Set();
         for (const c of state.comments) {
             const userId = c.from?.id;
-            if (userId) userIds.add(userId);
+            if (userId && !state.partnerCache.has(userId)) userIds.add(userId);
         }
 
-        if (userIds.size === 0) return;
-
-        // Batch fetch (5 concurrent)
-        const entries = Array.from(userIds);
-        const batchSize = 5;
-        for (let i = 0; i < entries.length; i += batchSize) {
-            const batch = entries.slice(i, i + batchSize);
-            await Promise.all(
-                batch.map(async (userId) => {
-                    if (state.partnerCache.has(userId)) return;
-                    if (state.partnerFetchPromises.has(userId))
-                        return state.partnerFetchPromises.get(userId);
-
-                    const promise = (async () => {
-                        try {
-                            const data = await window.LiveApi.getPartnerInfo(userId);
-                            // Warehouse trả FLAT object {Id,Name,Phone,...}; shape cũ
-                            // Live là {Partner:{...}} → support cả 2 (defensive).
-                            if (data) {
-                                state.partnerCache.set(userId, data.Partner || data);
-                            }
-                        } catch {
-                            // silently skip 400 errors (user not in this CRM team)
-                        } finally {
-                            state.partnerFetchPromises.delete(userId);
-                        }
-                    })();
-
-                    state.partnerFetchPromises.set(userId, promise);
-                    return promise;
-                })
-            );
+        // 1 batch request cho TẤT CẢ fb_id (trước: N request batch-by-fbid 1 phần tử).
+        if (userIds.size > 0) {
+            try {
+                const map = await window.LiveApi.getPartnerInfoBatch(Array.from(userIds));
+                // Warehouse trả FLAT object {Id,Name,Phone,...}; shape cũ Live là
+                // {Partner:{...}} → support cả 2 (defensive).
+                for (const [userId, data] of map) {
+                    if (data) state.partnerCache.set(userId, data.Partner || data);
+                }
+            } catch (e) {
+                console.warn('[Live-INIT] loadPartnerInfoForComments batch fail:', e.message);
+            }
         }
 
         // Re-render with partner info
