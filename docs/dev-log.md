@@ -12,6 +12,21 @@
 
 **Files:** `delivery-report/js/delivery-report.js`, `delivery-report/index.html`. `node --check` PASS. **Status:** ✅ (không test live vì send Telegram là side-effect vào nhóm giao hàng thật; logic copy y hệt nút TP đã chạy ổn).
 
+### [so-order] FIX deep-link cross-tab + Unicode NFC — link ví/công nợ → so-order giờ tìm đúng NCC ✅
+
+**Bối cảnh:** "continue" sau D/E/C. Khảo sát: supplier-360/supplier-aging/smart-match/inventory-forecast **KHÔNG tồn tại** trong codebase (MEMORY/research nhầm với plan 2026-05) — chỉ supplier-debt/supplier-wallet có thật (đã deep-link ở B). Đi xác minh "nuance" deep-link đã flag → **phát hiện bug thật**.
+
+**Bug:** so-order chỉ render TAB ĐANG ACTIVE. Link `?supplier=` từ ví/công nợ khi NCC ở tab khác → 0 match (browser-repro: active=huongchau, `?supplier=KHO TÂN BÌNH` (hanoi) → không switch). 2 nguyên nhân:
+
+1. **Unicode NFC/NFD**: param URL decode ra NFD (14 ký tự) ≠ data lưu NFC (12) → `toLowerCase()` không khớp. Fix: `norm = s => s.normalize('NFC').trim().toLowerCase()` cả 2 vế.
+2. **Async pull reset**: pull Postgres lúc init chạy SAU `_applyDeeplink` → ghi đè activeTabId. Fix: retry 6×/2.4s re-assert tab đích + mở shipment collapse, scroll khi row xuất hiện, tự dừng.
+
+Cũng nâng `_applyDeeplink`: quét toàn state tìm tab+shipment chứa NCC → switch tab + un-collapse (trước chỉ tìm trong DOM active tab).
+
+**Browser-verified (localhost dl4):** active=huongchau → `?supplier=KHO TÂN BÌNH` → **switch sang hanoi, 10 dòng match**. NFC≠NFD confirm (12 vs 14 ký tự).
+
+**Files:** `so-order/js/so-order-app.js` (`?v=20260614dl4`). `node --check` PASS. **Status:** ✅
+
 ### [web2][render] Hướng C — đào sâu analytics: KPI "Sổ Order / NCC" lên dashboard ✅
 
 **User:** "D, E, C". C = đào sâu analytics đã có. Chọn deepening **kết nối 3 hướng**: dashboard surface tín hiệu Sổ Order/NCC (cùng nguồn Hướng E) + click mở so-order (deep-link Hướng B).
