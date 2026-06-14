@@ -2,6 +2,24 @@
 
 ## 2026-06-14
 
+### [web2][render][worker] Hướng D — dọn nốt Firestore Web 2.0 → Postgres ✅
+
+**User:** "D, E, C" (làm tiếp 3 hướng). D = dọn Firestore (nối tiếp Task 1 gỡ firebase).
+
+**Khảo sát:** footprint Firestore Web 2.0 còn lại: (1) purchase-refund fallback đọc `web2_so_order`, (2) web2-msg-template.js CRUD template, (3) live-chat token-sync (pancake_tokens) — **GIỮ** (infra đang sống, relay đọc, không phải dead code).
+
+**D1 — purchase-refund C8 leftover (correctness, bỏ sót lần fix data-flow):** picker `loadSoOrderReceivedItems()` vẫn fallback Firestore `web2_so_order/main` (frozen) khi IDB+localStorage trống → trên máy mới refund dùng so-order CŨ. Fix: load `web2-so-order-reader.js` + đổi fallback sang `Web2SoOrder.load()` (Postgres, có auth). Đây là consumer C8 thứ 5 (đã fix debt/wallet/products/manual-deposit).
+
+**D2 — message templates Firestore → Postgres:** chỉ CRUD template còn Firestore (send-job đã ở Render). Mới:
+
+- Route `render.com/routes/web2-msg-templates.js` — bảng `web2_msg_templates` (web2Db): GET (seed 4 default nếu rỗng) / POST (create|update) / DELETE. SSE `web2:msg-templates`. `requireWeb2AuthSoft` + WeakSet ensureTables.
+- `server.js` mount + initializeNotifiers. Worker: `WEB2_MSG_TEMPLATES` allowlist (routes.js ×2 + worker.js case).
+- Client `web2-msg-template.js`: bỏ `_copyFromLegacy`/`_seedDefaults`/`window.db`; `_loadTemplates/_saveTemplate/_deleteTemplate` gọi `/api/web2-msg-templates` (map server name/content → Name/Content giữ nguyên modal). Cache localStorage giữ.
+
+**Verify:** mọi file `node --check` PASS, 0 firebase logic còn trong web2-msg-template.js. Endpoint cần deploy Render+worker mới curl-verify được.
+
+**Files:** purchase-refund (HTML+JS), web2-msg-templates.js (mới), server.js, worker.js, routes.js, web2-msg-template.js. **Status:** ✅ (chờ deploy verify live).
+
 ### [web2] Cross-page deep-linking (Hướng B) — liên kết NCC: công nợ ↔ ví ↔ sổ order, so-order → Kho SP ✅
 
 **User:** "tiếp tục" (sau đợt C) → hướng B trong đề xuất. Giờ so-order đã ở Postgres (C8) nên dữ liệu liên thông được giữa các trang.

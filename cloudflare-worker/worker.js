@@ -238,6 +238,8 @@ async function routeRequest(request, env, ctx) {
                 return handleCustomer360Proxy(request, url, pathname);
             case 'WEB2_SO_ORDER':
                 return handleCustomer360Proxy(request, url, pathname);
+            case 'WEB2_MSG_TEMPLATES':
+                return handleCustomer360Proxy(request, url, pathname);
             case 'WEB2_LIVE_COMMENTS':
                 return handleCustomer360Proxy(request, url, pathname);
             case 'WEB2_ZALO':

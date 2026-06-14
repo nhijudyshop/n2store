@@ -6,11 +6,11 @@
 // Port của orders-report message-template-manager.js — rút gọn, self-contained,
 // dùng Web2Chat + Extension thay vì pancakeDataManager.
 //
-// Firestore collection `web2_message_templates` — FORK 2026-06-12 (3W2, tách
-// Web 1.0 ⊥ Web 2.0): collection cũ `message_templates` là PROD Web 1.0
-// (orders-report message-template-manager.js) — Web 2.0 KHÔNG đụng (chỉ đọc
-// 1 lần để seed copy khi collection mới rỗng).
-// schema: {Name, Content, order, active, createdAt}. Placeholders:
+// Template store: Postgres `web2_msg_templates` (web2Db) qua /api/web2-msg-templates
+// — Hướng D 2026-06-14, migrate khỏi Firestore `web2_message_templates` (dọn nốt
+// firebase Web 2.0). Server seed 4 default khi rỗng. Web 1.0 (orders-report
+// message-template-manager.js, collection `message_templates`) KHÔNG đụng.
+// schema: {id, name, content, order, active}. Placeholders:
 //   {partner.name}     → order.customerName
 //   {partner.address}  → order.address
 //   {order.code}       → order.code
@@ -31,16 +31,24 @@
     const SENT_KEY = 'web2_sent_message_orders';
     const TTL_24H = 24 * 60 * 60 * 1000;
 
-    // 3W2 (2026-06-12): collection RIÊNG Web 2.0 — mọi read/write đi qua đây.
-    // LEGACY = collection Web 1.0 prod (orders-report), CHỈ đọc 1 lần để seed.
-    const COLLECTION = 'web2_message_templates';
-    const LEGACY_COLLECTION = 'message_templates'; // READ-ONLY — KHÔNG ghi/xoá
-
     // Server-side job API (chạy nền ở Render, refresh-safe). Qua CF worker proxy.
     const WORKER_URL =
         window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
     // Mount dưới /api/web2/msg-send (CF worker forward /api/web2/* về Render).
     const API_BASE = WORKER_URL + '/api/web2/msg-send';
+    // Hướng D (2026-06-14): template CRUD chuyển Firestore → Postgres (web2Db).
+    // Route /api/web2-msg-templates trả {id,name,content,order,active}; client map
+    // name→Name, content→Content để giữ nguyên modal code (dùng t.Name/t.Content).
+    const TPL_API = WORKER_URL + '/api/web2-msg-templates';
+    function _authHeaders(extra) {
+        try {
+            return window.Web2Auth?.authHeaders
+                ? window.Web2Auth.authHeaders(extra)
+                : { ...(extra || {}) };
+        } catch {
+            return { ...(extra || {}) };
+        }
+    }
 
     let _templates = [];
     let _filtered = [];
@@ -94,31 +102,36 @@
         return true;
     }
 
-    // ─── Firestore: load templates ────────────────────────────────
+    // ─── Postgres: load templates (Hướng D, thay Firestore) ───────
+    // Map server {name,content} → {Name,Content} để modal dùng nguyên t.Name/t.Content.
+    function _mapIn(it) {
+        return {
+            id: it.id,
+            Name: it.name || '',
+            Content: it.content || '',
+            order: Number(it.order) || 0,
+            active: it.active !== false,
+        };
+    }
+
     async function _loadTemplates() {
-        // Try cache first
+        // Try cache first (hiển thị ngay, revalidate sau).
         try {
             const cached = localStorage.getItem(TEMPLATES_KEY);
             if (cached) _templates = JSON.parse(cached);
         } catch (_) {
             /* ignore */
         }
-        if (!window.db) return _templates;
         try {
-            const snap = await window.db.collection(COLLECTION).orderBy('order', 'asc').get();
-            _templates = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-            // Collection mới rỗng → one-time seed: copy từ collection cũ Web 1.0
-            // (READ-ONLY); cũ cũng rỗng → seed 4 defaults vào collection MỚI.
-            if (_templates.length === 0) {
-                const copied = await _copyFromLegacy();
-                if (!copied) await _seedDefaults();
-                const snap2 = await window.db.collection(COLLECTION).orderBy('order', 'asc').get();
-                _templates = snap2.docs.map((d) => ({ id: d.id, ...d.data() }));
-            }
-            try {
-                localStorage.setItem(TEMPLATES_KEY, JSON.stringify(_templates));
-            } catch (_) {
-                /* quota */
+            const r = await fetch(TPL_API, { headers: _authHeaders() });
+            const d = await r.json().catch(() => null);
+            if (r.ok && d?.success && Array.isArray(d.items)) {
+                _templates = d.items.map(_mapIn);
+                try {
+                    localStorage.setItem(TEMPLATES_KEY, JSON.stringify(_templates));
+                } catch (_) {
+                    /* quota */
+                }
             }
         } catch (e) {
             console.warn('[Web2MsgTemplate] loadTemplates failed:', e?.message || e);
@@ -126,95 +139,34 @@
         return _templates;
     }
 
-    // One-time seed: copy toàn bộ docs từ collection Web 1.0 sang collection MỚI,
-    // giữ nguyên doc id (.doc(oldId).set(data)) để 2 bên đối chiếu được.
-    // Collection cũ CHỈ ĐỌC — không update/delete. Trả false nếu cũ rỗng/lỗi.
-    async function _copyFromLegacy() {
-        if (!window.db) return false;
-        try {
-            const legacySnap = await window.db.collection(LEGACY_COLLECTION).get();
-            if (legacySnap.empty) return false;
-            const batch = window.db.batch();
-            const ref = window.db.collection(COLLECTION);
-            legacySnap.docs.forEach((d) => batch.set(ref.doc(d.id), d.data()));
-            await batch.commit();
-            return true;
-        } catch (e) {
-            console.warn('[Web2MsgTemplate] copyFromLegacy failed:', e?.message || e);
-            return false;
-        }
-    }
-
-    async function _seedDefaults() {
-        if (!window.db || !window.firebase?.firestore?.FieldValue) return;
-        const ts = window.firebase.firestore.FieldValue.serverTimestamp();
-        const defaults = [
-            {
-                Name: 'Chốt đơn',
-                Content:
-                    'Dạ chào chị {partner.name},\n\nEm gửi đến mình các sản phẩm mà mình đã đặt bên em gồm:\n\n{order.details}\n\nĐơn hàng của mình sẽ được gửi về địa chỉ "{partner.address}"\n\nChị xác nhận giúp em để em gửi hàng nha ạ! 🙏',
-                order: 1,
-                active: true,
-                createdAt: ts,
-            },
-            {
-                Name: 'Xác nhận địa chỉ',
-                Content:
-                    'Dạ chị {partner.name} ơi,\n\nEm xác nhận lại địa chỉ nhận hàng của chị là:\n📍 {partner.address}\n\nChị kiểm tra giúp em địa chỉ đã chính xác chưa ạ?',
-                order: 2,
-                active: true,
-                createdAt: ts,
-            },
-            {
-                Name: 'Thông báo giao hàng',
-                Content:
-                    'Dạ chị {partner.name} ơi,\n\nĐơn hàng #{order.code} của chị đã được giao cho đơn vị vận chuyển rồi ạ.\n\nChị chú ý điện thoại để nhận hàng nha! 📦',
-                order: 3,
-                active: true,
-                createdAt: ts,
-            },
-            {
-                Name: 'Cảm ơn khách hàng',
-                Content:
-                    'Dạ cảm ơn chị {partner.name} đã ủng hộ shop ạ! 🙏❤️\n\nChị dùng hàng có gì thắc mắc cứ inbox shop em hỗ trợ nha.\n\nChúc chị một ngày vui vẻ! 😊',
-                order: 4,
-                active: true,
-                createdAt: ts,
-            },
-        ];
-        const batch = window.db.batch();
-        const ref = window.db.collection(COLLECTION);
-        defaults.forEach((t) => batch.set(ref.doc(), t));
-        await batch.commit();
-    }
-
     async function _saveTemplate(data) {
-        if (!window.db) throw new Error('Firestore not ready');
         const payload = {
+            id: data.id || undefined,
             Name: data.Name || data.name || '',
             Content: data.Content || data.content || '',
-            order: typeof data.order === 'number' ? data.order : _templates.length,
             active: data.active !== false,
         };
-        if (window.firebase?.firestore?.FieldValue) {
-            payload.updatedAt = window.firebase.firestore.FieldValue.serverTimestamp();
-        }
-        if (data.id) {
-            await window.db.collection(COLLECTION).doc(data.id).update(payload);
-        } else {
-            if (window.firebase?.firestore?.FieldValue) {
-                payload.createdAt = window.firebase.firestore.FieldValue.serverTimestamp();
-            }
-            const ref = await window.db.collection(COLLECTION).add(payload);
-            data.id = ref.id;
-        }
+        if (typeof data.order === 'number') payload.order = data.order;
+        const r = await fetch(TPL_API, {
+            method: 'POST',
+            headers: _authHeaders({ 'Content-Type': 'application/json' }),
+            body: JSON.stringify(payload),
+        });
+        const d = await r.json().catch(() => null);
+        if (!r.ok || !d?.success) throw new Error(d?.error || 'HTTP ' + r.status);
+        if (d.item?.id) data.id = d.item.id;
         await _loadTemplates();
         return data;
     }
 
     async function _deleteTemplate(id) {
-        if (!window.db || !id) return;
-        await window.db.collection(COLLECTION).doc(id).delete();
+        if (!id) return;
+        const r = await fetch(TPL_API + '/' + encodeURIComponent(id), {
+            method: 'DELETE',
+            headers: _authHeaders(),
+        });
+        const d = await r.json().catch(() => null);
+        if (!r.ok || !d?.success) throw new Error(d?.error || 'HTTP ' + r.status);
         await _loadTemplates();
     }
 

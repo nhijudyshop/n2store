@@ -777,6 +777,10 @@ const web2SoOrderRoutes = require('./routes/web2-so-order');
 web2SoOrderRoutes.initializeNotifiers(web2RealtimeSseRoutes.notifyClients);
 app.use('/api/web2-so-order', web2SoOrderRoutes);
 
+const web2MsgTemplatesRoutes = require('./routes/web2-msg-templates');
+web2MsgTemplatesRoutes.initializeNotifiers(web2RealtimeSseRoutes.notifyClients);
+app.use('/api/web2-msg-templates', web2MsgTemplatesRoutes);
+
 // WEB2.0 — Zalo single-source (2026-06-13): NGUỒN DUY NHẤT mọi dữ liệu/chức năng
 // Zalo. personal (zca-js: đăng nhập QR/cookie, chat 2 chiều, xem thông tin) + OA
 // (ZNS, tin tư vấn). Bảng web2_zalo_* (web2Db). SSE web2:zalo:*. Mount root-level

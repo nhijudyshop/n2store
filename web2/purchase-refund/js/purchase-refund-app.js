@@ -644,20 +644,22 @@
             }
         }
 
-        // Fallback Firestore nếu cả IDB + localStorage trống
+        // Fallback Postgres (nguồn chuẩn từ C8) nếu cả IDB + localStorage trống.
+        // 2026-06-14 (Hướng D): bỏ fallback Firestore frozen — so-order đã chuyển
+        // sang Postgres, đọc qua shared reader Web2SoOrder.load() (có auth header).
+        // Đây là consumer C8 bị bỏ sót khi fix data-flow (đã sửa debt/wallet/products).
         if (!data || !Array.isArray(data.tabs) || data.tabs.length === 0) {
-            if (typeof firebase === 'undefined' || !firebase.firestore) {
-                return { items: [], err: 'Firebase chưa load + localStorage trống' };
+            if (!window.Web2SoOrder?.load) {
+                return { items: [], err: 'Web2SoOrder reader chưa load + local trống' };
             }
             try {
-                const db = firebase.firestore();
-                const snap = await db.collection('web2_so_order').doc('main').get();
-                if (snap.exists) {
-                    data = snap.data();
-                    source = 'firestore';
+                const pgData = await window.Web2SoOrder.load();
+                if (pgData && Array.isArray(pgData.tabs)) {
+                    data = pgData;
+                    source = 'postgres';
                 }
             } catch (e) {
-                return { items: [], err: `Firestore: ${e.message}` };
+                return { items: [], err: `Sổ Order (Postgres): ${e.message}` };
             }
         }
         if (!data) return { items: [], err: null };
