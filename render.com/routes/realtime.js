@@ -7,207 +7,17 @@
 const express = require('express');
 const router = express.Router();
 
-/**
- * Lưu một realtime update vào database
- * Được gọi từ WebSocket handler trong server.js
- */
-async function saveRealtimeUpdate(db, updateData) {
-    const { conversationId, type, snippet, unreadCount, pageId, psid, customerName } = updateData;
-
-    try {
-        const query = `
-            INSERT INTO realtime_updates
-            (conversation_id, type, snippet, unread_count, page_id, psid, customer_name)
-            VALUES ($1, $2, $3, $4, $5, $6, $7)
-            RETURNING id, created_at
-        `;
-
-        const result = await db.query(query, [
-            conversationId,
-            type || 'INBOX',
-            snippet ? snippet.substring(0, 200) : null, // Limit snippet length
-            unreadCount || 0,
-            pageId,
-            psid,
-            customerName,
-        ]);
-
-        console.log(`[REALTIME-DB] Saved update: ${type} from ${customerName || psid}`);
-        return result.rows[0];
-    } catch (error) {
-        console.error('[REALTIME-DB] Error saving update:', error.message);
-        return null;
-    }
-}
-
-/**
- * GET /api/realtime/new-messages
- * Lấy tin nhắn/bình luận mới kể từ timestamp
- *
- * Query params:
- * - since: Unix timestamp (ms) - bắt buộc
- * - limit: Số lượng tối đa (default: 100)
- */
-router.get('/new-messages', async (req, res) => {
-    try {
-        const db = req.app.locals.chatDb;
-        if (!db) {
-            return res.status(500).json({ error: 'Database not available' });
-        }
-
-        const since = parseInt(req.query.since) || 0;
-        const limit = Math.min(parseInt(req.query.limit) || 100, 500);
-
-        // Convert timestamp to Date
-        const sinceDate = since > 0 ? new Date(since) : new Date(Date.now() - 24 * 60 * 60 * 1000); // Default: last 24h
-
-        const query = `
-            SELECT
-                id,
-                conversation_id,
-                type,
-                snippet,
-                unread_count,
-                page_id,
-                psid,
-                customer_name,
-                created_at
-            FROM realtime_updates
-            WHERE created_at > $1 AND (seen = FALSE OR seen IS NULL)
-            ORDER BY created_at DESC
-            LIMIT $2
-        `;
-
-        const result = await db.query(query, [sinceDate, limit]);
-
-        // Group by type
-        const messages = result.rows.filter((r) => r.type === 'INBOX');
-        const comments = result.rows.filter((r) => r.type === 'COMMENT');
-
-        // Get unique customers
-        const uniquePsids = [...new Set(result.rows.map((r) => r.psid).filter(Boolean))];
-
-        res.json({
-            success: true,
-            total: result.rows.length,
-            messages: {
-                count: messages.length,
-                items: messages,
-            },
-            comments: {
-                count: comments.length,
-                items: comments,
-            },
-            uniqueCustomers: uniquePsids.length,
-            since: sinceDate.toISOString(),
-            serverTime: new Date().toISOString(),
-        });
-    } catch (error) {
-        console.error('[REALTIME-API] Error fetching new messages:', error);
-        res.status(500).json({ error: 'Failed to fetch new messages' });
-    }
-});
-
-/**
- * GET /api/realtime/summary
- * Lấy tóm tắt tin mới (count only, không chi tiết)
- */
-router.get('/summary', async (req, res) => {
-    try {
-        const db = req.app.locals.chatDb;
-        if (!db) {
-            return res.status(500).json({ error: 'Database not available' });
-        }
-
-        const since = parseInt(req.query.since) || 0;
-        const sinceDate = since > 0 ? new Date(since) : new Date(Date.now() - 24 * 60 * 60 * 1000);
-
-        const query = `
-            SELECT
-                type,
-                COUNT(*) as count,
-                COUNT(DISTINCT psid) as unique_customers
-            FROM realtime_updates
-            WHERE created_at > $1 AND (seen = FALSE OR seen IS NULL)
-            GROUP BY type
-        `;
-
-        const result = await db.query(query, [sinceDate]);
-
-        const summary = {
-            messages: 0,
-            comments: 0,
-            uniqueCustomers: 0,
-        };
-
-        result.rows.forEach((row) => {
-            if (row.type === 'INBOX') {
-                summary.messages = parseInt(row.count);
-            } else if (row.type === 'COMMENT') {
-                summary.comments = parseInt(row.count);
-            }
-        });
-
-        // Get total unique customers across all types (only unseen)
-        const uniqueQuery = `
-            SELECT COUNT(DISTINCT psid) as total
-            FROM realtime_updates
-            WHERE created_at > $1 AND psid IS NOT NULL AND (seen = FALSE OR seen IS NULL)
-        `;
-        const uniqueResult = await db.query(uniqueQuery, [sinceDate]);
-        summary.uniqueCustomers = parseInt(uniqueResult.rows[0]?.total || 0);
-
-        res.json({
-            success: true,
-            ...summary,
-            total: summary.messages + summary.comments,
-            since: sinceDate.toISOString(),
-            serverTime: new Date().toISOString(),
-        });
-    } catch (error) {
-        console.error('[REALTIME-API] Error fetching summary:', error);
-        res.status(500).json({ error: 'Failed to fetch summary' });
-    }
-});
-
-/**
- * POST /api/realtime/mark-seen
- * Đánh dấu đã xem các updates
- */
-router.post('/mark-seen', async (req, res) => {
-    try {
-        const db = req.app.locals.chatDb;
-        if (!db) {
-            return res.status(500).json({ error: 'Database not available' });
-        }
-
-        const { ids, before } = req.body;
-
-        let query, params;
-
-        if (ids && Array.isArray(ids) && ids.length > 0) {
-            // Mark specific IDs as seen
-            query = `UPDATE realtime_updates SET seen = TRUE WHERE id = ANY($1)`;
-            params = [ids];
-        } else if (before) {
-            // Mark all before timestamp as seen
-            query = `UPDATE realtime_updates SET seen = TRUE WHERE created_at <= $1`;
-            params = [new Date(before)];
-        } else {
-            return res.status(400).json({ error: 'Missing ids or before parameter' });
-        }
-
-        const result = await db.query(query, params);
-
-        res.json({
-            success: true,
-            updated: result.rowCount,
-        });
-    } catch (error) {
-        console.error('[REALTIME-API] Error marking seen:', error);
-        res.status(500).json({ error: 'Failed to mark as seen' });
-    }
-});
+// =====================================================
+// DEPRECATED (2026-06-14): `realtime_updates` event-log system + the
+// GET /new-messages, GET /summary, POST /mark-seen endpoints below it
+// have been REMOVED. They were a parallel "seen"-based unread system that
+// NO frontend called anymore — the live cột TIN NHẮN uses `pending_customers`
+// exclusively (see GET /pending-customers + upsertPendingCustomer). The old
+// system only bloated the DB (server ghi mỗi event, không ai đọc/clear).
+// `saveRealtimeUpdate` write path (server.js handleMessage) đã gỡ.
+// Bảng `realtime_updates` giữ husk (không còn ghi) — dọn rows cũ qua
+// POST /wipe-all hoặc DELETE /clear-all?confirm=yes nếu cần.
+// =====================================================
 
 /**
  * DELETE /api/realtime/cleanup
@@ -287,6 +97,13 @@ router.delete('/clear-all', async (req, res) => {
  */
 router.get('/pending-customers', async (req, res) => {
     try {
+        // Defense-in-depth: đây là realtime Web 1.0 (chatDb). web2-api (WEB2_ONLY=1)
+        // KHÔNG được phục vụ. Cloudflare routing đã chặn, đây là lớp guard thứ 2.
+        if (process.env.WEB2_ONLY === '1') {
+            return res
+                .status(410)
+                .json({ error: 'Not available on web2-api — use Web 1.0 (n2store-fallback)' });
+        }
         const db = req.app.locals.chatDb;
         if (!db) {
             return res.status(500).json({ error: 'Database not available' });
@@ -626,7 +443,7 @@ router.get('/post-types', async (req, res) => {
     }
 });
 
-// Export both router and helper functions
+// Export router + the single live helper (pending_customers upsert).
+// saveRealtimeUpdate removed 2026-06-14 (realtime_updates deprecated).
 module.exports = router;
-module.exports.saveRealtimeUpdate = saveRealtimeUpdate;
 module.exports.upsertPendingCustomer = upsertPendingCustomer;

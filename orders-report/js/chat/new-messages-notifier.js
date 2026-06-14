@@ -66,13 +66,19 @@
         }
     }
 
+    // Buffer (ms) hấp thụ lệch giờ giữa timestamp Pancake (server) và Date.now()
+    // local lúc set _recentlyRepliedAt. Chỉ suppress tin RÕ RÀNG cũ hơn mốc reply.
+    const REPLIED_SKEW_MS = 2000;
+
     function _wasRecentlyReplied(psid, eventTimeMs) {
         const repliedAt = _recentlyRepliedAt[String(psid)];
         if (!repliedAt) return false;
-        // Nếu event timestamp <= thời điểm reply → là tin cũ trước reply, bỏ qua.
-        // Nếu không rõ event time, fallback về Date.now() để cho phép "tin mới sau reply".
-        const evTs = typeof eventTimeMs === 'number' ? eventTimeMs : Date.now();
-        return evTs <= repliedAt;
+        // Event KHÔNG kèm timestamp → coi là tin MỚI (KHÔNG suppress). Trước đây
+        // fallback Date.now() khiến tin mới tới ngay sau reply (cùng millisecond)
+        // bị nuốt suốt REPLIED_TTL_MS (24h). Thà hiện thừa badge còn hơn mất tin khách.
+        if (typeof eventTimeMs !== 'number' || !eventTimeMs) return false;
+        // Chỉ bỏ qua khi event cũ hơn mốc reply (trừ skew) = echo cũ thật sự.
+        return eventTimeMs < repliedAt - REPLIED_SKEW_MS;
     }
 
     // Load immediately from localStorage (before server fetch completes)
@@ -185,6 +191,10 @@
     function _upsertBadge(row, cellSelector, badgeClass, count) {
         const cell = row.querySelector(cellSelector);
         if (!cell) return;
+        // Guard: nếu row/cell đã bị tách khỏi DOM (surgical row-replace chạy GIỮA
+        // lúc _applyBadgesToRows đang lặp) thì prepend sẽ rơi vào cây DOM mồ côi
+        // → badge vô hình. Bỏ qua; lần reapply kế sẽ tô lại trên row mới.
+        if (!cell.isConnected) return;
 
         let badge = cell.querySelector(`.${badgeClass}`);
 
@@ -353,6 +363,27 @@
     }
 
     /**
+     * Gỡ 1 entry pending NHƯNG KHÔNG set cờ suppress 24h.
+     * Dùng cho dọn dẹp theo state Pancake (reconcile / WS báo shop đã đọc ở máy
+     * khác). KHÔNG được poison _recentlyRepliedAt — nếu không, tin mới của khách
+     * NGAY SAU đó sẽ bị _wasRecentlyReplied nuốt (bug reconcile-premature-clear:
+     * reconcile xoá badge user chưa thấy + chặn tin mới). Cờ suppress CHỈ dành
+     * cho clearPendingForCustomer (chính user reply → chặn echo của tin mình gửi).
+     */
+    function _removePending(psid) {
+        if (!psid) return;
+        const key = String(psid);
+        const before = _pendingCustomers.length;
+        _pendingCustomers = _pendingCustomers.filter(
+            (pc) => String(pc.psid || pc.from_psid || '') !== key
+        );
+        if (_pendingCustomers.length !== before) {
+            _saveToLocalStorage();
+            reapply();
+        }
+    }
+
+    /**
      * Clear all pending
      */
     function clearAll() {
@@ -446,7 +477,10 @@
                 if (
                     _pendingCustomers.some((pc) => String(pc.psid || pc.from_psid || '') === fromId)
                 ) {
-                    clearPendingForCustomer(fromId);
+                    // Shop đọc/reply ở máy khác → gỡ badge KHÔNG set cờ suppress
+                    // (để tin mới sau đó của khách vẫn hiện). Cờ suppress chỉ set
+                    // khi CHÍNH user ở tab này reply (clearPendingForCustomer).
+                    _removePending(fromId);
                 }
             }
         });
@@ -482,6 +516,9 @@
      */
     let _lastReconcileAt = 0;
     async function reconcilePendingWithPancake() {
+        // Tab ẩn → KHÔNG reconcile: tránh xoá badge user CHƯA TỪNG thấy ở background
+        // (badge bị dọn rồi khi user quay lại đã mất). Sẽ chạy lại khi tab visible.
+        if (typeof document !== 'undefined' && document.hidden) return;
         const RECONCILE_COOLDOWN_MS = 60_000; // skip if ran in last 60s
         if (Date.now() - _lastReconcileAt < RECONCILE_COOLDOWN_MS) return;
         _lastReconcileAt = Date.now();
@@ -521,7 +558,10 @@
                     const shopSentLast = !!lastSenderId && lastSenderId === String(pageId);
                     const unread = typeof conv.unread_count === 'number' ? conv.unread_count : null;
                     if (shopSentLast || unread === 0) {
-                        clearPendingForCustomer(psid);
+                        // Dọn entry stale theo Pancake — KHÔNG set cờ suppress 24h
+                        // (reconcile chạy nền, không phải user reply). Tin mới sau
+                        // đó của khách vẫn được phép hiện badge.
+                        _removePending(psid);
                         cleared++;
                     }
                 }
@@ -545,6 +585,27 @@
         },
         5 * 60 * 1000
     );
+
+    // Khi tab trở lại visible: tô lại badge ngay + reconcile (cooldown 60s tự chặn
+    // spam). Bù cho việc reconcile bị skip lúc tab ẩn.
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+            reapply();
+            reconcilePendingWithPancake().catch(() => {});
+        }
+    });
+
+    // Cross-tab sync: tab A đổi pending/replied-map trong localStorage → tab B
+    // nạp lại in-memory + tô lại badge. Trước đây không listen 'storage' nên 2 tab
+    // lệch nhau (tab A clear xong tab B vẫn hiện badge cũ, hoặc ngược lại).
+    window.addEventListener('storage', (e) => {
+        if (e.key === LS_KEY) {
+            _pendingCustomers = _loadFromLocalStorage();
+            reapply();
+        } else if (e.key === LS_REPLIED_KEY) {
+            _recentlyRepliedAt = _loadRepliedMap();
+        }
+    });
 
     // =====================================================
     // CSS for badges and row highlight

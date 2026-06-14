@@ -3,17 +3,20 @@
 // DATA MANAGER - Main JS
 // =====================================================
 
-const API_BASE = window.location.hostname === 'localhost'
-    ? 'http://localhost:3000/api/admin/data'
-    : 'https://chatomni-proxy.nhijudyshop.workers.dev/api/admin/data';
+const API_BASE =
+    window.location.hostname === 'localhost'
+        ? 'http://localhost:3000/api/admin/data'
+        : 'https://chatomni-proxy.nhijudyshop.workers.dev/api/admin/data';
 
-const FB_API_BASE = window.location.hostname === 'localhost'
-    ? 'http://localhost:3000/api/admin/firebase'
-    : 'https://chatomni-proxy.nhijudyshop.workers.dev/api/admin/firebase';
+const FB_API_BASE =
+    window.location.hostname === 'localhost'
+        ? 'http://localhost:3000/api/admin/firebase'
+        : 'https://chatomni-proxy.nhijudyshop.workers.dev/api/admin/firebase';
 
-const RS_API_BASE = window.location.hostname === 'localhost'
-    ? 'http://localhost:3000/api/admin/render'
-    : 'https://chatomni-proxy.nhijudyshop.workers.dev/api/admin/render';
+const RS_API_BASE =
+    window.location.hostname === 'localhost'
+        ? 'http://localhost:3000/api/admin/render'
+        : 'https://chatomni-proxy.nhijudyshop.workers.dev/api/admin/render';
 
 // =====================================================
 // STATE
@@ -70,16 +73,22 @@ function switchTab(tab) {
     activeTab = tab;
 
     // Update tab buttons
-    document.querySelectorAll('.tab-btn').forEach(btn => {
+    document.querySelectorAll('.tab-btn').forEach((btn) => {
         btn.classList.toggle('active', btn.dataset.tab === tab);
     });
 
     // Update tab content
-    document.querySelectorAll('.tab-content').forEach(el => {
+    document.querySelectorAll('.tab-content').forEach((el) => {
         el.classList.remove('active');
     });
 
-    const tabMap = { render: 'renderTab', firebase: 'firebaseTab', rtdb: 'rtdbTab', renderSvc: 'renderSvcTab', apiRef: 'apiRefTab' };
+    const tabMap = {
+        render: 'renderTab',
+        firebase: 'firebaseTab',
+        rtdb: 'rtdbTab',
+        renderSvc: 'renderSvcTab',
+        apiRef: 'apiRefTab',
+    };
     document.getElementById(tabMap[tab]).classList.add('active');
 
     // Lazy load on first switch
@@ -110,7 +119,8 @@ function refreshCurrentTab() {
 
 async function loadTableList() {
     const container = document.getElementById('tableGroups');
-    container.innerHTML = '<div class="loading-placeholder"><div class="spinner" style="margin:0 auto 8px;"></div>Đang tải...</div>';
+    container.innerHTML =
+        '<div class="loading-placeholder"><div class="spinner" style="margin:0 auto 8px;"></div>Đang tải...</div>';
 
     try {
         const resp = await fetch(`${API_BASE}/tables`);
@@ -132,8 +142,11 @@ function renderTableList(groups, filter = '') {
     let html = '';
 
     for (const [groupName, tables] of Object.entries(groups)) {
-        const filteredTables = tables.filter(t =>
-            !lowerFilter || t.name.includes(lowerFilter) || t.label.toLowerCase().includes(lowerFilter)
+        const filteredTables = tables.filter(
+            (t) =>
+                !lowerFilter ||
+                t.name.includes(lowerFilter) ||
+                t.label.toLowerCase().includes(lowerFilter)
         );
         if (filteredTables.length === 0) continue;
 
@@ -144,7 +157,9 @@ function renderTableList(groups, filter = '') {
                 <span class="group-count">${formatCount(totalRows)}</span>
             </div>
             <div class="group-items">
-                ${filteredTables.map(t => `
+                ${filteredTables
+                    .map(
+                        (t) => `
                     <div class="table-item ${!t.exists ? 'not-exists' : ''} ${t.isView ? 'is-view' : ''} ${currentTable === t.name ? 'active' : ''}"
                          onclick="${t.exists ? `selectTable('${t.name}')` : ''}"
                          title="${t.usedBy || t.name}">
@@ -154,7 +169,9 @@ function renderTableList(groups, filter = '') {
                         </span>
                         <span class="row-count">${t.exists ? formatCount(t.rowCount) : '-'}</span>
                     </div>
-                `).join('')}
+                `
+                    )
+                    .join('')}
             </div>
         </div>`;
     }
@@ -188,8 +205,10 @@ function selectTable(tableName) {
     document.getElementById('dataSearch').value = '';
 
     // Update sidebar active state
-    document.querySelectorAll('#renderTab .table-item').forEach(el => el.classList.remove('active'));
-    const item = [...document.querySelectorAll('#renderTab .table-item')].find(el =>
+    document
+        .querySelectorAll('#renderTab .table-item')
+        .forEach((el) => el.classList.remove('active'));
+    const item = [...document.querySelectorAll('#renderTab .table-item')].find((el) =>
         el.getAttribute('onclick')?.includes(`'${tableName}'`)
     );
     if (item) item.classList.add('active');
@@ -219,7 +238,7 @@ async function loadData() {
         const params = new URLSearchParams({
             page: currentPage,
             limit: 20,
-            ...(currentSearch && { search: currentSearch })
+            ...(currentSearch && { search: currentSearch }),
         });
 
         const resp = await fetch(`${API_BASE}/browse/${currentTable}?${params}`);
@@ -245,38 +264,43 @@ async function loadData() {
         loadedColumns = data.columns;
 
         // Render header
-        const cols = data.columns.map(c => c.column_name);
+        const cols = data.columns.map((c) => c.column_name);
         tableHead.innerHTML = `<tr>
             <th style="width:90px">Actions</th>
-            ${cols.map(c => `<th>${c}</th>`).join('')}
+            ${cols.map((c) => `<th>${c}</th>`).join('')}
         </tr>`;
 
         // Check if table is a view (no edit/delete for views)
         const isView = isCurrentTableView();
 
         // Render rows using index-based references
-        tableBody.innerHTML = data.rows.map((row, idx) => {
-            return `<tr>
+        tableBody.innerHTML = data.rows
+            .map((row, idx) => {
+                return `<tr>
                 <td class="cell-actions">
                     <button class="btn-icon btn-icon-view" onclick="viewRowByIdx(${idx})"
                             title="Xem chi tiết">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                     </button>
-                    ${!isView ? `<button class="btn-icon btn-icon-edit" onclick="editRowByIdx(${idx})"
+                    ${
+                        !isView
+                            ? `<button class="btn-icon btn-icon-edit" onclick="editRowByIdx(${idx})"
                             title="Sửa row">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                     </button>
                     <button class="btn-icon" onclick="deleteRowByIdx(${idx})"
                             title="Xóa row">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
-                    </button>` : ''}
+                    </button>`
+                            : ''
+                    }
                 </td>
-                ${cols.map(c => `<td>${renderCell(row[c])}</td>`).join('')}
+                ${cols.map((c) => `<td>${renderCell(row[c])}</td>`).join('')}
             </tr>`;
-        }).join('');
+            })
+            .join('');
 
         renderPagination(data.pagination);
-
     } catch (err) {
         loadingEl.style.display = 'none';
         emptyEl.style.display = 'flex';
@@ -290,7 +314,7 @@ async function loadData() {
 function getPkValue(row) {
     if (!tableData) return null;
     for (const tables of Object.values(tableData)) {
-        const tInfo = tables.find(t => t.name === currentTable);
+        const tInfo = tables.find((t) => t.name === currentTable);
         if (tInfo) {
             if (tInfo.compositePk) {
                 const pkValues = {};
@@ -388,7 +412,7 @@ function goToPage(page) {
 function isCurrentTableView() {
     if (!tableData) return false;
     for (const tables of Object.values(tableData)) {
-        const tInfo = tables.find(t => t.name === currentTable);
+        const tInfo = tables.find((t) => t.name === currentTable);
         if (tInfo) return !!tInfo.isView;
     }
     return false;
@@ -408,7 +432,9 @@ function deleteRowByIdx(idx) {
     document.getElementById('modalTitle').textContent = 'Xác nhận xóa row';
     let desc = '';
     if (pkInfo.compositePk) {
-        desc = Object.entries(pkInfo.pkValues).map(([k, v]) => `${k} = ${v}`).join(', ');
+        desc = Object.entries(pkInfo.pkValues)
+            .map(([k, v]) => `${k} = ${v}`)
+            .join(', ');
     } else {
         desc = `${pkInfo.pk} = ${pkInfo.value}`;
     }
@@ -444,34 +470,31 @@ async function executeDelete() {
             const resp = await fetch(`${API_BASE}/row/${currentTable}`, {
                 method: 'DELETE',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(body)
+                body: JSON.stringify(body),
             });
             const data = await resp.json();
             if (!data.success) throw new Error(data.error);
             showToast('Xóa row thành công', 'success');
-
         } else if (action.type === 'truncate') {
             const resp = await fetch(`${API_BASE}/truncate/${currentTable}`, {
-                method: 'DELETE'
+                method: 'DELETE',
             });
             const data = await resp.json();
             if (!data.success) throw new Error(data.error);
             showToast(`Đã xóa ${data.deletedRows} rows thành công`, 'success');
-
         } else if (action.type === 'fb-doc') {
             const docPath = action.docPath;
             const resp = await fetch(`${FB_API_BASE}/document/${docPath}`, {
-                method: 'DELETE'
+                method: 'DELETE',
             });
             const data = await resp.json();
             if (!data.success) throw new Error(data.error);
             showToast('Xóa document thành công', 'success');
             fbReloadCurrentCollection();
-
         } else if (action.type === 'rtdb') {
             const path = action.path;
             const resp = await fetch(`${FB_API_BASE}/rtdb/value?path=${encodeURIComponent(path)}`, {
-                method: 'DELETE'
+                method: 'DELETE',
             });
             const data = await resp.json();
             if (!data.success) throw new Error(data.error);
@@ -485,7 +508,6 @@ async function executeDelete() {
             loadData();
             loadTableList();
         }
-
     } catch (err) {
         showToast('Lỗi: ' + err.message, 'error');
         console.error('[DATA-MANAGER] Delete error:', err);
@@ -515,31 +537,46 @@ function editRowByIdx(idx) {
         pkCols = [pkInfo.pk];
     }
 
-    const cols = loadedColumns.map(c => c.column_name);
+    const cols = loadedColumns.map((c) => c.column_name);
     const colTypes = {};
-    loadedColumns.forEach(c => { colTypes[c.column_name] = c.data_type; });
+    loadedColumns.forEach((c) => {
+        colTypes[c.column_name] = c.data_type;
+    });
 
-    body.innerHTML = cols.map(col => {
-        const val = row[col];
-        const isPk = pkCols.includes(col);
-        const dataType = colTypes[col] || 'text';
-        const isJson = typeof val === 'object' && val !== null;
-        const displayVal = val === null || val === undefined ? '' : (isJson ? JSON.stringify(val, null, 2) : String(val));
+    body.innerHTML = cols
+        .map((col) => {
+            const val = row[col];
+            const isPk = pkCols.includes(col);
+            const dataType = colTypes[col] || 'text';
+            const isJson = typeof val === 'object' && val !== null;
+            const displayVal =
+                val === null || val === undefined
+                    ? ''
+                    : isJson
+                      ? JSON.stringify(val, null, 2)
+                      : String(val);
 
-        const isLongText = displayVal.length > 80 || isJson || dataType === 'text' || dataType === 'jsonb' || dataType === 'json';
+            const isLongText =
+                displayVal.length > 80 ||
+                isJson ||
+                dataType === 'text' ||
+                dataType === 'jsonb' ||
+                dataType === 'json';
 
-        return `<div class="edit-field">
+            return `<div class="edit-field">
             <label class="edit-label">
                 ${escapeHtml(col)}
                 <span class="edit-type">${escapeHtml(dataType)}${isPk ? ' (PK)' : ''}</span>
             </label>
-            ${isLongText
-                ? `<textarea class="edit-input" data-col="${escapeHtml(col)}" data-type="${escapeHtml(dataType)}" ${isPk ? 'readonly' : ''} rows="3">${escapeHtml(displayVal)}</textarea>`
-                : `<input class="edit-input" data-col="${escapeHtml(col)}" data-type="${escapeHtml(dataType)}" ${isPk ? 'readonly' : ''} value="${escapeHtml(displayVal)}">`
+            ${
+                isLongText
+                    ? `<textarea class="edit-input" data-col="${escapeHtml(col)}" data-type="${escapeHtml(dataType)}" ${isPk ? 'readonly' : ''} rows="3">${escapeHtml(displayVal)}</textarea>`
+                    : `<input class="edit-input" data-col="${escapeHtml(col)}" data-type="${escapeHtml(dataType)}" ${isPk ? 'readonly' : ''} value="${escapeHtml(displayVal)}">`
             }
             ${val === null ? '<span class="edit-null-hint">NULL</span>' : ''}
         </div>`;
-    }).join('');
+        })
+        .join('');
 
     modal.style.display = 'flex';
 }
@@ -561,7 +598,7 @@ async function saveEdit() {
         pkCols = [pkInfo.pk];
     }
 
-    inputs.forEach(input => {
+    inputs.forEach((input) => {
         const col = input.dataset.col;
         const dataType = input.dataset.type;
         if (pkCols.includes(col)) return; // skip PK fields
@@ -576,19 +613,37 @@ async function saveEdit() {
             parsedNew = null;
         } else if (['integer', 'bigint', 'smallint', 'serial', 'bigserial'].includes(dataType)) {
             parsedNew = parseInt(newVal);
-            if (isNaN(parsedNew)) { parsedNew = newVal; }
+            if (isNaN(parsedNew)) {
+                parsedNew = newVal;
+            }
         } else if (['numeric', 'decimal', 'real', 'double precision'].includes(dataType)) {
             parsedNew = parseFloat(newVal);
-            if (isNaN(parsedNew)) { parsedNew = newVal; }
+            if (isNaN(parsedNew)) {
+                parsedNew = newVal;
+            }
         } else if (dataType === 'boolean') {
             parsedNew = newVal === 'true' || newVal === '1';
         } else if (['jsonb', 'json'].includes(dataType)) {
-            try { parsedNew = JSON.parse(newVal); } catch { parsedNew = newVal; }
+            try {
+                parsedNew = JSON.parse(newVal);
+            } catch {
+                parsedNew = newVal;
+            }
         }
 
         // Compare with old value
-        const oldStr = oldVal === null || oldVal === undefined ? null : (typeof oldVal === 'object' ? JSON.stringify(oldVal) : String(oldVal));
-        const newStr = parsedNew === null ? null : (typeof parsedNew === 'object' ? JSON.stringify(parsedNew) : String(parsedNew));
+        const oldStr =
+            oldVal === null || oldVal === undefined
+                ? null
+                : typeof oldVal === 'object'
+                  ? JSON.stringify(oldVal)
+                  : String(oldVal);
+        const newStr =
+            parsedNew === null
+                ? null
+                : typeof parsedNew === 'object'
+                  ? JSON.stringify(parsedNew)
+                  : String(parsedNew);
         if (oldStr !== newStr) {
             updates[col] = parsedNew;
         }
@@ -612,7 +667,7 @@ async function saveEdit() {
         const resp = await fetch(`${API_BASE}/row/${currentTable}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body)
+            body: JSON.stringify(body),
         });
         const data = await resp.json();
         if (!data.success) throw new Error(data.error);
@@ -645,20 +700,22 @@ function viewRow(row) {
     const body = document.getElementById('detailModalBody');
     document.getElementById('detailModalTitle').textContent = 'Chi tiết row';
 
-    body.innerHTML = Object.entries(row).map(([key, val]) => {
-        let display;
-        if (val === null || val === undefined) {
-            display = '<span class="null">null</span>';
-        } else if (typeof val === 'object') {
-            display = `<pre style="white-space:pre-wrap;font-size:0.75rem;background:var(--gray-50);padding:8px;border-radius:4px;max-height:200px;overflow:auto;">${escapeHtml(JSON.stringify(val, null, 2))}</pre>`;
-        } else {
-            display = escapeHtml(String(val));
-        }
-        return `<div class="detail-row">
+    body.innerHTML = Object.entries(row)
+        .map(([key, val]) => {
+            let display;
+            if (val === null || val === undefined) {
+                display = '<span class="null">null</span>';
+            } else if (typeof val === 'object') {
+                display = `<pre style="white-space:pre-wrap;font-size:0.75rem;background:var(--gray-50);padding:8px;border-radius:4px;max-height:200px;overflow:auto;">${escapeHtml(JSON.stringify(val, null, 2))}</pre>`;
+            } else {
+                display = escapeHtml(String(val));
+            }
+            return `<div class="detail-row">
             <div class="detail-key">${key}</div>
             <div class="detail-value">${display}</div>
         </div>`;
-    }).join('');
+        })
+        .join('');
 
     modal.style.display = 'flex';
 }
@@ -688,7 +745,8 @@ function refreshAllTables() {
 
 async function fbLoadCollections() {
     const container = document.getElementById('fbCollectionList');
-    container.innerHTML = '<div class="loading-placeholder"><div class="spinner" style="margin:0 auto 8px;"></div>Đang tải...</div>';
+    container.innerHTML =
+        '<div class="loading-placeholder"><div class="spinner" style="margin:0 auto 8px;"></div>Đang tải...</div>';
 
     try {
         const resp = await fetch(`${FB_API_BASE}/collections`);
@@ -708,18 +766,21 @@ function fbRenderCollectionList(collections, filter = '') {
     const container = document.getElementById('fbCollectionList');
     const lowerFilter = filter.toLowerCase();
 
-    const filtered = collections.filter(c =>
-        !lowerFilter || c.id.toLowerCase().includes(lowerFilter)
+    const filtered = collections.filter(
+        (c) => !lowerFilter || c.id.toLowerCase().includes(lowerFilter)
     );
 
     if (filtered.length === 0) {
-        container.innerHTML = '<div class="loading-placeholder">Không tìm thấy collection nào</div>';
+        container.innerHTML =
+            '<div class="loading-placeholder">Không tìm thấy collection nào</div>';
         return;
     }
 
     const currentCollectionName = fbCurrentPath.length > 0 ? fbCurrentPath[0].name : null;
 
-    container.innerHTML = filtered.map(c => `
+    container.innerHTML = filtered
+        .map(
+            (c) => `
         <div class="table-item ${currentCollectionName === c.id ? 'active' : ''}"
              onclick="fbSelectCollection('${escapeHtml(c.id)}')">
             <span class="table-item-info">
@@ -727,7 +788,9 @@ function fbRenderCollectionList(collections, filter = '') {
             </span>
             <span class="row-count"><i data-lucide="chevron-right" style="width:14px;height:14px;"></i></span>
         </div>
-    `).join('');
+    `
+        )
+        .join('');
 
     lucide.createIcons();
 }
@@ -749,8 +812,10 @@ function fbSelectCollection(collectionName) {
     document.getElementById('fbDataSearch').value = '';
 
     // Update sidebar active
-    document.querySelectorAll('#fbSidebar .table-item').forEach(el => el.classList.remove('active'));
-    const item = [...document.querySelectorAll('#fbSidebar .table-item')].find(el =>
+    document
+        .querySelectorAll('#fbSidebar .table-item')
+        .forEach((el) => el.classList.remove('active'));
+    const item = [...document.querySelectorAll('#fbSidebar .table-item')].find((el) =>
         el.getAttribute('onclick')?.includes(`'${collectionName}'`)
     );
     if (item) item.classList.add('active');
@@ -797,12 +862,13 @@ function fbNavigateToSubcollection(docId, subCollectionName) {
 
 function fbGetCollectionPath() {
     // Build Firestore collection path from breadcrumb
-    return fbCurrentPath.map(p => p.name).join('/');
+    return fbCurrentPath.map((p) => p.name).join('/');
 }
 
 function fbRenderBreadcrumb() {
     const container = document.getElementById('fbBreadcrumb');
-    let html = '<span class="breadcrumb-item clickable" onclick="fbLoadCollections(); fbCurrentPath=[]; document.getElementById(\'fbDataPanel\').style.display=\'none\'; document.getElementById(\'fbWelcomePanel\').style.display=\'flex\';">Firestore</span>';
+    let html =
+        "<span class=\"breadcrumb-item clickable\" onclick=\"fbLoadCollections(); fbCurrentPath=[]; document.getElementById('fbDataPanel').style.display='none'; document.getElementById('fbWelcomePanel').style.display='flex';\">Firestore</span>";
 
     fbCurrentPath.forEach((item, idx) => {
         const isLast = idx === fbCurrentPath.length - 1;
@@ -869,7 +935,7 @@ async function fbLoadDocuments(append = false) {
         let docs = data.docs;
         if (fbSearchFilter) {
             const lower = fbSearchFilter.toLowerCase();
-            docs = docs.filter(d => d._id.toLowerCase().includes(lower));
+            docs = docs.filter((d) => d._id.toLowerCase().includes(lower));
         }
 
         fbDocs = append ? [...fbDocs, ...docs] : docs;
@@ -883,8 +949,10 @@ async function fbLoadDocuments(append = false) {
 
         // Collect all unique keys across documents
         const allKeys = new Set();
-        fbDocs.forEach(doc => {
-            Object.keys(doc).forEach(k => { if (k !== '_id') allKeys.add(k); });
+        fbDocs.forEach((doc) => {
+            Object.keys(doc).forEach((k) => {
+                if (k !== '_id') allKeys.add(k);
+            });
         });
         const cols = Array.from(allKeys);
 
@@ -892,13 +960,14 @@ async function fbLoadDocuments(append = false) {
         tableHead.innerHTML = `<tr>
             <th style="width:60px">Actions</th>
             <th>Document ID</th>
-            ${cols.map(c => `<th>${escapeHtml(c)}</th>`).join('')}
+            ${cols.map((c) => `<th>${escapeHtml(c)}</th>`).join('')}
         </tr>`;
 
         // Render all rows
-        tableBody.innerHTML = fbDocs.map(doc => {
-            const docPath = collectionPath + '/' + doc._id;
-            return `<tr>
+        tableBody.innerHTML = fbDocs
+            .map((doc) => {
+                const docPath = collectionPath + '/' + doc._id;
+                return `<tr>
                 <td class="cell-actions">
                     <button class="btn-icon btn-icon-view" onclick="fbViewDocument('${escapeHtml(docPath)}')"
                             title="Xem chi tiết">
@@ -910,15 +979,15 @@ async function fbLoadDocuments(append = false) {
                     </button>
                 </td>
                 <td><strong class="fb-doc-id">${escapeHtml(doc._id)}</strong></td>
-                ${cols.map(c => `<td>${renderCell(doc[c])}</td>`).join('')}
+                ${cols.map((c) => `<td>${renderCell(doc[c])}</td>`).join('')}
             </tr>`;
-        }).join('');
+            })
+            .join('');
 
         // Show load more
         if (fbHasMore) {
             loadMoreEl.style.display = 'flex';
         }
-
     } catch (err) {
         loadingEl.style.display = 'none';
         emptyEl.style.display = 'flex';
@@ -949,7 +1018,7 @@ function fbSearchDocs(value) {
         if (!fbDocs.length) return;
 
         const lower = value.toLowerCase();
-        const filtered = value ? fbDocs.filter(d => d._id.toLowerCase().includes(lower)) : fbDocs;
+        const filtered = value ? fbDocs.filter((d) => d._id.toLowerCase().includes(lower)) : fbDocs;
 
         if (filtered.length === 0) {
             tableEl.style.display = 'none';
@@ -963,14 +1032,17 @@ function fbSearchDocs(value) {
 
         const collectionPath = fbGetCollectionPath();
         const allKeys = new Set();
-        filtered.forEach(doc => {
-            Object.keys(doc).forEach(k => { if (k !== '_id') allKeys.add(k); });
+        filtered.forEach((doc) => {
+            Object.keys(doc).forEach((k) => {
+                if (k !== '_id') allKeys.add(k);
+            });
         });
         const cols = Array.from(allKeys);
 
-        tableBody.innerHTML = filtered.map(doc => {
-            const docPath = collectionPath + '/' + doc._id;
-            return `<tr>
+        tableBody.innerHTML = filtered
+            .map((doc) => {
+                const docPath = collectionPath + '/' + doc._id;
+                return `<tr>
                 <td class="cell-actions">
                     <button class="btn-icon btn-icon-view" onclick="fbViewDocument('${escapeHtml(docPath)}')"
                             title="Xem chi tiết">
@@ -982,9 +1054,10 @@ function fbSearchDocs(value) {
                     </button>
                 </td>
                 <td><strong class="fb-doc-id">${escapeHtml(doc._id)}</strong></td>
-                ${cols.map(c => `<td>${renderCell(doc[c])}</td>`).join('')}
+                ${cols.map((c) => `<td>${renderCell(doc[c])}</td>`).join('')}
             </tr>`;
-        }).join('');
+            })
+            .join('');
     }, 300);
 }
 
@@ -997,7 +1070,8 @@ async function fbViewDocument(docPath) {
     const body = document.getElementById('detailModalBody');
     document.getElementById('detailModalTitle').textContent = 'Chi tiết Document';
 
-    body.innerHTML = '<div class="loading-state"><div class="spinner"></div><p>Đang tải...</p></div>';
+    body.innerHTML =
+        '<div class="loading-state"><div class="spinner"></div><p>Đang tải...</p></div>';
     modal.style.display = 'flex';
 
     try {
@@ -1042,17 +1116,20 @@ async function fbViewDocument(docPath) {
             html += `<div class="detail-row" style="border-top:2px solid var(--gray-200);margin-top:8px;padding-top:12px;">
                 <div class="detail-key">Subcollections</div>
                 <div class="detail-value">
-                    ${doc.subcollections.map(sub => `
+                    ${doc.subcollections
+                        .map(
+                            (sub) => `
                         <button class="btn btn-sm btn-outline" style="margin:2px;" onclick="closeDetailModal(); fbNavigateToSubcollection('${escapeHtml(doc.id)}', '${escapeHtml(sub.id)}')">
                             📁 ${escapeHtml(sub.id)}
                         </button>
-                    `).join('')}
+                    `
+                        )
+                        .join('')}
                 </div>
             </div>`;
         }
 
         body.innerHTML = html;
-
     } catch (err) {
         body.innerHTML = `<div style="color:var(--danger);">Lỗi: ${escapeHtml(err.message)}</div>`;
         console.error('[DATA-MANAGER] View Firebase doc error:', err);
@@ -1099,7 +1176,8 @@ function fbRefresh() {
 async function rtdbLoadRoot() {
     rtdbCurrentPath = '/';
     const container = document.getElementById('rtdbKeyList');
-    container.innerHTML = '<div class="loading-placeholder"><div class="spinner" style="margin:0 auto 8px;"></div>Đang tải...</div>';
+    container.innerHTML =
+        '<div class="loading-placeholder"><div class="spinner" style="margin:0 auto 8px;"></div>Đang tải...</div>';
 
     try {
         const resp = await fetch(`${FB_API_BASE}/rtdb/browse?path=/`);
@@ -1117,24 +1195,26 @@ async function rtdbLoadRoot() {
 function rtdbRenderKeyList(keys, filter = '') {
     const container = document.getElementById('rtdbKeyList');
     const lower = filter.toLowerCase();
-    const filtered = keys.filter(k => !lower || k.key.toLowerCase().includes(lower));
+    const filtered = keys.filter((k) => !lower || k.key.toLowerCase().includes(lower));
 
     if (filtered.length === 0) {
         container.innerHTML = '<div class="loading-placeholder">Không tìm thấy key nào</div>';
         return;
     }
 
-    container.innerHTML = filtered.map(k => {
-        const typeIcon = k.type === 'object' ? '{}' : k.type === 'array' ? '[]' : '=';
-        const isActive = rtdbCurrentPath === '/' + k.key;
-        return `<div class="table-item ${isActive ? 'active' : ''}" onclick="rtdbNavigate('/${k.key}')">
+    container.innerHTML = filtered
+        .map((k) => {
+            const typeIcon = k.type === 'object' ? '{}' : k.type === 'array' ? '[]' : '=';
+            const isActive = rtdbCurrentPath === '/' + k.key;
+            return `<div class="table-item ${isActive ? 'active' : ''}" onclick="rtdbNavigate('/${k.key}')">
             <span class="table-item-info">
                 <span class="table-item-name">${escapeHtml(k.key)}</span>
                 <span class="table-item-used">${escapeHtml(k.preview)}</span>
             </span>
             <span class="row-count">${k.childCount || typeIcon}</span>
         </div>`;
-    }).join('');
+        })
+        .join('');
 }
 
 function rtdbFilterKeys(value) {
@@ -1155,9 +1235,11 @@ async function rtdbNavigate(path) {
     await rtdbLoadData();
 
     // Update sidebar active
-    document.querySelectorAll('#rtdbSidebar .table-item').forEach(el => el.classList.remove('active'));
+    document
+        .querySelectorAll('#rtdbSidebar .table-item')
+        .forEach((el) => el.classList.remove('active'));
     const rootKey = path.split('/')[1];
-    const item = [...document.querySelectorAll('#rtdbSidebar .table-item')].find(el =>
+    const item = [...document.querySelectorAll('#rtdbSidebar .table-item')].find((el) =>
         el.getAttribute('onclick')?.includes(`'/${rootKey}'`)
     );
     if (item) item.classList.add('active');
@@ -1195,7 +1277,9 @@ async function rtdbLoadData() {
     loadingEl.style.display = 'flex';
 
     try {
-        const resp = await fetch(`${FB_API_BASE}/rtdb/browse?path=${encodeURIComponent(rtdbCurrentPath)}&limit=100`);
+        const resp = await fetch(
+            `${FB_API_BASE}/rtdb/browse?path=${encodeURIComponent(rtdbCurrentPath)}&limit=100`
+        );
         const data = await resp.json();
 
         if (!data.success) throw new Error(data.error || 'Failed');
@@ -1238,16 +1322,22 @@ async function rtdbLoadData() {
 
         tableEl.style.display = 'table';
         const tbody = document.getElementById('rtdbTableBody');
-        tbody.innerHTML = rtdbChildren.map(child => {
-            const childPath = rtdbCurrentPath === '/' ? `/${child.key}` : `${rtdbCurrentPath}/${child.key}`;
-            const isNavigable = child.type === 'object' || child.type === 'array';
-            return `<tr>
+        tbody.innerHTML = rtdbChildren
+            .map((child) => {
+                const childPath =
+                    rtdbCurrentPath === '/' ? `/${child.key}` : `${rtdbCurrentPath}/${child.key}`;
+                const isNavigable = child.type === 'object' || child.type === 'array';
+                return `<tr>
                 <td class="cell-actions">
-                    ${isNavigable ? `<button class="btn-icon btn-icon-view" onclick="rtdbNavigate('${childPath}')" title="Mở">
+                    ${
+                        isNavigable
+                            ? `<button class="btn-icon btn-icon-view" onclick="rtdbNavigate('${childPath}')" title="Mở">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
-                    </button>` : `<button class="btn-icon btn-icon-view" onclick="rtdbViewValue('${childPath}')" title="Xem">
+                    </button>`
+                            : `<button class="btn-icon btn-icon-view" onclick="rtdbViewValue('${childPath}')" title="Xem">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                    </button>`}
+                    </button>`
+                    }
                     <button class="btn-icon" onclick="rtdbConfirmDelete('${childPath}')" title="Xóa">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
                     </button>
@@ -1256,12 +1346,12 @@ async function rtdbLoadData() {
                 <td><span class="rtdb-type-badge rtdb-type-${child.type}">${child.type}</span></td>
                 <td>${escapeHtml(child.preview)}</td>
             </tr>`;
-        }).join('');
+            })
+            .join('');
 
         if (data.hasMore) {
             tbody.innerHTML += `<tr><td colspan="4" style="text-align:center;color:var(--gray-400);font-size:0.78rem;padding:12px;">+ thêm dữ liệu (giới hạn 100 keys)</td></tr>`;
         }
-
     } catch (err) {
         loadingEl.style.display = 'none';
         emptyEl.style.display = 'flex';
@@ -1276,7 +1366,8 @@ async function rtdbViewValue(path) {
     const body = document.getElementById('detailModalBody');
     document.getElementById('detailModalTitle').textContent = 'RTDB Value';
 
-    body.innerHTML = '<div class="loading-state"><div class="spinner"></div><p>Đang tải...</p></div>';
+    body.innerHTML =
+        '<div class="loading-state"><div class="spinner"></div><p>Đang tải...</p></div>';
     modal.style.display = 'flex';
 
     try {
@@ -1321,14 +1412,16 @@ function rtdbRefresh() {
 
 async function rsLoadServices() {
     const container = document.getElementById('rsServiceList');
-    container.innerHTML = '<div class="loading-placeholder"><div class="spinner" style="margin:0 auto 8px;"></div>Đang tải...</div>';
+    container.innerHTML =
+        '<div class="loading-placeholder"><div class="spinner" style="margin:0 auto 8px;"></div>Đang tải...</div>';
 
     try {
         const statusResp = await fetch(`${RS_API_BASE}/status`);
         const statusData = await statusResp.json();
 
         if (!statusData.configured) {
-            container.innerHTML = '<div class="loading-placeholder" style="color:var(--warning);">RENDER_API_KEY chưa được cấu hình.<br><br>Thêm env var RENDER_API_KEY vào Render service.</div>';
+            container.innerHTML =
+                '<div class="loading-placeholder" style="color:var(--warning);">RENDER_API_KEY chưa được cấu hình.<br><br>Thêm env var RENDER_API_KEY vào Render service.</div>';
             return;
         }
 
@@ -1347,25 +1440,33 @@ async function rsLoadServices() {
 function rsRenderServiceList(services, filter = '') {
     const container = document.getElementById('rsServiceList');
     const lower = filter.toLowerCase();
-    const filtered = services.filter(s => !lower || s.name.toLowerCase().includes(lower));
+    const filtered = services.filter((s) => !lower || s.name.toLowerCase().includes(lower));
 
     if (filtered.length === 0) {
         container.innerHTML = '<div class="loading-placeholder">Không tìm thấy service nào</div>';
         return;
     }
 
-    container.innerHTML = filtered.map(s => {
-        const isActive = rsCurrentService?.id === s.id;
-        const typeMap = { web_service: 'Web', static_site: 'Static', private_service: 'Private', background_worker: 'Worker', cron_job: 'Cron' };
-        const typeLabel = typeMap[s.type] || s.type || '?';
-        return `<div class="table-item ${isActive ? 'active' : ''}" onclick="rsSelectService('${s.id}')">
+    container.innerHTML = filtered
+        .map((s) => {
+            const isActive = rsCurrentService?.id === s.id;
+            const typeMap = {
+                web_service: 'Web',
+                static_site: 'Static',
+                private_service: 'Private',
+                background_worker: 'Worker',
+                cron_job: 'Cron',
+            };
+            const typeLabel = typeMap[s.type] || s.type || '?';
+            return `<div class="table-item ${isActive ? 'active' : ''}" onclick="rsSelectService('${s.id}')">
             <span class="table-item-info">
                 <span class="table-item-name">${escapeHtml(s.name)}</span>
                 ${s.url ? `<span class="table-item-used">${escapeHtml(s.url)}</span>` : ''}
             </span>
             <span class="row-count"><em class="view-tag">${typeLabel}</em></span>
         </div>`;
-    }).join('');
+        })
+        .join('');
 }
 
 function rsFilterServices(value) {
@@ -1373,12 +1474,14 @@ function rsFilterServices(value) {
 }
 
 async function rsSelectService(serviceId) {
-    rsCurrentService = rsServices.find(s => s.id === serviceId);
+    rsCurrentService = rsServices.find((s) => s.id === serviceId);
     if (!rsCurrentService) return;
 
     // Update sidebar
-    document.querySelectorAll('#rsSidebar .table-item').forEach(el => el.classList.remove('active'));
-    const item = [...document.querySelectorAll('#rsSidebar .table-item')].find(el =>
+    document
+        .querySelectorAll('#rsSidebar .table-item')
+        .forEach((el) => el.classList.remove('active'));
+    const item = [...document.querySelectorAll('#rsSidebar .table-item')].find((el) =>
         el.getAttribute('onclick')?.includes(`'${serviceId}'`)
     );
     if (item) item.classList.add('active');
@@ -1411,18 +1514,25 @@ async function rsSelectService(serviceId) {
         }
 
         tableEl.style.display = 'table';
-        document.getElementById('rsEnvTableBody').innerHTML = data.envVars.map(ev => {
-            const isSensitive = ev.key.includes('KEY') || ev.key.includes('SECRET') || ev.key.includes('PASSWORD') || ev.key.includes('TOKEN') || ev.key.includes('PRIVATE');
-            const val = ev.value || '';
-            const displayVal = isSensitive && val.length > 10
-                ? `<span class="rs-secret" onclick="this.textContent=this.dataset.full;this.classList.remove('rs-secret')" data-full="${escapeHtml(val)}">${escapeHtml(val.substring(0, 6))}${'*'.repeat(Math.min(16, val.length - 6))} (click)</span>`
-                : escapeHtml(val);
-            return `<tr>
+        document.getElementById('rsEnvTableBody').innerHTML = data.envVars
+            .map((ev) => {
+                const isSensitive =
+                    ev.key.includes('KEY') ||
+                    ev.key.includes('SECRET') ||
+                    ev.key.includes('PASSWORD') ||
+                    ev.key.includes('TOKEN') ||
+                    ev.key.includes('PRIVATE');
+                const val = ev.value || '';
+                const displayVal =
+                    isSensitive && val.length > 10
+                        ? `<span class="rs-secret" onclick="this.textContent=this.dataset.full;this.classList.remove('rs-secret')" data-full="${escapeHtml(val)}">${escapeHtml(val.substring(0, 6))}${'*'.repeat(Math.min(16, val.length - 6))} (click)</span>`
+                        : escapeHtml(val);
+                return `<tr>
                 <td><strong>${escapeHtml(ev.key)}</strong></td>
                 <td style="font-family:monospace;font-size:0.78rem;word-break:break-all;">${displayVal}</td>
             </tr>`;
-        }).join('');
-
+            })
+            .join('');
     } catch (err) {
         loadingEl.style.display = 'none';
         emptyEl.style.display = 'flex';
@@ -1461,7 +1571,7 @@ document.addEventListener('click', (e) => {
 // Close on Escape
 document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
-        document.querySelectorAll('.modal-overlay').forEach(m => m.style.display = 'none');
+        document.querySelectorAll('.modal-overlay').forEach((m) => (m.style.display = 'none'));
         pendingDeleteAction = null;
         editingRowIdx = null;
     }
@@ -1495,18 +1605,26 @@ const API_REFERENCE = {
         desc: 'Server health check & diagnostics',
         endpoints: [
             { method: 'GET', path: '/health', desc: 'Server health + database connection status' },
-            { method: 'GET', path: '/api/debug/time', desc: 'Server time diagnostic (UTC, Vietnam time, timezone)' },
-            { method: 'GET', path: '/', desc: 'Root - API info & endpoint list' }
-        ]
+            {
+                method: 'GET',
+                path: '/api/debug/time',
+                desc: 'Server time diagnostic (UTC, Vietnam time, timezone)',
+            },
+            { method: 'GET', path: '/', desc: 'Root - API info & endpoint list' },
+        ],
     },
     'TPOS Token & OData': {
         icon: '🔑',
         desc: 'TPOS authentication & OData proxy',
         endpoints: [
             { method: 'POST', path: '/api/token', desc: 'Get TPOS token (cached 23h)' },
-            { method: 'GET', path: '/api/odata/*', desc: 'TPOS OData proxy (products, orders, customers...)' },
-            { method: 'GET', path: '/api/rest/*', desc: 'TPOS REST API v2.0 proxy' }
-        ]
+            {
+                method: 'GET',
+                path: '/api/odata/*',
+                desc: 'TPOS OData proxy (products, orders, customers...)',
+            },
+            { method: 'GET', path: '/api/rest/*', desc: 'TPOS REST API v2.0 proxy' },
+        ],
     },
     'TPOS Credentials': {
         icon: '🔐',
@@ -1514,67 +1632,134 @@ const API_REFERENCE = {
         endpoints: [
             { method: 'GET', path: '/api/tpos-credentials', desc: 'List all TPOS credential sets' },
             { method: 'POST', path: '/api/tpos-credentials', desc: 'Save a TPOS credential set' },
-            { method: 'DELETE', path: '/api/tpos-credentials/:id', desc: 'Delete a credential set' }
-        ]
+            {
+                method: 'DELETE',
+                path: '/api/tpos-credentials/:id',
+                desc: 'Delete a credential set',
+            },
+        ],
     },
     'TPOS Saved Data': {
         icon: '💾',
         desc: 'Cached TPOS data (products, categories)',
         endpoints: [
             { method: 'GET', path: '/api/tpos-saved/products', desc: 'Get cached products list' },
-            { method: 'POST', path: '/api/tpos-saved/products', desc: 'Save/update cached products' },
+            {
+                method: 'POST',
+                path: '/api/tpos-saved/products',
+                desc: 'Save/update cached products',
+            },
             { method: 'GET', path: '/api/tpos-saved/categories', desc: 'Get cached categories' },
-            { method: 'POST', path: '/api/tpos-saved/categories', desc: 'Save/update cached categories' }
-        ]
+            {
+                method: 'POST',
+                path: '/api/tpos-saved/categories',
+                desc: 'Save/update cached categories',
+            },
+        ],
     },
     'Pancake API': {
         icon: '🥞',
         desc: 'Pancake.vn proxy for messaging & pages',
         endpoints: [
-            { method: 'GET', path: '/api/pancake/*', desc: 'Pancake API proxy (conversations, messages, pages)' },
-            { method: 'ALL', path: '/api/pancake-direct/*', desc: 'Pancake 24h bypass (direct proxy)' },
-            { method: 'ALL', path: '/api/pancake-official/*', desc: 'pages.fm Public API proxy' }
-        ]
+            {
+                method: 'GET',
+                path: '/api/pancake/*',
+                desc: 'Pancake API proxy (conversations, messages, pages)',
+            },
+            {
+                method: 'ALL',
+                path: '/api/pancake-direct/*',
+                desc: 'Pancake 24h bypass (direct proxy)',
+            },
+            { method: 'ALL', path: '/api/pancake-official/*', desc: 'pages.fm Public API proxy' },
+        ],
     },
-    'Facebook': {
+    Facebook: {
         icon: '📘',
         desc: 'Facebook messaging & media',
         endpoints: [
-            { method: 'POST', path: '/api/facebook-send', desc: 'Send Facebook message with MESSAGE_TAG' },
+            {
+                method: 'POST',
+                path: '/api/facebook-send',
+                desc: 'Send Facebook message with MESSAGE_TAG',
+            },
             { method: 'GET', path: '/api/fb-avatar', desc: 'Get Facebook/Pancake avatar (cached)' },
-            { method: 'GET', path: '/api/pancake-avatar', desc: 'Get Pancake content avatar' }
-        ]
+            { method: 'GET', path: '/api/pancake-avatar', desc: 'Get Pancake content avatar' },
+        ],
     },
     'Realtime - Pancake WS': {
         icon: '🔴',
         desc: 'Pancake WebSocket client (server-side)',
         endpoints: [
-            { method: 'POST', path: '/api/realtime/start', desc: 'Start Pancake WebSocket (saves credentials for auto-reconnect)' },
-            { method: 'POST', path: '/api/realtime/stop', desc: 'Stop Pancake WebSocket (disables auto-reconnect)' },
-            { method: 'GET', path: '/api/realtime/status', desc: 'Get Pancake WS status (connected, pageIds, clients)' },
-            { method: 'GET', path: '/api/realtime/new-messages?since={ts}', desc: 'Get new messages since timestamp' },
-            { method: 'GET', path: '/api/realtime/summary?since={ts}', desc: 'Get summary count of unread updates' },
-            { method: 'POST', path: '/api/realtime/mark-seen', desc: 'Mark updates as seen' },
-            { method: 'DELETE', path: '/api/realtime/cleanup?days={n}', desc: 'Cleanup records older than N days' }
-        ]
+            {
+                method: 'POST',
+                path: '/api/realtime/start',
+                desc: 'Start Pancake WebSocket (saves credentials for auto-reconnect)',
+            },
+            {
+                method: 'POST',
+                path: '/api/realtime/stop',
+                desc: 'Stop Pancake WebSocket (disables auto-reconnect)',
+            },
+            {
+                method: 'GET',
+                path: '/api/realtime/status',
+                desc: 'Get Pancake WS status (connected, pageIds, clients)',
+            },
+            {
+                method: 'GET',
+                path: '/api/realtime/pending-customers?limit={n}',
+                desc: 'Khách chưa trả lời (badge cột TIN NHẮN)',
+            },
+            {
+                method: 'POST',
+                path: '/api/realtime/mark-replied',
+                desc: 'Xóa khách khỏi pending (đã trả lời)',
+            },
+            {
+                method: 'DELETE',
+                path: '/api/realtime/cleanup?days={n}',
+                desc: 'Cleanup leftover realtime_updates (deprecated)',
+            },
+        ],
     },
     'Realtime - TPOS WS': {
         icon: '📡',
         desc: 'TPOS WebSocket client (orders, chatomni)',
         endpoints: [
-            { method: 'POST', path: '/api/realtime/tpos/start', desc: 'Start TPOS WebSocket (auto-reconnect enabled)' },
-            { method: 'POST', path: '/api/realtime/tpos/stop', desc: 'Stop TPOS WebSocket (disables auto-reconnect)' },
-            { method: 'GET', path: '/api/realtime/tpos/status', desc: 'Get TPOS WS status (connected, room, ping/pong)' }
-        ]
+            {
+                method: 'POST',
+                path: '/api/realtime/tpos/start',
+                desc: 'Start TPOS WebSocket (auto-reconnect enabled)',
+            },
+            {
+                method: 'POST',
+                path: '/api/realtime/tpos/stop',
+                desc: 'Stop TPOS WebSocket (disables auto-reconnect)',
+            },
+            {
+                method: 'GET',
+                path: '/api/realtime/tpos/status',
+                desc: 'Get TPOS WS status (connected, room, ping/pong)',
+            },
+        ],
     },
     'Realtime - SSE': {
         icon: '📺',
         desc: 'Server-Sent Events for browser real-time updates',
         endpoints: [
-            { method: 'GET', path: '/api/realtime/sse?keys=k1,k2', desc: 'Subscribe to SSE stream (replaces Firebase listeners)' },
+            {
+                method: 'GET',
+                path: '/api/realtime/sse?keys=k1,k2',
+                desc: 'Subscribe to SSE stream (replaces Firebase listeners)',
+            },
             { method: 'GET', path: '/api/realtime/sse/stats', desc: 'SSE connection statistics' },
-            { method: 'POST', path: '/api/realtime/sse/test', desc: 'Send test message to SSE clients' }
-        ]
+            {
+                method: 'POST',
+                path: '/api/realtime/sse/test',
+                desc: 'Send test message to SSE clients',
+            },
+        ],
     },
     'Realtime - KV Store': {
         icon: '🗄️',
@@ -1583,114 +1768,254 @@ const API_REFERENCE = {
             { method: 'GET', path: '/api/realtime/kv/:key', desc: 'Get value from KV store' },
             { method: 'PUT', path: '/api/realtime/kv/:key', desc: 'Set/update value in KV store' },
             { method: 'DELETE', path: '/api/realtime/kv/:key', desc: 'Delete key from KV store' },
-            { method: 'GET', path: '/api/realtime/kvlist', desc: 'List all KV keys' }
-        ]
+            { method: 'GET', path: '/api/realtime/kvlist', desc: 'List all KV keys' },
+        ],
     },
     'Customers (Legacy)': {
         icon: '👥',
         desc: 'Legacy customer API (PostgreSQL)',
         endpoints: [
             { method: 'GET', path: '/api/customers', desc: 'List customers (paginated)' },
-            { method: 'GET', path: '/api/customers/search?q=...', desc: 'Search customers by name/phone' },
+            {
+                method: 'GET',
+                path: '/api/customers/search?q=...',
+                desc: 'Search customers by name/phone',
+            },
             { method: 'GET', path: '/api/customers/:id', desc: 'Get customer by ID' },
             { method: 'POST', path: '/api/customers', desc: 'Create customer' },
             { method: 'PUT', path: '/api/customers/:id', desc: 'Update customer' },
-            { method: 'DELETE', path: '/api/customers/:id', desc: 'Delete customer' }
-        ]
+            { method: 'DELETE', path: '/api/customers/:id', desc: 'Delete customer' },
+        ],
     },
     'Customer 360° (v2)': {
         icon: '🎯',
         desc: 'Unified Customer 360 API - full customer view',
         endpoints: [
-            { method: 'GET', path: '/api/v2/customers', desc: 'List customers (filter by tier/segment/status)' },
+            {
+                method: 'GET',
+                path: '/api/v2/customers',
+                desc: 'List customers (filter by tier/segment/status)',
+            },
             { method: 'GET', path: '/api/v2/customers/stats', desc: 'Customer statistics summary' },
-            { method: 'GET', path: '/api/v2/customers/duplicates', desc: 'Detect duplicate phone numbers' },
+            {
+                method: 'GET',
+                path: '/api/v2/customers/duplicates',
+                desc: 'Detect duplicate phone numbers',
+            },
             { method: 'GET', path: '/api/v2/customers/recent', desc: 'Recently active customers' },
-            { method: 'GET', path: '/api/v2/customers/:id', desc: 'Customer 360° view (by ID or phone)' },
-            { method: 'GET', path: '/api/v2/customers/:id/quick-view', desc: 'Quick info for modals/tooltips' },
+            {
+                method: 'GET',
+                path: '/api/v2/customers/:id',
+                desc: 'Customer 360° view (by ID or phone)',
+            },
+            {
+                method: 'GET',
+                path: '/api/v2/customers/:id/quick-view',
+                desc: 'Quick info for modals/tooltips',
+            },
             { method: 'GET', path: '/api/v2/customers/:id/activity', desc: 'Activity timeline' },
-            { method: 'GET', path: '/api/v2/customers/:id/rfm', desc: 'RFM analysis (Recency, Frequency, Monetary)' },
-            { method: 'GET', path: '/api/v2/customers/:id/transactions', desc: 'Consolidated transaction history' },
+            {
+                method: 'GET',
+                path: '/api/v2/customers/:id/rfm',
+                desc: 'RFM analysis (Recency, Frequency, Monetary)',
+            },
+            {
+                method: 'GET',
+                path: '/api/v2/customers/:id/transactions',
+                desc: 'Consolidated transaction history',
+            },
             { method: 'POST', path: '/api/v2/customers', desc: 'Create customer' },
-            { method: 'POST', path: '/api/v2/customers/batch', desc: 'Batch lookup multiple customers' },
+            {
+                method: 'POST',
+                path: '/api/v2/customers/batch',
+                desc: 'Batch lookup multiple customers',
+            },
             { method: 'POST', path: '/api/v2/customers/search', desc: 'Advanced search' },
-            { method: 'POST', path: '/api/v2/customers/import', desc: 'Batch import/upsert (80k+ records)' },
+            {
+                method: 'POST',
+                path: '/api/v2/customers/import',
+                desc: 'Batch import/upsert (80k+ records)',
+            },
             { method: 'PATCH', path: '/api/v2/customers/:id', desc: 'Update customer' },
             { method: 'DELETE', path: '/api/v2/customers/:id', desc: 'Delete customer' },
-            { method: 'POST', path: '/api/v2/customers/:id/notes', desc: 'Add customer note' }
-        ]
+            { method: 'POST', path: '/api/v2/customers/:id/notes', desc: 'Add customer note' },
+        ],
     },
     'Wallets (v2)': {
         icon: '💰',
         desc: 'Customer wallet management (deposit, credit, withdraw)',
         endpoints: [
-            { method: 'GET', path: '/api/v2/wallets/:customerId', desc: 'Get wallet summary (real + virtual balance)' },
-            { method: 'GET', path: '/api/v2/wallets/:phone/available-balance', desc: 'Available balance (minus pending withdrawals)' },
-            { method: 'POST', path: '/api/v2/wallets/:customerId/deposit', desc: 'Add real balance' },
-            { method: 'POST', path: '/api/v2/wallets/:customerId/credit', desc: 'Add virtual credit (with expiry)' },
-            { method: 'POST', path: '/api/v2/wallets/:customerId/withdraw', desc: 'FIFO withdrawal from wallet' },
-            { method: 'GET', path: '/api/v2/wallets/:customerId/transactions', desc: 'Transaction history' },
+            {
+                method: 'GET',
+                path: '/api/v2/wallets/:customerId',
+                desc: 'Get wallet summary (real + virtual balance)',
+            },
+            {
+                method: 'GET',
+                path: '/api/v2/wallets/:phone/available-balance',
+                desc: 'Available balance (minus pending withdrawals)',
+            },
+            {
+                method: 'POST',
+                path: '/api/v2/wallets/:customerId/deposit',
+                desc: 'Add real balance',
+            },
+            {
+                method: 'POST',
+                path: '/api/v2/wallets/:customerId/credit',
+                desc: 'Add virtual credit (with expiry)',
+            },
+            {
+                method: 'POST',
+                path: '/api/v2/wallets/:customerId/withdraw',
+                desc: 'FIFO withdrawal from wallet',
+            },
+            {
+                method: 'GET',
+                path: '/api/v2/wallets/:customerId/transactions',
+                desc: 'Transaction history',
+            },
             { method: 'POST', path: '/api/v2/wallets/batch-summary', desc: 'Batch wallet lookup' },
-            { method: 'POST', path: '/api/v2/wallets/cron/expire', desc: 'Expire virtual credits (cron job)' },
-            { method: 'POST', path: '/api/v2/wallets/cron/process-bank', desc: 'Process bank transactions (cron job)' }
-        ]
+            {
+                method: 'POST',
+                path: '/api/v2/wallets/cron/expire',
+                desc: 'Expire virtual credits (cron job)',
+            },
+            {
+                method: 'POST',
+                path: '/api/v2/wallets/cron/process-bank',
+                desc: 'Process bank transactions (cron job)',
+            },
+        ],
     },
     'Tickets (v2)': {
         icon: '🎫',
         desc: 'Customer support ticket management',
         endpoints: [
-            { method: 'GET', path: '/api/v2/tickets', desc: 'List tickets (filter by status/priority/assignee)' },
-            { method: 'GET', path: '/api/v2/tickets/stats', desc: 'Ticket statistics (open/resolved/avg time)' },
+            {
+                method: 'GET',
+                path: '/api/v2/tickets',
+                desc: 'List tickets (filter by status/priority/assignee)',
+            },
+            {
+                method: 'GET',
+                path: '/api/v2/tickets/stats',
+                desc: 'Ticket statistics (open/resolved/avg time)',
+            },
             { method: 'GET', path: '/api/v2/tickets/:id', desc: 'Get ticket detail' },
             { method: 'POST', path: '/api/v2/tickets', desc: 'Create ticket' },
             { method: 'PATCH', path: '/api/v2/tickets/:id', desc: 'Update ticket' },
-            { method: 'POST', path: '/api/v2/tickets/:id/notes', desc: 'Add internal note to ticket' },
-            { method: 'POST', path: '/api/v2/tickets/:id/resolve', desc: 'Resolve ticket with compensation' },
-            { method: 'DELETE', path: '/api/v2/tickets/:id', desc: 'Delete ticket' }
-        ]
+            {
+                method: 'POST',
+                path: '/api/v2/tickets/:id/notes',
+                desc: 'Add internal note to ticket',
+            },
+            {
+                method: 'POST',
+                path: '/api/v2/tickets/:id/resolve',
+                desc: 'Resolve ticket with compensation',
+            },
+            { method: 'DELETE', path: '/api/v2/tickets/:id', desc: 'Delete ticket' },
+        ],
     },
     'Balance History (v2)': {
         icon: '🏦',
         desc: 'Bank transfer matching & balance operations',
         endpoints: [
-            { method: 'GET', path: '/api/v2/balance-history', desc: 'List balance history (transfers, matches)' },
+            {
+                method: 'GET',
+                path: '/api/v2/balance-history',
+                desc: 'List balance history (transfers, matches)',
+            },
             { method: 'GET', path: '/api/v2/balance-history/stats', desc: 'Balance statistics' },
-            { method: 'GET', path: '/api/v2/balance-history/daily-summary', desc: 'Daily wallet summary' },
-            { method: 'POST', path: '/api/v2/balance-history/match-transfer', desc: 'Link bank transfer to customer wallet' },
-            { method: 'POST', path: '/api/v2/balance-history/auto-approve-toggle', desc: 'Toggle auto-approval for transfers' },
-            { method: 'POST', path: '/api/v2/balance-history/manual-deposit', desc: 'Manual balance adjustment' }
-        ]
+            {
+                method: 'GET',
+                path: '/api/v2/balance-history/daily-summary',
+                desc: 'Daily wallet summary',
+            },
+            {
+                method: 'POST',
+                path: '/api/v2/balance-history/match-transfer',
+                desc: 'Link bank transfer to customer wallet',
+            },
+            {
+                method: 'POST',
+                path: '/api/v2/balance-history/auto-approve-toggle',
+                desc: 'Toggle auto-approval for transfers',
+            },
+            {
+                method: 'POST',
+                path: '/api/v2/balance-history/manual-deposit',
+                desc: 'Manual balance adjustment',
+            },
+        ],
     },
     'Pending Withdrawals (v2)': {
         icon: '⏳',
         desc: 'Pending withdrawal request management',
         endpoints: [
-            { method: 'GET', path: '/api/v2/pending-withdrawals', desc: 'List pending withdrawals' },
-            { method: 'GET', path: '/api/v2/pending-withdrawals/stats', desc: 'Withdrawal statistics' },
-            { method: 'PATCH', path: '/api/v2/pending-withdrawals/:id', desc: 'Approve/reject withdrawal' },
-            { method: 'DELETE', path: '/api/v2/pending-withdrawals/:id', desc: 'Cancel withdrawal request' }
-        ]
+            {
+                method: 'GET',
+                path: '/api/v2/pending-withdrawals',
+                desc: 'List pending withdrawals',
+            },
+            {
+                method: 'GET',
+                path: '/api/v2/pending-withdrawals/stats',
+                desc: 'Withdrawal statistics',
+            },
+            {
+                method: 'PATCH',
+                path: '/api/v2/pending-withdrawals/:id',
+                desc: 'Approve/reject withdrawal',
+            },
+            {
+                method: 'DELETE',
+                path: '/api/v2/pending-withdrawals/:id',
+                desc: 'Cancel withdrawal request',
+            },
+        ],
     },
     'Analytics (v2)': {
         icon: '📊',
         desc: 'Dashboard metrics & reporting',
         endpoints: [
-            { method: 'GET', path: '/api/v2/analytics/dashboard', desc: 'Dashboard metrics (customers, wallets, tickets)' },
-            { method: 'GET', path: '/api/v2/analytics/customers/trends', desc: 'Customer trends over time' },
-            { method: 'GET', path: '/api/v2/analytics/wallets/stats', desc: 'Wallet statistics breakdown' },
-            { method: 'GET', path: '/api/v2/analytics/tickets/stats', desc: 'Ticket resolution metrics' },
+            {
+                method: 'GET',
+                path: '/api/v2/analytics/dashboard',
+                desc: 'Dashboard metrics (customers, wallets, tickets)',
+            },
+            {
+                method: 'GET',
+                path: '/api/v2/analytics/customers/trends',
+                desc: 'Customer trends over time',
+            },
+            {
+                method: 'GET',
+                path: '/api/v2/analytics/wallets/stats',
+                desc: 'Wallet statistics breakdown',
+            },
+            {
+                method: 'GET',
+                path: '/api/v2/analytics/tickets/stats',
+                desc: 'Ticket resolution metrics',
+            },
             { method: 'GET', path: '/api/v2/analytics/reports/daily', desc: 'Daily reports' },
-            { method: 'GET', path: '/api/v2/analytics/reports/monthly', desc: 'Monthly reports' }
-        ]
+            { method: 'GET', path: '/api/v2/analytics/reports/monthly', desc: 'Monthly reports' },
+        ],
     },
     'SePay Webhook': {
         icon: '💳',
         desc: 'SePay payment gateway integration',
         endpoints: [
-            { method: 'POST', path: '/api/sepay/webhook', desc: 'SePay webhook receiver (bank transfer notifications)' },
+            {
+                method: 'POST',
+                path: '/api/sepay/webhook',
+                desc: 'SePay webhook receiver (bank transfer notifications)',
+            },
             { method: 'GET', path: '/api/sepay/balance', desc: 'Get SePay account balance' },
-            { method: 'GET', path: '/api/sepay/transactions', desc: 'Recent SePay transactions' }
-        ]
+            { method: 'GET', path: '/api/sepay/transactions', desc: 'Recent SePay transactions' },
+        ],
     },
     'Invoice Status': {
         icon: '🧾',
@@ -1698,8 +2023,12 @@ const API_REFERENCE = {
         endpoints: [
             { method: 'GET', path: '/api/invoice-status/list', desc: 'List invoice statuses' },
             { method: 'POST', path: '/api/invoice-status/save', desc: 'Save invoice status' },
-            { method: 'DELETE', path: '/api/invoice-status/delete/:id', desc: 'Delete invoice status' }
-        ]
+            {
+                method: 'DELETE',
+                path: '/api/invoice-status/delete/:id',
+                desc: 'Delete invoice status',
+            },
+        ],
     },
     'Social Orders': {
         icon: '🛒',
@@ -1708,8 +2037,8 @@ const API_REFERENCE = {
             { method: 'GET', path: '/api/social-orders', desc: 'List social orders' },
             { method: 'POST', path: '/api/social-orders', desc: 'Create social order' },
             { method: 'PUT', path: '/api/social-orders/:id', desc: 'Update social order' },
-            { method: 'DELETE', path: '/api/social-orders/:id', desc: 'Delete social order' }
-        ]
+            { method: 'DELETE', path: '/api/social-orders/:id', desc: 'Delete social order' },
+        ],
     },
     'Return Orders': {
         icon: '↩️',
@@ -1718,19 +2047,23 @@ const API_REFERENCE = {
             { method: 'GET', path: '/api/return-orders', desc: 'List return orders' },
             { method: 'POST', path: '/api/return-orders', desc: 'Create return order' },
             { method: 'PUT', path: '/api/return-orders/:id', desc: 'Update return order' },
-            { method: 'DELETE', path: '/api/return-orders/:id', desc: 'Delete return order' }
-        ]
+            { method: 'DELETE', path: '/api/return-orders/:id', desc: 'Delete return order' },
+        ],
     },
     'Telegram Bot': {
         icon: '🤖',
         desc: 'Telegram bot with Gemini AI',
         endpoints: [
             { method: 'GET', path: '/api/telegram', desc: 'Bot status & info' },
-            { method: 'POST', path: '/api/telegram/webhook', desc: 'Telegram webhook handler (Gemini AI response)' },
+            {
+                method: 'POST',
+                path: '/api/telegram/webhook',
+                desc: 'Telegram webhook handler (Gemini AI response)',
+            },
             { method: 'POST', path: '/api/telegram/setWebhook', desc: 'Set webhook URL' },
             { method: 'GET', path: '/api/telegram/webhookInfo', desc: 'Get current webhook info' },
-            { method: 'POST', path: '/api/telegram/deleteWebhook', desc: 'Delete webhook' }
-        ]
+            { method: 'POST', path: '/api/telegram/deleteWebhook', desc: 'Delete webhook' },
+        ],
     },
     'AI Services': {
         icon: '🧠',
@@ -1739,18 +2072,22 @@ const API_REFERENCE = {
             { method: 'POST', path: '/api/gemini/chat', desc: 'Gemini AI chat completion' },
             { method: 'POST', path: '/api/gemini/vision', desc: 'Gemini Vision (image analysis)' },
             { method: 'POST', path: '/api/deepseek/chat', desc: 'DeepSeek AI chat completion' },
-            { method: 'POST', path: '/api/google-vision/ocr', desc: 'Google Cloud Vision OCR' }
-        ]
+            { method: 'POST', path: '/api/google-vision/ocr', desc: 'Google Cloud Vision OCR' },
+        ],
     },
     'Upload & Media': {
         icon: '📤',
         desc: 'Image upload & proxy',
         endpoints: [
             { method: 'POST', path: '/api/upload/image', desc: 'Upload image to Firebase Storage' },
-            { method: 'DELETE', path: '/api/upload/image', desc: 'Delete image from Firebase Storage' },
+            {
+                method: 'DELETE',
+                path: '/api/upload/image',
+                desc: 'Delete image from Firebase Storage',
+            },
             { method: 'GET', path: '/api/upload/health', desc: 'Upload service health check' },
-            { method: 'GET', path: '/api/image-proxy?url=...', desc: 'Image proxy (bypass CORS)' }
-        ]
+            { method: 'GET', path: '/api/image-proxy?url=...', desc: 'Image proxy (bypass CORS)' },
+        ],
     },
     'Attendance (ADMS)': {
         icon: '⏰',
@@ -1759,19 +2096,31 @@ const API_REFERENCE = {
             { method: 'GET', path: '/api/attendance', desc: 'List attendance records' },
             { method: 'POST', path: '/api/attendance/sync', desc: 'Sync attendance from ZKTeco' },
             { method: 'GET', path: '/api/attendance/stats', desc: 'Attendance statistics' },
-            { method: 'GET', path: '/iclock/cdata', desc: 'ADMS: ZKTeco machine push endpoint (GET)' },
-            { method: 'POST', path: '/iclock/cdata', desc: 'ADMS: ZKTeco machine push attendance data' },
-            { method: 'GET', path: '/iclock/getrequest', desc: 'ADMS: ZKTeco poll for commands' }
-        ]
+            {
+                method: 'GET',
+                path: '/iclock/cdata',
+                desc: 'ADMS: ZKTeco machine push endpoint (GET)',
+            },
+            {
+                method: 'POST',
+                path: '/iclock/cdata',
+                desc: 'ADMS: ZKTeco machine push attendance data',
+            },
+            { method: 'GET', path: '/iclock/getrequest', desc: 'ADMS: ZKTeco poll for commands' },
+        ],
     },
-    'AutoFB': {
+    AutoFB: {
         icon: '🤖',
         desc: 'Automated Facebook operations',
         endpoints: [
             { method: 'POST', path: '/api/autofb/login', desc: 'AutoFB login (solve captcha)' },
-            { method: 'POST', path: '/api/autofb/action', desc: 'Execute automated Facebook action' },
-            { method: 'GET', path: '/api/autofb/status', desc: 'AutoFB session status' }
-        ]
+            {
+                method: 'POST',
+                path: '/api/autofb/action',
+                desc: 'Execute automated Facebook action',
+            },
+            { method: 'GET', path: '/api/autofb/status', desc: 'AutoFB session status' },
+        ],
     },
     'Quick Replies': {
         icon: '💬',
@@ -1780,61 +2129,129 @@ const API_REFERENCE = {
             { method: 'GET', path: '/api/quick-replies', desc: 'List all quick reply templates' },
             { method: 'POST', path: '/api/quick-replies', desc: 'Create quick reply' },
             { method: 'PUT', path: '/api/quick-replies/:id', desc: 'Update quick reply' },
-            { method: 'DELETE', path: '/api/quick-replies/:id', desc: 'Delete quick reply' }
-        ]
+            { method: 'DELETE', path: '/api/quick-replies/:id', desc: 'Delete quick reply' },
+        ],
     },
-    'Users': {
+    Users: {
         icon: '👤',
         desc: 'User management',
         endpoints: [
             { method: 'GET', path: '/api/users', desc: 'List users' },
             { method: 'POST', path: '/api/users', desc: 'Create user' },
             { method: 'PUT', path: '/api/users/:id', desc: 'Update user' },
-            { method: 'DELETE', path: '/api/users/:id', desc: 'Delete user' }
-        ]
+            { method: 'DELETE', path: '/api/users/:id', desc: 'Delete user' },
+        ],
     },
     'Goong Maps': {
         icon: '🗺️',
         desc: 'Goong.io location/place search',
         endpoints: [
-            { method: 'GET', path: '/api/goong-places/autocomplete?input=...', desc: 'Place autocomplete search' },
-            { method: 'GET', path: '/api/goong-places/detail?place_id=...', desc: 'Place detail by ID' },
-            { method: 'GET', path: '/api/goong-places/geocode?latlng=...', desc: 'Reverse geocode (lat,lng to address)' }
-        ]
+            {
+                method: 'GET',
+                path: '/api/goong-places/autocomplete?input=...',
+                desc: 'Place autocomplete search',
+            },
+            {
+                method: 'GET',
+                path: '/api/goong-places/detail?place_id=...',
+                desc: 'Place detail by ID',
+            },
+            {
+                method: 'GET',
+                path: '/api/goong-places/geocode?latlng=...',
+                desc: 'Reverse geocode (lat,lng to address)',
+            },
+        ],
     },
     'Admin - Data Browser': {
         icon: '🗃️',
         desc: 'PostgreSQL data browser (used by this Data Manager)',
         endpoints: [
-            { method: 'GET', path: '/api/admin/data/tables', desc: 'List all tables with row counts & metadata' },
-            { method: 'GET', path: '/api/admin/data/browse/:table?page=&limit=&search=', desc: 'Browse table data (paginated, searchable)' },
-            { method: 'PUT', path: '/api/admin/data/row/:table', desc: 'Update row by primary key' },
-            { method: 'DELETE', path: '/api/admin/data/row/:table', desc: 'Delete row by primary key' },
-            { method: 'DELETE', path: '/api/admin/data/truncate/:table', desc: 'Truncate table (delete all rows)' }
-        ]
+            {
+                method: 'GET',
+                path: '/api/admin/data/tables',
+                desc: 'List all tables with row counts & metadata',
+            },
+            {
+                method: 'GET',
+                path: '/api/admin/data/browse/:table?page=&limit=&search=',
+                desc: 'Browse table data (paginated, searchable)',
+            },
+            {
+                method: 'PUT',
+                path: '/api/admin/data/row/:table',
+                desc: 'Update row by primary key',
+            },
+            {
+                method: 'DELETE',
+                path: '/api/admin/data/row/:table',
+                desc: 'Delete row by primary key',
+            },
+            {
+                method: 'DELETE',
+                path: '/api/admin/data/truncate/:table',
+                desc: 'Truncate table (delete all rows)',
+            },
+        ],
     },
     'Admin - Firebase': {
         icon: '🔥',
         desc: 'Firestore & Realtime DB browser',
         endpoints: [
-            { method: 'GET', path: '/api/admin/firebase/collections', desc: 'List top-level Firestore collections' },
-            { method: 'GET', path: '/api/admin/firebase/browse/*', desc: 'Browse Firestore collection documents' },
-            { method: 'GET', path: '/api/admin/firebase/document/*', desc: 'Get single document + subcollections' },
-            { method: 'DELETE', path: '/api/admin/firebase/document/*', desc: 'Delete Firestore document' },
-            { method: 'GET', path: '/api/admin/firebase/rtdb/browse?path=/', desc: 'Browse Realtime DB at path' },
-            { method: 'GET', path: '/api/admin/firebase/rtdb/value?path=/', desc: 'Get full value at RTDB path' },
-            { method: 'DELETE', path: '/api/admin/firebase/rtdb/value?path=/', desc: 'Delete RTDB data at path' }
-        ]
+            {
+                method: 'GET',
+                path: '/api/admin/firebase/collections',
+                desc: 'List top-level Firestore collections',
+            },
+            {
+                method: 'GET',
+                path: '/api/admin/firebase/browse/*',
+                desc: 'Browse Firestore collection documents',
+            },
+            {
+                method: 'GET',
+                path: '/api/admin/firebase/document/*',
+                desc: 'Get single document + subcollections',
+            },
+            {
+                method: 'DELETE',
+                path: '/api/admin/firebase/document/*',
+                desc: 'Delete Firestore document',
+            },
+            {
+                method: 'GET',
+                path: '/api/admin/firebase/rtdb/browse?path=/',
+                desc: 'Browse Realtime DB at path',
+            },
+            {
+                method: 'GET',
+                path: '/api/admin/firebase/rtdb/value?path=/',
+                desc: 'Get full value at RTDB path',
+            },
+            {
+                method: 'DELETE',
+                path: '/api/admin/firebase/rtdb/value?path=/',
+                desc: 'Delete RTDB data at path',
+            },
+        ],
     },
     'Admin - Render Services': {
         icon: '☁️',
         desc: 'Render.com service & env var management',
         endpoints: [
-            { method: 'GET', path: '/api/admin/render/status', desc: 'Check if RENDER_API_KEY is configured' },
+            {
+                method: 'GET',
+                path: '/api/admin/render/status',
+                desc: 'Check if RENDER_API_KEY is configured',
+            },
             { method: 'GET', path: '/api/admin/render/services', desc: 'List all Render services' },
-            { method: 'GET', path: '/api/admin/render/services/:id/env', desc: 'Get service environment variables' }
-        ]
-    }
+            {
+                method: 'GET',
+                path: '/api/admin/render/services/:id/env',
+                desc: 'Get service environment variables',
+            },
+        ],
+    },
 };
 
 function apiInit() {
@@ -1865,9 +2282,10 @@ function apiRenderCategoryList(filter = '') {
     for (const [name, cat] of Object.entries(API_REFERENCE)) {
         // Filter by category name, desc, or endpoint paths/desc
         if (lower) {
-            const matchCat = name.toLowerCase().includes(lower) || cat.desc.toLowerCase().includes(lower);
-            const matchEndpoint = cat.endpoints.some(e =>
-                e.path.toLowerCase().includes(lower) || e.desc.toLowerCase().includes(lower)
+            const matchCat =
+                name.toLowerCase().includes(lower) || cat.desc.toLowerCase().includes(lower);
+            const matchEndpoint = cat.endpoints.some(
+                (e) => e.path.toLowerCase().includes(lower) || e.desc.toLowerCase().includes(lower)
             );
             if (!matchCat && !matchEndpoint) continue;
         }
@@ -1882,7 +2300,8 @@ function apiRenderCategoryList(filter = '') {
         </div>`;
     }
 
-    container.innerHTML = html || '<div class="loading-placeholder">Không tìm thấy endpoint nào</div>';
+    container.innerHTML =
+        html || '<div class="loading-placeholder">Không tìm thấy endpoint nào</div>';
 }
 
 function apiFilterEndpoints(value) {
@@ -1909,15 +2328,18 @@ function apiSelectCategory(name, searchFilter = '') {
 
     const lower = searchFilter.toLowerCase();
     const endpoints = lower
-        ? cat.endpoints.filter(e => e.path.toLowerCase().includes(lower) || e.desc.toLowerCase().includes(lower))
+        ? cat.endpoints.filter(
+              (e) => e.path.toLowerCase().includes(lower) || e.desc.toLowerCase().includes(lower)
+          )
         : cat.endpoints;
 
     document.getElementById('apiEndpointCount').textContent = `${endpoints.length} endpoints`;
 
     const container = document.getElementById('apiEndpointList');
-    container.innerHTML = endpoints.map(e => {
-        const methodClass = `api-method-${e.method.toLowerCase()}`;
-        return `<div class="api-endpoint-card">
+    container.innerHTML = endpoints
+        .map((e) => {
+            const methodClass = `api-method-${e.method.toLowerCase()}`;
+            return `<div class="api-endpoint-card">
             <div class="api-endpoint-header">
                 <span class="api-method ${methodClass}">${e.method}</span>
                 <code class="api-path">${escapeHtml(e.path)}</code>
@@ -1927,15 +2349,17 @@ function apiSelectCategory(name, searchFilter = '') {
             </div>
             <div class="api-endpoint-desc">${escapeHtml(e.desc)}</div>
         </div>`;
-    }).join('');
+        })
+        .join('');
 
     lucide.createIcons();
 }
 
 function apiCopyPath(path) {
-    const base = window.location.hostname === 'localhost'
-        ? 'http://localhost:3000'
-        : 'https://chatomni-proxy.nhijudyshop.workers.dev';
+    const base =
+        window.location.hostname === 'localhost'
+            ? 'http://localhost:3000'
+            : 'https://chatomni-proxy.nhijudyshop.workers.dev';
     navigator.clipboard.writeText(base + path).then(() => {
         showToast('Đã copy URL', 'success');
     });

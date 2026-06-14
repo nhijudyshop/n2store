@@ -400,17 +400,35 @@ async function autoConnectRealtimeClients(db) {
         }
 
         for (const row of result.rows) {
-            if (row.client_type === 'pancake' && row.token && row.user_id && row.page_ids) {
-                const pageIds = JSON.parse(row.page_ids);
-                console.log(
-                    `[AUTO-CONNECT] Starting Pancake client with ${pageIds.length} pages...`
+            // Mỗi row bọc try-catch RIÊNG: trước đây JSON.parse(page_ids) lỗi ở 1
+            // row sẽ throw ra outer catch → log SAI "table may not exist" + BỎ
+            // TẤT CẢ row còn lại → Pancake WS không bao giờ lên → cột tin nhắn
+            // chết im sau restart. Giờ row hỏng chỉ skip chính nó.
+            try {
+                if (row.client_type === 'pancake' && row.token && row.user_id && row.page_ids) {
+                    const pageIds = JSON.parse(row.page_ids);
+                    if (!Array.isArray(pageIds) || pageIds.length === 0) {
+                        console.error(
+                            '[AUTO-CONNECT] Pancake row page_ids không phải array hợp lệ — skip:',
+                            String(row.page_ids).slice(0, 80)
+                        );
+                        continue;
+                    }
+                    console.log(
+                        `[AUTO-CONNECT] Starting Pancake client with ${pageIds.length} pages...`
+                    );
+                    realtimeClient.start(row.token, row.user_id, pageIds, row.cookie);
+                } else if (row.client_type === 'tpos' && row.token) {
+                    console.log(
+                        `[AUTO-CONNECT] Starting TPOS client for room: ${row.room || 'tomato.tpos.vn'}...`
+                    );
+                    tposRealtimeClient.start(row.token, row.room || 'tomato.tpos.vn');
+                }
+            } catch (rowErr) {
+                console.error(
+                    `[AUTO-CONNECT] Bỏ qua row ${row.client_type} lỗi (không chặn row khác):`,
+                    rowErr.message
                 );
-                realtimeClient.start(row.token, row.user_id, pageIds, row.cookie);
-            } else if (row.client_type === 'tpos' && row.token) {
-                console.log(
-                    `[AUTO-CONNECT] Starting TPOS client for room: ${row.room || 'tomato.tpos.vn'}...`
-                );
-                tposRealtimeClient.start(row.token, row.room || 'tomato.tpos.vn');
             }
         }
     } catch (error) {
@@ -510,7 +528,7 @@ const customersRoutes = require('./routes/customers');
 const returnOrdersRoutes = require('./routes/return-orders');
 const cloudflareBackupRoutes = require('./routes/cloudflare-backup');
 const realtimeRoutes = require('./routes/realtime');
-const { saveRealtimeUpdate, upsertPendingCustomer } = require('./routes/realtime');
+const { upsertPendingCustomer } = require('./routes/realtime');
 const geminiRoutes = require('./routes/gemini');
 const deepseekRoutes = require('./routes/deepseek');
 const telegramBotRoutes = require('./routes/telegram-bot');
@@ -1150,8 +1168,14 @@ class RealtimeClient {
     start(token, userId, pageIds, cookie = null) {
         this.token = token;
         this.userId = userId;
-        // Ensure pageIds are strings
-        this.pageIds = pageIds.map((id) => String(id));
+        // Ensure pageIds are strings. Guard: nếu pageIds không phải array
+        // (vd JSON.parse trả string/object do row credential hỏng) thì .map()
+        // sẽ throw TypeError → crash connect im lặng. Coerce về [] an toàn.
+        this.pageIds = Array.isArray(pageIds) ? pageIds.map((id) => String(id)) : [];
+        if (this.pageIds.length === 0) {
+            console.error('[SERVER-WS] start() called with empty/invalid pageIds — bỏ qua connect');
+            return;
+        }
         this.cookie = cookie;
         this.connect();
     }
@@ -1362,11 +1386,9 @@ class RealtimeClient {
                     customerName: conversation.from?.name || conversation.customers?.[0]?.name,
                 };
 
-                saveRealtimeUpdate(this.db, updateData)
-                    .then(() => console.log('[SERVER-WS] Update saved to DB'))
-                    .catch((err) =>
-                        console.error('[SERVER-WS] Failed to save update:', err.message)
-                    );
+                // (2026-06-14) Bỏ ghi realtime_updates (hệ event-log cũ, không
+                // ai đọc — xem routes/realtime.js). pending_customers là nguồn
+                // DUY NHẤT cho badge cột TIN NHẮN.
 
                 // Upsert pending_customers CHỈ cho INBOX với unread_count > 0
                 // VÀ shop chưa phải người gửi cuối.
@@ -2258,15 +2280,33 @@ realtimeClient.setDb(chatDbPool); // Pass PostgreSQL pool for saving updates
 
 // API to start the Pancake client from the browser
 app.post('/api/realtime/start', async (req, res) => {
+    // Defense-in-depth: Pancake WS realtime là Web 1.0 (chatDb). web2-api
+    // (WEB2_ONLY=1) KHÔNG được chạy client này. Cloudflare đã route path này về
+    // n2store-fallback; guard này phòng gọi thẳng origin / routing lỗi.
+    if (WEB2_ONLY) {
+        return res.status(403).json({
+            error: 'Not available on web2-api — Web 1.0 realtime runs on n2store-fallback',
+        });
+    }
     const { token, userId, pageIds, cookie } = req.body;
     if (!token || !userId || !pageIds) {
         return res.status(400).json({ error: 'Missing parameters' });
     }
+    if (!Array.isArray(pageIds) || pageIds.length === 0) {
+        return res.status(400).json({ error: 'pageIds must be a non-empty array' });
+    }
 
     realtimeClient.start(token, userId, pageIds, cookie);
 
-    // Save credentials for auto-reconnect on server restart
-    await saveRealtimeCredentials(chatDbPool, 'pancake', { token, userId, pageIds, cookie });
+    // Save credentials for auto-reconnect on server restart. Nếu lưu FAIL, WS
+    // vẫn chạy NHƯNG sẽ không auto-reconnect sau restart → trả cờ cảnh báo rõ
+    // (trước đây nuốt lỗi + trả success:true → cột tin nhắn chết im sau deploy).
+    const credsSaved = await saveRealtimeCredentials(chatDbPool, 'pancake', {
+        token,
+        userId,
+        pageIds,
+        cookie,
+    });
 
     // Also cache in auth_token_cache so /api/auth/token/pancake can serve all clients
     try {
@@ -2301,7 +2341,11 @@ app.post('/api/realtime/start', async (req, res) => {
 
     res.json({
         success: true,
-        message: 'Realtime client started on server (credentials saved for auto-reconnect)',
+        credentialsSaved: credsSaved !== false,
+        message:
+            credsSaved !== false
+                ? 'Realtime client started on server (credentials saved for auto-reconnect)'
+                : 'Realtime client started BUT credentials NOT saved — auto-reconnect after restart may fail (check DB)',
     });
 });
 
@@ -2446,10 +2490,9 @@ app.get('/', (req, res) => {
                 'POST /api/realtime/start - Start Pancake WebSocket (saves credentials for auto-reconnect)',
                 'POST /api/realtime/stop - Stop Pancake WebSocket (disables auto-reconnect)',
                 'GET /api/realtime/status - Get Pancake client status',
-                'GET /api/realtime/new-messages?since={timestamp} - Get new messages since timestamp',
-                'GET /api/realtime/summary?since={timestamp} - Get summary count only',
-                'POST /api/realtime/mark-seen - Mark updates as seen',
-                'DELETE /api/realtime/cleanup?days={n} - Cleanup old records',
+                'GET /api/realtime/pending-customers?limit={n} - Khách chưa trả lời (badge cột TIN NHẮN)',
+                'POST /api/realtime/mark-replied - Xóa khách khỏi pending (đã trả lời)',
+                'DELETE /api/realtime/cleanup?days={n} - Cleanup leftover realtime_updates (deprecated table)',
                 'POST /api/realtime/tpos/start - Start TPOS WebSocket (saves credentials for auto-reconnect)',
                 'POST /api/realtime/tpos/stop - Stop TPOS WebSocket (disables auto-reconnect)',
                 'GET /api/realtime/tpos/status - Get TPOS client status',

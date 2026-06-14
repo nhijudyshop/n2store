@@ -2,6 +2,29 @@
 
 ## 2026-06-14
 
+### [orders-report][render] Cột TIN NHẮN realtime (Web 1.0): fix race/đè + gỡ hệ trùng `realtime_updates` ✅
+
+**User:** "kiểm tra server render, db render web 1.0 về nhận tin nhắn realtime ở cột tin nhắn → bug, race condition, trùng tính năng gây đè". Sau phân tích (audit 30-agent): C (chẩn đoán live) → B (fix full) → "được thì xóa đi làm lại".
+
+**Chẩn đoán live:** WS Pancake đang sống (`/api/realtime/status` connected); `pending_customers` có data nhưng nhiều entry STALE (snippet "Nv Hạnh"=shop đã rep nhưng còn count); hệ cũ `realtime_updates` phình 4072 rows/24h không ai đọc.
+
+**Kiến trúc thật:** cột badge dùng bảng `pending_customers` (chatDb) + `new-messages-notifier.js`, KHÔNG phải `realtime_updates` (doc MESSAGING_SYSTEM.md đã stale). Pancake WS chạy CHỈ n2store-fallback (gated WEB2_ONLY).
+
+**Backend fix (server.js + routes/realtime.js):**
+
+- Gỡ hệ trùng `realtime_updates`: bỏ `saveRealtimeUpdate` (write) + 3 endpoint chết `/summary` `/new-messages` `/mark-seen`. Bảng giữ husk (dọn rows cũ qua /wipe-all). `pending_customers` = nguồn DUY NHẤT.
+- Hardening vòng đời WS (root-cause cột chết im sau restart): `autoConnectRealtimeClients` bọc try-catch + Array.isArray TỪNG row (trước: 1 row JSON hỏng abort HẾT); `RealtimeClient.start` guard pageIds non-array; `/api/realtime/start` thêm guard WEB2_ONLY + validate pageIds + trả cờ `credentialsSaved` (trước nuốt lỗi save → restart sau không auto-reconnect).
+- GET `/pending-customers` thêm guard WEB2_ONLY (defense-in-depth sau split 14/06).
+
+**Frontend fix (new-messages-notifier.js — chống ĐÈ/nuốt tin):**
+
+- `_wasRecentlyReplied`: event thiếu timestamp = tin MỚI (không suppress) + buffer skew 2s. Trước: fallback Date.now()+`<=` → nuốt tin mới cùng-ms suốt 24h.
+- Thêm `_removePending` (gỡ KHÔNG set cờ suppress); reconcile + WS-read-detection dùng nó thay `clearPendingForCustomer` → hết reconcile-premature-clear (xoá badge user chưa thấy + chặn tin mới). Cờ suppress chỉ còn cho chính user reply.
+- reconcile skip khi tab ẩn; re-apply + reconcile khi tab visible lại; listen `storage` event đồng bộ pending/replied-map đa tab.
+- `_upsertBadge` guard `cell.isConnected` (chống badge rơi vào row đã detach giữa lúc surgical re-render). Bump `?v=20260614a`.
+
+**Loại trừ (adversarial verify):** "full re-render đè badge" FALSE (đã có reapply hook+debounce); web2-api double-connect Pancake FALSE (autoConnect gated). `node --check` PASS 4 file. **Cần deploy fallback** (chạm render.com/**). **Status:\*\* ✅ — MEMORY [[reference_web1_realtime_msg_column]].
+
 ### [live-chat] Status KH từ kho web2 + bidirectional sync (3 trang dùng chung nguồn shared) ✅
 
 **User (tiếp):** (1) treo comments-mobile coi render tất cả; (2) Trạng thái KH lấy ở kho KH web2; (3) 3 trang comments-mobile + index + web2/customers gắn kết: 2 trang comment dùng chung 1 nguồn shared, KH MỚI → update vào kho customers, data CÓ SẴN ở kho → update qua 2 trang comment. Kiến trúc: load all comment livestream ban đầu → append comment mới theo `post.type==='livestream'`.
