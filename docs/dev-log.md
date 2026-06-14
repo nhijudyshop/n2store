@@ -2,6 +2,23 @@
 
 ## 2026-06-14
 
+### [web2][zalo][render] Tên hội thoại NHÓM bị lấy theo người nhắn cuối — heal tận gốc từ zca ✅
+
+**User:** "web2/zalo bug tên đoạn hội thoại lấy theo tên người nhắn cuối cùng (hình 1 zalo chuẩn) → phân tích → làm triệt để".
+
+**Root cause (xác nhận bằng data API live + git):** bản ĐẦU của `_persistIncoming` (commit `bed1cb391` 13/06 14:54) ghi `display_name = senderName` cho **MỌI** tin kể cả NHÓM (chỉ guard `zalo_uid`). UPSERT dùng `display_name=COALESCE(EXCLUDED, existing)` + senderName luôn non-null → mỗi tin nhóm ghi đè tên nhóm = tên người gửi mới nhất. Guard `convName=null` cho nhóm thêm sau (`d9bcc5030` 19:27) chặn corruption mới NHƯNG không tự sửa data cũ (COALESCE giữ giá trị sai). Live API xác nhận: rows `thread_type='group'` + avatar nhóm (`ava-grp-talk`) nhưng `display_name == last_sender_name`.
+
+**Fix triệt để — tự chữa lành từ zca (authoritative):**
+
+1. **Schema** [web2-zalo-schema.js](render.com/db/web2-zalo-schema.js): thêm cột `info_synced_at BIGINT` (ALTER live + CREATE), idempotent.
+2. **Service** [web2-zalo-zca.js](render.com/services/web2-zalo-zca.js): `getGroupsInfo(accountKey, gids)` → `{gid:{name,avatar}}` (KHÔNG nuốt lỗi, để throw); callback `onConnected` bắn cuối `_afterLogin`.
+3. **Route** [web2-zalo.js](render.com/routes/web2-zalo.js): `_repairGroupNames()` fetch theo batch 50, **FORCE ghi đè** tên+avatar nhóm; wire `onConnected→_repairGroupNames` (chạy nền mọi lần kết nối/boot); endpoint `POST /accounts/:key/repair-group-names`; lazy-heal khi mở chat (timeout 2s, chỉ stamp `info_synced_at` khi resolve, `_notify` list khi heal). Ingest group guard giữ nguyên.
+4. **Frontend** [web2-zalo-app.js](web2/zalo/js/web2-zalo-app.js) + **shared** [chat-view.js](web2/shared/zalo-chat/chat-view.js): nhóm chưa có tên → "Nhóm Zalo" (KHÔNG lộ id số) ở **cả** danh sách lẫn **header** chat; `updateHead()` cập nhật header tại chỗ sau `reload()` heal (không remount composer). Bump `?v=20260614a`.
+
+**Review:** workflow 17-agent (5 dimension × adversarial verify) → 5 finding confirmed, đã fix hết: (#1/#2) header chat shared còn lộ id số + không refresh sau heal; (#3/#4) `getGroupsInfo` nuốt lỗi → lazy-heal stamp nhầm đóng băng tên sai 6h; (#5) await zca không timeout → nghẽn tải tin.
+
+**Áp dụng:** account đang `0/1 kết nối` → tên nhóm cũ tự sửa NGAY khi quét QR kết nối lại (auto `onConnected`), hoặc khi mở từng nhóm, hoặc bấm "Đồng bộ danh bạ". `node -c` + require-load PASS cả 5 file. **Backend cần deploy web2-api** (chạm `render.com/**`). **Status:** ✅
+
 ### [web2][shared] Dọn dead code `web2-bulk-import.js` (đã thay bằng Web2Import) ✅
 
 **User:** "dọn đi".

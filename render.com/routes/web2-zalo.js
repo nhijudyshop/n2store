@@ -803,6 +803,8 @@ router.get('/conversations/:id/messages', async (req, res) => {
                 );
                 if (nm) conv.display_name = nm;
                 if (av) conv.avatar_url = av;
+                // Tên vừa heal → báo list các tab refresh (header tab này tự cập nhật qua res.conversation).
+                if (nm || av) _notify('web2:zalo:messages', 'update', conv.account_key);
             } catch (e) {
                 /* best-effort — lỗi/timeout: không chặn xem tin, không stamp → thử lại lần sau */
             }

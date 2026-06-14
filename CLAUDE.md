@@ -474,12 +474,19 @@ Project có **4 scripts test dự án qua Playwright** (auto-login + capture err
 Khi khởi động browser test (persistent session/smoke/debug), **LUÔN truyền `--ext n2store-extension`**:
 
 ```bash
-(tail -f /tmp/n2store-session.fifo) | node scripts/n2store-browser-session.js \
-  --user admin --pass admin@@ --base http://localhost:8080 --ext n2store-extension --http-port 9966
+# FIFO + cổng HTTP DUY NHẤT mỗi phiên (tránh tranh chấp — xem ⚠ bên dưới).
+FIFO=/tmp/n2s-$$.fifo; PORT=$((9900 + RANDOM % 90)); mkfifo "$FIFO"
+(tail -f "$FIFO") | node scripts/n2store-browser-session.js \
+  --user admin --pass admin@@ --base http://localhost:8080 --ext n2store-extension --http-port "$PORT"
+# Gửi lệnh — ƯU TIÊN HTTP /cmd (theo PID, đồng bộ, KHÔNG đụng FIFO chung):
+#   curl -s -X POST localhost:$PORT/cmd -H 'content-type: application/json' \
+#        -d '{"cmd":"nav http://localhost:8080/orders-report/main.html"}'
 ```
 
 - Script hỗ trợ sẵn `--ext <path>` (comma-separated nhiều ext) → dùng `launchPersistentContext` + `--load-extension` (`chromium.launch` thường KHÔNG load được extension).
 - Lý do: nhiều flow CHỈ chạy khi có extension (auto-snap captureVisibleTab, gửi tin bypass-24h, Global ID resolve, capture leader lock) → test thiếu extension cho false-negative "capture/gửi tin không chạy".
+
+> ⚠ **TRÁNH TRANH CHẤP BROWSER TEST (BẮT BUỘC — 2026-06-14)**: KHÔNG hardcode `/tmp/n2store-session.fifo` + `--http-port 9966` cố định. Nếu agent/session Claude khác cũng mở browser test, 2 phiên đọc CHUNG 1 FIFO + đụng cổng → lệnh `nav` rơi nhầm phiên làm trang "tự nhảy" lung tung (đã xảy ra 2026-06-14: 2 phiên `n2store-browser-session.js` chung FIFO/9966 khiến orders-report nhảy sang web2 — tưởng bug app, thực ra là contention). Quy tắc: **(1)** FIFO riêng `/tmp/n2s-$$.fifo` + cổng riêng (random/theo agent); **(2)** gửi lệnh qua **HTTP `/cmd`** (theo PID) thay vì ghi FIFO chung; **(3)** muốn 1 phiên sạch tuyệt đối → `pkill -f n2store-browser-session.js; pkill -f 'tail -f /tmp/n2s'; rm -f /tmp/n2s-*.fifo /tmp/n2store-session.fifo` TRƯỚC khi mở.
 
 ### 🧭 Browser test Web 2.0 → MỞ `web2/overview/index.html` TRƯỚC (BẮT BUỘC — 2026-06-13)
 
