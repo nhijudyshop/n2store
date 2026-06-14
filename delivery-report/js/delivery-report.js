@@ -2515,15 +2515,26 @@
                 zeroItems,
                 extraItems,
             });
-            const copied = await copyCanvasToClipboard(
-                canvas,
-                `BANGIAO_${label}_${handoverDateLabel().replace(/[/–]/g, '_')}.png`
-            );
-            if (copied) {
-                resetBtn('<i class="fas fa-check"></i> Đã copy!');
-                setTimeout(() => resetBtn(), 2000);
-            } else {
+            const blob = await canvasToBlob(canvas);
+
+            // Gửi ảnh vào nhóm Telegram (bot riêng delivery-report) — giống nút Ảnh Thành Phố.
+            // Bỏ clipboard — gửi TG thành công thì refresh lại trang.
+            try {
+                if (btn) {
+                    btn.innerHTML = '<i class="fas fa-paper-plane"></i> Đang gửi Telegram...';
+                }
+                await sendHandoverImageToTelegram(
+                    blob,
+                    `📦 Bàn giao ${label} ${handoverDateLabel()} — ${scannedItems.length} đơn`
+                );
+                resetBtn('<i class="fas fa-check"></i> Đã gửi TG — đang tải lại...');
+                // Gửi thành công → refresh lại trang
+                setTimeout(() => window.location.reload(), 600);
+            } catch (tgError) {
+                console.error('[DELIVERY-REPORT] gửi Telegram lỗi:', tgError);
+                alert('Gửi Telegram thất bại: ' + tgError.message);
                 resetBtn();
+                setTimeout(() => resetBtn(), 3000);
             }
         } catch (error) {
             console.error('[DELIVERY-REPORT] copyGroupHandoverImage error:', error);
