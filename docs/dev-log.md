@@ -2,6 +2,22 @@
 
 ## 2026-06-14
 
+### [live-chat] Trang MỚI: viewer comment livestream tối ưu MOBILE (chỉ-xem) ✅
+
+**User:** trang riêng coi comment livestream trên ĐIỆN THOẠI — chỉ XEM (không tạo đơn/chat). Quan trọng: comment, tên/SĐT/địa chỉ/avatar/trạng thái/thumbnail KH; tap KH → chi tiết hơn. Research GitHub/Google làm hoàn thiện.
+
+**Đã làm (2 file mới, standalone — KHÔNG kéo deps order/chat nặng):**
+
+- **`live-chat/comments-mobile.html`** — mobile-first, light Zalo-blue, safe-area: sticky header (💬 Comment Live + 🔴LIVE + count + refresh) + filter chips (Tất cả/Store/House/Đã tạo đơn/Có SĐT) + card list + bottom-sheet detail + lightbox + toast + new-comments pill. Inline CSS (pattern iOS Messages/Telegram + Material bottom-sheet + pull-to-refresh, anti-lag).
+- **`live-chat/js/live/comments-mobile.js`** — controller chỉ-xem:
+    - Fetch `GET {worker}/api/web2-live-comments/?limit=200` (open, credentials:omit) → card (avatar màu/initials, tên, badge Store/House, giờ **GMT+7**, status has_order, comment, chip SĐT tel:/địa chỉ, thumbnail).
+    - **Thumbnail batch** `GET /api/livestream/snapshots/by-comment-ids` → ảnh frame live (tap → lightbox).
+    - **Tap card → bottom-sheet** chi tiết: avatar lớn, comment quote, SĐT/địa chỉ/trạng thái/trang/FB ID/thời gian + nút Gọi (tel:) + Mở Facebook.
+    - **Realtime SSE** `web2:live-comments` (web2-sse-bridge) debounce re-fetch + pill "comment mới" khi đang cuộn; pull-to-refresh; refetch khi visible; poll nhẹ 60s.
+    - Filter client (page/order/phone). KHÔNG mutation.
+
+**Verify smoke:** API trả data thật (200+ comment), render card đủ (tên/comment/SĐT/avatar/badge/status/giờ GMT+7), bottom-sheet chi tiết mở đúng (FB ID, thời gian +7, Gọi/FB). JS parse OK. URL: `/live-chat/comments-mobile.html`. **Status:** ✅ Done (test thực tế trên điện thoại).
+
 ### [live-chat] Kho SP: grid-card → LIST hàng ngang + thumbnail nhỏ + hover phóng to ✅
 
 **User:** "danh sách sản phẩm cho thành list với hình nhỏ, hover vào phóng to ảnh."
