@@ -123,6 +123,13 @@
         $('formSections').hidden = false;
         $('rightEmpty').hidden = true;
         $('rightBody').hidden = false;
+        // Task 2: scroll next step into view so user sees the order-picker right away.
+        setTimeout(() => {
+            ($('rightBody') || $('formSections'))?.scrollIntoView({
+                behavior: 'smooth',
+                block: 'nearest',
+            });
+        }, 50);
         // Wallet balance cho COD "trừ công nợ khách"
         api.walletBalance(phone).then((b) => {
             STATE.walletBalance = b;
@@ -559,8 +566,10 @@
     function renderList() {
         const body = $('returnsBody');
         if (!STATE.list.length) {
+            // Task 3: empty state with lucide icon for discoverability.
             body.innerHTML =
-                '<tr><td colspan="8" class="rt-muted" style="text-align:center;padding:16px;">Chưa có phiếu thu về.</td></tr>';
+                '<tr><td colspan="8"><div class="rt-empty"><i data-lucide="package"></i>Chưa có phiếu thu về.</div></td></tr>';
+            if (window.lucide) lucide.createIcons();
             return;
         }
         body.innerHTML = STATE.list
@@ -786,6 +795,9 @@
             console.warn('[returns] sidebar mount fail:', e);
         }
         bind();
+        // Task 1: autofocus customer search on create tab load so user can type immediately.
+        const custEl = $('custSearch');
+        if (custEl) setTimeout(() => custEl.focus(), 80);
         onMethodChange('shipper_gui');
         onIssueChange('van_de_khach');
         onSubTypeChange('thu_ve_1_phan');

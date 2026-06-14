@@ -59,6 +59,9 @@
     async function load() {
         if (state.loading) return;
         state.loading = true;
+        // TASK 5: show loading indicator in toolbar
+        const loadingEl = document.getElementById('wcLoadingIndicator');
+        if (loadingEl) loadingEl.hidden = false;
         const body = $('#wcTableBody');
         try {
             const res = await window.CustomersApi.list({
@@ -84,6 +87,8 @@
             body.innerHTML = `<tr><td colspan="8"><div class="wc-empty">✗ ${esc(e.message)}</div></td></tr>`;
         } finally {
             state.loading = false;
+            // TASK 5: hide loading indicator
+            if (loadingEl) loadingEl.hidden = true;
         }
     }
 

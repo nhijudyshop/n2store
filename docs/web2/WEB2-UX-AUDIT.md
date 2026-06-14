@@ -99,7 +99,19 @@
 - [ ] **web2/variants/** (mobile): File web2-variants.css không có @media query nào. Modal có min-width: 480px (hardcoded inline style HTML line 140) — trên màn hình nhỏ hơn 480px modal sẽ vượt v
     - → Thêm trong CSS: .modal-content { min-width: min(480px, calc(100vw - 32px)); } cùng với @media (max-width: 640px) cho bảng variants ẩn cột 'Thứ tự' và 'Viết tắt' hoặc chuyển sang card layout.
 
-## 🟧 Medium/Low — theo trang (rút gọn)
+## ✅ Đợt C Medium/Low — ĐÃ LÀM (2026-06-14)
+
+> 8 agent song song. JS `node --check` PASS, 0 conflict marker. Bỏ qua các rewrite nặng rủi ro (virtual scroll, rewrite bar-chart, throttle lucide).
+
+- **Modal keyboard**: so-order Esc (sẵn), supplier-debt Enter-submit, supplier-wallet Pay/Return Enter-submit, native-orders edit Esc (sẵn), pancake-settings credsModal Esc, audit-log/livestream filter Enter, report-delivery date Enter.
+- **Autofocus + select**: supplier-debt/supplier-wallet pay amount (.select), returns custSearch, native-orders editCustomerName, variants shortCode, kpi campaign select.
+- **Mobile @media**: balance-history, supplier-wallet, report-delivery (KPI 5→2→1 cột), report-revenue (.panels stack), dashboard kpi-grid ≤480px, customers (ẩn FB/địa chỉ), notifications.
+- **Empty-state icon**: balance-history (search-x), returns (package), variants (layers), kpi (bar-chart-2), customer-wallet (per-filter msg).
+- **Silent-catch → toast**: ck-dashboard loadHistory, users-permissions loadRegistry/loadUsers.
+- **Feedback**: report-delivery from>to swap notify, users-permissions role-template success + Xoá-tất-cả confirm, dashboard bỏ impl-detail text, customer-wallet modal loading, customers toolbar loading.
+- **Discoverability/a11y**: supplier-debt/native-orders/products/report-revenue aria-label nút icon, dashboard KPI clickable cursor+hint, audit-log diff '(đã rút gọn)', products source-pill 'Kho sản phẩm', photo-studio brush aria + live px, livestream stat tooltip + realtime validate.
+
+## 🟧 Medium/Low — theo trang (rút gọn) (✅ phần lớn đã xử lý đợt C 2026-06-14)
 
 ### all
 

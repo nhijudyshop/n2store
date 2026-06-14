@@ -412,6 +412,20 @@
         }
         if (!items.length) {
             dom.list.innerHTML = '';
+            // TASK 8: friendly empty-state for any filter (not just 'all')
+            const filterLabels = {
+                all: 'Chưa có khách hàng nào',
+                debt: 'Không có khách nào còn nợ',
+                has_balance: 'Không có khách nào có dư ví',
+                paid_off: 'Không có khách nào đã thanh toán đủ',
+                vip: 'Không có khách VIP nào',
+                warning: 'Không có khách cảnh báo nào',
+                bomb: 'Không có khách bom hàng nào',
+            };
+            const emptyMsg = filterLabels[state.quickFilter] || 'Không có kết quả';
+            dom.empty.querySelector('p').innerHTML =
+                escapeHtml(emptyMsg) +
+                (state.search ? ` · tìm "<b>${escapeHtml(state.search)}</b>"` : '');
             dom.empty.hidden = false;
         } else {
             dom.empty.hidden = true;
@@ -547,6 +561,13 @@
         dom.statReturned.textContent = fmtVnd(c.returnedAmount);
         dom.statBalance.textContent = fmtVnd(c.balance);
         renderDetailExtras(phone);
+        // TASK 7: show skeleton in orders body while PBH fetch in progress
+        if (dom.ordersBody) {
+            dom.ordersBody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:28px 16px">
+                <span class="w2-skel" style="display:inline-block;width:60%;height:14px;border-radius:6px;margin-bottom:8px"></span><br>
+                <span class="w2-skel" style="display:inline-block;width:40%;height:12px;border-radius:6px"></span>
+            </td></tr>`;
+        }
         renderDetailTabs();
         dom.detailModal.hidden = false;
         if (window.lucide?.createIcons) window.lucide.createIcons();

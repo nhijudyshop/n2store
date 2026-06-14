@@ -2,6 +2,21 @@
 
 ## 2026-06-14
 
+### [web2] UX đợt C — Medium/Low ~21 trang: modal Esc/Enter + autofocus + mobile + empty-state icon + silent-catch + aria-label ✅
+
+**User:** "tiếp tục" (sau đợt B). Làm tiếp 🟧 Medium/Low của `docs/web2/WEB2-UX-AUDIT.md`, chỉ phần low-risk giá trị cao.
+
+**Cách làm:** 8 agent song song chia theo trang. `node --check` mọi JS đổi (PASS), 0 conflict marker. **Bỏ qua** rewrite nặng rủi ro: virtual scroll (notifications/audit-log 100-200 row), rewrite hand-built bar-chart (report-revenue), throttle `lucide.createIcons` (balance-history).
+
+- **Modal keyboard**: supplier-debt + supplier-wallet (Pay/Return) Enter-submit, pancake-settings credsModal Esc, audit-log/livestream/report-delivery filter & date Enter. (so-order Esc + native-orders edit Esc đã sẵn.)
+- **Autofocus/select**: pay amount supplier-debt/supplier-wallet (.select), returns custSearch, native-orders editCustomerName, variants shortCode, kpi campaign select.
+- **Mobile @media**: balance-history, supplier-wallet, report-delivery, report-revenue (.panels), dashboard kpi-grid ≤480px, customers (ẩn cột), notifications.
+- **Empty-state icon**: balance-history, returns, variants, kpi, customer-wallet (per-filter).
+- **Silent-catch → toast**: ck-dashboard loadHistory, users-permissions loadRegistry/loadUsers.
+- **Feedback/discoverability/a11y**: report-delivery swap-notify, users-permissions role success + Xoá-tất-cả confirm, dashboard bỏ impl-detail + KPI clickable hint, aria-label nút icon (supplier-debt/native-orders/products/report-revenue), audit-log diff '(đã rút gọn)', products source-pill 'Kho sản phẩm', photo-studio brush a11y, livestream validate.
+
+**Files (~37):** balance-history, supplier-debt, supplier-wallet, so-order, native-orders, report-delivery, ck-dashboard, kpi, dashboard, users-permissions, customers, customer-wallet, returns, variants, products, report-revenue, pancake-settings, photo-studio, notifications, audit-log, livestream-poller. Bump `?v=20260614ux2`. Doc: `WEB2-UX-AUDIT.md` mục "✅ Đợt C". **Status:** ✅ (nhiều task agent báo "đã có sẵn").
+
 ### [web2] UX đợt B — 17 trang: skeleton loading + error+retry + mobile @media + keyboard/focus + empty-state ✅
 
 **User (3 việc):** 1/gỡ firebase dead-code 2/Web 2.0 bắt buộc login 3/nghiên cứu IMPROVEMENT-PLAN + web2 md → đề xuất hướng. Sau khi present → user: "làm đi" → triển khai đợt B (29 high-impact của `docs/web2/WEB2-UX-AUDIT.md`).

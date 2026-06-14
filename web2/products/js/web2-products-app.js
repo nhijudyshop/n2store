@@ -135,7 +135,7 @@
                     <td>
                         <div class="row-actions">
                             <button class="btn-action act-edit" title="Sửa" onclick="Web2ProductsApp.openEdit('${escapeHtml(escJs(p.code))}')"><i data-lucide="pencil"></i></button>
-                            <button class="btn-action act-print" title="${Number(p.printCount) > 0 ? `Tem mã vạch đã in ${Number(p.printCount)} lần — tránh in trùng` : 'In tem mã vạch'}" onclick="Web2ProductsApp.printBarcode('${escapeHtml(escJs(p.code))}')"><i data-lucide="printer"></i>${
+                            <button class="btn-action act-print" title="${Number(p.printCount) > 0 ? `Tem mã vạch đã in ${Number(p.printCount)} lần — tránh in trùng` : 'In tem mã vạch'}" aria-label="In tem mã vạch" onclick="Web2ProductsApp.printBarcode('${escapeHtml(escJs(p.code))}')"><i data-lucide="printer"></i>${
                                 Number(p.printCount) > 0
                                     ? `<span class="print-count-num">${Number(p.printCount)}</span>`
                                     : ''
@@ -1538,6 +1538,21 @@
 
         // Image preview on input
         $('#pmImage')?.addEventListener('input', (e) => updateImagePreview(e.target.value.trim()));
+
+        // Task 6: lightweight real-time required-field feedback on blur.
+        // Toggle .field-error border class — no full validation framework needed.
+        const _requiredBlur = (id) => {
+            const el = $(id);
+            if (!el) return;
+            el.addEventListener('blur', () => {
+                el.classList.toggle('field-error', el.value.trim() === '');
+            });
+            el.addEventListener('input', () => {
+                if (el.value.trim()) el.classList.remove('field-error');
+            });
+        };
+        _requiredBlur('#pmName');
+        _requiredBlur('#pmCode');
 
         load();
 

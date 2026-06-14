@@ -6,8 +6,8 @@
         <title>Lịch sử thao tác - WEB 2.0</title>
         <meta name="web2-db" content="render" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <link rel="stylesheet" href="../shared/web2-sidebar.css?v=20260614ux" />
-        <link rel="stylesheet" href="../shared/web2-theme.css?v=20260614ux" />
+        <link rel="stylesheet" href="../shared/web2-sidebar.css?v=20260614ux2" />
+        <link rel="stylesheet" href="../shared/web2-theme.css?v=20260614ux2" />
         <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
         <style>
             .audit-main {
@@ -123,9 +123,9 @@
                         <option value="reconcile">Đối soát</option>
                         <option value="wallet">Ví</option>
                     </select>
-                    <input id="fUser" type="text" placeholder="User…" />
-                    <input id="fFrom" type="date" />
-                    <input id="fTo" type="date" />
+                    <input id="fUser" type="text" placeholder="Tên / username / user_id…" />
+                    <input id="fFrom" type="date" title="Lọc từ ngày (YYYY-MM-DD)" />
+                    <input id="fTo" type="date" title="Lọc đến ngày (YYYY-MM-DD)" />
                     <button id="btnLoad">Tải</button>
                 </div>
                 <div style="overflow-x: auto">
@@ -214,7 +214,7 @@
                     const items = d.items || d.records || d.data || [];
                     if (!d.success || !items.length) {
                         body.innerHTML =
-                            '<tr><td colspan="7" style="padding: 20px; text-align: center; color: #94a3b8">Không có data</td></tr>';
+                            '<tr><td colspan="7" style="padding: 20px; text-align: center; color: #94a3b8">Không có nhật ký khớp bộ lọc</td></tr>';
                         return;
                     }
                     body.innerHTML = items
@@ -226,7 +226,16 @@
                     <td>${esc(it.action || '')}</td>
                     <td>${esc(it.user_name || it.user_id || '—')}</td>
                     <td>${esc(it.source_page || '—')}</td>
-                    <td><pre class="diff">${esc(JSON.stringify(it.changes, null, 2)).slice(0, 600)}</pre></td>
+                    <td><pre class="diff">${(function () {
+                        const raw = JSON.stringify(it.changes, null, 2) || '';
+                        const truncated = raw.length > 600;
+                        return (
+                            esc(raw.slice(0, 600)) +
+                            (truncated
+                                ? '<span class="text-muted" style="font-size:0.8em"> … (đã rút gọn)</span>'
+                                : '')
+                        );
+                    })()}</pre></td>
                 </tr>`
                         )
                         .join('');
@@ -237,6 +246,12 @@
                     return d.innerHTML;
                 }
                 document.getElementById('btnLoad').onclick = load;
+                // Fix 3: Enter key triggers load on filter inputs
+                ['fUser', 'fFrom', 'fTo'].forEach((id) => {
+                    document.getElementById(id).addEventListener('keydown', (e) => {
+                        if (e.key === 'Enter') load();
+                    });
+                });
                 document.addEventListener('DOMContentLoaded', () => {
                     if (window.Web2Sidebar)
                         Web2Sidebar.mount('#web2Aside', { activeRoute: 'audit-log' });

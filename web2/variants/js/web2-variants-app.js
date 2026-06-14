@@ -43,13 +43,11 @@
         const items = STATE.variants;
         if (!items.length) {
             const filtering = STATE.search || STATE.group;
-            tbody().innerHTML = `<tr><td colspan="6" class="empty-row">
-                ${
-                    filtering
-                        ? 'Không tìm thấy biến thể phù hợp — thử bỏ filter hoặc đổi từ khoá.'
-                        : 'Chưa có biến thể nào — bấm "Thêm Biến Thể" để tạo'
-                }
-            </td></tr>`;
+            // Task 5: empty state with lucide 'layers' icon for visual discoverability.
+            tbody().innerHTML = filtering
+                ? `<tr><td colspan="6" class="empty-row">Không tìm thấy biến thể phù hợp — thử bỏ filter hoặc đổi từ khoá.</td></tr>`
+                : `<tr><td colspan="6" class="empty-row"><div style="display:flex;flex-direction:column;align-items:center;gap:8px;padding:8px 0;"><i data-lucide="layers" style="width:28px;height:28px;color:#94a3b8;"></i><span>Chưa có biến thể nào — bấm "Thêm Biến Thể" để tạo</span></div></td></tr>`;
+            if (window.lucide) lucide.createIcons();
             return;
         }
         tbody().innerHTML = items
@@ -424,12 +422,18 @@
         $('#btnCancelVariant')?.addEventListener('click', closeModal);
         $('#btnSaveVariant')?.addEventListener('click', saveModal);
         $('#vmSuggestShortCode')?.addEventListener('click', suggestShortCode);
-        // Auto-suggest khi blur giá trị nếu shortcode còn trống
-        $('#vmValue')?.addEventListener('blur', () => {
+        // Auto-suggest khi blur giá trị nếu shortcode còn trống.
+        // Task 4: after auto-filling shortCode, focus it so user can confirm or override.
+        $('#vmValue')?.addEventListener('blur', async () => {
             if (STATE.editingId) return;
-            if (($('#vmShortCode')?.value || '').trim()) return;
+            const scEl = $('#vmShortCode');
+            if ((scEl?.value || '').trim()) return;
             const val = ($('#vmValue')?.value || '').trim();
-            if (val) suggestShortCode();
+            if (!val) return;
+            await suggestShortCode();
+            // Focus shortCode only if it ended up still empty (edge case: suggest failed)
+            // or if it was filled — either way landing focus there is the right UX.
+            if (scEl) setTimeout(() => scEl.focus(), 30);
         });
         document.addEventListener('keydown', (e) => {
             if (!modal()?.classList.contains('active')) return;

@@ -563,8 +563,8 @@
                 const note = getNoteForRow(r);
                 const noteHtml = note ? `<div class="sd-row-note">${escapeHtml(note)}</div>` : '';
                 const actionBtns = `<span class="sd-row-actions">
-                    <button class="sd-action-btn sd-action-pay" type="button" data-action-pay="${escapeHtml(r.supplier)}" title="Thanh toán">💳</button>
-                    <button class="sd-action-btn sd-action-note ${note ? 'has-note' : ''}" type="button" data-action-note="${escapeHtml(r.supplier)}" title="Sửa ghi chú">✏️</button>
+                    <button class="sd-action-btn sd-action-pay" type="button" data-action-pay="${escapeHtml(r.supplier)}" title="Thanh toán" aria-label="Thanh toán">💳</button>
+                    <button class="sd-action-btn sd-action-note ${note ? 'has-note' : ''}" type="button" data-action-note="${escapeHtml(r.supplier)}" title="Sửa ghi chú" aria-label="Sửa ghi chú">✏️</button>
                 </span>`;
                 return `<tr class="sd-main-row ${cls} ${isExpanded ? 'is-expanded' : ''}" data-supplier="${escapeHtml(r.supplier)}">
                     <td class="num-stt">${stt}</td>
@@ -679,7 +679,11 @@
         document.getElementById('sdPayModal').hidden = false;
         document.getElementById('sdPayModal').dataset.supplier = supplierKey;
         if (window.lucide?.createIcons) window.lucide.createIcons();
-        setTimeout(() => document.getElementById('sdPayAmount')?.focus(), 30);
+        setTimeout(() => {
+            const el = document.getElementById('sdPayAmount');
+            el?.focus();
+            el?.select();
+        }, 30);
     }
 
     async function confirmPay() {
@@ -1148,6 +1152,18 @@
         });
         document.getElementById('sdNoteConfirmBtn')?.addEventListener('click', confirmNote);
         document.getElementById('sdPayConfirmBtn')?.addEventListener('click', confirmPay);
+        // Enter-to-submit: trigger primary button of the currently open modal.
+        // Skip when focus is in a <textarea> or when isComposing (IME input).
+        document.addEventListener('keydown', (e) => {
+            if (e.key !== 'Enter' || e.isComposing) return;
+            if (e.target.tagName === 'TEXTAREA') return;
+            const openModal = document.querySelector('.sd-modal:not([hidden])');
+            if (!openModal) return;
+            e.preventDefault();
+            // Find and click the primary confirm button of the open modal
+            const confirmBtn = openModal.querySelector('.btn.btn-primary, .btn-primary');
+            confirmBtn?.click();
+        });
         document.getElementById('sdNccConfirmBtn')?.addEventListener('click', async () => {
             const code = (document.getElementById('sdNccCode')?.value || '').trim();
             const name = (document.getElementById('sdNccName')?.value || '').trim();

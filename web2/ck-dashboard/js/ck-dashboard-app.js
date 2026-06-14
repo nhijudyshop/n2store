@@ -332,7 +332,12 @@
             hist.hasMore = !!d.meta?.hasMore;
             hist.offset += got.length;
         } catch (e) {
-            /* ignore */
+            console.warn('[ck-dashboard] loadHistory failed:', e.message || e);
+            window.notificationManager?.show('Không tải được lịch sử', 'error');
+            if (root && !hist.items.length) {
+                root.innerHTML =
+                    '<div class="ckd-empty" style="color:#dc2626;">Lỗi tải lịch sử. Vui lòng thử lại.</div>';
+            }
         }
         renderHistory();
     }
@@ -406,9 +411,21 @@
         wireHistory();
     }
 
+    function showColSkeletons() {
+        const skel =
+            '<span class="w2-skel" style="display:block;height:72px;border-radius:8px;margin-bottom:8px"></span>'.repeat(
+                2
+            ) + '<div class="ckd-empty" style="color:#94a3b8;font-size:12px">Đang tải…</div>';
+        ['ckdPending', 'ckdWait', 'ckdIntents'].forEach((id) => {
+            const el = document.getElementById(id);
+            if (el) el.innerHTML = skel;
+        });
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
         if (window.Web2Sidebar)
             window.Web2Sidebar.mount('#web2Aside', { activeRoute: 'ck-dashboard' });
+        showColSkeletons();
         wireTabs();
         reloadAll();
         if (window.Web2SSE?.subscribe) {

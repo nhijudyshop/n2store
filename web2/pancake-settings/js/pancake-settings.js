@@ -768,6 +768,9 @@
         overlay?.addEventListener('click', (e) => {
             if (e.target === overlay) closeCredsModal();
         });
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && overlay && !overlay.hidden) closeCredsModal();
+        });
     }
 
     function useAccount(id) {

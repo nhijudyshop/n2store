@@ -262,6 +262,8 @@
         );
         el.brushSize.addEventListener('input', () => {
             state.brushSize = parseInt(el.brushSize.value, 10);
+            const lbl = document.getElementById('psBrushSizeLabel');
+            if (lbl) lbl.textContent = state.brushSize + 'px';
         });
         // Chọn đúng món (MobileSAM)
         el.pickToggle.addEventListener('click', () => enterPickMode());

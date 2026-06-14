@@ -1,5 +1,12 @@
 /* Web2 Products — local overrides on top of native-orders CSS */
 
+/* Task 6: lightweight real-time required-field feedback on blur */
+.modal-content input.field-error,
+.modal-content select.field-error {
+    border-color: #ef4444 !important;
+    box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.15);
+}
+
 .product-image {
     width: 56px;
     height: 56px;

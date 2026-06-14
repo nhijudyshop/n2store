@@ -838,6 +838,16 @@
         min-width: 0;
         width: 100%;
     }
+    /* TASK 6: hide least-critical columns on narrow screens to reduce crowding */
+    .wc-col-fb,
+    .wc-table thead th:nth-child(4) {
+        display: none;
+    }
+    /* Also hide Địa chỉ column header + cells (5th col) on very small screens */
+    .wc-col-address,
+    .wc-table thead th:nth-child(5) {
+        display: none;
+    }
 }
 
 /* ─── Địa chỉ phụ (1 KH nhiều địa chỉ) — mirror alt-phone, accent xanh lá ─── */

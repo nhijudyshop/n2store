@@ -5,9 +5,9 @@
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>Cài đặt lấy comment Live - WEB 2.0</title>
-        <link rel="stylesheet" href="../../web2/shared/web2-sidebar.css?v=20260613z" />
-        <link rel="stylesheet" href="../shared/web2-components.css?v=20260613z" />
-        <link rel="stylesheet" href="../../web2/shared/web2-theme.css?v=20260613z" />
+        <link rel="stylesheet" href="../../web2/shared/web2-sidebar.css?v=20260614ux2" />
+        <link rel="stylesheet" href="../shared/web2-components.css?v=20260614ux2" />
+        <link rel="stylesheet" href="../../web2/shared/web2-theme.css?v=20260614ux2" />
         <style>
             .lp-wrap {
                 max-width: 880px;
@@ -105,7 +105,13 @@
 
                     <div class="lp-card">
                         <h2>Tổng comment đã lưu</h2>
-                        <div class="lp-stat" id="lpStat">…</div>
+                        <div
+                            class="lp-stat"
+                            id="lpStat"
+                            title="Tổng comment livestream đã thu thập"
+                        >
+                            …
+                        </div>
                     </div>
 
                     <div class="lp-card">
@@ -303,6 +309,22 @@
                                 notify('Lỗi xoá trang: ' + err.message, 'error');
                             });
                     }
+                });
+
+                // Fix 7: Enter key on add-page form inputs triggers add
+                ['#lpPageId', '#lpPageName', '#lpPageUrl'].forEach((sel) => {
+                    $(sel).addEventListener('keydown', (e) => {
+                        if (e.key === 'Enter') $('#lpAdd').click();
+                    });
+                });
+
+                // Fix 8: realtime validation on Page ID (visual only, no server calls)
+                const lpPageIdEl = $('#lpPageId');
+                lpPageIdEl.addEventListener('blur', () => {
+                    if (!lpPageIdEl.value.trim()) lpPageIdEl.style.borderColor = '#dc3545';
+                });
+                lpPageIdEl.addEventListener('input', () => {
+                    lpPageIdEl.style.borderColor = '';
                 });
 
                 $('#lpAdd').addEventListener('click', () => {

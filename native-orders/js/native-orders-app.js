@@ -1231,7 +1231,7 @@
                     </td>
                     <td class="col-actions" onclick="event.stopPropagation();">
                         <div class="web2-row-actions web2-row-actions-grid">
-                            <button class="web2-btn web2-btn-primary web2-btn-xs" title="Sửa"
+                            <button class="web2-btn web2-btn-primary web2-btn-xs" title="Sửa" aria-label="Sửa"
                                 onclick="event.stopPropagation();NativeOrdersApp.openEdit('${escapeHtml(o.code)}')">
                                 <i data-lucide="pencil" style="width:12px;height:12px;"></i>
                             </button>
@@ -1248,7 +1248,7 @@
                                 //     "Xác nhận đơn" — workflow gom lại 1 bước, click Tạo
                                 //     PBH = vừa confirm vừa tạo PBH luôn + deduct stock).
                                 if (o.status === 'cancelled') {
-                                    return `<button class="web2-btn web2-btn-success web2-btn-xs" title="Tạo PBH mới (đơn đã huỷ — sẽ tạo PBH mới với số HĐ mới, KHÔNG đụng PBH cũ)"
+                                    return `<button class="web2-btn web2-btn-success web2-btn-xs" title="Tạo PBH mới (đơn đã huỷ — sẽ tạo PBH mới với số HĐ mới, KHÔNG đụng PBH cũ)" aria-label="Tạo PBH mới"
                                 onclick="event.stopPropagation();NativeOrdersApp.createPbh('${escapeHtml(o.code)}')">
                                 <i data-lucide="receipt" style="width:12px;height:12px;"></i>
                             </button>`;
@@ -1256,20 +1256,20 @@
                                 if (o.status === 'confirmed') {
                                     // 2026-06-04: slot 2 cho đơn confirmed = nút Huỷ đơn (X) — dời
                                     // lên đây theo yêu cầu (bỏ In PBH per-row vì trùng "In bill").
-                                    return `<button class="web2-btn web2-btn-warning web2-btn-xs" title="Huỷ đơn (PBH liên kết tự cancel + restock)"
+                                    return `<button class="web2-btn web2-btn-warning web2-btn-xs" title="Huỷ đơn (PBH liên kết tự cancel + restock)" aria-label="Huỷ đơn"
                                 onclick="event.stopPropagation();NativeOrdersApp.cancelOrder('${escapeHtml(o.code)}')">
                                 <i data-lucide="x-octagon" style="width:12px;height:12px;"></i>
                             </button>`;
                                 }
                                 // draft (default)
-                                return `<button class="web2-btn web2-btn-success web2-btn-xs" title="Tạo PBH"
+                                return `<button class="web2-btn web2-btn-success web2-btn-xs" title="Tạo PBH" aria-label="Tạo PBH"
                                 onclick="event.stopPropagation();NativeOrdersApp.createPbh('${escapeHtml(o.code)}')">
                                 <i data-lucide="receipt" style="width:12px;height:12px;"></i>
                             </button>`;
                             })()}
                             ${
                                 o.customerId
-                                    ? `<button class="web2-btn web2-btn-default web2-btn-xs" title="Khách hàng 360° (id ${o.customerId})" style="color:#0068ff;"
+                                    ? `<button class="web2-btn web2-btn-default web2-btn-xs" title="Khách hàng 360° (id ${o.customerId})" aria-label="Khách hàng 360°" style="color:#0068ff;"
                                 onclick="event.stopPropagation();NativeOrdersApp.openCustomer(${o.customerId})">
                                 <i data-lucide="user-circle" style="width:12px;height:12px;"></i>
                             </button>`
@@ -1277,7 +1277,7 @@
                             }
                             ${
                                 o.status === 'draft' || o.status === 'confirmed'
-                                    ? `<button class="web2-btn web2-btn-default web2-btn-xs" title="Tách đơn (tạo đơn mới ${sttValue}-N với giỏ rỗng — cùng khách. Đơn mới sẽ là draft → có thể Tạo PBH riêng)" style="color:#0ea5e9;"
+                                    ? `<button class="web2-btn web2-btn-default web2-btn-xs" title="Tách đơn (tạo đơn mới ${sttValue}-N với giỏ rỗng — cùng khách. Đơn mới sẽ là draft → có thể Tạo PBH riêng)" aria-label="Tách đơn" style="color:#0ea5e9;"
                                 onclick="event.stopPropagation();NativeOrdersApp.splitOrder('${escapeHtml(o.code)}')">
                                 <i data-lucide="split-square-vertical" style="width:12px;height:12px;"></i>
                             </button>`
@@ -2103,6 +2103,8 @@
 
         modal().classList.add('active');
         if (window.lucide) lucide.createIcons();
+        // Task 2: autofocus first input after modal opens
+        setTimeout(() => document.getElementById('editCustomerName')?.focus(), 50);
     }
     function closeEdit() {
         STATE.editingCode = null;

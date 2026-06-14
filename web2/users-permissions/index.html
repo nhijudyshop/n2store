@@ -133,7 +133,12 @@
                         <option value="manager">Manager</option>
                         <option value="staff">Staff</option>
                     </select>
-                    <button id="btnClear">Xoá tất cả</button>
+                    <button
+                        id="btnClear"
+                        title="Bỏ tick toàn bộ quyền của user đang chọn (chưa lưu — cần bấm Save để có hiệu lực)"
+                    >
+                        Xoá tất cả
+                    </button>
                     <button id="btnSave" class="primary">Save</button>
                 </div>
                 <div class="perm-table-wrap">
@@ -176,6 +181,14 @@
                 function authHeaders() {
                     return { 'x-web2-token': authToken() };
                 }
+                // TASK 1 helper — show error toast + error row in matrix
+                function _showLoadError(msg) {
+                    window.notificationManager?.show('Không tải được dữ liệu phân quyền', 'error');
+                    const body = document.getElementById('permBody');
+                    if (body) {
+                        body.innerHTML = `<tr><td colspan="2" style="text-align:center;color:#dc2626;padding:20px">${esc(msg || 'Lỗi tải dữ liệu — thử reload lại trang')}</td></tr>`;
+                    }
+                }
                 async function loadRegistry() {
                     try {
                         const r = await fetch(API + '/pages', { credentials: 'include' });
@@ -184,7 +197,11 @@
                             REG.pages = d.pages;
                             REG.actionLabels = d.actionLabels || {};
                         }
-                    } catch {}
+                    } catch (e) {
+                        _showLoadError(
+                            'Không lấy được danh sách trang (' + (e?.message || e) + ')'
+                        );
+                    }
                 }
                 async function loadUsers() {
                     try {
@@ -213,7 +230,15 @@
                         } else if (r.status === 401 || r.status === 403) {
                             sel.innerHTML = '<option value="">Cần đăng nhập Web 2.0…</option>';
                         }
-                    } catch {}
+                    } catch (e) {
+                        window.notificationManager?.show(
+                            'Không tải được dữ liệu phân quyền',
+                            'error'
+                        );
+                        const sel = document.getElementById('userPick');
+                        if (sel)
+                            sel.innerHTML = '<option value="">Lỗi tải user — thử reload</option>';
+                    }
                 }
                 // perm shape server: { [slug]: [actions] }
                 function renderTable(perm) {
@@ -280,7 +305,11 @@
                             credentials: 'include',
                         });
                         const d = await r.json();
-                        if (d?.success && d.permissions) renderTable(d.permissions);
+                        if (d?.success && d.permissions) {
+                            renderTable(d.permissions);
+                            // TASK 2: confirm role template applied
+                            window.notificationManager?.show('Đã áp role template', 'success');
+                        }
                     } catch {}
                 }
                 function esc(s) {
@@ -296,9 +325,20 @@
                     e.target.value = '';
                 };
                 document.getElementById('btnClear').onclick = () => {
-                    document
-                        .querySelectorAll('#permBody input[type=checkbox]')
-                        .forEach((cb) => (cb.checked = false));
+                    // TASK 3: confirm before clearing all checkboxes
+                    const doIt = window.Popup?.confirm
+                        ? window.Popup.confirm('Bỏ tick toàn bộ quyền của user này?')
+                        : Promise.resolve(
+                              confirm(
+                                  'Bỏ tick toàn bộ quyền của user này?\n(chưa lưu cho đến khi bấm Save)'
+                              )
+                          );
+                    Promise.resolve(doIt).then((ok) => {
+                        if (!ok) return;
+                        document
+                            .querySelectorAll('#permBody input[type=checkbox]')
+                            .forEach((cb) => (cb.checked = false));
+                    });
                 };
                 const _toast = (m, t) =>
                     window.notificationManager

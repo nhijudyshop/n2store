@@ -18,7 +18,7 @@
         <link rel="stylesheet" href="../../web2/shared/web2-sidebar.css?v=20260613z" />
         <link rel="stylesheet" href="../shared/web2-components.css?v=20260613z" />
         <link rel="stylesheet" href="../../web2/shared/web2-theme.css?v=20260613z" />
-        <link rel="stylesheet" href="css/customers.css?v=20260609d" />
+        <link rel="stylesheet" href="css/customers.css?v=20260614ux2" />
 
         <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
 
@@ -73,9 +73,38 @@
                         <button class="wc-btn" id="wcExportBtn">
                             <i data-lucide="download"></i> Xuất CSV (trang)
                         </button>
-                        <button class="wc-btn" id="wcMergeBtn" disabled title="Chọn đúng 2 KH">
+                        <button
+                            class="wc-btn"
+                            id="wcMergeBtn"
+                            disabled
+                            title="Chọn đúng 2 khách hàng (tick checkbox) để gộp thành 1 hồ sơ"
+                        >
                             <i data-lucide="git-merge"></i> Gộp KH trùng
                         </button>
+                        <!-- TASK 5: loading indicator, shown while load() runs -->
+                        <span
+                            id="wcLoadingIndicator"
+                            hidden
+                            style="
+                                display: inline-flex;
+                                align-items: center;
+                                gap: 6px;
+                                font-size: 12.5px;
+                                color: #64748b;
+                                padding: 0 4px;
+                            "
+                        >
+                            <span
+                                class="w2-skel"
+                                style="
+                                    width: 14px;
+                                    height: 14px;
+                                    border-radius: 50%;
+                                    flex-shrink: 0;
+                                "
+                            ></span>
+                            Đang tải…
+                        </span>
                     </div>
                     <div class="wc-toolbar-right">
                         <select id="wcSourceFilter" class="wc-select">
@@ -352,7 +381,7 @@
 
         <!-- Page -->
         <script src="js/customers-api.js?v=20260612en"></script>
-        <script src="js/customers-app.js?v=20260613z"></script>
+        <script src="js/customers-app.js?v=20260614ux2"></script>
         <script>
             Web2Sidebar.mount('#web2Aside', { activeUrl: window.location.href });
             if (window.lucide) window.lucide.createIcons();

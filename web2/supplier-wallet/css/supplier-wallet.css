@@ -437,3 +437,34 @@
 .sw-txn-amount.is-pos {
     color: #047857;
 }
+
+/* Mobile — max-width:768px */
+@media (max-width: 768px) {
+    /* Header actions wrap onto next line */
+    .sw-page-head {
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+    .sw-page-counters {
+        flex-wrap: wrap;
+    }
+
+    /* Detail drawer: purchases table scrolls horizontally (7 cols) */
+    .sw-detail-content .sw-detail-panel[data-panel='purchases'] {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    .sw-detail-content .sw-detail-panel[data-panel='purchases'] .sw-table {
+        min-width: 560px;
+    }
+
+    /* Stats grid: 2 cols on mobile instead of 4 */
+    .sw-detail-stats {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    /* List cards: single column */
+    .sw-list {
+        grid-template-columns: 1fr;
+    }
+}

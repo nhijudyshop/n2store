@@ -288,7 +288,8 @@
             return;
         }
         if (!state.rows.length) {
-            dom.tbody.innerHTML = `<tr><td colspan="5" class="w2bh-empty">Không có giao dịch phù hợp</td></tr>`;
+            dom.tbody.innerHTML = `<tr><td colspan="5"><div class="w2bh-empty-state"><i data-lucide="search-x"></i><p>Không có giao dịch phù hợp</p><small>Thử mở rộng khoảng ngày hoặc xoá bộ lọc đang áp dụng.</small></div></td></tr>`;
+            if (window.lucide) window.lucide.createIcons({ nodes: [dom.tbody] });
             return;
         }
         dom.tbody.innerHTML = state.rows.map(renderRow).join('');

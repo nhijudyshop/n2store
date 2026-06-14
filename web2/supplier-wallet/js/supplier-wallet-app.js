@@ -478,6 +478,12 @@
         document.getElementById('swPayAmount').value = 0;
         document.getElementById('swPayNote').value = '';
         document.getElementById('swPayModal').hidden = false;
+        // Task 7: autofocus + select so typing replaces the prefilled 0
+        setTimeout(() => {
+            const el = document.getElementById('swPayAmount');
+            el?.focus();
+            el?.select();
+        }, 30);
     }
 
     async function confirmPay() {
@@ -613,6 +619,17 @@
                     .querySelectorAll('.sw-modal:not([hidden])')
                     .forEach((m) => (m.hidden = true));
             }
+            // Task 6: Enter-to-submit for swPayModal and swReturnModal.
+            // swCreateModal already handles Enter on its own input.
+            // Skip when isComposing (IME) or focus is in a <textarea>.
+            if (e.key !== 'Enter' || e.isComposing) return;
+            if (e.target.tagName === 'TEXTAREA') return;
+            const openModal = document.querySelector(
+                '#swPayModal:not([hidden]), #swReturnModal:not([hidden])'
+            );
+            if (!openModal) return;
+            e.preventDefault();
+            openModal.querySelector('.btn-primary')?.click();
         });
     }
 

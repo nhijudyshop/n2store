@@ -6,8 +6,8 @@
         <title>Thông báo - WEB 2.0</title>
         <meta name="web2-db" content="render" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <link rel="stylesheet" href="../shared/web2-sidebar.css?v=20260614ux" />
-        <link rel="stylesheet" href="../shared/web2-theme.css?v=20260614ux" />
+        <link rel="stylesheet" href="../shared/web2-sidebar.css?v=20260614ux2" />
+        <link rel="stylesheet" href="../shared/web2-theme.css?v=20260614ux2" />
         <link rel="stylesheet" href="../shared/web2-notification-bell.css?v=20260522a" />
         <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
         <style>
@@ -85,6 +85,31 @@
                 padding: 60px 20px;
                 text-align: center;
                 color: #94a3b8;
+            }
+            /* Fix 1: mobile responsive toolbar + rows */
+            @media (max-width: 640px) {
+                .noti-toolbar {
+                    flex-wrap: wrap;
+                    gap: 6px;
+                }
+                .noti-toolbar select,
+                .noti-toolbar button {
+                    flex: 1 1 auto;
+                    min-width: 120px;
+                }
+                .noti-row {
+                    flex-wrap: wrap;
+                    align-items: flex-start;
+                }
+                .noti-row .dot {
+                    margin-top: 5px;
+                }
+                .noti-title,
+                .noti-body,
+                .noti-meta {
+                    word-break: break-word;
+                    width: 100%;
+                }
             }
         </style>
     </head>

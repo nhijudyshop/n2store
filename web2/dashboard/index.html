@@ -71,6 +71,15 @@
             .kpi-wallet .val {
                 color: #0f766e;
             }
+            .kpi-stock .val[data-clickable],
+            .kpi-wallet .val[data-clickable] {
+                cursor: pointer;
+            }
+            .kpi-stock .val[data-clickable]:hover,
+            .kpi-wallet .val[data-clickable]:hover {
+                text-decoration: underline;
+                opacity: 0.85;
+            }
             .dash-row {
                 display: grid;
                 gap: 14px;
@@ -79,6 +88,11 @@
             }
             @media (max-width: 880px) {
                 .dash-row {
+                    grid-template-columns: 1fr;
+                }
+            }
+            @media (max-width: 480px) {
+                .kpi-grid {
                     grid-template-columns: 1fr;
                 }
             }
@@ -126,7 +140,7 @@
             <main class="web2-main dash-main">
                 <h1 style="margin: 0 0 6px">Dashboard KPI</h1>
                 <p style="color: #58666e; margin: 0 0 16px; font-size: 13px">
-                    Tổng quan realtime · cache 30s · subscribe SSE <code>web2:kpi-dashboard</code>
+                    Tổng quan · Tự động cập nhật realtime
                 </p>
                 <div class="kpi-grid">
                     <div class="kpi-card kpi-revenue">
@@ -141,12 +155,16 @@
                     </div>
                     <div class="kpi-card kpi-stock">
                         <div class="lab">SP sắp hết hàng</div>
-                        <div class="val" id="kpiStock">…</div>
+                        <div class="val" id="kpiStock" data-clickable title="Bấm để xem danh sách">
+                            …
+                        </div>
                         <div class="sub">stock &lt; 5</div>
                     </div>
                     <div class="kpi-card kpi-wallet">
                         <div class="lab">Ví KH âm</div>
-                        <div class="val" id="kpiWallet">…</div>
+                        <div class="val" id="kpiWallet" data-clickable title="Bấm để xem danh sách">
+                            …
+                        </div>
                         <div class="sub">balance &lt; 0</div>
                     </div>
                 </div>

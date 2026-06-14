@@ -225,6 +225,14 @@
                 text-align: center;
                 font-style: italic;
             }
+            @media (max-width: 768px) {
+                .panels {
+                    grid-template-columns: 1fr;
+                }
+                .main-content {
+                    padding: 14px;
+                }
+            }
         </style>
         <link rel="stylesheet" href="../shared/web2-theme.css?v=20260613ns1" />
     </head>
@@ -553,7 +561,7 @@
                                     <td class="right">${c.pbh.count} <span style="color:#9ca3af;font-size:11px;">/ ${fmtMoney(c.pbh.total)}</span></td>
                                     <td class="right" style="color:#10b981;font-weight:700;">${fmtMoney(c.combinedTotal)}</td>
                                     <td>
-                                        <button class="web2-btn web2-btn-default web2-btn-xs" title="Xem khách 360°" style="color:#0068ff;" onclick="openCustomerModal(${c.customerId})">
+                                        <button class="web2-btn web2-btn-default web2-btn-xs" title="Xem khách 360°" aria-label="Xem khách 360°" style="color:#0068ff;" onclick="openCustomerModal(${c.customerId})">
                                             <i data-lucide="user-circle" style="width:12px;height:12px;"></i>
                                         </button>
                                     </td>

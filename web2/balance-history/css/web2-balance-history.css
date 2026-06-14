@@ -615,3 +615,67 @@
     margin-left: 4px;
     line-height: 18px;
 }
+
+/* Action group divider — separates primary (Nạp tay / Xét duyệt CK)
+   from utility (Tải lại) in the header action bar (2026-06-14) */
+.w2bh-head-actions .w2bh-action-divider {
+    width: 1px;
+    height: 22px;
+    background: #e5e7eb;
+    border: none;
+    margin: 0 4px;
+    flex-shrink: 0;
+    align-self: center;
+}
+
+/* Empty-state block — shown when no transactions match current filters */
+.w2bh-empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 48px 24px;
+    color: #6b7280;
+}
+.w2bh-empty-state i[data-lucide] {
+    width: 40px;
+    height: 40px;
+    color: #d1d5db;
+}
+.w2bh-empty-state p {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 500;
+    color: #374151;
+}
+.w2bh-empty-state small {
+    font-size: 12px;
+    color: #9ca3af;
+}
+
+/* ─── Mobile ─────────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+    /* Toolbar: let search, date range, presets, CSV stack naturally */
+    .w2bh-toolbar {
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+    .w2bh-search {
+        min-width: 0;
+        max-width: 100%;
+        flex: 1 1 100%;
+    }
+    .w2bh-date-range {
+        flex: 1 1 auto;
+    }
+    #w2bhCsvBtn {
+        flex-shrink: 0;
+    }
+
+    /* Table: horizontal scroll so columns don't collapse */
+    .w2bh-table-wrap {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+}

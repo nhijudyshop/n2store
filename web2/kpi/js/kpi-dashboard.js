@@ -106,7 +106,7 @@
         const uF = data.unassignedForecast || 0;
         const uA = data.unassignedActual || 0;
         if (!rows.length && !uF && !uA) {
-            root.innerHTML = `<div class="kpi-empty"><i data-lucide="inbox"></i><p>Chưa có KPI nào trong chiến dịch này.</p></div>`;
+            root.innerHTML = `<div class="kpi-empty"><i data-lucide="bar-chart-2"></i><p>Chưa có KPI nào trong chiến dịch này.</p></div>`;
             if (window.lucide) lucide.createIcons();
             return;
         }
@@ -239,6 +239,10 @@
     async function init() {
         await loadCampaigns();
         renderCampaignDropdown();
+
+        // Focus campaign select on load so keyboard users can pick immediately.
+        const _sel = $('#kpiCampaignFilter');
+        if (_sel) _sel.focus();
 
         $('#kpiCampaignFilter').addEventListener('change', (e) => {
             STATE.currentCampaignId = e.target.value;
