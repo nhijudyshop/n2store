@@ -2,6 +2,14 @@
 
 ## 2026-06-14
 
+### [delivery-report] Nút "Ảnh Thành Phố" gửi kèm FILE EXCEL (2 sheet: THÀNH PHỐ + THU VỀ) ✅
+
+**User:** "thành phố chưa có gửi file excel" (mở rộng tính năng Excel sang nút TP, sau TMT/NAP).
+
+**Làm:** thêm `buildCityHandoverExcelBlob(cityItems, returnItems, returnHandoverMap)` — workbook 2 sheet: "THÀNH PHỐ" (`buildExcelRows` đơn ship đã quét) + "THU VỀ" (`buildExcelRowsReturn` kèm SL/giá trị từ ticket CSKH, chỉ khi có thu về). Trong `copyHandoverImage`: sau khi gửi ảnh OK → gửi Excel (`BANGIAO_THANHPHO_<ngày>.xlsx`) qua `sendHandoverDocumentToTelegram` → reload. Lỗi Excel KHÔNG huỷ ảnh (chỉ alert). Tooltip nút + bump `?v=20260614e`.
+
+**Files:** `delivery-report/js/delivery-report.js`, `delivery-report/index.html`. `node --check` PASS. Endpoint `/send-document` đã verify live (test xlsx → `Document sent` 05:48 UTC, messageId 31). **Status:** ✅ (dùng chung server đã proven; client mirror path TMT/NAP).
+
 ### [delivery-report] Bỏ nút xuất Excel ở tab Tỉnh + Tất cả + Đơn 0đ ✅
 
 **User:** "bỏ nút xuất excel ở Tỉnh, Tất cả, Đơn 0đ".

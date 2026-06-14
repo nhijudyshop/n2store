@@ -2238,6 +2238,32 @@
         });
     }
 
+    // Build workbook XLSX cho bàn giao THÀNH PHỐ: sheet "THÀNH PHỐ" (đơn ship) +
+    // sheet "THU VỀ" (nếu có, kèm SL/giá trị từ ticket CSKH). Gửi kèm Telegram.
+    function buildCityHandoverExcelBlob(cityItems, returnItems, returnHandoverMap) {
+        if (typeof XLSX === 'undefined') {
+            throw new Error('Thư viện XLSX chưa được tải');
+        }
+        const wb = XLSX.utils.book_new();
+
+        const cityRows = buildExcelRows(cityItems);
+        const cityWs = XLSX.utils.aoa_to_sheet(cityRows);
+        autoFitColumns(cityWs, cityRows);
+        XLSX.utils.book_append_sheet(wb, cityWs, 'THÀNH PHỐ');
+
+        if (Array.isArray(returnItems) && returnItems.length > 0) {
+            const retRows = buildExcelRowsReturn(returnItems, returnHandoverMap);
+            const retWs = XLSX.utils.aoa_to_sheet(retRows);
+            autoFitColumns(retWs, retRows);
+            XLSX.utils.book_append_sheet(wb, retWs, 'THU VỀ');
+        }
+
+        const arrayBuf = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+        return new Blob([arrayBuf], {
+            type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        });
+    }
+
     // Ảnh bàn giao 1 CỘT cho nhóm Tỉnh (TMT/NAP) — giống cột trái ảnh TP,
     // 2 kênh này KHÔNG có thu về.
     function buildGroupHandoverCanvas({ label, dateLabel, count, total, zeroItems, extraItems }) {
@@ -2694,18 +2720,39 @@
             }
 
             const blob = await canvasToBlob(canvas);
+            const dateLbl = handoverDateLabel();
 
-            // Gửi ảnh vào nhóm Telegram (bot riêng delivery-report).
-            // Bỏ clipboard — gửi TG thành công thì refresh lại trang.
+            // Gửi ẢNH + FILE EXCEL vào nhóm Telegram (bot riêng delivery-report).
+            // Bỏ clipboard — gửi TG xong thì refresh lại trang.
             try {
                 if (btn) {
                     btn.innerHTML = '<i class="fas fa-paper-plane"></i> Đang gửi Telegram...';
                 }
+                // 1) Ảnh bàn giao
                 await sendHandoverImageToTelegram(
                     blob,
-                    `📦 Bàn giao Thành phố ${handoverDateLabel()} — ${scannedItems.length} đơn` +
+                    `📦 Bàn giao Thành phố ${dateLbl} — ${scannedItems.length} đơn` +
                         (returnScanned.length > 0 ? ` · ${returnScanned.length} thu về` : '')
                 );
+                // 2) File Excel: sheet THÀNH PHỐ (+ THU VỀ nếu có).
+                //    Lỗi Excel KHÔNG huỷ kết quả ảnh đã gửi — chỉ cảnh báo.
+                try {
+                    const xlsxBlob = buildCityHandoverExcelBlob(
+                        scannedItems,
+                        returnScanned,
+                        returnHandoverMap
+                    );
+                    const fileName = makeFileName(`BANGIAO_${GROUP_FILE_NAMES.city || 'THANHPHO'}`);
+                    await sendHandoverDocumentToTelegram(
+                        xlsxBlob,
+                        fileName,
+                        `📄 Danh sách Thành phố ${dateLbl} — ${scannedItems.length} đơn` +
+                            (returnScanned.length > 0 ? ` · ${returnScanned.length} thu về` : '')
+                    );
+                } catch (xlsxErr) {
+                    console.error('[DELIVERY-REPORT] gửi Excel Telegram lỗi:', xlsxErr);
+                    alert('Ảnh đã gửi, nhưng file Excel gửi lỗi: ' + xlsxErr.message);
+                }
                 resetBtn('<i class="fas fa-check"></i> Đã gửi TG — đang tải lại...');
                 // Gửi thành công → refresh lại trang
                 setTimeout(() => window.location.reload(), 600);
