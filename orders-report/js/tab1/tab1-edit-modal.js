@@ -490,9 +490,13 @@ async function handleKpiSaleToggle(orderCode, productId, checked) {
     }
     try {
         await window.KpiSaleFlagStore.set(orderCode, productId, checked);
-        // Mutual exclusion: tick KPI → disable BH cùng dòng (và ngược lại khi bỏ tick).
-        const bhCb = document.querySelector(`.bh-live-check[data-product-id="${productId}"]`);
-        if (bhCb) bhCb.disabled = checked;
+        // Mutual exclusion: tick KPI → disable MỌI checkbox BH cùng productId (flag KPI dùng chung
+        // theo (orderCode, productId) nên nếu SP xuất hiện nhiều dòng thì disable hết).
+        document
+            .querySelectorAll(`.bh-live-check[data-product-id="${productId}"]`)
+            .forEach((bhCb) => {
+                bhCb.disabled = checked;
+            });
     } catch (e) {
         console.error('[KPI Toggle] set failed:', e?.message);
         if (window.notificationManager?.error) {
@@ -533,12 +537,13 @@ async function handleBhLiveToggle(index, checked, el) {
     };
     try {
         await window.KpiLivestreamFlagStore.set(orderCode, p.ProductId, checked, snapshot);
-        // Mutual exclusion: tick BH → disable KPI cùng dòng (và ngược lại khi bỏ tick).
-        const row = el ? el.closest('tr') : null;
-        const kpiCb = row
-            ? row.querySelector('.kpi-sale-check')
-            : document.querySelector(`.kpi-sale-check[data-product-id="${p.ProductId}"]`);
-        if (kpiCb) kpiCb.disabled = checked;
+        // Mutual exclusion: tick BH → disable MỌI checkbox KPI cùng productId (đối xứng với
+        // handleKpiSaleToggle; xử lý đúng cả khi 1 SP xuất hiện nhiều dòng trong đơn).
+        document
+            .querySelectorAll(`.kpi-sale-check[data-product-id="${p.ProductId}"]`)
+            .forEach((kpiCb) => {
+                kpiCb.disabled = checked;
+            });
         if (window.showSaveIndicator) {
             showSaveIndicator('success', checked ? 'Đã đánh dấu bán thêm livestream' : 'Đã bỏ đánh dấu BH');
         }
