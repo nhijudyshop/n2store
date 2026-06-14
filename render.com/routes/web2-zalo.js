@@ -84,36 +84,51 @@ zca.configure({
     // Kết nối xong (boot restore / quét QR) → tự sửa lại tên NHÓM (bug cũ lưu tên
     // người nhắn cuối). Chạy nền, không chặn luồng kết nối.
     onConnected: (accountKey) => {
-        _repairGroupNames(accountKey)
+        _repairConvNames(accountKey)
             .then((n) => {
-                if (n) console.log(`[WEB2-ZALO] repaired ${n} group name(s) for ${accountKey}`);
+                if (n) console.log(`[WEB2-ZALO] repaired ${n} conv name(s) for ${accountKey}`);
             })
-            .catch((e) => console.warn('[WEB2-ZALO] repairGroupNames:', e.message));
+            .catch((e) => console.warn('[WEB2-ZALO] repairConvNames:', e.message));
     },
 });
 
-// TTL refresh tên/avatar nhóm khi mở chat (tránh gọi getGroupInfo mỗi lần mở).
+// TTL refresh tên/avatar khi mở chat (tránh gọi zca mỗi lần mở).
 const GROUP_NAME_TTL_MS = 6 * 60 * 60 * 1000;
+// Trần số USER thread sửa 1 lượt (getUserInfo từng cái → chặn runaway).
+const MAX_USER_REPAIR = 200;
 
-// Sửa tận gốc tên NHÓM bị bug cũ: lấy tên + avatar thật từ zca, FORCE ghi đè
-// display_name nhóm (giá trị cũ có thể là tên người nhắn cuối). Idempotent.
-async function _repairGroupNames(accountKey) {
+// Sửa tận gốc tên hội thoại bị bug cũ (NHÓM lẫn USER): lấy tên + avatar thật từ
+// zca, FORCE ghi đè display_name. Idempotent. Trả số hội thoại đã sửa.
+//   • NHÓM: getGroupsInfo theo batch 50 (force toàn bộ).
+//   • USER: chỉ những conv bị nhiễm (display_name NULL hoặc == tên SHOP — do shop
+//     nhắn cuối ghi đè) → getUserInfo(thread_id) lấy tên KHÁCH.
+async function _repairConvNames(accountKey) {
     if (!_pool || !accountKey || !zca.isConnected(accountKey)) return 0;
-    const { rows } = await _pool.query(
-        `SELECT thread_id FROM web2_zalo_conversations
-          WHERE account_key=$1 AND thread_type='group'`,
-        [accountKey]
-    );
-    const gids = rows.map((r) => String(r.thread_id)).filter(Boolean);
-    if (!gids.length) return 0;
     let fixed = 0;
+    const ownName =
+        (
+            await _pool
+                .query(`SELECT display_name FROM web2_zalo_accounts WHERE account_key=$1`, [
+                    accountKey,
+                ])
+                .catch(() => ({ rows: [] }))
+        ).rows[0]?.display_name || null;
+
+    // ── NHÓM ────────────────────────────────────────────────────────────────
+    const gRows = (
+        await _pool.query(
+            `SELECT thread_id FROM web2_zalo_conversations WHERE account_key=$1 AND thread_type='group'`,
+            [accountKey]
+        )
+    ).rows;
+    const gids = gRows.map((r) => String(r.thread_id)).filter(Boolean);
     for (let i = 0; i < gids.length; i += 50) {
         const batch = gids.slice(i, i + 50);
         let info;
         try {
             info = await zca.getGroupsInfo(accountKey, batch);
         } catch (e) {
-            continue; // best-effort: nhóm không resolve được thì bỏ qua đợt này
+            continue; // best-effort: lỗi tạm thời → bỏ qua đợt này, KHÔNG stamp
         }
         const ts = now();
         for (const gid of batch) {
@@ -121,28 +136,58 @@ async function _repairGroupNames(accountKey) {
             const nm = (g?.name || '').trim();
             const av = g?.avatar || '';
             if (!nm && !av) {
-                // Không lấy được info (rời nhóm / lỗi) → vẫn đánh dấu để khỏi spam.
                 await _pool
                     .query(
-                        `UPDATE web2_zalo_conversations SET info_synced_at=$2
-                          WHERE account_key=$1 AND thread_id=$3`,
+                        `UPDATE web2_zalo_conversations SET info_synced_at=$2 WHERE account_key=$1 AND thread_id=$3`,
                         [accountKey, ts, gid]
                     )
                     .catch(() => {});
                 continue;
             }
-            // FORCE ghi đè tên nhóm (sửa bug cũ) + avatar nếu có.
             await _pool.query(
                 `UPDATE web2_zalo_conversations
-                    SET display_name   = COALESCE($3, display_name),
-                        avatar_url     = COALESCE($4, avatar_url),
-                        info_synced_at = $5, updated_at = $5
+                    SET display_name=COALESCE($3,display_name), avatar_url=COALESCE($4,avatar_url),
+                        info_synced_at=$5, updated_at=$5
                   WHERE account_key=$1 AND thread_id=$2`,
                 [accountKey, gid, nm || null, av || null, ts]
             );
             fixed++;
         }
     }
+
+    // ── USER bị nhiễm (tên = tên shop do shop nhắn cuối, hoặc chưa có tên) ─────
+    const uRows = (
+        await _pool.query(
+            `SELECT thread_id, zalo_uid FROM web2_zalo_conversations
+              WHERE account_key=$1 AND thread_type='user'
+                AND (display_name IS NULL OR ($2::text IS NOT NULL AND display_name=$2))
+              LIMIT $3`,
+            [accountKey, ownName, MAX_USER_REPAIR]
+        )
+    ).rows;
+    for (const r of uRows) {
+        const uid = String(r.zalo_uid || r.thread_id);
+        let prof;
+        try {
+            prof = _pickProfile(await zca.getUserInfo(accountKey, uid), uid);
+        } catch (e) {
+            continue; // lỗi tạm thời → KHÔNG stamp, thử lại lần sau
+        }
+        const nm = (prof?.zaloName || prof?.displayName || '').trim();
+        const av = prof?.avatar || '';
+        const ts = now();
+        await _pool
+            .query(
+                `UPDATE web2_zalo_conversations
+                    SET display_name=COALESCE($3,display_name), avatar_url=COALESCE($4,avatar_url),
+                        info_synced_at=$5, updated_at=$5
+                  WHERE account_key=$1 AND thread_id=$2`,
+                [accountKey, r.thread_id, nm || null, av || null, ts]
+            )
+            .catch(() => {});
+        if (nm) fixed++;
+    }
+
     if (fixed) _notify('web2:zalo:messages', 'update', accountKey);
     return fixed;
 }
@@ -198,9 +243,13 @@ async function _persistIncoming(msg) {
     const isNew = ins.rowCount > 0;
     const unreadDelta = isNew && msg.direction === 'in' ? 1 : 0;
     // 2) upsert conversation — chỉ cộng unread khi tin THỰC SỰ mới.
-    //    ⚠ NHÓM: display_name = tên NHÓM (từ sync/getGroupInfo), KHÔNG đụng tới —
-    //    tránh nhầm tên hội thoại với tên người nhắn cuối. User thread: tên = người gửi.
-    const convName = msg.threadType === 'group' ? null : msg.senderName || null;
+    //    ⚠ Tên/identity hội thoại CHỈ lấy từ tin ĐẾN (in) của USER thread:
+    //    - NHÓM: tên = tên NHÓM (sync/getGroupInfo), KHÔNG đụng.
+    //    - USER + tin GỬI ĐI (out/isSelf): senderName/uid là của SHOP → KHÔNG được
+    //      làm tên/uid hội thoại (nếu không, shop nhắn cuối → tên KH bị thành tên shop).
+    const useSender = msg.threadType !== 'group' && msg.direction === 'in';
+    const convName = useSender ? msg.senderName || null : null;
+    const convUid = useSender ? msg.senderUid || null : null;
     const lastSenderUid = msg.direction === 'out' ? 'me' : msg.senderUid || null;
     const { rows } = await _pool.query(
         `INSERT INTO web2_zalo_conversations
@@ -212,12 +261,13 @@ async function _persistIncoming(msg) {
             unread_count=web2_zalo_conversations.unread_count + $8,
             last_msg_sender_uid=$9,
             display_name=COALESCE(EXCLUDED.display_name, web2_zalo_conversations.display_name),
+            zalo_uid=COALESCE(web2_zalo_conversations.zalo_uid, EXCLUDED.zalo_uid),
             updated_at=$6`,
         [
             msg.accountKey,
             msg.threadId,
             msg.threadType || 'user',
-            msg.threadType === 'group' ? null : msg.senderUid,
+            convUid,
             convName,
             ts,
             _msgPreview(msg),
@@ -559,12 +609,12 @@ router.get('/accounts/:key/groups', async (req, res) => {
     }
 });
 
-// Sửa tên NHÓM thủ công (force re-fetch từ zca). Cần acc đang kết nối.
+// Sửa tên hội thoại thủ công (NHÓM + USER bị nhiễm) — force re-fetch từ zca. Cần acc kết nối.
 router.post('/accounts/:key/repair-group-names', async (req, res) => {
     try {
         if (!zca.isConnected(req.params.key))
             return res.status(400).json({ success: false, error: 'Tài khoản chưa kết nối' });
-        const repaired = await _repairGroupNames(req.params.key);
+        const repaired = await _repairConvNames(req.params.key);
         res.json({ success: true, repaired });
     } catch (e) {
         res.status(400).json({ success: false, error: e.message });
@@ -758,23 +808,37 @@ router.get('/conversations/:id/messages', async (req, res) => {
         ).rows[0];
         if (!conv)
             return res.status(404).json({ success: false, error: 'Không tìm thấy hội thoại' });
-        // Lười resolve avatar/tên khi mở chat (1 lần / thread, best-effort, không chặn).
-        if (conv.thread_type === 'user' && !conv.avatar_url && zca.isConnected(conv.account_key)) {
+        // User: heal tên + avatar KHÁCH (bug cũ: shop nhắn cuối → tên hội thoại thành
+        // tên SHOP) — lazy, gate TTL. Force ghi đè, timeout 2s, lỗi/timeout → KHÔNG stamp.
+        if (
+            conv.thread_type === 'user' &&
+            zca.isConnected(conv.account_key) &&
+            (!conv.info_synced_at || now() - Number(conv.info_synced_at) > GROUP_NAME_TTL_MS)
+        ) {
             try {
                 const uid = conv.zalo_uid || conv.thread_id;
-                const prof = _pickProfile(await zca.getUserInfo(conv.account_key, uid), uid);
+                const prof = _pickProfile(
+                    await Promise.race([
+                        zca.getUserInfo(conv.account_key, uid),
+                        new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 2000)),
+                    ]),
+                    uid
+                );
                 const av = prof?.avatar || '';
-                const nm = prof?.zaloName || prof?.displayName || '';
-                if (av || nm) {
-                    await db.query(
-                        `UPDATE web2_zalo_conversations SET avatar_url=COALESCE($1,avatar_url), display_name=COALESCE($2,display_name), updated_at=$3 WHERE id=$4`,
-                        [av || null, nm || null, now(), conv.id]
-                    );
-                    if (av) conv.avatar_url = av;
-                    if (nm) conv.display_name = nm;
-                }
+                const nm = (prof?.zaloName || prof?.displayName || '').trim();
+                const ts = now();
+                // Chỉ ghi (kể cả stamp info_synced_at) khi đã RESOLVE info từ zca.
+                await db.query(
+                    `UPDATE web2_zalo_conversations
+                        SET avatar_url=COALESCE($1,avatar_url), display_name=COALESCE($2,display_name),
+                            info_synced_at=$3, updated_at=$3 WHERE id=$4`,
+                    [av || null, nm || null, ts, conv.id]
+                );
+                if (av) conv.avatar_url = av;
+                if (nm) conv.display_name = nm;
+                if (nm || av) _notify('web2:zalo:messages', 'update', conv.account_key);
             } catch (e) {
-                /* best-effort — không chặn xem tin */
+                /* best-effort — lỗi/timeout: không chặn xem tin, không stamp → thử lại lần sau */
             }
         }
         // Nhóm: heal tên + avatar NHÓM (bug cũ lưu tên người nhắn cuối) — lazy, gate TTL.
