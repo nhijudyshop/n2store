@@ -3,13 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `db2e029` — auto: session update
-**Last updated**: 2026-06-14 12:15:06 +07
-**Latest session**: [`RESUME:20260614-121506-db2e029`](../20260614-121506-db2e029.md)
+**Latest commit**: `cde645d` — auto: session update
+**Last updated**: 2026-06-14 12:20:10 +07
+**Latest session**: [`RESUME:20260614-122010-cde645d`](../20260614-122010-cde645d.md)
 **Summary**: auto: session update
 
 ## Folders affected in this commit
 
+- [`delivery-report/`](./delivery-report.md) — 2 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
 - [`so-order/`](./so-order.md) — 2 file(s)
 
 ## All folder snapshots
@@ -24,8 +26,8 @@
 - [`bangkiemhang/`](./bangkiemhang.md) — updated 2026-05-21 15:39
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-14 11:53
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
-- [`delivery-report/`](./delivery-report.md) — updated 2026-06-13 14:33
-- [`docs/`](./docs.md) — updated 2026-06-14 12:07
+- [`delivery-report/`](./delivery-report.md) — updated 2026-06-14 12:20
+- [`docs/`](./docs.md) — updated 2026-06-14 12:20
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-13 14:55
 - [`downloads/`](./downloads.md) — updated 2026-06-13 19:16
@@ -58,7 +60,7 @@
 - [`shared/`](./shared.md) — updated 2026-06-13 19:51
 - [`showroom/`](./showroom.md) — updated 2026-06-10 19:04
 - [`showroom1/`](./showroom1.md) — updated 2026-06-10 19:52
-- [`so-order/`](./so-order.md) — updated 2026-06-14 12:15
+- [`so-order/`](./so-order.md) — updated 2026-06-14 12:20
 - [`soluong-live/`](./soluong-live.md) — updated 2026-06-08 18:40
 - [`soorder/`](./soorder.md) — updated 2026-05-21 15:39
 - [`soquy/`](./soquy.md) — updated 2026-06-13 19:51
