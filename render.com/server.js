@@ -153,6 +153,25 @@ app.locals.chatDb = chatDbPool;
 app.locals.web2Db = web2Pool || chatDbPool;
 // tposTokenManager is set after require() below — see after route imports
 
+// =====================================================
+// INSTANCE ROLE FLAGS — Web 1.0 ⊥ Web 2.0 service split (2026-06-14)
+// =====================================================
+// Cùng 1 codebase, 2 deployment Render khác nhau:
+//   • n2store-fallback (Web 1.0 hub): cả 2 cờ unset lúc đầu; sau khi web2-api
+//     online → set DISABLE_WEB2_JOBS=1 để cron Web 2.0 KHÔNG chạy 2 nơi.
+//   • web2-api (project web2.0n2store): WEB2_ONLY=1 → BỎ mọi background job
+//     Web 1.0 (TPOS sync/WS, invoice poller, SIP, cron/scheduler, aikol);
+//     vẫn chạy job Web 2.0 + phục vụ route/SSE Web 2.0.
+// Route vẫn mount CẢ HAI bên (vô hại) — Cloudflare worker quyết định traffic.
+// Boot schema giữ nguyên (idempotent) — web2-api có cả 2 pool nên không crash;
+// web2-unread-reconcile + pancake-refresh đọc chatDb nên cần chatDb hiện diện.
+const WEB2_ONLY = process.env.WEB2_ONLY === '1';
+const DISABLE_WEB2_JOBS = process.env.DISABLE_WEB2_JOBS === '1';
+console.log(
+    `[INSTANCE-ROLE] WEB2_ONLY=${WEB2_ONLY} DISABLE_WEB2_JOBS=${DISABLE_WEB2_JOBS} ` +
+        `(web1Jobs=${!WEB2_ONLY ? 'on' : 'off'}, web2Jobs=${!DISABLE_WEB2_JOBS ? 'on' : 'off'})`
+);
+
 // Test database connection on startup
 chatDbPool
     .query('SELECT NOW()')
@@ -246,6 +265,7 @@ chatDbPool
             // Start retry cron — re-runs failed Web 2.0 webhook payloads.
             // Delay 5s để schema tables tạo xong.
             setTimeout(() => {
+                if (DISABLE_WEB2_JOBS) return; // chạy ở web2-api, không ở fallback sau cutover
                 try {
                     const sepayMatching = require('./services/web2-sepay-matching');
                     const { fetchWithTimeout } = require('../shared/node/fetch-utils.cjs');
@@ -267,6 +287,7 @@ chatDbPool
             // Start reprocess cron — re-khớp các GD "chưa gán KH" định kỳ
             // (server-side, KHÔNG cần ai mở trang balance-history).
             setTimeout(() => {
+                if (DISABLE_WEB2_JOBS) return; // chạy ở web2-api, không ở fallback sau cutover
                 try {
                     const reprocessCron = require('./services/web2-reprocess-cron');
                     const sepayMatching = require('./services/web2-sepay-matching');
@@ -565,6 +586,7 @@ const sipRegController = new SipRegistrarController(chatDbPool);
 app.locals.sipRegController = sipRegController;
 // Auto-start server-side SIP registrar (handoff logic: hold exts không có browser active)
 setTimeout(() => {
+    if (WEB2_ONLY) return; // Web 1.0 only — web2-api không chạy SIP
     sipRegController.start().catch((err) => console.error('[SIP-CTRL] start failed:', err.message));
 }, 8000); // delay 8s để DB + migration sẵn sàng
 const tposTokenManager = require('./services/tpos-token-manager');
@@ -866,20 +888,22 @@ if (web2LiveCommentsRoutes.initializeNotifiers) {
 // Livestream comment fetcher — EVENT-DRIVEN (background poll đã tắt 2026-06-11):
 // relay Pancake WS → /ingest → pollPostNow fetch đúng post → upsert + SSE.
 // start() chỉ init deps (pool + config table), KHÔNG chạy vòng poll nền.
-try {
-    require('./services/web2-livestream-poller').start({
-        web2Pool: web2Pool || chatDbPool,
-        chatPool: chatDbPool,
-        liveCommentsModule: web2LiveCommentsRoutes,
-    });
-} catch (e) {
-    console.error('[LIVE-POLLER] start fail:', e.message);
+if (!DISABLE_WEB2_JOBS) {
+    try {
+        require('./services/web2-livestream-poller').start({
+            web2Pool: web2Pool || chatDbPool,
+            chatPool: chatDbPool,
+            liveCommentsModule: web2LiveCommentsRoutes,
+        });
+    } catch (e) {
+        console.error('[LIVE-POLLER] start fail:', e.message);
+    }
 }
 // One-time migrate livestream_snapshots + livestream_images chatDb → web2Db
 // (2026-06-11: chatDb 1GB bị FULL vì 2 bảng Web 2.0 này kẹt lại sau tách DB
 // 03/06 — route tạo trước ngày tách, tên không prefix web2_ nên bị sót).
 // Idempotent — dst đủ rows thì skip. KHÔNG drop bảng nguồn (chatDb là prod).
-if (web2Pool) {
+if (web2Pool && !DISABLE_WEB2_JOBS) {
     setTimeout(() => {
         require('./services/web2-livestream-media-migrate')
             .migrate({ chatPool: chatDbPool, web2Pool })
@@ -887,7 +911,9 @@ if (web2Pool) {
     }, 20000); // sau boot 20s — không tranh connection lúc khởi động
 }
 app.use('/api/web2/pancake-refresh', web2PancakeRefreshRoutes);
-web2PancakeRefreshRoutes.startCron(chatDbPool); // quét mỗi 6h, refresh account auto ≤5 ngày HSD
+if (!DISABLE_WEB2_JOBS) {
+    web2PancakeRefreshRoutes.startCron(chatDbPool); // quét mỗi 6h, refresh account auto ≤5 ngày HSD
+}
 
 // SSE notifier cho web2-customer-intents.
 if (web2CustomerIntentsRoutes.initializeNotifiers) {
@@ -1041,6 +1067,7 @@ if (webWarehouseRouter.initializeSocketListener) {
 }
 
 setTimeout(async () => {
+    if (WEB2_ONLY) return; // Web 1.0 only — web2-api không sync/connect TPOS
     // Start cron as fallback (in case socket disconnects)
     tposProductSync.startCron(30 * 60 * 1000);
     console.log('[STARTUP] TPOS product sync cron started (30 min interval)');
@@ -1863,6 +1890,7 @@ const TPOS_DEAD_THRESHOLD_MS = 90_000;
 let tposWatchdogRunning = false;
 
 setInterval(async () => {
+    if (WEB2_ONLY) return; // Web 1.0 only — web2-api không giám sát TPOS WS
     if (tposWatchdogRunning) return; // tránh chạy chồng nếu cycle trước chưa xong
     const status = tposRealtimeClient.getStatus();
     const now = Date.now();
@@ -1939,6 +1967,7 @@ let invoicePollColdStart = true; // lần đầu chỉ populate cache, không br
 let invoicePollRunning = false;
 
 setInterval(async () => {
+    if (WEB2_ONLY) return; // Web 1.0 only — web2-api không poll invoice TPOS
     if (invoicePollRunning) return;
     invoicePollRunning = true;
     try {
@@ -2078,6 +2107,7 @@ const INVOICE_STALE_MAX_PER_CYCLE = 200; // cap để không quá tải
 let invoiceStaleRunning = false;
 
 setInterval(async () => {
+    if (WEB2_ONLY) return; // Web 1.0 only — web2-api không check invoice stale
     if (invoiceStaleRunning) return;
     invoiceStaleRunning = true;
     try {
@@ -2706,6 +2736,7 @@ server.listen(PORT, () => {
 
     // Auto-connect realtime clients after server starts (with delay to ensure DB is ready)
     setTimeout(() => {
+        if (WEB2_ONLY) return; // Web 1.0 only — web2-api không connect Pancake/TPOS WS
         autoConnectRealtimeClients(chatDbPool);
     }, 3000);
 
@@ -2722,28 +2753,60 @@ server.listen(PORT, () => {
                     web2RealtimeSseRoutes.notifyClients
                 )
                 .catch((e) => console.warn('[WEB2-UNREAD-RECONCILE] run error:', e.message));
-        setTimeout(_runReconcile, 60000); // boot (dọn row kẹt sau restart)
-        setInterval(_runReconcile, 2 * 60 * 1000); // định kỳ 2 phút
+        if (!DISABLE_WEB2_JOBS) {
+            setTimeout(_runReconcile, 60000); // boot (dọn row kẹt sau restart)
+            setInterval(_runReconcile, 2 * 60 * 1000); // định kỳ 2 phút
+        }
     } catch (e) {
         console.warn('[WEB2-UNREAD-RECONCILE] schedule failed:', e.message);
     }
 });
 
-// Start cron jobs
-require('./cron/scheduler');
+// Start cron jobs (Web 1.0 scheduler) — web2-api KHÔNG chạy.
+if (!WEB2_ONLY) {
+    require('./cron/scheduler');
+}
 
-// Boot AI KOL Studio queue worker (Sprint 3 — Fal.ai + Kling pollers)
-try {
-    require('./services/aikol-queue-worker').start();
-} catch (e) {
-    console.warn('[server] aikol-queue-worker boot failed:', e.message);
+// Boot AI KOL Studio queue worker (Sprint 3 — Fal.ai + Kling pollers) — Web 1.0.
+if (!WEB2_ONLY) {
+    try {
+        require('./services/aikol-queue-worker').start();
+    } catch (e) {
+        console.warn('[server] aikol-queue-worker boot failed:', e.message);
+    }
 }
 
 // WEB2.0 — Bulk FB message send worker (Pancake API đa-account + 24h→extension)
-try {
-    require('./services/web2-msg-send-worker').start();
-} catch (e) {
-    console.warn('[server] web2-msg-send-worker boot failed:', e.message);
+if (!DISABLE_WEB2_JOBS) {
+    try {
+        require('./services/web2-msg-send-worker').start();
+    } catch (e) {
+        console.warn('[server] web2-msg-send-worker boot failed:', e.message);
+    }
+}
+
+// WEB2.0 — Notifications scan (pain points: PBH draft >24h, stock thấp, ví KH âm,
+// thu về quá hạn) mỗi 10 phút. CHUYỂN từ cron/scheduler.js (nay là Web 1.0-only)
+// sang đây để chạy đúng instance web2 (gated DISABLE_WEB2_JOBS). Dùng web2Pool
+// (bảng web2_*); hàm tự broadcast SSE web2:notifications. [WEB2-NOTI-SCAN]
+if (!DISABLE_WEB2_JOBS && web2Pool) {
+    try {
+        const { scanAndCreateNotifications } = require('./routes/v2/notifications');
+        const _scanWeb2Noti = async () => {
+            try {
+                const created = await scanAndCreateNotifications(web2Pool);
+                if (created && created.length) {
+                    console.log(`[WEB2-NOTI-SCAN] ${created.length} noti mới`);
+                }
+            } catch (e) {
+                console.error('[WEB2-NOTI-SCAN] error:', e.message);
+            }
+        };
+        setTimeout(_scanWeb2Noti, 90_000); // boot scan sau 90s
+        setInterval(_scanWeb2Noti, 10 * 60 * 1000);
+    } catch (e) {
+        console.warn('[WEB2-NOTI-SCAN] schedule failed:', e.message);
+    }
 }
 
 // Graceful shutdown — close HTTP + WS + DB pool before process exits.

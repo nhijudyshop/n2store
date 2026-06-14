@@ -12,11 +12,9 @@ const { withTransaction } = require('../db/with-transaction');
 const { processWithdrawal } = require('../routes/v2/pending-withdrawals');
 const { executeRefund, ensureRefundSchema } = require('../services/wallet-refund');
 const { cleanupOrderBuffer } = require('../routes/tpos-order-buffer');
-// B5 (2026-06-13): web2 notifications scan cron — pool web2Db (bảng web2_*).
-// KHÔNG fallback sang chatDb (db) — Web1⊥Web2: chatDb không có bảng web2_*; null →
-// cron skip (if !web2DbPool). Prod luôn có WEB2_DATABASE_URL nên pool tồn tại.
-const web2DbPool = require('../db/web2-pool');
-const { scanAndCreateNotifications } = require('../routes/v2/notifications');
+// NOTE (2026-06-14, Web1⊥Web2 service split): cron/scheduler.js giờ là WEB 1.0-only
+// (server.js chỉ require khi !WEB2_ONLY). Web2 notifications-scan cron ĐÃ CHUYỂN sang
+// server.js (gated DISABLE_WEB2_JOBS) để chạy đúng instance web2-api. Xem [WEB2-NOTI-SCAN].
 
 // Chạy mỗi giờ để expire virtual credits
 cron.schedule('0 * * * *', async () => {
@@ -598,24 +596,8 @@ cron.schedule('*/5 * * * *', async () => {
     }
 });
 
-// =====================================================
-// B5: WEB2 NOTIFICATIONS SCAN — mỗi 10 phút
-// Quét pain points Web 2.0 (PBH draft >24h, stock thấp, ví KH âm, thu về quá
-// hạn >20 ngày) → tạo noti (dedupe atomic qua unique index theo giờ). TRƯỚC đây
-// route GET /scan chỉ chạy khi gọi tay → noti gần như không bao giờ sinh. Dùng
-// web2Db (bảng web2_*); _notifyUpdate trong hàm tự broadcast SSE web2:notifications.
-// =====================================================
-cron.schedule('*/10 * * * *', async () => {
-    try {
-        if (!web2DbPool) return;
-        const created = await scanAndCreateNotifications(web2DbPool);
-        if (created && created.length) {
-            console.log(`[CRON] ✅ Web2 notifications scan: ${created.length} noti mới`);
-        }
-    } catch (error) {
-        console.error('[CRON] ❌ Web2 notifications scan error:', error.message);
-    }
-});
+// B5 WEB2 NOTIFICATIONS SCAN đã chuyển sang server.js ([WEB2-NOTI-SCAN], gated
+// DISABLE_WEB2_JOBS) — Web1⊥Web2 service split 2026-06-14. KHÔNG thêm lại ở đây.
 
 // =====================================================
 // Reconcile pending_customers vs Pancake live state — every 5 min
