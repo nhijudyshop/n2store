@@ -3,16 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `d26f54b` — docs(dev-log): C verified live (dashboard so-order KPI 14/13/28)
-**Last updated**: 2026-06-14 12:07:56 +07
-**Latest session**: [`RESUME:20260614-120756-d26f54b`](../20260614-120756-d26f54b.md)
-**Summary**: docs(dev-log): C verified live (dashboard so-order KPI 14/13/28)
+**Latest commit**: `db2e029` — auto: session update
+**Last updated**: 2026-06-14 12:15:06 +07
+**Latest session**: [`RESUME:20260614-121506-db2e029`](../20260614-121506-db2e029.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 2 file(s)
-- [`web2/`](./web2.md) — 1 file(s)
+- [`so-order/`](./so-order.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -60,7 +58,7 @@
 - [`shared/`](./shared.md) — updated 2026-06-13 19:51
 - [`showroom/`](./showroom.md) — updated 2026-06-10 19:04
 - [`showroom1/`](./showroom1.md) — updated 2026-06-10 19:52
-- [`so-order/`](./so-order.md) — updated 2026-06-14 11:44
+- [`so-order/`](./so-order.md) — updated 2026-06-14 12:15
 - [`soluong-live/`](./soluong-live.md) — updated 2026-06-08 18:40
 - [`soorder/`](./soorder.md) — updated 2026-05-21 15:39
 - [`soquy/`](./soquy.md) — updated 2026-06-13 19:51
