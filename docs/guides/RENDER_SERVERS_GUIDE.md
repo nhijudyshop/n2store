@@ -42,11 +42,11 @@
 
 **Trước:** API Web 2.0 (~45 route + hub SSE web2 + crons) chạy chung trong monolith `n2store-fallback` (Web 1.0). **Sau:** tách sang service riêng **`web2-api`** trong project **web2.0n2store**.
 
-| Service          | id                                                        | flag                     | vai trò                                                                                          |
-| ---------------- | --------------------------------------------------------- | ------------------------ | ------------------------------------------------------------------------------------------------ |
-| **web2-api**     | `srv-d8n53oflk1mc739bi9gg` (`web2-api-kv04.onrender.com`) | `WEB2_ONLY=1`            | Backend Web 2.0 — cùng codebase `render.com`, tắt mọi job Web 1.0. Có cả 2 pool (chatDb+web2Db). |
-| n2store-fallback | `srv-d4e5pd3gk3sc73bgv600`                                | `DISABLE_WEB2_JOBS=1`    | Hub Web 1.0 — vẫn mount route web2 (vô hại) nhưng không chạy cron/job web2.                      |
-| web2-realtime    | `srv-d8n45k4vikkc73cg3nrg`                                | `FALLBACK_BASE=web2-api` | Relay forward web2 → web2-api (ingest + relay-notify).                                           |
+| Service          | id                                                        | flag                                                    | vai trò                                                                                                    |
+| ---------------- | --------------------------------------------------------- | ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| **web2-api**     | `srv-d8n53oflk1mc739bi9gg` (`web2-api-kv04.onrender.com`) | `WEB2_ONLY=1`                                           | Backend Web 2.0 — cùng codebase `render.com`, tắt mọi job Web 1.0. Có cả 2 pool (chatDb+web2Db).           |
+| n2store-fallback | `srv-d4e5pd3gk3sc73bgv600`                                | `DISABLE_WEB2_JOBS=1` + `WEB2_API_FORWARD_URL=web2-api` | Hub Web 1.0 — mount route web2 (vô hại), không chạy cron web2; forward web2 SSE notify (SePay) → web2-api. |
+| web2-realtime    | `srv-d8n45k4vikkc73cg3nrg`                                | `FALLBACK_BASE=web2-api`                                | Relay forward web2 → web2-api (ingest + relay-notify).                                                     |
 
 **Cờ (`render.com/server.js`):**
 
@@ -56,7 +56,7 @@
 
 **Routing worker** (`cloudflare-worker/modules/handlers/proxy-handler.js`): `renderOriginFor(pathname)` trong 2 forwarder `handleRenderFallbackProxy` + `handleCustomer360Proxy`. `isWeb2Path`: `/api/web2*`, native-orders, fast-sale-orders, delivery-invoices, refunds, reconcile, wallet-deposits, purchase-refund, services-overview, livestream, realtime/web2, `/api/v2/(notifications|audit-log|supplier-aging|dashboard-kpi|smart-match|inventory-forecast|supplier-360|cart|kpi|web2-)`.
 
-**⚠ DEFER**: SePay (`/api/sepay`) vẫn → fallback (web1); web2 fan-out notify (CK→ví KH) bắn hub fallback → client web2-api miss SSE realtime (data ghi đúng web2Db, refresh thấy). Fix sau: cross-instance relay-notify.
+**✅ SePay realtime cross-instance (FIXED)**: `/api/sepay` vẫn → fallback (web1 đúng); web2 fan-out (CK→ví KH) phát notify trên fallback. `realtime-sse-web2.js notifyClients()` forward cross-instance sang `web2-api/api/realtime/web2/sse/relay-notify` khi env `WEB2_API_FORWARD_URL` set (CHỈ fallback). Phủ mọi web2 notify trên fallback (sepay + wallet event + ck-watcher). web2-api không set env → không forward (tránh loop).
 
 **Rollback**: revert worker (web2 → fallback lại) + xoá `WEB2_ONLY`/`DISABLE_WEB2_JOBS`. web2-api có thể xoá (không ảnh hưởng tới khi worker route về).
 

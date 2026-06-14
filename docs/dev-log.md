@@ -2,6 +2,14 @@
 
 ## 2026-06-14
 
+### [web2][render] SePay realtime cross-instance forward (fallback → web2-api SSE hub) ✅
+
+**Tiếp nối tách web2-api:** `/api/sepay` vẫn ở fallback (Web 1.0), nhưng web2 fan-out (CK→ví KH) phát SSE notify trên fallback — client web2 subscribe ở hub web2-api → **miss realtime** (data vẫn ghi đúng web2Db). User: "Làm luôn".
+
+**Fix (commit `b5d5a5056`):** `render.com/routes/realtime-sse-web2.js` `notifyClients()` wrap **in-place** — nếu `_forwardTarget` set → POST cross-instance sang `web2-api/api/realtime/web2/sse/relay-notify` (forward đặt TRƯỚC early-return vì fallback có 0 subscriber local). Vì mọi web2 notify đều qua `notifyClients` (sepay `_sseNotify`, `web2WalletEvents` listener, ck-watcher) → 1 chỗ phủ hết. Gated env `WEB2_API_FORWARD_URL` (set CHỈ trên fallback; web2-api không có → không forward, tránh loop). `relay-notify` honor `event` field. Admin topic loại trừ. `setForwardTarget()` wired ở server.js.
+
+**Verify:** subscribe web2-api qua worker (`web2:fwd-test-*`) + POST relay-notify trên fallback (`clients:0` local — đúng kịch bản SePay) → **subscriber NHẬN** event forward. ✅ Cập nhật MEMORY [[reference_render_services]] + RENDER_SERVERS_GUIDE.
+
 ### [render][web2][worker] Tách backend Web 2.0 sang service riêng `web2-api` (Web1⊥Web2 service-level) ✅
 
 **User:** "n2store-fallback là của web 1.0 → làm riêng cho web 2.0 hoặc chuyển tất cả web 2.0 qua [project web2.0n2store]". Chọn (AskUserQuestion): **service web2-api riêng** chạy lại codebase render.com ở chế độ web2-only.
