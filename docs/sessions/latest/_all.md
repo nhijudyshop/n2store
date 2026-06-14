@@ -3,15 +3,16 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `689574d` — feat(shared): thêm 'Comment Live 📱' (viewer mobile) vào sidebar Sale Online
-**Last updated**: 2026-06-14 09:33:02 +07
-**Latest session**: [`RESUME:20260614-093302-689574d`](../20260614-093302-689574d.md)
-**Summary**: feat(shared): thêm 'Comment Live 📱' (viewer mobile) vào sidebar Sale Online
+**Latest commit**: `3caa1e9` — feat(live-chat): comment mobile v3 — dùng chung nguồn desktop (avatar/thumbnail/ẩn-người) + hết giật
+**Last updated**: 2026-06-14 09:55:52 +07
+**Latest session**: [`RESUME:20260614-095552-3caa1e9`](../20260614-095552-3caa1e9.md)
+**Summary**: feat(live-chat): comment mobile v3 — dùng chung nguồn desktop (avatar/thumbnail/ẩn-người) + hết giật
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`web2/`](./web2.md) — 1 file(s)
+- [`live-chat/`](./live-chat.md) — 2 file(s)
+- [`render.com/`](./render.com.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -26,7 +27,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-13 15:41
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-13 14:33
-- [`docs/`](./docs.md) — updated 2026-06-14 09:33
+- [`docs/`](./docs.md) — updated 2026-06-14 09:55
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-13 14:55
 - [`downloads/`](./downloads.md) — updated 2026-06-13 19:16
@@ -39,7 +40,7 @@
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-06-13 14:55
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-12 19:21
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
-- [`live-chat/`](./live-chat.md) — updated 2026-06-14 09:28
+- [`live-chat/`](./live-chat.md) — updated 2026-06-14 09:55
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-06-04 20:02
 - [`native-orders/`](./native-orders.md) — updated 2026-06-13 23:28
 - [`nhanhang/`](./nhanhang.md) — updated 2026-06-13 19:51
@@ -52,7 +53,7 @@
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
-- [`render.com/`](./render.com.md) — updated 2026-06-14 09:28
+- [`render.com/`](./render.com.md) — updated 2026-06-14 09:55
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-11 10:18
 - [`service-costs/`](./service-costs.md) — updated 2026-05-21 15:39
