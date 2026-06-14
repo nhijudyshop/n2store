@@ -2,6 +2,18 @@
 
 ## 2026-06-14
 
+### [web2][docs] Cleanup sau research hạ tầng Web 2.0: gỡ Firebase dead + sửa doc stale + xoá env dead ✅
+
+**User:** "làm tất cả" (3 việc cleanup đề xuất sau research server/db/firebase Web 2.0).
+
+1. **Gỡ Firebase SDK dead** khỏi 5 trang web2 (verify app JS + inline + shared-auth/notification đều KHÔNG dùng firebase → an toàn): `web2/customers`, `web2/purchase-refund` (comment "cần cho picker so-order" STALE — so-order đã sang Postgres `/api/web2-so-order/get`), `web2/balance-history`, `web2/supplier-debt`, `native-orders` — bỏ `firebase-app/auth/firestore-compat` + `firebase-config.js` (~470KB/trang).
+2. **Sửa doc STALE**: `CLAUDE.md` section "Firestore collections" → Web 2.0 ĐÃ migrate khỏi Firestore sang Postgres (web2Db); Firebase active duy nhất = web2-realtime đọc `pancake_tokens` lúc boot; Zalo session = Postgres. `MEMORY.md`: C8 so-order Firestore→Postgres đổi DEFER → ✅ DONE 13/06.
+3. **Xoá env dead `WEB2_SYNC_ENABLED`** (server.js KHÔNG đọc — verify grep) khỏi web2-api + n2store-fallback qua Render API (DELETE 204, verified gone, không redeploy vì unread).
+
+**Context:** nối tiếp research "server render/db render/firebase Web 2.0" (commit `f233f5dd1`): Web 2.0 = web2-api (WEB2_ONLY) + web2-realtime relay + web2Db (n2store-web2-db 161MB ~43 bảng) + Firebase ~95% đã bỏ.
+
+**Files:** `web2/{customers,purchase-refund,balance-history,supplier-debt}/index.html`, `native-orders/index.html`, `CLAUDE.md` (+ MEMORY.md ngoài repo). **Status:** ✅ verified static (no firebase ref còn sót).
+
 ### [orders-report] Bấm cột TIN NHẮN mở NHẦM PAGE — bỏ ghi đè preferred-page + TTL ✅
 
 **User:** "bấm cột tin nhắn mở modal -> nhiều khi nhầm page phải đổi tay lại -> page lưu ở cache / nhầm page ở đơn / lý do khác".
