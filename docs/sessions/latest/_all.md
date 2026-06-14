@@ -3,14 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `16b1ddd` — auto: session update
-**Last updated**: 2026-06-14 08:05:16 +07
-**Latest session**: [`RESUME:20260614-080516-16b1ddd`](../20260614-080516-16b1ddd.md)
-**Summary**: auto: session update
+**Latest commit**: `7ec6da8` — docs(dev-log): live-chat rebuild phase B done — xoa 3038 dong dead CSS, chat verified
+**Last updated**: 2026-06-14 08:07:49 +07
+**Latest session**: [`RESUME:20260614-080749-7ec6da8`](../20260614-080749-7ec6da8.md)
+**Summary**: docs(dev-log): live-chat rebuild phase B done — xoa 3038 dong dead CSS, chat verified
 
 ## Folders affected in this commit
 
-- [`live-chat/`](./live-chat.md) — 5 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -25,7 +25,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-13 15:41
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-13 14:33
-- [`docs/`](./docs.md) — updated 2026-06-13 23:47
+- [`docs/`](./docs.md) — updated 2026-06-14 08:07
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-13 14:55
 - [`downloads/`](./downloads.md) — updated 2026-06-13 19:16
