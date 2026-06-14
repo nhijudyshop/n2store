@@ -687,11 +687,18 @@
             window.Web2ProductsCache.init().catch(() => {});
         }
         await loadAndRender();
-        // Deep-link: ?supplier=<name> → auto-open detail drawer
+        // Deep-link: ?supplier=<name> → auto-open detail drawer.
+        // normalize('NFC'): tên NCC giữa các trang có thể khác Unicode form (NFC/NFD)
+        // → so khớp trực tiếp `wallets[param]` fail. Tìm key đúng theo NFC.
         const _dlSup = window.Web2Deeplink?.param('supplier');
         if (_dlSup) {
-            if (walletState.wallets[_dlSup]) {
-                openDetail(_dlSup);
+            const nfc = (s) => (s || '').normalize('NFC').trim().toLowerCase();
+            const target = nfc(_dlSup);
+            const key = walletState.wallets[_dlSup]
+                ? _dlSup
+                : Object.keys(walletState.wallets || {}).find((k) => nfc(k) === target);
+            if (key) {
+                openDetail(key);
             } else {
                 notify('Không tìm thấy NCC: ' + _dlSup, 'warning');
             }

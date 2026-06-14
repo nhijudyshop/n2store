@@ -25,7 +25,9 @@ Cũng nâng `_applyDeeplink`: quét toàn state tìm tab+shipment chứa NCC →
 
 **Browser-verified (localhost dl4):** active=huongchau → `?supplier=KHO TÂN BÌNH` → **switch sang hanoi, 10 dòng match**. NFC≠NFD confirm (12 vs 14 ký tự).
 
-**Files:** `so-order/js/so-order-app.js` (`?v=20260614dl4`). `node --check` PASS. **Status:** ✅
+**+ Hardening cùng class (supplier-wallet + supplier-debt):** 2 trang cũng match param raw (`wallets[_dlSup]` object-key / `[data-supplier="..."]` exact + filter text) → cùng lỗi NFC. Fix: resolve tên NCC đúng form bằng NFC (wallet tìm key; debt resolve từ `suppliersList` rồi set search + match row theo NFC). Verified: `supplier-wallet?supplier=XƯỞNG SỈ A` (NFD) → drawer auto-mở.
+
+**Files:** `so-order/js/so-order-app.js`, `web2/supplier-wallet/js/supplier-wallet-app.js`, `web2/supplier-debt/js/supplier-debt-app.js` (`?v=20260614dl4`). `node --check` PASS. **Status:** ✅
 
 ### [web2][render] Hướng C — đào sâu analytics: KPI "Sổ Order / NCC" lên dashboard ✅
 

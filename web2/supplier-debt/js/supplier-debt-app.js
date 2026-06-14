@@ -1256,20 +1256,27 @@
         applyFilterAndRender();
         if (window.lucide?.createIcons) window.lucide.createIcons();
 
-        // Deep-link focus: ?supplier=<name> → filter + expand + flash row
+        // Deep-link focus: ?supplier=<name> → filter + expand + flash row.
+        // normalize('NFC'): tên NCC giữa các trang có thể khác Unicode form (NFC/NFD)
+        // → filter text + match attr fail. Resolve tên thật (đúng form) rồi dùng nhất quán.
         const _dlSup = window.Web2Deeplink?.param('supplier');
         if (_dlSup) {
+            const nfc = (s) => (s || '').normalize('NFC').trim().toLowerCase();
+            const target = nfc(_dlSup);
+            const realName =
+                (STATE.suppliersList || []).map((s) => s.name).find((n) => nfc(n) === target) ||
+                _dlSup;
             const srchEl = document.getElementById('sdSearch');
-            if (srchEl) srchEl.value = _dlSup;
-            STATE.filters.search = _dlSup;
+            if (srchEl) srchEl.value = realName;
+            STATE.filters.search = realName;
             applyFilterAndRender();
             if (window.lucide?.createIcons) window.lucide.createIcons();
-            const targetRow = document.querySelector(
-                `tr.sd-main-row[data-supplier="${CSS.escape(_dlSup)}"]`
+            const targetRow = [...document.querySelectorAll('tr.sd-main-row[data-supplier]')].find(
+                (r) => nfc(r.dataset.supplier) === target
             );
             if (targetRow) {
-                // Expand if not already expanded
-                if (!STATE.expanded.has(_dlSup)) toggleExpand(_dlSup);
+                const rn = targetRow.dataset.supplier;
+                if (!STATE.expanded.has(rn)) toggleExpand(rn);
                 targetRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 targetRow.classList.add('w2-deeplink-flash');
                 setTimeout(() => targetRow.classList.remove('w2-deeplink-flash'), 2400);
