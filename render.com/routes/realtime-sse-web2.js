@@ -35,6 +35,60 @@ const LOG_BUFFER_MAX = 500;
 const recentLogs = []; // {seq, type, ts, ...payload}
 let _logSeq = 0;
 
+// =====================================================
+// CROSS-INSTANCE FORWARD (Web1⊥Web2 service split 2026-06-14)
+// =====================================================
+// Sau tách web2-api, client web2 subscribe vào hub của web2-api (worker route
+// /api/realtime/web2/sse → web2-api). Nhưng vài notify Web 2.0 vẫn PHÁT SINH trên
+// n2store-fallback (Web 1.0): SePay webhook web2 fan-out (CK→ví KH), ck-watcher.
+// → notify local trên fallback có 0 subscriber. Giải pháp: fallback set
+// WEB2_API_FORWARD_URL → notifyClients ĐỒNG THỜI POST cross-instance sang
+// web2-api/api/realtime/web2/sse/relay-notify để client thật nhận realtime.
+// web2-api KHÔNG set env này → không forward (tránh loop). Admin topic loại trừ.
+let _forwardTarget = null; // { url, secret }
+function setForwardTarget(target) {
+    _forwardTarget =
+        target && target.url
+            ? { url: String(target.url).replace(/\/$/, ''), secret: target.secret || '' }
+            : null;
+    if (_forwardTarget) {
+        console.log(`[SSE-WEB2] Cross-instance forward ENABLED → ${_forwardTarget.url}`);
+    }
+}
+
+function _forwardNotify(key, data, eventType) {
+    if (!_forwardTarget || key === ADMIN_LOG_TOPIC) return;
+    if (typeof fetch !== 'function') return; // Node 18+ global fetch
+    const url = `${_forwardTarget.url}/api/realtime/web2/sse/relay-notify`;
+    const body = JSON.stringify({
+        key,
+        data: data || { ts: Date.now() },
+        event: eventType || 'update',
+    });
+    const doPost = () =>
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'x-relay-secret': _forwardTarget.secret,
+            },
+            body,
+        }).then((r) => {
+            if (!r.ok && r.status !== 401) throw new Error(`HTTP ${r.status}`);
+            return r;
+        });
+    // Fire-and-forget + 1 retry (cold-start/restart web2-api làm rớt 1 nhịp).
+    Promise.resolve()
+        .then(doPost)
+        .catch(() =>
+            setTimeout(() => {
+                doPost().catch((e) =>
+                    console.warn(`[SSE-WEB2] forward fail key=${key}:`, e.message)
+                );
+            }, 2000)
+        );
+}
+
 function _pushLog(entry) {
     const log = { seq: ++_logSeq, ts: Date.now(), ...entry };
     recentLogs.push(log);
@@ -215,6 +269,9 @@ router.get('/sse', async (req, res) => {
 // =====================================================
 
 function notifyClients(key, data, eventType = 'update') {
+    // Cross-instance forward TRƯỚC local broadcast: trên fallback (Web 1.0) thường
+    // có 0 subscriber local nên early-return phía dưới sẽ bỏ qua — phải forward ở đây.
+    if (_forwardTarget) _forwardNotify(key, data, eventType);
     const clients = sseClients.get(key);
     if (!clients || clients.size === 0) {
         console.log(`[SSE-WEB2] No clients listening to key: ${key}`);
@@ -360,11 +417,11 @@ router.post('/sse/relay-notify', (req, res) => {
     if (provided !== secret) {
         return res.status(401).json({ success: false, error: 'unauthorized' });
     }
-    const { key, data } = req.body || {};
+    const { key, data, event } = req.body || {};
     if (!key) return res.status(400).json({ success: false, error: 'Missing key parameter' });
     let clients = 0;
     try {
-        clients = notifyClients(key, data || { ts: Date.now() }, 'update');
+        clients = notifyClients(key, data || { ts: Date.now() }, event || 'update');
     } catch (e) {
         console.error('[SSE-WEB2] relay-notify error:', e.message);
         return res.status(500).json({ success: false, error: e.message });
@@ -450,5 +507,6 @@ router.notifyClients = notifyClients;
 router.notifyClientsWildcard = notifyClientsWildcard;
 router.broadcastToAll = broadcastToAll;
 router.getConnectionStats = getConnectionStats;
+router.setForwardTarget = setForwardTarget; // cross-instance forward (fallback → web2-api)
 
 module.exports = router;

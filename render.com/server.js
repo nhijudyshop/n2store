@@ -968,6 +968,17 @@ if (web2CustomersRoutes.initializeNotifiers) {
 const { initializeNotifiers } = require('./routes/realtime-db');
 initializeNotifiers(realtimeSseRoutes.notifyClients, realtimeSseRoutes.notifyClientsWildcard);
 
+// WEB2.0 cross-instance forward (Web1⊥Web2 split): trên n2store-fallback (Web 1.0)
+// set WEB2_API_FORWARD_URL → mọi notify web2 phát sinh ở đây (SePay web2 fan-out,
+// ck-watcher, web2 wallet event) tự POST sang hub web2-api để client thật nhận
+// realtime (client web2 subscribe ở web2-api sau cutover). web2-api KHÔNG set env.
+if (process.env.WEB2_API_FORWARD_URL && web2RealtimeSseRoutes.setForwardTarget) {
+    web2RealtimeSseRoutes.setForwardTarget({
+        url: process.env.WEB2_API_FORWARD_URL,
+        secret: process.env.CLEANUP_SECRET || '',
+    });
+}
+
 // Initialize SSE notifier for Web 2.0 routes — dùng web2RealtimeSseRoutes (hub riêng).
 // Topic naming: 'web2:<entity>'. Tách hoàn toàn khỏi Web 1.0 SSE từ 2026-05-26.
 // Pattern thống nhất: gọi initializeNotifiers ở top-level if, không block-scope
