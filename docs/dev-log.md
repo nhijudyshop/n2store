@@ -13,7 +13,7 @@
 - Backend `dashboard-kpi.js`: thêm block đọc 1 doc JSONB `web2_so_order` (C8) → `so_open_shipments`, `so_unreceived_shipments`, `so_unreceived_products` (try/catch → 0). Cùng logic parse như Hướng E.
 - Frontend `web2/dashboard/index.html`: thêm KPI card "Đợt chưa nhận đủ" (tím #7c3aed), sub "N đợt · M SP chờ", click → `../../so-order/index.html`. KPI_IDS + skeleton + render đồng bộ.
 
-**Files:** `render.com/routes/v2/dashboard-kpi.js`, `web2/dashboard/index.html`. `node --check` PASS. **Status:** ✅ (chờ Render deploy verify số liệu).
+**Files:** `render.com/routes/v2/dashboard-kpi.js`, `web2/dashboard/index.html`. `node --check` PASS. **Status:** ✅ **VERIFIED LIVE**: API trả `so_open_shipments:14, so_unreceived_shipments:13, so_unreceived_products:28` (parse JSONB đúng); card dashboard render "13" + sub "14 đợt · 28 SP chờ" + clickable onclick→so-order.
 
 ### [render] Hướng E — automation: alert "Đợt Sổ Order cũ chưa nhận đủ hàng" vào notification cron ✅
 
