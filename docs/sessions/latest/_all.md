@@ -3,16 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `0134762` — feat(live-chat): viewer comment mobile — avatar/địa chỉ/trạng thái KH + ẩn comment shop + chọn livestream
-**Last updated**: 2026-06-14 09:28:23 +07
-**Latest session**: [`RESUME:20260614-092823-0134762`](../20260614-092823-0134762.md)
-**Summary**: feat(live-chat): viewer comment mobile — avatar/địa chỉ/trạng thái KH + ẩn comment shop + chọn livestream
+**Latest commit**: `689574d` — feat(shared): thêm 'Comment Live 📱' (viewer mobile) vào sidebar Sale Online
+**Last updated**: 2026-06-14 09:33:02 +07
+**Latest session**: [`RESUME:20260614-093302-689574d`](../20260614-093302-689574d.md)
+**Summary**: feat(shared): thêm 'Comment Live 📱' (viewer mobile) vào sidebar Sale Online
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`live-chat/`](./live-chat.md) — 2 file(s)
-- [`render.com/`](./render.com.md) — 1 file(s)
+- [`web2/`](./web2.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -27,7 +26,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-13 15:41
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-13 14:33
-- [`docs/`](./docs.md) — updated 2026-06-14 09:28
+- [`docs/`](./docs.md) — updated 2026-06-14 09:33
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-13 14:55
 - [`downloads/`](./downloads.md) — updated 2026-06-13 19:16
@@ -73,4 +72,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-13 23:28
+- [`web2/`](./web2.md) — updated 2026-06-14 09:33
