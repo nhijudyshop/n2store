@@ -2,6 +2,17 @@
 
 ## 2026-06-14
 
+### [delivery-report] Bỏ nút xuất Excel ở tab Tỉnh + Tất cả + Đơn 0đ ✅
+
+**User:** "bỏ nút xuất excel ở Tỉnh, Tất cả, Đơn 0đ".
+
+**Làm:**
+
+- Tab **Tỉnh** (`province`): xoá hẳn 2 nút `drBtnExportTomato` ("Xuất TOMATO") + `drBtnExportNap` ("Xuất NAP") khỏi HTML + bỏ block toggle trong `updateProvinceExportButtons`. Giữ nguyên nút Ảnh TMT/NAP (gửi Telegram).
+- Tab **Tất cả** (`all`) + **Đơn 0đ** (`zero`): thu hẹp `isMulti` từ `(all || zero || combo)` → chỉ `combo` → nhóm nút export `drBtnExportGrp*` ("TOMATO"/"BÁN HÀNG SHOP"/…) không còn hiện ở 2 tab này. **Giữ ở tab combo** "TOMATO + BÁN HÀNG SHOP" (user không yêu cầu bỏ).
+
+**Files:** `delivery-report/index.html`, `delivery-report/js/delivery-report.js` (bump `?v=20260614c`). `node --check` PASS. Generic `drBtnExport` không tồn tại trong HTML (getElementById guard null) → không ảnh hưởng. `exportExcelProvince` còn export trong API nhưng không còn nút gọi (để nguyên, low-risk). **Status:** ✅
+
 ### [render][realtime] Audit 5 Render service qua API+log → fix token livestream + tắt log health-probe ✅
 
 **User:** "có mấy server render hiện tại không dùng đúng không? Đọc log đi và có server bị spam 1 lệnh mấy lần" → "Kiểm lại 1 lần nữa rồi làm tất cả".
