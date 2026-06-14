@@ -4701,19 +4701,50 @@ window.addEventListener('load', () => {
             if (_dlSup) {
                 const norm = (s) => (s || '').trim().toLowerCase();
                 const target = norm(_dlSup);
-                const row = document.querySelector(
-                    `#soTableBody tr.so-data-row[data-supplier]`
-                    // iterate below — querySelector can't do case-insensitive attr match
-                );
-                // Find first matching <tr> (case-insensitive supplier name)
-                const allRows = document.querySelectorAll(
-                    '#soTableBody tr.so-data-row[data-supplier]'
-                );
-                let found = null;
-                for (const tr of allRows) {
-                    if (norm(tr.dataset.supplier) === target) {
-                        found = tr;
-                        break;
+                // Tìm <tr> khớp NCC (case-insensitive) trong DOM tab đang render.
+                const findInDom = () => {
+                    const allRows = document.querySelectorAll(
+                        '#soTableBody tr.so-data-row[data-supplier]'
+                    );
+                    for (const tr of allRows) {
+                        if (norm(tr.dataset.supplier) === target) return tr;
+                    }
+                    return null;
+                };
+                let found = findInDom();
+                // FIX deep-link (2026-06-14): so-order chỉ render TAB ĐANG ACTIVE +
+                // shipment có thể đang collapse → NCC ở tab khác / đợt thu gọn sẽ
+                // không có trong DOM. Quét toàn bộ state tìm tab + shipment chứa NCC,
+                // switch tab + mở shipment rồi tìm lại. Khắc phục link ví/công nợ →
+                // so-order khi NCC không thuộc tab hiện tại.
+                if (!found) {
+                    let owningTab = null;
+                    let owningSh = null;
+                    for (const t of state.tabs || []) {
+                        for (const sh of t.shipments || []) {
+                            if ((sh.rows || []).some((r) => norm(r.supplier) === target)) {
+                                owningTab = t;
+                                owningSh = sh;
+                                break;
+                            }
+                        }
+                        if (owningTab) break;
+                    }
+                    if (owningTab) {
+                        let changed = false;
+                        if (state.activeTabId !== owningTab.id) {
+                            state.activeTabId = owningTab.id;
+                            changed = true;
+                        }
+                        if (owningSh && owningSh.collapsed) {
+                            owningSh.collapsed = false;
+                            changed = true;
+                        }
+                        if (changed) {
+                            window.SoOrderStorage.save(state);
+                            renderAll();
+                        }
+                        found = findInDom();
                     }
                 }
                 if (found) {
