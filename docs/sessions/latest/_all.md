@@ -3,18 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `6a24548` — auto: session update
-**Last updated**: 2026-06-14 14:01:33 +07
-**Latest session**: [`RESUME:20260614-140133-6a24548`](../20260614-140133-6a24548.md)
+**Latest commit**: `6bc4423` — auto: session update
+**Last updated**: 2026-06-14 14:14:26 +07
+**Latest session**: [`RESUME:20260614-141426-6bc4423`](../20260614-141426-6bc4423.md)
 **Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`_root/`](./_root.md) — 1 file(s)
-- [`docs/`](./docs.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 3 file(s)
-- [`scripts/`](./scripts.md) — 1 file(s)
-- [`web2/`](./web2.md) — 10 file(s)
+- [`live-chat/`](./live-chat.md) — 3 file(s)
 
 ## All folder snapshots
 
@@ -42,7 +38,7 @@
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-06-13 14:55
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-12 19:21
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
-- [`live-chat/`](./live-chat.md) — updated 2026-06-14 12:55
+- [`live-chat/`](./live-chat.md) — updated 2026-06-14 14:14
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-06-04 20:02
 - [`n2store-facebook/`](./n2store-facebook.md) — updated 2026-06-14 13:09
 - [`n2store-realtime/`](./n2store-realtime.md) — updated 2026-06-14 12:30
