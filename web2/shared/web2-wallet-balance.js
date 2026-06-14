@@ -4,8 +4,10 @@
 // Dùng chung mọi nơi có hiển thị tên/SĐT khách (balance-history bảng,
 // modal chọn KH multi-match, modal gán KH, dropdown tìm KH, …).
 // =====================================================================
-//   • GET /api/web2/wallets/by-phone/:phone → { data: { balance, ... } }
-//   • Cache theo SĐT (TTL 60s) + batch concurrency để không spam request.
+//   • getBalances/attachBalances → POST /api/web2/wallets/batch-summary
+//     (1 request cho cả trang, KHÔNG còn N request /by-phone gây 404-spam).
+//     getBalance (1 SĐT) vẫn GET /by-phone/:phone cho lookup lẻ.
+//   • Cache theo SĐT (TTL 60s, cache cả số dư 0) để không re-fetch.
 //   • attachBalances(root): quét [data-w2wallet-phone] → inject pill số dư.
 //   • SSE web2:wallet:* → invalidate cache để lần sau lấy số mới.
 // =====================================================================
@@ -66,27 +68,79 @@
         return p;
     }
 
+    // 1 request cho nhiều SĐT — POST /batch-summary (3W3). KH chưa có ví →
+    // KHÔNG xuất hiện trong data → coi = 0. Trả Map phone->number (0 nếu chưa ví).
+    async function _fetchBatch(phones) {
+        const body = JSON.stringify({ phones });
+        const tryFetch = async (base) => {
+            const r = await fetch(`${base}/batch-summary`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body,
+            });
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            const j = await r.json();
+            const data = (j && j.data) || {};
+            const map = new Map();
+            for (const ph of phones) {
+                const v = data[ph];
+                map.set(ph, v ? Number(v.total) || 0 : 0);
+            }
+            return map;
+        };
+        try {
+            return await tryFetch(BASE);
+        } catch {
+            return await tryFetch(DIRECT_BASE); // throw nếu cả 2 fail → caller fallback
+        }
+    }
+
     async function getBalances(phones, opts) {
-        const conc = (opts && opts.concurrency) || 6;
         const list = Array.from(
             new Set((phones || []).map(normPhone).filter((p) => p && p.length >= 9))
         );
         const out = new Map();
-        const queue = [...list];
-        const workers = [];
-        const n = Math.min(conc, queue.length);
-        for (let i = 0; i < n; i++) {
-            workers.push(
-                (async () => {
-                    while (queue.length) {
-                        const phone = queue.shift();
-                        out.set(phone, await getBalance(phone));
-                    }
-                })()
-            );
+        if (!list.length) return out;
+
+        // 1) Cache còn tươi → dùng luôn; còn lại gom để fetch.
+        const now = Date.now();
+        const need = [];
+        for (const phone of list) {
+            const hit = _cache.get(phone);
+            if (hit && now - hit.ts < TTL_MS) out.set(phone, hit.balance);
+            else need.push(phone);
         }
-        await Promise.all(workers);
-        return out;
+        if (!need.length) return out;
+
+        // 2) 1 batch request cho tất cả SĐT chưa cache (thay N request /by-phone).
+        try {
+            const map = await _fetchBatch(need);
+            const ts = Date.now();
+            for (const phone of need) {
+                const bal = map.has(phone) ? map.get(phone) : 0;
+                _cache.set(phone, { balance: bal, ts }); // cache cả 0 → khỏi re-fetch
+                out.set(phone, bal);
+            }
+            return out;
+        } catch (e) {
+            // 3) Fallback: pool per-phone (legacy) nếu batch endpoint lỗi/không tồn tại.
+            const conc = (opts && opts.concurrency) || 6;
+            const queue = [...need];
+            const workers = [];
+            const n = Math.min(conc, queue.length);
+            for (let i = 0; i < n; i++) {
+                workers.push(
+                    (async () => {
+                        while (queue.length) {
+                            const phone = queue.shift();
+                            out.set(phone, await getBalance(phone));
+                        }
+                    })()
+                );
+            }
+            await Promise.all(workers);
+            return out;
+        }
     }
 
     // Markup 1 pill số dư ví. balance: number|null

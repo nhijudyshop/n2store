@@ -2,6 +2,48 @@
 
 ## 2026-06-14
 
+### [web2][shared] Browser-verify Firebase removal (sạch) + fix ví-pill N+1 → batch-summary ✅
+
+**User:** "browser test vào kiểm tra những gì bạn nghi ngờ để làm cho triệt để hết đi".
+
+**A. Verify cleanup Firebase (commit `8edfc1bb5`) qua browser thật — SẠCH:**
+
+- Dựng persistent session (`--ext n2store-extension`, http-port 9966), warm `web2/overview`, smoke 5 trang.
+- `typeof window.firebase === "undefined"` ✅ trên cả 5 (SDK ~470KB đã gỡ thật). 5 trang render OK (customers 50 rows, balance-history 43+5 cards, …). **0 firebase error / 0 non-404 error trên pure page load.**
+- Phát hiện `window.initializeFirestore` vẫn là function: **core-loader.js:24 vẫn inject `firebase-config.js`** (KHÔNG gỡ được — Web 1.0 share core-loader). Nhưng firebase-config.js phòng thủ: auto-init guard `typeof firebase !== "undefined"` (skip, no throw), `initializeFirestore()` → null êm. token-manager.js cũng degrade localStorage-only khi không có SDK. → an toàn.
+- **Heisenbug clarified:** `[Firebase] SDK not loaded` chỉ xuất hiện khi CHÍNH eval test gọi `getFirestore()`; pure page load = 0. Không phải lỗi trang.
+
+**B. Fix N+1 ví-pill (phát hiện khi test customers — ~50-100 `GET /wallets/by-phone/` mỗi load, đa số 404):**
+
+- `web2/shared/web2-wallet-balance.js` `getBalances()` chạy pool 6-worker gọi từng `/by-phone` (comment ghi "batch" nhưng code không). Endpoint batch `POST /api/web2/wallets/batch-summary` (3W3) đã có sẵn nhưng không dùng.
+- Rewrite `getBalances`: serve cache tươi → gom SĐT chưa cache → **1 `POST /batch-summary`** (cache cả số dư 0 → khỏi re-fetch) → fallback pool per-phone nếu batch lỗi. `getBalance` (1 SĐT lẻ) giữ `/by-phone`. Giữ nguyên hợp đồng 404/absent→0 + pill chỉ hiện khi >0.
+- **Verified (instrument fetch):** `getBalances([5 phones])` → `batch:1, byphone:0`. Trước: ~50-100 req/đa số 404. Sau: **1 POST, 0 by-phone, 0 404**. Smoke balance-history/native-orders/returns/ck-dashboard = 0 non-resource error.
+
+**Files:** `web2/shared/web2-wallet-balance.js` + bump `?v=20260614wb` trên 7 trang loader (native-orders, web2/{customers,balance-history,overview,ck-dashboard,returns}, live-chat/{index,chat}). **Status:** ✅ frontend-only (GH Pages). Cleanup Firebase: confirm SẠCH, không cần sửa thêm.
+
+### [web2][shared] Nhập dữ liệu hàng loạt CSV/JSON + tải file mẫu cho Kho SP & Sổ Order ✅
+
+**User:** "ở web2/products + so-order → cho nút import dữ liệu bằng file csv/text/mã hóa + nút tải dữ liệu mẫu để coi cấu trúc".
+
+**Quyết định (AskUserQuestion):** module dùng chung · định dạng CSV + JSON · Sổ Order tạo LÔ MỚI trong tab đang mở.
+
+**Mới — NGUỒN CHUNG `web2/shared/web2-import.js` (`Web2Import`) + `web2-import.css`:**
+
+- `Web2Import.open(config)` mở modal nhập; `Web2Import.downloadSample(config)` tải thẳng CSV mẫu.
+- Parse **native** (KHÔNG SheetJS — nhẹ): auto-detect JSON vs CSV, auto-detect delimiter (`,`/`;`/`tab`), CSV quote-aware (`""` escape, field chứa phẩy/newline).
+- Map header → field **không phân biệt hoa/thường + dấu** (normKey NFD) qua `label`/`key`/`aliases`. Cột thừa bỏ qua.
+- Coerce: number (bóc `.`/`,` ngăn cách nghìn + ký hiệu tiền → `150.000`→150000, `1,200,000`→1200000), bool (`Đang bán`/`Tạm dừng`/`co`/`x`…), enum (enumMap).
+- Preview: N hợp lệ + M lỗi (báo lỗi từng dòng), bắt buộc field `required`. Commit qua callback `onCommit(rows,{onProgress})` → mỗi trang tự quyết lưu. Nút "Tải file mẫu (CSV)" (có BOM cho Excel) + "Copy JSON mẫu" + "Xem cấu trúc".
+- Theme xanh Zalo, tuân MODAL-ANTI-LAG (không backdrop-blur, shadow ≤24px, contain, overscroll contain).
+
+**Kho SP (`web2/products`):** 2 nút header "Nhập" + "Tải mẫu". `onCommit` loop `Web2ProductsApi.create`, mã trống → auto-sinh `Web2ProductCode.suggest` (existingCodes tích luỹ chống trùng trong batch), fallback ASCII-upper. Cột: Tên\*, Mã, Biến thể, NCC, Giá mua, Giá bán, Tồn kho, Ghi chú, Ảnh URL, Trạng thái. Xong → `pushTickle` + `load()`.
+
+**Sổ Order (`so-order`):** 2 nút toolbar "Nhập" + "Tải mẫu". `onCommit` gom dòng theo NCC+ngày+đợt → mỗi nhóm 1 **lô mới** (`SoOrderStorage.addShipment`+`addRow`) trong tab active, share `invoiceGroupId`, sau đó `pushSync()`+`renderAll()` + **reuse `syncRowsToKho`** (đối chiếu/tạo SP trong Kho như submit thường) + `_ensureSupplierAsync`. Cột: NCC, Ngày, Đợt, Tên SP\*, Biến thể, SL, Giá nhập, Giá bán, Ghi chú, Ghi chú CP, Trạng thái. Date nhận `YYYY-MM-DD`/`DD/MM/YYYY`.
+
+**Lưu ý:** `web2/shared/web2-bulk-import.js` (`Web2BulkImport`, Excel+SheetJS+endpoint) là module CŨ **chưa wire ở đâu** + không hợp use-case (products không có `/bulk` route, so-order local-first) → để nguyên, KHÔNG dùng; `Web2Import` là đường mới.
+
+**Files:** +`web2/shared/web2-import.js`, +`web2/shared/web2-import.css`, `web2/products/index.html`, `web2/products/js/web2-products-app.js`, `so-order/index.html`, `so-order/js/so-order-app.js`. **Test:** Node unit (parse/normalize/coerce) + Playwright harness 14/14 PASS (modal, sample download BOM+quote, CSV/JSON parse, valid/invalid, commit summary, normalized rows). **Status:** ✅ frontend-only (GH Pages, không cần deploy Render).
+
 ### [web2][docs] Cleanup sau research hạ tầng Web 2.0: gỡ Firebase dead + sửa doc stale + xoá env dead ✅
 
 **User:** "làm tất cả" (3 việc cleanup đề xuất sau research server/db/firebase Web 2.0).
