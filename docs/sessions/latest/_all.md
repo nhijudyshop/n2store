@@ -3,17 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `0a778ba` — feat(delivery-report): nut Anh TMT/NAP gui kem file Excel cung anh vao Telegram (send-document + v=20260614b)
-**Last updated**: 2026-06-14 12:30:39 +07
-**Latest session**: [`RESUME:20260614-123039-0a778ba`](../20260614-123039-0a778ba.md)
-**Summary**: feat(delivery-report): nut Anh TMT/NAP gui kem file Excel cung anh vao Telegram (send-document + v=20260614b)
+**Latest commit**: `f3915a2` — auto: session update
+**Last updated**: 2026-06-14 12:38:03 +07
+**Latest session**: [`RESUME:20260614-123803-f3915a2`](../20260614-123803-f3915a2.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
 - [`delivery-report/`](./delivery-report.md) — 2 file(s)
-- [`docs/`](./docs.md) — 2 file(s)
-- [`n2store-realtime/`](./n2store-realtime.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -27,7 +24,7 @@
 - [`bangkiemhang/`](./bangkiemhang.md) — updated 2026-05-21 15:39
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-14 11:53
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
-- [`delivery-report/`](./delivery-report.md) — updated 2026-06-14 12:30
+- [`delivery-report/`](./delivery-report.md) — updated 2026-06-14 12:38
 - [`docs/`](./docs.md) — updated 2026-06-14 12:30
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-13 14:55
