@@ -2,6 +2,31 @@
 
 ## 2026-06-14
 
+### [render][realtime] Audit 5 Render service qua API+log → fix token livestream + tắt log health-probe ✅
+
+**User:** "có mấy server render hiện tại không dùng đúng không? Đọc log đi và có server bị spam 1 lệnh mấy lần" → "Kiểm lại 1 lần nữa rồi làm tất cả".
+
+**Điều tra (Render API + Logs API, ownerId tea-d3fn6ok9c44c73d9g59g):** 5 service — `n2store-fallback` (standard, hub), `n2store-realtime` (starter, WS proxy Web1.0), `n2store-tpos-pancake` (starter, relay WS→fallback cho Web2.0; folder rename `tpos-pancake`→`live-chat` nhưng tên service giữ cũ), `n2store-facebook` (starter, FB Graph trực tiếp), `n2store-aikol-scraper` (🔴 SUSPENDED).
+
+**Phát hiện từ log:**
+
+1. **`n2store-facebook` bị "spam" `GET /health` đúng mỗi 5s, 100% log** (200 dòng/14ph chỉ health, `cachedPages:0`). Thủ phạm = **Render tự probe `healthCheckPath`** (không phải bug code). Mọi service đều bị (fallback/realtime `/health`, tpos-pancake `/ping`).
+2. **`n2store-realtime` lỗi `[LIVESTREAM] No page_access_token … Invalid access_token` 18×/window**. Root cause: `getOrFetchPageAccessToken()` dùng `realtimeClient.token` (legacy single-account, stale/expired) trong khi service chạy **multi-account pool** → token sai → fail mỗi comment.
+
+**Verify lại (theo yêu cầu) trước khi làm → ĐỔI kế hoạch:**
+
+- **KHÔNG suspend `n2store-facebook`**: nó backing `privateReplyN2Store()` (gọi `n2storeUrl` ngay cả mode `pancake`) + toggle `serverMode='n2store'` → suspend = hỏng ngầm private-reply.
+- **KHÔNG xoá `aikol-scraper`**: đã suspended sẵn, xoá không hoàn lại.
+- **KHÔNG gộp realtime+tpos-pancake**: vi phạm rule Web1⊥Web2 + rủi ro cao.
+
+**Làm (an toàn):**
+
+1. **Fix gốc token livestream** (`n2store-realtime/server.js`): thêm `getJwtForPage(pageId)` lấy token từ **pool client sở hữu page** (fallback any-connected → legacy) + **negative-cache `PAGE_TOKEN_NEG_TTL=10ph`** ở mọi nhánh fail → vừa dùng đúng token vừa hết spam log.
+2. **Tắt log health-probe** ở cả 4 server (`req.path` skip `/health`,`/ping`,`/health/detailed`): `render.com/server.js`, `n2store-realtime/server.js`, `live-chat/server/server.js`, `n2store-facebook/server/server.js`.
+3. **Cập nhật doc** `docs/guides/RENDER_SERVERS_GUIDE.md`: thêm bảng "Trạng thái thực tế 2026-06-14" (5 service, plan đúng, routing, health-probe), đính chính realtime=starter (không phải Standard) + realtime KHÔNG có TPOS + facebook đã LIVE (không phải "chưa deploy").
+
+**Files:** `render.com/server.js`, `n2store-realtime/server.js`, `live-chat/server/server.js`, `n2store-facebook/server/server.js`, `docs/guides/RENDER_SERVERS_GUIDE.md`. `node --check` PASS cả 4. **Status:** ✅ (4 service sẽ redeploy khi push — đổi nhỏ, low-risk).
+
 ### [delivery-report] Nút "Ảnh TMT" + "Ảnh NAP" gửi nhóm Telegram (giống "Ảnh Thành Phố") ✅
 
 **User:** "cho 2 nút Ảnh TMT + Ảnh NAP gửi lên telegram giống nút Ảnh Thành Phố".

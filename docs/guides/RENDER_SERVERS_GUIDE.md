@@ -38,19 +38,39 @@
 
 ---
 
+## ⚠️ TRẠNG THÁI THỰC TẾ (cập nhật 2026-06-14 — verified qua Render API + logs)
+
+> Phần Server 1–5 bên dưới có vài chỗ ĐÃ LỖI THỜI. Bảng này là nguồn đúng nhất. Mọi service đều **region Singapore, always-on** (starter/standard KHÔNG sleep — chỉ free mới sleep).
+
+| Service                   | Plan                              | rootDir                   | Health path | Trạng thái                                                                                                                                                                                                                                                         |
+| ------------------------- | --------------------------------- | ------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **n2store-fallback**      | standard                          | `render.com`              | `/health`   | ✅ Hub chính: 2 pool PG (chatDb/web2Db), 2 hub SSE, cron, TPOS realtime                                                                                                                                                                                            |
+| **n2store-realtime**      | **starter** (KHÔNG phải Standard) | `n2store-realtime`        | `/health`   | ✅ WS proxy Pancake (multi-account pool) cho inbox Web 1.0. **KHÔNG có code TPOS** — các endpoint `/api/realtime/tpos/*` ở Server 1 bên dưới là SAI. DB Postgres RIÊNG (pending_customers, livestream_conversations…).                                             |
+| **n2store-tpos-pancake**  | starter                           | `live-chat/server`        | `/ping`     | ✅ Relay WS Pancake đa-account → POST sang fallback (`/api/web2-live-comments/ingest` + SSE) cho live-chat Web 2.0. Folder đã rename `tpos-pancake`→`live-chat` nhưng **tên service Render giữ nguyên**; `render.yaml` ghi `n2store-live-chat` là STALE.           |
+| **n2store-facebook**      | starter                           | `n2store-facebook/server` | `/health`   | ✅ **LIVE** (doc cũ ghi "chưa deploy" — SAI). FB Graph API v21.0 trực tiếp. Frontend dùng khi `serverMode='n2store'` + **private-reply** (nhắn riêng từ comment) ngay cả ở mode `pancake`. Traffic thật thấp nhưng **KHÔNG được suspend** (sẽ hỏng private-reply). |
+| **n2store-aikol-scraper** | starter                           | repo `TikTokDownloader`   | —           | 🔴 **SUSPENDED** (đang tắt, autoDeploy=no).                                                                                                                                                                                                                        |
+
+**Health-check probe**: Render tự ping `healthCheckPath` mỗi service **~mỗi 5 giây** → trước đây log đầy `GET /health` / `GET /ping` (riêng n2store-facebook 100% log chỉ là health probe vì traffic thật rất thấp). **Đã tắt log các path này (2026-06-14)** ở cả 4 server (`req.path` skip `/health`, `/ping`, `/health/detailed`).
+
+**Routing**: Cloudflare Worker (`chatomni-proxy`) CHỈ proxy 2/5 service — `n2store-fallback` (hầu hết `/api/*`) + `n2store-realtime` (`/api/realtime/*`). `n2store-tpos-pancake` và `n2store-facebook` được frontend gọi **TRỰC TIẾP** (`livePancakeUrl` / `n2storeUrl`), không qua Worker.
+
+**KHÔNG gộp realtime + tpos-pancake**: tuân thủ rule Web1⊥Web2 — realtime phục vụ inbox Web 1.0 (DB riêng), tpos-pancake relay sang Web 2.0. Giữ TÁCH RIÊNG.
+
+---
+
 ## Server 1: n2store-realtime (MỚI - v2.0)
 
 ### Thông tin cơ bản
 
-| Thuộc tính | Giá trị |
-|------------|---------|
-| **URL** | https://n2store-realtime.onrender.com |
-| **WebSocket** | wss://n2store-realtime.onrender.com |
-| **Plan** | Standard (24/7) |
-| **Region** | Singapore |
-| **Repository** | nhijudyshop/n2store |
-| **Root Directory** | `n2store-realtime` |
-| **Database** | PostgreSQL (shared với n2store-fallback) |
+| Thuộc tính         | Giá trị                                                                     |
+| ------------------ | --------------------------------------------------------------------------- |
+| **URL**            | https://n2store-realtime.onrender.com                                       |
+| **WebSocket**      | wss://n2store-realtime.onrender.com                                         |
+| **Plan**           | Starter (24/7, always-on) — _doc cũ ghi Standard, đã đính chính 2026-06-14_ |
+| **Region**         | Singapore                                                                   |
+| **Repository**     | nhijudyshop/n2store                                                         |
+| **Root Directory** | `n2store-realtime`                                                          |
+| **Database**       | PostgreSQL (shared với n2store-fallback)                                    |
 
 ### Chức năng
 
@@ -165,18 +185,18 @@ ws.onmessage = (event) => {
 
 ### Environment Variables
 
-| Variable | Value | Required |
-|----------|-------|----------|
-| `NODE_ENV` | `production` | Yes |
-| `PORT` | (auto set by Render) | No |
+| Variable   | Value                | Required |
+| ---------- | -------------------- | -------- |
+| `NODE_ENV` | `production`         | Yes      |
+| `PORT`     | (auto set by Render) | No       |
 
 ### Deploy Settings
 
-| Setting | Value |
-|---------|-------|
-| Build Command | `npm install` |
-| Start Command | `npm start` |
-| Auto-Deploy | Yes (on push to main) |
+| Setting       | Value                 |
+| ------------- | --------------------- |
+| Build Command | `npm install`         |
+| Start Command | `npm start`           |
+| Auto-Deploy   | Yes (on push to main) |
 
 ---
 
@@ -184,14 +204,14 @@ ws.onmessage = (event) => {
 
 ### Thông tin cơ bản
 
-| Thuộc tính | Giá trị |
-|------------|---------|
-| **URL** | https://n2store-fallback.onrender.com |
-| **Plan** | Standard |
-| **Region** | Singapore |
-| **Repository** | nhijudyshop/n2store |
-| **Root Directory** | `render.com` |
-| **Database** | PostgreSQL |
+| Thuộc tính         | Giá trị                               |
+| ------------------ | ------------------------------------- |
+| **URL**            | https://n2store-fallback.onrender.com |
+| **Plan**           | Standard                              |
+| **Region**         | Singapore                             |
+| **Repository**     | nhijudyshop/n2store                   |
+| **Root Directory** | `render.com`                          |
+| **Database**       | PostgreSQL                            |
 
 ### Chức năng
 
@@ -252,30 +272,30 @@ GET /api/fb-avatar?id=xxx
 
 ### Environment Variables
 
-| Variable | Value | Required |
-|----------|-------|----------|
-| `NODE_ENV` | `production` | Yes |
-| `DATABASE_URL` | PostgreSQL connection string | Yes |
-| `SEPAY_API_KEY` | SePay API key | Yes |
-| `TELEGRAM_BOT_TOKEN` | Telegram bot token | Optional |
-| `GEMINI_API_KEY` | Gemini AI key | Optional |
+| Variable             | Value                        | Required |
+| -------------------- | ---------------------------- | -------- |
+| `NODE_ENV`           | `production`                 | Yes      |
+| `DATABASE_URL`       | PostgreSQL connection string | Yes      |
+| `SEPAY_API_KEY`      | SePay API key                | Yes      |
+| `TELEGRAM_BOT_TOKEN` | Telegram bot token           | Optional |
+| `GEMINI_API_KEY`     | Gemini AI key                | Optional |
 
 ---
 
 ## So sánh 2 Server
 
-| Feature | n2store-realtime (v2.0) | n2store-fallback |
-|---------|--------------------------|------------------|
-| **Purpose** | WebSocket + Pending Customers | Full API + DB |
-| **Plan** | Standard | Standard |
-| **Database** | PostgreSQL (shared) | PostgreSQL (shared) |
-| **Sleep** | No | No |
-| **Uptime** | 24/7 | 24/7 |
-| **WebSocket** | ✅ Pancake + TPOS | ❌ None |
-| **Auto-Connect** | ✅ On restart | ❌ None |
-| **Pending API** | ✅ Yes | ✅ Yes (fallback) |
-| **Dependencies** | 5 packages (pg added) | 15+ packages |
-| **Cold start** | ~3s | ~5s |
+| Feature          | n2store-realtime (v2.0)       | n2store-fallback    |
+| ---------------- | ----------------------------- | ------------------- |
+| **Purpose**      | WebSocket + Pending Customers | Full API + DB       |
+| **Plan**         | Standard                      | Standard            |
+| **Database**     | PostgreSQL (shared)           | PostgreSQL (shared) |
+| **Sleep**        | No                            | No                  |
+| **Uptime**       | 24/7                          | 24/7                |
+| **WebSocket**    | ✅ Pancake + TPOS             | ❌ None             |
+| **Auto-Connect** | ✅ On restart                 | ❌ None             |
+| **Pending API**  | ✅ Yes                        | ✅ Yes (fallback)   |
+| **Dependencies** | 5 packages (pg added)         | 15+ packages        |
+| **Cold start**   | ~3s                           | ~5s                 |
 
 ### Lưu ý: Cả 2 server dùng CHUNG PostgreSQL database
 
@@ -304,22 +324,24 @@ GET /api/fb-avatar?id=xxx
 ### Server không nhận được tin nhắn
 
 1. **Kiểm tra WebSocket connected:**
-   ```bash
-   curl https://n2store-realtime.onrender.com/api/realtime/status
-   ```
+
+    ```bash
+    curl https://n2store-realtime.onrender.com/api/realtime/status
+    ```
 
 2. **Kiểm tra logs trên Render Dashboard**
 
 3. **Restart connection:**
-   ```bash
-   # Stop
-   curl -X POST https://n2store-realtime.onrender.com/api/realtime/stop
 
-   # Start lại
-   curl -X POST https://n2store-realtime.onrender.com/api/realtime/start \
-     -H "Content-Type: application/json" \
-     -d '{"token":"xxx","userId":"xxx","pageIds":["xxx"]}'
-   ```
+    ```bash
+    # Stop
+    curl -X POST https://n2store-realtime.onrender.com/api/realtime/stop
+
+    # Start lại
+    curl -X POST https://n2store-realtime.onrender.com/api/realtime/start \
+      -H "Content-Type: application/json" \
+      -d '{"token":"xxx","userId":"xxx","pageIds":["xxx"]}'
+    ```
 
 ### Kiểm tra server status
 
@@ -344,27 +366,27 @@ curl https://n2store-fallback.onrender.com/health
 
 ### Frontend
 
-| File | Mô tả |
-|------|-------|
+| File                                | Mô tả                        |
+| ----------------------------------- | ---------------------------- |
 | `orders-report/realtime-manager.js` | Quản lý WebSocket connection |
-| `orders-report/debug-realtime.js` | Debug tools |
-| `cloudflare-worker/worker.js` | Proxy routing |
+| `orders-report/debug-realtime.js`   | Debug tools                  |
+| `cloudflare-worker/worker.js`       | Proxy routing                |
 
 ### Server (n2store-realtime)
 
-| File | Mô tả |
-|------|-------|
-| `n2store-realtime/server.js` | Main server |
+| File                            | Mô tả        |
+| ------------------------------- | ------------ |
+| `n2store-realtime/server.js`    | Main server  |
 | `n2store-realtime/package.json` | Dependencies |
 
 ### Server (n2store-fallback)
 
-| File | Mô tả |
-|------|-------|
-| `render.com/server.js` | Main server |
-| `render.com/routes/realtime.js` | Realtime routes (legacy) |
-| `render.com/routes/sepay-webhook.js` | SePay integration |
-| `render.com/routes/customers.js` | Customers API |
+| File                                 | Mô tả                    |
+| ------------------------------------ | ------------------------ |
+| `render.com/server.js`               | Main server              |
+| `render.com/routes/realtime.js`      | Realtime routes (legacy) |
+| `render.com/routes/sepay-webhook.js` | SePay integration        |
+| `render.com/routes/customers.js`     | Customers API            |
 
 ---
 
@@ -395,11 +417,12 @@ Xem logs realtime trên Render Dashboard → Logs tab
 
 ### Thông tin cơ bản
 
-| Thuộc tính | Giá trị |
-|------------|---------|
-| **URL** | Chưa deploy riêng (có thể tích hợp vào fallback) |
-| **Source Code** | `/n2store-facebook/server/server.js` |
-| **API** | Facebook Graph API v21.0 trực tiếp |
+| Thuộc tính            | Giá trị                                                                                                                       |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| **URL**               | https://n2store-facebook.onrender.com — **LIVE** (starter), _doc cũ ghi "chưa deploy" là SAI, đính chính 2026-06-14_          |
+| **Source Code**       | `/n2store-facebook/server/server.js`                                                                                          |
+| **API**               | Facebook Graph API v21.0 trực tiếp                                                                                            |
+| **Frontend dùng khi** | `serverMode='n2store'` (toggle Settings) + **private-reply** (nhắn riêng từ comment) ngay cả ở mode `pancake` → KHÔNG suspend |
 
 ### Chức năng
 
@@ -437,14 +460,15 @@ POST /api/refresh-tokens
 
 ### Thông tin cơ bản
 
-| Thuộc tính | Giá trị |
-|------------|---------|
-| **URL** | `https://n2shop.onrender.com` |
+| Thuộc tính      | Giá trị                               |
+| --------------- | ------------------------------------- |
+| **URL**         | `https://n2shop.onrender.com`         |
 | **Source Code** | Không có trong repo (external/legacy) |
 
 ### Chức năng
 
 Server upload hình ảnh, được sử dụng bởi:
+
 - `inventory-tracking/image-upload.js`
 - `inventory-tracking/order-booking-crud.js`
 
@@ -459,9 +483,9 @@ POST /api/upload/image
 
 ### Thông tin cơ bản
 
-| Thuộc tính | Giá trị |
-|------------|---------|
-| **URL** | `https://n2store-balance.onrender.com` |
+| Thuộc tính     | Giá trị                                       |
+| -------------- | --------------------------------------------- |
+| **URL**        | `https://n2store-balance.onrender.com`        |
 | **Trạng thái** | Legacy - có thể đã merge vào n2store-fallback |
 
 ### Chức năng
@@ -473,13 +497,13 @@ POST /api/upload/image
 
 ## Changelog
 
-| Date | Change |
-|------|--------|
-| 2026-01-20 | **v2.0**: Thêm Database persistence cho n2store-realtime |
-| 2026-01-20 | Thêm pending_customers table + API |
-| 2026-01-20 | Thêm auto-connect WebSocket khi server restart |
-| 2026-01-20 | Frontend sử dụng n2store-realtime cho pending-customers API |
+| Date       | Change                                                            |
+| ---------- | ----------------------------------------------------------------- |
+| 2026-01-20 | **v2.0**: Thêm Database persistence cho n2store-realtime          |
+| 2026-01-20 | Thêm pending_customers table + API                                |
+| 2026-01-20 | Thêm auto-connect WebSocket khi server restart                    |
+| 2026-01-20 | Frontend sử dụng n2store-realtime cho pending-customers API       |
 | 2026-01-11 | Bổ sung thêm 3 servers: n2store-facebook, n2shop, n2store-balance |
-| 2026-01-05 | Tạo server mới `n2store-realtime` (Standard plan) |
-| 2026-01-05 | Chuyển WebSocket realtime sang server mới |
-| 2026-01-05 | Giữ database APIs trên `n2store-fallback` |
+| 2026-01-05 | Tạo server mới `n2store-realtime` (Standard plan)                 |
+| 2026-01-05 | Chuyển WebSocket realtime sang server mới                         |
+| 2026-01-05 | Giữ database APIs trên `n2store-fallback`                         |

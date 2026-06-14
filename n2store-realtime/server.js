@@ -1325,6 +1325,7 @@ async function getOrFetchPageAccessToken(pageId) {
         clearTimeout(timeoutId);
 
         if (!response.ok) {
+            pageAccessTokenCache.set(pageId, { token: null, failed: true, cachedAt: Date.now() });
             console.error(
                 `[LIVESTREAM] Failed to get page_access_token for ${pageId}: HTTP ${response.status}`
             );
@@ -1341,12 +1342,14 @@ async function getOrFetchPageAccessToken(pageId) {
             return data.page_access_token;
         }
 
+        pageAccessTokenCache.set(pageId, { token: null, failed: true, cachedAt: Date.now() });
         console.warn(
             `[LIVESTREAM] No page_access_token in response for ${pageId}:`,
             data.message || ''
         );
         return null;
     } catch (error) {
+        pageAccessTokenCache.set(pageId, { token: null, failed: true, cachedAt: Date.now() });
         console.error(
             `[LIVESTREAM] Error fetching page_access_token for ${pageId}:`,
             error.message
