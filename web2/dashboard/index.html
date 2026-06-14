@@ -71,12 +71,20 @@
             .kpi-wallet .val {
                 color: #0f766e;
             }
+            .kpi-soorder {
+                border-left-color: #7c3aed;
+            }
+            .kpi-soorder .val {
+                color: #6d28d9;
+            }
             .kpi-stock .val[data-clickable],
-            .kpi-wallet .val[data-clickable] {
+            .kpi-wallet .val[data-clickable],
+            .kpi-soorder .val[data-clickable] {
                 cursor: pointer;
             }
             .kpi-stock .val[data-clickable]:hover,
-            .kpi-wallet .val[data-clickable]:hover {
+            .kpi-wallet .val[data-clickable]:hover,
+            .kpi-soorder .val[data-clickable]:hover {
                 text-decoration: underline;
                 opacity: 0.85;
             }
@@ -166,6 +174,19 @@
                             …
                         </div>
                         <div class="sub">balance &lt; 0</div>
+                    </div>
+                    <div class="kpi-card kpi-soorder">
+                        <div class="lab">Đợt chưa nhận đủ</div>
+                        <div
+                            class="val"
+                            id="kpiSoUnrecv"
+                            data-clickable
+                            title="Bấm để mở Sổ Order"
+                            onclick="location.href = '../../so-order/index.html'"
+                        >
+                            …
+                        </div>
+                        <div class="sub" id="kpiSoSub">— đợt đang mở</div>
                     </div>
                 </div>
 
@@ -264,7 +285,13 @@
                         return { ...(extra || {}) };
                     }
                 }
-                const KPI_IDS = ['kpiRevenue', 'kpiPending', 'kpiStock', 'kpiWallet'];
+                const KPI_IDS = [
+                    'kpiRevenue',
+                    'kpiPending',
+                    'kpiStock',
+                    'kpiWallet',
+                    'kpiSoUnrecv',
+                ];
                 async function load(opts) {
                     // Skeleton chỉ lần đầu (giá trị còn '…') — reload SSE không nhấp nháy.
                     KPI_IDS.forEach((id) => {
@@ -290,6 +317,11 @@
                         document.getElementById('kpiPending').textContent = fmt(d.pbh_pending_pack);
                         document.getElementById('kpiStock').textContent = fmt(d.stock_low_count);
                         document.getElementById('kpiWallet').textContent = fmt(d.wallet_overdraft);
+                        document.getElementById('kpiSoUnrecv').textContent = fmt(
+                            d.so_unreceived_shipments
+                        );
+                        document.getElementById('kpiSoSub').textContent =
+                            `${d.so_open_shipments || 0} đợt · ${d.so_unreceived_products || 0} SP chờ`;
                         // Recent PBH
                         document.getElementById('recentBody').innerHTML = (d.recent_pbh || [])
                             .map(

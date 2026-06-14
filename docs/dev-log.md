@@ -2,6 +2,19 @@
 
 ## 2026-06-14
 
+### [web2][render] Hướng C — đào sâu analytics: KPI "Sổ Order / NCC" lên dashboard ✅
+
+**User:** "D, E, C". C = đào sâu analytics đã có. Chọn deepening **kết nối 3 hướng**: dashboard surface tín hiệu Sổ Order/NCC (cùng nguồn Hướng E) + click mở so-order (deep-link Hướng B).
+
+**Khảo sát:** dashboard-kpi.js (F01) đã có 8 KPI (doanh thu, PBH, tồn thấp, ví âm, sepay…) nhưng **không có gì về Sổ Order/NCC** — layer mà B+E vừa kết nối. supplier-360/smart-match/inventory-forecast = piggy-back `/api/v2/*`, để nguyên (ngoài scope an toàn).
+
+**Làm:**
+
+- Backend `dashboard-kpi.js`: thêm block đọc 1 doc JSONB `web2_so_order` (C8) → `so_open_shipments`, `so_unreceived_shipments`, `so_unreceived_products` (try/catch → 0). Cùng logic parse như Hướng E.
+- Frontend `web2/dashboard/index.html`: thêm KPI card "Đợt chưa nhận đủ" (tím #7c3aed), sub "N đợt · M SP chờ", click → `../../so-order/index.html`. KPI_IDS + skeleton + render đồng bộ.
+
+**Files:** `render.com/routes/v2/dashboard-kpi.js`, `web2/dashboard/index.html`. `node --check` PASS. **Status:** ✅ (chờ Render deploy verify số liệu).
+
 ### [render] Hướng E — automation: alert "Đợt Sổ Order cũ chưa nhận đủ hàng" vào notification cron ✅
 
 **User:** "D, E, C". E = automation qua hạ tầng sẵn có.

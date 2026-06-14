@@ -133,6 +133,36 @@ router.get('/', requireWeb2AuthSoft, async (req, res) => {
             out.sepay_pending = 0;
         }
 
+        // Sổ Order pipeline (Hướng C 2026-06-14) — đọc 1 doc JSONB web2_so_order
+        // (C8), parse JS. Hiện trạng đợt mua hàng NCC trên dashboard + báo đợt chưa
+        // nhận đủ (cùng tín hiệu alert cron Hướng E). Link deep-link tới so-order.
+        try {
+            const so = await pool.query(`SELECT data FROM web2_so_order WHERE doc_id = 'main'`);
+            const doc = so.rows[0]?.data;
+            let shipments = 0;
+            let unrecvShipments = 0;
+            let unrecvProducts = 0;
+            if (doc && Array.isArray(doc.tabs)) {
+                for (const tab of doc.tabs) {
+                    for (const sh of tab.shipments || []) {
+                        shipments++;
+                        const pending = (sh.rows || []).filter((r) => r && r.status !== 'received');
+                        if (pending.length) {
+                            unrecvShipments++;
+                            unrecvProducts += pending.length;
+                        }
+                    }
+                }
+            }
+            out.so_open_shipments = shipments;
+            out.so_unreceived_shipments = unrecvShipments;
+            out.so_unreceived_products = unrecvProducts;
+        } catch {
+            out.so_open_shipments = 0;
+            out.so_unreceived_shipments = 0;
+            out.so_unreceived_products = 0;
+        }
+
         _cache.ts = now;
         _cache.data = out;
         res.json({ success: true, cached: false, ...out });
