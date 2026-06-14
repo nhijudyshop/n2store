@@ -3,14 +3,16 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `6bc4423` — auto: session update
-**Last updated**: 2026-06-14 14:14:26 +07
-**Latest session**: [`RESUME:20260614-141426-6bc4423`](../20260614-141426-6bc4423.md)
-**Summary**: auto: session update
+**Latest commit**: `29088d0` — feat(live-chat): shared realtime comment module — append-only + self-tick time + địa chỉ desktop
+**Last updated**: 2026-06-14 14:27:57 +07
+**Latest session**: [`RESUME:20260614-142757-29088d0`](../20260614-142757-29088d0.md)
+**Summary**: feat(live-chat): shared realtime comment module — append-only + self-tick time + địa chỉ desktop
 
 ## Folders affected in this commit
 
-- [`live-chat/`](./live-chat.md) — 3 file(s)
+- [`cloudflare-worker/`](./cloudflare-worker.md) — 1 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
+- [`live-chat/`](./live-chat.md) — 6 file(s)
 
 ## All folder snapshots
 
@@ -22,10 +24,10 @@
 - [`balance-history-home/`](./balance-history-home.md) — updated 2026-05-21 15:39
 - [`balance-history/`](./balance-history.md) — updated 2026-06-11 16:49
 - [`bangkiemhang/`](./bangkiemhang.md) — updated 2026-05-21 15:39
-- [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-14 11:53
+- [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-14 14:27
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-14 13:12
-- [`docs/`](./docs.md) — updated 2026-06-14 14:01
+- [`docs/`](./docs.md) — updated 2026-06-14 14:27
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-13 14:55
 - [`downloads/`](./downloads.md) — updated 2026-06-13 19:16
@@ -38,7 +40,7 @@
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-06-13 14:55
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-12 19:21
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
-- [`live-chat/`](./live-chat.md) — updated 2026-06-14 14:14
+- [`live-chat/`](./live-chat.md) — updated 2026-06-14 14:27
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-06-04 20:02
 - [`n2store-facebook/`](./n2store-facebook.md) — updated 2026-06-14 13:09
 - [`n2store-realtime/`](./n2store-realtime.md) — updated 2026-06-14 12:30
