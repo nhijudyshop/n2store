@@ -2,6 +2,12 @@
 
 ## 2026-06-14
 
+### [docs] CLAUDE.md: browser test FIFO/cổng động — tránh tranh chấp đa phiên ✅
+
+**Bối cảnh:** khi browser-verify fix "mở nhầm page", top frame tự nhảy sang web2. Điều tra: có **2 phiên `n2store-browser-session.js` song song** (1 của tôi + 1 từ shell-snapshot Claude khác) đọc CHUNG `/tmp/n2store-session.fifo` + cùng `--http-port 9966` → lệnh `nav` rơi nhầm phiên. KHÔNG phải bug app (orders-report chỉ redirect tới login khi auth fail). Test fix vẫn chuẩn (gửi qua HTTP `/cmd` thẳng PID).
+
+**Làm:** (b) kill cả 2 phiên + tails + free port 9966 (giữ `http.server 8080` shared). (c) Cập nhật `CLAUDE.md` mục Browser Test: dùng **FIFO riêng `/tmp/n2s-$$.fifo` + cổng random** mỗi phiên, ưu tiên gửi lệnh qua **HTTP `/cmd`** (theo PID, né FIFO chung), kèm lệnh `pkill` reset 1 phiên sạch. 3 chỗ: block "🧩 Mở browser test", LIVE CODING workflow b4/b5, section 3 REPL. **Status:** ✅
+
 ### [web2][zalo][render] Tên hội thoại NHÓM bị lấy theo người nhắn cuối — heal tận gốc từ zca ✅
 
 **User:** "web2/zalo bug tên đoạn hội thoại lấy theo tên người nhắn cuối cùng (hình 1 zalo chuẩn) → phân tích → làm triệt để".

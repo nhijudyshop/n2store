@@ -506,8 +506,8 @@ echo "nav http://localhost:8080/web2/<trang-cần-test>/index.html?t=$(date +%s)
     1. **Auto server**: 3 script test tự spawn `python3 -m http.server <port>` từ project root khi `--base http://localhost:PORT` được truyền và port chưa listen. Helper: `scripts/lib/ensure-local-server.js`. KHÔNG cần user pre-launch server.
     2. **Auth tự restore**: `n2store-browser-session.js` đọc `serect_dont_push.txt` qua `scripts/restore-login-session.js`, inject vào BrowserContext (localStorage + cookies) → KHÔNG bị bounce về login. Nếu file thiếu block hoặc token hết hạn → fallback form login + lưu lại.
     3. Lưu session tươi khi cần: `node scripts/save-login-session.js --base http://localhost:8080` (và `--base https://nhijudy.store`). Chạy lại định kỳ (mỗi tuần hoặc khi script báo lỗi auth) — JWT trong `loginindex_auth` hết hạn sau 30 ngày.
-    4. Khởi động persistent browser session 1 lần: `mkfifo /tmp/n2store-session.fifo; (tail -f /tmp/n2store-session.fifo) | node scripts/n2store-browser-session.js --user admin --pass admin@@ --base http://localhost:8080 &`
-    5. Sau mỗi `Edit` file → file saved → đẩy command vào FIFO test ngay: `echo "nav http://localhost:8080/<path>?t=$(date +%s)" > /tmp/n2store-session.fifo; echo "feval ..." > /tmp/n2store-session.fifo`
+    4. Khởi động persistent browser session 1 lần — **FIFO + cổng riêng** (⚠ xem mục tránh tranh chấp ở trên): `FIFO=/tmp/n2s-$$.fifo; PORT=$((9900+RANDOM%90)); mkfifo "$FIFO"; (tail -f "$FIFO") | node scripts/n2store-browser-session.js --user admin --pass admin@@ --base http://localhost:8080 --http-port "$PORT" &`
+    5. Sau mỗi `Edit` file → đẩy lệnh test ngay. **ƯU TIÊN HTTP `/cmd`** (theo PID, né FIFO chung): `curl -s -X POST localhost:$PORT/cmd -H 'content-type: application/json' -d '{"cmd":"nav http://localhost:8080/<path>?t='$(date +%s)'"}'`. (Chỉ 1 phiên thì ghi FIFO cũng được: `echo "nav ..." > "$FIFO"`.)
     6. **KHÔNG restart browser** giữa các iteration. Cache-bust HTML bằng `?t=...`. JS đã `cache-control: no-cache` sẵn trong route handler.
     7. Stop local server khi xong: `pkill -f "http.server 8080"` (server detached từ script test, sống tiếp khi script exit).
 
@@ -597,17 +597,18 @@ node scripts/n2store-interactive-smoke.js --user admin --pass admin@@ --per-page
 - Nav guard: track `framenavigated`, abort chain khi page navigate, recover từ context-destroyed
 - Output: `downloads/n2store-session/interactive-smoke-report.{json,md}`
 
-### 3. `scripts/n2store-browser-session.js` — Persistent Playwright REPL (FIFO)
+### 3. `scripts/n2store-browser-session.js` — Persistent Playwright REPL (FIFO/HTTP)
+
+> ⚠ Dùng **FIFO + cổng riêng** mỗi phiên (xem mục "TRÁNH TRANH CHẤP BROWSER TEST"). Ví dụ dưới dùng path/cổng cố định cho gọn — khi có thể có agent khác chạy song song, đổi sang `/tmp/n2s-$$.fifo` + cổng random và gửi lệnh qua HTTP `/cmd`.
 
 ```bash
-mkfifo /tmp/n2store-session.fifo
-(tail -f /tmp/n2store-session.fifo) | node scripts/n2store-browser-session.js --user admin --pass admin@@
-# Gửi command:
-echo "search 0914495309" > /tmp/n2store-session.fifo
-echo "openchat" > /tmp/n2store-session.fifo
-echo "switchpage Nhi Judy House" > /tmp/n2store-session.fifo
-echo "chatstate" > /tmp/n2store-session.fifo
-echo "quit" > /tmp/n2store-session.fifo
+FIFO=/tmp/n2s-$$.fifo; PORT=$((9900+RANDOM%90)); mkfifo "$FIFO"
+(tail -f "$FIFO") | node scripts/n2store-browser-session.js --user admin --pass admin@@ --http-port "$PORT" &
+# Gửi command — HTTP /cmd (khuyến nghị, theo PID):
+curl -s -X POST localhost:$PORT/cmd -H 'content-type: application/json' -d '{"cmd":"search 0914495309"}'
+curl -s -X POST localhost:$PORT/cmd -H 'content-type: application/json' -d '{"cmd":"chatstate"}'
+# …hoặc qua FIFO (chỉ khi chắc chắn 1 phiên duy nhất):
+echo "openchat" > "$FIFO"; echo "switchpage Nhi Judy House" > "$FIFO"; echo "quit" > "$FIFO"
 ```
 
 - Login 1 lần, browser visible, KHÔNG cần restart cho mỗi test
