@@ -3,14 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `7ec6da8` — docs(dev-log): live-chat rebuild phase B done — xoa 3038 dong dead CSS, chat verified
-**Last updated**: 2026-06-14 08:07:49 +07
-**Latest session**: [`RESUME:20260614-080749-7ec6da8`](../20260614-080749-7ec6da8.md)
-**Summary**: docs(dev-log): live-chat rebuild phase B done — xoa 3038 dong dead CSS, chat verified
+**Latest commit**: `c2a8ce7` — refactor(live-chat): cleanup leftover dead (attach-preview/quick-reply 72 dong); giu layout/components/variables (JS+token con dung)
+**Last updated**: 2026-06-14 08:11:46 +07
+**Latest session**: [`RESUME:20260614-081146-c2a8ce7`](../20260614-081146-c2a8ce7.md)
+**Summary**: refactor(live-chat): cleanup leftover dead (attach-preview/quick-reply 72 dong); giu layout/components/variables (JS+...
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
+- [`live-chat/`](./live-chat.md) — 3 file(s)
 
 ## All folder snapshots
 
@@ -38,7 +38,7 @@
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-06-13 14:55
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-12 19:21
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
-- [`live-chat/`](./live-chat.md) — updated 2026-06-14 08:05
+- [`live-chat/`](./live-chat.md) — updated 2026-06-14 08:11
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-06-04 20:02
 - [`native-orders/`](./native-orders.md) — updated 2026-06-13 23:28
 - [`nhanhang/`](./nhanhang.md) — updated 2026-06-13 19:51
