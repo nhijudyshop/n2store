@@ -3,16 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `768d518` — feat(orders-report,render): match badge cột TIN NHẮN theo SĐT (fallback PSID)
-**Last updated**: 2026-06-14 17:17:07 +07
-**Latest session**: [`RESUME:20260614-171707-768d518`](../20260614-171707-768d518.md)
-**Summary**: feat(orders-report,render): match badge cột TIN NHẮN theo SĐT (fallback PSID)
+**Latest commit**: `f233f5d` — docs(render): web2 infra research — web2Db inventory (~43 bảng) + Firebase ~95% migrated off Web2.0
+**Last updated**: 2026-06-14 18:22:53 +07
+**Latest session**: [`RESUME:20260614-182253-f233f5d`](../20260614-182253-f233f5d.md)
+**Summary**: docs(render): web2 infra research — web2Db inventory (~43 bảng) + Firebase ~95% migrated off Web2.0
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`orders-report/`](./orders-report.md) — 4 file(s)
-- [`render.com/`](./render.com.md) — 3 file(s)
 
 ## All folder snapshots
 
@@ -27,7 +25,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-14 15:18
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-14 13:12
-- [`docs/`](./docs.md) — updated 2026-06-14 17:17
+- [`docs/`](./docs.md) — updated 2026-06-14 18:22
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-13 14:55
 - [`downloads/`](./downloads.md) — updated 2026-06-13 19:16
