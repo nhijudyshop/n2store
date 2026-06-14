@@ -1442,6 +1442,34 @@
         });
     }
 
+    // Deep-link handler: ?code=<khocode> — pre-filter, scroll, flash, open edit.
+    // Called after the initial load() resolves so STATE.products is populated.
+    function _handleDeeplink() {
+        const _dlCode = window.Web2Deeplink?.param('code');
+        if (!_dlCode) return;
+
+        // Pre-filter so the row is visible in STATE.products.
+        const searchEl = $('#filterSearch');
+        if (searchEl) searchEl.value = _dlCode;
+        STATE.search = _dlCode;
+        STATE.page = 1;
+
+        // Reload with the filter, then act on the result.
+        load().then(() => {
+            const row = tbody()?.querySelector(`tr[data-code="${cssEscape(_dlCode)}"]`);
+            if (!row) {
+                window.notificationManager?.show('Không tìm thấy SP mã: ' + _dlCode, 'warning');
+                return;
+            }
+            // Scroll + highlight flash.
+            row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            row.classList.add('w2-deeplink-flash');
+            setTimeout(() => row.classList.remove('w2-deeplink-flash'), 2400);
+            // Open edit modal (openEdit guards via STATE.products find).
+            openEdit(_dlCode);
+        });
+    }
+
     function init() {
         if (window.lucide) lucide.createIcons();
         $('#btnCreateProduct')?.addEventListener('click', openCreate);
@@ -1554,7 +1582,7 @@
         _requiredBlur('#pmName');
         _requiredBlur('#pmCode');
 
-        load();
+        load().then(_handleDeeplink);
 
         // Realtime cross-machine sync — SSE handler đã set up ở _setupSse() và
         // làm in-place update cho 'update' event, full load cho 'create/delete'.

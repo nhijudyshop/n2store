@@ -1240,3 +1240,51 @@ body:has(.web2-shell) .btn:focus-visible {
 .source-pill {
     display: none !important;
 }
+
+/* ===== Web2Deeplink — nút liên kết chéo giữa các trang (.w2-xlink) ===== */
+.w2-xlink {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 9px;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1;
+    color: var(--web2-primary, #0068ff);
+    background: var(--web2-primary-soft, #e8f1ff);
+    border: 1px solid var(--web2-primary-border, #b9d7ff);
+    border-radius: 999px;
+    text-decoration: none;
+    cursor: pointer;
+    transition:
+        background 0.14s ease,
+        transform 0.14s ease,
+        box-shadow 0.14s ease;
+    white-space: nowrap;
+}
+.w2-xlink:hover {
+    background: var(--web2-primary, #0068ff);
+    color: #fff;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 104, 255, 0.22);
+}
+.w2-xlink:active {
+    transform: translateY(0);
+}
+.w2-xlink:focus-visible {
+    outline: 2px solid var(--web2-primary, #0068ff);
+    outline-offset: 2px;
+}
+/* Highlight tạm khi deep-link scroll tới 1 dòng/NCC */
+.w2-deeplink-flash {
+    animation: w2DeeplinkFlash 2.4s ease-out 1;
+}
+@keyframes w2DeeplinkFlash {
+    0%,
+    18% {
+        background-color: rgba(255, 214, 102, 0.55);
+    }
+    100% {
+        background-color: transparent;
+    }
+}

@@ -822,7 +822,7 @@
             stt: `<td class="so-cell-stt">${idx + 1}</td>`,
             productName: edit
                 ? editableCellHtml('productName', r, rid, sid)
-                : `<td class="so-cell-product" data-cell-field="productName" data-row-id="${rid}" data-shipment-id="${sid}">${escapeHtml(r.productName || '—')}${khoCodeHtml}</td>`,
+                : `<td class="so-cell-product" data-cell-field="productName" data-row-id="${rid}" data-shipment-id="${sid}">${escapeHtml(r.productName || '—')}${khoCodeHtml}${khoCode && window.Web2Deeplink ? '<span class="so-kho-link">' + window.Web2Deeplink.linkBtn({ label: '', icon: 'package', url: window.Web2Deeplink.url.product(khoCode), title: 'Mở trong Kho SP' }) + '</span>' : ''}</td>`,
             variant: edit
                 ? editableCellHtml('variant', r, rid, sid)
                 : `<td class="so-cell-variant" data-cell-field="variant" data-row-id="${rid}" data-shipment-id="${sid}">${variantCellInner}</td>`,
@@ -869,6 +869,8 @@
             sid +
             '" data-row-status="' +
             escapeHtml(r.status || 'draft') +
+            '" data-supplier="' +
+            escapeHtml((r.supplier || '').trim()) +
             '">' +
             COLUMNS.filter((c) => activeColVis()[c.key])
                 .map((c) => cells[c.key])
@@ -4679,6 +4681,54 @@ window.addEventListener('load', () => {
         state = await window.SoOrderStorage.load();
         applyEditTableModeUi();
         renderAll();
+
+        // Deep-link focus: ?tab=<id> → switch tab; ?supplier=<name> → scroll + flash.
+        // Runs after renderAll() so the DOM is ready. Web2Deeplink may be absent
+        // (defensive guard) but is loaded before this script in index.html.
+        (function _applyDeeplink() {
+            const dl = window.Web2Deeplink;
+            if (!dl) return;
+            const _dlTab = dl.param('tab');
+            const _dlSup = dl.param('supplier');
+            if (_dlTab) {
+                const match = (state.tabs || []).find((t) => t.id === _dlTab);
+                if (match && state.activeTabId !== _dlTab) {
+                    state.activeTabId = _dlTab;
+                    window.SoOrderStorage.save(state);
+                    renderAll(); // re-render with new active tab
+                }
+            }
+            if (_dlSup) {
+                const norm = (s) => (s || '').trim().toLowerCase();
+                const target = norm(_dlSup);
+                const row = document.querySelector(
+                    `#soTableBody tr.so-data-row[data-supplier]`
+                    // iterate below — querySelector can't do case-insensitive attr match
+                );
+                // Find first matching <tr> (case-insensitive supplier name)
+                const allRows = document.querySelectorAll(
+                    '#soTableBody tr.so-data-row[data-supplier]'
+                );
+                let found = null;
+                for (const tr of allRows) {
+                    if (norm(tr.dataset.supplier) === target) {
+                        found = tr;
+                        break;
+                    }
+                }
+                if (found) {
+                    found.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    found.classList.add('w2-deeplink-flash');
+                    setTimeout(() => found.classList.remove('w2-deeplink-flash'), 2400);
+                } else if (window.notificationManager?.show) {
+                    window.notificationManager.show(
+                        'Không thấy dòng nào của NCC: ' + _dlSup,
+                        'info'
+                    );
+                }
+            }
+        })();
+
         wireToolbar();
         wireInlineImageModal();
         wireModalTotals();

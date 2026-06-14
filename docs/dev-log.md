@@ -2,6 +2,27 @@
 
 ## 2026-06-14
 
+### [web2] Cross-page deep-linking (Hướng B) — liên kết NCC: công nợ ↔ ví ↔ sổ order, so-order → Kho SP ✅
+
+**User:** "tiếp tục" (sau đợt C) → hướng B trong đề xuất. Giờ so-order đã ở Postgres (C8) nên dữ liệu liên thông được giữa các trang.
+
+**Khảo sát trước (Explore agent):** khóa join chung của hệ NCC = **tên NCC (string)**, không có id số. Chưa trang nào đọc `?supplier=`. Chưa có shared nav helper.
+
+**Mới:** `web2/shared/web2-deeplink.js` (`Web2Deeplink`) — tự tính app-root từ pathname → build URL tuyệt đối (không lệ thuộc độ sâu thư mục): `url.supplierWallet/supplierDebt/soOrder/product/nativeOrders/reconcile`, `param(name)`, `linkBtn({label,icon,url,title})`. CSS `.w2-xlink` (nút pill) + `.w2-deeplink-flash` (highlight 2.4s) trong `web2-theme.css`.
+
+**Wire (4 agent song song):**
+
+- **supplier-debt**: mỗi dòng NCC + nút "Ví" → supplier-wallet?supplier=, "Sổ Order" → so-order?supplier=. Đọc `?supplier=` lúc load → filter + expand + scroll + flash.
+- **supplier-wallet**: đọc `?supplier=` → auto mở detail drawer NCC đó. Trong drawer thêm "Công nợ" + "Sổ Order".
+- **so-order**: mỗi dòng SP + kho-link 📦 → products?code= (qua `_lookupKhoCode`). Đọc `?supplier=`/`?tab=` → switch tab + highlight dòng NCC. Thêm `data-supplier` lên `<tr>`.
+- **products**: đọc `?code=` → pre-filter + scroll/flash + `openEdit(code)`.
+
+**Browser-verified (localhost + ext, 0 console error):** debt 5 dòng có Ví/Sổ Order; `supplier-wallet?supplier=HÀ NỘI` → **drawer auto-mở** + 2 back-link; so-order kho-link `?code=HCAO2BE28`; `products?code=HCAO2BE28` → **pre-filter + mở editor "ÁO KHOÁC DÙ"**. Href tuyệt đối + encode đúng.
+
+**Known nuance:** so-order `?supplier=` highlight match theo NCC thật trên dòng, còn debt/wallet trong data hiện key theo tab-label ("HÀ NỘI") → link wallet→so-order có thể không match dòng (degrade = info toast, không lỗi). Link giá trị cao (debt↔wallet auto-open, so-order→products) chạy hoàn hảo.
+
+**Files:** `web2/shared/web2-deeplink.js` (mới), `web2/shared/web2-theme.css`, supplier-debt/supplier-wallet/so-order/products (HTML+JS). Bump `?v=20260614dl`. **Status:** ✅
+
 ### [web2] UX đợt C — Medium/Low ~21 trang: modal Esc/Enter + autofocus + mobile + empty-state icon + silent-catch + aria-label ✅
 
 **User:** "tiếp tục" (sau đợt B). Làm tiếp 🟧 Medium/Low của `docs/web2/WEB2-UX-AUDIT.md`, chỉ phần low-risk giá trị cao.

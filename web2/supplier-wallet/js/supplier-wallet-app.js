@@ -225,6 +225,34 @@
         document.getElementById('swStatPaid').textContent = fmtVnd(w.paidAmount);
         document.getElementById('swStatReturned').textContent = fmtVnd(w.returnedAmount);
         document.getElementById('swStatBalance').textContent = fmtVnd(w.balance);
+        // Cross-links: Công nợ + Sổ Order (injected into modal header each open)
+        const _xlinks = document.getElementById('swDetailXLinks');
+        if (window.Web2Deeplink?.url && window.Web2Deeplink?.linkBtn) {
+            const _linksHtml =
+                Web2Deeplink.linkBtn({
+                    label: 'Công nợ',
+                    icon: 'file-text',
+                    url: Web2Deeplink.url.supplierDebt(supplier),
+                    title: 'Xem bảng công nợ NCC',
+                }) +
+                Web2Deeplink.linkBtn({
+                    label: 'Sổ Order',
+                    icon: 'notebook',
+                    url: Web2Deeplink.url.soOrder({ supplier }),
+                    title: 'Xem Sổ Order của NCC này',
+                });
+            if (_xlinks) {
+                _xlinks.innerHTML = _linksHtml;
+            } else {
+                const _sub = document.getElementById('swDetailSub');
+                const _wrap = document.createElement('div');
+                _wrap.id = 'swDetailXLinks';
+                _wrap.className = 'sw-detail-xlinks';
+                _wrap.innerHTML = _linksHtml;
+                _sub.insertAdjacentElement('afterend', _wrap);
+            }
+            if (window.lucide?.createIcons) window.lucide.createIcons();
+        }
         renderDetailTabs();
         document.getElementById('swDetailModal').hidden = false;
     }
@@ -659,6 +687,15 @@
             window.Web2ProductsCache.init().catch(() => {});
         }
         await loadAndRender();
+        // Deep-link: ?supplier=<name> → auto-open detail drawer
+        const _dlSup = window.Web2Deeplink?.param('supplier');
+        if (_dlSup) {
+            if (walletState.wallets[_dlSup]) {
+                openDetail(_dlSup);
+            } else {
+                notify('Không tìm thấy NCC: ' + _dlSup, 'warning');
+            }
+        }
         // Firestore sync
         const ok = await window.SupplierWalletStorage.Sync.init((remote) => {
             walletState = remote;

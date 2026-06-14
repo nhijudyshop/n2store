@@ -562,9 +562,24 @@
                     : r.supplier;
                 const note = getNoteForRow(r);
                 const noteHtml = note ? `<div class="sd-row-note">${escapeHtml(note)}</div>` : '';
+                const _dlVi =
+                    window.Web2Deeplink?.linkBtn({
+                        label: 'Ví',
+                        icon: 'wallet',
+                        url: window.Web2Deeplink.url.supplierWallet(r.supplier),
+                        title: 'Ví NCC: ' + r.supplier,
+                    }) ?? '';
+                const _dlSo =
+                    window.Web2Deeplink?.linkBtn({
+                        label: 'Sổ Order',
+                        icon: 'notebook',
+                        url: window.Web2Deeplink.url.soOrder({ supplier: r.supplier }),
+                        title: 'Sổ Order NCC: ' + r.supplier,
+                    }) ?? '';
                 const actionBtns = `<span class="sd-row-actions">
                     <button class="sd-action-btn sd-action-pay" type="button" data-action-pay="${escapeHtml(r.supplier)}" title="Thanh toán" aria-label="Thanh toán">💳</button>
                     <button class="sd-action-btn sd-action-note ${note ? 'has-note' : ''}" type="button" data-action-note="${escapeHtml(r.supplier)}" title="Sửa ghi chú" aria-label="Sửa ghi chú">✏️</button>
+                    ${_dlVi}${_dlSo}
                 </span>`;
                 return `<tr class="sd-main-row ${cls} ${isExpanded ? 'is-expanded' : ''}" data-supplier="${escapeHtml(r.supplier)}">
                     <td class="num-stt">${stt}</td>
@@ -590,7 +605,7 @@
         body.querySelectorAll('tr.sd-main-row').forEach((tr) => {
             tr.addEventListener('click', (e) => {
                 // Don't intercept clicks on tab buttons / actions
-                if (e.target.closest('.sd-tab, .sd-expand-btn, .sd-action-btn')) return;
+                if (e.target.closest('.sd-tab, .sd-expand-btn, .sd-action-btn, .w2-xlink')) return;
                 toggleExpand(tr.dataset.supplier);
             });
         });
@@ -1240,6 +1255,34 @@
         await loadAll();
         applyFilterAndRender();
         if (window.lucide?.createIcons) window.lucide.createIcons();
+
+        // Deep-link focus: ?supplier=<name> → filter + expand + flash row
+        const _dlSup = window.Web2Deeplink?.param('supplier');
+        if (_dlSup) {
+            const srchEl = document.getElementById('sdSearch');
+            if (srchEl) srchEl.value = _dlSup;
+            STATE.filters.search = _dlSup;
+            applyFilterAndRender();
+            if (window.lucide?.createIcons) window.lucide.createIcons();
+            const targetRow = document.querySelector(
+                `tr.sd-main-row[data-supplier="${CSS.escape(_dlSup)}"]`
+            );
+            if (targetRow) {
+                // Expand if not already expanded
+                if (!STATE.expanded.has(_dlSup)) toggleExpand(_dlSup);
+                targetRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                targetRow.classList.add('w2-deeplink-flash');
+                setTimeout(() => targetRow.classList.remove('w2-deeplink-flash'), 2400);
+            } else {
+                if (window.notificationManager?.show) {
+                    notificationManager.show(
+                        'Không thấy NCC trong khoảng ngày hiện tại: ' + _dlSup,
+                        'info'
+                    );
+                }
+            }
+        }
+
         _sseConnect();
     }
 
