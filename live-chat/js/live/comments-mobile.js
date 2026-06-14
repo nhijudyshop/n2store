@@ -1,33 +1,38 @@
 // #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 — controller viewer comment live (mobile, chỉ xem).
 // =====================================================================
-// comments-mobile.js — đọc comment livestream từ kho web2_live_comments
-// (qua Cloudflare worker → Render), render card mobile, tap → bottom-sheet
-// chi tiết, realtime SSE web2:live-comments. KHÔNG tạo đơn / KHÔNG chat —
-// chỉ XEM. Múi giờ hiển thị = GMT+7 (Asia/Ho_Chi_Minh).
-//
-// Tính năng:
-//  • Avatar: comment.avatar (poller fill từ Pancake profile) → fallback initials.
-//  • Địa chỉ + trạng thái KH: enrich từ KHO web2_customers (batch-by-phone +
-//    batch-by-fbid) — KHO KH TRƯỚC, Pancake SAU (CLAUDE.md). Status: VIP/Bom/
-//    Cảnh báo/Nguy hiểm/Khách quen/Mới.
-//  • Ẩn comment: mặc định ẩn comment CỦA SHOP (NhiJudy House/Store tự reply) +
-//    ẩn từng comment thủ công + nút "Đã ẩn" để xem lại.
-//  • Chọn livestream: picker bài đang/đã live (GET /posts + /page-posts) → lọc
-//    comment theo post_id.
+// comments-mobile.js — viewer comment livestream MOBILE (chỉ XEM, không tạo
+// đơn/chat). DÙNG CHUNG NGUỒN với live-chat/index.html để đỡ tốn tài nguyên:
+//   • Avatar  : worker /api/fb-avatar (giống SharedUtils.getAvatarUrl).
+//   • Thumbnail: Render /api/livestream/snapshots/by-comment-ids (frame thật).
+//   • Ẩn người: module LiveHiddenCommenters (record server `global`, SSE-sync
+//               mọi máy + desktop) — mặc định ẩn 2 page shop.
+//   • Địa chỉ/trạng thái: kho web2_customers (batch-by-phone / batch-by-fbid).
+//   • Tên bài : /posts (persist) + /page-posts (live).
+// Múi giờ hiển thị = GMT+7. Anti-jank: render debounce + cap rows + lazy media.
 // =====================================================================
 (function () {
     'use strict';
 
     const WORKER = 'https://chatomni-proxy.nhijudyshop.workers.dev';
+    // Snapshot phục vụ TRỰC TIẾP từ Render (worker proxy /api/livestream/* → TPOS).
+    const RENDER = 'https://n2store-fallback.onrender.com';
     const LIMIT = 200; // "Tất cả livestream"
-    const POST_LIMIT = 1000; // khi chọn 1 bài cụ thể
-    const LIVE_RECENT_MS = 12 * 60 * 1000; // last_at trong 12' → coi như đang live
+    const POST_LIMIT = 1000; // khi chọn 1 bài
+    const RENDER_CAP_STEP = 100; // số dòng dựng mỗi lần (anti-jank)
+    const THUMB_SCAN = 80; // số comment đầu xin thumbnail
+    const LIVE_RECENT_MS = 12 * 60 * 1000;
     const PAGE = {
         270136663390370: { t: 'Store', c: 'pg-store' },
         117267091364524: { t: 'House', c: 'pg-house' },
     };
-    const LS_HIDE_SHOP = 'cm_hideShop';
-    const LS_HIDDEN = 'cm_hidden_ids';
+
+    // Shim cho LiveHiddenCommenters (module dùng chung): nó đọc workerUrl +
+    // gọi LiveCommentList.renderComments() khi list ẩn đổi. ĐẶT TRƯỚC khi module
+    // boot (script này load trước live-hidden-commenters.js).
+    window.LiveState = window.LiveState || {};
+    window.LiveState.workerUrl = WORKER;
+    window.LiveCommentList = window.LiveCommentList || {};
+    window.LiveCommentList.renderComments = () => scheduleRender();
 
     const $ = (s) => document.querySelector(s);
     const listEl = $('#list');
@@ -43,40 +48,20 @@
     const toastEl = $('#toast');
     const lightbox = $('#lightbox');
     const lightboxImg = $('#lightboxImg');
-    const tgShop = $('#tgShop');
-    const tgHidden = $('#tgHidden');
-    const tgHiddenLabel = $('#tgHiddenLabel');
+    const hideCountEl = $('#hideCount');
     const postSel = $('#postSel');
     const postSelLabel = $('#postSelLabel');
 
     // ---------- state ----------
-    let ALL = []; // comments (newest-first) ở scope hiện tại
-    let THUMBS = {}; // commentId → { thumbnail_url, livestream_url }
-    let filter = ''; // chip page/status: ''|store|house|order|phone
-    let selectedPost = null; // null = tất cả | { post_id, page_id, living, title }
-    let posts = []; // danh sách bài cho picker
-    let anyLive = false; // có bài đang live (cho LIVE tag khi xem "tất cả")
+    let ALL = [];
+    let THUMBS = {}; // commentId → { thumbnailUrl, livestreamUrl }
+    let filter = '';
+    let selectedPost = null;
+    let posts = [];
+    let anyLive = false;
     let topId = null;
-    const custMap = { phone: {}, fb: {} }; // enrich từ kho (persistent cache)
-
-    let hideShop = localStorage.getItem(LS_HIDE_SHOP) !== '0'; // mặc định ẩn shop
-    let showHidden = false;
-    const hiddenSet = new Set(loadHidden());
-
-    function loadHidden() {
-        try {
-            return JSON.parse(localStorage.getItem(LS_HIDDEN) || '[]');
-        } catch {
-            return [];
-        }
-    }
-    function saveHidden() {
-        try {
-            localStorage.setItem(LS_HIDDEN, JSON.stringify([...hiddenSet]));
-        } catch {
-            /* quota */
-        }
-    }
+    let renderCap = RENDER_CAP_STEP;
+    const custMap = { phone: {}, fb: {} };
 
     // ---------- helpers ----------
     const esc = (s) =>
@@ -93,7 +78,6 @@
         if (/store/i.test(nm)) return { t: 'Store', c: 'pg-store' };
         return nm ? { t: nm.slice(0, 8), c: 'pg-store' } : null;
     }
-
     function normP(p) {
         let s = String(p == null ? '' : p).replace(/\D/g, '');
         if (s.startsWith('84')) s = '0' + s.slice(2);
@@ -150,15 +134,18 @@
         for (let i = 0; i < String(s).length; i++) h = (h * 31 + String(s).charCodeAt(i)) | 0;
         return AVC[Math.abs(h) % AVC.length];
     }
+    // Avatar: DÙNG CHUNG worker /api/fb-avatar (giống SharedUtils.getAvatarUrl).
+    // Lỗi/timeout → fallback initials màu (data-fb).
     function avatarHtml(c, big) {
         const cls = big ? 'sh-av' : 'av';
-        const url = c.avatar && /^https?:/.test(c.avatar) ? c.avatar : '';
         const nm = nameOf(c);
         const initial = esc((nm || '?').trim().charAt(0).toUpperCase() || '?');
         const phDiv = `<div class="${cls} av-ph" style="background:${avHash(c.fb_id || nm)}">${initial}</div>`;
-        if (url)
-            return `<img class="${cls}" src="${esc(url)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.outerHTML=this.dataset.fb" data-fb='${phDiv.replace(/'/g, '&#39;')}'>`;
-        return phDiv;
+        const fid = String(c.fb_id || '');
+        if (!fid) return phDiv;
+        const pid = String(c.page_id || '');
+        const url = `${WORKER}/api/fb-avatar?id=${encodeURIComponent(fid)}${pid ? '&page=' + encodeURIComponent(pid) : ''}`;
+        return `<img class="${cls}" src="${esc(url)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.outerHTML=this.dataset.fb" data-fb='${phDiv.replace(/'/g, '&#39;')}'>`;
     }
 
     const ICO = {
@@ -211,7 +198,6 @@
             return {};
         }
     }
-
     async function enrichWarehouse(data) {
         const phones = [
             ...new Set(data.map((c) => normP(c.phone)).filter((p) => p && p.length >= 9)),
@@ -245,12 +231,23 @@
         if (jobs.length) await Promise.allSettled(jobs);
     }
 
-    // ---------- shop-own + hidden ----------
+    // ---------- ẩn theo NGƯỜI (module dùng chung) ----------
     function isShopOwn(c) {
         const fid = String(c.fb_id || '');
         const pid = String(c.page_id || '');
         if (fid && pid && fid === pid) return true;
         return /nhijudy\s*(house|store)/i.test(String(c.customer_name || ''));
+    }
+    // Module dùng comment.from.id|fb_id + tên — shape mobile (fb_id/customer_name)
+    // tương thích. Trước khi module load xong → fallback ẩn 2 page shop.
+    function isHiddenPerson(c) {
+        const H = window.LiveHiddenCommenters;
+        if (H && H.isHidden) return H.isHidden(c);
+        return isShopOwn(c);
+    }
+    function hiddenCount() {
+        const H = window.LiveHiddenCommenters;
+        return H && H.list ? H.list().length : 2;
     }
 
     // ---------- filters ----------
@@ -263,22 +260,16 @@
         if (filter === 'phone') return !!(c.phone || '').trim();
         return true;
     }
-    function visible(c) {
-        if (!pass(c)) return false;
-        if (isShopOwn(c) && hideShop) return false;
-        if (hiddenSet.has(String(c.id)) && !showHidden) return false;
-        return true;
-    }
+    const visible = (c) => pass(c) && !isHiddenPerson(c);
 
-    // ---------- render card ----------
+    // ---------- render (debounce + cap → anti-jank) ----------
     function cardHtml(c) {
         const pg = pageOf(c);
         const t = THUMBS[c.id];
-        const thumb = t && t.thumbnail_url;
+        const thumb = t && t.thumbnailUrl;
         const st = statusOf(c);
         const phone = (c.phone || '').trim();
         const addr = addrOf(c);
-        const isHid = hiddenSet.has(String(c.id));
         const meta =
             phone || addr
                 ? `<div class="meta">
@@ -286,11 +277,11 @@
                 ${addr ? `<span class="mchip mc-addr">${ICO.pin}<span>${esc(addr)}</span></span>` : ''}
               </div>`
                 : `<div class="meta"><span class="mchip mc-empty">Chưa có SĐT/địa chỉ</span></div>`;
-        return `<article class="card${ordered(c) ? ' ordered' : ''}${isHid ? ' is-hidden' : ''}" data-id="${esc(c.id)}">
+        return `<article class="card${ordered(c) ? ' ordered' : ''}" data-id="${esc(c.id)}">
             <div class="c-top">
                 ${avatarHtml(c)}
                 <div class="c-id">
-                    <div class="c-name">${esc(nameOf(c))}${pg ? `<span class="pgbadge ${pg.c}">${esc(pg.t)}</span>` : ''}${isHid ? '<span class="hidetag">đã ẩn</span>' : ''}</div>
+                    <div class="c-name">${esc(nameOf(c))}${pg ? `<span class="pgbadge ${pg.c}">${esc(pg.t)}</span>` : ''}</div>
                     <div class="c-time">${esc(fmtTime(c.created_time))}</div>
                 </div>
                 <span class="st ${st.cls}">${esc(st.label)}</span>
@@ -300,25 +291,29 @@
                     <p class="c-msg">${esc(c.message || '(không có nội dung)')}</p>
                     ${meta}
                 </div>
-                ${thumb ? `<img class="thumb" src="${esc(thumb)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">` : ''}
+                ${thumb ? `<img class="thumb" src="${esc(thumb)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.remove()">` : ''}
             </div>
         </article>`;
     }
 
-    function render() {
-        // cập nhật label toggle "Đã ẩn (N)"
-        const nHidden = ALL.filter((c) => hiddenSet.has(String(c.id))).length;
-        tgHiddenLabel.textContent = nHidden ? `Đã ẩn (${nHidden})` : 'Đã ẩn';
-        tgShop.classList.toggle('on', hideShop);
-        tgHidden.classList.toggle('on', showHidden);
-
+    let renderT;
+    function scheduleRender() {
+        clearTimeout(renderT);
+        renderT = setTimeout(doRender, 80);
+    }
+    function doRender() {
+        if (hideCountEl) hideCountEl.textContent = hiddenCount();
         const rows = ALL.filter(visible);
         countEl.textContent = rows.length + (rows.length >= LIMIT ? '+' : '') + ' comment';
         if (!rows.length) {
-            listEl.innerHTML = `<div class="empty"><div class="ic">🗒️</div>Chưa có comment ${filter || selectedPost || hideShop ? 'khớp bộ lọc' : 'nào'}.</div>`;
+            listEl.innerHTML = `<div class="empty"><div class="ic">🗒️</div>Chưa có comment ${filter || selectedPost ? 'khớp bộ lọc' : 'nào'}.</div>`;
             return;
         }
-        listEl.innerHTML = rows.map(cardHtml).join('');
+        const shown = rows.slice(0, renderCap);
+        let html = shown.map(cardHtml).join('');
+        if (rows.length > renderCap)
+            html += `<button class="more-btn" id="moreBtn">Xem thêm ${rows.length - renderCap} comment</button>`;
+        listEl.innerHTML = html;
     }
 
     function skeleton() {
@@ -346,20 +341,20 @@
         const phone = (c.phone || '').trim();
         const addr = addrOf(c);
         const st = statusOf(c);
+        const nm = nameOf(c);
         const fb = c.fb_id ? `https://facebook.com/${esc(c.fb_id)}` : '';
-        const isHid = hiddenSet.has(String(c.id));
         const field = (k, v) =>
             `<div class="sh-field"><div class="k">${k}</div><div class="v">${v || '—'}</div></div>`;
         sheetBody.innerHTML = `
             <div class="sh-hero">
                 ${avatarHtml(c, true)}
                 <div style="min-width:0">
-                    <div class="sh-name">${esc(nameOf(c))}</div>
+                    <div class="sh-name">${esc(nm)}</div>
                     <div class="sh-sub">${pg ? esc(pg.t) + ' · ' : ''}${esc(fmtTime(c.created_time))}</div>
                 </div>
             </div>
             <div class="sh-quote">${esc(c.message || '(không có nội dung)')}</div>
-            ${t.thumbnail_url ? `<img class="sh-thumb" id="shThumb" src="${esc(t.thumbnail_url)}" alt="" referrerpolicy="no-referrer" onerror="this.remove()">` : ''}
+            ${t.thumbnailUrl ? `<img class="sh-thumb" id="shThumb" src="${esc(t.thumbnailUrl)}" alt="" referrerpolicy="no-referrer" onerror="this.remove()">` : ''}
             ${field('SĐT', phone ? `<a href="tel:${esc(phone)}" style="color:var(--c-primary);text-decoration:none;font-weight:700">${esc(phone)}</a>` : '')}
             ${field('Địa chỉ', esc(addr))}
             ${field('Trạng thái', `<span class="st ${st.cls}" style="display:inline-block">${esc(st.label)}</span>`)}
@@ -370,17 +365,23 @@
                 <a class="sh-act prim ${phone ? '' : 'dis'}" href="${phone ? 'tel:' + esc(phone) : '#'}">${ICO.phone}Gọi</a>
                 <a class="sh-act sec ${fb ? '' : 'dis'}" href="${fb}" target="_blank" rel="noopener">Mở Facebook</a>
             </div>
-            <button class="sh-hide" id="shHide" data-id="${esc(c.id)}">${isHid ? '↩︎ Bỏ ẩn comment này' : '🚫 Ẩn comment này'}</button>`;
+            ${t.livestreamUrl ? `<a class="sh-hide" style="display:block;text-align:center;text-decoration:none;color:var(--c-primary)" href="${esc(t.livestreamUrl)}" target="_blank" rel="noopener">🎬 Xem khoảnh khắc trong livestream</a>` : ''}
+            <button class="sh-hide" id="shHidePerson" data-fbid="${esc(c.fb_id || '')}" data-name="${esc(nm)}">🙈 Ẩn tất cả comment của người này</button>`;
         const sh = sheetBody.querySelector('#shThumb');
         if (sh)
             sh.addEventListener('click', () => {
-                lightboxImg.src = t.thumbnail_url;
+                lightboxImg.src = t.thumbnailUrl;
                 lightbox.classList.add('open');
             });
-        sheetBody.querySelector('#shHide').addEventListener('click', (e) => {
-            toggleHide(e.currentTarget.dataset.id);
-            closeSheet();
-        });
+        const hp = sheetBody.querySelector('#shHidePerson');
+        if (hp)
+            hp.addEventListener('click', (e) => {
+                const fid = e.currentTarget.dataset.fbid;
+                if (!fid) return toast('Không có FB ID để ẩn');
+                if (window.LiveHiddenCommenters?.hide)
+                    window.LiveHiddenCommenters.hide(fid, e.currentTarget.dataset.name || '');
+                closeSheet();
+            });
         sheetBack.classList.add('open');
         sheetEl.classList.add('open');
         document.body.style.overflow = 'hidden';
@@ -390,15 +391,8 @@
         sheetEl.classList.remove('open');
         document.body.style.overflow = '';
     }
-    function toggleHide(id) {
-        id = String(id);
-        if (hiddenSet.has(id)) hiddenSet.delete(id);
-        else hiddenSet.add(id);
-        saveHidden();
-        render();
-    }
 
-    // ---------- post picker (chọn livestream) ----------
+    // ---------- post picker ----------
     function postLiving(p) {
         if (p.living) return true;
         const d = parseTs(p.last_at || p.date);
@@ -427,11 +421,13 @@
                 page_id: String(p.page_id),
                 comment_count: p.comment_count || 0,
                 last_at: p.last_at,
-                title: titleMap[String(p.post_id)] || '',
+                title: titleMap[String(p.post_id)] || p.title || '',
                 living: liveMap[String(p.post_id)] || false,
             }));
             anyLive = posts.some(postLiving);
             updateLiveTag();
+            // Nếu picker đang mở → refresh nội dung.
+            if (pickerEl.classList.contains('open')) renderPicker();
         } catch {
             /* giữ posts cũ */
         }
@@ -444,7 +440,7 @@
         const pg = PAGE[p.page_id];
         const tag = pg ? pg.t : 'Live';
         const ttl = (p.title || '').trim();
-        return ttl ? `${tag} · ${ttl.slice(0, 40)}` : `${tag} · ${fmtTime(p.last_at)}`;
+        return ttl ? `${tag} · ${ttl.slice(0, 42)}` : `${tag} · ${fmtTime(p.last_at)}`;
     }
     function pickerRow(p, sel) {
         const pg = PAGE[p.page_id] || { t: 'Live', c: 'pg-store' };
@@ -452,14 +448,14 @@
         return `<div class="pk-row${sel ? ' sel' : ''}" data-post="${esc(p.post_id)}" data-page="${esc(p.page_id)}">
             <span class="pk-pg ${pg.c}">${esc(pg.t)}</span>
             <div class="pk-main">
-                <div class="pk-title">${esc(ttl || 'Livestream ' + p.post_id.split('_').pop())}</div>
+                <div class="pk-title">${esc(ttl || 'Buổi livestream')}</div>
                 <div class="pk-sub">${esc(fmtTime(p.last_at))} · cập nhật gần nhất</div>
             </div>
             <span class="pk-cnt">${p.comment_count}</span>
             ${sel ? '<span class="pk-check">✓</span>' : ''}
         </div>`;
     }
-    function openPicker() {
+    function renderPicker() {
         const live = posts.filter(postLiving);
         const ended = posts.filter((p) => !postLiving(p));
         const selId = selectedPost && selectedPost.post_id;
@@ -480,9 +476,13 @@
                 .join('')}`;
         if (!posts.length) html += `<div class="pk-empty">Chưa có bài livestream nào.</div>`;
         pickerBody.innerHTML = html;
+    }
+    function openPicker() {
+        renderPicker();
         pickerBack.classList.add('open');
         pickerEl.classList.add('open');
         document.body.style.overflow = 'hidden';
+        if (!posts.length) loadPosts();
     }
     function closePicker() {
         pickerBack.classList.remove('open');
@@ -490,12 +490,13 @@
         document.body.style.overflow = '';
     }
     function selectPost(p) {
-        selectedPost = p; // null = tất cả
+        selectedPost = p;
         postSelLabel.textContent = p ? postLabel(p) : 'Tất cả livestream';
         updateLiveTag();
         closePicker();
         ALL = [];
         topId = null;
+        renderCap = RENDER_CAP_STEP;
         load({ silent: false });
     }
 
@@ -504,7 +505,7 @@
         if (!ids.length) return {};
         try {
             const r = await fetch(
-                `${WORKER}/api/livestream/snapshots/by-comment-ids?commentIds=${encodeURIComponent(ids.join(','))}`,
+                `${RENDER}/api/livestream/snapshots/by-comment-ids?commentIds=${encodeURIComponent(ids.join(','))}`,
                 { credentials: 'omit' }
             );
             const j = await r.json();
@@ -529,15 +530,15 @@
             const newTop = data[0] && String(data[0].id);
             const hadNew = topId && newTop && newTop !== topId && window.scrollY > 240;
             ALL = data;
-            render(); // hiện ngay (initials + dữ liệu comment)
+            scheduleRender();
             topId = newTop;
             if (hadNew) showNewPill();
-            // enrich kho + thumbnail song song → re-render khi xong
+            // enrich kho + thumbnail (chỉ N đầu) song song → re-render coalesced.
             Promise.allSettled([
-                enrichWarehouse(data).then(render),
-                fetchThumbs(data.slice(0, 60).map((c) => c.id)).then((t) => {
+                enrichWarehouse(data).then(scheduleRender),
+                fetchThumbs(data.slice(0, THUMB_SCAN).map((c) => c.id)).then((t) => {
                     THUMBS = Object.assign({}, THUMBS, t);
-                    render();
+                    scheduleRender();
                 }),
             ]);
         } catch (e) {
@@ -567,6 +568,11 @@
     // ---------- events ----------
     listEl.addEventListener('click', (e) => {
         if (e.target.closest('a')) return;
+        if (e.target.closest('#moreBtn')) {
+            renderCap += RENDER_CAP_STEP;
+            scheduleRender();
+            return;
+        }
         const card = e.target.closest('.card');
         if (card) openSheet(card.dataset.id);
     });
@@ -584,6 +590,10 @@
         };
         selectPost(p);
     });
+    $('#btnHidden').addEventListener('click', () => {
+        if (window.LiveHiddenCommenters?.openManager) window.LiveHiddenCommenters.openManager();
+        else toast('Đang tải danh sách ẩn…');
+    });
     $('#btnRefresh').addEventListener('click', () => {
         loadPosts();
         load({ silent: false });
@@ -591,23 +601,12 @@
     $('#chips').addEventListener('click', (e) => {
         const ch = e.target.closest('.chip');
         if (!ch) return;
-        if (ch.id === 'tgShop') {
-            hideShop = !hideShop;
-            localStorage.setItem(LS_HIDE_SHOP, hideShop ? '1' : '0');
-            render();
-            return;
-        }
-        if (ch.id === 'tgHidden') {
-            showHidden = !showHidden;
-            render();
-            return;
-        }
-        // chip page/status (single-select)
         document
-            .querySelectorAll('#chips .chip:not(.tg)')
+            .querySelectorAll('#chips .chip')
             .forEach((x) => x.classList.toggle('on', x === ch));
         filter = ch.dataset.pg || '';
-        render();
+        renderCap = RENDER_CAP_STEP;
+        scheduleRender();
         window.scrollTo({ top: 0, behavior: 'smooth' });
     });
     newpill.addEventListener('click', () => {
@@ -616,7 +615,7 @@
     });
     lightbox.addEventListener('click', () => lightbox.classList.remove('open'));
 
-    // pull-to-refresh đơn giản (kéo xuống ở đỉnh)
+    // pull-to-refresh
     let startY = 0,
         pulling = false;
     window.addEventListener(
@@ -655,8 +654,8 @@
     load();
     loadPosts();
     wireSse();
-    setInterval(() => load({ silent: true }), 60000); // phòng SSE rớt
-    setInterval(loadPosts, 90000); // refresh trạng thái live
+    setInterval(() => load({ silent: true }), 60000);
+    setInterval(loadPosts, 90000);
     document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible') {
             load({ silent: true });

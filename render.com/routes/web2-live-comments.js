@@ -480,7 +480,42 @@ async function ensureCampaignTables(pool) {
             post_title  TEXT,
             assigned_at BIGINT
         );
+        -- Tên bài livestream (FB post message) — persist để hiện trong picker
+        -- viewer (mobile/desktop) kể cả khi JWT Pancake hết hạn. Ghi từ /page-posts
+        -- (piggyback call hiện có, KHÔNG thêm call Pancake mới).
+        CREATE TABLE IF NOT EXISTS web2_live_post_titles (
+            post_id    VARCHAR(120) PRIMARY KEY,
+            page_id    VARCHAR(50),
+            title      TEXT,
+            updated_at BIGINT
+        );
     `);
+}
+
+// Best-effort upsert tên bài (từ /page-posts). KHÔNG throw — title là phụ trợ.
+async function _persistPostTitles(pool, posts) {
+    if (!Array.isArray(posts) || !posts.length) return;
+    try {
+        const rows = posts.filter((p) => p && p.postId && p.title && p.title !== '(livestream)');
+        if (!rows.length) return;
+        const now = Date.now();
+        const vals = [];
+        const params = [];
+        rows.forEach((p, i) => {
+            const b = i * 4;
+            vals.push(`($${b + 1},$${b + 2},$${b + 3},$${b + 4})`);
+            params.push(String(p.postId), String(p.pageId || ''), String(p.title), now);
+        });
+        await pool.query(
+            `INSERT INTO web2_live_post_titles (post_id, page_id, title, updated_at)
+             VALUES ${vals.join(',')}
+             ON CONFLICT (post_id) DO UPDATE SET
+                title = EXCLUDED.title, page_id = EXCLUDED.page_id, updated_at = EXCLUDED.updated_at`,
+            params
+        );
+    } catch (e) {
+        console.warn('[WEB2-LIVE-COMMENTS] persist post titles fail:', e.message);
+    }
 }
 
 // GET /campaigns — list chiến dịch cha + số bài + số comment.
@@ -556,11 +591,13 @@ router.get('/posts', async (req, res) => {
                    MAX(lc.page_name) AS page_name,
                    COUNT(*)::int AS comment_count,
                    MAX(lc.created_time) AS last_at,
-                   a.campaign_id
+                   a.campaign_id,
+                   COALESCE(t.title, a.post_title) AS title
             FROM web2_live_comments lc
             LEFT JOIN web2_live_post_assign a ON a.post_id = lc.post_id
+            LEFT JOIN web2_live_post_titles t ON t.post_id = lc.post_id
             WHERE lc.post_id IS NOT NULL
-            GROUP BY lc.post_id, lc.page_id, a.campaign_id
+            GROUP BY lc.post_id, lc.page_id, a.campaign_id, t.title, a.post_title
             ORDER BY last_at DESC LIMIT 200`);
         res.json({ success: true, data: r.rows });
     } catch (e) {
@@ -583,6 +620,8 @@ router.get('/page-posts', async (req, res) => {
         } catch (e) {
             console.warn('[web2-live-comments] page-posts poller fail:', e.message);
         }
+        // Persist tên bài (best-effort) → /posts đọc lại được kể cả khi JWT hết hạn.
+        await _persistPostTitles(pool, posts);
         // Merge campaign_id từ web2_live_post_assign.
         const a = await pool.query('SELECT post_id, campaign_id FROM web2_live_post_assign');
         const map = {};

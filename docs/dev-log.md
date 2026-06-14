@@ -2,6 +2,22 @@
 
 ## 2026-06-14
 
+### [live-chat][render] Comment mobile v3 — DÙNG CHUNG NGUỒN với index.html: avatar thật + thumbnail + ẩn-theo-người + hết giật ✅
+
+**User (5 ý):** 1/ẩn comment (modal "Người bị ẩn" như desktop) 2/hiện tên bài livestream 3/hiện thumbnail 4/dùng chung nguồn với `live-chat/index.html` đỡ tốn tài nguyên 5/trang bị **giật/treo** → debug & fix hết.
+
+**Quyết định kiến trúc (#4):** KHÔNG load full engine desktop (~40 script: firebase/lucide/auth = nặng + chính nó cũng giật). Giữ trang **nhẹ** nhưng dùng **CHUNG BACKEND** với desktop:
+
+- **#1 Avatar (95/95 thật):** `${WORKER}/api/fb-avatar?id=<fb_id>&page=<page_id>` — đúng nguồn `SharedUtils.getAvatarUrl` (auth-free). Fallback initials nếu lỗi. (Trước: 0 avatar.)
+- **#1 Ẩn theo NGƯỜI (modal hình 1):** **reuse module `live-hidden-commenters.js`** — record server `global` (`/api/web2/live-hidden-commenters`, SSE `web2:live-hidden-commenters`) **dùng chung desktop**: ẩn ở máy này/desktop → đồng bộ mọi máy. Mặc định ẩn 2 page shop. Shim `window.LiveState.workerUrl` + `window.LiveCommentList.renderComments→scheduleRender` để module re-render đúng. Nút header `🙈 (N)` → `openManager()` (modal "🙈 Người bị ẩn comment" + Bỏ ẩn). Sheet chi tiết: "Ẩn tất cả comment của người này" → `LiveHiddenCommenters.hide()`. Bỏ toggle localStorage cũ.
+- **#3 Thumbnail (64–71/88):** trước gọi nhầm `${WORKER}/api/livestream/...` → worker proxy sang **TPOS 404**. Sửa: gọi **trực tiếp Render** `n2store-fallback.onrender.com/api/livestream/snapshots/by-comment-ids`, đọc field **`thumbnailUrl`** (camelCase, không phải `thumbnail_url`) + bonus `livestreamUrl` (deep-link "Xem khoảnh khắc trong livestream" trong sheet).
+- **#2 Tên bài:** backend `web2-live-comments.js` — bảng `web2_live_post_titles` + `/page-posts` persist title (piggyback call có sẵn, 0 call Pancake mới) + `/posts` LEFT JOIN trả `title`. Picker hiện title khi có; fallback "Buổi livestream". (Title đầy dần khi deploy + có JWT Pancake lúc live.)
+- **#5 Hết giật:** render **debounce 80ms** (gom enrich+thumb+SSE+poll thành 1 lần thay vì rebuild 3–5 lần), **cap 100 dòng** + nút "Xem thêm", **lazy** avatar/thumbnail. Đo `PerformanceObserver(longtask)` khi cuộn hết list: **0 long-task, 0ms** (trước: treo).
+
+**Files:** `live-chat/comments-mobile.html` (nút 🙈 header + load notification-system + live-hidden-commenters + bỏ toggle pills + more-btn css), `live-chat/js/live/comments-mobile.js` (rewrite: fb-avatar, snapshots direct-render, isHiddenPerson qua module, picker title, render pipeline), `render.com/routes/web2-live-comments.js` (post-titles). Bump `?v=20260614cm3`.
+
+**Verify browser (eval state, 0 screenshot mù):** 95 card, **avImg 95/95**, **thumb 64–71**, hidden modal = hình 1 (House/Store + Bỏ ẩn), shop ẩn mặc định, status kho (Khách quen 82/Mới 6), picker 22 bài + count, **console CLEAN**, **0 long-task khi cuộn**. **Status:** ✅ (#2 title self-heal sau deploy + live).
+
 ### [shared] Thêm "Comment Live 📱" vào sidebar (Sale Online) ✅
 
 **User:** thêm livestream điện thoại vào thanh menu.
