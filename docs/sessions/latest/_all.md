@@ -3,14 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `42d3b9f` — refactor(live-chat): rebuild CSS phase A — xóa 2398 dòng dead (live-chat.css+modern.css), fix index --pkr token bug, +blueprint
-**Last updated**: 2026-06-13 23:47:38 +07
-**Latest session**: [`RESUME:20260613-234738-42d3b9f`](../20260613-234738-42d3b9f.md)
-**Summary**: refactor(live-chat): rebuild CSS phase A — xóa 2398 dòng dead (live-chat.css+modern.css), fix index --pkr token b...
+**Latest commit**: `16b1ddd` — auto: session update
+**Last updated**: 2026-06-14 08:05:16 +07
+**Latest session**: [`RESUME:20260614-080516-16b1ddd`](../20260614-080516-16b1ddd.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 2 file(s)
+- [`live-chat/`](./live-chat.md) — 5 file(s)
 
 ## All folder snapshots
 
@@ -38,7 +38,7 @@
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-06-13 14:55
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-12 19:21
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
-- [`live-chat/`](./live-chat.md) — updated 2026-06-13 23:45
+- [`live-chat/`](./live-chat.md) — updated 2026-06-14 08:05
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-06-04 20:02
 - [`native-orders/`](./native-orders.md) — updated 2026-06-13 23:28
 - [`nhanhang/`](./nhanhang.md) — updated 2026-06-13 19:51
