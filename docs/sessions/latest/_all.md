@@ -3,16 +3,20 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `29088d0` — feat(live-chat): shared realtime comment module — append-only + self-tick time + địa chỉ desktop
-**Last updated**: 2026-06-14 14:27:57 +07
-**Latest session**: [`RESUME:20260614-142757-29088d0`](../20260614-142757-29088d0.md)
-**Summary**: feat(live-chat): shared realtime comment module — append-only + self-tick time + địa chỉ desktop
+**Latest commit**: `7f0f8d0` — docs(render): ghi lại tách web2-api (Web1⊥Web2 service split) — dev-log + RENDER_SERVERS_GUIDE
+**Last updated**: 2026-06-14 15:18:41 +07
+**Latest session**: [`RESUME:20260614-151841-7f0f8d0`](../20260614-151841-7f0f8d0.md)
+**Summary**: docs(render): ghi lại tách web2-api (Web1⊥Web2 service split) — dev-log + RENDER_SERVERS_GUIDE
 
 ## Folders affected in this commit
 
 - [`cloudflare-worker/`](./cloudflare-worker.md) — 1 file(s)
-- [`docs/`](./docs.md) — 1 file(s)
-- [`live-chat/`](./live-chat.md) — 6 file(s)
+- [`docs/`](./docs.md) — 2 file(s)
+- [`live-chat/`](./live-chat.md) — 4 file(s)
+- [`native-orders/`](./native-orders.md) — 1 file(s)
+- [`orders-report/`](./orders-report.md) — 6 file(s)
+- [`render.com/`](./render.com.md) — 5 file(s)
+- [`web2/`](./web2.md) — 15 file(s)
 
 ## All folder snapshots
 
@@ -24,10 +28,10 @@
 - [`balance-history-home/`](./balance-history-home.md) — updated 2026-05-21 15:39
 - [`balance-history/`](./balance-history.md) — updated 2026-06-11 16:49
 - [`bangkiemhang/`](./bangkiemhang.md) — updated 2026-05-21 15:39
-- [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-14 14:27
+- [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-14 15:18
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-14 13:12
-- [`docs/`](./docs.md) — updated 2026-06-14 14:27
+- [`docs/`](./docs.md) — updated 2026-06-14 15:18
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-13 14:55
 - [`downloads/`](./downloads.md) — updated 2026-06-13 19:16
@@ -40,14 +44,14 @@
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-06-13 14:55
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-12 19:21
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
-- [`live-chat/`](./live-chat.md) — updated 2026-06-14 14:27
+- [`live-chat/`](./live-chat.md) — updated 2026-06-14 15:18
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-06-04 20:02
 - [`n2store-facebook/`](./n2store-facebook.md) — updated 2026-06-14 13:09
 - [`n2store-realtime/`](./n2store-realtime.md) — updated 2026-06-14 12:30
-- [`native-orders/`](./native-orders.md) — updated 2026-06-14 11:20
+- [`native-orders/`](./native-orders.md) — updated 2026-06-14 15:18
 - [`nhanhang/`](./nhanhang.md) — updated 2026-06-13 19:51
 - [`order-management/`](./order-management.md) — updated 2026-05-21 15:39
-- [`orders-report/`](./orders-report.md) — updated 2026-06-13 14:55
+- [`orders-report/`](./orders-report.md) — updated 2026-06-14 15:18
 - [`pancake-extension/`](./pancake-extension.md) — updated 2026-05-21 11:33
 - [`phone-management/`](./phone-management.md) — updated 2026-05-21 15:39
 - [`product-warehouse/`](./product-warehouse.md) — updated 2026-06-04 13:36
@@ -55,7 +59,7 @@
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-05-21 15:39
-- [`render.com/`](./render.com.md) — updated 2026-06-14 14:01
+- [`render.com/`](./render.com.md) — updated 2026-06-14 15:18
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-14 14:01
 - [`service-costs/`](./service-costs.md) — updated 2026-06-14 13:09
@@ -75,4 +79,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-14 14:01
+- [`web2/`](./web2.md) — updated 2026-06-14 15:18
