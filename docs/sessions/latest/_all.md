@@ -3,15 +3,13 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `ef24e86` — docs(claude): browser test FIFO/cổng động — tránh tranh chấp đa phiên
-**Last updated**: 2026-06-14 19:04:01 +07
-**Latest session**: [`RESUME:20260614-190401-ef24e86`](../20260614-190401-ef24e86.md)
-**Summary**: docs(claude): browser test FIFO/cổng động — tránh tranh chấp đa phiên
+**Latest commit**: `52603a8` — auto: session update
+**Last updated**: 2026-06-14 19:30:05 +07
+**Latest session**: [`RESUME:20260614-193005-52603a8`](../20260614-193005-52603a8.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`_root/`](./_root.md) — 1 file(s)
-- [`docs/`](./docs.md) — 1 file(s)
 - [`render.com/`](./render.com.md) — 1 file(s)
 
 ## All folder snapshots
@@ -55,7 +53,7 @@
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-06-14 16:52
-- [`render.com/`](./render.com.md) — updated 2026-06-14 19:04
+- [`render.com/`](./render.com.md) — updated 2026-06-14 19:30
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-14 14:01
 - [`service-costs/`](./service-costs.md) — updated 2026-06-14 13:09
