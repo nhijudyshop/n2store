@@ -58,6 +58,16 @@
 
 **✅ SePay realtime cross-instance (FIXED)**: `/api/sepay` vẫn → fallback (web1 đúng); web2 fan-out (CK→ví KH) phát notify trên fallback. `realtime-sse-web2.js notifyClients()` forward cross-instance sang `web2-api/api/realtime/web2/sse/relay-notify` khi env `WEB2_API_FORWARD_URL` set (CHỈ fallback). Phủ mọi web2 notify trên fallback (sepay + wallet event + ck-watcher). web2-api không set env → không forward (tránh loop).
 
+---
+
+## DB + Firebase Web 2.0 (research 2026-06-14)
+
+**Postgres `n2store-web2-db` (web2Db)** — `dpg-d8d7besp3tds73f8gr60-a`, basic_1gb, PG18, DB `n2store_web2` (~161 MB, ~43 bảng). Pool `render.com/db/web2-pool.js` (env `WEB2_DATABASE_URL`, max:10, type-parser TIMESTAMP→`+07:00`), tách hẳn chatDb. Accessor `req.app.locals.web2Db || chatDb`. **Guard 3W7** (`server.js:130-149`): thiếu env → fallback chatDb (PROD Web1 = mất data); `WEB2_REQUIRE_DB=1` (đã bật web2-api) → fail-fast `exit(1)`. **Không file schema gộp** — mỗi route/service tự `ensureTables()` idempotent mỗi boot.
+
+Bảng lớn nhất (live): `web2_customers` 64.3k rows/35MB (kho KH), `livestream_snapshots` 73MB, `social_orders` 25MB, `web2_live_comments` 7.6k. Nhóm: SP (`web2_products`/`_variants`/`_history`, `web2_entities`/`web2_records`), ví (`web2_customer_wallets`+`_transactions`/`_adjustments`; `web2_supplier_ledger`/`_meta`; `web2_balance_history`+`_pending_matches`), đơn (`native_orders`+`fast_sale_orders`+`web2_returns` — KHÔNG prefix nhưng là web2), livestream (`web2_live_comments`+`web2_live_parent_campaigns`/`_poller_pages`/`_post_assign`/`_post_titles`/`_saved`), `web2_zalo_*`, `web2_kpi_*`, `web2_msg_*`, `web2_notifications`, `web2_users`/`_user_sessions`, `web2_so_order`…
+
+**🔥 Firebase ~95% ĐÃ BỎ khỏi Web 2.0** — giờ Postgres(web2Db)+SSE. Active DUY NHẤT: `web2-realtime` đọc Firestore `pancake_tokens/accounts` lúc boot (fallback PG `realtime_credentials`), collection dùng chung Web 1.0. **Đã migrate sang Postgres** (CLAUDE.md/MEMORY còn ghi Firestore = STALE): so-order→`web2_so_order` (13/06), ví KH/NCC, suppliers→`web2_supplier_meta`, **Zalo session→`web2_zalo_accounts.session`**, generic entities, live-comments. Firestore `web2_so_order`/`web2_supplier_wallet`/`web2_customer_wallet`/`web2_suppliers` (`/main`) còn vật lý nhưng drained (chỉ wipe-script đụng). Client web2 KHÔNG còn `.collection()`; SDK firebase-firestore-compat còn DEAD ở ~5 HTML (~470KB nên gỡ). RTDB: web2 không dùng. `WEB2_SYNC_ENABLED` env = dead.
+
 **Rollback**: revert worker (web2 → fallback lại) + xoá `WEB2_ONLY`/`DISABLE_WEB2_JOBS`. web2-api có thể xoá (không ảnh hưởng tới khi worker route về).
 
 ---
