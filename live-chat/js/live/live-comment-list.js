@@ -755,8 +755,8 @@ const LiveCommentList = {
         const fromId = comment.from?.id || '';
         const partner = state.partnerCache.get(fromId) || {};
         const kho = state.customerKhoCache?.get(fromId);
-        const phone = partner.Phone || kho?.phone || '';
-        const address = partner.Street || kho?.address || '';
+        const phone = partner.Phone || kho?.phone || comment.phone || '';
+        const address = partner.Street || kho?.address || comment.address || '';
         const raw = state.sessionIndexMap.get(fromId);
         const si = raw?.source === 'NATIVE_WEB' ? raw : null;
         const inOrder = si && Array.isArray(si.commentIds) && si.commentIds.includes(comment.id);
@@ -1185,7 +1185,11 @@ const LiveCommentList = {
         const commentPageId = comment._pageId || state.selectedPage?.Facebook_PageId;
         const directPictureUrl = comment.from?.picture?.data?.url || '';
         const pictureUrl = SharedUtils.getAvatarUrl(fromId, commentPageId, null, directPictureUrl);
-        const timeStr = SharedUtils.formatTime(createdTime);
+        // Thời gian tương đối tự-tick ("Vừa xong"→"N phút") qua LiveTime shared.
+        // data-live-ts để 1 ticker chung cập nhật textContent — KHÔNG re-render dòng.
+        const timeMarkup = window.LiveTime
+            ? window.LiveTime.markup(createdTime, { tag: 'span', cls: 'live-conv-time' })
+            : `<span class="live-conv-time">${SharedUtils.formatTime(createdTime)}</span>`;
 
         // Page badge (show when multiple pages selected)
         const pageName =
@@ -1248,8 +1252,11 @@ const LiveCommentList = {
                 .match(/(?:\+?84|0)(\d{9})(?!\d)/);
             return m ? '0' + m[1] : '';
         })();
-        const phone = partner.Phone || kho?.phone || pancakePhone || '';
-        const address = partner.Street || kho?.address || '';
+        // Fallback comment.phone/comment.address (DB web2_live_comments — server
+        // poller enrich từ Pancake profile) → dòng SSE mới hiện SĐT/địa chỉ NGAY
+        // kể cả khi partnerCache/khoCache chưa nạp (fix: index.html thiếu địa chỉ).
+        const phone = partner.Phone || kho?.phone || pancakePhone || comment.phone || '';
+        const address = partner.Street || kho?.address || comment.address || '';
 
         // Số dư ví Web 2.0 (thay cho "Nợ Live" cũ — user yêu cầu 2026-06-06).
         // Render placeholder [data-w2wallet-phone]; Web2WalletBalance.attachBalances
@@ -1310,7 +1317,7 @@ const LiveCommentList = {
                         </div>
                         <div id="status-dropdown-${fromIdA}" class="live-status-dropdown" style="display:none;" data-loaded="0"></div>
                     </div>
-                    <span class="live-conv-time">${timeStr}</span>
+                    ${timeMarkup}
                 </div>
 
                 <!-- Row 2: Message -->

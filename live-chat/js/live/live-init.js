@@ -115,20 +115,34 @@ const LiveColumnManager = {
         // 'web2:live-comments' → đây nhận event → INCREMENTAL delta fetch. Debounce ~400ms gom burst → GET DB chỉ comment mới hơn
         // (since=_lastCommentMaxMs) → prepend dòng mới vào ĐẦU list (không full
         // re-render → mượt, kiểu TPOS realtime). KHÔNG reload toàn bộ.
-        if (window.Web2SSE?.subscribe) {
+        // Realtime comment livestream qua engine SHARED LiveCommentsStream (dùng
+        // chung desktop + mobile). SSE 'web2:live-comments' → debounce 400ms →
+        // delta fetch (cursor updated_at) → prependComments (APPEND, KHÔNG full
+        // re-render). Cursor được prime sau initial load (onMultiCampaignChange).
+        if (window.LiveCommentsStream) {
+            this._liveStream = window.LiveCommentsStream.create({
+                getWorkerUrl: () => window.LiveState.workerUrl,
+                getPostIds: () => this._resolveSelectedPostIds(),
+                // PAUSE khi đang xem chiến dịch CHA (LiveColumnManager._origComments
+                // != null) → giữ cursor, không nhiễm comment live vào view campaign.
+                shouldFetch: () => !window.LiveColumnManager?._origComments,
+                mapRow: (row) => this._dbRowToComment(row),
+                onDelta: (rows) => window.LiveCommentList.prependComments(rows),
+            });
+            this._liveStream.start();
+        } else if (window.Web2SSE?.subscribe) {
+            // Fallback (engine chưa load): giữ đường cũ delegate _fetchLiveCommentDelta.
             window.Web2SSE.subscribe('web2:live-comments', () => {
                 clearTimeout(this._liveCommentsReloadTimer);
                 this._liveCommentsReloadTimer = setTimeout(() => {
                     this._fetchLiveCommentDelta();
                 }, 400);
             });
-
-            // ⚠ KHÔNG subscribe 'web2:messages' để reload cột Live nữa
-            // (bug 2026-06-11: mỗi tin nhắn INBOX bên cột Pancake làm cột Live
-            // full reload + showLoading → trắng toàn bộ panel trái). Tin nhắn
-            // inbox là việc của cột Pancake (pancake-realtime tự xử lý);
-            // comment livestream đã có topic 'web2:live-comments' riêng ở trên.
         }
+        // ⚠ KHÔNG subscribe 'web2:messages' để reload cột Live (bug 2026-06-11:
+        // mỗi tin INBOX làm cột Live full reload → trắng panel). Inbox là việc
+        // của cột Pancake (pancake-realtime). Comment livestream dùng topic
+        // 'web2:live-comments' riêng ở trên.
     },
 
     /**
@@ -136,18 +150,14 @@ const LiveColumnManager = {
      * _lastCommentMaxMs cho các post đang chọn → map → prepend incremental.
      * Best-effort; lỗi không phá list đang hiển thị.
      */
-    async _fetchLiveCommentDelta() {
+    /**
+     * Resolve tập postId của các campaign đang chọn (dùng cho delta fetch engine
+     * + warm-up). Tách ra để LiveCommentsStream.getPostIds() gọi.
+     */
+    _resolveSelectedPostIds() {
         const state = window.LiveState;
-        // MEDIUM-cleanup (2026-06-13): đang xem chiến dịch CHA (_viewCampaign active,
-        // LiveColumnManager._origComments != null) → PAUSE delta. Nếu không, SSE
-        // 'web2:live-comments' vẫn fetch theo selectedCampaignIds rồi prepend vào
-        // view chiến dịch → nhiễm comment live + mất comment khi "← Quay lại live".
-        // KHÔNG advance cursor (_lastCommentMaxMs/_lastUpdatedMaxMs giữ nguyên) để
-        // khi thoát campaign view, delta tiếp tục từ đúng mốc cũ.
-        if (window.LiveColumnManager?._origComments) return;
-        // Tập post đang xem = post của các campaign đang chọn.
         const ids = state.selectedCampaignIds ? Array.from(state.selectedCampaignIds) : [];
-        if (!ids.length) return;
+        if (!ids.length) return [];
         const campaigns = ids
             .map((id) => state.liveCampaigns.find((c) => c.Id === id))
             .filter(Boolean);
@@ -165,34 +175,38 @@ const LiveColumnManager = {
             }
             for (const lp of livePosts) if (lp.objectId) postIdSet.add(lp.objectId);
         }
-        if (!postIdSet.size) return;
-        // Guard: initial load CHƯA xong (cả 2 cursor đều 0) → bỏ qua delta.
-        // Không guard thì since=0 dump cả nghìn row qua prependComments → emit
-        // live:newComment hàng loạt → auto-snap chụp frame HIỆN TẠI gán cho
-        // comment CŨ (sai ảnh). Full load sẽ lấy đủ data ngay sau đó.
+        return [...postIdSet];
+    },
+
+    /**
+     * Delta fetch comment livestream mới — DELEGATE sang LiveCommentsStream shared
+     * (engine dùng chung desktop + mobile). Giữ tên cho caller cũ; fallback legacy
+     * (cursor _lastUpdatedMaxMs/_lastCommentMaxMs) nếu engine chưa load.
+     */
+    async _fetchLiveCommentDelta() {
+        if (this._liveStream) {
+            this._liveStream.fetchNow();
+            return;
+        }
+        const state = window.LiveState;
+        if (window.LiveColumnManager?._origComments) return;
+        const postIds = this._resolveSelectedPostIds();
+        if (!postIds.length) return;
         if (!this._lastCommentMaxMs && !this._lastUpdatedMaxMs) return;
-        // Cursor delta = updated_at (epoch ms SERVER gán mỗi upsert) thay vì
-        // created_time. Lý do (bug "mất tin nhắn" 2026-06-12): với 2+ campaign,
-        // comment post B về trễ mang created_time < max(post A) bị since lọc
-        // VĨNH VIỄN; và comment bị UPDATE (poller fill phone/has_order — H11)
-        // không đổi created_time nên không bao giờ re-render. updated_at là
-        // đồng hồ server đơn điệu → không dính skew giữa pages/posts.
-        // Overlap 3s + prependComments merge-by-id → fetch lặp vô hại.
         const sinceUpdated = Math.max(0, (this._lastUpdatedMaxMs || 0) - 3000);
         const cursorParam = this._lastUpdatedMaxMs
             ? `sinceUpdated=${sinceUpdated}`
-            : `since=${this._lastCommentMaxMs || 0}`; // fallback server cũ chưa trả updated_at
+            : `since=${this._lastCommentMaxMs || 0}`;
         try {
             const resp = await fetch(
                 `${state.workerUrl}/api/web2-live-comments?postIds=${encodeURIComponent(
-                    [...postIdSet].join(',')
+                    postIds.join(',')
                 )}&${cursorParam}&limit=2000`,
                 { signal: AbortSignal.timeout(15000) }
             );
             const j = await resp.json();
             if (!j.success || !Array.isArray(j.data) || j.data.length === 0) return;
             const mapped = j.data.map((row) => this._dbRowToComment(row));
-            // Cập nhật cả 2 cursor theo delta (tránh fetch lặp comment cũ).
             this._lastCommentMaxMs = mapped.reduce((mx, c) => {
                 const t = SharedUtils.toEpochMs(c.created_time);
                 return t > mx ? t : mx;
@@ -707,6 +721,14 @@ const LiveColumnManager = {
                 (mx, c) => (c._updatedAt > mx ? c._updatedAt : mx),
                 0
             );
+            // Prime cursor cho engine SHARED (LiveCommentsStream) sau initial load
+            // → delta SSE tiếp theo chỉ lấy comment mới hơn mốc này.
+            if (this._liveStream) {
+                this._liveStream.primeCursor({
+                    updatedMs: this._lastUpdatedMaxMs,
+                    createdMs: this._lastCommentMaxMs,
+                });
+            }
 
             // Update selectedPage to first campaign's page
             if (campaigns[0]) {
