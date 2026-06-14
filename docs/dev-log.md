@@ -2,6 +2,23 @@
 
 ## 2026-06-14
 
+### [web2] Trang "Cấu hình & Hệ thống" — gộp services-dashboard + admin-sse-monitor + danh sách trang ✅
+
+**User:** "build 1 trang trong web 2.0 phần cấu hình thanh menu: xem render server, database render, xem log realtime, các trang dùng… gộp `services-dashboard` + `admin-sse-monitor` vào trang mới".
+
+**Làm — trang mới `web2/system/`** (tabbed admin console, theme Zalo `#0068ff`):
+
+1. **Tab "Dịch vụ & Hệ thống"** (`js/system-services.js`, port từ services-dashboard.js): cost strip + 2 DB card Render Postgres (usage bar + top tables) + 8 service card + 4 process card. Fetch `/api/services-overview`, auto-refresh 60s.
+2. **Tab "Realtime (SSE)"** (`js/system-sse.js`, port từ admin-sse-monitor/monitor.js): admin-gated qua `/api/web2-users/me`. Live feed `web2:_admin:sse-log` (EventSource trực tiếp + admintoken), stats poll 2s, topics list, filter/pause/clear/send-test. Conn pill ở header. Lazy-start (chỉ kết nối khi mở tab).
+3. **Tab "Các trang Web 2.0"** (`js/system-app.js`): đọc menu đã mount (`#web2Aside`) → inventory grouped theo section + summary (mục/đã có/WEB2/soon). Single source of truth = sidebar, không hardcode.
+4. **Orchestrator** `system-app.js`: tab switching + lazy init per tab + reload theo tab active + deep-link `?tab=`.
+
+**Wiring:** sidebar `web2-sidebar.js` thay 2 item ("SSE Monitor (Admin)" + "Bảng dịch vụ & chi phí") → 1 item "Cấu hình & Hệ thống" + thêm `web2/system/index.html` vào WEB2_PAGES. Permissions registry `web2-users.js` gộp 2 slug → `system`. Trang cũ → **redirect stub** (`admin-sse-monitor`→`?tab=sse`, `services-dashboard`→`?tab=services`) giữ deep-link; xóa js/css cũ. Cập nhật smoke list + overview (3 ref) + CLAUDE.md.
+
+**Verify (browser session, admin/admin@@):** 3 tab OK — services: 45 USD/2 DB/8 svc/4 proc; pages: 10 group/37 card/summary [37,37,27,0]; sse: `live · web2:_admin:sse-log` 4 sub/200 log row. 2 redirect land đúng tab. **0 console error.** Screenshot 3 tab đẹp. **Status:** ✅ verified live.
+
+**Files:** `web2/system/{index.html,css/system.css,js/{system-app,system-services,system-sse}.js}` (mới), `web2/{admin-sse-monitor,services-dashboard}/index.html` (redirect, xóa js/css), `web2/shared/web2-sidebar.js`, `render.com/routes/web2-users.js`, `scripts/n2store-smoke-all-pages.js`, `web2/overview/index.html`, `CLAUDE.md`. `node --check` PASS.
+
 ### [render][web2-realtime] Consolidate Render: gộp tpos-pancake + facebook → web2-realtime, xóa 3 service ✅
 
 **User:** "xóa n2store-facebook + n2store-aikol-scraper → xóa và build lại tpos-pancake đặt tên web2-realtime → web2-realtime nhận tất cả tính năng realtime của web2" + "xóa các server dư thừa".

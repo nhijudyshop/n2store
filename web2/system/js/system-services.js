@@ -1,5 +1,6 @@
-// #Note: WEB2.0 module — Services Dashboard.
+// #Note: WEB2.0 module — System / Cấu hình → tab "Dịch vụ & Hệ thống".
 // Fetch /api/services-overview + render cards (DB + service inventory + process).
+// Tách từ services-dashboard.js cũ; expose window.SystemServices cho system-app.js orchestrate.
 
 (function () {
     'use strict';
@@ -7,12 +8,15 @@
     const WORKER = 'https://chatomni-proxy.nhijudyshop.workers.dev';
     const API = `${WORKER}/api/services-overview`;
 
-    // Limits per DB (used for usage bar calc)
-    // Cả 2 đều Render Postgres Basic 1GB plan ($19/mo) từ 2026-05-30
+    // Limits per DB (used for usage bar calc). Cả 2 đều Render Postgres Basic 1GB.
     const DB_LIMITS = {
         chatDb: { bytes: 1024 * 1024 * 1024, label: '1 GB (Render PG Basic)' },
         web2Db: { bytes: 1024 * 1024 * 1024, label: '1 GB (Render PG Basic)' },
     };
+
+    const REFRESH_MS = 60000;
+    let _refreshTimer = null;
+    let _started = false;
 
     function $(id) {
         return document.getElementById(id);
@@ -45,8 +49,9 @@
             if (!data?.ok) throw new Error(data?.error || `HTTP ${r.status}`);
             renderAll(data);
         } catch (e) {
-            console.error('[services-dashboard] load fail:', e);
-            $('sdUpdated').textContent = `Lỗi: ${e.message}`;
+            console.error('[system-services] load fail:', e);
+            const u = $('sysUpdated');
+            if (u) u.textContent = `Lỗi: ${e.message}`;
             if (window.notificationManager?.show) {
                 window.notificationManager.show(`Tải data fail: ${e.message}`, 'error');
             }
@@ -54,9 +59,12 @@
     }
 
     function renderAll(data) {
-        // Updated label
         const d = new Date(data.ts || Date.now());
-        $('sdUpdated').textContent = `Cập nhật: ${d.toLocaleTimeString('vi-VN')}`;
+        const u = $('sysUpdated');
+        if (u)
+            u.textContent = `Cập nhật: ${d.toLocaleTimeString('vi-VN', {
+                timeZone: 'Asia/Ho_Chi_Minh',
+            })}`;
 
         renderCostSummary(data);
         renderDatabases(data.databases || {});
@@ -100,7 +108,6 @@
                 poolKey === 'chatDb'
                     ? 'Render PG — n2store-chat-db'
                     : 'Render PG — n2store-web2-db';
-            // 2026-06-03: Web 2.0 ĐÃ tách DB hoàn toàn (cutover 26 route + webhook).
             const purpose =
                 poolKey === 'chatDb'
                     ? 'DB Web 1.0 (n2store_chat) — customers, balance_history, customer_wallets, app_users… Web 2.0 KHÔNG còn ở đây.'
@@ -120,7 +127,7 @@
 
             dbCards.push(`<div class="sd-db-card">
                 <div class="sd-db-head">
-                    <h3><i data-lucide="database"></i> ${escapeHtml(provider)} <small style="color:#94a3b8;font-weight:500;">(${poolKey})</small></h3>
+                    <h3><i data-lucide="database"></i> ${escapeHtml(provider)} <small style="color:var(--web2-text-faded);font-weight:500;">(${poolKey})</small></h3>
                     <span class="sd-db-plan ${planClass}">${planLabel}</span>
                 </div>
                 <div class="sd-db-body">
@@ -133,7 +140,7 @@
                     <div class="sd-db-usage-bar">
                         <div class="sd-db-usage-fill ${usageClass}" style="width:${Math.min(100, pct).toFixed(1)}%;"></div>
                     </div>
-                    <div style="font-size:11px;color:#64748b;text-align:right;">${pct.toFixed(1)}% đã dùng</div>
+                    <div style="font-size:11px;color:var(--web2-text-3);text-align:right;">${pct.toFixed(1)}% đã dùng</div>
 
                     <div class="sd-db-metric">
                         <span>📁 Tổng bảng</span>
@@ -220,7 +227,7 @@
                 }
                 ${
                     s.url
-                        ? `<a href="${escapeHtml(s.url)}" target="_blank" class="sd-svc-link">→ Dashboard ngoài</a>`
+                        ? `<a href="${escapeHtml(s.url)}" target="_blank" rel="noopener" class="sd-svc-link">→ Dashboard ngoài</a>`
                         : ''
                 }
             </div>`;
@@ -233,14 +240,8 @@
         const mem = proc.memory || {};
         const cards = [
             { label: '🕒 Uptime', value: proc.uptimePretty || '—' },
-            {
-                label: '🧠 RSS Memory',
-                value: fmtBytes(mem.rss),
-            },
-            {
-                label: '📦 Heap Used',
-                value: `${fmtBytes(mem.heapUsed)} / ${fmtBytes(mem.heapTotal)}`,
-            },
+            { label: '🧠 RSS Memory', value: fmtBytes(mem.rss) },
+            { label: '📦 Heap Used', value: `${fmtBytes(mem.heapUsed)} / ${fmtBytes(mem.heapTotal)}` },
             { label: '🟢 Node.js', value: proc.nodeVersion || '—' },
         ];
         grid.innerHTML = cards
@@ -256,14 +257,10 @@
 
     // Auto-refresh 60s qua setTimeout chain (không setInterval): tự dừng khi tab
     // ẩn (tiết kiệm fetch) + clear hẳn khi rời trang.
-    const REFRESH_MS = 60000;
-    let _refreshTimer = null;
     function _scheduleRefresh() {
         clearTimeout(_refreshTimer);
         _refreshTimer = setTimeout(async () => {
-            if (document.visibilityState === 'visible') {
-                await load();
-            }
+            if (document.visibilityState === 'visible') await load();
             _scheduleRefresh();
         }, REFRESH_MS);
     }
@@ -272,25 +269,18 @@
         _refreshTimer = null;
     }
 
-    function init() {
-        if (window.Web2Sidebar) {
-            window.Web2Sidebar.mount('#web2Aside', { activeUrl: window.location.href });
+    // Khởi động lần đầu (idempotent): load + auto refresh + cleanup wiring.
+    function start() {
+        if (_started) {
+            load();
+            return;
         }
-        $('sdReloadBtn').addEventListener('click', load);
+        _started = true;
         load();
         _scheduleRefresh();
-        // Tab quay lại sau khi ẩn lâu → refresh ngay cho fresh data.
-        document.addEventListener('visibilitychange', () => {
-            if (document.visibilityState === 'visible') load();
-        });
-        // Dọn timer khi rời trang.
         window.addEventListener('pagehide', _stopRefresh);
         window.addEventListener('beforeunload', _stopRefresh);
     }
 
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', init);
-    } else {
-        init();
-    }
+    window.SystemServices = { start, reload: load };
 })();

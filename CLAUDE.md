@@ -314,7 +314,7 @@ Project có 2 layer song song. Khi chạm code/data phải biết nó thuộc la
 - ✅ UI realtime cập nhật **không cần refresh** (mutate ở tab A → tab B/C/D tự update)
 - ✅ Đồng bộ dữ liệu **giữa các máy** (user 1 sửa ở máy ở nhà → user 2 thấy ngay ở máy văn phòng)
 - ✅ Server-side log đầy đủ (`[SSE-WEB2]` Render logs + ring buffer 500 entries)
-- ✅ Admin debug realtime qua [/web2/admin-sse-monitor/](web2/admin-sse-monitor/index.html) — sidebar "Tính năng mới" → "SSE Monitor (Admin)"
+- ✅ Admin debug realtime qua [/web2/system/?tab=sse](web2/system/index.html) — sidebar "Tính năng mới" → "Cấu hình & Hệ thống" → tab "Realtime (SSE)" (gộp từ admin-sse-monitor + services-dashboard 2026-06-14; deep-link cũ vẫn redirect)
 
 **KHÔNG**:
 

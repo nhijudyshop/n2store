@@ -1,0 +1,205 @@
+<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 module — Cấu hình & Hệ thống (gộp services-dashboard + admin-sse-monitor). -->
+<!doctype html>
+<html lang="vi">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Cấu hình & Hệ thống — WEB 2.0</title>
+        <meta name="web2-db" content="render" />
+        <link rel="stylesheet" href="../shared/web2-sidebar.css?v=20260613z" />
+        <link rel="stylesheet" href="../shared/web2-theme.css?v=20260613z" />
+        <link rel="stylesheet" href="css/system.css?v=20260614a" />
+        <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
+        <script src="../shared/web2-user-info.js?v=20260530a"></script>
+        <script src="../shared/web2-history-timeline.js?v=20260530a"></script>
+        <script src="../shared/web2-db-badge.js?v=20260530a"></script>
+        <script src="../../shared/js/notification-system.js?v=20260521b"></script>
+    </head>
+    <body class="web2-theme">
+        <div class="web2-shell">
+            <aside class="web2-aside" id="web2Aside"></aside>
+            <main class="web2-main sys-main">
+                <!-- Header -->
+                <header class="sys-header">
+                    <div class="sys-header-titles">
+                        <h1><i data-lucide="settings-2"></i> Cấu hình &amp; Hệ thống</h1>
+                        <p class="sys-sub">
+                            Render server, cơ sở dữ liệu, log realtime (SSE) &amp; danh sách trang
+                            Web 2.0 — tất cả trong một bảng điều khiển.
+                        </p>
+                    </div>
+                    <div class="sys-header-actions">
+                        <span class="sys-conn" id="sysConn" hidden>
+                            <span class="sys-conn-dot" id="sysConnDot"></span>
+                            <span class="sys-conn-label" id="sysConnLabel">—</span>
+                        </span>
+                        <span class="sys-updated" id="sysUpdated">—</span>
+                        <button id="sysReloadBtn" class="btn btn-secondary" type="button">
+                            <i data-lucide="refresh-cw"></i> Tải lại
+                        </button>
+                    </div>
+                </header>
+
+                <!-- Tab bar -->
+                <nav class="sys-tabs" role="tablist" aria-label="Khu vực cấu hình">
+                    <button class="sys-tab is-active" role="tab" data-tab="services" type="button">
+                        <i data-lucide="server"></i> <span>Dịch vụ &amp; Hệ thống</span>
+                    </button>
+                    <button class="sys-tab" role="tab" data-tab="sse" type="button">
+                        <i data-lucide="radio"></i> <span>Realtime (SSE)</span>
+                    </button>
+                    <button class="sys-tab" role="tab" data-tab="pages" type="button">
+                        <i data-lucide="layout-grid"></i> <span>Các trang Web 2.0</span>
+                    </button>
+                </nav>
+
+                <!-- ============ PANEL: SERVICES & SYSTEM ============ -->
+                <section class="sys-panel is-active" data-panel="services" role="tabpanel">
+                    <!-- Cost summary -->
+                    <div class="sd-cost-strip" id="sdCostStrip">
+                        <div class="sd-cost-card sd-cost-total">
+                            <span class="sd-cost-label">💵 Tổng chi phí /tháng</span>
+                            <strong class="sd-cost-value" id="sdCostTotal">— USD</strong>
+                        </div>
+                        <div class="sd-cost-card sd-cost-paid">
+                            <span class="sd-cost-label">💸 Đang trả tiền</span>
+                            <strong class="sd-cost-value" id="sdCostPaidCount">— dịch vụ</strong>
+                        </div>
+                        <div class="sd-cost-card sd-cost-free">
+                            <span class="sd-cost-label">🆓 Đang dùng free</span>
+                            <strong class="sd-cost-value" id="sdCostFreeCount">— dịch vụ</strong>
+                        </div>
+                        <div class="sd-cost-card sd-cost-process">
+                            <span class="sd-cost-label">⚙️ Render uptime</span>
+                            <strong class="sd-cost-value" id="sdProcUptime">—</strong>
+                        </div>
+                    </div>
+
+                    <!-- Database cards -->
+                    <section class="sd-section">
+                        <h2><i data-lucide="database"></i> Cơ sở dữ liệu (Render Postgres)</h2>
+                        <div class="sd-db-grid" id="sdDbGrid">
+                            <div class="sd-loading">Đang tải...</div>
+                        </div>
+                    </section>
+
+                    <!-- All services inventory -->
+                    <section class="sd-section">
+                        <h2><i data-lucide="boxes"></i> Tất cả dịch vụ đang dùng</h2>
+                        <div class="sd-service-grid" id="sdServiceGrid">
+                            <div class="sd-loading">Đang tải...</div>
+                        </div>
+                    </section>
+
+                    <!-- Process stats -->
+                    <section class="sd-section">
+                        <h2><i data-lucide="cpu"></i> Backend process (Render)</h2>
+                        <div class="sd-proc-grid" id="sdProcGrid">
+                            <div class="sd-loading">Đang tải...</div>
+                        </div>
+                    </section>
+                </section>
+
+                <!-- ============ PANEL: SSE REALTIME ============ -->
+                <section class="sys-panel" data-panel="sse" role="tabpanel">
+                    <div id="ssGate"></div>
+                    <div id="ssApp" style="display: none">
+                        <p class="sys-panel-intro">
+                            Hub Web 2.0 (<code>/api/realtime/web2/sse</code>). Live feed connect /
+                            broadcast / disconnect — không cần refresh. Stats poll 2s/lần. Buffer
+                            giữ 500 entries gần nhất.
+                        </p>
+
+                        <div class="sse-stats-grid">
+                            <div class="sse-stat-card">
+                                <div class="sse-stat-label">Tổng subscriber</div>
+                                <div class="sse-stat-value" id="ssStatClients">—</div>
+                                <div class="sse-stat-foot">(sum per-topic)</div>
+                            </div>
+                            <div class="sse-stat-card">
+                                <div class="sse-stat-label">Số topic active</div>
+                                <div class="sse-stat-value" id="ssStatTopics">—</div>
+                                <div class="sse-stat-foot">unique keys</div>
+                            </div>
+                            <div class="sse-stat-card">
+                                <div class="sse-stat-label">Events nhận</div>
+                                <div class="sse-stat-value" id="ssStatEvents">0</div>
+                                <div class="sse-stat-foot">từ khi mở trang</div>
+                            </div>
+                            <div class="sse-stat-card">
+                                <div class="sse-stat-label">Server uptime</div>
+                                <div class="sse-stat-value" id="ssStatBuffer">—</div>
+                                <div class="sse-stat-foot">buffer seq</div>
+                            </div>
+                        </div>
+
+                        <div class="sse-panels">
+                            <div class="sse-panel">
+                                <div class="sse-panel-head">
+                                    <span>Topics đang subscribe</span>
+                                    <small
+                                        style="color: var(--web2-text-faded); font-weight: 400"
+                                        id="ssStatsTime"
+                                        >—</small
+                                    >
+                                </div>
+                                <div class="sse-panel-body" id="ssTopicsList">
+                                    <div class="sse-empty">Đang tải…</div>
+                                </div>
+                            </div>
+
+                            <div class="sse-panel">
+                                <div class="sse-panel-head">
+                                    <span>Live activity feed</span>
+                                    <div class="sse-toolbar">
+                                        <input
+                                            type="text"
+                                            id="ssFilter"
+                                            placeholder="Filter (topic / type)…"
+                                        />
+                                        <button id="ssPause" type="button" title="Tạm dừng feed">
+                                            ⏸ Pause
+                                        </button>
+                                        <button
+                                            id="ssClear"
+                                            type="button"
+                                            title="Xóa feed hiện tại"
+                                        >
+                                            🗑 Clear
+                                        </button>
+                                        <button
+                                            id="ssTrigger"
+                                            class="primary"
+                                            type="button"
+                                            title="Trigger test event để verify"
+                                        >
+                                            🚀 Send test
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="sse-panel-body sse-log" id="ssLog">
+                                    <div class="sse-empty">Đang tải log buffer…</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ============ PANEL: PAGES INVENTORY ============ -->
+                <section class="sys-panel" data-panel="pages" role="tabpanel">
+                    <div class="sys-pages-summary" id="sysPagesSummary">
+                        <div class="sd-loading">Đang đọc menu…</div>
+                    </div>
+                    <div class="sys-pages-groups" id="sysPagesGroups"></div>
+                </section>
+            </main>
+        </div>
+
+        <script src="../shared/web2-auth.js?v=20260613guard"></script>
+        <script src="../shared/web2-optimistic.js?v=20260601a"></script>
+        <script src="../shared/web2-sidebar.js?v=20260613z"></script>
+        <script src="js/system-services.js?v=20260614a"></script>
+        <script src="js/system-sse.js?v=20260614a"></script>
+        <script src="js/system-app.js?v=20260614a"></script>
+    </body>
+</html>

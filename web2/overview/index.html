@@ -1930,8 +1930,9 @@ permission_templates    (role: admin/manager/staff)</pre
                         <code>_notify('web2:&lt;entity&gt;', …)</code> sau khi COMMIT; client
                         <code>Web2SSE.subscribe('web2:&lt;entity&gt;', cb)</code> + debounce →
                         reload. Debug live tại
-                        <a href="../admin-sse-monitor/index.html">SSE Monitor (Admin)</a>. Chi tiết:
-                        <code>docs/web2/SSE-REALTIME.md</code>.
+                        <a href="../system/index.html?tab=sse"
+                            >Cấu hình &amp; Hệ thống → Realtime (SSE)</a
+                        >. Chi tiết: <code>docs/web2/SSE-REALTIME.md</code>.
                     </p>
 
                     <h3 style="margin: 18px 0 8px">
@@ -2036,14 +2037,17 @@ permission_templates    (role: admin/manager/staff)</pre
                                 </tr>
                                 <tr>
                                     <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
-                                        Bảng dịch vụ &amp; chi phí
+                                        Cấu hình &amp; Hệ thống (gộp dịch vụ + SSE monitor + các
+                                        trang)
                                     </td>
                                     <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
-                                        ⚪ poll 60s
+                                        ⚪ poll 60s + SSE admin feed
                                     </td>
-                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">—</td>
                                     <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
-                                        /api/services-overview
+                                        web2:_admin:sse-log
+                                    </td>
+                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
+                                        /api/services-overview · /api/realtime/web2/sse
                                     </td>
                                 </tr>
                                 <tr>
@@ -2395,8 +2399,9 @@ permission_templates    (role: admin/manager/staff)</pre
                                 </li>
                                 <li>
                                     Verify ngay qua
-                                    <a href="../admin-sse-monitor/index.html">SSE Monitor</a>: mở
-                                    Monitor + trang → mutate → thấy log
+                                    <a href="../system/index.html?tab=sse">SSE Monitor</a> (tab
+                                    Realtime trong Cấu hình &amp; Hệ thống): mở Monitor + trang →
+                                    mutate → thấy log
                                     <code>Notified N clients for key: web2:&lt;entity&gt;</code>.
                                 </li>
                             </ul>

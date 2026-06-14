@@ -113,7 +113,6 @@ const PAGES = [
 
 // web2/* sub-pages — TPOS module mirrors. Many similar — test all to catch broken paths.
 const WEB2_PAGES = [
-    'admin-sse-monitor',
     'audit-log',
     'balance-history',
     'customer-wallet',
@@ -134,9 +133,9 @@ const WEB2_PAGES = [
     'reconcile',
     'report-delivery',
     'report-revenue',
-    'services-dashboard',
     'supplier-debt',
     'supplier-wallet',
+    'system',
     'users',
     'users-permissions',
     'variants',

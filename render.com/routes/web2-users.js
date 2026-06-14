@@ -231,14 +231,8 @@ const WEB2_PAGES = [
 
     // ─── Hệ thống ──────────────────────────────────────────────────
     {
-        slug: 'admin-sse-monitor',
-        label: 'SSE Monitor (Admin)',
-        group: 'Hệ thống',
-        actions: ['view'],
-    },
-    {
-        slug: 'services-dashboard',
-        label: 'Services Dashboard',
+        slug: 'system',
+        label: 'Cấu hình & Hệ thống',
         group: 'Hệ thống',
         actions: ['view'],
     },

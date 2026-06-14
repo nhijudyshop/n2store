@@ -87,13 +87,8 @@
                 { label: 'Zalo', our: '../web2/zalo/index.html' },
                 { label: 'Phân quyền', our: '../web2/users-permissions/index.html' },
                 {
-                    label: 'SSE Monitor (Admin)',
-                    our: '../web2/admin-sse-monitor/index.html',
-                    adminOnly: true,
-                },
-                {
-                    label: 'Bảng dịch vụ & chi phí',
-                    our: '../web2/services-dashboard/index.html',
+                    label: 'Cấu hình & Hệ thống',
+                    our: '../web2/system/index.html',
                 },
             ],
         },
@@ -316,7 +311,7 @@
         'web2/audit-log/index.html',
         'web2/photo-studio/index.html',
         'web2/users-permissions/index.html',
-        'web2/admin-sse-monitor/index.html',
+        'web2/system/index.html',
         'web2/zalo/index.html',
     ]);
     function isWeb2Item(item) {

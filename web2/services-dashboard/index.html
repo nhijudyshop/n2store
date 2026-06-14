@@ -1,90 +1,20 @@
-<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. | WEB2.0 module - Services Dashboard -->
+<!-- #Note: WEB2.0 — ĐÃ GỘP vào /web2/system/ (tab Dịch vụ & Hệ thống). Redirect giữ deep-link cũ. -->
 <!doctype html>
 <html lang="vi">
     <head>
         <meta charset="UTF-8" />
+        <title>Bảng dịch vụ → Cấu hình & Hệ thống</title>
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>Bảng dịch vụ - WEB 2.0</title>
-        <meta name="web2-db" content="render" />
-        <link rel="stylesheet" href="../shared/web2-sidebar.css?v=20260613z" />
-        <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
-        <script src="../shared/web2-user-info.js?v=20260530a"></script>
-        <script src="../shared/web2-history-timeline.js?v=20260530a"></script>
-        <script src="../shared/web2-db-badge.js?v=20260530a"></script>
-        <!-- MEDIUM-cleanup (2026-06-13): gỡ Firebase compat SDK (app+auth) + firebase-config — trang chỉ fetch /api/services-overview, auth qua web2-auth.js, KHÔNG firebase.firestore(). -->
-        <script src="../../shared/js/notification-system.js?v=20260521b"></script>
-        <link rel="stylesheet" href="css/services-dashboard.css?v=20260530a" />
-        <link rel="stylesheet" href="../shared/web2-theme.css?v=20260613z" />
+        <link rel="canonical" href="../system/index.html?tab=services" />
+        <meta http-equiv="refresh" content="0; url=../system/index.html?tab=services" />
+        <script>
+            location.replace('../system/index.html?tab=services');
+        </script>
     </head>
     <body>
-        <div class="web2-shell">
-            <aside class="web2-aside" id="web2Aside"></aside>
-            <main class="sd-main">
-                <header class="sd-header">
-                    <div>
-                        <h1><i data-lucide="server"></i> Bảng dịch vụ &amp; chi phí</h1>
-                        <p class="sd-sub">
-                            Tổng quan database, API gateway, hosting, CDN — chi phí + data đã dùng
-                            realtime.
-                        </p>
-                    </div>
-                    <div class="sd-header-actions">
-                        <span class="sd-updated" id="sdUpdated">—</span>
-                        <button id="sdReloadBtn" class="btn btn-secondary">
-                            <i data-lucide="refresh-cw"></i> Tải lại
-                        </button>
-                    </div>
-                </header>
-
-                <!-- Cost summary -->
-                <section class="sd-cost-strip" id="sdCostStrip">
-                    <div class="sd-cost-card sd-cost-total">
-                        <span class="sd-cost-label">💵 Tổng chi phí /tháng</span>
-                        <strong class="sd-cost-value" id="sdCostTotal">— USD</strong>
-                    </div>
-                    <div class="sd-cost-card sd-cost-paid">
-                        <span class="sd-cost-label">💸 Đang trả tiền</span>
-                        <strong class="sd-cost-value" id="sdCostPaidCount">— dịch vụ</strong>
-                    </div>
-                    <div class="sd-cost-card sd-cost-free">
-                        <span class="sd-cost-label">🆓 Đang dùng free</span>
-                        <strong class="sd-cost-value" id="sdCostFreeCount">— dịch vụ</strong>
-                    </div>
-                    <div class="sd-cost-card sd-cost-process">
-                        <span class="sd-cost-label">⚙️ Render uptime</span>
-                        <strong class="sd-cost-value" id="sdProcUptime">—</strong>
-                    </div>
-                </section>
-
-                <!-- Database cards -->
-                <section class="sd-section">
-                    <h2><i data-lucide="database"></i> Cơ sở dữ liệu (Postgres)</h2>
-                    <div class="sd-db-grid" id="sdDbGrid">
-                        <div class="sd-loading">Đang tải...</div>
-                    </div>
-                </section>
-
-                <!-- All services inventory -->
-                <section class="sd-section">
-                    <h2><i data-lucide="boxes"></i> Tất cả dịch vụ đang dùng</h2>
-                    <div class="sd-service-grid" id="sdServiceGrid">
-                        <div class="sd-loading">Đang tải...</div>
-                    </div>
-                </section>
-
-                <!-- Process stats -->
-                <section class="sd-section">
-                    <h2><i data-lucide="cpu"></i> Backend process (Render)</h2>
-                    <div class="sd-proc-grid" id="sdProcGrid">
-                        <div class="sd-loading">Đang tải...</div>
-                    </div>
-                </section>
-            </main>
-        </div>
-
-        <script src="../shared/web2-auth.js?v=20260613guard"></script>
-        <script src="../shared/web2-optimistic.js?v=20260601a"></script>
-        <script src="../shared/web2-sidebar.js?v=20260613z"></script>
-        <script src="js/services-dashboard.js?v=20260530c"></script>
+        <p style="font-family: sans-serif; padding: 24px">
+            Bảng dịch vụ đã gộp vào
+            <a href="../system/index.html?tab=services">Cấu hình &amp; Hệ thống → Dịch vụ</a>.
+        </p>
     </body>
 </html>
