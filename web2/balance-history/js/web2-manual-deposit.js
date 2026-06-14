@@ -10,7 +10,7 @@
     'use strict';
 
     const BASE = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/web2/balance-history';
-    const FALLBACK = 'https://n2store-fallback.onrender.com/api/web2/balance-history';
+    const FALLBACK = 'https://web2-api-kv04.onrender.com/api/web2/balance-history';
 
     let _selectedKh = null; // { id, name, phone }
     let _nccLoaded = false;
@@ -226,7 +226,7 @@
     }
 
     const CW_BASE = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/web2/customer-wallet';
-    const CW_FALLBACK = 'https://n2store-fallback.onrender.com/api/web2/customer-wallet';
+    const CW_FALLBACK = 'https://web2-api-kv04.onrender.com/api/web2/customer-wallet';
 
     async function searchKhAggregate(query) {
         const url = `${CW_BASE}/aggregate?limit=20&search=${encodeURIComponent(query)}`;

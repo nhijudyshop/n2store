@@ -19,7 +19,7 @@
     'use strict';
 
     const BASE = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/web2/balance-history';
-    const DIRECT_BASE = 'https://n2store-fallback.onrender.com/api/web2/balance-history';
+    const DIRECT_BASE = 'https://web2-api-kv04.onrender.com/api/web2/balance-history';
 
     // ENFORCE-PREP (2026-06-12): gắn x-web2-token cho /api/web2/balance-history/pending/:id/resolve
     // + :id/link (soft-gate → WEB2_AUTH_ENFORCE=1). Choke point: jsonFetch.
@@ -366,8 +366,7 @@
     // 2026-06-03: kho KH riêng Web 2.0 (web2_customers @ web2Db) — bỏ /api/v2/customers Web 1.0
     const CUSTOMER_SEARCH_BASE =
         'https://chatomni-proxy.nhijudyshop.workers.dev/api/web2/customers/search';
-    const CUSTOMER_SEARCH_FALLBACK =
-        'https://n2store-fallback.onrender.com/api/web2/customers/search';
+    const CUSTOMER_SEARCH_FALLBACK = 'https://web2-api-kv04.onrender.com/api/web2/customers/search';
 
     async function _searchCustomers(query) {
         const q = String(query || '').trim();

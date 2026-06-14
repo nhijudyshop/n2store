@@ -14,7 +14,7 @@
     'use strict';
 
     const QR_BASE = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/web2/customer-wallet';
-    const QR_DIRECT = 'https://n2store-fallback.onrender.com/api/web2/customer-wallet';
+    const QR_DIRECT = 'https://web2-api-kv04.onrender.com/api/web2/customer-wallet';
 
     let _modalEl = null;
 

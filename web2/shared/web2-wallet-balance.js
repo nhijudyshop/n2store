@@ -14,7 +14,7 @@
     'use strict';
 
     const BASE = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/web2/wallets';
-    const DIRECT_BASE = 'https://n2store-fallback.onrender.com/api/web2/wallets';
+    const DIRECT_BASE = 'https://web2-api-kv04.onrender.com/api/web2/wallets';
     const TTL_MS = 60000; // số dư ví đổi chậm — cache 60s là đủ tươi
     const _cache = new Map(); // phone -> { balance:number, ts:number }
     const _inflight = new Map(); // phone -> Promise<number>

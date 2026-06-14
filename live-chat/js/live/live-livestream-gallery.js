@@ -18,7 +18,7 @@
     const global = window;
     if (global.LiveLivestreamGallery) return;
 
-    const API = global.SHOP_CONFIG?.RENDER_API_URL || 'https://n2store-fallback.onrender.com';
+    const API = global.SHOP_CONFIG?.RENDER_API_URL || 'https://web2-api-kv04.onrender.com';
 
     const STATE = {
         sidebarOpen: false,

@@ -15,7 +15,7 @@
 
     const WORKER = 'https://chatomni-proxy.nhijudyshop.workers.dev';
     // Snapshot phục vụ TRỰC TIẾP từ Render (worker proxy /api/livestream/* → TPOS).
-    const RENDER = 'https://n2store-fallback.onrender.com';
+    const RENDER = 'https://web2-api-kv04.onrender.com';
     const LIMIT = 200; // "Tất cả livestream"
     const POST_LIMIT = 1000; // khi chọn 1 bài
     const RENDER_CAP_STEP = 100; // số dòng dựng mỗi lần (anti-jank)

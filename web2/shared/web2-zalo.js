@@ -26,7 +26,7 @@
         (global.API_CONFIG && global.API_CONFIG.WORKER_URL) ||
         'https://chatomni-proxy.nhijudyshop.workers.dev';
     const BASE = WORKER + '/api/web2-zalo';
-    const DIRECT_BASE = 'https://n2store-fallback.onrender.com/api/web2-zalo';
+    const DIRECT_BASE = 'https://web2-api-kv04.onrender.com/api/web2-zalo';
 
     function _authHeaders() {
         try {

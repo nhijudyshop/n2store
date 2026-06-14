@@ -17,7 +17,7 @@
 
     const BASE = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/web2/wallets';
     // Alt direct URL (bypass CF if Worker rate-limit hits)
-    const DIRECT_BASE = 'https://n2store-fallback.onrender.com/api/web2/wallets';
+    const DIRECT_BASE = 'https://web2-api-kv04.onrender.com/api/web2/wallets';
 
     function normPhone(p) {
         const s = String(p || '').replace(/\D/g, '');

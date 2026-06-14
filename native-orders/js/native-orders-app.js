@@ -237,7 +237,7 @@
     // livestream tại đúng moment comment. Cache module-wide để khỏi re-fetch.
     // 3 trạng thái cache: undefined (chưa fetch), null (đã fetch nhưng không
     // có thumbnail bytea), object (có thumbnail self-served).
-    const RENDER_API = 'https://n2store-fallback.onrender.com';
+    const RENDER_API = 'https://web2-api-kv04.onrender.com';
     const _snapCache = new Map(); // commentId → snap | null
     const _snapPendingFetch = new Set(); // commentIds đang/đã queue fetch
     let _snapFetchTimer = null;

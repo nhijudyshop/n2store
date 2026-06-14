@@ -38,13 +38,13 @@ const PORT = process.env.PORT || 3000;
 const MAX_EVENTS = parseInt(process.env.MAX_EVENTS || '1000');
 
 // =====================================================
-// REALTIME FORWARD → n2store-fallback (SSE pub/sub Web 2.0)
+// REALTIME FORWARD → web2-api (SSE pub/sub Web 2.0). FALLBACK_BASE env trỏ web2-api sau tách 2026-06-14 (tên giữ lịch sử).
 // Relay nhận event Pancake WS → forward sang fallback để:
 //   • livestream comment → /api/web2-live-comments/ingest (ghi DB + SSE web2:live-comments)
 //   • inbox conversation/message → /api/realtime/web2/sse/relay-notify (SSE web2:messages)
 // Fire-and-forget; lỗi forward KHÔNG được làm vỡ relay WS.
 // =====================================================
-const FALLBACK_BASE = process.env.FALLBACK_BASE || 'https://n2store-fallback.onrender.com';
+const FALLBACK_BASE = process.env.FALLBACK_BASE || 'https://web2-api-kv04.onrender.com';
 const RELAY_SECRET = process.env.RELAY_SECRET || process.env.CLEANUP_SECRET || '';
 
 function forwardToFallback(path, body) {

@@ -24,7 +24,7 @@
     'use strict';
 
     const PROXY = 'https://chatomni-proxy.nhijudyshop.workers.dev';
-    const FALLBACK = 'https://n2store-fallback.onrender.com';
+    const FALLBACK = 'https://web2-api-kv04.onrender.com';
 
     const state = {
         // Server-paged rows for current view (50/page typical, max 200)
@@ -657,7 +657,7 @@
 
     // ----- QR VietQR tab -----
     const QR_BASE = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/web2/customer-wallet';
-    const QR_DIRECT_BASE = 'https://n2store-fallback.onrender.com/api/web2/customer-wallet';
+    const QR_DIRECT_BASE = 'https://web2-api-kv04.onrender.com/api/web2/customer-wallet';
     async function qrFetch(path, options) {
         try {
             const r = await fetch(`${QR_BASE}${path}`, options);

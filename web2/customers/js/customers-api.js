@@ -9,7 +9,7 @@
     'use strict';
 
     const WORKER = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/web2/customers';
-    const DIRECT = 'https://n2store-fallback.onrender.com/api/web2/customers';
+    const DIRECT = 'https://web2-api-kv04.onrender.com/api/web2/customers';
 
     // ENFORCE-PREP (2026-06-12): gắn x-web2-token cho mutation /api/web2/customers/*
     // (create/upsert/merge/:id PATCH/DELETE… — soft-gate → WEB2_AUTH_ENFORCE=1).

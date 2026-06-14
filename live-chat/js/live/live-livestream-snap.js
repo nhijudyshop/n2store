@@ -17,7 +17,7 @@
     const global = window;
     if (global.LiveLivestreamSnap) return;
 
-    const API = global.SHOP_CONFIG?.RENDER_API_URL || 'https://n2store-fallback.onrender.com';
+    const API = global.SHOP_CONFIG?.RENDER_API_URL || 'https://web2-api-kv04.onrender.com';
 
     // ENFORCE-PREP (2026-06-12): gắn x-web2-token cho route soft-gated (WEB2_AUTH_ENFORCE)
     // — snapshot/offline-batch/extract-frame/extract-all-pending/DELETE snapshot.

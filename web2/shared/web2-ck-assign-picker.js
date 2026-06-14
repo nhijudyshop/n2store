@@ -10,7 +10,7 @@
     if (typeof window === 'undefined' || global.Web2CkAssignPicker) return;
 
     const PROXY = 'https://chatomni-proxy.nhijudyshop.workers.dev';
-    const FALLBACK = 'https://n2store-fallback.onrender.com';
+    const FALLBACK = 'https://web2-api-kv04.onrender.com';
     const BH = '/api/web2/balance-history';
 
     function esc(v) {

@@ -9,7 +9,7 @@
     'use strict';
 
     const BASE = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/web2/balance-history';
-    const DIRECT_BASE = 'https://n2store-fallback.onrender.com/api/web2/balance-history';
+    const DIRECT_BASE = 'https://web2-api-kv04.onrender.com/api/web2/balance-history';
 
     let _modal = null;
     let _activeTxId = null;

@@ -1136,7 +1136,7 @@ function _safeFilename(name, fallback) {
     return /\.[a-z0-9]+$/i.test(n) ? n : fallback;
 }
 const MEDIA_BASE =
-    process.env.WEB2_MEDIA_BASE || 'https://n2store-fallback.onrender.com/api/web2-zalo/media';
+    process.env.WEB2_MEDIA_BASE || 'https://web2-api-kv04.onrender.com/api/web2-zalo/media';
 async function _storeMedia(db, accountKey, buf, mime, filename, width, height) {
     const { rows } = await db.query(
         `INSERT INTO web2_zalo_media (account_key, mime, filename, data, width, height, size, created_at)

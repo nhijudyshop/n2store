@@ -29,6 +29,8 @@ export function isWeb2Path(p) {
     if (p.startsWith('/api/web2')) return true; // /api/web2-*, /api/web2/*
     if (p.startsWith('/api/native-orders')) return true;
     if (p.startsWith('/api/fast-sale-orders')) return true;
+    if (p.startsWith('/api/delivery-invoices')) return true; // web2 PGH (web2Db + SSE web2:delivery)
+    if (p.startsWith('/api/refunds')) return true; // web2 Trả hàng (web2Db + SSE web2:refunds)
     if (p.startsWith('/api/reconcile')) return true;
     if (p.startsWith('/api/wallet-deposits')) return true;
     if (p.startsWith('/api/purchase-refund')) return true;

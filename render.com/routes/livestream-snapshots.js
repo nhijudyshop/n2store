@@ -1040,7 +1040,7 @@ async function _processExtractJob(pool, job) {
             [
                 buf,
                 buf.length,
-                `${process.env.SELF_URL || 'https://n2store-fallback.onrender.com'}/api/livestream/snapshot/${job.snapshotId}/image`,
+                `${process.env.SELF_URL || 'https://web2-api-kv04.onrender.com'}/api/livestream/snapshot/${job.snapshotId}/image`,
                 job.snapshotId,
             ]
         );
