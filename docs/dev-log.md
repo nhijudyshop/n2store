@@ -14,9 +14,15 @@
 - **Fix latent bug:** index.html dùng `--pkr` (qua pancake-chat.css) nhưng KHÔNG load `pancake-redesign-tokens.css` → undefined. Đã thêm link.
 - Verify smoke: chat.html (list + mode-switch) + index.html (live comments + video + Kho SP) render đủ, 0 vỡ.
 
-**Phase B (staged — lộ trình trong blueprint, chưa làm):** retoken `--pkr`→`--web2`; trim `pancake-chat.css` (xóa chat-pane cũ ~663-2253 + cruft đợt 1-8, GIỮ conversation-list/filter/modal); xóa `chat-motion.css` + `pancake-chat-window.css` (sau khi confirm `.pk-chat-window` container); trim `layout.css`; bỏ dần `components.css`/`variables.css` dùng shared. **Class surface bắt buộc giữ** liệt kê đầy đủ trong blueprint.
+**Phase B (ĐÃ làm, verified):**
 
-**Status:** 🔄 Phase A ✅ (−2398 dòng dead + fix bug). Phase B (surgical trim ~2700 dòng) cần làm cẩn thận theo blueprint, có verify từng bước.
+- **Xóa `chat-motion.css` (200) + `pancake/pancake-chat-window.css` (480)** = 680 dòng — verified dead: `pk-anim` không JS nào add; `.pk-chat-window` mount-container do pancake-chat.css lo (không phải file này); chat-window cũ `.pk-message*`/`.pk-input-wrapper` đã thay bằng Web2ChatPanel. Gỡ link cả 2 trang.
+- **Trim `pancake-chat.css`: xóa dòng 677–1275** (598 dòng) = block CHAT WINDOW inner + QUICK REPLY + CHAT INPUT (composer cũ) — tất cả `0 JS ref`, Web2ChatPanel `.w2cp-*` thay thế. **GIỮ** `.pk-chat-window` base (mount shell) + SEARCH STATES/LOAD MORE/CONTEXT MENU/MODAL/PAGE-SELECTOR/filter (verified must-keep class đều ngoài vùng xóa). braces 288/288 OK.
+- **Verify smoke (mở hội thoại clone):** chat pane Web2ChatPanel render HOÀN HẢO trong `.pk-chat-window` (header/bubble xanh/quick-chips/composer/send) + list + Kho SP đủ, 0 vỡ.
+
+**Kết quả:** live-chat CSS **8054 → 5016 dòng** (−3038 dead, −38%). Còn lại (optional, low-value): clean `.pk-quick-reply-btn` leftover (1017), trim `layout.css` dead, bỏ dần `components.css`/`variables.css` (adopt-shared), retoken `--pkr`→`--web2` (neutral vì đã = #0068ff).
+
+**Status:** ✅ Phase A+B Done — xóa 3038 dòng dead, chat verified. Dọn vụn còn lại staged trong blueprint.
 
 ### [web2] [shared] Dọn cross-folder dep — chuyển native-orders CSS vào shared (đợt 11) ✅
 
