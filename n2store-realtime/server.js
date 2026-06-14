@@ -512,9 +512,11 @@ app.use(
 
 app.use(express.json());
 
-// Request logging
+// Request logging (skip noisy health-check probes — Render pings every ~5s)
 app.use((req, res, next) => {
-    console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+    if (req.path !== '/health' && req.path !== '/ping' && req.path !== '/health/detailed') {
+        console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+    }
     next();
 });
 
@@ -1166,6 +1168,7 @@ const postTypeCache = new Map(); // post_id → { postType, liveVideoStatus } (i
 const pageAccessTokenCache = new Map(); // page_id → { token, cachedAt }
 const postTypeLookupInFlight = new Set(); // dedupe concurrent lookups for same post_id
 const PAGE_TOKEN_TTL = 3600000; // 1 hour
+const PAGE_TOKEN_NEG_TTL = 600000; // 10 min — negative cache: stop retry/log spam on invalid JWT
 
 /**
  * Save a conversation to livestream_conversations table (single source of truth)
@@ -1263,21 +1266,50 @@ async function fetchAndSavePostName(conversationId, pageId, postId) {
 }
 
 /**
- * Get or fetch page_access_token for a page (cached 1 hour)
+ * Resolve a Pancake JWT for a page. In multi-account POOL mode the live token
+ * lives on the pool client that owns the page; the legacy single-account
+ * `realtimeClient.token` is usually stale/expired — that mismatch was the root
+ * cause of the repeated "Invalid access_token" log spam. Prefer the owning pool
+ * client, then any connected pool client, then the legacy client.
+ */
+function getJwtForPage(pageId) {
+    const pid = String(pageId);
+    for (const client of realtimePool.clients.values()) {
+        if (client.token && (client.pageIds || []).map(String).includes(pid)) {
+            return client.token;
+        }
+    }
+    for (const client of realtimePool.clients.values()) {
+        if (client.token) return client.token;
+    }
+    return realtimeClient.token || null;
+}
+
+/**
+ * Get or fetch page_access_token for a page (positive cache 1h, negative cache
+ * 10min so an invalid JWT doesn't re-spam Pancake + logs on every comment).
  */
 async function getOrFetchPageAccessToken(pageId) {
     const cached = pageAccessTokenCache.get(pageId);
-    if (cached && Date.now() - cached.cachedAt < PAGE_TOKEN_TTL) {
-        return cached.token;
+    if (cached) {
+        if (cached.token && Date.now() - cached.cachedAt < PAGE_TOKEN_TTL) {
+            return cached.token;
+        }
+        // Negative cache hit → fail silently (no log spam) until TTL expires
+        if (cached.failed && Date.now() - cached.cachedAt < PAGE_TOKEN_NEG_TTL) {
+            return null;
+        }
     }
 
-    if (!realtimeClient.token) {
+    const jwt = getJwtForPage(pageId);
+    if (!jwt) {
+        pageAccessTokenCache.set(pageId, { token: null, failed: true, cachedAt: Date.now() });
         console.warn('[LIVESTREAM] No JWT token available for page_access_token generation');
         return null;
     }
 
     try {
-        const url = `https://pancake.vn/api/v1/pages/${pageId}/generate_page_access_token?access_token=${realtimeClient.token}`;
+        const url = `https://pancake.vn/api/v1/pages/${pageId}/generate_page_access_token?access_token=${jwt}`;
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 10000);
 

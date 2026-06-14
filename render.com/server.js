@@ -104,9 +104,11 @@ app.use(express.json({ limit: '100mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.urlencoded({ extended: true, limit: '100mb' }));
 
-// Request logging
+// Request logging (skip noisy health-check probes — Render pings every ~5s)
 app.use((req, res, next) => {
-    console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+    if (req.path !== '/health' && req.path !== '/ping' && req.path !== '/health/detailed') {
+        console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+    }
     next();
 });
 

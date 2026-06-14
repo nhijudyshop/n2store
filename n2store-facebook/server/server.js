@@ -25,18 +25,18 @@ if (missingEnv.length) {
 // Global safety net — prevent process exit on unhandled rejection / exception.
 const { sendAlert } = require('./utils/alert');
 process.on('unhandledRejection', (reason, promise) => {
-    const stack = reason && reason.stack || String(reason);
+    const stack = (reason && reason.stack) || String(reason);
     console.error('[PROCESS] Unhandled Rejection:', stack);
     sendAlert('unhandledRejection', String(reason).slice(0, 200), stack);
 });
 process.on('uncaughtException', (err) => {
-    const stack = err && err.stack || String(err);
+    const stack = (err && err.stack) || String(err);
     console.error('[PROCESS] Uncaught Exception:', stack);
-    sendAlert('uncaughtException', err && err.message || String(err), stack);
+    sendAlert('uncaughtException', (err && err.message) || String(err), stack);
 });
 
 // Use node-fetch for compatibility
-const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
+const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -45,7 +45,8 @@ const PORT = process.env.PORT || 3000;
 const FB_GRAPH_URL = 'https://graph.facebook.com/v21.0';
 
 // TPOS CRM API
-const TPOS_API_URL = 'https://tomato.tpos.vn/odata/CRMTeam/ODataService.GetAllFacebook?$expand=Childs';
+const TPOS_API_URL =
+    'https://tomato.tpos.vn/odata/CRMTeam/ODataService.GetAllFacebook?$expand=Childs';
 
 // Token storage file
 const TOKEN_FILE = path.join(__dirname, 'tokens.json');
@@ -82,7 +83,7 @@ function saveTokensToFile() {
         const data = {
             tokens: tokenCache,
             timestamp: lastFetchTime,
-            savedAt: new Date().toISOString()
+            savedAt: new Date().toISOString(),
         };
         fs.writeFileSync(TOKEN_FILE, JSON.stringify(data, null, 2));
         console.log(`[STORAGE] Saved ${Object.keys(tokenCache).length} tokens to file`);
@@ -99,7 +100,7 @@ loadTokensFromFile();
 // Multer for file uploads
 const upload = multer({
     storage: multer.memoryStorage(),
-    limits: { fileSize: 25 * 1024 * 1024 }
+    limits: { fileSize: 25 * 1024 * 1024 },
 });
 
 // Middleware
@@ -115,9 +116,11 @@ app.use((req, res, next) => {
 app.use(cors({ origin: '*' }));
 app.use(express.json());
 
-// Request logging
+// Request logging (skip noisy health-check probes — Render pings every ~5s)
 app.use((req, res, next) => {
-    console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+    if (req.path !== '/health' && req.path !== '/ping' && req.path !== '/health/detailed') {
+        console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+    }
     next();
 });
 
@@ -135,9 +138,9 @@ async function fetchTokensFromTPOS(tposToken) {
 
         const response = await fetch(TPOS_API_URL, {
             headers: {
-                'Authorization': `Bearer ${tposToken}`,
-                'Accept': 'application/json'
-            }
+                Authorization: `Bearer ${tposToken}`,
+                Accept: 'application/json',
+            },
         });
 
         if (!response.ok) {
@@ -153,7 +156,7 @@ async function fetchTokensFromTPOS(tposToken) {
             if (account.Facebook_PageId && account.Facebook_PageToken) {
                 tokens[account.Facebook_PageId] = {
                     token: account.Facebook_PageToken,
-                    name: account.Facebook_PageName || account.Name
+                    name: account.Facebook_PageName || account.Name,
                 };
             }
 
@@ -162,7 +165,7 @@ async function fetchTokensFromTPOS(tposToken) {
                 if (child.Facebook_PageId && child.Facebook_PageToken) {
                     tokens[child.Facebook_PageId] = {
                         token: child.Facebook_PageToken,
-                        name: child.Facebook_PageName || child.Name
+                        name: child.Facebook_PageName || child.Name,
                     };
                 }
             }
@@ -188,7 +191,7 @@ async function fetchTokensFromTPOS(tposToken) {
 async function getPageToken(pageId, tposToken) {
     // Check cache first
     const now = Date.now();
-    if (tokenCache[pageId] && (now - lastFetchTime) < CACHE_TTL) {
+    if (tokenCache[pageId] && now - lastFetchTime < CACHE_TTL) {
         return tokenCache[pageId].token;
     }
 
@@ -206,10 +209,10 @@ async function getPageToken(pageId, tposToken) {
 // =====================================================
 
 app.get('/health', (req, res) => {
-    const pages = Object.keys(tokenCache).map(id => ({
+    const pages = Object.keys(tokenCache).map((id) => ({
         id,
         name: tokenCache[id].name,
-        hasToken: !!tokenCache[id].token
+        hasToken: !!tokenCache[id].token,
     }));
 
     res.json({
@@ -221,7 +224,7 @@ app.get('/health', (req, res) => {
         cachedPages: pages.length,
         pages: pages,
         lastRefresh: lastFetchTime ? new Date(lastFetchTime).toISOString() : null,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
     });
 });
 
@@ -235,13 +238,13 @@ app.get('/health/detailed', (req, res) => {
         memory_mb: {
             rss: Math.round(mem.rss / 1024 / 1024),
             heapUsed: Math.round(mem.heapUsed / 1024 / 1024),
-            heapTotal: Math.round(mem.heapTotal / 1024 / 1024)
+            heapTotal: Math.round(mem.heapTotal / 1024 / 1024),
         },
         cached_pages: Object.keys(tokenCache).length,
         last_refresh: lastFetchTime ? new Date(lastFetchTime).toISOString() : null,
         node_version: process.version,
         pid: process.pid,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
     });
 });
 
@@ -262,10 +265,10 @@ app.post('/api/refresh-tokens', async (req, res) => {
     res.json({
         success: true,
         message: `Loaded ${Object.keys(tokenCache).length} page tokens`,
-        pages: Object.keys(tokenCache).map(id => ({
+        pages: Object.keys(tokenCache).map((id) => ({
             id,
-            name: tokenCache[id].name
-        }))
+            name: tokenCache[id].name,
+        })),
     });
 });
 
@@ -282,7 +285,7 @@ app.get('/api/pages/:pageId/conversations', async (req, res) => {
         if (!token) {
             return res.status(400).json({
                 success: false,
-                error: `No token for page ${pageId}. Refresh tokens first.`
+                error: `No token for page ${pageId}. Refresh tokens first.`,
             });
         }
 
@@ -300,8 +303,8 @@ app.get('/api/pages/:pageId/conversations', async (req, res) => {
         }
 
         // Transform to Pancake-compatible format
-        const conversations = (data.data || []).map(conv => {
-            const participant = conv.participants?.data?.find(p => p.id !== pageId) || {};
+        const conversations = (data.data || []).map((conv) => {
+            const participant = conv.participants?.data?.find((p) => p.id !== pageId) || {};
             return {
                 id: conv.id,
                 type: 'INBOX',
@@ -312,14 +315,16 @@ app.get('/api/pages/:pageId/conversations', async (req, res) => {
                 can_reply: conv.can_reply !== false,
                 from: {
                     id: participant.id || '',
-                    name: participant.name || 'Unknown'
+                    name: participant.name || 'Unknown',
                 },
                 from_psid: participant.id || '',
-                customers: [{
-                    id: participant.id || '',
-                    psid: participant.id || '',
-                    name: participant.name || 'Unknown'
-                }]
+                customers: [
+                    {
+                        id: participant.id || '',
+                        psid: participant.id || '',
+                        name: participant.name || 'Unknown',
+                    },
+                ],
             };
         });
 
@@ -352,7 +357,7 @@ app.get('/api/conversations/:convId/messages', async (req, res) => {
         if (!token) {
             return res.status(400).json({
                 success: false,
-                error: `No token for page ${page_id}`
+                error: `No token for page ${page_id}`,
             });
         }
 
@@ -365,7 +370,8 @@ app.get('/api/conversations/:convId/messages', async (req, res) => {
 
             // Get the parent comment and its replies
             const commentId = convId.split('_')[1]; // Get the comment ID part
-            const fields = 'id,message,from,created_time,attachment,comments{id,message,from,created_time,attachment}';
+            const fields =
+                'id,message,from,created_time,attachment,comments{id,message,from,created_time,attachment}';
             const url = `${FB_GRAPH_URL}/${commentId}?fields=${fields}&access_token=${token}`;
 
             const response = await fetch(url);
@@ -382,14 +388,18 @@ app.get('/api/conversations/:convId/messages', async (req, res) => {
                 conversation_id: convId,
                 from: {
                     id: data.from?.id || '',
-                    name: data.from?.name || 'Unknown'
+                    name: data.from?.name || 'Unknown',
                 },
                 message: data.message || '',
                 inserted_at: data.created_time,
-                attachments: data.attachment ? [{
-                    type: data.attachment.type === 'photo' ? 'PHOTO' : 'FILE',
-                    url: data.attachment.media?.image?.src || data.attachment.url
-                }] : []
+                attachments: data.attachment
+                    ? [
+                          {
+                              type: data.attachment.type === 'photo' ? 'PHOTO' : 'FILE',
+                              url: data.attachment.media?.image?.src || data.attachment.url,
+                          },
+                      ]
+                    : [],
             });
 
             // Add replies
@@ -400,21 +410,26 @@ app.get('/api/conversations/:convId/messages', async (req, res) => {
                         conversation_id: convId,
                         from: {
                             id: reply.from?.id || '',
-                            name: reply.from?.name || 'Unknown'
+                            name: reply.from?.name || 'Unknown',
                         },
                         message: reply.message || '',
                         inserted_at: reply.created_time,
-                        attachments: reply.attachment ? [{
-                            type: reply.attachment.type === 'photo' ? 'PHOTO' : 'FILE',
-                            url: reply.attachment.media?.image?.src || reply.attachment.url
-                        }] : []
+                        attachments: reply.attachment
+                            ? [
+                                  {
+                                      type: reply.attachment.type === 'photo' ? 'PHOTO' : 'FILE',
+                                      url:
+                                          reply.attachment.media?.image?.src ||
+                                          reply.attachment.url,
+                                  },
+                              ]
+                            : [],
                     });
                 }
             }
 
             // Sort by time (oldest first)
             messages.sort((a, b) => new Date(a.inserted_at) - new Date(b.inserted_at));
-
         } else {
             // INBOX: Get conversation messages
             console.log('[FB] GET messages for inbox conversation:', convId);
@@ -430,23 +445,26 @@ app.get('/api/conversations/:convId/messages', async (req, res) => {
                 return res.status(400).json({ success: false, error: data.error.message });
             }
 
-            messages = (data.data || []).map(msg => ({
+            messages = (data.data || []).map((msg) => ({
                 id: msg.id,
                 conversation_id: convId,
                 from: {
                     id: msg.from?.id || '',
-                    name: msg.from?.name || 'Unknown'
+                    name: msg.from?.name || 'Unknown',
                 },
                 message: msg.message || '',
                 inserted_at: msg.created_time,
-                attachments: (msg.attachments?.data || []).map(att => ({
+                attachments: (msg.attachments?.data || []).map((att) => ({
                     id: att.id,
-                    type: att.mime_type?.startsWith('image') ? 'PHOTO' :
-                          att.mime_type?.startsWith('video') ? 'VIDEO' : 'FILE',
+                    type: att.mime_type?.startsWith('image')
+                        ? 'PHOTO'
+                        : att.mime_type?.startsWith('video')
+                          ? 'VIDEO'
+                          : 'FILE',
                     url: att.image_data?.url || att.video_data?.url || att.file_url,
-                    name: att.name
+                    name: att.name,
                 })),
-                sticker: msg.sticker
+                sticker: msg.sticker,
             }));
         }
 
@@ -467,7 +485,7 @@ app.post('/api/pages/:pageId/messages', async (req, res) => {
         if (!token) {
             return res.status(400).json({
                 success: false,
-                error: `No token for page ${pageId}`
+                error: `No token for page ${pageId}`,
             });
         }
 
@@ -485,7 +503,7 @@ app.post('/api/pages/:pageId/messages', async (req, res) => {
             const response = await fetch(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message: message || '' })
+                body: JSON.stringify({ message: message || '' }),
             });
 
             data = await response.json();
@@ -494,7 +512,6 @@ app.post('/api/pages/:pageId/messages', async (req, res) => {
                 console.error('[FB] Comment Error:', data.error);
                 return res.status(400).json({ success: false, error: data.error.message });
             }
-
         } else {
             // INBOX: Send via Messenger Send API
             // Need recipient_id (PSID) to send message
@@ -504,13 +521,15 @@ app.post('/api/pages/:pageId/messages', async (req, res) => {
                 const convResponse = await fetch(convUrl);
                 const convData = await convResponse.json();
                 if (convData.participants?.data) {
-                    const customer = convData.participants.data.find(p => p.id !== pageId);
+                    const customer = convData.participants.data.find((p) => p.id !== pageId);
                     psid = customer?.id;
                 }
             }
 
             if (!psid) {
-                return res.status(400).json({ success: false, error: 'recipient_id required for inbox messages' });
+                return res
+                    .status(400)
+                    .json({ success: false, error: 'recipient_id required for inbox messages' });
             }
 
             const url = `${FB_GRAPH_URL}/${pageId}/messages?access_token=${token}`;
@@ -522,19 +541,21 @@ app.post('/api/pages/:pageId/messages', async (req, res) => {
                 messagePayload = {
                     attachment: {
                         type: attachment_type || 'image',
-                        payload: { attachment_id }
-                    }
+                        payload: { attachment_id },
+                    },
                 };
             } else if (message) {
                 messagePayload = { text: message };
             } else {
-                return res.status(400).json({ success: false, error: 'message or attachment_id required' });
+                return res
+                    .status(400)
+                    .json({ success: false, error: 'message or attachment_id required' });
             }
 
             const body = {
                 recipient: { id: psid },
                 message: messagePayload,
-                messaging_type: 'RESPONSE'
+                messaging_type: 'RESPONSE',
             };
 
             console.log('[FB] POST message to:', psid);
@@ -542,7 +563,7 @@ app.post('/api/pages/:pageId/messages', async (req, res) => {
             const response = await fetch(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(body)
+                body: JSON.stringify(body),
             });
 
             data = await response.json();
@@ -559,8 +580,8 @@ app.post('/api/pages/:pageId/messages', async (req, res) => {
                 id: data.message_id,
                 message: message || '',
                 from: { id: pageId },
-                inserted_at: new Date().toISOString()
-            }
+                inserted_at: new Date().toISOString(),
+            },
         });
     } catch (error) {
         console.error('[FB] Error:', error.message);
@@ -581,7 +602,7 @@ app.post('/api/pages/:pageId/upload', upload.single('file'), async (req, res) =>
         if (!token) {
             return res.status(400).json({
                 success: false,
-                error: `No token for page ${pageId}`
+                error: `No token for page ${pageId}`,
             });
         }
 
@@ -599,15 +620,18 @@ app.post('/api/pages/:pageId/upload', upload.single('file'), async (req, res) =>
 
         // Upload to Facebook
         const formData = new FormData();
-        formData.append('message', JSON.stringify({
-            attachment: {
-                type: attachmentType,
-                payload: { is_reusable: true }
-            }
-        }));
+        formData.append(
+            'message',
+            JSON.stringify({
+                attachment: {
+                    type: attachmentType,
+                    payload: { is_reusable: true },
+                },
+            })
+        );
         formData.append('filedata', req.file.buffer, {
             filename: req.file.originalname,
-            contentType: req.file.mimetype
+            contentType: req.file.mimetype,
         });
 
         const url = `${FB_GRAPH_URL}/${pageId}/message_attachments?access_token=${token}`;
@@ -615,7 +639,7 @@ app.post('/api/pages/:pageId/upload', upload.single('file'), async (req, res) =>
         const response = await fetch(url, {
             method: 'POST',
             body: formData,
-            headers: formData.getHeaders()
+            headers: formData.getHeaders(),
         });
 
         const data = await response.json();
@@ -631,7 +655,7 @@ app.post('/api/pages/:pageId/upload', upload.single('file'), async (req, res) =>
             success: true,
             id: data.attachment_id,
             attachment_id: data.attachment_id,
-            attachment_type: attachmentType.toUpperCase()
+            attachment_type: attachmentType.toUpperCase(),
         });
     } catch (error) {
         console.error('[FB] Upload error:', error.message);
@@ -662,7 +686,7 @@ app.post('/api/pages/:pageId/comments/:commentId/private-reply', async (req, res
         if (!token) {
             return res.status(400).json({
                 success: false,
-                error: `No token for page ${pageId}`
+                error: `No token for page ${pageId}`,
             });
         }
 
@@ -679,7 +703,7 @@ app.post('/api/pages/:pageId/comments/:commentId/private-reply', async (req, res
         const response = await fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ message })
+            body: JSON.stringify({ message }),
         });
 
         const data = await response.json();
@@ -690,7 +714,8 @@ app.post('/api/pages/:pageId/comments/:commentId/private-reply', async (req, res
             // Provide helpful error messages
             let errorMessage = data.error.message;
             if (data.error.code === 10903) {
-                errorMessage = 'Private Reply đã được gửi trước đó cho comment này (chỉ được 1 lần)';
+                errorMessage =
+                    'Private Reply đã được gửi trước đó cho comment này (chỉ được 1 lần)';
             } else if (data.error.code === 200) {
                 errorMessage = 'Không có quyền gửi Private Reply. Cần permission pages_messaging';
             } else if (data.error.message?.includes('7 days')) {
@@ -700,7 +725,7 @@ app.post('/api/pages/:pageId/comments/:commentId/private-reply', async (req, res
             return res.status(400).json({
                 success: false,
                 error: errorMessage,
-                facebook_error: data.error
+                facebook_error: data.error,
             });
         }
 
@@ -712,9 +737,8 @@ app.post('/api/pages/:pageId/comments/:commentId/private-reply', async (req, res
             message_id: data.id,
             recipient_id: data.recipient_id,
             message: message,
-            info: 'Cuộc hội thoại Messenger mới đã được tạo. Dùng recipient_id để gửi tin nhắn tiếp theo.'
+            info: 'Cuộc hội thoại Messenger mới đã được tạo. Dùng recipient_id để gửi tin nhắn tiếp theo.',
         });
-
     } catch (error) {
         console.error('[FB] Private Reply error:', error.message);
         res.status(500).json({ success: false, error: error.message });
@@ -737,7 +761,7 @@ app.get('/api/pages/:pageId/conversations/find-by-psid', async (req, res) => {
         if (!token) {
             return res.status(400).json({
                 success: false,
-                error: `No token for page ${pageId}`
+                error: `No token for page ${pageId}`,
             });
         }
 
@@ -760,20 +784,20 @@ app.get('/api/pages/:pageId/conversations/find-by-psid', async (req, res) => {
         }
 
         // Find conversation with matching participant
-        const conversation = (data.data || []).find(conv => {
+        const conversation = (data.data || []).find((conv) => {
             const participants = conv.participants?.data || [];
-            return participants.some(p => p.id === psid);
+            return participants.some((p) => p.id === psid);
         });
 
         if (!conversation) {
             return res.json({
                 success: false,
                 error: 'Không tìm thấy cuộc hội thoại với PSID này',
-                hint: 'Conversation có thể chưa được tạo hoặc đã hết hạn'
+                hint: 'Conversation có thể chưa được tạo hoặc đã hết hạn',
             });
         }
 
-        const participant = conversation.participants?.data?.find(p => p.id === psid) || {};
+        const participant = conversation.participants?.data?.find((p) => p.id === psid) || {};
 
         res.json({
             success: true,
@@ -782,10 +806,9 @@ app.get('/api/pages/:pageId/conversations/find-by-psid', async (req, res) => {
                 psid: psid,
                 customer_name: participant.name || 'Unknown',
                 snippet: conversation.snippet,
-                updated_time: conversation.updated_time
-            }
+                updated_time: conversation.updated_time,
+            },
         });
-
     } catch (error) {
         console.error('[FB] Error:', error.message);
         res.status(500).json({ success: false, error: error.message });
@@ -812,7 +835,7 @@ app.post('/api/pages/:pageId/conversations/:convId/read', async (req, res) => {
 
         let psid = null;
         if (convData.participants?.data) {
-            const customer = convData.participants.data.find(p => p.id !== pageId);
+            const customer = convData.participants.data.find((p) => p.id !== pageId);
             psid = customer?.id;
         }
 
@@ -827,8 +850,8 @@ app.post('/api/pages/:pageId/conversations/:convId/read', async (req, res) => {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 recipient: { id: psid },
-                sender_action: 'mark_seen'
-            })
+                sender_action: 'mark_seen',
+            }),
         });
 
         const data = await response.json();
@@ -862,7 +885,9 @@ async function gracefulShutdown(signal) {
     try {
         await new Promise((resolve) => httpServer.close(resolve));
         console.log('[SHUTDOWN] HTTP server closed, exit 0');
-    } catch (e) { console.warn('[SHUTDOWN] close error:', e.message); }
+    } catch (e) {
+        console.warn('[SHUTDOWN] close error:', e.message);
+    }
     process.exit(0);
 }
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
