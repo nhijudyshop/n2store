@@ -3,21 +3,25 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `f233f5d` — docs(render): web2 infra research — web2Db inventory (~43 bảng) + Firebase ~95% migrated off Web2.0
-**Last updated**: 2026-06-14 18:22:53 +07
-**Latest session**: [`RESUME:20260614-182253-f233f5d`](../20260614-182253-f233f5d.md)
-**Summary**: docs(render): web2 infra research — web2Db inventory (~43 bảng) + Firebase ~95% migrated off Web2.0
+**Latest commit**: `797c2c3` — auto: session update
+**Last updated**: 2026-06-14 18:31:21 +07
+**Latest session**: [`RESUME:20260614-183121-797c2c3`](../20260614-183121-797c2c3.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
+- [`_root/`](./_root.md) — 1 file(s)
 - [`docs/`](./docs.md) — 1 file(s)
+- [`native-orders/`](./native-orders.md) — 1 file(s)
+- [`orders-report/`](./orders-report.md) — 2 file(s)
+- [`web2/`](./web2.md) — 4 file(s)
 
 ## All folder snapshots
 
 - [`.claude/`](./.claude.md) — updated 2026-06-05 10:42
 - [`.github/`](./.github.md) — updated 2026-06-13 11:30
 - [`AI/`](./AI.md) — updated 2026-05-21 15:39
-- [`_root/`](./_root.md) — updated 2026-06-14 14:01
+- [`_root/`](./_root.md) — updated 2026-06-14 18:31
 - [`aikol-studio/`](./aikol-studio.md) — updated 2026-05-21 15:39
 - [`balance-history-home/`](./balance-history-home.md) — updated 2026-05-21 15:39
 - [`balance-history/`](./balance-history.md) — updated 2026-06-11 16:49
@@ -25,7 +29,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-14 15:18
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-14 13:12
-- [`docs/`](./docs.md) — updated 2026-06-14 18:22
+- [`docs/`](./docs.md) — updated 2026-06-14 18:31
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-13 14:55
 - [`downloads/`](./downloads.md) — updated 2026-06-13 19:16
@@ -42,10 +46,10 @@
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-06-04 20:02
 - [`n2store-facebook/`](./n2store-facebook.md) — updated 2026-06-14 13:09
 - [`n2store-realtime/`](./n2store-realtime.md) — updated 2026-06-14 12:30
-- [`native-orders/`](./native-orders.md) — updated 2026-06-14 15:18
+- [`native-orders/`](./native-orders.md) — updated 2026-06-14 18:31
 - [`nhanhang/`](./nhanhang.md) — updated 2026-06-13 19:51
 - [`order-management/`](./order-management.md) — updated 2026-05-21 15:39
-- [`orders-report/`](./orders-report.md) — updated 2026-06-14 17:17
+- [`orders-report/`](./orders-report.md) — updated 2026-06-14 18:31
 - [`pancake-extension/`](./pancake-extension.md) — updated 2026-05-21 11:33
 - [`phone-management/`](./phone-management.md) — updated 2026-05-21 15:39
 - [`product-warehouse/`](./product-warehouse.md) — updated 2026-06-04 13:36
@@ -73,4 +77,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-14 15:18
+- [`web2/`](./web2.md) — updated 2026-06-14 18:31
