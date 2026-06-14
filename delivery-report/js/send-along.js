@@ -33,6 +33,11 @@
     // channels: [{ channel: string, orders: [{ name, phone, value }] }]
     let _state = { dateKey: '', channels: [] };
 
+    // Cache tổng hợp theo NGÀY (cho cột SL GK / COD GK ở Báo cáo). TTL ngắn để
+    // dedupe nhiều lần đọc trong cùng 1 lần render bảng; tự bust khi save().
+    const _summaryCache = new Map(); // dateKey → { at: number, data }
+    const SUMMARY_TTL_MS = 15000;
+
     // ---------- Firestore ----------
     function getDB() {
         if (typeof getFirestore === 'function') return getFirestore();
@@ -377,6 +382,7 @@
         const channels = sanitize();
         // UI-first: cache + đóng cảm giác ngay, Firestore nền.
         saveLocal(dateKey, channels);
+        _summaryCache.delete(dateKey); // bust summary để Báo cáo đọc số mới
         setStatus('Đang lưu...', '#6b7280');
         const ref = getDocRef(dateKey);
         if (!ref) {
@@ -435,6 +441,66 @@
         return out;
     }
 
+    // Quy giá trị Gửi Kèm (đơn vị NGHÌN) → ĐỒNG. Ai lỡ nhập full đồng (≥10.000)
+    // → giữ nguyên (cùng quy ước với sendAlongThousand ở delivery-report.js).
+    function toDong(v) {
+        const n = parseValue(v);
+        return (n >= 10000 ? Math.round(n / 1000) : n) * 1000;
+    }
+
+    // Tổng hợp Gửi Kèm của 1 ngày theo KÊNH (key = tên kênh viết thường).
+    // Trả { [channelLower]: { count, valueDong, collectDong } }. Firestore là
+    // source-of-truth, fallback cache localStorage.
+    async function _summaryForDate(dateKey) {
+        const cached = _summaryCache.get(dateKey);
+        if (cached && Date.now() - cached.at < SUMMARY_TTL_MS) return cached.data;
+        let channels = null;
+        try {
+            const ref = getDocRef(dateKey);
+            if (ref) {
+                const snap = await ref.get();
+                if (snap.exists && Array.isArray(snap.data().channels)) {
+                    channels = snap.data().channels;
+                }
+            }
+        } catch (_) {}
+        if (!channels) channels = loadLocal(dateKey) || [];
+
+        const byCh = {};
+        for (const ch of channels) {
+            const key = String(ch.channel || '').trim().toLowerCase();
+            if (!key) continue;
+            const agg = byCh[key] || { count: 0, valueDong: 0, collectDong: 0 };
+            for (const o of ch.orders || []) {
+                const value = parseValue(o.value);
+                const collect = parseValue(o.collect);
+                // Bỏ đơn rỗng hoàn toàn (cùng tiêu chí getOrdersForChannel).
+                if (!String(o.name || '').trim() && !value && !collect) continue;
+                agg.count += 1;
+                agg.valueDong += toDong(value);
+                agg.collectDong += toDong(collect);
+            }
+            if (agg.count) byCh[key] = agg;
+        }
+        _summaryCache.set(dateKey, { at: Date.now(), data: byCh });
+        return byCh;
+    }
+
+    // Tổng hợp Gửi Kèm cho 1 MẢNG ngày (YYYY-MM-DD). Báo cáo (report.js) dùng
+    // để hiển thị 2 cột SL GK / COD GK theo từng ngày + kênh.
+    // Trả { [dateKey]: { [channelLower]: { count, valueDong, collectDong } } }.
+    async function getDailySummaries(dates) {
+        const list = Array.isArray(dates) ? dates : [];
+        const out = {};
+        await Promise.all(
+            list.map(async (d) => {
+                if (!d) return;
+                out[d] = await _summaryForDate(d);
+            })
+        );
+        return out;
+    }
+
     window.SendAlong = {
         open,
         close,
@@ -444,6 +510,7 @@
         removeOrder,
         save,
         getOrdersForChannel,
+        getDailySummaries,
         _editChannel,
         _edit,
         _editPhone,

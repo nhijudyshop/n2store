@@ -294,6 +294,10 @@
         { key: 'city', label: 'THÀNH PHỐ', color: '#b45309', bg: '#fef3c7' },
     ];
 
+    // Map tab → tên kênh trong Gửi Kèm (send-along.js) để hiển thị 2 cột
+    // SL GK / COD GK theo đúng kênh của tab đang xem.
+    const SEND_ALONG_CHANNEL = { tomato: 'TOMATO', nap: 'NAP', city: 'Thành phố' };
+
     // Image config: compress paste/uploaded images to keep localStorage under control
     const IMG_MAX_DIM = 1400; // px, longest edge
     const IMG_QUALITY = 0.82; // JPEG quality
@@ -315,6 +319,8 @@
         mergesFetched: new Map(), // rangeKey → timestamp
         // Selection mode: user check rows để gộp. Set<dateStr> cho activeTab.
         selectedDates: new Set(),
+        // Gửi Kèm theo ngày (SL GK / COD GK): { [date]: { [channelLower]: {count, valueDong, collectDong} } }
+        sendAlongByDate: {},
     };
 
     // Legacy localStorage reader — chỉ dùng cho one-time migration.
@@ -609,6 +615,55 @@
     function parseMoney(s) {
         const cleaned = String(s || '').replace(/[^\d-]/g, '');
         return Number(cleaned) || 0;
+    }
+
+    // ── Gửi Kèm (SL GK / COD GK) ──────────────────────────────────────────
+    // Nạp tổng hợp Gửi Kèm theo ngày vào state.sendAlongByDate. Fire-and-forget
+    // trong render() → paintTable đọc lại để vẽ 2 cột. Web 1.0 Firestore.
+    async function loadSendAlongRange(dateList) {
+        if (!window.SendAlong || typeof window.SendAlong.getDailySummaries !== 'function') return;
+        try {
+            const sums = await window.SendAlong.getDailySummaries(dateList);
+            state.sendAlongByDate = { ...state.sendAlongByDate, ...sums };
+        } catch (e) {
+            console.warn('[report] loadSendAlongRange failed:', e?.message);
+        }
+    }
+
+    // Lấy { count, collectDong, valueDong } Gửi Kèm cho 1 ngày theo kênh của tab.
+    function sendAlongFor(date, tab) {
+        const chName = SEND_ALONG_CHANNEL[tab];
+        const byCh = chName ? state.sendAlongByDate[date] : null;
+        const g = byCh ? byCh[chName.toLowerCase()] : null;
+        return {
+            count: g ? g.count : 0,
+            collectDong: g ? g.collectDong : 0,
+            valueDong: g ? g.valueDong : 0,
+        };
+    }
+
+    // Tổng SL GK / COD GK của 1 mảng ngày (cho merge / aggregate rows).
+    function sendAlongSum(dateArr, tab) {
+        let count = 0,
+            collectDong = 0,
+            valueDong = 0;
+        for (const d of dateArr) {
+            const g = sendAlongFor(d, tab);
+            count += g.count;
+            collectDong += g.collectDong;
+            valueDong += g.valueDong;
+        }
+        return { count, collectDong, valueDong };
+    }
+
+    // 2 ô <td> SL GK / COD GK (read-only). count=0 → muted để bớt nhiễu.
+    function gkCellsHtml(count, collectDong) {
+        const slCls = count ? 'num' : 'num muted';
+        const codCls = collectDong ? 'num' : 'num muted';
+        return (
+            `<td class="${slCls}" title="Số lượng đơn Gửi Kèm (theo kênh)">${formatNumber(count)}</td>` +
+            `<td class="${codCls}" title="Tổng COD đơn Gửi Kèm (theo kênh)">${formatMoney(collectDong)}</td>`
+        );
     }
 
     function escapeHtml(s) {
@@ -1008,9 +1063,9 @@
         return tab !== 'city';
     }
     // Số cột hiện tại (dùng cho colspan của expand/empty/loading rows).
-    // Base 13 − 1 (ATRƯỜNG luôn bỏ) − (1 nếu city bỏ CK TRƯỚC).
+    // Base 13 − 1 (ATRƯỜNG luôn bỏ) − (1 nếu city bỏ CK TRƯỚC) + 2 (SL GK, COD GK).
     function currentColCount() {
-        return showCkTruocFor(state.activeTab) ? 12 : 11;
+        return showCkTruocFor(state.activeTab) ? 14 : 13;
     }
 
     // Build header động theo tab — ATRƯỜNG NHẬN CK luôn bỏ, CK TRƯỚC bỏ ở city.
@@ -1025,6 +1080,8 @@
             '<th class="num">PHÍ SHIP</th>' +
             '<th class="num input-col" title="Số đơn ship riêng, trừ khỏi TỔNG TẤT CẢ (SL × 23.000)">SL ĐƠN SHIP</th>' +
             '<th class="num input-col" title="Tiền thu về, cộng thêm vào TỔNG TẤT CẢ">THU VỀ</th>' +
+            '<th class="num" title="Số lượng đơn Gửi Kèm của kênh trong ngày">SL GK</th>' +
+            '<th class="num" title="Tổng COD đơn Gửi Kèm của kênh trong ngày">COD GK</th>' +
             '<th class="num">TỔNG TẤT CẢ</th>' +
             '<th class="num input-col">BO NHẬN CK</th>' +
             (showCk ? '<th class="num input-col">CK TRƯỚC</th>' : '') +
@@ -1079,6 +1136,7 @@
             loadOverridesRange(extFrom, extTo),
             loadMergesRange(extFrom, extTo),
             loadDateShiftsRange(extFrom, extTo),
+            loadSendAlongRange(eachDay(extFrom, extTo)),
         ]).then(() => {
             // Repaint nếu range vẫn match (tránh flicker stale data)
             const curRealFrom = entryToReal(state.fromDate);
@@ -1293,6 +1351,8 @@
             shipFee: 0,
             slShip: 0,
             thuVe: 0,
+            gkCount: 0,
+            gkCollect: 0,
             totalAll: 0,
             boCK: 0,
             ckTruoc: 0,
@@ -1322,6 +1382,7 @@
             // dòng chỉ mờ đi qua class .is-approved. Totals cũng cộng bình thường.
             const totalLeftDisplay = totalLeftRaw;
             const note = ov.note || '';
+            const gk = sendAlongFor(d, state.activeTab);
             if (!isChild) {
                 // Child rows skip cộng totals — đã cộng vào merge row parent
                 totals.slDon += slDon;
@@ -1329,6 +1390,8 @@
                 totals.shipFee += shipFee;
                 totals.slShip += slShip;
                 totals.thuVe += thuVe;
+                totals.gkCount += gk.count;
+                totals.gkCollect += gk.collectDong;
                 totals.totalAll += totalAll;
                 totals.boCK += boCK;
                 totals.ckTruoc += ckTruoc;
@@ -1365,6 +1428,7 @@
                 <td class="num muted">${formatMoney(shipFee)}</td>
                 <td class="num"><input type="number" min="0" data-field="slShip" value="${slShip || ''}" placeholder="0" ${disabled} /></td>
                 <td class="num"><input type="text" data-field="thuVe" value="${thuVe ? formatMoney(thuVe) : ''}" placeholder="0" ${disabled} /></td>
+                ${gkCellsHtml(gk.count, gk.collectDong)}
                 <td class="num strong">${formatMoney(totalAll)}</td>
                 <td class="num"><input type="text" data-field="boCK" value="${boCK ? formatMoney(boCK) : ''}" placeholder="0" ${disabled} /></td>
                 ${showCk ? `<td class="num"><input type="text" data-field="ckTruoc" value="${ckTruoc ? formatMoney(ckTruoc) : ''}" placeholder="0" ${disabled} /></td>` : ''}
@@ -1417,11 +1481,14 @@
             // Duyệt KHÔNG zero TỔNG CÒN LẠI nữa (2026-05-31) — giữ nguyên giá trị,
             // dòng chỉ mờ đi qua class .is-approved. Totals cũng cộng bình thường.
             const totalLeftDisplay = totalLeftRaw;
+            const gkMerge = sendAlongSum(childDates, state.activeTab);
             totals.slDon += sumSlDon;
             totals.money += sumMoney;
             totals.shipFee += sumShipFee;
             totals.slShip += slShip;
             totals.thuVe += thuVe;
+            totals.gkCount += gkMerge.count;
+            totals.gkCollect += gkMerge.collectDong;
             totals.totalAll += totalAll;
             totals.boCK += boCK;
             totals.ckTruoc += ckTruoc;
@@ -1489,6 +1556,7 @@
                 <td class="num muted">${formatMoney(sumShipFee)}</td>
                 <td class="num"><input type="number" min="0" data-field="slShip" value="${useMerge(merge.slShip) ? merge.slShip : ''}" placeholder="${sumSlShip || 0}" title="${useMerge(merge.slShip) ? 'Giá trị nhập tay (override sum=' + sumSlShip + ')' : 'Tổng từ ' + childDates.length + ' ngày con (để trống = dùng sum)'}" /></td>
                 <td class="num"><input type="text" data-field="thuVe" value="${useMerge(merge.thuVe) ? formatMoney(merge.thuVe) : ''}" placeholder="${sumThuVe ? formatMoney(sumThuVe) : '0'}" title="${useMerge(merge.thuVe) ? 'Giá trị nhập tay (override sum=' + formatMoney(sumThuVe) + ')' : 'Tổng từ ' + childDates.length + ' ngày con (để trống = dùng sum)'}" /></td>
+                ${gkCellsHtml(gkMerge.count, gkMerge.collectDong)}
                 <td class="num strong">${formatMoney(totalAll)}</td>
                 <td class="num"><input type="text" data-field="boCK" value="${useMerge(merge.boCK) ? formatMoney(merge.boCK) : ''}" placeholder="${sumBoCK ? formatMoney(sumBoCK) : '0'}" title="${useMerge(merge.boCK) ? 'Giá trị nhập tay (override sum=' + formatMoney(sumBoCK) + ')' : 'Tổng từ ' + childDates.length + ' ngày con (để trống = dùng sum)'}" /></td>
                 ${showCk ? `<td class="num"><input type="text" data-field="ckTruoc" value="${useMerge(merge.ckTruoc) ? formatMoney(merge.ckTruoc) : ''}" placeholder="${sumCkTruoc ? formatMoney(sumCkTruoc) : '0'}" title="${useMerge(merge.ckTruoc) ? 'Giá trị nhập tay (override sum=' + formatMoney(sumCkTruoc) + ')' : 'Tổng từ ' + childDates.length + ' ngày con (để trống = dùng sum)'}" /></td>` : ''}
@@ -1511,6 +1579,8 @@
                 <td class="date" title="Ngày thật: ${formatDDMMYYYY(d)}">${formatDDMMYYYY(realToEntry(d))}${movedBadge}${editBtn}</td>
                 <td class="num strong muted">0</td>
                 <td class="num muted">$ 0</td>
+                <td class="num muted">$ 0</td>
+                <td class="num muted">0</td>
                 <td class="num muted">$ 0</td>
                 <td class="num muted">0</td>
                 <td class="num muted">$ 0</td>
@@ -1561,12 +1631,15 @@
             // Duyệt KHÔNG zero TỔNG CÒN LẠI nữa (2026-05-31) — giữ nguyên giá trị,
             // dòng chỉ mờ đi qua class .is-approved. Totals cũng cộng bình thường.
             const totalLeftDisplay = totalLeftRaw;
+            const gkAgg = sendAlongSum(sourceDates, tab);
             // Tổng row tally
             totals.slDon += sumSlDon;
             totals.money += sumMoney;
             totals.shipFee += sumShipFee;
             totals.slShip += sumSlShip;
             totals.thuVe += sumThuVe;
+            totals.gkCount += gkAgg.count;
+            totals.gkCollect += gkAgg.collectDong;
             totals.totalAll += totalAll;
             totals.boCK += sumBoCK;
             totals.ckTruoc += sumCkTruoc;
@@ -1610,6 +1683,7 @@
                 <td class="num muted">${formatMoney(sumShipFee)}</td>
                 <td class="num">${formatNumber(sumSlShip)}</td>
                 <td class="num">${formatMoney(sumThuVe)}</td>
+                ${gkCellsHtml(gkAgg.count, gkAgg.collectDong)}
                 <td class="num strong">${formatMoney(totalAll)}</td>
                 <td class="num">${formatMoney(sumBoCK)}</td>
                 ${showCk ? `<td class="num">${formatMoney(sumCkTruoc)}</td>` : ''}
@@ -1730,6 +1804,8 @@
             <th class="num muted">${formatMoney(totals.shipFee)}</th>
             <th class="num">${formatNumber(totals.slShip)}</th>
             <th class="num">${formatMoney(totals.thuVe)}</th>
+            <th class="num">${formatNumber(totals.gkCount)}</th>
+            <th class="num">${formatMoney(totals.gkCollect)}</th>
             <th class="num strong">${formatMoney(totals.totalAll)}</th>
             <th class="num">${formatMoney(totals.boCK)}</th>
             ${showCk ? `<th class="num">${formatMoney(totals.ckTruoc)}</th>` : ''}

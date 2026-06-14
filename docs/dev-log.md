@@ -264,6 +264,21 @@ Cũng nâng `_applyDeeplink`: quét toàn state tìm tab+shipment chứa NCC →
 
 **Verify:** smoke Kho SP — list hàng ngang (thumb 56px trái + mã/tên/giá + SL badge + nút + phải), braces 117/117 OK, parse OK, web2-effects.js loaded. Zoom hoạt động với SP có ảnh thật (test data dùng placeholder 📦). `?v=20260614inv1`. **Status:** ✅ Done.
 
+### [delivery-report] Báo cáo: thêm 2 cột SL GK / COD GK (gửi kèm theo kênh) ✅
+
+**User:** trong Báo cáo muốn thêm 2 cột **SL GK** và **COD GK** bên phải cột **THU VỀ**; giá trị gửi kèm lấy từ bảng Gửi Kèm lưu trong ngày hôm đó, **phân phối theo đúng kênh** (TOMATO/NAP/Thành phố).
+
+**Cách làm:**
+
+- `send-along.js`: thêm `getDailySummaries(dates[])` → `{ [date]: { [channelLower]: {count, valueDong, collectDong} } }`. Đọc Firestore source-of-truth, fallback localStorage cache; quy giá trị NGHÌN → ĐỒNG (`toDong`, cùng quy ước `sendAlongThousand` ở handover image). Cache TTL 15s + bust khi `save()`. Tiêu chí đếm đơn khớp `getOrdersForChannel` (bỏ đơn rỗng hoàn toàn).
+- `report.js`: map `SEND_ALONG_CHANNEL = { tomato:'TOMATO', nap:'NAP', city:'Thành phố' }`. Nạp `state.sendAlongByDate` qua `loadSendAlongRange()` trong Promise.all của `render()` (extended range gồm shift sources) → repaint. Helper `sendAlongFor(date,tab)` / `sendAlongSum(dates,tab)` + `gkCellsHtml()`. Chèn 2 cột (read-only) sau THU VỀ ở **cả 4 row builder** (single/child, merge, shift-aggregate, shifted-out), header, footer total, và `currentColCount` 12/11 → **14/13**. Gửi kèm thuần INFORMATIONAL — KHÔNG cộng vào TỔNG TẤT CẢ / TỔNG CÒN LẠI (giữ nguyên số đã duyệt).
+
+**Verify (Playwright, seed localStorage):** TOMATO → SL GK=2 / COD=$50.000; Thành phố (city, 13 cột, không CK TRƯỚC) → 1 / $50.000; NAP → 1 / $0. Header + body + footer đều 14 cột (13 ở city), không lệch cột. Footer tổng khớp. 0 lỗi JS từ code mới.
+
+**Files:** [delivery-report/js/report.js](../delivery-report/js/report.js), [delivery-report/js/send-along.js](../delivery-report/js/send-along.js), [delivery-report/index.html](../delivery-report/index.html) (bump `?v=20260614f`).
+
+**Status:** ✅ Done.
+
 ## 2026-06-13
 
 ### [live-chat] Rebuild CSS trên shared native-orders — Phase A: xóa dead + fix token + blueprint (đợt 12) 🔄
