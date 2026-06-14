@@ -20,7 +20,11 @@
 - **Trim `pancake-chat.css`: xóa dòng 677–1275** (598 dòng) = block CHAT WINDOW inner + QUICK REPLY + CHAT INPUT (composer cũ) — tất cả `0 JS ref`, Web2ChatPanel `.w2cp-*` thay thế. **GIỮ** `.pk-chat-window` base (mount shell) + SEARCH STATES/LOAD MORE/CONTEXT MENU/MODAL/PAGE-SELECTOR/filter (verified must-keep class đều ngoài vùng xóa). braces 288/288 OK.
 - **Verify smoke (mở hội thoại clone):** chat pane Web2ChatPanel render HOÀN HẢO trong `.pk-chat-window` (header/bubble xanh/quick-chips/composer/send) + list + Kho SP đủ, 0 vỡ.
 
-**Kết quả:** live-chat CSS **8054 → 5016 dòng** (−3038 dead, −38%). Còn lại (optional, low-value): clean `.pk-quick-reply-btn` leftover (1017), trim `layout.css` dead, bỏ dần `components.css`/`variables.css` (adopt-shared), retoken `--pkr`→`--web2` (neutral vì đã = #0068ff).
+**Phase C (dọn vụn — ĐÃ làm):** xóa nốt **72 dòng leftover dead** trong pancake-chat.css (IMAGE PREVIEW/`.pk-attach-*`/`.pk-preview-remove` 860–923 + `.pk-message`/`.pk-quick-reply-btn` trong media-query — tất cả `0 JS ref`). Final smoke (mở hội thoại): chat pane + list + Kho SP render đủ.
+
+**⚠ KHÔNG xóa `layout.css`/`components.css`/`variables.css`** (blueprint đề xuất nhưng VERIFY thấy còn dùng): `column-manager.js` + `settings-manager.js` VẪN load → layout (resize/settings/placeholder) sống; `variables.css` = 47 `--token` cung cấp cho layout/components → xóa sẽ vỡ. → GIỮ.
+
+**Kết quả cuối:** live-chat CSS **8054 → 4944 dòng (−3110, −39%)**. Xóa 4 file (live-chat.css, modern.css, chat-motion.css, pancake-chat-window.css) + trim 670 dòng dead trong pancake-chat.css. Chat pane Web2ChatPanel + list + Kho SP + composer verified render đủ qua nhiều lần smoke. live-chat dùng đúng nền shared native-orders (#0068ff + overlay + effects + motion). **Status:** ✅ Done — rebuild hoàn tất, chỉ còn dead code có ích đã sạch.
 
 **Status:** ✅ Phase A+B Done — xóa 3038 dòng dead, chat verified. Dọn vụn còn lại staged trong blueprint.
 
