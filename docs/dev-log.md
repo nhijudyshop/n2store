@@ -27,6 +27,17 @@
 
 **Files:** `render.com/server.js`, `n2store-realtime/server.js`, `live-chat/server/server.js`, `n2store-facebook/server/server.js`, `docs/guides/RENDER_SERVERS_GUIDE.md`. `node --check` PASS cả 4. **Status:** ✅ (4 service sẽ redeploy khi push — đổi nhỏ, low-risk).
 
+### [delivery-report][render] Nút "Ảnh TMT" + "Ảnh NAP": gửi kèm FILE EXCEL cùng ảnh vào Telegram ✅
+
+**User:** "hình + gửi thêm file excel" (tiếp nối yêu cầu trước về 2 nút TMT/NAP).
+
+**Làm:**
+
+- Backend `render.com/routes/delivery-report-telegram.js`: thêm endpoint `POST /send-document` (Telegram `sendDocument`, giới hạn 45MB, sanitize filename, cùng rate-limit/timeout/env với `/send-photo`).
+- Client `delivery-report.js`: thêm `sendHandoverDocumentToTelegram(blob, filename, caption)` + `buildHandoverExcelBlob(items, sheetLabel)` (`XLSX.write(..., {type:'array'})` → Blob, cùng cột `buildExcelRows` của nút Xuất TMT/NAP). Trong `copyGroupHandoverImage`: gửi ảnh OK → build Excel từ `scannedItems` → `sendHandoverDocumentToTelegram` (filename `BANGIAO_<TMT|NAP>_<ngày>.xlsx`) → reload. Lỗi Excel KHÔNG huỷ kết quả ảnh (chỉ alert). Tooltip 2 nút + bump `?v=20260614b`.
+
+**Files:** `render.com/routes/delivery-report-telegram.js`, `delivery-report/js/delivery-report.js`, `delivery-report/index.html`. `node --check` PASS cả 2. **Status:** ✅ code xong (không test live vì send Telegram = side-effect vào nhóm giao hàng thật). Backend cần Render deploy (push chạm `render.com/**` → auto-deploy theo build filter).
+
 ### [delivery-report] Nút "Ảnh TMT" + "Ảnh NAP" gửi nhóm Telegram (giống "Ảnh Thành Phố") ✅
 
 **User:** "cho 2 nút Ảnh TMT + Ảnh NAP gửi lên telegram giống nút Ảnh Thành Phố".

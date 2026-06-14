@@ -2201,6 +2201,43 @@
         return json;
     }
 
+    // Gửi file (vd Excel .xlsx) kèm danh sách đơn vào cùng nhóm Telegram.
+    async function sendHandoverDocumentToTelegram(blob, filename, caption) {
+        const dataUrl = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = () => reject(new Error('Không đọc được file'));
+            reader.readAsDataURL(blob);
+        });
+        const res = await fetch(`${DELIVERY_REPORT_TELEGRAM_API}/send-document`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ document: dataUrl, filename, caption }),
+        });
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok || !json.success) {
+            throw new Error(json.error || `HTTP ${res.status}`);
+        }
+        return json;
+    }
+
+    // Build workbook XLSX (danh sách đơn) → Blob, để gửi kèm Telegram.
+    // Cùng cấu trúc cột với nút "Xuất TMT/NAP" (buildExcelRows).
+    function buildHandoverExcelBlob(items, sheetLabel) {
+        if (typeof XLSX === 'undefined') {
+            throw new Error('Thư viện XLSX chưa được tải');
+        }
+        const wsData = buildExcelRows(items);
+        const ws = XLSX.utils.aoa_to_sheet(wsData);
+        autoFitColumns(ws, wsData);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, sheetLabel);
+        const arrayBuf = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+        return new Blob([arrayBuf], {
+            type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        });
+    }
+
     // Ảnh bàn giao 1 CỘT cho nhóm Tỉnh (TMT/NAP) — giống cột trái ảnh TP,
     // 2 kênh này KHÔNG có thu về.
     function buildGroupHandoverCanvas({ label, dateLabel, count, total, zeroItems, extraItems }) {
@@ -2516,17 +2553,33 @@
                 extraItems,
             });
             const blob = await canvasToBlob(canvas);
+            const dateLbl = handoverDateLabel();
 
-            // Gửi ảnh vào nhóm Telegram (bot riêng delivery-report) — giống nút Ảnh Thành Phố.
-            // Bỏ clipboard — gửi TG thành công thì refresh lại trang.
+            // Gửi ẢNH + FILE EXCEL vào nhóm Telegram (bot riêng delivery-report) —
+            // giống nút Ảnh Thành Phố. Bỏ clipboard — gửi TG xong thì refresh lại trang.
             try {
                 if (btn) {
                     btn.innerHTML = '<i class="fas fa-paper-plane"></i> Đang gửi Telegram...';
                 }
+                // 1) Ảnh bàn giao
                 await sendHandoverImageToTelegram(
                     blob,
-                    `📦 Bàn giao ${label} ${handoverDateLabel()} — ${scannedItems.length} đơn`
+                    `📦 Bàn giao ${label} ${dateLbl} — ${scannedItems.length} đơn`
                 );
+                // 2) File Excel danh sách đơn (cùng cột với nút Xuất TMT/NAP).
+                //    Lỗi Excel KHÔNG huỷ kết quả ảnh đã gửi — chỉ cảnh báo.
+                try {
+                    const xlsxBlob = buildHandoverExcelBlob(scannedItems, label);
+                    const fileName = makeFileName(`BANGIAO_${GROUP_FILE_NAMES[group] || label}`);
+                    await sendHandoverDocumentToTelegram(
+                        xlsxBlob,
+                        fileName,
+                        `📄 Danh sách ${label} ${dateLbl} — ${scannedItems.length} đơn`
+                    );
+                } catch (xlsxErr) {
+                    console.error('[DELIVERY-REPORT] gửi Excel Telegram lỗi:', xlsxErr);
+                    alert('Ảnh đã gửi, nhưng file Excel gửi lỗi: ' + xlsxErr.message);
+                }
                 resetBtn('<i class="fas fa-check"></i> Đã gửi TG — đang tải lại...');
                 // Gửi thành công → refresh lại trang
                 setTimeout(() => window.location.reload(), 600);
