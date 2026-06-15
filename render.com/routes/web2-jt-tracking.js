@@ -23,13 +23,14 @@ const zca = require('../services/web2-zalo-zca'); // đọc lịch sử nhóm Za
 let _pool = null;
 const getDb = (req) => req.app.locals.web2Db || req.app.locals.chatDb;
 const now = () => Date.now();
+const _sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // 4 số cuối SĐT gửi (shop) — gate bắt buộc của J&T. Verify chạy mọi đơn NHI JUDY.
 const DEFAULT_CELLPHONE = (process.env.JT_CELLPHONE || '8674').replace(/\D/g, '').slice(-4);
 const JT_BASE = 'https://jtexpress.vn/vi/tracking';
 const BILLCODE_RE = /\b\d{12}\b/g; // "tất cả string dạng 12 số"
 const FETCH_TIMEOUT_MS = 12000;
-const REFRESH_BATCH = 25; // trần 1 lần refresh (tránh spam jtexpress + treo request)
+const REFRESH_BATCH = 15; // trần 1 lần refresh — nhỏ + nhịp chậm để jtexpress không chặn
 const STALE_MS = 30 * 60 * 1000; // coi là cũ sau 30' (delivered/problem coi như chốt)
 const APPROVED_TTL_MS = 7 * 24 * 60 * 60 * 1000; // đã DUYỆT → tự xoá sau 7 ngày
 
@@ -636,19 +637,28 @@ router.post('/refresh', async (req, res) => {
                 )
             ).rows;
         }
-        // Fetch SONG SONG theo chunk 5 (giảm wall-time: 25 mã ~ 5 lượt thay vì 25).
+        // Fetch theo chunk NHỎ + nhịp giữa các đợt + retry 1 lần: jtexpress.vn throttle
+        // khi tra dồn dập (chunk 5 liên tục) → nhiều mã timeout, kẹt 'pending'. Tra đơn lẻ
+        // luôn OK → giảm tải song song để 100% mã được tra.
         let ok = 0;
         let fail = 0;
-        const CONC = 5;
+        const CONC = 3;
         for (let i = 0; i < rows.length; i += CONC) {
             const chunk = rows.slice(i, i + CONC);
             const results = await Promise.allSettled(
                 chunk.map(async (r) => {
-                    const fetched = await fetchJt(r.billcode, r.cellphone);
+                    let fetched;
+                    try {
+                        fetched = await fetchJt(r.billcode, r.cellphone);
+                    } catch (e) {
+                        await _sleep(700); // bị chặn/timeout → nghỉ rồi thử lại 1 lần
+                        fetched = await fetchJt(r.billcode, r.cellphone);
+                    }
                     await _upsertTracked(db, r.billcode, fetched, {});
                 })
             );
             for (const x of results) x.status === 'fulfilled' ? ok++ : fail++;
+            if (i + CONC < rows.length) await _sleep(350); // nhịp giữa các đợt
         }
         if (ok || rederived) _notify('refresh', String(ok || rederived));
         res.json({

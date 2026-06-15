@@ -2,6 +2,10 @@
 
 ## 2026-06-15
 
+### [render] J&T /refresh — gentler để hết kẹt "Chưa tra" (jtexpress throttle khi tra dồn) ✅
+
+User: 32 đơn "Chưa tra" làm mới không được. Chẩn đoán: `/track` đơn lẻ 1 mã kẹt → OK ngay (returned, 19 event) ⇒ mã hợp lệ, do **batch /refresh tra song song 5/đợt × 20 đợt liên tục → jtexpress.vn throttle → timeout → kẹt pending** (khác 'not_found'=fetch OK 0 event). Fix [web2-jt-tracking.js](render.com/routes/web2-jt-tracking.js): CONC 5→**3**, **retry 1 lần** (nghỉ 700ms) khi fetch lỗi, **nhịp 350ms giữa các đợt**, REFRESH_BATCH 25→**15** (mỗi call snappy, tránh treo request). Pending sẽ về 0 sau vài lần "Làm mới tất cả".
+
 ### [web2][render] Ẩn spam "tăng comment" khỏi live-chat — boost-mark XOÁ + chặn + nút Dọn ✅
 
 User: "sao live-chat vẫn hiện các comment count này? Không có type/cách nào ở dữ liệu Pancake nhận biết à?"
