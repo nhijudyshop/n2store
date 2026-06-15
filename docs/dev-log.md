@@ -2,6 +2,10 @@
 
 ## 2026-06-15
 
+### [web2] J&T — bỏ nút "Xóa hết & quét lại" ✅
+
+User: "bỏ nút xóa quét lại hết". Gỡ nút `jtClearAll` (danger) + hàm `clearAll()` + wiring khỏi [index.html](web2/jt-tracking/index.html)+[jt-tracking-app.js](web2/jt-tracking/js/jt-tracking-app.js) — tránh xoá nhầm toàn bộ (đã từng gây mất 1 đơn). Route `/clear` backend giữ nguyên (không UI gọi). Bump app `?v=20260615w`. ("Chưa tra" = status pending: mã đã thêm nhưng CHƯA tra cứu J&T → bấm "Làm mới tất cả" để tra.)
+
 ### [web2] J&T script Console — bỏ console.log/clipboard (Zalo chặn) → INJECT ô kết quả vào trang ✅
 
 User: "script vẫn Promise pending, không hiện/hoạt động gì". Root-cause: **Zalo Web chặn `console.log` + `clipboard.writeText` reject khi DevTools đang focus** → script CHẠY nhưng không log + clipboard rỗng → tưởng treo. Fix: script không dùng console/clipboard làm output nữa — **inject 1 ô nổi (z-index max) góc phải trang Zalo**: hiện tiến độ cuộn + khi xong show `<textarea>` chứa các dòng đơn (tự bôi đen sẵn) + vẫn thử copy clipboard. User đọc/copy thẳng từ ô → dán "Dán lịch sử". Verified scraping logic live trước đó (cuộn 8 lần 11→28 mã trên nhóm thật). Bump app `?v=20260615v`. Frontend-only.

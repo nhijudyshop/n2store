@@ -706,27 +706,6 @@
         }
     }
 
-    async function clearAll() {
-        if (
-            !confirm(
-                'Xóa TOÀN BỘ vận đơn J&T rồi quét lại từ Zalo?\n(Data beta — chỉ xoá danh sách tra cứu, KHÔNG ảnh hưởng đơn/tin nhắn thật.)'
-            )
-        )
-            return;
-        const btn = $('jtClearAll');
-        setBusy(btn, true, ' Đang xóa…');
-        try {
-            const r = await api('/clear', { method: 'POST', body: { confirm: 'YES-CLEAR' } });
-            notify(`Đã xóa ${r.removed || 0} mã — đang quét lại…`, 'info');
-            await load();
-            await scanZalo(); // quét lại (chỉ mã đúng format dòng đơn) + tự fetch trạng thái
-        } catch (e) {
-            notify('✗ ' + e.message, 'error');
-        } finally {
-            setBusy(btn, false);
-        }
-    }
-
     async function rowAction(act, code) {
         try {
             if (act === 'refresh') {
@@ -921,7 +900,6 @@
         $('jtScanHistory')?.addEventListener('click', scanHistory);
         $('jtPaste')?.addEventListener('click', openPasteModal);
         $('jtRefreshAll').addEventListener('click', refreshAll);
-        $('jtClearAll').addEventListener('click', clearAll);
         $('jtKpis').addEventListener('click', (e) => {
             const k = e.target.closest('.jt-kpi');
             if (!k) return;
