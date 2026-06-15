@@ -3,16 +3,17 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `41509cd` — auto: session update
-**Last updated**: 2026-06-15 10:24:39 +07
-**Latest session**: [`RESUME:20260615-102439-41509cd`](../20260615-102439-41509cd.md)
-**Summary**: auto: session update
+**Latest commit**: `4b318b3` — feat(worker): route /api/web2-jt-tracking/_ → web2-api (Customer360 proxy)
+**Last updated**: 2026-06-15 10:40:10 +07
+**Latest session**: [`RESUME:20260615-104010-4b318b3`](../20260615-104010-4b318b3.md)
+**Summary**: feat(worker): route /api/web2-jt-tracking/_ → web2-api (Customer360 proxy)
 
 ## Folders affected in this commit
 
+- [`cloudflare-worker/`](./cloudflare-worker.md) — 2 file(s)
 - [`docs/`](./docs.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 2 file(s)
-- [`web2/`](./web2.md) — 1 file(s)
+- [`render.com/`](./render.com.md) — 1 file(s)
+- [`web2/`](./web2.md) — 6 file(s)
 
 ## All folder snapshots
 
@@ -24,10 +25,10 @@
 - [`balance-history-home/`](./balance-history-home.md) — updated 2026-05-21 15:39
 - [`balance-history/`](./balance-history.md) — updated 2026-06-11 16:49
 - [`bangkiemhang/`](./bangkiemhang.md) — updated 2026-05-21 15:39
-- [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-14 15:18
+- [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-15 10:40
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-14 18:47
-- [`docs/`](./docs.md) — updated 2026-06-15 10:24
+- [`docs/`](./docs.md) — updated 2026-06-15 10:40
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-13 14:55
 - [`downloads/`](./downloads.md) — updated 2026-06-13 19:16
@@ -55,7 +56,7 @@
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-06-14 16:52
-- [`render.com/`](./render.com.md) — updated 2026-06-15 10:24
+- [`render.com/`](./render.com.md) — updated 2026-06-15 10:40
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-14 14:01
 - [`service-costs/`](./service-costs.md) — updated 2026-06-14 13:09
@@ -75,4 +76,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-15 10:24
+- [`web2/`](./web2.md) — updated 2026-06-15 10:40
