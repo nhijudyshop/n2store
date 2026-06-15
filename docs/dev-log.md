@@ -10,6 +10,11 @@ Nguyên nhân: (1) V8 heap không cap → phình quá container trước khi GC 
 
 **Đã fix in-repo** ([render.com/server.js](render.com/server.js) đầu file): `sharp.cache(false)` + `sharp.concurrency(1)` (bound native memory) + log `[MEM]` RSS mỗi 60s khi >380MB (phân biệt leak vs spike). node --check pass.
 
+**Follow-up (user "làm cả 2"):**
+
+1. **tesseract lazy + autofb không mount trên web2-api**: `tesseract.js` chuyển `require` vào trong `solveCaptchaWithTesseract` ([autofb.js](render.com/routes/autofb.js)) — chỉ nạp khi thật giải captcha. `server.js` mount autofb sau `if (!WEB2_ONLY)` → box Web 2.0 KHÔNG nạp autofb/tesseract/sharp-autofb. Giảm RAM nền (Web 1.0/fallback vẫn dùng autofb bình thường).
+2. **Audit `SELECT *` route** (nghi can spike): KIỂM kỹ multi-line → **gần như TẤT CẢ đã phân trang sẵn** (`LIMIT/OFFSET`): products, variants, web2_records (generic + dedicated-entity), returns, customer-intents, balance-history, wallets (cap 1000), pending (LIMIT 200/500). Grep ban đầu báo nhầm vì `LIMIT` nằm dòng kế. **Ngoại lệ DUY NHẤT**: `web2-supplier-wallet /state` load full `web2_supplier_ledger` (cần đủ row để tính số dư + lịch sử GD per NCC — **money code**) → **KHÔNG cap** (cap = sai số dư). Khi ledger lớn mới paginate display + tính balance bằng SQL aggregate (cần phối hợp client). ⇒ Driver OOM thực = #1 structural + #2 no-heap-cap + #3 sharp (đã fix), KHÔNG phải unbounded list query.
+
 **User duyệt "cap heap + nâng plan 2GB" (15/06) → ĐÃ áp:** (a) plan `starter→standard` (512Mi→**2GB**) qua `PATCH /v1/services/{id} {serviceDetails:{plan:standard}}`; (b) env `NODE_OPTIONS=--max-old-space-size=1536` (heap 1.5GB, chừa ~512MB native trên box 2GB) qua `PUT .../env-vars/NODE_OPTIONS`; (c) `POST .../deploys` (dep-d8o32ournols739t2hmg) áp cả plan+env+commit sharp. web2-api giờ standard 2GB → hết OOM. Theo dõi log `[MEM]` xác nhận.
 
 ### [web2][worker] Hợp nhất nguồn base-URL + fix 2 gap (livestream 404 worker, ck-dashboard 401) ✅

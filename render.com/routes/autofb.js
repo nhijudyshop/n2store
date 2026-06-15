@@ -7,7 +7,8 @@
 const express = require('express');
 const router = express.Router();
 const sharp = require('sharp');
-const Tesseract = require('tesseract.js');
+// tesseract.js = lazy require (chỉ load khi thật sự giải captcha) — tránh nạp
+// ~chục MB vào RAM lúc boot trên instance không bao giờ dùng autofb (vd web2-api).
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const AUTOFB_API_KEY = process.env.AUTOFB_API_KEY;
@@ -18,11 +19,12 @@ let servicesCache = null;
 let servicesCacheExpiry = 0;
 
 const COMMON_HEADERS = {
-    'Accept': '*/*',
+    Accept: '*/*',
     'Accept-Language': 'en-US,en;q=0.9,vi;q=0.8',
-    'Cookie': 'NEXT_LOCALE=vi',
-    'Referer': `${AUTOFB_BASE}/vi/login`,
-    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36',
+    Cookie: 'NEXT_LOCALE=vi',
+    Referer: `${AUTOFB_BASE}/vi/login`,
+    'User-Agent':
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36',
 };
 
 // =====================================================
@@ -66,14 +68,18 @@ async function solveCaptchaWithGemini(svgString) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-            contents: [{
-                parts: [
-                    { text: 'This captcha image contains exactly 4 numerical digits (0-9). What are the 4 digits? Reply with ONLY the 4 digits, nothing else.' },
-                    { inline_data: { mime_type: 'image/png', data: pngBase64 } }
-                ]
-            }],
-            generationConfig: { temperature: 0, maxOutputTokens: 10 }
-        })
+            contents: [
+                {
+                    parts: [
+                        {
+                            text: 'This captcha image contains exactly 4 numerical digits (0-9). What are the 4 digits? Reply with ONLY the 4 digits, nothing else.',
+                        },
+                        { inline_data: { mime_type: 'image/png', data: pngBase64 } },
+                    ],
+                },
+            ],
+            generationConfig: { temperature: 0, maxOutputTokens: 10 },
+        }),
     });
 
     if (!res.ok) {
@@ -93,6 +99,7 @@ async function solveCaptchaWithGemini(svgString) {
 // =====================================================
 
 async function solveCaptchaWithTesseract(svgString) {
+    const Tesseract = require('tesseract.js'); // lazy — chỉ nạp khi cần
     const pngBuffer = await svgToPngBuffer(svgString);
 
     const worker = await Tesseract.createWorker('eng');
@@ -101,7 +108,9 @@ async function solveCaptchaWithTesseract(svgString) {
         tessedit_pageseg_mode: Tesseract.PSM.SINGLE_LINE,
     });
 
-    const { data: { text, confidence } } = await worker.recognize(pngBuffer);
+    const {
+        data: { text, confidence },
+    } = await worker.recognize(pngBuffer);
     await worker.terminate();
 
     const digits = text.trim().replace(/\s+/g, '');
@@ -156,23 +165,39 @@ async function ensureToken() {
     console.log('[AUTOFB] Auto-login for payment...');
     for (let attempt = 1; attempt <= 5; attempt++) {
         try {
-            const captchaRes = await fetch(`${AUTOFB_BASE}/auth/captcha`, { headers: COMMON_HEADERS });
+            const captchaRes = await fetch(`${AUTOFB_BASE}/auth/captcha`, {
+                headers: COMMON_HEADERS,
+            });
             const captcha = await captchaRes.json();
 
             const digits = await solveCaptcha(captcha.svg);
-            if (!digits) { console.log(`[AUTOFB] Attempt ${attempt}: captcha unreadable`); continue; }
+            if (!digits) {
+                console.log(`[AUTOFB] Attempt ${attempt}: captcha unreadable`);
+                continue;
+            }
 
             const loginRes = await fetch(`${AUTOFB_BASE}/auth/login`, {
                 method: 'POST',
-                headers: { ...COMMON_HEADERS, 'Content-Type': 'application/json', 'x-timezone': 'Asia/Saigon' },
+                headers: {
+                    ...COMMON_HEADERS,
+                    'Content-Type': 'application/json',
+                    'x-timezone': 'Asia/Saigon',
+                },
                 body: JSON.stringify({
-                    username, password,
-                    captcha_token: JSON.stringify({ captchaId: captcha.captchaId, captchaText: digits }),
+                    username,
+                    password,
+                    captcha_token: JSON.stringify({
+                        captchaId: captcha.captchaId,
+                        captchaText: digits,
+                    }),
                 }),
             });
 
             const result = await loginRes.json();
-            if (result.error_code?.includes('captcha')) { console.log(`[AUTOFB] Attempt ${attempt}: captcha wrong`); continue; }
+            if (result.error_code?.includes('captcha')) {
+                console.log(`[AUTOFB] Attempt ${attempt}: captcha wrong`);
+                continue;
+            }
 
             if (result.isLoggedIn && result.token) {
                 cachedToken = result.token;
@@ -212,13 +237,19 @@ router.get('/test-captcha', async (req, res) => {
         });
         const captcha = await captchaRes.json();
 
-        let geminiResult = null, tesseractResult = null, error = null;
+        let geminiResult = null,
+            tesseractResult = null,
+            error = null;
         try {
             geminiResult = await solveCaptchaWithGemini(captcha.svg);
-        } catch (e) { error = 'gemini: ' + e.message; }
+        } catch (e) {
+            error = 'gemini: ' + e.message;
+        }
         try {
             tesseractResult = await solveCaptchaWithTesseract(captcha.svg);
-        } catch (e) { error = (error ? error + '; ' : '') + 'tesseract: ' + e.message; }
+        } catch (e) {
+            error = (error ? error + '; ' : '') + 'tesseract: ' + e.message;
+        }
 
         res.json({
             captchaId: captcha.captchaId,
@@ -249,7 +280,7 @@ router.post('/balance', async (req, res) => {
                 console.log(`[AUTOFB] Used cached token, balance: ${balanceData.balance}`);
                 return res.json({
                     success: true,
-                    data: { ...balanceData, fromCache: true, fetchedAt: new Date().toISOString() }
+                    data: { ...balanceData, fromCache: true, fetchedAt: new Date().toISOString() },
                 });
             }
         } catch (e) {
@@ -311,18 +342,21 @@ router.post('/balance', async (req, res) => {
                 cachedToken = result.token;
                 cachedTokenExpiry = Date.now() + 30 * 60 * 1000;
 
-                console.log(`[AUTOFB] Login OK! Balance: ${balance} (~${balanceVND.toLocaleString()} VND), attempt ${attempt}`);
+                console.log(
+                    `[AUTOFB] Login OK! Balance: ${balance} (~${balanceVND.toLocaleString()} VND), attempt ${attempt}`
+                );
 
                 return res.json({
                     success: true,
                     data: {
-                        balance, balanceVND,
+                        balance,
+                        balanceVND,
                         username: result.user?.username,
                         level: result.user?.level,
                         is2FAEnabled: result.is2FAEnabled,
                         attempt,
                         fetchedAt: new Date().toISOString(),
-                    }
+                    },
                 });
             }
 
@@ -332,7 +366,6 @@ router.post('/balance', async (req, res) => {
                 success: false,
                 error: result.error_code || result.message || 'Login failed',
             });
-
         } catch (e) {
             console.error(`[AUTOFB] Attempt ${attempt} error:`, e.message);
         }
@@ -351,7 +384,7 @@ async function fetchBalanceWithToken(token) {
     const res = await fetch(`${AUTOFB_BASE}/user/get-user-info`, {
         headers: {
             ...COMMON_HEADERS,
-            'Authorization': `Bearer ${token}`,
+            Authorization: `Bearer ${token}`,
         },
     });
 
@@ -420,7 +453,9 @@ router.post('/order', async (req, res) => {
     const { service, link, quantity, comments } = req.body;
 
     if (!service || !link || !quantity) {
-        return res.status(400).json({ success: false, error: 'Missing service, link, or quantity' });
+        return res
+            .status(400)
+            .json({ success: false, error: 'Missing service, link, or quantity' });
     }
 
     try {
@@ -514,7 +549,10 @@ router.post('/payment', async (req, res) => {
     try {
         const token = await ensureToken();
         if (!token) {
-            return res.json({ success: false, error: 'Không thể đăng nhập AutoFB. Kiểm tra AUTOFB_USERNAME/AUTOFB_PASSWORD.' });
+            return res.json({
+                success: false,
+                error: 'Không thể đăng nhập AutoFB. Kiểm tra AUTOFB_USERNAME/AUTOFB_PASSWORD.',
+            });
         }
 
         const payRes = await fetch(`${AUTOFB_BASE}/website/payment`, {
@@ -540,7 +578,11 @@ router.post('/payment', async (req, res) => {
             return res.json({ success: true, data: paymentData });
         }
 
-        res.json({ success: false, error: raw.message || paymentData.message || 'Tạo mã nạp tiền thất bại', raw });
+        res.json({
+            success: false,
+            error: raw.message || paymentData.message || 'Tạo mã nạp tiền thất bại',
+            raw,
+        });
     } catch (e) {
         console.error('[AUTOFB] payment error:', e.message);
         res.status(500).json({ success: false, error: e.message });

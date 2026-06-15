@@ -573,7 +573,8 @@ const deliveryReportTelegramRoutes = require('./routes/delivery-report-telegram'
 const uploadImageRoutes = require('./routes/upload');
 const quyTrinhRoutes = require('./routes/quy-trinh');
 const goongPlacesRoutes = require('./routes/goong-places');
-const autofbRoutes = require('./routes/autofb');
+// autofb (Web 1.0) = lazy require khi mount — web2-api (WEB2_ONLY) KHÔNG nạp
+// (kéo theo tesseract.js/sharp vô ích trên box Web 2.0). Xem mount bên dưới.
 const aikolRoutes = require('./routes/aikol');
 
 // === FIREBASE REPLACEMENT ROUTES (SSE + PostgreSQL) ===
@@ -705,7 +706,7 @@ app.use('/api/delivery-report-telegram', deliveryReportTelegramRoutes); // Web 1
 app.use('/api/upload', uploadImageRoutes);
 app.use('/api/quy-trinh', quyTrinhRoutes);
 app.use('/api/goong-places', goongPlacesRoutes);
-app.use('/api/autofb', autofbRoutes);
+if (!WEB2_ONLY) app.use('/api/autofb', require('./routes/autofb')); // Web 1.0 only
 app.use('/api/aikol', aikolRoutes);
 
 // === FIREBASE REPLACEMENT ROUTES ===
