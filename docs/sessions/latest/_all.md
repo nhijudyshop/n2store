@@ -3,16 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `2f6d22e` — fix(web2/jt-tracking): script Console Zalo bỏ IndexedDB (treo) → auto-scroll DOM + cap 60s
-**Last updated**: 2026-06-15 16:34:44 +07
-**Latest session**: [`RESUME:20260615-163444-2f6d22e`](../20260615-163444-2f6d22e.md)
-**Summary**: fix(web2/jt-tracking): script Console Zalo bỏ IndexedDB (treo) → auto-scroll DOM + cap 60s
+**Latest commit**: `2b485b9` — fix(web2/jt-tracking): hardening script Console — log NGAY trước promise + try/catch
+**Last updated**: 2026-06-15 16:48:27 +07
+**Latest session**: [`RESUME:20260615-164827-2b485b9`](../20260615-164827-2b485b9.md)
+**Summary**: fix(web2/jt-tracking): hardening script Console — log NGAY trước promise + try/catch
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 2 file(s)
-- [`web2/`](./web2.md) — 4 file(s)
+- [`web2/`](./web2.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -75,4 +73,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-15 16:34
+- [`web2/`](./web2.md) — updated 2026-06-15 16:48
