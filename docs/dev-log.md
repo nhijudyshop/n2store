@@ -118,6 +118,22 @@ Tiếp theo entry dưới (cùng ngày):
 **Item 1 — DEPLOY + env (XONG):** xoá 3 env dead `TPOS_CLIENT_ID/TPOS_PASSWORD/TPOS_USERNAME` khỏi web2-realtime (204, verify NONE; live-chat/server không đọc). Deploy web2-api (auto trên push) + web2-realtime (commit `81adccb7e`) → cả 2 LIVE.
 
 **Verify deployed (curl + browser):** perm catalog `/api/web2-users/pages` có `live-chat`, KHÔNG tpos-pancake/loadTpos/syncTpos ✅; `POST /wallets/batch-full` ✅; `GET /fast-sale-orders/batch` ✅; web2-realtime `facebook-status` ok env-token mode (cachedPages:0), `private-reply` 400 (alive), `refresh-tokens` 404 (removed) ✅. Browser: `getWalletsByPhones([3])` = 1 batch-full/0 by-phone; users/PBH/native-orders 0 console error. **Status:** ✅ HOÀN TẤT (code+migration tested, deployed, verified).
+### [orders-report][Lên đơn lẻ] Trừ ví: "ghi nhớ đầu" + đối chiếu TPOS CHỈ khi mất phản hồi ✅
+
+**User:** "đã tạo đơn thành công trên tpos thì bắt buộc phải có cơ chế trừ tiền của ví" + "chỉ làm ghi nhớ đầu, nếu sau khi hoàn tất hết mà không nhận được gì từ tpos trả về thì mới kiểm tra đơn trên tpos nếu có tồn tại đơn vừa tạo thì trừ tiền — còn lại toàn bộ cơ chế cũ giữ nguyên". (Đơn 71654/72298 trả trước nhưng ví không trừ khi mất phản hồi TPOS.)
+
+**Root cause:** cơ chế trừ ví chỉ gửi lệnh trừ SAU KHI nhận được phản hồi TPOS thành công. Nếu `smartFetch(InsertListOrderModel)` ([tab1-sale.js:1222](orders-report/js/tab1/tab1-sale.js#L1222)) **throw** (mạng rớt/timeout — request có thể đã tới TPOS, tạo đơn, nhưng phản hồi mất) → nhảy `catch`, chỉ báo lỗi, KHÔNG kiểm tra TPOS, KHÔNG trừ ví. Backend cũng không có cron đối soát đơn paid-chưa-trừ → mất trừ vĩnh viễn.
+
+**Fix (chỉ LÊN ĐƠN LẺ, additive — KHÔNG đụng payload/cơ chế cũ/TPOS), 1 file [tab1-sale.js](orders-report/js/tab1/tab1-sale.js):**
+
+1. **`window.SaleWalletIntent`** (localStorage `n2_sale_wallet_intents`, keyed theo **MÃ ĐƠN/Reference** — có sẵn lúc bấm, TPOS chưa cấp số phiếu): `record/clear/all`.
+2. **GHI NHỚ ĐẦU** — trước `smartFetch` POST: ghi `{reference, phone, amount=model.PaymentAmount}` + set `_saleReconcileCtx` (biến scope hàm, để `catch` đọc được — const trong try không nhìn thấy ở catch).
+3. **`window._reconcileSaleOnLostResponse(ref,phone,amount)`** — đọc TPOS GetView theo `Reference eq <mã đơn>` (CHỈ ĐỌC), nếu có phiếu active (`_isActiveTposInvoice`: state open/paid / ShowState Đã xác nhận|Đã thanh toán, loại cancel/NotEnoughInventory) → POST `/api/v2/pending-withdrawals` **keyed theo SỐ PHIẾU TPOS** (`inv.Number`), source `RECONCILE_LOST_RESP`. Trùng khóa với đường-thành-công ⇒ backend dedupe (`UNIQUE(order_id,phone)` + guard sổ cái `wallet_withdraw_fifo`) ⇒ **KHÔNG trừ 2 lần**. Đơn không tồn tại → `{found:false}` → KHÔNG trừ.
+4. **FALLBACK trong `catch`** ([tab1-sale.js](orders-report/js/tab1/tab1-sale.js)): nếu có `_saleReconcileCtx` → gọi reconcile; found → xoá ghi nhớ + toast "đã đối chiếu & trừ ví"; không found → giữ error cũ. Lỗi tạo đơn trước GHI-NHỚ (validation/auth) → ctx null → error như cũ.
+5. **Xoá ghi nhớ ở CUỐI nhánh success** (sau khi qua hết, đã kích hoạt trừ ví cũ) — để exception sau-khi-tạo-đơn vẫn được catch đối chiếu (idempotent).
+6. **Sweep khi tải lại trang** (`_sweepSaleWalletIntentsOnLoad`, +3s sau load): ghi nhớ còn sót >20s → kiểm tra TPOS → có đơn thì trừ + xoá; không có & >24h → bỏ stale. Phủ ca đóng trang/crash trước khi catch chạy.
+
+**Luật chống lỗi:** khóa khi TRỪ THẬT = SỐ PHIẾU TPOS (cả 2 đường) ⇒ idempotent; số tiền = số GHI NHỚ (không lấy con số TPOS trả về); fallback chỉ ĐỌC TPOS. Đã hoàn tác thử nghiệm trước đó ở nút "Làm mới phiếu" (`refreshPBHForOrder` giữ nguyên display-only). **Status:** ✅ **TESTED browser** (KH 0392060072, mô phỏng mất phản hồi qua patch `smartFetch`): ca thành công → cơ chế cũ trừ (source `SALE_ORDER`), không double; ca mất phản hồi → đơn `NJD/2026/72311` tạo trên TPOS + fallback trừ ví đúng 1 lần (source `RECONCILE_LOST_RESP`), số dư giảm đúng 100k, sổ ghi nhớ tự xoá.
 
 ## 2026-06-14
 

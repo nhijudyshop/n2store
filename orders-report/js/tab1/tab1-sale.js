@@ -745,6 +745,177 @@ async function _finalizeSaleOrderUpdate(result, payload, getUrl, headers) {
     }
 }
 
+// =====================================================================================
+// GHI NHỚ ĐẦU + ĐỐI CHIẾU "MẤT PHẢN HỒI TPOS" — CHỈ cho LÊN ĐƠN LẺ (confirmAndPrintSale)
+// -------------------------------------------------------------------------------------
+// Mục đích: nếu gửi đơn lên TPOS mà KHÔNG nhận được phản hồi (mạng rớt/đóng trang), đơn có thể
+// ĐÃ tạo trên TPOS nhưng cơ chế cũ bỏ qua trừ ví. Cơ chế:
+//   1) GHI NHỚ ĐẦU: trước khi gửi TPOS, ghi "đơn (mã đơn) cần trừ X" vào localStorage.
+//   2) ĐỐI CHIẾU khi mất phản hồi: kiểm tra đơn trên TPOS theo MÃ ĐƠN (chỉ ĐỌC GetView);
+//      nếu đơn ĐÃ tạo (có phiếu active) → trừ ví đúng số ghi nhớ, KHÓA theo SỐ PHIẾU TPOS
+//      (trùng khóa với cơ chế cũ ⇒ backend tự chống trùng ⇒ KHÔNG trừ 2 lần).
+// KHÔNG đụng payload/tạo đơn/bất cứ gì trên TPOS. Cơ chế cũ (đường thành công) giữ nguyên.
+// =====================================================================================
+
+/** Sổ ghi nhớ trừ ví (localStorage), keyed theo MÃ ĐƠN (Reference) — có sẵn lúc bấm tạo đơn. */
+window.SaleWalletIntent = window.SaleWalletIntent || {
+    KEY: 'n2_sale_wallet_intents',
+    _read() {
+        try {
+            return JSON.parse(localStorage.getItem(this.KEY) || '[]');
+        } catch (_) {
+            return [];
+        }
+    },
+    _write(list) {
+        try {
+            localStorage.setItem(this.KEY, JSON.stringify(list.slice(-50)));
+        } catch (_) {
+            /* storage đầy/tắt — best effort */
+        }
+    },
+    record(reference, phone, amount) {
+        const ref = String(reference || '').trim();
+        const amt = Math.round(parseFloat(amount) || 0);
+        if (!ref || amt <= 0) return;
+        const list = this._read().filter((e) => e.reference !== ref);
+        list.push({ reference: ref, phone: String(phone || ''), amount: amt, ts: Date.now() });
+        this._write(list);
+    },
+    clear(reference) {
+        const ref = String(reference || '').trim();
+        if (!ref) return;
+        this._write(this._read().filter((e) => e.reference !== ref));
+    },
+    all() {
+        return this._read();
+    },
+};
+
+/** Phiếu TPOS (từ GetView) có phải ĐƠN ĐÃ TẠO THÀNH CÔNG (active) không — tự chứa, theo State/ShowState. */
+function _isActiveTposInvoice(inv) {
+    if (!inv) return false;
+    const st = String(inv.State || '').toLowerCase();
+    const ss = inv.ShowState || '';
+    if (st === 'cancel' || ss === 'Huỷ bỏ' || ss === 'Hủy bỏ') return false;
+    if (String(inv.StateCode || '') === 'NotEnoughInventory') return false;
+    return st === 'open' || st === 'paid' || ss === 'Đã xác nhận' || ss === 'Đã thanh toán';
+}
+
+/**
+ * ĐỐI CHIẾU MẤT-PHẢN-HỒI: kiểm tra đơn theo MÃ ĐƠN trên TPOS (chỉ ĐỌC, GetView); nếu đơn đã tạo
+ * thành công (có phiếu active) → trừ ví theo số ghi nhớ, KHÓA theo SỐ PHIẾU TPOS (idempotent).
+ * @returns {Promise<{found:boolean, deducted?:boolean, orderNumber?:string, error?:string}>}
+ */
+window._reconcileSaleOnLostResponse = async function (reference, phone, amount) {
+    const ref = String(reference || '').trim();
+    const amt = Math.round(parseFloat(amount) || 0);
+    if (!ref || amt <= 0) return { found: false };
+
+    // 1) ĐỌC TPOS theo mã đơn (Reference) — KHÔNG sửa gì trên TPOS.
+    const tposOData =
+        window.API_CONFIG?.TPOS_ODATA ||
+        'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata';
+    const headers = await window.tokenManager.getAuthHeader();
+    const filter = `(Type eq 'invoice' and Reference eq '${ref.replace(/'/g, "''")}')`;
+    const url =
+        `${tposOData}/FastSaleOrder/ODataService.GetView` +
+        `?$top=50&$orderby=DateInvoice desc&$filter=${encodeURIComponent(filter)}`;
+    const resp = await fetch(url, { headers: { ...headers, accept: 'application/json' } });
+    if (!resp.ok) throw new Error(`TPOS GetView HTTP ${resp.status}`);
+    const result = await resp.json();
+    const invoices = Array.isArray(result?.value) ? result.value : [];
+    const activeInv = invoices
+        .filter(_isActiveTposInvoice)
+        .sort(
+            (a, b) =>
+                new Date(b.DateInvoice || b.DateCreated || 0) -
+                new Date(a.DateInvoice || a.DateCreated || 0)
+        )[0];
+    if (!activeInv) return { found: false }; // đơn KHÔNG tồn tại → tạo thất bại thật → không trừ
+
+    // 2) Đơn ĐÃ tạo → trừ ví theo SỐ PHIẾU TPOS (trùng khóa cơ chế cũ ⇒ backend dedupe ⇒ không trừ 2 lần).
+    const PLACEHOLDERS = ['N/A', 'NA', 'UNDEFINED', 'NULL', 'NONE', ''];
+    const orderNumber = String(activeInv.Number || activeInv.Code || '').trim();
+    if (!orderNumber || PLACEHOLDERS.includes(orderNumber.toUpperCase()))
+        return { found: true, deducted: false };
+    let np = window.normalizePhoneForQR
+        ? window.normalizePhoneForQR(phone)
+        : String(phone || '').replace(/\D/g, '');
+    if (np && np.startsWith('84') && np.length > 9) np = '0' + np.slice(2);
+    if (!np || np.length < 9) return { found: true, deducted: false, orderNumber };
+
+    const performedBy = window.authManager?.getAuthState()?.username || 'system';
+    const note = `Đối chiếu TPOS (mất phản hồi) – trừ ví đơn #${orderNumber} (${amt.toLocaleString('vi-VN')}đ)`;
+    const WALLET_API =
+        window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
+    const dResp = await fetch(`${WALLET_API}/api/v2/pending-withdrawals`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            order_id: orderNumber,
+            order_number: orderNumber,
+            phone: np,
+            amount: amt,
+            source: 'RECONCILE_LOST_RESP',
+            note,
+            created_by: performedBy,
+        }),
+    });
+    const dData = await dResp.json().catch(() => ({}));
+    if (dResp.ok && dData.success) {
+        window.WalletFailureStore?.remove('DEDUCT', orderNumber, np);
+        return {
+            found: true,
+            deducted: !dData.skipped && !dData.blocked_by_cancel,
+            orderNumber,
+        };
+    }
+    // Trừ lỗi → ghi sổ để retry tay (retryWalletOpFailures()).
+    window.WalletFailureStore?.add({
+        type: 'DEDUCT',
+        orderNumber,
+        phone: np,
+        amount: amt,
+        source: 'RECONCILE_LOST_RESP',
+        note,
+        error: dData.error || `HTTP ${dResp.status}`,
+    });
+    return { found: true, deducted: false, orderNumber, error: dData.error || `HTTP ${dResp.status}` };
+};
+
+// Quét ghi nhớ còn sót khi TẢI LẠI TRANG (phủ ca đóng trang/crash TRƯỚC khi catch chạy).
+// Mỗi ghi nhớ > 20s: kiểm tra TPOS; có đơn → trừ + xoá; không có & > 24h → bỏ (stale).
+(function _sweepSaleWalletIntentsOnLoad() {
+    const run = async () => {
+        const list = window.SaleWalletIntent?.all?.() || [];
+        if (!list.length) return;
+        const now = Date.now();
+        for (const it of list) {
+            if (!it?.reference || now - (it.ts || 0) < 20000) continue;
+            try {
+                const r = await window._reconcileSaleOnLostResponse(it.reference, it.phone, it.amount);
+                if (r?.found) {
+                    window.SaleWalletIntent.clear(it.reference);
+                    if (r.deducted) {
+                        console.log(`[SALE-RECONCILE] ✅ Sweep trừ ví đơn ${r.orderNumber} (${it.amount}đ)`);
+                        window.notificationManager?.success(
+                            `Đối chiếu đơn ${r.orderNumber}: đã trừ ví ${(it.amount || 0).toLocaleString('vi-VN')}đ`,
+                            6000
+                        );
+                    }
+                } else if (now - (it.ts || 0) > 24 * 3600 * 1000) {
+                    window.SaleWalletIntent.clear(it.reference); // stale: đơn không tồn tại trên TPOS
+                }
+            } catch (_) {
+                /* để lần load sau thử lại */
+            }
+        }
+    };
+    if (document.readyState === 'complete') setTimeout(run, 3000);
+    else window.addEventListener('load', () => setTimeout(run, 3000), { once: true });
+})();
+
 /**
  * Confirm and Print Sale Order (F9)
  * Flow: FastSaleOrder POST -> print1 GET -> ODataService.DefaultGet POST -> Open print popup
@@ -891,6 +1062,10 @@ async function confirmAndPrintSale() {
         confirmBtn.textContent = 'Đang xử lý...';
     }
 
+    // GHI NHỚ ĐẦU: context để khối catch đối chiếu khi MẤT PHẢN HỒI TPOS. Khai báo ở scope hàm
+    // (ngoài try) để catch đọc được (biến const/let trong try KHÔNG nhìn thấy ở catch).
+    let _saleReconcileCtx = null;
+
     try {
         // Get auth header from billTokenManager (same as fastSaleModal)
         // Per-bill override: nếu user chọn account khác trong dropdown, dùng account đó.
@@ -1028,6 +1203,18 @@ async function confirmAndPrintSale() {
         };
 
         console.log('[SALE-CONFIRM] Request body:', requestBody);
+
+        // === GHI NHỚ ĐẦU: trước khi gửi TPOS, ghi nhớ "đơn này cần trừ X" (keyed theo MÃ ĐƠN).
+        // Nếu sau đó KHÔNG nhận được phản hồi TPOS → khối catch kiểm tra TPOS theo mã đơn rồi trừ
+        // ví đúng số này. Đây CHỈ là ghi nhớ — KHÔNG tự trừ, KHÔNG đụng payload/cơ chế cũ.
+        {
+            const _ref = String(model.Reference || '').trim();
+            const _amt = Math.round(parseFloat(model.PaymentAmount) || 0);
+            if (_ref && _amt > 0) {
+                _saleReconcileCtx = { reference: _ref, phone: customerPhone, amount: _amt };
+                window.SaleWalletIntent?.record(_ref, customerPhone, _amt);
+            }
+        }
 
         // Call InsertListOrderModel API with isForce=true (same as fastSaleModal)
         const url = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/FastSaleOrder/InsertListOrderModel?isForce=true&$expand=DataErrorFast($expand=Partner,OrderLines),OrdersError($expand=Partner,OrderLines),OrdersSucessed($expand=Partner,OrderLines)`;
@@ -1541,13 +1728,54 @@ async function confirmAndPrintSale() {
             }
         }
 
+        // Đã qua hết nhánh thành công (đã kích hoạt trừ ví cơ chế CŨ) → xoá ghi nhớ để fallback /
+        // sweep không chạy lại. Đặt ở CUỐI: nếu có exception sau khi tạo đơn, _saleReconcileCtx
+        // vẫn còn → catch đối chiếu được (idempotent, không trừ 2 lần).
+        if (_saleReconcileCtx?.reference) {
+            window.SaleWalletIntent?.clear(_saleReconcileCtx.reference);
+            _saleReconcileCtx = null;
+        }
+
         // Close modal after successful creation
         setTimeout(() => {
             closeSaleButtonModal(true);
         }, 500);
     } catch (error) {
         console.error('[SALE-CONFIRM] Error:', error);
-        window.notificationManager?.error(error.message || 'Lỗi xác nhận đơn hàng');
+        // === FALLBACK "MẤT PHẢN HỒI TPOS": nếu đã GHI NHỚ ĐẦU, kiểm tra đơn trên TPOS theo MÃ ĐƠN.
+        // Nếu đơn ĐÃ tạo thành công (có phiếu active) → đơn đã tạo, chỉ là không nhận được phản hồi
+        // → trừ ví đúng số ghi nhớ (khóa theo SỐ PHIẾU TPOS, idempotent — không trừ 2 lần).
+        // Nếu đơn KHÔNG tồn tại → tạo thất bại thật → KHÔNG trừ. Chỉ ĐỌC TPOS, không sửa gì.
+        let _reconciledOk = false;
+        if (_saleReconcileCtx?.reference) {
+            try {
+                const r = await window._reconcileSaleOnLostResponse?.(
+                    _saleReconcileCtx.reference,
+                    _saleReconcileCtx.phone,
+                    _saleReconcileCtx.amount
+                );
+                if (r?.found) {
+                    _reconciledOk = true;
+                    window.SaleWalletIntent?.clear(_saleReconcileCtx.reference);
+                    if (r.deducted) {
+                        window.notificationManager?.success(
+                            `Đơn ${r.orderNumber} ĐÃ tạo trên TPOS (mất phản hồi) — đã đối chiếu & trừ ví ${(_saleReconcileCtx.amount || 0).toLocaleString('vi-VN')}đ`,
+                            7000
+                        );
+                    } else {
+                        window.notificationManager?.info(
+                            `Đơn ${r.orderNumber} đã tạo trên TPOS — ví đã trừ trước đó (không trừ lại)`,
+                            6000
+                        );
+                    }
+                }
+            } catch (reconErr) {
+                console.warn('[SALE-RECONCILE] Lỗi đối chiếu mất-phản-hồi:', reconErr?.message);
+            }
+        }
+        if (!_reconciledOk) {
+            window.notificationManager?.error(error.message || 'Lỗi xác nhận đơn hàng');
+        }
     } finally {
         clearTimeout(saleTimeoutId);
         window.__isSavingSingleSale = false;
