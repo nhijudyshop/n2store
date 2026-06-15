@@ -332,29 +332,27 @@
         // Ẩn + dọn các comment này khỏi live-chat NGAY trước khi spam (+ re-mark mỗi 100 tin).
         const mb = await markBoost(conv.id);
 
-        // ĐA NHIỆM: mint PAT cho MỌI account Pancake đã add → chạy 1 worker / PAT
-        // (mỗi account = bucket rate-limit FB riêng → throughput cao hơn). Không mint
-        // được account nào → 1 worker với PAT mặc định.
-        let pats = [];
+        // ĐA NHIỆM: 1 worker / ACCOUNT — mỗi account dùng JWT riêng làm access_token
+        // (đúng cách Pancake gửi tay: POST /api/pancake/.../messages?access_token=JWT).
+        // Account phải admin page (acc.pages). Không có → fallback JWT active (1 worker).
+        let accs = [];
         try {
-            const g = await W.generateAllPageAccessTokens(pageId);
-            pats = (g && g.tokens) || [];
+            accs = W.getPageAccountJwts(pageId) || [];
         } catch (_) {
-            /* fallback 1 worker */
+            /* fallback */
         }
-        const tokens = pats.length ? pats.map((p) => p.token) : [null];
-        const labels = pats.length ? pats.map((_, k) => `T${k + 1}`) : ['T1'];
-        const workers = tokens.length;
+        if (!accs.length) accs = [{ accountId: 'active', name: 'active', jwt: null }];
+        const workers = accs.length;
 
         logLine(`▶ Bắt đầu: ${total} comment, giãn ${delay}ms, hội thoại ${conv.id}`);
         logLine(`· Đã báo live-chat ẩn comment tăng${mb.purged ? ` (dọn ${mb.purged} cũ)` : ''}.`);
-        logLine(`· Đa nhiệm: ${workers} tài khoản Pancake song song.`);
+        logLine(`· Đa nhiệm: ${workers} tài khoản Pancake song song (gửi y hệt Pancake).`);
 
         let claimed = 0; // chỉ số kế tiếp (JS 1 luồng → claimed++ giữa await là atomic)
         let lastMark = 0;
         const nextIdx = () => (!_stop && claimed < total ? claimed++ : -1);
 
-        async function worker(pat, label) {
+        async function worker(jwt, label) {
             while (true) {
                 const i = nextIdx();
                 if (i < 0) break;
@@ -364,12 +362,11 @@
                 }
                 const text = tpl || randText();
                 try {
-                    const res = await W.sendMessage(pageId, conv.id, {
-                        text,
-                        action: 'reply_comment',
-                        customerId: custId,
+                    // Gửi GIỐNG 100% Pancake: reply_comment + message_id/parent_id/
+                    // post_id/send_by_platform, access_token = JWT account (không PAT).
+                    const res = await W.sendLiveComment(pageId, conv, text, {
+                        jwt: jwt || undefined,
                         messageId,
-                        pageAccessToken: pat || undefined,
                     });
                     if (res && res.ok) {
                         ok++;
@@ -400,7 +397,9 @@
             }
         }
 
-        await Promise.all(tokens.map((t, k) => worker(t, labels[k])));
+        await Promise.all(
+            accs.map((a, k) => worker(a.jwt, a.name ? `${a.name.slice(0, 8)}` : `T${k + 1}`))
+        );
         if (_stop) logLine('⏹ Đã dừng.');
         setStat();
         _running = false;

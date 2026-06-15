@@ -2,6 +2,13 @@
 
 ## 2026-06-15
 
+### [web2] "Tăng comment" gửi GIỐNG 100% Pancake (capture browser-test) + đa nhiệm qua JWT account ✅
+
+User: "gửi payload/url giống 100% Pancake; không có nút ẩn comment". Browser-test pancake.vn + user gửi tay → **capture request thật** (hook fetch/XHR): `POST /api/v1/pages/{pid}/conversations/{convId}/messages?access_token={JWT_USER}` (KHÔNG phải page_access_token!), body `{action:'reply_comment', message_id, parent_id:convId, user_selected_reply_to:null, post_id, message, send_by_platform:'web'}`. Extension `content/pancake-bump.js` dùng y hệt. **Không có cờ/nút ẩn** → comment vốn hiện (gửi vào hội thoại PAGE → reply nested dưới comment page, như Pancake).
+
+- [web2-chat-client.js](web2/shared/web2-chat-client.js): `Web2Chat.sendLiveComment(pageId, conv, msg, {jwt, messageId})` gửi byte-for-byte như capture (`/api/pancake/...?access_token=JWT`); `getPageAccountJwts(pageId)` = JWT mọi account admin page (dedupe) cho đa nhiệm.
+- [multi-tool.js](web2/multi-tool/js/multi-tool.js) `run()`: 1 worker / ACCOUNT, mỗi worker access_token = JWT account đó (thay PAT). Trước đây dùng `/api/pancake-official/...?page_access_token=` + customerId → KHÁC Pancake. Bump `web2-chat-client.js`+`multi-tool.js?v=20260615pc100`.
+
 ### [web2] J&T "Dán lịch sử" — NẠP dòng dán vào kho tin chat (không chỉ trích mã) ✅
 
 User: "sao lúc tôi dán kết quả vào bạn không nạp vào để lấy đủ dữ liệu?". Đúng — `/scan-text` cũ CHỈ trích mã 12 số → bảng `web2_jt_tracking` (src_message = nguyên dòng); KHÔNG nạp dòng dán vào kho tin chat `web2_zalo_messages` (chat đọc từ đây) → bấm mã DÁN TAY không cuộn/highlight được. Mà nội dung dán user cuộn tay ở Zalo Web là nguồn tin CŨ giàu hơn cả backfill zca (more:0 ~20 tin).

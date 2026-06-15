@@ -954,6 +954,68 @@
         return { ok: tokens.length > 0, tokens, accounts: cands.length };
     }
 
+    // ── BOOST COMMENT — gửi GIỐNG 100% Pancake (trang "Tăng số lượng comment") ──
+    // Capture từ pancake.vn (gửi tay): POST /api/v1/pages/{pageId}/conversations/
+    // {convId}/messages?access_token={JWT_USER} (KHÔNG phải page_access_token!),
+    // body khớp byte-for-byte: { action:'reply_comment', message_id, parent_id,
+    // user_selected_reply_to:null, post_id, message, send_by_platform:'web' }.
+    // Gửi vào hội thoại COMMENT của PAGE (from.id===page_id) → reply nested → page tự
+    // comment (như Pancake). opts.jwt = JWT account (đa nhiệm: mỗi account 1 JWT).
+    async function sendLiveComment(pageId, conv, message, opts = {}) {
+        if (!pageId || !conv || !conv.id) return { ok: false, reason: 'missing_ids' };
+        const jwt = opts.jwt || getJwt();
+        if (!jwt) return { ok: false, reason: 'no_jwt' };
+        const body = {
+            action: 'reply_comment',
+            message_id: opts.messageId || conv.id, // comment để reply (latest msg / conv.id)
+            parent_id: conv.id, // gốc thread = hội thoại
+            user_selected_reply_to: null,
+            post_id: conv.post_id || opts.postId || null,
+            message: String(message == null ? '' : message),
+            send_by_platform: 'web',
+        };
+        const url = `${WORKER_URL}/api/pancake/pages/${encodeURIComponent(pageId)}/conversations/${encodeURIComponent(conv.id)}/messages?access_token=${encodeURIComponent(jwt)}`;
+        try {
+            const data = await _fetchJson(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+                body: JSON.stringify(body),
+            });
+            if (data && data.success) return { ok: true, id: data.id, raw: data };
+            return {
+                ok: false,
+                reason:
+                    (data && data.message) ||
+                    (data && data.e_code != null ? `FB #${data.e_code}` : 'fail'),
+                e_code: data && data.e_code,
+                e_subcode: data && data.e_subcode,
+                raw: data,
+            };
+        } catch (e) {
+            return { ok: false, reason: e.message };
+        }
+    }
+
+    // JWT của mọi account admin page (đa nhiệm boost — mỗi account 1 JWT làm
+    // access_token). Dedupe theo JWT. Không account nào → fallback active JWT.
+    function getPageAccountJwts(pageId) {
+        const out = [];
+        const seen = new Set();
+        const accs = getAllAccounts();
+        for (const [id, acc] of Object.entries(accs)) {
+            if (!acc || !acc.token || _isExpired(acc.exp)) continue;
+            if (!_pagesHas(acc.pages, pageId)) continue;
+            if (seen.has(acc.token)) continue;
+            seen.add(acc.token);
+            out.push({ accountId: id, name: acc.name || id, jwt: acc.token });
+        }
+        if (!out.length) {
+            const j = getJwt();
+            if (j) out.push({ accountId: 'active', name: 'active', jwt: j });
+        }
+        return out;
+    }
+
     // --------- Page settings cache (tags, quick replies, ...) ---------
     // Pancake stores tag/QR definitions per-page in
     // `GET /api/v1/pages/{pageId}/settings`. They cache these in Redux
@@ -1129,6 +1191,8 @@
         tagPillsHtml,
         generatePageAccessToken,
         generateAllPageAccessTokens,
+        sendLiveComment,
+        getPageAccountJwts,
         _internal: { WORKER_URL, LS },
     };
 })();
