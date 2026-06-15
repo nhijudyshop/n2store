@@ -3,15 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `c5a3a62` — docs(dev-log): web2-api OOM resolved — plan standard 2GB + NODE_OPTIONS heap cap 1536
-**Last updated**: 2026-06-16 00:11:09 +07
-**Latest session**: [`RESUME:20260616-001109-c5a3a62`](../20260616-001109-c5a3a62.md)
-**Summary**: docs(dev-log): web2-api OOM resolved — plan standard 2GB + NODE_OPTIONS heap cap 1536
+**Latest commit**: `5b414ed` — perf(web2-api): tesseract lazy-load + autofb không mount khi WEB2_ONLY (giảm RAM nền)
+**Last updated**: 2026-06-16 00:19:02 +07
+**Latest session**: [`RESUME:20260616-001902-5b414ed`](../20260616-001902-5b414ed.md)
+**Summary**: perf(web2-api): tesseract lazy-load + autofb không mount khi WEB2_ONLY (giảm RAM nền)
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 1 file(s)
+- [`render.com/`](./render.com.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -26,7 +26,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-15 23:28
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-14 18:47
-- [`docs/`](./docs.md) — updated 2026-06-16 00:11
+- [`docs/`](./docs.md) — updated 2026-06-16 00:19
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-15 15:57
 - [`downloads/`](./downloads.md) — updated 2026-06-13 19:16
@@ -54,7 +54,7 @@
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-06-14 16:52
-- [`render.com/`](./render.com.md) — updated 2026-06-16 00:11
+- [`render.com/`](./render.com.md) — updated 2026-06-16 00:19
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-15 10:55
 - [`service-costs/`](./service-costs.md) — updated 2026-06-14 13:09
