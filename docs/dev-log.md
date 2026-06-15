@@ -2,6 +2,24 @@
 
 ## 2026-06-15
 
+### [web2][shared] Web2CustomerChat — launcher FULL chat KH (Pancake + Zalo) dùng chung ✅
+
+**User:** "1. Bấm sđt mở full chat pancake và zalo đi. 2. Web 2.0 có shared khung chat pancake/zalo chưa? Chưa thì làm để trang khác dùng chung (live-chat, native-orders, balance-history…)." + "hiệu ứng lấy ở airbnb/lottie-web".
+
+- **Khảo sát (workflow 3 agent map subsystem chat)**: phát hiện **ĐÃ CÓ sẵn component chat dùng chung**:
+    - **Pancake**: `Web2ChatPanel` ([web2/shared/chat-panel/web2-chat-panel.js](web2/shared/chat-panel/web2-chat-panel.js)) — UI adapter-pattern, mode full/readonly/picker, ĐỌC+SOẠN+GỬI. live-chat (`PancakeChatWindow`) + **native-orders** đã dùng. `Web2Chat` = API client.
+    - **Zalo**: `Web2Zalo.mountChat()` — full chat embeddable (J&T group drawer đang dùng).
+    - → KHÔNG dựng lại engine. Thiếu = **launcher theo SĐT** mở cả 2 kênh.
+- **MỚI** [web2/shared/web2-customer-chat.js](web2/shared/web2-customer-chat.js) (`window.Web2CustomerChat`):
+    - `Web2CustomerChat.open({phone, name?, channel?})` → drawer phải, **2 tab Pancake | Zalo**, lazy-mount mỗi kênh khi xem.
+    - Pancake: `resolvePancakeConv(phone)` (quét mọi page) → `Web2ChatPanel.mount(...).open(conv, adapter)` với **adapter tự chứa** (chỉ phụ thuộc Web2Chat/Web2Ext, KHÔNG PancakeState). Gửi **extension-first (bypass 24h)** → fallback Web2Chat (upload+send+PAT retry) — port từ pancake-chat-window.
+    - Zalo: `Web2Zalo.mountChat(host, {phone})`.
+    - **Lazy-load** panel bundle (css + emoji/sticker/entity data + panel.js) lần đầu mở tab Pancake → host page chỉ cần load web2-chat-client.js + web2-zalo.js + web2-customer-chat.js.
+    - **Hiệu ứng = Web2Lottie (airbnb/lottie-web)**: loading / hội thoại trống (`data-w2-lottie`).
+- **Wire J&T**: bấm SĐT (`openMsgModal`) giờ gọi `Web2CustomerChat.open({phone,name})` — thay modal soạn-nhanh cũ. Gỡ sendViaZalo/sendViaPancake. Load thêm web2-extension-bridge + web2-customer-chat; bump app `?v=20260615n`.
+- **Tái dùng cho trang khác**: balance-history / customers / returns / purchase-refund chỉ cần `Web2CustomerChat.open({phone})` (sẽ adopt dần — hiện balance-history/customers đang dùng Web2ChatReadonly read-only).
+- Frontend-only. Files: [web2-customer-chat.js](web2/shared/web2-customer-chat.js), [jt-tracking-app.js](web2/jt-tracking/js/jt-tracking-app.js), [index.html](web2/jt-tracking/index.html). Status: ✅ Done (cần verify live).
+
 ### [live-chat] Comment dài hiện ĐỦ (bỏ cắt "...") ✅
 
 User: "comment nội dung dài bị lỗi ... không hiện hết". Mobile `.c-msg` đang `-webkit-line-clamp:3` → cắt 3 dòng + "...". Gỡ clamp ([comments-mobile.html](live-chat/comments-mobile.html)), giữ `word-break:break-word`+`overflow-wrap:anywhere` (chống tràn URL/từ dài). Desktop `.live-conv-message` thêm cùng wrap (defensive, không clamp sẵn). (`?v=20260615fulltext`)

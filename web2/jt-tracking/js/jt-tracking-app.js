@@ -681,113 +681,11 @@
         return best;
     }
 
-    async function sendViaZalo(phone, text) {
-        if (!window.Web2Zalo?.getConversation) return { ok: false, reason: 'Zalo chưa sẵn sàng' };
-        const j = await window.Web2Zalo.getConversation(phone).catch((e) => ({ error: e.message }));
-        const c = j && j.data;
-        if (!c || !c.account_key || !c.thread_id)
-            return { ok: false, reason: 'Khách chưa có hội thoại Zalo' };
-        const r = await window.Web2Zalo.sendMessage({
-            accountKey: c.account_key,
-            threadId: c.thread_id,
-            threadType: c.thread_type || 'user',
-            text,
-        }).catch((e) => ({ success: false, error: e.message }));
-        return r && r.success !== false
-            ? { ok: true }
-            : { ok: false, reason: (r && r.error) || 'gửi Zalo lỗi' };
-    }
-
-    async function sendViaPancake(phone, text) {
-        const conv = await resolvePancakeConv(phone);
-        if (!conv) return { ok: false, reason: 'Khách chưa có hội thoại Pancake' };
-        const r = await window.Web2Chat.sendMessage(conv.pageId, conv.convId, {
-            text,
-            action: 'reply_inbox',
-            customerId: conv.customerId,
-        });
-        return r?.ok ? { ok: true } : { ok: false, reason: r?.reason || 'gửi Pancake lỗi' };
-    }
-
-    // Modal soạn nhanh — chọn kênh Zalo/Pancake rồi gửi liền.
-    let _msgChannel = 'pancake';
+    // Bấm SĐT → mở FULL chat khách (Pancake + Zalo) qua launcher dùng chung Web2CustomerChat.
     function openMsgModal(phone, name) {
         if (!phone) return;
-        const mount = $('jtModalMount');
-        const who = `${name ? esc(name) + ' · ' : ''}<b>${esc(phone)}</b>`;
-        mount.innerHTML = `<div class="jt-msg-back" id="jtMsgBack">
-            <div class="jt-msg-modal" role="dialog" aria-modal="true" aria-label="Nhắn tin cho khách">
-                <div class="jt-msg-head">
-                    <span><i data-lucide="send"></i> Nhắn tin cho khách</span>
-                    <button class="jt-msg-x" id="jtMsgClose" aria-label="Đóng"><i data-lucide="x"></i></button>
-                </div>
-                <div class="jt-msg-who">${who}</div>
-                <div class="jt-msg-tabs" id="jtMsgTabs">
-                    <button type="button" class="jt-ch ${_msgChannel === 'pancake' ? 'on' : ''}" data-ch="pancake"><i data-lucide="facebook"></i> Pancake</button>
-                    <button type="button" class="jt-ch ${_msgChannel === 'zalo' ? 'on' : ''}" data-ch="zalo"><i data-lucide="message-circle"></i> Zalo</button>
-                </div>
-                <textarea id="jtMsgText" class="jt-msg-text" rows="4" placeholder="Nhập nội dung tin nhắn gửi khách…"></textarea>
-                <div class="jt-msg-foot">
-                    <button class="jt-btn jt-btn-ghost" id="jtMsgCancel" type="button">Hủy</button>
-                    <button class="jt-btn jt-btn-primary" id="jtMsgSend" type="button"><i data-lucide="send"></i> Gửi <span id="jtMsgChName">${_msgChannel === 'zalo' ? 'Zalo' : 'Pancake'}</span></button>
-                </div>
-            </div>
-        </div>`;
-        icons();
-        requestAnimationFrame(() => $('jtMsgBack')?.classList.add('show'));
-        const close = () => {
-            const b = $('jtMsgBack');
-            if (b) {
-                b.classList.remove('show');
-                setTimeout(() => (mount.innerHTML = ''), 200);
-            }
-        };
-        $('jtMsgClose').onclick = close;
-        $('jtMsgCancel').onclick = close;
-        $('jtMsgBack').onclick = (e) => {
-            if (e.target.id === 'jtMsgBack') close();
-        };
-        $('jtMsgTabs').onclick = (e) => {
-            const b = e.target.closest('.jt-ch');
-            if (!b) return;
-            _msgChannel = b.dataset.ch;
-            $('jtMsgTabs')
-                .querySelectorAll('.jt-ch')
-                .forEach((x) => x.classList.toggle('on', x === b));
-            $('jtMsgChName').textContent = _msgChannel === 'zalo' ? 'Zalo' : 'Pancake';
-        };
-        setTimeout(() => $('jtMsgText')?.focus(), 60);
-        $('jtMsgSend').onclick = async () => {
-            const text = $('jtMsgText').value.trim();
-            if (!text) {
-                notify('Nhập nội dung tin nhắn', 'warning');
-                return;
-            }
-            const btn = $('jtMsgSend');
-            btn.disabled = true;
-            btn.classList.add('is-busy');
-            try {
-                const r =
-                    _msgChannel === 'zalo'
-                        ? await sendViaZalo(phone, text)
-                        : await sendViaPancake(phone, text);
-                if (r.ok) {
-                    notify('Đã gửi tin cho khách', 'success');
-                    close();
-                } else notify(r.reason || 'Gửi lỗi', 'error');
-            } catch (e) {
-                notify('Lỗi: ' + e.message, 'error');
-            } finally {
-                btn.disabled = false;
-                btn.classList.remove('is-busy');
-            }
-        };
-        document.addEventListener('keydown', function onEsc(ev) {
-            if (ev.key === 'Escape') {
-                close();
-                document.removeEventListener('keydown', onEsc);
-            }
-        });
+        if (window.Web2CustomerChat?.open) window.Web2CustomerChat.open({ phone, name });
+        else notify('Khung chat chưa sẵn sàng', 'warning');
     }
 
     // Gắn thẻ Pancake "XỬ LÝ BC" cho hội thoại của khách (theo SĐT).
