@@ -364,13 +364,13 @@
                         0 0 0 2px rgba(0, 104, 255, 0.6),
                         var(--c-shadow);
                 }
-                17% {
+                8% {
                     opacity: 1;
                     box-shadow:
                         0 0 0 2px rgba(0, 104, 255, 0.6),
                         var(--c-shadow);
                 }
-                67% {
+                85% {
                     opacity: 1;
                     box-shadow:
                         0 0 0 2px rgba(0, 104, 255, 0.6),
@@ -384,8 +384,8 @@
                 }
             }
             .card.is-new {
-                /* fade-in + KHUNG xanh giữ ~1s rồi mờ → biết comment mới (giữ shadow nền). */
-                animation: cardIn 1.5s ease both;
+                /* fade-in nhanh + KHUNG xanh giữ ~3s rồi mờ → biết comment mới (giữ shadow nền). */
+                animation: cardIn 3s ease both;
                 will-change: opacity, box-shadow;
             }
             .card:active {
@@ -1038,7 +1038,7 @@
         <script src="js/shared/live-status.js?v=20260614w2c"></script>
         <script src="js/shared/live-customer-sync.js?v=20260614w2c"></script>
         <!-- App controller (đặt window.LiveState/LiveCommentList shim cho module ẩn) -->
-        <script src="js/live/comments-mobile.js?v=20260615live"></script>
+        <script src="js/live/comments-mobile.js?v=20260615live2"></script>
         <!-- Module ẩn comment theo NGƯỜI — DÙNG CHUNG nguồn server với live-chat/index.html -->
         <script src="js/live/live-hidden-commenters.js?v=20260614w2c"></script>
     </body>

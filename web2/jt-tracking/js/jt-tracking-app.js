@@ -510,9 +510,24 @@
                 body.querySelectorAll('.jt-msg-hit').forEach((el) =>
                     el.classList.remove('jt-msg-hit')
                 );
-                target.scrollIntoView({ block: 'center', behavior: 'smooth' });
                 target.classList.add('jt-msg-hit'); // giữ highlight (không tự tắt) tới khi mở mã khác
                 clearInterval(timer);
+                // Cuộn TỨC THÌ (không 'smooth') + RE-ASSERT ~1.4s: ảnh/avatar phía trên load
+                // lazy làm layout dịch → 1 lần scroll dễ trượt (tin nằm dưới khung, user
+                // tưởng không highlight). Lặp lại để bám đúng tin tới khi layout ổn định.
+                let re = 0;
+                const bring = () => {
+                    try {
+                        target.scrollIntoView({ block: 'center', behavior: 'auto' });
+                    } catch (e) {
+                        /* phần tử có thể bị remount — bỏ qua */
+                    }
+                };
+                bring();
+                const reTimer = setInterval(() => {
+                    bring();
+                    if (++re >= 7) clearInterval(reTimer);
+                }, 200);
                 return;
             }
             // chưa thấy → tải tin cũ hơn (tối đa 8 lần) nếu nhóm còn lưu tin cũ

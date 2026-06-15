@@ -2,6 +2,10 @@
 
 ## 2026-06-15
 
+### [web2][live-chat] comments-mobile: bỏ nút Gọi/Mở FB ở sheet + highlight comment mới 3s ✅
+
+User: "bỏ nút gọi đt + mở facebook"; "comment mới highlight tồn tại 3s". [comments-mobile.js](live-chat/js/live/comments-mobile.js): gỡ `.sh-actions` (2 nút Gọi + Mở Facebook) khỏi sheet chi tiết (giữ "Xem khoảnh khắc" + "Ẩn tất cả comment"). [comments-mobile.html](live-chat/comments-mobile.html): `@keyframes cardIn` giữ khung xanh tới 85% + `.card.is-new animation 1.5s→3s` → comment mới có khung xanh ~3s rồi mờ. Bump `comments-mobile.js?v=20260615live2`.
+
 ### [web2][live-chat] comments-mobile mặc định "ĐANG LIVE" (gộp bài đang live) thay vì "Tất cả" ✅
 
 User: "đừng chọn Tất cả → chọn cái đang livestream thôi → House+Store đang live thì chọn cả 2". [comments-mobile.js](live-chat/js/live/comments-mobile.js): thêm `liveMode` (mặc định true) — gộp comment các bài ĐANG LIVE (`posts.filter(postLiving)`, gồm House+Store). Picker thêm dòng **"🔴 Đang livestream (gộp)"** (mặc định chọn) trên "Tất cả". `load()` query `?postIds=<living ids CSV>`; `visible()` lọc `passLive`; `realCommentTotal`/`updateLiveTag`/`getPostIds` theo liveMode; reload khi biết bài live (overrideRealCounts). Chọn "Tất cả"/1 bài cụ thể vẫn được. Bump `comments-mobile.js?v=20260615live`.

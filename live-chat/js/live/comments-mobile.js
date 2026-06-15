@@ -423,10 +423,6 @@
             ${field('Trang', esc(c.page_name || (pg ? 'NhiJudy ' + pg.t : '')))}
             ${field('FB ID', esc(c.fb_id || ''))}
             ${field('Thời gian', esc(fmtFull(c.created_time)))}
-            <div class="sh-actions">
-                <a class="sh-act prim ${phone ? '' : 'dis'}" href="${phone ? 'tel:' + esc(phone) : '#'}">${ICO.phone}Gọi</a>
-                <a class="sh-act sec ${fb ? '' : 'dis'}" href="${fb}" target="_blank" rel="noopener">Mở Facebook</a>
-            </div>
             ${t.livestreamUrl ? `<a class="sh-hide" style="display:block;text-align:center;text-decoration:none;color:var(--c-primary)" href="${esc(t.livestreamUrl)}" target="_blank" rel="noopener">🎬 Xem khoảnh khắc trong livestream</a>` : ''}
             <button class="sh-hide" id="shHidePerson" data-fbid="${esc(c.fb_id || '')}" data-name="${esc(nm)}">🙈 Ẩn tất cả comment của người này</button>`;
         const sh = sheetBody.querySelector('#shThumb');
