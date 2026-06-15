@@ -782,11 +782,13 @@
         <!-- SHARED realtime livestream-comment modules (dùng chung index + comments-mobile) -->
         <script src="js/shared/live-time.js?v=20260615v"></script>
         <script src="js/shared/live-comments-stream.js?v=20260615v"></script>
-        <script src="js/shared/live-status.js?v=20260615v"></script>
-        <script src="js/shared/live-customer-sync.js?v=20260615v"></script>
+        <!-- Web2CustomerStore: NGUỒN DUY NHẤT kho KH (load TRƯỚC live-status/live-customer-sync/live-api) -->
+        <script src="../web2/shared/web2-customer-store.js?v=20260615store"></script>
+        <script src="js/shared/live-status.js?v=20260615store"></script>
+        <script src="js/shared/live-customer-sync.js?v=20260615store"></script>
         <!-- Live modules (NEW modular) -->
         <script src="js/live/live-state.js?v=20260615v"></script>
-        <script src="js/live/live-api.js?v=20260615v"></script>
+        <script src="js/live/live-api.js?v=20260615store"></script>
         <script src="js/live/live-native-orders-api.js?v=20260615v"></script>
         <script src="js/live/live-comment-list.js?v=20260615auth"></script>
         <script src="js/live/live-hidden-commenters.js?v=20260615v"></script>

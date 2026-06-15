@@ -174,6 +174,20 @@ const LiveApi = {
     // 2026-06-12: bỏ tham số crmTeamId (di tích TPOS, từng bị ignore) — tra
     // theo fb_id trong warehouse.
     async getPartnerInfo(fbUserId) {
+        // NGUỒN DUY NHẤT: Web2CustomerStore (gom 2026-06-15). Fallback dưới nếu chưa load.
+        if (window.Web2CustomerStore) {
+            const c = await window.Web2CustomerStore.getByFbId(fbUserId);
+            return c
+                ? {
+                      Id: c.id,
+                      Name: c.name || '',
+                      Phone: c.phone || '',
+                      Street: c.address || '',
+                      Status: c.status || '',
+                      _web2: true,
+                  }
+                : null;
+        }
         try {
             const base = LiveApi._getWorkerUrl();
             const r = await fetch(`${base}/api/web2/customers/batch-by-fbid`, {
@@ -206,6 +220,27 @@ const LiveApi = {
         const out = new Map();
         const ids = Array.from(new Set((fbUserIds || []).map(String).filter(Boolean)));
         if (!ids.length) return out;
+        // NGUỒN DUY NHẤT: Web2CustomerStore (gom 2026-06-15).
+        if (window.Web2CustomerStore) {
+            const m = await window.Web2CustomerStore.batchByFbIds(ids);
+            for (const id of ids) {
+                const c = m.get(id);
+                out.set(
+                    id,
+                    c
+                        ? {
+                              Id: c.id,
+                              Name: c.name || '',
+                              Phone: c.phone || '',
+                              Street: c.address || '',
+                              Status: c.status || '',
+                              _web2: true,
+                          }
+                        : null
+                );
+            }
+            return out;
+        }
         const base = LiveApi._getWorkerUrl();
         for (let i = 0; i < ids.length; i += 500) {
             const chunk = ids.slice(i, i + 500);
@@ -243,6 +278,8 @@ const LiveApi = {
 
     // resolve fb_id → warehouse id rồi PATCH.
     async _patchWarehouseByFb(fbUserId, patch) {
+        // NGUỒN DUY NHẤT: Web2CustomerStore (gom 2026-06-15).
+        if (window.Web2CustomerStore) return window.Web2CustomerStore.patchByFbId(fbUserId, patch);
         const base = LiveApi._getWorkerUrl();
         const r = await fetch(`${base}/api/web2/customers/batch-by-fbid`, {
             method: 'POST',
@@ -272,17 +309,24 @@ const LiveApi = {
                 .slice(1)
                 .join('_') || statusValue;
         try {
-            const base = LiveApi._getWorkerUrl();
-            const r = await fetch(`${base}/api/web2/customers/${warehouseId}`, {
-                method: 'PATCH',
-                headers: LiveApi._w2AuthHeaders({ 'Content-Type': 'application/json' }),
-                body: JSON.stringify({ status }),
-                signal: AbortSignal.timeout(15000),
-            });
-            if (r.ok && window.notificationManager) {
+            let ok;
+            // NGUỒN DUY NHẤT: Web2CustomerStore (gom 2026-06-15).
+            if (window.Web2CustomerStore) {
+                ok = await window.Web2CustomerStore.updateStatus(warehouseId, status);
+            } else {
+                const base = LiveApi._getWorkerUrl();
+                const r = await fetch(`${base}/api/web2/customers/${warehouseId}`, {
+                    method: 'PATCH',
+                    headers: LiveApi._w2AuthHeaders({ 'Content-Type': 'application/json' }),
+                    body: JSON.stringify({ status }),
+                    signal: AbortSignal.timeout(15000),
+                });
+                ok = r.ok;
+            }
+            if (ok && window.notificationManager) {
                 window.notificationManager.show(`Đã cập nhật trạng thái: ${status}`, 'success');
             }
-            return r.ok;
+            return ok;
         } catch (error) {
             console.error('[Live-API] updatePartnerStatus (warehouse) fail:', error.message);
             return false;
@@ -300,21 +344,30 @@ const LiveApi = {
         let ok = await this._patchWarehouseByFb(fbUserId, patch);
         if (!ok && fields.Phone) {
             // chưa có trong kho → upsert theo phone + link fb
-            try {
-                const base = LiveApi._getWorkerUrl();
-                await fetch(`${base}/api/web2/customers/upsert`, {
-                    method: 'POST',
-                    headers: LiveApi._w2AuthHeaders({ 'Content-Type': 'application/json' }),
-                    body: JSON.stringify({
-                        phone: fields.Phone,
-                        address: fields.Street,
-                        fbId: fbUserId,
-                    }),
-                    signal: AbortSignal.timeout(15000),
+            if (window.Web2CustomerStore) {
+                const r = await window.Web2CustomerStore.upsert({
+                    phone: fields.Phone,
+                    address: fields.Street,
+                    fbId: fbUserId,
                 });
-                ok = true;
-            } catch (e) {
-                /* ignore */
+                ok = !!(r && r.ok);
+            } else {
+                try {
+                    const base = LiveApi._getWorkerUrl();
+                    await fetch(`${base}/api/web2/customers/upsert`, {
+                        method: 'POST',
+                        headers: LiveApi._w2AuthHeaders({ 'Content-Type': 'application/json' }),
+                        body: JSON.stringify({
+                            phone: fields.Phone,
+                            address: fields.Street,
+                            fbId: fbUserId,
+                        }),
+                        signal: AbortSignal.timeout(15000),
+                    });
+                    ok = true;
+                } catch (e) {
+                    /* ignore */
+                }
             }
         }
         return { ok };

@@ -1,180 +1,65 @@
-// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 — tra cứu KH từ kho warehouse (thay partner-customer-api WEB2).
+// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 — shim PartnerCustomerApi → Web2CustomerStore.
 // =====================================================================
-// Web2CustomerLookup — thay partner-customer-api.js (TPOS OData đã gỡ 2026-06).
-// Đọc kho KH warehouse Web 2.0 (/api/web2/customers/*) — KHÔNG gọi TPOS.
+// Web2CustomerLookup / PartnerCustomerApi — SHIM tương thích ngược.
 //
-// Giữ global `window.PartnerCustomerApi` (interface cũ) để balance-history /
-// customer-wallet không phải đổi code: listByPhones, list, STATUS_TEXT,
-// statusClass, detectCarrier, statusText, formatCurrency.
+// Toàn bộ logic (fetch kho KH, validate SĐT 10 số, status text/class, carrier,
+// money fmt) đã gom về NGUỒN DUY NHẤT `web2/shared/web2-customer-store.js`
+// (window.Web2CustomerStore). File này chỉ giữ global cũ
+// `window.PartnerCustomerApi` + `window.Web2CustomerLookup` để balance-history /
+// customer-wallet / web2-partner-enricher không phải đổi code.
+//
+// ⚠ web2-customer-store.js PHẢI load TRƯỚC file này.
 // =====================================================================
 
 (function () {
     'use strict';
     if (typeof window === 'undefined') return;
 
-    const WORKER = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/web2/customers';
-
-    function _w2Auth(extra) {
-        if (window.Web2Auth && window.Web2Auth.authHeaders)
-            return window.Web2Auth.authHeaders(extra || {});
-        var h = Object.assign({}, extra || {});
-        try {
-            var t = JSON.parse(localStorage.getItem('web2_auth') || 'null');
-            if (t && t.token) h['x-web2-token'] = t.token;
-        } catch (e) {}
-        return h;
-    }
-
-    // Status warehouse: Normal|Bom|Warning|Danger|VIP (+ legacy BomHang).
-    const STATUS_TEXT = {
-        Normal: 'Bình thường',
-        Bom: 'Bom hàng',
-        BomHang: 'Bom hàng',
-        Warning: 'Cảnh báo',
-        Danger: 'Nguy hiểm',
-        VIP: 'VIP',
-    };
-    const STATUS_VALUES = Object.keys(STATUS_TEXT);
-
-    function statusText(s) {
-        if (s && typeof s === 'object') return s.StatusText || STATUS_TEXT[s.Status] || '';
-        return STATUS_TEXT[s] || '';
-    }
-    function statusClass(status) {
-        switch (status) {
-            case 'Normal':
-                return 'pc-status-normal';
-            case 'Bom':
-            case 'BomHang':
-                return 'pc-status-bomb';
-            case 'Warning':
-                return 'pc-status-warning';
-            case 'Danger':
-                return 'pc-status-danger';
-            case 'VIP':
-                return 'pc-status-vip';
-            default:
+    var S = window.Web2CustomerStore;
+    if (!S) {
+        console.warn(
+            '[Web2CustomerLookup] Web2CustomerStore chưa load — load web2-customer-store.js TRƯỚC web2-customer-lookup.js'
+        );
+        // Shim an toàn (no-op) để consumer không vỡ; thực tế store luôn có mặt.
+        S = {
+            listByPhones: async function () {
+                return new Map();
+            },
+            list: async function () {
+                return { value: [], count: 0 };
+            },
+            STATUS_TEXT: {},
+            STATUS_VALUES: [],
+            statusText: function () {
                 return '';
-        }
+            },
+            statusClass: function () {
+                return '';
+            },
+            detectCarrier: function () {
+                return '';
+            },
+            formatCurrency: function (v) {
+                return String(v || 0);
+            },
+        };
     }
 
-    const CARRIER_PREFIXES = {
-        Viettel: [
-            '032',
-            '033',
-            '034',
-            '035',
-            '036',
-            '037',
-            '038',
-            '039',
-            '086',
-            '096',
-            '097',
-            '098',
-        ],
-        Mobifone: ['070', '076', '077', '078', '079', '089', '090', '093'],
-        Vinaphone: ['081', '082', '083', '084', '085', '088', '091', '094'],
-        Vietnamobile: ['052', '056', '058', '092'],
-        Gmobile: ['059', '099'],
-        iTel: ['087'],
+    var Api = {
+        list: function (opts) {
+            return S.list(opts);
+        },
+        listByPhones: function (phones) {
+            return S.listByPhones(phones);
+        },
+        STATUS_TEXT: S.STATUS_TEXT,
+        STATUS_VALUES: S.STATUS_VALUES,
+        statusText: S.statusText,
+        statusClass: S.statusClass,
+        detectCarrier: S.detectCarrier,
+        formatCurrency: S.formatCurrency,
     };
-    const PREFIX_TO_CARRIER = (() => {
-        const m = {};
-        for (const c of Object.keys(CARRIER_PREFIXES))
-            for (const p of CARRIER_PREFIXES[c]) m[p] = c;
-        return m;
-    })();
-    function detectCarrier(phone) {
-        if (!phone) return '';
-        const d = String(phone).replace(/\D/g, '');
-        if (d.length < 3) return '';
-        const n = d.startsWith('84') && d.length >= 11 ? '0' + d.slice(2) : d;
-        return PREFIX_TO_CARRIER[n.slice(0, 3)] || '';
-    }
-    function formatCurrency(v) {
-        const n = Number(v || 0);
-        return n ? n.toLocaleString('vi-VN') : '0';
-    }
 
-    // listByPhones(phones, opts) → Map(phone → {Id,Name,Phone,Status,Address})
-    async function listByPhones(phones, _opts) {
-        const map = new Map();
-        const unique = Array.from(
-            new Set((phones || []).map((p) => String(p || '').trim()).filter((p) => p.length >= 3))
-        );
-        if (!unique.length) return map;
-        try {
-            const r = await fetch(`${WORKER}/batch-by-phone`, {
-                method: 'POST',
-                headers: _w2Auth({ 'Content-Type': 'application/json' }),
-                body: JSON.stringify({ phones: unique }),
-            });
-            const d = await r.json().catch(() => ({}));
-            const data = (d && d.data) || {};
-            for (const ph of Object.keys(data)) {
-                map.set(ph, data[ph]);
-                // also key by last-9 for endsWith callers
-            }
-            // map back original inputs to normalized matches
-            for (const ph of unique) {
-                if (map.has(ph)) continue;
-                const norm = ph.replace(/\D/g, '').slice(-10);
-                if (data[norm]) map.set(ph, data[norm]);
-            }
-        } catch (e) {
-            console.warn('[Web2CustomerLookup] listByPhones fail:', e.message);
-        }
-        return map;
-    }
-
-    // list(opts) → {value, count} (WEB2-compat) từ warehouse /list.
-    // opts: { search, status, top, skip, $top, $skip }
-    async function list(opts) {
-        const o = opts || {};
-        const params = new URLSearchParams();
-        if (o.search) params.set('search', o.search);
-        if (o.status && o.status !== 'all') params.set('status', o.status);
-        params.set('limit', String(o.top || o.$top || 50));
-        params.set(
-            'page',
-            String(Math.floor((o.skip || o.$skip || 0) / (o.top || o.$top || 50)) + 1)
-        );
-        try {
-            const r = await fetch(`${WORKER}/list?${params.toString()}`, {
-                headers: { Accept: 'application/json' },
-            });
-            const d = await r.json().catch(() => ({}));
-            const rows = Array.isArray(d.data) ? d.data : [];
-            // map warehouse row → partner-compat shape
-            const value = rows.map((c) => ({
-                Id: c.id,
-                Name: c.name || '',
-                Phone: c.phone || '',
-                Status: c.status || 'Normal',
-                Address: c.address || '',
-                Email: c.email || '',
-            }));
-            return {
-                value,
-                count: d.total || value.length,
-                '@odata.count': d.total || value.length,
-            };
-        } catch (e) {
-            console.warn('[Web2CustomerLookup] list fail:', e.message);
-            return { value: [], count: 0 };
-        }
-    }
-
-    window.PartnerCustomerApi = {
-        list,
-        listByPhones,
-        STATUS_TEXT,
-        STATUS_VALUES,
-        statusText,
-        statusClass,
-        detectCarrier,
-        formatCurrency,
-    };
-    window.Web2CustomerLookup = window.PartnerCustomerApi;
+    window.PartnerCustomerApi = Api;
+    window.Web2CustomerLookup = Api;
 })();

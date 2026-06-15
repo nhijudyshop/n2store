@@ -72,6 +72,13 @@
     // ---- READ: enrich từ kho web2_customers (dual phone + fb_id) ----
     async function enrich(opts) {
         opts = opts || {};
+        // NGUỒN DUY NHẤT: Web2CustomerStore.enrich (gom 2026-06-15) — validate
+        // SĐT 10 số chặt + auth header. Fallback inline nếu store chưa load.
+        if (global.Web2CustomerStore && global.Web2CustomerStore.enrich)
+            return global.Web2CustomerStore.enrich({
+                phones: opts.phones || [],
+                fbIds: opts.fbIds || [],
+            });
         var worker = opts.workerUrl || WORKER_DEFAULT;
         var headers = opts.headers || { 'Content-Type': 'application/json' };
         var phones = (opts.phones || []).map(norm).filter(function (p) {
@@ -151,14 +158,19 @@
         _timer = null;
         var batch = _queue.splice(0, 500);
         if (!batch.length) return;
-        var worker = (_opts && _opts.workerUrl) || WORKER_DEFAULT;
-        var headers = (_opts && _opts.headers) || { 'Content-Type': 'application/json' };
         try {
-            await post(
-                worker + '/api/web2/customers/harvest-comments',
-                { comments: batch },
-                headers
-            );
+            // NGUỒN DUY NHẤT: Web2CustomerStore.harvestComments (auth header).
+            if (global.Web2CustomerStore && global.Web2CustomerStore.harvestComments) {
+                await global.Web2CustomerStore.harvestComments(batch);
+            } else {
+                var worker = (_opts && _opts.workerUrl) || WORKER_DEFAULT;
+                var headers = (_opts && _opts.headers) || { 'Content-Type': 'application/json' };
+                await post(
+                    worker + '/api/web2/customers/harvest-comments',
+                    { comments: batch },
+                    headers
+                );
+            }
         } catch (e) {
             if (global.console) console.warn('[LiveCustomerSync] harvest fail:', e && e.message);
         }

@@ -1035,8 +1035,10 @@
         <!-- SHARED realtime livestream-comment modules (dùng chung index.html) -->
         <script src="js/shared/live-time.js?v=20260614w2c"></script>
         <script src="js/shared/live-comments-stream.js?v=20260614w2c"></script>
-        <script src="js/shared/live-status.js?v=20260614w2c"></script>
-        <script src="js/shared/live-customer-sync.js?v=20260614w2c"></script>
+        <!-- Web2CustomerStore: NGUỒN DUY NHẤT kho KH (load TRƯỚC live-status/live-customer-sync) -->
+        <script src="../web2/shared/web2-customer-store.js?v=20260615store"></script>
+        <script src="js/shared/live-status.js?v=20260615store"></script>
+        <script src="js/shared/live-customer-sync.js?v=20260615store"></script>
         <!-- App controller (đặt window.LiveState/LiveCommentList shim cho module ẩn) -->
         <script src="js/live/comments-mobile.js?v=20260615kho2"></script>
         <!-- Module ẩn comment theo NGƯỜI — DÙNG CHUNG nguồn server với live-chat/index.html -->

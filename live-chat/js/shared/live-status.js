@@ -12,6 +12,10 @@
     if (global.LiveStatus) return;
 
     function normalize(raw) {
+        // NGUỒN DUY NHẤT: Web2CustomerStore.normalize (gom 2026-06-15). Fallback
+        // inline bên dưới nếu store chưa load (giữ hành vi cũ, không vỡ).
+        if (global.Web2CustomerStore && global.Web2CustomerStore.normalize)
+            return global.Web2CustomerStore.normalize(raw);
         var s = String(raw == null ? '' : raw)
             .trim()
             .toLowerCase();

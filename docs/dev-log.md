@@ -2,6 +2,24 @@
 
 ## 2026-06-15
 
+### [web2][shared][P1] Gom kho KH về 1 nguồn — Web2CustomerStore ✅
+
+User: "kiểm tra tất cả web 2 xem phần nào dùng chung thì bỏ vào shared… ví dụ pancake, zalo, kho SP, kho KH, kho NCC, ví KH, ví NCC". Audit (6-agent song song) → kế hoạch 5 cụm P1–P5. **P1 = Kho KH** (giá trị cao nhất + đang có bug thật).
+
+**Vấn đề**: logic truy cập `web2_customers` rải 4 chỗ với **3 bộ normalize status** khác nhau (`Web2CustomerLookup.STATUS_TEXT`, `customers-app.STATUS`, `LiveStatus.normalize`) + **filter SĐT lỏng** (`web2-customer-lookup` `len>=3`, `live-customer-sync` `len>=9`) → **fb_id (`fb_2408…`)/số rác lọt vào batch-by-phone** → khớp sai KH.
+
+**Fix** — tạo NGUỒN DUY NHẤT [web2-customer-store.js](web2/shared/web2-customer-store.js) (`window.Web2CustomerStore`): validate SĐT `/^0\d{9}$/`, 1 bộ status (text/class/normalize, gồm tier Thân thiết/Khách sỉ), carrier, auth `x-web2-token` cho mọi write, batch chunk chống N+1. API: `batchByPhones/batchByFbIds/getByFbId/getByPhone/enrich/list/listByPhones` (read) + `patch/updateStatus/patchByFbId/upsert/harvestComments` (write) + `subscribe(web2:customers)`.
+
+4 module cũ **delegate** (giữ nguyên public interface, không rewire call-site):
+
+- [web2-customer-lookup.js](web2/shared/web2-customer-lookup.js): rewrite thành shim mỏng → `PartnerCustomerApi`/`Web2CustomerLookup` trỏ store (bỏ ~150 dòng dup, **fix filter `>=3`**).
+- [live-status.js](live-chat/js/shared/live-status.js): `normalize` → `Web2CustomerStore.normalize` (fallback inline).
+- [live-customer-sync.js](live-chat/js/shared/live-customer-sync.js): `enrich`→store.enrich (**fix `>=9`**), harvest POST→store.harvestComments (auth).
+- [live-api.js](live-chat/js/live/live-api.js): `getPartnerInfo/Batch`, `_patchWarehouseByFb`, `updatePartnerStatus`, `savePartnerData` upsert → store (giữ shape partner-like + fallback).
+- [web2-partner-enricher.js] tự hưởng lợi (qua `PartnerCustomerApi.listByPhones`).
+
+Include `web2-customer-store.js?v=20260615store` TRƯỚC consumer ở: live-chat/index.html, comments-mobile.html, balance-history, customer-wallet. Bump live-status/live-customer-sync/live-api `?v=20260615store`. Verified node harness: reject `fb_2408…`/17-số, accept `0123456788`, status/normalize/shim đúng. Frontend-only (không deploy). Lưu MEMORY [[reference_web2_customer_store]].
+
 ### [web2][AUDIT] Quét + fix TOÀN BỘ web2 write thiếu x-web2-token (WEB2_AUTH_ENFORCE 401) ✅
 
 User: "kiểm lại toàn bộ /api/web2 còn thiếu x-web2-token không". Workflow audit (5-agent) → **37 violation / 14 file**; workflow remediation (6-agent song song) fix → **~18 file**:
