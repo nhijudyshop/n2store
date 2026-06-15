@@ -330,49 +330,77 @@
         };
         // Ẩn + dọn các comment này khỏi live-chat NGAY trước khi spam (+ re-mark mỗi 100 tin).
         const mb = await markBoost(conv.id);
+
+        // ĐA NHIỆM: mint PAT cho MỌI account Pancake đã add → chạy 1 worker / PAT
+        // (mỗi account = bucket rate-limit FB riêng → throughput cao hơn). Không mint
+        // được account nào → 1 worker với PAT mặc định.
+        let pats = [];
+        try {
+            const g = await W.generateAllPageAccessTokens(pageId);
+            pats = (g && g.tokens) || [];
+        } catch (_) {
+            /* fallback 1 worker */
+        }
+        const tokens = pats.length ? pats.map((p) => p.token) : [null];
+        const labels = pats.length ? pats.map((_, k) => `T${k + 1}`) : ['T1'];
+        const workers = tokens.length;
+
         logLine(`▶ Bắt đầu: ${total} comment, giãn ${delay}ms, hội thoại ${conv.id}`);
         logLine(`· Đã báo live-chat ẩn comment tăng${mb.purged ? ` (dọn ${mb.purged} cũ)` : ''}.`);
+        logLine(`· Đa nhiệm: ${workers} tài khoản Pancake song song.`);
 
-        for (let i = 0; i < total; i++) {
-            if (_stop) {
-                logLine('⏹ Đã dừng.');
-                break;
-            }
-            if (i > 0 && i % 100 === 0) await markBoost(conv.id);
-            const text = tpl || randText();
-            try {
-                const res = await W.sendMessage(pageId, conv.id, {
-                    text,
-                    action: 'reply_comment',
-                    customerId: custId,
-                    messageId,
-                });
-                if (res && res.ok) {
-                    ok++;
-                    logLine(`✓ #${i + 1} "${text}"`);
-                } else {
-                    err++;
-                    const reason = (res && res.reason) || 'unknown';
-                    logLine(`✗ #${i + 1} ${reason}`);
-                    // Rate-limit / policy FB → DỪNG ngay (tránh bị khoá page).
-                    if (
-                        res &&
-                        (res.e_subcode === 3252001 ||
-                            res.e_code === 368 ||
-                            /rate|limit|spam|chặn|policy/i.test(reason))
-                    ) {
-                        logLine('⛔ FB giới hạn → dừng để an toàn.');
-                        notify('FB giới hạn (rate-limit) → đã dừng', 'error');
-                        break;
-                    }
+        let claimed = 0; // chỉ số kế tiếp (JS 1 luồng → claimed++ giữa await là atomic)
+        let lastMark = 0;
+        const nextIdx = () => (!_stop && claimed < total ? claimed++ : -1);
+
+        async function worker(pat, label) {
+            while (true) {
+                const i = nextIdx();
+                if (i < 0) break;
+                if (claimed - lastMark >= 100) {
+                    lastMark = claimed; // re-mark boost định kỳ (1 worker lo, không await)
+                    markBoost(conv.id);
                 }
-            } catch (e) {
-                err++;
-                logLine(`✗ #${i + 1} ${e.message}`);
+                const text = tpl || randText();
+                try {
+                    const res = await W.sendMessage(pageId, conv.id, {
+                        text,
+                        action: 'reply_comment',
+                        customerId: custId,
+                        messageId,
+                        pageAccessToken: pat || undefined,
+                    });
+                    if (res && res.ok) {
+                        ok++;
+                        logLine(`✓ [${label}] #${i + 1} "${text}"`);
+                    } else {
+                        err++;
+                        const reason = (res && res.reason) || 'unknown';
+                        logLine(`✗ [${label}] #${i + 1} ${reason}`);
+                        // Rate-limit / policy FB → DỪNG TẤT CẢ worker (tránh khoá page).
+                        if (
+                            res &&
+                            (res.e_subcode === 3252001 ||
+                                res.e_code === 368 ||
+                                /rate|limit|spam|chặn|policy/i.test(reason))
+                        ) {
+                            _stop = true;
+                            logLine(`⛔ [${label}] FB giới hạn → dừng để an toàn.`);
+                            notify('FB giới hạn (rate-limit) → đã dừng', 'error');
+                            break;
+                        }
+                    }
+                } catch (e) {
+                    err++;
+                    logLine(`✗ [${label}] #${i + 1} ${e.message}`);
+                }
+                setStat();
+                if (!_stop && claimed < total) await sleep(delay);
             }
-            setStat();
-            if (i < total - 1 && !_stop) await sleep(delay);
         }
+
+        await Promise.all(tokens.map((t, k) => worker(t, labels[k])));
+        if (_stop) logLine('⏹ Đã dừng.');
         setStat();
         _running = false;
         $('boostRun').disabled = false;

@@ -463,7 +463,8 @@
     async function sendMessage(pageId, conversationId, opts = {}) {
         if (!pageId || !conversationId) return { ok: false, reason: 'missing_ids' };
         if (_isInstagram(pageId)) return { ok: false, reason: 'instagram_unsupported' };
-        const pat = getPageAccessToken(pageId);
+        // opts.pageAccessToken: override PAT (đa nhiệm nhiều account — mỗi worker 1 PAT).
+        const pat = opts.pageAccessToken || getPageAccessToken(pageId);
         if (!pat) return { ok: false, reason: 'no_page_access_token' };
 
         const text = (opts.text || '').trim();
@@ -895,6 +896,57 @@
         return { ok: false, reason: lastReason || 'all_accounts_failed' };
     }
 
+    // Mint PAT cho 1 page từ MỌI account đã add (song song) → đa nhiệm gửi tin
+    // (trang "Tăng số lượng comment" chạy 1 worker/PAT). Mỗi account (user) cho 1
+    // page_access_token RIÊNG (bucket rate-limit FB khác nhau) → throughput cao hơn.
+    // Trả { ok, tokens:[{accountId,name,token}] } (dedupe theo PAT — token trùng = 1).
+    async function generateAllPageAccessTokens(pageId) {
+        if (!pageId) return { ok: false, reason: 'missing_pageId', tokens: [] };
+        const accountsMap = getAllAccounts();
+        const cands = [];
+        for (const [id, acc] of Object.entries(accountsMap)) {
+            if (!acc || !acc.token || _isExpired(acc.exp)) continue;
+            const owns = !Array.isArray(acc.pages) || acc.pages.includes(String(pageId));
+            if (owns) cands.push({ id, name: acc.name || id, token: acc.token });
+        }
+        if (!cands.length) {
+            const jwt = getJwt();
+            if (jwt)
+                cands.push({
+                    id: localStorage.getItem(LS.ACTIVE_ACCOUNT_ID) || 'active',
+                    name: 'active',
+                    token: jwt,
+                });
+        }
+        const minted = await Promise.all(
+            cands.map(async (c) => {
+                const url = `${WORKER_URL}/api/pancake/pages/${encodeURIComponent(pageId)}/generate_page_access_token?access_token=${encodeURIComponent(c.token)}`;
+                try {
+                    const data = await _fetchJson(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                    });
+                    if (data && data.success && data.page_access_token)
+                        return { accountId: c.id, name: c.name, token: data.page_access_token };
+                } catch (_) {
+                    /* skip account này */
+                }
+                return null;
+            })
+        );
+        const seen = new Set();
+        const tokens = [];
+        for (const r of minted) {
+            if (r && r.token && !seen.has(r.token)) {
+                seen.add(r.token);
+                tokens.push(r);
+            }
+        }
+        if (tokens.length)
+            setPageAccessToken(pageId, tokens[0].token, { account_id: tokens[0].accountId });
+        return { ok: tokens.length > 0, tokens, accounts: cands.length };
+    }
+
     // --------- Page settings cache (tags, quick replies, ...) ---------
     // Pancake stores tag/QR definitions per-page in
     // `GET /api/v1/pages/{pageId}/settings`. They cache these in Redux
@@ -1069,6 +1121,7 @@
         resolveTags,
         tagPillsHtml,
         generatePageAccessToken,
+        generateAllPageAccessTokens,
         _internal: { WORKER_URL, LS },
     };
 })();

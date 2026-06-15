@@ -2,6 +2,14 @@
 
 ## 2026-06-15
 
+### [web2] "Tăng số lượng comment" ĐA NHIỆM theo nhiều account Pancake (1 worker/account) ✅
+
+User: "đa nhiệm đi vì có nhiều account Pancake tôi add vào — cứ chạy tối đa số account được add".
+
+- [web2-chat-client.js](web2/shared/web2-chat-client.js): `sendMessage` nhận `opts.pageAccessToken` (override PAT/worker). Thêm `Web2Chat.generateAllPageAccessTokens(pageId)` — mint PAT cho MỌI account đã add (song song), dedupe theo PAT (mỗi user→1 page_access_token riêng = bucket rate-limit FB khác nhau → throughput cao hơn).
+- [multi-tool.js](web2/multi-tool/js/multi-tool.js) `run()`: chạy **1 worker / PAT** chia chung counter `claimed` (JS 1 luồng → atomic), mỗi worker `sendMessage(...pageAccessToken)` + giãn nhịp riêng → tổng ≈ N/delay. Rate-limit ở BẤT KỲ worker → `_stop=true` dừng TẤT CẢ. Log `[T1]/[T2]…` + "Đa nhiệm: N tài khoản song song". Không account nào mint được → 1 worker PAT mặc định (như cũ).
+- Bump `web2-chat-client.js?v=20260615tag2` + `multi-tool.js?v=20260615multi`.
+
 ### [web2][shared] Gộp tag Pancake VÀO Web2Chat (bỏ file rời) — trang chỉ tham chiếu Web2Chat ✅
 
 User: "tôi tưởng pancake build vào shared để dùng chung, các trang chỉ tham chiếu tới". → Gộp logic tag từ file rời `web2-pancake-tags.js` (vừa tạo) VÀO `Web2Chat` ([web2-chat-client.js](web2/shared/web2-chat-client.js)): `Web2Chat.ensureTags(pageId)` / `tagDefsFor` / `resolveTags` / `tagPillsHtml(pageId, conv.tags)` (pill inline-style, không cần CSS rời). XOÁ `web2-pancake-tags.js` + auto-loader trong chat-panel. [Web2ChatPanel](web2/shared/chat-panel/web2-chat-panel.js) `renderTags()` dùng `Web2Chat.*`. Bump `web2-chat-client.js`+`web2-chat-panel.js?v=20260615tag2` (live-chat index/chat/mobile + native-orders).
