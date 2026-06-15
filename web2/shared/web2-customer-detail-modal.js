@@ -15,6 +15,17 @@
     const WORKER = 'https://chatomni-proxy.nhijudyshop.workers.dev';
     const FALLBACK = 'https://web2-api-kv04.onrender.com';
 
+    function _w2Auth(extra) {
+        if (window.Web2Auth && window.Web2Auth.authHeaders)
+            return window.Web2Auth.authHeaders(extra || {});
+        var h = Object.assign({}, extra || {});
+        try {
+            var t = JSON.parse(localStorage.getItem('web2_auth') || 'null');
+            if (t && t.token) h['x-web2-token'] = t.token;
+        } catch (e) {}
+        return h;
+    }
+
     function esc(v) {
         if (v == null) return '';
         return String(v)
@@ -285,7 +296,7 @@
         try {
             const r = await fetch(`${WORKER}/api/web2/customers/${encodeURIComponent(c.id)}`, {
                 method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
+                headers: _w2Auth({ 'Content-Type': 'application/json' }),
                 credentials: 'include',
                 body: JSON.stringify(payload),
             });

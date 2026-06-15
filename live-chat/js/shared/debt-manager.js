@@ -16,6 +16,20 @@ class DebtManager {
             window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
     }
 
+    // ENFORCE-PREP: gắn x-web2-token cho route soft-gated (WEB2_AUTH_ENFORCE).
+    // Chưa login web2 → bỏ qua header, request vẫn đi (server enforce → 401).
+    _w2Auth(extra) {
+        if (window.Web2Auth?.authHeaders) return window.Web2Auth.authHeaders(extra || {});
+        const h = { ...(extra || {}) };
+        try {
+            const t = JSON.parse(localStorage.getItem('web2_auth') || 'null');
+            if (t && t.token) h['x-web2-token'] = t.token;
+        } catch {
+            /* no token */
+        }
+        return h;
+    }
+
     /**
      * Get cached debt for a phone number
      * @param {string} phone - Raw or normalized phone
@@ -71,7 +85,7 @@ class DebtManager {
             // Endpoint Web 2.0 — cùng shape {success, data:{[phone]:{total}}} với route cũ.
             const response = await fetch(`${this._proxyBaseUrl}/api/web2/wallets/batch-summary`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: this._w2Auth({ 'Content-Type': 'application/json' }),
                 body: JSON.stringify({ phones: uniquePhones }),
             });
 

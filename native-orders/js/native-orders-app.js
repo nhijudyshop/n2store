@@ -775,9 +775,20 @@
 
         const run = async () => {
             // 2026-06-08: Web 2.0 bỏ WEB2 — lookup info KH từ kho warehouse theo fb_id.
+            const fbHeaders = { 'Content-Type': 'application/json' };
+            if (window.Web2Auth?.authHeaders) {
+                Object.assign(fbHeaders, window.Web2Auth.authHeaders());
+            } else {
+                try {
+                    const t = JSON.parse(localStorage.getItem('web2_auth') || 'null')?.token;
+                    if (t) fbHeaders['x-web2-token'] = t;
+                } catch {
+                    /* ignore */
+                }
+            }
             const r = await fetch(`${WORKER_URL}/api/web2/customers/batch-by-fbid`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: fbHeaders,
                 credentials: 'include',
                 body: JSON.stringify({ fbIds: [fbUserId] }),
             });
@@ -3046,9 +3057,20 @@
         if (!proceed) return;
 
         try {
+            const mergeHeaders = { 'Content-Type': 'application/json' };
+            if (window.Web2Auth?.authHeaders) {
+                Object.assign(mergeHeaders, window.Web2Auth.authHeaders());
+            } else {
+                try {
+                    const t = JSON.parse(localStorage.getItem('web2_auth') || 'null')?.token;
+                    if (t) mergeHeaders['x-web2-token'] = t;
+                } catch {
+                    /* ignore */
+                }
+            }
             const r = await fetch(`${WORKER_URL}/api/native-orders/merge`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: mergeHeaders,
                 body: JSON.stringify({ codes }),
             });
             const data = await r.json();

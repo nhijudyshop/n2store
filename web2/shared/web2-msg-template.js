@@ -518,7 +518,7 @@
         try {
             const r = await fetch(API_BASE + '/', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: _authHeaders({ 'Content-Type': 'application/json' }),
                 body: JSON.stringify({ createdBy, templateName: tpl.Name || '', items }),
             });
             const d = await r.json().catch(() => null);
@@ -716,6 +716,7 @@
         try {
             const cr = await fetch(API_BASE + '/' + jobId + '/items/' + item.id + '/claim-ext', {
                 method: 'POST',
+                headers: _authHeaders(),
             });
             const cd = await cr.json().catch(() => null);
             if (!cd?.claimed) return;
@@ -733,7 +734,7 @@
         try {
             await fetch(API_BASE + '/' + jobId + '/items/' + item.id + '/result', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: _authHeaders({ 'Content-Type': 'application/json' }),
                 body: JSON.stringify({ ok, via: 'extension', error: err }),
             });
         } catch (_) {
@@ -856,7 +857,10 @@
         if (!_activeJobId) return;
         if (!confirm('Dừng job? Các đơn chưa gửi sẽ bị huỷ (đơn đã gửi vẫn giữ).')) return;
         try {
-            await fetch(API_BASE + '/' + _activeJobId + '/cancel', { method: 'POST' });
+            await fetch(API_BASE + '/' + _activeJobId + '/cancel', {
+                method: 'POST',
+                headers: _authHeaders(),
+            });
         } catch (_) {
             /* ignore */
         }

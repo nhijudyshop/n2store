@@ -25,6 +25,17 @@
 (function () {
     'use strict';
 
+    function _w2Auth(extra) {
+        if (window.Web2Auth && window.Web2Auth.authHeaders)
+            return window.Web2Auth.authHeaders(extra || {});
+        var h = Object.assign({}, extra || {});
+        try {
+            var t = JSON.parse(localStorage.getItem('web2_auth') || 'null');
+            if (t && t.token) h['x-web2-token'] = t.token;
+        } catch (e) {}
+        return h;
+    }
+
     // ---------- Paper presets — exact mirror WEB2 /odata/ProductLabelPaper ----------
     const PAPERS = [
         {
@@ -655,7 +666,7 @@
                 'https://chatomni-proxy.nhijudyshop.workers.dev';
             fetch(base + '/api/web2-products/mark-printed', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: _w2Auth({ 'Content-Type': 'application/json' }),
                 body: JSON.stringify({ codes }),
             }).catch(() => {});
         } catch (e) {

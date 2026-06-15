@@ -4,6 +4,18 @@
 (function () {
     'use strict';
 
+    // Web 2.0 auth header helper — token qua header x-web2-token (không cần cookie).
+    function _w2Auth(extra) {
+        if (window.Web2Auth && window.Web2Auth.authHeaders)
+            return window.Web2Auth.authHeaders(extra || {});
+        var h = Object.assign({}, extra || {});
+        try {
+            var t = JSON.parse(localStorage.getItem('web2_auth') || 'null');
+            if (t && t.token) h['x-web2-token'] = t.token;
+        } catch (e) {}
+        return h;
+    }
+
     const COLUMNS = [
         { key: 'supplier', label: 'NCC' },
         { key: 'stt', label: 'STT' },
@@ -1968,7 +1980,7 @@
                 'https://chatomni-proxy.nhijudyshop.workers.dev/api/web2-products/confirm-purchase-partial',
                 {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: _w2Auth({ 'Content-Type': 'application/json' }),
                     credentials: 'omit',
                     body: JSON.stringify({ items: partialItems }),
                 }

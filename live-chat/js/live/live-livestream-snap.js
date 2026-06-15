@@ -1491,7 +1491,7 @@ Throttle 30s/KH.`;
     async function _postAcquire(force) {
         return _lockFetch('/acquire', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: _w2AuthHeaders({ 'Content-Type': 'application/json' }),
             body: JSON.stringify({
                 holder: _holderId(),
                 holderName: _user()?.name || _machineId(),
@@ -1580,7 +1580,7 @@ Throttle 30s/KH.`;
         try {
             await _lockFetch('/release', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: _w2AuthHeaders({ 'Content-Type': 'application/json' }),
                 body: JSON.stringify({ holder: _holderId() }),
             });
         } catch (_) {}

@@ -1147,7 +1147,7 @@
         try {
             fetch(`${WORKER_URL}/api/web2/customers/enrich-fb`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: _authHeaders({ 'Content-Type': 'application/json' }),
                 keepalive: true,
                 body: JSON.stringify({
                     fbId: key,

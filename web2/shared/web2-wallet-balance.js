@@ -17,6 +17,17 @@
 
     const BASE = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/web2/wallets';
     const DIRECT_BASE = 'https://web2-api-kv04.onrender.com/api/web2/wallets';
+
+    function _w2Auth(extra) {
+        if (window.Web2Auth && window.Web2Auth.authHeaders)
+            return window.Web2Auth.authHeaders(extra || {});
+        var h = Object.assign({}, extra || {});
+        try {
+            var t = JSON.parse(localStorage.getItem('web2_auth') || 'null');
+            if (t && t.token) h['x-web2-token'] = t.token;
+        } catch (e) {}
+        return h;
+    }
     const TTL_MS = 60000; // số dư ví đổi chậm — cache 60s là đủ tươi
     const _cache = new Map(); // phone -> { balance:number, ts:number }
     const _inflight = new Map(); // phone -> Promise<number>
@@ -75,7 +86,7 @@
         const tryFetch = async (base) => {
             const r = await fetch(`${base}/batch-summary`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: _w2Auth({ 'Content-Type': 'application/json' }),
                 body,
             });
             if (!r.ok) throw new Error(`HTTP ${r.status}`);

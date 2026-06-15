@@ -16,6 +16,17 @@
     const QR_BASE = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/web2/customer-wallet';
     const QR_DIRECT = 'https://web2-api-kv04.onrender.com/api/web2/customer-wallet';
 
+    function _w2Auth(extra) {
+        if (window.Web2Auth && window.Web2Auth.authHeaders)
+            return window.Web2Auth.authHeaders(extra || {});
+        var h = Object.assign({}, extra || {});
+        try {
+            var t = JSON.parse(localStorage.getItem('web2_auth') || 'null');
+            if (t && t.token) h['x-web2-token'] = t.token;
+        } catch (e) {}
+        return h;
+    }
+
     let _modalEl = null;
 
     async function qrRequest(path, options) {
@@ -208,7 +219,7 @@
         if (opts?.customerId) {
             const post = await qrRequest(`/${encodeURIComponent(phone)}/qr`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: _w2Auth({ 'Content-Type': 'application/json' }),
                 body: JSON.stringify({
                     customerId: opts.customerId,
                     customerName: opts.customerName,
@@ -225,7 +236,7 @@
         // 404 → auto UPSERT (backend tự lookup WEB2 partner theo phone)
         const post = await qrRequest(`/${encodeURIComponent(phone)}/qr`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: _w2Auth({ 'Content-Type': 'application/json' }),
             body: JSON.stringify({ customerName: opts?.customerName }),
         });
         if (post.status !== 200) {
@@ -240,7 +251,7 @@
         try {
             const post = await qrRequest(`/${encodeURIComponent(_ctx.phone)}/qr`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: _w2Auth({ 'Content-Type': 'application/json' }),
                 body: JSON.stringify({
                     customerId: _ctx.opts?.customerId,
                     customerName: _ctx.opts?.customerName,

@@ -14,6 +14,17 @@
 
     const WORKER = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/web2/customers';
 
+    function _w2Auth(extra) {
+        if (window.Web2Auth && window.Web2Auth.authHeaders)
+            return window.Web2Auth.authHeaders(extra || {});
+        var h = Object.assign({}, extra || {});
+        try {
+            var t = JSON.parse(localStorage.getItem('web2_auth') || 'null');
+            if (t && t.token) h['x-web2-token'] = t.token;
+        } catch (e) {}
+        return h;
+    }
+
     // Status warehouse: Normal|Bom|Warning|Danger|VIP (+ legacy BomHang).
     const STATUS_TEXT = {
         Normal: 'Bình thường',
@@ -96,7 +107,7 @@
         try {
             const r = await fetch(`${WORKER}/batch-by-phone`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: _w2Auth({ 'Content-Type': 'application/json' }),
                 body: JSON.stringify({ phones: unique }),
             });
             const d = await r.json().catch(() => ({}));
