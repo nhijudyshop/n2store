@@ -931,6 +931,16 @@ app.get('/api/pages-available', requireRelaySecret, async (req, res) => {
         const disabled = await getDisabledPageIds();
         const accounts = [];
         for (const [userId, client] of clients) {
+            // allPages có thể rỗng nếu client nạp qua đường Postgres fallback (không
+            // qua startClient). Discover on-demand bằng token rồi cache vào client.
+            if ((!client.allPages || !client.allPages.length) && client.token) {
+                try {
+                    const d = await discoverPageIds(client.token);
+                    if (d.pages && d.pages.length) client.allPages = d.pages;
+                } catch (e) {
+                    console.warn('[pages-available] discover fail:', e.message);
+                }
+            }
             const connected = new Set((client.pageIds || []).map(String));
             const failed = new Set(
                 (client.joinErrors || [])
@@ -945,7 +955,9 @@ app.get('/api/pages-available', requireRelaySecret, async (req, res) => {
                     id: String(p.id),
                     name: p.name || '',
                     image: p.image_url || p.avatar_url || '',
-                    enabled: !disabled.has(String(p.id)),
+                    // enabled = trang đang trong tập kết nối (checkbox tick). Trang
+                    // discover được nhưng chưa connect → bỏ tick, user tick + Lưu để bật.
+                    enabled: connected.has(String(p.id)) && !disabled.has(String(p.id)),
                     joinFailed: failed.has(String(p.id)),
                 })),
                 selectedPageIds: [...connected],
