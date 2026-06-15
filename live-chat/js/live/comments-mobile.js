@@ -492,7 +492,9 @@
     }
     async function loadNativeOrders() {
         try {
-            const r = await fetch(`${WORKER}/api/native-orders?limit=500`, {
+            // Endpoint LIST đúng là /load (giống NativeOrdersApi.list desktop). Gọi
+            // /api/native-orders trần → worker đẩy sang TPOS → 404.
+            const r = await fetch(`${WORKER}/api/native-orders/load?limit=500`, {
                 credentials: 'omit',
             }).then((x) => x.json());
             const orders = (r && r.orders) || [];
