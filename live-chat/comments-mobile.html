@@ -503,11 +503,10 @@
                 margin: 9px 0 0;
                 font-size: 15px;
                 color: var(--c-text);
+                /* HIỆN ĐỦ nội dung dài (user 2026-06-15): bỏ -webkit-line-clamp 3 dòng
+                   (gây cắt "..."). Wrap chống tràn từ/URL dài. */
                 word-break: break-word;
-                display: -webkit-box;
-                -webkit-line-clamp: 3;
-                -webkit-box-orient: vertical;
-                overflow: hidden;
+                overflow-wrap: anywhere;
             }
             .c-body {
                 display: flex;

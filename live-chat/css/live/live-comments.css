@@ -404,6 +404,9 @@
     background: #f8f9fb;
     border-radius: 8px;
     border-left: 3px solid var(--primary);
+    /* Hiện ĐỦ nội dung dài + wrap chống tràn từ/URL dài (không cắt). */
+    word-break: break-word;
+    overflow-wrap: anywhere;
 }
 
 /* ---- Row 3: Contact Info ---- */

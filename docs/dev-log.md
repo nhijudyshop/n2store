@@ -2,6 +2,10 @@
 
 ## 2026-06-15
 
+### [live-chat] Comment dài hiện ĐỦ (bỏ cắt "...") ✅
+
+User: "comment nội dung dài bị lỗi ... không hiện hết". Mobile `.c-msg` đang `-webkit-line-clamp:3` → cắt 3 dòng + "...". Gỡ clamp ([comments-mobile.html](live-chat/comments-mobile.html)), giữ `word-break:break-word`+`overflow-wrap:anywhere` (chống tràn URL/từ dài). Desktop `.live-conv-message` thêm cùng wrap (defensive, không clamp sẵn). (`?v=20260615fulltext`)
+
 ### [live-chat][desktop] Topbar hiện SỐ ĐƠN trong livestream đang chọn ✅
 
 User: "số đơn trong bài livestream đó lên topbar". Thêm badge **🛒 N đơn** cạnh **💬 N** ở `#liveTopbarActions` ([live-comment-list.js](live-chat/js/live/live-comment-list.js) `_updateTotalBadge`+`_orderCount`). Đếm distinct mã đơn NATIVE_WEB (`sessionIndexMap`) của comment đang hiển thị (state.comments của campaign đang chọn). Cập nhật mỗi render (tạo đơn → enrich → re-render → badge tăng). (`?v=20260615orders`)
