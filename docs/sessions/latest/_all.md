@@ -3,14 +3,13 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `6c84cea` — fix(web2/multi-tool): ô Giãn nhịp đổi sang GIÂY (thập phân) — 0.5/0.1s có tác dụng thật
-**Last updated**: 2026-06-15 18:26:15 +07
-**Latest session**: [`RESUME:20260615-182615-6c84cea`](../20260615-182615-6c84cea.md)
-**Summary**: fix(web2/multi-tool): ô Giãn nhịp đổi sang GIÂY (thập phân) — 0.5/0.1s có tác dụng thật
+**Latest commit**: `667ad26` — fix(web2/multi-tool): giãn nhịp tối thiểu 0.5s (min input + clamp run/hint)
+**Last updated**: 2026-06-15 18:28:10 +07
+**Latest session**: [`RESUME:20260615-182810-667ad26`](../20260615-182810-667ad26.md)
+**Summary**: fix(web2/multi-tool): giãn nhịp tối thiểu 0.5s (min input + clamp run/hint)
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
 - [`web2/`](./web2.md) — 2 file(s)
 
 ## All folder snapshots
@@ -74,4 +73,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-15 18:26
+- [`web2/`](./web2.md) — updated 2026-06-15 18:28
