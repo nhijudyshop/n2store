@@ -12,6 +12,7 @@ const { withTransaction } = require('../db/with-transaction');
 const { processWithdrawal } = require('../routes/v2/pending-withdrawals');
 const { executeRefund, ensureRefundSchema } = require('../services/wallet-refund');
 const { cleanupOrderBuffer } = require('../routes/tpos-order-buffer');
+const { discoverUnread } = require('../services/pancake-unread-discovery');
 // NOTE (2026-06-14, Web1⊥Web2 service split): cron/scheduler.js giờ là WEB 1.0-only
 // (server.js chỉ require khi !WEB2_ONLY). Web2 notifications-scan cron ĐÃ CHUYỂN sang
 // server.js (gated DISABLE_WEB2_JOBS) để chạy đúng instance web2-api. Xem [WEB2-NOTI-SCAN].
@@ -747,5 +748,31 @@ cron.schedule('*/5 * * * *', async () => {
         }
     } catch (error) {
         console.error('[CRON] ❌ reconcile-pending error:', error.message);
+    }
+});
+
+// =====================================================
+// DISCOVER unread conversations from Pancake — every 5 min (offset +2')
+// =====================================================
+//
+// Reconcile cron ở trên CHỈ rà các dòng pending_customers ĐÃ CÓ (clean/update).
+// Nó KHÔNG khám phá hội thoại chưa đọc MỚI mà WS đã miss (server restart, token
+// gap, hoặc lúc không có client nào mở). → Mở lại client không thấy badge.
+//
+// Cron này quét "list unread" authoritative của Pancake → upsert vào
+// pending_customers, giống Pancake hiển thị inbox chưa đọc khi mở lại. Chạy
+// server-side, độc lập client. Offset +2' để không trùng reconcile (:00).
+cron.schedule('2-59/5 * * * *', async () => {
+    try {
+        const res = await discoverUnread(db);
+        if (res.upserted > 0) {
+            console.log(
+                `[CRON] discover-unread: scanned ${res.scanned}, upserted ${res.upserted} unread → pending_customers`
+            );
+        } else if (!res.ok) {
+            console.log(`[CRON] discover-unread: skipped (${res.reason})`);
+        }
+    } catch (error) {
+        console.error('[CRON] ❌ discover-unread error:', error.message);
     }
 });

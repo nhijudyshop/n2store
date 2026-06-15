@@ -2,6 +2,16 @@
 
 ## 2026-06-15
 
+### [orders-report][render] Cột TIN NHẮN nhận biết tin mới khi mở lại (quét list unread Pancake) ✅
+
+**User:** "Bug phải mở client nó mới biết có tin nhắn mới à? Tắt hết client rồi mở lại muốn cũng nhận biết tin mới như Pancake" → "lấy list unread pancake là được".
+
+**Gap:** cột TIN NHẮN dựa WS realtime (server.js RealtimeClient) để ADD `pending_customers`. WS KHÔNG replay event đã miss (server restart, token gap, lúc không client nào mở). Cron reconcile (scheduler.js:623) chỉ rà dòng pending ĐÃ CÓ — không khám phá unread MỚI. → mở lại client không thấy badge. Pancake luôn biết vì giữ `unread_count` server-side.
+
+**Fix:** service `render.com/services/pancake-unread-discovery.js` `discoverUnread(db)` — quét `GET /api/v1/conversations?pages[..]=0&type=INBOX&unread_first=true` (JWT pancake_accounts, fallback realtime_credentials token; pages từ realtime_credentials.page_ids) → upsert hội thoại `unread_count>0` vào `pending_customers` (SET message_count=unread, COALESCE phone). Mirror đúng "inbox chưa đọc" của Pancake, độc lập client. Wire 2 nơi: (1) cron `2-59/5 * * * *` (offset +2' tránh trùng reconcile :00); (2) fire-and-forget trong `/api/realtime/start` (mở client → quét NGAY). Shop-sent-last: list v1 thiếu last_sent_by → dựa unread_count Pancake (đúng như Pancake hiện); reconcile cron (:00, fetch full conv) sẽ DELETE nếu thực ra shop đã rep → tự heal.
+
+Web 1.0 only (chatDb/pending_customers, scheduler Web1-only) — KHÔNG phải poller Web 2.0. `node --check` PASS 3 file + cron expr valid. **Cần deploy fallback.** **Status:** ✅ — MEMORY [[reference_web1_realtime_msg_column]].
+
 ### [web2] J&T `_parsePasteDate` — siết đọc ngày dòng dán (chống typo/ngày cũ/ghi chú) ✅
 
 User: "siết lại" (cách đọc ngày dòng dán nạp vào kho tin). Dòng thật `...Ngọc Diễm- -16-20/08/2023...` parse ra 2023 → tin văng lên đầu chat. Siết [web2-jt-tracking.js](render.com/routes/web2-jt-tracking.js) `_parsePasteDate(line, nowMs)`:
