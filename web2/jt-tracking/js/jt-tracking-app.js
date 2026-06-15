@@ -30,6 +30,13 @@
             hero: '#6366f1',
             lottie: 'truck',
         },
+        returned: {
+            label: 'Đã hoàn',
+            icon: 'undo-2',
+            cls: 'returned',
+            hero: '#ea580c',
+            lottie: null,
+        },
         problem: {
             label: 'Vấn đề',
             icon: 'alert-triangle',
@@ -58,6 +65,7 @@
         'total',
         'delivering',
         'transit',
+        'returned',
         'problem',
         'delivered',
         'pending',
@@ -68,6 +76,7 @@
         total: { label: 'Tất cả', accent: 'var(--jt-primary)' },
         delivering: { label: 'Đang giao', accent: 'var(--st-delivering)' },
         transit: { label: 'Trung chuyển', accent: 'var(--st-transit)' },
+        returned: { label: 'Đã hoàn', accent: 'var(--st-returned)' },
         problem: { label: 'Vấn đề', accent: 'var(--st-problem)' },
         delivered: { label: 'Đã giao', accent: 'var(--st-delivered)' },
         pending: { label: 'Chưa tra', accent: 'var(--st-pending)' },
@@ -302,13 +311,10 @@
     // màu dot theo nội dung từng event (nhẹ — chỉ cho timeline)
     function deriveFromDesc(d) {
         d = (d || '').toLowerCase();
+        // hoàn hàng kiểm trước "thành công" — "chuyển hoàn thành công" ≠ đã giao
+        if (/(chuyển hoàn|hoàn hàng|hoàn về|trả hàng|trả về)/.test(d)) return 'returned';
         if (/(thành công|ký nhận|đã nhận)/.test(d)) return 'delivered';
-        if (
-            /(từ chối|kiện khó|không liên lạc|đổi ý|thất bại|hoàn hàng|hoàn về|chuyển hoàn|hủy)/.test(
-                d
-            )
-        )
-            return 'problem';
+        if (/(từ chối|kiện khó|không liên lạc|đổi ý|thất bại|hủy|sự cố)/.test(d)) return 'problem';
         if (/(đang giao|phát lại|đang tiến hành|giao hàng)/.test(d)) return 'delivering';
         return 'transit';
     }

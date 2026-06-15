@@ -2,6 +2,16 @@
 
 ## 2026-06-15
 
+### [web2][render] J&T tracking — "chuyển hoàn" ≠ "đã giao" → thêm status `returned` (Đã hoàn) ✅
+
+**User** (kèm ảnh): đơn `802759556302` event `"Đơn hàng chuyển hoàn thành công…"` bị gán **Đã giao** — "chuyển hoàn -> không phải đã giao".
+
+- **Root-cause**: `deriveStatus` kiểm `thành công`/`ký nhận` (→ delivered) TRƯỚC `chuyển hoàn`. "Chuyển hoàn **thành công**" chứa `thành công` nên trúng `delivered` trước.
+- **Fix**: tách hẳn status mới **`returned` ("Đã hoàn", cam #ea580c, icon undo-2)** thay vì gộp vào `problem` (nhóm "XỬ LÝ NJD - J&T" chuyên xử lý hoàn → đáng tách riêng). Kiểm `chuyển hoàn|hoàn hàng|hoàn về|trả hàng|trả về` **TRƯỚC** delivered ở cả [web2-jt-tracking.js](render.com/routes/web2-jt-tracking.js) `deriveStatus` lẫn frontend `deriveFromDesc`. Gỡ `hoàn hàng/hoàn về/chuyển hoàn` khỏi nhóm `problem`.
+- **Sửa data cũ không cần fetch lại**: thêm `_rederiveStored(db)` chạy đầu `POST /refresh` — re-derive status từ `events` JSONB đã lưu (rẻ, idempotent, không gọi J&T) → đơn `delivered` sai tự về `returned` khi bấm "Làm mới tất cả". `delivered` là final (refresh không re-fetch) nên cần bước này.
+- **Frontend**: STATUS + KPI_ORDER + KPI_META + CSS tokens `--st-returned`/`--st-returned-bg`. Bump css/app `?v=20260615k`.
+- Files: [web2-jt-tracking.js](render.com/routes/web2-jt-tracking.js), [jt-tracking-app.js](web2/jt-tracking/js/jt-tracking-app.js), [jt-tracking.css](web2/jt-tracking/css/jt-tracking.css), [index.html](web2/jt-tracking/index.html). Status: ✅ Done (cần deploy web2-api + GH Pages).
+
 ### [live-chat] Hiệu ứng comment mới = FADE thuần dịu, không flash ✅
 
 User: "nhẹ nhàng không phải flash". Bỏ `translateY` (trượt + prepend đẩy dòng = cảm giác lóe), chỉ còn fade `opacity 0→1` 0.55s `ease` (đều, chậm). Desktop [live-comments.css](live-chat/css/live/live-comments.css) + mobile [comments-mobile.html](live-chat/comments-mobile.html). Burst-guard giữ nguyên.

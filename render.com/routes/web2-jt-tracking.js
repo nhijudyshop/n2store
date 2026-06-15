@@ -65,7 +65,7 @@ async function ensureSchema(pool) {
                 billcode        VARCHAR(20) PRIMARY KEY,
                 cellphone       VARCHAR(10),
                 status          VARCHAR(20) NOT NULL DEFAULT 'pending',
-                                -- pending|transit|delivering|delivered|problem|not_found
+                                -- pending|transit|delivering|delivered|returned|problem|not_found
                 latest_event    TEXT,
                 latest_at       BIGINT,                 -- epoch ms (GMT+7 → UTC)
                 latest_at_text  VARCHAR(25),            -- 'YYYY-MM-DD HH:MM:SS' (J&T, +7)
@@ -231,21 +231,11 @@ function deriveStatus(events) {
     if (!events.length) return 'not_found';
     const d = (events[0].desc || '').toLowerCase();
     const hit = (...kw) => kw.some((k) => d.includes(k));
+    // ⚠ HOÀN HÀNG kiểm TRƯỚC "thành công" — "chuyển hoàn thành công" là ĐÃ HOÀN, KHÔNG phải đã giao.
+    // Dùng cụm chính xác — 'hoàn' trần dính 'hoàn thành'/'hoàn toàn'.
+    if (hit('chuyển hoàn', 'hoàn hàng', 'hoàn về', 'trả hàng', 'trả về')) return 'returned';
     if (hit('thành công', 'ký nhận', 'đã nhận hàng', 'người nhận')) return 'delivered';
-    // ⚠ dùng cụm chính xác — 'hoàn' trần dính 'hoàn thành'/'hoàn toàn' (không phải vấn đề).
-    if (
-        hit(
-            'từ chối',
-            'kiện khó',
-            'không liên lạc',
-            'đổi ý',
-            'thất bại',
-            'hoàn hàng',
-            'hoàn về',
-            'chuyển hoàn',
-            'hủy'
-        )
-    )
+    if (hit('từ chối', 'kiện khó', 'không liên lạc', 'đổi ý', 'thất bại', 'hủy', 'sự cố'))
         return 'problem';
     if (hit('đang giao', 'phát lại', 'đang tiến hành', 'giao hàng')) return 'delivering';
     return 'transit';
@@ -445,10 +435,34 @@ router.post('/track', async (req, res) => {
     }
 });
 
+// Re-derive status từ events ĐÃ LƯU (không gọi J&T) — sửa drift khi đổi logic deriveStatus
+// (vd "chuyển hoàn thành công" từng bị gán 'delivered', giờ là 'returned'). Rẻ, idempotent.
+async function _rederiveStored(db) {
+    const { rows } = await db.query(
+        `SELECT billcode, status, events FROM web2_jt_tracking
+          WHERE approved_at IS NULL AND events IS NOT NULL AND jsonb_array_length(events) > 0`
+    );
+    let changed = 0;
+    for (const r of rows) {
+        const evs = Array.isArray(r.events) ? r.events : [];
+        const ns = deriveStatus(evs);
+        if (ns && ns !== r.status) {
+            await db.query(
+                `UPDATE web2_jt_tracking SET status=$2, updated_at=$3 WHERE billcode=$1`,
+                [r.billcode, ns, now()]
+            );
+            changed++;
+        }
+    }
+    return changed;
+}
+
 // POST /refresh — làm mới hàng loạt (mã pending + đơn chưa chốt + cũ). Bounded.
 router.post('/refresh', async (req, res) => {
     try {
         const db = getDb(req);
+        // sửa status từ events đã lưu trước (rẻ, không gọi J&T) → đơn 'delivered' sai → 'returned'
+        const rederived = await _rederiveStored(db).catch(() => 0);
         const limit = Math.min(parseInt(req.body?.limit, 10) || REFRESH_BATCH, REFRESH_BATCH);
         const onlyCodes = Array.isArray(req.body?.codes)
             ? req.body.codes
@@ -493,12 +507,13 @@ router.post('/refresh', async (req, res) => {
             );
             for (const x of results) x.status === 'fulfilled' ? ok++ : fail++;
         }
-        if (ok) _notify('refresh', String(ok));
+        if (ok || rederived) _notify('refresh', String(ok || rederived));
         res.json({
             success: true,
             processed: rows.length,
             ok,
             fail,
+            rederived,
             remaining: rows.length >= limit,
         });
     } catch (e) {
