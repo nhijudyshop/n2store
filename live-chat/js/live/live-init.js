@@ -937,7 +937,8 @@ const LiveColumnManager = {
             this._altSeen.add(key);
             fetch(`${state.workerUrl}/api/web2/customers/add-alt-phone`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                // requireWeb2AuthSoft (WEB2_AUTH_ENFORCE) → phải gửi x-web2-token, KHÔNG thì 401.
+                headers: LiveColumnManager._w2AuthHeaders({ 'Content-Type': 'application/json' }),
                 body: JSON.stringify({ fbId: String(fbId), phone: norm(pk) }),
                 signal: AbortSignal.timeout(15000),
             }).catch(() => {});
