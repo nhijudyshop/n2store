@@ -271,16 +271,27 @@
                         </div>
 
                         <div class="mt-row">
-                            <div class="mt-field" style="min-width: 200px">
+                            <div class="mt-field" style="min-width: 180px">
                                 <label>Page</label>
                                 <select id="boostPage">
                                     <option value="">Đang tải pages…</option>
                                 </select>
                             </div>
-                            <div class="mt-field" style="flex: 1; min-width: 260px">
+                            <div class="mt-field" style="flex: 1; min-width: 280px">
+                                <label>Bài live (gồm cả đã livestream xong)</label>
+                                <select id="boostPost">
+                                    <option value="">Chọn page trước…</option>
+                                </select>
+                            </div>
+                            <button class="mt-btn" id="boostReloadPost" title="Tải lại bài live">
+                                <i data-lucide="refresh-ccw" style="width: 14px; height: 14px"></i>
+                            </button>
+                        </div>
+                        <div class="mt-row">
+                            <div class="mt-field" style="flex: 1; min-width: 280px">
                                 <label>Hội thoại comment (chọn 1 để spam)</label>
                                 <select id="boostConv">
-                                    <option value="">Chọn page trước…</option>
+                                    <option value="">Chọn bài live trước…</option>
                                 </select>
                             </div>
                             <button class="mt-btn" id="boostReloadConv" title="Tải lại hội thoại">
