@@ -309,8 +309,6 @@
     // ---------- render (debounce + cap → anti-jank) ----------
     function cardHtml(c) {
         const pg = pageOf(c);
-        const t = THUMBS[c.id];
-        const thumb = t && t.thumbnailUrl;
         const st = statusOf(c);
         const phone = (c.phone || '').trim();
         const addr = addrOf(c);
@@ -334,7 +332,6 @@
                     <p class="c-msg">${esc(c.message || '(không có nội dung)')}</p>
                     ${meta}
                 </div>
-                ${thumb ? `<img class="thumb" src="${esc(thumb)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.remove()">` : ''}
             </div>
         </article>`;
     }
@@ -581,14 +578,9 @@
             if (window.LiveCustomerSync)
                 window.LiveCustomerSync.harvest(data, { workerUrl: WORKER });
             if (hadNew) showNewPill();
-            // enrich kho + thumbnail (chỉ N đầu) song song → re-render coalesced.
-            Promise.allSettled([
-                enrichWarehouse(data).then(scheduleRender),
-                fetchThumbs(data.slice(0, THUMB_SCAN).map((c) => c.id)).then((t) => {
-                    THUMBS = Object.assign({}, THUMBS, t);
-                    scheduleRender();
-                }),
-            ]);
+            // enrich kho (SĐT/địa chỉ/trạng thái). KHÔNG fetch thumbnail (user 2026-06-15:
+            // mobile không hiện thumbnail → khỏi tốn băng thông).
+            enrichWarehouse(data).then(scheduleRender);
         } catch (e) {
             if (!ALL.length)
                 listEl.innerHTML = `<div class="empty"><div class="ic">⚠️</div>Lỗi tải comment.<br><small>${esc(e.message)}</small></div>`;
@@ -729,14 +721,10 @@
         return '.card[data-id="' + String(id).replace(/["\\]/g, '\\$&') + '"]';
     }
 
-    // Enrich KH (kho) + thumbnail cho các dòng MỚI rồi patch đúng card đó.
+    // Enrich KH (kho) cho các dòng MỚI rồi patch đúng card đó. KHÔNG fetch thumbnail
+    // (user 2026-06-15: mobile không hiện thumbnail).
     async function enrichDelta(rows) {
-        await Promise.allSettled([
-            enrichWarehouse(rows),
-            fetchThumbs(rows.slice(0, THUMB_SCAN).map((c) => c.id)).then((t) => {
-                THUMBS = Object.assign({}, THUMBS, t);
-            }),
-        ]);
+        await enrichWarehouse(rows);
         for (const r of rows) {
             const cur = ALL.find((x) => String(x.id) === String(r.id));
             const el = listEl.querySelector(cardSel(r.id));
