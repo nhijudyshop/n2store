@@ -372,6 +372,15 @@
             _stop = true;
             $('boostStop').disabled = true;
         });
+        // Gợi ý động: ms → giây (1500 = 1.5 giây).
+        const delayEl = $('boostDelay');
+        const hintEl = $('boostDelayHint');
+        const updateHint = () => {
+            const ms = Math.max(0, parseInt(delayEl.value, 10) || 0);
+            hintEl.textContent = `= ${(ms / 1000).toLocaleString('vi-VN')} giây / comment`;
+        };
+        delayEl.addEventListener('input', updateHint);
+        updateHint();
         loadPages();
         if (window.lucide?.createIcons) window.lucide.createIcons();
     }
