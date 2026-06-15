@@ -702,6 +702,18 @@
         }
     }
 
+    // Burst guard fade card MỚI: flow thường → fade opacity thuần (dịu); dồn dập →
+    // TẮT (hiện tức thì). Batch >5 HOẶC >12 card/2s = burst.
+    let _animTimes = [];
+    function shouldAnimateNew(n) {
+        if (n > 5) return false;
+        const now = Date.now();
+        _animTimes = _animTimes.filter((t) => now - t < 2000);
+        if (_animTimes.length >= 12) return false;
+        for (let i = 0; i < n; i++) _animTimes.push(now);
+        return true;
+    }
+
     // APPEND incremental — KHÔNG full re-render. Dòng MỚI → prepend card lên đầu;
     // dòng CŨ (server fill phone/has_order) → patch đúng card theo data-id.
     function applyDelta(rows) {
@@ -741,8 +753,21 @@
             for (let i = fresh.length - 1; i >= 0; i--) ALL.unshift(fresh[i]);
             const vis = fresh.filter(visible);
             if (vis.length) {
-                // BỎ HẾT hiệu ứng card mới (user 2026-06-15): hiện TỨC THÌ, không fade/trượt.
                 listEl.insertAdjacentHTML('afterbegin', vis.map(cardHtml).join(''));
+                // Fade opacity thuần cho card mới (chuẩn livestream) — burst → bỏ qua.
+                if (shouldAnimateNew(vis.length)) {
+                    for (const r of vis) {
+                        const el = listEl.querySelector(cardSel(r.id));
+                        if (el) {
+                            el.classList.add('is-new');
+                            el.addEventListener(
+                                'animationend',
+                                () => el.classList.remove('is-new'),
+                                { once: true }
+                            );
+                        }
+                    }
+                }
                 if (window.scrollY > 240) showNewPill();
                 topId = String(ALL[0] && ALL[0].id) || topId;
             }

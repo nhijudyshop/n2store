@@ -2,6 +2,10 @@
 
 ## 2026-06-15
 
+### [live-chat] Re-add fade comment mới = OPACITY THUẦN (chuẩn livestream, research GitHub) ✅
+
+Research 10+ repo (Bilibili OBS overlay, pixelfed, surmon.me, 100ms…): chuẩn dịu nhất cho livestream feed = **fade opacity thuần, KHÔNG trượt** (trượt translateY = cảm giác "đẩy từ trên xuống"). User chọn pattern này. Re-add `@keyframes {opacity 0→1}` 0.3s `cubic-bezier(0.4,0,0.2,1)` (material ease) cho `.is-new` (desktop [live-comments.css](live-chat/css/live/live-comments.css) + mobile [comments-mobile.html](live-chat/comments-mobile.html)); burst-guard `_shouldAnimateNew`/`shouldAnimateNew` (batch>5 hoặc >12/2s → bỏ fade, hiện tức thì); respect prefers-reduced-motion. (`?v=20260615fade2`)
+
 ### [web2][render] Zalo — chỉ giữ tin 2 nhóm "XỬ LÝ NJD" + tự xoá sau 7 ngày ✅
 
 **User** (kèm ảnh 2 nhóm "XỬ LÝ NJD - J&T" + "XỬ LÝ NJD - THÀNH PHỐ"): "xóa hết dữ liệu hiện có → chỉ lấy tin nhắn 2 nhóm như hình và xóa sau 7 ngày". Chốt: **khoá đúng 2 nhóm hiện tại** (theo thread_id, không auto-thêm nhóm mới) + **giữ đăng nhập, chỉ wipe tin/hội thoại/ảnh**.

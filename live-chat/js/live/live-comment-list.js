@@ -125,6 +125,22 @@ const LiveCommentList = {
     },
 
     /**
+     * Có nên fade dòng comment MỚI không? Flow thường → có (fade opacity thuần, dịu).
+     * BURST (dồn dập) → KHÔNG → hiện tức thì, tránh 30 fade chồng = nháy. Burst = 1
+     * batch > 5 dòng, HOẶC > 12 dòng fade trong 2s gần đây.
+     * @param {number} batchN
+     * @returns {boolean}
+     */
+    _shouldAnimateNew(batchN) {
+        if (batchN > 5) return false;
+        const now = Date.now();
+        this._animTimes = (this._animTimes || []).filter((t) => now - t < 2000);
+        if (this._animTimes.length >= 12) return false;
+        for (let i = 0; i < batchN; i++) this._animTimes.push(now);
+        return true;
+    },
+
+    /**
      * Inject pill số dư ví Web 2.0 ([data-w2wallet-phone] → "Ví: X₫") sau mỗi
      * render. Idempotent (Web2WalletBalance skip element đã done). Thay "Nợ Live".
      */
@@ -1123,8 +1139,16 @@ const LiveCommentList = {
         // tải thêm bị TRÙNG + SÓT dòng). idx >= số dòng đang render → comment thuộc
         // DƯỚI window → KHÔNG chèn (để _appendOlderBatch render khi cuộn), không bump.
         const filteredNow = this._filteredAll();
-        // BỎ HẾT hiệu ứng dòng mới (user 2026-06-15): chèn thẳng, hiện TỨC THÌ —
-        // KHÔNG fade, KHÔNG trượt, tránh cảm giác "đẩy trượt từ trên xuống".
+        // Fade OPACITY THUẦN cho dòng mới (chuẩn livestream) — KHÔNG trượt. Burst dồn
+        // dập → bỏ fade, hiện tức thì. Gắn .is-new, gỡ sau animationend.
+        const animateNew = this._shouldAnimateNew(freshVisible.length);
+        const markNew = (el) => {
+            if (!el || !animateNew) return;
+            el.classList.add('is-new');
+            el.addEventListener('animationend', () => el.classList.remove('is-new'), {
+                once: true,
+            });
+        };
         let inserted = 0;
         for (const c of freshVisible) {
             const idx = filteredNow.indexOf(c);
@@ -1133,14 +1157,17 @@ const LiveCommentList = {
             if (idx < rows.length) {
                 // Trong window → chèn ngay trước dòng đang ở vị trí idx.
                 rows[idx].insertAdjacentHTML('beforebegin', this.renderCommentItem(c));
+                markNew(rows[idx].previousElementSibling);
                 inserted++;
             } else if (idx === rows.length) {
                 // Đúng cuối window → chèn trước sentinel (mở rộng window 1 dòng).
                 const s = document.getElementById('liveScrollSentinel');
                 if (s && s.parentNode === listContainer) {
                     s.insertAdjacentHTML('beforebegin', this.renderCommentItem(c));
+                    markNew(s.previousElementSibling);
                 } else {
                     listContainer.insertAdjacentHTML('beforeend', this.renderCommentItem(c));
+                    markNew(listContainer.lastElementChild);
                 }
                 inserted++;
             }

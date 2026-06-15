@@ -330,7 +330,20 @@
                 transition: transform 0.12s ease;
                 border-left: 3px solid transparent;
             }
-            /* Card MỚI: hiện TỨC THÌ, KHÔNG hiệu ứng (user 2026-06-15 — bỏ hết fade/trượt). */
+            /* Card MỚI: fade OPACITY THUẦN (chuẩn livestream) — KHÔNG trượt. JS gắn
+               .is-new cho card vừa chèn; burst dồn dập (>12/2s) → bỏ qua (hiện tức thì). */
+            @keyframes cardIn {
+                from {
+                    opacity: 0;
+                }
+                to {
+                    opacity: 1;
+                }
+            }
+            .card.is-new {
+                animation: cardIn 0.3s cubic-bezier(0.4, 0, 0.2, 1) both;
+                will-change: opacity;
+            }
             .card:active {
                 transform: scale(0.985);
             }
@@ -939,7 +952,7 @@
         <script src="js/shared/live-status.js?v=20260614w2c"></script>
         <script src="js/shared/live-customer-sync.js?v=20260614w2c"></script>
         <!-- App controller (đặt window.LiveState/LiveCommentList shim cho module ẩn) -->
-        <script src="js/live/comments-mobile.js?v=20260615noanim"></script>
+        <script src="js/live/comments-mobile.js?v=20260615fade2"></script>
         <!-- Module ẩn comment theo NGƯỜI — DÙNG CHUNG nguồn server với live-chat/index.html -->
         <script src="js/live/live-hidden-commenters.js?v=20260614w2c"></script>
     </body>

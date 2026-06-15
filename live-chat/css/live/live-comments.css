@@ -185,7 +185,26 @@
     position: relative;
 }
 
-/* Comment MỚI: hiện TỨC THÌ, KHÔNG hiệu ứng (user 2026-06-15 — bỏ hết fade/trượt). */
+/* Comment MỚI: fade OPACITY THUẦN (chuẩn livestream Bilibili/pixelfed) — KHÔNG trượt
+   (translateY = cảm giác "đẩy từ trên xuống"). JS gắn .is-new cho dòng vừa chèn, gỡ
+   sau animationend; burst (dồn dập, >12/2s) → JS bỏ qua → hiện tức thì, tránh nháy. */
+@keyframes liveCommentIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+.live-conversation-item.is-new {
+    animation: liveCommentIn 0.3s cubic-bezier(0.4, 0, 0.2, 1) both;
+    will-change: opacity;
+}
+@media (prefers-reduced-motion: reduce) {
+    .live-conversation-item.is-new {
+        animation: none;
+    }
+}
 
 .live-conversation-item:hover {
     border-color: var(--primary);
