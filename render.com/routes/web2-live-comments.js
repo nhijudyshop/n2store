@@ -260,15 +260,21 @@ async function upsertComments(pool, arr) {
 // Chỉ áp dụng cho livestream comment (conv.type==='COMMENT' && post.type==='livestream').
 function _mapWsConvToComment(conv) {
     if (!conv || !conv.id) return null;
+    // ID DUY NHẤT mỗi comment: conv.id = 1 conversation (1 người); message_count tăng
+    // mỗi tin mới → `${conv.id}_${message_count}` phân biệt từng comment của cùng người
+    // → mỗi comment 1 dòng (KHÔNG đè khi 1 người comment liên tục). Thiếu message_count
+    // → fallback updated_at (mỗi tin mới đổi). KHÔNG dùng conv.id trần.
+    const seq = conv.message_count != null ? conv.message_count : conv.updated_at || '';
     return {
-        id: conv.id,
+        id: `${conv.id}_${seq}`,
         postId: conv.post_id || null,
         pageId: conv.page_id || null,
-        pageName: null, // upsert giữ page_name cũ nếu đã có (COALESCE), poller fill sau
+        pageName: null,
         fbId: conv.customers?.[0]?.fb_id || conv.from?.id || null,
         name: conv.from?.name || conv.customers?.[0]?.name || null,
         message: conv.snippet || '',
-        createdTime: conv.inserted_at || conv.updated_at || null,
+        // updated_at = thời điểm tin MỚI NHẤT (đúng cho comment vừa tới); fallback inserted_at.
+        createdTime: conv.updated_at || conv.inserted_at || null,
         phone: conv.recent_phone_numbers?.[0]?.phone_number || null,
         address: null,
         hasOrder: conv.has_livestream_order || false,
@@ -303,36 +309,13 @@ router.post('/ingest', async (req, res) => {
               : body.id
                 ? [body]
                 : [];
-        // WS đẩy CONVERSATION update (không phải từng comment). KHÔNG map conv→1
-        // comment nữa (gây đè comment cũ khi 1 người comment liên tục). Thay vào đó:
-        // trigger poller fetch per-message ĐÚNG post đó (debounce 1.5s gom burst) →
-        // poller tự upsert từng comment + _notify('poll'). Fallback: nếu poller chưa
-        // sẵn sàng thì vẫn map thô để không mất data realtime.
-        const pairs = [];
-        const seenPair = new Set();
-        for (const conv of raw) {
-            const pageId = conv && (conv.page_id || conv.pageId);
-            const postId = conv && (conv.post_id || conv.postId);
-            if (!pageId || !postId) continue;
-            const k = `${pageId}:${postId}`;
-            if (seenPair.has(k)) continue;
-            seenPair.add(k);
-            pairs.push({ pageId: String(pageId), postId: String(postId) });
-        }
-        let poller = null;
-        try {
-            poller = require('../services/web2-livestream-poller');
-        } catch (_) {
-            poller = null;
-        }
-        if (poller?.pollPostNow && pairs.length) {
-            // Fire-and-forget: trả về ngay, poller fetch + notify khi xong (debounced).
-            for (const p of pairs) {
-                poller.pollPostNow(p.pageId, p.postId).catch(() => {});
-            }
-            return res.json({ success: true, triggered: pairs.length });
-        }
-        // Fallback (poller absent): map thô conv→comment để không mất realtime.
+        // WS-DIRECT (2026-06-15 — user: bỏ poll, nhanh như TPOS): dùng LUÔN comment
+        // trong event WS (conv.snippet + from + message_count) → upsert + notify NGAY.
+        // Trước đây trigger pollPostNow (REST fetch lại CẢ post + debounce 1.5s) = chậm
+        // vài→chục giây (scale theo độ lớn post). WS event đã đủ data 1 comment; id duy
+        // nhất `${conv.id}_${message_count}` (xem _mapWsConvToComment) → mỗi comment 1
+        // dòng, không đè khi 1 người comment liên tục. (Poller chỉ còn cho /poll-now thủ
+        // công + listLivePostsForAssign — KHÔNG còn auto-trigger realtime.)
         const mapped = raw.map(_mapWsConvToComment).filter((c) => c && c.id);
         if (!mapped.length) return res.json({ success: true, ingested: 0 });
         const saved = await upsertComments(pool, mapped);

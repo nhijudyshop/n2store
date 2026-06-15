@@ -2,6 +2,18 @@
 
 ## 2026-06-15
 
+### [live-chat][web2-realtime] WS-DIRECT comment livestream (bỏ poll, nhanh như TPOS) + render APPEND-only đúng invariant 🔄
+
+**User:** "không realtime cập nhật + render TOÀN BỘ → comment mới append liền không đụng cũ" → "so tốc độ web2 vs tpos" → **"sao lại còn live poll?"**
+
+**Tốc độ:** TPOS dùng comment trong event WS trực tiếp (~<1s). Web 2.0 CŨ: relay nhận WS `pages:update_conversation` rồi **vứt comment đi, trigger `pollPostNow` REST fetch lại CẢ post + debounce 1.5s** → chậm vài→chục giây. Payload WS đã đủ (`conv.snippet`+`from`+`message_count`+`updated_at`); conv.id không có id từng comment → lý do họ phải fetch.
+
+**Fix WS-direct** ([web2-live-comments.js](render.com/routes/web2-live-comments.js)): `/ingest` dùng LUÔN comment trong event WS → upsert + `_notify` NGAY, **bỏ pollPostNow auto-trigger**. `_mapWsConvToComment` id duy nhất `${conv.id}_${message_count}` (mỗi comment 1 dòng, không đè; fallback updated_at), createdTime=`updated_at`. → ~<1s như TPOS.
+
+**Fix render APPEND-only** ([live-comment-list.js](live-chat/js/live/live-comment-list.js) `prependComments`): bỏ fallback full `renderComments()` khi out-of-order (nguồn "render toàn bộ"). Chèn bằng index trong `_filteredAll` → giữ invariant `DOM==filtered.slice(0,_renderLimit)`. **Review 15-agent bắt HIGH bug** (chèn ngoài window+bump → cuộn TRÙNG+SÓT) → idx≥số dòng render → SKIP, không bump; `_ensureScrollSentinel`. Mobile đã append-only sẵn.
+
+**Status:** 🔄 `node -c` PASS. Cần deploy web2-api + GH Pages. ⚠ Tradeoff WS-direct: 2 comment cùng người cùng WS-cycle (hiếm) có thể gộp; shop reply trong thread hiếm hiện nhầm.
+
 ### [web2][jt-tracking][zalo-chat] J&T follow-up: KPI "Đã duyệt" + fix input + fix chat drawer text dọc ✅
 
 Tiếp theo entry dưới (cùng ngày):

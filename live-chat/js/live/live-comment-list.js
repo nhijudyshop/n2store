@@ -1113,42 +1113,43 @@ const LiveCommentList = {
         }
 
         // ===== APPEND-ONLY (user 2026-06-15): chèn TỪNG comment mới vào ĐÚNG VỊ TRÍ
-        // theo thời gian giữa các dòng ĐANG render — KHÔNG full re-render kể cả khi
-        // comment out-of-order (multi-campaign / nhiều post / comment trễ về). Trước
-        // đây out-of-order → renderComments() full = "render toàn bộ" giật + nháy.
-        // Case phổ biến (comment mới nhất) tự rơi vào đầu list (chèn trước dòng đầu).
-        const idToTs = new Map(all.map((c) => [String(c.id), ts(c)]));
-        const sentinelEl = document.getElementById('liveScrollSentinel');
+        // — KHÔNG full re-render kể cả comment out-of-order (multi-campaign / nhiều
+        // post / comment trễ về). Trước đây out-of-order → renderComments() full =
+        // "render toàn bộ" giật + nháy.
+        //
+        // Dùng INDEX trong _filteredAll (đã gồm fresh đã splice, đã bỏ người-ẩn) để
+        // giữ invariant DOM == filtered.slice(0,_renderLimit) mà _appendOlderBatch
+        // dựa vào (review HIGH: chèn comment NGOÀI window + bump _renderLimit → cuộn
+        // tải thêm bị TRÙNG + SÓT dòng). idx >= số dòng đang render → comment thuộc
+        // DƯỚI window → KHÔNG chèn (để _appendOlderBatch render khi cuộn), không bump.
+        const filteredNow = this._filteredAll();
         let inserted = 0;
         for (const c of freshVisible) {
-            const cts = ts(c);
+            const idx = filteredNow.indexOf(c);
+            if (idx < 0) continue;
             const rows = listContainer.querySelectorAll('.live-conversation-item');
-            let placed = false;
-            for (const row of rows) {
-                const rts = idToTs.has(row.dataset.commentId)
-                    ? idToTs.get(row.dataset.commentId)
-                    : -Infinity;
-                if (rts < cts) {
-                    // Dòng này CŨ hơn comment mới → chèn comment mới NGAY TRƯỚC nó.
-                    row.insertAdjacentHTML('beforebegin', this.renderCommentItem(c));
-                    placed = true;
-                    break;
-                }
-            }
-            if (!placed) {
-                // Cũ hơn mọi dòng đang render → cuối window (trước sentinel scroll).
-                if (sentinelEl && sentinelEl.parentNode === listContainer) {
-                    sentinelEl.insertAdjacentHTML('beforebegin', this.renderCommentItem(c));
+            if (idx < rows.length) {
+                // Trong window → chèn ngay trước dòng đang ở vị trí idx (đẩy xuống).
+                rows[idx].insertAdjacentHTML('beforebegin', this.renderCommentItem(c));
+                inserted++;
+            } else if (idx === rows.length) {
+                // Đúng cuối window → chèn trước sentinel (mở rộng window 1 dòng).
+                const s = document.getElementById('liveScrollSentinel');
+                if (s && s.parentNode === listContainer) {
+                    s.insertAdjacentHTML('beforebegin', this.renderCommentItem(c));
                 } else {
                     listContainer.insertAdjacentHTML('beforeend', this.renderCommentItem(c));
                 }
+                inserted++;
             }
-            inserted++;
+            // idx > rows.length → DƯỚI window → skip (giữ invariant; scroll sẽ render).
         }
-        // Giữ invariant "số dòng DOM == _renderLimit" để _appendOlderBatch slice
-        // đúng offset khi cuộn tải thêm (không trùng / không sót dòng).
+        // Giữ invariant "số dòng DOM == _renderLimit": mỗi dòng chèn-trong-window đẩy
+        // window rộng thêm 1 → bump đúng số đã chèn. _ensureScrollSentinel cập nhật
+        // hasMore (dòng bị đẩy ra ngoài window cũ).
         if (inserted) {
             this._renderLimit = (this._renderLimit || RENDER_LIMIT_INITIAL) + inserted;
+            this._ensureScrollSentinel();
         }
 
         this.updateLoadMoreIndicator();
