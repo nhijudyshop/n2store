@@ -3,17 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `b33d74d` — fix(web2-jt): composer chat drawer mất (wz-chat-body thiếu flex/scroll) + nén dashboard gọn
-**Last updated**: 2026-06-15 11:48:44 +07
-**Latest session**: [`RESUME:20260615-114844-b33d74d`](../20260615-114844-b33d74d.md)
-**Summary**: fix(web2-jt): composer chat drawer mất (wz-chat-body thiếu flex/scroll) + nén dashboard gọn
+**Latest commit**: `525fff1` — docs(dev-log): J&T fix composer chat drawer + nén dashboard
+**Last updated**: 2026-06-15 11:52:50 +07
+**Latest session**: [`RESUME:20260615-115250-525fff1`](../20260615-115250-525fff1.md)
+**Summary**: docs(dev-log): J&T fix composer chat drawer + nén dashboard
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`live-chat/`](./live-chat.md) — 2 file(s)
-- [`render.com/`](./render.com.md) — 1 file(s)
-- [`web2/`](./web2.md) — 5 file(s)
 
 ## All folder snapshots
 
@@ -28,7 +25,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-15 10:55
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-14 18:47
-- [`docs/`](./docs.md) — updated 2026-06-15 11:48
+- [`docs/`](./docs.md) — updated 2026-06-15 11:52
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-13 14:55
 - [`downloads/`](./downloads.md) — updated 2026-06-13 19:16
