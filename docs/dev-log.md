@@ -2,6 +2,10 @@
 
 ## 2026-06-15
 
+### [web2] J&T script Console Zalo — bỏ IndexedDB (gây treo Promise) → auto-scroll DOM ✅
+
+User: "dán console → enter → Promise pending quá lâu". Nguyên nhân: phần IndexedDB `getAll()`+`JSON.stringify` trên store khổng lồ/blob của Zalo → freeze, promise không resolve. Sửa: bỏ hẳn IndexedDB; script mới **tự cuộn khung chat lên** (tìm div cuộn lớn nhất) + đọc `document.body.innerText` (tin đã giải mã) mỗi 500ms, gom mã, **cap 60s + dừng khi 12 vòng không thêm mã**, log tiến độ + "XONG … Da copy". Console ASCII (không emoji/dấu) cho an toàn copy. Cập nhật bước 3 modal (đợi ~30-60s, "Promise pending" lúc đầu là bình thường). Bump app `?v=20260615t`. Frontend-only.
+
 ### [web2][render] "Tăng comment" — chọn Bài live (gồm đã xong) + ẨN spam khỏi live-chat ✅
 
 User: (1) "đã livestream xong vẫn cho chọn", (2) "mặc định chọn mới nhất", (3) "đừng hiện các spam comment count này vào live-chat/comments-mobile", (4) "các comment này có type/nhận biết được không → để không hiện".
