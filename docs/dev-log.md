@@ -2,6 +2,10 @@
 
 ## 2026-06-15
 
+### [web2][shared] Gộp tag Pancake VÀO Web2Chat (bỏ file rời) — trang chỉ tham chiếu Web2Chat ✅
+
+User: "tôi tưởng pancake build vào shared để dùng chung, các trang chỉ tham chiếu tới". → Gộp logic tag từ file rời `web2-pancake-tags.js` (vừa tạo) VÀO `Web2Chat` ([web2-chat-client.js](web2/shared/web2-chat-client.js)): `Web2Chat.ensureTags(pageId)` / `tagDefsFor` / `resolveTags` / `tagPillsHtml(pageId, conv.tags)` (pill inline-style, không cần CSS rời). XOÁ `web2-pancake-tags.js` + auto-loader trong chat-panel. [Web2ChatPanel](web2/shared/chat-panel/web2-chat-panel.js) `renderTags()` dùng `Web2Chat.*`. Bump `web2-chat-client.js`+`web2-chat-panel.js?v=20260615tag2` (live-chat index/chat/mobile + native-orders).
+
 ### [web2] J&T mở chat — highlight chỉ chạy khi tin CÓ trong nhóm đã lưu; báo rõ khi không ✅
 
 User: bấm nút mở chat không thấy kéo tới + highlight. Browser-test: chat mount OK, mã **scanned** (802763058048) highlight ngay (`.jt-msg-hit`), nhưng mã **dán tay** (802759937370) thì group conv chỉ có **16 tin lưu (`hasMore:false`)** và **không chứa tin dán tay** → không có gì để cuộn tới. Root: chat đọc `web2_zalo_messages` (realtime-captured); mã "Dán lịch sử" copy từ Zalo Web KHÔNG qua capture → tin gốc không nằm trong nhóm đã lưu. Fix `findMessageInChat`: click "Tải tin cũ hơn" tối đa 8 lần (khi còn), hết tin cũ mà chưa thấy → toast rõ "Mã X không có tin trong nhóm đã lưu (mã dán tay/tin cũ) — nhóm đã mở để xem" thay vì im lặng. Bump app `?v=20260615y`. Frontend-only.

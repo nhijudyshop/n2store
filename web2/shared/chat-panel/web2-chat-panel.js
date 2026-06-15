@@ -17,24 +17,6 @@
 //   onConversationUpdate(conv), onPick({phone,name})
 // Feature 1/2/3 (paste/sticker/react-send/entity-detect) gắn sau qua flags.
 // =====================================================================
-// Auto-load module tag hội thoại Pancake (Web2PancakeTags) — hiện tag như Pancake.
-// Resolve theo URL script này → cover mọi nơi dùng Web2ChatPanel (kể cả load động).
-(function autoLoadPancakeTags() {
-    try {
-        if (window.Web2PancakeTags) return;
-        const cs = document.currentScript;
-        if (!cs || !cs.src) return;
-        // chat-panel/web2-chat-panel.js → ../web2-pancake-tags.js (cùng web2/shared)
-        const url = new URL('../web2-pancake-tags.js?v=20260615tag', cs.src).toString();
-        const s = document.createElement('script');
-        s.src = url;
-        s.async = false;
-        (document.head || document.documentElement).appendChild(s);
-    } catch (_) {
-        /* ignore — renderTags no-op nếu thiếu */
-    }
-})();
-
 (function (global) {
     function esc(s) {
         const d = document.createElement('div');
@@ -248,7 +230,7 @@
                         <div>
                             <div class="w2cp-name"><span>${esc(name)}</span>${loc ? `<span class="w2cp-loc-badge">📍 ${esc(loc)}</span>` : ''}</div>
                             <div class="w2cp-status" data-w2cp="status"></div>
-                            <div class="w2cp-tags w2pk-tags" data-w2cp="tags"></div>
+                            <div class="w2cp-tags" data-w2cp="tags" style="display:flex;flex-wrap:wrap;gap:4px;margin-top:3px"></div>
                         </div>
                     </div>
                     <div class="w2cp-header-right">
@@ -304,26 +286,26 @@
         }
 
         // Tag hội thoại Pancake (NV. Lài, BOOM, CHECK IB…) — pill màu như Pancake.
-        // conv.tags = mảng id; định nghĩa text+màu nạp qua Web2PancakeTags (page settings).
-        // Defs chưa nạp → ensure() rồi render lại (bất đồng bộ, không chặn).
+        // Dùng Web2Chat (module Pancake DÙNG CHUNG): conv.tags = mảng id; định nghĩa
+        // text+màu nạp qua Web2Chat.ensureTags (page settings). Defs chưa nạp →
+        // ensureTags() rồi render lại (bất đồng bộ, không chặn).
         function renderTags() {
             const el = $('[data-w2cp="tags"]');
             if (!el || !st.conv) return;
-            const T = global.Web2PancakeTags;
+            const W = global.Web2Chat;
             const tags = st.conv.tags;
-            if (!T || !Array.isArray(tags) || !tags.length) {
+            if (!W || !W.tagPillsHtml || !Array.isArray(tags) || !tags.length) {
                 el.innerHTML = '';
                 return;
             }
             const pageId = pageIdOf(st.conv);
-            el.innerHTML = T.pillsHtml(pageId, tags);
-            if (!el.innerHTML && pageId) {
-                // defs chưa nạp → nạp rồi render lại (chỉ khi vẫn đúng conv).
+            el.innerHTML = W.tagPillsHtml(pageId, tags);
+            if (!el.innerHTML && pageId && W.ensureTags) {
                 const convId = st.conv.id;
-                T.ensure(pageId).then(() => {
+                W.ensureTags(pageId).then(() => {
                     if (st.conv && st.conv.id === convId) {
                         const e2 = $('[data-w2cp="tags"]');
-                        if (e2) e2.innerHTML = T.pillsHtml(pageId, st.conv.tags);
+                        if (e2) e2.innerHTML = W.tagPillsHtml(pageId, st.conv.tags);
                     }
                 });
             }
