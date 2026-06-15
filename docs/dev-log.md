@@ -2,6 +2,17 @@
 
 ## 2026-06-15
 
+### [web2][jt-tracking][zalo] J&T: auto-ingest realtime + mở chat nhóm + @mention + fix scroll/sidebar ✅
+
+**User (nhiều lượt):** auto thêm mã J&T từ tin nhắn nhóm Zalo realtime (không refresh); Web 2.0 không scroll được; nút mở chat nhóm J&T (chat được); @tên xanh lên; reply nếu chưa có.
+
+1. **Auto-ingest realtime** [web2-zalo.js](render.com/routes/web2-zalo.js) `_persistIncoming`: tin NHÓM mới → `web2-jt-tracking.autoIngestFromZalo(_pool,msg)` (fire-and-forget) → mã `80\d{10}` → INSERT pending + SSE `web2:jt-tracking` (UI tự thêm) → fetch nền điền trạng thái + SSE lần 2. Verified: gom 23 mã từ "XỬ LÝ NJD - J&T".
+2. **Fix scroll**: `web2-sidebar.css` đặt `.web2-shell{height:100vh;overflow:hidden}` → cột `main` PHẢI tự cuộn. Thêm `.web2-shell>main{height:100vh;overflow-y:auto}` ([jt-tracking.css](web2/jt-tracking/css/jt-tracking.css)). Cũng fix sidebar trống: gọi `Web2Sidebar.mount('#web2Aside')` trong init (sidebar KHÔNG tự mount).
+3. **Mở chat nhóm**: lưu `zalo_conv_id` vào `web2_jt_tracking` (autoIngest + scan backfill, upsert `xmax=0`). Row Zalo có nút "Mở chat" → drawer phải → `Web2Zalo.mountChat({convId})` (lazy-load chat engine). Chat 2 chiều + reply (đã có sẵn từ trước).
+4. **@mention xanh**: [bubbles.js](web2/shared/zalo-chat/bubbles.js) `fmtText` = esc + regex `@tên` (token sau viết hoa) → `.wz-mention` xanh ([chat-bubbles.css](web2/shared/zalo-chat/chat-bubbles.css)). Bump `ENGINE_VER=20260615a` + bubbles/css version trang Zalo.
+
+**Status:** ✅ `node -c` + load PASS. Deploy web2-api (render.com) + GH Pages. Reply Zalo đã có sẵn (chat-store setReplyTarget + composer reply-bar) → không cần làm.
+
 ### [live-chat][web2-realtime][worker] FIX comment livestream KHÔNG về 2 trang Live — relay join per-page `pages:{id}` + UI chọn trang 🔄
 
 **User:** "2 trang live-chat/index + comments-mobile không nhận comment livestream nữa? ... không phải account hết gói cước mà có nhiều account có quyền server pancake → tách 2 server House/Store vì multi page bị lỗi → làm endpoint thay id page là kết nối + checkbox chọn trang (House+Store mặc định, thêm trang tick thêm)."

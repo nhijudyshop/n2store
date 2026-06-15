@@ -533,3 +533,12 @@
         animation: none !important;
     }
 }
+
+/* @mention trong tin nhóm — tô xanh (Zalo-style). Thêm 2026-06-15. */
+.wz-mention {
+    color: #0068ff;
+    font-weight: 600;
+}
+.wz-msg-out .wz-mention {
+    color: #cfe4ff;
+}

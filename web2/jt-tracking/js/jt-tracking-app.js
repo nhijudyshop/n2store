@@ -173,7 +173,10 @@
         const when = r.latest_at_text
             ? `${esc(r.latest_at_text)} · ${esc(relTime(r.latest_at))}`
             : 'Chưa tra cứu';
-        const right = `<button class="jt-icobtn" data-act="refresh" data-code="${code}" title="Làm mới"><i data-lucide="refresh-cw"></i></button>
+        const chatBtn = r.zalo_conv_id
+            ? `<button class="jt-icobtn chat" data-act="chat" data-conv="${esc(r.zalo_conv_id)}" title="Mở chat nhóm Zalo"><i data-lucide="message-circle"></i></button>`
+            : '';
+        const right = `${chatBtn}<button class="jt-icobtn" data-act="refresh" data-code="${code}" title="Làm mới"><i data-lucide="refresh-cw"></i></button>
             ${
                 approved
                     ? `<button class="jt-icobtn" data-act="unapprove" data-code="${code}" title="Trở lại (bỏ duyệt)"><i data-lucide="rotate-ccw"></i></button>`
@@ -331,6 +334,63 @@
         }
     }
 
+    // ── Chat drawer (mở hội thoại nhóm Zalo nguồn của mã) ───────────
+    let _chatHandle = null;
+    function openChat(convId) {
+        if (!window.Web2Zalo || !window.Web2Zalo.mountChat) {
+            notify('Engine chat chưa sẵn sàng', 'warning');
+            return;
+        }
+        const mount = $('jtChatMount');
+        mount.innerHTML = `<div class="jt-drawer-back" id="jtChatBack">
+            <div class="jt-drawer" role="dialog" aria-modal="true" aria-label="Chat nhóm Zalo">
+                <div class="jt-drawer-head">
+                    <span><i data-lucide="message-circle"></i> Chat nhóm Zalo</span>
+                    <button class="jt-drawer-close" id="jtChatClose" aria-label="Đóng"><i data-lucide="x"></i></button>
+                </div>
+                <div class="jt-drawer-body" id="jtChatBody"><div class="jt-state" style="padding:30px"><div class="lottie" id="jtChatLot" style="width:120px;height:120px"></div></div></div>
+            </div>
+        </div>`;
+        icons();
+        requestAnimationFrame(() => $('jtChatBack')?.classList.add('show'));
+        playLottie('jtChatLot', 'loading');
+        const close = () => {
+            try {
+                _chatHandle?.destroy?.();
+            } catch {}
+            _chatHandle = null;
+            destroyLottie('jtChatLot');
+            const b = $('jtChatBack');
+            if (b) {
+                b.classList.remove('show');
+                setTimeout(() => (mount.innerHTML = ''), 220);
+            }
+        };
+        $('jtChatClose').onclick = close;
+        $('jtChatBack').onclick = (e) => {
+            if (e.target.id === 'jtChatBack') close();
+        };
+        document.addEventListener('keydown', function onEsc(ev) {
+            if (ev.key === 'Escape') {
+                close();
+                document.removeEventListener('keydown', onEsc);
+            }
+        });
+        window.Web2Zalo.mountChat('#jtChatBody', { convId, autoSeen: true })
+            .then((h) => {
+                destroyLottie('jtChatLot');
+                _chatHandle = h;
+                if (!h)
+                    $('jtChatBody').innerHTML =
+                        '<div class="jt-state" style="padding:24px"><h3>Không mở được</h3><p>Hội thoại Zalo không còn tồn tại.</p></div>';
+            })
+            .catch((e) => {
+                destroyLottie('jtChatLot');
+                $('jtChatBody').innerHTML =
+                    `<div class="jt-state" style="padding:24px"><h3>Lỗi</h3><p>${esc(e.message)}</p></div>`;
+            });
+    }
+
     // ── Actions ─────────────────────────────────────────────────────
     function setBusy(btn, on, labelHtml) {
         if (!btn) return;
@@ -466,7 +526,8 @@
             const ab = e.target.closest('[data-act]');
             if (ab) {
                 e.stopPropagation();
-                rowAction(ab.dataset.act, ab.dataset.code);
+                if (ab.dataset.act === 'chat') openChat(ab.dataset.conv);
+                else rowAction(ab.dataset.act, ab.dataset.code);
                 return;
             }
             const row = e.target.closest('[data-open]');

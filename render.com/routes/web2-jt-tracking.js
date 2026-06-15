@@ -54,7 +54,9 @@ async function ensureSchema(pool) {
         // ADD COLUMN trên bảng đã sống (idempotent) — đặt ĐẦU, IF EXISTS = no-op khi chưa có.
         await pool
             .query(
-                `ALTER TABLE IF EXISTS web2_jt_tracking ADD COLUMN IF NOT EXISTS approved_at BIGINT;`
+                `ALTER TABLE IF EXISTS web2_jt_tracking
+                    ADD COLUMN IF NOT EXISTS approved_at  BIGINT,
+                    ADD COLUMN IF NOT EXISTS zalo_conv_id BIGINT;`
             )
             .catch(() => {});
         await pool.query(`
@@ -72,6 +74,7 @@ async function ensureSchema(pool) {
                 note            TEXT,                   -- ngữ cảnh (nhóm Zalo / SĐT gần mã)
                 last_fetched_at BIGINT,
                 approved_at     BIGINT,                 -- đã DUYỆT (xong) → mờ đi + tự xoá sau 7 ngày
+                zalo_conv_id    BIGINT,                 -- conv Zalo nguồn (mở chat nhóm từ row)
                 created_at      BIGINT NOT NULL,
                 updated_at      BIGINT NOT NULL
             );
@@ -97,28 +100,35 @@ async function autoIngestFromZalo(db, msg) {
         if (!db || !msg || msg.threadType !== 'group') return;
         const codes = [...new Set(String(msg.content || '').match(JT_CODE_RE) || [])].slice(0, 20);
         if (!codes.length) return;
-        // tên nhóm (chỉ lookup khi đã có mã → nhẹ)
+        // tên + id conv nhóm (chỉ lookup khi đã có mã → nhẹ) để mở chat từ row
         let convName = null;
+        let convId = null;
         try {
-            convName =
-                (
-                    await db.query(
-                        `SELECT display_name FROM web2_zalo_conversations WHERE account_key=$1 AND thread_id=$2`,
-                        [msg.accountKey, msg.threadId]
-                    )
-                ).rows[0]?.display_name || null;
+            const c = (
+                await db.query(
+                    `SELECT id, display_name FROM web2_zalo_conversations WHERE account_key=$1 AND thread_id=$2`,
+                    [msg.accountKey, msg.threadId]
+                )
+            ).rows[0];
+            convName = c?.display_name || null;
+            convId = c?.id || null;
         } catch (e) {
             /* best-effort */
         }
         const ts = now();
         const added = [];
         for (const code of codes) {
+            // upsert: backfill conv_id/note cho row cũ; phát hiện row MỚI qua xmax=0.
             const r = await db.query(
-                `INSERT INTO web2_jt_tracking (billcode, status, source, note, created_at, updated_at)
-                 VALUES ($1,'pending','zalo',$2,$3,$3) ON CONFLICT (billcode) DO NOTHING`,
-                [code, convName, ts]
+                `INSERT INTO web2_jt_tracking (billcode, status, source, note, zalo_conv_id, created_at, updated_at)
+                 VALUES ($1,'pending','zalo',$2,$4,$3,$3)
+                 ON CONFLICT (billcode) DO UPDATE SET
+                    zalo_conv_id = COALESCE(web2_jt_tracking.zalo_conv_id, EXCLUDED.zalo_conv_id),
+                    note = COALESCE(web2_jt_tracking.note, EXCLUDED.note)
+                 RETURNING (xmax = 0) AS inserted`,
+                [code, convName, ts, convId]
             );
-            if (r.rowCount) added.push(code);
+            if (r.rows[0]?.inserted) added.push(code);
         }
         if (!added.length) return;
         _notify('auto-add', String(added.length)); // UI hiện ngay row "Chưa tra"
@@ -310,9 +320,9 @@ function extractCodes(text) {
 router.post('/scan', async (req, res) => {
     try {
         const db = getDb(req);
-        // Lấy tin có chứa chuỗi 12 số (lọc sơ bộ ở DB cho nhẹ).
+        // Lấy tin có chứa chuỗi 12 số (lọc sơ bộ ở DB cho nhẹ) + id/tên conv nguồn.
         const { rows } = await db.query(
-            `SELECT m.content, c.display_name AS conv_name
+            `SELECT m.content, c.id AS conv_id, c.display_name AS conv_name
                FROM web2_zalo_messages m
                LEFT JOIN web2_zalo_conversations c
                  ON c.account_key = m.account_key AND c.thread_id = m.thread_id
@@ -320,35 +330,29 @@ router.post('/scan', async (req, res) => {
               ORDER BY m.sent_at DESC
               LIMIT 5000`
         );
-        // mã → ngữ cảnh (nhóm Zalo gặp gần nhất)
+        // mã → ngữ cảnh (nhóm Zalo gặp gần nhất: tên + id để mở chat)
         const found = new Map();
         for (const r of rows) {
             for (const code of extractCodes(r.content)) {
-                if (!found.has(code)) found.set(code, r.conv_name || 'Zalo');
+                if (!found.has(code))
+                    found.set(code, { name: r.conv_name || null, id: r.conv_id || null });
             }
         }
         if (!found.size) return res.json({ success: true, found: 0, added: 0 });
         const ts = now();
-        const codes = [...found.keys()];
-        // chỉ thêm mã CHƯA có (giữ nguyên trạng thái mã cũ).
-        const existing = new Set(
-            (
-                await db.query(
-                    `SELECT billcode FROM web2_jt_tracking WHERE billcode = ANY($1::text[])`,
-                    [codes]
-                )
-            ).rows.map((r) => r.billcode)
-        );
         let added = 0;
-        for (const code of codes) {
-            if (existing.has(code)) continue;
-            await db.query(
-                `INSERT INTO web2_jt_tracking (billcode, status, source, note, created_at, updated_at)
-                 VALUES ($1,'pending','zalo',$2,$3,$3)
-                 ON CONFLICT (billcode) DO NOTHING`,
-                [code, found.get(code), ts]
+        for (const [code, ctx] of found) {
+            // upsert: backfill note/conv_id cho mã CŨ (để có nút chat); insert nếu mới.
+            const r = await db.query(
+                `INSERT INTO web2_jt_tracking (billcode, status, source, note, zalo_conv_id, created_at, updated_at)
+                 VALUES ($1,'pending','zalo',$2,$4,$3,$3)
+                 ON CONFLICT (billcode) DO UPDATE SET
+                    note = COALESCE(web2_jt_tracking.note, EXCLUDED.note),
+                    zalo_conv_id = COALESCE(web2_jt_tracking.zalo_conv_id, EXCLUDED.zalo_conv_id)
+                 RETURNING (xmax = 0) AS inserted`,
+                [code, ctx.name, ts, ctx.id]
             );
-            added++;
+            if (r.rows[0]?.inserted) added++;
         }
         if (added) _notify('scan', String(added));
         res.json({ success: true, found: found.size, added });
@@ -493,7 +497,8 @@ router.get('/list', async (req, res) => {
         // đã duyệt → đẩy xuống cuối (mờ), chưa duyệt ưu tiên trên.
         const { rows } = await db.query(
             `SELECT billcode, cellphone, status, latest_event, latest_at, latest_at_text,
-                    event_count, source, note, last_fetched_at, approved_at, created_at, updated_at
+                    event_count, source, note, last_fetched_at, approved_at, zalo_conv_id,
+                    created_at, updated_at
                FROM web2_jt_tracking ${wsql}
               ORDER BY (approved_at IS NOT NULL), latest_at DESC NULLS LAST, updated_at DESC
               LIMIT $${params.length}`,

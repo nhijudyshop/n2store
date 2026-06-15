@@ -53,6 +53,13 @@ body {
 .web2-aside {
     background: #1e293b;
 }
+/* web2-sidebar.css đặt .web2-shell{height:100vh;overflow:hidden} (sidebar cố định)
+   → cột nội dung PHẢI tự scroll, nếu không list dài bị cắt (không cuộn được). */
+.web2-shell > main {
+    height: 100vh;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
 
 /* ── Main / header ──────────────────────────────────────────────── */
 .jt-main {
@@ -393,6 +400,82 @@ body {
 .jt-icobtn.approve:hover {
     background: var(--st-delivered-bg);
     color: var(--st-delivered);
+}
+.jt-icobtn.chat:hover {
+    background: var(--st-delivering-bg);
+    color: var(--st-delivering);
+}
+
+/* ── Chat drawer (mở hội thoại nhóm Zalo) ───────────────────────── */
+.jt-drawer-back {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.5);
+    z-index: 1100;
+    display: flex;
+    justify-content: flex-end;
+    opacity: 0;
+    transition: opacity var(--jt-dur) var(--jt-ease);
+}
+.jt-drawer-back.show {
+    opacity: 1;
+}
+.jt-drawer {
+    width: min(460px, 100%);
+    height: 100%;
+    background: var(--jt-surface);
+    display: flex;
+    flex-direction: column;
+    box-shadow: var(--jt-shadow-lg);
+    transform: translateX(24px);
+    transition: transform var(--jt-dur) var(--jt-ease);
+}
+.jt-drawer-back.show .jt-drawer {
+    transform: none;
+}
+.jt-drawer-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--jt-line);
+    font-weight: 700;
+    flex-shrink: 0;
+}
+.jt-drawer-head span {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.jt-drawer-head i {
+    width: 18px;
+    height: 18px;
+    color: var(--jt-primary);
+}
+.jt-drawer-close {
+    width: 32px;
+    height: 32px;
+    border: 0;
+    background: var(--jt-bg);
+    border-radius: 9px;
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+    color: var(--jt-ink-soft);
+    transition: background var(--jt-dur) var(--jt-ease);
+}
+.jt-drawer-close:hover {
+    background: #e2e8f0;
+}
+.jt-drawer-body {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+}
+.jt-drawer-body > * {
+    flex: 1;
+    min-height: 0;
+    min-width: 0;
 }
 .jt-row-status {
     width: 42px;

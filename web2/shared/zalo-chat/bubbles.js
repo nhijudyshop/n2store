@@ -11,6 +11,18 @@
     const WZ = (window.WZChat = window.WZChat || {});
     const esc = WZ.esc;
 
+    // @tên (mention) trong nhóm → tô XANH. Zalo KHÔNG gửi metadata mention qua API
+    // content → heuristic theo text: '@' + token đầu, các token sau phải VIẾT HOA
+    // (tên người, vd "@My Njd") → dừng ở từ thường ("@My ơi" chỉ tô "@My").
+    const MENTION_RE = /@([\p{L}\p{N}][\p{L}\p{N}._]*(?:\s\p{Lu}[\p{L}\p{N}._]*)*)/gu;
+    function fmtText(s) {
+        return esc(String(s == null ? '' : s)).replace(
+            MENTION_RE,
+            '<span class="wz-mention">@$1</span>'
+        );
+    }
+    WZ.fmtText = fmtText;
+
     const IMG_URL_RE = /^https?:\/\/\S+\.(?:jpe?g|png|gif|webp|bmp|heic)(?:\?\S*)?$/i;
     const ZDN_IMG_RE = /^https?:\/\/[^\s]*\b(?:zdn\.vn|zadn\.vn|zaloapp\.com)\/[^\s]+$/i;
     const URL_RE = /^https?:\/\/\S+$/i;
@@ -46,7 +58,7 @@
         const atts = Array.isArray(m.attachments) ? m.attachments : [];
         const cap =
             m.content && kind !== 'link' && _msgUrl(m) !== (m.content || '').trim()
-                ? `<div class="wz-msg-cap">${esc(m.content)}</div>`
+                ? `<div class="wz-msg-cap">${fmtText(m.content)}</div>`
                 : '';
         const a = atts[0] || {};
 
@@ -89,7 +101,7 @@
             const href = a.href || a.url || m.content || '';
             return `<a class="wz-msg-linkbox" href="${esc(href)}" target="_blank" rel="noopener noreferrer">${esc(m.content || href)}</a>`;
         }
-        return esc(m.content || '') || '<span class="wz-msg-muted">[Tin nhắn]</span>';
+        return fmtText(m.content || '') || '<span class="wz-msg-muted">[Tin nhắn]</span>';
     }
 
     function reactionsRow(m) {
