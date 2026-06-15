@@ -119,34 +119,37 @@
         <!-- Script chạy trong Console Zalo Web (chat.zalo.me) để moi mã đơn từ IndexedDB + DOM.
              type="text/plain" → browser KHÔNG chạy; modal "Dán lịch sử" đọc textContent để hiện + copy. -->
         <script type="text/plain" id="jtZaloScript">
+            console.log('[JT] bat dau quet... (thay dong nay = dung script moi)');
             (async () => {
-              const RE = /(\d{12})\s+Shop\s+NHI\s*JUDY[^\r\n]*/gi;
-              const lines = new Set();
-              const grab = () => {
-                const t = document.body.innerText; const r = new RegExp(RE.source, 'gi'); let m;
-                while ((m = r.exec(t))) lines.add(m[0].replace(/\s+/g, ' ').trim().slice(0, 300));
-              };
-              console.log('Dang quet + tu cuon len (toi da 60s)... giu tab Zalo mo, dung chuyen trang.');
-              grab();
-              const scroller = [...document.querySelectorAll('div')]
-                .filter(e => e.scrollHeight - e.clientHeight > 300)
-                .sort((a, b) => b.scrollHeight - a.scrollHeight)[0];
-              if (scroller) {
-                const t0 = Date.now(); let stable = 0, last = 0;
-                while (Date.now() - t0 < 60000 && stable < 12) {
-                  scroller.scrollTop = 0;
-                  await new Promise(r => setTimeout(r, 500));
-                  grab();
-                  if (lines.size === last) { stable++; } else { stable = 0; last = lines.size; }
-                  console.log('... ' + lines.size + ' ma (' + Math.round((Date.now() - t0) / 1000) + 's)');
+              try {
+                const RE = /(\d{12})\s+Shop\s+NHI\s*JUDY[^\r\n]*/gi;
+                const lines = new Set();
+                const grab = () => {
+                  const t = document.body.innerText, r = new RegExp(RE.source, 'gi'); let m;
+                  while ((m = r.exec(t))) lines.add(m[0].replace(/\s+/g, ' ').trim().slice(0, 300));
+                };
+                grab();
+                console.log('[JT] lan dau:', lines.size, 'ma');
+                const sc = [...document.querySelectorAll('div')]
+                  .filter(e => e.scrollHeight - e.clientHeight > 300)
+                  .sort((a, b) => b.scrollHeight - a.scrollHeight)[0];
+                if (sc) {
+                  const t0 = Date.now(); let stable = 0, last = 0;
+                  while (Date.now() - t0 < 45000 && stable < 12) {
+                    sc.scrollTop = 0;
+                    await new Promise(r => setTimeout(r, 500));
+                    grab();
+                    if (lines.size === last) { stable++; } else { stable = 0; last = lines.size; }
+                    console.log('[JT] ...', lines.size, 'ma');
+                  }
+                } else {
+                  console.log('[JT] khong thay khung cuon - cuon tay len roi chay lai.');
                 }
-              } else {
-                console.log('Khong thay khung cuon - cuon tay len roi chay lai de lay them.');
-              }
-              const out = [...lines].join('\n');
-              console.log('XONG - ' + lines.size + ' ma don:\n' + (out || '(khong thay ma - mo dung nhom J&T + cuon len roi chay lai)'));
-              try { await navigator.clipboard.writeText(out); console.log('Da copy clipboard - quay lai trang J&T, bam "Dan lich su" roi Ctrl+V.'); }
-              catch { console.log('Khong tu copy duoc - boi den doan ket qua tren roi Ctrl+C.'); }
+                const out = [...lines].join('\n');
+                console.log('[JT] XONG -', lines.size, 'ma don:\n' + (out || '(khong thay ma - mo dung nhom J&T + cuon len roi chay lai)'));
+                try { await navigator.clipboard.writeText(out); console.log('[JT] da copy clipboard - quay lai trang J&T, bam "Dan lich su" roi Ctrl+V.'); }
+                catch { console.log('[JT] khong tu copy duoc - boi den doan ket qua tren roi Ctrl+C.'); }
+              } catch (e) { console.log('[JT] LOI:', e && e.message); }
             })();
         </script>
 
@@ -162,6 +165,6 @@
         <script src="../shared/web2-extension-bridge.js?v=20260615a"></script>
         <!-- Web2CustomerChat → FULL chat KH (Pancake + Zalo) dùng chung, bấm SĐT mở -->
         <script src="../shared/web2-customer-chat.js?v=20260615b"></script>
-        <script src="js/jt-tracking-app.js?v=20260615t"></script>
+        <script src="js/jt-tracking-app.js?v=20260615u"></script>
     </body>
 </html>
