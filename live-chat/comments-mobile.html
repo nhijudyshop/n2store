@@ -145,6 +145,11 @@
             .hd-btn:active {
                 transform: scale(0.9);
             }
+            .hd-btn.on {
+                background: var(--c-primary);
+                border-color: var(--c-primary);
+                color: #fff;
+            }
             .hd-btn.spin svg {
                 animation: spin 0.7s linear infinite;
             }
@@ -196,6 +201,26 @@
                 background: var(--c-primary);
                 color: #fff;
                 box-shadow: 0 2px 8px rgba(0, 104, 255, 0.32);
+            }
+            /* Badge số đơn đã tạo trên chip Store/House/Đã tạo đơn. Ẩn khi rỗng. */
+            .chip-cnt {
+                display: inline-block;
+                margin-left: 5px;
+                min-width: 17px;
+                padding: 0 5px;
+                font-size: 10.5px;
+                font-weight: 800;
+                line-height: 17px;
+                text-align: center;
+                border-radius: 999px;
+                background: rgba(15, 23, 42, 0.1);
+                color: inherit;
+            }
+            .chip.on .chip-cnt {
+                background: rgba(255, 255, 255, 0.3);
+            }
+            .chip-cnt:empty {
+                display: none;
             }
             /* divider + toggle pills (ẩn shop / hiện đã ẩn) */
             .chip-div {
@@ -923,6 +948,28 @@
                         <path d="M3 3v5h5" />
                     </svg>
                 </button>
+                <button
+                    class="hd-btn"
+                    id="btnFull"
+                    aria-label="Toàn màn hình"
+                    title="Toàn màn hình (như F11)"
+                >
+                    <svg
+                        width="18"
+                        height="18"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2.2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                    >
+                        <path d="M8 3H5a2 2 0 0 0-2 2v3" />
+                        <path d="M21 8V5a2 2 0 0 0-2-2h-3" />
+                        <path d="M3 16v3a2 2 0 0 0 2 2h3" />
+                        <path d="M16 21h3a2 2 0 0 0 2-2v-3" />
+                    </svg>
+                </button>
             </div>
             <div class="subbar">
                 <button class="postsel" id="postSel" aria-haspopup="dialog">
@@ -933,9 +980,15 @@
             </div>
             <div class="chips" id="chips">
                 <button class="chip on" data-pg="">Tất cả</button>
-                <button class="chip" data-pg="store">Store</button>
-                <button class="chip" data-pg="house">House</button>
-                <button class="chip" data-pg="order">Đã tạo đơn</button>
+                <button class="chip" data-pg="store">
+                    Store<span class="chip-cnt" id="cntStore"></span>
+                </button>
+                <button class="chip" data-pg="house">
+                    House<span class="chip-cnt" id="cntHouse"></span>
+                </button>
+                <button class="chip" data-pg="order">
+                    Đã tạo đơn<span class="chip-cnt" id="cntOrder"></span>
+                </button>
                 <button class="chip" data-pg="phone">Có SĐT</button>
             </div>
         </header>
@@ -971,7 +1024,7 @@
         <script src="js/shared/live-status.js?v=20260614w2c"></script>
         <script src="js/shared/live-customer-sync.js?v=20260614w2c"></script>
         <!-- App controller (đặt window.LiveState/LiveCommentList shim cho module ẩn) -->
-        <script src="js/live/comments-mobile.js?v=20260615fade2"></script>
+        <script src="js/live/comments-mobile.js?v=20260615chips"></script>
         <!-- Module ẩn comment theo NGƯỜI — DÙNG CHUNG nguồn server với live-chat/index.html -->
         <script src="js/live/live-hidden-commenters.js?v=20260614w2c"></script>
     </body>

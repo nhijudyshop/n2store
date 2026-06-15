@@ -2,6 +2,13 @@
 
 ## 2026-06-15
 
+### [live-chat][mobile] Chip Store/House hiện SỐ ĐƠN đã tạo + nút Toàn màn hình (F11) ✅
+
+User (trang comments-mobile): (1) hiện tổng đơn đã tạo của Store/House, (2) nút toàn màn hình như F11.
+
+- **Count đơn/page**: `updateOrderCounts()` đếm distinct khách (`fb_id`) có `has_order` theo page (Store=270136663390370, House=117267091364524) → badge `.chip-cnt` trên chip Store/House + tổng ở "Đã tạo đơn". Cập nhật trong doRender + applyDelta. [comments-mobile.js](live-chat/js/live/comments-mobile.js)+[comments-mobile.html](live-chat/comments-mobile.html).
+- **Fullscreen**: nút `#btnFull` header → Fullscreen API (`requestFullscreen`/`exitFullscreen`, webkit fallback); `.hd-btn.on` khi đang fullscreen. (`?v=20260615chips`)
+
 ### [web2][shared] J&T tracking — bấm SĐT nhắn tin (Zalo/Pancake) + nút tag Pancake "XỬ LÝ BC" ✅
 
 **User:** "1. Bấm vào sđt bỏ chức năng copy → mở modal nhắn tin với khách bảng chọn zalo hoặc pancake. 2. Nút tag pancake → đánh tag XỬ LÝ BC như hình." Chọn kiểu: **soạn nhanh gửi liền**.

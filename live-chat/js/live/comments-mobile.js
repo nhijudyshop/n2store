@@ -275,16 +275,36 @@
     }
 
     // ---------- filters ----------
+    const isStorePg = (c) => /store/i.test(c.page_name || '') || c.page_id == 270136663390370;
+    const isHousePg = (c) => /house/i.test(c.page_name || '') || c.page_id == 117267091364524;
     function pass(c) {
-        if (filter === 'store')
-            return /store/i.test(c.page_name || '') || c.page_id == 270136663390370;
-        if (filter === 'house')
-            return /house/i.test(c.page_name || '') || c.page_id == 117267091364524;
+        if (filter === 'store') return isStorePg(c);
+        if (filter === 'house') return isHousePg(c);
         if (filter === 'order') return ordered(c);
         if (filter === 'phone') return !!(c.phone || '').trim();
         return true;
     }
     const visible = (c) => pass(c) && !isHiddenPerson(c);
+
+    // Đếm SỐ ĐƠN đã tạo (distinct khách có has_order) theo page → badge trên chip
+    // Store/House + tổng ở "Đã tạo đơn". Đếm trên ALL (không phụ thuộc filter/cap).
+    function updateOrderCounts() {
+        const cs = document.getElementById('cntStore');
+        const ch = document.getElementById('cntHouse');
+        const co = document.getElementById('cntOrder');
+        if (!cs && !ch && !co) return;
+        const store = new Set();
+        const house = new Set();
+        for (const c of ALL) {
+            if (!ordered(c)) continue;
+            const key = String(c.fb_id || c.id);
+            if (isStorePg(c)) store.add(key);
+            else if (isHousePg(c)) house.add(key);
+        }
+        if (cs) cs.textContent = store.size || '';
+        if (ch) ch.textContent = house.size || '';
+        if (co) co.textContent = store.size + house.size || '';
+    }
 
     // ---------- render (debounce + cap → anti-jank) ----------
     function cardHtml(c) {
@@ -326,6 +346,7 @@
     }
     function doRender() {
         if (hideCountEl) hideCountEl.textContent = hiddenCount();
+        updateOrderCounts();
         const rows = ALL.filter(visible);
         countEl.textContent = rows.length + (rows.length >= LIMIT ? '+' : '') + ' comment';
         if (!rows.length) {
@@ -625,6 +646,27 @@
         loadPosts();
         load({ silent: false });
     });
+    // Toàn màn hình (như F11): toggle Fullscreen API trên cả trang.
+    const btnFull = $('#btnFull');
+    if (btnFull) {
+        btnFull.addEventListener('click', () => {
+            try {
+                if (!document.fullscreenElement) {
+                    (
+                        document.documentElement.requestFullscreen ||
+                        document.documentElement.webkitRequestFullscreen
+                    )?.call(document.documentElement);
+                } else {
+                    (document.exitFullscreen || document.webkitExitFullscreen)?.call(document);
+                }
+            } catch (e) {
+                toast('Trình duyệt không hỗ trợ toàn màn hình');
+            }
+        });
+        document.addEventListener('fullscreenchange', () =>
+            btnFull.classList.toggle('on', !!document.fullscreenElement)
+        );
+    }
     $('#chips').addEventListener('click', (e) => {
         const ch = e.target.closest('.chip');
         if (!ch) return;
@@ -777,6 +819,7 @@
         const vn = ALL.filter(visible).length;
         countEl.textContent = vn + (vn >= LIMIT ? '+' : '') + ' comment';
         if (hideCountEl) hideCountEl.textContent = hiddenCount();
+        updateOrderCounts();
     }
 
     function wireSse() {
