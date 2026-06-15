@@ -161,6 +161,8 @@ function someOp(...args) {
 
 Auto-có qua `web2/shared/page-builder.js` (`Web2Page`) preload. (File `page-shell.js`/`Web2Shell` cũ đã bị xoá 2026-06-13 — dead code, 0 trang dùng; page-builder thay thế hoàn toàn.)
 
+**Generic CRUD (2026-06-15)**: `removeRecord` (xoá) của Web2Page nay **UI-first** — sau confirm row biến mất ngay + rollback nếu lỗi. `saveModal` (create/update) GIỮ await + double-submit guard (đúng pattern "tạo/nặng thì chờ"). Mọi Web2Page page tự hưởng, không cần wrap thủ công.
+
 ## Pages CHƯA có helper (cần thêm khi refactor)
 
 Nếu page tự build (không qua page-builder) và chưa có `<script src=".../web2-optimistic.js">` — thêm vào trước script app chính:

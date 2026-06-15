@@ -2,6 +2,16 @@
 
 ## 2026-06-15
 
+### [web2][shared][jt-tracking] Retrofit optimistic UI — handler còn await trần → Web2Optimistic ✅
+
+User hỏi "optimistic UI đã có ở tất cả trang chưa? (tạo/nặng→spinner chống bấm trùng, xoá→biến mất ngay rồi rollback)". Audit: helper load 35/40 trang, dùng thật ~17 file; money/destructive cố ý giữ await. Sweep handler còn await trần (non-money):
+
+- **page-builder.js `removeRecord`** (generic Web2Page — delivery-zone + product-category): sau confirm → row **biến mất NGAY** (splice STATE.records + renderRows/Counters/Pagination) + rollback khôi phục đúng vị trí nếu lỗi. `saveModal` (create/update) **giữ await + double-submit guard** (đúng pattern "tạo/nặng thì chờ"). → cả 2 trang generic tự hưởng.
+- **jt-tracking `rowAction`**: `approve`/`unapprove` (duyệt) → UI-first (`row.approved_at` đổi NGAY → mờ row + tag "tự xoá 7 ngày") + rollback; SSE `web2:jt-tracking` reload authoritative. `refresh` (tra cứu J&T server-side, NẶNG) **giữ await** + reload.
+- **payment-confirm**: đã RETIRED (redirect → ck-dashboard) → bỏ qua. Money pages (customer-wallet, fastsaleorder-\*, purchase-refund, supplier-debt) giữ await theo ngoại lệ. bc-tag jt đã fire-and-forget (giữ).
+
+Browser-smoke: jt-tracking + delivery-zone — Web2Optimistic.run=function, page render, 0 page error. Bump `jt-tracking-app.js?v=20260615opt`, `page-builder.js?v=20260615opt`. Frontend-only.
+
 ### [web2][shared][P5] colorShortMap về Web2VariantsCache (memoize); Zalo đã shared ✅
 
 `colorShortMap` (map tên màu ASCII → shortCode locked, dùng sinh mã SP) build **trùng logic** ở 2 nơi: [web2-products-app.js](web2/products/js/web2-products-app.js) (`getColorShortMap`+`_colorShortMapCache`) + [so-order-app.js](so-order/js/so-order-app.js) `_assignKhoCodes` (inline). Gom về [`Web2VariantsCache.getColorShortMap()`](web2/shared/web2-variants-cache.js) — memoize + auto-invalidate khi data variant đổi (`_loadList`). 2 trang delegate (giữ fallback inline nếu cache cũ chưa có method). Cần `Web2ProductCode.toAsciiUpper`.

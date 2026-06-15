@@ -618,12 +618,43 @@
                   })
                 : confirm(`Xóa "${code}"?`);
             if (!ok) return;
-            try {
-                await api.remove(code);
-                notify(`Đã xóa ${code}`, 'success');
-                load();
-            } catch (e) {
-                notify('Lỗi xóa: ' + e.message, 'error');
+            // UI-FIRST (sau khi confirm): row biến mất NGAY, backend chạy ngầm,
+            // lỗi thì khôi phục lại đúng vị trí cũ. (saveModal create/update giữ
+            // await + double-submit guard — đúng pattern "tạo/nặng thì chờ".)
+            const idx = STATE.records.findIndex((x) => x.code === code);
+            const snap = idx >= 0 ? STATE.records[idx] : null;
+            const apply = () => {
+                if (idx < 0) return;
+                STATE.records.splice(idx, 1);
+                STATE.total = Math.max(0, STATE.total - 1);
+                renderRows();
+                renderCounters();
+                renderPagination();
+            };
+            const rollback = () => {
+                if (!snap) return;
+                STATE.records.splice(Math.min(idx, STATE.records.length), 0, snap);
+                STATE.total += 1;
+                renderRows();
+                renderCounters();
+                renderPagination();
+            };
+            const opts = {
+                snapshot: snap,
+                apply,
+                run: () => api.remove(code),
+                rollback,
+                successMsg: `Đã xóa ${code}`,
+                errLabel: `xóa ${code}`,
+            };
+            if (window.Web2Optimistic?.run) {
+                window.Web2Optimistic.run(opts);
+            } else {
+                apply();
+                api.remove(code).catch((e) => {
+                    rollback();
+                    notify('Lỗi xóa: ' + e.message, 'error');
+                });
             }
         }
 

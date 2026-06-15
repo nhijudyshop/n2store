@@ -826,20 +826,53 @@
     }
 
     async function rowAction(act, code) {
-        try {
-            if (act === 'refresh') {
+        // refresh = tra cứu J&T server-side (NẶNG) → giữ await + reload (không optimistic).
+        if (act === 'refresh') {
+            try {
                 await api('/track', { method: 'POST', body: { billcode: code } });
                 notify('Đã làm mới ' + code, 'success');
-            } else if (act === 'approve') {
-                await api('/' + code + '/approve', { method: 'POST' });
-                notify('Đã duyệt — tự xoá sau 7 ngày', 'success');
-            } else if (act === 'unapprove') {
-                await api('/' + code + '/unapprove', { method: 'POST' });
-                notify('Đã bỏ duyệt', 'info');
+                await load();
+            } catch (e) {
+                notify('✗ ' + e.message, 'error');
             }
-            await load();
-        } catch (e) {
-            notify('✗ ' + e.message, 'error');
+            return;
+        }
+        // approve / unapprove (duyệt): UI-FIRST — đổi trạng thái + mờ row NGAY,
+        // backend chạy ngầm, lỗi thì rollback. SSE web2:jt-tracking reload authoritative.
+        const row = state.list.find((r) => String(r.billcode) === String(code));
+        const prev = row ? row.approved_at : undefined;
+        const next = act === 'approve' ? Date.now() : null;
+        const apply = () => {
+            if (row) {
+                row.approved_at = next;
+                renderList();
+                renderKpi();
+            }
+        };
+        const rollback = () => {
+            if (row) {
+                row.approved_at = prev;
+                renderList();
+                renderKpi();
+            }
+        };
+        const run = () => api('/' + code + '/' + act, { method: 'POST' });
+        const opts = {
+            snapshot: prev,
+            apply,
+            run,
+            rollback,
+            successMsg: act === 'approve' ? 'Đã duyệt — tự xoá sau 7 ngày' : 'Đã bỏ duyệt',
+            errLabel: (act === 'approve' ? 'duyệt ' : 'bỏ duyệt ') + code,
+        };
+        if (window.Web2Optimistic?.run) {
+            window.Web2Optimistic.run(opts);
+        } else {
+            apply();
+            run().catch(() => {
+                rollback();
+                notify('✗ Lỗi ' + opts.errLabel, 'error');
+            });
         }
     }
 
