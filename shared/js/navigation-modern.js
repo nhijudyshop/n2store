@@ -317,15 +317,6 @@ const MENU_CONFIG = [
         permissionRequired: 'project-tracker',
     },
     {
-        href: '../facebook-services/index.html',
-        icon: 'thumbs-up',
-        text: 'Dịch Vụ Facebook',
-        shortText: 'FB Dịch Vụ',
-        pageIdentifier: 'facebook-services',
-        adminOnly: true,
-        permissionRequired: 'facebook-services',
-    },
-    {
         href: '../fb-ads/index.html',
         icon: 'megaphone',
         text: 'Facebook Ads Manager',

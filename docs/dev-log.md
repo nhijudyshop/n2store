@@ -1,5 +1,18 @@
 # Dev Log
 
+## 2026-06-16
+
+### [web1][cleanup] Gỡ HẲN autofb.pro khỏi toàn project (shop không xài nữa) ✅
+
+User xác nhận "bỏ hẳn autofb, shop không xài autofb.pro nữa". Gỡ trọn bộ tính năng autofb (mua dịch vụ FB qua reseller autofb.pro + ví) khỏi cả Web 1.0 lẫn worker:
+
+- **Xóa file**: trang `facebook-services/` (Dịch Vụ Facebook — storefront autofb), `render.com/routes/autofb.js`, `cloudflare-worker/modules/handlers/autofb-handler.js`, `scripts/autofb-login.js`.
+- **Worker**: gỡ 7 route `AUTOFB_*` + `AUTOFB_RENDER` ([routes.js](cloudflare-worker/modules/config/routes.js)) + import handler + 8 dispatch case ([worker.js](cloudflare-worker/worker.js)).
+- **Render**: gỡ mount `/api/autofb` ([server.js](render.com/server.js)) + dep `tesseract.js` (chỉ autofb dùng) khỏi package.json + regenerate package-lock (npm install --package-lock-only) → lock khớp.
+- **Frontend khác**: gỡ entry nav "Dịch Vụ Facebook" ([navigation-modern.js](shared/js/navigation-modern.js)), block `AutoFB` API-docs ([render-data-manager](render-data-manager/js/main.js)), card + live-fetch + warning + CSS autofb ([service-costs](service-costs/js/service-costs.js)), dòng smoke-test.
+- Verify: node --check 7 file pass, package.json JSON hợp lệ, grep repo-wide **0 ref autofb/facebook-services** còn lại. tesseract đã out khỏi lock.
+- ⚠ Worker (Cloudflare) deploy riêng — route autofb cũ trong worker đã deploy là **vô hại** (không trang nào gọi nữa); sẽ sạch ở lần deploy worker kế.
+
 ## 2026-06-15
 
 ### [web2][render] web2-api OOM 512Mi — bound sharp native memory + RSS log ✅ (heap cap + plan = chờ user)

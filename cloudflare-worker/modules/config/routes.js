@@ -53,15 +53,6 @@ export const ROUTES = {
     // SePay
     SEPAY_DASHBOARD: { pattern: '/api/sepay-dashboard', method: 'POST' },
 
-    // AutoFB
-    AUTOFB_BALANCE: { pattern: '/api/autofb-balance', method: 'POST' },
-    AUTOFB_SERVICES: { pattern: '/api/autofb-services', method: 'GET' },
-    AUTOFB_API_BALANCE: { pattern: '/api/autofb-api-balance', method: 'GET' },
-    AUTOFB_ORDER: { pattern: '/api/autofb-order', method: 'POST' },
-    AUTOFB_ORDER_STATUS: { pattern: '/api/autofb-order-status', method: 'POST' },
-    AUTOFB_CANCEL: { pattern: '/api/autofb-cancel', method: 'POST' },
-    AUTOFB_PAYMENT: { pattern: '/api/autofb-payment', method: 'POST' },
-
     // Proxy
     GENERIC_PROXY: { pattern: '/api/proxy' },
     SEPAY: { pattern: '/api/sepay/*' },
@@ -94,7 +85,6 @@ export const ROUTES = {
     RETURN_ORDERS: { pattern: '/api/return-orders/*' },
     TPOS_SAVED: { pattern: '/api/tpos-saved/*' },
     QUY_TRINH: { pattern: '/api/quy-trinh/*' },
-    AUTOFB_RENDER: { pattern: '/api/autofb/*' }, // /api/autofb-<name> exact routes stay CF-direct (autofb-handler.js)
     TPOS_ORDER_BUFFER: { pattern: '/api/tpos/order-buffer/*' }, // tab1-tpos-realtime.js polling
     ADMIN_DATA: { pattern: '/api/admin/data/*' }, // render-data-manager admin tool
 
@@ -223,13 +213,6 @@ export function matchRoute(pathname) {
     if (pathname === '/api/SaleOnline_Order/ExportFileDetail')
         return 'TPOS_EXPORT_SALEONLINE_DETAIL';
     if (pathname === '/api/sepay-dashboard') return 'SEPAY_DASHBOARD';
-    if (pathname === '/api/autofb-balance') return 'AUTOFB_BALANCE';
-    if (pathname === '/api/autofb-services') return 'AUTOFB_SERVICES';
-    if (pathname === '/api/autofb-api-balance') return 'AUTOFB_API_BALANCE';
-    if (pathname === '/api/autofb-order') return 'AUTOFB_ORDER';
-    if (pathname === '/api/autofb-order-status') return 'AUTOFB_ORDER_STATUS';
-    if (pathname === '/api/autofb-cancel') return 'AUTOFB_CANCEL';
-    if (pathname === '/api/autofb-payment') return 'AUTOFB_PAYMENT';
     if (pathname === '/api/proxy') return 'GENERIC_PROXY';
 
     // Pattern matches
@@ -347,8 +330,6 @@ export function matchRoute(pathname) {
     if (pathname.startsWith('/api/tpos-saved/') || pathname === '/api/tpos-saved')
         return 'TPOS_SAVED';
     if (pathname.startsWith('/api/quy-trinh/') || pathname === '/api/quy-trinh') return 'QUY_TRINH';
-    // /api/autofb/* (prefix) → Render; specific /api/autofb-xxx routes (no slash) handled by exact matches above
-    if (pathname.startsWith('/api/autofb/')) return 'AUTOFB_RENDER';
 
     // Customer 360 v2 routes (match FIRST before v1)
     if (pathname.startsWith('/api/v2/customers/') || pathname === '/api/v2/customers')

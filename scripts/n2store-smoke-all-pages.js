@@ -67,7 +67,6 @@ const PAGES = [
     '/delivery-report/index.html',
     '/doi-soat/index.html',
     '/don-inbox/index.html',
-    '/facebook-services/index.html',
     '/fb-ads/index.html',
     '/firebase-stats/index.html',
     '/hanghoan/index.html',

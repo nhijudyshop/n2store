@@ -65,15 +65,6 @@ import {
 } from './modules/handlers/proxy-handler.js';
 import { handleDeepSeek, handleDeepSeekOcr } from './modules/handlers/ai-handler.js';
 import { handleSepayDashboard } from './modules/handlers/sepay-dashboard-handler.js';
-import {
-    handleAutofbBalance,
-    handleAutofbServices,
-    handleAutofbApiBalance,
-    handleAutofbOrder,
-    handleAutofbOrderStatus,
-    handleAutofbCancel,
-    handleAutofbPayment,
-} from './modules/handlers/autofb-handler.js';
 
 /**
  * Main fetch handler
@@ -172,22 +163,6 @@ async function routeRequest(request, env, ctx) {
             // SePay Dashboard (direct login + scrape)
             case 'SEPAY_DASHBOARD':
                 return handleSepayDashboard(request, url);
-
-            // AutoFB
-            case 'AUTOFB_BALANCE':
-                return handleAutofbBalance(request, url);
-            case 'AUTOFB_SERVICES':
-                return handleAutofbServices(request, url);
-            case 'AUTOFB_API_BALANCE':
-                return handleAutofbApiBalance(request, url);
-            case 'AUTOFB_ORDER':
-                return handleAutofbOrder(request, url);
-            case 'AUTOFB_ORDER_STATUS':
-                return handleAutofbOrderStatus(request, url);
-            case 'AUTOFB_CANCEL':
-                return handleAutofbCancel(request, url);
-            case 'AUTOFB_PAYMENT':
-                return handleAutofbPayment(request, url);
 
             // Proxy
             case 'GENERIC_PROXY':
@@ -300,7 +275,6 @@ async function routeRequest(request, env, ctx) {
             case 'RETURN_ORDERS':
             case 'TPOS_SAVED':
             case 'QUY_TRINH':
-            case 'AUTOFB_RENDER':
                 return handleRenderMiscProxy(request, url, pathname);
 
             // Customer 360 v2 (unified API)

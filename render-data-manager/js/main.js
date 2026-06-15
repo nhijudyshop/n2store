@@ -2109,19 +2109,6 @@ const API_REFERENCE = {
             { method: 'GET', path: '/iclock/getrequest', desc: 'ADMS: ZKTeco poll for commands' },
         ],
     },
-    AutoFB: {
-        icon: '🤖',
-        desc: 'Automated Facebook operations',
-        endpoints: [
-            { method: 'POST', path: '/api/autofb/login', desc: 'AutoFB login (solve captcha)' },
-            {
-                method: 'POST',
-                path: '/api/autofb/action',
-                desc: 'Execute automated Facebook action',
-            },
-            { method: 'GET', path: '/api/autofb/status', desc: 'AutoFB session status' },
-        ],
-    },
     'Quick Replies': {
         icon: '💬',
         desc: 'Quick reply templates for messaging',
