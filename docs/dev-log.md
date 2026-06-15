@@ -10,7 +10,7 @@ Nguyên nhân: (1) V8 heap không cap → phình quá container trước khi GC 
 
 **Đã fix in-repo** ([render.com/server.js](render.com/server.js) đầu file): `sharp.cache(false)` + `sharp.concurrency(1)` (bound native memory) + log `[MEM]` RSS mỗi 60s khi >380MB (phân biệt leak vs spike). node --check pass.
 
-**CHỜ user duyệt** (đụng infra/tiền — auto-mode classifier chặn env-var change): (a) set Render env `NODE_OPTIONS=--max-old-space-size=384` (cap heap, reversible, miễn phí) → cần user OK; (b) nâng plan `starter→standard` (2GB) nếu OOM còn — TỐN PHÍ, user quyết. Mail Render cũng gợi ý "undersized instance".
+**User duyệt "cap heap + nâng plan 2GB" (15/06) → ĐÃ áp:** (a) plan `starter→standard` (512Mi→**2GB**) qua `PATCH /v1/services/{id} {serviceDetails:{plan:standard}}`; (b) env `NODE_OPTIONS=--max-old-space-size=1536` (heap 1.5GB, chừa ~512MB native trên box 2GB) qua `PUT .../env-vars/NODE_OPTIONS`; (c) `POST .../deploys` (dep-d8o32ournols739t2hmg) áp cả plan+env+commit sharp. web2-api giờ standard 2GB → hết OOM. Theo dõi log `[MEM]` xác nhận.
 
 ### [web2][worker] Hợp nhất nguồn base-URL + fix 2 gap (livestream 404 worker, ck-dashboard 401) ✅
 
