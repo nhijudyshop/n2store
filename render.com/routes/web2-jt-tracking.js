@@ -106,16 +106,37 @@ function extractOrderCodes(text) {
     return [...out];
 }
 
-// Ngày đơn trong dòng dán (DD/MM/YYYY) → epoch ms (~12:00 GMT+7) để xếp đúng thứ tự
-// thời gian khi NẠP dòng dán vào kho tin chat. Không có ngày → null (dùng ts hiện tại).
-function _parsePasteDate(line) {
-    const m = String(line || '').match(/\b(\d{1,2})\/(\d{1,2})\/(\d{4})\b/);
-    if (!m) return null;
-    const d = +m[1],
-        mo = +m[2],
-        y = +m[3];
-    if (mo < 1 || mo > 12 || d < 1 || d > 31 || y < 2020 || y > 2100) return null;
-    return Date.UTC(y, mo - 1, d, 5, 0, 0); // 12:00 GMT+7 = 05:00 UTC
+// Ngày đơn trong dòng dán (DD/MM/YYYY, locale VN ngày trước) → epoch ms (~12:00 GMT+7)
+// để xếp đúng thứ tự khi NẠP dòng dán vào kho tin chat. SIẾT (2026-06-15):
+//   - 1 dòng có thể chứa NHIỀU ngày (ghi chú KH có ngày hẹn) → quét TẤT CẢ, ngày đơn
+//     đứng TRƯỚC SĐT/ghi chú nên lấy ngày HỢP LÝ ĐẦU TIÊN.
+//   - Loại ngày KHÔNG có thật (31/02, 32/01, 00/05, 13/13…) bằng round-trip check.
+//   - Loại ngày BẤT THƯỜNG (gõ sai / quá cũ, vd '20/08/2023' lẫn giữa toàn đơn 2026):
+//     chỉ nhận ngày trong cửa sổ [now-180 ngày, now+2 ngày]. Ngoài cửa sổ → bỏ.
+//   - Không có ngày hợp lý → null (caller dùng ts hiện tại = coi như tin mới, KHÔNG
+//     để 1 ngày sai văng tin lên đầu/cuối lung tung).
+const _PASTE_FUTURE_SLACK_MS = 2 * 24 * 60 * 60 * 1000; // lệch tương lai cho phép (TZ/đồng hồ)
+const _PASTE_MAX_AGE_MS = 180 * 24 * 60 * 60 * 1000; // đơn đang theo dõi: không cũ quá ~6 tháng
+function _parsePasteDate(line, nowMs) {
+    const s = String(line || '');
+    const nowVal = Number(nowMs) || now(); // now() = module Date.now() wrapper
+    const re = /\b(\d{1,2})\/(\d{1,2})\/(\d{4})\b/g;
+    let m;
+    while ((m = re.exec(s))) {
+        const d = +m[1],
+            mo = +m[2],
+            y = +m[3];
+        if (mo < 1 || mo > 12 || d < 1 || d > 31 || y < 2020 || y > 2100) continue;
+        const t = Date.UTC(y, mo - 1, d, 5, 0, 0); // 12:00 GMT+7 = 05:00 UTC
+        if (Number.isNaN(t)) continue;
+        // round-trip: loại ngày cuộn tháng (vd 31/02 → 03/03) = ngày không có thật
+        const bk = new Date(t);
+        if (bk.getUTCFullYear() !== y || bk.getUTCMonth() !== mo - 1 || bk.getUTCDate() !== d)
+            continue;
+        // cửa sổ hợp lý → nhận ngày hợp lý ĐẦU TIÊN (ngày đơn đứng trước ghi chú)
+        if (t <= nowVal + _PASTE_FUTURE_SLACK_MS && t >= nowVal - _PASTE_MAX_AGE_MS) return t;
+    }
+    return null;
 }
 
 // Nhóm Zalo đích để NẠP dòng dán vào kho tin (web2_zalo_messages). Ưu tiên convId
@@ -588,7 +609,7 @@ router.post('/scan-text', async (req, res) => {
                                 conv.account_key,
                                 conv.thread_id,
                                 src,
-                                _parsePasteDate(src) || ts,
+                                _parsePasteDate(src, ts) || ts,
                                 ts,
                             ]
                         )
