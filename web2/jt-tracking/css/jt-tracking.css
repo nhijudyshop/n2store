@@ -542,9 +542,18 @@ body {
     white-space: pre-wrap;
     word-break: break-word;
 }
-.jt-row-msg .jt-phone {
+.jt-row-msg .jt-phone,
+.jt-phone {
     color: var(--jt-primary);
     font-weight: 700;
+    cursor: pointer;
+    border-radius: 4px;
+    padding: 0 2px;
+    transition: background var(--jt-dur) var(--jt-ease);
+}
+.jt-phone:hover {
+    background: color-mix(in oklab, var(--jt-primary) 14%, transparent);
+    text-decoration: underline;
 }
 .jt-row-msg b {
     font-weight: 700;

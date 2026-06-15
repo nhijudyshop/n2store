@@ -166,8 +166,38 @@
     function fmtSrcMsg(s) {
         let h = esc(String(s || ''));
         h = h.replace(/\b(\d{12})\b/g, '<b>$1</b>');
-        h = h.replace(/\b(0\d{8,10})\b/g, '<span class="jt-phone">$1</span>');
+        // SĐT bấm để copy (data-copy → handler capture, KHÔNG mở modal)
+        h = h.replace(
+            /\b(0\d{8,10})\b/g,
+            '<span class="jt-phone" data-copy="$1" role="button" tabindex="0" title="Bấm để copy SĐT">$1</span>'
+        );
         return h;
+    }
+    function copyText(t) {
+        const v = String(t || '').trim();
+        if (!v) return;
+        const ok = () => notify('Đã copy: ' + v, 'success');
+        if (navigator.clipboard?.writeText) {
+            navigator.clipboard
+                .writeText(v)
+                .then(ok)
+                .catch(() => fallbackCopy(v, ok));
+        } else fallbackCopy(v, ok);
+    }
+    function fallbackCopy(v, ok) {
+        try {
+            const ta = document.createElement('textarea');
+            ta.value = v;
+            ta.style.position = 'fixed';
+            ta.style.opacity = '0';
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand('copy');
+            ta.remove();
+            ok();
+        } catch {
+            notify('Copy lỗi', 'error');
+        }
     }
     function approvedTag(approvedAt) {
         if (!approvedAt) return '';
@@ -514,6 +544,29 @@
         // Sidebar KHÔNG tự mount — phải gọi tay (giống các trang Báo cáo khác).
         if (window.Web2Sidebar)
             window.Web2Sidebar.mount('#web2Aside', { activeUrl: window.location.href });
+        // Copy SĐT (capture-phase) — chặn TRƯỚC click row/modal → bấm SĐT chỉ copy,
+        // KHÔNG mở modal. Áp cho cả list, modal timeline lẫn chat drawer.
+        document.addEventListener(
+            'click',
+            (e) => {
+                const c = e.target.closest('[data-copy]');
+                if (c) {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    copyText(c.dataset.copy);
+                }
+            },
+            true
+        );
+        document.addEventListener('keydown', (e) => {
+            if (e.key !== 'Enter' && e.key !== ' ') return;
+            const c = e.target.closest?.('[data-copy]');
+            if (c) {
+                e.stopPropagation();
+                e.preventDefault();
+                copyText(c.dataset.copy);
+            }
+        });
         icons();
         $('jtQuickForm').addEventListener('submit', quickAdd);
         $('jtScan').addEventListener('click', scanZalo);
