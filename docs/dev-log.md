@@ -2,6 +2,16 @@
 
 ## 2026-06-15
 
+### [web2][render] Chat KH: Zalo chat-by-phone (chưa từng nhắn vẫn chat được) + auto-scroll + nút tag đổi trạng thái ✅
+
+User: "1. zalo chưa có đoạn hội thoại nhưng đã có SĐT thì vẫn lấy được thông tin + chat được (Zalo không chặn, chỉ khách chặn mới fail). 2. Pancake/Zalo tự cuộn xuống cùng. 3. Bấm tag XỬ LÝ BC → nút đổi khác để biết khách đã có tag."
+
+- **Zalo chat-by-phone** (trước đây SĐT chưa từng nhắn → "Khách chưa có hội thoại Zalo"): thêm `POST /api/web2-zalo/conversation/ensure {phone}` ([web2-zalo.js](render.com/routes/web2-zalo.js)) → đã có row trả luôn; chưa có → chọn account personal đang KẾT NỐI → `zca.findUser(phone)` → upsert row rỗng (`thread_id=uid`, thread_type user, phone/tên/avatar) → trả về. `Web2Zalo.mountChat({phone})` ([web2-zalo.js](web2/shared/web2-zalo.js)) khi `getConversation` rỗng → gọi ensure → mount thread rỗng + composer → gửi tin đầu tạo thread thật. Không tìm thấy user Zalo → báo lý do.
+- **Auto-scroll xuống cùng**: [web2-customer-chat.js](web2/shared/web2-customer-chat.js) sau mount Pancake (`panelInst.scrollToBottom()` +500ms) và Zalo (`.wz-chat-body.scrollTop=scrollHeight` +500ms); quay lại tab đã mount cũng re-scroll.
+- **Nút tag đổi trạng thái**: [jt-tracking-app.js](web2/jt-tracking/js/jt-tracking-app.js) nhớ SĐT đã tag (`localStorage jt_tagged_phones`) → render nút xanh + icon `badge-check` + title "đã gắn thẻ". Sau khi gắn thành công → đổi NGAY mọi nút cùng SĐT. CSS `.jt-icobtn.tag.is-tagged` (xanh).
+- Bump web2-zalo `?v=20260615e` + web2-customer-chat `?v=20260615b` (jt+balance-history+customers) + jt app/css `?v=20260615o`.
+- ⚠ **Cần deploy web2-api** (route mới `conversation/ensure`). Frontend qua GH Pages. Status: ✅ Done (deploy + verify).
+
 ### [live-chat/mobile] Đồng bộ đơn native-orders xuống mobile (realtime) + STT ✅
 
 User: (1) desktop kéo SP tạo đơn (sau 5s không hoàn tác) → mobile hiện comment đó "đã tạo đơn" realtime; (2) hiện STT giống native-orders ở comment khách có đơn.

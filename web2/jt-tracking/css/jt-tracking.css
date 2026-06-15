@@ -427,6 +427,13 @@ body {
     background: color-mix(in oklab, var(--jt-primary) 14%, transparent);
     color: var(--jt-primary);
 }
+.jt-icobtn.tag.is-tagged {
+    background: var(--st-delivered-bg);
+    color: var(--st-delivered);
+}
+.jt-icobtn.tag.is-tagged:hover {
+    background: color-mix(in oklab, var(--st-delivered) 22%, transparent);
+}
 .jt-icobtn.is-busy,
 .jt-btn.is-busy {
     opacity: 0.6;
