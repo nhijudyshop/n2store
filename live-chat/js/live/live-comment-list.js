@@ -1053,9 +1053,8 @@ const LiveCommentList = {
         const ts = (c) => SharedUtils.toEpochMs(c.created_time);
         fresh.sort((a, b) => ts(b) - ts(a));
 
-        // Vị trí của comment mới nhất hiện có (đầu danh sách).
+        // state.comments (newest-first) — nguồn để chèn đúng vị trí.
         const all = state.comments || (state.comments = []);
-        const headTs = all.length ? ts(all[0]) : -Infinity;
 
         // Cập nhật state.comments TRƯỚC (enrichment scan đọc state.comments).
         // Merge giữ newest-first: dùng splice theo vị trí chèn đúng.
@@ -1106,26 +1105,51 @@ const LiveCommentList = {
             return;
         }
 
-        // Tất cả dòng mới phải ≥ headTs (thuộc về đầu list) mới prepend an toàn.
-        // Nếu có dòng cũ hơn head (out-of-order, comment trễ về) → full render.
-        const allAtTop = freshVisible.every((c) => ts(c) >= headTs);
-        if (!allAtTop) {
-            this.renderComments();
-            return;
-        }
-
-        // Generation token: nếu full re-render bump _renderGen sau khi ta đọc gen
-        // → vẫn an toàn vì insertAdjacentHTML đồng bộ tức thì (không async). Đọc
-        // gen chỉ để KHÔNG chèn nếu đang có full-render-loop chạy dở (DOM sẽ bị
-        // ghi đè) → khi đó fallback full render.
+        // Render-loop (full render / patch chunked) đang chạy → state.comments đã
+        // cập nhật, để loop tự dựng (tránh chèn vào DOM đang bị ghi đè dở).
         if (this._fullRenderHandle != null || this._chunkHandle != null) {
-            // Render-loop đang chạy → state.comments đã cập nhật, để loop tự dựng.
             this._pendingDirty = true;
             return;
         }
 
-        const html = freshVisible.map((c) => this.renderCommentItem(c)).join('');
-        listContainer.insertAdjacentHTML('afterbegin', html);
+        // ===== APPEND-ONLY (user 2026-06-15): chèn TỪNG comment mới vào ĐÚNG VỊ TRÍ
+        // theo thời gian giữa các dòng ĐANG render — KHÔNG full re-render kể cả khi
+        // comment out-of-order (multi-campaign / nhiều post / comment trễ về). Trước
+        // đây out-of-order → renderComments() full = "render toàn bộ" giật + nháy.
+        // Case phổ biến (comment mới nhất) tự rơi vào đầu list (chèn trước dòng đầu).
+        const idToTs = new Map(all.map((c) => [String(c.id), ts(c)]));
+        const sentinelEl = document.getElementById('liveScrollSentinel');
+        let inserted = 0;
+        for (const c of freshVisible) {
+            const cts = ts(c);
+            const rows = listContainer.querySelectorAll('.live-conversation-item');
+            let placed = false;
+            for (const row of rows) {
+                const rts = idToTs.has(row.dataset.commentId)
+                    ? idToTs.get(row.dataset.commentId)
+                    : -Infinity;
+                if (rts < cts) {
+                    // Dòng này CŨ hơn comment mới → chèn comment mới NGAY TRƯỚC nó.
+                    row.insertAdjacentHTML('beforebegin', this.renderCommentItem(c));
+                    placed = true;
+                    break;
+                }
+            }
+            if (!placed) {
+                // Cũ hơn mọi dòng đang render → cuối window (trước sentinel scroll).
+                if (sentinelEl && sentinelEl.parentNode === listContainer) {
+                    sentinelEl.insertAdjacentHTML('beforebegin', this.renderCommentItem(c));
+                } else {
+                    listContainer.insertAdjacentHTML('beforeend', this.renderCommentItem(c));
+                }
+            }
+            inserted++;
+        }
+        // Giữ invariant "số dòng DOM == _renderLimit" để _appendOlderBatch slice
+        // đúng offset khi cuộn tải thêm (không trùng / không sót dòng).
+        if (inserted) {
+            this._renderLimit = (this._renderLimit || RENDER_LIMIT_INITIAL) + inserted;
+        }
 
         this.updateLoadMoreIndicator();
         this._attachWalletBalances();
