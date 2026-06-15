@@ -48,9 +48,11 @@
     function normPhone(p) {
         var s = String(p == null ? '' : p).replace(/\D/g, '');
         if (!s) return '';
-        if (s.indexOf('84') === 0 && s.length >= 11) s = '0' + s.slice(2);
+        if (s.indexOf('84') === 0 && s.length === 11) s = '0' + s.slice(2);
         if (s.length === 9 && s[0] !== '0') s = '0' + s;
-        if (s.length > 10) s = s.slice(-10);
+        // ⚠ KHÔNG slice(-10) cho dãy dài: fb_id 15-17 số (vd 24084091254523635)
+        // bị slice → '1254523635' trông như SĐT giả → ghi đè SĐT thật. Giữ nguyên
+        // → isValidPhone (/^0\d{9}$/) loại. (fix 2026-06-15)
         return s;
     }
     function isValidPhone(p) {

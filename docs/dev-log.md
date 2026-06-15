@@ -2,6 +2,19 @@
 
 ## 2026-06-15
 
+### [web2][live-chat] Fix SĐT bị fb_id ghi đè + health-monitor 404 spam + dọn TPOS leftover ✅
+
+User: "lưu SĐT xong lưu địa chỉ thì SĐT bị đầy về 1254523635???" + "chatomni-proxy.../ 404 trang nào cũng console" + "xóa tất cả tpos bên web 2.0".
+
+**Bug 1 — SĐT → đuôi fb_id (data corruption)**: `Web2CustomerStore.normPhone` có `if (s.length>10) s=s.slice(-10)` → fb_id `fb_24084091254523635` (17 số) → `1254523635` (SĐT giả). Caches reset (SSE web2:customers) → render fallback `partner.Phone||kho.phone||comment.phone` đọc giá trị nhiễm → hiện `1254523635`. Fix:
+
+- [web2-customer-store.js](web2/shared/web2-customer-store.js) `normPhone`: **bỏ `slice(-10)`** → fb_id giữ 17 số → `isValidPhone(/^0\d{9}$/)` loại.
+- [live-comment-list.js](live-chat/js/live/live-comment-list.js): render (`_rowSig` + row builder) **chỉ chọn SĐT hợp lệ đầu tiên** (`isValidPhone` gate) → ẩn giá trị nhiễm. `saveInlinePhone`: validate 10 số TRƯỚC khi lưu + `run()` throw khi `savePartnerData` trả `{ok:false}` (409 SĐT trùng KH / 400) → optimistic rollback + báo lỗi. `saveInlineAddress` throw tương tự.
+
+**Bug 2 — 404 spam mọi trang**: [service-health-monitor.js](shared/js/service-health-monitor.js) `checkWorker` probe `GET /` → worker 404 tại edge → browser **luôn log** `GET chatomni-proxy/ 404` mỗi 25s mọi trang. Fix: probe **`OPTIONS /`** → worker trả **204** (CORS preflight, edge, không đụng Render) = success → hết log. Bump loader 3 nơi (auth-manager/navigation-modern/web2-sidebar).
+
+**Dọn TPOS leftover Web 2.0** (đã gỡ API 2026-06-14, còn remnant): gỡ nút "Mở trên Live"→`tomato.live.vn` ([live-customer-panel.js](live-chat/js/live/live-customer-panel.js)); gỡ `liveBaseUrl` (tomato.live.vn forwarder, dead — 0 nơi dùng) [live-state.js](live-chat/js/live/live-state.js); sửa doc overview (route `web2-customer-tpos` đã gỡ; cột `tpos_id/tpos_data` vestigial). ⚠ Backend web2 KHÔNG gọi TPOS; cột DB `tpos_id/tpos_data` CHƯA drop (chờ user xác nhận — CLAUDE.md từng ghi "giữ"). Bump `?v=20260615fix`. Frontend-only.
+
 ### [web2][shared][jt-tracking] Retrofit optimistic UI — handler còn await trần → Web2Optimistic ✅
 
 User hỏi "optimistic UI đã có ở tất cả trang chưa? (tạo/nặng→spinner chống bấm trùng, xoá→biến mất ngay rồi rollback)". Audit: helper load 35/40 trang, dùng thật ~17 file; money/destructive cố ý giữ await. Sweep handler còn await trần (non-money):

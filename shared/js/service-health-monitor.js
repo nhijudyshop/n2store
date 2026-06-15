@@ -73,9 +73,10 @@
 
     async function checkWorker() {
         try {
-            // GET '/' → worker tự trả 404 ngay tại edge (không proxy Render).
-            // Bất kỳ HTTP response nào = worker còn sống. Reject = down.
-            await probe(WORKER_PROBE_URL, {});
+            // OPTIONS '/' → worker trả 204 (CORS preflight) NGAY tại edge (không proxy
+            // Render). 204 = success → KHÔNG spam console (GET '/' trước đây trả 404 →
+            // browser log lỗi mọi 25s mọi trang). Bất kỳ response nào = worker sống.
+            await probe(WORKER_PROBE_URL, { method: 'OPTIONS' });
             return 'ok';
         } catch (_) {
             return 'down';

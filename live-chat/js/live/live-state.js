@@ -70,10 +70,7 @@ const LiveState = {
     // Relay WS server + FB Graph — service Render 'web2-realtime' (gộp từ
     // n2store-tpos-pancake + n2store-facebook, 2026-06-14).
     livePancakeUrl: 'https://web2-realtime.onrender.com',
-    // CF Worker proxy — strips /api/ prefix then forwards to tomato.live.vn
-    // (so `${liveBaseUrl}/rest/...` becomes tomato.live.vn/rest/... upstream while
-    // the browser sees CORS headers from Cloudflare).
-    liveBaseUrl: 'https://chatomni-proxy.nhijudyshop.workers.dev/api',
+    // (liveBaseUrl tomato.live.vn đã gỡ 2026-06-15 — Web 2.0 không còn TPOS Live.)
 
     /**
      * Reset state when switching campaigns

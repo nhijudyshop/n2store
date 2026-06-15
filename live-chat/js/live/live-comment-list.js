@@ -860,7 +860,9 @@ const LiveCommentList = {
         const fromId = comment.from?.id || '';
         const partner = state.partnerCache.get(fromId) || {};
         const kho = state.customerKhoCache?.get(fromId);
-        const phone = partner.Phone || kho?.phone || comment.phone || '';
+        const _vp = window.Web2CustomerStore?.isValidPhone;
+        const phone =
+            [partner.Phone, kho?.phone, comment.phone].find((p) => p && (!_vp || _vp(p))) || '';
         const address = partner.Street || kho?.address || comment.address || '';
         const raw = state.sessionIndexMap.get(fromId);
         const si = raw?.source === 'NATIVE_WEB' ? raw : null;
@@ -1402,7 +1404,13 @@ const LiveCommentList = {
         // Fallback comment.phone/comment.address (DB web2_live_comments — server
         // poller enrich từ Pancake profile) → dòng SSE mới hiện SĐT/địa chỉ NGAY
         // kể cả khi partnerCache/khoCache chưa nạp (fix: index.html thiếu địa chỉ).
-        const phone = partner.Phone || kho?.phone || pancakePhone || comment.phone || '';
+        // Chỉ nhận SĐT HỢP LỆ (10 số) — tránh hiện giá trị nhiễm (vd đuôi fb_id
+        // '1254523635' lọt vào kho/comment.phone do bug normPhone cũ). (2026-06-15)
+        const _vp = window.Web2CustomerStore?.isValidPhone;
+        const phone =
+            [partner.Phone, kho?.phone, pancakePhone, comment.phone].find(
+                (p) => p && (!_vp || _vp(p))
+            ) || '';
         const address = partner.Street || kho?.address || comment.address || '';
 
         // Số dư ví Web 2.0 (thay cho "Nợ Live" cũ — user yêu cầu 2026-06-06).
@@ -1713,6 +1721,15 @@ const LiveCommentList = {
                 window.notificationManager.show('Vui lòng nhập số điện thoại', 'warning');
             return;
         }
+        // SĐT VN = ĐÚNG 10 số (0xxxxxxxxx) — chặn lưu dãy rác/fb_id. (2026-06-15)
+        if (
+            window.Web2CustomerStore?.isValidPhone &&
+            !window.Web2CustomerStore.isValidPhone(newPhone)
+        ) {
+            if (window.notificationManager)
+                window.notificationManager.show('SĐT phải đúng 10 số (vd 0917540164)', 'warning');
+            return;
+        }
 
         const state = window.LiveState;
         const partner = state.partnerCache?.get(userId) || {};
@@ -1726,7 +1743,11 @@ const LiveCommentList = {
                     state.partnerCache?.set(userId, partner);
                 },
                 run: async () => {
-                    await window.LiveApi.savePartnerData(userId, { Phone: newPhone });
+                    const r = await window.LiveApi.savePartnerData(userId, { Phone: newPhone });
+                    // savePartnerData KHÔNG throw — phải check {ok} để optimistic rollback
+                    // (vd 409 SĐT đã thuộc KH khác / 400). (2026-06-15)
+                    if (r && r.ok === false)
+                        throw new Error('SĐT đã thuộc khách khác hoặc không hợp lệ');
                 },
                 rollback: (prev) => {
                     partner.Phone = prev;
@@ -1774,7 +1795,8 @@ const LiveCommentList = {
                     state.partnerCache?.set(userId, partner);
                 },
                 run: async () => {
-                    await window.LiveApi.savePartnerData(userId, { Street: newAddress });
+                    const r = await window.LiveApi.savePartnerData(userId, { Street: newAddress });
+                    if (r && r.ok === false) throw new Error('Không lưu được địa chỉ');
                 },
                 rollback: (prev) => {
                     partner.Street = prev;

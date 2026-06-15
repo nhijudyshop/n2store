@@ -605,7 +605,7 @@
         var root = m ? m[1] : location.origin || '';
         window.__n2HealthMonitorLoaded = true;
         var el = document.createElement('script');
-        el.src = root + '/shared/js/service-health-monitor.js?v=20260613a';
+        el.src = root + '/shared/js/service-health-monitor.js?v=20260615fix';
         el.async = true;
         (document.head || document.documentElement).appendChild(el);
     } catch (e) {

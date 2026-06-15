@@ -3027,7 +3027,9 @@ permission_templates    (role: admin/manager/staff)</pre
                         <code>services/web2-order-customer-service.js</code> (KHÔNG dùng
                         <code>customer-creation-service</code> / <code>customer-helpers</code> của
                         Web 1.0). Consumer: native-orders, fast-sale-orders, pbh-reports,
-                        web2-customer-orders, web2-customer-tpos.
+                        web2-customer-orders. (<code>web2-customer-tpos</code> route đã gỡ 2026-06 —
+                        Web 2.0 không gọi TPOS; cột <code>tpos_id</code>/<code>tpos_data</code>
+                        còn nhưng vestigial, không code web2 nào đọc.)
                         <br />
                         <strong>Vì sao 2 kho tách:</strong>
                         <code>web2_customers</code> = nguồn WEB2 (search/sửa, id = WEB2 Partner Id);

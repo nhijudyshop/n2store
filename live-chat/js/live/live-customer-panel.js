@@ -252,17 +252,6 @@ const LiveCustomerPanel = {
                         style="flex: 1; padding: 10px 16px; background: #f3f4f6; color: #374151; border: none; border-radius: 6px; cursor: pointer; font-weight: 500;">
                     Đóng
                 </button>
-                ${
-                    order.Code
-                        ? `
-                <button onclick="window.open('https://tomato.live.vn/#/app/saleOnline/facebook/post/${String(order.Facebook_PostId || '').replace(/[^0-9A-Za-z_.-]/g, '')}/false', '_blank')"
-                        style="flex: 1; padding: 10px 16px; background: #3b82f6; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 500;">
-                    <i data-lucide="external-link" style="width: 14px; height: 14px; display: inline; vertical-align: middle;"></i>
-                    Mở trên Live
-                </button>
-                `
-                        : ''
-                }
             </div>
         `;
 
