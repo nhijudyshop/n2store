@@ -3,15 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `d14d1fe` — feat(web2/multi-tool): tăng comment ĐA NHIỆM theo nhiều account Pancake (1 worker/account)
-**Last updated**: 2026-06-15 18:22:40 +07
-**Latest session**: [`RESUME:20260615-182240-d14d1fe`](../20260615-182240-d14d1fe.md)
-**Summary**: feat(web2/multi-tool): tăng comment ĐA NHIỆM theo nhiều account Pancake (1 worker/account)
+**Latest commit**: `6c84cea` — fix(web2/multi-tool): ô Giãn nhịp đổi sang GIÂY (thập phân) — 0.5/0.1s có tác dụng thật
+**Last updated**: 2026-06-15 18:26:15 +07
+**Latest session**: [`RESUME:20260615-182615-6c84cea`](../20260615-182615-6c84cea.md)
+**Summary**: fix(web2/multi-tool): ô Giãn nhịp đổi sang GIÂY (thập phân) — 0.5/0.1s có tác dụng thật
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`web2/`](./web2.md) — 3 file(s)
+- [`web2/`](./web2.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -26,7 +26,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-15 10:55
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-14 18:47
-- [`docs/`](./docs.md) — updated 2026-06-15 18:22
+- [`docs/`](./docs.md) — updated 2026-06-15 18:26
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-15 15:57
 - [`downloads/`](./downloads.md) — updated 2026-06-13 19:16
@@ -74,4 +74,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-15 18:22
+- [`web2/`](./web2.md) — updated 2026-06-15 18:26
