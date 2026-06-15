@@ -192,16 +192,15 @@
 @keyframes liveCommentIn {
     from {
         opacity: 0;
-        transform: translateY(-5px);
     }
     to {
         opacity: 1;
-        transform: translateY(0);
     }
 }
 .live-conversation-item.is-new {
-    animation: liveCommentIn 0.36s cubic-bezier(0.16, 1, 0.3, 1) both;
-    will-change: opacity, transform;
+    /* CHỈ fade mờ→rõ chậm, đều — KHÔNG trượt, KHÔNG lóe (user: nhẹ nhàng, không flash). */
+    animation: liveCommentIn 0.55s ease both;
+    will-change: opacity;
 }
 @media (prefers-reduced-motion: reduce) {
     .live-conversation-item.is-new {
