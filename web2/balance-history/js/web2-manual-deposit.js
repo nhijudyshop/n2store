@@ -379,19 +379,44 @@
     }
 
     // ───────────── NCC select (server ledger ví NCC) + Tạo mới button ─────────────
-    // C8-cleanup (2026-06-13): đọc NCC từ server ledger `/api/web2-supplier-wallet/state`
-    // (đợt E) — KHÔNG còn Firestore `web2_supplier_wallet` (đã frozen → NCC cũ/stale).
+    // P2 (2026-06-15): danh sách TÊN NCC lấy từ directory CHUNG `Web2SuppliersCache`
+    // (web2_supplier_meta — master, gồm cả NCC chưa có ví) thay vì chỉ wallet keys
+    // của `/state`. Balance vẫn đọc từ `/state` (chỉ NCC đã có giao dịch mới có số dư).
+    // → 1 nguồn tên NCC dùng chung mọi trang; deposit được cho cả NCC mới.
     async function loadNccList() {
         if (_nccLoaded) return;
         const select = document.getElementById('w2mdNccSelect');
         try {
-            const r = await jsonFetch(
-                'https://chatomni-proxy.nhijudyshop.workers.dev/api/web2-supplier-wallet/state'
-            );
-            const wallets = (r && r.wallets) || {};
-            const names = Object.keys(wallets)
-                .filter(Boolean)
-                .sort((a, b) => a.localeCompare(b, 'vi'));
+            // (a) số dư theo NCC từ ledger /state
+            const balByName = new Map();
+            try {
+                const r = await jsonFetch(
+                    'https://chatomni-proxy.nhijudyshop.workers.dev/api/web2-supplier-wallet/state'
+                );
+                const wallets = (r && r.wallets) || {};
+                for (const name of Object.keys(wallets)) {
+                    if (!name) continue;
+                    balByName.set(name, Number((wallets[name] || {}).balance || 0));
+                }
+            } catch (e) {
+                console.warn('[w2md] loadNccList state fail:', e.message);
+            }
+
+            // (b) tên NCC = directory chung (master) ∪ keys có số dư.
+            let names = [];
+            if (global.Web2SuppliersCache) {
+                try {
+                    await global.Web2SuppliersCache.init();
+                    names = global.Web2SuppliersCache.getNames() || [];
+                } catch (e) {
+                    console.warn('[w2md] suppliers-cache init fail:', e.message);
+                }
+            }
+            const seen = new Set(names.map((n) => n.toLowerCase()));
+            for (const name of balByName.keys())
+                if (!seen.has(name.toLowerCase())) names.push(name);
+            names.sort((a, b) => a.localeCompare(b, 'vi'));
+
             if (names.length === 0) {
                 select.innerHTML = '<option value="">-- Chưa có NCC, bấm "Tạo mới" --</option>';
                 _nccLoaded = true;
@@ -399,8 +424,7 @@
             }
             const options = ['<option value="">-- Chọn NCC --</option>'];
             for (const name of names) {
-                const w = wallets[name] || {};
-                const bal = Number(w.balance || 0);
+                const bal = Number(balByName.get(name) || 0);
                 const balLabel = bal !== 0 ? ` (${bal.toLocaleString('vi-VN')}₫)` : '';
                 options.push(
                     `<option value="${escapeAttr(name)}">${escapeHtml(name)}${escapeHtml(balLabel)}</option>`

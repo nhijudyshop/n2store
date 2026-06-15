@@ -2,6 +2,16 @@
 
 ## 2026-06-15
 
+### [web2][shared][P2] Kho NCC — adopt directory chung Web2SuppliersCache ✅
+
+Audit kho NCC: **đã shared khá tốt** qua [`Web2SuppliersCache`](web2/shared/web2-suppliers-cache.js) (`/api/web2-supplier-wallet/suppliers` = web2_supplier_meta master). 3 "fetch `/state` trùng" mà audit nêu thực ra là **divergence hợp lệ** — supplier-debt/supplier-wallet cần `/state` cho ledger (số dư), normalize khác nhau vì khác mục đích (lookup-key bỏ dấu vs SePay-content word-match alnum+space vs deeplink NFC giữ dấu). Gom cứng sẽ vỡ matching/mất balance label → KHÔNG ép.
+
+**Làm (an toàn, đúng)**:
+
+- Expose `Web2SuppliersCache.normalize(name)` (public) — 1 hàm chuẩn hoá tên NCC dùng chung.
+- [web2-manual-deposit.js](web2/balance-history/js/web2-manual-deposit.js) `loadNccList`: TÊN NCC lấy từ directory chung `Web2SuppliersCache.getNames()` (master, gồm NCC chưa có ví) ∪ keys có số dư; balance vẫn từ `/state`. → 1 nguồn tên NCC, deposit được cho cả NCC mới. Load `web2-suppliers-cache.js` trên balance-history. Fallback giữ hành vi cũ nếu cache absent.
+- Bump `web2-manual-deposit.js?v=20260615store`. Frontend-only.
+
 ### [web2][shared][P1] Gom kho KH về 1 nguồn — Web2CustomerStore ✅
 
 User: "kiểm tra tất cả web 2 xem phần nào dùng chung thì bỏ vào shared… ví dụ pancake, zalo, kho SP, kho KH, kho NCC, ví KH, ví NCC". Audit (6-agent song song) → kế hoạch 5 cụm P1–P5. **P1 = Kho KH** (giá trị cao nhất + đang có bug thật).

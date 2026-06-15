@@ -212,5 +212,9 @@
         search,
         ensure,
         subscribe,
+        // normalize(name) — key chuẩn hoá tên NCC (lowercase + bỏ dấu + đ→d).
+        // Expose để consumer khác (vd matching tên NCC) dùng CHUNG 1 hàm, tránh
+        // mỗi trang tự normalize khác nhau (NFC/NFD lệch → match fail).
+        normalize: _normalize,
     };
 })(window);
