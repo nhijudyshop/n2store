@@ -2,6 +2,15 @@
 
 ## 2026-06-15
 
+### [web2][live-chat] Badge "comment" hiển thị TỔNG comment THẬT từ Pancake (comment_count) ✅
+
+User: "tổng số comment lấy ở Pancake được nè" (Pancake "Quản lý bài viết" có comment_count thật mỗi bài: 53, 1.0K…). Badge live-chat trước đếm số ROW đã load (→ "200+").
+
+- [web2-chat-client.js](web2/shared/web2-chat-client.js): thêm `Web2Chat.fetchLivePosts(pageId)` — fetch trực tiếp Pancake `pages/{id}/posts` (KHÔNG poller), trả posts kèm **`commentCount`** (=`comment_count` thật) + living/title/date, cache 60s/page.
+- Desktop [live-comment-list.js](live-chat/js/live/live-comment-list.js): `_updateRealCommentTotal()` — tổng `comment_count` các post đang xem (distinct post_id của comment), override badge `💬 N` (giữ số đã-load làm fallback tức thì, seq-guard chống race).
+- Mobile [comments-mobile.js](live-chat/js/live/comments-mobile.js)+[html](live-chat/comments-mobile.html): load web2-chat-client + `syncFromRenderDB()` lấy JWT → `overrideRealCounts()` ghi đè `comment_count` posts bằng số Pancake; badge = tổng count post đang xem (selectedPost → bài đó; "Tất cả" → tổng). Fallback đếm row nếu thiếu JWT (graceful).
+- Field Pancake: `comment_count` (verified prod: 1037→"1.0K", phone_number_count=11). Bump live-chat refs `?v=20260615lp1`.
+
 ### [web2][shared] Web2CustomerChat — bấm SĐT ở header drawer để copy ✅
 
 User: trong khung chat KH (Web2CustomerChat), SĐT ở header "Khách 0904455856" bấm vào copy. Thêm `data-w2cc="copyphone"` + class `.w2cc-phone` (cursor pointer, hover xanh) cho `<span>` SĐT; click handler `_copyPhone()` (clipboard + toast). [web2-customer-chat.js](web2/shared/web2-customer-chat.js). Bump launcher `?v=20260615c` ở jt-tracking + balance-history + customers. Frontend-only.

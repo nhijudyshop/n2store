@@ -352,7 +352,11 @@
         if (hideCountEl) hideCountEl.textContent = hiddenCount();
         updateOrderCounts();
         const rows = ALL.filter(visible);
-        countEl.textContent = rows.length + (rows.length >= LIMIT ? '+' : '') + ' comment';
+        const _rt = realCommentTotal();
+        countEl.textContent =
+            (_rt != null
+                ? _rt.toLocaleString('vi-VN')
+                : rows.length + (rows.length >= LIMIT ? '+' : '')) + ' comment';
         if (!rows.length) {
             listEl.innerHTML = `<div class="empty"><div class="ic">🗒️</div>Chưa có comment ${filter || selectedPost ? 'khớp bộ lọc' : 'nào'}.</div>`;
             return;
@@ -903,7 +907,10 @@
             enrichDelta(fresh);
         }
         const vn = ALL.filter(visible).length;
-        countEl.textContent = vn + (vn >= LIMIT ? '+' : '') + ' comment';
+        const _rt2 = realCommentTotal();
+        countEl.textContent =
+            (_rt2 != null ? _rt2.toLocaleString('vi-VN') : vn + (vn >= LIMIT ? '+' : '')) +
+            ' comment';
         if (hideCountEl) hideCountEl.textContent = hiddenCount();
         updateOrderCounts();
     }
@@ -931,6 +938,12 @@
     }
 
     // ---------- boot ----------
+    // Nạp JWT Pancake (Render DB) để Web2Chat.fetchLivePosts lấy comment_count THẬT.
+    // Best-effort: lỗi → badge fallback đếm row đã load.
+    if (window.Web2Chat?.syncFromRenderDB)
+        window.Web2Chat.syncFromRenderDB()
+            .then(() => loadPosts())
+            .catch(() => {});
     load();
     loadPosts();
     loadNativeOrders();
