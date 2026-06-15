@@ -86,6 +86,61 @@ async function ensureSchema(pool) {
     }
 }
 
+// Mã J&T trong tin nhắn nhóm = 12 số bắt đầu "80" (tránh nhầm số 12 chữ số khác).
+const JT_CODE_RE = /\b80\d{10}\b/g;
+
+// Auto-ingest từ tin nhắn Zalo (gọi từ web2-zalo _persistIncoming khi có tin MỚI):
+// tin NHÓM chứa mã J&T → thêm pending + SSE (UI realtime, không cần refresh), rồi
+// fetch nền điền trạng thái. KHÔNG chặn luồng tin nhắn (fire-and-forget ở caller).
+async function autoIngestFromZalo(db, msg) {
+    try {
+        if (!db || !msg || msg.threadType !== 'group') return;
+        const codes = [...new Set(String(msg.content || '').match(JT_CODE_RE) || [])].slice(0, 20);
+        if (!codes.length) return;
+        // tên nhóm (chỉ lookup khi đã có mã → nhẹ)
+        let convName = null;
+        try {
+            convName =
+                (
+                    await db.query(
+                        `SELECT display_name FROM web2_zalo_conversations WHERE account_key=$1 AND thread_id=$2`,
+                        [msg.accountKey, msg.threadId]
+                    )
+                ).rows[0]?.display_name || null;
+        } catch (e) {
+            /* best-effort */
+        }
+        const ts = now();
+        const added = [];
+        for (const code of codes) {
+            const r = await db.query(
+                `INSERT INTO web2_jt_tracking (billcode, status, source, note, created_at, updated_at)
+                 VALUES ($1,'pending','zalo',$2,$3,$3) ON CONFLICT (billcode) DO NOTHING`,
+                [code, convName, ts]
+            );
+            if (r.rowCount) added.push(code);
+        }
+        if (!added.length) return;
+        _notify('auto-add', String(added.length)); // UI hiện ngay row "Chưa tra"
+        // fetch nền điền trạng thái thật (không chặn ingest tin nhắn)
+        (async () => {
+            let changed = 0;
+            for (const code of added) {
+                try {
+                    const fetched = await fetchJt(code);
+                    await _upsertTracked(db, code, fetched, { source: 'zalo', note: convName });
+                    changed++;
+                } catch (e) {
+                    /* để pending, refresh sau */
+                }
+            }
+            if (changed) _notify('refresh', String(changed));
+        })();
+    } catch (e) {
+        console.warn('[WEB2-JT] autoIngestFromZalo:', e.message);
+    }
+}
+
 // Tự xoá các mã ĐÃ DUYỆT quá 7 ngày (best-effort, gọi khi list).
 async function _purgeApproved(db) {
     try {
@@ -526,4 +581,5 @@ router.post('/:billcode/unapprove', async (req, res) => {
 
 router.ensureSchema = ensureSchema;
 router.initializeNotifiers = initializeNotifiers;
+router.autoIngestFromZalo = autoIngestFromZalo; // gọi từ web2-zalo khi có tin nhắn mới
 module.exports = router;

@@ -297,6 +297,17 @@ async function _persistIncoming(msg) {
     if (isNew) {
         _notify('web2:zalo:messages', msg.direction === 'in' ? 'create' : 'update', msg.msgId);
         if (msg.threadId) _notify(`web2:zalo:thread:${msg.threadId}`, 'message', msg.msgId);
+        // Auto-ingest mã vận đơn J&T (12 số) trong tin nhóm → trang Tra cứu vận đơn
+        // tự thêm + cập nhật realtime (không cần Quét/refresh). Fire-and-forget.
+        if (msg.threadType === 'group') {
+            try {
+                require('./web2-jt-tracking')
+                    .autoIngestFromZalo(_pool, msg)
+                    .catch(() => {});
+            } catch (e) {
+                /* module chưa sẵn sàng — bỏ qua */
+            }
+        }
     }
 }
 

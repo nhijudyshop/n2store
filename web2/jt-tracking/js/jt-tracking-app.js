@@ -442,6 +442,9 @@
     }
 
     function init() {
+        // Sidebar KHÔNG tự mount — phải gọi tay (giống các trang Báo cáo khác).
+        if (window.Web2Sidebar)
+            window.Web2Sidebar.mount('#web2Aside', { activeUrl: window.location.href });
         icons();
         $('jtQuickForm').addEventListener('submit', quickAdd);
         $('jtScan').addEventListener('click', scanZalo);
