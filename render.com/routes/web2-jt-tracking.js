@@ -482,7 +482,9 @@ router.get('/list', async (req, res) => {
         const lim = Math.min(parseInt(req.query.limit, 10) || 500, 1000);
         const where = [];
         const params = [];
-        if (status && status !== 'all') {
+        if (status === 'approved') {
+            where.push('approved_at IS NOT NULL'); // lọc riêng "Đã duyệt" (không phải status)
+        } else if (status && status !== 'all') {
             params.push(status);
             where.push(`status = $${params.length}`);
         }

@@ -62,6 +62,7 @@
         'delivered',
         'pending',
         'not_found',
+        'approved',
     ];
     const KPI_META = {
         total: { label: 'Tất cả', accent: 'var(--jt-primary)' },
@@ -71,6 +72,7 @@
         delivered: { label: 'Đã giao', accent: 'var(--st-delivered)' },
         pending: { label: 'Chưa tra', accent: 'var(--st-pending)' },
         not_found: { label: 'Không thấy', accent: 'var(--st-notfound)' },
+        approved: { label: 'Đã duyệt', accent: '#0d9488' },
     };
 
     const APPROVE_TTL_DAYS = 7;

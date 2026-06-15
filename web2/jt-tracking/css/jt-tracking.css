@@ -180,7 +180,7 @@ body {
 .jt-quickadd {
     display: flex;
     gap: 8px;
-    align-items: stretch;
+    align-items: center;
     background: var(--jt-surface);
     border: 1px solid var(--jt-line);
     border-radius: var(--jt-radius);
@@ -202,12 +202,12 @@ body {
     width: 18px;
     height: 18px;
     color: var(--jt-primary);
+    pointer-events: none;
 }
 .jt-qa-code input {
     width: 100%;
     box-sizing: border-box;
-    height: 100%;
-    min-height: 42px;
+    height: 46px;
     padding: 0 12px 0 40px;
     border: 1px solid var(--jt-line);
     border-radius: var(--jt-radius-sm);
@@ -218,7 +218,9 @@ body {
     transition: border-color var(--jt-dur) var(--jt-ease);
 }
 .jt-qa-cell {
-    width: 64px;
+    width: 56px;
+    height: 46px;
+    box-sizing: border-box;
     text-align: center;
     border: 1px solid var(--jt-line);
     border-radius: var(--jt-radius-sm);
@@ -227,6 +229,10 @@ body {
     font-variant-numeric: tabular-nums;
     color: var(--jt-ink-soft);
     background: var(--jt-bg);
+}
+/* nút trong thanh nhập đồng cao 46px cho thẳng hàng */
+.jt-quickadd .jt-btn {
+    height: 46px;
 }
 .jt-qa-code input:focus,
 .jt-qa-cell:focus {
