@@ -2,6 +2,10 @@
 
 ## 2026-06-15
 
+### [web2][render] J&T "Quét lịch sử" → quét 14 NGÀY + chẩn đoán độ sâu ✅
+
+User: "quét tin nhắn lịch sử 14 ngày đi". `/scan-history` giờ nhận `days` (mặc định 14) + `count` cao (1000) → lọc tin theo `sentAt >= now - days`. ⚠ Phát hiện giới hạn: zca-js 2.1.2 `getGroupChatHistory(groupId, count)` KHÔNG có cursor (`lastMsgId`) → mỗi call chỉ trả batch tin GẦN NHẤT (count 50 vs 500 đều ~35 tin), response có `more>0` báo còn tin cũ hơn NHƯNG không lấy tiếp được. → scan-history trả thêm `rawTotal`/`more`/`oldestDate` để biết với tới đâu; nút "Quét lịch sử" báo "tới <ngày>" + cảnh báo nếu Zalo còn tin cũ hơn. 14 ngày đầy đủ vẫn dựa vào realtime listener (`web2_zalo_messages`, "Quét Zalo" đã quét hết). Bump app `?v=20260615q`.
+
 ### [orders-report][don-inbox] Fix bill PBH lẻ MẤT MÃ VẠCH khi in (barcode pre-render data-URI, bỏ race ảnh ngoài) ✅
 
 **User:** "khi tạo đơn bằng phiếu bán hàng lẻ ở don-inbox bill in bị mất mã vạch? kiểm tra kỹ lại lỗi tại sao? tham khảo orders-report/main.html"

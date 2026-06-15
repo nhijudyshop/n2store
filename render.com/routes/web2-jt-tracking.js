@@ -401,7 +401,9 @@ router.post('/scan', async (req, res) => {
 router.post('/scan-history', async (req, res) => {
     try {
         const db = getDb(req);
-        const count = Math.min(parseInt(req.body?.count, 10) || 200, 500);
+        const days = Math.min(Math.max(parseInt(req.body?.days, 10) || 14, 1), 60);
+        const count = Math.min(parseInt(req.body?.count, 10) || 1000, 3000);
+        const cutoff = now() - days * 24 * 60 * 60 * 1000;
         // Nhóm J&T được theo dõi + tên/id hội thoại (để gán nguồn).
         const groups = (
             await db.query(
@@ -417,20 +419,28 @@ router.post('/scan-history', async (req, res) => {
                 success: false,
                 error: 'Chưa cấu hình nhóm J&T theo dõi (web2_zalo_tracked_groups)',
             });
-        let fetched = 0;
+        let fetched = 0; // tin có nội dung TRONG cửa sổ `days`
+        let rawTotal = 0; // tổng tin Zalo trả về (gồm ảnh/system)
+        let moreAvail = 0; // >0 = Zalo còn tin cũ hơn (zca 2.1.2 không lấy tiếp được)
+        let oldestTs = null; // mốc cũ nhất chạm tới (cho biết với tới bao xa)
         const errors = [];
         // mã → ngữ cảnh (giống /scan): tên/id nhóm + toàn bộ tin chứa mã.
         const found = new Map();
         for (const g of groups) {
-            let msgs = [];
+            let r;
             try {
-                msgs = await zca.getGroupHistory(g.account_key, g.thread_id, count);
+                r = await zca.getGroupHistory(g.account_key, g.thread_id, count);
             } catch (e) {
                 errors.push(`${g.name || g.thread_id}: ${e.message}`);
                 continue;
             }
-            for (const m of msgs) {
-                if (!m || !m.content) continue;
+            rawTotal += r.total || 0;
+            moreAvail = Math.max(moreAvail, r.more || 0);
+            for (const m of r.messages || []) {
+                if (!m) continue;
+                if (m.sentAt && (oldestTs === null || m.sentAt < oldestTs)) oldestTs = m.sentAt;
+                if (m.sentAt && m.sentAt < cutoff) continue; // ngoài cửa sổ `days`
+                if (!m.content) continue;
                 fetched++;
                 for (const code of extractOrderCodes(m.content)) {
                     if (!found.has(code))
@@ -461,9 +471,13 @@ router.post('/scan-history', async (req, res) => {
         res.json({
             success: true,
             groups: groups.length,
+            days,
             fetched,
+            rawTotal,
+            more: moreAvail,
             found: found.size,
             added,
+            oldestDate: oldestTs ? new Date(oldestTs).toISOString().slice(0, 10) : null,
             errors,
         });
     } catch (e) {

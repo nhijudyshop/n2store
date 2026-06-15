@@ -579,14 +579,19 @@
         }
     }
 
-    // Đọc lịch sử nhóm Zalo (zca) → quét đơn CŨ / bị thiếu (tin trước khi listener kết nối).
+    // Đọc lịch sử nhóm Zalo (zca, 14 ngày) → quét đơn CŨ / bị thiếu.
     async function scanHistory() {
         const btn = $('jtScanHistory');
         setBusy(btn, true, ' Đang đọc lịch sử…');
         try {
-            const j = await api('/scan-history', { method: 'POST', body: { count: 300 } });
+            const j = await api('/scan-history', {
+                method: 'POST',
+                body: { days: 14, count: 1000 },
+            });
+            const reach = j.oldestDate ? ` (tới ${j.oldestDate})` : '';
+            const more = j.more ? ' · Zalo còn tin cũ hơn nhưng API không lấy sâu được' : '';
             notify(
-                `Lịch sử: đọc ${j.fetched} tin · ${j.found} mã · thêm mới ${j.added}` +
+                `Lịch sử ${j.days || 14} ngày: đọc ${j.fetched} tin${reach} · ${j.found} mã · thêm mới ${j.added}${more}` +
                     (j.errors?.length ? ` (${j.errors.length} nhóm lỗi)` : ''),
                 j.added ? 'success' : 'info'
             );

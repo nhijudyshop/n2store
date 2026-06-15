@@ -608,19 +608,20 @@ async function getGroupChatHistory(accountKey, groupId, count) {
 }
 
 // Lịch sử nhóm đã CHUẨN HOÁ (giống tin realtime qua _normMessage) — để quét/backfill
-// mã đơn cũ/bị thiếu. Trả mảng { content, msgId, threadId, threadType, direction, ... }.
+// mã đơn cũ/bị thiếu. Trả { messages:[{content,sentAt,...}], total, more } (more>0 = Zalo
+// còn tin cũ hơn nhưng API bản zca-js 2.1.2 KHÔNG có cursor để lấy tiếp).
 async function getGroupHistory(accountKey, groupId, count) {
     const res = await getGroupChatHistory(accountKey, groupId, count);
     const arr = Array.isArray(res?.groupMsgs) ? res.groupMsgs : Array.isArray(res) ? res : [];
-    const out = [];
+    const messages = [];
     for (const m of arr) {
         try {
-            out.push(_normMessage(accountKey, m));
+            messages.push(_normMessage(accountKey, m));
         } catch {
             /* bỏ qua tin không parse được (system msg…) */
         }
     }
-    return out;
+    return { messages, total: arr.length, more: Number(res?.more) || 0 };
 }
 
 // Resolve tên + avatar của thành viên nhóm theo uid (group message dName rỗng).
