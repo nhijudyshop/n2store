@@ -3,14 +3,13 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `bde4c84` — feat(web2-jt): nút 'Xóa hết & quét lại' + POST /clear (beta wipe) → quét lại sạch theo format dòng đơn
-**Last updated**: 2026-06-15 12:49:31 +07
-**Latest session**: [`RESUME:20260615-124931-bde4c84`](../20260615-124931-bde4c84.md)
-**Summary**: feat(web2-jt): nút 'Xóa hết & quét lại' + POST /clear (beta wipe) → quét lại sạch theo format dòng đơn
+**Latest commit**: `6828feb` — feat(web2-jt): mã đơn bấm copy + mở chat tự cuộn tới tin có mã (nháy sáng)
+**Last updated**: 2026-06-15 13:04:01 +07
+**Latest session**: [`RESUME:20260615-130401-6828feb`](../20260615-130401-6828feb.md)
+**Summary**: feat(web2-jt): mã đơn bấm copy + mở chat tự cuộn tới tin có mã (nháy sáng)
 
 ## Folders affected in this commit
 
-- [`render.com/`](./render.com.md) — 1 file(s)
 - [`web2/`](./web2.md) — 3 file(s)
 
 ## All folder snapshots
@@ -74,4 +73,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-15 12:49
+- [`web2/`](./web2.md) — updated 2026-06-15 13:04
