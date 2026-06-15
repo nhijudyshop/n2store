@@ -3,15 +3,16 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `aba8ea6` — feat(live-chat): hiệu ứng comment mới dịu mắt (fade+trượt nhẹ) + burst-aware
-**Last updated**: 2026-06-15 12:15:38 +07
-**Latest session**: [`RESUME:20260615-121538-aba8ea6`](../20260615-121538-aba8ea6.md)
-**Summary**: feat(live-chat): hiệu ứng comment mới dịu mắt (fade+trượt nhẹ) + burst-aware
+**Latest commit**: `8ed03a3` — auto: session update
+**Last updated**: 2026-06-15 12:19:59 +07
+**Latest session**: [`RESUME:20260615-121959-8ed03a3`](../20260615-121959-8ed03a3.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`live-chat/`](./live-chat.md) — 5 file(s)
+- [`orders-report/`](./orders-report.md) — 1 file(s)
+- [`render.com/`](./render.com.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -26,7 +27,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-15 10:55
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-14 18:47
-- [`docs/`](./docs.md) — updated 2026-06-15 12:15
+- [`docs/`](./docs.md) — updated 2026-06-15 12:19
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-13 14:55
 - [`downloads/`](./downloads.md) — updated 2026-06-13 19:16
@@ -46,7 +47,7 @@
 - [`native-orders/`](./native-orders.md) — updated 2026-06-15 09:29
 - [`nhanhang/`](./nhanhang.md) — updated 2026-06-13 19:51
 - [`order-management/`](./order-management.md) — updated 2026-05-21 15:39
-- [`orders-report/`](./orders-report.md) — updated 2026-06-15 09:29
+- [`orders-report/`](./orders-report.md) — updated 2026-06-15 12:19
 - [`pancake-extension/`](./pancake-extension.md) — updated 2026-05-21 11:33
 - [`phone-management/`](./phone-management.md) — updated 2026-05-21 15:39
 - [`product-warehouse/`](./product-warehouse.md) — updated 2026-06-04 13:36
@@ -54,7 +55,7 @@
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-06-14 16:52
-- [`render.com/`](./render.com.md) — updated 2026-06-15 12:01
+- [`render.com/`](./render.com.md) — updated 2026-06-15 12:19
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-15 10:55
 - [`service-costs/`](./service-costs.md) — updated 2026-06-14 13:09
