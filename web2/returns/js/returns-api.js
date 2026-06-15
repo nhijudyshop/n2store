@@ -20,11 +20,22 @@
         }
     }
 
-    async function _json(url, opts) {
+    function _w2Auth(extra) {
+        if (window.Web2Auth && window.Web2Auth.authHeaders)
+            return window.Web2Auth.authHeaders(extra || {});
+        var h = Object.assign({}, extra || {});
+        try {
+            var t = JSON.parse(localStorage.getItem('web2_auth') || 'null');
+            if (t && t.token) h['x-web2-token'] = t.token;
+        } catch (e) {}
+        return h;
+    }
+
+    async function _json(url, opts = {}) {
         const res = await fetch(url, {
             cache: 'no-cache',
-            headers: { 'Content-Type': 'application/json' },
             ...opts,
+            headers: { 'Content-Type': 'application/json', ..._w2Auth(), ...(opts.headers || {}) },
         });
         let data = null;
         try {

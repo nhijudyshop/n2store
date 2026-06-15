@@ -152,7 +152,7 @@
                 const tryBatch = async (base) => {
                     const data = await jsonFetch(`${base}/batch-full`, {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: _authHeaders({ 'Content-Type': 'application/json' }),
                         body: JSON.stringify({ phones: chunk }),
                     });
                     return data?.data || {};
