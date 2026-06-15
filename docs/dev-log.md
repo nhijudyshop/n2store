@@ -2,6 +2,14 @@
 
 ## 2026-06-15
 
+### [web2] J&T "Dán lịch sử" — NẠP dòng dán vào kho tin chat (không chỉ trích mã) ✅
+
+User: "sao lúc tôi dán kết quả vào bạn không nạp vào để lấy đủ dữ liệu?". Đúng — `/scan-text` cũ CHỈ trích mã 12 số → bảng `web2_jt_tracking` (src_message = nguyên dòng); KHÔNG nạp dòng dán vào kho tin chat `web2_zalo_messages` (chat đọc từ đây) → bấm mã DÁN TAY không cuộn/highlight được. Mà nội dung dán user cuộn tay ở Zalo Web là nguồn tin CŨ giàu hơn cả backfill zca (more:0 ~20 tin).
+
+- **Server** [web2-jt-tracking.js](render.com/routes/web2-jt-tracking.js) `/scan-text`: nhận thêm `convId`; `_resolveTargetConv` (convId client gửi → nhóm đang xem; fallback nếu chỉ theo dõi 1 nhóm). Mỗi dòng có mã: (1) upsert J&T row + set `zalo_conv_id`; (2) NẠP dòng thành 1 tin `web2_zalo_messages` (`msg_id='paste:<code>'`, `sent_at`= ngày đơn DD/MM/YYYY parse GMT+7 hoặc ts, direction 'in', group). **Dedup**: bỏ qua nếu nhóm đã có TIN THẬT chứa mã (content ILIKE) → không trùng realtime/backfill. SSE `web2:zalo:messages`+`web2:zalo:thread:<id>` để chat đang mở tự refresh. Trả `{found, added, messagesAdded}`.
+- **Client** [jt-tracking-app.js](web2/jt-tracking/js/jt-tracking-app.js): gửi `convId:_jtGroupConvId`; toast thêm "· nạp N tin vào chat". Bump `?v=20260615bf`.
+- Kết quả: dán xong → chat nhóm hiện đủ dòng đã dán + bấm mã dán tay cuộn/highlight được (không còn toast "không có tin trong nhóm"). Backend cần deploy web2-api.
+
 ### [web2][shared] Fix đa nhiệm "Tăng comment" — chỉ chạy 1 account (acc.pages format object) ✅
 
 User: "gửi chậm, không có đa nhiệm song song" (log "1 tài khoản"). **Root cause**: `acc.pages` = mảng **object** `[{id,name}]` (KHÔNG phải id string) → filter `acc.pages.includes(String(pageId))` trong `generateAllPageAccessTokens`/`generatePageAccessToken` LUÔN false → loại hết 6 account → fallback 1 (active JWT). Verify Render DB: 6 account, #0/#3… đều admin House. Fix [web2-chat-client.js](web2/shared/web2-chat-client.js): helper `_pagesHas(pages, pageId)` so theo `p.id` (xử lý object), sửa cả 2 chỗ. Giờ N account admin page → N PAT (user-specific, phân biệt) → N worker song song. Bump `web2-chat-client.js?v=20260615tag3` (multi-tool + live-chat + native-orders).

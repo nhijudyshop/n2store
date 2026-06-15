@@ -106,6 +106,49 @@ function extractOrderCodes(text) {
     return [...out];
 }
 
+// Ngày đơn trong dòng dán (DD/MM/YYYY) → epoch ms (~12:00 GMT+7) để xếp đúng thứ tự
+// thời gian khi NẠP dòng dán vào kho tin chat. Không có ngày → null (dùng ts hiện tại).
+function _parsePasteDate(line) {
+    const m = String(line || '').match(/\b(\d{1,2})\/(\d{1,2})\/(\d{4})\b/);
+    if (!m) return null;
+    const d = +m[1],
+        mo = +m[2],
+        y = +m[3];
+    if (mo < 1 || mo > 12 || d < 1 || d > 31 || y < 2020 || y > 2100) return null;
+    return Date.UTC(y, mo - 1, d, 5, 0, 0); // 12:00 GMT+7 = 05:00 UTC
+}
+
+// Nhóm Zalo đích để NẠP dòng dán vào kho tin (web2_zalo_messages). Ưu tiên convId
+// client truyền (nhóm đang xem); fallback: nếu chỉ theo dõi DUY NHẤT 1 nhóm → dùng nó.
+async function _resolveTargetConv(db, convId) {
+    try {
+        if (convId) {
+            const c = (
+                await db.query(
+                    `SELECT id, account_key, thread_id FROM web2_zalo_conversations WHERE id=$1 AND thread_type='group'`,
+                    [convId]
+                )
+            ).rows[0];
+            if (c) return c;
+        }
+        const tg = (
+            await db.query(`SELECT account_key, thread_id FROM web2_zalo_tracked_groups LIMIT 2`)
+        ).rows;
+        if (tg.length === 1) {
+            const c = (
+                await db.query(
+                    `SELECT id, account_key, thread_id FROM web2_zalo_conversations WHERE account_key=$1 AND thread_id=$2`,
+                    [tg[0].account_key, tg[0].thread_id]
+                )
+            ).rows[0];
+            if (c) return c;
+        }
+    } catch (e) {
+        /* bảng zalo có thể chưa init — bỏ qua, chỉ trích mã */
+    }
+    return null;
+}
+
 // Auto-ingest từ tin nhắn Zalo (gọi từ web2-zalo _persistIncoming khi có tin MỚI):
 // tin NHÓM chứa mã J&T → thêm pending + SSE (UI realtime, không cần refresh), rồi
 // fetch nền điền trạng thái. KHÔNG chặn luồng tin nhắn (fire-and-forget ở caller).
@@ -506,23 +549,73 @@ router.post('/scan-text', async (req, res) => {
         for (const code of extractOrderCodes(text)) {
             if (!found.has(code)) found.set(code, null);
         }
-        if (!found.size) return res.json({ success: true, found: 0, added: 0 });
+        if (!found.size) return res.json({ success: true, found: 0, added: 0, messagesAdded: 0 });
+        // Nhóm Zalo đích để NẠP dòng dán thành tin trong kho chat (chat đọc từ đây) →
+        // bấm mã dán tay cũng cuộn/highlight được + chat hiện đủ lịch sử user đã dán.
+        const conv = await _resolveTargetConv(db, req.body?.convId);
         const ts = now();
         let added = 0;
+        let messagesAdded = 0;
         for (const [code, src] of found) {
             const r = await db.query(
-                `INSERT INTO web2_jt_tracking (billcode, status, source, note, src_message, created_at, updated_at)
-                 VALUES ($1,'pending','zalo',$2,$3,$4,$4)
+                `INSERT INTO web2_jt_tracking (billcode, status, source, note, zalo_conv_id, src_message, created_at, updated_at)
+                 VALUES ($1,'pending','zalo',$2,$5,$3,$4,$4)
                  ON CONFLICT (billcode) DO UPDATE SET
                     note = COALESCE(web2_jt_tracking.note, EXCLUDED.note),
+                    zalo_conv_id = COALESCE(web2_jt_tracking.zalo_conv_id, EXCLUDED.zalo_conv_id),
                     src_message = COALESCE(EXCLUDED.src_message, web2_jt_tracking.src_message)
                  RETURNING (xmax = 0) AS inserted`,
-                [code, 'dán lịch sử', src, ts]
+                [code, 'dán lịch sử', src, ts, conv ? conv.id : null]
             );
             if (r.rows[0]?.inserted) added++;
+            // Nạp dòng dán vào kho tin (nếu có nhóm đích + dòng có nội dung).
+            if (conv && src) {
+                // Dedup: đã có TIN THẬT chứa mã này trong nhóm → KHÔNG nạp bản dán (tránh trùng).
+                const dup = await db.query(
+                    `SELECT 1 FROM web2_zalo_messages WHERE account_key=$1 AND thread_id=$2 AND content ILIKE $3 LIMIT 1`,
+                    [conv.account_key, conv.thread_id, '%' + code + '%']
+                );
+                if (!dup.rowCount) {
+                    const ins = await db
+                        .query(
+                            `INSERT INTO web2_zalo_messages
+                                (msg_id, cli_msg_id, account_key, thread_id, thread_type, direction, msg_type, content, attachments,
+                                 reply_to_msg_id, reply_to_preview, sender_uid, send_status, sent_at, created_at)
+                             VALUES ($1,NULL,$2,$3,'group','in','text',$4,'[]'::jsonb,NULL,NULL,NULL,'sent',$5,$6)
+                             ON CONFLICT DO NOTHING RETURNING id`,
+                            [
+                                'paste:' + code,
+                                conv.account_key,
+                                conv.thread_id,
+                                src,
+                                _parsePasteDate(src) || ts,
+                                ts,
+                            ]
+                        )
+                        .catch(() => ({ rowCount: 0 }));
+                    if (ins.rowCount > 0) messagesAdded++;
+                }
+            }
         }
         if (added) _notify('scan', String(added));
-        res.json({ success: true, found: found.size, added });
+        // Báo các tab Zalo đang mở refresh để thấy tin vừa nạp (không cần reload trang).
+        if (messagesAdded && conv && _notifyClients) {
+            try {
+                _notifyClients(
+                    'web2:zalo:messages',
+                    { action: 'update', code: conv.account_key, ts: now() },
+                    'update'
+                );
+                _notifyClients(
+                    `web2:zalo:thread:${conv.thread_id}`,
+                    { action: 'message', ts: now() },
+                    'update'
+                );
+            } catch (e) {
+                /* best-effort */
+            }
+        }
+        res.json({ success: true, found: found.size, added, messagesAdded });
     } catch (e) {
         res.status(500).json({ success: false, error: e.message });
     }

@@ -744,8 +744,15 @@
             const btn = $('jtPasteSubmit');
             setBusy(btn, true, ' Đang quét…');
             try {
-                const j = await api('/scan-text', { method: 'POST', body: { text } });
-                notify(`Tìm ${j.found} mã · thêm mới ${j.added}`, j.added ? 'success' : 'info');
+                const j = await api('/scan-text', {
+                    method: 'POST',
+                    body: { text, convId: _jtGroupConvId || undefined },
+                });
+                const msgPart = j.messagesAdded ? ` · nạp ${j.messagesAdded} tin vào chat` : '';
+                notify(
+                    `Tìm ${j.found} mã · thêm mới ${j.added}${msgPart}`,
+                    j.added || j.messagesAdded ? 'success' : 'info'
+                );
                 close();
                 await load();
                 if (j.added) refreshAll();
