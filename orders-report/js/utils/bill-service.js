@@ -8,6 +8,61 @@
  * Bill Service Module
  */
 const BillService = (function () {
+    // ── Offline CODE128 barcode renderer ───────────────────────────────────
+    // Bug "bill in bị mất mã vạch" (don-inbox PBH lẻ, 2026-06-15): the bill barcode
+    // was an EXTERNAL <img> to statics.tpos.vn rendered inside a window.open() print
+    // popup that fires print() on a fixed timer then auto-closes (onafterprint) —
+    // regressed by commit 44e8446e2 (2026-03-19). A cold/slow cross-origin image
+    // fetch is still in-flight when print()/close() fire → barcode prints blank while
+    // the synchronously-rendered "Số phiếu" text prints fine (shared code, surfaces
+    // more on the top-level don-inbox page than on orders-report's warmed iframe).
+    // Fix: pre-render the barcode in the PARENT context as a self-contained PNG
+    // data-URI (no network, no print-window race) — same approach as web2-bill-service.
+    // Falls back to the TPOS CDN image only if the local renderer isn't loaded yet.
+    const _selfScriptUrl = (document.currentScript && document.currentScript.src) || '';
+    (function _ensureJsBarcode() {
+        if (typeof window.JsBarcode === 'function' || !_selfScriptUrl) return;
+        try {
+            const s = document.createElement('script');
+            s.src = new URL('../lib/jsbarcode-code128.min.js', _selfScriptUrl).href; // vendored in orders-report/js/lib/
+            s.async = true;
+            s.onerror = () =>
+                console.warn(
+                    '[BILL-SERVICE] JsBarcode load failed; barcode falls back to TPOS image'
+                );
+            document.head.appendChild(s);
+        } catch (e) {
+            /* fall back to external TPOS barcode image */
+        }
+    })();
+
+    /**
+     * Render a CODE128 barcode for `value` as a self-contained PNG data-URI.
+     * Pre-rendered in the parent context (where JsBarcode is loaded) so the printed
+     * bill needs no network fetch — eliminates the print-popup load/abort race.
+     * @param {string} value bill number (e.g. "NJD/2026/72332")
+     * @returns {string} "data:image/png;base64,..." or '' when renderer unavailable
+     */
+    function _renderBarcodeDataUrl(value) {
+        if (!value || typeof window.JsBarcode !== 'function') return '';
+        try {
+            const canvas = document.createElement('canvas');
+            window.JsBarcode(canvas, String(value), {
+                format: 'CODE128',
+                width: 2,
+                height: 100,
+                displayValue: false,
+                margin: 0,
+                background: '#ffffff',
+                lineColor: '#000000',
+            });
+            return canvas.toDataURL('image/png');
+        } catch (e) {
+            console.warn('[BILL-SERVICE] barcode render failed:', e.message);
+            return '';
+        }
+    }
+
     /**
      * Get merged STT display string for an order.
      * Returns "84 + 313" if order is a merge target, else single STT or empty string.
@@ -335,6 +390,10 @@ const BillService = (function () {
         const barcodeUrl = billNumber
             ? `https://statics.tpos.vn/Web/Barcode?type=Code 128&value=${encodeURIComponent(billNumber)}&width=600&height=100`
             : '';
+
+        // Prefer a locally pre-rendered CODE128 (data-URI, no network → no print-popup
+        // race); fall back to the TPOS CDN image only if the offline renderer isn't ready.
+        const barcodeSrc = _renderBarcodeDataUrl(billNumber) || barcodeUrl;
 
         // ========== GENERATE PRODUCT ROWS ==========
         const orderLines =
@@ -982,9 +1041,9 @@ ${hasVirtualDebt ? `<span style="font-weight:bold; color:#c00;">** CÓ ĐƠN THU
                     <th>
                         <div class='text-center'>
                     ${
-                        barcodeUrl
+                        barcodeSrc
                             ? `<div>
-                        <img src='${barcodeUrl}' style='width:95%' onerror="this.style.display='none'" />
+                        <img src='${barcodeSrc}' style='width:95%' onerror="this.style.display='none'" />
                     </div>`
                             : ''
                     }

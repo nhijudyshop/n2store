@@ -2,6 +2,18 @@
 
 ## 2026-06-15
 
+### [orders-report][don-inbox] Fix bill PBH lẻ MẤT MÃ VẠCH khi in (barcode pre-render data-URI, bỏ race ảnh ngoài) ✅
+
+**User:** "khi tạo đơn bằng phiếu bán hàng lẻ ở don-inbox bill in bị mất mã vạch? kiểm tra kỹ lại lỗi tại sao? tham khảo orders-report/main.html"
+
+**Root cause (RCA 6-agent workflow, adversarial verify KHÔNG bác):** Mã vạch trên bill là ảnh NGOÀI `<img src="https://statics.tpos.vn/Web/Barcode?...">` render trong popup `window.open('')` (document.write). `openPrintPopup` gọi `print()` theo timer cố định (onload+500ms / fallback +1500ms) rồi `onafterprint => close()` NGAY — **regression commit `44e8446e2` (2026-03-19)**. Ảnh cross-origin ~10KB tải chưa xong khi print()/close() → mã vạch in trắng, còn dòng "Số phiếu" (text đồng bộ) vẫn in. **Code DÙNG CHUNG** (`confirmAndPrintSale`→`openPrintPopup`→`generateCustomBillHTML` trong [bill-service.js](orders-report/js/utils/bill-service.js)); don-inbox lộ rõ hơn vì là trang top-level (orders-report chạy trong iframe `tab1-orders.html` đã warm origin). KHÔNG phải lỗi thiếu Number, KHÔNG phải space trong "Code 128" (browser tự encode %20, endpoint HTTP 200), KHÔNG phải stale cache (markup barcode bất biến từ 2026-02-25).
+
+**Fix:** Pre-render CODE128 trong PARENT context thành PNG data-URI (như [web2-bill-service.js](web2/shared/web2-bill-service.js)) → bill không cần fetch mạng, không race. [bill-service.js](orders-report/js/utils/bill-service.js): (1) loader inject JsBarcode (vendored `js/lib/jsbarcode-code128.min.js`, byte-identical web2, SHA1 `1547bfec`); (2) `_renderBarcodeDataUrl()` dùng `JsBarcode(canvas, billNumber, {format:'CODE128',width:2,height:100,displayValue:false,margin:0})` → `canvas.toDataURL`; (3) `barcodeSrc = _renderBarcodeDataUrl(billNumber) || barcodeUrl` (fallback ảnh TPOS nếu lib chưa load). Drop-in `<img>` → mọi consumer (popup in / iframe preview / innerHTML preview / html2canvas Messenger) đều có mã vạch, không đụng timer/onafterprint.
+
+**Verify:** `node --check` PASS; browser smoke (Playwright) render `NJD/2026/72332` → `data:image/png` 356×100, `window.JsBarcode` = function. Bump `bill-service.js?v=20260615a` ở [don-inbox/index.html](don-inbox/index.html) (cũ 20260603a — stale), [orders-report/tab1-orders.html](orders-report/tab1-orders.html), [orders-report/tab-pending-delete.html](orders-report/tab-pending-delete.html). Cần GH Pages deploy + xác nhận in thực tế.
+
+**Status:** ✅ code + smoke OK. ⚠ Khuyến nghị in thử 1 PBH lẻ thật trên don-inbox sau deploy để confirm visual.
+
 ### [live-chat] FIX native-orders 404 (mobile) + add-alt-phone 401 (desktop) ✅
 
 - **404**: mobile `loadNativeOrders` gọi `/api/native-orders` trần → worker đẩy sang TPOS → 404. Endpoint LIST đúng = `/api/native-orders/load` (giống `NativeOrdersApi.list` desktop). Sửa path. [comments-mobile.js](live-chat/js/live/comments-mobile.js)
