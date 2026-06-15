@@ -119,37 +119,42 @@
         <!-- Script chạy trong Console Zalo Web (chat.zalo.me) để moi mã đơn từ IndexedDB + DOM.
              type="text/plain" → browser KHÔNG chạy; modal "Dán lịch sử" đọc textContent để hiện + copy. -->
         <script type="text/plain" id="jtZaloScript">
-            console.log('[JT] bat dau quet... (thay dong nay = dung script moi)');
             (async () => {
-              try {
-                const RE = /(\d{12})\s+Shop\s+NHI\s*JUDY[^\r\n]*/gi;
-                const lines = new Set();
-                const grab = () => {
-                  const t = document.body.innerText, r = new RegExp(RE.source, 'gi'); let m;
-                  while ((m = r.exec(t))) lines.add(m[0].replace(/\s+/g, ' ').trim().slice(0, 300));
-                };
-                grab();
-                console.log('[JT] lan dau:', lines.size, 'ma');
-                const sc = [...document.querySelectorAll('div')]
-                  .filter(e => e.scrollHeight - e.clientHeight > 300)
-                  .sort((a, b) => b.scrollHeight - a.scrollHeight)[0];
-                if (sc) {
-                  const t0 = Date.now(); let stable = 0, last = 0;
-                  while (Date.now() - t0 < 45000 && stable < 12) {
-                    sc.scrollTop = 0;
-                    await new Promise(r => setTimeout(r, 500));
-                    grab();
-                    if (lines.size === last) { stable++; } else { stable = 0; last = lines.size; }
-                    console.log('[JT] ...', lines.size, 'ma');
-                  }
-                } else {
-                  console.log('[JT] khong thay khung cuon - cuon tay len roi chay lai.');
+              const RE = /(\d{12})\s+Shop\s+NHI\s*JUDY[^\r\n]*/gi;
+              const seen = new Map();
+              const grab = () => {
+                const t = document.body.innerText, r = new RegExp(RE.source, 'gi'); let m;
+                while ((m = r.exec(t))) { if (!seen.has(m[1])) seen.set(m[1], m[0].replace(/\s+/g, ' ').trim().slice(0, 200)); }
+              };
+              const esc = s => String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+              const old = document.getElementById('__jtbox'); if (old) old.remove();
+              const box = document.createElement('div'); box.id = '__jtbox';
+              box.style.cssText = 'position:fixed;z-index:2147483647;right:16px;top:16px;width:400px;max-width:92vw;background:#fff;color:#111;border:2px solid #0068ff;border-radius:12px;box-shadow:0 14px 44px rgba(0,0,0,.4);padding:14px;font:13px/1.45 system-ui,Arial';
+              document.body.appendChild(box);
+              const render = (msg, done) => {
+                box.innerHTML = '<div style="font-weight:800;color:#0068ff;margin-bottom:8px">J&amp;T quet ma don - ' + msg + '</div>'
+                  + (done ? ('<textarea id="__jtta" readonly style="width:100%;height:150px;font:11px/1.4 monospace;border:1px solid #ccc;border-radius:8px;padding:6px;box-sizing:border-box">' + esc([...seen.values()].join('\n')) + '</textarea>'
+                    + '<div style="margin:8px 0;color:#16a34a;font-weight:600">Da boi den + copy san. Ve trang J&amp;T bam "Dan lich su" roi Ctrl+V. (hoac trong o tren: Ctrl+A, Ctrl+C)</div>'
+                    + '<button id="__jtclose" style="padding:6px 14px;border:0;background:#0068ff;color:#fff;border-radius:8px;cursor:pointer">Dong</button>') : '');
+              };
+              render('dang quet + tu cuon len...', false);
+              grab();
+              const sc = [...document.querySelectorAll('div')].filter(e => e.scrollHeight - e.clientHeight > 300).sort((a, b) => b.scrollHeight - a.scrollHeight)[0];
+              if (sc) {
+                const t0 = Date.now(); let stable = 0, last = 0;
+                while (Date.now() - t0 < 45000 && stable < 12) {
+                  sc.scrollTop = 0;
+                  await new Promise(r => setTimeout(r, 450));
+                  grab();
+                  if (seen.size === last) { stable++; } else { stable = 0; last = seen.size; }
+                  render('dang quet... ' + seen.size + ' ma (' + Math.round((Date.now() - t0) / 1000) + 's)', false);
                 }
-                const out = [...lines].join('\n');
-                console.log('[JT] XONG -', lines.size, 'ma don:\n' + (out || '(khong thay ma - mo dung nhom J&T + cuon len roi chay lai)'));
-                try { await navigator.clipboard.writeText(out); console.log('[JT] da copy clipboard - quay lai trang J&T, bam "Dan lich su" roi Ctrl+V.'); }
-                catch { console.log('[JT] khong tu copy duoc - boi den doan ket qua tren roi Ctrl+C.'); }
-              } catch (e) { console.log('[JT] LOI:', e && e.message); }
+              }
+              const outText = [...seen.values()].join('\n');
+              try { await navigator.clipboard.writeText(outText); } catch (e) {}
+              render('XONG - ' + seen.size + ' ma don', true);
+              const ta = document.getElementById('__jtta'); if (ta) { ta.focus(); ta.select(); }
+              const cb = document.getElementById('__jtclose'); if (cb) cb.onclick = () => box.remove();
             })();
         </script>
 
@@ -165,6 +170,6 @@
         <script src="../shared/web2-extension-bridge.js?v=20260615a"></script>
         <!-- Web2CustomerChat → FULL chat KH (Pancake + Zalo) dùng chung, bấm SĐT mở -->
         <script src="../shared/web2-customer-chat.js?v=20260615b"></script>
-        <script src="js/jt-tracking-app.js?v=20260615u"></script>
+        <script src="js/jt-tracking-app.js?v=20260615v"></script>
     </body>
 </html>

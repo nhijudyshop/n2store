@@ -2,6 +2,10 @@
 
 ## 2026-06-15
 
+### [web2] J&T script Console — bỏ console.log/clipboard (Zalo chặn) → INJECT ô kết quả vào trang ✅
+
+User: "script vẫn Promise pending, không hiện/hoạt động gì". Root-cause: **Zalo Web chặn `console.log` + `clipboard.writeText` reject khi DevTools đang focus** → script CHẠY nhưng không log + clipboard rỗng → tưởng treo. Fix: script không dùng console/clipboard làm output nữa — **inject 1 ô nổi (z-index max) góc phải trang Zalo**: hiện tiến độ cuộn + khi xong show `<textarea>` chứa các dòng đơn (tự bôi đen sẵn) + vẫn thử copy clipboard. User đọc/copy thẳng từ ô → dán "Dán lịch sử". Verified scraping logic live trước đó (cuộn 8 lần 11→28 mã trên nhóm thật). Bump app `?v=20260615v`. Frontend-only.
+
 ### [docs][web2] Quy ước "REALTIME, KHÔNG POLLER" — note vào CLAUDE.md + MEMORY + overview ✅
 
 User: "realtime, không poller → note vào memory, claude, devlog + overview". Chốt quy ước Web 2.0: đã bỏ hẳn poller nền (user xác nhận 2026-06-15) → realtime dùng **SSE**; liệt kê/fetch dữ liệu Pancake (bài đang/đã live, hội thoại, comment) → **fetch TRỰC TIẾP Pancake từ browser** qua worker `/api/pancake/*` + JWT (vd `pages/{id}/posts` cho đang/đã livestream — đúng nguồn "Quản lý bài viết"). KHÔNG `setInterval`/poll mới, KHÔNG đi vòng route server gọi poller.
