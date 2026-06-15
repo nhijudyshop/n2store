@@ -282,6 +282,19 @@
         if (!W) return;
         const custId = (conv.customers && conv.customers[0] && conv.customers[0].id) || undefined;
 
+        // reply_comment BẮT BUỘC message_id = comment để reply vào. COMMENT conv.id =
+        // format <post_id>_<comment_id> (= message id) → dùng trực tiếp; nâng cấp bằng
+        // comment MỚI NHẤT của hội thoại nếu fetch được (chính xác hơn).
+        let messageId = conv.id;
+        try {
+            const mr = await W.fetchMessages(pageId, conv.id, custId);
+            const msgs = mr && mr.ok && Array.isArray(mr.messages) ? mr.messages : [];
+            const last = msgs.filter((m) => m && m.id).pop();
+            if (last && last.id) messageId = last.id;
+        } catch (_) {
+            /* fallback conv.id */
+        }
+
         _running = true;
         _stop = false;
         $('boostRun').disabled = true;
@@ -313,6 +326,7 @@
                     text,
                     action: 'reply_comment',
                     customerId: custId,
+                    messageId,
                 });
                 if (res && res.ok) {
                     ok++;

@@ -477,6 +477,10 @@
         };
         if (opts.customerId) payload.customer_id = opts.customerId;
         if (opts.repliedMessageId) payload.replied_message_id = opts.repliedMessageId;
+        // reply_comment BẮT BUỘC message_id = id comment để reply vào (format
+        // <post_id>_<comment_id>, = conv.id cho COMMENT thread). Thiếu → Pancake trả
+        // success:false error_code:100 "Missing required field: 'message_id'".
+        if (opts.messageId) payload.message_id = opts.messageId;
         if (attachments.length > 0) {
             const ids = attachments.map((a) => a.content_id || a.id).filter(Boolean);
             if (ids.length) payload.content_ids = ids;
