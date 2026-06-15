@@ -171,7 +171,13 @@
         const w = whInfo(c);
         return (w && String(w.address || '').trim()) || '';
     }
-    const ordered = (c) => c.has_order === true || c.has_order === 't' || c.has_order === 1;
+    // Đơn web (native-orders) tạo từ desktop (kéo SP vào comment) → đồng bộ xuống
+    // mobile realtime qua SSE web2:native-orders. NATIVE: fbUserId → {stt, code}.
+    // "Đã tạo đơn" = has_order Pancake HOẶC có đơn native.
+    let NATIVE = {};
+    const nativeOrder = (c) => (c && c.fb_id ? NATIVE[String(c.fb_id)] : null) || null;
+    const ordered = (c) =>
+        c.has_order === true || c.has_order === 't' || c.has_order === 1 || !!nativeOrder(c);
     const ST_CLS = {
         bom: 'st-bom',
         vip: 'st-vip',
@@ -310,6 +316,7 @@
     function cardHtml(c) {
         const pg = pageOf(c);
         const st = statusOf(c);
+        const no = nativeOrder(c); // đơn web (native-orders) của khách → STT badge
         const phone = (c.phone || '').trim();
         const addr = addrOf(c);
         const meta =
@@ -323,7 +330,7 @@
             <div class="c-top">
                 ${avatarHtml(c)}
                 <div class="c-id">
-                    <div class="c-name"><span class="c-nm-txt">${esc(nameOf(c))}</span><span class="st ${st.cls}">${esc(st.label)}</span>${pg ? `<span class="pgbadge ${pg.c}">${esc(pg.t)}</span>` : ''}</div>
+                    <div class="c-name"><span class="c-nm-txt">${esc(nameOf(c))}</span><span class="st ${st.cls}">${esc(st.label)}</span>${pg ? `<span class="pgbadge ${pg.c}">${esc(pg.t)}</span>` : ''}${no ? `<span class="cart-stt" title="Đơn web ${esc(no.code || '')} — STT ${esc(String(no.stt))}">🛒 ${esc(String(no.stt))}</span>` : ''}</div>
                     ${window.LiveTime ? window.LiveTime.markup(c.created_time, { tag: 'div', cls: 'c-time' }) : `<div class="c-time">${esc(fmtTime(c.created_time))}</div>`}
                 </div>
             </div>
@@ -473,6 +480,38 @@
             /* giữ posts cũ */
         }
     }
+
+    // Load đơn web (native-orders) → NATIVE map (fbUserId → {stt, code}) để hiện
+    // "đã tạo đơn" + STT trên comment khách có đơn. STT = campaignStt ?? displayStt ??
+    // sessionIndex (KHỚP trang Đơn Web). Scope theo bài đang có trong feed (tránh nhầm
+    // đơn live cũ). Gọi lúc boot + khi SSE web2:native-orders báo (desktop tạo đơn).
+    let _natT;
+    function scheduleLoadNative() {
+        clearTimeout(_natT);
+        _natT = setTimeout(loadNativeOrders, 500);
+    }
+    async function loadNativeOrders() {
+        try {
+            const r = await fetch(`${WORKER}/api/native-orders?limit=500`, {
+                credentials: 'omit',
+            }).then((x) => x.json());
+            const orders = (r && r.orders) || [];
+            const postSet = new Set((posts || []).map((p) => String(p.post_id)));
+            const m = {};
+            for (const o of orders) {
+                if (!o.fbUserId) continue;
+                if (postSet.size && o.fbPostId && !postSet.has(String(o.fbPostId))) continue;
+                const stt = o.campaignStt ?? o.displayStt ?? o.sessionIndex ?? '';
+                if (m[o.fbUserId] === undefined)
+                    m[o.fbUserId] = { stt: String(stt), code: o.code || '' };
+            }
+            NATIVE = m;
+            scheduleRender();
+        } catch (e) {
+            /* giữ NATIVE cũ */
+        }
+    }
+
     function updateLiveTag() {
         const on = selectedPost ? postLiving(selectedPost) : anyLive;
         liveTag.style.display = on ? '' : 'none';
@@ -835,6 +874,7 @@
     // ---------- boot ----------
     load();
     loadPosts();
+    loadNativeOrders();
     wireSse();
     // SERVER-DIRECT, KHÔNG POLL (user 2026-06-14/15): comment livestream về qua relay
     // web2-realtime Pancake WS join per-page `pages:{pageId}` → /ingest → DB → SSE
@@ -853,6 +893,9 @@
             _postsAt = now;
             loadPosts();
         });
+        // Desktop kéo SP tạo đơn native → SSE web2:native-orders → reload NATIVE map
+        // (debounce 500ms) → comment khách đó tự hiện "đã tạo đơn" + STT, realtime.
+        window.Web2SSE.subscribe('web2:native-orders', scheduleLoadNative);
     }
     document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible') {

@@ -2,6 +2,14 @@
 
 ## 2026-06-15
 
+### [live-chat/mobile] Đồng bộ đơn native-orders xuống mobile (realtime) + STT ✅
+
+User: (1) desktop kéo SP tạo đơn (sau 5s không hoàn tác) → mobile hiện comment đó "đã tạo đơn" realtime; (2) hiện STT giống native-orders ở comment khách có đơn.
+
+- `loadNativeOrders()` [comments-mobile.js](live-chat/js/live/comments-mobile.js): GET `/api/native-orders?limit=500` → `NATIVE` map (fbUserId→{stt,code}), scope theo bài đang trong feed. STT = `campaignStt ?? displayStt ?? sessionIndex` (KHỚP trang Đơn Web).
+- `ordered(c)` gộp native → status "✓ Đã tạo đơn" + `.card.ordered` + đếm chip Store/House gồm cả đơn native. STT badge `🛒 N` (`.cart-stt`) trên comment khách có đơn.
+- **Realtime**: SSE `web2:native-orders` (desktop `_notify('create')`/`'comment-merged'`) → debounce 500ms reload NATIVE → re-render. Comment khách vừa được tạo đơn ở desktop tự hiện ở mobile. (`?v=20260615natord`)
+
 ### [live-chat/mobile] Bỏ thumbnail trên comments-mobile ✅
 
 User: không cần hiện thumbnail. Gỡ `<img.thumb>` khỏi cardHtml + ngưng `fetchThumbs` (load + enrichDelta) → đỡ băng thông. `THUMBS` rỗng → detail sheet tự không hiện thumb. [comments-mobile.js](live-chat/js/live/comments-mobile.js) (`?v=20260615nothumb`).
