@@ -126,15 +126,17 @@ function _parsePasteDate(line, nowMs) {
         const d = +m[1],
             mo = +m[2],
             y = +m[3];
+        // Token RÁC (ngày/tháng/năm ngoài khoảng số học) → bỏ qua, xét token kế.
         if (mo < 1 || mo > 12 || d < 1 || d > 31 || y < 2020 || y > 2100) continue;
         const t = Date.UTC(y, mo - 1, d, 5, 0, 0); // 12:00 GMT+7 = 05:00 UTC
-        if (Number.isNaN(t)) continue;
-        // round-trip: loại ngày cuộn tháng (vd 31/02 → 03/03) = ngày không có thật
+        // round-trip: ngày cuộn tháng (vd 31/02 → 03/03) = KHÔNG có thật → token rác, bỏ qua.
         const bk = new Date(t);
         if (bk.getUTCFullYear() !== y || bk.getUTCMonth() !== mo - 1 || bk.getUTCDate() !== d)
             continue;
-        // cửa sổ hợp lý → nhận ngày hợp lý ĐẦU TIÊN (ngày đơn đứng trước ghi chú)
-        if (t <= nowVal + _PASTE_FUTURE_SLACK_MS && t >= nowVal - _PASTE_MAX_AGE_MS) return t;
+        // Token NGÀY THẬT ĐẦU TIÊN = NGÀY ĐƠN (đứng trước SĐT/ghi chú) → gate cửa sổ rồi DỪNG.
+        // Trong cửa sổ → dùng. Ngoài cửa sổ (typo/cũ, vd 20/08/2023) → null (caller dùng ts).
+        // KHÔNG quét tiếp sang ngày trong GHI CHÚ (ngày hẹn giao) — tránh lấy nhầm làm giờ tin.
+        return t <= nowVal + _PASTE_FUTURE_SLACK_MS && t >= nowVal - _PASTE_MAX_AGE_MS ? t : null;
     }
     return null;
 }

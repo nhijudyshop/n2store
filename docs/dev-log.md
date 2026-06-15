@@ -2,6 +2,14 @@
 
 ## 2026-06-15
 
+### [web2] J&T `_parsePasteDate` — siết đọc ngày dòng dán (chống typo/ngày cũ/ghi chú) ✅
+
+User: "siết lại" (cách đọc ngày dòng dán nạp vào kho tin). Dòng thật `...Ngọc Diễm- -16-20/08/2023...` parse ra 2023 → tin văng lên đầu chat. Siết [web2-jt-tracking.js](render.com/routes/web2-jt-tracking.js) `_parsePasteDate(line, nowMs)`:
+
+- Quét token ngày, **bỏ qua token RÁC** (range guard d/mo/y + round-trip `new Date` loại 31/02, 29/02 năm thường, 31/04…).
+- **Token ngày THẬT đầu tiên = ngày đơn** (đứng trước SĐT/ghi chú) → gate **cửa sổ [now−180d, now+2d]** rồi DỪNG. Trong cửa sổ → dùng; ngoài (typo/cũ như 2023) → `null` (caller dùng `ts` = coi như tin mới). **KHÔNG** quét tiếp ngày trong ghi chú (tránh lấy nhầm ngày-hẹn-giao làm giờ tin — lỗi reviewer chấm HIGH). Truyền `nowMs=ts`.
+- **Verify**: workflow 5 agent (4 sinh ca đối kháng + 1 review) → **86 ca** (25 của tôi + 61 workflow) chạy node harness deterministic, khớp 100% hợp đồng siết (4 "diff" so kỳ vọng cũ chính là 4 ca note-fallthrough giờ trả null — đúng ý). Bỏ dead-code `Number.isNaN`. Backend-only → cần deploy web2-api.
+
 ### [web2] J&T highlight tin — fix cuộn trượt (lazy-load shift) + ring rõ trên bong bóng ✅
 
 User: "nạp ok nhưng chưa thấy highlight". Browser-test live (176 tin/nhóm 792, 156 paste): `findMessageInChat` TÌM ĐÚNG + add `.jt-msg-hit` (hit:true) nhưng **tin nằm dưới khung** (hitOffsetTop 1137 > viewport 724) → user không thấy. Root: `scrollIntoView({behavior:'smooth'})` chạy khi ảnh/avatar phía trên còn load lazy → layout dịch → smooth-scroll trượt chỗ. Phụ: ring `.jt-msg-hit` đặt trên hàng `.wz-msg` (rộng hết khung) mờ + pulse 3× tắt trước khi nhìn.
