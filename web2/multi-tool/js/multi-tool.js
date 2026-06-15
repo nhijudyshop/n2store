@@ -91,8 +91,32 @@
         sel.onchange = () => loadPosts();
     }
 
-    // Bài live của page (từ /page-posts — poller Pancake 14 ngày, GỒM cả live đã
-    // livestream xong). Auto-chọn MỚI NHẤT → loadConvs.
+    // Parse timestamp Pancake — inserted_at là UTC KHÔNG hậu tố Z → phải append Z
+    // (CLAUDE.md rule 10). Trả ms. Hiển thị theo GMT+7.
+    function parseTs(s) {
+        if (!s) return 0;
+        const str = String(s);
+        const hasTz = /[zZ]$|[+-]\d{2}:?\d{2}$/.test(str);
+        const t = new Date(hasTz ? str : str + 'Z').getTime();
+        return isNaN(t) ? 0 : t;
+    }
+    function fmtDate(s) {
+        const t = parseTs(s);
+        if (!t) return '';
+        return new Date(t).toLocaleString('vi-VN', {
+            timeZone: 'Asia/Ho_Chi_Minh',
+            day: '2-digit',
+            month: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+        });
+    }
+
+    // Bài live của page — FETCH TRỰC TIẾP Pancake (KHÔNG qua poller server). Đúng
+    // endpoint Pancake dùng cho "Quản lý bài viết" (đang/đã livestream):
+    // pages/{id}/posts?start_time&end_time. live_status==='LIVE' / is_living = ĐANG
+    // live. 14 ngày → gồm cả live đã xong. Ưu tiên ĐANG live lên đầu → mặc định
+    // chọn (nếu không có live → bài mới nhất). Realtime push, không polling.
     async function loadPosts() {
         const pageId = $('boostPage').value;
         const psel = $('boostPost');
@@ -104,38 +128,59 @@
             return;
         }
         psel.innerHTML = '<option value="">Đang tải bài live…</option>';
+        const W = await waitWeb2Chat();
+        const jwt = W && W.getJwt && W.getJwt();
+        if (!jwt) {
+            psel.innerHTML = '<option value="">Thiếu token Pancake (Cấu hình Pancake)</option>';
+            return;
+        }
+        const now = Math.floor(Date.now() / 1000);
+        const qs = new URLSearchParams({
+            access_token: jwt,
+            start_time: String(now - 14 * 86400),
+            end_time: String(now),
+        });
+        const url = `${workerBase()}/api/pancake/pages/${encodeURIComponent(pageId)}/posts?${qs}`;
+        let raw = [];
         try {
-            const url = `${workerBase()}/api/web2-live-comments/page-posts`;
-            const data = await fetch(url, { headers: authHeaders() }).then((r) => r.json());
-            const all = Array.isArray(data?.data) ? data.data : [];
-            _posts = all
-                .filter((p) => String(p.pageId) === String(pageId))
-                .sort((a, b) => (Date.parse(b.date || 0) || 0) - (Date.parse(a.date || 0) || 0));
+            const data = await fetch(url).then((r) => r.json());
+            raw = Array.isArray(data?.posts)
+                ? data.posts
+                : Array.isArray(data?.data)
+                  ? data.data
+                  : [];
         } catch (e) {
             psel.innerHTML = `<option value="">Lỗi tải bài: ${esc(e.message)}</option>`;
             return;
         }
+        _posts = raw
+            .filter((p) => p && (p.type === 'livestream' || p.is_live_video || p.live_video_id))
+            .map((p) => ({
+                postId: String(p.id),
+                title: p.message || p.title || '(livestream)',
+                date: p.inserted_at || p.created_time || p.updated_at || null,
+                living: p.live_status === 'LIVE' || !!p.is_living,
+            }))
+            // ĐANG live trước → MỚI NHẤT trước.
+            .sort(
+                (a, b) =>
+                    (b.living ? 1 : 0) - (a.living ? 1 : 0) || parseTs(b.date) - parseTs(a.date)
+            );
         if (!_posts.length) {
             psel.innerHTML = '<option value="">Page này không có bài live (14 ngày)</option>';
             return;
         }
-        psel.innerHTML = _posts
-            .map((p, i) => {
-                const d = p.date ? new Date(p.date) : null;
-                const dt = d
-                    ? d.toLocaleString('vi-VN', {
-                          timeZone: 'Asia/Ho_Chi_Minh',
-                          day: '2-digit',
-                          month: '2-digit',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                      })
-                    : '';
-                const ttl = (p.title || '(livestream)').slice(0, 50);
-                return `<option value="${i}">${esc(dt)} — ${esc(ttl)}</option>`;
-            })
-            .join('');
-        psel.value = '0'; // mặc định chọn MỚI NHẤT
+        const optHtml = (p, i) =>
+            `<option value="${i}">${esc(fmtDate(p.date))} — ${esc((p.title || '(livestream)').slice(0, 50))}</option>`;
+        const living = [];
+        const ended = [];
+        _posts.forEach((p, i) => (p.living ? living : ended).push(optHtml(p, i)));
+        let html = '';
+        if (living.length)
+            html += `<optgroup label="🔴 Đang Livestream">${living.join('')}</optgroup>`;
+        if (ended.length) html += `<optgroup label="Đã Livestream">${ended.join('')}</optgroup>`;
+        psel.innerHTML = html;
+        psel.value = '0'; // index 0 = ĐANG live (nếu có) else bài mới nhất
         psel.onchange = () => loadConvs();
         loadConvs();
     }
