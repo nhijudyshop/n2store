@@ -2,6 +2,16 @@
 
 ## 2026-06-15
 
+### [web2][shared][P5] colorShortMap về Web2VariantsCache (memoize); Zalo đã shared ✅
+
+`colorShortMap` (map tên màu ASCII → shortCode locked, dùng sinh mã SP) build **trùng logic** ở 2 nơi: [web2-products-app.js](web2/products/js/web2-products-app.js) (`getColorShortMap`+`_colorShortMapCache`) + [so-order-app.js](so-order/js/so-order-app.js) `_assignKhoCodes` (inline). Gom về [`Web2VariantsCache.getColorShortMap()`](web2/shared/web2-variants-cache.js) — memoize + auto-invalidate khi data variant đổi (`_loadList`). 2 trang delegate (giữ fallback inline nếu cache cũ chưa có method). Cần `Web2ProductCode.toAsciiUpper`.
+
+⚠ Smoke bắt bug: quên thêm `getColorShortMap` vào export object → fixed. Browser-verify products: function OK, 10 keys, memoized (same ref), sample mã màu thật. Bump variants-cache `?v=20260615store2`, products-app/so-order-app `?v=20260615store`.
+
+**Zalo**: audit đã 95% compliant (mọi trang qua `Web2Zalo`/`ZaloApi`, không gọi `/api/web2-zalo` trực tiếp). `_fetch` dup giữa facade `web2-zalo.js` (load standalone cho sendZNS) vs engine `web2-zalo-api.js` (load với chat engine) — **load khác scenario → giữ riêng** (ép couple làm facade nặng thêm). KHÔNG đổi.
+
+**Cache products/variants underused** (trang tự fetch list thay cache) = perf/kiến trúc, defer (không phải dup nguy hiểm). Frontend-only.
+
 ### [web2][live-chat][P4] Pancake live-chat — centralize WORKER_URL; token/search ĐÃ trên Web2Chat ✅
 
 Audit P4 (token-manager dup, conv/tags) dùng **code cũ** — thực tế live-chat Pancake đã consolidated ~90% (2026-06-13): `PancakeAPI.getToken/getPageAccessToken` → `Web2Chat.getJwt/getPageAccessToken`, `searchConversations` → `Web2Chat.searchConversations`, URL build → `API_CONFIG.buildUrl.*` (centralized). `pancake-token-manager.js` **load-bearing** (account-mgmt UI settings-manager + live-source JWT chọn account FB-live + pancake-init) → **KHÔNG xoá được** (audit recommend sai).

@@ -83,6 +83,7 @@
                 if (page > 10) break;
             }
             state.all = all;
+            _colorShortMap = null; // invalidate memo khi data variant đổi
             // byValueLower CHỈ build từ variant active — findByValueExact dùng để
             // validate SP, không được nhận biến thể đã deactivate (isActive false).
             state.byValueLower = new Map(
@@ -176,6 +177,31 @@
         return !!findByValueExact(value);
     }
 
+    // colorShortMap: { <ASCII_UPPER tên màu đã strip "Màu "> : shortCode locked }.
+    // NGUỒN CHUNG (P5 2026-06-15): trước đây web2-products-app + so-order build
+    // RIÊNG cùng logic này từ getAll(). Gom về đây — memoize, invalidate khi data
+    // variant đổi (_loadList). Cần Web2ProductCode.toAsciiUpper.
+    let _colorShortMap = null;
+    function getColorShortMap() {
+        if (_colorShortMap) return _colorShortMap;
+        const PC = global.Web2ProductCode;
+        const all = getAll();
+        const map = {};
+        if (PC && typeof PC.toAsciiUpper === 'function') {
+            for (const v of all) {
+                if (!/màu/i.test(v.groupName || '')) continue;
+                if (!v.shortCode) continue; // chỉ dùng locked shortcodes
+                const stripped = String(v.value || '')
+                    .replace(/^\s*M[àáạăâ]u\s+/iu, '')
+                    .trim();
+                const key = PC.toAsciiUpper(stripped);
+                if (key) map[key] = v.shortCode;
+            }
+        }
+        if (all.length) _colorShortMap = map; // chỉ memoize khi cache đã có data
+        return map;
+    }
+
     async function pushTickle(_opts = {}) {
         // Firestore tickle write removed 2026-05-29 — SSE topic 'web2:variants'
         // đã fan-out qua server (web2RealtimeSseRoutes.notifyClients).
@@ -196,6 +222,7 @@
         findByValue,
         findByValueExact,
         has,
+        getColorShortMap,
         pushTickle,
         subscribe,
         _normalize,

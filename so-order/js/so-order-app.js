@@ -3323,11 +3323,14 @@ window.addEventListener('load', () => {
     // Mirror logic getColorShortMap + suggestProductCode của web2-products-app.js.
     function _assignKhoCodes(items) {
         if (!window.Web2ProductCode || !Array.isArray(items) || !items.length) return items;
-        // colorShortMap từ Kho Biến Thể (group "Màu" + shortCode locked)
-        const colorShortMap = {};
+        // colorShortMap từ Kho Biến Thể — NGUỒN CHUNG Web2VariantsCache.getColorShortMap
+        // (P5 2026-06-15, memoize). Fallback inline nếu cache cũ chưa có method.
+        let colorShortMap = {};
         try {
             const vc = window.Web2VariantsCache;
-            if (vc?.getAll) {
+            if (vc?.getColorShortMap) {
+                colorShortMap = vc.getColorShortMap();
+            } else if (vc?.getAll) {
                 for (const v of vc.getAll()) {
                     if (!/màu/i.test(v.groupName || '')) continue;
                     if (!v.shortCode) continue;

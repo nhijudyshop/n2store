@@ -652,14 +652,16 @@
     // Không compute client-side nữa → ổn định, không shift khi thêm biến thể mới.
     let _colorShortMapCache = null;
     function getColorShortMap() {
-        if (_colorShortMapCache) return _colorShortMapCache;
+        // NGUỒN CHUNG (P5 2026-06-15): Web2VariantsCache.getColorShortMap (memoize +
+        // tự invalidate khi variant đổi). Fallback inline nếu cache cũ chưa có method.
         const cache = window.Web2VariantsCache;
+        if (cache?.getColorShortMap) return cache.getColorShortMap();
+        if (_colorShortMapCache) return _colorShortMapCache;
         if (!cache?.getAll) return {};
         const map = {};
         for (const v of cache.getAll()) {
             if (!/màu/i.test(v.groupName || '')) continue;
             if (!v.shortCode) continue; // chỉ dùng locked shortcodes
-            // Strip "Màu " prefix + normalize key
             const stripped = String(v.value || '')
                 .replace(/^\s*M[àáạăâ]u\s+/iu, '')
                 .trim();
@@ -669,7 +671,7 @@
         _colorShortMapCache = map;
         return _colorShortMapCache;
     }
-    // Reset cache khi kho biến thể đổi
+    // Reset cache fallback khi kho biến thể đổi (path không có getColorShortMap).
     if (window.Web2VariantsCache?.subscribe) {
         window.Web2VariantsCache.subscribe(() => {
             _colorShortMapCache = null;
