@@ -19,7 +19,9 @@ Bump `ENGINE_VER=20260615c` + css/app `?v`. Nối tiếp 2 entry J&T cùng ngày
 
 **Fix render APPEND-only** ([live-comment-list.js](live-chat/js/live/live-comment-list.js) `prependComments`): bỏ fallback full `renderComments()` khi out-of-order (nguồn "render toàn bộ"). Chèn bằng index trong `_filteredAll` → giữ invariant `DOM==filtered.slice(0,_renderLimit)`. **Review 15-agent bắt HIGH bug** (chèn ngoài window+bump → cuộn TRÙNG+SÓT) → idx≥số dòng render → SKIP, không bump; `_ensureScrollSentinel`. Mobile đã append-only sẵn.
 
-**Status:** 🔄 `node -c` PASS. Cần deploy web2-api + GH Pages. ⚠ Tradeoff WS-direct: 2 comment cùng người cùng WS-cycle (hiếm) có thể gộp; shop reply trong thread hiếm hiện nhầm.
+**Status:** ✅ deployed + verified: WS-direct ghi DB (id `_<msgcount>`), 0 joinError. Đo: độ trễ còn lại 5-9s là **WS push của pancake.vn** (`relay-nhận − conv.updated_at`), KHÔNG phải pipeline ta (<1s sau nhận). TPOS <1s vì dùng chatomni (nguồn khác). User chốt giữ pancake WS. ⚠ Tradeoff: 2 comment cùng người cùng WS-cycle (hiếm) có thể gộp.
+
+**ZERO INTERVAL (user 2026-06-15):** gỡ nốt `setInterval(loadPosts, 90000)` [comments-mobile.js](live-chat/js/live/comments-mobile.js) → DANH SÁCH bài live cũng event-driven: SSE `web2:live-comments` → throttle 30s leading-edge → loadPosts (idle = không chạy). Audit: MỌI trang pancake (index/comments-mobile/chat) WS-direct — comment = SSE `web2:live-comments`, inbox = SSE `web2:messages` ([pancake-realtime.js](live-chat/js/pancake/pancake-realtime.js)), poller nền DISABLED. Không còn data-poll/setInterval nào.
 
 ### [web2][jt-tracking][zalo-chat] J&T follow-up: KPI "Đã duyệt" + fix input + fix chat drawer text dọc ✅
 

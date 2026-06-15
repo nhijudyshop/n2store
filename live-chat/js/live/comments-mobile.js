@@ -779,12 +779,24 @@
     load();
     loadPosts();
     wireSse();
-    // SERVER-DIRECT, KHÔNG POLL comment (user 2026-06-14/15): comment livestream về
-    // qua relay web2-realtime Pancake WS join per-page `pages:{pageId}` (né "Gói cước
-    // hết hạn" của multiple_pages) → /ingest → DB → SSE `web2:live-comments` → delta.
-    // Trang phải được BẬT ở pancake-settings → "Server realtime (WS) — chọn trang".
-    // Giữ loadPosts 90s (chỉ refresh DANH SÁCH bài live, KHÔNG phải comment — không có SSE riêng).
-    setInterval(loadPosts, 90000);
+    // SERVER-DIRECT, KHÔNG POLL (user 2026-06-14/15): comment livestream về qua relay
+    // web2-realtime Pancake WS join per-page `pages:{pageId}` → /ingest → DB → SSE
+    // `web2:live-comments` → delta. Trang phải BẬT ở pancake-settings ("Server realtime").
+    //
+    // ZERO INTERVAL (user 2026-06-15): DANH SÁCH bài live cũng EVENT-DRIVEN qua SSE,
+    // KHÔNG còn setInterval 90s. Có comment mới (web2:live-comments) → throttle 30s →
+    // loadPosts (bắt bài live MỚI + cập nhật count/living). Leading-edge: comment đầu
+    // sau quãng lặng chạy NGAY (bài mới hiện nhanh); đang live liên tục thì tối đa
+    // 30s/lần. Idle (không ai comment) = KHÔNG chạy gì → không poll.
+    if (window.Web2SSE && window.Web2SSE.subscribe) {
+        let _postsAt = 0;
+        window.Web2SSE.subscribe('web2:live-comments', () => {
+            const now = Date.now();
+            if (now - _postsAt < 30000) return;
+            _postsAt = now;
+            loadPosts();
+        });
+    }
     document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible') {
             if (stream) stream.fetchNow();
