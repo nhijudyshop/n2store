@@ -2,6 +2,10 @@
 
 ## 2026-06-15
 
+### [live-chat] BỎ HẾT hiệu ứng comment mới (cả 2 trang) ✅
+
+User: "bỏ hết hiệu ứng bình luận mới + hiệu ứng đẩy trượt từ trên xuống". Gỡ `.is-new` (fade) + burst helper `_shouldAnimateNew`/`shouldAnimateNew` + CSS `@keyframes liveCommentIn`/`cardIn` ở [live-comment-list.js](live-chat/js/live/live-comment-list.js)+[live-comments.css](live-chat/css/live/live-comments.css) (desktop) và [comments-mobile.js](live-chat/js/live/comments-mobile.js)+[comments-mobile.html](live-chat/comments-mobile.html) (mobile). Comment mới hiện TỨC THÌ, không animation. (`?v=20260615noanim`)
+
 ### [web2][render] J&T tracking — "chuyển hoàn" ≠ "đã giao" → thêm status `returned` (Đã hoàn) ✅
 
 **User** (kèm ảnh): đơn `802759556302` event `"Đơn hàng chuyển hoàn thành công…"` bị gán **Đã giao** — "chuyển hoàn -> không phải đã giao".

@@ -330,22 +330,7 @@
                 transition: transform 0.12s ease;
                 border-left: 3px solid transparent;
             }
-            /* Hiệu ứng card MỚI: fade + trượt nhẹ — DỊU MẮT. CHỈ gắn .is-new cho card
-               vừa chèn (applyDelta), KHÔNG cho mọi card (trước đây animate cả list mỗi
-               render = nháy nhức mắt). Burst dồn dập → JS bỏ .is-new → hiện tức thì. */
-            @keyframes cardIn {
-                from {
-                    opacity: 0;
-                }
-                to {
-                    opacity: 1;
-                }
-            }
-            .card.is-new {
-                /* CHỈ fade mờ→rõ chậm, đều — KHÔNG trượt, KHÔNG lóe (nhẹ nhàng, không flash). */
-                animation: cardIn 0.55s ease both;
-                will-change: opacity;
-            }
+            /* Card MỚI: hiện TỨC THÌ, KHÔNG hiệu ứng (user 2026-06-15 — bỏ hết fade/trượt). */
             .card:active {
                 transform: scale(0.985);
             }
@@ -954,7 +939,7 @@
         <script src="js/shared/live-status.js?v=20260614w2c"></script>
         <script src="js/shared/live-customer-sync.js?v=20260614w2c"></script>
         <!-- App controller (đặt window.LiveState/LiveCommentList shim cho module ẩn) -->
-        <script src="js/live/comments-mobile.js?v=20260615status"></script>
+        <script src="js/live/comments-mobile.js?v=20260615noanim"></script>
         <!-- Module ẩn comment theo NGƯỜI — DÙNG CHUNG nguồn server với live-chat/index.html -->
         <script src="js/live/live-hidden-commenters.js?v=20260614w2c"></script>
     </body>

@@ -185,28 +185,7 @@
     position: relative;
 }
 
-/* Hiệu ứng comment MỚI (SSE realtime): fade + trượt nhẹ — DỊU MẮT, không chói/giật.
-   CHỈ gắn .is-new cho dòng vừa chèn (live-comment-list.js prependComments), KHÔNG cho
-   dòng cũ / full-render. Burst (comment dồn dập): JS bỏ qua .is-new → hiện tức thì,
-   tránh nháy loạn nhức mắt. Compositor-only (opacity+transform). */
-@keyframes liveCommentIn {
-    from {
-        opacity: 0;
-    }
-    to {
-        opacity: 1;
-    }
-}
-.live-conversation-item.is-new {
-    /* CHỈ fade mờ→rõ chậm, đều — KHÔNG trượt, KHÔNG lóe (user: nhẹ nhàng, không flash). */
-    animation: liveCommentIn 0.55s ease both;
-    will-change: opacity;
-}
-@media (prefers-reduced-motion: reduce) {
-    .live-conversation-item.is-new {
-        animation: none;
-    }
-}
+/* Comment MỚI: hiện TỨC THÌ, KHÔNG hiệu ứng (user 2026-06-15 — bỏ hết fade/trượt). */
 
 .live-conversation-item:hover {
     border-color: var(--primary);
