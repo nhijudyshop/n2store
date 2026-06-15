@@ -138,7 +138,7 @@ async function autoIngestFromZalo(db, msg) {
                  ON CONFLICT (billcode) DO UPDATE SET
                     zalo_conv_id = COALESCE(web2_jt_tracking.zalo_conv_id, EXCLUDED.zalo_conv_id),
                     note = COALESCE(web2_jt_tracking.note, EXCLUDED.note),
-                    src_message = COALESCE(web2_jt_tracking.src_message, EXCLUDED.src_message)
+                    src_message = COALESCE(EXCLUDED.src_message, web2_jt_tracking.src_message)
                  RETURNING (xmax = 0) AS inserted`,
                 [code, convName, ts, convId, srcMsg || null]
             );
@@ -367,7 +367,7 @@ router.post('/scan', async (req, res) => {
                  ON CONFLICT (billcode) DO UPDATE SET
                     note = COALESCE(web2_jt_tracking.note, EXCLUDED.note),
                     zalo_conv_id = COALESCE(web2_jt_tracking.zalo_conv_id, EXCLUDED.zalo_conv_id),
-                    src_message = COALESCE(web2_jt_tracking.src_message, EXCLUDED.src_message)
+                    src_message = COALESCE(EXCLUDED.src_message, web2_jt_tracking.src_message)
                  RETURNING (xmax = 0) AS inserted`,
                 [code, ctx.name, ts, ctx.id, ctx.content || null]
             );
