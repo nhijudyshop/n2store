@@ -185,6 +185,30 @@
     position: relative;
 }
 
+/* Hiệu ứng comment MỚI (SSE realtime): fade + trượt nhẹ — DỊU MẮT, không chói/giật.
+   CHỈ gắn .is-new cho dòng vừa chèn (live-comment-list.js prependComments), KHÔNG cho
+   dòng cũ / full-render. Burst (comment dồn dập): JS bỏ qua .is-new → hiện tức thì,
+   tránh nháy loạn nhức mắt. Compositor-only (opacity+transform). */
+@keyframes liveCommentIn {
+    from {
+        opacity: 0;
+        transform: translateY(-5px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+.live-conversation-item.is-new {
+    animation: liveCommentIn 0.36s cubic-bezier(0.16, 1, 0.3, 1) both;
+    will-change: opacity, transform;
+}
+@media (prefers-reduced-motion: reduce) {
+    .live-conversation-item.is-new {
+        animation: none;
+    }
+}
+
 .live-conversation-item:hover {
     border-color: var(--primary);
     box-shadow: 0 2px 8px rgba(0, 104, 255, 0.08);

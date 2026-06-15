@@ -2,6 +2,16 @@
 
 ## 2026-06-15
 
+### [live-chat] Hiệu ứng comment mới DỊU MẮT + burst-aware (desktop + mobile) ✅
+
+**User:** "hiệu ứng comment mới làm dịu, nhẹ nhàng tránh nhức mắt + trường hợp comment nhiều liên tiếp thì sao?"
+
+- **Animation dịu**: keyframe `liveCommentIn`/`cardIn` fade (opacity 0→1) + trượt nhẹ `translateY(-5px→0)`, 0.36s ease-out-expo, compositor-only (transform+opacity). Desktop [live-comments.css](live-chat/css/live/live-comments.css) `.live-conversation-item.is-new`; mobile [comments-mobile.html](live-chat/comments-mobile.html) `.card.is-new`. respect `prefers-reduced-motion`.
+- **CHỈ animate dòng MỚI**: trước đây mobile gắn `animation: cardIn` cho **MỌI** `.card` → mỗi render cả list nháy nhức mắt. Bỏ blanket, chỉ gắn `.is-new` cho card/dòng vừa chèn (gỡ sau `animationend`).
+- **Burst-aware** (`_shouldAnimateNew`/`shouldAnimateNew`): batch >5 dòng HOẶC >12 dòng animate/2s = **comment dồn dập** → TẮT hiệu ứng → hiện tức thì, tránh nháy loạn. Flow thường (≤vài/giây) → animate dịu.
+
+**Status:** ✅ `node -c` PASS. Cần GH Pages deploy (`?v=20260615anim`).
+
 ### [web2][jt-tracking][zalo-chat] J&T: fix mất composer chat drawer + nén dashboard gọn ✅ (`b33d74d64`)
 
 1. **Composer (ô soạn tin) mất trong chat drawer**: `.wz-chat-body` thiếu `flex:1 1 auto; min-height:0; overflow-y:auto; flex column` trong engine CSS — các rule này CHỈ có ở `web2-zalo.css` (trang Zalo). Nhúng `mountChat` ngoài trang Zalo → body phình theo nội dung, đẩy `.wz-composer` xuống dưới màn. Fix: thêm vào [chat-bubbles.css](web2/shared/zalo-chat/chat-bubbles.css) (`.wz-chat-main .wz-chat-body`) → composer ghim đáy. Verified live: composer hiện đủ (input + ảnh/file/emoji + gửi).
