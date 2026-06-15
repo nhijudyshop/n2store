@@ -87,6 +87,11 @@
         if (s.length === 9 && s[0] !== '0') s = '0' + s;
         return s;
     }
+    // SĐT VN = ĐÚNG 10 số, bắt đầu '0' (0xxxxxxxxx). Tránh nhầm fb_id / dãy số dài
+    // khác (vd fb_24084091254523635) thành SĐT khi enrich/khớp KH/hiển thị.
+    function validPhone(p) {
+        return /^0\d{9}$/.test(normP(p));
+    }
 
     const TZ = { timeZone: 'Asia/Ho_Chi_Minh' };
     function parseTs(v) {
@@ -158,7 +163,7 @@
 
     // ---------- enrich từ KHO web2_customers ----------
     function whInfo(c) {
-        const byP = c.phone && custMap.phone[normP(c.phone)];
+        const byP = validPhone(c.phone) && custMap.phone[normP(c.phone)];
         const byF = c.fb_id && custMap.fb[String(c.fb_id)];
         return byP || byF || null;
     }
@@ -219,7 +224,7 @@
     }
     async function enrichWarehouse(data) {
         const phones = [
-            ...new Set(data.map((c) => normP(c.phone)).filter((p) => p && p.length >= 9)),
+            ...new Set(data.map((c) => normP(c.phone)).filter((p) => /^0\d{9}$/.test(p))),
         ].filter((p) => !custMap.phone[p]);
         const fbids = [
             ...new Set(data.map((c) => c.fb_id && String(c.fb_id)).filter(Boolean)),
