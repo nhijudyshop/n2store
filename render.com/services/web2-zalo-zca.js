@@ -601,9 +601,26 @@ async function fetchSelf(accountKey) {
     return api.fetchAccountInfo();
 }
 
-async function getGroupChatHistory(accountKey, groupId, lastMsgId, count) {
+async function getGroupChatHistory(accountKey, groupId, count) {
     const api = _requireApi(accountKey);
-    return api.getGroupChatHistory({ groupId: String(groupId), lastMsgId, count: count || 50 });
+    // ⚠ zca-js: getGroupChatHistory(groupId, count) — positional, KHÔNG có lastMsgId.
+    return api.getGroupChatHistory(String(groupId), count || 50);
+}
+
+// Lịch sử nhóm đã CHUẨN HOÁ (giống tin realtime qua _normMessage) — để quét/backfill
+// mã đơn cũ/bị thiếu. Trả mảng { content, msgId, threadId, threadType, direction, ... }.
+async function getGroupHistory(accountKey, groupId, count) {
+    const res = await getGroupChatHistory(accountKey, groupId, count);
+    const arr = Array.isArray(res?.groupMsgs) ? res.groupMsgs : Array.isArray(res) ? res : [];
+    const out = [];
+    for (const m of arr) {
+        try {
+            out.push(_normMessage(accountKey, m));
+        } catch {
+            /* bỏ qua tin không parse được (system msg…) */
+        }
+    }
+    return out;
 }
 
 // Resolve tên + avatar của thành viên nhóm theo uid (group message dName rỗng).
@@ -721,6 +738,7 @@ module.exports = {
     isConnected,
     fetchSelf,
     getGroupChatHistory,
+    getGroupHistory,
     getGroupMembersInfo,
     getGroupsInfo,
     getOwnUid,

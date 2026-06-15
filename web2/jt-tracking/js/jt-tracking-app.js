@@ -579,6 +579,26 @@
         }
     }
 
+    // Đọc lịch sử nhóm Zalo (zca) → quét đơn CŨ / bị thiếu (tin trước khi listener kết nối).
+    async function scanHistory() {
+        const btn = $('jtScanHistory');
+        setBusy(btn, true, ' Đang đọc lịch sử…');
+        try {
+            const j = await api('/scan-history', { method: 'POST', body: { count: 300 } });
+            notify(
+                `Lịch sử: đọc ${j.fetched} tin · ${j.found} mã · thêm mới ${j.added}` +
+                    (j.errors?.length ? ` (${j.errors.length} nhóm lỗi)` : ''),
+                j.added ? 'success' : 'info'
+            );
+            await load();
+            if (j.added) refreshAll(); // tự tra các mã mới
+        } catch (e) {
+            notify('✗ ' + e.message, 'error');
+        } finally {
+            setBusy(btn, false);
+        }
+    }
+
     let _refreshing = false;
     async function refreshAll() {
         if (_refreshing) return; // tránh 2 vòng refresh chạy song song (scan + nút)
@@ -814,6 +834,7 @@
         icons();
         $('jtQuickForm').addEventListener('submit', quickAdd);
         $('jtScan').addEventListener('click', scanZalo);
+        $('jtScanHistory')?.addEventListener('click', scanHistory);
         $('jtRefreshAll').addEventListener('click', refreshAll);
         $('jtClearAll').addEventListener('click', clearAll);
         $('jtKpis').addEventListener('click', (e) => {

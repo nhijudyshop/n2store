@@ -18,6 +18,7 @@
 
 const express = require('express');
 const router = express.Router();
+const zca = require('../services/web2-zalo-zca'); // đọc lịch sử nhóm Zalo (scan-history)
 
 let _pool = null;
 const getDb = (req) => req.app.locals.web2Db || req.app.locals.chatDb;
@@ -388,6 +389,83 @@ router.post('/scan', async (req, res) => {
         }
         if (added) _notify('scan', String(added));
         res.json({ success: true, found: found.size, added });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+// POST /scan-history — BACKFILL: đọc LỊCH SỬ nhóm J&T trực tiếp từ Zalo (zca
+// getGroupHistory) → quét mã đơn CŨ / bị thiếu (tin nhắn gửi TRƯỚC khi listener
+// kết nối, chưa có trong web2_zalo_messages). Quét các nhóm trong allowlist
+// (web2_zalo_tracked_groups). count = số tin gần nhất mỗi nhóm (mặc định 200).
+router.post('/scan-history', async (req, res) => {
+    try {
+        const db = getDb(req);
+        const count = Math.min(parseInt(req.body?.count, 10) || 200, 500);
+        // Nhóm J&T được theo dõi + tên/id hội thoại (để gán nguồn).
+        const groups = (
+            await db.query(
+                `SELECT t.account_key, t.thread_id,
+                        COALESCE(c.display_name, t.name) AS name, c.id AS conv_id
+                   FROM web2_zalo_tracked_groups t
+                   LEFT JOIN web2_zalo_conversations c
+                     ON c.account_key = t.account_key AND c.thread_id = t.thread_id`
+            )
+        ).rows;
+        if (!groups.length)
+            return res.json({
+                success: false,
+                error: 'Chưa cấu hình nhóm J&T theo dõi (web2_zalo_tracked_groups)',
+            });
+        let fetched = 0;
+        const errors = [];
+        // mã → ngữ cảnh (giống /scan): tên/id nhóm + toàn bộ tin chứa mã.
+        const found = new Map();
+        for (const g of groups) {
+            let msgs = [];
+            try {
+                msgs = await zca.getGroupHistory(g.account_key, g.thread_id, count);
+            } catch (e) {
+                errors.push(`${g.name || g.thread_id}: ${e.message}`);
+                continue;
+            }
+            for (const m of msgs) {
+                if (!m || !m.content) continue;
+                fetched++;
+                for (const code of extractOrderCodes(m.content)) {
+                    if (!found.has(code))
+                        found.set(code, {
+                            name: g.name || null,
+                            id: g.conv_id || null,
+                            content: String(m.content).slice(0, 2000),
+                        });
+                }
+            }
+        }
+        const ts = now();
+        let added = 0;
+        for (const [code, ctx] of found) {
+            const r = await db.query(
+                `INSERT INTO web2_jt_tracking (billcode, status, source, note, zalo_conv_id, src_message, created_at, updated_at)
+                 VALUES ($1,'pending','zalo',$2,$4,$5,$3,$3)
+                 ON CONFLICT (billcode) DO UPDATE SET
+                    note = COALESCE(web2_jt_tracking.note, EXCLUDED.note),
+                    zalo_conv_id = COALESCE(web2_jt_tracking.zalo_conv_id, EXCLUDED.zalo_conv_id),
+                    src_message = COALESCE(EXCLUDED.src_message, web2_jt_tracking.src_message)
+                 RETURNING (xmax = 0) AS inserted`,
+                [code, ctx.name, ts, ctx.id, ctx.content || null]
+            );
+            if (r.rows[0]?.inserted) added++;
+        }
+        if (added) _notify('scan', String(added));
+        res.json({
+            success: true,
+            groups: groups.length,
+            fetched,
+            found: found.size,
+            added,
+            errors,
+        });
     } catch (e) {
         res.status(500).json({ success: false, error: e.message });
     }

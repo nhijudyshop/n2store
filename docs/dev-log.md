@@ -2,6 +2,15 @@
 
 ## 2026-06-15
 
+### [web2][render] J&T "Quét lịch sử" — đọc lịch sử nhóm Zalo (zca) để quét đơn cũ/bị thiếu ✅
+
+User: "đọc được lịch sử nhóm chat hôm nay để quét các đơn tin nhắn cũ hoặc bị thiếu không?". → Được: `/scan` cũ chỉ đọc `web2_zalo_messages` (chỉ có tin từ lúc listener kết nối) nên tin gửi TRƯỚC đó bị miss.
+
+- **zca service** ([web2-zalo-zca.js](render.com/services/web2-zalo-zca.js)): FIX `getGroupChatHistory` (zca-js nhận `(groupId, count)` positional — wrapper cũ truyền object `{groupId,lastMsgId,count}` → hỏng, chưa ai dùng). Thêm `getGroupHistory(accountKey, groupId, count)` → `data.groupMsgs` map qua `_normMessage` (GroupMessage history CÙNG shape tin realtime: `.type/.data/.threadId/.isSelf`). ⚠ Lib version này KHÔNG hỗ trợ `lastMsgId` → chỉ lấy `count` tin gần nhất (no deep pagination).
+- **route** ([web2-jt-tracking.js](render.com/routes/web2-jt-tracking.js)): `POST /scan-history {count=200}` → quét nhóm trong allowlist `web2_zalo_tracked_groups` → `zca.getGroupHistory` → `extractOrderCodes` → upsert `web2_jt_tracking` (giống /scan: code→{tên/id nhóm, full content}). Trả {fetched, found, added, errors}.
+- **UI** ([jt-tracking-app.js](web2/jt-tracking/js/jt-tracking-app.js) + [index.html](web2/jt-tracking/index.html)): nút **"Quét lịch sử"** (icon history) cạnh "Quét Zalo" → `/scan-history` count 300 → load + auto refresh mã mới. Bump app `?v=20260615p`.
+- ⚠ Cần deploy web2-api (zca service + route mới). Status: ✅ Done (deploy + verify).
+
 ### [web2][render] Chat KH: Zalo chat-by-phone (chưa từng nhắn vẫn chat được) + auto-scroll + nút tag đổi trạng thái ✅
 
 User: "1. zalo chưa có đoạn hội thoại nhưng đã có SĐT thì vẫn lấy được thông tin + chat được (Zalo không chặn, chỉ khách chặn mới fail). 2. Pancake/Zalo tự cuộn xuống cùng. 3. Bấm tag XỬ LÝ BC → nút đổi khác để biết khách đã có tag."
