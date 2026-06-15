@@ -280,6 +280,7 @@
                 psid,
                 pageId: event.page_id || event.pageId || '',
                 customerName: event.customerName || event.customer_name || event.from?.name || '',
+                phone: event.phone || event.phone_number || '',
                 inboxCount: 0,
             };
             _pendingCustomers.push(existing);
@@ -306,6 +307,10 @@
         // Update customerName nếu event có (server WS push có from.name)
         const evName = event.customerName || event.customer_name || event.from?.name;
         if (evName && !existing.customerName) existing.customerName = evName;
+
+        // Phone (recent_phone_numbers Pancake) — fill nếu chưa có (match badge theo SĐT)
+        const evPhone = event.phone || event.phone_number;
+        if (evPhone && !existing.phone) existing.phone = evPhone;
 
         existing.snippet = event.snippet || event.message || existing.snippet;
         existing.timestamp = eventTimeMs || Date.now();
@@ -601,6 +606,84 @@
         }
     }
 
+    // =====================================================
+    // DISCOVER unread từ Pancake (vào trang / chọn / đổi chiến dịch)
+    // =====================================================
+    // Mirror "list unread" của Pancake vào badge — bù cho WS-only (WS KHÔNG replay
+    // event đã miss khi không có client/restart/token gap → mở lại không thấy tin
+    // mới). Fetch TRỰC TIẾP Pancake từ browser (pdm.fetchConversationsForPage, đã
+    // cache + unread_first), KHÔNG cần cron/poller server. Cache = _pendingCustomers
+    // (localStorage). Clear theo khách qua clearPendingForCustomer khi shop reply.
+    let _lastDiscoverAt = 0;
+    async function discoverUnreadFromPancake(opts) {
+        const force = opts && opts.force;
+        const COOLDOWN_MS = 30_000; // gom các trigger gần nhau (trừ khi force)
+        if (!force && Date.now() - _lastDiscoverAt < COOLDOWN_MS) return;
+        const pdm = window.pancakeDataManager;
+        if (!pdm || typeof pdm.fetchConversationsForPage !== 'function') return;
+        const pages = (pdm.pages || []).map((p) => String(p.id || p.page_id || '')).filter(Boolean);
+        if (pages.length === 0) return;
+        _lastDiscoverAt = Date.now();
+
+        let added = 0;
+        for (const pageId of pages) {
+            try {
+                const result = await pdm.fetchConversationsForPage(pageId, {});
+                const convs = result?.conversations || [];
+                for (const c of convs) {
+                    const unread = typeof c.unread_count === 'number' ? c.unread_count : 0;
+                    if (unread <= 0) continue; // chỉ chưa đọc
+                    if ((c.type || 'INBOX') !== 'INBOX') continue;
+                    const psid = String(c.from_psid || c.from?.id || '');
+                    if (!psid || psid === String(pageId)) continue;
+                    const lastSenderId = String(
+                        c.last_sent_by?.id || c.last_message?.from?.id || ''
+                    );
+                    if (lastSenderId && lastSenderId === String(pageId)) continue; // shop gửi cuối → bỏ
+                    const phone =
+                        c.recent_phone_numbers?.[0]?.phone_number ||
+                        c.conv_phone_numbers?.[0]?.phone_number ||
+                        '';
+                    // onNewConversationEvent: dedupe theo psid + tôn trọng
+                    // _wasRecentlyReplied + SET inboxCount = unread (authoritative).
+                    onNewConversationEvent({
+                        psid,
+                        page_id: String(pageId),
+                        customerName: c.from?.name || c.customers?.[0]?.name || '',
+                        phone,
+                        snippet: c.snippet || '',
+                        type: 'INBOX',
+                        unread_count: unread,
+                        eventTimeMs: c.updated_at ? new Date(c.updated_at).getTime() : Date.now(),
+                    });
+                    added++;
+                }
+            } catch (_e) {
+                /* one page failure shouldn't block the rest */
+            }
+        }
+        if (added > 0) {
+            console.log(`[NOTIFIER] discoverUnread: +${added} unread từ Pancake`);
+            reapply();
+        }
+    }
+
+    // Vào trang: discover unread 1 lần khi pancakeDataManager sẵn sàng (pages + PAT).
+    // KHÔNG phải interval — chỉ chờ readiness rồi fire một lần.
+    (function _discoverOnEnter() {
+        let tries = 0;
+        const t = setInterval(() => {
+            tries++;
+            const pdm = window.pancakeDataManager;
+            if (pdm && (pdm.pages || []).length > 0) {
+                clearInterval(t);
+                discoverUnreadFromPancake({ force: true }).catch(() => {});
+            } else if (tries > 30) {
+                clearInterval(t);
+            }
+        }, 1000);
+    })();
+
     // Run reconcile once on startup, then every 5 min.
     // Defer initial run to give pancakeDataManager time to authenticate.
     setTimeout(() => {
@@ -677,5 +760,6 @@
         clearAll,
         getPendingCustomers: () => [..._pendingCustomers],
         reconcilePendingWithPancake,
+        discoverUnreadFromPancake,
     };
 })();

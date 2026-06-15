@@ -29,15 +29,17 @@ User: (1) "Đã tạo đơn" đè trạng thái KH (mobile); (2) live-chat deskt
 - [web2-customers.js](render.com/routes/v2/web2-customers.js): `rowToLite` thêm `status`+`tier` (GET /:phone trả status cho modal/lookup).
 - Bump live-chat (`comments-mobile`/`live-comment-list`/`live-init`) + `native-orders-app` `?v=20260615kho`. ⚠ deploy web2-api (rowToLite).
 
-### [orders-report][render] Cột TIN NHẮN nhận biết tin mới khi mở lại (quét list unread Pancake) ✅
+### [orders-report] Cột TIN NHẮN nhận biết tin mới khi mở lại — client fetch list unread Pancake (KHÔNG cron) ✅
 
-**User:** "Bug phải mở client nó mới biết có tin nhắn mới à? Tắt hết client rồi mở lại muốn cũng nhận biết tin mới như Pancake" → "lấy list unread pancake là được".
+**User:** "Bug phải mở client nó mới biết tin mới à? Tắt hết client rồi mở lại muốn nhận biết như Pancake" → "lấy list unread pancake là được" → **"đâu có cần cron → khi vào trang / chọn / đổi chiến dịch → fetch pancake unread cho vào cache rồi cập nhật bảng, xóa cache khi cập nhật khách"**.
 
-**Gap:** cột TIN NHẮN dựa WS realtime (server.js RealtimeClient) để ADD `pending_customers`. WS KHÔNG replay event đã miss (server restart, token gap, lúc không client nào mở). Cron reconcile (scheduler.js:623) chỉ rà dòng pending ĐÃ CÓ — không khám phá unread MỚI. → mở lại client không thấy badge. Pancake luôn biết vì giữ `unread_count` server-side.
+**Gap:** cột TIN NHẮN dựa WS realtime ADD `pending_customers`. WS KHÔNG replay event đã miss (restart/token gap/không client) → tin tới lúc offline không vào badge → mở lại không thấy. Pancake luôn biết (giữ unread_count server-side).
 
-**Fix:** service `render.com/services/pancake-unread-discovery.js` `discoverUnread(db)` — quét `GET /api/v1/conversations?pages[..]=0&type=INBOX&unread_first=true` (JWT pancake_accounts, fallback realtime_credentials token; pages từ realtime_credentials.page_ids) → upsert hội thoại `unread_count>0` vào `pending_customers` (SET message_count=unread, COALESCE phone). Mirror đúng "inbox chưa đọc" của Pancake, độc lập client. Wire 2 nơi: (1) cron `2-59/5 * * * *` (offset +2' tránh trùng reconcile :00); (2) fire-and-forget trong `/api/realtime/start` (mở client → quét NGAY). Shop-sent-last: list v1 thiếu last_sent_by → dựa unread_count Pancake (đúng như Pancake hiện); reconcile cron (:00, fetch full conv) sẽ DELETE nếu thực ra shop đã rep → tự heal.
+**Approach (theo user — CLIENT-side, không poller server):** lần đầu làm server cron (`pancake-unread-discovery.js` + cron 5' + trigger /start) → **user bác "đâu cần cron" → REVERT toàn bộ server-side**, làm thuần frontend fetch trực tiếp Pancake từ browser (đúng triết lý project).
 
-Web 1.0 only (chatDb/pending_customers, scheduler Web1-only) — KHÔNG phải poller Web 2.0. `node --check` PASS 3 file + cron expr valid. **Cần deploy fallback.** **Status:** ✅ — MEMORY [[reference_web1_realtime_msg_column]].
+**Fix (frontend, `new-messages-notifier.js` bump `?v=20260615a`):** `discoverUnreadFromPancake()` — duyệt `pdm.pages`, `pdm.fetchConversationsForPage(pageId)` (official v2 + PAT, đã cache, `unread_first`) → lọc `unread_count>0` + INBOX + không shop-sent-last → `onNewConversationEvent({unread_count,phone,...})` (dedupe psid + tôn trọng `_wasRecentlyReplied` + SET inboxCount=unread) → reapply badge. Cache = `_pendingCustomers` (localStorage); clear theo khách = `clearPendingForCustomer` khi shop reply (đã có). Thêm `phone` vào entry onNewConversationEvent (match badge theo SĐT). **Trigger:** (1) `_discoverOnEnter` chờ pdm sẵn sàng rồi fire 1 lần (vào trang); (2) `continueAfterCampaignSelect` (tab1-init.js, bump `?v=20260615a`) sau `handleSearch()` — chạy khi vào trang + chọn + đổi chiến dịch. KHÔNG interval mới.
+
+Web 1.0 only, frontend-only (GH Pages, không cần deploy Render). `node --check` PASS. **Status:** ✅ — MEMORY [[reference_web1_realtime_msg_column]].
 
 ### [web2] J&T `_parsePasteDate` — siết đọc ngày dòng dán (chống typo/ngày cũ/ghi chú) ✅
 

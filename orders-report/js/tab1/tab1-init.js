@@ -796,6 +796,14 @@ async function continueAfterCampaignSelect(campaignId) {
             window.realtimeManager.connectServerMode();
         }
 
+        // Vào trang / chọn / đổi chiến dịch → quét "list unread" Pancake (fetch trực
+        // tiếp từ browser, đã cache) → tô badge cột TIN NHẮN. Bù cho WS-only: tin tới
+        // lúc không có client/restart không vào được badge → giờ mở lại/đổi chiến dịch
+        // là nhận biết như Pancake. Fire-and-forget, không chặn luồng tải.
+        if (window.newMessagesNotifier?.discoverUnreadFromPancake) {
+            window.newMessagesNotifier.discoverUnreadFromPancake({ force: true }).catch(() => {});
+        }
+
         // Preload report-snapshot details so STT expand renders instantly from
         // PostgreSQL `report_orders_v2` instead of per-click OData. Background
         // refresh on click keeps data fresh — see tab1-table.js
