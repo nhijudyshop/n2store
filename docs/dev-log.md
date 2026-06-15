@@ -2,6 +2,14 @@
 
 ## 2026-06-15
 
+### [web2] "Đa dụng Web 2.0" thành GROUP sidebar + "Tăng số lượng comment" là trang trong group ✅
+
+User: "Đa dụng Web 2.0 là 1 group ở menu, Tăng số lượng comment là 1 trang trong đó".
+
+- [web2-sidebar.js](web2/shared/web2-sidebar.js): bỏ `{Đa dụng}` khỏi group "Tính năng mới" → thêm group top-level mới **"Đa dụng Web 2.0"** (icon `wrench`) chứa child **"Tăng số lượng comment"** → `web2/multi-tool/index.html`. (mở rộng được: thêm tool mới = thêm trang + child.)
+- [multi-tool/index.html](web2/multi-tool/index.html): h1 "Đa dụng Web 2.0" → **"Tăng số lượng comment"** (icon trending-up), bỏ tab bar dư thừa (group đã cung cấp ngữ cảnh), title tag + #Note cập nhật.
+- Bump `web2-sidebar.js?v=20260615da` trên 39 trang để menu mới hiện.
+
 ### [render] J&T /refresh — gentler để hết kẹt "Chưa tra" (jtexpress throttle khi tra dồn) ✅
 
 User: 32 đơn "Chưa tra" làm mới không được. Chẩn đoán: `/track` đơn lẻ 1 mã kẹt → OK ngay (returned, 19 event) ⇒ mã hợp lệ, do **batch /refresh tra song song 5/đợt × 20 đợt liên tục → jtexpress.vn throttle → timeout → kẹt pending** (khác 'not_found'=fetch OK 0 event). Fix [web2-jt-tracking.js](render.com/routes/web2-jt-tracking.js): CONC 5→**3**, **retry 1 lần** (nghỉ 700ms) khi fetch lỗi, **nhịp 350ms giữa các đợt**, REFRESH_BATCH 25→**15** (mỗi call snappy, tránh treo request). Pending sẽ về 0 sau vài lần "Làm mới tất cả".
