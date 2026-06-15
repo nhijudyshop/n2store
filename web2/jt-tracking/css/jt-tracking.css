@@ -564,6 +564,33 @@ body {
     background: color-mix(in oklab, var(--jt-primary) 14%, transparent);
     text-decoration: underline;
 }
+/* mã đơn bấm để copy (title + trong tin nhắn) */
+.jt-code {
+    cursor: pointer;
+    border-radius: 4px;
+    padding: 0 2px;
+    transition: background var(--jt-dur) var(--jt-ease);
+}
+.jt-code:hover {
+    background: color-mix(in oklab, var(--jt-primary) 12%, transparent);
+    text-decoration: underline;
+}
+/* tin nhắn chat trùng mã → nháy sáng khi mở chat */
+.jt-msg-hit {
+    animation: jt-hit 2.6s var(--jt-ease);
+    border-radius: 10px;
+}
+@keyframes jt-hit {
+    0%,
+    100% {
+        background: transparent;
+    }
+    12%,
+    55% {
+        background: color-mix(in oklab, var(--jt-primary) 16%, transparent);
+        box-shadow: 0 0 0 2px color-mix(in oklab, var(--jt-primary) 40%, transparent);
+    }
+}
 .jt-row-msg b {
     font-weight: 700;
 }

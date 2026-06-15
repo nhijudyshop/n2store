@@ -165,7 +165,10 @@
     // tô đậm mã 12 số + tô xanh SĐT trong nội dung tin nhắn nguồn (đã esc trước).
     function fmtSrcMsg(s) {
         let h = esc(String(s || ''));
-        h = h.replace(/\b(\d{12})\b/g, '<b>$1</b>');
+        h = h.replace(
+            /\b(\d{12})\b/g,
+            '<b class="jt-code" data-copy="$1" role="button" tabindex="0" title="Bấm để copy mã đơn">$1</b>'
+        );
         // SĐT bấm để copy (data-copy → handler capture, KHÔNG mở modal)
         h = h.replace(
             /\b(0\d{8,10})\b/g,
@@ -213,7 +216,7 @@
             ? `${esc(r.latest_at_text)} · ${esc(relTime(r.latest_at))}`
             : 'Chưa tra cứu';
         const chatBtn = r.zalo_conv_id
-            ? `<button class="jt-icobtn chat" data-act="chat" data-conv="${esc(r.zalo_conv_id)}" title="Mở chat nhóm Zalo"><i data-lucide="message-circle"></i></button>`
+            ? `<button class="jt-icobtn chat" data-act="chat" data-conv="${esc(r.zalo_conv_id)}" data-billcode="${code}" title="Mở chat nhóm Zalo + tìm tới tin có mã"><i data-lucide="message-circle"></i></button>`
             : '';
         const right = `${chatBtn}<button class="jt-icobtn" data-act="refresh" data-code="${code}" title="Làm mới"><i data-lucide="refresh-cw"></i></button>
             ${
@@ -224,7 +227,8 @@
         return `<div class="jt-row ${approved ? 'is-approved' : ''}" data-open="${code}" role="button" tabindex="0">
             <div class="jt-row-status" style="--bg:var(--st-${s.cls}-bg);--fg:var(--st-${s.cls})"><i data-lucide="${s.icon}"></i></div>
             <div class="jt-row-mid">
-                <div class="jt-row-code">${esc(r.billcode)}
+                <div class="jt-row-code">
+                    <span class="jt-code" data-copy="${code}" role="button" tabindex="0" title="Bấm để copy mã đơn">${code}</span>
                     <span class="jt-badge" style="--bg:var(--st-${s.cls}-bg);--fg:var(--st-${s.cls})">${s.label}</span>
                     ${approvedTag(r.approved_at)}
                 </div>
@@ -377,9 +381,37 @@
         }
     }
 
+    // Sau khi chat mount: tìm tin nhắn chứa mã → cuộn tới + nháy sáng. Nếu chưa thấy,
+    // bấm "Tải tin cũ hơn" vài lần (mã đơn thường cũ hơn 100 tin gần nhất).
+    function findMessageInChat(code) {
+        if (!code) return;
+        let tries = 0;
+        let olderClicks = 0;
+        const timer = setInterval(() => {
+            tries++;
+            const body = document.querySelector('#jtChatBody .wz-chat-body');
+            const msgs = body ? body.querySelectorAll('.wz-msg') : [];
+            const target = [...msgs].reverse().find((m) => (m.textContent || '').includes(code));
+            if (target) {
+                target.scrollIntoView({ block: 'center', behavior: 'smooth' });
+                target.classList.add('jt-msg-hit');
+                setTimeout(() => target.classList.remove('jt-msg-hit'), 2600);
+                clearInterval(timer);
+                return;
+            }
+            // chưa thấy → tải tin cũ hơn (tối đa 6 lần)
+            const older = body && body.querySelector('#wzcvOlder');
+            if (older && olderClicks < 6 && tries % 2 === 0) {
+                older.click();
+                olderClicks++;
+            }
+            if (tries > 28) clearInterval(timer); // ~7s bỏ cuộc (để chat mở bình thường)
+        }, 250);
+    }
+
     // ── Chat drawer (mở hội thoại nhóm Zalo nguồn của mã) ───────────
     let _chatHandle = null;
-    function openChat(convId) {
+    function openChat(convId, billcode) {
         if (!window.Web2Zalo || !window.Web2Zalo.mountChat) {
             notify('Engine chat chưa sẵn sàng', 'warning');
             return;
@@ -423,6 +455,7 @@
                 if (!h)
                     $('jtChatBody').innerHTML =
                         '<div class="jt-state" style="padding:24px"><h3>Không mở được</h3><p>Hội thoại Zalo không còn tồn tại.</p></div>';
+                else if (billcode) findMessageInChat(billcode); // cuộn tới tin có mã
             })
             .catch((e) => {
                 $('jtChatBody').innerHTML =
@@ -610,7 +643,7 @@
             const ab = e.target.closest('[data-act]');
             if (ab) {
                 e.stopPropagation();
-                if (ab.dataset.act === 'chat') openChat(ab.dataset.conv);
+                if (ab.dataset.act === 'chat') openChat(ab.dataset.conv, ab.dataset.billcode);
                 else rowAction(ab.dataset.act, ab.dataset.code);
                 return;
             }
