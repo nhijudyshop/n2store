@@ -3,27 +3,25 @@
 > Snapshot tự động ghi đè sau mỗi commit chạm folder này. **Không edit thủ công.**
 > Mục đích: khi session cũ chết (vd lỗi image limit), session mới chỉ cần đọc file này là có đủ context để tiếp tục.
 
-**Latest session**: `RESUME:20260615-114844-b33d74d`
-**Session file**: [`./20260615-114844-b33d74d.md`](../20260615-114844-b33d74d.md)
-**Commit**: `b33d74d` — fix(web2-jt): composer chat drawer mất (wz-chat-body thiếu flex/scroll) + nén dashboard gọn
-**Last updated**: 2026-06-15 11:48:44 +07
-**Summary**: fix(web2-jt): composer chat drawer mất (wz-chat-body thiếu flex/scroll) + nén dashboard gọn
+**Latest session**: `RESUME:20260615-120146-4ce660d`
+**Session file**: [`./20260615-120146-4ce660d.md`](../20260615-120146-4ce660d.md)
+**Commit**: `4ce660d` — refactor(live-chat): mobile zero-interval — gỡ setInterval(loadPosts,90s) → SSE event-driven (throttle 30s)
+**Last updated**: 2026-06-15 12:01:46 +07
+**Summary**: refactor(live-chat): mobile zero-interval — gỡ setInterval(loadPosts,90s) → SSE event-driven (throttle 30s)
 
 ## Files changed in this commit (`web2/`)
 
 - `web2/jt-tracking/css/jt-tracking.css`
 - `web2/jt-tracking/index.html`
-- `web2/shared/web2-zalo.js`
-- `web2/shared/zalo-chat/chat-bubbles.css`
-- `web2/zalo/index.html`
+- `web2/jt-tracking/js/jt-tracking-app.js`
 
 ## Last 5 commits touching `web2/`
 
+- `2deb63a01` feat(web2-jt): hiện TOÀN BỘ tin nhắn nhóm chứa mã (tên/SĐT/ghi chú KH) trên row + modal _(2026-06-15)_
 - `b33d74d64` fix(web2-jt): composer chat drawer mất (wz-chat-body thiếu flex/scroll) + nén dashboard gọn _(2026-06-15)_
 - `4189c9c80` fix(web2-jt/zalo-chat): chat drawer text dọc 1 ký tự — .wz-chat-main layout chỉ có ở web2-zalo.css _(2026-06-15)_
 - `a552ff9f4` feat(web2-jt): thêm KPI/filter 'Đã duyệt' + fix giao diện input (cao đều 46px) + bump css/js ver _(2026-06-15)_
 - `265bb0831` auto: session update _(2026-06-15)_
-- `3ab480332` feat(web2-jt): fix scroll/sidebar + mở chat nhóm Zalo từ row + @mention xanh _(2026-06-15)_
 
 ---
 
@@ -31,4 +29,4 @@
 
 1. Đọc file session ở trên để xem Files Modified + Next Steps đã điền (nếu Claude turn trước fill rồi).
 2. Cần lùi xa hơn → `git show <sha>` theo list commit trên.
-3. Hoặc paste token `RESUME:20260615-114844-b33d74d` cho Claude walk chain theo CLAUDE.md protocol.
+3. Hoặc paste token `RESUME:20260615-120146-4ce660d` cho Claude walk chain theo CLAUDE.md protocol.
