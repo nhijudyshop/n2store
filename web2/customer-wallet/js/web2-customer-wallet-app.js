@@ -945,7 +945,7 @@
             if (state.quickFilter === 'vip') web2Opts.status = 'VIP';
             else if (state.quickFilter === 'warning') web2Opts.status = 'Warning';
             // 1D FIX (2026-06-12): kho web2_customers dùng enum 'Bom' (không phải
-            // 'BomHang' TPOS legacy) — giá trị cũ exact-match 0 KH, chip luôn rỗng.
+            // 'BomHang' legacy) — giá trị cũ exact-match 0 KH, chip luôn rỗng.
             else if (state.quickFilter === 'bomb') web2Opts.status = 'Bom';
 
             const web2Result = await window.PartnerCustomerApi.list(web2Opts);

@@ -7,7 +7,7 @@
  *   - live-chat private-reply (nhắn riêng từ comment) — đường DUY NHẤT đang dùng
  *   - serverMode='n2store' full-chat (conversations/messages/send/upload/find/read)
  *
- * Token Page Access (TPOS đã gỡ 2026-06-14 — Web 2.0 không dùng TPOS):
+ * Token Page Access (CRM token cũ đã gỡ 2026-06-14 — Web 2.0 không dùng):
  *   1) cache seed từ fb-tokens.json lúc boot (TTL 5') nếu có
  *   2) env PAGE_TOKEN_<pageId> (FB page token cấp sẵn trong env) — nguồn chính,
  *      đảm bảo private-reply luôn chạy (live-chat reply KHÔNG gửi token).
@@ -49,8 +49,8 @@ loadTokensFromFile();
 
 /**
  * Page Access Token: env PAGE_TOKEN_<id> (nguồn chính) → cache seed từ
- * fb-tokens.json lúc boot (fallback). TPOS CRM fetch đã gỡ 2026-06-14 —
- * Web 2.0 không dùng TPOS; live-chat reply KHÔNG gửi TPOS token.
+ * fb-tokens.json lúc boot (fallback). CRM fetch cũ đã gỡ 2026-06-14 —
+ * Web 2.0 không dùng CRM cũ; live-chat reply KHÔNG gửi token bearer cũ.
  */
 async function getPageToken(pageId) {
     const now = Date.now();

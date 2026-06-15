@@ -56,7 +56,7 @@ const LiveCustomerPanel = {
         if (window.lucide) lucide.createIcons();
 
         try {
-            // 2026-06-12: bỏ crmTeamId (di tích TPOS) — warehouse lookup chỉ cần fb_id.
+            // 2026-06-12: bỏ crmTeamId (di tích cũ) — warehouse lookup chỉ cần fb_id.
             const data = await window.LiveApi.getPartnerInfo(customerId);
             if (!data) throw new Error('Không lấy được thông tin khách hàng');
 

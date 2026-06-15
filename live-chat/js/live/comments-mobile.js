@@ -14,7 +14,7 @@
     'use strict';
 
     const WORKER = 'https://chatomni-proxy.nhijudyshop.workers.dev';
-    // Snapshot phục vụ TRỰC TIẾP từ Render (worker proxy /api/livestream/* → TPOS).
+    // Snapshot phục vụ TRỰC TIẾP từ Render (worker proxy /api/livestream/*).
     const RENDER = 'https://web2-api-kv04.onrender.com';
     const LIMIT = 200; // "Tất cả livestream"
     const POST_LIMIT = 1000; // khi chọn 1 bài
@@ -586,7 +586,7 @@
     async function loadNativeOrders() {
         try {
             // Endpoint LIST đúng là /load (giống NativeOrdersApi.list desktop). Gọi
-            // /api/native-orders trần → worker đẩy sang TPOS → 404.
+            // /api/native-orders trần → worker đẩy sang catch-all → 404.
             const r = await fetch(`${WORKER}/api/native-orders/load?limit=500`, {
                 credentials: 'omit',
             }).then((x) => x.json());

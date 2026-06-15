@@ -2,6 +2,17 @@
 
 ## 2026-06-15
 
+### [web2] Xóa sạch chữ "TPOS" trong comment/doc Web 2.0 (reword giữ nghĩa) ✅
+
+User: "xóa sạch mọi chữ tpos trong comment". Reword MỌI comment + log-string + doc-prose chứa "TPOS"/"tpos" trong Web 2.0 (web2/, live-chat/, native-orders/) → bỏ chữ TPOS, giữ nguyên ý. ~28 occurrence / 19 file:
+
+- Comment .js: live-realtime (SSE cũ/legacy/transport cũ), web2-products-print (×5: "KHÔNG gọi API ngoài"/"render local" thay "tpos.vn"), live-init (×4), facebook-routes (×2), comments-mobile (×2), pancake-state/pancake-api/live-customer-panel/live-comment-list/live-api/api-config/web2-customer-wallet-app (×1).
+- HTML comment ×4 (customers/customer-wallet/balance-history/supplier-debt): "token-manager.js gỡ … không dùng token bearer cũ".
+- overview doc prose ×5: "hệ POS cũ"/"service relay cũ" thay TPOS.
+- Bump version string `api-config.js?v=…tpos` → `?v=20260615fix`.
+
+⚠ GIỮ NGUYÊN: bảng Web 1.0 (`customers`/`invoice_status`/`return_orders`/`odata-tpos-shadow` — TPOS hợp lệ ở Web 1.0) + code identifier chứa chuỗi "tPos" KHÔNG phải TPOS (`getPostIds`, `boostPost`, `parentPostIds/List/Section`, `selectPost`, `getCurrentPosition`). Verify: **ZERO TPOS thật còn trong Web 2.0**; node --check 15 JS pass. Comment-only → không cần bump version (behavior identical). Workflow 19-agent rate-limited → fallback inline node literal-replace.
+
 ### [web2][live-chat] Fix SĐT bị fb_id ghi đè + health-monitor 404 spam + dọn TPOS leftover ✅
 
 User: "lưu SĐT xong lưu địa chỉ thì SĐT bị đầy về 1254523635???" + "chatomni-proxy.../ 404 trang nào cũng console" + "xóa tất cả tpos bên web 2.0".

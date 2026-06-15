@@ -1,14 +1,14 @@
 // #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes.
 /**
- * Live Realtime Manager — TPOS transport NEUTERED (Web 2.0).
+ * Live Realtime Manager — transport cũ đã NEUTERED (Web 2.0).
  *
  * Trước đây file này mở SSE tới `${proxyBaseUrl}/facebook/comments/stream` (proxy
- * thẳng tới tomato.tpos.vn / chatomni) + WebSocket tới wss://n2store-realtime.onrender.com.
- * Đó là đường realtime comment CŨ của TPOS. Web 2.0 KHÔNG dùng TPOS nữa: comment
+ * thẳng tới chatomni) + WebSocket tới wss://n2store-realtime.onrender.com.
+ * Đó là đường realtime comment CŨ. Web 2.0 KHÔNG dùng nữa: comment
  * realtime nay đến qua poller server (pancake.vn) → SSE topic `web2:live-comments`
  * → render incremental trong live-init.js (do agent khác wire).
  *
- * Mọi method TPOS dưới đây giữ lại dưới dạng NO-OP an toàn (idempotent) để bất kỳ
+ * Mọi method cũ dưới đây giữ lại dưới dạng NO-OP an toàn (idempotent) để bất kỳ
  * caller còn sót lại không throw — KHÔNG mở EventSource / WebSocket nào.
  *
  * Dependencies: (không còn) — chỉ giữ shape cho LiveInit gọi an toàn.
@@ -26,12 +26,12 @@ const LiveRealtime = {
     // =====================================================
 
     /**
-     * NO-OP: TPOS SSE đã tắt. Realtime comment đi qua web2:live-comments (live-init.js).
+     * NO-OP: SSE cũ đã tắt. Realtime comment đi qua web2:live-comments (live-init.js).
      */
     startSSE() {
         if (!this._sseDisabledLogged) {
             this._sseDisabledLogged = true;
-            console.log('[Live-RT] TPOS SSE disabled — realtime qua web2:live-comments');
+            console.log('[Live-RT] legacy SSE disabled — realtime qua web2:live-comments');
         }
         // Không mở EventSource tới /facebook/comments/stream.
     },
@@ -100,10 +100,10 @@ const LiveRealtime = {
     },
 
     /**
-     * NO-OP: handler cũ cho SSE message TPOS — không còn nguồn gọi.
+     * NO-OP: handler cũ cho SSE message cũ — không còn nguồn gọi.
      */
     handleSSEMessage() {
-        // Không xử lý — transport TPOS đã tắt.
+        // Không xử lý — transport cũ đã tắt.
     },
 };
 

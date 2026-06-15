@@ -171,7 +171,7 @@ const LiveApi = {
     },
 
     // ── KH info từ kho warehouse Web 2.0 (Live chatomni/info đã gỡ) ─────
-    // 2026-06-12: bỏ tham số crmTeamId (di tích TPOS, từng bị ignore) — tra
+    // 2026-06-12: bỏ tham số crmTeamId (di tích cũ, từng bị ignore) — tra
     // theo fb_id trong warehouse.
     async getPartnerInfo(fbUserId) {
         // NGUỒN DUY NHẤT: Web2CustomerStore (gom 2026-06-15). Fallback dưới nếu chưa load.

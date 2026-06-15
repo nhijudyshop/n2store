@@ -13,7 +13,7 @@ const API_CONFIG = {
     // Primary Worker URL
     WORKER_URL: WORKER_URL,
 
-    // TPOS OData (Live_ODATA) đã gỡ 2026-06-14: Web 2.0 không dùng TPOS — dead config.
+    // OData (Live_ODATA) đã gỡ 2026-06-14 — dead config (Web 2.0 không dùng).
 
     // Pancake API (Pages, Conversations) - Via Cloudflare Worker proxy
     PANCAKE: `${WORKER_URL}/api/pancake`,

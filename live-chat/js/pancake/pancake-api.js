@@ -301,7 +301,7 @@ const PancakeAPI = {
 
     async privateReplyN2Store(pageId, commentId, message) {
         const n2storeUrl = window.PancakeState.n2storeUrl;
-        // TPOS token đã gỡ — không gửi Authorization header.
+        // Token bearer cũ đã gỡ — không gửi Authorization header.
         const headers = { 'Content-Type': 'application/json' };
         const response = await fetch(
             `${n2storeUrl}/api/pages/${pageId}/comments/${commentId}/private-reply`,

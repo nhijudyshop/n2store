@@ -1066,7 +1066,7 @@ const LiveCommentList = {
 
     /**
      * INCREMENTAL prepend comment MỚI (SSE delta) vào ĐẦU list — KHÔNG full
-     * re-render. Dùng cho realtime per-comment (1 dòng/comment, kiểu TPOS).
+     * re-render. Dùng cho realtime per-comment (1 dòng/comment).
      *
      * Luồng: live-init nghe SSE 'web2:live-comments' → delta fetch DB (since) →
      * map → gọi hàm này. Dedup theo id; chèn dòng mới vào state.comments đúng vị

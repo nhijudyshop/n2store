@@ -457,12 +457,11 @@
                                 BIGINT (native_orders + fast_sale_orders); ✅ 3H8 relay mutation
                                 routes + GET /api/events* gate <code>x-relay-secret</code> + "Lưu
                                 vào Live" route mới <code>/api/web2-live-comments/saved</code> (bảng
-                                web2_live_saved) + fix host chết n2store-live-chat →
-                                n2store-tpos-pancake (14/06 gộp relay+FB →
-                                <code>web2-realtime</code>); ✅ 3H9 offlineBatchAll group
-                                per-campaign/video + lọc người-ẩn; ✅ LC-pollnow-auth: 16 route
-                                live-comments/snapshots gate soft + cap fan-out 10 posts / payload
-                                2000 comments.
+                                web2_live_saved) + fix host chết n2store-live-chat → service relay
+                                cũ (14/06 gộp relay+FB → <code>web2-realtime</code>); ✅ 3H9
+                                offlineBatchAll group per-campaign/video + lọc người-ẩn; ✅
+                                LC-pollnow-auth: 16 route live-comments/snapshots gate soft + cap
+                                fan-out 10 posts / payload 2000 comments.
                             </li>
                             <li>
                                 <strong>⬜ Khác:</strong> ✅ 3H15 Stored XSS modal Lịch sử SP (fix
@@ -643,7 +642,7 @@
                         <code>POST /ingest</code> → fetch per-message đúng post →
                         <code>web2_live_comments</code> → SSE <code>web2:live-comments</code> →
                         client prepend incremental. Vòng poll nền 5s/30s của
-                        <code>web2-livestream-poller.js</code> đã TẮT; TPOS SSE/WS transport neuter
+                        <code>web2-livestream-poller.js</code> đã TẮT; SSE/WS transport cũ neuter
                         NO-OP; <code>pancake-realtime.js</code> gỡ auto-refresh polling fallback.
                         <strong>Capture lock failover:</strong> heartbeat gắn capture health — máy
                         giữ lock không ra frame &gt;75s → tự nhả lock cho máy khác takeover
@@ -3021,15 +3020,16 @@ permission_templates    (role: admin/manager/staff)</pre
                         <code>name</code> · <code>address</code> · <code>email</code> ·
                         <code>fb_id</code> · <code>global_id</code> · <code>pancake_*</code> ·
                         <code>status</code> · <code>tier</code> · <code>aliases</code> ·
-                        <code>alt_phones</code>. <strong>KHÔNG có cột TPOS</strong> (độc lập TPOS
-                        hoàn toàn — xem <code>db/web2-customers-schema.js</code>). Nguồn dữ liệu là
-                        <strong>Pancake/Facebook</strong> (webhook đơn), từ Pancake/Facebook.
-                        <code>native_orders.customer_id</code> ref bảng này. Code dùng service riêng
+                        <code>alt_phones</code>. <strong>KHÔNG có cột hệ POS cũ</strong> (độc lập
+                        hoàn toàn hoàn toàn — xem <code>db/web2-customers-schema.js</code>). Nguồn
+                        dữ liệu là <strong>Pancake/Facebook</strong> (webhook đơn), từ
+                        Pancake/Facebook. <code>native_orders.customer_id</code> ref bảng này. Code
+                        dùng service riêng
                         <code>services/web2-order-customer-service.js</code> (KHÔNG dùng
                         <code>customer-creation-service</code> / <code>customer-helpers</code> của
                         Web 1.0). Consumer: native-orders, fast-sale-orders, pbh-reports,
-                        web2-customer-orders. (<code>web2-customer-tpos</code> route đã gỡ 2026-06 —
-                        Web 2.0 không gọi TPOS, bảng không có cột TPOS.)
+                        web2-customer-orders. (route đồng bộ KH với hệ POS cũ đã gỡ 2026-06 — Web
+                        2.0 không gọi hệ POS cũ, bảng không có cột liên quan.)
                         <br />
                         <strong>Vì sao 2 kho tách:</strong>
                         <code>web2_customers</code> = nguồn WEB2 (search/sửa, id = WEB2 Partner Id);

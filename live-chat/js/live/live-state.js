@@ -67,10 +67,10 @@ const LiveState = {
     workerUrl: window.API_CONFIG
         ? window.API_CONFIG.WORKER_URL
         : 'https://chatomni-proxy.nhijudyshop.workers.dev',
-    // Relay WS server + FB Graph — service Render 'web2-realtime' (gộp từ
-    // n2store-tpos-pancake + n2store-facebook, 2026-06-14).
+    // Relay WS server + FB Graph — service Render 'web2-realtime' (gộp 2 service
+    // relay + FB, 2026-06-14).
     livePancakeUrl: 'https://web2-realtime.onrender.com',
-    // (liveBaseUrl tomato.live.vn đã gỡ 2026-06-15 — Web 2.0 không còn TPOS Live.)
+    // (liveBaseUrl tomato.live.vn đã gỡ 2026-06-15 — Web 2.0 không còn Live cũ.)
 
     /**
      * Reset state when switching campaigns

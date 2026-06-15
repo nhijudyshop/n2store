@@ -13,7 +13,7 @@
  * Barcode: JsBarcode CDN (jsdelivr) render Code128 SVG client-side. Code128 là
  *   chuẩn ISO/IEC 15417 → bars/spaces pattern identical với WEB2 rendering cho
  *   cùng input. Print size 25mm wide × 25px tall ngang nhau visually.
- *   KHÔNG request tpos.vn — đảm bảo Web 2.0 hoàn toàn độc lập.
+ *   KHÔNG gọi API ngoài — đảm bảo Web 2.0 hoàn toàn độc lập.
  *
  * Strip-down từ purchase-orders/js/lib/barcode-label-dialog.js (1504 dòng):
  *   - BỎ WEB2Client OData lookup / useWeb2Template / printViaWeb2 / recheck
@@ -769,7 +769,7 @@
      *   - CSS from /Content/print_barcode.css
      *   - Dynamic styles from BarcodeProducLabelPrintController.style_label()
      *   - Barcode: JsBarcode Code128 SVG client-side (chuẩn ISO/IEC 15417 →
-     *     bars/spaces identical WEB2 render cho cùng input). KHÔNG request tpos.vn.
+     *     bars/spaces identical WEB2 render cho cùng input). KHÔNG gọi API ngoài.
      */
     function buildLabelHTML(labels, paper, printType, opts, qrMap) {
         const isQr = opts.symbology === 'qr' && qrMap;
@@ -880,7 +880,7 @@
                 const currencyStr = showCurrency ? ' đ' : '';
                 // JsBarcode Code128 SVG placeholder — script ở cuối <body> sẽ
                 // populate qua window.JsBarcode(svg, code, {...}). Mỗi SVG ID
-                // unique để JsBarcode đỡ nhầm. KHÔNG request tpos.vn.
+                // unique để JsBarcode đỡ nhầm. KHÔNG gọi API ngoài.
                 // 2026-06-06: QR (2D) → ảnh QR pre-render (quét mọi độ dài mã trên
                 // tem 25mm); hoặc Code128 PNG canvas crisp giống WEB2 (/Web/Barcode).
                 // QR entry theo code+biến thể (biến thể bake giữa QR khi baked=true).
@@ -988,7 +988,7 @@
         const SCRIPT_CLOSE = '<' + '/script>';
 
         // CSS = WEB2 /Content/print_barcode.css verbatim (fetched 2026-05-25
-        // từ tomato.tpos.vn). TUYỆT ĐỐI không thêm/sửa rules ngoài screen preview
+        // (render local). TUYỆT ĐỐI không thêm/sửa rules ngoài screen preview
         // block — WEB2 print phải identical với Web 2.0 cùng @page handling.
         // @page KHÔNG có `size:` — WEB2 để printer driver auto-detect từ
         // .barcode-sheet inline width/height. Forcing @page size có thể gây
@@ -1076,7 +1076,7 @@ html, body {
     display: block;
 }
 /* 2026-06-06: barcode = PNG (canvas) crisp giống WEB2 — width:100% như WEB2
-   (gc-statics.tpos.vn/Web/Barcode). Nguồn ~600px module nguyên ≥2px → downscale
+   (barcode render local). Nguồn ~600px module nguyên ≥2px → downscale
    về khổ tem vẫn nét, quét được mã dài. KHÔNG còn SVG vector kéo giãn. */
 .barcode-image .bcimg {
     width: 100%;
@@ -1153,11 +1153,11 @@ ${SCRIPT_OPEN} src="${JSBARCODE_URL}">${SCRIPT_CLOSE}
 ${SCRIPT_OPEN}>
 (function(){
     // 2026-06-06: render barcode = ẢNH PNG (canvas) crisp, GIỐNG WEB2
-    // (gc-statics.tpos.vn/Web/Barcode?type=Code128&width=600&height=100). WEB2 in
+    // (barcode Code128 ~600x100 render local). WEB2 in
     // tem 25mm quét tốt vì dùng PNG raster sắc nét. Bản web2 trước render SVG vector
     // kéo giãn (preserveAspectRatio=none) → khử răng cưa + scale 2 lần khi raster
     // nhiệt → vạch nhoè/lệch tỉ lệ → mã dài không quét (đơn Hạnh Trần). Dựng PNG
-    // riêng bằng JsBarcode→canvas (KHÔNG gọi tpos.vn) ở ~600px (module nguyên px)
+    // riêng bằng JsBarcode→canvas (render local) ở ~600px (module nguyên px)
     // rồi hiển thị width:100% giống WEB2 → quét như WEB2, vẫn độc lập.
     var WEB2_PNG_W = 600; // bề ngang nguồn PNG ~ giống WEB2 (600×100)
     function draw(){

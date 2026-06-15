@@ -114,7 +114,7 @@ const LiveColumnManager = {
         // nhận comment → /ingest → fetch per-message đúng post → DB → SSE topic
         // 'web2:live-comments' → đây nhận event → INCREMENTAL delta fetch. Debounce ~400ms gom burst → GET DB chỉ comment mới hơn
         // (since=_lastCommentMaxMs) → prepend dòng mới vào ĐẦU list (không full
-        // re-render → mượt, kiểu TPOS realtime). KHÔNG reload toàn bộ.
+        // re-render → mượt, (realtime per-comment). KHÔNG reload toàn bộ.
         // Realtime comment livestream qua engine SHARED LiveCommentsStream (dùng
         // chung desktop + mobile). SSE 'web2:live-comments' → debounce 400ms →
         // delta fetch (cursor updated_at) → prependComments (APPEND, KHÔNG full
@@ -639,7 +639,7 @@ const LiveColumnManager = {
             // tới NHIỀU Facebook_PostId — Live web "Bài live" show 1 row/post.
             // CHỈ dùng để DISCOVER post IDs thuộc campaign (KHÔNG fetch comment
             // qua Pancake nữa — comment giờ đọc từ DB web2_live_comments do server
-            // poller ghi, 1 row/comment kiểu TPOS).
+            // poller ghi, 1 row/comment).
             const uniquePageIds = Array.from(new Set(campaigns.map((c) => c.Facebook_UserId)));
             const pageLiveVideosMap = new Map();
             await Promise.all(
@@ -750,7 +750,7 @@ const LiveColumnManager = {
             window.LiveCommentList.renderComments();
 
             // Realtime giờ do server poller + SSE 'web2:live-comments' lái (xem
-            // init()). KHÔNG còn startSSE Live (TPOS) hay client Pancake poll.
+            // init()). KHÔNG còn startSSE Live cũ hay client Pancake poll.
 
             // Load session index for all campaigns
             for (const campaign of campaigns) {
@@ -886,7 +886,7 @@ const LiveColumnManager = {
 
     /**
      * Load partner info for all visible comments (batch, then re-render).
-     * Warehouse lookup chỉ cần fb_id (crmTeamId TPOS đã gỡ 2026-06-12).
+     * Warehouse lookup chỉ cần fb_id (crmTeamId đã gỡ 2026-06-12).
      */
     async loadPartnerInfoForComments() {
         const state = window.LiveState;

@@ -52,7 +52,7 @@ const PancakeState = {
         (typeof window !== 'undefined' && window.API_CONFIG && window.API_CONFIG.WORKER_URL) ||
         'https://chatomni-proxy.nhijudyshop.workers.dev',
     // Relay WS server + FB Graph — service Render 'web2-realtime' (gộp từ
-    // n2store-tpos-pancake + n2store-facebook, 2026-06-14). FB private-reply +
+    // relay + FB, 2026-06-14). FB private-reply +
     // serverMode='n2store' chat đều qua n2storeUrl = web2-realtime.
     livePancakeUrl: 'https://web2-realtime.onrender.com',
     n2storeUrl: 'https://web2-realtime.onrender.com',
