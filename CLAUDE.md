@@ -319,6 +319,18 @@ Project có 2 layer song song. Khi chạm code/data phải biết nó thuộc la
 - ❌ Yêu cầu user refresh bằng tay
 - ❌ Code WebSocket riêng (đã có SSE hub, chỉ build WS khi thực sự cần bidirectional)
 
+#### ⚡ REALTIME, KHÔNG POLLER (BẮT BUỘC — user xác nhận 2026-06-15)
+
+**Web 2.0 đã BỎ HẲN poller nền — không reintroduce.** Comment livestream giờ là **WS push** (relay Pancake `live-chat/server` → `/ingest` → SSE), KHÔNG còn vòng lặp polling (`web2-livestream-poller.js` `start()` không schedule `_loop()` nữa — log `"background poll DISABLED, event-driven only"`).
+
+Khi code feature Web 2.0:
+
+- **Cần realtime / sync** → **SSE** (`web2:<entity>`), không bao giờ poll interval.
+- **Cần LIỆT KÊ / FETCH dữ liệu Pancake** (bài live đang/đã, hội thoại COMMENT, comment, conversations…) → **FETCH TRỰC TIẾP Pancake từ BROWSER** qua worker `/api/pancake/*` + JWT (`Web2Chat.getJwt()` / `Web2Chat._internal.WORKER_URL`). KHÔNG đi vòng qua route server gọi poller.
+    - Danh sách bài **đang/đã livestream** = `GET /api/pancake/pages/{id}/posts?start_time&end_time` → lọc `type==='livestream'`, `living = (live_status==='LIVE' || is_living)`. **Đúng nguồn Pancake "Quản lý bài viết"** (đang/đã). `inserted_at` = UTC **không hậu tố Z** → append `Z` trước `new Date()` (GMT+7 hiển thị). Mẫu chuẩn: [`web2/multi-tool/js/multi-tool.js`](web2/multi-tool/js/multi-tool.js) `loadPosts()`.
+- **TUYỆT ĐỐI KHÔNG** tạo `setInterval`/poll mới, hoặc thêm helper fetch vào `web2-livestream-poller.js`. Helper poller còn lại (`reconcileFullText` vá "…", `pollNow`/`pollPostNow` thủ công) chỉ on-demand event/request-driven — **không thêm mới, ưu tiên thay dần bằng fetch trực tiếp browser**.
+- ⚠ Route `/api/web2-live-comments/page-posts` (poller `listLivePostsForAssign`) trả **0 bài trên web2-api sau split** (phụ thuộc pool/JWT server) → **đừng dùng cho UI mới**; native-orders/live-chat campaign picker còn dùng nó là tech-debt nên chuyển sang fetch trực tiếp Pancake.
+
 **Quy trình** khi code feature/page mới có data động:
 
 1. Đọc [`docs/web2/SSE-REALTIME.md`](docs/web2/SSE-REALTIME.md) §3 (server recipe) + §4 (client recipe) — pattern 2 step server, 2 step client

@@ -2,6 +2,15 @@
 
 ## 2026-06-15
 
+### [docs][web2] Quy ước "REALTIME, KHÔNG POLLER" — note vào CLAUDE.md + MEMORY + overview ✅
+
+User: "realtime, không poller → note vào memory, claude, devlog + overview". Chốt quy ước Web 2.0: đã bỏ hẳn poller nền (user xác nhận 2026-06-15) → realtime dùng **SSE**; liệt kê/fetch dữ liệu Pancake (bài đang/đã live, hội thoại, comment) → **fetch TRỰC TIẾP Pancake từ browser** qua worker `/api/pancake/*` + JWT (vd `pages/{id}/posts` cho đang/đã livestream — đúng nguồn "Quản lý bài viết"). KHÔNG `setInterval`/poll mới, KHÔNG đi vòng route server gọi poller.
+
+- [CLAUDE.md](CLAUDE.md) §"⚡ SSE-first" → thêm tiểu mục "⚡ REALTIME, KHÔNG POLLER (BẮT BUỘC)".
+- MEMORY: `feedback_web2_realtime_no_poller.md` + index.
+- [web2/overview/index.html](web2/overview/index.html) `#conventions` → bullet Realtime-không-poller (canonical).
+- Ghi rõ state thật: `web2-livestream-poller.js` `start()` không schedule `_loop()` (background poll DISABLED); 4 helper còn lại on-demand (reconcileFullText/pollNow/pollPostNow/listLivePostsForAssign) — không thêm mới. `/page-posts` trả 0 bài trên web2-api → đừng dùng UI mới.
+
 ### [web2] J&T script Console Zalo — bỏ IndexedDB (gây treo Promise) → auto-scroll DOM ✅
 
 User: "dán console → enter → Promise pending quá lâu". Nguyên nhân: phần IndexedDB `getAll()`+`JSON.stringify` trên store khổng lồ/blob của Zalo → freeze, promise không resolve. Sửa: bỏ hẳn IndexedDB; script mới **tự cuộn khung chat lên** (tìm div cuộn lớn nhất) + đọc `document.body.innerText` (tin đã giải mã) mỗi 500ms, gom mã, **cap 60s + dừng khi 12 vòng không thêm mã**, log tiến độ + "XONG … Da copy". Console ASCII (không emoji/dấu) cho an toàn copy. Cập nhật bước 3 modal (đợi ~30-60s, "Promise pending" lúc đầu là bình thường). Bump app `?v=20260615t`. Frontend-only.

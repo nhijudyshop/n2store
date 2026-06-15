@@ -2558,6 +2558,21 @@ permission_templates    (role: admin/manager/staff)</pre
                                     <code>Web2SSE.subscribe('web2:&lt;entity&gt;', cb)</code>.
                                 </li>
                                 <li>
+                                    <strong>⚡ REALTIME, KHÔNG POLLER (BẮT BUỘC)</strong>: Web 2.0
+                                    KHÔNG dùng poller nền (đã bỏ — comment livestream = WS push qua
+                                    relay). Cần realtime → <strong>SSE</strong>; cần
+                                    <em>liệt kê / fetch dữ liệu Pancake</em> (bài live đang/đã, hội
+                                    thoại, comment…) →
+                                    <strong>fetch TRỰC TIẾP Pancake từ browser</strong> qua worker
+                                    <code>/api/pancake/*</code> + JWT (vd
+                                    <code>pages/{id}/posts?start_time&amp;end_time</code> cho
+                                    đang/đã livestream — đúng nguồn Pancake "Quản lý bài viết").
+                                    KHÔNG tạo / đi vòng qua poller server (<code>setInterval</code>
+                                    hay helper trong <code>web2-livestream-poller.js</code>). Helper
+                                    poller còn lại chỉ on-demand (reconcile "…", poll-now thủ công)
+                                    — đừng thêm mới.
+                                </li>
+                                <li>
                                     <strong>Mutation UI-first</strong>: dùng
                                     <code>Web2Optimistic.run({...})</code> (UI sync ngay, backend
                                     nền, rollback nếu lỗi). Ngoại lệ giữ await: thao tác tiền.
