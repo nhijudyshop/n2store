@@ -91,8 +91,17 @@ async function ensureSchema(pool) {
     }
 }
 
-// Mã J&T trong tin nhắn nhóm = 12 số bắt đầu "80" (tránh nhầm số 12 chữ số khác).
-const JT_CODE_RE = /\b80\d{10}\b/g;
+// Mã ĐƠN HÀNG J&T chỉ nhận khi đúng FORMAT dòng đơn: "<12 số> [tab/space] Shop NHI JUDY 01 <tiền>..."
+// → loại mention/reply (vd "@Nhi Judy Store 802... dạ ship...") + số 12 chữ số ngẫu nhiên.
+// Capture group 1 = mã. Case-insensitive, "NHI JUDY" cho phép có/không khoảng trắng.
+const ORDER_CODE_RE = /(\d{12})\s+Shop\s+NHI\s*JUDY/gi;
+function extractOrderCodes(text) {
+    const out = new Set();
+    const re = new RegExp(ORDER_CODE_RE.source, 'gi');
+    let m;
+    while ((m = re.exec(String(text || '')))) out.add(m[1]);
+    return [...out];
+}
 
 // Auto-ingest từ tin nhắn Zalo (gọi từ web2-zalo _persistIncoming khi có tin MỚI):
 // tin NHÓM chứa mã J&T → thêm pending + SSE (UI realtime, không cần refresh), rồi
@@ -100,7 +109,7 @@ const JT_CODE_RE = /\b80\d{10}\b/g;
 async function autoIngestFromZalo(db, msg) {
     try {
         if (!db || !msg || msg.threadType !== 'group') return;
-        const codes = [...new Set(String(msg.content || '').match(JT_CODE_RE) || [])].slice(0, 20);
+        const codes = extractOrderCodes(msg.content).slice(0, 20);
         if (!codes.length) return;
         // tên + id conv nhóm (chỉ lookup khi đã có mã → nhẹ) để mở chat từ row
         let convName = null;
@@ -330,14 +339,14 @@ router.post('/scan', async (req, res) => {
                FROM web2_zalo_messages m
                LEFT JOIN web2_zalo_conversations c
                  ON c.account_key = m.account_key AND c.thread_id = m.thread_id
-              WHERE m.content ~ '[0-9]{12}'
+              WHERE m.content ~ '[0-9]{12}' AND m.content ILIKE '%shop nhi%'
               ORDER BY m.sent_at DESC
               LIMIT 5000`
         );
         // mã → ngữ cảnh (nhóm Zalo gặp gần nhất: tên + id + TOÀN BỘ tin chứa mã)
         const found = new Map();
         for (const r of rows) {
-            for (const code of extractCodes(r.content)) {
+            for (const code of extractOrderCodes(r.content)) {
                 if (!found.has(code))
                     found.set(code, {
                         name: r.conv_name || null,
