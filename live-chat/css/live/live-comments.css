@@ -189,16 +189,27 @@
    (translateY = cảm giác "đẩy từ trên xuống"). JS gắn .is-new cho dòng vừa chèn, gỡ
    sau animationend; burst (dồn dập, >12/2s) → JS bỏ qua → hiện tức thì, tránh nháy. */
 @keyframes liveCommentIn {
-    from {
+    0% {
         opacity: 0;
+        box-shadow: 0 0 0 2px rgba(0, 104, 255, 0.6);
     }
-    to {
+    17% {
         opacity: 1;
+        box-shadow: 0 0 0 2px rgba(0, 104, 255, 0.6);
+    }
+    67% {
+        opacity: 1;
+        box-shadow: 0 0 0 2px rgba(0, 104, 255, 0.6);
+    }
+    100% {
+        opacity: 1;
+        box-shadow: 0 0 0 0 rgba(0, 104, 255, 0);
     }
 }
 .live-conversation-item.is-new {
-    animation: liveCommentIn 0.3s cubic-bezier(0.4, 0, 0.2, 1) both;
-    will-change: opacity;
+    /* fade-in nhanh + KHUNG xanh giữ ~1s rồi mờ dần → biết là comment mới. */
+    animation: liveCommentIn 1.5s ease both;
+    will-change: opacity, box-shadow;
 }
 @media (prefers-reduced-motion: reduce) {
     .live-conversation-item.is-new {

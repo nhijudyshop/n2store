@@ -333,16 +333,35 @@
             /* Card MỚI: fade OPACITY THUẦN (chuẩn livestream) — KHÔNG trượt. JS gắn
                .is-new cho card vừa chèn; burst dồn dập (>12/2s) → bỏ qua (hiện tức thì). */
             @keyframes cardIn {
-                from {
+                0% {
                     opacity: 0;
+                    box-shadow:
+                        0 0 0 2px rgba(0, 104, 255, 0.6),
+                        var(--c-shadow);
                 }
-                to {
+                17% {
                     opacity: 1;
+                    box-shadow:
+                        0 0 0 2px rgba(0, 104, 255, 0.6),
+                        var(--c-shadow);
+                }
+                67% {
+                    opacity: 1;
+                    box-shadow:
+                        0 0 0 2px rgba(0, 104, 255, 0.6),
+                        var(--c-shadow);
+                }
+                100% {
+                    opacity: 1;
+                    box-shadow:
+                        0 0 0 0 rgba(0, 104, 255, 0),
+                        var(--c-shadow);
                 }
             }
             .card.is-new {
-                animation: cardIn 0.3s cubic-bezier(0.4, 0, 0.2, 1) both;
-                will-change: opacity;
+                /* fade-in + KHUNG xanh giữ ~1s rồi mờ → biết comment mới (giữ shadow nền). */
+                animation: cardIn 1.5s ease both;
+                will-change: opacity, box-shadow;
             }
             .card:active {
                 transform: scale(0.985);

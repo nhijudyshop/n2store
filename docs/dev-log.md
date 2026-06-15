@@ -2,6 +2,10 @@
 
 ## 2026-06-15
 
+### [live-chat] Comment mới có KHUNG xanh ~1s để biết là mới ✅
+
+User: "comment mới có khung sau 1s để biết comment mới". Mở rộng keyframe `.is-new`: fade opacity nhanh (0-0.25s) + **box-shadow ring xanh 2px (`rgba(0,104,255,.6)`) giữ ~1s rồi mờ dần** (tổng 1.5s ease). Ring = "khung" ôm bo góc, KHÔNG xô layout. Desktop [live-comments.css](live-chat/css/live/live-comments.css) + mobile [comments-mobile.html](live-chat/comments-mobile.html) (giữ shadow nền `var(--c-shadow)`). Burst-guard giữ nguyên (dồn dập → không khung). (`?v=20260615frame`)
+
 ### [live-chat] Re-add fade comment mới = OPACITY THUẦN (chuẩn livestream, research GitHub) ✅
 
 Research 10+ repo (Bilibili OBS overlay, pixelfed, surmon.me, 100ms…): chuẩn dịu nhất cho livestream feed = **fade opacity thuần, KHÔNG trượt** (trượt translateY = cảm giác "đẩy từ trên xuống"). User chọn pattern này. Re-add `@keyframes {opacity 0→1}` 0.3s `cubic-bezier(0.4,0,0.2,1)` (material ease) cho `.is-new` (desktop [live-comments.css](live-chat/css/live/live-comments.css) + mobile [comments-mobile.html](live-chat/comments-mobile.html)); burst-guard `_shouldAnimateNew`/`shouldAnimateNew` (batch>5 hoặc >12/2s → bỏ fade, hiện tức thì); respect prefers-reduced-motion. (`?v=20260615fade2`)
