@@ -2,6 +2,16 @@
 
 ## 2026-06-15
 
+### [web2][jt-tracking][zalo-chat] J&T follow-up: KPI "Đã duyệt" + fix input + fix chat drawer text dọc ✅
+
+Tiếp theo entry dưới (cùng ngày):
+
+1. **KPI/filter "Đã duyệt"** ([jt-tracking-app.js](web2/jt-tracking/js/jt-tracking-app.js) + [web2-jt-tracking.js](render.com/routes/web2-jt-tracking.js) `/list status=approved` → `approved_at IS NOT NULL`).
+2. **Fix giao diện input** thanh nhập mã: `align-items:center` + height đồng đều 46px (bỏ `height:100%` gây cao lệch). ⚠ Quên bump `jt-tracking.css?v` ở các lần trước → scroll/drawer fix không load; đã bump `?v=20260615d`.
+3. **Fix chat drawer chữ DỌC 1 ký tự** (`a552ff9f4`→`4189c9c80`): `Web2Zalo.mountChat` nhúng ngoài trang Zalo (Tra cứu J&T) thiếu `.wz-chat-main`/`.wz-chat-head` + biến `--wz-*` (chỉ có ở `web2-zalo.css`/`.web2-theme`) → bong bóng co ~1ch. Fix: thêm các style này vào **[chat-bubbles.css](web2/shared/zalo-chat/chat-bubbles.css)** (ENGINE_CSS, scope `.wz-chat-main`) → self-contained mọi nơi mountChat; tách `#jtChatBody` khỏi `.jt-drawer-body`; bump `ENGINE_VER=20260615b`.
+
+**Verified live (browser):** chat drawer render NGANG đúng (header "XỬ LÝ NJD - J&T", @mention xanh, bong bóng + reaction). Scan backfill `zalo_conv_id` cho 23 row cũ → có nút Mở chat. **Status:** ✅
+
 ### [web2][jt-tracking][zalo] J&T: auto-ingest realtime + mở chat nhóm + @mention + fix scroll/sidebar ✅
 
 **User (nhiều lượt):** auto thêm mã J&T từ tin nhắn nhóm Zalo realtime (không refresh); Web 2.0 không scroll được; nút mở chat nhóm J&T (chat được); @tên xanh lên; reply nếu chưa có.
