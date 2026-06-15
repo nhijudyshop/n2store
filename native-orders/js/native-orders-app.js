@@ -1716,7 +1716,7 @@
 
     // ---------- Campaign filter ----------
     const CAMPAIGN_STORAGE_KEY = 'native_orders_selected_campaigns';
-    const TPOS_PANCAKE_KEY = 'web2_selected_campaigns';
+    const SELECTED_CAMPAIGNS_KEY = 'web2_selected_campaigns';
 
     function loadCampaignSelection() {
         // Priority: own key (per-page selection) > shared web2-pancake key (cross-page sync)
@@ -1727,7 +1727,7 @@
             /* ignore */
         }
         try {
-            const shared = localStorage.getItem(TPOS_PANCAKE_KEY);
+            const shared = localStorage.getItem(SELECTED_CAMPAIGNS_KEY);
             return shared ? JSON.parse(shared) || [] : [];
         } catch (_) {
             return [];
@@ -1938,7 +1938,7 @@
 
     function syncFromWeb2Pancake() {
         try {
-            const shared = localStorage.getItem(TPOS_PANCAKE_KEY);
+            const shared = localStorage.getItem(SELECTED_CAMPAIGNS_KEY);
             const ids = shared ? JSON.parse(shared) || [] : [];
             STATE.selectedCampaignIds = ids;
             saveCampaignSelection();
@@ -4565,7 +4565,7 @@
         $('#campaignSyncWeb2')?.addEventListener('click', syncFromWeb2Pancake);
         // Live cross-tab sync — when web2-pancake updates its selection, refresh ours
         window.addEventListener('storage', (e) => {
-            if (e.key === TPOS_PANCAKE_KEY) {
+            if (e.key === SELECTED_CAMPAIGNS_KEY) {
                 // Only auto-sync if user hasn't made an own selection (own key still null)
                 if (localStorage.getItem(CAMPAIGN_STORAGE_KEY) == null) {
                     syncFromWeb2Pancake();

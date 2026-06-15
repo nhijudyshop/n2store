@@ -3019,17 +3019,17 @@ permission_templates    (role: admin/manager/staff)</pre
                         <strong>Đổi tên từ <code>customers</code> ngày 2026-06-03</strong> để hết
                         trùng tên với Web 1.0. Schema giàu: <code>phone</code> (UNIQUE) ·
                         <code>name</code> · <code>address</code> · <code>email</code> ·
-                        <code>fb_id</code> · <code>pancake_data</code> · <code>status</code> ·
-                        <code>tier</code> · <code>tpos_id</code> · <code>tpos_data</code> ·
-                        <code>aliases</code>. Nguồn dữ liệu là
+                        <code>fb_id</code> · <code>global_id</code> · <code>pancake_*</code> ·
+                        <code>status</code> · <code>tier</code> · <code>aliases</code> ·
+                        <code>alt_phones</code>. <strong>KHÔNG có cột TPOS</strong> (độc lập TPOS
+                        hoàn toàn — xem <code>db/web2-customers-schema.js</code>). Nguồn dữ liệu là
                         <strong>Pancake/Facebook</strong> (webhook đơn), từ Pancake/Facebook.
                         <code>native_orders.customer_id</code> ref bảng này. Code dùng service riêng
                         <code>services/web2-order-customer-service.js</code> (KHÔNG dùng
                         <code>customer-creation-service</code> / <code>customer-helpers</code> của
                         Web 1.0). Consumer: native-orders, fast-sale-orders, pbh-reports,
                         web2-customer-orders. (<code>web2-customer-tpos</code> route đã gỡ 2026-06 —
-                        Web 2.0 không gọi TPOS; cột <code>tpos_id</code>/<code>tpos_data</code>
-                        còn nhưng vestigial, không code web2 nào đọc.)
+                        Web 2.0 không gọi TPOS, bảng không có cột TPOS.)
                         <br />
                         <strong>Vì sao 2 kho tách:</strong>
                         <code>web2_customers</code> = nguồn WEB2 (search/sửa, id = WEB2 Partner Id);

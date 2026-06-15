@@ -95,6 +95,11 @@ async function ensureWeb2CustomersSchema(pool) {
             );
             ALTER TABLE web2_customers ADD COLUMN IF NOT EXISTS alt_phones JSONB NOT NULL DEFAULT '[]'::jsonb;
             ALTER TABLE web2_customers ADD COLUMN IF NOT EXISTS alt_addresses JSONB NOT NULL DEFAULT '[]'::jsonb;
+            -- Web 2.0 ĐỘC LẬP TPOS (2026-06-15): nếu instance nào còn sót cột TPOS legacy
+            -- (bản coupled cũ), drop hẳn. Idempotent — IF EXISTS, an toàn chạy lại mỗi boot.
+            ALTER TABLE web2_customers DROP COLUMN IF EXISTS tpos_id;
+            ALTER TABLE web2_customers DROP COLUMN IF EXISTS tpos_data;
+            ALTER TABLE web2_customers DROP COLUMN IF EXISTS tpos_raw;
             CREATE INDEX IF NOT EXISTS idx_web2_customers_phone     ON web2_customers(phone);
             CREATE INDEX IF NOT EXISTS idx_web2_customers_fb_id     ON web2_customers(fb_id) WHERE fb_id IS NOT NULL;
             CREATE INDEX IF NOT EXISTS idx_web2_customers_global_id ON web2_customers(global_id) WHERE global_id IS NOT NULL;
