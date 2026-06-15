@@ -2,7 +2,24 @@
 
 ## 2026-06-15
 
-### [inventory][render] Thêm NCC trùng tên KHÔNG gộp dòng nữa ✅
+### [web2][jt-tracking][render] Trang mới: Tra cứu vận đơn J&T (Báo cáo) ✅
+
+**User:** "Tạo trang lấy tất cả mã 12 số (vd 802762251204) → tracking J&T (jtexpress.vn ?billcode=&cellphone=8674) → hiển thị timeline → tối ưu giao diện/quản lý → hiệu ứng lottie-web. Nằm ở menu Báo cáo. Bỏ xóa/thùng rác → nút Duyệt + Trở lại; bấm Duyệt → mờ đi + tự xoá sau 7 ngày. Ô nhập mã tùy thích (auto 8674)."
+
+**Research J&T:** jtexpress.vn render kết quả SERVER-SIDE vào HTML (`.result-vandon-item` = time/date/desc, mới nhất trên). `cellphone` BẮT BUỘC = 4 số cuối SĐT gửi; **`8674` chạy cho MỌI đơn shop** (verify 3 mã khác nhau) → mặc định, không cần SĐT từng đơn.
+
+**Backend** [web2-jt-tracking.js](render.com/routes/web2-jt-tracking.js) (bảng `web2_jt_tracking` web2Db, SSE `web2:jt-tracking`):
+
+- Parser HTML → events {time,date,desc,ts(+7→epoch)} + deriveStatus (delivered/delivering/transit/problem/pending/not_found).
+- `/scan` (quét `web2_zalo_messages` mã 12 số), `/add` (dán tay), `/track` (fetch+lưu 1), `/refresh` (batch 25, **fetch song song chunk 5**, timeout 12s/mã), `/list` (filter+KPI), `/:billcode` (chi tiết, auto-fetch).
+- **Duyệt**: `/:billcode/approve` (set approved_at → mờ) + `/unapprove` (trở lại); `_purgeApproved` tự xoá sau 7 ngày (gọi khi list). KHÔNG còn delete/trash.
+- Mount `server.js` + initializeNotifiers.
+
+**Frontend** [web2/jt-tracking/](web2/jt-tracking/index.html) (html+css+js riêng): dashboard KPI lọc theo trạng thái, ô nhập mã (cellphone auto 8674), Quét Zalo, Làm mới tất cả, search; modal timeline kiểu J&T (dot màu theo event, highlight 【...】); **Lottie** (lottie-web CDN + JSON tự host `lottie/`): loading + success + truck (empty/hero). Row đã duyệt mờ + tag "tự xoá sau N ngày". SSE realtime. Menu **Báo cáo → Tra cứu vận đơn J&T** ([web2-sidebar.js](web2/shared/web2-sidebar.js)).
+
+**Review (2 agent code+security):** fix HIGH: `_upsertTracked` nhận `db` (không dùng `_pool` module — tránh ghi nhầm Web1 khi fallback); `deriveStatus` 'hoàn' trần → cụm chính xác ('hoàn hàng/về/chuyển hoàn'); Lottie leak khi mở modal nhanh → destroy trước. fix MEDIUM: approve/unapprove validate 12 số + 404; refresh onlyCodes skip approved; guard `_refreshing` chống 2 vòng refresh; esc billcode trong data-attr. SQLi/SSRF/XSS: clean (param hoá, billcode/cellphone chỉ digit, esc toàn bộ).
+
+**Status:** ✅ `node -c` + require-load PASS. Cần deploy web2-api (render.com) + GH Pages (frontend).
 
 **User:** "thêm NCC trùng tên đừng gộp vào" (trang Theo Dõi Nhập Hàng SL — inventory-tracking, Web 1.0). Thao tác: Thêm Đợt Hàng → 2 NCC cùng tên bị gộp thành 1 dòng trong bảng.
 

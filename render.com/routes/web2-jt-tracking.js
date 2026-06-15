@@ -1,0 +1,529 @@
+// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 MODULE — Tra cứu vận đơn J&T (báo cáo).
+// =====================================================================
+// Tra cứu + quản lý trạng thái giao hàng J&T Express VN cho Web 2.0.
+//
+// Nguồn mã vận đơn (12 số): (a) quét tin nhắn Zalo (web2_zalo_messages),
+//   (b) dán text thủ công. Lưu cache + trạng thái vào web2_jt_tracking (web2Db).
+//
+// J&T render kết quả SERVER-SIDE vào HTML tại:
+//   https://jtexpress.vn/vi/tracking?type=track&billcode=<code>&cellphone=<4số>
+//   cellphone = 4 số cuối SĐT người gửi (shop). Đã verify '8674' chạy cho mọi
+//   đơn shop NHI JUDY → dùng làm mặc định (cấu hình qua env JT_CELLPHONE).
+//
+// Pool: req.app.locals.web2Db || req.app.locals.chatDb (Web 2.0 — KHÔNG ghi Web 1.0).
+// Realtime: web2:jt-tracking (SSE).
+// =====================================================================
+
+'use strict';
+
+const express = require('express');
+const router = express.Router();
+
+let _pool = null;
+const getDb = (req) => req.app.locals.web2Db || req.app.locals.chatDb;
+const now = () => Date.now();
+
+// 4 số cuối SĐT gửi (shop) — gate bắt buộc của J&T. Verify chạy mọi đơn NHI JUDY.
+const DEFAULT_CELLPHONE = (process.env.JT_CELLPHONE || '8674').replace(/\D/g, '').slice(-4);
+const JT_BASE = 'https://jtexpress.vn/vi/tracking';
+const BILLCODE_RE = /\b\d{12}\b/g; // "tất cả string dạng 12 số"
+const FETCH_TIMEOUT_MS = 12000;
+const REFRESH_BATCH = 25; // trần 1 lần refresh (tránh spam jtexpress + treo request)
+const STALE_MS = 30 * 60 * 1000; // coi là cũ sau 30' (delivered/problem coi như chốt)
+const APPROVED_TTL_MS = 7 * 24 * 60 * 60 * 1000; // đã DUYỆT → tự xoá sau 7 ngày
+
+// ── SSE notifier ────────────────────────────────────────────────────────
+let _notifyClients = null;
+function initializeNotifiers(fn) {
+    _notifyClients = fn;
+}
+function _notify(action, code) {
+    if (!_notifyClients) return;
+    try {
+        _notifyClients('web2:jt-tracking', { action, code: code || null, ts: now() }, 'update');
+    } catch (e) {
+        console.warn('[WEB2-JT] _notify failed:', e.message);
+    }
+}
+
+// ── Schema (idempotent) ─────────────────────────────────────────────────
+async function ensureSchema(pool) {
+    _pool = pool;
+    if (!pool) return;
+    try {
+        // ADD COLUMN trên bảng đã sống (idempotent) — đặt ĐẦU, IF EXISTS = no-op khi chưa có.
+        await pool
+            .query(
+                `ALTER TABLE IF EXISTS web2_jt_tracking ADD COLUMN IF NOT EXISTS approved_at BIGINT;`
+            )
+            .catch(() => {});
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS web2_jt_tracking (
+                billcode        VARCHAR(20) PRIMARY KEY,
+                cellphone       VARCHAR(10),
+                status          VARCHAR(20) NOT NULL DEFAULT 'pending',
+                                -- pending|transit|delivering|delivered|problem|not_found
+                latest_event    TEXT,
+                latest_at       BIGINT,                 -- epoch ms (GMT+7 → UTC)
+                latest_at_text  VARCHAR(25),            -- 'YYYY-MM-DD HH:MM:SS' (J&T, +7)
+                events          JSONB NOT NULL DEFAULT '[]'::jsonb,
+                event_count     INTEGER NOT NULL DEFAULT 0,
+                source          VARCHAR(12) NOT NULL DEFAULT 'manual', -- zalo|manual
+                note            TEXT,                   -- ngữ cảnh (nhóm Zalo / SĐT gần mã)
+                last_fetched_at BIGINT,
+                approved_at     BIGINT,                 -- đã DUYỆT (xong) → mờ đi + tự xoá sau 7 ngày
+                created_at      BIGINT NOT NULL,
+                updated_at      BIGINT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_web2_jt_status   ON web2_jt_tracking(status);
+            CREATE INDEX IF NOT EXISTS idx_web2_jt_latest   ON web2_jt_tracking(latest_at DESC NULLS LAST);
+            CREATE INDEX IF NOT EXISTS idx_web2_jt_updated  ON web2_jt_tracking(updated_at DESC);
+            CREATE INDEX IF NOT EXISTS idx_web2_jt_approved ON web2_jt_tracking(approved_at) WHERE approved_at IS NOT NULL;
+        `);
+        console.log('[web2-jt-tracking] schema ready (web2Db)');
+    } catch (e) {
+        console.error('[web2-jt-tracking] ensureSchema failed:', e.message);
+    }
+}
+
+// Tự xoá các mã ĐÃ DUYỆT quá 7 ngày (best-effort, gọi khi list).
+async function _purgeApproved(db) {
+    try {
+        const r = await db.query(
+            `DELETE FROM web2_jt_tracking WHERE approved_at IS NOT NULL AND approved_at < $1`,
+            [now() - APPROVED_TTL_MS]
+        );
+        if (r.rowCount) _notify('purge', String(r.rowCount));
+    } catch (e) {
+        /* best-effort */
+    }
+}
+
+// ── HTML helpers ────────────────────────────────────────────────────────
+function _decodeEntities(s) {
+    return String(s || '')
+        .replace(/&nbsp;/g, ' ')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&#39;|&apos;/g, "'")
+        .replace(/&quot;/g, '"')
+        .replace(/&amp;/g, '&');
+}
+function _stripTags(s) {
+    return _decodeEntities(String(s || '').replace(/<[^>]+>/g, ' '))
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+// J&T "YYYY-MM-DD HH:MM:SS" là giờ +7 (không hậu tố) → epoch ms.
+function _toEpoch(dateStr, timeStr) {
+    if (!dateStr) return null;
+    const iso = `${dateStr}T${timeStr || '00:00:00'}+07:00`;
+    const t = Date.parse(iso);
+    return Number.isFinite(t) ? t : null;
+}
+
+// Parse các event từ HTML kết quả J&T (.result-vandon-item, mới nhất ở trên).
+function parseJtEvents(html) {
+    const events = [];
+    if (!html) return events;
+    const parts = html.split('result-vandon-item');
+    for (let i = 1; i < parts.length; i++) {
+        const block = parts[i];
+        const timeM = block.match(/(\d{2}:\d{2}:\d{2})/);
+        const dateM = block.match(/(\d{4}-\d{2}-\d{2})/);
+        if (!timeM || !dateM) continue;
+        const time = timeM[1];
+        const date = dateM[1];
+        // desc nằm trong <div> (không class) NGAY sau cột ngày/giờ.
+        const after = block.slice(block.indexOf(date) + date.length);
+        const descM = after.match(/<div>\s*([\s\S]*?)<\/div>/);
+        const desc = descM ? _stripTags(descM[1]) : '';
+        if (!desc) continue;
+        events.push({ time, date, desc, ts: _toEpoch(date, time) });
+    }
+    // chuẩn hoá: mới nhất trước (đề phòng nguồn đổi thứ tự)
+    events.sort((a, b) => (b.ts || 0) - (a.ts || 0));
+    return events;
+}
+
+// Trạng thái rút gọn từ event MỚI NHẤT (events[0]).
+function deriveStatus(events) {
+    if (!events.length) return 'not_found';
+    const d = (events[0].desc || '').toLowerCase();
+    const hit = (...kw) => kw.some((k) => d.includes(k));
+    if (hit('thành công', 'ký nhận', 'đã nhận hàng', 'người nhận')) return 'delivered';
+    // ⚠ dùng cụm chính xác — 'hoàn' trần dính 'hoàn thành'/'hoàn toàn' (không phải vấn đề).
+    if (
+        hit(
+            'từ chối',
+            'kiện khó',
+            'không liên lạc',
+            'đổi ý',
+            'thất bại',
+            'hoàn hàng',
+            'hoàn về',
+            'chuyển hoàn',
+            'hủy'
+        )
+    )
+        return 'problem';
+    if (hit('đang giao', 'phát lại', 'đang tiến hành', 'giao hàng')) return 'delivering';
+    return 'transit';
+}
+
+// Fetch + parse 1 vận đơn từ jtexpress.vn (timeout an toàn).
+async function fetchJt(billcode, cellphone) {
+    const cp = String(cellphone || DEFAULT_CELLPHONE)
+        .replace(/\D/g, '')
+        .slice(-4);
+    const url = `${JT_BASE}?type=track&billcode=${encodeURIComponent(billcode)}&cellphone=${cp}`;
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
+    try {
+        const res = await fetch(url, {
+            signal: ctrl.signal,
+            headers: {
+                'User-Agent':
+                    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36',
+                'Accept-Language': 'vi,en;q=0.9',
+            },
+        });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const html = await res.text();
+        const events = parseJtEvents(html);
+        return { ok: true, cellphone: cp, events, status: deriveStatus(events) };
+    } finally {
+        clearTimeout(timer);
+    }
+}
+
+// Upsert 1 vận đơn sau khi fetch. Trả row đã lưu. db = pool request-scoped (web2Db).
+async function _upsertTracked(db, billcode, fetched, opts = {}) {
+    const ts = now();
+    const events = fetched.events || [];
+    const latest = events[0] || null;
+    const { rows } = await db.query(
+        `INSERT INTO web2_jt_tracking
+            (billcode, cellphone, status, latest_event, latest_at, latest_at_text, events,
+             event_count, source, note, last_fetched_at, created_at, updated_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,$8,$9,$10,$11,$11,$11)
+         ON CONFLICT (billcode) DO UPDATE SET
+            cellphone=COALESCE(EXCLUDED.cellphone, web2_jt_tracking.cellphone),
+            status=EXCLUDED.status,
+            latest_event=EXCLUDED.latest_event,
+            latest_at=EXCLUDED.latest_at,
+            latest_at_text=EXCLUDED.latest_at_text,
+            events=EXCLUDED.events,
+            event_count=EXCLUDED.event_count,
+            source=COALESCE(web2_jt_tracking.source, EXCLUDED.source),
+            note=COALESCE(EXCLUDED.note, web2_jt_tracking.note),
+            last_fetched_at=EXCLUDED.last_fetched_at,
+            updated_at=EXCLUDED.updated_at
+         RETURNING *`,
+        [
+            billcode,
+            fetched.cellphone || DEFAULT_CELLPHONE,
+            fetched.status || 'not_found',
+            latest ? latest.desc : null,
+            latest ? latest.ts : null,
+            latest ? `${latest.date} ${latest.time}` : null,
+            JSON.stringify(events),
+            events.length,
+            opts.source || 'manual',
+            opts.note || null,
+            ts,
+        ]
+    );
+    return rows[0];
+}
+
+// =====================================================================
+// ROUTES
+// =====================================================================
+
+// Bóc mã 12 số từ text (dùng cho cả scan Zalo lẫn dán thủ công).
+function extractCodes(text) {
+    const out = new Set();
+    let m;
+    const re = new RegExp(BILLCODE_RE.source, 'g');
+    while ((m = re.exec(String(text || '')))) out.add(m[0]);
+    return [...out];
+}
+
+// POST /scan — quét web2_zalo_messages tìm mã 12 số mới → thêm (status pending).
+router.post('/scan', async (req, res) => {
+    try {
+        const db = getDb(req);
+        // Lấy tin có chứa chuỗi 12 số (lọc sơ bộ ở DB cho nhẹ).
+        const { rows } = await db.query(
+            `SELECT m.content, c.display_name AS conv_name
+               FROM web2_zalo_messages m
+               LEFT JOIN web2_zalo_conversations c
+                 ON c.account_key = m.account_key AND c.thread_id = m.thread_id
+              WHERE m.content ~ '[0-9]{12}'
+              ORDER BY m.sent_at DESC
+              LIMIT 5000`
+        );
+        // mã → ngữ cảnh (nhóm Zalo gặp gần nhất)
+        const found = new Map();
+        for (const r of rows) {
+            for (const code of extractCodes(r.content)) {
+                if (!found.has(code)) found.set(code, r.conv_name || 'Zalo');
+            }
+        }
+        if (!found.size) return res.json({ success: true, found: 0, added: 0 });
+        const ts = now();
+        const codes = [...found.keys()];
+        // chỉ thêm mã CHƯA có (giữ nguyên trạng thái mã cũ).
+        const existing = new Set(
+            (
+                await db.query(
+                    `SELECT billcode FROM web2_jt_tracking WHERE billcode = ANY($1::text[])`,
+                    [codes]
+                )
+            ).rows.map((r) => r.billcode)
+        );
+        let added = 0;
+        for (const code of codes) {
+            if (existing.has(code)) continue;
+            await db.query(
+                `INSERT INTO web2_jt_tracking (billcode, status, source, note, created_at, updated_at)
+                 VALUES ($1,'pending','zalo',$2,$3,$3)
+                 ON CONFLICT (billcode) DO NOTHING`,
+                [code, found.get(code), ts]
+            );
+            added++;
+        }
+        if (added) _notify('scan', String(added));
+        res.json({ success: true, found: found.size, added });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+// POST /add — thêm mã thủ công (body {text} hoặc {codes:[]}). Trả mã đã thêm.
+router.post('/add', async (req, res) => {
+    try {
+        const db = getDb(req);
+        const codes = [
+            ...new Set([
+                ...extractCodes(req.body?.text),
+                ...(Array.isArray(req.body?.codes) ? req.body.codes : [])
+                    .map((c) => String(c).replace(/\D/g, ''))
+                    .filter((c) => /^\d{12}$/.test(c)),
+            ]),
+        ];
+        if (!codes.length)
+            return res.status(400).json({ success: false, error: 'Không tìm thấy mã 12 số' });
+        const ts = now();
+        let added = 0;
+        for (const code of codes) {
+            const r = await db.query(
+                `INSERT INTO web2_jt_tracking (billcode, status, source, created_at, updated_at)
+                 VALUES ($1,'pending','manual',$2,$2)
+                 ON CONFLICT (billcode) DO NOTHING`,
+                [code, ts]
+            );
+            if (r.rowCount) added++;
+        }
+        if (added) _notify('add', String(added));
+        res.json({ success: true, codes, added });
+    } catch (e) {
+        res.status(400).json({ success: false, error: e.message });
+    }
+});
+
+// POST /track — fetch + lưu 1 vận đơn (body {billcode, cellphone?, source?, note?}).
+router.post('/track', async (req, res) => {
+    try {
+        const db = getDb(req);
+        const billcode = String(req.body?.billcode || '').replace(/\D/g, '');
+        if (!/^\d{12}$/.test(billcode))
+            return res.status(400).json({ success: false, error: 'Mã vận đơn phải là 12 số' });
+        const fetched = await fetchJt(billcode, req.body?.cellphone);
+        const row = await _upsertTracked(db, billcode, fetched, {
+            source: req.body?.source,
+            note: req.body?.note,
+        });
+        _notify('track', billcode);
+        res.json({ success: true, data: row });
+    } catch (e) {
+        res.status(502).json({ success: false, error: 'J&T lỗi: ' + e.message });
+    }
+});
+
+// POST /refresh — làm mới hàng loạt (mã pending + đơn chưa chốt + cũ). Bounded.
+router.post('/refresh', async (req, res) => {
+    try {
+        const db = getDb(req);
+        const limit = Math.min(parseInt(req.body?.limit, 10) || REFRESH_BATCH, REFRESH_BATCH);
+        const onlyCodes = Array.isArray(req.body?.codes)
+            ? req.body.codes
+                  .map((c) => String(c).replace(/\D/g, ''))
+                  .filter((c) => /^\d{12}$/.test(c))
+            : null;
+        let rows;
+        if (onlyCodes && onlyCodes.length) {
+            rows = (
+                await db.query(
+                    `SELECT billcode, cellphone FROM web2_jt_tracking
+                      WHERE billcode = ANY($1::text[]) AND approved_at IS NULL LIMIT $2`,
+                    [onlyCodes, limit]
+                )
+            ).rows;
+        } else {
+            // ưu tiên: pending → chưa fetch lâu → chưa chốt (transit/delivering)
+            rows = (
+                await db.query(
+                    `SELECT billcode, cellphone FROM web2_jt_tracking
+                      WHERE approved_at IS NULL
+                        AND (status IN ('pending','transit','delivering','not_found')
+                             OR last_fetched_at IS NULL
+                             OR last_fetched_at < $1)
+                      ORDER BY (status='pending') DESC, last_fetched_at ASC NULLS FIRST
+                      LIMIT $2`,
+                    [now() - STALE_MS, limit]
+                )
+            ).rows;
+        }
+        // Fetch SONG SONG theo chunk 5 (giảm wall-time: 25 mã ~ 5 lượt thay vì 25).
+        let ok = 0;
+        let fail = 0;
+        const CONC = 5;
+        for (let i = 0; i < rows.length; i += CONC) {
+            const chunk = rows.slice(i, i + CONC);
+            const results = await Promise.allSettled(
+                chunk.map(async (r) => {
+                    const fetched = await fetchJt(r.billcode, r.cellphone);
+                    await _upsertTracked(db, r.billcode, fetched, {});
+                })
+            );
+            for (const x of results) x.status === 'fulfilled' ? ok++ : fail++;
+        }
+        if (ok) _notify('refresh', String(ok));
+        res.json({
+            success: true,
+            processed: rows.length,
+            ok,
+            fail,
+            remaining: rows.length >= limit,
+        });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+// GET /list — danh sách quản lý (filter status + search). Trả kèm KPI đếm.
+router.get('/list', async (req, res) => {
+    try {
+        const db = getDb(req);
+        await _purgeApproved(db); // tự xoá mã đã duyệt quá 7 ngày
+        const { status, search } = req.query;
+        const lim = Math.min(parseInt(req.query.limit, 10) || 500, 1000);
+        const where = [];
+        const params = [];
+        if (status && status !== 'all') {
+            params.push(status);
+            where.push(`status = $${params.length}`);
+        }
+        if (search) {
+            params.push('%' + String(search).trim() + '%');
+            where.push(
+                `(billcode ILIKE $${params.length} OR note ILIKE $${params.length} OR latest_event ILIKE $${params.length})`
+            );
+        }
+        const wsql = where.length ? 'WHERE ' + where.join(' AND ') : '';
+        params.push(lim);
+        // đã duyệt → đẩy xuống cuối (mờ), chưa duyệt ưu tiên trên.
+        const { rows } = await db.query(
+            `SELECT billcode, cellphone, status, latest_event, latest_at, latest_at_text,
+                    event_count, source, note, last_fetched_at, approved_at, created_at, updated_at
+               FROM web2_jt_tracking ${wsql}
+              ORDER BY (approved_at IS NOT NULL), latest_at DESC NULLS LAST, updated_at DESC
+              LIMIT $${params.length}`,
+            params
+        );
+        const kpi = (
+            await db.query(`SELECT status, COUNT(*)::int n FROM web2_jt_tracking GROUP BY status`)
+        ).rows.reduce((a, r) => ((a[r.status] = r.n), a), {});
+        kpi.total = Object.values(kpi).reduce((a, b) => a + b, 0);
+        kpi.approved = (
+            await db.query(
+                `SELECT COUNT(*)::int n FROM web2_jt_tracking WHERE approved_at IS NOT NULL`
+            )
+        ).rows[0].n;
+        res.json({ success: true, data: rows, kpi });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+// GET /:billcode — chi tiết 1 vận đơn (full events). Auto-fetch nếu chưa có.
+router.get('/:billcode', async (req, res) => {
+    try {
+        const db = getDb(req);
+        const billcode = String(req.params.billcode || '').replace(/\D/g, '');
+        if (!/^\d{12}$/.test(billcode))
+            return res.status(400).json({ success: false, error: 'Mã vận đơn phải là 12 số' });
+        let row = (await db.query(`SELECT * FROM web2_jt_tracking WHERE billcode=$1`, [billcode]))
+            .rows[0];
+        // chưa fetch bao giờ → fetch ngay (best-effort).
+        if (!row || !row.last_fetched_at) {
+            try {
+                const fetched = await fetchJt(billcode, row?.cellphone);
+                row = await _upsertTracked(db, billcode, fetched, {
+                    source: row?.source || 'manual',
+                });
+            } catch (e) {
+                if (!row)
+                    return res.status(502).json({ success: false, error: 'J&T lỗi: ' + e.message });
+            }
+        }
+        res.json({ success: true, data: row });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+// POST /:billcode/approve — DUYỆT (xong) → mờ đi, tự xoá sau 7 ngày.
+router.post('/:billcode/approve', async (req, res) => {
+    try {
+        const db = getDb(req);
+        const billcode = String(req.params.billcode || '').replace(/\D/g, '');
+        if (!/^\d{12}$/.test(billcode))
+            return res.status(400).json({ success: false, error: 'Mã vận đơn phải là 12 số' });
+        const r = await db.query(
+            `UPDATE web2_jt_tracking SET approved_at=$2, updated_at=$2 WHERE billcode=$1`,
+            [billcode, now()]
+        );
+        if (!r.rowCount)
+            return res.status(404).json({ success: false, error: 'Không tìm thấy mã' });
+        _notify('approve', billcode);
+        res.json({ success: true });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+// POST /:billcode/unapprove — TRỞ LẠI (bỏ duyệt) → hết mờ, không bị tự xoá nữa.
+router.post('/:billcode/unapprove', async (req, res) => {
+    try {
+        const db = getDb(req);
+        const billcode = String(req.params.billcode || '').replace(/\D/g, '');
+        if (!/^\d{12}$/.test(billcode))
+            return res.status(400).json({ success: false, error: 'Mã vận đơn phải là 12 số' });
+        await db.query(
+            `UPDATE web2_jt_tracking SET approved_at=NULL, updated_at=$2 WHERE billcode=$1`,
+            [billcode, now()]
+        );
+        _notify('unapprove', billcode);
+        res.json({ success: true });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+router.ensureSchema = ensureSchema;
+router.initializeNotifiers = initializeNotifiers;
+module.exports = router;

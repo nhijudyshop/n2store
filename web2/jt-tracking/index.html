@@ -1,0 +1,100 @@
+<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 module — Tra cứu vận đơn J&T (Báo cáo). -->
+<!doctype html>
+<html lang="vi">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Tra cứu vận đơn J&T — WEB 2.0</title>
+        <meta name="web2-db" content="render" />
+
+        <link rel="stylesheet" href="../shared/web2-sidebar.css?v=20260613z" />
+        <link rel="stylesheet" href="../shared/web2-theme.css?v=20260613ns1" />
+        <link rel="stylesheet" href="css/jt-tracking.css?v=20260615a" />
+
+        <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
+        <!-- Lottie (airbnb/lottie-web) — hiệu ứng trạng thái giao hàng -->
+        <script
+            src="https://cdnjs.cloudflare.com/ajax/libs/lottie-web/5.12.2/lottie.min.js"
+            defer
+        ></script>
+        <script src="../../shared/js/notification-system.js?v=20260521b"></script>
+    </head>
+    <body>
+        <div class="web2-shell">
+            <aside class="web2-aside" id="web2Aside"></aside>
+            <main>
+                <div class="jt-main">
+                    <div class="jt-head">
+                        <div class="jt-head-titles">
+                            <h1><span class="jt-jt">J&T</span> Tra cứu vận đơn</h1>
+                            <p>
+                                Gom mã 12 số từ tin nhắn Zalo + nhập tay → theo dõi trạng thái giao
+                                hàng J&amp;T Express.
+                            </p>
+                        </div>
+                        <div class="jt-actions">
+                            <button class="jt-btn jt-btn-ghost" id="jtScan" type="button">
+                                <i data-lucide="scan-line"></i> Quét Zalo
+                            </button>
+                            <button class="jt-btn jt-btn-ghost" id="jtRefreshAll" type="button">
+                                <i data-lucide="refresh-cw"></i> Làm mới tất cả
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Nhập mã thủ công (cellphone tự điền 8674) -->
+                    <form class="jt-quickadd" id="jtQuickForm" autocomplete="off">
+                        <div class="jt-qa-code">
+                            <i data-lucide="package-search"></i>
+                            <input
+                                id="jtQaCode"
+                                type="text"
+                                inputmode="numeric"
+                                placeholder="Nhập mã vận đơn 12 số (vd 802762251204)…"
+                                aria-label="Mã vận đơn"
+                            />
+                        </div>
+                        <input
+                            id="jtQaCell"
+                            class="jt-qa-cell"
+                            type="text"
+                            value="8674"
+                            maxlength="4"
+                            inputmode="numeric"
+                            title="4 số cuối SĐT người gửi (mặc định 8674 — shop)"
+                            aria-label="4 số cuối SĐT gửi"
+                        />
+                        <button class="jt-btn jt-btn-primary" id="jtQaBtn" type="submit">
+                            <i data-lucide="search"></i> Tra cứu
+                        </button>
+                    </form>
+
+                    <div class="jt-kpis" id="jtKpis"></div>
+
+                    <div class="jt-toolbar">
+                        <div class="jt-search">
+                            <i data-lucide="search"></i>
+                            <input
+                                id="jtSearch"
+                                type="search"
+                                placeholder="Tìm mã / sự kiện / ghi chú…"
+                            />
+                        </div>
+                        <span class="jt-count" id="jtCount"></span>
+                    </div>
+
+                    <div id="jtList" class="jt-list"></div>
+                </div>
+            </main>
+        </div>
+
+        <!-- modal mounts -->
+        <div id="jtModalMount"></div>
+
+        <script src="../shared/web2-auth.js?v=20260613guard"></script>
+        <script src="../shared/web2-optimistic.js?v=20260601a"></script>
+        <script src="../shared/web2-sidebar.js?v=20260613z"></script>
+        <script src="../shared/web2-sse-bridge.js?v=20260614ux2"></script>
+        <script src="js/jt-tracking-app.js?v=20260615a"></script>
+    </body>
+</html>
