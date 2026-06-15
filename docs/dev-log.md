@@ -2,6 +2,15 @@
 
 ## 2026-06-15
 
+### [web2][render] Ẩn spam "tăng comment" khỏi live-chat — boost-mark XOÁ + chặn + nút Dọn ✅
+
+User: "sao live-chat vẫn hiện các comment count này? Không có type/cách nào ở dữ liệu Pancake nhận biết à?"
+
+- **Điều tra (empirical)**: query row thật của spam (40R5wXr…) → `fb_id=24961649996856997` = **Ellie Lương (chủ hội thoại), KHÔNG phải page**; created 09:05 UTC = spam **THỦ CÔNG trên Pancake** (trước khi tool fix message_id). Vì page reply vào comment của khách → Pancake gán vào hội thoại KHÁCH. **Xác nhận: realtime WS KHÔNG có field "page-authored"** (heuristic `from===page` vô dụng cho reply). Cách tin cậy duy nhất từ data = fetch từng message xem author=page → đó là "poll lại" (đã bỏ).
+- **Fix**: `/boost-mark` ([web2-live-comments.js](render.com/routes/web2-live-comments.js)) giờ ngoài chặn ingest event mới (in-memory TTL 20') còn **XOÁ comment đã ingest của conv** (`DELETE … WHERE id=$1 OR starts_with(id,$1||'_')`) + `_notify('reconcile')` → live-chat đang mở tự bỏ. Deterministic (tool biết chính xác conv).
+- **Tool** ([multi-tool.js](web2/multi-tool/js/multi-tool.js)): markBoost trả `purged`; thêm nút **"Dọn comment đã tăng"** (`cleanConv`) để dọn spam (kể cả gõ tay) của hội thoại đang chọn KHÔNG cần spam. run() vẫn markBoost trước + mỗi 100 tin.
+- **Lưu ý bản chất**: spam THỦ CÔNG trên Pancake KHÔNG tự ẩn được (không có signal data) → khuyến nghị spam QUA TOOL (auto ẩn+dọn), hoặc bấm "Dọn comment đã tăng". Icon `message-circle-plus`→`trending-up`/`eraser` (có trong lucide 0.294). Bump `multi-tool.js?v=20260615f`. ⚠ deploy web2-api.
+
 ### [web2] J&T — bỏ nút "Xóa hết & quét lại" ✅
 
 User: "bỏ nút xóa quét lại hết". Gỡ nút `jtClearAll` (danger) + hàm `clearAll()` + wiring khỏi [index.html](web2/jt-tracking/index.html)+[jt-tracking-app.js](web2/jt-tracking/js/jt-tracking-app.js) — tránh xoá nhầm toàn bộ (đã từng gây mất 1 đơn). Route `/clear` backend giữ nguyên (không UI gọi). Bump app `?v=20260615w`. ("Chưa tra" = status pending: mã đã thêm nhưng CHƯA tra cứu J&T → bấm "Làm mới tất cả" để tra.)
