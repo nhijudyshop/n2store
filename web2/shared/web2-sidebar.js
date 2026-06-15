@@ -88,6 +88,7 @@
                 { label: 'Đối soát CK', our: '../web2/ck-dashboard/index.html' },
                 { label: 'Studio chụp tách nền', our: '../web2/photo-studio/index.html' },
                 { label: 'Zalo', our: '../web2/zalo/index.html' },
+                { label: 'Đa dụng', our: '../web2/multi-tool/index.html' },
                 { label: 'Phân quyền', our: '../web2/users-permissions/index.html' },
                 {
                     label: 'Cấu hình & Hệ thống',

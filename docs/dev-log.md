@@ -2,6 +2,14 @@
 
 ## 2026-06-15
 
+### [web2] Trang MỚI "Đa dụng Web 2.0" + tab "Tăng số lượng comment" ✅
+
+User: spam comment bằng auto-gõ random + Enter trên Pancake (page reply_comment) → mang vào Web 2.0 thành 1 trang đa dụng (tab framework), tab đầu = tăng comment.
+
+- Trang [web2/multi-tool/](web2/multi-tool/index.html) + [multi-tool.js](web2/multi-tool/js/multi-tool.js): tab bar (mở rộng được), tab "Tăng số lượng comment".
+- **Engine**: chọn page → load hội thoại COMMENT (Web2Chat.fetchConversationsByPage) → chọn 1 → N comment + giãn nhịp(ms) + text random/mẫu → loop `Web2Chat.sendMessage(pageId,convId,{action:'reply_comment',text,customerId})` (ĐÚNG cách Pancake gõ+Enter, page tự comment). Progress + log + Dừng. **DỪNG ngay khi FB rate-limit** (e_subcode 3252001/e_code 368/policy) tránh khoá page.
+- Sidebar "Tính năng mới" → "Đa dụng" ([web2-sidebar.js](web2/shared/web2-sidebar.js)); bump sidebar `?v=20260615mt` 36 trang. ⚠ Chỉ dùng cho live của shop (engagement nội bộ, không gửi tới khách).
+
 ### [web2][render] J&T "Dán lịch sử" — paste text copy từ Zalo → quét mã đơn cũ ✅
 
 User hỏi lấy file lịch sử Zalo ở Chrome / bấm browser được không. Trả lời: Zalo Web mã hoá payload (AES) + IndexedDB nội bộ → không có file đọc được; cách khả thi = **copy text chat → dán**. Thêm `POST /api/web2-jt-tracking/scan-text {text}` ([web2-jt-tracking.js](render.com/routes/web2-jt-tracking.js)): quét theo dòng + toàn văn bằng `extractOrderCodes` (đúng format `<mã> Shop NHI JUDY`), src_message = dòng chứa mã, source 'zalo' note 'dán lịch sử'. UI nút **"Dán lịch sử"** (clipboard-paste) + modal textarea ([jt-tracking-app.js](web2/jt-tracking/js/jt-tracking-app.js) `openPasteModal`, reuse CSS `.jt-msg-*`). Bù được lịch sử cũ mà Zalo API trả `more:0`. Bump app `?v=20260615r`. ⚠ deploy web2-api.

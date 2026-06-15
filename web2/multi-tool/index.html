@@ -1,0 +1,344 @@
+<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 module — trang Đa dụng (multi-tool): tab tiện ích nội bộ (tăng comment...). -->
+<!doctype html>
+<html lang="vi">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta http-equiv="Cache-Control" content="no-cache, must-revalidate" />
+        <meta name="web2-db" content="render" />
+        <title>Đa dụng - WEB 2.0</title>
+
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap"
+            rel="stylesheet"
+        />
+        <link rel="stylesheet" href="../shared/web2-sidebar.css?v=20260613z" />
+        <link rel="stylesheet" href="../shared/web2-components.css?v=20260613z" />
+        <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
+        <script src="../../shared/js/notification-system.js?v=20260521b"></script>
+        <link rel="stylesheet" href="../shared/web2-theme.css?v=20260613ns1" />
+        <style>
+            :root {
+                --mt-accent: #0068ff;
+                --mt-bg: #eef1f7;
+                --mt-surface: #fff;
+                --mt-border: #e7ebf2;
+                --mt-text: #0f172a;
+                --mt-muted: #64748b;
+            }
+            body {
+                font-family: 'Inter', system-ui, sans-serif;
+                background: var(--mt-bg);
+                color: var(--mt-text);
+            }
+            .web2-shell {
+                display: flex;
+                min-height: 100vh;
+            }
+            .web2-aside {
+                width: 260px;
+                flex-shrink: 0;
+            }
+            .main-content {
+                flex: 1;
+                overflow: auto;
+                height: 100vh;
+                padding: 28px 34px;
+            }
+            .main-content > * {
+                max-width: 880px;
+            }
+            .mt-h1 {
+                font-family: 'Manrope', 'Inter', sans-serif;
+                font-size: 26px;
+                font-weight: 800;
+                letter-spacing: -0.025em;
+                margin: 0 0 4px;
+                display: flex;
+                align-items: center;
+                gap: 11px;
+            }
+            .mt-sub {
+                color: var(--mt-muted);
+                font-size: 13.5px;
+                margin-bottom: 20px;
+            }
+            /* Tabs */
+            .mt-tabs {
+                display: flex;
+                gap: 6px;
+                border-bottom: 1px solid var(--mt-border);
+                margin-bottom: 20px;
+                flex-wrap: wrap;
+            }
+            .mt-tab {
+                padding: 9px 16px;
+                font-size: 13.5px;
+                font-weight: 700;
+                color: var(--mt-muted);
+                background: none;
+                border: none;
+                border-bottom: 2.5px solid transparent;
+                cursor: pointer;
+                display: inline-flex;
+                align-items: center;
+                gap: 7px;
+                transition: color 0.15s;
+            }
+            .mt-tab:hover {
+                color: var(--mt-text);
+            }
+            .mt-tab.on {
+                color: var(--mt-accent);
+                border-bottom-color: var(--mt-accent);
+            }
+            .mt-panel {
+                display: none;
+            }
+            .mt-panel.on {
+                display: block;
+            }
+            /* Card + form */
+            .mt-card {
+                background: var(--mt-surface);
+                border: 1px solid var(--mt-border);
+                border-radius: 16px;
+                padding: 22px 24px;
+                margin-bottom: 16px;
+                box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+            }
+            .mt-row {
+                display: flex;
+                gap: 14px;
+                flex-wrap: wrap;
+                align-items: flex-end;
+                margin-bottom: 14px;
+            }
+            .mt-field {
+                display: flex;
+                flex-direction: column;
+                gap: 5px;
+            }
+            .mt-field label {
+                font-size: 12px;
+                font-weight: 700;
+                color: var(--mt-muted);
+            }
+            .mt-field select,
+            .mt-field input,
+            .mt-field textarea {
+                padding: 9px 12px;
+                border: 1px solid #d6dce6;
+                border-radius: 10px;
+                font-size: 13.5px;
+                font-family: inherit;
+                background: #fff;
+                color: var(--mt-text);
+            }
+            .mt-field select:focus,
+            .mt-field input:focus,
+            .mt-field textarea:focus {
+                outline: none;
+                border-color: var(--mt-accent);
+                box-shadow: 0 0 0 3px rgba(0, 104, 255, 0.12);
+            }
+            .mt-btn {
+                padding: 10px 18px;
+                font-size: 13.5px;
+                font-weight: 700;
+                border: 1px solid var(--mt-border);
+                background: #fff;
+                color: #1e293b;
+                border-radius: 10px;
+                cursor: pointer;
+                display: inline-flex;
+                align-items: center;
+                gap: 7px;
+                transition: all 0.15s;
+            }
+            .mt-btn:hover {
+                background: #f8fafc;
+                transform: translateY(-1px);
+            }
+            .mt-btn:disabled {
+                opacity: 0.5;
+                cursor: not-allowed;
+                transform: none;
+            }
+            .mt-btn.primary {
+                background: linear-gradient(135deg, #2a96ff, var(--mt-accent));
+                color: #fff;
+                border-color: transparent;
+                box-shadow: 0 2px 8px rgba(0, 104, 255, 0.3);
+            }
+            .mt-btn.danger {
+                background: #fee2e2;
+                color: #b91c1c;
+                border-color: #fecaca;
+            }
+            .mt-help {
+                font-size: 12.5px;
+                color: var(--mt-muted);
+                line-height: 1.55;
+                margin-bottom: 14px;
+            }
+            .mt-warn {
+                background: #fff7ed;
+                border: 1px solid #fed7aa;
+                color: #9a3412;
+                border-radius: 10px;
+                padding: 10px 13px;
+                font-size: 12.5px;
+                line-height: 1.5;
+                margin-bottom: 14px;
+            }
+            /* Progress */
+            .mt-prog {
+                margin-top: 14px;
+                font-size: 13px;
+            }
+            .mt-bar {
+                height: 8px;
+                background: #eef1f6;
+                border-radius: 999px;
+                overflow: hidden;
+                margin: 8px 0;
+            }
+            .mt-bar > i {
+                display: block;
+                height: 100%;
+                width: 0;
+                background: linear-gradient(90deg, #2a96ff, var(--mt-accent));
+                transition: width 0.2s;
+            }
+            .mt-log {
+                margin-top: 10px;
+                max-height: 180px;
+                overflow: auto;
+                font-size: 12px;
+                font-family: ui-monospace, monospace;
+                background: #0f172a;
+                color: #cbd5e1;
+                border-radius: 10px;
+                padding: 10px 12px;
+                white-space: pre-wrap;
+                word-break: break-word;
+            }
+            .mt-stat {
+                display: inline-flex;
+                gap: 14px;
+                font-weight: 700;
+            }
+            .mt-stat .ok {
+                color: #15803d;
+            }
+            .mt-stat .err {
+                color: #b91c1c;
+            }
+        </style>
+    </head>
+    <body class="web2-theme">
+        <div class="web2-shell">
+            <aside class="web2-aside" id="web2Aside"></aside>
+            <main class="main-content">
+                <h1 class="mt-h1">
+                    <i data-lucide="layout-grid" style="width: 26px; height: 26px"></i>
+                    Đa dụng Web 2.0
+                </h1>
+                <div class="mt-sub">Bộ công cụ tiện ích nội bộ — mỗi tab là 1 công cụ.</div>
+
+                <div class="mt-tabs" id="mtTabs">
+                    <button class="mt-tab on" data-tab="boost">
+                        <i data-lucide="message-circle-plus" style="width: 15px; height: 15px"></i>
+                        Tăng số lượng comment
+                    </button>
+                </div>
+
+                <!-- ===== Tab: Tăng số lượng comment ===== -->
+                <section class="mt-panel on" id="panel-boost">
+                    <div class="mt-card">
+                        <div class="mt-help">
+                            Đăng nhiều comment <strong>random</strong> lên 1 hội thoại comment của
+                            bài live (page tự comment — <em>reply_comment</em>, đúng cách Pancake
+                            làm khi gõ + Enter). Dùng để <strong>tăng số lượng comment</strong> trên
+                            live của shop. Không gửi gì tới khách.
+                        </div>
+                        <div class="mt-warn">
+                            ⚠ Chỉ dùng cho <strong>live của shop</strong>. Đăng dồn dập có thể bị
+                            Facebook giới hạn (rate-limit) — để <strong>giãn nhịp ≥ 1s</strong> +
+                            dừng ngay khi gặp lỗi FB.
+                        </div>
+
+                        <div class="mt-row">
+                            <div class="mt-field" style="min-width: 200px">
+                                <label>Page</label>
+                                <select id="boostPage">
+                                    <option value="">Đang tải pages…</option>
+                                </select>
+                            </div>
+                            <div class="mt-field" style="flex: 1; min-width: 260px">
+                                <label>Hội thoại comment (chọn 1 để spam)</label>
+                                <select id="boostConv">
+                                    <option value="">Chọn page trước…</option>
+                                </select>
+                            </div>
+                            <button class="mt-btn" id="boostReloadConv" title="Tải lại hội thoại">
+                                <i data-lucide="refresh-ccw" style="width: 14px; height: 14px"></i>
+                            </button>
+                        </div>
+                        <div class="mt-row">
+                            <div class="mt-field" style="width: 130px">
+                                <label>Số lượng</label>
+                                <input type="number" id="boostCount" value="20" min="1" max="500" />
+                            </div>
+                            <div class="mt-field" style="width: 150px">
+                                <label>Giãn nhịp (ms)</label>
+                                <input
+                                    type="number"
+                                    id="boostDelay"
+                                    value="1500"
+                                    min="500"
+                                    step="100"
+                                />
+                            </div>
+                            <div class="mt-field" style="flex: 1; min-width: 200px">
+                                <label>Mẫu text (tùy chọn — để trống = random)</label>
+                                <input
+                                    type="text"
+                                    id="boostText"
+                                    placeholder="vd: đẹp quá / để trống = random ngắn"
+                                />
+                            </div>
+                        </div>
+                        <div class="mt-row" style="margin-bottom: 0">
+                            <button class="mt-btn primary" id="boostRun">
+                                <i data-lucide="play" style="width: 15px; height: 15px"></i> Bắt đầu
+                            </button>
+                            <button class="mt-btn danger" id="boostStop" disabled>
+                                <i data-lucide="square" style="width: 15px; height: 15px"></i> Dừng
+                            </button>
+                        </div>
+
+                        <div class="mt-prog" id="boostProg" style="display: none">
+                            <div class="mt-stat">
+                                <span>Đã gửi: <span class="ok" id="boostOk">0</span></span>
+                                <span>Lỗi: <span class="err" id="boostErr">0</span></span>
+                                <span id="boostTotal" style="color: var(--mt-muted)"></span>
+                            </div>
+                            <div class="mt-bar"><i id="boostBar"></i></div>
+                            <div class="mt-log" id="boostLog"></div>
+                        </div>
+                    </div>
+                </section>
+            </main>
+        </div>
+
+        <script src="../../web2/shared/web2-auth.js?v=20260613guard"></script>
+        <script src="../../web2/shared/web2-sidebar.js?v=20260615mt"></script>
+        <script src="../shared/web2-pancake-token.js?v=20260604a"></script>
+        <script src="../shared/web2-pancake-accounts.js?v=20260612en"></script>
+        <script src="../../web2/shared/web2-chat-client.js?v=20260612en"></script>
+        <script src="js/multi-tool.js?v=20260615a"></script>
+    </body>
+</html>
