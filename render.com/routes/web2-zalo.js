@@ -39,6 +39,26 @@ function _notify(topic, action, code) {
     }
 }
 
+// ── Nhóm được THEO DÕI (allowlist) — chỉ tin các nhóm này mới được lưu ──
+// Cache in-memory để _persistIncoming (firehose) khỏi query DB mỗi tin.
+// Bảng web2_zalo_tracked_groups có ≥1 row → _filterActive=true (chỉ lưu nhóm
+// trong set); rỗng → false (lưu tất, an toàn khi chưa cấu hình).
+let _trackedSet = new Set();
+let _filterActive = false;
+const _tk = (accountKey, threadId) => `${accountKey || ''}\u0000${threadId || ''}`;
+async function _loadTracked() {
+    if (!_pool) return;
+    try {
+        const { rows } = await _pool.query(
+            `SELECT account_key, thread_id FROM web2_zalo_tracked_groups`
+        );
+        _trackedSet = new Set(rows.map((r) => _tk(r.account_key, r.thread_id)));
+        _filterActive = _trackedSet.size > 0;
+    } catch (e) {
+        console.warn('[WEB2-ZALO] loadTracked failed:', e.message);
+    }
+}
+
 // ── Strip dữ liệu nhạy cảm trước khi trả client ─────────────────────────
 function _safeAccount(a, liveStatus) {
     return {
@@ -232,6 +252,9 @@ function _msgPreview(msg) {
 
 async function _persistIncoming(msg) {
     if (!_pool || !msg?.threadId) return;
+    // Allowlist: khi filter BẬT, chỉ lưu tin của nhóm được theo dõi. Tin các
+    // hội thoại khác (1-1, nhóm ngoài danh sách) bị bỏ qua hoàn toàn.
+    if (_filterActive && !_trackedSet.has(_tk(msg.accountKey, msg.threadId))) return;
     const ts = now();
     // 1) INSERT message TRƯỚC (dedup theo msg_id) → biết tin có thật sự mới không.
     //    Tránh cộng unread 2 lần khi cùng 1 tin tới lặp (webhook/relay double-fire).
@@ -583,6 +606,8 @@ router.post('/accounts/:key/sync-conversations', async (req, res) => {
         const ts = now();
         let n = 0;
         for (const u of roster.users) {
+            // Filter BẬT → chỉ seed hội thoại được theo dõi (tránh ngập lại list).
+            if (_filterActive && !_trackedSet.has(_tk(key, u.uid))) continue;
             await db.query(
                 `INSERT INTO web2_zalo_conversations
                     (account_key, thread_id, thread_type, zalo_uid, display_name, avatar_url, phone, unread_count, created_at, updated_at)
@@ -606,6 +631,7 @@ router.post('/accounts/:key/sync-conversations', async (req, res) => {
             n++;
         }
         for (const g of roster.groups) {
+            if (_filterActive && !_trackedSet.has(_tk(key, g.gid))) continue;
             await db.query(
                 `INSERT INTO web2_zalo_conversations
                     (account_key, thread_id, thread_type, display_name, avatar_url, unread_count, created_at, updated_at)
@@ -1471,11 +1497,202 @@ router.get('/zns/log', async (req, res) => {
 });
 
 // =====================================================================
+// Nhóm được THEO DÕI (allowlist) — quản lý + wipe/seed + retention
+// =====================================================================
+
+// Liệt kê các nhóm đang theo dõi.
+router.get('/tracked-groups', async (req, res) => {
+    try {
+        const { rows } = await getDb(req).query(
+            `SELECT account_key AS "accountKey", thread_id AS "threadId", name, added_at AS "addedAt"
+               FROM web2_zalo_tracked_groups ORDER BY added_at ASC`
+        );
+        res.json({ success: true, data: rows, filterActive: _filterActive });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+// Thêm nhóm vào danh sách theo dõi (manual add).
+router.post('/tracked-groups', async (req, res) => {
+    try {
+        const { accountKey, threadId, name } = req.body || {};
+        if (!accountKey || !threadId)
+            return res
+                .status(400)
+                .json({ success: false, error: 'accountKey + threadId bắt buộc' });
+        await getDb(req).query(
+            `INSERT INTO web2_zalo_tracked_groups (account_key, thread_id, name, added_at)
+             VALUES ($1,$2,$3,$4)
+             ON CONFLICT (account_key, thread_id) DO UPDATE SET name=COALESCE(EXCLUDED.name, web2_zalo_tracked_groups.name)`,
+            [accountKey, threadId, name || null, now()]
+        );
+        await _loadTracked();
+        _notify('web2:zalo:accounts', 'tracked-changed', threadId);
+        res.json({ success: true, filterActive: _filterActive, tracked: _trackedSet.size });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+// Bỏ 1 nhóm khỏi danh sách theo dõi.
+router.delete('/tracked-groups/:accountKey/:threadId', async (req, res) => {
+    try {
+        await getDb(req).query(
+            `DELETE FROM web2_zalo_tracked_groups WHERE account_key=$1 AND thread_id=$2`,
+            [req.params.accountKey, req.params.threadId]
+        );
+        await _loadTracked();
+        _notify('web2:zalo:accounts', 'tracked-changed', req.params.threadId);
+        res.json({ success: true, filterActive: _filterActive, tracked: _trackedSet.size });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+// ── ADMIN: wipe toàn bộ tin/hội thoại/ảnh + khoá theo dõi đúng nhóm khớp ──
+//    Header x-admin-secret = CLEANUP_SECRET. Body:
+//      { pattern?:'XỬ LÝ NJD', groups?:[{accountKey,threadId,name}], confirm:'YES-RESET', dryRun? }
+//    Giữ NGUYÊN: tài khoản (đăng nhập), bảng ZNS. Xoá: messages/conversations/media/members.
+router.post('/admin/reset-to-tracked', async (req, res) => {
+    const secret = process.env.CLEANUP_SECRET || '';
+    const provided = req.headers['x-admin-secret'] || req.query.secret || '';
+    if (!secret || provided !== secret)
+        return res.status(403).json({ success: false, error: 'forbidden' });
+    const db = getDb(req);
+    try {
+        const pattern = (req.body?.pattern || 'XỬ LÝ NJD').trim();
+        const explicit = Array.isArray(req.body?.groups) ? req.body.groups : null;
+        const dryRun = !!req.body?.dryRun;
+
+        // 1) Xác định nhóm cần khoá: explicit override HOẶC khớp tên hiện có.
+        let targets;
+        if (explicit && explicit.length) {
+            targets = explicit
+                .filter((g) => g && g.accountKey && g.threadId)
+                .map((g) => ({
+                    account_key: g.accountKey,
+                    thread_id: g.threadId,
+                    name: g.name || null,
+                    avatar_url: null,
+                }));
+        } else {
+            const { rows } = await db.query(
+                `SELECT account_key, thread_id, display_name AS name, avatar_url
+                   FROM web2_zalo_conversations
+                  WHERE thread_type='group' AND display_name ILIKE '%' || $1 || '%'`,
+                [pattern]
+            );
+            targets = rows;
+        }
+
+        if (!targets.length)
+            return res.status(400).json({
+                success: false,
+                error: `Không tìm thấy nhóm nào khớp "${pattern}". Truyền body.groups=[{accountKey,threadId,name}] để khoá thủ công, hoặc đồng bộ hội thoại trước.`,
+            });
+
+        if (dryRun || req.body?.confirm !== 'YES-RESET')
+            return res.json({
+                success: true,
+                dryRun: true,
+                wouldTrack: targets.map((t) => ({
+                    accountKey: t.account_key,
+                    threadId: t.thread_id,
+                    name: t.name,
+                })),
+                note: 'Gửi lại với confirm:"YES-RESET" để thực hiện wipe + khoá.',
+            });
+
+        // 2) Seed bảng theo dõi TRƯỚC (sống sót qua wipe).
+        for (const t of targets) {
+            await db.query(
+                `INSERT INTO web2_zalo_tracked_groups (account_key, thread_id, name, added_at)
+                 VALUES ($1,$2,$3,$4)
+                 ON CONFLICT (account_key, thread_id) DO UPDATE SET name=COALESCE(EXCLUDED.name, web2_zalo_tracked_groups.name)`,
+                [t.account_key, t.thread_id, t.name || null, now()]
+            );
+        }
+
+        // 3) WIPE dữ liệu chat (giữ tài khoản + ZNS).
+        const wiped = {};
+        for (const tbl of [
+            'web2_zalo_messages',
+            'web2_zalo_conversations',
+            'web2_zalo_media',
+            'web2_zalo_members',
+        ]) {
+            const r = await db.query(`DELETE FROM ${tbl}`);
+            wiped[tbl] = r.rowCount;
+        }
+
+        // 4) Tái tạo dòng hội thoại cho nhóm theo dõi (hiện ngay trong list, rỗng tin).
+        const ts = now();
+        for (const t of targets) {
+            await db.query(
+                `INSERT INTO web2_zalo_conversations
+                    (account_key, thread_id, thread_type, display_name, avatar_url, unread_count, created_at, updated_at)
+                 VALUES ($1,$2,'group',$3,$4,0,$5,$5)
+                 ON CONFLICT (account_key, thread_id) DO NOTHING`,
+                [t.account_key, t.thread_id, t.name || null, t.avatar_url || null, ts]
+            );
+        }
+
+        await _loadTracked();
+        _notify('web2:zalo:accounts', 'reset', null);
+        _notify('web2:zalo:messages', 'reset', null);
+        res.json({
+            success: true,
+            tracked: targets.map((t) => ({
+                accountKey: t.account_key,
+                threadId: t.thread_id,
+                name: t.name,
+            })),
+            wiped,
+            filterActive: _filterActive,
+        });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+// Retention: xoá tin nhắn + media cũ hơn N ngày (mặc định 7). Giữ dòng hội thoại
+// (nhóm vẫn hiện trong list); xoá preview cũ. Gọi từ cron server.js.
+async function runZaloRetention(days = 7) {
+    if (!_pool) return null;
+    const cutoff = now() - days * 24 * 60 * 60 * 1000;
+    try {
+        const m = await _pool.query(`DELETE FROM web2_zalo_messages WHERE sent_at < $1`, [cutoff]);
+        const md = await _pool.query(`DELETE FROM web2_zalo_media WHERE created_at < $1`, [cutoff]);
+        await _pool.query(
+            `UPDATE web2_zalo_conversations
+                SET last_msg_at=NULL, last_msg_text=NULL
+              WHERE last_msg_at IS NOT NULL AND last_msg_at < $1`,
+            [cutoff]
+        );
+        if (m.rowCount || md.rowCount)
+            console.log(
+                `[WEB2-ZALO] retention: -${m.rowCount} msg, -${md.rowCount} media (>${days}d)`
+            );
+        return { messages: m.rowCount, media: md.rowCount };
+    } catch (e) {
+        console.warn('[WEB2-ZALO] retention failed:', e.message);
+        return null;
+    }
+}
+
+// =====================================================================
 // Schema + boot restore (gọi từ server.js)
 // =====================================================================
 async function ensureSchema(pool) {
     _pool = pool;
     await ensureWeb2ZaloSchema(pool);
+    await _loadTracked();
+    // Refresh cache định kỳ (an toàn khi nhiều instance / thay đổi ngoài luồng).
+    if (!ensureSchema._refreshTimer) {
+        ensureSchema._refreshTimer = setInterval(() => _loadTracked(), 60 * 1000);
+        if (ensureSchema._refreshTimer.unref) ensureSchema._refreshTimer.unref();
+    }
 }
 
 // Re-login mọi acc personal có session đã lưu (gọi sau ensureSchema khi boot)
@@ -1494,5 +1711,6 @@ async function restoreSessions() {
 router.ensureSchema = ensureSchema;
 router.initializeNotifiers = initializeNotifiers;
 router.restoreSessions = restoreSessions;
+router.runZaloRetention = runZaloRetention;
 
 module.exports = router;

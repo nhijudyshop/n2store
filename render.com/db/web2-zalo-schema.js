@@ -204,6 +204,21 @@ async function ensureWeb2ZaloSchema(pool) {
             );
         `);
 
+        // ── 3d. Nhóm được THEO DÕI (allowlist) — chỉ tin của các nhóm này mới ───
+        //    được _persistIncoming lưu lại. Bảng có ≥1 row → filter BẬT (chỉ lưu
+        //    nhóm trong bảng); bảng RỖNG → filter TẮT (lưu tất, backward-compat an
+        //    toàn để không vô tình rớt sạch tin khi cấu hình sai). Khoá theo
+        //    (account_key, thread_id) — sống sót qua wipe (chỉ wipe messages/conv).
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS web2_zalo_tracked_groups (
+                account_key VARCHAR(80) NOT NULL,
+                thread_id   VARCHAR(100) NOT NULL,
+                name        VARCHAR(255),
+                added_at    BIGINT NOT NULL,
+                PRIMARY KEY (account_key, thread_id)
+            );
+        `);
+
         // ── 4. ZNS templates (cache từ OA) ──────────────────────────────────────
         await pool.query(`
             CREATE TABLE IF NOT EXISTS web2_zns_templates (

@@ -836,6 +836,16 @@ web2ZaloRoutes
     .then(() => web2ZaloRoutes.restoreSessions && web2ZaloRoutes.restoreSessions())
     .catch((e) => console.warn('[web2-zalo] schema warn:', e.message));
 app.use('/api/web2-zalo', web2ZaloRoutes);
+// WEB2.0 — Zalo retention: xoá tin nhắn + media cũ hơn 7 ngày (rolling window).
+// Chạy ở instance sở hữu web2 jobs (web2-api, DISABLE_WEB2_JOBS chưa set).
+if (!DISABLE_WEB2_JOBS && web2ZaloRoutes.runZaloRetention) {
+    const ZALO_RETENTION_DAYS = 7;
+    const runZaloRet = () => web2ZaloRoutes.runZaloRetention(ZALO_RETENTION_DAYS).catch(() => {});
+    setTimeout(runZaloRet, 60 * 1000); // 1 phút sau boot
+    const t = setInterval(runZaloRet, 6 * 60 * 60 * 1000); // mỗi 6h
+    if (t.unref) t.unref();
+    console.log('[STARTUP] Zalo retention cron started (7d, every 6h)');
+}
 
 // WEB2.0 — Tra cứu vận đơn J&T (báo cáo). Quét mã 12 số từ tin nhắn Zalo + dán
 // thủ công → fetch jtexpress.vn (server-side render) → lưu/quản lý trạng thái giao

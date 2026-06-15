@@ -2,6 +2,17 @@
 
 ## 2026-06-15
 
+### [web2][render] Zalo — chỉ giữ tin 2 nhóm "XỬ LÝ NJD" + tự xoá sau 7 ngày ✅
+
+**User** (kèm ảnh 2 nhóm "XỬ LÝ NJD - J&T" + "XỬ LÝ NJD - THÀNH PHỐ"): "xóa hết dữ liệu hiện có → chỉ lấy tin nhắn 2 nhóm như hình và xóa sau 7 ngày". Chốt: **khoá đúng 2 nhóm hiện tại** (theo thread_id, không auto-thêm nhóm mới) + **giữ đăng nhập, chỉ wipe tin/hội thoại/ảnh**.
+
+- **Allowlist nhóm theo dõi**: bảng mới `web2_zalo_tracked_groups (account_key, thread_id, name, added_at)` [web2-zalo-schema.js](render.com/db/web2-zalo-schema.js). Bảng có ≥1 row → filter BẬT (chỉ lưu nhóm trong bảng); rỗng → TẮT (lưu tất, an toàn). Cache in-memory `_trackedSet`/`_filterActive` + `_loadTracked()` (boot + refresh 60s + sau mỗi thay đổi).
+- **Filter ở `_persistIncoming`**: tin của hội thoại không theo dõi (1-1, nhóm ngoài DS) bị bỏ qua hoàn toàn. `sync-conversations` (nút Đồng bộ + auto-sync) cũng skip non-tracked → không ngập lại list.
+- **Endpoints**: `GET/POST /tracked-groups`, `DELETE /tracked-groups/:acc/:thread` (manual add/remove), `POST /admin/reset-to-tracked` (x-admin-secret=CLEANUP_SECRET) → khớp tên `pattern` mặc định "XỬ LÝ NJD" (hoặc `groups[]` thủ công) → seed tracked → WIPE messages/conversations/media/members (GIỮ accounts + ZNS) → tái tạo dòng hội thoại 2 nhóm. Có `dryRun`/`confirm:'YES-RESET'`.
+- **Retention 7 ngày**: `runZaloRetention(7)` xoá messages+media `< now-7d` (giữ dòng hội thoại, clear preview cũ). Cron [server.js](render.com/server.js) `!DISABLE_WEB2_JOBS` (chạy ở web2-api): 1 phút sau boot + mỗi 6h.
+- **J&T auto-ingest** giờ chỉ chạy cho 2 nhóm tracked (đúng chỗ mã vận đơn từ nhóm J&T).
+- Files: [web2-zalo-schema.js](render.com/db/web2-zalo-schema.js), [web2-zalo.js](render.com/routes/web2-zalo.js), [server.js](render.com/server.js). Status: ✅ Code xong, syntax OK — chờ deploy + chạy `/admin/reset-to-tracked` trên prod.
+
 ### [live-chat] BỎ HẾT hiệu ứng comment mới (cả 2 trang) ✅
 
 User: "bỏ hết hiệu ứng bình luận mới + hiệu ứng đẩy trượt từ trên xuống". Gỡ `.is-new` (fade) + burst helper `_shouldAnimateNew`/`shouldAnimateNew` + CSS `@keyframes liveCommentIn`/`cardIn` ở [live-comment-list.js](live-chat/js/live/live-comment-list.js)+[live-comments.css](live-chat/css/live/live-comments.css) (desktop) và [comments-mobile.js](live-chat/js/live/comments-mobile.js)+[comments-mobile.html](live-chat/comments-mobile.html) (mobile). Comment mới hiện TỨC THÌ, không animation. (`?v=20260615noanim`)
