@@ -2,6 +2,15 @@
 
 ## 2026-06-15
 
+### [web2][jt-tracking] Hiện toàn bộ tin nhắn chứa mã + chỉ nhận mã ĐÚNG format dòng đơn + copy SĐT ✅
+
+1. **src_message** (cột mới TEXT): lưu TOÀN BỘ tin nhắn nhóm chứa mã → row + modal hiện đầy đủ (tên/SĐT/ghi chú KH), tô đậm mã 12 số + tô xanh SĐT.
+2. **Copy SĐT**: bấm số → copy clipboard; listener **capture-phase** `[data-copy]` (stopPropagation TRƯỚC click row) → KHÔNG mở modal. Hoạt động list/modal/drawer.
+3. **Chỉ nhận mã đúng FORMAT dòng đơn** (user: "phải có dạng `<mã> Shop NHI JUDY 01 <tiền>` mới nhận"): `ORDER_CODE_RE = /(?<!\d)(\d{12})(?!\d)\s+Shop\s+NHI\s*JUDY/gi` cho autoIngest + scan (loại reply/mention "@Nhi Judy Store 802… em báo…" + số 12 ngẫu nhiên). `/add` manual giữ `\d{12}`. SQL pre-filter scan: `~* 'shop\s+nhi\s*judy'` (superset regex). Review 11-agent fix: digit-boundary (chặn 13 số) + SQL superset (tab/2-space/newline).
+4. **src_message ưu tiên dòng đơn** (`COALESCE(EXCLUDED, existing)`): re-scan ghi đè text reply cũ bằng dòng đơn. Verified: 15/23 row có dòng đơn (tên/SĐT). Còn 8 row "reply-only" = mã thật nhưng dòng đơn KHÔNG có trong message store (chỉ có reply) → giữ (đơn vấn đề thật, vẫn track status J&T).
+
+Commits `16b130a61` (+ trước đó). Schema cột `src_message`/`zalo_conv_id` đã migrate + scan backfill. **Status:** ✅
+
 ### [live-chat] Layout dòng comment: trạng thái về cạnh TÊN (tên → trạng thái → page) ✅
 
 **User:** "chuyển trạng thái qua bên trái → tên - trạng thái - page" (status đang ở góc phải).
