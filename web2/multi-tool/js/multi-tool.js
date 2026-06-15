@@ -245,19 +245,38 @@
         csel.value = '0'; // mặc định chọn MỚI NHẤT
     }
 
-    // Báo backend các conversation đang "tăng comment" → ingest BỎ QUA (không lưu DB,
-    // không SSE) → KHÔNG hiện ở live-chat / comments-mobile. TTL 20 phút, re-mark định kỳ.
+    // Báo backend conv đang "tăng comment" → (1) ingest BỎ QUA event mới (TTL 20'),
+    // (2) XOÁ comment đã ingest của conv đó + SSE → live-chat tự bỏ. Trả {purged}.
     async function markBoost(convId) {
-        if (!convId) return;
+        if (!convId) return { ok: false, purged: 0 };
         try {
-            await fetch(`${workerBase()}/api/web2-live-comments/boost-mark`, {
+            const r = await fetch(`${workerBase()}/api/web2-live-comments/boost-mark`, {
                 method: 'POST',
                 headers: authHeaders({ 'Content-Type': 'application/json' }),
                 body: JSON.stringify({ convId: String(convId) }),
             });
+            const j = await r.json().catch(() => ({}));
+            return { ok: !!j.success, purged: j.purged || 0 };
         } catch (_) {
-            /* best-effort — vẫn spam được, chỉ là live-chat có thể hiện tạm */
+            return { ok: false, purged: 0 };
         }
+    }
+
+    // Nút "Dọn comment đã tăng" — xoá + ẩn các comment boost của hội thoại đang chọn
+    // KHÔNG cần spam. Dùng để dọn spam thủ công (gõ tay trên Pancake) đã lọt vào.
+    async function cleanConv() {
+        const idx = $('boostConv').value;
+        const conv = idx !== '' ? _convs[Number(idx)] : null;
+        if (!conv) {
+            notify('Chọn hội thoại trước', 'warning');
+            return;
+        }
+        const btn = $('boostClean');
+        if (btn) btn.disabled = true;
+        const res = await markBoost(conv.id);
+        if (btn) btn.disabled = false;
+        if (res.ok) notify(`Đã ẩn & xoá ${res.purged} comment tăng khỏi live-chat`, 'success');
+        else notify('Dọn thất bại (kiểm tra đăng nhập)', 'error');
     }
 
     function logLine(msg) {
@@ -309,10 +328,10 @@
             $('boostErr').textContent = err;
             $('boostBar').style.width = (((ok + err) / total) * 100).toFixed(1) + '%';
         };
-        // Ẩn các comment này khỏi live-chat NGAY trước khi spam (+ re-mark mỗi 100 tin).
-        await markBoost(conv.id);
+        // Ẩn + dọn các comment này khỏi live-chat NGAY trước khi spam (+ re-mark mỗi 100 tin).
+        const mb = await markBoost(conv.id);
         logLine(`▶ Bắt đầu: ${total} comment, giãn ${delay}ms, hội thoại ${conv.id}`);
-        logLine('· Đã báo live-chat ẩn các comment này (không hiện cho khách).');
+        logLine(`· Đã báo live-chat ẩn comment tăng${mb.purged ? ` (dọn ${mb.purged} cũ)` : ''}.`);
 
         for (let i = 0; i < total; i++) {
             if (_stop) {
@@ -368,6 +387,7 @@
         $('boostReloadPost').addEventListener('click', loadPosts);
         $('boostReloadConv').addEventListener('click', loadConvs);
         $('boostRun').addEventListener('click', run);
+        $('boostClean')?.addEventListener('click', cleanConv);
         $('boostStop').addEventListener('click', () => {
             _stop = true;
             $('boostStop').disabled = true;
