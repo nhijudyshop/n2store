@@ -117,6 +117,14 @@
             _notify('Thiếu SĐT khách', 'warning');
             return;
         }
+        // Có SĐT → FULL chat (Pancake + Zalo) qua launcher dùng chung Web2CustomerChat.
+        if (global.Web2CustomerChat?.open) {
+            global.Web2CustomerChat.open({
+                phone,
+                name: _data.name || _data.customer?.name || '',
+            });
+            return;
+        }
         const btn = _el.querySelector('#w2cdChat');
         const old = btn ? btn.textContent : '';
         if (btn) {

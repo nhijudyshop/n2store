@@ -644,6 +644,11 @@
         return null;
     }
     async function openChatForPhone(phone, name) {
+        // Có SĐT → FULL chat (Pancake + Zalo) qua launcher dùng chung Web2CustomerChat.
+        if (phone && window.Web2CustomerChat?.open) {
+            window.Web2CustomerChat.open({ phone, name });
+            return;
+        }
         if (!window.Web2ChatReadonly) {
             notify('Module hội thoại chưa load', 'warning');
             return;

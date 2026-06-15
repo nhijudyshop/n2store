@@ -2,6 +2,17 @@
 
 ## 2026-06-15
 
+### [web2] Adopt Web2CustomerChat → balance-history + customers nâng từ chỉ-xem lên FULL chat ✅
+
+User: "ok" (đồng ý nâng balance-history + customers từ read-only lên full chat).
+
+- **balance-history** `openChatForPhone(phone,name)`: có SĐT → `Web2CustomerChat.open({phone,name})` (full Pancake+Zalo); không có SĐT → giữ fallback `Web2ChatReadonly.openSearch` (search read-only).
+- **customer-detail-modal** (shared, dùng ở customers + balance-history) `openChat()`: có SĐT → `Web2CustomerChat.open(...)`; fallback read-only nếu launcher chưa load.
+- **pending-match GIỮ read-only picker** (`onPick`) — đó là chọn KH để GÁN giao dịch, KHÔNG phải chat.
+- Load thêm `web2-zalo.js` + `web2-extension-bridge.js` + `web2-customer-chat.js` ở [balance-history](web2/balance-history/index.html) + [customers](web2/customers/index.html); bump customer-detail-modal `?v=20260615cc`.
+- Verified live (browser session): balance-history `Web2CustomerChat.open({phone})` → drawer 2 tab, panel mounted + composer + 25 tin. J&T đã verify trước.
+- Files: [web2-balance-history-app.js](web2/balance-history/js/web2-balance-history-app.js), [web2-customer-detail-modal.js](web2/shared/web2-customer-detail-modal.js), 2 index.html. Status: ✅ Done.
+
 ### [web2][shared] Web2CustomerChat — launcher FULL chat KH (Pancake + Zalo) dùng chung ✅
 
 **User:** "1. Bấm sđt mở full chat pancake và zalo đi. 2. Web 2.0 có shared khung chat pancake/zalo chưa? Chưa thì làm để trang khác dùng chung (live-chat, native-orders, balance-history…)." + "hiệu ứng lấy ở airbnb/lottie-web".
