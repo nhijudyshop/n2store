@@ -3,14 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `16b130a` — fix(web2-jt): src_message ưu tiên dòng đơn (COALESCE EXCLUDED trước) — ghi đè text reply cũ
-**Last updated**: 2026-06-15 12:30:47 +07
-**Latest session**: [`RESUME:20260615-123047-16b130a`](../20260615-123047-16b130a.md)
-**Summary**: fix(web2-jt): src_message ưu tiên dòng đơn (COALESCE EXCLUDED trước) — ghi đè text reply cũ
+**Latest commit**: `86ec185` — docs(dev-log): J&T src_message + order-format detection + copy SĐT
+**Last updated**: 2026-06-15 12:39:36 +07
+**Latest session**: [`RESUME:20260615-123936-86ec185`](../20260615-123936-86ec185.md)
+**Summary**: docs(dev-log): J&T src_message + order-format detection + copy SĐT
 
 ## Folders affected in this commit
 
-- [`render.com/`](./render.com.md) — 1 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -25,7 +25,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-15 10:55
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-14 18:47
-- [`docs/`](./docs.md) — updated 2026-06-15 12:24
+- [`docs/`](./docs.md) — updated 2026-06-15 12:39
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-13 14:55
 - [`downloads/`](./downloads.md) — updated 2026-06-13 19:16
