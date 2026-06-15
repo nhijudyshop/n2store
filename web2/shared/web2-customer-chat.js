@@ -349,6 +349,8 @@
 .w2cc-head-who{min-width:0}
 .w2cc-head-who b{display:block;font-weight:800;font-size:15px;color:var(--web2-text,#111827);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .w2cc-head-who span{font-size:12px;color:var(--web2-text-mute,#6b7280)}
+.w2cc-phone{cursor:pointer;border-radius:4px;padding:1px 4px;transition:background .15s,color .15s}
+.w2cc-phone:hover{background:color-mix(in oklab,var(--web2-primary,#0068ff) 14%,transparent);color:var(--web2-primary,#0068ff)}
 .w2cc-x{border:0;background:transparent;color:var(--web2-text-mute,#6b7280);cursor:pointer;border-radius:8px;width:32px;height:32px;display:grid;place-items:center;flex-shrink:0}
 .w2cc-x:hover{background:var(--web2-bg,#f1f5f9);color:var(--web2-text,#111827)}
 .w2cc-tabs{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:8px 12px;border-bottom:1px solid var(--web2-border,#e5e7eb);flex-shrink:0}
@@ -393,7 +395,7 @@
         back.innerHTML = `
             <div class="w2cc-drawer" role="dialog" aria-modal="true" aria-label="Chat với khách">
                 <div class="w2cc-head">
-                    <div class="w2cc-head-who"><b>${esc(name || 'Khách')}</b><span>${esc(phone)}</span></div>
+                    <div class="w2cc-head-who"><b>${esc(name || 'Khách')}</b><span class="w2cc-phone" data-w2cc="copyphone" role="button" tabindex="0" title="Bấm để copy SĐT">${esc(phone)}</span></div>
                     <button class="w2cc-x" data-w2cc="close" aria-label="Đóng"><i data-lucide="x"></i></button>
                 </div>
                 <div class="w2cc-tabs">
@@ -507,7 +509,14 @@
             const tb = e.target.closest?.('[data-w2cc-tab]');
             if (tb) showTab(tb.dataset.w2ccTab);
             if (e.target.closest?.('[data-w2cc="close"]')) close();
+            if (e.target.closest?.('[data-w2cc="copyphone"]')) _copyPhone();
         });
+        function _copyPhone() {
+            const done = () => notify('Đã copy SĐT: ' + phone, 'success');
+            if (navigator.clipboard?.writeText)
+                navigator.clipboard.writeText(phone).then(done).catch(done);
+            else done();
+        }
         document.addEventListener('keydown', onEsc);
 
         _active = { close, _back: back };

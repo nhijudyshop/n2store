@@ -2,6 +2,10 @@
 
 ## 2026-06-15
 
+### [web2][shared] Web2CustomerChat — bấm SĐT ở header drawer để copy ✅
+
+User: trong khung chat KH (Web2CustomerChat), SĐT ở header "Khách 0904455856" bấm vào copy. Thêm `data-w2cc="copyphone"` + class `.w2cc-phone` (cursor pointer, hover xanh) cho `<span>` SĐT; click handler `_copyPhone()` (clipboard + toast). [web2-customer-chat.js](web2/shared/web2-customer-chat.js). Bump launcher `?v=20260615c` ở jt-tracking + balance-history + customers. Frontend-only.
+
 ### [web2][render] "Làm mới tất cả" CHỈ tra đơn "Chưa tra" (pending) — đơn khác dùng nút từng dòng ✅
 
 User: "làm mới tất cả ưu tiên đơn chưa tra → đơn khác có nút riêng rồi". Đổi query `/refresh` (nhánh no-codes): `WHERE approved_at IS NULL AND status='pending'` (bỏ transit/delivering/not_found/stale). → không tra lại hàng loạt đơn đã chốt (khỏi bị jtexpress chặn + khỏi treo vòng lặp UI). Đơn đã có trạng thái muốn cập nhật → nút làm mới ↻ TỪNG DÒNG (`/track`, đã có). Thêm tooltip nút. Verified: pending 31→1 sau bản gentler trước đó. ([web2-jt-tracking.js](render.com/routes/web2-jt-tracking.js))
