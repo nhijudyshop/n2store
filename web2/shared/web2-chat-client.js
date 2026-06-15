@@ -123,6 +123,13 @@
         }
     }
 
+    // acc.pages = mảng OBJECT [{id,name}] (KHÔNG phải id string) → check theo p.id.
+    function _pagesHas(pages, pageId) {
+        if (!Array.isArray(pages)) return false;
+        const pid = String(pageId);
+        return pages.some((p) => String(p && typeof p === 'object' ? (p.id ?? p) : p) === pid);
+    }
+
     /**
      * Pull accounts + page tokens from Render DB (shared with web 1.0).
      * Mirrors `PancakeTokenManager._loadFromRenderDB`. Runs at most once
@@ -859,7 +866,7 @@
         for (const [id, acc] of Object.entries(accountsMap)) {
             if (!acc?.token) continue;
             if (_isExpired(acc.exp)) continue;
-            const ownsPage = Array.isArray(acc.pages) && acc.pages.includes(String(pageId));
+            const ownsPage = _pagesHas(acc.pages, pageId);
             if (ownsPage) push(acc.token, id, acc.name || id);
         }
         const jwt = getJwt();
@@ -906,7 +913,7 @@
         const cands = [];
         for (const [id, acc] of Object.entries(accountsMap)) {
             if (!acc || !acc.token || _isExpired(acc.exp)) continue;
-            const owns = !Array.isArray(acc.pages) || acc.pages.includes(String(pageId));
+            const owns = !Array.isArray(acc.pages) || _pagesHas(acc.pages, pageId);
             if (owns) cands.push({ id, name: acc.name || id, token: acc.token });
         }
         if (!cands.length) {
