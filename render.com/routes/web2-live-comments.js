@@ -325,6 +325,31 @@ router.post('/ingest', async (req, res) => {
         } else {
             _notify('realtime', null);
         }
+        // RECONCILE NỀN: snippet Pancake bị cắt ("…"/"...") với comment dài → fetch full
+        // text 1 conversation (KHÔNG re-fetch cả post) → UPDATE đúng dòng (rowId), ~1-2s
+        // sau client tự đổi snippet→full qua delta. Fire-and-forget, không chặn response.
+        try {
+            let poller = null;
+            try {
+                poller = require('../services/web2-livestream-poller');
+            } catch (_) {
+                poller = null;
+            }
+            if (poller?.reconcileFullText) {
+                for (const conv of raw) {
+                    const snip = (conv && conv.snippet ? String(conv.snippet) : '').trimEnd();
+                    if (!snip.endsWith('…') && !snip.endsWith('...')) continue;
+                    const m = _mapWsConvToComment(conv);
+                    if (m && m.id && conv.id) {
+                        poller
+                            .reconcileFullText(conv.page_id, conv.post_id, conv.id, m.id)
+                            .catch(() => {});
+                    }
+                }
+            }
+        } catch (_) {
+            /* reconcile best-effort — không phá ingest */
+        }
         res.json({ success: true, ingested: saved });
     } catch (e) {
         console.error('[WEB2-LIVE-COMMENTS] ingest error:', e.message);

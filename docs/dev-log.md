@@ -2,6 +2,14 @@
 
 ## 2026-06-15
 
+### [cors][web2-api] FIX snap livestream bị CORS chặn (x-web2-token) ✅
+
+Snap upload `POST /api/livestream/snapshot` post THẲNG web2-api (không qua worker) kèm header `x-web2-token` (WEB2_AUTH_ENFORCE) → preflight reject "x-web2-token not allowed". Thêm `x-web2-token`+`x-admin-secret`+`x-relay-secret` vào `allowedHeaders` [server.js](render.com/server.js). KHÔNG phải do localhost (localhost:8080 vốn trong allow-origin) — lỗi cả prod.
+
+### [live-chat] Reconcile NỀN: snippet Pancake bị cắt → fetch full text (user chọn) ✅
+
+WS-direct lưu `conv.snippet` bị Pancake cắt ~64 ký tự + "…" (3% comment dài). `/ingest` phát hiện snippet cắt → gọi `reconcileFullText(pageId,postId,convId,rowId)` [web2-livestream-poller.js](render.com/services/web2-livestream-poller.js) NỀN: fetch full text 1 conversation (`_fetchConversationComments`, KHÔNG re-fetch cả post) → UPDATE đúng dòng WS-direct → `_notify` → client delta đổi snippet→full ~1-2s. Guard in-flight theo rowId. Comment hiện NGAY (snippet), tự đủ chữ sau.
+
 ### [web2] Adopt Web2CustomerChat → balance-history + customers nâng từ chỉ-xem lên FULL chat ✅
 
 User: "ok" (đồng ý nâng balance-history + customers từ read-only lên full chat).

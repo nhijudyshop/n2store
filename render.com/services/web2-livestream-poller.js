@@ -589,4 +589,44 @@ function pollPostNow(pageId, postId, { immediate = false } = {}) {
     });
 }
 
-module.exports = { start, listLivePostsForAssign, pollNow, pollPostNow };
+// RECONCILE NỀN (2026-06-15): WS-direct lưu `conv.snippet` của Pancake — snippet bị
+// CẮT (~64 ký tự + "…") với comment dài. Khi /ingest phát hiện snippet cắt → gọi hàm
+// này NỀN: fetch full text 1 conversation (chỉ conv đó, KHÔNG re-fetch cả post) →
+// UPDATE ĐÚNG dòng WS-direct (rowId) → _notify. Comment hiện snippet NGAY (nhanh),
+// ~1-2s sau tự đổi thành full text. Guard in-flight theo rowId (chống fetch trùng).
+const _reconcileInFlight = new Set();
+async function reconcileFullText(pageId, postId, convId, rowId) {
+    if (!_web2Pool || !_liveComments || !pageId || !convId || !rowId) return;
+    if (_reconcileInFlight.has(rowId)) return;
+    _reconcileInFlight.add(rowId);
+    try {
+        const jwt = await getTokenForPage(pageId);
+        if (!jwt) return;
+        const rows = await _fetchConversationComments(
+            String(pageId),
+            '',
+            String(postId || ''),
+            { id: convId },
+            jwt
+        );
+        if (!rows || !rows.length) return;
+        // Tin MỚI NHẤT của conv = nội dung của snippet (full text).
+        rows.sort((a, b) => _utcMs(b.createdTime) - _utcMs(a.createdTime));
+        const full = (rows[0].message || '').trim();
+        if (!full) return;
+        const r = await _web2Pool.query(
+            `UPDATE web2_live_comments SET message = $1, updated_at = $2
+             WHERE id = $3 AND COALESCE(message,'') <> $1`,
+            [full, Date.now(), String(rowId)]
+        );
+        if (r.rowCount > 0) {
+            _liveComments._notify('reconcile', String(postId || ''));
+        }
+    } catch (e) {
+        console.warn('[LIVE-POLLER] reconcileFullText fail:', e.message);
+    } finally {
+        _reconcileInFlight.delete(rowId);
+    }
+}
+
+module.exports = { start, listLivePostsForAssign, pollNow, pollPostNow, reconcileFullText };
