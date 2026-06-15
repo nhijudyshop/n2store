@@ -2,6 +2,10 @@
 
 ## 2026-06-15
 
+### [web2][live-chat] comments-mobile mặc định "ĐANG LIVE" (gộp bài đang live) thay vì "Tất cả" ✅
+
+User: "đừng chọn Tất cả → chọn cái đang livestream thôi → House+Store đang live thì chọn cả 2". [comments-mobile.js](live-chat/js/live/comments-mobile.js): thêm `liveMode` (mặc định true) — gộp comment các bài ĐANG LIVE (`posts.filter(postLiving)`, gồm House+Store). Picker thêm dòng **"🔴 Đang livestream (gộp)"** (mặc định chọn) trên "Tất cả". `load()` query `?postIds=<living ids CSV>`; `visible()` lọc `passLive`; `realCommentTotal`/`updateLiveTag`/`getPostIds` theo liveMode; reload khi biết bài live (overrideRealCounts). Chọn "Tất cả"/1 bài cụ thể vẫn được. Bump `comments-mobile.js?v=20260615live`.
+
 ### [web2] "Tăng comment" gửi GIỐNG 100% Pancake (capture browser-test) + đa nhiệm qua JWT account ✅
 
 User: "gửi payload/url giống 100% Pancake; không có nút ẩn comment". Browser-test pancake.vn + user gửi tay → **capture request thật** (hook fetch/XHR): `POST /api/v1/pages/{pid}/conversations/{convId}/messages?access_token={JWT_USER}` (KHÔNG phải page_access_token!), body `{action:'reply_comment', message_id, parent_id:convId, user_selected_reply_to:null, post_id, message, send_by_platform:'web'}`. Extension `content/pancake-bump.js` dùng y hệt. **Không có cờ/nút ẩn** → comment vốn hiện (gửi vào hội thoại PAGE → reply nested dưới comment page, như Pancake).

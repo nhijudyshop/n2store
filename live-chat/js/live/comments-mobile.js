@@ -57,6 +57,9 @@
     let THUMBS = {}; // commentId → { thumbnailUrl, livestreamUrl }
     let filter = '';
     let selectedPost = null;
+    // MẶC ĐỊNH: chỉ xem các bài ĐANG LIVE (gộp House + Store nếu cả 2 đang live).
+    // KHÔNG mặc định "Tất cả" (gồm cả bài đã xong). User chốt 2026-06-15.
+    let liveMode = true;
     let posts = [];
     let anyLive = false;
     let topId = null;
@@ -290,7 +293,14 @@
         if (filter === 'phone') return !!(c.phone || '').trim();
         return true;
     }
-    const visible = (c) => pass(c) && !isHiddenPerson(c);
+    // Mode ĐANG LIVE: chỉ hiện comment của các bài đang live. Chưa biết bài nào live
+    // (posts/Pancake chưa load) → cho qua tạm, lọc lại sau khi biết.
+    function passLive(c) {
+        if (!liveMode) return true;
+        const s = livingSet();
+        return s.size ? s.has(String(c.post_id)) : true;
+    }
+    const visible = (c) => pass(c) && !isHiddenPerson(c) && passLive(c);
 
     // Đếm SỐ ĐƠN đã tạo (distinct khách có has_order) theo page → badge trên chip
     // Store/House + tổng ở "Đã tạo đơn". Đếm trên ALL (không phụ thuộc filter/cap).
@@ -358,7 +368,7 @@
                 ? _rt.toLocaleString('vi-VN')
                 : rows.length + (rows.length >= LIMIT ? '+' : '')) + ' comment';
         if (!rows.length) {
-            listEl.innerHTML = `<div class="empty"><div class="ic">🗒️</div>Chưa có comment ${filter || selectedPost ? 'khớp bộ lọc' : 'nào'}.</div>`;
+            listEl.innerHTML = `<div class="empty"><div class="ic">🗒️</div>Chưa có comment ${filter || selectedPost || liveMode ? 'khớp bộ lọc' : 'nào'}.</div>`;
             return;
         }
         const shown = rows.slice(0, renderCap);
@@ -445,6 +455,10 @@
     }
 
     // ---------- post picker ----------
+    // post_id các bài ĐANG LIVE (= nhóm "Đang live" trong picker). Mode liveMode gộp
+    // hết các bài này (House + Store nếu cả 2 đang live).
+    const livingIds = () => posts.filter(postLiving).map((p) => String(p.post_id));
+    const livingSet = () => new Set(livingIds()); // posts nhỏ → rebuild rẻ
     function postLiving(p) {
         if (p.living) return true;
         const d = parseTs(p.last_at || p.date);
@@ -519,6 +533,8 @@
             updateLiveTag();
             scheduleRender(); // badge cập nhật số thật
             if (pickerEl.classList.contains('open')) renderPicker();
+            // liveMode + giờ đã biết bài đang live → reload để query đúng bài live (gộp).
+            if (liveMode && livingIds().length) load({ silent: true });
         } catch (_) {
             /* giữ count DB */
         }
@@ -528,9 +544,11 @@
     // tổng count tất cả bài. Trả null nếu chưa có số thật (→ fallback đếm row đã load).
     function realCommentTotal() {
         if (!posts || !posts.length) return null;
-        const inView = selectedPost
-            ? posts.filter((p) => p.post_id === selectedPost.post_id)
-            : posts;
+        const inView = liveMode
+            ? posts.filter(postLiving)
+            : selectedPost
+              ? posts.filter((p) => p.post_id === selectedPost.post_id)
+              : posts;
         let sum = 0;
         let any = false;
         for (const p of inView) {
@@ -576,7 +594,7 @@
     }
 
     function updateLiveTag() {
-        const on = selectedPost ? postLiving(selectedPost) : anyLive;
+        const on = liveMode ? anyLive : selectedPost ? postLiving(selectedPost) : anyLive;
         liveTag.style.display = on ? '' : 'none';
     }
     function postLabel(p) {
@@ -601,13 +619,20 @@
     function renderPicker() {
         const live = posts.filter(postLiving);
         const ended = posts.filter((p) => !postLiving(p));
-        const selId = selectedPost && selectedPost.post_id;
+        const selId = !liveMode && selectedPost && selectedPost.post_id;
+        const allSel = !liveMode && !selectedPost;
         let html = `<div class="pk-head">Chọn livestream</div>
-            <div class="pk-row${!selectedPost ? ' sel' : ''}" data-post="">
+            <div class="pk-row${liveMode ? ' sel' : ''}" data-post="__live">
+                <span class="pk-pg" style="background:#ef4444">🔴</span>
+                <div class="pk-main"><div class="pk-title">Đang livestream (gộp)</div>
+                <div class="pk-sub">Chỉ bài đang live — House + Store (${live.length})</div></div>
+                ${liveMode ? '<span class="pk-check">✓</span>' : ''}
+            </div>
+            <div class="pk-row${allSel ? ' sel' : ''}" data-post="">
                 <span class="pk-pg" style="background:var(--c-primary)">All</span>
                 <div class="pk-main"><div class="pk-title">Tất cả livestream</div>
                 <div class="pk-sub">Gộp comment mới nhất mọi bài</div></div>
-                ${!selectedPost ? '<span class="pk-check">✓</span>' : ''}
+                ${allSel ? '<span class="pk-check">✓</span>' : ''}
             </div>`;
         if (live.length)
             html += `<div class="pk-group-h"><span class="pk-live-dot"></span>Đang live</div>${live
@@ -632,15 +657,33 @@
         pickerEl.classList.remove('open');
         document.body.style.overflow = '';
     }
-    function selectPost(p) {
-        selectedPost = p;
-        postSelLabel.textContent = p ? postLabel(p) : 'Tất cả livestream';
+    function applyView() {
+        postSelLabel.textContent = liveMode
+            ? '🔴 Đang live'
+            : selectedPost
+              ? postLabel(selectedPost)
+              : 'Tất cả livestream';
         updateLiveTag();
         closePicker();
         ALL = [];
         topId = null;
         renderCap = RENDER_CAP_STEP;
         load({ silent: false });
+    }
+    function selectLive() {
+        liveMode = true;
+        selectedPost = null;
+        applyView();
+    }
+    function selectAll() {
+        liveMode = false;
+        selectedPost = null;
+        applyView();
+    }
+    function selectPost(p) {
+        liveMode = false;
+        selectedPost = p;
+        applyView();
     }
 
     // ---------- fetch ----------
@@ -664,9 +707,19 @@
         btn.classList.add('spin');
         if (!ALL.length && !opts.silent) skeleton();
         try {
-            const q = selectedPost
-                ? `?postIds=${encodeURIComponent(selectedPost.post_id)}&limit=${POST_LIMIT}`
-                : `?limit=${LIMIT}`;
+            // liveMode → query các bài ĐANG LIVE (gộp). Chưa biết bài live (posts chưa
+            // load) → tạm tải all rồi reload sau khi biết. Specific post → bài đó. All → tất cả.
+            let q;
+            if (liveMode) {
+                const ids = livingIds();
+                q = ids.length
+                    ? `?postIds=${encodeURIComponent(ids.join(','))}&limit=${POST_LIMIT}`
+                    : `?limit=${LIMIT}`;
+            } else if (selectedPost) {
+                q = `?postIds=${encodeURIComponent(selectedPost.post_id)}&limit=${POST_LIMIT}`;
+            } else {
+                q = `?limit=${LIMIT}`;
+            }
             const r = await fetch(`${WORKER}/api/web2-live-comments/${q}`, { credentials: 'omit' });
             const j = await r.json();
             const data = (j && j.data) || [];
@@ -725,7 +778,8 @@
         const row = e.target.closest('.pk-row');
         if (!row) return;
         const pid = row.dataset.post;
-        if (!pid) return selectPost(null);
+        if (pid === '__live') return selectLive();
+        if (!pid) return selectAll();
         const p = posts.find((x) => x.post_id === pid) || {
             post_id: pid,
             page_id: row.dataset.page,
@@ -929,7 +983,7 @@
         stream = window.LiveCommentsStream.create({
             allowGlobal: true, // mobile xem toàn cục (hoặc 1 post nếu đã chọn)
             getWorkerUrl: () => WORKER,
-            getPostIds: () => (selectedPost ? [selectedPost.post_id] : []),
+            getPostIds: () => (liveMode ? livingIds() : selectedPost ? [selectedPost.post_id] : []),
             mapRow: (r) => r,
             getCreatedMs: (r) => (window.LiveTime ? window.LiveTime.parseMs(r.created_time) : 0),
             onDelta: (rows) => applyDelta(rows),
@@ -938,6 +992,8 @@
     }
 
     // ---------- boot ----------
+    // Mặc định mode ĐANG LIVE (liveMode=true) → nhãn + tag phản ánh ngay.
+    if (postSelLabel) postSelLabel.textContent = '🔴 Đang live';
     // Nạp JWT Pancake (Render DB) để Web2Chat.fetchLivePosts lấy comment_count THẬT.
     // Best-effort: lỗi → badge fallback đếm row đã load.
     if (window.Web2Chat?.syncFromRenderDB)
