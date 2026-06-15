@@ -63,7 +63,7 @@ body {
 
 /* ── Main / header ──────────────────────────────────────────────── */
 .jt-main {
-    padding: 22px clamp(16px, 2.4vw, 34px);
+    padding: 16px clamp(14px, 2vw, 28px);
     max-width: 1240px;
     margin: 0 auto;
     width: 100%;
@@ -75,7 +75,7 @@ body {
     justify-content: space-between;
     gap: 16px;
     flex-wrap: wrap;
-    margin-bottom: 18px;
+    margin-bottom: 12px;
 }
 .jt-head-titles h1 {
     margin: 0;
@@ -183,9 +183,9 @@ body {
     align-items: center;
     background: var(--jt-surface);
     border: 1px solid var(--jt-line);
-    border-radius: var(--jt-radius);
-    padding: 10px;
-    margin-bottom: 16px;
+    border-radius: var(--jt-radius-sm);
+    padding: 8px;
+    margin-bottom: 12px;
     box-shadow: var(--jt-shadow);
     flex-wrap: wrap;
 }
@@ -207,7 +207,7 @@ body {
 .jt-qa-code input {
     width: 100%;
     box-sizing: border-box;
-    height: 46px;
+    height: 42px;
     padding: 0 12px 0 40px;
     border: 1px solid var(--jt-line);
     border-radius: var(--jt-radius-sm);
@@ -219,7 +219,7 @@ body {
 }
 .jt-qa-cell {
     width: 56px;
-    height: 46px;
+    height: 42px;
     box-sizing: border-box;
     text-align: center;
     border: 1px solid var(--jt-line);
@@ -232,7 +232,7 @@ body {
 }
 /* nút trong thanh nhập đồng cao 46px cho thẳng hàng */
 .jt-quickadd .jt-btn {
-    height: 46px;
+    height: 42px;
 }
 .jt-qa-code input:focus,
 .jt-qa-cell:focus {
@@ -244,15 +244,15 @@ body {
 /* ── KPI cards (clickable filters) ──────────────────────────────── */
 .jt-kpis {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-    gap: 12px;
-    margin-bottom: 18px;
+    grid-template-columns: repeat(auto-fit, minmax(104px, 1fr));
+    gap: 8px;
+    margin-bottom: 12px;
 }
 .jt-kpi {
     background: var(--jt-surface);
     border: 1px solid var(--jt-line);
-    border-radius: var(--jt-radius);
-    padding: 14px 16px;
+    border-radius: var(--jt-radius-sm);
+    padding: 8px 12px;
     cursor: pointer;
     position: relative;
     overflow: hidden;
@@ -283,19 +283,20 @@ body {
     box-shadow: 0 0 0 1px var(--accent, var(--jt-primary)) inset;
 }
 .jt-kpi-num {
-    font-size: 26px;
+    font-size: 19px;
     font-weight: 800;
     letter-spacing: -0.02em;
     line-height: 1;
 }
 .jt-kpi-label {
-    margin-top: 6px;
-    font-size: 12px;
+    margin-top: 4px;
+    font-size: 11px;
     color: var(--jt-ink-soft);
     font-weight: 600;
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 5px;
+    white-space: nowrap;
 }
 .jt-kpi-label .dot {
     width: 8px;

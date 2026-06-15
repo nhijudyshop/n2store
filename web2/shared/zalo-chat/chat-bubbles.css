@@ -586,3 +586,12 @@
     background: #fff;
     flex-shrink: 0;
 }
+/* body tin nhắn: flex co + cuộn (vốn chỉ có ở web2-zalo.css) → composer ghim đáy. */
+.wz-chat-main .wz-chat-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    display: flex;
+    flex-direction: column;
+}
