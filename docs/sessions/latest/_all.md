@@ -3,16 +3,13 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `4ce660d` — refactor(live-chat): mobile zero-interval — gỡ setInterval(loadPosts,90s) → SSE event-driven (throttle 30s)
-**Last updated**: 2026-06-15 12:01:46 +07
-**Latest session**: [`RESUME:20260615-120146-4ce660d`](../20260615-120146-4ce660d.md)
-**Summary**: refactor(live-chat): mobile zero-interval — gỡ setInterval(loadPosts,90s) → SSE event-driven (throttle 30s)
+**Latest commit**: `f550ecf` — feat(web2-jt): bấm SĐT trong tin nhắn để copy — không đụng click mở modal
+**Last updated**: 2026-06-15 12:10:07 +07
+**Latest session**: [`RESUME:20260615-121007-f550ecf`](../20260615-121007-f550ecf.md)
+**Summary**: feat(web2-jt): bấm SĐT trong tin nhắn để copy — không đụng click mở modal
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`live-chat/`](./live-chat.md) — 2 file(s)
-- [`render.com/`](./render.com.md) — 1 file(s)
 - [`web2/`](./web2.md) — 3 file(s)
 
 ## All folder snapshots
@@ -76,4 +73,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-15 12:01
+- [`web2/`](./web2.md) — updated 2026-06-15 12:10
