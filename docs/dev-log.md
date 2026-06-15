@@ -2,6 +2,10 @@
 
 ## 2026-06-15
 
+### [web2] J&T mở chat — highlight chỉ chạy khi tin CÓ trong nhóm đã lưu; báo rõ khi không ✅
+
+User: bấm nút mở chat không thấy kéo tới + highlight. Browser-test: chat mount OK, mã **scanned** (802763058048) highlight ngay (`.jt-msg-hit`), nhưng mã **dán tay** (802759937370) thì group conv chỉ có **16 tin lưu (`hasMore:false`)** và **không chứa tin dán tay** → không có gì để cuộn tới. Root: chat đọc `web2_zalo_messages` (realtime-captured); mã "Dán lịch sử" copy từ Zalo Web KHÔNG qua capture → tin gốc không nằm trong nhóm đã lưu. Fix `findMessageInChat`: click "Tải tin cũ hơn" tối đa 8 lần (khi còn), hết tin cũ mà chưa thấy → toast rõ "Mã X không có tin trong nhóm đã lưu (mã dán tay/tin cũ) — nhóm đã mở để xem" thay vì im lặng. Bump app `?v=20260615y`. Frontend-only.
+
 ### [web2][shared] Tag hội thoại Pancake — module dùng chung Web2PancakeTags + hiện tag trên chat ✅
 
 User: "thêm vào shared pancake dùng chung các tag của Pancake, đoạn hội thoại khách sẽ hiện tag như Pancake".

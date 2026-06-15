@@ -515,13 +515,27 @@
                 clearInterval(timer);
                 return;
             }
-            // chưa thấy → tải tin cũ hơn (tối đa 6 lần)
+            // chưa thấy → tải tin cũ hơn (tối đa 8 lần) nếu nhóm còn lưu tin cũ
             const older = body && body.querySelector('#wzcvOlder');
-            if (older && olderClicks < 6 && tries % 2 === 0) {
+            if (older && olderClicks < 8) {
                 older.click();
                 olderClicks++;
+                return;
             }
-            if (tries > 28) clearInterval(timer); // ~7s bỏ cuộc (để chat mở bình thường)
+            // Không còn tin cũ để tải (đã hết) mà vẫn chưa thấy → tin gốc KHÔNG nằm trong
+            // nhóm đã lưu (vd mã 'dán lịch sử' — tin chưa qua hệ thống lưu). Báo rõ.
+            if (!older && body && tries > 4) {
+                clearInterval(timer);
+                notify(
+                    `Mã ${code} không có tin trong nhóm Zalo đã lưu (mã dán tay / tin cũ chưa lưu) — nhóm đã mở để bạn xem.`,
+                    'info'
+                );
+                return;
+            }
+            if (tries > 40) {
+                clearInterval(timer);
+                notify('Không tìm thấy tin có mã trong nhóm Zalo.', 'info');
+            }
         }, 250);
     }
 
