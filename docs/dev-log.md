@@ -2,6 +2,16 @@
 
 ## 2026-06-15
 
+### [web2][render] web2-api OOM 512Mi — bound sharp native memory + RSS log ✅ (heap cap + plan = chờ user)
+
+User forward mail Render "web2-api exceeded its memory limit". Chẩn đoán qua Render API: service `web2-api` plan **starter = 512Mi**, `NODE_OPTIONS` CHƯA set, `oomKilled memoryLimit 512Mi` nhiều lần (13:01, 13:32, ~16:25). Sau split 2026-06-14 toàn bộ backend Web 2.0 (routes + cron services + xử lý ảnh) dồn lên 1 box 512Mi.
+
+Nguyên nhân: (1) V8 heap không cap → phình quá container trước khi GC → OOM-kill; (2) `sharp` (image-proxy/autofb/web-warehouse) chạy KHÔNG set `cache`/`concurrency` → libvips giữ hàng trăm MB ngoài heap.
+
+**Đã fix in-repo** ([render.com/server.js](render.com/server.js) đầu file): `sharp.cache(false)` + `sharp.concurrency(1)` (bound native memory) + log `[MEM]` RSS mỗi 60s khi >380MB (phân biệt leak vs spike). node --check pass.
+
+**CHỜ user duyệt** (đụng infra/tiền — auto-mode classifier chặn env-var change): (a) set Render env `NODE_OPTIONS=--max-old-space-size=384` (cap heap, reversible, miễn phí) → cần user OK; (b) nâng plan `starter→standard` (2GB) nếu OOM còn — TỐN PHÍ, user quyết. Mail Render cũng gợi ý "undersized instance".
+
 ### [web2][worker] Hợp nhất nguồn base-URL + fix 2 gap (livestream 404 worker, ck-dashboard 401) ✅
 
 User: "WEB 2.0: tất cả nguồn dữ liệu… đồng nhất về 1 nguồn dùng chung… 1 khối thống nhất". Audit 6 mảng (base-URL, auth header, SSE/realtime, DB pool, worker routing, Pancake/Zalo) bằng 6 agent song song → SSE/DB-pool/Pancake/Zalo ĐÃ single-source; còn 3 việc:

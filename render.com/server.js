@@ -8,6 +8,31 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+
+// ── Memory guard (web2-api = Render starter 512Mi; OOM-killed nhiều lần 15/06) ──
+// V8 heap cap đặt qua NODE_OPTIONS=--max-old-space-size trên Render (không set
+// được lúc runtime). Ở đây bound NATIVE memory của libvips/sharp (default cache
+// có thể giữ hàng trăm MB NGOÀI heap → cộng dồn gây OOM) + log RSS để phân biệt
+// leak (tăng dần) vs spike (nhảy theo job ảnh).
+try {
+    const _sharp = require('sharp');
+    _sharp.cache(false); // KHÔNG cache ảnh trong libvips (giảm RSS ngoài heap)
+    _sharp.concurrency(1); // 1 luồng libvips — tránh N×CPU buffer đồng thời
+} catch {
+    /* sharp optional — bỏ qua nếu chưa cài */
+}
+{
+    const _mb = (b) => Math.round(b / 1048576);
+    setInterval(() => {
+        const m = process.memoryUsage();
+        if (_mb(m.rss) > 380) {
+            console.warn(
+                `[MEM] rss=${_mb(m.rss)}MB heapUsed=${_mb(m.heapUsed)}MB ` +
+                    `external=${_mb(m.external)}MB arrayBuffers=${_mb(m.arrayBuffers)}MB (ceil ~512MB)`
+            );
+        }
+    }, 60_000).unref();
+}
 const { types } = require('pg');
 
 // Startup env validation — fail fast in dev/mis-configured envs. In production
