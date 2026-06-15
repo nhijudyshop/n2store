@@ -604,6 +604,63 @@
         }
     }
 
+    // Dán text copy từ Zalo (Web/PC) → quét mã đơn cũ (bù lịch sử Zalo API không trả).
+    function openPasteModal() {
+        const mount = $('jtModalMount');
+        mount.innerHTML = `<div class="jt-msg-back" id="jtPasteBack">
+            <div class="jt-msg-modal" role="dialog" aria-modal="true" aria-label="Dán lịch sử Zalo">
+                <div class="jt-msg-head">
+                    <span><i data-lucide="clipboard-paste"></i> Dán lịch sử Zalo</span>
+                    <button class="jt-msg-x" id="jtPasteClose" aria-label="Đóng"><i data-lucide="x"></i></button>
+                </div>
+                <div class="jt-msg-who" style="line-height:1.5">
+                    Mở nhóm J&amp;T trên <b>Zalo Web/PC</b> → cuộn lên vài ngày → bôi đen tin nhắn →
+                    <b>Ctrl+C</b> → dán vào đây. Hệ thống tự lọc mã đơn (<i>… Shop NHI JUDY …</i>).
+                </div>
+                <textarea id="jtPasteText" class="jt-msg-text" rows="8" placeholder="Dán nội dung chat copy từ Zalo vào đây…"></textarea>
+                <div class="jt-msg-foot">
+                    <button class="jt-btn jt-btn-ghost" id="jtPasteCancel" type="button">Hủy</button>
+                    <button class="jt-btn jt-btn-primary" id="jtPasteSubmit" type="button"><i data-lucide="search"></i> Quét mã</button>
+                </div>
+            </div>
+        </div>`;
+        icons();
+        requestAnimationFrame(() => $('jtPasteBack')?.classList.add('show'));
+        const close = () => {
+            const b = $('jtPasteBack');
+            if (b) {
+                b.classList.remove('show');
+                setTimeout(() => (mount.innerHTML = ''), 200);
+            }
+        };
+        $('jtPasteClose').onclick = close;
+        $('jtPasteCancel').onclick = close;
+        $('jtPasteBack').onclick = (e) => {
+            if (e.target.id === 'jtPasteBack') close();
+        };
+        setTimeout(() => $('jtPasteText')?.focus(), 60);
+        $('jtPasteSubmit').onclick = async () => {
+            const text = $('jtPasteText').value.trim();
+            if (!text) {
+                notify('Chưa có nội dung dán', 'warning');
+                return;
+            }
+            const btn = $('jtPasteSubmit');
+            setBusy(btn, true, ' Đang quét…');
+            try {
+                const j = await api('/scan-text', { method: 'POST', body: { text } });
+                notify(`Tìm ${j.found} mã · thêm mới ${j.added}`, j.added ? 'success' : 'info');
+                close();
+                await load();
+                if (j.added) refreshAll();
+            } catch (e) {
+                notify('✗ ' + e.message, 'error');
+            } finally {
+                setBusy(btn, false);
+            }
+        };
+    }
+
     let _refreshing = false;
     async function refreshAll() {
         if (_refreshing) return; // tránh 2 vòng refresh chạy song song (scan + nút)
@@ -840,6 +897,7 @@
         $('jtQuickForm').addEventListener('submit', quickAdd);
         $('jtScan').addEventListener('click', scanZalo);
         $('jtScanHistory')?.addEventListener('click', scanHistory);
+        $('jtPaste')?.addEventListener('click', openPasteModal);
         $('jtRefreshAll').addEventListener('click', refreshAll);
         $('jtClearAll').addEventListener('click', clearAll);
         $('jtKpis').addEventListener('click', (e) => {

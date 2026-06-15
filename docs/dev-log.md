@@ -2,6 +2,10 @@
 
 ## 2026-06-15
 
+### [web2][render] J&T "Dán lịch sử" — paste text copy từ Zalo → quét mã đơn cũ ✅
+
+User hỏi lấy file lịch sử Zalo ở Chrome / bấm browser được không. Trả lời: Zalo Web mã hoá payload (AES) + IndexedDB nội bộ → không có file đọc được; cách khả thi = **copy text chat → dán**. Thêm `POST /api/web2-jt-tracking/scan-text {text}` ([web2-jt-tracking.js](render.com/routes/web2-jt-tracking.js)): quét theo dòng + toàn văn bằng `extractOrderCodes` (đúng format `<mã> Shop NHI JUDY`), src_message = dòng chứa mã, source 'zalo' note 'dán lịch sử'. UI nút **"Dán lịch sử"** (clipboard-paste) + modal textarea ([jt-tracking-app.js](web2/jt-tracking/js/jt-tracking-app.js) `openPasteModal`, reuse CSS `.jt-msg-*`). Bù được lịch sử cũ mà Zalo API trả `more:0`. Bump app `?v=20260615r`. ⚠ deploy web2-api.
+
 ### [web2][render] J&T "Quét lịch sử" → quét 14 NGÀY + chẩn đoán độ sâu ✅
 
 User: "quét tin nhắn lịch sử 14 ngày đi". `/scan-history` giờ nhận `days` (mặc định 14) + `count` cao (1000) → lọc tin theo `sentAt >= now - days`. ⚠ Phát hiện giới hạn: zca-js 2.1.2 `getGroupChatHistory(groupId, count)` KHÔNG có cursor (`lastMsgId`) → mỗi call chỉ trả batch tin GẦN NHẤT (count 50 vs 500 đều ~35 tin), response có `more>0` báo còn tin cũ hơn NHƯNG không lấy tiếp được. → scan-history trả thêm `rawTotal`/`more`/`oldestDate` để biết với tới đâu; nút "Quét lịch sử" báo "tới <ngày>" + cảnh báo nếu Zalo còn tin cũ hơn. 14 ngày đầy đủ vẫn dựa vào realtime listener (`web2_zalo_messages`, "Quét Zalo" đã quét hết). Bump app `?v=20260615q`.

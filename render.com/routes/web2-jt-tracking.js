@@ -485,6 +485,48 @@ router.post('/scan-history', async (req, res) => {
     }
 });
 
+// POST /scan-text — DÁN lịch sử: nhận text copy từ Zalo (Web/PC) → quét mã ĐƠN
+// (đúng format "<12 số> Shop NHI JUDY") → thêm. Bù được lịch sử cũ mà Zalo API
+// không trả (more:0). src_message = dòng chứa mã (để hiển thị tên/SĐT khách).
+router.post('/scan-text', async (req, res) => {
+    try {
+        const db = getDb(req);
+        const text = String(req.body?.text || '');
+        if (!text.trim())
+            return res.status(400).json({ success: false, error: 'Thiếu nội dung dán' });
+        const found = new Map();
+        // Quét theo DÒNG (mỗi tin 1 dòng) để lấy src_message đúng dòng đơn.
+        for (const line of text.split(/\r?\n/)) {
+            for (const code of extractOrderCodes(line)) {
+                if (!found.has(code)) found.set(code, line.trim().slice(0, 2000));
+            }
+        }
+        // Fallback quét toàn văn (phòng khi mã & "Shop" bị xuống dòng giữa chừng).
+        for (const code of extractOrderCodes(text)) {
+            if (!found.has(code)) found.set(code, null);
+        }
+        if (!found.size) return res.json({ success: true, found: 0, added: 0 });
+        const ts = now();
+        let added = 0;
+        for (const [code, src] of found) {
+            const r = await db.query(
+                `INSERT INTO web2_jt_tracking (billcode, status, source, note, src_message, created_at, updated_at)
+                 VALUES ($1,'pending','zalo',$2,$3,$4,$4)
+                 ON CONFLICT (billcode) DO UPDATE SET
+                    note = COALESCE(web2_jt_tracking.note, EXCLUDED.note),
+                    src_message = COALESCE(EXCLUDED.src_message, web2_jt_tracking.src_message)
+                 RETURNING (xmax = 0) AS inserted`,
+                [code, 'dán lịch sử', src, ts]
+            );
+            if (r.rows[0]?.inserted) added++;
+        }
+        if (added) _notify('scan', String(added));
+        res.json({ success: true, found: found.size, added });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
 // POST /add — thêm mã thủ công (body {text} hoặc {codes:[]}). Trả mã đã thêm.
 router.post('/add', async (req, res) => {
     try {
