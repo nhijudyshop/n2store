@@ -529,6 +529,26 @@ body {
     overflow: hidden;
     text-overflow: ellipsis;
 }
+/* TOÀN BỘ tin nhắn nhóm chứa mã (tên/SĐT/ghi chú KH) — hiện đầy đủ, xuống dòng */
+.jt-row-msg {
+    margin-top: 5px;
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: var(--jt-ink);
+    background: var(--jt-bg);
+    border-left: 3px solid var(--jt-primary);
+    border-radius: 6px;
+    padding: 6px 10px;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+.jt-row-msg .jt-phone {
+    color: var(--jt-primary);
+    font-weight: 700;
+}
+.jt-row-msg b {
+    font-weight: 700;
+}
 .jt-row-meta {
     margin-top: 3px;
     font-size: 11.5px;

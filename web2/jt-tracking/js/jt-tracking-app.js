@@ -162,6 +162,13 @@
     }
 
     // ── List ────────────────────────────────────────────────────────
+    // tô đậm mã 12 số + tô xanh SĐT trong nội dung tin nhắn nguồn (đã esc trước).
+    function fmtSrcMsg(s) {
+        let h = esc(String(s || ''));
+        h = h.replace(/\b(\d{12})\b/g, '<b>$1</b>');
+        h = h.replace(/\b(0\d{8,10})\b/g, '<span class="jt-phone">$1</span>');
+        return h;
+    }
     function approvedTag(approvedAt) {
         if (!approvedAt) return '';
         const daysGone = Math.floor((Date.now() - Number(approvedAt)) / 86400000);
@@ -192,6 +199,7 @@
                     ${approvedTag(r.approved_at)}
                 </div>
                 <div class="jt-row-last">${esc(r.latest_event || 'Chưa có thông tin từ J&T')}</div>
+                ${r.src_message ? `<div class="jt-row-msg" title="Tin nhắn nhóm chứa mã">${fmtSrcMsg(r.src_message)}</div>` : ''}
                 <div class="jt-row-meta">
                     <span class="src">${r.source === 'zalo' ? 'Zalo' : 'Nhập tay'}</span>
                     <span>${when}</span>
@@ -326,7 +334,10 @@
             else
                 $('jtHeroLot').innerHTML =
                     `<i data-lucide="${s.icon}" style="width:48px;height:48px;color:#fff"></i>`;
-            $('jtBody').innerHTML = timelineHtml(r.events || []);
+            const msgBlock = r.src_message
+                ? `<div class="jt-row-msg" style="margin:0 0 16px"><div style="font-size:11px;font-weight:700;color:var(--jt-ink-mute);margin-bottom:4px">TIN NHẮN NHÓM</div>${fmtSrcMsg(r.src_message)}</div>`
+                : '';
+            $('jtBody').innerHTML = msgBlock + timelineHtml(r.events || []);
             icons();
         } catch (e) {
             destroyLottie('jtLoadLot');
