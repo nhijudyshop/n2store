@@ -2,6 +2,18 @@
 
 ## 2026-06-15
 
+### [web2][shared] J&T tracking — bấm SĐT nhắn tin (Zalo/Pancake) + nút tag Pancake "XỬ LÝ BC" ✅
+
+**User:** "1. Bấm vào sđt bỏ chức năng copy → mở modal nhắn tin với khách bảng chọn zalo hoặc pancake. 2. Nút tag pancake → đánh tag XỬ LÝ BC như hình." Chọn kiểu: **soạn nhanh gửi liền**.
+
+- **Bấm SĐT → modal nhắn tin** (bỏ copy): `parseOrderInfo(src)` tách `{phone,name}` từ dòng đơn tab-delimited (verify 5 đơn live: Phương Liễu/Ngọc Thuý/Huong Pham…). SĐT trong tin nhắn giờ `data-msg-phone` (capture-phase → KHÔNG mở modal chi tiết). Modal `openMsgModal`: toggle **Pancake/Zalo** + textarea + Gửi.
+    - Zalo: `Web2Zalo.getConversation(phone)` → `sendMessage({account_key,thread_id,thread_type})`.
+    - Pancake: `resolvePancakeConv(phone)` quét mọi pageId (giống web2/customers `_getPageIds`) → `Web2Chat.sendMessage(pageId,convId,{text,customerId})`. Thiếu hội thoại → toast cảnh báo, không lỗi.
+- **Nút tag Pancake "XỬ LÝ BC"** per-row (icon tag): `resolvePancakeConv(phone)` → `Web2Chat.fetchTags(pageId)` tìm thẻ tên "XỬ LÝ BC" (case-insensitive) → `Web2Chat.toggleTag(pageId,convId,tagId,'add')`. Loading state, await + toast (external mutation, không UI-first).
+- **Shared mới**: thêm `fetchTags(pageId)` + `toggleTag(pageId,convId,tagId,action)` vào [web2-chat-client.js](web2/shared/web2-chat-client.js) (mirror PancakeAPI live-chat; nguồn chung cho mọi trang web2). Qua worker `/api/pancake-official/.../tags`.
+- Frontend-only (Pancake/Zalo đi qua worker + route sẵn có — KHÔNG cần deploy backend). Load thêm `web2-chat-client.js`; bump css/app `?v=20260615m`.
+- Files: [jt-tracking-app.js](web2/jt-tracking/js/jt-tracking-app.js), [jt-tracking.css](web2/jt-tracking/css/jt-tracking.css), [index.html](web2/jt-tracking/index.html), [web2-chat-client.js](web2/shared/web2-chat-client.js). Status: ✅ Done.
+
 ### [live-chat] Comment mới có KHUNG xanh ~1s để biết là mới ✅
 
 User: "comment mới có khung sau 1s để biết comment mới". Mở rộng keyframe `.is-new`: fade opacity nhanh (0-0.25s) + **box-shadow ring xanh 2px (`rgba(0,104,255,.6)`) giữ ~1s rồi mờ dần** (tổng 1.5s ease). Ring = "khung" ôm bo góc, KHÔNG xô layout. Desktop [live-comments.css](live-chat/css/live/live-comments.css) + mobile [comments-mobile.html](live-chat/comments-mobile.html) (giữ shadow nền `var(--c-shadow)`). Burst-guard giữ nguyên (dồn dập → không khung). (`?v=20260615frame`)
