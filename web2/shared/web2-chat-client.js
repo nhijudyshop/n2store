@@ -698,6 +698,50 @@
         return { ok: true };
     }
 
+    // Danh sách bài LIVESTREAM của 1 page — FETCH TRỰC TIẾP Pancake (KHÔNG poller),
+    // đúng endpoint Pancake "Quản lý bài viết". Trả posts kèm `commentCount` (tổng
+    // comment THẬT trên Pancake) + `living` (đang/đã live) + title/date. Cache 60s/page.
+    const _livePostsCache = new Map(); // pageId -> { at, posts }
+    const LIVE_POSTS_TTL = 60 * 1000;
+    async function fetchLivePosts(pageId, opts = {}) {
+        if (!pageId) return { ok: false, reason: 'missing_pageId', posts: [] };
+        const key = String(pageId);
+        const cached = _livePostsCache.get(key);
+        if (!opts.force && cached && Date.now() - cached.at < LIVE_POSTS_TTL)
+            return { ok: true, posts: cached.posts, cached: true };
+        const jwt = getJwt();
+        if (!jwt) return { ok: false, reason: 'no_jwt', posts: cached?.posts || [] };
+        const days = opts.days || 14;
+        const now = Math.floor(Date.now() / 1000);
+        const params = new URLSearchParams({
+            access_token: jwt,
+            start_time: String(now - days * 86400),
+            end_time: String(now),
+        });
+        const url = `${WORKER_URL}/api/pancake/pages/${encodeURIComponent(key)}/posts?${params.toString()}`;
+        try {
+            const data = await _fetchJson(url, { method: 'GET' });
+            const raw = Array.isArray(data?.posts)
+                ? data.posts
+                : Array.isArray(data?.data)
+                  ? data.data
+                  : [];
+            const posts = raw
+                .filter((p) => p && (p.type === 'livestream' || p.is_live_video || p.live_video_id))
+                .map((p) => ({
+                    postId: String(p.id),
+                    title: p.message || p.title || '',
+                    date: p.inserted_at || p.created_time || null,
+                    living: p.live_status === 'LIVE' || !!p.is_living,
+                    commentCount: Number(p.comment_count) || 0,
+                }));
+            _livePostsCache.set(key, { at: Date.now(), posts });
+            return { ok: true, posts };
+        } catch (e) {
+            return { ok: false, reason: e.message, posts: cached?.posts || [] };
+        }
+    }
+
     async function listPages() {
         const jwt = getJwt();
         if (!jwt) return { ok: false, reason: 'no_jwt', pages: [] };
@@ -945,6 +989,7 @@
         setPageAccessToken,
         clearAllTokens,
         listPages,
+        fetchLivePosts,
         generatePageAccessToken,
         _internal: { WORKER_URL, LS },
     };

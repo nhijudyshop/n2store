@@ -467,7 +467,7 @@
             posts = withComments.map((p) => ({
                 post_id: String(p.post_id),
                 page_id: String(p.page_id),
-                comment_count: p.comment_count || 0,
+                comment_count: p.comment_count || 0, // DB count (fallback)
                 last_at: p.last_at,
                 title: titleMap[String(p.post_id)] || p.title || '',
                 living: liveMap[String(p.post_id)] || false,
@@ -476,9 +476,66 @@
             updateLiveTag();
             // Nếu picker đang mở → refresh nội dung.
             if (pickerEl.classList.contains('open')) renderPicker();
+            // Override comment_count = SỐ THẬT Pancake (comment_count post) — fetch trực
+            // tiếp Pancake, KHÔNG poller. Fail (thiếu JWT) → giữ count DB (graceful).
+            overrideRealCounts();
         } catch {
             /* giữ posts cũ */
         }
+    }
+
+    // Fetch tổng comment THẬT (comment_count) từ Pancake cho các page đang có bài →
+    // override posts[].comment_count + living/title. Trực tiếp browser qua Web2Chat
+    // (đã syncFromRenderDB), KHÔNG poller. Lỗi/thiếu JWT → giữ nguyên (graceful).
+    async function overrideRealCounts() {
+        if (!window.Web2Chat?.fetchLivePosts || !posts.length) return;
+        try {
+            const pageIds = [...new Set(posts.map((p) => p.page_id))];
+            const results = await Promise.all(
+                pageIds.map((pid) =>
+                    window.Web2Chat.fetchLivePosts(pid).catch(() => ({ ok: false }))
+                )
+            );
+            const real = {}; // post_id -> {commentCount, living, title}
+            results.forEach((r) => {
+                if (r && r.ok) r.posts.forEach((pp) => (real[pp.postId] = pp));
+            });
+            if (!Object.keys(real).length) return;
+            posts = posts.map((p) => {
+                const rp = real[p.post_id];
+                if (!rp) return p;
+                return {
+                    ...p,
+                    comment_count: rp.commentCount || p.comment_count,
+                    living: rp.living || p.living,
+                    title: rp.title || p.title,
+                };
+            });
+            anyLive = posts.some(postLiving);
+            updateLiveTag();
+            scheduleRender(); // badge cập nhật số thật
+            if (pickerEl.classList.contains('open')) renderPicker();
+        } catch (_) {
+            /* giữ count DB */
+        }
+    }
+
+    // Tổng comment THẬT để hiển thị badge: post đang chọn → count post đó; "Tất cả" →
+    // tổng count tất cả bài. Trả null nếu chưa có số thật (→ fallback đếm row đã load).
+    function realCommentTotal() {
+        if (!posts || !posts.length) return null;
+        const inView = selectedPost
+            ? posts.filter((p) => p.post_id === selectedPost.post_id)
+            : posts;
+        let sum = 0;
+        let any = false;
+        for (const p of inView) {
+            if (p.comment_count > 0) {
+                sum += p.comment_count;
+                any = true;
+            }
+        }
+        return any ? sum : null;
     }
 
     // Load đơn web (native-orders) → NATIVE map (fbUserId → {stt, code}) để hiện

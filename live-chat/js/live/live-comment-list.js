@@ -114,7 +114,9 @@ const LiveCommentList = {
             slot.insertBefore(el, slot.firstChild);
         }
         const n = this._totalAfterHidden ?? (window.LiveState.comments || []).length;
-        el.innerHTML = `💬 ${n.toLocaleString('vi-VN')}`;
+        el.innerHTML = `💬 ${n.toLocaleString('vi-VN')}`; // fallback tức thì (số đã load)
+        // Tổng comment THẬT từ Pancake (comment_count của post đang xem) — async, override.
+        this._updateRealCommentTotal();
 
         // Badge "🛒 N đơn" — số đơn web đã tạo trong (các) livestream đang chọn.
         let oel = document.getElementById('liveOrderTotal');
@@ -129,6 +131,45 @@ const LiveCommentList = {
             else slot.appendChild(oel);
         }
         oel.innerHTML = `🛒 ${this._orderCount().toLocaleString('vi-VN')} đơn`;
+    },
+
+    /**
+     * Tổng comment THẬT trên Pancake = tổng `comment_count` các bài live đang xem
+     * (distinct post_id của comment đã load). Fetch TRỰC TIẾP Pancake qua Web2Chat
+     * (không poller), cache 60s/page. Override badge khi có (giữ số đã-load làm fallback).
+     */
+    async _updateRealCommentTotal() {
+        if (!window.Web2Chat?.fetchLivePosts) return;
+        const comments = (window.LiveState && window.LiveState.comments) || [];
+        const byPage = new Map(); // pageId -> Set(postId)
+        for (const c of comments) {
+            const pid = String(c._pageId || c.page_id || '');
+            const post = String(c.post_id || c._postId || '');
+            if (!pid || !post) continue;
+            if (!byPage.has(pid)) byPage.set(pid, new Set());
+            byPage.get(pid).add(post);
+        }
+        if (!byPage.size) return;
+        const token = (this._realTotalSeq = (this._realTotalSeq || 0) + 1); // chống race
+        let total = 0;
+        let any = false;
+        for (const [pid, postSet] of byPage) {
+            const r = await window.Web2Chat.fetchLivePosts(pid);
+            if (!r || !r.ok) continue;
+            const map = new Map(r.posts.map((p) => [p.postId, p.commentCount]));
+            for (const post of postSet) {
+                if (map.has(post)) {
+                    total += map.get(post) || 0;
+                    any = true;
+                }
+            }
+        }
+        if (!any || token !== this._realTotalSeq) return; // stale → bỏ
+        const el = document.getElementById('liveCommentTotal');
+        if (el) {
+            el.innerHTML = `💬 ${total.toLocaleString('vi-VN')}`;
+            el.title = 'Tổng comment thật trên Pancake (các livestream đang xem)';
+        }
     },
 
     /**
