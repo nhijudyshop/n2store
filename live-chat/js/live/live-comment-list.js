@@ -1363,18 +1363,18 @@ const LiveCommentList = {
                     <div class="live-conv-header-info">
                         <div class="live-conv-header">
                             <span class="customer-name" data-action="show-customer" data-from-id="${fromIdA}" data-name="${nameA}" data-page-id="${pageIdA}" title="Xem thông tin">${SharedUtils.escapeHtml(fromName)}</span>
-                            ${walletPlaceholder}
+                            <div class="inline-status-container">
+                                <div id="status-btn-${fromIdA}" class="live-status-badge" style="${statusBadgeStyle}"
+                                     data-action="toggle-status" data-from-id="${fromIdA}">
+                                    <span id="status-text-${fromIdA}">${SharedUtils.escapeHtml(statusText) || 'Trạng thái'}</span>
+                                </div>
+                                <div id="status-dropdown-${fromIdA}" class="live-status-dropdown" style="display:none;" data-loaded="0"></div>
+                            </div>
                             ${isMultiPage ? `<span class="live-tag" style="${pageBadgeColor}">${SharedUtils.escapeHtml(shortPageName)}</span>` : ''}
+                            ${walletPlaceholder}
                             ${orderBadge || ''}
                             ${isHidden ? '<span class="live-tag" style="background:#fee2e2;color:#dc2626;">Ẩn</span>' : ''}
                         </div>
-                    </div>
-                    <div class="inline-status-container">
-                        <div id="status-btn-${fromIdA}" class="live-status-badge" style="${statusBadgeStyle}"
-                             data-action="toggle-status" data-from-id="${fromIdA}">
-                            <span id="status-text-${fromIdA}">${SharedUtils.escapeHtml(statusText) || 'Trạng thái'}</span>
-                        </div>
-                        <div id="status-dropdown-${fromIdA}" class="live-status-dropdown" style="display:none;" data-loaded="0"></div>
                     </div>
                     ${timeMarkup}
                 </div>

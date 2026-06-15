@@ -305,10 +305,9 @@
             <div class="c-top">
                 ${avatarHtml(c)}
                 <div class="c-id">
-                    <div class="c-name">${esc(nameOf(c))}${pg ? `<span class="pgbadge ${pg.c}">${esc(pg.t)}</span>` : ''}</div>
+                    <div class="c-name"><span class="c-nm-txt">${esc(nameOf(c))}</span><span class="st ${st.cls}">${esc(st.label)}</span>${pg ? `<span class="pgbadge ${pg.c}">${esc(pg.t)}</span>` : ''}</div>
                     ${window.LiveTime ? window.LiveTime.markup(c.created_time, { tag: 'div', cls: 'c-time' }) : `<div class="c-time">${esc(fmtTime(c.created_time))}</div>`}
                 </div>
-                <span class="st ${st.cls}">${esc(st.label)}</span>
             </div>
             <div class="c-body">
                 <div class="c-main">

@@ -2,6 +2,15 @@
 
 ## 2026-06-15
 
+### [live-chat] Layout dòng comment: trạng thái về cạnh TÊN (tên → trạng thái → page) ✅
+
+**User:** "chuyển trạng thái qua bên trái → tên - trạng thái - page" (status đang ở góc phải).
+
+- **Mobile** [comments-mobile.js](live-chat/js/live/comments-mobile.js): đưa `.st` (status) vào `.c-name` ngay sau tên, trước `.pgbadge`. Bọc tên trong `.c-nm-txt` (ellipsis) để tên dài không che status/page.
+- **Desktop** [live-comment-list.js](live-chat/js/live/live-comment-list.js): chuyển `.inline-status-container` từ phần tử riêng (bị flex đẩy phải) vào trong `.live-conv-header` sau tên, trước page badge.
+
+**Status:** ✅ `node -c` PASS. Cần GH Pages deploy (`?v=20260615status`).
+
 ### [live-chat] Hiệu ứng comment mới DỊU MẮT + burst-aware (desktop + mobile) ✅
 
 **User:** "hiệu ứng comment mới làm dịu, nhẹ nhàng tránh nhức mắt + trường hợp comment nhiều liên tiếp thì sao?"
@@ -118,6 +127,7 @@ Tiếp theo entry dưới (cùng ngày):
 **Item 1 — DEPLOY + env (XONG):** xoá 3 env dead `TPOS_CLIENT_ID/TPOS_PASSWORD/TPOS_USERNAME` khỏi web2-realtime (204, verify NONE; live-chat/server không đọc). Deploy web2-api (auto trên push) + web2-realtime (commit `81adccb7e`) → cả 2 LIVE.
 
 **Verify deployed (curl + browser):** perm catalog `/api/web2-users/pages` có `live-chat`, KHÔNG tpos-pancake/loadTpos/syncTpos ✅; `POST /wallets/batch-full` ✅; `GET /fast-sale-orders/batch` ✅; web2-realtime `facebook-status` ok env-token mode (cachedPages:0), `private-reply` 400 (alive), `refresh-tokens` 404 (removed) ✅. Browser: `getWalletsByPhones([3])` = 1 batch-full/0 by-phone; users/PBH/native-orders 0 console error. **Status:** ✅ HOÀN TẤT (code+migration tested, deployed, verified).
+
 ### [orders-report][Lên đơn lẻ] Trừ ví: "ghi nhớ đầu" + đối chiếu TPOS CHỈ khi mất phản hồi ✅
 
 **User:** "đã tạo đơn thành công trên tpos thì bắt buộc phải có cơ chế trừ tiền của ví" + "chỉ làm ghi nhớ đầu, nếu sau khi hoàn tất hết mà không nhận được gì từ tpos trả về thì mới kiểm tra đơn trên tpos nếu có tồn tại đơn vừa tạo thì trừ tiền — còn lại toàn bộ cơ chế cũ giữ nguyên". (Đơn 71654/72298 trả trước nhưng ví không trừ khi mất phản hồi TPOS.)
