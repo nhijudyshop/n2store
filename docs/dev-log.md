@@ -2,6 +2,10 @@
 
 ## 2026-06-15
 
+### [web2][shared] Fix đa nhiệm "Tăng comment" — chỉ chạy 1 account (acc.pages format object) ✅
+
+User: "gửi chậm, không có đa nhiệm song song" (log "1 tài khoản"). **Root cause**: `acc.pages` = mảng **object** `[{id,name}]` (KHÔNG phải id string) → filter `acc.pages.includes(String(pageId))` trong `generateAllPageAccessTokens`/`generatePageAccessToken` LUÔN false → loại hết 6 account → fallback 1 (active JWT). Verify Render DB: 6 account, #0/#3… đều admin House. Fix [web2-chat-client.js](web2/shared/web2-chat-client.js): helper `_pagesHas(pages, pageId)` so theo `p.id` (xử lý object), sửa cả 2 chỗ. Giờ N account admin page → N PAT (user-specific, phân biệt) → N worker song song. Bump `web2-chat-client.js?v=20260615tag3` (multi-tool + live-chat + native-orders).
+
 ### [web2][shared] Chat Zalo — "Tải tin cũ hơn" backfill lịch sử NHÓM từ Zalo về DB ✅
 
 User: "scroll không load thêm được tin nhắn cũ à?" (đang xem chat nhóm "XỬ LÝ NJD - J&T"). Root: nút "Tải tin cũ hơn" chỉ hiện khi **DB** (`web2_zalo_messages`) còn tin cũ; nhóm này chỉ có batch realtime-captured (`hasMore:false`) → không nút → scroll không load gì. Tin cũ hơn (trước khi capture chạy) chưa từng vào DB.
