@@ -2,6 +2,14 @@
 
 ## 2026-06-15
 
+### [web2][shared] Tag hội thoại Pancake — module dùng chung Web2PancakeTags + hiện tag trên chat ✅
+
+User: "thêm vào shared pancake dùng chung các tag của Pancake, đoạn hội thoại khách sẽ hiện tag như Pancake".
+
+- Verify shape thật: `conv.tags` = mảng **ID số** (`[58,68]`); định nghĩa (text+màu) ở **page settings** `settings.tags` (`{id,text,color,lighten_color}`, Store 14 tag).
+- Module mới [web2/shared/web2-pancake-tags.js](web2/shared/web2-pancake-tags.js) (`Web2PancakeTags`): `ensure(pageId)` nạp+cache defs (qua `Web2Chat.fetchPageSettings`), `resolve()` map id→def, `pillsHtml(pageId, conv.tags)` render pill màu (chữ tương phản theo độ sáng nền), tự inject CSS `.w2pk-tag`. NGUỒN DUY NHẤT cho tag — đừng fetch nơi khác.
+- [Web2ChatPanel](web2/shared/chat-panel/web2-chat-panel.js): auto-load web2-pancake-tags.js + `renderTags()` hiện pill tag trong header hội thoại (defs chưa nạp → ensure rồi render lại, async, no-op nếu conv không tag). Bump `web2-chat-panel.js?v=20260615tag` (live-chat index/chat + native-orders).
+
 ### [web2] J&T — tag 2-chiều/toggle + nút chat cho mọi row + highlight tin có mã ✅
 
 User: (1) tag "XỬ LÝ BC" không sync 2 chiều + muốn bấm lần nữa GỠ có custom confirm; (2) mã dán tay không hiện nút nhắn nhóm Zalo; (3) mở chat tìm tin có mã → highlight lên.
