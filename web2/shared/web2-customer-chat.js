@@ -432,6 +432,8 @@
                 host.innerHTML = '';
                 panelInst = global.Web2ChatPanel.mount(host, { mode: 'full' });
                 panelInst.open(conv, buildPancakeAdapter(conv));
+                // tự cuộn xuống cùng sau khi render (ảnh/layout settle muộn)
+                setTimeout(() => panelInst?.scrollToBottom?.(), 500);
             } catch (e) {
                 host.innerHTML = _stateHtml('empty', 'Lỗi mở chat Pancake: ' + (e?.message || ''));
                 global.lucide?.createIcons?.();
@@ -456,15 +458,25 @@
                     host.innerHTML = _stateHtml('empty', 'Khách chưa có hội thoại Zalo');
                     global.Web2Lottie?.scan?.(host);
                     global.lucide?.createIcons?.();
+                } else {
+                    setTimeout(() => _scrollZalo(host), 500); // tự cuộn xuống cùng
                 }
             } catch (e) {
                 host.innerHTML = _stateHtml('empty', 'Lỗi mở chat Zalo: ' + (e?.message || ''));
                 global.lucide?.createIcons?.();
             }
         }
+        function _scrollZalo(host) {
+            const b = host?.querySelector('.wz-chat-body');
+            if (b) b.scrollTop = b.scrollHeight;
+        }
 
         function showTab(ch) {
             channel = ch;
+            // cuộn xuống cùng khi quay lại tab đã mount
+            if (ch === 'pancake' && mounted.pancake)
+                setTimeout(() => panelInst?.scrollToBottom?.(), 60);
+            if (ch === 'zalo' && mounted.zalo) setTimeout(() => _scrollZalo(paneEl('zalo')), 60);
             back.querySelectorAll('.w2cc-tab').forEach((b) =>
                 b.classList.toggle('on', b.dataset.w2ccTab === ch)
             );

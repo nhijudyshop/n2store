@@ -170,6 +170,24 @@
         }).join('');
     }
 
+    // Nhớ SĐT đã gắn thẻ "XỬ LÝ BC" (hiển thị nút đã-gắn qua nhiều lần load).
+    const TAGGED_KEY = 'jt_tagged_phones';
+    function loadTagged() {
+        try {
+            return new Set(JSON.parse(localStorage.getItem(TAGGED_KEY) || '[]'));
+        } catch {
+            return new Set();
+        }
+    }
+    const _taggedPhones = loadTagged();
+    function markTagged(phone) {
+        if (!phone) return;
+        _taggedPhones.add(phone);
+        try {
+            localStorage.setItem(TAGGED_KEY, JSON.stringify([..._taggedPhones]));
+        } catch {}
+    }
+
     // Tách SĐT + tên khách từ dòng đơn ("<mã>\tShop NHI JUDY 01\t<tiền>\t<tên>\t<sđt>\t<note>").
     function parseOrderInfo(src) {
         const s = String(src || '');
@@ -252,8 +270,9 @@
             ? `<button class="jt-icobtn chat" data-act="chat" data-conv="${esc(r.zalo_conv_id)}" data-billcode="${code}" title="Mở chat nhóm Zalo + tìm tới tin có mã"><i data-lucide="message-circle"></i></button>`
             : '';
         const info = parseOrderInfo(r.src_message);
+        const tagged = info.phone && _taggedPhones.has(info.phone);
         const tagBtn = info.phone
-            ? `<button class="jt-icobtn tag" data-act="tag" data-phone="${esc(info.phone)}" title="Gắn thẻ Pancake: XỬ LÝ BC"><i data-lucide="tag"></i></button>`
+            ? `<button class="jt-icobtn tag ${tagged ? 'is-tagged' : ''}" data-act="tag" data-phone="${esc(info.phone)}" title="${tagged ? 'Khách đã gắn thẻ XỬ LÝ BC (bấm gắn lại)' : 'Gắn thẻ Pancake: XỬ LÝ BC'}"><i data-lucide="${tagged ? 'badge-check' : 'tag'}"></i></button>`
             : '';
         const right = `${chatBtn}${tagBtn}<button class="jt-icobtn" data-act="refresh" data-code="${code}" title="Làm mới"><i data-lucide="refresh-cw"></i></button>
             ${
@@ -727,8 +746,20 @@
                 tag.id ?? tag.tag_id,
                 'add'
             );
-            if (r.ok) notify('Đã gắn thẻ "XỬ LÝ BC" cho khách', 'success');
-            else notify('Gắn thẻ lỗi: ' + (r.reason || ''), 'error');
+            if (r.ok) {
+                notify('Đã gắn thẻ "XỬ LÝ BC" cho khách', 'success');
+                markTagged(phone);
+                // đổi nút sang trạng thái ĐÃ GẮN (xanh + badge-check) cho mọi row cùng SĐT
+                document
+                    .querySelectorAll(`[data-act="tag"][data-phone="${CSS.escape(phone)}"]`)
+                    .forEach((b) => {
+                        b.classList.add('is-tagged');
+                        b.title = 'Khách đã gắn thẻ XỬ LÝ BC (bấm gắn lại)';
+                        const ic = b.querySelector('i');
+                        if (ic) ic.setAttribute('data-lucide', 'badge-check');
+                    });
+                icons();
+            } else notify('Gắn thẻ lỗi: ' + (r.reason || ''), 'error');
         } catch (e) {
             notify('Lỗi: ' + e.message, 'error');
         } finally {

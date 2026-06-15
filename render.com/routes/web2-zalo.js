@@ -989,6 +989,63 @@ router.get('/conversation/:phone', async (req, res) => {
     }
 });
 
+// Đảm bảo có hội thoại 1-1 theo SĐT — chưa có thì findUser (zca) → tạo row RỖNG để chat
+// được ngay. Zalo KHÔNG chặn nhắn người lạ; chỉ khi KHÁCH chặn thì gửi mới fail.
+router.post('/conversation/ensure', async (req, res) => {
+    try {
+        const db = getDb(req);
+        const phone = String(req.body?.phone || '').replace(/\D/g, '');
+        if (!phone) return res.status(400).json({ success: false, error: 'Thiếu phone' });
+        // Đã có hội thoại (đã từng chat / đã sync danh bạ) → trả luôn.
+        const ex = await db.query(
+            `SELECT * FROM web2_zalo_conversations WHERE phone=$1 ORDER BY last_msg_at DESC NULLS LAST LIMIT 1`,
+            [phone]
+        );
+        if (ex.rows[0]) return res.json({ success: true, data: ex.rows[0], created: false });
+        // Chọn 1 tài khoản personal đang KẾT NỐI.
+        let accountKey = req.body?.accountKey;
+        if (!accountKey) {
+            const accs = await db.query(
+                `SELECT account_key FROM web2_zalo_accounts WHERE is_active=true AND account_type='personal' ORDER BY updated_at DESC`
+            );
+            accountKey = accs.rows.map((r) => r.account_key).find((k) => zca.isConnected(k));
+        }
+        if (!accountKey)
+            return res.json({ success: false, error: 'Chưa có tài khoản Zalo cá nhân kết nối' });
+        // Tìm user Zalo theo SĐT.
+        let u = null;
+        try {
+            u = await zca.findUser(accountKey, phone);
+        } catch (e) {
+            return res.json({ success: false, error: 'Tra cứu Zalo lỗi: ' + e.message });
+        }
+        const uid = String(u?.userId || u?.uid || u?.id || '');
+        if (!uid)
+            return res.json({
+                success: false,
+                error: 'Không tìm thấy người dùng Zalo với SĐT này',
+            });
+        const name = u.displayName || u.zaloName || u.dName || u.username || '';
+        const avatar = u.avatar || u.avatar_25 || '';
+        const ts = now();
+        const ins = await db.query(
+            `INSERT INTO web2_zalo_conversations
+                (account_key, thread_id, thread_type, zalo_uid, display_name, avatar_url, phone, unread_count, created_at, updated_at)
+             VALUES ($1,$2,'user',$2,$3,$4,$5,0,$6,$6)
+             ON CONFLICT (account_key, thread_id) DO UPDATE SET
+                phone=COALESCE(EXCLUDED.phone, web2_zalo_conversations.phone),
+                display_name=COALESCE(EXCLUDED.display_name, web2_zalo_conversations.display_name),
+                avatar_url=COALESCE(EXCLUDED.avatar_url, web2_zalo_conversations.avatar_url),
+                updated_at=$6
+             RETURNING *`,
+            [accountKey, uid, name || null, avatar || null, phone, ts]
+        );
+        res.json({ success: true, data: ins.rows[0], created: true });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
 // =====================================================================
 // GỬI TIN — personal (zca). Persist out msg + SSE.
 // =====================================================================

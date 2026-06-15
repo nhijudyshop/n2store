@@ -252,6 +252,16 @@
         if (!conv && opts.phone) {
             const r = await getConversation(opts.phone).catch(() => ({}));
             conv = r.data || null;
+            // Chưa từng chat → tìm user Zalo theo SĐT + tạo hội thoại rỗng để chat ngay.
+            if (!conv && opts.ensure !== false) {
+                const e = await _fetch('/conversation/ensure', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ phone: normPhone(opts.phone) }),
+                }).catch(() => ({}));
+                conv = (e && e.data) || null;
+                if (!conv && e && e.error) opts._ensureErr = e.error;
+            }
         }
         if (!conv && opts.convId) {
             const r = await global.ZaloApi.messages(opts.convId, 1).catch(() => ({}));
@@ -261,6 +271,7 @@
             el.innerHTML =
                 '<div class="wz-chat-empty">Chưa có hội thoại Zalo' +
                 (opts.phone ? ' với SĐT ' + normPhone(opts.phone) : '') +
+                (opts._ensureErr ? ' — ' + opts._ensureErr : '') +
                 '.</div>';
             return null;
         }
