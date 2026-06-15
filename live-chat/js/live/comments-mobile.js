@@ -308,7 +308,7 @@
         if (filter === 'store') return isStorePg(c);
         if (filter === 'house') return isHousePg(c);
         if (filter === 'order') return ordered(c);
-        if (filter === 'phone') return !!(c.phone || '').trim();
+        if (filter === 'phone') return validPhone(c.phone);
         return true;
     }
     // Mode ĐANG LIVE: chỉ hiện comment của các bài đang live. Chưa biết bài nào live
@@ -345,7 +345,7 @@
         const pg = pageOf(c);
         const st = statusOf(c);
         const no = nativeOrder(c); // đơn web (native-orders) của khách → STT badge
-        const phone = (c.phone || '').trim();
+        const phone = validPhone(c.phone) ? normP(c.phone) : ''; // chỉ SĐT 10 số, tránh fb_id
         const addr = addrOf(c);
         const meta =
             phone || addr
@@ -418,7 +418,7 @@
         if (!c) return;
         const pg = pageOf(c);
         const t = THUMBS[c.id] || {};
-        const phone = (c.phone || '').trim();
+        const phone = validPhone(c.phone) ? normP(c.phone) : ''; // chỉ SĐT 10 số, tránh fb_id
         const addr = addrOf(c);
         const st = statusOf(c);
         const nm = nameOf(c);

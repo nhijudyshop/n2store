@@ -66,8 +66,9 @@
             if (!needsEnrich(state, c)) continue;
             const fbId = c.from?.id;
             if (fbId && !attemptedFb.has(fbId)) pendingFb.add(fbId);
+            // SĐT VN = ĐÚNG 10 số bắt đầu '0' — tránh nhầm fb_id / dãy số khác.
             const phone = commentPhone(c);
-            if (phone && phone.length >= 9 && !attemptedPhone.has(phone)) pendingPhone.add(phone);
+            if (/^0\d{9}$/.test(phone) && !attemptedPhone.has(phone)) pendingPhone.add(phone);
         }
     }
 

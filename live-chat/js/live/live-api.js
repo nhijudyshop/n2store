@@ -178,7 +178,7 @@ const LiveApi = {
             const base = LiveApi._getWorkerUrl();
             const r = await fetch(`${base}/api/web2/customers/batch-by-fbid`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: LiveApi._w2AuthHeaders({ 'Content-Type': 'application/json' }),
                 body: JSON.stringify({ fbIds: [String(fbUserId)] }),
                 signal: AbortSignal.timeout(15000),
             });
@@ -212,7 +212,7 @@ const LiveApi = {
             try {
                 const r = await fetch(`${base}/api/web2/customers/batch-by-fbid`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: LiveApi._w2AuthHeaders({ 'Content-Type': 'application/json' }),
                     body: JSON.stringify({ fbIds: chunk }),
                     signal: AbortSignal.timeout(20000),
                 });
@@ -246,7 +246,7 @@ const LiveApi = {
         const base = LiveApi._getWorkerUrl();
         const r = await fetch(`${base}/api/web2/customers/batch-by-fbid`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: LiveApi._w2AuthHeaders({ 'Content-Type': 'application/json' }),
             body: JSON.stringify({ fbIds: [String(fbUserId)] }),
             signal: AbortSignal.timeout(15000),
         });
@@ -255,7 +255,7 @@ const LiveApi = {
         if (!c || !c.id) return false;
         const pr = await fetch(`${base}/api/web2/customers/${c.id}`, {
             method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
+            headers: LiveApi._w2AuthHeaders({ 'Content-Type': 'application/json' }),
             body: JSON.stringify(patch),
             signal: AbortSignal.timeout(15000),
         });
@@ -275,7 +275,7 @@ const LiveApi = {
             const base = LiveApi._getWorkerUrl();
             const r = await fetch(`${base}/api/web2/customers/${warehouseId}`, {
                 method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
+                headers: LiveApi._w2AuthHeaders({ 'Content-Type': 'application/json' }),
                 body: JSON.stringify({ status }),
                 signal: AbortSignal.timeout(15000),
             });
@@ -304,7 +304,7 @@ const LiveApi = {
                 const base = LiveApi._getWorkerUrl();
                 await fetch(`${base}/api/web2/customers/upsert`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: LiveApi._w2AuthHeaders({ 'Content-Type': 'application/json' }),
                     body: JSON.stringify({
                         phone: fields.Phone,
                         address: fields.Street,
