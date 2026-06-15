@@ -2,6 +2,10 @@
 
 ## 2026-06-15
 
+### [live-chat] Fix write KH 401 (thiếu x-web2-token) + SĐT validate 10 số (tránh nhầm fb_id) ✅
+
+User báo `PATCH /api/web2/customers/68048 401` + `POST /upsert 401` khi lưu SĐT/địa chỉ/trạng thái → **gốc thật của "không đổi được"** (WEB2_AUTH_ENFORCE, write thiếu header). [live-api.js](live-chat/js/live/live-api.js): 7 write fetch (`_patchWarehouseByFb` PATCH, `updatePartnerStatus` PATCH, `savePartnerData` upsert, batch...) dùng `_w2AuthHeaders({...})` (gắn `x-web2-token` từ Web2Auth/localStorage web2_auth). + SĐT VN = **đúng 10 số `/^0\d{9}$/`** (tránh nhầm `fb_24084091254523635`): `validPhone()` ở [comments-mobile.js](live-chat/js/live/comments-mobile.js) (enrich filter/whInfo/display/filter-phone) + [live-kho-enricher.js](live-chat/js/live/live-kho-enricher.js) (pendingPhone). Bump `?v=20260615kho2`. → đang audit toàn repo các web2 write khác thiếu auth (workflow).
+
 ### [web2] J&T nút tag "XỬ LÝ BC" — icon đổi ngay (lucide) + LƯU DB đồng bộ đa máy ✅
 
 User: (1) "bấm ra hình 3 phải refresh mới ra hình 4" — bấm tag hiện icon `tag` xanh, phải refresh mới thành `badge-check`. (2) "các nút tag pancake này chưa được lưu ở db".

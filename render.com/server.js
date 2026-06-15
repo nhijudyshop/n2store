@@ -2381,23 +2381,6 @@ app.post('/api/realtime/start', async (req, res) => {
         console.warn('[AUTH-STORE] Failed to cache pancake token:', e.message);
     }
 
-    // Mở client → quét NGAY "list unread" Pancake để mirror vào pending_customers
-    // (bù vùng offline: WS không replay event đã miss khi không có client/restart).
-    // Fire-and-forget, KHÔNG chặn response. Cron 5' cũng quét định kỳ độc lập client.
-    try {
-        require('./services/pancake-unread-discovery')
-            .discoverUnread(chatDbPool)
-            .then((r) => {
-                if (r && r.upserted > 0)
-                    console.log(
-                        `[REALTIME-START] discover-unread on open: scanned ${r.scanned}, upserted ${r.upserted}`
-                    );
-            })
-            .catch(() => {});
-    } catch (_) {
-        /* best-effort */
-    }
-
     res.json({
         success: true,
         credentialsSaved: credsSaved !== false,
