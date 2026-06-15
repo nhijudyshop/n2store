@@ -92,7 +92,19 @@ app.use(
             'http://127.0.0.1:5500',
         ],
         methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-        allowedHeaders: ['Content-Type', 'Authorization', 'X-Auth-Data', 'X-User-Id', 'X-API-Key'],
+        // x-web2-token: auth Web 2.0 (WEB2_AUTH_ENFORCE) — frontend post THẲNG web2-api
+        // (vd /api/livestream/snapshot) gửi header này → phải cho qua preflight, KHÔNG
+        // thì CORS chặn. x-admin-secret/x-relay-secret: admin + relay server-to-server.
+        allowedHeaders: [
+            'Content-Type',
+            'Authorization',
+            'X-Auth-Data',
+            'X-User-Id',
+            'X-API-Key',
+            'x-web2-token',
+            'x-admin-secret',
+            'x-relay-secret',
+        ],
         credentials: false, // credentials cannot be true when origin is *
     })
 );
