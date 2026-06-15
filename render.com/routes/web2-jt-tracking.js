@@ -331,6 +331,20 @@ function extractCodes(text) {
 }
 
 // POST /scan — quét web2_zalo_messages tìm mã 12 số mới → thêm (status pending).
+// POST /clear — XÓA TOÀN BỘ data J&T (beta) để quét lại sạch. Cần confirm=YES-CLEAR.
+router.post('/clear', async (req, res) => {
+    try {
+        if ((req.body?.confirm || req.query.confirm) !== 'YES-CLEAR')
+            return res.status(400).json({ success: false, error: 'Cần confirm=YES-CLEAR' });
+        const db = getDb(req);
+        const r = await db.query(`DELETE FROM web2_jt_tracking`);
+        _notify('clear', String(r.rowCount));
+        res.json({ success: true, removed: r.rowCount });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
 router.post('/scan', async (req, res) => {
     try {
         const db = getDb(req);

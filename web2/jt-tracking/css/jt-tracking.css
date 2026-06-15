@@ -154,6 +154,15 @@ body {
 .jt-btn-primary:hover {
     filter: brightness(1.05);
 }
+.jt-btn-danger {
+    color: var(--st-problem);
+    border-color: var(--st-problem-bg);
+    background: var(--st-problem-bg);
+}
+.jt-btn-danger:hover {
+    background: #fecaca;
+    border-color: #fca5a5;
+}
 .jt-btn i[data-lucide] {
     width: 16px;
     height: 16px;
