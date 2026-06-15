@@ -15,8 +15,11 @@
 
     if (global.PancakeInventoryPanel) return;
 
-    const API = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/v2';
-    const PROXY = 'https://chatomni-proxy.nhijudyshop.workers.dev';
+    // 1 nguồn API_CONFIG.WORKER_URL (fallback literal nếu chưa load).
+    const PROXY =
+        (global.API_CONFIG && global.API_CONFIG.WORKER_URL) ||
+        'https://chatomni-proxy.nhijudyshop.workers.dev';
+    const API = `${PROXY}/api/v2`;
     const LS_TAB_KEY = 'web2_pancake_active_tab';
     const LS_SHOW_OOS_KEY = 'web2_pancake_show_oos'; // toggle hiện SP hết hàng (stock=0)
     const DEFAULT_TAB = 'kho'; // user: mặc định là Kho

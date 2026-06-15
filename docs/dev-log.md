@@ -2,6 +2,17 @@
 
 ## 2026-06-15
 
+### [web2][live-chat][P4] Pancake live-chat — centralize WORKER_URL; token/search ĐÃ trên Web2Chat ✅
+
+Audit P4 (token-manager dup, conv/tags) dùng **code cũ** — thực tế live-chat Pancake đã consolidated ~90% (2026-06-13): `PancakeAPI.getToken/getPageAccessToken` → `Web2Chat.getJwt/getPageAccessToken`, `searchConversations` → `Web2Chat.searchConversations`, URL build → `API_CONFIG.buildUrl.*` (centralized). `pancake-token-manager.js` **load-bearing** (account-mgmt UI settings-manager + live-source JWT chọn account FB-live + pancake-init) → **KHÔNG xoá được** (audit recommend sai).
+
+**Làm (an toàn)**: centralize 3 base-URL hardcode → `API_CONFIG.WORKER_URL` (fallback literal):
+
+- [pancake-state.js](live-chat/js/pancake/pancake-state.js) `proxyBaseUrl`, [inventory-panel.js](live-chat/js/pancake/inventory-panel.js) `PROXY`/`API`. api-config (770) load trước pancake-state (833) → có hiệu lực.
+- Bump `?v=20260615store`. Browser-smoke live-chat: `Web2CustomerStore`/`LiveStatus` delegate OK, `proxyBaseUrl` resolved, `pancakeTokenManager` còn, **0 page error**.
+
+**Verify live P1–P4** (browser, clone session): live-chat (store=object, isValidPhone clone=true/fb_id=false, LiveStatus delegates), balance-history (PartnerCustomerApi.statusClass===store, suppliersCache.normalize=fn, manualDeposit ok), customer-wallet (Web2WalletApi moved → getWallet/deposit ok). Frontend-only.
+
 ### [web2][shared][P3] Ví KH — promote Web2WalletApi sang shared; Ví NCC giữ nguyên (money) ✅
 
 **Ví khách**: `Web2WalletApi` (full client: getWallet/getWalletsByPhones/getTransactions/deposit/withdraw, auth x-web2-token, DIRECT_BASE fallback) đang nằm page-local `customer-wallet/js/`. `git mv` → [`web2/shared/web2-wallet-api.js`](web2/shared/web2-wallet-api.js) = NGUỒN CHUNG để mọi trang tham chiếu (đọc full ví / nạp-trừ) thay vì reimplement. Update include customer-wallet → `../shared/`. Pill nhẹ [`Web2WalletBalance`](web2/shared/web2-wallet-balance.js)`._fetchBalance` reuse `Web2WalletApi.getWallet` khi có (1 nguồn đọc `/by-phone`); vẫn độc lập (self-fetch) trên trang không load client → embed rộng được. Sửa note header "KHÔNG cần auth" (stale — mutation cần token). Bump `?v=20260615store`.
