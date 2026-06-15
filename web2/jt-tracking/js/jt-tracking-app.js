@@ -350,18 +350,16 @@
                     <span><i data-lucide="message-circle"></i> Chat nhóm Zalo</span>
                     <button class="jt-drawer-close" id="jtChatClose" aria-label="Đóng"><i data-lucide="x"></i></button>
                 </div>
-                <div class="jt-drawer-body" id="jtChatBody"><div class="jt-state" style="padding:30px"><div class="lottie" id="jtChatLot" style="width:120px;height:120px"></div></div></div>
+                <div class="jt-drawer-body"><div id="jtChatBody"></div></div>
             </div>
         </div>`;
         icons();
         requestAnimationFrame(() => $('jtChatBack')?.classList.add('show'));
-        playLottie('jtChatLot', 'loading');
         const close = () => {
             try {
                 _chatHandle?.destroy?.();
             } catch {}
             _chatHandle = null;
-            destroyLottie('jtChatLot');
             const b = $('jtChatBack');
             if (b) {
                 b.classList.remove('show');
@@ -380,14 +378,12 @@
         });
         window.Web2Zalo.mountChat('#jtChatBody', { convId, autoSeen: true })
             .then((h) => {
-                destroyLottie('jtChatLot');
                 _chatHandle = h;
                 if (!h)
                     $('jtChatBody').innerHTML =
                         '<div class="jt-state" style="padding:24px"><h3>Không mở được</h3><p>Hội thoại Zalo không còn tồn tại.</p></div>';
             })
             .catch((e) => {
-                destroyLottie('jtChatLot');
                 $('jtChatBody').innerHTML =
                     `<div class="jt-state" style="padding:24px"><h3>Lỗi</h3><p>${esc(e.message)}</p></div>`;
             });

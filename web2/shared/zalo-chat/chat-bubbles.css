@@ -542,3 +542,47 @@
 .wz-msg-out .wz-mention {
     color: #cfe4ff;
 }
+
+/* ── Self-contained khi mountChat nhúng NGOÀI trang Zalo (vd Tra cứu vận đơn J&T) ──
+   .wz-chat-main/.wz-chat-head + biến --wz-* vốn chỉ có ở web2-zalo.css (.web2-theme).
+   Scope vào .wz-chat-main → con cháu inherit; trang Zalo cùng giá trị nên vô hại. */
+.wz-chat-main {
+    --wz-blue: #0068ff;
+    --wz-blue-600: #0058da;
+    --wz-blue-soft: #e8f2ff;
+    --wz-blue-border: #bcdcff;
+    --wz-ok: #16a34a;
+    --wz-ok-soft: #dcfce7;
+    --wz-warn: #d97706;
+    --wz-warn-soft: #fef3c7;
+    --wz-danger: #dc2626;
+    --wz-danger-soft: #fee2e2;
+    --wz-line: #e6e9ef;
+    --wz-line-soft: #f1f3f7;
+    --wz-ink: #0f172a;
+    --wz-muted: #64748b;
+    --wz-bg: #f5f7fb;
+    --wz-card: #ffffff;
+    --wz-radius: 16px;
+    --wz-shadow-1: 0 1px 2px rgba(15, 23, 42, 0.04), 0 1px 3px rgba(15, 23, 42, 0.06);
+    --wz-shadow-2: 0 6px 22px rgba(15, 23, 42, 0.1);
+    --wz-ease: cubic-bezier(0.16, 1, 0.3, 1);
+    --wz-fast: 0.16s;
+    --wz-mid: 0.26s;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+    background: var(--wz-card);
+}
+.wz-chat-main .wz-chat-head {
+    padding: 13px 16px;
+    border-bottom: 1px solid var(--wz-line);
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    font-weight: 700;
+    background: #fff;
+    flex-shrink: 0;
+}

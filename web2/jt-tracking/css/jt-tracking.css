@@ -477,8 +477,10 @@ body {
     flex: 1;
     min-height: 0;
     display: flex;
+    flex-direction: column;
 }
-.jt-drawer-body > * {
+/* host chat = #jtChatBody (mountChat gắn .wz-chat-main) — chiếm hết khung, tự cuộn */
+.jt-drawer-body > #jtChatBody {
     flex: 1;
     min-height: 0;
     min-width: 0;
