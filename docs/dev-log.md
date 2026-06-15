@@ -2,6 +2,10 @@
 
 ## 2026-06-15
 
+### [live-chat/mobile] Bỏ thumbnail trên comments-mobile ✅
+
+User: không cần hiện thumbnail. Gỡ `<img.thumb>` khỏi cardHtml + ngưng `fetchThumbs` (load + enrichDelta) → đỡ băng thông. `THUMBS` rỗng → detail sheet tự không hiện thumb. [comments-mobile.js](live-chat/js/live/comments-mobile.js) (`?v=20260615nothumb`).
+
 ### [cors][web2-api] FIX snap livestream bị CORS chặn (x-web2-token) ✅
 
 Snap upload `POST /api/livestream/snapshot` post THẲNG web2-api (không qua worker) kèm header `x-web2-token` (WEB2_AUTH_ENFORCE) → preflight reject "x-web2-token not allowed". Thêm `x-web2-token`+`x-admin-secret`+`x-relay-secret` vào `allowedHeaders` [server.js](render.com/server.js). KHÔNG phải do localhost (localhost:8080 vốn trong allow-origin) — lỗi cả prod.
