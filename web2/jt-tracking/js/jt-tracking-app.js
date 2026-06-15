@@ -170,18 +170,42 @@
         }).join('');
     }
 
+    // Tách SĐT + tên khách từ dòng đơn ("<mã>\tShop NHI JUDY 01\t<tiền>\t<tên>\t<sđt>\t<note>").
+    function parseOrderInfo(src) {
+        const s = String(src || '');
+        const m = s.match(/\b0\d{8,10}\b/);
+        const phone = m ? m[0] : '';
+        let name = '';
+        if (phone) {
+            const parts = s
+                .split(/\t|\s{2,}/)
+                .map((x) => x.trim())
+                .filter(Boolean);
+            const idx = parts.findIndex((p) => p.includes(phone));
+            if (idx > 0)
+                name = parts[idx - 1]
+                    .replace(/-+\s*-+.*$/, '') // bỏ đuôi "- -76-10/06/2026"
+                    .replace(/[-\s]+$/, '')
+                    .trim();
+        }
+        return { phone, name };
+    }
+
     // ── List ────────────────────────────────────────────────────────
-    // tô đậm mã 12 số + tô xanh SĐT trong nội dung tin nhắn nguồn (đã esc trước).
+    // tô đậm mã 12 số (bấm copy) + SĐT (bấm → mở modal nhắn tin Zalo/Pancake).
     function fmtSrcMsg(s) {
-        let h = esc(String(s || ''));
+        const raw = String(s || '');
+        const info = parseOrderInfo(raw);
+        let h = esc(raw);
         h = h.replace(
             /\b(\d{12})\b/g,
             '<b class="jt-code" data-copy="$1" role="button" tabindex="0" title="Bấm để copy mã đơn">$1</b>'
         );
-        // SĐT bấm để copy (data-copy → handler capture, KHÔNG mở modal)
+        const nameAttr = info.name ? ` data-msg-name="${esc(info.name)}"` : '';
         h = h.replace(
             /\b(0\d{8,10})\b/g,
-            '<span class="jt-phone" data-copy="$1" role="button" tabindex="0" title="Bấm để copy SĐT">$1</span>'
+            (mm, p1) =>
+                `<span class="jt-phone" data-msg-phone="${p1}"${nameAttr} role="button" tabindex="0" title="Nhắn tin cho khách (Zalo / Pancake)">${p1}</span>`
         );
         return h;
     }
@@ -227,7 +251,11 @@
         const chatBtn = r.zalo_conv_id
             ? `<button class="jt-icobtn chat" data-act="chat" data-conv="${esc(r.zalo_conv_id)}" data-billcode="${code}" title="Mở chat nhóm Zalo + tìm tới tin có mã"><i data-lucide="message-circle"></i></button>`
             : '';
-        const right = `${chatBtn}<button class="jt-icobtn" data-act="refresh" data-code="${code}" title="Làm mới"><i data-lucide="refresh-cw"></i></button>
+        const info = parseOrderInfo(r.src_message);
+        const tagBtn = info.phone
+            ? `<button class="jt-icobtn tag" data-act="tag" data-phone="${esc(info.phone)}" title="Gắn thẻ Pancake: XỬ LÝ BC"><i data-lucide="tag"></i></button>`
+            : '';
+        const right = `${chatBtn}${tagBtn}<button class="jt-icobtn" data-act="refresh" data-code="${code}" title="Làm mới"><i data-lucide="refresh-cw"></i></button>
             ${
                 approved
                     ? `<button class="jt-icobtn" data-act="unapprove" data-code="${code}" title="Trở lại (bỏ duyệt)"><i data-lucide="rotate-ccw"></i></button>`
@@ -603,31 +631,255 @@
         };
     }
 
+    // ── Nhắn tin khách (Zalo / Pancake) + tag Pancake ──────────────
+    // Danh sách pageId Pancake của shop (từ accounts đã lưu — giống web2/customers).
+    function getPancakePageIds() {
+        const set = new Set();
+        try {
+            const accs = JSON.parse(localStorage.getItem('pancake_all_accounts') || '{}');
+            for (const v of Object.values(accs)) {
+                for (const p of Array.isArray(v?.pages) ? v.pages : []) {
+                    const pid = p?.id || p?.page_id || p?.pageId;
+                    if (pid) set.add(String(pid));
+                }
+            }
+        } catch {}
+        const pat = window.Web2Chat?.getAllPageAccessTokens?.() || {};
+        for (const k of Object.keys(pat)) set.add(String(k));
+        return [...set].filter(Boolean);
+    }
+
+    // Tìm hội thoại Pancake INBOX theo SĐT (quét mọi page). Trả {pageId,convId,customerId,name} | null.
+    async function resolvePancakeConv(phone) {
+        if (!window.Web2Chat?.searchConversations) return null;
+        try {
+            await window.Web2Chat.syncFromRenderDB?.();
+        } catch {}
+        const pageIds = getPancakePageIds();
+        if (!pageIds.length) return null;
+        const q = String(phone || '').replace(/\s+/g, '');
+        const settled = await Promise.allSettled(
+            pageIds.map((pid) => window.Web2Chat.searchConversations(pid, q))
+        );
+        let best = null;
+        for (let i = 0; i < settled.length; i++) {
+            const r = settled[i];
+            if (r.status !== 'fulfilled' || !r.value?.ok) continue;
+            for (const c of r.value.conversations || []) {
+                if (!c.id) continue;
+                const cust = c.customers?.[0] || {};
+                const cand = {
+                    pageId: String(c.page_id || c.fb_page_id || pageIds[i] || ''),
+                    convId: c.id,
+                    customerId: cust.id || null,
+                    name: cust.name || cust.full_name || c.name || '',
+                    isInbox: (c.type || '').toUpperCase() === 'INBOX',
+                };
+                if (!best || (cand.isInbox && !best.isInbox)) best = cand;
+            }
+        }
+        return best;
+    }
+
+    async function sendViaZalo(phone, text) {
+        if (!window.Web2Zalo?.getConversation) return { ok: false, reason: 'Zalo chưa sẵn sàng' };
+        const j = await window.Web2Zalo.getConversation(phone).catch((e) => ({ error: e.message }));
+        const c = j && j.data;
+        if (!c || !c.account_key || !c.thread_id)
+            return { ok: false, reason: 'Khách chưa có hội thoại Zalo' };
+        const r = await window.Web2Zalo.sendMessage({
+            accountKey: c.account_key,
+            threadId: c.thread_id,
+            threadType: c.thread_type || 'user',
+            text,
+        }).catch((e) => ({ success: false, error: e.message }));
+        return r && r.success !== false
+            ? { ok: true }
+            : { ok: false, reason: (r && r.error) || 'gửi Zalo lỗi' };
+    }
+
+    async function sendViaPancake(phone, text) {
+        const conv = await resolvePancakeConv(phone);
+        if (!conv) return { ok: false, reason: 'Khách chưa có hội thoại Pancake' };
+        const r = await window.Web2Chat.sendMessage(conv.pageId, conv.convId, {
+            text,
+            action: 'reply_inbox',
+            customerId: conv.customerId,
+        });
+        return r?.ok ? { ok: true } : { ok: false, reason: r?.reason || 'gửi Pancake lỗi' };
+    }
+
+    // Modal soạn nhanh — chọn kênh Zalo/Pancake rồi gửi liền.
+    let _msgChannel = 'pancake';
+    function openMsgModal(phone, name) {
+        if (!phone) return;
+        const mount = $('jtModalMount');
+        const who = `${name ? esc(name) + ' · ' : ''}<b>${esc(phone)}</b>`;
+        mount.innerHTML = `<div class="jt-msg-back" id="jtMsgBack">
+            <div class="jt-msg-modal" role="dialog" aria-modal="true" aria-label="Nhắn tin cho khách">
+                <div class="jt-msg-head">
+                    <span><i data-lucide="send"></i> Nhắn tin cho khách</span>
+                    <button class="jt-msg-x" id="jtMsgClose" aria-label="Đóng"><i data-lucide="x"></i></button>
+                </div>
+                <div class="jt-msg-who">${who}</div>
+                <div class="jt-msg-tabs" id="jtMsgTabs">
+                    <button type="button" class="jt-ch ${_msgChannel === 'pancake' ? 'on' : ''}" data-ch="pancake"><i data-lucide="facebook"></i> Pancake</button>
+                    <button type="button" class="jt-ch ${_msgChannel === 'zalo' ? 'on' : ''}" data-ch="zalo"><i data-lucide="message-circle"></i> Zalo</button>
+                </div>
+                <textarea id="jtMsgText" class="jt-msg-text" rows="4" placeholder="Nhập nội dung tin nhắn gửi khách…"></textarea>
+                <div class="jt-msg-foot">
+                    <button class="jt-btn jt-btn-ghost" id="jtMsgCancel" type="button">Hủy</button>
+                    <button class="jt-btn jt-btn-primary" id="jtMsgSend" type="button"><i data-lucide="send"></i> Gửi <span id="jtMsgChName">${_msgChannel === 'zalo' ? 'Zalo' : 'Pancake'}</span></button>
+                </div>
+            </div>
+        </div>`;
+        icons();
+        requestAnimationFrame(() => $('jtMsgBack')?.classList.add('show'));
+        const close = () => {
+            const b = $('jtMsgBack');
+            if (b) {
+                b.classList.remove('show');
+                setTimeout(() => (mount.innerHTML = ''), 200);
+            }
+        };
+        $('jtMsgClose').onclick = close;
+        $('jtMsgCancel').onclick = close;
+        $('jtMsgBack').onclick = (e) => {
+            if (e.target.id === 'jtMsgBack') close();
+        };
+        $('jtMsgTabs').onclick = (e) => {
+            const b = e.target.closest('.jt-ch');
+            if (!b) return;
+            _msgChannel = b.dataset.ch;
+            $('jtMsgTabs')
+                .querySelectorAll('.jt-ch')
+                .forEach((x) => x.classList.toggle('on', x === b));
+            $('jtMsgChName').textContent = _msgChannel === 'zalo' ? 'Zalo' : 'Pancake';
+        };
+        setTimeout(() => $('jtMsgText')?.focus(), 60);
+        $('jtMsgSend').onclick = async () => {
+            const text = $('jtMsgText').value.trim();
+            if (!text) {
+                notify('Nhập nội dung tin nhắn', 'warning');
+                return;
+            }
+            const btn = $('jtMsgSend');
+            btn.disabled = true;
+            btn.classList.add('is-busy');
+            try {
+                const r =
+                    _msgChannel === 'zalo'
+                        ? await sendViaZalo(phone, text)
+                        : await sendViaPancake(phone, text);
+                if (r.ok) {
+                    notify('Đã gửi tin cho khách', 'success');
+                    close();
+                } else notify(r.reason || 'Gửi lỗi', 'error');
+            } catch (e) {
+                notify('Lỗi: ' + e.message, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.classList.remove('is-busy');
+            }
+        };
+        document.addEventListener('keydown', function onEsc(ev) {
+            if (ev.key === 'Escape') {
+                close();
+                document.removeEventListener('keydown', onEsc);
+            }
+        });
+    }
+
+    // Gắn thẻ Pancake "XỬ LÝ BC" cho hội thoại của khách (theo SĐT).
+    async function tagPancake(phone, btn) {
+        if (!phone) return;
+        const TAG_NAME = 'xử lý bc';
+        if (btn) {
+            btn.disabled = true;
+            btn.classList.add('is-busy');
+        }
+        try {
+            if (!window.Web2Chat?.fetchTags) {
+                notify('Pancake chưa sẵn sàng', 'warning');
+                return;
+            }
+            const conv = await resolvePancakeConv(phone);
+            if (!conv) {
+                notify('Không tìm thấy hội thoại Pancake cho SĐT này', 'warning');
+                return;
+            }
+            const tagsRes = await window.Web2Chat.fetchTags(conv.pageId);
+            if (!tagsRes.ok) {
+                notify('Không lấy được danh sách thẻ Pancake', 'error');
+                return;
+            }
+            const tag = (tagsRes.tags || []).find(
+                (t) =>
+                    String(t.text || t.name || '')
+                        .trim()
+                        .toLowerCase() === TAG_NAME
+            );
+            if (!tag) {
+                notify('Page chưa có thẻ "XỬ LÝ BC"', 'warning');
+                return;
+            }
+            const r = await window.Web2Chat.toggleTag(
+                conv.pageId,
+                conv.convId,
+                tag.id ?? tag.tag_id,
+                'add'
+            );
+            if (r.ok) notify('Đã gắn thẻ "XỬ LÝ BC" cho khách', 'success');
+            else notify('Gắn thẻ lỗi: ' + (r.reason || ''), 'error');
+        } catch (e) {
+            notify('Lỗi: ' + e.message, 'error');
+        } finally {
+            if (btn) {
+                btn.disabled = false;
+                btn.classList.remove('is-busy');
+            }
+        }
+    }
+
     function init() {
         // Sidebar KHÔNG tự mount — phải gọi tay (giống các trang Báo cáo khác).
         if (window.Web2Sidebar)
             window.Web2Sidebar.mount('#web2Aside', { activeUrl: window.location.href });
-        // Copy SĐT (capture-phase) — chặn TRƯỚC click row/modal → bấm SĐT chỉ copy,
-        // KHÔNG mở modal. Áp cho cả list, modal timeline lẫn chat drawer.
+        // Capture-phase — chặn TRƯỚC click row/modal:
+        //  • mã đơn (data-copy) → copy.  • SĐT (data-msg-phone) → mở modal nhắn tin.
         document.addEventListener(
             'click',
             (e) => {
-                const c = e.target.closest('[data-copy]');
-                if (c) {
+                const cp = e.target.closest('[data-copy]');
+                if (cp) {
                     e.stopPropagation();
                     e.preventDefault();
-                    copyText(c.dataset.copy);
+                    copyText(cp.dataset.copy);
+                    return;
+                }
+                const ph = e.target.closest('[data-msg-phone]');
+                if (ph) {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    openMsgModal(ph.dataset.msgPhone, ph.dataset.msgName || '');
                 }
             },
             true
         );
         document.addEventListener('keydown', (e) => {
             if (e.key !== 'Enter' && e.key !== ' ') return;
-            const c = e.target.closest?.('[data-copy]');
-            if (c) {
+            const cp = e.target.closest?.('[data-copy]');
+            if (cp) {
                 e.stopPropagation();
                 e.preventDefault();
-                copyText(c.dataset.copy);
+                copyText(cp.dataset.copy);
+                return;
+            }
+            const ph = e.target.closest?.('[data-msg-phone]');
+            if (ph) {
+                e.stopPropagation();
+                e.preventDefault();
+                openMsgModal(ph.dataset.msgPhone, ph.dataset.msgName || '');
             }
         });
         icons();
@@ -653,6 +905,7 @@
             if (ab) {
                 e.stopPropagation();
                 if (ab.dataset.act === 'chat') openChat(ab.dataset.conv, ab.dataset.billcode);
+                else if (ab.dataset.act === 'tag') tagPancake(ab.dataset.phone, ab);
                 else rowAction(ab.dataset.act, ab.dataset.code);
                 return;
             }

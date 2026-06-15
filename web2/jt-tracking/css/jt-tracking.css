@@ -423,6 +423,24 @@ body {
     background: var(--st-delivering-bg);
     color: var(--st-delivering);
 }
+.jt-icobtn.tag:hover {
+    background: color-mix(in oklab, var(--jt-primary) 14%, transparent);
+    color: var(--jt-primary);
+}
+.jt-icobtn.is-busy,
+.jt-btn.is-busy {
+    opacity: 0.6;
+    pointer-events: none;
+    cursor: progress;
+}
+.jt-icobtn.is-busy i {
+    animation: jt-spin 0.7s linear infinite;
+}
+@keyframes jt-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
 
 /* ── Chat drawer (mở hội thoại nhóm Zalo) ───────────────────────── */
 .jt-drawer-back {
@@ -868,4 +886,132 @@ body {
         transition: none !important;
         animation: none !important;
     }
+}
+
+/* ── Modal nhắn tin khách (Zalo / Pancake — soạn nhanh gửi liền) ── */
+.jt-msg-back {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.5);
+    z-index: 1200;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    opacity: 0;
+    transition: opacity var(--jt-dur) var(--jt-ease);
+}
+.jt-msg-back.show {
+    opacity: 1;
+}
+.jt-msg-modal {
+    width: min(440px, 100%);
+    background: var(--jt-surface);
+    border-radius: 16px;
+    box-shadow: var(--jt-shadow-lg);
+    padding: 18px;
+    transform: translateY(10px) scale(0.98);
+    transition: transform var(--jt-dur) var(--jt-ease);
+}
+.jt-msg-back.show .jt-msg-modal {
+    transform: none;
+}
+.jt-msg-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-weight: 800;
+    font-size: 16px;
+}
+.jt-msg-head span {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.jt-msg-head i {
+    width: 18px;
+    height: 18px;
+    color: var(--jt-primary);
+}
+.jt-msg-x {
+    border: 0;
+    background: transparent;
+    color: var(--jt-ink-mute);
+    cursor: pointer;
+    border-radius: 8px;
+    width: 30px;
+    height: 30px;
+    display: grid;
+    place-items: center;
+}
+.jt-msg-x:hover {
+    background: var(--jt-bg);
+    color: var(--jt-ink);
+}
+.jt-msg-who {
+    margin: 10px 0 12px;
+    font-size: 14px;
+    color: var(--jt-ink);
+    background: var(--jt-bg);
+    border-radius: 10px;
+    padding: 8px 12px;
+}
+.jt-msg-tabs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+.jt-ch {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 10px;
+    border-radius: 10px;
+    border: 1.5px solid var(--jt-line);
+    background: var(--jt-surface);
+    color: var(--jt-ink-mute);
+    font-weight: 700;
+    cursor: pointer;
+    transition:
+        border-color var(--jt-dur) var(--jt-ease),
+        background var(--jt-dur) var(--jt-ease),
+        color var(--jt-dur) var(--jt-ease);
+}
+.jt-ch i {
+    width: 16px;
+    height: 16px;
+}
+.jt-ch:hover {
+    border-color: var(--jt-primary);
+    color: var(--jt-ink);
+}
+.jt-ch.on {
+    border-color: var(--jt-primary);
+    background: color-mix(in oklab, var(--jt-primary) 12%, transparent);
+    color: var(--jt-primary);
+}
+.jt-msg-text {
+    width: 100%;
+    border: 1.5px solid var(--jt-line);
+    border-radius: 10px;
+    padding: 10px 12px;
+    font: inherit;
+    font-size: 14px;
+    resize: vertical;
+    min-height: 86px;
+    color: var(--jt-ink);
+    background: var(--jt-surface);
+}
+.jt-msg-text:focus {
+    outline: none;
+    border-color: var(--jt-primary);
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--jt-primary) 20%, transparent);
+}
+.jt-msg-foot {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 14px;
 }

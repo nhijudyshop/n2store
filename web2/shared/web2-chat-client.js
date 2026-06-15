@@ -592,6 +592,50 @@
     }
 
     // =====================================================
+    // TAGS — danh sách thẻ của page + gắn/gỡ thẻ cho hội thoại.
+    //   GET  /api/pancake-official/pages/:pageId/tags
+    //   POST /api/pancake-official/pages/:pageId/conversations/:convId/tags { action, tag_id }
+    // (mirror PancakeAPI.fetchTags/addRemoveTag của live-chat — nguồn chung cho web2).
+    // =====================================================
+    async function fetchTags(pageId) {
+        if (!pageId) return { ok: false, reason: 'missing_pageId', tags: [] };
+        if (_isInstagram(pageId)) return { ok: false, reason: 'instagram_unsupported', tags: [] };
+        const pat = getPageAccessToken(pageId);
+        if (!pat) return { ok: false, reason: 'no_page_access_token', tags: [] };
+        const url = `${WORKER_URL}/api/pancake-official/pages/${encodeURIComponent(pageId)}/tags?page_access_token=${encodeURIComponent(pat)}`;
+        try {
+            const data = await _fetchJson(url, { method: 'GET' });
+            return { ok: true, tags: Array.isArray(data?.tags) ? data.tags : [] };
+        } catch (e) {
+            console.warn('[Web2Chat] fetchTags failed:', e.message);
+            return { ok: false, reason: e.message, tags: [] };
+        }
+    }
+
+    async function toggleTag(pageId, conversationId, tagId, action = 'add') {
+        if (!pageId || !conversationId || tagId == null)
+            return { ok: false, reason: 'missing_args' };
+        if (_isInstagram(pageId)) return { ok: false, reason: 'instagram_unsupported' };
+        const pat = getPageAccessToken(pageId);
+        if (!pat) return { ok: false, reason: 'no_page_access_token' };
+        const url = `${WORKER_URL}/api/pancake-official/pages/${encodeURIComponent(pageId)}/conversations/${encodeURIComponent(conversationId)}/tags?page_access_token=${encodeURIComponent(pat)}`;
+        try {
+            const data = await _fetchJson(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action, tag_id: tagId }),
+            });
+            if (data && data.success === false) {
+                return { ok: false, reason: data.message || 'tag_failed', raw: data };
+            }
+            return { ok: true, raw: data };
+        } catch (e) {
+            console.warn('[Web2Chat] toggleTag failed:', e.message);
+            return { ok: false, reason: e.message };
+        }
+    }
+
+    // =====================================================
     // Token management (write side)
     // =====================================================
 
@@ -882,6 +926,8 @@
         sendMessage,
         uploadMedia,
         replyComment,
+        fetchTags,
+        toggleTag,
         getJwt,
         getPageAccessToken,
         getAllPageAccessTokens,
