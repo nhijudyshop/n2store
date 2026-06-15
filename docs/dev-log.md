@@ -2,6 +2,10 @@
 
 ## 2026-06-15
 
+### [web2][render] "Làm mới tất cả" CHỈ tra đơn "Chưa tra" (pending) — đơn khác dùng nút từng dòng ✅
+
+User: "làm mới tất cả ưu tiên đơn chưa tra → đơn khác có nút riêng rồi". Đổi query `/refresh` (nhánh no-codes): `WHERE approved_at IS NULL AND status='pending'` (bỏ transit/delivering/not_found/stale). → không tra lại hàng loạt đơn đã chốt (khỏi bị jtexpress chặn + khỏi treo vòng lặp UI). Đơn đã có trạng thái muốn cập nhật → nút làm mới ↻ TỪNG DÒNG (`/track`, đã có). Thêm tooltip nút. Verified: pending 31→1 sau bản gentler trước đó. ([web2-jt-tracking.js](render.com/routes/web2-jt-tracking.js))
+
 ### [web2] Chuyển "Studio chụp tách nền" vào group "Đa dụng Web 2.0" ✅
 
 User: chuyển photo-studio vào group đa dụng. [web2-sidebar.js](web2/shared/web2-sidebar.js): bỏ "Studio chụp tách nền" khỏi "Tính năng mới" → thêm vào group "Đa dụng Web 2.0" (giờ có 2 trang: Tăng số lượng comment + Studio chụp tách nền). Bump `web2-sidebar.js?v=20260615db` × 39 trang.
