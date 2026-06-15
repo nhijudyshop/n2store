@@ -16,7 +16,11 @@
 - **4b PBH bulkPrint**: N GET /:number → **GET /api/fast-sale-orders/batch?numbers=** (đặt TRƯỚC /:number) → 1 request + fallback per-number.
 - **4c native-orders tạo PBH SHOP hàng loạt**: GIỮ N request độc lập (mỗi PBH = hoá đơn/kho/ví/advisory-lock riêng, partial-success đúng ngữ nghĩa — KHÔNG gộp 1 transaction vì 1 đơn lỗi không được rollback cả lô) NHƯNG đổi tuần tự→**song song giới hạn 5** (nhanh ~5×, 0 rủi ro money path).
 
-**Files:** `render.com/routes/web2-users.js`, `render.com/routes/v2/web2-wallets.js`, `render.com/services/web2-wallet-service.js`, `render.com/routes/fast-sale-orders.js`, `web2/customer-wallet/js/web2-wallet-api.js`, `web2/fastsaleorder-invoice/pbh-app.js`, `native-orders/js/native-orders-app.js` + bump v 3 trang. **Item 1** (deploy web2-realtime/web2-api + xoá env dead TPOS_CLIENT_ID/TPOS_USERNAME) làm sau commit. **Status:** ✅ code + migration tested; backend cần deploy web2-api.
+**Files:** `render.com/routes/web2-users.js`, `render.com/routes/v2/web2-wallets.js`, `render.com/services/web2-wallet-service.js`, `render.com/routes/fast-sale-orders.js`, `web2/customer-wallet/js/web2-wallet-api.js`, `web2/fastsaleorder-invoice/pbh-app.js`, `native-orders/js/native-orders-app.js` + bump v 3 trang.
+
+**Item 1 — DEPLOY + env (XONG):** xoá 3 env dead `TPOS_CLIENT_ID/TPOS_PASSWORD/TPOS_USERNAME` khỏi web2-realtime (204, verify NONE; live-chat/server không đọc). Deploy web2-api (auto trên push) + web2-realtime (commit `81adccb7e`) → cả 2 LIVE.
+
+**Verify deployed (curl + browser):** perm catalog `/api/web2-users/pages` có `live-chat`, KHÔNG tpos-pancake/loadTpos/syncTpos ✅; `POST /wallets/batch-full` ✅; `GET /fast-sale-orders/batch` ✅; web2-realtime `facebook-status` ok env-token mode (cachedPages:0), `private-reply` 400 (alive), `refresh-tokens` 404 (removed) ✅. Browser: `getWalletsByPhones([3])` = 1 batch-full/0 by-phone; users/PBH/native-orders 0 console error. **Status:** ✅ HOÀN TẤT (code+migration tested, deployed, verified).
 
 ## 2026-06-14
 
@@ -24,13 +28,13 @@
 
 **User:** "đã bấm làm mới dữ liệu nhưng không fetch đơn thật từ tpos? kiểm tra thật kỹ" (banner "⚠ Chưa có snapshot đơn thật" kẹt mãi dù đã bấm Làm mới).
 
-**Root cause (silent failure, đã trace tận gốc):** Tab KPI chạy trong **iframe** (`kpiCommissionFrame` → `tab-kpi-commission.html` trong [main.html](orders-report/main.html#L693)). [tab-kpi-commission.html](orders-report/tab-kpi-commission.html) chỉ load `pancake-token-manager.js` (Pancake JWT), **KHÔNG load `shared/js/token-manager.js`** (file set `window.tokenManager` cho TPOS — [token-manager.js:633](shared/js/token-manager.js#L633)). main.html (parent/top) cũng cố tình KHÔNG load (`<!-- DO NOT load: token-manager -->` [main.html:724](orders-report/main.html#L724)). → trong iframe KPI: `window.tokenManager`, `window.parent.tokenManager`, `window.top.tokenManager` đều **undefined** → [kpi-manager._getTposAuthHeader()](orders-report/js/managers/kpi-manager.js#L245) trả `null` → `fetchInvoiceLinesFromTPOS`/`fetchProductsFromTPOS` `if (!headers) return []` (silent, không throw) → `ensureKpiFinalSnapshot` nhận `products=[]` → return null KHÔNG lưu snapshot → `reconciled=false` → banner kẹt. (`KPI_FINAL_SOURCE='invoice'` → fetch bằng **orderCode**, không cần orderId.) Đơn khác reconciled OK vì snapshot được tạo từ **tab1** lúc chat-confirm (tab1 CÓ load `token-manager.js` [tab1-orders.html:2642](orders-report/tab1-orders.html#L2642)).
+**Root cause (silent failure, đã trace tận gốc):** Tab KPI chạy trong **iframe** (`kpiCommissionFrame` → `tab-kpi-commission.html` trong [main.html](orders-report/main.html#L693)). [tab-kpi-commission.html](orders-report/tab-kpi-commission.html) chỉ load `pancake-token-manager.js` (Pancake JWT), **KHÔNG load `shared/js/token-manager.js`** (file set `window.tokenManager` cho TPOS — [token-manager.js:633](shared/js/token-manager.js#L633)). main.html (parent/top) cũng cố tình KHÔNG load (`<!-- DO NOT load: token-manager -->` [main.html:724](orders-report/main.html#L724)). → trong iframe KPI: `window.tokenManager`, `window.parent.tokenManager`, `window.top.tokenManager` đều **undefined** → [kpi-manager.\_getTposAuthHeader()](orders-report/js/managers/kpi-manager.js#L245) trả `null` → `fetchInvoiceLinesFromTPOS`/`fetchProductsFromTPOS` `if (!headers) return []` (silent, không throw) → `ensureKpiFinalSnapshot` nhận `products=[]` → return null KHÔNG lưu snapshot → `reconciled=false` → banner kẹt. (`KPI_FINAL_SOURCE='invoice'` → fetch bằng **orderCode**, không cần orderId.) Đơn khác reconciled OK vì snapshot được tạo từ **tab1** lúc chat-confirm (tab1 CÓ load `token-manager.js` [tab1-orders.html:2642](orders-report/tab1-orders.html#L2642)).
 
 **Fix (3 edit, frontend-only — GH Pages, không cần deploy Render):**
 
 1. [tab-kpi-commission.html](orders-report/tab-kpi-commission.html): thêm `<script src="../shared/js/token-manager.js?v=20260614kpi">` (Firebase SDK đã có ở `<head>`; bearer đọc từ localStorage cùng origin — đã login tab1). → `window.tokenManager` có mặt → fetch TPOS chạy → snapshot lưu → reconciled.
-2. [kpi-manager.js:_getTposAuthHeader](orders-report/js/managers/kpi-manager.js#L245): `console.warn` khi không tìm thấy tokenManager (biến silent failure thành loud — lần sau iframe quên load là thấy ngay).
-3. [tab-kpi-commission.js:_ensureSnapshotsForVisibleOrders](orders-report/js/tab-kpi-commission.js#L5761): bỏ `.filter(x=>x.orderId)` — nguồn invoice dùng orderCode, lọc orderId làm rơi đơn fetch được.
+2. [kpi-manager.js:\_getTposAuthHeader](orders-report/js/managers/kpi-manager.js#L245): `console.warn` khi không tìm thấy tokenManager (biến silent failure thành loud — lần sau iframe quên load là thấy ngay).
+3. [tab-kpi-commission.js:\_ensureSnapshotsForVisibleOrders](orders-report/js/tab-kpi-commission.js#L5761): bỏ `.filter(x=>x.orderId)` — nguồn invoice dùng orderCode, lọc orderId làm rơi đơn fetch được.
 
 Bump `?v=`: kpi-manager `20260614kpi`, tab-kpi-commission `20260614b`. **Status:** ✅ static-verified (trace đủ chain iframe→token→fetch→snapshot→banner).
 
@@ -54,6 +58,7 @@ Bump `?v=`: kpi-manager `20260614kpi`, tab-kpi-commission `20260614b`. **Status:
 **Browser test:** 4 trang web2 + live-chat đăng nhập = **0 console error**; getToken/Live_ODATA undefined (đã gỡ), LiveApi.getPartnerInfoBatch=function. facebook-routes `node --check` OK (deploy mới hiệu lực).
 
 **Files:** `web2/{customers,customer-wallet,balance-history,supplier-debt}/index.html`, `web2/shared/{web2-deeplink,web2-customer-lookup}.js`, `live-chat/js/api-config.js`, `live-chat/js/live/{live-api,live-init}.js`, `live-chat/{index,chat}.html` (bump v), `live-chat/server/facebook-routes.js`, xóa `web2/customer-wallet/js/customer-wallet-app.js`. **Status:** ✅ FE (GH Pages) + facebook-routes cần deploy web2-realtime. **CÒN ASK user:** permission registry `loadTpos`/`syncTpos`/`tpos-pancake` (web2-users.js), cột DB `tpos_id`/`tpos_data` lineage, 5 N+1 cần endpoint batch mới + env dead `TPOS_CLIENT_ID/USERNAME` web2-realtime.
+
 ### [web2][zalo][render] Tên hội thoại USER (1-1) bị thành tên SHOP khi shop nhắn cuối — heal ✅
 
 **User:** "khách này tên Nguyễn Tâm không phải My Njd, My Njd chat cuối nên hiện My Njd → coi response tin nhắn zalo".
@@ -142,6 +147,7 @@ Xoá `web2/shared/web2-bulk-import.js` (`Web2BulkImport` — Excel+SheetJS+endpo
 **Lưu ý:** `web2/shared/web2-bulk-import.js` (`Web2BulkImport`, Excel+SheetJS+endpoint) là module CŨ **chưa wire ở đâu** + không hợp use-case (products không có `/bulk` route, so-order local-first) → để nguyên, KHÔNG dùng; `Web2Import` là đường mới.
 
 **Files:** +`web2/shared/web2-import.js`, +`web2/shared/web2-import.css`, `web2/products/index.html`, `web2/products/js/web2-products-app.js`, `so-order/index.html`, `so-order/js/so-order-app.js`. **Test:** Node unit (parse/normalize/coerce) + Playwright harness 14/14 PASS (modal, sample download BOM+quote, CSV/JSON parse, valid/invalid, commit summary, normalized rows). **Status:** ✅ frontend-only (GH Pages, không cần deploy Render).
+
 ### [web2][docs] Cleanup sau research hạ tầng Web 2.0: gỡ Firebase dead + sửa doc stale + xoá env dead ✅
 
 **User:** "làm tất cả" (3 việc cleanup đề xuất sau research server/db/firebase Web 2.0).
