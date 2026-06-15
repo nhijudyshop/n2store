@@ -3,16 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `f6e3c71` — docs(web2): chốt quy ước REALTIME, KHÔNG POLLER (CLAUDE.md + overview #conventions + dev-log)
-**Last updated**: 2026-06-15 16:57:59 +07
-**Latest session**: [`RESUME:20260615-165759-f6e3c71`](../20260615-165759-f6e3c71.md)
-**Summary**: docs(web2): chốt quy ước REALTIME, KHÔNG POLLER (CLAUDE.md + overview #conventions + dev-log)
+**Latest commit**: `75ab4a1` — fix(web2/multi-tool): reply_comment thiếu message_id (error_code 100) + icon lucide
+**Last updated**: 2026-06-15 17:14:12 +07
+**Latest session**: [`RESUME:20260615-171412-75ab4a1`](../20260615-171412-75ab4a1.md)
+**Summary**: fix(web2/multi-tool): reply_comment thiếu message_id (error_code 100) + icon lucide
 
 ## Folders affected in this commit
 
-- [`_root/`](./_root.md) — 1 file(s)
 - [`docs/`](./docs.md) — 1 file(s)
-- [`web2/`](./web2.md) — 1 file(s)
+- [`web2/`](./web2.md) — 5 file(s)
 
 ## All folder snapshots
 
@@ -27,7 +26,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-15 10:55
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-14 18:47
-- [`docs/`](./docs.md) — updated 2026-06-15 16:58
+- [`docs/`](./docs.md) — updated 2026-06-15 17:14
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-15 15:57
 - [`downloads/`](./downloads.md) — updated 2026-06-13 19:16
@@ -75,4 +74,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-15 16:58
+- [`web2/`](./web2.md) — updated 2026-06-15 17:14
