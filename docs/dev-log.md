@@ -2,6 +2,14 @@
 
 ## 2026-06-15
 
+### [web2] J&T highlight tin — fix cuộn trượt (lazy-load shift) + ring rõ trên bong bóng ✅
+
+User: "nạp ok nhưng chưa thấy highlight". Browser-test live (176 tin/nhóm 792, 156 paste): `findMessageInChat` TÌM ĐÚNG + add `.jt-msg-hit` (hit:true) nhưng **tin nằm dưới khung** (hitOffsetTop 1137 > viewport 724) → user không thấy. Root: `scrollIntoView({behavior:'smooth'})` chạy khi ảnh/avatar phía trên còn load lazy → layout dịch → smooth-scroll trượt chỗ. Phụ: ring `.jt-msg-hit` đặt trên hàng `.wz-msg` (rộng hết khung) mờ + pulse 3× tắt trước khi nhìn.
+
+- [jt-tracking-app.js](web2/jt-tracking/js/jt-tracking-app.js) `findMessageInChat`: cuộn **tức thì** (`behavior:'auto'`) + **re-assert 7×/200ms (~1.4s)** bám đúng tin khi layout còn dịch. Verify 3 mã (nông + sâu 2023): inView:true (offset 305/116/305 trong 724).
+- [jt-tracking.css](web2/jt-tracking/css/jt-tracking.css): ring chuyển sang **bong bóng tin** (`.jt-msg-hit .wz-msg-bubble`) — viền xanh `--jt-primary` 2px+7px + nền 22%, pulse 5×. Rõ hẳn (screenshot xác nhận).
+- Bump `jt-tracking.css`/`jt-tracking-app.js?v=20260615bf2`. Frontend-only (không cần deploy web2-api).
+
 ### [web2][live-chat] comments-mobile: bỏ nút Gọi/Mở FB ở sheet + highlight comment mới 3s ✅
 
 User: "bỏ nút gọi đt + mở facebook"; "comment mới highlight tồn tại 3s". [comments-mobile.js](live-chat/js/live/comments-mobile.js): gỡ `.sh-actions` (2 nút Gọi + Mở Facebook) khỏi sheet chi tiết (giữ "Xem khoảnh khắc" + "Ẩn tất cả comment"). [comments-mobile.html](live-chat/comments-mobile.html): `@keyframes cardIn` giữ khung xanh tới 85% + `.card.is-new animation 1.5s→3s` → comment mới có khung xanh ~3s rồi mờ. Bump `comments-mobile.js?v=20260615live2`.
