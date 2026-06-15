@@ -120,38 +120,33 @@
              type="text/plain" → browser KHÔNG chạy; modal "Dán lịch sử" đọc textContent để hiện + copy. -->
         <script type="text/plain" id="jtZaloScript">
             (async () => {
-              const RE = /(\d{12})\s+Shop\s+NHI\s*JUDY[^\n]*/gi;
+              const RE = /(\d{12})\s+Shop\s+NHI\s*JUDY[^\r\n]*/gi;
               const lines = new Set();
-              (document.body.innerText.match(RE) || []).forEach(l => lines.add(l.trim()));
-              try {
-                for (const {name} of (await indexedDB.databases?.()) || []) {
-                  await new Promise(res => {
-                    const rq = indexedDB.open(name);
-                    rq.onsuccess = () => {
-                      const db = rq.result, ss = [...db.objectStoreNames]; let p = ss.length;
-                      if (!p) { db.close(); return res(); }
-                      ss.forEach(s => {
-                        try {
-                          const g = db.transaction(s,'readonly').objectStore(s).getAll();
-                          g.onsuccess = () => {
-                            try { const r = new RegExp(RE.source,'gi'); let m;
-                              while ((m = r.exec(JSON.stringify(g.result)))) lines.add(m[0].replace(/\\[tn]/g,' ').trim().slice(0,300));
-                            } catch {}
-                            if (--p===0){ db.close(); res(); }
-                          };
-                          g.onerror = () => { if(--p===0){db.close();res();} };
-                        } catch { if(--p===0){db.close();res();} }
-                      });
-                    };
-                    rq.onerror = () => res();
-                  });
+              const grab = () => {
+                const t = document.body.innerText; const r = new RegExp(RE.source, 'gi'); let m;
+                while ((m = r.exec(t))) lines.add(m[0].replace(/\s+/g, ' ').trim().slice(0, 300));
+              };
+              console.log('Dang quet + tu cuon len (toi da 60s)... giu tab Zalo mo, dung chuyen trang.');
+              grab();
+              const scroller = [...document.querySelectorAll('div')]
+                .filter(e => e.scrollHeight - e.clientHeight > 300)
+                .sort((a, b) => b.scrollHeight - a.scrollHeight)[0];
+              if (scroller) {
+                const t0 = Date.now(); let stable = 0, last = 0;
+                while (Date.now() - t0 < 60000 && stable < 12) {
+                  scroller.scrollTop = 0;
+                  await new Promise(r => setTimeout(r, 500));
+                  grab();
+                  if (lines.size === last) { stable++; } else { stable = 0; last = lines.size; }
+                  console.log('... ' + lines.size + ' ma (' + Math.round((Date.now() - t0) / 1000) + 's)');
                 }
-              } catch {}
+              } else {
+                console.log('Khong thay khung cuon - cuon tay len roi chay lai de lay them.');
+              }
               const out = [...lines].join('\n');
-              const codes = [...new Set([...out.matchAll(/\d{12}/g)].map(x=>x[0]))];
-              console.log('🔎 Tìm ' + codes.length + ' mã đơn:\n' + (out || '(không thấy — cuộn lên cho tin hiện ra rồi chạy lại)'));
-              try { await navigator.clipboard.writeText(out); console.log('✅ Đã copy — dán vào "Dán lịch sử".'); }
-              catch { console.log('⚠ Không tự copy được — bôi đen log trên copy tay.'); }
+              console.log('XONG - ' + lines.size + ' ma don:\n' + (out || '(khong thay ma - mo dung nhom J&T + cuon len roi chay lai)'));
+              try { await navigator.clipboard.writeText(out); console.log('Da copy clipboard - quay lai trang J&T, bam "Dan lich su" roi Ctrl+V.'); }
+              catch { console.log('Khong tu copy duoc - boi den doan ket qua tren roi Ctrl+C.'); }
             })();
         </script>
 
@@ -167,6 +162,6 @@
         <script src="../shared/web2-extension-bridge.js?v=20260615a"></script>
         <!-- Web2CustomerChat → FULL chat KH (Pancake + Zalo) dùng chung, bấm SĐT mở -->
         <script src="../shared/web2-customer-chat.js?v=20260615b"></script>
-        <script src="js/jt-tracking-app.js?v=20260615s"></script>
+        <script src="js/jt-tracking-app.js?v=20260615t"></script>
     </body>
 </html>

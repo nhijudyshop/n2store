@@ -264,6 +264,9 @@ async function _fetchConversationComments(pageId, pageName, postId, conv, jwt) {
         // Chỉ lấy COMMENT (bỏ INBOX); bỏ comment đã xoá. Comment ẩn vẫn lấy (đánh dấu).
         if (m.type && String(m.type).toUpperCase() !== 'COMMENT') continue;
         if (m.is_removed) continue;
+        // Bỏ comment do CHÍNH PAGE tạo (page tự reply/comment — vd trang "Đa dụng →
+        // Tăng số lượng comment"): KHÔNG phải comment của khách, không hiện ở live-chat.
+        if (m.from?.id && String(m.from.id) === String(pageId)) continue;
         const mid = m.id;
         if (!mid) continue;
         const text = m.original_message || m.message || '';

@@ -2,6 +2,15 @@
 
 ## 2026-06-15
 
+### [web2][render] "Tăng comment" — chọn Bài live (gồm đã xong) + ẨN spam khỏi live-chat ✅
+
+User: (1) "đã livestream xong vẫn cho chọn", (2) "mặc định chọn mới nhất", (3) "đừng hiện các spam comment count này vào live-chat/comments-mobile", (4) "các comment này có type/nhận biết được không → để không hiện".
+
+- **Bug gốc**: [multi-tool.js](web2/multi-tool/js/multi-tool.js) dùng `Web2Chat.fetchConversationsByPage` — hàm này **hardcode `type:'INBOX'`** → KHÔNG bao giờ trả COMMENT → dropdown rỗng ("Không có hội thoại COMMENT") dù live đang chạy hay đã xong.
+- **Fix chọn bài**: thêm picker **Bài live** (từ `GET /api/web2-live-comments/page-posts` — poller Pancake 14 ngày, GỒM cả live đã xong) → lọc theo page, sort `date` desc, **auto-chọn mới nhất**. Chọn bài → fetch hội thoại COMMENT trực tiếp Pancake `GET /api/pancake/pages/{id}/conversations?type=COMMENT&post_id=...` (qua worker + JWT), sort `updated_at` desc, **auto-chọn mới nhất**.
+- **Ẩn spam khỏi live-chat** (câu hỏi "có type không"): comment spam = page tự `reply_comment` → quay vòng qua WS → `/ingest` → `web2_live_comments` → hiện ở live-chat. WS payload KHÔNG có flag "page-authored" tin cậy (conv.from/customers vẫn là chủ hội thoại). Giải pháp 2 lớp trong [web2-live-comments.js](render.com/routes/web2-live-comments.js): (1) **deterministic** — multi-tool gọi `POST /boost-mark {convId}` (TTL 20') → `/ingest` BỎ QUA conv đó (không lưu DB + không SSE); (2) **heuristic phụ** — `conv.from.id === conv.page_id` (page tự comment trên post của mình) cũng bỏ. Path poll-now: [web2-livestream-poller.js](render.com/services/web2-livestream-poller.js) bỏ message `m.from.id === pageId`.
+- multi-tool re-mark mỗi 100 tin (run dài). Bump [multi-tool/index.html](web2/multi-tool/index.html) `multi-tool.js?v=20260615b`. ⚠ deploy web2-api (route mới `/boost-mark` + filter ingest/poller).
+
 ### [web2] J&T "Dán lịch sử" — thêm script Console Zalo Web (copy sẵn) + hướng dẫn ✅
 
 User: "cho nút hiện đoạn script + ô dán kết quả có hướng dẫn". Modal "Dán lịch sử" giờ gồm: (1) hướng dẫn 4 bước, (2) **ô script** (đọc từ `<script type="text/plain" id="jtZaloScript">` ẩn — moi mã đơn từ IndexedDB + DOM Zalo Web) + nút **"Copy script"**, (3) ô dán kết quả → "Quét mã" → `/scan-text`. Script lưu dạng text/plain để khỏi escape; verify `node --check` đoạn extract OK. Frontend-only; bump css/app `?v=20260615s`.

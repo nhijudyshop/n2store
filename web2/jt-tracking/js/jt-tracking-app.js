@@ -617,7 +617,7 @@
                 <ol class="jt-paste-steps">
                     <li>Mở <b>chat.zalo.me</b> → vào nhóm J&amp;T → cuộn lên cho tin cũ hiện ra.</li>
                     <li>Nhấn <b>F12</b> → tab <b>Console</b>.</li>
-                    <li>Bấm <b>Copy script</b> → dán vào Console → Enter (script tự copy kết quả).</li>
+                    <li>Bấm <b>Copy script</b> → dán vào Console → Enter. Script <b>tự cuộn ~30–60s</b>, đợi tới dòng <b>"XONG … Da copy"</b> (thấy "Promise pending" lúc đầu là bình thường).</li>
                     <li>Quay lại đây, dán (<b>Ctrl+V</b>) vào ô dưới → <b>Quét mã</b>.</li>
                 </ol>
                 <div class="jt-paste-script">

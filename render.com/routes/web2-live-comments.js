@@ -256,6 +256,38 @@ async function upsertComments(pool, arr) {
     return saved;
 }
 
+// ---- Boost-suppress (2026-06-15) -------------------------------------------
+// Trang "Đa dụng → Tăng số lượng comment" (web2/multi-tool) cho page tự
+// reply_comment để tăng SỐ LƯỢNG comment trên live. Các comment đó KHÔNG phải
+// của khách → KHÔNG được hiện ở live-chat / comments-mobile. Cơ chế nhận biết:
+//   1) multi-tool gọi POST /boost-mark báo convId đang spam → ingest bỏ qua các
+//      conv đó trong TTL (deterministic — ta biết chính xác conv nào đang spam).
+//   2) Heuristic phụ: comment do CHÍNH PAGE tạo (conv.from.id === conv.page_id)
+//      → page tự comment trên post của mình → cũng bỏ.
+// "Bỏ" = KHÔNG upsert DB + KHÔNG _notify → không vào bất kỳ kênh hiển thị nào.
+const _boostMarks = new Map(); // convId -> expiryMs
+const BOOST_TTL_MS = 20 * 60 * 1000;
+function _markBoost(convId, ttlMs) {
+    if (!convId) return;
+    _boostMarks.set(String(convId), Date.now() + (ttlMs > 0 ? ttlMs : BOOST_TTL_MS));
+}
+function _isBoosted(convId) {
+    if (!convId) return false;
+    const exp = _boostMarks.get(String(convId));
+    if (!exp) return false;
+    if (exp < Date.now()) {
+        _boostMarks.delete(String(convId));
+        return false;
+    }
+    return true;
+}
+function _isPageAuthored(conv) {
+    return !!(conv && conv.from && conv.page_id && String(conv.from.id) === String(conv.page_id));
+}
+function _isSuppressedConv(conv) {
+    return _isBoosted(conv && conv.id) || _isPageAuthored(conv);
+}
+
 // Map 1 conversation (Pancake WS shape) → comment shape mà upsertComments nhận.
 // Chỉ áp dụng cho livestream comment (conv.type==='COMMENT' && post.type==='livestream').
 function _mapWsConvToComment(conv) {
@@ -316,8 +348,11 @@ router.post('/ingest', async (req, res) => {
         // nhất `${conv.id}_${message_count}` (xem _mapWsConvToComment) → mỗi comment 1
         // dòng, không đè khi 1 người comment liên tục. (Poller chỉ còn cho /poll-now thủ
         // công + listLivePostsForAssign — KHÔNG còn auto-trigger realtime.)
-        const mapped = raw.map(_mapWsConvToComment).filter((c) => c && c.id);
-        if (!mapped.length) return res.json({ success: true, ingested: 0 });
+        // Bỏ các conv "tăng số lượng comment" (page tự spam) trước khi lưu/hiện.
+        const conv0 = raw.filter((c) => !_isSuppressedConv(c));
+        const suppressed = raw.length - conv0.length;
+        const mapped = conv0.map(_mapWsConvToComment).filter((c) => c && c.id);
+        if (!mapped.length) return res.json({ success: true, ingested: 0, suppressed });
         const saved = await upsertComments(pool, mapped);
         const postIds = [...new Set(mapped.map((c) => c.postId).filter(Boolean))];
         if (postIds.length) {
@@ -336,7 +371,7 @@ router.post('/ingest', async (req, res) => {
                 poller = null;
             }
             if (poller?.reconcileFullText) {
-                for (const conv of raw) {
+                for (const conv of conv0) {
                     const snip = (conv && conv.snippet ? String(conv.snippet) : '').trimEnd();
                     if (!snip.endsWith('…') && !snip.endsWith('...')) continue;
                     const m = _mapWsConvToComment(conv);
@@ -350,9 +385,24 @@ router.post('/ingest', async (req, res) => {
         } catch (_) {
             /* reconcile best-effort — không phá ingest */
         }
-        res.json({ success: true, ingested: saved });
+        res.json({ success: true, ingested: saved, suppressed });
     } catch (e) {
         console.error('[WEB2-LIVE-COMMENTS] ingest error:', e.message);
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+// POST /boost-mark — trang "Đa dụng → Tăng số lượng comment" báo các conversation
+// đang spam để /ingest BỎ QUA (không lưu DB, không SSE → không hiện ở live-chat).
+// Body: { convIds:[...] } | { convId }, ttlMs? (mặc định 20 phút). Soft-auth.
+router.post('/boost-mark', requireWeb2AuthSoft, (req, res) => {
+    try {
+        const b = req.body || {};
+        const ids = Array.isArray(b.convIds) ? b.convIds : b.convId ? [b.convId] : [];
+        const ttl = Number(b.ttlMs);
+        ids.forEach((id) => _markBoost(id, ttl));
+        res.json({ success: true, marked: ids.length, ttlMs: ttl > 0 ? ttl : BOOST_TTL_MS });
+    } catch (e) {
         res.status(500).json({ success: false, error: e.message });
     }
 });
