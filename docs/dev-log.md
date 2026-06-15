@@ -2,6 +2,10 @@
 
 ## 2026-06-15
 
+### [live-chat] Hiệu ứng comment mới = FADE thuần dịu, không flash ✅
+
+User: "nhẹ nhàng không phải flash". Bỏ `translateY` (trượt + prepend đẩy dòng = cảm giác lóe), chỉ còn fade `opacity 0→1` 0.55s `ease` (đều, chậm). Desktop [live-comments.css](live-chat/css/live/live-comments.css) + mobile [comments-mobile.html](live-chat/comments-mobile.html). Burst-guard giữ nguyên.
+
 ### [web2][shared] Web2Lottie — animation Lottie (airbnb/lottie-web) dùng chung TOÀN BỘ Web 2.0 ✅
 
 **User:** "kiểm tra toàn bộ web 2.0 → phần CSS giao diện dùng airbnb/lottie-web → thêm vào toàn bộ web → thêm thông minh". Scope chọn: **tinh tế** (empty/loading/success/error) + **CDN lazy-load**.
