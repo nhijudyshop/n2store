@@ -3,15 +3,21 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `5b414ed` — perf(web2-api): tesseract lazy-load + autofb không mount khi WEB2_ONLY (giảm RAM nền)
-**Last updated**: 2026-06-16 00:19:02 +07
-**Latest session**: [`RESUME:20260616-001902-5b414ed`](../20260616-001902-5b414ed.md)
-**Summary**: perf(web2-api): tesseract lazy-load + autofb không mount khi WEB2_ONLY (giảm RAM nền)
+**Latest commit**: `274721b` — chore: gỡ HẲN autofb.pro khỏi toàn project (shop không xài nữa)
+**Last updated**: 2026-06-16 00:35:08 +07
+**Latest session**: [`RESUME:20260616-003508-274721b`](../20260616-003508-274721b.md)
+**Summary**: chore: gỡ HẲN autofb.pro khỏi toàn project (shop không xài nữa)
 
 ## Folders affected in this commit
 
+- [`cloudflare-worker/`](./cloudflare-worker.md) — 3 file(s)
 - [`docs/`](./docs.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 2 file(s)
+- [`facebook-services/`](./facebook-services.md) — 3 file(s)
+- [`render-data-manager/`](./render-data-manager.md) — 1 file(s)
+- [`render.com/`](./render.com.md) — 3 file(s)
+- [`scripts/`](./scripts.md) — 2 file(s)
+- [`service-costs/`](./service-costs.md) — 2 file(s)
+- [`shared/`](./shared.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -23,14 +29,14 @@
 - [`balance-history-home/`](./balance-history-home.md) — updated 2026-05-21 15:39
 - [`balance-history/`](./balance-history.md) — updated 2026-06-11 16:49
 - [`bangkiemhang/`](./bangkiemhang.md) — updated 2026-05-21 15:39
-- [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-15 23:28
+- [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-16 00:35
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-14 18:47
-- [`docs/`](./docs.md) — updated 2026-06-16 00:19
+- [`docs/`](./docs.md) — updated 2026-06-16 00:35
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-15 15:57
 - [`downloads/`](./downloads.md) — updated 2026-06-13 19:16
-- [`facebook-services/`](./facebook-services.md) — updated 2026-06-13 14:55
+- [`facebook-services/`](./facebook-services.md) — updated 2026-06-16 00:35
 - [`fb-ads/`](./fb-ads.md) — updated 2026-05-21 15:39
 - [`firebase-stats/`](./firebase-stats.md) — updated 2026-05-21 15:39
 - [`hanghoan/`](./hanghoan.md) — updated 2026-05-21 15:39
@@ -53,12 +59,12 @@
 - [`project-tracker/`](./project-tracker.md) — updated 2026-05-21 15:39
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
-- [`render-data-manager/`](./render-data-manager.md) — updated 2026-06-14 16:52
-- [`render.com/`](./render.com.md) — updated 2026-06-16 00:19
+- [`render-data-manager/`](./render-data-manager.md) — updated 2026-06-16 00:35
+- [`render.com/`](./render.com.md) — updated 2026-06-16 00:35
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
-- [`scripts/`](./scripts.md) — updated 2026-06-15 10:55
-- [`service-costs/`](./service-costs.md) — updated 2026-06-14 13:09
-- [`shared/`](./shared.md) — updated 2026-06-15 22:31
+- [`scripts/`](./scripts.md) — updated 2026-06-16 00:35
+- [`service-costs/`](./service-costs.md) — updated 2026-06-16 00:35
+- [`shared/`](./shared.md) — updated 2026-06-16 00:35
 - [`showroom/`](./showroom.md) — updated 2026-06-10 19:04
 - [`showroom1/`](./showroom1.md) — updated 2026-06-10 19:52
 - [`so-order/`](./so-order.md) — updated 2026-06-15 21:38
