@@ -3,15 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `75ab4a1` — fix(web2/multi-tool): reply_comment thiếu message_id (error_code 100) + icon lucide
-**Last updated**: 2026-06-15 17:14:12 +07
-**Latest session**: [`RESUME:20260615-171412-75ab4a1`](../20260615-171412-75ab4a1.md)
-**Summary**: fix(web2/multi-tool): reply_comment thiếu message_id (error_code 100) + icon lucide
+**Latest commit**: `300fedd` — feat(web2/multi-tool): ghi rõ giãn nhịp ms→giây (1500 = 1.5 giây) + gợi ý động
+**Last updated**: 2026-06-15 17:23:54 +07
+**Latest session**: [`RESUME:20260615-172354-300fedd`](../20260615-172354-300fedd.md)
+**Summary**: feat(web2/multi-tool): ghi rõ giãn nhịp ms→giây (1500 = 1.5 giây) + gợi ý động
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`web2/`](./web2.md) — 5 file(s)
+- [`web2/`](./web2.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -74,4 +73,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-15 17:14
+- [`web2/`](./web2.md) — updated 2026-06-15 17:23
