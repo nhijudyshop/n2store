@@ -3,14 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `ffa5d60` — fix(web2-jt): highlight tin chat cuộn tới đúng + ring rõ trên bong bóng
-**Last updated**: 2026-06-15 19:18:14 +07
-**Latest session**: [`RESUME:20260615-191814-ffa5d60`](../20260615-191814-ffa5d60.md)
-**Summary**: fix(web2-jt): highlight tin chat cuộn tới đúng + ring rõ trên bong bóng
+**Latest commit**: `2423acb` — auto: session update
+**Last updated**: 2026-06-15 19:27:20 +07
+**Latest session**: [`RESUME:20260615-192720-2423acb`](../20260615-192720-2423acb.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
+- [`render.com/`](./render.com.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -53,7 +53,7 @@
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-06-14 16:52
-- [`render.com/`](./render.com.md) — updated 2026-06-15 18:45
+- [`render.com/`](./render.com.md) — updated 2026-06-15 19:27
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-15 10:55
 - [`service-costs/`](./service-costs.md) — updated 2026-06-14 13:09
