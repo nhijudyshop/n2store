@@ -2,6 +2,15 @@
 
 ## 2026-06-15
 
+### [web2][AUDIT] Quét + fix TOÀN BỘ web2 write thiếu x-web2-token (WEB2_AUTH_ENFORCE 401) ✅
+
+User: "kiểm lại toàn bộ /api/web2 còn thiếu x-web2-token không". Workflow audit (5-agent) → **37 violation / 14 file**; workflow remediation (6-agent song song) fix → **~18 file**:
+
+- **Wrapper central** (1 sửa cover nhiều): `web2-products-api.js` + `web2-variants-api.js` (`_fetchJson`), `returns-api.js` (`_json` + sửa bug spread-order).
+- **Reuse helper sẵn có**: `web2-msg-template.js` (4 — claim/result/cancel/create, double-send guard), `web2-chat-client.js` (enrich-fb), `pancake-api.js` (batch-summary), `live-livestream-snap.js` (capture-lock ×2), `web2-wallet-api.js` (batch-full).
+- **Thêm helper `_w2Auth` nhỏ**: `web2-customer-detail-modal.js` (PATCH KH), `web2-qr-modal.js` (×3 QR ví), `web2-customer-lookup.js`, `web2-wallet-balance.js`, `web2-printer.js` (×3 CRUD), `web2-products-print.js` (mark-printed), `debt-manager.js`, `live-comment-list.js` (batch-by-fbid), `native-orders-app.js` (merge + batch-by-fbid), `so-order-app.js` (confirm-purchase-partial, giữ credentials:omit).
+- Nguồn token: `Web2Auth.authHeaders()` / fallback localStorage `web2_auth.token`. Bump tất cả JS đã sửa `?v=20260615auth`. Pattern + quy tắc lưu MEMORY [[reference_web2_write_auth_header]]. ⚠ deploy không cần (frontend), nhưng các write giờ qua được khi WEB2_AUTH_ENFORCE=1.
+
 ### [live-chat] Fix write KH 401 (thiếu x-web2-token) + SĐT validate 10 số (tránh nhầm fb_id) ✅
 
 User báo `PATCH /api/web2/customers/68048 401` + `POST /upsert 401` khi lưu SĐT/địa chỉ/trạng thái → **gốc thật của "không đổi được"** (WEB2_AUTH_ENFORCE, write thiếu header). [live-api.js](live-chat/js/live/live-api.js): 7 write fetch (`_patchWarehouseByFb` PATCH, `updatePartnerStatus` PATCH, `savePartnerData` upsert, batch...) dùng `_w2AuthHeaders({...})` (gắn `x-web2-token` từ Web2Auth/localStorage web2_auth). + SĐT VN = **đúng 10 số `/^0\d{9}$/`** (tránh nhầm `fb_24084091254523635`): `validPhone()` ở [comments-mobile.js](live-chat/js/live/comments-mobile.js) (enrich filter/whInfo/display/filter-phone) + [live-kho-enricher.js](live-chat/js/live/live-kho-enricher.js) (pendingPhone). Bump `?v=20260615kho2`. → đang audit toàn repo các web2 write khác thiếu auth (workflow).

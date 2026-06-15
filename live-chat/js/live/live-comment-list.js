@@ -65,6 +65,20 @@ function liveAttr(v) {
 const RENDER_LIMIT_INITIAL = 200;
 const RENDER_LIMIT_STEP = 200;
 
+// ENFORCE-PREP: gắn x-web2-token cho route web2 soft-gated (WEB2_AUTH_ENFORCE).
+// Chưa login web2 → bỏ qua header, request vẫn đi (server enforce → 401).
+function _liveW2Auth(extra) {
+    if (window.Web2Auth?.authHeaders) return window.Web2Auth.authHeaders(extra || {});
+    const h = { ...(extra || {}) };
+    try {
+        const t = JSON.parse(localStorage.getItem('web2_auth') || 'null');
+        if (t && t.token) h['x-web2-token'] = t.token;
+    } catch {
+        /* no token */
+    }
+    return h;
+}
+
 const LiveCommentList = {
     /**
      * Toàn bộ comment SAU filter người-ẩn, TRƯỚC cap render. Đây là nguồn DUY
@@ -2254,7 +2268,7 @@ const LiveCommentList = {
                 try {
                     const resp = await fetch(`${workerUrl}/api/web2/customers/batch-by-fbid`, {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: _liveW2Auth({ 'Content-Type': 'application/json' }),
                         body: JSON.stringify({ fbIds: [fbId] }),
                     });
                     const json = await resp.json();

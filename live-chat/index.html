@@ -773,7 +773,7 @@
         <!-- Shared utilities (NEW modular) -->
         <script src="js/shared/utils.js?v=20260615v"></script>
         <script src="js/shared/cache-manager.js?v=20260615v"></script>
-        <script src="js/shared/debt-manager.js?v=20260615v"></script>
+        <script src="js/shared/debt-manager.js?v=20260615auth"></script>
         <script src="js/shared/event-bus.js?v=20260615v"></script>
 
         <!-- Layout modules: column-manager + settings-manager ĐÃ GỠ (2026-06-11
@@ -788,7 +788,7 @@
         <script src="js/live/live-state.js?v=20260615v"></script>
         <script src="js/live/live-api.js?v=20260615v"></script>
         <script src="js/live/live-native-orders-api.js?v=20260615v"></script>
-        <script src="js/live/live-comment-list.js?v=20260615v"></script>
+        <script src="js/live/live-comment-list.js?v=20260615auth"></script>
         <script src="js/live/live-hidden-commenters.js?v=20260615v"></script>
         <script src="js/live/live-customer-panel.js?v=20260615v"></script>
         <script src="js/live/live-realtime.js?v=20260615v"></script>
@@ -801,16 +801,16 @@
         <script src="js/live/live-kho-enricher.js?v=20260615v"></script>
         <!-- Web 2.0 SSE bridge — multi-tab/-máy realtime (livestream snapshots + images) -->
         <script src="../web2/shared/web2-sse-bridge.js?v=20260615v"></script>
-        <script src="../web2/shared/web2-wallet-balance.js?v=20260615v"></script>
+        <script src="../web2/shared/web2-wallet-balance.js?v=20260615auth"></script>
         <!-- Livestream Snapshot per customer (📸 button + popover) -->
-        <script src="js/live/live-livestream-snap.js?v=20260615v"></script>
+        <script src="js/live/live-livestream-snap.js?v=20260615auth"></script>
         <!-- Kho "Hình Livestream" — chụp iframe thủ công + sidebar gallery -->
         <script src="js/live/live-livestream-gallery.js?v=20260615v"></script>
 
         <!-- Web2Chat client — syncs pancake JWT + page tokens from Render DB
              (same source native-orders uses). Must load BEFORE pancake-token-manager
              so getToken() can self-heal via Web2Chat.syncFromRenderDB(). -->
-        <script src="../web2/shared/web2-chat-client.js?v=20260615v"></script>
+        <script src="../web2/shared/web2-chat-client.js?v=20260615auth"></script>
         <!-- Nguồn DUY NHẤT quản lý account/token Pancake = pancake_accounts (web2/pancake-settings). -->
         <script src="../web2/shared/web2-pancake-accounts.js?v=20260615v"></script>
         <!-- Component chat HỢP NHẤT — emoji data + panel (pancake-chat-window.js bọc qua adapter) -->
@@ -829,7 +829,7 @@
              (2026-06-11). -->
         <script src="js/pancake/pancake-token-manager.js?v=20260615v"></script>
         <script src="js/pancake/pancake-state.js?v=20260615v"></script>
-        <script src="js/pancake/pancake-api.js?v=20260615v"></script>
+        <script src="js/pancake/pancake-api.js?v=20260615auth"></script>
         <script src="js/pancake/pancake-chat-window.js?v=20260615v"></script>
         <!-- Modal hội thoại chat với KH từ comment row (full chức năng như native-orders) -->
         <script src="js/live/live-chat-modal.js?v=20260615v"></script>

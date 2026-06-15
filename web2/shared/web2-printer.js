@@ -40,6 +40,17 @@
             ? global.API_CONFIG.WORKER_URL
             : 'https://chatomni-proxy.nhijudyshop.workers.dev') + '/api/web2/printer';
 
+    function _w2Auth(extra) {
+        if (global.Web2Auth && global.Web2Auth.authHeaders)
+            return global.Web2Auth.authHeaders(extra || {});
+        var h = Object.assign({}, extra || {});
+        try {
+            var t = JSON.parse(localStorage.getItem('web2_auth') || 'null');
+            if (t && t.token) h['x-web2-token'] = t.token;
+        } catch (e) {}
+        return h;
+    }
+
     const ROLES = [
         { key: 'pbh', label: 'In Phiếu Bán Hàng (bill 80mm)' },
         { key: 'label', label: 'In tem / mã sản phẩm (máy tem)' },
@@ -142,7 +153,7 @@
               };
         const res = await fetch(url, {
             method: exists ? 'PATCH' : 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: _w2Auth({ 'Content-Type': 'application/json' }),
             body: JSON.stringify(body),
         });
         if (!res.ok) {
@@ -158,6 +169,7 @@
         try {
             const res = await fetch(API_BASE + '/delete/' + encodeURIComponent(id), {
                 method: 'DELETE',
+                headers: _w2Auth(),
             });
             ok = res.ok;
         } catch {}
