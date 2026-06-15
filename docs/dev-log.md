@@ -2,6 +2,13 @@
 
 ## 2026-06-15
 
+### [web2][jt-tracking][zalo-chat] J&T: fix mất composer chat drawer + nén dashboard gọn ✅ (`b33d74d64`)
+
+1. **Composer (ô soạn tin) mất trong chat drawer**: `.wz-chat-body` thiếu `flex:1 1 auto; min-height:0; overflow-y:auto; flex column` trong engine CSS — các rule này CHỈ có ở `web2-zalo.css` (trang Zalo). Nhúng `mountChat` ngoài trang Zalo → body phình theo nội dung, đẩy `.wz-composer` xuống dưới màn. Fix: thêm vào [chat-bubbles.css](web2/shared/zalo-chat/chat-bubbles.css) (`.wz-chat-main .wz-chat-body`) → composer ghim đáy. Verified live: composer hiện đủ (input + ảnh/file/emoji + gửi).
+2. **Nén dashboard** [jt-tracking.css](web2/jt-tracking/css/jt-tracking.css): KPI nhỏ (padding 8/12, num 19px, `minmax(104px)`) → 8 thẻ gọn 1 hàng; quick-add cao 42 + padding 8; giảm margin header/main. → list lên cao, đỡ tốn diện tích (verified: ~6 row hiện thay vì ~2).
+
+Bump `ENGINE_VER=20260615c` + css/app `?v`. Nối tiếp 2 entry J&T cùng ngày bên dưới.
+
 ### [live-chat][web2-realtime] WS-DIRECT comment livestream (bỏ poll, nhanh như TPOS) + render APPEND-only đúng invariant 🔄
 
 **User:** "không realtime cập nhật + render TOÀN BỘ → comment mới append liền không đụng cũ" → "so tốc độ web2 vs tpos" → **"sao lại còn live poll?"**
