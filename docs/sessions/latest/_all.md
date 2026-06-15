@@ -3,16 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `dea0ee5` — feat(live-chat/mobile): bỏ nút Gọi/Mở FB ở sheet + highlight comment mới 3s
-**Last updated**: 2026-06-15 19:17:28 +07
-**Latest session**: [`RESUME:20260615-191728-dea0ee5`](../20260615-191728-dea0ee5.md)
-**Summary**: feat(live-chat/mobile): bỏ nút Gọi/Mở FB ở sheet + highlight comment mới 3s
+**Latest commit**: `ffa5d60` — fix(web2-jt): highlight tin chat cuộn tới đúng + ring rõ trên bong bóng
+**Last updated**: 2026-06-15 19:18:14 +07
+**Latest session**: [`RESUME:20260615-191814-ffa5d60`](../20260615-191814-ffa5d60.md)
+**Summary**: fix(web2-jt): highlight tin chat cuộn tới đúng + ring rõ trên bong bóng
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`live-chat/`](./live-chat.md) — 2 file(s)
-- [`web2/`](./web2.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -27,7 +25,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-15 10:55
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-14 18:47
-- [`docs/`](./docs.md) — updated 2026-06-15 19:17
+- [`docs/`](./docs.md) — updated 2026-06-15 19:18
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-15 15:57
 - [`downloads/`](./downloads.md) — updated 2026-06-13 19:16
