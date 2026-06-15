@@ -2,6 +2,11 @@
 
 ## 2026-06-15
 
+### [live-chat] FIX native-orders 404 (mobile) + add-alt-phone 401 (desktop) ✅
+
+- **404**: mobile `loadNativeOrders` gọi `/api/native-orders` trần → worker đẩy sang TPOS → 404. Endpoint LIST đúng = `/api/native-orders/load` (giống `NativeOrdersApi.list` desktop). Sửa path. [comments-mobile.js](live-chat/js/live/comments-mobile.js)
+- **401**: desktop `_captureAltPhones` POST `/api/web2/customers/add-alt-phone` KHÔNG gửi `x-web2-token` (route `requireWeb2AuthSoft`, WEB2_AUTH_ENFORCE) → thêm `_w2AuthHeaders`. [live-init.js](live-chat/js/live/live-init.js). (harvest-comments đã gửi token sẵn — 401 lúc đầu do token chưa load/hết hạn → re-login nếu còn.)
+
 ### [web2][render] J&T "Quét lịch sử" — đọc lịch sử nhóm Zalo (zca) để quét đơn cũ/bị thiếu ✅
 
 User: "đọc được lịch sử nhóm chat hôm nay để quét các đơn tin nhắn cũ hoặc bị thiếu không?". → Được: `/scan` cũ chỉ đọc `web2_zalo_messages` (chỉ có tin từ lúc listener kết nối) nên tin gửi TRƯỚC đó bị miss.
