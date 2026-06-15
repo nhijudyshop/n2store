@@ -231,12 +231,21 @@ function deriveStatus(events) {
     if (!events.length) return 'not_found';
     const d = (events[0].desc || '').toLowerCase();
     const hit = (...kw) => kw.some((k) => d.includes(k));
-    // ⚠ HOÀN HÀNG kiểm TRƯỚC "thành công" — "chuyển hoàn thành công" là ĐÃ HOÀN, KHÔNG phải đã giao.
-    // Dùng cụm chính xác — 'hoàn' trần dính 'hoàn thành'/'hoàn toàn'.
+    // Phân loại theo từ vựng THẬT của J&T (audit 121 sự kiện thật). Thứ tự ưu tiên QUAN TRỌNG:
+    //   1) Kết cục dứt khoát (hoàn / sự cố) kiểm TRƯỚC tín hiệu "thành công" — vì câu hoàn-hàng
+    //      & kiện-khó hay dính 'thành công'/'nhận' ("chuyển hoàn thành công" = đã hoàn, KHÔNG phải giao).
+    const failedAttempt = d.includes('không thành công') || d.includes('chưa thành công');
     if (hit('chuyển hoàn', 'hoàn hàng', 'hoàn về', 'trả hàng', 'trả về')) return 'returned';
-    if (hit('thành công', 'ký nhận', 'đã nhận hàng', 'người nhận')) return 'delivered';
-    if (hit('từ chối', 'kiện khó', 'không liên lạc', 'đổi ý', 'thất bại', 'hủy', 'sự cố'))
+    if (
+        failedAttempt ||
+        hit('từ chối', 'kiện khó', 'không liên lạc', 'đổi ý', 'thất bại', 'hủy', 'sự cố')
+    )
         return 'problem';
+    // ⚠ Đã giao = NGƯỜI NHẬN ký nhận ("Đơn hàng đã ký nhận. Người ký nhận là:【khách】").
+    //   KHÔNG dùng 'đã nhận hàng' (="Nhân viên bưu cục đã nhận hàng" = lấy/nhập kho → còn transit)
+    //   cũng KHÔNG dùng 'thành công' trần ("chuyển hoàn thành công" = hoàn).
+    if (hit('ký nhận', 'giao hàng thành công', 'giao thành công', 'phát thành công'))
+        return 'delivered';
     if (hit('đang giao', 'phát lại', 'đang tiến hành', 'giao hàng')) return 'delivering';
     return 'transit';
 }

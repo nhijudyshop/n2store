@@ -14,7 +14,11 @@ User: "bỏ hết hiệu ứng bình luận mới + hiệu ứng đẩy trượt
 - **Fix**: tách hẳn status mới **`returned` ("Đã hoàn", cam #ea580c, icon undo-2)** thay vì gộp vào `problem` (nhóm "XỬ LÝ NJD - J&T" chuyên xử lý hoàn → đáng tách riêng). Kiểm `chuyển hoàn|hoàn hàng|hoàn về|trả hàng|trả về` **TRƯỚC** delivered ở cả [web2-jt-tracking.js](render.com/routes/web2-jt-tracking.js) `deriveStatus` lẫn frontend `deriveFromDesc`. Gỡ `hoàn hàng/hoàn về/chuyển hoàn` khỏi nhóm `problem`.
 - **Sửa data cũ không cần fetch lại**: thêm `_rederiveStored(db)` chạy đầu `POST /refresh` — re-derive status từ `events` JSONB đã lưu (rẻ, idempotent, không gọi J&T) → đơn `delivered` sai tự về `returned` khi bấm "Làm mới tất cả". `delivered` là final (refresh không re-fetch) nên cần bước này.
 - **Frontend**: STATUS + KPI_ORDER + KPI_META + CSS tokens `--st-returned`/`--st-returned-bg`. Bump css/app `?v=20260615k`.
-- Files: [web2-jt-tracking.js](render.com/routes/web2-jt-tracking.js), [jt-tracking-app.js](web2/jt-tracking/js/jt-tracking-app.js), [jt-tracking.css](web2/jt-tracking/css/jt-tracking.css), [index.html](web2/jt-tracking/index.html). Status: ✅ Done (cần deploy web2-api + GH Pages).
+- **Hardening (audit 121 sự kiện J&T THẬT từ 16 đơn live)**: thêm 2 false-positive nghiêm trọng → sửa:
+    - `"Nhân viên… của bưu cục đã nhận hàng"` (×14 — NV bưu cục **lấy/nhập kho**, còn trung chuyển) bị gán **delivered** vì keyword `đã nhận hàng`. Giao thật chỉ khi `"Đơn hàng đã ký nhận. Người ký nhận là:【khách】"`. → bỏ `đã nhận hàng`+`thành công` trần; delivered = `ký nhận|giao hàng thành công|giao thành công|phát thành công`.
+    - `"Người nhận từ chối nhận hàng"` bị gán delivered vì keyword `người nhận` quá lỏng + thứ tự. → bỏ `người nhận`; xét **returned/problem TRƯỚC delivered**; guard `(giao) không/chưa thành công`=thất bại.
+    - Verify khớp 100% 121 sự kiện thật (transit 75 / delivering 19 / problem 18 / delivered 5 / returned 4); delivered 7→5. Bump app `?v=20260615l`.
+- Files: [web2-jt-tracking.js](render.com/routes/web2-jt-tracking.js), [jt-tracking-app.js](web2/jt-tracking/js/jt-tracking-app.js), [jt-tracking.css](web2/jt-tracking/css/jt-tracking.css), [index.html](web2/jt-tracking/index.html). Status: ✅ Done (deploy web2-api + GH Pages).
 
 ### [live-chat] Hiệu ứng comment mới = FADE thuần dịu, không flash ✅
 

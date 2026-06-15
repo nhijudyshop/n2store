@@ -311,10 +311,13 @@
     // màu dot theo nội dung từng event (nhẹ — chỉ cho timeline)
     function deriveFromDesc(d) {
         d = (d || '').toLowerCase();
-        // hoàn hàng kiểm trước "thành công" — "chuyển hoàn thành công" ≠ đã giao
+        // mirror deriveStatus backend (audit 121 sự kiện J&T thật) — kết cục dứt khoát trước 'thành công'
+        const failed = /(không thành công|chưa thành công)/.test(d);
         if (/(chuyển hoàn|hoàn hàng|hoàn về|trả hàng|trả về)/.test(d)) return 'returned';
-        if (/(thành công|ký nhận|đã nhận)/.test(d)) return 'delivered';
-        if (/(từ chối|kiện khó|không liên lạc|đổi ý|thất bại|hủy|sự cố)/.test(d)) return 'problem';
+        if (failed || /(từ chối|kiện khó|không liên lạc|đổi ý|thất bại|hủy|sự cố)/.test(d))
+            return 'problem';
+        if (/(ký nhận|giao hàng thành công|giao thành công|phát thành công)/.test(d))
+            return 'delivered';
         if (/(đang giao|phát lại|đang tiến hành|giao hàng)/.test(d)) return 'delivering';
         return 'transit';
     }
