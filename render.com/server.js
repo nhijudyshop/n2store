@@ -836,6 +836,17 @@ web2ZaloRoutes
     .catch((e) => console.warn('[web2-zalo] schema warn:', e.message));
 app.use('/api/web2-zalo', web2ZaloRoutes);
 
+// WEB2.0 — Tra cứu vận đơn J&T (báo cáo). Quét mã 12 số từ tin nhắn Zalo + dán
+// thủ công → fetch jtexpress.vn (server-side render) → lưu/quản lý trạng thái giao
+// hàng. Bảng web2_jt_tracking (web2Db). SSE web2:jt-tracking. Mount root-level
+// /api/web2-jt-tracking → KHÔNG bị shadow bởi catch-all /api/web2.
+const web2JtTrackingRoutes = require('./routes/web2-jt-tracking');
+web2JtTrackingRoutes.initializeNotifiers(web2RealtimeSseRoutes.notifyClients);
+web2JtTrackingRoutes
+    .ensureSchema(web2Pool || chatDbPool)
+    .catch((e) => console.warn('[web2-jt-tracking] schema warn:', e.message));
+app.use('/api/web2-jt-tracking', web2JtTrackingRoutes);
+
 // 2026-06-07: config Web 2.0 (deliveryzone, printer) tách khỏi kho generic
 // web2_records → bảng RIÊNG (web2_delivery_zones, web2_printers). Mount TRƯỚC
 // catch-all để chiếm slug. Shape/path giữ nguyên → consumer không đổi. Auto
