@@ -779,8 +779,11 @@
     load();
     loadPosts();
     wireSse();
-    // BỎ poller comment 60s (user 2026-06-14): realtime push qua SSE delta + append.
-    // Giữ loadPosts 90s (danh sách bài live không có SSE riêng).
+    // SERVER-DIRECT, KHÔNG POLL comment (user 2026-06-14/15): comment livestream về
+    // qua relay web2-realtime Pancake WS join per-page `pages:{pageId}` (né "Gói cước
+    // hết hạn" của multiple_pages) → /ingest → DB → SSE `web2:live-comments` → delta.
+    // Trang phải được BẬT ở pancake-settings → "Server realtime (WS) — chọn trang".
+    // Giữ loadPosts 90s (chỉ refresh DANH SÁCH bài live, KHÔNG phải comment — không có SSE riêng).
     setInterval(loadPosts, 90000);
     document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible') {

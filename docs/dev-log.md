@@ -16,7 +16,9 @@
 - **UI**: card "Server realtime (WS) — chọn trang nhận comment" ở [web2/pancake-settings/](web2/pancake-settings/index.html) — checkbox per trang (mặc định bật hết, trang hết gói cước hiện tag), Lưu & kết nối lại → `/connect`.
 - Diagnostic: [scripts/pancake-ws-probe.js](scripts/pancake-ws-probe.js) (one-shot, đọc JWT từ serect, KHÔNG commit secret).
 
-**Status:** 🔄 `node -c` toàn bộ PASS. **Cần deploy**: web2-realtime (chạm `live-chat/server/**`) + web2-api (`render.com/**`) + worker (`cloudflare-worker/**`). Verify sau deploy: relay `/api/status` per-page joined + `eventsReceived` tăng + comment về 2 trang. SAU verify → gỡ client `/poll-now` warm-up + note server-direct. TODO sau: dọn TPOS còn sót Web 2.0.
+**Status:** ✅ **VERIFIED LIVE**. Relay reconnect (account `c42ef91d`, 2 page per-page join) — **0 joinError** (hết "Gói cước hết hạn"), `eventsReceived` 21→36/40s (trước kẹt 2/giờ), comment mới `03:57:27` vào DB (vượt mốc kẹt 03:25:07) → WS→ingest→DB→SSE sống lại. Worker deploy ✅. ⚠ Workflow "Deploy" (Firebase vite) lỗi **pre-existing** (web2-motion top-level await — 5 push trước cũng lỗi, KHÔNG do commit này; site chạy GH Pages raw file).
+
+**Gỡ poll (2026-06-15):** đã gỡ client `POST /poll-now` warm-up ở [live-init.js](live-chat/js/live/live-init.js) + note server-direct cả 2 trang ([live-init.js](live-chat/js/live/live-init.js) + [comments-mobile.js](live-chat/js/live/comments-mobile.js)). ⚠ Hệ quả: trang campaign phải BẬT ở pancake-settings (card "Server realtime (WS) — chọn trang") mới có comment realtime (mặc định bật hết). TODO sau: dọn TPOS còn sót Web 2.0.
 
 ### [web2][jt-tracking][render] Trang mới: Tra cứu vận đơn J&T (Báo cáo) ✅
 

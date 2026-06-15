@@ -631,12 +631,10 @@ const LiveColumnManager = {
             );
             if (gen !== this._loadGen) return; // load mới hơn đã start → bỏ
 
-            // Resolve danh sách {pageId, postId} cho mọi campaign × mọi post.
-            const postPairs = []; // [{ pageId, postId }]
+            // Resolve postId cho mọi campaign × mọi post (để đọc DB phía dưới).
             const postIdSet = new Set();
             for (const campaign of campaigns) {
-                const pageId = campaign.Facebook_UserId;
-                const pageLiveVideos = pageLiveVideosMap.get(pageId) || [];
+                const pageLiveVideos = pageLiveVideosMap.get(campaign.Facebook_UserId) || [];
                 let livePosts = _resolveCampaignLivePosts(
                     campaign,
                     state.liveCampaigns,
@@ -647,34 +645,18 @@ const LiveColumnManager = {
                     livePosts = [{ objectId: campaign.Facebook_LiveId }];
                 }
                 for (const lp of livePosts) {
-                    const postId = lp.objectId;
-                    if (!postId || postIdSet.has(postId)) continue;
-                    postIdSet.add(postId);
-                    postPairs.push({ pageId, postId });
+                    if (lp.objectId) postIdSet.add(lp.objectId);
                 }
             }
 
-            // Warm-up one-shot: server fetch per-message NGAY cho các post đang
-            // chọn → DB fresh TRƯỚC khi đọc (backfill phần WS relay có thể miss
-            // lúc deploy/restart). Fetch theo sự kiện user mở campaign — KHÔNG
-            // phải polling (vòng poll nền server đã tắt 2026-06-11).
-            // Best-effort: lỗi/timeout không chặn việc đọc DB phía dưới.
-            if (postPairs.length) {
-                try {
-                    await fetch(`${state.workerUrl}/api/web2-live-comments/poll-now`, {
-                        method: 'POST',
-                        // ENFORCE-PREP (2026-06-12)
-                        headers: LiveColumnManager._w2AuthHeaders({
-                            'Content-Type': 'application/json',
-                        }),
-                        body: JSON.stringify({ posts: postPairs }),
-                        signal: AbortSignal.timeout(15000),
-                    });
-                } catch (e) {
-                    console.warn('[Live-INIT] poll-now fail:', e.message);
-                }
-                if (gen !== this._loadGen) return; // load mới hơn đã start → bỏ
-            }
+            // SERVER-DIRECT, KHÔNG POLL (2026-06-15 — user yêu cầu):
+            // Comment livestream về 100% qua relay web2-realtime → Pancake WS join
+            // per-page `pages:{pageId}` (né lỗi "Gói cước hết hạn" của multiple_pages)
+            // → /ingest → DB → SSE `web2:live-comments` → trang nhận delta + append.
+            // ĐÃ GỠ warm-up `POST /poll-now` lúc mở campaign — không còn poll dưới mọi
+            // hình thức. ĐIỀU KIỆN: trang của campaign phải được BẬT ở pancake-settings
+            // → "Server realtime (WS) — chọn trang nhận comment" (mặc định bật hết).
+            // Trang chưa bật ở relay sẽ không có comment realtime (bật thêm = tick + Lưu).
 
             // Đọc comment per-message từ DB (web2_live_comments) — NGUỒN DUY NHẤT.
             // 1 row = 1 comment (cùng người comment nhiều lần = nhiều dòng).
