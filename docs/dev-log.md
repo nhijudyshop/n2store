@@ -2,6 +2,14 @@
 
 ## 2026-06-15
 
+### [web2] J&T nút tag "XỬ LÝ BC" — icon đổi ngay (lucide) + LƯU DB đồng bộ đa máy ✅
+
+User: (1) "bấm ra hình 3 phải refresh mới ra hình 4" — bấm tag hiện icon `tag` xanh, phải refresh mới thành `badge-check`. (2) "các nút tag pancake này chưa được lưu ở db".
+
+- **Icon không đổi**: `setTagButtons` dùng `querySelector('i')` nhưng lucide đã thay `<i>` bằng `<svg>` (→ null) nên `setAttribute('data-lucide')` vô tác dụng → chỉ class `is-tagged` đổi màu, icon giữ `tag`. Fix [jt-tracking-app.js](web2/jt-tracking/js/jt-tracking-app.js): thay HẲN `b.innerHTML='<i data-lucide=…>'` rồi `icons()` → vẽ lại đúng `badge-check`/`tag` ngay (browser-test: `querySelector('i')===null` xác nhận bug; sau fix svg = `lucide-badge-check`).
+- **Chưa lưu DB**: trạng thái tag chỉ ở localStorage (device-local). Thêm bảng `web2_jt_bc_tags(phone PK, tagged_at, updated_at)` + `GET /bc-tags` (list SĐT đã gắn) + `POST /bc-tag {phone,tagged}` (upsert/delete + SSE `bc-tag`). Pancake vẫn là nơi áp thẻ thật; DB chỉ mirror để hiện nút nhanh + sync. Client: `markTagged/unmarkTagged` persist khi đổi, `loadBcTags()` nạp từ DB trong `load()` (song song `/list`), SSE `web2:jt-tracking` → reload → đa máy thấy ngay.
+- Bump `jt-tracking-app.js?v=20260615bf3`. Backend cần deploy web2-api.
+
 ### [web2][live-chat][native-orders] Trạng thái/thông tin KH = 1 NGUỒN CHUNG web2_customers + SSE đồng bộ ✅
 
 User: (1) "Đã tạo đơn" đè trạng thái KH (mobile); (2) live-chat desktop + panel KH đổi trạng thái không lưu; (3) tất cả trạng thái/thông tin KH dùng chung 1 nguồn `web2/customers` (web2_customers), đổi 1 chỗ → SSE → nơi khác tự cập nhật; (4) native-orders cũng tham chiếu kho chung; (5) bỏ nút "Lấy WEB2" (lấy nhầm fb qua SĐT — thừa vì có SSE).

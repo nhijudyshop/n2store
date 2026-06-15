@@ -186,15 +186,34 @@
             localStorage.setItem(TAGGED_KEY, JSON.stringify([..._taggedPhones]));
         } catch {}
     }
-    function markTagged(phone) {
+    // persist=true (mặc định) → ghi DB để đồng bộ đa máy; false khi đang nạp TỪ DB (tránh vòng).
+    function _persistTag(phone, tagged) {
+        api('/bc-tag', { method: 'POST', body: { phone, tagged } }).catch(() => {});
+    }
+    function markTagged(phone, persist) {
         if (!phone) return;
+        const changed = !_taggedPhones.has(phone);
         _taggedPhones.add(phone);
         _saveTagged();
+        if (changed && persist !== false) _persistTag(phone, true);
     }
-    function unmarkTagged(phone) {
+    function unmarkTagged(phone, persist) {
         if (!phone) return;
-        _taggedPhones.delete(phone);
+        const changed = _taggedPhones.delete(phone);
         _saveTagged();
+        if (changed && persist !== false) _persistTag(phone, false);
+    }
+    // Nạp tập SĐT đã gắn thẻ TỪ DB (nguồn đồng bộ đa máy) → cập nhật _taggedPhones + cache.
+    async function loadBcTags() {
+        try {
+            const j = await api('/bc-tags');
+            const set = new Set(j.phones || []);
+            _taggedPhones.clear();
+            set.forEach((p) => _taggedPhones.add(p));
+            _saveTagged();
+        } catch (e) {
+            /* offline → giữ cache localStorage */
+        }
     }
     // Cập nhật mọi nút tag cùng SĐT → trạng thái đã-gắn / chưa-gắn.
     function setTagButtons(phone, tagged) {
@@ -384,7 +403,8 @@
             const q = new URLSearchParams();
             if (state.status !== 'all') q.set('status', state.status);
             if (state.search) q.set('search', state.search);
-            const j = await api('/list?' + q.toString());
+            // /list + tập SĐT đã gắn thẻ (DB) song song → render đúng nút đã-gắn đa máy.
+            const [j] = await Promise.all([api('/list?' + q.toString()), loadBcTags()]);
             state.list = j.data || [];
             state.kpi = j.kpi || {};
             renderKpi();

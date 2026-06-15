@@ -86,6 +86,13 @@ async function ensureSchema(pool) {
             CREATE INDEX IF NOT EXISTS idx_web2_jt_latest   ON web2_jt_tracking(latest_at DESC NULLS LAST);
             CREATE INDEX IF NOT EXISTS idx_web2_jt_updated  ON web2_jt_tracking(updated_at DESC);
             CREATE INDEX IF NOT EXISTS idx_web2_jt_approved ON web2_jt_tracking(approved_at) WHERE approved_at IS NOT NULL;
+            -- Thẻ "XỬ LÝ BC" theo SĐT KH (đồng bộ đa máy, thay localStorage device-local).
+            -- Pancake vẫn là nơi áp thẻ thật; bảng này mirror để hiện nút đã-gắn nhanh + sync.
+            CREATE TABLE IF NOT EXISTS web2_jt_bc_tags (
+                phone       TEXT PRIMARY KEY,
+                tagged_at   BIGINT NOT NULL,
+                updated_at  BIGINT NOT NULL
+            );
         `);
         console.log('[web2-jt-tracking] schema ready (web2Db)');
     } catch (e) {
@@ -639,6 +646,42 @@ router.post('/scan-text', async (req, res) => {
             }
         }
         res.json({ success: true, found: found.size, added, messagesAdded });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+// GET /bc-tags — danh sách SĐT đã gắn thẻ "XỬ LÝ BC" (mirror DB → hiện nút đã-gắn đa máy).
+router.get('/bc-tags', async (req, res) => {
+    try {
+        const db = getDb(req);
+        const { rows } = await db.query(`SELECT phone FROM web2_jt_bc_tags`);
+        res.json({ success: true, phones: rows.map((r) => r.phone) });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+// POST /bc-tag {phone, tagged} — lưu/gỡ thẻ "XỬ LÝ BC" theo SĐT vào DB (đồng bộ đa máy).
+// Pancake vẫn là nơi áp thẻ thật (client gọi toggleTag); endpoint này CHỈ mirror trạng thái.
+router.post('/bc-tag', async (req, res) => {
+    try {
+        const db = getDb(req);
+        const phone = String((req.body && req.body.phone) || '').trim();
+        if (!phone) return res.status(400).json({ success: false, error: 'Thiếu phone' });
+        const tagged = !(req.body && (req.body.tagged === false || req.body.tagged === 'false'));
+        const ts = now();
+        if (tagged) {
+            await db.query(
+                `INSERT INTO web2_jt_bc_tags (phone, tagged_at, updated_at) VALUES ($1,$2,$2)
+                 ON CONFLICT (phone) DO UPDATE SET updated_at=$2`,
+                [phone, ts]
+            );
+        } else {
+            await db.query(`DELETE FROM web2_jt_bc_tags WHERE phone=$1`, [phone]);
+        }
+        _notify(tagged ? 'bc-tag' : 'bc-untag', phone); // SSE → máy khác refresh nút
+        res.json({ success: true, phone, tagged });
     } catch (e) {
         res.status(500).json({ success: false, error: e.message });
     }
