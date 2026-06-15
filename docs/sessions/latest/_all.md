@@ -3,15 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `7bfa78b` — feat(live-chat): reconcile nền full text cho snippet Pancake bị cắt
-**Last updated**: 2026-06-15 15:11:12 +07
-**Latest session**: [`RESUME:20260615-151112-7bfa78b`](../20260615-151112-7bfa78b.md)
-**Summary**: feat(live-chat): reconcile nền full text cho snippet Pancake bị cắt
+**Latest commit**: `8b03ba9` — docs(dev-log): bỏ thumbnail mobile
+**Last updated**: 2026-06-15 15:19:43 +07
+**Latest session**: [`RESUME:20260615-151943-8b03ba9`](../20260615-151943-8b03ba9.md)
+**Summary**: docs(dev-log): bỏ thumbnail mobile
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 2 file(s)
+- [`live-chat/`](./live-chat.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -26,7 +26,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-15 10:55
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-14 18:47
-- [`docs/`](./docs.md) — updated 2026-06-15 15:11
+- [`docs/`](./docs.md) — updated 2026-06-15 15:19
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-13 14:55
 - [`downloads/`](./downloads.md) — updated 2026-06-13 19:16
@@ -39,7 +39,7 @@
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-06-13 14:55
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-12 19:21
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
-- [`live-chat/`](./live-chat.md) — updated 2026-06-15 14:55
+- [`live-chat/`](./live-chat.md) — updated 2026-06-15 15:19
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-06-04 20:02
 - [`n2store-facebook/`](./n2store-facebook.md) — updated 2026-06-14 13:09
 - [`n2store-realtime/`](./n2store-realtime.md) — updated 2026-06-14 12:30
