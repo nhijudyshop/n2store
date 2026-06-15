@@ -115,6 +115,40 @@ const LiveCommentList = {
         }
         const n = this._totalAfterHidden ?? (window.LiveState.comments || []).length;
         el.innerHTML = `💬 ${n.toLocaleString('vi-VN')}`;
+
+        // Badge "🛒 N đơn" — số đơn web đã tạo trong (các) livestream đang chọn.
+        let oel = document.getElementById('liveOrderTotal');
+        if (!oel) {
+            oel = document.createElement('span');
+            oel.id = 'liveOrderTotal';
+            oel.title = 'Số đơn web đã tạo trong (các) livestream đang chọn';
+            oel.style.cssText =
+                'display:inline-flex;align-items:center;gap:4px;padding:4px 10px;background:#ecfdf5;border:1px solid #a7f3d0;border-radius:14px;font-size:12px;font-weight:700;color:#15803d;white-space:nowrap;flex-shrink:0;';
+            // Chèn ngay SAU badge comment.
+            if (el.nextSibling) slot.insertBefore(oel, el.nextSibling);
+            else slot.appendChild(oel);
+        }
+        oel.innerHTML = `🛒 ${this._orderCount().toLocaleString('vi-VN')} đơn`;
+    },
+
+    /**
+     * Số ĐƠN web (native-orders) đã tạo trong (các) livestream đang chọn = số mã đơn
+     * NATIVE_WEB DUY NHẤT của các comment đang hiển thị (state.comments). 1 khách =
+     * 1 đơn (sessionIndexMap theo fromId), đếm distinct code để không trùng.
+     * @returns {number}
+     */
+    _orderCount() {
+        const state = window.LiveState;
+        const map = state.sessionIndexMap;
+        if (!map || !map.size) return 0;
+        const orders = new Set();
+        for (const c of state.comments || []) {
+            const fromId = c.from?.id;
+            if (!fromId) continue;
+            const raw = map.get(fromId);
+            if (raw && raw.source === 'NATIVE_WEB' && raw.code) orders.add(raw.code);
+        }
+        return orders.size;
     },
 
     /**

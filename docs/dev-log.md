@@ -2,6 +2,10 @@
 
 ## 2026-06-15
 
+### [live-chat][desktop] Topbar hiện SỐ ĐƠN trong livestream đang chọn ✅
+
+User: "số đơn trong bài livestream đó lên topbar". Thêm badge **🛒 N đơn** cạnh **💬 N** ở `#liveTopbarActions` ([live-comment-list.js](live-chat/js/live/live-comment-list.js) `_updateTotalBadge`+`_orderCount`). Đếm distinct mã đơn NATIVE_WEB (`sessionIndexMap`) của comment đang hiển thị (state.comments của campaign đang chọn). Cập nhật mỗi render (tạo đơn → enrich → re-render → badge tăng). (`?v=20260615orders`)
+
 ### [live-chat][mobile] Chip Store/House hiện SỐ ĐƠN đã tạo + nút Toàn màn hình (F11) ✅
 
 User (trang comments-mobile): (1) hiện tổng đơn đã tạo của Store/House, (2) nút toàn màn hình như F11.
