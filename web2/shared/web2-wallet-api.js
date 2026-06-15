@@ -1,15 +1,19 @@
-// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 module — client cho /api/web2/wallets.
+// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 shared — client ví KH /api/web2/wallets (NGUỒN CHUNG).
 // =====================================================================
-// Web2WalletApi — thin client cho Web 2.0 wallet endpoints
+// Web2WalletApi — client ví KHÁCH HÀNG Web 2.0 (full read + mutation).
+// SHARED (P3 2026-06-15): chuyển từ web2/customer-wallet/js/ sang web2/shared/
+// để mọi trang tham chiếu CHUNG (đọc full ví, nạp/trừ) thay vì reimplement.
+// Pill số dư nhẹ (Web2WalletBalance) là surface hiển thị; client này là full.
 // =====================================================================
-// Endpoints (Render API):
+// Endpoints (Render API qua CF worker, fallback DIRECT_BASE):
 //   GET    /api/web2/wallets                    — list all
-//   GET    /api/web2/wallets/by-phone/:phone    — single wallet
+//   GET    /api/web2/wallets/by-phone/:phone    — single wallet (full)
+//   POST   /api/web2/wallets/batch-full         — batch full theo SĐT
 //   GET    /api/web2/wallets/:phone/transactions — txn history
-//   POST   /api/web2/wallets/:phone/withdraw    — trừ ví
-//   POST   /api/web2/wallets/:phone/deposit     — admin nạp tay
+//   POST   /api/web2/wallets/:phone/withdraw    — trừ ví  (auth x-web2-token)
+//   POST   /api/web2/wallets/:phone/deposit     — nạp tay (auth x-web2-token)
 //
-// KHÔNG cần auth — Render API mở rộng cho proxy CF.
+// ⚠ MONEY OP: deposit/withdraw giữ await + throw-on-error (caller toast/rollback).
 // =====================================================================
 
 (function (global) {

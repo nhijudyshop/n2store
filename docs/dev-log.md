@@ -2,6 +2,12 @@
 
 ## 2026-06-15
 
+### [web2][shared][P3] Ví KH — promote Web2WalletApi sang shared; Ví NCC giữ nguyên (money) ✅
+
+**Ví khách**: `Web2WalletApi` (full client: getWallet/getWalletsByPhones/getTransactions/deposit/withdraw, auth x-web2-token, DIRECT_BASE fallback) đang nằm page-local `customer-wallet/js/`. `git mv` → [`web2/shared/web2-wallet-api.js`](web2/shared/web2-wallet-api.js) = NGUỒN CHUNG để mọi trang tham chiếu (đọc full ví / nạp-trừ) thay vì reimplement. Update include customer-wallet → `../shared/`. Pill nhẹ [`Web2WalletBalance`](web2/shared/web2-wallet-balance.js)`._fetchBalance` reuse `Web2WalletApi.getWallet` khi có (1 nguồn đọc `/by-phone`); vẫn độc lập (self-fetch) trên trang không load client → embed rộng được. Sửa note header "KHÔNG cần auth" (stale — mutation cần token). Bump `?v=20260615store`.
+
+**Ví NCC**: ledger ở [`supplier-wallet-storage.js`](web2/supplier-wallet/js/supplier-wallet-storage.js) (`addTransaction` server-first await + idempotency `tx_id`, `Sync.init` /state, `applyDeposits` SePay) — **money-op nhạy cảm, đã centralized cho trang ví NCC**. supplier-debt đọc `/state` chỉ để hiển thị (read) + có /suppliers write riêng. Trích tách transport sẽ rủi ro vỡ idempotency/rollback → **giữ nguyên** (đúng nguyên tắc money-op await+rollback). Frontend-only.
+
 ### [web2][shared][P2] Kho NCC — adopt directory chung Web2SuppliersCache ✅
 
 Audit kho NCC: **đã shared khá tốt** qua [`Web2SuppliersCache`](web2/shared/web2-suppliers-cache.js) (`/api/web2-supplier-wallet/suppliers` = web2_supplier_meta master). 3 "fetch `/state` trùng" mà audit nêu thực ra là **divergence hợp lệ** — supplier-debt/supplier-wallet cần `/state` cho ledger (số dư), normalize khác nhau vì khác mục đích (lookup-key bỏ dấu vs SePay-content word-match alnum+space vs deeplink NFC giữ dấu). Gom cứng sẽ vỡ matching/mất balance label → KHÔNG ép.

@@ -44,6 +44,12 @@
     }
 
     async function _fetchBalance(phone) {
+        // P3 (2026-06-15): nếu client ví đầy đủ (Web2WalletApi) có mặt → reuse
+        // (1 nguồn đọc /by-phone). Pill vẫn độc lập khi trang không load client đó.
+        if (global.Web2WalletApi && global.Web2WalletApi.getWallet) {
+            const w = await global.Web2WalletApi.getWallet(phone);
+            return w ? Number(w.balance) || 0 : 0;
+        }
         const tryFetch = async (base) => {
             const r = await fetch(`${base}/by-phone/${encodeURIComponent(phone)}`);
             if (r.status === 404) return 0; // chưa có ví → số dư 0
