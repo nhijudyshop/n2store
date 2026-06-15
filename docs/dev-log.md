@@ -14,7 +14,13 @@ User: "WEB 2.0: tất cả nguồn dữ liệu… đồng nhất về 1 nguồn 
 
 ⚠ **TPOS_GENERIC GIỮ NGUYÊN** (user hỏi "xóa đi"): đây là catch-all của worker `chatomni-proxy` (proxy **chung cả 2 layer**) → tomato.tpos.vn — **Web 1.0 (orders-report/inbox) vẫn dùng TPOS thật** (OData, /api/Product, /api/SaleOnline_Order…). Xóa = vỡ Web 1.0. Đúng hướng: ĐÃ match hết path Web 2.0 trước catch-all, KHÔNG xóa catch-all.
 
-Verify: node --check 38 file pass; browser smoke (overview→products→ck-dashboard) 0 console error.
+**4. Server URL trỏ đúng project Render `web2.0n2store`** (user hỏi "url server web 2.0 đã nằm đúng render web2.0 chưa?"): audit mọi host `onrender.com` trong Web 2.0 frontend → `web2-api-kv04` (×24) + `web2-realtime` (×4) ĐÚNG project; phát hiện 2 ref SAI trỏ project Web 1.0:
+
+- [web2-realtime.js](web2/shared/web2-realtime.js) PROXY_WS_URL/PROXY_HTTP_URL = `n2store-realtime.onrender.com` (Web1 inbox) → SAI: relay Pancake Web 2.0 = service `web2-realtime` (xác nhận `live-chat/server/render.yaml` name=web2-realtime + pancake-state.js). Fix: đọc `window.WEB2_CONFIG.REALTIME` → `web2-realtime.onrender.com` (bump native-orders `?v=20260615rt`).
+- [pbh-realtime.js](web2/shared/pbh-realtime.js) `wss://n2store-fallback.onrender.com` → dead code (deprecated 3W4, 0 script tag thật load, `PbhRealtime.subscribe` không nơi nào gọi, đã thay bằng Web2SSE) → **XÓA file**.
+- Còn 1 comment lịch sử (live-realtime.js "WS … đã tắt") — không phải URL active, giữ. Worker `FALLBACK_ORIGIN=n2store-fallback` ĐÚNG (path Web 1.0 trên worker chung).
+
+Verify: node --check 39 file pass; browser smoke (overview→products→ck-dashboard) 0 console error.
 
 ### [web2] Xóa sạch chữ "TPOS" trong comment/doc Web 2.0 (reword giữ nghĩa) ✅
 

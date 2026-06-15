@@ -15,8 +15,8 @@
 //      `pages:new_message` events).
 //
 //   2) PROXY FALLBACK:
-//      `wss://n2store-realtime.onrender.com` — a Render broker that
-//      keeps its own server-side WebSocket to Pancake 24/7. Useful when
+//      `wss://web2-realtime.onrender.com` — service Render Web 2.0 (relay,
+//      gộp 2026-06-14) giữ WebSocket server-side tới Pancake 24/7. Useful when
 //      direct browser connections fail (CSP, network filter, etc.) but
 //      events get bottlenecked through a single shared instance, so it
 //      misses traffic for pages the broker isn't subscribed to.
@@ -33,8 +33,10 @@
     if (global.Web2Realtime) return;
 
     const PANCAKE_WS_URL = 'wss://pancake.vn/socket/websocket?vsn=2.0.0';
-    const PROXY_WS_URL = 'wss://n2store-realtime.onrender.com';
-    const PROXY_HTTP_URL = 'https://n2store-realtime.onrender.com'; // direct broker (CORS open)
+    // Relay broker = service Render Web 2.0 'web2-realtime' (1 nguồn: WEB2_CONFIG.REALTIME).
+    const PROXY_HTTP_URL =
+        (window.WEB2_CONFIG && window.WEB2_CONFIG.REALTIME) || 'https://web2-realtime.onrender.com';
+    const PROXY_WS_URL = PROXY_HTTP_URL.replace(/^http/, 'ws'); // wss://web2-realtime.onrender.com
     const WORKER_BASE =
         (window.API_CONFIG && window.API_CONFIG.WORKER_URL) ||
         'https://chatomni-proxy.nhijudyshop.workers.dev';
