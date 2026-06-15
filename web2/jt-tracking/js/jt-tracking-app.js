@@ -180,12 +180,65 @@
         }
     }
     const _taggedPhones = loadTagged();
-    function markTagged(phone) {
-        if (!phone) return;
-        _taggedPhones.add(phone);
+    let _jtGroupConvId = null; // conv id nhóm J&T (suy từ row có sẵn) → nút chat cho mọi row
+    function _saveTagged() {
         try {
             localStorage.setItem(TAGGED_KEY, JSON.stringify([..._taggedPhones]));
         } catch {}
+    }
+    function markTagged(phone) {
+        if (!phone) return;
+        _taggedPhones.add(phone);
+        _saveTagged();
+    }
+    function unmarkTagged(phone) {
+        if (!phone) return;
+        _taggedPhones.delete(phone);
+        _saveTagged();
+    }
+    // Cập nhật mọi nút tag cùng SĐT → trạng thái đã-gắn / chưa-gắn.
+    function setTagButtons(phone, tagged) {
+        document
+            .querySelectorAll(`[data-act="tag"][data-phone="${CSS.escape(phone)}"]`)
+            .forEach((b) => {
+                b.classList.toggle('is-tagged', tagged);
+                b.title = tagged
+                    ? 'Khách đã gắn thẻ XỬ LÝ BC (bấm để GỠ)'
+                    : 'Gắn thẻ Pancake: XỬ LÝ BC';
+                const ic = b.querySelector('i');
+                if (ic) ic.setAttribute('data-lucide', tagged ? 'badge-check' : 'tag');
+            });
+        icons();
+    }
+    // Custom confirm (thay window.confirm) → Promise<bool>.
+    function jtConfirm(message, okLabel, kind) {
+        return new Promise((resolve) => {
+            const mount = $('jtModalMount');
+            mount.innerHTML = `<div class="jt-msg-back" id="jtCfBack">
+                <div class="jt-msg-modal" style="width:min(380px,100%)" role="dialog" aria-modal="true">
+                    <div class="jt-msg-head"><span><i data-lucide="alert-triangle"></i> Xác nhận</span></div>
+                    <div class="jt-msg-who" style="white-space:pre-line;line-height:1.5">${esc(message)}</div>
+                    <div class="jt-msg-foot">
+                        <button class="jt-btn jt-btn-ghost" id="jtCfNo" type="button">Hủy</button>
+                        <button class="jt-btn ${kind === 'danger' ? 'jt-btn-danger' : 'jt-btn-primary'}" id="jtCfYes" type="button">${esc(okLabel || 'OK')}</button>
+                    </div>
+                </div></div>`;
+            icons();
+            requestAnimationFrame(() => $('jtCfBack')?.classList.add('show'));
+            const done = (v) => {
+                const b = $('jtCfBack');
+                if (b) {
+                    b.classList.remove('show');
+                    setTimeout(() => (mount.innerHTML = ''), 180);
+                }
+                resolve(v);
+            };
+            $('jtCfYes').onclick = () => done(true);
+            $('jtCfNo').onclick = () => done(false);
+            $('jtCfBack').onclick = (e) => {
+                if (e.target.id === 'jtCfBack') done(false);
+            };
+        });
     }
 
     // Tách SĐT + tên khách từ dòng đơn ("<mã>\tShop NHI JUDY 01\t<tiền>\t<tên>\t<sđt>\t<note>").
@@ -266,13 +319,16 @@
         const when = r.latest_at_text
             ? `${esc(r.latest_at_text)} · ${esc(relTime(r.latest_at))}`
             : 'Chưa tra cứu';
-        const chatBtn = r.zalo_conv_id
-            ? `<button class="jt-icobtn chat" data-act="chat" data-conv="${esc(r.zalo_conv_id)}" data-billcode="${code}" title="Mở chat nhóm Zalo + tìm tới tin có mã"><i data-lucide="message-circle"></i></button>`
+        // nút mở chat nhóm J&T: dùng conv của row, hoặc fallback conv nhóm J&T (suy từ row khác)
+        // → mã dán tay (không có zalo_conv_id) vẫn mở được nhóm + nhảy tới tin có mã.
+        const convForChat = r.zalo_conv_id || _jtGroupConvId;
+        const chatBtn = convForChat
+            ? `<button class="jt-icobtn chat" data-act="chat" data-conv="${esc(convForChat)}" data-billcode="${code}" title="Mở chat nhóm Zalo + tìm tới tin có mã"><i data-lucide="message-circle"></i></button>`
             : '';
         const info = parseOrderInfo(r.src_message);
         const tagged = info.phone && _taggedPhones.has(info.phone);
         const tagBtn = info.phone
-            ? `<button class="jt-icobtn tag ${tagged ? 'is-tagged' : ''}" data-act="tag" data-phone="${esc(info.phone)}" title="${tagged ? 'Khách đã gắn thẻ XỬ LÝ BC (bấm gắn lại)' : 'Gắn thẻ Pancake: XỬ LÝ BC'}"><i data-lucide="${tagged ? 'badge-check' : 'tag'}"></i></button>`
+            ? `<button class="jt-icobtn tag ${tagged ? 'is-tagged' : ''}" data-act="tag" data-phone="${esc(info.phone)}" title="${tagged ? 'Khách đã gắn thẻ XỬ LÝ BC (bấm để GỠ)' : 'Gắn thẻ Pancake: XỬ LÝ BC'}"><i data-lucide="${tagged ? 'badge-check' : 'tag'}"></i></button>`
             : '';
         const right = `${chatBtn}${tagBtn}<button class="jt-icobtn" data-act="refresh" data-code="${code}" title="Làm mới"><i data-lucide="refresh-cw"></i></button>
             ${
@@ -303,6 +359,8 @@
     function renderList() {
         const box = $('jtList');
         const items = state.list;
+        // suy conv nhóm J&T từ row có sẵn → nút chat hiện cho cả mã dán tay (thiếu zalo_conv_id)
+        _jtGroupConvId = (items.find((r) => r.zalo_conv_id) || {}).zalo_conv_id || _jtGroupConvId;
         $('jtCount').textContent = items.length ? `${items.length} vận đơn` : '';
         if (!items.length) {
             destroyLottie('jtEmptyLot');
@@ -449,9 +507,11 @@
             const msgs = body ? body.querySelectorAll('.wz-msg') : [];
             const target = [...msgs].reverse().find((m) => (m.textContent || '').includes(code));
             if (target) {
+                body.querySelectorAll('.jt-msg-hit').forEach((el) =>
+                    el.classList.remove('jt-msg-hit')
+                );
                 target.scrollIntoView({ block: 'center', behavior: 'smooth' });
-                target.classList.add('jt-msg-hit');
-                setTimeout(() => target.classList.remove('jt-msg-hit'), 2600);
+                target.classList.add('jt-msg-hit'); // giữ highlight (không tự tắt) tới khi mở mã khác
                 clearInterval(timer);
                 return;
             }
@@ -776,6 +836,7 @@
                     customerId: cust.id || null,
                     name: cust.name || cust.full_name || c.name || '',
                     isInbox: (c.type || '').toUpperCase() === 'INBOX',
+                    tags: Array.isArray(c.tags) ? c.tags : [], // thẻ HIỆN TẠI của hội thoại (2 chiều)
                 };
                 if (!best || (cand.isInbox && !best.isInbox)) best = cand;
             }
@@ -790,7 +851,8 @@
         else notify('Khung chat chưa sẵn sàng', 'warning');
     }
 
-    // Gắn thẻ Pancake "XỬ LÝ BC" cho hội thoại của khách (theo SĐT).
+    // Gắn / GỠ thẻ Pancake "XỬ LÝ BC" — TOGGLE theo trạng thái THẬT trên Pancake (2 chiều):
+    // đã có thẻ → hỏi (custom confirm) rồi gỡ; chưa có → gắn. Đồng bộ nút + localStorage.
     async function tagPancake(phone, btn) {
         if (!phone) return;
         const TAG_NAME = 'xử lý bc';
@@ -823,26 +885,42 @@
                 notify('Page chưa có thẻ "XỬ LÝ BC"', 'warning');
                 return;
             }
-            const r = await window.Web2Chat.toggleTag(
-                conv.pageId,
-                conv.convId,
-                tag.id ?? tag.tag_id,
-                'add'
-            );
-            if (r.ok) {
-                notify('Đã gắn thẻ "XỬ LÝ BC" cho khách', 'success');
-                markTagged(phone);
-                // đổi nút sang trạng thái ĐÃ GẮN (xanh + badge-check) cho mọi row cùng SĐT
-                document
-                    .querySelectorAll(`[data-act="tag"][data-phone="${CSS.escape(phone)}"]`)
-                    .forEach((b) => {
-                        b.classList.add('is-tagged');
-                        b.title = 'Khách đã gắn thẻ XỬ LÝ BC (bấm gắn lại)';
-                        const ic = b.querySelector('i');
-                        if (ic) ic.setAttribute('data-lucide', 'badge-check');
-                    });
-                icons();
-            } else notify('Gắn thẻ lỗi: ' + (r.reason || ''), 'error');
+            const tagId = tag.id ?? tag.tag_id;
+            // Trạng thái THẬT trên Pancake: hội thoại có sẵn thẻ này chưa?
+            const has = Array.isArray(conv.tags)
+                ? conv.tags.some((t) => String(t?.id ?? t?.tag_id ?? t) === String(tagId))
+                : _taggedPhones.has(phone);
+            // đồng bộ hiển thị về đúng trạng thái thật trước khi thao tác
+            if (has) markTagged(phone);
+            else unmarkTagged(phone);
+            setTagButtons(phone, has);
+
+            if (has) {
+                const ok = await jtConfirm(
+                    'Khách đã có thẻ "XỬ LÝ BC" trên Pancake.\nGỡ thẻ này?',
+                    'Gỡ thẻ',
+                    'danger'
+                );
+                if (!ok) return;
+                const r = await window.Web2Chat.toggleTag(
+                    conv.pageId,
+                    conv.convId,
+                    tagId,
+                    'remove'
+                );
+                if (r.ok) {
+                    notify('Đã gỡ thẻ "XỬ LÝ BC"', 'success');
+                    unmarkTagged(phone);
+                    setTagButtons(phone, false);
+                } else notify('Gỡ thẻ lỗi: ' + (r.reason || ''), 'error');
+            } else {
+                const r = await window.Web2Chat.toggleTag(conv.pageId, conv.convId, tagId, 'add');
+                if (r.ok) {
+                    notify('Đã gắn thẻ "XỬ LÝ BC" cho khách', 'success');
+                    markTagged(phone);
+                    setTagButtons(phone, true);
+                } else notify('Gắn thẻ lỗi: ' + (r.reason || ''), 'error');
+            }
         } catch (e) {
             notify('Lỗi: ' + e.message, 'error');
         } finally {

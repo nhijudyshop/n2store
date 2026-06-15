@@ -2,6 +2,15 @@
 
 ## 2026-06-15
 
+### [web2] J&T — tag 2-chiều/toggle + nút chat cho mọi row + highlight tin có mã ✅
+
+User: (1) tag "XỬ LÝ BC" không sync 2 chiều + muốn bấm lần nữa GỠ có custom confirm; (2) mã dán tay không hiện nút nhắn nhóm Zalo; (3) mở chat tìm tin có mã → highlight lên.
+
+- **Tag TOGGLE 2-chiều** ([jt-tracking-app.js](web2/jt-tracking/js/jt-tracking-app.js)): `resolvePancakeConv` trả thêm `conv.tags` → `tagPancake` đọc trạng thái THẬT trên Pancake (có thẻ chưa) → đồng bộ nút+localStorage; đã có → **custom confirm `jtConfirm` "Gỡ thẻ?"** → `toggleTag(...,'remove')`; chưa có → 'add'. Helpers `unmarkTagged`/`setTagButtons`. (fallback localStorage nếu search không trả tags.)
+- **Nút chat cho MỌI row**: suy `_jtGroupConvId` từ row có sẵn `zalo_conv_id` (trong renderList) → mã dán tay (thiếu conv) vẫn mở nhóm J&T + nhảy tới tin.
+- **Highlight tin có mã GIỮ lại** (không tự tắt 2.6s): nháy 3 lần thu hút rồi đứng yên (ring xanh + nền), clear highlight cũ khi mở mã khác. CSS `.jt-msg-hit`.
+- Frontend-only; bump css/app `?v=20260615x`.
+
 ### [web2][live-chat] Badge "comment" hiển thị TỔNG comment THẬT từ Pancake (comment_count) ✅
 
 User: "tổng số comment lấy ở Pancake được nè" (Pancake "Quản lý bài viết" có comment_count thật mỗi bài: 53, 1.0K…). Badge live-chat trước đếm số ROW đã load (→ "200+").

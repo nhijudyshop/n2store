@@ -602,20 +602,27 @@ body {
     background: color-mix(in oklab, var(--jt-primary) 12%, transparent);
     text-decoration: underline;
 }
-/* tin nhắn chat trùng mã → nháy sáng khi mở chat */
+/* tin nhắn chat trùng mã → nháy thu hút rồi GIỮ highlight (không tự tắt) */
 .jt-msg-hit {
-    animation: jt-hit 2.6s var(--jt-ease);
-    border-radius: 10px;
+    border-radius: 12px;
+    background: color-mix(in oklab, var(--jt-primary) 14%, transparent) !important;
+    box-shadow:
+        0 0 0 2px var(--jt-primary),
+        0 0 0 7px color-mix(in oklab, var(--jt-primary) 22%, transparent);
+    animation: jt-hit 0.9s var(--jt-ease) 3; /* nháy 3 lần để bắt mắt rồi đứng yên */
+    scroll-margin: 16px;
 }
 @keyframes jt-hit {
     0%,
     100% {
-        background: transparent;
+        box-shadow:
+            0 0 0 2px var(--jt-primary),
+            0 0 0 7px color-mix(in oklab, var(--jt-primary) 18%, transparent);
     }
-    12%,
-    55% {
-        background: color-mix(in oklab, var(--jt-primary) 16%, transparent);
-        box-shadow: 0 0 0 2px color-mix(in oklab, var(--jt-primary) 40%, transparent);
+    50% {
+        box-shadow:
+            0 0 0 3px var(--jt-primary),
+            0 0 0 13px color-mix(in oklab, var(--jt-primary) 38%, transparent);
     }
 }
 .jt-row-msg b {
