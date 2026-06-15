@@ -2,6 +2,10 @@
 
 ## 2026-06-15
 
+### [web2] Chuyển "Studio chụp tách nền" vào group "Đa dụng Web 2.0" ✅
+
+User: chuyển photo-studio vào group đa dụng. [web2-sidebar.js](web2/shared/web2-sidebar.js): bỏ "Studio chụp tách nền" khỏi "Tính năng mới" → thêm vào group "Đa dụng Web 2.0" (giờ có 2 trang: Tăng số lượng comment + Studio chụp tách nền). Bump `web2-sidebar.js?v=20260615db` × 39 trang.
+
 ### [web2] "Đa dụng Web 2.0" thành GROUP sidebar + "Tăng số lượng comment" là trang trong group ✅
 
 User: "Đa dụng Web 2.0 là 1 group ở menu, Tăng số lượng comment là 1 trang trong đó".

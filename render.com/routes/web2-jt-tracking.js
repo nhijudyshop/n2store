@@ -623,17 +623,16 @@ router.post('/refresh', async (req, res) => {
                 )
             ).rows;
         } else {
-            // ưu tiên: pending → chưa fetch lâu → chưa chốt (transit/delivering)
+            // "Làm mới tất cả" CHỈ tra các đơn 'Chưa tra' (pending) — đơn đã có trạng thái
+            // muốn cập nhật lại thì dùng nút làm mới TỪNG DÒNG (user 2026-06-15). Tránh tra
+            // lại hàng loạt đơn đã chốt → khỏi bị jtexpress chặn + khỏi treo vòng lặp.
             rows = (
                 await db.query(
                     `SELECT billcode, cellphone FROM web2_jt_tracking
-                      WHERE approved_at IS NULL
-                        AND (status IN ('pending','transit','delivering','not_found')
-                             OR last_fetched_at IS NULL
-                             OR last_fetched_at < $1)
-                      ORDER BY (status='pending') DESC, last_fetched_at ASC NULLS FIRST
-                      LIMIT $2`,
-                    [now() - STALE_MS, limit]
+                      WHERE approved_at IS NULL AND status='pending'
+                      ORDER BY last_fetched_at ASC NULLS FIRST
+                      LIMIT $1`,
+                    [limit]
                 )
             ).rows;
         }

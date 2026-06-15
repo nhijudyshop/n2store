@@ -86,7 +86,6 @@
                 { label: 'Thông báo', our: '../web2/notifications/index.html' },
                 { label: 'Lịch sử thao tác', our: '../web2/audit-log/index.html' },
                 { label: 'Đối soát CK', our: '../web2/ck-dashboard/index.html' },
-                { label: 'Studio chụp tách nền', our: '../web2/photo-studio/index.html' },
                 { label: 'Zalo', our: '../web2/zalo/index.html' },
                 { label: 'Phân quyền', our: '../web2/users-permissions/index.html' },
                 {
@@ -102,6 +101,10 @@
                 {
                     label: 'Tăng số lượng comment',
                     our: '../web2/multi-tool/index.html',
+                },
+                {
+                    label: 'Studio chụp tách nền',
+                    our: '../web2/photo-studio/index.html',
                 },
             ],
         },
