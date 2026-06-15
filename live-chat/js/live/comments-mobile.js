@@ -191,11 +191,11 @@
         normal: 'st-known',
         other: 'st-known',
     };
+    // Trạng thái KH = LUÔN lấy ở KHO web2_customers (w.status) → nhãn VN (LiveStatus
+    // shared). KHÔNG để "Đã tạo đơn" đè trạng thái — order là badge RIÊNG (xem cardHtml).
     function statusOf(c) {
-        if (ordered(c)) return { label: '✓ Đã tạo đơn', cls: 'st-order' };
         const w = whInfo(c);
         if (w) {
-            // Trạng thái KH lấy ở KHO web2_customers (w.status) → nhãn VN (LiveStatus shared).
             const n = window.LiveStatus
                 ? window.LiveStatus.normalize(w.status)
                 : { label: w.status || 'Khách quen', key: 'other' };
@@ -262,6 +262,19 @@
                 })
             );
         if (jobs.length) await Promise.allSettled(jobs);
+    }
+
+    // Kho KH đổi (SSE web2:customers) → xoá cache enrich + nạp lại cho comment đang
+    // hiển thị → trạng thái/tên/địa chỉ tự cập nhật (1 nguồn chung web2_customers).
+    async function refreshWarehouse() {
+        custMap.phone = {};
+        custMap.fb = {};
+        try {
+            await enrichWarehouse(ALL);
+        } catch (_) {
+            /* giữ map rỗng */
+        }
+        scheduleRender();
     }
 
     // ---------- ẩn theo NGƯỜI (module dùng chung) ----------
@@ -340,7 +353,7 @@
             <div class="c-top">
                 ${avatarHtml(c)}
                 <div class="c-id">
-                    <div class="c-name"><span class="c-nm-txt">${esc(nameOf(c))}</span><span class="st ${st.cls}">${esc(st.label)}</span>${pg ? `<span class="pgbadge ${pg.c}">${esc(pg.t)}</span>` : ''}${no ? `<span class="cart-stt" title="Đơn web ${esc(no.code || '')} — STT ${esc(String(no.stt))}">🛒 ${esc(String(no.stt))}</span>` : ''}</div>
+                    <div class="c-name"><span class="c-nm-txt">${esc(nameOf(c))}</span><span class="st ${st.cls}">${esc(st.label)}</span>${ordered(c) ? `<span class="st st-order">✓ Đã tạo đơn</span>` : ''}${pg ? `<span class="pgbadge ${pg.c}">${esc(pg.t)}</span>` : ''}${no ? `<span class="cart-stt" title="Đơn web ${esc(no.code || '')} — STT ${esc(String(no.stt))}">🛒 ${esc(String(no.stt))}</span>` : ''}</div>
                     ${window.LiveTime ? window.LiveTime.markup(c.created_time, { tag: 'div', cls: 'c-time' }) : `<div class="c-time">${esc(fmtTime(c.created_time))}</div>`}
                 </div>
             </div>
@@ -1020,6 +1033,13 @@
         // Desktop kéo SP tạo đơn native → SSE web2:native-orders → reload NATIVE map
         // (debounce 500ms) → comment khách đó tự hiện "đã tạo đơn" + STT, realtime.
         window.Web2SSE.subscribe('web2:native-orders', scheduleLoadNative);
+        // Kho KH (web2_customers) đổi (trạng thái/tên/SĐT ở bất kỳ trang nào) → xoá
+        // cache enrich + nạp lại → trạng thái/tên trên comment tự cập nhật (1 nguồn chung).
+        let _custT;
+        window.Web2SSE.subscribe('web2:customers', () => {
+            clearTimeout(_custT);
+            _custT = setTimeout(refreshWarehouse, 600);
+        });
     }
     document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible') {

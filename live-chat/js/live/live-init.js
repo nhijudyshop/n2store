@@ -143,6 +143,24 @@ const LiveColumnManager = {
                 }, 400);
             });
         }
+        // Kho KH (web2_customers) đổi ở BẤT KỲ trang nào (trạng thái/tên/SĐT) → xoá
+        // cache enrich + nạp lại + re-render → trạng thái/tên trên comment tự cập nhật
+        // (1 nguồn chung — đồng bộ với panel KH + native-orders + mobile, qua SSE).
+        if (window.Web2SSE?.subscribe) {
+            let _custReloadT = null;
+            window.Web2SSE.subscribe('web2:customers', () => {
+                clearTimeout(_custReloadT);
+                _custReloadT = setTimeout(() => {
+                    const st = window.LiveState;
+                    if (st.customerKhoCache) st.customerKhoCache.clear();
+                    if (st.partnerCache) st.partnerCache.clear();
+                    window.LiveKhoEnricher?.reset?.();
+                    window.LiveKhoEnricher?.scan?.();
+                    if (window.LiveCommentList?.renderComments)
+                        window.LiveCommentList.renderComments();
+                }, 600);
+            });
+        }
         // ⚠ KHÔNG subscribe 'web2:messages' để reload cột Live (bug 2026-06-11:
         // mỗi tin INBOX làm cột Live full reload → trắng panel). Inbox là việc
         // của cột Pancake (pancake-realtime). Comment livestream dùng topic

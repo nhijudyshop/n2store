@@ -1320,15 +1320,10 @@
                                     }
                                     ${statusPill}
                                     <span class="no-wallet-pill" data-w2wallet-phone="${escapeHtml(o.phone || '')}"></span>
-                                    ${
-                                        (!o.customerName || !o.phone || !o.address) && o.fbUserId
-                                            ? `<button class="web2-fetch-web2-btn"
-                                                onclick="event.stopPropagation();NativeOrdersApp.fetchCustomerFromWeb2('${escapeHtml(o.code)}', '${escapeHtml(o.fbUserId)}')"
-                                                title="Lấy SĐT + địa chỉ + tên từ WEB2 (search theo FB ID)">
-                                            <i data-lucide="download-cloud" style="width:11px;height:11px;"></i> Lấy WEB2
-                                        </button>`
-                                            : ''
-                                    }
+                                    <!-- Nút "Lấy WEB2" đã GỠ (2026-06-15): dùng chung kho KH
+                                         web2_customers + SSE web2:customers → kho cập nhật thì
+                                         native-orders tự cập nhật, không cần fetch tay (vốn hay
+                                         lấy nhầm fb qua SĐT). -->
                                 </div>
                                 ${mergedPhoneHtml}
                             </div>
@@ -4295,6 +4290,7 @@
     // sau mỗi POST/PATCH/DELETE → client tự reload list.
     let _sseUnsubscribe = null;
     let _sseUnsubCk = null; // web2:payment-signals (badge "KH báo đã CK")
+    let _sseUnsubCust = null; // web2:customers (kho KH đổi → re-enrich)
     let _sseReloadTimer = null;
     function _scheduleReload(reason) {
         // Debounce 600ms để gom nhiều mutation gần nhau thành 1 reload.
@@ -4319,6 +4315,11 @@
         // "💸 KH báo đã CK" hiện/đổi xanh LIVE, không cần refresh tay.
         _sseUnsubCk = window.Web2SSE.subscribe('web2:payment-signals', (msg) =>
             _scheduleReload(`payment-signal ${msg.data?.action || ''}`)
+        );
+        // Kho KH (web2_customers) đổi ở BẤT KỲ trang nào (trạng thái/tên/SĐT/địa chỉ)
+        // → reload để re-enrich → native-orders tự cập nhật (1 nguồn chung, thay nút "Lấy WEB2").
+        _sseUnsubCust = window.Web2SSE.subscribe('web2:customers', (msg) =>
+            _scheduleReload(`web2-customers ${msg.data?.action || ''}`)
         );
     }
 

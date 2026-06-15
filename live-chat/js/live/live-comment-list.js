@@ -1625,6 +1625,17 @@ const LiveCommentList = {
                 statusBtn.style.borderColor = col ? `${col}30` : '#e2e8f0';
             }
         };
+        // BẮT BUỘC đồng bộ customerKhoCache (web2_customers) — display ƯU TIÊN đọc
+        // kho.status (LiveStatus.normalize). Chỉ update partnerCache → re-render stale.
+        const _setKho = (s) => {
+            const k = state.customerKhoCache && state.customerKhoCache.get(userId);
+            if (k) {
+                k.status = s;
+                state.customerKhoCache.set(userId, k);
+            }
+        };
+        const _prevKho =
+            (state.customerKhoCache && state.customerKhoCache.get(userId)?.status) || '';
 
         // UI-first: cập nhật badge + cache NGAY, backend background, rollback nếu lỗi.
         if (window.Web2Optimistic?.run) {
@@ -1632,11 +1643,13 @@ const LiveCommentList = {
                 snapshot: () => ({
                     text: partner.StatusText || '',
                     color: this.getStatusColor(partner.StatusText || ''),
+                    kho: _prevKho,
                 }),
                 apply: () => {
                     _applyBadge(text, color);
                     partner.StatusText = text;
                     state.partnerCache.set(userId, partner);
+                    _setKho(text);
                 },
                 run: async () => {
                     const ok = await window.LiveApi.updatePartnerStatusViaProxy(partner.Id, value);
@@ -1647,6 +1660,7 @@ const LiveCommentList = {
                     _applyBadge(prev.text, prev.color);
                     partner.StatusText = prev.text;
                     state.partnerCache.set(userId, partner);
+                    _setKho(prev.kho);
                 },
                 successMsg: 'Đã cập nhật trạng thái',
                 errLabel: 'cập nhật trạng thái',
@@ -1656,6 +1670,7 @@ const LiveCommentList = {
 
         // Fallback legacy (không có helper): update UI rồi await.
         _applyBadge(text, color);
+        _setKho(text);
         const success = await window.LiveApi.updatePartnerStatusViaProxy(partner.Id, value);
         if (success) {
             partner.StatusText = text;
@@ -1663,6 +1678,7 @@ const LiveCommentList = {
             if (window.notificationManager)
                 window.notificationManager.success('Đã cập nhật trạng thái');
         } else {
+            _setKho(_prevKho);
             if (window.notificationManager)
                 window.notificationManager.error('Lỗi cập nhật trạng thái');
         }

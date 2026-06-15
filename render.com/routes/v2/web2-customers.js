@@ -126,6 +126,8 @@ function rowToLite(r) {
         address: r.address || '',
         email: r.email || '',
         fbId: r.fb_id || '',
+        status: r.status || 'Normal', // 1 nguồn chung — modal/lookup hiển thị trạng thái
+        tier: r.tier || null,
     };
 }
 

@@ -205,8 +205,11 @@
                 b.title = tagged
                     ? 'Khách đã gắn thẻ XỬ LÝ BC (bấm để GỠ)'
                     : 'Gắn thẻ Pancake: XỬ LÝ BC';
-                const ic = b.querySelector('i');
-                if (ic) ic.setAttribute('data-lucide', tagged ? 'badge-check' : 'tag');
+                // ⚠ Lucide đã thay <i data-lucide> bằng <svg> sau lần render đầu → đổi
+                // data-lucide trên <i> cũ KHÔNG vẽ lại (querySelector('i') còn trả null).
+                // Thay HẲN icon con bằng <i data-lucide> mới rồi cho lucide vẽ lại → đổi
+                // ngay tag↔badge-check không cần refresh.
+                b.innerHTML = `<i data-lucide="${tagged ? 'badge-check' : 'tag'}"></i>`;
             });
         icons();
     }

@@ -2,6 +2,21 @@
 
 ## 2026-06-15
 
+### [web2][live-chat][native-orders] Trạng thái/thông tin KH = 1 NGUỒN CHUNG web2_customers + SSE đồng bộ ✅
+
+User: (1) "Đã tạo đơn" đè trạng thái KH (mobile); (2) live-chat desktop + panel KH đổi trạng thái không lưu; (3) tất cả trạng thái/thông tin KH dùng chung 1 nguồn `web2/customers` (web2_customers), đổi 1 chỗ → SSE → nơi khác tự cập nhật; (4) native-orders cũng tham chiếu kho chung; (5) bỏ nút "Lấy WEB2" (lấy nhầm fb qua SĐT — thừa vì có SSE).
+
+**Điều tra (workflow 5-agent)**: status canonical = `web2_customers.status` (Normal/VIP/Bom/Warning/Danger; Khách sỉ/Thân thiết = cột `tier`). WRITE `PATCH /api/web2/customers/:id {status}` ĐÃ có + đã bắn SSE `web2:customers`. Bug desktop = handler chỉ update `partnerCache`, KHÔNG `customerKhoCache` (mà display ưu tiên đọc) → re-render stale. Mobile = `statusOf` early-return "Đã tạo đơn" đè status.
+
+**Fix**:
+
+- [comments-mobile.js](live-chat/js/live/comments-mobile.js): `statusOf` LUÔN trả status kho; badge "✓ Đã tạo đơn" tách RIÊNG (hiện cả 2). Subscribe `web2:customers` → `refreshWarehouse()` (xoá custMap + re-enrich + render).
+- [live-comment-list.js](live-chat/js/live/live-comment-list.js): `selectInlineStatus` đồng bộ `customerKhoCache.status` (apply+rollback+fallback) → đổi trạng thái GIỮ sau re-render.
+- [live-init.js](live-chat/js/live/live-init.js): subscribe `web2:customers` → clear `customerKhoCache`+`partnerCache` + `LiveKhoEnricher.reset/scan` + render (đồng bộ chéo tab/máy + panel KH).
+- [native-orders-app.js](native-orders/js/native-orders-app.js): **GỠ nút "Lấy WEB2"**; subscribe `web2:customers` → reload (re-enrich) → tự cập nhật khi kho đổi.
+- [web2-customers.js](render.com/routes/v2/web2-customers.js): `rowToLite` thêm `status`+`tier` (GET /:phone trả status cho modal/lookup).
+- Bump live-chat (`comments-mobile`/`live-comment-list`/`live-init`) + `native-orders-app` `?v=20260615kho`. ⚠ deploy web2-api (rowToLite).
+
 ### [orders-report][render] Cột TIN NHẮN nhận biết tin mới khi mở lại (quét list unread Pancake) ✅
 
 **User:** "Bug phải mở client nó mới biết có tin nhắn mới à? Tắt hết client rồi mở lại muốn cũng nhận biết tin mới như Pancake" → "lấy list unread pancake là được".
