@@ -2,6 +2,15 @@
 
 ## 2026-06-15
 
+### [web2][shared] Chat Zalo — "Tải tin cũ hơn" backfill lịch sử NHÓM từ Zalo về DB ✅
+
+User: "scroll không load thêm được tin nhắn cũ à?" (đang xem chat nhóm "XỬ LÝ NJD - J&T"). Root: nút "Tải tin cũ hơn" chỉ hiện khi **DB** (`web2_zalo_messages`) còn tin cũ; nhóm này chỉ có batch realtime-captured (`hasMore:false`) → không nút → scroll không load gì. Tin cũ hơn (trước khi capture chạy) chưa từng vào DB.
+
+- **Server** [web2-zalo.js](render.com/routes/web2-zalo.js): route mới `POST /conversations/:id/backfill {count}` — nhóm only, `zca.getGroupHistory(account_key, thread_id, count≤500)` → INSERT dedupe (`ON CONFLICT DO NOTHING`) vào `web2_zalo_messages`, KHÔNG đụng row conversation (không bump unread/last_msg vì là tin CŨ). Tiện thể `autoIngestFromZalo` mã đơn J&T trong tin vừa kéo về. Trả `{added, fetched, more}`. ⚠ zca-js 2.1.2 chỉ trả batch gần nhất (more>0 = còn cũ hơn nhưng KHÔNG có cursor lấy tiếp) → backfill 1 lần lấy nhiều hơn batch realtime nhưng có trần.
+- **Client API** [web2-zalo-api.js](web2/shared/web2-zalo-api.js): `ZaloApi.backfill(convId, count)`.
+- **Chat view** [chat-view.js](web2/shared/zalo-chat/chat-view.js): nhóm luôn hiện nút "Tải tin cũ hơn" (kể cả DB hết tin, 1 lần/phiên qua `backfilledOnce`). `loadOlder()`: (1) còn DB → phân trang keyset (lọc trùng msg_id); (2) DB hết + nhóm → `backfill(200)` → tải lại từ DB → toast "Đã tải thêm N tin cũ từ Zalo" / "Zalo không còn tin cũ hơn".
+- Bump `ENGINE_VER='20260615bf'` (web2-zalo.js) + tag `web2-zalo.js?v=20260615bf` (jt-tracking/balance-history/customers) + `web2-zalo-api.js`/`chat-view.js?v=20260615bf` (web2/zalo). Backend cần deploy web2-api.
+
 ### [web2] "Tăng comment" — ô Giãn nhịp đổi sang GIÂY (thập phân), cho 0.1–1.5s ✅
 
 User: "nhập 0.5s, 0.1s có tác dụng không?" → KHÔNG: ô cũ là **ms** + `parseInt("0.1")=0` → rơi về 1500ms + min-clamp 500. User nghĩ theo giây. Đổi ô [boostDelay](web2/multi-tool/index.html) sang **đơn vị giây** (number thập phân, value 1.5, min 0.1, step 0.1); [multi-tool.js](web2/multi-tool/js/multi-tool.js) parse `parseFloat * 1000` (min 0.1s=100ms), hint "= N ms/comment mỗi tài khoản". Giờ 0.5→500ms, 0.1→100ms thật. Bump `multi-tool.js?v=20260615sec`.

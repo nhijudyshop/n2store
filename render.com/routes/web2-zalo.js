@@ -974,6 +974,94 @@ router.get('/conversations/:id/messages', async (req, res) => {
     }
 });
 
+// Backfill lịch sử NHÓM từ Zalo (zca getGroupChatHistory) → bơm vào web2_zalo_messages.
+// Dùng khi "Tải tin cũ hơn" mà DB đã hết tin: kéo batch gần nhất (tới count tin) từ Zalo,
+// INSERT dedupe (ON CONFLICT DO NOTHING) — KHÔNG đụng row conversation (không bump unread/
+// last_msg, vì đây là tin CŨ). Tiện thể auto-ingest mã đơn J&T trong tin vừa kéo về.
+//   ⚠ zca-js 2.1.2 chỉ trả batch gần nhất (more>0 = còn cũ hơn NHƯNG không có cursor để lấy
+//      tiếp) → backfill 1 lần lấy được nhiều hơn batch realtime, nhưng có trần.
+router.post('/conversations/:id/backfill', async (req, res) => {
+    try {
+        const db = getDb(req);
+        const conv = (
+            await db.query(`SELECT * FROM web2_zalo_conversations WHERE id=$1`, [req.params.id])
+        ).rows[0];
+        if (!conv)
+            return res.status(404).json({ success: false, error: 'Không tìm thấy hội thoại' });
+        if (conv.thread_type !== 'group')
+            return res.json({
+                success: true,
+                added: 0,
+                fetched: 0,
+                more: 0,
+                note: 'Chỉ hỗ trợ tải lịch sử cho nhóm Zalo',
+            });
+        if (!zca.isConnected(conv.account_key))
+            return res.status(503).json({ success: false, error: 'Tài khoản Zalo chưa kết nối' });
+        const count = Math.min(parseInt(req.body && req.body.count, 10) || 200, 500);
+        const hist = await zca
+            .getGroupHistory(conv.account_key, conv.thread_id, count)
+            .catch((e) => ({ messages: [], error: e.message }));
+        if (hist && hist.error) return res.status(502).json({ success: false, error: hist.error });
+        const msgs = Array.isArray(hist && hist.messages) ? hist.messages : [];
+        let added = 0;
+        for (const m of msgs) {
+            if (!m || !m.msgId) continue;
+            const ins = await db
+                .query(
+                    `INSERT INTO web2_zalo_messages
+                        (msg_id, cli_msg_id, account_key, thread_id, thread_type, direction, msg_type, content, attachments,
+                         reply_to_msg_id, reply_to_preview, sender_uid, send_status, sent_at, created_at)
+                     VALUES ($1,$2,$3,$4,'group',$5,$6,$7,$8::jsonb,$9,$10,$11,'sent',$12,$13)
+                     ON CONFLICT DO NOTHING RETURNING id`,
+                    [
+                        m.msgId,
+                        m.cliMsgId || null,
+                        conv.account_key,
+                        conv.thread_id,
+                        m.direction || 'in',
+                        m.msgType || 'text',
+                        m.content || '',
+                        JSON.stringify(Array.isArray(m.attachments) ? m.attachments : []),
+                        m.replyTo?.msgId || null,
+                        m.replyTo?.preview || null,
+                        m.senderUid || null,
+                        m.sentAt || now(),
+                        now(),
+                    ]
+                )
+                .catch(() => ({ rowCount: 0 }));
+            if (ins.rowCount > 0) added++;
+        }
+        // Mã đơn J&T trong tin vừa backfill → auto-ingest (giống realtime), fire-and-forget.
+        if (added > 0) {
+            try {
+                const jt = require('./web2-jt-tracking');
+                for (const m of msgs) {
+                    if (m && m.content)
+                        jt.autoIngestFromZalo(db, {
+                            ...m,
+                            threadType: 'group',
+                            accountKey: conv.account_key,
+                            threadId: conv.thread_id,
+                        }).catch(() => {});
+                }
+            } catch (e) {
+                /* module chưa sẵn sàng — bỏ qua */
+            }
+            _notify('web2:zalo:messages', 'update', conv.account_key);
+        }
+        res.json({
+            success: true,
+            added,
+            fetched: msgs.length,
+            more: Number(hist && hist.more) || 0,
+        });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
 // Tra hội thoại theo SĐT (helper Web2Zalo.getConversation)
 router.get('/conversation/:phone', async (req, res) => {
     try {

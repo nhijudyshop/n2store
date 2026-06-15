@@ -21,6 +21,7 @@
         const Api = window.ZaloApi;
         let messages = [];
         let hasMore = false;
+        let backfilledOnce = false; // nhóm: đã thử kéo lịch sử cũ từ Zalo chưa (1 lần/phiên)
         let unsub = null;
         let tempId = 0;
         const near = (el) => el.scrollHeight - el.scrollTop - el.clientHeight < 120;
@@ -85,8 +86,10 @@
             const prevH = el.scrollHeight,
                 prevTop = el.scrollTop;
             const list = WZ.renderMessages(messages, conv);
+            // Nhóm: kể cả khi DB hết tin vẫn cho "Tải tin cũ hơn" (kéo lịch sử từ Zalo 1 lần/phiên).
+            const canBackfill = conv.thread_type === 'group' && !backfilledOnce;
             const older =
-                hasMore && messages.length
+                messages.length && (hasMore || canBackfill)
                     ? `<button class="wz-load-older" id="wzcvOlder">Tải tin cũ hơn</button>`
                     : '';
             el.innerHTML = older + list;
@@ -305,20 +308,54 @@
             });
         }
         async function loadOlder() {
-            const oldest = messages[0];
-            if (!oldest?.sent_at) return;
             const btn = container.querySelector('#wzcvOlder');
             if (btn) btn.textContent = 'Đang tải…';
             try {
-                const res = await Api.loadHistory(conv.id, {
-                    limit: 50,
-                    before: oldest.sent_at,
-                    beforeId: oldest.id,
-                });
-                messages = (res.data || []).concat(messages);
-                hasMore = res.hasMore;
-                WZ.store?.setMessages(messages);
-                renderBody({ prepend: true });
+                // 1) Còn tin cũ trong DB → phân trang DB (nhanh, keyset).
+                if (hasMore) {
+                    const oldest = messages[0];
+                    if (oldest?.sent_at) {
+                        const res = await Api.loadHistory(conv.id, {
+                            limit: 50,
+                            before: oldest.sent_at,
+                            beforeId: oldest.id,
+                        });
+                        const have = new Set(messages.map((m) => String(m.msg_id || m.id)));
+                        const fresh = (res.data || []).filter(
+                            (m) => !have.has(String(m.msg_id || m.id))
+                        );
+                        messages = fresh.concat(messages);
+                        hasMore = res.hasMore;
+                        WZ.store?.setMessages(messages);
+                        renderBody({ prepend: true });
+                        return;
+                    }
+                }
+                // 2) DB hết tin cũ → nhóm: kéo lịch sử từ Zalo về DB (1 lần/phiên), rồi tải lại.
+                if (conv.thread_type === 'group' && !backfilledOnce) {
+                    backfilledOnce = true;
+                    const r = await Api.backfill(conv.id, 200).catch((e) => ({
+                        error: e.message,
+                    }));
+                    if (r && r.added > 0) {
+                        const res = await Api.messages(
+                            conv.id,
+                            Math.min(messages.length + r.added + 20, 500)
+                        );
+                        messages = res.data || messages;
+                        hasMore = !!res.hasMore;
+                        WZ.store?.setMessages(messages);
+                        renderBody({ prepend: true });
+                        notify(`Đã tải thêm ${r.added} tin cũ từ Zalo`, 'success');
+                    } else {
+                        renderBody({ keepScroll: true });
+                        notify(
+                            r && r.error ? '✗ ' + r.error : 'Zalo không còn tin cũ hơn để tải về',
+                            'info'
+                        );
+                    }
+                    return;
+                }
             } catch (e) {
                 notify('✗ ' + e.message, 'error');
                 if (btn) btn.textContent = 'Tải tin cũ hơn';

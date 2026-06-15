@@ -126,6 +126,13 @@
                 { method: 'GET' }
             );
         },
+        // Kéo lịch sử nhóm CŨ từ Zalo về DB (khi "Tải tin cũ hơn" mà DB đã hết tin).
+        backfill(convId, count) {
+            return _fetch(`/conversations/${encodeURIComponent(convId)}/backfill`, {
+                method: 'POST',
+                body: JSON.stringify({ count: count || 200 }),
+            });
+        },
         sendMessage(body) {
             return _fetch('/send-message', { method: 'POST', body: JSON.stringify(body) });
         },
