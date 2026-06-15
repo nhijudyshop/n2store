@@ -127,16 +127,7 @@ const WEB2_PAGES = [
         slug: 'supplier-debt',
         label: 'Công nợ NCC',
         group: 'Mua hàng',
-        actions: [
-            'view',
-            'createNcc',
-            'editNote',
-            'pay',
-            'sort',
-            'export',
-            'expandDetail',
-            'loadTpos',
-        ],
+        actions: ['view', 'createNcc', 'editNote', 'pay', 'sort', 'export', 'expandDetail'],
     },
     {
         slug: 'supplier-wallet',
@@ -183,10 +174,10 @@ const WEB2_PAGES = [
 
     // ─── Tích hợp ──────────────────────────────────────────────────
     {
-        slug: 'tpos-pancake',
-        label: 'TPOS × Pancake',
+        slug: 'live-chat',
+        label: 'Live Chat (Pancake)',
         group: 'Tích hợp',
-        actions: ['view', 'syncPancake', 'syncTpos'],
+        actions: ['view', 'syncPancake'],
     },
 
     // ─── Cấu hình ──────────────────────────────────────────────────
@@ -270,7 +261,6 @@ const ACTION_LABELS = {
     editNote: 'Sửa ghi chú NCC',
     pay: 'Ghi thanh toán',
     return: 'Ghi trả hàng',
-    loadTpos: 'Load dữ liệu TPOS legacy',
     // bán hàng
     createPBH: 'Tạo Phiếu Bán Hàng',
     switchPage: 'Đổi page Pancake',
@@ -281,7 +271,6 @@ const ACTION_LABELS = {
     editVariant: 'Sửa biến thể',
     // tích hợp
     syncPancake: 'Sync Pancake',
-    syncTpos: 'Sync TPOS',
     // users
     changePassword: 'Đổi mật khẩu',
     changePermissions: 'Đổi phân quyền',
@@ -384,6 +373,21 @@ async function ensureTables(pool) {
         CREATE INDEX IF NOT EXISTS idx_web2_user_sessions_user ON web2_user_sessions(user_id);
         CREATE INDEX IF NOT EXISTS idx_web2_user_sessions_exp  ON web2_user_sessions(expires_at);
         CREATE INDEX IF NOT EXISTS idx_web2_user_sessions_hash ON web2_user_sessions(token_hash) WHERE token_hash IS NOT NULL;
+
+        -- TPOS purge (2026-06-15): migrate saved permissions. Slug 'tpos-pancake'→'live-chat'
+        -- (folder đã rename) + bỏ action chết loadTpos/syncTpos. Web 2.0 KHÔNG dùng TPOS.
+        -- Idempotent: WHERE guard → re-run no-op.
+        UPDATE web2_users
+           SET permissions = (permissions - 'tpos-pancake')
+               || jsonb_build_object('live-chat', COALESCE((
+                    SELECT jsonb_agg(a) FROM jsonb_array_elements_text(permissions->'tpos-pancake') a
+                    WHERE a <> 'syncTpos'), '[]'::jsonb))
+         WHERE permissions ? 'tpos-pancake';
+        UPDATE web2_users
+           SET permissions = jsonb_set(permissions, '{supplier-debt}', COALESCE((
+                    SELECT jsonb_agg(a) FROM jsonb_array_elements_text(permissions->'supplier-debt') a
+                    WHERE a <> 'loadTpos'), '[]'::jsonb))
+         WHERE permissions ? 'supplier-debt' AND permissions->'supplier-debt' @> '"loadTpos"';
     `);
 
     // Seed default admin if table is empty.

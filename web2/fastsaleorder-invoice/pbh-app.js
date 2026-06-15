@@ -679,15 +679,26 @@
             return;
         }
         try {
-            // Fetch detail PBH theo numbers (load endpoint chỉ trả summary, cần GET /:number)
-            const detailed = await Promise.all(
-                numbers.map(async (num) => {
-                    const r = await fetch(`${WORKER}/api/fast-sale-orders/${num}`);
-                    const d = await r.json();
-                    return d.order || null;
-                })
-            );
-            const valid = detailed.filter(Boolean);
+            // 1 GET /batch cho tất cả numbers (load endpoint chỉ trả summary).
+            // Fallback per-number nếu /batch lỗi/chưa deploy.
+            let valid = [];
+            try {
+                const r = await fetch(
+                    `${WORKER}/api/fast-sale-orders/batch?numbers=${encodeURIComponent(numbers.join(','))}`
+                );
+                const d = await r.json();
+                if (r.ok && Array.isArray(d.orders)) valid = d.orders.filter(Boolean);
+                else throw new Error('batch unavailable');
+            } catch {
+                const detailed = await Promise.all(
+                    numbers.map(async (num) => {
+                        const r = await fetch(`${WORKER}/api/fast-sale-orders/${num}`);
+                        const d = await r.json();
+                        return d.order || null;
+                    })
+                );
+                valid = detailed.filter(Boolean);
+            }
             if (!valid.length) {
                 notify('Không lấy được data PBH', 'error');
                 return;

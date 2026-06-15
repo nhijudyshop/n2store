@@ -138,13 +138,41 @@
         });
     }
 
-    // Batch — lấy nhiều ví song song
+    // Batch — 1 POST /batch-full cho TẤT CẢ SĐT (thay N GET /by-phone). Chunk 500.
+    // Fallback: pool per-phone nếu batch endpoint lỗi/chưa deploy.
     async function getWalletsByPhones(phones, opts) {
-        const conc = (opts && opts.concurrency) || 5;
         const list = Array.from(
             new Set((phones || []).map(normPhone).filter((p) => p && p.length >= 9))
         );
         const out = new Map();
+        if (!list.length) return out;
+        try {
+            for (let i = 0; i < list.length; i += 500) {
+                const chunk = list.slice(i, i + 500);
+                const tryBatch = async (base) => {
+                    const data = await jsonFetch(`${base}/batch-full`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ phones: chunk }),
+                    });
+                    return data?.data || {};
+                };
+                let map;
+                try {
+                    map = await tryBatch(BASE);
+                } catch {
+                    map = await tryBatch(DIRECT_BASE);
+                }
+                for (const phone of chunk) {
+                    if (map[phone]) out.set(phone, map[phone]);
+                }
+            }
+            return out;
+        } catch (e) {
+            console.warn('[Web2WalletApi] getWalletsByPhones batch fail → fallback:', e.message);
+        }
+        // Fallback per-phone (legacy)
+        const conc = (opts && opts.concurrency) || 5;
         const queue = [...list];
         const workers = [];
         for (let i = 0; i < Math.min(conc, queue.length); i++) {

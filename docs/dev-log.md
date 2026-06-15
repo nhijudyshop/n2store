@@ -1,5 +1,23 @@
 # Dev Log
 
+## 2026-06-15
+
+### [web2][render] Gỡ TPOS sạch (đợt 2): perm registry + 3 N+1 batch endpoint ✅
+
+**User:** chọn "triệt để" cho cả 4 hạng mục sau khi quét TPOS đợt 1.
+
+**Item 2 — Permission registry (web2-users.js):** gỡ action chết `loadTpos` (trang công nợ NCC) + `syncTpos` (trang tích hợp), đổi slug `tpos-pancake`→`live-chat` + label `'TPOS × Pancake'`→`'Live Chat (Pancake)'`, gỡ ACTION_LABELS loadTpos/syncTpos. Frontend KHÔNG dùng các slug/action này (grep sạch) → 0 ảnh hưởng UI. **Migration saved perms** (idempotent, trong ensureTables): rename key `tpos-pancake`→`live-chat` trong `web2_users.permissions` JSONB + strip loadTpos/syncTpos. **Test temp DB**: 4 user (có tpos-pancake+syncTpos / chỉ loadTpos / không liên quan / NULL) → đúng + run #2 no-op.
+
+**Item 3 — DB columns `tpos_id`/`tpos_data`: NO-OP.** Web 2.0 KHÔNG có cột này (web2_customers schema cố ý TPOS-free, còn DROP bảng cũ nếu phát hiện `tpos_raw`). Các cột đó CHỈ tồn tại ở bảng Web 1.0 (`customers`, `web_warehouse`) — KHÔNG đụng (Web1⊥Web2).
+
+**Item 4 — N+1 (3 chỗ):**
+
+- **4a Ví KH** `web2-wallet-api.getWalletsByPhones`: N GET /by-phone → **POST /api/web2/wallets/batch-full** (service `getWalletsByPhones` = `WHERE phone = ANY`, full row) → 1 request/chunk 500 + fallback pool.
+- **4b PBH bulkPrint**: N GET /:number → **GET /api/fast-sale-orders/batch?numbers=** (đặt TRƯỚC /:number) → 1 request + fallback per-number.
+- **4c native-orders tạo PBH SHOP hàng loạt**: GIỮ N request độc lập (mỗi PBH = hoá đơn/kho/ví/advisory-lock riêng, partial-success đúng ngữ nghĩa — KHÔNG gộp 1 transaction vì 1 đơn lỗi không được rollback cả lô) NHƯNG đổi tuần tự→**song song giới hạn 5** (nhanh ~5×, 0 rủi ro money path).
+
+**Files:** `render.com/routes/web2-users.js`, `render.com/routes/v2/web2-wallets.js`, `render.com/services/web2-wallet-service.js`, `render.com/routes/fast-sale-orders.js`, `web2/customer-wallet/js/web2-wallet-api.js`, `web2/fastsaleorder-invoice/pbh-app.js`, `native-orders/js/native-orders-app.js` + bump v 3 trang. **Item 1** (deploy web2-realtime/web2-api + xoá env dead TPOS_CLIENT_ID/TPOS_USERNAME) làm sau commit. **Status:** ✅ code + migration tested; backend cần deploy web2-api.
+
 ## 2026-06-14
 
 ### [orders-report][KPI] "Làm mới dữ liệu" KHÔNG fetch đơn thật TPOS — thiếu token-manager trong iframe KPI ✅

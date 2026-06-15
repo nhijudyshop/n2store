@@ -1261,6 +1261,31 @@ router.get('/:number/history', async (req, res) => {
 });
 
 // -----------------------------------------------------
+// GET /batch?numbers=NJ-1,NJ-2 — full detail nhiều PBH trong 1 query (chống N+1
+// khi in nhiều PBH, bulkPrint). PHẢI đặt TRƯỚC /:number (nếu không 'batch' bị
+// match như :number). Trả { success, orders: [...] }.
+// -----------------------------------------------------
+router.get('/batch', async (req, res) => {
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
+    if (!pool) return res.status(500).json({ error: 'DB unavailable' });
+    try {
+        await ensureTables(pool);
+        const numbers = String(req.query.numbers || '')
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean)
+            .slice(0, 200);
+        if (!numbers.length) return res.json({ success: true, orders: [] });
+        const r = await pool.query('SELECT * FROM fast_sale_orders WHERE number = ANY($1)', [
+            numbers,
+        ]);
+        res.json({ success: true, orders: r.rows.map(mapRow) });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// -----------------------------------------------------
 // GET /:number — single PBH
 // -----------------------------------------------------
 router.get('/:number', async (req, res) => {

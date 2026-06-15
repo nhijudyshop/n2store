@@ -4165,7 +4165,11 @@
         const isoDate = new Date().toISOString();
         let done = 0,
             fail = 0;
-        for (const code of valid) {
+        // Mỗi PBH = 1 hoá đơn độc lập (số riêng, trừ kho/ví riêng, advisory lock
+        // per-đơn ở server) → GIỮ N request độc lập (partial success đúng ngữ
+        // nghĩa), nhưng chạy SONG SONG có giới hạn (thay tuần tự) → nhanh ~5×.
+        // KHÔNG gộp 1 transaction: 1 đơn lỗi không được rollback cả lô.
+        const createPbhShopOne = async (code) => {
             try {
                 const r = await fetch(`${WORKER_URL}/api/fast-sale-orders/from-native-order`, {
                     method: 'POST',
@@ -4184,7 +4188,14 @@
                 fail++;
                 console.warn('[bulkCreatePbhShop]', code, e.message);
             }
-        }
+        };
+        const CONC = 5;
+        const queue = [...valid];
+        await Promise.all(
+            Array.from({ length: Math.min(CONC, queue.length) }, async () => {
+                while (queue.length) await createPbhShopOne(queue.shift());
+            })
+        );
         notify(
             `PBH SHOP: tạo ${done}/${valid.length} đơn${fail ? `, lỗi ${fail}` : ''}`,
             fail ? 'warning' : 'success'

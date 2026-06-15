@@ -111,6 +111,22 @@ router.post('/batch-summary', async (req, res) => {
 });
 
 // =====================================================
+// POST /api/web2/wallets/batch-full — full wallet rows cho nhiều SĐT (1 query).
+// Body: { phones: [...] } → { success, data: { [phone]: walletRow } }
+// Chống N+1 /by-phone (customer-wallet page enrich). SĐT chưa ví → vắng mặt.
+// =====================================================
+router.post('/batch-full', async (req, res) => {
+    try {
+        const db = req.app.locals.web2Db || req.app.locals.chatDb;
+        const phones = Array.isArray(req.body?.phones) ? req.body.phones : [];
+        const data = await web2WalletService.getWalletsByPhones(db, phones);
+        res.json({ success: true, data });
+    } catch (e) {
+        handleError(res, e, 'Batch full wallets');
+    }
+});
+
+// =====================================================
 // GET /api/web2/wallets/:phone/transactions
 // =====================================================
 router.get('/:phone/transactions', async (req, res) => {

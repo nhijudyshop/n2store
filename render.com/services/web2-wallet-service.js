@@ -397,6 +397,22 @@ async function getWallet(db, phone) {
     return r.rows[0] || null;
 }
 
+// Batch: full wallet rows cho nhiều SĐT trong 1 query (chống N+1 /by-phone).
+// Trả { [phone]: walletRow }. SĐT chưa có ví → vắng mặt.
+async function getWalletsByPhones(db, phones) {
+    const norm = [...new Set((phones || []).map(normalizePhone).filter(Boolean))].slice(0, 500);
+    if (!norm.length) return {};
+    const r = await db.query(
+        `SELECT id, phone, customer_id, balance, virtual_balance,
+                total_deposited, total_withdrawn, created_at, updated_at
+         FROM web2_customer_wallets WHERE phone = ANY($1::text[])`,
+        [norm]
+    );
+    const map = {};
+    for (const row of r.rows) map[row.phone] = row;
+    return map;
+}
+
 async function listWallets(db, opts) {
     const limit = Math.min(Math.max(Number(opts?.limit) || 100, 1), 1000);
     const offset = Math.max(Number(opts?.offset) || 0, 0);
@@ -442,6 +458,7 @@ module.exports = {
     processDeposit,
     processWithdraw,
     getWallet,
+    getWalletsByPhones,
     listWallets,
     listTransactions,
 };
