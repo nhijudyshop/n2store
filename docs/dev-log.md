@@ -2,6 +2,26 @@
 
 ## 2026-06-15
 
+### [web2][shared] Web2Lottie — animation Lottie (airbnb/lottie-web) dùng chung TOÀN BỘ Web 2.0 ✅
+
+**User:** "kiểm tra toàn bộ web 2.0 → phần CSS giao diện dùng airbnb/lottie-web → thêm vào toàn bộ web → thêm thông minh". Scope chọn: **tinh tế** (empty/loading/success/error) + **CDN lazy-load**.
+
+- **Precedent**: `web2/jt-tracking/` đã dùng lottie-web (cdnjs 5.12.2) với JSON local. Mở rộng thành module shared cho mọi trang.
+- **Module mới** [web2/shared/web2-lottie.js](web2/shared/web2-lottie.js) (`window.Web2Lottie`):
+    - **Lazy**: chỉ tải `lottie_light.min.js` (cdnjs, SVG-only ~150KB) khi animation ĐẦU TIÊN cần → trang đủ data không tốn bandwidth. CDN fail → no-op graceful.
+    - **Auto-enhance trạng thái RỖNG** (thông minh, toàn site): scanner + `MutationObserver` (debounce 150ms) tự thay `.empty-state-icon` (lucide) bằng Lottie theo `ICON_MAP` (inbox/package→box "empty", alert→"error"…). KHÔNG cần sửa từng trang. Trễ 350ms + check còn-trong-DOM → bỏ qua empty-state tạm khi đang tải.
+    - **Declarative**: `<div data-w2-lottie="loading"></div>` tự mount.
+    - **Burst feedback** `success()/error()` giữa-trên màn hình, throttle 1000ms chống spam.
+    - `loadingOverlay(show)`, `scan(root)`, registry Map + `_reap()` dọn anim detached (chống leak RAF).
+    - Respect `prefers-reduced-motion` → `enabled=false`, no-op hoàn toàn.
+- **Assets** [web2/shared/lottie/](web2/shared/lottie/): `loading.json` (copy jt-tracking 33KB), `success.json` (check draw-on, 1KB), `error.json` (X draw-on, 1.5KB), `empty.json` (box float loop, 1.2KB) — hand-authored bodymovin trim-path, tổng ~37KB.
+- **CSS** [web2/shared/web2-lottie.css](web2/shared/web2-lottie.css): holder empty-icon 64px, burst, loading overlay (no backdrop-blur, shadow ≤24px theo modal rule).
+- **Wiring 2 điểm**: (1) [web2-sidebar.js](web2/shared/web2-sidebar.js) auto-load `web2-lottie.js` qua `inject()` → MỌI trang Web 2.0. (2) [web2-optimistic.js](web2/shared/web2-optimistic.js) `_notify` gọi `Web2Lottie.success()/error()` (web2-only, `config.autoFeedback` toggle, never block).
+- **Tách Web1⊥Web2**: KHÔNG đụng `shared/js/notification-system.js` (dùng chung Web 1.0). Web 1.0 không load web2-sidebar → không có Web2Lottie (verified: orders-report sạch).
+- **Verify browser** (localhost, persistent session): module auto-load qua sidebar (`v=20260615a`) + CSS inject ✓; lib lazy-load CDN ✓; 2 empty-state → 2 SVG render (box xanh + X đỏ) + icon gốc ẩn ✓; declarative loading SVG ✓; **0 console error**; screenshot xác nhận visual.
+
+**Status:** ✅ `node --check` PASS cả 3 file. Cần GH Pages deploy.
+
 ### [web2][jt-tracking] Hiện toàn bộ tin nhắn chứa mã + chỉ nhận mã ĐÚNG format dòng đơn + copy SĐT ✅
 
 1. **src_message** (cột mới TEXT): lưu TOÀN BỘ tin nhắn nhóm chứa mã → row + modal hiện đầy đủ (tên/SĐT/ghi chú KH), tô đậm mã 12 số + tô xanh SĐT.

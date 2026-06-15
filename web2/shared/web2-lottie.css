@@ -1,0 +1,102 @@
+/* #Note: WEB2.0 module — styles cho Web2Lottie (animation Lottie dùng chung).
+   Compositor-friendly (transform/opacity), không backdrop-filter blur, shadow nhẹ. */
+
+/* ── Empty-state: Lottie thay icon lucide 40px → illustration 64px ─── */
+.w2lot-empty-icon {
+    width: 64px;
+    height: 64px;
+    margin: 0 auto 10px;
+    display: block;
+    pointer-events: none;
+}
+.w2lot-empty-icon svg {
+    width: 100% !important;
+    height: 100% !important;
+    display: block;
+}
+.w2lot-empty-icon.is-error {
+    width: 56px;
+    height: 56px;
+}
+
+/* Trong bảng (td colspan) — căn giữa giống .empty-state */
+.empty-row .w2lot-empty-icon {
+    margin-left: auto;
+    margin-right: auto;
+}
+
+/* ── Burst feedback (success/error) — trên-giữa màn hình, không chặn click ── */
+.w2lot-burst {
+    position: fixed;
+    left: 50%;
+    top: 22%;
+    transform: translate(-50%, -50%);
+    z-index: 99999;
+    pointer-events: none;
+    opacity: 1;
+    animation: w2lotBurstIn var(--duration-fast, 160ms) cubic-bezier(0.16, 1, 0.3, 1);
+}
+.w2lot-burst.is-out {
+    opacity: 0;
+    transform: translate(-50%, -56%) scale(0.92);
+    transition:
+        opacity 220ms ease,
+        transform 220ms ease;
+}
+@keyframes w2lotBurstIn {
+    from {
+        opacity: 0;
+        transform: translate(-50%, -46%) scale(0.8);
+    }
+    to {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1);
+    }
+}
+
+/* ── Loading overlay toàn trang ──────────────────────────────────── */
+.w2lot-loading-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 99998;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.72);
+    animation: w2lotFade var(--duration-fast, 160ms) ease;
+}
+.w2lot-loading-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 18px 24px;
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 8px 24px rgba(16, 42, 96, 0.16);
+}
+.w2lot-loading-anim {
+    width: 88px;
+    height: 88px;
+}
+.w2lot-loading-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--web2-text-3, #5b6b85);
+}
+@keyframes w2lotFade {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+/* ── Reduced-motion: ẩn mọi animation burst/overlay (module cũng no-op) ── */
+@media (prefers-reduced-motion: reduce) {
+    .w2lot-burst,
+    .w2lot-loading-overlay {
+        display: none !important;
+    }
+}

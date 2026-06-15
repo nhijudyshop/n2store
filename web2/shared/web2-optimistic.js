@@ -27,6 +27,16 @@
     if (global.Web2Optimistic) return;
 
     function _notify(msg, type) {
+        // Feedback Lottie subtle (web2-only, throttled, không bao giờ chặn flow).
+        // Burst success/error giữa-trên màn hình — bổ sung cho toast, không thay.
+        try {
+            const W2L = global.Web2Lottie;
+            if (W2L && W2L.config?.autoFeedback !== false) {
+                type === 'err' ? W2L.error() : W2L.success();
+            }
+        } catch {
+            /* ignore — feedback là phụ */
+        }
         if (global.notificationManager?.show) {
             global.notificationManager.show(msg, type === 'err' ? 'error' : 'success');
             return;
