@@ -3,17 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `b809897` — refactor(web2/shared): gộp tag Pancake vào Web2Chat (bỏ file web2-pancake-tags.js rời)
-**Last updated**: 2026-06-15 18:16:56 +07
-**Latest session**: [`RESUME:20260615-181656-b809897`](../20260615-181656-b809897.md)
-**Summary**: refactor(web2/shared): gộp tag Pancake vào Web2Chat (bỏ file web2-pancake-tags.js rời)
+**Latest commit**: `d14d1fe` — feat(web2/multi-tool): tăng comment ĐA NHIỆM theo nhiều account Pancake (1 worker/account)
+**Last updated**: 2026-06-15 18:22:40 +07
+**Latest session**: [`RESUME:20260615-182240-d14d1fe`](../20260615-182240-d14d1fe.md)
+**Summary**: feat(web2/multi-tool): tăng comment ĐA NHIỆM theo nhiều account Pancake (1 worker/account)
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`live-chat/`](./live-chat.md) — 3 file(s)
-- [`native-orders/`](./native-orders.md) — 1 file(s)
-- [`web2/`](./web2.md) — 5 file(s)
+- [`web2/`](./web2.md) — 3 file(s)
 
 ## All folder snapshots
 
@@ -28,7 +26,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-15 10:55
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-14 18:47
-- [`docs/`](./docs.md) — updated 2026-06-15 18:16
+- [`docs/`](./docs.md) — updated 2026-06-15 18:22
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-15 15:57
 - [`downloads/`](./downloads.md) — updated 2026-06-13 19:16
@@ -76,4 +74,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-15 18:16
+- [`web2/`](./web2.md) — updated 2026-06-15 18:22
