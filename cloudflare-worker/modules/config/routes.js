@@ -158,6 +158,8 @@ export const ROUTES = {
     WEB2_MSG_TEMPLATES: { pattern: '/api/web2-msg-templates/*' },
     // Web 2.0 Live Comments — kho comment livestream (auto-save + đọc lại)
     WEB2_LIVE_COMMENTS: { pattern: '/api/web2-live-comments/*' },
+    // Web 2.0 Live Relay config — chọn trang join WS per-page (proxy → web2-realtime)
+    WEB2_LIVE_RELAY: { pattern: '/api/web2-live-relay/*' },
     // Web 2.0 Zalo — nguồn duy nhất: personal (zca-js) + OA/ZNS
     WEB2_ZALO: { pattern: '/api/web2-zalo/*' },
     // Web 2.0 Tra cứu vận đơn J&T (Báo cáo)
@@ -282,6 +284,8 @@ export function matchRoute(pathname) {
         return 'WEB2_MSG_TEMPLATES';
     if (pathname.startsWith('/api/web2-live-comments/') || pathname === '/api/web2-live-comments')
         return 'WEB2_LIVE_COMMENTS';
+    if (pathname.startsWith('/api/web2-live-relay/') || pathname === '/api/web2-live-relay')
+        return 'WEB2_LIVE_RELAY';
     if (pathname.startsWith('/api/web2-zalo/') || pathname === '/api/web2-zalo') return 'WEB2_ZALO';
     if (pathname.startsWith('/api/web2-jt-tracking/') || pathname === '/api/web2-jt-tracking')
         return 'WEB2_JT_TRACKING';

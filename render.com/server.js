@@ -720,6 +720,7 @@ app.use('/api/admin', require('./routes/admin-web2-import-fb-links')); // WEB2.0
 app.use('/api/web2-users', require('./routes/web2-users')); // WEB2.0 user account system
 const web2LiveCommentsRoutes = require('./routes/web2-live-comments'); // WEB2.0 kho comment livestream (auto-save + đọc lại đủ/bền)
 app.use('/api/web2-live-comments', web2LiveCommentsRoutes);
+app.use('/api/web2-live-relay', require('./routes/web2-live-relay')); // WEB2.0 cấu hình relay WS (chọn trang join per-page) — proxy sang web2-realtime
 // 2026-06-03 Phase 3 tách Web 2.0: dual-mount mỗi route Web 2.0 ở CẢ
 // `/api/web2/<entity>` (mới — chuẩn đi tới) lẫn `/api/v2/<entity>` (alias cũ,
 // giữ backward-compat trong lúc frontend chuyển). Bỏ alias /api/v2/* sau khi

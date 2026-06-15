@@ -810,6 +810,36 @@
                     </div>
                 </div>
 
+                <!-- Realtime server (WS) — chọn trang join per-page -->
+                <div class="ps-card">
+                    <h2>
+                        <i data-lucide="radio" style="width: 16px; height: 16px"></i>
+                        Server realtime (WS) — chọn trang nhận comment
+                        <span id="relayBadge" class="badge warn">—</span>
+                    </h2>
+                    <div class="ps-help">
+                        Relay <strong>web2-realtime</strong> kết nối Pancake WS để đẩy comment
+                        livestream về 2 trang Live (desktop + mobile)
+                        <strong>không cần poll</strong>. Mỗi trang join riêng
+                        (<code>pages:{id}</code>) nên trang nào <strong>hết gói cước</strong> chỉ
+                        trang đó rớt — các trang còn lại vẫn nhận comment. Tick trang muốn nghe (mặc
+                        định bật hết), bỏ tick trang không cần.
+                    </div>
+                    <div id="relayPageList" class="ps-page-list">
+                        <div class="ps-loading">Đang tải danh sách trang từ relay…</div>
+                    </div>
+                    <div class="ps-actions">
+                        <button class="ps-btn primary" id="btnRelaySave">
+                            <i data-lucide="save" style="width: 14px; height: 14px"></i> Lưu &amp;
+                            kết nối lại
+                        </button>
+                        <button class="ps-btn" id="btnRelayReload">
+                            <i data-lucide="refresh-ccw" style="width: 14px; height: 14px"></i> Tải
+                            lại
+                        </button>
+                    </div>
+                </div>
+
                 <!-- JWT Token Card -->
                 <div class="ps-card">
                     <h2>
@@ -1093,6 +1123,6 @@
         <script src="../../web2/shared/web2-chat-client.js?v=20260612en"></script>
         <script src="../shared/web2-pancake-token.js?v=20260604a"></script>
         <script src="../shared/web2-pancake-accounts.js?v=20260612en"></script>
-        <script src="js/pancake-settings.js?v=20260614ux2"></script>
+        <script src="js/pancake-settings.js?v=20260615relay"></script>
     </body>
 </html>

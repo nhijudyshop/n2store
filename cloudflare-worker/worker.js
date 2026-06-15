@@ -242,6 +242,8 @@ async function routeRequest(request, env, ctx) {
                 return handleCustomer360Proxy(request, url, pathname);
             case 'WEB2_LIVE_COMMENTS':
                 return handleCustomer360Proxy(request, url, pathname);
+            case 'WEB2_LIVE_RELAY':
+                return handleCustomer360Proxy(request, url, pathname);
             case 'WEB2_ZALO':
                 return handleCustomer360Proxy(request, url, pathname);
             case 'WEB2_JT_TRACKING':

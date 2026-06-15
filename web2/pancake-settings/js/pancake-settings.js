@@ -905,6 +905,130 @@
         notify('Đã lấy token — bấm "Thêm vào danh sách"', 'success');
     }
 
+    // =====================================================
+    // Server realtime (WS) — chọn trang join per-page (relay web2-realtime)
+    // =====================================================
+    const RELAY_WORKER =
+        window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
+    let _relayAccounts = [];
+
+    async function loadRelayPages() {
+        const list = $('relayPageList');
+        const badge = $('relayBadge');
+        if (list)
+            list.innerHTML = `<div class="ps-loading">Đang tải danh sách trang từ relay…</div>`;
+        try {
+            const r = await fetch(RELAY_WORKER + '/api/web2-live-relay/pages', {
+                signal: AbortSignal.timeout(25000),
+            });
+            const j = await r.json();
+            if (!j.success) throw new Error(j.error || 'lỗi relay');
+            _relayAccounts = j.accounts || [];
+            renderRelayPages(_relayAccounts);
+        } catch (e) {
+            if (list)
+                list.innerHTML = `<div class="ps-loading" style="color:#b91c1c;">Không tải được từ relay: ${escapeHtml(e.message)}.<br>Relay có thể đang khởi động (Render) — bấm <strong>Tải lại</strong> sau ~30s.</div>`;
+            if (badge) {
+                badge.textContent = 'lỗi';
+                badge.className = 'badge err';
+            }
+        }
+    }
+
+    function renderRelayPages(accounts) {
+        const list = $('relayPageList');
+        const badge = $('relayBadge');
+        if (!list) return;
+        const totalPages = accounts.reduce((n, a) => n + (a.allPages || []).length, 0);
+        const totalOn = accounts.reduce(
+            (n, a) => n + (a.allPages || []).filter((p) => p.enabled && !p.joinFailed).length,
+            0
+        );
+        if (!accounts.length || totalPages === 0) {
+            list.innerHTML = `<div class="ps-loading">Relay chưa có account/trang. Kiểm tra account Pancake ở card trên, hoặc relay chưa kết nối.</div>`;
+            if (badge) {
+                badge.textContent = '0 trang';
+                badge.className = 'badge warn';
+            }
+            return;
+        }
+        if (badge) {
+            badge.textContent = `${totalOn}/${totalPages} đang nghe`;
+            badge.className = 'badge ' + (totalOn > 0 ? 'ok' : 'warn');
+        }
+        list.innerHTML = accounts
+            .map((a) => {
+                const pages = (a.allPages || [])
+                    .map((p) => {
+                        const tag = p.joinFailed
+                            ? `<span class="status no" title="Pancake từ chối join — trang này hết gói cước">hết gói cước</span>`
+                            : p.enabled
+                              ? `<span class="status has">đang nghe</span>`
+                              : `<span class="status no">tắt</span>`;
+                        return `
+                <label class="ps-page-item" style="cursor:pointer;">
+                    <input type="checkbox" class="relay-pg" data-uid="${escapeHtml(a.userId)}" data-pid="${escapeHtml(p.id)}" ${p.enabled ? 'checked' : ''} style="width:18px;height:18px;flex-shrink:0;accent-color:var(--web2-primary,#0068ff);" />
+                    ${p.image ? `<img src="${escapeHtml(p.image)}" alt="" />` : `<div class="pg-avatar-fallback">${escapeHtml((p.name || '?').charAt(0).toUpperCase())}</div>`}
+                    <div class="info">
+                        <div class="name">${escapeHtml(p.name || p.id)}</div>
+                        <div class="meta"><span class="mid">${escapeHtml(p.id)}</span></div>
+                    </div>
+                    ${tag}
+                </label>`;
+                    })
+                    .join('');
+                return `<div class="relay-account-group" data-uid="${escapeHtml(a.userId)}">
+                    <div class="ps-help" style="margin:8px 0 4px;">Tài khoản: <strong>${escapeHtml(a.name || a.userId)}</strong> ${a.connected ? '🟢 đã kết nối' : '🔴 chưa kết nối'}</div>
+                    ${pages}
+                </div>`;
+            })
+            .join('');
+        if (window.lucide?.createIcons) window.lucide.createIcons();
+    }
+
+    async function saveRelaySelection() {
+        const btn = $('btnRelaySave');
+        const byUid = {};
+        document.querySelectorAll('#relayPageList .relay-pg').forEach((cb) => {
+            const uid = cb.dataset.uid;
+            byUid[uid] = byUid[uid] || [];
+            if (cb.checked) byUid[uid].push(cb.dataset.pid);
+        });
+        const uids = Object.keys(byUid);
+        if (!uids.length) {
+            notify('Không có trang nào để lưu', 'warning');
+            return;
+        }
+        if (uids.every((u) => byUid[u].length === 0)) {
+            notify('Tick ít nhất 1 trang để relay nghe comment', 'warning');
+            return;
+        }
+        _setBtnLoading(btn, 'Đang kết nối lại…');
+        let okCount = 0;
+        for (const uid of uids) {
+            try {
+                const r = await fetch(RELAY_WORKER + '/api/web2-live-relay/connect', {
+                    method: 'POST',
+                    headers: window.Web2Auth?.authHeaders
+                        ? window.Web2Auth.authHeaders({ 'Content-Type': 'application/json' })
+                        : { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userId: uid, pageIds: byUid[uid] }),
+                    signal: AbortSignal.timeout(25000),
+                });
+                const j = await r.json();
+                if (j.success) okCount++;
+                else notify('Lỗi: ' + (j.error || 'unknown'), 'error');
+            } catch (e) {
+                notify('Lỗi gọi relay: ' + e.message, 'error');
+            }
+        }
+        _restoreBtn(btn);
+        if (okCount) {
+            notify(`Đã lưu + kết nối lại ${okCount} tài khoản`, 'success');
+            setTimeout(loadRelayPages, 3000); // relay reconnect vài giây → refresh trạng thái
+        }
+    }
+
     function init() {
         if (!window.Web2Chat) {
             notify('Web2Chat không load — refresh trang', 'error');
@@ -928,12 +1052,17 @@
         $('btnAddSave')?.addEventListener('click', addAccountFromInput);
         $('btnAddAuto')?.addEventListener('click', addAccountAuto);
 
+        // Realtime server (WS) card
+        $('btnRelaySave')?.addEventListener('click', saveRelaySelection);
+        $('btnRelayReload')?.addEventListener('click', loadRelayPages);
+
         wireModal();
         wireCredsModal();
 
         renderJwtInfo();
         renderExtStatus();
         loadAccounts();
+        loadRelayPages();
         if (window.Web2Chat.getJwt()) {
             // auto-load if JWT already present
             loadPages();

@@ -435,39 +435,29 @@ class PancakeWebSocketClient {
         );
         console.log(`${this.tag()} Joining users:${this.userId}`);
 
-        const pagesRef = this.makeRef();
-        this.ws.send(
-            JSON.stringify([
-                pagesRef,
-                pagesRef,
-                `multiple_pages:${this.userId}`,
-                'phx_join',
-                {
-                    accessToken: this.token,
-                    userId: this.userId,
-                    clientSession: this.generateClientSession(),
-                    pageIds: this.pageIds,
-                    platform: 'web',
-                },
-            ])
-        );
-        console.log(
-            `${this.tag()} Joining multiple_pages with ${this.pageIds.length} pages: [${this.pageIds.join(', ')}]`
-        );
-
-        setTimeout(() => {
-            if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
-            const statusRef = this.makeRef();
+        // PER-PAGE join `pages:{pageId}` thay `multiple_pages:` (2026-06-15).
+        // Vì sao: `multiple_pages:` GỘP mọi page vào 1 join — chỉ cần 1 page hết gói
+        // cước, Pancake reject CẢ BÓ ("Gói cước hết hạn" / err 122) → 0 comment cho
+        // mọi page (bug realtime live-chat: relay eventsReceived=2/giờ). Per-page:
+        // page hết hạn chỉ page ĐÓ lỗi 122 (drop), các page còn hạn vẫn nhận
+        // `pages:update_conversation` livestream comment. Mirror web2/shared/web2-realtime.js.
+        this.joinedPages = new Set();
+        for (const pageId of this.pageIds) {
+            const ref = this.makeRef();
             this.ws.send(
                 JSON.stringify([
-                    pagesRef,
-                    statusRef,
-                    `multiple_pages:${this.userId}`,
-                    'get_online_status',
-                    {},
+                    ref,
+                    ref,
+                    `pages:${pageId}`,
+                    'phx_join',
+                    { accessToken: this.token, userId: this.userId, platform: 'web' },
                 ])
             );
-        }, 1000);
+            this.joinedPages.add(String(pageId));
+        }
+        console.log(
+            `${this.tag()} Joining ${this.pageIds.length} per-page channels: [${this.pageIds.join(', ')}]`
+        );
     }
 
     handleMessage(msg) {
@@ -477,6 +467,8 @@ class PancakeWebSocketClient {
             if (payload.status === 'ok') {
                 if (topic.startsWith('users:')) {
                     console.log(`${this.tag()} Joined users channel`);
+                } else if (topic.startsWith('pages:')) {
+                    // per-page join ok — nhận pages:update_conversation cho page này
                 } else if (topic.startsWith('multiple_pages:')) {
                     console.log(`${this.tag()} Joined multiple_pages channel`);
                 }
@@ -488,6 +480,10 @@ class PancakeWebSocketClient {
                     error: payload.response,
                     time: new Date().toISOString(),
                 });
+                // Per-page hết gói cước (err 122) → page đó rớt, các page khác vẫn chạy.
+                if (topic.startsWith('pages:') && this.joinedPages) {
+                    this.joinedPages.delete(topic.slice('pages:'.length));
+                }
             }
             return;
         }
@@ -587,6 +583,57 @@ class PancakeWebSocketClient {
 
 const clients = new Map(); // userId → PancakeWebSocketClient
 
+// =====================================================
+// PAGE SELECTION — relay chỉ join WS các trang được CHỌN (per-page).
+// Mặc định: tất cả trang discover được (page hết gói cước tự rớt err 122).
+// User tick/bỏ tick ở pancake-settings → POST /api/connect-pages → ghi bảng này.
+// =====================================================
+const SELECTION_TABLE = 'web2_live_relay_pages';
+let _selectionTableReady = false;
+async function ensureSelectionTable() {
+    if (!db || _selectionTableReady) return;
+    await db.query(`
+        CREATE TABLE IF NOT EXISTS ${SELECTION_TABLE} (
+            page_id    VARCHAR(50) PRIMARY KEY,
+            page_name  VARCHAR(255),
+            user_id    VARCHAR(80),
+            enabled    BOOLEAN DEFAULT true,
+            updated_at BIGINT
+        )
+    `);
+    _selectionTableReady = true;
+}
+// Trang bị TẮT (enabled=false). Trang không có row = mặc định BẬT.
+async function getDisabledPageIds() {
+    if (!db) return new Set();
+    try {
+        await ensureSelectionTable();
+        const r = await db.query(`SELECT page_id FROM ${SELECTION_TABLE} WHERE enabled = false`);
+        return new Set(r.rows.map((x) => String(x.page_id)));
+    } catch (e) {
+        console.warn('[SELECTION] getDisabled fail:', e.message);
+        return new Set();
+    }
+}
+// Lưu lựa chọn: pages BẬT = enabledIds; mọi page khác của account (trong allPages) = TẮT.
+async function savePageSelection(userId, enabledIds, allPages) {
+    if (!db) return;
+    await ensureSelectionTable();
+    const enabled = new Set((enabledIds || []).map(String));
+    const now = Date.now();
+    for (const p of allPages || []) {
+        const pid = String(p.id);
+        await db.query(
+            `INSERT INTO ${SELECTION_TABLE} (page_id, page_name, user_id, enabled, updated_at)
+             VALUES ($1,$2,$3,$4,$5)
+             ON CONFLICT (page_id) DO UPDATE SET
+                page_name = EXCLUDED.page_name, user_id = EXCLUDED.user_id,
+                enabled = EXCLUDED.enabled, updated_at = EXCLUDED.updated_at`,
+            [pid, p.name || null, userId, enabled.has(pid), now]
+        );
+    }
+}
+
 async function startClient(token, userId, name, cookie) {
     // Stop existing client for this userId
     if (clients.has(userId)) {
@@ -601,6 +648,11 @@ async function startClient(token, userId, name, cookie) {
         console.warn(`[MANAGER] No pages found for ${name}, skipping`);
         return null;
     }
+
+    // Lọc theo lựa chọn user (trang bị TẮT thì không join WS). Mặc định bật hết.
+    const disabled = await getDisabledPageIds();
+    const selectedIds = pageIds.filter((id) => !disabled.has(String(id)));
+    const connectIds = selectedIds.length ? selectedIds : pageIds;
 
     // Save to DB for future use
     if (db) {
@@ -625,9 +677,13 @@ async function startClient(token, userId, name, cookie) {
         }
     }
 
-    console.log(`[MANAGER] Starting client: ${name} (${userId}) with ${pageIds.length} pages`);
+    console.log(
+        `[MANAGER] Starting client: ${name} (${userId}) — ${connectIds.length}/${pageIds.length} pages selected`
+    );
     const client = new PancakeWebSocketClient(name);
-    client.start(token, userId, pageIds, cookie);
+    client.allPages = pages; // meta đầy đủ cho UI checkbox (id, name, image)
+    client.cookieStr = cookie;
+    client.start(token, userId, connectIds, cookie);
     clients.set(userId, client);
     return client;
 }
@@ -866,6 +922,72 @@ app.post('/api/reconnect', requireRelaySecret, (req, res) => {
         }
     }
     res.json({ success: true, message: `Reconnecting ${count} clients` });
+});
+
+// GET /api/pages-available — danh sách MỌI trang của các account + trang nào đang
+// được CHỌN (join WS) + lỗi join per-page. Dùng cho UI checkbox pancake-settings.
+app.get('/api/pages-available', requireRelaySecret, async (req, res) => {
+    try {
+        const disabled = await getDisabledPageIds();
+        const accounts = [];
+        for (const [userId, client] of clients) {
+            const connected = new Set((client.pageIds || []).map(String));
+            const failed = new Set(
+                (client.joinErrors || [])
+                    .filter((e) => String(e.topic || '').startsWith('pages:'))
+                    .map((e) => String(e.topic).slice('pages:'.length))
+            );
+            accounts.push({
+                userId,
+                name: client.name,
+                connected: client.isConnected,
+                allPages: (client.allPages || []).map((p) => ({
+                    id: String(p.id),
+                    name: p.name || '',
+                    image: p.image_url || p.avatar_url || '',
+                    enabled: !disabled.has(String(p.id)),
+                    joinFailed: failed.has(String(p.id)),
+                })),
+                selectedPageIds: [...connected],
+            });
+        }
+        res.json({ success: true, accounts });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+// POST /api/connect-pages { userId?, pageIds:[...] } — đặt tập trang BẬT cho 1
+// account (mặc định account đầu nếu thiếu userId) → lưu lựa chọn + reconnect WS
+// per-page đúng các trang đó. Đây là "endpoint chỉ cần thay id page là kết nối".
+app.post('/api/connect-pages', requireRelaySecret, async (req, res) => {
+    try {
+        const { userId, pageIds } = req.body || {};
+        if (!Array.isArray(pageIds)) {
+            return res.status(400).json({ success: false, error: 'pageIds[] required' });
+        }
+        const client = userId ? clients.get(userId) : [...clients.values()][0];
+        if (!client) return res.status(404).json({ success: false, error: 'client not found' });
+
+        const allMeta = client.allPages && client.allPages.length ? client.allPages : null;
+        const allIds = allMeta
+            ? allMeta.map((p) => String(p.id))
+            : [...new Set([...(client.pageIds || []), ...pageIds].map(String))];
+        const enabled = pageIds.map(String).filter((id) => allIds.includes(id));
+        if (!enabled.length) {
+            return res.status(400).json({ success: false, error: 'no valid pageIds selected' });
+        }
+        await savePageSelection(client.userId, enabled, allMeta || enabled.map((id) => ({ id })));
+        // Cập nhật pageIds + reconnect (close → on('close') tự connect lại, joinChannels per-page).
+        client.pageIds = enabled;
+        client.reconnectAttempts = 0;
+        client.maxReconnectAttempts = Infinity;
+        if (client.ws) client.ws.close();
+        else client.connect();
+        res.json({ success: true, userId: client.userId, pageIds: enabled });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
 });
 
 // Self-heal: every 60s, check for dead clients (not connected, not retrying)

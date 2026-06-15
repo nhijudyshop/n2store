@@ -2,6 +2,22 @@
 
 ## 2026-06-15
 
+### [live-chat][web2-realtime][worker] FIX comment livestream KHÔNG về 2 trang Live — relay join per-page `pages:{id}` + UI chọn trang 🔄
+
+**User:** "2 trang live-chat/index + comments-mobile không nhận comment livestream nữa? ... không phải account hết gói cước mà có nhiều account có quyền server pancake → tách 2 server House/Store vì multi page bị lỗi → làm endpoint thay id page là kết nối + checkbox chọn trang (House+Store mặc định, thêm trang tick thêm)."
+
+**Chẩn đoán (browser-test + research):** Client 2 trang OK (SSE subscribe `web2:live-comments` + delta fetch verified end-to-end, broadcast test → `clientsNotified:3`). Root cause ở **relay web2-realtime**: join `multiple_pages:${uid}` GỘP 4 page → 1 page hết gói cước (`193642490509664`) làm Pancake reject CẢ BÓ ("Gói cước hết hạn" / err 122) → `eventsReceived=2/giờ`, ring buffer rỗng → 0 push SSE. Comment chỉ vào DB nhờ client `/poll-now` lúc mở trang (warm-up). Probe pancake.vn (account khác) nhận 5 comment/60s qua per-page `pages:{id}` → xác nhận fix.
+
+**Fix per-page (mirror `web2/shared/web2-realtime.js`):**
+
+- [live-chat/server/server.js](live-chat/server/server.js) `joinChannels()`: bỏ `multiple_pages:`, join `pages:{pageId}` TỪNG TRANG (`{accessToken,userId,platform:web}`). Page hết hạn chỉ page đó lỗi 122 (drop khỏi `joinedPages`), các page khác vẫn nhận `pages:update_conversation` livestream comment. `handleMessage` xử lý err 122 per-page.
+- **Selection** (chọn trang): bảng `web2_live_relay_pages` (page_id, enabled). `startClient` lọc page bị tắt; lưu `client.allPages` meta cho UI. Endpoints relay: `GET /api/pages-available` (mọi trang + enabled/joinFailed + selected), `POST /api/connect-pages {userId,pageIds}` (lưu lựa chọn + reconnect per-page).
+- **Proxy**: [render.com/routes/web2-live-relay.js](render.com/routes/web2-live-relay.js) (`GET /pages`, `POST /connect`) forward sang relay kèm `x-relay-secret` (frontend không có secret). Mount server.js. Worker route `WEB2_LIVE_RELAY` (`/api/web2-live-relay/*` → web2-api).
+- **UI**: card "Server realtime (WS) — chọn trang nhận comment" ở [web2/pancake-settings/](web2/pancake-settings/index.html) — checkbox per trang (mặc định bật hết, trang hết gói cước hiện tag), Lưu & kết nối lại → `/connect`.
+- Diagnostic: [scripts/pancake-ws-probe.js](scripts/pancake-ws-probe.js) (one-shot, đọc JWT từ serect, KHÔNG commit secret).
+
+**Status:** 🔄 `node -c` toàn bộ PASS. **Cần deploy**: web2-realtime (chạm `live-chat/server/**`) + web2-api (`render.com/**`) + worker (`cloudflare-worker/**`). Verify sau deploy: relay `/api/status` per-page joined + `eventsReceived` tăng + comment về 2 trang. SAU verify → gỡ client `/poll-now` warm-up + note server-direct. TODO sau: dọn TPOS còn sót Web 2.0.
+
 ### [web2][jt-tracking][render] Trang mới: Tra cứu vận đơn J&T (Báo cáo) ✅
 
 **User:** "Tạo trang lấy tất cả mã 12 số (vd 802762251204) → tracking J&T (jtexpress.vn ?billcode=&cellphone=8674) → hiển thị timeline → tối ưu giao diện/quản lý → hiệu ứng lottie-web. Nằm ở menu Báo cáo. Bỏ xóa/thùng rác → nút Duyệt + Trở lại; bấm Duyệt → mờ đi + tự xoá sau 7 ngày. Ô nhập mã tùy thích (auto 8674)."
