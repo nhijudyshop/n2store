@@ -3,15 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `f27939c` — feat(live-chat/desktop): topbar badge số đơn (🛒 N) trong livestream đang chọn
-**Last updated**: 2026-06-15 14:51:31 +07
-**Latest session**: [`RESUME:20260615-145130-f27939c`](../20260615-145130-f27939c.md)
-**Summary**: feat(live-chat/desktop): topbar badge số đơn (🛒 N) trong livestream đang chọn
+**Latest commit**: `8eb4ee9` — fix(live-chat): comment dài hiện đủ — bỏ -webkit-line-clamp:3 (cắt '...') ở mobile
+**Last updated**: 2026-06-15 14:55:24 +07
+**Latest session**: [`RESUME:20260615-145524-8eb4ee9`](../20260615-145524-8eb4ee9.md)
+**Summary**: fix(live-chat): comment dài hiện đủ — bỏ -webkit-line-clamp:3 (cắt '...') ở mobile
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`live-chat/`](./live-chat.md) — 2 file(s)
+- [`live-chat/`](./live-chat.md) — 3 file(s)
 
 ## All folder snapshots
 
@@ -26,7 +26,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-15 10:55
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-14 18:47
-- [`docs/`](./docs.md) — updated 2026-06-15 14:51
+- [`docs/`](./docs.md) — updated 2026-06-15 14:55
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-13 14:55
 - [`downloads/`](./downloads.md) — updated 2026-06-13 19:16
@@ -39,7 +39,7 @@
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-06-13 14:55
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-12 19:21
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
-- [`live-chat/`](./live-chat.md) — updated 2026-06-15 14:51
+- [`live-chat/`](./live-chat.md) — updated 2026-06-15 14:55
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-06-04 20:02
 - [`n2store-facebook/`](./n2store-facebook.md) — updated 2026-06-14 13:09
 - [`n2store-realtime/`](./n2store-realtime.md) — updated 2026-06-14 12:30
