@@ -23,8 +23,11 @@
 (function (global) {
     'use strict';
 
-    const PROXY = 'https://chatomni-proxy.nhijudyshop.workers.dev';
-    const FALLBACK = 'https://web2-api-kv04.onrender.com';
+    const PROXY =
+        (window.API_CONFIG && window.API_CONFIG.WORKER_URL) ||
+        'https://chatomni-proxy.nhijudyshop.workers.dev';
+    const FALLBACK =
+        (window.API_CONFIG && window.API_CONFIG.WEB2_API) || 'https://web2-api-kv04.onrender.com';
 
     const state = {
         // Server-paged rows for current view (50/page typical, max 200)

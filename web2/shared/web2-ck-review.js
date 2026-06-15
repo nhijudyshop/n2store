@@ -17,7 +17,9 @@
     'use strict';
     if (global.Web2CkReview) return; // idempotent
 
-    const PROXY = 'https://chatomni-proxy.nhijudyshop.workers.dev';
+    const PROXY =
+        (window.API_CONFIG && window.API_CONFIG.WORKER_URL) ||
+        'https://chatomni-proxy.nhijudyshop.workers.dev';
     const SIG_API = PROXY + '/api/web2/payment-signals';
     const BH_API = PROXY + '/api/web2/balance-history';
     const PAGE = 10;

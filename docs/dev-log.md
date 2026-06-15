@@ -2,6 +2,20 @@
 
 ## 2026-06-15
 
+### [web2][worker] Hợp nhất nguồn base-URL + fix 2 gap (livestream 404 worker, ck-dashboard 401) ✅
+
+User: "WEB 2.0: tất cả nguồn dữ liệu… đồng nhất về 1 nguồn dùng chung… 1 khối thống nhất". Audit 6 mảng (base-URL, auth header, SSE/realtime, DB pool, worker routing, Pancake/Zalo) bằng 6 agent song song → SSE/DB-pool/Pancake/Zalo ĐÃ single-source; còn 3 việc:
+
+**1. Nguồn base-URL duy nhất (`web2-auth.js`)**: trước đây KHÔNG có config chung — 61 file hardcode `chatomni-proxy…` / `web2-api-kv04…` rải rác; `window.API_CONFIG` chỉ tồn tại trên trang live-chat. Thêm block `WEB2_CONFIG` (WORKER_URL + WEB2_API + REALTIME + REALTIME_SSE + `apiUrl()`) + merge-safe vào `window.API_CONFIG` ở ĐẦU [web2-auth.js](web2/shared/web2-auth.js) — file shared load **sớm nhất** trên mọi trang (web2/\*, native-orders, so-order; live-chat đã có api-config.js riêng) → mọi script sau đọc được, KHÔNG race, KHÔNG thêm script tag. Convert **42 dòng** hardcode bare-host (`const/let/var`, `return`, object-prop) sang `(window.API_CONFIG && window.API_CONFIG.WORKER_URL) || 'literal'` (literal giữ làm fallback resilience). Đổi URL backend Web 2.0 từ nay → CHỈ sửa `web2-auth.js`. Verify live: `window.API_CONFIG`/`WEB2_CONFIG` resolve đúng trên web2/products, 0 console error ck-dashboard.
+
+**2. Worker `/api/livestream*` 404 gap**: `matchRoute` KHÔNG có entry cho `/api/livestream/` + `/api/livestream-images/` → rơi vào catch-all `TPOS_GENERIC` → tomato.tpos.vn (404 nếu gọi qua worker). Thêm route `WEB2_LIVESTREAM` + `WEB2_LIVESTREAM_IMAGES` ([routes.js](cloudflare-worker/modules/config/routes.js) + [worker.js](cloudflare-worker/worker.js) → `handleCustomer360Proxy` → web2-api). Giờ MỌI path Web 2.0 match tường minh TRƯỚC `TPOS_GENERIC` → Web 2.0 không bao giờ chạm catch-all TPOS.
+
+**3. ck-dashboard 401 gap**: POST `/api/web2/customer-intents/{id}/done` thiếu `x-web2-token` (chỉ `credentials:include`) → 401 dưới `WEB2_AUTH_ENFORCE=1`. Thêm `...Web2Auth.authHeaders()` ([ck-dashboard-app.js](web2/ck-dashboard/js/ck-dashboard-app.js)).
+
+⚠ **TPOS_GENERIC GIỮ NGUYÊN** (user hỏi "xóa đi"): đây là catch-all của worker `chatomni-proxy` (proxy **chung cả 2 layer**) → tomato.tpos.vn — **Web 1.0 (orders-report/inbox) vẫn dùng TPOS thật** (OData, /api/Product, /api/SaleOnline_Order…). Xóa = vỡ Web 1.0. Đúng hướng: ĐÃ match hết path Web 2.0 trước catch-all, KHÔNG xóa catch-all.
+
+Verify: node --check 38 file pass; browser smoke (overview→products→ck-dashboard) 0 console error.
+
 ### [web2] Xóa sạch chữ "TPOS" trong comment/doc Web 2.0 (reword giữ nghĩa) ✅
 
 User: "xóa sạch mọi chữ tpos trong comment". Reword MỌI comment + log-string + doc-prose chứa "TPOS"/"tpos" trong Web 2.0 (web2/, live-chat/, native-orders/) → bỏ chữ TPOS, giữ nguyên ý. ~28 occurrence / 19 file:

@@ -3,7 +3,9 @@
     'use strict';
     if (global.Web2NotificationBell) return;
 
-    const API_BASE = 'https://chatomni-proxy.nhijudyshop.workers.dev';
+    const API_BASE =
+        (window.API_CONFIG && window.API_CONFIG.WORKER_URL) ||
+        'https://chatomni-proxy.nhijudyshop.workers.dev';
     let _container = null;
     let _items = [];
     let _unread = 0;

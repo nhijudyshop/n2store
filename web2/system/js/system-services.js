@@ -5,7 +5,9 @@
 (function () {
     'use strict';
 
-    const WORKER = 'https://chatomni-proxy.nhijudyshop.workers.dev';
+    const WORKER =
+        (window.API_CONFIG && window.API_CONFIG.WORKER_URL) ||
+        'https://chatomni-proxy.nhijudyshop.workers.dev';
     const API = `${WORKER}/api/services-overview`;
 
     // Limits per DB (used for usage bar calc). Cả 2 đều Render Postgres Basic 1GB.

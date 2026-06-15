@@ -2,7 +2,9 @@
 (function () {
     'use strict';
 
-    const WORKER = 'https://chatomni-proxy.nhijudyshop.workers.dev';
+    const WORKER =
+        (window.API_CONFIG && window.API_CONFIG.WORKER_URL) ||
+        'https://chatomni-proxy.nhijudyshop.workers.dev';
     const API = `${WORKER}/api/web2-jt-tracking`;
     const LOTTIE_DIR = 'lottie';
     const DEFAULT_CELL = '8674';

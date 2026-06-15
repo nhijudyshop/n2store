@@ -11,7 +11,9 @@
     'use strict';
     if (typeof window === 'undefined') return;
 
-    const PROXY = 'https://chatomni-proxy.nhijudyshop.workers.dev';
+    const PROXY =
+        (window.API_CONFIG && window.API_CONFIG.WORKER_URL) ||
+        'https://chatomni-proxy.nhijudyshop.workers.dev';
     const UNREAD_API = PROXY + '/api/web2/unread';
 
     let _root = null;

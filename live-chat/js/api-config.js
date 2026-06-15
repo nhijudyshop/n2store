@@ -5,7 +5,8 @@
  * Primary: Cloudflare Worker (no fallback)
  */
 
-// Primary: Cloudflare Worker URL
+// Primary: Cloudflare Worker URL (master cho live-chat; web2-auth.js merge-safe,
+// KHÔNG clobber giá trị này khi load sau).
 const WORKER_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
 
 // API Configuration

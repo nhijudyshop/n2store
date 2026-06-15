@@ -6,7 +6,9 @@
 // =====================================================================
 (function () {
     'use strict';
-    const WORKER_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
+    const WORKER_URL =
+        (window.API_CONFIG && window.API_CONFIG.WORKER_URL) ||
+        'https://chatomni-proxy.nhijudyshop.workers.dev';
 
     function _normPhone(p) {
         if (!p) return '';

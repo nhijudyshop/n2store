@@ -2816,6 +2816,15 @@ permission_templates    (role: admin/manager/staff)</pre
                                     route <code>/api/web2/</code>.
                                 </li>
                                 <li>
+                                    Base-URL backend: đọc
+                                    <code>window.API_CONFIG.WORKER_URL</code> /
+                                    <code>window.WEB2_CONFIG</code> (nguồn duy nhất ở
+                                    <code>web2-auth.js</code>, load sớm nhất). KHÔNG hardcode
+                                    <code>chatomni-proxy…</code> / <code>web2-api-kv04…</code> làm
+                                    nguồn chính — chỉ literal fallback. Đổi URL → sửa
+                                    <code>web2-auth.js</code>.
+                                </li>
+                                <li>
                                     KHÔNG ghi bảng Web 1.0. KHÔNG <code>/api/v2/*</code> non-web2,
                                     <code>/api/sepay/*</code>.
                                 </li>

@@ -16,7 +16,9 @@
 (function () {
     'use strict';
 
-    const PROXY = 'https://chatomni-proxy.nhijudyshop.workers.dev';
+    const PROXY =
+        (window.API_CONFIG && window.API_CONFIG.WORKER_URL) ||
+        'https://chatomni-proxy.nhijudyshop.workers.dev';
     const API = PROXY + '/api/web2/payment-signals';
     // Web 2.0 unread RIÊNG (web2_unread_messages, web2Db) — KHÔNG đọc Web 1.0
     // pending_customers nữa. Populate từ Pancake WS hook trong server.js.

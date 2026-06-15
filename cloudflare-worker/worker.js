@@ -248,6 +248,10 @@ async function routeRequest(request, env, ctx) {
                 return handleCustomer360Proxy(request, url, pathname);
             case 'WEB2_JT_TRACKING':
                 return handleCustomer360Proxy(request, url, pathname);
+            case 'WEB2_LIVESTREAM':
+                return handleCustomer360Proxy(request, url, pathname);
+            case 'WEB2_LIVESTREAM_IMAGES':
+                return handleCustomer360Proxy(request, url, pathname);
             case 'ORDER_NOTES':
                 return handleCustomer360Proxy(request, url, pathname);
             case 'SHOWROOM_PRODUCTS':

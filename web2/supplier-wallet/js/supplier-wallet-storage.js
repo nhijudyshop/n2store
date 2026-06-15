@@ -28,7 +28,9 @@
 
     const STORAGE_KEY = 'supplierWallet_v1'; // localStorage cache — giữ tên cũ để không mất data local
     const RETENTION_MS = 30 * 24 * 60 * 60 * 1000; // legacy const (export compat — không purge nữa)
-    const WORKER_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
+    const WORKER_URL =
+        (window.API_CONFIG && window.API_CONFIG.WORKER_URL) ||
+        'https://chatomni-proxy.nhijudyshop.workers.dev';
     const API_BASE = `${WORKER_URL}/api/web2-supplier-wallet`;
     const API_FALLBACK = 'https://web2-api-kv04.onrender.com/api/web2-supplier-wallet';
 

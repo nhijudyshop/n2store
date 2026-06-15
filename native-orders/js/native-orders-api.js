@@ -7,7 +7,9 @@
 (function (global) {
     'use strict';
 
-    const WORKER_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
+    const WORKER_URL =
+        (window.API_CONFIG && window.API_CONFIG.WORKER_URL) ||
+        'https://chatomni-proxy.nhijudyshop.workers.dev';
     const BASE = `${WORKER_URL}/api/native-orders`;
     const PRODUCTS_BASE = `${WORKER_URL}/api/web2-products`;
 

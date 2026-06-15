@@ -19,7 +19,9 @@
     'use strict';
     if (global.LiveCustomerSync) return;
 
-    var WORKER_DEFAULT = 'https://chatomni-proxy.nhijudyshop.workers.dev';
+    var WORKER_DEFAULT =
+        (window.API_CONFIG && window.API_CONFIG.WORKER_URL) ||
+        'https://chatomni-proxy.nhijudyshop.workers.dev';
 
     function norm(s) {
         var d = String(s == null ? '' : s).replace(/\D/g, '');

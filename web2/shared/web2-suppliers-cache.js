@@ -24,7 +24,9 @@
 
     if (global.Web2SuppliersCache) return;
 
-    const WORKER_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
+    const WORKER_URL =
+        (window.API_CONFIG && window.API_CONFIG.WORKER_URL) ||
+        'https://chatomni-proxy.nhijudyshop.workers.dev';
     const API_BASE = `${WORKER_URL}/api/web2-supplier-wallet`;
 
     const state = {

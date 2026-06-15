@@ -10,7 +10,9 @@
 (function () {
     'use strict';
 
-    const WORKER = 'https://chatomni-proxy.nhijudyshop.workers.dev';
+    const WORKER =
+        (window.API_CONFIG && window.API_CONFIG.WORKER_URL) ||
+        'https://chatomni-proxy.nhijudyshop.workers.dev';
     const USERS_API = `${WORKER}/api/web2-users`;
     const CAMPAIGNS_API = `${WORKER}/api/web2/kpi`;
     const NATIVE_CAMPAIGNS_API = `${WORKER}/api/native-orders/campaigns`;

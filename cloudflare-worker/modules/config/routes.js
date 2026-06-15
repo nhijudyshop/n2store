@@ -164,6 +164,10 @@ export const ROUTES = {
     WEB2_ZALO: { pattern: '/api/web2-zalo/*' },
     // Web 2.0 Tra cứu vận đơn J&T (Báo cáo)
     WEB2_JT_TRACKING: { pattern: '/api/web2-jt-tracking/*' },
+    // Web 2.0 Livestream snapshot per-customer (capture frame Pancake live)
+    WEB2_LIVESTREAM: { pattern: '/api/livestream/*' },
+    // Web 2.0 kho "Hình Livestream" (manual iframe capture)
+    WEB2_LIVESTREAM_IMAGES: { pattern: '/api/livestream-images/*' },
 
     // Order Notes (PostgreSQL - CSKH notes history per order)
     ORDER_NOTES: { pattern: '/api/order-notes/*' },
@@ -289,6 +293,11 @@ export function matchRoute(pathname) {
     if (pathname.startsWith('/api/web2-zalo/') || pathname === '/api/web2-zalo') return 'WEB2_ZALO';
     if (pathname.startsWith('/api/web2-jt-tracking/') || pathname === '/api/web2-jt-tracking')
         return 'WEB2_JT_TRACKING';
+    // /api/livestream-images/* TRƯỚC /api/livestream/* (prefix riêng biệt, an toàn thứ tự).
+    if (pathname.startsWith('/api/livestream-images/') || pathname === '/api/livestream-images')
+        return 'WEB2_LIVESTREAM_IMAGES';
+    if (pathname.startsWith('/api/livestream/') || pathname === '/api/livestream')
+        return 'WEB2_LIVESTREAM';
     if (pathname.startsWith('/api/order-notes/')) return 'ORDER_NOTES';
     if (pathname.startsWith('/api/showroom-products/') || pathname === '/api/showroom-products')
         return 'SHOWROOM_PRODUCTS';

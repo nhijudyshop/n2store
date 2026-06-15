@@ -35,7 +35,9 @@
     const PANCAKE_WS_URL = 'wss://pancake.vn/socket/websocket?vsn=2.0.0';
     const PROXY_WS_URL = 'wss://n2store-realtime.onrender.com';
     const PROXY_HTTP_URL = 'https://n2store-realtime.onrender.com'; // direct broker (CORS open)
-    const WORKER_BASE = 'https://chatomni-proxy.nhijudyshop.workers.dev';
+    const WORKER_BASE =
+        (window.API_CONFIG && window.API_CONFIG.WORKER_URL) ||
+        'https://chatomni-proxy.nhijudyshop.workers.dev';
 
     // Subscriber list is mode-agnostic — both modes funnel events here.
     const subscribers = [];

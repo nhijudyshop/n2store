@@ -5,7 +5,9 @@
 (function () {
     'use strict';
 
-    const WORKER = 'https://chatomni-proxy.nhijudyshop.workers.dev';
+    const WORKER =
+        (window.API_CONFIG && window.API_CONFIG.WORKER_URL) ||
+        'https://chatomni-proxy.nhijudyshop.workers.dev';
     const KPI_API = `${WORKER}/api/web2/kpi`;
 
     // Sprint 5 KPI: inject Web2Auth token vào mọi request để backend apply scope.

@@ -9,8 +9,11 @@
     'use strict';
     if (typeof window === 'undefined' || global.Web2CkAssignPicker) return;
 
-    const PROXY = 'https://chatomni-proxy.nhijudyshop.workers.dev';
-    const FALLBACK = 'https://web2-api-kv04.onrender.com';
+    const PROXY =
+        (window.API_CONFIG && window.API_CONFIG.WORKER_URL) ||
+        'https://chatomni-proxy.nhijudyshop.workers.dev';
+    const FALLBACK =
+        (window.API_CONFIG && window.API_CONFIG.WEB2_API) || 'https://web2-api-kv04.onrender.com';
     const BH = '/api/web2/balance-history';
 
     function esc(v) {

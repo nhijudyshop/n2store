@@ -9,7 +9,9 @@
 
 (function () {
     'use strict';
-    const PROXY = 'https://chatomni-proxy.nhijudyshop.workers.dev';
+    const PROXY =
+        (window.API_CONFIG && window.API_CONFIG.WORKER_URL) ||
+        'https://chatomni-proxy.nhijudyshop.workers.dev';
     const SIG = PROXY + '/api/web2/payment-signals';
     const INTENT = PROXY + '/api/web2/customer-intents';
     const PAGE = 10;
@@ -194,7 +196,10 @@
                 const doFetch = async () => {
                     const r = await fetch(`${INTENT}/${id}/done`, {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: {
+                            'Content-Type': 'application/json',
+                            ...(window.Web2Auth?.authHeaders ? window.Web2Auth.authHeaders() : {}),
+                        },
                         credentials: 'include',
                         body: JSON.stringify(body),
                     });

@@ -16,8 +16,44 @@
 (function (global) {
     'use strict';
 
+    // ─────────────────────────────────────────────────────────────────────
+    // WEB 2.0 CONFIG — NGUỒN DUY NHẤT mọi base-URL backend (BẮT BUỘC dùng).
+    // web2-auth.js là shared script load SỚM NHẤT trên mọi trang Web 2.0
+    // (web2/*, native-orders, so-order; live-chat đã có api-config.js riêng),
+    // nên đây là nơi an toàn nhất để khai báo config đồng bộ — mọi script
+    // sau đó đọc `window.API_CONFIG.WORKER_URL` / `window.WEB2_CONFIG.*`.
+    //
+    // ⚙️ ĐỔI URL backend Web 2.0 → CHỈ sửa Ở ĐÂY. Các file khác chỉ giữ
+    //    literal làm fallback (resilience nếu config chưa load), KHÔNG phải
+    //    nguồn quản lý.
+    // ─────────────────────────────────────────────────────────────────────
+    const WEB2_CONFIG = {
+        // Cloudflare Worker proxy (route + CORS + hấp thụ 502 cold-start).
+        WORKER_URL:
+            (global.API_CONFIG && global.API_CONFIG.WORKER_URL) ||
+            'https://chatomni-proxy.nhijudyshop.workers.dev',
+        // Render backend Web 2.0 trực tiếp (fallback khi worker lỗi/timeout).
+        WEB2_API:
+            (global.API_CONFIG && global.API_CONFIG.WEB2_API) ||
+            'https://web2-api-kv04.onrender.com',
+        // Render realtime service (Pancake relay WS + FB graph).
+        REALTIME: 'https://web2-realtime.onrender.com',
+    };
+    WEB2_CONFIG.REALTIME_SSE = WEB2_CONFIG.WORKER_URL + '/api/realtime/web2/sse';
+    // Build URL /api/<path> qua worker (đường chuẩn cho mọi gọi Web 2.0).
+    WEB2_CONFIG.apiUrl = function (path) {
+        const p = String(path || '');
+        return WEB2_CONFIG.WORKER_URL + (p[0] === '/' ? p : '/' + p);
+    };
+    global.WEB2_CONFIG = global.WEB2_CONFIG || WEB2_CONFIG;
+    // Merge-safe vào API_CONFIG (KHÔNG clobber bản giàu của live-chat
+    // api-config.js — chỉ điền field còn thiếu).
+    global.API_CONFIG = global.API_CONFIG || {};
+    if (!global.API_CONFIG.WORKER_URL) global.API_CONFIG.WORKER_URL = WEB2_CONFIG.WORKER_URL;
+    if (!global.API_CONFIG.WEB2_API) global.API_CONFIG.WEB2_API = WEB2_CONFIG.WEB2_API;
+
     const STORAGE_KEY = 'web2_auth';
-    const WORKER = 'https://chatomni-proxy.nhijudyshop.workers.dev';
+    const WORKER = (global.API_CONFIG && global.API_CONFIG.WORKER_URL) || WEB2_CONFIG.WORKER_URL;
     const API = `${WORKER}/api/web2-users`;
 
     function getStored() {

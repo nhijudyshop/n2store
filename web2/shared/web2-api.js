@@ -11,7 +11,9 @@
 (function (global) {
     'use strict';
 
-    const WORKER = 'https://chatomni-proxy.nhijudyshop.workers.dev';
+    const WORKER =
+        (window.API_CONFIG && window.API_CONFIG.WORKER_URL) ||
+        'https://chatomni-proxy.nhijudyshop.workers.dev';
 
     // 3H21 (2026-06-12): tự gắn x-web2-token (Web2Auth, localStorage 'web2_auth')
     // cho MỌI call generic — điều kiện tiên quyết bật WEB2_AUTH_ENFORCE=1 mà

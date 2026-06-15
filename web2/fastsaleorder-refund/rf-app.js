@@ -1,7 +1,9 @@
 // #Note: Refund list page — backed by /api/refunds/*
 (function () {
     'use strict';
-    const WORKER = 'https://chatomni-proxy.nhijudyshop.workers.dev';
+    const WORKER =
+        (window.API_CONFIG && window.API_CONFIG.WORKER_URL) ||
+        'https://chatomni-proxy.nhijudyshop.workers.dev';
     const STATE = { orders: [], total: 0, page: 1, limit: 200, state: '', search: '' };
     // Audit: ai duyệt/hoàn/hủy phiếu → ghi vào state_history (backend _changeState).
     function _by() {

@@ -8,7 +8,9 @@
 
     // Proxy domain cho các fetch trực tiếp (history endpoint chưa có trong
     // Web2ProductsApi). Đưa vào hằng số để tránh hardcode rải rác.
-    const PROXY_BASE = 'https://chatomni-proxy.nhijudyshop.workers.dev';
+    const PROXY_BASE =
+        (window.API_CONFIG && window.API_CONFIG.WORKER_URL) ||
+        'https://chatomni-proxy.nhijudyshop.workers.dev';
 
     const STATE = {
         products: [],

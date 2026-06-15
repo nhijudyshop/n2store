@@ -237,7 +237,8 @@
     // livestream tại đúng moment comment. Cache module-wide để khỏi re-fetch.
     // 3 trạng thái cache: undefined (chưa fetch), null (đã fetch nhưng không
     // có thumbnail bytea), object (có thumbnail self-served).
-    const RENDER_API = 'https://web2-api-kv04.onrender.com';
+    const RENDER_API =
+        (window.API_CONFIG && window.API_CONFIG.WEB2_API) || 'https://web2-api-kv04.onrender.com';
     const _snapCache = new Map(); // commentId → snap | null
     const _snapPendingFetch = new Set(); // commentIds đang/đã queue fetch
     let _snapFetchTimer = null;
@@ -443,7 +444,9 @@
         return ((name || '?').trim().charAt(0) || '?').toUpperCase();
     }
 
-    const WORKER_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
+    const WORKER_URL =
+        (window.API_CONFIG && window.API_CONFIG.WORKER_URL) ||
+        'https://chatomni-proxy.nhijudyshop.workers.dev';
     // FB user id hợp lệ là chuỗi SỐ (PSID/global id). Các giá trị "rác" như
     // 'NEW_FB_DOES_NOT_EXIST', 'TEST_FB_*', '' → coi như KHÔNG có fb context.
     // Quan trọng: /api/fb-avatar trả SVG silhouette (HTTP 200) cho id không tồn

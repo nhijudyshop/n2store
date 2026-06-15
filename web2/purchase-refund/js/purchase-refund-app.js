@@ -5,7 +5,9 @@
 (function () {
     'use strict';
 
-    const WORKER = 'https://chatomni-proxy.nhijudyshop.workers.dev';
+    const WORKER =
+        (window.API_CONFIG && window.API_CONFIG.WORKER_URL) ||
+        'https://chatomni-proxy.nhijudyshop.workers.dev';
     const GENERIC_API = `${WORKER}/api/web2/purchase-refund`;
     const SM_API = `${WORKER}/api/purchase-refund`; // state-machine endpoints
 
