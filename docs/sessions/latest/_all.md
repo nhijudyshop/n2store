@@ -3,10 +3,10 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `b463110` — feat(live-chat/mobile): chip Store/House hiện số đơn đã tạo + nút toàn màn hình (F11)
-**Last updated**: 2026-06-15 14:48:22 +07
-**Latest session**: [`RESUME:20260615-144822-b463110`](../20260615-144822-b463110.md)
-**Summary**: feat(live-chat/mobile): chip Store/House hiện số đơn đã tạo + nút toàn màn hình (F11)
+**Latest commit**: `f27939c` — feat(live-chat/desktop): topbar badge số đơn (🛒 N) trong livestream đang chọn
+**Last updated**: 2026-06-15 14:51:31 +07
+**Latest session**: [`RESUME:20260615-145130-f27939c`](../20260615-145130-f27939c.md)
+**Summary**: feat(live-chat/desktop): topbar badge số đơn (🛒 N) trong livestream đang chọn
 
 ## Folders affected in this commit
 
@@ -26,7 +26,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-15 10:55
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-14 18:47
-- [`docs/`](./docs.md) — updated 2026-06-15 14:48
+- [`docs/`](./docs.md) — updated 2026-06-15 14:51
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-13 14:55
 - [`downloads/`](./downloads.md) — updated 2026-06-13 19:16
@@ -39,7 +39,7 @@
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-06-13 14:55
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-12 19:21
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
-- [`live-chat/`](./live-chat.md) — updated 2026-06-15 14:48
+- [`live-chat/`](./live-chat.md) — updated 2026-06-15 14:51
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-06-04 20:02
 - [`n2store-facebook/`](./n2store-facebook.md) — updated 2026-06-14 13:09
 - [`n2store-realtime/`](./n2store-realtime.md) — updated 2026-06-14 12:30
