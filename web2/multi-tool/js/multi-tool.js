@@ -295,7 +295,8 @@
             return;
         }
         const total = Math.max(1, Math.min(500, parseInt($('boostCount').value, 10) || 0));
-        const delay = Math.max(500, parseInt($('boostDelay').value, 10) || 1500);
+        // Ô nhập đơn vị GIÂY (thập phân) → ms. Tối thiểu 0.1s (100ms).
+        const delay = Math.round(Math.max(0.1, parseFloat($('boostDelay').value) || 1.5) * 1000);
         const tpl = ($('boostText').value || '').trim();
         const W = await waitWeb2Chat();
         if (!W) return;
@@ -424,8 +425,8 @@
         const delayEl = $('boostDelay');
         const hintEl = $('boostDelayHint');
         const updateHint = () => {
-            const ms = Math.max(0, parseInt(delayEl.value, 10) || 0);
-            hintEl.textContent = `= ${(ms / 1000).toLocaleString('vi-VN')} giây / comment`;
+            const sec = Math.max(0.1, parseFloat(delayEl.value) || 1.5);
+            hintEl.textContent = `= ${Math.round(sec * 1000)} ms / comment mỗi tài khoản`;
         };
         delayEl.addEventListener('input', updateHint);
         updateHint();

@@ -2,6 +2,10 @@
 
 ## 2026-06-15
 
+### [web2] "Tăng comment" — ô Giãn nhịp đổi sang GIÂY (thập phân), cho 0.1–1.5s ✅
+
+User: "nhập 0.5s, 0.1s có tác dụng không?" → KHÔNG: ô cũ là **ms** + `parseInt("0.1")=0` → rơi về 1500ms + min-clamp 500. User nghĩ theo giây. Đổi ô [boostDelay](web2/multi-tool/index.html) sang **đơn vị giây** (number thập phân, value 1.5, min 0.1, step 0.1); [multi-tool.js](web2/multi-tool/js/multi-tool.js) parse `parseFloat * 1000` (min 0.1s=100ms), hint "= N ms/comment mỗi tài khoản". Giờ 0.5→500ms, 0.1→100ms thật. Bump `multi-tool.js?v=20260615sec`.
+
 ### [web2] "Tăng số lượng comment" ĐA NHIỆM theo nhiều account Pancake (1 worker/account) ✅
 
 User: "đa nhiệm đi vì có nhiều account Pancake tôi add vào — cứ chạy tối đa số account được add".
