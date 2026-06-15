@@ -606,18 +606,29 @@
 
     // Dán text copy từ Zalo (Web/PC) → quét mã đơn cũ (bù lịch sử Zalo API không trả).
     function openPasteModal() {
+        const script = (document.getElementById('jtZaloScript')?.textContent || '').trim();
         const mount = $('jtModalMount');
         mount.innerHTML = `<div class="jt-msg-back" id="jtPasteBack">
-            <div class="jt-msg-modal" role="dialog" aria-modal="true" aria-label="Dán lịch sử Zalo">
+            <div class="jt-msg-modal jt-paste-modal" role="dialog" aria-modal="true" aria-label="Lấy lịch sử Zalo">
                 <div class="jt-msg-head">
-                    <span><i data-lucide="clipboard-paste"></i> Dán lịch sử Zalo</span>
+                    <span><i data-lucide="clipboard-paste"></i> Lấy lịch sử từ Zalo Web</span>
                     <button class="jt-msg-x" id="jtPasteClose" aria-label="Đóng"><i data-lucide="x"></i></button>
                 </div>
-                <div class="jt-msg-who" style="line-height:1.5">
-                    Mở nhóm J&amp;T trên <b>Zalo Web/PC</b> → cuộn lên vài ngày → bôi đen tin nhắn →
-                    <b>Ctrl+C</b> → dán vào đây. Hệ thống tự lọc mã đơn (<i>… Shop NHI JUDY …</i>).
+                <ol class="jt-paste-steps">
+                    <li>Mở <b>chat.zalo.me</b> → vào nhóm J&amp;T → cuộn lên cho tin cũ hiện ra.</li>
+                    <li>Nhấn <b>F12</b> → tab <b>Console</b>.</li>
+                    <li>Bấm <b>Copy script</b> → dán vào Console → Enter (script tự copy kết quả).</li>
+                    <li>Quay lại đây, dán (<b>Ctrl+V</b>) vào ô dưới → <b>Quét mã</b>.</li>
+                </ol>
+                <div class="jt-paste-script">
+                    <div class="jt-paste-script-head">
+                        <span><i data-lucide="terminal"></i> Script (chạy trong Console Zalo Web)</span>
+                        <button class="jt-btn jt-btn-ghost jt-btn-sm" id="jtCopyScript" type="button"><i data-lucide="copy"></i> Copy script</button>
+                    </div>
+                    <textarea id="jtScriptBox" class="jt-paste-code" rows="5" readonly spellcheck="false">${esc(script)}</textarea>
                 </div>
-                <textarea id="jtPasteText" class="jt-msg-text" rows="8" placeholder="Dán nội dung chat copy từ Zalo vào đây…"></textarea>
+                <label class="jt-paste-label" for="jtPasteText">Kết quả script (dán vào đây — hoặc dán text copy tay từ Zalo):</label>
+                <textarea id="jtPasteText" class="jt-msg-text" rows="6" placeholder="Dán kết quả script / nội dung chat từ Zalo vào đây…"></textarea>
                 <div class="jt-msg-foot">
                     <button class="jt-btn jt-btn-ghost" id="jtPasteCancel" type="button">Hủy</button>
                     <button class="jt-btn jt-btn-primary" id="jtPasteSubmit" type="button"><i data-lucide="search"></i> Quét mã</button>
@@ -637,6 +648,17 @@
         $('jtPasteCancel').onclick = close;
         $('jtPasteBack').onclick = (e) => {
             if (e.target.id === 'jtPasteBack') close();
+        };
+        $('jtCopyScript').onclick = async () => {
+            try {
+                await navigator.clipboard.writeText(script);
+            } catch {
+                const t = $('jtScriptBox');
+                t.focus();
+                t.select();
+                document.execCommand('copy');
+            }
+            notify('Đã copy script — dán vào Console Zalo Web', 'success');
         };
         setTimeout(() => $('jtPasteText')?.focus(), 60);
         $('jtPasteSubmit').onclick = async () => {

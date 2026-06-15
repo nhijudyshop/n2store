@@ -9,7 +9,7 @@
 
         <link rel="stylesheet" href="../shared/web2-sidebar.css?v=20260613z" />
         <link rel="stylesheet" href="../shared/web2-theme.css?v=20260613ns1" />
-        <link rel="stylesheet" href="css/jt-tracking.css?v=20260615o" />
+        <link rel="stylesheet" href="css/jt-tracking.css?v=20260615s" />
 
         <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
         <!-- Lottie (airbnb/lottie-web) — hiệu ứng trạng thái giao hàng -->
@@ -116,6 +116,45 @@
         <div id="jtModalMount"></div>
         <div id="jtChatMount"></div>
 
+        <!-- Script chạy trong Console Zalo Web (chat.zalo.me) để moi mã đơn từ IndexedDB + DOM.
+             type="text/plain" → browser KHÔNG chạy; modal "Dán lịch sử" đọc textContent để hiện + copy. -->
+        <script type="text/plain" id="jtZaloScript">
+            (async () => {
+              const RE = /(\d{12})\s+Shop\s+NHI\s*JUDY[^\n]*/gi;
+              const lines = new Set();
+              (document.body.innerText.match(RE) || []).forEach(l => lines.add(l.trim()));
+              try {
+                for (const {name} of (await indexedDB.databases?.()) || []) {
+                  await new Promise(res => {
+                    const rq = indexedDB.open(name);
+                    rq.onsuccess = () => {
+                      const db = rq.result, ss = [...db.objectStoreNames]; let p = ss.length;
+                      if (!p) { db.close(); return res(); }
+                      ss.forEach(s => {
+                        try {
+                          const g = db.transaction(s,'readonly').objectStore(s).getAll();
+                          g.onsuccess = () => {
+                            try { const r = new RegExp(RE.source,'gi'); let m;
+                              while ((m = r.exec(JSON.stringify(g.result)))) lines.add(m[0].replace(/\\[tn]/g,' ').trim().slice(0,300));
+                            } catch {}
+                            if (--p===0){ db.close(); res(); }
+                          };
+                          g.onerror = () => { if(--p===0){db.close();res();} };
+                        } catch { if(--p===0){db.close();res();} }
+                      });
+                    };
+                    rq.onerror = () => res();
+                  });
+                }
+              } catch {}
+              const out = [...lines].join('\n');
+              const codes = [...new Set([...out.matchAll(/\d{12}/g)].map(x=>x[0]))];
+              console.log('🔎 Tìm ' + codes.length + ' mã đơn:\n' + (out || '(không thấy — cuộn lên cho tin hiện ra rồi chạy lại)'));
+              try { await navigator.clipboard.writeText(out); console.log('✅ Đã copy — dán vào "Dán lịch sử".'); }
+              catch { console.log('⚠ Không tự copy được — bôi đen log trên copy tay.'); }
+            })();
+        </script>
+
         <script src="../shared/web2-auth.js?v=20260613guard"></script>
         <script src="../shared/web2-optimistic.js?v=20260601a"></script>
         <script src="../shared/web2-sidebar.js?v=20260615mt"></script>
@@ -128,6 +167,6 @@
         <script src="../shared/web2-extension-bridge.js?v=20260615a"></script>
         <!-- Web2CustomerChat → FULL chat KH (Pancake + Zalo) dùng chung, bấm SĐT mở -->
         <script src="../shared/web2-customer-chat.js?v=20260615b"></script>
-        <script src="js/jt-tracking-app.js?v=20260615r"></script>
+        <script src="js/jt-tracking-app.js?v=20260615s"></script>
     </body>
 </html>

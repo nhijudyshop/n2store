@@ -2,6 +2,10 @@
 
 ## 2026-06-15
 
+### [web2] J&T "Dán lịch sử" — thêm script Console Zalo Web (copy sẵn) + hướng dẫn ✅
+
+User: "cho nút hiện đoạn script + ô dán kết quả có hướng dẫn". Modal "Dán lịch sử" giờ gồm: (1) hướng dẫn 4 bước, (2) **ô script** (đọc từ `<script type="text/plain" id="jtZaloScript">` ẩn — moi mã đơn từ IndexedDB + DOM Zalo Web) + nút **"Copy script"**, (3) ô dán kết quả → "Quét mã" → `/scan-text`. Script lưu dạng text/plain để khỏi escape; verify `node --check` đoạn extract OK. Frontend-only; bump css/app `?v=20260615s`.
+
 ### [web2] Trang MỚI "Đa dụng Web 2.0" + tab "Tăng số lượng comment" ✅
 
 User: spam comment bằng auto-gõ random + Enter trên Pancake (page reply_comment) → mang vào Web 2.0 thành 1 trang đa dụng (tab framework), tab đầu = tăng comment.
