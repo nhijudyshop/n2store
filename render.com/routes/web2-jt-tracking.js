@@ -94,7 +94,8 @@ async function ensureSchema(pool) {
 // Mã ĐƠN HÀNG J&T chỉ nhận khi đúng FORMAT dòng đơn: "<12 số> [tab/space] Shop NHI JUDY 01 <tiền>..."
 // → loại mention/reply (vd "@Nhi Judy Store 802... dạ ship...") + số 12 chữ số ngẫu nhiên.
 // Capture group 1 = mã. Case-insensitive, "NHI JUDY" cho phép có/không khoảng trắng.
-const ORDER_CODE_RE = /(\d{12})\s+Shop\s+NHI\s*JUDY/gi;
+// (?<!\d)…(?!\d): mã ĐÚNG 12 số (chặn 13+ số dính nhau bị cắt còn 12).
+const ORDER_CODE_RE = /(?<!\d)(\d{12})(?!\d)\s+Shop\s+NHI\s*JUDY/gi;
 function extractOrderCodes(text) {
     const out = new Set();
     const re = new RegExp(ORDER_CODE_RE.source, 'gi');
@@ -339,7 +340,7 @@ router.post('/scan', async (req, res) => {
                FROM web2_zalo_messages m
                LEFT JOIN web2_zalo_conversations c
                  ON c.account_key = m.account_key AND c.thread_id = m.thread_id
-              WHERE m.content ~ '[0-9]{12}' AND m.content ILIKE '%shop nhi%'
+              WHERE m.content ~ '[0-9]{12}' AND m.content ~* 'shop\\s+nhi\\s*judy'
               ORDER BY m.sent_at DESC
               LIMIT 5000`
         );
