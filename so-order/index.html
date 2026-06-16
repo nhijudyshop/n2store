@@ -19,7 +19,7 @@
         <link rel="stylesheet" href="../web2/shared/web2-effects.css?v=20260616b" />
         <link rel="stylesheet" href="../web2/shared/web2-components.css?v=20260616b" />
         <link rel="stylesheet" href="../web2/products/css/web2-products-print.css?v=20260616b" />
-        <link rel="stylesheet" href="css/so-order.css?v=20260616b" />
+        <link rel="stylesheet" href="css/so-order.css?v=20260616d" />
         <!-- Import dữ liệu CSV/JSON (NGUỒN CHUNG Web2Import) -->
         <link rel="stylesheet" href="../web2/shared/web2-import.css?v=20260616b" />
 
@@ -217,7 +217,14 @@
                             <label class="so-form-label">Ngày tạo</label>
                             <input type="date" name="shipDate" required class="so-input-v2" />
                         </div>
-                        <div class="so-form-cell so-ship-adv">
+                        <div class="so-form-cell so-cell-invoice-img">
+                            <label class="so-form-label">
+                                Ảnh hóa đơn
+                                <span class="so-currency-hint">(cả đơn — không phải từng SP)</span>
+                            </label>
+                            <div id="soOrderInvoiceImageCell" class="so-order-invoice-host"></div>
+                        </div>
+                        <div class="so-form-cell so-ship-adv" data-ship-field="eta">
                             <label class="so-form-label">
                                 ETA giao hàng
                                 <span class="so-currency-hint">(dự kiến)</span>
@@ -229,7 +236,10 @@
                                 title="Ngày dự kiến NCC giao hàng — badge hiển thị 'còn N ngày' trên shipment header"
                             />
                         </div>
-                        <div class="so-form-cell so-cell-narrow so-ship-adv">
+                        <div
+                            class="so-form-cell so-cell-narrow so-ship-adv"
+                            data-ship-field="batch"
+                        >
                             <label class="so-form-label">Đợt</label>
                             <input
                                 type="text"
@@ -238,7 +248,10 @@
                                 class="so-input-v2"
                             />
                         </div>
-                        <div class="so-form-cell so-cell-narrow so-ship-adv">
+                        <div
+                            class="so-form-cell so-cell-narrow so-ship-adv"
+                            data-ship-field="caseCount"
+                        >
                             <label class="so-form-label">Số Kiện</label>
                             <input
                                 type="number"
@@ -248,7 +261,10 @@
                                 class="so-input-v2 so-input-num"
                             />
                         </div>
-                        <div class="so-form-cell so-cell-narrow so-ship-adv">
+                        <div
+                            class="so-form-cell so-cell-narrow so-ship-adv"
+                            data-ship-field="weightKg"
+                        >
                             <label class="so-form-label">Tổng KG</label>
                             <input
                                 type="number"
@@ -259,7 +275,7 @@
                                 class="so-input-v2 so-input-num"
                             />
                         </div>
-                        <div class="so-form-cell so-ship-adv">
+                        <div class="so-form-cell so-ship-adv" data-ship-field="contractAmount">
                             <label class="so-form-label">
                                 Tiền HĐ
                                 <span class="so-currency-hint" id="soContractCurHint"></span>
@@ -273,7 +289,10 @@
                                 class="so-input-v2 so-input-num"
                             />
                         </div>
-                        <div class="so-form-cell so-cell-narrow so-ship-adv">
+                        <div
+                            class="so-form-cell so-cell-narrow so-ship-adv"
+                            data-ship-field="contractCurrency"
+                        >
                             <label class="so-form-label">Tiền tệ</label>
                             <select name="shipContractCurrency" class="so-input-v2">
                                 <option value="VND">VND</option>
@@ -361,7 +380,6 @@
                                     </th>
                                     <th class="so-th-money so-th-total">Thành tiền</th>
                                     <th class="so-th-img">Hình ảnh sản phẩm</th>
-                                    <th class="so-th-img">Hình ảnh hóa đơn</th>
                                     <th class="so-th-row-actions"></th>
                                 </tr>
                             </thead>
@@ -445,13 +463,39 @@
                         <span>Tỉ giá → VNĐ (1 đơn vị tiền tệ = ? VNĐ)</span>
                         <input type="number" name="rate" min="0" step="any" required />
                     </label>
-                    <label class="so-field so-field-check">
-                        <input type="checkbox" name="showShipMeta" />
-                        <span
-                            >Hiện thông tin lô khi tạo đơn (ETA, đợt, số kiện, KG, tiền HĐ, tiền
-                            tệ)</span
-                        >
-                    </label>
+                    <fieldset class="so-field so-shipmeta-fieldset">
+                        <legend>Hiện thông tin lô khi tạo đơn</legend>
+                        <label class="so-shipmeta-all">
+                            <input type="checkbox" id="soShipMetaAll" />
+                            <span>Chọn tất cả</span>
+                        </label>
+                        <div class="so-shipmeta-grid">
+                            <label class="so-shipmeta-check">
+                                <input type="checkbox" name="showMeta_eta" />
+                                <span>ETA giao hàng</span>
+                            </label>
+                            <label class="so-shipmeta-check">
+                                <input type="checkbox" name="showMeta_batch" />
+                                <span>Đợt</span>
+                            </label>
+                            <label class="so-shipmeta-check">
+                                <input type="checkbox" name="showMeta_caseCount" />
+                                <span>Số Kiện</span>
+                            </label>
+                            <label class="so-shipmeta-check">
+                                <input type="checkbox" name="showMeta_weightKg" />
+                                <span>Tổng KG</span>
+                            </label>
+                            <label class="so-shipmeta-check">
+                                <input type="checkbox" name="showMeta_contractAmount" />
+                                <span>Tiền HĐ</span>
+                            </label>
+                            <label class="so-shipmeta-check">
+                                <input type="checkbox" name="showMeta_contractCurrency" />
+                                <span>Tiền tệ</span>
+                            </label>
+                        </div>
+                    </fieldset>
                 </form>
                 <footer class="so-modal-foot">
                     <button class="btn-danger" type="button" id="soTabDeleteBtn">
@@ -580,7 +624,7 @@
         <script src="../web2/shared/web2-deeplink.js?v=20260616b"></script>
         <!-- Import dữ liệu CSV/JSON (NGUỒN CHUNG Web2Import) -->
         <script src="../web2/shared/web2-import.js?v=20260616b"></script>
-        <script src="js/so-order-storage.js?v=20260616b"></script>
-        <script src="js/so-order-app.js?v=20260616b"></script>
+        <script src="js/so-order-storage.js?v=20260616d"></script>
+        <script src="js/so-order-app.js?v=20260616d"></script>
     </body>
 </html>

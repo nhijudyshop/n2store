@@ -124,6 +124,19 @@
         }
         // Backfill toggle ẩn/hiện field thông tin lô (mặc định ẩn cho tab cũ).
         if (tab.showShipMeta === undefined) tab.showShipMeta = false;
+        // Per-field thông tin lô (2026-06-16): mỗi field 1 flag riêng. Backfill từ
+        // showShipMeta gộp cho tab cũ — bool true → bật cả 6, false → tắt cả 6.
+        if (!tab.shipMetaFields || typeof tab.shipMetaFields !== 'object') {
+            const all = !!tab.showShipMeta;
+            tab.shipMetaFields = {
+                eta: all,
+                batch: all,
+                caseCount: all,
+                weightKg: all,
+                contractAmount: all,
+                contractCurrency: all,
+            };
+        }
         // Heal shipment shape
         for (const sh of tab.shipments) {
             if (!Array.isArray(sh.rows)) sh.rows = [];
@@ -341,7 +354,7 @@
             return state;
         },
 
-        addTab(state, { label, currency, rate, showShipMeta }) {
+        addTab(state, { label, currency, rate, showShipMeta, shipMetaFields }) {
             const id = _mkId();
             state.tabs.push({
                 id,
@@ -349,6 +362,7 @@
                 currency: currency || 'VND',
                 rate: Number(rate) || 1,
                 showShipMeta: !!showShipMeta,
+                shipMetaFields: shipMetaFields || null, // normalize() backfill nếu null
                 footer: { discount: 0, shipping: 0 },
                 shipments: [],
             });
@@ -498,6 +512,7 @@
             if (patch.currency !== undefined) tab.currency = patch.currency;
             if (patch.rate !== undefined) tab.rate = Number(patch.rate) || 1;
             if (patch.showShipMeta !== undefined) tab.showShipMeta = !!patch.showShipMeta;
+            if (patch.shipMetaFields !== undefined) tab.shipMetaFields = patch.shipMetaFields;
             _write(state);
             return true;
         },

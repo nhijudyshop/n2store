@@ -2,6 +2,14 @@
 
 ## 2026-06-16
 
+### [so-order] 3 fix modal Tạo Đơn Hàng: dropdown bị che + tách checkbox thông tin lô + ảnh hóa đơn cấp đơn ✅
+
+1. **Dropdown gợi ý SP + picker biến thể bị che (sửa triệt để)** [so-order-app.js](so-order/js/so-order-app.js) + [so-order.css](so-order/css/so-order.css): redo hẳn — dropdown render TRỰC TIẾP vào `<body>` (portal) + `position:fixed` neo theo input rect (`_getFloatPanel`/`_anchorFloatPanel`/`_bindModalScrollCloseDropdowns` reflow). Gốc bug: `.so-modal-body-v2` có ĐỒNG THỜI `overflow:auto` (clip absolute) VÀ `contain: layout style paint` (phá fixed-coords) → dropdown đặt TRONG modal body luôn dính 1 trong 2. Con của body → không ancestor nào contain/clip. max-height cap theo chỗ trống thực → list tự scroll. Bỏ per-row `.so-suggest-dropdown`/`.so-variant-dropdown`. Class `.so-float-dropdown` z-index 100000. Verified browser: inBody=true, fixed, bottom trong viewport, không cắt.
+2. **Tách checkbox "Hiện thông tin lô" → 6 checkbox riêng** (ETA/Đợt/Số Kiện/KG/Tiền HĐ/Tiền tệ) + master "Chọn tất cả". Data model `tab.shipMetaFields {key:bool}` (storage normalize backfill từ `showShipMeta` gộp cho tab cũ; addTab/updateTab persist). `_applyShipMetaUi` ẩn/hiện TỪNG `.so-ship-adv[data-ship-field]`. `SHIP_META_FIELDS` const + `_shipMetaFlags`. Verified: lưu ETA+Số Kiện → reopen persist đúng → modal chỉ hiện 2 field đó.
+3. **Ảnh hóa đơn = của CẢ ĐƠN, không phải từng SP** [so-order-app.js](so-order/js/so-order-app.js): bỏ cột "Hình ảnh hóa đơn" per-row trong modal → 1 ô ở header (`#soOrderInvoiceImageCell`, cạnh Ngày tạo). State `modalInvoiceImage` đổ xuống MỌI row khi set/lưu (`_setOrderInvoiceImage`); row mới kế thừa qua `_newModalRow`. Submit path không đổi (rows vẫn mang `invoiceImage` → merged cell rowspan ở bảng chính). Verified E2E: set URL → submit → ảnh lưu order-wide + render ở cột Ảnh Hóa Đơn bảng chính.
+
+Bump `?v=20260616d`. Test order TEST-INV-ORDER đã xoá sạch khỏi server sau verify.
+
 ### [orders-report] FIX inline Tag XL editor không cập nhật khi gắn tag (sync qua ProcessingTagState) ✅
 
 **User:** "gán tag đã thay đổi thực tế dưới đơn hàng nhưng dòng gắn tag phía trên (inline editor) không cập nhật theo, luôn giữ nguyên ban đầu."

@@ -85,6 +85,10 @@
     // name exactly matches an existing kho SP.
     let modalRows = [];
     let modalRowCounter = 0;
+    // 2026-06-16: Ảnh hóa đơn là của CẢ ĐƠN (không phải từng SP) → 1 ô ở header
+    // modal thay vì cột per-row. Giá trị này được "đổ" xuống MỌI row khi lưu (các
+    // row cùng đơn share invoiceGroupId → cell merged rowspan ở bảng chính).
+    let modalInvoiceImage = '';
     let modalMode = 'create'; // 'create' (multi-row) | 'edit' (single-row)
     let activeSuggestUid = null;
 
@@ -2361,7 +2365,9 @@ window.addEventListener('load', () => {
             costPrice: Number(prefill.costPrice) || 0,
             sellPrice: Number(prefill.sellPrice) || 0,
             productImage: prefill.productImage || '',
-            invoiceImage: prefill.invoiceImage || '',
+            // Row mới kế thừa ảnh hóa đơn của đơn (1 ảnh dùng chung cả đơn).
+            invoiceImage:
+                prefill.invoiceImage !== undefined ? prefill.invoiceImage : modalInvoiceImage,
             matchedCode: prefill.matchedCode || null,
         };
     }
@@ -2398,6 +2404,82 @@ window.addEventListener('load', () => {
                     value="${escapeHtml(inputValueDisplay)}"
                 />
             </div>`;
+    }
+
+    // 2026-06-16: Ảnh hóa đơn cấp ĐƠN (1 ô ở header modal) — thay cột ảnh per-row
+    // (đã bỏ). Giá trị đổ xuống mọi row khi set/lưu.
+    function _orderInvoiceImageHtml() {
+        const val = modalInvoiceImage || '';
+        const isDataUrl = val.startsWith('data:');
+        const inputValueDisplay = isDataUrl ? '' : val;
+        const placeholderText = val ? 'Đổi URL (xóa input để thay ảnh)' : 'Hoặc dán URL';
+        const hasImg = !!val;
+        return `
+            <div class="so-img-cell-v2${hasImg ? ' has-image' : ''}" tabindex="0" data-order-invoice-cell>
+                ${
+                    hasImg
+                        ? `<div class="so-img-thumb-wrap">
+                                <img class="so-img-thumb" src="${escapeHtml(val)}" alt="" />
+                                <button type="button" class="so-img-thumb-clear" data-order-invoice-clear title="Xóa ảnh"><i data-lucide="x"></i></button>
+                                <div class="so-img-thumb-label"><i data-lucide="check-circle-2"></i> Đã có ảnh</div>
+                           </div>`
+                        : `<div class="so-img-cell-hint">
+                                <i data-lucide="clipboard-paste"></i>
+                                <span>Ctrl+V / Kéo thả ảnh</span>
+                           </div>`
+                }
+                <input
+                    type="text"
+                    data-order-invoice-url
+                    placeholder="${placeholderText}"
+                    class="so-input-v2 so-input-mini so-input-url"
+                    value="${escapeHtml(inputValueDisplay)}"
+                />
+            </div>`;
+    }
+
+    function _renderOrderInvoiceImage() {
+        const host = document.getElementById('soOrderInvoiceImageCell');
+        if (!host) return;
+        host.innerHTML = _orderInvoiceImageHtml();
+        if (window.lucide?.createIcons) window.lucide.createIcons();
+        _wireOrderInvoiceImage();
+    }
+
+    // Set ảnh hóa đơn của đơn → đổ xuống MỌI row hiện có + re-render ô header.
+    function _setOrderInvoiceImage(val) {
+        modalInvoiceImage = val || '';
+        for (const r of modalRows) r.invoiceImage = modalInvoiceImage;
+        _renderOrderInvoiceImage();
+    }
+
+    function _wireOrderInvoiceImage() {
+        const cell = document.querySelector('[data-order-invoice-cell]');
+        if (!cell) return;
+        const urlInput = cell.querySelector('[data-order-invoice-url]');
+        if (urlInput) {
+            urlInput.addEventListener('input', () => {
+                modalInvoiceImage = urlInput.value.trim();
+                for (const r of modalRows) r.invoiceImage = modalInvoiceImage;
+            });
+            // Gõ/paste URL thường (không phải data:) → re-render để hiện thumbnail.
+            urlInput.addEventListener('change', () => {
+                const v = urlInput.value.trim();
+                if (v && !v.startsWith('data:')) _setOrderInvoiceImage(v);
+            });
+        }
+        const clearBtn = cell.querySelector('[data-order-invoice-clear]');
+        if (clearBtn) clearBtn.addEventListener('click', () => _setOrderInvoiceImage(''));
+        // Ctrl+V / kéo-thả ảnh (resize + nén JPEG qua Web2Effects như cell cũ).
+        if (window.Web2Effects?.attachImageDropTarget) {
+            window.Web2Effects.attachImageDropTarget(cell, {
+                noClickPicker: true,
+                onResult(dataUrl) {
+                    _setOrderInvoiceImage(dataUrl);
+                },
+                notify,
+            });
+        }
     }
 
     function modalRowHtml(row, idx, total) {
@@ -2441,7 +2523,6 @@ window.addEventListener('load', () => {
                         ${badge}
                         ${stockText}
                     </div>
-                    <div class="so-suggest-dropdown" data-suggest-for="${row.uid}" hidden></div>
                 </div>
             </td>
             <td class="so-td-variant">
@@ -2455,7 +2536,6 @@ window.addEventListener('load', () => {
                         value="${escapeHtml(row.variant)}"
                         autocomplete="off"
                     />
-                    <div class="so-variant-dropdown" data-variant-for="${row.uid}" hidden></div>
                 </div>
             </td>
             <td class="so-td-qty">
@@ -2497,9 +2577,6 @@ window.addEventListener('load', () => {
             <td class="so-td-img">
                 ${_imgPasteCellHtml(row, 'productImage')}
             </td>
-            <td class="so-td-img">
-                ${_imgPasteCellHtml(row, 'invoiceImage')}
-            </td>
             <td class="so-td-row-actions">${delBtnHtml}</td>
         </tr>`;
     }
@@ -2514,6 +2591,7 @@ window.addEventListener('load', () => {
         if (addWrap) addWrap.hidden = modalMode !== 'create' && modalMode !== 'edit-shipment';
         wireModalRowInputs();
         wireModalImagePasteDrop();
+        _renderOrderInvoiceImage(); // ô ảnh hóa đơn cấp đơn (header)
         if (window.lucide?.createIcons) window.lucide.createIcons();
         updateModalTotals();
     }
@@ -2690,8 +2768,8 @@ window.addEventListener('load', () => {
     }
 
     function showSuggest(uid, query) {
-        const list = document.querySelector(`.so-suggest-dropdown[data-suggest-for="${uid}"]`);
-        if (!list) return;
+        const list = _getFloatPanel('suggest');
+        list.dataset.uid = uid;
         const cache = window.Web2ProductsCache;
         if (!cache) return;
         const q = (query || '').trim();
@@ -2728,11 +2806,13 @@ window.addEventListener('load', () => {
                 </button>`;
             })
             .join('');
-        // P1 2026-05-30: position:fixed + JS anchor để không bị modal-body clip
+        // Portal panel ở <body> → neo fixed theo input, không bị modal-body clip.
         const inputEl = document.querySelector(
             `#soModalProductsBody input[data-field="productName"][data-uid="${uid}"]`
         );
-        if (inputEl) _positionFixedDropdown(list, inputEl);
+        list._anchor = inputEl || null;
+        _bindModalScrollCloseDropdowns();
+        _anchorFloatPanel(list, inputEl);
         list.hidden = false;
         list.querySelectorAll('.so-suggest-item').forEach((btn) => {
             btn.addEventListener('mousedown', (e) => e.preventDefault()); // keep input focus
@@ -2746,61 +2826,103 @@ window.addEventListener('load', () => {
     }
 
     function hideSuggest(uid) {
-        const list = document.querySelector(`.so-suggest-dropdown[data-suggest-for="${uid}"]`);
-        if (list) {
+        const list = _floatPanels.suggest;
+        if (list && (!uid || list.dataset.uid === uid)) {
             list.hidden = true;
             list.innerHTML = '';
+            list._anchor = null;
         }
     }
 
-    // P1 2026-05-30: variant dropdown bị che bởi modal-body overflow:auto
-    // dù z-index=80. Fix: dùng position:fixed + JS tính từ input rect (anchor
-    // lên window). Dropdown bay ra khỏi clip của modal-body, hover/click OK.
-    function _positionFixedDropdown(list, anchorInput) {
-        // 2026-06-16: KHÔNG dùng position:fixed nữa. Ancestor `.so-modal-body-v2`
-        // có `contain: layout style paint` → mọi fixed-descendant được tính toạ độ
-        // (và clip) theo BOX đó, KHÔNG phải viewport → `top = rect.bottom` (toạ độ
-        // viewport) rớt lệch rất xa input (bug "drop list quá xa ô input").
-        // Dùng position:absolute so với wrap (position:relative). Đặt `top` NGAY
-        // dưới INPUT (offsetTop+offsetHeight) thay vì top:100% — vì wrap SP còn chứa
-        // cụm badge `.so-row-meta` ở giữa, top:100% sẽ đẩy dropdown xuống dưới badge
-        // (~38px). Overlap badge khi đang mở là chấp nhận được (z-index cao hơn).
-        list.style.position = 'absolute';
-        const top = (anchorInput?.offsetTop || 0) + (anchorInput?.offsetHeight || 0) + 2;
-        list.style.top = top + 'px';
-        list.style.left = '0';
-        list.style.right = '0';
-        list.style.width = '';
-        list.style.zIndex = '';
+    // ──────────────────────────────────────────────────────────────────
+    // REDO 2026-06-16: dropdown gợi ý SP + picker biến thể trong modal Tạo
+    // Đơn Hàng render TRỰC TIẾP vào <body> (portal) + position:fixed neo theo
+    // input rect. Dứt điểm bug "bị che / lệch": modal body (`.so-modal-body-v2`)
+    // có ĐỒNG THỜI `overflow:auto` (clip absolute) VÀ `contain: layout style
+    // paint` (phá toạ độ fixed) → mọi dropdown đặt TRONG modal body đều dính 1
+    // trong 2. Là CON CỦA BODY → không ancestor nào contain/clip → luôn hiện
+    // đủ. max-height cap theo chỗ trống thực → list tự scroll trong panel.
+    // ──────────────────────────────────────────────────────────────────
+    const _floatPanels = { suggest: null, variant: null };
+    function _getFloatPanel(kind) {
+        let el = _floatPanels[kind];
+        if (el && el.isConnected) return el;
+        el = document.createElement('div');
+        el.className =
+            (kind === 'variant' ? 'so-variant-dropdown' : 'so-suggest-dropdown') +
+            ' so-float-dropdown';
+        el.hidden = true;
+        document.body.appendChild(el);
+        _floatPanels[kind] = el;
+        return el;
     }
 
-    // Khi modal-body scroll, fixed dropdown sẽ stay lệch khỏi input → đóng
-    // hết để user gõ tiếp thì popup mở lại đúng vị trí.
-    let _modalScrollListenerBound = false;
+    // Neo panel fixed ngay dưới input (flip lên trên nếu thiếu chỗ). Cap
+    // max-height theo khoảng trống thực → list scroll nội bộ, không tràn/cắt.
+    function _anchorFloatPanel(panel, input) {
+        if (!input || !input.isConnected) {
+            panel.hidden = true;
+            return;
+        }
+        const r = input.getBoundingClientRect();
+        if (r.bottom < 0 || r.top > window.innerHeight) {
+            panel.hidden = true; // input cuộn khỏi vùng nhìn
+            return;
+        }
+        const GAP = 4;
+        const spaceBelow = window.innerHeight - r.bottom - GAP - 8;
+        const spaceAbove = r.top - GAP - 8;
+        const flipUp = spaceBelow < 160 && spaceAbove > spaceBelow;
+        panel.style.position = 'fixed';
+        panel.style.left = Math.round(r.left) + 'px';
+        panel.style.right = 'auto';
+        panel.style.width = Math.round(r.width) + 'px';
+        panel.style.minWidth = Math.round(r.width) + 'px';
+        if (flipUp) {
+            panel.style.top = 'auto';
+            panel.style.bottom = Math.round(window.innerHeight - r.top + GAP) + 'px';
+            panel.style.maxHeight = Math.max(120, Math.min(300, spaceAbove)) + 'px';
+        } else {
+            panel.style.bottom = 'auto';
+            panel.style.top = Math.round(r.bottom + GAP) + 'px';
+            panel.style.maxHeight = Math.max(120, Math.min(300, spaceBelow)) + 'px';
+        }
+    }
+
+    // Reposition panel đang mở khi scroll (capture → bắt cả modal-body scroll) /
+    // resize. Tên giữ `_bindModalScrollCloseDropdowns` cho caller cũ, nhưng giờ
+    // là RE-ANCHOR (không đóng) → popup bám input mượt khi cuộn.
+    let _floatReflowBound = false;
     function _bindModalScrollCloseDropdowns() {
-        if (_modalScrollListenerBound) return;
-        const modal = document.getElementById('soOrderModal');
-        const body = modal?.querySelector('.so-modal-body');
-        if (!body) return;
-        body.addEventListener(
-            'scroll',
-            () => {
-                document
-                    .querySelectorAll(
-                        '.so-suggest-dropdown:not([hidden]), .so-variant-dropdown:not([hidden])'
-                    )
-                    .forEach((el) => {
-                        el.hidden = true;
-                    });
-            },
-            { passive: true }
-        );
-        _modalScrollListenerBound = true;
+        if (_floatReflowBound) return;
+        _floatReflowBound = true;
+        const reflow = () => {
+            for (const kind of ['suggest', 'variant']) {
+                const panel = _floatPanels[kind];
+                if (panel && !panel.hidden && panel._anchor) {
+                    _anchorFloatPanel(panel, panel._anchor);
+                }
+            }
+        };
+        window.addEventListener('scroll', reflow, true);
+        window.addEventListener('resize', reflow);
+    }
+
+    // Ẩn sạch 2 panel (gọi khi đóng modal Tạo Đơn Hàng).
+    function _hideFloatPanels() {
+        for (const kind of ['suggest', 'variant']) {
+            const p = _floatPanels[kind];
+            if (p) {
+                p.hidden = true;
+                p.innerHTML = '';
+                p._anchor = null;
+            }
+        }
     }
 
     function showVariantSuggest(uid, query) {
-        const list = document.querySelector(`.so-variant-dropdown[data-variant-for="${uid}"]`);
-        if (!list) return;
+        const list = _getFloatPanel('variant');
+        list.dataset.uid = uid;
         const cache = window.Web2VariantsCache;
         if (!cache) return;
         const items = cache.findByValue((query || '').trim(), 10);
@@ -2822,11 +2944,13 @@ window.addEventListener('load', () => {
                 })
                 .join('');
         }
-        // Anchor lên input bằng position:fixed để thoát khỏi modal-body overflow
+        // Portal panel ở <body> → neo fixed theo input, không bị modal-body clip.
         const inputEl = document.querySelector(
             `#soModalProductsBody input[data-field="variant"][data-uid="${uid}"]`
         );
-        if (inputEl) _positionFixedDropdown(list, inputEl);
+        list._anchor = inputEl || null;
+        _bindModalScrollCloseDropdowns();
+        _anchorFloatPanel(list, inputEl);
         list.hidden = false;
         list.querySelectorAll('.so-variant-item').forEach((btn) => {
             btn.addEventListener('mousedown', (e) => e.preventDefault());
@@ -2844,10 +2968,11 @@ window.addEventListener('load', () => {
     }
 
     function hideVariantSuggest(uid) {
-        const list = document.querySelector(`.so-variant-dropdown[data-variant-for="${uid}"]`);
-        if (list) {
+        const list = _floatPanels.variant;
+        if (list && (!uid || list.dataset.uid === uid)) {
             list.hidden = true;
             list.innerHTML = '';
+            list._anchor = null;
         }
     }
 
@@ -3017,7 +3142,9 @@ window.addEventListener('load', () => {
         }
         if (form.elements.note) form.elements.note.value = 'Đơn test ngẫu nhiên';
         form.elements.status.value = 'draft';
+        modalInvoiceImage = '';
         modalRows = Array.from({ length: _rInt(1, 4) }, () => _randomRow(isVnd));
+        modalInvoiceImage = modalRows[0]?.invoiceImage || '';
         renderModalRows();
         updateModalGrandTotals();
     }
@@ -3043,13 +3170,39 @@ window.addEventListener('load', () => {
         }
     }
 
-    // 2026-06-16: (a) ẩn/hiện cụm field thông tin lô nâng cao (.so-ship-adv) theo
-    // cài đặt tab.showShipMeta (mặc định ẩn); (b) populate giảm giá / phí ship của
-    // đơn. sh = lô đang sửa (null khi tạo mới → 0). Dùng chung 2 modal open.
+    // 2026-06-16: thông tin lô nâng cao tách thành 6 field độc lập, mỗi field 1
+    // checkbox riêng trong Cài đặt tab. key = data-ship-field trên `.so-ship-adv`.
+    const SHIP_META_FIELDS = [
+        { key: 'eta', label: 'ETA giao hàng' },
+        { key: 'batch', label: 'Đợt' },
+        { key: 'caseCount', label: 'Số Kiện' },
+        { key: 'weightKg', label: 'Tổng KG' },
+        { key: 'contractAmount', label: 'Tiền HĐ' },
+        { key: 'contractCurrency', label: 'Tiền tệ' },
+    ];
+
+    // Trả map {key: bool} cho 1 tab. Backward-compat: tab cũ chỉ có
+    // `showShipMeta` (bool gộp) → bật/tắt CẢ 6 field theo bool đó.
+    function _shipMetaFlags(tab) {
+        const out = {};
+        const sf = tab && tab.shipMetaFields;
+        const legacyAll = !!(tab && tab.showShipMeta);
+        for (const f of SHIP_META_FIELDS) {
+            out[f.key] = sf && typeof sf[f.key] === 'boolean' ? sf[f.key] : legacyAll;
+        }
+        return out;
+    }
+
+    // 2026-06-16: (a) ẩn/hiện TỪNG field thông tin lô (.so-ship-adv[data-ship-field])
+    // theo cài đặt per-field của tab; (b) populate giảm giá / phí ship của đơn.
+    // sh = lô đang sửa (null khi tạo mới → 0). Dùng chung 2 modal open.
     function _applyShipMetaUi(tab, sh) {
-        const show = !!(tab && tab.showShipMeta);
+        const flags = _shipMetaFlags(tab);
         document.querySelectorAll('#soOrderForm .so-ship-adv').forEach((el) => {
-            el.hidden = !show;
+            const key = el.dataset.shipField;
+            // Field có data-ship-field → theo flag riêng; không có → ẩn nếu KHÔNG
+            // field nào bật (giữ hành vi "ẩn cả cụm" cho phần tử lạ nếu có).
+            el.hidden = key ? !flags[key] : !Object.values(flags).some(Boolean);
         });
         const form = document.getElementById('soOrderForm');
         if (form?.elements?.shipDiscount)
@@ -3075,6 +3228,7 @@ window.addEventListener('load', () => {
         editingTabId = tab.id;
         modalMode = rowId ? 'edit' : 'create';
         modalRows = [];
+        modalInvoiceImage = ''; // reset trước khi build rows (tránh kế thừa đơn trước)
         const form = document.getElementById('soOrderForm');
         const titleEl = document.getElementById('soModalTitle');
         form.reset();
@@ -3157,6 +3311,8 @@ window.addEventListener('load', () => {
         updateContractHint();
         form.elements.shipContractCurrency.onchange = updateContractHint;
         _applyShipMetaUi(tab, shipmentId ? tab.shipments.find((s) => s.id === shipmentId) : null);
+        // Ảnh hóa đơn cấp đơn: edit → lấy từ row (các row share), tạo mới → rỗng.
+        modalInvoiceImage = modalRows[0]?.invoiceImage || '';
         renderModalRows();
         showModal('soOrderModal');
         _bindModalScrollCloseDropdowns();
@@ -4134,6 +4290,8 @@ window.addEventListener('load', () => {
                 invoiceImage: r.invoiceImage || '',
             })
         );
+        // Ảnh hóa đơn cấp đơn cho header (các row trong lô share 1 ảnh).
+        modalInvoiceImage = modalRows[0]?.invoiceImage || '';
         const curHint =
             tab.currency === 'VND'
                 ? 'VNĐ · gõ 100 = 100k'
@@ -4183,22 +4341,60 @@ window.addEventListener('load', () => {
             document.getElementById('soTabDeleteBtn').style.display =
                 state.tabs.length > 1 ? '' : 'none';
         }
-        if (form.elements.showShipMeta) {
-            form.elements.showShipMeta.checked = forNew ? false : !!tab.showShipMeta;
+        // Per-field checkboxes thông tin lô. Tab mới → tất cả OFF; tab cũ → theo
+        // flag per-field (backward-compat từ showShipMeta gộp).
+        const flags = forNew ? {} : _shipMetaFlags(tab);
+        for (const f of SHIP_META_FIELDS) {
+            const cb = form.elements['showMeta_' + f.key];
+            if (cb) cb.checked = !!flags[f.key];
         }
+        _syncShipMetaAllCheckbox();
         showModal('soTabSettingsModal');
         setTimeout(() => form.elements.label.focus(), 80);
+    }
+
+    // Master "Chọn tất cả" ↔ 6 checkbox con. Bind 1 lần.
+    function _wireShipMetaAll() {
+        const form = document.getElementById('soTabSettingsForm');
+        const all = document.getElementById('soShipMetaAll');
+        if (!form || !all || all.__bound) return;
+        all.__bound = true;
+        all.addEventListener('change', () => {
+            for (const f of SHIP_META_FIELDS) {
+                const cb = form.elements['showMeta_' + f.key];
+                if (cb) cb.checked = all.checked;
+            }
+        });
+        for (const f of SHIP_META_FIELDS) {
+            const cb = form.elements['showMeta_' + f.key];
+            if (cb) cb.addEventListener('change', _syncShipMetaAllCheckbox);
+        }
+    }
+
+    function _syncShipMetaAllCheckbox() {
+        const form = document.getElementById('soTabSettingsForm');
+        const all = document.getElementById('soShipMetaAll');
+        if (!form || !all) return;
+        const states = SHIP_META_FIELDS.map((f) => !!form.elements['showMeta_' + f.key]?.checked);
+        all.checked = states.every(Boolean);
+        all.indeterminate = !all.checked && states.some(Boolean);
     }
 
     function handleTabSettingsSubmit(e) {
         e.preventDefault();
         const form = e.target;
         const mode = form.dataset.mode;
+        const shipMetaFields = {};
+        for (const f of SHIP_META_FIELDS) {
+            shipMetaFields[f.key] = !!form.elements['showMeta_' + f.key]?.checked;
+        }
         const patch = {
             label: form.elements.label.value.trim() || 'Tab',
             currency: form.elements.currency.value,
             rate: Number(form.elements.rate.value) || 1,
-            showShipMeta: !!form.elements.showShipMeta?.checked,
+            shipMetaFields,
+            // Giữ showShipMeta cho backward-compat = có ÍT NHẤT 1 field bật.
+            showShipMeta: Object.values(shipMetaFields).some(Boolean),
         };
         if (mode === 'create') {
             window.SoOrderStorage.addTab(state, patch);
@@ -4350,6 +4546,9 @@ window.addEventListener('load', () => {
     function hideModal(id) {
         const el = document.getElementById(id);
         if (el) el.hidden = true;
+        // Đóng modal Tạo Đơn Hàng → ẩn luôn 2 float panel (suggest/variant) đang
+        // treo ở <body>, tránh popup lơ lửng sau khi modal đóng.
+        if (id === 'soOrderModal') _hideFloatPanels();
     }
 
     /**
@@ -4832,6 +5031,7 @@ window.addEventListener('load', () => {
         document.getElementById('soTrashBtn')?.addEventListener('click', openTrashModal);
         document.getElementById('soColumnSettingsBtn').addEventListener('click', openColumnModal);
         document.getElementById('soTabDeleteBtn').addEventListener('click', handleTabDelete);
+        _wireShipMetaAll();
         const editBtn = document.getElementById('soEditTableBtn');
         if (editBtn) {
             editBtn.addEventListener('click', () => {

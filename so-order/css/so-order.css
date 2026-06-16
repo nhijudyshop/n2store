@@ -1148,6 +1148,55 @@
     display: none !important;
 }
 
+/* 2026-06-16: Cài đặt tab → "Hiện thông tin lô" tách thành 6 checkbox riêng
+   (ETA / Đợt / Số Kiện / KG / Tiền HĐ / Tiền tệ) + master "Chọn tất cả". */
+.so-shipmeta-fieldset {
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 8px 12px 12px;
+    margin: 0;
+    display: block;
+}
+.so-shipmeta-fieldset > legend {
+    font-size: 12px;
+    font-weight: 700;
+    color: #334155;
+    padding: 0 6px;
+}
+.so-shipmeta-all {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+    color: #0068ff;
+    margin-bottom: 8px;
+    padding-bottom: 8px;
+    border-bottom: 1px dashed #e5e7eb;
+}
+.so-shipmeta-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 7px 14px;
+}
+.so-shipmeta-check {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 500;
+    color: #475569;
+}
+.so-shipmeta-fieldset input[type='checkbox'] {
+    width: 16px;
+    height: 16px;
+    flex: 0 0 auto;
+    accent-color: #0068ff;
+    cursor: pointer;
+}
+
 /* Pill giảm giá / phí ship trên header lô. */
 .so-shipment-adjust {
     color: #b45309;
@@ -1600,6 +1649,18 @@
 .so-form-cell.so-cell-supplier-input {
     flex: 2 1 260px;
     min-width: 220px;
+}
+
+/* 2026-06-16: ô Ảnh hóa đơn cấp ĐƠN ở header modal (thay cột per-row đã bỏ). */
+.so-form-cell.so-cell-invoice-img {
+    flex: 0 1 210px;
+    min-width: 180px;
+}
+.so-order-invoice-host {
+    width: 100%;
+}
+.so-order-invoice-host .so-img-cell-v2 {
+    width: 100%;
 }
 
 .so-form-label {
@@ -2144,6 +2205,20 @@ select.so-input-v2 {
 .so-suggest-dropdown[hidden],
 .so-variant-dropdown[hidden] {
     display: none !important;
+}
+
+/* REDO 2026-06-16: float panel — render ở <body> (portal) + position:fixed.
+   Vượt mọi `overflow`/`contain` của modal body nên KHÔNG bao giờ bị cắt. Toạ độ
+   (top/left/width/max-height) do JS set theo input rect. z-index > overlay modal
+   (cao nhất 5000) để luôn nổi trên cùng khi đang chọn. */
+.so-suggest-dropdown.so-float-dropdown,
+.so-variant-dropdown.so-float-dropdown {
+    position: fixed;
+    top: auto;
+    left: auto;
+    right: auto;
+    margin: 0;
+    z-index: 100000;
 }
 
 /* Suggestion dropdown anchored to product-input-wrap */
