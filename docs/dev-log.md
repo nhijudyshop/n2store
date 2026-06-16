@@ -2,6 +2,16 @@
 
 ## 2026-06-16
 
+### [web2] NCC 1 nguồn duy nhất — products + purchase-refund + supplier-debt dùng Web2SuppliersCache ✅
+
+User: 3 trang dùng dữ liệu NCC (products, purchase-refund, supplier-debt) → đưa hết về nguồn chung supplier-wallet. Nguồn chung sẵn có = `window.Web2SuppliersCache` (`web2/shared/web2-suppliers-cache.js`) → GET/POST `/api/web2-supplier-wallet/suppliers` (bảng `web2_supplier_meta` = trang Ví NCC), realtime SSE `web2:supplier-wallet`.
+
+- **products** [web2-products-app.js](web2/products/js/web2-products-app.js): NCC dropdown `#pmSupplier` trước lấy từ **tab Sổ Order** (`loadSuppliersFromSoOrder` → Web2SoOrder tab labels) → đổi sang `Web2SuppliersCache.getNames()`. Init cache + subscribe SSE → dropdown tự refresh khi NCC đổi ở trang khác. Label "(chọn từ tab Sổ Order)" → "(từ Ví NCC)". NCC name vẫn drive prefix mã SP (HÀ NỘI→HN, A1→A1). Load `web2-suppliers-cache.js`.
+- **purchase-refund** [purchase-refund-app.js](web2/purchase-refund/js/purchase-refund-app.js): form thủ công "Tên NCC" thêm `<datalist>` autocomplete từ `Web2SuppliersCache.getNames()`; submit gọi `ensure(name)` (idempotent) → NCC gõ mới vào nguồn chung. Quick-refund (picker so-order) giữ nguyên — NCC từ ngữ cảnh mua hàng là đúng.
+- **supplier-debt** [supplier-debt-app.js](web2/supplier-debt/js/supplier-debt-app.js): đã tạo/đọc qua `/api/web2-supplier-wallet` (cùng backend nguồn chung). Thêm `<datalist>` autocomplete tên NCC khi tạo, lấy từ `Web2SuppliersCache`.
+
+Bump `?v=20260616a` (3 app.js + suppliers-cache trên cả 3 index). Verify: node --check 3/3 OK; GET /suppliers trả 6 NCC (A1, HÀ NỘI, HƯƠNG CHÂU, KHO TÂN BÌNH, QUẢNG CHÂU, XƯỞNG SỈ A); pattern giống so-order (đã verify live phiên trước). Browser verify trực quan bị chặn do 1 session browser khác đang dùng chung (contention).
+
 ### [orders-report][don-inbox] Fix product search/suggest rỗng toàn bộ — token TPOS stale không tự refresh ✅
 
 User báo: TOÀN BỘ chỗ đánh tên sản phẩm suggest không hiện ("Không tìm thấy sản phẩm") ở orders-report (modal Sửa đơn tab Sản phẩm + panel chat) VÀ don-inbox.
