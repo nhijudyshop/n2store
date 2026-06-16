@@ -143,35 +143,69 @@ class EnhancedProductSearchManager {
                 );
             }
 
-            // Get auth headers
-            const headers = await window.tokenManager.getAuthHeader();
+            // Fetch Excel with auth-failure recovery.
+            // TPOS returns its HTML login page (HTTP 200, NOT 401) when the bearer
+            // token is stale. isTokenValid() only checks the local expiry timestamp,
+            // so it cannot detect a server-side invalidated token. We detect the
+            // non-spreadsheet response and force a fresh login once before giving up.
+            let products = null;
+            for (let attempt = 0; attempt < 2; attempt++) {
+                const headers = await window.tokenManager.getAuthHeader();
 
-            // POST request to get Excel file
-            const response = await fetch(this.EXCEL_ENDPOINT, {
-                method: 'POST',
-                headers: {
-                    ...headers,
-                    'Content-Type': 'application/json',
-                    Accept: 'application/json',
-                },
-                body: JSON.stringify({
-                    model: { Active: 'true' },
-                    ids: '',
-                }),
-            });
+                // POST request to get Excel file
+                const response = await fetch(this.EXCEL_ENDPOINT, {
+                    method: 'POST',
+                    headers: {
+                        ...headers,
+                        'Content-Type': 'application/json',
+                        Accept: 'application/json',
+                    },
+                    body: JSON.stringify({
+                        model: { Active: 'true' },
+                        ids: '',
+                    }),
+                });
 
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-            }
+                if (!response.ok) {
+                    // 401/403 → stale token: force re-login and retry once
+                    if ((response.status === 401 || response.status === 403) && attempt === 0) {
+                        await this.forceTokenRefresh();
+                        continue;
+                    }
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
 
-            // Get blob data
-            const blob = await response.blob();
+                // A valid Excel export is a spreadsheet/binary blob. If TPOS returned
+                // HTML (its Angular login page) the token is stale → refresh + retry.
+                const contentType = (response.headers.get('content-type') || '').toLowerCase();
+                const isSpreadsheet =
+                    contentType.includes('spreadsheet') ||
+                    contentType.includes('officedocument') ||
+                    contentType.includes('excel') ||
+                    contentType.includes('octet-stream');
 
-            // Parse Excel
-            const products = await this.parseExcelBlob(blob);
+                if (!isSpreadsheet) {
+                    if (attempt === 0) {
+                        console.warn(
+                            `[PRODUCT] Excel response not a spreadsheet (content-type="${contentType}") — token likely stale, forcing re-login`
+                        );
+                        await this.forceTokenRefresh();
+                        continue;
+                    }
+                    throw new Error(
+                        'TPOS trả về trang đăng nhập thay vì file Excel (token hết hạn). Vui lòng thử lại.'
+                    );
+                }
 
-            if (products.length === 0) {
-                throw new Error('No products found in Excel file');
+                // Get blob data + parse Excel
+                const blob = await response.blob();
+                const parsed = await this.parseExcelBlob(blob);
+
+                if (parsed.length === 0) {
+                    throw new Error('No products found in Excel file');
+                }
+                products = parsed;
+                break;
             }
 
             this.excelProducts = products;
@@ -209,6 +243,26 @@ class EnhancedProductSearchManager {
             throw error;
         } finally {
             this.isLoading = false;
+        }
+    }
+
+    /**
+     * Force a fresh TPOS token when a stale token is detected.
+     * isTokenValid() only checks the local expiry timestamp and cannot know that
+     * TPOS invalidated the token server-side (e.g. account logged in elsewhere),
+     * so we explicitly invalidate the cached access_token and re-acquire one
+     * (refresh_token first, then password login — handled by tokenManager).
+     */
+    async forceTokenRefresh() {
+        if (!window.tokenManager) return;
+        try {
+            if (typeof window.tokenManager.invalidateAccessToken === 'function') {
+                window.tokenManager.invalidateAccessToken();
+            }
+            // getToken() now sees no valid token → fetchNewToken (refresh → password)
+            await window.tokenManager.getToken();
+        } catch (e) {
+            console.warn('[PRODUCT] forceTokenRefresh failed:', e?.message || e);
         }
     }
 

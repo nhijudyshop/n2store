@@ -589,15 +589,34 @@
      * Search products from API (fallback)
      */
     async function searchProductsFromAPI(query) {
-        const headers = await window.tokenManager.getAuthHeader();
         const encodedQuery = encodeURIComponent(query);
         const apiUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/Product?$filter=contains(Name,'${encodedQuery}') or contains(DefaultCode,'${encodedQuery}')&$expand=UOM,Images&$top=15`;
 
-        const response = await API_CONFIG.smartFetch(apiUrl, {
-            headers: { ...headers, 'Content-Type': 'application/json', Accept: 'application/json' },
-        });
+        // Fetch with stale-token recovery: a server-side invalidated token returns
+        // 401 even though isTokenValid() (local timestamp) thinks it is fine, which
+        // would otherwise yield an empty "Không tìm thấy sản phẩm" with no recovery.
+        let response = null;
+        for (let attempt = 0; attempt < 2; attempt++) {
+            const headers = await window.tokenManager.getAuthHeader();
+            response = await API_CONFIG.smartFetch(apiUrl, {
+                headers: {
+                    ...headers,
+                    'Content-Type': 'application/json',
+                    Accept: 'application/json',
+                },
+            });
+            if (response.ok) break;
+            if ((response.status === 401 || response.status === 403) && attempt === 0) {
+                if (typeof window.tokenManager.invalidateAccessToken === 'function') {
+                    window.tokenManager.invalidateAccessToken();
+                }
+                await window.tokenManager.getToken();
+                continue;
+            }
+            return [];
+        }
 
-        if (!response.ok) return [];
+        if (!response || !response.ok) return [];
         const data = await response.json();
         return (data.value || []).map((p) => ({
             Id: p.Id,

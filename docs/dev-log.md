@@ -2,6 +2,22 @@
 
 ## 2026-06-16
 
+### [orders-report][don-inbox] Fix product search/suggest rỗng toàn bộ — token TPOS stale không tự refresh ✅
+
+User báo: TOÀN BỘ chỗ đánh tên sản phẩm suggest không hiện ("Không tìm thấy sản phẩm") ở orders-report (modal Sửa đơn tab Sản phẩm + panel chat) VÀ don-inbox.
+
+**Root cause (reproduce & confirm 100% qua browser eval):** `productSearchManager` (Web 1.0, dùng chung bởi edit-modal/sale/chat/don-inbox) load sản phẩm từ TPOS Excel endpoint. `tokenManager.isTokenValid()` chỉ kiểm tra timestamp local (token còn hạn ~15 ngày) → không biết TPOS đã vô hiệu hóa token server-side (login lại ở máy/tab khác cùng account `nvktlive1`). Token stale → `getToken()` trả token cũ KHÔNG refresh → TPOS trả **HTML trang login (HTTP 200, KHÔNG phải 401)** → `parseExcelBlob` lỗi `"Invalid HTML: could not find <table>"` → 0 SP → throw nhưng code KHÔNG nhận ra là lỗi auth → kẹt tới khi hết hạn local. Fallback OData gặp 401 → `return []` im lặng, cũng không refresh.
+
+**Bằng chứng:** backend khỏe (token sạch → 833 SP, search OK); mô phỏng access_token rác + expires_at xa → tái hiện đúng "Không tìm thấy" + không tự phục hồi.
+
+**Files:** [orders-report/js/managers/product-search-manager.js](orders-report/js/managers/product-search-manager.js), [orders-report/js/chat/chat-products-ui.js](orders-report/js/chat/chat-products-ui.js).
+
+1. `fetchExcelProducts`: bọc fetch+parse trong retry-loop (max 2). Phát hiện auth-failure = response **không phải spreadsheet** (content-type không chứa `spreadsheet/officedocument/excel/octet-stream`, tức HTML login) hoặc HTTP 401/403 → gọi `forceTokenRefresh()` → retry 1 lần. Hết retry vẫn HTML → throw message rõ ("TPOS trả về trang đăng nhập…").
+2. Thêm method `forceTokenRefresh()`: `invalidateAccessToken()` (giữ refresh_token) + `getToken()` (refresh_token→password login) → lấy token mới + lưu lại → mọi call TPOS sau đó cũng OK.
+3. Fallback OData `searchProductsFromAPI` (chat): retry-loop, gặp 401/403 lần đầu → invalidate + getToken + retry.
+
+**Verify live (browser eval, session sạch):** token rác `isTokenValid:true` → trước fix `recovered:false`/count 0; sau fix `recovered:true`/**833 SP**/search "ao" 5 KQ/`tokenChanged:true`. node --check 2 file OK.
+
 ### [web2][so-order] Sửa mã SP + 8 cải tiến modal tạo đơn (batch) ✅
 
 User báo: biến thể "Đỏ" + tên "1606 A1 ÁO TN TRƠN" ra mã `HNMMTRANG` (sai). Điều tra: `HNMMTRANG` là mã của SP **khác** cùng tên nhưng biến thể **"Trắng"** (id 212); hàng "Đỏ" **mượn nhầm** vì badge tra kho chỉ theo TÊN. Gốc sâu hơn: `extractType` chỉ match từ loại ở ĐẦU tên → "1606 A1 ÁO…" rớt về `MM` thay vì `AO`.
