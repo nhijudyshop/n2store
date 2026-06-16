@@ -128,6 +128,18 @@
 .ucs-cell:active {
     transform: none;
 }
+.ucs-cell__avatar {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+    background: #fde68a;
+    border: 1px solid rgba(0, 0, 0, 0.06);
+}
+.ucs-cell--late .ucs-cell__avatar {
+    background: #fecaca;
+}
 .ucs-cell__name {
     font-weight: 700;
     max-width: 140px;

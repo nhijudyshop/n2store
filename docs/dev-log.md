@@ -2,6 +2,17 @@
 
 ## 2026-06-16
 
+### [orders-report] Strip "Khách chưa trả lời": avatar Pancake + fix chat header "Khách hàng" ✅
+
+**User:** "(1) cho hình lấy dữ liệu khách unread từ pancake như cột tin nhắn đang lấy; (2) mở chat từ thanh sao không thấy tên khách hàng mà ghi 'Khách hàng'."
+
+- **Avatar** [tab1-unread-messages-strip.js](orders-report/js/tab1/tab1-unread-messages-strip.js) `buildCell`: thêm `<img class="ucs-cell__avatar">` dùng đúng proxy cột Khách hàng: `…/api/fb-avatar?id=<psid>&page=<pageId>` (psid/pageId gốc Pancake sẵn trong pending), `loading=lazy` + `onerror` ẩn. CSS [.ucs-cell__avatar](orders-report/css/tab1-unread-messages-strip.css) tròn 18px. Bump strip js/css `?v=20260616b`.
+- **Fix tên/SĐT "Khách hàng"** (RCA): [openChatModal](orders-report/js/tab1/tab1-chat-core.js#L838) lấy tên+SĐT từ **DOM dòng** `tr[data-order-id]`. Mở chat từ thanh cho đơn NGOÀI vùng hiển thị (virtual-scroll/bị lọc) → `orderRow=null` → `currentCustomerName=''` → header "Khách hàng" + SĐT rỗng. Thêm **fallback**: nếu rỗng → lấy `OrderStore.get(id)` (fallback `allData.find`) → `order.Name` + `order.Telephone` (đúng field cột Khách hàng dùng). Bump chat-core `?v=20260616a`.
+
+**Verify (Playwright localhost, campaign T6 531 đơn):** 25 ô strip → 25 avatar (0 lỗi onerror, blob-cached); click ô "Mong Duy Nguyen" (row KHÔNG có trong DOM, `firstOrderRowInDom:false`) → `currentCustomerName="Mong Duy Nguyen"`, `currentChatPhone="0334167771"`, header hiện đúng tên (trước fix = "Khách hàng"). `node --check` PASS.
+
+**Status:** ✅ code + browser test OK. Web 1.0 (orders-report).
+
 ### [web2] NCC 1 nguồn duy nhất — products + purchase-refund + supplier-debt dùng Web2SuppliersCache ✅
 
 User: 3 trang dùng dữ liệu NCC (products, purchase-refund, supplier-debt) → đưa hết về nguồn chung supplier-wallet. Nguồn chung sẵn có = `window.Web2SuppliersCache` (`web2/shared/web2-suppliers-cache.js`) → GET/POST `/api/web2-supplier-wallet/suppliers` (bảng `web2_supplier_meta` = trang Ví NCC), realtime SSE `web2:supplier-wallet`.

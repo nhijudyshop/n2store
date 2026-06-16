@@ -210,9 +210,19 @@
             `${c.name} · đã chờ ${wait || 'vừa xong'} chưa trả lời` +
             (c.empName ? ` · NV: ${c.empName}` : '') +
             (c.count ? ` · ${c.count} tin` : '');
+        // Avatar Pancake — cùng proxy fb-avatar mà cột Khách hàng đang dùng
+        // (id = psid gốc Pancake, page = pageId). onerror → ẩn ảnh.
+        let avatar = '';
+        if (c.psid) {
+            const url =
+                `https://chatomni-proxy.nhijudyshop.workers.dev/api/fb-avatar?id=${encodeURIComponent(c.psid)}` +
+                (c.pageId ? `&page=${encodeURIComponent(c.pageId)}` : '');
+            avatar = `<img class="ucs-cell__avatar" src="${url}" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display='none'" alt="">`;
+        }
         return (
             `<button type="button" class="ucs-cell${lateCls}" title="${escapeHtml(title)}" ` +
             `data-psid="${escapeHtml(c.psid)}" onclick="${onclick}">` +
+            avatar +
             `<span class="ucs-cell__name">${escapeHtml(c.name)}</span>` +
             (wait ? `<span class="ucs-cell__sep">·</span><span class="ucs-cell__time">${wait}</span>` : '') +
             empTag +

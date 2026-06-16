@@ -848,6 +848,21 @@ window.openChatModal = async function (orderId, pageId, psid, conversationType) 
     window.currentChatPhone =
         orderRow?.querySelector('td[data-column="phone"] span')?.textContent?.trim() || '';
 
+    // Fallback khi dòng đơn KHÔNG render trong DOM — vd mở chat từ thanh "Khách chưa
+    // trả lời" cho đơn ngoài vùng hiển thị (virtual scroll / bị lọc) → orderRow null →
+    // tên rỗng ("Khách hàng") + SĐT rỗng. Lấy từ object đơn (giống cột Khách hàng:
+    // order.Name, order.Telephone).
+    if (!window.currentCustomerName || !window.currentChatPhone) {
+        const ord =
+            (window.OrderStore && window.OrderStore.get && window.OrderStore.get(orderId)) ||
+            (window.allData || []).find((o) => String(o.Id) === String(orderId));
+        if (ord) {
+            if (!window.currentCustomerName)
+                window.currentCustomerName = (ord.Name || ord.PartnerName || '').trim();
+            if (!window.currentChatPhone) window.currentChatPhone = ord.Telephone || '';
+        }
+    }
+
     // Show modal
     modal.style.display = 'flex';
     document.body.style.overflow = 'hidden';
