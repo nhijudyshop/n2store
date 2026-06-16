@@ -3,15 +3,17 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `307da7b` — fix(web2/so-order): mã SP theo biến thể + viết lại extractType (tìm loại giữa tên) + 8 cải tiến modal tạo đơn
-**Last updated**: 2026-06-16 13:29:13 +07
-**Latest session**: [`RESUME:20260616-132913-307da7b`](../20260616-132913-307da7b.md)
-**Summary**: fix(web2/so-order): mã SP theo biến thể + viết lại extractType (tìm loại giữa tên) + 8 cải tiến mo...
+**Latest commit**: `bc13317` — auto: session update
+**Last updated**: 2026-06-16 13:48:27 +07
+**Latest session**: [`RESUME:20260616-134827-bc13317`](../20260616-134827-bc13317.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`scripts/`](./scripts.md) — 1 file(s)
+- [`don-inbox/`](./don-inbox.md) — 1 file(s)
+- [`orders-report/`](./orders-report.md) — 4 file(s)
+- [`web2/`](./web2.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -26,9 +28,9 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-16 11:15
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-14 18:47
-- [`docs/`](./docs.md) — updated 2026-06-16 13:29
+- [`docs/`](./docs.md) — updated 2026-06-16 13:48
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
-- [`don-inbox/`](./don-inbox.md) — updated 2026-06-15 15:57
+- [`don-inbox/`](./don-inbox.md) — updated 2026-06-16 13:48
 - [`downloads/`](./downloads.md) — updated 2026-06-13 19:16
 - [`facebook-services/`](./facebook-services.md) — updated 2026-06-16 00:35
 - [`fb-ads/`](./fb-ads.md) — updated 2026-05-21 15:39
@@ -46,7 +48,7 @@
 - [`native-orders/`](./native-orders.md) — updated 2026-06-16 10:25
 - [`nhanhang/`](./nhanhang.md) — updated 2026-06-13 19:51
 - [`order-management/`](./order-management.md) — updated 2026-05-21 15:39
-- [`orders-report/`](./orders-report.md) — updated 2026-06-16 12:58
+- [`orders-report/`](./orders-report.md) — updated 2026-06-16 13:48
 - [`pancake-extension/`](./pancake-extension.md) — updated 2026-05-21 11:33
 - [`phone-management/`](./phone-management.md) — updated 2026-05-21 15:39
 - [`product-warehouse/`](./product-warehouse.md) — updated 2026-06-04 13:36
@@ -74,4 +76,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-16 13:14
+- [`web2/`](./web2.md) — updated 2026-06-16 13:48
