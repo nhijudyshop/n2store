@@ -1237,6 +1237,25 @@
         }
     }
 
+    // NCC dùng chung: gợi ý tên NCC khi tạo, lấy từ nguồn duy nhất
+    // Web2SuppliersCache (Ví NCC / supplier-wallet). supplier-debt vẫn tạo NCC qua
+    // POST /api/web2-supplier-wallet/suppliers (kèm mã) — CÙNG backend nên NCC tạo
+    // ở đây cũng nằm trong nguồn chung; datalist chỉ để autocomplete.
+    function _populateNccNameDatalist() {
+        const dl = document.getElementById('sdNccNameList');
+        const cache = window.Web2SuppliersCache;
+        if (!dl || !cache?.init) return;
+        cache
+            .init()
+            .then(() => {
+                const names = cache.getNames ? cache.getNames() : [];
+                dl.innerHTML = names
+                    .map((n) => `<option value="${escapeHtml(n)}"></option>`)
+                    .join('');
+            })
+            .catch(() => {});
+    }
+
     // ---------- init ----------
     async function init() {
         wireUi();
