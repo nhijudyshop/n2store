@@ -3,14 +3,29 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `2ce637c` — feat(web2): NCC 1 nguồn duy nhất — products/purchase-refund/supplier-debt dùng Web2SuppliersCache (supplier-wallet)
-**Last updated**: 2026-06-16 14:09:01 +07
-**Latest session**: [`RESUME:20260616-140901-2ce637c`](../20260616-140901-2ce637c.md)
-**Summary**: feat(web2): NCC 1 nguồn duy nhất — products/purchase-refund/supplier-debt dùng Web2SuppliersCache (supplier-wa...
+**Latest commit**: `7bd7dbe` — fix(auth): tab3 dùng tokenManager (company-correct) thay vì tự login
+**Last updated**: 2026-06-16 14:31:28 +07
+**Latest session**: [`RESUME:20260616-143128-7bd7dbe`](../20260616-143128-7bd7dbe.md)
+**Summary**: fix(auth): tab3 dùng tokenManager (company-correct) thay vì tự login
 
 ## Folders affected in this commit
 
+- [`balance-history/`](./balance-history.md) — 1 file(s)
+- [`balance-history-home/`](./balance-history-home.md) — 1 file(s)
+- [`customer-hub/`](./customer-hub.md) — 1 file(s)
+- [`delivery-report/`](./delivery-report.md) — 1 file(s)
 - [`docs/`](./docs.md) — 1 file(s)
+- [`doi-soat/`](./doi-soat.md) — 1 file(s)
+- [`don-inbox/`](./don-inbox.md) — 1 file(s)
+- [`hanghoan/`](./hanghoan.md) — 1 file(s)
+- [`inventory-tracking/`](./inventory-tracking.md) — 1 file(s)
+- [`invoice-compare/`](./invoice-compare.md) — 1 file(s)
+- [`issue-tracking/`](./issue-tracking.md) — 1 file(s)
+- [`orders-report/`](./orders-report.md) — 6 file(s)
+- [`product-warehouse/`](./product-warehouse.md) — 1 file(s)
+- [`shared/`](./shared.md) — 1 file(s)
+- [`soluong-live/`](./soluong-live.md) — 2 file(s)
+- [`supplier-debt/`](./supplier-debt.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -19,24 +34,24 @@
 - [`AI/`](./AI.md) — updated 2026-05-21 15:39
 - [`_root/`](./_root.md) — updated 2026-06-15 23:28
 - [`aikol-studio/`](./aikol-studio.md) — updated 2026-05-21 15:39
-- [`balance-history-home/`](./balance-history-home.md) — updated 2026-05-21 15:39
-- [`balance-history/`](./balance-history.md) — updated 2026-06-11 16:49
+- [`balance-history-home/`](./balance-history-home.md) — updated 2026-06-16 14:31
+- [`balance-history/`](./balance-history.md) — updated 2026-06-16 14:31
 - [`bangkiemhang/`](./bangkiemhang.md) — updated 2026-05-21 15:39
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-16 11:15
-- [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
-- [`delivery-report/`](./delivery-report.md) — updated 2026-06-14 18:47
-- [`docs/`](./docs.md) — updated 2026-06-16 14:09
-- [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
-- [`don-inbox/`](./don-inbox.md) — updated 2026-06-16 13:48
+- [`customer-hub/`](./customer-hub.md) — updated 2026-06-16 14:31
+- [`delivery-report/`](./delivery-report.md) — updated 2026-06-16 14:31
+- [`docs/`](./docs.md) — updated 2026-06-16 14:31
+- [`doi-soat/`](./doi-soat.md) — updated 2026-06-16 14:31
+- [`don-inbox/`](./don-inbox.md) — updated 2026-06-16 14:31
 - [`downloads/`](./downloads.md) — updated 2026-06-13 19:16
 - [`facebook-services/`](./facebook-services.md) — updated 2026-06-16 00:35
 - [`fb-ads/`](./fb-ads.md) — updated 2026-05-21 15:39
 - [`firebase-stats/`](./firebase-stats.md) — updated 2026-05-21 15:39
-- [`hanghoan/`](./hanghoan.md) — updated 2026-05-21 15:39
+- [`hanghoan/`](./hanghoan.md) — updated 2026-06-16 14:31
 - [`inbox/`](./inbox.md) — updated 2026-06-15 20:20
-- [`inventory-tracking/`](./inventory-tracking.md) — updated 2026-06-08 14:12
-- [`invoice-compare/`](./invoice-compare.md) — updated 2026-06-13 14:55
-- [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-16 08:24
+- [`inventory-tracking/`](./inventory-tracking.md) — updated 2026-06-16 14:31
+- [`invoice-compare/`](./invoice-compare.md) — updated 2026-06-16 14:31
+- [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-16 14:31
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
 - [`live-chat/`](./live-chat.md) — updated 2026-06-16 13:14
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-06-04 20:02
@@ -45,10 +60,10 @@
 - [`native-orders/`](./native-orders.md) — updated 2026-06-16 10:25
 - [`nhanhang/`](./nhanhang.md) — updated 2026-06-13 19:51
 - [`order-management/`](./order-management.md) — updated 2026-05-21 15:39
-- [`orders-report/`](./orders-report.md) — updated 2026-06-16 13:48
+- [`orders-report/`](./orders-report.md) — updated 2026-06-16 14:31
 - [`pancake-extension/`](./pancake-extension.md) — updated 2026-05-21 11:33
 - [`phone-management/`](./phone-management.md) — updated 2026-05-21 15:39
-- [`product-warehouse/`](./product-warehouse.md) — updated 2026-06-04 13:36
+- [`product-warehouse/`](./product-warehouse.md) — updated 2026-06-16 14:31
 - [`project-tracker/`](./project-tracker.md) — updated 2026-05-21 15:39
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
@@ -57,15 +72,15 @@
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-16 13:29
 - [`service-costs/`](./service-costs.md) — updated 2026-06-16 11:15
-- [`shared/`](./shared.md) — updated 2026-06-16 11:15
+- [`shared/`](./shared.md) — updated 2026-06-16 14:31
 - [`showroom/`](./showroom.md) — updated 2026-06-10 19:04
 - [`showroom1/`](./showroom1.md) — updated 2026-06-10 19:52
 - [`so-order/`](./so-order.md) — updated 2026-06-16 13:28
-- [`soluong-live/`](./soluong-live.md) — updated 2026-06-08 18:40
+- [`soluong-live/`](./soluong-live.md) — updated 2026-06-16 14:31
 - [`soorder/`](./soorder.md) — updated 2026-05-21 15:39
 - [`soquy/`](./soquy.md) — updated 2026-06-13 19:51
 - [`stitch_customer/`](./stitch_customer.md) — updated 2026-05-21 15:39
-- [`supplier-debt/`](./supplier-debt.md) — updated 2026-06-06 09:46
+- [`supplier-debt/`](./supplier-debt.md) — updated 2026-06-16 14:31
 - [`tests/`](./tests.md) — updated 2026-06-10 19:04
 - [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-06-07 19:41
 - [`user-management/`](./user-management.md) — updated 2026-05-21 15:39
