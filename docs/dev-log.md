@@ -2,6 +2,23 @@
 
 ## 2026-06-16
 
+### [so-order] Nền bảng xen kẽ theo NHÓM NCC/đơn (thay zebra :nth-child lệch nhóm) ✅
+
+**User:** background bảng chia phải đúng màu — nhóm này trắng, nhóm kế nhạt, xen kẽ → tăng tương phản đọc dữ liệu từng khối. (Hiện tại random: 1 nhóm trắng, nhóm kế nhạt, nhóm kế nữa trắng nhưng không khớp ranh giới nhóm.)
+
+**RCA:** Zebra cũ `.so-data-row:nth-child(even)` tô theo TỪNG ROW. Nhưng `#soTableBody` xen cả row `.so-shipment-head` + `.so-shipment-colhead` giữa các data row → parity của data row lệch so với ranh giới nhóm NCC → trông random (nhóm 2 dòng thì 1 trắng 1 nhạt).
+
+**Fix:**
+
+1. [so-order-app.js](so-order/js/so-order-app.js) `_computeRowSpans`: thêm `nccParity` (0/1) luân phiên theo từng NHÓM NCC (cùng supplier + invoiceGroup — đúng đơn vị rowspan ô NCC). `rowHtml`: nhóm lẻ → class `.so-grp-alt` trên `<tr>`.
+2. [so-order.css](so-order/css/so-order.css): bỏ rule `:nth-child(even)`; thêm `.so-data-row.so-grp-alt > td { background:#e9eef4 }` (nhóm chẵn giữ trắng #fff). Ô gộp NCC/Ảnh HĐ trong nhóm lẻ tô gradient cùng tông. Hover nổi hơn nền nhóm.
+
+**Verify (Playwright, view mode):** A1(1-2)=trắng · A1/TEST-INV(3)=nhạt · b1(4-5)=trắng · C2(6-7)=nhạt · SE(8)=trắng — đúng spec user, mỗi khối tách rõ. (Edit mode: ô editable giữ highlight kem #fefce8 — visual riêng của edit, không đụng.)
+
+Bump `so-order.css` + `so-order-app.js` `?v=20260616h`.
+
+**Status:** ✅ verified browser. so-order (Web 2.0 module).
+
 ### [web2/supplier-wallet] FIX số liệu NCC nhấp nháy rồi về 0₫ sau khi load (post-Sync render đè 0) + debug logs ✅
 
 **User:** "mới vào trang nó ra dữ liệu ở đâu đó xong đề dữ liệu khác lên" → nghi sort. Yêu cầu thêm console.log + browser test debug.

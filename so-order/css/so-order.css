@@ -154,13 +154,27 @@
     border-right: none;
 }
 
-/* Zebra striping — chỉ data row, không apply cho shipment-head. */
-.so-table tbody tr.so-data-row:nth-child(even) > td {
-    background: #f7f9fb;
+/* Nền xen kẽ theo NHÓM NCC/đơn (KHÔNG phải :nth-child từng row — tbody có cả
+   row header xen vào nên parity row bị lệch nhóm, trông random). JS gắn class
+   .so-grp-alt cho mọi row của nhóm NCC lẻ → nhóm chẵn nền trắng, nhóm lẻ nền
+   nhạt → tách khối rõ, tăng tương phản đọc dữ liệu. */
+.so-table tbody tr.so-data-row.so-grp-alt > td {
+    background: #e9eef4;
 }
-.so-table tbody tr.so-data-row:hover > td,
-.so-table tbody tr.so-data-row:nth-child(even):hover > td {
+/* Ô gộp (rowspan NCC / Ảnh Hóa Đơn) trong nhóm lẻ — tô cùng tông để cả khối
+   liền mạch, vẫn giữ viền phải làm vạch ngăn nhóm. */
+.so-table tbody tr.so-data-row.so-grp-alt > td.so-cell-merged {
+    background: linear-gradient(180deg, #e1e9f2 0%, #e9eef4 100%);
+}
+.so-table tbody tr.so-data-row.so-grp-alt > td.so-cell-img.so-cell-merged {
+    background: linear-gradient(180deg, #dcebe2 0%, #e9eef4 100%);
+}
+/* Hover — luôn nổi hơn nền nhóm hiện tại. */
+.so-table tbody tr.so-data-row:hover > td {
     background: #eaf2fb;
+}
+.so-table tbody tr.so-data-row.so-grp-alt:hover > td {
+    background: #dde8f6;
 }
 
 .so-cell-supplier {

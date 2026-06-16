@@ -48,6 +48,9 @@
     let editingRowId = null;
     let editingShipmentId = null;
     let editingTabId = null;
+    // 2026-06-16: invoiceGroupId của ĐƠN đang sửa — để populate + lưu giảm giá/ship
+    // per-đơn. null khi tạo mới (chưa có group).
+    let editingInvoiceGroupId = null;
     // Inline cell edit state (per-cell dblclick mode) — track ô đang edit
     // để 2 lần dblclick nhanh không clobber input đang gõ.
     let inlineCellEditingKey = null; // `${rowId}|${field}`
@@ -617,7 +620,11 @@
         // invoiceGroupId (đơn). Nếu cùng NCC nhưng khác đơn → tách cell ra
         // để mỗi đơn 1 ô riêng. Fallback `invoiceGroupId || id` giữ behavior
         // cũ cho rows pre-2026-05-30 chưa có invoiceGroupId.
+        // grp parity 0/1 luân phiên theo từng NHÓM NCC (đơn) → CSS tô nền xen kẽ
+        // trắng/nhạt cho dễ phân biệt khối. Thay zebra :nth-child cũ (đếm cả row
+        // header → parity lệch nhóm, trông random).
         let i = 0;
+        let grp = 0;
         while (i < rows.length) {
             let j = i + 1;
             const sup = rows[i].supplier || '';
@@ -629,7 +636,10 @@
             )
                 j++;
             out[i].ncc = { render: true, span: j - i };
+            const parity = grp % 2;
+            for (let k = i; k < j; k++) out[k].nccParity = parity;
             for (let k = i + 1; k < j; k++) out[k].ncc = { render: false, span: 0 };
+            grp++;
             i = j;
         }
         i = 0;
@@ -898,9 +908,12 @@
             actions: actionsCell(r.id, shipmentId, r.status),
         };
         const lockedClass = r.status === 'received' ? ' is-locked' : '';
+        // Nền xen kẽ theo NHÓM NCC (đơn): nhóm lẻ thêm .so-grp-alt (CSS tô nhạt).
+        const grpAltClass = meta?.nccParity === 1 ? ' so-grp-alt' : '';
         return (
             '<tr class="so-data-row' +
             lockedClass +
+            grpAltClass +
             '" data-row-id="' +
             rid +
             '" data-shipment-id="' +
@@ -2056,8 +2069,12 @@
                 if (totalReceived >= it.qty) newStatus = 'received';
                 else if (totalReceived > 0) newStatus = 'partial_received';
                 else continue;
+                // 2026-06-16: GHI qtyReceived (luỹ kế) lên row → công nợ NCC bill
+                // ĐÚNG phần đã nhận khi 'partial_received' (user chốt 2026-06-16).
+                // 'received' bill full qty đặt; partial bill min(qtyReceived, qty).
                 window.SoOrderStorage.updateRow(state, tab.id, it.shipmentId, it.rowId, {
                     status: newStatus,
+                    qtyReceived: totalReceived,
                 });
             }
             pushSync();
@@ -3207,10 +3224,14 @@ window.addEventListener('load', () => {
             el.hidden = key ? !flags[key] : !Object.values(flags).some(Boolean);
         });
         const form = document.getElementById('soOrderForm');
-        if (form?.elements?.shipDiscount)
-            form.elements.shipDiscount.value = Number(sh?.discount) || 0;
-        if (form?.elements?.shipShipping)
-            form.elements.shipShipping.value = Number(sh?.shipping) || 0;
+        // 2026-06-16: giảm giá/ship của ĐƠN đang sửa (editingInvoiceGroupId), KHÔNG
+        // còn per-shipment. Tạo mới / đơn mới → 0.
+        const adj =
+            sh && editingInvoiceGroupId && window.SoOrderStorage.getOrderAdjustment
+                ? window.SoOrderStorage.getOrderAdjustment(sh, editingInvoiceGroupId)
+                : { discount: 0, shipping: 0 };
+        if (form?.elements?.shipDiscount) form.elements.shipDiscount.value = adj.discount || 0;
+        if (form?.elements?.shipShipping) form.elements.shipShipping.value = adj.shipping || 0;
     }
 
     function openOrderModal(rowId, shipmentId) {
@@ -3228,6 +3249,7 @@ window.addEventListener('load', () => {
         editingRowId = rowId || null;
         editingShipmentId = shipmentId || null;
         editingTabId = tab.id;
+        editingInvoiceGroupId = null; // set bên dưới nếu là edit 1 dòng
         modalMode = rowId ? 'edit' : 'create';
         modalRows = [];
         modalInvoiceImage = ''; // reset trước khi build rows (tránh kế thừa đơn trước)
@@ -3249,6 +3271,7 @@ window.addEventListener('load', () => {
             const sh = tab.shipments.find((s) => s.id === shipmentId);
             const r = sh?.rows.find((x) => x.id === rowId);
             if (!r) return;
+            editingInvoiceGroupId = r.invoiceGroupId || null; // đơn của dòng đang sửa
             titleEl.textContent = 'Sửa dòng order';
             form.elements.shipDate.value = sh.date || '';
             form.elements.shipBatch.value = sh.batch || '';
@@ -3345,7 +3368,10 @@ window.addEventListener('load', () => {
             contractAmount: Number(form.elements.shipContractAmount.value) || 0,
             contractCurrency: form.elements.shipContractCurrency.value,
             expectedDeliveryDate: form.elements.shipExpectedDeliveryDate?.value || null,
-            // 2026-06-16: giảm giá / phí ship per-đơn (nhập ở modal tạo đơn).
+        };
+        // 2026-06-16: giảm giá / phí ship PER-ĐƠN (theo invoiceGroupId), KHÔNG ghi
+        // vào shipment. Lưu qua setOrderAdjustment sau khi biết invoiceGroupId.
+        const orderAdj = {
             discount: Number(form.elements.shipDiscount?.value) || 0,
             shipping: Number(form.elements.shipShipping?.value) || 0,
         };
@@ -3441,6 +3467,16 @@ window.addEventListener('load', () => {
                 );
                 window.SoOrderStorage.updateShipment(state, tab.id, editingShipmentId, shipMeta);
             }
+            // Giảm giá / phí ship của ĐƠN đang sửa (per invoiceGroupId).
+            if (editingInvoiceGroupId) {
+                window.SoOrderStorage.setOrderAdjustment(
+                    state,
+                    tab.id,
+                    editingShipmentId,
+                    editingInvoiceGroupId,
+                    orderAdj
+                );
+            }
             notify('Đã cập nhật dòng order', 'success');
             // Sync Kho:
             //   - SP cùng name+variant với row cũ → adjust pending delta.
@@ -3500,6 +3536,17 @@ window.addEventListener('load', () => {
                     addedRows.push(r);
                 }
             }
+            // Giảm giá / phí ship của lô — gắn vào đơn đầu (hoặc đơn mới nếu chỉ thêm).
+            const adjGroupId = editingInvoiceGroupId || newInvoiceGroupId;
+            if (adjGroupId) {
+                window.SoOrderStorage.setOrderAdjustment(
+                    state,
+                    tab.id,
+                    sh.id,
+                    adjGroupId,
+                    orderAdj
+                );
+            }
             notify(
                 `Đã cập nhật lô (${validRows.length} SP${toDelete.length ? `, xóa ${toDelete.length}` : ''})`,
                 'success'
@@ -3517,8 +3564,6 @@ window.addEventListener('load', () => {
                     weightKg: shipMeta.weightKg || sh.weightKg,
                     contractAmount: shipMeta.contractAmount || sh.contractAmount,
                     contractCurrency: shipMeta.contractCurrency || sh.contractCurrency,
-                    discount: shipMeta.discount || sh.discount,
-                    shipping: shipMeta.shipping || sh.shipping,
                 };
                 window.SoOrderStorage.updateShipment(state, tab.id, sh.id, merged);
             }
@@ -3538,6 +3583,14 @@ window.addEventListener('load', () => {
                     invoiceGroupId: newInvoiceGroupId,
                 });
             }
+            // Giảm giá / phí ship của ĐƠN này (1 invoiceGroupId).
+            window.SoOrderStorage.setOrderAdjustment(
+                state,
+                tab.id,
+                sh.id,
+                newInvoiceGroupId,
+                orderAdj
+            );
             notify(`Đã thêm ${validRows.length} dòng order (Nháp)`, 'success');
             syncRowsToKho(validRows, tab, sharedFields.supplier).catch(() => {});
         }
@@ -4257,6 +4310,9 @@ window.addEventListener('load', () => {
         editingRowId = null;
         editingShipmentId = sh.id;
         editingTabId = tab.id;
+        // Sửa lô có thể gồm nhiều đơn — giảm giá/ship gắn vào ĐƠN ĐẦU TIÊN của các
+        // dòng đang load (đơn giản hoá; sửa lẻ từng dòng để chỉnh đúng đơn).
+        editingInvoiceGroupId = (rowsOverride || sh.rows || [])[0]?.invoiceGroupId || null;
         modalMode = 'edit-shipment';
         const form = document.getElementById('soOrderForm');
         const titleEl = document.getElementById('soModalTitle');
