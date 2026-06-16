@@ -21,6 +21,19 @@
 
 **Status:** ✅ Web 1.0 (delivery-report, PROD — chỉ đổi stats bar, không đụng DB/list).
 
+### [web2-products][Kho SP] upsert/adjust-pending khớp + NCC → SP cùng tên KHÁC NCC KHÔNG gộp ✅
+
+**User:** "test thử sao tên giống nhau nó gộp lại" → chọn **Tách theo NCC**.
+
+**RCA (test Playwright xác nhận):** `upsert-pending` ([web2-products.js](render.com/routes/web2-products.js)) khớp SP theo `LOWER(name)` + variant — **KHÔNG tính supplier (NCC)**. Test: upsert 2 item cùng tên "TEST-MERGE-NCC" + biến thể "Đỏ" nhưng NCC khác (A1 qty3, b1 qty5) → `created:1, updated:1` → b1 GỘP vào SP A1 (`A1TESTMERGEDO` pending 8), mã `B1TESTMERGEDO` + NCC b1 bị bỏ. Nghịch với mã SP sinh theo prefix NCC (A1AODO ≠ B1AODO) + NCC per-row vừa làm.
+
+**Fix:** thêm `supplier` (NCC) vào match key của CẢ `upsert-pending` VÀ `adjust-pending` (đối xứng — giảm pending phải trúng đúng SP theo NCC):
+
+- Match: `name` + `variant` + `supplier`. Cùng tên+biến thể nhưng **KHÁC NCC → SP RIÊNG** (không match → INSERT mã prefix NCC riêng). **Cùng NCC → vẫn gộp** (dedup lưu nháp lại). NULL-supplier SP cũ được NCC đầu "claim" (ORDER BY ưu tiên exact-supplier) → tránh tạo trùng. Chỉ ràng buộc khi item CÓ supplier → item không NCC giữ hành vi cũ.
+- Giữ nguyên pattern `FOR UPDATE LIMIT 1` (proven prod) + builder param động.
+
+**Status:** ⏳ deploy web2-api → test cross-NCC (riêng) + same-NCC (gộp). web2Db (Web 2.0).
+
 ### [so-order] Sửa lô — NCC TÁCH RIÊNG mỗi dòng (lô = nguyên ngày giao, gồm nhiều NCC) ✅
 
 **User:** "Sửa lô (nút bút chì) → sửa của nguyên ngày giao đó nên modal chỉnh sửa NCC phải tách ra → NCC A1 ở trên (ô 'Nhà cung cấp' chung) là sai."

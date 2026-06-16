@@ -1099,6 +1099,9 @@ router.post('/adjust-pending', async (req, res) => {
             const code = adj.code ? String(adj.code).trim() : null;
             const name = adj.name ? String(adj.name).trim() : null;
             const variant = adj.variant ? String(adj.variant).trim() : null;
+            // 2026-06-16: + supplier (NCC) — đối xứng upsert-pending. Giảm pending
+            // phải trúng đúng SP theo NCC (A1 vs b1 cùng tên+biến thể = SP riêng).
+            const supplier = adj.supplier ? String(adj.supplier).trim() : null;
             const delta = Number(adj.delta) || 0;
             if ((!code && !name) || !Number.isFinite(delta) || delta === 0) continue;
 
@@ -1115,20 +1118,30 @@ router.post('/adjust-pending', async (req, res) => {
                     [code]
                 );
             } else if (variant) {
+                const p = [name, variant];
+                let where = `LOWER(name) = LOWER($1) AND LOWER(COALESCE(variant, '')) = LOWER($2)`;
+                let order = 'id';
+                if (supplier) {
+                    p.push(supplier);
+                    where += ` AND (supplier IS NULL OR LOWER(supplier) = LOWER($3))`;
+                    order = `(LOWER(COALESCE(supplier, '')) = LOWER($3)) DESC, id`;
+                }
                 r = await client.query(
-                    `SELECT * FROM web2_products
-                     WHERE LOWER(name) = LOWER($1)
-                       AND LOWER(COALESCE(variant, '')) = LOWER($2)
-                     ORDER BY id LIMIT 1 FOR UPDATE`,
-                    [name, variant]
+                    `SELECT * FROM web2_products WHERE ${where} ORDER BY ${order} LIMIT 1 FOR UPDATE`,
+                    p
                 );
             } else {
+                const p = [name];
+                let where = `LOWER(name) = LOWER($1) AND (variant IS NULL OR variant = '')`;
+                let order = 'id';
+                if (supplier) {
+                    p.push(supplier);
+                    where += ` AND (supplier IS NULL OR LOWER(supplier) = LOWER($2))`;
+                    order = `(LOWER(COALESCE(supplier, '')) = LOWER($2)) DESC, id`;
+                }
                 r = await client.query(
-                    `SELECT * FROM web2_products
-                     WHERE LOWER(name) = LOWER($1)
-                       AND (variant IS NULL OR variant = '')
-                     ORDER BY id LIMIT 1 FOR UPDATE`,
-                    [name]
+                    `SELECT * FROM web2_products WHERE ${where} ORDER BY ${order} LIMIT 1 FOR UPDATE`,
+                    p
                 );
             }
             if (!r.rows.length) {
@@ -1231,13 +1244,30 @@ router.post('/upsert-pending', async (req, res) => {
             const qty = Math.max(0, Number(it.qty) || 0);
             const supplier = it.supplier ? String(it.supplier).trim() : null;
             if (!name || (qty <= 0 && !resolveOnly)) continue;
-            // Match: name + variant (variant nullable, NULL match NULL)
+            // Match: name + variant + supplier (NCC).
             // 1D fix: ưu tiên exact-match variant — SP base (variant NULL, id nhỏ)
             // không được "thắng" khi SP đúng variant tồn tại (đối xứng adjust-pending).
-            const findSql = variant
-                ? `SELECT * FROM web2_products WHERE LOWER(name) = LOWER($1) AND (variant IS NULL OR LOWER(variant) = LOWER($2)) ORDER BY (LOWER(COALESCE(variant, '')) = LOWER($2)) DESC, id ASC FOR UPDATE`
-                : `SELECT * FROM web2_products WHERE LOWER(name) = LOWER($1) ORDER BY id FOR UPDATE`;
-            const findParams = variant ? [name, variant] : [name];
+            // 2026-06-16: + supplier (NCC) vào match key. NCC là 1 PHẦN ĐỊNH DANH
+            // (mã SP sinh theo prefix NCC: A1AODO ≠ B1AODO). Nên cùng tên+biến thể
+            // nhưng KHÁC NCC = SP RIÊNG (không gộp). Cùng NCC → vẫn gộp (dedup khi
+            // lưu nháp lại). NULL-supplier SP cũ được NCC đầu tiên "claim" (tránh
+            // tạo trùng). Chỉ ràng buộc khi item CÓ supplier — item không NCC giữ
+            // hành vi cũ (match theo tên+biến thể).
+            const conds = ['LOWER(name) = LOWER($1)'];
+            const findParams = [name];
+            const orderBy = [];
+            if (variant) {
+                findParams.push(variant);
+                conds.push(`(variant IS NULL OR LOWER(variant) = LOWER($${findParams.length}))`);
+                orderBy.push(`(LOWER(COALESCE(variant, '')) = LOWER($${findParams.length})) DESC`);
+            }
+            if (supplier) {
+                findParams.push(supplier);
+                conds.push(`(supplier IS NULL OR LOWER(supplier) = LOWER($${findParams.length}))`);
+                orderBy.push(`(LOWER(COALESCE(supplier, '')) = LOWER($${findParams.length})) DESC`);
+            }
+            orderBy.push('id ASC');
+            const findSql = `SELECT * FROM web2_products WHERE ${conds.join(' AND ')} ORDER BY ${orderBy.join(', ')} FOR UPDATE`;
             const existing = await client.query(`${findSql} LIMIT 1`, findParams);
 
             if (!existing.rows.length) {
