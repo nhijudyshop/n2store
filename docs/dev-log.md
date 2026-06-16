@@ -22,7 +22,11 @@ User: "@ phải lên danh sách tên người trong group để tag — chức n
 
 **Việc cần làm thủ công (1 lần, tùy chọn):** cập nhật env `DELIVERY_REPORT_TELEGRAM_CHAT_ID` trên Render = id mới (xem log `[DELIVERY-REPORT-TG] Group nâng cấp supergroup: ... → <id mới>`) để khỏi tốn 1 lần retry mỗi khi server restart. Cần redeploy `n2store-fallback` để fix có hiệu lực.
 
-### [web1][realtime] Audit decommission n2store-realtime — CHƯA an toàn xóa (đang chạy thật) ⚠️
+### [web1][realtime] Retire n2store-realtime — ⏸ ĐÃ SUSPEND (reversible) 2026-06-16 ✅
+
+**Cập nhật:** user chốt "xóa đi" (pending_customers redundant, unread lấy từ Pancake). Thực thi an toàn: (1) gỡ 3 direct call mark-replied n2store-realtime ở orders-report (tab1-chat-core/chat-products-ui/quick-reply-manager, giữ worker primary); (2) **SUSPEND service** srv-d5doh26uk2gs739489k0 (reversible, $0 billing) thay vì hard-delete ngay vì irreversible + 10% residual. Verify: n2store-realtime HTTP 503; badge `pending-customers` qua fallback vẫn 200 (Web 1.0 KHÔNG vỡ); web2-realtime 200. Cost ~$7/mo ĐÃ tiết kiệm. Hard-delete (service+folder+const api-endpoints REALTIME+service-costs entry+nginx+docs) làm sau khi confirm dormant chắc; vỡ thì `POST /resume` tức thì.
+
+<!-- audit gốc -->
 
 User OK audit decommission để tiết kiệm. Workflow 7-agent adversarial. **Verdict: CHƯA an toàn xóa (~90%) — đính chính: service KHÔNG idle.**
 
