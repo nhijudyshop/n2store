@@ -3,16 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `f3883fa` — auto: session update
-**Last updated**: 2026-06-16 12:31:11 +07
-**Latest session**: [`RESUME:20260616-123111-f3883fa`](../20260616-123111-f3883fa.md)
-**Summary**: auto: session update
+**Latest commit**: `5f185df` — feat(orders-report): thanh "Khách chưa trả lời" giữa bộ lọc và bảng
+**Last updated**: 2026-06-16 12:58:42 +07
+**Latest session**: [`RESUME:20260616-125842-5f185df`](../20260616-125842-5f185df.md)
+**Summary**: feat(orders-report): thanh "Khách chưa trả lời" giữa bộ lọc và bảng
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`live-chat/`](./live-chat.md) — 4 file(s)
-- [`render.com/`](./render.com.md) — 2 file(s)
+- [`orders-report/`](./orders-report.md) — 4 file(s)
 
 ## All folder snapshots
 
@@ -27,7 +26,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-16 11:15
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-14 18:47
-- [`docs/`](./docs.md) — updated 2026-06-16 12:31
+- [`docs/`](./docs.md) — updated 2026-06-16 12:58
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-15 15:57
 - [`downloads/`](./downloads.md) — updated 2026-06-13 19:16
@@ -47,7 +46,7 @@
 - [`native-orders/`](./native-orders.md) — updated 2026-06-16 10:25
 - [`nhanhang/`](./nhanhang.md) — updated 2026-06-13 19:51
 - [`order-management/`](./order-management.md) — updated 2026-05-21 15:39
-- [`orders-report/`](./orders-report.md) — updated 2026-06-16 11:06
+- [`orders-report/`](./orders-report.md) — updated 2026-06-16 12:58
 - [`pancake-extension/`](./pancake-extension.md) — updated 2026-05-21 11:33
 - [`phone-management/`](./phone-management.md) — updated 2026-05-21 15:39
 - [`product-warehouse/`](./product-warehouse.md) — updated 2026-06-04 13:36
