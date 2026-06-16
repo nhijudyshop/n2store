@@ -3,16 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `716992f` — feat(web2/supplier-wallet): bỏ nút Đồng bộ → realtime tự động (thêm SSE web2:so-order)
-**Last updated**: 2026-06-16 15:31:09 +07
-**Latest session**: [`RESUME:20260616-153109-716992f`](../20260616-153109-716992f.md)
-**Summary**: feat(web2/supplier-wallet): bỏ nút Đồng bộ → realtime tự động (thêm SSE web2:so-order)
+**Latest commit**: `6732b8b` — fix(so-order): checkbox 'Hiện thông tin lô' (Cài đặt tab) không hiện state checked — .so-field input{appearance:none} nuốt checkmark, vẽ custom checked/indeterminate
+**Last updated**: 2026-06-16 15:31:39 +07
+**Latest session**: [`RESUME:20260616-153139-6732b8b`](../20260616-153139-6732b8b.md)
+**Summary**: fix(so-order): checkbox 'Hiện thông tin lô' (Cài đặt tab) không hiện state checked — .so-field input{app...
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`so-order/`](./so-order.md) — 2 file(s)
-- [`web2/`](./web2.md) — 3 file(s)
 
 ## All folder snapshots
 
