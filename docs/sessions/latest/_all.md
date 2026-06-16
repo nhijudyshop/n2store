@@ -3,17 +3,16 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `8b0a8ce` — docs(web2-realtime): sửa comment stale n2store-realtime → web2-realtime (broker đã fold)
-**Last updated**: 2026-06-16 09:18:03 +07
-**Latest session**: [`RESUME:20260616-091803-8b0a8ce`](../20260616-091803-8b0a8ce.md)
-**Summary**: docs(web2-realtime): sửa comment stale n2store-realtime → web2-realtime (broker đã fold)
+**Latest commit**: `10086d1` — refactor(web1⊥web2): gỡ /api/v2/customers/:id/orders đọc web2Db (coupling cuối) — độc lập hoàn toàn
+**Last updated**: 2026-06-16 10:16:30 +07
+**Latest session**: [`RESUME:20260616-101630-10086d1`](../20260616-101630-10086d1.md)
+**Summary**: refactor(web1⊥web2): gỡ /api/v2/customers/:id/orders đọc web2Db (coupling cuối) — độc lập hoàn toàn
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`live-chat/`](./live-chat.md) — 1 file(s)
-- [`native-orders/`](./native-orders.md) — 1 file(s)
-- [`web2/`](./web2.md) — 2 file(s)
+- [`render.com/`](./render.com.md) — 1 file(s)
+- [`scripts/`](./scripts.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -28,7 +27,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-16 00:35
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-14 18:47
-- [`docs/`](./docs.md) — updated 2026-06-16 09:18
+- [`docs/`](./docs.md) — updated 2026-06-16 10:16
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-15 15:57
 - [`downloads/`](./downloads.md) — updated 2026-06-13 19:16
@@ -56,9 +55,9 @@
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-06-16 00:35
-- [`render.com/`](./render.com.md) — updated 2026-06-16 00:35
+- [`render.com/`](./render.com.md) — updated 2026-06-16 10:16
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
-- [`scripts/`](./scripts.md) — updated 2026-06-16 00:35
+- [`scripts/`](./scripts.md) — updated 2026-06-16 10:16
 - [`service-costs/`](./service-costs.md) — updated 2026-06-16 00:35
 - [`shared/`](./shared.md) — updated 2026-06-16 00:35
 - [`showroom/`](./showroom.md) — updated 2026-06-10 19:04
