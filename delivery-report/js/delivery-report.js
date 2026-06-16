@@ -1483,6 +1483,15 @@
         const depositCount = Number(s.SumQuantityDeposit) || 0;
         const depositValue = Number(s.SumAmountDeposit) || 0;
 
+        // Thẻ tổng (headline): Tổng tiền hóa đơn = Giao hàng thu tiền + Tổng trả trước.
+        // Số hóa đơn = TỔNG số hóa đơn trong bộ lọc tìm kiếm (allData, cùng phạm vi
+        // ngày với SumDeliveryReport — KHÔNG đổi theo tab/scan, giữ 3 thẻ đồng nhất).
+        const totalCount = (DeliveryReportState.allData || []).length;
+        const totalValue = codValue + depositValue;
+
+        updateStatElement('drStatTotalCount', `${formatNumber(totalCount)} Hóa đơn`);
+        updateStatElement('drStatTotalValue', formatMoney(totalValue));
+
         updateStatElement('drStatCODCount', `${formatNumber(codCount)} Hóa đơn`);
         updateStatElement('drStatCODValue', formatMoney(codValue));
 

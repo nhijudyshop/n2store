@@ -2,6 +2,21 @@
 
 ## 2026-06-16
 
+### [delivery-report] Thêm thẻ "Tổng tiền hóa đơn" (headline) = Giao hàng thu tiền + Tổng trả trước ✅
+
+**User:** "thêm 1 stat tổng tiền hóa đơn (Tổng số hóa đơn trong bộ lọc), Tổng tiền = Giao hàng thu tiền + Tổng trả trước".
+
+**Fix:** stats bar nay 3 thẻ — thêm thẻ **"Tổng tiền hóa đơn"** đứng đầu (icon `fa-file-invoice-dollar` tím, id `drStatTotal*`):
+
+- [index.html](delivery-report/index.html): chèn thẻ tổng trước thẻ "Giao hàng thu tiền".
+- [delivery-report.js](delivery-report/js/delivery-report.js) `renderStats()`: `totalValue = SumCollectionAmount + SumAmountDeposit`; `totalCount = DeliveryReportState.allData.length` (tổng hóa đơn trong bộ lọc tìm kiếm — CÙNG phạm vi ngày với SumDeliveryReport, không đổi theo tab/scan để 3 thẻ đồng nhất).
+
+**Lưu ý:** Tổng tiền theo định nghĩa user (COD amount + Deposit amount) — KHÁC `SumAmountTotal` của TPOS (COD+Deposit ≠ AmountTotal vì COD là full giá trị đơn COD, Deposit là đơn trả trước riêng). Bump `?v=20260616d`.
+
+**Verify (Playwright, live):** [chèn sau verify]
+
+**Status:** ✅ Web 1.0 (delivery-report, PROD).
+
 ### [delivery-report] 2 thẻ thống kê lấy THẲNG từ TPOS SumDeliveryReport (qua worker proxy) ✅
 
 **User:** "đổi trang sang dùng thẳng SumDeliveryReport, qua proxy Cloudflare worker không gọi thẳng TPOS" → "chỉ lấy 2 cột: tổng hóa đơn giao hàng thu tiền + tổng trả trước".

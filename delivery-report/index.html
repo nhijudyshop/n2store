@@ -335,8 +335,16 @@
             </div>
 
             <!-- Stats Summary Bar (hidden with filter) -->
-            <!-- 2 thẻ lấy thẳng từ TPOS SumDeliveryReport (qua worker proxy), KHÔNG tự cộng client-side -->
+            <!-- Thẻ tổng + 2 thẻ lấy thẳng từ TPOS SumDeliveryReport (qua worker proxy), KHÔNG tự cộng client-side -->
             <div class="dr-stats-bar" id="drStatsBar">
+                <div class="dr-stat-item">
+                    <div class="dr-stat-icon purple"><i class="fas fa-file-invoice-dollar"></i></div>
+                    <div class="dr-stat-info">
+                        <span class="dr-stat-count" id="drStatTotalCount">0 Hóa đơn</span>
+                        <span class="dr-stat-value" id="drStatTotalValue">0</span>
+                        <span class="dr-stat-label">Tổng tiền hóa đơn</span>
+                    </div>
+                </div>
                 <div class="dr-stat-item">
                     <div class="dr-stat-icon blue"><i class="fas fa-dollar-sign"></i></div>
                     <div class="dr-stat-info">
@@ -545,7 +553,7 @@
         <script src="../shared/js/wallet-pair-utils.js?v=20260614d"></script>
 
         <!-- Delivery Report Logic -->
-        <script src="js/delivery-report.js?v=20260616c"></script>
+        <script src="js/delivery-report.js?v=20260616d"></script>
         <script src="js/cancel-request.js?v=20260614d"></script>
         <script src="js/report.js?v=20260614g"></script>
         <script src="js/send-along.js?v=20260614g"></script>
