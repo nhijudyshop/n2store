@@ -579,9 +579,13 @@
         load();
     }
 
-    // ---------- Supplier dropdown — nguồn DUY NHẤT là tabs trong Sổ Order ----------
-    // Cache list NCC từ Firestore web2_so_order/main. Load lazy + reload khi mở modal.
-    let _suppliersFromSoOrder = null;
+    // ---------- Supplier dropdown — NGUỒN CHUNG: Ví NCC (supplier-wallet) ----------
+    // 2026-06-16: chuyển nguồn NCC từ "tab Sổ Order" sang NGUỒN DUY NHẤT
+    // `Web2SuppliersCache` → GET /api/web2-supplier-wallet/suppliers (bảng
+    // web2_supplier_meta = trang Ví NCC). Mọi trang Web 2.0 cần NCC dùng chung
+    // cache này (so-order, supplier-debt, purchase-refund). NCC name vẫn drive
+    // prefix mã SP qua Web2ProductCode.buildPrefixMap (HÀ NỘI→HN, A1→A1…).
+    let _suppliersFromSoOrder = null; // (giữ tên var — đổi sẽ phải sửa nhiều call site)
     let _suppliersLoadPromise = null;
 
     async function loadSuppliersFromSoOrder(force) {
@@ -589,25 +593,17 @@
         if (_suppliersLoadPromise && !force) return _suppliersLoadPromise;
         _suppliersLoadPromise = (async () => {
             try {
-                // C8 (2026-06-13): đọc so-order từ Postgres (Web2SoOrder), KHÔNG còn
-                // Firestore (đã migrate; Firestore frozen → tab labels cũ).
-                if (!window.Web2SoOrder || !window.Web2SoOrder.load) {
-                    console.warn('[products] Web2SoOrder reader chưa load — empty supplier list');
+                const cache = window.Web2SuppliersCache;
+                if (!cache?.init) {
+                    console.warn('[products] Web2SuppliersCache chưa load — empty supplier list');
                     return [];
                 }
-                const data = await window.Web2SoOrder.load();
-                if (!data) return [];
-                const set = new Set();
-                // PREFIX mã SP lấy theo TAB Sổ Order (HÀ NỘI / HƯƠNG CHÂU), KHÔNG
-                // phải cột NCC per-row → dropdown chỉ liệt kê label tab.
-                for (const tab of data.tabs || []) {
-                    const lbl = (tab.label || tab.name || '').trim();
-                    if (lbl) set.add(lbl);
-                }
-                _suppliersFromSoOrder = Array.from(set).sort();
+                await cache.init();
+                if (force && cache.refresh) await cache.refresh();
+                _suppliersFromSoOrder = cache.getNames();
                 return _suppliersFromSoOrder;
             } catch (e) {
-                console.warn('[products] load suppliers từ so-order fail:', e.message);
+                console.warn('[products] load suppliers (Ví NCC) fail:', e.message);
                 return [];
             }
         })();
@@ -624,19 +620,18 @@
         if (!sel) return;
         const currentVal = sel.value;
         const suppliers = await loadSuppliersFromSoOrder();
-        const opts = ['<option value="">— Chọn tab Sổ Order —</option>'];
-        // SP tạo TRỰC TIẾP tại Kho (không chọn tab) → prefix mã = "KHO".
+        const opts = ['<option value="">— Chọn NCC —</option>'];
+        // SP tạo TRỰC TIẾP tại Kho (không chọn NCC) → prefix mã = "KHO".
         opts.push(
             `<option value="KHO"${currentVal === 'KHO' ? ' selected' : ''}>KHO (tạo trực tiếp tại Kho)</option>`
         );
-        // Nếu SP đang edit có giá trị không nằm trong list tab (legacy) →
-        // prepend làm option riêng để tránh mất giá trị khi save lại.
+        // SP đang edit có NCC không nằm trong list Ví NCC (legacy) → prepend giữ giá trị.
         if (currentVal && currentVal !== 'KHO' && !suppliers.includes(currentVal)) {
             opts.push(
-                `<option value="${escapeHtml(currentVal)}" selected>${escapeHtml(currentVal)} (legacy — không có trong Sổ Order)</option>`
+                `<option value="${escapeHtml(currentVal)}" selected>${escapeHtml(currentVal)} (legacy — không có trong Ví NCC)</option>`
             );
         }
-        // Tab Sổ Order (HÀ NỘI / HƯƠNG CHÂU …) → prefix HN / HC.
+        // NCC từ Ví NCC (supplier-wallet) → prefix mã theo tên (HÀ NỘI→HN, A1→A1…).
         for (const s of suppliers) {
             opts.push(
                 `<option value="${escapeHtml(s)}"${s === currentVal ? ' selected' : ''}>${escapeHtml(s)}</option>`
@@ -644,7 +639,7 @@
         }
         if (!suppliers.length) {
             opts.push(
-                '<option value="" disabled>(Sổ Order chưa có tab nào — thêm tab trong so-order trước)</option>'
+                '<option value="" disabled>(Chưa có NCC nào — tạo trong trang Ví NCC trước)</option>'
             );
         }
         sel.innerHTML = opts.join('');
