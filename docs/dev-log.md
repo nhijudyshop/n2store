@@ -2,6 +2,21 @@
 
 ## 2026-06-16
 
+### [so-order][web2/products] Gợi ý biến thể từ Kho Biến Thể — KHÔNG dấu + theo token cuối khi build multi ✅
+
+**User:** biến thể nhập vào lấy từ Kho Biến Thể; "d" → Đen/Đỏ, "den" → Đen (gõ không dấu vẫn ra). Lúc build "den / d" thì token "d" phải gợi ý Đỏ.
+
+**RCA:** (1) so-order `showVariantSuggest` search TOÀN BỘ input ("den / ") thay vì token cuối → khi build multi không gợi ý được; (2) đã ẩn dropdown sớm theo `detect()` → đang gõ token chưa pick được; (3) products picker filter `.toLowerCase().includes()` = CÓ dấu → "den" không khớp "Đen". (`findByValue` của cache vốn đã khử dấu qua `_normalize`.)
+
+**Fix:**
+
+- [so-order-app.js](so-order/js/so-order-app.js) `showVariantSuggest`: search **token CUỐI sau "/"** (`findByValue` khử dấu sẵn → d→Đen/Đỏ, den→Đen, token rỗng "Đen / "→tất cả); **LUÔN hiện** dropdown (bỏ ẩn-theo-detect) để pick được token đang gõ; click suggestion → **append vào token cuối** ("Đen / " + Đỏ = "Đen / Đỏ") + update preview. Bump `?v=20260616u`.
+- [web2-products-app.js](web2/products/js/web2-products-app.js) `_wireVariantPickerFor._show`: filter qua `cache._normalize` (khử dấu) → "den"→Đen, "m"→M. Bump `?v=20260616d`.
+
+**Verify (Playwright):** so-order — "d"→[Đen,Đỏ,Xanh Dương], "den"→[Đen], "den / d"→token "d" gợi ý [Đen,Đỏ,…] (build được), "Đen / S / m"→[M,Xám] + preview [Đen/S, Đen/m]. products — "den"→[Đen], "m"→[M].
+
+**Status:** ✅ so-order + web2/products (Web 2.0). Gợi ý 1 nguồn từ Kho Biến Thể, khử dấu, per-token.
+
 ### [web2/products][shared] Kho SP hỗ trợ nhập nhiều biến thể — Màu "Đen / Đỏ" × Size "S / M" → N SP (shared Web2VariantMulti) ✅
 
 **User:** "hỗ trợ trong kho nữa → cấu hình thành shared dùng chung để tương lai các trang khác tham chiếu".

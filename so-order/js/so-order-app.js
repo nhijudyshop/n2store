@@ -2780,13 +2780,12 @@ window.addEventListener('load', () => {
         // không trên focus.
         tbody.querySelectorAll('input[data-field="variant"]').forEach((input) => {
             input.addEventListener('input', () => {
-                // Multi-variant ("Đen / S / M") → ẩn dropdown pick-1 (vô nghĩa),
-                // chỉ hiện preview N SP. Giá trị đơn → pick từ kho như cũ.
-                if (window.Web2VariantMulti?.detect?.(input.value)) {
-                    hideVariantSuggest(input.dataset.uid);
-                } else {
-                    showVariantSuggest(input.dataset.uid, input.value);
-                }
+                // LUÔN gợi ý từ Kho Biến Thể theo token CUỐI (kể cả đang build
+                // "Đen / d" → gợi ý Đỏ cho token "d"). KHÔNG ẩn theo detect nữa —
+                // trước đây ẩn sớm khiến không pick được token đang gõ. Preview N
+                // SP hiện inline phía dưới (dropdown nổi đè khi đang gõ, blur thì
+                // thấy preview).
+                showVariantSuggest(input.dataset.uid, input.value);
                 _updateVariantMultiPreview(input.dataset.uid, input.value);
             });
             input.addEventListener('keydown', (e) => {
@@ -3076,8 +3075,14 @@ window.addEventListener('load', () => {
         list.dataset.uid = uid;
         const cache = window.Web2VariantsCache;
         if (!cache) return;
-        const q = (query || '').trim();
-        const items = cache.findByValue(q, 8);
+        // Gợi ý theo token CUỐI sau "/" → đang build "Đen / d" thì search "d"
+        // (accent-insensitive qua findByValue: "d"→Đen/Đỏ, "den"→Đen). Token rỗng
+        // ("Đen / ") → findByValue('') trả TẤT CẢ biến thể để chọn tiếp.
+        const lastTok = String(query || '')
+            .split('/')
+            .pop()
+            .trim();
+        const items = cache.findByValue(lastTok, 8);
         // Hint nhập nhanh nhiều biến thể — luôn hiện để user biết cú pháp "/".
         // Bấm → chèn " / " vào input giúp bắt đầu danh sách.
         const multiHint = `<button type="button" class="so-variant-multi-hint" data-uid="${uid}">
@@ -3089,7 +3094,7 @@ window.addEventListener('load', () => {
             // so-order cho phép biến thể TỰ DO (không bắt buộc có trong Kho) →
             // nói rõ thay vì chỉ "chưa khớp".
             body = `<div class="so-variant-empty">
-                ${q ? `Dùng “<b>${escapeHtml(q)}</b>” làm biến thể tự do, hoặc ` : ''}<a href="../web2/variants/index.html" target="_blank">thêm vào Kho Biến Thể →</a>
+                ${lastTok ? `Dùng “<b>${escapeHtml(lastTok)}</b>” làm biến thể tự do, hoặc ` : ''}<a href="../web2/variants/index.html" target="_blank">thêm vào Kho Biến Thể →</a>
             </div>`;
         } else {
             body = items
@@ -3119,11 +3124,20 @@ window.addEventListener('load', () => {
             btn.addEventListener('click', () => {
                 const row = modalRows.find((r) => r.uid === uid);
                 if (!row) return;
-                row.variant = btn.dataset.val;
                 const input = document.querySelector(
                     `#soModalProductsBody input[data-field="variant"][data-uid="${uid}"]`
                 );
-                if (input) input.value = btn.dataset.val;
+                if (input) {
+                    // Append vào token CUỐI → đang build "Đen / " + chọn "Đỏ" = "Đen / Đỏ".
+                    const segs = (input.value || '').split('/');
+                    segs[segs.length - 1] = btn.dataset.val;
+                    input.value = segs.map((s) => s.trim()).join(' / ');
+                    row.variant = input.value;
+                    _updateVariantMultiPreview(uid, input.value);
+                    input.focus();
+                } else {
+                    row.variant = btn.dataset.val;
+                }
                 list.hidden = true;
             });
         });

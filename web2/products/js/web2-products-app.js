@@ -1551,16 +1551,19 @@
                 return;
             }
             // Nhập nhiều ("Đen / Đỏ"): gợi ý theo token CUỐI sau dấu "/".
-            const q = String(query || '')
-                .split('/')
-                .pop()
-                .trim()
-                .toLowerCase();
+            // Khớp KHÔNG dấu qua cache._normalize → "den"→Đen, "do"→Đỏ.
+            const norm = cache._normalize || ((s) => String(s || '').toLowerCase());
+            const q = norm(
+                String(query || '')
+                    .split('/')
+                    .pop()
+                    .trim()
+            );
             const wantSize = kind === 'size';
             const items = cache
                 .getAll()
                 .filter((v) => _isSizeGroup(v.groupName) === wantSize)
-                .filter((v) => !q || (v.value || '').toLowerCase().includes(q))
+                .filter((v) => !q || norm(v.value).includes(q))
                 .slice(0, 12);
             if (!items.length) {
                 dropdown.innerHTML = `<div class="variant-suggest-empty">Không có biến thể ${wantSize ? 'Size' : 'Màu'} nào. <a href="../variants/index.html" target="_blank">Thêm ở Kho Biến Thể →</a></div>`;
