@@ -45,6 +45,12 @@ User: "@ phải lên danh sách tên người trong group để tag — chức n
 
 **Việc cần làm thủ công (1 lần, tùy chọn):** cập nhật env `DELIVERY_REPORT_TELEGRAM_CHAT_ID` trên Render = id mới (xem log `[DELIVERY-REPORT-TG] Group nâng cấp supergroup: ... → <id mới>`) để khỏi tốn 1 lần retry mỗi khi server restart. Cần redeploy `n2store-fallback` để fix có hiệu lực.
 
+### [web1][realtime] Retire n2store-realtime — ❌ HARD-DELETED 2026-06-16 ✅
+
+**HOÀN TẤT (user chốt "b" = xóa hẳn):** sau suspend + verify không vỡ → hard-delete: `DELETE /v1/services/srv-d5doh26uk2gs739489k0` (204 → GET 404) + `git rm -r n2store-realtime/` + gỡ refs (`shared/universal/api-endpoints.js` N2STORE const, `service-costs.js` entry+quick-link+plan-map, `nginx-backup.conf` repoint `/api/realtime/*` → n2store-fallback khớp live worker). Verify post-delete: badge `pending-customers` vẫn **200** qua fallback (Web 1.0 OK), web2-realtime 200. **KHÔNG drop bảng** trên `n2store_chat` (data giữ; tái tạo từ git nếu cần). −$7/mo. Còn lại chỉ comment/docs lịch sử. Commits `b64200cc9`+`8dc5ef62f`.
+
+<!-- suspend log gốc -->
+
 ### [web1][realtime] Retire n2store-realtime — ⏸ ĐÃ SUSPEND (reversible) 2026-06-16 ✅
 
 **Cập nhật:** user chốt "xóa đi" (pending_customers redundant, unread lấy từ Pancake). Thực thi an toàn: (1) gỡ 3 direct call mark-replied n2store-realtime ở orders-report (tab1-chat-core/chat-products-ui/quick-reply-manager, giữ worker primary); (2) **SUSPEND service** srv-d5doh26uk2gs739489k0 (reversible, $0 billing) thay vì hard-delete ngay vì irreversible + 10% residual. Verify: n2store-realtime HTTP 503; badge `pending-customers` qua fallback vẫn 200 (Web 1.0 KHÔNG vỡ); web2-realtime 200. Cost ~$7/mo ĐÃ tiết kiệm. Hard-delete (service+folder+const api-endpoints REALTIME+service-costs entry+nginx+docs) làm sau khi confirm dormant chắc; vỡ thì `POST /resume` tức thì.
