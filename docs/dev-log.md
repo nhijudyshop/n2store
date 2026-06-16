@@ -2,7 +2,13 @@
 
 ## 2026-06-16
 
-### [delivery-report][telegram] Fix gửi Telegram lỗi "group chat was upgraded to a supergroup chat" ✅
+### [web2][shared] Chat Zalo — gõ `@` lên danh sách thành viên nhóm để TAG (mention) ✅
+
+User: "@ phải lên danh sách tên người trong group để tag — chức năng này Zalo có mà". Ô soạn chat nhúng (Web2Zalo.mountChat) chưa có @mention. Thêm full feature:
+
+- **Backend** [web2-zalo-zca.js](render.com/services/web2-zalo-zca.js): `getGroupMembers(accountKey, gid)` (getGroupInfo→`memVerList` `uid_ver`→tách uid→resolve tên batch 50, bỏ chính mình); `send()` nhận `mentions=[{uid,pos,len}]` → payload `{msg,mentions}` (zca-js Mention type). [web2-zalo.js](render.com/routes/web2-zalo.js): `GET /conversations/:id/members` (gộp người đã nhắn trong thread từ `web2_zalo_members` + danh sách đầy đủ zca, dedup, chỉ trả người có tên, sort tiếng Việt; cache tên mới vào members); `/send-message` nhận + truyền `mentions`.
+- **Frontend** [web2-zalo-api.js](web2/shared/web2-zalo-api.js): `groupMembers(convId)`. [chat-view.js](web2/shared/zalo-chat/chat-view.js): `onSendText(text, mentions)`→`sendTextRaw`→`Api.sendMessage({...,mentions})`. [composer.js](web2/shared/zalo-chat/composer.js): gõ `@` (đầu/sau khoảng trắng) → dropdown thành viên (lazy-load + cache theo conv), lọc không dấu, ↑↓ chọn / Enter|Tab chèn / Esc đóng / click chuột; chèn `@Tên ` + nhớ map tên→uid; lúc gửi `_buildMentions` re-derive vị trí thật trong text (chịu được sửa). [chat-composer.css](web2/shared/zalo-chat/chat-composer.css): dropdown drop-up. Chỉ bật cho nhóm.
+- Bump `ENGINE_VER=20260616a` + tag web2-zalo.js (jt-tracking/customers/balance-history) + composer/chat-view/api/chat-composer.css (web2/zalo). Backend cần deploy web2-api.
 
 **Triệu chứng:** trang delivery-report gửi ảnh/file lên Telegram báo `Telegram API lỗi: Bad Request: group chat was upgraded to a supergroup chat`.
 
