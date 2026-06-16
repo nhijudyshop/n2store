@@ -1199,6 +1199,19 @@
             note: $('#pmNote').value.trim() || null,
             isActive: $('#pmIsActive').value === 'true',
         };
+        // Nhập nhiều biến thể (TẠO MỚI): Màu "Đen / Đỏ" × Size "S / M" → N SP.
+        // Tách trước validate đơn lẻ + check mã (bulk tự sinh mã + validate token).
+        if (!STATE.editingCode) {
+            const combos = window.Web2VariantMulti?.cartesian?.(
+                $('#pmVariantColor')?.value,
+                $('#pmVariantSize')?.value,
+                ', '
+            );
+            if (combos && combos.length > 1) {
+                if (!fields.name) return notify('Thiếu tên SP', 'error');
+                return _bulkCreateVariants(fields, combos);
+            }
+        }
         if (!fields.code) return notify('Thiếu mã SP', 'error');
         if (!fields.name) return notify('Thiếu tên SP', 'error');
         // Validate variant: nếu user đã gõ thì phải tồn tại trong kho biến thể.
@@ -1537,7 +1550,12 @@
                 dropdown.hidden = true;
                 return;
             }
-            const q = (query || '').trim().toLowerCase();
+            // Nhập nhiều ("Đen / Đỏ"): gợi ý theo token CUỐI sau dấu "/".
+            const q = String(query || '')
+                .split('/')
+                .pop()
+                .trim()
+                .toLowerCase();
             const wantSize = kind === 'size';
             const items = cache
                 .getAll()
@@ -1559,11 +1577,15 @@
             dropdown.querySelectorAll('.variant-suggest-item').forEach((btn) => {
                 btn.addEventListener('mousedown', (e) => e.preventDefault());
                 btn.addEventListener('click', () => {
-                    input.value = btn.dataset.val;
+                    // Append vào token CUỐI (giữ list "Đen / Đỏ" khi đang build nhiều).
+                    const segs = input.value.split('/');
+                    segs[segs.length - 1] = btn.dataset.val;
+                    input.value = segs.map((s) => s.trim()).join(' / ');
                     dropdown.hidden = true;
                     input.blur();
                     input.dispatchEvent(new Event('change', { bubbles: true }));
                     _renderCombinedHint();
+                    _renderVariantMultiPreview();
                 });
             });
         }
@@ -1571,8 +1593,112 @@
         input.addEventListener('input', () => {
             _show(input.value);
             _renderCombinedHint();
+            _renderVariantMultiPreview();
         });
         input.addEventListener('blur', () => setTimeout(() => (dropdown.hidden = true), 180));
+    }
+
+    // Preview "nhập nhiều biến thể": Màu "Đen / Đỏ" × Size "S / M" → N SP cartesian.
+    // Chỉ hiện khi TẠO MỚI (edit 1 SP không bulk) + ra >1 combo.
+    function _renderVariantMultiPreview() {
+        const el = $('#pmVariantMultiPreview');
+        if (!el) return;
+        const combos =
+            window.Web2VariantMulti?.cartesian?.(
+                $('#pmVariantColor')?.value,
+                $('#pmVariantSize')?.value,
+                ' / '
+            ) || [];
+        if (STATE.editingCode || combos.length <= 1) {
+            el.hidden = true;
+            el.innerHTML = '';
+            return;
+        }
+        el.innerHTML =
+            `<div class="vm-head"><i data-lucide="layers"></i> Tạo ${combos.length} SP biến thể cùng lúc:</div>` +
+            `<div class="vm-chips">${combos.map((c) => `<span class="vm-chip">${escapeHtml(c)}</span>`).join('')}</div>`;
+        el.hidden = false;
+        if (window.lucide?.createIcons) window.lucide.createIcons();
+    }
+
+    // Bulk-create N SP từ list biến thể (Màu × Size). Validate từng token có trong
+    // Kho Biến Thể; sinh mã RIÊNG mỗi combo (unique trong batch); create await-loop
+    // (không optimistic vì N item) → reload + tổng kết. baseFields = fields chung.
+    async function _bulkCreateVariants(baseFields, combosComma) {
+        const cache = window.Web2VariantsCache;
+        const PC = window.Web2ProductCode;
+        if (!PC) return notify('Module sinh mã chưa load', 'error');
+        const split = (x) =>
+            String(x || '')
+                .split('/')
+                .map((s) => s.trim())
+                .filter(Boolean);
+        const colors = split($('#pmVariantColor')?.value);
+        const sizes = split($('#pmVariantSize')?.value);
+        // Validate TỪNG token (không validate chuỗi gộp).
+        const bad = [...colors, ...sizes].filter((v) => cache && !cache.findByValueExact(v));
+        if (bad.length)
+            return notify(
+                `Biến thể chưa có trong Kho: ${bad.join(', ')} — thêm tại Kho Biến Thể rồi thử lại.`,
+                'error'
+            );
+        const supplierName = baseFields.supplier || 'KHO';
+        const suppliers = collectExistingSuppliers();
+        const prefixMap = PC.buildPrefixMap(
+            suppliers.includes(supplierName) ? suppliers : [...suppliers, supplierName]
+        );
+        prefixMap['KHO'] = 'KHO';
+        let existing = (window.Web2ProductsCache?.getAll?.() || STATE.products)
+            .map((p) => p.code)
+            .filter(Boolean);
+        const payloads = [];
+        for (const combo of combosComma) {
+            const [cPart, sPart] = combo.split(',').map((s) => s.trim());
+            let oc = null;
+            let os = null;
+            if (cPart) {
+                const cv = cache.findByValueExact(cPart);
+                if (cv?.shortCode) oc = cv.shortCode.toUpperCase();
+            }
+            if (sPart) {
+                const sv = cache.findByValueExact(sPart);
+                if (sv?.shortCode) os = sv.shortCode.toUpperCase();
+            }
+            let code;
+            try {
+                code = PC.suggest({
+                    supplierName,
+                    productName: baseFields.name,
+                    existingCodes: existing,
+                    supplierPrefixMap: prefixMap,
+                    colorShortMap: getColorShortMap(),
+                    overrideColorShort: oc,
+                    overrideSizeShort: os,
+                }).code;
+            } catch (e) {
+                return notify('Không sinh được mã: ' + e.message, 'error');
+            }
+            existing = [...existing, code]; // tránh trùng trong cùng batch
+            payloads.push({ ...baseFields, code, variant: combo });
+        }
+        closeModal();
+        let ok = 0;
+        let fail = 0;
+        for (const p of payloads) {
+            try {
+                await window.Web2ProductsApi.create(p);
+                ok++;
+            } catch (e) {
+                fail++;
+                console.error('[products bulk-variant] create fail', p.code, e?.message);
+            }
+        }
+        window.Web2ProductsCache?.pushTickle?.({ action: 'create' });
+        load();
+        notify(
+            `Đã tạo ${ok} SP biến thể${fail ? ` (lỗi ${fail})` : ''}`,
+            fail ? 'warning' : 'success'
+        );
     }
     function _wireVariantPicker() {
         _wireVariantPickerFor('pmVariantColor', 'pmVariantColorSuggest', 'color');

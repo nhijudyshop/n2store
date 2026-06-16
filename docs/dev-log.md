@@ -2,6 +2,18 @@
 
 ## 2026-06-16
 
+### [web2/products][shared] Kho SP hỗ trợ nhập nhiều biến thể — Màu "Đen / Đỏ" × Size "S / M" → N SP (shared Web2VariantMulti) ✅
+
+**User:** "hỗ trợ trong kho nữa → cấu hình thành shared dùng chung để tương lai các trang khác tham chiếu".
+
+**Shared:** thêm `Web2VariantMulti.cartesian(colorsRaw, sizesRaw, sep)` vào [web2-variant-multi.js](web2/shared/web2-variant-multi.js) — tích Descartes 2 danh sách (mỗi ô split "/"), `sep` cấu hình (so-order " / " vs Kho SP ", "), dedupe. Module = NGUỒN DUY NHẤT, trang khác chỉ load script + gọi.
+
+**Kho SP** [web2-products-app.js](web2/products/js/web2-products-app.js) + [index.html](web2/products/index.html) + [css](web2/products/css/web2-products.css): 2 ô Màu+Size nay nhận DANH SÁCH ("Đen / Đỏ"); picker gợi ý theo token CUỐI sau "/" + click append (build list). **Live preview** `#pmVariantMultiPreview` ("Tạo N SP biến thể: …"). `saveModal`: TẠO MỚI + cartesian>1 combo → `_bulkCreateVariants` (path riêng, KHÔNG đụng single-create optimistic): validate TỪNG token có trong Kho Biến Thể, sinh MÃ riêng mỗi combo (unique trong batch qua existingCodes tích luỹ + Web2ProductCode.suggest override color/size shortcode), create await-loop → reload + tổng kết. Edit 1 SP KHÔNG bulk.
+
+**Verify (node + Playwright):** cartesian đúng (4 combo comma); Kho SP nhập Màu "Đen / Đỏ" × Size "L / M" → preview 4 chip → Lưu → **4 SP** mã KHOMM\*{DEN,DO}{L,M} variant "Đen, L"/… (shortcode đúng, mã unique). Cleanup sạch. Bump module `?v=20260616c` (cả products + so-order), products app `c`, css `mv`.
+
+**Status:** ✅ verified browser. web2/products + shared (Web 2.0). so-order đã có từ trước; giờ Kho SP cũng có, qua CÙNG module shared.
+
 ### [so-order] Dropdown biến thể: hint nhập nhiều + biến thể tự do (hết "chưa có giá trị khớp" cụt) ✅
 
 **User:** gõ "Đen d" → dropdown chỉ báo "Kho Biến Thể chưa có giá trị nào khớp" (cụt, không hướng dẫn). Muốn hỗ trợ nhập nhiều biến thể.

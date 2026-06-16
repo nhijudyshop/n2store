@@ -159,6 +159,27 @@
         return r.ok && r.variants.length > 1 ? r.variants.slice() : [];
     }
 
+    // cartesian(colorsRaw, sizesRaw, sep) → mảng combo từ 2 DANH SÁCH riêng
+    // (UI 2-ô như Kho SP: ô Màu "Đen / Đỏ", ô Size "S / M"). Mỗi ô split '/'.
+    // Cả 2 có → tích Descartes; chỉ 1 ô → list ô đó. sep cho phép trang tự chọn
+    // định dạng lưu ("Màu / Size" so-order vs "Màu, Size" Kho SP). Dedupe.
+    function cartesian(colorsRaw, sizesRaw, sep) {
+        const s = sep || SEP;
+        const split = (x) =>
+            String(x || '')
+                .split('/')
+                .map((t) => t.trim())
+                .filter(Boolean);
+        const colors = split(colorsRaw);
+        const sizes = split(sizesRaw);
+        let out = [];
+        if (colors.length && sizes.length) {
+            for (const c of colors) for (const z of sizes) out.push(c + s + z);
+        } else if (colors.length) out = colors.slice();
+        else if (sizes.length) out = sizes.slice();
+        return _dedupe(out);
+    }
+
     // detect(rawText) → true nếu là multi-variant (có '/' + parse ra >1 variant).
     function detect(rawText) {
         if (!String(rawText || '').includes('/')) return false;
@@ -166,5 +187,5 @@
         return r.ok && r.variants.length > 1;
     }
 
-    global.Web2VariantMulti = { classifyToken, parse, expand, detect, SEP, MAX_EXPAND };
+    global.Web2VariantMulti = { classifyToken, parse, expand, detect, cartesian, SEP, MAX_EXPAND };
 })(typeof window !== 'undefined' ? window : globalThis);
