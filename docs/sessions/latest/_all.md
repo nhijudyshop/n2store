@@ -3,36 +3,25 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `7bd7dbe` — fix(auth): tab3 dùng tokenManager (company-correct) thay vì tự login
-**Last updated**: 2026-06-16 14:31:28 +07
-**Latest session**: [`RESUME:20260616-143128-7bd7dbe`](../20260616-143128-7bd7dbe.md)
-**Summary**: fix(auth): tab3 dùng tokenManager (company-correct) thay vì tự login
+**Latest commit**: `eade698` — auto: session update
+**Last updated**: 2026-06-16 15:07:59 +07
+**Latest session**: [`RESUME:20260616-150759-eade698`](../20260616-150759-eade698.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`balance-history/`](./balance-history.md) — 1 file(s)
-- [`balance-history-home/`](./balance-history-home.md) — 1 file(s)
-- [`customer-hub/`](./customer-hub.md) — 1 file(s)
-- [`delivery-report/`](./delivery-report.md) — 1 file(s)
+- [`_root/`](./_root.md) — 1 file(s)
 - [`docs/`](./docs.md) — 1 file(s)
-- [`doi-soat/`](./doi-soat.md) — 1 file(s)
-- [`don-inbox/`](./don-inbox.md) — 1 file(s)
-- [`hanghoan/`](./hanghoan.md) — 1 file(s)
-- [`inventory-tracking/`](./inventory-tracking.md) — 1 file(s)
-- [`invoice-compare/`](./invoice-compare.md) — 1 file(s)
-- [`issue-tracking/`](./issue-tracking.md) — 1 file(s)
 - [`orders-report/`](./orders-report.md) — 6 file(s)
-- [`product-warehouse/`](./product-warehouse.md) — 1 file(s)
-- [`shared/`](./shared.md) — 1 file(s)
-- [`soluong-live/`](./soluong-live.md) — 2 file(s)
-- [`supplier-debt/`](./supplier-debt.md) — 1 file(s)
+- [`so-order/`](./so-order.md) — 4 file(s)
+- [`web2/`](./web2.md) — 1 file(s)
 
 ## All folder snapshots
 
 - [`.claude/`](./.claude.md) — updated 2026-06-05 10:42
 - [`.github/`](./.github.md) — updated 2026-06-13 11:30
 - [`AI/`](./AI.md) — updated 2026-05-21 15:39
-- [`_root/`](./_root.md) — updated 2026-06-15 23:28
+- [`_root/`](./_root.md) — updated 2026-06-16 15:08
 - [`aikol-studio/`](./aikol-studio.md) — updated 2026-05-21 15:39
 - [`balance-history-home/`](./balance-history-home.md) — updated 2026-06-16 14:31
 - [`balance-history/`](./balance-history.md) — updated 2026-06-16 14:31
@@ -40,7 +29,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-16 11:15
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-16 14:31
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-16 14:31
-- [`docs/`](./docs.md) — updated 2026-06-16 14:31
+- [`docs/`](./docs.md) — updated 2026-06-16 15:08
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-16 14:31
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-16 14:31
 - [`downloads/`](./downloads.md) — updated 2026-06-13 19:16
@@ -60,7 +49,7 @@
 - [`native-orders/`](./native-orders.md) — updated 2026-06-16 10:25
 - [`nhanhang/`](./nhanhang.md) — updated 2026-06-13 19:51
 - [`order-management/`](./order-management.md) — updated 2026-05-21 15:39
-- [`orders-report/`](./orders-report.md) — updated 2026-06-16 14:31
+- [`orders-report/`](./orders-report.md) — updated 2026-06-16 15:08
 - [`pancake-extension/`](./pancake-extension.md) — updated 2026-05-21 11:33
 - [`phone-management/`](./phone-management.md) — updated 2026-05-21 15:39
 - [`product-warehouse/`](./product-warehouse.md) — updated 2026-06-16 14:31
@@ -75,7 +64,7 @@
 - [`shared/`](./shared.md) — updated 2026-06-16 14:31
 - [`showroom/`](./showroom.md) — updated 2026-06-10 19:04
 - [`showroom1/`](./showroom1.md) — updated 2026-06-10 19:52
-- [`so-order/`](./so-order.md) — updated 2026-06-16 13:28
+- [`so-order/`](./so-order.md) — updated 2026-06-16 15:08
 - [`soluong-live/`](./soluong-live.md) — updated 2026-06-16 14:31
 - [`soorder/`](./soorder.md) — updated 2026-05-21 15:39
 - [`soquy/`](./soquy.md) — updated 2026-06-13 19:51
@@ -88,4 +77,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-16 14:02
+- [`web2/`](./web2.md) — updated 2026-06-16 15:08
