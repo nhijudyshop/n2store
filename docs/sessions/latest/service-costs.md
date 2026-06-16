@@ -3,24 +3,23 @@
 > Snapshot tự động ghi đè sau mỗi commit chạm folder này. **Không edit thủ công.**
 > Mục đích: khi session cũ chết (vd lỗi image limit), session mới chỉ cần đọc file này là có đủ context để tiếp tục.
 
-**Latest session**: `RESUME:20260616-003508-274721b`
-**Session file**: [`./20260616-003508-274721b.md`](../20260616-003508-274721b.md)
-**Commit**: `274721b` — chore: gỡ HẲN autofb.pro khỏi toàn project (shop không xài nữa)
-**Last updated**: 2026-06-16 00:35:08 +07
-**Summary**: chore: gỡ HẲN autofb.pro khỏi toàn project (shop không xài nữa)
+**Latest session**: `RESUME:20260616-111550-4b253d0`
+**Session file**: [`./20260616-111550-4b253d0.md`](../20260616-111550-4b253d0.md)
+**Commit**: `4b253d0` — docs(realtime): n2store-realtime HARD-DELETE hoàn tất (service 404 + folder + refs). −$7/mo, data chatDb giữ nguyên.
+**Last updated**: 2026-06-16 11:15:50 +07
+**Summary**: docs(realtime): n2store-realtime HARD-DELETE hoàn tất (service 404 + folder + refs). −$7/mo, data chatDb giữ n...
 
 ## Files changed in this commit (`service-costs/`)
 
-- `service-costs/css/service-costs.css`
 - `service-costs/js/service-costs.js`
 
 ## Last 5 commits touching `service-costs/`
 
+- `8dc5ef62f` chore(service-costs): gỡ nốt 2 ref n2store-realtime (quick-link + plan-map) sau khi xóa service _(2026-06-16)_
+- `b64200cc9` chore(realtime): HARD-DELETE n2store-realtime — xóa service Render + folder + refs (api-endpoints/service-costs/nginx). −$7/mo _(2026-06-16)_
 - `274721baf` chore: gỡ HẲN autofb.pro khỏi toàn project (shop không xài nữa) _(2026-06-16)_
 - `e55bea256` chore(render): dọn repo sau consolidation web2-realtime _(2026-06-14)_
 - `7cfb01320` chore(cache-bust): opt-in toàn bộ 88 pages còn lại vào ?v=20260521b _(2026-05-21)_
-- `a5d448159` auto: session update _(2026-04-23)_
-- `92e1b8249` fix(cors): full sweep — route all Render calls via Cloudflare Worker _(2026-04-22)_
 
 ---
 
@@ -28,4 +27,4 @@
 
 1. Đọc file session ở trên để xem Files Modified + Next Steps đã điền (nếu Claude turn trước fill rồi).
 2. Cần lùi xa hơn → `git show <sha>` theo list commit trên.
-3. Hoặc paste token `RESUME:20260616-003508-274721b` cho Claude walk chain theo CLAUDE.md protocol.
+3. Hoặc paste token `RESUME:20260616-111550-4b253d0` cho Claude walk chain theo CLAUDE.md protocol.
