@@ -22,6 +22,17 @@ User: "@ phải lên danh sách tên người trong group để tag — chức n
 
 **Việc cần làm thủ công (1 lần, tùy chọn):** cập nhật env `DELIVERY_REPORT_TELEGRAM_CHAT_ID` trên Render = id mới (xem log `[DELIVERY-REPORT-TG] Group nâng cấp supergroup: ... → <id mới>`) để khỏi tốn 1 lần retry mỗi khi server restart. Cần redeploy `n2store-fallback` để fix có hiệu lực.
 
+### [web1][realtime] Audit decommission n2store-realtime — CHƯA an toàn xóa (đang chạy thật) ⚠️
+
+User OK audit decommission để tiết kiệm. Workflow 7-agent adversarial. **Verdict: CHƯA an toàn xóa (~90%) — đính chính: service KHÔNG idle.**
+
+- **ĐANG CHẠY THẬT**: `/api/realtime/pool-status` = pool **5 account / 14 pages / ~46h uptime**, all wsReadyState:1. Health `/status connected:false` mà phiên trước tưởng "idle" là endpoint LEGACY single-client — SAI. Live probe: `/api/realtime/livestream-conversations` direct = **200, 5.6MB**; qua worker→fallback = **404**.
+- **Sole writer/server** `livestream_conversations` + `conversation_labels` + `inbox_groups` (render.com/realtime.js = 0 route các bảng này). `pending_customers` thì **redundant** (fallback có WS writer riêng; badge orders-report đọc qua fallback OK → KHÔNG phụ thuộc n2store-realtime).
+- **Frontend Web 1.0 đã neuter gần hết**: inbox-data.js `fetchLivestreamFromServer/loadGroupsFromServer/syncLabelsFromServer/markRepliedOnServer/fetchPendingFromServer` = early-return/no-op. Consumer còn sót fail-silent/user-trigger (inbox-chat toggle livestream đã 404 sẵn, `.catch` nuốt; 3 direct mark-replied secondary).
+- **DB**: mọi bảng nằm trên `n2store_chat` (chatDb, chung fallback) → xóa service KHÔNG mất rows, chỉ mất write+serve path.
+
+→ **KHÔNG xóa ngay.** Retire an toàn cần: (A) port writer+routes livestream/labels sang render.com/fallback (giữ feature), HOẶC (B) confirm tab Livestream/labels-from-server dormant thật rồi bỏ write path. Cosmetic: dọn 3 direct mark-replied. Tiết kiệm ~$7/mo CHỈ sau retire. Web 2.0 independence KHÔNG phụ thuộc việc này (đã xong).
+
 ### [web2][realtime] Stage 3 HỦY-XÓA — n2store-realtime là service WEB 1.0, KHÔNG xóa ⚠️
 
 User OK "làm Stage 3" (retire n2store-realtime) NHƯNG sweep trước khi xóa phát hiện premise SAI: `n2store-realtime` **KHÔNG phải broker Web 2.0 cũ** — nó là **service realtime lớp WEB 1.0** (docs RENDER_SERVERS_GUIDE + `shared/universal/api-endpoints.js REALTIME` import bởi orders-report api-config; mô tả "Web 1.0 inbox WS — pending_customers/livestream/labels"). Bằng chứng routing: worker `/ws/pancake`→pancake.vn thẳng; `/api/realtime/*`→**n2store-fallback** (không phải n2store-realtime). Health: HTTP 200 nhưng IDLE (`connected:false, no_ws, pageCount:0`) — chủ yếu vì consumer chính (Web2Realtime proxy) vừa rời đi.
