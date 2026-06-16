@@ -335,6 +335,7 @@
             </div>
 
             <!-- Stats Summary Bar (hidden with filter) -->
+            <!-- 2 thẻ lấy thẳng từ TPOS SumDeliveryReport (qua worker proxy), KHÔNG tự cộng client-side -->
             <div class="dr-stats-bar" id="drStatsBar">
                 <div class="dr-stat-item">
                     <div class="dr-stat-icon blue"><i class="fas fa-dollar-sign"></i></div>
@@ -345,35 +346,11 @@
                     </div>
                 </div>
                 <div class="dr-stat-item">
-                    <div class="dr-stat-icon blue"><i class="fas fa-dollar-sign"></i></div>
+                    <div class="dr-stat-icon green"><i class="fas fa-hand-holding-usd"></i></div>
                     <div class="dr-stat-info">
-                        <span class="dr-stat-count" id="drStatPaidCount">0 Hóa đơn</span>
-                        <span class="dr-stat-value" id="drStatPaidValue">0</span>
-                        <span class="dr-stat-label">Đã thanh toán</span>
-                    </div>
-                </div>
-                <div class="dr-stat-item">
-                    <div class="dr-stat-icon cyan"><i class="fas fa-undo"></i></div>
-                    <div class="dr-stat-info">
-                        <span class="dr-stat-count" id="drStatReturnCount">0 Hóa đơn</span>
-                        <span class="dr-stat-value" id="drStatReturnValue">0</span>
-                        <span class="dr-stat-label">Trả hàng</span>
-                    </div>
-                </div>
-                <div class="dr-stat-item">
-                    <div class="dr-stat-icon green"><i class="fas fa-dollar-sign"></i></div>
-                    <div class="dr-stat-info">
-                        <span class="dr-stat-count" id="drStatShippingCount">0 Hóa đơn</span>
-                        <span class="dr-stat-value" id="drStatShippingValue">0</span>
-                        <span class="dr-stat-label">Đang giao</span>
-                    </div>
-                </div>
-                <div class="dr-stat-item">
-                    <div class="dr-stat-icon red"><i class="fas fa-dollar-sign"></i></div>
-                    <div class="dr-stat-info">
-                        <span class="dr-stat-count" id="drStatFailCount">0 Hóa đơn</span>
-                        <span class="dr-stat-value" id="drStatFailValue">0</span>
-                        <span class="dr-stat-label">Đối soát không thành công</span>
+                        <span class="dr-stat-count" id="drStatDepositCount">0 Hóa đơn</span>
+                        <span class="dr-stat-value" id="drStatDepositValue">0</span>
+                        <span class="dr-stat-label">Tổng trả trước</span>
                     </div>
                 </div>
             </div>

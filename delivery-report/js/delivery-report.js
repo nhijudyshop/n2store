@@ -40,6 +40,10 @@
         _scannedListener: null,
         _groupsListener: null,
 
+        // TPOS SumDeliveryReport aggregate (qua worker proxy) — nguồn cho 2 thẻ
+        // thống kê "Giao hàng thu tiền" + "Tổng trả trước". null = chưa fetch.
+        sumReport: null,
+
         // Filter values
         filters: {
             fromDate: '',
@@ -1045,6 +1049,9 @@
             const url = buildApiUrl();
             console.log('[DELIVERY-REPORT] Fetching:', url);
 
+            // Fetch tổng hợp (SumDeliveryReport) song song với list — không chặn list
+            const sumPromise = fetchSumReport(token);
+
             const response = await fetch(url, {
                 method: 'GET',
                 headers: {
@@ -1096,6 +1103,7 @@
             DeliveryReportState.provinceGroups = {};
 
             await ensureProvinceGroups();
+            await sumPromise; // đảm bảo có số tổng trước khi render 2 thẻ
             renderTable();
             renderStats();
             renderPagination();
@@ -1174,6 +1182,68 @@
         params.set('$count', 'true');
 
         return `${WORKER_URL}/api/odata/Report/DeliveryReport?${params.toString()}`;
+    }
+
+    // =====================================================
+    // SUM DELIVERY REPORT — tổng hợp sẵn từ TPOS (qua worker proxy)
+    // Trả về object SumDeliveryReportViewModel (KHÔNG bọc trong value[]).
+    // Dùng cho 2 thẻ: "Giao hàng thu tiền" + "Tổng trả trước".
+    // Số liệu theo NGUYÊN khoảng ngày tìm kiếm (+ Q nếu có) — KHÔNG phụ thuộc
+    // filter client-side (carrier/tab/scan) vì đây là "tổng" của TPOS.
+    // =====================================================
+    function buildSumApiUrl() {
+        const f = DeliveryReportState.filters;
+        const params = new URLSearchParams();
+
+        // Date conversion giống buildApiUrl (local → UTC ISO, ToDate end-of-minute)
+        if (f.fromDate) {
+            const d = new Date(f.fromDate);
+            if (!isNaN(d.getTime())) params.set('FromDate', d.toISOString());
+        }
+        if (f.toDate) {
+            const d = new Date(f.toDate);
+            if (!isNaN(d.getTime())) {
+                d.setSeconds(59, 999);
+                params.set('ToDate', d.toISOString());
+            }
+        }
+        // Keyword: chỉ gửi Q khi không phải phone-search (giống list)
+        params.set('Q', f.keyword && !isPhoneSearchKeyword(f.keyword) ? f.keyword : '');
+
+        // Các param filter TPOS yêu cầu (để rỗng — không lọc server-side)
+        params.set('PartnerId', '');
+        params.set('CarrierId', '');
+        params.set('ShipState', '');
+        params.set('ForControl', '');
+        params.set('DeliveryType', '');
+        params.set('CompanyId', '');
+        params.set('DeliveryStatus', '');
+        params.set('CityCode', '');
+
+        return `${WORKER_URL}/api/odata/Report/OdataService.SumDeliveryReport?${params.toString()}`;
+    }
+
+    async function fetchSumReport(token) {
+        try {
+            const url = buildSumApiUrl();
+            const r = await fetch(url, {
+                method: 'GET',
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    Accept: 'application/json',
+                    tposappversion: window.TPOS_CONFIG?.tposAppVersion || '5.12.29.1',
+                },
+            });
+            if (!r.ok) {
+                console.warn('[DELIVERY-REPORT] SumDeliveryReport HTTP', r.status);
+                DeliveryReportState.sumReport = null;
+                return;
+            }
+            DeliveryReportState.sumReport = await r.json();
+        } catch (e) {
+            console.warn('[DELIVERY-REPORT] SumDeliveryReport fetch failed:', e?.message);
+            DeliveryReportState.sumReport = null;
+        }
     }
 
     // =====================================================
@@ -1400,53 +1470,24 @@
     // RENDER STATS
     // =====================================================
     function renderStats() {
-        const data = getFilteredData();
-        const totalCount = data.length;
+        // Nguồn = TPOS SumDeliveryReport (tổng hợp sẵn, qua worker proxy).
+        // 2 thẻ theo nguyên khoảng ngày tìm kiếm — KHÔNG tự cộng client-side,
+        // nên không đổi khi user lọc carrier/tab/scan (đúng nghĩa "tổng").
+        const s = DeliveryReportState.sumReport || {};
 
-        let totalCOD = 0;
-        let paidCount = 0;
-        let paidAmount = 0;
-        let returnCount = 0;
-        let returnAmount = 0;
-        let shippingCount = 0;
-        let shippingAmount = 0;
-        let failControlCount = 0;
-        let failControlAmount = 0;
+        // Thẻ 1: Giao hàng thu tiền (COD)
+        const codCount = Number(s.SumQuantityCollectionOrder) || 0;
+        const codValue = Number(s.SumCollectionAmount) || 0;
 
-        // Stats from current view data (matches table after lite/tab/scan filters)
-        data.forEach((item) => {
-            totalCOD += item.CashOnDelivery || 0;
-            if (item.ShipStatus === 'done') {
-                paidCount++;
-                paidAmount += item.CashOnDelivery || 0;
-            } else if (item.ShipStatus === 'returned' || item.ShipStatus === 'cancel') {
-                returnCount++;
-                returnAmount += item.CashOnDelivery || 0;
-            } else {
-                shippingCount++;
-                shippingAmount += item.CashOnDelivery || 0;
-            }
-            if (item.ShipPaymentStatus === 'fail') {
-                failControlCount++;
-                failControlAmount += item.CashOnDelivery || 0;
-            }
-        });
+        // Thẻ 2: Tổng trả trước (deposit / prepayment — SumPrepayment == SumAmountDeposit)
+        const depositCount = Number(s.SumQuantityDeposit) || 0;
+        const depositValue = Number(s.SumAmountDeposit) || 0;
 
-        // Update stat elements
-        updateStatElement('drStatCODCount', `${formatNumber(totalCount)} Hóa đơn`);
-        updateStatElement('drStatCODValue', formatMoney(totalCOD));
+        updateStatElement('drStatCODCount', `${formatNumber(codCount)} Hóa đơn`);
+        updateStatElement('drStatCODValue', formatMoney(codValue));
 
-        updateStatElement('drStatPaidCount', `${formatNumber(paidCount)} Hóa đơn`);
-        updateStatElement('drStatPaidValue', formatMoney(paidAmount));
-
-        updateStatElement('drStatReturnCount', `${formatNumber(returnCount)} Hóa đơn`);
-        updateStatElement('drStatReturnValue', formatMoney(returnAmount));
-
-        updateStatElement('drStatShippingCount', `${formatNumber(shippingCount)} Hóa đơn`);
-        updateStatElement('drStatShippingValue', formatMoney(shippingAmount));
-
-        updateStatElement('drStatFailCount', `${formatNumber(failControlCount)} Hóa đơn`);
-        updateStatElement('drStatFailValue', formatMoney(failControlAmount));
+        updateStatElement('drStatDepositCount', `${formatNumber(depositCount)} Hóa đơn`);
+        updateStatElement('drStatDepositValue', formatMoney(depositValue));
     }
 
     function updateStatElement(id, value) {

@@ -2,6 +2,25 @@
 
 ## 2026-06-16
 
+### [delivery-report] 2 thẻ thống kê lấy THẲNG từ TPOS SumDeliveryReport (qua worker proxy) ✅
+
+**User:** "đổi trang sang dùng thẳng SumDeliveryReport, qua proxy Cloudflare worker không gọi thẳng TPOS" → "chỉ lấy 2 cột: tổng hóa đơn giao hàng thu tiền + tổng trả trước".
+
+**Trước:** stats bar 5 thẻ (COD/Đã thanh toán/Trả hàng/Đang giao/Đối soát fail) **tự cộng client-side** từ list `Report/DeliveryReport`. "Tổng trả trước" (deposit) không có sẵn vì list không tính.
+
+**Fix:** rút còn **2 thẻ** lấy số tổng hợp sẵn của TPOS `Report/OdataService.SumDeliveryReport` (proxy `${WORKER_URL}/api/odata/...`, KHÔNG gọi thẳng tomato.tpos.vn):
+
+- [index.html](delivery-report/index.html): xóa 4 thẻ (Đã thanh toán/Trả hàng/Đang giao/Đối soát fail), giữ "Giao hàng thu tiền" + thêm "Tổng trả trước" (icon `fa-hand-holding-usd` xanh, id `drStatDeposit*`).
+- [delivery-report.js](delivery-report/js/delivery-report.js): thêm `buildSumApiUrl()` + `fetchSumReport(token)` (set `DeliveryReportState.sumReport`); `fetchData()` fetch sum **song song** list, `await` trước render; `renderStats()` đọc thẳng từ sumReport thay vì cộng list. State thêm `sumReport`.
+
+**Mapping** (đã verify live qua worker, HTTP 200): Giao hàng thu tiền = `SumQuantityCollectionOrder` / `SumCollectionAmount`; Tổng trả trước = `SumQuantityDeposit` / `SumAmountDeposit` (== `SumPrepayment`).
+
+**Lưu ý:** 2 thẻ theo NGUYÊN khoảng ngày tìm kiếm (+Q) — KHÔNG đổi khi lọc carrier/tab/scan (đúng nghĩa "tổng" của TPOS, khác hành vi cũ là cộng theo view đã lọc). Lite mode vẫn ẩn cả `#drStatsBar` đến khi triple-click (không đổi).
+
+**Verify (Playwright, live nhijudy.store):** worker proxy SumDeliveryReport 200 → Card1 377 Hóa đơn / 217.910.000, Card2 63 Hóa đơn / 25.658.000 (số khớp screenshot user, lệch nhẹ do data tăng trong ngày).
+
+**Status:** ✅ Web 1.0 (delivery-report, PROD — chỉ đổi stats bar, không đụng DB/list).
+
 ### [so-order] Sửa lô — NCC TÁCH RIÊNG mỗi dòng (lô = nguyên ngày giao, gồm nhiều NCC) ✅
 
 **User:** "Sửa lô (nút bút chì) → sửa của nguyên ngày giao đó nên modal chỉnh sửa NCC phải tách ra → NCC A1 ở trên (ô 'Nhà cung cấp' chung) là sai."
