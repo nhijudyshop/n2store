@@ -23,10 +23,17 @@
     let currentCode = null;
     let currentOrderId = null;
     let _fromStrip = false;
+    let _rerenderTimer = null;
 
     function getHost() {
         if (!_container) _container = document.getElementById(HOST_ID);
         return _container;
+    }
+
+    /* Re-render gom burst (mutation có thể set state nhiều lần liên tiếp). */
+    function scheduleRerender() {
+        clearTimeout(_rerenderTimer);
+        _rerenderTimer = setTimeout(rerender, 120);
     }
 
     function escapeHtml(s) {
@@ -162,17 +169,26 @@
             };
         }
 
-        // Sau mỗi mutation Tag XL, hệ thống gọi _ptagRefreshRow(orderCode) cho cell
-        // trong bảng → đồng bộ luôn inline editor khi trùng đơn.
-        if (typeof window._ptagRefreshRow === 'function') {
-            const origRefresh = window._ptagRefreshRow;
-            window._ptagRefreshRow = function (orderCode) {
-                const r = origRefresh.apply(this, arguments);
-                try {
-                    if (currentCode && String(orderCode) === String(currentCode)) rerender();
-                } catch (e) {}
-                return r;
-            };
+        // ĐỒNG BỘ inline editor sau mỗi mutation Tag XL.
+        // LƯU Ý: code nội bộ gọi LOCAL `_ptagRefreshRow` (không qua window) nên wrap
+        // window._ptagRefreshRow KHÔNG bắt được. Mọi mutation đều đi qua
+        // ProcessingTagState.setOrderData/updateOrder/removeOrder — mà
+        // window.ProcessingTagState CÙNG object với ref nội bộ → override method trên
+        // object này thì cả caller nội bộ lẫn ngoài đều chạy qua. Đây là chokepoint thật.
+        const PTS = window.ProcessingTagState;
+        if (PTS && !PTS.__tagxlWrapped) {
+            PTS.__tagxlWrapped = true;
+            ['setOrderData', 'updateOrder', 'removeOrder'].forEach((name) => {
+                const orig = PTS[name];
+                if (typeof orig !== 'function') return;
+                PTS[name] = function (key) {
+                    const r = orig.apply(this, arguments);
+                    try {
+                        if (currentCode && String(key) === String(currentCode)) scheduleRerender();
+                    } catch (e) {}
+                    return r;
+                };
+            });
         }
     }
 

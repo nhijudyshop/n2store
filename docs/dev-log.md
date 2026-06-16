@@ -2,6 +2,18 @@
 
 ## 2026-06-16
 
+### [orders-report] FIX inline Tag XL editor không cập nhật khi gắn tag (sync qua ProcessingTagState) ✅
+
+**User:** "gán tag đã thay đổi thực tế dưới đơn hàng nhưng dòng gắn tag phía trên (inline editor) không cập nhật theo, luôn giữ nguyên ban đầu."
+
+**RCA:** Bản đầu wrap `window._ptagRefreshRow` để re-render editor, NHƯNG code nội bộ tab1-processing-tags.js gọi **LOCAL** `_ptagRefreshRow(orderCode)` (không qua `window.`) → wrap không bao giờ chạy → editor stale.
+
+**Fix** [tab1-tagxl-inline.js](orders-report/js/tab1/tab1-tagxl-inline.js): mọi mutation đều đi qua `ProcessingTagState.setOrderData/updateOrder/removeOrder`, và `window.ProcessingTagState` **CÙNG object** với ref nội bộ (export L7139). → Override 3 method này trên object → caller nội bộ lẫn ngoài đều chạy qua → khi `key===currentCode` gọi `scheduleRerender()` (debounce 120ms) re-render editor. Bỏ wrap `_ptagRefreshRow` vô dụng. Bump `tab1-tagxl-inline.js?v=20260616b`.
+
+**Verify (Playwright localhost):** mở editor từ thanh (code 260602153, chips "BÁN HÀNG") → `setOrderData` thêm flag in-memory → editor tự đổi thành "BÁN HÀNG | TEST SYNC" → restore sạch. `PTS.__tagxlWrapped=true`. (Test in-memory, KHÔNG mutate/persist data thật.) `node --check` PASS.
+
+**Status:** ✅ code + browser test OK. Web 1.0 (orders-report).
+
 ### [orders-report] Strip "Khách chưa trả lời": avatar Pancake + fix chat header "Khách hàng" ✅
 
 **User:** "(1) cho hình lấy dữ liệu khách unread từ pancake như cột tin nhắn đang lấy; (2) mở chat từ thanh sao không thấy tên khách hàng mà ghi 'Khách hàng'."
