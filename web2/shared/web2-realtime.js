@@ -468,10 +468,8 @@
             .join('|');
         if (key === _lastMultiKey) return { ok: true, alreadyStarted: true };
         try {
-            // POST direct to broker — Cloudflare worker proxies
-            // /api/realtime/* to the OTHER render service (n2store-fallback)
-            // which doesn't have this endpoint. Broker (n2store-realtime)
-            // has CORS open for all origins so direct hit works.
+            // POST thẳng tới broker web2-realtime (PROXY_HTTP_URL) — /api/realtime/
+            // start-multi đã fold vào service này (Stage 1). CORS mở cho mọi origin.
             const r = await fetch(`${PROXY_HTTP_URL}/api/realtime/start-multi`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
