@@ -23,12 +23,46 @@ const TELEGRAM_TIMEOUT_MS = 20_000;
 
 let _hits = [];
 
+// chat_id hiệu lực — có thể đổi lúc runtime khi group bị nâng cấp lên supergroup.
+let _effectiveChatId = CHAT_ID;
+
 function isRateLimited() {
     const now = Date.now();
     _hits = _hits.filter((t) => now - t < RATE_LIMIT_WINDOW_MS);
     if (_hits.length >= RATE_LIMIT_MAX) return true;
     _hits = [..._hits, now];
     return false;
+}
+
+// Gửi tới Telegram, tự retry 1 lần khi group bị nâng cấp lên supergroup.
+// Khi đó Telegram trả lỗi "group chat was upgraded to a supergroup chat" KÈM
+// parameters.migrate_to_chat_id = chat_id MỚI (dạng -100...). Ta nhớ lại id mới
+// trong process để các lần gửi sau khỏi lỗi nữa.
+// buildForm(chatId) PHẢI tạo FormData mới mỗi lần gọi (Blob không tái sử dụng được).
+async function sendToTelegram(method, buildForm) {
+    const attempt = async (chatId) => {
+        const tgRes = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/${method}`, {
+            method: 'POST',
+            body: buildForm(chatId),
+            signal: AbortSignal.timeout(TELEGRAM_TIMEOUT_MS),
+        });
+        const tgJson = await tgRes.json().catch(() => ({}));
+        return { tgRes, tgJson };
+    };
+
+    let { tgRes, tgJson } = await attempt(_effectiveChatId);
+
+    const migrateTo = tgJson?.parameters?.migrate_to_chat_id;
+    if (!tgJson.ok && migrateTo) {
+        console.warn(
+            `[DELIVERY-REPORT-TG] Group nâng cấp supergroup: chat_id ${_effectiveChatId} → ${migrateTo}. ` +
+                `Hãy cập nhật env DELIVERY_REPORT_TELEGRAM_CHAT_ID=${migrateTo} trên Render để khỏi retry mỗi lần.`
+        );
+        _effectiveChatId = String(migrateTo);
+        ({ tgRes, tgJson } = await attempt(_effectiveChatId));
+    }
+
+    return { tgRes, tgJson };
 }
 
 // GET /api/delivery-report-telegram/status — check bot đã cấu hình chưa (không lộ secret)
@@ -73,17 +107,13 @@ router.post('/send-photo', async (req, res) => {
             });
         }
 
-        const form = new FormData();
-        form.append('chat_id', CHAT_ID);
-        if (caption) form.append('caption', String(caption).slice(0, MAX_CAPTION_LENGTH));
-        form.append('photo', new Blob([buffer], { type: 'image/png' }), 'handover.png');
-
-        const tgRes = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`, {
-            method: 'POST',
-            body: form,
-            signal: AbortSignal.timeout(TELEGRAM_TIMEOUT_MS),
+        const { tgRes, tgJson } = await sendToTelegram('sendPhoto', (chatId) => {
+            const form = new FormData();
+            form.append('chat_id', chatId);
+            if (caption) form.append('caption', String(caption).slice(0, MAX_CAPTION_LENGTH));
+            form.append('photo', new Blob([buffer], { type: 'image/png' }), 'handover.png');
+            return form;
         });
-        const tgJson = await tgRes.json().catch(() => ({}));
         if (!tgRes.ok || !tgJson.ok) {
             console.error(
                 '[DELIVERY-REPORT-TG] sendPhoto failed:',
@@ -97,7 +127,7 @@ router.post('/send-photo', async (req, res) => {
         }
 
         console.log(
-            `[DELIVERY-REPORT-TG] Photo sent (${Math.round(buffer.length / 1024)}KB) → chat ${CHAT_ID}`
+            `[DELIVERY-REPORT-TG] Photo sent (${Math.round(buffer.length / 1024)}KB) → chat ${_effectiveChatId}`
         );
         res.json({ success: true, messageId: tgJson.result?.message_id || null });
     } catch (error) {
@@ -149,17 +179,13 @@ router.post('/send-document', async (req, res) => {
             });
         }
 
-        const form = new FormData();
-        form.append('chat_id', CHAT_ID);
-        if (caption) form.append('caption', String(caption).slice(0, MAX_CAPTION_LENGTH));
-        form.append('document', new Blob([buffer], { type: mimeType || XLSX_MIME }), safeName);
-
-        const tgRes = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendDocument`, {
-            method: 'POST',
-            body: form,
-            signal: AbortSignal.timeout(TELEGRAM_TIMEOUT_MS),
+        const { tgRes, tgJson } = await sendToTelegram('sendDocument', (chatId) => {
+            const form = new FormData();
+            form.append('chat_id', chatId);
+            if (caption) form.append('caption', String(caption).slice(0, MAX_CAPTION_LENGTH));
+            form.append('document', new Blob([buffer], { type: mimeType || XLSX_MIME }), safeName);
+            return form;
         });
-        const tgJson = await tgRes.json().catch(() => ({}));
         if (!tgRes.ok || !tgJson.ok) {
             console.error(
                 '[DELIVERY-REPORT-TG] sendDocument failed:',
@@ -173,7 +199,7 @@ router.post('/send-document', async (req, res) => {
         }
 
         console.log(
-            `[DELIVERY-REPORT-TG] Document sent (${safeName}, ${Math.round(buffer.length / 1024)}KB) → chat ${CHAT_ID}`
+            `[DELIVERY-REPORT-TG] Document sent (${safeName}, ${Math.round(buffer.length / 1024)}KB) → chat ${_effectiveChatId}`
         );
         res.json({ success: true, messageId: tgJson.result?.message_id || null });
     } catch (error) {

@@ -2,6 +2,16 @@
 
 ## 2026-06-16
 
+### [delivery-report][telegram] Fix gửi Telegram lỗi "group chat was upgraded to a supergroup chat" ✅
+
+**Triệu chứng:** trang delivery-report gửi ảnh/file lên Telegram báo `Telegram API lỗi: Bad Request: group chat was upgraded to a supergroup chat`.
+
+**Nguyên nhân:** nhóm Telegram đã bị **nâng cấp lên supergroup** → `chat_id` cũ (env `DELIVERY_REPORT_TELEGRAM_CHAT_ID`) chết. Telegram trả lỗi này KÈM `parameters.migrate_to_chat_id` = chat_id MỚI (dạng `-100...`). Code cũ chỉ báo lỗi rồi bỏ cuộc, không retry.
+
+**Fix** (`render.com/routes/delivery-report-telegram.js`): thêm helper `sendToTelegram(method, buildForm)` — khi gặp lỗi migrate, tự retry 1 lần với `migrate_to_chat_id`, nhớ id mới vào `_effectiveChatId` trong process (các lần gửi sau khỏi lỗi), và `console.warn` id mới để cập nhật env trên Render. Gộp luôn logic gửi trùng lặp của `send-photo` + `send-document` (DRY). Self-healing — không cần thao tác tay.
+
+**Việc cần làm thủ công (1 lần, tùy chọn):** cập nhật env `DELIVERY_REPORT_TELEGRAM_CHAT_ID` trên Render = id mới (xem log `[DELIVERY-REPORT-TG] Group nâng cấp supergroup: ... → <id mới>`) để khỏi tốn 1 lần retry mỗi khi server restart. Cần redeploy `n2store-fallback` để fix có hiệu lực.
+
 ### [web2][realtime] Stage 3 HỦY-XÓA — n2store-realtime là service WEB 1.0, KHÔNG xóa ⚠️
 
 User OK "làm Stage 3" (retire n2store-realtime) NHƯNG sweep trước khi xóa phát hiện premise SAI: `n2store-realtime` **KHÔNG phải broker Web 2.0 cũ** — nó là **service realtime lớp WEB 1.0** (docs RENDER_SERVERS_GUIDE + `shared/universal/api-endpoints.js REALTIME` import bởi orders-report api-config; mô tả "Web 1.0 inbox WS — pending_customers/livestream/labels"). Bằng chứng routing: worker `/ws/pancake`→pancake.vn thẳng; `/api/realtime/*`→**n2store-fallback** (không phải n2store-realtime). Health: HTTP 200 nhưng IDLE (`connected:false, no_ws, pageCount:0`) — chủ yếu vì consumer chính (Web2Realtime proxy) vừa rời đi.
