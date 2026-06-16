@@ -3,18 +3,17 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `0c0870b` — feat(so-order/kho): Part B — Kho SP lưu origin_currency/origin_rate, hover hiện giá gốc ngoại tệ (CNY); write paths gửi origin lúc nhập
-**Last updated**: 2026-06-16 16:37:40 +07
-**Latest session**: [`RESUME:20260616-163740-0c0870b`](../20260616-163740-0c0870b.md)
-**Summary**: feat(so-order/kho): Part B — Kho SP lưu origin_currency/origin_rate, hover hiện giá gốc ngoại tệ (CNY); w...
+**Latest commit**: `ef4fba2` — fix(delivery-report): phuoc = quyền bobo — bỏ chế độ 'full' đặc biệt, phuoc cũng 'lite' (ẩn dữ liệu, triple-click mới hiện)
+**Last updated**: 2026-06-16 16:43:38 +07
+**Latest session**: [`RESUME:20260616-164338-ef4fba2`](../20260616-164338-ef4fba2.md)
+**Summary**: fix(delivery-report): phuoc = quyền bobo — bỏ chế độ 'full' đặc biệt, phuoc cũng 'lite' (ẩn dữ l...
 
 ## Folders affected in this commit
 
 - [`delivery-report/`](./delivery-report.md) — 2 file(s)
-- [`docs/`](./docs.md) — 2 file(s)
-- [`render.com/`](./render.com.md) — 1 file(s)
-- [`so-order/`](./so-order.md) — 2 file(s)
-- [`web2/`](./web2.md) — 4 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
+- [`orders-report/`](./orders-report.md) — 6 file(s)
+- [`render.com/`](./render.com.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -28,8 +27,8 @@
 - [`bangkiemhang/`](./bangkiemhang.md) — updated 2026-05-21 15:39
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-16 11:15
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-16 14:31
-- [`delivery-report/`](./delivery-report.md) — updated 2026-06-16 16:37
-- [`docs/`](./docs.md) — updated 2026-06-16 16:37
+- [`delivery-report/`](./delivery-report.md) — updated 2026-06-16 16:43
+- [`docs/`](./docs.md) — updated 2026-06-16 16:43
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-16 14:31
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-16 14:31
 - [`downloads/`](./downloads.md) — updated 2026-06-13 19:16
@@ -49,7 +48,7 @@
 - [`native-orders/`](./native-orders.md) — updated 2026-06-16 10:25
 - [`nhanhang/`](./nhanhang.md) — updated 2026-06-13 19:51
 - [`order-management/`](./order-management.md) — updated 2026-05-21 15:39
-- [`orders-report/`](./orders-report.md) — updated 2026-06-16 15:12
+- [`orders-report/`](./orders-report.md) — updated 2026-06-16 16:43
 - [`pancake-extension/`](./pancake-extension.md) — updated 2026-05-21 11:33
 - [`phone-management/`](./phone-management.md) — updated 2026-05-21 15:39
 - [`product-warehouse/`](./product-warehouse.md) — updated 2026-06-16 14:31
@@ -57,7 +56,7 @@
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-06-16 00:35
-- [`render.com/`](./render.com.md) — updated 2026-06-16 16:37
+- [`render.com/`](./render.com.md) — updated 2026-06-16 16:43
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-16 13:29
 - [`service-costs/`](./service-costs.md) — updated 2026-06-16 11:15
