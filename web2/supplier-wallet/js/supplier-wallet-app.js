@@ -14,7 +14,7 @@
 
     const STATUS_LABELS = {
         draft: 'Nháp',
-        ordered: 'Đã Đặt',
+        partial_received: 'Nhận 1 phần',
         received: 'Đã Nhận',
         cancelled: 'Đã Hủy',
     };
@@ -123,24 +123,39 @@
     }
 
     // ---------- Aggregation ----------
+    // 2026-06-16 (money-model): công nợ NCC phát sinh khi NHẬN HÀNG (received /
+    // partial_received), KHÔNG phải lúc đặt ('ordered' đã khai tử). Net mỗi đơn =
+    //   Σ(giá nhập × qty_bill × rate) − giảm giá + phí ship (per invoiceGroupId).
+    // qty_bill: received → qty đặt đủ; partial_received → đúng phần đã nhận
+    // (r.qtyReceived). 1 đơn (invoiceGroupId) = 1 NCC → adjustment gán thẳng NCC đó.
     function aggregateSuppliers(state) {
-        // state = so-order state ({ tabs: [{ id, label, currency, rate, shipments: [{ id, date, rows: [...] }] }] })
         const result = {};
         if (!state || !Array.isArray(state.tabs)) return result;
+        const ensure = (supplier) => {
+            if (!result[supplier]) {
+                result[supplier] = { supplier, totalPurchased: 0, purchases: [] };
+            }
+            return result[supplier];
+        };
         for (const tab of state.tabs) {
             const rate = rateToVnd(tab.currency, tab);
             for (const sh of tab.shipments || []) {
+                const groupSupplier = {}; // invoiceGroupId → NCC (đơn có hàng đã nhận)
                 for (const r of sh.rows || []) {
                     const supplier = (r.supplier || '').trim();
                     if (!supplier) continue;
-                    if (!result[supplier]) {
-                        result[supplier] = { supplier, totalPurchased: 0, purchases: [] };
-                    }
-                    const qty = Number(r.qty) || 0;
+                    const st = r.status || 'draft';
+                    if (st !== 'received' && st !== 'partial_received') continue; // chỉ tính khi đã nhận
+                    const orderedQty = Number(r.qty) || 0;
+                    const qty =
+                        st === 'partial_received'
+                            ? Math.min(Number(r.qtyReceived) || 0, orderedQty)
+                            : orderedQty;
+                    if (qty <= 0) continue;
                     const costVnd = (Number(r.costPrice) || 0) * rate;
                     const subtotal = qty * costVnd;
-                    result[supplier].totalPurchased += subtotal;
-                    result[supplier].purchases.push({
+                    ensure(supplier).totalPurchased += subtotal;
+                    ensure(supplier).purchases.push({
                         rowId: r.id,
                         shipmentId: sh.id,
                         tabId: tab.id,
@@ -151,8 +166,17 @@
                         qty,
                         costVnd,
                         subtotal,
-                        status: r.status || 'draft',
+                        status: st,
                     });
+                    groupSupplier[r.invoiceGroupId || r.id] = supplier;
+                }
+                // Giảm giá / phí ship per-đơn — chỉ áp cho đơn có hàng ĐÃ NHẬN.
+                const adjMap = sh.orderAdjustments || {};
+                for (const [gid, sup] of Object.entries(groupSupplier)) {
+                    const a = adjMap[gid];
+                    if (!a) continue;
+                    const net = (-(Number(a.discount) || 0) + (Number(a.shipping) || 0)) * rate;
+                    if (net) ensure(sup).totalPurchased += net;
                 }
             }
         }

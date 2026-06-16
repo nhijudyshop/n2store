@@ -736,9 +736,10 @@
                         <span class="so-shipment-contract-raw">${escapeHtml(contractDisplayText)}</span>
                     </span>
                     ${(() => {
-                        // 2026-06-16: giảm giá / phí ship per-đơn (hiển thị khi != 0).
-                        const disc = Number(sh.discount) || 0;
-                        const ship = Number(sh.shipping) || 0;
+                        // 2026-06-16: giảm giá / phí ship = TỔNG các đơn trong lô.
+                        const adjTot = window.SoOrderStorage.getShipmentAdjustTotals(sh);
+                        const disc = adjTot.discount;
+                        const ship = adjTot.shipping;
                         if (!disc && !ship) return '';
                         const parts = [];
                         if (disc) parts.push(`Giảm ${fmtCurrency(disc, tab.currency || 'VND')}`);
@@ -1382,12 +1383,21 @@
             (s, r) => s + toVnd(Number(r.sellPrice) || 0, tab) * (Number(r.qty) || 0),
             0
         );
-        const grandTotal =
-            subtotalVnd - (Number(tab.footer.discount) || 0) + (Number(tab.footer.shipping) || 0);
+        // 2026-06-16: footer giảm giá / phí ship = TỔNG các ĐƠN (orderAdjustments)
+        // qua mọi lô của tab, quy đổi VND (toVnd theo tab.rate). DERIVED — readonly,
+        // không nhập tay (đã bỏ `tab.footer` thủ công).
+        let footDiscVnd = 0;
+        let footShipVnd = 0;
+        for (const s of tab.shipments || []) {
+            const t = window.SoOrderStorage.getShipmentAdjustTotals(s);
+            footDiscVnd += toVnd(t.discount, tab);
+            footShipVnd += toVnd(t.shipping, tab);
+        }
+        const grandTotal = subtotalVnd - footDiscVnd + footShipVnd;
 
         document.getElementById('soFootTotalQty').textContent = totalQty.toLocaleString('vi-VN');
-        document.getElementById('soFootDiscount').value = tab.footer.discount || 0;
-        document.getElementById('soFootShipping').value = tab.footer.shipping || 0;
+        document.getElementById('soFootDiscount').value = Math.round(footDiscVnd);
+        document.getElementById('soFootShipping').value = Math.round(footShipVnd);
         document.getElementById('soFootGrandTotal').textContent = fmtVnd(grandTotal);
 
         // Topbar counter — show row count + shipment count
@@ -4817,21 +4827,16 @@ window.addEventListener('load', () => {
     // ---------- wiring ----------
 
     function wireFooterInputs() {
-        document.getElementById('soFootDiscount').addEventListener('change', (e) => {
-            const tab = window.SoOrderStorage.getActiveTab(state);
-            window.SoOrderStorage.updateFooter(state, tab.id, {
-                discount: Number(e.target.value) || 0,
-            });
-            pushSync();
-            renderFooterTotals();
-        });
-        document.getElementById('soFootShipping').addEventListener('change', (e) => {
-            const tab = window.SoOrderStorage.getActiveTab(state);
-            window.SoOrderStorage.updateFooter(state, tab.id, {
-                shipping: Number(e.target.value) || 0,
-            });
-            pushSync();
-            renderFooterTotals();
+        // 2026-06-16: footer giảm giá / phí ship = DERIVED (Σ các đơn trong ngày
+        // giao) → readonly, KHÔNG nhập tay. Nhập discount/ship ở modal tạo/sửa đơn.
+        ['soFootDiscount', 'soFootShipping'].forEach((id) => {
+            const el = document.getElementById(id);
+            if (el) {
+                el.readOnly = true;
+                el.tabIndex = -1;
+                el.title =
+                    'Tổng giảm giá / phí ship của các đơn trong ngày giao (tự tính từ từng đơn)';
+            }
         });
     }
 

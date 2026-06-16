@@ -347,14 +347,22 @@
         for (const tab of tabs) {
             const rate = rateToVnd(tab.currency, tab);
             for (const sh of tab.shipments || []) {
+                const groupSupplier = {}; // invoiceGroupId → NCC (đơn có hàng đã nhận)
                 for (const r of sh.rows || []) {
                     const supplier = (r.supplier || '').trim();
                     if (!supplier) continue;
-                    // A3 (2026-06-13): KHÔNG tính công nợ cho dòng 'draft' (Nháp — chưa
-                    // chốt đơn) và 'cancelled' (Đã Hủy). Các trạng thái phát sinh nợ:
-                    // 'ordered' (Đã Đặt — đã chốt mua), 'partial_received', 'received'.
-                    if (r.status === 'draft' || r.status === 'cancelled') continue;
-                    const qty = Number(r.qty) || 0;
+                    // 2026-06-16: công nợ NCC phát sinh khi NHẬN HÀNG — chỉ tính dòng
+                    // 'received' / 'partial_received'. 'ordered' (Đã Đặt) đã KHAI TỬ;
+                    // 'draft'/'cancelled' không tính.
+                    const st = r.status || 'draft';
+                    if (st !== 'received' && st !== 'partial_received') continue;
+                    groupSupplier[r.invoiceGroupId || r.id] = supplier; // đơn đã nhận
+                    // qty bill: received → qty đặt đủ; partial → đúng phần đã nhận.
+                    const orderedQty = Number(r.qty) || 0;
+                    const qty =
+                        st === 'partial_received'
+                            ? Math.min(Number(r.qtyReceived) || 0, orderedQty)
+                            : orderedQty;
                     const costVnd = (Number(r.costPrice) || 0) * rate;
                     const subtotal = qty * costVnd;
                     if (subtotal <= 0) continue;
@@ -382,6 +390,19 @@
                             subtotal,
                         });
                     }
+                }
+                // 2026-06-16: giảm giá / phí ship PER-ĐƠN ("tất cả nguồn tiền") —
+                // net = −giảm giá + phí ship, áp 1 lần / đơn đã nhận, bucket theo
+                // ngày lô. 1 đơn = 1 NCC nên gán thẳng NCC của đơn.
+                const adjMap = sh.orderAdjustments || {};
+                for (const [gid, sup] of Object.entries(groupSupplier)) {
+                    const a = adjMap[gid];
+                    if (!a) continue;
+                    const net = (-(Number(a.discount) || 0) + (Number(a.shipping) || 0)) * rate;
+                    if (!net) continue;
+                    if (!result[sup]) result[sup] = makeRow(sup);
+                    if (isBefore(sh.date, from)) result[sup]._purchasesBefore += net;
+                    else if (isInPeriod(sh.date, from, to)) result[sup].debit += net;
                 }
             }
         }
