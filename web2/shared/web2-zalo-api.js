@@ -133,6 +133,12 @@
                 body: JSON.stringify({ count: count || 200 }),
             });
         },
+        // Thành viên nhóm (uid+tên+avatar) → dropdown @tag trong ô soạn.
+        groupMembers(convId) {
+            return _fetch(`/conversations/${encodeURIComponent(convId)}/members`, {
+                method: 'GET',
+            });
+        },
         sendMessage(body) {
             return _fetch('/send-message', { method: 'POST', body: JSON.stringify(body) });
         },

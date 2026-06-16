@@ -1062,6 +1062,78 @@ router.post('/conversations/:id/backfill', async (req, res) => {
     }
 });
 
+// GET /conversations/:id/members — thành viên NHÓM để @tag trong ô soạn.
+// Nguồn: zca.getGroupMembers (đầy đủ, best-effort) + GỘP người đã từng nhắn trong thread
+// (web2_zalo_members cache — luôn có tên, là người hay được tag). Dedup theo uid, ưu tiên
+// bản có tên, sort theo tên. Hội thoại 1-1 → [] (mention chỉ cho nhóm).
+router.get('/conversations/:id/members', async (req, res) => {
+    try {
+        const db = getDb(req);
+        const conv = (
+            await db.query(`SELECT * FROM web2_zalo_conversations WHERE id=$1`, [req.params.id])
+        ).rows[0];
+        if (!conv)
+            return res.status(404).json({ success: false, error: 'Không tìm thấy hội thoại' });
+        if (conv.thread_type !== 'group') return res.json({ success: true, members: [] });
+        const byUid = new Map();
+        const put = (uid, name, avatar) => {
+            uid = String(uid || '');
+            if (!uid) return;
+            const cur = byUid.get(uid);
+            if (!cur) byUid.set(uid, { uid, name: name || '', avatar: avatar || '' });
+            else {
+                if (!cur.name && name) cur.name = name;
+                if (!cur.avatar && avatar) cur.avatar = avatar;
+            }
+        };
+        // 1) Người đã nhắn trong thread (cache tên sẵn — chắc chắn liên quan).
+        try {
+            const { rows } = await db.query(
+                `SELECT DISTINCT m.uid, m.display_name, m.avatar
+                   FROM web2_zalo_messages msg
+                   JOIN web2_zalo_members m ON m.account_key = msg.account_key AND m.uid = msg.sender_uid
+                  WHERE msg.account_key=$1 AND msg.thread_id=$2 AND msg.sender_uid IS NOT NULL`,
+                [conv.account_key, conv.thread_id]
+            );
+            rows.forEach((r) => put(r.uid, r.display_name, r.avatar));
+        } catch (e) {
+            /* bảng có thể chưa init — bỏ qua */
+        }
+        // 2) Danh sách thành viên đầy đủ từ Zalo (best-effort — cần tài khoản kết nối).
+        if (zca.isConnected(conv.account_key)) {
+            try {
+                const mems = await _withTimeout(
+                    zca.getGroupMembers(conv.account_key, conv.thread_id),
+                    ZCA_RESOLVE_TIMEOUT_MS * 3
+                );
+                (Array.isArray(mems) ? mems : []).forEach((m) => put(m.uid, m.name, m.avatar));
+                // resolve tên còn thiếu (member chưa từng nhắn → chưa có trong cache) — cache lại
+                const ts = now();
+                for (const m of byUid.values()) {
+                    if (m.name)
+                        db.query(
+                            `INSERT INTO web2_zalo_members (account_key, uid, display_name, avatar, updated_at)
+                             VALUES ($1,$2,$3,$4,$5)
+                             ON CONFLICT (account_key, uid) DO UPDATE SET
+                                display_name=COALESCE(EXCLUDED.display_name, web2_zalo_members.display_name),
+                                avatar=COALESCE(EXCLUDED.avatar, web2_zalo_members.avatar),
+                                updated_at=$5`,
+                            [conv.account_key, m.uid, m.name || null, m.avatar || null, ts]
+                        ).catch(() => {});
+                }
+            } catch (e) {
+                /* zca lỗi/timeout → vẫn trả danh sách từ cache thread */
+            }
+        }
+        const members = [...byUid.values()]
+            .filter((m) => m.name) // chỉ hiện người có tên (tag được)
+            .sort((a, b) => a.name.localeCompare(b.name, 'vi'));
+        res.json({ success: true, members });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
 // Tra hội thoại theo SĐT (helper Web2Zalo.getConversation)
 router.get('/conversation/:phone', async (req, res) => {
     try {
@@ -1179,13 +1251,21 @@ function _outPreview(p) {
 router.post('/send-message', async (req, res) => {
     try {
         const db = getDb(req);
-        const { accountKey, threadId, text, threadType, replyTo } = req.body || {};
+        const { accountKey, threadId, text, threadType, replyTo, mentions } = req.body || {};
         if (!accountKey || !threadId || !text)
             return res
                 .status(400)
                 .json({ success: false, error: 'Thiếu accountKey/threadId/text' });
-        // reply: client gửi quote thô (raw tin gốc) → pass thẳng cho zca
-        const r = await zca.send(accountKey, threadId, text, threadType, replyTo?.quote || null);
+        // reply: client gửi quote thô (raw tin gốc) → pass thẳng cho zca.
+        // mentions: [{uid,pos,len}] @tag thành viên nhóm (chỉ áp dụng nhóm).
+        const r = await zca.send(
+            accountKey,
+            threadId,
+            text,
+            threadType,
+            replyTo?.quote || null,
+            Array.isArray(mentions) ? mentions : null
+        );
         const saved = await _persistOut(db, {
             accountKey,
             threadId,

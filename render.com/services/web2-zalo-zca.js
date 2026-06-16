@@ -420,11 +420,22 @@ function _pickSendIds(res) {
     };
 }
 
-// Gửi text (kèm quote/reply nếu có). quote = SendMessageQuote lấy từ raw tin gốc.
-async function send(accountKey, threadId, text, threadType, quote) {
+// Gửi text (kèm quote/reply + mentions @tag nếu có). quote = SendMessageQuote lấy từ raw
+// tin gốc; mentions = [{uid,pos,len}] (Zalo @tag thành viên nhóm — chỉ dùng cho nhóm).
+async function send(accountKey, threadId, text, threadType, quote, mentions) {
     const api = _requireApi(accountKey);
     const tt = _tt(threadType);
-    const payload = quote ? { msg: String(text), quote } : String(text);
+    const ms = (Array.isArray(mentions) ? mentions : [])
+        .filter((m) => m && m.uid && Number.isFinite(m.pos) && Number.isFinite(m.len) && m.len > 0)
+        .map((m) => ({ uid: String(m.uid), pos: m.pos | 0, len: m.len | 0 }));
+    let payload;
+    if (quote || ms.length) {
+        payload = { msg: String(text) };
+        if (quote) payload.quote = quote;
+        if (ms.length) payload.mentions = ms;
+    } else {
+        payload = String(text);
+    }
     const res = await api.sendMessage(payload, String(threadId), tt);
     return { success: true, ..._pickSendIds(res), raw: res };
 }
@@ -661,6 +672,35 @@ async function getGroupsInfo(accountKey, gids) {
     return out;
 }
 
+// Danh sách thành viên NHÓM (uid + tên + avatar) → đổ vào dropdown @tag ô soạn.
+// getGroupInfo trả memVerList ['uid_version'] → tách uid → resolve tên (getGroupMembersInfo
+// batch 50). Bỏ chính mình. Lỗi → throw để caller fallback (senders trong thread).
+async function getGroupMembers(accountKey, gid) {
+    const api = _requireApi(accountKey);
+    const info = await api.getGroupInfo(String(gid));
+    const g = (info?.gridInfoMap || {})[String(gid)] || {};
+    const uids = [
+        ...new Set(
+            (Array.isArray(g.memVerList) ? g.memVerList : [])
+                .map((s) => String(s).split('_')[0])
+                .filter(Boolean)
+        ),
+    ];
+    if (!uids.length) return [];
+    const own = String(getOwnUid(accountKey) || '');
+    const out = [];
+    for (let i = 0; i < uids.length; i += 50) {
+        const batch = uids.slice(i, i + 50);
+        const resolved = await getGroupMembersInfo(accountKey, batch).catch(() => ({}));
+        for (const uid of batch) {
+            if (String(uid) === own) continue;
+            const p = resolved[uid] || {};
+            out.push({ uid: String(uid), name: p.name || '', avatar: p.avatar || '' });
+        }
+    }
+    return out;
+}
+
 // uid của chính tài khoản (để phân biệt tin mình gửi trong nhóm).
 function getOwnUid(accountKey) {
     return _sessions.get(accountKey)?.info?.uid || null;
@@ -741,6 +781,7 @@ module.exports = {
     getGroupChatHistory,
     getGroupHistory,
     getGroupMembersInfo,
+    getGroupMembers,
     getGroupsInfo,
     getOwnUid,
     disconnect,
