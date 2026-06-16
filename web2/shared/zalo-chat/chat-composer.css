@@ -411,3 +411,53 @@
         max-width: 86%;
     }
 }
+
+/* ── @mention dropdown (tag thành viên nhóm) ─────────────────────────── */
+.wz-ment {
+    position: absolute;
+    left: 8px;
+    right: 8px;
+    bottom: 100%;
+    margin-bottom: 6px;
+    max-height: 260px;
+    overflow-y: auto;
+    background: #fff;
+    border: 1px solid var(--wz-line);
+    border-radius: 12px;
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.16);
+    padding: 5px;
+    z-index: 20;
+    overscroll-behavior: contain;
+}
+.wz-ment-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 7px 9px;
+    border: 0;
+    background: transparent;
+    border-radius: 9px;
+    cursor: pointer;
+    text-align: left;
+    font: inherit;
+    color: var(--wz-ink, #1f2937);
+}
+.wz-ment-item:hover,
+.wz-ment-item.sel {
+    background: color-mix(in oklab, var(--web2-primary, #0068ff) 12%, transparent);
+}
+.wz-ment-av {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    object-fit: cover;
+}
+.wz-ment-name {
+    font-size: 13.5px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}

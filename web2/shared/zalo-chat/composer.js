@@ -292,13 +292,63 @@
         const fileImg = rootEl.querySelector('.wz-file-img');
         const fileDoc = rootEl.querySelector('.wz-file-doc');
 
-        ta.addEventListener('input', () => grow(ta));
+        // @mention: reset per hội thoại + tham chiếu dropdown
+        _mentTa = ta;
+        _mentBox = rootEl.querySelector('.wz-ment');
+        _mentionMap.clear();
+        _members = null;
+        _membersConvId = null;
+        _closeMent();
+
+        ta.addEventListener('input', () => {
+            grow(ta);
+            _updateMent();
+        });
+        // caret di chuyển bằng click/phím → cập nhật lại ngữ cảnh @ (khi dropdown đóng)
+        ta.addEventListener('click', () => _updateMent());
+        ta.addEventListener('keyup', (e) => {
+            if (['ArrowDown', 'ArrowUp', 'Enter', 'Tab', 'Escape'].includes(e.key)) return;
+            if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') _updateMent();
+        });
         ta.addEventListener('keydown', (e) => {
+            // Dropdown @ đang mở → điều hướng + chọn, KHÔNG gửi.
+            if (_mentItems.length) {
+                if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    _mentSel = (_mentSel + 1) % _mentItems.length;
+                    _renderMent();
+                    return;
+                }
+                if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    _mentSel = (_mentSel - 1 + _mentItems.length) % _mentItems.length;
+                    _renderMent();
+                    return;
+                }
+                if (e.key === 'Enter' || e.key === 'Tab') {
+                    e.preventDefault();
+                    _applyMent(_mentSel);
+                    return;
+                }
+                if (e.key === 'Escape') {
+                    e.preventDefault();
+                    _closeMent();
+                    return;
+                }
+            }
             if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
                 doSend();
             }
         });
+        // Chọn bằng chuột (mousedown preventDefault → giữ focus ô soạn, không blur).
+        _mentBox.addEventListener('mousedown', (e) => {
+            const it = e.target.closest('.wz-ment-item');
+            if (!it) return;
+            e.preventDefault();
+            _applyMent(Number(it.dataset.i));
+        });
+        ta.addEventListener('blur', () => setTimeout(_closeMent, 150));
         // dán ảnh
         ta.addEventListener('paste', (e) => {
             const imgs = [...(e.clipboardData?.items || [])]
