@@ -2,6 +2,23 @@
 
 ## 2026-06-16
 
+### [so-order] Modal Tạo Đơn Hàng — đồng bộ bố cục form + làm đẹp table (CSS-only) ✅
+
+**User:** "giao diện hình 2 nó không đồng bộ, đồng đều 1 bố cục… nghiên cứu github các css phần table xem có làm đẹp hơn nhưng vẫn đủ thông tin."
+
+**RCA bố cục lệch:** Hàng field trên cùng (`.so-form-row-top`) là flex-wrap với (a) ô "Ảnh hóa đơn" = dropzone `.so-img-cell-v2` xếp DỌC cao ~64px → vống hẳn lên so với input 40px; (b) label wrap số dòng khác nhau (vd "Ảnh hóa đơn (cả đơn…)", "ETA giao hàng (dự kiến)") → input đứng so le; (c) flex-basis ragged (110/140/210/260px) → cột không đều.
+
+**Fix** [so-order.css](so-order/css/so-order.css) (không đổi JS/HTML behavior):
+
+1. **Đồng đều chiều cao**: `.so-form-label { min-height:34px }` (reserve ~2 dòng) + `align-items:flex-end` → mọi control 40px bottom-align thành 1 hàng phẳng (verified: 5 ô row-top cùng `bottom`).
+2. **Ảnh hóa đơn compact 40px ngang**: override `.so-cell-invoice-img .so-img-cell-v2` → `flex-direction:row; height:40px; box-sizing:border-box`. State đã-có-ảnh: thumb nhỏ (≤28×44) + nút xóa inline, ẩn label/URL. Bằng đúng chiều cao input, hết phá hàng (verified empty + has-image đều 40px, bottom-align input Ngày tạo).
+3. **Cột đều**: cell `flex:1 1 160px`, narrow `1 1 120px`, NCC `2 1 240px` → grow lấp kín hàng.
+4. **Table đẹp hơn** (theo convention GitHub Primer / Tailwind UI data-table, giữ NGUYÊN đủ cột/thông tin): `font-variant-numeric:tabular-nums` (số thẳng cột), header slate-50 `#f8fafc` + label muted `#64748b` letter-spacing nhẹ, row hover `#f8fafc`.
+
+Bump `so-order.css?v=20260616e`. Verified Playwright: modal mở, đo bounding rect — tất cả control row-top cùng baseline.
+
+**Status:** ✅ CSS-only. so-order (Web 2.0 module).
+
 ### [supplier-wallet] FIX nút Tạo NCC / Đồng bộ / Trả hàng / Ghi thanh toán hiện như nút browser mặc định (thiếu class `btn` base) ✅
 
 **User:** "nút hình 2, hình 3 chưa có css" — "Ghi thanh toán" + "Đồng bộ" render như nút macOS mặc định (gradient xám, viền bevel), không theo theme Web 2.0.
