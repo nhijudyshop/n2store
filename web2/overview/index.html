@@ -292,9 +292,11 @@
                         tạo 6 SP thật (HÀ NỘI + HƯƠNG CHÂU, có tồn) → seed Firestore
                         <code>web2_so_order/main</code> (2 tab, 2 shipment, 6 dòng) →
                         <strong>so-order hiện 6 dòng</strong>, <strong>Công nợ NCC</strong> tự tính
-                        4 dòng NCC, <strong>Ví NCC</strong> hiện 2 NCC sau khi bấm "Đồng bộ lại từ
-                        Sổ Order". Lưu ý: Ví NCC cần nút Đồng bộ (thiết kế manual-sync), không auto.
-                        <br /><strong>Đơn Web (native-orders):</strong> đơn test ở tab
+                        4 dòng NCC, <strong>Ví NCC</strong> tự hiện NCC realtime (SSE, không cần bấm
+                        Đồng bộ). ⚠ <strong>Model 2026-06-16:</strong> công nợ + ví NCC chỉ phát
+                        sinh khi đơn ở trạng thái <em>Đã Nhận / Nhận 1 phần</em> (bấm nút Nhận hàng)
+                        — đơn <em>Nháp</em> KHÔNG tính tiền. Seed muốn thấy số phải set trạng thái
+                        nhận. <br /><strong>Đơn Web (native-orders):</strong> đơn test ở tab
                         <em>Đơn Inbox</em> (<code>channel=web2_inbox</code>), KHÔNG phải tab mặc
                         định Livestream → mở đúng tab mới thấy. <br /><strong
                             >Dữ liệu test GIỮ LẠI</strong
@@ -1159,12 +1161,29 @@
                                     </div>
                                     <div class="ov-meta-item">
                                         <span class="ov-meta-label">Cột</span>
-                                        Sản phẩm · Biến thể · SL · Giá · Ghi chú · Trạng thái · Ngày
+                                        Sản phẩm · Biến thể · SL · Giá · Ghi chú · Trạng thái
+                                        (<strong>chỉ-đọc</strong>) · Ngày
+                                    </div>
+                                    <div class="ov-meta-item">
+                                        <span class="ov-meta-label">Model tiền (2026-06-16)</span>
+                                        Trạng thái KHÔNG sửa tay (bỏ ô trong modal + bỏ dbl-click);
+                                        <code>ordered</code>/"Đã Đặt" khai tử → đơn mới luôn
+                                        <strong>Nháp</strong>, chỉ nút
+                                        <strong>Nhận hàng</strong> đổi sang Đã Nhận / Nhận 1 phần.
+                                        <strong>Công nợ NCC phát sinh khi NHẬN HÀNG</strong> (không
+                                        phải khi đặt) = Σ(giá × SL_đã-nhận × tỉ giá) − giảm giá +
+                                        phí ship. Giảm giá &amp; ship lưu
+                                        <strong>per-đơn</strong>
+                                        (<code>shipment.orderAdjustments[invoiceGroupId]</code>);
+                                        footer ngày giao = tổng cả lô (readonly). Ảnh hóa đơn ở
+                                        header đơn (của cả đơn, không per-SP).
                                     </div>
                                     <div class="ov-meta-item">
                                         <span class="ov-meta-label">Storage</span>
-                                        Firestore <code>web2_so_order/main</code> (local-first sync)
-                                        — KHÔNG dùng Postgres riêng cho row
+                                        Postgres <code>web2_so_order</code> (1 doc JSONB +
+                                        <code>version</code> optimistic, qua
+                                        <code>/api/web2-so-order</code> — C8 done 2026-06-13) +
+                                        local-first IDB cache
                                     </div>
                                     <div class="ov-meta-item">
                                         <span class="ov-meta-label">API kho</span>
@@ -1333,15 +1352,23 @@
                                     </div>
                                     <div class="ov-meta-item">
                                         <span class="ov-meta-label">Nguồn data</span>
-                                        Tính trực tiếp từ <code>web2_so_order</code> (Firestore) +
+                                        Tính trực tiếp từ <code>web2_so_order</code> (Postgres) +
                                         <code>web2_records</code> (purchase-refund) +
-                                        <code>web2_supplier_wallet</code> (payments) — không có
+                                        <code>web2_supplier_ledger</code> (payments) — không có
                                         write endpoint riêng
                                     </div>
                                     <div class="ov-meta-item">
+                                        <span class="ov-meta-label">Phát sinh (2026-06-16)</span>
+                                        Chỉ tính đơn so-order trạng thái
+                                        <strong>Đã Nhận / Nhận 1 phần</strong> (bỏ Nháp/Hủy); phần
+                                        phát sinh = Σ(giá × SL_đã-nhận × tỉ giá)
+                                        <strong>− giảm giá + phí ship</strong>
+                                        (gồm cả discount/ship per-đơn — khớp với Ví NCC).
+                                    </div>
+                                    <div class="ov-meta-item">
                                         <span class="ov-meta-label">Liên kết</span>
-                                        ⬅ so-order (phát sinh) · purchase-refund (giảm phát sinh) ·
-                                        supplier-wallet (thanh toán) → nợ cuối kỳ
+                                        ⬅ so-order (phát sinh khi nhận hàng) · purchase-refund (giảm
+                                        phát sinh) · supplier-wallet (thanh toán) → nợ cuối kỳ
                                     </div>
                                 </div>
                             </div>
@@ -1368,15 +1395,26 @@
                                 <div class="ov-meta">
                                     <div class="ov-meta-item">
                                         <span class="ov-meta-label">Nút &amp; action</span>
-                                        Search NCC · Counter pills (tổng NCC, tổng công nợ) · Đồng
-                                        bộ lại từ Sổ Order · Modal chi tiết NCC (3 tab: Mua hàng /
-                                        Giao dịch ví / Trả hàng) · Bulk select trả hàng
+                                        Search NCC · Counter pills (tổng NCC, tổng công nợ) ·
+                                        <strong>Realtime SSE</strong> (bỏ nút Đồng bộ — tự load
+                                        <code>web2:so-order</code
+                                        >+<code>web2:supplier-wallet</code>) · Modal chi tiết NCC (3
+                                        tab: Mua hàng / Giao dịch ví / Trả hàng) · Bulk select trả
+                                        hàng
                                     </div>
                                     <div class="ov-meta-item">
                                         <span class="ov-meta-label">Storage</span>
-                                        Firestore <code>web2_supplier_wallet/main</code> +
-                                        cross-read
+                                        Server ledger Postgres <code>web2_supplier_ledger</code> +
+                                        <code>web2_supplier_meta</code> (qua
+                                        <code>/api/web2-supplier-wallet</code>) + cross-read
                                         <code>web2_so_order</code>
+                                    </div>
+                                    <div class="ov-meta-item">
+                                        <span class="ov-meta-label">Model tiền (2026-06-16)</span>
+                                        Tổng mua tính theo đơn <strong>đã nhận</strong> (received /
+                                        partial theo SL thực nhận), gồm cả
+                                        <strong>giảm giá + phí ship per-đơn</strong>. Đơn Nháp = 0.
+                                        Kho NCC realtime để mọi trang tham chiếu.
                                     </div>
                                     <div class="ov-meta-item">
                                         <span class="ov-meta-label">API</span>

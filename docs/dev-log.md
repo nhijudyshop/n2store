@@ -2,6 +2,17 @@
 
 ## 2026-06-16
 
+### [docs] Sync overview + WEB2-PAGES-ANALYSIS cho money-model mới (rule 9) ✅
+
+**Bối cảnh:** CLAUDE.md quy tắc 9 (BẮT BUỘC) — đổi luồng data quan trọng Web 2.0 → cập nhật CẢ overview sống + file phân tích.
+
+**Files:**
+
+- [docs/web2/WEB2-PAGES-ANALYSIS.md](docs/web2/WEB2-PAGES-ANALYSIS.md): thêm banner 💰 đầu mục 0 — nợ NCC khi NHẬN HÀNG, status không sửa tay, discount/ship per-đơn, 2 trang ví/công nợ khớp số.
+- [web2/overview/index.html](web2/overview/index.html): sửa seed-note (Ví NCC realtime + chỉ tính khi nhận) · so-order article (Storage Firestore→Postgres C8, cột Trạng thái chỉ-đọc, meta "Model tiền") · supplier-debt article (nguồn `web2_so_order` Postgres + `web2_supplier_ledger`, meta "Phát sinh" received-based) · supplier-wallet article (bỏ nút Đồng bộ→Realtime SSE, Storage server ledger Postgres, meta "Model tiền").
+
+**Status:** ✅ docs-only, không đụng code. Verify: article tags cân bằng 27/27.
+
 ### [delivery-report] FIX account `phuoc` không thấy nút "Tra soát" — gate theo USERNAME (ổn định) thay vì displayName ✅
 
 **User:** account `phuoc` vào delivery-report không thấy nút "Tra soát". Làm rõ: **`phuoc` chính là "Phước đẹp trai" nhưng user đã đổi tên hiển thị**.
