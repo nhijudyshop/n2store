@@ -108,12 +108,15 @@
             store().clearPending();
             renderTray();
         } else if (text) {
-            await _ctx.onSendText?.(text);
+            const mentions = _isGroup() ? _buildMentions(text) : [];
+            await _ctx.onSendText?.(text, mentions);
         }
         ta.value = '';
         grow(ta);
         store().clearReply();
         renderReplyBar();
+        _mentionMap.clear();
+        _closeMent();
         ta.focus();
     }
 
@@ -147,11 +150,128 @@
         }
     }
 
+    // ── @mention (chỉ NHÓM) — gõ '@' → dropdown thành viên, chọn để tag ─────────
+    let _members = null; // cache [{uid,name,avatar}]
+    let _membersConvId = null;
+    const _mentionMap = new Map(); // 'Tên đầy đủ' -> uid (đã chọn trong phiên soạn)
+    let _mentTa = null;
+    let _mentBox = null;
+    let _mentItems = [];
+    let _mentSel = 0;
+    let _mentStart = -1; // index của '@' đang gõ trong textarea
+    const _normMent = (s) =>
+        String(s || '')
+            .normalize('NFD')
+            .replace(/[̀-ͯ]/g, '')
+            .toLowerCase();
+    const _isGroup = () => _ctx?.conv?.thread_type === 'group';
+
+    async function _loadMembers() {
+        const convId = _ctx?.conv?.id;
+        if (!convId) return [];
+        if (_members && _membersConvId === convId) return _members;
+        try {
+            const r = await window.ZaloApi.groupMembers(convId);
+            _members = (r.members || []).filter((m) => m && m.name);
+            _membersConvId = convId;
+        } catch {
+            _members = _members && _membersConvId === convId ? _members : [];
+        }
+        return _members;
+    }
+
+    // Ngữ cảnh '@' tại caret → {start, query} | null. '@' phải ở đầu/ sau khoảng trắng.
+    function _mentionCtx() {
+        const ta = _mentTa;
+        if (!ta || ta.selectionStart !== ta.selectionEnd) return null;
+        const pos = ta.selectionStart;
+        const upto = ta.value.slice(0, pos);
+        const at = upto.lastIndexOf('@');
+        if (at < 0) return null;
+        if (at > 0 && !/\s/.test(upto[at - 1])) return null;
+        const query = upto.slice(at + 1);
+        if (query.includes('\n') || query.length > 32) return null;
+        return { start: at, query };
+    }
+
+    function _closeMent() {
+        _mentStart = -1;
+        _mentItems = [];
+        _mentSel = 0;
+        if (_mentBox) {
+            _mentBox.hidden = true;
+            _mentBox.innerHTML = '';
+        }
+    }
+
+    async function _updateMent() {
+        if (!_isGroup()) return _closeMent();
+        const ctx = _mentionCtx();
+        if (!ctx) return _closeMent();
+        const members = await _loadMembers();
+        const q = _normMent(ctx.query);
+        const items = (q ? members.filter((m) => _normMent(m.name).includes(q)) : members).slice(
+            0,
+            8
+        );
+        if (!items.length) return _closeMent();
+        _mentStart = ctx.start;
+        _mentItems = items;
+        if (_mentSel >= items.length) _mentSel = 0;
+        _renderMent();
+    }
+
+    function _renderMent() {
+        if (!_mentBox) return;
+        _mentBox.innerHTML = _mentItems
+            .map(
+                (m, i) =>
+                    `<button type="button" class="wz-ment-item${i === _mentSel ? ' sel' : ''}" data-i="${i}">` +
+                    WZ.avatarHtml(m.avatar, m.name, 'wz-ment-av') +
+                    `<span class="wz-ment-name">${esc(m.name)}</span></button>`
+            )
+            .join('');
+        _mentBox.hidden = false;
+        if (window.lucide) lucide.createIcons({ nameAttr: 'data-lucide' });
+    }
+
+    function _applyMent(i) {
+        const m = _mentItems[i];
+        const ta = _mentTa;
+        if (!m || !ta || _mentStart < 0) return;
+        const token = '@' + m.name;
+        const before = ta.value.slice(0, _mentStart);
+        const after = ta.value.slice(ta.selectionStart);
+        ta.value = before + token + ' ' + after;
+        _mentionMap.set(m.name, String(m.uid));
+        const caret = (before + token + ' ').length;
+        ta.selectionStart = ta.selectionEnd = caret;
+        _closeMent();
+        grow(ta);
+        ta.focus();
+    }
+
+    // mentions[] gửi Zalo = re-derive vị trí THẬT trong text cuối (chịu được sửa text).
+    function _buildMentions(text) {
+        const out = [];
+        for (const [name, uid] of _mentionMap) {
+            const token = '@' + name;
+            let from = 0;
+            let idx;
+            while ((idx = text.indexOf(token, from)) !== -1) {
+                out.push({ uid, pos: idx, len: token.length });
+                from = idx + token.length;
+            }
+        }
+        return out;
+    }
+
     WZ.mountComposer = function (rootEl, ctx) {
         _ctx = ctx;
         _root = rootEl;
         rootEl.className = 'wz-composer';
         rootEl.innerHTML = `
+            <div class="wz-ment" hidden role="listbox" aria-label="Tag thành viên"></div>
             <div class="wz-reply-bar" hidden></div>
             <div class="wz-tray" hidden></div>
             <div class="wz-compose-row">

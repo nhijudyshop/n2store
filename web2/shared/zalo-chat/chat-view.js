@@ -137,7 +137,7 @@
             );
         }
 
-        async function onSendText(text) {
+        async function onSendText(text, mentions) {
             if (!text) return;
             const reply = WZ.store?.getReplyTarget?.() || null;
             const temp = optimistic({
@@ -146,10 +146,10 @@
                 content: text,
                 reply_to_preview: reply ? reply.content || WZ._previewOf?.(reply) : null,
             });
-            temp._retry = () => sendTextRaw(text, reply, temp.cli_msg_id);
-            await sendTextRaw(text, reply, temp.cli_msg_id);
+            temp._retry = () => sendTextRaw(text, reply, temp.cli_msg_id, mentions);
+            await sendTextRaw(text, reply, temp.cli_msg_id, mentions);
         }
-        async function sendTextRaw(text, reply, tempCli) {
+        async function sendTextRaw(text, reply, tempCli, mentions) {
             try {
                 const r = await Api.sendMessage({
                     accountKey: account,
@@ -157,6 +157,7 @@
                     text,
                     threadType: conv.thread_type,
                     replyTo: reply ? { msgId: reply.msg_id, preview: reply.content || '' } : null,
+                    mentions: Array.isArray(mentions) && mentions.length ? mentions : undefined,
                 });
                 reconcile(tempCli, { msg_id: r.msgId, cli_msg_id: r.cliMsgId || tempCli }, true);
             } catch (e) {
