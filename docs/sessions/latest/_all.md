@@ -3,21 +3,17 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `274721b` — chore: gỡ HẲN autofb.pro khỏi toàn project (shop không xài nữa)
-**Last updated**: 2026-06-16 00:35:08 +07
-**Latest session**: [`RESUME:20260616-003508-274721b`](../20260616-003508-274721b.md)
-**Summary**: chore: gỡ HẲN autofb.pro khỏi toàn project (shop không xài nữa)
+**Latest commit**: `845fe36` — fix(web2): icon columns-3→columns (Lucide 0.294.0) + revert WS proxy về broker n2store-realtime
+**Last updated**: 2026-06-16 08:24:15 +07
+**Latest session**: [`RESUME:20260616-082415-845fe36`](../20260616-082415-845fe36.md)
+**Summary**: fix(web2): icon columns-3→columns (Lucide 0.294.0) + revert WS proxy về broker n2store-realtime
 
 ## Folders affected in this commit
 
-- [`cloudflare-worker/`](./cloudflare-worker.md) — 3 file(s)
 - [`docs/`](./docs.md) — 1 file(s)
-- [`facebook-services/`](./facebook-services.md) — 3 file(s)
-- [`render-data-manager/`](./render-data-manager.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 3 file(s)
-- [`scripts/`](./scripts.md) — 2 file(s)
-- [`service-costs/`](./service-costs.md) — 2 file(s)
-- [`shared/`](./shared.md) — 1 file(s)
+- [`issue-tracking/`](./issue-tracking.md) — 1 file(s)
+- [`native-orders/`](./native-orders.md) — 1 file(s)
+- [`web2/`](./web2.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -32,7 +28,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-16 00:35
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-14 18:47
-- [`docs/`](./docs.md) — updated 2026-06-16 00:35
+- [`docs/`](./docs.md) — updated 2026-06-16 08:24
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-15 15:57
 - [`downloads/`](./downloads.md) — updated 2026-06-13 19:16
@@ -43,13 +39,13 @@
 - [`inbox/`](./inbox.md) — updated 2026-06-15 20:20
 - [`inventory-tracking/`](./inventory-tracking.md) — updated 2026-06-08 14:12
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-06-13 14:55
-- [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-12 19:21
+- [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-16 08:24
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
 - [`live-chat/`](./live-chat.md) — updated 2026-06-15 23:28
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-06-04 20:02
 - [`n2store-facebook/`](./n2store-facebook.md) — updated 2026-06-14 13:09
 - [`n2store-realtime/`](./n2store-realtime.md) — updated 2026-06-14 12:30
-- [`native-orders/`](./native-orders.md) — updated 2026-06-15 23:37
+- [`native-orders/`](./native-orders.md) — updated 2026-06-16 08:24
 - [`nhanhang/`](./nhanhang.md) — updated 2026-06-13 19:51
 - [`order-management/`](./order-management.md) — updated 2026-05-21 15:39
 - [`orders-report/`](./orders-report.md) — updated 2026-06-15 20:20
@@ -80,4 +76,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-15 23:37
+- [`web2/`](./web2.md) — updated 2026-06-16 08:24
