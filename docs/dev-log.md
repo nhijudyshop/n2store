@@ -2,6 +2,22 @@
 
 ## 2026-06-16
 
+### [web2][live-chat] Snapshot — KHÔNG chụp khi tab không focus (hết thumbnail đen) ✅
+
+**Triệu chứng (user):** live-chat `index.html` auto-snap "không focus vào vẫn chụp nên nó bị thumbnail đen" — comment có ảnh thumbnail ĐEN.
+
+**Nguyên nhân:** path capture qua extension (`chrome.tabs.captureVisibleTab`) chỉ gate `!document.hidden`. `document.hidden` vẫn `false` khi tab là active tab của window NHƯNG window KHÔNG focus (user qua app/cửa sổ khác) → `captureVisibleTab` trả frame ĐEN (hoặc tệ hơn: tab active của window KHÁC đang focus → chụp nhầm nội dung). Crop wrapper FB-live → thumbnail đen lưu vào DB.
+
+**Fix** ([live-livestream-snap.js](live-chat/js/live/live-livestream-snap.js)):
+
+- `_pageActiveForCapture()` = `visibilityState==='visible' && document.hasFocus()` — `hasFocus()` chỉ true khi window focus + tab active (đúng điều kiện có frame thật). Gate ở **1 funnel duy nhất** `_captureExtensionFrame` (return null khi không active) + cập nhật `canExtTabCapture`. Mọi caller (auto-snap, frame-buffer tick, force-extract pool) tự được bảo vệ.
+- `_isFrameBlank(ctx,w,h)` = lấy mẫu ~1024 pixel sau crop; `mean<10 && max<24` (luminance 0-255) → coi là đen → bỏ frame. Safety-net cho mọi nguồn (focus rồi nhưng iframe chưa render). Unit-test: đen tuyền/near-black jpeg → bỏ; scene tối có highlight + frame thường → giữ.
+- **KHÔNG đụng** stream `getDisplayMedia` (`_captureFrameJpeg`) — path này CỐ Ý chụp khi tab inactive (đã có rVFC né frame seek). Background capture vẫn dùng "🎬 Bắt đầu chụp live".
+
+**Lý do giữ `hasFocus()` (không nới lỏng):** khi window mình KHÔNG focus, `captureVisibleTab` chụp active tab của window ĐANG focus (window khác) → sai nội dung/riêng tư, không chỉ đen. Gate này ngăn chụp nhầm surface. Edge `hasFocus()=false khi DevTools focus` (over-block hẹp, tự hồi khi click lại) — chấp nhận; `_isFrameBlank` là guard chính. (Adversarial review 5-agent: 0 critical/high, 1 medium "acceptable, no change required".)
+
+**Verify:** node --check OK; unit-test `_isFrameBlank` 4 ca đúng. E2E index.html bị chặn vì web2 login session test hết hạn (redirect /web2/login) — không liên quan code. Frontend-only, không cần deploy backend. Bump `live-livestream-snap.js?v=20260616focus`.
+
 ### [web2][live-chat] Tin nhắn dài bị cắt "..." — fix reconcileFullText thiếu customer_id + backfill ✅
 
 **Triệu chứng (user ask 4):** comment livestream dài hiện "..." (vd image 5 "Nguyễn Thuỳ Dung"). KHÔNG phải lỗi frontend (đã verify `clipped:false`) — Pancake cắt snippet ở nguồn (~64 ký tự).
