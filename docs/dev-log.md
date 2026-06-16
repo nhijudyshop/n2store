@@ -2,6 +2,12 @@
 
 ## 2026-06-16
 
+### [web2][realtime] Stage 3 HỦY-XÓA — n2store-realtime là service WEB 1.0, KHÔNG xóa ⚠️
+
+User OK "làm Stage 3" (retire n2store-realtime) NHƯNG sweep trước khi xóa phát hiện premise SAI: `n2store-realtime` **KHÔNG phải broker Web 2.0 cũ** — nó là **service realtime lớp WEB 1.0** (docs RENDER_SERVERS_GUIDE + `shared/universal/api-endpoints.js REALTIME` import bởi orders-report api-config; mô tả "Web 1.0 inbox WS — pending_customers/livestream/labels"). Bằng chứng routing: worker `/ws/pancake`→pancake.vn thẳng; `/api/realtime/*`→**n2store-fallback** (không phải n2store-realtime). Health: HTTP 200 nhưng IDLE (`connected:false, no_ws, pageCount:0`) — chủ yếu vì consumer chính (Web2Realtime proxy) vừa rời đi.
+
+→ **KHÔNG xóa** (xóa = rủi ro vỡ feature Web 1.0). **Web 2.0 đã 0 code-ref tới n2store-realtime** (decouple xong Stage 1+2) → độc lập ĐÃ ĐẠT mà không cần xóa service. Giữ folder `n2store-realtime/` + nginx ref (đều là Web 1.0). Việc decommission n2store-realtime (nó đang idle, có thể đã thừa) = **task lớp Web 1.0 RIÊNG**, cần audit xác nhận inbox/orders-report/labels không dùng — KHÔNG gộp vào việc tách Web 2.0.
+
 ### [web1⊥web2] Audit độc lập toàn Render + gỡ coupling cuối (v2/customers/:id/orders) ✅
 
 User: "kiểm lại toàn bộ Render từng endpoint xem Web 2.0 / Web 1.0 đã độc lập hoàn toàn chưa". Audit 8-agent (6 map → verify file:line → verdict): **~99% độc lập** — core đã tách sạch (2 pool `chatDb`⟂`web2Db`, 2 SSE hub, 2 wallet EventEmitter, 2 service `n2store-fallback`⟂`web2-api`, worker route đúng origin, flag WEB2_ONLY/DISABLE_WEB2_JOBS gating sạch). Shared-by-design OK: worker chatomni-proxy, `pancake_accounts` (token boot read-only), namespace `/api/v2/*` mixed (worker tách origin). 6 báo cáo nêu ~7 nghi vấn → verify chỉ **1 thật**.
