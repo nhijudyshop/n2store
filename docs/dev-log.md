@@ -2,6 +2,14 @@
 
 ## 2026-06-16
 
+### [web1⊥web2] Audit độc lập toàn Render + gỡ coupling cuối (v2/customers/:id/orders) ✅
+
+User: "kiểm lại toàn bộ Render từng endpoint xem Web 2.0 / Web 1.0 đã độc lập hoàn toàn chưa". Audit 8-agent (6 map → verify file:line → verdict): **~99% độc lập** — core đã tách sạch (2 pool `chatDb`⟂`web2Db`, 2 SSE hub, 2 wallet EventEmitter, 2 service `n2store-fallback`⟂`web2-api`, worker route đúng origin, flag WEB2_ONLY/DISABLE_WEB2_JOBS gating sạch). Shared-by-design OK: worker chatomni-proxy, `pancake_accounts` (token boot read-only), namespace `/api/v2/*` mixed (worker tách origin). 6 báo cáo nêu ~7 nghi vấn → verify chỉ **1 thật**.
+
+**Vi phạm thật DUY NHẤT — đã fix (user chọn C):** `render.com/routes/v2/customers.js` route Web 1.0 `GET /api/v2/customers/:id/orders` đọc thẳng `native_orders`+`fast_sale_orders` trên web2Db (cross-pool). Kiểm consumer: **KHÔNG còn frontend live nào gọi** (web2/customer-wallet + web2-customer-detail-modal dùng `/api/web2/customers/by-phone/:phone/orders`; pbh-app.js dùng `/api/web2/customer-orders` — ref `/api/v2/...` chỉ là comment stale; chỉ pbh-qa-test còn gọi). → **Xóa hẳn handler** (doc+body) khỏi v2/customers.js → file Web 1.0 hết đụng web2Db. Repoint pbh-qa-test sang `/api/web2/customer-orders/<phone>` (shape orders[]/totals). node --check pass; grep v2 core (customers/wallets/tickets/analytics) = 0 ref web2.
+
+**Verdict: Web 2.0 ⊥ Web 1.0 độc lập HOÀN TOÀN trên Render** (sau fix này). Resolved kèm: Web2Realtime→web2-realtime, autofb gỡ, backend tách process.
+
 ### [web2][realtime] Stage 2 — repoint Web2Realtime sang web2-realtime + unread fetch Pancake trực tiếp (0 Web 1.0) ✅
 
 Sau Stage 1 (broker đã fold + verify WS OPEN), repoint client + bỏ MỌI call Web 1.0:

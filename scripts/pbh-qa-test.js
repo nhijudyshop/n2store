@@ -619,29 +619,20 @@ async function main() {
         ok(`backfill linked ${r.data.linked} PBHs`);
     });
 
-    await step('GET /api/v2/customers/:id/orders aggregation', async () => {
-        if (!phase12CustomerId) return ok('skipped — no customer created');
-        const r = await api('GET', `/api/v2/customers/${phase12CustomerId}/orders`);
+    // 2026-06-16 (Web1⊥Web2): /api/v2/customers/:id/orders đã gỡ (route Web 1.0
+    // không còn đọc web2Db). Đơn Web 2.0 của KH lấy qua endpoint Web 2.0.
+    await step('GET /api/web2/customer-orders/<phone> aggregation', async () => {
+        const r = await api('GET', `/api/web2/customer-orders/${PHASE12_PHONE}?limit=50`);
         if (!r.data?.success) throw new Error(`HTTP ${r.status}: ${JSON.stringify(r.data)}`);
-        const { native, pbh, summary } = r.data;
-        if (!Array.isArray(native) || !Array.isArray(pbh)) throw new Error('native/pbh not arrays');
-        const foundNw = native.some((o) => o.code === phase12NativeCode);
-        const foundPbh = pbh.some((o) => o.number === phase12PbhNumber);
+        const orders = Array.isArray(r.data.orders) ? r.data.orders : [];
+        const foundNw = orders.some((o) => o.source === 'native' && o.number === phase12NativeCode);
+        const foundPbh = orders.some((o) => o.source === 'pbh' && o.number === phase12PbhNumber);
         if (!foundNw) throw new Error(`test NW ${phase12NativeCode} not in aggregation`);
         if (!foundPbh) throw new Error(`test PBH ${phase12PbhNumber} not in aggregation`);
+        const t = r.data.totals || {};
         ok(
-            `aggregation OK — ${summary.native.count} NW + ${summary.pbh.count} PBH, total ${summary.native.totalAmount + summary.pbh.totalAmount}`
+            `aggregation OK — ${t.native?.count ?? '?'} NW + ${t.pbh?.count ?? '?'} PBH (${orders.length} orders)`
         );
-    });
-
-    await step('GET /api/v2/customers/<phone>/orders also works', async () => {
-        const r = await api('GET', `/api/v2/customers/${PHASE12_PHONE}/orders`);
-        if (!r.data?.success) throw new Error(`HTTP ${r.status}`);
-        if (!Array.isArray(r.data.native) || !Array.isArray(r.data.pbh))
-            throw new Error('native/pbh not arrays');
-        const foundNw = r.data.native.some((o) => o.code === phase12NativeCode);
-        if (!foundNw) throw new Error(`NW ${phase12NativeCode} missing from by-phone aggregation`);
-        ok(`phone-as-id works (${r.data.native.length} NW + ${r.data.pbh.length} PBH)`);
     });
 
     // ---- Browser tests ----

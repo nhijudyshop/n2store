@@ -1240,125 +1240,15 @@ router.get('/:id/rfm', async (req, res) => {
     }
 });
 
+// GET /api/v2/customers/:id/orders — ĐÃ GỠ 2026-06-16 (Web1⊥Web2): route Web 1.0
+// này từng đọc thẳng native_orders + fast_sale_orders trên web2Db (cross-pool).
+// Đơn Web 2.0 của 1 KH giờ lấy qua endpoint Web 2.0: GET /api/web2/customer-orders/:phone
+// (web2-customer-orders.js) hoặc /api/web2/customers/by-phone/:phone/orders.
+
 /**
  * GET /api/v2/customers/:id/transactions
  * Consolidated transactions (wallet_transactions + customer_activities + customer_tickets)
  */
-/**
- * GET /api/v2/customers/:id/orders
- * Phase 12: aggregate Native Web orders + PBH (đều mã NJ-... sau hợp nhất 2026-06-04) for a customer.
- * Customer is identified by numeric id OR phone (auto-detected).
- * Returns: { native: [...], pbh: [...], summary: { ... } }
- */
-router.get('/:id/orders', async (req, res) => {
-    const db = req.app.locals.chatDb;
-    // native_orders + fast_sale_orders là bảng Web 2.0 → sống ở web2Db (n2store-web2-db).
-    // KHÔNG đọc trên chatDb (chỉ còn bản leftover rỗng → đơn KH luôn trống).
-    const web2Db = req.app.locals.web2Db || req.app.locals.chatDb;
-    const { id } = req.params;
-    const limit = Math.min(parseInt(req.query.limit, 10) || 100, 500);
-
-    const isPhone = /^0\d{9}$/.test(id) || /^\d{10,11}$/.test(id);
-    try {
-        let customerId = null;
-        let phone = null;
-        if (isPhone) {
-            phone = id.replace(/\D/g, '');
-            if (!phone.startsWith('0')) phone = '0' + phone;
-            const r = await db.query('SELECT id FROM customers WHERE phone = $1 LIMIT 1', [phone]);
-            customerId = r.rows[0]?.id || null;
-        } else {
-            customerId = parseInt(id, 10);
-            if (!Number.isFinite(customerId))
-                return res.status(400).json({ success: false, error: 'Invalid id' });
-            const r = await db.query('SELECT phone FROM customers WHERE id = $1', [customerId]);
-            if (r.rows.length === 0)
-                return res.status(404).json({ success: false, error: 'Customer not found' });
-            phone = r.rows[0].phone;
-        }
-
-        // Đơn Web 2.0 (native_orders/fast_sale_orders) match theo PHONE — customer_id
-        // của chatDb (Web 1.0) khác id-space với web2Db nên không join chéo được.
-        // Query trên web2Db. Không có phone → trả rỗng (khỏi quét toàn bảng).
-        const [nwRes, pbhRes] = phone
-            ? await Promise.all([
-                  web2Db.query(
-                      `SELECT code, display_stt, status, customer_name, phone, total_amount,
-                              total_quantity, live_campaign_id, live_campaign_name,
-                              created_at, updated_at
-                       FROM native_orders
-                       WHERE phone = $1
-                       ORDER BY created_at DESC
-                       LIMIT $2`,
-                      [phone, limit]
-                  ),
-                  web2Db.query(
-                      `SELECT number, display_stt, state, partner_name, partner_phone, amount_total,
-                              total_quantity, live_campaign_id, live_campaign_name,
-                              date_invoice, date_created, date_updated
-                       FROM fast_sale_orders
-                       WHERE partner_phone = $1
-                       ORDER BY date_created DESC
-                       LIMIT $2`,
-                      [phone, limit]
-                  ),
-              ])
-            : [{ rows: [] }, { rows: [] }];
-
-        const native = nwRes.rows.map((r) => ({
-            code: r.code,
-            displayStt: r.display_stt,
-            status: r.status,
-            customerName: r.customer_name,
-            phone: r.phone,
-            totalAmount: Number(r.total_amount || 0),
-            totalQuantity: r.total_quantity,
-            liveCampaign: { id: r.live_campaign_id, name: r.live_campaign_name },
-            createdAt: r.created_at,
-            updatedAt: r.updated_at,
-        }));
-        const pbh = pbhRes.rows.map((r) => ({
-            number: r.number,
-            displayStt: r.display_stt,
-            state: r.state,
-            partnerName: r.partner_name,
-            partnerPhone: r.partner_phone,
-            amountTotal: Number(r.amount_total || 0),
-            totalQuantity: r.total_quantity,
-            liveCampaign: { id: r.live_campaign_id, name: r.live_campaign_name },
-            dateInvoice: r.date_invoice,
-            dateCreated: r.date_created,
-            dateUpdated: r.date_updated,
-        }));
-
-        // Summary aggregate (totals across both order types)
-        const summary = {
-            native: {
-                count: native.length,
-                totalAmount: native.reduce((s, o) => s + o.totalAmount, 0),
-            },
-            pbh: {
-                count: pbh.length,
-                totalAmount: pbh.reduce((s, o) => s + o.amountTotal, 0),
-                byState: pbh.reduce((acc, o) => {
-                    acc[o.state] = (acc[o.state] || 0) + 1;
-                    return acc;
-                }, {}),
-            },
-        };
-
-        res.json({
-            success: true,
-            customerId,
-            phone,
-            native,
-            pbh,
-            summary,
-        });
-    } catch (error) {
-        handleError(res, error, 'Failed to load customer orders');
-    }
-});
 
 router.get('/:id/transactions', async (req, res) => {
     const db = req.app.locals.chatDb;
