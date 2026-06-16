@@ -3,14 +3,16 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `059ee22` — docs(dev-log): Part B (Kho SP origin hover) deployed + verified end-to-end
-**Last updated**: 2026-06-16 16:53:59 +07
-**Latest session**: [`RESUME:20260616-165359-059ee22`](../20260616-165359-059ee22.md)
-**Summary**: docs(dev-log): Part B (Kho SP origin hover) deployed + verified end-to-end
+**Latest commit**: `d6df92a` — feat(so-order): nhóm NCC 'Đã nhận' dồn xuống cuối lô (render-only, giữ rowspan + pending lên trên)
+**Last updated**: 2026-06-16 17:03:53 +07
+**Latest session**: [`RESUME:20260616-170353-d6df92a`](../20260616-170353-d6df92a.md)
+**Summary**: feat(so-order): nhóm NCC 'Đã nhận' dồn xuống cuối lô (render-only, giữ rowspan + pending lên trên)
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
+- [`orders-report/`](./orders-report.md) — 1 file(s)
+- [`so-order/`](./so-order.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -25,7 +27,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-16 11:15
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-16 14:31
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-16 16:43
-- [`docs/`](./docs.md) — updated 2026-06-16 16:53
+- [`docs/`](./docs.md) — updated 2026-06-16 17:03
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-16 14:31
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-16 14:31
 - [`downloads/`](./downloads.md) — updated 2026-06-13 19:16
@@ -45,7 +47,7 @@
 - [`native-orders/`](./native-orders.md) — updated 2026-06-16 10:25
 - [`nhanhang/`](./nhanhang.md) — updated 2026-06-13 19:51
 - [`order-management/`](./order-management.md) — updated 2026-05-21 15:39
-- [`orders-report/`](./orders-report.md) — updated 2026-06-16 16:43
+- [`orders-report/`](./orders-report.md) — updated 2026-06-16 17:03
 - [`pancake-extension/`](./pancake-extension.md) — updated 2026-05-21 11:33
 - [`phone-management/`](./phone-management.md) — updated 2026-05-21 15:39
 - [`product-warehouse/`](./product-warehouse.md) — updated 2026-06-16 14:31
@@ -60,7 +62,7 @@
 - [`shared/`](./shared.md) — updated 2026-06-16 14:31
 - [`showroom/`](./showroom.md) — updated 2026-06-10 19:04
 - [`showroom1/`](./showroom1.md) — updated 2026-06-10 19:52
-- [`so-order/`](./so-order.md) — updated 2026-06-16 16:37
+- [`so-order/`](./so-order.md) — updated 2026-06-16 17:03
 - [`soluong-live/`](./soluong-live.md) — updated 2026-06-16 14:31
 - [`soorder/`](./soorder.md) — updated 2026-05-21 15:39
 - [`soquy/`](./soquy.md) — updated 2026-06-13 19:51
