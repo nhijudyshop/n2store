@@ -15,11 +15,12 @@
 //      `pages:new_message` events).
 //
 //   2) PROXY FALLBACK:
-//      `wss://web2-realtime.onrender.com` — service Render Web 2.0 (relay,
-//      gộp 2026-06-14) giữ WebSocket server-side tới Pancake 24/7. Useful when
-//      direct browser connections fail (CSP, network filter, etc.) but
-//      events get bottlenecked through a single shared instance, so it
-//      misses traffic for pages the broker isn't subscribed to.
+//      `wss://n2store-realtime.onrender.com` — service Render 'n2store-realtime'
+//      (folder n2store-realtime/) = BROKER chạy WS server cho browser + giữ
+//      WebSocket server-side tới Pancake 24/7 per-account. ⚠ KHÁC service
+//      'web2-realtime' (live-chat/server = relay Pancake→SSE, KHÔNG có browser
+//      WS server). Useful when direct browser connections fail (CSP, filter…)
+//      but events bottleneck qua 1 instance, miss pages broker chưa subscribe.
 //
 // Public API (mode-agnostic):
 //   Web2Realtime.subscribe({ types, onEvent, debounceMs }) → { unsubscribe }
@@ -33,10 +34,12 @@
     if (global.Web2Realtime) return;
 
     const PANCAKE_WS_URL = 'wss://pancake.vn/socket/websocket?vsn=2.0.0';
-    // Relay broker = service Render Web 2.0 'web2-realtime' (1 nguồn: WEB2_CONFIG.REALTIME).
-    const PROXY_HTTP_URL =
-        (window.WEB2_CONFIG && window.WEB2_CONFIG.REALTIME) || 'https://web2-realtime.onrender.com';
-    const PROXY_WS_URL = PROXY_HTTP_URL.replace(/^http/, 'ws'); // wss://web2-realtime.onrender.com
+    // Broker = service 'n2store-realtime' (n2store-realtime/server.js): WS server cho
+    // browser + /api/realtime/start-multi. KHÔNG phải 'web2-realtime' (relay Pancake→SSE,
+    // không phục vụ browser WS → 1006). Broker chưa migrate sang project web2.0 (vẫn
+    // sống ở project cũ — đã verify HTTP 200). Đây là 1 nguồn cho web2-realtime.js.
+    const PROXY_HTTP_URL = 'https://n2store-realtime.onrender.com';
+    const PROXY_WS_URL = 'wss://n2store-realtime.onrender.com';
     const WORKER_BASE =
         (window.API_CONFIG && window.API_CONFIG.WORKER_URL) ||
         'https://chatomni-proxy.nhijudyshop.workers.dev';
