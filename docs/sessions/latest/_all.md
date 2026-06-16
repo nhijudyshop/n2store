@@ -3,16 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `10086d1` — refactor(web1⊥web2): gỡ /api/v2/customers/:id/orders đọc web2Db (coupling cuối) — độc lập hoàn toàn
-**Last updated**: 2026-06-16 10:16:30 +07
-**Latest session**: [`RESUME:20260616-101630-10086d1`](../20260616-101630-10086d1.md)
-**Summary**: refactor(web1⊥web2): gỡ /api/v2/customers/:id/orders đọc web2Db (coupling cuối) — độc lập hoàn toàn
+**Latest commit**: `6aaa49f` — feat(web2-realtime): proxy-only — bỏ direct WS pancake.vn (hết log đỏ 1006)
+**Last updated**: 2026-06-16 10:25:46 +07
+**Latest session**: [`RESUME:20260616-102546-6aaa49f`](../20260616-102546-6aaa49f.md)
+**Summary**: feat(web2-realtime): proxy-only — bỏ direct WS pancake.vn (hết log đỏ 1006)
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 1 file(s)
-- [`scripts/`](./scripts.md) — 1 file(s)
+- [`native-orders/`](./native-orders.md) — 1 file(s)
+- [`web2/`](./web2.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -44,7 +43,7 @@
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-06-04 20:02
 - [`n2store-facebook/`](./n2store-facebook.md) — updated 2026-06-14 13:09
 - [`n2store-realtime/`](./n2store-realtime.md) — updated 2026-06-14 12:30
-- [`native-orders/`](./native-orders.md) — updated 2026-06-16 09:18
+- [`native-orders/`](./native-orders.md) — updated 2026-06-16 10:25
 - [`nhanhang/`](./nhanhang.md) — updated 2026-06-13 19:51
 - [`order-management/`](./order-management.md) — updated 2026-05-21 15:39
 - [`orders-report/`](./orders-report.md) — updated 2026-06-15 20:20
@@ -75,4 +74,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-16 09:18
+- [`web2/`](./web2.md) — updated 2026-06-16 10:25
