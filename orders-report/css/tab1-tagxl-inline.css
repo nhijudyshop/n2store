@@ -1,0 +1,88 @@
+/* #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes. */
+/* =====================================================
+   INLINE TAG XL EDITOR — cạnh nút Auto T
+   Hiện dòng gắn Tag XL của đơn vừa mở chat TỪ thanh "Khách chưa trả lời".
+   Tái dụng renderProcessingTagCell(orderCode); override layout sang NGANG
+   (scope dưới .tagxl-inline, KHÔNG đụng cell trong bảng).
+   ===================================================== */
+
+.tagxl-inline {
+    display: none; /* hiện khi .has-order */
+    align-items: center;
+    gap: 8px;
+    margin-left: 10px;
+    padding: 3px 8px;
+    border-radius: 10px;
+    background: #eef2ff;
+    border: 1px solid #c7d2fe;
+    max-width: 60vw;
+    overflow-x: auto;
+    overflow-y: hidden;
+    white-space: nowrap;
+    scrollbar-width: thin;
+    scrollbar-color: #c7d2fe transparent;
+    overscroll-behavior-x: contain;
+}
+.tagxl-inline.has-order {
+    display: inline-flex;
+}
+.tagxl-inline::-webkit-scrollbar {
+    height: 6px;
+}
+.tagxl-inline::-webkit-scrollbar-thumb {
+    background: #c7d2fe;
+    border-radius: 3px;
+}
+
+.tagxl-inline__label {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #4338ca;
+    white-space: nowrap;
+}
+.tagxl-inline__label i {
+    color: #6366f1;
+}
+.tagxl-inline__name {
+    max-width: 160px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.tagxl-inline__close {
+    flex-shrink: 0;
+    border: none;
+    background: transparent;
+    color: #6366f1;
+    font-size: 15px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0 2px;
+    border-radius: 6px;
+}
+.tagxl-inline__close:hover {
+    background: #e0e7ff;
+    color: #3730a3;
+}
+
+/* Render ngang: nút gán rồi tới chip, cùng 1 hàng */
+.tagxl-inline .ptag-cell {
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+}
+.tagxl-inline .ptag-cell-badges,
+.tagxl-inline .ptag-cell-ttag-row,
+.tagxl-inline .ptag-cell-flags-row {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+}
+.tagxl-inline .ptag-cell-buttons {
+    flex-shrink: 0;
+}

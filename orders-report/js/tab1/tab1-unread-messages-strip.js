@@ -195,9 +195,13 @@
     }
 
     function buildCell(c) {
+        // Route qua TagXLInline.openFromStrip → mở chat + hiện inline Tag XL editor của đơn đó.
+        // Fallback showConversationPicker nếu module chưa load.
+        const args = `'${escapeHtml(c.orderId)}','${escapeHtml(c.pageId)}','${escapeHtml(c.psid)}',event`;
         const onclick =
-            'window.showConversationPicker && window.showConversationPicker(' +
-            `'${escapeHtml(c.orderId)}','${escapeHtml(c.pageId)}','${escapeHtml(c.psid)}', event)`;
+            `(window.TagXLInline&&window.TagXLInline.openFromStrip)` +
+            `?window.TagXLInline.openFromStrip(${args})` +
+            `:(window.showConversationPicker&&window.showConversationPicker(${args}))`;
         const lateCls = c.late ? ' ucs-cell--late' : '';
         const wait = fmtWait(c.waitedMs);
         const empTag =

@@ -75,6 +75,21 @@ User hỏi multi-machine + xin dọn thumbnail livestream HÔM NAY (không cần
 
 **Multi-machine (trả lời user):** chụp NỀN (stream/buffer) = **1 máy duy nhất** qua leader-lock CAS (TTL 90s, heartbeat 30s, stall-failover 75s, SSE takeover) → không tranh nhau. Per-comment captureVisibleTab KHÔNG lock (nhiều máy focus có thể thử) NHƯNG **không bao giờ chồng chéo dữ liệu**: unique index `comment_id` + COALESCE first-wins + SSE existingSnap-skip → đúng 1 ảnh/comment, không trùng/không đè. Fix focus-gate hôm trước loại frame đen khỏi cuộc đua → "ảnh đầu tiên" luôn là frame thật từ máy focus.
 
+### [orders-report] Inline Tag XL editor cạnh nút Auto T (gắn tag đơn vừa mở chat từ thanh) ✅
+
+**User:** "bên cạnh nút auto bật, khi mở khung chat từ bộ lọc tin nhắn → hiện dòng gắn tag xl của đơn đó để user nhắn xong gắn tag; click ô khác đổi đơn; mở chat ngoài thanh thì ẩn; tag gắn thêm xếp theo chiều ngang sau các nút gán."
+
+**Làm:** Inline Tag XL editor đặt cạnh nút Auto T, bind theo đơn vừa mở chat TỪ thanh "Khách chưa trả lời".
+
+- **JS** [tab1-tagxl-inline.js](orders-report/js/tab1/tab1-tagxl-inline.js) (`window.TagXLInline`): `openFromStrip(orderId,pageId,psid,ev)` (strip gọi) set cờ `_fromStrip` → `showConversationPicker` → `show(orderId)`. `show()` lookup `OrderStore.get(id)` → render label `STT · tên` + `window.renderProcessingTagCell(order.Code)` (tái dụng y hệt cell Tag XL trong bảng — nút gán + chip, khoá theo order.Code) + nút ×. `init()` (DOMContentLoaded) **wrap**: `openChatModal` (mở KHÔNG từ thanh & khác đơn đang bind → `hide()`), `openCommentModal` (luôn `hide()`), `_ptagRefreshRow` (orderCode trùng → `rerender()` đồng bộ sau mọi mutation kể cả chọn dropdown). Guard idempotent.
+- **CSS** [tab1-tagxl-inline.css](orders-report/css/tab1-tagxl-inline.css): `.tagxl-inline` ẩn mặc định, `.has-order`→inline-flex; **scope override ngang** `.tagxl-inline .ptag-cell{flex-direction:row}` + `.ptag-cell-badges/.ptag-cell-ttag-row/.ptag-cell-flags-row{flex-direction:row;flex-wrap:wrap}` (không đụng cell trong bảng); max-width 60vw + scroll-x.
+- **Strip** [tab1-unread-messages-strip.js](orders-report/js/tab1/tab1-unread-messages-strip.js): onclick ô route qua `TagXLInline.openFromStrip` (fallback `showConversationPicker`).
+- **HTML** [tab1-orders.html](orders-report/tab1-orders.html): container `#tagxlInlineEditor` sau nút `#autoTToggle`; thêm CSS link + script `?v=20260616a` (sau strip).
+
+**Verify (Playwright localhost:8099, campaign T6, 531 đơn):** (1) click ô thanh → editor hiện "STT 471 · Yến VY", `.ptag-cell` + badges `flex-direction:row`, 5 nút + 4 chip + nút ×, chat mở; (2) click ô khác → đổi "STT 68 · Mong Duy Nguyen"; (3) click cột TIN NHẮN trong bảng (showConversationPicker, non-strip) → editor ẩn; (4) nút gán onclick đúng order Code `260602462`; wrap `_ptagRefreshRow(code)` re-render editor (test marker, KHÔNG mutate data thật), giữ layout ngang; (5) editor PERSIST sau khi đóng chat (để gắn tag sau khi nhắn); 0 lỗi console từ module. `node --check` 2 file PASS.
+
+**Status:** ✅ code + browser test OK. Web 1.0 (orders-report).
+
 ### [web2][live-chat] Snapshot — KHÔNG chụp khi tab không focus (hết thumbnail đen) ✅
 
 **Triệu chứng (user):** live-chat `index.html` auto-snap "không focus vào vẫn chụp nên nó bị thumbnail đen" — comment có ảnh thumbnail ĐEN.
