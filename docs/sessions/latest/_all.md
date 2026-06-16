@@ -3,16 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `694760b` — docs(dev-log): web2-products NCC-split match — verified live (cross-NCC riêng, same-NCC gộp, adjust đối xứng)
-**Last updated**: 2026-06-16 18:59:32 +07
-**Latest session**: [`RESUME:20260616-185932-694760b`](../20260616-185932-694760b.md)
-**Summary**: docs(dev-log): web2-products NCC-split match — verified live (cross-NCC riêng, same-NCC gộp, adjust đối xứng)
+**Latest commit**: `324bf63` — docs(dev-log): điền kết quả verify thẻ Tổng tiền hóa đơn (live)
+**Last updated**: 2026-06-16 19:17:10 +07
+**Latest session**: [`RESUME:20260616-191710-324bf63`](../20260616-191710-324bf63.md)
+**Summary**: docs(dev-log): điền kết quả verify thẻ Tổng tiền hóa đơn (live)
 
 ## Folders affected in this commit
 
 - [`delivery-report/`](./delivery-report.md) — 2 file(s)
 - [`docs/`](./docs.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -26,8 +25,8 @@
 - [`bangkiemhang/`](./bangkiemhang.md) — updated 2026-05-21 15:39
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-16 11:15
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-16 14:31
-- [`delivery-report/`](./delivery-report.md) — updated 2026-06-16 18:59
-- [`docs/`](./docs.md) — updated 2026-06-16 18:59
+- [`delivery-report/`](./delivery-report.md) — updated 2026-06-16 19:17
+- [`docs/`](./docs.md) — updated 2026-06-16 19:17
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-16 14:31
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-16 14:31
 - [`downloads/`](./downloads.md) — updated 2026-06-13 19:16
