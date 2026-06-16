@@ -1222,7 +1222,10 @@
         });
     }
 
-    // Fire-and-forget: đảm bảo NCC tồn tại trong Ví NCC (Firestore). Idempotent.
+    // Fire-and-forget: đảm bảo NCC tồn tại trong NGUỒN CHUNG Ví NCC
+    // (Web2SuppliersCache → POST /api/web2-supplier-wallet/suppliers → bảng
+    // web2_supplier_meta). Idempotent. Mọi trang Web 2.0 cần NCC đều đi qua cache
+    // này → 1 nguồn duy nhất = trang Ví NCC (supplier-wallet).
     function _ensureSupplierAsync(name) {
         if (!name) return;
         const cache = window.Web2SuppliersCache;
@@ -1230,6 +1233,30 @@
         cache.ensure(name).catch((e) => {
             console.warn('[so-order] supplier ensure fail:', e?.message || e);
         });
+    }
+
+    // Tạo NCC mới NGAY khi user chọn/gõ trong picker (click "+ Tạo NCC …" hoặc
+    // pick từ list) + báo kết quả. Trước đây picker modal không truyền onPick →
+    // click "+ Tạo NCC" chỉ điền input, KHÔNG gọi ensure → "tạo mới chưa được".
+    async function _ensureSupplierWithFeedback(name) {
+        const trimmed = String(name || '').trim();
+        if (!trimmed) return;
+        const cache = window.Web2SuppliersCache;
+        if (!cache?.ensure) return;
+        if (cache.has && cache.has(trimmed)) return; // đã có sẵn → no-op, không báo
+        try {
+            const res = await cache.ensure(trimmed);
+            if (res?.ok && res.created) {
+                notify(`Đã tạo NCC "${trimmed}" vào Ví NCC`, 'success');
+            } else if (res && res.ok === false) {
+                notify(
+                    `Không tạo được NCC "${trimmed}": ${res.error || res.reason || 'lỗi server'}`,
+                    'error'
+                );
+            }
+        } catch (e) {
+            notify(`Không tạo được NCC "${trimmed}": ${e?.message || e}`, 'error');
+        }
     }
 
     function actionsCell(rowId, shipmentId, status) {
@@ -2729,18 +2756,21 @@ window.addEventListener('load', () => {
     // P1 2026-05-30: variant dropdown bị che bởi modal-body overflow:auto
     // dù z-index=80. Fix: dùng position:fixed + JS tính từ input rect (anchor
     // lên window). Dropdown bay ra khỏi clip của modal-body, hover/click OK.
-    function _positionFixedDropdown(list, _anchorInput) {
+    function _positionFixedDropdown(list, anchorInput) {
         // 2026-06-16: KHÔNG dùng position:fixed nữa. Ancestor `.so-modal-body-v2`
         // có `contain: layout style paint` → mọi fixed-descendant được tính toạ độ
-        // (và clip) theo BOX đó, KHÔNG phải viewport. `top = rect.bottom` (toạ độ
-        // viewport) vì thế rớt lệch rất xa input. Dropdown đã có CSS
-        // `position:absolute; top:100%` so với wrap (position:relative) → đứng sát
-        // ngay dưới input. Chỉ cần XOÁ inline style fixed cũ (nếu còn) để CSS áp dụng.
-        list.style.position = '';
-        list.style.top = '';
-        list.style.left = '';
+        // (và clip) theo BOX đó, KHÔNG phải viewport → `top = rect.bottom` (toạ độ
+        // viewport) rớt lệch rất xa input (bug "drop list quá xa ô input").
+        // Dùng position:absolute so với wrap (position:relative). Đặt `top` NGAY
+        // dưới INPUT (offsetTop+offsetHeight) thay vì top:100% — vì wrap SP còn chứa
+        // cụm badge `.so-row-meta` ở giữa, top:100% sẽ đẩy dropdown xuống dưới badge
+        // (~38px). Overlap badge khi đang mở là chấp nhận được (z-index cao hơn).
+        list.style.position = 'absolute';
+        const top = (anchorInput?.offsetTop || 0) + (anchorInput?.offsetHeight || 0) + 2;
+        list.style.top = top + 'px';
+        list.style.left = '0';
+        list.style.right = '0';
         list.style.width = '';
-        list.style.right = '';
         list.style.zIndex = '';
     }
 
@@ -3133,7 +3163,11 @@ window.addEventListener('load', () => {
         // Bind supplier picker (idempotent — chỉ bind 1 lần cho input cố định).
         _ensureSupplierCacheSubscription();
         if (form.elements.supplier) {
-            attachSupplierPickerOnDemand(form.elements.supplier);
+            // onPick: click "+ Tạo NCC …" / chọn NCC → tạo NGAY vào nguồn chung
+            // Ví NCC (supplier-wallet) + báo kết quả.
+            attachSupplierPickerOnDemand(form.elements.supplier, {
+                onPick: (val) => _ensureSupplierWithFeedback(val),
+            });
         }
         setTimeout(() => {
             const firstNameInput = document.querySelector(
@@ -4121,7 +4155,11 @@ window.addEventListener('load', () => {
         _bindModalScrollCloseDropdowns();
         _ensureSupplierCacheSubscription();
         if (form.elements.supplier) {
-            attachSupplierPickerOnDemand(form.elements.supplier);
+            // onPick: click "+ Tạo NCC …" / chọn NCC → tạo NGAY vào nguồn chung
+            // Ví NCC (supplier-wallet) + báo kết quả.
+            attachSupplierPickerOnDemand(form.elements.supplier, {
+                onPick: (val) => _ensureSupplierWithFeedback(val),
+            });
         }
     }
 
