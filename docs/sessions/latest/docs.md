@@ -3,23 +3,24 @@
 > Snapshot tự động ghi đè sau mỗi commit chạm folder này. **Không edit thủ công.**
 > Mục đích: khi session cũ chết (vd lỗi image limit), session mới chỉ cần đọc file này là có đủ context để tiếp tục.
 
-**Latest session**: `RESUME:20260616-161403-cd81ab5`
-**Session file**: [`./20260616-161403-cd81ab5.md`](../20260616-161403-cd81ab5.md)
-**Commit**: `cd81ab5` — docs(dev-log): money-model so-order — status auto + nợ NCC khi nhận hàng + discount/ship per-đơn
-**Last updated**: 2026-06-16 16:14:03 +07
-**Summary**: docs(dev-log): money-model so-order — status auto + nợ NCC khi nhận hàng + discount/ship per-đơn
+**Latest session**: `RESUME:20260616-163740-0c0870b`
+**Session file**: [`./20260616-163740-0c0870b.md`](../20260616-163740-0c0870b.md)
+**Commit**: `0c0870b` — feat(so-order/kho): Part B — Kho SP lưu origin_currency/origin_rate, hover hiện giá gốc ngoại tệ (CNY); write paths gửi origin lúc nhập
+**Last updated**: 2026-06-16 16:37:40 +07
+**Summary**: feat(so-order/kho): Part B — Kho SP lưu origin_currency/origin_rate, hover hiện giá gốc ngoại tệ (CNY); w...
 
 ## Files changed in this commit (`docs/`)
 
 - `docs/dev-log.md`
+- `docs/web2/WEB2-PAGES-ANALYSIS.md`
 
 ## Last 5 commits touching `docs/`
 
-- `cd81ab588` docs(dev-log): money-model so-order — status auto + nợ NCC khi nhận hàng + discount/ship per-đơn _(2026-06-16)_
-- `d2bb1cef1` chore(session): RESUME:20260616-161145-c7b772e _(2026-06-16)_
-- `cf5227765` chore(session): RESUME:20260616-160137-3090aec _(2026-06-16)_
-- `d9c0609e4` fix(so-order): nền bảng xen kẽ theo NHÓM NCC/đơn (parity class JS) thay zebra :nth-child lệch nhóm — tăng tương phản đọc từng khối _(2026-06-16)_
-- `a56d9d55c` fix(render): pending*customers sai múi giờ -7h — server emit ISO-UTC (strip báo trễ 7h) *(2026-06-16)\_
+- `0c0870b0a` feat(so-order/kho): Part B — Kho SP lưu origin*currency/origin_rate, hover hiện giá gốc ngoại tệ (CNY); write paths gửi origin lúc nhập *(2026-06-16)\_
+- `158adf4e7` docs(web2): sync overview + pages-analysis cho money-model nhận-hàng (rule 9) _(2026-06-16)_
+- `60d72dfd4` fix(delivery-report): account phuoc thấy nút Tra soát — gate theo username (ổn định) thay vì displayName (user đã đổi tên) _(2026-06-16)_
+- `558680a25` fix(so-order): lấy SP từ Kho SP (VND) vào đơn → quy đổi ÷tab.rate ra tiền tab (helper fromVnd); chống corrupt giá kho khi re-save tab ngoại tệ _(2026-06-16)_
+- `ff89b732b` chore(session): RESUME:20260616-161403-cd81ab5 _(2026-06-16)_
 
 ---
 
@@ -27,4 +28,4 @@
 
 1. Đọc file session ở trên để xem Files Modified + Next Steps đã điền (nếu Claude turn trước fill rồi).
 2. Cần lùi xa hơn → `git show <sha>` theo list commit trên.
-3. Hoặc paste token `RESUME:20260616-161403-cd81ab5` cho Claude walk chain theo CLAUDE.md protocol.
+3. Hoặc paste token `RESUME:20260616-163740-0c0870b` cho Claude walk chain theo CLAUDE.md protocol.
