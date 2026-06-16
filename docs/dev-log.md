@@ -13,7 +13,7 @@
 
 **Lưu ý:** Tổng tiền theo định nghĩa user (COD amount + Deposit amount) — KHÁC `SumAmountTotal` của TPOS (COD+Deposit ≠ AmountTotal vì COD là full giá trị đơn COD, Deposit là đơn trả trước riêng). Bump `?v=20260616d`.
 
-**Verify (Playwright, live):** [chèn sau verify]
+**Verify (Playwright, live nhijudy.store):** 3 thẻ — Tổng tiền hóa đơn 383 HĐ / 248.453.000, Giao hàng thu tiền 383 / 220.745.000, Tổng trả trước 67 / 27.708.000. Arithmetic check: COD+Deposit (220.745.000+27.708.000) === Total (248.453.000) ✓.
 
 **Status:** ✅ Web 1.0 (delivery-report, PROD).
 
