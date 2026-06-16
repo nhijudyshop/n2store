@@ -69,11 +69,21 @@
                 <div class="wz-chat-head">
                     ${WZ.avatarHtml(conv.avatar_url, name, 'wz-conv-av' + (conv.thread_type === 'group' ? ' is-group' : ''), 'width:34px;height:34px')}
                     <span class="wz-chat-head-name">${esc(name)}</span>
+                    <button class="wz-head-btn" id="wzcvSearchBtn" title="Tìm trong hội thoại" aria-label="Tìm trong hội thoại"><i data-lucide="search"></i></button>
+                </div>
+                <div class="wz-srch-bar" id="wzcvSrchBar" hidden>
+                    <i data-lucide="search"></i>
+                    <input class="wz-srch-input" id="wzcvSrchInput" type="search" placeholder="Tìm trong hội thoại…" aria-label="Tìm trong hội thoại">
+                    <span class="wz-srch-count" id="wzcvSrchCount"></span>
+                    <button class="wz-srch-nav" data-srch="prev" title="Trước (Shift+Enter)" aria-label="Khớp trước"><i data-lucide="chevron-up"></i></button>
+                    <button class="wz-srch-nav" data-srch="next" title="Sau (Enter)" aria-label="Khớp sau"><i data-lucide="chevron-down"></i></button>
+                    <button class="wz-srch-nav" data-srch="close" title="Đóng (Esc)" aria-label="Đóng tìm"><i data-lucide="x"></i></button>
                 </div>
                 <div class="wz-chat-body" id="wzcvBody"></div>
                 <button class="wz-scroll-fab" id="wzcvFab" hidden aria-label="Cuộn xuống cuối"><i data-lucide="chevron-down"></i></button>
                 <div id="wzcvCompose"></div>`;
             if (window.lucide) lucide.createIcons();
+            _bindSearch();
             WZ.mountComposer(container.querySelector('#wzcvCompose'), {
                 conv,
                 account,
@@ -108,6 +118,12 @@
             if (o.prepend) el.scrollTop = prevTop + (el.scrollHeight - prevH);
             else if (o.keepScroll && !wasNear) el.scrollTop = prevTop;
             else el.scrollTop = el.scrollHeight;
+            // re-render xoá tô tìm kiếm → vẽ lại nếu đang tìm (realtime/refresh khi mở thanh tìm)
+            if (_srchActive && _srchRaw) {
+                _computeMatches(_srchRaw);
+                _paintSearch(_srchRaw);
+                _updateSearchCount();
+            }
         }
 
         function setTyping(on) {
@@ -403,6 +419,203 @@
                 WZ.store?.setMessages(messages);
                 renderBody({ keepScroll: true });
             } catch {}
+        }
+
+        // ── tìm trong hội thoại ─────────────────────────────────────────
+        // Nạp đủ tin (1 lần) để tìm toàn hội thoại, không chỉ tin đang hiển thị.
+        async function _loadAllForSearch() {
+            if (_srchLoadedAll) return;
+            let guard = 0;
+            while (hasMore && guard < 30) {
+                const oldest = messages[0];
+                if (!oldest?.sent_at) break;
+                let res;
+                try {
+                    res = await Api.loadHistory(conv.id, {
+                        limit: 100,
+                        before: oldest.sent_at,
+                        beforeId: oldest.id,
+                    });
+                } catch {
+                    break;
+                }
+                const have = new Set(messages.map((m) => String(m.msg_id || m.id)));
+                const fresh = (res.data || []).filter((m) => !have.has(String(m.msg_id || m.id)));
+                hasMore = res.hasMore;
+                if (!fresh.length) break;
+                messages = fresh.concat(messages);
+                guard++;
+            }
+            if (conv.thread_type === 'group' && !backfilledOnce) {
+                backfilledOnce = true;
+                const r = await Api.backfill(conv.id, 200).catch(() => null);
+                if (r && r.added > 0) {
+                    try {
+                        const res = await Api.messages(
+                            conv.id,
+                            Math.min(messages.length + r.added + 50, 500)
+                        );
+                        if ((res.data || []).length >= messages.length) {
+                            messages = res.data;
+                            hasMore = !!res.hasMore;
+                        }
+                    } catch {}
+                }
+            }
+            _srchLoadedAll = true;
+            WZ.store?.setMessages(messages);
+            renderBody({ keepScroll: true });
+        }
+
+        function _computeMatches(raw) {
+            const q = _srchNorm(raw.trim());
+            _srchMatches = [];
+            if (q)
+                messages.forEach((m, i) => {
+                    if (m.recalled) return;
+                    if (_srchNorm(m.content || '').includes(q))
+                        _srchMatches.push({
+                            id: String(m.msg_id || m.cli_msg_id || m.id),
+                            idx: i,
+                        });
+                });
+            if (_srchPos >= _srchMatches.length) _srchPos = _srchMatches.length - 1;
+        }
+
+        // tô khớp: ring bong bóng + <mark> chữ khớp (best-effort, case-insensitive).
+        function _paintSearch(raw) {
+            const el = body();
+            if (!el) return;
+            el.querySelectorAll('.wz-srch-hit,.wz-srch-cur').forEach((x) =>
+                x.classList.remove('wz-srch-hit', 'wz-srch-cur')
+            );
+            el.querySelectorAll('mark.wz-srch-mk').forEach((mk) =>
+                mk.replaceWith(document.createTextNode(mk.textContent))
+            );
+            const ids = new Set(_srchMatches.map((m) => m.id));
+            if (!ids.size) return;
+            el.querySelectorAll('.wz-msg').forEach((node) => {
+                const id = node.dataset.msgid || node.dataset.cli;
+                if (!id || !ids.has(String(id))) return;
+                node.classList.add('wz-srch-hit');
+                const b = node.querySelector('.wz-msg-bubble');
+                if (b) _markInline(b, raw.trim());
+            });
+        }
+
+        function _markInline(bubble, raw) {
+            const q = raw.toLowerCase();
+            if (!q) return;
+            const walker = document.createTreeWalker(bubble, NodeFilter.SHOW_TEXT, null);
+            const targets = [];
+            let n;
+            while ((n = walker.nextNode()))
+                if (n.nodeValue.toLowerCase().includes(q)) targets.push(n);
+            targets.forEach((node) => {
+                const s = node.nodeValue;
+                const low = s.toLowerCase();
+                const frag = document.createDocumentFragment();
+                let from = 0;
+                let idx;
+                while ((idx = low.indexOf(q, from)) !== -1) {
+                    if (idx > from) frag.appendChild(document.createTextNode(s.slice(from, idx)));
+                    const mk = document.createElement('mark');
+                    mk.className = 'wz-srch-mk';
+                    mk.textContent = s.slice(idx, idx + q.length);
+                    frag.appendChild(mk);
+                    from = idx + q.length;
+                }
+                if (from < s.length) frag.appendChild(document.createTextNode(s.slice(from)));
+                node.replaceWith(frag);
+            });
+        }
+
+        function _updateSearchCount() {
+            const c = container.querySelector('#wzcvSrchCount');
+            if (c)
+                c.textContent = _srchMatches.length
+                    ? `${_srchPos + 1}/${_srchMatches.length}`
+                    : _srchRaw
+                      ? '0'
+                      : '';
+        }
+
+        function _gotoMatch(pos) {
+            if (!_srchMatches.length) return;
+            _srchPos = ((pos % _srchMatches.length) + _srchMatches.length) % _srchMatches.length;
+            const el = body();
+            const m = _srchMatches[_srchPos];
+            el?.querySelectorAll('.wz-srch-cur').forEach((x) => x.classList.remove('wz-srch-cur'));
+            const node = el?.querySelector(
+                `.wz-msg[data-msgid="${CSS.escape(m.id)}"], .wz-msg[data-cli="${CSS.escape(m.id)}"]`
+            );
+            if (node) {
+                node.classList.add('wz-srch-cur');
+                node.scrollIntoView({ block: 'center', behavior: 'auto' });
+            }
+            _updateSearchCount();
+        }
+
+        // tìm + tô + (jump: nhảy tới khớp gần đáy nhất). Gọi lại sau render để giữ tô.
+        function _runSearch(raw, jump) {
+            _srchRaw = raw;
+            _computeMatches(raw);
+            _paintSearch(raw);
+            _updateSearchCount();
+            if (jump && _srchMatches.length) _gotoMatch(_srchMatches.length - 1);
+        }
+
+        function _clearSearch() {
+            _srchRaw = '';
+            _srchMatches = [];
+            _srchPos = -1;
+            _paintSearch('');
+            _updateSearchCount();
+        }
+
+        function _toggleSearch(open) {
+            const bar = container.querySelector('#wzcvSrchBar');
+            if (!bar) return;
+            _srchActive = !!open;
+            bar.hidden = !open;
+            const inp = container.querySelector('#wzcvSrchInput');
+            if (open) {
+                inp?.focus();
+                _loadAllForSearch();
+            } else if (inp) {
+                inp.value = '';
+                _clearSearch();
+            }
+        }
+
+        function _bindSearch() {
+            const btn = container.querySelector('#wzcvSearchBtn');
+            const bar = container.querySelector('#wzcvSrchBar');
+            const inp = container.querySelector('#wzcvSrchInput');
+            if (!btn || !bar || !inp) return;
+            btn.addEventListener('click', () => _toggleSearch(bar.hidden));
+            let t = null;
+            inp.addEventListener('input', () => {
+                clearTimeout(t);
+                t = setTimeout(() => _runSearch(inp.value, true), 200);
+            });
+            inp.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    _gotoMatch(e.shiftKey ? _srchPos - 1 : _srchPos + 1);
+                } else if (e.key === 'Escape') {
+                    e.preventDefault();
+                    _toggleSearch(false);
+                }
+            });
+            bar.addEventListener('click', (e) => {
+                const nav = e.target.closest('[data-srch]');
+                if (!nav) return;
+                const a = nav.dataset.srch;
+                if (a === 'next') _gotoMatch(_srchPos + 1);
+                else if (a === 'prev') _gotoMatch(_srchPos - 1);
+                else if (a === 'close') _toggleSearch(false);
+            });
         }
 
         // ── init ───────────────────────────────────────────────────────

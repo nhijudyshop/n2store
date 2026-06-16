@@ -53,31 +53,8 @@
             consoleUrl: 'https://dashboard.render.com/web/srv-d4e5pd3gk3sc73bgv600',
             status: 'active',
         },
-        {
-            id: 'render-realtime',
-            name: 'n2store-realtime',
-            type: 'Web Service (Node.js)',
-            icon: 'radio',
-            account: 'nhijudyshop@gmail.com',
-            plan: 'Starter',
-            costType: 'paid',
-            monthlyCost: 7,
-            billingDay: 1,
-            costNote:
-                'WS proxy Pancake (inbox Web 1.0) — pending_customers/livestream/labels. KHÔNG có TPOS.',
-            region: 'Singapore',
-            freeTier: 'Starter: 512MB RAM, 0.5 CPU, always-on',
-            details: [
-                { label: 'Service ID', value: 'srv-d5doh26uk2gs739489k0' },
-                { label: 'URL', value: 'https://n2store-realtime.onrender.com' },
-                { label: 'Root Dir', value: 'n2store-realtime' },
-                { label: 'Plan', value: 'Starter ($7/mo) - 512MB RAM, 0.5 CPU' },
-                { label: 'Auto Deploy', value: 'Yes (main branch)' },
-                { label: 'Created', value: '05/01/2026' },
-            ],
-            consoleUrl: 'https://dashboard.render.com/web/srv-d5doh26uk2gs739489k0',
-            status: 'active',
-        },
+        // n2store-realtime ĐÃ RETIRE 2026-06-16 (−$7/mo): Web 2.0 → web2-realtime
+        // broker; Web 1.0 realtime → n2store-fallback. Service + folder đã xóa.
         {
             id: 'render-web2-realtime',
             name: 'web2-realtime',

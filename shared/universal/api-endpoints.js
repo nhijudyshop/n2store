@@ -41,24 +41,38 @@ export const API_ENDPOINTS = {
         },
     },
 
-    // N2Store Services
-    N2STORE: {
-        REALTIME: 'https://n2store-realtime.onrender.com',
-    },
+    // (N2STORE.REALTIME đã gỡ 2026-06-16 — service n2store-realtime retired.
+    //  Realtime đi qua worker /api/realtime/* → n2store-fallback.)
 
     // Cloudflare Worker Proxy
     WORKER: {
         URL: 'https://chatomni-proxy.nhijudyshop.workers.dev',
 
         // Worker API routes
-        get TOKEN() { return `${this.URL}/api/token`; },
-        get ODATA() { return `${this.URL}/api/odata`; },
-        get PANCAKE() { return `${this.URL}/api/pancake`; },
-        get PANCAKE_DIRECT() { return `${this.URL}/api/pancake-direct`; },
-        get PANCAKE_OFFICIAL() { return `${this.URL}/api/pancake-official`; },
-        get FACEBOOK_SEND() { return `${this.URL}/api/facebook-send`; },
-        get IMAGE_PROXY() { return `${this.URL}/api/image-proxy`; },
-        get FB_AVATAR() { return `${this.URL}/api/fb-avatar`; },
+        get TOKEN() {
+            return `${this.URL}/api/token`;
+        },
+        get ODATA() {
+            return `${this.URL}/api/odata`;
+        },
+        get PANCAKE() {
+            return `${this.URL}/api/pancake`;
+        },
+        get PANCAKE_DIRECT() {
+            return `${this.URL}/api/pancake-direct`;
+        },
+        get PANCAKE_OFFICIAL() {
+            return `${this.URL}/api/pancake-official`;
+        },
+        get FACEBOOK_SEND() {
+            return `${this.URL}/api/facebook-send`;
+        },
+        get IMAGE_PROXY() {
+            return `${this.URL}/api/image-proxy`;
+        },
+        get FB_AVATAR() {
+            return `${this.URL}/api/fb-avatar`;
+        },
     },
 
     // External Services

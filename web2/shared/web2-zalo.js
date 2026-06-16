@@ -20,7 +20,7 @@
     // Thư mục shared (suy từ src của chính script này) → load engine chat động.
     const _selfSrc = (document.currentScript && document.currentScript.src) || '';
     const SHARED_BASE = _selfSrc.replace(/\/web2-zalo\.js(?:\?.*)?$/, '') || '../shared';
-    const ENGINE_VER = '20260616a';
+    const ENGINE_VER = '20260616b';
 
     const WORKER =
         (global.API_CONFIG && global.API_CONFIG.WORKER_URL) ||

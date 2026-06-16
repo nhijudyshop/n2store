@@ -595,3 +595,96 @@
     display: flex;
     flex-direction: column;
 }
+
+/* ── Tìm trong hội thoại (search) ────────────────────────────────────── */
+.wz-chat-main .wz-head-btn {
+    margin-left: auto;
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    background: transparent;
+    border-radius: 9px;
+    color: var(--wz-ink-mute, #6b7280);
+    cursor: pointer;
+    transition:
+        background 0.12s ease,
+        color 0.12s ease;
+}
+.wz-chat-main .wz-head-btn:hover {
+    background: color-mix(in oklab, var(--web2-primary, #0068ff) 12%, transparent);
+    color: var(--web2-primary, #0068ff);
+}
+.wz-chat-main .wz-head-btn i {
+    width: 17px;
+    height: 17px;
+}
+.wz-chat-main .wz-srch-bar {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 7px 12px;
+    border-bottom: 1px solid var(--wz-line);
+    background: #fff;
+    flex-shrink: 0;
+}
+.wz-chat-main .wz-srch-bar > i {
+    width: 16px;
+    height: 16px;
+    color: var(--wz-ink-mute, #6b7280);
+    flex-shrink: 0;
+}
+.wz-chat-main .wz-srch-input {
+    flex: 1;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    font: inherit;
+    font-size: 13.5px;
+    min-width: 0;
+}
+.wz-chat-main .wz-srch-count {
+    font-size: 12px;
+    color: var(--wz-ink-mute, #6b7280);
+    white-space: nowrap;
+    min-width: 20px;
+    text-align: right;
+}
+.wz-chat-main .wz-srch-nav {
+    width: 26px;
+    height: 26px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    background: transparent;
+    border-radius: 7px;
+    color: var(--wz-ink-mute, #6b7280);
+    cursor: pointer;
+    flex-shrink: 0;
+}
+.wz-chat-main .wz-srch-nav:hover {
+    background: color-mix(in oklab, var(--web2-primary, #0068ff) 12%, transparent);
+    color: var(--web2-primary, #0068ff);
+}
+.wz-chat-main .wz-srch-nav i {
+    width: 15px;
+    height: 15px;
+}
+mark.wz-srch-mk {
+    background: #ffe27a;
+    color: inherit;
+    border-radius: 3px;
+    padding: 0 1px;
+}
+.wz-msg.wz-srch-hit .wz-msg-bubble {
+    box-shadow: 0 0 0 2px color-mix(in oklab, var(--web2-primary, #0068ff) 45%, transparent);
+}
+.wz-msg.wz-srch-cur .wz-msg-bubble {
+    box-shadow:
+        0 0 0 2px var(--web2-primary, #0068ff),
+        0 0 0 6px color-mix(in oklab, var(--web2-primary, #0068ff) 28%, transparent);
+}

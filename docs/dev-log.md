@@ -2,6 +2,15 @@
 
 ## 2026-06-16
 
+### [web2][shared] Chat Zalo — TÌM KIẾM trong hội thoại (highlight + nhảy khớp) ✅
+
+User: "tìm kiếm trong zalo" (khung chat Zalo nhúng chưa có tìm, chỉ cuộn/tải tin cũ). Thêm vào [chat-view.js](web2/shared/zalo-chat/chat-view.js):
+
+- Nút kính lúp ở header → mở thanh tìm (input + đếm `n/N` + ↑↓ + đóng). Mở thanh → `_loadAllForSearch()` nạp đủ tin 1 lần (drain DB pagination + 1 backfill nhóm, render 1 lần) để tìm TOÀN hội thoại không chỉ tin đang hiện.
+- `_runSearch` (debounce 200ms): lọc `messages` theo `content` (không dấu, hoa-thường), tô **ring bong bóng** khớp + `<mark>` chữ khớp (case-insensitive, best-effort), nhảy tới khớp **gần đáy nhất**. Enter/↓ khớp sau, Shift+Enter/↑ khớp trước, Esc đóng. Realtime refresh khi đang tìm → renderBody tự vẽ lại tô (`_srchActive`).
+- CSS [chat-bubbles.css](web2/shared/zalo-chat/chat-bubbles.css): `.wz-head-btn`, `.wz-srch-bar/input/count/nav`, `mark.wz-srch-mk` (vàng), `.wz-srch-hit/cur` (ring xanh). Chỉ frontend (client-side, dùng Api sẵn có) — KHÔNG cần deploy web2-api.
+- Bump `ENGINE_VER=20260616b` + tag web2-zalo.js (3 trang) + chat-view.js/chat-bubbles.css (web2/zalo).
+
 ### [web2][live-chat] comments-mobile — bỏ full re-render khi có comment mới (keyed DOM reconcile) ✅
 
 **Triệu chứng (user):** `live-chat/comments-mobile.html` — có tin nhắn mới → thêm vào bảng → render lại HẾT avatar/SĐT/nội dung/địa chỉ của các comment cũ → giật, nhức mắt. "Phần này sửa nhiều nhưng lỗi hoài."
