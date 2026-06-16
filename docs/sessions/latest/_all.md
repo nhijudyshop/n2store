@@ -3,16 +3,16 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `d6df92a` — feat(so-order): nhóm NCC 'Đã nhận' dồn xuống cuối lô (render-only, giữ rowspan + pending lên trên)
-**Last updated**: 2026-06-16 17:03:53 +07
-**Latest session**: [`RESUME:20260616-170353-d6df92a`](../20260616-170353-d6df92a.md)
-**Summary**: feat(so-order): nhóm NCC 'Đã nhận' dồn xuống cuối lô (render-only, giữ rowspan + pending lên trên)
+**Latest commit**: `333e773` — feat(so-order/shared): nhập nhanh nhiều biến thể Web2VariantMulti — 'Đen / S / M / L' → N SP (parser màu/size + expand + live preview)
+**Last updated**: 2026-06-16 17:45:35 +07
+**Latest session**: [`RESUME:20260616-174535-333e773`](../20260616-174535-333e773.md)
+**Summary**: feat(so-order/shared): nhập nhanh nhiều biến thể Web2VariantMulti — 'Đen / S / M / L' → N SP (parser mà...
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`orders-report/`](./orders-report.md) — 1 file(s)
-- [`so-order/`](./so-order.md) — 2 file(s)
+- [`so-order/`](./so-order.md) — 3 file(s)
+- [`web2/`](./web2.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -27,7 +27,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-16 11:15
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-16 14:31
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-16 16:43
-- [`docs/`](./docs.md) — updated 2026-06-16 17:03
+- [`docs/`](./docs.md) — updated 2026-06-16 17:45
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-16 14:31
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-16 14:31
 - [`downloads/`](./downloads.md) — updated 2026-06-13 19:16
@@ -62,7 +62,7 @@
 - [`shared/`](./shared.md) — updated 2026-06-16 14:31
 - [`showroom/`](./showroom.md) — updated 2026-06-10 19:04
 - [`showroom1/`](./showroom1.md) — updated 2026-06-10 19:52
-- [`so-order/`](./so-order.md) — updated 2026-06-16 17:03
+- [`so-order/`](./so-order.md) — updated 2026-06-16 17:45
 - [`soluong-live/`](./soluong-live.md) — updated 2026-06-16 14:31
 - [`soorder/`](./soorder.md) — updated 2026-05-21 15:39
 - [`soquy/`](./soquy.md) — updated 2026-06-13 19:51
@@ -75,4 +75,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-16 16:37
+- [`web2/`](./web2.md) — updated 2026-06-16 17:45
