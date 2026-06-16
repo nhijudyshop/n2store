@@ -2,6 +2,18 @@
 
 ## 2026-06-16
 
+### [web2][realtime] Stage 1 — fold Pancake browser-WS broker vào web2-realtime (bỏ lệ thuộc Web 1.0) ✅
+
+User chọn **Y** + insight quan trọng: KHÔNG cần bảng `pending_customers` — unread ban đầu = fetch Pancake 1 lần ở browser, live = WS + SSE. Rà soát phát hiện `Web2Realtime` (engine badge tin-mới native-orders) đang xài **100% hạ tầng Web 1.0/project cũ**: `fetchPendingCustomers`/`markReplied` → n2store-fallback (bảng Web 1.0); `start-multi`+proxy WS → n2store-realtime (broker project cũ). Vi phạm Web1⊥Web2.
+
+**Stage 1 (backend, additive — KHÔNG đụng luồng comments→SSE):** thêm vào [live-chat/server/server.js](live-chat/server/server.js) (= service `web2-realtime`):
+
+- Browser-facing `WebSocket.Server` gắn vào http server sẵn có + `broadcastToBrowsers(type,payload)` (dedup 30s) + ping keep-alive.
+- "Tee" `pages:new_message` + `pages:update_conversation` (chỉ inbox, không livestream) sang browser — thêm CẠNH `forwardToFallback`, không sửa dòng cũ.
+- `POST /api/realtime/start-multi` dùng LẠI `startClient` + `clients` Map sẵn có (1 kết nối/account, reuse nếu đã connect — KHÔNG double-connect). KHÔNG có pending_customers.
+
+Reuse pool sẵn có nên KHÔNG mở kết nối Pancake trùng → relay comments→SSE an toàn. node --check pass. Deploy web2-realtime (starter 512Mi, I/O-bound). **CHƯA repoint client** (vẫn dùng broker cũ → 0 gián đoạn). Stage 2: repoint web2-realtime.js + badge fetch unread trực tiếp Pancake. Stage 3: retire n2store-realtime (cần OK).
+
 ### [web2][fix] Sửa 2 bug native-orders: icon columns-3 + WS proxy sai broker ✅
 
 User báo console native-orders. 2 bug:

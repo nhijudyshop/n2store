@@ -523,12 +523,15 @@ class PancakeWebSocketClient {
                         ts: Date.now(),
                     },
                 });
+                // Tee sang browser WS broker (Web2Realtime) — chỉ inbox, không livestream.
+                broadcastToBrowsers('pages:update_conversation', payload);
             }
             return;
         }
 
         if (event === 'pages:new_message') {
             this.eventsReceived++;
+            broadcastToBrowsers('pages:new_message', payload); // tee → browser WS broker
             const message = payload.message || payload;
             const stored = storeEvent('new_message', payload, this.name);
             console.log(
@@ -1052,6 +1055,46 @@ app.post('/api/reload', requireRelaySecret, async (req, res) => {
 });
 
 // =====================================================
+// POST /api/realtime/start-multi — browser (Web2Realtime) khởi tạo pool
+// per-account. DÙNG LẠI startClient + clients Map sẵn có (1 kết nối/account,
+// KHÔNG mở trùng). Ungated (browser gọi). Folded từ n2store-realtime 2026-06-16
+// → Web 2.0 tự túc realtime, hết phụ thuộc project cũ. KHÔNG có pending_customers
+// (unread ban đầu = fetch Pancake trực tiếp ở browser; live = WS + SSE).
+// =====================================================
+app.post('/api/realtime/start-multi', async (req, res) => {
+    const accounts = Array.isArray(req.body?.accounts) ? req.body.accounts : [];
+    if (!accounts.length) {
+        return res.status(400).json({ success: false, error: 'accounts[] required' });
+    }
+    let poolSize = 0;
+    const pageSet = new Set();
+    for (const a of accounts) {
+        const token = a.token;
+        const userId = String(a.userId || a.accountId || '');
+        const name = a.name || (userId ? userId.slice(0, 8) : 'acc');
+        if (!token || !userId) continue;
+        const existing = clients.get(userId);
+        if (existing && existing.isConnected) {
+            // Đã kết nối → reuse, KHÔNG mở kết nối Pancake trùng.
+            poolSize++;
+            (existing.allPages || []).forEach((p) => pageSet.add(String(p.id || p)));
+            continue;
+        }
+        try {
+            const c = await startClient(token, userId, name, a.cookie);
+            if (c) {
+                poolSize++;
+                (c.allPages || []).forEach((p) => pageSet.add(String(p.id || p)));
+            }
+        } catch (e) {
+            console.warn(`[START-MULTI] ${name} failed: ${e.message}`);
+        }
+        await new Promise((r) => setTimeout(r, 500)); // stagger tránh Pancake rate-limit
+    }
+    res.json({ success: true, poolSize, totalPages: pageSet.size, plan: 'web2-realtime-merged' });
+});
+
+// =====================================================
 // START SERVER
 // =====================================================
 
@@ -1071,6 +1114,71 @@ const httpServer = app.listen(PORT, () => {
 
     setTimeout(() => autoConnect(), 2000);
 });
+
+// =====================================================
+// BROWSER-FACING WS BROKER (folded từ n2store-realtime 2026-06-16)
+// web2-realtime giờ phục vụ CẢ: (1) relay Pancake→SSE (forwardToFallback — GIỮ
+// NGUYÊN) + (2) WS server cho browser (Web2Realtime proxy fallback). KHÔNG mở
+// thêm kết nối Pancake — chỉ "tee" event đã nhận sang browser. Hợp đồng client
+// (web2/shared/web2-realtime.js): connect wss://<host>/ (no path) → nhận JSON
+// { type, payload }. Dedup 30s để 2 account cùng page không bắn trùng.
+// =====================================================
+const browserWss = new WebSocket.Server({ server: httpServer });
+const _bSeen = new Map();
+const _B_DEDUP_MS = 30_000;
+function _bDedupKey(type, p) {
+    if (!type || !p) return null;
+    if (type === 'pages:new_message') {
+        const m = p.message || {};
+        if (m.id) return `nm:${m.id}`;
+    }
+    if (type === 'pages:update_conversation') {
+        const c = p.conversation || {};
+        const lm = c.last_message && c.last_message.id;
+        if (c.id && lm) return `uc:${c.id}:${lm}`;
+        if (c.id) return `uc:${c.id}:${c.updated_at || c.last_sent_at || ''}`;
+    }
+    return null;
+}
+function broadcastToBrowsers(type, payload) {
+    if (!browserWss.clients.size) return;
+    const key = _bDedupKey(type, payload);
+    if (key) {
+        const now = Date.now();
+        const last = _bSeen.get(key);
+        if (last && now - last < _B_DEDUP_MS) return; // echo multi-account cùng page → bỏ
+        _bSeen.set(key, now);
+        if (_bSeen.size > 500) {
+            for (const [k, t] of _bSeen) if (now - t > _B_DEDUP_MS) _bSeen.delete(k);
+        }
+    }
+    const msg = JSON.stringify({ type, payload });
+    browserWss.clients.forEach((c) => {
+        if (c.readyState === WebSocket.OPEN) c.send(msg);
+    });
+}
+const _browserPing = setInterval(() => {
+    browserWss.clients.forEach((ws) => {
+        if (ws.isAlive === false) return ws.terminate();
+        ws.isAlive = false;
+        try {
+            ws.ping();
+        } catch {
+            /* ignore */
+        }
+    });
+}, 30_000);
+browserWss.on('connection', (ws) => {
+    ws.isAlive = true;
+    ws.on('pong', () => {
+        ws.isAlive = true;
+    });
+    console.log(`[BROKER-WS] browser connected (total ${browserWss.clients.size})`);
+    ws.on('close', () =>
+        console.log(`[BROKER-WS] browser disconnected (total ${browserWss.clients.size})`)
+    );
+});
+browserWss.on('close', () => clearInterval(_browserPing));
 
 // Graceful shutdown — close HTTP + WS clients + DB pool cleanly.
 let _shuttingDown = false;
