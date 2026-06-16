@@ -4273,6 +4273,22 @@ Throttle 30s/KH.`;
         global.Web2SSE.subscribe('web2:livestream-snapshots', (msg) => {
             const data = msg?.data || {};
             const { customerFbUserId, action, snapshotId } = data;
+            // Admin dọn snapshot (POST /purge | /wipe-all) → clear toàn bộ cache snap
+            // + re-queue fetch cho mọi row đang hiển thị → thumbnail đen kẹt biến mất
+            // ngay (không cần reload), comment thành "pending" rồi tự chụp lại / force-extract.
+            if (action === 'purge' || action === 'wipe-all') {
+                STATE.snapByComment.clear();
+                STATE.cacheList.clear();
+                STATE.counts = {};
+                STATE.snapByCommentPending?.clear?.();
+                document
+                    .querySelectorAll('.live-conversation-item[data-comment-id]')
+                    .forEach((row) => {
+                        const cid = row.dataset.commentId;
+                        if (cid) _queueSnapByComment(cid);
+                    });
+                return;
+            }
             // Extract-done (Phase 2): backend ffmpeg vừa lưu bytea cho snapshot →
             // invalidate cache + re-render strip để hiện thumb thật.
             if (action === 'extract-done' && snapshotId) {

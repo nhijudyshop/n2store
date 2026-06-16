@@ -2,6 +2,16 @@
 
 ## 2026-06-16
 
+### [web2][live-chat] Snapshot — endpoint POST /purge (dọn thumbnail theo ngày) + client clear cache ✅
+
+User hỏi multi-machine + xin dọn thumbnail livestream HÔM NAY (không cần nhận diện ảnh). Bối cảnh: backend dedup `ON CONFLICT(comment_id) DO UPDATE … COALESCE(existing.image_data, new)` = **"ảnh có-bytea ĐẦU TIÊN thắng, POST sau KHÔNG đè"** → frame đen (từ máy unfocused, trước fix) POST trước sẽ thắng vĩnh viễn; Force extract bỏ qua comment "đã có ảnh" nên không vá được ảnh đen cũ → cần xoá row.
+
+- **Backend** [livestream-snapshots.js](render.com/routes/livestream-snapshots.js): thêm `POST /api/livestream/snapshots/purge` (gate `x-admin-secret===CLEANUP_SECRET` + `{confirm:'YES-PURGE', scope}`). `scope:'today'` → `DELETE WHERE created_at >= 00:00 GMT+7` (tính tường minh epoch); `scope:'all'` → TRUNCATE. `_notify('purge',{scope})`. Khác `wipe-all` (chỉ all): purge có date-scope + reusable.
+- **Client** (subscribeSSE): handle `action==='purge'|'wipe-all'` → clear `snapByComment`/`cacheList`/`counts`/`pending` + re-queue fetch mọi row → thumbnail đen kẹt biến mất NGAY (không reload), comment thành pending rồi tự chụp lại/force-extract.
+- Bump `live-livestream-snap.js?v=20260616purge`. Cần deploy web2-api (auto trên push). Sau deploy gọi purge scope=today.
+
+**Multi-machine (trả lời user):** chụp NỀN (stream/buffer) = **1 máy duy nhất** qua leader-lock CAS (TTL 90s, heartbeat 30s, stall-failover 75s, SSE takeover) → không tranh nhau. Per-comment captureVisibleTab KHÔNG lock (nhiều máy focus có thể thử) NHƯNG **không bao giờ chồng chéo dữ liệu**: unique index `comment_id` + COALESCE first-wins + SSE existingSnap-skip → đúng 1 ảnh/comment, không trùng/không đè. Fix focus-gate hôm trước loại frame đen khỏi cuộc đua → "ảnh đầu tiên" luôn là frame thật từ máy focus.
+
 ### [web2][live-chat] Snapshot — KHÔNG chụp khi tab không focus (hết thumbnail đen) ✅
 
 **Triệu chứng (user):** live-chat `index.html` auto-snap "không focus vào vẫn chụp nên nó bị thumbnail đen" — comment có ảnh thumbnail ĐEN.

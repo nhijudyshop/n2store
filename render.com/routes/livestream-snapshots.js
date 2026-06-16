@@ -662,6 +662,47 @@ router.post('/wipe-all', async (req, res) => {
     }
 });
 
+// POST /purge — xoá snapshot theo phạm vi: 'today' (GMT+7) | 'all'. Dùng dọn
+// thumbnail đen kẹt (Web 2.0 beta, regenerable): xoá row → comment thành "pending"
+// → tự chụp lại khi focus / Force extract vá từ VOD. KHÔNG đụng livestream_images
+// (gallery cache) cho scope today. Gate x-admin-secret === CLEANUP_SECRET + body
+// {confirm:'YES-PURGE', scope}. Notify clients (action 'purge') để clear cache live.
+router.post('/purge', async (req, res) => {
+    const secret = process.env.CLEANUP_SECRET || '';
+    if (!secret || (req.headers['x-admin-secret'] || '') !== secret) {
+        return res.status(401).json({ success: false, error: 'unauthorized' });
+    }
+    const b = req.body || {};
+    if (b.confirm !== 'YES-PURGE') {
+        return res.status(400).json({ success: false, error: "cần body {confirm:'YES-PURGE'}" });
+    }
+    const scope = b.scope === 'all' ? 'all' : 'today';
+    try {
+        const pool = req.app.locals.web2Db || req.app.locals.chatDb;
+        let out;
+        if (scope === 'all') {
+            const before = await pool.query('SELECT COUNT(*)::int AS n FROM livestream_snapshots');
+            await pool.query('TRUNCATE livestream_snapshots RESTART IDENTITY');
+            out = { scope, deleted: before.rows[0].n };
+        } else {
+            // today 00:00 GMT+7 (tính tường minh — không phụ thuộc TZ server).
+            const dayStart7 =
+                Math.floor((Date.now() + 7 * 3600e3) / 86400e3) * 86400e3 - 7 * 3600e3;
+            const iso = new Date(dayStart7).toISOString();
+            const r = await pool.query('DELETE FROM livestream_snapshots WHERE created_at >= $1', [
+                iso,
+            ]);
+            out = { scope, since: iso, deleted: r.rowCount };
+        }
+        _notify('purge', { scope });
+        console.log(`[livestream-snapshots] PURGE scope=${scope} deleted=${out.deleted}`);
+        res.json({ success: true, ...out });
+    } catch (e) {
+        console.error('[livestream-snapshots] purge fail:', e.message);
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
 router.delete('/snapshot/:id', requireWeb2AuthSoft, async (req, res) => {
     try {
         const pool = req.app.locals.web2Db || req.app.locals.chatDb;
