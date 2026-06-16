@@ -54,6 +54,24 @@
 
 **Status:** ✅ verified browser. so-order + shared (Web 2.0).
 
+### [customer-hub] Double-click cột "Ví khách hàng" → xếp khách có công nợ lên đầu ✅
+
+**User:** ở [customer-hub](customer-hub/index.html) (danh sách KH), "nhấp 2 lần ví khách hàng để đổ những đơn có công nợ lên đầu" — muốn bubble các KH có số dư ví ≠ 0 lên trên.
+
+**Thiết kế:** sort TOÀN CỤC (không chỉ 20 dòng đã load) — route `/v2/customers/recent` **vốn đã LEFT JOIN `customer_wallets`** trả `balance/virtual_balance/real_balance`, nên thêm sort server-side là rẻ + đúng. `batch-summary` trả `total = balance + virtual_balance` (≡ biểu thức JOIN, frontend set `customer.balance = total`) → thứ tự sort khớp số hiển thị. Dùng **ABS(số dư) DESC** để gom cả dư có (+) lẫn dư nợ (−) lên đầu, số 0 chìm xuống.
+
+**Backend** [customers.js](render.com/routes/v2/customers.js) `/recent`: thêm query param optional `sort`. `sort==='wallet'` → `ORDER BY ABS(COALESCE(w.balance,0)+COALESCE(w.virtual_balance,0)) DESC, <recent expr>, c.phone ASC` (tie-break ổn định cho phân trang). Whitelist (chỉ 2 chuỗi cố định) → không SQL injection. Mặc định byte-identical hành vi cũ. **Cần DEPLOY Render (web 1.0 api).**
+
+**Shared** [api-service.js](shared/js/api-service.js): `getRecentCustomers(page, limit, sort='')` append `&sort=` khi truthy. Backward-compat (chỉ customer-hub gọi; render-data-manager chỉ liệt kê path).
+
+**Frontend** [customer-search.js](customer-hub/js/modules/customer-search.js): `this.sortMode` (null | 'wallet'); `<th>` "Ví khách hàng" → dblclick toggle (id `wallet-col-header` + indicator Material Symbols `swap_vert`↔`keyboard_double_arrow_up`, `cursor-pointer`, `user-select:none` inline). Recent mode: reload page 1 (server sort toàn cục). Search mode: server không sort → `_sortByWallet` client-side (ABS desc) trong `renderResults` + re-render full ở loadMore. Tránh class Tailwind chưa build (`select-none/opacity-*`) → dùng inline style.
+
+**Review fixes (adversarial workflow, 3 confirmed):** (1) [MED] thêm tie-break `c.id ASC` (PK) cuối ORDER BY cả 2 nhánh — `c.phone` KHÔNG unique trên `customers` + khối ABS=0 lớn → LIMIT/OFFSET có thể trùng/sót dòng khi cuộn. (2) [LOW] `wallet-updated` ở recent+wallet → `loadRecentCustomers()` (server re-sort) thay vì client re-render lệch. (3) [LOW] tạo KH (create + save-TPOS) khi wallet-sort bật → `renderResults` theo sort (KH mới dư 0 nằm cuối) thay vì `prependRow` ép lên đầu.
+
+**Verify:** `node --check` cả 3 file OK · adversarial review workflow (backend SQL/backward-compat + frontend UX + data-consistency) → 3 fix đã áp. **End-to-end thật cần verify sau deploy Render** (data ví thật).
+
+**Status:** ✅ code xong. Web 1.0 only (customer-hub + /v2/customers + /v2/wallets), không đụng web2.
+
 ### [orders-report][chat] Fix khung chat bắt NHẦM hội thoại Pancake khi SĐT trùng nhiều người ✅
 
 **Bug (user báo):** bấm khách "Hoa Tuyết Trắng" (`0987616422`) ở orders-report → header đúng tên nhưng **đoạn chat + avatar lại là của "Thùy Trang"** (người khác). Gốc: SĐT đó nằm trong `recent_phone_numbers` của nhiều hội thoại khác nhau (khách dán cùng số liên hệ vào nhiều FB chat; Pancake search là full-text). Chuỗi resolve trong [tab1-chat-core.js](orders-report/js/tab1/tab1-chat-core.js) `_doFindAndLoadConversation` chọn `matched[0]` theo recency (Thùy Trang hoạt động gần hơn) — **không dùng TÊN/PSID đơn để phân biệt** — và chạy TRƯỚC tầng DB+name-search (tầng duy nhất xử lý homonym đúng).

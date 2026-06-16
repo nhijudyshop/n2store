@@ -257,11 +257,23 @@ router.get('/duplicates', async (req, res) => {
 router.get('/recent', async (req, res) => {
     try {
         const db = req.app.locals.chatDb;
-        const { page = 1, limit = 20 } = req.query;
+        const { page = 1, limit = 20, sort = '' } = req.query;
 
         const pageNum = Math.max(1, parseInt(page));
         const limitNum = Math.min(parseInt(limit) || 20, 100);
         const offset = (pageNum - 1) * limitNum;
+
+        // Optional sort: 'wallet' -> khách có công nợ (số dư ví khác 0) lên đầu.
+        // Dùng ABS để bao gồm cả dư có (dương) lẫn dư nợ (âm); số 0 chìm xuống cuối.
+        // Whitelist tránh SQL injection; mặc định giữ thứ tự hoạt động gần đây.
+        // c.id (PK, unique NOT NULL) là tie-break CUỐI cho phân trang ổn định:
+        // c.phone KHÔNG unique trên bảng customers (xem route /duplicates) + khối
+        // ABS=0 rất lớn → thiếu tie-break tổng quát sẽ trùng/sót dòng giữa các trang.
+        const dateExpr = 'COALESCE(c.last_interaction_date, c.updated_at, c.created_at) DESC';
+        const orderClause =
+            sort === 'wallet'
+                ? `ABS(COALESCE(w.balance, 0) + COALESCE(w.virtual_balance, 0)) DESC, ${dateExpr}, c.phone ASC, c.id ASC`
+                : `${dateExpr}, c.id ASC`;
 
         const countResult = await db.query('SELECT COUNT(*) FROM customers WHERE active = true');
         const total = parseInt(countResult.rows[0].count);
@@ -276,7 +288,7 @@ router.get('/recent', async (req, res) => {
             FROM customers c
             LEFT JOIN customer_wallets w ON c.phone = w.phone
             WHERE c.active = true
-            ORDER BY COALESCE(c.last_interaction_date, c.updated_at, c.created_at) DESC
+            ORDER BY ${orderClause}
             LIMIT $1 OFFSET $2
         `,
             [limitNum, offset]

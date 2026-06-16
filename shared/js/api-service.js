@@ -1624,9 +1624,11 @@ const ApiService = {
      * Get recently active customers
      * @param {number} page
      * @param {number} limit
+     * @param {string} sort - '' (mặc định: hoạt động gần đây) | 'wallet' (khách có công nợ lên đầu)
      */
-    async getRecentCustomers(page = 1, limit = 20) {
-        return fetchJson(`${this.RENDER_API_URL}/v2/customers/recent?page=${page}&limit=${limit}`);
+    async getRecentCustomers(page = 1, limit = 20, sort = '') {
+        const sortParam = sort ? `&sort=${encodeURIComponent(sort)}` : '';
+        return fetchJson(`${this.RENDER_API_URL}/v2/customers/recent?page=${page}&limit=${limit}${sortParam}`);
     },
 
     /**

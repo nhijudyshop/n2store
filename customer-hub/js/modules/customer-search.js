@@ -22,6 +22,7 @@ export class CustomerSearchModule {
         this.isLoading = false;
         this.hasMore = true;
         this.isSearchMode = false; // false = recent customers, true = search results
+        this.sortMode = null; // null = thứ tự mặc định | 'wallet' = khách có công nợ lên đầu
         this._tposModalEl = null;
         this.initUI();
     }
@@ -71,7 +72,12 @@ export class CustomerSearchModule {
                             <tr>
                                 <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Khách hàng</th>
                                 <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Trạng thái</th>
-                                <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Ví khách hàng</th>
+                                <th id="wallet-col-header" class="px-4 py-3 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider cursor-pointer hover:text-primary transition-colors" style="user-select:none" title="Nhấp đúp để xếp khách có công nợ (số dư ví ≠ 0) lên đầu">
+                                    <span class="inline-flex items-center gap-1">
+                                        Ví khách hàng
+                                        <span id="wallet-sort-indicator" class="material-symbols-outlined text-sm transition-all" style="opacity:0.4">swap_vert</span>
+                                    </span>
+                                </th>
                                 <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Địa chỉ</th>
                                 <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Ghi chú</th>
                                 <th class="px-4 py-3 text-right text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Thao tác</th>
@@ -148,6 +154,12 @@ export class CustomerSearchModule {
         // Infinite scroll
         this.tableContainer.addEventListener('scroll', () => this.handleScroll());
 
+        // Double-click cột "Ví khách hàng" → xếp khách có công nợ lên đầu (toggle)
+        const walletHeader = this.container.querySelector('#wallet-col-header');
+        if (walletHeader) {
+            walletHeader.addEventListener('dblclick', () => this._toggleWalletSort());
+        }
+
         // Create customer button — uses shared CustomerCreator module
         const btnCreate = this.container.querySelector('#btn-create-customer');
         btnCreate.addEventListener('click', () => {
@@ -167,7 +179,13 @@ export class CustomerSearchModule {
                             notes: []
                         };
                         this.customers.unshift(newCustomer);
-                        this.prependRow(newCustomer);
+                        // Wallet-sort đang bật → render theo sort (KH mới dư 0 nằm cuối),
+                        // tránh dòng nhảy vị trí ở lần re-render sau. Bình thường giữ flash top.
+                        if (this.sortMode === 'wallet') {
+                            this.renderResults(this.customers);
+                        } else {
+                            this.prependRow(newCustomer);
+                        }
                         this.updateFooter();
                     }
                 });
@@ -194,7 +212,13 @@ export class CustomerSearchModule {
                 customer.virtual_balance = wallet.virtualBalance !== undefined ? wallet.virtualBalance : 0;
                 customer.real_balance = wallet.balance !== undefined ? wallet.balance : 0;
 
-                this.renderResults(this.customers);
+                // Recent + wallet-sort: this.customers chỉ là các trang đã load → re-sort
+                // client-side sẽ lệch thứ tự toàn cục; reload page 1 để server sắp xếp lại.
+                if (this.sortMode === 'wallet' && !this.isSearchMode) {
+                    this.loadRecentCustomers();
+                } else {
+                    this.renderResults(this.customers);
+                }
                 console.log('[CustomerSearch] Wallet balance refreshed for', phone);
             } catch (err) {
                 console.warn('[CustomerSearch] Failed to refresh wallet after update:', err);
@@ -229,13 +253,19 @@ export class CustomerSearchModule {
                 const status = this.statusFilter.value;
                 response = await apiService.searchCustomers(query, this.currentPage, this.limit, { searchType, status });
             } else {
-                response = await apiService.getRecentCustomers(this.currentPage, this.limit);
+                response = await apiService.getRecentCustomers(this.currentPage, this.limit, this._sortParam());
             }
 
             if (response.success && response.data && response.data.length > 0) {
                 this.customers = [...this.customers, ...response.data];
                 await this.enrichCustomersWithWallet(response.data);
-                this.appendResults(response.data);
+                // Recent + server-sort: trang sau đã sắp xếp toàn cục → append nối tiếp.
+                // Search + wallet-sort: server không sắp xếp → re-render toàn bộ cho đúng thứ tự.
+                if (this.isSearchMode && this.sortMode === 'wallet') {
+                    this.renderResults(this.customers);
+                } else {
+                    this.appendResults(response.data);
+                }
                 this.hasMore = response.data.length === this.limit;
             } else {
                 this.hasMore = false;
@@ -280,7 +310,7 @@ export class CustomerSearchModule {
         `;
 
         try {
-            const response = await apiService.getRecentCustomers(1, this.limit);
+            const response = await apiService.getRecentCustomers(1, this.limit, this._sortParam());
             if (response.success && response.data && response.data.length > 0) {
                 this.customers = response.data;
                 this.totalCustomers = response.pagination?.total || response.data.length;
@@ -716,7 +746,12 @@ export class CustomerSearchModule {
                 notes: []
             };
             this.customers.unshift(newCustomer);
-            this.prependRow(newCustomer);
+            // Wallet-sort đang bật → render theo sort (KH mới dư 0 nằm cuối).
+            if (this.sortMode === 'wallet') {
+                this.renderResults(this.customers);
+            } else {
+                this.prependRow(newCustomer);
+            }
             this.updateFooter();
 
         } catch (error) {
@@ -734,7 +769,56 @@ export class CustomerSearchModule {
     }
 
     renderResults(customers) {
-        this.tableBody.innerHTML = this.generateRowsHtml(customers);
+        // Recent: server đã sắp xếp theo sort param → render nguyên thứ tự.
+        // Search: server không hỗ trợ sort → sắp xếp client-side khi đang bật wallet-sort.
+        const list = (this.isSearchMode && this.sortMode === 'wallet')
+            ? this._sortByWallet(customers)
+            : customers;
+        this.tableBody.innerHTML = this.generateRowsHtml(list);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // Sắp xếp theo "Ví khách hàng" (công nợ lên đầu)
+    // ═══════════════════════════════════════════════════════════════
+
+    _sortParam() {
+        return this.sortMode === 'wallet' ? 'wallet' : '';
+    }
+
+    /** Số dư ví dùng để so sánh (fallback: ảo + thực). */
+    _walletBalance(c) {
+        if (c.balance !== undefined && c.balance !== null) return c.balance;
+        return (c.virtual_balance || 0) + (c.real_balance || 0);
+    }
+
+    /** Sắp xếp bản sao: |số dư| giảm dần → khách có công nợ (≠ 0) lên đầu, số 0 chìm xuống. */
+    _sortByWallet(customers) {
+        return [...customers].sort((a, b) => Math.abs(this._walletBalance(b)) - Math.abs(this._walletBalance(a)));
+    }
+
+    _toggleWalletSort() {
+        this.sortMode = this.sortMode === 'wallet' ? null : 'wallet';
+        this._updateWalletSortIndicator();
+
+        if (this.isSearchMode) {
+            // Search: dữ liệu đã có sẵn → chỉ cần re-render theo thứ tự mới.
+            this.renderResults(this.customers);
+        } else {
+            // Recent: tải lại từ trang 1 để server sắp xếp toàn cục theo công nợ.
+            this.loadRecentCustomers();
+        }
+    }
+
+    _updateWalletSortIndicator() {
+        const th = this.container.querySelector('#wallet-col-header');
+        const ind = this.container.querySelector('#wallet-sort-indicator');
+        if (!th || !ind) return;
+
+        const active = this.sortMode === 'wallet';
+        ind.textContent = active ? 'keyboard_double_arrow_up' : 'swap_vert';
+        ind.style.opacity = active ? '1' : '0.4';
+        ind.classList.toggle('text-primary', active);
+        th.classList.toggle('text-primary', active);
     }
 
     prependRow(customer) {
