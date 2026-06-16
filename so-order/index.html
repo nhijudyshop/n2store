@@ -15,22 +15,22 @@
             rel="stylesheet"
         />
 
-        <link rel="stylesheet" href="../web2/shared/web2-sidebar.css?v=20260616b" />
-        <link rel="stylesheet" href="../web2/shared/web2-effects.css?v=20260616b" />
-        <link rel="stylesheet" href="../web2/shared/web2-components.css?v=20260616b" />
-        <link rel="stylesheet" href="../web2/products/css/web2-products-print.css?v=20260616b" />
-        <link rel="stylesheet" href="css/so-order.css?v=20260616f" />
+        <link rel="stylesheet" href="../web2/shared/web2-sidebar.css?v=20260616g" />
+        <link rel="stylesheet" href="../web2/shared/web2-effects.css?v=20260616g" />
+        <link rel="stylesheet" href="../web2/shared/web2-components.css?v=20260616g" />
+        <link rel="stylesheet" href="../web2/products/css/web2-products-print.css?v=20260616g" />
+        <link rel="stylesheet" href="css/so-order.css?v=20260616g" />
         <!-- Import dữ liệu CSV/JSON (NGUỒN CHUNG Web2Import) -->
-        <link rel="stylesheet" href="../web2/shared/web2-import.css?v=20260616b" />
+        <link rel="stylesheet" href="../web2/shared/web2-import.css?v=20260616g" />
 
         <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
 
         <!-- Firebase compat (Firestore sync for cross-device column visibility + data) -->
 
-        <script src="../shared/js/notification-system.js?v=20260616b"></script>
-        <script src="../web2/shared/web2-effects.js?v=20260616b"></script>
-        <script src="../web2/shared/web2-db-badge.js?v=20260616b"></script>
-        <link rel="stylesheet" href="../web2/shared/web2-theme.css?v=20260616b" />
+        <script src="../shared/js/notification-system.js?v=20260616g"></script>
+        <script src="../web2/shared/web2-effects.js?v=20260616g"></script>
+        <script src="../web2/shared/web2-db-badge.js?v=20260616g"></script>
+        <link rel="stylesheet" href="../web2/shared/web2-theme.css?v=20260616g" />
     </head>
     <body class="web2-theme">
         <div class="web2-shell">
@@ -350,15 +350,9 @@
                                 title="Phí vận chuyển cho đơn hàng này (cộng vào Thành tiền)"
                             />
                         </div>
-                        <div class="so-form-cell so-cell-narrow">
-                            <label class="so-form-label">Trạng thái</label>
-                            <select name="status" class="so-input-v2">
-                                <option value="draft">Nháp</option>
-                                <option value="ordered">Đã Đặt</option>
-                                <option value="received">Đã Nhận</option>
-                                <option value="cancelled">Đã Hủy</option>
-                            </select>
-                        </div>
+                        <!-- 2026-06-16: BỎ ô "Trạng thái" — không cho đổi tay. Đơn mới
+                             luôn là "Nháp"; chỉ nút "Nhận hàng" đổi sang Đã Nhận / Nhận 1
+                             phần. (Nợ NCC phát sinh khi NHẬN HÀNG.) -->
                     </div>
 
                     <!-- Product table — multi-row, rows injected dynamically -->
@@ -599,32 +593,32 @@
             </div>
         </div>
 
-        <script src="../web2/shared/web2-auth.js?v=20260616b"></script>
-        <script src="../web2/shared/web2-optimistic.js?v=20260616b"></script>
-        <script src="../web2/shared/web2-sidebar.js?v=20260616b"></script>
+        <script src="../web2/shared/web2-auth.js?v=20260616g"></script>
+        <script src="../web2/shared/web2-optimistic.js?v=20260616g"></script>
+        <script src="../web2/shared/web2-sidebar.js?v=20260616g"></script>
         <script>
             document.addEventListener('DOMContentLoaded', () =>
                 window.Web2Sidebar.mount('#web2Aside', { activeRoute: 'so-order' })
             );
         </script>
 
-        <script src="../web2/products/js/web2-products-api.js?v=20260616b"></script>
+        <script src="../web2/products/js/web2-products-api.js?v=20260616g"></script>
         <!-- In tem SP: dùng CHUNG nguồn với web2/products (Web2Printer + Web2QR + print module),
              load đúng thứ tự để QR bake biến thể + routing máy in giống hệt trang Kho SP. -->
-        <script src="../web2/shared/web2-printer.js?v=20260616b"></script>
-        <script src="../web2/shared/web2-qr.js?v=20260616b"></script>
-        <script src="../web2/products/js/web2-products-print.js?v=20260616b"></script>
-        <script src="../web2/variants/js/web2-variants-api.js?v=20260616b"></script>
-        <script src="../web2/shared/web2-sse-bridge.js?v=20260616b"></script>
-        <script src="../web2/shared/web2-idb-store.js?v=20260616b"></script>
-        <script src="../web2/shared/web2-products-cache.js?v=20260616b"></script>
-        <script src="../web2/shared/web2-variants-cache.js?v=20260616b"></script>
-        <script src="../web2/shared/web2-suppliers-cache.js?v=20260616b"></script>
-        <script src="../web2/shared/web2-product-code.js?v=20260616b"></script>
-        <script src="../web2/shared/web2-deeplink.js?v=20260616b"></script>
+        <script src="../web2/shared/web2-printer.js?v=20260616g"></script>
+        <script src="../web2/shared/web2-qr.js?v=20260616g"></script>
+        <script src="../web2/products/js/web2-products-print.js?v=20260616g"></script>
+        <script src="../web2/variants/js/web2-variants-api.js?v=20260616g"></script>
+        <script src="../web2/shared/web2-sse-bridge.js?v=20260616g"></script>
+        <script src="../web2/shared/web2-idb-store.js?v=20260616g"></script>
+        <script src="../web2/shared/web2-products-cache.js?v=20260616g"></script>
+        <script src="../web2/shared/web2-variants-cache.js?v=20260616g"></script>
+        <script src="../web2/shared/web2-suppliers-cache.js?v=20260616g"></script>
+        <script src="../web2/shared/web2-product-code.js?v=20260616g"></script>
+        <script src="../web2/shared/web2-deeplink.js?v=20260616g"></script>
         <!-- Import dữ liệu CSV/JSON (NGUỒN CHUNG Web2Import) -->
-        <script src="../web2/shared/web2-import.js?v=20260616b"></script>
-        <script src="js/so-order-storage.js?v=20260616d"></script>
-        <script src="js/so-order-app.js?v=20260616d"></script>
+        <script src="../web2/shared/web2-import.js?v=20260616g"></script>
+        <script src="js/so-order-storage.js?v=20260616g"></script>
+        <script src="js/so-order-app.js?v=20260616g"></script>
     </body>
 </html>

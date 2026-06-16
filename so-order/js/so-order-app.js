@@ -34,9 +34,12 @@
         // inline (double-click). Sửa/xoá 1 dòng lẻ: dùng modal "Sửa lô".
     ];
 
+    // 2026-06-16: status KHÔNG cho đổi tay nữa — chỉ auto-flow draft → (partial_received
+    // | received) qua nút "Nhận hàng". 'ordered' (Đã Đặt) đã KHAI TỬ (nợ NCC phát sinh
+    // khi NHẬN HÀNG, không phải lúc đặt). Legacy row 'ordered' → normalize về 'draft'.
     const STATUS_LABELS = {
         draft: 'Nháp',
-        ordered: 'Đã Đặt',
+        partial_received: 'Nhận 1 phần',
         received: 'Đã Nhận',
         cancelled: 'Đã Hủy',
     };
@@ -779,7 +782,7 @@
         'costPrice',
         'note',
         'costNote',
-        'status',
+        // 2026-06-16: 'status' ĐÃ BỎ — trạng thái không cho đổi tay (chỉ nút Nhận hàng).
     ]);
     const INLINE_IMAGE_FIELDS = new Set(['productImage', 'invoiceImage']);
 
@@ -889,9 +892,9 @@
             costNote: edit
                 ? editableCellHtml('costNote', r, rid, sid)
                 : `<td class="so-cell-note so-cell-note-cp" data-cell-field="costNote" data-row-id="${rid}" data-shipment-id="${sid}">${escapeHtml(r.costNote || '')}</td>`,
-            status: edit
-                ? editableCellHtml('status', r, rid, sid)
-                : statusCell(r.status, { rid, sid }),
+            // 2026-06-16: status LUÔN render pill chỉ-đọc (kể cả bulk-edit mode) —
+            // không cho đổi tay, chỉ auto qua "Nhận hàng".
+            status: statusCell(r.status, { rid, sid }),
             actions: actionsCell(r.id, shipmentId, r.status),
         };
         const lockedClass = r.status === 'received' ? ' is-locked' : '';
@@ -3141,7 +3144,6 @@ window.addEventListener('load', () => {
             form.elements.shipExpectedDeliveryDate.value = eta.toISOString().slice(0, 10);
         }
         if (form.elements.note) form.elements.note.value = 'Đơn test ngẫu nhiên';
-        form.elements.status.value = 'draft';
         modalInvoiceImage = '';
         modalRows = Array.from({ length: _rInt(1, 4) }, () => _randomRow(isVnd));
         modalInvoiceImage = modalRows[0]?.invoiceImage || '';
@@ -3258,7 +3260,6 @@ window.addEventListener('load', () => {
                 form.elements.shipExpectedDeliveryDate.value = sh.expectedDeliveryDate || '';
             }
             form.elements.supplier.value = r.supplier || '';
-            form.elements.status.value = r.status || 'draft';
             form.elements.note.value = r.note || '';
             form.elements.costNote.value = r.costNote || '';
             modalRows = [
@@ -3292,7 +3293,6 @@ window.addEventListener('load', () => {
             } else {
                 titleEl.textContent = 'Tạo Đơn Hàng (Nháp)';
             }
-            form.elements.status.value = 'draft';
             modalRows = [_newModalRow()];
         }
         const curHint =
@@ -3349,11 +3349,13 @@ window.addEventListener('load', () => {
             discount: Number(form.elements.shipDiscount?.value) || 0,
             shipping: Number(form.elements.shipShipping?.value) || 0,
         };
+        // 2026-06-16: KHÔNG còn field status trong modal (bỏ đổi tay). Tạo mới →
+        // addRow default 'draft'. Sửa → updateRow không có key status → giữ nguyên
+        // status hiện tại của dòng (chỉ "Nhận hàng" đổi sang received/partial).
         const sharedFields = {
             supplier: form.elements.supplier.value.trim(),
             note: form.elements.note.value.trim(),
             costNote: form.elements.costNote.value.trim(),
-            status: form.elements.status.value,
         };
         // Auto-create NCC vào Ví NCC nếu tên chưa có. Fire-and-forget — không
         // chặn submit, lỗi Firestore chỉ console.warn (vẫn lưu row bình thường).
@@ -4272,7 +4274,6 @@ window.addEventListener('load', () => {
         // Shared fields lấy từ row đầu — user có thể sửa shipment-wide
         const r0 = sh.rows[0] || {};
         form.elements.supplier.value = r0.supplier || '';
-        form.elements.status.value = r0.status || 'draft';
         form.elements.note.value = r0.note || '';
         form.elements.costNote.value = r0.costNote || '';
         // Load rows vào modal. rowsOverride filter rows đã nhận trước khi
@@ -4792,11 +4793,13 @@ window.addEventListener('load', () => {
     }
 
     function _soImportConfig() {
+        // 2026-06-16: 'ordered'/'Đã đặt' khai tử — import map về 'draft' (chặn tái
+        // nhập trạng thái đã bỏ qua Excel). Chỉ "Nhận hàng" tạo received/partial.
         const STATUS_MAP = {
             nhap: 'draft',
             draft: 'draft',
-            dadat: 'ordered',
-            ordered: 'ordered',
+            dadat: 'draft',
+            ordered: 'draft',
             danhan: 'received',
             received: 'received',
             dahuy: 'cancelled',
@@ -4884,7 +4887,7 @@ window.addEventListener('load', () => {
                     type: 'enum',
                     aliases: ['trang thai', 'status'],
                     enumMap: STATUS_MAP,
-                    enumValues: ['Nháp', 'Đã đặt', 'Đã nhận', 'Đã hủy'],
+                    enumValues: ['Nháp', 'Đã nhận', 'Đã hủy'],
                     hint: 'Mặc định Nháp',
                 },
             ],

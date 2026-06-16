@@ -380,9 +380,15 @@
     color: #92400e;
 }
 
+/* 2026-06-16: 'ordered' khai tử. 'partial_received' = nhận 1 phần (vàng/cam). */
 .so-status-pill[data-status='ordered'] {
-    background: #dbeafe;
-    color: #1d4ed8;
+    background: #e2e8f0;
+    color: #475569;
+}
+
+.so-status-pill[data-status='partial_received'] {
+    background: #fef3c7;
+    color: #b45309;
 }
 
 .so-status-pill[data-status='received'] {

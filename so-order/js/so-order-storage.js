@@ -151,6 +151,9 @@
             let lastSupplier = null;
             let curGroup = null;
             for (const r of sh.rows) {
+                // 2026-06-16: 'ordered' (Đã Đặt) khai tử → về 'draft' (chưa nhận =
+                // chưa nợ NCC). Chỉ "Nhận hàng" tạo received/partial_received.
+                if (r.status === 'ordered') r.status = 'draft';
                 if (r.invoiceGroupId) {
                     lastSupplier = r.supplier || '';
                     curGroup = r.invoiceGroupId;
