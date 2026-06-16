@@ -3,18 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `eade698` — auto: session update
-**Last updated**: 2026-06-16 15:07:59 +07
-**Latest session**: [`RESUME:20260616-150759-eade698`](../20260616-150759-eade698.md)
-**Summary**: auto: session update
+**Latest commit**: `887c0cc` — fix(orders-report): sai múi giờ strip "Khách chưa trả lời" — khách mới nhắn báo trễ 7h
+**Last updated**: 2026-06-16 15:12:05 +07
+**Latest session**: [`RESUME:20260616-151205-887c0cc`](../20260616-151205-887c0cc.md)
+**Summary**: fix(orders-report): sai múi giờ strip "Khách chưa trả lời" — khách mới nhắn báo trễ 7h
 
 ## Folders affected in this commit
 
-- [`_root/`](./_root.md) — 1 file(s)
 - [`docs/`](./docs.md) — 1 file(s)
-- [`orders-report/`](./orders-report.md) — 6 file(s)
-- [`so-order/`](./so-order.md) — 4 file(s)
-- [`web2/`](./web2.md) — 1 file(s)
+- [`orders-report/`](./orders-report.md) — 3 file(s)
 
 ## All folder snapshots
 
@@ -29,7 +26,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-16 11:15
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-16 14:31
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-16 14:31
-- [`docs/`](./docs.md) — updated 2026-06-16 15:08
+- [`docs/`](./docs.md) — updated 2026-06-16 15:12
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-16 14:31
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-16 14:31
 - [`downloads/`](./downloads.md) — updated 2026-06-13 19:16
@@ -49,7 +46,7 @@
 - [`native-orders/`](./native-orders.md) — updated 2026-06-16 10:25
 - [`nhanhang/`](./nhanhang.md) — updated 2026-06-13 19:51
 - [`order-management/`](./order-management.md) — updated 2026-05-21 15:39
-- [`orders-report/`](./orders-report.md) — updated 2026-06-16 15:08
+- [`orders-report/`](./orders-report.md) — updated 2026-06-16 15:12
 - [`pancake-extension/`](./pancake-extension.md) — updated 2026-05-21 11:33
 - [`phone-management/`](./phone-management.md) — updated 2026-05-21 15:39
 - [`product-warehouse/`](./product-warehouse.md) — updated 2026-06-16 14:31
