@@ -202,19 +202,34 @@
      * @returns {{ type: string|null, rest: string }}
      */
     function extractType(productNameClean) {
-        // Sort by length desc để match longest first.
-        // Chỉ match ở ĐẦU tên SP (convention VN: "ÁO ĐỎ", "QUẦN XANH", "ĐẦM HỒNG"...).
-        // Tránh false match như "HỒNG ĐẬM" → DAM khi ĐẬM là tính từ.
-        const keys = Object.keys(TYPE_MAP).sort((a, b) => b.length - a.length);
-        for (const key of keys) {
-            const keyAscii = clean(key);
-            const re = new RegExp(`^${keyAscii}\\b`);
-            if (re.test(productNameClean)) {
-                const rest = productNameClean.replace(re, ' ').replace(/\s+/g, ' ').trim();
-                return { type: TYPE_MAP[key], rest };
-            }
+        // Tên SP shop thường có MÃ NỘI BỘ ở đầu (số / mã ngắn) rồi mới tới TỪ LOẠI:
+        //   "1606 A1 ÁO TN TRƠN"  → loại = ÁO   (KHÔNG ở đầu chuỗi → trước đây rớt MM)
+        //   "2003 B5 SET ÁO DÀI"  → loại = ÁO
+        //   "ÁO"                  → loại = ÁO
+        // → bỏ qua các token "mã" ở đầu (token CHỨA chữ số: 1606, A1, B4, 2003…),
+        //   rồi tìm TỪ LOẠI ở token nội-dung đầu tiên trở đi. Mọi keyword TYPE_MAP
+        //   là 1 token sau clean() nên so khớp theo token (không cần regex prefix).
+        // ⚠ ĐẦM (DAM) trùng ASCII với tính từ "ĐẬM" (DAM) → CHỈ nhận DAM khi nó là
+        //   token nội-dung ĐẦU TIÊN (né "ÁO HỒNG ĐẬM"/"HỒNG ĐẬM" → DAM sai). Các
+        //   keyword còn lại (AO/QUAN/GUOC/TLQD/TDQD) không phải tính từ → match đâu
+        //   trong tên cũng an toàn.
+        const tokens = productNameClean.split(' ').filter(Boolean);
+        if (!tokens.length) return { type: DEFAULT_TYPE, rest: productNameClean };
+        let firstContentIdx = 0;
+        while (firstContentIdx < tokens.length && /\d/.test(tokens[firstContentIdx])) {
+            firstContentIdx += 1;
         }
-        // KHÔNG match → fallback MM, giữ nguyên tên SP (không cắt prefix)
+        for (let i = firstContentIdx; i < tokens.length; i += 1) {
+            const type = TYPE_MAP[tokens[i]];
+            if (!type) continue;
+            if (type === 'DAM' && i !== firstContentIdx) continue; // né tính từ ĐẬM
+            const rest = [...tokens.slice(0, i), ...tokens.slice(i + 1)]
+                .join(' ')
+                .replace(/\s+/g, ' ')
+                .trim();
+            return { type, rest };
+        }
+        // KHÔNG match keyword nào → fallback MM, giữ nguyên tên SP.
         return { type: DEFAULT_TYPE, rest: productNameClean };
     }
 

@@ -29,7 +29,9 @@
         { key: 'note', label: 'Ghi Chú' },
         { key: 'costNote', label: 'Ghi Chú CP' },
         { key: 'status', label: 'Trạng Thái' },
-        { key: 'actions', label: 'Thao Tác' },
+        // Cột "Thao Tác" (sửa/xoá per-row) đã bỏ 2026-06-16 — trùng chức năng với
+        // các nút trên header lô (✏️ sửa lô / 🗑️ xoá lô / ➕ thêm dòng) + sửa ô
+        // inline (double-click). Sửa/xoá 1 dòng lẻ: dùng modal "Sửa lô".
     ];
 
     const STATUS_LABELS = {
@@ -716,6 +718,16 @@
                         <strong>Tổng HĐ:</strong>
                         <span class="so-shipment-contract-raw">${escapeHtml(contractDisplayText)}</span>
                     </span>
+                    ${(() => {
+                        // 2026-06-16: giảm giá / phí ship per-đơn (hiển thị khi != 0).
+                        const disc = Number(sh.discount) || 0;
+                        const ship = Number(sh.shipping) || 0;
+                        if (!disc && !ship) return '';
+                        const parts = [];
+                        if (disc) parts.push(`Giảm ${fmtCurrency(disc, tab.currency || 'VND')}`);
+                        if (ship) parts.push(`Ship ${fmtCurrency(ship, tab.currency || 'VND')}`);
+                        return `<span class="so-shipment-sep">|</span><span class="so-shipment-meta so-shipment-adjust">${escapeHtml(parts.join(' · '))}</span>`;
+                    })()}
                     <span class="so-shipment-spacer"></span>
                     ${(() => {
                         // P1 2026-05-30: nếu mọi row hợp lệ đã received → disable
@@ -772,8 +784,15 @@
     function _lookupKhoCode(r) {
         try {
             const cache = window.Web2ProductsCache;
-            if (!cache?.findByNameExact) return null;
-            const p = cache.findByNameExact((r.productName || '').trim());
+            // Variant-aware: CHỈ trả mã khi SP khớp ĐÚNG tên + biến thể. Trước đây
+            // findByNameExact (chỉ tên) → hàng biến thể "Đỏ" mượn nhầm mã SP "Trắng"
+            // cùng tên (vd HNMMTRANG). SP chưa có đúng biến thể → null (badge để
+            // trống tới khi nhận hàng). Cache cũ chưa có method → cũng trả null.
+            if (!cache?.findByNameVariant) return null;
+            const p = cache.findByNameVariant(
+                (r.productName || '').trim(),
+                (r.variant || '').trim()
+            );
             return p?.code || null;
         } catch (_) {
             return null;
@@ -2637,7 +2656,8 @@ window.addEventListener('load', () => {
         const row = modalRows.find((r) => r.uid === uid);
         if (!row) return;
         const tab = window.SoOrderStorage.getActiveTab(state);
-        const subtotal = (Number(row.qty) || 0) * (Number(row.sellPrice) || 0);
+        // Thành tiền tính theo GIÁ NHẬP (đây là đơn MUA hàng từ NCC), không phải giá bán.
+        const subtotal = (Number(row.qty) || 0) * (Number(row.costPrice) || 0);
         const el = document.querySelector(`[data-total-for="${uid}"]`);
         if (el) el.textContent = fmtCurrency(subtotal, tab.currency || 'VND');
     }
@@ -2709,14 +2729,19 @@ window.addEventListener('load', () => {
     // P1 2026-05-30: variant dropdown bị che bởi modal-body overflow:auto
     // dù z-index=80. Fix: dùng position:fixed + JS tính từ input rect (anchor
     // lên window). Dropdown bay ra khỏi clip của modal-body, hover/click OK.
-    function _positionFixedDropdown(list, anchorInput) {
-        const rect = anchorInput.getBoundingClientRect();
-        list.style.position = 'fixed';
-        list.style.top = rect.bottom + 4 + 'px';
-        list.style.left = rect.left + 'px';
-        list.style.width = Math.max(rect.width, 220) + 'px';
-        list.style.right = 'auto';
-        list.style.zIndex = '9999';
+    function _positionFixedDropdown(list, _anchorInput) {
+        // 2026-06-16: KHÔNG dùng position:fixed nữa. Ancestor `.so-modal-body-v2`
+        // có `contain: layout style paint` → mọi fixed-descendant được tính toạ độ
+        // (và clip) theo BOX đó, KHÔNG phải viewport. `top = rect.bottom` (toạ độ
+        // viewport) vì thế rớt lệch rất xa input. Dropdown đã có CSS
+        // `position:absolute; top:100%` so với wrap (position:relative) → đứng sát
+        // ngay dưới input. Chỉ cần XOÁ inline style fixed cũ (nếu còn) để CSS áp dụng.
+        list.style.position = '';
+        list.style.top = '';
+        list.style.left = '';
+        list.style.width = '';
+        list.style.right = '';
+        list.style.zIndex = '';
     }
 
     // Khi modal-body scroll, fixed dropdown sẽ stay lệch khỏi input → đóng
@@ -2988,6 +3013,21 @@ window.addEventListener('load', () => {
         }
     }
 
+    // 2026-06-16: (a) ẩn/hiện cụm field thông tin lô nâng cao (.so-ship-adv) theo
+    // cài đặt tab.showShipMeta (mặc định ẩn); (b) populate giảm giá / phí ship của
+    // đơn. sh = lô đang sửa (null khi tạo mới → 0). Dùng chung 2 modal open.
+    function _applyShipMetaUi(tab, sh) {
+        const show = !!(tab && tab.showShipMeta);
+        document.querySelectorAll('#soOrderForm .so-ship-adv').forEach((el) => {
+            el.hidden = !show;
+        });
+        const form = document.getElementById('soOrderForm');
+        if (form?.elements?.shipDiscount)
+            form.elements.shipDiscount.value = Number(sh?.discount) || 0;
+        if (form?.elements?.shipShipping)
+            form.elements.shipShipping.value = Number(sh?.shipping) || 0;
+    }
+
     function openOrderModal(rowId, shipmentId) {
         const tab = window.SoOrderStorage.getActiveTab(state);
         // Guard: rows đã nhận → không mở modal edit. User phải revert status
@@ -3086,6 +3126,7 @@ window.addEventListener('load', () => {
         };
         updateContractHint();
         form.elements.shipContractCurrency.onchange = updateContractHint;
+        _applyShipMetaUi(tab, shipmentId ? tab.shipments.find((s) => s.id === shipmentId) : null);
         renderModalRows();
         showModal('soOrderModal');
         _bindModalScrollCloseDropdowns();
@@ -3114,6 +3155,9 @@ window.addEventListener('load', () => {
             contractAmount: Number(form.elements.shipContractAmount.value) || 0,
             contractCurrency: form.elements.shipContractCurrency.value,
             expectedDeliveryDate: form.elements.shipExpectedDeliveryDate?.value || null,
+            // 2026-06-16: giảm giá / phí ship per-đơn (nhập ở modal tạo đơn).
+            discount: Number(form.elements.shipDiscount?.value) || 0,
+            shipping: Number(form.elements.shipShipping?.value) || 0,
         };
         const sharedFields = {
             supplier: form.elements.supplier.value.trim(),
@@ -3281,6 +3325,8 @@ window.addEventListener('load', () => {
                     weightKg: shipMeta.weightKg || sh.weightKg,
                     contractAmount: shipMeta.contractAmount || sh.contractAmount,
                     contractCurrency: shipMeta.contractCurrency || sh.contractCurrency,
+                    discount: shipMeta.discount || sh.discount,
+                    shipping: shipMeta.shipping || sh.shipping,
                 };
                 window.SoOrderStorage.updateShipment(state, tab.id, sh.id, merged);
             }
@@ -4069,6 +4115,7 @@ window.addEventListener('load', () => {
         };
         updateContractHint();
         form.elements.shipContractCurrency.onchange = updateContractHint;
+        _applyShipMetaUi(tab, sh);
         renderModalRows();
         showModal('soOrderModal');
         _bindModalScrollCloseDropdowns();
@@ -4098,6 +4145,9 @@ window.addEventListener('load', () => {
             document.getElementById('soTabDeleteBtn').style.display =
                 state.tabs.length > 1 ? '' : 'none';
         }
+        if (form.elements.showShipMeta) {
+            form.elements.showShipMeta.checked = forNew ? false : !!tab.showShipMeta;
+        }
         showModal('soTabSettingsModal');
         setTimeout(() => form.elements.label.focus(), 80);
     }
@@ -4110,6 +4160,7 @@ window.addEventListener('load', () => {
             label: form.elements.label.value.trim() || 'Tab',
             currency: form.elements.currency.value,
             rate: Number(form.elements.rate.value) || 1,
+            showShipMeta: !!form.elements.showShipMeta?.checked,
         };
         if (mode === 'create') {
             window.SoOrderStorage.addTab(state, patch);
@@ -4755,6 +4806,11 @@ window.addEventListener('load', () => {
         document
             .getElementById('soTabSettingsForm')
             .addEventListener('submit', handleTabSettingsSubmit);
+        // Giảm giá / phí ship per-đơn → cập nhật THÀNH TIỀN modal ngay khi gõ.
+        ['shipDiscount', 'shipShipping'].forEach((name) => {
+            const el = document.querySelector(`#soOrderForm [name="${name}"]`);
+            if (el) el.addEventListener('input', updateModalGrandTotals);
+        });
 
         // Generic close handlers
         document.querySelectorAll('[data-so-close]').forEach((el) => {
@@ -4787,16 +4843,22 @@ window.addEventListener('load', () => {
         const tab = window.SoOrderStorage.getActiveTab(state);
         if (!tab) return;
         const totalQty = modalRows.reduce((s, r) => s + (Number(r.qty) || 0), 0);
+        // Tổng tiền = Σ(SL × GIÁ NHẬP) — đơn mua hàng tính theo giá nhập.
         const subtotal = modalRows.reduce(
-            (s, r) => s + (Number(r.qty) || 0) * (Number(r.sellPrice) || 0),
+            (s, r) => s + (Number(r.qty) || 0) * (Number(r.costPrice) || 0),
             0
         );
+        // THÀNH TIỀN = Tổng tiền − Giảm giá + Phí ship (per-đơn, nhập ở modal).
+        const form = document.getElementById('soOrderForm');
+        const discount = Number(form?.elements?.shipDiscount?.value) || 0;
+        const shipping = Number(form?.elements?.shipShipping?.value) || 0;
+        const grand = Math.max(0, subtotal - discount + shipping);
         const qtyEl = document.getElementById('soModalTotalQty');
         if (qtyEl) qtyEl.textContent = totalQty.toLocaleString('vi-VN');
         const sumEl = document.getElementById('soModalTotalAmount');
         if (sumEl) sumEl.textContent = fmtCurrency(subtotal, tab.currency || 'VND');
         const finalEl = document.getElementById('soModalFinalAmount');
-        if (finalEl) finalEl.textContent = fmtCurrency(subtotal, tab.currency || 'VND');
+        if (finalEl) finalEl.textContent = fmtCurrency(grand, tab.currency || 'VND');
     }
 
     function wireModalTotals() {

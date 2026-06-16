@@ -61,7 +61,6 @@
         note: true,
         costNote: true,
         status: true,
-        actions: true,
     };
 
     function _mkId() {
@@ -76,6 +75,9 @@
                     label: 'HÀ NỘI',
                     currency: 'VND',
                     rate: 1,
+                    // Ẩn/hiện cụm field thông tin lô nâng cao (ETA/Đợt/Số Kiện/
+                    // Tổng KG/Tiền HĐ/Tiền tệ) trong modal tạo đơn. Mặc định ẩn.
+                    showShipMeta: false,
                     footer: { discount: 0, shipping: 0 },
                     columnVisibility: { ...DEFAULT_COLUMNS },
                     shipments: [],
@@ -85,6 +87,7 @@
                     label: 'HƯƠNG CHÂU',
                     currency: 'CNY',
                     rate: 3500,
+                    showShipMeta: false,
                     footer: { discount: 0, shipping: 0 },
                     columnVisibility: { ...DEFAULT_COLUMNS },
                     shipments: [],
@@ -119,12 +122,16 @@
         } else {
             tab.columnVisibility = { ...DEFAULT_COLUMNS, ...tab.columnVisibility };
         }
+        // Backfill toggle ẩn/hiện field thông tin lô (mặc định ẩn cho tab cũ).
+        if (tab.showShipMeta === undefined) tab.showShipMeta = false;
         // Heal shipment shape
         for (const sh of tab.shipments) {
             if (!Array.isArray(sh.rows)) sh.rows = [];
             if (sh.collapsed == null) sh.collapsed = false;
             if (!sh.date) sh.date = new Date().toISOString().slice(0, 10);
             if (!sh.contractCurrency) sh.contractCurrency = tab.currency || 'VND';
+            if (sh.discount == null) sh.discount = 0;
+            if (sh.shipping == null) sh.shipping = 0;
             // P1 2026-05-30: backfill invoiceGroupId cho rows cũ chưa có.
             // Gộp các rows kế nhau cùng supplier (heuristic: nhiều khả năng
             // được tạo cùng 1 đợt) → 1 group. Đổi supplier → group mới.
@@ -334,13 +341,14 @@
             return state;
         },
 
-        addTab(state, { label, currency, rate }) {
+        addTab(state, { label, currency, rate, showShipMeta }) {
             const id = _mkId();
             state.tabs.push({
                 id,
                 label: label || 'Tab mới',
                 currency: currency || 'VND',
                 rate: Number(rate) || 1,
+                showShipMeta: !!showShipMeta,
                 footer: { discount: 0, shipping: 0 },
                 shipments: [],
             });
@@ -374,6 +382,9 @@
                 // P1 2026-05-29: ETA (Expected Delivery Date). Hiển thị badge
                 // "📦 còn N ngày" / "⚠️ quá hạn" trên shipment header. Nullable.
                 expectedDeliveryDate: meta.expectedDeliveryDate || null,
+                // 2026-06-16: giảm giá / phí ship per-đơn (nhập lúc tạo đơn).
+                discount: Number(meta.discount) || 0,
+                shipping: Number(meta.shipping) || 0,
                 collapsed: false,
                 rows: [],
             };
@@ -396,6 +407,8 @@
             if (patch.contractCurrency !== undefined) sh.contractCurrency = patch.contractCurrency;
             if (patch.expectedDeliveryDate !== undefined)
                 sh.expectedDeliveryDate = patch.expectedDeliveryDate || null;
+            if (patch.discount !== undefined) sh.discount = Number(patch.discount) || 0;
+            if (patch.shipping !== undefined) sh.shipping = Number(patch.shipping) || 0;
             if (patch.collapsed !== undefined) sh.collapsed = !!patch.collapsed;
             _write(state);
             return true;
@@ -484,6 +497,7 @@
             if (patch.label !== undefined) tab.label = patch.label;
             if (patch.currency !== undefined) tab.currency = patch.currency;
             if (patch.rate !== undefined) tab.rate = Number(patch.rate) || 1;
+            if (patch.showShipMeta !== undefined) tab.showShipMeta = !!patch.showShipMeta;
             _write(state);
             return true;
         },

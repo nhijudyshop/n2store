@@ -1120,6 +1120,40 @@
     grid-column: span 2;
 }
 
+/* Checkbox field (Cài đặt tab → Hiện thông tin lô). Hàng ngang thay vì cột. */
+.so-field-check {
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+}
+.so-field-check input[type='checkbox'] {
+    width: 16px;
+    height: 16px;
+    flex: 0 0 auto;
+    accent-color: #0068ff;
+    cursor: pointer;
+}
+.so-field-check > span {
+    font-size: 12px;
+    font-weight: 500;
+    color: #475569;
+}
+
+/* 2026-06-16: cụm field thông tin lô nâng cao trong modal tạo đơn — ẩn theo
+   cài đặt tab. `[hidden]` (UA display:none) bị author rule `.so-form-cell{
+   display:flex}` đè (specificity hoà) → cần !important. Xem MEMORY
+   reference_css_hidden_display_override. */
+.so-ship-adv[hidden] {
+    display: none !important;
+}
+
+/* Pill giảm giá / phí ship trên header lô. */
+.so-shipment-adjust {
+    color: #b45309;
+    font-weight: 600;
+}
+
 .so-currency-hint {
     color: #0058da;
     font-weight: 700;

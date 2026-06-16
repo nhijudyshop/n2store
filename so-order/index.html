@@ -15,22 +15,22 @@
             rel="stylesheet"
         />
 
-        <link rel="stylesheet" href="../web2/shared/web2-sidebar.css?v=20260615e" />
-        <link rel="stylesheet" href="../web2/shared/web2-effects.css?v=20260615e" />
-        <link rel="stylesheet" href="../web2/shared/web2-components.css?v=20260615e" />
-        <link rel="stylesheet" href="../web2/products/css/web2-products-print.css?v=20260615e" />
-        <link rel="stylesheet" href="css/so-order.css?v=20260615e" />
+        <link rel="stylesheet" href="../web2/shared/web2-sidebar.css?v=20260616a" />
+        <link rel="stylesheet" href="../web2/shared/web2-effects.css?v=20260616a" />
+        <link rel="stylesheet" href="../web2/shared/web2-components.css?v=20260616a" />
+        <link rel="stylesheet" href="../web2/products/css/web2-products-print.css?v=20260616a" />
+        <link rel="stylesheet" href="css/so-order.css?v=20260616a" />
         <!-- Import dữ liệu CSV/JSON (NGUỒN CHUNG Web2Import) -->
-        <link rel="stylesheet" href="../web2/shared/web2-import.css?v=20260615e" />
+        <link rel="stylesheet" href="../web2/shared/web2-import.css?v=20260616a" />
 
         <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
 
         <!-- Firebase compat (Firestore sync for cross-device column visibility + data) -->
 
-        <script src="../shared/js/notification-system.js?v=20260615e"></script>
-        <script src="../web2/shared/web2-effects.js?v=20260615e"></script>
-        <script src="../web2/shared/web2-db-badge.js?v=20260615e"></script>
-        <link rel="stylesheet" href="../web2/shared/web2-theme.css?v=20260615e" />
+        <script src="../shared/js/notification-system.js?v=20260616a"></script>
+        <script src="../web2/shared/web2-effects.js?v=20260616a"></script>
+        <script src="../web2/shared/web2-db-badge.js?v=20260616a"></script>
+        <link rel="stylesheet" href="../web2/shared/web2-theme.css?v=20260616a" />
     </head>
     <body class="web2-theme">
         <div class="web2-shell">
@@ -217,7 +217,7 @@
                             <label class="so-form-label">Ngày tạo</label>
                             <input type="date" name="shipDate" required class="so-input-v2" />
                         </div>
-                        <div class="so-form-cell">
+                        <div class="so-form-cell so-ship-adv">
                             <label class="so-form-label">
                                 ETA giao hàng
                                 <span class="so-currency-hint">(dự kiến)</span>
@@ -229,7 +229,7 @@
                                 title="Ngày dự kiến NCC giao hàng — badge hiển thị 'còn N ngày' trên shipment header"
                             />
                         </div>
-                        <div class="so-form-cell so-cell-narrow">
+                        <div class="so-form-cell so-cell-narrow so-ship-adv">
                             <label class="so-form-label">Đợt</label>
                             <input
                                 type="text"
@@ -238,7 +238,7 @@
                                 class="so-input-v2"
                             />
                         </div>
-                        <div class="so-form-cell so-cell-narrow">
+                        <div class="so-form-cell so-cell-narrow so-ship-adv">
                             <label class="so-form-label">Số Kiện</label>
                             <input
                                 type="number"
@@ -248,7 +248,7 @@
                                 class="so-input-v2 so-input-num"
                             />
                         </div>
-                        <div class="so-form-cell so-cell-narrow">
+                        <div class="so-form-cell so-cell-narrow so-ship-adv">
                             <label class="so-form-label">Tổng KG</label>
                             <input
                                 type="number"
@@ -259,7 +259,7 @@
                                 class="so-input-v2 so-input-num"
                             />
                         </div>
-                        <div class="so-form-cell">
+                        <div class="so-form-cell so-ship-adv">
                             <label class="so-form-label">
                                 Tiền HĐ
                                 <span class="so-currency-hint" id="soContractCurHint"></span>
@@ -273,7 +273,7 @@
                                 class="so-input-v2 so-input-num"
                             />
                         </div>
-                        <div class="so-form-cell so-cell-narrow">
+                        <div class="so-form-cell so-cell-narrow so-ship-adv">
                             <label class="so-form-label">Tiền tệ</label>
                             <select name="shipContractCurrency" class="so-input-v2">
                                 <option value="VND">VND</option>
@@ -305,6 +305,30 @@
                                 name="costNote"
                                 placeholder="Ghi chú chi phí, nội bộ..."
                                 class="so-input-v2"
+                            />
+                        </div>
+                        <div class="so-form-cell so-cell-narrow">
+                            <label class="so-form-label">Giảm giá</label>
+                            <input
+                                type="number"
+                                name="shipDiscount"
+                                min="0"
+                                step="any"
+                                value="0"
+                                class="so-input-v2 so-input-num"
+                                title="Giảm giá cho đơn hàng này (trừ vào Thành tiền)"
+                            />
+                        </div>
+                        <div class="so-form-cell so-cell-narrow">
+                            <label class="so-form-label">Phí ship</label>
+                            <input
+                                type="number"
+                                name="shipShipping"
+                                min="0"
+                                step="any"
+                                value="0"
+                                class="so-input-v2 so-input-num"
+                                title="Phí vận chuyển cho đơn hàng này (cộng vào Thành tiền)"
                             />
                         </div>
                         <div class="so-form-cell so-cell-narrow">
@@ -421,6 +445,13 @@
                         <span>Tỉ giá → VNĐ (1 đơn vị tiền tệ = ? VNĐ)</span>
                         <input type="number" name="rate" min="0" step="any" required />
                     </label>
+                    <label class="so-field so-field-check">
+                        <input type="checkbox" name="showShipMeta" />
+                        <span
+                            >Hiện thông tin lô khi tạo đơn (ETA, đợt, số kiện, KG, tiền HĐ, tiền
+                            tệ)</span
+                        >
+                    </label>
                 </form>
                 <footer class="so-modal-foot">
                     <button class="btn-danger" type="button" id="soTabDeleteBtn">
@@ -524,32 +555,32 @@
             </div>
         </div>
 
-        <script src="../web2/shared/web2-auth.js?v=20260615e"></script>
-        <script src="../web2/shared/web2-optimistic.js?v=20260615e"></script>
-        <script src="../web2/shared/web2-sidebar.js?v=20260615e"></script>
+        <script src="../web2/shared/web2-auth.js?v=20260616a"></script>
+        <script src="../web2/shared/web2-optimistic.js?v=20260616a"></script>
+        <script src="../web2/shared/web2-sidebar.js?v=20260616a"></script>
         <script>
             document.addEventListener('DOMContentLoaded', () =>
                 window.Web2Sidebar.mount('#web2Aside', { activeRoute: 'so-order' })
             );
         </script>
 
-        <script src="../web2/products/js/web2-products-api.js?v=20260615auth"></script>
+        <script src="../web2/products/js/web2-products-api.js?v=20260616a"></script>
         <!-- In tem SP: dùng CHUNG nguồn với web2/products (Web2Printer + Web2QR + print module),
              load đúng thứ tự để QR bake biến thể + routing máy in giống hệt trang Kho SP. -->
-        <script src="../web2/shared/web2-printer.js?v=20260615auth"></script>
-        <script src="../web2/shared/web2-qr.js?v=20260615e"></script>
-        <script src="../web2/products/js/web2-products-print.js?v=20260615auth"></script>
-        <script src="../web2/variants/js/web2-variants-api.js?v=20260615auth"></script>
-        <script src="../web2/shared/web2-sse-bridge.js?v=20260615e"></script>
-        <script src="../web2/shared/web2-idb-store.js?v=20260615e"></script>
-        <script src="../web2/shared/web2-products-cache.js?v=20260615e"></script>
-        <script src="../web2/shared/web2-variants-cache.js?v=20260615store2"></script>
-        <script src="../web2/shared/web2-suppliers-cache.js?v=20260615e"></script>
-        <script src="../web2/shared/web2-product-code.js?v=20260615e"></script>
-        <script src="../web2/shared/web2-deeplink.js?v=20260615e"></script>
+        <script src="../web2/shared/web2-printer.js?v=20260616a"></script>
+        <script src="../web2/shared/web2-qr.js?v=20260616a"></script>
+        <script src="../web2/products/js/web2-products-print.js?v=20260616a"></script>
+        <script src="../web2/variants/js/web2-variants-api.js?v=20260616a"></script>
+        <script src="../web2/shared/web2-sse-bridge.js?v=20260616a"></script>
+        <script src="../web2/shared/web2-idb-store.js?v=20260616a"></script>
+        <script src="../web2/shared/web2-products-cache.js?v=20260616a"></script>
+        <script src="../web2/shared/web2-variants-cache.js?v=20260616a"></script>
+        <script src="../web2/shared/web2-suppliers-cache.js?v=20260616a"></script>
+        <script src="../web2/shared/web2-product-code.js?v=20260616a"></script>
+        <script src="../web2/shared/web2-deeplink.js?v=20260616a"></script>
         <!-- Import dữ liệu CSV/JSON (NGUỒN CHUNG Web2Import) -->
-        <script src="../web2/shared/web2-import.js?v=20260615e"></script>
-        <script src="js/so-order-storage.js?v=20260615e"></script>
-        <script src="js/so-order-app.js?v=20260615store"></script>
+        <script src="../web2/shared/web2-import.js?v=20260616a"></script>
+        <script src="js/so-order-storage.js?v=20260616a"></script>
+        <script src="js/so-order-app.js?v=20260616a"></script>
     </body>
 </html>

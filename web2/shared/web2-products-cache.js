@@ -377,6 +377,21 @@
         return null;
     }
 
+    // Strict name + variant match. Trả SP CHỈ khi khớp ĐÚNG cả tên lẫn biến thể
+    // (so sánh normalized; biến thể rỗng/null xem như nhau). Dùng cho badge so-order:
+    // hàng biến thể "Đỏ" KHÔNG được mượn nhầm mã SP "Trắng" cùng tên (findByNameExact
+    // bỏ qua biến thể). Không khớp → null (UI để trống tới khi SP đúng biến thể tồn tại).
+    function findByNameVariant(name, variant) {
+        const qn = _normalize(name);
+        if (!qn) return null;
+        const qv = _normalize(variant);
+        for (const p of state.list) {
+            if (_normalize(p.name) !== qn) continue;
+            if (_normalize(p.variant) === qv) return p;
+        }
+        return null;
+    }
+
     /**
      * Báo cho các client/tab khác là kho SP vừa thay đổi.
      * Gọi sau khi POST/PATCH/DELETE thành công ở client hiện tại.
@@ -418,6 +433,7 @@
         findByCode,
         findByName,
         findByNameExact,
+        findByNameVariant,
         has,
         hasByName,
         pushTickle,
