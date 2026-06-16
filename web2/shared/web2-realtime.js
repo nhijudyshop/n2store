@@ -3,16 +3,15 @@
 // Web 2.0 — Realtime client (Pancake WS)
 // =====================================================
 //
-// Two-mode realtime client:
-//   1) DIRECT MODE (default, preferred):
-//      Open WebSocket straight to `wss://pancake.vn/socket/websocket?vsn=2.0.0`
-//      from the browser, join the same Phoenix channels Pancake's own
-//      admin UI joins (`users:{userId}`, `multiple_pages:{userId}`,
-//      `pages:{pageId}` per page). The browser receives events with
-//      zero middleware so coverage matches what Pancake's web app sees.
-//      Ported from web2-pancake/js/realtime-manager.js with the
-//      addition of per-page channel joins (caught the previously-missed
-//      `pages:new_message` events).
+// Realtime client — PROXY-ONLY (2026-06-16, DIRECT_DISABLED=true):
+//   Luôn dùng broker `web2-realtime` (browser → wss://web2-realtime.onrender.com).
+//   ĐÃ BỎ kết nối direct tới pancake.vn vì: browser user thật không có session
+//   pancake.vn → direct luôn fail 1006 (log đỏ vô hại nhưng gây hiểu nhầm), và
+//   broker đã giữ WS server-side tới Pancake 24/7 đủ 2 trang Live (Store+House).
+//   Code direct mode giữ lại (gate bằng DIRECT_DISABLED) để bật lại nếu cần.
+//
+//   [LEGACY] DIRECT MODE (đã tắt): nối thẳng wss://pancake.vn join Phoenix
+//   channels (users/multiple_pages/pages:{id}) — coverage = Pancake admin UI.
 //
 //   2) PROXY FALLBACK:
 //      `wss://web2-realtime.onrender.com` — service Render Web 2.0 'web2-realtime'
@@ -39,6 +38,9 @@
     const PROXY_HTTP_URL =
         (window.WEB2_CONFIG && window.WEB2_CONFIG.REALTIME) || 'https://web2-realtime.onrender.com';
     const PROXY_WS_URL = PROXY_HTTP_URL.replace(/^http/, 'ws'); // wss://web2-realtime.onrender.com
+    // PROXY-ONLY: KHÔNG thử direct WS pancake.vn (luôn fail 1006 cho user thật +
+    // broker web2-realtime đã phủ đủ). Đặt false để bật lại direct mode.
+    const DIRECT_DISABLED = true;
     const WORKER_BASE =
         (window.API_CONFIG && window.API_CONFIG.WORKER_URL) ||
         'https://chatomni-proxy.nhijudyshop.workers.dev';
@@ -113,6 +115,12 @@
     // -------- Direct mode --------
 
     function _connectDirect(pageIdsHint) {
+        // PROXY-ONLY: bỏ qua direct pancake.vn → vào thẳng broker web2-realtime.
+        // Hết log đỏ "wss://pancake.vn failed 1006". Bật lại: DIRECT_DISABLED=false.
+        if (DIRECT_DISABLED) {
+            _connectProxy();
+            return;
+        }
         if (directWs && (directWs.readyState === 0 || directWs.readyState === 1)) return;
         // Sticky guard: nếu lần đầu handshake fail (JWT invalid / pancake reject) →
         // không retry direct nữa, chỉ dùng proxy. Tránh log "WS failed: 403" 4× mỗi lần
