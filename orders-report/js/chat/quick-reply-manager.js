@@ -1022,10 +1022,7 @@ class QuickReplyManager {
                     'https://chatomni-proxy.nhijudyshop.workers.dev/api/realtime/mark-replied',
                     opts
                 ).catch(() => {});
-                fetch(
-                    'https://n2store-realtime.onrender.com/api/realtime/mark-replied',
-                    opts
-                ).catch(() => {});
+                // 2026-06-16: bỏ direct n2store-realtime (service Web 1.0 realtime đang retire).
             }
         } catch (error) {
             console.error('[QUICK-REPLY] Error:', error);

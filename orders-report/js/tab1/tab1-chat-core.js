@@ -729,16 +729,14 @@ function _markRepliedOnServer(psid, pageId) {
     if (!psid) return;
     const body = JSON.stringify({ psid, pageId: pageId || null });
     const opts = { method: 'POST', headers: { 'Content-Type': 'application/json' }, body };
-    // Fire and forget to BOTH servers — with timeout to avoid zombie fetches
+    // Fire and forget qua worker → fallback. (2026-06-16: bỏ direct
+    // n2store-realtime.onrender.com — service Web 1.0 realtime đang retire.)
     const _fetch = window.fetchWithTimeout || fetch;
     _fetch(
         'https://chatomni-proxy.nhijudyshop.workers.dev/api/realtime/mark-replied',
         opts,
         6000
     ).catch(() => {});
-    _fetch('https://n2store-realtime.onrender.com/api/realtime/mark-replied', opts, 6000).catch(
-        () => {}
-    );
 }
 
 // =====================================================
