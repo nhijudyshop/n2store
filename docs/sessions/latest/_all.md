@@ -3,14 +3,16 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `6732b8b` — fix(so-order): checkbox 'Hiện thông tin lô' (Cài đặt tab) không hiện state checked — .so-field input{appearance:none} nuốt checkmark, vẽ custom checked/indeterminate
-**Last updated**: 2026-06-16 15:31:39 +07
-**Latest session**: [`RESUME:20260616-153139-6732b8b`](../20260616-153139-6732b8b.md)
-**Summary**: fix(so-order): checkbox 'Hiện thông tin lô' (Cài đặt tab) không hiện state checked — .so-field input{app...
+**Latest commit**: `f014397` — auto: session update
+**Last updated**: 2026-06-16 15:52:24 +07
+**Latest session**: [`RESUME:20260616-155224-f014397`](../20260616-155224-f014397.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
+- [`so-order/`](./so-order.md) — 4 file(s)
+- [`web2/`](./web2.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -25,7 +27,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-16 11:15
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-16 14:31
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-16 14:31
-- [`docs/`](./docs.md) — updated 2026-06-16 15:31
+- [`docs/`](./docs.md) — updated 2026-06-16 15:52
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-16 14:31
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-16 14:31
 - [`downloads/`](./downloads.md) — updated 2026-06-13 19:16
@@ -60,7 +62,7 @@
 - [`shared/`](./shared.md) — updated 2026-06-16 14:31
 - [`showroom/`](./showroom.md) — updated 2026-06-10 19:04
 - [`showroom1/`](./showroom1.md) — updated 2026-06-10 19:52
-- [`so-order/`](./so-order.md) — updated 2026-06-16 15:31
+- [`so-order/`](./so-order.md) — updated 2026-06-16 15:52
 - [`soluong-live/`](./soluong-live.md) — updated 2026-06-16 14:31
 - [`soorder/`](./soorder.md) — updated 2026-05-21 15:39
 - [`soquy/`](./soquy.md) — updated 2026-06-13 19:51
@@ -73,4 +75,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-16 15:31
+- [`web2/`](./web2.md) — updated 2026-06-16 15:52
