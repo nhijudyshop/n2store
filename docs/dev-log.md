@@ -2,6 +2,16 @@
 
 ## 2026-06-16
 
+### [so-order] Dropdown biến thể: hint nhập nhiều + biến thể tự do (hết "chưa có giá trị khớp" cụt) ✅
+
+**User:** gõ "Đen d" → dropdown chỉ báo "Kho Biến Thể chưa có giá trị nào khớp" (cụt, không hướng dẫn). Muốn hỗ trợ nhập nhiều biến thể.
+
+**Fix** [so-order-app.js](so-order/js/so-order-app.js) `showVariantSuggest`: (1) luôn prepend **hint** "Nhiều biến thể? Gõ Đen / S / M / L → tạo nhiều SP" (bấm → chèn " / " vào input, giữ focus); (2) đổi empty message thành "Dùng '<gõ>' làm biến thể TỰ DO, hoặc thêm vào Kho Biến Thể" (so-order cho phép variant tự do, không bắt buộc khớp kho). CSS `.so-variant-multi-hint` [so-order.css](so-order/css/so-order.css). Bump app `?v=20260616r`, css `s`.
+
+**Verify (Playwright):** gõ "Đen d" → dropdown hiện hint + empty message mới. Multi-variant ("Đen / S / M") vẫn ẩn dropdown + hiện preview chip (đã làm trước).
+
+**Status:** ✅ so-order (Web 2.0). (Tiếp: wire multi-variant vào Kho SP — user yêu cầu.)
+
 ### [so-order][shared] Nhập nhanh NHIỀU biến thể — "Đen / S / M / L / 28" → 4 SP (shared Web2VariantMulti) ✅
 
 **User:** biến thể cho chọn nhiều + đồng bộ shared web2; variant = cặp màu+size; "Đen / S / M / L / 28" = 4 SP màu Đen 4 size; "M / Đỏ / Trắng / Đen" = 3 SP size M 3 màu; thông minh tự nhận màu/size.

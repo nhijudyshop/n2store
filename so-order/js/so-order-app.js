@@ -3076,14 +3076,23 @@ window.addEventListener('load', () => {
         list.dataset.uid = uid;
         const cache = window.Web2VariantsCache;
         if (!cache) return;
-        const items = cache.findByValue((query || '').trim(), 10);
+        const q = (query || '').trim();
+        const items = cache.findByValue(q, 8);
+        // Hint nhập nhanh nhiều biến thể — luôn hiện để user biết cú pháp "/".
+        // Bấm → chèn " / " vào input giúp bắt đầu danh sách.
+        const multiHint = `<button type="button" class="so-variant-multi-hint" data-uid="${uid}">
+                <i data-lucide="layers"></i>
+                <span>Nhiều biến thể? Gõ <b>Đen / S / M / L</b> → tạo nhiều SP (bấm để thêm “ / ”)</span>
+            </button>`;
+        let body;
         if (!items.length) {
-            list.innerHTML = `<div class="so-variant-empty">
-                Kho Biến Thể chưa có giá trị nào khớp.
-                <a href="../web2/variants/index.html" target="_blank">Thêm mới →</a>
+            // so-order cho phép biến thể TỰ DO (không bắt buộc có trong Kho) →
+            // nói rõ thay vì chỉ "chưa khớp".
+            body = `<div class="so-variant-empty">
+                ${q ? `Dùng “<b>${escapeHtml(q)}</b>” làm biến thể tự do, hoặc ` : ''}<a href="../web2/variants/index.html" target="_blank">thêm vào Kho Biến Thể →</a>
             </div>`;
         } else {
-            list.innerHTML = items
+            body = items
                 .map((v) => {
                     const grp = v.groupName
                         ? `<span class="so-variant-group">${escapeHtml(v.groupName)}</span>`
@@ -3095,6 +3104,8 @@ window.addEventListener('load', () => {
                 })
                 .join('');
         }
+        list.innerHTML = multiHint + body;
+        if (window.lucide?.createIcons) window.lucide.createIcons();
         // Portal panel ở <body> → neo fixed theo input, không bị modal-body clip.
         const inputEl = document.querySelector(
             `#soModalProductsBody input[data-field="variant"][data-uid="${uid}"]`
@@ -3116,6 +3127,18 @@ window.addEventListener('load', () => {
                 list.hidden = true;
             });
         });
+        // Hint nhập nhiều biến thể: bấm → chèn " / " để bắt đầu list, giữ focus.
+        const hintBtn = list.querySelector('.so-variant-multi-hint');
+        if (hintBtn) {
+            hintBtn.addEventListener('mousedown', (e) => e.preventDefault());
+            hintBtn.addEventListener('click', () => {
+                if (!inputEl) return;
+                const cur = inputEl.value.trim();
+                inputEl.value = cur ? `${cur} / ` : '';
+                inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+                inputEl.focus();
+            });
+        }
     }
 
     function hideVariantSuggest(uid) {
