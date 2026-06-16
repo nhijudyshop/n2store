@@ -376,8 +376,12 @@ router.post('/ingest', async (req, res) => {
                     if (!snip.endsWith('…') && !snip.endsWith('...')) continue;
                     const m = _mapWsConvToComment(conv);
                     if (m && m.id && conv.id) {
+                        // customer UUID (conv.customers[0].id) BẮT BUỘC cho messages API —
+                        // truyền xuống để reconcile fetch được full text (PSID không dùng được).
+                        const custUuid =
+                            (conv.customers && conv.customers[0] && conv.customers[0].id) || null;
                         poller
-                            .reconcileFullText(conv.page_id, conv.post_id, conv.id, m.id)
+                            .reconcileFullText(conv.page_id, conv.post_id, conv.id, m.id, custUuid)
                             .catch(() => {});
                     }
                 }

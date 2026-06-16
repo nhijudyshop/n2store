@@ -480,6 +480,11 @@ function start({ web2Pool, chatPool, liveCommentsModule }) {
             console.log(
                 '[LIVE-POLLER] deps ready — background poll DISABLED, event-driven only (WS relay → pollPostNow)'
             );
+            // BACKFILL 1 lần sau boot: vá comment cũ còn bị cắt "..." (lưu trước fix
+            // customer_id). Delay 25s để không tranh connection lúc khởi động.
+            setTimeout(() => {
+                reconcileRecentTruncated({ hours: 48, limit: 300 }).catch(() => {});
+            }, 25000);
         })
         .catch((e) => {
             _started = false;
@@ -598,25 +603,40 @@ function pollPostNow(pageId, postId, { immediate = false } = {}) {
 // UPDATE ĐÚNG dòng WS-direct (rowId) → _notify. Comment hiện snippet NGAY (nhanh),
 // ~1-2s sau tự đổi thành full text. Guard in-flight theo rowId (chống fetch trùng).
 const _reconcileInFlight = new Set();
-async function reconcileFullText(pageId, postId, convId, rowId) {
+async function reconcileFullText(pageId, postId, convId, rowId, custUuid) {
     if (!_web2Pool || !_liveComments || !pageId || !convId || !rowId) return;
     if (_reconcileInFlight.has(rowId)) return;
     _reconcileInFlight.add(rowId);
     try {
         const jwt = await getTokenForPage(pageId);
         if (!jwt) return;
+        // Pancake messages API BẮT BUỘC customer_id = UUID khách (conv.customers[0].id) —
+        // KHÔNG phải PSID. Thiếu → API trả "Thiếu mã khách hàng" + 0 message → reconcile
+        // im lặng thất bại (đây là gốc bug "comment dài còn '...'"). WS payload thường có
+        // sẵn customers[0].id; nếu thiếu → resolve qua danh sách conversation của post.
+        let custId = custUuid || null;
+        if (!custId && postId) {
+            try {
+                const convs = await _listPostConversations(String(pageId), String(postId), jwt);
+                const hit = convs.find((c) => String(c.id) === String(convId));
+                custId = (hit && hit.customers && hit.customers[0] && hit.customers[0].id) || null;
+            } catch (_) {
+                /* best-effort — vẫn thử fetch dưới (sẽ no-op nếu thiếu custId) */
+            }
+        }
+        if (!custId) return; // không có UUID → fetch chắc chắn fail, khỏi gọi
         const rows = await _fetchConversationComments(
             String(pageId),
             '',
             String(postId || ''),
-            { id: convId },
+            { id: convId, customers: [{ id: custId }] },
             jwt
         );
-        if (!rows || !rows.length) return;
+        if (!rows || !rows.length) return false;
         // Tin MỚI NHẤT của conv = nội dung của snippet (full text).
         rows.sort((a, b) => _utcMs(b.createdTime) - _utcMs(a.createdTime));
         const full = (rows[0].message || '').trim();
-        if (!full) return;
+        if (!full) return false;
         const r = await _web2Pool.query(
             `UPDATE web2_live_comments SET message = $1, updated_at = $2
              WHERE id = $3 AND COALESCE(message,'') <> $1`,
@@ -624,12 +644,55 @@ async function reconcileFullText(pageId, postId, convId, rowId) {
         );
         if (r.rowCount > 0) {
             _liveComments._notify('reconcile', String(postId || ''));
+            return true;
         }
+        return false;
     } catch (e) {
         console.warn('[LIVE-POLLER] reconcileFullText fail:', e.message);
+        return false;
     } finally {
         _reconcileInFlight.delete(rowId);
     }
 }
 
-module.exports = { start, listLivePostsForAssign, pollNow, pollPostNow, reconcileFullText };
+// BACKFILL: quét comment đã lưu còn bị CẮT ("…"/"...") trong N giờ gần đây → reconcile
+// full text. Dùng cho comment lưu TRƯỚC fix customer_id (hoặc reconcile lỡ fail). row id
+// WS-direct = `${convId}_${seq}` → convId = bỏ đoạn cuối `_seq`. custUuid=null → tự resolve
+// qua _listPostConversations. Idempotent (UPDATE chỉ khi khác). Gọi 1 lần sau boot + thủ công.
+async function reconcileRecentTruncated({ hours = 24, limit = 200 } = {}) {
+    if (!_web2Pool || !_liveComments) return { ok: false, scanned: 0, fixed: 0 };
+    let scanned = 0;
+    let fixed = 0;
+    try {
+        const sinceMs = Date.now() - hours * 3600 * 1000;
+        const r = await _web2Pool.query(
+            `SELECT id, post_id, page_id FROM web2_live_comments
+             WHERE updated_at >= $1
+               AND (message LIKE '%…' OR message LIKE '%...')
+             ORDER BY updated_at DESC LIMIT $2`,
+            [sinceMs, limit]
+        );
+        scanned = r.rows.length;
+        for (const row of r.rows) {
+            const id = String(row.id);
+            const convId = id.replace(/_[^_]*$/, ''); // bỏ `_${seq}` cuối
+            if (!convId || convId === id || !row.page_id || !row.post_id) continue;
+            const ok = await reconcileFullText(row.page_id, row.post_id, convId, id, null);
+            if (ok) fixed++;
+        }
+        if (scanned)
+            console.log(`[LIVE-POLLER] reconcileRecentTruncated: ${fixed}/${scanned} fixed`);
+    } catch (e) {
+        console.warn('[LIVE-POLLER] reconcileRecentTruncated fail:', e.message);
+    }
+    return { ok: true, scanned, fixed };
+}
+
+module.exports = {
+    start,
+    listLivePostsForAssign,
+    pollNow,
+    pollPostNow,
+    reconcileFullText,
+    reconcileRecentTruncated,
+};

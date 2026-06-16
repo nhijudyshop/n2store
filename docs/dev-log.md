@@ -2,6 +2,20 @@
 
 ## 2026-06-16
 
+### [web2][live-chat] Tin nhắn dài bị cắt "..." — fix reconcileFullText thiếu customer_id + backfill ✅
+
+**Triệu chứng (user ask 4):** comment livestream dài hiện "..." (vd image 5 "Nguyễn Thuỳ Dung"). KHÔNG phải lỗi frontend (đã verify `clipped:false`) — Pancake cắt snippet ở nguồn (~64 ký tự).
+
+**Root cause (xác minh LIVE qua pancake.vn API):** backend ĐÃ có `reconcileFullText` ([web2-livestream-poller.js](render.com/services/web2-livestream-poller.js)) fetch full text khi /ingest thấy snippet cắt, NHƯNG nó gọi `_fetchConversationComments(..., { id: convId }, ...)` — THIẾU `customers[0].id`. Pancake messages API **bắt buộc `customer_id` = UUID khách** (KHÔNG phải PSID): gọi thiếu → trả `"Thiếu mã khách hàng"` + 0 message → reconcile im lặng fail → comment kẹt "...". Verify: cùng conv, thiếu customer_id → 0 msg "Thiếu mã khách hàng"; đúng UUID `a3698631…` → full text "Em mấy ngày trước chị chốt quần B xat . 590k không thấy E chốt quần chị". Token pancake_accounts còn hạn OK (không phải lỗi JWT). `/page-posts` rỗng chỉ vì không có bài đang live lúc test.
+
+**Fix:**
+
+- [web2-live-comments.js](render.com/routes/web2-live-comments.js) `/ingest`: truyền `conv.customers[0].id` (UUID) xuống `reconcileFullText`.
+- [web2-livestream-poller.js](render.com/services/web2-livestream-poller.js) `reconcileFullText(pageId, postId, convId, rowId, custUuid)`: dùng custUuid → `_fetchConversationComments(..., { id, customers:[{id:custUuid}] })`. Nếu thiếu custUuid (vd backfill) → tự resolve qua `_listPostConversations` (tìm conv theo id → `customers[0].id`). Không có UUID → return sớm (khỏi gọi fail). Trả boolean updated.
+- **BACKFILL** `reconcileRecentTruncated({hours,limit})`: quét `web2_live_comments` còn `message LIKE '%…'|'%...'` trong N giờ (`updated_at >= since`), derive convId = row id bỏ `_${seq}` cuối, reconcile từng cái. Chạy 1 lần 25s sau boot (`start()`), idempotent (`UPDATE … WHERE message<>$1`). Vá comment cũ còn "..." (vd image 5).
+
+**Deploy:** cần web2-api (instance chạy /ingest + poller, DISABLE_WEB2_JOBS unset). Frontend không đổi. Comment mới tự đổi snippet→full qua SSE `reconcile`; comment cũ vá khi web2-api restart (backfill).
+
 ### [web2][live-chat] comments-mobile — SĐT hiện CÙNG LÚC với địa chỉ (fallback kho như desktop) ✅
 
 **Triệu chứng (user):** mobile (`comments-mobile.html`) hiện địa chỉ nhưng KHÔNG hiện SĐT cùng lúc, dù desktop (`index.html`) hiện cả 2 (vd KH "Lê Hạ" desktop có `0978078543` + địa chỉ, mobile chỉ địa chỉ).
