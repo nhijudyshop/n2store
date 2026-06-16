@@ -2,11 +2,27 @@
 
 ## 2026-06-16
 
+### [so-order][shared] Nhập nhanh NHIỀU biến thể — "Đen / S / M / L / 28" → 4 SP (shared Web2VariantMulti) ✅
+
+**User:** biến thể cho chọn nhiều + đồng bộ shared web2; variant = cặp màu+size; "Đen / S / M / L / 28" = 4 SP màu Đen 4 size; "M / Đỏ / Trắng / Đen" = 3 SP size M 3 màu; thông minh tự nhận màu/size.
+
+**Build (qua workflow 5-agent map+design):**
+
+- **Module shared** [web2/shared/web2-variant-multi.js](web2/shared/web2-variant-multi.js) `window.Web2VariantMulti` (load SAU web2-variants-cache): `classifyToken` (cache groupName TRƯỚC, mirror products `_isSizeGroup`; fallback `SIZE_RE`; còn lại = MÀU — vì SIZE_RE đã bắt chắc size, token lạ ⇒ tên màu), `parse`/`expand`/`detect`. Output chuẩn "Màu / Size". Cases: 1 anchor + list → expand; chỉ 1 loại → N variant; **cả 2 loại nhiều → cartesian** (cap `MAX_EXPAND=60`); 1+1 → single. Dedupe.
+- **so-order**: `_explodeVariants(validRows)` — dòng MỚI (rowId==null) có variant multi → tách N addRow (copy name/giá/ảnh, share invoiceGroupId), wire ở create + edit-shipment submit. **Live preview** chip dưới ô variant (`_updateVariantMultiPreview` → "Tách N SP: …"). Multi-variant detect → ẩn dropdown pick-1 (khỏi che preview). Placeholder gợi ý. CSS chip [so-order.css](so-order/css/so-order.css).
+
+**Verify (node unit + Playwright):** parser đúng cả 6 ví dụ (kể cả cache rỗng); UI: gõ "Đen / S / M / L / 28" → preview 4 chip + dropdown ẩn → Lưu → **4 dòng SP** Đen/S,Đen/M,Đen/L,Đen/28 (SL copy) + 4 SP kho mã HNMM\*DEN{S,M,L,28} (color+size shortcode đúng). Cleanup sạch (4 row + 4 kho product). Bump `web2-variant-multi.js?v=20260616b`, `so-order-app.js?v=20260616q`, css `p`.
+
+**Đồng bộ:** module shared — trang web2 khác load script + gọi `Web2VariantMulti.expand()`. products (2-field strict), inline-edit (sửa 1 dòng), native-orders (auto) cố ý KHÔNG explode (xem design). Open: thứ tự output luôn màu-trước-size; cartesian là default cho 2×2.
+
+**Status:** ✅ verified browser. so-order + shared (Web 2.0).
+
 ### [orders-report][chat] Fix khung chat bắt NHẦM hội thoại Pancake khi SĐT trùng nhiều người ✅
 
 **Bug (user báo):** bấm khách "Hoa Tuyết Trắng" (`0987616422`) ở orders-report → header đúng tên nhưng **đoạn chat + avatar lại là của "Thùy Trang"** (người khác). Gốc: SĐT đó nằm trong `recent_phone_numbers` của nhiều hội thoại khác nhau (khách dán cùng số liên hệ vào nhiều FB chat; Pancake search là full-text). Chuỗi resolve trong [tab1-chat-core.js](orders-report/js/tab1/tab1-chat-core.js) `_doFindAndLoadConversation` chọn `matched[0]` theo recency (Thùy Trang hoạt động gần hơn) — **không dùng TÊN/PSID đơn để phân biệt** — và chạy TRƯỚC tầng DB+name-search (tầng duy nhất xử lý homonym đúng).
 
 **Fix (Khớp TÊN → PSID → picker, KHÔNG đổi control-flow):**
+
 - Thêm helper `_pickBestConv(cands, {type,name,psid})` + `_strip`/`_bareName`/`_nameMatch` đầu hàm. >1 `from_psid` distinct (SĐT thật sự nhiều người) mới đổi hành vi; 1 người → trả `find(type)||[0]` **y hệt code cũ** (zero regression). Ưu tiên TÊN (chỉ khi khớp đúng 1 người) → PSID đơn → mơ hồ mà CÓ tên → `ambiguous` (để conv=null rơi xuống tầng DB+name + picker). Không tên lẫn psid → fallback `matched[0]` (giữ cũ).
 - Áp `_pickBestConv` tại 3 điểm chọn phone-verified: PRIMARY phone-search, preferred-page, cross-page `phoneVerified`. PRIORITY 1 (direct fb-id từ DB `page_fb_ids`) thêm **verify TÊN** trước khi nhận (mapping DB có thể cũ/sai).
 - Survivor stash `window._chatPhoneCandFallback` (reset đầu hàm, clear sau render): giữ candidate phone-verified cho picker phòng khi tầng DB+name null `_chatPickerCandidates` ở nhánh "không tìm thấy theo tên".
@@ -16,6 +32,7 @@
 **Verify:** node --check OK · unit test `_pickBestConv` 8/8 · browser (Playwright, localhost) module load OK (mọi global chat định nghĩa) · E2E mock đúng kịch bản bug (Thùy Trang recent hơn) → resolve **Hoa Tuyết Trắng** (psid A) ✅ · regression: SĐT 1 người → resolve sạch không picker ✅ · homonym psid không khớp → defer picker (không auto-pick) ✅. **End-to-end thật cần verify trên prod** (data Pancake thật của khách).
 
 **Status:** ✅ code + test xong. Chỉ sửa orders-report (Web 1.0), không đụng web2/backend.
+
 ### [so-order] Nhóm NCC "Đã nhận" dồn xuống cuối lô (pending lên trên) ✅
 
 **User:** "Nhận hàng rồi sẽ đưa xuống dưới" — nhóm đã nhận đủ nằm xen giữa các nhóm còn chờ → muốn nhóm đã nhận xuống cuối.

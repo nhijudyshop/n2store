@@ -2430,6 +2430,46 @@ select.so-input-v2 {
 .so-variant-picker-wrap {
     position: relative;
 }
+/* 2026-06-16: preview nhập nhanh nhiều biến thể — chip N SP sẽ tạo. */
+.so-variant-multi-preview {
+    margin-top: 6px;
+    padding: 6px 8px;
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 8px;
+    font-size: 11.5px;
+}
+.so-variant-multi-preview[hidden] {
+    display: none !important;
+}
+.so-vm-head {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-weight: 600;
+    color: #1d4ed8;
+    margin-bottom: 4px;
+}
+.so-vm-head i {
+    width: 13px;
+    height: 13px;
+}
+.so-vm-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+.so-vm-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 7px;
+    background: #fff;
+    border: 1px solid #93c5fd;
+    border-radius: 999px;
+    color: #1e3a8a;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+}
 .so-variant-dropdown {
     position: absolute;
     top: 100%;

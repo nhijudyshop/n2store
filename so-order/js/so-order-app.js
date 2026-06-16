@@ -643,6 +643,55 @@
         return [...pending, ...finished].flatMap((g) => g.rows);
     }
 
+    // 2026-06-16: nhập nhanh nhiều biến thể — 1 dòng modal có variant dạng
+    // "Đen / S / M / L" → tách thành N dòng SP (mỗi variant 1 dòng), copy mọi
+    // field khác qua spread. Dùng shared Web2VariantMulti. Chỉ explode dòng MỚI
+    // (rowId == null) — KHÔNG đụng dòng đã có (tránh nhân bản khi edit).
+    function _explodeVariants(rows) {
+        if (!window.Web2VariantMulti || !window.Web2VariantMulti.expand) return rows;
+        const out = [];
+        for (const r of rows) {
+            if (r.rowId) {
+                out.push(r);
+                continue;
+            }
+            const variants = window.Web2VariantMulti.expand((r.variant || '').trim());
+            if (variants.length > 1) {
+                for (const v of variants) out.push({ ...r, variant: v });
+            } else {
+                out.push(r);
+            }
+        }
+        return out;
+    }
+
+    // Live preview dưới ô variant modal: gõ multi-variant → hiện N chip SP sẽ tạo.
+    function _updateVariantMultiPreview(uid, value) {
+        const el = document.querySelector(`[data-multi-preview-uid="${uid}"]`);
+        if (!el) return;
+        const M = window.Web2VariantMulti;
+        if (!M || !String(value || '').includes('/')) {
+            el.hidden = true;
+            el.innerHTML = '';
+            return;
+        }
+        const r = M.parse(value);
+        if (!r || !r.ok || r.variants.length <= 1) {
+            el.hidden = true;
+            el.innerHTML = '';
+            return;
+        }
+        const chips = r.variants
+            .map((v) => `<span class="so-vm-chip">${escapeHtml(v)}</span>`)
+            .join('');
+        const tag = r.mode === 'cartesian' ? ' (kết hợp màu × size)' : '';
+        el.innerHTML =
+            `<div class="so-vm-head"><i data-lucide="layers"></i> Tách ${r.variants.length} SP${tag}:</div>` +
+            `<div class="so-vm-chips">${chips}</div>`;
+        el.hidden = false;
+        if (window.lucide?.createIcons) window.lucide.createIcons();
+    }
+
     function shipmentHtml(sh, tab, colSpan) {
         const header = shipmentHeaderHtml(sh, tab, colSpan);
         if (sh.collapsed) return header;
@@ -2622,11 +2671,13 @@ window.addEventListener('load', () => {
                         type="text"
                         data-field="variant"
                         data-uid="${row.uid}"
-                        placeholder="Pick từ kho..."
+                        placeholder="Pick từ kho… · Đen / S / M / L"
+                        title="Nhập nhiều biến thể: 'Đen / S / M / L' = 4 SP màu Đen; 'M / Đỏ / Trắng' = 2 SP size M"
                         class="so-input-v2"
                         value="${escapeHtml(row.variant)}"
                         autocomplete="off"
                     />
+                    <div class="so-variant-multi-preview" data-multi-preview-uid="${row.uid}" hidden></div>
                 </div>
             </td>
             <td class="so-td-qty">
@@ -2728,9 +2779,16 @@ window.addEventListener('load', () => {
         // P1 2026-05-30: cùng pattern — chỉ trigger trên 'input' / ArrowDown,
         // không trên focus.
         tbody.querySelectorAll('input[data-field="variant"]').forEach((input) => {
-            input.addEventListener('input', () =>
-                showVariantSuggest(input.dataset.uid, input.value)
-            );
+            input.addEventListener('input', () => {
+                // Multi-variant ("Đen / S / M") → ẩn dropdown pick-1 (vô nghĩa),
+                // chỉ hiện preview N SP. Giá trị đơn → pick từ kho như cũ.
+                if (window.Web2VariantMulti?.detect?.(input.value)) {
+                    hideVariantSuggest(input.dataset.uid);
+                } else {
+                    showVariantSuggest(input.dataset.uid, input.value);
+                }
+                _updateVariantMultiPreview(input.dataset.uid, input.value);
+            });
             input.addEventListener('keydown', (e) => {
                 if (e.key === 'ArrowDown') {
                     showVariantSuggest(input.dataset.uid, input.value);
@@ -2739,6 +2797,8 @@ window.addEventListener('load', () => {
             input.addEventListener('blur', () => {
                 setTimeout(() => hideVariantSuggest(input.dataset.uid), 180);
             });
+            // Prefill: nếu mở lại modal với variant multi sẵn → hiện preview.
+            _updateVariantMultiPreview(input.dataset.uid, input.value);
         });
         // + Thêm SP
         const addBtn = document.getElementById('soModalAddRowBtn');
@@ -3602,11 +3662,17 @@ window.addEventListener('load', () => {
                 if (r.rowId) {
                     window.SoOrderStorage.updateRow(state, tab.id, sh.id, r.rowId, rowData);
                 } else {
-                    window.SoOrderStorage.addRow(state, tab.id, sh.id, {
-                        ...rowData,
-                        invoiceGroupId: newInvoiceGroupId,
-                    });
-                    addedRows.push(r);
+                    // Dòng MỚI: nhập nhanh nhiều biến thể → tách N dòng SP.
+                    const variants = window.Web2VariantMulti?.expand?.((r.variant || '').trim());
+                    const vlist = variants && variants.length > 1 ? variants : [rowData.variant];
+                    for (const v of vlist) {
+                        window.SoOrderStorage.addRow(state, tab.id, sh.id, {
+                            ...rowData,
+                            variant: v,
+                            invoiceGroupId: newInvoiceGroupId,
+                        });
+                        addedRows.push(vlist.length > 1 ? { ...r, variant: v } : r);
+                    }
                 }
             }
             // Giảm giá / phí ship của lô — gắn vào đơn đầu (hoặc đơn mới nếu chỉ thêm).
@@ -3643,7 +3709,9 @@ window.addEventListener('load', () => {
             // P1 2026-05-30: rows trong cùng modal submit dùng chung 1
             // invoiceGroupId → hóa đơn chung (cell rowspan + sync paste).
             const newInvoiceGroupId = `inv-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
-            for (const r of validRows) {
+            // Nhập nhanh nhiều biến thể: "Đen / S / M / L" → tách thành N dòng SP.
+            const createRows = _explodeVariants(validRows);
+            for (const r of createRows) {
                 window.SoOrderStorage.addRow(state, tab.id, sh.id, {
                     ...sharedFields,
                     productName: r.productName.trim(),
@@ -3664,8 +3732,13 @@ window.addEventListener('load', () => {
                 newInvoiceGroupId,
                 orderAdj
             );
-            notify(`Đã thêm ${validRows.length} dòng order (Nháp)`, 'success');
-            syncRowsToKho(validRows, tab, sharedFields.supplier).catch(() => {});
+            const _expanded = createRows.length - validRows.length;
+            notify(
+                `Đã thêm ${createRows.length} dòng order (Nháp)` +
+                    (_expanded > 0 ? ` — tách ${_expanded} biến thể` : ''),
+                'success'
+            );
+            syncRowsToKho(createRows, tab, sharedFields.supplier).catch(() => {});
         }
         hideModal('soOrderModal');
         pushSync();
