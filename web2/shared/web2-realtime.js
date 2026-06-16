@@ -15,18 +15,18 @@
 //      `pages:new_message` events).
 //
 //   2) PROXY FALLBACK:
-//      `wss://n2store-realtime.onrender.com` — service Render 'n2store-realtime'
-//      (folder n2store-realtime/) = BROKER chạy WS server cho browser + giữ
-//      WebSocket server-side tới Pancake 24/7 per-account. ⚠ KHÁC service
-//      'web2-realtime' (live-chat/server = relay Pancake→SSE, KHÔNG có browser
-//      WS server). Useful when direct browser connections fail (CSP, filter…)
-//      but events bottleneck qua 1 instance, miss pages broker chưa subscribe.
+//      `wss://web2-realtime.onrender.com` — service Render Web 2.0 'web2-realtime'
+//      (live-chat/server) giờ phục vụ CẢ relay Pancake→SSE LẪN WS broker cho
+//      browser (folded 2026-06-16, Stage 1). Giữ WS server-side tới Pancake 24/7
+//      theo trang đã chọn ở pancake-settings (Store + House). Hết phụ thuộc
+//      service/project cũ n2store-realtime.
 //
 // Public API (mode-agnostic):
 //   Web2Realtime.subscribe({ types, onEvent, debounceMs }) → { unsubscribe }
 //   Web2Realtime.start({ pageIds })   — kicks the proxy broker for fallback
 //   Web2Realtime.isConnected()        — true when direct OR proxy is live
-//   Web2Realtime.fetchPendingCustomers() / markReplied() — proxy-backed REST
+//   Web2Realtime.fetchPendingCustomers() — unread inbox ban đầu = fetch Pancake
+//      TRỰC TIẾP (Web2Chat), KHÔNG bảng pending_customers / KHÔNG Web 1.0.
 
 (function (global) {
     'use strict';
@@ -34,12 +34,11 @@
     if (global.Web2Realtime) return;
 
     const PANCAKE_WS_URL = 'wss://pancake.vn/socket/websocket?vsn=2.0.0';
-    // Broker = service 'n2store-realtime' (n2store-realtime/server.js): WS server cho
-    // browser + /api/realtime/start-multi. KHÔNG phải 'web2-realtime' (relay Pancake→SSE,
-    // không phục vụ browser WS → 1006). Broker chưa migrate sang project web2.0 (vẫn
-    // sống ở project cũ — đã verify HTTP 200). Đây là 1 nguồn cho web2-realtime.js.
-    const PROXY_HTTP_URL = 'https://n2store-realtime.onrender.com';
-    const PROXY_WS_URL = 'wss://n2store-realtime.onrender.com';
+    // Broker = service Web 2.0 'web2-realtime' (đã fold WS broker + /api/realtime/
+    // start-multi vào live-chat/server, Stage 1 2026-06-16). 1 nguồn URL = WEB2_CONFIG.REALTIME.
+    const PROXY_HTTP_URL =
+        (window.WEB2_CONFIG && window.WEB2_CONFIG.REALTIME) || 'https://web2-realtime.onrender.com';
+    const PROXY_WS_URL = PROXY_HTTP_URL.replace(/^http/, 'ws'); // wss://web2-realtime.onrender.com
     const WORKER_BASE =
         (window.API_CONFIG && window.API_CONFIG.WORKER_URL) ||
         'https://chatomni-proxy.nhijudyshop.workers.dev';
@@ -383,19 +382,27 @@
         if (key === _lastStartedKey)
             return { ok: true, alreadyStarted: true, pageCount: ids.length };
         try {
-            const r = await fetch(`${WORKER_BASE}/api/realtime/start`, {
+            // 1 account → bọc thành accounts[] cho start-multi của web2-realtime
+            // (KHÔNG còn /api/realtime/start đơn ở Web 1.0 fallback).
+            const r = await fetch(`${PROXY_HTTP_URL}/api/realtime/start-multi`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    token: auth.jwt,
-                    userId: auth.userId,
-                    pageIds: ids,
-                    cookie: `jwt=${auth.jwt}`,
+                    accounts: [
+                        {
+                            accountId: auth.userId,
+                            userId: auth.userId,
+                            name: auth.userId ? String(auth.userId).slice(0, 8) : 'acc',
+                            token: auth.jwt,
+                            pageIds: ids,
+                            cookie: `jwt=${auth.jwt}`,
+                        },
+                    ],
                 }),
             });
             if (r.ok) _lastStartedKey = key;
             // Don't throw on failure — direct mode handles realtime,
-            // proxy is just a backstop for cross-device pending state.
+            // proxy is just a backstop.
             return { ok: true, pageCount: ids.length };
         } catch (e) {
             return { ok: false, reason: e.message };
@@ -487,34 +494,65 @@
         }
     }
 
-    async function fetchPendingCustomers(limit = 500) {
-        try {
-            const r = await fetch(
-                `${WORKER_BASE}/api/realtime/pending-customers?limit=${encodeURIComponent(limit)}`
-            );
-            if (!r.ok) return { ok: false, reason: `HTTP ${r.status}`, customers: [] };
-            const data = await r.json();
-            if (!data?.success) return { ok: false, reason: 'no_success_flag', customers: [] };
-            return { ok: true, customers: Array.isArray(data.customers) ? data.customers : [] };
-        } catch (e) {
-            return { ok: false, reason: e.message, customers: [] };
+    // Unread inbox ban đầu = fetch Pancake TRỰC TIẾP 1 lần qua Web2Chat
+    // (browser→worker→pancake.vn). KHÔNG còn bảng pending_customers, KHÔNG đụng
+    // Web 1.0 (n2store-fallback). Live update sau đó do WS broker lo.
+    // Quét các trang có page-access-token (Store/House/… đã cấu hình ở
+    // pancake-settings); lọc client-side unread_count > 0.
+    async function fetchPendingCustomers(limit = 100) {
+        const chat = global.Web2Chat;
+        if (!chat || typeof chat.fetchConversationsByPage !== 'function') {
+            return { ok: false, reason: 'no_web2chat', customers: [] };
         }
+        let pageIds = Object.keys(
+            (typeof chat.getAllPageAccessTokens === 'function' && chat.getAllPageAccessTokens()) ||
+                {}
+        );
+        if (!pageIds.length && typeof chat.listPages === 'function') {
+            try {
+                const lp = await chat.listPages();
+                const arr = lp?.pages || lp || [];
+                pageIds = (Array.isArray(arr) ? arr : [])
+                    .map((p) => String(p.id || p.pageId || p))
+                    .filter(Boolean);
+            } catch {
+                /* ignore */
+            }
+        }
+        if (!pageIds.length) return { ok: false, reason: 'no_pages', customers: [] };
+        const customers = [];
+        for (const pageId of pageIds) {
+            try {
+                const r = await chat.fetchConversationsByPage(pageId, { limit });
+                if (!r.ok) continue;
+                for (const c of r.conversations || []) {
+                    if (c.type && c.type !== 'INBOX') continue;
+                    if (!(Number(c.unread_count) > 0)) continue;
+                    const cust = (c.customers && c.customers[0]) || c.from || {};
+                    const psid = cust.psid || cust.id || c.from?.id;
+                    if (!psid || String(psid) === String(c.page_id || pageId)) continue;
+                    customers.push({
+                        psid: String(psid),
+                        page_id: String(c.page_id || pageId),
+                        customer_name: cust.name || c.from?.name || '',
+                        last_message_snippet: c.snippet || '',
+                        last_message_time:
+                            c.updated_at || c.last_message?.inserted_at || Date.now(),
+                        message_count: Number(c.unread_count) || 1,
+                        type: 'INBOX',
+                    });
+                }
+            } catch {
+                /* page hiccup → continue */
+            }
+        }
+        return { ok: true, customers };
     }
 
-    async function markReplied(psid, pageId) {
-        if (!psid) return { ok: false, reason: 'no_psid' };
-        try {
-            const r = await fetch(`${WORKER_BASE}/api/realtime/mark-replied`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ psid, pageId: pageId || null }),
-            });
-            if (!r.ok) return { ok: false, reason: `HTTP ${r.status}` };
-            const data = await r.json();
-            return { ok: !!data?.success, removed: data?.removed || 0 };
-        } catch (e) {
-            return { ok: false, reason: e.message };
-        }
+    // KHÔNG còn server-side pending table → mark-replied chỉ là LOCAL (badge tự
+    // xoá khỏi list). Giữ chữ ký để caller không vỡ.
+    async function markReplied() {
+        return { ok: true, local: true };
     }
 
     function isConnected() {

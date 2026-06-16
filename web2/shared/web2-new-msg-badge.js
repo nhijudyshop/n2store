@@ -287,16 +287,8 @@
             }
         }
 
-        // Periodic reconcile every 5 min
-        if (_reconcileTimer) clearInterval(_reconcileTimer);
-        _reconcileTimer = setInterval(async () => {
-            try {
-                const r = await global.Web2Realtime?.fetchPendingCustomers?.();
-                if (r?.ok) setPendingCustomers(r.customers);
-            } catch {
-                /* ignore */
-            }
-        }, RECONCILE_INTERVAL_MS);
+        // KHÔNG poll định kỳ nữa (rule Web 2.0: fetch unread 1 lần lúc init,
+        // live update do WS broker lo). Trước đây reconcile 5 phút/lần → bỏ.
     }
 
     global.Web2NewMsgBadge = {

@@ -2,6 +2,16 @@
 
 ## 2026-06-16
 
+### [web2][realtime] Stage 2 — repoint Web2Realtime sang web2-realtime + unread fetch Pancake trực tiếp (0 Web 1.0) ✅
+
+Sau Stage 1 (broker đã fold + verify WS OPEN), repoint client + bỏ MỌI call Web 1.0:
+
+- [web2-realtime.js](web2/shared/web2-realtime.js): `PROXY_WS_URL`/`PROXY_HTTP_URL` → `WEB2_CONFIG.REALTIME` (= web2-realtime, KHÔNG còn n2store-realtime). `start()` đơn → bọc accounts[] gọi `web2-realtime/api/realtime/start-multi` (hết `/api/realtime/start` ở fallback Web 1.0).
+- `fetchPendingCustomers()`: **viết lại** — unread inbox ban đầu = fetch Pancake TRỰC TIẾP qua `Web2Chat.fetchConversationsByPage` (quét trang có page-token, lọc `unread_count>0`, map shape badge). KHÔNG còn `${WORKER_BASE}/api/realtime/pending-customers` (Web 1.0 table). `markReplied()` → **local no-op**.
+- [web2-new-msg-badge.js](web2/shared/web2-new-msg-badge.js): **bỏ poll reconcile 5 phút** (no-poller: fetch 1 lần init, live = WS). Bump native-orders `?v=20260616ws2`.
+
+Verify: node --check pass; browser localhost confirm `WEB2_CONFIG.REALTIME=web2-realtime.onrender.com`; Stage 1 broker WS OPEN. E2e badge cần web2-auth (verify live). **Còn Stage 3**: retire n2store-realtime (cần OK).
+
 ### [web2][realtime] Stage 1 — fold Pancake browser-WS broker vào web2-realtime (bỏ lệ thuộc Web 1.0) ✅
 
 User chọn **Y** + insight quan trọng: KHÔNG cần bảng `pending_customers` — unread ban đầu = fetch Pancake 1 lần ở browser, live = WS + SSE. Rà soát phát hiện `Web2Realtime` (engine badge tin-mới native-orders) đang xài **100% hạ tầng Web 1.0/project cũ**: `fetchPendingCustomers`/`markReplied` → n2store-fallback (bảng Web 1.0); `start-multi`+proxy WS → n2store-realtime (broker project cũ). Vi phạm Web1⊥Web2.
