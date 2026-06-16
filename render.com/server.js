@@ -2343,6 +2343,25 @@ chatDbPool
     .then(() => console.log('[SCHEMA] pending_customers.phone ensured'))
     .catch((e) => console.warn('[SCHEMA] ensure pending_customers.phone failed:', e.message));
 
+// (2026-06-16) Bảng `checked_customers` — đánh dấu KH "đã kiểm tra/đã bán" theo
+// CHIẾN DỊCH → loại khỏi thanh "Khách chưa trả lời" (kể cả khi có tin mới), đồng
+// bộ mọi máy. Idempotent, chạy lúc boot.
+chatDbPool
+    .query(
+        `CREATE TABLE IF NOT EXISTS checked_customers (
+            id SERIAL PRIMARY KEY,
+            campaign_key VARCHAR(120) NOT NULL,
+            psid VARCHAR(50) NOT NULL,
+            page_id VARCHAR(50),
+            checked_by VARCHAR(120),
+            checked_at TIMESTAMP DEFAULT NOW(),
+            UNIQUE(campaign_key, psid)
+        );
+        CREATE INDEX IF NOT EXISTS idx_checked_customers_campaign ON checked_customers(campaign_key);`
+    )
+    .then(() => console.log('[SCHEMA] checked_customers ensured'))
+    .catch((e) => console.warn('[SCHEMA] ensure checked_customers failed:', e.message));
+
 // API to start the Pancake client from the browser
 app.post('/api/realtime/start', async (req, res) => {
     // Defense-in-depth: Pancake WS realtime là Web 1.0 (chatDb). web2-api

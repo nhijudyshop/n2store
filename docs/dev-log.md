@@ -84,6 +84,22 @@ Bump `so-order.css` + `so-order-app.js` `?v=20260616h`.
 
 **Status:** ✅ verified browser. so-order (Web 2.0 module).
 
+### [orders-report][render] Strip "Khách chưa trả lời": bỏ avatar + ô check "đã kiểm tra/đã bán" (đồng bộ mọi máy theo chiến dịch) ✅
+
+**User:** "(1) bỏ avatar ở thanh chưa đọc; (2) thêm ô check (cả ở thanh lẫn dòng Tag XL trên) đánh dấu KH đã bán/đã kiểm tra → không vào thanh nữa khi có tin mới (theo chiến dịch hiện tại); đang trong thanh thì tick là ẩn luôn." → cờ riêng (không đụng tag), đồng bộ server mọi máy.
+
+- **Server** [render.com/routes/realtime.js](render.com/routes/realtime.js) + bảng `checked_customers` (boot migration [server.js](render.com/server.js), UNIQUE(campaign_key,psid)): `GET/POST/DELETE /api/realtime/checked-customers` (parameterized, có cap độ dài). Mỗi mutation broadcast SSE topic `checked_customers` qua `req.app.locals.realtimeSseNotify` (Web 1.0 hub).
+- **Client store** [tab1-checked-customers.js](orders-report/js/tab1/tab1-checked-customers.js) `window.CheckedCustomers`: scope theo `campaignManager.activeCampaignId`; `isChecked/check/uncheck/toggle` optimistic + rollback (guard đổi chiến dịch giữa chừng); SSE subscribe `checked_customers` (apply trực tiếp add/remove); poll 2s đổi chiến dịch → reload; phát event `n2s:checkedCustomersChanged`.
+- **Strip** [tab1-unread-messages-strip.js](orders-report/js/tab1/tab1-unread-messages-strip.js): bỏ avatar; `compute()` skip KH `CheckedCustomers.isChecked` (ẩn cả khi có tin mới); mỗi ô có `<button.ucs-cell__check>` đánh dấu. **Đổi inline onclick → data-* + 1 delegated listener trên host** (hết rủi ro breakout chuỗi; nút check keyboard-accessible). Re-render khi `n2s:checkedCustomersChanged`.
+- **Inline editor** [tab1-tagxl-inline.js](orders-report/js/tab1/tab1-tagxl-inline.js): ô check trước STT (toggle), gắn onchange bằng addEventListener (không interpolation); đồng bộ trạng thái qua event. CSS check ở cả 2 file.
+- Bump: checked-customers `?v=20260616a`, strip js/css `?v=20260616c`, editor js `?v=20260616c` css `?v=20260616b`.
+
+**Review (code-reviewer agent):** 0 CRITICAL; đã fix HIGH: (a) XSS-prone inline-JS interpolation → data-attr+delegated; (b) rollback sai chiến dịch → guard `_getCampaign()===campaign`; (c) a11y `role=checkbox` thiếu keyboard → dùng `<button>`; (d) cap độ dài campaign/psid server.
+
+**Verify (Playwright localhost):** strip 0 avatar, 3 nút check, data-attr đủ; click nút check→`check()` (không mở chat), click ô→`openFromStrip` (args đúng); filter ẩn KH checked (4→3) + re-render; editor có ô check + onchange→`toggle` đúng psid. `node --check` 4 file PASS.
+
+**Deploy:** server qua Render (`n2store-tpos-pancake`); client qua GH Pages. ⏳ verify endpoint prod (throwaway keys) sau deploy.
+
 ### [web2/supplier-wallet] FIX số liệu NCC nhấp nháy rồi về 0₫ sau khi load (post-Sync render đè 0) + debug logs ✅
 
 **User:** "mới vào trang nó ra dữ liệu ở đâu đó xong đề dữ liệu khác lên" → nghi sort. Yêu cầu thêm console.log + browser test debug.

@@ -128,17 +128,37 @@
 .ucs-cell:active {
     transform: none;
 }
-.ucs-cell__avatar {
-    width: 18px;
-    height: 18px;
-    border-radius: 50%;
-    object-fit: cover;
+.ucs-cell__check {
     flex-shrink: 0;
-    background: #fde68a;
-    border: 1px solid rgba(0, 0, 0, 0.06);
+    width: 16px;
+    height: 16px;
+    border-radius: 4px;
+    border: 1.5px solid #d97706;
+    background: #fff;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition:
+        background 0.12s ease,
+        border-color 0.12s ease;
 }
-.ucs-cell--late .ucs-cell__avatar {
-    background: #fecaca;
+.ucs-cell__check::after {
+    content: '✓';
+    font-size: 11px;
+    font-weight: 900;
+    color: transparent;
+    line-height: 1;
+}
+.ucs-cell__check:hover {
+    background: #16a34a;
+    border-color: #16a34a;
+}
+.ucs-cell__check:hover::after {
+    color: #fff;
+}
+.ucs-cell--late .ucs-cell__check {
+    border-color: #dc2626;
 }
 .ucs-cell__name {
     font-weight: 700;

@@ -144,7 +144,12 @@
         const now = Date.now();
         const out = [];
 
+        const checked = window.CheckedCustomers;
         for (const pc of pending) {
+            // KH đã đánh dấu "đã kiểm tra/đã bán" cho chiến dịch này → ẩn khỏi thanh
+            // (kể cả khi có tin mới).
+            if (checked && checked.isChecked && checked.isChecked(pc.psid)) continue;
+
             // Khớp khách → đơn trong chiến dịch (ưu tiên PSID, fallback SĐT).
             let order = (pc.psid && byPsid.get(String(pc.psid))) || null;
             if (!order) {
@@ -195,13 +200,8 @@
     }
 
     function buildCell(c) {
-        // Route qua TagXLInline.openFromStrip → mở chat + hiện inline Tag XL editor của đơn đó.
-        // Fallback showConversationPicker nếu module chưa load.
-        const args = `'${escapeHtml(c.orderId)}','${escapeHtml(c.pageId)}','${escapeHtml(c.psid)}',event`;
-        const onclick =
-            `(window.TagXLInline&&window.TagXLInline.openFromStrip)` +
-            `?window.TagXLInline.openFromStrip(${args})` +
-            `:(window.showConversationPicker&&window.showConversationPicker(${args}))`;
+        // Dùng data-* + delegated listener (KHÔNG nhúng JS nội tuyến → tránh mọi rủi ro
+        // breakout chuỗi). Click ô → mở chat; click nút check → đánh dấu đã kiểm tra.
         const lateCls = c.late ? ' ucs-cell--late' : '';
         const wait = fmtWait(c.waitedMs);
         const empTag =
@@ -210,24 +210,37 @@
             `${c.name} · đã chờ ${wait || 'vừa xong'} chưa trả lời` +
             (c.empName ? ` · NV: ${c.empName}` : '') +
             (c.count ? ` · ${c.count} tin` : '');
-        // Avatar Pancake — cùng proxy fb-avatar mà cột Khách hàng đang dùng
-        // (id = psid gốc Pancake, page = pageId). onerror → ẩn ảnh.
-        let avatar = '';
-        if (c.psid) {
-            const url =
-                `https://chatomni-proxy.nhijudyshop.workers.dev/api/fb-avatar?id=${encodeURIComponent(c.psid)}` +
-                (c.pageId ? `&page=${encodeURIComponent(c.pageId)}` : '');
-            avatar = `<img class="ucs-cell__avatar" src="${url}" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display='none'" alt="">`;
-        }
         return (
-            `<button type="button" class="ucs-cell${lateCls}" title="${escapeHtml(title)}" ` +
-            `data-psid="${escapeHtml(c.psid)}" onclick="${onclick}">` +
-            avatar +
+            `<div class="ucs-cell${lateCls}" title="${escapeHtml(title)}" ` +
+            `data-order-id="${escapeHtml(c.orderId)}" data-page-id="${escapeHtml(c.pageId)}" ` +
+            `data-psid="${escapeHtml(c.psid)}">` +
+            `<button type="button" class="ucs-cell__check" data-act="check" ` +
+            `title="Đã kiểm tra / đã bán — ẩn khỏi thanh" aria-label="Đã kiểm tra / đã bán"></button>` +
             `<span class="ucs-cell__name">${escapeHtml(c.name)}</span>` +
             (wait ? `<span class="ucs-cell__sep">·</span><span class="ucs-cell__time">${wait}</span>` : '') +
             empTag +
-            `</button>`
+            `</div>`
         );
+    }
+
+    /* Delegated click trên host: phân biệt nút check vs mở chat (đọc data-*). */
+    function onHostClick(e) {
+        const cell = e.target.closest('.ucs-cell');
+        if (!cell) return;
+        const psid = cell.dataset.psid || '';
+        const pageId = cell.dataset.pageId || '';
+        const orderId = cell.dataset.orderId || '';
+        if (e.target.closest('[data-act="check"]')) {
+            if (window.CheckedCustomers && window.CheckedCustomers.check) {
+                window.CheckedCustomers.check(psid, pageId);
+            }
+            return;
+        }
+        if (window.TagXLInline && window.TagXLInline.openFromStrip) {
+            window.TagXLInline.openFromStrip(orderId, pageId, psid, e);
+        } else if (window.showConversationPicker) {
+            window.showConversationPicker(orderId, pageId, psid, e);
+        }
     }
 
     function render() {
@@ -273,11 +286,17 @@
     }
 
     function init() {
-        if (!getHost()) return;
+        const host = getHost();
+        if (!host) return;
+
+        // Delegated click (1 listener trên host, sống qua mọi lần render innerHTML).
+        host.addEventListener('click', onHostClick);
 
         // Realtime: notifier phát event này sau mỗi reapply (tin mới / đã trả lời /
         // fetch server). Strip tự đọc lại getPendingCustomers(). Debounce gom burst.
         window.addEventListener('n2s:pendingCustomersChanged', scheduleRender);
+        // KH "đã kiểm tra" đổi (tick ở máy này / máy khác qua SSE) → render lại để ẩn/hiện.
+        window.addEventListener('n2s:checkedCustomersChanged', scheduleRender);
 
         // Cập nhật thời gian chờ + cờ "trễ" định kỳ.
         startTick();

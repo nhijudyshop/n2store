@@ -451,6 +451,93 @@ router.get('/post-types', async (req, res) => {
     }
 });
 
+// =====================================================
+// CHECKED CUSTOMERS — đánh dấu KH "đã kiểm tra/đã bán" theo CHIẾN DỊCH
+// → loại khỏi thanh "Khách chưa trả lời" (kể cả khi có tin mới). Đồng bộ
+// mọi máy qua SSE topic 'checked_customers'. (Web 1.0, table checked_customers.)
+// =====================================================
+
+function _notifyChecked(req, payload) {
+    try {
+        const notify = req.app.locals.realtimeSseNotify;
+        if (notify) notify('checked_customers', payload, 'update');
+    } catch (e) {
+        console.warn('[CHECKED-CUST] notify failed:', e.message);
+    }
+}
+
+// GET /api/realtime/checked-customers?campaign=<key> → { success, psids: [...] }
+router.get('/checked-customers', async (req, res) => {
+    try {
+        const db = req.app.locals.chatDb;
+        if (!db) return res.status(500).json({ error: 'Database not available' });
+        const campaign = String(req.query.campaign || '').trim();
+        if (!campaign) return res.json({ success: true, psids: [] });
+        const r = await db.query(
+            'SELECT psid FROM checked_customers WHERE campaign_key = $1',
+            [campaign]
+        );
+        res.json({ success: true, psids: r.rows.map((x) => String(x.psid)) });
+    } catch (error) {
+        console.error('[CHECKED-CUST] GET error:', error.message);
+        res.status(500).json({ error: 'Failed to fetch checked customers' });
+    }
+});
+
+// POST /api/realtime/checked-customers { campaign, psid, page_id, checked_by } → mark checked
+router.post('/checked-customers', async (req, res) => {
+    try {
+        const db = req.app.locals.chatDb;
+        if (!db) return res.status(500).json({ error: 'Database not available' });
+        const campaign = String(req.body.campaign || '').trim();
+        const psid = String(req.body.psid || '').trim();
+        const pageId = req.body.page_id ? String(req.body.page_id).trim() : null;
+        const checkedBy = req.body.checked_by ? String(req.body.checked_by).slice(0, 120) : null;
+        if (!campaign || !psid) {
+            return res.status(400).json({ error: 'Missing campaign or psid' });
+        }
+        if (campaign.length > 120 || psid.length > 50) {
+            return res.status(400).json({ error: 'campaign or psid too long' });
+        }
+        await db.query(
+            `INSERT INTO checked_customers (campaign_key, psid, page_id, checked_by, checked_at)
+             VALUES ($1, $2, $3, $4, (NOW() AT TIME ZONE 'UTC'))
+             ON CONFLICT (campaign_key, psid) DO UPDATE SET
+                 page_id = COALESCE(EXCLUDED.page_id, checked_customers.page_id),
+                 checked_by = EXCLUDED.checked_by,
+                 checked_at = (NOW() AT TIME ZONE 'UTC')`,
+            [campaign, psid, pageId, checkedBy]
+        );
+        _notifyChecked(req, { campaign, psid, action: 'check', ts: Date.now() });
+        res.json({ success: true });
+    } catch (error) {
+        console.error('[CHECKED-CUST] POST error:', error.message);
+        res.status(500).json({ error: 'Failed to mark checked' });
+    }
+});
+
+// DELETE /api/realtime/checked-customers { campaign, psid } → bỏ đánh dấu
+router.delete('/checked-customers', async (req, res) => {
+    try {
+        const db = req.app.locals.chatDb;
+        if (!db) return res.status(500).json({ error: 'Database not available' });
+        const campaign = String(req.body.campaign || '').trim();
+        const psid = String(req.body.psid || '').trim();
+        if (!campaign || !psid) {
+            return res.status(400).json({ error: 'Missing campaign or psid' });
+        }
+        await db.query(
+            'DELETE FROM checked_customers WHERE campaign_key = $1 AND psid = $2',
+            [campaign, psid]
+        );
+        _notifyChecked(req, { campaign, psid, action: 'uncheck', ts: Date.now() });
+        res.json({ success: true });
+    } catch (error) {
+        console.error('[CHECKED-CUST] DELETE error:', error.message);
+        res.status(500).json({ error: 'Failed to uncheck' });
+    }
+});
+
 // Export router + the single live helper (pending_customers upsert).
 // saveRealtimeUpdate removed 2026-06-14 (realtime_updates deprecated).
 module.exports = router;

@@ -22,6 +22,8 @@
     let _container = null;
     let currentCode = null;
     let currentOrderId = null;
+    let currentPsid = null;
+    let currentPageId = null;
     let _fromStrip = false;
     let _rerenderTimer = null;
 
@@ -82,6 +84,31 @@
         }
     }
 
+    /* Ô check "đã kiểm tra/đã bán" trước STT — tick → ẩn KH khỏi thanh (đồng bộ). */
+    function buildCheckHtml() {
+        const on = !!(window.CheckedCustomers && window.CheckedCustomers.isChecked(currentPsid));
+        // Không nhúng JS nội tuyến — onchange gắn bằng addEventListener trong show()
+        // (tham chiếu biến module currentPsid/currentPageId, tránh interpolation).
+        return (
+            `<label class="tagxl-inline__check${on ? ' is-on' : ''}" ` +
+            `title="Đã kiểm tra / đã bán — ẩn khỏi thanh chưa trả lời">` +
+            `<input type="checkbox" ${on ? 'checked' : ''}>` +
+            `<span class="tagxl-inline__check-box"></span></label>`
+        );
+    }
+
+    /* Đồng bộ trạng thái ô check khi CheckedCustomers đổi (tick máy này / SSE máy khác). */
+    function updateCheckUi() {
+        const host = getHost();
+        if (!host || !currentPsid) return;
+        const wrap = host.querySelector('.tagxl-inline__check');
+        const input = wrap && wrap.querySelector('input');
+        if (!input) return;
+        const on = !!(window.CheckedCustomers && window.CheckedCustomers.isChecked(currentPsid));
+        input.checked = on;
+        wrap.classList.toggle('is-on', on);
+    }
+
     /* Hiện editor cho 1 đơn (gọi từ thanh). */
     function show(orderId) {
         const host = getHost();
@@ -93,12 +120,24 @@
         }
         currentOrderId = orderId;
         currentCode = order.Code;
+        currentPsid = String(order.Facebook_ASUserId || '');
+        currentPageId = order.Facebook_PostId ? String(order.Facebook_PostId).split('_')[0] : '';
         host.innerHTML =
+            buildCheckHtml() +
             buildLabel(order) +
             `<div class="tagxl-inline__cell">${renderCellHtml()}</div>` +
             `<button type="button" class="tagxl-inline__close" title="Ẩn" ` +
             `onclick="window.TagXLInline && window.TagXLInline.hide()">&times;</button>`;
         host.classList.add('has-order');
+        // Gắn onchange ô check (tham chiếu biến module, không interpolation).
+        const chk = host.querySelector('.tagxl-inline__check input');
+        if (chk) {
+            chk.addEventListener('change', () => {
+                if (window.CheckedCustomers && window.CheckedCustomers.toggle) {
+                    window.CheckedCustomers.toggle(currentPsid, currentPageId);
+                }
+            });
+        }
     }
 
     function hide() {
@@ -109,6 +148,8 @@
         }
         currentCode = null;
         currentOrderId = null;
+        currentPsid = null;
+        currentPageId = null;
     }
 
     /* Re-render chỉ phần cell (giữ label) — gọi sau mutation Tag XL. */
@@ -138,6 +179,8 @@
     function init() {
         if (!getHost()) return;
         wrapOnce();
+        // Đồng bộ ô check khi CheckedCustomers đổi (tick máy này / SSE máy khác).
+        window.addEventListener('n2s:checkedCustomersChanged', updateCheckUi);
         window.TagXLInline = { show, hide, rerender, openFromStrip };
     }
 
