@@ -143,8 +143,15 @@
             if (sh.collapsed == null) sh.collapsed = false;
             if (!sh.date) sh.date = new Date().toISOString().slice(0, 10);
             if (!sh.contractCurrency) sh.contractCurrency = tab.currency || 'VND';
-            if (sh.discount == null) sh.discount = 0;
-            if (sh.shipping == null) sh.shipping = 0;
+            // 2026-06-16: discount/shipping per-ĐƠN (orderAdjustments). Init map +
+            // nhớ giá trị legacy per-shipment để migrate SAU khi backfill invoiceGroupId.
+            if (!sh.orderAdjustments || typeof sh.orderAdjustments !== 'object') {
+                sh.orderAdjustments = {};
+            }
+            const _legacyDisc = Number(sh.discount) || 0;
+            const _legacyShip = Number(sh.shipping) || 0;
+            delete sh.discount;
+            delete sh.shipping;
             // P1 2026-05-30: backfill invoiceGroupId cho rows cũ chưa có.
             // Gộp các rows kế nhau cùng supplier (heuristic: nhiều khả năng
             // được tạo cùng 1 đợt) → 1 group. Đổi supplier → group mới.
@@ -165,6 +172,16 @@
                     lastSupplier = supplier;
                 }
                 r.invoiceGroupId = curGroup;
+            }
+            // Migrate legacy discount/ship per-shipment → gán vào ĐƠN ĐẦU TIÊN của lô.
+            if ((_legacyDisc || _legacyShip) && !Object.keys(sh.orderAdjustments).length) {
+                const firstGid = sh.rows[0] ? sh.rows[0].invoiceGroupId || sh.rows[0].id : null;
+                if (firstGid) {
+                    sh.orderAdjustments[firstGid] = {
+                        discount: _legacyDisc,
+                        shipping: _legacyShip,
+                    };
+                }
             }
         }
         // First-visit default: collapse every shipment except the newest
@@ -399,9 +416,10 @@
                 // P1 2026-05-29: ETA (Expected Delivery Date). Hiển thị badge
                 // "📦 còn N ngày" / "⚠️ quá hạn" trên shipment header. Nullable.
                 expectedDeliveryDate: meta.expectedDeliveryDate || null,
-                // 2026-06-16: giảm giá / phí ship per-đơn (nhập lúc tạo đơn).
-                discount: Number(meta.discount) || 0,
-                shipping: Number(meta.shipping) || 0,
+                // 2026-06-16: giảm giá / phí ship PER-ĐƠN (per invoiceGroupId), KHÔNG
+                // còn per-shipment. Map { [invoiceGroupId]: { discount, shipping } }.
+                // Header lô + footer = TỔNG các đơn. Xem setOrderAdjustment / totals.
+                orderAdjustments: {},
                 collapsed: false,
                 rows: [],
             };
@@ -424,11 +442,53 @@
             if (patch.contractCurrency !== undefined) sh.contractCurrency = patch.contractCurrency;
             if (patch.expectedDeliveryDate !== undefined)
                 sh.expectedDeliveryDate = patch.expectedDeliveryDate || null;
-            if (patch.discount !== undefined) sh.discount = Number(patch.discount) || 0;
-            if (patch.shipping !== undefined) sh.shipping = Number(patch.shipping) || 0;
+            // 2026-06-16: discount/shipping ĐÃ chuyển per-đơn (orderAdjustments) —
+            // KHÔNG còn nhận patch ở shipment level. Dùng setOrderAdjustment().
             if (patch.collapsed !== undefined) sh.collapsed = !!patch.collapsed;
             _write(state);
             return true;
+        },
+
+        // 2026-06-16: set giảm giá / phí ship cho 1 ĐƠN (invoiceGroupId) trong lô.
+        // discount/shipping theo CURRENCY của tab (footer/nợ tự convert sang VND).
+        setOrderAdjustment(state, tabId, shipmentId, invoiceGroupId, { discount, shipping } = {}) {
+            const tab = state.tabs.find((t) => t.id === tabId);
+            if (!tab) return false;
+            const sh = tab.shipments.find((s) => s.id === shipmentId);
+            if (!sh || !invoiceGroupId) return false;
+            if (!sh.orderAdjustments || typeof sh.orderAdjustments !== 'object') {
+                sh.orderAdjustments = {};
+            }
+            const d = Number(discount) || 0;
+            const s = Number(shipping) || 0;
+            if (d === 0 && s === 0) {
+                delete sh.orderAdjustments[invoiceGroupId]; // 0/0 → không lưu rác
+            } else {
+                sh.orderAdjustments[invoiceGroupId] = { discount: d, shipping: s };
+            }
+            _write(state);
+            return true;
+        },
+
+        // Adjustment của 1 đơn (invoiceGroupId) — { discount, shipping } theo currency tab.
+        getOrderAdjustment(sh, invoiceGroupId) {
+            const a = sh && sh.orderAdjustments && sh.orderAdjustments[invoiceGroupId];
+            return { discount: Number(a?.discount) || 0, shipping: Number(a?.shipping) || 0 };
+        },
+
+        // Tổng giảm giá / phí ship của 1 LÔ = Σ các đơn (chỉ đơn còn row sống → tránh
+        // entry mồ côi inflate tổng). Đơn vị = currency của tab (caller tự convert VND).
+        getShipmentAdjustTotals(sh) {
+            const adj = (sh && sh.orderAdjustments) || {};
+            const liveGroups = new Set((sh?.rows || []).map((r) => r.invoiceGroupId || r.id));
+            let discount = 0;
+            let shipping = 0;
+            for (const [gid, a] of Object.entries(adj)) {
+                if (!liveGroups.has(gid)) continue;
+                discount += Number(a.discount) || 0;
+                shipping += Number(a.shipping) || 0;
+            }
+            return { discount, shipping };
         },
 
         deleteShipment(state, tabId, shipmentId) {
