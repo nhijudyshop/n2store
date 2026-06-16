@@ -27,7 +27,9 @@ User báo: đang chọn **NJD Live** mà product search ra sản phẩm **HH (kh
 
 NJD Shop (company 2) không đổi (ensureCompanyContext no-op vì đã ở company 2). **Verify live (browser eval, NJD Live):** token cache company 2 → boot tự switch → `tokenCompany:1`, `storedCompany:1`, Excel **7877 SP kho LIVE** (vs 833 shop), search "ao"→`[MM352] MM SET ÁO…`, "tui"→`[MM435] MM TÚI…` = đúng SP LIVE. node --check OK.
 
-⚠ Còn 2 chỗ tự login token bypass tokenManager (cùng bug, fix tiếp): `tab3-core.js getAuthToken()`, `tab-kpi-commission.js` fallback login.
+**Toàn cục:** `tab3-core.js` (tự login riêng) → `getValidToken()`/`authenticatedFetch` 401 giờ ưu tiên `window.tokenManager.getToken()` (company-correct), self-login chỉ là fallback cuối. `tab-kpi-commission.js` fallback login là dead code (chỉ chạy khi `window.tokenManager` vắng — token-manager.js đã load sẵn nên primary path luôn dùng) → giữ nguyên.
+
+Bump `tab3-core.js?v=20260616tok`.
 
 ### [orders-report][don-inbox] Fix product search/suggest rỗng toàn bộ — token TPOS stale không tự refresh ✅
 

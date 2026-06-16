@@ -282,7 +282,26 @@
         }
     }
 
+    // Prefer the shared tokenManager: it runs SwitchCompany so the token matches the
+    // selected company (NJD Live = Company 1). The local getAuthToken() only does a
+    // plain password login (home Company 2) and is kept solely as a last-resort fallback.
+    function getSharedTokenManager() {
+        return window.tokenManager || window.parent?.tokenManager || window.top?.tokenManager;
+    }
+
     async function getValidToken() {
+        const tm = getSharedTokenManager();
+        if (tm?.getToken) {
+            try {
+                return await tm.getToken();
+            } catch (e) {
+                console.warn(
+                    '[TAB3] tokenManager.getToken failed, fallback to local login:',
+                    e?.message || e
+                );
+            }
+        }
+
         if (bearerToken && tokenExpiry && tokenExpiry > Date.now() + 300000) {
             return bearerToken;
         }
@@ -304,7 +323,15 @@
         });
 
         if (response.status === 401) {
-            const newToken = await getAuthToken();
+            // Force a fresh, company-correct token on auth failure
+            const tm = getSharedTokenManager();
+            let newToken;
+            if (tm?.getToken) {
+                tm.invalidateAccessToken?.();
+                newToken = await tm.getToken();
+            } else {
+                newToken = await getAuthToken();
+            }
             headers.Authorization = `Bearer ${newToken}`;
 
             return fetch(url, {
