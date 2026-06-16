@@ -24,6 +24,17 @@
         let backfilledOnce = false; // nhóm: đã thử kéo lịch sử cũ từ Zalo chưa (1 lần/phiên)
         let unsub = null;
         let tempId = 0;
+        // ── tìm trong hội thoại ──
+        let _srchActive = false; // thanh tìm đang mở
+        let _srchRaw = ''; // chuỗi tìm hiện tại
+        let _srchMatches = []; // [{id, idx}] tin khớp (theo thứ tự)
+        let _srchPos = -1; // vị trí khớp đang xem
+        let _srchLoadedAll = false; // đã nạp đủ tin để tìm toàn hội thoại
+        const _srchNorm = (s) =>
+            String(s || '')
+                .normalize('NFD')
+                .replace(/[̀-ͯ]/g, '')
+                .toLowerCase();
         const near = (el) => el.scrollHeight - el.scrollTop - el.clientHeight < 120;
 
         container.classList.add('wz-chat-main');
