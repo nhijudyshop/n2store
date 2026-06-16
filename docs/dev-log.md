@@ -2,6 +2,25 @@
 
 ## 2026-06-16
 
+### [so-order] Sửa lô — NCC TÁCH RIÊNG mỗi dòng (lô = nguyên ngày giao, gồm nhiều NCC) ✅
+
+**User:** "Sửa lô (nút bút chì) → sửa của nguyên ngày giao đó nên modal chỉnh sửa NCC phải tách ra → NCC A1 ở trên (ô 'Nhà cung cấp' chung) là sai."
+
+**RCA:** Modal "Sửa lô" (`openShipmentEditAllRows`, mode `edit-shipment`) load TẤT CẢ dòng editable của 1 ngày giao — lô này có thể gồm NHIỀU NCC (A1, b1…). Nhưng modal dùng 1 ô "Nhà cung cấp" CHUNG lấy từ `rows[0].supplier`; lúc lưu mọi dòng nhận `sharedFields.supplier` → ÉP toàn bộ về 1 NCC (b1 bị đổi thành A1). NCC không tách per-row.
+
+**Fix** ([so-order-app.js](so-order/js/so-order-app.js) + [index.html](so-order/index.html) + [css](so-order/css/so-order.css)):
+
+- `_newModalRow`: thêm field `supplier` per-row.
+- `modalRowHtml`: thêm cột "NCC" (sau STT) — input + dropdown dùng chung `attachSupplierPickerOnDemand` (gợi ý từ Ví NCC + "+ Tạo NCC").
+- `renderModalRows`: mode `edit-shipment` → bật class `.so-show-ncc` (hiện cột NCC) + **ẩn ô "Nhà cung cấp" chung ở header** (gây hiểu nhầm cả lô 1 NCC). Mode khác (tạo mới / sửa 1 dòng) giữ ô chung, ẩn cột.
+- `openShipmentEditAllRows`: prefill mỗi dòng `supplier: r.supplier`; `_mostCommonSupplier` = NCC mặc định cho SP mới thêm.
+- Add-row handler: SP mới (edit-shipment) kế thừa NCC dòng cuối / mặc định, vẫn override được.
+- Submit `edit-shipment`: dùng `r.supplier` PER-ROW (fallback ô chung ẩn nếu trống); ensure mỗi NCC vào Ví NCC (dedupe); `addedRows` carry NCC đã resolve → `syncRowsToKho` sinh mã đúng prefix. Bump `?v=20260616v` (js + css).
+
+**Verify (Playwright, localhost):** mở Sửa lô 16/6 (3 dòng A1 nháp) → cột NCC hiện, header NCC visible, **ô NCC chung ẨN**, 3 input prefill "A1". Thêm SP → default "A1". Đổi SP mới → NCC "b1" + tên TEST-NCC-PERROW → Lưu → bảng: A1 giữ A1, dòng mới = **b1** (tách đúng). Mở lại modal → round-trip NCC đúng (A1/A1/A1/b1). Cleanup xoá test row. Create mode: cột NCC ẩn + ô chung hiện (không ảnh hưởng).
+
+**Status:** ✅ verified browser. so-order (Web 2.0). NCC tách per-row khi sửa nguyên lô — không còn ép 1 NCC.
+
 ### [so-order][web2/products] Gợi ý biến thể từ Kho Biến Thể — KHÔNG dấu + theo token cuối khi build multi ✅
 
 **User:** biến thể nhập vào lấy từ Kho Biến Thể; "d" → Đen/Đỏ, "den" → Đen (gõ không dấu vẫn ra). Lúc build "den / d" thì token "d" phải gợi ý Đỏ.

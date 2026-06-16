@@ -96,6 +96,9 @@
     // row cùng đơn share invoiceGroupId → cell merged rowspan ở bảng chính).
     let modalInvoiceImage = '';
     let modalMode = 'create'; // 'create' (multi-row) | 'edit' (single-row)
+    // NCC mặc định cho SP MỚI thêm khi đang sửa lô (edit-shipment). Set =
+    // NCC phổ biến nhất của lô lúc mở modal. Per-row vẫn override được.
+    let _editShipDefaultSupplier = '';
     let activeSuggestUid = null;
 
     // ---------- helpers ----------
@@ -2499,6 +2502,9 @@ window.addEventListener('load', () => {
             // P1 2026-05-30: rowId track existing storage row id khi
             // modalMode='edit-shipment' để update không tạo mới.
             rowId: prefill.rowId || null,
+            // 2026-06-16: NCC per-row. Sửa lô = nguyên ngày giao → có thể gồm
+            // NHIỀU NCC (A1, b1…). Mỗi dòng giữ NCC riêng, KHÔNG ép 1 NCC chung.
+            supplier: prefill.supplier || '',
             productName: prefill.productName || '',
             variant: prefill.variant || '',
             qty: Number.isFinite(Number(prefill.qty)) ? Number(prefill.qty) : 1,
@@ -2647,6 +2653,21 @@ window.addEventListener('load', () => {
         return `
         <tr class="so-modal-row modal-row" data-uid="${row.uid}">
             <td class="so-td-stt">${idx + 1}</td>
+            <td class="so-td-ncc">
+                <div class="so-supplier-pick-wrap so-row-ncc-wrap">
+                    <input
+                        type="text"
+                        data-field="supplier"
+                        data-uid="${row.uid}"
+                        placeholder="NCC"
+                        title="Nhà cung cấp của riêng dòng này — gợi ý từ Ví NCC"
+                        class="so-input-v2 so-row-ncc-input"
+                        autocomplete="off"
+                        value="${escapeHtml(row.supplier || '')}"
+                    />
+                    <div class="so-supplier-dropdown" hidden></div>
+                </div>
+            </td>
             <td class="so-td-product">
                 <div class="so-product-input-wrap">
                     <input
@@ -2726,6 +2747,14 @@ window.addEventListener('load', () => {
     function renderModalRows() {
         const tbody = document.getElementById('soModalProductsBody');
         if (!tbody) return;
+        // 2026-06-16: Sửa lô (edit-shipment) gồm nhiều NCC → NCC tách RIÊNG mỗi
+        // dòng (cột "NCC"), ẩn ô "Nhà cung cấp" chung ở header (gây hiểu nhầm cả
+        // lô 1 NCC). Mode khác (tạo mới / sửa 1 dòng) giữ ô NCC chung.
+        const isEditShip = modalMode === 'edit-shipment';
+        const tbl = document.getElementById('soModalProductsTable');
+        if (tbl) tbl.classList.toggle('so-show-ncc', isEditShip);
+        const supCell = document.querySelector('#soOrderForm .so-cell-supplier-input');
+        if (supCell) supCell.style.display = isEditShip ? 'none' : '';
         tbody.innerHTML = modalRows.map((r, i) => modalRowHtml(r, i, modalRows.length)).join('');
         // Show + button trong create mode VÀ edit-shipment mode (cho phép thêm
         // SP mới vào lô khi sửa nguyên lô).
@@ -2799,11 +2828,33 @@ window.addEventListener('load', () => {
             // Prefill: nếu mở lại modal với variant multi sẵn → hiện preview.
             _updateVariantMultiPreview(input.dataset.uid, input.value);
         });
+        // NCC per-row picker (chỉ render khi edit-shipment). Dùng chung
+        // attachSupplierPickerOnDemand → gợi ý từ Ví NCC + "+ Tạo NCC".
+        tbody.querySelectorAll('input[data-field="supplier"]').forEach((input) => {
+            attachSupplierPickerOnDemand(input, {
+                onPick: (val) => {
+                    const row = modalRows.find((r) => r.uid === input.dataset.uid);
+                    if (row) row.supplier = val;
+                    _ensureSupplierWithFeedback(val);
+                },
+            });
+        });
         // + Thêm SP
         const addBtn = document.getElementById('soModalAddRowBtn');
         if (addBtn) {
             addBtn.onclick = () => {
-                modalRows.push(_newModalRow());
+                // Edit-shipment: SP mới kế thừa NCC của dòng cuối (hoặc NCC mặc
+                // định của lô) để user không phải gõ lại — vẫn sửa được per-row.
+                const prefill =
+                    modalMode === 'edit-shipment'
+                        ? {
+                              supplier:
+                                  modalRows[modalRows.length - 1]?.supplier ||
+                                  _editShipDefaultSupplier ||
+                                  '',
+                          }
+                        : {};
+                modalRows.push(_newModalRow(prefill));
                 renderModalRows();
             };
         }
@@ -3685,9 +3736,19 @@ window.addEventListener('load', () => {
             // chung 1 invoiceGroupId — share Ảnh Hóa Đơn cell (rowspan).
             const addedRows = [];
             const newInvoiceGroupId = `inv-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+            // NCC PER-ROW: lô gồm nhiều NCC → mỗi dòng giữ NCC riêng. Fallback
+            // về NCC chung (ô header ẩn) nếu dòng để trống. Ensure mỗi NCC mới
+            // vào Ví NCC (dedupe để khỏi spam).
+            const ensuredSuppliers = new Set();
             for (const r of validRows) {
+                const rowSupplier = (r.supplier || '').trim() || sharedFields.supplier;
+                if (rowSupplier && !ensuredSuppliers.has(rowSupplier)) {
+                    ensuredSuppliers.add(rowSupplier);
+                    _ensureSupplierAsync(rowSupplier);
+                }
                 const rowData = {
                     ...sharedFields,
+                    supplier: rowSupplier,
                     productName: r.productName.trim(),
                     variant: r.variant.trim(),
                     qty: Number(r.qty) || 0,
@@ -3708,7 +3769,12 @@ window.addEventListener('load', () => {
                             variant: v,
                             invoiceGroupId: newInvoiceGroupId,
                         });
-                        addedRows.push(vlist.length > 1 ? { ...r, variant: v } : r);
+                        // Carry NCC đã resolve để syncRowsToKho sinh mã đúng prefix.
+                        addedRows.push(
+                            vlist.length > 1
+                                ? { ...r, supplier: rowSupplier, variant: v }
+                                : { ...r, supplier: rowSupplier }
+                        );
                     }
                 }
             }
@@ -4490,6 +4556,25 @@ window.addEventListener('load', () => {
         openShipmentEditAllRows(sh, tab, editableRows);
     }
 
+    // NCC xuất hiện nhiều nhất trong list rows (để default SP mới thêm).
+    function _mostCommonSupplier(rows) {
+        const counts = new Map();
+        for (const r of rows || []) {
+            const s = (r.supplier || '').trim();
+            if (!s) continue;
+            counts.set(s, (counts.get(s) || 0) + 1);
+        }
+        let best = '';
+        let bestN = 0;
+        for (const [s, n] of counts) {
+            if (n > bestN) {
+                best = s;
+                bestN = n;
+            }
+        }
+        return best;
+    }
+
     // P1 2026-05-30: mở modal edit shipment với TẤT CẢ rows
     // (vs openOrderModal(rowId, ...) chỉ edit 1 row).
     // Modal mode = 'edit-shipment' — handleOrderSubmit handle update bulk rows.
@@ -4514,9 +4599,10 @@ window.addEventListener('load', () => {
         if (form.elements.shipExpectedDeliveryDate) {
             form.elements.shipExpectedDeliveryDate.value = sh.expectedDeliveryDate || '';
         }
-        // Shared fields lấy từ row đầu — user có thể sửa shipment-wide
+        // Shared fields lấy từ row đầu — note/costNote shipment-wide. NCC thì
+        // KHÔNG còn dùng ô chung (lô gồm nhiều NCC → mỗi dòng giữ NCC riêng).
         const r0 = sh.rows[0] || {};
-        form.elements.supplier.value = r0.supplier || '';
+        form.elements.supplier.value = r0.supplier || ''; // fallback cho SP thiếu NCC
         form.elements.note.value = r0.note || '';
         form.elements.costNote.value = r0.costNote || '';
         // Load rows vào modal. rowsOverride filter rows đã nhận trước khi
@@ -4525,6 +4611,7 @@ window.addEventListener('load', () => {
         modalRows = rowsToLoad.map((r) =>
             _newModalRow({
                 rowId: r.id, // track existing row id để update không tạo mới
+                supplier: r.supplier || '', // NCC riêng của dòng
                 productName: r.productName || '',
                 variant: r.variant || '',
                 qty: r.qty,
@@ -4534,6 +4621,8 @@ window.addEventListener('load', () => {
                 invoiceImage: r.invoiceImage || '',
             })
         );
+        // NCC mặc định cho SP mới = NCC phổ biến nhất trong lô (mode-by count).
+        _editShipDefaultSupplier = _mostCommonSupplier(modalRows) || r0.supplier || '';
         // Ảnh hóa đơn cấp đơn cho header (các row trong lô share 1 ảnh).
         modalInvoiceImage = modalRows[0]?.invoiceImage || '';
         const curHint =

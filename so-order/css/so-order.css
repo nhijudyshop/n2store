@@ -1837,6 +1837,29 @@ select.so-input-v2 {
     width: 40px;
 }
 
+/* Cột NCC per-row — chỉ hiện khi Sửa lô (edit-shipment), lô gồm nhiều NCC.
+   Mặc định ẩn (tạo mới / sửa 1 dòng dùng ô NCC chung ở header). */
+.so-modal-table .so-th-ncc,
+.so-modal-table .so-td-ncc {
+    display: none;
+}
+.so-modal-table.so-show-ncc .so-th-ncc,
+.so-modal-table.so-show-ncc .so-td-ncc {
+    display: table-cell;
+}
+.so-modal-table .so-td-ncc {
+    width: 150px;
+    vertical-align: middle;
+}
+.so-modal-table .so-row-ncc-input {
+    width: 100%;
+    font-weight: 600;
+}
+/* Dropdown gợi ý NCC per-row escape khỏi cell (z-index trên row). */
+.so-modal-table .so-row-ncc-wrap {
+    position: relative;
+}
+
 .so-modal-table .so-td-product {
     min-width: 260px;
 }
