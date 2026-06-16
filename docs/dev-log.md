@@ -2,6 +2,23 @@
 
 ## 2026-06-16
 
+### [web2/supplier-wallet] FIX số liệu NCC nhấp nháy rồi về 0₫ sau khi load (post-Sync render đè 0) + debug logs ✅
+
+**User:** "mới vào trang nó ra dữ liệu ở đâu đó xong đề dữ liệu khác lên" → nghi sort. Yêu cầu thêm console.log + browser test debug.
+
+**Debug:** Thêm instrumentation `_dbg()` (gate `window.SW_DEBUG`, mirror `window.__swDebugLog` để browser-test đọc lại sau reload) vào init/loadAndRender/renderList/Sync. Browser test (Playwright session) đọc trace:
+
+- render #1 (`loadAndRender:init`): 8 NCC số THẬT — HƯƠNG CHÂU 24.619.000, HÀ NỘI 12.201.000, A1 bal 467.600… (sort balance-desc đúng).
+- render #2 (`init:post-sync-reload`): **TẤT CẢ bal=0, tot=0** ← thủ phạm, không phải sort.
+
+**RCA:** `init()` chạy `loadAndRender()` (aggregate Sổ Order → `totalPurchased` thật → render #1 đúng), rồi `Sync.init()` kéo **ledger server** (chỉ lưu paid/returned/balance, KHÔNG có `totalPurchased` vì nó DERIVE từ Sổ Order) ghi đè storage → `walletState = await load()` đọc lại ledger có totalPurchased=0 → `renderList()` **trần** (không re-aggregate) → đè 0₫ lên số thật. (Path SSE ledger-reload đã đúng vì gọi `loadAndRender`; chỉ path init sai.)
+
+**Fix** [supplier-wallet-app.js](web2/supplier-wallet/js/supplier-wallet-app.js): sau post-Sync reload (và trong remote callback) → re-merge `suppliers` aggregation (đã có trong RAM) vào walletState mới trước khi render (`mergeAggregation` + save nếu mutated). Verified: render #2 giờ GIỮ số thật, header "Công nợ: 50.895.100đ", không còn về 0.
+
+**Lưu ý:** debug logs `[SW-DEBUG]` còn để (gate `window.SW_DEBUG`, mặc định on) cho user verify — sẽ gỡ sau khi xác nhận (grep `SW-DEBUG`). Bump `supplier-wallet-app.js?v=20260616dbg3`.
+
+**Status:** ✅ fix + verified browser. Web 2.0 (supplier-wallet).
+
 ### [so-order] FIX checkbox "Hiện thông tin lô" (Cài đặt tab) không hiện trạng thái đã chọn ✅
 
 **User:** "đâu có checkbox hình 1 mà hình 2 nó hiện?" — modal Cài đặt tab hiện 6 checkbox đều TRỐNG, nhưng modal Tạo Đơn vẫn hiện ETA + Số Kiện → tưởng lệch state.

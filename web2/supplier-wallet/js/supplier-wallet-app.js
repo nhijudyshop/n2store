@@ -36,6 +36,27 @@
     let activeSupplier = null;
     let detailTab = 'purchases';
 
+    // 2026-06-16 DEBUG (tạm): trace chuỗi render lúc vào trang (dữ liệu hiện ra
+    // rồi bị thay) + thứ tự sort. Bật/tắt qua window.SW_DEBUG (mặc định ON).
+    // TODO: gỡ block debug này sau khi chẩn xong (grep "SW-DEBUG").
+    let _renderSeq = 0;
+    const _t0 = Date.now();
+    window.SW_DEBUG = window.SW_DEBUG !== false;
+    window.__swDebugLog = window.__swDebugLog || [];
+    function _dbg(...a) {
+        if (!window.SW_DEBUG) return;
+        const tag = `[SW-DEBUG +${Date.now() - _t0}ms]`;
+        console.log(tag, ...a);
+        // Mirror vào window array để browser-test đọc lại sau load (console buffer
+        // của Playwright session đôi khi miss log lúc reload). Xem qua DevTools là
+        // console.log thường; xem qua test là window.__swDebugLog.
+        try {
+            window.__swDebugLog.push(
+                tag + ' ' + a.map((x) => (typeof x === 'string' ? x : JSON.stringify(x))).join(' ')
+            );
+        } catch (_) {}
+    }
+
     function fmtVnd(n) {
         return Math.round(Number(n) || 0).toLocaleString('vi-VN') + '₫';
     }
@@ -156,7 +177,7 @@
     }
 
     // ---------- Render list ----------
-    function renderList() {
+    function renderList(caller) {
         const listEl = document.getElementById('swList');
         const emptyEl = document.getElementById('swEmptyState');
         const search = (document.getElementById('swSearch').value || '').trim().toLowerCase();
@@ -175,6 +196,16 @@
             if (sortBy === 'total-desc') return b.totalPurchased - a.totalPurchased;
             return a.supplier.localeCompare(b.supplier);
         });
+
+        _dbg(
+            `renderList #${++_renderSeq}`,
+            `caller=${caller || '?'}`,
+            `sortBy=${sortBy}`,
+            `search="${search}"`,
+            `n=${items.length}`,
+            'order=',
+            items.map((w) => `${w.supplier}[bal=${w.balance},tot=${w.totalPurchased}]`)
+        );
 
         if (!items.length) {
             listEl.innerHTML = '';
@@ -551,7 +582,7 @@
     }
 
     // ---------- Init ----------
-    async function loadAndRender() {
+    async function loadAndRender(caller) {
         soOrderData = await window.SupplierWalletStorage.loadSoOrderData();
         // H5 fix 2026-06-11: loadSoOrderData() trả null khi lỗi load — nếu vẫn
         // aggregate/merge sẽ set totalPurchased=0 cho MỌI NCC rồi save + pushSync
@@ -561,15 +592,22 @@
             console.warn(
                 '[supplier-wallet] loadSoOrderData null — skip merge, render state hiện có'
             );
+            _dbg(`loadAndRender(${caller || '?'}): soOrderData=NULL → skip merge`);
         } else {
             suppliers = aggregateSuppliers(soOrderData);
             const mutated = mergeAggregation(walletState, suppliers);
+            _dbg(
+                `loadAndRender(${caller || '?'}): soOrder tabs=${soOrderData.tabs?.length}`,
+                `agg NCC=${Object.keys(suppliers).length}`,
+                `walletState NCC=${Object.keys(walletState.wallets || {}).length}`,
+                `mutated=${mutated}`
+            );
             if (mutated) {
                 window.SupplierWalletStorage.save(walletState);
                 pushSync();
             }
         }
-        renderList();
+        renderList(`loadAndRender:${caller || '?'}`);
         // Poll SePay deposits (refund từ NCC → giảm balance)
         pollDeposits().catch(() => {});
     }
@@ -662,8 +700,13 @@
     }
 
     async function init() {
+        _dbg('init: START');
         // P1 2026-05-30: SupplierWalletStorage.load() giờ async (IDB read)
         walletState = await window.SupplierWalletStorage.load();
+        _dbg(
+            `init: loaded cache (IDB/localStorage) → wallets=${Object.keys(walletState.wallets || {}).length}`,
+            Object.keys(walletState.wallets || {}).slice(0, 12)
+        );
         const purged = window.SupplierWalletStorage.cleanupOldTransactions(walletState);
         if (purged) window.SupplierWalletStorage.save(walletState);
         wireUi();
@@ -686,7 +729,7 @@
         if (window.Web2ProductsCache?.init) {
             window.Web2ProductsCache.init().catch(() => {});
         }
-        await loadAndRender();
+        await loadAndRender('init');
         // Deep-link: ?supplier=<name> → auto-open detail drawer.
         // normalize('NFC'): tên NCC giữa các trang có thể khác Unicode form (NFC/NFD)
         // → so khớp trực tiếp `wallets[param]` fail. Tìm key đúng theo NFC.
@@ -705,16 +748,39 @@
         }
         // Firestore sync
         const ok = await window.SupplierWalletStorage.Sync.init((remote) => {
+            _dbg(
+                `Sync.init REMOTE callback → replace walletState`,
+                `remote wallets=${Object.keys(remote?.wallets || {}).length}`
+            );
             walletState = remote;
             window.SupplierWalletStorage.cleanupOldTransactions(walletState);
-            renderList();
+            // FIX 2026-06-16: remote ledger thiếu totalPurchased (derive từ Sổ
+            // Order) → re-merge aggregation đã có trong RAM để khỏi đè 0₫.
+            if (suppliers && Object.keys(suppliers).length) {
+                mergeAggregation(walletState, suppliers);
+            }
+            renderList('Sync.remote-callback');
             if (activeSupplier && !document.getElementById('swDetailModal').hidden) {
                 openDetail(activeSupplier);
             }
         });
+        _dbg(`Sync.init resolved ok=${ok}`);
         if (ok) {
             walletState = await window.SupplierWalletStorage.load();
-            renderList();
+            _dbg(
+                `init: post-Sync reload from storage → wallets=${Object.keys(walletState.wallets || {}).length}`
+            );
+            // FIX 2026-06-16: ledger server (Sync) KHÔNG lưu `totalPurchased` (nó
+            // được DERIVE từ Sổ Order). Sau khi Sync ghi đè storage, walletState
+            // mới có totalPurchased=0 cho mọi NCC → render bare sẽ "đè 0₫" lên số
+            // thật vừa hiện ở render #1. Phải re-aggregate Sổ Order vào state mới
+            // (giống path SSE ledger-reload) thay vì renderList trần.
+            if (suppliers && Object.keys(suppliers).length) {
+                const m = mergeAggregation(walletState, suppliers);
+                _dbg(`init: re-merge so-order agg sau Sync (mutated=${m})`);
+                if (m) window.SupplierWalletStorage.save(walletState);
+            }
+            renderList('init:post-sync-reload');
             pushSync();
         }
         if (window.lucide?.createIcons) window.lucide.createIcons();
@@ -765,7 +831,7 @@
             _sseReloadTimer = setTimeout(async () => {
                 _sseReloadTimer = null;
                 console.log('[SupplierWallet-SSE] aggregate reload triggered by:', label);
-                await loadAndRender();
+                await loadAndRender('sse:' + label);
             }, 1200);
         };
         _sseUnsubs.push(
@@ -789,7 +855,7 @@
                     console.log('[SupplierWallet-SSE] ledger reload (web2:supplier-wallet)');
                     await window.SupplierWalletStorage.Sync.init();
                     walletState = await window.SupplierWalletStorage.load();
-                    await loadAndRender();
+                    await loadAndRender('sse:ledger');
                     if (activeSupplier && !document.getElementById('swDetailModal').hidden) {
                         openDetail(activeSupplier);
                     }
