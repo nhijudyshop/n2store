@@ -2,6 +2,24 @@
 
 ## 2026-06-16
 
+### [web2][so-order] Sửa mã SP + 8 cải tiến modal tạo đơn (batch) ✅
+
+User báo: biến thể "Đỏ" + tên "1606 A1 ÁO TN TRƠN" ra mã `HNMMTRANG` (sai). Điều tra: `HNMMTRANG` là mã của SP **khác** cùng tên nhưng biến thể **"Trắng"** (id 212); hàng "Đỏ" **mượn nhầm** vì badge tra kho chỉ theo TÊN. Gốc sâu hơn: `extractType` chỉ match từ loại ở ĐẦU tên → "1606 A1 ÁO…" rớt về `MM` thay vì `AO`.
+
+**Files:** [web2/shared/web2-product-code.js](web2/shared/web2-product-code.js), [web2/shared/web2-products-cache.js](web2/shared/web2-products-cache.js), [so-order/js/so-order-app.js](so-order/js/so-order-app.js), [so-order/js/so-order-storage.js](so-order/js/so-order-storage.js), [so-order/index.html](so-order/index.html), [so-order/css/so-order.css](so-order/css/so-order.css), [scripts/test-web2-product-code.js](scripts/test-web2-product-code.js).
+
+1. **Sinh mã SP — viết lại `extractType`**: bỏ qua token "mã nội bộ" ở đầu (token chứa chữ số: 1606, A1, B4…) rồi tìm TỪ LOẠI ở token nội-dung đầu tiên trở đi. Né ĐẦM↔ĐẬM (chỉ nhận `DAM` khi là token nội-dung đầu). `1606 A1 ÁO TN TRƠN`+Đỏ → **HNAODO**, +Trắng → **HNAOTRANG**. Test Node `scripts/test-web2-product-code.js` 17/17 pass.
+2. **Badge mã kho variant-aware**: thêm `Web2ProductsCache.findByNameVariant(name, variant)` (strict tên+biến thể); `_lookupKhoCode` dùng nó → hàng "Đỏ" chưa có SP đúng biến thể → **để trống** (không mượn nhầm mã "Trắng"). Verify browser: hàng Đỏ badge blank, hàng ÁO/Xanh Lá/L vẫn HNAOXLL.
+3. **Per-tab toggle ẩn/hiện thông tin lô nâng cao** (ETA/Đợt/Số Kiện/Tổng KG/Tiền HĐ/Tiền tệ) trong modal tạo đơn — `tab.showShipMeta`, **mặc định ẩn**. Checkbox ở "Cài đặt tab". CSS `.so-ship-adv[hidden]{display:none!important}`.
+4. **Dropdown gợi ý (SP + biến thể) sát ô input**: gốc gap khổng lồ = `_positionFixedDropdown` đặt `position:fixed` nhưng ancestor `.so-modal-body-v2` có `contain:layout/paint` → fixed tính theo box đó, không phải viewport. Đổi sang `position:absolute` + `top = input.offsetTop+offsetHeight+2`. Gap 6px (trước: hàng trăm px).
+5. **Thành tiền = GIÁ NHẬP** (đơn mua hàng), không phải giá bán — `updateRowTotal` + `updateModalGrandTotals`. Verify: SL2×nhập100 = 200₫ (không 1998).
+6. **Giảm giá + Phí ship per-đơn** thêm vào modal tạo đơn (lưu `shipMeta.discount/shipping`); THÀNH TIỀN = Σ(SL×nhập) − giảm + ship (verify 200−50+30=180); hiện trên header lô khi ≠0. Ghi chú đơn đã có sẵn.
+7. **Bỏ cột "Thao Tác"** (sửa/xoá per-row) — trùng nút header lô (sửa/xoá lô + sửa ô inline). Gỡ khỏi `COLUMNS` + `DEFAULT_COLUMNS`.
+8. **Tạo NCC mới** (modal tạo đơn) trước "chưa tạo được": picker modal không truyền `onPick` → click "+ Tạo NCC" chỉ điền input, không gọi `ensure`. Fix: truyền `onPick → _ensureSupplierWithFeedback` (tạo NGAY + notify). **Nguồn NCC dùng chung đã có sẵn** = `Web2SuppliersCache` → `/api/web2-supplier-wallet/suppliers` (bảng `web2_supplier_meta`, trang Ví NCC) — 1 nguồn duy nhất. Verify live: tạo "ZZTEST0616" OK (đã xoá test).
+9. **Hình ảnh hóa đơn** (task user nêu): đã wired sẵn end-to-end (modal `_imgPasteCellHtml` → `handleOrderSubmit` lưu `invoiceImage` → main-table `imgCell` rowspan theo `invoiceGroupId`). Không thiếu gì.
+
+Bump versions `?v=20260616a` (so-order.css, web2-products-cache.js, web2-product-code.js, so-order-storage.js, so-order-app.js). Browser test: 0 console error, 9/9 hành vi verified.
+
 ### [web2][live-chat] Snapshot — endpoint POST /purge (dọn thumbnail theo ngày) + client clear cache ✅
 
 User hỏi multi-machine + xin dọn thumbnail livestream HÔM NAY (không cần nhận diện ảnh). Bối cảnh: backend dedup `ON CONFLICT(comment_id) DO UPDATE … COALESCE(existing.image_data, new)` = **"ảnh có-bytea ĐẦU TIÊN thắng, POST sau KHÔNG đè"** → frame đen (từ máy unfocused, trước fix) POST trước sẽ thắng vĩnh viễn; Force extract bỏ qua comment "đã có ảnh" nên không vá được ảnh đen cũ → cần xoá row.
