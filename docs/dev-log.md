@@ -2,6 +2,14 @@
 
 ## 2026-06-16
 
+### [web2/supplier-wallet] Bỏ nút "Đồng bộ" → realtime tự động (kho NCC nguồn cho mọi trang) ✅
+
+User: "trang này là kho NCC để tất cả trang khác tham chiếu nên sẽ có dữ liệu realtime" → bỏ nút "Đồng bộ" thủ công.
+
+- Bỏ nút `#swRefreshBtn` ("Đồng bộ") + handler trong `wireUi` (sẽ throw vì element mất). Thay bằng pill "Realtime" (`.sw-live-pill`, icon radio pulse, respect reduced-motion).
+- Trang ĐÃ có SSE realtime sẵn (`_sseConnect`): `web2:wallet:*` (SePay deposit), `web2:products` (stock/pending), `web2:supplier-wallet` (ledger pay/return/tạo NCC từ máy khác). **Thêm `web2:so-order`** — đổi status đơn (draft→"Đã Đặt"/nhận/xóa) CHỈ fire `web2:so-order` (KHÔNG fire `web2:products`) → trước đây "Tổng mua"/danh sách NCC không tươi nếu chỉ đổi status → giờ aggregation reload realtime.
+- [supplier-wallet/index.html](web2/supplier-wallet/index.html) + [supplier-wallet-app.js](web2/supplier-wallet/js/supplier-wallet-app.js) + [css](web2/supplier-wallet/css/supplier-wallet.css). Bump `?v=20260616a`. Verified browser: nút mất, pill "Realtime" hiện, 8 NCC load, Web2SSE loaded, 0 lỗi.
+
 ### [so-order] Modal Tạo Đơn Hàng — đồng bộ bố cục form + làm đẹp table (CSS-only) ✅
 
 **User:** "giao diện hình 2 nó không đồng bộ, đồng đều 1 bố cục… nghiên cứu github các css phần table xem có làm đẹp hơn nhưng vẫn đủ thông tin."

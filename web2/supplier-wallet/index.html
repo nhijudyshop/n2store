@@ -17,7 +17,7 @@
 
         <link rel="stylesheet" href="../../web2/shared/web2-sidebar.css?v=20260613z" />
         <link rel="stylesheet" href="../shared/web2-components.css?v=20260613z" />
-        <link rel="stylesheet" href="css/supplier-wallet.css?v=20260614ux2" />
+        <link rel="stylesheet" href="css/supplier-wallet.css?v=20260616a" />
 
         <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
 
@@ -45,15 +45,17 @@
                             <i data-lucide="plus"></i>
                             Tạo NCC
                         </button>
-                        <button
-                            id="swRefreshBtn"
-                            class="btn btn-secondary"
-                            type="button"
-                            title="Đồng bộ lại từ Sổ Order"
+                        <!-- 2026-06-16: bỏ nút "Đồng bộ" — trang tự load realtime qua SSE
+                             (web2:supplier-wallet / web2:so-order / web2:products / web2:wallet:*).
+                             Đây là kho NCC nguồn cho mọi trang tham chiếu → luôn tươi. -->
+                        <span
+                            class="sw-live-pill"
+                            id="swLivePill"
+                            title="Dữ liệu tự cập nhật realtime"
                         >
-                            <i data-lucide="refresh-cw"></i>
-                            Đồng bộ
-                        </button>
+                            <i data-lucide="radio"></i>
+                            Realtime
+                        </span>
                     </div>
                 </header>
 
@@ -299,7 +301,7 @@
         <script src="../../web2/shared/web2-so-order-reader.js?v=20260613a"></script>
         <script src="js/supplier-wallet-storage.js?v=20260613fb"></script>
         <script src="../shared/web2-deeplink.js?v=20260614dl"></script>
-        <script src="js/supplier-wallet-app.js?v=20260614dl4"></script>
+        <script src="js/supplier-wallet-app.js?v=20260616a"></script>
         <script>
             Web2Sidebar.mount('#web2Aside', { activeUrl: window.location.href });
         </script>

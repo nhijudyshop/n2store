@@ -597,7 +597,7 @@
     function wireUi() {
         document.getElementById('swSearch').addEventListener('input', renderList);
         document.getElementById('swSort').addEventListener('change', renderList);
-        document.getElementById('swRefreshBtn').addEventListener('click', loadAndRender);
+        // 2026-06-16: nút "Đồng bộ" đã bỏ — trang tự load realtime qua SSE (_sseConnect).
         document.getElementById('swCreateBtn')?.addEventListener('click', openCreateModal);
         document.getElementById('swCreateConfirmBtn')?.addEventListener('click', confirmCreate);
         document.getElementById('swCreateName')?.addEventListener('keydown', (e) => {
@@ -770,6 +770,13 @@
         };
         _sseUnsubs.push(
             window.Web2SSE.subscribe('web2:products', scheduleAggregateReload('web2:products'))
+        );
+        // 2026-06-16: web2:so-order — đơn Sổ Order đổi (tạo/sửa/đổi status
+        // draft→"Đã Đặt"/nhận/xóa) ảnh hưởng "Tổng mua" + danh sách NCC. Status
+        // change KHÔNG fire web2:products (chỉ ghi web2_so_order) → phải nghe topic
+        // này để aggregation tươi realtime, không cần bấm "Đồng bộ".
+        _sseUnsubs.push(
+            window.Web2SSE.subscribe('web2:so-order', scheduleAggregateReload('web2:so-order'))
         );
         // ĐỢT E: web2:supplier-wallet giờ là topic CHÍNH của server ledger —
         // máy khác ghi payment/return/tạo NCC → re-pull /state TRƯỚC rồi mới

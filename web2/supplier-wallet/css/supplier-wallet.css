@@ -40,6 +40,40 @@
     font-weight: 600;
 }
 
+/* 2026-06-16: chỉ báo "Realtime" thay nút "Đồng bộ" — trang tự cập nhật qua SSE. */
+.sw-live-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    background: #ecfdf5;
+    color: #047857;
+    border: 1px solid #a7f3d0;
+    font-size: 12px;
+    font-weight: 600;
+    user-select: none;
+}
+.sw-live-pill i {
+    width: 14px;
+    height: 14px;
+    animation: sw-live-pulse 2s ease-in-out infinite;
+}
+@keyframes sw-live-pulse {
+    0%,
+    100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.35;
+    }
+}
+@media (prefers-reduced-motion: reduce) {
+    .sw-live-pill i {
+        animation: none;
+    }
+}
+
 .sw-toolbar {
     display: flex;
     align-items: center;

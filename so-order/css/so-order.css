@@ -1189,12 +1189,49 @@
     font-weight: 500;
     color: #475569;
 }
+/* 2026-06-16 FIX: rule chung `.so-field input{appearance:none}` (fieldset có
+   class `so-field`) nuốt checkmark native của các checkbox này → checked nhìn
+   y hệt unchecked (bug "đâu có checkbox mà hình 2 hiện?"). accent-color vô hiệu
+   khi appearance:none. → vẽ custom checkbox có state checked + indeterminate
+   (master "Chọn tất cả"). Target cả 7 checkbox trong fieldset (master + 6 con). */
 .so-shipmeta-fieldset input[type='checkbox'] {
-    width: 16px;
-    height: 16px;
+    appearance: none;
+    -webkit-appearance: none;
+    width: 18px;
+    height: 18px;
     flex: 0 0 auto;
-    accent-color: #0068ff;
+    margin: 0;
+    padding: 0;
+    border: 1.5px solid #cbd5e1;
+    border-radius: 6px;
+    background: #fff;
     cursor: pointer;
+    transition:
+        background-color 0.12s,
+        border-color 0.12s;
+}
+.so-shipmeta-fieldset input[type='checkbox']:hover {
+    border-color: #0068ff;
+}
+.so-shipmeta-fieldset input[type='checkbox']:checked {
+    background-color: #0068ff;
+    border-color: #0068ff;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'><polyline points='20 6 9 17 4 12'/></svg>");
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: 12px 12px;
+}
+.so-shipmeta-fieldset input[type='checkbox']:indeterminate {
+    background-color: #0068ff;
+    border-color: #0068ff;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.5' stroke-linecap='round'><line x1='6' y1='12' x2='18' y2='12'/></svg>");
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: 12px 12px;
+}
+.so-shipmeta-fieldset input[type='checkbox']:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(0, 104, 255, 0.18);
 }
 
 /* Pill giảm giá / phí ship trên header lô. */
