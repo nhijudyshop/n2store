@@ -549,11 +549,6 @@
             icon: 'server',
         },
         {
-            name: 'Render: n2store-realtime',
-            url: 'https://dashboard.render.com/web/srv-d5doh26uk2gs739489k0',
-            icon: 'radio',
-        },
-        {
             name: 'Render: web2-realtime',
             url: 'https://dashboard.render.com/web/srv-d8n45k4vikkc73cg3nrg',
             icon: 'radio',
@@ -867,7 +862,6 @@
     // =========================================================
     const RENDER_EXPECTED_PLANS = {
         'n2store-fallback': 'standard',
-        'n2store-realtime': 'starter',
         'web2-realtime': 'starter',
     };
 
