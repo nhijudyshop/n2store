@@ -3,14 +3,16 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `c3d935c` — docs(realtime): audit decommission n2store-realtime — CHƯA xóa được (đang chạy thật, sole writer livestream/labels). Web2 independence không phụ thuộc.
-**Last updated**: 2026-06-16 10:56:33 +07
-**Latest session**: [`RESUME:20260616-105633-c3d935c`](../20260616-105633-c3d935c.md)
-**Summary**: docs(realtime): audit decommission n2store-realtime — CHƯA xóa được (đang chạy thật, sole writer livestr...
+**Latest commit**: `b09834a` — auto: session update
+**Last updated**: 2026-06-16 11:06:30 +07
+**Latest session**: [`RESUME:20260616-110630-b09834a`](../20260616-110630-b09834a.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
+- [`live-chat/`](./live-chat.md) — 3 file(s)
+- [`orders-report/`](./orders-report.md) — 3 file(s)
 
 ## All folder snapshots
 
@@ -25,7 +27,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-16 00:35
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-14 18:47
-- [`docs/`](./docs.md) — updated 2026-06-16 10:56
+- [`docs/`](./docs.md) — updated 2026-06-16 11:06
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-15 15:57
 - [`downloads/`](./downloads.md) — updated 2026-06-13 19:16
@@ -38,14 +40,14 @@
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-06-13 14:55
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-16 08:24
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
-- [`live-chat/`](./live-chat.md) — updated 2026-06-16 09:18
+- [`live-chat/`](./live-chat.md) — updated 2026-06-16 11:06
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-06-04 20:02
 - [`n2store-facebook/`](./n2store-facebook.md) — updated 2026-06-14 13:09
 - [`n2store-realtime/`](./n2store-realtime.md) — updated 2026-06-14 12:30
 - [`native-orders/`](./native-orders.md) — updated 2026-06-16 10:25
 - [`nhanhang/`](./nhanhang.md) — updated 2026-06-13 19:51
 - [`order-management/`](./order-management.md) — updated 2026-05-21 15:39
-- [`orders-report/`](./orders-report.md) — updated 2026-06-15 20:20
+- [`orders-report/`](./orders-report.md) — updated 2026-06-16 11:06
 - [`pancake-extension/`](./pancake-extension.md) — updated 2026-05-21 11:33
 - [`phone-management/`](./phone-management.md) — updated 2026-05-21 15:39
 - [`product-warehouse/`](./product-warehouse.md) — updated 2026-06-04 13:36
