@@ -2,6 +2,21 @@
 
 ## 2026-06-16
 
+### [orders-report][chat] Fix khung chat bắt NHẦM hội thoại Pancake khi SĐT trùng nhiều người ✅
+
+**Bug (user báo):** bấm khách "Hoa Tuyết Trắng" (`0987616422`) ở orders-report → header đúng tên nhưng **đoạn chat + avatar lại là của "Thùy Trang"** (người khác). Gốc: SĐT đó nằm trong `recent_phone_numbers` của nhiều hội thoại khác nhau (khách dán cùng số liên hệ vào nhiều FB chat; Pancake search là full-text). Chuỗi resolve trong [tab1-chat-core.js](orders-report/js/tab1/tab1-chat-core.js) `_doFindAndLoadConversation` chọn `matched[0]` theo recency (Thùy Trang hoạt động gần hơn) — **không dùng TÊN/PSID đơn để phân biệt** — và chạy TRƯỚC tầng DB+name-search (tầng duy nhất xử lý homonym đúng).
+
+**Fix (Khớp TÊN → PSID → picker, KHÔNG đổi control-flow):**
+- Thêm helper `_pickBestConv(cands, {type,name,psid})` + `_strip`/`_bareName`/`_nameMatch` đầu hàm. >1 `from_psid` distinct (SĐT thật sự nhiều người) mới đổi hành vi; 1 người → trả `find(type)||[0]` **y hệt code cũ** (zero regression). Ưu tiên TÊN (chỉ khi khớp đúng 1 người) → PSID đơn → mơ hồ mà CÓ tên → `ambiguous` (để conv=null rơi xuống tầng DB+name + picker). Không tên lẫn psid → fallback `matched[0]` (giữ cũ).
+- Áp `_pickBestConv` tại 3 điểm chọn phone-verified: PRIMARY phone-search, preferred-page, cross-page `phoneVerified`. PRIORITY 1 (direct fb-id từ DB `page_fb_ids`) thêm **verify TÊN** trước khi nhận (mapping DB có thể cũ/sai).
+- Survivor stash `window._chatPhoneCandFallback` (reset đầu hàm, clear sau render): giữ candidate phone-verified cho picker phòng khi tầng DB+name null `_chatPickerCandidates` ở nhánh "không tìm thấy theo tên".
+
+**Impact analysis:** đọc cả 5 caller `_findAndLoadConversation` (open/type-toggle/switch-page/repick/cross-page) + mọi consumer `currentChatPSID`/`currentConversationData`. type-toggle/switch-page TỐT HƠN (khóa đúng người qua psid/name thay vì recency); repick path riêng không đổi; gửi tin/quick-reply/realtime đọc state SAU resolve → đúng hơn. Picker handlers + khối DB+name [:1491] giữ nguyên.
+
+**Verify:** node --check OK · unit test `_pickBestConv` 8/8 · browser (Playwright, localhost) module load OK (mọi global chat định nghĩa) · E2E mock đúng kịch bản bug (Thùy Trang recent hơn) → resolve **Hoa Tuyết Trắng** (psid A) ✅ · regression: SĐT 1 người → resolve sạch không picker ✅ · homonym psid không khớp → defer picker (không auto-pick) ✅. **End-to-end thật cần verify trên prod** (data Pancake thật của khách).
+
+**Status:** ✅ code + test xong. Chỉ sửa orders-report (Web 1.0), không đụng web2/backend.
+
 ### [delivery-report] phuoc = quyền bobo: bỏ chế độ 'full' đặc biệt → phuoc cũng 'lite' (ẩn dữ liệu, triple-click mới hiện) ✅
 
 **User:** account `phuoc` thấy hết dữ liệu ẩn ngay (bảng + số liệu + nút hủy) — "dữ liệu ẩn phải click 3 lần vào các chữ, đây là trang đặc biệt". Chốt: **"acc phuoc giống quyền acc bobo đó"**.

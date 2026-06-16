@@ -1235,6 +1235,12 @@ async function _doFindAndLoadConversation(pageId, psid, type, loadToken, opts) {
     // below sets this only when it detects homonym ambiguity; clearing here
     // ensures we don't render a stale picker if this lookup resolves cleanly.
     window._chatPickerCandidates = null;
+    // Survivor stash: phone-verified candidates set by the early phone tiers when
+    // a SĐT maps to >1 người (_pickBestConv ambiguous). The DB+name tier below can
+    // null `_chatPickerCandidates` in its "no name hit" branch; this stash keeps
+    // the phone-matched people available so the render still shows a PICKER (not
+    // the phone-setter empty state). Only read in the final `if(!conv)` branch.
+    window._chatPhoneCandFallback = null;
 
     // If caller didn't supply a token, allocate one so we still guard
     if (loadToken == null) loadToken = ++window._chatLoadSeq;
@@ -1243,6 +1249,63 @@ async function _doFindAndLoadConversation(pageId, psid, type, loadToken, opts) {
         new Date(b.updated_at || 0).getTime() - new Date(a.updated_at || 0).getTime();
 
     let conv = null;
+
+    // ─── Helpers chọn ĐÚNG người khi 1 SĐT thuộc NHIỀU hội thoại (homonym) ───
+    // Bug 2026-06-16: SĐT (vd 0987616422) nằm trong recent_phone_numbers của
+    // nhiều người KHÁC nhau (khách dán cùng 1 số liên hệ/ship vào nhiều FB chat)
+    // → các tầng phone-search chọn matched[0] (recency) = SAI người (mở Thùy
+    // Trang thay vì Hoa Tuyết Trắng). Dùng TÊN đơn → PSID đơn để khóa đúng
+    // người; mơ hồ mà CÓ tên → để conv=null rơi xuống tầng DB+name-search +
+    // picker ([:1491]) vốn xử lý homonym đúng. Helper KHÔNG đổi control-flow.
+    const _strip = (s) =>
+        (s || '')
+            .toString()
+            .normalize('NFD')
+            .replace(/[̀-ͯ]/g, '')
+            .toLowerCase()
+            .replace(/[\s\-_]+/g, ' ')
+            .trim();
+    const _bareName = (n) => {
+        const s = (n || '').toString();
+        const idx = s.indexOf(' - ');
+        return (idx > 0 ? s.substring(0, idx) : s).trim();
+    };
+    const _nameMatch = (a, b) => {
+        const sa = _strip(_bareName(a));
+        const sb = _strip(_bareName(b));
+        if (!sa || !sb) return false;
+        return sa === sb || sa.includes(sb) || sb.includes(sa);
+    };
+    // Trả { conv, ambiguous }. cands = list conv ĐÃ verify phone (trên 1 page).
+    // distinct ≤ 1 người → y hệt code cũ (find(type)||[0]). Nhiều người → ưu
+    // tiên TÊN (chỉ khi khớp đúng 1 người) → PSID → nếu vẫn mơ hồ mà CÓ tên thì
+    // ambiguous=true (caller để conv=null). Không tín hiệu tên lẫn psid →
+    // fallback matched[0] (giữ nguyên hành vi cũ, chống regression).
+    const _pickBestConv = (cands, sel) => {
+        const list = Array.isArray(cands) ? cands : [];
+        const wantType = sel?.type;
+        const fid = (c) => String(c.from_psid || c.from?.id || '');
+        const pickType = (arr) => arr.find((c) => c.type === wantType) || arr[0] || null;
+        const distinct = new Set(list.map(fid));
+        if (distinct.size <= 1) return { conv: pickType(list), ambiguous: false };
+        // (1) Khớp TÊN đơn → nếu chỉ trỏ tới 1 người thì khóa người đó
+        const nameSig = _strip(_bareName(sel?.name));
+        if (nameSig) {
+            const nm = list.filter((c) => _nameMatch(c.from?.name, sel?.name));
+            const nmPsids = new Set(nm.map(fid));
+            if (nmPsids.size === 1) return { conv: pickType(nm), ambiguous: false };
+        }
+        // (2) Khớp PSID đơn (page-scoped) → khóa đúng người sau type-toggle
+        const ps = String(sel?.psid || '');
+        if (ps) {
+            const pm = list.filter((c) => fid(c) === ps);
+            if (pm.length) return { conv: pickType(pm), ambiguous: false };
+        }
+        // (3) Có tên nhưng không tách được người → defer cho tầng DB+name + picker
+        if (nameSig) return { conv: null, ambiguous: true };
+        // (4) Không tín hiệu tên lẫn psid → giữ hành vi cũ (recency matched[0])
+        return { conv: pickType(list), ambiguous: false };
+    };
 
     // Check per-page conv cache first (populated by previous switch)
     const cacheKey = `${psid}:${pageId}:${type}`;
@@ -1279,15 +1342,27 @@ async function _doFindAndLoadConversation(pageId, psid, type, loadToken, opts) {
                     if (targetFbId) {
                         try {
                             const direct = await pdm.fetchConversationDirect(pageId, targetFbId);
+                            // Verify TÊN trước khi nhận: DB page_fb_ids[pageId] có thể
+                            // cũ/sai (1 SĐT map nhiều người) → tránh nhận nhầm conv của
+                            // người trùng SĐT. Không có tên đơn để so → nhận (giữ cũ).
+                            const _orderNameSig = _strip(_bareName(window.currentCustomerName));
+                            const _nameOk =
+                                !_orderNameSig ||
+                                _nameMatch(direct?.from?.name, window.currentCustomerName);
                             if (
                                 direct &&
                                 direct.id &&
                                 direct.existed !== false &&
-                                direct.success !== false
+                                direct.success !== false &&
+                                _nameOk
                             ) {
                                 conv = direct;
                                 console.log(
                                     `[Chat-Core] ✓ Direct FB-ID lookup hit: ${pageId}_${targetFbId}`
+                                );
+                            } else if (direct && direct.id && !_nameOk) {
+                                console.log(
+                                    `[Chat-Core] ✗ Direct FB-ID name mismatch (DB stale?): conv="${direct?.from?.name}" vs order="${window.currentCustomerName}" → fall through`
                                 );
                             }
                         } catch (_e) {
@@ -1339,7 +1414,19 @@ async function _doFindAndLoadConversation(pageId, psid, type, loadToken, opts) {
                     );
                 });
                 if (matched.length > 0) {
-                    conv = matched.find((c) => c.type === type) || matched[0];
+                    const picked = _pickBestConv(matched, {
+                        type,
+                        name: window.currentCustomerName,
+                        psid: window.currentChatPSID,
+                    });
+                    if (picked.ambiguous) {
+                        // SĐT thuộc nhiều người, tên không tách được → để tầng
+                        // DB+name-search + picker ([:1491]) quyết (conv giữ null).
+                        window._chatPickerCandidates = matched;
+                        window._chatPhoneCandFallback = matched;
+                    } else {
+                        conv = picked.conv;
+                    }
                     if (!window._pageConvPickerCache) window._pageConvPickerCache = new Map();
                     window._pageConvPickerCache.set(pageId, { convs: matched, loadToken });
                 }
@@ -1377,13 +1464,25 @@ async function _doFindAndLoadConversation(pageId, psid, type, loadToken, opts) {
                     );
                 });
                 if (matched.length > 0) {
-                    conv = matched.find((c) => c.type === type) || matched[0];
-                    pageId = pp;
-                    window.currentChatChannelId = pp;
-                    window.currentSendPageId = pp;
+                    const picked = _pickBestConv(matched, {
+                        type,
+                        name: window.currentCustomerName,
+                        psid: window.currentChatPSID,
+                    });
+                    if (picked.ambiguous) {
+                        // Mơ hồ trên preferred-page → KHÔNG chuyển page, để rơi
+                        // xuống tầng DB+name + picker.
+                        window._chatPickerCandidates = matched;
+                        window._chatPhoneCandFallback = matched;
+                    } else if (picked.conv) {
+                        conv = picked.conv;
+                        pageId = pp;
+                        window.currentChatChannelId = pp;
+                        window.currentSendPageId = pp;
+                        console.log(`[Chat-Core] ✓ Preferred-page fallback hit on ${pp}`);
+                    }
                     if (!window._pageConvPickerCache) window._pageConvPickerCache = new Map();
                     window._pageConvPickerCache.set(pp, { convs: matched, loadToken });
-                    console.log(`[Chat-Core] ✓ Preferred-page fallback hit on ${pp}`);
                 }
             } catch (e) {
                 if (e?.name === 'AbortError') throw e;
@@ -1470,7 +1569,18 @@ async function _doFindAndLoadConversation(pageId, psid, type, loadToken, opts) {
                 });
 
                 if (phoneVerified.length > 0) {
-                    conv = phoneVerified.find((c) => c.type === type) || phoneVerified[0];
+                    const picked = _pickBestConv(phoneVerified, {
+                        type,
+                        name: window.currentCustomerName,
+                        psid: window.currentChatPSID,
+                    });
+                    if (picked.ambiguous) {
+                        // Nhiều người verify phone xuyên page → để picker quyết.
+                        window._chatPickerCandidates = phoneVerified;
+                        window._chatPhoneCandFallback = phoneVerified;
+                    } else {
+                        conv = picked.conv;
+                    }
                 } else if (nameMatched.length === 1 || nameMatched[0]?.samePsid) {
                     // Unambiguous name match OR same-PSID name match.
                     const list = nameMatched.map((x) => x.conv);
@@ -1905,7 +2015,11 @@ async function _doFindAndLoadConversation(pageId, psid, type, loadToken, opts) {
             // "wrong-phone" hit surfaces instead of silently empty-stating —
             // owner repro 2026-05-11: Store search 0123456788 returned a
             // homonym which was previously rejected & hidden.
-            const pickerCandidates = window._chatPickerCandidates;
+            // Prefer the DB+name tier's refined groups; fall back to the phone-
+            // verified people stashed by the early phone tiers (so a SĐT-collision
+            // shows a picker instead of the phone-setter empty state).
+            const pickerCandidates =
+                window._chatPickerCandidates || window._chatPhoneCandFallback;
             const showPicker = Array.isArray(pickerCandidates) && pickerCandidates.length >= 1;
 
             if (showPicker) {
@@ -1921,6 +2035,7 @@ async function _doFindAndLoadConversation(pageId, psid, type, loadToken, opts) {
                 _wireConvPickerEmptyState(pageId, byFbIdMap, loadToken, type);
                 // One-shot: clear so a subsequent unrelated lookup doesn't reuse it.
                 window._chatPickerCandidates = null;
+                window._chatPhoneCandFallback = null;
             } else {
                 // The lookup chain swallows network errors, so a null `conv`
                 // can mean EITHER "no phone mapping" OR "backend was down during
