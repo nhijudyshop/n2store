@@ -2,6 +2,16 @@
 
 ## 2026-06-16
 
+### [delivery-report] phuoc = quyền bobo: bỏ chế độ 'full' đặc biệt → phuoc cũng 'lite' (ẩn dữ liệu, triple-click mới hiện) ✅
+
+**User:** account `phuoc` thấy hết dữ liệu ẩn ngay (bảng + số liệu + nút hủy) — "dữ liệu ẩn phải click 3 lần vào các chữ, đây là trang đặc biệt". Chốt: **"acc phuoc giống quyền acc bobo đó"**.
+
+**RCA:** commit `0b33d0b46` (22/05) build 2 chế độ: `userType==='phuoc-authenticated'` → `'full'` (Interface 1, tự thấy hết) · mọi user khác kể cả admin/bobo → `'lite'` (Interface 2, ẩn bảng/số liệu, triple-click tiêu đề mới hiện). Vì userType = `${username}-authenticated` nên CHỈ account username `phuoc` rơi vào nhánh full → thấy hết. bobo (username `bobo`) ở `'lite'` → phuoc khác bobo đúng chỗ này.
+
+**Fix** [delivery-report.js](delivery-report/js/delivery-report.js): `detectInterfaceMode()` bỏ ngoại lệ `phuoc-authenticated`, **luôn trả `'lite'`** → phuoc giống bobo (ẩn mặc định, triple-click bung; trong Tra soát bắt đầu 2 tab, triple-click bung đủ 6 tab/5 cột). Giữ code nhánh `'full'` làm dead branch (không xoá — tránh regression trang PROD Web 1.0). Bump `delivery-report.js?v=20260616b`.
+
+**Status:** ✅ delivery-report (Web 1.0). phuoc ⇔ bobo: cùng 'lite' + cùng quyền Tra soát (whitelist username đã thêm `phuoc` ở fix trước).
+
 ### [so-order][web2-products] Part B — Kho SP hover hiện giá GỐC ngoại tệ (origin_currency/origin_rate) ✅
 
 **User spec (tiếp Part A):** Kho SP lưu VND; hover giá ở kho hiện giá gốc (vd CNY) đã mua. User chọn: build Part B, origin = lần mua gần nhất, để data cũ nguyên.

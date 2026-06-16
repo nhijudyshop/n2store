@@ -92,23 +92,13 @@
         return false;
     }
 
-    // userType === 'phuoc-authenticated' → 'full' (Interface 1 — all 5 groups)
-    // anyone else (incl admin) → 'lite' (Interface 2 — only TOMATO + SHOP by default)
+    // Trang "đặc biệt": MỌI account đều ở chế độ 'lite' — bảng/số liệu/nút hủy ẩn
+    // mặc định, triple-click tiêu đề mới hiện (dữ liệu nhạy cảm không lộ khi liếc màn hình).
+    // Trước đây 'phuoc-authenticated' được 'full' tự thấy hết (commit 0b33d0b46) nhưng
+    // user chốt 2026-06-16: "acc phuoc giống quyền acc bobo" — bobo cũng 'lite' → bỏ ngoại
+    // lệ full, KHÔNG account nào auto-thấy dữ liệu ẩn. ('full' mode giữ code làm dead branch,
+    // không xoá để tránh regression trên trang PROD Web 1.0.)
     function detectInterfaceMode() {
-        try {
-            const info = window.authManager?.getUserInfo?.();
-            if (info?.userType === 'phuoc-authenticated') return 'full';
-        } catch (_) {}
-        // Fallback: read storage directly in case authManager not ready
-        try {
-            const raw =
-                localStorage.getItem('loginindex_auth') ||
-                sessionStorage.getItem('loginindex_auth');
-            if (raw) {
-                const data = JSON.parse(raw);
-                if (data?.userType === 'phuoc-authenticated') return 'full';
-            }
-        } catch (_) {}
         return 'lite';
     }
 
