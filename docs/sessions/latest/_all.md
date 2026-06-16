@@ -3,15 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `c7b772e` — auto: session update
-**Last updated**: 2026-06-16 16:11:45 +07
-**Latest session**: [`RESUME:20260616-161145-c7b772e`](../20260616-161145-c7b772e.md)
-**Summary**: auto: session update
+**Latest commit**: `cd81ab5` — docs(dev-log): money-model so-order — status auto + nợ NCC khi nhận hàng + discount/ship per-đơn
+**Last updated**: 2026-06-16 16:14:03 +07
+**Latest session**: [`RESUME:20260616-161403-cd81ab5`](../20260616-161403-cd81ab5.md)
+**Summary**: docs(dev-log): money-model so-order — status auto + nợ NCC khi nhận hàng + discount/ship per-đơn
 
 ## Folders affected in this commit
 
-- [`so-order/`](./so-order.md) — 2 file(s)
-- [`web2/`](./web2.md) — 4 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -26,7 +25,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-16 11:15
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-16 14:31
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-16 14:31
-- [`docs/`](./docs.md) — updated 2026-06-16 16:01
+- [`docs/`](./docs.md) — updated 2026-06-16 16:14
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-16 14:31
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-16 14:31
 - [`downloads/`](./downloads.md) — updated 2026-06-13 19:16
