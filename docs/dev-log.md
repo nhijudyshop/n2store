@@ -26,7 +26,9 @@
 
 **Backward-compat:** SP cũ origin_currency=NULL → không hover (hiện VND như cũ). ADD COLUMN IF NOT EXISTS idempotent. Web 1.0 không chạm.
 
-**Status:** ⏳ code xong, syntax OK — chờ deploy web2-api + verify end-to-end (seed SP CNY → hover hiện CNY). Part A đã verified ở entry trước.
+**Deploy + Verify (2026-06-16):** deploy web2-api `dep-d8ohitreo5us73e9lbcg` LIVE (commit chứa migration). E2E Playwright tab CNY(3500): nhập SP cost 100/sell 200 CNY → Lưu Nháp → payload gửi `originCurrency:CNY, originRate:3500` + VND 350000/700000 → kho lưu `original_price=350000, price=700000, origin_currency=CNY, origin_rate=3500` (derive ngược = 100/200 CNY) → trang Kho SP hover title "Giá gốc: 100,00 CNY (nhập @ 3.500₫/CNY)" + "200,00 CNY". Cleanup: xoá SP test HCMM3 (force) + row so-order TEST-ORIGIN-CNY (edit-shipment modal, server-synced).
+
+**Status:** ✅ Part B deployed + verified end-to-end. so-order + web2-products (Web 2.0).
 
 ### [docs] Sync overview + WEB2-PAGES-ANALYSIS cho money-model mới (rule 9) ✅
 
@@ -100,7 +102,7 @@ Bump `so-order.css` + `so-order-app.js` `?v=20260616h`.
 
 - **Server** [render.com/routes/realtime.js](render.com/routes/realtime.js) + bảng `checked_customers` (boot migration [server.js](render.com/server.js), UNIQUE(campaign_key,psid)): `GET/POST/DELETE /api/realtime/checked-customers` (parameterized, có cap độ dài). Mỗi mutation broadcast SSE topic `checked_customers` qua `req.app.locals.realtimeSseNotify` (Web 1.0 hub).
 - **Client store** [tab1-checked-customers.js](orders-report/js/tab1/tab1-checked-customers.js) `window.CheckedCustomers`: scope theo `campaignManager.activeCampaignId`; `isChecked/check/uncheck/toggle` optimistic + rollback (guard đổi chiến dịch giữa chừng); SSE subscribe `checked_customers` (apply trực tiếp add/remove); poll 2s đổi chiến dịch → reload; phát event `n2s:checkedCustomersChanged`.
-- **Strip** [tab1-unread-messages-strip.js](orders-report/js/tab1/tab1-unread-messages-strip.js): bỏ avatar; `compute()` skip KH `CheckedCustomers.isChecked` (ẩn cả khi có tin mới); mỗi ô có `<button.ucs-cell__check>` đánh dấu. **Đổi inline onclick → data-* + 1 delegated listener trên host** (hết rủi ro breakout chuỗi; nút check keyboard-accessible). Re-render khi `n2s:checkedCustomersChanged`.
+- **Strip** [tab1-unread-messages-strip.js](orders-report/js/tab1/tab1-unread-messages-strip.js): bỏ avatar; `compute()` skip KH `CheckedCustomers.isChecked` (ẩn cả khi có tin mới); mỗi ô có `<button.ucs-cell__check>` đánh dấu. **Đổi inline onclick → data-\* + 1 delegated listener trên host** (hết rủi ro breakout chuỗi; nút check keyboard-accessible). Re-render khi `n2s:checkedCustomersChanged`.
 - **Inline editor** [tab1-tagxl-inline.js](orders-report/js/tab1/tab1-tagxl-inline.js): ô check trước STT (toggle), gắn onchange bằng addEventListener (không interpolation); đồng bộ trạng thái qua event. CSS check ở cả 2 file.
 - Bump: checked-customers `?v=20260616a`, strip js/css `?v=20260616c`, editor js `?v=20260616c` css `?v=20260616b`.
 
