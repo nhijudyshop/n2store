@@ -16,6 +16,15 @@
 **Verify:** node --check OK · unit test `_pickBestConv` 8/8 · browser (Playwright, localhost) module load OK (mọi global chat định nghĩa) · E2E mock đúng kịch bản bug (Thùy Trang recent hơn) → resolve **Hoa Tuyết Trắng** (psid A) ✅ · regression: SĐT 1 người → resolve sạch không picker ✅ · homonym psid không khớp → defer picker (không auto-pick) ✅. **End-to-end thật cần verify trên prod** (data Pancake thật của khách).
 
 **Status:** ✅ code + test xong. Chỉ sửa orders-report (Web 1.0), không đụng web2/backend.
+### [so-order] Nhóm NCC "Đã nhận" dồn xuống cuối lô (pending lên trên) ✅
+
+**User:** "Nhận hàng rồi sẽ đưa xuống dưới" — nhóm đã nhận đủ nằm xen giữa các nhóm còn chờ → muốn nhóm đã nhận xuống cuối.
+
+**Fix** [so-order-app.js](so-order/js/so-order-app.js): thêm `_orderReceivedGroupsLast(rows)` — partition theo NHÓM NCC (consecutive supplier+invoiceGroupId, giữ nguyên để rowspan ô NCC/Ảnh HĐ không vỡ), nhóm "đã nhận đủ" (mọi SP thật `status==='received'`) dồn cuối, nhóm còn pending giữ trên (stable). **Render-only, KHÔNG mutate storage** → áp dụng ngay cho data cũ + tự sắp lại sau mỗi lần nhận hàng (renderAll). `shipmentHtml` dùng `displayRows` cho cả `_computeRowSpans` + `rowHtml`; `rowHtml` nhận thêm param `rowsArr` để slice nút "Nhận hàng" theo đúng thứ tự hiển thị (không lệch idx).
+
+**Verify (Playwright, HÀ NỘI):** thứ tự mới = A1-TEST(draft) · C2-SET/QU(draft) [TRÊN] → A1-ÁO · b1 · A1-SE (received) [DƯỚI]. NCC rowspan + zebra + nút nhận giữ đúng. Bump `so-order-app.js?v=20260616n`.
+
+**Status:** ✅ so-order (Web 2.0). render-only, reversible.
 
 ### [delivery-report] phuoc = quyền bobo: bỏ chế độ 'full' đặc biệt → phuoc cũng 'lite' (ẩn dữ liệu, triple-click mới hiện) ✅
 

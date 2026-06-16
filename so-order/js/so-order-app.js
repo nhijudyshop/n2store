@@ -611,6 +611,38 @@
         setTimeout(() => tr.classList.remove('is-saved-flash'), 600);
     }
 
+    // 2026-06-16: NHÓM NCC đã NHẬN ĐỦ (mọi SP received) dồn xuống CUỐI lô, nhóm
+    // còn chờ nhận giữ lên trên → user thấy việc cần làm trước. Render-only (KHÔNG
+    // mutate storage). Giữ nguyên từng nhóm (supplier + invoiceGroupId liên tiếp)
+    // để rowspan ô NCC/Ảnh HĐ không vỡ; chỉ đổi thứ tự GIỮA các nhóm (stable).
+    function _orderReceivedGroupsLast(rows) {
+        if (!Array.isArray(rows) || rows.length < 2) return Array.isArray(rows) ? [...rows] : [];
+        const groups = [];
+        let i = 0;
+        while (i < rows.length) {
+            let j = i + 1;
+            const sup = rows[i].supplier || '';
+            const gid = rows[i].invoiceGroupId || rows[i].id;
+            while (
+                j < rows.length &&
+                (rows[j].supplier || '') === sup &&
+                (rows[j].invoiceGroupId || rows[j].id) === gid
+            )
+                j++;
+            const groupRows = rows.slice(i, j);
+            const meaningful = groupRows.filter(
+                (x) => (x.productName || '').trim() && Number(x.qty) > 0
+            );
+            // "Đã nhận đủ" = có SP thật & MỌI SP thật đều received → dồn xuống cuối.
+            const done = meaningful.length > 0 && meaningful.every((x) => x.status === 'received');
+            groups.push({ rows: groupRows, done });
+            i = j;
+        }
+        const pending = groups.filter((g) => !g.done);
+        const finished = groups.filter((g) => g.done);
+        return [...pending, ...finished].flatMap((g) => g.rows);
+    }
+
     function shipmentHtml(sh, tab, colSpan) {
         const header = shipmentHeaderHtml(sh, tab, colSpan);
         if (sh.collapsed) return header;
@@ -620,8 +652,13 @@
         // - NCC: consecutive rows cùng `supplier` → rowspan (cell render lần đầu).
         // - Ảnh Hóa Đơn: consecutive rows cùng `invoiceGroupId` → rowspan.
         // Map: rowIdx → { ncc: {render, span}, inv: {render, span} }
-        const meta = _computeRowSpans(sh.rows);
-        const rows = sh.rows.map((r, idx) => rowHtml(r, idx, tab, sh.id, meta[idx])).join('');
+        // displayRows: nhóm đã nhận đủ dồn cuối (render-only). _computeRowSpans +
+        // rowHtml dùng CHUNG displayRows để idx/rowspan/receive-slice khớp nhau.
+        const displayRows = _orderReceivedGroupsLast(sh.rows);
+        const meta = _computeRowSpans(displayRows);
+        const rows = displayRows
+            .map((r, idx) => rowHtml(r, idx, tab, sh.id, meta[idx], displayRows))
+            .join('');
         return header + colHead + rows;
     }
 
@@ -831,7 +868,7 @@
         }
     }
 
-    function rowHtml(r, idx, tab, shipmentId, meta) {
+    function rowHtml(r, idx, tab, shipmentId, meta, rowsArr) {
         const rid = escapeHtml(r.id);
         const sid = escapeHtml(shipmentId);
         // Row đã nhận hàng → ép read-only ngay cả khi bulk edit mode bật.
@@ -864,9 +901,12 @@
             // nên `allRecv` phải tính trên ĐÚNG group này (rows.slice(idx, idx+span)),
             // KHÔNG phải toàn bộ rows cùng NCC trong lô. Trước đây 1 đơn đã nhận đủ
             // vẫn hiện "Nhận hàng" vì 1 đơn khác cùng NCC còn nháp → sai trạng thái.
+            // rowsArr = displayRows (đã reorder received-last) để slice theo idx
+            // khớp với thứ tự render; fallback shp.rows nếu caller cũ không truyền.
             const shp = tab?.shipments?.find((s) => s.id === shipmentId);
+            const sliceSrc = rowsArr || shp?.rows || [];
             const groupSpan = nccMeta.span || 1;
-            const groupRows = (shp?.rows || []).slice(idx, idx + groupSpan);
+            const groupRows = sliceSrc.slice(idx, idx + groupSpan);
             const nccRows = groupRows.filter(
                 (x) => (x.productName || '').trim() && Number(x.qty) > 0
             );
