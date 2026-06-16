@@ -374,6 +374,120 @@
         </article>`;
     }
 
+    // ---------- keyed DOM reconcile (anti-jank: KHÔNG nuke innerHTML) ----------
+    // Chữ ký nội dung 1 card: mọi thứ cardHtml render. Đổi chữ ký mới rebuild đúng
+    // card đó; giữ nguyên (KHÔNG đụng DOM) nếu không đổi → avatar/SĐT/địa chỉ/nội
+    // dung card cũ giữ nguyên cache, không tải lại, không nháy.
+    function cardSig(c) {
+        const st = statusOf(c);
+        const no = nativeOrder(c);
+        const pg = pageOf(c);
+        return [
+            String(c.fb_id || ''),
+            nameOf(c),
+            st.label,
+            st.cls,
+            ordered(c) ? '1' : '0',
+            pg ? pg.t + pg.c : '',
+            no ? no.stt + '|' + (no.code || '') : '',
+            validPhone(c.phone) ? normP(c.phone) : '',
+            addrOf(c),
+            c.message || '',
+        ].join('');
+    }
+    function buildCard(c, sig) {
+        const tpl = document.createElement('template');
+        tpl.innerHTML = cardHtml(c).trim();
+        const el = tpl.content.firstElementChild;
+        el.dataset.sig = sig != null ? sig : cardSig(c);
+        return el;
+    }
+    // Khi PHẢI rebuild 1 card (nội dung đổi do enrich): giữ lại đúng node avatar ĐÃ
+    // TẢI XONG nếu cùng src → không refetch ảnh (nguồn gây nháy avatar lúc enrich).
+    function transplantAvatar(oldEl, newEl) {
+        const o = oldEl.querySelector('img.av');
+        const n = newEl.querySelector('img.av');
+        if (
+            o &&
+            n &&
+            o.getAttribute('src') === n.getAttribute('src') &&
+            o.complete &&
+            o.naturalWidth > 0
+        )
+            n.replaceWith(o);
+    }
+    // Reconcile danh sách card hiển thị: tái sử dụng card cũ theo data-id, chỉ tạo
+    // card mới / gỡ card đã ẩn / đổi vị trí / rebuild card đổi nội dung. Trả mảng
+    // card MỚI (để fade-in). Card cũ không đổi → KHÔNG bị chạm.
+    function reconcileList(shown, moreCount) {
+        const existing = new Map();
+        for (const el of Array.from(listEl.children)) {
+            if (el.classList && el.classList.contains('card') && el.dataset.id != null)
+                existing.set(el.dataset.id, el);
+        }
+        const desired = [];
+        const newEls = [];
+        for (const c of shown) {
+            const id = String(c.id);
+            const sig = cardSig(c);
+            let el = existing.get(id);
+            if (el) {
+                existing.delete(id);
+                if (el.dataset.sig !== sig) {
+                    const fresh = buildCard(c, sig);
+                    transplantAvatar(el, fresh);
+                    // Card đang highlight "mới" mà bị rebuild (enrich) → giữ highlight.
+                    if (el.classList.contains('is-new')) {
+                        fresh.classList.add('is-new');
+                        fresh.addEventListener(
+                            'animationend',
+                            () => fresh.classList.remove('is-new'),
+                            { once: true }
+                        );
+                    }
+                    el.replaceWith(fresh);
+                    el = fresh;
+                }
+            } else {
+                el = buildCard(c, sig);
+                newEls.push(el);
+            }
+            desired.push(el);
+        }
+        // Card không còn trong tầm hiển thị → gỡ.
+        for (const el of existing.values()) el.remove();
+        // Sắp đúng thứ tự với số thao tác DOM tối thiểu (card mới chèn ở đầu, card cũ
+        // khớp vị trí thì đứng yên hoàn toàn).
+        let ref = listEl.firstChild;
+        for (const el of desired) {
+            if (ref === el) ref = el.nextSibling;
+            else listEl.insertBefore(el, ref);
+        }
+        // Nút "Xem thêm" luôn ở cuối.
+        let moreBtn = listEl.querySelector('#moreBtn');
+        if (moreCount > 0) {
+            if (!moreBtn) {
+                moreBtn = document.createElement('button');
+                moreBtn.className = 'more-btn';
+                moreBtn.id = 'moreBtn';
+            }
+            moreBtn.textContent = `Xem thêm ${moreCount} comment`;
+            listEl.appendChild(moreBtn);
+        } else if (moreBtn) {
+            moreBtn.remove();
+        }
+        // Fade-in card mới (opacity thuần, chuẩn livestream). Burst dồn dập → bỏ qua.
+        if (newEls.length && shouldAnimateNew(newEls.length)) {
+            for (const el of newEls) {
+                el.classList.add('is-new');
+                el.addEventListener('animationend', () => el.classList.remove('is-new'), {
+                    once: true,
+                });
+            }
+        }
+        return newEls;
+    }
+
     let renderT;
     function scheduleRender() {
         clearTimeout(renderT);
@@ -392,11 +506,13 @@
             listEl.innerHTML = `<div class="empty"><div class="ic">🗒️</div>Chưa có comment ${filter || selectedPost || liveMode ? 'khớp bộ lọc' : 'nào'}.</div>`;
             return;
         }
+        // Lần đầu có dữ liệu: bỏ skeleton / empty-state (node không phải .card).
+        if (!listEl.querySelector('.card')) listEl.innerHTML = '';
         const shown = rows.slice(0, renderCap);
-        let html = shown.map(cardHtml).join('');
-        if (rows.length > renderCap)
-            html += `<button class="more-btn" id="moreBtn">Xem thêm ${rows.length - renderCap} comment</button>`;
-        listEl.innerHTML = html;
+        const moreCount = rows.length > renderCap ? rows.length - renderCap : 0;
+        const newEls = reconcileList(shown, moreCount);
+        // Có card mới + user đang cuộn xuống → hiện pill "comment mới".
+        if (newEls.length && window.scrollY > 240) showNewPill();
     }
 
     function skeleton() {
@@ -740,16 +856,15 @@
             const r = await fetch(`${WORKER}/api/web2-live-comments/${q}`, { credentials: 'omit' });
             const j = await r.json();
             const data = (j && j.data) || [];
-            const newTop = data[0] && String(data[0].id);
-            const hadNew = topId && newTop && newTop !== topId && window.scrollY > 240;
             ALL = data;
+            topId = (data[0] && String(data[0].id)) || null;
+            // Reconciler giữ nguyên card cũ (cùng id) → reload full KHÔNG nháy; pill
+            // "comment mới" tự hiện khi có card mới + đang cuộn xuống (xem doRender).
             scheduleRender();
-            topId = newTop;
             primeFromData(data); // prime cursor cho LiveCommentsStream (SSE delta append)
             // KH mới từ comment → kho web2_customers (shared, dùng chung desktop).
             if (window.LiveCustomerSync)
                 window.LiveCustomerSync.harvest(data, { workerUrl: WORKER });
-            if (hadNew) showNewPill();
             // enrich kho (SĐT/địa chỉ/trạng thái). KHÔNG fetch thumbnail (user 2026-06-15:
             // mobile không hiện thumbnail → khỏi tốn băng thông).
             enrichWarehouse(data).then(scheduleRender);
@@ -890,19 +1005,11 @@
         stream.primeCursor({ updatedMs: u, createdMs: c });
     }
 
-    function cardSel(id) {
-        return '.card[data-id="' + String(id).replace(/["\\]/g, '\\$&') + '"]';
-    }
-
-    // Enrich KH (kho) cho các dòng MỚI rồi patch đúng card đó. KHÔNG fetch thumbnail
-    // (user 2026-06-15: mobile không hiện thumbnail).
+    // Enrich KH (kho) cho các dòng MỚI rồi re-render — reconciler tự patch ĐÚNG card
+    // đổi nội dung (giữ avatar đã tải). KHÔNG fetch thumbnail (mobile không hiện).
     async function enrichDelta(rows) {
         await enrichWarehouse(rows);
-        for (const r of rows) {
-            const cur = ALL.find((x) => String(x.id) === String(r.id));
-            const el = listEl.querySelector(cardSel(r.id));
-            if (cur && el) el.outerHTML = cardHtml(cur);
-        }
+        scheduleRender();
     }
 
     // Burst guard fade card MỚI: flow thường → fade opacity thuần (dịu); dồn dập →
@@ -917,73 +1024,28 @@
         return true;
     }
 
-    // APPEND incremental — KHÔNG full re-render. Dòng MỚI → prepend card lên đầu;
-    // dòng CŨ (server fill phone/has_order) → patch đúng card theo data-id.
+    // Delta SSE → MERGE vào ALL rồi 1 lần scheduleRender. Reconciler giữ nguyên card
+    // cũ (không nháy avatar/SĐT/địa chỉ/nội dung), chỉ chèn card mới (fade-in) + patch
+    // card đổi nội dung. KHÔNG full re-render, KHÔNG dual-path lệch nhau.
     function applyDelta(rows) {
         if (!rows || !rows.length) return;
         // KH mới từ comment realtime → kho web2_customers (shared).
         if (window.LiveCustomerSync) window.LiveCustomerSync.harvest(rows, { workerUrl: WORKER });
-        // Chưa render gì (boot lỗi / list rỗng) → merge rồi render 1 lần (không lặp).
-        if (!ALL.length || !listEl.querySelector('.card')) {
-            const seen = {};
-            ALL.forEach((x, i) => (seen[String(x.id)] = i));
-            const fresh0 = [];
-            rows.forEach((r) => {
-                const i = seen[String(r.id)];
-                if (i != null) ALL[i] = Object.assign({}, ALL[i], r);
-                else {
-                    ALL.unshift(r);
-                    fresh0.push(r);
-                }
-            });
-            scheduleRender();
-            if (fresh0.length) enrichDelta(fresh0);
-            return;
-        }
+        const seen = new Map();
+        ALL.forEach((x, i) => seen.set(String(x.id), i));
         const fresh = [];
         for (const r of rows) {
-            const idx = ALL.findIndex((x) => String(x.id) === String(r.id));
-            if (idx >= 0) {
-                ALL[idx] = Object.assign({}, ALL[idx], r);
-                const el = listEl.querySelector(cardSel(r.id));
-                if (el) el.outerHTML = cardHtml(ALL[idx]);
-            } else {
-                fresh.push(r);
-            }
+            const i = seen.get(String(r.id));
+            if (i != null) ALL[i] = Object.assign({}, ALL[i], r);
+            else fresh.push(r);
         }
         if (fresh.length) {
             // delta trả DESC (mới nhất trước) → unshift đảo để giữ DESC trong ALL.
             for (let i = fresh.length - 1; i >= 0; i--) ALL.unshift(fresh[i]);
-            const vis = fresh.filter(visible);
-            if (vis.length) {
-                listEl.insertAdjacentHTML('afterbegin', vis.map(cardHtml).join(''));
-                // Fade opacity thuần cho card mới (chuẩn livestream) — burst → bỏ qua.
-                if (shouldAnimateNew(vis.length)) {
-                    for (const r of vis) {
-                        const el = listEl.querySelector(cardSel(r.id));
-                        if (el) {
-                            el.classList.add('is-new');
-                            el.addEventListener(
-                                'animationend',
-                                () => el.classList.remove('is-new'),
-                                { once: true }
-                            );
-                        }
-                    }
-                }
-                if (window.scrollY > 240) showNewPill();
-                topId = String(ALL[0] && ALL[0].id) || topId;
-            }
-
-            enrichDelta(fresh);
+            topId = String(ALL[0] && ALL[0].id) || topId;
         }
-        const vn = ALL.filter(visible).length;
-        const _rt2 = realCommentTotal();
-        countEl.textContent =
-            (_rt2 != null ? _rt2.toLocaleString('vi-VN') : vn + (vn >= LIMIT ? '+' : '')) +
-            ' comment';
-        if (hideCountEl) hideCountEl.textContent = hiddenCount();
-        updateOrderCounts();
+        scheduleRender();
+        if (fresh.length) enrichDelta(fresh);
     }
 
     function wireSse() {
