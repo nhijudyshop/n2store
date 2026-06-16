@@ -3,16 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `560d407` — feat(so-order/products): gợi ý biến thể từ Kho Biến Thể khử dấu (den→Đen) + theo token cuối khi build multi
-**Last updated**: 2026-06-16 18:14:27 +07
-**Latest session**: [`RESUME:20260616-181427-560d407`](../20260616-181427-560d407.md)
-**Summary**: feat(so-order/products): gợi ý biến thể từ Kho Biến Thể khử dấu (den→Đen) + theo token cuối khi...
+**Latest commit**: `970000a` — fix(so-order): Sửa lô tách NCC per-row (lô = nguyên ngày giao, nhiều NCC) — ẩn ô NCC chung, thêm cột NCC mỗi dòng + picker Ví NCC
+**Last updated**: 2026-06-16 18:39:39 +07
+**Latest session**: [`RESUME:20260616-183939-970000a`](../20260616-183939-970000a.md)
+**Summary**: fix(so-order): Sửa lô tách NCC per-row (lô = nguyên ngày giao, nhiều NCC) — ẩn ô NCC chung, thêm cột...
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`so-order/`](./so-order.md) — 2 file(s)
-- [`web2/`](./web2.md) — 2 file(s)
+- [`so-order/`](./so-order.md) — 3 file(s)
 
 ## All folder snapshots
 
@@ -27,7 +26,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-16 11:15
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-16 14:31
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-16 16:43
-- [`docs/`](./docs.md) — updated 2026-06-16 18:14
+- [`docs/`](./docs.md) — updated 2026-06-16 18:39
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-16 14:31
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-16 14:31
 - [`downloads/`](./downloads.md) — updated 2026-06-13 19:16
@@ -62,7 +61,7 @@
 - [`shared/`](./shared.md) — updated 2026-06-16 14:31
 - [`showroom/`](./showroom.md) — updated 2026-06-10 19:04
 - [`showroom1/`](./showroom1.md) — updated 2026-06-10 19:52
-- [`so-order/`](./so-order.md) — updated 2026-06-16 18:14
+- [`so-order/`](./so-order.md) — updated 2026-06-16 18:39
 - [`soluong-live/`](./soluong-live.md) — updated 2026-06-16 14:31
 - [`soorder/`](./soorder.md) — updated 2026-05-21 15:39
 - [`soquy/`](./soquy.md) — updated 2026-06-13 19:51
