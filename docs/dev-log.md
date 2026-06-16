@@ -2,6 +2,20 @@
 
 ## 2026-06-16
 
+### [web2][live-chat] comments-mobile — bỏ full re-render khi có comment mới (keyed DOM reconcile) ✅
+
+**Triệu chứng (user):** `live-chat/comments-mobile.html` — có tin nhắn mới → thêm vào bảng → render lại HẾT avatar/SĐT/nội dung/địa chỉ của các comment cũ → giật, nhức mắt. "Phần này sửa nhiều nhưng lỗi hoài."
+
+**Nguyên nhân:** [comments-mobile.js](live-chat/js/live/comments-mobile.js) có 2 path render lệch nhau. `doRender()` làm `listEl.innerHTML = html` → **đập & dựng lại MỌI card** mỗi lần render. Bị gọi liên tục: SSE comment mới → throttle 30s `loadPosts()` → `overrideRealCounts()` → `load({silent:true})` (`ALL=data` → `scheduleRender`), enrich kho (`web2:customers`), `overrideRealCounts`. Đập innerHTML hủy + tạo lại từng `<article>` → mọi avatar `<img>` refetch worker → nháy. `applyDelta` (path 2) tự patch `outerHTML` thủ công → dễ lệch với doRender.
+
+**Fix (triệt để — 1 renderer duy nhất):**
+
+- Thêm **keyed DOM reconciler** `reconcileList(shown, moreCount)`: index card theo `data-id`, **tái sử dụng nguyên node card cũ nếu chữ ký nội dung (`cardSig`) không đổi** (KHÔNG chạm DOM → avatar/SĐT/địa chỉ/tên/nội dung giữ cache, 0 nháy). Chỉ: tạo card MỚI (fade-in `.is-new`), gỡ card đã ẩn, đổi vị trí (insertBefore tối thiểu — card cũ đứng yên), rebuild ĐÚNG card đổi nội dung (enrich) kèm `transplantAvatar` (giữ `<img>` đã load nếu cùng src → không refetch ảnh).
+- `doRender()` gọi reconciler thay vì innerHTML. `applyDelta()` rút gọn còn merge vào `ALL` + 1 lần `scheduleRender()`; `enrichDelta()` → `scheduleRender()`. `load()` bỏ patch new-pill thủ công (reconciler hiện pill khi có card mới + đang cuộn). Gỡ `cardSel` + path patch `outerHTML` trùng → hết dual-path.
+- Card mới: fade opacity thuần + khung xanh ~3s (keyframe `cardIn`/`.card.is-new` sẵn có). Burst dồn dập (>5 batch hoặc >12/2s) → bỏ animation (hiện tức thì).
+
+**Verify (browser test localhost):** load 100 card → gắn expando `__keep`/`__keepav` lên từng card + avatar → click Làm mới (path xưa nuke hết) → **100/100 card node + 100/100 avatar node ĐƯỢC GIỮ NGUYÊN** (code cũ = 0/0). Không lỗi console từ render. Bump `comments-mobile.js?v=20260616reconcile`. Frontend-only, không cần deploy backend.
+
 ### [web2] J&T list — tìm kiếm theo TÊN KH + SĐT (thêm src_message vào search) ✅
 
 User: "thêm tìm kiếm" → chọn "Tìm trong danh sách đơn J&T". Ô `#jtSearch` cũ chỉ tìm `billcode/note/latest_event`; tên KH + SĐT nằm trong `src_message` (dòng dán) nên gõ tên/SĐT không ra. [web2-jt-tracking.js](render.com/routes/web2-jt-tracking.js) `/list`: thêm `src_message ILIKE` vào OR + nhánh **digits-only** (query ≥4 số → strip non-digit cả 2 vế: `regexp_replace(src_message,'\D','')` ILIKE) để "0904 455" khớp SĐT số liền. Placeholder [index.html](web2/jt-tracking/index.html) → "Tìm mã / tên KH / SĐT / sự kiện / ghi chú…". Search đã debounce sẵn (server-side `/list?search=`). Backend cần deploy web2-api.
