@@ -184,7 +184,13 @@
                         </label>
                         <label>
                             Tên NCC
-                            <input name="supplierName" placeholder="Công ty ABC" />
+                            <input
+                                name="supplierName"
+                                placeholder="Công ty ABC"
+                                list="prSupplierNameList"
+                                autocomplete="off"
+                            />
+                            <datalist id="prSupplierNameList"></datalist>
                         </label>
                         <label>
                             SĐT NCC
@@ -328,8 +334,9 @@
         <script src="../shared/web2-idb-store.js?v=20260530f"></script>
         <script src="../products/js/web2-products-api.js?v=20260615auth"></script>
         <script src="../shared/web2-products-cache.js?v=20260613fb"></script>
+        <script src="../shared/web2-suppliers-cache.js?v=20260616a"></script>
         <script src="../shared/web2-so-order-reader.js?v=20260614d"></script>
         <script src="../supplier-wallet/js/supplier-wallet-storage.js?v=20260613fb"></script>
-        <script src="js/purchase-refund-app.js?v=20260614d"></script>
+        <script src="js/purchase-refund-app.js?v=20260616a"></script>
     </body>
 </html>

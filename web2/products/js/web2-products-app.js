@@ -711,7 +711,7 @@
         }
         if (!supplierName) {
             if (!silent) {
-                notify('Cần chọn tab Sổ Order (HÀ NỘI / HƯƠNG CHÂU) — hoặc KHO', 'warning');
+                notify('Cần chọn NCC (từ Ví NCC) — hoặc KHO (tạo tại Kho)', 'warning');
                 $('#pmSupplier')?.focus();
             }
             return;
@@ -1719,6 +1719,21 @@
                 // Re-render hint khi kho biến thể cập nhật
                 window.Web2VariantsCache.subscribe(() => _renderCombinedHint());
             });
+        }
+
+        // NCC dropdown — nguồn chung Ví NCC. Init + refresh dropdown realtime khi
+        // NCC đổi (tạo ở so-order / supplier-debt / Ví NCC → SSE web2:supplier-wallet).
+        if (window.Web2SuppliersCache) {
+            window.Web2SuppliersCache.init()
+                .then(() => {
+                    window.Web2SuppliersCache.subscribe(() => {
+                        // Cache đã tự refresh names → rebuild dropdown (vô hại khi modal ẩn).
+                        loadSuppliersFromSoOrder(true).then(() => {
+                            if ($('#pmSupplier')) populateSupplierDropdown();
+                        });
+                    });
+                })
+                .catch(() => {});
         }
         $('#filterSearch')?.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') applyFilters();

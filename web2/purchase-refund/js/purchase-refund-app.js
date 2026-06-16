@@ -479,6 +479,24 @@
     }
 
     // ---------- Create / Edit Modal ----------
+    // NCC dùng chung: gợi ý tên NCC trong form thủ công từ nguồn duy nhất
+    // Web2SuppliersCache (Ví NCC / supplier-wallet). Form quick-refund vẫn lấy NCC
+    // từ ngữ cảnh mua hàng (so-order) — không đụng.
+    function _populateSupplierDatalist() {
+        const dl = document.getElementById('prSupplierNameList');
+        const cache = window.Web2SuppliersCache;
+        if (!dl || !cache?.init) return;
+        cache
+            .init()
+            .then(() => {
+                const names = cache.getNames ? cache.getNames() : [];
+                dl.innerHTML = names
+                    .map((n) => `<option value="${escapeHtml(n)}"></option>`)
+                    .join('');
+            })
+            .catch(() => {});
+    }
+
     function openModal(existing) {
         const modal = $('prModal');
         modal.hidden = false;
@@ -488,6 +506,7 @@
 
         const form = $('prForm');
         form.reset();
+        _populateSupplierDatalist();
         if (existing) {
             const set = (name, val) => {
                 if (form.elements[name]) form.elements[name].value = val ?? '';
@@ -549,6 +568,11 @@
                 status: 'draft', // mới tạo = draft; edit thì giữ status cũ ở server side qua merge
             },
         };
+        // NCC dùng chung: tên NCC nhập tay → đảm bảo tồn tại trong nguồn duy nhất
+        // Ví NCC (fire-and-forget, idempotent). Không chặn submit nếu lỗi.
+        if (payload.data.supplierName && window.Web2SuppliersCache?.ensure) {
+            window.Web2SuppliersCache.ensure(payload.data.supplierName).catch(() => {});
+        }
         const isEdit = !!form.dataset.editCode;
         try {
             if (isEdit) {

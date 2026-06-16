@@ -1159,6 +1159,7 @@
             document.getElementById('sdNccCode').value = '';
             document.getElementById('sdNccName').value = '';
             m.hidden = false;
+            _populateNccNameDatalist();
             if (window.lucide?.createIcons) window.lucide.createIcons();
             setTimeout(() => document.getElementById('sdNccCode')?.focus(), 30);
         });
