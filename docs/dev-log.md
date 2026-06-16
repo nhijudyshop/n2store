@@ -22,6 +22,18 @@
 
 Bump `?v=20260616d`. Test order TEST-INV-ORDER đã xoá sạch khỏi server sau verify.
 
+### [orders-report] FIX múi giờ strip "Khách chưa trả lời" — khách mới nhắn báo trễ 7h ✅
+
+**User:** "thời gian đang lấy sai múi giờ — khách mới nhắn vài chục phút mà báo trễ 7h."
+
+**RCA:** Thời gian từ **realtime WS (Pancake)** = UTC **KHÔNG có hậu tố `Z`** (vd `2026-06-16T08:03:41`). `new Date(s)` trên máy GMT+7 hiểu nhầm là giờ LOCAL → epoch sớm hơn thực 7h → `waitedMs = now - ts` dư đúng ~7h (CLAUDE.md §10 bẫy a). Path server-fetch `/pending-customers` lại CÓ offset `+07:00` nên parse đúng → chỉ khách mới (đến qua WS) bị lệch.
+
+**Fix** [new-messages-notifier.js](orders-report/js/chat/new-messages-notifier.js): thêm `_parseMsgTime(v)` — space→`T`, cắt micro/nano về ms, **thêm `Z` nếu chuỗi chưa có timezone** (Z hoặc ±HH:MM); chuỗi đã có offset giữ nguyên. Dùng trong `onNewConversationEvent` (event.timestamp/updated_at) + `setPendingCustomers`; expose `window._n2sParseMsgTime`. [tab1-init.js](orders-report/js/tab1/tab1-init.js) `_fetchOfflinePendingCustomers` dùng helper cho `last_message_time`. Bump notifier+init `?v=20260616c`.
+
+**Verify:** node test 4 format (WS no-Z, no-Z+micro, +07:00, đã-Z) → đều ra wait đúng 30'. Browser (Playwright): bắn `onNewConversationEvent` timestamp no-Z 5' trước → strip `waitedMin=5`, `late=false` (trước fix ~7h05). `node --check` PASS.
+
+**Status:** ✅ code + browser test OK. Web 1.0 (orders-report).
+
 ### [orders-report] FIX inline Tag XL editor không cập nhật khi gắn tag (sync qua ProcessingTagState) ✅
 
 **User:** "gán tag đã thay đổi thực tế dưới đơn hàng nhưng dòng gắn tag phía trên (inline editor) không cập nhật theo, luôn giữ nguyên ban đầu."

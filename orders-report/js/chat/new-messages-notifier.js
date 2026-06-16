@@ -70,6 +70,25 @@
     // local lúc set _recentlyRepliedAt. Chỉ suppress tin RÕ RÀNG cũ hơn mốc reply.
     const REPLIED_SKEW_MS = 2000;
 
+    // Parse timestamp tin nhắn về epoch ms ĐÚNG MÚI GIỜ.
+    // ⚠ Pancake gửi thời gian UTC nhưng KHÔNG có hậu tố 'Z' (vd "2026-06-16T08:03:41"
+    // hoặc "2026-06-16 08:03:41.005966") → new Date() hiểu nhầm là giờ LOCAL (+7) →
+    // lệch -7h → strip báo "trễ 7h" cho khách vừa nhắn. Chuẩn hoá:
+    //   - space → 'T'; cắt micro/nano về 3 chữ số ms;
+    //   - nếu CHƯA có timezone (Z hoặc ±HH:MM) → coi là UTC, thêm 'Z'.
+    // Chuỗi đã có offset (vd "...+07:00" từ /pending-customers) giữ nguyên → parse đúng.
+    function _parseMsgTime(v) {
+        if (v == null) return null;
+        if (typeof v === 'number') return isFinite(v) ? v : null;
+        let s = String(v).trim();
+        if (!s) return null;
+        s = s.replace(' ', 'T').replace(/(\.\d{3})\d+/, '$1');
+        if (!/[zZ]$/.test(s) && !/[+-]\d{2}:?\d{2}$/.test(s)) s += 'Z';
+        const t = Date.parse(s);
+        return isNaN(t) ? null : t;
+    }
+    window._n2sParseMsgTime = _parseMsgTime; // dùng chung cho tab1-init fetch
+
     function _wasRecentlyReplied(psid, eventTimeMs) {
         const repliedAt = _recentlyRepliedAt[String(psid)];
         if (!repliedAt) return false;
@@ -162,7 +181,7 @@
                         pageId: String(pc.pageId || pc.page_id || ''),
                         inboxCount: count,
                         snippet: pc.snippet || pc.lastMessage || '',
-                        timestamp: pc.timestamp || pc.updated_at || null,
+                        timestamp: _parseMsgTime(pc.timestamp) || _parseMsgTime(pc.updated_at),
                     });
             }
             if (phoneKey) {
@@ -270,8 +289,8 @@
         // unread_count). Date.now() fallback chỉ áp khi event không kèm timestamp.
         const eventTimeMs =
             (typeof event.eventTimeMs === 'number' && event.eventTimeMs) ||
-            (event.timestamp ? new Date(event.timestamp).getTime() : null) ||
-            (event.updated_at ? new Date(event.updated_at).getTime() : null);
+            _parseMsgTime(event.timestamp) ||
+            _parseMsgTime(event.updated_at);
         if (_wasRecentlyReplied(psid, eventTimeMs)) {
             return;
         }
@@ -376,7 +395,7 @@
                 phone: pc.phone || pc.phone_number || '',
                 inboxCount: pc.inboxCount || pc.unread_count || pc.message_count || 0,
                 snippet: pc.snippet || pc.lastMessage || '',
-                timestamp: pc.timestamp || pc.updated_at || null,
+                timestamp: _parseMsgTime(pc.timestamp) || _parseMsgTime(pc.updated_at),
             });
         }
         _pendingCustomers = next;

@@ -238,9 +238,12 @@ window.addEventListener('DOMContentLoaded', async function () {
                     phone: c.phone || '',
                     inboxCount: c.message_count || 1,
                     snippet: c.last_message_snippet || '',
-                    timestamp: c.last_message_time
-                        ? new Date(c.last_message_time).getTime()
-                        : Date.now(),
+                    // ⚠ Parse đúng múi giờ: last_message_time có thể là UTC không 'Z'.
+                    // Dùng helper chung của notifier (chuẩn hoá + thêm Z nếu thiếu tz).
+                    timestamp:
+                        (window._n2sParseMsgTime &&
+                            window._n2sParseMsgTime(c.last_message_time)) ||
+                        Date.now(),
                 }));
 
             // Group by psid (server may have multiple INBOX rows per psid)
