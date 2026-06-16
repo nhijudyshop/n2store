@@ -2,6 +2,20 @@
 
 ## 2026-06-16
 
+### [so-order][supplier-debt][supplier-wallet] Money-model: status auto + nợ NCC khi NHẬN HÀNG + discount/ship per-đơn ✅
+
+User (4 yêu cầu): (1) trạng thái KHÔNG cho đổi tay → "Đã Đặt"/ordered hết tác dụng → **nợ NCC phát sinh khi NHẬN HÀNG**; (2) giảm giá/phí ship là của **riêng từng đơn**, footer = tổng ngày giao; (3) supplier-wallet realtime + **discount/ship tính vào nợ** (tất cả nguồn tiền); (4) bỏ luôn ô "Trạng thái" trong modal. Plan qua workflow 4-agent (map+adversarial). User chốt: **nhận 1 phần bill theo SỐ ĐÃ NHẬN thực**.
+
+**Stage 1 — status không đổi tay** [so-order-app.js](so-order/js/so-order-app.js)+[index.html](so-order/index.html)+[css](so-order/css/so-order.css): bỏ `'status'` khỏi `INLINE_EDIT_FIELDS` (hết double-click sửa) + status LUÔN render pill (kể cả bulk-edit) + **bỏ ô `<select name=status>`** trong modal + bỏ `form.elements.status` writes + `sharedFields` bỏ status (tạo→addRow default 'draft', sửa→giữ nguyên). `STATUS_LABELS` bỏ `ordered`, thêm `partial_received:'Nhận 1 phần'`. Import map `ordered/dadat→draft`. Normalize legacy `ordered→draft` ([so-order-storage.js](so-order/js/so-order-storage.js)). CSS pill partial (vàng).
+
+**Stage 2 — persist received-qty**: `confirmReceiveFromModal` ghi `qtyReceived` (luỹ kế) lên row ngoài `status` → nợ bill đúng phần đã nhận cho `partial_received`.
+
+**Stage 3 — discount/ship PER-ĐƠN**: model `sh.orderAdjustments = {[invoiceGroupId]:{discount,shipping}}` (currency tab) thay `sh.discount`/`sh.shipping`. Storage: `setOrderAdjustment`/`getOrderAdjustment`/`getShipmentAdjustTotals` + normalize migrate legacy→đơn đầu + init map. App: create/edit gọi `setOrderAdjustment(invoiceGroupId)`; `_applyShipMetaUi` populate theo `editingInvoiceGroupId`; **header pill = Σ đơn** (`getShipmentAdjustTotals`); **footer = Σ mọi lô × rate→VND, readonly** (bỏ `tab.footer` thủ công + `wireFooterInputs` readonly). 1 đơn = 1 NCC (modal 1 ô NCC).
+
+**Stage 4 — nợ = receive-based + gồm discount/ship** [supplier-debt-app.js](web2/supplier-debt/js/supplier-debt-app.js)+[supplier-wallet-app.js](web2/supplier-wallet/js/supplier-wallet-app.js): filter chỉ `received`/`partial_received` (bỏ `ordered`/`draft`/`cancelled`); qty_bill: received→qty đặt, partial→`min(qtyReceived,qty)`; **net/đơn = Σ(cost×qty×rate) − giảm giá + phí ship** (áp 1 lần/đơn, gán thẳng NCC, bucket theo ngày lô ở supplier-debt). Cả 2 page đếm cùng tập rows → totalPurchased (Ví) khớp debit (Báo cáo).
+
+Verify browser: modal không còn ô trạng thái + footer readonly ✓; tạo đơn discount 20k/ship 10k (tab CNY) → footer 70M/35M (×3500) + header pill "Giảm 20.000 CNY · Ship 10.000 CNY" ✓; supplier-wallet receive-based → A1 Tổng mua 1.510.500 / b1 4.000.000 (có đơn đã nhận), NCC chưa nhận = 0, đơn draft KHÔNG tính ✓. node --check 4/4. Bump so-order `?v=20260616j`, supplier-debt/wallet `?v=20260616b`.
+
 ### [so-order] Nền bảng xen kẽ theo NHÓM NCC/đơn (thay zebra :nth-child lệch nhóm) ✅
 
 **User:** background bảng chia phải đúng màu — nhóm này trắng, nhóm kế nhạt, xen kẽ → tăng tương phản đọc dữ liệu từng khối. (Hiện tại random: 1 nhóm trắng, nhóm kế nhạt, nhóm kế nữa trắng nhưng không khớp ranh giới nhóm.)
@@ -80,6 +94,7 @@ Bump `so-order.css?v=20260616e`. Verified Playwright: modal mở, đo bounding r
 **RCA (đo thực tế):** cột `pending_customers.last_message_time` kiểu **`TIMESTAMP` (no tz)**, INSERT bằng `NOW()` → lưu **giờ UTC dạng naive** (vd `08:49`). Node pg driver trên Render (TZ=Asia/Saigon +7) đọc naive đó NHẦM thành +7 → API serialize `"2026-06-16 08:49:02+07:00"` = **01:49 UTC** = lệch −7h so với thực (now 08:49 UTC). ⇒ Client parse "đúng" chuỗi sai → strip 7h. **Fix client không cứu được vì data sai từ nguồn.** (Verify: raw `08:49:02+07:00` vs now `08:49:58Z` — wall-clock trùng giờ UTC nhưng bị gắn +07:00.)
 
 **Fix server** [render.com/routes/realtime.js](render.com/routes/realtime.js) (hàm `upsertPendingCustomer` + GET `/pending-customers`, dùng chung cả route lẫn server-WS `server.js`):
+
 - GET emit ISO-UTC tường minh: `to_char(last_message_time, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS last_message_time` → client nhận `…Z` parse đúng instant (cả client cũ lẫn mới).
 - Write tất định: `NOW()` → `(NOW() AT TIME ZONE 'UTC')` (4 chỗ) → luôn lưu UTC wall-clock bất kể session TZ.
 
