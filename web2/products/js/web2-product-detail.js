@@ -52,6 +52,19 @@
         const v = Number(n) || 0;
         return v.toLocaleString('vi-VN') + 'đ';
     }
+    // 2026-06-16: giá gốc ngoại tệ (suy ngược VND/origin_rate) cho SP nhập từ tab
+    // so-order ≠ VND. Trả chuỗi "≈ 221 CNY" hoặc '' (SP nhập VND).
+    function originHint(vnd, p) {
+        const cur = p && p.originCurrency ? String(p.originCurrency).toUpperCase() : '';
+        const rate = Number(p && p.originRate) || 0;
+        if (!cur || cur === 'VND' || rate <= 0) return '';
+        const dec = cur === 'JPY' || cur === 'KRW' ? 0 : 2;
+        const amt = ((Number(vnd) || 0) / rate).toLocaleString('vi-VN', {
+            minimumFractionDigits: dec,
+            maximumFractionDigits: dec,
+        });
+        return `≈ ${amt} ${cur}`;
+    }
     function fmtTime(ts) {
         if (!ts) return '';
         const d = new Date(ts);

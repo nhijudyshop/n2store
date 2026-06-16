@@ -67,6 +67,24 @@
     function fmtPrice(n) {
         return (Number(n) || 0).toLocaleString('vi-VN') + 'đ';
     }
+    // 2026-06-16: Kho SP lưu giá VND canonical. SP nhập từ tab ngoại tệ (so-order
+    // CNY/USD…) có origin_currency + origin_rate → suy ngược giá GỐC = VND/rate
+    // cho tooltip hover. Trả {title, hasOrigin}; SP nhập VND (origin null/VND) → ''.
+    function originPriceHover(vnd, p) {
+        const cur = p && p.originCurrency ? String(p.originCurrency).toUpperCase() : '';
+        const rate = Number(p && p.originRate) || 0;
+        if (!cur || cur === 'VND' || rate <= 0) return { title: '', hasOrigin: false };
+        const v = (Number(vnd) || 0) / rate;
+        const dec = cur === 'JPY' || cur === 'KRW' ? 0 : 2;
+        const amt = v.toLocaleString('vi-VN', {
+            minimumFractionDigits: dec,
+            maximumFractionDigits: dec,
+        });
+        return {
+            title: `Giá gốc: ${amt} ${cur} (nhập @ ${rate.toLocaleString('vi-VN')}₫/${cur})`,
+            hasOrigin: true,
+        };
+    }
     function notify(msg, type = 'info') {
         if (window.notificationManager?.show) window.notificationManager.show(msg, type);
         else console.log(`[${type}]`, msg);
@@ -87,6 +105,13 @@
         const stockClass = p.stock === 0 ? 'zero' : p.stock < 5 ? 'low' : '';
         const priceBuy = Number(p.originalPrice) || 0;
         const priceSell = Number(p.price) || 0;
+        // Hover hiện giá gốc ngoại tệ (vd CNY) cho SP nhập từ tab so-order ≠ VND.
+        const oBuy = originPriceHover(priceBuy, p);
+        const oSell = originPriceHover(priceSell, p);
+        const oStyle =
+            ' style="cursor:help;text-decoration:underline dotted #94a3b8 2px;text-underline-offset:3px;"';
+        const buyAttr = oBuy.hasOrigin ? ` title="${escapeHtml(oBuy.title)}"${oStyle}` : '';
+        const sellAttr = oSell.hasOrigin ? ` title="${escapeHtml(oSell.title)}"${oStyle}` : '';
         const variantText = (p.variant || '').trim();
         const checked = STATE.selectedCodes.has(p.code) ? ' checked' : '';
         const rowSelectedClass = STATE.selectedCodes.has(p.code) ? ' is-selected' : '';
@@ -108,8 +133,8 @@
                                 : ''
                         }</div>
                     </td>
-                    <td class="price-cell price-buy">${fmtPrice(priceBuy)}</td>
-                    <td class="price-cell price-sell">${fmtPrice(priceSell)}</td>
+                    <td class="price-cell price-buy"${buyAttr}>${fmtPrice(priceBuy)}</td>
+                    <td class="price-cell price-sell"${sellAttr}>${fmtPrice(priceSell)}</td>
                     <td class="note-cell" title="${escapeHtml(p.note || '')}">${escapeHtml(p.note || '—')}</td>
                     <td>
                         ${(() => {

@@ -1645,6 +1645,9 @@
                 sellPriceVnd: Math.round((Number(r.sellPrice) || 0) * rate),
                 imageUrl: r.productImage || null,
                 note: tabLabel || null,
+                // 2026-06-16: tiền tệ gốc lúc nhập (cho kho hover giá gốc).
+                originCurrency: ccy,
+                originRate: rate,
             };
         });
 
@@ -2019,6 +2022,8 @@
                     supplier: it.supplier,
                     imageUrl: it.imageUrl,
                     note: it.note,
+                    originCurrency: it.originCurrency,
+                    originRate: it.originRate,
                 });
                 upsertOwners.push(it);
             }
@@ -2192,6 +2197,8 @@
                     supplier: it.supplier,
                     imageUrl: it.imageUrl,
                     note: it.note,
+                    originCurrency: it.originCurrency,
+                    originRate: it.originRate,
                 }));
                 _assignKhoCodes(upsertPayload);
                 // MEDIUM-cleanup (2026-06-13): in tem chỉ cần MÃ — resolveOnly:true
