@@ -32,7 +32,9 @@
 - Match: `name` + `variant` + `supplier`. Cùng tên+biến thể nhưng **KHÁC NCC → SP RIÊNG** (không match → INSERT mã prefix NCC riêng). **Cùng NCC → vẫn gộp** (dedup lưu nháp lại). NULL-supplier SP cũ được NCC đầu "claim" (ORDER BY ưu tiên exact-supplier) → tránh tạo trùng. Chỉ ràng buộc khi item CÓ supplier → item không NCC giữ hành vi cũ.
 - Giữ nguyên pattern `FOR UPDATE LIMIT 1` (proven prod) + builder param động.
 
-**Status:** ⏳ deploy web2-api → test cross-NCC (riêng) + same-NCC (gộp). web2Db (Web 2.0).
+**Verify (Playwright, web2-api live `dep-d8ojiuu7r5hc73c4j8a0`):** (1) cross-NCC: cùng "TEST-MERGE-NCC2"+"Đỏ" NCC A1(3)/b1(5) → `created:2, updated:0` → 2 SP riêng (A1TESTMERGE2DO / B1TESTMERGE2DO). (2) same-NCC: re-upsert A1 qty2 → `updated:1`, pending 5 (gộp đúng). (3) adjust-pending b1 −2 → trúng B1 (5→3), A1 giữ 5 (đối xứng). Cleanup 2 SP sạch.
+
+**Status:** ✅ verified live. web2-api / web2Db (Web 2.0). Khác NCC = SP riêng, cùng NCC vẫn gộp.
 
 ### [so-order] Sửa lô — NCC TÁCH RIÊNG mỗi dòng (lô = nguyên ngày giao, gồm nhiều NCC) ✅
 
