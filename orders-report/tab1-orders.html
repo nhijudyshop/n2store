@@ -40,6 +40,7 @@
 
         <link rel="stylesheet" href="css/tab1-stock-status.css?v=20260521b" />
         <link rel="stylesheet" href="css/tab1-kpi-stats-strip.css?v=20260521b" />
+        <link rel="stylesheet" href="css/tab1-unread-messages-strip.css?v=20260616a" />
 
         <!-- TPOSImageProxy hooks phải load SỚM NHẤT để rewrite innerHTML / img.src trước khi
          bất kỳ code nào render <img src="https://vn.img1.tpos.vn/...">. Nếu load muộn,
@@ -1175,6 +1176,8 @@
                     </div>
                 </div>
             </div>
+            <!-- Thanh "Khách chưa trả lời" — giữa bộ lọc và bảng -->
+            <div id="unreadCustomersStrip" class="unread-customers-strip"></div>
             <!-- Table Container -->
             <div class="table-container" id="tableContainer" style="display: none">
                 <div class="table-wrapper" id="tableWrapper">
@@ -2793,6 +2796,9 @@
         <script src="js/tab1/tab1-kpi-stats.js?v=20260521b"></script>
 
         <script src="js/tab1/tab1-kpi-stats-strip.js?v=20260521b"></script>
+
+        <!-- 8.5 Thanh "Khách chưa trả lời" (unread customers strip) -->
+        <script src="js/tab1/tab1-unread-messages-strip.js?v=20260616a"></script>
 
         <!-- 8a. Chat Cache Warmer — P6 preload inbox map top 20 visible orders -->
         <script src="js/tab1/tab1-chat-cache-warmer.js?v=20260521b"></script>

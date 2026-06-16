@@ -116,6 +116,12 @@
         } finally {
             _isApplying = false;
         }
+
+        // Báo cho consumer ngoài (vd thanh "Khách chưa trả lời") rằng danh sách
+        // pending vừa thay đổi / được áp lại. Consumer tự đọc getPendingCustomers().
+        try {
+            window.dispatchEvent(new CustomEvent('n2s:pendingCustomersChanged'));
+        } catch (e) {}
     }
 
     // =====================================================

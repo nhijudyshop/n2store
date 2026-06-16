@@ -165,6 +165,20 @@ User xác nhận "bỏ hẳn autofb, shop không xài autofb.pro nữa". Gỡ tr
 - Verify: node --check 7 file pass, package.json JSON hợp lệ, grep repo-wide **0 ref autofb/facebook-services** còn lại. tesseract đã out khỏi lock.
 - ⚠ Worker (Cloudflare) deploy riêng — route autofb cũ trong worker đã deploy là **vô hại** (không trang nào gọi nữa); sẽ sạch ở lần deploy worker kế.
 
+### [orders-report] Thanh "Khách chưa trả lời" giữa bộ lọc và bảng (đếm + tên + báo động >30') ✅
+
+**User:** "thêm 1 bộ lọc tin nhắn mới nằm giữa bảng và bộ lọc, hiển thị số khách có tin nhắn mới, từng ô nhỏ hiển thị tên khách, báo động khách đã nhắn 30p mà chưa trả lời."
+
+**Làm:** Thanh ngang mới chèn giữa filter-section và `#tableContainer` ([tab1-orders.html](orders-report/tab1-orders.html)), tái dụng pattern KPI stats strip.
+
+- **JS** [tab1-unread-messages-strip.js](orders-report/js/tab1/tab1-unread-messages-strip.js) (IIFE, `window.UnreadCustomersStrip`): đọc `newMessagesNotifier.getPendingCustomers()` (khách còn trong list = shop CHƯA trả lời), khớp với `window.allData` (đơn chiến dịch) theo PSID→fallback SĐT. Scope theo yêu cầu "trong chiến dịch + chia cho nhân viên đó": NV thường (có `_findCurrentUserEmployeeRange`) chỉ thấy khách có đơn STT thuộc range của họ; admin/chủ/`my-authenticated` thấy tất cả + nhãn NV phụ trách (`window.employeeRanges` + map STT). Mỗi ô: **tên · thời gian chờ**; click → `showConversationPicker(orderId,pageId,psid)` mở chat trả lời. Sort: trễ trước, chờ lâu nhất lên đầu. Cap 50 ô + chip "+N nữa". Báo động khách chờ ≥30' (`STALE_MIN`): ô đỏ tĩnh + badge header "N trễ >30'" nhấp nháy (pulse dồn vào 1 badge, không để hàng chục ô nháy). Realtime: nghe `n2s:pendingCustomersChanged` (debounce 250ms) + tick 30s cập nhật thời gian chờ/cờ trễ.
+- **CSS** [tab1-unread-messages-strip.css](orders-report/css/tab1-unread-messages-strip.css): strip amber, `:empty`/non-`.has-items` → ẩn, cell bo tròn, `.ucs-cell--late` đỏ, `.ucs-head__late` pulse, `prefers-reduced-motion` tắt animation.
+- **Notifier** [new-messages-notifier.js](orders-report/js/chat/new-messages-notifier.js): thêm `window.dispatchEvent(new CustomEvent('n2s:pendingCustomersChanged'))` cuối `reapply()` (chokepoint mọi thay đổi pending) để consumer ngoài tự cập nhật. Wire CSS link + container `#unreadCustomersStrip` + script `?v=20260616a` trong tab1-orders.html.
+
+**Verify (Playwright localhost:8099, login admin, chiến dịch T6, 531 đơn, 153 pending):** strip auto-render qua event (không gọi render tay) — 50 ô + "+103 nữa", header "Chưa trả lời 153 · 153 trễ >30'"; inject 2 khách (2'→thường, 40'→đỏ) đúng phân loại + sort; click ô → chat modal mở đúng khách ("Na Na Na Na"); không có lỗi console từ strip. `node --check` PASS.
+
+**Status:** ✅ code + browser test OK. Web 1.0 (orders-report) — không đụng web2.
+
 ## 2026-06-15
 
 ### [web2][render] web2-api OOM 512Mi — bound sharp native memory + RSS log ✅ (heap cap + plan = chờ user)
