@@ -848,9 +848,20 @@ router.get('/list', async (req, res) => {
             where.push(`status = $${params.length}`);
         }
         if (search) {
-            params.push('%' + String(search).trim() + '%');
+            // Tìm theo: mã đơn, ghi chú, sự kiện J&T, VÀ src_message (chứa tên KH + SĐT +
+            // nội dung dòng dán) → gõ tên/SĐT khách cũng ra. digits-only: bỏ khoảng trắng
+            // trong query SĐT để khớp số liền (vd "0904 455" → "0904455").
+            const raw = String(search).trim();
+            params.push('%' + raw + '%');
+            const pLike = params.length;
+            const digits = raw.replace(/\D/g, '');
+            let extra = '';
+            if (digits.length >= 4) {
+                params.push('%' + digits + '%');
+                extra = ` OR regexp_replace(COALESCE(src_message,''), '\\D', '', 'g') ILIKE $${params.length}`;
+            }
             where.push(
-                `(billcode ILIKE $${params.length} OR note ILIKE $${params.length} OR latest_event ILIKE $${params.length})`
+                `(billcode ILIKE $${pLike} OR note ILIKE $${pLike} OR latest_event ILIKE $${pLike} OR src_message ILIKE $${pLike}${extra})`
             );
         }
         const wsql = where.length ? 'WHERE ' + where.join(' AND ') : '';

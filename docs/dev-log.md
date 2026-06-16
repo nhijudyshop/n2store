@@ -2,6 +2,10 @@
 
 ## 2026-06-16
 
+### [web2] J&T list — tìm kiếm theo TÊN KH + SĐT (thêm src_message vào search) ✅
+
+User: "thêm tìm kiếm" → chọn "Tìm trong danh sách đơn J&T". Ô `#jtSearch` cũ chỉ tìm `billcode/note/latest_event`; tên KH + SĐT nằm trong `src_message` (dòng dán) nên gõ tên/SĐT không ra. [web2-jt-tracking.js](render.com/routes/web2-jt-tracking.js) `/list`: thêm `src_message ILIKE` vào OR + nhánh **digits-only** (query ≥4 số → strip non-digit cả 2 vế: `regexp_replace(src_message,'\D','')` ILIKE) để "0904 455" khớp SĐT số liền. Placeholder [index.html](web2/jt-tracking/index.html) → "Tìm mã / tên KH / SĐT / sự kiện / ghi chú…". Search đã debounce sẵn (server-side `/list?search=`). Backend cần deploy web2-api.
+
 ### [web2][shared] Chat Zalo — gõ `@` lên danh sách thành viên nhóm để TAG (mention) ✅
 
 User: "@ phải lên danh sách tên người trong group để tag — chức năng này Zalo có mà". Ô soạn chat nhúng (Web2Zalo.mountChat) chưa có @mention. Thêm full feature:
