@@ -3,16 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `07b759a` — feat(web2-jt): tìm đơn theo tên KH + SĐT (thêm src_message vào /list search)
-**Last updated**: 2026-06-16 10:53:34 +07
-**Latest session**: [`RESUME:20260616-105334-07b759a`](../20260616-105334-07b759a.md)
-**Summary**: feat(web2-jt): tìm đơn theo tên KH + SĐT (thêm src_message vào /list search)
+**Latest commit**: `c3d935c` — docs(realtime): audit decommission n2store-realtime — CHƯA xóa được (đang chạy thật, sole writer livestream/labels). Web2 independence không phụ thuộc.
+**Last updated**: 2026-06-16 10:56:33 +07
+**Latest session**: [`RESUME:20260616-105633-c3d935c`](../20260616-105633-c3d935c.md)
+**Summary**: docs(realtime): audit decommission n2store-realtime — CHƯA xóa được (đang chạy thật, sole writer livestr...
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 1 file(s)
-- [`web2/`](./web2.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -27,7 +25,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-16 00:35
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-05 15:13
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-14 18:47
-- [`docs/`](./docs.md) — updated 2026-06-16 10:53
+- [`docs/`](./docs.md) — updated 2026-06-16 10:56
 - [`doi-soat/`](./doi-soat.md) — updated 2026-05-21 15:39
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-15 15:57
 - [`downloads/`](./downloads.md) — updated 2026-06-13 19:16
