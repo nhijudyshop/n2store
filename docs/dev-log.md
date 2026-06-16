@@ -2,6 +2,18 @@
 
 ## 2026-06-16
 
+### [supplier-wallet] FIX nút Tạo NCC / Đồng bộ / Trả hàng / Ghi thanh toán hiện như nút browser mặc định (thiếu class `btn` base) ✅
+
+**User:** "nút hình 2, hình 3 chưa có css" — "Ghi thanh toán" + "Đồng bộ" render như nút macOS mặc định (gradient xám, viền bevel), không theo theme Web 2.0.
+
+**RCA:** Cấu trúc nút trong [supplier-wallet/index.html](web2/supplier-wallet/index.html) dùng `class="btn-primary"` / `class="btn-secondary"` **trần** (10 nút). Trong `web2-theme.css`, structural styling (display:inline-flex, padding, border-width, border-radius) nằm ở base `.btn`; còn `.btn-primary`/`.btn-secondary` CHỈ override màu (background/color/border-color). Thiếu base `.btn` → nút mất padding/border/radius → fallback về native button chrome.
+
+**Fix:** Thêm base `btn` vào cả 10 nút → `class="btn btn-primary"` / `class="btn btn-secondary"` (đúng convention các trang web2 khác: purchase-refund, reconcile, supplier-debt…). Không đổi CSS.
+
+**Verify (Playwright localhost:8080):** computed styles — header `Tạo NCC` (btn-primary) = `linear-gradient(#2a96ff→#0068ff)` + white text, radius 9px, padding 5px 10px, inline-flex; `Đồng bộ` (btn-secondary) = bg #fff + border `#e6e9ef` + radius 9px. Modal `Trả hàng`/`Ghi thanh toán` cũng đúng theme. Screenshot xác nhận hết native gray gradient.
+
+**Status:** ✅ HTML-only, no CSS change. Web 2.0 (supplier-wallet).
+
 ### [so-order] 3 fix modal Tạo Đơn Hàng: dropdown bị che + tách checkbox thông tin lô + ảnh hóa đơn cấp đơn ✅
 
 1. **Dropdown gợi ý SP + picker biến thể bị che (sửa triệt để)** [so-order-app.js](so-order/js/so-order-app.js) + [so-order.css](so-order/css/so-order.css): redo hẳn — dropdown render TRỰC TIẾP vào `<body>` (portal) + `position:fixed` neo theo input rect (`_getFloatPanel`/`_anchorFloatPanel`/`_bindModalScrollCloseDropdowns` reflow). Gốc bug: `.so-modal-body-v2` có ĐỒNG THỜI `overflow:auto` (clip absolute) VÀ `contain: layout style paint` (phá fixed-coords) → dropdown đặt TRONG modal body luôn dính 1 trong 2. Con của body → không ancestor nào contain/clip. max-height cap theo chỗ trống thực → list tự scroll. Bỏ per-row `.so-suggest-dropdown`/`.so-variant-dropdown`. Class `.so-float-dropdown` z-index 100000. Verified browser: inBody=true, fixed, bottom trong viewport, không cắt.
@@ -26,7 +38,7 @@ Bump `?v=20260616d`. Test order TEST-INV-ORDER đã xoá sạch khỏi server sa
 
 **User:** "(1) cho hình lấy dữ liệu khách unread từ pancake như cột tin nhắn đang lấy; (2) mở chat từ thanh sao không thấy tên khách hàng mà ghi 'Khách hàng'."
 
-- **Avatar** [tab1-unread-messages-strip.js](orders-report/js/tab1/tab1-unread-messages-strip.js) `buildCell`: thêm `<img class="ucs-cell__avatar">` dùng đúng proxy cột Khách hàng: `…/api/fb-avatar?id=<psid>&page=<pageId>` (psid/pageId gốc Pancake sẵn trong pending), `loading=lazy` + `onerror` ẩn. CSS [.ucs-cell__avatar](orders-report/css/tab1-unread-messages-strip.css) tròn 18px. Bump strip js/css `?v=20260616b`.
+- **Avatar** [tab1-unread-messages-strip.js](orders-report/js/tab1/tab1-unread-messages-strip.js) `buildCell`: thêm `<img class="ucs-cell__avatar">` dùng đúng proxy cột Khách hàng: `…/api/fb-avatar?id=<psid>&page=<pageId>` (psid/pageId gốc Pancake sẵn trong pending), `loading=lazy` + `onerror` ẩn. CSS [.ucs-cell\_\_avatar](orders-report/css/tab1-unread-messages-strip.css) tròn 18px. Bump strip js/css `?v=20260616b`.
 - **Fix tên/SĐT "Khách hàng"** (RCA): [openChatModal](orders-report/js/tab1/tab1-chat-core.js#L838) lấy tên+SĐT từ **DOM dòng** `tr[data-order-id]`. Mở chat từ thanh cho đơn NGOÀI vùng hiển thị (virtual-scroll/bị lọc) → `orderRow=null` → `currentCustomerName=''` → header "Khách hàng" + SĐT rỗng. Thêm **fallback**: nếu rỗng → lấy `OrderStore.get(id)` (fallback `allData.find`) → `order.Name` + `order.Telephone` (đúng field cột Khách hàng dùng). Bump chat-core `?v=20260616a`.
 
 **Verify (Playwright localhost, campaign T6 531 đơn):** 25 ô strip → 25 avatar (0 lỗi onerror, blob-cached); click ô "Mong Duy Nguyen" (row KHÔNG có trong DOM, `firstOrderRowInDom:false`) → `currentCustomerName="Mong Duy Nguyen"`, `currentChatPhone="0334167771"`, header hiện đúng tên (trước fix = "Khách hàng"). `node --check` PASS.
