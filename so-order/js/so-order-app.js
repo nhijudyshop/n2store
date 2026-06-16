@@ -124,6 +124,20 @@
         return Math.round((Number(amount) || 0) * (Number(tab.rate) || 1));
     }
 
+    // Quy đổi 1 giá VND (canonical từ Kho SP) → tiền của tab hiện hành.
+    // Kho SP là NGUỒN DUY NHẤT, lưu giá VND; khi kéo SP vào dòng đơn ở tab có
+    // currency X rate R → giá tab = VND ÷ R. Tab VND (rate 1) giữ nguyên.
+    // Làm tròn: VND → integer; JPY/KRW → 0 lẻ; ngoại tệ khác → 2 lẻ (khớp fmtCurrency).
+    function fromVnd(vnd, tab) {
+        const v = Number(vnd) || 0;
+        const rate = Number(tab && tab.rate) || 1;
+        if (!tab || tab.currency === 'VND' || rate === 1) return Math.round(v);
+        const conv = v / rate;
+        const dec = tab.currency === 'JPY' || tab.currency === 'KRW' ? 0 : 2;
+        const f = Math.pow(10, dec);
+        return Math.round(conv * f) / f;
+    }
+
     function escapeHtml(s) {
         return String(s == null ? '' : s)
             .replace(/&/g, '&amp;')
@@ -3016,11 +3030,13 @@ window.addEventListener('load', () => {
         // Autofill variant từ Kho SP (field độc lập, không lấy từ note).
         // Chỉ ghi đè nếu user chưa nhập variant — tránh nuốt input đang gõ.
         if (p.variant && !row.variant) row.variant = p.variant;
-        // Map giá mua → costPrice; giá bán → sellPrice (VND values). When the
-        // active tab is not VND, we leave the prices as-is so the user can
-        // convert manually — kho SP lưu VNĐ, tab có thể là CNY.
-        if (Number(p.originalPrice)) row.costPrice = Number(p.originalPrice);
-        if (Number(p.price)) row.sellPrice = Number(p.price);
+        // Kho SP lưu giá VND (canonical, 1 nguồn). Tab có thể là ngoại tệ (vd CNY
+        // rate 3500) → PHẢI quy đổi VND ÷ rate ra tiền tab khi đổ vào dòng đơn.
+        // Tab VND (rate 1) giữ nguyên. (Trước đây gán thẳng VND → tab CNY hiển
+        // thị gấp ~3500×, và Lưu Nháp lại ×rate → corrupt giá kho. Fix 2026-06-16.)
+        const _tab = window.SoOrderStorage.getActiveTab(state);
+        if (Number(p.originalPrice)) row.costPrice = fromVnd(p.originalPrice, _tab);
+        if (Number(p.price)) row.sellPrice = fromVnd(p.price, _tab);
         if (p.imageUrl && !row.productImage) row.productImage = p.imageUrl;
         renderModalRows();
         // Re-focus name input after rerender

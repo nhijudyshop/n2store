@@ -2,6 +2,20 @@
 
 ## 2026-06-16
 
+### [so-order] FIX quy đổi giá khi LẤY SP từ Kho SP (VND) vào đơn theo tiền tệ tab (÷rate) — Part A logic 1-nguồn ✅
+
+**User spec:** Kho SP = 1 NGUỒN, lưu VND. Tab CNY nhập đơn = CNY → vào kho ×rate→VND (ĐÃ ĐÚNG). Khi LẤY SP từ kho (VND) vào đơn ở tab nào → quy đổi ra tiền tab đó (÷rate). (+ hover kho hiện giá CNY gốc — Part B, cần schema, chờ user.)
+
+**RCA (audit workflow 5-agent, verified):** WRITE path đã đúng (`syncRowsToKho` :3752 + receive :1630 đều ×tab.rate→VND). READ path SAI: `applySuggestionToRow` :3022-3023 gán THẲNG giá VND của kho làm giá tab-currency (comment cũ "để user tự convert thủ công"). Tab CNY rate 3500 → giá dòng gấp ~3500×; **nguy hiểm: Lưu Nháp lại ×rate → corrupt giá canonical kho 3500×**.
+
+**Fix** [so-order-app.js](so-order/js/so-order-app.js): thêm helper `fromVnd(vnd, tab)` (VND÷rate; VND-tab giữ nguyên; JPY/KRW 0 lẻ, ngoại tệ khác 2 lẻ). `applySuggestionToRow` dùng `fromVnd(p.originalPrice/p.price, activeTab)` thay gán thẳng. Sửa comment.
+
+**Verify (Playwright):** pick HCDAM2XLL (kho VND 773500/1673000) → tab CNY(3500): Giá Nhập **221**, Giá Bán **478** (đúng ÷3500, khớp ảnh user) · tab HÀ NỘI(VND): **773500/1673000** giữ nguyên. Bump `so-order-app.js?v=20260616k`.
+
+**Còn lại (Part B — chờ user quyết):** hover giá kho hiện CNY gốc cần thêm cột `origin_currency/origin_price/origin_rate` vào `web2_products` (migration + deploy Render) + write gửi origin + UI hover Kho SP. Có fork thiết kế (SP mua từ nhiều tab khác currency → giữ origin nào) + data kho cũ có thể đã corrupt (cân nhắc wipe — beta).
+
+**Status:** ✅ Part A verified browser. so-order (Web 2.0).
+
 ### [so-order][supplier-debt][supplier-wallet] Money-model: status auto + nợ NCC khi NHẬN HÀNG + discount/ship per-đơn ✅
 
 User (4 yêu cầu): (1) trạng thái KHÔNG cho đổi tay → "Đã Đặt"/ordered hết tác dụng → **nợ NCC phát sinh khi NHẬN HÀNG**; (2) giảm giá/phí ship là của **riêng từng đơn**, footer = tổng ngày giao; (3) supplier-wallet realtime + **discount/ship tính vào nợ** (tất cả nguồn tiền); (4) bỏ luôn ô "Trạng thái" trong modal. Plan qua workflow 4-agent (map+adversarial). User chốt: **nhận 1 phần bill theo SỐ ĐÃ NHẬN thực**.
