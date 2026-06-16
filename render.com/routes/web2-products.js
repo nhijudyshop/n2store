@@ -178,6 +178,16 @@ async function ensureTables(pool) {
             ALTER TABLE web2_products
                 ADD COLUMN IF NOT EXISTS return_qty   INTEGER NOT NULL DEFAULT 0;
 
+            -- [2026-06-16] origin_currency + origin_rate: tiền tệ GỐC lúc nhập SP
+            -- từ so-order (tab CNY/USD…). Kho SP lưu giá VND canonical (price /
+            -- original_price); origin_rate = số VND cho 1 đơn vị origin_currency
+            -- → suy ngược giá gốc = VND / origin_rate cho tooltip hover ở Kho SP.
+            -- origin_currency NULL hoặc 'VND' → SP nhập bằng VND, không hover.
+            -- Set 1 lần lúc INSERT (giá kho khoá tại lần nhập đầu, không update sau).
+            ALTER TABLE web2_products
+                ADD COLUMN IF NOT EXISTS origin_currency VARCHAR(8),
+                ADD COLUMN IF NOT EXISTS origin_rate     NUMERIC(14,4);
+
             CREATE INDEX IF NOT EXISTS idx_web2_products_status   ON web2_products(status);
             CREATE INDEX IF NOT EXISTS idx_web2_products_supplier ON web2_products(supplier);
 
@@ -312,6 +322,10 @@ function mapRow(row) {
         printCount: Number(row.print_count) || 0,
         // [2026-06-06] tồn kho thu về chờ duyệt (shipper gửi)
         returnQty: Number(row.return_qty) || 0,
+        // [2026-06-16] tiền tệ gốc lúc nhập (để hover hiện giá gốc CNY ở Kho SP).
+        // Giá gốc suy ngược = price|original_price / originRate. VND → null.
+        originCurrency: row.origin_currency || null,
+        originRate: row.origin_rate != null ? Number(row.origin_rate) : null,
     };
 }
 
@@ -1239,16 +1253,26 @@ router.post('/upsert-pending', async (req, res) => {
                     });
                     continue;
                 }
+                // [2026-06-16] origin: tiền tệ gốc lúc nhập (so-order tab). Kho lưu
+                // VND canonical; lưu origin_currency + origin_rate để hover hiện
+                // giá gốc. Bỏ qua khi VND (không cần). Set 1 lần lúc INSERT.
+                const originCur =
+                    it.originCurrency && String(it.originCurrency).toUpperCase() !== 'VND'
+                        ? String(it.originCurrency).toUpperCase().slice(0, 8)
+                        : null;
+                const originRate = originCur ? Number(it.originRate) || null : null;
                 try {
                     const r = await client.query(
                         `INSERT INTO web2_products
                             (code, name, price, image_url, stock, note, tags, is_active,
                              original_price, barcode, category, variant,
                              status, pending_qty, supplier,
+                             origin_currency, origin_rate,
                              created_by, created_at, updated_at)
                          VALUES ($1, $2, $3, $4, 0, $5, '[]'::jsonb, TRUE,
                                  $6, NULL, NULL, $7,
                                  'CHO_MUA', $8, $9,
+                                 $11, $12,
                                  'so-order', $10, $10)
                          RETURNING *`,
                         [
@@ -1262,6 +1286,8 @@ router.post('/upsert-pending', async (req, res) => {
                             resolveOnly ? 0 : qty,
                             supplier,
                             now,
+                            originCur,
+                            originRate,
                         ]
                     );
                     const row = r.rows[0];

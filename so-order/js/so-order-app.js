@@ -3779,6 +3779,10 @@ window.addEventListener('load', () => {
                     supplier: (r.supplier || orderSupplier || '').trim() || null,
                     imageUrl: r.productImage || null,
                     note: trimLabel,
+                    // 2026-06-16: tiền tệ gốc lúc nhập → kho lưu để hover hiện giá
+                    // gốc (vd CNY). Kho VND canonical; originRate = số VND/1 đơn vị.
+                    originCurrency: tab.currency || 'VND',
+                    originRate: Number(tab.rate) || 1,
                 };
             })
             .filter(Boolean);
