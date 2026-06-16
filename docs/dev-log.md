@@ -2,6 +2,22 @@
 
 ## 2026-06-16
 
+### [so-order][web2-products] Part B — Kho SP hover hiện giá GỐC ngoại tệ (origin_currency/origin_rate) ✅
+
+**User spec (tiếp Part A):** Kho SP lưu VND; hover giá ở kho hiện giá gốc (vd CNY) đã mua. User chọn: build Part B, origin = lần mua gần nhất, để data cũ nguyên.
+
+**Thiết kế:** Lưu `origin_currency` + `origin_rate` (KHÔNG lưu origin amount rời → tránh lệch khi sửa giá VND trực tiếp). Giá gốc suy ngược = `VND / origin_rate`, luôn nhất quán với giá canonical. Giá kho khoá tại lần INSERT (upsert-pending UPDATE không đổi giá) → set origin 1 lần lúc INSERT.
+
+**Backend** [web2-products.js](render.com/routes/web2-products.js): (1) migration `ALTER ADD COLUMN IF NOT EXISTS origin_currency VARCHAR(8), origin_rate NUMERIC(14,4)`; (2) `mapRow` expose `originCurrency/originRate`; (3) upsert-pending INSERT lưu origin (NULL khi VND). **Cần DEPLOY web2-api.**
+
+**Frontend so-order** [so-order-app.js](so-order/js/so-order-app.js): write paths gửi `originCurrency: tab.currency, originRate: tab.rate` — syncRowsToKho (lưu nháp) + \_receiveItems → 2 upsertPayload (nhận hàng + in tem).
+
+**Frontend Kho SP** [web2-products-app.js](web2/products/js/web2-products-app.js) (bảng: title hover "Giá gốc: X CNY @ rate" + dotted-underline cue) + [web2-product-detail.js](web2/products/js/web2-product-detail.js) (panel: sub-line "≈ X CNY" dưới giá VND). Cache passthrough (không whitelist field). Bump `web2-products-app.js?v=20260616b`, `web2-product-detail.js?v=20260616b`.
+
+**Backward-compat:** SP cũ origin_currency=NULL → không hover (hiện VND như cũ). ADD COLUMN IF NOT EXISTS idempotent. Web 1.0 không chạm.
+
+**Status:** ⏳ code xong, syntax OK — chờ deploy web2-api + verify end-to-end (seed SP CNY → hover hiện CNY). Part A đã verified ở entry trước.
+
 ### [docs] Sync overview + WEB2-PAGES-ANALYSIS cho money-model mới (rule 9) ✅
 
 **Bối cảnh:** CLAUDE.md quy tắc 9 (BẮT BUỘC) — đổi luồng data quan trọng Web 2.0 → cập nhật CẢ overview sống + file phân tích.

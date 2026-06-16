@@ -273,11 +273,21 @@
                 </div>
                 <div class="w2pd-stat">
                     <div class="w2pd-stat-label"><i data-lucide="shopping-bag"></i>Giá mua</div>
-                    <div class="w2pd-stat-value buy">${fmtVnd(p.originalPrice)}</div>
+                    <div class="w2pd-stat-value buy">${fmtVnd(p.originalPrice)}${(() => {
+                        const h = originHint(p.originalPrice, p);
+                        return h
+                            ? `<span style="display:block;font-size:11px;font-weight:600;color:#64748b;margin-top:2px;">${esc(h)}</span>`
+                            : '';
+                    })()}</div>
                 </div>
                 <div class="w2pd-stat">
                     <div class="w2pd-stat-label"><i data-lucide="tag"></i>Giá bán</div>
-                    <div class="w2pd-stat-value sell">${fmtVnd(p.price)}</div>
+                    <div class="w2pd-stat-value sell">${fmtVnd(p.price)}${(() => {
+                        const h = originHint(p.price, p);
+                        return h
+                            ? `<span style="display:block;font-size:11px;font-weight:600;color:#64748b;margin-top:2px;">${esc(h)}</span>`
+                            : '';
+                    })()}</div>
                 </div>
                 <div class="w2pd-stat span2">
                     <div class="w2pd-stat-label"><i data-lucide="sticky-note"></i>Ghi chú</div>
