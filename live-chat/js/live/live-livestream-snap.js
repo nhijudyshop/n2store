@@ -211,6 +211,48 @@
         }
     });
 
+    // captureVisibleTab CHỈ cho frame ĐÚNG khi document đang hiển thị VÀ window
+    // đang focus. `document.hidden`=false vẫn xảy ra khi tab là active tab của
+    // window NHƯNG window KHÔNG focus (user qua app/cửa sổ khác) → captureVisibleTab
+    // trả frame ĐEN (gốc bug "không focus vẫn chụp → thumbnail đen"). `hasFocus()`
+    // chỉ true khi window focus + tab active → đúng điều kiện cần để có frame thật.
+    // (Stream getDisplayMedia KHÔNG dùng guard này — nó capture surface đã share
+    // bất kể focus, đó là path "chụp khi tab inactive".)
+    function _pageActiveForCapture() {
+        return document.visibilityState === 'visible' && document.hasFocus();
+    }
+
+    // Phát hiện frame ĐEN/blank (capture lúc window mất focus, hoặc iframe FB chưa
+    // render): lấy mẫu lưới pixel trên canvas đã crop → nếu luminance trung bình quá
+    // tối VÀ điểm sáng nhất cũng tối (không phải scene tối có vùng sáng) → coi là đen.
+    // Trả true = nên BỎ frame (không lưu thumbnail đen). getImageData fail (tainted
+    // canvas) → trả false (coi như hợp lệ, không chặn nhầm).
+    function _isFrameBlank(ctx, w, h) {
+        let data;
+        try {
+            data = ctx.getImageData(0, 0, w, h).data;
+        } catch {
+            return false;
+        }
+        const total = w * h;
+        if (total <= 0) return true;
+        const step = Math.max(1, Math.floor(total / 1024)); // ~1024 mẫu, đủ tin cậy
+        let sum = 0;
+        let max = 0;
+        let n = 0;
+        for (let i = 0; i < total; i += step) {
+            const o = i * 4;
+            const lum = 0.2126 * data[o] + 0.7152 * data[o + 1] + 0.0722 * data[o + 2];
+            sum += lum;
+            if (lum > max) max = lum;
+            n++;
+        }
+        const mean = n ? sum / n : 0;
+        // mean<10 & max<24 (thang 0-255): gần như đen tuyền. Scene tối thật vẫn có
+        // highlight (max cao hơn) nên không bị bỏ nhầm.
+        return mean < 10 && max < 24;
+    }
+
     function _captureViaExtension(quality = 80, timeoutMs = 4000) {
         return new Promise((resolve, reject) => {
             if (!STATE.extReady) {
@@ -238,6 +280,10 @@
                 ? targetEl
                 : document.getElementById('live-snap-fb-wrapper');
         if (!wrapper) return null;
+        // GATE: window không focus / tab ẩn → captureVisibleTab trả frame đen.
+        // Bỏ qua hẳn (khỏi tốn quota + chắc chắn không lưu ảnh đen). Capture nền khi
+        // tab inactive là việc của stream getDisplayMedia, KHÔNG phải path này.
+        if (!_pageActiveForCapture()) return null;
         let dataUrl;
         try {
             dataUrl = await _captureViaExtension(80, 4000);
@@ -277,6 +323,9 @@
         canvas.height = targetH;
         const ctx = canvas.getContext('2d');
         ctx.drawImage(img, sx, sy, sw, sh, 0, 0, targetW, targetH);
+        // Frame đen (window vừa mất focus giữa chừng / iframe FB chưa render) → bỏ,
+        // tránh lưu thumbnail đen. Auto-snap / buffer tick tự skip frame null.
+        if (_isFrameBlank(ctx, targetW, targetH)) return null;
         const jpeg = canvas.toDataURL('image/jpeg', 0.72);
         return jpeg.split(',')[1] || null;
     }
@@ -1262,7 +1311,7 @@ Throttle 30s/KH.`;
             // hình / buffer mode). Đây là path ưu tiên khi user xem tab live-chat.
             const canExtTabCapture =
                 STATE.extReady &&
-                !document.hidden &&
+                _pageActiveForCapture() &&
                 !!document.getElementById('live-snap-fb-wrapper');
             const hasBufferedFrames =
                 (STATE.captureStream && STATE.captureVideo?.videoWidth) ||
