@@ -2,6 +2,20 @@
 
 ## 2026-06-16
 
+### [web2][live-chat] comments-mobile — SĐT hiện CÙNG LÚC với địa chỉ (fallback kho như desktop) ✅
+
+**Triệu chứng (user):** mobile (`comments-mobile.html`) hiện địa chỉ nhưng KHÔNG hiện SĐT cùng lúc, dù desktop (`index.html`) hiện cả 2 (vd KH "Lê Hạ" desktop có `0978078543` + địa chỉ, mobile chỉ địa chỉ).
+
+**Nguyên nhân:** [comments-mobile.js](live-chat/js/live/comments-mobile.js) `cardHtml` lấy SĐT = `validPhone(c.phone) ? normP(c.phone) : ''` — CHỈ đọc SĐT trên comment, KHÔNG fallback kho. Còn `addrOf(c)` thì có fallback kho → địa chỉ hiện, SĐT thì không. Desktop `renderCommentItem` dùng chuỗi `[partner.Phone, kho?.phone, pancakePhone, comment.phone]` nên luôn ra SĐT.
+
+**Fix:** thêm `phoneOf(c)` (giống `addrOf`): SĐT comment 10 số → nếu không có thì lấy SĐT trong kho `web2_customers` (`whInfo(c).phone`, khớp theo phone/fb_id). Dùng trong `cardHtml` meta + `openSheet` + `cardSig` (chữ ký reconcile). Thêm `phone` vào map enrich (nhánh shared `LiveCustomerSync.enrich` đã sẵn trả `phone`; bổ sung nhánh fallback inline). Bump `comments-mobile.js?v=20260616phonefix`.
+
+**Verify (browser localhost, 100 comment):** trước fix nhiều card "địa chỉ-only"; sau fix **addrOnly=0** (mọi card có địa chỉ giờ hiện luôn SĐT), both=60, phoneOnly=15, neither=25. Mẫu: `0987346565 + Khối 1 kiến đức Dakrlap daknong`.
+
+**Desktop (ask 3):** `index.html` ĐÃ resolve + hiện cả SĐT + địa chỉ sẵn (input `phone-`/`addr-` Row 3, fallback kho) → không cần đổi.
+
+**Tin nhắn dài "..." (ask 4) — KHÔNG phải lỗi frontend:** verify `clipped:false` (scrollHeight==clientHeight) — `.c-msg` (mobile) + `.live-conv-message` (desktop) đều KHÔNG line-clamp, hiện ĐỦ text đã lưu. "..." nằm trong DATA: Pancake CẮT comment dài (~64 ký tự + "…"/"..."). Backend ĐÃ có `reconcileFullText` ([web2-live-comments.js](render.com/routes/web2-live-comments.js):376 bắt cả "…" lẫn "...") → fetch full text → SSE `reconcile` → mobile tự đổi. Comment image 5 còn "..." ⇒ reconcile chưa hoàn tất (nghi JWT trên web2-api sau split 14/06 — `/page-posts` cũng trả 0 vì pool/JWT). List endpoint KHÔNG trả conv_id → không thể fetch full text từ browser. → Fix thuộc BACKEND, chờ user xác nhận scope.
+
 ### [web2][shared] Chat Zalo — TÌM KIẾM trong hội thoại (highlight + nhảy khớp) ✅
 
 User: "tìm kiếm trong zalo" (khung chat Zalo nhúng chưa có tìm, chỉ cuộn/tải tin cũ). Thêm vào [chat-view.js](web2/shared/zalo-chat/chat-view.js):

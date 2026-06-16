@@ -182,6 +182,14 @@
         const w = whInfo(c);
         return (w && String(w.address || '').trim()) || '';
     }
+    // SĐT: ưu tiên SĐT chính trên comment (10 số), nếu không có thì lấy SĐT trong
+    // KHO web2_customers (khớp theo phone/fb_id) — GIỐNG desktop. Nhờ vậy KH chỉ có
+    // SĐT ở kho (không kèm trong comment) vẫn hiện SĐT cùng lúc với địa chỉ.
+    function phoneOf(c) {
+        if (validPhone(c.phone)) return normP(c.phone);
+        const w = whInfo(c);
+        return w && validPhone(w.phone) ? normP(w.phone) : '';
+    }
     // Đơn web (native-orders) tạo từ desktop (kéo SP vào comment) → đồng bộ xuống
     // mobile realtime qua SSE web2:native-orders. NATIVE: fbUserId → {stt, code}.
     // "Đã tạo đơn" = has_order Pancake HOẶC có đơn native.
@@ -255,6 +263,7 @@
                             name: v.Name,
                             address: v.Address,
                             status: v.Status,
+                            phone: normP(v.Phone || v.phone || k),
                         };
                 })
             );
@@ -266,6 +275,7 @@
                             name: v.name,
                             address: v.address,
                             status: v.status,
+                            phone: normP(v.phone || v.Phone || ''),
                         };
                 })
             );
@@ -348,7 +358,7 @@
         const pg = pageOf(c);
         const st = statusOf(c);
         const no = nativeOrder(c); // đơn web (native-orders) của khách → STT badge
-        const phone = validPhone(c.phone) ? normP(c.phone) : ''; // chỉ SĐT 10 số, tránh fb_id
+        const phone = phoneOf(c); // SĐT comment HOẶC kho — 10 số (tránh fb_id)
         const addr = addrOf(c);
         const meta =
             phone || addr
@@ -390,7 +400,7 @@
             ordered(c) ? '1' : '0',
             pg ? pg.t + pg.c : '',
             no ? no.stt + '|' + (no.code || '') : '',
-            validPhone(c.phone) ? normP(c.phone) : '',
+            phoneOf(c),
             addrOf(c),
             c.message || '',
         ].join('');
@@ -537,7 +547,7 @@
         if (!c) return;
         const pg = pageOf(c);
         const t = THUMBS[c.id] || {};
-        const phone = validPhone(c.phone) ? normP(c.phone) : ''; // chỉ SĐT 10 số, tránh fb_id
+        const phone = phoneOf(c); // SĐT comment HOẶC kho — 10 số (tránh fb_id)
         const addr = addrOf(c);
         const st = statusOf(c);
         const nm = nameOf(c);
