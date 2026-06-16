@@ -111,13 +111,16 @@ router.get('/pending-customers', async (req, res) => {
 
         const limit = Math.min(parseInt(req.query.limit) || 500, 1500);
 
+        // ⚠ last_message_time là TIMESTAMP (no tz) lưu giờ UTC dạng naive. Node pg
+        // driver chạy TZ=+7 sẽ đọc naive đó NHẦM thành +7 → client thấy lệch −7h
+        // (khách mới nhắn báo "trễ 7h"). Emit ISO-UTC kèm 'Z' để client parse đúng instant.
         const query = `
             SELECT
                 psid,
                 page_id,
                 customer_name,
                 last_message_snippet,
-                last_message_time,
+                to_char(last_message_time, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS last_message_time,
                 message_count,
                 type,
                 phone
@@ -303,24 +306,24 @@ async function upsertPendingCustomer(db, data) {
             ? `
                 INSERT INTO pending_customers
                 (psid, page_id, customer_name, last_message_snippet, last_message_time, message_count, type, phone)
-                VALUES ($1, $2, $3, $4, NOW(), $7, $5, $6)
+                VALUES ($1, $2, $3, $4, (NOW() AT TIME ZONE 'UTC'), $7, $5, $6)
                 ON CONFLICT (psid, page_id)
                 DO UPDATE SET
                     customer_name = COALESCE(EXCLUDED.customer_name, pending_customers.customer_name),
                     last_message_snippet = EXCLUDED.last_message_snippet,
-                    last_message_time = NOW(),
+                    last_message_time = (NOW() AT TIME ZONE 'UTC'),
                     message_count = $7,
                     phone = COALESCE(EXCLUDED.phone, pending_customers.phone)
             `
             : `
                 INSERT INTO pending_customers
                 (psid, page_id, customer_name, last_message_snippet, last_message_time, message_count, type, phone)
-                VALUES ($1, $2, $3, $4, NOW(), 1, $5, $6)
+                VALUES ($1, $2, $3, $4, (NOW() AT TIME ZONE 'UTC'), 1, $5, $6)
                 ON CONFLICT (psid, page_id)
                 DO UPDATE SET
                     customer_name = COALESCE(EXCLUDED.customer_name, pending_customers.customer_name),
                     last_message_snippet = EXCLUDED.last_message_snippet,
-                    last_message_time = NOW(),
+                    last_message_time = (NOW() AT TIME ZONE 'UTC'),
                     message_count = pending_customers.message_count + 1,
                     phone = COALESCE(EXCLUDED.phone, pending_customers.phone)
             `;

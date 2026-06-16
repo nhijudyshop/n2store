@@ -56,6 +56,20 @@ Bump `so-order.css?v=20260616e`. Verified Playwright: modal mở, đo bounding r
 
 **Status:** ✅ CSS-only. so-order (Web 2.0 module).
 
+### [render][orders-report] FIX GỐC sai múi giờ pending_customers (server emit ISO-UTC) — strip báo trễ 7h ✅
+
+**User:** sau fix client vẫn "nguyên như cũ" — khách mới nhắn báo trễ 7h.
+
+**RCA (đo thực tế):** cột `pending_customers.last_message_time` kiểu **`TIMESTAMP` (no tz)**, INSERT bằng `NOW()` → lưu **giờ UTC dạng naive** (vd `08:49`). Node pg driver trên Render (TZ=Asia/Saigon +7) đọc naive đó NHẦM thành +7 → API serialize `"2026-06-16 08:49:02+07:00"` = **01:49 UTC** = lệch −7h so với thực (now 08:49 UTC). ⇒ Client parse "đúng" chuỗi sai → strip 7h. **Fix client không cứu được vì data sai từ nguồn.** (Verify: raw `08:49:02+07:00` vs now `08:49:58Z` — wall-clock trùng giờ UTC nhưng bị gắn +07:00.)
+
+**Fix server** [render.com/routes/realtime.js](render.com/routes/realtime.js) (hàm `upsertPendingCustomer` + GET `/pending-customers`, dùng chung cả route lẫn server-WS `server.js`):
+- GET emit ISO-UTC tường minh: `to_char(last_message_time, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS last_message_time` → client nhận `…Z` parse đúng instant (cả client cũ lẫn mới).
+- Write tất định: `NOW()` → `(NOW() AT TIME ZONE 'UTC')` (4 chỗ) → luôn lưu UTC wall-clock bất kể session TZ.
+
+**Deploy:** Render auto-deploy `n2store-tpos-pancake` trên push (KHÁC GH Pages). Sau deploy verify: `curl …/pending-customers` → `last_message_time` dạng `...Z` & khớp giờ thực. Client `_n2sParseMsgTime` (commit trước) vẫn cần cho path realtime WS (Pancake naive no-Z).
+
+**Status:** ✅ code. ⏳ chờ Render deploy để xác nhận trên web.
+
 ### [supplier-wallet] FIX nút Tạo NCC / Đồng bộ / Trả hàng / Ghi thanh toán hiện như nút browser mặc định (thiếu class `btn` base) ✅
 
 **User:** "nút hình 2, hình 3 chưa có css" — "Ghi thanh toán" + "Đồng bộ" render như nút macOS mặc định (gradient xám, viền bevel), không theo theme Web 2.0.
