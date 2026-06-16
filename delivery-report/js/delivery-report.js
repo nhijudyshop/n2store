@@ -74,9 +74,11 @@
     // PERMISSION HELPER
     // =====================================================
     // Whitelist tài khoản được phép dùng tra soát (ngoài admin).
-    // Match cả username (lowercase) và displayName để khỏi phụ thuộc vào việc
-    // user có set displayName hay không.
-    const TRA_SOAT_ALLOWED_USERNAMES = new Set(['bobo']);
+    // Match theo USERNAME (lowercase) là chính vì username ổn định, KHÔNG đổi
+    // khi user đổi displayName. 'phuoc' = "Phước đẹp trai" (đã bị đổi tên hiển thị
+    // nên match displayName không còn ăn → phải có trong username set).
+    // displayName chỉ là fallback phụ cho account chưa từng set username chuẩn.
+    const TRA_SOAT_ALLOWED_USERNAMES = new Set(['bobo', 'phuoc']);
     const TRA_SOAT_ALLOWED_DISPLAY_NAMES = new Set(['Phước đẹp trai', 'bobo']);
 
     function canTraSoat() {

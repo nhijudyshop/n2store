@@ -2,6 +2,16 @@
 
 ## 2026-06-16
 
+### [delivery-report] FIX account `phuoc` không thấy nút "Tra soát" — gate theo USERNAME (ổn định) thay vì displayName ✅
+
+**User:** account `phuoc` vào delivery-report không thấy nút "Tra soát". Làm rõ: **`phuoc` chính là "Phước đẹp trai" nhưng user đã đổi tên hiển thị**.
+
+**RCA:** `canTraSoat()` ([delivery-report.js](delivery-report/js/delivery-report.js):82) cho phép admin / username∈`{bobo}` / displayName∈`{'Phước đẹp trai','bobo'}`. Account phuoc: không admin, username `phuoc` (không có trong set), displayName **đã bị đổi** → không còn khớp `'Phước đẹp trai'` → `canTraSoat()` false → nút `drBtnTraSoat` bị ẩn (init :221-224). Gate theo displayName mong manh vì user đổi tên được; username `phuoc` thì ổn định (userType = `phuoc-authenticated`).
+
+**Fix:** thêm `'phuoc'` vào `TRA_SOAT_ALLOWED_USERNAMES` (set `{'bobo','phuoc'}`). Bump `delivery-report.js?v=20260616a`.
+
+**Status:** ✅ delivery-report (Web 1.0). username là khoá ổn định, không phụ thuộc tên hiển thị.
+
 ### [so-order] FIX quy đổi giá khi LẤY SP từ Kho SP (VND) vào đơn theo tiền tệ tab (÷rate) — Part A logic 1-nguồn ✅
 
 **User spec:** Kho SP = 1 NGUỒN, lưu VND. Tab CNY nhập đơn = CNY → vào kho ×rate→VND (ĐÃ ĐÚNG). Khi LẤY SP từ kho (VND) vào đơn ở tab nào → quy đổi ra tiền tab đó (÷rate). (+ hover kho hiện giá CNY gốc — Part B, cần schema, chờ user.)
