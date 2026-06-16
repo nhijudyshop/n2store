@@ -2,6 +2,18 @@
 
 ## 2026-06-16
 
+### [so-order] FIX checkbox "Hiện thông tin lô" (Cài đặt tab) không hiện trạng thái đã chọn ✅
+
+**User:** "đâu có checkbox hình 1 mà hình 2 nó hiện?" — modal Cài đặt tab hiện 6 checkbox đều TRỐNG, nhưng modal Tạo Đơn vẫn hiện ETA + Số Kiện → tưởng lệch state.
+
+**RCA:** State ĐÚNG (`shipMetaFields.eta=true, caseCount=true`, verified `cb.checked=true`). Bug thuần CSS: `<fieldset class="so-field so-shipmeta-fieldset">` dính rule chung `.so-field input { appearance: none; border-radius:8px; padding:8px 10px }` → **nuốt checkmark native** của checkbox; mà `accent-color` vô hiệu khi `appearance:none` và KHÔNG có style `:checked` → checked nhìn y hệt unchecked (ô rounded trống). Vì vậy ETA/Số Kiện thực ra ĐANG checked nhưng không thấy.
+
+**Fix** [so-order.css](so-order/css/so-order.css): vẽ custom checkbox cho `.so-shipmeta-fieldset input[type=checkbox]` (cả master "Chọn tất cả" + 6 con): `appearance:none` 18×18 bo 6px, `:checked` → nền `#0068ff` + checkmark SVG trắng, `:indeterminate` → nền xanh + dash trắng (master khi chọn 1 phần), `:hover`/`:focus-visible` ring. Bump `so-order.css?v=20260616f`.
+
+**Verify (Playwright):** mở Cài đặt tab HÀ NỘI → ETA + Số Kiện nền `rgb(0,104,255)` + checkmark, 4 ô còn lại trống, master `indeterminate=true` (2/6) — khớp đúng modal Tạo Đơn.
+
+**Status:** ✅ CSS-only. so-order (Web 2.0 module). `.so-field-check` (legacy, dead — không dùng trong HTML) để nguyên.
+
 ### [web2/supplier-wallet] Bỏ nút "Đồng bộ" → realtime tự động (kho NCC nguồn cho mọi trang) ✅
 
 User: "trang này là kho NCC để tất cả trang khác tham chiếu nên sẽ có dữ liệu realtime" → bỏ nút "Đồng bộ" thủ công.
