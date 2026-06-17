@@ -3,15 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `324bf63` — docs(dev-log): điền kết quả verify thẻ Tổng tiền hóa đơn (live)
-**Last updated**: 2026-06-16 19:17:10 +07
-**Latest session**: [`RESUME:20260616-191710-324bf63`](../20260616-191710-324bf63.md)
-**Summary**: docs(dev-log): điền kết quả verify thẻ Tổng tiền hóa đơn (live)
+**Latest commit**: `f5b8182` — auto: session update
+**Last updated**: 2026-06-17 15:42:42 +07
+**Latest session**: [`RESUME:20260617-154242-f5b8182`](../20260617-154242-f5b8182.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`delivery-report/`](./delivery-report.md) — 2 file(s)
-- [`docs/`](./docs.md) — 1 file(s)
+- [`so-order/`](./so-order.md) — 4 file(s)
 
 ## All folder snapshots
 
@@ -61,7 +60,7 @@
 - [`shared/`](./shared.md) — updated 2026-06-16 14:31
 - [`showroom/`](./showroom.md) — updated 2026-06-10 19:04
 - [`showroom1/`](./showroom1.md) — updated 2026-06-10 19:52
-- [`so-order/`](./so-order.md) — updated 2026-06-16 18:39
+- [`so-order/`](./so-order.md) — updated 2026-06-17 15:42
 - [`soluong-live/`](./soluong-live.md) — updated 2026-06-16 14:31
 - [`soorder/`](./soorder.md) — updated 2026-05-21 15:39
 - [`soquy/`](./soquy.md) — updated 2026-06-13 19:51
