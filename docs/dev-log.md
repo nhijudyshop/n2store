@@ -17,6 +17,22 @@
 
 **Status:** ✅ verified browser end-to-end. pancake-settings (Web 2.0).
 
+### [pancake-settings] Nút "Đồng bộ pages từ token" — sửa account có quyền page nhưng pages cache rỗng ✅
+
+**User:** "Kỹ Thuật NJD cũng có quyền 2 page mà" (screenshot Pancake: KT admin NhiJudy Store + Nhi Judy IG + Nhi Judy House) nhưng card "Admin theo Page" đếm KT = 0 page.
+
+**Root cause:** `pancake_accounts.pages` là snapshot — KT có token còn hạn (`is_active`, `token_exp` chưa hết) NHƯNG `pages: []` (chưa bao giờ fetch; auto-refresh chỉ gia hạn token, KHÔNG refetch pages). Boost (`getPageAccountJwts`) cũng đọc snapshot này nên KT cũng không tham gia "Tăng comment".
+
+**Fix:**
+
+- **Module** [web2-pancake-accounts.js](web2/shared/web2-pancake-accounts.js): thêm `updatePages(accountId, pages)` → `PUT /api/pancake-accounts/:id {pages}` (qua `_json` có auth). Bump `?v=20260617pageadmin`.
+- **JS** [pancake-settings.js](web2/pancake-settings/js/pancake-settings.js): `syncAccountPages()` — với mỗi account còn hạn, fetch `GET /api/pancake/pages?access_token=<token account đó>` (parse `categorized.activated||pages`), map `{id,name}`, ghi DB qua `updatePages` (CHỈ khi khác cache + KHÔNG ghi đè rỗng → token lỗi/rate-limit không xoá pages). Xong → `Web2Chat.syncFromRenderDB({force:true})` (boost thấy ngay) + `loadAccounts()`. Nút "Đồng bộ pages từ token" + help. Bump `?v=20260617pageadmin2`.
+- **HTML** [index.html](web2/pancake-settings/index.html): nút `#btnSyncAccountPages` + help text.
+
+**Verify (Playwright, localhost — ext n2store):** trước sync House/Store = 5 admin, 3 dùng được. Click "Đồng bộ pages" → KT persist `pages:[Nhi Judy(IG), Nhi Judy House, NhiJudy Store]` (đúng screenshot). Sau: **House & Store = 6 admin, 4 dùng được** (usable: Kỹ Thuật NJD, longxienc, Huyền Nhi, Thu Huyền; hết hạn: Thu Lai, Con Nhoc). Thêm row mới "Nhi Judy (instagram) 1/1". `getPageAccountJwts(House/Store)` → 4 worker (gồm KT) → boost cũng đúng. (NhiJudy Nè 4→3 admin: sync sửa stale 1 account đã mất quyền Nè theo token thật.)
+
+**Status:** ✅ verified browser end-to-end. pancake-settings (Web 2.0).
+
 ### [so-order] Mỗi NCC/Đơn có Tổng KG · Tiền HĐ · Giảm · Ship RIÊNG (per-đơn meta) ✅
 
 **User:** "Các NCC có tổng KG, tổng tiền, giảm giá, phí ship riêng." Chốt: gom theo từng KHỐI/ĐƠN (invoiceGroupId); hiển thị dòng phụ đầu mỗi khối; sửa trong modal Sửa lô — mỗi NCC 1 cụm.

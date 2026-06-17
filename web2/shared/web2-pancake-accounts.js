@@ -160,6 +160,25 @@
         }
     }
 
+    /**
+     * Cập nhật snapshot pages của 1 account vào DB (`pancake_accounts.pages`).
+     * Dùng khi đồng bộ lại danh sách page admin từ token (token còn hạn nhưng
+     * pages cache rỗng/cũ). pages = [{ id, name }, ...].
+     */
+    async function updatePages(accountId, pages) {
+        if (!accountId) return { ok: false, reason: 'no_id' };
+        try {
+            await _json(BASE + '/' + encodeURIComponent(accountId), {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ pages: Array.isArray(pages) ? pages : [] }),
+            });
+            return { ok: true };
+        } catch (e) {
+            return { ok: false, reason: e.message };
+        }
+    }
+
     /** Bật/tắt is_active (account có được sync sang máy khác hay không). */
     async function setEnabled(accountId, enabled) {
         if (!accountId) return { ok: false, reason: 'no_id' };
@@ -266,6 +285,7 @@
         list,
         addFromToken,
         remove,
+        updatePages,
         setEnabled,
         getActiveId,
         setActiveLocal,

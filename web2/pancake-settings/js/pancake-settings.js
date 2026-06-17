@@ -702,6 +702,102 @@
         if (window.lucide?.createIcons) window.lucide.createIcons();
     }
 
+    // Lấy lại danh sách page admin TRỰC TIẾP từ token của từng account còn hạn rồi
+    // ghi vào DB (`pancake_accounts.pages`). Sửa case account có quyền page nhưng
+    // pages cache rỗng/cũ (vd Kỹ Thuật NJD — token ok nhưng chưa từng fetch pages).
+    // Sau khi ghi → force sync localStorage để "Tăng comment" (getPageAccountJwts)
+    // cũng thấy pages mới.
+    async function syncAccountPages() {
+        const btn = $('btnSyncAccountPages');
+        const PA = window.Web2PancakeAccounts;
+        if (!PA || typeof PA.updatePages !== 'function') {
+            notify('Module accounts chưa sẵn sàng (load lại trang)', 'error');
+            return;
+        }
+        const accounts = Array.isArray(_accountsCache) ? _accountsCache : [];
+        if (!accounts.length) {
+            notify('Chưa có tài khoản nào để đồng bộ', 'warning');
+            return;
+        }
+        const workerUrl =
+            window.API_CONFIG?.WORKER_URL || window.Web2Chat?._internal?.WORKER_URL || '';
+        if (!workerUrl) {
+            notify('Thiếu worker URL (web2-auth chưa load)', 'error');
+            return;
+        }
+        const now = Math.floor(Date.now() / 1000);
+        let origHtml = '';
+        if (btn) {
+            origHtml = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML =
+                '<i data-lucide="loader" style="width:14px;height:14px;animation:spin 1s linear infinite;"></i> Đang đồng bộ…';
+            if (window.lucide?.createIcons) window.lucide.createIcons();
+        }
+        let updated = 0,
+            failed = 0,
+            skipped = 0;
+        for (const a of accounts) {
+            const token = a.token;
+            const expired = a.token_exp && Number(a.token_exp) < now;
+            if (!token || expired) {
+                skipped++;
+                continue;
+            }
+            try {
+                const url = `${workerUrl}/api/pancake/pages?access_token=${encodeURIComponent(token)}`;
+                const data = await fetch(url).then((r) => r.json());
+                const raw =
+                    data?.categorized?.activated ||
+                    data?.pages ||
+                    (Array.isArray(data) ? data : []) ||
+                    [];
+                const pages = raw
+                    .filter((p) => p && p.id)
+                    .map((p) => ({
+                        id: String(p.id),
+                        name: p.name || p.page_name || String(p.id),
+                    }));
+                // Chỉ ghi khi danh sách khác cache hiện tại; KHÔNG ghi đè rỗng (token
+                // lỗi/rate-limit trả [] sẽ không xoá pages đang có).
+                const before = Array.isArray(a.pages)
+                    ? a.pages
+                          .map((p) => String((p && typeof p === 'object' ? p.id : p) || ''))
+                          .sort()
+                          .join(',')
+                    : '';
+                const after = pages
+                    .map((p) => p.id)
+                    .sort()
+                    .join(',');
+                if (after && after !== before) {
+                    const r = await PA.updatePages(a.account_id, pages);
+                    if (r.ok) updated++;
+                    else failed++;
+                }
+            } catch (_) {
+                failed++;
+            }
+        }
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = origHtml;
+            if (window.lucide?.createIcons) window.lucide.createIcons();
+        }
+        // Làm tươi localStorage ALL_ACCOUNTS để boost thấy pages mới ngay.
+        try {
+            if (window.Web2Chat?.syncFromRenderDB)
+                await window.Web2Chat.syncFromRenderDB({ force: true });
+        } catch (_) {
+            /* không chặn */
+        }
+        await loadAccounts(); // refetch + render lại cả 2 card
+        notify(
+            `Đồng bộ pages: ${updated} cập nhật · ${skipped} bỏ qua (hết hạn/không token) · ${failed} lỗi`,
+            failed ? 'warning' : 'success'
+        );
+    }
+
     async function loadAccounts() {
         const list = $('accountList');
         const PA = window.Web2PancakeAccounts;
@@ -1149,6 +1245,7 @@
         $('btnAddAccount')?.addEventListener('click', () => toggleAddPanel());
         $('btnAddCancel')?.addEventListener('click', () => toggleAddPanel(false));
         $('btnReloadAccounts')?.addEventListener('click', loadAccounts);
+        $('btnSyncAccountPages')?.addEventListener('click', syncAccountPages);
         $('btnAddSave')?.addEventListener('click', addAccountFromInput);
         $('btnAddAuto')?.addEventListener('click', addAccountAuto);
 
