@@ -810,6 +810,25 @@
                     </div>
                 </div>
 
+                <!-- Admin theo Page — tổng hợp từ MỌI tài khoản đã lưu -->
+                <div class="ps-card">
+                    <h2>
+                        <i data-lucide="shield-check" style="width: 16px; height: 16px"></i>
+                        Admin theo Page
+                        <span id="pageAdminBadge" class="badge warn">—</span>
+                    </h2>
+                    <div class="ps-help">
+                        Mỗi page có bao nhiêu <strong>tài khoản admin</strong> (gộp từ tất cả
+                        account ở mục Tài khoản phía trên) và bao nhiêu account
+                        <strong>dùng được ngay</strong> — tức số worker chạy song song khi
+                        <em>Tăng comment</em>. Account <strong>hết hạn token</strong> hoặc
+                        <strong>tắt sync</strong> không tính là dùng được.
+                    </div>
+                    <div id="pageAdminList" class="ps-page-list">
+                        <div class="ps-loading">Đang tổng hợp…</div>
+                    </div>
+                </div>
+
                 <!-- Realtime server (WS) — chọn trang join per-page -->
                 <div class="ps-card">
                     <h2>
@@ -1123,6 +1142,6 @@
         <script src="../../web2/shared/web2-chat-client.js?v=20260615auth"></script>
         <script src="../shared/web2-pancake-token.js?v=20260604a"></script>
         <script src="../shared/web2-pancake-accounts.js?v=20260612en"></script>
-        <script src="js/pancake-settings.js?v=20260615relay"></script>
+        <script src="js/pancake-settings.js?v=20260617pageadmin"></script>
     </body>
 </html>

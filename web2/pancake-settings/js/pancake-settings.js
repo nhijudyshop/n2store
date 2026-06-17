@@ -605,6 +605,103 @@
         });
     }
 
+    // Gộp số account admin theo từng page (từ _accountsCache — cùng nguồn với mục
+    // Tài khoản). "Dùng được" = token CÒN HẠN và account KHÔNG tắt sync — khớp 100%
+    // với getPageAccountJwts() mà "Tăng comment" dùng để spawn worker. Mỗi page hiện:
+    // tổng admin + số dùng được + tên các account dùng được (và account hết hạn/tắt).
+    function renderPageAdminStats() {
+        const list = $('pageAdminList');
+        const badge = $('pageAdminBadge');
+        if (!list) return;
+        const accounts = Array.isArray(_accountsCache) ? _accountsCache : [];
+        if (!accounts.length) {
+            list.innerHTML = `<div class="ps-loading">Chưa có tài khoản nào để tổng hợp.</div>`;
+            if (badge) {
+                badge.textContent = '0 page';
+                badge.className = 'badge warn';
+            }
+            return;
+        }
+        const now = Math.floor(Date.now() / 1000);
+        const byPage = new Map(); // pageId → { name, total, usable, usableNames, blockedNames }
+        for (const a of accounts) {
+            const pages = Array.isArray(a.pages) ? a.pages : [];
+            const expired = !!(a.token_exp && Number(a.token_exp) < now);
+            const disabled = a.is_active === false;
+            const usable = !expired && !disabled;
+            const nm = a.name || a.fb_name || a.uid || a.account_id || '?';
+            for (const p of pages) {
+                const isObj = p && typeof p === 'object';
+                const pid = String(isObj ? p.id : p);
+                if (!pid || pid === 'undefined' || pid === 'null') continue;
+                const pname = (isObj && p.name) || pid;
+                let e = byPage.get(pid);
+                if (!e) {
+                    e = { name: pname, total: 0, usable: 0, usableNames: [], blockedNames: [] };
+                    byPage.set(pid, e);
+                }
+                if (pname && (!e.name || e.name === pid)) e.name = pname;
+                e.total++;
+                if (usable) {
+                    e.usable++;
+                    e.usableNames.push(nm);
+                } else {
+                    e.blockedNames.push(`${nm} (${expired ? 'hết hạn' : 'tắt sync'})`);
+                }
+            }
+        }
+        const rows = Array.from(byPage.entries())
+            .map(([pid, e]) => ({ pid, ...e }))
+            .sort(
+                (a, b) =>
+                    b.usable - a.usable ||
+                    b.total - a.total ||
+                    String(a.name).localeCompare(String(b.name), 'vi')
+            );
+        if (!rows.length) {
+            list.innerHTML = `<div class="ps-loading">Các tài khoản chưa gắn page nào. Bấm “Tải lại” hoặc gia hạn token.</div>`;
+            if (badge) {
+                badge.textContent = '0 page';
+                badge.className = 'badge warn';
+            }
+            return;
+        }
+        if (badge) {
+            badge.textContent = `${rows.length} page`;
+            badge.className = 'badge ok';
+        }
+        list.innerHTML = rows
+            .map((r) => {
+                const isIG = String(r.pid).startsWith('igo_');
+                const usableClass = r.usable > 0 ? 'has' : 'no';
+                const usableLine = r.usableNames.length
+                    ? escapeHtml(r.usableNames.join(', '))
+                    : '<span style="color:#b91c1c;">— không có account dùng được</span>';
+                const blockedLine = r.blockedNames.length
+                    ? `<div class="meta" style="margin-top:2px;color:#94a3b8;">${escapeHtml(r.blockedNames.join(', '))}</div>`
+                    : '';
+                return `
+                <div class="ps-page-item" data-page-id="${escapeHtml(r.pid)}">
+                    <div class="pg-avatar-fallback">${escapeHtml((r.name || '?').charAt(0).toUpperCase())}</div>
+                    <div class="info">
+                        <div class="name">
+                            ${escapeHtml(r.name)}
+                            ${isIG ? '<span class="plat-chip instagram">instagram</span>' : ''}
+                        </div>
+                        <div class="meta">
+                            <span class="mid">${escapeHtml(r.pid)}</span>
+                            <span class="tok-chip">👤 ${r.usable}/${r.total} dùng được</span>
+                        </div>
+                        <div class="meta" style="margin-top:2px;">${usableLine}</div>
+                        ${blockedLine}
+                    </div>
+                    <span class="status ${usableClass}">${r.total} admin</span>
+                </div>`;
+            })
+            .join('');
+        if (window.lucide?.createIcons) window.lucide.createIcons();
+    }
+
     async function loadAccounts() {
         const list = $('accountList');
         const PA = window.Web2PancakeAccounts;
@@ -623,6 +720,7 @@
         }
         _accountsCache = r.accounts;
         renderAccountList(r.accounts);
+        renderPageAdminStats(); // tổng hợp admin theo page từ cùng dữ liệu
         // Lấy trạng thái auto-refresh (creds/auto) rồi render lại — không chặn.
         // Lưu promise để renewAccount có thể await tránh race (bấm "Gia hạn" khi status chưa load).
         _refreshStatusLoaded = false;
@@ -804,6 +902,7 @@
         const apply = () => {
             _accountsCache = snapshot.filter((a) => a.account_id !== id);
             renderAccountList(_accountsCache);
+            renderPageAdminStats();
         };
         const run = async () => {
             const r = await window.Web2PancakeAccounts.remove(id);
@@ -812,6 +911,7 @@
         const rollback = () => {
             _accountsCache = snapshot;
             renderAccountList(snapshot);
+            renderPageAdminStats();
         };
         const onSuccess = () => {
             renderJwtInfo();

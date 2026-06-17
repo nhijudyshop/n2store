@@ -2,6 +2,21 @@
 
 ## 2026-06-17
 
+### [pancake-settings] Thêm card "Admin theo Page" — đếm account admin + dùng được mỗi page ✅
+
+**User:** từ trang `web2/pancake-settings/` muốn "ghi rõ có bao nhiêu account page house, có bao nhiêu account page store".
+
+**Bối cảnh:** màn "Tăng comment" (`web2/multi-tool/`) spawn 1 worker / account admin của page, lọc bỏ token hết hạn (`getPageAccountJwts`) → page House chạy 3 worker dù có 5 account admin (2 account Thu Lai/Con Nhoc hết hạn). Trang settings cũ chỉ liệt kê 6 account dạng phẳng, KHÔNG tổng hợp admin theo page.
+
+**Thêm:**
+
+- **HTML** [index.html](web2/pancake-settings/index.html): card mới "Admin theo Page" (sau card Tài khoản) + badge `#pageAdminBadge` + list `#pageAdminList`.
+- **JS** [pancake-settings.js](web2/pancake-settings/js/pancake-settings.js): `renderPageAdminStats()` gộp `_accountsCache` (cùng nguồn mục Tài khoản — `Web2PancakeAccounts.list()` trả `pages[]`+`token_exp`+`is_active`) theo `page.id`. **"Dùng được" = token còn hạn AND không tắt sync** — khớp 100% logic `getPageAccountJwts` của boost. Mỗi page hiện: tổng admin (pill), `X/Y dùng được` (chip), tên account dùng được, dòng muted account hết hạn/tắt sync. Sort theo usable desc. Wire vào `loadAccounts()` (initial/reload/add) + `deleteAccount` apply/rollback (đồng bộ optimistic). Reuse class `.ps-page-item`/`.tok-chip`/`.status`, không thêm CSS.
+
+**Verify (Playwright, localhost — ext n2store):** card render 4 page — **Nhi Judy House: 5 admin, 3/5 dùng được (Huyền Nhi, longxienc, Thu Huyền)**; **NhiJudy Store: 5 admin, 3/5 dùng được (Huyền Nhi, longxienc, Thu Huyền)**; Nhi Judy Ơi 2/4; NhiJudy Nè 2/4. Con số 3 khớp đúng số worker boost đã thấy. Screenshot xác nhận layout theme Zalo blue OK.
+
+**Status:** ✅ verified browser end-to-end. pancake-settings (Web 2.0).
+
 ### [so-order] Mỗi NCC/Đơn có Tổng KG · Tiền HĐ · Giảm · Ship RIÊNG (per-đơn meta) ✅
 
 **User:** "Các NCC có tổng KG, tổng tiền, giảm giá, phí ship riêng." Chốt: gom theo từng KHỐI/ĐƠN (invoiceGroupId); hiển thị dòng phụ đầu mỗi khối; sửa trong modal Sửa lô — mỗi NCC 1 cụm.
