@@ -1423,6 +1423,8 @@ async function _campaignsHandler(req, res) {
             SELECT
                 COALESCE(NULLIF(live_campaign_id, ''), '__no_campaign__') AS id,
                 MAX(NULLIF(live_campaign_name, '')) AS name,
+                MAX(NULLIF(fb_page_name, '')) AS page_name,
+                MAX(NULLIF(fb_page_id, '')) AS page_id,
                 COUNT(*)::int AS count,
                 MAX(created_at)::text AS last_order_at
             FROM native_orders
@@ -1437,6 +1439,8 @@ async function _campaignsHandler(req, res) {
             campaigns: r.rows.map((row) => ({
                 id: row.id,
                 name: row.id === '__no_campaign__' ? '(Không chiến dịch)' : row.name || row.id,
+                pageName: row.page_name || '',
+                pageId: row.page_id || '',
                 count: row.count,
                 lastOrderAt: row.last_order_at,
             })),

@@ -71,9 +71,10 @@
         loading: false,
         filterVisible: true,
         expandedOrders: new Set(), // codes of rows currently expanded
-        // Campaign filter (multi-select). Empty array = "all"; explicit array of campaign IDs
-        // = filter to those (use '__no_campaign__' for orders without a campaign).
-        // On boot, restored from localStorage `web2_selected_campaigns` (set by web2-pancake).
+        // Lọc theo BÀI VIẾT riêng lẻ (multi-select). Mảng các campaign ID
+        // ('__no_campaign__' cho đơn không campaign). Mặc định khi rỗng → tự
+        // chọn 2 bài mới nhất (House + Store) ở reconcileCampaignSelection().
+        // Loại trừ 2 chiều với chiến dịch CHA (parentCampaignId = nhóm bài).
         selectedCampaignIds: [],
         availableCampaigns: [], // [{id, name, count, lastOrderAt}]
         // Phase 14: scope list to a single Customer 360 record (parsed from URL).
@@ -1719,22 +1720,17 @@
 
     // ---------- Campaign filter ----------
     const CAMPAIGN_STORAGE_KEY = 'native_orders_selected_campaigns';
-    const SELECTED_CAMPAIGNS_KEY = 'web2_selected_campaigns';
 
     function loadCampaignSelection() {
-        // Priority: own key (per-page selection) > shared web2-pancake key (cross-page sync)
+        // Chỉ đọc lựa chọn riêng của trang. Mặc định (rỗng) → tự chọn 2 bài
+        // mới nhất (House + Store) ở reconcileCampaignSelection().
         try {
             const own = localStorage.getItem(CAMPAIGN_STORAGE_KEY);
             if (own != null) return JSON.parse(own) || [];
         } catch (_) {
             /* ignore */
         }
-        try {
-            const shared = localStorage.getItem(SELECTED_CAMPAIGNS_KEY);
-            return shared ? JSON.parse(shared) || [] : [];
-        } catch (_) {
-            return [];
-        }
+        return [];
     }
 
     function saveCampaignSelection() {
@@ -1745,11 +1741,56 @@
         }
     }
 
+    // Chọn mặc định 2 bài MỚI NHẤT: 1 của page House + 1 của page Store.
+    // availableCampaigns đã sort theo lastOrderAt DESC (backend) → lấy bài đầu
+    // tiên khớp mỗi page. Fallback (thiếu pageName) → 2 campaign mới nhất.
+    function pickNewestHouseStore() {
+        const list = STATE.availableCampaigns || [];
+        const real = list.filter((c) => c.id && c.id !== '__no_campaign__');
+        const firstMatch = (re) => real.find((c) => re.test(String(c.pageName || c.name || '')));
+        const house = firstMatch(/house/i);
+        const store = firstMatch(/store/i);
+        const ids = [];
+        if (house) ids.push(String(house.id));
+        if (store && (!house || String(store.id) !== String(house.id))) ids.push(String(store.id));
+        if (ids.length) return ids;
+        return real.slice(0, 2).map((c) => String(c.id));
+    }
+
+    // Dọn ID không còn tồn tại + tự chọn 2 bài mới nhất khi chưa có lựa chọn.
+    // Bỏ qua khi đang lọc theo chiến dịch cha (loại trừ 2 chiều).
+    function reconcileCampaignSelection() {
+        if (STATE.parentCampaignId) {
+            STATE.selectedCampaignIds = [];
+            return;
+        }
+        const valid = new Set((STATE.availableCampaigns || []).map((c) => String(c.id)));
+        const before = (STATE.selectedCampaignIds || []).map(String);
+        let ids = before.filter((id) => valid.has(id));
+        if (!ids.length) ids = pickNewestHouseStore();
+        STATE.selectedCampaignIds = ids;
+        if (ids.join(',') !== before.join(',')) {
+            saveCampaignSelection();
+            STATE.page = 1;
+            load();
+        }
+    }
+
+    // Loại trừ 2 chiều: chọn lọc theo bài viết (con) → bỏ chọn chiến dịch CHA.
+    function clearParentSelection() {
+        if (!STATE.parentCampaignId) return;
+        STATE.parentCampaignId = null;
+        STATE.parentPostIds = [];
+        renderParentCampaigns();
+    }
+
     async function loadAvailableCampaigns() {
         try {
             const resp = await window.NativeOrdersApi.campaigns();
             STATE.availableCampaigns = resp.campaigns || [];
+            reconcileCampaignSelection();
             renderCampaignDropdown();
+            renderCampaignLabel();
         } catch (e) {
             console.warn('[native-orders] campaigns fetch failed:', e.message);
             const list = $('#campaignList');
@@ -1807,8 +1848,7 @@
                 <span style="flex:1;">${escapeHtml(name)}</span>
                 ${sub ? `<span style="color:#9ca3af;font-size:11px;">${escapeHtml(sub)}</span>` : ''}
             </label>`;
-        let html = row('', '— Tất cả (không lọc cha) —', '');
-        html += (STATE.parentCampaigns || [])
+        let html = (STATE.parentCampaigns || [])
             .map((c) => row(c.id, c.name, `${c.post_count || 0} bài`))
             .join('');
         if (!(STATE.parentCampaigns || []).length)
@@ -1819,6 +1859,13 @@
     async function selectParentCampaign(id) {
         STATE.parentCampaignId = id || null;
         STATE.parentPostIds = [];
+        // Loại trừ 2 chiều: chọn chiến dịch CHA → bỏ chọn lọc theo bài viết (con).
+        if (id && STATE.selectedCampaignIds.length) {
+            STATE.selectedCampaignIds = [];
+            saveCampaignSelection();
+            renderCampaignDropdown();
+            renderCampaignLabel();
+        }
         if (id) {
             try {
                 const r = await fetch(LIVE_COMMENTS_API + '/posts');
@@ -1831,6 +1878,7 @@
             }
         }
         renderParentCampaigns();
+        renderCampaignLabel();
         STATE.page = 1;
         load();
     }
@@ -1916,6 +1964,15 @@
     function renderCampaignLabel() {
         const label = $('#filterCampaignLabel');
         if (!label) return;
+        // Lọc theo NHÓM (chiến dịch cha) → hiển thị tên nhóm.
+        if (STATE.parentCampaignId) {
+            const p = (STATE.parentCampaigns || []).find(
+                (x) => String(x.id) === String(STATE.parentCampaignId)
+            );
+            const nm = p ? p.name : 'Nhóm chiến dịch';
+            label.textContent = nm.slice(0, 26) + (nm.length > 26 ? '…' : '');
+            return;
+        }
         const ids = STATE.selectedCampaignIds;
         if (ids.length === 0) {
             label.textContent = 'Tất cả';
@@ -1937,27 +1994,6 @@
         const isOpen = dd.style.display !== 'none';
         const next = typeof force === 'boolean' ? force : !isOpen;
         dd.style.display = next ? 'block' : 'none';
-    }
-
-    function syncFromWeb2Pancake() {
-        try {
-            const shared = localStorage.getItem(SELECTED_CAMPAIGNS_KEY);
-            const ids = shared ? JSON.parse(shared) || [] : [];
-            STATE.selectedCampaignIds = ids;
-            saveCampaignSelection();
-            renderCampaignDropdown();
-            renderCampaignLabel();
-            STATE.page = 1;
-            load();
-            notify(
-                ids.length
-                    ? `Đã đồng bộ ${ids.length} chiến dịch từ Web2-Pancake`
-                    : 'Web2-Pancake chưa chọn chiến dịch — hiển thị tất cả',
-                'info'
-            );
-        } catch (e) {
-            notify('Lỗi đồng bộ: ' + e.message, 'error');
-        }
     }
 
     function toggleFilter() {
@@ -4544,6 +4580,7 @@
             if (cb.checked) set.add(id);
             else set.delete(id);
             STATE.selectedCampaignIds = Array.from(set);
+            if (STATE.selectedCampaignIds.length) clearParentSelection();
             saveCampaignSelection();
             renderCampaignLabel();
             STATE.page = 1;
@@ -4551,6 +4588,7 @@
         });
         $('#campaignSelectAll')?.addEventListener('click', () => {
             STATE.selectedCampaignIds = STATE.availableCampaigns.map((c) => c.id);
+            clearParentSelection();
             saveCampaignSelection();
             renderCampaignDropdown();
             renderCampaignLabel();
@@ -4565,17 +4603,6 @@
             STATE.page = 1;
             load();
         });
-        $('#campaignSyncWeb2')?.addEventListener('click', syncFromWeb2Pancake);
-        // Live cross-tab sync — when web2-pancake updates its selection, refresh ours
-        window.addEventListener('storage', (e) => {
-            if (e.key === SELECTED_CAMPAIGNS_KEY) {
-                // Only auto-sync if user hasn't made an own selection (own key still null)
-                if (localStorage.getItem(CAMPAIGN_STORAGE_KEY) == null) {
-                    syncFromWeb2Pancake();
-                }
-            }
-        });
-
         // Check-all + per-row check + bulk bar
         $('#checkAll')?.addEventListener('change', (e) => {
             document.querySelectorAll('#ordersTbody .row-check').forEach((c) => {

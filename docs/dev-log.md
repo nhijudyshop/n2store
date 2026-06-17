@@ -2,6 +2,25 @@
 
 ## 2026-06-17
 
+### [native-orders] Bộ lọc chiến dịch: NHÓM (cha) vs RIÊNG LẺ (bài) — loại trừ 2 chiều + tự chọn 2 bài mới nhất ✅
+
+**User:** "bộ lọc hình 2 chưa đúng" → làm rõ: 2 cấp — **chiến dịch cha = NHÓM bài** (phần trên, radio), **chiến dịch bài viết = RIÊNG LẺ** (phần dưới, checkbox). Yêu cầu: (1) phần trên bỏ "— Tất cả (không lọc cha) —"; (2) phần dưới bỏ nút "Đồng bộ Pancake" (đã tự động); (3) phần dưới **tự chọn 2 bài mới nhất (House + Store)**; (4) **loại trừ 2 chiều** — chọn nhóm thì bài riêng lẻ mất tick & ngược lại.
+
+**Sửa:**
+
+- **Backend** [native-orders.js](render.com/routes/native-orders.js) `GET /campaigns`: thêm `MAX(fb_page_name) AS page_name` + `fb_page_id` → mỗi campaign trả `pageName`/`pageId` để FE phân biệt House/Store. (Idempotent SQL, cùng GROUP BY.)
+- **HTML** [index.html](native-orders/index.html): gỡ nút `#campaignSyncWeb2` ("Đồng bộ Pancake") khỏi toolbar (giữ "Tất cả"/"Bỏ chọn").
+- **JS** [native-orders-app.js](native-orders/js/native-orders-app.js):
+    - `renderParentCampaigns()` bỏ row "— Tất cả (không lọc cha) —" (chỉ list nhóm thật).
+    - `pickNewestHouseStore()` + `reconcileCampaignSelection()`: list sort `lastOrderAt` DESC → lấy bài đầu khớp `/house/i` + `/store/i`; fallback (thiếu pageName, backend chưa deploy) → 2 campaign mới nhất. Dọn ID stale + tự chọn khi rỗng → **sửa luôn bug "4 chiến dịch" ảo** (ID cũ không tồn tại làm lọc ra 0 đơn).
+    - **Loại trừ 2 chiều**: `selectParentCampaign(id)` chọn nhóm → clear `selectedCampaignIds`; checkbox bài riêng lẻ tick → `clearParentSelection()` (bỏ radio nhóm). `campaignSelectAll` cũng clear nhóm.
+    - `renderCampaignLabel()`: nhóm đang chọn → hiện TÊN NHÓM; ngược lại hiện số bài riêng lẻ.
+    - Gỡ `syncFromWeb2Pancake` + storage listener `web2_selected_campaigns` + fallback shared-key (`loadCampaignSelection` chỉ đọc own-key).
+
+**Verify (Playwright localhost, ext n2store):** label "4 chiến dịch" → **"2 chiến dịch"** (tự chọn 2 bài mới nhất, 2 tick); không còn "không lọc cha"/"Đồng bộ Pancake"; chọn nhóm → 0 tick + label = tên nhóm; tick bài → radio nhóm bỏ + label = tên bài. 0 lỗi console. `node --check` PASS. ⚠ pageName House/Store chỉ tách đúng SAU khi deploy backend (chưa deploy → fallback 2 bài mới nhất).
+
+**Status:** ✅ FE verified end-to-end. Chờ deploy Render để pageName phân biệt House/Store. native-orders (Web 2.0).
+
 ### [pancake-settings] Thêm card "Admin theo Page" — đếm account admin + dùng được mỗi page ✅
 
 **User:** từ trang `web2/pancake-settings/` muốn "ghi rõ có bao nhiêu account page house, có bao nhiêu account page store".
