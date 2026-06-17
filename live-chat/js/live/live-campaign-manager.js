@@ -228,7 +228,12 @@
                     _render();
                 } else if (act === 'del') {
                     const cid = btn.closest('[data-cid]')?.dataset.cid;
-                    if (!cid || !confirm('Xoá chiến dịch? (comment giữ nguyên, chỉ gỡ gom)'))
+                    if (
+                        !cid ||
+                        !(await Popup.danger('Xoá chiến dịch? (comment giữ nguyên, chỉ gỡ gom)', {
+                            okText: 'Xoá',
+                        }))
+                    )
                         return;
                     await _api('/campaigns/' + cid, { method: 'DELETE' });
                     _render();
@@ -237,7 +242,7 @@
                     if (cid) _viewCampaign(cid);
                 }
             } catch (err) {
-                alert('Lỗi: ' + err.message);
+                Popup.error('Lỗi: ' + err.message);
             }
         });
 
@@ -266,7 +271,7 @@
                 }
                 _render();
             } catch (err) {
-                alert('Lỗi gom: ' + err.message);
+                Popup.error('Lỗi gom: ' + err.message);
             }
         });
     }
@@ -342,7 +347,7 @@
                 );
             }
         } catch (e) {
-            alert('Lỗi xem: ' + e.message);
+            Popup.error('Lỗi xem: ' + e.message);
         }
     }
 

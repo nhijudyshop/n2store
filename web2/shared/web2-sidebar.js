@@ -52,7 +52,7 @@
                 /* ignore */
             }
         };
-        if (!global.Popup) inject('popup.js', '20260514');
+        if (!global.Popup) inject('popup.js', '20260617');
         if (!global.DeliveryMethodPicker) inject('delivery-method-picker.js', '20260604nj4');
         if (!global.Web2Auth) inject('web2-auth.js', '20260518a');
         // Command palette toàn cục (Ctrl/Cmd+K) — có mặt mọi trang Web 2.0.

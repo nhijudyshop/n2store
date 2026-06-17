@@ -20,16 +20,13 @@
     }
     function notify(msg, type) {
         if (window.notificationManager?.show) window.notificationManager.show(msg, type || 'info');
-        else if (type === 'error' && window.Popup) window.Popup.error(msg);
-        else if (type === 'error') alert(msg);
+        else if (type === 'error') window.Popup.error(msg);
     }
     function w2pConfirm(msg, opts) {
-        return window.Popup ? window.Popup.confirm(msg, opts) : Promise.resolve(confirm(msg));
+        return window.Popup.confirm(msg, opts);
     }
     function w2pAlert(msg, opts) {
-        if (window.Popup) return window.Popup.alert(msg, opts);
-        alert(msg);
-        return Promise.resolve();
+        return window.Popup.alert(msg, opts);
     }
 
     const STATE_META = {

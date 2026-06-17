@@ -929,14 +929,10 @@
             if (clearBtn) {
                 clearBtn.onclick = async (e) => {
                     e.stopPropagation();
-                    const ok = global.Popup
-                        ? await global.Popup.confirm(
-                              `Xóa toàn bộ đơn? ${d.items.length} SP sẽ bị xóa. (Dùng khi kéo nhầm)`,
-                              { type: 'warning', okText: 'Xóa đơn', cancelText: 'Hủy' }
-                          )
-                        : confirm(
-                              `Xóa toàn bộ đơn? ${d.items.length} SP sẽ bị xóa. (Dùng khi kéo nhầm)`
-                          );
+                    const ok = await global.Popup.danger(
+                        `Xóa toàn bộ đơn? ${d.items.length} SP sẽ bị xóa. (Dùng khi kéo nhầm)`,
+                        { okText: 'Xóa đơn', cancelText: 'Hủy' }
+                    );
                     if (ok) clearOrder(commentId);
                 };
             }

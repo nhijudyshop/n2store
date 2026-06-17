@@ -424,7 +424,12 @@
             return;
         }
         if (act === 'delete') {
-            if (!confirm(`Xóa khách hàng "${row.name || row.phone}"?`)) return;
+            if (
+                !(await window.Popup.danger(`Xóa khách hàng "${row.name || row.phone}"?`, {
+                    okText: 'Xóa',
+                }))
+            )
+                return;
             try {
                 const res = await window.CustomersApi.remove(row.id);
                 if (res.success === false) throw new Error(res.error || 'Xóa thất bại');
@@ -446,7 +451,7 @@
         const [a, b] = ids;
         const ra = state.rows.find((r) => r.id === a);
         const rb = state.rows.find((r) => r.id === b);
-        const primary = confirm(
+        const primary = await window.Popup.confirm(
             `Gộp 2 KH:\n  A: ${ra?.name} (${ra?.phone || '—'})\n  B: ${rb?.name} (${rb?.phone || '—'})\n\nOK = giữ A làm chính (B gộp vào A).\nCancel = giữ B làm chính.`
         );
         const primaryId = primary ? a : b;

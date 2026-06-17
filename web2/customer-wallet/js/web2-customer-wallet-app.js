@@ -1075,9 +1075,10 @@
     // ─── Hard reset ─────────────────────────────────────────────────
     async function hardReset() {
         if (
-            !confirm(
-                'Xoá cache localStorage?\n• Xoá toàn bộ dữ liệu cache trên trình duyệt\n• Tải lại dữ liệu mới nhất từ server (/api/web2/*)\n\n⚠ Chỉ cache trình duyệt bị xoá — dữ liệu trên server không bị ảnh hưởng.'
-            )
+            !(await Popup.danger(
+                'Xoá cache localStorage?\n• Xoá toàn bộ dữ liệu cache trên trình duyệt\n• Tải lại dữ liệu mới nhất từ server (/api/web2/*)\n\n⚠ Chỉ cache trình duyệt bị xoá — dữ liệu trên server không bị ảnh hưởng.',
+                { okText: 'Xoá cache' }
+            ))
         )
             return;
         try {

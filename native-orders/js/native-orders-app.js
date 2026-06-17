@@ -902,21 +902,23 @@
             return;
         }
         // Fallback nếu không có Popup
-        if (confirm(reasonText + '\n\nMở business.facebook.com để đăng nhập?')) {
-            window.open(
-                'https://business.facebook.com/latest/inbox/all',
-                '_blank',
-                'noopener,noreferrer'
-            );
-        }
+        window.Popup.confirm(reasonText + '\n\nMở business.facebook.com để đăng nhập?').then(
+            (ok) => {
+                if (ok) {
+                    window.open(
+                        'https://business.facebook.com/latest/inbox/all',
+                        '_blank',
+                        'noopener,noreferrer'
+                    );
+                }
+            }
+        );
     }
     function w2pConfirm(msg, opts) {
-        return window.Popup ? window.Popup.confirm(msg, opts) : Promise.resolve(confirm(msg));
+        return window.Popup.confirm(msg, opts);
     }
     function w2pAlert(msg, opts) {
-        if (window.Popup) return window.Popup.alert(msg, opts);
-        alert(msg);
-        return Promise.resolve();
+        return window.Popup.alert(msg, opts);
     }
 
     // ---------- Render ----------
@@ -2749,14 +2751,10 @@
         // fill these via the Edit modal first.
         const v = validateOrderForPbh(src);
         if (!v.ok) {
-            if (window.Popup) {
-                await window.Popup.error(
-                    `Đơn ${code} chưa có ${v.missing.join(' và ')}. Vui lòng bổ sung trước khi tạo PBH.`,
-                    { title: 'Thiếu thông tin', okText: 'Đã hiểu' }
-                );
-            } else {
-                alert(`Đơn ${code} thiếu ${v.missing.join(' và ')} — không thể tạo PBH.`);
-            }
+            await window.Popup.error(
+                `Đơn ${code} chưa có ${v.missing.join(' và ')}. Vui lòng bổ sung trước khi tạo PBH.`,
+                { title: 'Thiếu thông tin', okText: 'Đã hiểu' }
+            );
             return;
         }
         // validateOrderForPbh already blocked empty-products orders above —
@@ -2771,11 +2769,6 @@
             },
             { qty: 0, amount: 0 }
         );
-        if (!window.Popup) {
-            // Fallback for any environment without popup loaded yet
-            if (!confirm(`Tạo Phiếu Bán Hàng (PBH) từ đơn ${code}?`)) return;
-            return _doCreatePbh(code, {});
-        }
         // Build a custom modal with form fields (deposit, deliveryPrice, paymentAmount, comment)
         const fmt = (n) => Number(n || 0).toLocaleString('vi-VN');
 
@@ -3084,15 +3077,13 @@
             0
         );
 
-        const proceed = window.Popup
-            ? await window.Popup.confirm(
-                  `Gộp ${orders.length} Đơn Web của KH ${customerName} (${phone}) thành 1 đơn?\n\n` +
-                      `STT mới hiển thị: "${stts.join(' + ')}"\n` +
-                      `Tổng SL: ${totalQty} sản phẩm — ${Number(totalAmt).toLocaleString('vi-VN')}đ\n\n` +
-                      `⚠️ Các đơn gốc (${codes.join(', ')}) sẽ BỊ XÓA và thay bằng 1 Đơn Web mới (chưa tạo PBH).`,
-                  { title: 'Gộp Đơn Web', okText: 'Gộp đơn', type: 'warning' }
-              )
-            : confirm(`Gộp ${orders.length} đơn thành 1?`);
+        const proceed = await window.Popup.confirm(
+            `Gộp ${orders.length} Đơn Web của KH ${customerName} (${phone}) thành 1 đơn?\n\n` +
+                `STT mới hiển thị: "${stts.join(' + ')}"\n` +
+                `Tổng SL: ${totalQty} sản phẩm — ${Number(totalAmt).toLocaleString('vi-VN')}đ\n\n` +
+                `⚠️ Các đơn gốc (${codes.join(', ')}) sẽ BỊ XÓA và thay bằng 1 Đơn Web mới (chưa tạo PBH).`,
+            { title: 'Gộp Đơn Web', okText: 'Gộp đơn', type: 'warning' }
+        );
         if (!proceed) return;
 
         try {
@@ -9287,11 +9278,11 @@
         if (src.status === 'cancelled') {
             return notify(`Đơn ${code} đã ở trạng thái cancelled`, 'warning');
         }
-        const reasonRes = await (window.Popup?.prompt?.(`Lý do huỷ đơn ${code}?`, {
+        const reasonRes = await window.Popup.prompt(`Lý do huỷ đơn ${code}?`, {
             defaultValue: '',
             okText: 'Huỷ đơn',
             cancelText: 'Quay lại',
-        }) || Promise.resolve(prompt(`Lý do huỷ đơn ${code}:`, '')));
+        });
         if (reasonRes === null || reasonRes === undefined || reasonRes === false) return;
         const reason = String(reasonRes || '').trim();
         const ok = await w2pConfirm(

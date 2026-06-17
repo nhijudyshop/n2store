@@ -376,9 +376,9 @@
         }
         if (action === 'approve') {
             if (
-                !confirm(
+                !(await Popup.confirm(
                     `Duyệt phiếu ${code}? Stock kho sẽ TRỪ qty cho từng SP. Hành động idempotent.`
-                )
+                ))
             )
                 return;
             try {
@@ -405,7 +405,9 @@
             return;
         }
         if (action === 'cancel-approve') {
-            const reason = prompt('Lý do hủy duyệt (sẽ trả tồn về):', '');
+            const reason = await Popup.prompt('Lý do hủy duyệt (sẽ trả tồn về):', {
+                defaultValue: '',
+            });
             if (reason === null) return;
             try {
                 const res = await fetchJson(
@@ -429,10 +431,9 @@
             return;
         }
         if (action === 'refunded') {
-            const method = prompt(
-                'Phương thức hoàn (cash/bank/debt_offset/replace):',
-                STATE.selected.refundMethod || 'bank'
-            );
+            const method = await Popup.prompt('Phương thức hoàn (cash/bank/debt_offset/replace):', {
+                defaultValue: STATE.selected.refundMethod || 'bank',
+            });
             if (method === null) return;
             try {
                 await fetchJson(`${SM_API}/${encodeURIComponent(code)}/refunded`, {
@@ -453,7 +454,9 @@
             return;
         }
         if (action === 'reject') {
-            const reason = prompt('Lý do NCC từ chối (sẽ trả tồn nếu đã trừ):', '');
+            const reason = await Popup.prompt('Lý do NCC từ chối (sẽ trả tồn nếu đã trừ):', {
+                defaultValue: '',
+            });
             if (reason === null) return;
             try {
                 const res = await fetchJson(`${SM_API}/${encodeURIComponent(code)}/reject`, {

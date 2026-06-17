@@ -62,13 +62,11 @@ const PancakeContextMenu = {
                 }
                 window.PancakeConversationList.renderConversationList();
             } else if (action === 'add-note') {
-                var note = window.Popup
-                    ? await window.Popup.prompt('Nhập ghi chú cho khách hàng:', {
-                          title: 'Thêm ghi chú',
-                          multiline: true,
-                          placeholder: 'VD: Khách quen, hay đổi size…',
-                      })
-                    : prompt('Nhập ghi chú cho khách hàng:');
+                var note = await window.Popup.prompt('Nhập ghi chú cho khách hàng:', {
+                    title: 'Thêm ghi chú',
+                    multiline: true,
+                    placeholder: 'VD: Khách quen, hay đổi size…',
+                });
                 if (note && note.trim()) {
                     var conv3 = state.conversations.find(function (c) {
                         return c.id === convId;
@@ -83,16 +81,11 @@ const PancakeContextMenu = {
                             customerId,
                             note.trim()
                         );
-                        if (window.Popup) {
-                            window.Popup[ok ? 'success' : 'error'](
-                                ok ? 'Đã thêm ghi chú thành công!' : 'Lỗi thêm ghi chú'
-                            );
-                        } else {
-                            alert(ok ? 'Đã thêm ghi chú thành công!' : 'Lỗi thêm ghi chú');
-                        }
+                        window.Popup[ok ? 'success' : 'error'](
+                            ok ? 'Đã thêm ghi chú thành công!' : 'Lỗi thêm ghi chú'
+                        );
                     } else {
-                        if (window.Popup) window.Popup.error('Không tìm thấy thông tin khách hàng');
-                        else alert('Không tìm thấy thông tin khách hàng');
+                        window.Popup.error('Không tìm thấy thông tin khách hàng');
                     }
                 }
             } else if (action === 'manage-tags') {

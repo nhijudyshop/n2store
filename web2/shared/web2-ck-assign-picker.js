@@ -197,14 +197,19 @@
         const linked = row.dataset.linked;
         if (linked && last9(linked) !== last9(_ctx.phone)) {
             if (
-                !confirm(
+                !(await global.Popup.confirm(
                     `Giao dịch này đã gán cho SĐT ${linked}. Không thể gán lại trực tiếp — dùng "Đổi KH" ở trang Số dư. Tiếp tục bỏ qua?`
-                )
+                ))
             )
                 return;
             return;
         }
-        if (!confirm(`Gán giao dịch +${fmtVnd(amt)}₫ cho ${_ctx.name || _ctx.phone}?`)) return;
+        if (
+            !(await global.Popup.confirm(
+                `Gán giao dịch +${fmtVnd(amt)}₫ cho ${_ctx.name || _ctx.phone}?`
+            ))
+        )
+            return;
         row.style.pointerEvents = 'none';
         row.style.opacity = '.5';
         const userName =

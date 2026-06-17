@@ -44,17 +44,12 @@
         }));
         const codes = [...new Set(returns.map((r) => r.code))];
         const summary = items.map((it) => `• ${it.productCode} ×${it.quantity}`).join('\n');
-        let ok = true;
         const msg = `Khách có ${items.length} SP THU VỀ đang chờ:\n\n${summary}\n\nThêm vào bill với giá 0đ?`;
-        if (window.Popup?.confirm) {
-            ok = await window.Popup.confirm(msg, {
-                title: 'Sản phẩm thu về',
-                okText: 'Thêm 0đ vào bill',
-                cancelText: 'Bỏ qua',
-            });
-        } else {
-            ok = window.confirm(msg);
-        }
+        const ok = await window.Popup.confirm(msg, {
+            title: 'Sản phẩm thu về',
+            okText: 'Thêm 0đ vào bill',
+            cancelText: 'Bỏ qua',
+        });
         if (!ok) return null;
         return { returnLines: lines, returnCodes: codes };
     }

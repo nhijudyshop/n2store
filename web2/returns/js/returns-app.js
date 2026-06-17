@@ -617,7 +617,12 @@
     }
 
     async function removeReturn(code) {
-        if (!confirm(`Huỷ phiếu ${code}? Sẽ hoàn lại ví/kho đã thay đổi.`)) return;
+        if (
+            !(await Popup.danger(`Huỷ phiếu ${code}? Sẽ hoàn lại ví/kho đã thay đổi.`, {
+                okText: 'Huỷ phiếu',
+            }))
+        )
+            return;
         try {
             await api.remove(code);
             toast(`Đã huỷ ${code}`, 'success');

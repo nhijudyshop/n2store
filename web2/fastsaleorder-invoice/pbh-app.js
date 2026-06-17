@@ -57,22 +57,18 @@
     }
     function notify(msg, type) {
         if (window.notificationManager?.show) window.notificationManager.show(msg, type || 'info');
-        else if (type === 'error' && window.Popup) window.Popup.error(msg);
-        else if (type === 'error') alert(msg);
+        else if (type === 'error') window.Popup.error(msg);
         else console.log('[pbh]', msg);
     }
-    // Promise-based confirm/alert/prompt helpers (graceful fallback to native).
+    // Promise-based confirm/alert/prompt helpers (shared Web 2.0 Popup module).
     function w2pConfirm(msg, opts) {
-        return window.Popup ? window.Popup.confirm(msg, opts) : Promise.resolve(confirm(msg));
+        return window.Popup.confirm(msg, opts);
     }
     function w2pAlert(msg, opts) {
-        if (window.Popup) return window.Popup.alert(msg, opts);
-        alert(msg);
-        return Promise.resolve();
+        return window.Popup.alert(msg, opts);
     }
     function w2pPrompt(msg, opts) {
-        if (window.Popup) return window.Popup.prompt(msg, opts);
-        return Promise.resolve(prompt(msg, opts?.defaultValue || ''));
+        return window.Popup.prompt(msg, opts);
     }
 
     // Model 2-state đơn giản: 'done' (Hoàn thành) + 'cancel' (Đã hủy).

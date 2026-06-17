@@ -310,8 +310,9 @@
             renderBody({ keepScroll: true });
             WZ.actions.react(account, conv, m, key).catch((e) => notify('✗ ' + e.message, 'error'));
         }
-        function doRecall(m) {
-            if (!confirm('Thu hồi tin nhắn này?')) return;
+        async function doRecall(m) {
+            if (!(await window.Popup.danger('Thu hồi tin nhắn này?', { okText: 'Thu hồi' })))
+                return;
             m.recalled = true;
             renderBody({ keepScroll: true });
             WZ.actions.recall(account, conv, m).catch((e) => {

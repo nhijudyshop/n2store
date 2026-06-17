@@ -375,17 +375,14 @@
     async function remove(id) {
         const v = STATE.variants.find((x) => x.id === Number(id));
         if (!v) return;
-        const ok = window.Popup
-            ? await window.Popup.confirm(
-                  `Xóa biến thể "${v.value}"? SP đang dùng biến thể này sẽ còn lưu chuỗi text cũ nhưng dropdown picker sẽ không gợi ý nữa.`,
-                  {
-                      title: `Xoá biến thể?`,
-                      okText: 'Xoá',
-                      cancelText: 'Đóng',
-                      type: 'error',
-                  }
-              )
-            : confirm(`Xóa biến thể "${v.value}"?`);
+        const ok = await window.Popup.danger(
+            `Xóa biến thể "${v.value}"? SP đang dùng biến thể này sẽ còn lưu chuỗi text cũ nhưng dropdown picker sẽ không gợi ý nữa.`,
+            {
+                title: `Xoá biến thể?`,
+                okText: 'Xoá',
+                cancelText: 'Đóng',
+            }
+        );
         if (!ok) return;
         try {
             await window.Web2VariantsApi.remove(id);

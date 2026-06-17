@@ -2,6 +2,24 @@
 
 ## 2026-06-17
 
+### [web2/shared] Popup dùng chung — alert/confirm/popup nhiều loại + hiệu ứng custom, migrate toàn cục Web 2.0 ✅
+
+**User:** "tìm kiếm toàn bộ, toàn cục web 2.0 về alert, popup tất cả trang thay toàn bộ về custom hiệu ứng, giao diện → làm custom riêng về phần popup, alert nhiều loại (confirm, warning, OK, exit,...) để các trang tham chiếu dùng nguồn này".
+
+**Nguồn DUY NHẤT:** [web2/shared/popup.js](web2/shared/popup.js) (`window.Popup`) — đã auto-load mọi trang Web 2.0 qua [web2-sidebar.js](web2/shared/web2-sidebar.js) (`inject('popup.js','20260617')`). KHÔNG tự build alert/confirm/popup riêng.
+
+**Nâng cấp popup.js (hiệu ứng + loại):**
+
+- API: `alert` · `info` · `success` · `error` · `warning` (OK đơn, typed màu+icon) · `confirm` (Promise<boolean>) · `danger` (confirm phá huỷ, nút ĐỎ) · `exit` (rời/thoát — "Thoát"/"Ở lại") · `prompt` (Promise<string|null>, có `multiline`). opts: `title/type/danger/okText/cancelText/defaultValue/placeholder/multiline`.
+- **Hiệu ứng custom:** spring entrance + icon pop + ring-pulse theo accent; burst Lottie (`Web2Lottie.success()/error()`) khi type success/error; **scroll-lock body đếm chồng** (iOS-safe), nút danger đỏ `#ef4444`, focus-visible ring, **tôn trọng `prefers-reduced-motion`** (tắt hết animation). Giữ nguyên bộ utility class `.w2p-overlay/.w2p-card/.w2p-scroll-area` cho modal custom khác.
+- KHÔNG override `window.alert/confirm/prompt` (giữ ranh giới migrate rõ); KHÔNG `backdrop-filter:blur` (chống lag theo MODAL-ANTI-LAG).
+
+**Migrate toàn cục (5 sub-agent song song, 33 file):** thay HẾT native `alert/confirm/prompt` → `Popup.*` ở web2/_ + native-orders + so-order + live-chat. Quy tắc: `confirm/prompt` → `await Popup._`(hàm thành`async`, hoặc `.then()` khi handler sync); thao tác phá huỷ (xoá/huỷ/reset/gỡ) → **`Popup.danger`** (28 chỗ); lỗi → `Popup.error`. Wrapper sẵn có (`w2pConfirm/w2pAlert/w2pPrompt`) bỏ nhánh native chết, delegate thẳng `window.Popup`(callers đã`await`).
+
+**Verify:** `node --check` PASS toàn bộ 33 file; grep KHÔNG còn native call thật (chỉ comment + 1 fallback chuỗi cuối `web2-sidebar.alertSoon`); KHÔNG có `Popup.confirm/danger/prompt` nào dùng trong điều kiện mà thiếu `await` (chống bug Promise luôn truthy). Browser (Playwright localhost, ext): danger popup render đúng (nút đỏ "Xoá", icon octagon, scroll-lock bật/tắt đúng, accent `#ef4444`), load sạch 0 lỗi console ở native-orders + pancake-settings + reconcile + customers + products + purchase-refund + returns. Số call sau migrate: confirm 20 · danger 28 · prompt 17 · error 13 · alert 7 · info/success/warning/exit mỗi loại ≥1.
+
+**Status:** ✅ verified end-to-end. Web 2.0 shared. Trang mới cần alert/confirm/popup → DÙNG `window.Popup.*`, đừng reinvent.
+
 ### [native-orders] Bộ lọc chiến dịch: NHÓM (cha) vs RIÊNG LẺ (bài) — loại trừ 2 chiều + tự chọn 2 bài mới nhất ✅
 
 **User:** "bộ lọc hình 2 chưa đúng" → làm rõ: 2 cấp — **chiến dịch cha = NHÓM bài** (phần trên, radio), **chiến dịch bài viết = RIÊNG LẺ** (phần dưới, checkbox). Yêu cầu: (1) phần trên bỏ "— Tất cả (không lọc cha) —"; (2) phần dưới bỏ nút "Đồng bộ Pancake" (đã tự động); (3) phần dưới **tự chọn 2 bài mới nhất (House + Store)**; (4) **loại trừ 2 chiều** — chọn nhóm thì bài riêng lẻ mất tick & ngược lại.

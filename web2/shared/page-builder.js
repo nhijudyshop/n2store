@@ -610,13 +610,10 @@
             }
         }
         async function removeRecord(code) {
-            const ok = window.Popup
-                ? await window.Popup.confirm(`Hành động không thể hoàn tác.`, {
-                      title: `Xoá "${code}"?`,
-                      okText: 'Xoá',
-                      type: 'error',
-                  })
-                : confirm(`Xóa "${code}"?`);
+            const ok = await window.Popup.danger(`Hành động không thể hoàn tác.`, {
+                title: `Xoá "${code}"?`,
+                okText: 'Xoá',
+            });
             if (!ok) return;
             // UI-FIRST (sau khi confirm): row biến mất NGAY, backend chạy ngầm,
             // lỗi thì khôi phục lại đúng vị trí cũ. (saveModal create/update giữ

@@ -520,7 +520,7 @@ const LiveCommentList = {
      * @param {MouseEvent} e
      * @param {HTMLElement} list
      */
-    _onListClick(e, list) {
+    async _onListClick(e, list) {
         const actionEl = e.target.closest('[data-action]');
         if (actionEl && list.contains(actionEl)) {
             // Inline handler cũ đều có event.stopPropagation() → giữ behavior.
@@ -566,8 +566,9 @@ const LiveCommentList = {
                     return;
                 case 'hide-commenter':
                     if (
-                        confirm(
-                            `Ẩn TẤT CẢ comment của "${d.name || d.fromId}"?\n(Bỏ ẩn ở nút 🙈 trên topbar — đồng bộ mọi máy)`
+                        await Popup.confirm(
+                            `Ẩn TẤT CẢ comment của "${d.name || d.fromId}"?\n(Bỏ ẩn ở nút 🙈 trên topbar — đồng bộ mọi máy)`,
+                            { okText: 'Ẩn' }
                         )
                     ) {
                         window.LiveHiddenCommenters?.hide(d.fromId, d.name || '');

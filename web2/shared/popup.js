@@ -6,14 +6,22 @@
 // Replaces native window.alert / confirm / prompt with a styled modal that
 // matches the Web 2.0 theme. Promise-based API so callers must use await.
 //
-// Public API (window.Popup):
+// Public API (window.Popup) — TẤT CẢ trang Web 2.0 tham chiếu nguồn DUY NHẤT này
+// (auto-load qua web2-sidebar.js). KHÔNG tự build alert/confirm/popup riêng.
 //   await Popup.alert(message, opts?)               → Promise<void>
+//   await Popup.success(message, opts?)             → Promise<void>   (type=success)
+//   await Popup.error(message, opts?)               → Promise<void>   (type=error)
+//   await Popup.warning(message, opts?)             → Promise<void>   (type=warning)
+//   await Popup.info(message, opts?)                → Promise<void>   (type=info)
 //   await Popup.confirm(message, opts?)             → Promise<boolean>
+//   await Popup.danger(message, opts?)              → Promise<boolean> (confirm phá huỷ, nút đỏ)
+//   await Popup.exit(message, opts?)                → Promise<boolean> (rời/thoát, "Thoát"/"Ở lại")
 //   await Popup.prompt(message, opts?)              → Promise<string|null>
 //
 // opts:
 //   title?: string           — header text (defaults by kind)
-//   type?: 'info'|'success'|'warning'|'error'  — color + icon
+//   type?: 'info'|'success'|'warning'|'error'|'question'  — color + icon + hiệu ứng
+//   danger?: boolean         — nút chính màu đỏ (thao tác phá huỷ; mặc định true cho danger/exit)
 //   okText?: string          — primary button label
 //   cancelText?: string      — secondary button label (confirm + prompt only)
 //   defaultValue?: string    — prefilled input value (prompt only)
@@ -24,6 +32,9 @@
 //   Enter        → confirm/submit
 //   Escape       → cancel (resolves false / null / void)
 //   Backdrop click → cancel
+//
+// Hiệu ứng: spring entrance, icon pop, ring pulse theo type, + burst Lottie
+// (Web2Lottie.success()/error() khi có) — tự tắt khi prefers-reduced-motion.
 //
 // Backward-compat: window.alert / window.confirm / window.prompt are NOT
 // overridden — call sites must explicitly switch to Popup.* so we keep a
@@ -48,6 +59,27 @@
         error: { bg: '#fee2e2', fg: '#991b1b', accent: '#ef4444' },
         question: { bg: '#e8f2ff', fg: '#004bb5', accent: '#0068ff' },
     };
+    const DANGER_ACCENT = '#ef4444';
+
+    // Body scroll-lock đếm chồng (nhiều popup lồng nhau) — iOS-safe pattern.
+    let _openCount = 0;
+    let _savedScrollY = 0;
+    function lockScroll() {
+        if (_openCount === 0) {
+            _savedScrollY = window.scrollY || window.pageYOffset || 0;
+            document.body.style.top = `-${_savedScrollY}px`;
+            document.body.classList.add('w2p-scroll-lock');
+        }
+        _openCount++;
+    }
+    function unlockScroll() {
+        _openCount = Math.max(0, _openCount - 1);
+        if (_openCount === 0) {
+            document.body.classList.remove('w2p-scroll-lock');
+            document.body.style.top = '';
+            window.scrollTo(0, _savedScrollY);
+        }
+    }
 
     function ensureRoot() {
         let root = document.getElementById('web2-popup-root');
@@ -150,12 +182,47 @@
                 border-color: #e2e8f0;
             }
             #web2-popup-root .w2p-btn-secondary:hover { background: #f8fafc; }
+            #web2-popup-root .w2p-btn-danger {
+                background: ${DANGER_ACCENT}; color: #fff;
+            }
+            #web2-popup-root .w2p-btn-primary:focus-visible,
+            #web2-popup-root .w2p-btn-danger:focus-visible,
+            #web2-popup-root .w2p-btn-secondary:focus-visible {
+                outline: 2px solid var(--w2p-accent, #0068ff);
+                outline-offset: 2px;
+            }
+            /* Icon ring pulse — nhịp nhẹ theo accent type */
+            #web2-popup-root .w2p-icon {
+                position: relative;
+                animation: w2pIconPop 320ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+            }
+            #web2-popup-root .w2p-icon::after {
+                content: ''; position: absolute; inset: 0;
+                border-radius: 50%;
+                box-shadow: 0 0 0 0 var(--w2p-ring, rgba(0,104,255,0.35));
+                animation: w2pRing 1400ms ease-out 200ms 1;
+            }
+            body.w2p-scroll-lock { position: fixed; left: 0; right: 0; width: 100%; overflow: hidden; }
             @keyframes w2pFadeIn { from { opacity: 0; } to { opacity: 1; } }
             @keyframes w2pPop {
-                from { opacity: 0; transform: translateY(-8px) scale(0.97); }
+                from { opacity: 0; transform: translateY(-8px) scale(0.96); }
                 to   { opacity: 1; transform: translateY(0)     scale(1); }
             }
+            @keyframes w2pIconPop {
+                0%   { transform: scale(0.3); opacity: 0; }
+                100% { transform: scale(1);   opacity: 1; }
+            }
+            @keyframes w2pRing {
+                0%   { box-shadow: 0 0 0 0 var(--w2p-ring, rgba(0,104,255,0.35)); }
+                100% { box-shadow: 0 0 0 14px rgba(0,0,0,0); }
+            }
             #web2-popup-root.is-closing .w2p-backdrop { animation: w2pFadeIn 100ms ease-in reverse; }
+            @media (prefers-reduced-motion: reduce) {
+                #web2-popup-root .w2p-backdrop,
+                #web2-popup-root .w2p-modal,
+                #web2-popup-root .w2p-icon,
+                #web2-popup-root .w2p-icon::after { animation: none !important; }
+            }
 
             /* =====================================================
              * Reusable utility classes for ANY heavy / interactive modal
@@ -230,6 +297,12 @@
         document.head.appendChild(style);
     }
 
+    function hexToRgba(hex, a) {
+        const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex || '');
+        if (!m) return `rgba(0,104,255,${a})`;
+        return `rgba(${parseInt(m[1], 16)},${parseInt(m[2], 16)},${parseInt(m[3], 16)},${a})`;
+    }
+
     // Shared modal renderer. `kind` = 'alert' | 'confirm' | 'prompt'.
     function open(kind, message, opts = {}) {
         ensureStyles();
@@ -237,6 +310,8 @@
         const type = opts.type || (kind === 'confirm' ? 'question' : 'info');
         const colors = TYPE_COLORS[type] || TYPE_COLORS.info;
         const iconName = ICONS[type] || ICONS.info;
+        const isDanger = !!opts.danger;
+        const primaryAccent = isDanger ? DANGER_ACCENT : colors.accent;
         const defaultTitle =
             opts.title ||
             (kind === 'confirm' ? 'Xác nhận' : kind === 'prompt' ? 'Nhập thông tin' : 'Thông báo');
@@ -250,7 +325,8 @@
 
         const modal = document.createElement('div');
         modal.className = 'w2p-modal';
-        modal.style.setProperty('--w2p-accent', colors.accent);
+        modal.style.setProperty('--w2p-accent', primaryAccent);
+        modal.style.setProperty('--w2p-ring', hexToRgba(colors.accent, 0.35));
 
         // Allow opts.message to be HTML-escaped — we always treat the message
         // as plain text (textContent) to avoid XSS surprises.
@@ -268,7 +344,7 @@
             <div class="w2p-body"></div>
             <div class="w2p-actions">
                 ${showCancel ? `<button type="button" class="w2p-btn w2p-btn-secondary" data-action="cancel"></button>` : ''}
-                <button type="button" class="w2p-btn w2p-btn-primary" data-action="ok"></button>
+                <button type="button" class="w2p-btn ${isDanger ? 'w2p-btn-danger' : 'w2p-btn-primary'}" data-action="ok"></button>
             </div>
         `;
         modal.querySelector('.w2p-title').textContent = defaultTitle;
@@ -292,14 +368,27 @@
 
         backdrop.appendChild(modal);
         root.appendChild(backdrop);
+        lockScroll();
         if (typeof window.lucide !== 'undefined') window.lucide.createIcons();
         if (inputEl) setTimeout(() => inputEl.focus(), 30);
         else setTimeout(() => modal.querySelector('[data-action="ok"]').focus(), 30);
+
+        // Hiệu ứng burst Lottie cho success/error (decorative, throttled, tự tắt
+        // khi reduced-motion). Không chặn — chỉ tô điểm.
+        try {
+            if (window.Web2Lottie && window.Web2Lottie.enabled) {
+                if (type === 'success') window.Web2Lottie.success();
+                else if (type === 'error') window.Web2Lottie.error();
+            }
+        } catch (_) {
+            /* lottie optional */
+        }
 
         return new Promise((resolve) => {
             const cleanup = () => {
                 if (backdrop.parentNode) backdrop.parentNode.removeChild(backdrop);
                 document.removeEventListener('keydown', onKey);
+                unlockScroll();
             };
             const finishOk = () => {
                 if (showInput) resolve(inputEl.value);
@@ -343,10 +432,23 @@
         alert: (msg, opts) => open('alert', msg, opts),
         confirm: (msg, opts) => open('confirm', msg, opts),
         prompt: (msg, opts) => open('prompt', msg, opts),
-        // Convenience for the most common pattern: try/catch wrapping success/error toasts.
+        // Typed alerts (OK đơn) — màu + icon + hiệu ứng theo loại.
+        info: (msg, opts) => open('alert', msg, { ...opts, type: 'info' }),
         error: (msg, opts) => open('alert', msg, { ...opts, type: 'error' }),
         success: (msg, opts) => open('alert', msg, { ...opts, type: 'success' }),
         warning: (msg, opts) => open('alert', msg, { ...opts, type: 'warning' }),
+        // Confirm phá huỷ (nút đỏ). okText mặc định giữ 'Đồng ý' — caller có thể đổi 'Xoá'.
+        danger: (msg, opts) => open('confirm', msg, { type: 'error', danger: true, ...opts }),
+        // Xác nhận RỜI/THOÁT (rời trang, bỏ thay đổi…). "Thoát"/"Ở lại".
+        exit: (msg, opts) =>
+            open('confirm', msg, {
+                type: 'warning',
+                danger: true,
+                title: 'Rời khỏi trang?',
+                okText: 'Thoát',
+                cancelText: 'Ở lại',
+                ...opts,
+            }),
         // Expose helper so custom modals can ensure utility classes are ready
         // before they render their own markup.
         ensureStyles,

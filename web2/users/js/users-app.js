@@ -302,8 +302,13 @@
 
     // ---------- delete (deactivate) ----------
     // UI-first: mark user disabled NGAY, DELETE background. Rollback nếu lỗi.
-    function deactivateUser(user) {
-        if (!confirm(`Vô hiệu user "${user.username}"? Các session sẽ bị logout.`)) return;
+    async function deactivateUser(user) {
+        if (
+            !(await Popup.danger(`Vô hiệu user "${user.username}"? Các session sẽ bị logout.`, {
+                okText: 'Vô hiệu',
+            }))
+        )
+            return;
         const prevActive = user.isActive;
         if (window.Web2Optimistic?.run) {
             Web2Optimistic.run({

@@ -139,7 +139,7 @@
     function printHTML(html, opts = {}) {
         const w = window.open('', '_blank', 'width=900,height=900');
         if (!w) {
-            alert('Browser chặn popup — bật popup cho domain rồi thử lại.');
+            window.Popup.error('Browser chặn popup — bật popup cho domain rồi thử lại.');
             return;
         }
         w.document.write(`<!DOCTYPE html><html><head><title>${opts.title || 'Print'}</title>

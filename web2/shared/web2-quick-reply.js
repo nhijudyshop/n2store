@@ -487,11 +487,12 @@
                     e.stopPropagation();
                     const id = row.dataset.id;
                     if (btn.dataset.act === 'del') {
-                        if (confirm('Xoá mẫu này?')) {
+                        window.Popup.danger('Xoá mẫu này?', { okText: 'Xoá' }).then((ok) => {
+                            if (!ok) return;
                             deleteReply(id)
                                 .then(() => _renderModalList(container, opts))
                                 .catch((err) => _notify('Lỗi xoá: ' + err.message, 'error'));
-                        }
+                        });
                     } else if (btn.dataset.act === 'edit') {
                         _openForm(
                             _replies.find((x) => x.id == id),

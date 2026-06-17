@@ -5469,8 +5469,8 @@ window.addEventListener('load', () => {
         document
             .getElementById('soCreateOrderBtn')
             .addEventListener('click', () => openOrderModal(null));
-        document.getElementById('soGenRandomBtn')?.addEventListener('click', () => {
-            const c = prompt('Tạo bao nhiêu đơn ngẫu nhiên?', '5');
+        document.getElementById('soGenRandomBtn')?.addEventListener('click', async () => {
+            const c = await Popup.prompt('Tạo bao nhiêu đơn ngẫu nhiên?', { defaultValue: '5' });
             if (c === null) return;
             generateRandomOrders(parseInt(c, 10) || 0);
         });

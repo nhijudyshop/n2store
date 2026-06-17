@@ -559,7 +559,7 @@
     // ----- Manual link via smart customer search modal -----
     // Dùng Web2LinkCustomerModal (tìm KH qua WEB2 Partner OData fast search).
     // Fallback prompt nếu modal chưa load.
-    function openLinkPrompt(id) {
+    async function openLinkPrompt(id) {
         // Seed search bằng extraction_preview (NGUỒN CANONICAL backend — web2-
         // content-extractor.extractIdentifier: chỉ đuôi SĐT 5–10 số, bỏ dãy >10
         // như FT/GD bank ref). KHÔNG grab raw \d{5,} vì vớ phải bank ref dài
@@ -577,12 +577,12 @@
             return;
         }
         // Fallback (modal chưa load)
-        const phone = prompt('Nhập SĐT KH (10 chữ số):');
+        const phone = await window.Popup.prompt('Nhập SĐT KH (10 chữ số):');
         if (!phone || !/^\d{9,11}$/.test(phone.trim())) {
             if (phone) notify('SĐT không hợp lệ', 'warning');
             return;
         }
-        const name = prompt('Tên KH (tuỳ chọn):') || '';
+        const name = (await window.Popup.prompt('Tên KH (tuỳ chọn):')) || '';
         linkManual(id, phone.trim(), name.trim());
     }
     function _currentUser() {

@@ -920,13 +920,12 @@ Throttle 30s/KH.`;
             _toast('Không lấy được broadcast_start_time', 'err');
             return;
         }
-        const customerId = prompt('FB User ID khách:');
+        const customerId = await Popup.prompt('FB User ID khách:');
         if (!customerId) return;
-        const customerName = prompt('Tên khách:') || '?';
-        const timeStr = prompt(
-            'Thời gian comment (HH:MM:SS hôm nay, vd 17:32:15):',
-            new Date().toTimeString().slice(0, 8)
-        );
+        const customerName = (await Popup.prompt('Tên khách:')) || '?';
+        const timeStr = await Popup.prompt('Thời gian comment (HH:MM:SS hôm nay, vd 17:32:15):', {
+            defaultValue: new Date().toTimeString().slice(0, 8),
+        });
         if (!timeStr) return;
         const [h, m, s] = timeStr.split(':').map(Number);
         const dt = new Date();
@@ -1262,7 +1261,12 @@ Throttle 30s/KH.`;
             const total = (global.LiveState?.comments || []).filter(
                 (c) => c.from?.id && !_isStaffComment(c)
             ).length;
-            if (!confirm(`Backfill ${total} comments? (skip những comment đã có snap)`)) return;
+            if (
+                !(await Popup.confirm(
+                    `Backfill ${total} comments? (skip những comment đã có snap)`
+                ))
+            )
+                return;
             await offlineBatchAll({ skipExisting: true });
         });
         host.appendChild(chip);
@@ -1560,9 +1564,10 @@ Throttle 30s/KH.`;
         if (!j?.current) return { ok: false };
         const who = j.current.holderName || j.current.holder || 'máy khác';
         if (!interactive) return { ok: false, holderName: who };
-        const take = confirm(
+        const take = await Popup.confirm(
             `Máy khác ("${who}") đang capture livestream.\n` +
-                `Chuyển capture sang máy NÀY? (máy kia sẽ tự dừng để không đè dữ liệu)`
+                `Chuyển capture sang máy NÀY? (máy kia sẽ tự dừng để không đè dữ liệu)`,
+            { okText: 'Chuyển sang máy này' }
         );
         if (!take) return { ok: false, holderName: who };
         try {
@@ -2798,7 +2803,14 @@ Throttle 30s/KH.`;
     // X overlay trên thumbnail (visible khi hover).
     async function _deleteSnapByComment(commentId, snapId) {
         if (!commentId) return;
-        if (!confirm('Xóa thumbnail snap? Sau đó dùng nút 📸 trên comment để chụp lại.')) {
+        if (
+            !(await Popup.danger(
+                'Xóa thumbnail snap? Sau đó dùng nút 📸 trên comment để chụp lại.',
+                {
+                    okText: 'Xóa',
+                }
+            ))
+        ) {
             return;
         }
         try {
@@ -4051,7 +4063,7 @@ Throttle 30s/KH.`;
                 btn.onclick = async (e) => {
                     e.stopPropagation();
                     const id = btn.dataset.id;
-                    if (!confirm('Xóa snapshot này?')) return;
+                    if (!(await Popup.danger('Xóa snapshot này?', { okText: 'Xóa' }))) return;
                     try {
                         const r = await fetch(API + '/api/livestream/snapshot/' + id, {
                             method: 'DELETE',

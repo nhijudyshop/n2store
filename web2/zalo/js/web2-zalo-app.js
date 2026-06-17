@@ -303,7 +303,12 @@
                 notify('Đã ngắt kết nối', 'success');
                 loadAccounts();
             } else if (act === 'delete') {
-                if (!confirm(`Xoá tài khoản "${a?.displayName || key}"?`)) return;
+                if (
+                    !(await Popup.danger(`Xoá tài khoản "${a?.displayName || key}"?`, {
+                        okText: 'Xoá',
+                    }))
+                )
+                    return;
                 await window.ZaloApi.deleteAccount(key);
                 notify('Đã xoá', 'success');
                 loadAccounts();

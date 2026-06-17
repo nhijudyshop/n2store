@@ -213,8 +213,13 @@
         await loadPages();
     }
 
-    function clearJwt() {
-        if (!confirm('Xoá JWT? Bạn sẽ phải paste lại từ pancake.vn.')) return;
+    async function clearJwt() {
+        if (
+            !(await Popup.danger('Xoá JWT? Bạn sẽ phải paste lại từ pancake.vn.', {
+                okText: 'Xoá',
+            }))
+        )
+            return;
         window.Web2Chat.setJwt(null);
         notify('Đã xoá JWT', 'success');
         renderJwtInfo();
@@ -224,8 +229,13 @@
         $('pagesBadge').className = 'badge warn';
     }
 
-    function clearPageTokens() {
-        if (!confirm('Xoá tất cả page_access_tokens? JWT giữ nguyên — bạn sẽ phải generate lại.'))
+    async function clearPageTokens() {
+        if (
+            !(await Popup.danger(
+                'Xoá tất cả page_access_tokens? JWT giữ nguyên — bạn sẽ phải generate lại.',
+                { okText: 'Xoá' }
+            ))
+        )
             return;
         localStorage.removeItem('pancake_page_access_tokens');
         notify('Đã xoá page tokens', 'success');
@@ -250,11 +260,12 @@
         renderPageList(_pagesCache);
     }
 
-    function nuke() {
+    async function nuke() {
         if (
-            !confirm(
-                'XOÁ TOÀN BỘ TOKEN (JWT + page tokens)? Tab1 + native-orders sẽ mất chat cho tới khi cấu hình lại.'
-            )
+            !(await Popup.danger(
+                'XOÁ TOÀN BỘ TOKEN (JWT + page tokens)? Tab1 + native-orders sẽ mất chat cho tới khi cấu hình lại.',
+                { okText: 'Xoá toàn bộ' }
+            ))
         )
             return;
         window.Web2Chat.clearAllTokens();
@@ -942,7 +953,12 @@
     async function credsDelete() {
         const PA = window.Web2PancakeAccounts;
         const id = _credsAccountId;
-        if (!confirm('Xoá mật khẩu đã lưu? Sẽ tắt tự động gia hạn cho account này.')) return;
+        if (
+            !(await Popup.danger('Xoá mật khẩu đã lưu? Sẽ tắt tự động gia hạn cho account này.', {
+                okText: 'Xoá',
+            }))
+        )
+            return;
         const r = await PA.deleteCreds(id);
         if (r.ok) {
             notify('Đã xoá mật khẩu', 'success');
@@ -967,14 +983,14 @@
         });
     }
 
-    function useAccount(id) {
+    async function useAccount(id) {
         const acc = _accountsCache.find((a) => a.account_id === id);
         if (!acc) return;
         if (window.Web2PancakeAccounts.isExpired(acc.token_exp)) {
             if (
-                !confirm(
+                !(await Popup.confirm(
                     'Token của tài khoản này đã hết hạn — chọn dùng vẫn sẽ lỗi khi gửi tin. Tiếp tục?'
-                )
+                ))
             )
                 return;
         }
@@ -990,10 +1006,16 @@
         loadPages();
     }
 
-    function deleteAccount(id) {
+    async function deleteAccount(id) {
         const acc = _accountsCache.find((a) => a.account_id === id);
         const label = acc?.name || acc?.fb_name || id;
-        if (!confirm(`Xoá tài khoản "${label}" khỏi DB? Mọi máy sẽ không còn account này.`)) return;
+        if (
+            !(await Popup.danger(
+                `Xoá tài khoản "${label}" khỏi DB? Mọi máy sẽ không còn account này.`,
+                { okText: 'Xoá' }
+            ))
+        )
+            return;
         const snapshot = _accountsCache;
         const apply = () => {
             _accountsCache = snapshot.filter((a) => a.account_id !== id);

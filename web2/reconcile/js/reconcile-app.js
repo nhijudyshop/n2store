@@ -416,13 +416,13 @@
 
         // Confirm trước khi áp dụng. Hủy → revert checkbox về trạng thái server.
         const ok = checked
-            ? confirm(
+            ? await Popup.confirm(
                   `✋ TÍCH TAY (không quét barcode) cho "${productCode}"?\n\n` +
                       `→ Đánh dấu đã pick đủ ${need} mà không quét mã.\n` +
                       `→ Thao tác được LƯU LỊCH SỬ (kèm người + ngày giờ) để ĐỐI CHIẾU CAMERA khi cần.\n\n` +
                       `Xác nhận?`
               )
-            : confirm(`Bỏ tích tay "${productCode}" (đưa về 0)?`);
+            : await Popup.confirm(`Bỏ tích tay "${productCode}" (đưa về 0)?`);
         if (!ok) {
             renderDetail(); // checkbox đã toggle visually → vẽ lại theo state server
             return;
@@ -455,7 +455,7 @@
 
     async function resetPick() {
         if (!STATE.currentPbh) return;
-        if (!confirm('Reset toàn bộ pick về 0?')) return;
+        if (!(await Popup.danger('Reset toàn bộ pick về 0?', { okText: 'Reset' }))) return;
         try {
             const res = await api(
                 'POST',
@@ -491,7 +491,12 @@
 
     async function cancelPack() {
         if (!STATE.currentPbh) return;
-        if (!confirm(`Hủy đóng gói PBH ${STATE.currentPbh.number}? (đưa về trạng thái pick)`))
+        if (
+            !(await Popup.danger(
+                `Hủy đóng gói PBH ${STATE.currentPbh.number}? (đưa về trạng thái pick)`,
+                { okText: 'Hủy đóng gói' }
+            ))
+        )
             return;
         try {
             const res = await api(
@@ -524,7 +529,7 @@
 
     async function deliverOrder() {
         if (!STATE.currentPbh) return;
-        if (!confirm('Xác nhận đã giao thành công cho khách?')) return;
+        if (!(await Popup.confirm('Xác nhận đã giao thành công cho khách?'))) return;
         try {
             const res = await api(
                 'POST',
@@ -542,15 +547,18 @@
 
     async function returnFailedOrder() {
         if (!STATE.currentPbh) return;
-        const reason = prompt('Lý do giao thất bại / trả về kho (optional):', 'Khách từ chối nhận');
+        const reason = await Popup.prompt('Lý do giao thất bại / trả về kho (optional):', {
+            defaultValue: 'Khách từ chối nhận',
+        });
         if (reason === null) return; // user cancelled
         if (
-            !confirm(
+            !(await Popup.danger(
                 `Đánh dấu PBH ${STATE.currentPbh.number} GIAO THẤT BẠI?\n\n` +
                     `→ Trả tồn về kho web2_products\n` +
                     `→ Hủy PBH (state='cancel')\n\n` +
-                    `Hành động idempotent — chỉ trả tồn 1 lần.`
-            )
+                    `Hành động idempotent — chỉ trả tồn 1 lần.`,
+                { okText: 'Giao thất bại' }
+            ))
         ) {
             return;
         }

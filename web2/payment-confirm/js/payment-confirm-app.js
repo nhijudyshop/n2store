@@ -287,13 +287,15 @@
         }
     }
 
-    function linkOrder(sig) {
-        const orderType = prompt(
+    async function linkOrder(sig) {
+        const orderType = await window.Popup.prompt(
             'Loại đơn? gõ "native" (Đơn Web) hoặc "fast_sale" (PBH):',
-            sig.orderType || 'native'
+            { defaultValue: sig.orderType || 'native' }
         );
         if (!orderType || !['native', 'fast_sale'].includes(orderType.trim())) return;
-        const orderCode = prompt('Mã đơn:', sig.orderCode || '');
+        const orderCode = await window.Popup.prompt('Mã đơn:', {
+            defaultValue: sig.orderCode || '',
+        });
         if (!orderCode) return;
         fetch(API + '/' + sig.id + '/link-order', {
             method: 'POST',

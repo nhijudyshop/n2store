@@ -1419,14 +1419,11 @@
     }
 
     async function remove(code) {
-        const ok = window.Popup
-            ? await window.Popup.confirm(`Không thể hoàn tác.`, {
-                  title: `Xoá SP ${code}?`,
-                  okText: 'Xoá sản phẩm',
-                  cancelText: 'Đóng',
-                  type: 'error',
-              })
-            : confirm(`Xóa SP ${code}? Không thể hoàn tác.`);
+        const ok = await window.Popup.danger(`Không thể hoàn tác.`, {
+            title: `Xoá SP ${code}?`,
+            okText: 'Xoá sản phẩm',
+            cancelText: 'Đóng',
+        });
         if (!ok) return;
         await _doRemove(code, false);
     }
@@ -1446,14 +1443,11 @@
             if (e.status === 409 && e.body) {
                 const b = e.body;
                 const msg = `${b.message || ''}\n\nVẫn muốn xóa SP "${b.name}" (${b.code})?`;
-                const confirmForce = window.Popup
-                    ? await window.Popup.confirm(msg, {
-                          title: `SP còn ${b.pendingQty} cái CHỜ HÀNG`,
-                          okText: 'Vẫn xóa',
-                          cancelText: 'Hủy',
-                          type: 'warning',
-                      })
-                    : confirm(msg);
+                const confirmForce = await window.Popup.danger(msg, {
+                    title: `SP còn ${b.pendingQty} cái CHỜ HÀNG`,
+                    okText: 'Vẫn xóa',
+                    cancelText: 'Hủy',
+                });
                 if (confirmForce) await _doRemove(code, true);
                 return;
             }

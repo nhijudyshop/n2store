@@ -295,9 +295,9 @@
         });
 
         $('ssTrigger').addEventListener('click', async () => {
-            const key = prompt(
+            const key = await Popup.prompt(
                 'Trigger test event trên topic nào? (vd web2:test-topic)',
-                'web2:test-topic'
+                { defaultValue: 'web2:test-topic' }
             );
             if (!key) return;
             try {
@@ -313,13 +313,13 @@
                     }),
                 });
                 const d = await r.json();
-                alert(
+                Popup.alert(
                     d.success
                         ? `✓ Broadcast ${key} → ${d.clientsNotified} clients`
                         : '✗ Lỗi: ' + (d.error || 'unknown')
                 );
             } catch (e) {
-                alert('✗ Network error: ' + e.message);
+                Popup.error('✗ Network error: ' + e.message);
             }
         });
     }

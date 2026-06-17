@@ -420,7 +420,8 @@
         const delBtn = document.getElementById('w2tplEditDelete');
         delBtn.style.display = isEdit ? 'inline-block' : 'none';
         delBtn.onclick = async () => {
-            if (!confirm(`Xoá template "${template.Name}"?`)) return;
+            if (!(await window.Popup.danger(`Xoá template "${template.Name}"?`, { okText: 'Xoá' })))
+                return;
             try {
                 await _deleteTemplate(template.id);
                 _filtered = [..._templates];
@@ -855,7 +856,13 @@
 
     async function _cancelActiveJob() {
         if (!_activeJobId) return;
-        if (!confirm('Dừng job? Các đơn chưa gửi sẽ bị huỷ (đơn đã gửi vẫn giữ).')) return;
+        if (
+            !(await window.Popup.danger(
+                'Dừng job? Các đơn chưa gửi sẽ bị huỷ (đơn đã gửi vẫn giữ).',
+                { okText: 'Dừng job' }
+            ))
+        )
+            return;
         try {
             await fetch(API_BASE + '/' + _activeJobId + '/cancel', {
                 method: 'POST',

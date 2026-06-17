@@ -477,7 +477,7 @@
     }
 
     async function _deleteImage(id) {
-        if (!confirm('Xóa hình này khỏi kho?')) return;
+        if (!(await Popup.danger('Xóa hình này khỏi kho?', { okText: 'Xóa' }))) return;
         const tile = document
             .querySelector(`.live-lsimg-tile [data-del="${CSS.escape(String(id))}"]`)
             ?.closest('.live-lsimg-tile');
