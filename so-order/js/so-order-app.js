@@ -695,6 +695,44 @@
         if (window.lucide?.createIcons) window.lucide.createIcons();
     }
 
+    // 2026-06-17: dòng phụ (sub-header) đầu mỗi ĐƠN trong lô — hiện meta riêng
+    // của NCC đó: KG · HĐ · Giảm · Ship. KG/Kiện/HĐ chỉ hiện nếu tab bật field
+    // tương ứng (thông tin lô); Giảm/Ship hiện khi > 0. Rỗng hết → bỏ qua dòng.
+    function _groupMetaSubHeaderHtml(sh, firstRow, tab, colSpan, flags) {
+        const gid = firstRow.invoiceGroupId || firstRow.id;
+        const m = window.SoOrderStorage.getOrderAdjustment(sh, gid);
+        const cur = tab.currency || 'VND';
+        const parts = [];
+        if (flags.caseCount && m.caseCount)
+            parts.push(`<span class="so-grpmeta-item">${m.caseCount} Kiện</span>`);
+        if (flags.weightKg)
+            parts.push(
+                `<span class="so-grpmeta-item"><i data-lucide="weight"></i> ${m.weightKg.toLocaleString('vi-VN')} KG</span>`
+            );
+        if (flags.contractAmount)
+            parts.push(
+                `<span class="so-grpmeta-item">HĐ <strong>${escapeHtml(fmtCurrency(m.contractAmount, cur))}</strong></span>`
+            );
+        if (m.discount)
+            parts.push(
+                `<span class="so-grpmeta-item so-grpmeta-disc">Giảm ${escapeHtml(fmtCurrency(m.discount, cur))}</span>`
+            );
+        if (m.shipping)
+            parts.push(
+                `<span class="so-grpmeta-item so-grpmeta-ship">Ship ${escapeHtml(fmtCurrency(m.shipping, cur))}</span>`
+            );
+        if (!parts.length) return '';
+        const ncc = escapeHtml(firstRow.supplier || '—');
+        return `<tr class="so-grpmeta-row" data-grpmeta-gid="${escapeHtml(gid)}">
+            <td colspan="${colSpan}">
+                <div class="so-grpmeta">
+                    <span class="so-grpmeta-ncc"><i data-lucide="store"></i> ${ncc}</span>
+                    ${parts.join('<span class="so-grpmeta-sep">·</span>')}
+                </div>
+            </td>
+        </tr>`;
+    }
+
     function shipmentHtml(sh, tab, colSpan) {
         const header = shipmentHeaderHtml(sh, tab, colSpan);
         if (sh.collapsed) return header;
@@ -708,8 +746,16 @@
         // rowHtml dùng CHUNG displayRows để idx/rowspan/receive-slice khớp nhau.
         const displayRows = _orderReceivedGroupsLast(sh.rows);
         const meta = _computeRowSpans(displayRows);
+        // 2026-06-17: dòng phụ đầu MỖI ĐƠN (invoiceGroupId) hiện KG · HĐ · Giảm ·
+        // Ship riêng của NCC đó. meta.inv.render = true ở row đầu mỗi đơn.
+        const flags = _shipMetaFlags(tab);
         const rows = displayRows
-            .map((r, idx) => rowHtml(r, idx, tab, sh.id, meta[idx], displayRows))
+            .map((r, idx) => {
+                const sub = meta[idx]?.inv?.render
+                    ? _groupMetaSubHeaderHtml(sh, r, tab, colSpan, flags)
+                    : '';
+                return sub + rowHtml(r, idx, tab, sh.id, meta[idx], displayRows);
+            })
             .join('');
         return header + colHead + rows;
     }
@@ -792,19 +838,14 @@
         const dateText = sh.date ? formatDateVN(sh.date) : '—';
         const batchVal = sh.batch || '';
         const batchLabel = batchVal ? `Đợt ${escapeHtml(batchVal)}` : 'Chưa đặt đợt';
-        const caseCount = Number(sh.caseCount) || 0;
-        const weightKg = Number(sh.weightKg) || 0;
         const etaBadge = _etaBadgeHtml(sh.expectedDeliveryDate);
-        // Contract amount: always rendered in the tab's currency.
-        // Legacy data may store shipment.contractCurrency != tab.currency
-        // (e.g. recorded in CNY while the tab is VND); convert through VND
-        // so the displayed value matches the tab's setting.
-        const contractRaw = Number(sh.contractAmount) || 0;
-        const contractCur = sh.contractCurrency || tab.currency || 'VND';
-        const rawVnd = contractRaw * currencyToVndRate(contractCur, tab);
-        const tabToVnd = currencyToVndRate(tab.currency, tab) || 1;
-        const displayAmount = rawVnd / tabToVnd;
-        const contractDisplayText = fmtCurrency(displayAmount, tab.currency || 'VND');
+        // 2026-06-17: KG / số kiện / Tiền HĐ / giảm / ship giờ PER-ĐƠN (mỗi NCC
+        // riêng). Lô header = TỔNG các đơn (read-only). Sửa từng giá trị trong
+        // modal "Sửa lô" theo từng NCC, hoặc dòng phụ đầu mỗi khối.
+        const adjTot = window.SoOrderStorage.getShipmentAdjustTotals(sh);
+        const caseCount = adjTot.caseCount;
+        const weightKg = adjTot.weightKg;
+        const contractDisplayText = fmtCurrency(adjTot.contractAmount, tab.currency || 'VND');
         const caret = sh.collapsed ? 'chevron-right' : 'chevron-down';
         const shId = escapeHtml(sh.id);
         const pill = (field, label, title) =>
@@ -825,14 +866,11 @@
                         ${pill('batch', escapeHtml(batchLabel), 'Click để sửa số đợt')}
                     </span>
                     ${etaBadge ? `<span class="so-shipment-sep">—</span>${etaBadge}` : ''}
-                    <span class="so-shipment-sep">—</span>
-                    <span class="so-shipment-meta">
-                        <i data-lucide="package"></i>
-                        <strong>${pill('caseCount', `${caseCount} Kiện`, 'Click để sửa số kiện')}</strong> :
-                        <span class="so-shipment-kg-strike">${pill('weightKg', `${weightKg.toLocaleString('vi-VN')} KG`, 'Click để sửa số KG')}</span>
-                    </span>
                     <span class="so-shipment-sep">|</span>
-                    <span class="so-shipment-meta">Tổng <strong>${weightKg.toLocaleString('vi-VN')} KG</strong></span>
+                    <span class="so-shipment-meta" title="Tổng các NCC trong lô — sửa từng NCC trong modal Sửa lô">
+                        <i data-lucide="package"></i>
+                        Tổng <strong>${caseCount} Kiện</strong> : <strong>${weightKg.toLocaleString('vi-VN')} KG</strong>
+                    </span>
                     <span class="so-shipment-sep">|</span>
                     <span class="so-shipment-meta">
                         <strong>Tổng HĐ:</strong>
@@ -840,7 +878,6 @@
                     </span>
                     ${(() => {
                         // 2026-06-16: giảm giá / phí ship = TỔNG các đơn trong lô.
-                        const adjTot = window.SoOrderStorage.getShipmentAdjustTotals(sh);
                         const disc = adjTot.discount;
                         const ship = adjTot.shipping;
                         if (!disc && !ship) return '';
@@ -2505,6 +2542,8 @@ window.addEventListener('load', () => {
             // 2026-06-16: NCC per-row. Sửa lô = nguyên ngày giao → có thể gồm
             // NHIỀU NCC (A1, b1…). Mỗi dòng giữ NCC riêng, KHÔNG ép 1 NCC chung.
             supplier: prefill.supplier || '',
+            // 2026-06-17: gid (đơn) của dòng — để gom meta per-đơn trong modal Sửa lô.
+            invoiceGroupId: prefill.invoiceGroupId || null,
             productName: prefill.productName || '',
             variant: prefill.variant || '',
             qty: Number.isFinite(Number(prefill.qty)) ? Number(prefill.qty) : 1,
@@ -2755,6 +2794,18 @@ window.addEventListener('load', () => {
         if (tbl) tbl.classList.toggle('so-show-ncc', isEditShip);
         const supCell = document.querySelector('#soOrderForm .so-cell-supplier-input');
         if (supCell) supCell.style.display = isEditShip ? 'none' : '';
+        // 2026-06-17: edit-shipment → ẩn cụm meta CHUNG (KG/Kiện/HĐ/Giảm/Ship của
+        // form), hiện section per-NCC. Mode khác → ngược lại. (Toggle visibility ở
+        // đây — chạy mỗi render; nội dung cụm render 1 lần ở _renderPerOrderMeta.)
+        const pmWrap = document.getElementById('soPerOrderMetaWrap');
+        if (pmWrap) pmWrap.hidden = !isEditShip;
+        document
+            .querySelectorAll('#soOrderForm [data-single-meta]')
+            .forEach((el) => (el.style.display = isEditShip ? 'none' : ''));
+        if (!isEditShip) {
+            const pmList = document.getElementById('soPerOrderMetaList');
+            if (pmList) pmList.innerHTML = '';
+        }
         tbody.innerHTML = modalRows.map((r, i) => modalRowHtml(r, i, modalRows.length)).join('');
         // Show + button trong create mode VÀ edit-shipment mode (cho phép thêm
         // SP mới vào lô khi sửa nguyên lô).
@@ -3447,12 +3498,19 @@ window.addEventListener('load', () => {
         const form = document.getElementById('soOrderForm');
         // 2026-06-16: giảm giá/ship của ĐƠN đang sửa (editingInvoiceGroupId), KHÔNG
         // còn per-shipment. Tạo mới / đơn mới → 0.
+        // 2026-06-17: KG/Kiện/HĐ + Giảm/Ship đều per-ĐƠN. Single-order context
+        // (tạo mới / sửa 1 dòng) → load từ order meta của editingInvoiceGroupId
+        // (đơn mới → 0). edit-shipment nhiều đơn dùng cụm per-NCC (field này ẩn).
         const adj =
             sh && editingInvoiceGroupId && window.SoOrderStorage.getOrderAdjustment
                 ? window.SoOrderStorage.getOrderAdjustment(sh, editingInvoiceGroupId)
-                : { discount: 0, shipping: 0 };
+                : { discount: 0, shipping: 0, weightKg: 0, caseCount: 0, contractAmount: 0 };
         if (form?.elements?.shipDiscount) form.elements.shipDiscount.value = adj.discount || 0;
         if (form?.elements?.shipShipping) form.elements.shipShipping.value = adj.shipping || 0;
+        if (form?.elements?.shipWeightKg) form.elements.shipWeightKg.value = adj.weightKg || 0;
+        if (form?.elements?.shipCaseCount) form.elements.shipCaseCount.value = adj.caseCount || 0;
+        if (form?.elements?.shipContractAmount)
+            form.elements.shipContractAmount.value = adj.contractAmount || 0;
     }
 
     function openOrderModal(rowId, shipmentId) {
@@ -3584,17 +3642,18 @@ window.addEventListener('load', () => {
         const shipMeta = {
             date: form.elements.shipDate.value || new Date().toISOString().slice(0, 10),
             batch: form.elements.shipBatch.value.trim(),
-            caseCount: Number(form.elements.shipCaseCount.value) || 0,
-            weightKg: Number(form.elements.shipWeightKg.value) || 0,
-            contractAmount: Number(form.elements.shipContractAmount.value) || 0,
             contractCurrency: form.elements.shipContractCurrency.value,
             expectedDeliveryDate: form.elements.shipExpectedDeliveryDate?.value || null,
         };
-        // 2026-06-16: giảm giá / phí ship PER-ĐƠN (theo invoiceGroupId), KHÔNG ghi
-        // vào shipment. Lưu qua setOrderAdjustment sau khi biết invoiceGroupId.
+        // 2026-06-17: KG / Kiện / Tiền HĐ + Giảm / Ship đều PER-ĐƠN (theo
+        // invoiceGroupId) — KHÔNG ghi vào shipment. Lưu qua setOrderAdjustment.
+        // (edit-shipment nhiều đơn → đọc từng cụm per-NCC, KHÔNG dùng orderAdj này.)
         const orderAdj = {
             discount: Number(form.elements.shipDiscount?.value) || 0,
             shipping: Number(form.elements.shipShipping?.value) || 0,
+            weightKg: Number(form.elements.shipWeightKg?.value) || 0,
+            caseCount: Number(form.elements.shipCaseCount?.value) || 0,
+            contractAmount: Number(form.elements.shipContractAmount?.value) || 0,
         };
         // 2026-06-16: KHÔNG còn field status trong modal (bỏ đổi tay). Tạo mới →
         // addRow default 'draft'. Sửa → updateRow không có key status → giữ nguyên
@@ -3778,16 +3837,13 @@ window.addEventListener('load', () => {
                     }
                 }
             }
-            // Giảm giá / phí ship của lô — gắn vào đơn đầu (hoặc đơn mới nếu chỉ thêm).
-            const adjGroupId = editingInvoiceGroupId || newInvoiceGroupId;
-            if (adjGroupId) {
-                window.SoOrderStorage.setOrderAdjustment(
-                    state,
-                    tab.id,
-                    sh.id,
-                    adjGroupId,
-                    orderAdj
-                );
+            // 2026-06-17: lưu meta PER-ĐƠN (KG/Kiện/HĐ/Giảm/Ship) từ các cụm trong
+            // modal Sửa lô. Cụm "__new__" → đơn mới (newInvoiceGroupId). Mỗi NCC/đơn
+            // 1 cụm riêng → không gộp meta giữa các NCC.
+            const perOrderMeta = _readPerOrderMeta();
+            for (const [key, meta] of Object.entries(perOrderMeta)) {
+                const gid = key === '__new__' ? newInvoiceGroupId : key;
+                window.SoOrderStorage.setOrderAdjustment(state, tab.id, sh.id, gid, meta);
             }
             notify(
                 `Đã cập nhật lô (${validRows.length} SP${toDelete.length ? `, xóa ${toDelete.length}` : ''})`,
@@ -3801,13 +3857,11 @@ window.addEventListener('load', () => {
             if (!sh) {
                 sh = window.SoOrderStorage.addShipment(state, tab.id, shipMeta);
             } else {
-                const merged = {
-                    caseCount: shipMeta.caseCount || sh.caseCount,
-                    weightKg: shipMeta.weightKg || sh.weightKg,
-                    contractAmount: shipMeta.contractAmount || sh.contractAmount,
+                // 2026-06-17: KG/Kiện/HĐ giờ per-đơn → chỉ merge contractCurrency
+                // (shipment-level). Đơn mới tự có meta riêng qua setOrderAdjustment.
+                window.SoOrderStorage.updateShipment(state, tab.id, sh.id, {
                     contractCurrency: shipMeta.contractCurrency || sh.contractCurrency,
-                };
-                window.SoOrderStorage.updateShipment(state, tab.id, sh.id, merged);
+                });
             }
             // P1 2026-05-30: rows trong cùng modal submit dùng chung 1
             // invoiceGroupId → hóa đơn chung (cell rowspan + sync paste).
@@ -4612,6 +4666,7 @@ window.addEventListener('load', () => {
             _newModalRow({
                 rowId: r.id, // track existing row id để update không tạo mới
                 supplier: r.supplier || '', // NCC riêng của dòng
+                invoiceGroupId: r.invoiceGroupId || r.id, // đơn của dòng (gom meta)
                 productName: r.productName || '',
                 variant: r.variant || '',
                 qty: r.qty,
@@ -4642,6 +4697,9 @@ window.addEventListener('load', () => {
         form.elements.shipContractCurrency.onchange = updateContractHint;
         _applyShipMetaUi(tab, sh);
         renderModalRows();
+        // 2026-06-17: Sửa lô gồm nhiều ĐƠN → meta (KG/Kiện/HĐ/Giảm/Ship) theo
+        // TỪNG NCC/đơn = cụm riêng. Render clusters + ẩn ô meta chung của form.
+        _renderPerOrderMeta(sh, tab);
         showModal('soOrderModal');
         _bindModalScrollCloseDropdowns();
         _ensureSupplierCacheSubscription();
@@ -4652,6 +4710,74 @@ window.addEventListener('load', () => {
                 onPick: (val) => _ensureSupplierWithFeedback(val),
             });
         }
+    }
+
+    // 2026-06-17: render cụm meta PER-ĐƠN trong modal Sửa lô. Mỗi đơn (gid) 1
+    // cụm: NCC + Kiện/KG/HĐ/Giảm/Ship. Đơn = gid của các dòng đang load; SP mới
+    // (chưa gid) gom vào cụm "Đơn mới". Field theo tab flags (KG/Kiện/HĐ); Giảm/
+    // Ship luôn hiện. Ẩn cụm meta chung của form (chỉ dùng cho tạo/sửa-1-dòng).
+    function _renderPerOrderMeta(sh, tab) {
+        const list = document.getElementById('soPerOrderMetaList');
+        if (!list) return;
+        if (modalMode !== 'edit-shipment') {
+            list.innerHTML = '';
+            return;
+        }
+        const flags = _shipMetaFlags(tab);
+        // Gom các đơn (gid) theo thứ tự xuất hiện trong modalRows (dòng cũ có gid).
+        // Luôn thêm cụm "__new__" ở cuối cho SP thêm mới (đơn mới) — render 1 lần
+        // lúc mở, KHÔNG re-render khi thêm/xoá dòng (giữ giá trị user đang gõ).
+        const order = [];
+        const seen = new Set();
+        for (const r of modalRows) {
+            if (!r.rowId) continue; // dòng mới → gộp vào cụm "__new__"
+            const key = r.invoiceGroupId || '__new__';
+            if (!seen.has(key)) {
+                seen.add(key);
+                order.push({ key, supplier: r.supplier || '' });
+            }
+        }
+        order.push({ key: '__new__', supplier: '' }); // cụm SP thêm mới
+        const cur = tab.currency || 'VND';
+        const numField = (pm, label, val, show) =>
+            show
+                ? `<label class="so-pm-field"><span>${label}</span><input type="number" min="0" step="any" data-pm="${pm}" value="${Number(val) || 0}" class="so-input-v2 so-input-num" /></label>`
+                : '';
+        list.innerHTML = order
+            .map((o) => {
+                const m =
+                    o.key === '__new__'
+                        ? { caseCount: 0, weightKg: 0, contractAmount: 0, discount: 0, shipping: 0 }
+                        : window.SoOrderStorage.getOrderAdjustment(sh, o.key);
+                const label = o.key === '__new__' ? 'Đơn mới' : escapeHtml(o.supplier || '—');
+                return `<div class="so-pm-cluster" data-gid="${escapeHtml(o.key)}">
+                    <span class="so-pm-ncc"><i data-lucide="store"></i> ${label}</span>
+                    ${numField('caseCount', 'Kiện', m.caseCount, flags.caseCount)}
+                    ${numField('weightKg', 'KG', m.weightKg, flags.weightKg)}
+                    ${numField('contractAmount', `HĐ (${cur})`, m.contractAmount, flags.contractAmount)}
+                    ${numField('discount', `Giảm (${cur})`, m.discount, true)}
+                    ${numField('shipping', `Ship (${cur})`, m.shipping, true)}
+                </div>`;
+            })
+            .join('');
+        if (window.lucide?.createIcons) window.lucide.createIcons();
+    }
+
+    // Đọc cụm meta per-đơn từ modal Sửa lô. Trả map { gid|'__new__': meta }.
+    function _readPerOrderMeta() {
+        const out = {};
+        document.querySelectorAll('#soPerOrderMetaList .so-pm-cluster').forEach((el) => {
+            const gid = el.dataset.gid;
+            const num = (pm) => Number(el.querySelector(`[data-pm="${pm}"]`)?.value) || 0;
+            out[gid] = {
+                caseCount: num('caseCount'),
+                weightKg: num('weightKg'),
+                contractAmount: num('contractAmount'),
+                discount: num('discount'),
+                shipping: num('shipping'),
+            };
+        });
+        return out;
     }
 
     // Tab settings modal — currency + rate

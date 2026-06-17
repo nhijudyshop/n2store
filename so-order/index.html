@@ -15,22 +15,22 @@
             rel="stylesheet"
         />
 
-        <link rel="stylesheet" href="../web2/shared/web2-sidebar.css?v=20260616m" />
-        <link rel="stylesheet" href="../web2/shared/web2-effects.css?v=20260616m" />
-        <link rel="stylesheet" href="../web2/shared/web2-components.css?v=20260616m" />
-        <link rel="stylesheet" href="../web2/products/css/web2-products-print.css?v=20260616m" />
-        <link rel="stylesheet" href="css/so-order.css?v=20260616v" />
+        <link rel="stylesheet" href="../web2/shared/web2-sidebar.css?v=20260617b" />
+        <link rel="stylesheet" href="../web2/shared/web2-effects.css?v=20260617b" />
+        <link rel="stylesheet" href="../web2/shared/web2-components.css?v=20260617b" />
+        <link rel="stylesheet" href="../web2/products/css/web2-products-print.css?v=20260617b" />
+        <link rel="stylesheet" href="css/so-order.css?v=20260617b" />
         <!-- Import dữ liệu CSV/JSON (NGUỒN CHUNG Web2Import) -->
-        <link rel="stylesheet" href="../web2/shared/web2-import.css?v=20260616m" />
+        <link rel="stylesheet" href="../web2/shared/web2-import.css?v=20260617b" />
 
         <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
 
         <!-- Firebase compat (Firestore sync for cross-device column visibility + data) -->
 
-        <script src="../shared/js/notification-system.js?v=20260616m"></script>
-        <script src="../web2/shared/web2-effects.js?v=20260616m"></script>
-        <script src="../web2/shared/web2-db-badge.js?v=20260616m"></script>
-        <link rel="stylesheet" href="../web2/shared/web2-theme.css?v=20260616m" />
+        <script src="../shared/js/notification-system.js?v=20260617b"></script>
+        <script src="../web2/shared/web2-effects.js?v=20260617b"></script>
+        <script src="../web2/shared/web2-db-badge.js?v=20260617b"></script>
+        <link rel="stylesheet" href="../web2/shared/web2-theme.css?v=20260617b" />
     </head>
     <body class="web2-theme">
         <div class="web2-shell">
@@ -259,6 +259,7 @@
                         <div
                             class="so-form-cell so-cell-narrow so-ship-adv"
                             data-ship-field="caseCount"
+                            data-single-meta
                         >
                             <label class="so-form-label">Số Kiện</label>
                             <input
@@ -272,6 +273,7 @@
                         <div
                             class="so-form-cell so-cell-narrow so-ship-adv"
                             data-ship-field="weightKg"
+                            data-single-meta
                         >
                             <label class="so-form-label">Tổng KG</label>
                             <input
@@ -283,7 +285,11 @@
                                 class="so-input-v2 so-input-num"
                             />
                         </div>
-                        <div class="so-form-cell so-ship-adv" data-ship-field="contractAmount">
+                        <div
+                            class="so-form-cell so-ship-adv"
+                            data-ship-field="contractAmount"
+                            data-single-meta
+                        >
                             <label class="so-form-label">
                                 Tiền HĐ
                                 <span class="so-currency-hint" id="soContractCurHint"></span>
@@ -300,6 +306,7 @@
                         <div
                             class="so-form-cell so-cell-narrow so-ship-adv"
                             data-ship-field="contractCurrency"
+                            data-single-meta
                         >
                             <label class="so-form-label">Tiền tệ</label>
                             <select name="shipContractCurrency" class="so-input-v2">
@@ -334,7 +341,7 @@
                                 class="so-input-v2"
                             />
                         </div>
-                        <div class="so-form-cell so-cell-narrow">
+                        <div class="so-form-cell so-cell-narrow" data-single-meta>
                             <label class="so-form-label">Giảm giá</label>
                             <input
                                 type="number"
@@ -346,7 +353,7 @@
                                 title="Giảm giá cho đơn hàng này (trừ vào Thành tiền)"
                             />
                         </div>
-                        <div class="so-form-cell so-cell-narrow">
+                        <div class="so-form-cell so-cell-narrow" data-single-meta>
                             <label class="so-form-label">Phí ship</label>
                             <input
                                 type="number"
@@ -361,6 +368,19 @@
                         <!-- 2026-06-16: BỎ ô "Trạng thái" — không cho đổi tay. Đơn mới
                              luôn là "Nháp"; chỉ nút "Nhận hàng" đổi sang Đã Nhận / Nhận 1
                              phần. (Nợ NCC phát sinh khi NHẬN HÀNG.) -->
+                    </div>
+
+                    <!-- 2026-06-17: meta theo từng NCC/Đơn (chỉ hiện khi Sửa lô) —
+                         KG · Kiện · Tiền HĐ · Giảm · Ship riêng mỗi đơn. -->
+                    <div class="so-perorder-meta-wrap" id="soPerOrderMetaWrap" hidden>
+                        <div class="so-perorder-meta-head">
+                            <i data-lucide="layers"></i>
+                            Thông tin theo NCC / Đơn
+                            <span class="so-perorder-meta-hint"
+                                >(mỗi NCC có KG · Tiền HĐ · Giảm · Ship riêng)</span
+                            >
+                        </div>
+                        <div id="soPerOrderMetaList" class="so-perorder-meta-list"></div>
                     </div>
 
                     <!-- Product table — multi-row, rows injected dynamically -->
@@ -602,34 +622,34 @@
             </div>
         </div>
 
-        <script src="../web2/shared/web2-auth.js?v=20260616m"></script>
-        <script src="../web2/shared/web2-optimistic.js?v=20260616m"></script>
-        <script src="../web2/shared/web2-sidebar.js?v=20260616m"></script>
+        <script src="../web2/shared/web2-auth.js?v=20260617b"></script>
+        <script src="../web2/shared/web2-optimistic.js?v=20260617b"></script>
+        <script src="../web2/shared/web2-sidebar.js?v=20260617b"></script>
         <script>
             document.addEventListener('DOMContentLoaded', () =>
                 window.Web2Sidebar.mount('#web2Aside', { activeRoute: 'so-order' })
             );
         </script>
 
-        <script src="../web2/products/js/web2-products-api.js?v=20260616m"></script>
+        <script src="../web2/products/js/web2-products-api.js?v=20260617b"></script>
         <!-- In tem SP: dùng CHUNG nguồn với web2/products (Web2Printer + Web2QR + print module),
              load đúng thứ tự để QR bake biến thể + routing máy in giống hệt trang Kho SP. -->
-        <script src="../web2/shared/web2-printer.js?v=20260616m"></script>
-        <script src="../web2/shared/web2-qr.js?v=20260616m"></script>
-        <script src="../web2/products/js/web2-products-print.js?v=20260616m"></script>
-        <script src="../web2/variants/js/web2-variants-api.js?v=20260616m"></script>
-        <script src="../web2/shared/web2-sse-bridge.js?v=20260616m"></script>
-        <script src="../web2/shared/web2-idb-store.js?v=20260616m"></script>
-        <script src="../web2/shared/web2-products-cache.js?v=20260616m"></script>
-        <script src="../web2/shared/web2-variants-cache.js?v=20260616m"></script>
+        <script src="../web2/shared/web2-printer.js?v=20260617b"></script>
+        <script src="../web2/shared/web2-qr.js?v=20260617b"></script>
+        <script src="../web2/products/js/web2-products-print.js?v=20260617b"></script>
+        <script src="../web2/variants/js/web2-variants-api.js?v=20260617b"></script>
+        <script src="../web2/shared/web2-sse-bridge.js?v=20260617b"></script>
+        <script src="../web2/shared/web2-idb-store.js?v=20260617b"></script>
+        <script src="../web2/shared/web2-products-cache.js?v=20260617b"></script>
+        <script src="../web2/shared/web2-variants-cache.js?v=20260617b"></script>
         <!-- Nhập nhanh nhiều biến thể (Đen / S / M / L → N SP) — shared web2 -->
-        <script src="../web2/shared/web2-variant-multi.js?v=20260616c"></script>
-        <script src="../web2/shared/web2-suppliers-cache.js?v=20260616m"></script>
-        <script src="../web2/shared/web2-product-code.js?v=20260616m"></script>
-        <script src="../web2/shared/web2-deeplink.js?v=20260616m"></script>
+        <script src="../web2/shared/web2-variant-multi.js?v=20260617b"></script>
+        <script src="../web2/shared/web2-suppliers-cache.js?v=20260617b"></script>
+        <script src="../web2/shared/web2-product-code.js?v=20260617b"></script>
+        <script src="../web2/shared/web2-deeplink.js?v=20260617b"></script>
         <!-- Import dữ liệu CSV/JSON (NGUỒN CHUNG Web2Import) -->
-        <script src="../web2/shared/web2-import.js?v=20260616m"></script>
-        <script src="js/so-order-storage.js?v=20260616m"></script>
-        <script src="js/so-order-app.js?v=20260616v"></script>
+        <script src="../web2/shared/web2-import.js?v=20260617b"></script>
+        <script src="js/so-order-storage.js?v=20260617b"></script>
+        <script src="js/so-order-app.js?v=20260617b"></script>
     </body>
 </html>

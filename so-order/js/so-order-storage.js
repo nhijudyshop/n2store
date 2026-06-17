@@ -183,6 +183,39 @@
                     };
                 }
             }
+            // 2026-06-17: migrate legacy KG/kiện/Tiền HĐ ở cấp LÔ → ĐƠN ĐẦU TIÊN
+            // (giờ per-đơn). Chỉ chạy 1 lần: sau khi migrate, clear field cấp lô để
+            // header (tính TỔNG từ các đơn) không cộng đôi. (Beta: contractAmount
+            // giữ NGUYÊN giá trị — phần lớn lô có contractCurrency == tab.currency.)
+            const _legacyW = Number(sh.weightKg) || 0;
+            const _legacyC = Number(sh.caseCount) || 0;
+            const _legacyCA = Number(sh.contractAmount) || 0;
+            const _metaMigrated = Object.values(sh.orderAdjustments).some(
+                (a) =>
+                    Number(a.weightKg) ||
+                    0 ||
+                    Number(a.caseCount) ||
+                    0 ||
+                    Number(a.contractAmount) ||
+                    0
+            );
+            if ((_legacyW || _legacyC || _legacyCA) && !_metaMigrated) {
+                const firstGid = sh.rows[0] ? sh.rows[0].invoiceGroupId || sh.rows[0].id : null;
+                if (firstGid) {
+                    const cur = sh.orderAdjustments[firstGid] || {};
+                    sh.orderAdjustments[firstGid] = {
+                        discount: Number(cur.discount) || 0,
+                        shipping: Number(cur.shipping) || 0,
+                        weightKg: _legacyW,
+                        caseCount: _legacyC,
+                        contractAmount: _legacyCA,
+                    };
+                    // Clear field cấp lô → tránh cộng đôi (header dùng TỔNG các đơn).
+                    sh.weightKg = 0;
+                    sh.caseCount = 0;
+                    sh.contractAmount = 0;
+                }
+            }
         }
         // First-visit default: collapse every shipment except the newest
         // (sort by date desc, keep first one expanded). Subsequent loads
@@ -449,9 +482,18 @@
             return true;
         },
 
-        // 2026-06-16: set giảm giá / phí ship cho 1 ĐƠN (invoiceGroupId) trong lô.
-        // discount/shipping theo CURRENCY của tab (footer/nợ tự convert sang VND).
-        setOrderAdjustment(state, tabId, shipmentId, invoiceGroupId, { discount, shipping } = {}) {
+        // 2026-06-17: meta PER-ĐƠN (invoiceGroupId) — tổng KG, số kiện, Tiền HĐ,
+        // giảm giá, phí ship riêng cho TỪNG NCC/đơn trong lô (1 lô gồm nhiều NCC →
+        // mỗi NCC ship riêng, cân riêng, HĐ riêng). Trước đây KG/kiện/HĐ ở cấp LÔ;
+        // giờ chuyển per-đơn, lô header = TỔNG. discount/shipping/contractAmount
+        // theo CURRENCY của tab (footer/nợ tự convert sang VND).
+        setOrderAdjustment(
+            state,
+            tabId,
+            shipmentId,
+            invoiceGroupId,
+            { discount, shipping, weightKg, caseCount, contractAmount } = {}
+        ) {
             const tab = state.tabs.find((t) => t.id === tabId);
             if (!tab) return false;
             const sh = tab.shipments.find((s) => s.id === shipmentId);
@@ -461,34 +503,56 @@
             }
             const d = Number(discount) || 0;
             const s = Number(shipping) || 0;
-            if (d === 0 && s === 0) {
-                delete sh.orderAdjustments[invoiceGroupId]; // 0/0 → không lưu rác
+            const w = Number(weightKg) || 0;
+            const c = Number(caseCount) || 0;
+            const ca = Number(contractAmount) || 0;
+            if (d === 0 && s === 0 && w === 0 && c === 0 && ca === 0) {
+                delete sh.orderAdjustments[invoiceGroupId]; // tất cả 0 → không lưu rác
             } else {
-                sh.orderAdjustments[invoiceGroupId] = { discount: d, shipping: s };
+                sh.orderAdjustments[invoiceGroupId] = {
+                    discount: d,
+                    shipping: s,
+                    weightKg: w,
+                    caseCount: c,
+                    contractAmount: ca,
+                };
             }
             _write(state);
             return true;
         },
 
-        // Adjustment của 1 đơn (invoiceGroupId) — { discount, shipping } theo currency tab.
+        // Meta của 1 đơn (invoiceGroupId) — { discount, shipping, weightKg,
+        // caseCount, contractAmount } theo currency tab.
         getOrderAdjustment(sh, invoiceGroupId) {
             const a = sh && sh.orderAdjustments && sh.orderAdjustments[invoiceGroupId];
-            return { discount: Number(a?.discount) || 0, shipping: Number(a?.shipping) || 0 };
+            return {
+                discount: Number(a?.discount) || 0,
+                shipping: Number(a?.shipping) || 0,
+                weightKg: Number(a?.weightKg) || 0,
+                caseCount: Number(a?.caseCount) || 0,
+                contractAmount: Number(a?.contractAmount) || 0,
+            };
         },
 
-        // Tổng giảm giá / phí ship của 1 LÔ = Σ các đơn (chỉ đơn còn row sống → tránh
-        // entry mồ côi inflate tổng). Đơn vị = currency của tab (caller tự convert VND).
+        // Tổng meta của 1 LÔ = Σ các đơn (chỉ đơn còn row sống → tránh entry mồ côi
+        // inflate tổng). Đơn vị tiền = currency của tab (caller tự convert VND).
         getShipmentAdjustTotals(sh) {
             const adj = (sh && sh.orderAdjustments) || {};
             const liveGroups = new Set((sh?.rows || []).map((r) => r.invoiceGroupId || r.id));
             let discount = 0;
             let shipping = 0;
+            let weightKg = 0;
+            let caseCount = 0;
+            let contractAmount = 0;
             for (const [gid, a] of Object.entries(adj)) {
                 if (!liveGroups.has(gid)) continue;
                 discount += Number(a.discount) || 0;
                 shipping += Number(a.shipping) || 0;
+                weightKg += Number(a.weightKg) || 0;
+                caseCount += Number(a.caseCount) || 0;
+                contractAmount += Number(a.contractAmount) || 0;
             }
-            return { discount, shipping };
+            return { discount, shipping, weightKg, caseCount, contractAmount };
         },
 
         deleteShipment(state, tabId, shipmentId) {
