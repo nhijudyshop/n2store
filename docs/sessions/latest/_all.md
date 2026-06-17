@@ -3,15 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `8ffcdb4` — fix(so-order): meta per-NCC sub-header value-driven + cụm Sửa lô luôn hiện đủ 5 ô (verified end-to-end)
-**Last updated**: 2026-06-17 16:14:30 +07
-**Latest session**: [`RESUME:20260617-161430-8ffcdb4`](../20260617-161430-8ffcdb4.md)
-**Summary**: fix(so-order): meta per-NCC sub-header value-driven + cụm Sửa lô luôn hiện đủ 5 ô (verified end-to-end)
+**Latest commit**: `eb19535` — auto: session update
+**Last updated**: 2026-06-17 16:35:22 +07
+**Latest session**: [`RESUME:20260617-163522-eb19535`](../20260617-163522-eb19535.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`so-order/`](./so-order.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -26,7 +25,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-16 11:15
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-16 14:31
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-16 19:17
-- [`docs/`](./docs.md) — updated 2026-06-17 16:14
+- [`docs/`](./docs.md) — updated 2026-06-17 16:35
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-16 14:31
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-16 14:31
 - [`downloads/`](./downloads.md) — updated 2026-06-13 19:16
