@@ -1,5 +1,24 @@
 # Dev Log
 
+## 2026-06-17
+
+### [so-order] Mỗi NCC/Đơn có Tổng KG · Tiền HĐ · Giảm · Ship RIÊNG (per-đơn meta) ⏳
+
+**User:** "Các NCC có tổng KG, tổng tiền, giảm giá, phí ship riêng." Chốt: gom theo từng KHỐI/ĐƠN (invoiceGroupId); hiển thị dòng phụ đầu mỗi khối; sửa trong modal Sửa lô — mỗi NCC 1 cụm.
+
+**Trước:** KG/Số kiện/Tiền HĐ ở cấp LÔ (cả ngày giao); Giảm/Ship đã per-đơn (`orderAdjustments[gid]`).
+
+**Sau (refactor 4 phase):**
+
+- **Storage** [so-order-storage.js](so-order/js/so-order-storage.js): `orderAdjustments[gid]` mở rộng `{ discount, shipping, weightKg, caseCount, contractAmount }`. `getShipmentAdjustTotals` cộng cả 5. Migration heal 1 lần: dời KG/Kiện/HĐ cấp lô → đơn đầu, clear field cấp lô (tránh cộng đôi), idempotent.
+- **Render** [so-order-app.js](so-order/js/so-order-app.js): lô header = TỔNG read-only (`Tổng N Kiện : KG | Tổng HĐ | Giảm·Ship`). `_groupMetaSubHeaderHtml` chèn **dòng phụ đầu mỗi đơn** (`meta.inv.render`) hiện `🏪 NCC · KG · HĐ · Giảm · Ship` riêng. CSS `.so-grpmeta-*`.
+- **Create / sửa 1 dòng**: form KG/Kiện/HĐ/Giảm/Ship → lưu meta của đơn đó (per-gid). `_applyShipMetaUi` load từ order meta.
+- **Sửa lô modal** [index.html](so-order/index.html): ẩn cụm meta chung (`[data-single-meta]`), hiện section `#soPerOrderMetaWrap` — mỗi đơn 1 cụm input (NCC·Kiện·KG·HĐ·Giảm·Ship) + cụm "Đơn mới". `_renderPerOrderMeta`/`_readPerOrderMeta`. Submit lưu từng cụm qua `setOrderAdjustment` (cụm "Đơn mới" → newGid). CSS `.so-pm-*`.
+
+Bump `so-order-app.js` + `so-order.css` `?v=20260617b`.
+
+**Status:** ⏳ code xong, đang chờ Bash (classifier offline) để syntax-check + browser test + commit.
+
 ## 2026-06-16
 
 ### [delivery-report] Thêm thẻ "Tổng tiền hóa đơn" (headline) = Giao hàng thu tiền + Tổng trả trước ✅
