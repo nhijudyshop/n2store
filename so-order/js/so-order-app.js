@@ -698,18 +698,19 @@
     // 2026-06-17: dòng phụ (sub-header) đầu mỗi ĐƠN trong lô — hiện meta riêng
     // của NCC đó: KG · HĐ · Giảm · Ship. KG/Kiện/HĐ chỉ hiện nếu tab bật field
     // tương ứng (thông tin lô); Giảm/Ship hiện khi > 0. Rỗng hết → bỏ qua dòng.
-    function _groupMetaSubHeaderHtml(sh, firstRow, tab, colSpan, flags) {
+    function _groupMetaSubHeaderHtml(sh, firstRow, tab, colSpan, _flags) {
         const gid = firstRow.invoiceGroupId || firstRow.id;
         const m = window.SoOrderStorage.getOrderAdjustment(sh, gid);
         const cur = tab.currency || 'VND';
+        // Value-driven: hiện field nào CÓ giá trị (>0). Rỗng hết → bỏ qua dòng
+        // (không bày "0 KG · HĐ 0" rác). Tổng cả lô luôn ở header lô.
         const parts = [];
-        if (flags.caseCount && m.caseCount)
-            parts.push(`<span class="so-grpmeta-item">${m.caseCount} Kiện</span>`);
-        if (flags.weightKg)
+        if (m.caseCount) parts.push(`<span class="so-grpmeta-item">${m.caseCount} Kiện</span>`);
+        if (m.weightKg)
             parts.push(
                 `<span class="so-grpmeta-item"><i data-lucide="weight"></i> ${m.weightKg.toLocaleString('vi-VN')} KG</span>`
             );
-        if (flags.contractAmount)
+        if (m.contractAmount)
             parts.push(
                 `<span class="so-grpmeta-item">HĐ <strong>${escapeHtml(fmtCurrency(m.contractAmount, cur))}</strong></span>`
             );
@@ -4723,7 +4724,6 @@ window.addEventListener('load', () => {
             list.innerHTML = '';
             return;
         }
-        const flags = _shipMetaFlags(tab);
         // Gom các đơn (gid) theo thứ tự xuất hiện trong modalRows (dòng cũ có gid).
         // Luôn thêm cụm "__new__" ở cuối cho SP thêm mới (đơn mới) — render 1 lần
         // lúc mở, KHÔNG re-render khi thêm/xoá dòng (giữ giá trị user đang gõ).
@@ -4739,10 +4739,10 @@ window.addEventListener('load', () => {
         }
         order.push({ key: '__new__', supplier: '' }); // cụm SP thêm mới
         const cur = tab.currency || 'VND';
-        const numField = (pm, label, val, show) =>
-            show
-                ? `<label class="so-pm-field"><span>${label}</span><input type="number" min="0" step="any" data-pm="${pm}" value="${Number(val) || 0}" class="so-input-v2 so-input-num" /></label>`
-                : '';
+        // Cụm Sửa lô = nơi user nhập meta per-NCC → LUÔN hiện đủ 5 ô (không phụ
+        // thuộc tab flags). Tab flags chỉ ảnh hưởng ô meta CHUNG của form (tạo mới).
+        const numField = (pm, label, val) =>
+            `<label class="so-pm-field"><span>${label}</span><input type="number" min="0" step="any" data-pm="${pm}" value="${Number(val) || 0}" class="so-input-v2 so-input-num" /></label>`;
         list.innerHTML = order
             .map((o) => {
                 const m =
@@ -4752,11 +4752,11 @@ window.addEventListener('load', () => {
                 const label = o.key === '__new__' ? 'Đơn mới' : escapeHtml(o.supplier || '—');
                 return `<div class="so-pm-cluster" data-gid="${escapeHtml(o.key)}">
                     <span class="so-pm-ncc"><i data-lucide="store"></i> ${label}</span>
-                    ${numField('caseCount', 'Kiện', m.caseCount, flags.caseCount)}
-                    ${numField('weightKg', 'KG', m.weightKg, flags.weightKg)}
-                    ${numField('contractAmount', `HĐ (${cur})`, m.contractAmount, flags.contractAmount)}
-                    ${numField('discount', `Giảm (${cur})`, m.discount, true)}
-                    ${numField('shipping', `Ship (${cur})`, m.shipping, true)}
+                    ${numField('caseCount', 'Kiện', m.caseCount)}
+                    ${numField('weightKg', 'KG', m.weightKg)}
+                    ${numField('contractAmount', `HĐ (${cur})`, m.contractAmount)}
+                    ${numField('discount', `Giảm (${cur})`, m.discount)}
+                    ${numField('shipping', `Ship (${cur})`, m.shipping)}
                 </div>`;
             })
             .join('');

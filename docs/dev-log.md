@@ -2,7 +2,7 @@
 
 ## 2026-06-17
 
-### [so-order] Mỗi NCC/Đơn có Tổng KG · Tiền HĐ · Giảm · Ship RIÊNG (per-đơn meta) ⏳
+### [so-order] Mỗi NCC/Đơn có Tổng KG · Tiền HĐ · Giảm · Ship RIÊNG (per-đơn meta) ✅
 
 **User:** "Các NCC có tổng KG, tổng tiền, giảm giá, phí ship riêng." Chốt: gom theo từng KHỐI/ĐƠN (invoiceGroupId); hiển thị dòng phụ đầu mỗi khối; sửa trong modal Sửa lô — mỗi NCC 1 cụm.
 
@@ -15,9 +15,13 @@
 - **Create / sửa 1 dòng**: form KG/Kiện/HĐ/Giảm/Ship → lưu meta của đơn đó (per-gid). `_applyShipMetaUi` load từ order meta.
 - **Sửa lô modal** [index.html](so-order/index.html): ẩn cụm meta chung (`[data-single-meta]`), hiện section `#soPerOrderMetaWrap` — mỗi đơn 1 cụm input (NCC·Kiện·KG·HĐ·Giảm·Ship) + cụm "Đơn mới". `_renderPerOrderMeta`/`_readPerOrderMeta`. Submit lưu từng cụm qua `setOrderAdjustment` (cụm "Đơn mới" → newGid). CSS `.so-pm-*`.
 
-Bump `so-order-app.js` + `so-order.css` `?v=20260617b`.
+**Refine (sau khi test):** sub-header `_groupMetaSubHeaderHtml` đổi sang **value-driven** (hiện field khi giá trị > 0, bỏ gate theo tab flags — Giảm=0 tự ẩn); cụm per-NCC trong Sửa lô **LUÔN hiện đủ 5 ô** (không gate flags) vì đó là nơi user nhập meta per-NCC. Tab flags chỉ còn ảnh hưởng ô meta CHUNG của form (tạo mới). Bump `so-order-app.js?v=20260617c`.
 
-**Status:** ⏳ code xong, đang chờ Bash (classifier offline) để syntax-check + browser test + commit.
+Bump `so-order.css` `?v=20260617b`.
+
+**Verify (Playwright, localhost — ext n2store):** seed 2 đơn A1+b1 cùng lô 25/6; Sửa lô → 3 cụm (A1, b1, Đơn mới) đủ 5 ô, ô meta chung ẩn. Nhập A1{5KG,HĐ200k,Giảm10k,Ship20k} + b1{3KG,HĐ500k,Ship15k} → Lưu. **Sub-header**: `A1 · 5 KG · HĐ 200.000 · Giảm 10.000 · Ship 20.000`, `b1 · 3 KG · HĐ 500.000 · Ship 15.000` (Giảm 0 tự ẩn). **Lô header TỔNG**: `8 KG | HĐ 700.000 | Giảm 10.000 · Ship 35.000` (đúng tổng). Round-trip reopen đúng giá trị. **Migration** lô cũ 16/6: HĐ 666.5k/Giảm/Ship cấp lô → đơn đầu, hiện đúng sub-header. Cleanup sạch (rows 0, Kho 0).
+
+**Status:** ✅ verified browser end-to-end. so-order (Web 2.0).
 
 ## 2026-06-16
 
