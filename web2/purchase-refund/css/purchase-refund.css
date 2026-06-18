@@ -974,6 +974,94 @@ body {
     border-top: 1px solid #e2e8f0;
 }
 
+/* ---------- Bulk refund (trả cả đơn 1 lần) ---------- */
+.pr-bulk-btn {
+    margin-left: 10px;
+    background: #fee2e2;
+    color: #991b1b;
+    border: 1px solid #fca5a5 !important;
+    flex-shrink: 0;
+}
+.pr-bulk-btn:hover {
+    background: #fecaca;
+    border-color: #ef4444 !important;
+}
+.pr-bulk-content {
+    width: min(760px, 96vw);
+}
+.pr-bulk-hint {
+    font-size: 12px;
+    color: #64748b;
+    margin-bottom: 10px;
+}
+.pr-bulk-table-wrap {
+    max-height: 44vh;
+    overflow-y: auto;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    margin-bottom: 14px;
+}
+.pr-bulk-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+.pr-bulk-table th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    text-align: left;
+    background: #f8fafc;
+    color: #475569;
+    font-weight: 600;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    padding: 8px 10px;
+    border-bottom: 1px solid #e2e8f0;
+}
+.pr-bulk-table th.num,
+.pr-bulk-table td.num {
+    text-align: right;
+}
+.pr-bulk-table td {
+    padding: 7px 10px;
+    border-bottom: 1px solid #f1f5f9;
+    vertical-align: middle;
+}
+.pr-bulk-table tr:last-child td {
+    border-bottom: none;
+}
+.pr-bulk-table tr.is-on td {
+    background: #fffbeb;
+}
+.pr-bulk-table code {
+    background: #f1f5f9;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 12px;
+}
+.pr-bulk-qty {
+    width: 64px;
+    height: 30px;
+    text-align: right;
+    padding: 0 8px;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    font-family: inherit;
+}
+.pr-bulk-qty:focus {
+    outline: none;
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+.pr-bulk-line {
+    font-weight: 600;
+    color: #b45309;
+}
+
 /* P1 2026-05-30: Audit history timeline trong detail view
  * User ask "có hệ thống user → lịch sử chỉnh sửa kèm tên user tương tác".
  */

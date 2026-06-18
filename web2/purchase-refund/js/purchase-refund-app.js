@@ -988,6 +988,7 @@
 
     const SOURCE_STATE = {
         items: [],
+        groups: [], // [[item,...], ...] — gom theo ĐƠN (NCC+shipment), rebuild mỗi render
         search: '',
         supplierFilter: '',
         loaded: false,
@@ -1052,8 +1053,11 @@
             grouped.get(k).push(it);
         }
 
+        // Lưu groups để modal trả-cả-đơn truy theo index (rebuild mỗi lần render).
+        SOURCE_STATE.groups = Array.from(grouped.values());
+
         let html = '';
-        for (const [, items] of grouped) {
+        SOURCE_STATE.groups.forEach((items, gi) => {
             const first = items[0];
             const totalValue = items.reduce((s, it) => s + it.stock * it.price, 0);
             html += `<div class="pr-source-group">
@@ -1062,6 +1066,7 @@
                     ${escapeHtml(first.supplier)}
                     <span class="pr-source-order-tag">${escapeHtml(_orderGroupLabel(first))}</span>
                     <span class="pr-source-group-meta">${items.length} SP · tồn ${fmtMoney(totalValue)}</span>
+                    <button class="btn btn-danger btn-sm pr-bulk-btn" data-bulk-group="${gi}" title="Trả nhiều SP của đơn này cùng lúc"><i data-lucide="undo-2"></i> Trả hàng</button>
                 </h3>
                 <table class="pr-source-table">
                     <thead><tr>
@@ -1088,7 +1093,7 @@
                     </tbody>
                 </table>
             </div>`;
-        }
+        });
         listEl.innerHTML = html;
         if (window.lucide) window.lucide.createIcons();
     }
@@ -1294,6 +1299,212 @@
         });
     }
 
+    // ---------- Bulk Refund Modal (trả cả đơn 1 lần, SL mặc định 0) ----------
+    //
+    // User ask 2026-06-17: nút "Trả hàng" ở header NHÓM (đơn) → mở modal gồm
+    // TẤT CẢ SP của đơn, mỗi SP 1 ô SL mặc định 0 để chỉnh → nhanh hơn trả từng
+    // cái. Submit 1 phiếu quick-refund đa SP (backend đã atomic: trừ kho từng
+    // dòng + ghi ví NCC theo totalAmount). CHỈ SP có SL>0 mới đưa vào phiếu.
+
+    const BULK_STATE = {
+        group: null, // array of source items (1 đơn)
+    };
+
+    function openBulkRefund(groupIdx) {
+        const group = SOURCE_STATE.groups[groupIdx];
+        if (!group || !group.length) {
+            notify('Đơn không còn SP nào', 'error');
+            return;
+        }
+        BULK_STATE.group = group;
+        const first = group[0];
+        const form = $('prBulkForm');
+        form.reset();
+
+        $('prBulkInfo').innerHTML = `
+            <div class="pr-quick-info-row">
+                <span class="pr-quick-label">NCC:</span>
+                <strong>${escapeHtml(first.supplier)}</strong>
+            </div>
+            <div class="pr-quick-info-row">
+                <span class="pr-quick-label">Đơn:</span>
+                <span>${escapeHtml(_orderGroupLabel(first))}</span>
+            </div>
+            <div class="pr-quick-info-row">
+                <span class="pr-quick-label">Số SP:</span>
+                <strong>${group.length}</strong>
+                <span style="color:#64748b">· nhập SL muốn trả cho từng dòng</span>
+            </div>
+        `;
+        renderBulkRows();
+        updateBulkTotal();
+        $('prBulkModal').hidden = false;
+        if (window.lucide) window.lucide.createIcons();
+    }
+
+    function renderBulkRows() {
+        const group = BULK_STATE.group || [];
+        $('prBulkRows').innerHTML = group
+            .map(
+                (it, i) => `<tr data-bulk-idx="${i}">
+                    <td><code>${escapeHtml(it.code)}</code></td>
+                    <td>${escapeHtml(it.name)}${it.variant ? ` <small style="color:#64748b">(${escapeHtml(it.variant)})</small>` : ''}</td>
+                    <td class="num"><strong>${it.stock}</strong></td>
+                    <td class="num">${fmtMoney(it.price)}</td>
+                    <td class="num"><input type="number" class="pr-bulk-qty" min="0" max="${it.stock}" value="0" data-bulk-idx="${i}"></td>
+                    <td class="num pr-bulk-line" data-bulk-line="${i}">0₫</td>
+                </tr>`
+            )
+            .join('');
+    }
+
+    // Đọc qty từng dòng (clamp 0..stock), trả [{item, qty}] cho SP có qty>0.
+    function _collectBulkLines() {
+        const group = BULK_STATE.group || [];
+        const out = [];
+        document.querySelectorAll('#prBulkRows .pr-bulk-qty').forEach((inp) => {
+            const i = Number(inp.dataset.bulkIdx);
+            const it = group[i];
+            if (!it) return;
+            const qty = Math.max(0, Math.min(Number(it.stock) || 0, Number(inp.value) || 0));
+            if (qty > 0) out.push({ item: it, qty });
+        });
+        return out;
+    }
+
+    function updateBulkTotal() {
+        const group = BULK_STATE.group || [];
+        let totalQty = 0;
+        let totalAmount = 0;
+        document.querySelectorAll('#prBulkRows .pr-bulk-qty').forEach((inp) => {
+            const i = Number(inp.dataset.bulkIdx);
+            const it = group[i];
+            if (!it) return;
+            const qty = Math.max(0, Math.min(Number(it.stock) || 0, Number(inp.value) || 0));
+            const line = qty * (Number(it.price) || 0);
+            totalQty += qty;
+            totalAmount += line;
+            const cell = document.querySelector(`#prBulkRows [data-bulk-line="${i}"]`);
+            if (cell) cell.textContent = fmtMoney(line);
+            const row = inp.closest('tr');
+            if (row) row.classList.toggle('is-on', qty > 0);
+        });
+        $('prBulkQty').textContent = String(totalQty);
+        $('prBulkTotal').textContent = fmtMoney(totalAmount);
+    }
+
+    function closeBulkRefund() {
+        $('prBulkModal').hidden = true;
+        BULK_STATE.group = null;
+    }
+
+    async function submitBulkRefund(e) {
+        e.preventDefault();
+        const lines = _collectBulkLines();
+        if (!lines.length) {
+            notify('Chưa nhập SL cho SP nào (mặc định 0) — nhập SL muốn trả', 'warning');
+            return;
+        }
+        const form = $('prBulkForm');
+        const first = BULK_STATE.group[0];
+        const supplier = first.supplier;
+        const reason = form.elements['reason'].value;
+        const method = form.elements['refundMethod'].value;
+        const note = form.elements['note'].value || '';
+
+        const products = lines.map(({ item, qty }) => ({
+            code: item.code,
+            name: item.variant ? `${item.name} (${item.variant})` : item.name,
+            qty,
+            price: Number(item.price) || 0,
+        }));
+        const totalQty = lines.reduce((s, l) => s + l.qty, 0);
+        const totalAmount = lines.reduce((s, l) => s + l.qty * (Number(l.item.price) || 0), 0);
+
+        // Mã + tên phiếu (gộp cả đơn).
+        const today = new Date();
+        const ymd = `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, '0')}${String(today.getDate()).padStart(2, '0')}`;
+        const ncShort = (supplier || 'NCC')
+            .replace(/[^A-Z0-9]/gi, '')
+            .toUpperCase()
+            .slice(0, 6);
+        const rand = Math.random().toString(36).toUpperCase().slice(2, 6);
+        const refundCode = `TRA-${ymd}-${ncShort}-${rand}`;
+        const refundName = `Trả ${products.length} SP cho ${supplier}`;
+
+        const submitBtn = $('prBulkSubmit');
+        submitBtn.disabled = true;
+        const orig = submitBtn.innerHTML;
+        submitBtn.innerHTML = '<i data-lucide="loader"></i> Đang xử lý...';
+        if (window.lucide) window.lucide.createIcons();
+
+        const userInfo = _currentUserInfo();
+        try {
+            // 1 phiếu quick-refund đa SP — atomic ở server (trừ kho từng dòng +
+            // ghi ledger ví NCC theo totalAmount, idempotent theo txId=code).
+            await fetchJson(`${SM_API}/quick-refund`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    code: refundCode,
+                    name: refundName,
+                    supplier,
+                    supplierCode: null,
+                    refundDate: today.toISOString().slice(0, 10),
+                    reason,
+                    refundMethod: method,
+                    totalQty,
+                    totalAmount,
+                    note,
+                    products,
+                    sourcePurchaseCode: first.shipmentId || first.sources?.[0]?.ship || null,
+                    userId: userInfo.userId,
+                    userName: userInfo.userName,
+                }),
+            });
+            notify(
+                `✓ Đã trả ${totalQty} SP (${products.length} dòng) cho ${supplier} — giảm ví NCC ${fmtMoney(totalAmount)}`,
+                'success'
+            );
+            closeBulkRefund();
+            await loadSourceItems();
+            await loadList();
+        } catch (err) {
+            console.error('[bulk refund] fail:', err);
+            notify(`Trả NCC thất bại: ${err.message}`, 'error');
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = orig;
+            if (window.lucide) window.lucide.createIcons();
+        }
+    }
+
+    function wireBulkModal() {
+        $('prBulkForm')?.addEventListener('submit', submitBulkRefund);
+        document
+            .querySelectorAll('[data-pr-bulk-close]')
+            .forEach((el) => el.addEventListener('click', closeBulkRefund));
+        // Live total khi đổi qty bất kỳ dòng nào. Clamp input về 0..tồn để user
+        // thấy đúng số (không cho gõ vượt tồn kho).
+        $('prBulkRows')?.addEventListener('input', (e) => {
+            const inp = e.target.closest('.pr-bulk-qty');
+            if (!inp) return;
+            const group = BULK_STATE.group || [];
+            const it = group[Number(inp.dataset.bulkIdx)];
+            if (it && inp.value !== '') {
+                const max = Number(it.stock) || 0;
+                let v = Math.floor(Number(inp.value) || 0);
+                if (v < 0) v = 0;
+                if (v > max) v = max;
+                if (String(v) !== inp.value) inp.value = String(v);
+            }
+            updateBulkTotal();
+        });
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && !$('prBulkModal').hidden) closeBulkRefund();
+        });
+    }
+
     function wireSourceList() {
         $('prReloadBtn').addEventListener('click', async () => {
             await Promise.all([loadSourceItems(), loadList()]);
@@ -1306,8 +1517,13 @@
             SOURCE_STATE.supplierFilter = e.target.value;
             renderSourceList();
         });
-        // Delegate "Trả NCC" buttons
+        // Delegate "Trả NCC" (1 SP) + "Trả hàng" (cả đơn) buttons
         $('prSourceList').addEventListener('click', (e) => {
+            const bulkBtn = e.target.closest('.pr-bulk-btn');
+            if (bulkBtn) {
+                openBulkRefund(Number(bulkBtn.dataset.bulkGroup));
+                return;
+            }
             const btn = e.target.closest('.pr-source-refund');
             if (!btn) return;
             openQuickRefund(btn.dataset.srcAgg);
@@ -1337,6 +1553,7 @@
         wirePicker();
         wireSourceList();
         wireQuickModal();
+        wireBulkModal();
 
         // Initial loads: section A (so-order) + section B (refunds)
         loadSourceItems();

@@ -11,7 +11,7 @@
 
         <!-- Firebase SDK gỡ 2026-06-14: so-order đã sang Postgres (/api/web2-so-order), picker không dùng Firestore -->
         <script src="../../shared/js/notification-system.js?v=20260521b"></script>
-        <link rel="stylesheet" href="css/purchase-refund.css?v=20260607a" />
+        <link rel="stylesheet" href="css/purchase-refund.css?v=20260617a" />
         <link rel="stylesheet" href="../../web2/shared/web2-theme.css?v=20260613z" />
     </head>
     <body>
@@ -153,6 +153,78 @@
                             Hủy
                         </button>
                         <button type="submit" class="btn btn-primary" id="prQuickSubmit">
+                            <i data-lucide="check"></i> Xác nhận trả NCC
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Bulk Refund Modal — trả nhiều SP của cùng 1 đơn cùng lúc (mặc định SL=0) -->
+        <div class="pr-quick-modal pr-bulk-modal" id="prBulkModal" hidden>
+            <div class="pr-quick-backdrop" data-pr-bulk-close></div>
+            <div class="pr-quick-content pr-bulk-content">
+                <header class="pr-quick-head">
+                    <h2><i data-lucide="undo-2"></i> Trả hàng cho NCC</h2>
+                    <button data-pr-bulk-close class="pr-quick-close">×</button>
+                </header>
+                <form id="prBulkForm">
+                    <div class="pr-quick-info" id="prBulkInfo">
+                        <!-- prefilled: NCC, đơn, số SP -->
+                    </div>
+                    <div class="pr-bulk-hint">
+                        Nhập <strong>Số lượng trả</strong> cho từng SP (mặc định 0). Chỉ SP có SL
+                        &gt; 0 sẽ được trả.
+                    </div>
+                    <div class="pr-bulk-table-wrap">
+                        <table class="pr-bulk-table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 120px">Mã SP</th>
+                                    <th>Tên + Biến thể</th>
+                                    <th class="num" style="width: 64px">Tồn</th>
+                                    <th class="num" style="width: 96px">Giá</th>
+                                    <th class="num" style="width: 88px">Trả SL</th>
+                                    <th class="num" style="width: 110px">Thành tiền</th>
+                                </tr>
+                            </thead>
+                            <tbody id="prBulkRows"></tbody>
+                        </table>
+                    </div>
+                    <div class="pr-quick-grid">
+                        <label>
+                            Lý do
+                            <select name="reason">
+                                <option value="defect">Hàng lỗi / hỏng</option>
+                                <option value="wrong_item">Sai mã / sai SP</option>
+                                <option value="excess">Dư hàng / nhận thừa</option>
+                                <option value="quality">Chất lượng kém</option>
+                                <option value="other">Khác</option>
+                            </select>
+                        </label>
+                        <label>
+                            Phương thức hoàn
+                            <select name="refundMethod">
+                                <option value="debt_offset">Trừ vào công nợ kỳ sau</option>
+                                <option value="cash">Tiền mặt</option>
+                                <option value="bank">Chuyển khoản</option>
+                                <option value="replace">Đổi hàng mới</option>
+                            </select>
+                        </label>
+                    </div>
+                    <label class="pr-quick-full">
+                        Ghi chú
+                        <textarea name="note" rows="2"></textarea>
+                    </label>
+                    <div class="pr-quick-totalbox" id="prBulkTotalBox">
+                        <span>Tổng tiền NCC sẽ hoàn (<span id="prBulkQty">0</span> SP):</span>
+                        <strong id="prBulkTotal">0₫</strong>
+                    </div>
+                    <div class="pr-quick-actions">
+                        <button type="button" data-pr-bulk-close class="btn btn-secondary">
+                            Hủy
+                        </button>
+                        <button type="submit" class="btn btn-primary" id="prBulkSubmit">
                             <i data-lucide="check"></i> Xác nhận trả NCC
                         </button>
                     </div>
@@ -337,6 +409,6 @@
         <script src="../shared/web2-suppliers-cache.js?v=20260616a"></script>
         <script src="../shared/web2-so-order-reader.js?v=20260614d"></script>
         <script src="../supplier-wallet/js/supplier-wallet-storage.js?v=20260613fb"></script>
-        <script src="js/purchase-refund-app.js?v=20260616a"></script>
+        <script src="js/purchase-refund-app.js?v=20260617a"></script>
     </body>
 </html>
