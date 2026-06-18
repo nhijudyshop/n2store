@@ -1,10 +1,10 @@
 {
-    "generatedAt": "2026-06-18 23:51",
+    "generatedAt": "2026-06-18 23:58",
     "totals": {
-        "files": 305,
-        "sharedModules": 84,
-        "functions": 2558,
-        "oversized": 6
+        "files": 308,
+        "sharedModules": 87,
+        "functions": 2562,
+        "oversized": 5
     },
     "sharedModules": [
         {
@@ -12,7 +12,7 @@
             "globals": ["Web2ChatEmoji"],
             "purpose": "WEB2.0 — emoji dataset + recent helper cho Web2ChatPanel (tách từ pancake-chat-window).",
             "api": [],
-            "consumers": ["web2/shared/chat-panel/web2-chat-panel.js"],
+            "consumers": ["web2/shared/chat-panel/web2-chat-panel-compose.js"],
             "lines": 212
         },
         {
@@ -20,8 +20,32 @@
             "globals": ["Web2ChatEntityDetect"],
             "purpose": "WEB2.0 — nhận diện SĐT + địa chỉ trong tin nhắn chat (Feature 3).",
             "api": [],
-            "consumers": ["web2/shared/chat-panel/web2-chat-panel.js"],
+            "consumers": ["web2/shared/chat-panel/web2-chat-panel-render.js"],
             "lines": 116
+        },
+        {
+            "file": "web2/shared/chat-panel/web2-chat-panel-compose.js",
+            "globals": [],
+            "purpose": "WEB2.0 module.",
+            "api": [],
+            "consumers": [],
+            "lines": 457
+        },
+        {
+            "file": "web2/shared/chat-panel/web2-chat-panel-render.js",
+            "globals": [],
+            "purpose": "WEB2.0 module.",
+            "api": [],
+            "consumers": [],
+            "lines": 415
+        },
+        {
+            "file": "web2/shared/chat-panel/web2-chat-panel-state.js",
+            "globals": [],
+            "purpose": "WEB2.0 module.",
+            "api": [],
+            "consumers": [],
+            "lines": 194
         },
         {
             "file": "web2/shared/chat-panel/web2-chat-panel.js",
@@ -34,17 +58,20 @@
                 "live-chat/js/pancake/pancake-chat-window.js",
                 "native-orders/js/native-orders-app.js",
                 "web2/shared/chat-panel/web2-chat-emoji-data.js",
+                "web2/shared/chat-panel/web2-chat-panel-compose.js",
+                "web2/shared/chat-panel/web2-chat-panel-render.js",
+                "web2/shared/chat-panel/web2-chat-panel-state.js",
                 "web2/shared/chat-panel/web2-chat-sticker-data.js",
                 "web2/shared/web2-customer-chat.js"
             ],
-            "lines": 1049
+            "lines": 120
         },
         {
             "file": "web2/shared/chat-panel/web2-chat-sticker-data.js",
             "globals": ["Web2ChatStickers"],
             "purpose": "WEB2.0 — bộ sticker built-in cho Web2ChatPanel (Feature 2 sticker-send).",
             "api": [],
-            "consumers": ["web2/shared/chat-panel/web2-chat-panel.js"],
+            "consumers": ["web2/shared/chat-panel/web2-chat-panel-compose.js"],
             "lines": 33
         },
         {
@@ -183,7 +210,7 @@
                 "web2/purchase-refund/js/purchase-refund-state.js",
                 "web2/reconcile/js/reconcile-state.js",
                 "web2/returns/js/returns-api.js",
-                "web2/shared/chat-panel/web2-chat-panel.js",
+                "web2/shared/chat-panel/web2-chat-panel-state.js",
                 "web2/shared/delivery-method-picker.js",
                 "web2/shared/web2-api-fetch.js",
                 "web2/shared/web2-api.js",
@@ -278,7 +305,8 @@
                 "web2/pancake-settings/js/pancake-settings-render.js",
                 "web2/pancake-settings/js/pancake-settings-state.js",
                 "web2/pancake-settings/js/pancake-settings.js",
-                "web2/shared/chat-panel/web2-chat-panel.js",
+                "web2/shared/chat-panel/web2-chat-panel-render.js",
+                "web2/shared/chat-panel/web2-chat-panel-state.js",
                 "web2/shared/web2-chat-api.js",
                 "web2/shared/web2-chat-live.js",
                 "web2/shared/web2-chat-settings.js",
@@ -663,7 +691,7 @@
                 "web2/payment-confirm/js/payment-confirm-app.js",
                 "web2/products/js/web2-products-actions.js",
                 "web2/products/js/web2-products-modal.js",
-                "web2/shared/chat-panel/web2-chat-panel.js",
+                "web2/shared/chat-panel/web2-chat-panel-compose.js",
                 "web2/shared/page-builder.js",
                 "web2/shared/web2-lottie.js",
                 "web2/shared/zalo-chat/chat-actions.js",
@@ -803,7 +831,7 @@
             "api": [],
             "consumers": [
                 "native-orders/js/native-orders-app.js",
-                "web2/shared/chat-panel/web2-chat-panel.js"
+                "web2/shared/chat-panel/web2-chat-panel-compose.js"
             ],
             "lines": 656
         },
@@ -5581,81 +5609,110 @@
                     "functions": ["addresses", "normalizePhone", "phones", "scan", "scanMessages"]
                 },
                 {
-                    "file": "web2/shared/chat-panel/web2-chat-panel.js",
-                    "lines": 1049,
-                    "purpose": "WEB2.0 — component chat HỢP NHẤT (Web2ChatPanel) dùng chung native-orders/web2-pancake/balance-history.",
-                    "globals": ["Web2ChatPanel"],
+                    "file": "web2/shared/chat-panel/web2-chat-panel-compose.js",
+                    "lines": 457,
+                    "purpose": "WEB2.0 module.",
+                    "globals": [],
                     "uses": [
                         "Web2ChatEmoji",
-                        "Web2ChatEntityDetect",
+                        "Web2ChatPanel",
                         "Web2ChatStickers",
-                        "API_CONFIG",
-                        "Web2Chat",
                         "Web2Optimistic",
                         "Web2QuickReply"
                     ],
                     "functions": [
-                        "$",
                         "apply",
                         "attachKind",
-                        "avatarBig",
-                        "avatarSmall",
                         "bindCommon",
                         "bindInput",
+                        "buildCompose",
                         "clearAttach",
                         "clearReply",
-                        "createInstance",
-                        "custOf",
-                        "dayKey",
-                        "destroy",
                         "doSend",
-                        "esc",
-                        "fbAvatarUrl",
-                        "fmtTime",
-                        "getState",
-                        "gradientFor",
-                        "initialOf",
                         "insertEmoji",
-                        "isOutgoing",
-                        "jump",
-                        "loadOlder",
-                        "loadThread",
-                        "mount",
-                        "msgPlain",
-                        "msgTs",
-                        "nameOf",
                         "onClick",
                         "onOutsideClick",
                         "onSuccess",
                         "onload",
-                        "open",
-                        "pageIdOf",
-                        "parseTs",
-                        "psidOf",
-                        "pushMessage",
+                        "renderPicker",
+                        "rollback",
+                        "run",
+                        "sendStickerOptimistic",
+                        "setAttachment",
+                        "setReply",
+                        "togglePicker"
+                    ]
+                },
+                {
+                    "file": "web2/shared/chat-panel/web2-chat-panel-render.js",
+                    "lines": 415,
+                    "purpose": "WEB2.0 module.",
+                    "globals": [],
+                    "uses": ["Web2ChatEntityDetect", "Web2ChatPanel", "Web2Chat"],
+                    "functions": [
+                        "buildRender",
+                        "dayKey",
+                        "jump",
+                        "loadOlder",
+                        "loadThread",
                         "quoted",
                         "reJump",
                         "reactions",
                         "renderAll",
-                        "renderAttachment",
                         "renderDetect",
                         "renderMessage",
-                        "renderPicker",
                         "renderQuick",
                         "renderShell",
                         "renderStats",
                         "renderStatus",
                         "renderTags",
-                        "rollback",
-                        "run",
                         "scrollToBottom",
-                        "sendStickerOptimistic",
-                        "setAttachment",
-                        "setMessages",
-                        "setReply",
-                        "togglePicker",
-                        "updateScrollUi",
+                        "updateScrollUi"
+                    ]
+                },
+                {
+                    "file": "web2/shared/chat-panel/web2-chat-panel-state.js",
+                    "lines": 194,
+                    "purpose": "WEB2.0 module.",
+                    "globals": [],
+                    "uses": ["Web2ChatPanel", "API_CONFIG", "Web2Chat"],
+                    "functions": [
+                        "avatarBig",
+                        "avatarSmall",
+                        "createFlags",
+                        "createState",
+                        "esc",
+                        "fbAvatarUrl",
+                        "fmtTime",
+                        "gradientFor",
+                        "initialOf",
+                        "msgPlain",
+                        "msgTs",
+                        "parseTs",
+                        "renderAttachment",
                         "workerUrl"
+                    ]
+                },
+                {
+                    "file": "web2/shared/chat-panel/web2-chat-panel.js",
+                    "lines": 120,
+                    "purpose": "WEB2.0 — component chat HỢP NHẤT (Web2ChatPanel) dùng chung native-orders/web2-pancake/balance-history.",
+                    "globals": ["Web2ChatPanel"],
+                    "uses": [],
+                    "functions": [
+                        "$",
+                        "createInstance",
+                        "custOf",
+                        "destroy",
+                        "getState",
+                        "isOutgoing",
+                        "mount",
+                        "nameOf",
+                        "open",
+                        "pageIdOf",
+                        "psidOf",
+                        "pushMessage",
+                        "setMessages"
                     ]
                 },
                 {
@@ -8053,7 +8110,7 @@
                 "web2/customer-wallet/js/web2-customer-wallet-state.js",
                 "web2/payment-confirm/js/payment-confirm-app.js",
                 "web2/products/js/web2-product-detail.js",
-                "web2/shared/chat-panel/web2-chat-panel.js",
+                "web2/shared/chat-panel/web2-chat-panel-state.js",
                 "web2/shared/page-builder.js",
                 "web2/shared/web2-ck-review.js",
                 "web2/shared/web2-unread-panel.js",
@@ -8443,7 +8500,7 @@
             "files": [
                 "live-chat/js/pancake/pancake-chat-window.js",
                 "native-orders/js/native-orders-app.js",
-                "web2/shared/chat-panel/web2-chat-panel.js",
+                "web2/shared/chat-panel/web2-chat-panel-render.js",
                 "web2/shared/web2-customer-chat.js",
                 "web2/shared/zalo-chat/chat-view.js"
             ],
@@ -8635,7 +8692,7 @@
             "files": [
                 "live-chat/js/live/comments-mobile-state.js",
                 "web2/multi-tool/js/multi-tool.js",
-                "web2/shared/chat-panel/web2-chat-panel.js",
+                "web2/shared/chat-panel/web2-chat-panel-state.js",
                 "web2/shared/web2-format.js"
             ],
             "count": 4
@@ -8686,7 +8743,7 @@
                 "web2/balance-history/js/web2-bh-render.js",
                 "web2/ck-dashboard/js/ck-dashboard-app.js",
                 "web2/kpi/js/kpi-assignments.js",
-                "web2/shared/chat-panel/web2-chat-panel.js"
+                "web2/shared/chat-panel/web2-chat-panel-render.js"
             ],
             "count": 4
         },
@@ -9045,7 +9102,7 @@
             "fn": "renderAll",
             "files": [
                 "so-order/js/so-order-render.js",
-                "web2/shared/chat-panel/web2-chat-panel.js",
+                "web2/shared/chat-panel/web2-chat-panel-render.js",
                 "web2/system/js/system-services.js"
             ],
             "count": 3
@@ -9073,7 +9130,7 @@
             "files": [
                 "live-chat/js/live/comments-mobile-render.js",
                 "web2/purchase-refund/js/purchase-refund-modal.js",
-                "web2/shared/chat-panel/web2-chat-panel.js"
+                "web2/shared/chat-panel/web2-chat-panel-compose.js"
             ],
             "count": 3
         },
@@ -9221,10 +9278,6 @@
         {
             "file": "live-chat/server/server.js",
             "lines": 1216
-        },
-        {
-            "file": "web2/shared/chat-panel/web2-chat-panel.js",
-            "lines": 1049
         },
         {
             "file": "so-order/js/so-order-storage.js",
