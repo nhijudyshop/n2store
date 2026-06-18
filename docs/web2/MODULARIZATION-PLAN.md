@@ -57,7 +57,7 @@ Gom các util trùng khắp nơi thành shared 1 nguồn. **Làm trước** vì 
 Mỗi file 1 agent sở hữu end-to-end, verify độc lập. Không đụng global dùng chung phức tạp.
 
 - [ ] **`live-chat/server/server.js`** (1216) → 11 module (relay, event-store, db, firebase-loader, pancake-api, page-selection-db, pancake-client, client-manager, browser-broker, routes, middleware) + entry 120L. _Node-side, không hazard DOM._
-- [ ] **`web2/jt-tracking/js/jt-tracking-app.js`** (1090) → constants / api / state / render / modals / actions / app(orchestrator). Đã dùng Web2CustomerChat.
+- [x] **`web2/jt-tracking/js/jt-tracking-app.js`** (1090) → 7 module: constants(115) / api(42) / state(124) / render(279) / modals(229) / actions(313) / app(132). ✅ Verified live (0 JS err, 204 rows render). Không có inline onclick (data-\* + delegation).
 - [ ] **`web2/fastsaleorder-invoice/pbh-app.js`** (1027) → state / api / render-table / render-modals / actions / filters / customer-filter / bulk-selection / utils / app. _Gom render-modals + bulk vào ít file hơn nếu nhỏ._
 - [ ] **`web2/zalo/js/web2-zalo-app.js`** (886) → utils / state / tabs / accounts / chat / lookup / zns / bind.
 - [ ] **`web2/returns/js/returns-app.js`** (867) → state / constants / utils / customer / form-controls / order / items / cod / submit / list / pending / main. _Gộp xuống ~7 file (tránh file 40L)._

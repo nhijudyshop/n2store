@@ -1,10 +1,10 @@
 {
-    "generatedAt": "2026-06-18 15:04",
+    "generatedAt": "2026-06-18 15:17",
     "totals": {
-        "files": 165,
+        "files": 171,
         "sharedModules": 75,
-        "functions": 2544,
-        "oversized": 30
+        "functions": 2546,
+        "oversized": 29
     },
     "sharedModules": [
         {
@@ -160,7 +160,8 @@
                 "web2/fastsaleorder-delivery/dlv-app.js",
                 "web2/fastsaleorder-invoice/pbh-app.js",
                 "web2/fastsaleorder-refund/rf-app.js",
-                "web2/jt-tracking/js/jt-tracking-app.js",
+                "web2/jt-tracking/js/jt-tracking-api.js",
+                "web2/jt-tracking/js/jt-tracking-constants.js",
                 "web2/kpi/js/kpi-assignments.js",
                 "web2/kpi/js/kpi-dashboard.js",
                 "web2/multi-tool/js/multi-tool.js",
@@ -251,7 +252,7 @@
                 "native-orders/js/native-orders-app.js",
                 "web2/balance-history/js/web2-pending-match.js",
                 "web2/customers/js/customers-app.js",
-                "web2/jt-tracking/js/jt-tracking-app.js",
+                "web2/jt-tracking/js/jt-tracking-actions.js",
                 "web2/multi-tool/js/multi-tool.js",
                 "web2/pancake-settings/js/pancake-settings.js",
                 "web2/shared/chat-panel/web2-chat-panel.js",
@@ -298,7 +299,7 @@
             "consumers": [
                 "web2/balance-history/js/web2-balance-history-app.js",
                 "web2/balance-history/js/web2-pending-match.js",
-                "web2/jt-tracking/js/jt-tracking-app.js",
+                "web2/jt-tracking/js/jt-tracking-modals.js",
                 "web2/shared/web2-customer-detail-modal.js",
                 "web2/shared/web2-product-counter.js"
             ],
@@ -513,7 +514,7 @@
             "purpose": "WEB2.0 shared — 1 NGUỒN toast/notify cho Web 2.0.",
             "api": [],
             "consumers": ["web2/shared/web2-sidebar.js"],
-            "lines": 46
+            "lines": 49
         },
         {
             "file": "web2/shared/web2-optimistic.js",
@@ -530,7 +531,7 @@
                 "web2/fastsaleorder-delivery/dlv-app.js",
                 "web2/fastsaleorder-invoice/pbh-app.js",
                 "web2/fastsaleorder-refund/rf-app.js",
-                "web2/jt-tracking/js/jt-tracking-app.js",
+                "web2/jt-tracking/js/jt-tracking-actions.js",
                 "web2/pancake-settings/js/pancake-settings.js",
                 "web2/payment-confirm/js/payment-confirm-app.js",
                 "web2/products/js/web2-products-app.js",
@@ -791,7 +792,7 @@
             "purpose": "WEB2.0 shared — 1 NGUỒN chuẩn hoá text/tìm kiếm tiếng Việt cho Web 2.0.",
             "api": [],
             "consumers": ["web2/shared/web2-sidebar.js"],
-            "lines": 45
+            "lines": 41
         },
         {
             "file": "web2/shared/web2-unread-panel.js",
@@ -907,7 +908,7 @@
             "purpose": "WEB2.0 shared — Web2Zalo helper (single-source Zalo).",
             "api": [],
             "consumers": [
-                "web2/jt-tracking/js/jt-tracking-app.js",
+                "web2/jt-tracking/js/jt-tracking-modals.js",
                 "web2/shared/web2-customer-chat.js",
                 "web2/shared/zalo-chat/chat-view.js",
                 "web2/zalo/js/web2-zalo-app.js"
@@ -3563,75 +3564,109 @@
             "page": "web2/jt-tracking",
             "files": [
                 {
-                    "file": "web2/jt-tracking/js/jt-tracking-app.js",
-                    "lines": 1091,
-                    "purpose": "WEB2.0 — Tra cứu vận đơn J&T (app).",
-                    "globals": [],
-                    "uses": [
-                        "API_CONFIG",
-                        "Web2Auth",
-                        "Web2Chat",
-                        "Web2CustomerChat",
-                        "Web2Optimistic",
-                        "Web2Sidebar",
-                        "Web2SSE",
-                        "Web2Zalo"
-                    ],
+                    "file": "web2/jt-tracking/js/jt-tracking-actions.js",
+                    "lines": 314,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["JtTrackingActions"],
+                    "uses": ["Web2Chat", "Web2Optimistic"],
                     "functions": [
-                        "$",
-                        "AUTHH",
-                        "ST",
-                        "_persistTag",
-                        "_saveTagged",
-                        "api",
                         "apply",
-                        "approvedTag",
-                        "bring",
-                        "close",
-                        "copyText",
-                        "debounce",
-                        "deriveFromDesc",
-                        "destroyLottie",
-                        "done",
-                        "esc",
-                        "fallbackCopy",
-                        "findMessageInChat",
-                        "fmtDesc",
-                        "fmtSrcMsg",
                         "getPancakePageIds",
-                        "icons",
-                        "init",
-                        "jtConfirm",
-                        "load",
-                        "loadBcTags",
-                        "loadTagged",
-                        "markTagged",
-                        "notify",
-                        "ok",
-                        "onEsc",
-                        "onReady",
-                        "openChat",
-                        "openMsgModal",
-                        "openPasteModal",
-                        "openTimeline",
-                        "parseOrderInfo",
-                        "playLottie",
                         "quickAdd",
                         "refreshAll",
-                        "relTime",
-                        "renderKpi",
-                        "renderList",
                         "resolvePancakeConv",
                         "rollback",
                         "rowAction",
-                        "rowHtml",
                         "run",
                         "scanHistory",
                         "scanZalo",
                         "setBusy",
+                        "tagPancake"
+                    ]
+                },
+                {
+                    "file": "web2/jt-tracking/js/jt-tracking-api.js",
+                    "lines": 43,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["JtTrackingApi"],
+                    "uses": ["Web2Auth"],
+                    "functions": ["AUTHH", "api", "relTime"]
+                },
+                {
+                    "file": "web2/jt-tracking/js/jt-tracking-app.js",
+                    "lines": 133,
+                    "purpose": "WEB2.0 — Tra cứu vận đơn J&T (orchestrator).",
+                    "globals": ["JtTrackingApp"],
+                    "uses": ["Web2Sidebar", "Web2SSE"],
+                    "functions": ["debounce", "init", "load"]
+                },
+                {
+                    "file": "web2/jt-tracking/js/jt-tracking-constants.js",
+                    "lines": 116,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["JtTrackingConst"],
+                    "uses": ["API_CONFIG"],
+                    "functions": ["$", "ST", "esc", "icons", "notify"]
+                },
+                {
+                    "file": "web2/jt-tracking/js/jt-tracking-modals.js",
+                    "lines": 230,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["JtTrackingModals"],
+                    "uses": ["Web2CustomerChat", "Web2Zalo"],
+                    "functions": [
+                        "bring",
+                        "close",
+                        "done",
+                        "findMessageInChat",
+                        "jtConfirm",
+                        "onReady",
+                        "openChat",
+                        "openMsgModal",
+                        "openPasteModal"
+                    ]
+                },
+                {
+                    "file": "web2/jt-tracking/js/jt-tracking-render.js",
+                    "lines": 280,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["JtTrackingRender"],
+                    "uses": [],
+                    "functions": [
+                        "approvedTag",
+                        "close",
+                        "copyText",
+                        "deriveFromDesc",
+                        "fallbackCopy",
+                        "fmtDesc",
+                        "fmtSrcMsg",
+                        "ok",
+                        "onEsc",
+                        "openTimeline",
+                        "parseOrderInfo",
+                        "renderKpi",
+                        "renderList",
+                        "rowHtml",
+                        "timelineHtml"
+                    ]
+                },
+                {
+                    "file": "web2/jt-tracking/js/jt-tracking-state.js",
+                    "lines": 125,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["JtTrackingState"],
+                    "uses": [],
+                    "functions": [
+                        "_persistTag",
+                        "_saveTagged",
+                        "destroyLottie",
+                        "getGroupConvId",
+                        "loadBcTags",
+                        "loadTagged",
+                        "markTagged",
+                        "playLottie",
+                        "setGroupConvId",
                         "setTagButtons",
-                        "tagPancake",
-                        "timelineHtml",
                         "unmarkTagged"
                     ]
                 }
@@ -5418,7 +5453,7 @@
                 },
                 {
                     "file": "web2/shared/web2-notify.js",
-                    "lines": 46,
+                    "lines": 49,
                     "purpose": "WEB2.0 shared — 1 NGUỒN toast/notify cho Web 2.0.",
                     "globals": ["Web2Notify"],
                     "uses": ["Popup"],
@@ -5894,7 +5929,7 @@
                 },
                 {
                     "file": "web2/shared/web2-text-utils.js",
-                    "lines": 45,
+                    "lines": 41,
                     "purpose": "WEB2.0 shared — 1 NGUỒN chuẩn hoá text/tìm kiếm tiếng Việt cho Web 2.0.",
                     "globals": ["Web2TextUtils"],
                     "uses": [],
@@ -6973,7 +7008,7 @@
             "fn": "renderList",
             "files": [
                 "web2/customer-wallet/js/web2-customer-wallet-app.js",
-                "web2/jt-tracking/js/jt-tracking-app.js",
+                "web2/jt-tracking/js/jt-tracking-render.js",
                 "web2/purchase-refund/js/purchase-refund-app.js",
                 "web2/reconcile/js/reconcile-app.js",
                 "web2/returns/js/returns-app.js",
@@ -7598,7 +7633,7 @@
         {
             "fn": "done",
             "files": [
-                "web2/jt-tracking/js/jt-tracking-app.js",
+                "web2/jt-tracking/js/jt-tracking-modals.js",
                 "web2/products/js/web2-product-detail.js",
                 "web2/shared/web2-customer-chat.js"
             ],
@@ -7724,7 +7759,7 @@
         {
             "fn": "openChat",
             "files": [
-                "web2/jt-tracking/js/jt-tracking-app.js",
+                "web2/jt-tracking/js/jt-tracking-modals.js",
                 "web2/shared/web2-customer-detail-modal.js",
                 "web2/shared/web2-zalo.js"
             ],
@@ -7987,10 +8022,6 @@
         {
             "file": "web2/reconcile/js/reconcile-app.js",
             "lines": 1107
-        },
-        {
-            "file": "web2/jt-tracking/js/jt-tracking-app.js",
-            "lines": 1091
         },
         {
             "file": "web2/shared/chat-panel/web2-chat-panel.js",
