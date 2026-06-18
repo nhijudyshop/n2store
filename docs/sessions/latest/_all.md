@@ -3,15 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `7cd0728` — fix(cloudflare-worker): SSE /api/sepay-home/stream 502 — timeout 0 abort ngay → dùng 15000
-**Last updated**: 2026-06-18 13:23:45 +07
-**Latest session**: [`RESUME:20260618-132345-7cd0728`](../20260618-132345-7cd0728.md)
-**Summary**: fix(cloudflare-worker): SSE /api/sepay-home/stream 502 — timeout 0 abort ngay → dùng 15000
+**Latest commit**: `91ac960` — feat(purchase-refund): hình SP (tham chiếu Kho SP) + cân đối modal trả hàng
+**Last updated**: 2026-06-18 13:45:16 +07
+**Latest session**: [`RESUME:20260618-134516-91ac960`](../20260618-134516-91ac960.md)
+**Summary**: feat(purchase-refund): hình SP (tham chiếu Kho SP) + cân đối modal trả hàng
 
 ## Folders affected in this commit
 
-- [`cloudflare-worker/`](./cloudflare-worker.md) — 1 file(s)
 - [`docs/`](./docs.md) — 1 file(s)
+- [`web2/`](./web2.md) — 3 file(s)
 
 ## All folder snapshots
 
@@ -26,7 +26,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-18 13:23
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-16 14:31
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-18 12:17
-- [`docs/`](./docs.md) — updated 2026-06-18 13:23
+- [`docs/`](./docs.md) — updated 2026-06-18 13:45
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-16 14:31
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-16 14:31
 - [`downloads/`](./downloads.md) — updated 2026-06-13 19:16
@@ -74,4 +74,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-18 12:36
+- [`web2/`](./web2.md) — updated 2026-06-18 13:45
