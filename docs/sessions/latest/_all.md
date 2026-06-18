@@ -3,15 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `a4358ba` — feat(purchase-refund): click thumbnail SP → xem ảnh FULL (lightbox, không crop)
-**Last updated**: 2026-06-18 13:58:14 +07
-**Latest session**: [`RESUME:20260618-135814-a4358ba`](../20260618-135814-a4358ba.md)
-**Summary**: feat(purchase-refund): click thumbnail SP → xem ảnh FULL (lightbox, không crop)
+**Latest commit**: `0a8e5f3` — feat(purchase-refund): modal trả cả đơn = full browser (96vw×94vh, flex layout)
+**Last updated**: 2026-06-18 14:04:47 +07
+**Latest session**: [`RESUME:20260618-140447-0a8e5f3`](../20260618-140447-0a8e5f3.md)
+**Summary**: feat(purchase-refund): modal trả cả đơn = full browser (96vw×94vh, flex layout)
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`web2/`](./web2.md) — 3 file(s)
+- [`web2/`](./web2.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -26,7 +26,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-18 13:23
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-16 14:31
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-18 12:17
-- [`docs/`](./docs.md) — updated 2026-06-18 13:58
+- [`docs/`](./docs.md) — updated 2026-06-18 14:04
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-16 14:31
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-16 14:31
 - [`downloads/`](./downloads.md) — updated 2026-06-13 19:16
@@ -74,4 +74,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-18 13:58
+- [`web2/`](./web2.md) — updated 2026-06-18 14:04
