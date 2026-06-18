@@ -2,6 +2,21 @@
 
 ## 2026-06-18
 
+### [web2 chat composers] Fix gửi NHẦM 2 tin khi gõ IME tiếng Việt (Enter giữa lúc soạn) ✅
+
+**User:** "nhập tin nhắn '7865ghj' enter nó ra 2 dòng 1 lúc 'ghj' và '7865ghj'" (browser test native-orders chat).
+
+**Root cause (browser-verified):** bộ gõ tiếng Việt (Telex/VNI) sinh `keydown` Enter với `isComposing=true` / `keyCode===229` khi user nhấn Enter để **xác nhận ứng viên bộ gõ**. Handler Enter của ô soạn KHÔNG guard composition → gửi NGAY phần chữ đang soạn dở (vd "ghj"), rồi Enter thật gửi phần đầy đủ ("7865ghj") → ra 2 tin. Repro chính xác qua dispatch `KeyboardEvent('keydown',{key:'Enter',isComposing:true,keyCode:229})` → panel gọi `send("ghj")` dù đang composing.
+
+**Fix:** thêm guard `if (e.isComposing || e.keyCode === 229) return;` vào TẤT CẢ ô soạn gửi (irreversible send), KHÔNG đụng ô search/filter/numeric (IME double-fire vô hại ở đó):
+
+- [web2/shared/chat-panel/web2-chat-panel.js](../web2/shared/chat-panel/web2-chat-panel.js) — composer Pancake (dùng ở native-orders + live-chat) — **PRIMARY**
+- [web2/shared/zalo-chat/composer.js](../web2/shared/zalo-chat/composer.js) — composer Zalo (send + @mention dropdown)
+- [live-chat/js/live/live-comment-list.js](../live-chat/js/live/live-comment-list.js) — trả lời comment livestream
+- [web2/shared/web2-quick-reply.js](../web2/shared/web2-quick-reply.js) — autocomplete /shortcut trên cùng textarea chat
+
+**Verify (browser, isolated panel + no-op adapter):** composing Enter → 0 send (trước fix: 1 send "ghj"); Enter thật sau compositionend → đúng 1 send "7865ghj", input clear. Shared component nên fix 1 chỗ áp dụng mọi trang dùng chat panel.
+
 ### [docs/pancake] XOÁ docs Pancake cũ → browser-test trang thật làm nguồn chuẩn ✅
 
 **User:** "đừng đọc docs pancake nữa, xoá đi, mấy file đó cũ lâu chưa cập nhật → cần thì browser test pancake theo cookie ở secret coi chi tiết từng trang con". Nguồn chuẩn: `pancake.vn/NhiJudyStore/post` + `pancake.vn/NhiJudyHouse.VietNam/post`.

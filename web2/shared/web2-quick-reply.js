@@ -405,6 +405,9 @@
 
         const onKey = (e) => {
             if (dropdown.style.display === 'none') return;
+            // Đang gõ IME tiếng Việt (isComposing/keyCode 229): để bộ gõ xử lý Enter/phím,
+            // không can thiệp (tránh chọn nhầm template / chặn xác nhận ứng viên bộ gõ).
+            if (e.isComposing || e.keyCode === 229) return;
             if (e.key === 'ArrowDown') {
                 e.preventDefault();
                 activeIdx = (activeIdx + 1) % Math.max(candidates.length, 1);

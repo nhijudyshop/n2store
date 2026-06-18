@@ -325,7 +325,11 @@
                     _renderMent();
                     return;
                 }
-                if (e.key === 'Enter' || e.key === 'Tab') {
+                // Đang gõ IME tiếng Việt: bỏ qua để bộ gõ xác nhận ứng viên, không chọn nhầm @mention.
+                if (
+                    (e.key === 'Enter' || e.key === 'Tab') &&
+                    !(e.isComposing || e.keyCode === 229)
+                ) {
                     e.preventDefault();
                     _applyMent(_mentSel);
                     return;

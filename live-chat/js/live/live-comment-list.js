@@ -1960,6 +1960,9 @@ const LiveCommentList = {
         input.style.cssText =
             'flex:1;padding:6px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;';
         input.addEventListener('keydown', (e) => {
+            // Bỏ qua Enter khi đang gõ IME tiếng Việt (isComposing/keyCode 229) → tránh
+            // gửi nhầm comment soạn dở khi nhấn Enter chọn ứng viên bộ gõ.
+            if (e.isComposing || e.keyCode === 229) return;
             if (e.key === 'Enter') this.sendReply(commentId);
         });
 
