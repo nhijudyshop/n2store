@@ -11,7 +11,7 @@
 
         <!-- Firebase SDK gỡ 2026-06-14: so-order đã sang Postgres (/api/web2-so-order), picker không dùng Firestore -->
         <script src="../../shared/js/notification-system.js?v=20260521b"></script>
-        <link rel="stylesheet" href="css/purchase-refund.css?v=20260617a" />
+        <link rel="stylesheet" href="css/purchase-refund.css?v=20260617c" />
         <link rel="stylesheet" href="../../web2/shared/web2-theme.css?v=20260613z" />
     </head>
     <body>
@@ -180,12 +180,12 @@
                         <table class="pr-bulk-table">
                             <thead>
                                 <tr>
-                                    <th style="width: 120px">Mã SP</th>
+                                    <th style="width: 100px">Mã SP</th>
                                     <th>Tên + Biến thể</th>
-                                    <th class="num" style="width: 64px">Tồn</th>
-                                    <th class="num" style="width: 96px">Giá</th>
-                                    <th class="num" style="width: 88px">Trả SL</th>
-                                    <th class="num" style="width: 110px">Thành tiền</th>
+                                    <th class="num" style="width: 52px">Tồn</th>
+                                    <th class="num" style="width: 90px">Giá</th>
+                                    <th class="num" style="width: 84px">Trả SL</th>
+                                    <th class="num" style="width: 104px">Thành tiền</th>
                                 </tr>
                             </thead>
                             <tbody id="prBulkRows"></tbody>
@@ -409,6 +409,6 @@
         <script src="../shared/web2-suppliers-cache.js?v=20260616a"></script>
         <script src="../shared/web2-so-order-reader.js?v=20260614d"></script>
         <script src="../supplier-wallet/js/supplier-wallet-storage.js?v=20260613fb"></script>
-        <script src="js/purchase-refund-app.js?v=20260617b"></script>
+        <script src="js/purchase-refund-app.js?v=20260617c"></script>
     </body>
 </html>

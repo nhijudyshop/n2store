@@ -2,6 +2,19 @@
 
 ## 2026-06-18
 
+### [purchase-refund] Thêm hình SP (tham chiếu Kho SP) + cân đối lại modal trả hàng ✅
+
+**User:** "thêm hình sản phẩm → tham chiếu vào kho sản phẩm" + "giao diện chưa cân đối".
+
+**Thêm:**
+
+- **Ảnh SP từ Kho SP**: agg item trong `loadSoOrderReceivedItems` lấy `matched.imageUrl` (nguồn `Web2ProductsCache` = Kho SP). Helper `safeImageUrl` (chặn scheme nguy hiểm) + `thumbHtml` (img + fallback icon `onerror`). Render thumbnail 38×38 ở: **Section A** (cột Tên+Biến thể), **modal trả cả đơn** (`#prBulkRows`), **modal trả lẻ** (`#prQuickInfo` hàng "Ảnh"). CSS `.pr-thumb`/`.pr-thumb-ph`/`.pr-name-cell`.
+- **Cân đối modal bulk**: width 760→**720px**; siết cột số (Tồn 52 / Giá 90 / Trả SL 84 / Thành tiền 104, Mã SP 100), qty input 64→56px, `td:nth-child(2)` (Tên) `min-width:200px` → tên SP tối đa 2 dòng (hết vỡ 3 dòng), thumbnail lấp khoảng trống trái (gốc "chưa cân đối"). Bump CSS `?v=20260617c`, JS `?v=20260617c`.
+
+**Verify (Playwright localhost, ext n2store):** Section A 7 SP có thumbnail (3 SP có ảnh base64/picsum từ Kho SP, còn lại placeholder icon); modal bulk A1 3 SP thumbnail render, name 2 dòng, modal 720px cân đối; modal lẻ có hàng "Ảnh". 0 lỗi console. `node --check` PASS.
+
+**Status:** ✅ FE verified. purchase-refund (Web 2.0). Ảnh tham chiếu thẳng Kho SP (`Web2ProductsCache.imageUrl`), không lưu trùng.
+
 ### [cloudflare-worker] Fix SSE `/api/sepay-home/stream` 502 → "Mất kết nối" trên balance-history-home ✅
 
 **Triệu chứng:** trang `balance-history-home` hiện badge đỏ "Mất kết nối"; console lặp `GET /api/sepay-home/stream → 502` + `[REALTIME] SSE Error` → reconnect vô hạn. Data vẫn tải OK (history API riêng), chỉ realtime chết.

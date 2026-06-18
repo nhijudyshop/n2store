@@ -70,6 +70,20 @@
             .replace(/'/g, '&#39;');
     }
 
+    // Chỉ cho phép scheme ảnh an toàn (chặn javascript:/data:text/html…).
+    function safeImageUrl(s) {
+        s = String(s || '').trim();
+        return /^(https:\/\/|http:\/\/|\/|data:image\/)/i.test(s) ? s : '';
+    }
+    // Thumbnail SP (ảnh từ Kho SP) — fallback icon khi thiếu/lỗi ảnh.
+    function thumbHtml(imageUrl) {
+        const src = safeImageUrl(imageUrl);
+        if (src) {
+            return `<img class="pr-thumb" src="${escapeHtml(src)}" alt="" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';"><span class="pr-thumb pr-thumb-ph" style="display:none;"><i data-lucide="image"></i></span>`;
+        }
+        return `<span class="pr-thumb pr-thumb-ph"><i data-lucide="image"></i></span>`;
+    }
+
     // 2026-06-07: 1 "đơn" = 1 shipment/đợt trong Sổ Order. Group Section A +
     // picker theo (NCC + shipment) để SP tạo ở đợt khác nhau tách nhóm riêng,
     // kể cả cùng NCC. Header hiển thị NCC + đợt/ngày cho dễ phân biệt.
@@ -731,6 +745,8 @@
                             code: matched.code,
                             name: matched.name,
                             variant: matched.variant || variant,
+                            // Ảnh SP tham chiếu thẳng từ Kho SP (Web2ProductsCache).
+                            imageUrl: matched.imageUrl || '',
                             stock,
                             price: Number(matched.price || r.price || 0),
                             orderedQty: 0,
@@ -1082,7 +1098,7 @@
                     .map(
                         (it) => `<tr data-src-agg="${escapeHtml(it.aggId)}">
                         <td><code>${escapeHtml(it.code)}</code></td>
-                        <td>${escapeHtml(it.name)}${it.variant ? ` <small style="color:#64748b">(${escapeHtml(it.variant)})</small>` : ''}</td>
+                        <td><div class="pr-name-cell">${thumbHtml(it.imageUrl)}<span>${escapeHtml(it.name)}${it.variant ? ` <small style="color:#64748b">(${escapeHtml(it.variant)})</small>` : ''}</span></div></td>
                         <td class="num" style="color:#64748b">${it.orderedQty}</td>
                         <td class="num"><strong>${it.stock}</strong></td>
                         <td class="num">${fmtMoney(it.price)}</td>
@@ -1119,6 +1135,10 @@
         $('prQuickQtyHint').querySelector('span').textContent = String(item.stock);
 
         $('prQuickInfo').innerHTML = `
+            <div class="pr-quick-info-row" style="align-items:center;">
+                <span class="pr-quick-label">Ảnh:</span>
+                ${thumbHtml(item.imageUrl)}
+            </div>
             <div class="pr-quick-info-row">
                 <span class="pr-quick-label">NCC:</span>
                 <strong>${escapeHtml(item.supplier)}</strong>
@@ -1351,7 +1371,7 @@
             .map(
                 (it, i) => `<tr data-bulk-idx="${i}">
                     <td><code>${escapeHtml(it.code)}</code></td>
-                    <td>${escapeHtml(it.name)}${it.variant ? ` <small style="color:#64748b">(${escapeHtml(it.variant)})</small>` : ''}</td>
+                    <td><div class="pr-name-cell">${thumbHtml(it.imageUrl)}<span>${escapeHtml(it.name)}${it.variant ? ` <small style="color:#64748b">(${escapeHtml(it.variant)})</small>` : ''}</span></div></td>
                     <td class="num"><strong>${it.stock}</strong></td>
                     <td class="num">${fmtMoney(it.price)}</td>
                     <td class="num"><input type="number" class="pr-bulk-qty" min="0" max="${it.stock}" value="0" data-bulk-idx="${i}"></td>

@@ -974,6 +974,36 @@ body {
     border-top: 1px solid #e2e8f0;
 }
 
+/* ---------- Thumbnail SP (ảnh từ Kho SP) ---------- */
+.pr-name-cell {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    min-width: 0;
+}
+.pr-name-cell > span {
+    min-width: 0;
+}
+.pr-thumb {
+    flex-shrink: 0;
+    width: 38px;
+    height: 38px;
+    border-radius: 7px;
+    object-fit: cover;
+    border: 1px solid #e2e8f0;
+    background: #f8fafc;
+}
+.pr-thumb-ph {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #cbd5e1;
+}
+.pr-thumb-ph i {
+    width: 18px;
+    height: 18px;
+}
+
 /* ---------- Bulk refund (trả cả đơn 1 lần) ---------- */
 .pr-bulk-btn {
     margin-left: 10px;
@@ -987,7 +1017,12 @@ body {
     border-color: #ef4444 !important;
 }
 .pr-bulk-content {
-    width: min(760px, 96vw);
+    width: min(720px, 96vw);
+}
+/* Tên SP: cho phép xuống tối đa 2 dòng, không vỡ 3+ dòng lẻ loi */
+.pr-bulk-table td:nth-child(2),
+.pr-source-table td:nth-child(2) {
+    min-width: 200px;
 }
 .pr-bulk-hint {
     font-size: 12px;
@@ -1042,7 +1077,7 @@ body {
     font-size: 12px;
 }
 .pr-bulk-qty {
-    width: 64px;
+    width: 56px;
     height: 30px;
     text-align: right;
     padding: 0 8px;
