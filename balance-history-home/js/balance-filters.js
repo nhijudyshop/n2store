@@ -98,7 +98,7 @@ function getQuickFilterDates(filterType) {
 
     return {
         startDate: formatDate(startDate),
-        endDate: formatDate(endDate)
+        endDate: formatDate(endDate),
     };
 }
 
@@ -114,7 +114,7 @@ function applyQuickFilter(filterType) {
     filters.startDate = dates.startDate;
     filters.endDate = dates.endDate;
 
-    document.querySelectorAll('.btn-quick-filter').forEach(btn => btn.classList.remove('active'));
+    document.querySelectorAll('.btn-quick-filter').forEach((btn) => btn.classList.remove('active'));
     document.querySelector(`[data-filter="${filterType}"]`)?.classList.add('active');
 
     currentQuickFilter = filterType;
@@ -130,7 +130,7 @@ function applyFilters() {
     const gatewayEl = document.getElementById('filterGateway');
     const amountEl = document.getElementById('filterAmount');
 
-    filters.type = typeEl ? typeEl.value : (filters.type || '');
+    filters.type = typeEl ? typeEl.value : filters.type || '';
     filters.gateway = gatewayEl ? gatewayEl.value : '';
     filters.startDate = document.getElementById('filterStartDate').value;
     filters.endDate = document.getElementById('filterEndDate').value;
@@ -173,7 +173,7 @@ function resetFilters() {
 
     setDefaultCurrentMonth();
 
-    document.querySelectorAll('.btn-quick-filter').forEach(btn => btn.classList.remove('active'));
+    document.querySelectorAll('.btn-quick-filter').forEach((btn) => btn.classList.remove('active'));
     document.querySelector('[data-filter="last30days"]')?.classList.add('active');
     currentQuickFilter = 'last30days';
 
@@ -183,8 +183,13 @@ function resetFilters() {
     filters.amount = '';
 
     // Reset type chips
-    document.querySelectorAll('.type-chips .chip').forEach(c => c.classList.remove('active'));
+    document.querySelectorAll('.type-chips .chip').forEach((c) => c.classList.remove('active'));
     document.querySelector('.type-chips .chip[data-type="all"]')?.classList.add('active');
+
+    // Reset account chips
+    filters.accountNumber = '';
+    document.querySelectorAll('.account-chips .chip').forEach((c) => c.classList.remove('active'));
+    document.querySelector('.account-chips .chip[data-account="all"]')?.classList.add('active');
 }
 
 // =====================================================
@@ -195,9 +200,11 @@ function setupTypeChips() {
     const chips = document.querySelectorAll('.type-chips .chip');
     if (chips.length === 0) return;
 
-    chips.forEach(chip => {
+    chips.forEach((chip) => {
         chip.addEventListener('click', () => {
-            document.querySelectorAll('.type-chips .chip').forEach(c => c.classList.remove('active'));
+            document
+                .querySelectorAll('.type-chips .chip')
+                .forEach((c) => c.classList.remove('active'));
             chip.classList.add('active');
 
             const type = chip.dataset.type;
@@ -208,4 +215,44 @@ function setupTypeChips() {
     });
 }
 
+// =====================================================
+// ACCOUNT FILTER CHIPS (Tất cả / 44 TL / 481 NVK)
+// Render từ CONFIG.ACCOUNTS (single source of truth) → click lọc theo account_number.
+// =====================================================
+
+function setupAccountChips() {
+    const container = document.getElementById('accountChips');
+    if (!container) return;
+
+    const accounts = window.CONFIG?.ACCOUNTS || [];
+    // Chỉ thêm bộ lọc khi có >= 2 tài khoản (1 TK thì không cần lọc).
+    if (accounts.length < 2) {
+        container.style.display = 'none';
+        return;
+    }
+
+    const chipsHtml = [
+        `<button class="chip active" data-account="all">Tất cả</button>`,
+        ...accounts.map(
+            (a) =>
+                `<button class="chip" data-account="${a.number}" title="${a.number}">${a.label}</button>`
+        ),
+    ].join('');
+    container.innerHTML = chipsHtml;
+
+    container.querySelectorAll('.chip').forEach((chip) => {
+        chip.addEventListener('click', () => {
+            container.querySelectorAll('.chip').forEach((c) => c.classList.remove('active'));
+            chip.classList.add('active');
+
+            const account = chip.dataset.account;
+            filters.accountNumber = account === 'all' ? '' : account;
+            currentPage = 1;
+            loadData();
+            loadStatistics();
+        });
+    });
+}
+
 window.setupTypeChips = setupTypeChips;
+window.setupAccountChips = setupAccountChips;

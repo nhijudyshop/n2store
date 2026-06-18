@@ -20,6 +20,18 @@ const CONFIG = {
     // SePay endpoint prefix - DIFFERENT from balance-history original
     SEPAY_PREFIX: '/api/sepay-home',
 
+    // =====================================================
+    // SEPAY HOME — 2 tài khoản ngân hàng (nguồn webhook)
+    // Cả 2 cùng đổ vào bảng balance_history_home, phân biệt bằng account_number.
+    // Sửa danh sách/nhãn nhà tại ĐÂY (single source of truth) — KHÔNG hardcode chỗ khác.
+    //   number = số tài khoản trên SePay (Ngân hàng → Tài khoản)
+    //   label  = nhãn hiển thị (biệt danh nhà/TK trên SePay)
+    // =====================================================
+    ACCOUNTS: [
+        { number: '09777743051810', label: '44 TL' },
+        { number: '09777743051708', label: '481 NVK' },
+    ],
+
     // Pagination
     ITEMS_PER_PAGE: 50,
 
@@ -34,7 +46,14 @@ const CONFIG = {
 
     // Currency
     CURRENCY: 'VND',
-    CURRENCY_LOCALE: 'vi-VN'
+    CURRENCY_LOCALE: 'vi-VN',
 };
 
 window.CONFIG = CONFIG;
+
+// Helper: số tài khoản → nhãn nhà ("44 TL"). Không khớp → trả số TK (đỡ trống).
+window.getAccountLabel = function (accountNumber) {
+    if (!accountNumber) return '';
+    const acc = (CONFIG.ACCOUNTS || []).find((a) => a.number === String(accountNumber));
+    return acc ? acc.label : String(accountNumber);
+};

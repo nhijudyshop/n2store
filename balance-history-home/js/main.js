@@ -21,12 +21,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Wire all event listeners
     setupEventListeners();
     setupTypeChips();
+    setupAccountChips();
 
     // Load initial data
-    await Promise.all([
-        loadData(),
-        loadStatistics(),
-    ]);
+    await Promise.all([loadData(), loadStatistics()]);
 });
 
 // Auto-connect SSE on page load (slight delay so DOM is fully ready)
@@ -42,7 +40,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function setupEventListeners() {
     // Quick filter buttons (today / yesterday / thisWeek / ...)
-    document.querySelectorAll('.btn-quick-filter').forEach(btn => {
+    document.querySelectorAll('.btn-quick-filter').forEach((btn) => {
         btn.addEventListener('click', () => {
             const filterType = btn.getAttribute('data-filter');
             applyQuickFilter(filterType);
@@ -86,7 +84,9 @@ function setupEventListeners() {
             applyFilters();
             loadData();
             loadStatistics();
-            document.querySelectorAll('.btn-quick-filter').forEach(btn => btn.classList.remove('active'));
+            document
+                .querySelectorAll('.btn-quick-filter')
+                .forEach((btn) => btn.classList.remove('active'));
         });
     }
 
@@ -119,7 +119,7 @@ function setupEventListeners() {
     }
 
     // Enter key in filter inputs → apply filters
-    document.querySelectorAll('.filter-input, .filter-select').forEach(el => {
+    document.querySelectorAll('.filter-input, .filter-select').forEach((el) => {
         el.addEventListener('keypress', (e) => {
             if (e.key === 'Enter' && applyFiltersBtn) {
                 applyFiltersBtn.click();
@@ -135,13 +135,17 @@ function setupEventListeners() {
 
     if (startDateEl) {
         startDateEl.addEventListener('change', (e) => {
-            document.querySelectorAll('.btn-quick-filter').forEach(btn => btn.classList.remove('active'));
+            document
+                .querySelectorAll('.btn-quick-filter')
+                .forEach((btn) => btn.classList.remove('active'));
             if (startDisplay) startDisplay.value = formatDateDisplay(e.target.value);
         });
     }
     if (endDateEl) {
         endDateEl.addEventListener('change', (e) => {
-            document.querySelectorAll('.btn-quick-filter').forEach(btn => btn.classList.remove('active'));
+            document
+                .querySelectorAll('.btn-quick-filter')
+                .forEach((btn) => btn.classList.remove('active'));
             if (endDisplay) endDisplay.value = formatDateDisplay(e.target.value);
         });
     }
@@ -152,7 +156,9 @@ function setupEventListeners() {
             if (parsed && startDateEl) {
                 startDisplay.value = formatDateDisplay(parsed);
                 startDateEl.value = parsed;
-                document.querySelectorAll('.btn-quick-filter').forEach(btn => btn.classList.remove('active'));
+                document
+                    .querySelectorAll('.btn-quick-filter')
+                    .forEach((btn) => btn.classList.remove('active'));
             }
         });
     }
@@ -162,7 +168,9 @@ function setupEventListeners() {
             if (parsed && endDateEl) {
                 endDisplay.value = formatDateDisplay(parsed);
                 endDateEl.value = parsed;
-                document.querySelectorAll('.btn-quick-filter').forEach(btn => btn.classList.remove('active'));
+                document
+                    .querySelectorAll('.btn-quick-filter')
+                    .forEach((btn) => btn.classList.remove('active'));
             }
         });
     }

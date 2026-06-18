@@ -2,6 +2,32 @@
 
 ## 2026-06-18
 
+### [balance-history-home] Phân biệt 2 tài khoản SePay Home (cột "Tài khoản" + bộ lọc 44 TL / 481 NVK) ✅
+
+**User:** muốn "thêm webhook mới" (SePay) cho trang `balance-history-home` gồm 2 tài khoản (`09777743051810` "44 TL" + `09777743051708` "481 NVK") — nhấn mạnh đặt tên **TÁCH RIÊNG** với SePay shop có sẵn để code phân biệt được.
+
+**Phát hiện:** toàn bộ hạ tầng SePay Home đã build sẵn & tách biệt hoàn toàn với `/api/sepay` của shop:
+
+- Worker route `/api/sepay-home/*` → `n2store-fallback.onrender.com` (đã có).
+- Backend `routes/sepay-home-webhook.js` (webhook/history/statistics/stream), bảng `balance_history_home`, log `sepay_home_webhook_logs`, env `SEPAY_HOME_API_KEY` (đã set trên Render, khớp secrets), SSE buffer `balanceHomeSseClients` — KHÔNG đụng `SEPAY_API` của shop.
+- Verify live: worker→render ping OK, history OK. → **Naming separation user yêu cầu đã xong sẵn.**
+
+**Việc mới (user chọn "thêm cột + bộ lọc theo TK"):** 2 TK cùng đổ vào 1 bảng, phân biệt bằng `account_number`.
+
+- **config.js**: `CONFIG.ACCOUNTS` (number→label, single source of truth) + helper `window.getAccountLabel()`. Đổi TK/nhãn nhà CHỈ sửa ở đây.
+- **Backend** ([sepay-home-webhook.js](render.com/routes/sepay-home-webhook.js)): thêm filter `accountNumber` cho `/history` + `/statistics` (kể cả subquery `latest_balance` → số dư riêng từng TK khi lọc).
+- **index.html**: thêm `<div id="accountChips">` (render từ JS) + cột header "Tài khoản". Bump `?v=20260618bh`.
+- **balance-table.js**: cell `.col-account` hiện `.account-tag` (nhãn nhà, title=số TK); empty-state colspan 7→8.
+- **balance-core.js**: `filters.accountNumber` + check trong `transactionMatchesFilters` (SSE realtime lọc đúng TK).
+- **balance-filters.js**: `setupAccountChips()` (render chip "Tất cả / 44 TL / 481 NVK" từ CONFIG.ACCOUNTS, ẩn nếu <2 TK) + reset trong `resetFilters()`.
+- **main.js**: gọi `setupAccountChips()`. **home.css**: `.account-chips` (teal, tách màu type-chips) + `.account-tag`.
+
+**Verify (Playwright localhost + ext, seed 2 GD ảo/TK qua webhook thật):** webhook 2 TK → 200 OK (worker→render→`balance_history_home`); chips ["Tất cả","44 TL","481 NVK"] + cột "Tài khoản" render; row hiện đúng nhãn nhà; click chip → frontend gửi `accountNumber=...` tới `/history`+`/statistics` (đã hook fetch xác nhận). Lọc server-side chỉ có hiệu lực sau khi **deploy backend** (localhost đang gọi prod backend chưa có filter). Đã **xoá sạch** 2 row test (`sepay_id 999000801/802`).
+
+**Cần làm thủ công (ngoài code — SePay dashboard `my.sepay.vn`):** tạo webhook trỏ URL `https://chatomni-proxy.nhijudyshop.workers.dev/api/sepay-home/webhook`, chọn 2 TK, định dạng JSON, API key = `SEPAY_HOME_API_KEY` (Bảo mật → Apikey).
+
+**Status:** ✅ code xong + verify FE. Backend filter chờ deploy (push render.com/\*\* → Render Build Filter auto-deploy). Web 1.0 (balance-history-home, pool chatDb).
+
 ### [delivery-report] Tab "ĐƠN 0đ" hiện ĐỦ mọi nhóm (Thành phố/NAP/Thu về), không chỉ Shop+Tomato ✅
 
 **User:** "đơn 0 đồng hiện tại chỉ cập nhật của bán hàng shop và tomato, không cập nhật thành phố/nap... muốn cập nhật toàn bộ cả thành phố nap luôn" → chốt "giữ nguyên luôn tomato" (giữ cột TOMATO dù luôn 0/0).

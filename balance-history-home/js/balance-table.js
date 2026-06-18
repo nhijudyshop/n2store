@@ -36,7 +36,7 @@ function renderTable(data) {
     if (!data || data.length === 0) {
         tableBody.innerHTML = `
             <tr>
-                <td colspan="7" class="empty-state">
+                <td colspan="8" class="empty-state">
                     <i data-lucide="inbox"></i>
                     <p>Chưa có giao dịch nào</p>
                 </td>
@@ -65,13 +65,15 @@ function renderTransactionRow(row) {
 
     const amountHtml = `<span class="amount-${row.transfer_type}">${formatAmount(row.amount ?? row.transfer_amount, row.transfer_type)}</span>`;
 
-    const runningBalance = (row.running_balance != null)
-        ? formatCurrency(row.running_balance)
-        : '<span class="text-muted">—</span>';
+    const runningBalance =
+        row.running_balance != null
+            ? formatCurrency(row.running_balance)
+            : '<span class="text-muted">—</span>';
 
-    const roomOptions = (typeof window.renderRoomOptions === 'function')
-        ? window.renderRoomOptions(row.room_code || '')
-        : `<option value="">(chưa gán)</option>`;
+    const roomOptions =
+        typeof window.renderRoomOptions === 'function'
+            ? window.renderRoomOptions(row.room_code || '')
+            : `<option value="">(chưa gán)</option>`;
 
     const roomDropdown = `
         <select class="room-code-select" data-tx-id="${row.id}">
@@ -81,9 +83,19 @@ function renderTransactionRow(row) {
 
     const hiddenClass = row.is_hidden ? ' is-hidden-row' : '';
 
+    // Nhãn tài khoản (44 TL / 481 NVK) từ CONFIG.ACCOUNTS — phân biệt 2 nhà.
+    const accountLabel =
+        typeof window.getAccountLabel === 'function'
+            ? window.getAccountLabel(row.account_number)
+            : escapeHtml(row.account_number || '');
+    const accountHtml = accountLabel
+        ? `<span class="account-tag" title="${escapeHtml(row.account_number || '')}">${escapeHtml(accountLabel)}</span>`
+        : '<span class="text-muted">—</span>';
+
     return `
         <tr data-transaction-id="${row.id}" class="tx-row${hiddenClass}">
             <td class="col-date">${formatDateTime(row.transaction_date)}</td>
+            <td class="col-account">${accountHtml}</td>
             <td class="col-type">${typeBadge}</td>
             <td class="col-amount">${amountHtml}</td>
             <td class="col-balance running-balance">${runningBalance}</td>
@@ -114,7 +126,8 @@ function renderStatistics(stats) {
     if (totalOut) totalOut.textContent = formatCurrency(stats.total_out || 0);
     if (totalOutCount) totalOutCount.textContent = `${stats.total_out_count || 0} giao dịch`;
     if (netChange) netChange.textContent = formatCurrency(stats.net_change || 0);
-    if (totalTransactions) totalTransactions.textContent = `${stats.total_transactions || 0} giao dịch`;
+    if (totalTransactions)
+        totalTransactions.textContent = `${stats.total_transactions || 0} giao dịch`;
     if (latestBalance) latestBalance.textContent = formatCurrency(stats.latest_balance || 0);
 }
 
@@ -149,7 +162,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Update local data so cache stays consistent
             if (Array.isArray(window.allLoadedData)) {
-                const item = window.allLoadedData.find(t => t.id == txId);
+                const item = window.allLoadedData.find((t) => t.id == txId);
                 if (item) item.room_code = newRoomCode || null;
             }
 

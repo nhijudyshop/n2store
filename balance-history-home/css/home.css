@@ -108,7 +108,9 @@
     min-width: 140px;
     color: #111827;
     cursor: pointer;
-    transition: border-color 0.15s, box-shadow 0.15s;
+    transition:
+        border-color 0.15s,
+        box-shadow 0.15s;
 }
 .room-code-select:hover {
     border-color: #9ca3af;
@@ -138,7 +140,9 @@
     font-size: 13px;
     color: #374151;
     font-weight: 500;
-    transition: background 0.15s, color 0.15s;
+    transition:
+        background 0.15s,
+        color 0.15s;
 }
 .type-chips .chip:hover {
     background: #e5e7eb;
@@ -146,6 +150,57 @@
 .type-chips .chip.active {
     background: #6366f1;
     color: #ffffff;
+}
+
+/* Account filter chips (Tất cả / 44 TL / 481 NVK) — màu teal để tách biệt type chips */
+.account-chips {
+    display: inline-flex;
+    gap: 6px;
+    align-items: center;
+}
+.account-chips::before {
+    content: 'Nhà:';
+    font-size: 12px;
+    color: #6b7280;
+    font-weight: 600;
+    margin-right: 2px;
+}
+.account-chips .chip {
+    padding: 6px 14px;
+    border-radius: 18px;
+    background: #f0fdfa;
+    border: 1px solid #ccfbf1;
+    cursor: pointer;
+    font-size: 13px;
+    color: #0f766e;
+    font-weight: 500;
+    transition:
+        background 0.15s,
+        color 0.15s,
+        border-color 0.15s;
+}
+.account-chips .chip:hover {
+    background: #ccfbf1;
+}
+.account-chips .chip.active {
+    background: #0d9488;
+    border-color: #0d9488;
+    color: #ffffff;
+}
+
+/* Account tag trong cột bảng */
+.account-tag {
+    display: inline-block;
+    padding: 2px 9px;
+    border-radius: 12px;
+    background: #f0fdfa;
+    color: #0f766e;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+.col-account {
+    white-space: nowrap;
 }
 
 /* Filter bar layout */

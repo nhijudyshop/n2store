@@ -21,6 +21,7 @@ let allLoadedData = []; // Cache all loaded data (including hidden) for client-s
 let filters = {
     type: '',
     gateway: '',
+    accountNumber: '', // lọc theo 1 trong 2 TK home ('' = tất cả)
     startDate: '',
     endDate: '',
     search: '',
@@ -556,6 +557,11 @@ function transactionMatchesFilters(transaction) {
         filters.gateway &&
         !transaction.gateway.toLowerCase().includes(filters.gateway.toLowerCase())
     ) {
+        return false;
+    }
+
+    // Account filter (1 trong 2 TK home)
+    if (filters.accountNumber && String(transaction.account_number) !== filters.accountNumber) {
         return false;
     }
 

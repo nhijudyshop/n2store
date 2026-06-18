@@ -311,6 +311,7 @@ router.get('/history', async (req, res) => {
             search,
             amount,
             gateway,
+            accountNumber, // lọc theo 1 trong 2 tài khoản home (44 TL / 481 NVK)
             showHidden = 'true', // home page mặc định show all (FE chia view)
         } = req.query;
 
@@ -333,6 +334,10 @@ router.get('/history', async (req, res) => {
         if (gateway) {
             conds.push(`gateway ILIKE $${p++}`);
             params.push(`%${gateway}%`);
+        }
+        if (accountNumber) {
+            conds.push(`account_number = $${p++}`);
+            params.push(String(accountNumber));
         }
         if (startDate) {
             conds.push(`transaction_date >= $${p++}`);
@@ -401,7 +406,7 @@ router.get('/statistics', async (req, res) => {
     await ensureSchema(db);
 
     try {
-        const { startDate, endDate, gateway } = req.query;
+        const { startDate, endDate, gateway, accountNumber } = req.query;
 
         const conds = [];
         const params = [];
@@ -419,10 +424,19 @@ router.get('/statistics', async (req, res) => {
             conds.push(`gateway ILIKE $${p++}`);
             params.push(`%${gateway}%`);
         }
+        if (accountNumber) {
+            conds.push(`account_number = $${p++}`);
+            params.push(String(accountNumber));
+        }
         // Stats không tính giao dịch đã ẩn
         conds.push(`(is_hidden = FALSE OR is_hidden IS NULL)`);
 
         const whereClause = `WHERE ${conds.join(' AND ')}`;
+
+        // latest_balance: số dư mới nhất. Khi lọc 1 tài khoản → số dư của riêng TK đó
+        // (2 TK home có 2 dòng running balance độc lập, gộp lại vô nghĩa).
+        const latestCond = accountNumber ? `WHERE account_number = $${p++}` : '';
+        if (accountNumber) params.push(String(accountNumber));
 
         const result = await db.query(
             `SELECT
@@ -438,6 +452,7 @@ router.get('/statistics', async (req, res) => {
                 (
                     SELECT accumulated
                     FROM balance_history_home
+                    ${latestCond}
                     ORDER BY transaction_date DESC, id DESC
                     LIMIT 1
                 ) AS latest_balance

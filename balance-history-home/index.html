@@ -35,7 +35,7 @@
         <!-- CSS -->
         <link rel="stylesheet" href="css/modern.css?v=20260521b" />
         <link rel="stylesheet" href="css/styles.css?v=20260521b" />
-        <link rel="stylesheet" href="css/home.css?v=20260521b" />
+        <link rel="stylesheet" href="css/home.css?v=20260618bh" />
 
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -72,6 +72,11 @@
                         <button class="chip active" data-type="all">Tất cả</button>
                         <button class="chip" data-type="in">Tiền vào</button>
                         <button class="chip" data-type="out">Tiền ra</button>
+                    </div>
+
+                    <!-- Account filter chips (render từ CONFIG.ACCOUNTS bằng JS) -->
+                    <div class="account-chips" id="accountChips" aria-label="Lọc theo tài khoản">
+                        <!-- buttons injected by setupAccountChips() -->
                     </div>
 
                     <button id="toggleFiltersBtn" class="btn btn-secondary">
@@ -173,6 +178,7 @@
                         <thead>
                             <tr>
                                 <th>Ngày giờ</th>
+                                <th>Tài khoản</th>
                                 <th>Loại</th>
                                 <th>Số tiền</th>
                                 <th>Số dư sau GD</th>
@@ -221,12 +227,12 @@
         </script>
 
         <!-- Page scripts (load order matters!) -->
-        <script src="js/config.js?v=20260521b"></script>
+        <script src="js/config.js?v=20260618bh"></script>
         <script src="js/room-codes.js?v=20260521b"></script>
-        <script src="js/balance-core.js?v=20260521b"></script>
-        <script src="js/balance-filters.js?v=20260521b"></script>
-        <script src="js/balance-table.js?v=20260521b"></script>
-        <script src="js/main.js?v=20260521b"></script>
+        <script src="js/balance-core.js?v=20260618bh"></script>
+        <script src="js/balance-filters.js?v=20260618bh"></script>
+        <script src="js/balance-table.js?v=20260618bh"></script>
+        <script src="js/main.js?v=20260618bh"></script>
 
         <!-- Init Lucide icons -->
         <script>
