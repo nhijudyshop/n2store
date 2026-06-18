@@ -1,7 +1,7 @@
 {
-    "generatedAt": "2026-06-18 23:28",
+    "generatedAt": "2026-06-18 23:38",
     "totals": {
-        "files": 296,
+        "files": 299,
         "sharedModules": 78,
         "functions": 2557,
         "oversized": 7
@@ -138,7 +138,7 @@
                 "live-chat/js/live/live-campaign-manager.js",
                 "live-chat/js/live/live-comment-list-base.js",
                 "live-chat/js/live/live-hidden-commenters.js",
-                "live-chat/js/live/live-init.js",
+                "live-chat/js/live/live-init-state.js",
                 "live-chat/js/live/live-livestream-snap-lock.js",
                 "live-chat/js/live/live-livestream-snap-state.js",
                 "live-chat/js/live/live-native-orders-api.js",
@@ -254,7 +254,7 @@
                 "live-chat/js/live/comments-mobile-entry.js",
                 "live-chat/js/live/live-chat-modal.js",
                 "live-chat/js/live/live-comment-list-state.js",
-                "live-chat/js/live/live-init.js",
+                "live-chat/js/live/live-init-lifecycle.js",
                 "live-chat/js/pancake/pancake-api.js",
                 "live-chat/js/pancake/pancake-chat-window.js",
                 "live-chat/js/pancake/pancake-realtime.js",
@@ -814,6 +814,7 @@
                 "live-chat/js/live/comments-mobile-entry.js",
                 "live-chat/js/live/live-chat-modal.js",
                 "live-chat/js/live/live-hidden-commenters.js",
+                "live-chat/js/live/live-init-lifecycle.js",
                 "live-chat/js/live/live-init.js",
                 "live-chat/js/live/live-livestream-gallery.js",
                 "live-chat/js/live/live-livestream-snap-init.js",
@@ -1686,34 +1687,21 @@
                     ]
                 },
                 {
-                    "file": "live-chat/js/live/live-init.js",
-                    "lines": 1137,
-                    "purpose": "Live Column Initializer & Orchestrator",
-                    "globals": ["LiveColumnManager"],
-                    "uses": ["Web2Auth", "Web2Chat", "Web2SSE"],
+                    "file": "live-chat/js/live/live-init-lifecycle.js",
+                    "lines": 534,
+                    "purpose": "WEB2.0 module.",
+                    "globals": [],
+                    "uses": ["Web2Chat", "Web2SSE"],
                     "functions": [
                         "_captureAltPhones",
                         "_dbRowToComment",
                         "_fetchLiveCommentDelta",
-                        "_fetchLiveVideosForPage",
                         "_harvestCommentCustomers",
                         "_mapDbComment",
-                        "_onRtConnected",
-                        "_onRtDisconnected",
-                        "_resolveCampaignLivePosts",
                         "_resolveSelectedPostIds",
-                        "_restoreCampaignSelection",
                         "_saveCommentsToDb",
-                        "_w2AuthHeaders",
                         "_waitForPancakeAccounts",
-                        "closeCustomerInfoModal",
                         "destroy",
-                        "getCacheStats",
-                        "getPostIds",
-                        "getWorkerUrl",
-                        "handleSaveToLive",
-                        "hasOption",
-                        "initialize",
                         "isExpired",
                         "loadComments",
                         "loadDebtForPartners",
@@ -1721,24 +1709,68 @@
                         "loadNativeOrdersForPost",
                         "loadPartnerInfoForComments",
                         "loadSessionIndex",
-                        "mapRow",
                         "norm",
-                        "onCrmTeamChange",
-                        "onDelta",
-                        "onLiveCampaignChange",
-                        "onMultiCampaignChange",
                         "pancakePhoneOf",
                         "ready",
                         "refresh",
+                        "setDebtDisplaySettings",
+                        "toggleHideComment"
+                    ]
+                },
+                {
+                    "file": "live-chat/js/live/live-init-state.js",
+                    "lines": 109,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["LiveColumnManager"],
+                    "uses": ["Web2Auth"],
+                    "functions": [
+                        "_fetchLiveVideosForPage",
+                        "_resolveCampaignLivePosts",
+                        "_w2AuthHeaders"
+                    ]
+                },
+                {
+                    "file": "live-chat/js/live/live-init-wiring.js",
+                    "lines": 455,
+                    "purpose": "WEB2.0 module.",
+                    "globals": [],
+                    "uses": [],
+                    "functions": [
+                        "_onRtConnected",
+                        "_onRtDisconnected",
+                        "_restoreCampaignSelection",
+                        "hasOption",
+                        "onCrmTeamChange",
+                        "onLiveCampaignChange",
+                        "onMultiCampaignChange",
                         "restoreSelection",
+                        "setupEventListeners",
+                        "setupRealtimeListeners"
+                    ]
+                },
+                {
+                    "file": "live-chat/js/live/live-init.js",
+                    "lines": 165,
+                    "purpose": "WEB2.0 module.",
+                    "globals": [],
+                    "uses": ["Web2SSE"],
+                    "functions": [
+                        "closeCustomerInfoModal",
+                        "getCacheStats",
+                        "getPostIds",
+                        "getWorkerUrl",
+                        "handleSaveToLive",
+                        "initialize",
+                        "loadComments",
+                        "mapRow",
+                        "onDelta",
+                        "refresh",
                         "saveInlineAddress",
                         "saveInlinePhone",
                         "selectComment",
                         "selectInlineStatus",
                         "selectStatus",
                         "setDebtDisplaySettings",
-                        "setupEventListeners",
-                        "setupRealtimeListeners",
                         "shouldFetch",
                         "showCustomerInfo",
                         "toggleHideComment",
@@ -2445,7 +2477,7 @@
                 },
                 {
                     "file": "live-chat/js/pancake/pancake-token-codec.js",
-                    "lines": 220,
+                    "lines": 225,
                     "purpose": "WEB2.0 module.",
                     "globals": ["PancakeTokenCodec"],
                     "uses": [],
@@ -2459,7 +2491,7 @@
                 },
                 {
                     "file": "live-chat/js/pancake/pancake-token-manager.js",
-                    "lines": 800,
+                    "lines": 803,
                     "purpose": "WEB2.0 module.",
                     "globals": ["PancakeTokenManager"],
                     "uses": ["Web2Chat", "Web2PancakeAccounts"],
@@ -8270,7 +8302,7 @@
             "files": [
                 "live-chat/js/live/live-api.js",
                 "live-chat/js/live/live-campaign-manager.js",
-                "live-chat/js/live/live-init.js",
+                "live-chat/js/live/live-init-state.js",
                 "live-chat/js/live/live-livestream-snap-state.js",
                 "live-chat/js/pancake/pancake-api.js"
             ],
@@ -8312,7 +8344,7 @@
         {
             "fn": "norm",
             "files": [
-                "live-chat/js/live/live-init.js",
+                "live-chat/js/live/live-init-lifecycle.js",
                 "live-chat/js/shared/live-customer-sync.js",
                 "so-order/js/so-order-app.js",
                 "web2/shared/web2-command-palette.js",
@@ -8461,6 +8493,16 @@
             "count": 4
         },
         {
+            "fn": "loadComments",
+            "files": [
+                "live-chat/js/live/live-api.js",
+                "live-chat/js/live/live-init-lifecycle.js",
+                "live-chat/js/live/live-init.js",
+                "live-chat/js/live/live-source.js"
+            ],
+            "count": 4
+        },
+        {
             "fn": "loadHistory",
             "files": [
                 "web2/ck-dashboard/js/ck-dashboard-app.js",
@@ -8503,7 +8545,7 @@
         {
             "fn": "ready",
             "files": [
-                "live-chat/js/live/live-init.js",
+                "live-chat/js/live/live-init-lifecycle.js",
                 "web2/shared/web2-idb-store.js",
                 "web2/shared/web2-pack-counter.js",
                 "web2/shared/web2-qr.js"
@@ -8820,15 +8862,6 @@
             "count": 3
         },
         {
-            "fn": "loadComments",
-            "files": [
-                "live-chat/js/live/live-api.js",
-                "live-chat/js/live/live-init.js",
-                "live-chat/js/live/live-source.js"
-            ],
-            "count": 3
-        },
-        {
             "fn": "loadList",
             "files": [
                 "web2/purchase-refund/js/purchase-refund-api.js",
@@ -8991,6 +9024,15 @@
             "count": 3
         },
         {
+            "fn": "setDebtDisplaySettings",
+            "files": [
+                "live-chat/js/live/live-comment-list-actions.js",
+                "live-chat/js/live/live-init-lifecycle.js",
+                "live-chat/js/live/live-init.js"
+            ],
+            "count": 3
+        },
+        {
             "fn": "setupSSE",
             "files": [
                 "web2/balance-history/js/web2-bh-data.js",
@@ -9077,10 +9119,6 @@
             "lines": 1199
         },
         {
-            "file": "live-chat/js/live/live-init.js",
-            "lines": 1137
-        },
-        {
             "file": "web2/shared/chat-panel/web2-chat-panel.js",
             "lines": 1049
         },
@@ -9091,6 +9129,10 @@
         {
             "file": "web2/shared/web2-customer-chat.js",
             "lines": 842
+        },
+        {
+            "file": "live-chat/js/pancake/pancake-token-manager.js",
+            "lines": 803
         }
     ]
 }
