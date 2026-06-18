@@ -1,0 +1,84 @@
+/* #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 module. */
+/* Layout trang "Đếm SP qua camera". Widget camera + đếm do Web2ProductCounter
+   tự render + tự inject CSS (.w2pc*). File này chỉ lo bố cục trang (mobile-first). */
+
+.pc-app {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 18px clamp(14px, 4vw, 28px) 24px;
+    min-height: 100dvh;
+    box-sizing: border-box;
+}
+
+.pc-header-title {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+}
+.pc-header-title > i {
+    flex: 0 0 auto;
+    width: 30px;
+    height: 30px;
+    color: var(--web2-primary, #0068ff);
+    margin-top: 2px;
+}
+.pc-header-title h1 {
+    margin: 0;
+    font-size: clamp(1.25rem, 4.5vw, 1.6rem);
+    font-weight: 800;
+    letter-spacing: -0.01em;
+}
+.pc-header-title p {
+    margin: 4px 0 0;
+    font-size: 0.9rem;
+    line-height: 1.45;
+    color: var(--web2-text-muted, #93a4b8);
+    max-width: 60ch;
+}
+
+/* Khung chứa widget — chiếm phần lớn chiều cao để camera to trên điện thoại */
+.pc-stage-wrap {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+}
+.pc-mount {
+    flex: 1 1 auto;
+    min-height: 60vh;
+    display: flex;
+}
+
+.pc-tip {
+    display: flex;
+    align-items: flex-start;
+    gap: 9px;
+    margin: 0;
+    padding: 12px 14px;
+    border-radius: 14px;
+    font-size: 0.84rem;
+    line-height: 1.5;
+    color: var(--web2-text-muted, #9fb0c4);
+    background: var(--web2-surface-2, rgba(255, 255, 255, 0.04));
+    outline: 1px solid rgba(255, 255, 255, 0.06);
+}
+.pc-tip i {
+    flex: 0 0 auto;
+    width: 18px;
+    height: 18px;
+    margin-top: 1px;
+    color: var(--web2-warning, #f0b429);
+}
+.pc-tip b {
+    color: var(--web2-text, #e6edf3);
+}
+
+/* Màn hình lớn: giới hạn bề ngang cho gọn, camera không kéo quá rộng */
+@media (min-width: 900px) {
+    .pc-mount {
+        min-height: 0;
+        max-width: 720px;
+        margin: 0 auto;
+        width: 100%;
+    }
+}

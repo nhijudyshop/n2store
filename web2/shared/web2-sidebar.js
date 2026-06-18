@@ -106,6 +106,10 @@
                     label: 'Studio chụp tách nền',
                     our: '../web2/photo-studio/index.html',
                 },
+                {
+                    label: 'Đếm SP qua camera 📷',
+                    our: '../web2/product-counter/index.html',
+                },
             ],
         },
         {
@@ -331,6 +335,7 @@
         'web2/notifications/index.html',
         'web2/audit-log/index.html',
         'web2/photo-studio/index.html',
+        'web2/product-counter/index.html',
         'web2/users-permissions/index.html',
         'web2/system/index.html',
         'web2/zalo/index.html',

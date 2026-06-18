@@ -1,0 +1,65 @@
+<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read before coding, update dev-log after changes. | WEB2.0 module. -->
+<!doctype html>
+<html lang="vi">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+        <meta http-equiv="Cache-Control" content="no-cache, must-revalidate" />
+        <title>Đếm SP qua camera — Web 2.0</title>
+
+        <meta name="theme-color" content="#0b1220" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <link rel="apple-touch-icon" href="../shared/img/logo-emblem.png" />
+
+        <link rel="stylesheet" href="../shared/web2-sidebar.css?v=20260613z" />
+        <link rel="stylesheet" href="../shared/web2-theme.css?v=20260613z" />
+        <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
+        <link rel="stylesheet" href="./product-counter.css?v=20260618a" />
+    </head>
+    <body class="web2-theme">
+        <div class="web2-shell">
+            <aside class="web2-aside" id="web2Aside"></aside>
+            <main class="web2-main pc-app">
+                <header class="pc-header">
+                    <div class="pc-header-title">
+                        <i data-lucide="scan-search"></i>
+                        <div>
+                            <h1>Đếm SP qua camera</h1>
+                            <p>
+                                Đưa sản phẩm vào khung hình — hệ thống đếm realtime ngay trên máy,
+                                không gửi hình lên server.
+                            </p>
+                        </div>
+                    </div>
+                </header>
+
+                <section class="pc-stage-wrap">
+                    <div id="pcMount" class="pc-mount"></div>
+                </section>
+
+                <p class="pc-tip">
+                    <i data-lucide="lightbulb"></i>
+                    Mẹo: đặt sản phẩm <b>tách rời nhau</b> trên kệ/bàn để đếm chính xác nhất. Đếm
+                    khi cầm chồng đống nhiều món sẽ kém chính xác. Số hiển thị đã được làm mượt qua
+                    nhiều khung hình.
+                </p>
+            </main>
+        </div>
+
+        <script src="../../shared/js/notification-system.js?v=20260613a"></script>
+        <script src="../shared/web2-auth.js?v=20260613guard"></script>
+        <script src="../shared/web2-user-info.js?v=20260530a"></script>
+        <script src="../shared/web2-sidebar.js?v=20260615db"></script>
+        <script src="../shared/web2-product-counter.js?v=20260618a"></script>
+        <script src="./js/product-counter.js?v=20260618a"></script>
+        <script>
+            document.addEventListener('DOMContentLoaded', () => {
+                if (window.Web2Sidebar)
+                    Web2Sidebar.mount('#web2Aside', { activeRoute: 'product-counter' });
+                if (window.ProductCounterPage) window.ProductCounterPage.init();
+                if (window.lucide) lucide.createIcons();
+            });
+        </script>
+    </body>
+</html>
