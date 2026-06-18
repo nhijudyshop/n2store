@@ -2,6 +2,26 @@
 
 ## 2026-06-18
 
+### [tooling] Bản đồ code Web 2.0 "thông minh" — codemap auto-generated 🗺️
+
+**User:** "có 1 file quản lý riêng kiểu code thông minh biết được hàm, file này nhiệm vụ gì, để Claude đọc vào hiểu luôn tất cả tính năng + biết trang có hàm gì, cần thì tìm ở đâu; trang mới đụng trùng hàm thì share module dùng chung."
+
+**Đã làm:**
+
+- **[scripts/gen-web2-codemap.js](../scripts/gen-web2-codemap.js)** (MỚI) — quét toàn bộ JS Web 2.0 (`web2/`, `native-orders/`, `so-order/`, `live-chat/`), trích: mục đích (#Note + banner `API:`), `window.*` global, danh sách hàm/method, shared module mỗi file dùng, **hàm trùng tên ≥3 file** (denoise DOM-handler/lifecycle/callback) + gợi ý shared target, file > 800 dòng. Dependency-free, deterministic.
+- **[docs/web2/WEB2-CODEMAP.md](web2/WEB2-CODEMAP.md)** + **web2-codemap.json** (auto) — 160 file, 70 shared, 2535 hàm, 103 hàm trùng, 30 file oversized. §0 cách dùng / §1 Shared Registry (dedup guard) / §3 Pages / §4 Hàm trùng / §5 Oversized.
+- **CLAUDE.md** Index quick-lookup: thêm codemap là mục ĐẦU (đọc trước khi code Web 2.0; regenerate `node scripts/gen-web2-codemap.js` sau khi đổi cấu trúc).
+
+**Top dedup signals** (§4): `escapeHtml` 31 file→Web2Escape · auth-header (`_authHeaders`/`authHeaders`/`_w2Auth`) 40 file→Web2Auth · format (`fmtVnd`/`fmtMoney`/`fmtDate`/`fmtTime`) 48 file→Web2Format(mới) · `normPhone` 10→Web2CustomerStore · page-builder list helpers.
+
+### [plan] Tách module TOÀN BỘ Web 2.0 — discovery 29-agent + master plan
+
+**User:** "tách tất cả trang web 2.0 thành nhiều module/file để dễ quản lý → chia nhiều phase, dùng nhiều workflows, hoàn chỉnh lại toàn bộ web 2.0."
+
+**Đã làm (discovery):** Workflow 29 agent read-only blueprint từng file > 800 dòng + 1 synthesis → [docs/web2/modularization-blueprints.json](web2/modularization-blueprints.json) (29 blueprint + 3 waves + 13 shared dedup) + [docs/web2/MODULARIZATION-PLAN.md](web2/MODULARIZATION-PLAN.md).
+
+**Kế hoạch:** Wave 0 foundation shared (Web2Format/Web2ApiFetch/Web2Auth.authHeaders/Web2Escape adopt/…) → Wave 1 low-risk (server.js, jt-tracking, pbh, web2-zalo, returns) → Wave 2 medium (pancake-token-manager, web2-chat-client, products-print, customer-wallet, balance-history, pending-match) → Wave 3 monsters (native-orders 9456, so-order, live-chat cluster, photo-studio, products-app…). Split protocol vanilla-JS (IIFE→namespace, script load order, facade byte-identical, gen-token/timers/realtime-hub/money-await/GMT+7, cohesion 200-400 dòng). Task 1 chat-unification native-orders nằm trong Wave 3.
+
 ### [convention] Web 2.0 — tách nhiều module nhỏ + share dùng chung (nguyên tắc gốc) 📌
 
 **User chốt:** "web 2.0 cứ tách ra nhiều module để code → có gì share nhau dùng được → dễ bảo trì, bảo dưỡng, logic code thống nhất."
