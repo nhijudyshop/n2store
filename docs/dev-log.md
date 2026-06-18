@@ -2,6 +2,24 @@
 
 ## 2026-06-18
 
+### [web2 barcode-scanner] Quét barcode/QR bằng CAMERA on-device (shared) + cắm vào reconcile ✅
+
+**User:** muốn đọc TRỰC TIẾP từ camera on-device (KHÔNG server AI), và chỉ ra trang **reconcile** (đối soát đóng gói) đang dùng **máy quét gun**.
+
+**Nghiên cứu** (workflow 29-agent GitHub on-device camera reading): chọn **Sec-ant/barcode-detector** (MIT) — tự dùng `BarcodeDetector` native trên Android + fallback **ZXing-C++ WASM** trên iOS Safari, 1 code path, phủ QR/DataMatrix/PDF417/EAN/Code128… Báo cáo cũng chốt: barcode = phần chắc ăn nhất nên làm trước; OCR chữ tay on-device = chính xác thấp (để sau, kiểu gợi-ý-cho-sửa-tay).
+
+**Shared engine** [web2/shared/web2-barcode-scanner.js](../web2/shared/web2-barcode-scanner.js) (`window.Web2BarcodeScanner`, pattern Web2ProductCounter):
+
+- `open(opts)` overlay toàn màn hình (viewfinder + scanline + **nút đèn flash kho** + đóng) · `mount(target,opts)` inline.
+- **Lazy** `import()` ponyfill (CDN jsDelivr) khi mở; on-device 100% (`detect(video)` ~8fps); **dedupe** (cùng mã re-arm sau `dedupeMs`); feedback **beep (WebAudio) + rung (vibrate) + khung xanh**; torch qua `applyConstraints`. Là "máy quét gun bằng camera" → mỗi mã gọi `onScan(code)`.
+- Self-inject CSS; graceful camera/CDN fail.
+
+**Cắm vào reconcile** (camera = thay máy quét gun): nút 📷 trong `.rc-scanner-box` ([index.html](../web2/reconcile/index.html) + [reconcile.css](../web2/reconcile/css/reconcile.css)) → wire trong [reconcile-app.js](../web2/reconcile/js/reconcile-app.js) gọi `Web2BarcodeScanner.open({ onScan: onScannerSubmit })` — y hệt gun: bill `NJ-…` mở PBH, mã khác = SP → +1. Load script trước reconcile-app.js.
+
+**Verify** (browser reconcile): module load v20260618a + nút camera có; `open()` dựng overlay đủ (viewfinder/đóng/flash/video); **smoke giải mã QR THẬT PASS** — tạo QR `NJ-20260618-0001` qua Web2QR → ponyfill WASM `detect()` → `got="NJ-20260618-0001"`, match=true. (getUserMedia không chạy trong automation — phần decode đã verified, chạy thật trên điện thoại.)
+
+**Status:** ✅ Done (Đợt 1/4 lộ trình on-device camera). Tiếp theo (chưa làm): Đợt 2 OCR chữ in nhãn (tesseract.js), Đợt 3 OCR chữ tay (transformers.js+TrOCR, thử nghiệm), Đợt 4 đếm pack (opencv.js). Trang nào cần quét mã chỉ cần `<script src="../shared/web2-barcode-scanner.js">` + `Web2BarcodeScanner.open({onScan})`.
+
 ### [native-orders] Chat đơn: GIỮ modal 3-cột Pancake (user thích vì có tìm kiếm hội thoại) + fix match hội thoại theo SĐT ✅
 
 **User:** "không có avatar và không tìm được đoạn hội thoại là chưa đúng"; "tôi thích giao diện pancake cũ hơn… vì giao diện cũ có tìm kiếm đoạn hội thoại". → GIỮ modal 3-cột (sidebar search + thread + info), CHỈ fix center.
