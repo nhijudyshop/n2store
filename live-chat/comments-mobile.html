@@ -1039,8 +1039,12 @@
         <script src="../web2/shared/web2-customer-store.js?v=20260615fix"></script>
         <script src="js/shared/live-status.js?v=20260615store"></script>
         <script src="js/shared/live-customer-sync.js?v=20260615store"></script>
-        <!-- App controller (đặt window.LiveState/LiveCommentList shim cho module ẩn) -->
-        <script src="js/live/comments-mobile.js?v=20260616phonefix"></script>
+        <!-- App controller (tách module: state → render → actions → entry).
+             State đặt window.LiveState/LiveCommentList shim cho module ẩn. -->
+        <script src="js/live/comments-mobile-state.js?v=20260618w3"></script>
+        <script src="js/live/comments-mobile-render.js?v=20260618w3"></script>
+        <script src="js/live/comments-mobile-actions.js?v=20260618w3"></script>
+        <script src="js/live/comments-mobile-entry.js?v=20260618w3"></script>
         <!-- Module ẩn comment theo NGƯỜI — DÙNG CHUNG nguồn server với live-chat/index.html -->
         <script src="js/live/live-hidden-commenters.js?v=20260614w2c"></script>
     </body>

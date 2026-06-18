@@ -1,148 +1,27 @@
-// #Note: WEB2.0 module. Kho SP panel — tab cùng cấp với Chat trong Pancake column.
+// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 module.
 //
-// Logic:
-//   - Tabs lấy từ Firestore web2_so_order/main → data.tabs[].label/name.
-//   - Filter: SP có supplier === tabName (exact, case-insensitive).
-//   - Search: tokenize input, AND-match qua code/name/variant (ASCII normalize).
-//   - Drag source: mỗi card SP có draggable=true; setData('application/x-web2-product', JSON).
-//   - Drop target: comment rows đã có đơn (data-conv-id) ở .pk-conversation-list.
-//   - Cart: POST /api/web2/cart/:commentId/add — sync qua SSE 'web2:cart' multi-tab.
-//
-// State khi switch tab Chat↔Kho lưu localStorage 'web2_pancake_active_tab' (default 'kho').
+// Kho SP panel — RENDER + drag/drop + badge + popover + toast. Module 2/4.
+// Đọc deps qua shared namespace global.__PancakeInvPanelNS (state module 1/4),
+// gọi cart action (module 3/4) qua NS.<fn> vì load sau. Bodies giữ verbatim.
 
 (function (global) {
     'use strict';
 
     if (global.PancakeInventoryPanel) return;
+    const NS = global.__PancakeInvPanelNS || (global.__PancakeInvPanelNS = {});
+    if (NS._renderReady) return;
+    NS._renderReady = true;
 
-    // 1 nguồn API_CONFIG.WORKER_URL (fallback literal nếu chưa load).
-    const PROXY =
-        (global.API_CONFIG && global.API_CONFIG.WORKER_URL) ||
-        'https://chatomni-proxy.nhijudyshop.workers.dev';
-    const API = `${PROXY}/api/v2`;
-    const LS_TAB_KEY = 'web2_pancake_active_tab';
-    const LS_SHOW_OOS_KEY = 'web2_pancake_show_oos'; // toggle hiện SP hết hàng (stock=0)
-    const DEFAULT_TAB = 'kho'; // user: mặc định là Kho
-
-    const STATE = {
-        tabs: [], // ['HÀ NỘI', 'HƯƠNG CHÂU', ...]
-        activeTab: 'ALL', // 'ALL' or tab name
-        searchQuery: '',
-        showOutOfStock: localStorage.getItem(LS_SHOW_OOS_KEY) === '1', // mặc định ẩn SP hết hàng
-        products: [], // full list từ /api/web2-products/list
-        filtered: [], // sau khi apply tab + search
-        cartCounts: {}, // { commentId: { items, qty } }
-        cartByCmt: new Map(), // commentId → items array (cache for popovers)
-    };
-
-    // ─────────────────────────────────────────────────────────
-    // Normalize helpers
-    // ─────────────────────────────────────────────────────────
-    function asciiUpper(s) {
-        return String(s || '')
-            .normalize('NFD')
-            .replace(/[̀-ͯ]/g, '')
-            .replace(/đ/g, 'd')
-            .replace(/Đ/g, 'D')
-            .toUpperCase();
-    }
-    function escapeHtml(s) {
-        if (s == null) return '';
-        const d = document.createElement('div');
-        d.textContent = String(s);
-        return d.innerHTML;
-    }
-    function fmtPrice(n) {
-        return (Number(n) || 0).toLocaleString('vi-VN') + 'đ';
-    }
-    function _relTime(d) {
-        if (!d) return '';
-        const date = d instanceof Date ? d : new Date(d);
-        const diff = (Date.now() - date.getTime()) / 1000;
-        if (diff < 60) return 'vừa xong';
-        if (diff < 3600) return Math.floor(diff / 60) + ' phút';
-        if (diff < 86400) return Math.floor(diff / 3600) + ' giờ';
-        if (diff < 86400 * 7) return Math.floor(diff / 86400) + ' ngày';
-        return date.toLocaleDateString('vi-VN');
-    }
-
-    // ─────────────────────────────────────────────────────────
-    // Load NCC tabs từ so-order Postgres (C8 — Web2SoOrder, thay Firestore)
-    // ─────────────────────────────────────────────────────────
-    async function loadTabsFromSoOrder() {
-        try {
-            if (!window.Web2SoOrder || !window.Web2SoOrder.load) return [];
-            const data = await window.Web2SoOrder.load();
-            if (!data) return [];
-            const names = [];
-            const seen = new Set();
-            for (const tab of data.tabs || []) {
-                const lbl = (tab.label || tab.name || '').trim();
-                if (lbl && !seen.has(lbl)) {
-                    seen.add(lbl);
-                    names.push(lbl);
-                }
-            }
-            return names;
-        } catch (e) {
-            console.warn('[InventoryPanel] load tabs fail:', e.message);
-            return [];
-        }
-    }
-
-    // ─────────────────────────────────────────────────────────
-    // Load products từ /api/web2-products/list (paged unwrap)
-    // ─────────────────────────────────────────────────────────
-    async function loadProducts() {
-        try {
-            const r = await fetch(PROXY + '/api/web2-products/list?limit=2000', {
-                credentials: 'include',
-            });
-            const d = await r.json();
-            return d.products || d.items || [];
-        } catch (e) {
-            console.warn('[InventoryPanel] load products fail:', e.message);
-            return [];
-        }
-    }
-
-    // ─────────────────────────────────────────────────────────
-    // Filter logic
-    // ─────────────────────────────────────────────────────────
-    function applyFilter() {
-        const q = asciiUpper(STATE.searchQuery).trim();
-        const tokens = q ? q.split(/\s+/).filter(Boolean) : [];
-        const tabUpper = STATE.activeTab !== 'ALL' ? asciiUpper(STATE.activeTab) : null;
-
-        STATE.filtered = STATE.products.filter((p) => {
-            if (p.isActive === false) return false;
-            // Bỏ SP hết hàng (SL=0) khỏi panel — user request không cho drag.
-            // Có toggle bật để vẫn hiện SP hết hàng khi cần.
-            if (!STATE.showOutOfStock) {
-                const stock = Number(p.stock) || 0;
-                if (stock <= 0) return false;
-            }
-            // Tab filter: exact supplier
-            if (tabUpper) {
-                const sup = asciiUpper(p.supplier || '');
-                if (sup !== tabUpper) return false;
-            }
-            // Search tokens AND-match
-            if (tokens.length) {
-                const hay =
-                    asciiUpper(p.code || '') +
-                    ' ' +
-                    asciiUpper(p.name || '') +
-                    ' ' +
-                    asciiUpper(p.variant || '');
-                for (const t of tokens) {
-                    if (!hay.includes(t)) return false;
-                }
-            }
-            return true;
-        });
-        renderProductList();
-    }
+    // Deps từ state module (đã load trước).
+    const STATE = NS.STATE;
+    const escapeHtml = NS.escapeHtml;
+    const fmtPrice = NS.fmtPrice;
+    const _relTime = NS._relTime;
+    const applyFilter = NS.applyFilter;
+    const _getCmtMap = NS._getCmtMap;
+    const _resolveLiveCustomer = NS._resolveLiveCustomer;
+    const API = NS.API;
+    const LS_SHOW_OOS_KEY = NS.LS_SHOW_OOS_KEY;
 
     // ─────────────────────────────────────────────────────────
     // Render UI
@@ -174,7 +53,7 @@
             clearTimeout(_searchTimer);
             _searchTimer = setTimeout(applyFilter, 150);
         });
-        document.getElementById('invRefresh').addEventListener('click', refresh);
+        document.getElementById('invRefresh').addEventListener('click', NS.refresh);
         document.getElementById('invShowOos').addEventListener('change', (e) => {
             STATE.showOutOfStock = e.target.checked;
             localStorage.setItem(LS_SHOW_OOS_KEY, STATE.showOutOfStock ? '1' : '0');
@@ -408,347 +287,8 @@
             // 1 khách có nhiều comment → share 1 cart. Fallback commentId nếu thiếu.
             const groupKey = customer.id || commentId;
             // UI-first: addToCart sync return ngay, backend chạy background.
-            addToCart(groupKey, product, customer, commentId);
+            NS.addToCart(groupKey, product, customer, commentId);
         });
-    }
-
-    // Anti-lag cache: O(1) lookup commentId → comment thay vì find() O(N).
-    // Rebuild khi LiveState.comments thay đổi (track qua length + first/last id).
-    const _cmtIndex = { sig: null, map: null };
-    function _getCmtMap() {
-        const st = global.LiveState;
-        const comments = st && Array.isArray(st.comments) ? st.comments : [];
-        const sig = comments.length
-            ? `${comments.length}:${comments[0]?.id || ''}:${comments[comments.length - 1]?.id || ''}`
-            : '0';
-        if (_cmtIndex.sig === sig && _cmtIndex.map) return _cmtIndex.map;
-        const m = new Map();
-        for (const c of comments) {
-            if (c?.id) m.set(c.id, c);
-        }
-        _cmtIndex.sig = sig;
-        _cmtIndex.map = m;
-        return m;
-    }
-
-    // 2026-06-01: enrich SĐT + địa chỉ từ 3 nguồn (ưu tiên giảm dần):
-    // (1) Inline input user vừa sửa thủ công (#phone-{fromId} / #addr-{fromId})
-    // (2) Partner cache Live đã load (state.partnerCache.get(fromId).Phone / .Street)
-    // (3) Field cũ trên comment object (c.phone / c.address — hiếm)
-    // → đảm bảo native_order tạo từ drag-drop luôn có SĐT/địa chỉ nếu KH đã có data
-    // bên Live. Backend /from-comment vẫn fallback FB-ID chain lookup nếu vẫn rỗng.
-    function _resolveLiveCustomer(commentId, row) {
-        const cust = { id: null, name: null, phone: null, address: null };
-        try {
-            const map = _getCmtMap();
-            const c = map.get(commentId);
-            if (c) {
-                cust.id = c.from?.id || null;
-                cust.name =
-                    c.from?.name ||
-                    row?.querySelector?.('.live-conv-name, .from-name')?.textContent?.trim() ||
-                    null;
-                // Source 1: inline inputs (user just typed)
-                const inlinePhone = row?.querySelector?.(`input[id^="phone-"]`)?.value?.trim();
-                const inlineAddr = row?.querySelector?.(`input[id^="addr-"]`)?.value?.trim();
-                // Source 2: Live partner cache (loaded by loadPartnerInfoForComments)
-                const partner = cust.id ? global.LiveState?.partnerCache?.get(cust.id) : null;
-                cust.phone =
-                    inlinePhone ||
-                    partner?.Phone ||
-                    partner?.Mobile ||
-                    c.phone ||
-                    c.customer_phone ||
-                    null;
-                cust.address =
-                    inlineAddr ||
-                    partner?.Street ||
-                    [partner?.Street, partner?.Ward, partner?.District, partner?.City]
-                        .filter(Boolean)
-                        .join(', ') ||
-                    c.address ||
-                    null;
-                // Normalize phone: digits-only, keep last 10 (VN convention)
-                if (cust.phone) {
-                    const digits = String(cust.phone).replace(/\D/g, '');
-                    cust.phone = digits.length >= 10 ? digits.slice(-10) : digits;
-                }
-            }
-        } catch {}
-        return cust;
-    }
-
-    // ─────────────────────────────────────────────────────────
-    // Cart API — Optimistic UI: cập nhật badge NGAY khi drop, rollback nếu fail.
-    // Drop vào comment chưa có đơn → tự tạo đơn (entry đầu tiên trong cart_items).
-    // Mỗi action add → show toast "Hoàn tác" 5s, click hoàn tác → remove ngay.
-    // ─────────────────────────────────────────────────────────
-    function _user() {
-        const u = global.AuthManager?.getCurrentUser?.() || {};
-        return { id: u.uid || u.email || null, name: u.displayName || u.email || null };
-    }
-
-    function _resolveCommitContext(commentId, row, customer) {
-        const ctx = {
-            fbUserId: customer?.id || null,
-            fbUserName: customer?.name || null,
-            phone: customer?.phone || '',
-            address: customer?.address || '',
-            fbPageId: null,
-            fbPageName: null,
-            fbPostId: null,
-            fbCommentId: commentId || null,
-            liveCampaignId: null,
-            liveCampaignName: null,
-            message: '',
-        };
-        try {
-            const st = global.LiveState;
-            const c = _getCmtMap().get(commentId);
-            if (c) {
-                const pageObj = c._pageObj || st.selectedPage;
-                const camp = c._campaignId
-                    ? st.liveCampaigns?.find((x) => x.Id === c._campaignId)
-                    : st.selectedCampaign;
-                ctx.fbPageId = pageObj?.Facebook_PageId || pageObj?.FacebookPageId || null;
-                ctx.fbPageName = pageObj?.Name || pageObj?.PageName || null;
-                ctx.fbPostId = camp?.Facebook_LiveId || null;
-                ctx.liveCampaignId = camp?.Id ? String(camp.Id) : null;
-                ctx.liveCampaignName = camp?.Name || null;
-                ctx.message = c.message || '';
-            }
-        } catch {}
-        return ctx;
-    }
-
-    // groupKey = customerId (fbUserId) — cart gắn theo khách (URL param + cart key).
-    // commentIdMeta = comment_id thật của row vừa drop — dùng để resolve FB page/post
-    // từ LiveState.comments + truyền xuống native_order.fb_comment_id (audit + chat link).
-    //
-    // SAU REFACTOR 2026-05-22: backend /add ghi thẳng vào native_orders.products
-    // ngay → không còn commit timer. 5s undo chỉ là UX window — undo = call /remove.
-    // Pattern UI-first: optimistic badge + toast NGAY → backend chạy background.
-    // Backend lỗi → rollback badge + remove toast optimistic + show error toast.
-    // KHÔNG async/await ở caller path (drop event handler) — return ngay tức thì.
-    function addToCart(groupKey, product, customer, commentIdMeta) {
-        const commentId = groupKey;
-        const wasEmpty = !(STATE.cartCounts[commentId]?.qty > 0);
-        const prev = STATE.cartCounts[commentId] || { items: 0, qty: 0 };
-        // Step 1 — Optimistic UI INSTANT
-        STATE.cartCounts[commentId] = {
-            items: prev.items + 1,
-            qty: prev.qty + 1,
-        };
-        _renderBadgeFor(commentId);
-        const toast = _showUndoToast({
-            title: wasEmpty
-                ? `✓ Tạo đơn mới + thêm "${product.code}"`
-                : `✓ Thêm "${product.code}" vào đơn`,
-            onUndo: () => {
-                // Undo có thể fire trước khi /add response về. removeFromCart
-                // gửi POST /remove độc lập — backend xử lý nếu product đã tồn
-                // tại, no-op nếu chưa. Idempotent qua productCode merge.
-                removeFromCart(commentId, product.code, { silent: true });
-                _showToast('↶ Đã hoàn tác', 'ok');
-            },
-        });
-
-        // Step 2 — Backend background. KHÔNG return promise lên caller.
-        const realCommentId = commentIdMeta || commentId;
-        const row = document.querySelector(
-            `.live-conversation-item[data-comment-id="${CSS.escape(realCommentId)}"]`
-        );
-        const ctx = _resolveCommitContext(realCommentId, row, customer);
-        ctx.fbCommentId = realCommentId;
-        const clientEventId = 'evt_' + Date.now() + '_' + Math.random().toString(36).slice(2, 10);
-
-        (async () => {
-            try {
-                const r = await fetch(API + '/cart/' + encodeURIComponent(commentId) + '/add', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    credentials: 'include',
-                    body: JSON.stringify({
-                        product,
-                        customer,
-                        user: _user(),
-                        qty: 1,
-                        clientEventId,
-                        fbContext: {
-                            fbUserId: ctx.fbUserId,
-                            fbUserName: ctx.fbUserName,
-                            fbPageId: ctx.fbPageId,
-                            fbPageName: ctx.fbPageName,
-                            fbPostId: ctx.fbPostId,
-                            fbCommentId: ctx.fbCommentId,
-                            liveCampaignId: ctx.liveCampaignId,
-                            liveCampaignName: ctx.liveCampaignName,
-                            message: ctx.message,
-                        },
-                    }),
-                });
-                const d = await r.json();
-                if (!d.success) throw new Error(d.error || 'unknown');
-                // Sync silent: dùng qty authoritative từ response, không show toast lại.
-                if (Number.isFinite(d.qty)) {
-                    STATE.cartCounts[commentId] = {
-                        items: STATE.cartCounts[commentId]?.items || 1,
-                        qty: d.qty,
-                    };
-                    _renderBadgeFor(commentId);
-                }
-            } catch (e) {
-                // Rollback optimistic + remove success toast + show error
-                STATE.cartCounts[commentId] = prev;
-                _renderBadgeFor(commentId);
-                if (toast) {
-                    toast._snapTickerCancel?.();
-                    if (toast.parentNode) toast.remove();
-                }
-                _showToast(`✗ Lỗi thêm "${product.code}": ${e.message}`, 'err');
-            }
-        })();
-    }
-
-    function removeFromCart(commentId, productCode, opts) {
-        opts = opts || {};
-        // Step 1 — Optimistic UI INSTANT: giảm badge + xóa row khỏi popover
-        const prev = STATE.cartCounts[commentId] || { items: 0, qty: 0 };
-        const newQty = Math.max(0, prev.qty - 1);
-        const newItems = Math.max(0, prev.items - 1);
-        STATE.cartCounts[commentId] =
-            newQty > 0 ? { items: newItems, qty: newQty } : { items: 0, qty: 0 };
-        _renderBadgeFor(commentId);
-        const openPop = document.querySelector(
-            `.inv-cart-popover[data-cmt="${CSS.escape(commentId)}"]`
-        );
-        let removedItemRow = null;
-        let removedItemNext = null;
-        if (openPop) {
-            removedItemRow = openPop.querySelector(
-                `.inv-cart-item[data-code="${CSS.escape(productCode)}"]`
-            );
-            if (removedItemRow) {
-                removedItemNext = removedItemRow.nextSibling;
-                removedItemRow.remove();
-            }
-        }
-        if (!opts.silent) _showToast(`✓ Đã xóa "${productCode}"`, 'ok');
-
-        // Step 2 — Backend background. Rollback nếu lỗi.
-        (async () => {
-            try {
-                const r = await fetch(
-                    API +
-                        '/cart/' +
-                        encodeURIComponent(commentId) +
-                        '/' +
-                        encodeURIComponent(productCode) +
-                        '/remove',
-                    {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        credentials: 'include',
-                        body: JSON.stringify({
-                            user: _user(),
-                            clientEventId:
-                                'evt_' + Date.now() + '_' + Math.random().toString(36).slice(2, 10),
-                        }),
-                    }
-                );
-                const d = await r.json().catch(() => ({}));
-                if (r.ok && d?.success === false) throw new Error(d.error || 'remove failed');
-                if (!r.ok) throw new Error(`HTTP ${r.status}`);
-            } catch (e) {
-                STATE.cartCounts[commentId] = prev;
-                _renderBadgeFor(commentId);
-                // Restore popover row nếu còn mở
-                if (openPop && removedItemRow && openPop.isConnected) {
-                    if (removedItemNext && removedItemNext.parentNode === openPop) {
-                        openPop.insertBefore(removedItemRow, removedItemNext);
-                    } else {
-                        openPop.appendChild(removedItemRow);
-                    }
-                }
-                _showToast(`✗ Lỗi xóa "${productCode}": ${e.message}`, 'err');
-            }
-        })();
-    }
-
-    // Xóa toàn bộ đơn (clear order) — caller đã confirm trước khi gọi.
-    function clearOrder(commentId) {
-        // Step 1 — Optimistic UI INSTANT
-        const prev = STATE.cartCounts[commentId];
-        STATE.cartCounts[commentId] = { items: 0, qty: 0 };
-        _renderBadgeFor(commentId);
-        const openPop = document.querySelector(
-            `.inv-cart-popover[data-cmt="${CSS.escape(commentId)}"]`
-        );
-        const popHtml = openPop ? openPop.outerHTML : null;
-        const popParent = openPop ? openPop.parentNode : null;
-        if (openPop) {
-            openPop.remove();
-            _popCleanup?.();
-        }
-        _showToast('✓ Đang xóa đơn...', 'ok');
-
-        // Step 2 — Backend background
-        (async () => {
-            try {
-                const r = await fetch(API + '/cart/' + encodeURIComponent(commentId) + '/clear', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    credentials: 'include',
-                    body: JSON.stringify({ user: _user() }),
-                });
-                const d = await r.json();
-                if (!d.success) throw new Error(d.error || 'clear failed');
-                _showToast(`✓ Đã xóa đơn (${d.removed} SP)`, 'ok');
-            } catch (e) {
-                STATE.cartCounts[commentId] = prev;
-                _renderBadgeFor(commentId);
-                // Restore popover nếu cần
-                if (popHtml && popParent && popParent.isConnected) {
-                    const tmp = document.createElement('div');
-                    tmp.innerHTML = popHtml;
-                    if (tmp.firstChild) popParent.appendChild(tmp.firstChild);
-                }
-                _showToast(`✗ Lỗi xóa đơn: ${e.message}`, 'err');
-            }
-        })();
-    }
-
-    async function refreshCartCounts(commentIds) {
-        if (!commentIds || !commentIds.length) {
-            // Collect CUSTOMER IDs (fbUserId) — dedupe vì 1 khách có nhiều comments.
-            const set = new Set();
-            document.querySelectorAll('.live-conversation-item').forEach((row) => {
-                const cmt = row.dataset.commentId;
-                if (!cmt) return;
-                const customer = _resolveLiveCustomer(cmt, row);
-                const k = customer.id || cmt;
-                if (k) set.add(k);
-            });
-            commentIds = [...set].slice(0, 200);
-        }
-        if (!commentIds.length) return;
-        try {
-            // POST body thay vì GET query — 200 ids dồn vào URL dễ vượt limit proxy.
-            const r = await fetch(API + '/cart/batch/counts', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify({ commentIds }),
-            });
-            const d = await r.json();
-            if (d.success) {
-                STATE.cartCounts = d.counts || {};
-                renderBadges();
-                _markHasOrderRows();
-            }
-        } catch (e) {
-            console.warn('[InventoryPanel] refreshCartCounts:', e.message);
-        }
     }
 
     // Mark conversation rows của khách ĐÃ CÓ ĐƠN.
@@ -821,16 +361,12 @@
         });
     }
 
-    // Cleanup outside-click listener của popover đang mở (tránh orphan capture
-    // listener khi popover bị đóng bởi path khác: nút ×, toggle, clear order).
-    let _popCleanup = null;
-
     async function togglePopover(commentId, row) {
         const existing = document.querySelector('.inv-cart-popover');
         if (existing) {
             const wasFor = existing.dataset.cmt;
             existing.remove();
-            _popCleanup?.();
+            NS._popCleanup?.();
             if (wasFor === commentId) return;
         }
         await renderCartPopover(commentId, row);
@@ -908,10 +444,10 @@
             const cleanup = () => {
                 cleanup._done = true;
                 document.removeEventListener('click', _outside, { capture: true });
-                if (_popCleanup === cleanup) _popCleanup = null;
+                if (NS._popCleanup === cleanup) NS._popCleanup = null;
             };
-            _popCleanup?.();
-            _popCleanup = cleanup;
+            NS._popCleanup?.();
+            NS._popCleanup = cleanup;
             pop.querySelector('.inv-cart-pop-close').onclick = () => {
                 pop.remove();
                 cleanup();
@@ -921,7 +457,7 @@
                 btn.onclick = (e) => {
                     e.stopPropagation();
                     const code = btn.closest('[data-code]').dataset.code;
-                    removeFromCart(commentId, code);
+                    NS.removeFromCart(commentId, code);
                 };
             });
             // Xóa toàn bộ đơn — CÓ confirm (Web2Popup, không phải native confirm)
@@ -933,7 +469,7 @@
                         `Xóa toàn bộ đơn? ${d.items.length} SP sẽ bị xóa. (Dùng khi kéo nhầm)`,
                         { okText: 'Xóa đơn', cancelText: 'Hủy' }
                     );
-                    if (ok) clearOrder(commentId);
+                    if (ok) NS.clearOrder(commentId);
                 };
             }
             // Lịch sử cart
@@ -1067,111 +603,23 @@
         setTimeout(() => t.remove(), 2500);
     }
 
-    // ─────────────────────────────────────────────────────────
-    // SSE subscribe: web2:cart event → refresh badges (cross-tab sync)
-    // ─────────────────────────────────────────────────────────
-    // Coalesce: 3 topics (cart / native-orders / products) thường fire dồn dập
-    // cùng 1 mutation → gom về 1 timer duy nhất, 1 refresh() (refresh đã bao gồm
-    // refreshCartCounts ở cuối) thay vì 3 debounce riêng chạy song song.
-    let _refreshTimer = null;
-    function _scheduleRefresh() {
-        clearTimeout(_refreshTimer);
-        _refreshTimer = setTimeout(refresh, 800);
-    }
-
-    function _subscribeSSE() {
-        if (!global.Web2SSE?.subscribe) return;
-        global.Web2SSE.subscribe('web2:cart', _scheduleRefresh);
-        // Sau refactor 1-nguồn: native_orders.products là source. Khi modal
-        // Đơn Web edit/delete/PATCH products → backend fire web2:native-orders →
-        // Live panel cart badge phải re-fetch counts để đồng bộ.
-        global.Web2SSE.subscribe('web2:native-orders', _scheduleRefresh);
-        // SP update → reload list
-        global.Web2SSE.subscribe('web2:products', _scheduleRefresh);
-    }
-
-    async function refresh() {
-        const [tabs, products] = await Promise.all([loadTabsFromSoOrder(), loadProducts()]);
-        STATE.tabs = tabs;
-        STATE.products = products;
-        renderTabs();
-        applyFilter();
-        refreshCartCounts();
-    }
-
-    async function init(container) {
-        renderShell(container);
-        await refresh();
-        attachDropTargets();
-        _subscribeSSE();
-
-        // Wire MutationObserver cho Live comments container (#liveContent) —
-        // drop target DUY NHẤT. Watch subtree để bắt re-render của LiveCommentList.
-        //
-        // ⚠ Anti feedback-loop (fix 2026-06-06 "chọn 4 campaign load liên tục"):
-        // refreshCartCounts() → renderBadges() append/sửa badge `.inv-cart-badge`
-        // BÊN TRONG row = childList mutation trong subtree → observer fire lại →
-        // refresh lại → loop vô hạn ~10 req/s. Vì vậy callback CHỈ react khi danh
-        // sách comment THỰC SỰ đổi (thêm/bớt `.live-conversation-item`), bỏ qua mọi
-        // mutation do chính badge giỏ hàng gây ra.
-        function _mutationsTouchRows(mutations) {
-            for (const m of mutations) {
-                for (const n of m.addedNodes) {
-                    if (
-                        n.nodeType === 1 &&
-                        (n.classList?.contains('live-conversation-item') ||
-                            n.querySelector?.('.live-conversation-item'))
-                    )
-                        return true;
-                }
-                for (const n of m.removedNodes) {
-                    if (
-                        n.nodeType === 1 &&
-                        (n.classList?.contains('live-conversation-item') ||
-                            n.querySelector?.('.live-conversation-item'))
-                    )
-                        return true;
-                }
-            }
-            return false;
-        }
-        function _wireLiveObserver() {
-            const liveRoot = document.getElementById('liveContent');
-            if (!liveRoot) return false;
-            if (liveRoot.dataset.invObserved) return true;
-            liveRoot.dataset.invObserved = '1';
-            new MutationObserver((mutations) => {
-                if (!_mutationsTouchRows(mutations)) return; // bỏ qua badge churn
-                clearTimeout(init._liveTimer);
-                init._liveTimer = setTimeout(() => {
-                    refreshCartCounts();
-                    _markHasOrderRows();
-                }, 300);
-            }).observe(liveRoot, { childList: true, subtree: true });
-            refreshCartCounts();
-            _markHasOrderRows();
-            return true;
-        }
-
-        // Poll DOM mỗi 2s CHỈ để chờ #liveContent xuất hiện (LiveCommentList load
-        // async) rồi wire observer. Sau khi wire xong → observer + SSE tự lo refresh
-        // khi list đổi → KHÔNG poll refreshCartCounts nữa (tránh load liên tục).
-        let pollTries = 0;
-        const pollTimer = setInterval(() => {
-            pollTries++;
-            if (_wireLiveObserver() || pollTries >= 60) {
-                clearInterval(pollTimer);
-            }
-        }, 2000);
-    }
-
-    global.PancakeInventoryPanel = {
-        init,
-        refresh,
-        addToCart,
-        removeFromCart,
-        refreshCartCounts,
-        LS_TAB_KEY,
-        DEFAULT_TAB,
-    };
+    // ── Export lên shared namespace ──
+    NS.renderShell = renderShell;
+    NS.renderTabs = renderTabs;
+    NS.renderProductList = renderProductList;
+    NS.attachAddButtons = attachAddButtons;
+    NS._addProductToComposer = _addProductToComposer;
+    NS.attachDragSources = attachDragSources;
+    NS.attachDropTargets = attachDropTargets;
+    NS._markHasOrderRows = _markHasOrderRows;
+    NS._renderBadgeForRow = _renderBadgeForRow;
+    NS._renderBadgeFor = _renderBadgeFor;
+    NS.renderBadges = renderBadges;
+    NS.togglePopover = togglePopover;
+    NS.renderCartPopover = renderCartPopover;
+    NS._showUndoToast = _showUndoToast;
+    NS.openCartHistory = openCartHistory;
+    NS._showToast = _showToast;
+    // applyFilter (state module) gọi renderProductList — wire qua NS để state thấy.
+    NS.renderProductList = renderProductList;
 })(typeof window !== 'undefined' ? window : globalThis);
