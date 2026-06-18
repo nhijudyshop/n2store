@@ -2,6 +2,22 @@
 
 ## 2026-06-18
 
+### [web2/multi-tool] Tăng comment auto-clean triệt để — mark conv.id THẬT của comment boost ✅
+
+**User:** "Dọn comment đã tăng là gì? Khi tăng comment dọn luôn được không, không cho hiện như [feed live-chat lọt comment tăng NGNgkPh/5qTl/by2…]".
+
+**Root cause:** "Tăng số lượng comment" gọi `markBoost(conv.id)` (chặn ingest + purge) NHƯNG chỉ mark **conv.id hội thoại GỐC**. Mỗi `reply_comment` tạo **comment MỚI có conv.id riêng** (`<post_id>_<comment_id_mới>`) ≠ conv.id gốc → `_isBoosted(conv.id_gốc)` không khớp → comment boost lọt vào `web2_live_comments` → hiện ở live-chat + comments-mobile. Cùng lý do "Dọn comment đã tăng" (cũng mark conv.id gốc) không xoá được.
+
+**Fix** ([multi-tool.js](../web2/multi-tool/js/multi-tool.js)): `sendLiveComment` đã trả `id` comment vừa tạo → dựng conv.id THẬT `<post_id>_<id>` và mark/purge CHÍNH XÁC:
+
+- `markBoostIds(ids[])` — mark batch nhiều conv.id (endpoint `boost-mark` đã nhận `convIds[]`, purge `starts_with(id, cid||'_')` + ignore TTL 20').
+- `run()`: thu `res.id` mỗi comment gửi thành công → `boostedConvIds.add(`${postId}_${res.id}`)` → flush mark mỗi 5 cái (chặn ingest SỚM) + **final purge** sau khi xong (đợi 1.8s relay ingest batch cuối rồi purge dứt điểm).
+- Giữ `markBoost(conv.id gốc)` cũ (belt-and-suspenders cho trường hợp Pancake nest cùng conv).
+
+**KHÔNG đổi backend** (boost-mark sẵn nhận convIds[]). Frontend-only. Verify: syntax OK, trang load 0 console error. Chạy boost thật cần Pancake login (không test trên live shop).
+
+**Lưu ý:** fix chặn lọt cho boost MỚI. Comment tăng CŨ đã lọt (trước fix) cần dọn riêng (re-run boost hoặc purge DB) — `Dọn comment đã tăng` chỉ bắt được khi boost nest cùng conv.id gốc.
+
 ### [web2/fastsaleorder-invoice] Fix nút "Trả hàng" crash — STATE.items undefined ✅
 
 **Phát hiện qua:** click-all probe toàn bộ 40 trang Web 2.0 (`scripts/web2-clickall-probe.js` — click mọi nút an toàn, bỏ destructive/logout/nav/commit, bắt JS error + toast). 39 trang / 556 click an toàn → **1 bug JS thật**.

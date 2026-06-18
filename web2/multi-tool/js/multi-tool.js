@@ -262,6 +262,26 @@
         }
     }
 
+    // Mark NHIỀU conv.id cùng lúc — dùng cho conv.id THẬT của từng comment boost vừa
+    // tạo (`<post_id>_<comment_id>`). Mỗi reply_comment sinh comment MỚI có conv.id
+    // RIÊNG ≠ conv.id hội thoại gốc → mark conv.id gốc KHÔNG đủ (comment boost vẫn lọt
+    // vào live-chat/comments-mobile). Mark đúng conv.id thật → ingest bỏ qua + purge.
+    async function markBoostIds(ids) {
+        const arr = [...new Set((ids || []).map((x) => String(x || '').trim()).filter(Boolean))];
+        if (!arr.length) return { ok: false, purged: 0 };
+        try {
+            const r = await fetch(`${workerBase()}/api/web2-live-comments/boost-mark`, {
+                method: 'POST',
+                headers: authHeaders({ 'Content-Type': 'application/json' }),
+                body: JSON.stringify({ convIds: arr }),
+            });
+            const j = await r.json().catch(() => ({}));
+            return { ok: !!j.success, purged: j.purged || 0 };
+        } catch (_) {
+            return { ok: false, purged: 0 };
+        }
+    }
+
     // Nút "Dọn comment đã tăng" — xoá + ẩn các comment boost của hội thoại đang chọn
     // KHÔNG cần spam. Dùng để dọn spam thủ công (gõ tay trên Pancake) đã lọt vào.
     async function cleanConv() {
@@ -301,6 +321,8 @@
         const W = await waitWeb2Chat();
         if (!W) return;
         const custId = (conv.customers && conv.customers[0] && conv.customers[0].id) || undefined;
+        // post_id để dựng conv.id THẬT của comment boost (`<post_id>_<comment_id>`).
+        const postId = conv.post_id || String(conv.id || '').split('_')[0] || null;
 
         // reply_comment BẮT BUỘC message_id = comment để reply vào. COMMENT conv.id =
         // format <post_id>_<comment_id> (= message id) → dùng trực tiếp; nâng cấp bằng
@@ -351,6 +373,18 @@
         let claimed = 0; // chỉ số kế tiếp (JS 1 luồng → claimed++ giữa await là atomic)
         let lastMark = 0;
         const nextIdx = () => (!_stop && claimed < total ? claimed++ : -1);
+        // conv.id THẬT của từng comment boost vừa tạo → mark/purge chính xác (không
+        // để lọt vào live-chat/comments-mobile như conv.id gốc bỏ sót).
+        const boostedConvIds = new Set();
+        let pendingMark = [];
+        const flushMarks = (force) => {
+            if (!postId) return;
+            if (force || pendingMark.length >= 5) {
+                const batch = pendingMark;
+                pendingMark = [];
+                if (batch.length) markBoostIds(batch); // fire-and-forget (chặn ingest sớm)
+            }
+        };
 
         async function worker(jwt, label) {
             while (true) {
@@ -370,6 +404,16 @@
                     });
                     if (res && res.ok) {
                         ok++;
+                        // conv.id THẬT của comment vừa tạo = `<post_id>_<id>` → mark để
+                        // ingest bỏ qua + purge (chống lọt vào live-chat như hình lỗi).
+                        if (res.id && postId) {
+                            const bid = `${postId}_${res.id}`;
+                            if (!boostedConvIds.has(bid)) {
+                                boostedConvIds.add(bid);
+                                pendingMark.push(bid);
+                                flushMarks(false);
+                            }
+                        }
                         logLine(`✓ [${label}] #${i + 1} "${text}"`);
                     } else {
                         err++;
@@ -401,6 +445,16 @@
             accs.map((a, k) => worker(a.jwt, a.name ? `${a.name.slice(0, 8)}` : `T${k + 1}`))
         );
         if (_stop) logLine('⏹ Đã dừng.');
+        // DỌN DỨT ĐIỂM: flush ids còn lại + đợi relay ingest batch cuối rồi purge TOÀN
+        // BỘ conv.id comment boost (xoá những cái ingest sau lần mark trước) → KHÔNG lọt
+        // vào live-chat/comments-mobile.
+        flushMarks(true);
+        if (boostedConvIds.size && postId) {
+            logLine(`· Dọn ${boostedConvIds.size} comment tăng khỏi live-chat…`);
+            await sleep(1800);
+            const fin = await markBoostIds([...boostedConvIds]);
+            logLine(`· Đã dọn (purged ${fin.purged}).`);
+        }
         setStat();
         _running = false;
         $('boostRun').disabled = false;
