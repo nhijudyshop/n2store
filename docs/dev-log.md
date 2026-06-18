@@ -2,6 +2,21 @@
 
 ## 2026-06-18
 
+### [web2 pack-counter] Đếm bó/pack bằng camera opencv.js + chạm sửa tay (Đợt 4/4) ✅
+
+**Đợt 4 lộ trình on-device camera reading.** Đếm pack chồng dính = DỄ SAI (report) → KHÔNG đếm tự động hoàn toàn mà **HỖ-TRỢ-TAY**: opencv ước lượng đặt marker → user **chạm thêm/bớt** cho đúng → số cuối user chốt.
+
+**Shared engine** [web2/shared/web2-pack-counter.js](../web2/shared/web2-pack-counter.js) (`window.Web2PackCounter`):
+
+- `open({onResult})` overlay: camera + nút "Đếm" → freeze frame → **opencv.js** (gray→Canny→morphology→findContours→lọc diện tích) ước lượng tâm các bó → đặt marker đánh số. **Chạm ảnh = thêm marker, chạm marker = xoá**. **Slider độ nhạy** → ước lượng lại. Count = số marker. "Dùng" → `onResult(count)`.
+- Lazy tải opencv.js (**@techstark/opencv-js** prebuilt, đúng repo report, ~11MB WASM, pinned `@4.11.0-release.1`) khi mở. On-device 100%. Self-inject CSS.
+
+**Cắm vào** trang [product-counter](../web2/product-counter/index.html) (phone-only): nút 📦 trên top bar → `Web2PackCounter.open()`. Tách biệt với đếm-vật-thể MediaPipe (cầm món lên).
+
+**Verify** (browser): nút 📦 + module v20260618a + overlay (chụp/slider/canvas) ✓; **smoke opencv PASS** — ⚠ URL gốc `docs.opencv.org/4.10.0` **404**, đổi sang @techstark jsDelivr → load OK + đếm 5 ô tách rời = đúng 5. getUserMedia không chạy automation — pipeline opencv đã verified.
+
+**⚠ Trung thực:** pack CHỒNG DÍNH sát → contour gộp → opencv ước lượng SAI; vì vậy thiết kế chạm-sửa-tay (opencv chỉ là điểm khởi đầu). Cần tuning độ nhạy theo ánh sáng.
+
 ### [web2 label-ocr] Đọc chữ trên nhãn bằng camera OCR on-device (shared, Đợt 2/4) ✅
 
 **Tiếp lộ trình on-device camera reading (sau Đợt 1 barcode).** Đợt 2 = OCR chữ IN trên nhãn (tesseract.js), theo report: OCR **chụp-rồi-đọc** (không streaming realtime), chữ in OK, chữ tay kém → thiết kế **gợi-ý + cho sửa tay**, KHÔNG auto.

@@ -27,6 +27,14 @@
                     <i data-lucide="chevron-left"></i>
                 </button>
                 <span class="pc-bar-title">Đếm SP qua camera</span>
+                <button
+                    class="pc-bar-btn"
+                    id="pcPack"
+                    aria-label="Đếm bó / pack"
+                    title="Đếm bó / pack (chạm sửa tay)"
+                >
+                    <i data-lucide="package"></i>
+                </button>
                 <button class="pc-bar-btn" id="pcInfo" aria-label="Hướng dẫn">
                     <i data-lucide="info"></i>
                 </button>
@@ -51,6 +59,7 @@
         <script src="../../shared/js/notification-system.js?v=20260613a"></script>
         <script src="../shared/web2-auth.js?v=20260613guard"></script>
         <script src="../shared/web2-product-counter.js?v=20260618a"></script>
+        <script src="../shared/web2-pack-counter.js?v=20260618a"></script>
         <script src="./js/product-counter.js?v=20260618b"></script>
         <script>
             document.addEventListener('DOMContentLoaded', () => {
@@ -69,6 +78,14 @@
                     .addEventListener('click', () => (hint.hidden = true));
                 hint.addEventListener('click', (e) => {
                     if (e.target === hint) hint.hidden = true;
+                });
+                // Đếm bó / pack (opencv + chạm sửa tay) — overlay riêng
+                document.getElementById('pcPack').addEventListener('click', () => {
+                    if (window.Web2PackCounter) {
+                        window.Web2PackCounter.open({ title: 'Đếm bó / pack' });
+                    } else {
+                        window.notificationManager?.show?.('Chưa tải được bộ đếm bó.', 'error');
+                    }
                 });
 
                 if (window.ProductCounterPage) window.ProductCounterPage.init();
