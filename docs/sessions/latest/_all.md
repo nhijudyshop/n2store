@@ -3,16 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `36ed8a7` — feat(web2): bản đồ code "thông minh" (codemap auto-gen) + master plan tách module toàn bộ Web 2.0
-**Last updated**: 2026-06-18 21:52:04 +07
-**Latest session**: [`RESUME:20260618-215204-36ed8a7`](../20260618-215204-36ed8a7.md)
-**Summary**: codemap thông minh (gen-web2-codemap) + master plan tách module toàn bộ Web 2.0 (discovery 29-agent)
+**Latest commit**: `f83d814` — docs(web2): regroup chat-client + pancake-token-manager into Wave 3 focused passes
+**Last updated**: 2026-06-18 23:09:06 +07
+**Latest session**: [`RESUME:20260618-230906-f83d814`](../20260618-230906-f83d814.md)
+**Summary**: Wave 0 shared + 8 page-app splits (jt-tracking/returns/zalo/pbh/customer-wallet/products-print/balance-history/pending-match) verified+pushed; codemap auto-gen live
 
 ## Folders affected in this commit
 
-- [`_root/`](./_root.md) — 1 file(s)
-- [`docs/`](./docs.md) — 5 file(s)
-- [`scripts/`](./scripts.md) — 1 file(s)
+- [`docs/`](./docs.md) — 4 file(s)
+- [`web2/`](./web2.md) — 63 file(s)
 
 ## All folder snapshots
 
@@ -27,7 +26,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-18 13:23
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-16 14:31
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-18 12:17
-- [`docs/`](./docs.md) — updated 2026-06-18 21:52
+- [`docs/`](./docs.md) — updated 2026-06-18 23:09
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-16 14:31
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-16 14:31
 - [`downloads/`](./downloads.md) — updated 2026-06-18 19:26
@@ -75,4 +74,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-18 21:26
+- [`web2/`](./web2.md) — updated 2026-06-18 23:09
