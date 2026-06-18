@@ -1,10 +1,10 @@
 {
-    "generatedAt": "2026-06-18 23:38",
+    "generatedAt": "2026-06-18 23:51",
     "totals": {
-        "files": 299,
-        "sharedModules": 78,
-        "functions": 2557,
-        "oversized": 7
+        "files": 305,
+        "sharedModules": 84,
+        "functions": 2558,
+        "oversized": 6
     },
     "sharedModules": [
         {
@@ -187,7 +187,7 @@
                 "web2/shared/delivery-method-picker.js",
                 "web2/shared/web2-api-fetch.js",
                 "web2/shared/web2-api.js",
-                "web2/shared/web2-chat-client.js",
+                "web2/shared/web2-chat-utils.js",
                 "web2/shared/web2-ck-assign-picker.js",
                 "web2/shared/web2-ck-review.js",
                 "web2/shared/web2-customer-chat.js",
@@ -245,9 +245,17 @@
             "lines": 745
         },
         {
+            "file": "web2/shared/web2-chat-api.js",
+            "globals": [],
+            "purpose": "WEB2.0 module.",
+            "api": [],
+            "consumers": [],
+            "lines": 403
+        },
+        {
             "file": "web2/shared/web2-chat-client.js",
             "globals": ["Web2Chat"],
-            "purpose": "Web 2.0 — Chat client (Pancake + Extension)",
+            "purpose": "WEB2.0 module.",
             "api": [],
             "consumers": [
                 "live-chat/js/live/comments-mobile-actions.js",
@@ -271,13 +279,59 @@
                 "web2/pancake-settings/js/pancake-settings-state.js",
                 "web2/pancake-settings/js/pancake-settings.js",
                 "web2/shared/chat-panel/web2-chat-panel.js",
+                "web2/shared/web2-chat-api.js",
+                "web2/shared/web2-chat-live.js",
+                "web2/shared/web2-chat-settings.js",
+                "web2/shared/web2-chat-tags.js",
+                "web2/shared/web2-chat-tokens.js",
+                "web2/shared/web2-chat-utils.js",
                 "web2/shared/web2-customer-chat.js",
                 "web2/shared/web2-msg-template-send.js",
                 "web2/shared/web2-pancake-accounts.js",
                 "web2/shared/web2-pancake-token.js",
                 "web2/shared/web2-realtime.js"
             ],
-            "lines": 1199
+            "lines": 107
+        },
+        {
+            "file": "web2/shared/web2-chat-live.js",
+            "globals": [],
+            "purpose": "WEB2.0 module.",
+            "api": [],
+            "consumers": [],
+            "lines": 251
+        },
+        {
+            "file": "web2/shared/web2-chat-settings.js",
+            "globals": [],
+            "purpose": "WEB2.0 module.",
+            "api": [],
+            "consumers": [],
+            "lines": 140
+        },
+        {
+            "file": "web2/shared/web2-chat-tags.js",
+            "globals": [],
+            "purpose": "WEB2.0 module.",
+            "api": [],
+            "consumers": [],
+            "lines": 156
+        },
+        {
+            "file": "web2/shared/web2-chat-tokens.js",
+            "globals": [],
+            "purpose": "WEB2.0 module.",
+            "api": [],
+            "consumers": [],
+            "lines": 268
+        },
+        {
+            "file": "web2/shared/web2-chat-utils.js",
+            "globals": [],
+            "purpose": "WEB2.0 module.",
+            "api": [],
+            "consumers": [],
+            "lines": 128
         },
         {
             "file": "web2/shared/web2-ck-assign-picker.js",
@@ -1731,7 +1785,7 @@
                 },
                 {
                     "file": "live-chat/js/live/live-init-wiring.js",
-                    "lines": 455,
+                    "lines": 456,
                     "purpose": "WEB2.0 module.",
                     "globals": [],
                     "uses": [],
@@ -5807,55 +5861,109 @@
                     ]
                 },
                 {
-                    "file": "web2/shared/web2-chat-client.js",
-                    "lines": 1199,
-                    "purpose": "Web 2.0 — Chat client (Pancake + Extension)",
-                    "globals": ["Web2Chat"],
-                    "uses": ["API_CONFIG", "Web2Auth"],
+                    "file": "web2/shared/web2-chat-api.js",
+                    "lines": 403,
+                    "purpose": "WEB2.0 module.",
+                    "globals": [],
+                    "uses": ["Web2Chat"],
                     "functions": [
-                        "_authHeaders",
-                        "_fetchJson",
-                        "_isExpired",
-                        "_isInstagram",
-                        "_loadPageSettingsLs",
-                        "_pagesHas",
-                        "_persistPageSettingsLs",
-                        "_tagContrast",
-                        "clearAllTokens",
-                        "decodeJwt",
-                        "e",
                         "enrichCustomer",
-                        "ensureTags",
                         "fetchConversations",
                         "fetchConversationsByPage",
-                        "fetchLivePosts",
                         "fetchMessages",
-                        "fetchPageSettings",
-                        "fetchTags",
+                        "replyComment",
+                        "searchConversations",
+                        "sendMessage",
+                        "uploadMedia"
+                    ]
+                },
+                {
+                    "file": "web2/shared/web2-chat-client.js",
+                    "lines": 107,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["Web2Chat"],
+                    "uses": [],
+                    "functions": []
+                },
+                {
+                    "file": "web2/shared/web2-chat-live.js",
+                    "lines": 251,
+                    "purpose": "WEB2.0 module.",
+                    "globals": [],
+                    "uses": ["Web2Chat"],
+                    "functions": [
+                        "fetchLivePosts",
                         "generateAllPageAccessTokens",
                         "generatePageAccessToken",
+                        "listPages",
+                        "push",
+                        "sendLiveComment"
+                    ]
+                },
+                {
+                    "file": "web2/shared/web2-chat-settings.js",
+                    "lines": 140,
+                    "purpose": "WEB2.0 module.",
+                    "globals": [],
+                    "uses": ["Web2Chat"],
+                    "functions": [
+                        "_loadPageSettingsLs",
+                        "_persistPageSettingsLs",
+                        "fetchPageSettings",
+                        "p"
+                    ]
+                },
+                {
+                    "file": "web2/shared/web2-chat-tags.js",
+                    "lines": 156,
+                    "purpose": "WEB2.0 module.",
+                    "globals": [],
+                    "uses": ["Web2Chat"],
+                    "functions": [
+                        "_tagContrast",
+                        "e",
+                        "ensureTags",
+                        "fetchTags",
+                        "resolveTags",
+                        "tagDefsFor",
+                        "tagPillsHtml",
+                        "toggleTag"
+                    ]
+                },
+                {
+                    "file": "web2/shared/web2-chat-tokens.js",
+                    "lines": 268,
+                    "purpose": "WEB2.0 module.",
+                    "globals": [],
+                    "uses": ["Web2Chat"],
+                    "functions": [
+                        "_syncInFlight",
+                        "clearAllTokens",
+                        "decodeJwt",
                         "getAllAccounts",
                         "getAllPageAccessTokens",
                         "getJwt",
                         "getPageAccessToken",
                         "getPageAccountJwts",
                         "hasTokensFor",
-                        "listPages",
                         "local",
-                        "p",
-                        "push",
-                        "replyComment",
-                        "resolveTags",
-                        "searchConversations",
-                        "sendLiveComment",
-                        "sendMessage",
                         "setJwt",
                         "setPageAccessToken",
-                        "syncFromRenderDB",
-                        "tagDefsFor",
-                        "tagPillsHtml",
-                        "toggleTag",
-                        "uploadMedia"
+                        "syncFromRenderDB"
+                    ]
+                },
+                {
+                    "file": "web2/shared/web2-chat-utils.js",
+                    "lines": 128,
+                    "purpose": "WEB2.0 module.",
+                    "globals": [],
+                    "uses": ["API_CONFIG", "Web2Auth", "Web2Chat"],
+                    "functions": [
+                        "_authHeaders",
+                        "_fetchJson",
+                        "_isExpired",
+                        "_isInstagram",
+                        "_pagesHas"
                     ]
                 },
                 {
@@ -7920,7 +8028,7 @@
                 "web2/kpi/js/kpi-dashboard.js",
                 "web2/purchase-refund/js/purchase-refund-api.js",
                 "web2/shared/web2-api.js",
-                "web2/shared/web2-chat-client.js",
+                "web2/shared/web2-chat-utils.js",
                 "web2/shared/web2-msg-template-core.js",
                 "web2/shared/web2-notification-bell.js",
                 "web2/shared/web2-pancake-accounts.js",
@@ -8197,7 +8305,7 @@
                 "native-orders/js/native-orders-api.js",
                 "web2/products/js/web2-products-api.js",
                 "web2/shared/web2-api.js",
-                "web2/shared/web2-chat-client.js",
+                "web2/shared/web2-chat-utils.js",
                 "web2/variants/js/web2-variants-api.js"
             ],
             "count": 6
@@ -8616,7 +8724,7 @@
             "fn": "sendMessage",
             "files": [
                 "live-chat/js/pancake/pancake-chat-window.js",
-                "web2/shared/web2-chat-client.js",
+                "web2/shared/web2-chat-api.js",
                 "web2/shared/web2-zalo-api.js",
                 "web2/shared/web2-zalo.js"
             ],
@@ -8821,7 +8929,7 @@
             "files": [
                 "live-chat/js/pancake/pancake-api.js",
                 "live-chat/js/pancake/pancake-token-manager.js",
-                "web2/shared/web2-chat-client.js"
+                "web2/shared/web2-chat-tokens.js"
             ],
             "count": 3
         },
@@ -8919,7 +9027,7 @@
             "fn": "push",
             "files": [
                 "web2/customer-wallet/js/web2-customer-wallet-render.js",
-                "web2/shared/web2-chat-client.js",
+                "web2/shared/web2-chat-live.js",
                 "web2/supplier-wallet/js/supplier-wallet-storage.js"
             ],
             "count": 3
@@ -9113,10 +9221,6 @@
         {
             "file": "live-chat/server/server.js",
             "lines": 1216
-        },
-        {
-            "file": "web2/shared/web2-chat-client.js",
-            "lines": 1199
         },
         {
             "file": "web2/shared/chat-panel/web2-chat-panel.js",
