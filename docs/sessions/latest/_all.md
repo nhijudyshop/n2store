@@ -3,19 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `d68cf95` — feat(web2): Popup dùng chung — alert/confirm/popup nhiều loại + hiệu ứng custom + migrate toàn cục
-**Last updated**: 2026-06-17 21:19:14 +07
-**Latest session**: [`RESUME:20260617-211914-d68cf95`](../20260617-211914-d68cf95.md)
-**Summary**: feat(web2): Popup dùng chung — alert/confirm/popup nhiều loại + hiệu ứng custom + migrate toàn cục
+**Latest commit**: `17158a4` — fix(delivery-report): tab ĐƠN 0đ hiện đủ Thành phố/NAP/Thu về (không chỉ Shop+Tomato)
+**Last updated**: 2026-06-18 12:02:14 SEAST
+**Latest session**: [`RESUME:20260618-120214-17158a4`](../20260618-120214-17158a4.md)
+**Summary**: delivery-report: tab ĐƠN 0đ hiện đủ Thành phố/NAP/Thu về (giữ cột TOMATO), frontend-only
 
 ## Folders affected in this commit
 
+- [`delivery-report/`](./delivery-report.md) — 2 file(s)
 - [`docs/`](./docs.md) — 1 file(s)
-- [`live-chat/`](./live-chat.md) — 7 file(s)
-- [`native-orders/`](./native-orders.md) — 2 file(s)
-- [`render.com/`](./render.com.md) — 1 file(s)
-- [`so-order/`](./so-order.md) — 1 file(s)
-- [`web2/`](./web2.md) — 27 file(s)
 
 ## All folder snapshots
 
@@ -29,8 +25,8 @@
 - [`bangkiemhang/`](./bangkiemhang.md) — updated 2026-05-21 15:39
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-16 11:15
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-16 14:31
-- [`delivery-report/`](./delivery-report.md) — updated 2026-06-16 19:17
-- [`docs/`](./docs.md) — updated 2026-06-17 21:19
+- [`delivery-report/`](./delivery-report.md) — updated 2026-06-18 12:02
+- [`docs/`](./docs.md) — updated 2026-06-18 12:02
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-16 14:31
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-16 14:31
 - [`downloads/`](./downloads.md) — updated 2026-06-13 19:16
