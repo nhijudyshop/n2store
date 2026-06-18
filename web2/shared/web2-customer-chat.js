@@ -680,14 +680,20 @@
         const phone = String(opts.phone || '').trim();
         const fbId = String(opts.fbId || opts.fbUserId || '').trim();
         const pageId = String(opts.pageId || opts.fbPageId || '').trim();
-        if (!phone && !(fbId && pageId)) {
+        if (!phone && !(fbId && pageId) && !opts.conversationId) {
             notify('Thiếu SĐT / Facebook của khách', 'warning');
             return null;
         }
         if (_active) _active.close();
         ensureStyles();
         const name = opts.name || '';
+        // Bật/tắt từng kênh + mở Zalo theo conversationId (vd jt-tracking nhóm Zalo).
+        const pancakeEnabled = opts.pancakeEnabled !== false;
+        const zaloEnabled = opts.zaloEnabled !== false;
+        const convId = String(opts.conversationId || '').trim();
         let channel = opts.channel === 'zalo' ? 'zalo' : 'pancake';
+        if (!pancakeEnabled) channel = 'zalo';
+        if (!zaloEnabled) channel = 'pancake';
 
         const back = document.createElement('div');
         back.className = 'w2cc-back web2-theme';
@@ -697,9 +703,9 @@
                     <div class="w2cc-head-who"><b>${esc(name || 'Khách')}</b>${phone ? `<span class="w2cc-phone" data-w2cc="copyphone" role="button" tabindex="0" title="Bấm để copy SĐT">${esc(phone)}</span>` : `<span style="font-size:12px;color:var(--web2-text-mute,#6b7280)">${fbId ? 'Facebook …' + esc(fbId.slice(-6)) : ''}</span>`}</div>
                     <button class="w2cc-x" data-w2cc="close" aria-label="Đóng"><i data-lucide="x"></i></button>
                 </div>
-                <div class="w2cc-tabs">
-                    <button class="w2cc-tab ${channel === 'pancake' ? 'on' : ''}" data-w2cc-tab="pancake"><i data-lucide="facebook"></i> Pancake</button>
-                    <button class="w2cc-tab ${channel === 'zalo' ? 'on' : ''}" data-w2cc-tab="zalo"><i data-lucide="message-circle"></i> Zalo</button>
+                <div class="w2cc-tabs"${pancakeEnabled && zaloEnabled ? '' : ' style="display:none"'}>
+                    ${pancakeEnabled ? `<button class="w2cc-tab ${channel === 'pancake' ? 'on' : ''}" data-w2cc-tab="pancake"><i data-lucide="facebook"></i> Pancake</button>` : ''}
+                    ${zaloEnabled ? `<button class="w2cc-tab ${channel === 'zalo' ? 'on' : ''}" data-w2cc-tab="zalo"><i data-lucide="message-circle"></i> Zalo</button>` : ''}
                 </div>
                 <div class="w2cc-panes">
                     <div class="w2cc-pane" data-w2cc-pane="pancake" ${channel === 'pancake' ? '' : 'hidden'}></div>
@@ -756,6 +762,7 @@
             try {
                 zaloHandle = await global.Web2Zalo.mountChat(host.querySelector('#w2ccZaloBody'), {
                     phone,
+                    convId: convId || undefined, // mở theo conversationId (vd nhóm Zalo jt-tracking)
                     autoSeen: true,
                 });
                 if (!zaloHandle) {
@@ -764,6 +771,10 @@
                     global.lucide?.createIcons?.();
                 } else {
                     setTimeout(() => _scrollZalo(host), 500); // tự cuộn xuống cùng
+                    // Callback sau khi mount xong (vd jt-tracking cuộn tới tin có mã vận đơn).
+                    try {
+                        opts.onReady?.(zaloHandle, host);
+                    } catch {}
                 }
             } catch (e) {
                 host.innerHTML = _stateHtml('empty', 'Lỗi mở chat Zalo: ' + (e?.message || ''));

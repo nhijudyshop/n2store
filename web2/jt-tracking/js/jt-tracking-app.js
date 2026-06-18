@@ -528,7 +528,9 @@
         let olderClicks = 0;
         const timer = setInterval(() => {
             tries++;
-            const body = document.querySelector('#jtChatBody .wz-chat-body');
+            const body = document.querySelector(
+                '.w2cc-pane[data-w2cc-pane="zalo"] .wz-chat-body, #jtChatBody .wz-chat-body'
+            );
             const msgs = body ? body.querySelectorAll('.wz-msg') : [];
             const target = [...msgs].reverse().find((m) => (m.textContent || '').includes(code));
             if (target) {
@@ -579,58 +581,30 @@
         }, 250);
     }
 
-    // ── Chat drawer (mở hội thoại nhóm Zalo nguồn của mã) ───────────
-    let _chatHandle = null;
+    // ── Chat nhóm Zalo nguồn của mã — dùng chung Web2CustomerChat (Zalo-only,
+    //    mở theo conversationId). Drawer cũ jt riêng đã bỏ → 1 nguồn.
     function openChat(convId, billcode) {
-        if (!window.Web2Zalo || !window.Web2Zalo.mountChat) {
+        if (window.Web2CustomerChat?.open) {
+            window.Web2CustomerChat.open({
+                conversationId: convId,
+                channel: 'zalo',
+                pancakeEnabled: false, // chỉ Zalo
+                name: 'Nhóm Zalo nguồn',
+                onReady: () => {
+                    if (billcode) findMessageInChat(billcode); // cuộn tới tin có mã vận đơn
+                },
+            });
+            return;
+        }
+        // Fallback (rất hiếm — Web2CustomerChat chưa load): engine Zalo trực tiếp.
+        if (!window.Web2Zalo?.mountChat) {
             notify('Engine chat chưa sẵn sàng', 'warning');
             return;
         }
-        const mount = $('jtChatMount');
-        mount.innerHTML = `<div class="jt-drawer-back" id="jtChatBack">
-            <div class="jt-drawer" role="dialog" aria-modal="true" aria-label="Chat nhóm Zalo">
-                <div class="jt-drawer-head">
-                    <span><i data-lucide="message-circle"></i> Chat nhóm Zalo</span>
-                    <button class="jt-drawer-close" id="jtChatClose" aria-label="Đóng"><i data-lucide="x"></i></button>
-                </div>
-                <div class="jt-drawer-body"><div id="jtChatBody"></div></div>
-            </div>
-        </div>`;
-        icons();
-        requestAnimationFrame(() => $('jtChatBack')?.classList.add('show'));
-        const close = () => {
-            try {
-                _chatHandle?.destroy?.();
-            } catch {}
-            _chatHandle = null;
-            const b = $('jtChatBack');
-            if (b) {
-                b.classList.remove('show');
-                setTimeout(() => (mount.innerHTML = ''), 220);
-            }
-        };
-        $('jtChatClose').onclick = close;
-        $('jtChatBack').onclick = (e) => {
-            if (e.target.id === 'jtChatBack') close();
-        };
-        document.addEventListener('keydown', function onEsc(ev) {
-            if (ev.key === 'Escape') {
-                close();
-                document.removeEventListener('keydown', onEsc);
-            }
+        window.Web2Zalo.mountChat(document.body.appendChild(document.createElement('div')), {
+            convId,
+            autoSeen: true,
         });
-        window.Web2Zalo.mountChat('#jtChatBody', { convId, autoSeen: true })
-            .then((h) => {
-                _chatHandle = h;
-                if (!h)
-                    $('jtChatBody').innerHTML =
-                        '<div class="jt-state" style="padding:24px"><h3>Không mở được</h3><p>Hội thoại Zalo không còn tồn tại.</p></div>';
-                else if (billcode) findMessageInChat(billcode); // cuộn tới tin có mã
-            })
-            .catch((e) => {
-                $('jtChatBody').innerHTML =
-                    `<div class="jt-state" style="padding:24px"><h3>Lỗi</h3><p>${esc(e.message)}</p></div>`;
-            });
     }
 
     // ── Actions ─────────────────────────────────────────────────────
