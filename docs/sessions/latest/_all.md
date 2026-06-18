@@ -3,22 +3,22 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `c9eca6d` — fix(web2/multi-tool): tăng comment auto-clean — mark conv.id THẬT của comment boost
-**Last updated**: 2026-06-18 18:06:19 +07
-**Latest session**: [`RESUME:20260618-180619-c9eca6d`](../20260618-180619-c9eca6d.md)
-**Summary**: fix(web2/multi-tool): tăng comment auto-clean — mark conv.id THẬT của comment boost
+**Latest commit**: `d45779e` — chore(docs): xoá docs Pancake cũ (lỗi thời) → browser-test trang thật
+**Last updated**: 2026-06-18 18:21:31 +07
+**Latest session**: [`RESUME:20260618-182131-d45779e`](../20260618-182131-d45779e.md)
+**Summary**: chore(docs): xoá docs Pancake cũ (lỗi thời) → browser-test trang thật
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`web2/`](./web2.md) — 1 file(s)
+- [`_root/`](./_root.md) — 1 file(s)
+- [`docs/`](./docs.md) — 2 file(s)
 
 ## All folder snapshots
 
 - [`.claude/`](./.claude.md) — updated 2026-06-05 10:42
 - [`.github/`](./.github.md) — updated 2026-06-13 11:30
 - [`AI/`](./AI.md) — updated 2026-05-21 15:39
-- [`_root/`](./_root.md) — updated 2026-06-16 15:08
+- [`_root/`](./_root.md) — updated 2026-06-18 18:21
 - [`aikol-studio/`](./aikol-studio.md) — updated 2026-05-21 15:39
 - [`balance-history-home/`](./balance-history-home.md) — updated 2026-06-18 13:09
 - [`balance-history/`](./balance-history.md) — updated 2026-06-16 14:31
@@ -26,7 +26,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-18 13:23
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-16 14:31
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-18 12:17
-- [`docs/`](./docs.md) — updated 2026-06-18 18:06
+- [`docs/`](./docs.md) — updated 2026-06-18 18:21
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-16 14:31
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-16 14:31
 - [`downloads/`](./downloads.md) — updated 2026-06-13 19:16
