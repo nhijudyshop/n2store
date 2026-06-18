@@ -297,3 +297,15 @@ Net: **delete `Web2ChatReadonly`**; everything else converges on `Web2CustomerCh
 - To delete: `/Users/mac/Desktop/n2store/web2/shared/web2-chat-readonly.js`
 - Caller files to repoint: `web2/balance-history/js/web2-balance-history-app.js` (150/658/663), `web2/balance-history/js/web2-pending-match.js` (10/348), `web2/jt-tracking/js/jt-tracking-app.js` (584/622), `web2/customers/js/customers-app.js` (673), `web2/shared/web2-customer-detail-modal.js` (161)
 - Live-chat thin-shim files (keep, dedupe adapter): `live-chat/js/pancake/pancake-chat-window.js`, `live-chat/js/live/live-chat-modal.js`
+
+---
+
+## TIẾN ĐỘ THỰC HIỆN
+
+- **2026-06-18 — Phase 0 + Phase 1 (core) XONG ✅** (`web2/shared/web2-customer-chat.js`):
+    - `open({layout:'modal'})` mới → giao diện **3-cột Pancake**: sidebar [tìm kiếm hội thoại + danh sách] + thread (Web2ChatPanel) + (info panel: chừa sẵn `panels.info`, port sau).
+    - Backward-compat tuyệt đối: `layout:'drawer'` (mặc định) giữ nguyên → 11 caller cũ KHÔNG đổi.
+    - Thêm flags: `readonly` (→ Web2ChatPanel mode readonly), `fbId/pageId`, `conversationId` (chừa), `panels`.
+    - Helpers mới: `openModal`, `_convRowHtml`, `_mergeConvs`, `_mAvatarUrl` (avatar initials-fallback), `_mTime` (GMT+7 + append Z), search debounce 300ms + abort + IME guard.
+    - **Verified browser** (native-orders, KH Huỳnh Thành Đạt): modal 3-cột mở, sidebar 150 hội thoại, search "Thảo" → 135 kết quả đúng, click row "Thảo Huỳnh" → thread load + composer + tin thật, auto-resolve theo SĐT.
+- **CÒN LẠI:** Phase 1 (retire Web2ChatReadonly → 5 call sites), Phase 2 (jt-tracking Zalo by convId), Phase 3 (port info/comments/quick-reply/filter/realtime), Phase 4 (migrate native-orders openInteractions → layout:'modal', xoá ~14 hàm trùng). Thứ tự rủi ro thấp→cao; native-orders LAST.
