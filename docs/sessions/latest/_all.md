@@ -3,15 +3,16 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `2ea602c` — fix(purchase-refund): refresh Web2ProductsCache sau trả NCC — Section A hiện tồn mới (bulk + lẻ)
-**Last updated**: 2026-06-18 12:36:28 +07
-**Latest session**: [`RESUME:20260618-123628-2ea602c`](../20260618-123628-2ea602c.md)
-**Summary**: fix(purchase-refund): refresh Web2ProductsCache sau trả NCC — Section A hiện tồn mới (bulk + lẻ)
+**Latest commit**: `4a7def4` — feat(balance-history-home): phân biệt 2 TK SePay Home — cột 'Tài khoản' + bộ lọc 44 TL/481 NVK
+**Last updated**: 2026-06-18 13:09:17 +07
+**Latest session**: [`RESUME:20260618-130917-4a7def4`](../20260618-130917-4a7def4.md)
+**Summary**: feat(balance-history-home): phân biệt 2 TK SePay Home — cột 'Tài khoản' + bộ lọc 44 TL/481 NVK
 
 ## Folders affected in this commit
 
+- [`balance-history-home/`](./balance-history-home.md) — 7 file(s)
 - [`docs/`](./docs.md) — 1 file(s)
-- [`web2/`](./web2.md) — 2 file(s)
+- [`render.com/`](./render.com.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -20,13 +21,13 @@
 - [`AI/`](./AI.md) — updated 2026-05-21 15:39
 - [`_root/`](./_root.md) — updated 2026-06-16 15:08
 - [`aikol-studio/`](./aikol-studio.md) — updated 2026-05-21 15:39
-- [`balance-history-home/`](./balance-history-home.md) — updated 2026-06-16 14:31
+- [`balance-history-home/`](./balance-history-home.md) — updated 2026-06-18 13:09
 - [`balance-history/`](./balance-history.md) — updated 2026-06-16 14:31
 - [`bangkiemhang/`](./bangkiemhang.md) — updated 2026-05-21 15:39
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-16 11:15
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-16 14:31
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-18 12:17
-- [`docs/`](./docs.md) — updated 2026-06-18 12:36
+- [`docs/`](./docs.md) — updated 2026-06-18 13:09
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-16 14:31
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-16 14:31
 - [`downloads/`](./downloads.md) — updated 2026-06-13 19:16
@@ -54,7 +55,7 @@
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-06-16 00:35
-- [`render.com/`](./render.com.md) — updated 2026-06-17 21:19
+- [`render.com/`](./render.com.md) — updated 2026-06-18 13:09
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-16 13:29
 - [`service-costs/`](./service-costs.md) — updated 2026-06-16 11:15
