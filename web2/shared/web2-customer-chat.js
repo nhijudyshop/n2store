@@ -363,6 +363,34 @@
 .w2cc-pane[hidden]{display:none!important}
 .w2cc-state{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:var(--web2-text-mute,#6b7280);padding:24px;text-align:center}
 .w2cc-state [data-w2-lottie],.w2cc-state .w2cc-ico{width:84px;height:84px;display:grid;place-items:center}
+/* ── layout:'modal' — 3-cột Pancake (sidebar tìm kiếm + thread + info) ── */
+.w2cc-mback{position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:1300;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .2s cubic-bezier(.16,1,.3,1);padding:2vh 2vw}
+.w2cc-mback.show{opacity:1}
+.w2cc-modal{width:96vw;max-width:1500px;height:92vh;background:var(--web2-surface,#fff);border-radius:14px;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 24px 70px rgba(15,23,42,.28);transform:translateY(10px);transition:transform .2s cubic-bezier(.16,1,.3,1)}
+.w2cc-mback.show .w2cc-modal{transform:none}
+.w2cc-mhead{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--web2-border,#e5e7eb);flex-shrink:0}
+.w2cc-mhead b{font-size:15px;font-weight:800;color:var(--web2-text,#111827)}
+.w2cc-mhead .w2cc-chtabs{display:flex;gap:6px;margin-left:auto}
+.w2cc-chtab{display:flex;align-items:center;gap:5px;padding:6px 12px;border-radius:8px;border:1.5px solid var(--web2-border,#e5e7eb);background:transparent;color:var(--web2-text-mute,#6b7280);font-weight:700;font-size:12px;cursor:pointer;transition:all .15s}
+.w2cc-chtab.on{border-color:var(--web2-primary,#0068ff);background:color-mix(in oklab,var(--web2-primary,#0068ff) 12%,transparent);color:var(--web2-primary,#0068ff)}
+.w2cc-grid{flex:1;min-height:0;display:grid;grid-template-columns:320px 1fr;overflow:hidden}
+.w2cc-grid.has-info{grid-template-columns:300px 1fr 340px}
+.w2cc-side{display:flex;flex-direction:column;min-height:0;border-right:1px solid var(--web2-border,#e5e7eb);background:var(--web2-bg,#f8fafc)}
+.w2cc-side-search{padding:10px;flex-shrink:0;border-bottom:1px solid var(--web2-border,#e5e7eb)}
+.w2cc-side-search input{width:100%;height:38px;border:1px solid var(--web2-border,#e5e7eb);border-radius:9px;padding:0 12px;font-size:13px;background:var(--web2-surface,#fff);outline:none}
+.w2cc-side-search input:focus{border-color:var(--web2-primary,#0068ff)}
+.w2cc-side-list{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain}
+.w2cc-row{display:flex;gap:10px;align-items:center;padding:10px 12px;cursor:pointer;border-bottom:1px solid color-mix(in oklab,var(--web2-border,#e5e7eb) 55%,transparent);transition:background .12s}
+.w2cc-row:hover{background:color-mix(in oklab,var(--web2-primary,#0068ff) 7%,transparent)}
+.w2cc-row.on{background:color-mix(in oklab,var(--web2-primary,#0068ff) 13%,transparent)}
+.w2cc-row-av{width:42px;height:42px;border-radius:50%;flex-shrink:0;display:grid;place-items:center;color:#fff;font-weight:700;font-size:15px;overflow:hidden;position:relative}
+.w2cc-row-av img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.w2cc-row-main{min-width:0;flex:1}
+.w2cc-row-name{font-weight:700;font-size:13px;color:var(--web2-text,#111827);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.w2cc-row-snip{font-size:12px;color:var(--web2-text-mute,#6b7280);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.w2cc-row-time{font-size:10px;color:var(--web2-text-mute,#9ca3af);flex-shrink:0;align-self:flex-start}
+.w2cc-main{display:flex;flex-direction:column;min-height:0;position:relative}
+.w2cc-side-empty{padding:24px 12px;text-align:center;color:var(--web2-text-mute,#9ca3af);font-size:12px}
 `;
         const el = document.createElement('style');
         el.id = 'w2cc-styles';
@@ -395,7 +423,233 @@
         return null;
     }
 
+    // ── helpers cho layout:'modal' (sidebar conv-list + search) ──────────
+    function _mInitial(name) {
+        const s = String(name || '?').trim();
+        return s ? s.split(/\s+/).slice(-1)[0].charAt(0).toUpperCase() : '?';
+    }
+    function _mColor(name) {
+        let h = 0;
+        const s = String(name || '');
+        for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+        return `hsl(${h % 360},56%,50%)`;
+    }
+    function _mAvatarUrl(fbId, pageId) {
+        if (!fbId || !pageId) return '';
+        const jwt = global.Web2Chat?.getJwt?.() || '';
+        const p = new URLSearchParams({ id: String(fbId), page: String(pageId) });
+        if (jwt) p.set('token', jwt);
+        return `${WORKER}/api/fb-avatar?${p.toString()}`;
+    }
+    // GMT+7. Pancake inserted_at = UTC KHÔNG hậu tố Z → append Z (CLAUDE.md note 10).
+    function _mTime(ts) {
+        if (!ts) return '';
+        try {
+            let s = String(ts);
+            if (!/^\d+$/.test(s) && !/[zZ]|[+-]\d\d:?\d\d$/.test(s)) s += 'Z';
+            const d = /^\d+$/.test(s) ? new Date(Number(s)) : new Date(s);
+            return d.toLocaleTimeString('vi-VN', {
+                hour: '2-digit',
+                minute: '2-digit',
+                timeZone: 'Asia/Ho_Chi_Minh',
+            });
+        } catch {
+            return '';
+        }
+    }
+    function _convRowHtml(c) {
+        const cust = (c.customers && c.customers[0]) || c.from || {};
+        const name = cust.name || cust.full_name || c.name || 'Khách';
+        const fbId = String(cust.fb_id || cust.id || c.from_psid || '');
+        const pageId = String(c.page_id || c.fb_page_id || '');
+        const snip = c.snippet || c.last_message || c.last_sent_by?.message || '';
+        const time = _mTime(c.updated_at || c.inserted_at || '');
+        const url = fbId && pageId ? _mAvatarUrl(fbId, pageId) : '';
+        const initial = _mInitial(name);
+        const color = _mColor(name);
+        const av = url
+            ? `<div class="w2cc-row-av" style="background:${color}"><span>${esc(initial)}</span><img src="${esc(url)}" alt="" loading="lazy" onerror="this.remove()"></div>`
+            : `<div class="w2cc-row-av" style="background:${color}">${esc(initial)}</div>`;
+        return `<div class="w2cc-row" data-conv-id="${esc(String(c.id))}" data-page-id="${esc(pageId)}" data-fb-id="${esc(fbId)}" data-name="${esc(name)}">
+            ${av}
+            <div class="w2cc-row-main"><div class="w2cc-row-name">${esc(name)}</div><div class="w2cc-row-snip">${esc(String(snip).slice(0, 64))}</div></div>
+            ${time ? `<span class="w2cc-row-time">${esc(time)}</span>` : ''}
+        </div>`;
+    }
+    function _mergeConvs(settled, pageIds) {
+        const map = new Map();
+        settled.forEach((r, i) => {
+            if (r.status !== 'fulfilled' || !r.value?.ok) return;
+            for (const c of r.value.conversations || []) {
+                if (!c.id) continue;
+                c.page_id = String(c.page_id || c.fb_page_id || pageIds[i] || '');
+                if (!map.has(c.id)) map.set(c.id, c);
+            }
+        });
+        return [...map.values()].sort((a, b) =>
+            String(b.updated_at || b.inserted_at || '').localeCompare(
+                String(a.updated_at || a.inserted_at || '')
+            )
+        );
+    }
+
+    // ── openModal(): 3-cột Pancake — sidebar tìm kiếm hội thoại + thread ──
+    async function openModal(opts = {}) {
+        const phone = String(opts.phone || '').trim();
+        const fbId = String(opts.fbId || opts.fbUserId || '').trim();
+        const pageId = String(opts.pageId || opts.fbPageId || '').trim();
+        const readonly = !!opts.readonly;
+        const showInfo = !!(opts.panels && opts.panels.info);
+        if (_active) _active.close();
+        ensureStyles();
+        await loadPanelBundle();
+
+        const back = document.createElement('div');
+        back.className = 'w2cc-mback web2-theme';
+        back.innerHTML = `
+            <div class="w2cc-modal" role="dialog" aria-modal="true" aria-label="Chat khách hàng">
+                <div class="w2cc-mhead">
+                    <b><i data-lucide="messages-square" style="width:17px;height:17px;vertical-align:-3px"></i> Chat khách hàng</b>
+                    <button class="w2cc-x" data-w2cc="close" aria-label="Đóng"><i data-lucide="x"></i></button>
+                </div>
+                <div class="w2cc-grid${showInfo ? ' has-info' : ''}">
+                    <aside class="w2cc-side">
+                        <div class="w2cc-side-search"><input type="text" data-w2cc="search" placeholder="Tìm hội thoại theo tên / SĐT…" autocomplete="off"></div>
+                        <div class="w2cc-side-list" data-w2cc="list"><div class="w2cc-side-empty">Đang tải hội thoại…</div></div>
+                    </aside>
+                    <main class="w2cc-main" data-w2cc="thread">${_stateHtml('loading', 'Đang tải…')}</main>
+                </div>
+            </div>`;
+        document.body.appendChild(back);
+        requestAnimationFrame(() => back.classList.add('show'));
+        global.lucide?.createIcons?.();
+        global.Web2Lottie?.scan?.(back);
+
+        const listEl = back.querySelector('[data-w2cc="list"]');
+        const threadEl = back.querySelector('[data-w2cc="thread"]');
+        const searchEl = back.querySelector('[data-w2cc="search"]');
+        let panelInst = null;
+        let selectedConvId = null;
+        let baseConvs = [];
+
+        function markSelected() {
+            listEl
+                .querySelectorAll('.w2cc-row')
+                .forEach((r) => r.classList.toggle('on', r.dataset.convId === selectedConvId));
+        }
+        function selectConv(conv) {
+            if (!conv || !conv.id || !global.Web2ChatPanel) return;
+            selectedConvId = String(conv.id);
+            markSelected();
+            try {
+                panelInst?.destroy?.();
+            } catch {}
+            threadEl.innerHTML = '';
+            panelInst = global.Web2ChatPanel.mount(threadEl, {
+                mode: readonly ? 'readonly' : 'full',
+            });
+            panelInst.open(conv, buildPancakeAdapter(conv));
+            setTimeout(() => panelInst?.scrollToBottom?.(), 400);
+        }
+        function renderRows(convs) {
+            if (!convs.length) {
+                listEl.innerHTML = `<div class="w2cc-side-empty">Không có hội thoại</div>`;
+                return;
+            }
+            listEl.innerHTML = convs.map(_convRowHtml).join('');
+            markSelected();
+        }
+        async function loadInitial() {
+            const pageIds = _getPageIds();
+            if (!pageIds.length) {
+                listEl.innerHTML = `<div class="w2cc-side-empty">Chưa cấu hình page Pancake</div>`;
+                return;
+            }
+            try {
+                await global.Web2Chat?.syncFromRenderDB?.();
+            } catch {}
+            const settled = await Promise.allSettled(
+                pageIds.map((pid) => global.Web2Chat.fetchConversationsByPage(pid, { limit: 50 }))
+            );
+            baseConvs = _mergeConvs(settled, pageIds);
+            renderRows(baseConvs);
+        }
+        let _sTimer = null;
+        let _sSeq = 0;
+        function wireSearch() {
+            searchEl.addEventListener('keydown', (e) => {
+                if (e.isComposing || e.keyCode === 229) return; // IME tiếng Việt
+            });
+            searchEl.addEventListener('input', () => {
+                clearTimeout(_sTimer);
+                const q = searchEl.value.trim();
+                _sTimer = setTimeout(async () => {
+                    if (!q) return renderRows(baseConvs);
+                    const seq = ++_sSeq;
+                    listEl.innerHTML = `<div class="w2cc-side-empty">Đang tìm…</div>`;
+                    const pageIds = _getPageIds();
+                    const settled = await Promise.allSettled(
+                        pageIds.map((pid) => global.Web2Chat.searchConversations(pid, q))
+                    );
+                    if (seq !== _sSeq) return; // kết quả cũ
+                    renderRows(_mergeConvs(settled, pageIds));
+                }, 300);
+            });
+        }
+        listEl.addEventListener('click', (e) => {
+            const row = e.target.closest('.w2cc-row');
+            if (!row) return;
+            const conv = baseConvs.find((c) => String(c.id) === row.dataset.convId) || {
+                id: row.dataset.convId,
+                page_id: row.dataset.pageId,
+                type: 'INBOX',
+                customers: [{ id: null, name: row.dataset.name, fb_id: row.dataset.fbId }],
+            };
+            selectConv(conv);
+        });
+
+        // Auto-chọn hội thoại theo identity (phone → fbId), vẫn cho search/đổi tự do.
+        (async () => {
+            let conv = null;
+            if (phone) conv = await resolvePancakeConv(phone);
+            if (!conv) conv = await _resolveConvByFbId(fbId, pageId);
+            if (conv) selectConv(conv);
+            else {
+                threadEl.innerHTML = _stateHtml('empty', 'Chọn hội thoại bên trái để bắt đầu');
+                global.lucide?.createIcons?.();
+                global.Web2Lottie?.scan?.(threadEl);
+            }
+        })();
+
+        loadInitial();
+        wireSearch();
+        if (phone) searchEl.value = phone; // gợi ý nhanh
+
+        const close = () => {
+            try {
+                panelInst?.destroy?.();
+            } catch {}
+            back.classList.remove('show');
+            setTimeout(() => back.remove(), 200);
+            document.removeEventListener('keydown', onEsc);
+            if (_active && _active._back === back) _active = null;
+        };
+        function onEsc(e) {
+            if (e.key === 'Escape') close();
+        }
+        back.addEventListener('click', (e) => {
+            if (e.target === back) close();
+            if (e.target.closest('[data-w2cc="close"]')) close();
+        });
+        document.addEventListener('keydown', onEsc);
+        _active = { close, _back: back, switchTab() {}, getPanel: () => panelInst };
+        return _active;
+    }
+
     async function open(opts = {}) {
+        // layout:'modal' → giao diện 3-cột Pancake (sidebar tìm kiếm + thread + info).
+        // Mặc định 'drawer' (giữ nguyên 11 caller cũ — zero risk).
+        if (opts.layout === 'modal') return openModal(opts);
         const phone = String(opts.phone || '').trim();
         const fbId = String(opts.fbId || opts.fbUserId || '').trim();
         const pageId = String(opts.pageId || opts.fbPageId || '').trim();

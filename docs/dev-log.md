@@ -15,7 +15,9 @@
 
 **Verify** (browser): module load v20260618a + nút 🔤/📷 có; overlay mở đủ (ROI/chụp/ô sửa); **smoke OCR PASS** — render "AO2354 T20" → tesseract đọc "A02354 T20" (đúng "T20", lẫn O→0 đúng như cảnh báo → vì vậy thiết kế cho-sửa-tay). getUserMedia không chạy trong automation — decode đã verified.
 
-**⚠ Lưu ý placement:** OCR hợp NHẤT cho **warehouse intake (so-order nhận hàng)** đọc "mã + số lượng" trên nhãn pack, hơn là reconcile (reconcile dùng SKU barcode). Hiện đặt ở reconcile làm fallback + test; engine shared nên dời/thêm vào so-order/products dễ. **Đợt 3 (OCR chữ tay TrOCR) + Đợt 4 (đếm pack opencv) chưa làm.**
+**⚠ Lưu ý placement:** OCR hợp NHẤT cho **warehouse intake (so-order nhận hàng)** đọc "mã + số lượng" trên nhãn pack, hơn là reconcile (reconcile dùng SKU barcode). Hiện đặt ở reconcile làm fallback + test; engine shared nên dời/thêm vào so-order/products dễ.
+
+**Đợt 3 (OCR chữ TAY) — XONG cùng ngày**: thêm toggle **"Chữ in | Chữ tay"** vào `Web2LabelOcr` (`opts.mode`). Chữ tay = transformers.js + TrOCR (`Xenova/trocr-base-handwritten`), lazy import CDN, chỉ tải model (~vài trăm MB) khi user chọn. ⚠ Chính xác THẤP (model IAM tiếng Anh — số/mã ASCII đỡ hơn, chữ Việt có dấu kém) → vẫn cho-sửa-tay. Verify: toggle 2 chế độ render đúng (active=in); transformers.js import OK (`pipeline`/`RawImage` = function). Full TrOCR inference chạy on-device khi user dùng (chưa chạy full trong test vì model nặng).
 
 ### [web2 barcode-scanner] Quét barcode/QR bằng CAMERA on-device (shared) + cắm vào reconcile ✅
 

@@ -79,6 +79,9 @@
 .w2ocr-actions{display:flex;gap:8px}
 .w2ocr-actions .w2ocr-btn{min-height:50px}
 .w2ocr-note{font-size:.76rem;color:#8aa0b6;text-align:center;margin:2px 0 0}
+.w2ocr-modes{display:flex;gap:8px;margin-bottom:10px}
+.w2ocr-mode{flex:1;min-height:42px;border:1px solid rgba(255,255,255,.14);border-radius:12px;background:#0e1620;color:#9fb3c8;font-size:.86rem;font-weight:700;cursor:pointer}
+.w2ocr-mode.is-active{background:var(--web2-primary,#0068ff);color:#fff;border-color:transparent}
 @media (prefers-reduced-motion:reduce){.w2ocr-spin{animation:none}}`;
         const s = doc.createElement('style');
         s.id = 'w2ocr-styles';
@@ -111,7 +114,33 @@
         });
         return _tessP;
     }
-    // worker cache theo lang
+    // ── Lazy-load transformers.js + TrOCR (chữ TAY) ──────────────────
+    // CHỮ TAY: chính xác THẤP (model IAM tiếng Anh; số/mã ASCII đỡ hơn, chữ
+    // tiếng Việt có dấu kém) + model nặng → chỉ tải khi user chọn "Chữ tay".
+    const TRANSFORMERS_URL = 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3';
+    const TROCR_MODEL = 'Xenova/trocr-base-handwritten';
+    let _trocrP = null;
+    function getTrocr() {
+        if (_trocrP) return _trocrP;
+        _trocrP = (async () => {
+            const mod = await import(/* @vite-ignore */ TRANSFORMERS_URL);
+            return await mod.pipeline('image-to-text', TROCR_MODEL);
+        })();
+        _trocrP.catch(() => {
+            _trocrP = null;
+        });
+        return _trocrP;
+    }
+    async function recognizeHandwritten(imgUrl) {
+        const pipe = await getTrocr();
+        const out = await pipe(imgUrl);
+        const text = Array.isArray(out)
+            ? out[0] && out[0].generated_text
+            : out && out.generated_text;
+        return (text || '').trim();
+    }
+
+    // worker cache theo lang (chữ IN, tesseract)
     const _workers = new Map();
     async function getWorker(lang) {
         if (_workers.has(lang)) return _workers.get(lang);
@@ -188,6 +217,10 @@
   <div class="w2ocr-loading" hidden><div class="w2ocr-spin"></div><span class="w2ocr-loadtext">Đang đọc…</span></div>
 </div>
 <div class="w2ocr-foot">
+  <div class="w2ocr-modes">
+    <button type="button" class="w2ocr-mode" data-mode="printed">Chữ in (nhanh)</button>
+    <button type="button" class="w2ocr-mode" data-mode="handwritten">Chữ tay</button>
+  </div>
   <button type="button" class="w2ocr-btn w2ocr-shoot"><i data-lucide="scan-text"></i> Chụp &amp; đọc</button>
   <div class="w2ocr-result">
     <div class="w2ocr-chips"></div>
@@ -218,6 +251,17 @@
         const retryBtn = root.querySelector('.w2ocr-retry');
         let stream = null,
             destroyed = false;
+
+        // ── Chế độ đọc: chữ IN (tesseract, mặc định) | chữ TAY (TrOCR) ──
+        let currentMode = opts.mode === 'handwritten' ? 'handwritten' : 'printed';
+        const modeBtns = root.querySelectorAll('.w2ocr-mode');
+        modeBtns.forEach((b) => {
+            if (b.dataset.mode === currentMode) b.classList.add('is-active');
+            b.addEventListener('click', () => {
+                currentMode = b.dataset.mode;
+                modeBtns.forEach((x) => x.classList.toggle('is-active', x === b));
+            });
+        });
 
         function setLoading(on, text) {
             loading.hidden = !on;
@@ -292,6 +336,25 @@
             const roiRect = roiEl.getBoundingClientRect();
             const canvas = captureRoi(video, { w: roiRect.width, h: roiRect.height });
             const frozenUrl = canvas.toDataURL('image/png');
+
+            // CHỮ TAY → TrOCR (transformers.js). Nặng + chính xác thấp → chỉ khi chọn.
+            if (currentMode === 'handwritten') {
+                setLoading(true, 'Đang tải bộ đọc chữ tay (lần đầu hơi lâu)…');
+                let text = '';
+                try {
+                    text = await recognizeHandwritten(frozenUrl);
+                } catch (e) {
+                    setLoading(false);
+                    notify('Không tải/đọc được chữ tay (mạng/CDN).', 'error');
+                    return;
+                }
+                setLoading(false);
+                if (destroyed) return;
+                showResult(text ? [text] : [], frozenUrl);
+                return;
+            }
+
+            // CHỮ IN → tesseract.js (mặc định)
             setLoading(true, 'Đang tải bộ đọc…');
             let worker;
             try {
