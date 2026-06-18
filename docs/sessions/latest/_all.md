@@ -3,16 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `4a7def4` — feat(balance-history-home): phân biệt 2 TK SePay Home — cột 'Tài khoản' + bộ lọc 44 TL/481 NVK
-**Last updated**: 2026-06-18 13:09:17 +07
-**Latest session**: [`RESUME:20260618-130917-4a7def4`](../20260618-130917-4a7def4.md)
-**Summary**: feat(balance-history-home): phân biệt 2 TK SePay Home — cột 'Tài khoản' + bộ lọc 44 TL/481 NVK
+**Latest commit**: `7cd0728` — fix(cloudflare-worker): SSE /api/sepay-home/stream 502 — timeout 0 abort ngay → dùng 15000
+**Last updated**: 2026-06-18 13:23:45 +07
+**Latest session**: [`RESUME:20260618-132345-7cd0728`](../20260618-132345-7cd0728.md)
+**Summary**: fix(cloudflare-worker): SSE /api/sepay-home/stream 502 — timeout 0 abort ngay → dùng 15000
 
 ## Folders affected in this commit
 
-- [`balance-history-home/`](./balance-history-home.md) — 7 file(s)
+- [`cloudflare-worker/`](./cloudflare-worker.md) — 1 file(s)
 - [`docs/`](./docs.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -24,10 +23,10 @@
 - [`balance-history-home/`](./balance-history-home.md) — updated 2026-06-18 13:09
 - [`balance-history/`](./balance-history.md) — updated 2026-06-16 14:31
 - [`bangkiemhang/`](./bangkiemhang.md) — updated 2026-05-21 15:39
-- [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-16 11:15
+- [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-18 13:23
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-16 14:31
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-18 12:17
-- [`docs/`](./docs.md) — updated 2026-06-18 13:09
+- [`docs/`](./docs.md) — updated 2026-06-18 13:23
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-16 14:31
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-16 14:31
 - [`downloads/`](./downloads.md) — updated 2026-06-13 19:16
