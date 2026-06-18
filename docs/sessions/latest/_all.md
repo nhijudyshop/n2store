@@ -3,15 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `17158a4` — fix(delivery-report): tab ĐƠN 0đ hiện đủ Thành phố/NAP/Thu về (không chỉ Shop+Tomato)
-**Last updated**: 2026-06-18 12:02:14 SEAST
-**Latest session**: [`RESUME:20260618-120214-17158a4`](../20260618-120214-17158a4.md)
-**Summary**: delivery-report: tab ĐƠN 0đ hiện đủ Thành phố/NAP/Thu về (giữ cột TOMATO), frontend-only
+**Latest commit**: `864aa48` — feat(purchase-refund): nút 'Trả hàng' ở header đơn → modal trả nhiều SP cùng lúc (SL mặc định 0)
+**Last updated**: 2026-06-18 12:20:17 +07
+**Latest session**: [`RESUME:20260618-122017-864aa48`](../20260618-122017-864aa48.md)
+**Summary**: feat(purchase-refund): nút 'Trả hàng' ở header đơn → modal trả nhiều SP cùng lúc (SL mặc định 0)
 
 ## Folders affected in this commit
 
-- [`delivery-report/`](./delivery-report.md) — 2 file(s)
 - [`docs/`](./docs.md) — 1 file(s)
+- [`web2/`](./web2.md) — 3 file(s)
 
 ## All folder snapshots
 
@@ -25,8 +25,8 @@
 - [`bangkiemhang/`](./bangkiemhang.md) — updated 2026-05-21 15:39
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-16 11:15
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-16 14:31
-- [`delivery-report/`](./delivery-report.md) — updated 2026-06-18 12:02
-- [`docs/`](./docs.md) — updated 2026-06-18 12:02
+- [`delivery-report/`](./delivery-report.md) — updated 2026-06-18 12:17
+- [`docs/`](./docs.md) — updated 2026-06-18 12:20
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-16 14:31
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-16 14:31
 - [`downloads/`](./downloads.md) — updated 2026-06-13 19:16
@@ -74,4 +74,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-17 21:19
+- [`web2/`](./web2.md) — updated 2026-06-18 12:20
