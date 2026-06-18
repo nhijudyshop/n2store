@@ -199,6 +199,10 @@
     height: 20px;
     color: #fff;
 }
+/* Nút đọc nhãn (OCR) — accent cam để phân biệt với quét barcode (teal) */
+.rc-scanner-ocr {
+    background: #d97706;
+}
 .rc-scanner-target.is-active {
     background: #ccfbf1;
     color: #0f766e;

@@ -1024,6 +1024,32 @@
             });
         }
 
+        // 2026-06-18: ĐỌC MÃ TRÊN NHÃN bằng OCR (Web2LabelOcr) — khi không có barcode.
+        // OCR chỉ là gợi ý (chữ in OK, chữ tay kém) → KHÔNG auto-submit: điền vào ô
+        // quét + focus để user kiểm tra rồi Enter (an toàn vì OCR dễ nhầm O↔0…).
+        const ocrBtn = document.getElementById('rcOcrBtn');
+        if (ocrBtn) {
+            ocrBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (!window.Web2LabelOcr) {
+                    notify('Chưa tải được bộ đọc nhãn (web2-label-ocr.js).', 'error');
+                    return;
+                }
+                window.Web2LabelOcr.open({
+                    title: 'Đọc mã trên nhãn',
+                    hint: 'Ngắm dòng MÃ trên nhãn vào khung rồi bấm Chụp',
+                    onResult: (text) => {
+                        const inp = document.getElementById('rcScannerInput');
+                        if (inp) {
+                            inp.value = (text || '').trim();
+                            focusScanner();
+                        }
+                        notify('Đã điền mã — kiểm tra rồi nhấn Enter để quét', 'info');
+                    },
+                });
+            });
+        }
+
         // 2026-06-06: router phím toàn cục — máy quét = bàn phím; nếu đang không gõ vào
         // ô nhập nào khác (search/checkbox/button) thì TỰ ĐƯA ký tự vào ô quét.
         // → quét nhận ngay, KHÔNG cần bấm chuột vào ô trước. Inject ký tự để không

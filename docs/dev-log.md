@@ -2,6 +2,21 @@
 
 ## 2026-06-18
 
+### [web2 label-ocr] Đọc chữ trên nhãn bằng camera OCR on-device (shared, Đợt 2/4) ✅
+
+**Tiếp lộ trình on-device camera reading (sau Đợt 1 barcode).** Đợt 2 = OCR chữ IN trên nhãn (tesseract.js), theo report: OCR **chụp-rồi-đọc** (không streaming realtime), chữ in OK, chữ tay kém → thiết kế **gợi-ý + cho sửa tay**, KHÔNG auto.
+
+**Shared engine** [web2/shared/web2-label-ocr.js](../web2/shared/web2-label-ocr.js) (`window.Web2LabelOcr`):
+
+- `open({onResult, lang, whitelist, continuous})` overlay: camera + **khung ROI ngắm dòng chữ** + nút "Chụp & đọc" → freeze frame → crop ROI + grayscale/contrast → tesseract.js OCR → hiện **các dòng nhận được (chip bấm chọn) + ô SỬA TAY** → user xác nhận mới `onResult(text)`. "Chụp lại" để thử lại.
+- Lazy tải tesseract.js (CDN, WASM + traineddata ~6MB) khi mở; worker cache theo lang; on-device 100% (KHÔNG server). Self-inject CSS.
+
+**Cắm vào reconcile**: nút 🔤 (accent cam) cạnh nút 📷 barcode ([index.html](../web2/reconcile/index.html) + [reconcile.css](../web2/reconcile/css/reconcile.css)) → [reconcile-app.js](../web2/reconcile/js/reconcile-app.js) `Web2LabelOcr.open({ onResult })` → **điền vào ô quét + focus** (KHÔNG auto-submit vì OCR dễ nhầm O↔0 — user kiểm tra rồi Enter). Dùng khi pack có MÃ IN nhưng barcode không quét được.
+
+**Verify** (browser): module load v20260618a + nút 🔤/📷 có; overlay mở đủ (ROI/chụp/ô sửa); **smoke OCR PASS** — render "AO2354 T20" → tesseract đọc "A02354 T20" (đúng "T20", lẫn O→0 đúng như cảnh báo → vì vậy thiết kế cho-sửa-tay). getUserMedia không chạy trong automation — decode đã verified.
+
+**⚠ Lưu ý placement:** OCR hợp NHẤT cho **warehouse intake (so-order nhận hàng)** đọc "mã + số lượng" trên nhãn pack, hơn là reconcile (reconcile dùng SKU barcode). Hiện đặt ở reconcile làm fallback + test; engine shared nên dời/thêm vào so-order/products dễ. **Đợt 3 (OCR chữ tay TrOCR) + Đợt 4 (đếm pack opencv) chưa làm.**
+
 ### [web2 barcode-scanner] Quét barcode/QR bằng CAMERA on-device (shared) + cắm vào reconcile ✅
 
 **User:** muốn đọc TRỰC TIẾP từ camera on-device (KHÔNG server AI), và chỉ ra trang **reconcile** (đối soát đóng gói) đang dùng **máy quét gun**.
