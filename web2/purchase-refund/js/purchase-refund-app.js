@@ -1228,6 +1228,9 @@
             closeQuickRefund();
             // Reload section A (stock đã giảm) + section B (phiếu mới). Ví NCC cập
             // nhật realtime qua SSE web2:supplier-wallet (server đã _notify).
+            // quick-refund KHÔNG notify SSE 'web2:products' → ép refresh cache để
+            // section A hiện tồn kho mới (init() idempotent sẽ giữ stock cũ).
+            await window.Web2ProductsCache?.refresh?.().catch(() => {});
             await loadSourceItems();
             await loadList();
         } catch (e) {
@@ -1467,6 +1470,9 @@
                 'success'
             );
             closeBulkRefund();
+            // quick-refund KHÔNG notify SSE 'web2:products' → ép refresh cache để
+            // section A hiện tồn kho mới (init() idempotent giữ stock cũ).
+            await window.Web2ProductsCache?.refresh?.().catch(() => {});
             await loadSourceItems();
             await loadList();
         } catch (err) {

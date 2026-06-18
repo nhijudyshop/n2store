@@ -34,9 +34,11 @@
 - **CSS** [purchase-refund.css](web2/purchase-refund/css/purchase-refund.css): `.pr-bulk-*` (table sticky header, qty input, dòng có SL>0 highlight vàng) + `.pr-bulk-btn` (nút đỏ nhạt ở header nhóm).
 - **JS** [purchase-refund-app.js](web2/purchase-refund/js/purchase-refund-app.js): `renderSourceList` lưu `SOURCE_STATE.groups` + chèn nút "Trả hàng" `data-bulk-group` vào header mỗi nhóm. `openBulkRefund/renderBulkRows` (qty mặc định **0**, max=tồn) + live total per-line + tổng (clamp input 0..tồn). `submitBulkRefund` gom SP có SL>0 → **1 phiếu** `POST /api/purchase-refund/quick-refund` (đa SP, atomic: trừ kho từng dòng + ghi ví NCC theo totalAmount). Giữ await+loading (money op). CHỈ SP có SL>0 vào phiếu; rỗng → cảnh báo.
 
-**Verify (Playwright localhost, ext n2store, login web2 admin):** 2 nhóm A1/b1 → 2 nút "Trả hàng"; click A1 → modal 3 SP, SL toàn 0, tổng 0₫; nhập 1+1 → tổng 944.500₫ (2 SP), dòng SL>0 highlight; gõ 99 → clamp về 1 (max=tồn). Screenshot khớp yêu cầu (như hình 4, đa dòng). `node --check` PASS. KHÔNG submit (tránh ghi prod data).
+**Fix kèm (stale stock sau trả):** `quick-refund` KHÔNG `_notify('web2:products')` → `Web2ProductsCache` (IDB) giữ tồn cũ kể cả reload → Section A hiện tồn sai. Thêm `await Web2ProductsCache.refresh()` TRƯỚC `loadSourceItems()` ở **cả** `submitBulkRefund` VÀ `submitQuickRefund` (sửa luôn bug cũ của nút trả lẻ). Bump JS `?v=20260617b`.
 
-**Status:** ✅ FE verified end-to-end. purchase-refund (Web 2.0). Backend không đổi.
+**Verify (Playwright localhost, ext n2store, login web2 admin) — LIVE submit (user cho phép chỉnh data Web 2.0 beta):** modal b1 4 SP SL=0; nhập 2×HNMM3S + 1×HNQUANXAM → tổng 1.180.000₫; submit → toast "✓ Đã trả 3 SP (2 dòng) cho b1 — giảm ví NCC 1.180.000₫". Server: stock HNMM3S 10→8, HNQUANXAM 5→4 (xác minh qua `/api/web2-products/list`), phiếu mới tạo (status NCC DUYỆT, ghi đủ 2 SP, Tổng SL 3 / 1.180.000₫), ví NCC −1.18M. Sau fix refresh: Section A hiện tồn MỚI ngay (HNMM3S=7, HNQUANXAM=4 sau lần trả thứ 2). clamp 99→max=tồn OK. 0 lỗi console.
+
+**Status:** ✅ verified end-to-end LIVE (submit thật, data Web 2.0 beta). purchase-refund (Web 2.0). Backend không đổi (chỉ +refresh cache client).
 
 ## 2026-06-17
 
