@@ -3,15 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `dadf493` — fix(web2/fastsaleorder-invoice): nút Trả hàng crash — STATE.items→STATE.orders
-**Last updated**: 2026-06-18 17:54:01 +07
-**Latest session**: [`RESUME:20260618-175401-dadf493`](../20260618-175401-dadf493.md)
-**Summary**: fix(web2/fastsaleorder-invoice): nút Trả hàng crash — STATE.items→STATE.orders
+**Latest commit**: `c9eca6d` — fix(web2/multi-tool): tăng comment auto-clean — mark conv.id THẬT của comment boost
+**Last updated**: 2026-06-18 18:06:19 +07
+**Latest session**: [`RESUME:20260618-180619-c9eca6d`](../20260618-180619-c9eca6d.md)
+**Summary**: fix(web2/multi-tool): tăng comment auto-clean — mark conv.id THẬT của comment boost
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`scripts/`](./scripts.md) — 1 file(s)
 - [`web2/`](./web2.md) — 1 file(s)
 
 ## All folder snapshots
@@ -27,7 +26,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-18 13:23
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-16 14:31
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-18 12:17
-- [`docs/`](./docs.md) — updated 2026-06-18 17:54
+- [`docs/`](./docs.md) — updated 2026-06-18 18:06
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-16 14:31
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-16 14:31
 - [`downloads/`](./downloads.md) — updated 2026-06-13 19:16
@@ -75,4 +74,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-18 17:54
+- [`web2/`](./web2.md) — updated 2026-06-18 18:06
