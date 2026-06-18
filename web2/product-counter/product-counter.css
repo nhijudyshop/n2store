@@ -1,84 +1,234 @@
-/* #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 module. */
-/* Layout trang "Đếm SP qua camera". Widget camera + đếm do Web2ProductCounter
-   tự render + tự inject CSS (.w2pc*). File này chỉ lo bố cục trang (mobile-first). */
+/* #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 module — phone-only, app-like full-screen. */
+/* Trang "Đếm SP qua camera" CHỈ DÙNG TRÊN ĐIỆN THOẠI. Layout app-like full-screen,
+   không sidebar, camera full-bleed, controls bottom-bar trong thumb-zone, safe-area.
+   Widget camera + đếm (.w2pc*) do Web2ProductCounter tự render + tự inject CSS;
+   file này lo khung app + override sizing cho điện thoại. */
 
+:root {
+    --pc-primary: #0068ff;
+    --pc-bg: #05070d;
+    --pc-bar: #0b1018;
+    --pc-line: rgba(255, 255, 255, 0.08);
+    --pc-text: #e6edf3;
+    --pc-text-2: #9fb3c8;
+    --sat: env(safe-area-inset-top);
+    --sab: env(safe-area-inset-bottom);
+    --bar-h: 52px;
+    /* để widget dùng đúng màu Zalo-blue dù không load web2-theme.css */
+    --web2-primary: #0068ff;
+    --web2-text: #e6edf3;
+}
+
+* {
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+}
+html,
+body {
+    margin: 0;
+    height: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
+    background: var(--pc-bg);
+    color: var(--pc-text);
+    font-family:
+        'Inter',
+        system-ui,
+        -apple-system,
+        'Segoe UI',
+        Roboto,
+        sans-serif;
+    -webkit-font-smoothing: antialiased;
+}
+body {
+    /* khoá kéo trang khi tương tác camera */
+    touch-action: manipulation;
+    user-select: none;
+}
+
+/* ── Khung app full-screen ── */
 .pc-app {
+    position: fixed;
+    inset: 0;
     display: flex;
     flex-direction: column;
-    gap: 16px;
-    padding: 18px clamp(14px, 4vw, 28px) 24px;
-    min-height: 100dvh;
-    box-sizing: border-box;
+    height: 100dvh;
+    min-height: 0;
+    background: var(--pc-bg);
 }
 
-.pc-header-title {
-    display: flex;
-    align-items: flex-start;
-    gap: 12px;
-}
-.pc-header-title > i {
+/* ── Top bar gọn (safe-area top) ── */
+.pc-bar {
     flex: 0 0 auto;
-    width: 30px;
-    height: 30px;
-    color: var(--web2-primary, #0068ff);
-    margin-top: 2px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    height: calc(var(--bar-h) + var(--sat));
+    padding: var(--sat) 6px 0;
+    background: var(--pc-bar);
+    border-bottom: 1px solid var(--pc-line);
 }
-.pc-header-title h1 {
-    margin: 0;
-    font-size: clamp(1.25rem, 4.5vw, 1.6rem);
-    font-weight: 800;
+.pc-bar-title {
+    flex: 1 1 auto;
+    text-align: center;
+    font-size: 1rem;
+    font-weight: 700;
     letter-spacing: -0.01em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
-.pc-header-title p {
-    margin: 4px 0 0;
-    font-size: 0.9rem;
-    line-height: 1.45;
-    color: var(--web2-text-muted, #93a4b8);
-    max-width: 60ch;
+.pc-bar-btn {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 42px;
+    height: 42px;
+    border: none;
+    border-radius: 12px;
+    background: transparent;
+    color: var(--pc-text);
+    cursor: pointer;
+    transition: background 0.15s;
+}
+.pc-bar-btn:active {
+    background: rgba(255, 255, 255, 0.08);
+}
+.pc-bar-btn i {
+    width: 24px;
+    height: 24px;
 }
 
-/* Khung chứa widget — chiếm phần lớn chiều cao để camera to trên điện thoại */
-.pc-stage-wrap {
+/* ── Vùng camera chiếm hết phần còn lại ── */
+.pc-mount {
     flex: 1 1 auto;
     min-height: 0;
     display: flex;
 }
-.pc-mount {
-    flex: 1 1 auto;
-    min-height: 60vh;
-    display: flex;
-}
 
-.pc-tip {
-    display: flex;
-    align-items: flex-start;
-    gap: 9px;
-    margin: 0;
-    padding: 12px 14px;
-    border-radius: 14px;
-    font-size: 0.84rem;
-    line-height: 1.5;
-    color: var(--web2-text-muted, #9fb0c4);
-    background: var(--web2-surface-2, rgba(255, 255, 255, 0.04));
-    outline: 1px solid rgba(255, 255, 255, 0.06);
+/* ── Override widget cho điện thoại: full-bleed + nút to thumb-zone ── */
+.pc-app .w2pc {
+    gap: 0;
 }
-.pc-tip i {
+.pc-app .w2pc-stage {
+    border-radius: 0; /* camera tràn viền */
+    box-shadow: none;
+}
+.pc-app .w2pc-controls {
     flex: 0 0 auto;
+    gap: 10px;
+    padding: 12px 14px calc(12px + var(--sab));
+    background: var(--pc-bar);
+    border-top: 1px solid var(--pc-line);
+}
+.pc-app .w2pc-btn {
+    min-height: 54px;
+    font-size: 1rem;
+    border-radius: 16px;
+}
+.pc-app .w2pc-toggle {
+    flex: 1 1 auto; /* nút chính kéo dài */
+}
+.pc-app .w2pc-flip {
+    width: 54px;
+    padding: 0;
+}
+.pc-app .w2pc-flip i {
+    width: 22px;
+    height: 22px;
+}
+/* "Bỏ qua người" xuống dòng riêng, dễ chạm */
+.pc-app .w2pc-check {
+    flex: 1 0 100%;
+    margin: 2px 0 0;
+    justify-content: center;
+    font-size: 0.9rem;
+    padding: 6px 0;
+}
+.pc-app .w2pc-check input {
     width: 18px;
     height: 18px;
-    margin-top: 1px;
-    color: var(--web2-warning, #f0b429);
 }
-.pc-tip b {
-    color: var(--web2-text, #e6edf3);
+/* Badge số to hơn trên điện thoại */
+.pc-app .w2pc-count {
+    top: 12px;
+    left: 12px;
+    padding: 12px 18px;
+}
+.pc-app .w2pc-count-num {
+    font-size: clamp(3rem, 13vw, 4.2rem);
 }
 
-/* Màn hình lớn: giới hạn bề ngang cho gọn, camera không kéo quá rộng */
-@media (min-width: 900px) {
-    .pc-mount {
-        min-height: 0;
-        max-width: 720px;
-        margin: 0 auto;
-        width: 100%;
+/* ── Bottom-sheet mẹo ── */
+.pc-hint {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    display: flex;
+    align-items: flex-end;
+    background: rgba(4, 7, 13, 0.55);
+    animation: pc-fade 0.18s ease both;
+}
+.pc-hint[hidden] {
+    display: none !important;
+}
+@keyframes pc-fade {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+.pc-hint-card {
+    width: 100%;
+    background: #121a26;
+    border-radius: 20px 20px 0 0;
+    padding: 20px 20px calc(20px + var(--sab));
+    box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.4);
+    animation: pc-up 0.22s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes pc-up {
+    from {
+        transform: translateY(40px);
+    }
+    to {
+        transform: translateY(0);
+    }
+}
+.pc-hint-card > i {
+    width: 26px;
+    height: 26px;
+    color: #f0b429;
+}
+.pc-hint-card p {
+    margin: 10px 0 16px;
+    font-size: 0.92rem;
+    line-height: 1.55;
+    color: var(--pc-text-2);
+}
+.pc-hint-card b {
+    color: var(--pc-text);
+}
+.pc-hint-close {
+    width: 100%;
+    min-height: 50px;
+    border: none;
+    border-radius: 14px;
+    background: var(--pc-primary);
+    color: #fff;
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+.pc-hint-close:active {
+    transform: translateY(1px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .pc-hint,
+    .pc-hint-card {
+        animation: none;
     }
 }

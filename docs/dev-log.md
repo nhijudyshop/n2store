@@ -19,6 +19,8 @@
 
 **Verify** (browser test localhost): module load v20260618a, widget mount, CSS inject, menu item + badge có; UI transition nút Bật camera đúng; **smoke MediaPipe cô lập PASS** (`import` ESM + `FilesetResolver` + `ObjectDetector` CPU + fetch model GCS + `detectForVideo` → 0 lỗi). `getUserMedia` treo trong automation (không camera/quyền) — không phải lỗi code, chạy thật trên điện thoại.
 
+**Cập nhật (phone-only, app-like) — user: "làm giao diện cho điện thoại, trang này chỉ dùng trên điện thoại":** rework [index.html](../web2/product-counter/index.html) + [product-counter.css](../web2/product-counter/product-counter.css) thành full-screen app-like theo precedent `live-chat/comments-mobile.html` — **bỏ sidebar/shell** (standalone), `100dvh` + safe-area insets (`env(safe-area-inset-*)`), `overflow:hidden` + `overscroll-behavior:none` (không kéo trang), `maximum-scale=1, user-scalable=no` (chống zoom khi chạm camera). Top bar gọn (← back history/Tổng quan · tiêu đề · ⓘ mẹo bottom-sheet); camera **full-bleed** (border-radius 0); controls **bottom-bar thumb-zone** (nút "Bật camera" cao 54px full-width + đổi camera + "Bỏ qua người" xuống dòng). Bỏ load web2-theme/sidebar.css/js (định nghĩa token `--web2-primary` inline) → nhẹ hơn. Verify browser (390px): không sidebar, không bounce login, widget mount, 0 lỗi, screenshot layout đúng app-like.
+
 **Status:** ✅ Done. Trang nào cần đếm SP qua camera (vd live-chat, products) chỉ cần `<script src="../shared/web2-product-counter.js">` + `Web2ProductCounter.open()`/`mount()`.
 
 ### [web2 audit] Quét toàn bộ Web 2.0 (click-all browser + static audit 38-agent) → fix 16 bug ✅

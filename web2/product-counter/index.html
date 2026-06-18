@@ -1,62 +1,76 @@
-<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read before coding, update dev-log after changes. | WEB2.0 module. -->
+<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 module — CHỈ DÙNG TRÊN ĐIỆN THOẠI (phone-only, full-screen app-like). -->
 <!doctype html>
 <html lang="vi">
     <head>
         <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+        <meta
+            name="viewport"
+            content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
+        />
         <meta http-equiv="Cache-Control" content="no-cache, must-revalidate" />
-        <title>Đếm SP qua camera — Web 2.0</title>
+        <title>Đếm SP — Web 2.0</title>
 
-        <meta name="theme-color" content="#0b1220" />
+        <meta name="theme-color" content="#05070d" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="apple-mobile-web-app-title" content="Đếm SP" />
         <link rel="apple-touch-icon" href="../shared/img/logo-emblem.png" />
 
-        <link rel="stylesheet" href="../shared/web2-sidebar.css?v=20260613z" />
-        <link rel="stylesheet" href="../shared/web2-theme.css?v=20260613z" />
         <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
-        <link rel="stylesheet" href="./product-counter.css?v=20260618a" />
+        <link rel="stylesheet" href="./product-counter.css?v=20260618b" />
     </head>
-    <body class="web2-theme">
-        <div class="web2-shell">
-            <aside class="web2-aside" id="web2Aside"></aside>
-            <main class="web2-main pc-app">
-                <header class="pc-header">
-                    <div class="pc-header-title">
-                        <i data-lucide="scan-search"></i>
-                        <div>
-                            <h1>Đếm SP qua camera</h1>
-                            <p>
-                                Đưa sản phẩm vào khung hình — hệ thống đếm realtime ngay trên máy,
-                                không gửi hình lên server.
-                            </p>
-                        </div>
-                    </div>
-                </header>
+    <body>
+        <div class="pc-app">
+            <header class="pc-bar">
+                <button class="pc-bar-btn" id="pcBack" aria-label="Quay lại">
+                    <i data-lucide="chevron-left"></i>
+                </button>
+                <span class="pc-bar-title">Đếm SP qua camera</span>
+                <button class="pc-bar-btn" id="pcInfo" aria-label="Hướng dẫn">
+                    <i data-lucide="info"></i>
+                </button>
+            </header>
 
-                <section class="pc-stage-wrap">
-                    <div id="pcMount" class="pc-mount"></div>
-                </section>
+            <main id="pcMount" class="pc-mount"></main>
 
-                <p class="pc-tip">
+            <!-- Bottom-sheet mẹo (toggle bằng nút ⓘ) -->
+            <div class="pc-hint" id="pcHint" hidden>
+                <div class="pc-hint-card">
                     <i data-lucide="lightbulb"></i>
-                    Mẹo: đặt sản phẩm <b>tách rời nhau</b> trên kệ/bàn để đếm chính xác nhất. Đếm
-                    khi cầm chồng đống nhiều món sẽ kém chính xác. Số hiển thị đã được làm mượt qua
-                    nhiều khung hình.
-                </p>
-            </main>
+                    <p>
+                        Đưa sản phẩm vào khung hình để đếm <b>realtime ngay trên máy</b> (không gửi
+                        hình đi đâu). Đếm chính xác nhất khi đặt <b>tách rời nhau</b>; cầm chồng
+                        đống nhiều món sẽ kém chính xác. Số đã được làm mượt qua nhiều khung hình.
+                    </p>
+                    <button class="pc-hint-close" id="pcHintClose">Đã hiểu</button>
+                </div>
+            </div>
         </div>
 
         <script src="../../shared/js/notification-system.js?v=20260613a"></script>
         <script src="../shared/web2-auth.js?v=20260613guard"></script>
-        <script src="../shared/web2-user-info.js?v=20260530a"></script>
-        <script src="../shared/web2-sidebar.js?v=20260615db"></script>
         <script src="../shared/web2-product-counter.js?v=20260618a"></script>
-        <script src="./js/product-counter.js?v=20260618a"></script>
+        <script src="./js/product-counter.js?v=20260618b"></script>
         <script>
             document.addEventListener('DOMContentLoaded', () => {
-                if (window.Web2Sidebar)
-                    Web2Sidebar.mount('#web2Aside', { activeRoute: 'product-counter' });
+                // Back → quay lại trang trước, fallback Tổng quan.
+                document.getElementById('pcBack').addEventListener('click', () => {
+                    if (history.length > 1) history.back();
+                    else location.href = '../overview/index.html';
+                });
+                // Toggle mẹo
+                const hint = document.getElementById('pcHint');
+                document
+                    .getElementById('pcInfo')
+                    .addEventListener('click', () => (hint.hidden = !hint.hidden));
+                document
+                    .getElementById('pcHintClose')
+                    .addEventListener('click', () => (hint.hidden = true));
+                hint.addEventListener('click', (e) => {
+                    if (e.target === hint) hint.hidden = true;
+                });
+
                 if (window.ProductCounterPage) window.ProductCounterPage.init();
                 if (window.lucide) lucide.createIcons();
             });

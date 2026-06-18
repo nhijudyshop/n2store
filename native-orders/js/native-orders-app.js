@@ -4776,6 +4776,22 @@
             notify('Không tìm thấy đơn ' + code, 'error');
             return;
         }
+        // TIN NHẮN: dùng component chat proven Web2CustomerChat (resolve hội thoại theo
+        // SĐT → fallback fbId của đơn, avatar thật từ hội thoại). Tránh bug match fbid/PSID
+        // + avatar silhouette của modal 3-cột cũ. Tab BÌNH LUẬN vẫn dùng modal cũ.
+        if (
+            initialTab === 'messages' &&
+            window.Web2CustomerChat?.open &&
+            (order.phone || (order.fbUserId && order.fbPageId))
+        ) {
+            window.Web2CustomerChat.open({
+                phone: order.phone || '',
+                name: order.customerName || order.fbUserName || '',
+                fbId: order.fbUserId || '',
+                pageId: order.fbPageId || '',
+            });
+            return;
+        }
         _interactionsState = { code, tab: initialTab };
         _renderInteractionsModal(order, initialTab);
     }

@@ -379,10 +379,28 @@
 
     // ── open(): drawer + 2 tab, lazy-mount mỗi kênh khi xem ─────────────
     let _active = null;
+    // Resolve hội thoại Pancake theo fbId + pageId (fallback khi không có / không
+    // match SĐT). Dùng cho caller có sẵn fb_user_id của đơn (vd native-orders).
+    async function _resolveConvByFbId(fbId, pageId) {
+        if (!fbId || !pageId || !global.Web2Chat?.fetchConversations) return null;
+        try {
+            const r = await global.Web2Chat.fetchConversations(pageId, fbId);
+            const list = (r && r.ok && r.conversations) || [];
+            const conv = list.find((c) => (c.type || '').toUpperCase() === 'INBOX') || list[0];
+            if (conv && conv.id) {
+                conv.page_id = String(conv.page_id || conv.fb_page_id || pageId);
+                return conv;
+            }
+        } catch {}
+        return null;
+    }
+
     async function open(opts = {}) {
         const phone = String(opts.phone || '').trim();
-        if (!phone) {
-            notify('Thiếu SĐT khách', 'warning');
+        const fbId = String(opts.fbId || opts.fbUserId || '').trim();
+        const pageId = String(opts.pageId || opts.fbPageId || '').trim();
+        if (!phone && !(fbId && pageId)) {
+            notify('Thiếu SĐT / Facebook của khách', 'warning');
             return null;
         }
         if (_active) _active.close();
@@ -395,7 +413,7 @@
         back.innerHTML = `
             <div class="w2cc-drawer" role="dialog" aria-modal="true" aria-label="Chat với khách">
                 <div class="w2cc-head">
-                    <div class="w2cc-head-who"><b>${esc(name || 'Khách')}</b><span class="w2cc-phone" data-w2cc="copyphone" role="button" tabindex="0" title="Bấm để copy SĐT">${esc(phone)}</span></div>
+                    <div class="w2cc-head-who"><b>${esc(name || 'Khách')}</b>${phone ? `<span class="w2cc-phone" data-w2cc="copyphone" role="button" tabindex="0" title="Bấm để copy SĐT">${esc(phone)}</span>` : `<span style="font-size:12px;color:var(--web2-text-mute,#6b7280)">${fbId ? 'Facebook …' + esc(fbId.slice(-6)) : ''}</span>`}</div>
                     <button class="w2cc-x" data-w2cc="close" aria-label="Đóng"><i data-lucide="x"></i></button>
                 </div>
                 <div class="w2cc-tabs">
@@ -424,7 +442,10 @@
             global.Web2Lottie?.scan?.(host);
             try {
                 await loadPanelBundle();
-                const conv = await resolvePancakeConv(phone);
+                // Ưu tiên resolve theo SĐT (proven, quét mọi page) → fallback fbId+pageId
+                // của đơn (khi KH không có / không match SĐT trong hội thoại Pancake).
+                let conv = phone ? await resolvePancakeConv(phone) : null;
+                if (!conv) conv = await _resolveConvByFbId(fbId, pageId);
                 if (!conv || !global.Web2ChatPanel) {
                     host.innerHTML = _stateHtml('empty', 'Khách chưa có hội thoại Pancake');
                     global.Web2Lottie?.scan?.(host);
