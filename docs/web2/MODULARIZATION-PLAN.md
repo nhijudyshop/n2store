@@ -66,8 +66,8 @@ Mỗi file 1 agent sở hữu end-to-end, verify độc lập. Không đụng gl
 
 Đụng token/auth/money hoặc là shared module nhiều trang dùng → tách TRƯỚC monster (Web2Chat/token namespace phải ổn định). Verify kỹ.
 
-- [ ] **`live-chat/js/pancake/pancake-token-manager.js`** (1310) → token-manager(class) / token-storage / token-codec / page-access-tokens / token-sources.
-- [ ] **`web2/shared/web2-chat-client.js`** (1199) → chat-utils / chat-tokens / chat-settings / chat-api / chat-live / chat-tags / chat-client(facade). **Giữ `window.Web2Chat` byte-identical.**
+- [→ Wave 3 live-chat pass] **`live-chat/js/pancake/pancake-token-manager.js`** (1310) — là `class PancakeTokenManager` (instance `window.pancakeTokenManager`), 2 HTML (live-chat/index+chat). **Gom vào pass live-chat cluster** (cùng live-livestream-snap/comment-list/init/comments-mobile/inventory-panel) để verify live-chat 1 lần. Class-split: tách helper STATELESS (codec/storage-io/sources) ra module, giữ class orchestrator + 2 global byte-identical.
+- [→ Wave 3 chat-infra pass] **`web2/shared/web2-chat-client.js`** (1199) — **10 HTML consumer** (native-orders, live-chat×3, balance-history, jt-tracking, customers, pancake-settings, multi-tool, overview) → split phải update cả 10 HTML load thứ tự + verify nhiều consumer. **Gom cùng Task 1 chat-unification** (native-orders interactions-modal → Web2CustomerChat) vì cùng đụng `Web2Chat`/`Web2CustomerChat`. **Giữ `window.Web2Chat` byte-identical.**
 - [ ] **`web2/products/js/web2-products-print.js`** (1293) → print-modal / print-render / print-barcode / print-overlay / print-utils.
 - [ ] **`web2/customer-wallet/js/web2-customer-wallet-app.js`** (1314) → state / api / render / events / app. ⚠ money flow → giữ await + loading.
 - [x] **`web2/balance-history/js/web2-balance-history-app.js`** (1280) → 8 module: bh-core(213)/render(293)/data(68)/actions(154)/link-customer(65)/reassign-modal(286)/chat-export(149)/app(222). ✅ `Web2BalanceHistoryApp{load,state}` giữ. 50 rows render, 0 JS err.
