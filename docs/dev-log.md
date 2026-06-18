@@ -2,6 +2,20 @@
 
 ## 2026-06-18
 
+### [native-orders] Chat đơn: bỏ modal 3-cột tự match fbid → dùng Web2CustomerChat proven (fix "không tìm thấy hội thoại" + avatar xám) ✅
+
+**User:** "không có avatar và không tìm được đoạn hội thoại là chưa đúng rồi, phần này sai làm nhiều lần lắm rồi, khó quá thì xóa đi làm lại". Chọn hướng: **reuse component chat đã chạy ổn**.
+
+**Root cause (browser-verified):** modal `openInteractions` (tab Tin nhắn) load hội thoại bằng `fetchConversations(pageId, order.fbUserId)`. fbid lưu ở kho KH thường KHÔNG phải PSID thật của hội thoại Pancake → trả 0 → "Chưa có hội thoại". Avatar `/api/fb-avatar?id=<fbid sai>` trả silhouette xám HTTP 200 → che initials → icon xám. (Cùng họ bug PSID-vs-stored-id tái diễn nhiều lần.)
+
+**Fix:** tab **Tin nhắn** delegate sang [`Web2CustomerChat`](../web2/shared/web2-customer-chat.js) (drawer proven, đang chạy ở J&T/customers): resolve hội thoại **theo SĐT** (quét mọi page) → fallback **fbId+pageId**, mount `Web2ChatPanel` với hội thoại thật (avatar + PSID thật, hoặc empty-state sạch nếu không có). Tab **Bình luận** giữ modal cũ.
+
+- [web2-customer-chat.js](../web2/shared/web2-customer-chat.js): `open({phone, name, fbId, pageId})` — thêm fallback `_resolveConvByFbId(fbId, pageId)` khi SĐT không resolve; header xử lý khi không có SĐT. **Backward-compat** (caller cũ chỉ truyền `phone` → y nguyên).
+- [native-orders/index.html](../native-orders/index.html): load thêm `web2-zalo.js` + `web2-extension-bridge.js` + `web2-customer-chat.js`.
+- [native-orders-app.js](../native-orders/js/native-orders-app.js) `openInteractions`: `tab==='messages'` + có SĐT/fbId → `Web2CustomerChat.open(...)`.
+
+**Verify (browser, đơn NJ-20260618-0001 KH Huỳnh Thành Đạt):** mở chat tin nhắn → drawer resolve ĐÚNG hội thoại thật (PSID `257170…`, **25 bong bóng tin** lịch sử, composer + nút gửi), KHÔNG còn "Chưa có hội thoại". Composer = Web2ChatPanel (đã có guard IME).
+
 ### [web2 product-counter] Trang "Đếm SP qua camera" + shared engine Web2ProductCounter ✅
 
 **User:** "camera trực tiếp trên điện thoại đếm số lượng sản phẩm hiện trên màn hình" → web 2.0, thêm vào group "Đa dụng", **làm thành shared để trang nào cần thì tham chiếu**.
