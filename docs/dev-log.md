@@ -2,6 +2,21 @@
 
 ## 2026-06-18
 
+### [wallets-v2] Fix Rút tiền (Customer 360) báo thành công nhưng KHÔNG trừ số dư ✅
+
+**User:** "lỗi nạp tiền thì được mà rút tiền thì không được?" (trên trang Customer 360, nạp tiền OK nhưng rút tiền số dư đứng yên dù báo thành công).
+
+**Nguyên nhân:** mọi lần "Rút tiền" thủ công đều gửi `order_id = null` → backend [render.com/routes/v2/wallets.js:681](render.com/routes/v2/wallets.js) đặt `refId = 'MANUAL'` (dùng chung). Stored function `wallet_withdraw_fifo` ([migration 075](render.com/migrations/075_wallet_refund_outbox.sql)) có idempotency guard: thấy giao dịch trước cùng `reference_id='MANUAL'` + `source='ORDER_PAYMENT'` cho số đt này → trả `success=TRUE`, `ALREADY_PROCESSED`, **không trừ**. → Lần rút tay đầu OK, từ lần 2 trở đi bị tưởng nhầm trùng → no-op. Nạp tiền (`processManualDeposit`) không có guard này nên luôn đúng.
+
+**Fix** ([render.com/routes/v2/wallets.js](render.com/routes/v2/wallets.js)) — server-only, 2 chỗ, KHÔNG đụng DB/frontend:
+
+- Dòng ~681 (`POST /:customerId/withdraw`): `refId = order_id || 'MANUAL'` → `order_id || \`MANUAL-${Date.now()}-${rnd}\`` → mỗi lần rút tay 1 reference duy nhất → guard không bao giờ tưởng nhầm trùng. Đơn hàng thật vẫn truyền `order_id` riêng → idempotency cho luồng đơn COD (`pending-withdrawals`) GIỮ NGUYÊN.
+- Dòng ~83 (`GET /manual-transactions`): bộ lọc `reference_id = 'MANUAL'` → `reference_id LIKE 'MANUAL%'` (tương thích ngược: khớp cả 'MANUAL' cũ lẫn 'MANUAL-...' mới) để rút tay vẫn hiện trong danh sách giao dịch thủ công.
+
+**KHÔNG đụng:** frontend (`wallet-panel.js`/`api-service.js`), stored function, schema/migration. `created_by` stamp + insert WITHDRAW (`sepay_id=NULL`, partial unique index migration 064) vẫn an toàn. `GET /:customerId/transactions` lọc theo phone — không cần sửa.
+
+**Status:** ✅ fix code xong (Web 1.0, PROD). Cần verify sau khi Render deploy: rút tay nhiều lần liên tiếp trên `0123456788` → số dư giảm đúng mỗi lần.
+
 ### [web2/shared] Fix nút `.web2-btn-warning` chưa có CSS (3 trang fastsaleorder) ✅
 
 **User:** "rà soát lại tất cả các nút, các trang chưa có css" (kèm 3 ảnh: fastsaleorder-delivery / -refund / -invoice).
@@ -78,7 +93,6 @@ Audit toàn bộ web2 (`grep web2-btn-*`): các variant `default/primary/success
 **Cần làm thủ công (ngoài code — SePay dashboard `my.sepay.vn`):** tạo webhook trỏ URL `https://chatomni-proxy.nhijudyshop.workers.dev/api/sepay-home/webhook`, chọn 2 TK, định dạng JSON, API key = `SEPAY_HOME_API_KEY` (Bảo mật → Apikey).
 
 **Status:** ✅ code xong + verify FE. Backend filter chờ deploy (push render.com/\*\* → Render Build Filter auto-deploy). Web 1.0 (balance-history-home, pool chatDb).
-
 ### [delivery-report] Tab "ĐƠN 0đ" hiện ĐỦ mọi nhóm (Thành phố/NAP/Thu về), không chỉ Shop+Tomato ✅
 
 **User:** "đơn 0 đồng hiện tại chỉ cập nhật của bán hàng shop và tomato, không cập nhật thành phố/nap... muốn cập nhật toàn bộ cả thành phố nap luôn" → chốt "giữ nguyên luôn tomato" (giữ cột TOMATO dù luôn 0/0).

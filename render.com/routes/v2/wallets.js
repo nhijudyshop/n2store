@@ -76,11 +76,13 @@ router.get('/manual-transactions', async (req, res) => {
         const excludedSources = ['BANK_TRANSFER', 'ORDER_PAYMENT', 'RETURN_GOODS', 'ORDER_CANCEL_REFUND'];
 
         // Build WHERE clause dynamically
-        // NOTE: include rows with reference_id='MANUAL' (manual "Rút tiền" button) even if
-        // their source is ORDER_PAYMENT — wallet_withdraw_fifo hardcodes source=ORDER_PAYMENT.
+        // NOTE: include manual "Rút tiền" rows even if their source is ORDER_PAYMENT
+        // (wallet_withdraw_fifo hardcodes source=ORDER_PAYMENT). Manual withdrawals carry a
+        // reference_id of 'MANUAL' (legacy) or 'MANUAL-<ts>-<rnd>' (current, unique per
+        // withdrawal) — LIKE 'MANUAL%' matches both.
         let conditions = [
             `wt.type = ANY($1::text[])`,
-            `(wt.source IS NULL OR wt.source != ALL($2::text[]) OR wt.reference_id = 'MANUAL')`
+            `(wt.source IS NULL OR wt.source != ALL($2::text[]) OR wt.reference_id LIKE 'MANUAL%')`
         ];
         let params = [manualTypes, excludedSources];
         let paramIdx = 3;
@@ -677,8 +679,14 @@ router.post('/:customerId/withdraw', async (req, res) => {
             return res.status(404).json({ success: false, error: 'Customer not found' });
         }
 
-        // Use FIFO withdrawal function
-        const refId = order_id || 'MANUAL';
+        // Use FIFO withdrawal function.
+        // Manual "Rút tiền" (no order_id) MUST get a UNIQUE reference each time. If every
+        // manual withdrawal reused the literal 'MANUAL', wallet_withdraw_fifo's idempotency
+        // guard (migration 075) would see the prior 'MANUAL' row for this phone and treat the
+        // 2nd+ withdrawal as ALREADY_PROCESSED → return success WITHOUT deducting. Real orders
+        // keep their unique order_id, so the guard still protects the order COD flow
+        // (pending-withdrawals). Backward-compat: legacy rows keep reference_id='MANUAL'.
+        const refId = order_id || `MANUAL-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
         const result = await db.query(`
             SELECT * FROM wallet_withdraw_fifo($1, $2, $3, $4)
         `, [phone, amount, refId, note]);
