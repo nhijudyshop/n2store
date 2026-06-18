@@ -3,14 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `e5516f2` — auto: session update
-**Last updated**: 2026-06-18 14:30:08 +07
-**Latest session**: [`RESUME:20260618-143008-e5516f2`](../20260618-143008-e5516f2.md)
-**Summary**: auto: session update
+**Latest commit**: `ad55518` — docs(dev-log): ghi nhận fix .web2-btn-warning thiếu CSS (3 trang fastsaleorder)
+**Last updated**: 2026-06-18 14:33:42 +07
+**Latest session**: [`RESUME:20260618-143342-ad55518`](../20260618-143342-ad55518.md)
+**Summary**: docs(dev-log): ghi nhận fix .web2-btn-warning thiếu CSS (3 trang fastsaleorder)
 
 ## Folders affected in this commit
 
-- [`web2/`](./web2.md) — 6 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -25,7 +25,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-18 13:23
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-16 14:31
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-18 12:17
-- [`docs/`](./docs.md) — updated 2026-06-18 14:15
+- [`docs/`](./docs.md) — updated 2026-06-18 14:33
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-16 14:31
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-16 14:31
 - [`downloads/`](./downloads.md) — updated 2026-06-13 19:16
