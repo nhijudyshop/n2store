@@ -2,6 +2,14 @@
 
 ## 2026-06-18
 
+### [web2-modular] Wave 3 — so-order-app.js (5932 dòng, file LỚN NHẤT project) → 23 module ✅
+
+MOVE-only split file lớn nhất Web 2.0. `so-order/js/so-order-app.js` 5932 dòng → 23 module (max 745L): state/format/render/render-cells/inline-edit/bulk-edit/modal-core/modal-open/modal-submit/modal-suggest/modal-image/modal-random/receive/barcode/kho-sync/delete/shipment/settings/import/image-modal/confirm/toolbar/app. Namespace `window.SoOrder` (SO) gom 154 hàm + 29 state/const.
+
+- **Verify mạnh**: 154/154 hàm body byte-identical sau normalize wrapper (diff=0); VM load-sim (load đúng thứ tự HTML) → SoOrder populate đủ, 0 symbol missing, call chain init→renderAll chạy. Live: 79 rows render, order modal mở OK, 0 JS error.
+- 0 public global (giữ); 2 onclick = `window.print()`/`window.close()` trong print-window HTML (built-in, giữ verbatim trong so-order-barcode.js). `so-order-storage.js` (962) để nguyên (sibling storage, marginally over).
+- Còn lại modularization: chat-infra (web2-chat-client + native-orders chat-unification) + live-chat cluster + server.js (deferred).
+
 ### [web2-modular] Wave 3 — Batch C (photo-studio, products-app, msg-template) tách XONG ✅
 
 MOVE-only, verified live 0 JS error:

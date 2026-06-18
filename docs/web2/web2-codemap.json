@@ -1,10 +1,10 @@
 {
-    "generatedAt": "2026-06-18 16:57",
+    "generatedAt": "2026-06-18 17:22",
     "totals": {
-        "files": 248,
+        "files": 270,
         "sharedModules": 78,
         "functions": 2548,
-        "oversized": 13
+        "oversized": 12
     },
     "sharedModules": [
         {
@@ -77,7 +77,7 @@
                 "live-chat/js/pancake/inventory-panel.js",
                 "live-chat/js/pancake/pancake-context-menu.js",
                 "native-orders/js/native-orders-app.js",
-                "so-order/js/so-order-app.js",
+                "so-order/js/so-order-toolbar.js",
                 "web2/balance-history/js/web2-bh-link-customer.js",
                 "web2/customer-wallet/js/web2-customer-wallet-app.js",
                 "web2/customers/js/customers-detail.js",
@@ -149,7 +149,7 @@
                 "native-orders/js/native-orders-api.js",
                 "native-orders/js/native-orders-app.js",
                 "native-orders/js/native-orders-kpi.js",
-                "so-order/js/so-order-app.js",
+                "so-order/js/so-order-state.js",
                 "so-order/js/so-order-storage.js",
                 "web2/balance-history/js/web2-bh-core.js",
                 "web2/balance-history/js/web2-link-customer-modal.js",
@@ -222,7 +222,7 @@
             "purpose": "WEB2.0 — Web2BarcodeScanner: quét barcode/QR bằng CAMERA on-device, dùng chung mọi trang.",
             "api": [],
             "consumers": [
-                "so-order/js/so-order-app.js",
+                "so-order/js/so-order-modal-core.js",
                 "web2/reconcile/js/reconcile-app.js",
                 "web2/shared/web2-label-ocr.js",
                 "web2/shared/web2-pack-counter.js"
@@ -373,6 +373,7 @@
             "api": [],
             "consumers": [
                 "so-order/js/so-order-app.js",
+                "so-order/js/so-order-render.js",
                 "web2/products/js/web2-products-app.js",
                 "web2/supplier-debt/js/supplier-debt-app.js",
                 "web2/supplier-debt/js/supplier-debt-render.js",
@@ -388,7 +389,8 @@
             "api": [],
             "consumers": [
                 "native-orders/js/native-orders-app.js",
-                "so-order/js/so-order-app.js",
+                "so-order/js/so-order-image-modal.js",
+                "so-order/js/so-order-modal-image.js",
                 "web2/products/js/web2-products-app.js"
             ],
             "lines": 794
@@ -463,7 +465,8 @@
             "purpose": "WEB2.0 module.",
             "api": [],
             "consumers": [
-                "so-order/js/so-order-app.js",
+                "so-order/js/so-order-import.js",
+                "so-order/js/so-order-toolbar.js",
                 "web2/products/js/web2-products-app.js",
                 "web2/products/js/web2-products-modal.js"
             ],
@@ -475,7 +478,7 @@
             "purpose": "WEB2.0 — Web2LabelOcr: đọc chữ trên nhãn bằng camera on-device (tesseract.js), dùng chung mọi trang.",
             "api": [],
             "consumers": [
-                "so-order/js/so-order-app.js",
+                "so-order/js/so-order-modal-core.js",
                 "web2/reconcile/js/reconcile-app.js",
                 "web2/shared/web2-pack-counter.js"
             ],
@@ -586,7 +589,7 @@
                 "live-chat/js/live/live-comment-list.js",
                 "live-chat/js/live/live-livestream-gallery.js",
                 "native-orders/js/native-orders-app.js",
-                "so-order/js/so-order-app.js",
+                "so-order/js/so-order-kho-sync.js",
                 "web2/ck-dashboard/js/ck-dashboard-app.js",
                 "web2/customers/js/customers-app.js",
                 "web2/customers/js/customers-state.js",
@@ -665,7 +668,7 @@
             "purpose": "WEB2.0 module.",
             "api": [],
             "consumers": [
-                "so-order/js/so-order-app.js",
+                "so-order/js/so-order-kho-sync.js",
                 "web2/products/js/web2-products-modal.js",
                 "web2/products/js/web2-products-state.js",
                 "web2/products/js/web2-products-variant-picker.js",
@@ -692,6 +695,11 @@
             "api": [],
             "consumers": [
                 "so-order/js/so-order-app.js",
+                "so-order/js/so-order-kho-sync.js",
+                "so-order/js/so-order-modal-core.js",
+                "so-order/js/so-order-modal-suggest.js",
+                "so-order/js/so-order-receive.js",
+                "so-order/js/so-order-render.js",
                 "web2/products/js/web2-products-actions.js",
                 "web2/products/js/web2-products-app.js",
                 "web2/products/js/web2-products-modal.js",
@@ -858,6 +866,7 @@
             "api": [],
             "consumers": [
                 "so-order/js/so-order-app.js",
+                "so-order/js/so-order-inline-edit.js",
                 "web2/balance-history/js/web2-manual-deposit.js",
                 "web2/products/js/web2-products-app.js",
                 "web2/products/js/web2-products-state.js",
@@ -920,7 +929,8 @@
             "purpose": "WEB2.0 module.",
             "api": [],
             "consumers": [
-                "so-order/js/so-order-app.js",
+                "so-order/js/so-order-modal-submit.js",
+                "so-order/js/so-order-render.js",
                 "web2/products/js/web2-products-modal.js",
                 "web2/products/js/web2-products-variant-picker.js"
             ],
@@ -933,6 +943,10 @@
             "api": [],
             "consumers": [
                 "so-order/js/so-order-app.js",
+                "so-order/js/so-order-inline-edit.js",
+                "so-order/js/so-order-kho-sync.js",
+                "so-order/js/so-order-modal-random.js",
+                "so-order/js/so-order-modal-suggest.js",
                 "web2/products/js/web2-products-app.js",
                 "web2/products/js/web2-products-modal.js",
                 "web2/products/js/web2-products-state.js",
@@ -2835,214 +2849,399 @@
             "files": [
                 {
                     "file": "so-order/js/so-order-app.js",
-                    "lines": 5932,
-                    "purpose": "Sổ Order — page controller: tab strip, table render, modals.",
-                    "globals": [],
+                    "lines": 212,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["SoOrder"],
                     "uses": [
-                        "Popup",
-                        "Web2Auth",
-                        "Web2BarcodeScanner",
                         "Web2Deeplink",
-                        "Web2Effects",
-                        "Web2Import",
-                        "Web2LabelOcr",
-                        "Web2Optimistic",
-                        "Web2ProductCode",
                         "Web2ProductsCache",
                         "Web2SuppliersCache",
-                        "Web2VariantMulti",
                         "Web2VariantsCache"
                     ],
                     "functions": [
-                        "_addRowFromScannedCode",
-                        "_anchorFloatPanel",
                         "_applyDeeplink",
-                        "_applyImageToRow",
-                        "_applyShipMetaUi",
-                        "_assignKhoCodes",
-                        "_bindModalScrollCloseDropdowns",
+                        "conflictHandler",
+                        "findInDom",
+                        "init",
+                        "norm",
+                        "remoteHandler",
+                        "tick"
+                    ]
+                },
+                {
+                    "file": "so-order/js/so-order-barcode.js",
+                    "lines": 258,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["SoOrder"],
+                    "uses": [],
+                    "functions": [
+                        "_updateBarcodeSummary",
+                        "openBarcodePrintModal",
+                        "printBarcodes",
+                        "printLabelsFromReceivePanel"
+                    ]
+                },
+                {
+                    "file": "so-order/js/so-order-bulk-edit.js",
+                    "lines": 87,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["SoOrder"],
+                    "uses": [],
+                    "functions": [
+                        "commitBulkEditField",
+                        "onBulkEditChange",
+                        "onBulkEditFocusIn",
+                        "onBulkEditKeydown",
+                        "onPick"
+                    ]
+                },
+                {
+                    "file": "so-order/js/so-order-confirm.js",
+                    "lines": 192,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["SoOrder"],
+                    "uses": [],
+                    "functions": [
+                        "close",
+                        "finish",
+                        "hideModal",
+                        "onClick",
+                        "onKey",
+                        "render",
+                        "showModal",
+                        "soConfirm",
+                        "soConfirmOpen",
+                        "update"
+                    ]
+                },
+                {
+                    "file": "so-order/js/so-order-delete.js",
+                    "lines": 342,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["SoOrder"],
+                    "uses": [],
+                    "functions": [
                         "_buildRowDeleteConfirm",
                         "_buildShipmentDeleteConfirm",
-                        "_checkRowsHaveStock",
-                        "_checkRowsHaveStockSync",
-                        "_clearInlineImage",
-                        "_commitSoImport",
-                        "_computeRowSpans",
-                        "_currentStateSuppliers",
                         "_daysUntilPurge",
-                        "_ensureSupplierAsync",
-                        "_ensureSupplierCacheSubscription",
-                        "_ensureSupplierWithFeedback",
-                        "_etaBadgeHtml",
-                        "_explodeVariants",
                         "_finalizeDeleteShipment",
                         "_fmtTrashDate",
-                        "_generateKhoCode",
-                        "_getFloatPanel",
-                        "_groupMetaSubHeaderHtml",
-                        "_hideFloatPanels",
-                        "_hideOtherShipments",
-                        "_imgPasteCellHtml",
-                        "_isRowLocked",
-                        "_isStockCacheReady",
-                        "_lookupKhoCode",
-                        "_lookupProductStateForRows",
                         "_markDeletePending",
-                        "_maybeExpandVndShorthand",
-                        "_mostCommonSupplier",
-                        "_newModalRow",
-                        "_normImportDate",
-                        "_noteHasLabel",
-                        "_orderInvoiceImageHtml",
-                        "_orderReceivedGroupsLast",
-                        "_patchReceiveRowFromLookup",
-                        "_rImg",
-                        "_rInt",
-                        "_rPick",
-                        "_randomRow",
-                        "_readPerOrderMeta",
-                        "_refreshInlineImagePreview",
-                        "_renderOrderInvoiceImage",
-                        "_renderPerOrderMeta",
-                        "_rowToKhoMatch",
-                        "_saveInlineImage",
-                        "_setOrderInvoiceImage",
-                        "_shipMetaFlags",
-                        "_showAllShipments",
-                        "_soImportConfig",
-                        "_syncShipMetaAllCheckbox",
                         "_unmarkDeletePending",
-                        "_updateBarcodeSummary",
-                        "_updateReceiveRowStatus",
-                        "_updateReceiveSummary",
-                        "_updateVariantMultiPreview",
-                        "_variantPools",
-                        "_w2Auth",
-                        "_wireOrderInvoiceImage",
-                        "_wireShipMetaAll",
-                        "actionsCell",
-                        "activeColVis",
-                        "adjustKhoPending",
-                        "applyEditTableModeUi",
-                        "applySuggestionToRow",
-                        "attachSupplierPickerOnDemand",
-                        "attachVariantPickerOnDemand",
-                        "beginInlineCellEdit",
-                        "beginShipmentFieldEdit",
-                        "buildOpts",
-                        "close",
-                        "closePanel",
-                        "columnHeaderRowHtml",
-                        "commit",
-                        "commitBulkEditField",
-                        "confirmReceiveFromModal",
-                        "conflictHandler",
-                        "currencyToVndRate",
                         "deleteRow",
                         "deleteShipment",
-                        "editTableMode",
-                        "editableCellHtml",
-                        "escHandler",
-                        "escapeHtml",
-                        "fileToDataUrl",
-                        "fillModalRandom",
-                        "findInDom",
-                        "finish",
                         "finishWith",
-                        "flashRow",
+                        "handleTrashPurge",
+                        "handleTrashRestore",
+                        "openTrashModal",
+                        "renderTrashList",
+                        "updateTrashCountBadge"
+                    ]
+                },
+                {
+                    "file": "so-order/js/so-order-format.js",
+                    "lines": 106,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["SoOrder"],
+                    "uses": [],
+                    "functions": [
+                        "activeColVis",
+                        "currencyToVndRate",
+                        "escapeHtml",
                         "fmtCurrency",
                         "fmtVnd",
                         "formatDateVN",
                         "fromVnd",
-                        "generateRandomOrders",
-                        "handleOrderSubmit",
-                        "handleTabDelete",
-                        "handleTabSettingsSubmit",
-                        "handleTrashPurge",
-                        "handleTrashRestore",
-                        "hideLightbox",
-                        "hideModal",
-                        "hideSuggest",
-                        "hideVariantSuggest",
-                        "imgCell",
-                        "init",
-                        "matchSupplier",
-                        "modalRowHtml",
-                        "norm",
-                        "normName",
                         "notify",
-                        "num",
-                        "numField",
-                        "onBulkEditChange",
-                        "onBulkEditFocusIn",
-                        "onBulkEditKeydown",
+                        "pushSync",
+                        "toVnd"
+                    ]
+                },
+                {
+                    "file": "so-order/js/so-order-image-modal.js",
+                    "lines": 138,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["SoOrder"],
+                    "uses": ["Web2Effects"],
+                    "functions": [
+                        "_clearInlineImage",
+                        "_refreshInlineImagePreview",
+                        "_saveInlineImage",
+                        "hideLightbox",
+                        "onResult",
+                        "openInlineImageModal",
+                        "openLightbox",
+                        "wireInlineImageModal"
+                    ]
+                },
+                {
+                    "file": "so-order/js/so-order-import.js",
+                    "lines": 237,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["SoOrder"],
+                    "uses": ["Web2Import"],
+                    "functions": ["_commitSoImport", "_normImportDate", "_soImportConfig"]
+                },
+                {
+                    "file": "so-order/js/so-order-inline-edit.js",
+                    "lines": 430,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["SoOrder"],
+                    "uses": ["Web2SuppliersCache", "Web2VariantsCache"],
+                    "functions": [
+                        "_currentStateSuppliers",
+                        "_ensureSupplierAsync",
+                        "_ensureSupplierCacheSubscription",
+                        "_ensureSupplierWithFeedback",
+                        "_maybeExpandVndShorthand",
+                        "attachSupplierPickerOnDemand",
+                        "attachVariantPickerOnDemand",
+                        "beginInlineCellEdit",
+                        "commit",
+                        "finish",
                         "onCellDoubleClick",
-                        "onClick",
-                        "onKey",
+                        "onPick",
+                        "refresh",
+                        "renderDropdown",
+                        "restore",
+                        "updateActiveHighlight"
+                    ]
+                },
+                {
+                    "file": "so-order/js/so-order-kho-sync.js",
+                    "lines": 371,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["SoOrder"],
+                    "uses": [
+                        "Web2Optimistic",
+                        "Web2ProductCode",
+                        "Web2ProductsCache",
+                        "Web2VariantsCache"
+                    ],
+                    "functions": [
+                        "_assignKhoCodes",
+                        "_checkRowsHaveStock",
+                        "_checkRowsHaveStockSync",
+                        "_generateKhoCode",
+                        "_isStockCacheReady",
+                        "_noteHasLabel",
+                        "_rowToKhoMatch",
+                        "adjustKhoPending",
+                        "syncRowsToKho"
+                    ]
+                },
+                {
+                    "file": "so-order/js/so-order-modal-core.js",
+                    "lines": 478,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["SoOrder"],
+                    "uses": ["Web2BarcodeScanner", "Web2LabelOcr", "Web2ProductsCache"],
+                    "functions": [
+                        "_addRowFromScannedCode",
+                        "_newModalRow",
+                        "modalRowHtml",
                         "onModalPriceBlur",
                         "onModalRowFieldInput",
                         "onPick",
                         "onResult",
                         "onScan",
                         "onclick",
-                        "onload",
-                        "openBarcodePrintModal",
-                        "openColumnModal",
-                        "openInlineImageModal",
-                        "openLightbox",
-                        "openOrderModal",
-                        "openReceiveShipmentModal",
-                        "openShipmentEditAllRows",
-                        "openShipmentModal",
-                        "openTabSettingsModal",
-                        "openTrashModal",
-                        "pill",
-                        "priceCell",
-                        "printBarcodes",
-                        "printLabelsFromReceivePanel",
-                        "pushSync",
-                        "reflow",
-                        "refresh",
-                        "remoteHandler",
-                        "render",
-                        "renderAll",
-                        "renderDropdown",
-                        "renderFooterTotals",
                         "renderModalRows",
-                        "renderTabStrip",
-                        "renderTableBody",
-                        "renderTableHead",
-                        "renderTrashList",
-                        "restore",
-                        "rowHtml",
-                        "setEditTableMode",
-                        "shipmentHeaderHtml",
-                        "shipmentHtml",
-                        "showModal",
-                        "showSuggest",
-                        "showVariantSuggest",
-                        "soConfirm",
-                        "soConfirmOpen",
-                        "statusCell",
-                        "syncRowsToKho",
-                        "tick",
-                        "toVnd",
-                        "update",
-                        "updateActiveHighlight",
-                        "updateContractHint",
                         "updateModalGrandTotals",
                         "updateModalTotals",
                         "updateRowImagePreview",
                         "updateRowMeta",
                         "updateRowTotal",
-                        "updateTrashCountBadge",
-                        "wireFooterInputs",
-                        "wireInlineImageModal",
-                        "wireModalImagePasteDrop",
                         "wireModalRowInputs",
-                        "wireModalTotals",
-                        "wireToolbar"
+                        "wireModalTotals"
                     ]
+                },
+                {
+                    "file": "so-order/js/so-order-modal-image.js",
+                    "lines": 180,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["SoOrder"],
+                    "uses": ["Web2Effects"],
+                    "functions": [
+                        "_applyImageToRow",
+                        "_imgPasteCellHtml",
+                        "_orderInvoiceImageHtml",
+                        "_renderOrderInvoiceImage",
+                        "_setOrderInvoiceImage",
+                        "_wireOrderInvoiceImage",
+                        "fileToDataUrl",
+                        "onResult",
+                        "onload",
+                        "wireModalImagePasteDrop"
+                    ]
+                },
+                {
+                    "file": "so-order/js/so-order-modal-open.js",
+                    "lines": 184,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["SoOrder"],
+                    "uses": [],
+                    "functions": [
+                        "_applyShipMetaUi",
+                        "_shipMetaFlags",
+                        "onPick",
+                        "openOrderModal",
+                        "updateContractHint"
+                    ]
+                },
+                {
+                    "file": "so-order/js/so-order-modal-random.js",
+                    "lines": 128,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["SoOrder"],
+                    "uses": ["Web2VariantsCache"],
+                    "functions": [
+                        "_rImg",
+                        "_rInt",
+                        "_rPick",
+                        "_randomRow",
+                        "_variantPools",
+                        "fillModalRandom",
+                        "generateRandomOrders"
+                    ]
+                },
+                {
+                    "file": "so-order/js/so-order-modal-submit.js",
+                    "lines": 277,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["SoOrder"],
+                    "uses": ["Web2VariantMulti"],
+                    "functions": ["handleOrderSubmit"]
+                },
+                {
+                    "file": "so-order/js/so-order-modal-suggest.js",
+                    "lines": 285,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["SoOrder"],
+                    "uses": ["Web2ProductsCache", "Web2VariantsCache"],
+                    "functions": [
+                        "_anchorFloatPanel",
+                        "_bindModalScrollCloseDropdowns",
+                        "_getFloatPanel",
+                        "_hideFloatPanels",
+                        "applySuggestionToRow",
+                        "hideSuggest",
+                        "hideVariantSuggest",
+                        "reflow",
+                        "showSuggest",
+                        "showVariantSuggest"
+                    ]
+                },
+                {
+                    "file": "so-order/js/so-order-receive.js",
+                    "lines": 736,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["SoOrder"],
+                    "uses": ["Web2ProductsCache"],
+                    "functions": [
+                        "_hideOtherShipments",
+                        "_lookupProductStateForRows",
+                        "_patchReceiveRowFromLookup",
+                        "_showAllShipments",
+                        "_updateReceiveRowStatus",
+                        "_updateReceiveSummary",
+                        "closePanel",
+                        "confirmReceiveFromModal",
+                        "escHandler",
+                        "matchSupplier",
+                        "normName",
+                        "openReceiveShipmentModal"
+                    ]
+                },
+                {
+                    "file": "so-order/js/so-order-render-cells.js",
+                    "lines": 159,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["SoOrder"],
+                    "uses": [],
+                    "functions": [
+                        "_isRowLocked",
+                        "actionsCell",
+                        "editableCellHtml",
+                        "imgCell",
+                        "priceCell",
+                        "statusCell"
+                    ]
+                },
+                {
+                    "file": "so-order/js/so-order-render.js",
+                    "lines": 746,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["SoOrder"],
+                    "uses": ["Web2Deeplink", "Web2ProductsCache", "Web2VariantMulti"],
+                    "functions": [
+                        "_computeRowSpans",
+                        "_etaBadgeHtml",
+                        "_explodeVariants",
+                        "_groupMetaSubHeaderHtml",
+                        "_lookupKhoCode",
+                        "_orderReceivedGroupsLast",
+                        "_updateVariantMultiPreview",
+                        "applyEditTableModeUi",
+                        "beginShipmentFieldEdit",
+                        "columnHeaderRowHtml",
+                        "commit",
+                        "flashRow",
+                        "pill",
+                        "renderAll",
+                        "renderFooterTotals",
+                        "renderTabStrip",
+                        "renderTableBody",
+                        "renderTableHead",
+                        "restore",
+                        "rowHtml",
+                        "setEditTableMode",
+                        "shipmentHeaderHtml",
+                        "shipmentHtml"
+                    ]
+                },
+                {
+                    "file": "so-order/js/so-order-settings.js",
+                    "lines": 218,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["SoOrder"],
+                    "uses": [],
+                    "functions": [
+                        "_syncShipMetaAllCheckbox",
+                        "_wireShipMetaAll",
+                        "buildOpts",
+                        "finishWith",
+                        "handleTabDelete",
+                        "handleTabSettingsSubmit",
+                        "openColumnModal",
+                        "openTabSettingsModal"
+                    ]
+                },
+                {
+                    "file": "so-order/js/so-order-shipment.js",
+                    "lines": 206,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["SoOrder"],
+                    "uses": [],
+                    "functions": [
+                        "_mostCommonSupplier",
+                        "_readPerOrderMeta",
+                        "_renderPerOrderMeta",
+                        "num",
+                        "numField",
+                        "onPick",
+                        "openShipmentEditAllRows",
+                        "openShipmentModal",
+                        "updateContractHint"
+                    ]
+                },
+                {
+                    "file": "so-order/js/so-order-state.js",
+                    "lines": 99,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["SoOrder"],
+                    "uses": ["Web2Auth"],
+                    "functions": ["_w2Auth", "editTableMode"]
                 },
                 {
                     "file": "so-order/js/so-order-storage.js",
@@ -3096,6 +3295,14 @@
                         "updateShipment",
                         "updateTab"
                     ]
+                },
+                {
+                    "file": "so-order/js/so-order-toolbar.js",
+                    "lines": 90,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["SoOrder"],
+                    "uses": ["Popup", "Web2Import"],
+                    "functions": ["wireFooterInputs", "wireToolbar"]
                 }
             ]
         },
@@ -4267,7 +4474,7 @@
                 },
                 {
                     "file": "web2/photo-studio/photo-studio-edit.js",
-                    "lines": 727,
+                    "lines": 724,
                     "purpose": "WEB2.0 module.",
                     "globals": ["PS"],
                     "uses": [],
@@ -4303,7 +4510,7 @@
                 },
                 {
                     "file": "web2/photo-studio/photo-studio-state.js",
-                    "lines": 216,
+                    "lines": 215,
                     "purpose": "WEB2.0 module.",
                     "globals": ["PS"],
                     "uses": [],
@@ -4330,7 +4537,7 @@
                 },
                 {
                     "file": "web2/photo-studio/photo-studio-ui.js",
-                    "lines": 698,
+                    "lines": 701,
                     "purpose": "WEB2.0 module.",
                     "globals": ["PS"],
                     "uses": [],
@@ -7398,7 +7605,7 @@
                 "live-chat/js/pancake/inventory-panel.js",
                 "live-chat/js/shared/utils.js",
                 "native-orders/js/native-orders-app.js",
-                "so-order/js/so-order-app.js",
+                "so-order/js/so-order-format.js",
                 "web2/balance-history/js/web2-bh-core.js",
                 "web2/balance-history/js/web2-link-customer-modal.js",
                 "web2/balance-history/js/web2-manual-deposit.js",
@@ -7519,7 +7726,7 @@
             "fn": "fmtVnd",
             "files": [
                 "native-orders/js/native-orders-kpi.js",
-                "so-order/js/so-order-app.js",
+                "so-order/js/so-order-format.js",
                 "web2/balance-history/js/web2-bh-core.js",
                 "web2/balance-history/js/web2-link-customer-modal.js",
                 "web2/balance-history/js/web2-pm-core.js",
@@ -7538,7 +7745,7 @@
             "fn": "_w2Auth",
             "files": [
                 "live-chat/js/shared/debt-manager.js",
-                "so-order/js/so-order-app.js",
+                "so-order/js/so-order-state.js",
                 "web2/products/js/web2-products-api.js",
                 "web2/products/js/web2-products-print-utils.js",
                 "web2/returns/js/returns-api.js",
@@ -7971,6 +8178,16 @@
             "count": 4
         },
         {
+            "fn": "finish",
+            "files": [
+                "live-chat/js/live/live-livestream-gallery.js",
+                "live-chat/js/live/live-livestream-snap.js",
+                "so-order/js/so-order-confirm.js",
+                "so-order/js/so-order-inline-edit.js"
+            ],
+            "count": 4
+        },
+        {
             "fn": "flush",
             "files": [
                 "live-chat/js/live/live-kho-enricher.js",
@@ -8295,15 +8512,6 @@
             "count": 3
         },
         {
-            "fn": "finish",
-            "files": [
-                "live-chat/js/live/live-livestream-gallery.js",
-                "live-chat/js/live/live-livestream-snap.js",
-                "so-order/js/so-order-app.js"
-            ],
-            "count": 3
-        },
-        {
             "fn": "getPageAccessToken",
             "files": [
                 "live-chat/js/pancake/pancake-api.js",
@@ -8432,7 +8640,7 @@
         {
             "fn": "renderAll",
             "files": [
-                "so-order/js/so-order-app.js",
+                "so-order/js/so-order-render.js",
                 "web2/shared/chat-panel/web2-chat-panel.js",
                 "web2/system/js/system-services.js"
             ],
@@ -8596,10 +8804,6 @@
         {
             "file": "native-orders/js/native-orders-app.js",
             "lines": 9457
-        },
-        {
-            "file": "so-order/js/so-order-app.js",
-            "lines": 5932
         },
         {
             "file": "live-chat/js/live/live-livestream-snap.js",
