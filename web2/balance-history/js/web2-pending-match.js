@@ -341,11 +341,13 @@
                 const q = btn.getAttribute('data-w2pm-chat') || '';
                 const card = btn.closest('.w2pm-item');
                 const pendingId = card && card.getAttribute('data-pending-id');
-                if (!window.Web2ChatReadonly?.openSearch) {
+                if (!window.Web2CustomerChat?.open) {
                     notify('Module hội thoại chưa load', 'warning');
                     return;
                 }
-                window.Web2ChatReadonly.openSearch({
+                window.Web2CustomerChat.open({
+                    layout: 'modal',
+                    readonly: true,
                     query: q,
                     onPick: pendingId
                         ? (cust) => _resolveFromChat(pendingId, cust.phone, cust.name)

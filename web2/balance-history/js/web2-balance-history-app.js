@@ -649,25 +649,31 @@
             window.Web2CustomerChat.open({ phone, name });
             return;
         }
-        if (!window.Web2ChatReadonly) {
+        if (!window.Web2CustomerChat?.open) {
             notify('Module hội thoại chưa load', 'warning');
             return;
         }
-        // Row chưa gán KH (không có phone) → mở chế độ tìm RỖNG, user tự gõ.
+        // Row chưa gán KH (không có phone) → mở modal tìm kiếm (readonly), user tự gõ.
         if (!phone) {
-            window.Web2ChatReadonly.openSearch({});
+            window.Web2CustomerChat.open({ layout: 'modal', readonly: true });
             return;
         }
         const r = await fbConversation(phone);
         if (r && r.found) {
-            window.Web2ChatReadonly.open({
+            window.Web2CustomerChat.open({
+                layout: 'modal',
+                readonly: true,
+                fbId: r.psid,
                 pageId: r.pageId || null,
-                psid: r.psid,
                 name: r.name || name || '',
             });
         } else {
-            // Chưa resolve được FB → mở chế độ tìm seed tên/SĐT (linh hoạt).
-            window.Web2ChatReadonly.openSearch({ query: name || phone });
+            // Chưa resolve được FB → mở modal tìm seed tên/SĐT (linh hoạt).
+            window.Web2CustomerChat.open({
+                layout: 'modal',
+                readonly: true,
+                query: name || phone,
+            });
         }
     }
 
@@ -1089,7 +1095,8 @@
         const chatBtn = document.getElementById('w2bhChatBtn');
         if (chatBtn) {
             chatBtn.addEventListener('click', () => {
-                if (window.Web2ChatReadonly?.openSearch) window.Web2ChatReadonly.openSearch({});
+                if (window.Web2CustomerChat?.open)
+                    window.Web2CustomerChat.open({ layout: 'modal', readonly: true });
                 else notify('Module hội thoại chưa load', 'warning');
             });
         }

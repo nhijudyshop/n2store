@@ -124,7 +124,7 @@
     }
 
     // Mở popup xem hội thoại FB read-only của KH. Resolve SĐT → pageId+psid qua
-    // /api/web2/customers/:phone/fb-conversation, rồi Web2ChatReadonly.open.
+    // /api/web2/customers/:phone/fb-conversation, rồi Web2CustomerChat.open (modal readonly).
     async function openChat() {
         const phone = _data.phone || _data.customer?.phone;
         if (!phone) {
@@ -149,21 +149,26 @@
             const r = await getJSON(
                 `/api/web2/customers/${encodeURIComponent(phone)}/fb-conversation`
             );
-            if (!global.Web2ChatReadonly) {
-                _notify('Module chat chưa load (web2-chat-readonly.js)', 'error');
+            if (!global.Web2CustomerChat?.open) {
+                _notify('Module chat chưa load (web2-customer-chat.js)', 'error');
                 return;
             }
             const custName = _data.name || _data.customer?.name || '';
             if (!r || !r.found) {
-                // Chưa resolve được FB → mở chế độ TÌM, seed tên/SĐT để user tự
-                // chọn hội thoại (linh hoạt, không bí).
+                // Chưa resolve được FB → mở modal TÌM, seed tên/SĐT để user tự chọn.
                 _notify('Chưa có hội thoại FB gán sẵn — tìm thủ công bên trái', 'info');
-                global.Web2ChatReadonly.openSearch({ query: custName || phone });
+                global.Web2CustomerChat.open({
+                    layout: 'modal',
+                    readonly: true,
+                    query: custName || phone,
+                });
                 return;
             }
-            global.Web2ChatReadonly.open({
+            global.Web2CustomerChat.open({
+                layout: 'modal',
+                readonly: true,
+                fbId: r.psid,
                 pageId: r.pageId || null,
-                psid: r.psid,
                 name: r.name || custName,
             });
         } catch (e) {

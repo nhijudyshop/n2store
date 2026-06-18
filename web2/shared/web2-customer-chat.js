@@ -596,6 +596,7 @@
                 }, 300);
             });
         }
+        const onPick = typeof opts.onPick === 'function' ? opts.onPick : null;
         listEl.addEventListener('click', (e) => {
             const row = e.target.closest('.w2cc-row');
             if (!row) return;
@@ -605,25 +606,51 @@
                 type: 'INBOX',
                 customers: [{ id: null, name: row.dataset.name, fb_id: row.dataset.fbId }],
             };
+            // Chế độ PICKER (opts.onPick): bấm hội thoại = chọn khách (vd đối soát CK
+            // pending-match) → trả info khách rồi đóng, KHÔNG mở thread.
+            if (onPick) {
+                const cust = (conv.customers && conv.customers[0]) || conv.from || {};
+                onPick({
+                    phone: cust.phone || cust.phone_number || '',
+                    name: row.dataset.name || cust.name || '',
+                    fbId: row.dataset.fbId || cust.fb_id || '',
+                    pageId: row.dataset.pageId || conv.page_id || '',
+                    conv,
+                });
+                close();
+                return;
+            }
             selectConv(conv);
         });
 
         // Auto-chọn hội thoại theo identity (phone → fbId), vẫn cho search/đổi tự do.
-        (async () => {
-            let conv = null;
-            if (phone) conv = await resolvePancakeConv(phone);
-            if (!conv) conv = await _resolveConvByFbId(fbId, pageId);
-            if (conv) selectConv(conv);
-            else {
-                threadEl.innerHTML = _stateHtml('empty', 'Chọn hội thoại bên trái để bắt đầu');
-                global.lucide?.createIcons?.();
-                global.Web2Lottie?.scan?.(threadEl);
-            }
-        })();
+        // Picker mode (onPick): KHÔNG auto-mở thread — chỉ hiện hint để bấm chọn khách.
+        if (onPick) {
+            threadEl.innerHTML = _stateHtml('empty', 'Bấm 1 hội thoại bên trái để chọn khách');
+            global.lucide?.createIcons?.();
+            global.Web2Lottie?.scan?.(threadEl);
+        } else {
+            (async () => {
+                let conv = null;
+                if (phone) conv = await resolvePancakeConv(phone);
+                if (!conv) conv = await _resolveConvByFbId(fbId, pageId);
+                if (conv) selectConv(conv);
+                else {
+                    threadEl.innerHTML = _stateHtml('empty', 'Chọn hội thoại bên trái để bắt đầu');
+                    global.lucide?.createIcons?.();
+                    global.Web2Lottie?.scan?.(threadEl);
+                }
+            })();
+        }
 
         loadInitial();
         wireSearch();
-        if (phone) searchEl.value = phone; // gợi ý nhanh
+        // Seed ô tìm kiếm (opts.query cho chế độ tìm-trước, hoặc SĐT) + trigger luôn.
+        const seedQ = String(opts.query || phone || '').trim();
+        if (seedQ) {
+            searchEl.value = seedQ;
+            searchEl.dispatchEvent(new Event('input', { bubbles: true }));
+        }
 
         const close = () => {
             try {
