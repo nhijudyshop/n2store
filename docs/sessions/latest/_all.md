@@ -3,15 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `f6a935a` — fix(purchase-refund): bố cục lại modal trả hàng — không tràn viền
-**Last updated**: 2026-06-18 14:15:47 +07
-**Latest session**: [`RESUME:20260618-141547-f6a935a`](../20260618-141547-f6a935a.md)
-**Summary**: fix(purchase-refund): bố cục lại modal trả hàng — không tràn viền
+**Latest commit**: `e5516f2` — auto: session update
+**Last updated**: 2026-06-18 14:30:08 +07
+**Latest session**: [`RESUME:20260618-143008-e5516f2`](../20260618-143008-e5516f2.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`web2/`](./web2.md) — 2 file(s)
+- [`web2/`](./web2.md) — 6 file(s)
 
 ## All folder snapshots
 
@@ -74,4 +73,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-18 14:15
+- [`web2/`](./web2.md) — updated 2026-06-18 14:30
