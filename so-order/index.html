@@ -419,6 +419,24 @@
                                 <i data-lucide="plus-circle"></i>
                                 Thêm sản phẩm
                             </button>
+                            <button
+                                type="button"
+                                class="btn-secondary"
+                                id="soModalScanBtn"
+                                title="Quét barcode/QR bằng camera để thêm SP"
+                            >
+                                <i data-lucide="camera"></i>
+                                Quét mã
+                            </button>
+                            <button
+                                type="button"
+                                class="btn-secondary"
+                                id="soModalOcrBtn"
+                                title="Đọc mã trên nhãn (OCR) để thêm SP"
+                            >
+                                <i data-lucide="scan-text"></i>
+                                Đọc nhãn
+                            </button>
                         </div>
                     </div>
                 </form>
@@ -647,6 +665,8 @@
         <script src="../web2/shared/web2-suppliers-cache.js?v=20260617b"></script>
         <script src="../web2/shared/web2-product-code.js?v=20260617b"></script>
         <script src="../web2/shared/web2-deeplink.js?v=20260617b"></script>
+        <script src="../web2/shared/web2-barcode-scanner.js?v=20260618a"></script>
+        <script src="../web2/shared/web2-label-ocr.js?v=20260618a"></script>
         <!-- Import dữ liệu CSV/JSON (NGUỒN CHUNG Web2Import) -->
         <script src="../web2/shared/web2-import.js?v=20260617b"></script>
         <script src="js/so-order-storage.js?v=20260617b"></script>

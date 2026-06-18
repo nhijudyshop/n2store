@@ -2559,6 +2559,30 @@ window.addEventListener('load', () => {
         };
     }
 
+    // 2026-06-18: thêm dòng SP từ MÃ đọc được bằng camera (barcode / OCR nhãn).
+    // Tra Kho SP (Web2ProductsCache) theo mã → prefill productName + matchedCode;
+    // không thấy → để mã vào productName cho user sửa tên. Dùng nhập kho từ pack:
+    // mỗi mã quét/đọc thêm 1 dòng (continuous).
+    function _addRowFromScannedCode(code) {
+        code = (code || '').trim();
+        if (!code) return;
+        const prod = window.Web2ProductsCache?.findByCode?.(code);
+        if (prod) {
+            modalRows.push(
+                _newModalRow({ productName: prod.name || '', matchedCode: prod.code, qty: 1 })
+            );
+            renderModalRows();
+            window.notificationManager?.show?.(`✓ Thêm: ${prod.name || prod.code}`, 'success');
+        } else {
+            modalRows.push(_newModalRow({ productName: code, matchedCode: null, qty: 1 }));
+            renderModalRows();
+            window.notificationManager?.show?.(
+                `Không thấy mã "${code}" trong Kho SP — đã thêm dòng để bạn sửa tên.`,
+                'info'
+            );
+        }
+    }
+
     // P1 2026-05-30: paste image cell helper — show thumbnail card khi đã
     // có ảnh thay vì input "data:image/jpeg;base..." raw. User feedback
     // "area khi paste hình làm đẹp hơn".
@@ -2909,6 +2933,37 @@ window.addEventListener('load', () => {
                         : {};
                 modalRows.push(_newModalRow(prefill));
                 renderModalRows();
+            };
+        }
+        // 2026-06-18: Quét mã (camera barcode) / Đọc nhãn (OCR) → thêm dòng SP.
+        // Dùng cho nhập kho từ pack NCC. .onclick (re-wire mỗi render, idempotent).
+        const scanBtn = document.getElementById('soModalScanBtn');
+        if (scanBtn) {
+            scanBtn.onclick = () => {
+                if (!window.Web2BarcodeScanner) {
+                    window.notificationManager?.show?.('Chưa tải được bộ quét camera.', 'error');
+                    return;
+                }
+                window.Web2BarcodeScanner.open({
+                    title: 'Quét mã thêm SP',
+                    hint: 'Quét barcode/QR từng SP — mỗi mã thêm 1 dòng',
+                    continuous: true,
+                    onScan: (code) => _addRowFromScannedCode(code),
+                });
+            };
+        }
+        const ocrBtn = document.getElementById('soModalOcrBtn');
+        if (ocrBtn) {
+            ocrBtn.onclick = () => {
+                if (!window.Web2LabelOcr) {
+                    window.notificationManager?.show?.('Chưa tải được bộ đọc nhãn.', 'error');
+                    return;
+                }
+                window.Web2LabelOcr.open({
+                    title: 'Đọc mã trên nhãn',
+                    hint: 'Ngắm dòng MÃ trên nhãn rồi bấm Chụp',
+                    onResult: (code) => _addRowFromScannedCode(code),
+                });
             };
         }
         // Delete row + image upload via event delegation

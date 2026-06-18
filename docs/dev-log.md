@@ -2,6 +2,19 @@
 
 ## 2026-06-18
 
+### [so-order] Cắm Quét mã (camera) + Đọc nhãn (OCR) vào modal "Thêm sản phẩm" — nhập kho từ pack ✅
+
+**User chọn a+b+c.** (a) = cắm camera-read vào **so-order** (warehouse intake — chỗ dùng đúng nhất của OCR/scan).
+
+**Tích hợp** (entry point sạch = modal "Thêm sản phẩm", luồng ổn định hơn inline-edit):
+
+- [so-order/index.html](../so-order/index.html): 2 nút **"Quét mã" 📷** + **"Đọc nhãn" 🔤** cạnh "Thêm sản phẩm" trong modal; load `web2-barcode-scanner.js` + `web2-label-ocr.js`.
+- [so-order/js/so-order-app.js](../so-order/js/so-order-app.js): helper `_addRowFromScannedCode(code)` → tra `Web2ProductsCache.findByCode(code)` → push `_newModalRow({productName, matchedCode, qty:1})` + `renderModalRows()`. Không thấy mã → để mã vào productName cho user sửa tên. **Quét mã = continuous** (mỗi mã thêm 1 dòng → nhập cả bó nhanh). Đọc nhãn = OCR 1 mã/lần. Wire `.onclick` cạnh `soModalAddRowBtn` (re-wire mỗi render, idempotent).
+
+**Verify** (browser so-order): không bounce, `pageErr:null` (không vỡ trang phức tạp), 2 module load, nút Quét/Đọc + addBtn có, `Web2ProductsCache.findByCode` = function. (Full flow thêm dòng cần mở modal qua tạo đơn — wiring + deps đã verified, dùng đúng pattern addBtn sẵn có.)
+
+**→ Hoàn tất a+b+c**: (a) so-order intake ✅ · (b) OCR chữ tay TrOCR ✅ · (c) đếm pack opencv ✅. Toàn bộ 4 engine camera on-device giờ là shared module: Web2BarcodeScanner · Web2LabelOcr (in+tay) · Web2PackCounter · Web2ProductCounter.
+
 ### [web2 pack-counter] Đếm bó/pack bằng camera opencv.js + chạm sửa tay (Đợt 4/4) ✅
 
 **Đợt 4 lộ trình on-device camera reading.** Đếm pack chồng dính = DỄ SAI (report) → KHÔNG đếm tự động hoàn toàn mà **HỖ-TRỢ-TAY**: opencv ước lượng đặt marker → user **chạm thêm/bớt** cho đúng → số cuối user chốt.
