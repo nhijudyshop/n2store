@@ -3,14 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `ad55518` — docs(dev-log): ghi nhận fix .web2-btn-warning thiếu CSS (3 trang fastsaleorder)
-**Last updated**: 2026-06-18 14:33:42 +07
-**Latest session**: [`RESUME:20260618-143342-ad55518`](../20260618-143342-ad55518.md)
-**Summary**: docs(dev-log): ghi nhận fix .web2-btn-warning thiếu CSS (3 trang fastsaleorder)
+**Latest commit**: `625dd0c` — fix(wallets-v2): Rút tiền thủ công (Customer 360) trừ đúng số dư mọi lần
+**Last updated**: 2026-06-18 15:41:34 +07
+**Latest session**: [`RESUME:20260618-154134-625dd0c`](../20260618-154134-625dd0c.md)
+**Summary**: fix(wallets-v2): Rút tiền thủ công (Customer 360) trừ đúng số dư mọi lần
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
+- [`render.com/`](./render.com.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -25,7 +26,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-18 13:23
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-16 14:31
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-18 12:17
-- [`docs/`](./docs.md) — updated 2026-06-18 14:33
+- [`docs/`](./docs.md) — updated 2026-06-18 15:41
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-16 14:31
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-16 14:31
 - [`downloads/`](./downloads.md) — updated 2026-06-13 19:16
@@ -53,7 +54,7 @@
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-06-16 00:35
-- [`render.com/`](./render.com.md) — updated 2026-06-18 13:09
+- [`render.com/`](./render.com.md) — updated 2026-06-18 15:41
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-16 13:29
 - [`service-costs/`](./service-costs.md) — updated 2026-06-16 11:15
