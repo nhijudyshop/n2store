@@ -1,5 +1,29 @@
 # Dev Log
 
+## 2026-06-18
+
+### [delivery-report] Tab "ĐƠN 0đ" hiện ĐỦ mọi nhóm (Thành phố/NAP/Thu về), không chỉ Shop+Tomato ✅
+
+**User:** "đơn 0 đồng hiện tại chỉ cập nhật của bán hàng shop và tomato, không cập nhật thành phố/nap... muốn cập nhật toàn bộ cả thành phố nap luôn" → chốt "giữ nguyên luôn tomato" (giữ cột TOMATO dù luôn 0/0).
+
+**Nguyên nhân:** lite mode (tất cả user) thu hẹp các tab gộp (combo/zero/all) về **2 cột tomato+shop** ở 3 chỗ ghép nối → tab `zero` vô tình lọc bỏ đơn 0đ thuộc NAP/Thành phố/Thu về. Cộng với `assignTomatoNap` LUÔN đẩy đơn 0đ về NAP (không bao giờ TOMATO vì TOMATO là rổ chia ~21% giá trị tiền của nhóm Tỉnh) → cột TOMATO trong view 0đ luôn 0/0, chỉ còn SHOP 0đ hiện.
+
+**Fix** ([delivery-report.js](delivery-report/js/delivery-report.js)) — chỉ chạm tab `zero`, frontend-only:
+
+- Thêm hằng `ZERO_TAB_GROUPS = ['tomato','nap','city','shop','return']` (giữ TOMATO theo yêu cầu).
+- `getActiveGroups()`: thêm nhánh `if (tab === 'zero') return ZERO_TAB_GROUPS;` trước check lite → export Excel 0đ gồm đủ sheet.
+- `getTabFilteredData()` nhánh `zero`: bỏ `inLiteGroups`, chỉ `data.filter(isZeroCOD)` → bộ đếm "Đã quét N/N" gồm mọi nhóm.
+- `renderAllGroupsView()`: tab zero → `groupKeys = ZERO_TAB_GROUPS` + pre-filter `isZeroCOD` ở CẢ lite lẫn full (gộp `liteItemFilter`/`isZeroTabFull` thành 1 `itemFilter`).
+- `buildPrintGroups()` (in/preview): tab zero → cũng dùng `ZERO_TAB_GROUPS` (đồng bộ on-screen).
+- `exportExcelZeroDong()`: tên file gọn còn `'DON0D'` (bỏ hậu tố `_TOMATO_SHOP`).
+- Bump `?v=20260618a` ([index.html](delivery-report/index.html)).
+
+**KHÔNG đụng:** backend/DB, assignment logic, tab combo/all, nút Ảnh TMT/NAP/Thành Phố + Gửi Kèm (vẫn ẩn ở tab zero do guard `activeTab === 'province'/'city'`). Quét mã đơn 0đ-nap/city giờ hiện đúng cột (trước nửa vời → cải thiện).
+
+**Verify (Playwright localhost, ext n2store):** seed 5 đơn 0đ phủ mọi nhóm → tab ĐƠN 0đ render đúng: TỈNH NAP 0/1, THÀNH PHỐ 0/1, BÁN HÀNG SHOP 0/1, THU VỀ 0/1, TOMATO 0/0 (giữ, luôn rỗng); đơn tỉnh 500k (≠0đ) bị loại; `drScanTotal`=4 khớp render; 0 lỗi console từ delivery-report.js.
+
+**Status:** ✅ verified end-to-end (localhost). Web 1.0 (delivery-report, PROD).
+
 ## 2026-06-17
 
 ### [web2/shared] Popup dùng chung — alert/confirm/popup nhiều loại + hiệu ứng custom, migrate toàn cục Web 2.0 ✅

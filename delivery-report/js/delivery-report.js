@@ -1662,6 +1662,11 @@
         combo: { name: 'TOMATO_SHOP', sheet: 'TOMATO + SHOP' },
     };
 
+    // Tab ĐƠN 0đ trải khắp MỌI nhóm giao (Thành phố/NAP/Thu về/Shop), không bị thu hẹp về
+    // tomato+shop như lite mode. Giữ cột TOMATO (luôn 0/0 vì 0đ KHÔNG BAO GIỜ được gán TOMATO —
+    // assignTomatoNap luôn đẩy 0đ về NAP) để layout đồng bộ với các tab khác.
+    const ZERO_TAB_GROUPS = ['tomato', 'nap', 'city', 'shop', 'return'];
+
     // Groups currently visible in the active view (Tra soát + mode + tab)
     function getActiveGroups() {
         const state = DeliveryReportState;
@@ -1671,7 +1676,9 @@
         if (tab === 'city') return ['city'];
         if (tab === 'shop') return ['shop'];
         if (tab === 'return') return ['return'];
-        // all/zero/combo → multi-group views
+        // ĐƠN 0đ: hiện đủ mọi nhóm ở CẢ lite lẫn full (không thu hẹp về tomato+shop)
+        if (tab === 'zero') return ZERO_TAB_GROUPS;
+        // all/combo → multi-group views
         if (state.uiMode === 'lite') return ['tomato', 'shop'];
         return ['tomato', 'nap', 'city', 'shop', 'return'];
     }
@@ -3045,8 +3052,7 @@
             return;
         }
 
-        const fileName = DeliveryReportState.uiMode === 'lite' ? 'DON0D_TOMATO_SHOP' : 'DON0D';
-        XLSX.writeFile(wb, makeFileName(fileName));
+        XLSX.writeFile(wb, makeFileName('DON0D'));
     }
 
     // =====================================================
@@ -3387,9 +3393,8 @@
         } else if (tab === 'return') {
             data = data.filter((item) => isReturnItem(item));
         } else if (tab === 'zero') {
-            data = isLite
-                ? data.filter((item) => isZeroCOD(item) && inLiteGroups(item))
-                : data.filter((item) => isZeroCOD(item));
+            // ĐƠN 0đ: gom MỌI đơn 0đ ở mọi nhóm (không giới hạn tomato+shop kể cả lite)
+            data = data.filter((item) => isZeroCOD(item));
         } else if (tab === 'combo') {
             // Lite-only: TOMATO+SHOP groups, exclude 0đ
             data = data.filter((item) => !isZeroCOD(item) && inLiteGroups(item));
@@ -4157,24 +4162,28 @@
         if (grid) grid.classList.add('all-groups');
 
         // Mode + tab determine which groups to show and how to pre-filter items.
-        // - full: 5 cols (TOMATO/NAP/CITY/SHOP/RETURN); 'zero' tab pre-filters to 0đ
-        // - lite: 2 cols (TOMATO/SHOP); 'combo' excludes 0đ, 'zero' only 0đ, 'all' includes all
+        // - 'zero' tab: LUÔN hiện đủ 5 cột (TOMATO trống + NAP/CITY/SHOP/RETURN), lọc chỉ 0đ — ở cả lite lẫn full
+        // - full (tab khác): 5 cols (TOMATO/NAP/CITY/SHOP/RETURN)
+        // - lite (tab khác): 2 cols (TOMATO/SHOP); 'combo' excludes 0đ, 'all' includes all
         const isLite = state.uiMode === 'lite';
-        const groupKeys = isLite ? ['tomato', 'shop'] : ['tomato', 'nap', 'city', 'shop', 'return'];
+        const isZeroTab = state.activeTab === 'zero';
+        const groupKeys = isZeroTab
+            ? ZERO_TAB_GROUPS
+            : isLite
+              ? ['tomato', 'shop']
+              : ['tomato', 'nap', 'city', 'shop', 'return'];
 
-        const liteItemFilter = (() => {
-            if (!isLite) return null;
+        // Pre-filter items theo tab.
+        const itemFilter = (() => {
+            if (isZeroTab) return (item) => isZeroCOD(item); // 0đ ở mọi mode
+            if (!isLite) return null; // full mode 'all' → không lọc thêm
             if (state.activeTab === 'combo') return (item) => !isZeroCOD(item);
-            if (state.activeTab === 'zero') return (item) => isZeroCOD(item);
-            return null; // 'all'
+            return null; // lite 'all'
         })();
 
-        const isZeroTabFull = !isLite && state.activeTab === 'zero';
         let allData = state.allData || [];
-        if (isZeroTabFull) {
-            allData = allData.filter((item) => isZeroCOD(item));
-        } else if (liteItemFilter) {
-            allData = allData.filter(liteItemFilter);
+        if (itemFilter) {
+            allData = allData.filter(itemFilter);
         }
 
         const scanned = state.scannedNumbers;
@@ -4615,7 +4624,8 @@
         });
 
         let groupKeys;
-        if (isProvinceTab) groupKeys = ['tomato', 'nap'];
+        if (isZeroTab) groupKeys = ZERO_TAB_GROUPS; // 0đ: in/preview đủ mọi nhóm (đồng bộ on-screen)
+        else if (isProvinceTab) groupKeys = ['tomato', 'nap'];
         else if (isLite) groupKeys = ['tomato', 'shop'];
         else groupKeys = ['tomato', 'nap', 'city', 'shop', 'return'];
         let html = '<div class="drp-grid">';
