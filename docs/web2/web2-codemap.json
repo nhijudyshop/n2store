@@ -1,10 +1,10 @@
 {
-    "generatedAt": "2026-06-18 17:47",
+    "generatedAt": "2026-06-18 17:59",
     "totals": {
-        "files": 279,
+        "files": 285,
         "sharedModules": 78,
         "functions": 2548,
-        "oversized": 11
+        "oversized": 10
     },
     "sharedModules": [
         {
@@ -71,7 +71,7 @@
             "consumers": [
                 "live-chat/js/layout/settings-manager.js",
                 "live-chat/js/live/live-campaign-manager.js",
-                "live-chat/js/live/live-comment-list.js",
+                "live-chat/js/live/live-comment-list-events.js",
                 "live-chat/js/live/live-livestream-gallery.js",
                 "live-chat/js/live/live-livestream-snap-actions.js",
                 "live-chat/js/live/live-livestream-snap-lock.js",
@@ -136,7 +136,7 @@
                 "live-chat/js/live/comments-mobile.js",
                 "live-chat/js/live/live-api.js",
                 "live-chat/js/live/live-campaign-manager.js",
-                "live-chat/js/live/live-comment-list.js",
+                "live-chat/js/live/live-comment-list-base.js",
                 "live-chat/js/live/live-hidden-commenters.js",
                 "live-chat/js/live/live-init.js",
                 "live-chat/js/live/live-livestream-snap-lock.js",
@@ -252,7 +252,7 @@
             "consumers": [
                 "live-chat/js/live/comments-mobile.js",
                 "live-chat/js/live/live-chat-modal.js",
-                "live-chat/js/live/live-comment-list.js",
+                "live-chat/js/live/live-comment-list-state.js",
                 "live-chat/js/live/live-init.js",
                 "live-chat/js/pancake/pancake-api.js",
                 "live-chat/js/pancake/pancake-chat-window.js",
@@ -354,7 +354,9 @@
             "api": [],
             "consumers": [
                 "live-chat/js/live/live-api.js",
-                "live-chat/js/live/live-comment-list.js",
+                "live-chat/js/live/live-comment-list-actions.js",
+                "live-chat/js/live/live-comment-list-render-list.js",
+                "live-chat/js/live/live-comment-list-render-row.js",
                 "live-chat/js/shared/live-customer-sync.js",
                 "live-chat/js/shared/live-status.js",
                 "web2/shared/web2-customer-lookup.js",
@@ -590,7 +592,7 @@
             "purpose": "Codifies pattern: snapshot → apply optimistic UI → fire backend background →",
             "api": [],
             "consumers": [
-                "live-chat/js/live/live-comment-list.js",
+                "live-chat/js/live/live-comment-list-actions.js",
                 "live-chat/js/live/live-livestream-gallery.js",
                 "native-orders/js/native-orders-app.js",
                 "so-order/js/so-order-kho-sync.js",
@@ -980,7 +982,8 @@
             "purpose": "WEB2.0 — shared helper hiển thị số dư ví KH.",
             "api": [],
             "consumers": [
-                "live-chat/js/live/live-comment-list.js",
+                "live-chat/js/live/live-comment-list-render-row.js",
+                "live-chat/js/live/live-comment-list-state.js",
                 "live-chat/js/live/live-customer-panel.js",
                 "native-orders/js/native-orders-app.js",
                 "web2/balance-history/js/web2-bh-reassign-modal.js",
@@ -1465,96 +1468,141 @@
                     ]
                 },
                 {
-                    "file": "live-chat/js/live/live-comment-list.js",
-                    "lines": 2460,
-                    "purpose": "Live Comment List UI",
-                    "globals": ["LiveCommentList"],
-                    "uses": [
-                        "Popup",
-                        "Web2Auth",
-                        "Web2Chat",
-                        "Web2CustomerStore",
-                        "Web2Optimistic",
-                        "Web2WalletBalance"
-                    ],
+                    "file": "live-chat/js/live/live-comment-list-actions.js",
+                    "lines": 468,
+                    "purpose": "WEB2.0 module.",
+                    "globals": [],
+                    "uses": ["Web2CustomerStore", "Web2Optimistic"],
                     "functions": [
-                        "_appendOlderBatch",
                         "_applyBadge",
-                        "_attachWalletBalances",
-                        "_bindCampaignScroll",
-                        "_bindCustomerModalDelegation",
-                        "_bindListDelegation",
-                        "_campaignRowHtml",
-                        "_campaignSentinelHtml",
-                        "_docClickHandler",
-                        "_dragEndFlushHandler",
-                        "_ensureScrollSentinel",
-                        "_filteredAll",
-                        "_flushDeferredAfterDrag",
-                        "_liveW2Auth",
-                        "_onListClick",
-                        "_orderCount",
-                        "_patchRowsChunked",
-                        "_renderCustomerPopup",
-                        "_renderDispatch",
-                        "_rowSig",
                         "_setKho",
-                        "_shouldAnimateNew",
-                        "_updateRealCommentTotal",
-                        "_updateTotalBadge",
-                        "_visibleComments",
                         "apply",
-                        "chunkRefresh",
-                        "clearCampaignSelection",
-                        "createOrder",
-                        "getStatusColor",
-                        "getStatusOptions",
                         "handleSaveToLive",
-                        "handleScroll",
-                        "isHidden",
-                        "liveAttr",
-                        "liveSvgIcon",
-                        "loadMoreCampaigns",
-                        "mapWarehouse",
-                        "markNew",
-                        "pancakePhone",
-                        "prependComments",
-                        "refreshCommentItem",
-                        "renderCommentItem",
-                        "renderComments",
-                        "renderCommentsNow",
-                        "renderContainer",
-                        "renderCrmTeamOptions",
-                        "renderFn",
-                        "renderLiveCampaignOptions",
-                        "resetRenderLimit",
                         "rollback",
                         "run",
                         "saveInlineAddress",
                         "saveInlinePhone",
-                        "schedule",
                         "selectComment",
                         "selectInlineStatus",
-                        "selectTodayCampaigns",
                         "sendReply",
                         "setDebtDisplaySettings",
-                        "setupEventHandlers",
-                        "showError",
-                        "showLoading",
-                        "showOrderDetail",
-                        "showPancakeCustomerInfo",
                         "showReplyInput",
                         "snapshot",
+                        "toggleInlineStatusDropdown",
+                        "updateConnectionStatus",
+                        "updateSaveButtonToCheckmark"
+                    ]
+                },
+                {
+                    "file": "live-chat/js/live/live-comment-list-base.js",
+                    "lines": 109,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["LiveCommentList"],
+                    "uses": ["Web2Auth"],
+                    "functions": ["_liveW2Auth", "liveAttr", "liveSvgIcon"]
+                },
+                {
+                    "file": "live-chat/js/live/live-comment-list-events.js",
+                    "lines": 264,
+                    "purpose": "WEB2.0 module.",
+                    "globals": [],
+                    "uses": ["Popup"],
+                    "functions": [
+                        "_bindListDelegation",
+                        "_docClickHandler",
+                        "_dragEndFlushHandler",
+                        "_flushDeferredAfterDrag",
+                        "_onListClick",
+                        "renderContainer",
+                        "setupEventHandlers"
+                    ]
+                },
+                {
+                    "file": "live-chat/js/live/live-comment-list-orders.js",
+                    "lines": 445,
+                    "purpose": "WEB2.0 module.",
+                    "globals": [],
+                    "uses": [],
+                    "functions": [
+                        "_bindCustomerModalDelegation",
+                        "_renderCustomerPopup",
+                        "chunkRefresh",
+                        "createOrder",
+                        "mapWarehouse",
+                        "refreshCommentItem",
+                        "renderFn",
+                        "showOrderDetail",
+                        "showPancakeCustomerInfo",
+                        "timeRemaining"
+                    ]
+                },
+                {
+                    "file": "live-chat/js/live/live-comment-list-render-list.js",
+                    "lines": 743,
+                    "purpose": "WEB2.0 module.",
+                    "globals": [],
+                    "uses": ["Web2CustomerStore"],
+                    "functions": [
+                        "_bindCampaignScroll",
+                        "_campaignRowHtml",
+                        "_campaignSentinelHtml",
+                        "_patchRowsChunked",
+                        "_renderDispatch",
+                        "_rowSig",
+                        "clearCampaignSelection",
+                        "handleScroll",
+                        "isHidden",
+                        "loadMoreCampaigns",
+                        "markNew",
+                        "prependComments",
+                        "renderComments",
+                        "renderCommentsNow",
+                        "renderCrmTeamOptions",
+                        "renderLiveCampaignOptions",
+                        "schedule",
+                        "selectTodayCampaigns",
+                        "showError",
+                        "showLoading",
                         "step",
-                        "timeRemaining",
                         "toggleCampaign",
                         "toggleCampaignDropdown",
-                        "toggleInlineStatusDropdown",
                         "ts",
                         "updateCampaignBtnText",
-                        "updateConnectionStatus",
-                        "updateLoadMoreIndicator",
-                        "updateSaveButtonToCheckmark"
+                        "updateLoadMoreIndicator"
+                    ]
+                },
+                {
+                    "file": "live-chat/js/live/live-comment-list-render-row.js",
+                    "lines": 275,
+                    "purpose": "WEB2.0 module.",
+                    "globals": [],
+                    "uses": ["Web2CustomerStore", "Web2WalletBalance"],
+                    "functions": [
+                        "getStatusColor",
+                        "getStatusOptions",
+                        "pancakePhone",
+                        "renderCommentItem"
+                    ]
+                },
+                {
+                    "file": "live-chat/js/live/live-comment-list-state.js",
+                    "lines": 274,
+                    "purpose": "WEB2.0 module.",
+                    "globals": [],
+                    "uses": ["Web2Chat", "Web2WalletBalance"],
+                    "functions": [
+                        "_appendOlderBatch",
+                        "_attachWalletBalances",
+                        "_ensureScrollSentinel",
+                        "_filteredAll",
+                        "_orderCount",
+                        "_shouldAnimateNew",
+                        "_updateRealCommentTotal",
+                        "_updateTotalBadge",
+                        "_visibleComments",
+                        "resetRenderLimit",
+                        "schedule",
+                        "step"
                     ]
                 },
                 {
@@ -1733,7 +1781,7 @@
                 },
                 {
                     "file": "live-chat/js/live/live-livestream-snap-actions.js",
-                    "lines": 569,
+                    "lines": 580,
                     "purpose": "WEB2.0 module.",
                     "globals": ["LiveSnap"],
                     "uses": ["Popup"],
@@ -1751,7 +1799,7 @@
                 },
                 {
                     "file": "live-chat/js/live/live-livestream-snap-capture.js",
-                    "lines": 400,
+                    "lines": 406,
                     "purpose": "WEB2.0 module.",
                     "globals": ["LiveSnap"],
                     "uses": [],
@@ -1776,7 +1824,7 @@
                 },
                 {
                     "file": "live-chat/js/live/live-livestream-snap-extract.js",
-                    "lines": 405,
+                    "lines": 413,
                     "purpose": "WEB2.0 module.",
                     "globals": ["LiveSnap"],
                     "uses": [],
@@ -1815,7 +1863,7 @@
                 },
                 {
                     "file": "live-chat/js/live/live-livestream-snap-lock.js",
-                    "lines": 185,
+                    "lines": 187,
                     "purpose": "WEB2.0 module.",
                     "globals": ["LiveSnap"],
                     "uses": ["Popup", "API_CONFIG", "Web2SSE"],
@@ -1836,7 +1884,7 @@
                 },
                 {
                     "file": "live-chat/js/live/live-livestream-snap-render.js",
-                    "lines": 700,
+                    "lines": 705,
                     "purpose": "WEB2.0 module.",
                     "globals": ["LiveSnap"],
                     "uses": ["Popup"],
@@ -1865,7 +1913,7 @@
                 },
                 {
                     "file": "live-chat/js/live/live-livestream-snap-seek.js",
-                    "lines": 482,
+                    "lines": 496,
                     "purpose": "WEB2.0 module.",
                     "globals": ["LiveSnap"],
                     "uses": [],
@@ -1893,7 +1941,7 @@
                 },
                 {
                     "file": "live-chat/js/live/live-livestream-snap-state.js",
-                    "lines": 389,
+                    "lines": 388,
                     "purpose": "WEB2.0 module.",
                     "globals": ["LiveSnap"],
                     "uses": ["Web2Auth"],
@@ -1928,7 +1976,7 @@
                 },
                 {
                     "file": "live-chat/js/live/live-livestream-snap-stream.js",
-                    "lines": 544,
+                    "lines": 546,
                     "purpose": "WEB2.0 module.",
                     "globals": ["LiveSnap"],
                     "uses": [],
@@ -1955,7 +2003,7 @@
                 },
                 {
                     "file": "live-chat/js/live/live-livestream-snap-ui.js",
-                    "lines": 374,
+                    "lines": 377,
                     "purpose": "WEB2.0 module.",
                     "globals": ["LiveSnap"],
                     "uses": ["Popup"],
@@ -8397,6 +8445,16 @@
             "count": 4
         },
         {
+            "fn": "schedule",
+            "files": [
+                "live-chat/js/live/live-comment-list-render-list.js",
+                "live-chat/js/live/live-comment-list-state.js",
+                "live-chat/js/shared/live-comments-stream.js",
+                "web2/photo-studio/photo-studio-edit.js"
+            ],
+            "count": 4
+        },
+        {
             "fn": "sendMessage",
             "files": [
                 "live-chat/js/pancake/pancake-chat-window.js",
@@ -8748,7 +8806,7 @@
             "fn": "renderComments",
             "files": [
                 "live-chat/js/live/comments-mobile.js",
-                "live-chat/js/live/live-comment-list.js",
+                "live-chat/js/live/live-comment-list-render-list.js",
                 "live-chat/js/live/live-kho-enricher.js"
             ],
             "count": 3
@@ -8777,15 +8835,6 @@
                 "web2/products/js/web2-products-state.js",
                 "web2/purchase-refund/js/purchase-refund-state.js",
                 "web2/shared/web2-escape.js"
-            ],
-            "count": 3
-        },
-        {
-            "fn": "schedule",
-            "files": [
-                "live-chat/js/live/live-comment-list.js",
-                "live-chat/js/shared/live-comments-stream.js",
-                "web2/photo-studio/photo-studio-edit.js"
             ],
             "count": 3
         },
@@ -8837,9 +8886,18 @@
         {
             "fn": "showLoading",
             "files": [
-                "live-chat/js/live/live-comment-list.js",
+                "live-chat/js/live/live-comment-list-render-list.js",
                 "web2/photo-studio/photo-studio-state.js",
                 "web2/shared/web2-qr-modal.js"
+            ],
+            "count": 3
+        },
+        {
+            "fn": "step",
+            "files": [
+                "live-chat/js/live/live-comment-list-render-list.js",
+                "live-chat/js/live/live-comment-list-state.js",
+                "web2/shared/web2-effects.js"
             ],
             "count": 3
         },
@@ -8893,10 +8951,6 @@
         {
             "file": "native-orders/js/native-orders-app.js",
             "lines": 9457
-        },
-        {
-            "file": "live-chat/js/live/live-comment-list.js",
-            "lines": 2460
         },
         {
             "file": "live-chat/js/pancake/pancake-token-manager.js",

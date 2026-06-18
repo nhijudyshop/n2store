@@ -1,5 +1,24 @@
 # Dev Log
 
+## 2026-06-19
+
+### [web2-modular] live-comment-list.js (2459 dòng) → 7 module ✅ MOVE-only
+
+`live-chat/js/live/live-comment-list.js` (object literal `LiveCommentList`, 2459 dòng) → 7 module nhỏ (<800L, max 742L):
+
+- **base** (108L): helpers `liveSvgIcon`/`liveAttr`/`_liveW2Auth` + const `RENDER_LIMIT_*` + `_Live_ICON_PATHS` → internal NS `window._LiveCmtList`; tạo SHELL `window.LiveCommentList = {}`.
+- **state** (273L): `_filteredAll`/`_visibleComments`/badges tổng comment+đơn/`_ensureScrollSentinel`/`_appendOlderBatch`/drag-flush.
+- **events** (263L): `renderContainer`/`setupEventHandlers`/`_bindListDelegation`/`_onListClick` (delegated data-action).
+- **render-list** (742L): scroll/load-more/CRM+campaign options/`renderComments`+dispatch full/patch-chunked/`prependComments`/loading/error.
+- **render-row** (274L): `renderCommentItem` (HTML 1 dòng) + status options/colors.
+- **actions** (467L): select/status dropdown/lưu SĐT-địa chỉ (Web2Optimistic)/save-to-Live/reply/conn+debt badges.
+- **orders** (444L): `createOrder` (NativeOrdersApi)/`refreshCommentItem`/popup KH (kho web2_customers).
+
+Mỗi module `Object.assign(window.LiveCommentList, {...})` vào CÙNG object → `this.method()` + external `window.LiveCommentList.method()` (app-init, live-kho-enricher wrap `renderComments`, live-init) giữ nguyên.
+
+- **Verify**: node --check 7/7 PASS; ordered diff (ws-stripped) = chỉ khác 5 dòng trống ở ranh giới module → method bodies BYTE-IDENTICAL (`diff -B` = 0); 56/56 method giữ nguyên (không trùng/sót); 6 eventBus topic + CustomEvent `liveCommentSelected` + 3 inline onclick + 14 data-action + 12 delegation case = đủ.
+- index.html: thay 1 dòng `<script>` bằng 7 module `?v=20260618w3`, giữ neighbor `live-native-orders-api.js` (trên) + `live-hidden-commenters.js` (dưới). Xóa file gốc (orphaned).
+
 ## 2026-06-18
 
 ### [web2-modular] Wave 3 — so-order-app.js (5932 dòng, file LỚN NHẤT project) → 23 module ✅

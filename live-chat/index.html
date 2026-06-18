@@ -790,7 +790,18 @@
         <script src="js/live/live-state.js?v=20260616g"></script>
         <script src="js/live/live-api.js?v=20260616g"></script>
         <script src="js/live/live-native-orders-api.js?v=20260616g"></script>
-        <script src="js/live/live-comment-list.js?v=20260616g"></script>
+        <!-- live-comment-list split MOVE-only (2026-06-19) thành 7 module nhỏ
+             (<800 dòng). Public API window.LiveCommentList: base tạo SHELL rỗng,
+             các module Object.assign methods vào CÙNG object. Internal namespace
+             window._LiveCmtList chứa helpers. Load theo thứ tự phụ thuộc:
+             base → state → events → render-list → render-row → actions → orders. -->
+        <script src="js/live/live-comment-list-base.js?v=20260618w3"></script>
+        <script src="js/live/live-comment-list-state.js?v=20260618w3"></script>
+        <script src="js/live/live-comment-list-events.js?v=20260618w3"></script>
+        <script src="js/live/live-comment-list-render-list.js?v=20260618w3"></script>
+        <script src="js/live/live-comment-list-render-row.js?v=20260618w3"></script>
+        <script src="js/live/live-comment-list-actions.js?v=20260618w3"></script>
+        <script src="js/live/live-comment-list-orders.js?v=20260618w3"></script>
         <script src="js/live/live-hidden-commenters.js?v=20260616g"></script>
         <script src="js/live/live-customer-panel.js?v=20260616g"></script>
         <script src="js/live/live-realtime.js?v=20260616g"></script>
