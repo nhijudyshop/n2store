@@ -2,6 +2,17 @@
 
 ## 2026-06-18
 
+### [convention] Web 2.0 — tách nhiều module nhỏ + share dùng chung (nguyên tắc gốc) 📌
+
+**User chốt:** "web 2.0 cứ tách ra nhiều module để code → có gì share nhau dùng được → dễ bảo trì, bảo dưỡng, logic code thống nhất."
+
+**Nguyên tắc** (đã ghi CLAUDE.md §"Quy tắc khi code" item 0 + MEMORY [[feedback_web2_modular_shared]]):
+
+- Tách module nhỏ theo feature/domain (200-400 dòng, max 800). KHÔNG nhồi file khổng lồ — bài học ngược `native-orders-app.js` 9456 dòng coupling sâu → migrate cực khó.
+- Cái gì ≥2 nơi cần → **shared 1 nguồn** ở `web2/shared/`, mọi trang tham chiếu; KHÔNG copy/fork. Trang chỉ điều phối + truyền context/callback.
+- Why: dễ bảo trì/bảo dưỡng, logic thống nhất (sửa 1 chỗ → mọi nơi), tránh drift.
+- Mẫu chuẩn: `Web2CustomerChat`, `Web2Popup`, `Web2Lottie`, `Web2QR`, `Web2CustomerStore`, `Web2SuppliersCache`, `Web2Optimistic`, `Web2SSE`, `Web2BarcodeScanner`, `Web2ProductCounter`.
+
 ### [web2-chat] Hợp nhất chat về 1 nguồn Web2CustomerChat — Phase 0/1/1b/2 XONG ✅ (Phase 3/4 native còn lại)
 
 **User:** "hợp nhất 2 cái (pancake 3-cột + zalo) thành Web2CustomerChat dùng chung, kiểm lại tất cả modal pancake/zalo để dùng nó → đồng bộ toàn web về 1 nguồn."

@@ -293,6 +293,7 @@ Project có 2 layer song song. Khi chạm code/data phải biết nó thuộc la
 
 ### Quy tắc khi code
 
+0. **Tách module nhỏ + share dùng chung (NGUYÊN TẮC GỐC, BẮT BUỘC — 2026-06-18)**: code Web 2.0 LUÔN tách thành **nhiều module nhỏ** (theo feature/domain, 200-400 dòng, max 800 — KHÔNG nhồi file khổng lồ; bài học ngược: `native-orders-app.js` 9456 dòng coupling sâu → migrate cực khó). Cái gì **≥2 nơi dùng được → làm shared 1 nguồn** trong `web2/shared/` cho mọi trang tham chiếu; **KHÔNG copy-paste / dựng lại / fork logic**. Trang chỉ điều phối + truyền context/callback, source-of-truth nằm ở module shared. **Why:** dễ bảo trì + bảo dưỡng, logic code thống nhất (sửa 1 chỗ áp dụng mọi nơi), tránh drift. Trước khi viết mới: tìm shared đã có (`web2/shared/`) → tái dùng; chưa có mà nhiều nơi cần → build shared rồi gọi. Mẫu chuẩn: `Web2CustomerChat` (chat KH 3-cột Pancake + Zalo, gộp cả readonly), `Web2Popup`, `Web2Lottie`, `Web2QR`, `Web2CustomerStore`, `Web2SuppliersCache`, `Web2Optimistic`, `Web2SSE`, `Web2BarcodeScanner`, `Web2ProductCounter`.
 1. **Marker bắt buộc cho file mới Web 2.0**: thêm token `WEB2.0` vào #Note header.
     - Vd: `// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 module.`
 2. **Đặt tên DB table/Firestore mới**: prefix `web2_` cho CẢ Postgres VÀ Firestore. Không dùng suffix `_v1`/`_v2` cho Firestore nữa (đã rename 2026-05-25 — xem dev-log).
