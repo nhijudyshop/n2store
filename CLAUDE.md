@@ -69,14 +69,18 @@ When working on this project, always reference the documentation in `/docs` fold
 - `docs/render/render.md` - Render.com API Server — endpoints, services, cron, WebSocket, SSE
 - `shared/README.md` - Shared library documentation (auth, cache, utils, TPOS client)
 
-### Pancake / TPOS Reference (BẮT BUỘC)
+### Pancake Reference (BẮT BUỘC) — browser-test trang THẬT, KHÔNG dùng docs cũ
 
-Khi code liên quan đến **Pancake** hoặc **TPOS**, **PHẢI đọc mục lục** của 2 file sau trước khi code:
+⚠️ Docs Pancake cũ (`docs/pancake/`) đã **XOÁ** (2026-06-18, lỗi thời + lâu không cập nhật). **KHÔNG tạo lại, KHÔNG dựa vào doc tĩnh cho Pancake.**
 
-- `docs/pancake/PancakeWebsite.md` — Mục lục Pancake (API, webhooks, modules)
-- `docs/tpos/TposWebsite.md` — Mục lục TPOS (controllers, OData, modules, integrations)
+Khi cần chi tiết Pancake (API, network, cấu trúc từng trang con) → **browser-test trực tiếp pancake.vn** bằng session trong `serect_dont_push.txt` (block `PANCAKE_*`: `PANCAKE_SESSION_ID`/`PANCAKE_JWT`/cookies + state `downloads/n2store-session/pancake-state.json` để inject vào BrowserContext). Đây là **nguồn CHUẨN duy nhất** cho Pancake.
 
-Điều này giúp hiểu rõ cấu trúc, tìm đúng API/endpoint, tránh code sai logic.
+- Trang quản lý bài viết / livestream (đang + đã live): `https://pancake.vn/NhiJudyStore/post` + `https://pancake.vn/NhiJudyHouse.VietNam/post`
+- Mở browser test (n2store-browser-session) → inject session Pancake → nav 2 URL trên → xem DOM/network thật của từng trang con để hiểu API/endpoint.
+
+### TPOS Reference (BẮT BUỘC)
+
+Khi code liên quan **TPOS**, đọc mục lục `docs/tpos/TposWebsite.md` (controllers, OData, modules, integrations) trước khi code.
 
 ## Shared Library Structure
 

@@ -2,6 +2,17 @@
 
 ## 2026-06-18
 
+### [docs/pancake] XOÁ docs Pancake cũ → browser-test trang thật làm nguồn chuẩn ✅
+
+**User:** "đừng đọc docs pancake nữa, xoá đi, mấy file đó cũ lâu chưa cập nhật → cần thì browser test pancake theo cookie ở secret coi chi tiết từng trang con". Nguồn chuẩn: `pancake.vn/NhiJudyStore/post` + `pancake.vn/NhiJudyHouse.VietNam/post`.
+
+**Đã làm:**
+
+- Xoá `docs/pancake/` (PancakeWebsite.md 78KB, cập nhật cuối 18/05 — lỗi thời). Không code nào reference path này.
+- [CLAUDE.md](../CLAUDE.md) §"Pancake Reference": thay rule "đọc docs" → browser-test trực tiếp pancake.vn bằng session `PANCAKE_*` trong serect_dont_push.txt (SESSION_ID/JWT/cookies + `downloads/n2store-session/pancake-state.json`). TPOS giữ nguyên (`docs/tpos/TposWebsite.md`).
+- MEMORY.md + memory `reference_pancake_browser_test` cập nhật; gỡ citation `(docs/pancake §14)` treo trong `reference_web1_realtime_msg_column`.
+- dev-log entry lịch sử (L1784 cũ) có nhắc `docs/pancake §...` → GIỮ nguyên (append-only record).
+
 ### [web2/multi-tool] Tăng comment auto-clean triệt để — mark conv.id THẬT của comment boost ✅
 
 **User:** "Dọn comment đã tăng là gì? Khi tăng comment dọn luôn được không, không cho hiện như [feed live-chat lọt comment tăng NGNgkPh/5qTl/by2…]".
