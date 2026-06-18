@@ -2,6 +2,20 @@
 
 ## 2026-06-18
 
+### [web2-chat] Hợp nhất chat về 1 nguồn Web2CustomerChat — Phase 0/1/1b/2 XONG ✅ (Phase 3/4 native còn lại)
+
+**User:** "hợp nhất 2 cái (pancake 3-cột + zalo) thành Web2CustomerChat dùng chung, kiểm lại tất cả modal pancake/zalo để dùng nó → đồng bộ toàn web về 1 nguồn."
+
+**Đã làm (verified browser + commit):**
+
+- **Phase 0+1** (`04e3ed084`) — [web2-customer-chat.js](../web2/shared/web2-customer-chat.js) thêm `open({layout:'modal'})` = **3-cột Pancake**: sidebar [tìm kiếm hội thoại + danh sách] + thread (Web2ChatPanel). Drawer cũ giữ mặc định (11 caller zero-risk). Verified: 150 hội thoại, search "Thảo"→135, click row load thread thật.
+- **Phase 1b** (`559786ffb`) — **XOÁ `web2-chat-readonly.js`**, gộp vào `Web2CustomerChat({layout:'modal',readonly})`. Migrate 7 call site (balance-history, pending-match có `onPick` picker, customer-detail-modal). Thêm flags `readonly`/`query`/`onPick`. Verified: balance-history readonly modal mở, no composer.
+- **Phase 2** (`cb98b8a91`) — jt-tracking Zalo drawer → `Web2CustomerChat.open({conversationId,channel:'zalo',pancakeEnabled:false,onReady})`. Drawer thêm `conversationId`/`pancakeEnabled`/`zaloEnabled`/`onReady`. Verified: drawer Zalo-only (ẩn tab Pancake).
+
+**CÒN LẠI — Phase 3+4 (native-orders, RỦI RO CAO, chưa làm):** native-orders-app.js (9456 dòng) có modal 3-cột riêng + info panel + comments + order-history + quick-reply coupling sâu. Migrate qua callback `context.renderInfo/renderComments`. ⚠ native-orders chat HIỆN VẪN CHẠY (đã fix resolve theo SĐT ở `26a18e91c`) — chưa dùng Web2CustomerChat. Làm dedicated + verify trên data thật. Kế hoạch đầy đủ: [docs/web2/CHAT-UNIFICATION-PLAN.md](web2/CHAT-UNIFICATION-PLAN.md).
+
+**Engine dùng chung (không đổi):** Web2ChatPanel (thread), Web2Zalo (Zalo), Web2Chat (API). Web2CustomerChat điều phối.
+
 ### [so-order] Cắm Quét mã (camera) + Đọc nhãn (OCR) vào modal "Thêm sản phẩm" — nhập kho từ pack ✅
 
 **User chọn a+b+c.** (a) = cắm camera-read vào **so-order** (warehouse intake — chỗ dùng đúng nhất của OCR/scan).
