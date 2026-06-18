@@ -1,10 +1,10 @@
 {
-    "generatedAt": "2026-06-18 23:17",
+    "generatedAt": "2026-06-18 23:28",
     "totals": {
-        "files": 291,
+        "files": 296,
         "sharedModules": 78,
-        "functions": 2549,
-        "oversized": 8
+        "functions": 2557,
+        "oversized": 7
     },
     "sharedModules": [
         {
@@ -146,8 +146,8 @@
                 "live-chat/js/pancake/inventory-panel-state.js",
                 "live-chat/js/pancake/pancake-api.js",
                 "live-chat/js/pancake/pancake-chat-window.js",
+                "live-chat/js/pancake/pancake-page-access-tokens.js",
                 "live-chat/js/pancake/pancake-state.js",
-                "live-chat/js/pancake/pancake-token-manager.js",
                 "live-chat/js/shared/debt-manager.js",
                 "live-chat/js/shared/live-customer-sync.js",
                 "native-orders/js/native-orders-api.js",
@@ -259,6 +259,7 @@
                 "live-chat/js/pancake/pancake-chat-window.js",
                 "live-chat/js/pancake/pancake-realtime.js",
                 "live-chat/js/pancake/pancake-token-manager.js",
+                "live-chat/js/pancake/pancake-token-sources.js",
                 "native-orders/js/native-orders-app.js",
                 "web2/balance-history/js/web2-pm-customer-search.js",
                 "web2/customers/js/customers-events.js",
@@ -1363,7 +1364,7 @@
                 },
                 {
                     "file": "live-chat/js/live/comments-mobile-render.js",
-                    "lines": 387,
+                    "lines": 400,
                     "purpose": "WEB2.0 module.",
                     "globals": ["LCM"],
                     "uses": [],
@@ -2320,6 +2321,14 @@
                     ]
                 },
                 {
+                    "file": "live-chat/js/pancake/pancake-firestore-accounts.js",
+                    "lines": 228,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["PancakeFirestoreAccounts"],
+                    "uses": [],
+                    "functions": ["getTokenFromFirestore", "loadAccounts", "saveTokenToFirestore"]
+                },
+                {
                     "file": "live-chat/js/pancake/pancake-init.js",
                     "lines": 341,
                     "purpose": "PANCAKE INIT - Orchestrate Pancake column initialization",
@@ -2375,6 +2384,14 @@
                     ]
                 },
                 {
+                    "file": "live-chat/js/pancake/pancake-page-access-tokens.js",
+                    "lines": 148,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["PancakePageAccessTokens"],
+                    "uses": ["API_CONFIG"],
+                    "functions": ["buildEntry", "generate", "load"]
+                },
+                {
                     "file": "live-chat/js/pancake/pancake-page-selector.js",
                     "lines": 167,
                     "purpose": "PANCAKE PAGE SELECTOR - Page dropdown selector",
@@ -2427,11 +2444,25 @@
                     ]
                 },
                 {
+                    "file": "live-chat/js/pancake/pancake-token-codec.js",
+                    "lines": 220,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["PancakeTokenCodec"],
+                    "uses": [],
+                    "functions": [
+                        "analyzeToken",
+                        "base64UrlDecode",
+                        "cleanToken",
+                        "decodeToken",
+                        "isTokenExpired"
+                    ]
+                },
+                {
                     "file": "live-chat/js/pancake/pancake-token-manager.js",
-                    "lines": 1310,
-                    "purpose": "PANCAKE TOKEN MANAGER (Web 2.0 live-chat) — 1 NGUỒN: pancake_accounts",
-                    "globals": [],
-                    "uses": ["API_CONFIG", "Web2Chat", "Web2PancakeAccounts"],
+                    "lines": 800,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["PancakeTokenManager"],
+                    "uses": ["Web2Chat", "Web2PancakeAccounts"],
                     "functions": [
                         "addAccount",
                         "base64UrlDecode",
@@ -2468,6 +2499,29 @@
                         "setTokenManual",
                         "valid",
                         "withTimeout"
+                    ]
+                },
+                {
+                    "file": "live-chat/js/pancake/pancake-token-sources.js",
+                    "lines": 56,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["PancakeTokenSources"],
+                    "uses": ["Web2Chat"],
+                    "functions": ["getTokenFromCookie", "getWeb2ChatPageAccessTokens"]
+                },
+                {
+                    "file": "live-chat/js/pancake/pancake-token-storage.js",
+                    "lines": 140,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["PancakeTokenStorage"],
+                    "uses": [],
+                    "functions": [
+                        "clearPageAccessTokens",
+                        "clearToken",
+                        "getPageAccessTokens",
+                        "getToken",
+                        "savePageAccessTokens",
+                        "saveToken"
                     ]
                 },
                 {
@@ -8397,6 +8451,16 @@
             "count": 4
         },
         {
+            "fn": "loadAccounts",
+            "files": [
+                "live-chat/js/pancake/pancake-firestore-accounts.js",
+                "live-chat/js/pancake/pancake-token-manager.js",
+                "web2/pancake-settings/js/pancake-settings-api.js",
+                "web2/zalo/js/web2-zalo-accounts.js"
+            ],
+            "count": 4
+        },
+        {
             "fn": "loadHistory",
             "files": [
                 "web2/ck-dashboard/js/ck-dashboard-app.js",
@@ -8720,6 +8784,15 @@
             "count": 3
         },
         {
+            "fn": "getToken",
+            "files": [
+                "live-chat/js/pancake/pancake-api.js",
+                "live-chat/js/pancake/pancake-token-manager.js",
+                "live-chat/js/pancake/pancake-token-storage.js"
+            ],
+            "count": 3
+        },
+        {
             "fn": "handleAction",
             "files": [
                 "live-chat/js/pancake/pancake-context-menu.js",
@@ -8743,15 +8816,6 @@
                 "web2/shared/web2-products-cache.js",
                 "web2/shared/web2-suppliers-cache.js",
                 "web2/shared/web2-variants-cache.js"
-            ],
-            "count": 3
-        },
-        {
-            "fn": "loadAccounts",
-            "files": [
-                "live-chat/js/pancake/pancake-token-manager.js",
-                "web2/pancake-settings/js/pancake-settings-api.js",
-                "web2/zalo/js/web2-zalo-accounts.js"
             ],
             "count": 3
         },
@@ -9003,10 +9067,6 @@
         {
             "file": "native-orders/js/native-orders-app.js",
             "lines": 9457
-        },
-        {
-            "file": "live-chat/js/pancake/pancake-token-manager.js",
-            "lines": 1310
         },
         {
             "file": "live-chat/server/server.js",

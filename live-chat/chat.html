@@ -377,7 +377,14 @@
 
         <!-- Pancake modules — FULL stack (pancake-init tự initialize khi thấy
              #pancakeContent) -->
-        <script src="js/pancake/pancake-token-manager.js?v=20260611a"></script>
+        <!-- pancake-token-manager.js tách MOVE-only thành namespace modules (2026-06-18):
+             codec → storage → sources → page-access → firestore → manager (class LAST). -->
+        <script src="js/pancake/pancake-token-codec.js?v=20260618w3"></script>
+        <script src="js/pancake/pancake-token-storage.js?v=20260618w3"></script>
+        <script src="js/pancake/pancake-token-sources.js?v=20260618w3"></script>
+        <script src="js/pancake/pancake-page-access-tokens.js?v=20260618w3"></script>
+        <script src="js/pancake/pancake-firestore-accounts.js?v=20260618w3"></script>
+        <script src="js/pancake/pancake-token-manager.js?v=20260618w3"></script>
         <script src="js/pancake/pancake-state.js?v=20260611a"></script>
         <script src="js/pancake/pancake-api.js?v=20260615auth"></script>
         <script src="js/pancake/pancake-page-selector.js?v=20260611a"></script>

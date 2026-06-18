@@ -1,18 +1,17 @@
-// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes.
-// =====================================================
+// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 module.
 // PANCAKE TOKEN MANAGER (Web 2.0 live-chat) — 1 NGUỒN: pancake_accounts
-// =====================================================
-// 2026-06-09: NGUỒN DUY NHẤT của token = bảng `pancake_accounts` (server
-// auto-login pure-Node, quản lý ở web2/pancake-settings). initialize() sync qua
-// Web2Chat.syncFromRenderDB → /api/pancake-accounts (tự chọn account CÒN HẠN) →
-// ghi localStorage canonical. addAccount/deleteAccount cũng ghi/xóa ở
-// pancake_accounts (qua Web2PancakeAccounts). KHÔNG còn đọc/ghi Firestore
-// `pancake_tokens` (nguồn cũ stale gây "Cannot activate expired account").
-// Firestore + manager Web 1.0 (shared/, orders-report/) KHÔNG đụng.
-//
-// Token retrieval (getToken): memory → localStorage → Web2Chat sync (canonical).
-// Các method *Firestore* còn lại là no-op (accountsRef không set) — fallback trơ.
-// =====================================================
+// 2026-06-09: NGUỒN DUY NHẤT của token = bảng `pancake_accounts` (server auto-login
+// pure-Node, quản lý ở web2/pancake-settings). initialize() sync qua
+// Web2Chat.syncFromRenderDB → /api/pancake-accounts (tự chọn account CÒN HẠN) → ghi
+// localStorage canonical. addAccount/deleteAccount ghi/xóa ở pancake_accounts (qua
+// Web2PancakeAccounts). KHÔNG còn đọc/ghi Firestore `pancake_tokens` (nguồn cũ stale
+// gây "Cannot activate expired account"). Firestore + manager Web 1.0 KHÔNG đụng.
+// getToken: memory → localStorage → Web2Chat sync. Method *Firestore* còn lại no-op.
+// 2026-06-18 (MOVE-only split): pure helpers tách ra namespace modules, class CHỈ giữ
+// instance state + orchestration, methods DELEGATE sang: PancakeTokenCodec (codec) /
+// PancakeTokenStorage (localStorage) / PancakeTokenSources (cookie/Web2Chat) /
+// PancakePageAccessTokens (PAT) / PancakeFirestoreAccounts (Firestore accounts).
+// Load order BẮT BUỘC: codec → storage → sources → page-access → firestore → manager.
 
 class PancakeTokenManager {
     constructor() {
@@ -35,7 +34,39 @@ class PancakeTokenManager {
     }
 
     // =====================================================
+    // CODEC DELEGATES → window.PancakeTokenCodec (pure)
+    // =====================================================
+
+    /**
+     * Decode base64url (JWT uses base64url encoding)
+     * @param {string} str - Base64url encoded string
+     * @returns {string} - Decoded string with proper UTF-8 handling
+     */
+    base64UrlDecode(str) {
+        return window.PancakeTokenCodec.base64UrlDecode(str);
+    }
+
+    /**
+     * Decode JWT token để lấy expiry time
+     * @param {string} token - JWT token
+     * @returns {Object} { exp, uid, name, ... }
+     */
+    decodeToken(token) {
+        return window.PancakeTokenCodec.decodeToken(token);
+    }
+
+    /**
+     * Check if token is expired
+     * @param {number} exp - Expiry timestamp (seconds)
+     * @returns {boolean}
+     */
+    isTokenExpired(exp) {
+        return window.PancakeTokenCodec.isTokenExpired(exp);
+    }
+
+    // =====================================================
     // LOCAL STORAGE METHODS - Fast access without network
+    // Delegate → window.PancakeTokenStorage
     // =====================================================
 
     /**
@@ -44,13 +75,7 @@ class PancakeTokenManager {
      * @param {number} expiry - Token expiry timestamp (seconds)
      */
     saveTokenToLocalStorage(token, expiry) {
-        try {
-            localStorage.setItem(this.LOCAL_STORAGE_KEYS.JWT_TOKEN, token);
-            localStorage.setItem(this.LOCAL_STORAGE_KEYS.JWT_TOKEN_EXPIRY, expiry.toString());
-            console.log('[PANCAKE-TOKEN] ✅ JWT token saved to localStorage');
-        } catch (error) {
-            console.error('[PANCAKE-TOKEN] Error saving token to localStorage:', error);
-        }
+        window.PancakeTokenStorage.saveToken(this.LOCAL_STORAGE_KEYS, token, expiry);
     }
 
     /**
@@ -58,40 +83,14 @@ class PancakeTokenManager {
      * @returns {Object|null} { token, expiry } or null
      */
     getTokenFromLocalStorage() {
-        try {
-            const token = localStorage.getItem(this.LOCAL_STORAGE_KEYS.JWT_TOKEN);
-            const expiry = localStorage.getItem(this.LOCAL_STORAGE_KEYS.JWT_TOKEN_EXPIRY);
-
-            if (!token || !expiry) {
-                return null;
-            }
-
-            const exp = parseInt(expiry, 10);
-            if (this.isTokenExpired(exp)) {
-                console.log('[PANCAKE-TOKEN] localStorage token is expired, clearing...');
-                this.clearTokenFromLocalStorage();
-                return null;
-            }
-
-            console.log('[PANCAKE-TOKEN] ✅ Valid JWT token found in localStorage');
-            return { token, expiry: exp };
-        } catch (error) {
-            console.error('[PANCAKE-TOKEN] Error getting token from localStorage:', error);
-            return null;
-        }
+        return window.PancakeTokenStorage.getToken(this.LOCAL_STORAGE_KEYS);
     }
 
     /**
      * Clear JWT token from localStorage
      */
     clearTokenFromLocalStorage() {
-        try {
-            localStorage.removeItem(this.LOCAL_STORAGE_KEYS.JWT_TOKEN);
-            localStorage.removeItem(this.LOCAL_STORAGE_KEYS.JWT_TOKEN_EXPIRY);
-            console.log('[PANCAKE-TOKEN] JWT token cleared from localStorage');
-        } catch (error) {
-            console.error('[PANCAKE-TOKEN] Error clearing token from localStorage:', error);
-        }
+        window.PancakeTokenStorage.clearToken(this.LOCAL_STORAGE_KEYS);
     }
 
     /**
@@ -99,19 +98,10 @@ class PancakeTokenManager {
      * @param {Object} tokens - { pageId: { token, pageId, pageName, timestamp, savedAt }, ... }
      */
     savePageAccessTokensToLocalStorage(tokens = null) {
-        try {
-            const data = tokens || this.pageAccessTokens;
-            localStorage.setItem(this.LOCAL_STORAGE_KEYS.PAGE_ACCESS_TOKENS, JSON.stringify(data));
-            console.log(
-                '[PANCAKE-TOKEN] ✅ Page access tokens saved to localStorage:',
-                Object.keys(data).length
-            );
-        } catch (error) {
-            console.error(
-                '[PANCAKE-TOKEN] Error saving page access tokens to localStorage:',
-                error
-            );
-        }
+        window.PancakeTokenStorage.savePageAccessTokens(
+            this.LOCAL_STORAGE_KEYS,
+            tokens || this.pageAccessTokens
+        );
     }
 
     /**
@@ -119,39 +109,14 @@ class PancakeTokenManager {
      * @returns {Object} - { pageId: { token, ... }, ... }
      */
     getPageAccessTokensFromLocalStorage() {
-        try {
-            const data = localStorage.getItem(this.LOCAL_STORAGE_KEYS.PAGE_ACCESS_TOKENS);
-            if (!data) {
-                return {};
-            }
-            const parsed = JSON.parse(data);
-            console.log(
-                '[PANCAKE-TOKEN] ✅ Page access tokens loaded from localStorage:',
-                Object.keys(parsed).length
-            );
-            return parsed;
-        } catch (error) {
-            console.error(
-                '[PANCAKE-TOKEN] Error getting page access tokens from localStorage:',
-                error
-            );
-            return {};
-        }
+        return window.PancakeTokenStorage.getPageAccessTokens(this.LOCAL_STORAGE_KEYS);
     }
 
     /**
      * Clear page_access_tokens from localStorage
      */
     clearPageAccessTokensFromLocalStorage() {
-        try {
-            localStorage.removeItem(this.LOCAL_STORAGE_KEYS.PAGE_ACCESS_TOKENS);
-            console.log('[PANCAKE-TOKEN] Page access tokens cleared from localStorage');
-        } catch (error) {
-            console.error(
-                '[PANCAKE-TOKEN] Error clearing page access tokens from localStorage:',
-                error
-            );
-        }
+        window.PancakeTokenStorage.clearPageAccessTokens(this.LOCAL_STORAGE_KEYS);
     }
 
     /**
@@ -264,317 +229,28 @@ class PancakeTokenManager {
     }
 
     /**
-     * Load all accounts from Firestore
+     * Load all accounts from Firestore (delegate → PancakeFirestoreAccounts)
      */
     async loadAccounts() {
-        try {
-            // Add timeout to prevent hanging
-            const doc = await this.withTimeout(this.accountsRef.get(), 5000, 'loadAccounts');
-
-            if (!doc) {
-                // Firestore slow/offline — localStorage already holds a usable copy
-                const hasLocal = this.currentToken || Object.keys(this.pageAccessTokens).length > 0;
-                if (hasLocal) {
-                    console.info(
-                        '[PANCAKE-TOKEN] loadAccounts: using localStorage (Firestore slow)'
-                    );
-                } else {
-                    console.warn('[PANCAKE-TOKEN] loadAccounts timed out, no local data');
-                }
-                return false;
-            }
-
-            const fsAccounts = doc.exists ? doc.data()?.data || {} : {};
-            // MERGE với cache localStorage (Render sync, đã nạp ở loadFromLocalStorage)
-            // — Firestore có thể STALE (token hết hạn) so với Render. Ưu tiên entry
-            // token CÒN HẠN / savedAt mới hơn, KHÔNG để Firestore clobber cache hợp lệ.
-            const merged = { ...(this.accounts || {}) };
-            for (const [id, fa] of Object.entries(fsAccounts)) {
-                const cur = merged[id];
-                if (!cur) {
-                    merged[id] = fa;
-                    continue;
-                }
-                const curExpired = this.isTokenExpired(cur.exp);
-                const faExpired = this.isTokenExpired(fa.exp);
-                if (curExpired && !faExpired) merged[id] = fa;
-                else if (!curExpired && faExpired) {
-                    /* giữ cur (cache còn hạn) */
-                } else if ((Number(fa.savedAt) || 0) > (Number(cur.savedAt) || 0)) {
-                    merged[id] = fa;
-                }
-            }
-            this.accounts = merged;
-
-            // Load active account ID from localStorage (per-device)
-            this.activeAccountId = localStorage.getItem('web2_pancake_active_account_id');
-
-            // If active account is set, load its token
-            if (this.activeAccountId && this.accounts[this.activeAccountId]) {
-                const account = this.accounts[this.activeAccountId];
-                this.currentToken = account.token;
-                this.currentTokenExpiry = account.exp;
-
-                // Sync to localStorage for fast access next time
-                this.saveTokenToLocalStorage(account.token, account.exp);
-            } else if (Object.keys(this.accounts).length > 0) {
-                // Auto-select first account if no active account set
-                const firstAccountId = Object.keys(this.accounts)[0];
-                await this.setActiveAccount(firstAccountId);
-            }
-
-            console.log('[PANCAKE-TOKEN] Loaded accounts:', Object.keys(this.accounts).length);
-            console.log('[PANCAKE-TOKEN] Active account (local):', this.activeAccountId);
-            return true;
-        } catch (error) {
-            console.error('[PANCAKE-TOKEN] Error loading accounts:', error);
-            return false;
-        }
+        return window.PancakeFirestoreAccounts.loadAccounts(this);
     }
 
     /**
-     * Decode base64url (JWT uses base64url encoding)
-     * @param {string} str - Base64url encoded string
-     * @returns {string} - Decoded string with proper UTF-8 handling
-     */
-    base64UrlDecode(str) {
-        try {
-            if (!str || typeof str !== 'string') {
-                throw new Error('Input must be a non-empty string');
-            }
-
-            // Replace URL-safe characters with standard base64 characters
-            let base64 = str.replace(/-/g, '+').replace(/_/g, '/');
-
-            // Add padding if needed
-            const pad = base64.length % 4;
-            if (pad) {
-                if (pad === 1) {
-                    throw new Error('Invalid base64url string length');
-                }
-                base64 += '='.repeat(4 - pad);
-            }
-
-            // Validate base64 characters (should only contain A-Z, a-z, 0-9, +, /, =)
-            const base64Regex = /^[A-Za-z0-9+/]*={0,2}$/;
-            if (!base64Regex.test(base64)) {
-                throw new Error('Invalid characters in base64 string');
-            }
-
-            // Decode base64 to binary string
-            const binaryString = atob(base64);
-
-            // Convert binary string to UTF-8 string
-            // atob() returns a string where each character represents a byte
-            // We need to decode it as UTF-8
-            const bytes = new Uint8Array(binaryString.length);
-            for (let i = 0; i < binaryString.length; i++) {
-                bytes[i] = binaryString.charCodeAt(i);
-            }
-
-            // Decode UTF-8 bytes to proper string
-            const decoded = new TextDecoder('utf-8').decode(bytes);
-            return decoded;
-        } catch (error) {
-            console.error('[PANCAKE-TOKEN] Base64 decode error:', error.message);
-            console.error('[PANCAKE-TOKEN] Input string:', str?.substring(0, 50) + '...');
-            throw error;
-        }
-    }
-
-    /**
-     * Decode JWT token để lấy expiry time
-     * @param {string} token - JWT token
-     * @returns {Object} { exp, uid, name, ... }
-     */
-    decodeToken(token) {
-        try {
-            if (!token || typeof token !== 'string') {
-                console.error('[PANCAKE-TOKEN] Token must be a string');
-                return null;
-            }
-
-            const parts = token.split('.');
-            if (parts.length !== 3) {
-                console.error('[PANCAKE-TOKEN] Token must have 3 parts, got:', parts.length);
-                return null;
-            }
-
-            // Decode payload (second part)
-            const payloadBase64 = parts[1];
-
-            if (!payloadBase64 || payloadBase64.length === 0) {
-                console.error('[PANCAKE-TOKEN] Payload part is empty');
-                return null;
-            }
-
-            const payloadJson = this.base64UrlDecode(payloadBase64);
-            const payload = JSON.parse(payloadJson);
-            return payload;
-        } catch (error) {
-            console.error('[PANCAKE-TOKEN] Error decoding token:', error.message);
-            console.error('[PANCAKE-TOKEN] Error type:', error.name);
-            console.error('[PANCAKE-TOKEN] Token length:', token?.length);
-            console.error('[PANCAKE-TOKEN] Token starts with:', token?.substring(0, 20));
-            console.error('[PANCAKE-TOKEN] Token ends with:', token?.substring(token.length - 20));
-
-            // Check for common issues
-            if (token.includes(' ')) {
-                console.error(
-                    '[PANCAKE-TOKEN] ⚠️ Token contains spaces - this should not happen after cleaning'
-                );
-            }
-            if (token.includes('\n') || token.includes('\r')) {
-                console.error(
-                    '[PANCAKE-TOKEN] ⚠️ Token contains newlines - this should not happen after cleaning'
-                );
-            }
-
-            return null;
-        }
-    }
-
-    /**
-     * Check if token is expired
-     * @param {number} exp - Expiry timestamp (seconds)
-     * @returns {boolean}
-     */
-    isTokenExpired(exp) {
-        if (!exp) return true;
-        const now = Math.floor(Date.now() / 1000); // Convert to seconds
-        const buffer = 60 * 60; // 1 hour buffer
-        return now >= exp - buffer;
-    }
-
-    /**
-     * Lấy token từ Firestore (active account)
+     * Lấy token từ Firestore (active account) (delegate → PancakeFirestoreAccounts)
      * @returns {Promise<string|null>}
      */
     async getTokenFromFirestore() {
-        try {
-            if (!this.accountsRef) {
-                console.warn('[PANCAKE-TOKEN] Firestore not initialized');
-                return null;
-            }
-
-            // Use local activeAccountId (from localStorage)
-            if (!this.activeAccountId) {
-                console.log('[PANCAKE-TOKEN] No active account set (local)');
-                return null;
-            }
-
-            // Get from in-memory cache first (already loaded from Firestore)
-            let data = this.accounts[this.activeAccountId];
-
-            // If not in memory, fetch from Firestore
-            if (!data) {
-                const doc = await this.accountsRef.get();
-                if (doc.exists) {
-                    const allAccounts = doc.data()?.data || {};
-                    data = allAccounts[this.activeAccountId];
-                    // Update memory cache
-                    this.accounts = allAccounts;
-                }
-            }
-
-            if (!data || !data.token) {
-                console.log('[PANCAKE-TOKEN] No token in active account');
-                return null;
-            }
-
-            // Sanitize token - remove 'jwt=' prefix if exists
-            let token = data.token;
-            if (token.startsWith('jwt=')) {
-                token = token.substring(4);
-                console.log('[PANCAKE-TOKEN] Stripped jwt= prefix from Firestore token');
-            }
-
-            // Check expiry
-            const payload = this.decodeToken(token);
-            if (!payload || this.isTokenExpired(payload.exp)) {
-                console.log('[PANCAKE-TOKEN] Token in active account is expired');
-                return null;
-            }
-
-            console.log('[PANCAKE-TOKEN] Valid token found in active account');
-            this.currentToken = token;
-            this.currentTokenExpiry = payload.exp;
-            return token;
-        } catch (error) {
-            console.error('[PANCAKE-TOKEN] Error getting token from Firestore:', error);
-            return null;
-        }
+        return window.PancakeFirestoreAccounts.getTokenFromFirestore(this);
     }
 
     /**
-     * Lưu token vào Firestore (as new account or update existing)
+     * Lưu token vào Firestore (delegate → PancakeFirestoreAccounts)
      * @param {string} token - JWT token (cleaned)
      * @param {string} accountId - Optional account ID, auto-generated if not provided
      * @returns {Promise<string>} - Returns account ID
      */
     async saveTokenToFirestore(token, accountId = null) {
-        try {
-            // Clean token - remove jwt= prefix if exists
-            let cleanedToken = token.trim();
-            if (cleanedToken.startsWith('jwt=')) {
-                cleanedToken = cleanedToken.substring(4).trim();
-            }
-
-            const payload = this.decodeToken(cleanedToken);
-            if (!payload) {
-                console.error('[PANCAKE-TOKEN] Invalid token, cannot save');
-                return null;
-            }
-
-            // Generate account ID if not provided (use uid from token)
-            if (!accountId) {
-                accountId = payload.uid || `account_${Date.now()}`;
-            }
-
-            const data = {
-                token: cleanedToken,
-                exp: payload.exp,
-                uid: payload.uid,
-                name: payload.name || 'Unknown User',
-                savedAt: Date.now(),
-            };
-
-            // Update local state first
-            this.accounts[accountId] = data;
-            this.activeAccountId = accountId;
-            this.currentToken = cleanedToken;
-            this.currentTokenExpiry = payload.exp;
-
-            // Save to localStorage (fast, synchronous) - PRIMARY STORAGE
-            localStorage.setItem('web2_pancake_active_account_id', accountId);
-            this.saveTokenToLocalStorage(cleanedToken, payload.exp);
-
-            // Save to Firestore (async, backup)
-            if (this.accountsRef) {
-                await this.accountsRef.set(
-                    {
-                        data: { [accountId]: data },
-                    },
-                    { merge: true }
-                );
-                console.log('[PANCAKE-TOKEN] ✅ Token saved to Firestore as account:', accountId);
-            }
-
-            console.log('[PANCAKE-TOKEN] ✅ Token saved to localStorage');
-            console.log(
-                '[PANCAKE-TOKEN] ✅ Active account set locally (this device only):',
-                accountId
-            );
-            console.log(
-                '[PANCAKE-TOKEN] Token expires at:',
-                new Date(payload.exp * 1000).toLocaleString()
-            );
-
-            return accountId;
-        } catch (error) {
-            console.error('[PANCAKE-TOKEN] ❌ Error saving token:', error);
-            return null;
-        }
+        return window.PancakeFirestoreAccounts.saveTokenToFirestore(this, token, accountId);
     }
 
     /**
@@ -691,31 +367,11 @@ class PancakeTokenManager {
     }
 
     /**
-     * Lấy token từ cookie Pancake.vn
+     * Lấy token từ cookie Pancake.vn (delegate → PancakeTokenSources)
      * @returns {string|null}
      */
     getTokenFromCookie() {
-        try {
-            const cookies = document.cookie.split(';');
-            const jwtCookie = cookies.find((c) => c.trim().startsWith('jwt='));
-            if (jwtCookie) {
-                // Split by '=' and take everything after the first '='
-                const parts = jwtCookie.split('=');
-                // Join back in case JWT contains '=' characters
-                let token = parts.slice(1).join('=').trim();
-
-                // Strip 'jwt=' prefix if exists (safety check)
-                if (token.startsWith('jwt=')) {
-                    token = token.substring(4);
-                }
-
-                console.log('[PANCAKE-TOKEN] Token found in cookie');
-                return token;
-            }
-        } catch (error) {
-            console.error('[PANCAKE-TOKEN] Error reading token from cookie:', error);
-        }
-        return null;
+        return window.PancakeTokenSources.getTokenFromCookie();
     }
 
     /**
@@ -804,10 +460,7 @@ class PancakeTokenManager {
 
             // Web2Chat also refreshes page access tokens — merge them in so message
             // fetch/send can use page_access_token without another round-trip.
-            const web2PageTokens =
-                typeof window.Web2Chat.getAllPageAccessTokens === 'function'
-                    ? window.Web2Chat.getAllPageAccessTokens()
-                    : null;
+            const web2PageTokens = window.PancakeTokenSources.getWeb2ChatPageAccessTokens();
             if (web2PageTokens && Object.keys(web2PageTokens).length > 0) {
                 this.pageAccessTokens = { ...(this.pageAccessTokens || {}), ...web2PageTokens };
                 this.savePageAccessTokensToLocalStorage();
@@ -833,22 +486,8 @@ class PancakeTokenManager {
 
             console.log('[PANCAKE-TOKEN] Cleaning token input...');
 
-            // Clean token - trim whitespace and newlines
-            let cleanedToken = token.trim();
-
-            // Remove jwt= prefix if exists (case insensitive)
-            if (cleanedToken.toLowerCase().startsWith('jwt=')) {
-                cleanedToken = cleanedToken.substring(4).trim();
-            }
-
-            // Remove quotes if present
-            cleanedToken = cleanedToken.replace(/^["']|["']$/g, '');
-
-            // Remove any whitespace, tabs, newlines within the token
-            cleanedToken = cleanedToken.replace(/\s+/g, '');
-
-            // Remove trailing semicolons or commas
-            cleanedToken = cleanedToken.replace(/[;,]+$/g, '');
+            // Clean token (strip jwt= prefix, quotes, whitespace, trailing punctuation)
+            const cleanedToken = window.PancakeTokenCodec.cleanToken(token);
 
             console.log('[PANCAKE-TOKEN] Cleaned token length:', cleanedToken.length);
 
@@ -992,126 +631,26 @@ class PancakeTokenManager {
     }
 
     /**
-     * Debug function to analyze token format
+     * Debug function to analyze token format (delegate → PancakeTokenCodec)
      * @param {string} token - JWT token to analyze
      * @returns {Object} - Analysis results
      */
     debugToken(token) {
-        const result = {
-            valid: false,
-            issues: [],
-            info: {},
-        };
-
-        try {
-            result.info.originalLength = token.length;
-            result.info.hasSpaces = token.includes(' ');
-            result.info.hasNewlines = token.includes('\n') || token.includes('\r');
-            result.info.hasPrefix = token.toLowerCase().startsWith('jwt=');
-
-            // Clean token
-            let cleaned = token.trim();
-            if (cleaned.toLowerCase().startsWith('jwt=')) {
-                cleaned = cleaned.substring(4).trim();
-            }
-            cleaned = cleaned.replace(/^["']|["']$/g, '');
-            cleaned = cleaned.replace(/\s+/g, '');
-            cleaned = cleaned.replace(/[;,]+$/g, '');
-
-            result.info.cleanedLength = cleaned.length;
-
-            // Check parts
-            const parts = cleaned.split('.');
-            result.info.parts = parts.length;
-            result.info.partLengths = parts.map((p) => p.length);
-
-            if (parts.length !== 3) {
-                result.issues.push(`Token có ${parts.length} phần, cần 3 phần`);
-                return result;
-            }
-
-            if (!parts[0] || !parts[1] || !parts[2]) {
-                result.issues.push('Token có phần trống');
-                return result;
-            }
-
-            // Try to decode
-            try {
-                const payload = this.decodeToken(cleaned);
-                if (payload) {
-                    result.valid = true;
-                    result.info.name = payload.name;
-                    result.info.uid = payload.uid;
-                    result.info.exp = payload.exp;
-                    result.info.expiryDate = new Date(payload.exp * 1000).toLocaleString('vi-VN');
-                    result.info.isExpired = this.isTokenExpired(payload.exp);
-                } else {
-                    result.issues.push('Không thể giải mã payload');
-                }
-            } catch (decodeError) {
-                result.issues.push('Lỗi giải mã: ' + decodeError.message);
-            }
-
-            return result;
-        } catch (error) {
-            result.issues.push('Lỗi phân tích: ' + error.message);
-            return result;
-        }
+        return window.PancakeTokenCodec.analyzeToken(token);
     }
 
     // =====================================================
     // PAGE ACCESS TOKEN METHODS (for Official API - pages.fm)
+    // Orchestration giữ ở class (cần this.* state); thao tác thuần
+    // (decode timestamp, fetch generate, persistence) DELEGATE →
+    // window.PancakePageAccessTokens.
     // =====================================================
 
     /**
      * Load page access tokens from Firestore
      */
     async loadPageAccessTokens() {
-        try {
-            if (!this.pageTokensRef) {
-                console.warn('[PANCAKE-TOKEN] pageTokensRef not initialized');
-                return;
-            }
-
-            // Add timeout to prevent hanging
-            const doc = await this.withTimeout(
-                this.pageTokensRef.get(),
-                5000,
-                'loadPageAccessTokens'
-            );
-
-            if (!doc) {
-                // Firestore slow/offline — localStorage already holds a usable copy
-                const hasLocal = Object.keys(this.pageAccessTokens).length > 0;
-                if (hasLocal) {
-                    console.info(
-                        '[PANCAKE-TOKEN] loadPageAccessTokens: using localStorage (Firestore slow)'
-                    );
-                } else {
-                    console.warn('[PANCAKE-TOKEN] loadPageAccessTokens timed out, no local data');
-                }
-                return;
-            }
-
-            const firestoreTokens = doc.exists ? doc.data()?.data || {} : {};
-
-            // Merge Firestore tokens with existing localStorage tokens
-            // Firestore takes priority (more up-to-date)
-            this.pageAccessTokens = {
-                ...this.pageAccessTokens, // localStorage tokens (already loaded)
-                ...firestoreTokens, // Firestore tokens (override)
-            };
-
-            // Sync merged tokens back to localStorage
-            this.savePageAccessTokensToLocalStorage();
-
-            console.log(
-                '[PANCAKE-TOKEN] Loaded page_access_tokens:',
-                Object.keys(this.pageAccessTokens).length
-            );
-        } catch (error) {
-            console.error('[PANCAKE-TOKEN] Error loading page access tokens:', error);
-        }
+        return window.PancakePageAccessTokens.load(this);
     }
 
     /**
@@ -1127,25 +666,7 @@ class PancakeTokenManager {
                 throw new Error('pageId và token không được để trống');
             }
 
-            // Decode to get timestamp
-            let timestamp = null;
-            try {
-                const parts = token.split('.');
-                if (parts.length === 3) {
-                    const payload = JSON.parse(this.base64UrlDecode(parts[1]));
-                    timestamp = payload.timestamp;
-                }
-            } catch (e) {
-                console.warn('[PANCAKE-TOKEN] Could not decode page_access_token:', e);
-            }
-
-            const data = {
-                token: token,
-                pageId: pageId,
-                pageName: pageName,
-                timestamp: timestamp,
-                savedAt: Date.now(),
-            };
+            const data = window.PancakePageAccessTokens.buildEntry(pageId, token, pageName);
 
             // Update in-memory cache first
             this.pageAccessTokens[pageId] = data;
@@ -1208,44 +729,15 @@ class PancakeTokenManager {
                 throw new Error('Cần đăng nhập Pancake trước');
             }
 
-            console.log('[PANCAKE-TOKEN] ========================================');
-            console.log('[PANCAKE-TOKEN] Generating page_access_token for page:', pageId);
-
-            // Use worker proxy to avoid CORS
-            // API: POST https://pages.fm/api/v1/pages/{page_id}/generate_page_access_token?access_token=xxx
-            const url = window.API_CONFIG.buildUrl.pancake(
-                `pages/${pageId}/generate_page_access_token`,
-                `access_token=${this.currentToken}`
+            const newToken = await window.PancakePageAccessTokens.generate(
+                pageId,
+                this.currentToken
             );
-
-            // KHÔNG log url thô — chứa full JWT trong query access_token
-            console.log(
-                '[PANCAKE-TOKEN] API URL:',
-                url.replace(/access_token=[^&]+/, 'access_token=***')
-            );
-
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: {
-                    Accept: 'application/json',
-                    'Content-Type': 'application/json',
-                },
-            });
-
-            const result = await response.json();
-            // KHÔNG log result thô — chứa full page_access_token
-            console.log('[PANCAKE-TOKEN] API Response success:', result.success);
-
-            if (result.success && result.page_access_token) {
-                console.log('[PANCAKE-TOKEN] ✅ page_access_token generated for page:', pageId);
-                console.log('[PANCAKE-TOKEN] ========================================');
-
+            if (newToken) {
                 // Save to Firebase
-                await this.savePageAccessToken(pageId, result.page_access_token);
-                return result.page_access_token;
-            } else {
-                throw new Error(result.message || 'Failed to generate token');
+                await this.savePageAccessToken(pageId, newToken);
             }
+            return newToken;
         } catch (error) {
             console.error('[PANCAKE-TOKEN] ❌ Error generating page_access_token:', error);
             console.log('[PANCAKE-TOKEN] ========================================');
@@ -1305,5 +797,6 @@ class PancakeTokenManager {
 }
 
 // Create global instance
+window.PancakeTokenManager = PancakeTokenManager;
 window.pancakeTokenManager = new PancakeTokenManager();
 console.log('[PANCAKE-TOKEN] PancakeTokenManager loaded');
