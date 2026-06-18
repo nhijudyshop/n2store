@@ -1004,6 +1004,26 @@
             scannerBox.addEventListener('click', focusScanner);
         }
 
+        // 2026-06-18: quét bằng CAMERA điện thoại (thay máy quét gun) — Web2BarcodeScanner
+        // on-device → mỗi mã đọc được gọi onScannerSubmit y như gun (bill NJ-… mở PBH,
+        // còn lại = mã SP → +1). Camera mở overlay riêng nên chặn focusScanner của box.
+        const camBtn = document.getElementById('rcCameraBtn');
+        if (camBtn) {
+            camBtn.addEventListener('click', (e) => {
+                e.stopPropagation(); // không trigger focusScanner của scannerBox
+                if (!window.Web2BarcodeScanner) {
+                    notify('Chưa tải được bộ quét camera (web2-barcode-scanner.js).', 'error');
+                    return;
+                }
+                window.Web2BarcodeScanner.open({
+                    title: 'Quét đối soát',
+                    hint: 'Quét barcode bill (NJ-…) rồi từng mã SP',
+                    continuous: true,
+                    onScan: (code) => onScannerSubmit(code),
+                });
+            });
+        }
+
         // 2026-06-06: router phím toàn cục — máy quét = bàn phím; nếu đang không gõ vào
         // ô nhập nào khác (search/checkbox/button) thì TỰ ĐƯA ký tự vào ô quét.
         // → quét nhận ngay, KHÔNG cần bấm chuột vào ô trước. Inject ký tự để không
