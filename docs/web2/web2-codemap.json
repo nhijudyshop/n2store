@@ -1,10 +1,10 @@
 {
-    "generatedAt": "2026-06-18 16:27",
+    "generatedAt": "2026-06-18 16:39",
     "totals": {
-        "files": 220,
+        "files": 233,
         "sharedModules": 75,
         "functions": 2547,
-        "oversized": 19
+        "oversized": 16
     },
     "sharedModules": [
         {
@@ -84,11 +84,11 @@
                 "web2/fastsaleorder-delivery/dlv-app.js",
                 "web2/fastsaleorder-invoice/pbh-state.js",
                 "web2/fastsaleorder-refund/rf-app.js",
-                "web2/pancake-settings/js/pancake-settings.js",
+                "web2/pancake-settings/js/pancake-settings-actions.js",
                 "web2/payment-confirm/js/payment-confirm-app.js",
                 "web2/products/js/web2-products-app.js",
-                "web2/purchase-refund/js/purchase-refund-app.js",
-                "web2/reconcile/js/reconcile-app.js",
+                "web2/purchase-refund/js/purchase-refund-actions.js",
+                "web2/reconcile/js/reconcile-actions.js",
                 "web2/returns/js/returns-tabs.js",
                 "web2/shared/page-builder.js",
                 "web2/shared/web2-ck-assign-picker.js",
@@ -166,15 +166,17 @@
                 "web2/kpi/js/kpi-assignments.js",
                 "web2/kpi/js/kpi-dashboard.js",
                 "web2/multi-tool/js/multi-tool.js",
-                "web2/pancake-settings/js/pancake-settings.js",
+                "web2/pancake-settings/js/pancake-settings-api.js",
+                "web2/pancake-settings/js/pancake-settings-state.js",
                 "web2/payment-confirm/js/payment-confirm-app.js",
                 "web2/photo-studio/photo-studio.js",
                 "web2/products/js/web2-products-api.js",
                 "web2/products/js/web2-products-app.js",
                 "web2/products/js/web2-products-print-barcode.js",
                 "web2/products/js/web2-products-print-utils.js",
-                "web2/purchase-refund/js/purchase-refund-app.js",
-                "web2/reconcile/js/reconcile-app.js",
+                "web2/purchase-refund/js/purchase-refund-api.js",
+                "web2/purchase-refund/js/purchase-refund-state.js",
+                "web2/reconcile/js/reconcile-state.js",
                 "web2/returns/js/returns-api.js",
                 "web2/shared/chat-panel/web2-chat-panel.js",
                 "web2/shared/delivery-method-picker.js",
@@ -256,6 +258,10 @@
                 "web2/customers/js/customers-events.js",
                 "web2/jt-tracking/js/jt-tracking-actions.js",
                 "web2/multi-tool/js/multi-tool.js",
+                "web2/pancake-settings/js/pancake-settings-actions.js",
+                "web2/pancake-settings/js/pancake-settings-api.js",
+                "web2/pancake-settings/js/pancake-settings-render.js",
+                "web2/pancake-settings/js/pancake-settings-state.js",
                 "web2/pancake-settings/js/pancake-settings.js",
                 "web2/shared/chat-panel/web2-chat-panel.js",
                 "web2/shared/web2-customer-chat.js",
@@ -430,8 +436,10 @@
                 "web2/ck-dashboard/js/ck-dashboard-app.js",
                 "web2/customers/js/customers-detail.js",
                 "web2/payment-confirm/js/payment-confirm-app.js",
-                "web2/purchase-refund/js/purchase-refund-app.js",
+                "web2/purchase-refund/js/purchase-refund-render.js",
+                "web2/reconcile/js/reconcile-api.js",
                 "web2/reconcile/js/reconcile-app.js",
+                "web2/reconcile/js/reconcile-state.js",
                 "web2/shared/web2-ck-review.js"
             ],
             "lines": 238
@@ -443,7 +451,7 @@
             "api": [],
             "consumers": [
                 "so-order/js/so-order-storage.js",
-                "web2/purchase-refund/js/purchase-refund-app.js",
+                "web2/purchase-refund/js/purchase-refund-api.js",
                 "web2/supplier-wallet/js/supplier-wallet-storage.js"
             ],
             "lines": 183
@@ -540,7 +548,7 @@
                 "web2/fastsaleorder-invoice/pbh-actions.js",
                 "web2/fastsaleorder-refund/rf-app.js",
                 "web2/jt-tracking/js/jt-tracking-actions.js",
-                "web2/pancake-settings/js/pancake-settings.js",
+                "web2/pancake-settings/js/pancake-settings-actions.js",
                 "web2/payment-confirm/js/payment-confirm-app.js",
                 "web2/products/js/web2-products-app.js",
                 "web2/shared/chat-panel/web2-chat-panel.js",
@@ -567,7 +575,9 @@
             "api": [],
             "consumers": [
                 "live-chat/js/pancake/pancake-token-manager.js",
-                "web2/pancake-settings/js/pancake-settings.js"
+                "web2/pancake-settings/js/pancake-settings-actions.js",
+                "web2/pancake-settings/js/pancake-settings-api.js",
+                "web2/pancake-settings/js/pancake-settings-render.js"
             ],
             "lines": 299
         },
@@ -576,7 +586,10 @@
             "globals": ["Web2PancakeToken"],
             "purpose": "Web 2.0 — Pancake JWT token monitor + auto-refresh",
             "api": [],
-            "consumers": ["web2/pancake-settings/js/pancake-settings.js"],
+            "consumers": [
+                "web2/pancake-settings/js/pancake-settings-actions.js",
+                "web2/pancake-settings/js/pancake-settings-render.js"
+            ],
             "lines": 206
         },
         {
@@ -631,7 +644,10 @@
             "consumers": [
                 "so-order/js/so-order-app.js",
                 "web2/products/js/web2-products-app.js",
-                "web2/purchase-refund/js/purchase-refund-app.js",
+                "web2/purchase-refund/js/purchase-refund-actions.js",
+                "web2/purchase-refund/js/purchase-refund-api.js",
+                "web2/purchase-refund/js/purchase-refund-modal.js",
+                "web2/purchase-refund/js/purchase-refund-render.js",
                 "web2/supplier-wallet/js/supplier-wallet-actions.js",
                 "web2/supplier-wallet/js/supplier-wallet-app.js"
             ],
@@ -712,7 +728,7 @@
             "api": [],
             "consumers": [
                 "live-chat/js/pancake/inventory-panel.js",
-                "web2/purchase-refund/js/purchase-refund-app.js",
+                "web2/purchase-refund/js/purchase-refund-api.js",
                 "web2/supplier-debt/js/supplier-debt-api.js",
                 "web2/supplier-debt/js/supplier-debt-app.js",
                 "web2/supplier-wallet/js/supplier-wallet-storage.js"
@@ -750,7 +766,7 @@
                 "web2/payment-confirm/js/payment-confirm-app.js",
                 "web2/products/js/web2-products-app.js",
                 "web2/purchase-refund/js/purchase-refund-app.js",
-                "web2/reconcile/js/reconcile-app.js",
+                "web2/reconcile/js/reconcile-api.js",
                 "web2/returns/js/returns-app.js",
                 "web2/shared/page-builder.js",
                 "web2/shared/web2-ck-review.js",
@@ -791,7 +807,7 @@
                 "so-order/js/so-order-app.js",
                 "web2/balance-history/js/web2-manual-deposit.js",
                 "web2/products/js/web2-products-app.js",
-                "web2/purchase-refund/js/purchase-refund-app.js",
+                "web2/purchase-refund/js/purchase-refund-modal.js",
                 "web2/supplier-debt/js/supplier-debt-filters.js",
                 "web2/supplier-wallet/js/supplier-wallet-actions.js"
             ],
@@ -829,8 +845,8 @@
                 "web2/kpi/js/kpi-assignments.js",
                 "web2/payment-confirm/js/payment-confirm-app.js",
                 "web2/products/js/web2-product-detail.js",
-                "web2/purchase-refund/js/purchase-refund-app.js",
-                "web2/reconcile/js/reconcile-app.js",
+                "web2/purchase-refund/js/purchase-refund-state.js",
+                "web2/reconcile/js/reconcile-actions.js",
                 "web2/returns/js/returns-api.js",
                 "web2/shared/web2-api.js",
                 "web2/shared/web2-bill-service.js",
@@ -3957,25 +3973,18 @@
             "page": "web2/pancake-settings",
             "files": [
                 {
-                    "file": "web2/pancake-settings/js/pancake-settings.js",
-                    "lines": 1306,
-                    "purpose": "Web 2.0 — Pancake settings page",
+                    "file": "web2/pancake-settings/js/pancake-settings-actions.js",
+                    "lines": 609,
+                    "purpose": "WEB2.0 module.",
                     "globals": [],
                     "uses": [
                         "Popup",
-                        "API_CONFIG",
-                        "Web2Auth",
                         "Web2Chat",
                         "Web2Optimistic",
                         "Web2PancakeAccounts",
-                        "Web2PancakeToken",
-                        "Web2Sidebar"
+                        "Web2PancakeToken"
                     ],
                     "functions": [
-                        "$",
-                        "_expChip",
-                        "_restoreBtn",
-                        "_setBtnLoading",
                         "addAccountAuto",
                         "addAccountFromInput",
                         "apply",
@@ -3987,40 +3996,78 @@
                         "credsSave",
                         "deleteAccount",
                         "doAutoFetch",
-                        "escapeHtml",
-                        "formatExpiry",
                         "generateAll",
-                        "init",
-                        "loadAccounts",
-                        "loadPages",
-                        "loadRelayPages",
-                        "notify",
                         "nuke",
                         "onSuccess",
                         "openCredsModal",
                         "openExpiryModal",
-                        "persistActiveToDb",
-                        "renderAccountList",
-                        "renderBanner",
-                        "renderExtStatus",
-                        "renderJwtInfo",
-                        "renderPageAdminStats",
-                        "renderPageList",
-                        "renderRelayPages",
                         "renewAccount",
                         "rollback",
                         "run",
                         "runMonitor",
                         "saveJwt",
-                        "saveRelaySelection",
-                        "shortToken",
-                        "syncAccountPages",
                         "testJwt",
                         "toggleAddPanel",
                         "useAccount",
                         "wireCredsModal",
                         "wireModal"
                     ]
+                },
+                {
+                    "file": "web2/pancake-settings/js/pancake-settings-api.js",
+                    "lines": 255,
+                    "purpose": "WEB2.0 module.",
+                    "globals": [],
+                    "uses": ["API_CONFIG", "Web2Auth", "Web2Chat", "Web2PancakeAccounts"],
+                    "functions": [
+                        "loadAccounts",
+                        "loadPages",
+                        "loadRelayPages",
+                        "persistActiveToDb",
+                        "saveRelaySelection",
+                        "syncAccountPages"
+                    ]
+                },
+                {
+                    "file": "web2/pancake-settings/js/pancake-settings-render.js",
+                    "lines": 392,
+                    "purpose": "WEB2.0 module.",
+                    "globals": [],
+                    "uses": ["Web2Chat", "Web2PancakeAccounts", "Web2PancakeToken"],
+                    "functions": [
+                        "_expChip",
+                        "renderAccountList",
+                        "renderBanner",
+                        "renderExtStatus",
+                        "renderJwtInfo",
+                        "renderPageAdminStats",
+                        "renderPageList",
+                        "renderRelayPages"
+                    ]
+                },
+                {
+                    "file": "web2/pancake-settings/js/pancake-settings-state.js",
+                    "lines": 110,
+                    "purpose": "WEB2.0 module.",
+                    "globals": [],
+                    "uses": ["API_CONFIG", "Web2Chat"],
+                    "functions": [
+                        "$",
+                        "_restoreBtn",
+                        "_setBtnLoading",
+                        "escapeHtml",
+                        "formatExpiry",
+                        "notify",
+                        "shortToken"
+                    ]
+                },
+                {
+                    "file": "web2/pancake-settings/js/pancake-settings.js",
+                    "lines": 80,
+                    "purpose": "WEB2.0 module.",
+                    "globals": [],
+                    "uses": ["Web2Chat", "Web2Sidebar"],
+                    "functions": ["init"]
                 }
             ]
         },
@@ -4485,74 +4532,103 @@
             "page": "web2/purchase-refund",
             "files": [
                 {
+                    "file": "web2/purchase-refund/js/purchase-refund-actions.js",
+                    "lines": 526,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["PurchaseRefund"],
+                    "uses": ["Popup", "Web2ProductsCache"],
+                    "functions": [
+                        "_collectBulkLines",
+                        "closeBulkRefund",
+                        "closeQuickRefund",
+                        "handleAction",
+                        "openBulkRefund",
+                        "openQuickRefund",
+                        "renderBulkRows",
+                        "submitBulkRefund",
+                        "submitQuickRefund",
+                        "updateBulkTotal",
+                        "updateQuickTotal",
+                        "wireBulkModal",
+                        "wireQuickModal"
+                    ]
+                },
+                {
+                    "file": "web2/purchase-refund/js/purchase-refund-api.js",
+                    "lines": 255,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["PurchaseRefund"],
+                    "uses": ["Web2Auth", "Web2IdbStore", "Web2ProductsCache", "Web2SoOrder"],
+                    "functions": [
+                        "_authHeaders",
+                        "fetchJson",
+                        "loadList",
+                        "loadSoOrderReceivedItems",
+                        "updateSupplierWallet"
+                    ]
+                },
+                {
                     "file": "web2/purchase-refund/js/purchase-refund-app.js",
-                    "lines": 1635,
-                    "purpose": "CRUD generic qua /api/web2/purchase-refund/* + state machine qua /api/purchase-refund/:code/{approve|cancel-approve|refunded|reject}.",
-                    "globals": [],
-                    "uses": [
-                        "Popup",
-                        "API_CONFIG",
-                        "Web2Auth",
-                        "Web2HistoryTimeline",
-                        "Web2IdbStore",
-                        "Web2ProductsCache",
-                        "Web2Sidebar",
-                        "Web2SoOrder",
-                        "Web2SSE",
-                        "Web2SuppliersCache",
-                        "Web2UserInfo"
-                    ],
+                    "lines": 100,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["PurchaseRefund"],
+                    "uses": ["Web2Sidebar", "Web2SSE"],
+                    "functions": ["init", "setupSSE", "wireSourceList"]
+                },
+                {
+                    "file": "web2/purchase-refund/js/purchase-refund-modal.js",
+                    "lines": 377,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["PurchaseRefund"],
+                    "uses": ["Web2ProductsCache", "Web2SuppliersCache"],
+                    "functions": [
+                        "_populateSupplierDatalist",
+                        "closeModal",
+                        "closePicker",
+                        "confirmPicker",
+                        "handleFormSubmit",
+                        "openModal",
+                        "openPicker",
+                        "renderPicker",
+                        "updatePickerCount",
+                        "wirePicker"
+                    ]
+                },
+                {
+                    "file": "web2/purchase-refund/js/purchase-refund-render.js",
+                    "lines": 307,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["PurchaseRefund"],
+                    "uses": ["Web2HistoryTimeline", "Web2ProductsCache"],
+                    "functions": [
+                        "applyFilters",
+                        "loadSourceItems",
+                        "renderDetail",
+                        "renderList",
+                        "renderSourceList",
+                        "selectRefund"
+                    ]
+                },
+                {
+                    "file": "web2/purchase-refund/js/purchase-refund-state.js",
+                    "lines": 268,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["PurchaseRefund"],
+                    "uses": ["API_CONFIG", "Web2Auth", "Web2UserInfo"],
                     "functions": [
                         "$",
-                        "_authHeaders",
-                        "_collectBulkLines",
                         "_currentUserInfo",
                         "_orderGroupKey",
                         "_orderGroupLabel",
-                        "_populateSupplierDatalist",
-                        "applyFilters",
-                        "closeBulkRefund",
-                        "closeModal",
-                        "closePicker",
-                        "closeQuickRefund",
-                        "confirmPicker",
                         "escapeHtml",
-                        "fetchJson",
                         "fmtDate",
                         "fmtDateTime",
                         "fmtMoney",
-                        "handleAction",
-                        "handleFormSubmit",
-                        "init",
-                        "loadList",
-                        "loadSoOrderReceivedItems",
-                        "loadSourceItems",
                         "notify",
-                        "openBulkRefund",
                         "openImageLightbox",
-                        "openModal",
-                        "openPicker",
-                        "openQuickRefund",
                         "parseProducts",
-                        "renderBulkRows",
-                        "renderDetail",
-                        "renderList",
-                        "renderPicker",
-                        "renderSourceList",
                         "safeImageUrl",
-                        "selectRefund",
-                        "setupSSE",
-                        "submitBulkRefund",
-                        "submitQuickRefund",
-                        "thumbHtml",
-                        "updateBulkTotal",
-                        "updatePickerCount",
-                        "updateQuickTotal",
-                        "updateSupplierWallet",
-                        "wireBulkModal",
-                        "wirePicker",
-                        "wireQuickModal",
-                        "wireSourceList"
+                        "thumbHtml"
                     ]
                 }
             ]
@@ -4561,65 +4637,88 @@
             "page": "web2/reconcile",
             "files": [
                 {
-                    "file": "web2/reconcile/js/reconcile-app.js",
-                    "lines": 1107,
+                    "file": "web2/reconcile/js/reconcile-actions.js",
+                    "lines": 486,
                     "purpose": "WEB2.0 module.",
-                    "globals": [],
-                    "uses": [
-                        "Popup",
-                        "API_CONFIG",
-                        "Web2BarcodeScanner",
-                        "Web2HistoryTimeline",
-                        "Web2LabelOcr",
-                        "Web2SSE",
-                        "Web2UserInfo"
-                    ],
+                    "globals": ["RC"],
+                    "uses": ["Popup", "Web2UserInfo"],
                     "functions": [
-                        "_scheduleSseDetail",
-                        "_scheduleSseList",
-                        "api",
-                        "b",
                         "bindAuditUi",
-                        "bindUi",
                         "cancelPack",
                         "closeAuditModal",
                         "deliverOrder",
-                        "escapeHtml",
-                        "feedback",
                         "fetchAudit",
-                        "fmtDateInvoice",
-                        "fmtMoney",
-                        "fmtSttDisplay",
-                        "fmtTs",
                         "fmtTsFull",
-                        "focusScanner",
-                        "historyNote",
-                        "init",
                         "inputToTs",
-                        "loadHistory",
-                        "loadList",
                         "lockBody",
-                        "notify",
-                        "onResult",
-                        "onScan",
                         "onScannerSubmit",
                         "openAuditModal",
                         "packOrder",
                         "pad2",
-                        "renderActionButtons",
                         "renderAuditResults",
-                        "renderDetail",
-                        "renderLine",
-                        "renderList",
                         "resetPick",
                         "returnFailedOrder",
                         "selectPbh",
-                        "setupSse",
                         "shipOrder",
                         "syncAuditInputs",
                         "toggleManualPick",
                         "tsToInput",
                         "unlockBody"
+                    ]
+                },
+                {
+                    "file": "web2/reconcile/js/reconcile-api.js",
+                    "lines": 135,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["RC"],
+                    "uses": ["Web2HistoryTimeline", "Web2SSE"],
+                    "functions": [
+                        "_scheduleSseDetail",
+                        "_scheduleSseList",
+                        "historyNote",
+                        "loadHistory",
+                        "loadList",
+                        "setupSse"
+                    ]
+                },
+                {
+                    "file": "web2/reconcile/js/reconcile-app.js",
+                    "lines": 178,
+                    "purpose": "WEB2.0 module.",
+                    "globals": [],
+                    "uses": ["Web2BarcodeScanner", "Web2HistoryTimeline", "Web2LabelOcr"],
+                    "functions": ["bindUi", "init", "onResult", "onScan"]
+                },
+                {
+                    "file": "web2/reconcile/js/reconcile-render.js",
+                    "lines": 273,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["RC"],
+                    "uses": [],
+                    "functions": [
+                        "b",
+                        "renderActionButtons",
+                        "renderDetail",
+                        "renderLine",
+                        "renderList"
+                    ]
+                },
+                {
+                    "file": "web2/reconcile/js/reconcile-state.js",
+                    "lines": 160,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["RC"],
+                    "uses": ["API_CONFIG", "Web2HistoryTimeline"],
+                    "functions": [
+                        "api",
+                        "escapeHtml",
+                        "feedback",
+                        "fmtDateInvoice",
+                        "fmtMoney",
+                        "fmtSttDisplay",
+                        "fmtTs",
+                        "focusScanner",
+                        "notify"
                     ]
                 }
             ]
@@ -6612,7 +6711,7 @@
             "files": [
                 {
                     "file": "web2/supplier-debt/js/supplier-debt-actions.js",
-                    "lines": 116,
+                    "lines": 122,
                     "purpose": "WEB2.0 module.",
                     "globals": [],
                     "uses": [],
@@ -6720,7 +6819,7 @@
             "files": [
                 {
                     "file": "web2/supplier-wallet/js/supplier-wallet-actions.js",
-                    "lines": 259,
+                    "lines": 263,
                     "purpose": "WEB2.0 module.",
                     "globals": [],
                     "uses": ["Web2ProductsCache", "Web2SuppliersCache"],
@@ -7106,11 +7205,11 @@
                 "web2/fastsaleorder-refund/rf-app.js",
                 "web2/kpi/js/kpi-assignments.js",
                 "web2/kpi/js/kpi-dashboard.js",
-                "web2/pancake-settings/js/pancake-settings.js",
+                "web2/pancake-settings/js/pancake-settings-state.js",
                 "web2/products/js/web2-products-app.js",
                 "web2/products/js/web2-products-print-utils.js",
-                "web2/purchase-refund/js/purchase-refund-app.js",
-                "web2/reconcile/js/reconcile-app.js",
+                "web2/purchase-refund/js/purchase-refund-state.js",
+                "web2/reconcile/js/reconcile-state.js",
                 "web2/shared/page-builder.js",
                 "web2/shared/web2-command-palette.js",
                 "web2/shared/web2-escape.js",
@@ -7132,7 +7231,7 @@
                 "web2/customers/js/customers-api.js",
                 "web2/fastsaleorder-invoice/pbh-api.js",
                 "web2/kpi/js/kpi-dashboard.js",
-                "web2/purchase-refund/js/purchase-refund-app.js",
+                "web2/purchase-refund/js/purchase-refund-api.js",
                 "web2/shared/web2-api.js",
                 "web2/shared/web2-chat-client.js",
                 "web2/shared/web2-msg-template.js",
@@ -7256,7 +7355,7 @@
                 "web2/kpi/js/kpi-assignments.js",
                 "web2/kpi/js/kpi-dashboard.js",
                 "web2/multi-tool/js/multi-tool.js",
-                "web2/purchase-refund/js/purchase-refund-app.js",
+                "web2/purchase-refund/js/purchase-refund-state.js",
                 "web2/shared/web2-ck-assign-picker.js",
                 "web2/shared/web2-customer-detail-modal.js"
             ],
@@ -7303,7 +7402,7 @@
                 "web2/customers/js/customers-detail.js",
                 "web2/products/js/web2-products-app.js",
                 "web2/products/js/web2-products-print-modal.js",
-                "web2/purchase-refund/js/purchase-refund-app.js",
+                "web2/purchase-refund/js/purchase-refund-modal.js",
                 "web2/shared/page-builder.js",
                 "web2/variants/js/web2-variants-app.js"
             ],
@@ -7317,7 +7416,7 @@
                 "web2/fastsaleorder-invoice/pbh-filters.js",
                 "web2/fastsaleorder-refund/rf-app.js",
                 "web2/products/js/web2-products-app.js",
-                "web2/purchase-refund/js/purchase-refund-app.js",
+                "web2/purchase-refund/js/purchase-refund-render.js",
                 "web2/shared/page-builder.js",
                 "web2/variants/js/web2-variants-app.js"
             ],
@@ -7331,8 +7430,8 @@
                 "web2/fastsaleorder-invoice/pbh-state.js",
                 "web2/fastsaleorder-refund/rf-app.js",
                 "web2/payment-confirm/js/payment-confirm-app.js",
-                "web2/purchase-refund/js/purchase-refund-app.js",
-                "web2/reconcile/js/reconcile-app.js",
+                "web2/purchase-refund/js/purchase-refund-state.js",
+                "web2/reconcile/js/reconcile-state.js",
                 "web2/shared/web2-ck-review.js"
             ],
             "count": 8
@@ -7342,8 +7441,8 @@
             "files": [
                 "web2/customer-wallet/js/web2-customer-wallet-render.js",
                 "web2/jt-tracking/js/jt-tracking-render.js",
-                "web2/purchase-refund/js/purchase-refund-app.js",
-                "web2/reconcile/js/reconcile-app.js",
+                "web2/purchase-refund/js/purchase-refund-render.js",
+                "web2/reconcile/js/reconcile-render.js",
                 "web2/returns/js/returns-tabs.js",
                 "web2/shared/web2-command-palette.js",
                 "web2/supplier-wallet/js/supplier-wallet-render.js",
@@ -7470,7 +7569,7 @@
                 "web2/balance-history/js/web2-link-customer-modal.js",
                 "web2/balance-history/js/web2-pm-modal.js",
                 "web2/customers/js/customers-detail.js",
-                "web2/purchase-refund/js/purchase-refund-app.js",
+                "web2/purchase-refund/js/purchase-refund-modal.js",
                 "web2/shared/web2-customer-chat.js",
                 "web2/shared/web2-quick-reply.js"
             ],
@@ -7661,7 +7760,7 @@
             "files": [
                 "live-chat/js/layout/settings-manager.js",
                 "live-chat/js/pancake/pancake-token-manager.js",
-                "web2/pancake-settings/js/pancake-settings.js",
+                "web2/pancake-settings/js/pancake-settings-actions.js",
                 "web2/shared/web2-zalo-api.js"
             ],
             "count": 4
@@ -7691,7 +7790,7 @@
             "files": [
                 "web2/ck-dashboard/js/ck-dashboard-app.js",
                 "web2/kpi/js/kpi-assignments.js",
-                "web2/reconcile/js/reconcile-app.js",
+                "web2/reconcile/js/reconcile-api.js",
                 "web2/shared/web2-zalo-api.js"
             ],
             "count": 4
@@ -8012,7 +8111,7 @@
             "fn": "handleAction",
             "files": [
                 "live-chat/js/pancake/pancake-context-menu.js",
-                "web2/purchase-refund/js/purchase-refund-app.js",
+                "web2/purchase-refund/js/purchase-refund-actions.js",
                 "web2/users/js/users-app.js"
             ],
             "count": 3
@@ -8039,7 +8138,7 @@
             "fn": "loadAccounts",
             "files": [
                 "live-chat/js/pancake/pancake-token-manager.js",
-                "web2/pancake-settings/js/pancake-settings.js",
+                "web2/pancake-settings/js/pancake-settings-api.js",
                 "web2/zalo/js/web2-zalo-accounts.js"
             ],
             "count": 3
@@ -8056,8 +8155,8 @@
         {
             "fn": "loadList",
             "files": [
-                "web2/purchase-refund/js/purchase-refund-app.js",
-                "web2/reconcile/js/reconcile-app.js",
+                "web2/purchase-refund/js/purchase-refund-api.js",
+                "web2/reconcile/js/reconcile-api.js",
                 "web2/returns/js/returns-tabs.js"
             ],
             "count": 3
@@ -8076,7 +8175,7 @@
             "files": [
                 "live-chat/js/pancake/pancake-page-selector.js",
                 "web2/multi-tool/js/multi-tool.js",
-                "web2/pancake-settings/js/pancake-settings.js"
+                "web2/pancake-settings/js/pancake-settings-api.js"
             ],
             "count": 3
         },
@@ -8156,7 +8255,7 @@
             "fn": "renderPicker",
             "files": [
                 "live-chat/js/live/comments-mobile.js",
-                "web2/purchase-refund/js/purchase-refund-app.js",
+                "web2/purchase-refund/js/purchase-refund-modal.js",
                 "web2/shared/chat-panel/web2-chat-panel.js"
             ],
             "count": 3
@@ -8174,7 +8273,7 @@
             "fn": "safeImageUrl",
             "files": [
                 "web2/products/js/web2-products-app.js",
-                "web2/purchase-refund/js/purchase-refund-app.js",
+                "web2/purchase-refund/js/purchase-refund-state.js",
                 "web2/shared/web2-escape.js"
             ],
             "count": 3
@@ -8314,16 +8413,8 @@
             "lines": 2011
         },
         {
-            "file": "web2/purchase-refund/js/purchase-refund-app.js",
-            "lines": 1635
-        },
-        {
             "file": "live-chat/js/pancake/pancake-token-manager.js",
             "lines": 1310
-        },
-        {
-            "file": "web2/pancake-settings/js/pancake-settings.js",
-            "lines": 1306
         },
         {
             "file": "live-chat/server/server.js",
@@ -8344,10 +8435,6 @@
         {
             "file": "live-chat/js/live/comments-mobile.js",
             "lines": 1132
-        },
-        {
-            "file": "web2/reconcile/js/reconcile-app.js",
-            "lines": 1107
         },
         {
             "file": "web2/shared/chat-panel/web2-chat-panel.js",

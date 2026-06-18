@@ -2,6 +2,46 @@
 
 ## 2026-06-18
 
+### [web2-modular] Wave 3 page-apps — Batch A+B (7 page) tách XONG, verified live ✅
+
+MOVE-only split, mỗi page browser-verify (0 JS error) trước khi commit:
+
+- **Batch A** (`dc5556e87`): supplier-wallet(912→5, money deposit/return/pay giữ await+txId, 13 cards) · customers(914→5, customers-api giữ, SĐT 10 số, 50 rows) · supplier-debt(1394→6, settle/adjust giữ await, 26 rows).
+- **Batch B**: reconcile(1106→5, selectPbh race-guard + scanner IME-guard giữ) · pancake-settings(1305→5, token/account writes giữ await) · purchase-refund(1634→6, **group-by-order `aggId` + cumulative `returnedRowIds` over-refund protection giữ verbatim**, money quick/bulk refund giữ await+double-submit-guard).
+- Tất cả: 0 public global / 0 inline onclick (delegation) → public surface giữ rỗng; state gom 1 module; shared guards verbatim.
+
+### [pancake-settings] Tách pancake-settings.js (1305 dòng) → 5 module MOVE-only ✅
+
+Tách `web2/pancake-settings/js/pancake-settings.js` (cấu hình token/tài khoản Pancake Web 2.0) thành 5 module nhỏ, MOVE-only (di chuyển hàm nguyên văn, chỉ chỉnh cross-ref qua namespace `window.__PancakeSettings` / NS). KHÔNG đổi runtime behavior.
+
+**Module mới** (`web2/pancake-settings/js/`):
+
+- `pancake-settings-state.js` (109) — NS namespace + state (single source of truth: `_pagesCache`/`_accountsCache`/`_refreshStatus`/`_credsAccountId`/`_relayAccounts`…) + constants (`REASON_MSG`, `RELAY_WORKER`) + utils (`$`/`notify`/`escapeHtml`/`shortToken`/`formatExpiry`/`_setBtnLoading`/`_restoreBtn`).
+- `pancake-settings-api.js` (254) — data load/network: `loadPages`/`persistActiveToDb`/`syncAccountPages`/`loadAccounts`/`loadRelayPages`/`saveRelaySelection`.
+- `pancake-settings-render.js` (391) — render: `renderJwtInfo`/`renderPageList`/`renderExtStatus`/`renderBanner`/`_expChip`/`renderAccountList`/`renderPageAdminStats`/`renderRelayPages`.
+- `pancake-settings-actions.js` (608) — handlers: JWT save/test/clear, page tokens, nuke, expiry modal + auto-fetch monitor, accounts add/use/delete/renew, creds modal (giữ await + Popup.confirm/danger + loading verbatim).
+- `pancake-settings.js` (79) — orchestrator: `init()` wire DOM events + boot (sidebar mount, runMonitor). Không export window.\* (file gốc cũng là IIFE không expose gì).
+
+**Public API**: file gốc là IIFE, KHÔNG có `window.*` export, KHÔNG có `onclick=` (mọi nút wire qua addEventListener) → không có public surface nào cần preserve. Guards `window.Web2Chat/Web2PancakeAccounts/Web2PancakeToken/Web2Auth/Web2Optimistic/Web2Sidebar/Popup/lucide/notificationManager` giữ byte-identical (diff count khớp git HEAD).
+
+**index.html**: thay 1 dòng `<script>` app bằng 5 dòng state→api→render→actions→app (app LAST), `?v=20260618w3`; shared deps unchanged & trước.
+
+**Verify**: `node --check` 5/5 pass; mọi NS.\* đọc đều có định nghĩa; bare same-name calls đều intra-module; HTML order đúng.
+
+### [reconcile] Tách reconcile-app.js (1106 dòng) → 5 module MOVE-only ✅
+
+Tách `web2/reconcile/js/reconcile-app.js` (trang đối soát đóng gói PBH — TPOS×Pancake / CK, money/order surface) thành 5 module nhỏ, MOVE-only (di chuyển hàm nguyên văn, chỉ chỉnh cross-ref qua namespace nội bộ `window.RC`). KHÔNG đổi runtime behavior.
+
+**Module mới** (`web2/reconcile/js/`, mỗi file `?v=20260618w3`):
+
+- **reconcile-state.js** (159) — namespace `RC` + WORKER/API/STATE_LABELS/PBH_NUMBER_RE/MANUAL_CAMERA_NOTE/RC_HISTORY_LABELS + STATE + helpers (escapeHtml/fmtMoney/fmtTs/fmtDateInvoice/fmtSttDisplay/notify/feedback/focusScanner) + `api()`.
+- **reconcile-api.js** (134) — loadList / loadHistory / historyNote + SSE (web2:reconcile + web2:fast-sale-orders, debounce 500ms).
+- **reconcile-render.js** (272) — renderList / renderDetail / renderLine / renderActionButtons.
+- **reconcile-actions.js** (485) — selectPbh (⚠ race guard `if(STATE.selectedNumber!==number)return` giữ nguyên), toggleManualPick/resetPick/packOrder/cancelPack/shipOrder/deliverOrder/returnFailedOrder (giữ await+Popup.confirm/danger/prompt), onScannerSubmit, audit modal (đối chiếu camera).
+- **reconcile-app.js** (177) — ORCHESTRATOR: bindUi (scanner IME guard `e.isComposing||e.keyCode===229` + global keydown router useCapture verbatim, camera/OCR button guards `window.Web2BarcodeScanner?`/`window.Web2LabelOcr?`) + init + bootstrap.
+
+**Bất biến giữ nguyên**: file gốc KHÔNG expose `window.*` public nào + 0 `onclick=` → public API = rỗng (giữ rỗng). 42/42 hàm gốc present, 0 thiếu, 0 trùng. Guard tiền/đơn (await + confirm), selectPbh race guard, scanner IME guard giữ byte-identical. Shared deps index.html không đổi, nạp trước; modules state→api→render→actions→app (app SAU cùng). `node --check` 5 file PASS. Chưa browser-test (theo yêu cầu task).
+
 ### [web2-modular] Wave 1 tiến độ — 4/5 file tách XONG (jt-tracking, returns, zalo, pbh) ✅
 
 MOVE-only split, mỗi file verified live browser (0 JS error) trước khi sang file kế:
