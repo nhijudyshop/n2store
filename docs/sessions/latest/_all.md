@@ -3,23 +3,22 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `ed1d895` — docs(web2-chat): ghi tiến độ hợp nhất Web2CustomerChat Phase 0/1/1b/2; Phase 3/4 native còn lại
-**Last updated**: 2026-06-18 21:26:18 +07
-**Latest session**: [`RESUME:20260618-212618-ed1d895`](../20260618-212618-ed1d895.md)
-**Summary**: docs(web2-chat): ghi tiến độ hợp nhất Web2CustomerChat Phase 0/1/1b/2; Phase 3/4 native còn lại
+**Latest commit**: `1483652` — docs(convention): Web 2.0 — tách module nhỏ + share dùng chung (CLAUDE.md item 0, dev-log, memory)
+**Last updated**: 2026-06-18 21:29:07 +07
+**Latest session**: [`RESUME:20260618-212907-1483652`](../20260618-212907-1483652.md)
+**Summary**: docs(convention): Web 2.0 — tách module nhỏ + share dùng chung (CLAUDE.md item 0, dev-log, memory)
 
 ## Folders affected in this commit
 
+- [`_root/`](./_root.md) — 1 file(s)
 - [`docs/`](./docs.md) — 1 file(s)
-- [`native-orders/`](./native-orders.md) — 1 file(s)
-- [`web2/`](./web2.md) — 9 file(s)
 
 ## All folder snapshots
 
 - [`.claude/`](./.claude.md) — updated 2026-06-05 10:42
 - [`.github/`](./.github.md) — updated 2026-06-13 11:30
 - [`AI/`](./AI.md) — updated 2026-05-21 15:39
-- [`_root/`](./_root.md) — updated 2026-06-18 18:21
+- [`_root/`](./_root.md) — updated 2026-06-18 21:29
 - [`aikol-studio/`](./aikol-studio.md) — updated 2026-05-21 15:39
 - [`balance-history-home/`](./balance-history-home.md) — updated 2026-06-18 13:09
 - [`balance-history/`](./balance-history.md) — updated 2026-06-16 14:31
@@ -27,7 +26,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-18 13:23
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-16 14:31
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-18 12:17
-- [`docs/`](./docs.md) — updated 2026-06-18 21:26
+- [`docs/`](./docs.md) — updated 2026-06-18 21:29
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-16 14:31
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-16 14:31
 - [`downloads/`](./downloads.md) — updated 2026-06-18 19:26
