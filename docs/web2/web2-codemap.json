@@ -1,10 +1,10 @@
 {
-    "generatedAt": "2026-06-18 15:46",
+    "generatedAt": "2026-06-18 16:04",
     "totals": {
-        "files": 194,
+        "files": 207,
         "sharedModules": 75,
         "functions": 2547,
-        "oversized": 24
+        "oversized": 22
     },
     "sharedModules": [
         {
@@ -78,7 +78,7 @@
                 "live-chat/js/pancake/pancake-context-menu.js",
                 "native-orders/js/native-orders-app.js",
                 "so-order/js/so-order-app.js",
-                "web2/balance-history/js/web2-balance-history-app.js",
+                "web2/balance-history/js/web2-bh-link-customer.js",
                 "web2/customer-wallet/js/web2-customer-wallet-app.js",
                 "web2/customers/js/customers-app.js",
                 "web2/fastsaleorder-delivery/dlv-app.js",
@@ -150,10 +150,10 @@
                 "native-orders/js/native-orders-kpi.js",
                 "so-order/js/so-order-app.js",
                 "so-order/js/so-order-storage.js",
-                "web2/balance-history/js/web2-balance-history-app.js",
+                "web2/balance-history/js/web2-bh-core.js",
                 "web2/balance-history/js/web2-link-customer-modal.js",
                 "web2/balance-history/js/web2-manual-deposit.js",
-                "web2/balance-history/js/web2-pending-match.js",
+                "web2/balance-history/js/web2-pm-core.js",
                 "web2/ck-dashboard/js/ck-dashboard-app.js",
                 "web2/customer-wallet/js/web2-customer-wallet-state.js",
                 "web2/customers/js/customers-api.js",
@@ -252,7 +252,7 @@
                 "live-chat/js/pancake/pancake-realtime.js",
                 "live-chat/js/pancake/pancake-token-manager.js",
                 "native-orders/js/native-orders-app.js",
-                "web2/balance-history/js/web2-pending-match.js",
+                "web2/balance-history/js/web2-pm-customer-search.js",
                 "web2/customers/js/customers-app.js",
                 "web2/jt-tracking/js/jt-tracking-actions.js",
                 "web2/multi-tool/js/multi-tool.js",
@@ -300,7 +300,8 @@
             "api": [],
             "consumers": [
                 "web2/balance-history/js/web2-balance-history-app.js",
-                "web2/balance-history/js/web2-pending-match.js",
+                "web2/balance-history/js/web2-bh-chat-export.js",
+                "web2/balance-history/js/web2-pm-render.js",
                 "web2/jt-tracking/js/jt-tracking-modals.js",
                 "web2/shared/web2-customer-detail-modal.js",
                 "web2/shared/web2-product-counter.js"
@@ -313,7 +314,7 @@
             "purpose": "WEB2.0 — modal chi tiết KH (balance-history). Đọc kho KH chung /api/web2/customers/*.",
             "api": [],
             "consumers": [
-                "web2/balance-history/js/web2-balance-history-app.js",
+                "web2/balance-history/js/web2-bh-render.js",
                 "web2/customers/js/customers-app.js",
                 "web2/shared/web2-wallet-balance.js"
             ],
@@ -731,7 +732,7 @@
                 "native-orders/js/native-orders-app.js",
                 "native-orders/js/native-orders-kpi.js",
                 "so-order/js/so-order-storage.js",
-                "web2/balance-history/js/web2-balance-history-app.js",
+                "web2/balance-history/js/web2-bh-data.js",
                 "web2/balance-history/js/web2-pending-match.js",
                 "web2/ck-dashboard/js/ck-dashboard-app.js",
                 "web2/customer-wallet/js/web2-customer-wallet-app.js",
@@ -880,9 +881,12 @@
                 "live-chat/js/live/live-comment-list.js",
                 "live-chat/js/live/live-customer-panel.js",
                 "native-orders/js/native-orders-app.js",
-                "web2/balance-history/js/web2-balance-history-app.js",
+                "web2/balance-history/js/web2-bh-reassign-modal.js",
+                "web2/balance-history/js/web2-bh-render.js",
                 "web2/balance-history/js/web2-link-customer-modal.js",
-                "web2/balance-history/js/web2-pending-match.js",
+                "web2/balance-history/js/web2-pm-customer-search.js",
+                "web2/balance-history/js/web2-pm-picker.js",
+                "web2/balance-history/js/web2-pm-render.js",
                 "web2/ck-dashboard/js/ck-dashboard-app.js",
                 "web2/customers/js/customers-app.js",
                 "web2/payment-confirm/js/payment-confirm-app.js",
@@ -3017,66 +3021,110 @@
             "files": [
                 {
                     "file": "web2/balance-history/js/web2-balance-history-app.js",
-                    "lines": 1280,
+                    "lines": 223,
                     "purpose": "WEB2.0 — balance-history app (Phase 3 — 100% Web 2.0).",
-                    "globals": ["Web2BalanceHistoryApp"],
-                    "uses": [
-                        "Popup",
-                        "Web2Auth",
-                        "Web2CustomerChat",
-                        "Web2CustomerDetailModal",
-                        "Web2SSE",
-                        "Web2WalletBalance"
-                    ],
+                    "globals": ["W2BH", "Web2BalanceHistoryApp"],
+                    "uses": ["Web2CustomerChat"],
                     "functions": [
                         "_applyDatePreset",
                         "_currentPresetKey",
-                        "_currentUser",
                         "_datePresetRange",
-                        "_extractUserFromRow",
-                        "_normalizePhoneInput",
                         "_toISODate",
                         "_updateDatePresetActive",
-                        "authHeaders",
+                        "bindEvents",
+                        "init"
+                    ]
+                },
+                {
+                    "file": "web2/balance-history/js/web2-bh-actions.js",
+                    "lines": 155,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["W2BH"],
+                    "uses": [],
+                    "functions": [
                         "autoAssign",
                         "autoMatchSingle",
                         "autoReprocessOnLoad",
-                        "bindEvents",
+                        "reprocessUnmatched"
+                    ]
+                },
+                {
+                    "file": "web2/balance-history/js/web2-bh-chat-export.js",
+                    "lines": 150,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["W2BH"],
+                    "uses": ["Web2CustomerChat"],
+                    "functions": ["escape", "exportCsv", "fbConversation", "openChatForPhone"]
+                },
+                {
+                    "file": "web2/balance-history/js/web2-bh-core.js",
+                    "lines": 214,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["W2BH"],
+                    "uses": ["Web2Auth"],
+                    "functions": [
+                        "_currentUser",
+                        "_normalizePhoneInput",
+                        "authHeaders",
                         "cacheDom",
                         "debounce",
-                        "ensureReassignModalDom",
-                        "ensureReassignStyles",
-                        "escape",
                         "escapeHtml",
-                        "exportCsv",
-                        "fbConversation",
                         "fmtTime",
                         "fmtVnd",
-                        "init",
                         "jsonFetch",
-                        "linkManual",
-                        "load",
                         "notify",
-                        "openChatForPhone",
-                        "openLinkPrompt",
+                        "searchNormalize",
+                        "stripDiacritics",
+                        "withFallback"
+                    ]
+                },
+                {
+                    "file": "web2/balance-history/js/web2-bh-data.js",
+                    "lines": 69,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["W2BH"],
+                    "uses": ["Web2SSE"],
+                    "functions": ["load", "reload", "setupSSE"]
+                },
+                {
+                    "file": "web2/balance-history/js/web2-bh-link-customer.js",
+                    "lines": 66,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["W2BH"],
+                    "uses": ["Popup"],
+                    "functions": ["linkManual", "openLinkPrompt"]
+                },
+                {
+                    "file": "web2/balance-history/js/web2-bh-reassign-modal.js",
+                    "lines": 287,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["W2BH"],
+                    "uses": ["Web2WalletBalance"],
+                    "functions": [
+                        "ensureReassignModalDom",
+                        "ensureReassignStyles",
                         "openReassignModal",
                         "parse",
+                        "searchCustomers",
+                        "submitReassign",
+                        "url"
+                    ]
+                },
+                {
+                    "file": "web2/balance-history/js/web2-bh-render.js",
+                    "lines": 294,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["W2BH"],
+                    "uses": ["Web2CustomerDetailModal", "Web2WalletBalance"],
+                    "functions": [
+                        "_extractUserFromRow",
                         "pushBtn",
-                        "reload",
                         "renderChips",
                         "renderPagination",
                         "renderRow",
                         "renderStats",
                         "renderTable",
-                        "reprocessUnmatched",
-                        "searchCustomers",
-                        "searchNormalize",
-                        "setupSSE",
-                        "stripDiacritics",
-                        "submitReassign",
-                        "url",
-                        "verifBadge",
-                        "withFallback"
+                        "verifBadge"
                     ]
                 },
                 {
@@ -3161,57 +3209,90 @@
                 },
                 {
                     "file": "web2/balance-history/js/web2-pending-match.js",
-                    "lines": 915,
-                    "purpose": "WEB2.0 — pending match modal.",
-                    "globals": ["Web2PendingMatch"],
-                    "uses": [
-                        "Web2Auth",
-                        "Web2Chat",
-                        "Web2CustomerChat",
-                        "Web2SSE",
-                        "Web2WalletBalance"
-                    ],
+                    "lines": 94,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["W2PM", "Web2PendingMatch"],
+                    "uses": ["Web2SSE"],
+                    "functions": ["ensureBadge", "init", "refresh", "updateBadge"]
+                },
+                {
+                    "file": "web2/balance-history/js/web2-pm-core.js",
+                    "lines": 171,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["W2PM"],
+                    "uses": ["Web2Auth"],
                     "functions": [
-                        "_fbRowHtml",
-                        "_fetchFbByTail",
-                        "_fillFbList",
-                        "_filterPendingList",
                         "_normalize",
                         "_normalizePhoneInput",
-                        "_renderCustomItem",
-                        "_resolveFromChat",
-                        "_searchCustomers",
-                        "_searchPancakeByPhone",
-                        "_setupFbObserver",
                         "authHeaders",
-                        "closeModal",
-                        "ensureBadge",
-                        "ensureModalDom",
-                        "ensureStyles",
                         "escapeHtml",
                         "fmtTime",
                         "fmtVnd",
                         "getCurrentUserName",
-                        "init",
                         "jsonFetch",
                         "linkManual",
                         "listPending",
                         "notify",
-                        "onCustomResolveClick",
-                        "onCustomSearchInput",
-                        "onResolveClick",
-                        "onSearchInput",
-                        "openModal",
-                        "refresh",
-                        "refreshModal",
-                        "renderItem",
-                        "renderModalBody",
                         "resolvePending",
-                        "tryFetch",
-                        "updateBadge",
-                        "url",
                         "withFallback"
                     ]
+                },
+                {
+                    "file": "web2/balance-history/js/web2-pm-customer-search.js",
+                    "lines": 234,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["W2PM"],
+                    "uses": ["Web2Chat", "Web2WalletBalance"],
+                    "functions": [
+                        "_fbRowHtml",
+                        "_fetchFbByTail",
+                        "_fillFbList",
+                        "_searchCustomers",
+                        "_searchPancakeByPhone",
+                        "_setupFbObserver",
+                        "tryFetch",
+                        "url"
+                    ]
+                },
+                {
+                    "file": "web2/balance-history/js/web2-pm-modal.js",
+                    "lines": 211,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["W2PM"],
+                    "uses": [],
+                    "functions": [
+                        "_filterPendingList",
+                        "closeModal",
+                        "ensureModalDom",
+                        "ensureStyles",
+                        "onSearchInput",
+                        "openModal",
+                        "refreshModal"
+                    ]
+                },
+                {
+                    "file": "web2/balance-history/js/web2-pm-picker.js",
+                    "lines": 86,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["W2PM"],
+                    "uses": ["Web2WalletBalance"],
+                    "functions": ["_renderCustomItem", "onCustomSearchInput"]
+                },
+                {
+                    "file": "web2/balance-history/js/web2-pm-render.js",
+                    "lines": 160,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["W2PM"],
+                    "uses": ["Web2CustomerChat", "Web2WalletBalance"],
+                    "functions": ["renderItem", "renderModalBody"]
+                },
+                {
+                    "file": "web2/balance-history/js/web2-pm-resolve.js",
+                    "lines": 96,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["W2PM"],
+                    "uses": [],
+                    "functions": ["_resolveFromChat", "onCustomResolveClick", "onResolveClick"]
                 }
             ]
         },
@@ -6931,11 +7012,11 @@
                 "live-chat/js/shared/utils.js",
                 "native-orders/js/native-orders-app.js",
                 "so-order/js/so-order-app.js",
-                "web2/balance-history/js/web2-balance-history-app.js",
+                "web2/balance-history/js/web2-bh-core.js",
                 "web2/balance-history/js/web2-link-customer-modal.js",
                 "web2/balance-history/js/web2-manual-deposit.js",
                 "web2/balance-history/js/web2-partner-enricher.js",
-                "web2/balance-history/js/web2-pending-match.js",
+                "web2/balance-history/js/web2-pm-core.js",
                 "web2/customer-wallet/js/web2-customer-wallet-state.js",
                 "web2/fastsaleorder-delivery/dlv-app.js",
                 "web2/fastsaleorder-invoice/pbh-state.js",
@@ -6989,8 +7070,8 @@
             "files": [
                 "live-chat/js/live/comments-mobile.js",
                 "live-chat/js/live/live-order-history.js",
-                "web2/balance-history/js/web2-balance-history-app.js",
-                "web2/balance-history/js/web2-pending-match.js",
+                "web2/balance-history/js/web2-bh-core.js",
+                "web2/balance-history/js/web2-pm-core.js",
                 "web2/ck-dashboard/js/ck-dashboard-app.js",
                 "web2/customer-wallet/js/web2-customer-wallet-state.js",
                 "web2/payment-confirm/js/payment-confirm-app.js",
@@ -7011,10 +7092,10 @@
             "fn": "authHeaders",
             "files": [
                 "native-orders/js/native-orders-kpi.js",
-                "web2/balance-history/js/web2-balance-history-app.js",
+                "web2/balance-history/js/web2-bh-core.js",
                 "web2/balance-history/js/web2-link-customer-modal.js",
                 "web2/balance-history/js/web2-manual-deposit.js",
-                "web2/balance-history/js/web2-pending-match.js",
+                "web2/balance-history/js/web2-pm-core.js",
                 "web2/multi-tool/js/multi-tool.js",
                 "web2/payment-confirm/js/payment-confirm-app.js",
                 "web2/photo-studio/photo-studio.js",
@@ -7032,7 +7113,7 @@
             "files": [
                 "web2/balance-history/js/web2-link-customer-modal.js",
                 "web2/balance-history/js/web2-manual-deposit.js",
-                "web2/balance-history/js/web2-pending-match.js",
+                "web2/balance-history/js/web2-pm-modal.js",
                 "web2/shared/popup.js",
                 "web2/shared/web2-barcode-scanner.js",
                 "web2/shared/web2-command-palette.js",
@@ -7052,9 +7133,9 @@
             "files": [
                 "native-orders/js/native-orders-kpi.js",
                 "so-order/js/so-order-app.js",
-                "web2/balance-history/js/web2-balance-history-app.js",
+                "web2/balance-history/js/web2-bh-core.js",
                 "web2/balance-history/js/web2-link-customer-modal.js",
-                "web2/balance-history/js/web2-pending-match.js",
+                "web2/balance-history/js/web2-pm-core.js",
                 "web2/customer-wallet/js/web2-customer-wallet-state.js",
                 "web2/kpi/js/kpi-dashboard.js",
                 "web2/products/js/web2-product-detail.js",
@@ -7118,7 +7199,7 @@
             "fn": "renderPagination",
             "files": [
                 "native-orders/js/native-orders-app.js",
-                "web2/balance-history/js/web2-balance-history-app.js",
+                "web2/balance-history/js/web2-bh-render.js",
                 "web2/customer-wallet/js/web2-customer-wallet-render.js",
                 "web2/customers/js/customers-app.js",
                 "web2/fastsaleorder-delivery/dlv-app.js",
@@ -7135,7 +7216,7 @@
             "files": [
                 "live-chat/js/live/live-customer-panel.js",
                 "web2/balance-history/js/web2-link-customer-modal.js",
-                "web2/balance-history/js/web2-pending-match.js",
+                "web2/balance-history/js/web2-pm-modal.js",
                 "web2/customers/js/customers-app.js",
                 "web2/products/js/web2-products-app.js",
                 "web2/products/js/web2-products-print-modal.js",
@@ -7218,7 +7299,7 @@
             "fn": "reload",
             "files": [
                 "live-chat/js/live/live-livestream-gallery.js",
-                "web2/balance-history/js/web2-balance-history-app.js",
+                "web2/balance-history/js/web2-bh-data.js",
                 "web2/fastsaleorder-invoice/pbh-app.js",
                 "web2/payment-confirm/js/payment-confirm-app.js",
                 "web2/shared/web2-unread-panel.js",
@@ -7279,10 +7360,10 @@
         {
             "fn": "jsonFetch",
             "files": [
-                "web2/balance-history/js/web2-balance-history-app.js",
+                "web2/balance-history/js/web2-bh-core.js",
                 "web2/balance-history/js/web2-link-customer-modal.js",
                 "web2/balance-history/js/web2-manual-deposit.js",
-                "web2/balance-history/js/web2-pending-match.js",
+                "web2/balance-history/js/web2-pm-core.js",
                 "web2/customer-wallet/js/web2-customer-wallet-state.js",
                 "web2/shared/web2-wallet-api.js"
             ],
@@ -7304,7 +7385,7 @@
             "fn": "openModal",
             "files": [
                 "web2/balance-history/js/web2-link-customer-modal.js",
-                "web2/balance-history/js/web2-pending-match.js",
+                "web2/balance-history/js/web2-pm-modal.js",
                 "web2/customers/js/customers-app.js",
                 "web2/purchase-refund/js/purchase-refund-app.js",
                 "web2/shared/web2-customer-chat.js",
@@ -7361,7 +7442,7 @@
         {
             "fn": "exportCsv",
             "files": [
-                "web2/balance-history/js/web2-balance-history-app.js",
+                "web2/balance-history/js/web2-bh-chat-export.js",
                 "web2/customer-wallet/js/web2-customer-wallet-events.js",
                 "web2/customers/js/customers-app.js",
                 "web2/fastsaleorder-invoice/pbh-actions.js",
@@ -7435,7 +7516,7 @@
         {
             "fn": "_normalize",
             "files": [
-                "web2/balance-history/js/web2-pending-match.js",
+                "web2/balance-history/js/web2-pm-core.js",
                 "web2/shared/web2-products-cache.js",
                 "web2/shared/web2-suppliers-cache.js",
                 "web2/shared/web2-variants-cache.js"
@@ -7486,7 +7567,7 @@
             "fn": "debounce",
             "files": [
                 "live-chat/js/shared/utils.js",
-                "web2/balance-history/js/web2-balance-history-app.js",
+                "web2/balance-history/js/web2-bh-core.js",
                 "web2/customer-wallet/js/web2-customer-wallet-state.js",
                 "web2/jt-tracking/js/jt-tracking-app.js"
             ],
@@ -7586,7 +7667,7 @@
             "fn": "renderRow",
             "files": [
                 "native-orders/js/native-orders-app.js",
-                "web2/balance-history/js/web2-balance-history-app.js",
+                "web2/balance-history/js/web2-bh-render.js",
                 "web2/balance-history/js/web2-link-customer-modal.js",
                 "web2/fastsaleorder-invoice/pbh-render.js"
             ],
@@ -7595,7 +7676,7 @@
         {
             "fn": "renderStats",
             "files": [
-                "web2/balance-history/js/web2-balance-history-app.js",
+                "web2/balance-history/js/web2-bh-render.js",
                 "web2/ck-dashboard/js/ck-dashboard-app.js",
                 "web2/kpi/js/kpi-assignments.js",
                 "web2/shared/chat-panel/web2-chat-panel.js"
@@ -8000,7 +8081,7 @@
         {
             "fn": "renderTable",
             "files": [
-                "web2/balance-history/js/web2-balance-history-app.js",
+                "web2/balance-history/js/web2-bh-render.js",
                 "web2/customers/js/customers-app.js",
                 "web2/supplier-debt/js/supplier-debt-app.js"
             ],
@@ -8036,7 +8117,7 @@
         {
             "fn": "searchNormalize",
             "files": [
-                "web2/balance-history/js/web2-balance-history-app.js",
+                "web2/balance-history/js/web2-bh-core.js",
                 "web2/customer-wallet/js/web2-customer-wallet-state.js",
                 "web2/shared/web2-text-utils.js"
             ],
@@ -8063,7 +8144,7 @@
         {
             "fn": "setupSSE",
             "files": [
-                "web2/balance-history/js/web2-balance-history-app.js",
+                "web2/balance-history/js/web2-bh-data.js",
                 "web2/customer-wallet/js/web2-customer-wallet-app.js",
                 "web2/purchase-refund/js/purchase-refund-app.js"
             ],
@@ -8081,7 +8162,7 @@
         {
             "fn": "stripDiacritics",
             "files": [
-                "web2/balance-history/js/web2-balance-history-app.js",
+                "web2/balance-history/js/web2-bh-core.js",
                 "web2/customer-wallet/js/web2-customer-wallet-state.js",
                 "web2/shared/web2-text-utils.js"
             ],
@@ -8117,8 +8198,8 @@
         {
             "fn": "withFallback",
             "files": [
-                "web2/balance-history/js/web2-balance-history-app.js",
-                "web2/balance-history/js/web2-pending-match.js",
+                "web2/balance-history/js/web2-bh-core.js",
+                "web2/balance-history/js/web2-pm-core.js",
                 "web2/shared/web2-api-fetch.js"
             ],
             "count": 3
@@ -8166,10 +8247,6 @@
             "lines": 1306
         },
         {
-            "file": "web2/balance-history/js/web2-balance-history-app.js",
-            "lines": 1280
-        },
-        {
             "file": "live-chat/server/server.js",
             "lines": 1216
         },
@@ -8204,10 +8281,6 @@
         {
             "file": "web2/shared/web2-msg-template.js",
             "lines": 962
-        },
-        {
-            "file": "web2/balance-history/js/web2-pending-match.js",
-            "lines": 915
         },
         {
             "file": "web2/customers/js/customers-app.js",

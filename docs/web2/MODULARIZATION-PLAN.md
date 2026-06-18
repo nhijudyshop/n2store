@@ -56,7 +56,7 @@ Gom các util trùng khắp nơi thành shared 1 nguồn. **Làm trước** vì 
 
 Mỗi file 1 agent sở hữu end-to-end, verify độc lập. Không đụng global dùng chung phức tạp.
 
-- [ ] **`live-chat/server/server.js`** (1216) → 11 module (relay, event-store, db, firebase-loader, pancake-api, page-selection-db, pancake-client, client-manager, browser-broker, routes, middleware) + entry 120L. _Node-side, không hazard DOM._
+- [⏸️ DEFER] **`live-chat/server/server.js`** (1216) → 11 module. **Hoãn**: là Node server production (express+ws+pg+firebase-admin) connect DB/Firebase + listen lúc boot → KHÔNG browser-smoke được, cần chạy server thật với env (serect_dont_push.txt) hoặc Render preview để verify. Làm phiên riêng có môi trường chạy server. Plan module: relay/event-store/db/firebase-loader/pancake-api/page-selection-db/pancake-client/client-manager/browser-broker/routes/middleware + entry.
 - [x] **`web2/jt-tracking/js/jt-tracking-app.js`** (1090) → 7 module: constants(115) / api(42) / state(124) / render(279) / modals(229) / actions(313) / app(132). ✅ Verified live (0 JS err, 204 rows render). Không có inline onclick (data-\* + delegation).
 - [x] **`web2/fastsaleorder-invoice/pbh-app.js`** (1027) → 6 module: state(88) / api(57) / render(422) / actions(366) / filters(89) / app(130). ✅ `window.PbhApp` 12 method byte-identical (8 inline onclick OK). Money/order ops giữ await. Verified live.
 - [x] **`web2/zalo/js/web2-zalo-app.js`** (886) → 5 module: utils[WZApp](160) / accounts(311) / chat(184) / lookup-zns(151) / app(177). ✅ 4 tab OK, `__wzAvErr` giữ. Verified live 0 JS err.
@@ -70,8 +70,8 @@ Mỗi file 1 agent sở hữu end-to-end, verify độc lập. Không đụng gl
 - [ ] **`web2/shared/web2-chat-client.js`** (1199) → chat-utils / chat-tokens / chat-settings / chat-api / chat-live / chat-tags / chat-client(facade). **Giữ `window.Web2Chat` byte-identical.**
 - [ ] **`web2/products/js/web2-products-print.js`** (1293) → print-modal / print-render / print-barcode / print-overlay / print-utils.
 - [ ] **`web2/customer-wallet/js/web2-customer-wallet-app.js`** (1314) → state / api / render / events / app. ⚠ money flow → giữ await + loading.
-- [ ] **`web2/balance-history/js/web2-balance-history-app.js`** (1280) → utils / state / dom-cache / render / data-load / actions / link-customer / reassign-modal / customer-chat / export / events / init. _Gộp xuống ~8 file._
-- [ ] **`web2/balance-history/js/web2-pending-match.js`** (914) → api / format / modal-dom / search / customer-search / fb-inline / picker / resolve / render / state / badge / main. _Gộp xuống ~7-8 file._
+- [x] **`web2/balance-history/js/web2-balance-history-app.js`** (1280) → 8 module: bh-core(213)/render(293)/data(68)/actions(154)/link-customer(65)/reassign-modal(286)/chat-export(149)/app(222). ✅ `Web2BalanceHistoryApp{load,state}` giữ. 50 rows render, 0 JS err.
+- [x] **`web2/balance-history/js/web2-pending-match.js`** (914) → 7 module: pm-core(170)/modal(210)/customer-search(233)/picker(85)/resolve(95)/render(159)/entry(93). ✅ `Web2PendingMatch` 6 method giữ. Modal mở OK (13 els), 0 JS err. Money resolve giữ await.
 
 ## Wave 3 — Monsters & high-coupling (18 file)
 

@@ -388,7 +388,14 @@
         <script src="../shared/web2-customer-store.js?v=20260615fix"></script>
         <script src="../shared/web2-customer-lookup.js?v=20260615store"></script>
         <script src="js/web2-partner-enricher.js?v=20260608"></script>
-        <script src="js/web2-pending-match.js?v=20260612en"></script>
+        <!-- web2-pending-match split into W2PM modules (MOVE-only refactor) — load order: core → modal → customer-search → picker → resolve → render → entry (entry LAST). Re-exports window.Web2PendingMatch byte-identical. -->
+        <script src="js/web2-pm-core.js?v=20260618w2"></script>
+        <script src="js/web2-pm-modal.js?v=20260618w2"></script>
+        <script src="js/web2-pm-customer-search.js?v=20260618w2"></script>
+        <script src="js/web2-pm-picker.js?v=20260618w2"></script>
+        <script src="js/web2-pm-resolve.js?v=20260618w2"></script>
+        <script src="js/web2-pm-render.js?v=20260618w2"></script>
+        <script src="js/web2-pending-match.js?v=20260618w2"></script>
         <script src="js/web2-link-customer-modal.js?v=20260612en"></script>
         <script src="../shared/web2-suppliers-cache.js?v=20260615store"></script>
         <script src="js/web2-manual-deposit.js?v=20260615store"></script>
@@ -399,7 +406,15 @@
         <script src="../shared/web2-customer-chat.js?v=20260618b"></script>
         <script src="../shared/web2-customer-detail-modal.js?v=20260615auth"></script>
         <script src="../shared/web2-ck-review.js?v=20260612en"></script>
-        <script src="js/web2-balance-history-app.js?v=20260612en"></script>
+        <!-- balance-history app split into cohesive modules (MOVE-only refactor) — load order: core → render → data → actions → link-customer → reassign-modal → chat-export → app (app LAST). -->
+        <script src="js/web2-bh-core.js?v=20260618w2"></script>
+        <script src="js/web2-bh-render.js?v=20260618w2"></script>
+        <script src="js/web2-bh-data.js?v=20260618w2"></script>
+        <script src="js/web2-bh-actions.js?v=20260618w2"></script>
+        <script src="js/web2-bh-link-customer.js?v=20260618w2"></script>
+        <script src="js/web2-bh-reassign-modal.js?v=20260618w2"></script>
+        <script src="js/web2-bh-chat-export.js?v=20260618w2"></script>
+        <script src="js/web2-balance-history-app.js?v=20260618w2"></script>
         <script>
             Web2Sidebar.mount('#web2Aside', { activeUrl: window.location.href });
             if (window.lucide) window.lucide.createIcons();
