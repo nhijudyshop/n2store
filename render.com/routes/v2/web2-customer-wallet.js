@@ -112,13 +112,18 @@ function buildAggregateCte() {
                 COALESCE(p.total_purchased, 0)::numeric AS total_purchased,
                 COALESCE(p.pbh_count, 0) AS pbh_count,
                 COALESCE(n.native_count, 0) AS native_count,
-                GREATEST(0, COALESCE(w.total_deposited, 0) - COALESCE(ro.reassigned_out, 0))::numeric AS paid_amount,
+                GREATEST(0, COALESCE(w.total_deposited, 0) - COALESCE(ro.reassigned_out, 0) - COALESCE(r.total_returned, 0))::numeric AS paid_amount,
                 COALESCE(r.total_returned, 0)::numeric AS returned_amount,
                 COALESCE(w.balance, 0)::numeric AS wallet_balance,
                 COALESCE(w.total_deposited, 0)::numeric AS total_deposited,
                 COALESCE(w.total_withdrawn, 0)::numeric AS total_withdrawn,
                 w.customer_id,
-                (COALESCE(p.total_purchased, 0) - GREATEST(0, COALESCE(w.total_deposited, 0) - COALESCE(ro.reassigned_out, 0)) - COALESCE(r.total_returned, 0))::numeric AS balance
+                -- HIGH-5 FIX (2026-06-18): total_returned = Σ(WITHDRAW reference_type='return')
+                -- chỉ sinh khi HUỶ phiếu thu về (web2-returns.js cancel). Lúc TẠO thu về đã
+                -- credit ví qua processDeposit → nằm trong total_deposited rồi. Trừ riêng
+                -- total_returned lần nữa = double-count: huỷ 1 thu về làm Còn nợ tụt 2×.
+                -- Fix: GỘP total_returned vào bucket "đã thu" (giảm paid) thay vì trừ riêng.
+                (COALESCE(p.total_purchased, 0) - GREATEST(0, COALESCE(w.total_deposited, 0) - COALESCE(ro.reassigned_out, 0) - COALESCE(r.total_returned, 0)))::numeric AS balance
             FROM all_phones ap
             LEFT JOIN web2_customer_wallets w ON w.phone = ap.phone
             LEFT JOIN purchases p ON p.phone = ap.phone
@@ -468,12 +473,13 @@ router.post('/overlay-by-phones', async (req, res) => {
                 COALESCE(p.pbh_count, 0) AS pbh_count,
                 COALESCE(n.native_count, 0) AS native_count,
                 COALESCE(w.balance, 0)::numeric AS wallet_balance,
-                GREATEST(0, COALESCE(w.total_deposited, 0) - COALESCE(ro.reassigned_out, 0))::numeric AS total_deposited,
+                GREATEST(0, COALESCE(w.total_deposited, 0) - COALESCE(ro.reassigned_out, 0) - COALESCE(r.total_returned, 0))::numeric AS total_deposited,
                 COALESCE(w.total_withdrawn, 0)::numeric AS total_withdrawn,
                 COALESCE(r.total_returned, 0)::numeric AS total_returned,
+                -- HIGH-5 FIX (2026-06-18): gộp total_returned vào bucket "đã thu" (xem
+                -- buildAggregateCte) — tránh double-count khi huỷ phiếu thu về.
                 (COALESCE(p.total_purchased, 0)
-                    - GREATEST(0, COALESCE(w.total_deposited, 0) - COALESCE(ro.reassigned_out, 0))
-                    - COALESCE(r.total_returned, 0))::numeric AS balance,
+                    - GREATEST(0, COALESCE(w.total_deposited, 0) - COALESCE(ro.reassigned_out, 0) - COALESCE(r.total_returned, 0)))::numeric AS balance,
                 w.customer_id
             FROM input_phones ip
             LEFT JOIN web2_customer_wallets w ON w.phone = ip.phone

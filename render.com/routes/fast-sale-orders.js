@@ -35,6 +35,11 @@ function _isUniqueViolation(err) {
 // 2026-06-04: trừ ví khách khi tạo PBH (thu hộ). Trừ min(số dư ví, COD còn lại),
 // ghi wallet_deducted để hoàn khi huỷ. Best-effort: lỗi ví KHÔNG chặn tạo PBH.
 // Trả { deducted, residualAfter } để cập nhật PBH + native order.
+// MED-9 NOTE (2026-06-18): GIỮ module-private — KHÔNG export ra router. Hàm đọc
+// balance qua getWallet (không lock) rồi processWithdraw (lock FOR UPDATE + chặn
+// "Số dư không đủ") → 2 call đồng thời KHÔNG over-deduct (call sau bị reject, catch
+// nuốt). Idempotency cấp PBH do unique PBH number. Nếu cần dùng ngoài file → đi qua
+// applyWalletToUnpaidPbhs (wrapper transaction + SKIP LOCKED), đừng export hàm này.
 async function _applyWalletToPbh(pool, phone, pbhRow, performedBy) {
     const out = { deducted: 0, residualAfter: Number(pbhRow.residual || 0) };
     if (!phone || out.residualAfter <= 0) return out;

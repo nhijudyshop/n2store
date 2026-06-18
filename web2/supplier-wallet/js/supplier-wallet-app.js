@@ -402,7 +402,7 @@
                         already > 0
                             ? ` <span style="color:#16a34a;font-size:11px;">(đã trả ${already})</span>`
                             : '';
-                    return `<tr data-row-id="${escapeHtml(p.rowId)}" data-cost="${p.costVnd}" data-qty="${remaining}">
+                    return `<tr data-row-id="${escapeHtml(p.rowId)}" data-cost="${p.costVnd}" data-qty="${remaining}" data-ordered="${Number(p.qty) || 0}">
                 <td><input type="checkbox" class="sw-return-check" /></td>
                 <td>${escapeHtml(p.productName || '—')}</td>
                 <td>${escapeHtml(p.variant || '—')}</td>
@@ -414,7 +414,11 @@
                 .join('');
         }
         recalcReturnTotal();
-        document.getElementById('swReturnModal').hidden = false;
+        const rm = document.getElementById('swReturnModal');
+        // HIGH-3 FIX: idempotency key sinh 1 lần mỗi lần mở modal — double-click /
+        // retry dùng cùng txId → server ON CONFLICT(tx_id) chặn ghi đôi ledger.
+        rm.dataset.txid = 'tx-return-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+        rm.hidden = false;
     }
 
     function recalcReturnTotal() {
@@ -447,7 +451,9 @@
             const cost = Number(tr.dataset.cost) || 0;
             const amount = qty * cost;
             if (amount <= 0) return;
-            selectedRows.push({ rowId: tr.dataset.rowId, qty, amount });
+            // HIGH-4: gửi `ordered` (SL đã nhận của row) để server cap over-refund.
+            const ordered = Number(tr.dataset.ordered) || 0;
+            selectedRows.push({ rowId: tr.dataset.rowId, qty, amount, ordered });
             total += amount;
         });
         if (!selectedRows.length) {
@@ -488,7 +494,8 @@
             // ĐỢT E: money op — await server ledger; rowReturns lưu qty/amount
             // THẬT từng dòng (server merge vào returned_row_ids).
             const rowReturns = {};
-            for (const r of selectedRows) rowReturns[r.rowId] = { qty: r.qty, amount: r.amount };
+            for (const r of selectedRows)
+                rowReturns[r.rowId] = { qty: r.qty, amount: r.amount, ordered: r.ordered };
             try {
                 await window.SupplierWalletStorage.addTransaction(walletState, activeSupplier, {
                     type: 'return',
@@ -496,6 +503,8 @@
                     note: `Trả ${selectedRows.length} dòng`,
                     ref: { rowIds: selectedRows.map((r) => r.rowId), rows: selectedRows },
                     rowReturns,
+                    // HIGH-3: txId idempotent sinh khi mở modal (chống double-submit).
+                    txId: document.getElementById('swReturnModal').dataset.txid || undefined,
                     performedBy: _swBy(), // audit: ai ghi trả hàng
                 });
             } catch (e) {
@@ -560,7 +569,10 @@
         document.getElementById('swPaySupplier').textContent = activeSupplier;
         document.getElementById('swPayAmount').value = 0;
         document.getElementById('swPayNote').value = '';
-        document.getElementById('swPayModal').hidden = false;
+        const pm = document.getElementById('swPayModal');
+        // HIGH-3 FIX: idempotency key per modal-open (chống ghi đôi thanh toán).
+        pm.dataset.txid = 'tx-pay-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+        pm.hidden = false;
         // Task 7: autofocus + select so typing replaces the prefilled 0
         setTimeout(() => {
             const el = document.getElementById('swPayAmount');
@@ -585,6 +597,8 @@
                 type: 'payment',
                 amount,
                 note: note || 'Thanh toán',
+                // HIGH-3: txId idempotent sinh khi mở modal (chống double-submit).
+                txId: document.getElementById('swPayModal').dataset.txid || undefined,
                 performedBy: _swBy(), // audit: ai ghi thanh toán
             });
             notify(`Đã ghi thanh toán ${fmtVnd(amount)} cho ${activeSupplier}`, 'success');

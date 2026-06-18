@@ -274,8 +274,22 @@ router.post('/tx', requireWeb2AuthSoft, async (req, res) => {
                     // tích luỹ = 5, KHÔNG phải 2 (ghi đè) → tránh A2 coi 2<5 còn trả được
                     // ⇒ OVER-REFUND. Merge dưới FOR UPDATE meta nên atomic.
                     const prev = cur[rid] || {};
+                    const newQty = (Number(prev.qty) || 0) + (Number(v?.qty) || 0);
+                    // HIGH-4 FIX (2026-06-18): SERVER cap over-refund. TRƯỚC đây cap chỉ
+                    // ở client (modal remaining) → 2 modal/2 máy mở cùng lúc, hoặc gọi API
+                    // trực tiếp, đều trả vượt SL đã mua mà server NHẬN. Giờ client gửi kèm
+                    // `ordered` (SL đã nhận của row) → server từ chối nếu tích luỹ > ordered.
+                    // Check dưới FOR UPDATE meta nên đóng được race 2 modal đồng thời.
+                    const ordered = Number(v?.ordered);
+                    if (Number.isFinite(ordered) && ordered > 0 && newQty > ordered) {
+                        const err = new Error(
+                            `Trả vượt số đã mua (row ${rid}: đã trả+lần này=${newQty} > đã nhận=${ordered})`
+                        );
+                        err.httpStatus = 400;
+                        throw err;
+                    }
                     cur[rid] = {
-                        qty: (Number(prev.qty) || 0) + (Number(v?.qty) || 0),
+                        qty: newQty,
                         amount: (Number(prev.amount) || 0) + (Number(v?.amount) || 0),
                         ts,
                     };
@@ -297,7 +311,7 @@ router.post('/tx', requireWeb2AuthSoft, async (req, res) => {
     } catch (e) {
         await client.query('ROLLBACK').catch(() => {});
         console.error('[WEB2-SUPPLIER-WALLET] /tx error:', e.message);
-        res.status(500).json({ success: false, error: e.message });
+        res.status(e.httpStatus || 500).json({ success: false, error: e.message });
     } finally {
         client.release();
     }

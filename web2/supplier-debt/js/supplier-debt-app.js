@@ -270,12 +270,14 @@
     // TRƯỚC, thành công mới apply local. Server TỰ SINH moveName PAY/<năm>/<seq>
     // từ sequence (hết race MAX+1 client). Idempotent theo txId — retry dual-base
     // / double-submit → alreadyProcessed, không ghi đôi.
-    async function recordPayment(supplierKey, amount, date, note) {
+    async function recordPayment(supplierKey, amount, date, note, txIdArg) {
         if (!supplierKey) throw new Error('Thiếu NCC');
         if (!Number.isFinite(amount) || amount <= 0) throw new Error('Số tiền không hợp lệ');
         const ts = date ? new Date(date + 'T12:00:00+07:00').getTime() : Date.now();
         const noteStr = note || 'Thanh toán nhà cung cấp';
-        const txId = 'tx-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7);
+        // HIGH-3 FIX (2026-06-18): txId idempotent từ caller (sinh khi mở modal) →
+        // double-submit/retry dùng cùng txId → server ON CONFLICT(tx_id) chặn ghi đôi.
+        const txId = txIdArg || 'tx-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7);
         const d = await api('/tx', {
             method: 'POST',
             headers: authHeaders(),
@@ -425,6 +427,8 @@
                     row._txBefore += amount;
                 } else if (isInPeriod(txDate, from, to)) {
                     row.credit += amount;
+                    if (tx.type === 'payment') row.creditPayment += amount;
+                    else row.creditReturn += amount;
                     row.txInPeriod.push({
                         id: tx.id || '',
                         moveName: tx.moveName || '',
@@ -436,6 +440,8 @@
                 } else if (!from && !to) {
                     // No period filter → all → put in period
                     row.credit += amount;
+                    if (tx.type === 'payment') row.creditPayment += amount;
+                    else row.creditReturn += amount;
                     row.txInPeriod.push({
                         id: tx.id || '',
                         moveName: tx.moveName || '',
@@ -493,6 +499,10 @@
             opening: 0,
             debit: 0,
             credit: 0,
+            // MED-7 FIX (2026-06-18): tách credit = thanh toán + trả hàng (cột gộp
+            // gây nhầm khi đối chiếu sổ NCC). ending vẫn = opening+debit-credit (đúng).
+            creditPayment: 0,
+            creditReturn: 0,
             ending: 0,
             _purchasesBefore: 0,
             _txBefore: 0,
@@ -614,7 +624,7 @@
                     </td>
                     <td class="num">${fmtVnd(r.opening)}</td>
                     <td class="num">${fmtVnd(r.debit)}</td>
-                    <td class="num">${fmtVnd(r.credit)}</td>
+                    <td class="num" title="Thanh toán: ${fmtVnd(r.creditPayment || 0)} • Trả hàng: ${fmtVnd(r.creditReturn || 0)}">${fmtVnd(r.credit)}</td>
                     <td class="num col-ending">${fmtVnd(r.ending)}</td>
                 </tr>
                 <tr class="sd-detail-row" data-detail-for="${escapeHtml(r.supplier)}" ${isExpanded ? '' : 'hidden'}>
@@ -716,6 +726,9 @@
         document.getElementById('sdPayNote').value = '';
         document.getElementById('sdPayModal').hidden = false;
         document.getElementById('sdPayModal').dataset.supplier = supplierKey;
+        // HIGH-3: idempotency key per modal-open (chống ghi đôi thanh toán).
+        document.getElementById('sdPayModal').dataset.txid =
+            'tx-pay-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
         if (window.lucide?.createIcons) window.lucide.createIcons();
         setTimeout(() => {
             const el = document.getElementById('sdPayAmount');
@@ -743,7 +756,7 @@
             if (window.lucide?.createIcons) window.lucide.createIcons();
         }
         try {
-            const moveName = await recordPayment(supplier, amount, date, note);
+            const moveName = await recordPayment(supplier, amount, date, note, modal.dataset.txid);
             notify(`Đã ghi ${moveName}: ${fmtVnd(amount)} cho ${supplier}`, 'success');
             modal.hidden = true;
             applyFilterAndRender();
@@ -847,8 +860,8 @@
                     <span class="sd-stat-label">Phát sinh</span>
                     <span class="sd-stat-value">${fmtVnd(row.debit)}</span>
                 </div>
-                <div class="sd-stat sd-stat-credit">
-                    <span class="sd-stat-label">Thanh toán</span>
+                <div class="sd-stat sd-stat-credit" title="Thanh toán: ${fmtVnd(row.creditPayment || 0)} • Trả hàng: ${fmtVnd(row.creditReturn || 0)}">
+                    <span class="sd-stat-label">Đã giảm nợ</span>
                     <span class="sd-stat-value">${fmtVnd(row.credit)}</span>
                 </div>
                 <div class="sd-stat sd-stat-strong">
@@ -976,7 +989,7 @@
                 <th>Ngày</th><th>Diễn giải</th><th>Bút toán</th>
                 <th class="num">Nợ đầu kỳ</th>
                 <th class="num">Phát sinh</th>
-                <th class="num">Thanh toán</th>
+                <th class="num">Đã giảm nợ</th>
                 <th class="num">Nợ cuối kỳ</th>
             </tr></thead>
             <tbody>${rowsHtml}</tbody>

@@ -208,6 +208,24 @@ async function processDeposit(
             }
             const wallet = lockResult.rows[0];
 
+            // MED-6 FIX (2026-06-18): idempotency cho manual deposit (sourceId, KHÔNG
+            // phải sepay). Check SAU khi LOCK ví → 2 deposit cùng phone+sourceId
+            // serialize trên FOR UPDATE; deposit thứ 2 thấy tx đã commit của thứ 1 →
+            // alreadyProcessed. Đóng TOCTOU mà route /deposit (_findIdempotentTx gọi
+            // TRƯỚC transaction) còn hở (không có unique index cho 'balance_history').
+            if (!sepayId && sourceId) {
+                const dupBh = await client.query(
+                    `SELECT id, phone, amount FROM web2_wallet_transactions
+                     WHERE reference_type = 'balance_history' AND reference_id = $1
+                       AND type = 'DEPOSIT'
+                     LIMIT 1`,
+                    [String(sourceId)]
+                );
+                if (dupBh.rows.length > 0) {
+                    return { wallet, transaction: dupBh.rows[0], alreadyProcessed: true };
+                }
+            }
+
             // 3. Compute new balance
             const balanceBefore = parseFloat(wallet.balance) || 0;
             const balanceAfter = balanceBefore + amt;

@@ -2,6 +2,28 @@
 
 ## 2026-06-18
 
+### [web2/money] Audit + fix 8 rủi ro tiền (NCC + ví khách) — 5 HIGH + 3 MED ✅
+
+**User:** "kiểm tra rủi ro các phần về tiền → browser test bằng click lại tất cả hoạt động" → "fix tất cả".
+
+**Audit (2 agent + code-confirm + live-test qua browser fetch prod web2-api):** 0 CRITICAL, 5 HIGH, 3 MED. Live-reproduced HIGH-3 (ghi đôi payment txId random) + HIGH-4 (over-refund không cap) trên NCC test; HIGH-1/2/5 code-confirmed; ví khách core idempotency OK (test clone `0123456788`, đã restore 0).
+
+**Fixes:**
+
+- **HIGH-1** ([purchase-refund.js](../render.com/routes/purchase-refund.js)) — `cancel-approve`/`reject` TRƯỚC chỉ restock kho, KHÔNG đảo ledger ví NCC (`tx-refund-<code>` type=return) → `returnedAmount` kẹt vĩnh viễn → nợ NCC hụt. Thêm `reverseRefundLedger()` (DELETE ledger + trừ `returned_row_ids`, atomic trong transaction) + quick-refund lưu `rowReturns` vào record để đảo được + SSE `web2:supplier-wallet`.
+- **HIGH-2** ([purchase-refund-app.js](../web2/purchase-refund/js/purchase-refund-app.js)) — `refundCode` (random) sinh TRƯỚC khi disable nút → double-submit = 2 mã = 2 phiếu (trừ kho + ghi ví 2 lần). Đưa guard `if(submitBtn.disabled)return` + disable lên TRƯỚC khi sinh mã (cả quick + bulk).
+- **HIGH-3** ([supplier-wallet-app.js](../web2/supplier-wallet/js/supplier-wallet-app.js) + [supplier-debt-app.js](../web2/supplier-debt/js/supplier-debt-app.js)) — thanh toán/trả NCC thủ công txId random mỗi call → ghi đôi nếu guard bị bypass. Sinh `txId` idempotent 1 lần khi mở modal (dataset.txid), truyền vào addTransaction/recordPayment → server `ON CONFLICT(tx_id)` chặn ghi đôi.
+- **HIGH-4** ([web2-supplier-wallet.js](../render.com/routes/web2-supplier-wallet.js) `/tx` + quick-refund) — server KHÔNG cap `Σqty ≤ đã mua` (cap chỉ ở client → 2 modal/2 máy hoặc API trực tiếp trả vượt). Client gửi kèm `ordered` (SL đã nhận); server reject (400) nếu `prev.qty+delta > ordered` dưới `FOR UPDATE` meta (đóng race 2 modal).
+- **HIGH-5** ([web2-customer-wallet.js](../render.com/routes/v2/web2-customer-wallet.js) 2 CTE) — `total_returned` (Σ WITHDRAW ref='return') chỉ sinh khi HUỶ phiếu thu về; lúc tạo đã credit ví (nằm trong `total_deposited`). Trừ riêng lần nữa = double-count → huỷ 1 thu về làm Còn nợ tụt 2×. Fix: GỘP `total_returned` vào bucket "đã thu" thay vì trừ riêng → Còn nợ đúng mọi vòng đời (verified bằng số).
+- **MED-6** ([web2-wallet-service.js](../render.com/services/web2-wallet-service.js) processDeposit) — TOCTOU manual deposit (chưa repro). Thêm dup-check `reference_type='balance_history'` SAU khi LOCK ví (serialize qua FOR UPDATE, không cần index rủi ro).
+- **MED-7** ([supplier-debt-app.js](../web2/supplier-debt/js/supplier-debt-app.js) + [index.html](../web2/supplier-debt/index.html)) — cột "Thanh toán" gộp cả trả hàng gây nhầm. Tách `creditPayment`/`creditReturn` + relabel "Đã giảm nợ" + tooltip breakdown. (ending balance không đổi — vẫn đúng.)
+- **MED-8** — không cần fix: so-order status 1 chiều (chỉ draft→received qua nút "Nhận hàng", KHÔNG revert tay) → kịch bản đổi status retro không xảy ra qua UI.
+- **MED-9** ([fast-sale-orders.js](../render.com/routes/fast-sale-orders.js)) — `_applyWalletToPbh` đã private (không export) + processWithdraw lock chặn over-deduct. Thêm comment giữ private.
+
+**KHÔNG đụng Web 1.0.** Backend cần Render deploy mới live; frontend qua GH Pages. Cleanup: NCC test `TEST-RISK-1781771603` còn trên prod web2Db (DELETE cần CLEANUP_SECRET mà web2-api không set env — xoá tay nếu muốn).
+
+**Status:** ✅ code xong, syntax pass, frontend smoke 0 lỗi. Verify sau deploy: huỷ phiếu trả NCC → returnedAmount giảm; trả vượt → 400; huỷ thu về KH → Còn nợ về gốc (không tụt 2×).
+
 ### [wallets-v2] Fix Rút tiền (Customer 360) báo thành công nhưng KHÔNG trừ số dư ✅
 
 **User:** "lỗi nạp tiền thì được mà rút tiền thì không được?" (trên trang Customer 360, nạp tiền OK nhưng rút tiền số dư đứng yên dù báo thành công).
@@ -10,7 +32,7 @@
 
 **Fix** ([render.com/routes/v2/wallets.js](render.com/routes/v2/wallets.js)) — server-only, 2 chỗ, KHÔNG đụng DB/frontend:
 
-- Dòng ~681 (`POST /:customerId/withdraw`): `refId = order_id || 'MANUAL'` → `order_id || \`MANUAL-${Date.now()}-${rnd}\`` → mỗi lần rút tay 1 reference duy nhất → guard không bao giờ tưởng nhầm trùng. Đơn hàng thật vẫn truyền `order_id` riêng → idempotency cho luồng đơn COD (`pending-withdrawals`) GIỮ NGUYÊN.
+- Dòng ~681 (`POST /:customerId/withdraw`): `refId = order_id || 'MANUAL'` → `order_id || \`MANUAL-${Date.now()}-${rnd}\``→ mỗi lần rút tay 1 reference duy nhất → guard không bao giờ tưởng nhầm trùng. Đơn hàng thật vẫn truyền`order_id` riêng → idempotency cho luồng đơn COD (`pending-withdrawals`) GIỮ NGUYÊN.
 - Dòng ~83 (`GET /manual-transactions`): bộ lọc `reference_id = 'MANUAL'` → `reference_id LIKE 'MANUAL%'` (tương thích ngược: khớp cả 'MANUAL' cũ lẫn 'MANUAL-...' mới) để rút tay vẫn hiện trong danh sách giao dịch thủ công.
 
 **KHÔNG đụng:** frontend (`wallet-panel.js`/`api-service.js`), stored function, schema/migration. `created_by` stamp + insert WITHDRAW (`sepay_id=NULL`, partial unique index migration 064) vẫn an toàn. `GET /:customerId/transactions` lọc theo phone — không cần sửa.
@@ -93,6 +115,7 @@ Audit toàn bộ web2 (`grep web2-btn-*`): các variant `default/primary/success
 **Cần làm thủ công (ngoài code — SePay dashboard `my.sepay.vn`):** tạo webhook trỏ URL `https://chatomni-proxy.nhijudyshop.workers.dev/api/sepay-home/webhook`, chọn 2 TK, định dạng JSON, API key = `SEPAY_HOME_API_KEY` (Bảo mật → Apikey).
 
 **Status:** ✅ code xong + verify FE. Backend filter chờ deploy (push render.com/\*\* → Render Build Filter auto-deploy). Web 1.0 (balance-history-home, pool chatDb).
+
 ### [delivery-report] Tab "ĐƠN 0đ" hiện ĐỦ mọi nhóm (Thành phố/NAP/Thu về), không chỉ Shop+Tomato ✅
 
 **User:** "đơn 0 đồng hiện tại chỉ cập nhật của bán hàng shop và tomato, không cập nhật thành phố/nap... muốn cập nhật toàn bộ cả thành phố nap luôn" → chốt "giữ nguyên luôn tomato" (giữ cột TOMATO dù luôn 0/0).

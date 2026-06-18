@@ -173,6 +173,58 @@ async function restockStock(pool, lines) {
     return results;
 }
 
+// HIGH-1 FIX (2026-06-18): đảo ghi ví NCC khi huỷ duyệt / từ chối phiếu trả đã
+// approved. quick-refund (+ addTransaction client) ghi ledger type='return' với
+// tx_id = `tx-refund-<code>`. TRƯỚC đây cancel-approve/reject CHỈ restock kho, KHÔNG
+// xoá ledger → returnedAmount kẹt vĩnh viễn → nợ NCC hụt (shop trả thiếu tiền NCC).
+// Hàm này xoá ledger entry + trừ lại returned_row_ids (đảo cộng dồn). Chạy TRONG
+// transaction caller (atomic với restock). Idempotent: DELETE theo tx_id UNIQUE.
+async function reverseRefundLedger(client, code, data) {
+    const ledgerTxId = `tx-refund-${code}`;
+    const del = await client.query(
+        `DELETE FROM web2_supplier_ledger WHERE tx_id = $1 RETURNING supplier`,
+        [ledgerTxId]
+    );
+    if (!del.rows.length) return { reversed: false, supplier: null };
+    const supplier = del.rows[0].supplier;
+    const rowReturns =
+        data?.rowReturns && typeof data.rowReturns === 'object' ? data.rowReturns : null;
+    if (rowReturns) {
+        const metaQ = await client.query(
+            `SELECT returned_row_ids FROM web2_supplier_meta WHERE supplier = $1 FOR UPDATE`,
+            [supplier]
+        );
+        if (metaQ.rows.length) {
+            const cur = metaQ.rows[0].returned_row_ids || {};
+            for (const [rid, v] of Object.entries(rowReturns)) {
+                const prev = cur[rid];
+                if (!prev) continue;
+                const nq = (Number(prev.qty) || 0) - (Number(v?.qty) || 0);
+                const na = (Number(prev.amount) || 0) - (Number(v?.amount) || 0);
+                if (nq <= 0 && na <= 0) delete cur[rid];
+                else cur[rid] = { qty: Math.max(0, nq), amount: Math.max(0, na), ts: Date.now() };
+            }
+            await client.query(
+                `UPDATE web2_supplier_meta SET returned_row_ids = $2::jsonb, updated_at = $3 WHERE supplier = $1`,
+                [supplier, JSON.stringify(cur), Date.now()]
+            );
+        }
+    }
+    return { reversed: true, supplier };
+}
+
+// SSE notify ví NCC sau khi đảo ledger (supplier-wallet/debt pages tự refresh).
+function _notifySupplierWallet(req, supplier) {
+    if (!supplier) return;
+    try {
+        req.app.locals.web2RealtimeSseNotify?.(
+            'web2:supplier-wallet',
+            { action: 'tx', supplier, ts: Date.now() },
+            'update'
+        );
+    } catch (_) {}
+}
+
 // -----------------------------------------------------
 // POST /:code/approve — draft|sent → approved + deduct stock
 // Body: { note?: string }
@@ -318,6 +370,8 @@ router.post('/quick-refund', async (req, res) => {
             totalAmount: amount,
             note: b.note || '',
             products,
+            // HIGH-1 FIX: lưu rowReturns để cancel-approve/reject đảo returned_row_ids.
+            rowReturns: b.rowReturns && typeof b.rowReturns === 'object' ? b.rowReturns : null,
             status: 'approved',
             stock_deducted: true,
             approved_at: now,
@@ -404,8 +458,18 @@ router.post('/quick-refund', async (req, res) => {
             for (const [rid, v] of Object.entries(rowReturns)) {
                 // [11]: cộng dồn delta (xem web2-supplier-wallet /tx).
                 const prev = cur[rid] || {};
+                const newQty = (Number(prev.qty) || 0) + (Number(v?.qty) || 0);
+                // HIGH-4 FIX: SERVER cap over-refund (client gửi `ordered` = SL đã nhận).
+                const ordered = Number(v?.ordered);
+                if (Number.isFinite(ordered) && ordered > 0 && newQty > ordered) {
+                    const err = new Error(
+                        `Trả vượt số đã mua (row ${rid}: ${newQty} > ${ordered})`
+                    );
+                    err.httpStatus = 400;
+                    throw err;
+                }
                 cur[rid] = {
-                    qty: (Number(prev.qty) || 0) + (Number(v?.qty) || 0),
+                    qty: newQty,
                     amount: (Number(prev.amount) || 0) + (Number(v?.amount) || 0),
                     ts: now,
                 };
@@ -439,7 +503,7 @@ router.post('/quick-refund', async (req, res) => {
             } catch (_) {}
         }
         console.error('[PURCHASE-REFUND] /quick-refund error:', e.message);
-        res.status(500).json({ error: e.message });
+        res.status(e.httpStatus || 500).json({ error: e.message });
     } finally {
         client.release();
     }
@@ -454,8 +518,13 @@ router.post('/:code/cancel-approve', async (req, res) => {
     const productsPool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!recordsPool || !productsPool) return res.status(500).json({ error: 'DB unavailable' });
     const code = req.params.code;
-    // 1 transaction bao trọn (SELECT FOR UPDATE + restock + saveRefundData):
-    // khóa record chống revoke đôi + atomic restock/record-update.
+    // HIGH-1: đảm bảo bảng ledger tồn tại TRƯỚC transaction (DELETE ledger không
+    // được throw giữa transaction → abort). Best-effort.
+    try {
+        await supplierWalletRoutes.ensureLedgerTables(recordsPool);
+    } catch (_) {}
+    // 1 transaction bao trọn (SELECT FOR UPDATE + restock + reverse ledger + save):
+    // khóa record chống revoke đôi + atomic restock/record-update + đảo ví NCC.
     const client = await recordsPool.connect();
     let committed = false;
     try {
@@ -475,13 +544,16 @@ router.post('/:code/cancel-approve', async (req, res) => {
         }
         const lines = normalizeLines(parseProducts(data.products));
         const stockResults = data.stock_deducted ? await restockStock(client, lines) : [];
+        // HIGH-1 FIX: đảo ledger ví NCC (xoá tx-refund-<code> + trừ returned_row_ids)
+        // — atomic với restock. Lỗi → throw → ROLLBACK trọn (không restock mà nợ sai).
+        const ledgerRev = await reverseRefundLedger(client, code, data);
         const userName = req.body?.userName || '(ẩn danh)';
         const newHistory = appendHistory(data, {
             action: 'cancel-approve',
             userId: req.body?.userId,
             userName,
-            note: `Hủy duyệt + trả tồn ${stockResults.length} dòng. Lý do: ${req.body?.reason || '(không)'}`,
-            extra: { stockResults },
+            note: `Hủy duyệt + trả tồn ${stockResults.length} dòng${ledgerRev.reversed ? ' + đảo ghi ví NCC' : ''}. Lý do: ${req.body?.reason || '(không)'}`,
+            extra: { stockResults, ledgerReversed: ledgerRev.reversed },
         });
         await saveRefundData(client, code, {
             status: 'sent',
@@ -494,11 +566,13 @@ router.post('/:code/cancel-approve', async (req, res) => {
         await client.query('COMMIT');
         committed = true;
         _notify('cancel-approve', code);
+        _notifySupplierWallet(req, ledgerRev.supplier);
         res.json({
             success: true,
             refund: { code, status: 'sent' },
             stock: stockResults,
             linesProcessed: stockResults.length,
+            ledgerReversed: ledgerRev.reversed,
         });
     } catch (e) {
         if (!committed) {
@@ -594,9 +668,13 @@ router.post('/:code/reject', async (req, res) => {
     const productsPool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!recordsPool || !productsPool) return res.status(500).json({ error: 'DB unavailable' });
     const code = req.params.code;
+    // HIGH-1: ensure ledger table trước transaction (DELETE không throw giữa tx).
+    try {
+        await supplierWalletRoutes.ensureLedgerTables(recordsPool);
+    } catch (_) {}
     // H4 fix 2026-06-11: cùng pattern /approve + /cancel-approve — 1 transaction
-    // bao trọn (SELECT FOR UPDATE + restock + saveRefundData): khóa record chống
-    // reject đôi / race với approve, atomic restock/record-update.
+    // bao trọn (SELECT FOR UPDATE + restock + reverse ledger + saveRefundData): khóa
+    // record chống reject đôi / race với approve, atomic restock + đảo ví NCC.
     const client = await recordsPool.connect();
     let committed = false;
     try {
@@ -623,13 +701,15 @@ router.post('/:code/reject', async (req, res) => {
             const lines = normalizeLines(parseProducts(data.products));
             stockResults = await restockStock(client, lines);
         }
+        // HIGH-1 FIX: đảo ledger ví NCC (idempotent; no-op nếu phiếu chưa ghi ví).
+        const ledgerRev = await reverseRefundLedger(client, code, data);
         const userName = req.body?.userName || '(ẩn danh)';
         const newHistory = appendHistory(data, {
             action: 'reject',
             userId: req.body?.userId,
             userName,
-            note: `NCC từ chối${stockResults.length ? ` + trả tồn ${stockResults.length} dòng` : ''}. Lý do: ${req.body?.reason || '(không)'}`,
-            extra: { stockResults },
+            note: `NCC từ chối${stockResults.length ? ` + trả tồn ${stockResults.length} dòng` : ''}${ledgerRev.reversed ? ' + đảo ghi ví NCC' : ''}. Lý do: ${req.body?.reason || '(không)'}`,
+            extra: { stockResults, ledgerReversed: ledgerRev.reversed },
         });
         await saveRefundData(client, code, {
             status: 'rejected',
@@ -642,11 +722,13 @@ router.post('/:code/reject', async (req, res) => {
         await client.query('COMMIT');
         committed = true;
         _notify('reject', code);
+        _notifySupplierWallet(req, ledgerRev.supplier);
         res.json({
             success: true,
             refund: { code, status: 'rejected' },
             stock: stockResults,
             linesProcessed: stockResults.length,
+            ledgerReversed: ledgerRev.reversed,
         });
     } catch (e) {
         if (!committed) {

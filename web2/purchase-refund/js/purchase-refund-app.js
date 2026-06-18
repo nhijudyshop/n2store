@@ -1222,6 +1222,15 @@
         const note = form.elements['note'].value || '';
         const amount = qty * price;
 
+        // HIGH-2 FIX (2026-06-18): guard re-entry + disable TRƯỚC khi sinh mã. Trước
+        // đây refundCode (random) sinh trước khi disable → double-submit (Enter/2 click
+        // nhanh/programmatic) tạo 2 mã khác nhau → 2 phiếu = trừ kho + ghi ví NCC 2 lần.
+        const submitBtn = $('prQuickSubmit');
+        if (submitBtn.disabled) return;
+        submitBtn.disabled = true;
+        const orig = submitBtn.innerHTML;
+        submitBtn.innerHTML = '<i data-lucide="loader"></i> Đang xử lý...';
+
         // Gen mã phiếu: TRA-<yyyymmdd>-<NCCshort>-<rand4>
         const today = new Date();
         const ymd = `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, '0')}${String(today.getDate()).padStart(2, '0')}`;
@@ -1232,11 +1241,6 @@
         const rand = Math.random().toString(36).toUpperCase().slice(2, 6);
         const refundCode = `TRA-${ymd}-${ncShort}-${rand}`;
         const refundName = `Trả ${item.name}${item.variant ? ' (' + item.variant + ')' : ''} cho ${item.supplier}`;
-
-        const submitBtn = $('prQuickSubmit');
-        submitBtn.disabled = true;
-        const orig = submitBtn.innerHTML;
-        submitBtn.innerHTML = '<i data-lucide="loader"></i> Đang xử lý...';
 
         const userInfo = _currentUserInfo();
         try {
@@ -1468,6 +1472,15 @@
         const totalQty = lines.reduce((s, l) => s + l.qty, 0);
         const totalAmount = lines.reduce((s, l) => s + l.qty * (Number(l.item.price) || 0), 0);
 
+        // HIGH-2 FIX: guard re-entry + disable TRƯỚC khi sinh mã (chống double-submit
+        // tạo 2 phiếu trừ kho/ghi ví NCC 2 lần).
+        const submitBtn = $('prBulkSubmit');
+        if (submitBtn.disabled) return;
+        submitBtn.disabled = true;
+        const orig = submitBtn.innerHTML;
+        submitBtn.innerHTML = '<i data-lucide="loader"></i> Đang xử lý...';
+        if (window.lucide) window.lucide.createIcons();
+
         // Mã + tên phiếu (gộp cả đơn).
         const today = new Date();
         const ymd = `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, '0')}${String(today.getDate()).padStart(2, '0')}`;
@@ -1478,12 +1491,6 @@
         const rand = Math.random().toString(36).toUpperCase().slice(2, 6);
         const refundCode = `TRA-${ymd}-${ncShort}-${rand}`;
         const refundName = `Trả ${products.length} SP cho ${supplier}`;
-
-        const submitBtn = $('prBulkSubmit');
-        submitBtn.disabled = true;
-        const orig = submitBtn.innerHTML;
-        submitBtn.innerHTML = '<i data-lucide="loader"></i> Đang xử lý...';
-        if (window.lucide) window.lucide.createIcons();
 
         const userInfo = _currentUserInfo();
         try {
