@@ -1,9 +1,9 @@
 {
-    "generatedAt": "2026-06-18 14:45",
+    "generatedAt": "2026-06-18 15:04",
     "totals": {
-        "files": 160,
-        "sharedModules": 70,
-        "functions": 2535,
+        "files": 165,
+        "sharedModules": 75,
+        "functions": 2544,
         "oversized": 30
     },
     "sharedModules": [
@@ -94,6 +94,7 @@
                 "web2/shared/web2-ck-assign-picker.js",
                 "web2/shared/web2-export-helpers.js",
                 "web2/shared/web2-msg-template.js",
+                "web2/shared/web2-notify.js",
                 "web2/shared/web2-quick-reply.js",
                 "web2/shared/web2-return-bill.js",
                 "web2/shared/web2-sidebar.js",
@@ -104,6 +105,14 @@
                 "web2/zalo/js/web2-zalo-app.js"
             ],
             "lines": 469
+        },
+        {
+            "file": "web2/shared/web2-api-fetch.js",
+            "globals": ["Web2ApiFetch"],
+            "purpose": "WEB2.0 shared — 1 NGUỒN fetch JSON (auth + fallback base) cho Web 2.0.",
+            "api": [],
+            "consumers": ["web2/shared/web2-sidebar.js"],
+            "lines": 82
         },
         {
             "file": "web2/shared/web2-api.js",
@@ -166,6 +175,7 @@
                 "web2/returns/js/returns-api.js",
                 "web2/shared/chat-panel/web2-chat-panel.js",
                 "web2/shared/delivery-method-picker.js",
+                "web2/shared/web2-api-fetch.js",
                 "web2/shared/web2-api.js",
                 "web2/shared/web2-chat-client.js",
                 "web2/shared/web2-ck-assign-picker.js",
@@ -330,7 +340,8 @@
                 "live-chat/js/live/live-comment-list.js",
                 "live-chat/js/shared/live-customer-sync.js",
                 "live-chat/js/shared/live-status.js",
-                "web2/shared/web2-customer-lookup.js"
+                "web2/shared/web2-customer-lookup.js",
+                "web2/shared/web2-phone-utils.js"
             ],
             "lines": 402
         },
@@ -372,7 +383,7 @@
             "globals": ["Web2Escape"],
             "purpose": "WEB2.0 module.",
             "api": [],
-            "consumers": [],
+            "consumers": ["web2/shared/web2-sidebar.js"],
             "lines": 64
         },
         {
@@ -393,6 +404,14 @@
                 "web2/shared/web2-customer-chat.js"
             ],
             "lines": 86
+        },
+        {
+            "file": "web2/shared/web2-format.js",
+            "globals": ["Web2Format"],
+            "purpose": "WEB2.0 shared — 1 NGUỒN format tiền/ngày/giờ (GMT+7) cho Web 2.0.",
+            "api": [],
+            "consumers": ["web2/shared/web2-sidebar.js"],
+            "lines": 92
         },
         {
             "file": "web2/shared/web2-history-timeline.js",
@@ -489,6 +508,14 @@
             "lines": 186
         },
         {
+            "file": "web2/shared/web2-notify.js",
+            "globals": ["Web2Notify"],
+            "purpose": "WEB2.0 shared — 1 NGUỒN toast/notify cho Web 2.0.",
+            "api": [],
+            "consumers": ["web2/shared/web2-sidebar.js"],
+            "lines": 46
+        },
+        {
             "file": "web2/shared/web2-optimistic.js",
             "globals": ["Web2Optimistic"],
             "purpose": "Codifies pattern: snapshot → apply optimistic UI → fire backend background →",
@@ -542,6 +569,14 @@
             "api": [],
             "consumers": ["web2/pancake-settings/js/pancake-settings.js"],
             "lines": 206
+        },
+        {
+            "file": "web2/shared/web2-phone-utils.js",
+            "globals": ["Web2PhoneUtils"],
+            "purpose": "WEB2.0 shared — 1 NGUỒN chuẩn hoá SĐT VN cho Web 2.0.",
+            "api": [],
+            "consumers": ["web2/shared/web2-sidebar.js"],
+            "lines": 38
         },
         {
             "file": "web2/shared/web2-printer.js",
@@ -657,7 +692,7 @@
                 "web2/returns/js/returns-app.js",
                 "web2/system/js/system-app.js"
             ],
-            "lines": 620
+            "lines": 629
         },
         {
             "file": "web2/shared/web2-so-order-reader.js",
@@ -749,6 +784,14 @@
                 "web2/supplier-wallet/js/supplier-wallet-app.js"
             ],
             "lines": 223
+        },
+        {
+            "file": "web2/shared/web2-text-utils.js",
+            "globals": ["Web2TextUtils"],
+            "purpose": "WEB2.0 shared — 1 NGUỒN chuẩn hoá text/tìm kiếm tiếng Việt cho Web 2.0.",
+            "api": [],
+            "consumers": ["web2/shared/web2-sidebar.js"],
+            "lines": 45
         },
         {
             "file": "web2/shared/web2-unread-panel.js",
@@ -4609,6 +4652,14 @@
                     ]
                 },
                 {
+                    "file": "web2/shared/web2-api-fetch.js",
+                    "lines": 82,
+                    "purpose": "WEB2.0 shared — 1 NGUỒN fetch JSON (auth + fallback base) cho Web 2.0.",
+                    "globals": ["Web2ApiFetch"],
+                    "uses": ["WEB2_CONFIG", "Web2Auth"],
+                    "functions": ["_defaultBases", "authHeaders", "json", "withFallback"]
+                },
+                {
                     "file": "web2/shared/web2-api.js",
                     "lines": 94,
                     "purpose": "Web 2.0 generic API client — talks to /api/web2/:entity/*",
@@ -5108,6 +5159,23 @@
                     "functions": ["hasExtension", "onMsg", "request", "version"]
                 },
                 {
+                    "file": "web2/shared/web2-format.js",
+                    "lines": 92,
+                    "purpose": "WEB2.0 shared — 1 NGUỒN format tiền/ngày/giờ (GMT+7) cho Web 2.0.",
+                    "globals": ["Web2Format"],
+                    "uses": [],
+                    "functions": [
+                        "_fmt",
+                        "date",
+                        "dateTime",
+                        "num",
+                        "parseTs",
+                        "rel",
+                        "time",
+                        "vnd"
+                    ]
+                },
+                {
                     "file": "web2/shared/web2-history-timeline.js",
                     "lines": 238,
                     "purpose": "Web2HistoryTimeline — render lịch sử chỉnh sửa kèm tên user",
@@ -5349,6 +5417,14 @@
                     ]
                 },
                 {
+                    "file": "web2/shared/web2-notify.js",
+                    "lines": 46,
+                    "purpose": "WEB2.0 shared — 1 NGUỒN toast/notify cho Web 2.0.",
+                    "globals": ["Web2Notify"],
+                    "uses": ["Popup"],
+                    "functions": ["error", "info", "show", "success", "warning"]
+                },
+                {
                     "file": "web2/shared/web2-optimistic.js",
                     "lines": 110,
                     "purpose": "Codifies pattern: snapshot → apply optimistic UI → fire backend background →",
@@ -5427,6 +5503,14 @@
                         "isExtensionPresent",
                         "onMessage"
                     ]
+                },
+                {
+                    "file": "web2/shared/web2-phone-utils.js",
+                    "lines": 38,
+                    "purpose": "WEB2.0 shared — 1 NGUỒN chuẩn hoá SĐT VN cho Web 2.0.",
+                    "globals": ["Web2PhoneUtils"],
+                    "uses": ["Web2CustomerStore"],
+                    "functions": ["display", "isValid", "norm"]
                 },
                 {
                     "file": "web2/shared/web2-printer.js",
@@ -5714,15 +5798,21 @@
                 },
                 {
                     "file": "web2/shared/web2-sidebar.js",
-                    "lines": 620,
+                    "lines": 629,
                     "purpose": "WEB2-clone sidebar for Web 2.0 pages.",
                     "globals": ["Web2Sidebar"],
                     "uses": [
                         "DeliveryMethodPicker",
                         "Popup",
+                        "Web2ApiFetch",
                         "Web2Auth",
                         "Web2CommandPalette",
-                        "Web2Lottie"
+                        "Web2Escape",
+                        "Web2Format",
+                        "Web2Lottie",
+                        "Web2Notify",
+                        "Web2PhoneUtils",
+                        "Web2TextUtils"
                     ],
                     "functions": [
                         "SCRIPT_BASE_URL",
@@ -5801,6 +5891,14 @@
                         "search",
                         "subscribe"
                     ]
+                },
+                {
+                    "file": "web2/shared/web2-text-utils.js",
+                    "lines": 45,
+                    "purpose": "WEB2.0 shared — 1 NGUỒN chuẩn hoá text/tìm kiếm tiếng Việt cho Web 2.0.",
+                    "globals": ["Web2TextUtils"],
+                    "uses": [],
+                    "functions": ["asciiUpper", "includes", "searchNormalize", "stripDiacritics"]
                 },
                 {
                     "file": "web2/shared/web2-unread-panel.js",
@@ -6706,6 +6804,26 @@
             "count": 17
         },
         {
+            "fn": "authHeaders",
+            "files": [
+                "native-orders/js/native-orders-kpi.js",
+                "web2/balance-history/js/web2-balance-history-app.js",
+                "web2/balance-history/js/web2-link-customer-modal.js",
+                "web2/balance-history/js/web2-manual-deposit.js",
+                "web2/balance-history/js/web2-pending-match.js",
+                "web2/multi-tool/js/multi-tool.js",
+                "web2/payment-confirm/js/payment-confirm-app.js",
+                "web2/photo-studio/photo-studio.js",
+                "web2/shared/web2-api-fetch.js",
+                "web2/shared/web2-auth.js",
+                "web2/shared/web2-ck-assign-picker.js",
+                "web2/shared/web2-ck-review.js",
+                "web2/shared/web2-customer-store.js",
+                "web2/supplier-debt/js/supplier-debt-app.js"
+            ],
+            "count": 14
+        },
+        {
             "fn": "ensureStyles",
             "files": [
                 "web2/balance-history/js/web2-link-customer-modal.js",
@@ -6724,25 +6842,6 @@
                 "web2/shared/web2-zalo.js"
             ],
             "count": 14
-        },
-        {
-            "fn": "authHeaders",
-            "files": [
-                "native-orders/js/native-orders-kpi.js",
-                "web2/balance-history/js/web2-balance-history-app.js",
-                "web2/balance-history/js/web2-link-customer-modal.js",
-                "web2/balance-history/js/web2-manual-deposit.js",
-                "web2/balance-history/js/web2-pending-match.js",
-                "web2/multi-tool/js/multi-tool.js",
-                "web2/payment-confirm/js/payment-confirm-app.js",
-                "web2/photo-studio/photo-studio.js",
-                "web2/shared/web2-auth.js",
-                "web2/shared/web2-ck-assign-picker.js",
-                "web2/shared/web2-ck-review.js",
-                "web2/shared/web2-customer-store.js",
-                "web2/supplier-debt/js/supplier-debt-app.js"
-            ],
-            "count": 13
         },
         {
             "fn": "fmtVnd",
@@ -7089,6 +7188,17 @@
             "count": 5
         },
         {
+            "fn": "norm",
+            "files": [
+                "live-chat/js/live/live-init.js",
+                "live-chat/js/shared/live-customer-sync.js",
+                "so-order/js/so-order-app.js",
+                "web2/shared/web2-command-palette.js",
+                "web2/shared/web2-phone-utils.js"
+            ],
+            "count": 5
+        },
+        {
             "fn": "_fetch",
             "files": [
                 "web2/customers/js/customers-api.js",
@@ -7219,22 +7329,22 @@
             "count": 4
         },
         {
-            "fn": "norm",
-            "files": [
-                "live-chat/js/live/live-init.js",
-                "live-chat/js/shared/live-customer-sync.js",
-                "so-order/js/so-order-app.js",
-                "web2/shared/web2-command-palette.js"
-            ],
-            "count": 4
-        },
-        {
             "fn": "openEdit",
             "files": [
                 "native-orders/js/native-orders-app.js",
                 "web2/products/js/web2-products-app.js",
                 "web2/shared/page-builder.js",
                 "web2/variants/js/web2-variants-app.js"
+            ],
+            "count": 4
+        },
+        {
+            "fn": "parseTs",
+            "files": [
+                "live-chat/js/live/comments-mobile.js",
+                "web2/multi-tool/js/multi-tool.js",
+                "web2/shared/chat-panel/web2-chat-panel.js",
+                "web2/shared/web2-format.js"
             ],
             "count": 4
         },
@@ -7504,6 +7614,15 @@
             "count": 3
         },
         {
+            "fn": "error",
+            "files": [
+                "web2/shared/popup.js",
+                "web2/shared/web2-lottie.js",
+                "web2/shared/web2-notify.js"
+            ],
+            "count": 3
+        },
+        {
             "fn": "finish",
             "files": [
                 "live-chat/js/live/live-livestream-gallery.js",
@@ -7621,15 +7740,6 @@
             "count": 3
         },
         {
-            "fn": "parseTs",
-            "files": [
-                "live-chat/js/live/comments-mobile.js",
-                "web2/multi-tool/js/multi-tool.js",
-                "web2/shared/chat-panel/web2-chat-panel.js"
-            ],
-            "count": 3
-        },
-        {
             "fn": "push",
             "files": [
                 "web2/customer-wallet/js/web2-customer-wallet-app.js",
@@ -7720,6 +7830,15 @@
             "count": 3
         },
         {
+            "fn": "searchNormalize",
+            "files": [
+                "web2/balance-history/js/web2-balance-history-app.js",
+                "web2/customer-wallet/js/web2-customer-wallet-app.js",
+                "web2/shared/web2-text-utils.js"
+            ],
+            "count": 3
+        },
+        {
             "fn": "send",
             "files": [
                 "live-chat/js/pancake/pancake-chat-window.js",
@@ -7756,11 +7875,38 @@
             "count": 3
         },
         {
+            "fn": "stripDiacritics",
+            "files": [
+                "web2/balance-history/js/web2-balance-history-app.js",
+                "web2/customer-wallet/js/web2-customer-wallet-app.js",
+                "web2/shared/web2-text-utils.js"
+            ],
+            "count": 3
+        },
+        {
+            "fn": "success",
+            "files": [
+                "web2/shared/popup.js",
+                "web2/shared/web2-lottie.js",
+                "web2/shared/web2-notify.js"
+            ],
+            "count": 3
+        },
+        {
             "fn": "wireTabs",
             "files": [
                 "web2/ck-dashboard/js/ck-dashboard-app.js",
                 "web2/multi-tool/js/multi-tool.js",
                 "web2/system/js/system-app.js"
+            ],
+            "count": 3
+        },
+        {
+            "fn": "withFallback",
+            "files": [
+                "web2/balance-history/js/web2-balance-history-app.js",
+                "web2/balance-history/js/web2-pending-match.js",
+                "web2/shared/web2-api-fetch.js"
             ],
             "count": 3
         }

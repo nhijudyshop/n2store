@@ -65,6 +65,15 @@
         if (!document.querySelector('script[src*="notification-system"]')) {
             inject('../../shared/js/notification-system.js', '20260613a');
         }
+        // Foundation utils dùng chung (codemap §4 dedup, 2026-06-18) — format tiền/
+        // ngày-giờ GMT+7, fetch JSON+auth, toast, SĐT, text/tìm-kiếm, escape HTML.
+        // Pure + nhẹ, có mặt MỌI trang Web 2.0 → trang adopt thay hàm copy cục bộ.
+        if (!global.Web2Escape) inject('web2-escape.js', '20260612');
+        if (!global.Web2Format) inject('web2-format.js', '20260618');
+        if (!global.Web2ApiFetch) inject('web2-api-fetch.js', '20260618');
+        if (!global.Web2Notify) inject('web2-notify.js', '20260618');
+        if (!global.Web2PhoneUtils) inject('web2-phone-utils.js', '20260618');
+        if (!global.Web2TextUtils) inject('web2-text-utils.js', '20260618');
     })();
 
     // Group definitions matching WEB2 sidebar structure.

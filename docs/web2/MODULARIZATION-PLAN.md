@@ -38,16 +38,17 @@ Gom các util trùng khắp nơi thành shared 1 nguồn. **Làm trước** vì 
 
 **Adoption**: mỗi shared mới làm xong → thêm `<script src>` vào các trang dùng + thay hàm cục bộ bằng shared (giữ fallback defensive `window.Web2Format?.vnd ?? localFmt`). KHÔNG xoá hàng loạt một lúc — adopt dần theo wave để dễ verify.
 
-- [ ] Web2Format
-- [ ] Web2Auth.authHeaders (mở rộng)
-- [ ] Web2ApiFetch
-- [ ] Web2Escape adoption (đã có module, mở rộng dùng)
-- [ ] Web2PhoneUtils / normPhone gom 1 nguồn
-- [ ] Web2TextUtils
-- [ ] Web2AvatarUtils
-- [ ] Web2JwtUtils
-- [ ] Web2Notify
+- [x] **Web2Format** — `web2/shared/web2-format.js` (num/vnd/date/time/dateTime/rel/parseTs, GMT+7). Verified live.
+- [x] **Web2Auth.authHeaders** — đã có sẵn (`web2-auth.js:196`), KHÔNG cần tạo, chỉ adopt.
+- [x] **Web2ApiFetch** — `web2/shared/web2-api-fetch.js` (json/withFallback/authHeaders).
+- [x] **Web2Escape** — đã có sẵn (`web2-escape.js`); nay auto-load mọi trang qua sidebar.
+- [x] **Web2PhoneUtils** — `web2/shared/web2-phone-utils.js` (norm/isValid/display). _Web2CustomerStore.normPhone delegate dần sau._
+- [x] **Web2TextUtils** — `web2/shared/web2-text-utils.js` (stripDiacritics/searchNormalize/asciiUpper/includes).
+- [x] **Web2Notify** — `web2/shared/web2-notify.js` (show/success/error/warning/info).
+- [x] **Auto-load**: 5 module mới + Web2Escape đăng ký trong `web2-sidebar.js` → có mặt MỌI trang. Verified live overview (7/7 global true, vnd/dateTime GMT+7/phone/search OK).
+- [ ] Web2AvatarUtils / Web2JwtUtils (làm khi chạm wave dùng)
 - [ ] Web2SoOrderUtils / Web2ImageLightbox / Web2CanvasUtils / Web2PancakeImport (feature-specific, làm khi chạm wave liên quan)
+- [ ] **Adoption**: thay hàm copy cục bộ bằng shared — làm DẦN theo từng wave (giữ fallback defensive).
 
 ---
 

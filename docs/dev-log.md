@@ -2,6 +2,18 @@
 
 ## 2026-06-18
 
+### [web2-modular] Wave 0 — Foundation shared modules (5 module mới, auto-load) ✅
+
+Khởi động kế hoạch tách module ([MODULARIZATION-PLAN.md](web2/MODULARIZATION-PLAN.md)). Wave 0 = gom util trùng (codemap §4) thành shared 1 nguồn, additive zero-risk.
+
+**Tạo mới** (`web2/shared/`): `web2-format.js` (Web2Format: num/vnd/date/time/dateTime/rel/parseTs GMT+7) · `web2-api-fetch.js` (Web2ApiFetch: json/withFallback/authHeaders) · `web2-notify.js` (Web2Notify) · `web2-phone-utils.js` (Web2PhoneUtils: norm/isValid/display, SĐT 10 số) · `web2-text-utils.js` (Web2TextUtils: stripDiacritics/searchNormalize/asciiUpper).
+**Đã có sẵn** (chỉ adopt): `Web2Escape`, `Web2Auth.authHeaders`.
+**Auto-load**: đăng ký 5 module + Web2Escape vào `web2-sidebar.js` `autoLoadSharedModules()` → có mặt MỌI trang Web 2.0, KHÔNG cần sửa từng HTML.
+
+**Verify**: node syntax+behavior PASS (GMT+7: Pancake no-Z `03:52:23`→`10:52`, vnd→`1.234.567₫`). Live browser overview (đăng nhập web2): 7/7 global `true`, `dateTime`→"11/06/2026 10:52", phone/search OK, 5 file serve 200. Codemap regen: 165 file / 75 shared.
+
+**Adoption** (thay hàm copy cục bộ) làm DẦN theo từng wave, giữ fallback defensive — KHÔNG xoá hàng loạt.
+
 ### [tooling] Bản đồ code Web 2.0 "thông minh" — codemap auto-generated 🗺️
 
 **User:** "có 1 file quản lý riêng kiểu code thông minh biết được hàm, file này nhiệm vụ gì, để Claude đọc vào hiểu luôn tất cả tính năng + biết trang có hàm gì, cần thì tìm ở đâu; trang mới đụng trùng hàm thì share module dùng chung."
