@@ -223,6 +223,10 @@ export async function handleSepayHomeProxy(request, url, pathname) {
             console.log('[SEPAY-HOME-PROXY] Request body size:', requestBody.byteLength, 'bytes');
         }
 
+        // ⚠ timeout governs time-to-headers, KHÔNG phải tổng đời kết nối. Khi headers
+        // SSE về (rất nhanh), fetch() resolve + clearTimeout → body stream tiếp không bị
+        // abort. KHÔNG dùng 0 (fetchWithTimeout hiểu 0 = setTimeout(abort,0) = abort NGAY
+        // → 502). Dùng 15000 giống handleSepayProxy (đã chạy ổn cho /api/sepay/stream).
         const sepayResponse = await fetchWithRetry(
             targetUrl,
             {
@@ -232,7 +236,7 @@ export async function handleSepayHomeProxy(request, url, pathname) {
             },
             3,
             1000,
-            isSse ? 0 : 15000
+            15000
         );
 
         console.log('[SEPAY-HOME-PROXY] Response status:', sepayResponse.status);

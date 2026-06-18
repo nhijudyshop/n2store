@@ -2,6 +2,18 @@
 
 ## 2026-06-18
 
+### [cloudflare-worker] Fix SSE `/api/sepay-home/stream` 502 → "Mất kết nối" trên balance-history-home ✅
+
+**Triệu chứng:** trang `balance-history-home` hiện badge đỏ "Mất kết nối"; console lặp `GET /api/sepay-home/stream → 502` + `[REALTIME] SSE Error` → reconnect vô hạn. Data vẫn tải OK (history API riêng), chỉ realtime chết.
+
+**Root cause:** [proxy-handler.js](cloudflare-worker/modules/handlers/proxy-handler.js) `handleSepayHomeProxy` truyền `timeout = isSse ? 0 : 15000` cho `fetchWithRetry`. Trong `fetchWithTimeout` ([shared/universal/fetch-utils.js](shared/universal/fetch-utils.js):28) `setTimeout(()=>controller.abort(), 0)` = **abort NGAY** → fetch tới Render bị huỷ tức thì → retry 3 lần đều fail → handler trả **502**. (`timeout` chỉ tính thời-gian-tới-headers; SSE headers về nhanh rồi `clearTimeout` cho body stream tiếp — nên KHÔNG cần 0.)
+
+**Bằng chứng:** direct Render `/api/sepay-home/stream` → 200 `text/event-stream` ✓; original `/api/sepay/stream` qua worker → 200 ✓ (handler đó dùng 15000, không có nhánh SSE-0). Chỉ sepay-home (timeout 0) chết.
+
+**Fix:** đổi `isSse ? 0 : 15000` → `15000` (giống `handleSepayProxy` đã chạy ổn). Giữ nhánh `isSse` set `Accept: text/event-stream`. Deploy worker `wrangler deploy` (version `d29a40f3`).
+
+**Verify:** sau deploy, `/api/sepay-home/stream` qua worker → **200 `text/event-stream`** + nhận `event: connected`. Badge sẽ chuyển "Mất kết nối" → "Realtime" khi reload trang.
+
 ### [balance-history-home] Phân biệt 2 tài khoản SePay Home (cột "Tài khoản" + bộ lọc 44 TL / 481 NVK) ✅
 
 **User:** muốn "thêm webhook mới" (SePay) cho trang `balance-history-home` gồm 2 tài khoản (`09777743051810` "44 TL" + `09777743051708` "481 NVK") — nhấn mạnh đặt tên **TÁCH RIÊNG** với SePay shop có sẵn để code phân biệt được.
