@@ -76,12 +76,36 @@
         return /^(https:\/\/|http:\/\/|\/|data:image\/)/i.test(s) ? s : '';
     }
     // Thumbnail SP (ảnh từ Kho SP) — fallback icon khi thiếu/lỗi ảnh.
+    // Ảnh thật click được → mở xem FULL (lightbox), data-full giữ URL gốc.
     function thumbHtml(imageUrl) {
         const src = safeImageUrl(imageUrl);
         if (src) {
-            return `<img class="pr-thumb" src="${escapeHtml(src)}" alt="" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';"><span class="pr-thumb pr-thumb-ph" style="display:none;"><i data-lucide="image"></i></span>`;
+            const e = escapeHtml(src);
+            return `<img class="pr-thumb pr-thumb-zoom" src="${e}" data-full="${e}" alt="" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';"><span class="pr-thumb pr-thumb-ph" style="display:none;"><i data-lucide="image"></i></span>`;
         }
         return `<span class="pr-thumb pr-thumb-ph"><i data-lucide="image"></i></span>`;
+    }
+
+    // Lightbox xem ảnh SP full-size (native theo browser, không crop).
+    function openImageLightbox(src) {
+        if (!src) return;
+        let ov = document.getElementById('prImgOverlay');
+        if (!ov) {
+            ov = document.createElement('div');
+            ov.id = 'prImgOverlay';
+            ov.className = 'pr-img-overlay';
+            ov.hidden = true;
+            ov.innerHTML = `<img alt="Ảnh sản phẩm"><button type="button" class="pr-img-close" aria-label="Đóng">×</button>`;
+            ov.addEventListener('click', () => {
+                ov.hidden = true;
+            });
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape' && !ov.hidden) ov.hidden = true;
+            });
+            document.body.appendChild(ov);
+        }
+        ov.querySelector('img').src = src;
+        ov.hidden = false;
     }
 
     // 2026-06-07: 1 "đơn" = 1 shipment/đợt trong Sổ Order. Group Section A +
@@ -1580,6 +1604,15 @@
         wireSourceList();
         wireQuickModal();
         wireBulkModal();
+        // Click thumbnail SP (bất kỳ đâu) → xem ảnh full-size.
+        document.addEventListener('click', (e) => {
+            const img = e.target.closest('img.pr-thumb-zoom');
+            if (img && img.dataset.full) {
+                e.preventDefault();
+                e.stopPropagation();
+                openImageLightbox(img.dataset.full);
+            }
+        });
 
         // Initial loads: section A (so-order) + section B (refunds)
         loadSourceItems();

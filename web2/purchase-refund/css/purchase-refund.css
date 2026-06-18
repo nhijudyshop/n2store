@@ -1003,6 +1003,54 @@ body {
     width: 18px;
     height: 18px;
 }
+.pr-thumb-zoom {
+    cursor: zoom-in;
+    transition: filter 120ms;
+}
+.pr-thumb-zoom:hover {
+    filter: brightness(0.92);
+}
+/* Lightbox xem ảnh SP full-size */
+.pr-img-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 100000;
+    background: rgba(15, 23, 42, 0.82);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    cursor: zoom-out;
+    animation: prQuickPop 0.15s ease-out;
+}
+.pr-img-overlay[hidden] {
+    display: none;
+}
+.pr-img-overlay img {
+    max-width: 92vw;
+    max-height: 92vh;
+    object-fit: contain;
+    border-radius: 8px;
+    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.5);
+    background: #fff;
+}
+.pr-img-close {
+    position: absolute;
+    top: 18px;
+    right: 24px;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(255, 255, 255, 0.15);
+    color: #fff;
+    font-size: 26px;
+    line-height: 1;
+    cursor: pointer;
+}
+.pr-img-close:hover {
+    background: rgba(255, 255, 255, 0.28);
+}
 
 /* ---------- Bulk refund (trả cả đơn 1 lần) ---------- */
 .pr-bulk-btn {
