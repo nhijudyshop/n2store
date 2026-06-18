@@ -58,8 +58,8 @@ Mỗi file 1 agent sở hữu end-to-end, verify độc lập. Không đụng gl
 
 - [ ] **`live-chat/server/server.js`** (1216) → 11 module (relay, event-store, db, firebase-loader, pancake-api, page-selection-db, pancake-client, client-manager, browser-broker, routes, middleware) + entry 120L. _Node-side, không hazard DOM._
 - [x] **`web2/jt-tracking/js/jt-tracking-app.js`** (1090) → 7 module: constants(115) / api(42) / state(124) / render(279) / modals(229) / actions(313) / app(132). ✅ Verified live (0 JS err, 204 rows render). Không có inline onclick (data-\* + delegation).
-- [ ] **`web2/fastsaleorder-invoice/pbh-app.js`** (1027) → state / api / render-table / render-modals / actions / filters / customer-filter / bulk-selection / utils / app. _Gom render-modals + bulk vào ít file hơn nếu nhỏ._
-- [ ] **`web2/zalo/js/web2-zalo-app.js`** (886) → utils / state / tabs / accounts / chat / lookup / zns / bind.
+- [x] **`web2/fastsaleorder-invoice/pbh-app.js`** (1027) → 6 module: state(88) / api(57) / render(422) / actions(366) / filters(89) / app(130). ✅ `window.PbhApp` 12 method byte-identical (8 inline onclick OK). Money/order ops giữ await. Verified live.
+- [x] **`web2/zalo/js/web2-zalo-app.js`** (886) → 5 module: utils[WZApp](160) / accounts(311) / chat(184) / lookup-zns(151) / app(177). ✅ 4 tab OK, `__wzAvErr` giữ. Verified live 0 JS err.
 - [x] **`web2/returns/js/returns-app.js`** (867) → 7 module: core(72) / customer(144) / order-items(135) / cod(64) / form(216) / tabs(191) / app(187). ✅ Verified live (0 JS err, switchTab OK, COD/wallet money giữ await). `window.Web2Returns` giữ nguyên.
 
 ## Wave 2 — Medium coupling + shared API/token (6 file)

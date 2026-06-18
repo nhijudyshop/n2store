@@ -392,7 +392,12 @@
         <script src="../shared/zalo-chat/realtime.js?v=20260613L"></script>
         <script src="../shared/zalo-chat/chat-actions.js?v=20260613L"></script>
         <script src="../shared/zalo-chat/chat-view.js?v=20260616b"></script>
-        <script src="js/web2-zalo-app.js?v=20260614b"></script>
+        <!-- Page app — tách module (utils → accounts → chat → lookup-zns → app), app LAST -->
+        <script src="js/web2-zalo-utils.js?v=20260618w1"></script>
+        <script src="js/web2-zalo-accounts.js?v=20260618w1"></script>
+        <script src="js/web2-zalo-chat.js?v=20260618w1"></script>
+        <script src="js/web2-zalo-lookup-zns.js?v=20260618w1"></script>
+        <script src="js/web2-zalo-app.js?v=20260618w1"></script>
 
         <script>
             if (window.Web2Sidebar)

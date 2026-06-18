@@ -1,0 +1,312 @@
+// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 module.
+// =====================================================================
+// Trang Zalo — tab Tài khoản: load/render accounts + status strip,
+// thêm tài khoản cá nhân, đăng nhập QR, kết nối OA.
+// =====================================================================
+
+(function () {
+    'use strict';
+
+    const WZApp = (window.WZApp = window.WZApp || {});
+    const { $, esc, notify, avatarHtml, showModal, hideModal, setBusy, STATUS_LABEL, state } =
+        WZApp;
+
+    // ===================================================================
+    // ACCOUNTS
+    // ===================================================================
+    function skelCards(n) {
+        return Array.from({ length: n || 2 })
+            .map(
+                () => `<div class="wz-skel-card">
+                    <div class="wz-skel-row"><div class="wz-skel" style="width:48px;height:48px;border-radius:14px"></div>
+                        <div style="flex:1"><div class="wz-skel" style="width:60%;height:14px;margin-bottom:7px"></div><div class="wz-skel" style="width:40%;height:11px"></div></div></div>
+                    <div class="wz-skel" style="width:45%;height:12px"></div>
+                    <div class="wz-skel" style="width:100%;height:30px;border-radius:9px"></div>
+                </div>`
+            )
+            .join('');
+    }
+
+    async function loadAccounts() {
+        const grid = $('#wzAccGrid');
+        if (!state.accounts.length) grid.innerHTML = skelCards(2);
+        try {
+            const res = await window.ZaloApi.status();
+            state.zcaAvailable = res.zcaAvailable !== false;
+            state.accounts = res.accounts || [];
+            renderAccounts();
+            renderStatusStrip(res);
+        } catch (e) {
+            // Backend chưa deploy / lỗi mạng → vẫn cho onboarding (2 lựa chọn) thay vì màn lỗi cụt
+            state.accounts = [];
+            renderAccounts();
+            renderStatusStrip({ zcaAvailable: false });
+        } finally {
+            grid.setAttribute('aria-busy', 'false');
+        }
+    }
+
+    function renderStatusStrip(res) {
+        const strip = $('#wzStatusStrip');
+        if (!strip) return;
+        const conn = state.accounts.filter(
+            (a) => a.status === 'connected' || a.status === 'token_ok'
+        ).length;
+        strip.innerHTML =
+            `<span class="wz-statustxt"><span class="wz-dot ${conn ? 'connected' : ''}"></span>${conn}/${state.accounts.length} kết nối</span>` +
+            (res && res.zcaAvailable === false
+                ? ` · <span class="wz-err">zca-js chưa sẵn sàng trên server</span>`
+                : '');
+    }
+
+    function accCardHtml(a) {
+        const t = a.accountType;
+        const dn = a.displayName || a.label || (t === 'oa' ? 'Zalo OA' : 'Tài khoản Zalo');
+        const sub =
+            t === 'oa'
+                ? `OA${a.oaId ? ' · ' + esc(a.oaId) : ''}`
+                : a.zaloUid
+                  ? 'UID ' + esc(a.zaloUid)
+                  : 'Cá nhân';
+        const avatar = avatarHtml(a.avatarUrl, dn, 'wz-acc-avatar');
+        const acts = [];
+        if (t === 'personal') {
+            if (a.status === 'connected') {
+                acts.push(
+                    `<button class="wz-btn wz-btn-sm" data-act="chat" data-key="${esc(a.accountKey)}"><i data-lucide="messages-square"></i> Chat</button>`
+                );
+                acts.push(
+                    `<button class="wz-btn wz-btn-sm" data-act="disconnect" data-key="${esc(a.accountKey)}" aria-label="Ngắt kết nối ${esc(dn)}" title="Ngắt kết nối"><i data-lucide="power"></i></button>`
+                );
+            } else if (a.hasSession) {
+                acts.push(
+                    `<button class="wz-btn wz-btn-sm wz-btn-primary" data-act="reconnect" data-key="${esc(a.accountKey)}"><i data-lucide="refresh-cw"></i> Kết nối lại</button>`
+                );
+            } else {
+                acts.push(
+                    `<button class="wz-btn wz-btn-sm wz-btn-primary" data-act="qr" data-key="${esc(a.accountKey)}"><i data-lucide="qr-code"></i> Đăng nhập QR</button>`
+                );
+            }
+        } else {
+            acts.push(
+                `<button class="wz-btn wz-btn-sm" data-act="sync" data-key="${esc(a.accountKey)}"><i data-lucide="refresh-cw"></i> Đồng bộ template</button>`
+            );
+        }
+        acts.push(
+            `<button class="wz-btn wz-btn-sm" data-act="delete" data-key="${esc(a.accountKey)}" aria-label="Xoá tài khoản ${esc(dn)}" title="Xoá"><i data-lucide="trash-2"></i></button>`
+        );
+        return `<div class="wz-acc-card">
+            <div class="wz-acc-top">
+                ${avatar}
+                <div style="min-width:0;flex:1">
+                    <div class="wz-acc-name">${esc(dn)}</div>
+                    <div class="wz-acc-sub">${sub}</div>
+                </div>
+                <span class="wz-acc-type ${t}">${t === 'oa' ? 'OA' : 'Cá nhân'}</span>
+            </div>
+            <div class="wz-statustxt"><span class="wz-dot ${esc(a.status)}"></span>${esc(STATUS_LABEL[a.status] || a.status)}${a.statusMsg ? ' · <span class="wz-err" style="font-weight:400">' + esc(String(a.statusMsg).slice(0, 60)) + '</span>' : ''}</div>
+            <div class="wz-acc-actions">${acts.join('')}</div>
+        </div>`;
+    }
+
+    function choiceCardsHtml() {
+        return (
+            `<div class="wz-acc-card wz-choice" id="wzAddPersonal" role="button" tabindex="0" aria-label="Thêm tài khoản cá nhân">
+                <div class="wz-acc-top">
+                    <span class="wz-choice-ic personal"><i data-lucide="user-plus"></i></span>
+                    <div><h3>Tài khoản cá nhân</h3></div>
+                </div>
+                <p>Đăng nhập bằng QR → chat 2 chiều với khách như người thật, không giới hạn 24h như Facebook.</p>
+                <span class="wz-choice-cta">Thêm & quét QR <i data-lucide="arrow-right"></i></span>
+            </div>` +
+            `<div class="wz-acc-card wz-choice" id="wzAddOa" role="button" tabindex="0" aria-label="Kết nối Zalo OA">
+                <div class="wz-acc-top">
+                    <span class="wz-choice-ic oa"><i data-lucide="badge-check"></i></span>
+                    <div><h3>Zalo OA <span class="wz-tag-safe">An toàn</span></h3></div>
+                </div>
+                <p>Tài khoản chính thức → gửi ZNS thông báo đơn (~200đ/tin) tới mọi SĐT. Không rủi ro khoá.</p>
+                <span class="wz-choice-cta">Kết nối OA <i data-lucide="arrow-right"></i></span>
+            </div>`
+        );
+    }
+
+    function renderAccounts() {
+        const grid = $('#wzAccGrid');
+        const cards = state.accounts.map(accCardHtml).join('');
+        grid.innerHTML = cards + choiceCardsHtml();
+        if (window.lucide) lucide.createIcons();
+    }
+
+    async function onAccAction(act, key, btn) {
+        const a = state.accounts.find((x) => x.accountKey === key);
+        try {
+            if (act === 'qr') return startQr(key);
+            if (act === 'reconnect') {
+                setBusy(btn, true);
+                await window.ZaloApi.reconnect(key);
+                notify('Đã gửi yêu cầu kết nối lại', 'success');
+                setTimeout(loadAccounts, 1500);
+            } else if (act === 'disconnect') {
+                await window.ZaloApi.disconnect(key);
+                notify('Đã ngắt kết nối', 'success');
+                loadAccounts();
+            } else if (act === 'delete') {
+                if (
+                    !(await Popup.danger(`Xoá tài khoản "${a?.displayName || key}"?`, {
+                        okText: 'Xoá',
+                    }))
+                )
+                    return;
+                await window.ZaloApi.deleteAccount(key);
+                notify('Đã xoá', 'success');
+                loadAccounts();
+            } else if (act === 'sync') {
+                setBusy(btn, true);
+                const r = await window.ZaloApi.syncTemplates(key);
+                notify(`Đã đồng bộ ${r.synced || 0} template`, 'success');
+            } else if (act === 'chat') {
+                state.conv.accountKey = key;
+                WZApp.switchTab('chat');
+            }
+        } catch (e) {
+            notify('✗ ' + e.message, 'error');
+        } finally {
+            setBusy(btn, false);
+        }
+    }
+
+    // ── QR login flow ──────────────────────────────────────────────────
+    async function startQr(key) {
+        openQrModal('Đang tạo mã QR…');
+        state.qr.key = key;
+        try {
+            const r = await window.ZaloApi.loginQr(key);
+            if (r.alreadyConnected) {
+                closeQrModal();
+                notify('Tài khoản đã kết nối', 'success');
+                return loadAccounts();
+            }
+            pollQr(key);
+        } catch (e) {
+            $('#wzQrStatus').innerHTML = `<span class="wz-err">${esc(e.message)}</span>`;
+        }
+    }
+
+    function pollQr(key) {
+        clearInterval(state.qr.timer);
+        let errCount = 0;
+        state.qr.timer = setInterval(async () => {
+            if (state.qr.key !== key) return clearInterval(state.qr.timer);
+            try {
+                const r = await window.ZaloApi.qr(key);
+                errCount = 0;
+                if (r.image && $('#wzQrImg')) {
+                    $('#wzQrImg').src = r.image;
+                    $('#wzQrImg').style.visibility = 'visible';
+                    $('#wzQrFrame')?.classList.remove('is-waiting'); // tắt vòng xoay khi đã có QR
+                }
+                const lbl = STATUS_LABEL[r.status] || r.status || '';
+                $('#wzQrStatus').innerHTML = r.scanned?.name
+                    ? `Đã quét: <b>${esc(r.scanned.name)}</b> — xác nhận trên điện thoại`
+                    : r.status === 'error'
+                      ? `<span class="wz-err">${esc(r.error || 'Lỗi đăng nhập')}</span>`
+                      : esc(lbl);
+                if (r.status === 'connected') {
+                    clearInterval(state.qr.timer);
+                    closeQrModal();
+                    notify('Đăng nhập Zalo thành công!', 'success');
+                    loadAccounts();
+                } else if (r.status === 'qr_expired' || r.status === 'declined') {
+                    clearInterval(state.qr.timer);
+                }
+            } catch (e) {
+                // chịu được vài lần lỗi mạng tạm thời; quá ngưỡng thì dừng + báo
+                if (++errCount >= 4) {
+                    clearInterval(state.qr.timer);
+                    const el = $('#wzQrStatus');
+                    if (el)
+                        el.innerHTML = `<span class="wz-err">${esc(e.message || 'Lỗi mạng — đóng và thử lại')}</span>`;
+                }
+            }
+        }, 1500);
+    }
+
+    function openQrModal(msg) {
+        $('#wzQrImg').src = '';
+        $('#wzQrImg').style.visibility = 'hidden';
+        $('#wzQrFrame')?.classList.add('is-waiting');
+        $('#wzQrStatus').textContent = msg || '';
+        showModal('#wzQrModal');
+    }
+    function closeQrModal() {
+        clearInterval(state.qr.timer);
+        state.qr.key = null;
+        hideModal('#wzQrModal');
+    }
+
+    // ── Add personal account modal (thay prompt() — thân thiện hơn) ────────
+    function addPersonal() {
+        $('#wzAddLabel').value = 'Zalo shop';
+        showModal('#wzAddModal');
+    }
+    async function saveAddPersonal() {
+        const label = ($('#wzAddLabel').value || '').trim() || 'Zalo shop';
+        const btn = $('#wzAddSave');
+        setBusy(btn, true);
+        try {
+            const r = await window.ZaloApi.createAccount(label);
+            hideModal('#wzAddModal');
+            await loadAccounts();
+            if (r.data?.accountKey) startQr(r.data.accountKey);
+        } catch (e) {
+            notify('✗ ' + e.message, 'error');
+        } finally {
+            setBusy(btn, false);
+        }
+    }
+
+    // ── OA connect modal ─────────────────────────────────────────────────
+    function openOaModal() {
+        showModal('#wzOaModal');
+    }
+    function closeOaModal() {
+        hideModal('#wzOaModal');
+    }
+    async function saveOa() {
+        const body = {
+            appId: $('#wzOaAppId').value.trim(),
+            secret: $('#wzOaSecret').value.trim(),
+            code: $('#wzOaCode').value.trim(),
+            oaId: $('#wzOaId').value.trim(),
+            oaName: $('#wzOaName').value.trim(),
+        };
+        if (!body.appId || !body.secret || !body.code) {
+            $('#wzOaErr').textContent = 'Cần App ID, Secret và Authorization Code';
+            return;
+        }
+        $('#wzOaErr').textContent = '';
+        const btn = $('#wzOaSave');
+        setBusy(btn, true);
+        try {
+            await window.ZaloApi.oaConnect(body);
+            closeOaModal();
+            notify('Đã kết nối Zalo OA', 'success');
+            loadAccounts();
+        } catch (e) {
+            $('#wzOaErr').textContent = e.message;
+        } finally {
+            setBusy(btn, false);
+        }
+    }
+
+    // ── Export ─────────────────────────────────────────────────────────────
+    WZApp.loadAccounts = loadAccounts;
+    WZApp.onAccAction = onAccAction;
+    WZApp.startQr = startQr;
+    WZApp.closeQrModal = closeQrModal;
+    WZApp.addPersonal = addPersonal;
+    WZApp.saveAddPersonal = saveAddPersonal;
+    WZApp.openOaModal = openOaModal;
+    WZApp.closeOaModal = closeOaModal;
+    WZApp.saveOa = saveOa;
+})();

@@ -1,10 +1,10 @@
 {
-    "generatedAt": "2026-06-18 15:24",
+    "generatedAt": "2026-06-18 15:34",
     "totals": {
-        "files": 177,
+        "files": 186,
         "sharedModules": 75,
-        "functions": 2546,
-        "oversized": 28
+        "functions": 2547,
+        "oversized": 26
     },
     "sharedModules": [
         {
@@ -82,7 +82,7 @@
                 "web2/customer-wallet/js/web2-customer-wallet-app.js",
                 "web2/customers/js/customers-app.js",
                 "web2/fastsaleorder-delivery/dlv-app.js",
-                "web2/fastsaleorder-invoice/pbh-app.js",
+                "web2/fastsaleorder-invoice/pbh-state.js",
                 "web2/fastsaleorder-refund/rf-app.js",
                 "web2/pancake-settings/js/pancake-settings.js",
                 "web2/payment-confirm/js/payment-confirm-app.js",
@@ -102,7 +102,7 @@
                 "web2/system/js/system-sse.js",
                 "web2/users/js/users-app.js",
                 "web2/variants/js/web2-variants-app.js",
-                "web2/zalo/js/web2-zalo-app.js"
+                "web2/zalo/js/web2-zalo-accounts.js"
             ],
             "lines": 469
         },
@@ -158,7 +158,8 @@
                 "web2/customer-wallet/js/web2-customer-wallet-app.js",
                 "web2/customers/js/customers-api.js",
                 "web2/fastsaleorder-delivery/dlv-app.js",
-                "web2/fastsaleorder-invoice/pbh-app.js",
+                "web2/fastsaleorder-invoice/pbh-api.js",
+                "web2/fastsaleorder-invoice/pbh-state.js",
                 "web2/fastsaleorder-refund/rf-app.js",
                 "web2/jt-tracking/js/jt-tracking-api.js",
                 "web2/jt-tracking/js/jt-tracking-constants.js",
@@ -231,7 +232,7 @@
             "api": [],
             "consumers": [
                 "native-orders/js/native-orders-app.js",
-                "web2/fastsaleorder-invoice/pbh-app.js"
+                "web2/fastsaleorder-invoice/pbh-actions.js"
             ],
             "lines": 745
         },
@@ -529,7 +530,7 @@
                 "web2/ck-dashboard/js/ck-dashboard-app.js",
                 "web2/customers/js/customers-app.js",
                 "web2/fastsaleorder-delivery/dlv-app.js",
-                "web2/fastsaleorder-invoice/pbh-app.js",
+                "web2/fastsaleorder-invoice/pbh-actions.js",
                 "web2/fastsaleorder-refund/rf-app.js",
                 "web2/jt-tracking/js/jt-tracking-actions.js",
                 "web2/pancake-settings/js/pancake-settings.js",
@@ -828,7 +829,7 @@
                 "web2/shared/web2-wallet-api.js",
                 "web2/supplier-debt/js/supplier-debt-app.js",
                 "web2/supplier-wallet/js/supplier-wallet-app.js",
-                "web2/zalo/js/web2-zalo-app.js"
+                "web2/zalo/js/web2-zalo-lookup-zns.js"
             ],
             "lines": 154
         },
@@ -899,7 +900,9 @@
                 "web2/shared/zalo-chat/chat-view.js",
                 "web2/shared/zalo-chat/composer.js",
                 "web2/shared/zalo-chat/sticker-picker.js",
-                "web2/zalo/js/web2-zalo-app.js"
+                "web2/zalo/js/web2-zalo-accounts.js",
+                "web2/zalo/js/web2-zalo-chat.js",
+                "web2/zalo/js/web2-zalo-lookup-zns.js"
             ],
             "lines": 200
         },
@@ -932,7 +935,7 @@
                 "web2/shared/zalo-chat/lightbox.js",
                 "web2/shared/zalo-chat/reactions.js",
                 "web2/shared/zalo-chat/realtime.js",
-                "web2/zalo/js/web2-zalo-app.js"
+                "web2/zalo/js/web2-zalo-chat.js"
             ],
             "lines": 227
         },
@@ -952,7 +955,7 @@
                 "web2/shared/zalo-chat/lightbox.js",
                 "web2/shared/zalo-chat/reactions.js",
                 "web2/shared/zalo-chat/realtime.js",
-                "web2/zalo/js/web2-zalo-app.js"
+                "web2/zalo/js/web2-zalo-chat.js"
             ],
             "lines": 90
         },
@@ -972,7 +975,7 @@
                 "web2/shared/zalo-chat/lightbox.js",
                 "web2/shared/zalo-chat/reactions.js",
                 "web2/shared/zalo-chat/realtime.js",
-                "web2/zalo/js/web2-zalo-app.js"
+                "web2/zalo/js/web2-zalo-chat.js"
             ],
             "lines": 214
         },
@@ -992,7 +995,7 @@
                 "web2/shared/zalo-chat/lightbox.js",
                 "web2/shared/zalo-chat/reactions.js",
                 "web2/shared/zalo-chat/realtime.js",
-                "web2/zalo/js/web2-zalo-app.js"
+                "web2/zalo/js/web2-zalo-chat.js"
             ],
             "lines": 647
         },
@@ -1012,7 +1015,7 @@
                 "web2/shared/zalo-chat/lightbox.js",
                 "web2/shared/zalo-chat/reactions.js",
                 "web2/shared/zalo-chat/realtime.js",
-                "web2/zalo/js/web2-zalo-app.js"
+                "web2/zalo/js/web2-zalo-chat.js"
             ],
             "lines": 457
         },
@@ -1032,7 +1035,7 @@
                 "web2/shared/zalo-chat/lightbox.js",
                 "web2/shared/zalo-chat/reactions.js",
                 "web2/shared/zalo-chat/realtime.js",
-                "web2/zalo/js/web2-zalo-app.js"
+                "web2/zalo/js/web2-zalo-chat.js"
             ],
             "lines": 105
         },
@@ -1052,7 +1055,7 @@
                 "web2/shared/zalo-chat/lightbox.js",
                 "web2/shared/zalo-chat/reactions.js",
                 "web2/shared/zalo-chat/realtime.js",
-                "web2/zalo/js/web2-zalo-app.js"
+                "web2/zalo/js/web2-zalo-chat.js"
             ],
             "lines": 86
         },
@@ -1072,7 +1075,7 @@
                 "web2/shared/zalo-chat/lightbox.js",
                 "web2/shared/zalo-chat/reactions.js",
                 "web2/shared/zalo-chat/realtime.js",
-                "web2/zalo/js/web2-zalo-app.js"
+                "web2/zalo/js/web2-zalo-chat.js"
             ],
             "lines": 65
         },
@@ -1092,7 +1095,7 @@
                 "web2/shared/zalo-chat/lightbox.js",
                 "web2/shared/zalo-chat/reactions.js",
                 "web2/shared/zalo-chat/realtime.js",
-                "web2/zalo/js/web2-zalo-app.js"
+                "web2/zalo/js/web2-zalo-chat.js"
             ],
             "lines": 56
         },
@@ -1112,7 +1115,7 @@
                 "web2/shared/zalo-chat/lightbox.js",
                 "web2/shared/zalo-chat/reactions.js",
                 "web2/shared/zalo-chat/realtime.js",
-                "web2/zalo/js/web2-zalo-app.js"
+                "web2/zalo/js/web2-zalo-chat.js"
             ],
             "lines": 113
         }
@@ -3454,65 +3457,100 @@
             "page": "web2/fastsaleorder-invoice",
             "files": [
                 {
-                    "file": "web2/fastsaleorder-invoice/pbh-app.js",
-                    "lines": 1028,
-                    "purpose": "PBH (Fast Sale Orders) — list/filter/state/print/cancel/delete.",
-                    "globals": ["PbhApp"],
-                    "uses": [
-                        "Popup",
-                        "API_CONFIG",
-                        "Web2Auth",
-                        "Web2Bill",
-                        "Web2Optimistic",
-                        "Web2SSE"
-                    ],
+                    "file": "web2/fastsaleorder-invoice/pbh-actions.js",
+                    "lines": 367,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["PbhActions"],
+                    "uses": ["Web2Bill", "Web2Optimistic"],
                     "functions": [
-                        "$",
-                        "_authHeaders",
-                        "_fetch",
                         "_findPbhRow",
-                        "_loadAndRenderScopeBanner",
                         "apply",
-                        "applyFilters",
                         "bulkAction",
                         "bulkMerge",
                         "bulkPrint",
                         "cancelOrder",
-                        "clearCustomerFilter",
-                        "clearFilters",
                         "confirmOrder",
                         "createDelivery",
                         "createRefund",
-                        "detail",
-                        "escapeHtml",
                         "exportCsv",
-                        "filterByCustomer",
-                        "fmtDate",
-                        "fmtMoney",
                         "getSelectedNumbers",
-                        "goPage",
-                        "init",
                         "load",
-                        "notify",
                         "onSuccess",
-                        "onclick",
-                        "openCustomer",
-                        "openHistory",
                         "printOrder",
-                        "reload",
-                        "renderCounters",
-                        "renderCustomerChip",
-                        "renderPagination",
-                        "renderRow",
-                        "renderRows",
                         "resetStt",
                         "rollback",
                         "run",
                         "snapshot",
+                        "updateBulkBar"
+                    ]
+                },
+                {
+                    "file": "web2/fastsaleorder-invoice/pbh-api.js",
+                    "lines": 58,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["PbhApi"],
+                    "uses": ["Web2Auth"],
+                    "functions": ["_authHeaders", "_fetch", "load"]
+                },
+                {
+                    "file": "web2/fastsaleorder-invoice/pbh-app.js",
+                    "lines": 131,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["PbhApp"],
+                    "uses": ["Web2SSE"],
+                    "functions": ["_loadAndRenderScopeBanner", "init", "reload"]
+                },
+                {
+                    "file": "web2/fastsaleorder-invoice/pbh-filters.js",
+                    "lines": 90,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["PbhFilters"],
+                    "uses": [],
+                    "functions": [
+                        "applyFilters",
+                        "clearCustomerFilter",
+                        "clearFilters",
+                        "filterByCustomer",
+                        "getSelectedNumbers",
+                        "goPage",
+                        "load",
+                        "unselectAll",
+                        "updateBulkBar"
+                    ]
+                },
+                {
+                    "file": "web2/fastsaleorder-invoice/pbh-render.js",
+                    "lines": 423,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["PbhRender"],
+                    "uses": [],
+                    "functions": [
+                        "detail",
+                        "injectHistoryCss",
+                        "onclick",
+                        "openCustomer",
+                        "openHistory",
+                        "renderCounters",
+                        "renderCustomerChip",
+                        "renderPagination",
+                        "renderRow",
+                        "renderRows"
+                    ]
+                },
+                {
+                    "file": "web2/fastsaleorder-invoice/pbh-state.js",
+                    "lines": 89,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["PbhState"],
+                    "uses": ["Popup", "API_CONFIG"],
+                    "functions": [
+                        "$",
+                        "escapeHtml",
+                        "fmtDate",
+                        "fmtMoney",
+                        "notify",
                         "stateBadge",
                         "tbody",
-                        "unselectAll",
-                        "updateBulkBar",
                         "w2pAlert",
                         "w2pConfirm",
                         "w2pPrompt"
@@ -4446,7 +4484,7 @@
                 },
                 {
                     "file": "web2/returns/js/returns-app.js",
-                    "lines": 188,
+                    "lines": 196,
                     "purpose": "WEB2.0 module.",
                     "globals": ["Web2Returns"],
                     "uses": ["Web2Sidebar", "Web2SSE"],
@@ -4483,7 +4521,7 @@
                 },
                 {
                     "file": "web2/returns/js/returns-form.js",
-                    "lines": 217,
+                    "lines": 230,
                     "purpose": "WEB2.0 module.",
                     "globals": ["ReturnsForm"],
                     "uses": [],
@@ -6739,58 +6777,88 @@
             "page": "web2/zalo",
             "files": [
                 {
-                    "file": "web2/zalo/js/web2-zalo-app.js",
-                    "lines": 886,
-                    "purpose": "WEB2.0 module — Zalo single-source page app.",
-                    "globals": [],
-                    "uses": ["Popup", "Web2SSE", "Web2UserInfo", "ZaloApi", "Web2Zalo", "WZChat"],
+                    "file": "web2/zalo/js/web2-zalo-accounts.js",
+                    "lines": 312,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["WZApp"],
+                    "uses": ["Popup", "ZaloApi"],
                     "functions": [
-                        "$",
-                        "__wzAvErr",
-                        "_trap",
                         "accCardHtml",
                         "addPersonal",
-                        "avatarHtml",
-                        "bind",
-                        "bindConvHead",
                         "choiceCardsHtml",
                         "closeOaModal",
                         "closeQrModal",
-                        "doLookup",
-                        "esc",
-                        "fillAccountSelect",
-                        "fmtTime",
-                        "focusTab",
-                        "getForwardTargets",
-                        "gridActivate",
-                        "hideModal",
-                        "init",
-                        "initial",
                         "loadAccounts",
-                        "loadConversations",
-                        "loadTemplates",
-                        "loadZnsLog",
-                        "maybeAutoSync",
-                        "notify",
                         "onAccAction",
-                        "openConversation",
                         "openOaModal",
                         "openQrModal",
                         "pollQr",
                         "renderAccounts",
-                        "renderConvList",
                         "renderStatusStrip",
                         "saveAddPersonal",
                         "saveOa",
-                        "sendZns",
-                        "setBusy",
-                        "showModal",
-                        "showSelf",
                         "skelCards",
-                        "startQr",
+                        "startQr"
+                    ]
+                },
+                {
+                    "file": "web2/zalo/js/web2-zalo-app.js",
+                    "lines": 178,
+                    "purpose": "WEB2.0 module — Zalo single-source page app.",
+                    "globals": ["WZApp"],
+                    "uses": ["Web2SSE", "Web2Zalo"],
+                    "functions": [
+                        "bind",
+                        "focusTab",
+                        "gridActivate",
+                        "init",
                         "subscribeSse",
-                        "switchTab",
+                        "switchTab"
+                    ]
+                },
+                {
+                    "file": "web2/zalo/js/web2-zalo-chat.js",
+                    "lines": 185,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["WZApp"],
+                    "uses": ["ZaloApi", "WZChat"],
+                    "functions": [
+                        "bindConvHead",
+                        "fillAccountSelect",
+                        "getForwardTargets",
+                        "loadConversations",
+                        "maybeAutoSync",
+                        "openConversation",
+                        "renderConvList",
                         "syncConversations"
+                    ]
+                },
+                {
+                    "file": "web2/zalo/js/web2-zalo-lookup-zns.js",
+                    "lines": 152,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["WZApp"],
+                    "uses": ["Web2UserInfo", "ZaloApi"],
+                    "functions": ["doLookup", "loadTemplates", "loadZnsLog", "sendZns", "showSelf"]
+                },
+                {
+                    "file": "web2/zalo/js/web2-zalo-utils.js",
+                    "lines": 161,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["WZApp"],
+                    "uses": [],
+                    "functions": [
+                        "$",
+                        "__wzAvErr",
+                        "_trap",
+                        "avatarHtml",
+                        "esc",
+                        "fmtTime",
+                        "hideModal",
+                        "initial",
+                        "notify",
+                        "setBusy",
+                        "showModal"
                     ]
                 }
             ]
@@ -6811,7 +6879,7 @@
                 "web2/balance-history/js/web2-pending-match.js",
                 "web2/customer-wallet/js/web2-customer-wallet-app.js",
                 "web2/fastsaleorder-delivery/dlv-app.js",
-                "web2/fastsaleorder-invoice/pbh-app.js",
+                "web2/fastsaleorder-invoice/pbh-state.js",
                 "web2/fastsaleorder-refund/rf-app.js",
                 "web2/kpi/js/kpi-assignments.js",
                 "web2/kpi/js/kpi-dashboard.js",
@@ -6839,7 +6907,7 @@
             "files": [
                 "native-orders/js/native-orders-api.js",
                 "web2/customers/js/customers-api.js",
-                "web2/fastsaleorder-invoice/pbh-app.js",
+                "web2/fastsaleorder-invoice/pbh-api.js",
                 "web2/kpi/js/kpi-dashboard.js",
                 "web2/purchase-refund/js/purchase-refund-app.js",
                 "web2/shared/web2-api.js",
@@ -6876,7 +6944,7 @@
                 "web2/supplier-debt/js/supplier-debt-app.js",
                 "web2/supplier-wallet/js/supplier-wallet-app.js",
                 "web2/system/js/system-sse.js",
-                "web2/zalo/js/web2-zalo-app.js"
+                "web2/zalo/js/web2-zalo-utils.js"
             ],
             "count": 17
         },
@@ -6960,7 +7028,7 @@
             "files": [
                 "web2/customer-wallet/js/web2-customer-wallet-app.js",
                 "web2/fastsaleorder-delivery/dlv-app.js",
-                "web2/fastsaleorder-invoice/pbh-app.js",
+                "web2/fastsaleorder-invoice/pbh-state.js",
                 "web2/fastsaleorder-refund/rf-app.js",
                 "web2/kpi/js/kpi-assignments.js",
                 "web2/kpi/js/kpi-dashboard.js",
@@ -6995,7 +7063,7 @@
                 "web2/customer-wallet/js/web2-customer-wallet-app.js",
                 "web2/customers/js/customers-app.js",
                 "web2/fastsaleorder-delivery/dlv-app.js",
-                "web2/fastsaleorder-invoice/pbh-app.js",
+                "web2/fastsaleorder-invoice/pbh-render.js",
                 "web2/fastsaleorder-refund/rf-app.js",
                 "web2/products/js/web2-products-app.js",
                 "web2/shared/page-builder.js",
@@ -7023,7 +7091,7 @@
             "files": [
                 "native-orders/js/native-orders-app.js",
                 "web2/fastsaleorder-delivery/dlv-app.js",
-                "web2/fastsaleorder-invoice/pbh-app.js",
+                "web2/fastsaleorder-invoice/pbh-filters.js",
                 "web2/fastsaleorder-refund/rf-app.js",
                 "web2/products/js/web2-products-app.js",
                 "web2/purchase-refund/js/purchase-refund-app.js",
@@ -7037,7 +7105,7 @@
             "files": [
                 "live-chat/js/live/live-order-history.js",
                 "web2/customers/js/customers-app.js",
-                "web2/fastsaleorder-invoice/pbh-app.js",
+                "web2/fastsaleorder-invoice/pbh-state.js",
                 "web2/fastsaleorder-refund/rf-app.js",
                 "web2/payment-confirm/js/payment-confirm-app.js",
                 "web2/purchase-refund/js/purchase-refund-app.js",
@@ -7065,7 +7133,7 @@
             "files": [
                 "native-orders/js/native-orders-app.js",
                 "web2/fastsaleorder-delivery/dlv-app.js",
-                "web2/fastsaleorder-invoice/pbh-app.js",
+                "web2/fastsaleorder-invoice/pbh-render.js",
                 "web2/fastsaleorder-refund/rf-app.js",
                 "web2/products/js/web2-products-app.js",
                 "web2/shared/page-builder.js",
@@ -7105,7 +7173,7 @@
             "files": [
                 "native-orders/js/native-orders-app.js",
                 "web2/fastsaleorder-delivery/dlv-app.js",
-                "web2/fastsaleorder-invoice/pbh-app.js",
+                "web2/fastsaleorder-invoice/pbh-render.js",
                 "web2/fastsaleorder-refund/rf-app.js",
                 "web2/products/js/web2-products-app.js",
                 "web2/shared/page-builder.js",
@@ -7130,7 +7198,7 @@
             "files": [
                 "native-orders/js/native-orders-app.js",
                 "web2/fastsaleorder-delivery/dlv-app.js",
-                "web2/fastsaleorder-invoice/pbh-app.js",
+                "web2/fastsaleorder-invoice/pbh-filters.js",
                 "web2/fastsaleorder-refund/rf-app.js",
                 "web2/products/js/web2-products-app.js",
                 "web2/shared/page-builder.js"
@@ -7142,7 +7210,7 @@
             "files": [
                 "native-orders/js/native-orders-app.js",
                 "web2/fastsaleorder-delivery/dlv-app.js",
-                "web2/fastsaleorder-invoice/pbh-app.js",
+                "web2/fastsaleorder-invoice/pbh-filters.js",
                 "web2/fastsaleorder-refund/rf-app.js",
                 "web2/products/js/web2-products-app.js",
                 "web2/shared/page-builder.js"
@@ -7237,7 +7305,7 @@
                 "web2/balance-history/js/web2-balance-history-app.js",
                 "web2/customer-wallet/js/web2-customer-wallet-app.js",
                 "web2/customers/js/customers-app.js",
-                "web2/fastsaleorder-invoice/pbh-app.js",
+                "web2/fastsaleorder-invoice/pbh-actions.js",
                 "web2/supplier-debt/js/supplier-debt-app.js"
             ],
             "count": 5
@@ -7279,7 +7347,7 @@
             "fn": "_fetch",
             "files": [
                 "web2/customers/js/customers-api.js",
-                "web2/fastsaleorder-invoice/pbh-app.js",
+                "web2/fastsaleorder-invoice/pbh-api.js",
                 "web2/shared/web2-zalo-api.js",
                 "web2/shared/web2-zalo.js"
             ],
@@ -7461,7 +7529,7 @@
                 "native-orders/js/native-orders-app.js",
                 "web2/balance-history/js/web2-balance-history-app.js",
                 "web2/balance-history/js/web2-link-customer-modal.js",
-                "web2/fastsaleorder-invoice/pbh-app.js"
+                "web2/fastsaleorder-invoice/pbh-render.js"
             ],
             "count": 4
         },
@@ -7519,7 +7587,7 @@
             "fn": "tbody",
             "files": [
                 "native-orders/js/native-orders-app.js",
-                "web2/fastsaleorder-invoice/pbh-app.js",
+                "web2/fastsaleorder-invoice/pbh-state.js",
                 "web2/products/js/web2-products-app.js",
                 "web2/variants/js/web2-variants-app.js"
             ],
@@ -7530,7 +7598,7 @@
             "files": [
                 "native-orders/js/native-orders-app.js",
                 "web2/fastsaleorder-delivery/dlv-app.js",
-                "web2/fastsaleorder-invoice/pbh-app.js",
+                "web2/fastsaleorder-invoice/pbh-state.js",
                 "web2/fastsaleorder-refund/rf-app.js"
             ],
             "count": 4
@@ -7540,7 +7608,7 @@
             "files": [
                 "native-orders/js/native-orders-app.js",
                 "web2/fastsaleorder-delivery/dlv-app.js",
-                "web2/fastsaleorder-invoice/pbh-app.js",
+                "web2/fastsaleorder-invoice/pbh-state.js",
                 "web2/fastsaleorder-refund/rf-app.js"
             ],
             "count": 4
@@ -7623,7 +7691,7 @@
             "files": [
                 "live-chat/js/live/comments-mobile.js",
                 "web2/shared/zalo-chat/chat-store.js",
-                "web2/zalo/js/web2-zalo-app.js"
+                "web2/zalo/js/web2-zalo-utils.js"
             ],
             "count": 3
         },
@@ -7658,7 +7726,7 @@
             "fn": "detail",
             "files": [
                 "web2/fastsaleorder-delivery/dlv-app.js",
-                "web2/fastsaleorder-invoice/pbh-app.js",
+                "web2/fastsaleorder-invoice/pbh-render.js",
                 "web2/fastsaleorder-refund/rf-app.js"
             ],
             "count": 3
@@ -7749,7 +7817,7 @@
             "files": [
                 "live-chat/js/pancake/pancake-token-manager.js",
                 "web2/pancake-settings/js/pancake-settings.js",
-                "web2/zalo/js/web2-zalo-app.js"
+                "web2/zalo/js/web2-zalo-accounts.js"
             ],
             "count": 3
         },
@@ -7970,6 +8038,15 @@
             "count": 3
         },
         {
+            "fn": "updateBulkBar",
+            "files": [
+                "native-orders/js/native-orders-app.js",
+                "web2/fastsaleorder-invoice/pbh-actions.js",
+                "web2/fastsaleorder-invoice/pbh-filters.js"
+            ],
+            "count": 3
+        },
+        {
             "fn": "wireTabs",
             "files": [
                 "web2/ck-dashboard/js/ck-dashboard-app.js",
@@ -8070,10 +8147,6 @@
             "lines": 1049
         },
         {
-            "file": "web2/fastsaleorder-invoice/pbh-app.js",
-            "lines": 1028
-        },
-        {
             "file": "so-order/js/so-order-storage.js",
             "lines": 962
         },
@@ -8092,10 +8165,6 @@
         {
             "file": "web2/supplier-wallet/js/supplier-wallet-app.js",
             "lines": 913
-        },
-        {
-            "file": "web2/zalo/js/web2-zalo-app.js",
-            "lines": 886
         },
         {
             "file": "web2/shared/web2-customer-chat.js",

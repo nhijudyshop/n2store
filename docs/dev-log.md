@@ -2,6 +2,33 @@
 
 ## 2026-06-18
 
+### [web2-modular] Wave 1 tiến độ — 4/5 file tách XONG (jt-tracking, returns, zalo, pbh) ✅
+
+MOVE-only split, mỗi file verified live browser (0 JS error) trước khi sang file kế:
+
+- **jt-tracking-app.js** (1090) → 7 module (constants/api/state/render/modals/actions/app). 204 rows render OK. `b412690da`.
+- **returns-app.js** (867) → 7 module (core/customer/order-items/cod/form/tabs/app). `window.Web2Returns` giữ; money COD/wallet/submit giữ await. switchTab OK. `7e55515e8`.
+- **web2-zalo-app.js** (886) → 5 module (utils[WZApp]/accounts/chat/lookup-zns/app). 4 tab switch OK, `__wzAvErr` giữ; deps zalo-chat/\* + ZaloApi giữ nguyên thứ tự.
+- **pbh-app.js** (1027) → 6 module (chi tiết entry dưới). `window.PbhApp` 12 method byte-identical, rows render OK.
+- Còn lại Wave 1: **server.js** (live-chat, node-only verify).
+
+### [fastsaleorder-invoice] Tách pbh-app.js (1027 dòng) → 6 module MOVE-only ✅
+
+Tách `web2/fastsaleorder-invoice/pbh-app.js` (page-app PBH/Phiếu Bán Hàng — money/order surface) thành 6 module nhỏ, MOVE-only (di chuyển hàm nguyên văn, chỉ chỉnh cross-ref qua namespace). KHÔNG đổi runtime behavior.
+
+**Module mới** (`web2/fastsaleorder-invoice/`):
+
+- `pbh-state.js` (88L) → `window.PbhState` — STATE trung tâm + constants (WORKER/KPI_API/STATE_META) + util (fmtMoney/fmtDate/escapeHtml/notify/w2pConfirm/w2pAlert/w2pPrompt/stateBadge/$/tbody).
+- `pbh-api.js` (57L) → `window.PbhApi` — `_authHeaders`/`_fetch` (inject x-web2-token) + `load()` (fetch orders → STATE → render).
+- `pbh-render.js` (422L) → `window.PbhRender` — renderRows/renderPagination/renderCounters/renderCustomerChip + modal detail/openCustomer(360)/openHistory + injectHistoryCss.
+- `pbh-actions.js` (366L) → `window.PbhActions` — confirm/cancel/print/createDelivery/createRefund/exportCsv/bulkAction/bulkMerge/bulkPrint/resetStt (giữ nguyên await+loading+confirm cho money/order ops).
+- `pbh-filters.js` (89L) → `window.PbhFilters` — filterByCustomer/clearCustomerFilter/getSelectedNumbers/updateBulkBar/unselectAll/applyFilters/clearFilters/goPage.
+- `pbh-app.js` (130L, rewrite orchestrator) — init + event wiring + SSE subscribe + scope banner + re-export `window.PbhApp` (compat shim 12 method cho 10 inline onclick).
+
+**index.html**: load order state→api→render→actions→filters→app (app LAST), `?v=20260618w1`. Shared deps giữ nguyên + load trước.
+
+**Verify**: `node --check` 6/6 PASS · `window.PbhApp` 12 method byte-identical (8 inline-onclick targets đều present: detail/openCustomer/openHistory/print/createDelivery/createRefund/goPage/clearCustomerFilter) · mọi cross-namespace ref resolve · print.html chỉ ref PbhApp trong comment (không load pbh-\*.js, không ảnh hưởng). Chưa commit, chưa browser-test.
+
 ### [web2-modular] Wave 0 — Foundation shared modules (5 module mới, auto-load) ✅
 
 Khởi động kế hoạch tách module ([MODULARIZATION-PLAN.md](web2/MODULARIZATION-PLAN.md)). Wave 0 = gom util trùng (codemap §4) thành shared 1 nguồn, additive zero-risk.
