@@ -2,6 +2,29 @@
 
 ## 2026-06-18
 
+### [web2/shared] Fix nút `.web2-btn-warning` chưa có CSS (3 trang fastsaleorder) ✅
+
+**User:** "rà soát lại tất cả các nút, các trang chưa có css" (kèm 3 ảnh: fastsaleorder-delivery / -refund / -invoice).
+
+**Root cause:** class `.web2-btn-warning` được DÙNG ở 3 nút nhưng KHÔNG hề được định nghĩa trong shared CSS → 3 nút này fallback về style `.web2-btn` cơ bản (nền trắng/viền xám) thay vì màu cảnh báo:
+
+- `fastsaleorder-delivery/dlv-app.js:94` — nút row "Bị trả" (undo-2, xs)
+- `fastsaleorder-invoice/pbh-app.js:200` — nút row "Trả hàng" (undo-2, xs)
+- `fastsaleorder-invoice/index.html:140` — nút bulk "Hủy tất cả" (sm)
+
+Audit toàn bộ web2 (`grep web2-btn-*`): các variant `default/primary/success/info/danger/sm/xs` đều có định nghĩa; **chỉ `warning` thiếu**. Token `--web2-warning` có (`#f59e0b` theme, `#fad733` base) nhưng thiếu `--web2-warning-hover`.
+
+**Fix (shared — áp dụng mọi trang dùng `web2-btn-warning`):**
+
+- [web2-components.css](web2/shared/web2-components.css): thêm `.web2-btn-warning` + `:hover` (theo đúng pattern 4 variant màu còn lại — `background/border = var(--web2-warning)`, `color:#fff`).
+- [web2-theme.css](web2/shared/web2-theme.css): thêm token `--web2-warning-hover: #d97706` (amber-600, cặp với `#f59e0b`).
+- [web2-base.css](web2/shared/web2-base.css): thêm fallback `--web2-warning-hover: #e6c200`.
+- Bump cache-bust `?v=20260618w1` cho base/components/theme trên cả 3 trang (warning chỉ dùng ở 3 trang này nên không cần bump trang khác).
+
+**Verify (Playwright localhost, ext n2store, login web2 admin):** invoice page → `web2-components.css?v=20260618w1` loaded; `.web2-btn-warning` computed bg = `rgb(245,158,11)` amber + text trắng (trước đó là nền UA mặc định xám); primary vẫn xanh Zalo `#0068ff`. Screenshot xác nhận nút "Trả hàng" (undo-2) trong row giờ màu cam, cạnh nút truck cyan. Delivery page cũng load đúng version + warning amber.
+
+**Status:** ✅ FE verified. Web 2.0 shared CSS.
+
 ### [purchase-refund] Thêm hình SP (tham chiếu Kho SP) + cân đối lại modal trả hàng ✅
 
 **User:** "thêm hình sản phẩm → tham chiếu vào kho sản phẩm" + "giao diện chưa cân đối".
