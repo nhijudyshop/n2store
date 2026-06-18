@@ -2,6 +2,50 @@
 
 ## 2026-06-18
 
+### [web2-modular] Wave 3 — Batch C (photo-studio, products-app, msg-template) tách XONG ✅
+
+MOVE-only, verified live 0 JS error:
+
+- **photo-studio.js** (2348→7): state/canvas/bg/edit/bgpicker/ui/app. 117/117 hàm giữ, `PhotoStudio.init` giữ. BG-removal engines (MediaPipe/@imgly/Upscaler/SlimSAM) + lazy CDN loaders verbatim.
+- **web2-products-app.js** (2010→7): state/render/modal/variant-picker/actions/filters/app. `window.Web2ProductsApp` 12 key byte-identical (9 inline onclick map đủ); `Web2ProductsPrint.open` (đã split) vẫn chạy; 33 rows.
+- **web2-msg-template.js** (961→4 shared): core/ui/send/entry. `window.Web2MsgTemplate.open` giữ; native-orders/index.html load core→ui→send→entry. Verified trên native-orders (W2MT + NativeOrdersApp OK, 0 err).
+
+### [web2-modular] Tách web2-products-app.js (2010 dòng) → 7 module MOVE-only ✅
+
+Tách `web2/products/js/web2-products-app.js` (Kho Sản Phẩm — list/search/filter/CRUD/print) thành 7 module nhỏ, MOVE-only (di chuyển hàm nguyên văn, chỉ chỉnh cross-ref qua namespace nội bộ `window.Web2ProductsCore` = W). KHÔNG đổi runtime behavior.
+
+**Module mới** (`web2/products/js/`):
+
+- `web2-products-state.js` (172) — namespace W + STATE (single source of truth: products/total/page/limit/search/selectedCodes/usage/editingCode) + constants (PROXY_BASE) + utils (`$`/tbody/counter/pag/modal/escapeHtml/escJs/safeImageUrl/fmtPrice/originPriceHover/notify/cssEscape) + supplier/color cache (loadSuppliersFromSoOrder/collectExistingSuppliers/getColorShortMap).
+- `web2-products-render.js` (535) — `_rowHtml`/renderRows/renderPagination/renderCounters + usage badge (renderUsageBadge/\_loadUsageForCurrentPage/openUsagePopover) + bulk selection (\_toggleSelect/\_updateBulkBar/\_updateSelectAllState/\_selectAllVisible/\_clearSelection/\_bulkPrint) + in-place update (\_updateRowInPlace/\_updateRowsBatch) + `load()`.
+- `web2-products-modal.js` (728) — create/edit modal (openCreate/openEdit/saveModal/closeModal/updateImagePreview) + history modal (openHistory/renderHistEntry) + import (\_productImportConfig/\_commitProductImport) + supplier dropdown (populateSupplierDropdown) + code suggest (suggestProductCode). KHÁC `web2-product-detail.js` (drawer).
+- `web2-products-variant-picker.js` (263) — variant picker 2 ô Màu+Size + cartesian preview + bulk-create N SP (tách khỏi modal để giữ <800 dòng).
+- `web2-products-actions.js` (137) — toggleActive/remove/\_doRemove/copyCode/printBarcode (giữ await + Popup.danger + optimistic + 409 force-confirm verbatim).
+- `web2-products-filters.js` (44) — applyFilters/clearFilters/goPage.
+- `web2-products-app.js` (324) — orchestrator: SSE (web2:products/fast-sale-orders/native-orders, 2 timer riêng) + deeplink + init/events + re-export `window.Web2ProductsApp` (byte-identical 12-key set: load/openEdit/toggleActive/remove/copyCode/goPage/openUsagePopover/openHistory/printBarcode/getProduct/getUsage/PROXY_BASE).
+
+**Bảo toàn**: 15 inline onclick (9 distinct target) đều map đúng method `window.Web2ProductsApp.X`; `web2-product-detail.js` accessor (getProduct/getUsage/PROXY_BASE) giữ nguyên; create/edit giữ await+Popup+optimistic+rollback; guards `window.Web2X?.method` verbatim. Load order: api BEFORE → state→render→modal→variant-picker→actions→filters→app (app LAST) → print/detail AFTER (unchanged). `?v=20260618w3`. node --check 7/7 pass.
+
+### [photo-studio] Tách photo-studio.js (2348 dòng) → 7 module MOVE-only ✅
+
+Tách `web2/photo-studio/photo-studio.js` (Studio chụp tách nền — camera, @imgly/cloud/MediaPipe bg-removal, canvas ops, filters, SAM, upload) thành 6 module nhỏ + orchestrator, MOVE-only (di chuyển hàm nguyên văn, chỉ chỉnh cross-ref qua namespace `window.PS`). KHÔNG đổi runtime behavior.
+
+**Module mới** (`web2/photo-studio/`):
+
+- `photo-studio-state.js` (215) — `window.PS` base: state (single source of truth) + constants (URL CDN, PREVIEW/CAPTURE/SEG sizes) + utils (`activate`/`hexToRgb`/`rgbToHex`/`relucide`/`showLoading`/`hideLoading`/`notify`/`isMobile`/`isIOS`/`browserName`/`clamp`/`stamp`/`sizeCanvas`/`currentSourceEl`/`captureSize`/`cropRect`/`recomputeSizes`/`tickFps`) + slot canvas dùng chung (octx/rctx/maskC…).
+- `photo-studio-canvas.js` (185) — tiện ích pixel/canvas: `imgToCanvas`/`canvasToBlob`/`loadImageSrc`/`blobToImage`/`fileToImage`/`keyOut` (chroma) + vẽ nền `drawBg`/`drawPreset`/`drawCover` + `buildSilhouette`/`drawShadow`/`drawLogo`.
+- `photo-studio-bg.js` (416) — engine tách nền (lazy CDN): MediaPipe `initSegmentation`/`initLegacySeg`/`segInputFrame`/`onTasksResult`/`populateMaskC`/`onSegResults`/`composeAI` · cloud/@imgly `loadImgly`/`localCutout`/`authHeaders`/`cloudCutout` · upscale `getUpscaler`/`upscaleCanvas`/`lanczos2x`/`loadScript` · SAM `getSam`/`samEmbed`/`runSamDecode`/`maskToAlpha`/`applyPickMask`.
+- `photo-studio-edit.js` (726) — chụp → review: `capture`/`makeCutout`/`renderReview`/`bindReviewGestures` · brush `paintBrush`/`finishBrush`/`moveCursor`/`setBrushMode` · pick-món UI `setPickUI`/`enterPickMode`/`exitPickMode`/`addPickPoint`/`undoPickPoint`/`renderPick`/`extractPickedObject` · lưu `saveReview`/`saveBlob` · hàng loạt `onBatchFiles`/`batchCutout`/`processOne`/`downloadBatchZip`.
+- `photo-studio-bgpicker.js` (285) — hàng chọn nền: PRESETS/SOLIDS/SCENES + `loadSavedBgs`/`saveSavedBg`/`deleteSavedBg`/`bgRowHTML`/`renderBgRows`/`applyActiveBg`/`chipKey`/`onBgChip`/`selectBg` (tách khỏi UI để giữ <800 dòng).
+- `photo-studio-ui.js` (697) — camera (`toggleCamera`/`startCamera`/`switchCamera`/`stopAll`/permission help) + tải ảnh/logo + live loop (`frame`/`renderChroma`/`renderPassthrough`) + mode/sheet + `cache()`+`bind()` (DOM cache + addEventListener wiring).
+- `photo-studio.js` (58) — orchestrator: `init()` setup canvas ctx + gọi cache/bind/initSegmentation/… ; re-export `window.PhotoStudio = { init }` + `PS.init`.
+
+**Public API byte-identical**: chỉ `window.PhotoStudio.init` (+ debug `window.__psUpscaleAI`/`global.__psSam`). 0 inline `onclick=` (mọi nút wire qua addEventListener) → không surface nào khác cần preserve. Guards `window.Web2Auth`/`global.SelfieSegmentation`/`window.Upscaler`/`window.ESRGANSlim2x`/`global.lucide`/`global.notificationManager` giữ verbatim.
+
+**index.html**: thay 1 dòng `<script>` bằng 6 dòng state→canvas→bg→edit→bgpicker→ui→app (app LAST), `?v=20260618w3`; shared deps unchanged & trước. `sw.js` network-first theo pattern `/web2/photo-studio/` (không hardcode) → tự phục vụ file mới, không cần sửa.
+
+**Verify**: `node --check` 7/7 pass; cross-ref script xác nhận 0 `PS.*` referenced-but-undefined; 117/117 hàm gốc preserved; HTML order đúng.
+
 ### [web2-modular] Wave 3 page-apps — Batch A+B (7 page) tách XONG, verified live ✅
 
 MOVE-only split, mỗi page browser-verify (0 JS error) trước khi commit:

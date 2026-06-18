@@ -1,0 +1,535 @@
+// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 module.
+/**
+ * Web2 Products — render layer: rows/pagination/counters + usage badge +
+ * bulk selection + in-place row update + data load().
+ * [SPLIT 2026-06-18] tách từ web2-products-app.js. Dùng namespace nội bộ
+ * window.Web2ProductsCore (W). Cross-module call qua W.foo(...).
+ */
+
+(function () {
+    'use strict';
+
+    const W = (window.Web2ProductsCore = window.Web2ProductsCore || {});
+    const STATE = W.STATE;
+    // Local aliases — đọc-thuần helpers (không reassign), an toàn capture verbatim.
+    const escapeHtml = W.escapeHtml;
+    const escJs = W.escJs;
+    const safeImageUrl = W.safeImageUrl;
+    const fmtPrice = W.fmtPrice;
+    const originPriceHover = W.originPriceHover;
+    const notify = W.notify;
+    const cssEscape = W.cssEscape;
+    const $ = W.$;
+    const tbody = W.tbody;
+    const counter = W.counter;
+    const searchCount = W.searchCount;
+    const pag = W.pag;
+
+    // ---------- Render ----------
+    //
+    // _rowHtml(p, n) — render 1 <tr> cho 1 product với index n.
+    // Tách thành helper để dùng được cho cả full renderRows() và in-place
+    // update (tránh giật bảng khi SSE event update).
+    function _rowHtml(p, n) {
+        const imgSrc = safeImageUrl(p.imageUrl);
+        const imgHtml = imgSrc
+            ? `<img class="product-image" src="${escapeHtml(imgSrc)}" alt="" loading="lazy"
+                       onerror="this.style.display='none';this.nextElementSibling?.style.setProperty('display','inline-flex');">` +
+              `<span class="product-image-placeholder" style="display:none;"><i data-lucide="image"></i></span>`
+            : `<span class="product-image-placeholder"><i data-lucide="image"></i></span>`;
+        const stockClass = p.stock === 0 ? 'zero' : p.stock < 5 ? 'low' : '';
+        const priceBuy = Number(p.originalPrice) || 0;
+        const priceSell = Number(p.price) || 0;
+        // Hover hiện giá gốc ngoại tệ (vd CNY) cho SP nhập từ tab so-order ≠ VND.
+        const oBuy = originPriceHover(priceBuy, p);
+        const oSell = originPriceHover(priceSell, p);
+        const oStyle =
+            ' style="cursor:help;text-decoration:underline dotted #94a3b8 2px;text-underline-offset:3px;"';
+        const buyAttr = oBuy.hasOrigin ? ` title="${escapeHtml(oBuy.title)}"${oStyle}` : '';
+        const sellAttr = oSell.hasOrigin ? ` title="${escapeHtml(oSell.title)}"${oStyle}` : '';
+        const variantText = (p.variant || '').trim();
+        const checked = STATE.selectedCodes.has(p.code) ? ' checked' : '';
+        const rowSelectedClass = STATE.selectedCodes.has(p.code) ? ' is-selected' : '';
+        return `
+                <tr data-code="${escapeHtml(p.code)}" class="${rowSelectedClass.trim()}">
+                    <td class="select-cell"><input type="checkbox" class="w2p-checkbox" data-select-code="${escapeHtml(p.code)}"${checked} /></td>
+                    <td>${n}</td>
+                    <td>${imgHtml}</td>
+                    <td><span class="code-badge code-product" onclick="Web2ProductsApp.copyCode('${escapeHtml(escJs(p.code))}')"><i data-lucide="tag"></i>${escapeHtml(p.code)}</span></td>
+                    <td><div style="font-weight:600;">${escapeHtml(p.name)}</div></td>
+                    <td class="variant-cell">
+                        <div class="variant-stack">${
+                            variantText
+                                ? `<span class="variant-pill">${escapeHtml(variantText)}</span>`
+                                : '<span class="variant-empty">—</span>'
+                        }<span class="stock-badge ${stockClass}" title="Tồn kho"><i data-lucide="package"></i>Tồn: ${p.stock ?? 0}</span>${
+                            Number(p.returnQty) > 0
+                                ? `<span class="stock-badge" title="Có ${Number(p.returnQty)} tồn kho THU VỀ đang chờ duyệt (Shipper gửi). Vào trang Thu về để duyệt → cộng vào tồn thật." style="background:#e8f2ff;color:#0058da;border-color:#dbeafe;"><i data-lucide="undo-2"></i>Thu về: ${Number(p.returnQty)}</span>`
+                                : ''
+                        }</div>
+                    </td>
+                    <td class="price-cell price-buy"${buyAttr}>${fmtPrice(priceBuy)}</td>
+                    <td class="price-cell price-sell"${sellAttr}>${fmtPrice(priceSell)}</td>
+                    <td class="note-cell" title="${escapeHtml(p.note || '')}">${escapeHtml(p.note || '—')}</td>
+                    <td>
+                        ${(() => {
+                            // Status ưu tiên hơn isActive:
+                            // - CHO_MUA → "CHỜ HÀNG" (chưa Mua hàng, stock=0).
+                            // - MUA_1_PHAN → "MUA 1 PHẦN" (P1 2026-05-29: nhận được 1 phần,
+                            //   còn pending). Hiển thị stock đang có + pending còn chờ.
+                            // - DANG_BAN + isActive → "Đang bán".
+                            // - !isActive → "Tạm dừng".
+                            if (p.status === 'CHO_MUA') {
+                                const pendingTxt =
+                                    Number(p.pendingQty) > 0 ? ` (×${p.pendingQty})` : '';
+                                return `<span class="active-badge active-pending" title="Chờ Mua hàng từ NCC${p.supplier ? ' ' + p.supplier : ''}"><i data-lucide="clock"></i>CHỜ HÀNG${pendingTxt}</span>`;
+                            }
+                            if (p.status === 'MUA_1_PHAN') {
+                                const stock = Number(p.stock || 0);
+                                const pend = Number(p.pendingQty || 0);
+                                return `<span class="active-badge" style="background:#fef3c7;color:#92400e;border-color:#fcd34d;" title="Đã nhận ${stock} cái, còn ${pend} cái chờ mua tiếp từ NCC ${p.supplier || '?'}"><i data-lucide="package-2"></i>MUA 1 PHẦN <span style="opacity:0.85;font-weight:500;margin-left:4px;">(${stock} đã nhận · ${pend} chờ)</span></span>`;
+                            }
+                            return p.isActive
+                                ? `<span class="active-badge active-yes"><i data-lucide="check"></i>Đang bán</span>`
+                                : `<span class="active-badge active-no"><i data-lucide="pause"></i>Tạm dừng</span>`;
+                        })()}
+                    </td>
+                    <td>
+                        <div class="row-actions">
+                            <button class="btn-action act-edit" title="Sửa" onclick="Web2ProductsApp.openEdit('${escapeHtml(escJs(p.code))}')"><i data-lucide="pencil"></i></button>
+                            <button class="btn-action act-print" title="${Number(p.printCount) > 0 ? `Tem mã vạch đã in ${Number(p.printCount)} lần — tránh in trùng` : 'In tem mã vạch'}" aria-label="In tem mã vạch" onclick="Web2ProductsApp.printBarcode('${escapeHtml(escJs(p.code))}')"><i data-lucide="printer"></i>${
+                                Number(p.printCount) > 0
+                                    ? `<span class="print-count-num">${Number(p.printCount)}</span>`
+                                    : ''
+                            }</button>
+                            <button class="btn-action act-confirm" title="${p.isActive ? 'Tạm dừng' : 'Bán lại'}" onclick="Web2ProductsApp.toggleActive('${escapeHtml(escJs(p.code))}', ${!p.isActive})"><i data-lucide="${p.isActive ? 'pause' : 'play'}"></i></button>
+                            <button class="btn-action act-history" title="Lịch sử chỉnh sửa" onclick="Web2ProductsApp.openHistory('${escapeHtml(escJs(p.code))}')"><i data-lucide="history"></i></button>
+                            <button class="btn-action act-delete" title="Xóa" onclick="Web2ProductsApp.remove('${escapeHtml(escJs(p.code))}')"><i data-lucide="trash-2"></i></button>
+                        </div>
+                    </td>
+                </tr>`;
+    }
+
+    function renderRows() {
+        const items = STATE.products;
+        if (!items.length) {
+            tbody().innerHTML = `<tr><td colspan="11" class="empty-row">
+                Chưa có sản phẩm — bấm "Thêm SP" để tạo
+            </td></tr>`;
+            _updateSelectAllState();
+            _updateBulkBar();
+            return;
+        }
+        tbody().innerHTML = items
+            .map((p, idx) => _rowHtml(p, (STATE.page - 1) * STATE.limit + idx + 1))
+            .join('');
+        if (window.lucide) lucide.createIcons();
+        _updateSelectAllState();
+        _updateBulkBar();
+    }
+
+    // ---------- Bulk selection (P1 2026-05-30) ----------
+    //
+    // Selection persist qua paginate/filter — STATE.selectedCodes là Set<code>.
+    // Khi user filter/đổi trang, các code chọn ở trang khác vẫn được giữ.
+    // Bulk bar fixed-bottom, chỉ hiện khi size > 0. Print dùng Web2ProductsCache
+    // để lookup product objects (vì SP có thể ở trang khác, không có trong
+    // STATE.products hiện tại).
+
+    function _toggleSelect(code, checked) {
+        if (!code) return;
+        if (checked) STATE.selectedCodes.add(code);
+        else STATE.selectedCodes.delete(code);
+        const tr = tbody().querySelector(`tr[data-code="${cssEscape(code)}"]`);
+        if (tr) tr.classList.toggle('is-selected', checked);
+        _updateSelectAllState();
+        _updateBulkBar();
+    }
+
+    function _updateBulkBar() {
+        const bar = $('#w2pBulkBar');
+        if (!bar) return;
+        const n = STATE.selectedCodes.size;
+        if (n === 0) {
+            bar.hidden = true;
+            return;
+        }
+        bar.hidden = false;
+        const countEl = $('#w2pBulkCount');
+        const printCountEl = $('#w2pBulkPrintCount');
+        if (countEl) countEl.textContent = String(n);
+        if (printCountEl) printCountEl.textContent = String(n);
+    }
+
+    function _updateSelectAllState() {
+        const head = $('#selectAllProducts');
+        if (!head) return;
+        const visible = STATE.products.map((p) => p.code);
+        if (!visible.length) {
+            head.checked = false;
+            head.indeterminate = false;
+            return;
+        }
+        const sel = visible.filter((c) => STATE.selectedCodes.has(c)).length;
+        head.checked = sel === visible.length;
+        head.indeterminate = sel > 0 && sel < visible.length;
+    }
+
+    function _selectAllVisible(checked) {
+        for (const p of STATE.products) {
+            if (checked) STATE.selectedCodes.add(p.code);
+            else STATE.selectedCodes.delete(p.code);
+        }
+        // Repaint checkboxes + row classes
+        for (const inp of tbody().querySelectorAll('input[data-select-code]')) {
+            inp.checked = checked;
+            const tr = inp.closest('tr');
+            if (tr) tr.classList.toggle('is-selected', checked);
+        }
+        _updateBulkBar();
+    }
+
+    function _clearSelection() {
+        STATE.selectedCodes.clear();
+        for (const inp of tbody().querySelectorAll('input[data-select-code]')) {
+            inp.checked = false;
+            const tr = inp.closest('tr');
+            if (tr) tr.classList.remove('is-selected');
+        }
+        _updateSelectAllState();
+        _updateBulkBar();
+    }
+
+    function _bulkPrint() {
+        if (!STATE.selectedCodes.size) {
+            notify('Chưa chọn SP nào để in', 'warning');
+            return;
+        }
+        if (!window.Web2ProductsPrint?.open) {
+            notify('Print module chưa load, refresh trang', 'error');
+            return;
+        }
+        // Gather products — selectedCodes có thể ở trang khác nên fallback qua
+        // Web2ProductsCache trước, rồi STATE.products.
+        const cache = window.Web2ProductsCache;
+        const collected = [];
+        const missing = [];
+        for (const code of STATE.selectedCodes) {
+            const fromCache = cache?.findByCode?.(code);
+            const fromState = STATE.products.find((p) => p.code === code);
+            const p = fromCache || fromState;
+            if (p) collected.push(p);
+            else missing.push(code);
+        }
+        if (!collected.length) {
+            notify('Không tìm thấy SP đã chọn (cache có thể chưa load)', 'error');
+            return;
+        }
+        if (missing.length) {
+            console.warn('[web2-products] bulk print missing codes:', missing);
+        }
+        window.Web2ProductsPrint.open(collected);
+    }
+
+    // In-place update — replace ONE row's HTML, GIỮ position trong bảng + KHÔNG
+    // re-sort. Tránh giật bảng + sản phẩm vừa edit nhảy lên đầu.
+    //   - Update STATE.products[idx] với data mới (giữ idx hiện tại)
+    //   - querySelector tr[data-code=X] → replace với row HTML mới
+    //   - Re-render lucide icons trong row đó
+    function _updateRowInPlace(code, newProduct) {
+        const idx = STATE.products.findIndex((p) => p.code === code);
+        if (idx === -1) return false; // not on current page → caller should full-reload
+        STATE.products[idx] = newProduct;
+        const tr = tbody().querySelector(`tr[data-code="${cssEscape(code)}"]`);
+        if (!tr) return false;
+        const stt = (STATE.page - 1) * STATE.limit + idx + 1;
+        // Parse new row HTML into a DOM node, then swap.
+        const tmp = document.createElement('tbody');
+        tmp.innerHTML = _rowHtml(newProduct, stt).trim();
+        const newTr = tmp.firstElementChild;
+        if (!newTr) return false;
+        tr.replaceWith(newTr);
+        if (window.lucide) lucide.createIcons();
+        return true;
+    }
+
+    // Patch NHIỀU row tại chỗ sau bulk op (confirm-purchase-partial, adjust-stock…).
+    // Chỉ fetch + swap các code đang hiển thị trên page hiện tại → KHÔNG full reload,
+    // KHÔNG giật bảng, giữ scroll + selection. Trả {handled, anyOnPage}:
+    //   - handled=true  → đã patch xong (hoặc không có code nào on-page) → KHÔNG cần reload
+    //   - handled=false → fetch lỗi → caller fallback full reload
+    async function _updateRowsBatch(codes) {
+        const onPage = (codes || []).filter((c) => STATE.products.some((p) => p.code === c));
+        if (!onPage.length) return { handled: true, anyOnPage: false };
+        let products = [];
+        try {
+            if (window.Web2ProductsApi.getBatch) {
+                const r = await window.Web2ProductsApi.getBatch(onPage);
+                products = r?.products || [];
+            } else {
+                const settled = await Promise.allSettled(
+                    onPage.map((c) => window.Web2ProductsApi.get(c))
+                );
+                products = settled
+                    .filter((s) => s.status === 'fulfilled' && s.value?.product)
+                    .map((s) => s.value.product);
+            }
+        } catch (e) {
+            console.warn('[Web2Products] batch fetch failed:', e?.message || e);
+            return { handled: false, anyOnPage: true };
+        }
+        if (!products.length) return { handled: false, anyOnPage: true };
+        products.forEach((p) => _updateRowInPlace(p.code, p));
+        return { handled: true, anyOnPage: true };
+    }
+
+    function renderPagination() {
+        const totalPages = Math.max(1, Math.ceil(STATE.total / STATE.limit));
+        const cur = STATE.page;
+        const html = [];
+        html.push(
+            `<button class="page-btn" ${cur === 1 ? 'disabled' : ''} onclick="Web2ProductsApp.goPage(${cur - 1})">‹</button>`
+        );
+        const start = Math.max(1, cur - 2);
+        const end = Math.min(totalPages, start + 4);
+        if (start > 1) {
+            html.push(`<button class="page-btn" onclick="Web2ProductsApp.goPage(1)">1</button>`);
+            if (start > 2) html.push(`<span class="page-info">…</span>`);
+        }
+        for (let p = start; p <= end; p++) {
+            html.push(
+                `<button class="page-btn ${p === cur ? 'active' : ''}" onclick="Web2ProductsApp.goPage(${p})">${p}</button>`
+            );
+        }
+        if (end < totalPages) {
+            if (end < totalPages - 1) html.push(`<span class="page-info">…</span>`);
+            html.push(
+                `<button class="page-btn" onclick="Web2ProductsApp.goPage(${totalPages})">${totalPages}</button>`
+            );
+        }
+        html.push(
+            `<button class="page-btn" ${cur >= totalPages ? 'disabled' : ''} onclick="Web2ProductsApp.goPage(${cur + 1})">›</button>`
+        );
+        html.push(
+            `<span class="page-info">${STATE.total.toLocaleString('vi-VN')} SP — trang ${cur}/${totalPages}</span>`
+        );
+        pag().innerHTML = html.join('');
+    }
+
+    function renderCounters() {
+        const t = STATE.total.toLocaleString('vi-VN');
+        const c = counter();
+        if (c) c.textContent = `${t} sản phẩm`;
+        const sc = searchCount();
+        if (sc) sc.textContent = t;
+    }
+
+    // ---------- Usage badge (đơn nào đang chứa SP này) ----------
+    //
+    // Render placeholder badge ngay khi table render. Background fetch
+    // `/api/web2-products/usage?codes=...` cho TOÀN BỘ code trên page hiện tại
+    // → khi data về, update từng cell bằng innerHTML (KHÔNG re-render cả bảng
+    // để giữ scroll + tránh nháy).
+
+    function renderUsageBadge(code) {
+        const entries = STATE.usage[code];
+        if (!entries) {
+            // Chưa load — placeholder
+            return `<span class="usage-badge usage-loading" data-code="${escapeHtml(code)}"><span class="usage-dot"></span>...</span>`;
+        }
+        if (!entries.length) {
+            return `<span class="usage-badge usage-empty" data-code="${escapeHtml(code)}">0 đơn</span>`;
+        }
+        const totalQty = entries.reduce((s, e) => s + (e.qty || 0), 0);
+        return `<button class="usage-badge usage-has" data-code="${escapeHtml(code)}" onclick="Web2ProductsApp.openUsagePopover('${escapeHtml(escJs(code))}', event)" title="${entries.length} đơn × ${totalQty} cái — bấm xem chi tiết"><i data-lucide="link"></i><strong>${entries.length}</strong> đơn · ${totalQty} cái</button>`;
+    }
+
+    async function _loadUsageForCurrentPage() {
+        const codes = STATE.products.map((p) => p.code).filter(Boolean);
+        if (!codes.length) return;
+        try {
+            const r = await window.Web2ProductsApi.usage(codes);
+            if (!r?.success) return;
+            // Merge into STATE.usage (don't wipe — keep previously-loaded codes)
+            for (const code of codes) {
+                STATE.usage[code] = r.usage?.[code] || [];
+            }
+            // Replace each usage cell in-place
+            for (const code of codes) {
+                const row = tbody().querySelector(`tr[data-code="${cssEscape(code)}"]`);
+                if (!row) continue;
+                const cell = row.querySelector('.usage-cell');
+                if (cell) cell.innerHTML = renderUsageBadge(code);
+            }
+            if (window.lucide) lucide.createIcons();
+        } catch (e) {
+            console.warn('[Web2Products] usage load failed:', e?.message || e);
+        }
+    }
+
+    function openUsagePopover(code, ev) {
+        ev?.stopPropagation?.();
+        const entries = STATE.usage[code] || [];
+        // Remove any existing popover
+        document.querySelectorAll('.usage-popover').forEach((el) => el.remove());
+        if (!entries.length) {
+            notify('Sản phẩm này chưa được dùng trong đơn nào', 'info');
+            return;
+        }
+
+        const pop = document.createElement('div');
+        pop.className = 'usage-popover';
+        const productName = STATE.products.find((p) => p.code === code)?.name || code;
+
+        // Group by campaign (fbPostId or campaignId)
+        const groups = new Map(); // key = campaign signature
+        for (const e of entries) {
+            const k = e.campaignId || e.fbPostId || '__no_campaign__';
+            if (!groups.has(k)) {
+                groups.set(k, {
+                    campaignId: e.campaignId,
+                    campaignName: e.campaignName,
+                    fbPostId: e.fbPostId,
+                    items: [],
+                });
+            }
+            groups.get(k).items.push(e);
+        }
+
+        const statusColors = {
+            draft: '#64748b',
+            confirmed: '#0ea5e9',
+            sent: '#16a34a',
+        };
+
+        let html = `
+            <div class="usage-popover-header">
+                <strong>${escapeHtml(productName)}</strong>
+                <span class="usage-popover-sub">${escapeHtml(code)} · ${entries.length} đơn</span>
+                <button class="usage-popover-close" onclick="this.closest('.usage-popover').remove()">×</button>
+            </div>
+            <div class="usage-popover-body">`;
+
+        for (const [_, g] of groups) {
+            const campTitle = g.campaignName || g.fbPostId || '(không có chiến dịch)';
+            html += `<div class="usage-camp-group">
+                <div class="usage-camp-title"><i data-lucide="megaphone"></i>${escapeHtml(campTitle)}</div>`;
+            for (const item of g.items) {
+                const stt =
+                    item.mergedDisplayStt && item.mergedDisplayStt.length
+                        ? item.mergedDisplayStt.join('+')
+                        : item.displayStt || '?';
+                const statusColor = statusColors[item.status] || '#64748b';
+                const statusLabel =
+                    item.status === 'draft'
+                        ? 'Nháp'
+                        : item.status === 'confirmed'
+                          ? 'Đơn hàng'
+                          : item.status === 'sent'
+                            ? 'Đã gửi'
+                            : item.status;
+                html += `<a class="usage-order-row" href="../../native-orders/index.html?search=${encodeURIComponent(item.orderCode)}" target="_blank" rel="noopener" title="Mở đơn ${escapeHtml(item.orderCode)}">
+                    <span class="usage-stt">STT ${escapeHtml(String(stt))}</span>
+                    <span class="usage-cust"><strong>${escapeHtml(item.customerName || '?')}</strong>${item.phone ? ` · ${escapeHtml(item.phone)}` : ''}</span>
+                    <span class="usage-qty">×${item.qty}</span>
+                    <span class="usage-status" style="background:${statusColor}20;color:${statusColor};">${escapeHtml(statusLabel)}</span>
+                </a>`;
+            }
+            html += `</div>`;
+        }
+        html += `</div>`;
+        pop.innerHTML = html;
+
+        // Position popover relative to clicked button
+        const target = ev?.currentTarget || ev?.target;
+        const rect = target?.getBoundingClientRect?.();
+        if (rect) {
+            pop.style.left = Math.max(8, Math.min(window.innerWidth - 480, rect.left)) + 'px';
+            pop.style.top = rect.bottom + window.scrollY + 6 + 'px';
+        } else {
+            pop.style.left = '50%';
+            pop.style.top = '50%';
+            pop.style.transform = 'translate(-50%,-50%)';
+        }
+        document.body.appendChild(pop);
+        if (window.lucide) lucide.createIcons();
+
+        // Click outside → close
+        setTimeout(() => {
+            const onDocClick = (e) => {
+                if (!pop.contains(e.target)) {
+                    pop.remove();
+                    document.removeEventListener('click', onDocClick);
+                }
+            };
+            document.addEventListener('click', onDocClick);
+        }, 50);
+    }
+
+    // ---------- Data load ----------
+    async function load() {
+        if (STATE.loading) return;
+        STATE.loading = true;
+        // Anti-flash: nếu bảng ĐÃ có dòng (reload do create/delete/fallback) → làm mờ
+        // thay vì xoá trắng → không nháy. Chỉ hiện spinner cho lần tải đầu / bảng rỗng.
+        const tb = tbody();
+        const hadRows = tb.children.length && !tb.querySelector('.empty-row, .loading-row');
+        if (hadRows) {
+            tb.style.opacity = '0.55';
+            tb.style.pointerEvents = 'none';
+        } else {
+            tb.innerHTML = `<tr><td colspan="11" class="loading-row">
+                <div class="spinner"></div>Đang tải dữ liệu...
+            </td></tr>`;
+        }
+        try {
+            const resp = await window.Web2ProductsApi.list({
+                search: STATE.search || undefined,
+                activeOnly: STATE.activeOnly,
+                page: STATE.page,
+                limit: STATE.limit,
+            });
+            STATE.products = resp.products || [];
+            STATE.total = resp.total || 0;
+            renderRows();
+            renderPagination();
+            renderCounters();
+            // Sau khi render bảng → fetch usage (background, non-blocking).
+            // Badge "ĐANG DÙNG" sẽ tự update khi data về.
+            _loadUsageForCurrentPage();
+        } catch (e) {
+            console.error(e);
+            tbody().innerHTML = `<tr><td colspan="11" class="empty-row" style="color:#ef4444;">
+                Lỗi tải: ${escapeHtml(e.message)}
+                <button class="btn btn-sm" style="margin-left:10px" onclick="Web2ProductsApp.load()">
+                    <i data-lucide="refresh-cw"></i> Thử lại
+                </button>
+            </td></tr>`;
+            if (window.lucide) lucide.createIcons();
+            notify('Lỗi tải dữ liệu: ' + e.message, 'error');
+        } finally {
+            STATE.loading = false;
+            const t = tbody();
+            t.style.opacity = '';
+            t.style.pointerEvents = '';
+        }
+    }
+
+    // Export to shared namespace.
+    W._rowHtml = _rowHtml;
+    W.renderRows = renderRows;
+    W._toggleSelect = _toggleSelect;
+    W._updateBulkBar = _updateBulkBar;
+    W._updateSelectAllState = _updateSelectAllState;
+    W._selectAllVisible = _selectAllVisible;
+    W._clearSelection = _clearSelection;
+    W._bulkPrint = _bulkPrint;
+    W._updateRowInPlace = _updateRowInPlace;
+    W._updateRowsBatch = _updateRowsBatch;
+    W.renderPagination = renderPagination;
+    W.renderCounters = renderCounters;
+    W.renderUsageBadge = renderUsageBadge;
+    W._loadUsageForCurrentPage = _loadUsageForCurrentPage;
+    W.openUsagePopover = openUsagePopover;
+    W.load = load;
+})();

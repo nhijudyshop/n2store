@@ -80,15 +80,15 @@ Deep shared mutable STATE, multi-subsystem, cross-module closures, realtime/exte
 - [ ] **`native-orders/js/native-orders-app.js`** (9456) → ~22 module (state, columns, dom-helpers, avatar, snapshots, customer-panel, rows-render, delivery-badge, edit-modal, product-picker, bill-print, data-load, filters, campaign-filter, bulk-ops, sse, init, **interactions-modal → Web2CustomerChat (Task 1 chat unification)**, extension-bridge, inbox-create, sidebar-filter, chat-state…). Gộp về ~12-15 module thực dụng. **CHẬM + kỹ.**
 - [ ] **`so-order/js/so-order-app.js`** (5931) + **`so-order/js/so-order-storage.js`** (961)
 - [ ] **live-chat cluster**: `live-livestream-snap.js` (4568), `live-comment-list.js` (2459), `live-init.js` (1136), `comments-mobile.js` (1131), `inventory-panel.js` (1177)
-- [ ] **`web2/photo-studio/photo-studio.js`** (2348)
-- [ ] **`web2/products/js/web2-products-app.js`** (2010)
+- [x] **`web2/photo-studio/photo-studio.js`** (2348) → 7 module (state/canvas/bg/edit/bgpicker/ui/app). ✅ 117/117 hàm, `PhotoStudio.init` giữ, BG engines verbatim. 0 JS err.
+- [x] **`web2/products/js/web2-products-app.js`** (2010) → 7 module (state/render/modal/variant-picker/actions/filters/app). ✅ `Web2ProductsApp` 12 key byte-identical, 33 rows. 0 JS err.
 - [x] **`web2/purchase-refund/js/purchase-refund-app.js`** (1634) → 6 module (state/api/render/modal/actions/app). ✅ group-by-order `aggId` + cumulative `returnedRowIds` over-refund giữ verbatim; quick/bulk refund giữ await+double-submit. 0 JS err.
 - [x] **`web2/supplier-debt/js/supplier-debt-app.js`** (1394) → 6 module (state/api/render/actions/filters/app). ✅ 26 rows, 0 JS err. Money settle/adjust giữ await. 0 public global (giữ).
 - [x] **`web2/supplier-wallet/js/supplier-wallet-app.js`** (912) → 5 module (state/api/render/actions/app). ✅ 13 cards, 0 JS err. Money deposit/return/pay giữ await + idempotent txId.
 - [x] **`web2/customers/js/customers-app.js`** (914) → 5 module (state/render/detail/events/app). ✅ 50 rows, 0 JS err. customers-api.js giữ nguyên; SĐT 10 số validate giữ.
 - [x] **`web2/pancake-settings/js/pancake-settings.js`** (1305) → 5 module (state/api/render/actions/app). ✅ token/account writes giữ await+confirm. 0 JS err.
 - [x] **`web2/reconcile/js/reconcile-app.js`** (1106) → 5 module (state/api/render/actions/app). ✅ selectPbh race-guard + scanner IME-guard giữ verbatim, match/assign giữ await. 0 JS err.
-- [ ] **`web2/shared/web2-msg-template.js`** (961)
+- [x] **`web2/shared/web2-msg-template.js`** (961) → 4 module (core/ui/send/entry). ✅ `Web2MsgTemplate.open` giữ; native-orders load OK. 0 JS err.
 - [ ] **`web2/shared/web2-customer-chat.js`** (842) — chính là component chat hợp nhất; tách view/launcher/modal.
 
 ---

@@ -1,10 +1,10 @@
 {
-    "generatedAt": "2026-06-18 16:39",
+    "generatedAt": "2026-06-18 16:57",
     "totals": {
-        "files": 233,
-        "sharedModules": 75,
-        "functions": 2547,
-        "oversized": 16
+        "files": 248,
+        "sharedModules": 78,
+        "functions": 2548,
+        "oversized": 13
     },
     "sharedModules": [
         {
@@ -86,14 +86,15 @@
                 "web2/fastsaleorder-refund/rf-app.js",
                 "web2/pancake-settings/js/pancake-settings-actions.js",
                 "web2/payment-confirm/js/payment-confirm-app.js",
-                "web2/products/js/web2-products-app.js",
+                "web2/products/js/web2-products-actions.js",
                 "web2/purchase-refund/js/purchase-refund-actions.js",
                 "web2/reconcile/js/reconcile-actions.js",
                 "web2/returns/js/returns-tabs.js",
                 "web2/shared/page-builder.js",
                 "web2/shared/web2-ck-assign-picker.js",
                 "web2/shared/web2-export-helpers.js",
-                "web2/shared/web2-msg-template.js",
+                "web2/shared/web2-msg-template-send.js",
+                "web2/shared/web2-msg-template-ui.js",
                 "web2/shared/web2-notify.js",
                 "web2/shared/web2-quick-reply.js",
                 "web2/shared/web2-return-bill.js",
@@ -169,11 +170,11 @@
                 "web2/pancake-settings/js/pancake-settings-api.js",
                 "web2/pancake-settings/js/pancake-settings-state.js",
                 "web2/payment-confirm/js/payment-confirm-app.js",
-                "web2/photo-studio/photo-studio.js",
+                "web2/photo-studio/photo-studio-bg.js",
                 "web2/products/js/web2-products-api.js",
-                "web2/products/js/web2-products-app.js",
                 "web2/products/js/web2-products-print-barcode.js",
                 "web2/products/js/web2-products-print-utils.js",
+                "web2/products/js/web2-products-state.js",
                 "web2/purchase-refund/js/purchase-refund-api.js",
                 "web2/purchase-refund/js/purchase-refund-state.js",
                 "web2/reconcile/js/reconcile-state.js",
@@ -188,7 +189,7 @@
                 "web2/shared/web2-customer-chat.js",
                 "web2/shared/web2-customer-detail-modal.js",
                 "web2/shared/web2-customer-store.js",
-                "web2/shared/web2-msg-template.js",
+                "web2/shared/web2-msg-template-core.js",
                 "web2/shared/web2-notification-bell.js",
                 "web2/shared/web2-pancake-accounts.js",
                 "web2/shared/web2-printer.js",
@@ -265,7 +266,7 @@
                 "web2/pancake-settings/js/pancake-settings.js",
                 "web2/shared/chat-panel/web2-chat-panel.js",
                 "web2/shared/web2-customer-chat.js",
-                "web2/shared/web2-msg-template.js",
+                "web2/shared/web2-msg-template-send.js",
                 "web2/shared/web2-pancake-accounts.js",
                 "web2/shared/web2-pancake-token.js",
                 "web2/shared/web2-realtime.js"
@@ -461,7 +462,11 @@
             "globals": ["Web2Import"],
             "purpose": "WEB2.0 module.",
             "api": [],
-            "consumers": ["so-order/js/so-order-app.js", "web2/products/js/web2-products-app.js"],
+            "consumers": [
+                "so-order/js/so-order-app.js",
+                "web2/products/js/web2-products-app.js",
+                "web2/products/js/web2-products-modal.js"
+            ],
             "lines": 564
         },
         {
@@ -500,12 +505,53 @@
             "lines": 98
         },
         {
-            "file": "web2/shared/web2-msg-template.js",
-            "globals": ["Web2MsgTemplate"],
-            "purpose": "Web 2.0 — Bulk Message Template Modal",
+            "file": "web2/shared/web2-msg-template-core.js",
+            "globals": ["W2MT"],
+            "purpose": "WEB2.0 module.",
             "api": [],
-            "consumers": ["native-orders/js/native-orders-app.js"],
-            "lines": 962
+            "consumers": [
+                "web2/shared/web2-msg-template-core.js",
+                "web2/shared/web2-msg-template-send.js",
+                "web2/shared/web2-msg-template-ui.js"
+            ],
+            "lines": 258
+        },
+        {
+            "file": "web2/shared/web2-msg-template-send.js",
+            "globals": ["W2MT"],
+            "purpose": "WEB2.0 module.",
+            "api": [],
+            "consumers": [
+                "web2/shared/web2-msg-template-core.js",
+                "web2/shared/web2-msg-template-send.js",
+                "web2/shared/web2-msg-template-ui.js"
+            ],
+            "lines": 456
+        },
+        {
+            "file": "web2/shared/web2-msg-template-ui.js",
+            "globals": ["W2MT"],
+            "purpose": "WEB2.0 module.",
+            "api": [],
+            "consumers": [
+                "web2/shared/web2-msg-template-core.js",
+                "web2/shared/web2-msg-template-send.js",
+                "web2/shared/web2-msg-template-ui.js"
+            ],
+            "lines": 264
+        },
+        {
+            "file": "web2/shared/web2-msg-template.js",
+            "globals": ["W2MT", "Web2MsgTemplate"],
+            "purpose": "WEB2.0 module.",
+            "api": [],
+            "consumers": [
+                "native-orders/js/native-orders-app.js",
+                "web2/shared/web2-msg-template-core.js",
+                "web2/shared/web2-msg-template-send.js",
+                "web2/shared/web2-msg-template-ui.js"
+            ],
+            "lines": 88
         },
         {
             "file": "web2/shared/web2-new-msg-badge.js",
@@ -550,7 +596,8 @@
                 "web2/jt-tracking/js/jt-tracking-actions.js",
                 "web2/pancake-settings/js/pancake-settings-actions.js",
                 "web2/payment-confirm/js/payment-confirm-app.js",
-                "web2/products/js/web2-products-app.js",
+                "web2/products/js/web2-products-actions.js",
+                "web2/products/js/web2-products-modal.js",
                 "web2/shared/chat-panel/web2-chat-panel.js",
                 "web2/shared/page-builder.js",
                 "web2/shared/web2-lottie.js",
@@ -619,7 +666,9 @@
             "api": [],
             "consumers": [
                 "so-order/js/so-order-app.js",
-                "web2/products/js/web2-products-app.js",
+                "web2/products/js/web2-products-modal.js",
+                "web2/products/js/web2-products-state.js",
+                "web2/products/js/web2-products-variant-picker.js",
                 "web2/shared/web2-variants-cache.js"
             ],
             "lines": 594
@@ -643,7 +692,11 @@
             "api": [],
             "consumers": [
                 "so-order/js/so-order-app.js",
+                "web2/products/js/web2-products-actions.js",
                 "web2/products/js/web2-products-app.js",
+                "web2/products/js/web2-products-modal.js",
+                "web2/products/js/web2-products-render.js",
+                "web2/products/js/web2-products-variant-picker.js",
                 "web2/purchase-refund/js/purchase-refund-actions.js",
                 "web2/purchase-refund/js/purchase-refund-api.js",
                 "web2/purchase-refund/js/purchase-refund-modal.js",
@@ -771,7 +824,7 @@
                 "web2/shared/page-builder.js",
                 "web2/shared/web2-ck-review.js",
                 "web2/shared/web2-customer-store.js",
-                "web2/shared/web2-msg-template.js",
+                "web2/shared/web2-msg-template-send.js",
                 "web2/shared/web2-notification-bell.js",
                 "web2/shared/web2-printer.js",
                 "web2/shared/web2-products-cache.js",
@@ -807,6 +860,7 @@
                 "so-order/js/so-order-app.js",
                 "web2/balance-history/js/web2-manual-deposit.js",
                 "web2/products/js/web2-products-app.js",
+                "web2/products/js/web2-products-state.js",
                 "web2/purchase-refund/js/purchase-refund-modal.js",
                 "web2/supplier-debt/js/supplier-debt-filters.js",
                 "web2/supplier-wallet/js/supplier-wallet-actions.js"
@@ -852,7 +906,7 @@
                 "web2/shared/web2-bill-service.js",
                 "web2/shared/web2-ck-assign-picker.js",
                 "web2/shared/web2-ck-review.js",
-                "web2/shared/web2-msg-template.js",
+                "web2/shared/web2-msg-template-send.js",
                 "web2/shared/web2-wallet-api.js",
                 "web2/supplier-debt/js/supplier-debt-api.js",
                 "web2/supplier-wallet/js/supplier-wallet-state.js",
@@ -865,7 +919,11 @@
             "globals": ["Web2VariantMulti"],
             "purpose": "WEB2.0 module.",
             "api": [],
-            "consumers": ["so-order/js/so-order-app.js", "web2/products/js/web2-products-app.js"],
+            "consumers": [
+                "so-order/js/so-order-app.js",
+                "web2/products/js/web2-products-modal.js",
+                "web2/products/js/web2-products-variant-picker.js"
+            ],
             "lines": 192
         },
         {
@@ -876,6 +934,9 @@
             "consumers": [
                 "so-order/js/so-order-app.js",
                 "web2/products/js/web2-products-app.js",
+                "web2/products/js/web2-products-modal.js",
+                "web2/products/js/web2-products-state.js",
+                "web2/products/js/web2-products-variant-picker.js",
                 "web2/shared/web2-variant-multi.js",
                 "web2/variants/js/web2-variants-app.js"
             ],
@@ -4030,7 +4091,7 @@
                 },
                 {
                     "file": "web2/pancake-settings/js/pancake-settings-render.js",
-                    "lines": 392,
+                    "lines": 394,
                     "purpose": "WEB2.0 module.",
                     "globals": [],
                     "uses": ["Web2Chat", "Web2PancakeAccounts", "Web2PancakeToken"],
@@ -4127,126 +4188,180 @@
             "page": "web2/photo-studio",
             "files": [
                 {
-                    "file": "web2/photo-studio/photo-studio.js",
-                    "lines": 2349,
-                    "purpose": "Studio chụp tách nền — giao diện camera-app mobile-first.",
-                    "globals": ["PhotoStudio"],
+                    "file": "web2/photo-studio/photo-studio-bg.js",
+                    "lines": 417,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["PS"],
                     "uses": ["Web2Auth"],
                     "functions": [
-                        "activate",
-                        "addPickPoint",
-                        "applyActiveBg",
-                        "applyLogoDataUrl",
-                        "applyMirrorClass",
-                        "applyMobileDefaults",
                         "applyPickMask",
                         "authHeaders",
-                        "autoStartIfAllowed",
-                        "backToCamera",
-                        "batchCutout",
-                        "bgRowHTML",
-                        "bind",
-                        "bindReviewGestures",
-                        "bindSlider",
-                        "blobToImage",
-                        "browserName",
-                        "buildSilhouette",
-                        "cache",
-                        "cameraErrorMsg",
-                        "canvasToBlob",
-                        "capture",
-                        "captureSize",
-                        "chipKey",
-                        "clamp",
-                        "closeSheet",
                         "cloudCutout",
                         "composeAI",
-                        "cropRect",
-                        "currentSourceEl",
+                        "getSam",
+                        "getUpscaler",
+                        "initLegacySeg",
+                        "initSegmentation",
+                        "lanczos2x",
+                        "loadImgly",
+                        "loadScript",
+                        "localCutout",
+                        "locateFile",
+                        "maskToAlpha",
+                        "onSegResults",
+                        "onTasksResult",
+                        "onerror",
+                        "onload",
+                        "populateMaskC",
+                        "runSamDecode",
+                        "samEmbed",
+                        "segInputFrame",
+                        "upscaleCanvas"
+                    ]
+                },
+                {
+                    "file": "web2/photo-studio/photo-studio-bgpicker.js",
+                    "lines": 286,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["PS"],
+                    "uses": [],
+                    "functions": [
+                        "applyActiveBg",
+                        "bgRowHTML",
+                        "chipKey",
                         "deleteSavedBg",
-                        "downloadBatchZip",
+                        "loadSavedBgs",
+                        "onBgChip",
+                        "onerror",
+                        "onload",
+                        "persistSavedBgs",
+                        "renderBgRows",
+                        "saveSavedBg",
+                        "sceneFull",
+                        "sceneThumb",
+                        "selectBg"
+                    ]
+                },
+                {
+                    "file": "web2/photo-studio/photo-studio-canvas.js",
+                    "lines": 186,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["PS"],
+                    "uses": [],
+                    "functions": [
+                        "blobToImage",
+                        "buildSilhouette",
+                        "canvasToBlob",
                         "drawBg",
                         "drawCover",
                         "drawLogo",
                         "drawPreset",
                         "drawShadow",
+                        "fileToImage",
+                        "imgToCanvas",
+                        "keyOut",
+                        "loadImageSrc",
+                        "onerror",
+                        "onload"
+                    ]
+                },
+                {
+                    "file": "web2/photo-studio/photo-studio-edit.js",
+                    "lines": 727,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["PS"],
+                    "uses": [],
+                    "functions": [
+                        "addPickPoint",
+                        "backToCamera",
+                        "batchCutout",
+                        "bindReviewGestures",
+                        "capture",
+                        "downloadBatchZip",
                         "enterPickMode",
                         "exitPickMode",
                         "extractPickedObject",
-                        "fileToImage",
                         "finishBrush",
-                        "frame",
-                        "getSam",
-                        "getUpscaler",
+                        "makeCutout",
+                        "moveCursor",
+                        "onBatchFiles",
+                        "paintBrush",
+                        "pickPointFromEvent",
+                        "processOne",
+                        "ratio",
+                        "renderPick",
+                        "renderReview",
+                        "saveBlob",
+                        "saveReview",
+                        "schedule",
+                        "setBrushMode",
+                        "setPickUI",
+                        "showReview",
+                        "undoPickPoint",
+                        "up"
+                    ]
+                },
+                {
+                    "file": "web2/photo-studio/photo-studio-state.js",
+                    "lines": 216,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["PS"],
+                    "uses": [],
+                    "functions": [
+                        "activate",
+                        "browserName",
+                        "captureSize",
+                        "clamp",
+                        "cropRect",
+                        "currentSourceEl",
                         "hexToRgb",
                         "hideLoading",
-                        "id",
-                        "imgToCanvas",
-                        "init",
-                        "initLegacySeg",
-                        "initSegmentation",
                         "isIOS",
                         "isMobile",
-                        "keyOut",
-                        "lanczos2x",
-                        "loadImageSrc",
-                        "loadImgly",
-                        "loadLogo",
-                        "loadSavedBgs",
-                        "loadScript",
-                        "localCutout",
-                        "locateFile",
-                        "makeCutout",
-                        "maskToAlpha",
-                        "moveCursor",
                         "notify",
-                        "onBatchFiles",
-                        "onBgChip",
+                        "recomputeSizes",
+                        "relucide",
+                        "rgbToHex",
+                        "showLoading",
+                        "sizeCanvas",
+                        "stamp",
+                        "tickFps"
+                    ]
+                },
+                {
+                    "file": "web2/photo-studio/photo-studio-ui.js",
+                    "lines": 698,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["PS"],
+                    "uses": [],
+                    "functions": [
+                        "applyLogoDataUrl",
+                        "applyMirrorClass",
+                        "applyMobileDefaults",
+                        "autoStartIfAllowed",
+                        "bind",
+                        "bindSlider",
+                        "cache",
+                        "cameraErrorMsg",
+                        "closeSheet",
+                        "frame",
+                        "id",
+                        "loadLogo",
                         "onBgFile",
                         "onLogoFile",
-                        "onSegResults",
                         "onSourceFile",
-                        "onTasksResult",
                         "onchange",
                         "onerror",
                         "onload",
                         "openSheet",
-                        "paintBrush",
                         "permissionStepsHTML",
-                        "persistSavedBgs",
-                        "pickPointFromEvent",
-                        "populateMaskC",
-                        "processOne",
-                        "ratio",
-                        "recomputeSizes",
-                        "relucide",
-                        "renderBgRows",
                         "renderChroma",
                         "renderPassthrough",
-                        "renderPick",
-                        "renderReview",
-                        "rgbToHex",
-                        "runSamDecode",
-                        "samEmbed",
                         "sampleKeyFromStage",
-                        "saveBlob",
-                        "saveReview",
-                        "saveSavedBg",
-                        "sceneFull",
-                        "sceneThumb",
-                        "schedule",
-                        "segInputFrame",
-                        "selectBg",
-                        "setBrushMode",
                         "setMode",
-                        "setPickUI",
-                        "showLoading",
                         "showOriginal",
                         "showPermissionHelp",
-                        "showReview",
                         "showStageError",
-                        "sizeCanvas",
-                        "stamp",
                         "startCamera",
                         "startLoop",
                         "stopAll",
@@ -4254,14 +4369,18 @@
                         "stopStream",
                         "switchCamera",
                         "syncMirrorToFacing",
-                        "tickFps",
                         "toggleCamera",
-                        "undoPickPoint",
-                        "up",
                         "updateHqHint",
-                        "upscaleCanvas",
                         "waitForVideo"
                     ]
+                },
+                {
+                    "file": "web2/photo-studio/photo-studio.js",
+                    "lines": 59,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["PS", "PhotoStudio"],
+                    "uses": [],
+                    "functions": ["init"]
                 },
                 {
                     "file": "web2/photo-studio/sw.js",
@@ -4328,6 +4447,25 @@
                     ]
                 },
                 {
+                    "file": "web2/products/js/web2-products-actions.js",
+                    "lines": 138,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["Web2ProductsCore"],
+                    "uses": ["Popup", "Web2Optimistic", "Web2ProductsCache"],
+                    "functions": [
+                        "_doRemove",
+                        "apply",
+                        "copyCode",
+                        "onSuccess",
+                        "printBarcode",
+                        "remove",
+                        "rollback",
+                        "run",
+                        "snapshot",
+                        "toggleActive"
+                    ]
+                },
+                {
                     "file": "web2/products/js/web2-products-api.js",
                     "lines": 148,
                     "purpose": "Web2 Products API client — /api/web2/products/* qua Cloudflare Worker.",
@@ -4352,103 +4490,70 @@
                 },
                 {
                     "file": "web2/products/js/web2-products-app.js",
-                    "lines": 2011,
-                    "purpose": "Web2 Products — main app: render bảng + CRUD qua modal.",
+                    "lines": 325,
+                    "purpose": "WEB2.0 module.",
                     "globals": ["Web2ProductsApp"],
                     "uses": [
-                        "Popup",
-                        "API_CONFIG",
                         "Web2Deeplink",
                         "Web2Effects",
+                        "Web2Import",
+                        "Web2ProductsCache",
+                        "Web2SSE",
+                        "Web2SuppliersCache",
+                        "Web2VariantsCache"
+                    ],
+                    "functions": [
+                        "_handleDeeplink",
+                        "_requiredBlur",
+                        "_setupSse",
+                        "autoRegen",
+                        "debouncedFullLoad",
+                        "getProduct",
+                        "getUsage",
+                        "init",
+                        "onResult",
+                        "refreshUsageOnly"
+                    ]
+                },
+                {
+                    "file": "web2/products/js/web2-products-filters.js",
+                    "lines": 45,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["Web2ProductsCore"],
+                    "uses": [],
+                    "functions": ["applyFilters", "clearFilters", "goPage"]
+                },
+                {
+                    "file": "web2/products/js/web2-products-modal.js",
+                    "lines": 729,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["Web2ProductsCore"],
+                    "uses": [
                         "Web2Import",
                         "Web2Optimistic",
                         "Web2ProductCode",
                         "Web2ProductsCache",
-                        "Web2SSE",
-                        "Web2SuppliersCache",
                         "Web2VariantMulti",
                         "Web2VariantsCache"
                     ],
                     "functions": [
-                        "$",
-                        "_bulkCreateVariants",
-                        "_bulkPrint",
-                        "_clearSelection",
-                        "_combinedVariant",
                         "_commitProductImport",
-                        "_doRemove",
-                        "_handleDeeplink",
-                        "_isSizeGroup",
-                        "_loadUsageForCurrentPage",
                         "_productImportConfig",
-                        "_renderCombinedHint",
-                        "_renderVariantMultiPreview",
-                        "_requiredBlur",
-                        "_rowHtml",
-                        "_selectAllVisible",
-                        "_setVariantPickers",
-                        "_setupSse",
-                        "_show",
-                        "_toggleSelect",
-                        "_updateBulkBar",
-                        "_updateRowInPlace",
-                        "_updateRowsBatch",
-                        "_updateSelectAllState",
-                        "_variantKind",
-                        "_wireVariantPicker",
-                        "_wireVariantPickerFor",
                         "apply",
-                        "applyFilters",
-                        "autoRegen",
-                        "clearFilters",
                         "closeModal",
-                        "collectExistingSuppliers",
-                        "copyCode",
-                        "counter",
-                        "cssEscape",
-                        "debouncedFullLoad",
-                        "escJs",
-                        "escapeHtml",
                         "fmt",
-                        "fmtPrice",
-                        "getColorShortMap",
-                        "getProduct",
-                        "getUsage",
-                        "goPage",
-                        "init",
-                        "load",
-                        "loadSuppliersFromSoOrder",
-                        "modal",
-                        "notify",
-                        "onDocClick",
                         "onDone",
-                        "onResult",
                         "onSuccess",
                         "openCreate",
                         "openEdit",
                         "openHistory",
-                        "openUsagePopover",
-                        "originPriceHover",
-                        "pag",
                         "populateSupplierDropdown",
-                        "printBarcode",
-                        "refreshUsageOnly",
-                        "remove",
-                        "renderCounters",
                         "renderHistEntry",
-                        "renderPagination",
-                        "renderRows",
-                        "renderUsageBadge",
                         "rollback",
                         "run",
-                        "safeImageUrl",
                         "saveModal",
-                        "searchCount",
                         "snapshot",
-                        "split",
                         "suggestProductCode",
-                        "tbody",
-                        "toggleActive",
                         "updateImagePreview"
                     ]
                 },
@@ -4525,6 +4630,88 @@
                     "globals": ["Web2ProductsPrint"],
                     "uses": [],
                     "functions": []
+                },
+                {
+                    "file": "web2/products/js/web2-products-render.js",
+                    "lines": 536,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["Web2ProductsCore"],
+                    "uses": ["Web2ProductsCache"],
+                    "functions": [
+                        "_bulkPrint",
+                        "_clearSelection",
+                        "_loadUsageForCurrentPage",
+                        "_rowHtml",
+                        "_selectAllVisible",
+                        "_toggleSelect",
+                        "_updateBulkBar",
+                        "_updateRowInPlace",
+                        "_updateRowsBatch",
+                        "_updateSelectAllState",
+                        "load",
+                        "onDocClick",
+                        "openUsagePopover",
+                        "renderCounters",
+                        "renderPagination",
+                        "renderRows",
+                        "renderUsageBadge"
+                    ]
+                },
+                {
+                    "file": "web2/products/js/web2-products-state.js",
+                    "lines": 173,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["Web2ProductsCore"],
+                    "uses": [
+                        "API_CONFIG",
+                        "Web2ProductCode",
+                        "Web2SuppliersCache",
+                        "Web2VariantsCache"
+                    ],
+                    "functions": [
+                        "$",
+                        "_suppliersLoadPromise",
+                        "collectExistingSuppliers",
+                        "counter",
+                        "cssEscape",
+                        "escJs",
+                        "escapeHtml",
+                        "fmtPrice",
+                        "getColorShortMap",
+                        "loadSuppliersFromSoOrder",
+                        "modal",
+                        "notify",
+                        "originPriceHover",
+                        "pag",
+                        "safeImageUrl",
+                        "searchCount",
+                        "tbody"
+                    ]
+                },
+                {
+                    "file": "web2/products/js/web2-products-variant-picker.js",
+                    "lines": 264,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["Web2ProductsCore"],
+                    "uses": [
+                        "Web2ProductCode",
+                        "Web2ProductsCache",
+                        "Web2VariantMulti",
+                        "Web2VariantsCache"
+                    ],
+                    "functions": [
+                        "_bulkCreateVariants",
+                        "_combinedVariant",
+                        "_isSizeGroup",
+                        "_renderCombinedHint",
+                        "_renderVariantMultiPreview",
+                        "_setVariantPickers",
+                        "_show",
+                        "_variantKind",
+                        "_wireVariantPicker",
+                        "_wireVariantPickerFor",
+                        "split"
+                    ]
                 }
             ]
         },
@@ -4533,7 +4720,7 @@
             "files": [
                 {
                     "file": "web2/purchase-refund/js/purchase-refund-actions.js",
-                    "lines": 526,
+                    "lines": 519,
                     "purpose": "WEB2.0 module.",
                     "globals": ["PurchaseRefund"],
                     "uses": ["Popup", "Web2ProductsCache"],
@@ -4577,7 +4764,7 @@
                 },
                 {
                     "file": "web2/purchase-refund/js/purchase-refund-modal.js",
-                    "lines": 377,
+                    "lines": 370,
                     "purpose": "WEB2.0 module.",
                     "globals": ["PurchaseRefund"],
                     "uses": ["Web2ProductsCache", "Web2SuppliersCache"],
@@ -5700,55 +5887,73 @@
                     "functions": ["enterOnLoad", "pop", "reveal", "staggerIn"]
                 },
                 {
-                    "file": "web2/shared/web2-msg-template.js",
-                    "lines": 962,
-                    "purpose": "Web 2.0 — Bulk Message Template Modal",
-                    "globals": ["Web2MsgTemplate"],
-                    "uses": [
-                        "Popup",
-                        "API_CONFIG",
-                        "Web2Auth",
-                        "Web2Chat",
-                        "Web2SSE",
-                        "Web2UserInfo"
-                    ],
+                    "file": "web2/shared/web2-msg-template-core.js",
+                    "lines": 258,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["W2MT"],
+                    "uses": ["API_CONFIG", "Web2Auth", "W2MT", "Web2MsgTemplate"],
                     "functions": [
                         "_authHeaders",
-                        "_cancelActiveJob",
-                        "_closeModal",
                         "_deleteTemplate",
-                        "_drainExtension",
-                        "_ensureModal",
-                        "_ensurePill",
-                        "_extSendOne",
-                        "_fetchJob",
                         "_fillTemplate",
                         "_formatLines",
                         "_formatVnd",
-                        "_handleSend",
-                        "_hidePill",
                         "_isSent",
                         "_loadSent",
                         "_loadTemplates",
                         "_mapIn",
                         "_markSent",
-                        "_maybeReattachActive",
-                        "_onProgress",
-                        "_openEditModal",
-                        "_pollJob",
                         "_refreshIcons",
-                        "_renderCards",
                         "_saveSent",
                         "_saveTemplate",
-                        "_sendItemViaExtension",
                         "_sleep",
+                        "_toast"
+                    ]
+                },
+                {
+                    "file": "web2/shared/web2-msg-template-send.js",
+                    "lines": 456,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["W2MT"],
+                    "uses": ["Popup", "Web2Chat", "W2MT", "Web2SSE", "Web2UserInfo"],
+                    "functions": [
+                        "_cancelActiveJob",
+                        "_drainExtension",
+                        "_ensurePill",
+                        "_extSendOne",
+                        "_fetchJob",
+                        "_handleSend",
+                        "_hidePill",
+                        "_maybeReattachActive",
+                        "_onProgress",
+                        "_pollJob",
+                        "_sendItemViaExtension",
                         "_startWatch",
                         "_stopWatch",
-                        "_toast",
-                        "_updatePill",
-                        "onclick",
-                        "open"
+                        "_updatePill"
                     ]
+                },
+                {
+                    "file": "web2/shared/web2-msg-template-ui.js",
+                    "lines": 264,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["W2MT"],
+                    "uses": ["Popup", "W2MT"],
+                    "functions": [
+                        "_closeModal",
+                        "_ensureModal",
+                        "_openEditModal",
+                        "_renderCards",
+                        "onclick"
+                    ]
+                },
+                {
+                    "file": "web2/shared/web2-msg-template.js",
+                    "lines": 88,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["W2MT", "Web2MsgTemplate"],
+                    "uses": [],
+                    "functions": ["open"]
                 },
                 {
                     "file": "web2/shared/web2-new-msg-badge.js",
@@ -7206,8 +7411,8 @@
                 "web2/kpi/js/kpi-assignments.js",
                 "web2/kpi/js/kpi-dashboard.js",
                 "web2/pancake-settings/js/pancake-settings-state.js",
-                "web2/products/js/web2-products-app.js",
                 "web2/products/js/web2-products-print-utils.js",
+                "web2/products/js/web2-products-state.js",
                 "web2/purchase-refund/js/purchase-refund-state.js",
                 "web2/reconcile/js/reconcile-state.js",
                 "web2/shared/page-builder.js",
@@ -7234,7 +7439,7 @@
                 "web2/purchase-refund/js/purchase-refund-api.js",
                 "web2/shared/web2-api.js",
                 "web2/shared/web2-chat-client.js",
-                "web2/shared/web2-msg-template.js",
+                "web2/shared/web2-msg-template-core.js",
                 "web2/shared/web2-notification-bell.js",
                 "web2/shared/web2-pancake-accounts.js",
                 "web2/shared/web2-quick-reply.js",
@@ -7280,7 +7485,7 @@
                 "web2/balance-history/js/web2-pm-core.js",
                 "web2/multi-tool/js/multi-tool.js",
                 "web2/payment-confirm/js/payment-confirm-app.js",
-                "web2/photo-studio/photo-studio.js",
+                "web2/photo-studio/photo-studio-bg.js",
                 "web2/shared/web2-api-fetch.js",
                 "web2/shared/web2-auth.js",
                 "web2/shared/web2-ck-assign-picker.js",
@@ -7387,7 +7592,7 @@
                 "web2/fastsaleorder-delivery/dlv-app.js",
                 "web2/fastsaleorder-invoice/pbh-render.js",
                 "web2/fastsaleorder-refund/rf-app.js",
-                "web2/products/js/web2-products-app.js",
+                "web2/products/js/web2-products-render.js",
                 "web2/shared/page-builder.js",
                 "web2/supplier-debt/js/supplier-debt-render.js"
             ],
@@ -7400,7 +7605,7 @@
                 "web2/balance-history/js/web2-link-customer-modal.js",
                 "web2/balance-history/js/web2-pm-modal.js",
                 "web2/customers/js/customers-detail.js",
-                "web2/products/js/web2-products-app.js",
+                "web2/products/js/web2-products-modal.js",
                 "web2/products/js/web2-products-print-modal.js",
                 "web2/purchase-refund/js/purchase-refund-modal.js",
                 "web2/shared/page-builder.js",
@@ -7415,7 +7620,7 @@
                 "web2/fastsaleorder-delivery/dlv-app.js",
                 "web2/fastsaleorder-invoice/pbh-filters.js",
                 "web2/fastsaleorder-refund/rf-app.js",
-                "web2/products/js/web2-products-app.js",
+                "web2/products/js/web2-products-filters.js",
                 "web2/purchase-refund/js/purchase-refund-render.js",
                 "web2/shared/page-builder.js",
                 "web2/variants/js/web2-variants-app.js"
@@ -7457,7 +7662,7 @@
                 "web2/fastsaleorder-delivery/dlv-app.js",
                 "web2/fastsaleorder-invoice/pbh-render.js",
                 "web2/fastsaleorder-refund/rf-app.js",
-                "web2/products/js/web2-products-app.js",
+                "web2/products/js/web2-products-render.js",
                 "web2/shared/page-builder.js",
                 "web2/shared/web2-customer-chat.js",
                 "web2/variants/js/web2-variants-app.js"
@@ -7497,7 +7702,7 @@
                 "web2/fastsaleorder-delivery/dlv-app.js",
                 "web2/fastsaleorder-invoice/pbh-render.js",
                 "web2/fastsaleorder-refund/rf-app.js",
-                "web2/products/js/web2-products-app.js",
+                "web2/products/js/web2-products-render.js",
                 "web2/shared/page-builder.js",
                 "web2/variants/js/web2-variants-app.js"
             ],
@@ -7522,7 +7727,7 @@
                 "web2/fastsaleorder-delivery/dlv-app.js",
                 "web2/fastsaleorder-invoice/pbh-filters.js",
                 "web2/fastsaleorder-refund/rf-app.js",
-                "web2/products/js/web2-products-app.js",
+                "web2/products/js/web2-products-filters.js",
                 "web2/shared/page-builder.js"
             ],
             "count": 6
@@ -7534,7 +7739,7 @@
                 "web2/fastsaleorder-delivery/dlv-app.js",
                 "web2/fastsaleorder-invoice/pbh-filters.js",
                 "web2/fastsaleorder-refund/rf-app.js",
-                "web2/products/js/web2-products-app.js",
+                "web2/products/js/web2-products-filters.js",
                 "web2/shared/page-builder.js"
             ],
             "count": 6
@@ -7731,7 +7936,7 @@
                 "live-chat/js/live/live-hidden-commenters.js",
                 "live-chat/js/live/live-livestream-gallery.js",
                 "live-chat/js/live/live-livestream-snap.js",
-                "web2/shared/web2-msg-template.js"
+                "web2/shared/web2-msg-template-core.js"
             ],
             "count": 4
         },
@@ -7799,7 +8004,7 @@
             "fn": "openEdit",
             "files": [
                 "native-orders/js/native-orders-app.js",
-                "web2/products/js/web2-products-app.js",
+                "web2/products/js/web2-products-modal.js",
                 "web2/shared/page-builder.js",
                 "web2/variants/js/web2-variants-app.js"
             ],
@@ -7869,7 +8074,7 @@
             "fn": "saveModal",
             "files": [
                 "web2/customers/js/customers-detail.js",
-                "web2/products/js/web2-products-app.js",
+                "web2/products/js/web2-products-modal.js",
                 "web2/shared/page-builder.js",
                 "web2/variants/js/web2-variants-app.js"
             ],
@@ -7910,7 +8115,7 @@
             "files": [
                 "native-orders/js/native-orders-app.js",
                 "web2/fastsaleorder-invoice/pbh-state.js",
-                "web2/products/js/web2-products-app.js",
+                "web2/products/js/web2-products-state.js",
                 "web2/variants/js/web2-variants-app.js"
             ],
             "count": 4
@@ -7958,7 +8163,7 @@
             "fn": "_ensureModal",
             "files": [
                 "native-orders/js/native-orders-packing-slip.js",
-                "web2/shared/web2-msg-template.js",
+                "web2/shared/web2-msg-template-ui.js",
                 "web2/shared/web2-wallet-balance.js"
             ],
             "count": 3
@@ -8030,7 +8235,7 @@
             "fn": "copyCode",
             "files": [
                 "native-orders/js/native-orders-app.js",
-                "web2/products/js/web2-products-app.js",
+                "web2/products/js/web2-products-actions.js",
                 "web2/shared/web2-qr-modal.js"
             ],
             "count": 3
@@ -8039,7 +8244,7 @@
             "fn": "counter",
             "files": [
                 "native-orders/js/native-orders-app.js",
-                "web2/products/js/web2-products-app.js",
+                "web2/products/js/web2-products-state.js",
                 "web2/variants/js/web2-variants-app.js"
             ],
             "count": 3
@@ -8183,7 +8388,7 @@
             "fn": "modal",
             "files": [
                 "native-orders/js/native-orders-app.js",
-                "web2/products/js/web2-products-app.js",
+                "web2/products/js/web2-products-state.js",
                 "web2/variants/js/web2-variants-app.js"
             ],
             "count": 3
@@ -8200,7 +8405,7 @@
         {
             "fn": "openCreate",
             "files": [
-                "web2/products/js/web2-products-app.js",
+                "web2/products/js/web2-products-modal.js",
                 "web2/shared/page-builder.js",
                 "web2/variants/js/web2-variants-app.js"
             ],
@@ -8272,7 +8477,7 @@
         {
             "fn": "safeImageUrl",
             "files": [
-                "web2/products/js/web2-products-app.js",
+                "web2/products/js/web2-products-state.js",
                 "web2/purchase-refund/js/purchase-refund-state.js",
                 "web2/shared/web2-escape.js"
             ],
@@ -8283,7 +8488,7 @@
             "files": [
                 "live-chat/js/live/live-comment-list.js",
                 "live-chat/js/shared/live-comments-stream.js",
-                "web2/photo-studio/photo-studio.js"
+                "web2/photo-studio/photo-studio-edit.js"
             ],
             "count": 3
         },
@@ -8336,7 +8541,7 @@
             "fn": "showLoading",
             "files": [
                 "live-chat/js/live/live-comment-list.js",
-                "web2/photo-studio/photo-studio.js",
+                "web2/photo-studio/photo-studio-state.js",
                 "web2/shared/web2-qr-modal.js"
             ],
             "count": 3
@@ -8405,14 +8610,6 @@
             "lines": 2460
         },
         {
-            "file": "web2/photo-studio/photo-studio.js",
-            "lines": 2349
-        },
-        {
-            "file": "web2/products/js/web2-products-app.js",
-            "lines": 2011
-        },
-        {
             "file": "live-chat/js/pancake/pancake-token-manager.js",
             "lines": 1310
         },
@@ -8442,10 +8639,6 @@
         },
         {
             "file": "so-order/js/so-order-storage.js",
-            "lines": 962
-        },
-        {
-            "file": "web2/shared/web2-msg-template.js",
             "lines": 962
         },
         {
