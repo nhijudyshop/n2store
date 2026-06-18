@@ -858,6 +858,11 @@
                     input.style.height = Math.min(input.scrollHeight, 100) + 'px';
                 });
                 input.addEventListener('keydown', (e) => {
+                    // Bỏ qua Enter khi đang gõ IME (Telex/VNI): nhấn Enter để chọn ứng viên
+                    // gợi ý của bộ gõ tiếng Việt sinh keydown Enter với isComposing=true
+                    // (keyCode 229) → nếu gửi luôn sẽ gửi NHẦM phần chữ đang soạn dở rồi
+                    // mới gửi phần đầy đủ → ra 2 tin (vd "ghj" + "7865ghj").
+                    if (e.isComposing || e.keyCode === 229) return;
                     if (e.key === 'Enter' && !e.shiftKey) {
                         e.preventDefault();
                         doSend();

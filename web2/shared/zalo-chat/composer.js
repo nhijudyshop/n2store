@@ -336,6 +336,9 @@
                     return;
                 }
             }
+            // Bỏ qua Enter khi đang gõ IME tiếng Việt (isComposing/keyCode 229) → tránh
+            // gửi nhầm phần chữ soạn dở khi nhấn Enter chọn ứng viên bộ gõ.
+            if (e.isComposing || e.keyCode === 229) return;
             if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
                 doSend();
