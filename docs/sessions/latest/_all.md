@@ -3,16 +3,16 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `36445c0` — feat(so-order): Quét mã (camera) + Đọc nhãn (OCR) trong modal Thêm SP — nhập kho từ pack (a/b/c xong)
-**Last updated**: 2026-06-18 21:07:09 +07
-**Latest session**: [`RESUME:20260618-210709-36445c0`](../20260618-210709-36445c0.md)
-**Summary**: feat(so-order): Quét mã (camera) + Đọc nhãn (OCR) trong modal Thêm SP — nhập kho từ pack (a/b/c xong)
+**Latest commit**: `ed1d895` — docs(web2-chat): ghi tiến độ hợp nhất Web2CustomerChat Phase 0/1/1b/2; Phase 3/4 native còn lại
+**Last updated**: 2026-06-18 21:26:18 +07
+**Latest session**: [`RESUME:20260618-212618-ed1d895`](../20260618-212618-ed1d895.md)
+**Summary**: docs(web2-chat): ghi tiến độ hợp nhất Web2CustomerChat Phase 0/1/1b/2; Phase 3/4 native còn lại
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 2 file(s)
-- [`so-order/`](./so-order.md) — 2 file(s)
-- [`web2/`](./web2.md) — 4 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
+- [`native-orders/`](./native-orders.md) — 1 file(s)
+- [`web2/`](./web2.md) — 9 file(s)
 
 ## All folder snapshots
 
@@ -27,7 +27,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-18 13:23
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-16 14:31
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-18 12:17
-- [`docs/`](./docs.md) — updated 2026-06-18 21:07
+- [`docs/`](./docs.md) — updated 2026-06-18 21:26
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-16 14:31
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-16 14:31
 - [`downloads/`](./downloads.md) — updated 2026-06-18 19:26
@@ -44,7 +44,7 @@
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-06-04 20:02
 - [`n2store-facebook/`](./n2store-facebook.md) — updated 2026-06-14 13:09
 - [`n2store-realtime/`](./n2store-realtime.md) — updated 2026-06-16 11:15
-- [`native-orders/`](./native-orders.md) — updated 2026-06-18 20:33
+- [`native-orders/`](./native-orders.md) — updated 2026-06-18 21:26
 - [`nhanhang/`](./nhanhang.md) — updated 2026-06-13 19:51
 - [`order-management/`](./order-management.md) — updated 2026-05-21 15:39
 - [`orders-report/`](./orders-report.md) — updated 2026-06-16 17:03
@@ -75,4 +75,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-18 21:07
+- [`web2/`](./web2.md) — updated 2026-06-18 21:26
