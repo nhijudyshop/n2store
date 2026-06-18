@@ -4776,22 +4776,9 @@
             notify('Không tìm thấy đơn ' + code, 'error');
             return;
         }
-        // TIN NHẮN: dùng component chat proven Web2CustomerChat (resolve hội thoại theo
-        // SĐT → fallback fbId của đơn, avatar thật từ hội thoại). Tránh bug match fbid/PSID
-        // + avatar silhouette của modal 3-cột cũ. Tab BÌNH LUẬN vẫn dùng modal cũ.
-        if (
-            initialTab === 'messages' &&
-            window.Web2CustomerChat?.open &&
-            (order.phone || (order.fbUserId && order.fbPageId))
-        ) {
-            window.Web2CustomerChat.open({
-                phone: order.phone || '',
-                name: order.customerName || order.fbUserName || '',
-                fbId: order.fbUserId || '',
-                pageId: order.fbPageId || '',
-            });
-            return;
-        }
+        // Giao diện chat 3-cột (Pancake-style) — user thích vì có TÌM KIẾM hội thoại
+        // ở sidebar trái. Center tự resolve hội thoại; match fbid fail → fallback SĐT
+        // (xem _loadAndRenderThread) → vẫn không thấy thì mời chọn ở ô tìm kiếm trái.
         _interactionsState = { code, tab: initialTab };
         _renderInteractionsModal(order, initialTab);
     }
@@ -8742,8 +8729,39 @@
             );
             const conversations = convRes.conversations || [];
             if (!convRes.ok || conversations.length === 0) {
+                // Match theo fbid của đơn fail (fbid kho KH thường ≠ PSID thật của hội
+                // thoại Pancake) → thử resolve theo SĐT (proven, quét mọi page). Thấy psid
+                // KHÁC → rebind + load lại → avatar + thread THẬT. Tránh "Chưa có hội thoại"
+                // sai (hội thoại có tồn tại, chỉ lệch id). Bounded: lần 2 cùng id → prompt.
+                if (order.phone) {
+                    let r = null;
+                    try {
+                        r = await _resolveInboxConvByPhone(order.phone);
+                    } catch {
+                        /* tolerate → prompt tìm kiếm bên dưới */
+                    }
+                    if (r && r.fbId && r.pageId && String(r.fbId) !== String(order.fbUserId)) {
+                        const synthetic = {
+                            ...order,
+                            fbUserId: r.fbId,
+                            fbPageId: r.pageId,
+                            fbUserName: order.customerName || r.name || '',
+                        };
+                        const o = STATE.orders.find((x) => x.code === order.code);
+                        if (o) {
+                            o.fbUserId = r.fbId;
+                            o.fbPageId = r.pageId;
+                        }
+                        _applyChatHeaderForOrder(synthetic);
+                        return _loadAndRenderThread(synthetic);
+                    }
+                }
                 const reason = convRes.reason ? ` (${convRes.reason})` : '';
-                threadEl.innerHTML = `<div style="color:#94a3b8;font-size:12px;padding:30px 0;text-align:center;font-style:italic;">Chưa có hội thoại với khách${reason}. Gõ tin nhắn để bắt đầu.</div>`;
+                threadEl.innerHTML = `<div style="color:#94a3b8;font-size:12px;padding:36px 18px;text-align:center;line-height:1.6;">
+                    <i data-lucide="search" style="width:28px;height:28px;display:block;margin:0 auto 10px;color:#cbd5e1;"></i>
+                    Chưa khớp hội thoại tự động${reason}.<br>Dùng <strong>ô tìm kiếm bên trái</strong> để chọn đúng hội thoại của khách.
+                </div>`;
+                if (window.lucide?.createIcons) window.lucide.createIcons();
                 return;
             }
             const inboxConvs = conversations.filter(

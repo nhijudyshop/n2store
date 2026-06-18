@@ -2,19 +2,19 @@
 
 ## 2026-06-18
 
-### [native-orders] Chat đơn: bỏ modal 3-cột tự match fbid → dùng Web2CustomerChat proven (fix "không tìm thấy hội thoại" + avatar xám) ✅
+### [native-orders] Chat đơn: GIỮ modal 3-cột Pancake (user thích vì có tìm kiếm hội thoại) + fix match hội thoại theo SĐT ✅
 
-**User:** "không có avatar và không tìm được đoạn hội thoại là chưa đúng rồi, phần này sai làm nhiều lần lắm rồi, khó quá thì xóa đi làm lại". Chọn hướng: **reuse component chat đã chạy ổn**.
+**User:** "không có avatar và không tìm được đoạn hội thoại là chưa đúng"; "tôi thích giao diện pancake cũ hơn… vì giao diện cũ có tìm kiếm đoạn hội thoại". → GIỮ modal 3-cột (sidebar search + thread + info), CHỈ fix center.
 
-**Root cause (browser-verified):** modal `openInteractions` (tab Tin nhắn) load hội thoại bằng `fetchConversations(pageId, order.fbUserId)`. fbid lưu ở kho KH thường KHÔNG phải PSID thật của hội thoại Pancake → trả 0 → "Chưa có hội thoại". Avatar `/api/fb-avatar?id=<fbid sai>` trả silhouette xám HTTP 200 → che initials → icon xám. (Cùng họ bug PSID-vs-stored-id tái diễn nhiều lần.)
+**Root cause (browser-verified):** center `_loadAndRenderThread` load hội thoại bằng `fetchConversations(pageId, order.fbUserId)`. fbid kho KH thường KHÔNG phải PSID thật của hội thoại Pancake → trả 0 → "Chưa có hội thoại" + avatar `/api/fb-avatar?id=<fbid sai>` = silhouette xám HTTP 200.
 
-**Fix:** tab **Tin nhắn** delegate sang [`Web2CustomerChat`](../web2/shared/web2-customer-chat.js) (drawer proven, đang chạy ở J&T/customers): resolve hội thoại **theo SĐT** (quét mọi page) → fallback **fbId+pageId**, mount `Web2ChatPanel` với hội thoại thật (avatar + PSID thật, hoặc empty-state sạch nếu không có). Tab **Bình luận** giữ modal cũ.
+**Fix (interim):** khi match fbid fail → fallback `_resolveInboxConvByPhone(order.phone)` (proven, quét mọi page, match theo SĐT) → tìm thấy PSID khác → rebind `fbUserId/fbPageId` + `_applyChatHeaderForOrder` (avatar THẬT) → load lại thread thật (bounded, không vô hạn). Vẫn không thấy → prompt **"dùng ô tìm kiếm bên trái"** thay vì dead-end "gõ để bắt đầu".
 
-- [web2-customer-chat.js](../web2/shared/web2-customer-chat.js): `open({phone, name, fbId, pageId})` — thêm fallback `_resolveConvByFbId(fbId, pageId)` khi SĐT không resolve; header xử lý khi không có SĐT. **Backward-compat** (caller cũ chỉ truyền `phone` → y nguyên).
-- [native-orders/index.html](../native-orders/index.html): load thêm `web2-zalo.js` + `web2-extension-bridge.js` + `web2-customer-chat.js`.
-- [native-orders-app.js](../native-orders/js/native-orders-app.js) `openInteractions`: `tab==='messages'` + có SĐT/fbId → `Web2CustomerChat.open(...)`.
+- [native-orders-app.js](../native-orders/js/native-orders-app.js) `_loadAndRenderThread`: nhánh `conversations.length===0` thêm fallback SĐT (mirror nhánh đơn phone-less). `openInteractions` revert về modal 3-cột.
 
-**Verify (browser, đơn NJ-20260618-0001 KH Huỳnh Thành Đạt):** mở chat tin nhắn → drawer resolve ĐÚNG hội thoại thật (PSID `257170…`, **25 bong bóng tin** lịch sử, composer + nút gửi), KHÔNG còn "Chưa có hội thoại". Composer = Web2ChatPanel (đã có guard IME).
+**Verify:** đơn NJ-20260618-0001 (Huỳnh Thành Đạt) — center resolve đúng hội thoại thật khi có SĐT khớp.
+
+> **TIẾP THEO (user chốt):** hợp nhất modal 3-cột Pancake + Zalo thành **Web2CustomerChat** 1 nguồn dùng chung, migrate MỌI modal pancake/zalo về đó. Đang triển khai.
 
 ### [web2 product-counter] Trang "Đếm SP qua camera" + shared engine Web2ProductCounter ✅
 
