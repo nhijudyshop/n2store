@@ -25,6 +25,7 @@
     --web2-info: #23b7e5; /* btn-info (Cập nhật) — cyan */
     --web2-info-hover: #1ba0cb;
     --web2-warning: #fad733; /* btn-warning */
+    --web2-warning-hover: #e6c200;
     --web2-danger: #f05050; /* btn-danger / delete */
     --web2-danger-hover: #e23b3b;
 

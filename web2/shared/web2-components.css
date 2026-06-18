@@ -148,6 +148,16 @@
     border-color: var(--web2-danger-hover);
     color: #fff;
 }
+.web2-btn-warning {
+    background: var(--web2-warning);
+    color: #fff;
+    border-color: var(--web2-warning);
+}
+.web2-btn-warning:hover {
+    background: var(--web2-warning-hover);
+    border-color: var(--web2-warning-hover);
+    color: #fff;
+}
 
 /* btn-xs (used for action buttons in row) — WEB2 spec: padding 1px 5px, size ~25x22 */
 .web2-btn-xs {
