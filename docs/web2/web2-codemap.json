@@ -1,10 +1,10 @@
 {
-    "generatedAt": "2026-06-18 15:17",
+    "generatedAt": "2026-06-18 15:24",
     "totals": {
-        "files": 171,
+        "files": 177,
         "sharedModules": 75,
         "functions": 2546,
-        "oversized": 29
+        "oversized": 28
     },
     "sharedModules": [
         {
@@ -89,7 +89,7 @@
                 "web2/products/js/web2-products-app.js",
                 "web2/purchase-refund/js/purchase-refund-app.js",
                 "web2/reconcile/js/reconcile-app.js",
-                "web2/returns/js/returns-app.js",
+                "web2/returns/js/returns-tabs.js",
                 "web2/shared/page-builder.js",
                 "web2/shared/web2-ck-assign-picker.js",
                 "web2/shared/web2-export-helpers.js",
@@ -879,7 +879,8 @@
                 "web2/ck-dashboard/js/ck-dashboard-app.js",
                 "web2/customers/js/customers-app.js",
                 "web2/payment-confirm/js/payment-confirm-app.js",
-                "web2/returns/js/returns-app.js",
+                "web2/returns/js/returns-customer.js",
+                "web2/returns/js/returns-tabs.js",
                 "web2/shared/web2-ck-review.js",
                 "web2/shared/web2-unread-panel.js",
                 "web2/shared/web2-wallet-api.js",
@@ -4445,49 +4446,90 @@
                 },
                 {
                     "file": "web2/returns/js/returns-app.js",
-                    "lines": 867,
+                    "lines": 188,
                     "purpose": "WEB2.0 module.",
                     "globals": ["Web2Returns"],
-                    "uses": ["Popup", "Web2Sidebar", "Web2SSE", "Web2WalletBalance"],
+                    "uses": ["Web2Sidebar", "Web2SSE"],
+                    "functions": ["bind", "init", "setupSse"]
+                },
+                {
+                    "file": "web2/returns/js/returns-cod.js",
+                    "lines": 65,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["ReturnsCod"],
+                    "uses": [],
+                    "functions": ["onCodInput", "renderCodCalc", "renderCodWallet"]
+                },
+                {
+                    "file": "web2/returns/js/returns-core.js",
+                    "lines": 73,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["ReturnsCore"],
+                    "uses": [],
+                    "functions": ["$", "esc", "fmt", "toast"]
+                },
+                {
+                    "file": "web2/returns/js/returns-customer.js",
+                    "lines": 145,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["ReturnsCustomer"],
+                    "uses": ["Web2WalletBalance"],
                     "functions": [
-                        "$",
-                        "_typeLabel",
-                        "approve",
-                        "bind",
+                        "clearCustomer",
+                        "loadCustomerOrders",
+                        "onCustInput",
+                        "pickCustomer"
+                    ]
+                },
+                {
+                    "file": "web2/returns/js/returns-form.js",
+                    "lines": 217,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["ReturnsForm"],
+                    "uses": [],
+                    "functions": [
                         "buildReasonSelect",
                         "canSubmit",
-                        "clearCustomer",
-                        "esc",
-                        "fmt",
-                        "init",
-                        "loadCustomerOrders",
-                        "loadList",
-                        "loadPending",
-                        "onCodInput",
-                        "onCustInput",
                         "onIssueChange",
                         "onMethodChange",
                         "onReasonChange",
                         "onReasonShipChange",
                         "onSubTypeChange",
-                        "pickCustomer",
-                        "pickOrder",
-                        "removeReturn",
-                        "renderCodCalc",
-                        "renderCodWallet",
-                        "renderList",
-                        "renderOrderItems",
-                        "renderOrderSummary",
-                        "renderPending",
                         "renderSummary",
                         "resetForm",
+                        "submit"
+                    ]
+                },
+                {
+                    "file": "web2/returns/js/returns-order-items.js",
+                    "lines": 136,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["ReturnsItems"],
+                    "uses": [],
+                    "functions": [
+                        "pickOrder",
+                        "renderOrderItems",
+                        "renderOrderSummary",
                         "selectedLines",
                         "setLineQty",
-                        "setupSse",
-                        "submit",
-                        "switchTab",
-                        "toast",
                         "toggleLine"
+                    ]
+                },
+                {
+                    "file": "web2/returns/js/returns-tabs.js",
+                    "lines": 192,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["ReturnsTabs"],
+                    "uses": ["Popup", "Web2WalletBalance"],
+                    "functions": [
+                        "_typeLabel",
+                        "approve",
+                        "loadList",
+                        "loadPending",
+                        "removeReturn",
+                        "renderList",
+                        "renderPending",
+                        "switchTab"
                     ]
                 }
             ]
@@ -7011,7 +7053,7 @@
                 "web2/jt-tracking/js/jt-tracking-render.js",
                 "web2/purchase-refund/js/purchase-refund-app.js",
                 "web2/reconcile/js/reconcile-app.js",
-                "web2/returns/js/returns-app.js",
+                "web2/returns/js/returns-tabs.js",
                 "web2/shared/web2-command-palette.js",
                 "web2/supplier-wallet/js/supplier-wallet-app.js",
                 "web2/users/js/users-app.js"
@@ -7148,7 +7190,7 @@
             "files": [
                 "web2/ck-dashboard/js/ck-dashboard-app.js",
                 "web2/payment-confirm/js/payment-confirm-app.js",
-                "web2/returns/js/returns-app.js",
+                "web2/returns/js/returns-tabs.js",
                 "web2/shared/web2-customer-detail-modal.js",
                 "web2/shared/web2-import.js",
                 "web2/zalo/js/web2-zalo-app.js"
@@ -7161,7 +7203,7 @@
                 "live-chat/js/live/comments-mobile.js",
                 "live-chat/js/live/live-livestream-snap.js",
                 "web2/payment-confirm/js/payment-confirm-app.js",
-                "web2/returns/js/returns-app.js",
+                "web2/returns/js/returns-core.js",
                 "web2/shared/web2-ck-assign-picker.js",
                 "web2/shared/web2-ck-review.js"
             ],
@@ -7563,7 +7605,7 @@
             "files": [
                 "web2/fastsaleorder-refund/rf-app.js",
                 "web2/returns/js/returns-api.js",
-                "web2/returns/js/returns-app.js"
+                "web2/returns/js/returns-tabs.js"
             ],
             "count": 3
         },
@@ -7725,7 +7767,7 @@
             "files": [
                 "web2/purchase-refund/js/purchase-refund-app.js",
                 "web2/reconcile/js/reconcile-app.js",
-                "web2/returns/js/returns-app.js"
+                "web2/returns/js/returns-tabs.js"
             ],
             "count": 3
         },
@@ -8054,10 +8096,6 @@
         {
             "file": "web2/zalo/js/web2-zalo-app.js",
             "lines": 886
-        },
-        {
-            "file": "web2/returns/js/returns-app.js",
-            "lines": 867
         },
         {
             "file": "web2/shared/web2-customer-chat.js",
