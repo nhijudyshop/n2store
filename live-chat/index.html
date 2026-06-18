@@ -804,8 +804,20 @@
         <!-- Web 2.0 SSE bridge — multi-tab/-máy realtime (livestream snapshots + images) -->
         <script src="../web2/shared/web2-sse-bridge.js?v=20260616g"></script>
         <script src="../web2/shared/web2-wallet-balance.js?v=20260616g"></script>
-        <!-- Livestream Snapshot per customer (📸 button + popover) -->
-        <script src="js/live/live-livestream-snap.js?v=20260616purge"></script>
+        <!-- Livestream Snapshot per customer (📸 button + popover) — split MOVE-only
+             vào 10 module nhỏ (2026-06-19), chia sẻ state qua window.LiveSnap; public
+             API window.LiveLivestreamSnap do snap-init dựng. Load theo thứ tự phụ thuộc:
+             state → capture → stream → lock → seek → actions → extract → render → ui → init. -->
+        <script src="js/live/live-livestream-snap-state.js?v=20260618w3"></script>
+        <script src="js/live/live-livestream-snap-capture.js?v=20260618w3"></script>
+        <script src="js/live/live-livestream-snap-stream.js?v=20260618w3"></script>
+        <script src="js/live/live-livestream-snap-lock.js?v=20260618w3"></script>
+        <script src="js/live/live-livestream-snap-seek.js?v=20260618w3"></script>
+        <script src="js/live/live-livestream-snap-actions.js?v=20260618w3"></script>
+        <script src="js/live/live-livestream-snap-extract.js?v=20260618w3"></script>
+        <script src="js/live/live-livestream-snap-render.js?v=20260618w3"></script>
+        <script src="js/live/live-livestream-snap-ui.js?v=20260618w3"></script>
+        <script src="js/live/live-livestream-snap-init.js?v=20260618w3"></script>
         <!-- Kho "Hình Livestream" — chụp iframe thủ công + sidebar gallery -->
         <script src="js/live/live-livestream-gallery.js?v=20260616g"></script>
 
