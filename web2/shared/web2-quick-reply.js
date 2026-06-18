@@ -437,12 +437,15 @@
             }
         });
 
+        // Lưu onResize để gỡ trong detach — nếu để anonymous, mỗi lần mount lại ô chat
+        // (mở/đóng panel nhiều lần trong 1 trang) sẽ tích listener resize không xoá được.
+        const onResize = () => _positionDropdown(dropdown, input);
         input.addEventListener('input', onInput);
         input.addEventListener('keydown', onKey);
         input.addEventListener('blur', onBlur);
-        window.addEventListener('resize', () => _positionDropdown(dropdown, input));
+        window.addEventListener('resize', onResize);
 
-        _attached.set(input, { dropdown, onInput, onKey, onBlur });
+        _attached.set(input, { dropdown, onInput, onKey, onBlur, onResize });
     }
 
     function detachAutocomplete(input) {
@@ -451,6 +454,7 @@
         input.removeEventListener('input', ctx.onInput);
         input.removeEventListener('keydown', ctx.onKey);
         input.removeEventListener('blur', ctx.onBlur);
+        if (ctx.onResize) window.removeEventListener('resize', ctx.onResize);
         ctx.dropdown.remove();
         _attached.delete(input);
     }

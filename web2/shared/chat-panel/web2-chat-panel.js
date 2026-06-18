@@ -893,13 +893,17 @@
             }
             const fi = $('[data-w2cp="file-input"]');
             const ii = $('[data-w2cp="image-input"]');
+            // Reset value sau khi đọc file → chọn LẠI cùng 1 file vẫn fire change (nếu
+            // không reset, gỡ đính kèm rồi chọn lại đúng file đó sẽ không kích hoạt).
             if (fi)
                 fi.addEventListener('change', (e) => {
                     if (e.target.files[0]) setAttachment(e.target.files[0]);
+                    e.target.value = '';
                 });
             if (ii)
                 ii.addEventListener('change', (e) => {
                     if (e.target.files[0]) setAttachment(e.target.files[0]);
+                    e.target.value = '';
                 });
             // đóng picker khi click ngoài
             document.addEventListener('click', onOutsideClick);

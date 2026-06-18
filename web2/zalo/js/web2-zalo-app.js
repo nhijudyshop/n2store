@@ -802,6 +802,7 @@
         $('#wzAddClose').addEventListener('click', () => hideModal('#wzAddModal'));
         $('#wzAddBackdrop').addEventListener('click', () => hideModal('#wzAddModal'));
         $('#wzAddLabel').addEventListener('keydown', (e) => {
+            if (e.isComposing || e.keyCode === 229) return; // IME tiếng Việt đang soạn
             if (e.key === 'Enter') saveAddPersonal();
         });
 

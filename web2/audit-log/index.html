@@ -249,6 +249,7 @@
                 // Fix 3: Enter key triggers load on filter inputs
                 ['fUser', 'fFrom', 'fTo'].forEach((id) => {
                     document.getElementById(id).addEventListener('keydown', (e) => {
+                        if (e.isComposing || e.keyCode === 229) return; // IME tiếng Việt
                         if (e.key === 'Enter') load();
                     });
                 });

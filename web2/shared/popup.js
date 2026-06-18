@@ -408,6 +408,9 @@
                     finishCancel();
                 } else if (
                     e.key === 'Enter' &&
+                    // Bỏ qua Enter khi đang gõ IME tiếng Việt (isComposing/keyCode 229):
+                    // nhấn Enter xác nhận ứng viên bộ gõ sẽ submit prompt với chữ soạn dở.
+                    !(e.isComposing || e.keyCode === 229) &&
                     !(opts.multiline && e.target === inputEl && !e.metaKey && !e.ctrlKey)
                 ) {
                     // For multiline, only Ctrl/Cmd+Enter submits — plain Enter inserts newline

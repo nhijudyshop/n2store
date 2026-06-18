@@ -1856,7 +1856,11 @@
         _hideOtherShipments(shId);
 
         // Wire close handlers — đóng panel + show lại các shipments khác
+        // Gỡ escHandler trong closePanel (mọi đường đóng: nút X / Esc / confirm) →
+        // tránh listener treo trên document, mở lại panel sau bấm Esc gọi closePanel cũ
+        // trên panelRow đã remove + _showAllShipments thừa.
         const closePanel = () => {
+            document.removeEventListener('keydown', escHandler);
             panelRow.remove();
             _showAllShipments();
         };
@@ -1865,10 +1869,7 @@
         });
         // Esc closes panel
         const escHandler = (e) => {
-            if (e.key === 'Escape') {
-                closePanel();
-                document.removeEventListener('keydown', escHandler);
-            }
+            if (e.key === 'Escape') closePanel();
         };
         document.addEventListener('keydown', escHandler);
 

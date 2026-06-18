@@ -2,6 +2,47 @@
 
 ## 2026-06-18
 
+### [web2 product-counter] Trang "Đếm SP qua camera" + shared engine Web2ProductCounter ✅
+
+**User:** "camera trực tiếp trên điện thoại đếm số lượng sản phẩm hiện trên màn hình" → web 2.0, thêm vào group "Đa dụng", **làm thành shared để trang nào cần thì tham chiếu**.
+
+**Nghiên cứu** (workflow 35-agent GitHub research): chọn **MediaPipe Tasks Vision** (Apache-2.0, on-device, tối ưu mobile/live) làm engine; đếm TỔNG vật thể cho bản đầu (COCO 80 class). Cảnh báo đã ghi: COCO không có class "áo/quần" → muốn đếm đúng loại phải custom-train (Roboflow/Model Maker) thay file model, code không đổi.
+
+**Shared engine** [web2/shared/web2-product-counter.js](../web2/shared/web2-product-counter.js) (`window.Web2ProductCounter`, pattern giống Web2Lottie/Web2QR/Web2CustomerChat):
+
+- `mount(target, opts)` nhúng inline · `open(opts)` drawer toàn màn hình → **trang nào cần chỉ load script + gọi**, KHÔNG dựng lại engine.
+- **Lazy**: chỉ `import()` MediaPipe (CDN jsDelivr) + tải WASM/model khi user bấm "Bật camera" → trang tham chiếu mà không dùng = 0 tải.
+- Self-inject CSS (`.w2pc*`) → trang tham chiếu khỏi thêm file css.
+- On-device 100% (getUserMedia → `detectForVideo` mỗi ~350ms → đếm bounding box), **ổn định số bằng MEDIAN qua 5 frame** (chống nhấp nháy). Delegate GPU trước, fallback CPU (WASM, iOS Safari). `excludePerson` mặc định (bỏ người bán). Model override qua `opts.modelUrl`/`WEB2_CONFIG.OBJECT_MODEL_URL` (self-host nếu GCS bị chặn). Controller: start/stop/toggle/flipCamera/getCount + events ready/start/stop/count/error.
+
+**Trang host mỏng** (Đa dụng Web 2.0): [web2/product-counter/index.html](../web2/product-counter/index.html) + [product-counter.css](../web2/product-counter/product-counter.css) + [js/product-counter.js](../web2/product-counter/js/product-counter.js) — chỉ `Web2ProductCounter.mount('#pcMount', …)`. Sidebar: thêm menu "Đếm SP qua camera 📷" dưới "Studio chụp tách nền" + đăng ký `WEB2_PAGES` (badge WEB2.0) trong [web2-sidebar.js](../web2/shared/web2-sidebar.js).
+
+**Verify** (browser test localhost): module load v20260618a, widget mount, CSS inject, menu item + badge có; UI transition nút Bật camera đúng; **smoke MediaPipe cô lập PASS** (`import` ESM + `FilesetResolver` + `ObjectDetector` CPU + fetch model GCS + `detectForVideo` → 0 lỗi). `getUserMedia` treo trong automation (không camera/quyền) — không phải lỗi code, chạy thật trên điện thoại.
+
+**Status:** ✅ Done. Trang nào cần đếm SP qua camera (vd live-chat, products) chỉ cần `<script src="../shared/web2-product-counter.js">` + `Web2ProductCounter.open()`/`mount()`.
+
+### [web2 audit] Quét toàn bộ Web 2.0 (click-all browser + static audit 38-agent) → fix 16 bug ✅
+
+**User:** "tiếp tục browser test click hết tất cả nút của web 2.0, mở modal click scroll, click hết nút trong modal, điền input, tương tác với tất cả các trang".
+
+**2 lớp kiểm thử song song:**
+
+1. **Deep click-all browser probe** ([scripts/web2-clickall-probe-v2.js](../scripts/web2-clickall-probe-v2.js), mới) — 39 trang, 265 click an toàn, **54 modal** mở (scroll + điền input + click nút trong modal), bỏ destructive/commit. **Sạch**: 0 JS crash/null-deref/stuck-modal. 2 "lỗi" duy nhất = môi trường (pancake chưa login, Print Bridge chưa chạy) — KHÔNG phải bug.
+2. **Static audit 38-agent** (find→verify adversarial, 11 nhóm module) → 20 finding confirmed. Triage theo kiến trúc MPA (đa trang, KHÔNG phải SPA).
+
+**Đã fix 16 bug thật:**
+
+- **IME tiếng Việt (Enter giữa lúc soạn)** — 6 ô gửi/submit thêm guard `if (e.isComposing || e.keyCode === 229) return;`: reconcile scanner barcode ([reconcile-app.js](../web2/reconcile/js/reconcile-app.js)), returns tạo phiếu ([returns-app.js](../web2/returns/js/returns-app.js)), livestream-poller add-page ([index.html](../web2/livestream-poller/index.html)), zalo add-label ([web2-zalo-app.js](../web2/zalo/js/web2-zalo-app.js)), popup prompt shared ([popup.js](../web2/shared/popup.js)), audit-log filter ([index.html](../web2/audit-log/index.html)).
+- **Race / stale-callback**: reconcile `selectPbh` bấm nhanh 2 PBH → hiện sai chi tiết (guard `selectedNumber`); products `_saveEdit` mở SP khác lúc đang lưu → đè tên/flag drawer mới (guard `_currentCode === code` + `?.drawer?.`).
+- **Null-deref**: native-orders `saveEdit` đọc `.value` không guard (đồng bộ optional chaining cả 5 field).
+- **Event/leak trong-trang**: so-order panel nhận hàng escHandler treo trên document (gỡ trong `closePanel` mọi đường đóng); quick-reply listener `resize` rò mỗi lần mount lại ô chat (lưu `onResize` + gỡ trong detach); chat-panel file-input không reset value → chọn lại cùng file không fire (reset `e.target.value`).
+- **Double-submit**: variants nút Lưu tạo trùng biến thể (disable nút đầu `saveModal`, bật lại ở `closeModal`/validation-fail); products `_setupSse` thêm cờ idempotent.
+- **Tiền/hiển thị**: supplier-wallet modal trả hàng hiện thành tiền dòng kể cả dòng chưa tích (đổi sang `sub` = 0 khi chưa tích → khớp tổng); returns wallet balance reset trước fetch + `.catch` → không dùng số dư stale của khách trước.
+
+**3 false positive (KHÔNG fix, ghi rõ lý do MPA):** dashboard + report-revenue "SSE leak" — trang MPA full-reload nên EventSource chết theo trang khi nav, subscribe chạy 1 lần/load → không tích luỹ; zalo chat-view "thiếu unsubscribe" — `destroy()` ĐÃ gọi `unsub?.()` (chat-view.js:640).
+
+**Verify:** node -c sạch 13 file JS; 8 trang đổi logic load lại OK trong browser (title/content/buttons đúng); variants modal Save guard wired đúng (không pre-disabled). Probe v2 giữ lại tái dùng.
+
 ### [web2 chat composers] Fix gửi NHẦM 2 tin khi gõ IME tiếng Việt (Enter giữa lúc soạn) ✅
 
 **User:** "nhập tin nhắn '7865ghj' enter nó ra 2 dòng 1 lúc 'ghj' và '7865ghj'" (browser test native-orders chat).

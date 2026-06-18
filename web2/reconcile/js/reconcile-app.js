@@ -193,6 +193,9 @@
         target.classList.add('is-active');
         try {
             const res = await api('GET', `/${encodeURIComponent(number)}`);
+            // Chống race: user bấm PBH khác trong lúc fetch → bỏ kết quả cũ, không đè
+            // STATE.currentPbh bằng PBH không còn được chọn (tránh hiện sai chi tiết).
+            if (STATE.selectedNumber !== number) return;
             STATE.currentPbh = res.pbh;
             renderDetail();
             // Cuộn panel chi tiết lên đầu → thấy toàn bộ danh sách SP cần quét.
@@ -974,6 +977,7 @@
         const scanner = document.getElementById('rcScannerInput');
         if (scanner) {
             scanner.addEventListener('keydown', (e) => {
+                if (e.isComposing || e.keyCode === 229) return; // IME tiếng Việt đang soạn
                 if (e.key === 'Enter') {
                     e.preventDefault();
                     const val = scanner.value;

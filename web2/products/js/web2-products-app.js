@@ -1725,8 +1725,11 @@
     // debouncedFullLoad → stock cell không update, chỉ usage update.
     let _sseReloadTimer = null;
     let _sseUsageTimer = null;
+    let _sseWired = false;
     function _setupSse() {
         if (!window.Web2SSE?.subscribe) return;
+        if (_sseWired) return; // idempotent: chỉ subscribe 1 lần (tránh xử lý event đôi nếu init chạy lại)
+        _sseWired = true;
 
         const debouncedFullLoad = () => {
             if (_sseReloadTimer) clearTimeout(_sseReloadTimer);

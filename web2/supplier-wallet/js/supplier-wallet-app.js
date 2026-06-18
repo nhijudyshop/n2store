@@ -430,7 +430,9 @@
             const cost = Number(tr.dataset.cost) || 0;
             const qty = Math.min(Number(qtyInput.value) || 0, Number(tr.dataset.qty) || 0);
             const sub = check.checked ? qty * cost : 0;
-            lineEl.textContent = fmtVnd(qty * cost);
+            // Hiện thành tiền dòng = sub (0 nếu chưa tích) → khớp với tổng (chỉ cộng
+            // dòng đã tích); tránh hiển thị số tiền dòng chưa tích gây hiểu nhầm.
+            lineEl.textContent = fmtVnd(sub);
             total += sub;
         });
         document.getElementById('swReturnTotal').textContent = fmtVnd(total);

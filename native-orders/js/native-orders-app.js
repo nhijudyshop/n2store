@@ -2452,11 +2452,11 @@
         const editingOrder = STATE.orders.find((x) => x.code === code);
         if (!editingOrder) return;
         const fields = {
-            customerName: $('#editCustomerName').value.trim(),
-            phone: $('#editPhone').value.trim(),
-            address: $('#editAddress').value.trim(),
+            customerName: $('#editCustomerName')?.value?.trim() || '',
+            phone: $('#editPhone')?.value?.trim() || '',
+            address: $('#editAddress')?.value?.trim() || '',
             userNote: $('#editUserNote')?.value?.trim() || '',
-            status: $('#editStatus').value,
+            status: $('#editStatus')?.value || editingOrder.status,
         };
         fields.products = EDIT_LINES.map((l) => ({
             productCode: l.productCode,

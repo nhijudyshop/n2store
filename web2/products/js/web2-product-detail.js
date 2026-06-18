@@ -554,9 +554,12 @@
             const resp = await api().update?.(code, payload);
             if (resp && resp.success === false) throw new Error(resp.error || 'Update thất bại');
             notify('Đã lưu thay đổi', 'success');
+            // Chống stale callback: nếu user đã mở SP KHÁC trong lúc await update →
+            // _els/_currentCode đã trỏ drawer mới → KHÔNG đè tên/flag SP cũ lên drawer mới.
+            if (_currentCode !== code) return;
             // SSE web2:products sẽ tự refresh bảng. Cập nhật header drawer + reset
             // overview/history để lần mở lại lấy data tươi.
-            const head = _els?.drawer.querySelector('.w2pd-head-name');
+            const head = _els?.drawer?.querySelector('.w2pd-head-name');
             if (head) head.textContent = name;
             _loaded.overview = false;
             _loaded.history = false;

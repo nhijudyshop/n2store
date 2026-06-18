@@ -130,11 +130,20 @@
                 block: 'nearest',
             });
         }, 50);
-        // Wallet balance cho COD "trừ công nợ khách"
-        api.walletBalance(phone).then((b) => {
-            STATE.walletBalance = b;
-            renderCodWallet();
-        });
+        // Wallet balance cho COD "trừ công nợ khách". Reset trước khi fetch + .catch
+        // để KHÔNG dùng số dư stale của khách trước nếu fetch lỗi (tránh trừ nhầm công nợ).
+        STATE.walletBalance = null;
+        renderCodWallet();
+        api.walletBalance(phone)
+            .then((b) => {
+                STATE.walletBalance = b;
+                renderCodWallet();
+            })
+            .catch((e) => {
+                STATE.walletBalance = 0;
+                renderCodWallet();
+                console.warn('[returns] walletBalance fetch failed:', e && e.message);
+            });
         loadCustomerOrders();
         renderSummary();
     }
@@ -783,6 +792,8 @@
                 return;
             }
             // Enter — submit when create tab is active and button is enabled
+            // (bỏ qua khi đang gõ IME tiếng Việt — tránh tạo phiếu trả với chữ soạn dở)
+            if (e.isComposing || e.keyCode === 229) return;
             if (e.key === 'Enter' && STATE.tab === 'create') {
                 const btn = $('btnSubmit');
                 if (btn && !btn.disabled && document.activeElement !== btn) {

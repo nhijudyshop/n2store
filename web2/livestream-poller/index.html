@@ -314,6 +314,7 @@
                 // Fix 7: Enter key on add-page form inputs triggers add
                 ['#lpPageId', '#lpPageName', '#lpPageUrl'].forEach((sel) => {
                     $(sel).addEventListener('keydown', (e) => {
+                        if (e.isComposing || e.keyCode === 229) return; // IME tiếng Việt
                         if (e.key === 'Enter') $('#lpAdd').click();
                     });
                 });

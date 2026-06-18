@@ -200,9 +200,22 @@
     function closeModal() {
         STATE.editingId = null;
         modal().classList.remove('active');
+        const sb = document.getElementById('btnSaveVariant');
+        if (sb) sb.disabled = false; // luôn bật lại nút Lưu khi đóng (mọi đường)
     }
 
     async function saveModal() {
+        // Chống double-click tạo trùng biến thể: khoá nút Lưu ngay đầu, bật lại khi
+        // đóng modal (closeModal) hoặc validation fail.
+        const _saveBtn = document.getElementById('btnSaveVariant');
+        if (_saveBtn) {
+            if (_saveBtn.disabled) return;
+            _saveBtn.disabled = true;
+        }
+        const _reenable = (msg) => {
+            if (_saveBtn) _saveBtn.disabled = false;
+            return notify(msg, 'error');
+        };
         const user = window.AuthManager?.getCurrentUser?.() || {};
         const shortCode = ($('#vmShortCode')?.value || '').trim().toUpperCase();
         const fields = {
@@ -212,10 +225,10 @@
             sortOrder: Number($('#vmSortOrder').value) || 0,
             isActive: $('#vmIsActive').value === 'true',
         };
-        if (!fields.value) return notify('Thiếu giá trị biến thể', 'error');
-        if (!fields.shortCode) return notify('Thiếu viết tắt — bấm Gợi ý hoặc nhập tay', 'error');
+        if (!fields.value) return _reenable('Thiếu giá trị biến thể');
+        if (!fields.shortCode) return _reenable('Thiếu viết tắt — bấm Gợi ý hoặc nhập tay');
         if (!/^[A-Z0-9]{1,20}$/.test(fields.shortCode)) {
-            return notify('Viết tắt phải gồm A-Z và 0-9, 1-20 ký tự', 'error');
+            return _reenable('Viết tắt phải gồm A-Z và 0-9, 1-20 ký tự');
         }
         // ─── UPDATE branch ──────────────────────────────────────────
         if (STATE.editingId) {
