@@ -1064,26 +1064,41 @@ body {
     background: #fecaca;
     border-color: #ef4444 !important;
 }
-/* Modal trả cả đơn = FULL browser (gần kín màn hình) */
+/* Modal trả cả đơn = lớn (gần full) NHƯNG luôn có lề, KHÔNG tràn viền.
+   Header + footer (Lý do/Phương thức/Ghi chú/Tổng/nút) cố định; chỉ bảng cuộn. */
 .pr-bulk-content {
-    width: 96vw;
-    max-width: 96vw;
-    height: 94vh;
-    max-height: 94vh;
+    width: 92vw;
+    max-width: 1200px;
+    height: 88vh;
+    max-height: 88vh;
+    overflow: hidden; /* outer KHÔNG cuộn → không đẩy nút ra ngoài viền */
     display: flex;
     flex-direction: column;
+}
+.pr-bulk-content .pr-quick-head {
+    flex-shrink: 0;
 }
 #prBulkForm {
     display: flex;
     flex-direction: column;
     flex: 1;
     min-height: 0;
+    overflow: hidden;
 }
-/* Bảng SP chiếm phần lớn chiều cao còn lại, cuộn trong */
+/* Chỉ bảng SP cuộn; mọi phần khác giữ nguyên, không bị clip */
 .pr-bulk-content .pr-bulk-table-wrap {
     flex: 1;
     max-height: none;
-    min-height: 120px;
+    min-height: 100px;
+    overflow-y: auto;
+}
+.pr-bulk-content .pr-quick-info,
+.pr-bulk-content .pr-bulk-hint,
+.pr-bulk-content .pr-quick-grid,
+.pr-bulk-content .pr-quick-full,
+.pr-bulk-content .pr-quick-totalbox,
+.pr-bulk-content .pr-quick-actions {
+    flex-shrink: 0;
 }
 /* Tên SP: cho phép xuống tối đa 2 dòng, không vỡ 3+ dòng lẻ loi */
 .pr-bulk-table td:nth-child(2),
