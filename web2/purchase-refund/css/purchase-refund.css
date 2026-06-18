@@ -1064,8 +1064,26 @@ body {
     background: #fecaca;
     border-color: #ef4444 !important;
 }
+/* Modal trả cả đơn = FULL browser (gần kín màn hình) */
 .pr-bulk-content {
-    width: min(720px, 96vw);
+    width: 96vw;
+    max-width: 96vw;
+    height: 94vh;
+    max-height: 94vh;
+    display: flex;
+    flex-direction: column;
+}
+#prBulkForm {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+}
+/* Bảng SP chiếm phần lớn chiều cao còn lại, cuộn trong */
+.pr-bulk-content .pr-bulk-table-wrap {
+    flex: 1;
+    max-height: none;
+    min-height: 120px;
 }
 /* Tên SP: cho phép xuống tối đa 2 dòng, không vỡ 3+ dòng lẻ loi */
 .pr-bulk-table td:nth-child(2),
