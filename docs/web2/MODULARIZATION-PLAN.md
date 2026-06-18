@@ -83,9 +83,9 @@ Deep shared mutable STATE, multi-subsystem, cross-module closures, realtime/exte
 - [ ] **`web2/photo-studio/photo-studio.js`** (2348)
 - [ ] **`web2/products/js/web2-products-app.js`** (2010)
 - [ ] **`web2/purchase-refund/js/purchase-refund-app.js`** (1634)
-- [ ] **`web2/supplier-debt/js/supplier-debt-app.js`** (1394)
-- [ ] **`web2/supplier-wallet/js/supplier-wallet-app.js`** (912)
-- [ ] **`web2/customers/js/customers-app.js`** (914)
+- [x] **`web2/supplier-debt/js/supplier-debt-app.js`** (1394) → 6 module (state/api/render/actions/filters/app). ✅ 26 rows, 0 JS err. Money settle/adjust giữ await. 0 public global (giữ).
+- [x] **`web2/supplier-wallet/js/supplier-wallet-app.js`** (912) → 5 module (state/api/render/actions/app). ✅ 13 cards, 0 JS err. Money deposit/return/pay giữ await + idempotent txId.
+- [x] **`web2/customers/js/customers-app.js`** (914) → 5 module (state/render/detail/events/app). ✅ 50 rows, 0 JS err. customers-api.js giữ nguyên; SĐT 10 số validate giữ.
 - [ ] **`web2/pancake-settings/js/pancake-settings.js`** (1305)
 - [ ] **`web2/reconcile/js/reconcile-app.js`** (1106)
 - [ ] **`web2/shared/web2-msg-template.js`** (961)

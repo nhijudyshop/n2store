@@ -1,5 +1,5 @@
 // #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 module.
-// Ví NCC — app controller.
+// Ví NCC — app controller (orchestrator).
 //
 // Flow:
 //   1. Load so-order data (read-only) → derive purchases per supplier
@@ -8,692 +8,42 @@
 //   4. Detail drawer: chi tiết 1 NCC + tabs (purchases / history)
 //   5. Return modal: chọn row(s) → tạo transaction `return`
 //   6. Payment modal: nhập số tiền → tạo transaction `payment`
+//
+// REFACTOR 2026-06-18: tách thành 5 module nhỏ (state / api / render / actions /
+// app). File này chỉ điều phối init + wire UI events + SSE. Logic nghiệp vụ +
+// state nằm trong `window.__SW` (namespace nội bộ — KHÔNG public API). Public
+// surface giữ NGUYÊN: chỉ window.SW_DEBUG + window.__swDebugLog (debug, do
+// supplier-wallet-state.js đặt). Trang KHÔNG có inline onclick / external caller.
 
 (function () {
     'use strict';
 
-    const STATUS_LABELS = {
-        draft: 'Nháp',
-        partial_received: 'Nhận 1 phần',
-        received: 'Đã Nhận',
-        cancelled: 'Đã Hủy',
-    };
-    const FALLBACK_RATES = {
-        VND: 1,
-        CNY: 3500,
-        USD: 26000,
-        EUR: 28000,
-        JPY: 170,
-        KRW: 18,
-        THB: 720,
-    };
-
-    let walletState = null;
-    let soOrderData = null;
-    // Aggregated suppliers — derived each render. Shape:
-    //   { [supplier]: { supplier, totalPurchased, purchases: [...] } }
-    let suppliers = {};
-    let activeSupplier = null;
-    let detailTab = 'purchases';
-
-    // 2026-06-16 DEBUG (tạm): trace chuỗi render lúc vào trang (dữ liệu hiện ra
-    // rồi bị thay) + thứ tự sort. Bật/tắt qua window.SW_DEBUG (mặc định ON).
-    // TODO: gỡ block debug này sau khi chẩn xong (grep "SW-DEBUG").
-    let _renderSeq = 0;
-    const _t0 = Date.now();
-    window.SW_DEBUG = window.SW_DEBUG !== false;
-    window.__swDebugLog = window.__swDebugLog || [];
-    function _dbg(...a) {
-        if (!window.SW_DEBUG) return;
-        const tag = `[SW-DEBUG +${Date.now() - _t0}ms]`;
-        console.log(tag, ...a);
-        // Mirror vào window array để browser-test đọc lại sau load (console buffer
-        // của Playwright session đôi khi miss log lúc reload). Xem qua DevTools là
-        // console.log thường; xem qua test là window.__swDebugLog.
-        try {
-            window.__swDebugLog.push(
-                tag + ' ' + a.map((x) => (typeof x === 'string' ? x : JSON.stringify(x))).join(' ')
-            );
-        } catch (_) {}
-    }
-
-    function fmtVnd(n) {
-        return Math.round(Number(n) || 0).toLocaleString('vi-VN') + '₫';
-    }
-    // A2 (2026-06-13): 1 dòng mua được coi "đã trả ĐỦ" khi qty đã trả >= qty mua.
-    // `entry` = web2_supplier_meta.returned_row_ids[rowId]: dạng mới {qty,amount,ts}
-    // (object) hoặc legacy truthy (boolean true = trả đủ). Trả 1 phần (qty>0 &
-    // qty<qty mua) → CHƯA đủ → dòng còn xuất hiện trong modal trả + không badge.
-    //
-    // ⚠ AN TOÀN với data legacy {qty:0} (C18 — fallback cũ ghi qty:0 khi thiếu
-    // rowReturns): qty<=0 nghĩa là entry rác/legacy boolean-style → coi như ĐÃ TRẢ
-    // ĐỦ (KHÔNG cho trả lại → tránh over-refund ví NCC). Partial return THẬT luôn
-    // có qty>0 (rowReturns gửi qty thật). C18 đã chặn ghi mới {qty:0}.
-    function _isRowFullyReturned(entry, orderedQty) {
-        if (!entry) return false;
-        if (typeof entry === 'object') {
-            const q = Number(entry.qty) || 0;
-            if (q <= 0) return true; // legacy/garbage {qty:0} → coi đã trả đủ (an toàn)
-            return q >= (Number(orderedQty) || 0);
-        }
-        return true; // legacy boolean → coi như trả đủ
-    }
-    // Audit: tên staff ghi trả/thanh toán NCC → lưu vào transaction (kiểm tra khi sai).
-    function _swBy() {
-        return (
-            window.Web2UserInfo?.get?.()?.userName || window.Web2UserInfo?.label?.() || '(ẩn danh)'
-        );
-    }
-    function escapeHtml(s) {
-        return String(s == null ? '' : s)
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#39;');
-    }
-    function fmtDateVN(iso) {
-        if (!iso) return '—';
-        const m = String(iso).match(/^(\d{4})-(\d{2})-(\d{2})/);
-        if (!m) return iso;
-        return `${parseInt(m[3], 10)}/${parseInt(m[2], 10)}/${m[1]}`;
-    }
-    function fmtTime(ts) {
-        if (!ts) return '—';
-        const d = new Date(Number(ts));
-        return (
-            d.toLocaleDateString('vi-VN') +
-            ' ' +
-            d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
-        );
-    }
-    function notify(msg, type) {
-        try {
-            window.notificationManager?.show?.(msg, type || 'info');
-        } catch {
-            /* ignore */
-        }
-    }
-    function rateToVnd(currency, tab) {
-        if (!currency || currency === 'VND') return 1;
-        if (tab && tab.currency === currency) {
-            return Number(tab.rate) || FALLBACK_RATES[currency] || 1;
-        }
-        return FALLBACK_RATES[currency] || 1;
-    }
-
-    // ---------- Aggregation ----------
-    // 2026-06-16 (money-model): công nợ NCC phát sinh khi NHẬN HÀNG (received /
-    // partial_received), KHÔNG phải lúc đặt ('ordered' đã khai tử). Net mỗi đơn =
-    //   Σ(giá nhập × qty_bill × rate) − giảm giá + phí ship (per invoiceGroupId).
-    // qty_bill: received → qty đặt đủ; partial_received → đúng phần đã nhận
-    // (r.qtyReceived). 1 đơn (invoiceGroupId) = 1 NCC → adjustment gán thẳng NCC đó.
-    function aggregateSuppliers(state) {
-        const result = {};
-        if (!state || !Array.isArray(state.tabs)) return result;
-        const ensure = (supplier) => {
-            if (!result[supplier]) {
-                result[supplier] = { supplier, totalPurchased: 0, purchases: [] };
-            }
-            return result[supplier];
-        };
-        for (const tab of state.tabs) {
-            const rate = rateToVnd(tab.currency, tab);
-            for (const sh of tab.shipments || []) {
-                const groupSupplier = {}; // invoiceGroupId → NCC (đơn có hàng đã nhận)
-                for (const r of sh.rows || []) {
-                    const supplier = (r.supplier || '').trim();
-                    if (!supplier) continue;
-                    const st = r.status || 'draft';
-                    if (st !== 'received' && st !== 'partial_received') continue; // chỉ tính khi đã nhận
-                    const orderedQty = Number(r.qty) || 0;
-                    const qty =
-                        st === 'partial_received'
-                            ? Math.min(Number(r.qtyReceived) || 0, orderedQty)
-                            : orderedQty;
-                    if (qty <= 0) continue;
-                    const costVnd = (Number(r.costPrice) || 0) * rate;
-                    const subtotal = qty * costVnd;
-                    ensure(supplier).totalPurchased += subtotal;
-                    ensure(supplier).purchases.push({
-                        rowId: r.id,
-                        shipmentId: sh.id,
-                        tabId: tab.id,
-                        tabLabel: tab.label,
-                        date: sh.date,
-                        productName: r.productName || '',
-                        variant: r.variant || '',
-                        qty,
-                        costVnd,
-                        subtotal,
-                        status: st,
-                    });
-                    groupSupplier[r.invoiceGroupId || r.id] = supplier;
-                }
-                // Giảm giá / phí ship per-đơn — chỉ áp cho đơn có hàng ĐÃ NHẬN.
-                const adjMap = sh.orderAdjustments || {};
-                for (const [gid, sup] of Object.entries(groupSupplier)) {
-                    const a = adjMap[gid];
-                    if (!a) continue;
-                    const net = (-(Number(a.discount) || 0) + (Number(a.shipping) || 0)) * rate;
-                    if (net) ensure(sup).totalPurchased += net;
-                }
-            }
-        }
-        return result;
-    }
-
-    // Merge derived totals into wallet state. Update `totalPurchased` per supplier.
-    function mergeAggregation(wallet, agg) {
-        const allSuppliers = new Set([...Object.keys(wallet.wallets || {}), ...Object.keys(agg)]);
-        let mutated = false;
-        for (const supplier of allSuppliers) {
-            const w = window.SupplierWalletStorage.getOrCreateWallet(wallet, supplier);
-            const a = agg[supplier];
-            const newTotal = a ? Math.round(a.totalPurchased) : 0;
-            if (w.totalPurchased !== newTotal) {
-                w.totalPurchased = newTotal;
-                mutated = true;
-            }
-            window.SupplierWalletStorage.recalcBalance(w);
-        }
-        return mutated;
-    }
-
-    // ---------- Render list ----------
-    function renderList(caller) {
-        const listEl = document.getElementById('swList');
-        const emptyEl = document.getElementById('swEmptyState');
-        const search = (document.getElementById('swSearch').value || '').trim().toLowerCase();
-        const sortBy = document.getElementById('swSort').value;
-        // Hiển thị MỌI wallet entry trong state: derived từ Sổ Order (có
-        // purchases) HOẶC manually-created qua nút "Tạo NCC" (transactions
-        // rỗng + totalPurchased = 0). Empty entries vẫn hữu ích vì có mặt
-        // trong dropdown gợi ý so-order.
-        const items = Object.keys(walletState.wallets)
-            .map((s) => walletState.wallets[s])
-            .filter((w) => !search || w.supplier.toLowerCase().includes(search));
-
-        items.sort((a, b) => {
-            if (sortBy === 'balance-desc') return b.balance - a.balance;
-            if (sortBy === 'balance-asc') return a.balance - b.balance;
-            if (sortBy === 'total-desc') return b.totalPurchased - a.totalPurchased;
-            return a.supplier.localeCompare(b.supplier);
-        });
-
-        _dbg(
-            `renderList #${++_renderSeq}`,
-            `caller=${caller || '?'}`,
-            `sortBy=${sortBy}`,
-            `search="${search}"`,
-            `n=${items.length}`,
-            'order=',
-            items.map((w) => `${w.supplier}[bal=${w.balance},tot=${w.totalPurchased}]`)
-        );
-
-        if (!items.length) {
-            listEl.innerHTML = '';
-            emptyEl.hidden = false;
-        } else {
-            emptyEl.hidden = true;
-            listEl.innerHTML = items.map(cardHtml).join('');
-            listEl.querySelectorAll('[data-supplier]').forEach((el) => {
-                el.addEventListener('click', () => openDetail(el.dataset.supplier));
-            });
-        }
-        // counters
-        const totalOutstanding = items.reduce((s, w) => s + Math.max(0, w.balance), 0);
-        document.getElementById('swTotalSuppliers').textContent = `${items.length} NCC`;
-        document.getElementById('swTotalOutstanding').textContent =
-            `Công nợ: ${fmtVnd(totalOutstanding)}`;
-        if (window.lucide?.createIcons) window.lucide.createIcons();
-    }
-
-    function cardHtml(w) {
-        const debt = w.balance > 0;
-        return `<div class="sw-card" data-supplier="${escapeHtml(w.supplier)}">
-            <div class="sw-card-head">
-                <div class="sw-card-name">${escapeHtml(w.supplier)}</div>
-                <span class="sw-card-badge ${debt ? 'is-debt' : ''}">${debt ? 'Còn nợ' : 'Đủ'}</span>
-            </div>
-            <div class="sw-card-stats">
-                <div><span class="label">Tổng mua</span><span class="value">${fmtVnd(w.totalPurchased)}</span></div>
-                <div><span class="label">Đã trả</span><span class="value">${fmtVnd(w.paidAmount)}</span></div>
-                <div><span class="label">Trả hàng</span><span class="value">${fmtVnd(w.returnedAmount)}</span></div>
-                <div class="balance"><span class="label">Còn nợ</span><span class="value">${fmtVnd(w.balance)}</span></div>
-            </div>
-        </div>`;
-    }
-
-    // ---------- Detail drawer ----------
-    function openDetail(supplier) {
-        activeSupplier = supplier;
-        detailTab = 'purchases';
-        const w = walletState.wallets[supplier];
-        const agg = suppliers[supplier];
-        if (!w) return;
-        document.getElementById('swDetailTitle').textContent = supplier;
-        document.getElementById('swDetailSub').textContent = agg
-            ? `${agg.purchases.length} dòng đã mua`
-            : '—';
-        document.getElementById('swStatTotal').textContent = fmtVnd(w.totalPurchased);
-        document.getElementById('swStatPaid').textContent = fmtVnd(w.paidAmount);
-        document.getElementById('swStatReturned').textContent = fmtVnd(w.returnedAmount);
-        document.getElementById('swStatBalance').textContent = fmtVnd(w.balance);
-        // Cross-links: Công nợ + Sổ Order (injected into modal header each open)
-        const _xlinks = document.getElementById('swDetailXLinks');
-        if (window.Web2Deeplink?.url && window.Web2Deeplink?.linkBtn) {
-            const _linksHtml =
-                Web2Deeplink.linkBtn({
-                    label: 'Công nợ',
-                    icon: 'file-text',
-                    url: Web2Deeplink.url.supplierDebt(supplier),
-                    title: 'Xem bảng công nợ NCC',
-                }) +
-                Web2Deeplink.linkBtn({
-                    label: 'Sổ Order',
-                    icon: 'notebook',
-                    url: Web2Deeplink.url.soOrder({ supplier }),
-                    title: 'Xem Sổ Order của NCC này',
-                });
-            if (_xlinks) {
-                _xlinks.innerHTML = _linksHtml;
-            } else {
-                const _sub = document.getElementById('swDetailSub');
-                const _wrap = document.createElement('div');
-                _wrap.id = 'swDetailXLinks';
-                _wrap.className = 'sw-detail-xlinks';
-                _wrap.innerHTML = _linksHtml;
-                _sub.insertAdjacentElement('afterend', _wrap);
-            }
-            if (window.lucide?.createIcons) window.lucide.createIcons();
-        }
-        renderDetailTabs();
-        document.getElementById('swDetailModal').hidden = false;
-    }
-
-    function renderDetailTabs() {
-        document.querySelectorAll('#swDetailModal .sw-tab').forEach((b) => {
-            b.classList.toggle('is-active', b.dataset.detailTab === detailTab);
-        });
-        document.querySelectorAll('#swDetailModal .sw-detail-panel').forEach((p) => {
-            p.hidden = p.dataset.panel !== detailTab;
-        });
-        if (detailTab === 'purchases') renderPurchases();
-        else renderHistory();
-    }
-
-    function renderPurchases() {
-        const w = walletState.wallets[activeSupplier];
-        const agg = suppliers[activeSupplier];
-        const tbody = document.getElementById('swPurchasesBody');
-        if (!agg || !agg.purchases.length) {
-            tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:#94a3b8;padding:24px;">Chưa có dòng nào</td></tr>`;
-            return;
-        }
-        const sorted = [...agg.purchases].sort((a, b) =>
-            String(b.date).localeCompare(String(a.date))
-        );
-        tbody.innerHTML = sorted
-            .map((p) => {
-                // A2 (2026-06-13): 'Đã trả' khi qty đã trả >= qty mua, KHÔNG phải chỉ
-                // cần có entry. returnedRowIds[rowId] = {qty,amount,ts} (object) hoặc
-                // truthy legacy (boolean cũ = trả đủ). Trả 1 phần (qty<p.qty) → CHƯA
-                // returned → vẫn cho trả tiếp.
-                const returned = _isRowFullyReturned(w.returnedRowIds[p.rowId], p.qty);
-                return `<tr class="${returned ? 'is-returned' : ''}">
-                    <td>${escapeHtml(fmtDateVN(p.date))}</td>
-                    <td>${escapeHtml(p.productName || '—')}</td>
-                    <td>${escapeHtml(p.variant || '—')}</td>
-                    <td class="num">${p.qty}</td>
-                    <td class="num">${fmtVnd(p.costVnd)}</td>
-                    <td class="num">${fmtVnd(p.subtotal)}</td>
-                    <td><span class="sw-status-pill" data-status="${returned ? 'returned' : p.status}">${returned ? 'Đã trả' : STATUS_LABELS[p.status] || p.status}</span></td>
-                </tr>`;
-            })
-            .join('');
-    }
-
-    function renderHistory() {
-        const w = walletState.wallets[activeSupplier];
-        const tbody = document.getElementById('swHistoryBody');
-        if (!w.transactions.length) {
-            tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:#94a3b8;padding:24px;">Chưa có giao dịch trong 30 ngày</td></tr>`;
-            return;
-        }
-        const sorted = [...w.transactions].sort((a, b) => b.ts - a.ts);
-        tbody.innerHTML = sorted
-            .map((t) => {
-                const sign = t.type === 'return' || t.type === 'payment' ? 'is-neg' : 'is-pos';
-                const lbl =
-                    t.type === 'return' ? 'Trả hàng' : t.type === 'payment' ? 'Thanh toán' : 'Mua';
-                return `<tr>
-                    <td>${escapeHtml(fmtTime(t.ts))}</td>
-                    <td><span class="sw-txn-type" data-type="${t.type}">${lbl}</span></td>
-                    <td class="num sw-txn-amount ${sign}">−${fmtVnd(t.amount)}</td>
-                    <td>${escapeHtml(t.performedBy || '—')}</td>
-                    <td>${escapeHtml(t.note || '')}</td>
-                </tr>`;
-            })
-            .join('');
-    }
-
-    // ---------- Return modal ----------
-    function openReturnModal() {
-        const w = walletState.wallets[activeSupplier];
-        const agg = suppliers[activeSupplier];
-        if (!agg) return;
-        document.getElementById('swReturnSupplier').textContent = activeSupplier;
-        const tbody = document.getElementById('swReturnBody');
-        const available = agg.purchases.filter(
-            (p) => !_isRowFullyReturned(w.returnedRowIds[p.rowId], p.qty)
-        );
-        if (!available.length) {
-            tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:#94a3b8;padding:24px;">Không còn dòng nào để trả</td></tr>`;
-        } else {
-            tbody.innerHTML = available
-                .map((p) => {
-                    // [12] (2026-06-13): SL CÒN LẠI = SL mua − SL đã trả tích luỹ
-                    // (returnedRowIds[rowId].qty). max/value/data-qty/total dùng remaining
-                    // → KHÔNG cho trả quá phần còn lại (tránh over-refund khi trả nhiều đợt).
-                    const already = Number(w.returnedRowIds[p.rowId]?.qty) || 0;
-                    const remaining = Math.max(0, (Number(p.qty) || 0) - already);
-                    const alreadyTag =
-                        already > 0
-                            ? ` <span style="color:#16a34a;font-size:11px;">(đã trả ${already})</span>`
-                            : '';
-                    return `<tr data-row-id="${escapeHtml(p.rowId)}" data-cost="${p.costVnd}" data-qty="${remaining}" data-ordered="${Number(p.qty) || 0}">
-                <td><input type="checkbox" class="sw-return-check" /></td>
-                <td>${escapeHtml(p.productName || '—')}</td>
-                <td>${escapeHtml(p.variant || '—')}</td>
-                <td class="num">${remaining}${alreadyTag}</td>
-                <td class="num"><input type="number" class="sw-return-qty" min="0" max="${remaining}" value="${remaining}" /></td>
-                <td class="num sw-return-line-total">${fmtVnd(remaining * p.costVnd)}</td>
-            </tr>`;
-                })
-                .join('');
-        }
-        recalcReturnTotal();
-        const rm = document.getElementById('swReturnModal');
-        // HIGH-3 FIX: idempotency key sinh 1 lần mỗi lần mở modal — double-click /
-        // retry dùng cùng txId → server ON CONFLICT(tx_id) chặn ghi đôi ledger.
-        rm.dataset.txid = 'tx-return-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
-        rm.hidden = false;
-    }
-
-    function recalcReturnTotal() {
-        let total = 0;
-        document.querySelectorAll('#swReturnBody tr[data-row-id]').forEach((tr) => {
-            const check = tr.querySelector('.sw-return-check');
-            const qtyInput = tr.querySelector('.sw-return-qty');
-            const lineEl = tr.querySelector('.sw-return-line-total');
-            const cost = Number(tr.dataset.cost) || 0;
-            const qty = Math.min(Number(qtyInput.value) || 0, Number(tr.dataset.qty) || 0);
-            const sub = check.checked ? qty * cost : 0;
-            // Hiện thành tiền dòng = sub (0 nếu chưa tích) → khớp với tổng (chỉ cộng
-            // dòng đã tích); tránh hiển thị số tiền dòng chưa tích gây hiểu nhầm.
-            lineEl.textContent = fmtVnd(sub);
-            total += sub;
-        });
-        document.getElementById('swReturnTotal').textContent = fmtVnd(total);
-    }
-
-    async function confirmReturn() {
-        const btn = document.getElementById('swReturnConfirmBtn');
-        if (btn?.disabled) return; // guard: đang xử lý (chống double-click)
-        const selectedRows = [];
-        let total = 0;
-        document.querySelectorAll('#swReturnBody tr[data-row-id]').forEach((tr) => {
-            const check = tr.querySelector('.sw-return-check');
-            if (!check.checked) return;
-            const qty = Math.min(
-                Number(tr.querySelector('.sw-return-qty').value) || 0,
-                Number(tr.dataset.qty) || 0
-            );
-            const cost = Number(tr.dataset.cost) || 0;
-            const amount = qty * cost;
-            if (amount <= 0) return;
-            // HIGH-4: gửi `ordered` (SL đã nhận của row) để server cap over-refund.
-            const ordered = Number(tr.dataset.ordered) || 0;
-            selectedRows.push({ rowId: tr.dataset.rowId, qty, amount, ordered });
-            total += amount;
-        });
-        if (!selectedRows.length) {
-            notify('Chưa chọn dòng nào để trả', 'warning');
-            return;
-        }
-        if (btn) btn.disabled = true; // chống double-click ghi ledger 2 lần
-        try {
-            // Stock adjust: trả NCC = xuất kho (giảm stock đã +qty khi sync).
-            // Match qua productName. Best-effort, không chặn ledger nếu fail.
-            try {
-                const agg = suppliers[activeSupplier];
-                const adjustments = [];
-                for (const sel of selectedRows) {
-                    const p = agg?.purchases?.find((x) => x.rowId === sel.rowId);
-                    if (!p) continue;
-                    // E-match-ten fix (đợt E): ưu tiên MÃ SP của chính row so-order
-                    // (p.code) — match tên không phân biệt variant trả nhầm SP.
-                    const code =
-                        p.code ||
-                        window.Web2ProductsCache?.findByNameExact?.(p.productName)?.code ||
-                        null;
-                    if (code) {
-                        adjustments.push({
-                            code,
-                            delta: -sel.qty,
-                            reason: `Trả NCC ${activeSupplier}`,
-                        });
-                    }
-                }
-                if (adjustments.length && window.Web2ProductsApi?.adjustStock) {
-                    await window.Web2ProductsApi.adjustStock(adjustments);
-                    window.Web2ProductsCache?.pushTickle?.({ action: 'supplier-return' });
-                }
-            } catch (e) {
-                console.warn('[supplier-wallet] stock adjust fail:', e.message);
-            }
-            // ĐỢT E: money op — await server ledger; rowReturns lưu qty/amount
-            // THẬT từng dòng (server merge vào returned_row_ids).
-            const rowReturns = {};
-            for (const r of selectedRows)
-                rowReturns[r.rowId] = { qty: r.qty, amount: r.amount, ordered: r.ordered };
-            try {
-                await window.SupplierWalletStorage.addTransaction(walletState, activeSupplier, {
-                    type: 'return',
-                    amount: total,
-                    note: `Trả ${selectedRows.length} dòng`,
-                    ref: { rowIds: selectedRows.map((r) => r.rowId), rows: selectedRows },
-                    rowReturns,
-                    // HIGH-3: txId idempotent sinh khi mở modal (chống double-submit).
-                    txId: document.getElementById('swReturnModal').dataset.txid || undefined,
-                    performedBy: _swBy(), // audit: ai ghi trả hàng
-                });
-            } catch (e) {
-                notify(`Ghi trả hàng thất bại: ${e.message}`, 'error');
-                return;
-            }
-            notify(`Đã ghi trả hàng ${fmtVnd(total)} cho ${activeSupplier}`, 'success');
-            document.getElementById('swReturnModal').hidden = true;
-            renderList();
-            openDetail(activeSupplier);
-        } finally {
-            if (btn) btn.disabled = false;
-        }
-    }
-
-    // ---------- Create NCC modal ----------
-    function openCreateModal() {
-        const input = document.getElementById('swCreateName');
-        if (input) input.value = '';
-        document.getElementById('swCreateModal').hidden = false;
-        setTimeout(() => input?.focus(), 80);
-    }
-
-    async function confirmCreate() {
-        const input = document.getElementById('swCreateName');
-        const rawName = (input?.value || '').trim();
-        if (!rawName) {
-            notify('Cần nhập tên NCC', 'warning');
-            input?.focus();
-            return;
-        }
-        // Đối chiếu case-insensitive với state hiện tại trước khi viết.
-        const existingKey = Object.keys(walletState.wallets || {}).find(
-            (k) => k.toLowerCase() === rawName.toLowerCase()
-        );
-        if (existingKey) {
-            notify(`NCC "${existingKey}" đã tồn tại`, 'warning');
-            document.getElementById('swCreateModal').hidden = true;
-            return;
-        }
-        // Tạo wallet entry rỗng + push Firestore qua SupplierWalletStorage để
-        // bảo toàn migration shape. Sau đó cũng đồng bộ Web2SuppliersCache
-        // (giúp các trang khác đang mở thấy ngay qua snapshot listener).
-        window.SupplierWalletStorage.getOrCreateWallet(walletState, rawName);
-        window.SupplierWalletStorage.save(walletState);
-        // ĐỢT E: NCC mới ghi vào meta server (atomic ON CONFLICT) qua cache.
-        if (window.Web2SuppliersCache?.ensure) {
-            try {
-                await window.Web2SuppliersCache.ensure(rawName);
-            } catch (e) {
-                notify(`Lưu NCC lên server thất bại: ${e.message}`, 'error');
-                return;
-            }
-        }
-        notify(`Đã tạo NCC "${rawName}"`, 'success');
-        document.getElementById('swCreateModal').hidden = true;
-        renderList();
-    }
-
-    // ---------- Payment modal ----------
-    function openPayModal() {
-        document.getElementById('swPaySupplier').textContent = activeSupplier;
-        document.getElementById('swPayAmount').value = 0;
-        document.getElementById('swPayNote').value = '';
-        const pm = document.getElementById('swPayModal');
-        // HIGH-3 FIX: idempotency key per modal-open (chống ghi đôi thanh toán).
-        pm.dataset.txid = 'tx-pay-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
-        pm.hidden = false;
-        // Task 7: autofocus + select so typing replaces the prefilled 0
-        setTimeout(() => {
-            const el = document.getElementById('swPayAmount');
-            el?.focus();
-            el?.select();
-        }, 30);
-    }
-
-    async function confirmPay() {
-        const btn = document.getElementById('swPayConfirmBtn');
-        if (btn?.disabled) return; // guard: đang xử lý (chống double-click)
-        const amount = Number(document.getElementById('swPayAmount').value) || 0;
-        const note = document.getElementById('swPayNote').value || '';
-        if (amount <= 0) {
-            notify('Số tiền phải > 0', 'warning');
-            return;
-        }
-        if (btn) btn.disabled = true; // chống double-click ghi ledger 2 lần
-        try {
-            // ĐỢT E: money op — await server, lỗi → toast, KHÔNG ghi local lệch.
-            await window.SupplierWalletStorage.addTransaction(walletState, activeSupplier, {
-                type: 'payment',
-                amount,
-                note: note || 'Thanh toán',
-                // HIGH-3: txId idempotent sinh khi mở modal (chống double-submit).
-                txId: document.getElementById('swPayModal').dataset.txid || undefined,
-                performedBy: _swBy(), // audit: ai ghi thanh toán
-            });
-            notify(`Đã ghi thanh toán ${fmtVnd(amount)} cho ${activeSupplier}`, 'success');
-            document.getElementById('swPayModal').hidden = true;
-            renderList();
-            openDetail(activeSupplier);
-        } catch (e) {
-            notify(`Ghi thanh toán thất bại: ${e.message}`, 'error');
-        } finally {
-            if (btn) btn.disabled = false;
-        }
-    }
-
-    // ---------- Sync ----------
-    function pushSync() {
-        if (window.SupplierWalletStorage?.Sync) {
-            window.SupplierWalletStorage.Sync.push(walletState);
-        }
-    }
-
-    // ---------- Init ----------
-    async function loadAndRender(caller) {
-        soOrderData = await window.SupplierWalletStorage.loadSoOrderData();
-        // H5 fix 2026-06-11: loadSoOrderData() trả null khi lỗi load — nếu vẫn
-        // aggregate/merge sẽ set totalPurchased=0 cho MỌI NCC rồi save + pushSync
-        // đẩy state hỏng lên Firestore. Nguồn null → KHÔNG mutate/push, render
-        // với state hiện có.
-        if (soOrderData == null) {
-            console.warn(
-                '[supplier-wallet] loadSoOrderData null — skip merge, render state hiện có'
-            );
-            _dbg(`loadAndRender(${caller || '?'}): soOrderData=NULL → skip merge`);
-        } else {
-            suppliers = aggregateSuppliers(soOrderData);
-            const mutated = mergeAggregation(walletState, suppliers);
-            _dbg(
-                `loadAndRender(${caller || '?'}): soOrder tabs=${soOrderData.tabs?.length}`,
-                `agg NCC=${Object.keys(suppliers).length}`,
-                `walletState NCC=${Object.keys(walletState.wallets || {}).length}`,
-                `mutated=${mutated}`
-            );
-            if (mutated) {
-                window.SupplierWalletStorage.save(walletState);
-                pushSync();
-            }
-        }
-        renderList(`loadAndRender:${caller || '?'}`);
-        // Poll SePay deposits (refund từ NCC → giảm balance)
-        pollDeposits().catch(() => {});
-    }
-
-    async function pollDeposits() {
-        const since = Number(walletState.lastDepositSync) || 0;
-        const deposits = await window.SupplierWalletStorage.fetchDeposits(since);
-        if (!Array.isArray(deposits) || !deposits.length) return;
-        const added = await window.SupplierWalletStorage.applyDeposits(walletState, deposits);
-        const maxTs = deposits.reduce((m, d) => Math.max(m, Number(d.ts) || 0), since);
-        if (maxTs > since) {
-            walletState.lastDepositSync = maxTs;
-            window.SupplierWalletStorage.save(walletState);
-        }
-        if (added > 0) {
-            notify(`Cập nhật ${added} refund SePay từ NCC`, 'success');
-            pushSync();
-            renderList();
-            if (activeSupplier && !document.getElementById('swDetailModal').hidden) {
-                openDetail(activeSupplier);
-            }
-        }
-    }
+    const SW = (window.__SW = window.__SW || {});
+    const _dbg = SW._dbg;
+    const notify = SW.notify;
 
     function wireUi() {
-        document.getElementById('swSearch').addEventListener('input', renderList);
-        document.getElementById('swSort').addEventListener('change', renderList);
+        document.getElementById('swSearch').addEventListener('input', SW.renderList);
+        document.getElementById('swSort').addEventListener('change', SW.renderList);
         // 2026-06-16: nút "Đồng bộ" đã bỏ — trang tự load realtime qua SSE (_sseConnect).
-        document.getElementById('swCreateBtn')?.addEventListener('click', openCreateModal);
-        document.getElementById('swCreateConfirmBtn')?.addEventListener('click', confirmCreate);
+        document.getElementById('swCreateBtn')?.addEventListener('click', SW.openCreateModal);
+        document.getElementById('swCreateConfirmBtn')?.addEventListener('click', SW.confirmCreate);
         document.getElementById('swCreateName')?.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
                 e.preventDefault();
-                confirmCreate();
+                SW.confirmCreate();
             }
         });
         document.querySelectorAll('#swDetailModal .sw-tab').forEach((b) => {
             b.addEventListener('click', () => {
-                detailTab = b.dataset.detailTab;
-                renderDetailTabs();
+                SW.detailTab = b.dataset.detailTab;
+                SW.renderDetailTabs();
             });
         });
-        document.getElementById('swReturnBtn').addEventListener('click', openReturnModal);
-        document.getElementById('swPayBtn').addEventListener('click', openPayModal);
-        document.getElementById('swReturnConfirmBtn').addEventListener('click', confirmReturn);
-        document.getElementById('swPayConfirmBtn').addEventListener('click', confirmPay);
+        document.getElementById('swReturnBtn').addEventListener('click', SW.openReturnModal);
+        document.getElementById('swPayBtn').addEventListener('click', SW.openPayModal);
+        document.getElementById('swReturnConfirmBtn').addEventListener('click', SW.confirmReturn);
+        document.getElementById('swPayConfirmBtn').addEventListener('click', SW.confirmPay);
         // Return modal interactions
         const returnBody = document.getElementById('swReturnBody');
         returnBody.addEventListener('change', (e) => {
@@ -701,17 +51,17 @@
                 e.target.classList.contains('sw-return-check') ||
                 e.target.classList.contains('sw-return-qty')
             ) {
-                recalcReturnTotal();
+                SW.recalcReturnTotal();
             }
         });
         returnBody.addEventListener('input', (e) => {
-            if (e.target.classList.contains('sw-return-qty')) recalcReturnTotal();
+            if (e.target.classList.contains('sw-return-qty')) SW.recalcReturnTotal();
         });
         document.getElementById('swReturnSelectAll').addEventListener('change', (e) => {
             document.querySelectorAll('#swReturnBody .sw-return-check').forEach((c) => {
                 c.checked = e.target.checked;
             });
-            recalcReturnTotal();
+            SW.recalcReturnTotal();
         });
         // Close handlers
         document.querySelectorAll('[data-sw-close]').forEach((el) => {
@@ -742,17 +92,17 @@
     async function init() {
         _dbg('init: START');
         // P1 2026-05-30: SupplierWalletStorage.load() giờ async (IDB read)
-        walletState = await window.SupplierWalletStorage.load();
+        SW.walletState = await window.SupplierWalletStorage.load();
         _dbg(
-            `init: loaded cache (IDB/localStorage) → wallets=${Object.keys(walletState.wallets || {}).length}`,
-            Object.keys(walletState.wallets || {}).slice(0, 12)
+            `init: loaded cache (IDB/localStorage) → wallets=${Object.keys(SW.walletState.wallets || {}).length}`,
+            Object.keys(SW.walletState.wallets || {}).slice(0, 12)
         );
-        const purged = window.SupplierWalletStorage.cleanupOldTransactions(walletState);
-        if (purged) window.SupplierWalletStorage.save(walletState);
+        const purged = window.SupplierWalletStorage.cleanupOldTransactions(SW.walletState);
+        if (purged) window.SupplierWalletStorage.save(SW.walletState);
         wireUi();
         // Task 6 (2026-06-14): loading placeholder trước khi fetch so-order + aggregate.
         const _listEl = document.getElementById('swList');
-        if (_listEl && !Object.keys(walletState.wallets || {}).length) {
+        if (_listEl && !Object.keys(SW.walletState.wallets || {}).length) {
             _listEl.innerHTML =
                 '<div style="padding:20px;text-align:center;color:#64748b;display:flex;flex-direction:column;align-items:center;gap:12px">' +
                 Array.from({ length: 3 })
@@ -769,7 +119,7 @@
         if (window.Web2ProductsCache?.init) {
             window.Web2ProductsCache.init().catch(() => {});
         }
-        await loadAndRender('init');
+        await SW.loadAndRender('init');
         // Deep-link: ?supplier=<name> → auto-open detail drawer.
         // normalize('NFC'): tên NCC giữa các trang có thể khác Unicode form (NFC/NFD)
         // → so khớp trực tiếp `wallets[param]` fail. Tìm key đúng theo NFC.
@@ -777,11 +127,11 @@
         if (_dlSup) {
             const nfc = (s) => (s || '').normalize('NFC').trim().toLowerCase();
             const target = nfc(_dlSup);
-            const key = walletState.wallets[_dlSup]
+            const key = SW.walletState.wallets[_dlSup]
                 ? _dlSup
-                : Object.keys(walletState.wallets || {}).find((k) => nfc(k) === target);
+                : Object.keys(SW.walletState.wallets || {}).find((k) => nfc(k) === target);
             if (key) {
-                openDetail(key);
+                SW.openDetail(key);
             } else {
                 notify('Không tìm thấy NCC: ' + _dlSup, 'warning');
             }
@@ -792,36 +142,36 @@
                 `Sync.init REMOTE callback → replace walletState`,
                 `remote wallets=${Object.keys(remote?.wallets || {}).length}`
             );
-            walletState = remote;
-            window.SupplierWalletStorage.cleanupOldTransactions(walletState);
+            SW.walletState = remote;
+            window.SupplierWalletStorage.cleanupOldTransactions(SW.walletState);
             // FIX 2026-06-16: remote ledger thiếu totalPurchased (derive từ Sổ
             // Order) → re-merge aggregation đã có trong RAM để khỏi đè 0₫.
-            if (suppliers && Object.keys(suppliers).length) {
-                mergeAggregation(walletState, suppliers);
+            if (SW.suppliers && Object.keys(SW.suppliers).length) {
+                SW.mergeAggregation(SW.walletState, SW.suppliers);
             }
-            renderList('Sync.remote-callback');
-            if (activeSupplier && !document.getElementById('swDetailModal').hidden) {
-                openDetail(activeSupplier);
+            SW.renderList('Sync.remote-callback');
+            if (SW.activeSupplier && !document.getElementById('swDetailModal').hidden) {
+                SW.openDetail(SW.activeSupplier);
             }
         });
         _dbg(`Sync.init resolved ok=${ok}`);
         if (ok) {
-            walletState = await window.SupplierWalletStorage.load();
+            SW.walletState = await window.SupplierWalletStorage.load();
             _dbg(
-                `init: post-Sync reload from storage → wallets=${Object.keys(walletState.wallets || {}).length}`
+                `init: post-Sync reload from storage → wallets=${Object.keys(SW.walletState.wallets || {}).length}`
             );
             // FIX 2026-06-16: ledger server (Sync) KHÔNG lưu `totalPurchased` (nó
             // được DERIVE từ Sổ Order). Sau khi Sync ghi đè storage, walletState
             // mới có totalPurchased=0 cho mọi NCC → render bare sẽ "đè 0₫" lên số
             // thật vừa hiện ở render #1. Phải re-aggregate Sổ Order vào state mới
             // (giống path SSE ledger-reload) thay vì renderList trần.
-            if (suppliers && Object.keys(suppliers).length) {
-                const m = mergeAggregation(walletState, suppliers);
+            if (SW.suppliers && Object.keys(SW.suppliers).length) {
+                const m = SW.mergeAggregation(SW.walletState, SW.suppliers);
                 _dbg(`init: re-merge so-order agg sau Sync (mutated=${m})`);
-                if (m) window.SupplierWalletStorage.save(walletState);
+                if (m) window.SupplierWalletStorage.save(SW.walletState);
             }
-            renderList('init:post-sync-reload');
-            pushSync();
+            SW.renderList('init:post-sync-reload');
+            SW.pushSync();
         }
         if (window.lucide?.createIcons) window.lucide.createIcons();
         _sseConnect();
@@ -835,22 +185,19 @@
     //
     // Khác biệt với customer-wallet: NCC ít khi chuyển tiền cho shop (chỉ khi
     // refund/hoàn), nên rate event thấp. Cùng pattern, debounce 800ms.
-    let _sseUnsubs = [];
-    let _ssePollTimer = null;
-    let _sseReloadTimer = null;
     function _sseConnect() {
         if (!window.Web2SSE?.subscribe) {
             console.warn('[SupplierWallet-SSE] Web2SSE not loaded — skip realtime');
             return;
         }
-        if (_sseUnsubs.length) return;
+        if (SW._sseUnsubs.length) return;
 
         // 1. web2:wallet:* — SePay deposit (refund từ NCC), wildcard prefix match
-        _sseUnsubs.push(
+        SW._sseUnsubs.push(
             window.Web2SSE.subscribe('web2:wallet:*', (msg) => {
-                if (_ssePollTimer) clearTimeout(_ssePollTimer);
-                _ssePollTimer = setTimeout(async () => {
-                    _ssePollTimer = null;
+                if (SW._ssePollTimer) clearTimeout(SW._ssePollTimer);
+                SW._ssePollTimer = setTimeout(async () => {
+                    SW._ssePollTimer = null;
                     const phone = msg?.data?.phone;
                     const amount = msg?.data?.transaction?.amount;
                     console.log(
@@ -858,7 +205,7 @@
                         phone,
                         amount ? amount.toLocaleString('vi-VN') + 'đ' : ''
                     );
-                    await pollDeposits();
+                    await SW.pollDeposits();
                 }, 800);
             })
         );
@@ -867,37 +214,37 @@
         // hưởng công nợ NCC. Khi adjust-stock / upsert-pending / confirm-purchase
         // → reload supplier aggregation.
         const scheduleAggregateReload = (label) => () => {
-            if (_sseReloadTimer) clearTimeout(_sseReloadTimer);
-            _sseReloadTimer = setTimeout(async () => {
-                _sseReloadTimer = null;
+            if (SW._sseReloadTimer) clearTimeout(SW._sseReloadTimer);
+            SW._sseReloadTimer = setTimeout(async () => {
+                SW._sseReloadTimer = null;
                 console.log('[SupplierWallet-SSE] aggregate reload triggered by:', label);
-                await loadAndRender('sse:' + label);
+                await SW.loadAndRender('sse:' + label);
             }, 1200);
         };
-        _sseUnsubs.push(
+        SW._sseUnsubs.push(
             window.Web2SSE.subscribe('web2:products', scheduleAggregateReload('web2:products'))
         );
         // 2026-06-16: web2:so-order — đơn Sổ Order đổi (tạo/sửa/đổi status
         // draft→"Đã Đặt"/nhận/xóa) ảnh hưởng "Tổng mua" + danh sách NCC. Status
         // change KHÔNG fire web2:products (chỉ ghi web2_so_order) → phải nghe topic
         // này để aggregation tươi realtime, không cần bấm "Đồng bộ".
-        _sseUnsubs.push(
+        SW._sseUnsubs.push(
             window.Web2SSE.subscribe('web2:so-order', scheduleAggregateReload('web2:so-order'))
         );
         // ĐỢT E: web2:supplier-wallet giờ là topic CHÍNH của server ledger —
         // máy khác ghi payment/return/tạo NCC → re-pull /state TRƯỚC rồi mới
         // derive lại so-order (loadAndRender một mình chỉ render ledger cũ).
-        _sseUnsubs.push(
+        SW._sseUnsubs.push(
             window.Web2SSE.subscribe('web2:supplier-wallet', () => {
-                if (_sseReloadTimer) clearTimeout(_sseReloadTimer);
-                _sseReloadTimer = setTimeout(async () => {
-                    _sseReloadTimer = null;
+                if (SW._sseReloadTimer) clearTimeout(SW._sseReloadTimer);
+                SW._sseReloadTimer = setTimeout(async () => {
+                    SW._sseReloadTimer = null;
                     console.log('[SupplierWallet-SSE] ledger reload (web2:supplier-wallet)');
                     await window.SupplierWalletStorage.Sync.init();
-                    walletState = await window.SupplierWalletStorage.load();
-                    await loadAndRender('sse:ledger');
-                    if (activeSupplier && !document.getElementById('swDetailModal').hidden) {
-                        openDetail(activeSupplier);
+                    SW.walletState = await window.SupplierWalletStorage.load();
+                    await SW.loadAndRender('sse:ledger');
+                    if (SW.activeSupplier && !document.getElementById('swDetailModal').hidden) {
+                        SW.openDetail(SW.activeSupplier);
                     }
                 }, 800);
             })

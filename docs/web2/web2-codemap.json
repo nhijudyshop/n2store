@@ -1,10 +1,10 @@
 {
-    "generatedAt": "2026-06-18 16:04",
+    "generatedAt": "2026-06-18 16:27",
     "totals": {
-        "files": 207,
+        "files": 220,
         "sharedModules": 75,
         "functions": 2547,
-        "oversized": 22
+        "oversized": 19
     },
     "sharedModules": [
         {
@@ -80,7 +80,7 @@
                 "so-order/js/so-order-app.js",
                 "web2/balance-history/js/web2-bh-link-customer.js",
                 "web2/customer-wallet/js/web2-customer-wallet-app.js",
-                "web2/customers/js/customers-app.js",
+                "web2/customers/js/customers-detail.js",
                 "web2/fastsaleorder-delivery/dlv-app.js",
                 "web2/fastsaleorder-invoice/pbh-state.js",
                 "web2/fastsaleorder-refund/rf-app.js",
@@ -204,7 +204,7 @@
                 "web2/shared/web2-wallet-balance.js",
                 "web2/shared/web2-zalo-api.js",
                 "web2/shared/web2-zalo.js",
-                "web2/supplier-debt/js/supplier-debt-app.js",
+                "web2/supplier-debt/js/supplier-debt-api.js",
                 "web2/supplier-wallet/js/supplier-wallet-storage.js",
                 "web2/system/js/system-services.js",
                 "web2/system/js/system-sse.js",
@@ -253,7 +253,7 @@
                 "live-chat/js/pancake/pancake-token-manager.js",
                 "native-orders/js/native-orders-app.js",
                 "web2/balance-history/js/web2-pm-customer-search.js",
-                "web2/customers/js/customers-app.js",
+                "web2/customers/js/customers-events.js",
                 "web2/jt-tracking/js/jt-tracking-actions.js",
                 "web2/multi-tool/js/multi-tool.js",
                 "web2/pancake-settings/js/pancake-settings.js",
@@ -315,7 +315,7 @@
             "api": [],
             "consumers": [
                 "web2/balance-history/js/web2-bh-render.js",
-                "web2/customers/js/customers-app.js",
+                "web2/customers/js/customers-detail.js",
                 "web2/shared/web2-wallet-balance.js"
             ],
             "lines": 413
@@ -368,7 +368,9 @@
                 "so-order/js/so-order-app.js",
                 "web2/products/js/web2-products-app.js",
                 "web2/supplier-debt/js/supplier-debt-app.js",
-                "web2/supplier-wallet/js/supplier-wallet-app.js"
+                "web2/supplier-debt/js/supplier-debt-render.js",
+                "web2/supplier-wallet/js/supplier-wallet-app.js",
+                "web2/supplier-wallet/js/supplier-wallet-render.js"
             ],
             "lines": 101
         },
@@ -426,7 +428,7 @@
             "api": [],
             "consumers": [
                 "web2/ck-dashboard/js/ck-dashboard-app.js",
-                "web2/customers/js/customers-app.js",
+                "web2/customers/js/customers-detail.js",
                 "web2/payment-confirm/js/payment-confirm-app.js",
                 "web2/purchase-refund/js/purchase-refund-app.js",
                 "web2/reconcile/js/reconcile-app.js",
@@ -533,6 +535,7 @@
                 "so-order/js/so-order-app.js",
                 "web2/ck-dashboard/js/ck-dashboard-app.js",
                 "web2/customers/js/customers-app.js",
+                "web2/customers/js/customers-state.js",
                 "web2/fastsaleorder-delivery/dlv-app.js",
                 "web2/fastsaleorder-invoice/pbh-actions.js",
                 "web2/fastsaleorder-refund/rf-app.js",
@@ -629,6 +632,7 @@
                 "so-order/js/so-order-app.js",
                 "web2/products/js/web2-products-app.js",
                 "web2/purchase-refund/js/purchase-refund-app.js",
+                "web2/supplier-wallet/js/supplier-wallet-actions.js",
                 "web2/supplier-wallet/js/supplier-wallet-app.js"
             ],
             "lines": 450
@@ -638,7 +642,7 @@
             "globals": ["Web2QrModal"],
             "purpose": "WEB2.0 shared component — reusable QR modal cho customer-wallet + partner-customer.",
             "api": [],
-            "consumers": ["web2/customers/js/customers-app.js"],
+            "consumers": ["web2/customers/js/customers-detail.js"],
             "lines": 299
         },
         {
@@ -709,6 +713,7 @@
             "consumers": [
                 "live-chat/js/pancake/inventory-panel.js",
                 "web2/purchase-refund/js/purchase-refund-app.js",
+                "web2/supplier-debt/js/supplier-debt-api.js",
                 "web2/supplier-debt/js/supplier-debt-app.js",
                 "web2/supplier-wallet/js/supplier-wallet-storage.js"
             ],
@@ -787,8 +792,8 @@
                 "web2/balance-history/js/web2-manual-deposit.js",
                 "web2/products/js/web2-products-app.js",
                 "web2/purchase-refund/js/purchase-refund-app.js",
-                "web2/supplier-debt/js/supplier-debt-app.js",
-                "web2/supplier-wallet/js/supplier-wallet-app.js"
+                "web2/supplier-debt/js/supplier-debt-filters.js",
+                "web2/supplier-wallet/js/supplier-wallet-actions.js"
             ],
             "lines": 223
         },
@@ -818,7 +823,8 @@
                 "native-orders/js/native-orders-app.js",
                 "native-orders/js/native-orders-packing-slip.js",
                 "web2/ck-dashboard/js/ck-dashboard-app.js",
-                "web2/customers/js/customers-app.js",
+                "web2/customers/js/customers-detail.js",
+                "web2/customers/js/customers-events.js",
                 "web2/fastsaleorder-refund/rf-app.js",
                 "web2/kpi/js/kpi-assignments.js",
                 "web2/payment-confirm/js/payment-confirm-app.js",
@@ -832,8 +838,8 @@
                 "web2/shared/web2-ck-review.js",
                 "web2/shared/web2-msg-template.js",
                 "web2/shared/web2-wallet-api.js",
-                "web2/supplier-debt/js/supplier-debt-app.js",
-                "web2/supplier-wallet/js/supplier-wallet-app.js",
+                "web2/supplier-debt/js/supplier-debt-api.js",
+                "web2/supplier-wallet/js/supplier-wallet-state.js",
                 "web2/zalo/js/web2-zalo-lookup-zns.js"
             ],
             "lines": 154
@@ -888,7 +894,7 @@
                 "web2/balance-history/js/web2-pm-picker.js",
                 "web2/balance-history/js/web2-pm-render.js",
                 "web2/ck-dashboard/js/ck-dashboard-app.js",
-                "web2/customers/js/customers-app.js",
+                "web2/customers/js/customers-render.js",
                 "web2/payment-confirm/js/payment-confirm-app.js",
                 "web2/returns/js/returns-customer.js",
                 "web2/returns/js/returns-tabs.js",
@@ -3050,7 +3056,7 @@
                 },
                 {
                     "file": "web2/balance-history/js/web2-bh-chat-export.js",
-                    "lines": 150,
+                    "lines": 142,
                     "purpose": "WEB2.0 module.",
                     "globals": ["W2BH"],
                     "uses": ["Web2CustomerChat"],
@@ -3217,7 +3223,7 @@
                 },
                 {
                     "file": "web2/balance-history/js/web2-pm-core.js",
-                    "lines": 171,
+                    "lines": 170,
                     "purpose": "WEB2.0 module.",
                     "globals": ["W2PM"],
                     "uses": ["Web2Auth"],
@@ -3288,7 +3294,7 @@
                 },
                 {
                     "file": "web2/balance-history/js/web2-pm-resolve.js",
-                    "lines": 96,
+                    "lines": 105,
                     "purpose": "WEB2.0 module.",
                     "globals": ["W2PM"],
                     "uses": [],
@@ -3462,59 +3468,80 @@
                 },
                 {
                     "file": "web2/customers/js/customers-app.js",
-                    "lines": 915,
+                    "lines": 89,
                     "purpose": "WEB2.0 module — Kho KH warehouse UI. warehouse riêng.",
+                    "globals": [],
+                    "uses": ["Web2Optimistic", "Web2SSE"],
+                    "functions": ["init", "load", "scheduleReload", "subscribeSse"]
+                },
+                {
+                    "file": "web2/customers/js/customers-detail.js",
+                    "lines": 348,
+                    "purpose": "WEB2.0 module — Kho KH warehouse detail/edit (modal + SĐT/địa chỉ phụ + status + merge). warehouse riêng.",
                     "globals": [],
                     "uses": [
                         "Popup",
-                        "Web2Chat",
                         "Web2CustomerDetailModal",
                         "Web2HistoryTimeline",
-                        "Web2Optimistic",
                         "Web2QrModal",
-                        "Web2SSE",
-                        "Web2UserInfo",
-                        "Web2WalletBalance"
+                        "Web2UserInfo"
                     ],
                     "functions": [
-                        "$",
-                        "_getPageIds",
-                        "_importPancakeConv",
-                        "_searchPancake",
                         "addAltAddress",
                         "addAltPhone",
-                        "addPancakeToKho",
-                        "bind",
                         "closeModal",
                         "collectForm",
                         "doMerge",
-                        "esc",
                         "exportCsv",
-                        "fbBadges",
-                        "finishImported",
-                        "fmtMoney",
                         "g",
-                        "hidePancakeResults",
-                        "init",
-                        "load",
-                        "mk",
-                        "normPhone",
-                        "notify",
                         "onAction",
                         "openModal",
                         "renderAltAddresses",
                         "renderAltPhones",
-                        "renderPagination",
-                        "renderPancakeCards",
-                        "renderTable",
-                        "runPancakeFallback",
                         "saveModal",
-                        "scheduleReload",
                         "setPrimaryAltAddr",
                         "setPrimaryAltPhone",
-                        "subscribeSse",
                         "v"
                     ]
+                },
+                {
+                    "file": "web2/customers/js/customers-events.js",
+                    "lines": 380,
+                    "purpose": "WEB2.0 module — Kho KH warehouse events (search/filter/sort/paginate wiring + Pancake fallback). warehouse riêng.",
+                    "globals": [],
+                    "uses": ["Web2Chat", "Web2UserInfo"],
+                    "functions": [
+                        "_getPageIds",
+                        "_importPancakeConv",
+                        "_searchPancake",
+                        "addPancakeToKho",
+                        "bind",
+                        "finishImported",
+                        "hidePancakeResults",
+                        "runPancakeFallback"
+                    ]
+                },
+                {
+                    "file": "web2/customers/js/customers-render.js",
+                    "lines": 135,
+                    "purpose": "WEB2.0 module — Kho KH warehouse render (list/pagination/cards). warehouse riêng.",
+                    "globals": [],
+                    "uses": ["Web2WalletBalance"],
+                    "functions": [
+                        "fbBadges",
+                        "mk",
+                        "renderPagination",
+                        "renderPancakeCards",
+                        "renderTable"
+                    ]
+                },
+                {
+                    "file": "web2/customers/js/customers-state.js",
+                    "lines": 78,
+                    "purpose": "WEB2.0 module — Kho KH warehouse state/constants/utils. warehouse riêng.",
+                    "globals": [],
+                    "uses": ["Web2Optimistic"],
+                    "functions": ["$", "esc", "fmtMoney", "normPhone", "notify"]
                 }
             ]
         },
@@ -6584,74 +6611,106 @@
             "page": "web2/supplier-debt",
             "files": [
                 {
-                    "file": "web2/supplier-debt/js/supplier-debt-app.js",
-                    "lines": 1395,
+                    "file": "web2/supplier-debt/js/supplier-debt-actions.js",
+                    "lines": 116,
                     "purpose": "WEB2.0 module.",
                     "globals": [],
-                    "uses": [
-                        "API_CONFIG",
-                        "Web2Auth",
-                        "Web2Deeplink",
-                        "Web2SoOrder",
-                        "Web2SSE",
-                        "Web2SuppliersCache",
-                        "Web2UserInfo"
-                    ],
+                    "uses": [],
+                    "functions": ["confirmNote", "confirmPay", "openNoteModal", "openPayModal"]
+                },
+                {
+                    "file": "web2/supplier-debt/js/supplier-debt-api.js",
+                    "lines": 431,
+                    "purpose": "WEB2.0 module.",
+                    "globals": [],
+                    "uses": ["API_CONFIG", "Web2Auth", "Web2SoOrder", "Web2UserInfo"],
                     "functions": [
-                        "_onDateChange",
-                        "_populateNccNameDatalist",
-                        "_sseConnect",
                         "aggregate",
                         "api",
-                        "applyFilterAndRender",
                         "authHeaders",
-                        "buildCongNoEntries",
-                        "confirmNote",
-                        "confirmPay",
-                        "congnoTableHtml",
-                        "cssAttrEscape",
-                        "csvEscape",
-                        "currentMonthRange",
-                        "detailPanelHtml",
-                        "escapeHtml",
-                        "exportCsv",
-                        "fmtDateVN",
-                        "fmtTime",
-                        "fmtVnd",
                         "getNoteForRow",
-                        "init",
-                        "isBefore",
-                        "isInPeriod",
-                        "isoToTs",
                         "loadAll",
                         "loadServerState",
                         "loadSoOrder",
                         "loadWeb2",
                         "makeRow",
-                        "nfc",
-                        "notify",
-                        "openNoteModal",
-                        "openPayModal",
-                        "pad",
-                        "purchasesTableHtml",
-                        "rateToVnd",
-                        "readFilters",
                         "recordPayment",
+                        "resolveCodeForSupplier",
+                        "saveSupplier",
+                        "saveSupplierNote"
+                    ]
+                },
+                {
+                    "file": "web2/supplier-debt/js/supplier-debt-app.js",
+                    "lines": 266,
+                    "purpose": "WEB2.0 module.",
+                    "globals": [],
+                    "uses": ["Web2Deeplink", "Web2SoOrder", "Web2SSE"],
+                    "functions": [
+                        "_onDateChange",
+                        "_sseConnect",
+                        "init",
+                        "nfc",
+                        "scheduleReload",
+                        "wireUi"
+                    ]
+                },
+                {
+                    "file": "web2/supplier-debt/js/supplier-debt-filters.js",
+                    "lines": 72,
+                    "purpose": "WEB2.0 module.",
+                    "globals": [],
+                    "uses": ["Web2SuppliersCache"],
+                    "functions": [
+                        "_populateNccNameDatalist",
+                        "currentMonthRange",
+                        "pad",
+                        "readFilters",
+                        "setDefaultDateRange"
+                    ]
+                },
+                {
+                    "file": "web2/supplier-debt/js/supplier-debt-render.js",
+                    "lines": 505,
+                    "purpose": "WEB2.0 module.",
+                    "globals": [],
+                    "uses": ["Web2Deeplink"],
+                    "functions": [
+                        "applyFilterAndRender",
+                        "buildCongNoEntries",
+                        "congnoTableHtml",
+                        "detailPanelHtml",
+                        "exportCsv",
+                        "purchasesTableHtml",
                         "renderPagination",
                         "renderTable",
                         "renderTotals",
-                        "resolveCodeForSupplier",
-                        "saveSupplier",
-                        "saveSupplierNote",
-                        "scheduleReload",
-                        "setDefaultDateRange",
                         "toggleExpand",
                         "transactionsTableHtml",
                         "updateDetailPanel",
                         "updateSortIcons",
-                        "vnDate",
-                        "wireDetailTabs",
-                        "wireUi"
+                        "wireDetailTabs"
+                    ]
+                },
+                {
+                    "file": "web2/supplier-debt/js/supplier-debt-state.js",
+                    "lines": 138,
+                    "purpose": "WEB2.0 module.",
+                    "globals": [],
+                    "uses": [],
+                    "functions": [
+                        "cssAttrEscape",
+                        "csvEscape",
+                        "escapeHtml",
+                        "fmtDateVN",
+                        "fmtTime",
+                        "fmtVnd",
+                        "isBefore",
+                        "isInPeriod",
+                        "isoToTs",
+                        "notify",
+                        "rateToVnd",
+                        "vnDate"
                     ]
                 }
             ]
@@ -6660,51 +6719,75 @@
             "page": "web2/supplier-wallet",
             "files": [
                 {
-                    "file": "web2/supplier-wallet/js/supplier-wallet-app.js",
-                    "lines": 913,
+                    "file": "web2/supplier-wallet/js/supplier-wallet-actions.js",
+                    "lines": 259,
                     "purpose": "WEB2.0 module.",
-                    "globals": ["SW_DEBUG"],
-                    "uses": [
-                        "Web2Deeplink",
-                        "Web2ProductsCache",
-                        "Web2SSE",
-                        "Web2SuppliersCache",
-                        "Web2UserInfo"
-                    ],
+                    "globals": [],
+                    "uses": ["Web2ProductsCache", "Web2SuppliersCache"],
                     "functions": [
-                        "_dbg",
-                        "_isRowFullyReturned",
-                        "_sseConnect",
-                        "_swBy",
-                        "aggregateSuppliers",
-                        "cardHtml",
                         "confirmCreate",
                         "confirmPay",
                         "confirmReturn",
+                        "openCreateModal",
+                        "openPayModal",
+                        "openReturnModal",
+                        "recalcReturnTotal"
+                    ]
+                },
+                {
+                    "file": "web2/supplier-wallet/js/supplier-wallet-api.js",
+                    "lines": 156,
+                    "purpose": "WEB2.0 module.",
+                    "globals": [],
+                    "uses": [],
+                    "functions": [
+                        "aggregateSuppliers",
                         "ensure",
+                        "loadAndRender",
+                        "mergeAggregation",
+                        "pollDeposits",
+                        "pushSync"
+                    ]
+                },
+                {
+                    "file": "web2/supplier-wallet/js/supplier-wallet-app.js",
+                    "lines": 260,
+                    "purpose": "WEB2.0 module.",
+                    "globals": [],
+                    "uses": ["Web2Deeplink", "Web2ProductsCache", "Web2SSE"],
+                    "functions": ["_sseConnect", "init", "nfc", "scheduleAggregateReload", "wireUi"]
+                },
+                {
+                    "file": "web2/supplier-wallet/js/supplier-wallet-render.js",
+                    "lines": 201,
+                    "purpose": "WEB2.0 module.",
+                    "globals": [],
+                    "uses": ["Web2Deeplink"],
+                    "functions": [
+                        "cardHtml",
+                        "openDetail",
+                        "renderDetailTabs",
+                        "renderHistory",
+                        "renderList",
+                        "renderPurchases"
+                    ]
+                },
+                {
+                    "file": "web2/supplier-wallet/js/supplier-wallet-state.js",
+                    "lines": 141,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["SW_DEBUG"],
+                    "uses": ["Web2UserInfo"],
+                    "functions": [
+                        "_dbg",
+                        "_isRowFullyReturned",
+                        "_swBy",
                         "escapeHtml",
                         "fmtDateVN",
                         "fmtTime",
                         "fmtVnd",
-                        "init",
-                        "loadAndRender",
-                        "mergeAggregation",
-                        "nfc",
                         "notify",
-                        "openCreateModal",
-                        "openDetail",
-                        "openPayModal",
-                        "openReturnModal",
-                        "pollDeposits",
-                        "pushSync",
-                        "rateToVnd",
-                        "recalcReturnTotal",
-                        "renderDetailTabs",
-                        "renderHistory",
-                        "renderList",
-                        "renderPurchases",
-                        "scheduleAggregateReload",
-                        "wireUi"
+                        "rateToVnd"
                     ]
                 },
                 {
@@ -7034,8 +7117,8 @@
                 "web2/shared/web2-import.js",
                 "web2/shared/web2-notification-bell.js",
                 "web2/shared/web2-sidebar.js",
-                "web2/supplier-debt/js/supplier-debt-app.js",
-                "web2/supplier-wallet/js/supplier-wallet-app.js",
+                "web2/supplier-debt/js/supplier-debt-state.js",
+                "web2/supplier-wallet/js/supplier-wallet-state.js",
                 "web2/system/js/system-services.js",
                 "web2/users/js/users-app.js",
                 "web2/variants/js/web2-variants-app.js"
@@ -7081,8 +7164,8 @@
                 "web2/shared/web2-ck-review.js",
                 "web2/shared/web2-unread-panel.js",
                 "web2/shared/zalo-chat/chat-store.js",
-                "web2/supplier-debt/js/supplier-debt-app.js",
-                "web2/supplier-wallet/js/supplier-wallet-app.js",
+                "web2/supplier-debt/js/supplier-debt-state.js",
+                "web2/supplier-wallet/js/supplier-wallet-state.js",
                 "web2/system/js/system-sse.js",
                 "web2/zalo/js/web2-zalo-utils.js"
             ],
@@ -7104,7 +7187,7 @@
                 "web2/shared/web2-ck-assign-picker.js",
                 "web2/shared/web2-ck-review.js",
                 "web2/shared/web2-customer-store.js",
-                "web2/supplier-debt/js/supplier-debt-app.js"
+                "web2/supplier-debt/js/supplier-debt-api.js"
             ],
             "count": 14
         },
@@ -7142,8 +7225,8 @@
                 "web2/shared/web2-ck-assign-picker.js",
                 "web2/shared/web2-customer-detail-modal.js",
                 "web2/shared/web2-wallet-balance.js",
-                "web2/supplier-debt/js/supplier-debt-app.js",
-                "web2/supplier-wallet/js/supplier-wallet-app.js"
+                "web2/supplier-debt/js/supplier-debt-state.js",
+                "web2/supplier-wallet/js/supplier-wallet-state.js"
             ],
             "count": 13
         },
@@ -7185,7 +7268,7 @@
                 "live-chat/js/live/live-kho-enricher.js",
                 "web2/balance-history/js/web2-partner-enricher.js",
                 "web2/customer-wallet/js/web2-customer-wallet-state.js",
-                "web2/customers/js/customers-app.js",
+                "web2/customers/js/customers-state.js",
                 "web2/shared/web2-ck-review.js",
                 "web2/shared/web2-customer-detail-modal.js",
                 "web2/shared/web2-customer-store.js",
@@ -7201,13 +7284,13 @@
                 "native-orders/js/native-orders-app.js",
                 "web2/balance-history/js/web2-bh-render.js",
                 "web2/customer-wallet/js/web2-customer-wallet-render.js",
-                "web2/customers/js/customers-app.js",
+                "web2/customers/js/customers-render.js",
                 "web2/fastsaleorder-delivery/dlv-app.js",
                 "web2/fastsaleorder-invoice/pbh-render.js",
                 "web2/fastsaleorder-refund/rf-app.js",
                 "web2/products/js/web2-products-app.js",
                 "web2/shared/page-builder.js",
-                "web2/supplier-debt/js/supplier-debt-app.js"
+                "web2/supplier-debt/js/supplier-debt-render.js"
             ],
             "count": 10
         },
@@ -7217,7 +7300,7 @@
                 "live-chat/js/live/live-customer-panel.js",
                 "web2/balance-history/js/web2-link-customer-modal.js",
                 "web2/balance-history/js/web2-pm-modal.js",
-                "web2/customers/js/customers-app.js",
+                "web2/customers/js/customers-detail.js",
                 "web2/products/js/web2-products-app.js",
                 "web2/products/js/web2-products-print-modal.js",
                 "web2/purchase-refund/js/purchase-refund-app.js",
@@ -7244,7 +7327,7 @@
             "fn": "fmtMoney",
             "files": [
                 "live-chat/js/live/live-order-history.js",
-                "web2/customers/js/customers-app.js",
+                "web2/customers/js/customers-state.js",
                 "web2/fastsaleorder-invoice/pbh-state.js",
                 "web2/fastsaleorder-refund/rf-app.js",
                 "web2/payment-confirm/js/payment-confirm-app.js",
@@ -7263,7 +7346,7 @@
                 "web2/reconcile/js/reconcile-app.js",
                 "web2/returns/js/returns-tabs.js",
                 "web2/shared/web2-command-palette.js",
-                "web2/supplier-wallet/js/supplier-wallet-app.js",
+                "web2/supplier-wallet/js/supplier-wallet-render.js",
                 "web2/users/js/users-app.js"
             ],
             "count": 8
@@ -7386,7 +7469,7 @@
             "files": [
                 "web2/balance-history/js/web2-link-customer-modal.js",
                 "web2/balance-history/js/web2-pm-modal.js",
-                "web2/customers/js/customers-app.js",
+                "web2/customers/js/customers-detail.js",
                 "web2/purchase-refund/js/purchase-refund-app.js",
                 "web2/shared/web2-customer-chat.js",
                 "web2/shared/web2-quick-reply.js"
@@ -7444,9 +7527,9 @@
             "files": [
                 "web2/balance-history/js/web2-bh-chat-export.js",
                 "web2/customer-wallet/js/web2-customer-wallet-events.js",
-                "web2/customers/js/customers-app.js",
+                "web2/customers/js/customers-detail.js",
                 "web2/fastsaleorder-invoice/pbh-actions.js",
-                "web2/supplier-debt/js/supplier-debt-app.js"
+                "web2/supplier-debt/js/supplier-debt-render.js"
             ],
             "count": 5
         },
@@ -7659,7 +7742,7 @@
                 "web2/ck-dashboard/js/ck-dashboard-app.js",
                 "web2/customer-wallet/js/web2-customer-wallet-render.js",
                 "web2/kpi/js/kpi-assignments.js",
-                "web2/supplier-wallet/js/supplier-wallet-app.js"
+                "web2/supplier-wallet/js/supplier-wallet-render.js"
             ],
             "count": 4
         },
@@ -7686,7 +7769,7 @@
         {
             "fn": "saveModal",
             "files": [
-                "web2/customers/js/customers-app.js",
+                "web2/customers/js/customers-detail.js",
                 "web2/products/js/web2-products-app.js",
                 "web2/shared/page-builder.js",
                 "web2/variants/js/web2-variants-app.js"
@@ -7840,7 +7923,7 @@
             "files": [
                 "live-chat/js/live/comments-mobile.js",
                 "web2/customer-wallet/js/web2-customer-wallet-render.js",
-                "web2/supplier-wallet/js/supplier-wallet-app.js"
+                "web2/supplier-wallet/js/supplier-wallet-render.js"
             ],
             "count": 3
         },
@@ -8082,8 +8165,8 @@
             "fn": "renderTable",
             "files": [
                 "web2/balance-history/js/web2-bh-render.js",
-                "web2/customers/js/customers-app.js",
-                "web2/supplier-debt/js/supplier-debt-app.js"
+                "web2/customers/js/customers-render.js",
+                "web2/supplier-debt/js/supplier-debt-render.js"
             ],
             "count": 3
         },
@@ -8235,10 +8318,6 @@
             "lines": 1635
         },
         {
-            "file": "web2/supplier-debt/js/supplier-debt-app.js",
-            "lines": 1395
-        },
-        {
             "file": "live-chat/js/pancake/pancake-token-manager.js",
             "lines": 1310
         },
@@ -8281,14 +8360,6 @@
         {
             "file": "web2/shared/web2-msg-template.js",
             "lines": 962
-        },
-        {
-            "file": "web2/customers/js/customers-app.js",
-            "lines": 915
-        },
-        {
-            "file": "web2/supplier-wallet/js/supplier-wallet-app.js",
-            "lines": 913
         },
         {
             "file": "web2/shared/web2-customer-chat.js",
