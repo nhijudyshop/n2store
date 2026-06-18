@@ -519,7 +519,10 @@
     // (web2-returns: cộng kho + hoàn ví đúng vòng đời PBH, đã atomic từ 3H2)
     // với KH + đơn được chọn sẵn. POST /api/refunds/from-pbh server trả 410.
     function createRefund(number) {
-        const row = STATE.items.find((x) => x.number === number);
+        // FIX (2026-06-18): STATE.items không tồn tại (rows array là STATE.orders —
+        // xem load() L101). Trước đây nút "Trả hàng" throw TypeError .find of undefined
+        // → không mở được trang Thu về. Phát hiện qua click-all probe Web 2.0.
+        const row = (STATE.orders || []).find((x) => x.number === number);
         const phone = row?.partner?.phone || row?.partnerPhone || '';
         const name = row?.partner?.name || row?.partnerName || '';
         const q = new URLSearchParams({

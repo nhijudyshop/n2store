@@ -2,6 +2,24 @@
 
 ## 2026-06-18
 
+### [web2/fastsaleorder-invoice] Fix nút "Trả hàng" crash — STATE.items undefined ✅
+
+**Phát hiện qua:** click-all probe toàn bộ 40 trang Web 2.0 (`scripts/web2-clickall-probe.js` — click mọi nút an toàn, bỏ destructive/logout/nav/commit, bắt JS error + toast). 39 trang / 556 click an toàn → **1 bug JS thật**.
+
+**Bug:** nút "Trả hàng" trên 1 dòng PBH → `createRefund()` tại [pbh-app.js:522](../web2/fastsaleorder-invoice/pbh-app.js) gọi `STATE.items.find(...)` nhưng **`STATE.items` không tồn tại** (mảng rows là `STATE.orders`, set ở L101) → `TypeError: Cannot read properties of undefined (reading 'find')` → nút chết, không mở được trang Thu về.
+
+**Fix:** `STATE.items.find(...)` → `(STATE.orders || []).find(...)` (defensive). Root-cause xác định qua stack trace (btn 12 → createRefund:522 → onclick).
+
+**Các cảnh báo còn lại trong probe = KHÔNG phải bug** (đã xác minh từng cái):
+
+- `pancake-settings` "Chưa đăng nhập pancake.vn", `printer-settings` "Print Bridge chưa chạy" → môi trường test (service local không chạy).
+- `livestream-poller` "Nhập Page ID" → validation đúng.
+- `system`/`services-dashboard`/`admin-sse-monitor` (nav=Y) → tab deep-link redirect (đúng thiết kế).
+- `native-orders` "Không tìm thấy đơn NJ-…", `so-order` "Không tìm thấy shipment" → **artifact của probe** (click nhanh + force-close modal gây state churn trên nút stale); handler xử lý not-found đúng (toast + return, không crash). Verify: load sạch + click đơn → 0 error.
+- `kpi` context-destroyed → nút reload async transient, load sạch 0 console error.
+
+**Status:** ✅ fix + verify. Frontend qua GH Pages (JS no-cache).
+
 ### [web2/money] Audit + fix 8 rủi ro tiền (NCC + ví khách) — 5 HIGH + 3 MED ✅
 
 **User:** "kiểm tra rủi ro các phần về tiền → browser test bằng click lại tất cả hoạt động" → "fix tất cả".
