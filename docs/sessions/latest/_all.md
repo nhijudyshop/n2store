@@ -3,15 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `d45779e` — chore(docs): xoá docs Pancake cũ (lỗi thời) → browser-test trang thật
-**Last updated**: 2026-06-18 18:21:31 +07
-**Latest session**: [`RESUME:20260618-182131-d45779e`](../20260618-182131-d45779e.md)
-**Summary**: chore(docs): xoá docs Pancake cũ (lỗi thời) → browser-test trang thật
+**Latest commit**: `51d9368` — auto: session update
+**Last updated**: 2026-06-18 18:51:01 +07
+**Latest session**: [`RESUME:20260618-185101-51d9368`](../20260618-185101-51d9368.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`_root/`](./_root.md) — 1 file(s)
-- [`docs/`](./docs.md) — 2 file(s)
+- [`web2/`](./web2.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -74,4 +73,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-18 18:06
+- [`web2/`](./web2.md) — updated 2026-06-18 18:51
