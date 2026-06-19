@@ -1,9 +1,9 @@
 {
-    "generatedAt": "2026-06-19 15:40",
+    "generatedAt": "2026-06-19 16:04",
     "totals": {
-        "files": 374,
-        "sharedModules": 103,
-        "functions": 2764,
+        "files": 375,
+        "sharedModules": 104,
+        "functions": 2772,
         "oversized": 1
     },
     "sharedModules": [
@@ -294,6 +294,7 @@
                 "web2/shared/web2-suppliers-cache.js",
                 "web2/shared/web2-unread-panel.js",
                 "web2/shared/web2-user-info.js",
+                "web2/shared/web2-vieneu.js",
                 "web2/shared/web2-wallet-api.js",
                 "web2/shared/web2-wallet-balance.js",
                 "web2/shared/web2-zalo-api.js",
@@ -632,6 +633,7 @@
                 "web2/shared/web2-image-lightbox.js",
                 "web2/shared/web2-import.js",
                 "web2/shared/web2-notification-bell.js",
+                "web2/shared/web2-product-picker.js",
                 "web2/shared/web2-quick-reply.js",
                 "web2/shared/web2-sidebar.js",
                 "web2/shared/web2-unread-panel.js",
@@ -679,7 +681,7 @@
                 "web2/fb-posts/js/fb-posts-list.js",
                 "web2/fb-posts/js/fb-posts-media.js"
             ],
-            "lines": 119
+            "lines": 120
         },
         {
             "file": "web2/shared/web2-fb-share.js",
@@ -1044,6 +1046,14 @@
             "lines": 539
         },
         {
+            "file": "web2/shared/web2-product-picker.js",
+            "globals": ["Web2ProductPicker"],
+            "purpose": "WEB2.0 shared — chọn SP từ Kho SP (1 hoặc NHIỀU) trả full object.",
+            "api": [],
+            "consumers": ["web2/fb-posts/js/fb-posts-composer.js"],
+            "lines": 157
+        },
+        {
             "file": "web2/shared/web2-products-cache.js",
             "globals": ["Web2ProductsCache"],
             "purpose": "Web2 Products — Shared cache + Firestore tickler realtime",
@@ -1067,6 +1077,7 @@
                 "web2/purchase-refund/js/purchase-refund-api.js",
                 "web2/purchase-refund/js/purchase-refund-modal.js",
                 "web2/purchase-refund/js/purchase-refund-render.js",
+                "web2/shared/web2-product-picker.js",
                 "web2/supplier-wallet/js/supplier-wallet-actions.js",
                 "web2/supplier-wallet/js/supplier-wallet-app.js",
                 "web2/video-maker/js/video-maker.js"
@@ -1341,7 +1352,7 @@
                 "web2/video-maker/js/video-tts.js",
                 "web2/video-maker/js/video-vieneu.js"
             ],
-            "lines": 140
+            "lines": 167
         },
         {
             "file": "web2/shared/web2-wallet-api.js",
@@ -4948,10 +4959,10 @@
                 },
                 {
                     "file": "web2/fb-posts/js/fb-posts-composer.js",
-                    "lines": 393,
+                    "lines": 487,
                     "purpose": "WEB2.0 — Đăng bài FB: soạn bài (page chips + AI caption + media + lịch + đăng).",
                     "globals": ["FBPostsComposer"],
-                    "uses": ["Popup", "Web2Auth", "FBPostsApi", "Web2FbShare"],
+                    "uses": ["Popup", "Web2Auth", "FBPostsApi", "Web2FbShare", "Web2ProductPicker"],
                     "functions": [
                         "Api",
                         "Media",
@@ -4961,15 +4972,20 @@
                         "esc",
                         "gather",
                         "generate",
+                        "imgOf",
                         "loadDraft",
                         "maybeConsumeShare",
                         "notify",
+                        "onConfirm",
+                        "openKhoPicker",
                         "pageChipsHtml",
                         "product",
                         "publish",
                         "render",
+                        "renderProductChips",
                         "resetForm",
                         "saveDraft",
+                        "toProd",
                         "wire"
                     ]
                 },
@@ -7328,7 +7344,7 @@
                 },
                 {
                     "file": "web2/shared/web2-fb-client.js",
-                    "lines": 119,
+                    "lines": 120,
                     "purpose": "WEB2.0 shared — Facebook Graph API client (1 NGUỒN cho mọi trang FB).",
                     "globals": ["Web2FbClient", "FBPostsApi"],
                     "uses": ["WEB2_CONFIG", "API_CONFIG", "Web2Auth"],
@@ -7952,6 +7968,25 @@
                     ]
                 },
                 {
+                    "file": "web2/shared/web2-product-picker.js",
+                    "lines": 157,
+                    "purpose": "WEB2.0 shared — chọn SP từ Kho SP (1 hoặc NHIỀU) trả full object.",
+                    "globals": ["Web2ProductPicker"],
+                    "uses": ["Web2Escape", "Web2ProductsCache"],
+                    "functions": [
+                        "cellHtml",
+                        "close",
+                        "draw",
+                        "esc",
+                        "imgOf",
+                        "notify",
+                        "onclick",
+                        "open",
+                        "priceText",
+                        "updateCount"
+                    ]
+                },
+                {
                     "file": "web2/shared/web2-products-cache.js",
                     "lines": 450,
                     "purpose": "Web2 Products — Shared cache + Firestore tickler realtime",
@@ -8325,19 +8360,21 @@
                 },
                 {
                     "file": "web2/shared/web2-vieneu.js",
-                    "lines": 140,
+                    "lines": 167,
                     "purpose": "WEB2.0 shared — kho Voice.",
                     "globals": ["Web2Vieneu"],
-                    "uses": [],
+                    "uses": ["WEB2_CONFIG", "API_CONFIG"],
                     "functions": [
                         "_ctx",
                         "_decode",
                         "_headers",
                         "_need",
+                        "_registryBase",
                         "clone",
                         "getSecret",
                         "getUrl",
                         "health",
+                        "listServers",
                         "listVoices",
                         "setSecret",
                         "setUrl",
@@ -9348,7 +9385,7 @@
                 },
                 {
                     "file": "web2/video-maker/js/video-vieneu.js",
-                    "lines": 116,
+                    "lines": 164,
                     "purpose": "WEB2.0 module.",
                     "globals": ["Web2VideoVieneuUI"],
                     "uses": ["Web2Vieneu"],
@@ -9360,6 +9397,8 @@
                         "notify",
                         "ondataavailable",
                         "onstop",
+                        "refreshServers",
+                        "renderServers",
                         "setStat"
                     ]
                 }
@@ -10454,6 +10493,15 @@
             "count": 3
         },
         {
+            "fn": "draw",
+            "files": [
+                "web2/fb-posts/js/fb-posts-media.js",
+                "web2/products/js/web2-products-print-render.js",
+                "web2/shared/web2-product-picker.js"
+            ],
+            "count": 3
+        },
+        {
             "fn": "ensureDom",
             "files": [
                 "web2/shared/web2-ck-assign-picker.js",
@@ -10495,6 +10543,15 @@
                 "web2/ck-dashboard/js/ck-dashboard-app.js",
                 "web2/payment-confirm/js/payment-confirm-app.js",
                 "web2/shared/web2-ck-review.js"
+            ],
+            "count": 3
+        },
+        {
+            "fn": "imgOf",
+            "files": [
+                "web2/fb-posts/js/fb-posts-composer.js",
+                "web2/fb-posts/js/fb-posts-media.js",
+                "web2/shared/web2-product-picker.js"
             ],
             "count": 3
         },

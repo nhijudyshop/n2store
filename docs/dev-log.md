@@ -2,6 +2,16 @@
 
 ## 2026-06-19
 
+### [web2/fb-posts] Chọn NHIỀU SP từ Kho cho AI + thứ tự page Store→House→Ơi→Nè ✅
+
+User: "cho chọn nhiều sản phẩm từ kho lấy thông tin cho AI làm việc" + "module riêng nhiều trang đọc vào" + "thứ tự page: Store, House, Ơi, Nè".
+
+- **Shared MỚI `web2/shared/web2-product-picker.js`** (`Web2ProductPicker.open({multi,onPick|onConfirm})`) — overlay chọn SP từ `Web2ProductsCache`, trả full object (name/price/code/image). 1 nguồn cho mọi trang cần chọn SP, KHÔNG dựng lại.
+- **Composer**: nút "📦 Chọn SP từ Kho (cho AI)" → picker đa-chọn → chips (tên+giá, xoá được) + **tự thêm ảnh SP** (dedup) + 1 SP đổ vào ô tên/giá, nhiều SP để AI tổng hợp.
+- **Caption service nhận `products[]`**: `generateMultiTemplate` + `generateMultiAI` (1 bài giới thiệu loạt mẫu) + `aiComplete` dùng chung. Route `/caption` nhận `products`. Client `caption(opts)` (object).
+- **Thứ tự page** sort 1 nơi server `safePages` (`_pageRank`: store0/house1/ơi2/nè3) → composer + fb-insights + fb-ads-stats đồng nhất.
+- ✅ Verify live: page order `Store|House|Ơi|Nè`; caption multi-SP template OK. ✅ Browser E2E (stub SP): chọn 2 → 2 chips + 1 ảnh (dedup) + caption "SALE NHIỀU MẪU HOT • Áo… • Quần…". Commit `2c73f6a76`.
+
 ### [vieneu-tts] 1-click installer (Win/Mac) + tự dò máy online (registry) + tunnel điện thoại ✅
 
 User: cho file .bat 1-click tự cài; máy shop tắt-mở-lại URL đổi thì sao; nhiều máy thì sao. Giải:

@@ -2,7 +2,7 @@
 
 # WEB2-CODEMAP — Bản đồ code Web 2.0
 
-> **Auto-generated** • 2026-06-19 15:40 • 374 files, 103 shared modules, 2764 hàm, 1 file > 800 dòng.
+> **Auto-generated** • 2026-06-19 16:04 • 375 files, 104 shared modules, 2772 hàm, 1 file > 800 dòng.
 > Sinh lại: `node scripts/gen-web2-codemap.js` (chạy sau khi đổi cấu trúc/ tách module / thêm trang).
 
 ## 0. Cách dùng (Claude / dev đọc TRƯỚC khi code)
@@ -33,7 +33,7 @@
 | `Popup`                                    | [popup.js](../../web2/shared/popup.js)                                                | Web 2.0 — Custom Popup (alert / confirm / prompt)                                                       | 45        |
 | `Web2ApiFetch`                             | [web2-api-fetch.js](../../web2/shared/web2-api-fetch.js)                              | WEB2.0 shared — 1 NGUỒN fetch JSON (auth + fallback base) cho Web 2.0.                                  | 1         |
 | `Web2Api`                                  | [web2-api.js](../../web2/shared/web2-api.js)                                          | Web 2.0 generic API client — talks to /api/web2/:entity/\*                                              | 1         |
-| `WEB2_CONFIG`, `API_CONFIG`, `Web2Auth`    | [web2-auth.js](../../web2/shared/web2-auth.js)                                        | Token storage + verify + page guard.                                                                    | 96        |
+| `WEB2_CONFIG`, `API_CONFIG`, `Web2Auth`    | [web2-auth.js](../../web2/shared/web2-auth.js)                                        | Token storage + verify + page guard.                                                                    | 97        |
 | `Web2AvatarUtils`                          | [web2-avatar-utils.js](../../web2/shared/web2-avatar-utils.js)                        | WEB2.0 shared module.                                                                                   | 1         |
 | `Web2BarcodeScanner`                       | [web2-barcode-scanner.js](../../web2/shared/web2-barcode-scanner.js)                  | WEB2.0 — Web2BarcodeScanner: quét barcode/QR bằng CAMERA on-device, dùng chung mọi trang.               | 4         |
 | `Web2Bill`                                 | [web2-bill-service.js](../../web2/shared/web2-bill-service.js)                        | WEB2.0 module.                                                                                          | 3         |
@@ -57,7 +57,7 @@
 | `Web2DbBadge`                              | [web2-db-badge.js](../../web2/shared/web2-db-badge.js)                                | Web2DbBadge — hiển thị badge "DB Render 2.0 / Firebase 2.0 / Web 2.0"                                   | 0         |
 | `Web2Deeplink`                             | [web2-deeplink.js](../../web2/shared/web2-deeplink.js)                                | WEB2.0 module.                                                                                          | 7         |
 | `Web2Effects`                              | [web2-effects.js](../../web2/shared/web2-effects.js)                                  | Web 2.0 — Effects / animations library                                                                  | 5         |
-| `Web2Escape`                               | [web2-escape.js](../../web2/shared/web2-escape.js)                                    | WEB2.0 module.                                                                                          | 40        |
+| `Web2Escape`                               | [web2-escape.js](../../web2/shared/web2-escape.js)                                    | WEB2.0 module.                                                                                          | 41        |
 | `Web2Export`                               | [web2-export-helpers.js](../../web2/shared/web2-export-helpers.js)                    | WEB2.0 module.                                                                                          | 0         |
 | `Web2Ext`                                  | [web2-extension-bridge.js](../../web2/shared/web2-extension-bridge.js)                | WEB2 EXTENSION BRIDGE                                                                                   | 4         |
 | `Web2FbClient`, `FBPostsApi`               | [web2-fb-client.js](../../web2/shared/web2-fb-client.js)                              | WEB2.0 shared — Facebook Graph API client (1 NGUỒN cho mọi trang FB).                                   | 8         |
@@ -89,7 +89,8 @@
 | `Web2Printer`                              | [web2-printer.js](../../web2/shared/web2-printer.js)                                  | WEB2.0 — DANH SÁCH máy in + gán máy in theo chức năng + in ESC/POS raster qua print-bridge.             | 3         |
 | `Web2ProductCode`                          | [web2-product-code.js](../../web2/shared/web2-product-code.js)                        | WEB2.0 module.                                                                                          | 5         |
 | `Web2ProductCounter`                       | [web2-product-counter.js](../../web2/shared/web2-product-counter.js)                  | WEB2.0 — Web2ProductCounter: đếm số SP qua camera realtime, DÙNG CHUNG mọi trang.                       | 4         |
-| `Web2ProductsCache`                        | [web2-products-cache.js](../../web2/shared/web2-products-cache.js)                    | Web2 Products — Shared cache + Firestore tickler realtime                                               | 21        |
+| `Web2ProductPicker`                        | [web2-product-picker.js](../../web2/shared/web2-product-picker.js)                    | WEB2.0 shared — chọn SP từ Kho SP (1 hoặc NHIỀU) trả full object.                                       | 1         |
+| `Web2ProductsCache`                        | [web2-products-cache.js](../../web2/shared/web2-products-cache.js)                    | Web2 Products — Shared cache + Firestore tickler realtime                                               | 22        |
 | `Web2QrModal`                              | [web2-qr-modal.js](../../web2/shared/web2-qr-modal.js)                                | WEB2.0 shared component — reusable QR modal cho customer-wallet + partner-customer.                     | 1         |
 | `Web2QR`                                   | [web2-qr.js](../../web2/shared/web2-qr.js)                                            | WEB2.0 shared — 1 NGUỒN sinh QR "trang trí" đen trắng cho tem SP + PBH.                                 | 4         |
 | `Web2QuickReply`                           | [web2-quick-reply.js](../../web2/shared/web2-quick-reply.js)                          | Web 2.0 — Quick Reply system                                                                            | 1         |
@@ -186,7 +187,7 @@ Web 2.0 generic API client — talks to /api/web2/:entity/\*
 #### `WEB2_CONFIG`, `API_CONFIG`, `Web2Auth` — [web2/shared/web2-auth.js](../../web2/shared/web2-auth.js) · 243 dòng
 
 Token storage + verify + page guard.
-**Dùng bởi:** `live-chat/js/api-config.js`, `live-chat/js/live/comments-mobile-state.js`, `live-chat/js/live/live-api.js`, `live-chat/js/live/live-campaign-manager.js`, `live-chat/js/live/live-comment-list-base.js`, `live-chat/js/live/live-hidden-commenters.js`, `live-chat/js/live/live-init-state.js`, `live-chat/js/live/live-livestream-snap-lock.js`, `live-chat/js/live/live-livestream-snap-state.js`, `live-chat/js/live/live-native-orders-api.js`, `live-chat/js/live/live-state.js`, `live-chat/js/pancake/inventory-panel-state.js`, `live-chat/js/pancake/pancake-api.js`, `live-chat/js/pancake/pancake-chat-window.js`, `live-chat/js/pancake/pancake-page-access-tokens.js`, `live-chat/js/pancake/pancake-state.js`, `live-chat/js/shared/debt-manager.js`, `live-chat/js/shared/live-customer-sync.js`, `native-orders/js/native-orders-api.js`, `native-orders/js/native-orders-bulk-operations.js`, `native-orders/js/native-orders-customer-panel.js`, `native-orders/js/native-orders-inbox-resolve.js`, `native-orders/js/native-orders-kpi.js`, `native-orders/js/native-orders-product-picker.js`, `native-orders/js/native-orders-snapshots.js`, `native-orders/js/native-orders-state.js`, `so-order/js/so-order-state.js`, `so-order/js/so-order-storage-sync.js`, `web2/balance-history/js/web2-bh-core.js`, `web2/balance-history/js/web2-link-customer-modal.js`, `web2/balance-history/js/web2-manual-deposit.js`, `web2/balance-history/js/web2-pm-core.js`, `web2/ck-dashboard/js/ck-dashboard-app.js`, `web2/customer-wallet/js/web2-customer-wallet-state.js`, `web2/customers/js/customers-api.js`, `web2/fastsaleorder-delivery/dlv-app.js`, `web2/fastsaleorder-invoice/pbh-api.js`, `web2/fastsaleorder-invoice/pbh-state.js`, `web2/fastsaleorder-refund/rf-app.js`, `web2/fb-ads-stats/js/fb-ads-manual.js`, `web2/fb-posts/js/fb-posts-composer.js`, `web2/jt-tracking/js/jt-tracking-api.js`, `web2/jt-tracking/js/jt-tracking-constants.js`, `web2/kpi/js/kpi-assignments.js`, `web2/kpi/js/kpi-dashboard.js`, `web2/multi-tool/js/multi-tool.js`, `web2/pancake-settings/js/pancake-settings-api.js`, `web2/pancake-settings/js/pancake-settings-state.js`, `web2/payment-confirm/js/payment-confirm-app.js`, `web2/photo-studio/photo-studio-bg.js`, `web2/products/js/web2-products-api.js`, `web2/products/js/web2-products-print-barcode.js`, `web2/products/js/web2-products-print-utils.js`, `web2/products/js/web2-products-state.js`, `web2/purchase-refund/js/purchase-refund-api.js`, `web2/purchase-refund/js/purchase-refund-state.js`, `web2/reconcile/js/reconcile-state.js`, `web2/returns/js/returns-api.js`, `web2/shared/beauty/web2-beauty-face.js`, `web2/shared/chat-panel/web2-chat-panel-state.js`, `web2/shared/delivery-method-picker.js`, `web2/shared/web2-api-fetch.js`, `web2/shared/web2-api.js`, `web2/shared/web2-avatar-utils.js`, `web2/shared/web2-chat-utils.js`, `web2/shared/web2-ck-assign-picker.js`, `web2/shared/web2-ck-review.js`, `web2/shared/web2-customer-chat-core.js`, `web2/shared/web2-customer-detail-modal.js`, `web2/shared/web2-customer-store.js`, `web2/shared/web2-fb-client.js`, `web2/shared/web2-msg-template-core.js`, `web2/shared/web2-notification-bell.js`, `web2/shared/web2-pancake-accounts.js`, `web2/shared/web2-printer.js`, `web2/shared/web2-product-counter.js`, `web2/shared/web2-qr-modal.js`, `web2/shared/web2-quick-reply.js`, `web2/shared/web2-realtime.js`, `web2/shared/web2-return-bill.js`, `web2/shared/web2-sidebar.js`, `web2/shared/web2-so-order-reader.js`, `web2/shared/web2-suppliers-cache.js`, `web2/shared/web2-unread-panel.js`, `web2/shared/web2-user-info.js`, `web2/shared/web2-wallet-api.js`, `web2/shared/web2-wallet-balance.js`, `web2/shared/web2-zalo-api.js`, `web2/shared/web2-zalo.js`, `web2/supplier-debt/js/supplier-debt-api.js`, `web2/supplier-wallet/js/supplier-wallet-storage.js`, `web2/system/js/system-services.js`, `web2/system/js/system-sse.js`, `web2/users/js/users-app.js`, `web2/variants/js/web2-variants-api.js`, `web2/video-maker/js/video-ai-script.js`
+**Dùng bởi:** `live-chat/js/api-config.js`, `live-chat/js/live/comments-mobile-state.js`, `live-chat/js/live/live-api.js`, `live-chat/js/live/live-campaign-manager.js`, `live-chat/js/live/live-comment-list-base.js`, `live-chat/js/live/live-hidden-commenters.js`, `live-chat/js/live/live-init-state.js`, `live-chat/js/live/live-livestream-snap-lock.js`, `live-chat/js/live/live-livestream-snap-state.js`, `live-chat/js/live/live-native-orders-api.js`, `live-chat/js/live/live-state.js`, `live-chat/js/pancake/inventory-panel-state.js`, `live-chat/js/pancake/pancake-api.js`, `live-chat/js/pancake/pancake-chat-window.js`, `live-chat/js/pancake/pancake-page-access-tokens.js`, `live-chat/js/pancake/pancake-state.js`, `live-chat/js/shared/debt-manager.js`, `live-chat/js/shared/live-customer-sync.js`, `native-orders/js/native-orders-api.js`, `native-orders/js/native-orders-bulk-operations.js`, `native-orders/js/native-orders-customer-panel.js`, `native-orders/js/native-orders-inbox-resolve.js`, `native-orders/js/native-orders-kpi.js`, `native-orders/js/native-orders-product-picker.js`, `native-orders/js/native-orders-snapshots.js`, `native-orders/js/native-orders-state.js`, `so-order/js/so-order-state.js`, `so-order/js/so-order-storage-sync.js`, `web2/balance-history/js/web2-bh-core.js`, `web2/balance-history/js/web2-link-customer-modal.js`, `web2/balance-history/js/web2-manual-deposit.js`, `web2/balance-history/js/web2-pm-core.js`, `web2/ck-dashboard/js/ck-dashboard-app.js`, `web2/customer-wallet/js/web2-customer-wallet-state.js`, `web2/customers/js/customers-api.js`, `web2/fastsaleorder-delivery/dlv-app.js`, `web2/fastsaleorder-invoice/pbh-api.js`, `web2/fastsaleorder-invoice/pbh-state.js`, `web2/fastsaleorder-refund/rf-app.js`, `web2/fb-ads-stats/js/fb-ads-manual.js`, `web2/fb-posts/js/fb-posts-composer.js`, `web2/jt-tracking/js/jt-tracking-api.js`, `web2/jt-tracking/js/jt-tracking-constants.js`, `web2/kpi/js/kpi-assignments.js`, `web2/kpi/js/kpi-dashboard.js`, `web2/multi-tool/js/multi-tool.js`, `web2/pancake-settings/js/pancake-settings-api.js`, `web2/pancake-settings/js/pancake-settings-state.js`, `web2/payment-confirm/js/payment-confirm-app.js`, `web2/photo-studio/photo-studio-bg.js`, `web2/products/js/web2-products-api.js`, `web2/products/js/web2-products-print-barcode.js`, `web2/products/js/web2-products-print-utils.js`, `web2/products/js/web2-products-state.js`, `web2/purchase-refund/js/purchase-refund-api.js`, `web2/purchase-refund/js/purchase-refund-state.js`, `web2/reconcile/js/reconcile-state.js`, `web2/returns/js/returns-api.js`, `web2/shared/beauty/web2-beauty-face.js`, `web2/shared/chat-panel/web2-chat-panel-state.js`, `web2/shared/delivery-method-picker.js`, `web2/shared/web2-api-fetch.js`, `web2/shared/web2-api.js`, `web2/shared/web2-avatar-utils.js`, `web2/shared/web2-chat-utils.js`, `web2/shared/web2-ck-assign-picker.js`, `web2/shared/web2-ck-review.js`, `web2/shared/web2-customer-chat-core.js`, `web2/shared/web2-customer-detail-modal.js`, `web2/shared/web2-customer-store.js`, `web2/shared/web2-fb-client.js`, `web2/shared/web2-msg-template-core.js`, `web2/shared/web2-notification-bell.js`, `web2/shared/web2-pancake-accounts.js`, `web2/shared/web2-printer.js`, `web2/shared/web2-product-counter.js`, `web2/shared/web2-qr-modal.js`, `web2/shared/web2-quick-reply.js`, `web2/shared/web2-realtime.js`, `web2/shared/web2-return-bill.js`, `web2/shared/web2-sidebar.js`, `web2/shared/web2-so-order-reader.js`, `web2/shared/web2-suppliers-cache.js`, `web2/shared/web2-unread-panel.js`, `web2/shared/web2-user-info.js`, `web2/shared/web2-vieneu.js`, `web2/shared/web2-wallet-api.js`, `web2/shared/web2-wallet-balance.js`, `web2/shared/web2-zalo-api.js`, `web2/shared/web2-zalo.js`, `web2/supplier-debt/js/supplier-debt-api.js`, `web2/supplier-wallet/js/supplier-wallet-storage.js`, `web2/system/js/system-services.js`, `web2/system/js/system-sse.js`, `web2/users/js/users-app.js`, `web2/variants/js/web2-variants-api.js`, `web2/video-maker/js/video-ai-script.js`
 
 #### `Web2AvatarUtils` — [web2/shared/web2-avatar-utils.js](../../web2/shared/web2-avatar-utils.js) · 140 dòng
 
@@ -264,7 +265,7 @@ Web 2.0 — Effects / animations library
 #### `Web2Escape` — [web2/shared/web2-escape.js](../../web2/shared/web2-escape.js) · 64 dòng
 
 WEB2.0 module.
-**Dùng bởi:** `native-orders/js/native-orders-kpi.js`, `native-orders/js/native-orders-packing-slip.js`, `native-orders/js/native-orders-state.js`, `so-order/js/so-order-format.js`, `web2/balance-history/js/web2-bh-core.js`, `web2/balance-history/js/web2-link-customer-modal.js`, `web2/balance-history/js/web2-manual-deposit.js`, `web2/balance-history/js/web2-pm-core.js`, `web2/ck-dashboard/js/ck-dashboard-app.js`, `web2/customer-wallet/js/web2-customer-wallet-state.js`, `web2/customers/js/customers-state.js`, `web2/fastsaleorder-delivery/dlv-app.js`, `web2/fastsaleorder-refund/rf-app.js`, `web2/kpi/js/kpi-assignments.js`, `web2/kpi/js/kpi-dashboard.js`, `web2/multi-tool/js/multi-tool.js`, `web2/payment-confirm/js/payment-confirm-app.js`, `web2/photo-editor/js/photo-editor.js`, `web2/product-card/js/product-card.js`, `web2/products/js/web2-product-detail.js`, `web2/products/js/web2-products-print-utils.js`, `web2/products/js/web2-products-state.js`, `web2/purchase-refund/js/purchase-refund-state.js`, `web2/reconcile/js/reconcile-state.js`, `web2/shared/page-builder.js`, `web2/shared/web2-avatar-utils.js`, `web2/shared/web2-ck-assign-picker.js`, `web2/shared/web2-ck-review.js`, `web2/shared/web2-customer-detail-modal.js`, `web2/shared/web2-image-lightbox.js`, `web2/shared/web2-import.js`, `web2/shared/web2-notification-bell.js`, `web2/shared/web2-quick-reply.js`, `web2/shared/web2-sidebar.js`, `web2/shared/web2-unread-panel.js`, `web2/supplier-debt/js/supplier-debt-state.js`, `web2/supplier-wallet/js/supplier-wallet-state.js`, `web2/users/js/users-app.js`, `web2/variants/js/web2-variants-app.js`, `web2/video-maker/js/video-maker.js`
+**Dùng bởi:** `native-orders/js/native-orders-kpi.js`, `native-orders/js/native-orders-packing-slip.js`, `native-orders/js/native-orders-state.js`, `so-order/js/so-order-format.js`, `web2/balance-history/js/web2-bh-core.js`, `web2/balance-history/js/web2-link-customer-modal.js`, `web2/balance-history/js/web2-manual-deposit.js`, `web2/balance-history/js/web2-pm-core.js`, `web2/ck-dashboard/js/ck-dashboard-app.js`, `web2/customer-wallet/js/web2-customer-wallet-state.js`, `web2/customers/js/customers-state.js`, `web2/fastsaleorder-delivery/dlv-app.js`, `web2/fastsaleorder-refund/rf-app.js`, `web2/kpi/js/kpi-assignments.js`, `web2/kpi/js/kpi-dashboard.js`, `web2/multi-tool/js/multi-tool.js`, `web2/payment-confirm/js/payment-confirm-app.js`, `web2/photo-editor/js/photo-editor.js`, `web2/product-card/js/product-card.js`, `web2/products/js/web2-product-detail.js`, `web2/products/js/web2-products-print-utils.js`, `web2/products/js/web2-products-state.js`, `web2/purchase-refund/js/purchase-refund-state.js`, `web2/reconcile/js/reconcile-state.js`, `web2/shared/page-builder.js`, `web2/shared/web2-avatar-utils.js`, `web2/shared/web2-ck-assign-picker.js`, `web2/shared/web2-ck-review.js`, `web2/shared/web2-customer-detail-modal.js`, `web2/shared/web2-image-lightbox.js`, `web2/shared/web2-import.js`, `web2/shared/web2-notification-bell.js`, `web2/shared/web2-product-picker.js`, `web2/shared/web2-quick-reply.js`, `web2/shared/web2-sidebar.js`, `web2/shared/web2-unread-panel.js`, `web2/supplier-debt/js/supplier-debt-state.js`, `web2/supplier-wallet/js/supplier-wallet-state.js`, `web2/users/js/users-app.js`, `web2/variants/js/web2-variants-app.js`, `web2/video-maker/js/video-maker.js`
 
 #### `Web2Export` — [web2/shared/web2-export-helpers.js](../../web2/shared/web2-export-helpers.js) · 160 dòng
 
@@ -275,7 +276,7 @@ WEB2.0 module.
 WEB2 EXTENSION BRIDGE
 **Dùng bởi:** `live-chat/js/pancake/pancake-chat-window.js`, `web2/shared/web2-customer-chat-core.js`, `web2/shared/web2-customer-chat.js`, `web2/zalo/js/web2-zalo-accounts.js`
 
-#### `Web2FbClient`, `FBPostsApi` — [web2/shared/web2-fb-client.js](../../web2/shared/web2-fb-client.js) · 119 dòng
+#### `Web2FbClient`, `FBPostsApi` — [web2/shared/web2-fb-client.js](../../web2/shared/web2-fb-client.js) · 120 dòng
 
 WEB2.0 shared — Facebook Graph API client (1 NGUỒN cho mọi trang FB).
 **Dùng bởi:** `web2/fb-ads-stats/js/fb-ads-manual.js`, `web2/fb-ads-stats/js/fb-ads-stats.js`, `web2/fb-insights/js/fb-insights.js`, `web2/fb-posts/js/fb-posts-app.js`, `web2/fb-posts/js/fb-posts-composer.js`, `web2/fb-posts/js/fb-posts-drafts.js`, `web2/fb-posts/js/fb-posts-list.js`, `web2/fb-posts/js/fb-posts-media.js`
@@ -415,10 +416,15 @@ WEB2.0 module.
 WEB2.0 — Web2ProductCounter: đếm số SP qua camera realtime, DÙNG CHUNG mọi trang.
 **Dùng bởi:** `web2/product-counter/js/product-counter.js`, `web2/shared/beauty/web2-beauty-face.js`, `web2/shared/web2-barcode-scanner.js`, `web2/shared/web2-label-ocr.js`
 
+#### `Web2ProductPicker` — [web2/shared/web2-product-picker.js](../../web2/shared/web2-product-picker.js) · 157 dòng
+
+WEB2.0 shared — chọn SP từ Kho SP (1 hoặc NHIỀU) trả full object.
+**Dùng bởi:** `web2/fb-posts/js/fb-posts-composer.js`
+
 #### `Web2ProductsCache` — [web2/shared/web2-products-cache.js](../../web2/shared/web2-products-cache.js) · 450 dòng
 
 Web2 Products — Shared cache + Firestore tickler realtime
-**Dùng bởi:** `so-order/js/so-order-app.js`, `so-order/js/so-order-kho-sync.js`, `so-order/js/so-order-modal-core.js`, `so-order/js/so-order-modal-suggest.js`, `so-order/js/so-order-receive.js`, `so-order/js/so-order-render.js`, `web2/fb-posts/js/fb-posts-media.js`, `web2/photo-editor/js/photo-editor.js`, `web2/product-card/js/product-card.js`, `web2/products/js/web2-products-actions.js`, `web2/products/js/web2-products-app.js`, `web2/products/js/web2-products-modal.js`, `web2/products/js/web2-products-render.js`, `web2/products/js/web2-products-variant-picker.js`, `web2/purchase-refund/js/purchase-refund-actions.js`, `web2/purchase-refund/js/purchase-refund-api.js`, `web2/purchase-refund/js/purchase-refund-modal.js`, `web2/purchase-refund/js/purchase-refund-render.js`, `web2/supplier-wallet/js/supplier-wallet-actions.js`, `web2/supplier-wallet/js/supplier-wallet-app.js`, `web2/video-maker/js/video-maker.js`
+**Dùng bởi:** `so-order/js/so-order-app.js`, `so-order/js/so-order-kho-sync.js`, `so-order/js/so-order-modal-core.js`, `so-order/js/so-order-modal-suggest.js`, `so-order/js/so-order-receive.js`, `so-order/js/so-order-render.js`, `web2/fb-posts/js/fb-posts-media.js`, `web2/photo-editor/js/photo-editor.js`, `web2/product-card/js/product-card.js`, `web2/products/js/web2-products-actions.js`, `web2/products/js/web2-products-app.js`, `web2/products/js/web2-products-modal.js`, `web2/products/js/web2-products-render.js`, `web2/products/js/web2-products-variant-picker.js`, `web2/purchase-refund/js/purchase-refund-actions.js`, `web2/purchase-refund/js/purchase-refund-api.js`, `web2/purchase-refund/js/purchase-refund-modal.js`, `web2/purchase-refund/js/purchase-refund-render.js`, `web2/shared/web2-product-picker.js`, `web2/supplier-wallet/js/supplier-wallet-actions.js`, `web2/supplier-wallet/js/supplier-wallet-app.js`, `web2/video-maker/js/video-maker.js`
 
 #### `Web2QrModal` — [web2/shared/web2-qr-modal.js](../../web2/shared/web2-qr-modal.js) · 299 dòng
 
@@ -499,7 +505,7 @@ WEB2.0 module.
 Web2 Variants — Shared cache + Firestore tickler realtime
 **Dùng bởi:** `so-order/js/so-order-app.js`, `so-order/js/so-order-inline-edit.js`, `so-order/js/so-order-kho-sync.js`, `so-order/js/so-order-modal-random.js`, `so-order/js/so-order-modal-suggest.js`, `web2/products/js/web2-products-app.js`, `web2/products/js/web2-products-modal.js`, `web2/products/js/web2-products-state.js`, `web2/products/js/web2-products-variant-picker.js`, `web2/shared/web2-variant-multi.js`, `web2/variants/js/web2-variants-app.js`
 
-#### `Web2Vieneu` — [web2/shared/web2-vieneu.js](../../web2/shared/web2-vieneu.js) · 140 dòng
+#### `Web2Vieneu` — [web2/shared/web2-vieneu.js](../../web2/shared/web2-vieneu.js) · 167 dòng
 
 WEB2.0 shared — kho Voice.
 **Dùng bởi:** `web2/video-maker/js/video-tts.js`, `web2/video-maker/js/video-vieneu.js`
@@ -1208,10 +1214,10 @@ WEB2.0 module — Zalo chat sticker picker.
     - exposes: `FBPosts`
     - uses shared: `Popup`, `FBPostsApi`, `Web2Sidebar`, `Web2SSE`
     - funcs (12): Api, close, esc, init, loadStatus, notify, onclick, openConnect, renderActive, renderPill, setupSSE, switchTab
-- **[fb-posts-composer.js](../../web2/fb-posts/js/fb-posts-composer.js)** ·393 — WEB2.0 — Đăng bài FB: soạn bài (page chips + AI caption + media + lịch + đăng).
+- **[fb-posts-composer.js](../../web2/fb-posts/js/fb-posts-composer.js)** ·487 — WEB2.0 — Đăng bài FB: soạn bài (page chips + AI caption + media + lịch + đăng).
     - exposes: `FBPostsComposer`
-    - uses shared: `Popup`, `Web2Auth`, `FBPostsApi`, `Web2FbShare`
-    - funcs (18): Api, Media, S, confirmDo, defaultSchedule, esc, gather, generate, loadDraft, maybeConsumeShare, notify, pageChipsHtml, product, publish, render, resetForm, saveDraft, wire
+    - uses shared: `Popup`, `Web2Auth`, `FBPostsApi`, `Web2FbShare`, `Web2ProductPicker`
+    - funcs (23): Api, Media, S, confirmDo, defaultSchedule, esc, gather, generate, imgOf, loadDraft, maybeConsumeShare, notify, onConfirm, openKhoPicker, pageChipsHtml, product, publish, render, renderProductChips, resetForm, saveDraft, toProd, wire
 - **[fb-posts-drafts.js](../../web2/fb-posts/js/fb-posts-drafts.js)** ·170 — WEB2.0 — Đăng bài FB: Lịch & Nháp (agenda theo ngày, sửa/đăng/xoá).
     - exposes: `FBPostsDrafts`
     - uses shared: `Popup`, `FBPostsApi`
@@ -1598,10 +1604,10 @@ WEB2.0 module — Zalo chat sticker picker.
     - exposes: `Web2VideoTTS`
     - uses shared: `Web2Vieneu`
     - funcs (16): \_concat, \_decodeCtx, \_getMms, \_getPiper, \_mmsChunk, \_piperChunk, \_resample, \_serialize, \_splitSentences, \_vieneuChunk, \_voice, cancelPreview, registerVieneuVoices, speakPreview, synthesize, toAudioBuffer
-- **[video-vieneu.js](../../web2/video-maker/js/video-vieneu.js)** ·116 — WEB2.0 module.
+- **[video-vieneu.js](../../web2/video-maker/js/video-vieneu.js)** ·164 — WEB2.0 module.
     - exposes: `Web2VideoVieneuUI`
     - uses shared: `Web2Vieneu`
-    - funcs (8): $, applyRef, connect, init, notify, ondataavailable, onstop, setStat
+    - funcs (10): $, applyRef, connect, init, notify, ondataavailable, onstop, refreshServers, renderServers, setStat
 
 ### web2/zalo — WEB2.0 module.
 
@@ -1771,7 +1777,7 @@ WEB2.0 module — Zalo chat sticker picker.
 - **[web2-extension-bridge.js](../../web2/shared/web2-extension-bridge.js)** ·91 — WEB2 EXTENSION BRIDGE
     - exposes: `Web2Ext`
     - funcs (4): hasExtension, onMsg, request, version
-- **[web2-fb-client.js](../../web2/shared/web2-fb-client.js)** ·119 — WEB2.0 shared — Facebook Graph API client (1 NGUỒN cho mọi trang FB).
+- **[web2-fb-client.js](../../web2/shared/web2-fb-client.js)** ·120 — WEB2.0 shared — Facebook Graph API client (1 NGUỒN cho mọi trang FB).
     - exposes: `Web2FbClient`, `FBPostsApi`
     - uses shared: `WEB2_CONFIG`, `API_CONFIG`, `Web2Auth`
     - funcs (28): BASE, adAccounts, adEntries, adInsights, caption, connect, del, deleteAdEntry, deleteDraft, disconnect, drafts, engagement, headers, insightsProbe, jget, jpost, list, loginUrl, onload, postDetail, postEdit, publish, refreshPages, saveAdEntry, saveDraft, status, uploadImage, workerBase
@@ -1877,6 +1883,10 @@ WEB2.0 module — Zalo chat sticker picker.
     - exposes: `Web2ProductCounter`
     - uses shared: `WEB2_CONFIG`, `Web2CustomerChat`, `Web2Lottie`
     - funcs (32): categoryName, close, createController, destroy, drawBoxes, emit, ensureStyles, filterDets, flipCamera, getCount, getDetections, getDetector, isRunning, loadVision, loop, make, median, mount, notify, off, on, onKey, open, p, resolveTarget, setCount, setStatus, setToggleUi, start, stop, stopTracks, toggle
+- **[web2-product-picker.js](../../web2/shared/web2-product-picker.js)** ·157 — WEB2.0 shared — chọn SP từ Kho SP (1 hoặc NHIỀU) trả full object.
+    - exposes: `Web2ProductPicker`
+    - uses shared: `Web2Escape`, `Web2ProductsCache`
+    - funcs (10): cellHtml, close, draw, esc, imgOf, notify, onclick, open, priceText, updateCount
 - **[web2-products-cache.js](../../web2/shared/web2-products-cache.js)** ·450 — Web2 Products — Shared cache + Firestore tickler realtime
     - exposes: `Web2ProductsCache`
     - uses shared: `Web2SSE`
@@ -1941,9 +1951,10 @@ WEB2.0 module — Zalo chat sticker picker.
     - exposes: `Web2VariantsCache`
     - uses shared: `Web2ProductCode`, `Web2SSE`
     - funcs (17): \_clientId, \_emit, \_loadList, \_normalize, \_scheduleRefresh, \_setupRealtime, findByValue, findByValueExact, getAll, getAllIncludingInactive, getColorShortMap, has, init, initPromise, pushTickle, refresh, subscribe
-- **[web2-vieneu.js](../../web2/shared/web2-vieneu.js)** ·140 — WEB2.0 shared — kho Voice.
+- **[web2-vieneu.js](../../web2/shared/web2-vieneu.js)** ·167 — WEB2.0 shared — kho Voice.
     - exposes: `Web2Vieneu`
-    - funcs (12): \_ctx, \_decode, \_headers, \_need, clone, getSecret, getUrl, health, listVoices, setSecret, setUrl, synthesize
+    - uses shared: `WEB2_CONFIG`, `API_CONFIG`
+    - funcs (14): \_ctx, \_decode, \_headers, \_need, \_registryBase, clone, getSecret, getUrl, health, listServers, listVoices, setSecret, setUrl, synthesize
 - **[web2-wallet-api.js](../../web2/shared/web2-wallet-api.js)** ·214 — WEB2.0 shared — client ví KH /api/web2/wallets (NGUỒN CHUNG).
     - exposes: `Web2WalletApi`
     - uses shared: `Web2Auth`, `Web2Format`, `Web2PhoneUtils`, `Web2UserInfo`, `Web2WalletBalance`
@@ -2066,7 +2077,7 @@ WEB2.0 module — Zalo chat sticker picker.
 | `rowHtml`          | 4       |                                                       | so-order-render.js, fb-ads-manual.js, fb-posts-drafts.js, jt-tracking-render.js                                                                                                                                                                                                                                                                                                 |
 | `safeImageUrl`     | 4       |                                                       | web2-products-state.js, purchase-refund-state.js, web2-escape.js, web2-image-lightbox.js                                                                                                                                                                                                                                                                                        |
 
-_…và 68 hàm trùng khác (xem web2-codemap.json)._
+_…và 70 hàm trùng khác (xem web2-codemap.json)._
 
 ## 5. File quá lớn (> 800 dòng) — cần tách module
 
