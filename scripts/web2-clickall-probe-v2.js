@@ -25,6 +25,7 @@ const PAGES = [
     'web2/products',
     'web2/variants',
     'web2/product-category',
+    'web2/product-counter',
     'web2/fastsaleorder-invoice',
     'web2/fastsaleorder-delivery',
     'web2/fastsaleorder-refund',
