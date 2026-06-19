@@ -33,18 +33,6 @@
         }
     });
 
-    // Chủ động hỏi extension thay vì chỉ chờ EXTENSION_LOADED (announce 1 lần lúc
-    // content script load — nếu bridge này load SAU thì sẽ bỏ lỡ → hasExtension()
-    // kẹt false vĩnh viễn). CHECK_EXTENSION_VERSION ∈ INBOUND_TYPES → SW trả
-    // EXTENSION_VERSION (đã bắt ở listener trên). Ping vài nhịp đầu cho chắc.
-    function _ping() {
-        try {
-            global.postMessage({ type: 'CHECK_EXTENSION_VERSION' }, '*');
-        } catch {}
-    }
-    _ping();
-    [200, 800, 2000].forEach((ms) => setTimeout(_ping, ms));
-
     function hasExtension() {
         return _ready;
     }

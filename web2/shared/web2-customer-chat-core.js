@@ -168,11 +168,9 @@
             fr.readAsDataURL(file);
         });
     }
-    // Trả { ok, error?, reason? } — KHÔNG nuốt lỗi (trước đây return false làm ẩn
-    // lý do bypass fail → user chỉ thấy Pancake 24h fail chung chung).
     async function _trySendViaExtension(conv, text, att, stickerId) {
-        if (!conv || (!text && !att && !stickerId)) return { ok: false, reason: 'no-input' };
-        if (!global.Web2Ext?.hasExtension?.()) return { ok: false, reason: 'no-extension' };
+        if (!conv || (!text && !att && !stickerId)) return false;
+        if (!global.Web2Ext?.hasExtension?.()) return false;
         try {
             const pageId = conv.page_id;
             const customerId = conv.customers?.[0]?.id || null;
@@ -229,8 +227,7 @@
                     60000
                 );
                 const fbId = up?.data?.fbId;
-                if (!up.ok || !fbId)
-                    return { ok: false, error: 'Tải ảnh lên FB lỗi: ' + (up?.error || 'không rõ') };
+                if (!up.ok || !fbId) return false;
                 files = [fbId];
                 attachmentType = att.kind || 'FILE';
             }
@@ -254,15 +251,9 @@
                 },
                 60000
             );
-            if (r.ok) return { ok: true };
-            // gợi ý nguyên nhân hay gặp khi chưa resolve được global id thật
-            let hint = r.error || 'REPLY_INBOX_PHOTO thất bại';
-            if (!globalUserId)
-                hint +=
-                    ' (chưa lấy được Facebook Global ID — kiểm tra đã đăng nhập business.facebook.com trong trình duyệt cùng extension chưa)';
-            return { ok: false, error: hint };
-        } catch (e) {
-            return { ok: false, error: e?.message || String(e) };
+            return !!r.ok;
+        } catch {
+            return false;
         }
     }
     async function _performSend(conv, text, att) {
@@ -271,26 +262,16 @@
         const customerId = conv.customers?.[0]?.id || null;
         const action = conv.type === 'COMMENT' ? 'reply_comment' : 'reply_inbox';
         // 1) Extension-first (bypass 24h)
-        let _extErr = null;
-        if (text || att) {
-            const ext = await _trySendViaExtension(conv, text, att);
-            if (ext.ok) {
-                return {
-                    via: 'extension',
-                    sent: {
-                        id: 'ext_' + Date.now(),
-                        message: text || (att ? '[Tệp đính kèm]' : ''),
-                        from: { id: pageId, name: 'You' },
-                        inserted_at: new Date().toISOString(),
-                    },
-                };
-            }
-            // KHÔNG có extension thì im lặng dùng Pancake; CÓ extension mà lỗi thật
-            // thì giữ lý do để báo nếu Pancake cũng fail (vd quá hạn 24h).
-            if (ext.error) {
-                _extErr = ext.error;
-                console.warn('[Web2CustomerChat] gửi bypass extension lỗi → thử Pancake:', _extErr);
-            }
+        if ((text || att) && (await _trySendViaExtension(conv, text, att))) {
+            return {
+                via: 'extension',
+                sent: {
+                    id: 'ext_' + Date.now(),
+                    message: text || (att ? '[Tệp đính kèm]' : ''),
+                    from: { id: pageId, name: 'You' },
+                    inserted_at: new Date().toISOString(),
+                },
+            };
         }
         // 2) Fallback Web2Chat: upload media → send (+ PAT retry)
         const attachments = [];
@@ -320,12 +301,7 @@
                     attachments,
                 });
         }
-        if (!res || !res.ok) {
-            const base = res?.reason || 'Gửi tin thất bại';
-            throw new Error(
-                _extErr ? `Gửi bypass extension lỗi: ${_extErr}. Pancake cũng lỗi: ${base}` : base
-            );
-        }
+        if (!res || !res.ok) throw new Error(res?.reason || 'Gửi tin thất bại');
         const m = res.message && typeof res.message === 'object' ? res.message : {};
         const sent = {
             id: m.id || 'pk_' + Date.now(),

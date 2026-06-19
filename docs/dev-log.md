@@ -2,18 +2,6 @@
 
 ## 2026-06-19
 
-### [web2-chat] FIX Pancake bypass-extension "bị lỗi" — hiện rõ lý do + detect extension chắc hơn ✅
-
-User báo "bypass qua extension bị lỗi". Điều tra: `Web2Ext.hasExtension()`=true (extension load OK), manifest match đủ host (nhijudy.store/github.io/workers.dev/localhost), sender.js có báo lỗi đầy đủ — NHƯNG `_trySendViaExtension` trong `web2-customer-chat-core.js` **nuốt mọi lỗi** (`catch{return false}`) rồi âm thầm fallback Pancake → user chỉ thấy "Gửi tin thất bại" chung chung (Pancake 24h), KHÔNG biết bypass hỏng vì gì.
-
-**Fix (an toàn, không đụng FB GraphQL đang chạy):**
-
-- `_trySendViaExtension` trả `{ok,error,reason}` thay vì boolean; bắt lỗi từng bước (upload ảnh, REPLY_INBOX_PHOTO). Khi REPLY fail mà chưa resolve được Global ID → thêm gợi ý "kiểm tra đã đăng nhập business.facebook.com trong trình duyệt cùng extension chưa" (nguyên nhân hay gặp nhất).
-- `_performSend`: giữ lý do bypass; nếu Pancake fallback CŨNG lỗi → throw `"Gửi bypass extension lỗi: <reason>. Pancake cũng lỗi: <reason>"` (lỗi hiện lên toast, không còn ẩn).
-- `web2-extension-bridge.js`: chủ động `postMessage CHECK_EXTENSION_VERSION` (ping 0/200/800/2000ms) thay vì chỉ chờ EXTENSION_LOADED 1 lần (tránh kẹt `hasExtension()=false` khi bridge load sau announce).
-- Files: `web2/shared/web2-customer-chat-core.js`, `web2/shared/web2-extension-bridge.js`. Bump ?v→20260619c (5 trang includer).
-- **Verified live**: functional test (stub extension+Pancake cùng fail) → toast hiện đúng "Gửi bypass extension lỗi: … Pancake cũng lỗi: …"; 0 JS err. ⚠ Nguyên nhân gốc FB-side (doc_id/global-id/đăng nhập business.facebook.com) cần test ở browser có session FB Business thật.
-
 ### [web2/video-maker] NHIỀU GIỌNG + giọng mẫu + nút Tạo ngẫu nhiên ✅
 
 Mở rộng video-maker theo yêu cầu user:
@@ -50,9 +38,8 @@ Bổ sung sau nút full-sync ở footer: mỗi dòng SP **chọn từ kho TPOS**
 **RCA:** 2 frontend ĐỘC LẬP (`modal-shipment.js`, `accountant.js`) cùng POST 1 endpoint chung `POST /api/upload/image` → worker → Render `n2store-fallback` → `firebaseStorageService.uploadBase64Image()` → Firebase Storage. Loại trừ live: Render khoẻ (`/api/upload/health`=200), worker proxy OK, **Firebase init OK** (probe DELETE chạm logic, không phải 500 "Missing credentials"), body limit 100mb, code upload không đổi nhiều tháng. **Diagnostic POST thật chốt lỗi:** `500 {"error":"Invalid response body while trying to fetch https://www.googleapis.com/oauth2/v4/token: Premature close"}` → **Firebase Admin SDK lấy OAuth2 token từ Google FAIL** ở bước GHI file (server-side, không phải code Render). Không fix được trong code nếu giữ Firebase.
 
 **Fix (user chốt "chuyển hoàn toàn sang Postgres bytea, bỏ Firebase"):** migrate `/api/upload/image` sang Postgres `upload_images` (BYTEA) — đúng pattern `purchase_order_images` (migration 046). **Giữ NGUYÊN contract** (`POST /api/upload/image` base64 in → `{success,url}`) ⇒ **2 frontend KHÔNG đổi**. URL trả `https://n2store-fallback.onrender.com/api/upload/images/<id>` (serve trực tiếp Render cho `<img src>`, cache-immutable).
-
 - `render.com/migrations/050_create_upload_images.sql` (mirror 046) + lazy `ensureUploadImagesTable` trong route (fresh-deploy an toàn).
-- `render.com/routes/upload.js` viết lại: `POST /image` (base64→BYTEA), `GET /images/:id` (serve), `DELETE /image` (route theo URL: Postgres mới vs Firebase legacy best-effort). Pool `chatDb` thuần (Web 1.0, KHÔNG web2\_ / web2Db).
+- `render.com/routes/upload.js` viết lại: `POST /image` (base64→BYTEA), `GET /images/:id` (serve), `DELETE /image` (route theo URL: Postgres mới vs Firebase legacy best-effort). Pool `chatDb` thuần (Web 1.0, KHÔNG web2_ / web2Db).
 - `firebase-storage-service.js` **GIỮ NGUYÊN** (Telegram bot `telegram-bot.js` + `quy-trinh.js` còn dùng `uploadImageBuffer`/`getFirestore`) — chỉ thôi gọi upload từ `upload.js`.
 - Ảnh cũ (URL firebasestorage…) vẫn ĐỌC được qua download-token (GET công khai, không cần OAuth) → không cần backfill gấp.
 
