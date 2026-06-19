@@ -3,15 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `d49b450` — fix(web2/jt-tracking): backfill src_at từ tin Zalo cho row cũ → sort theo giờ tin nhắn nhận chạy được ngay
-**Last updated**: 2026-06-19 13:44:10 +07
-**Latest session**: [`RESUME:20260619-134410-d49b450`](../20260619-134410-d49b450.md)
-**Summary**: fix(web2/jt-tracking): backfill src_at từ tin Zalo cho row cũ → sort theo giờ tin nhắn nhận chạy đượ...
+**Latest commit**: `90e1604` — auto: session update
+**Last updated**: 2026-06-19 13:45:22 +07
+**Latest session**: [`RESUME:20260619-134522-90e1604`](../20260619-134522-90e1604.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`render.com/`](./render.com.md) — 1 file(s)
-- [`web2/`](./web2.md) — 1 file(s)
+- [`web2/`](./web2.md) — 3 file(s)
 
 ## All folder snapshots
 
@@ -74,4 +73,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-19 13:44
+- [`web2/`](./web2.md) — updated 2026-06-19 13:45
