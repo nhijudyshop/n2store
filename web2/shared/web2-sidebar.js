@@ -77,6 +77,9 @@
         // Lottie animation dùng chung (airbnb/lottie-web) — lazy, tự enhance
         // trạng thái rỗng + loading + feedback. Có mặt MỌI trang Web 2.0.
         if (!global.Web2Lottie) inject('web2-lottie.js', '20260615a');
+        // PWA — "Thêm vào Màn hình chính" (iOS/Android), không cần App Store/dev account.
+        // Inject manifest + apple meta + apple-touch-icon vào MỌI trang Web 2.0.
+        if (!global.Web2PWA) inject('web2-pwa.js', '20260620a');
         // Toast/notification dùng chung — đảm bảo MỌI trang có notificationManager
         // (audit: 3 trang thiếu → thao tác không có feedback). Guard theo script-tag.
         if (!document.querySelector('script[src*="notification-system"]')) {

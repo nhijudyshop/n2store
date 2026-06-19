@@ -1,0 +1,20 @@
+{
+    "name": "N2Store — Web 2.0",
+    "short_name": "N2Store",
+    "description": "Quản lý shop N2Store — Web 2.0",
+    "lang": "vi",
+    "start_url": "../overview/index.html",
+    "scope": "../",
+    "display": "standalone",
+    "orientation": "any",
+    "background_color": "#f4f6fb",
+    "theme_color": "#0068ff",
+    "icons": [
+        {
+            "src": "./img/logo-emblem.png",
+            "sizes": "256x256",
+            "type": "image/png",
+            "purpose": "any"
+        }
+    ]
+}
