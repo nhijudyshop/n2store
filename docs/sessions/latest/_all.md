@@ -3,16 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `b570dd1` — fix(web2/ai-script): mount route Web 2.0 CHỈ khi WEB2_SERVICE=1 (web2-api) — Web 1.0 (n2store-fallback) KHÔNG load, không bị ảnh hưởng
-**Last updated**: 2026-06-19 16:00:10 +07
-**Latest session**: [`RESUME:20260619-160010-b570dd1`](../20260619-160010-b570dd1.md)
-**Summary**: fix(web2/ai-script): mount route Web 2.0 CHỈ khi WEB2_SERVICE=1 (web2-api) — Web 1.0 (n2store-fallback) KHÔNG lo...
+**Latest commit**: `a082008` — fix(web2/ai-script): gate route bằng WEB1_ONLY (đúng convention WEB2_ONLY có sẵn) thay vì WEB2_SERVICE tự chế
+**Last updated**: 2026-06-19 16:10:25 +07
+**Latest session**: [`RESUME:20260619-161025-a082008`](../20260619-161025-a082008.md)
+**Summary**: fix(web2/ai-script): gate route bằng WEB1_ONLY (đúng convention WEB2_ONLY có sẵn) thay vì WEB2_SERVICE tự c...
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 3 file(s)
-- [`web2/`](./web2.md) — 2 file(s)
+- [`render.com/`](./render.com.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -56,7 +54,7 @@
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`referenceUI/`](./referenceUI.md) — updated 2026-06-19 14:27
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-06-16 00:35
-- [`render.com/`](./render.com.md) — updated 2026-06-19 16:00
+- [`render.com/`](./render.com.md) — updated 2026-06-19 16:10
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-19 14:27
 - [`service-costs/`](./service-costs.md) — updated 2026-06-16 11:15
