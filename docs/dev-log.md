@@ -2,6 +2,33 @@
 
 ## 2026-06-19
 
+### [web2/video-beauty] Trang MỚI "Làm đẹp video" on-device + fix treo nhận diện mặt (CPU) + preload ✅
+
+User: "tất cả chức năng beauty video như hình ảnh" + "render bằng cpu chứ không phải gpu?".
+
+**Trang mới `web2/video-beauty/`** (menu Đa dụng) — làm đẹp VIDEO 100% trên máy, giữ tiếng gốc:
+
+- `video-beauty-render.js` (`Web2VideoBeautyRender.applyFrame`): lọc màu (ctx.filter) + mịn da/trắng da/ấm (Web2BeautyFilters skin) + chỉnh mặt (Web2BeautyFace landmarks → warp). Tái dùng engine ảnh.
+- `video-beauty-export.js`: **exportRealtime** (MediaRecorder, mịn da+lọc màu, giữ tiếng — mượt, full FPS) + **exportRenderPass** (WebCodecs + **mp4-muxer@5** CDN, tua từng khung nhận diện+warp mặt, mux lại tiếng AAC — chậm hơn nhưng FPS đầy đủ + có thanh tiến trình).
+- `video-beauty.js`: tải video → preview realtime + sliders (mịn da/trắng da/ấm/lọc màu/chỉnh mặt) → xuất, có fallback realtime nếu render-pass lỗi.
+- **Verified live** (browser-test, tự sinh video face test): realtime→MP4 hợp lệ phát được; render-pass face→MP4 607KB phát được + mux tiếng.
+
+**Fix treo "Đang nhận diện khuôn mặt" (photo-editor + dùng chung):**
+
+- `web2-beauty-face.js`: GPU/WebGL infer lần đầu treo ~chục giây (biên dịch shader) → **đổi sang CPU (XNNPACK)** cho ảnh tĩnh 1 lần (nhanh+ổn) + downscale 1024 + watchdog 25s. Verified real face ~3.5s cold.
+- `photo-editor.js`: **preload `warmup()` ở nền khi tải ảnh** → bấm công cụ mặt chỉ ~1s (cache → tức thì lần sau). Engine MediaPipe ~13MB (model 3.76MB + wasm 9.5MB), KHÔNG phải 4MB.
+
+Research GitHub 4-agent (tách nhạc / video beauty / trích audio / encode) trước khi build → xác nhận Web Audio karaoke + WebCodecs+mp4-muxer là hướng đúng.
+
+### [web2/video-maker] Chỉnh chi tiết từng cảnh + nhạc nền (chèn/ghép/tách) + trích audio ✅
+
+User: "thêm chỉnh sửa chi tiết video" + "ghép nhạc, chèn nhạc, tách nhạc".
+
+- `video-render.js` mở rộng (tương thích ngược, default cũ): mỗi cảnh chỉnh **chuyển động** (phóng/thu/lia trái-phải/tĩnh) · **hiệu ứng vào** (mờ/trượt/phóng/qua đen/cắt) · **bộ lọc màu** · **vị trí chữ** (dưới/giữa/trên) · **khung hình** (lấp đầy/vừa khung + màu nền). Thời lượng chuyển cảnh chỉnh được.
+- `video-scene-editor.js` (mới): UI khối chi tiết mỗi cảnh (toggle ⚙). `video-maker.js`: bulk "áp dụng cho mọi cảnh".
+- `video-audio.js` (mới, `Web2VideoAudio`): **chèn/ghép nhạc nền** (mix giọng đọc + nhạc, chỉnh âm lượng từng kênh trong play + export) · **tách nhạc karaoke** (Web Audio L−R: lấy nhạc bỏ giọng / lấy giọng) · **trích audio** từ video (decodeAudioData) → xuất **.wav**.
+- Verified live: detail select (transition/motion/bg) cập nhật scene + render OK; module load OK.
+
 ### [web2/jt-tracking + shared/zalo-chat] Sort theo giờ Zalo + bỏ "Chuyển tiếp" + fix react/reply ✅
 
 User (2 ảnh): **(1) Trang Tra cứu vận đơn J&T** — sắp xếp theo **thời gian Zalo mới nhất ở trên cùng** + hiển thị thời gian chi tiết. **(2) Khung chat "Nhóm Zalo nguồn"** — bỏ nút **Chuyển tiếp**, fix nút **react bấm không được**, fix **bug reply tin nhắn**. ⚠ User dặn KHÔNG test vì Zalo đang là dữ liệu THẬT → chỉ sửa code, không gửi thử.

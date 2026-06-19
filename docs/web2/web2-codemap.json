@@ -1,9 +1,9 @@
 {
-    "generatedAt": "2026-06-19 06:31",
+    "generatedAt": "2026-06-19 07:25",
     "totals": {
-        "files": 355,
+        "files": 360,
         "sharedModules": 100,
-        "functions": 2610,
+        "functions": 2650,
         "oversized": 0
     },
     "sharedModules": [
@@ -12,8 +12,14 @@
             "globals": ["Web2BeautyFace"],
             "purpose": "WEB2.0 shared — beauty face landmarks.",
             "api": [],
-            "consumers": ["web2/shared/beauty/web2-beauty-studio.js"],
-            "lines": 215
+            "consumers": [
+                "web2/photo-editor/js/photo-editor.js",
+                "web2/shared/beauty/web2-beauty-studio.js",
+                "web2/video-beauty/js/video-beauty-export.js",
+                "web2/video-beauty/js/video-beauty-render.js",
+                "web2/video-beauty/js/video-beauty.js"
+            ],
+            "lines": 239
         },
         {
             "file": "web2/shared/beauty/web2-beauty-filters.js",
@@ -22,9 +28,11 @@
             "api": [],
             "consumers": [
                 "web2/shared/beauty/web2-beauty-face.js",
-                "web2/shared/beauty/web2-beauty-studio.js"
+                "web2/shared/beauty/web2-beauty-studio.js",
+                "web2/video-beauty/js/video-beauty-render.js",
+                "web2/video-beauty/js/video-beauty.js"
             ],
-            "lines": 367
+            "lines": 373
         },
         {
             "file": "web2/shared/beauty/web2-beauty-studio.js",
@@ -32,7 +40,7 @@
             "purpose": "WEB2.0 shared — beauty studio UI.",
             "api": [],
             "consumers": ["web2/photo-editor/js/photo-editor.js"],
-            "lines": 493
+            "lines": 513
         },
         {
             "file": "web2/shared/chat-panel/web2-chat-emoji-data.js",
@@ -1091,7 +1099,7 @@
                 "web2/returns/js/returns-app.js",
                 "web2/system/js/system-app.js"
             ],
-            "lines": 650
+            "lines": 655
         },
         {
             "file": "web2/shared/web2-so-order-reader.js",
@@ -1336,7 +1344,7 @@
                 "web2/zalo/js/web2-zalo-chat.js",
                 "web2/zalo/js/web2-zalo-lookup-zns.js"
             ],
-            "lines": 201
+            "lines": 205
         },
         {
             "file": "web2/shared/web2-zalo.js",
@@ -5148,10 +5156,11 @@
             "files": [
                 {
                     "file": "web2/photo-editor/js/photo-editor.js",
-                    "lines": 174,
+                    "lines": 181,
                     "purpose": "WEB2.0 module.",
                     "globals": ["PhotoEditorPage"],
                     "uses": [
+                        "Web2BeautyFace",
                         "Web2BeautyStudio",
                         "Web2Escape",
                         "Web2ImageEditor",
@@ -6090,7 +6099,7 @@
             "files": [
                 {
                     "file": "web2/shared/beauty/web2-beauty-face.js",
-                    "lines": 215,
+                    "lines": 239,
                     "purpose": "WEB2.0 shared — beauty face landmarks.",
                     "globals": ["Web2BeautyFace"],
                     "uses": ["Web2BeautyFilters", "WEB2_CONFIG", "Web2ProductCounter"],
@@ -6109,7 +6118,7 @@
                 },
                 {
                     "file": "web2/shared/beauty/web2-beauty-filters.js",
-                    "lines": 367,
+                    "lines": 373,
                     "purpose": "WEB2.0 shared — beauty engine (pure pixel ops).",
                     "globals": ["Web2BeautyFilters"],
                     "uses": [],
@@ -6134,7 +6143,7 @@
                 },
                 {
                     "file": "web2/shared/beauty/web2-beauty-studio.js",
-                    "lines": 493,
+                    "lines": 513,
                     "purpose": "WEB2.0 shared — beauty studio UI.",
                     "globals": ["Web2BeautyStudio"],
                     "uses": ["Web2BeautyFace", "Web2BeautyFilters"],
@@ -7783,7 +7792,7 @@
                 },
                 {
                     "file": "web2/shared/web2-sidebar.js",
-                    "lines": 650,
+                    "lines": 655,
                     "purpose": "WEB2-clone sidebar for Web 2.0 pages.",
                     "globals": ["Web2Sidebar"],
                     "uses": [
@@ -8045,7 +8054,7 @@
                 },
                 {
                     "file": "web2/shared/web2-zalo-api.js",
-                    "lines": 201,
+                    "lines": 205,
                     "purpose": "WEB2.0 module — ZaloApi wrapper (/api/web2-zalo).",
                     "globals": ["ZaloApi"],
                     "uses": ["API_CONFIG", "Web2Auth"],
@@ -8081,6 +8090,7 @@
                         "sendMessage",
                         "sendSticker",
                         "sendZns",
+                        "setPrimary",
                         "status",
                         "stickers",
                         "syncConversations",
@@ -8744,11 +8754,96 @@
             ]
         },
         {
+            "page": "web2/video-beauty",
+            "files": [
+                {
+                    "file": "web2/video-beauty/js/video-beauty-export.js",
+                    "lines": 236,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["Web2VideoBeautyExport"],
+                    "uses": ["Web2BeautyFace"],
+                    "functions": [
+                        "R",
+                        "done",
+                        "encodeAudio",
+                        "error",
+                        "exportRealtime",
+                        "exportRenderPass",
+                        "hasWebCodecs",
+                        "ondataavailable",
+                        "onended",
+                        "output",
+                        "pickMime",
+                        "seek",
+                        "step"
+                    ]
+                },
+                {
+                    "file": "web2/video-beauty/js/video-beauty-render.js",
+                    "lines": 79,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["Web2VideoBeautyRender"],
+                    "uses": ["Web2BeautyFace", "Web2BeautyFilters"],
+                    "functions": ["applyFrame", "needsSkin"]
+                },
+                {
+                    "file": "web2/video-beauty/js/video-beauty.js",
+                    "lines": 287,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["VideoBeautyPage"],
+                    "uses": ["Web2BeautyFace", "Web2BeautyFilters"],
+                    "functions": [
+                        "$",
+                        "bind",
+                        "d",
+                        "doExport",
+                        "downloadBlob",
+                        "drawCurrent",
+                        "fileToVideo",
+                        "fitView",
+                        "init",
+                        "loadFile",
+                        "notify",
+                        "pct",
+                        "playPreview",
+                        "previewLoop",
+                        "renderFilters",
+                        "setProg",
+                        "setStatus",
+                        "setupOutputSize",
+                        "stopPreview",
+                        "upd",
+                        "wireSliders"
+                    ]
+                }
+            ]
+        },
+        {
             "page": "web2/video-maker",
             "files": [
                 {
+                    "file": "web2/video-maker/js/video-audio.js",
+                    "lines": 159,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["Web2VideoAudio"],
+                    "uses": [],
+                    "functions": [
+                        "ac",
+                        "add",
+                        "bufferToWavBlob",
+                        "buildMixGraph",
+                        "decodeFile",
+                        "downloadWav",
+                        "karaokeSplit",
+                        "samplesToBuffer",
+                        "start",
+                        "stop",
+                        "wstr"
+                    ]
+                },
+                {
                     "file": "web2/video-maker/js/video-maker.js",
-                    "lines": 644,
+                    "lines": 798,
                     "purpose": "WEB2.0 module.",
                     "globals": ["VideoMakerPage"],
                     "uses": ["Web2Escape", "Web2ProductsCache"],
@@ -8760,10 +8855,14 @@
                         "addImagesFromFiles",
                         "applyCanvasSize",
                         "audioCtx",
+                        "buildAudioGraph",
+                        "detail",
                         "dims",
                         "drawAt",
                         "esc",
                         "exportVideo",
+                        "fill",
+                        "fillBulkSelects",
                         "findScene",
                         "fitPreview",
                         "fmtPriceShort",
@@ -8771,6 +8870,7 @@
                         "init",
                         "loadImage",
                         "loadImageCors",
+                        "loadMusicFile",
                         "loop",
                         "narrationBuffer",
                         "notify",
@@ -8783,6 +8883,7 @@
                         "play",
                         "playSample",
                         "randomGenerate",
+                        "refresh",
                         "renderPickers",
                         "renderScenes",
                         "renderVoices",
@@ -8792,22 +8893,35 @@
                         "tonePitch",
                         "totalDur",
                         "voiceLabel",
+                        "wireAudioUi",
                         "wireSceneList"
                     ]
                 },
                 {
                     "file": "web2/video-maker/js/video-render.js",
-                    "lines": 156,
+                    "lines": 305,
                     "purpose": "WEB2.0 module.",
                     "globals": ["Web2VideoRender"],
                     "uses": [],
                     "functions": [
-                        "_drawImageZoom",
+                        "_drawImageMotion",
                         "_drawScene",
+                        "_drawText",
+                        "_drawTransition",
+                        "_filterCss",
                         "_wrap",
+                        "clamp01",
                         "drawFrame",
                         "totalDuration"
                     ]
+                },
+                {
+                    "file": "web2/video-maker/js/video-scene-editor.js",
+                    "lines": 66,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["Web2VideoSceneEditor"],
+                    "uses": [],
+                    "functions": ["_sel", "applyDefaults", "detailHtml"]
                 },
                 {
                     "file": "web2/video-maker/js/video-tts.js",
@@ -8838,7 +8952,7 @@
             "files": [
                 {
                     "file": "web2/zalo/js/web2-zalo-accounts.js",
-                    "lines": 313,
+                    "lines": 329,
                     "purpose": "WEB2.0 module.",
                     "globals": ["WZApp"],
                     "uses": ["Popup", "ZaloApi"],
@@ -9385,6 +9499,36 @@
             "count": 4
         },
         {
+            "fn": "detail",
+            "files": [
+                "web2/fastsaleorder-delivery/dlv-app.js",
+                "web2/fastsaleorder-invoice/pbh-render.js",
+                "web2/fastsaleorder-refund/rf-app.js",
+                "web2/video-maker/js/video-maker.js"
+            ],
+            "count": 4
+        },
+        {
+            "fn": "done",
+            "files": [
+                "web2/jt-tracking/js/jt-tracking-modals.js",
+                "web2/products/js/web2-product-detail.js",
+                "web2/shared/web2-customer-chat.js",
+                "web2/video-beauty/js/video-beauty-export.js"
+            ],
+            "count": 4
+        },
+        {
+            "fn": "error",
+            "files": [
+                "web2/shared/popup.js",
+                "web2/shared/web2-lottie.js",
+                "web2/shared/web2-notify.js",
+                "web2/video-beauty/js/video-beauty-export.js"
+            ],
+            "count": 4
+        },
+        {
             "fn": "fmtDate",
             "files": [
                 "web2/customer-wallet/js/web2-customer-wallet-state.js",
@@ -9561,6 +9705,16 @@
                 "web2/shared/web2-chat-api.js",
                 "web2/shared/web2-zalo-api.js",
                 "web2/shared/web2-zalo.js"
+            ],
+            "count": 4
+        },
+        {
+            "fn": "step",
+            "files": [
+                "live-chat/js/live/live-comment-list-render-list.js",
+                "live-chat/js/live/live-comment-list-state.js",
+                "web2/shared/web2-effects.js",
+                "web2/video-beauty/js/video-beauty-export.js"
             ],
             "count": 4
         },
@@ -9750,15 +9904,6 @@
             "count": 3
         },
         {
-            "fn": "detail",
-            "files": [
-                "web2/fastsaleorder-delivery/dlv-app.js",
-                "web2/fastsaleorder-invoice/pbh-render.js",
-                "web2/fastsaleorder-refund/rf-app.js"
-            ],
-            "count": 3
-        },
-        {
             "fn": "detectCarrier",
             "files": [
                 "native-orders/js/native-orders-render.js",
@@ -9768,29 +9913,11 @@
             "count": 3
         },
         {
-            "fn": "done",
-            "files": [
-                "web2/jt-tracking/js/jt-tracking-modals.js",
-                "web2/products/js/web2-product-detail.js",
-                "web2/shared/web2-customer-chat.js"
-            ],
-            "count": 3
-        },
-        {
             "fn": "ensureDom",
             "files": [
                 "web2/shared/web2-ck-assign-picker.js",
                 "web2/shared/web2-customer-detail-modal.js",
                 "web2/shared/web2-qr-modal.js"
-            ],
-            "count": 3
-        },
-        {
-            "fn": "error",
-            "files": [
-                "web2/shared/popup.js",
-                "web2/shared/web2-lottie.js",
-                "web2/shared/web2-notify.js"
             ],
             "count": 3
         },
@@ -10043,15 +10170,6 @@
                 "live-chat/js/live/live-comment-list-render-list.js",
                 "web2/photo-studio/photo-studio-state.js",
                 "web2/shared/web2-qr-modal.js"
-            ],
-            "count": 3
-        },
-        {
-            "fn": "step",
-            "files": [
-                "live-chat/js/live/live-comment-list-render-list.js",
-                "live-chat/js/live/live-comment-list-state.js",
-                "web2/shared/web2-effects.js"
             ],
             "count": 3
         },
