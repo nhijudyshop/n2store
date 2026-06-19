@@ -2,6 +2,16 @@
 
 ## 2026-06-19
 
+### [web2/video-maker] Goal 1 — Tạo video TỪ CHỦ ĐỀ (AI viết kịch bản, Gemini RIÊNG Web 2.0) ✅
+
+User muốn "tự tạo video ngắn từ chủ đề như MoneyPrinter" + "đừng động Web 1.0, đưa key mới".
+
+- **Route RIÊNG Web 2.0** `render.com/routes/web2-ai-script.js` → `POST /api/web2/ai-script/generate` {topic, products} → Gemini (`gemini-2.0-flash`, responseSchema JSON) viết `{narration, scenes:[{title,subtitle}]}`. Key **RIÊNG** `WEB2_GEMINI_API_KEY` (đặt trên service **web2-api-kv04**, KHÔNG dùng `/api/gemini` của Web 1.0). Mount trước generic. CF worker tự forward `/api/web2/*`.
+- **Frontend** `video-ai-script.js` (`Web2VideoAiScript.generate`): gọi route web2, **fallback kịch bản mẫu** nếu chưa cấu hình key/lỗi → luôn có nội dung.
+- **video-maker**: ô "Chủ đề" + nút "Tạo bằng AI" → chọn SP liên quan chủ đề (match tên) + ghép **ảnh SP thật** + lời AI vào textarea + chọn giọng → user "Tạo giọng đọc" → "Xuất video".
+- Reuse engine video (render/tts/export) đã có. ⚠ **Chờ user đưa key mới** → set `WEB2_GEMINI_API_KEY` trên web2-api-kv04 thì AI mới chạy (chưa có key vẫn dùng được bằng kịch bản mẫu).
+- 4 file `node --check` PASS. (Goal 2 model-AI mặc đồ + Goal 3 face-swap: cần API trả phí/GPU/đồng ý — chưa làm.)
+
 ### [web2/fb-posts] "Đăng nhập bằng Facebook" (OAuth) — liên kết 1 lần, dính web luôn (như Pancake/TPOS) ✅
 
 User: "kết nối FB có quyền page như Pancake/TPOS được không? Tôi KHÔNG muốn dán token. Liên kết account 1 lần → account đó dính với web luôn."
