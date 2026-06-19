@@ -1,10 +1,10 @@
 {
-    "generatedAt": "2026-06-19 07:25",
+    "generatedAt": "2026-06-19 15:40",
     "totals": {
-        "files": 360,
-        "sharedModules": 100,
-        "functions": 2650,
-        "oversized": 0
+        "files": 374,
+        "sharedModules": 103,
+        "functions": 2764,
+        "oversized": 1
     },
     "sharedModules": [
         {
@@ -19,7 +19,7 @@
                 "web2/video-beauty/js/video-beauty-render.js",
                 "web2/video-beauty/js/video-beauty.js"
             ],
-            "lines": 239
+            "lines": 365
         },
         {
             "file": "web2/shared/beauty/web2-beauty-filters.js",
@@ -32,7 +32,7 @@
                 "web2/video-beauty/js/video-beauty-render.js",
                 "web2/video-beauty/js/video-beauty.js"
             ],
-            "lines": 373
+            "lines": 397
         },
         {
             "file": "web2/shared/beauty/web2-beauty-studio.js",
@@ -40,7 +40,7 @@
             "purpose": "WEB2.0 shared — beauty studio UI.",
             "api": [],
             "consumers": ["web2/photo-editor/js/photo-editor.js"],
-            "lines": 513
+            "lines": 524
         },
         {
             "file": "web2/shared/chat-panel/web2-chat-emoji-data.js",
@@ -159,6 +159,11 @@
                 "web2/fastsaleorder-delivery/dlv-app.js",
                 "web2/fastsaleorder-invoice/pbh-state.js",
                 "web2/fastsaleorder-refund/rf-app.js",
+                "web2/fb-ads-stats/js/fb-ads-manual.js",
+                "web2/fb-posts/js/fb-posts-app.js",
+                "web2/fb-posts/js/fb-posts-composer.js",
+                "web2/fb-posts/js/fb-posts-drafts.js",
+                "web2/fb-posts/js/fb-posts-list.js",
                 "web2/pancake-settings/js/pancake-settings-actions.js",
                 "web2/payment-confirm/js/payment-confirm-app.js",
                 "web2/products/js/web2-products-actions.js",
@@ -243,6 +248,8 @@
                 "web2/fastsaleorder-invoice/pbh-api.js",
                 "web2/fastsaleorder-invoice/pbh-state.js",
                 "web2/fastsaleorder-refund/rf-app.js",
+                "web2/fb-ads-stats/js/fb-ads-manual.js",
+                "web2/fb-posts/js/fb-posts-composer.js",
                 "web2/jt-tracking/js/jt-tracking-api.js",
                 "web2/jt-tracking/js/jt-tracking-constants.js",
                 "web2/kpi/js/kpi-assignments.js",
@@ -272,6 +279,7 @@
                 "web2/shared/web2-customer-chat-core.js",
                 "web2/shared/web2-customer-detail-modal.js",
                 "web2/shared/web2-customer-store.js",
+                "web2/shared/web2-fb-client.js",
                 "web2/shared/web2-msg-template-core.js",
                 "web2/shared/web2-notification-bell.js",
                 "web2/shared/web2-pancake-accounts.js",
@@ -295,7 +303,8 @@
                 "web2/system/js/system-services.js",
                 "web2/system/js/system-sse.js",
                 "web2/users/js/users-app.js",
-                "web2/variants/js/web2-variants-api.js"
+                "web2/variants/js/web2-variants-api.js",
+                "web2/video-maker/js/video-ai-script.js"
             ],
             "lines": 243
         },
@@ -650,9 +659,39 @@
             "consumers": [
                 "live-chat/js/pancake/pancake-chat-window.js",
                 "web2/shared/web2-customer-chat-core.js",
-                "web2/shared/web2-customer-chat.js"
+                "web2/shared/web2-customer-chat.js",
+                "web2/zalo/js/web2-zalo-accounts.js"
             ],
-            "lines": 86
+            "lines": 91
+        },
+        {
+            "file": "web2/shared/web2-fb-client.js",
+            "globals": ["Web2FbClient", "FBPostsApi"],
+            "purpose": "WEB2.0 shared — Facebook Graph API client (1 NGUỒN cho mọi trang FB).",
+            "api": [],
+            "consumers": [
+                "web2/fb-ads-stats/js/fb-ads-manual.js",
+                "web2/fb-ads-stats/js/fb-ads-stats.js",
+                "web2/fb-insights/js/fb-insights.js",
+                "web2/fb-posts/js/fb-posts-app.js",
+                "web2/fb-posts/js/fb-posts-composer.js",
+                "web2/fb-posts/js/fb-posts-drafts.js",
+                "web2/fb-posts/js/fb-posts-list.js",
+                "web2/fb-posts/js/fb-posts-media.js"
+            ],
+            "lines": 119
+        },
+        {
+            "file": "web2/shared/web2-fb-share.js",
+            "globals": ["Web2FbShare"],
+            "purpose": "WEB2.0 shared — handoff \"Đăng lên FB\": chuyển ảnh + caption từ 1 trang sang trang Đăng bài.",
+            "api": [],
+            "consumers": [
+                "web2/fb-posts/js/fb-posts-composer.js",
+                "web2/photo-studio/photo-studio-edit.js",
+                "web2/product-card/js/product-card.js"
+            ],
+            "lines": 100
         },
         {
             "file": "web2/shared/web2-format.js",
@@ -1016,6 +1055,7 @@
                 "so-order/js/so-order-modal-suggest.js",
                 "so-order/js/so-order-receive.js",
                 "so-order/js/so-order-render.js",
+                "web2/fb-posts/js/fb-posts-media.js",
                 "web2/photo-editor/js/photo-editor.js",
                 "web2/product-card/js/product-card.js",
                 "web2/products/js/web2-products-actions.js",
@@ -1091,6 +1131,9 @@
             "api": [],
             "consumers": [
                 "web2/ck-dashboard/js/ck-dashboard-app.js",
+                "web2/fb-ads-stats/js/fb-ads-stats.js",
+                "web2/fb-insights/js/fb-insights.js",
+                "web2/fb-posts/js/fb-posts-app.js",
                 "web2/jt-tracking/js/jt-tracking-app.js",
                 "web2/multi-tool/js/multi-tool.js",
                 "web2/pancake-settings/js/pancake-settings.js",
@@ -1099,7 +1142,7 @@
                 "web2/returns/js/returns-app.js",
                 "web2/system/js/system-app.js"
             ],
-            "lines": 655
+            "lines": 673
         },
         {
             "file": "web2/shared/web2-so-order-reader.js",
@@ -1152,6 +1195,7 @@
                 "web2/fastsaleorder-delivery/dlv-app.js",
                 "web2/fastsaleorder-invoice/pbh-app.js",
                 "web2/fastsaleorder-refund/rf-app.js",
+                "web2/fb-posts/js/fb-posts-app.js",
                 "web2/jt-tracking/js/jt-tracking-app.js",
                 "web2/kpi/js/kpi-dashboard.js",
                 "web2/payment-confirm/js/payment-confirm-app.js",
@@ -1289,6 +1333,17 @@
             "lines": 231
         },
         {
+            "file": "web2/shared/web2-vieneu.js",
+            "globals": ["Web2Vieneu"],
+            "purpose": "WEB2.0 shared — kho Voice.",
+            "api": [],
+            "consumers": [
+                "web2/video-maker/js/video-tts.js",
+                "web2/video-maker/js/video-vieneu.js"
+            ],
+            "lines": 140
+        },
+        {
             "file": "web2/shared/web2-wallet-api.js",
             "globals": ["Web2WalletApi"],
             "purpose": "WEB2.0 shared — client ví KH /api/web2/wallets (NGUỒN CHUNG).",
@@ -1344,7 +1399,7 @@
                 "web2/zalo/js/web2-zalo-chat.js",
                 "web2/zalo/js/web2-zalo-lookup-zns.js"
             ],
-            "lines": 205
+            "lines": 212
         },
         {
             "file": "web2/shared/web2-zalo.js",
@@ -4774,16 +4829,236 @@
             ]
         },
         {
+            "page": "web2/fb-ads-stats",
+            "files": [
+                {
+                    "file": "web2/fb-ads-stats/js/fb-ads-manual.js",
+                    "lines": 348,
+                    "purpose": "WEB2.0 — Sổ quảng cáo NHẬP TAY: gắn bài/đợt live + tiền QC + số đơn → tổng hợp ngày/tuần/tháng.",
+                    "globals": ["FBAdsManual"],
+                    "uses": ["Popup", "Web2Auth", "FBPostsApi"],
+                    "functions": [
+                        "Api",
+                        "agg",
+                        "badge",
+                        "card",
+                        "close",
+                        "del",
+                        "esc",
+                        "filtered",
+                        "fmtDay",
+                        "isoWeek",
+                        "load",
+                        "money",
+                        "mount",
+                        "n",
+                        "notify",
+                        "onclick",
+                        "openModal",
+                        "pageName",
+                        "periodKey",
+                        "pickPost",
+                        "render",
+                        "rowHtml",
+                        "wire"
+                    ]
+                },
+                {
+                    "file": "web2/fb-ads-stats/js/fb-ads-stats.js",
+                    "lines": 289,
+                    "purpose": "WEB2.0 — Thống kê quảng cáo FB: ad account insights + campaign breakdown.",
+                    "globals": [],
+                    "uses": ["FBPostsApi", "Web2Sidebar"],
+                    "functions": [
+                        "$",
+                        "Api",
+                        "actionsHtml",
+                        "box",
+                        "card",
+                        "dec",
+                        "esc",
+                        "init",
+                        "load",
+                        "loadAuto",
+                        "money",
+                        "nfmt",
+                        "onclick",
+                        "render",
+                        "selectorHtml",
+                        "switchMode",
+                        "wireSelector"
+                    ]
+                }
+            ]
+        },
+        {
+            "page": "web2/fb-insights",
+            "files": [
+                {
+                    "file": "web2/fb-insights/js/fb-insights.js",
+                    "lines": 339,
+                    "purpose": "WEB2.0 — Thống kê tương tác FB: tính từ bài đăng (like/cmt/share) + follower.",
+                    "globals": [],
+                    "uses": ["FBPostsApi", "Web2Sidebar"],
+                    "functions": [
+                        "$",
+                        "Api",
+                        "bar",
+                        "card",
+                        "dowVN",
+                        "esc",
+                        "fmtDate",
+                        "hourVN",
+                        "init",
+                        "load",
+                        "nfmt",
+                        "pageSelectorHtml",
+                        "parseTs",
+                        "render",
+                        "topRow",
+                        "typeLabel",
+                        "wirePageSelector"
+                    ]
+                }
+            ]
+        },
+        {
+            "page": "web2/fb-posts",
+            "files": [
+                {
+                    "file": "web2/fb-posts/js/fb-posts-app.js",
+                    "lines": 244,
+                    "purpose": "WEB2.0 — Đăng bài FB: orchestrator (sidebar, tabs, kết nối FB, SSE, trạng thái).",
+                    "globals": ["FBPosts"],
+                    "uses": ["Popup", "FBPostsApi", "Web2Sidebar", "Web2SSE"],
+                    "functions": [
+                        "Api",
+                        "close",
+                        "esc",
+                        "init",
+                        "loadStatus",
+                        "notify",
+                        "onclick",
+                        "openConnect",
+                        "renderActive",
+                        "renderPill",
+                        "setupSSE",
+                        "switchTab"
+                    ]
+                },
+                {
+                    "file": "web2/fb-posts/js/fb-posts-composer.js",
+                    "lines": 393,
+                    "purpose": "WEB2.0 — Đăng bài FB: soạn bài (page chips + AI caption + media + lịch + đăng).",
+                    "globals": ["FBPostsComposer"],
+                    "uses": ["Popup", "Web2Auth", "FBPostsApi", "Web2FbShare"],
+                    "functions": [
+                        "Api",
+                        "Media",
+                        "S",
+                        "confirmDo",
+                        "defaultSchedule",
+                        "esc",
+                        "gather",
+                        "generate",
+                        "loadDraft",
+                        "maybeConsumeShare",
+                        "notify",
+                        "pageChipsHtml",
+                        "product",
+                        "publish",
+                        "render",
+                        "resetForm",
+                        "saveDraft",
+                        "wire"
+                    ]
+                },
+                {
+                    "file": "web2/fb-posts/js/fb-posts-drafts.js",
+                    "lines": 170,
+                    "purpose": "WEB2.0 — Đăng bài FB: Lịch & Nháp (agenda theo ngày, sửa/đăng/xoá).",
+                    "globals": ["FBPostsDrafts"],
+                    "uses": ["Popup", "FBPostsApi"],
+                    "functions": [
+                        "Api",
+                        "S",
+                        "dayKey",
+                        "del",
+                        "esc",
+                        "load",
+                        "notify",
+                        "pageNames",
+                        "render",
+                        "rowHtml",
+                        "timeOf"
+                    ]
+                },
+                {
+                    "file": "web2/fb-posts/js/fb-posts-list.js",
+                    "lines": 395,
+                    "purpose": "WEB2.0 — Đăng bài FB: quản lý bài viết (liệt kê đã đăng + đã lên lịch, xoá).",
+                    "globals": ["FBPostsList"],
+                    "uses": ["Popup", "FBPostsApi"],
+                    "functions": [
+                        "Api",
+                        "S",
+                        "del",
+                        "editCaption",
+                        "esc",
+                        "fmt",
+                        "load",
+                        "loadMore",
+                        "notify",
+                        "openViewer",
+                        "postRowHtml",
+                        "render",
+                        "renderPostsList",
+                        "setupInfinite",
+                        "typeBadge",
+                        "wireFilterChips",
+                        "wireRows"
+                    ]
+                },
+                {
+                    "file": "web2/fb-posts/js/fb-posts-media.js",
+                    "lines": 201,
+                    "purpose": "WEB2.0 — Đăng bài FB: media picker (URL / upload imgbb / Kho SP).",
+                    "globals": ["FBPostsMedia"],
+                    "uses": ["FBPostsApi", "Web2ProductsCache"],
+                    "functions": [
+                        "Api",
+                        "add",
+                        "clear",
+                        "draw",
+                        "esc",
+                        "fileToDataUrl",
+                        "getMedia",
+                        "handleFiles",
+                        "imgOf",
+                        "mountGrid",
+                        "notify",
+                        "onload",
+                        "openProductPicker",
+                        "promptUrl",
+                        "removeAt",
+                        "render",
+                        "setMedia"
+                    ]
+                }
+            ]
+        },
+        {
             "page": "web2/jt-tracking",
             "files": [
                 {
                     "file": "web2/jt-tracking/js/jt-tracking-actions.js",
-                    "lines": 314,
+                    "lines": 361,
                     "purpose": "WEB2.0 module.",
                     "globals": ["JtTrackingActions"],
                     "uses": ["Web2Chat", "Web2Optimistic"],
                     "functions": [
                         "apply",
+                        "autoRefreshActive",
                         "getPancakePageIds",
                         "quickAdd",
                         "refreshAll",
@@ -4794,7 +5069,9 @@
                         "scanHistory",
                         "scanZalo",
                         "setBusy",
-                        "tagPancake"
+                        "startAutoRefresh",
+                        "tagPancake",
+                        "tick"
                     ]
                 },
                 {
@@ -4807,7 +5084,7 @@
                 },
                 {
                     "file": "web2/jt-tracking/js/jt-tracking-app.js",
-                    "lines": 133,
+                    "lines": 135,
                     "purpose": "WEB2.0 — Tra cứu vận đơn J&T (orchestrator).",
                     "globals": ["JtTrackingApp"],
                     "uses": ["Web2Sidebar", "Web2SSE"],
@@ -5268,10 +5545,10 @@
                 },
                 {
                     "file": "web2/photo-studio/photo-studio-edit.js",
-                    "lines": 724,
+                    "lines": 750,
                     "purpose": "WEB2.0 module.",
                     "globals": ["PS"],
-                    "uses": [],
+                    "uses": ["Web2FbShare"],
                     "functions": [
                         "addPickPoint",
                         "backToCamera",
@@ -5297,6 +5574,7 @@
                         "schedule",
                         "setBrushMode",
                         "setPickUI",
+                        "shareReviewToFb",
                         "showReview",
                         "undoPickPoint",
                         "up"
@@ -5331,7 +5609,7 @@
                 },
                 {
                     "file": "web2/photo-studio/photo-studio-ui.js",
-                    "lines": 701,
+                    "lines": 703,
                     "purpose": "WEB2.0 module.",
                     "globals": ["PS"],
                     "uses": [],
@@ -5422,11 +5700,12 @@
                 },
                 {
                     "file": "web2/product-card/js/product-card.js",
-                    "lines": 344,
+                    "lines": 372,
                     "purpose": "WEB2.0 module.",
                     "globals": ["ProductCardPage"],
                     "uses": [
                         "Web2Escape",
+                        "Web2FbShare",
                         "Web2ImageEditor",
                         "Web2LogoEraser",
                         "Web2ProductsCache",
@@ -5449,6 +5728,7 @@
                         "scheduleRender",
                         "setImage",
                         "setQr",
+                        "shareToFb",
                         "wireProductPicker"
                     ]
                 }
@@ -6099,11 +6379,16 @@
             "files": [
                 {
                     "file": "web2/shared/beauty/web2-beauty-face.js",
-                    "lines": 239,
+                    "lines": 365,
                     "purpose": "WEB2.0 shared — beauty face landmarks.",
                     "globals": ["Web2BeautyFace"],
                     "uses": ["Web2BeautyFilters", "WEB2_CONFIG", "Web2ProductCounter"],
                     "functions": [
+                        "_emit",
+                        "_fetchModelBuffer",
+                        "_streamFetch",
+                        "_streamFetch_fromResponse",
+                        "_warmWasm",
                         "at",
                         "buildAutoBrushes",
                         "buildBrushes",
@@ -6113,12 +6398,16 @@
                         "has",
                         "loadVision",
                         "midOf",
+                        "mk",
+                        "onProgress",
+                        "progress",
+                        "ready",
                         "warmup"
                     ]
                 },
                 {
                     "file": "web2/shared/beauty/web2-beauty-filters.js",
-                    "lines": 373,
+                    "lines": 397,
                     "purpose": "WEB2.0 shared — beauty engine (pure pixel ops).",
                     "globals": ["Web2BeautyFilters"],
                     "uses": [],
@@ -6143,7 +6432,7 @@
                 },
                 {
                     "file": "web2/shared/beauty/web2-beauty-studio.js",
-                    "lines": 513,
+                    "lines": 524,
                     "purpose": "WEB2.0 shared — beauty studio UI.",
                     "globals": ["Web2BeautyStudio"],
                     "uses": ["Web2BeautyFace", "Web2BeautyFilters"],
@@ -7031,11 +7320,56 @@
                 },
                 {
                     "file": "web2/shared/web2-extension-bridge.js",
-                    "lines": 86,
+                    "lines": 91,
                     "purpose": "WEB2 EXTENSION BRIDGE",
                     "globals": ["Web2Ext"],
                     "uses": [],
                     "functions": ["hasExtension", "onMsg", "request", "version"]
+                },
+                {
+                    "file": "web2/shared/web2-fb-client.js",
+                    "lines": 119,
+                    "purpose": "WEB2.0 shared — Facebook Graph API client (1 NGUỒN cho mọi trang FB).",
+                    "globals": ["Web2FbClient", "FBPostsApi"],
+                    "uses": ["WEB2_CONFIG", "API_CONFIG", "Web2Auth"],
+                    "functions": [
+                        "BASE",
+                        "adAccounts",
+                        "adEntries",
+                        "adInsights",
+                        "caption",
+                        "connect",
+                        "del",
+                        "deleteAdEntry",
+                        "deleteDraft",
+                        "disconnect",
+                        "drafts",
+                        "engagement",
+                        "headers",
+                        "insightsProbe",
+                        "jget",
+                        "jpost",
+                        "list",
+                        "loginUrl",
+                        "onload",
+                        "postDetail",
+                        "postEdit",
+                        "publish",
+                        "refreshPages",
+                        "saveAdEntry",
+                        "saveDraft",
+                        "status",
+                        "uploadImage",
+                        "workerBase"
+                    ]
+                },
+                {
+                    "file": "web2/shared/web2-fb-share.js",
+                    "lines": 100,
+                    "purpose": "WEB2.0 shared — handoff \"Đăng lên FB\": chuyển ảnh + caption từ 1 trang sang trang Đăng bài.",
+                    "globals": ["Web2FbShare"],
+                    "uses": [],
+                    "functions": ["consume", "fbPostsUrl", "has", "send"]
                 },
                 {
                     "file": "web2/shared/web2-format.js",
@@ -7792,7 +8126,7 @@
                 },
                 {
                     "file": "web2/shared/web2-sidebar.js",
-                    "lines": 655,
+                    "lines": 673,
                     "purpose": "WEB2-clone sidebar for Web 2.0 pages.",
                     "globals": ["Web2Sidebar"],
                     "uses": [
@@ -7990,6 +8324,27 @@
                     ]
                 },
                 {
+                    "file": "web2/shared/web2-vieneu.js",
+                    "lines": 140,
+                    "purpose": "WEB2.0 shared — kho Voice.",
+                    "globals": ["Web2Vieneu"],
+                    "uses": [],
+                    "functions": [
+                        "_ctx",
+                        "_decode",
+                        "_headers",
+                        "_need",
+                        "clone",
+                        "getSecret",
+                        "getUrl",
+                        "health",
+                        "listVoices",
+                        "setSecret",
+                        "setUrl",
+                        "synthesize"
+                    ]
+                },
+                {
                     "file": "web2/shared/web2-wallet-api.js",
                     "lines": 214,
                     "purpose": "WEB2.0 shared — client ví KH /api/web2/wallets (NGUỒN CHUNG).",
@@ -8054,7 +8409,7 @@
                 },
                 {
                     "file": "web2/shared/web2-zalo-api.js",
-                    "lines": 205,
+                    "lines": 212,
                     "purpose": "WEB2.0 module — ZaloApi wrapper (/api/web2-zalo).",
                     "globals": ["ZaloApi"],
                     "uses": ["API_CONFIG", "Web2Auth"],
@@ -8073,6 +8428,7 @@
                         "groupMembers",
                         "groups",
                         "loadHistory",
+                        "loginCookie",
                         "loginQr",
                         "lookup",
                         "messages",
@@ -8822,6 +9178,41 @@
             "page": "web2/video-maker",
             "files": [
                 {
+                    "file": "web2/video-maker/js/video-ai-script.js",
+                    "lines": 77,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["Web2VideoAiScript"],
+                    "uses": ["WEB2_CONFIG", "API_CONFIG", "Web2Auth"],
+                    "functions": ["fmtPrice", "generate", "templateFallback", "workerBase"]
+                },
+                {
+                    "file": "web2/video-maker/js/video-anim.js",
+                    "lines": 156,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["Web2VideoAnim"],
+                    "uses": [],
+                    "functions": [
+                        "clamp",
+                        "clamp01",
+                        "cubicBezier",
+                        "dX",
+                        "easeInCubic",
+                        "easeInOutCubic",
+                        "easeInOutQuad",
+                        "easeInOutSine",
+                        "easeInQuad",
+                        "easeOutBack",
+                        "easeOutCubic",
+                        "easeOutQuad",
+                        "interpolate",
+                        "linear",
+                        "sampleX",
+                        "sampleY",
+                        "solveX",
+                        "spring"
+                    ]
+                },
+                {
                     "file": "web2/video-maker/js/video-audio.js",
                     "lines": 159,
                     "purpose": "WEB2.0 module.",
@@ -8843,7 +9234,7 @@
                 },
                 {
                     "file": "web2/video-maker/js/video-maker.js",
-                    "lines": 798,
+                    "lines": 882,
                     "purpose": "WEB2.0 module.",
                     "globals": ["VideoMakerPage"],
                     "uses": ["Web2Escape", "Web2ProductsCache"],
@@ -8882,6 +9273,7 @@
                         "pickMime",
                         "play",
                         "playSample",
+                        "priceOf",
                         "randomGenerate",
                         "refresh",
                         "renderPickers",
@@ -8891,6 +9283,7 @@
                         "stop",
                         "toneLabel",
                         "tonePitch",
+                        "topicGenerate",
                         "totalDur",
                         "voiceLabel",
                         "wireAudioUi",
@@ -8899,7 +9292,7 @@
                 },
                 {
                     "file": "web2/video-maker/js/video-render.js",
-                    "lines": 305,
+                    "lines": 349,
                     "purpose": "WEB2.0 module.",
                     "globals": ["Web2VideoRender"],
                     "uses": [],
@@ -8909,9 +9302,14 @@
                         "_drawText",
                         "_drawTransition",
                         "_filterCss",
+                        "_springScale",
+                        "_springText",
                         "_wrap",
                         "clamp01",
                         "drawFrame",
+                        "easeInOutCubic",
+                        "easeInOutSine",
+                        "easeOutCubic",
                         "totalDuration"
                     ]
                 },
@@ -8925,10 +9323,10 @@
                 },
                 {
                     "file": "web2/video-maker/js/video-tts.js",
-                    "lines": 209,
+                    "lines": 260,
                     "purpose": "WEB2.0 module.",
                     "globals": ["Web2VideoTTS"],
-                    "uses": [],
+                    "uses": ["Web2Vieneu"],
                     "functions": [
                         "_concat",
                         "_decodeCtx",
@@ -8937,12 +9335,32 @@
                         "_mmsChunk",
                         "_piperChunk",
                         "_resample",
+                        "_serialize",
                         "_splitSentences",
+                        "_vieneuChunk",
                         "_voice",
                         "cancelPreview",
+                        "registerVieneuVoices",
                         "speakPreview",
                         "synthesize",
                         "toAudioBuffer"
+                    ]
+                },
+                {
+                    "file": "web2/video-maker/js/video-vieneu.js",
+                    "lines": 116,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["Web2VideoVieneuUI"],
+                    "uses": ["Web2Vieneu"],
+                    "functions": [
+                        "$",
+                        "applyRef",
+                        "connect",
+                        "init",
+                        "notify",
+                        "ondataavailable",
+                        "onstop",
+                        "setStat"
                     ]
                 }
             ]
@@ -8952,17 +9370,19 @@
             "files": [
                 {
                     "file": "web2/zalo/js/web2-zalo-accounts.js",
-                    "lines": 329,
+                    "lines": 393,
                     "purpose": "WEB2.0 module.",
                     "globals": ["WZApp"],
-                    "uses": ["Popup", "ZaloApi"],
+                    "uses": ["Popup", "Web2Ext", "ZaloApi"],
                     "functions": [
                         "accCardHtml",
                         "addPersonal",
+                        "autoRenewZalo",
                         "choiceCardsHtml",
                         "closeOaModal",
                         "closeQrModal",
                         "loadAccounts",
+                        "loginZaloCookie",
                         "onAccAction",
                         "openOaModal",
                         "openQrModal",
@@ -9185,6 +9605,33 @@
             "count": 8
         },
         {
+            "fn": "switchTab",
+            "files": [
+                "web2/ck-dashboard/js/ck-dashboard-app.js",
+                "web2/fb-posts/js/fb-posts-app.js",
+                "web2/payment-confirm/js/payment-confirm-app.js",
+                "web2/returns/js/returns-tabs.js",
+                "web2/shared/web2-customer-chat-modal.js",
+                "web2/shared/web2-customer-detail-modal.js",
+                "web2/shared/web2-import.js",
+                "web2/zalo/js/web2-zalo-app.js"
+            ],
+            "count": 8
+        },
+        {
+            "fn": "openModal",
+            "files": [
+                "web2/balance-history/js/web2-link-customer-modal.js",
+                "web2/balance-history/js/web2-pm-modal.js",
+                "web2/customers/js/customers-detail.js",
+                "web2/fb-ads-stats/js/fb-ads-manual.js",
+                "web2/purchase-refund/js/purchase-refund-modal.js",
+                "web2/shared/web2-customer-chat-modal.js",
+                "web2/shared/web2-quick-reply.js"
+            ],
+            "count": 7
+        },
+        {
             "fn": "reload",
             "files": [
                 "live-chat/js/live/live-livestream-gallery.js",
@@ -9207,19 +9654,6 @@
                 "web2/products/js/web2-products-render.js",
                 "web2/shared/page-builder.js",
                 "web2/variants/js/web2-variants-app.js"
-            ],
-            "count": 7
-        },
-        {
-            "fn": "switchTab",
-            "files": [
-                "web2/ck-dashboard/js/ck-dashboard-app.js",
-                "web2/payment-confirm/js/payment-confirm-app.js",
-                "web2/returns/js/returns-tabs.js",
-                "web2/shared/web2-customer-chat-modal.js",
-                "web2/shared/web2-customer-detail-modal.js",
-                "web2/shared/web2-import.js",
-                "web2/zalo/js/web2-zalo-app.js"
             ],
             "count": 7
         },
@@ -9292,18 +9726,6 @@
                 "web2/customers/js/customers-state.js",
                 "web2/shared/web2-customer-store.js",
                 "web2/shared/web2-zalo.js"
-            ],
-            "count": 6
-        },
-        {
-            "fn": "openModal",
-            "files": [
-                "web2/balance-history/js/web2-link-customer-modal.js",
-                "web2/balance-history/js/web2-pm-modal.js",
-                "web2/customers/js/customers-detail.js",
-                "web2/purchase-refund/js/purchase-refund-modal.js",
-                "web2/shared/web2-customer-chat-modal.js",
-                "web2/shared/web2-quick-reply.js"
             ],
             "count": 6
         },
@@ -9386,6 +9808,17 @@
             "count": 5
         },
         {
+            "fn": "fmtDate",
+            "files": [
+                "web2/customer-wallet/js/web2-customer-wallet-state.js",
+                "web2/fastsaleorder-invoice/pbh-state.js",
+                "web2/fb-insights/js/fb-insights.js",
+                "web2/multi-tool/js/multi-tool.js",
+                "web2/purchase-refund/js/purchase-refund-state.js"
+            ],
+            "count": 5
+        },
+        {
             "fn": "fmtMoney",
             "files": [
                 "live-chat/js/live/live-order-history.js",
@@ -9393,6 +9826,17 @@
                 "web2/fastsaleorder-invoice/pbh-state.js",
                 "web2/purchase-refund/js/purchase-refund-state.js",
                 "web2/reconcile/js/reconcile-state.js"
+            ],
+            "count": 5
+        },
+        {
+            "fn": "health",
+            "files": [
+                "native-orders/js/native-orders-api.js",
+                "web2/products/js/web2-products-api.js",
+                "web2/shared/web2-api.js",
+                "web2/shared/web2-vieneu.js",
+                "web2/variants/js/web2-variants-api.js"
             ],
             "count": 5
         },
@@ -9417,6 +9861,38 @@
                 "web2/shared/web2-phone-utils.js"
             ],
             "count": 5
+        },
+        {
+            "fn": "parseTs",
+            "files": [
+                "live-chat/js/live/comments-mobile-state.js",
+                "web2/fb-insights/js/fb-insights.js",
+                "web2/multi-tool/js/multi-tool.js",
+                "web2/shared/chat-panel/web2-chat-panel-state.js",
+                "web2/shared/web2-format.js"
+            ],
+            "count": 5
+        },
+        {
+            "fn": "ready",
+            "files": [
+                "live-chat/js/live/live-init-lifecycle.js",
+                "web2/shared/beauty/web2-beauty-face.js",
+                "web2/shared/web2-idb-store.js",
+                "web2/shared/web2-pack-counter.js",
+                "web2/shared/web2-qr.js"
+            ],
+            "count": 5
+        },
+        {
+            "fn": "_emit",
+            "files": [
+                "web2/shared/beauty/web2-beauty-face.js",
+                "web2/shared/web2-products-cache.js",
+                "web2/shared/web2-realtime.js",
+                "web2/shared/web2-variants-cache.js"
+            ],
+            "count": 4
         },
         {
             "fn": "_fetch",
@@ -9479,6 +9955,16 @@
             "count": 4
         },
         {
+            "fn": "card",
+            "files": [
+                "web2/fb-ads-stats/js/fb-ads-manual.js",
+                "web2/fb-ads-stats/js/fb-ads-stats.js",
+                "web2/fb-insights/js/fb-insights.js",
+                "web2/shared/web2-qr.js"
+            ],
+            "count": 4
+        },
+        {
             "fn": "debounce",
             "files": [
                 "live-chat/js/shared/utils.js",
@@ -9529,22 +10015,32 @@
             "count": 4
         },
         {
-            "fn": "fmtDate",
+            "fn": "fileToDataUrl",
             "files": [
-                "web2/customer-wallet/js/web2-customer-wallet-state.js",
-                "web2/fastsaleorder-invoice/pbh-state.js",
-                "web2/multi-tool/js/multi-tool.js",
-                "web2/purchase-refund/js/purchase-refund-state.js"
+                "so-order/js/so-order-modal-image.js",
+                "web2/fb-posts/js/fb-posts-media.js",
+                "web2/photo-editor/js/photo-editor.js",
+                "web2/shared/web2-canvas-utils.js"
             ],
             "count": 4
         },
         {
-            "fn": "health",
+            "fn": "fmtPrice",
             "files": [
-                "native-orders/js/native-orders-api.js",
-                "web2/products/js/web2-products-api.js",
-                "web2/shared/web2-api.js",
-                "web2/variants/js/web2-variants-api.js"
+                "live-chat/js/pancake/inventory-panel-state.js",
+                "web2/product-card/js/product-card-render.js",
+                "web2/products/js/web2-products-state.js",
+                "web2/video-maker/js/video-ai-script.js"
+            ],
+            "count": 4
+        },
+        {
+            "fn": "generate",
+            "files": [
+                "live-chat/js/pancake/pancake-page-access-tokens.js",
+                "web2/fb-posts/js/fb-posts-composer.js",
+                "web2/shared/web2-product-code.js",
+                "web2/video-maker/js/video-ai-script.js"
             ],
             "count": 4
         },
@@ -9609,26 +10105,6 @@
             "count": 4
         },
         {
-            "fn": "parseTs",
-            "files": [
-                "live-chat/js/live/comments-mobile-state.js",
-                "web2/multi-tool/js/multi-tool.js",
-                "web2/shared/chat-panel/web2-chat-panel-state.js",
-                "web2/shared/web2-format.js"
-            ],
-            "count": 4
-        },
-        {
-            "fn": "ready",
-            "files": [
-                "live-chat/js/live/live-init-lifecycle.js",
-                "web2/shared/web2-idb-store.js",
-                "web2/shared/web2-pack-counter.js",
-                "web2/shared/web2-qr.js"
-            ],
-            "count": 4
-        },
-        {
             "fn": "renderHistory",
             "files": [
                 "web2/ck-dashboard/js/ck-dashboard-app.js",
@@ -9655,6 +10131,16 @@
                 "web2/ck-dashboard/js/ck-dashboard-app.js",
                 "web2/kpi/js/kpi-assignments.js",
                 "web2/shared/chat-panel/web2-chat-panel-render.js"
+            ],
+            "count": 4
+        },
+        {
+            "fn": "rowHtml",
+            "files": [
+                "so-order/js/so-order-render.js",
+                "web2/fb-ads-stats/js/fb-ads-manual.js",
+                "web2/fb-posts/js/fb-posts-drafts.js",
+                "web2/jt-tracking/js/jt-tracking-render.js"
             ],
             "count": 4
         },
@@ -9705,6 +10191,16 @@
                 "web2/shared/web2-chat-api.js",
                 "web2/shared/web2-zalo-api.js",
                 "web2/shared/web2-zalo.js"
+            ],
+            "count": 4
+        },
+        {
+            "fn": "setupSSE",
+            "files": [
+                "web2/balance-history/js/web2-bh-data.js",
+                "web2/customer-wallet/js/web2-customer-wallet-app.js",
+                "web2/fb-posts/js/fb-posts-app.js",
+                "web2/purchase-refund/js/purchase-refund-app.js"
             ],
             "count": 4
         },
@@ -9769,11 +10265,11 @@
             "count": 4
         },
         {
-            "fn": "_emit",
+            "fn": "_decode",
             "files": [
-                "web2/shared/web2-products-cache.js",
-                "web2/shared/web2-realtime.js",
-                "web2/shared/web2-variants-cache.js"
+                "web2/shared/web2-pancake-accounts.js",
+                "web2/shared/web2-pancake-token.js",
+                "web2/shared/web2-vieneu.js"
             ],
             "count": 3
         },
@@ -9859,6 +10355,15 @@
             "count": 3
         },
         {
+            "fn": "badge",
+            "files": [
+                "web2/fastsaleorder-delivery/dlv-app.js",
+                "web2/fastsaleorder-refund/rf-app.js",
+                "web2/fb-ads-stats/js/fb-ads-manual.js"
+            ],
+            "count": 3
+        },
+        {
             "fn": "base64UrlDecode",
             "files": [
                 "live-chat/js/pancake/pancake-token-codec.js",
@@ -9877,11 +10382,29 @@
             "count": 3
         },
         {
+            "fn": "clamp01",
+            "files": [
+                "web2/shared/beauty/web2-beauty-filters.js",
+                "web2/video-maker/js/video-anim.js",
+                "web2/video-maker/js/video-render.js"
+            ],
+            "count": 3
+        },
+        {
             "fn": "collect",
             "files": [
                 "native-orders/js/native-orders-bulk-operations.js",
                 "native-orders/js/native-orders-pbh-bill.js",
                 "web2/shared/web2-return-bill.js"
+            ],
+            "count": 3
+        },
+        {
+            "fn": "connect",
+            "files": [
+                "live-chat/js/pancake/pancake-realtime.js",
+                "web2/shared/web2-fb-client.js",
+                "web2/video-maker/js/video-vieneu.js"
             ],
             "count": 3
         },
@@ -9904,6 +10427,15 @@
             "count": 3
         },
         {
+            "fn": "dayKey",
+            "files": [
+                "web2/fb-posts/js/fb-posts-drafts.js",
+                "web2/shared/chat-panel/web2-chat-panel-render.js",
+                "web2/shared/zalo-chat/chat-store.js"
+            ],
+            "count": 3
+        },
+        {
             "fn": "detectCarrier",
             "files": [
                 "native-orders/js/native-orders-render.js",
@@ -9913,29 +10445,20 @@
             "count": 3
         },
         {
+            "fn": "disconnect",
+            "files": [
+                "live-chat/js/pancake/pancake-realtime.js",
+                "web2/shared/web2-fb-client.js",
+                "web2/shared/web2-zalo-api.js"
+            ],
+            "count": 3
+        },
+        {
             "fn": "ensureDom",
             "files": [
                 "web2/shared/web2-ck-assign-picker.js",
                 "web2/shared/web2-customer-detail-modal.js",
                 "web2/shared/web2-qr-modal.js"
-            ],
-            "count": 3
-        },
-        {
-            "fn": "fileToDataUrl",
-            "files": [
-                "so-order/js/so-order-modal-image.js",
-                "web2/photo-editor/js/photo-editor.js",
-                "web2/shared/web2-canvas-utils.js"
-            ],
-            "count": 3
-        },
-        {
-            "fn": "fmtPrice",
-            "files": [
-                "live-chat/js/pancake/inventory-panel-state.js",
-                "web2/product-card/js/product-card-render.js",
-                "web2/products/js/web2-products-state.js"
             ],
             "count": 3
         },
@@ -10026,6 +10549,15 @@
                 "native-orders/js/native-orders-state.js",
                 "web2/products/js/web2-products-state.js",
                 "web2/variants/js/web2-variants-app.js"
+            ],
+            "count": 3
+        },
+        {
+            "fn": "money",
+            "files": [
+                "native-orders/js/native-orders-customer360.js",
+                "web2/fb-ads-stats/js/fb-ads-manual.js",
+                "web2/fb-ads-stats/js/fb-ads-stats.js"
             ],
             "count": 3
         },
@@ -10138,6 +10670,15 @@
             "count": 3
         },
         {
+            "fn": "send",
+            "files": [
+                "live-chat/js/pancake/pancake-chat-window.js",
+                "web2/shared/web2-customer-chat-core.js",
+                "web2/shared/web2-fb-share.js"
+            ],
+            "count": 3
+        },
+        {
             "fn": "setBusy",
             "files": [
                 "web2/jt-tracking/js/jt-tracking-actions.js",
@@ -10156,11 +10697,11 @@
             "count": 3
         },
         {
-            "fn": "setupSSE",
+            "fn": "setStat",
             "files": [
-                "web2/balance-history/js/web2-bh-data.js",
-                "web2/customer-wallet/js/web2-customer-wallet-app.js",
-                "web2/purchase-refund/js/purchase-refund-app.js"
+                "web2/multi-tool/js/multi-tool.js",
+                "web2/video-maker/js/video-maker.js",
+                "web2/video-maker/js/video-vieneu.js"
             ],
             "count": 3
         },
@@ -10170,6 +10711,15 @@
                 "live-chat/js/live/live-comment-list-render-list.js",
                 "web2/photo-studio/photo-studio-state.js",
                 "web2/shared/web2-qr-modal.js"
+            ],
+            "count": 3
+        },
+        {
+            "fn": "status",
+            "files": [
+                "web2/shared/web2-fb-client.js",
+                "web2/shared/web2-zalo-api.js",
+                "web2/shared/web2-zalo.js"
             ],
             "count": 3
         },
@@ -10217,7 +10767,21 @@
                 "web2/shared/web2-api-fetch.js"
             ],
             "count": 3
+        },
+        {
+            "fn": "workerBase",
+            "files": [
+                "web2/multi-tool/js/multi-tool.js",
+                "web2/shared/web2-fb-client.js",
+                "web2/video-maker/js/video-ai-script.js"
+            ],
+            "count": 3
         }
     ],
-    "oversized": []
+    "oversized": [
+        {
+            "file": "web2/video-maker/js/video-maker.js",
+            "lines": 882
+        }
+    ]
 }
