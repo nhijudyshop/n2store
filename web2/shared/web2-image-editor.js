@@ -141,6 +141,22 @@
         });
     }
 
+    // Nạp ảnh vào Photopea. ƯU TIÊN gửi ArrayBuffer (Photopea tự mở file binary) —
+    // tránh nhét dataURL khổng lồ vào chuỗi script `app.open("...")` (ảnh SP thật vài
+    // MB → script vỡ → ảnh không mở → export rỗng → ảnh kết quả lỗi). Fallback app.open
+    // (URL nhỏ / nếu fetch lỗi).
+    async function _loadIntoPhotopea(win, src) {
+        try {
+            const ab = await (await fetch(src)).arrayBuffer();
+            win.postMessage(ab, '*');
+            return;
+        } catch (e) {
+            try {
+                win.postMessage('app.open(' + JSON.stringify(src) + ', null, false);', '*');
+            } catch {}
+        }
+    }
+
     // ---- Chế độ NÂNG CAO: Photopea (Photoshop-grade) qua iframe + postMessage API ----
     // Nhúng hợp lệ (Photopea có API công khai). Không login, xử lý client-side trong
     // iframe; chỉ tải ảnh vào + lấy ảnh ra qua postMessage (không upload server mình).
@@ -169,6 +185,7 @@
             let ready = false;
             let opened = false;
             let done = false;
+            let saveRequested = false;
             const finish = (val) => {
                 if (done) return;
                 done = true;
@@ -179,8 +196,14 @@
             const onMsg = (e) => {
                 if (e.source !== frame.contentWindow) return;
                 const d = e.data;
-                // ArrayBuffer = kết quả saveToOE("png") → ảnh đã chỉnh.
-                if (d instanceof ArrayBuffer) {
+                // ArrayBuffer = kết quả saveToOE("png") → CHỈ nhận sau khi user bấm "Lấy
+                // ảnh về" (tránh nhầm binary khác Photopea gửi). Bỏ buffer rỗng.
+                if (d instanceof ArrayBuffer && saveRequested) {
+                    if (!d.byteLength) {
+                        notifyWarn();
+                        saveRequested = false;
+                        return;
+                    }
                     const blob = new Blob([d], { type: 'image/png' });
                     const fr = new FileReader();
                     fr.onload = () => finish(fr.result);
@@ -193,21 +216,24 @@
                     ready = true;
                     if (!opened) {
                         opened = true;
-                        try {
-                            frame.contentWindow.postMessage(
-                                'app.open(' + JSON.stringify(src) + ', null, false);',
-                                '*'
-                            );
-                        } catch {}
+                        _loadIntoPhotopea(frame.contentWindow, src);
                     }
                 }
             };
+            function notifyWarn() {
+                global.notificationManager?.show?.(
+                    'Chưa lấy được ảnh — hãy mở/chỉnh ảnh trong Photopea rồi bấm lại',
+                    'warning'
+                );
+            }
             global.addEventListener('message', onMsg);
             bar.addEventListener('click', (e) => {
                 const a = e.target.closest('[data-pp]')?.dataset.pp;
                 if (a === 'close') finish(null);
                 else if (a === 'save') {
+                    saveRequested = true;
                     try {
+                        // flatten về 1 ảnh rồi export (đảm bảo có pixel data dù nhiều layer)
                         frame.contentWindow.postMessage('app.activeDocument.saveToOE("png");', '*');
                     } catch {
                         finish(null);
