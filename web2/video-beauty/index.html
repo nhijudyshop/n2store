@@ -1,0 +1,149 @@
+<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 module. -->
+<!doctype html>
+<html lang="vi">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+        <meta http-equiv="Cache-Control" content="no-cache, must-revalidate" />
+        <title>Làm đẹp video — Web 2.0</title>
+
+        <meta name="theme-color" content="#0b1220" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <link rel="apple-touch-icon" href="../shared/img/logo-emblem.png" />
+
+        <link rel="stylesheet" href="../shared/web2-sidebar.css?v=20260613z" />
+        <link rel="stylesheet" href="../shared/web2-theme.css?v=20260613z" />
+        <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
+        <link rel="stylesheet" href="./video-beauty.css?v=20260619a" />
+    </head>
+    <body class="web2-theme">
+        <div class="web2-shell">
+            <aside class="web2-aside" id="web2Aside"></aside>
+            <main class="web2-main">
+                <div class="vb-app">
+                    <!-- ====== CONTROLS ====== -->
+                    <section class="vb-panel">
+                        <h1 class="vb-h"><i data-lucide="sparkles"></i> Làm đẹp video</h1>
+                        <p class="vb-sub">
+                            Tải video → mịn da, trắng da, lọc màu (xem trước trực tiếp) + chỉnh mặt
+                            (mắt/mũi/V-line nhẹ). Chạy 100% trên máy, không gửi video đi đâu. Giữ
+                            nguyên tiếng gốc.
+                        </p>
+
+                        <label class="vb-btn primary vb-upload">
+                            <i data-lucide="upload"></i> Tải video từ máy
+                            <input type="file" id="vbUpload" accept="video/*" />
+                        </label>
+
+                        <div id="vbControls" hidden>
+                            <div class="vb-slider">
+                                <label>Mịn da <b id="vbSmoothVal"></b></label>
+                                <input
+                                    type="range"
+                                    id="vbSmooth"
+                                    min="0"
+                                    max="1"
+                                    step="0.05"
+                                    value="0.5"
+                                />
+                            </div>
+                            <div class="vb-slider">
+                                <label>Trắng da <b id="vbWhitenVal"></b></label>
+                                <input
+                                    type="range"
+                                    id="vbWhiten"
+                                    min="0"
+                                    max="0.4"
+                                    step="0.02"
+                                    value="0.12"
+                                />
+                            </div>
+                            <div class="vb-slider">
+                                <label>Tông ấm <b id="vbWarmthVal"></b></label>
+                                <input
+                                    type="range"
+                                    id="vbWarmth"
+                                    min="-0.3"
+                                    max="0.3"
+                                    step="0.02"
+                                    value="0.05"
+                                />
+                            </div>
+
+                            <div class="vb-label">Bộ lọc màu</div>
+                            <div class="vb-chips" id="vbFilters"></div>
+
+                            <div class="vb-slider vb-face">
+                                <label
+                                    >Chỉnh mặt (mắt/mũi/V-line) <b id="vbFaceVal"></b>
+                                    <span class="vb-face-tag">render chậm</span></label
+                                >
+                                <input
+                                    type="range"
+                                    id="vbFace"
+                                    min="0"
+                                    max="1"
+                                    step="0.05"
+                                    value="0"
+                                />
+                                <small class="vb-face-note" id="vbFaceNote"
+                                    >Bật &gt; 0 sẽ xử lý từng khung khi xuất (chậm hơn) để nhận diện
+                                    + chỉnh khuôn mặt.</small
+                                >
+                            </div>
+
+                            <button class="vb-btn primary block" id="vbExport">
+                                <i data-lucide="download"></i> Xuất video
+                            </button>
+                            <div class="vb-prog" id="vbProg" hidden>
+                                <div class="vb-prog-bar">
+                                    <div class="vb-prog-fill" id="vbProgFill"></div>
+                                </div>
+                                <span class="vb-prog-pct" id="vbProgPct">0%</span>
+                            </div>
+                            <div class="vb-export-stat" id="vbExportStat"></div>
+                        </div>
+                    </section>
+
+                    <!-- ====== PREVIEW ====== -->
+                    <section class="vb-stagewrap">
+                        <div class="vb-empty" id="vbEmpty">
+                            <i data-lucide="clapperboard"></i>
+                            <p>Tải 1 video lên để bắt đầu làm đẹp</p>
+                        </div>
+                        <div class="vb-stage" id="vbStage" hidden>
+                            <canvas id="vbCanvas" width="1280" height="720"></canvas>
+                            <div class="vb-transport">
+                                <button class="vb-btn" id="vbPlay">
+                                    <i data-lucide="play"></i> Xem trước
+                                </button>
+                                <button class="vb-btn" id="vbPause" hidden>
+                                    <i data-lucide="pause"></i> Dừng
+                                </button>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+            </main>
+        </div>
+
+        <script src="../../shared/js/notification-system.js?v=20260613a"></script>
+        <script src="../shared/web2-auth.js?v=20260613guard"></script>
+        <script src="../shared/web2-sidebar.js?v=20260615db"></script>
+        <script src="../shared/beauty/web2-beauty-filters.js?v=20260619a"></script>
+        <script src="../shared/beauty/web2-beauty-face.js?v=20260619b"></script>
+        <script src="../video-maker/js/video-audio.js?v=20260619a"></script>
+        <script src="./js/video-beauty-render.js?v=20260619a"></script>
+        <script src="./js/video-beauty-export.js?v=20260619b"></script>
+        <script src="./js/video-beauty.js?v=20260619a"></script>
+        <script>
+            document.addEventListener('DOMContentLoaded', () => {
+                if (window.Web2Sidebar)
+                    Web2Sidebar.mount('#web2Aside', { activeRoute: 'video-beauty' });
+                if (window.VideoBeautyPage) window.VideoBeautyPage.init();
+                if (window.lucide) lucide.createIcons();
+            });
+        </script>
+    </body>
+</html>
