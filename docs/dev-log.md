@@ -2,6 +2,12 @@
 
 ## 2026-06-19
 
+### [native-orders + live-chat] Step 2b dead-code removal + server.js split (Node) ✅
+
+**Step 2b (`4f087ac1a`)** — gỡ ~1500 dòng chat trùng native-orders sau chat-unification. Trace-first: xoá 6 file old-chat engine (chat-state/chat-render/message-render/inbox-sidebar/inbox-realtime/chat-css) + gỡ hàm chết in-place. GIỮ: `_handleReplyComment`+extension bridge (comment-reply mới), `inbox-resolve` (3 consumer thật: `_resolveInboxConvByPhone`/`_searchPancakeCustomers` cho inbox-add tạo đơn + `_hydrateInboxAvatars` cho render), inbox-add. `_avatarUrl` relocate → inbox-resolve. openInteractions bỏ fallback. native-orders 26→20 file, `window.NativeOrdersApp` giữ 36 key. Verified live: chat Web2CustomerChat + comments-info + reply OK, `_close/_refreshInteractions` no-op safe, 0 JS err, 0 dangling ref, 0 404.
+
+**server.js split** — `live-chat/server/server.js` 1216 dòng → 12 module CommonJS (relay/middleware/event-store/db/firebase-loader/pancake-api/page-selection-db/pancake-client[325]/client-manager/browser-broker/routes[351]/entry[173]). Modules side-effect-free on require (factory/class), entry làm connect/listen/wire. node --check 12/12 PASS; require-smoke (stub pg/ws) no side-effect. WS Phoenix protocol/heartbeat/token-load/relay/dedup/routes/middleware/graceful-shutdown verbatim. ⚠ Cần running-server smoke lúc deploy Render để confirm end-to-end.
+
 ### [native-orders] Step 2b — xoá old-chat dead-code (chat unified) ✅
 
 Sau Task 1 (chat hợp nhất vào `Web2CustomerChat`), modal chat cũ + engine thread/sidebar đã DEAD. Trace-first rồi mới xoá (TRÁNH gold-plate, conservative).
