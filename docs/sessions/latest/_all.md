@@ -3,14 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `b936b17` — fix(web2/fb-caption): gọi khách bằng 'chị' (các chị/mấy chị/chị đẹp), tránh 'các bạn'
-**Last updated**: 2026-06-19 23:12:36 +07
-**Latest session**: [`RESUME:20260619-231236-b936b17`](../20260619-231236-b936b17.md)
-**Summary**: fix(web2/fb-caption): gọi khách bằng 'chị' (các chị/mấy chị/chị đẹp), tránh 'các bạn'
+**Latest commit**: `eb5de64` — docs(dev-log): tông giọng caption shop dễ thương (em/chị)
+**Last updated**: 2026-06-19 23:16:20 +07
+**Latest session**: [`RESUME:20260619-231620-eb5de64`](../20260619-231620-eb5de64.md)
+**Summary**: docs(dev-log): tông giọng caption shop dễ thương (em/chị)
 
 ## Folders affected in this commit
 
-- [`render.com/`](./render.com.md) — 1 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -25,7 +25,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-19 23:05
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-16 14:31
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-18 12:17
-- [`docs/`](./docs.md) — updated 2026-06-19 23:05
+- [`docs/`](./docs.md) — updated 2026-06-19 23:16
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-16 14:31
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-16 14:31
 - [`downloads/`](./downloads.md) — updated 2026-06-19 14:27
