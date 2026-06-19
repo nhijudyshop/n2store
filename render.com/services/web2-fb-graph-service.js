@@ -544,17 +544,28 @@ function _sumObj(o) {
     return Number(o) || 0;
 }
 
-const POST_INSIGHT_METRICS =
-    'post_impressions,post_impressions_unique,post_clicks,post_reactions_by_type_total,post_video_views';
+// Metric chung cho MỌI loại bài. `post_video_views` CHỈ hợp lệ cho video/live — nếu gộp
+// chung mà bài là ảnh/text thì Graph reject CẢ cụm → tách riêng + retry không-video.
+const POST_INSIGHT_BASE =
+    'post_impressions,post_impressions_unique,post_clicks,post_reactions_by_type_total';
+const POST_INSIGHT_VIDEO = 'post_video_views';
 
 /** Insights 1 bài → {impressions, reach, clicks, reactions, videoViews} (null nếu không có). */
 async function getPostInsights(postId, pageToken) {
-    const url = `${GRAPH}/${postId}/insights?metric=${POST_INSIGHT_METRICS}&access_token=${encodeURIComponent(pageToken)}`;
+    const enc = encodeURIComponent;
+    const call = (metrics) =>
+        gfetch(`${GRAPH}/${postId}/insights?metric=${metrics}&access_token=${enc(pageToken)}`);
     let data;
     try {
-        data = await gfetch(url);
+        // thử kèm video views (bài video/live sẽ có)
+        data = await call(`${POST_INSIGHT_BASE},${POST_INSIGHT_VIDEO}`);
     } catch (_) {
-        return null; // bài cũ / không có insights / thiếu quyền
+        // bài ảnh/text → metric video không hợp lệ → retry chỉ metric chung
+        try {
+            data = await call(POST_INSIGHT_BASE);
+        } catch (__) {
+            return null; // bài cũ / không có insights / thiếu quyền
+        }
     }
     const m = {};
     (data.data || []).forEach((d) => (m[d.name] = _insightVal(d)));
