@@ -3,14 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `a082008` — fix(web2/ai-script): gate route bằng WEB1_ONLY (đúng convention WEB2_ONLY có sẵn) thay vì WEB2_SERVICE tự chế
-**Last updated**: 2026-06-19 16:10:25 +07
-**Latest session**: [`RESUME:20260619-161025-a082008`](../20260619-161025-a082008.md)
-**Summary**: fix(web2/ai-script): gate route bằng WEB1_ONLY (đúng convention WEB2_ONLY có sẵn) thay vì WEB2_SERVICE tự c...
+**Latest commit**: `5bb2cf9` — fix(worker): route /api/pbh-reports + /api/admin/web2-_ sang web2-api (đang bị gửi nhầm fallback Web 1.0)
+**Last updated**: 2026-06-19 16:28:25 +07
+**Latest session**: [`RESUME:20260619-162825-5bb2cf9`](../20260619-162825-5bb2cf9.md)
+**Summary**: fix(worker): route /api/pbh-reports + /api/admin/web2-_ sang web2-api (đang bị gửi nhầm fallback Web 1.0)
 
 ## Folders affected in this commit
 
-- [`render.com/`](./render.com.md) — 1 file(s)
+- [`cloudflare-worker/`](./cloudflare-worker.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -22,7 +22,7 @@
 - [`balance-history-home/`](./balance-history-home.md) — updated 2026-06-18 13:09
 - [`balance-history/`](./balance-history.md) — updated 2026-06-16 14:31
 - [`bangkiemhang/`](./bangkiemhang.md) — updated 2026-05-21 15:39
-- [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-19 14:54
+- [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-19 16:28
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-16 14:31
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-18 12:17
 - [`docs/`](./docs.md) — updated 2026-06-19 16:00
