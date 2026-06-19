@@ -97,6 +97,24 @@ async function ensureSchema(pool) {
                 updated_at  BIGINT NOT NULL
             );
         `);
+        // BACKFILL src_at cho row CŨ (quét TRƯỚC khi có cột src_at → src_at NULL → /list
+        // rơi về created_at, hiển thị giờ J&T → trông như chưa sort). Set theo tin Zalo
+        // MỚI NHẤT chứa mã (= giờ "tin nhắn" trong nhóm); không tìm thấy tin → created_at.
+        // WHERE src_at IS NULL → TỰ KẾT THÚC (chạy 1 lần, boot sau no-op khi hết NULL).
+        await pool
+            .query(
+                `UPDATE web2_jt_tracking t
+                 SET src_at = COALESCE(
+                     (SELECT MAX(m.sent_at) FROM web2_zalo_messages m
+                       WHERE m.sent_at IS NOT NULL AND m.content LIKE '%' || t.billcode || '%'),
+                     t.created_at)
+                 WHERE t.src_at IS NULL`
+            )
+            .then((r) => {
+                if (r.rowCount)
+                    console.log(`[web2-jt-tracking] backfill src_at: ${r.rowCount} rows`);
+            })
+            .catch((e) => console.error('[web2-jt-tracking] backfill src_at:', e.message));
         console.log('[web2-jt-tracking] schema ready (web2Db)');
     } catch (e) {
         console.error('[web2-jt-tracking] ensureSchema failed:', e.message);
@@ -724,8 +742,8 @@ router.post('/add', async (req, res) => {
         let added = 0;
         for (const code of codes) {
             const r = await db.query(
-                `INSERT INTO web2_jt_tracking (billcode, status, source, created_at, updated_at)
-                 VALUES ($1,'pending','manual',$2,$2)
+                `INSERT INTO web2_jt_tracking (billcode, status, source, src_at, created_at, updated_at)
+                 VALUES ($1,'pending','manual',$2,$2,$2)
                  ON CONFLICT (billcode) DO NOTHING`,
                 [code, ts]
             );
