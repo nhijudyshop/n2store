@@ -2,7 +2,7 @@
 
 # WEB2-CODEMAP — Bản đồ code Web 2.0
 
-> **Auto-generated** • 2026-06-19 03:38 • 349 files, 95 shared modules, 2543 hàm, 0 file > 800 dòng.
+> **Auto-generated** • 2026-06-19 04:14 • 349 files, 95 shared modules, 2559 hàm, 0 file > 800 dòng.
 > Sinh lại: `node scripts/gen-web2-codemap.js` (chạy sau khi đổi cấu trúc/ tách module / thêm trang).
 
 ## 0. Cách dùng (Claude / dev đọc TRƯỚC khi code)
@@ -1464,16 +1464,16 @@ WEB2.0 module — Zalo chat sticker picker.
 
 ### web2/video-maker — WEB2.0 module.
 
-- **[video-maker.js](../../web2/video-maker/js/video-maker.js)** ·434 — WEB2.0 module.
+- **[video-maker.js](../../web2/video-maker/js/video-maker.js)** ·644 — WEB2.0 module.
     - exposes: `VideoMakerPage`
     - uses shared: `Web2Escape`, `Web2ProductsCache`
-    - funcs (28): $, \_stopSrc, addImagesFromFiles, applyCanvasSize, audioCtx, dims, drawAt, esc, exportVideo, findScene, fitPreview, genNarration, init, loadImage, loop, narrationBuffer, notify, ondataavailable, onerror, onload, pickMime, play, renderPickers, renderScenes, setStat, stop, totalDur, wireSceneList
+    - funcs (40): $, \_rand, \_shuffle, \_stopSrc, addImagesFromFiles, applyCanvasSize, audioCtx, dims, drawAt, esc, exportVideo, findScene, fitPreview, fmtPriceShort, genNarration, init, loadImage, loadImageCors, loop, narrationBuffer, notify, onStatus, ondataavailable, onended, onerror, onload, pickMime, play, playSample, randomGenerate, renderPickers, renderScenes, renderVoices, setStat, stop, toneLabel, tonePitch, totalDur, voiceLabel, wireSceneList
 - **[video-render.js](../../web2/video-maker/js/video-render.js)** ·156 — WEB2.0 module.
     - exposes: `Web2VideoRender`
     - funcs (5): \_drawImageZoom, \_drawScene, \_wrap, drawFrame, totalDuration
-- **[video-tts.js](../../web2/video-maker/js/video-tts.js)** ·137 — WEB2.0 module.
+- **[video-tts.js](../../web2/video-maker/js/video-tts.js)** ·209 — WEB2.0 module.
     - exposes: `Web2VideoTTS`
-    - funcs (7): \_getPipe, \_splitSentences, cancelPreview, progress_callback, speakPreview, synthesize, toAudioBuffer
+    - funcs (13): \_concat, \_decodeCtx, \_getMms, \_getPiper, \_mmsChunk, \_piperChunk, \_resample, \_splitSentences, \_voice, cancelPreview, speakPreview, synthesize, toAudioBuffer
 
 ### web2/zalo — WEB2.0 module.
 
