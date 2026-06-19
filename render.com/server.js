@@ -739,6 +739,7 @@ app.use('/api/web2-products', web2ProductsRoutes);
 app.use('/api/web2-returns', web2ReturnsRoutes); // WEB2.0 — Thu về (goods return)
 app.use('/api/web2-variants', web2VariantsRoutes);
 app.use('/api/web2/cutout', require('./routes/web2-cutout')); // WEB2.0 photo-studio cutout (PhotoRoom) — TRƯỚC generic
+app.use('/api/web2/ai-script', require('./routes/web2-ai-script')); // WEB2.0 video-maker: AI viết kịch bản (Gemini RIÊNG, key WEB2_GEMINI_API_KEY) — TRƯỚC generic
 // NOTE 2026-06-03: generic catch-all `/api/web2` (web2GenericRoutes) ĐÃ DỜI
 // xuống SAU tất cả route dedicated `/api/web2/<entity>` bên dưới (notifications,
 // audit-log, dashboard-kpi, ...). Lý do: generic có route `/:entity/list`
