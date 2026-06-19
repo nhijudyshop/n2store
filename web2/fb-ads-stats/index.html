@@ -1,0 +1,47 @@
+<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 module — Thống kê quảng cáo Facebook (ad account insights + campaign). -->
+<!doctype html>
+<html lang="vi">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Thống kê quảng cáo FB — WEB 2.0</title>
+        <meta name="web2-db" content="render" />
+
+        <link rel="stylesheet" href="../shared/web2-sidebar.css?v=20260613z" />
+        <link rel="stylesheet" href="../shared/web2-theme.css?v=20260613ns1" />
+        <link rel="stylesheet" href="../fb-posts/fb-posts.css?v=20260619a" />
+
+        <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
+        <script src="../../shared/js/notification-system.js?v=20260521b"></script>
+    </head>
+    <body>
+        <div class="web2-shell">
+            <aside class="web2-aside" id="web2Aside"></aside>
+            <main class="web2-main">
+                <div class="fbp-main">
+                    <header class="fbp-head">
+                        <div class="fbp-head-titles">
+                            <h1><i data-lucide="dollar-sign"></i> Thống kê quảng cáo</h1>
+                            <p>
+                                Chi tiêu, hiển thị, tiếp cận, click, CTR/CPC/CPM, kết quả + chi tiết
+                                từng chiến dịch — theo tài khoản quảng cáo.
+                            </p>
+                        </div>
+                        <div class="fbp-conn">
+                            <span class="fbp-pill" id="fbaConnPill"
+                                ><i data-lucide="loader"></i> Đang tải…</span
+                            >
+                        </div>
+                    </header>
+                    <div id="fbaBody"></div>
+                </div>
+            </main>
+        </div>
+
+        <script src="../shared/web2-auth.js?v=20260613guard"></script>
+        <script src="../shared/web2-sidebar.js?v=20260615db"></script>
+        <script src="../shared/web2-sse-bridge.js?v=20260614ux2"></script>
+        <script src="../fb-posts/js/fb-posts-api.js?v=20260619b"></script>
+        <script src="js/fb-ads-stats.js?v=20260619a"></script>
+    </body>
+</html>

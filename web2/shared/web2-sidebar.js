@@ -181,16 +181,30 @@
                     label: 'Sổ Order',
                     our: '../so-order/index.html',
                 },
-                {
-                    label: 'Đăng bài Facebook 📢',
-                    our: '../web2/fb-posts/index.html',
-                },
                 { label: 'Live Chat', our: '../live-chat/index.html' },
                 // Panel chat Pancake tách thành trang riêng (2026-06-11) —
                 // live-chat/index.html giờ chỉ còn cột comment + capture.
                 { label: 'Chat Pancake', our: '../live-chat/chat.html' },
                 // Viewer comment livestream tối ưu ĐIỆN THOẠI (chỉ-xem) — 2026-06-14.
                 { label: 'Comment Live 📱', our: '../live-chat/comments-mobile.html' },
+            ],
+        },
+        {
+            label: 'Facebook',
+            icon: 'facebook',
+            children: [
+                {
+                    label: 'Đăng bài 📢',
+                    our: '../web2/fb-posts/index.html',
+                },
+                {
+                    label: 'Thống kê tương tác 📊',
+                    our: '../web2/fb-insights/index.html',
+                },
+                {
+                    label: 'Thống kê quảng cáo 💰',
+                    our: '../web2/fb-ads-stats/index.html',
+                },
             ],
         },
         {

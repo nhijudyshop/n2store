@@ -410,11 +410,104 @@ async function listScheduledPosts(pageId, pageToken, limit = 25) {
     }
 }
 
+// ── Thống kê tương tác (engagement) ────────────────────────────────────────
+
+/** Thông tin cơ bản page: follower, talking_about. */
+async function getPageBasic(pageId, pageToken) {
+    const url = `${GRAPH}/${pageId}?fields=name,fan_count,followers_count,talking_about_count,link&access_token=${encodeURIComponent(pageToken)}`;
+    return gfetch(url);
+}
+
+/** Lấy N bài kèm số like/comment/share (để tính tổng tương tác, top bài, khung giờ).
+ * Cần pages_read_user_content cho summary; lỗi → fallback list không có số. */
+async function getEngagementPosts(pageId, pageToken, limit = 50, liveMap = {}) {
+    const rich =
+        'id,message,created_time,full_picture,permalink_url,status_type,' +
+        'attachments{media_type,type,target{id}},' +
+        'likes.summary(true).limit(0),comments.summary(true).limit(0),shares';
+    const basic =
+        'id,message,created_time,full_picture,permalink_url,status_type,attachments{media_type,type,target{id}}';
+    const fetchF = (fields) =>
+        gfetch(
+            `${GRAPH}/${pageId}/posts?fields=${encodeURIComponent(fields)}&limit=${Math.min(100, limit)}&access_token=${encodeURIComponent(pageToken)}`
+        );
+    let data;
+    let hasEngagement = true;
+    try {
+        data = await fetchF(rich);
+    } catch (_) {
+        hasEngagement = false;
+        data = await fetchF(basic);
+    }
+    const posts = (data.data || []).map((p) => {
+        const att = (p.attachments && p.attachments.data && p.attachments.data[0]) || {};
+        const likes = p.likes && p.likes.summary ? p.likes.summary.total_count : 0;
+        const comments = p.comments && p.comments.summary ? p.comments.summary.total_count : 0;
+        const shares = p.shares ? p.shares.count : 0;
+        const base = {
+            id: String(p.id),
+            message: p.message || '',
+            createdTime: p.created_time || null,
+            picture: p.full_picture || '',
+            permalink: p.permalink_url || '',
+            statusType: p.status_type || '',
+            mediaType: att.media_type || '',
+            attType: att.type || '',
+            targetId: att.target && att.target.id ? String(att.target.id) : '',
+            likes,
+            comments,
+            shares,
+            total: likes + comments + shares,
+        };
+        return { ...base, ...classifyPost(base, liveMap) };
+    });
+    return { posts, hasEngagement };
+}
+
+// ── Thống kê quảng cáo (ads) ─────────────────────────────────────────────────
+
+/** Danh sách tài khoản quảng cáo user truy cập được (cần ads_read). */
+async function getAdAccounts(userToken) {
+    const url = `${GRAPH}/me/adaccounts?fields=id,account_id,name,account_status,currency,amount_spent,balance&limit=50&access_token=${encodeURIComponent(userToken)}`;
+    const data = await gfetch(url);
+    return (data.data || []).map((a) => ({
+        id: a.id,
+        accountId: a.account_id,
+        name: a.name || a.account_id,
+        status: a.account_status,
+        currency: a.currency || '',
+        amountSpent: a.amount_spent || '0',
+        balance: a.balance || '0',
+    }));
+}
+
+/** Insights 1 tài khoản quảng cáo + breakdown theo campaign (cần ads_read). */
+async function getAdInsights(actId, userToken, preset = 'last_30d') {
+    const act = String(actId).startsWith('act_') ? actId : `act_${actId}`;
+    const sumFields = 'spend,impressions,reach,clicks,cpc,cpm,ctr,frequency,actions,action_values';
+    const campFields = 'campaign_name,campaign_id,spend,impressions,reach,clicks,ctr,actions';
+    const u = (lvl, fields) =>
+        `${GRAPH}/${act}/insights?${lvl ? `level=${lvl}&` : ''}fields=${encodeURIComponent(fields)}&date_preset=${encodeURIComponent(preset)}&limit=100&access_token=${encodeURIComponent(userToken)}`;
+    const [sumD, campD] = await Promise.all([
+        gfetch(u('', sumFields)).catch((e) => ({ _err: e.message })),
+        gfetch(u('campaign', campFields)).catch(() => ({})),
+    ]);
+    return {
+        summary: (sumD.data && sumD.data[0]) || {},
+        error: sumD._err || null,
+        campaigns: campD.data || [],
+    };
+}
+
 module.exports = {
     GRAPH_VERSION,
     SCHEDULE_MIN_SEC,
     SCHEDULE_MAX_SEC,
     hasApp,
+    getPageBasic,
+    getEngagementPosts,
+    getAdAccounts,
+    getAdInsights,
     SCOPES_POST,
     buildOAuthDialogUrl,
     exchangeCodeForToken,

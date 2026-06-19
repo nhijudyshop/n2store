@@ -502,6 +502,72 @@ router.post('/delete', async (req, res) => {
     }
 });
 
+// ── Thống kê tương tác ───────────────────────────────────────────────────
+// GET /engagement?pageId=&limit= — follower + tổng tương tác từ N bài + per-post.
+router.get('/engagement', async (req, res) => {
+    try {
+        const db = getDb(req);
+        const pageId = req.query.pageId;
+        const limit = Math.min(100, parseInt(req.query.limit, 10) || 50);
+        if (!pageId) return res.status(400).json({ success: false, error: 'Thiếu pageId' });
+        const row = await loadToken(db);
+        const page = row && findPage(row.pages, pageId);
+        if (!page || !page.access_token)
+            return res
+                .status(400)
+                .json({ success: false, error: 'Chưa kết nối / không có page token' });
+        const liveMap = await fb.getLiveVideoMap(page.id, page.access_token).catch(() => ({}));
+        const [basic, eng] = await Promise.all([
+            fb.getPageBasic(page.id, page.access_token).catch(() => ({})),
+            fb.getEngagementPosts(page.id, page.access_token, limit, liveMap),
+        ]);
+        res.json({
+            success: true,
+            page: {
+                name: basic.name || page.name,
+                fans: basic.fan_count ?? null,
+                followers: basic.followers_count ?? null,
+                talkingAbout: basic.talking_about_count ?? null,
+            },
+            posts: eng.posts,
+            hasEngagement: eng.hasEngagement,
+        });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+// ── Thống kê quảng cáo ──────────────────────────────────────────────────────
+// GET /ad-accounts — danh sách tài khoản quảng cáo (dùng user token).
+router.get('/ad-accounts', async (req, res) => {
+    try {
+        const db = getDb(req);
+        const row = await loadToken(db);
+        if (!row || !row.user_token)
+            return res.status(400).json({ success: false, error: 'Chưa kết nối Facebook' });
+        const accounts = await fb.getAdAccounts(row.user_token);
+        res.json({ success: true, accounts });
+    } catch (e) {
+        res.status(400).json({ success: false, error: e.message });
+    }
+});
+
+// GET /ad-insights?actId=&preset= — insights + campaign breakdown 1 tài khoản.
+router.get('/ad-insights', async (req, res) => {
+    try {
+        const db = getDb(req);
+        const { actId, preset } = req.query;
+        if (!actId) return res.status(400).json({ success: false, error: 'Thiếu actId' });
+        const row = await loadToken(db);
+        if (!row || !row.user_token)
+            return res.status(400).json({ success: false, error: 'Chưa kết nối Facebook' });
+        const data = await fb.getAdInsights(actId, row.user_token, preset || 'last_30d');
+        res.json({ success: true, ...data });
+    } catch (e) {
+        res.status(400).json({ success: false, error: e.message });
+    }
+});
+
 // ── Drafts / scheduled store (web2_fb_posts) ───────────────────────────────
 // GET /drafts?status=draft|scheduled|all
 router.get('/drafts', async (req, res) => {

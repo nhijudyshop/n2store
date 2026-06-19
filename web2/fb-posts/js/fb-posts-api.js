@@ -66,6 +66,13 @@
                 `/post-detail?pageId=${encodeURIComponent(pageId)}&postId=${encodeURIComponent(postId)}`
             ),
         del: (pageId, postId) => jpost('/delete', { pageId, postId }),
+        engagement: (pageId, limit) =>
+            jget(`/engagement?pageId=${encodeURIComponent(pageId)}&limit=${limit || 50}`),
+        adAccounts: () => jget('/ad-accounts'),
+        adInsights: (actId, preset) =>
+            jget(
+                `/ad-insights?actId=${encodeURIComponent(actId)}&preset=${encodeURIComponent(preset || 'last_30d')}`
+            ),
         drafts: (status) => jget(`/drafts?status=${status || 'all'}`),
         saveDraft: (payload) => jpost('/draft', payload),
         deleteDraft: (id) => jpost(`/draft/${id}`, null, 'DELETE'),
