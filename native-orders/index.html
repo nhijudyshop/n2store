@@ -538,7 +538,33 @@
         <script src="../web2/shared/web2-printer.js?v=20260615auth"></script>
         <script src="js/native-orders-api.js?v=20260615u"></script>
         <script src="js/native-orders-packing-slip.js?v=20260615u"></script>
-        <script src="js/native-orders-app.js?v=20260615fix"></script>
+        <!-- native-orders-app.js (9456 dòng) ĐÃ TÁCH thành các module nhỏ (MOVE-only,
+             shared namespace window.NativeOrders). Load THEO THỨ TỰ phụ thuộc:
+             state/config → render/feature → chat → init → public-api (build
+             window.NativeOrdersApp CUỐI). KHÔNG đổi thứ tự. -->
+        <script src="js/native-orders-state.js?v=20260618w3"></script>
+        <script src="js/native-orders-snapshots.js?v=20260618w3"></script>
+        <script src="js/native-orders-customer-panel.js?v=20260618w3"></script>
+        <script src="js/native-orders-render.js?v=20260618w3"></script>
+        <script src="js/native-orders-delivery.js?v=20260618w3"></script>
+        <script src="js/native-orders-modal-edit.js?v=20260618w3"></script>
+        <script src="js/native-orders-product-picker.js?v=20260618w3"></script>
+        <script src="js/native-orders-pbh-bill.js?v=20260618w3"></script>
+        <script src="js/native-orders-inbox-add.js?v=20260618w3"></script>
+        <script src="js/native-orders-bulk-operations.js?v=20260618w3"></script>
+        <script src="js/native-orders-filters-campaigns.js?v=20260618w3"></script>
+        <script src="js/native-orders-realtime-init.js?v=20260618w3"></script>
+        <script src="js/native-orders-customer360.js?v=20260618w3"></script>
+        <script src="js/native-orders-interactions.js?v=20260618w3"></script>
+        <script src="js/native-orders-inbox-resolve.js?v=20260618w3"></script>
+        <script src="js/native-orders-inbox-sidebar.js?v=20260618w3"></script>
+        <script src="js/native-orders-inbox-realtime.js?v=20260618w3"></script>
+        <script src="js/native-orders-chat-css.js?v=20260618w3"></script>
+        <script src="js/native-orders-message-render.js?v=20260618w3"></script>
+        <script src="js/native-orders-chat-render.js?v=20260618w3"></script>
+        <script src="js/native-orders-chat-state.js?v=20260618w3"></script>
+        <script src="js/native-orders-chat-send.js?v=20260618w3"></script>
+        <script src="js/native-orders-public-api.js?v=20260618w3"></script>
         <script src="js/native-orders-kpi.js?v=20260615u"></script>
         <script type="module" src="../web2/shared/web2-motion.js?v=20260615u"></script>
         <script>

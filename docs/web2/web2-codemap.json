@@ -1,10 +1,10 @@
 {
-    "generatedAt": "2026-06-19 00:04",
+    "generatedAt": "2026-06-19 00:44",
     "totals": {
-        "files": 310,
+        "files": 332,
         "sharedModules": 89,
         "functions": 2564,
-        "oversized": 4
+        "oversized": 3
     },
     "sharedModules": [
         {
@@ -56,7 +56,8 @@
                 "live-chat/js/live/live-chat-modal.js",
                 "live-chat/js/pancake/inventory-panel-render.js",
                 "live-chat/js/pancake/pancake-chat-window.js",
-                "native-orders/js/native-orders-app.js",
+                "native-orders/js/native-orders-chat-state.js",
+                "native-orders/js/native-orders-interactions.js",
                 "web2/shared/chat-panel/web2-chat-emoji-data.js",
                 "web2/shared/chat-panel/web2-chat-panel-compose.js",
                 "web2/shared/chat-panel/web2-chat-panel-render.js",
@@ -81,7 +82,12 @@
             "globals": ["DeliveryMethodPicker"],
             "purpose": "Web 2.0 — Delivery method picker (Vietnam-aware)",
             "api": [],
-            "consumers": ["native-orders/js/native-orders-app.js", "web2/shared/web2-sidebar.js"],
+            "consumers": [
+                "native-orders/js/native-orders-bulk-operations.js",
+                "native-orders/js/native-orders-delivery.js",
+                "native-orders/js/native-orders-pbh-bill.js",
+                "web2/shared/web2-sidebar.js"
+            ],
             "lines": 617
         },
         {
@@ -108,7 +114,9 @@
                 "live-chat/js/live/live-livestream-snap-ui.js",
                 "live-chat/js/pancake/inventory-panel-render.js",
                 "live-chat/js/pancake/pancake-context-menu.js",
-                "native-orders/js/native-orders-app.js",
+                "native-orders/js/native-orders-bulk-operations.js",
+                "native-orders/js/native-orders-pbh-bill.js",
+                "native-orders/js/native-orders-state.js",
                 "so-order/js/so-order-toolbar.js",
                 "web2/balance-history/js/web2-bh-link-customer.js",
                 "web2/customer-wallet/js/web2-customer-wallet-app.js",
@@ -180,8 +188,14 @@
                 "live-chat/js/shared/debt-manager.js",
                 "live-chat/js/shared/live-customer-sync.js",
                 "native-orders/js/native-orders-api.js",
-                "native-orders/js/native-orders-app.js",
+                "native-orders/js/native-orders-bulk-operations.js",
+                "native-orders/js/native-orders-chat-state.js",
+                "native-orders/js/native-orders-customer-panel.js",
                 "native-orders/js/native-orders-kpi.js",
+                "native-orders/js/native-orders-message-render.js",
+                "native-orders/js/native-orders-product-picker.js",
+                "native-orders/js/native-orders-snapshots.js",
+                "native-orders/js/native-orders-state.js",
                 "so-order/js/so-order-state.js",
                 "so-order/js/so-order-storage.js",
                 "web2/balance-history/js/web2-bh-core.js",
@@ -268,7 +282,8 @@
             "purpose": "WEB2.0 module.",
             "api": [],
             "consumers": [
-                "native-orders/js/native-orders-app.js",
+                "native-orders/js/native-orders-inbox-add.js",
+                "native-orders/js/native-orders-pbh-bill.js",
                 "web2/fastsaleorder-invoice/pbh-actions.js"
             ],
             "lines": 745
@@ -297,7 +312,15 @@
                 "live-chat/js/pancake/pancake-realtime.js",
                 "live-chat/js/pancake/pancake-token-manager.js",
                 "live-chat/js/pancake/pancake-token-sources.js",
-                "native-orders/js/native-orders-app.js",
+                "native-orders/js/native-orders-bulk-operations.js",
+                "native-orders/js/native-orders-chat-render.js",
+                "native-orders/js/native-orders-chat-send.js",
+                "native-orders/js/native-orders-chat-state.js",
+                "native-orders/js/native-orders-inbox-realtime.js",
+                "native-orders/js/native-orders-inbox-resolve.js",
+                "native-orders/js/native-orders-inbox-sidebar.js",
+                "native-orders/js/native-orders-interactions.js",
+                "native-orders/js/native-orders-message-render.js",
                 "web2/balance-history/js/web2-pm-customer-search.js",
                 "web2/customers/js/customers-events.js",
                 "web2/jt-tracking/js/jt-tracking-actions.js",
@@ -370,7 +393,7 @@
             "globals": ["Web2CkAssignPicker"],
             "purpose": "WEB2.0 — picker gán giao dịch CK (balance-history) cho đơn chưa nhận CK.",
             "api": [],
-            "consumers": ["native-orders/js/native-orders-app.js"],
+            "consumers": ["native-orders/js/native-orders-realtime-init.js"],
             "lines": 256
         },
         {
@@ -379,7 +402,7 @@
             "purpose": "WEB2.0 module — đối chiếu & duyệt tín hiệu CK (dùng chung 3 trang).",
             "api": [],
             "consumers": [
-                "native-orders/js/native-orders-app.js",
+                "native-orders/js/native-orders-realtime-init.js",
                 "web2/ck-dashboard/js/ck-dashboard-app.js"
             ],
             "lines": 490
@@ -423,7 +446,7 @@
                 "web2/shared/web2-customer-detail-modal.js",
                 "web2/shared/web2-product-counter.js"
             ],
-            "lines": 207
+            "lines": 205
         },
         {
             "file": "web2/shared/web2-customer-detail-modal.js",
@@ -500,7 +523,8 @@
             "purpose": "Web 2.0 — Effects / animations library",
             "api": [],
             "consumers": [
-                "native-orders/js/native-orders-app.js",
+                "native-orders/js/native-orders-pbh-bill.js",
+                "native-orders/js/native-orders-render.js",
                 "so-order/js/so-order-image-modal.js",
                 "so-order/js/so-order-modal-image.js",
                 "web2/products/js/web2-products-app.js"
@@ -664,7 +688,8 @@
             "purpose": "WEB2.0 module.",
             "api": [],
             "consumers": [
-                "native-orders/js/native-orders-app.js",
+                "native-orders/js/native-orders-bulk-operations.js",
+                "native-orders/js/native-orders-public-api.js",
                 "web2/shared/web2-msg-template-core.js",
                 "web2/shared/web2-msg-template-send.js",
                 "web2/shared/web2-msg-template-ui.js"
@@ -676,7 +701,11 @@
             "globals": ["Web2NewMsgBadge"],
             "purpose": "Web 2.0 — New-message badge for native-orders rows",
             "api": [],
-            "consumers": ["native-orders/js/native-orders-app.js"],
+            "consumers": [
+                "native-orders/js/native-orders-chat-send.js",
+                "native-orders/js/native-orders-chat-state.js",
+                "native-orders/js/native-orders-render.js"
+            ],
             "lines": 305
         },
         {
@@ -703,7 +732,9 @@
             "consumers": [
                 "live-chat/js/live/live-comment-list-actions.js",
                 "live-chat/js/live/live-livestream-gallery.js",
-                "native-orders/js/native-orders-app.js",
+                "native-orders/js/native-orders-customer-panel.js",
+                "native-orders/js/native-orders-delivery.js",
+                "native-orders/js/native-orders-modal-edit.js",
                 "so-order/js/so-order-kho-sync.js",
                 "web2/ck-dashboard/js/ck-dashboard-app.js",
                 "web2/customers/js/customers-app.js",
@@ -855,7 +886,7 @@
             "purpose": "Web 2.0 — Quick Reply system",
             "api": [],
             "consumers": [
-                "native-orders/js/native-orders-app.js",
+                "native-orders/js/native-orders-interactions.js",
                 "web2/shared/chat-panel/web2-chat-panel-compose.js"
             ],
             "lines": 656
@@ -867,7 +898,9 @@
             "api": [],
             "consumers": [
                 "live-chat/server/server.js",
-                "native-orders/js/native-orders-app.js",
+                "native-orders/js/native-orders-chat-state.js",
+                "native-orders/js/native-orders-inbox-realtime.js",
+                "native-orders/js/native-orders-public-api.js",
                 "web2/shared/web2-new-msg-badge.js"
             ],
             "lines": 599
@@ -877,7 +910,7 @@
             "globals": ["NativeReturnBill"],
             "purpose": "WEB2.0 module.",
             "api": [],
-            "consumers": ["native-orders/js/native-orders-app.js"],
+            "consumers": ["native-orders/js/native-orders-pbh-bill.js"],
             "lines": 59
         },
         {
@@ -929,8 +962,8 @@
                 "live-chat/js/pancake/inventory-panel-actions.js",
                 "live-chat/js/pancake/pancake-realtime.js",
                 "live-chat/js/shared/live-comments-stream.js",
-                "native-orders/js/native-orders-app.js",
                 "native-orders/js/native-orders-kpi.js",
+                "native-orders/js/native-orders-realtime-init.js",
                 "so-order/js/so-order-storage.js",
                 "web2/balance-history/js/web2-bh-data.js",
                 "web2/balance-history/js/web2-pending-match.js",
@@ -1017,8 +1050,10 @@
             "api": [],
             "consumers": [
                 "live-chat/js/live/live-hidden-commenters.js",
-                "native-orders/js/native-orders-app.js",
+                "native-orders/js/native-orders-inbox-add.js",
+                "native-orders/js/native-orders-modal-edit.js",
                 "native-orders/js/native-orders-packing-slip.js",
+                "native-orders/js/native-orders-product-picker.js",
                 "web2/ck-dashboard/js/ck-dashboard-app.js",
                 "web2/customers/js/customers-detail.js",
                 "web2/customers/js/customers-events.js",
@@ -1096,7 +1131,7 @@
                 "live-chat/js/live/live-comment-list-render-row.js",
                 "live-chat/js/live/live-comment-list-state.js",
                 "live-chat/js/live/live-customer-panel.js",
-                "native-orders/js/native-orders-app.js",
+                "native-orders/js/native-orders-render.js",
                 "web2/balance-history/js/web2-bh-reassign-modal.js",
                 "web2/balance-history/js/web2-bh-render.js",
                 "web2/balance-history/js/web2-link-customer-modal.js",
@@ -2871,322 +2906,302 @@
                     ]
                 },
                 {
-                    "file": "native-orders/js/native-orders-app.js",
-                    "lines": 9457,
-                    "purpose": "Native Orders — main app logic.",
-                    "globals": ["NativeOrdersApp"],
+                    "file": "native-orders/js/native-orders-bulk-operations.js",
+                    "lines": 565,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["NativeOrders"],
                     "uses": [
-                        "Web2ChatPanel",
                         "DeliveryMethodPicker",
                         "Popup",
-                        "API_CONFIG",
                         "Web2Auth",
-                        "Web2Bill",
                         "Web2Chat",
-                        "Web2CkAssignPicker",
-                        "Web2CkReview",
-                        "Web2Effects",
-                        "Web2MsgTemplate",
-                        "Web2NewMsgBadge",
-                        "Web2Optimistic",
-                        "Web2QuickReply",
-                        "Web2Realtime",
-                        "NativeReturnBill",
-                        "Web2SSE",
-                        "Web2UserInfo",
-                        "Web2WalletBalance"
+                        "Web2MsgTemplate"
                     ],
                     "functions": [
-                        "$",
+                        "bulkCreatePbh",
+                        "bulkCreatePbhShop",
+                        "bulkMergeOrders",
+                        "bulkSendMessage",
+                        "collect",
+                        "createPbhShopOne",
+                        "fmt",
+                        "getSelectedCodes",
+                        "unselectAllOrders",
+                        "updateBulkBar"
+                    ]
+                },
+                {
+                    "file": "native-orders/js/native-orders-chat-css.js",
+                    "lines": 777,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["NativeOrders"],
+                    "uses": [],
+                    "functions": ["_ensureChatModalCss"]
+                },
+                {
+                    "file": "native-orders/js/native-orders-chat-render.js",
+                    "lines": 273,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["NativeOrders"],
+                    "uses": ["Web2Chat"],
+                    "functions": [
                         "_appendBubbleDom",
-                        "_appendOutgoing",
-                        "_applyChatHeaderForOrder",
-                        "_applySidebarFilter",
-                        "_attachLabel",
                         "_attachScrollLoader",
-                        "_attachmentKind",
-                        "_avatarHtml",
-                        "_avatarInitial",
-                        "_avatarUrl",
-                        "_billShipPriceOf",
-                        "_bindConvRowClicks",
-                        "_bubbleHtml",
                         "_bubbleSlotHtml",
+                        "_loadOlderIndicatorHtml",
+                        "_loadOlderMessages",
+                        "_onChatScroll",
+                        "_onScrollRaw",
+                        "_prependBubblesDom",
+                        "_renderChatThread",
+                        "_skeletonThreadHtml"
+                    ]
+                },
+                {
+                    "file": "native-orders/js/native-orders-chat-send.js",
+                    "lines": 334,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["NativeOrders"],
+                    "uses": ["Web2Chat", "Web2NewMsgBadge"],
+                    "functions": ["_handleReplyComment", "_handleSendMessage", "_restore"]
+                },
+                {
+                    "file": "native-orders/js/native-orders-chat-state.js",
+                    "lines": 780,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["NativeOrders"],
+                    "uses": [
+                        "Web2ChatPanel",
+                        "Web2Auth",
+                        "Web2Chat",
+                        "Web2NewMsgBadge",
+                        "Web2Realtime"
+                    ],
+                    "functions": [
+                        "_appendOutgoing",
+                        "_attachLabel",
+                        "_attachmentKind",
                         "_buildNativeAdapter",
-                        "_buildOrderHtml",
-                        "_buildPbhShape",
                         "_clearPendingAttachment",
+                        "_fileToDataUrl",
+                        "_loadAndRenderThread",
+                        "_mountChatPanel",
+                        "_onIncomingWsMessage",
+                        "_performNativeSend",
+                        "_removeOutgoing",
+                        "_renderReplyBar",
+                        "_setPendingAttachment",
+                        "_setReplyTarget",
+                        "_teardownChatState",
+                        "loadMessages",
+                        "loadOlder",
+                        "markRead",
+                        "onAddEntity",
+                        "onEvent",
+                        "onerror",
+                        "onload",
+                        "quickReplies",
+                        "send",
+                        "sendSticker"
+                    ]
+                },
+                {
+                    "file": "native-orders/js/native-orders-customer-panel.js",
+                    "lines": 414,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["NativeOrders"],
+                    "uses": ["Web2Auth", "Web2Optimistic"],
+                    "functions": [
+                        "_ensureCustPanelEl",
+                        "_fetchCustomerPanelData",
+                        "_hideCustPanel",
+                        "_onCustAvatarEnter",
+                        "_onCustAvatarLeave",
+                        "_renderCustPanelContent",
+                        "_scheduleCustPanelHide",
+                        "_showCustPanel",
+                        "apply",
+                        "fetchCustomerFromWeb2",
+                        "formatTime",
+                        "onSuccess",
+                        "rollback",
+                        "run",
+                        "snapshot"
+                    ]
+                },
+                {
+                    "file": "native-orders/js/native-orders-customer360.js",
+                    "lines": 124,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["NativeOrders"],
+                    "uses": [],
+                    "functions": ["money", "onclick", "openCustomer", "renderRow"]
+                },
+                {
+                    "file": "native-orders/js/native-orders-delivery.js",
+                    "lines": 204,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["NativeOrders"],
+                    "uses": ["DeliveryMethodPicker", "Web2Optimistic"],
+                    "functions": [
                         "_closeDeliveryMenu",
-                        "_closeInteractions",
-                        "_convRowHtml",
-                        "_dateInputToIsoWithNowTime",
-                        "_dateLabel",
-                        "_dateSeparatorHtml",
                         "_deliveryBadgeHtml",
                         "_deliveryOpts",
                         "_deliveryShort",
                         "_detectDelivery",
-                        "_doCreatePbh",
-                        "_ensureChatModalCss",
-                        "_ensureCustPanelEl",
-                        "_extensionRequest",
-                        "_fetchConvsMerged",
-                        "_fetchCustomerPanelData",
-                        "_fileToDataUrl",
-                        "_filterActiveCount",
-                        "_flushSnapFetch",
-                        "_fmtVnTime",
-                        "_getDeliveryOpts",
-                        "_getSidebarPageIds",
-                        "_handleReplyComment",
-                        "_handleSendMessage",
+                        "apply",
+                        "onSuccess",
+                        "openDeliveryMenu",
+                        "rollback",
+                        "run",
+                        "setDeliveryMethod",
+                        "snapshot"
+                    ]
+                },
+                {
+                    "file": "native-orders/js/native-orders-filters-campaigns.js",
+                    "lines": 360,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["NativeOrders"],
+                    "uses": [],
+                    "functions": [
+                        "_syncChannelUi",
+                        "applyFilters",
+                        "assignPost",
+                        "clearFilters",
+                        "clearParentSelection",
+                        "createParentCampaign",
+                        "firstMatch",
+                        "loadAvailableCampaigns",
+                        "loadCampaignSelection",
+                        "loadPagePosts",
+                        "loadParentCampaigns",
+                        "opts",
+                        "pickNewestHouseStore",
+                        "reconcileCampaignSelection",
+                        "renderCampaignDropdown",
+                        "renderCampaignLabel",
+                        "renderPagePosts",
+                        "renderParentCampaigns",
+                        "row",
+                        "saveCampaignSelection",
+                        "selectParentCampaign",
+                        "toggleCampaignDropdown",
+                        "toggleFilter"
+                    ]
+                },
+                {
+                    "file": "native-orders/js/native-orders-inbox-add.js",
+                    "lines": 422,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["NativeOrders"],
+                    "uses": ["Web2Bill", "Web2UserInfo"],
+                    "functions": [
+                        "addToCart",
+                        "close",
+                        "ensureProdCache",
+                        "openAddInboxOrder",
+                        "pkItemHtml",
+                        "renderCart",
+                        "renderProdResults",
+                        "setFbStatus",
+                        "whItemHtml"
+                    ]
+                },
+                {
+                    "file": "native-orders/js/native-orders-inbox-realtime.js",
+                    "lines": 389,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["NativeOrders"],
+                    "uses": ["Web2Chat", "Web2Realtime"],
+                    "functions": [
                         "_handleSidebarWsEvent",
-                        "_hasChatClient",
-                        "_hasExtension",
-                        "_hideCustPanel",
+                        "_mergeSidebarConvs",
+                        "_pollSidebarOnce",
+                        "_startSidebarPoll",
+                        "_switchChatToCustomer",
+                        "_wireSidebarRealtime",
+                        "onEvent"
+                    ]
+                },
+                {
+                    "file": "native-orders/js/native-orders-inbox-resolve.js",
+                    "lines": 362,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["NativeOrders"],
+                    "uses": ["Web2Chat"],
+                    "functions": [
+                        "_convRowHtml",
+                        "_fetchConvsMerged",
+                        "_fmtVnTime",
+                        "_getSidebarPageIds",
                         "_hydrateInboxAvatars",
-                        "_isRealFbId",
-                        "_loadAndRenderScopeBanner",
-                        "_loadAndRenderThread",
+                        "_normPhone",
+                        "_resolveInboxConvByPhone",
+                        "_searchPancakeCustomers",
+                        "job"
+                    ]
+                },
+                {
+                    "file": "native-orders/js/native-orders-inbox-sidebar.js",
+                    "lines": 633,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["NativeOrders"],
+                    "uses": ["Web2Chat"],
+                    "functions": [
+                        "_applySidebarFilter",
+                        "_bindConvRowClicks",
+                        "_filterActiveCount",
                         "_loadFilterStateFor",
                         "_loadInboxSidebar",
-                        "_loadOlderIndicatorHtml",
-                        "_loadOlderMessages",
                         "_loadPageTagsForFilter",
-                        "_loadQuickTags",
-                        "_markPrintedCodes",
-                        "_mergeSidebarConvs",
-                        "_mountChatPanel",
-                        "_msgPlain",
-                        "_msgTimestamp",
-                        "_normPhone",
-                        "_onChatScroll",
-                        "_onCustAvatarEnter",
-                        "_onCustAvatarLeave",
-                        "_onIncomingWsMessage",
-                        "_onScrollRaw",
-                        "_performNativeSend",
                         "_persistFilterState",
-                        "_pickerOutsideClick",
-                        "_pollSidebarOnce",
-                        "_prependBubblesDom",
-                        "_queueSnapFetch",
-                        "_refreshInteractionsIfOpen",
-                        "_removeOutgoing",
-                        "_renderAdClick",
-                        "_renderAddress",
-                        "_renderAttachment",
-                        "_renderAudio",
-                        "_renderAudioCall",
-                        "_renderChatHeaderInner",
-                        "_renderChatThread",
-                        "_renderCommentReadonlyBlock",
-                        "_renderCommentThumbHtml",
-                        "_renderCommentsPanel",
-                        "_renderCustPanelContent",
-                        "_renderExpandRow",
-                        "_renderFile",
                         "_renderFilterSub",
                         "_renderFilterSubConditions",
                         "_renderFilterSubTags",
-                        "_renderImage",
-                        "_renderInboxRightPanel",
-                        "_renderInboxSidebarShell",
-                        "_renderInfoTab",
-                        "_renderInteractionsModal",
-                        "_renderLineSnapThumb",
-                        "_renderLinkPreview",
-                        "_renderMessagesPanel",
-                        "_renderPickItem",
-                        "_renderQuickReplyTags",
-                        "_renderQuotedReply",
-                        "_renderReactions",
-                        "_renderReplyBar",
-                        "_renderSourceBadge",
-                        "_renderSticker",
-                        "_renderSystemMessage",
-                        "_renderTemplate",
-                        "_renderVideo",
-                        "_resolveInboxConvByPhone",
-                        "_restore",
                         "_rowMatchesFilter",
-                        "_rowSignature",
-                        "_scheduleCustPanelHide",
-                        "_scheduleReload",
-                        "_searchPancakeCustomers",
-                        "_setPendingAttachment",
-                        "_setReplyTarget",
-                        "_showCustPanel",
-                        "_showFbBusinessLoginPrompt",
-                        "_skeletonThreadHtml",
-                        "_sseConnect",
-                        "_startSidebarPoll",
-                        "_switchChatToCustomer",
-                        "_syncChannelUi",
                         "_tagDictForCurrentPage",
-                        "_teardownChatState",
                         "_updateFilterButtonVisual",
                         "_updateFilterCatCounts",
                         "_wireFilterSubConditions",
                         "_wireFilterSubTags",
+                        "_wireSidebarFilter",
+                        "_wireSidebarSearch",
+                        "close",
+                        "doSearch",
+                        "open"
+                    ]
+                },
+                {
+                    "file": "native-orders/js/native-orders-interactions.js",
+                    "lines": 732,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["NativeOrders"],
+                    "uses": ["Web2ChatPanel", "Web2Chat", "Web2QuickReply"],
+                    "functions": [
+                        "_applyChatHeaderForOrder",
+                        "_closeInteractions",
+                        "_extensionRequest",
+                        "_hasChatClient",
+                        "_hasExtension",
+                        "_loadQuickTags",
+                        "_refreshInteractionsIfOpen",
+                        "_renderChatHeaderInner",
+                        "_renderCommentsPanel",
+                        "_renderInboxRightPanel",
+                        "_renderInboxSidebarShell",
+                        "_renderInfoTab",
+                        "_renderInteractionsModal",
+                        "_renderMessagesPanel",
+                        "_renderQuickReplyTags",
                         "_wireQuickReplyTags",
                         "_wireRightPanelTabs",
-                        "_wireSidebarFilter",
-                        "_wireSidebarRealtime",
-                        "_wireSidebarSearch",
-                        "_workerProxy",
-                        "addLineFromPicker",
-                        "addToCart",
-                        "apply",
-                        "applyColumnVisibility",
-                        "applyFilters",
-                        "assignPost",
-                        "avatarColor",
-                        "bulkCreatePbh",
-                        "bulkCreatePbhShop",
-                        "bulkMergeOrders",
-                        "bulkPrintBills",
-                        "bulkSendMessage",
-                        "cancelOrder",
-                        "cancelPbh",
-                        "cancelPbhFromEdit",
-                        "changeLineQty",
-                        "cleanup",
-                        "clearCustomerFilter",
-                        "clearFilters",
-                        "clearParentSelection",
-                        "close",
-                        "closeEdit",
-                        "collect",
-                        "computeOrderStt",
-                        "controlBar",
-                        "copyCode",
-                        "counter",
-                        "createParentCampaign",
-                        "createPbh",
-                        "createPbhShopOne",
-                        "detectCarrier",
-                        "doSearch",
-                        "ensureProdCache",
-                        "ensureVariantMap",
-                        "escapeHtml",
                         "fbPermalink",
-                        "fetchCustomerFromWeb2",
-                        "filterByCustomer",
-                        "firstChar",
-                        "firstMatch",
-                        "fmt",
-                        "formatFullTime",
-                        "formatTime",
-                        "formatTimeSplit",
-                        "getSelectedCodes",
-                        "goPage",
-                        "init",
-                        "injectFakeMessage",
-                        "job",
-                        "load",
-                        "loadAvailableCampaigns",
-                        "loadCampaignSelection",
-                        "loadColVisibility",
-                        "loadEditProductsCache",
-                        "loadMessages",
-                        "loadOlder",
-                        "loadPagePosts",
-                        "loadParentCampaigns",
-                        "markRead",
-                        "modal",
-                        "modalBody",
-                        "modalTitle",
-                        "money",
-                        "notify",
-                        "onAddEntity",
                         "onAutoSend",
-                        "onDone",
-                        "onEvent",
-                        "onKey",
-                        "onMount",
                         "onMsg",
-                        "onPrint",
                         "onSelect",
-                        "onSuccess",
-                        "onclick",
-                        "onerror",
-                        "onload",
-                        "open",
-                        "openAddInboxOrder",
-                        "openCustomFormPopup",
-                        "openCustomer",
-                        "openDeliveryMenu",
-                        "openEdit",
                         "openInteractions",
-                        "openNext",
-                        "openSnapLightbox",
-                        "opts",
-                        "orderDerivedBadges",
-                        "pag",
-                        "pancakeUrl",
-                        "pickNewestHouseStore",
-                        "pickedHint",
-                        "pkItemHtml",
-                        "printConfirmedBills",
-                        "quickReplies",
-                        "quickStatus",
-                        "reconcileCampaignSelection",
-                        "removeLine",
-                        "removeOrder",
-                        "renderAvatar",
-                        "renderCampaignDropdown",
-                        "renderCampaignLabel",
-                        "renderCart",
-                        "renderColumnTogglePanel",
-                        "renderCounters",
-                        "renderCustomerChip",
-                        "renderOrderLines",
-                        "renderPagePosts",
-                        "renderPagination",
-                        "renderParentCampaigns",
-                        "renderProdResults",
-                        "renderRow",
-                        "renderRows",
-                        "restoreChannel",
-                        "rollback",
-                        "row",
-                        "run",
-                        "saveCampaignSelection",
-                        "saveChannel",
-                        "saveColVisibility",
-                        "saveEdit",
-                        "searchCount",
-                        "searchPickerProducts",
-                        "selectParentCampaign",
-                        "send",
-                        "sendSticker",
-                        "setDeliveryMethod",
-                        "setFbStatus",
-                        "setLineNote",
-                        "setLineQty",
-                        "simulateLineCommentId",
-                        "snapshot",
-                        "splitOrder",
-                        "splitPbh",
-                        "statusBadge",
-                        "stripVi",
-                        "swapCaret",
-                        "tbody",
-                        "toggleCampaignDropdown",
-                        "toggleColumnPanel",
-                        "toggleExpand",
-                        "toggleFilter",
-                        "toggleLabel",
-                        "unselectAllOrders",
-                        "updateBulkBar",
-                        "validateOrderForPbh",
-                        "viewOrderBill",
-                        "vnFmt",
-                        "w2pAlert",
-                        "w2pConfirm",
-                        "web2StatusText",
-                        "whItemHtml"
+                        "pancakeUrl"
                     ]
                 },
                 {
@@ -3206,6 +3221,62 @@
                     ]
                 },
                 {
+                    "file": "native-orders/js/native-orders-message-render.js",
+                    "lines": 415,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["NativeOrders"],
+                    "uses": ["API_CONFIG", "Web2Chat"],
+                    "functions": [
+                        "_avatarHtml",
+                        "_avatarInitial",
+                        "_avatarUrl",
+                        "_bubbleHtml",
+                        "_dateLabel",
+                        "_dateSeparatorHtml",
+                        "_msgPlain",
+                        "_msgTimestamp",
+                        "_renderAdClick",
+                        "_renderAddress",
+                        "_renderAttachment",
+                        "_renderAudio",
+                        "_renderAudioCall",
+                        "_renderFile",
+                        "_renderImage",
+                        "_renderLinkPreview",
+                        "_renderQuotedReply",
+                        "_renderReactions",
+                        "_renderSticker",
+                        "_renderSystemMessage",
+                        "_renderTemplate",
+                        "_renderVideo",
+                        "_workerProxy",
+                        "vnFmt"
+                    ]
+                },
+                {
+                    "file": "native-orders/js/native-orders-modal-edit.js",
+                    "lines": 442,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["NativeOrders"],
+                    "uses": ["Web2Optimistic", "Web2UserInfo"],
+                    "functions": [
+                        "apply",
+                        "changeLineQty",
+                        "closeEdit",
+                        "onSuccess",
+                        "openEdit",
+                        "quickStatus",
+                        "removeLine",
+                        "renderOrderLines",
+                        "rollback",
+                        "run",
+                        "saveEdit",
+                        "setLineNote",
+                        "setLineQty",
+                        "snapshot"
+                    ]
+                },
+                {
                     "file": "native-orders/js/native-orders-packing-slip.js",
                     "lines": 325,
                     "purpose": "WEB2.0 module — Phiếu Soạn Hàng cho đơn NHÁP (native-orders).",
@@ -3222,6 +3293,167 @@
                         "close",
                         "go",
                         "open"
+                    ]
+                },
+                {
+                    "file": "native-orders/js/native-orders-pbh-bill.js",
+                    "lines": 787,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["NativeOrders"],
+                    "uses": [
+                        "DeliveryMethodPicker",
+                        "Popup",
+                        "Web2Bill",
+                        "Web2Effects",
+                        "NativeReturnBill"
+                    ],
+                    "functions": [
+                        "_billShipPriceOf",
+                        "_buildPbhShape",
+                        "_dateInputToIsoWithNowTime",
+                        "_doCreatePbh",
+                        "_getDeliveryOpts",
+                        "_markPrintedCodes",
+                        "bulkPrintBills",
+                        "cancelOrder",
+                        "cancelPbh",
+                        "cancelPbhFromEdit",
+                        "cleanup",
+                        "collect",
+                        "copyCode",
+                        "createPbh",
+                        "fmt",
+                        "goPage",
+                        "onKey",
+                        "onMount",
+                        "onPrint",
+                        "openCustomFormPopup",
+                        "openNext",
+                        "pickedHint",
+                        "printConfirmedBills",
+                        "removeOrder",
+                        "splitOrder",
+                        "splitPbh",
+                        "validateOrderForPbh",
+                        "viewOrderBill"
+                    ]
+                },
+                {
+                    "file": "native-orders/js/native-orders-product-picker.js",
+                    "lines": 186,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["NativeOrders"],
+                    "uses": ["Web2Auth", "Web2UserInfo"],
+                    "functions": [
+                        "_pickerOutsideClick",
+                        "_renderPickItem",
+                        "addLineFromPicker",
+                        "ensureVariantMap",
+                        "loadEditProductsCache",
+                        "searchPickerProducts",
+                        "stripVi"
+                    ]
+                },
+                {
+                    "file": "native-orders/js/native-orders-public-api.js",
+                    "lines": 106,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["NativeOrders", "NativeOrdersApp"],
+                    "uses": ["Web2MsgTemplate", "Web2Realtime"],
+                    "functions": ["injectFakeMessage", "simulateLineCommentId"]
+                },
+                {
+                    "file": "native-orders/js/native-orders-realtime-init.js",
+                    "lines": 308,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["NativeOrders"],
+                    "uses": ["Web2CkAssignPicker", "Web2CkReview", "Web2SSE"],
+                    "functions": [
+                        "_loadAndRenderScopeBanner",
+                        "_scheduleReload",
+                        "_sseConnect",
+                        "init",
+                        "onDone"
+                    ]
+                },
+                {
+                    "file": "native-orders/js/native-orders-render.js",
+                    "lines": 729,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["NativeOrders"],
+                    "uses": ["Web2Effects", "Web2NewMsgBadge", "Web2WalletBalance"],
+                    "functions": [
+                        "_buildOrderHtml",
+                        "_renderExpandRow",
+                        "_rowSignature",
+                        "clearCustomerFilter",
+                        "computeOrderStt",
+                        "detectCarrier",
+                        "filterByCustomer",
+                        "load",
+                        "orderDerivedBadges",
+                        "renderCounters",
+                        "renderCustomerChip",
+                        "renderPagination",
+                        "renderRows",
+                        "swapCaret",
+                        "toggleExpand",
+                        "web2StatusText"
+                    ]
+                },
+                {
+                    "file": "native-orders/js/native-orders-snapshots.js",
+                    "lines": 183,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["NativeOrders"],
+                    "uses": ["API_CONFIG"],
+                    "functions": [
+                        "_flushSnapFetch",
+                        "_queueSnapFetch",
+                        "_renderCommentReadonlyBlock",
+                        "_renderCommentThumbHtml",
+                        "_renderLineSnapThumb",
+                        "close",
+                        "openSnapLightbox"
+                    ]
+                },
+                {
+                    "file": "native-orders/js/native-orders-state.js",
+                    "lines": 402,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["NativeOrders"],
+                    "uses": ["Popup", "API_CONFIG"],
+                    "functions": [
+                        "$",
+                        "_isRealFbId",
+                        "_renderSourceBadge",
+                        "_showFbBusinessLoginPrompt",
+                        "applyColumnVisibility",
+                        "avatarColor",
+                        "controlBar",
+                        "counter",
+                        "escapeHtml",
+                        "firstChar",
+                        "formatFullTime",
+                        "formatTimeSplit",
+                        "loadColVisibility",
+                        "modal",
+                        "modalBody",
+                        "modalTitle",
+                        "notify",
+                        "pag",
+                        "renderAvatar",
+                        "renderColumnTogglePanel",
+                        "restoreChannel",
+                        "saveChannel",
+                        "saveColVisibility",
+                        "searchCount",
+                        "statusBadge",
+                        "tbody",
+                        "toggleColumnPanel",
+                        "toggleLabel",
+                        "w2pAlert",
+                        "w2pConfirm"
                     ]
                 }
             ]
@@ -6200,7 +6432,7 @@
                 },
                 {
                     "file": "web2/shared/web2-customer-chat.js",
-                    "lines": 207,
+                    "lines": 205,
                     "purpose": "WEB2.0 module.",
                     "globals": ["Web2CustomerChat"],
                     "uses": ["Web2ChatPanel", "Web2Chat", "Web2Ext", "Web2Lottie", "Web2Zalo"],
@@ -8091,7 +8323,7 @@
             "files": [
                 "live-chat/js/pancake/inventory-panel-state.js",
                 "live-chat/js/shared/utils.js",
-                "native-orders/js/native-orders-app.js",
+                "native-orders/js/native-orders-state.js",
                 "so-order/js/so-order-format.js",
                 "web2/balance-history/js/web2-bh-core.js",
                 "web2/balance-history/js/web2-link-customer-modal.js",
@@ -8279,7 +8511,7 @@
         {
             "fn": "renderPagination",
             "files": [
-                "native-orders/js/native-orders-app.js",
+                "native-orders/js/native-orders-render.js",
                 "web2/balance-history/js/web2-bh-render.js",
                 "web2/customer-wallet/js/web2-customer-wallet-render.js",
                 "web2/customers/js/customers-render.js",
@@ -8310,7 +8542,7 @@
         {
             "fn": "applyFilters",
             "files": [
-                "native-orders/js/native-orders-app.js",
+                "native-orders/js/native-orders-filters-campaigns.js",
                 "web2/fastsaleorder-delivery/dlv-app.js",
                 "web2/fastsaleorder-invoice/pbh-filters.js",
                 "web2/fastsaleorder-refund/rf-app.js",
@@ -8352,7 +8584,7 @@
         {
             "fn": "renderRows",
             "files": [
-                "native-orders/js/native-orders-app.js",
+                "native-orders/js/native-orders-render.js",
                 "web2/fastsaleorder-delivery/dlv-app.js",
                 "web2/fastsaleorder-invoice/pbh-render.js",
                 "web2/fastsaleorder-refund/rf-app.js",
@@ -8392,7 +8624,7 @@
         {
             "fn": "renderCounters",
             "files": [
-                "native-orders/js/native-orders-app.js",
+                "native-orders/js/native-orders-render.js",
                 "web2/fastsaleorder-delivery/dlv-app.js",
                 "web2/fastsaleorder-invoice/pbh-render.js",
                 "web2/fastsaleorder-refund/rf-app.js",
@@ -8417,7 +8649,7 @@
         {
             "fn": "clearFilters",
             "files": [
-                "native-orders/js/native-orders-app.js",
+                "native-orders/js/native-orders-filters-campaigns.js",
                 "web2/fastsaleorder-delivery/dlv-app.js",
                 "web2/fastsaleorder-invoice/pbh-filters.js",
                 "web2/fastsaleorder-refund/rf-app.js",
@@ -8429,7 +8661,7 @@
         {
             "fn": "goPage",
             "files": [
-                "native-orders/js/native-orders-app.js",
+                "native-orders/js/native-orders-pbh-bill.js",
                 "web2/fastsaleorder-delivery/dlv-app.js",
                 "web2/fastsaleorder-invoice/pbh-filters.js",
                 "web2/fastsaleorder-refund/rf-app.js",
@@ -8546,7 +8778,7 @@
             "fn": "loadOlder",
             "files": [
                 "live-chat/js/pancake/pancake-chat-window.js",
-                "native-orders/js/native-orders-app.js",
+                "native-orders/js/native-orders-chat-state.js",
                 "web2/shared/chat-panel/web2-chat-panel-render.js",
                 "web2/shared/web2-customer-chat-core.js",
                 "web2/shared/zalo-chat/chat-view.js"
@@ -8578,7 +8810,7 @@
             "fn": "_fileToDataUrl",
             "files": [
                 "live-chat/js/pancake/pancake-chat-window.js",
-                "native-orders/js/native-orders-app.js",
+                "native-orders/js/native-orders-chat-state.js",
                 "web2/shared/web2-customer-chat-core.js",
                 "web2/shared/web2-effects.js"
             ],
@@ -8617,7 +8849,7 @@
         {
             "fn": "_sseConnect",
             "files": [
-                "native-orders/js/native-orders-app.js",
+                "native-orders/js/native-orders-realtime-init.js",
                 "web2/supplier-debt/js/supplier-debt-app.js",
                 "web2/supplier-wallet/js/supplier-wallet-app.js",
                 "web2/users/js/users-app.js"
@@ -8727,7 +8959,7 @@
         {
             "fn": "openEdit",
             "files": [
-                "native-orders/js/native-orders-app.js",
+                "native-orders/js/native-orders-modal-edit.js",
                 "web2/products/js/web2-products-modal.js",
                 "web2/shared/page-builder.js",
                 "web2/variants/js/web2-variants-app.js"
@@ -8748,7 +8980,7 @@
             "fn": "quickReplies",
             "files": [
                 "live-chat/js/pancake/pancake-chat-window.js",
-                "native-orders/js/native-orders-app.js",
+                "native-orders/js/native-orders-chat-state.js",
                 "web2/shared/web2-customer-chat-core.js",
                 "web2/shared/web2-zalo-api.js"
             ],
@@ -8777,7 +9009,7 @@
         {
             "fn": "renderRow",
             "files": [
-                "native-orders/js/native-orders-app.js",
+                "native-orders/js/native-orders-customer360.js",
                 "web2/balance-history/js/web2-bh-render.js",
                 "web2/balance-history/js/web2-link-customer-modal.js",
                 "web2/fastsaleorder-invoice/pbh-render.js"
@@ -8847,7 +9079,7 @@
         {
             "fn": "tbody",
             "files": [
-                "native-orders/js/native-orders-app.js",
+                "native-orders/js/native-orders-state.js",
                 "web2/fastsaleorder-invoice/pbh-state.js",
                 "web2/products/js/web2-products-state.js",
                 "web2/variants/js/web2-variants-app.js"
@@ -8857,7 +9089,7 @@
         {
             "fn": "w2pAlert",
             "files": [
-                "native-orders/js/native-orders-app.js",
+                "native-orders/js/native-orders-state.js",
                 "web2/fastsaleorder-delivery/dlv-app.js",
                 "web2/fastsaleorder-invoice/pbh-state.js",
                 "web2/fastsaleorder-refund/rf-app.js"
@@ -8867,7 +9099,7 @@
         {
             "fn": "w2pConfirm",
             "files": [
-                "native-orders/js/native-orders-app.js",
+                "native-orders/js/native-orders-state.js",
                 "web2/fastsaleorder-delivery/dlv-app.js",
                 "web2/fastsaleorder-invoice/pbh-state.js",
                 "web2/fastsaleorder-refund/rf-app.js"
@@ -8966,9 +9198,18 @@
             "count": 3
         },
         {
+            "fn": "collect",
+            "files": [
+                "native-orders/js/native-orders-bulk-operations.js",
+                "native-orders/js/native-orders-pbh-bill.js",
+                "web2/shared/web2-return-bill.js"
+            ],
+            "count": 3
+        },
+        {
             "fn": "copyCode",
             "files": [
-                "native-orders/js/native-orders-app.js",
+                "native-orders/js/native-orders-pbh-bill.js",
                 "web2/products/js/web2-products-actions.js",
                 "web2/shared/web2-qr-modal.js"
             ],
@@ -8977,7 +9218,7 @@
         {
             "fn": "counter",
             "files": [
-                "native-orders/js/native-orders-app.js",
+                "native-orders/js/native-orders-state.js",
                 "web2/products/js/web2-products-state.js",
                 "web2/variants/js/web2-variants-app.js"
             ],
@@ -8995,7 +9236,7 @@
         {
             "fn": "detectCarrier",
             "files": [
-                "native-orders/js/native-orders-app.js",
+                "native-orders/js/native-orders-render.js",
                 "web2/shared/web2-customer-lookup.js",
                 "web2/shared/web2-customer-store.js"
             ],
@@ -9086,7 +9327,7 @@
             "fn": "loadMessages",
             "files": [
                 "live-chat/js/pancake/pancake-chat-window.js",
-                "native-orders/js/native-orders-app.js",
+                "native-orders/js/native-orders-chat-state.js",
                 "web2/shared/web2-customer-chat-core.js"
             ],
             "count": 3
@@ -9103,7 +9344,7 @@
         {
             "fn": "modal",
             "files": [
-                "native-orders/js/native-orders-app.js",
+                "native-orders/js/native-orders-state.js",
                 "web2/products/js/web2-products-state.js",
                 "web2/variants/js/web2-variants-app.js"
             ],
@@ -9157,7 +9398,7 @@
         {
             "fn": "renderCampaignDropdown",
             "files": [
-                "native-orders/js/native-orders-app.js",
+                "native-orders/js/native-orders-filters-campaigns.js",
                 "web2/kpi/js/kpi-assignments.js",
                 "web2/kpi/js/kpi-dashboard.js"
             ],
@@ -9221,7 +9462,7 @@
             "fn": "send",
             "files": [
                 "live-chat/js/pancake/pancake-chat-window.js",
-                "native-orders/js/native-orders-app.js",
+                "native-orders/js/native-orders-chat-state.js",
                 "web2/shared/web2-customer-chat-core.js"
             ],
             "count": 3
@@ -9230,7 +9471,7 @@
             "fn": "sendSticker",
             "files": [
                 "live-chat/js/pancake/pancake-chat-window.js",
-                "native-orders/js/native-orders-app.js",
+                "native-orders/js/native-orders-chat-state.js",
                 "web2/shared/web2-zalo-api.js"
             ],
             "count": 3
@@ -9292,7 +9533,7 @@
         {
             "fn": "updateBulkBar",
             "files": [
-                "native-orders/js/native-orders-app.js",
+                "native-orders/js/native-orders-bulk-operations.js",
                 "web2/fastsaleorder-invoice/pbh-actions.js",
                 "web2/fastsaleorder-invoice/pbh-filters.js"
             ],
@@ -9318,10 +9559,6 @@
         }
     ],
     "oversized": [
-        {
-            "file": "native-orders/js/native-orders-app.js",
-            "lines": 9457
-        },
         {
             "file": "live-chat/server/server.js",
             "lines": 1216
