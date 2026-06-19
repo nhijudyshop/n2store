@@ -378,9 +378,11 @@
         <script src="../shared/web2-optimistic.js?v=20260613c"></script>
         <script src="../shared/web2-sidebar.js?v=20260615db"></script>
         <script src="../shared/web2-sse-bridge.js?v=20260613c"></script>
+        <!-- Cầu nối extension N2Store (đọc cookie+imei Zalo cho "Đăng nhập Zalo" 1-click) -->
+        <script src="../shared/web2-extension-bridge.js?v=20260619zalo"></script>
 
         <!-- Page scripts -->
-        <script src="../shared/web2-zalo-api.js?v=20260619primary"></script>
+        <script src="../shared/web2-zalo-api.js?v=20260619zalo"></script>
         <!-- Chat đầy đủ (WZChat.*) — load TRƯỚC app để app delegate -->
         <script src="../shared/zalo-chat/chat-store.js?v=20260613L"></script>
         <script src="../shared/zalo-chat/lightbox.js?v=20260613L"></script>
@@ -394,7 +396,7 @@
         <script src="../shared/zalo-chat/chat-view.js?v=20260616b"></script>
         <!-- Page app — tách module (utils → accounts → chat → lookup-zns → app), app LAST -->
         <script src="js/web2-zalo-utils.js?v=20260618w1"></script>
-        <script src="js/web2-zalo-accounts.js?v=20260619primary"></script>
+        <script src="js/web2-zalo-accounts.js?v=20260619zalo"></script>
         <script src="js/web2-zalo-chat.js?v=20260618w1"></script>
         <script src="js/web2-zalo-lookup-zns.js?v=20260618w1"></script>
         <script src="js/web2-zalo-app.js?v=20260618w1"></script>

@@ -2,7 +2,7 @@
     "manifest_version": 3,
     "name": "N2Store Messenger",
     "short_name": "N2Store",
-    "version": "1.0.26",
+    "version": "1.0.27",
     "description": "N2Store unified messaging & management extension",
     "icons": {
         "16": "images/icon-16.png",
@@ -42,6 +42,11 @@
             "js": ["content/pancake-bump.js"],
             "run_at": "document_start",
             "world": "MAIN"
+        },
+        {
+            "matches": ["*://chat.zalo.me/*"],
+            "js": ["content/zalo-creds.js"],
+            "run_at": "document_idle"
         }
     ],
     "action": {

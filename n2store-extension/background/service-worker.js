@@ -543,6 +543,112 @@ async function handleMessage(msg, tabId, port, asyncSendResponse) {
             break;
         }
 
+        // === Web 2.0 — Đăng nhập Zalo 1-click (zca-js cookie login) ===
+        // chat.zalo.me content script gửi imei + userAgent → cache (1-click không cần tab mở).
+        case 'ZALO_CREDS_CACHE': {
+            try {
+                if (msg.imei) {
+                    await chrome.storage.local.set({
+                        zaloCreds: {
+                            imei: msg.imei,
+                            userAgent: msg.userAgent || '',
+                            ts: Date.now(),
+                        },
+                    });
+                }
+            } catch (err) {
+                log.warn(MODULE, 'ZALO_CREDS_CACHE failed:', err.message);
+            }
+            break;
+        }
+
+        // Trang Web 2.0 xin {cookie, imei, userAgent} của phiên Zalo Web để login zca-js.
+        case 'GET_ZALO_CREDS': {
+            try {
+                // 1) Cookie chat.zalo.me — chrome.cookies đọc được cả httpOnly. getAll by url →
+                //    đủ cookie sẽ gửi tới chat.zalo.me (gồm .zalo.me + host-only). Shape khớp zca-js Cookie[].
+                const raw = await chrome.cookies.getAll({ url: 'https://chat.zalo.me/' });
+                const cookie = (raw || []).map((c) => ({
+                    domain: c.domain,
+                    expirationDate: c.expirationDate || null,
+                    hostOnly: !!c.hostOnly,
+                    httpOnly: !!c.httpOnly,
+                    name: c.name,
+                    path: c.path,
+                    sameSite: c.sameSite || 'no_restriction',
+                    secure: !!c.secure,
+                    session: !!c.session,
+                    storeId: c.storeId || null,
+                    value: c.value,
+                }));
+
+                // 2) imei + userAgent: cache trước; không có → hỏi tươi tab chat.zalo.me đang mở.
+                let imei = null;
+                let userAgent = '';
+                try {
+                    const st = await chrome.storage.local.get('zaloCreds');
+                    if (st && st.zaloCreds && st.zaloCreds.imei) {
+                        imei = st.zaloCreds.imei;
+                        userAgent = st.zaloCreds.userAgent || '';
+                    }
+                } catch (e) {
+                    /* storage có thể trống */
+                }
+                if (!imei) {
+                    try {
+                        const tabs = await chrome.tabs.query({ url: '*://chat.zalo.me/*' });
+                        for (const t of tabs) {
+                            const r = await chrome.tabs
+                                .sendMessage(t.id, { type: 'ZALO_READ_CREDS' })
+                                .catch(() => null);
+                            if (r && r.imei) {
+                                imei = r.imei;
+                                userAgent = r.userAgent || userAgent;
+                                break;
+                            }
+                        }
+                    } catch (e) {
+                        /* không có tab chat.zalo.me / content script chưa inject */
+                    }
+                }
+
+                // Chưa đăng nhập chat.zalo.me → thiếu cookie phiên (zpsid/zpw_sek).
+                const loggedIn =
+                    cookie.some((c) => /zpsid|zpw_sek/i.test(c.name)) || cookie.length >= 4;
+                if (!loggedIn) {
+                    sendResponse({
+                        type: 'GET_ZALO_CREDS_FAILURE',
+                        taskId: msg.taskId,
+                        reason: 'no_session',
+                    });
+                    break;
+                }
+                if (!imei) {
+                    sendResponse({
+                        type: 'GET_ZALO_CREDS_FAILURE',
+                        taskId: msg.taskId,
+                        reason: 'no_imei',
+                    });
+                    break;
+                }
+                sendResponse({
+                    type: 'GET_ZALO_CREDS_SUCCESS',
+                    taskId: msg.taskId,
+                    cookie,
+                    imei,
+                    userAgent: userAgent || navigator.userAgent,
+                });
+            } catch (err) {
+                log.warn(MODULE, 'GET_ZALO_CREDS failed:', err.message);
+                sendResponse({
+                    type: 'GET_ZALO_CREDS_FAILURE',
+                    taskId: msg.taskId,
+                    reason: err.message || 'creds_read_error',
+                });
+            }
+            break;
+        }
+
         // === TPOS Interceptor Events ===
         case 'tpos:tag-assigned':
             log.info(

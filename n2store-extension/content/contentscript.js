@@ -62,6 +62,8 @@
         'N2_CAPTURE_VISIBLE_TAB',
         // Web 2.0 — đọc cookie jwt của pancake.vn (auto-refresh token, không cần mở tab)
         'GET_PANCAKE_TOKEN',
+        // Web 2.0 — đọc cookie + imei + userAgent của chat.zalo.me (Đăng nhập Zalo 1-click)
+        'GET_ZALO_CREDS',
     ]);
 
     // Message types to forward from service worker → page
@@ -137,6 +139,9 @@
         // Web 2.0 — pancake jwt cookie relay responses
         'GET_PANCAKE_TOKEN_SUCCESS',
         'GET_PANCAKE_TOKEN_FAILURE',
+        // Web 2.0 — zalo creds relay responses
+        'GET_ZALO_CREDS_SUCCESS',
+        'GET_ZALO_CREDS_FAILURE',
     ]);
 
     // === PORT CONNECTION ===

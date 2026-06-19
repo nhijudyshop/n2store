@@ -96,6 +96,13 @@
         setPrimary(key) {
             return _fetch(`/accounts/${encodeURIComponent(key)}/primary`, { method: 'POST' });
         },
+        // Đăng nhập Zalo bằng phiên chat.zalo.me (cookie+imei+userAgent từ extension) — không cần QR.
+        loginCookie(key, creds) {
+            return _fetch(`/accounts/${encodeURIComponent(key)}/login-cookie`, {
+                method: 'POST',
+                body: JSON.stringify(creds),
+            });
+        },
         self(key) {
             return _fetch(`/accounts/${encodeURIComponent(key)}/self`, { method: 'GET' });
         },

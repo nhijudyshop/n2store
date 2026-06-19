@@ -564,6 +564,41 @@ router.post('/accounts/:key/reconnect', async (req, res) => {
     }
 });
 
+// "Đăng nhập Zalo" 1-click: client (qua extension) gửi {cookie, imei, userAgent} của phiên
+// chat.zalo.me → login zca-js bằng cookie (KHÔNG cần quét QR). _afterLogin tự lưu session +
+// set status connected + SSE. Cookie sai/hết hạn → zalo.login throw → 400 (client báo lỗi).
+router.post('/accounts/:key/login-cookie', async (req, res) => {
+    try {
+        const db = getDb(req);
+        const { cookie, imei, userAgent } = req.body || {};
+        if (!cookie || !imei || !userAgent)
+            return res
+                .status(400)
+                .json({ success: false, error: 'Thiếu cookie/imei/userAgent (phiên Zalo Web)' });
+        const { rows } = await db.query(`SELECT * FROM web2_zalo_accounts WHERE account_key=$1`, [
+            req.params.key,
+        ]);
+        if (!rows[0])
+            return res.status(404).json({ success: false, error: 'Không tìm thấy tài khoản' });
+        if (rows[0].account_type !== 'personal')
+            return res
+                .status(400)
+                .json({ success: false, error: 'Chỉ tài khoản cá nhân mới đăng nhập kiểu này' });
+        const creds = { cookie, imei, userAgent, language: 'vi' };
+        const r = await zca.loginWithCredentials(
+            req.params.key,
+            creds,
+            rows[0].label || rows[0].display_name
+        );
+        res.json({ success: true, ...r });
+    } catch (e) {
+        res.status(400).json({
+            success: false,
+            error: 'Đăng nhập Zalo lỗi: ' + (e.message || 'phiên không hợp lệ'),
+        });
+    }
+});
+
 router.post('/accounts/:key/disconnect', async (req, res) => {
     try {
         zca.disconnect(req.params.key);
