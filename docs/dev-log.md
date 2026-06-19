@@ -2,6 +2,13 @@
 
 ## 2026-06-19
 
+### [web2/video-maker] FIX lỗi "tạo giọng" OrtRun Gather idx=132 — do CHẠY 2 INFERENCE ĐỒNG THỜI ✅
+
+User báo `❌ Lỗi tạo giọng: failed to call OrtRun()... Gather node... idx=132 must be within [-130,129]`. Điều tra (browser-test): KHÔNG phải do ký tự (dump vocab MMS = 96 token maxId 95; mọi text điển hình gồm số/%/emoji/HOA/ngoặc/gạch đều OK id≤93). **Gốc = CONCURRENCY**: bấm "Nghe mẫu" (đang chạy) rồi "Tạo giọng đọc" → 2 `synth()` chồng nhau trên CÙNG 1 ONNX session → input tensor hỏng → index rác 132 (hoặc "reading null"). Tái hiện chắc chắn bằng `Promise.allSettled([synth(a),synth(b)])` → 1 fail; chạy đơn lẻ luôn OK.
+
+- **Fix `video-tts.js`**: thêm khoá toàn cục `_serialize(fn)` (promise-chain) — mọi inference MMS + Piper XẾP HÀNG, mỗi lúc chỉ 1 chạy. Wrap `synth(text)` (`_mmsChunk`) + `tts.predict()` (`_piperChunk`). Bump `?v=20260619e`.
+- **Verify**: sau fix, 2 `synthesize()` đồng thời → cả 2 OK (3.54s+2.96s); 3 job chồng (MMS sample + MMS gen + Piper) → cả 3 OK, 0 lỗi console; click nút thật "Nghe mẫu"→"Tạo giọng" ngay → "✅ Đã tạo giọng (3.4s)". Xuất video: mix graph giọng+nhạc `hasAudio:true`, MediaRecorder mp4/webm OK (verify phiên trước).
+
 ### [web2/fb-ads-stats] Sổ quảng cáo NHẬP TAY (gắn bài + tiền QC + số đơn) + ad account qua BM ✅
 
 Login (Lê Minh Tú) có 3 ad account nhưng **0 chi tiêu** + không có ad account qua BM → số liệu QC thật không lấy được từ login này (QC chạy ở account/BM khác). User chốt: làm **nhập tay** (`f1e733d18`).
