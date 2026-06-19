@@ -74,8 +74,10 @@ function hasApp() {
     return !!(FB_APP_ID && FB_APP_SECRET);
 }
 
-const SCOPES_POST =
-    'pages_show_list,pages_read_engagement,pages_manage_posts,pages_manage_engagement';
+// Least-privilege: chỉ 3 quyền CẦN để đăng/quản lý bài + đọc tương tác. KHÔNG xin
+// pages_manage_engagement (quản lý bình luận — feature này không dùng, lại kéo dep
+// pages_read_user_content). Cả 3 đều Standard Access → app-role admin dùng KHÔNG cần review.
+const SCOPES_POST = 'pages_show_list,pages_read_engagement,pages_manage_posts';
 
 /**
  * URL dialog OAuth "Đăng nhập bằng Facebook" (như Pancake/TPOS) — user bấm,
