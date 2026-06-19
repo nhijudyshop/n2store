@@ -65,7 +65,12 @@
                 } else if (m.type === FAILURE) {
                     done = true;
                     global.removeEventListener('message', onMsg);
-                    resolve({ ok: false, error: m.error || 'Extension reported failure' });
+                    // data:m để caller đọc được m.reason (vd 'no_session'); error fallback reason.
+                    resolve({
+                        ok: false,
+                        error: m.error || m.reason || 'Extension reported failure',
+                        data: m,
+                    });
                 }
             };
             global.addEventListener('message', onMsg);

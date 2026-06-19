@@ -2,6 +2,33 @@
 
 ## 2026-06-19
 
+### [web2/zalo + extension + render] "Đăng nhập Zalo" 1-click (cookie phiên chat.zalo.me) + auto-renew + guard danh tính ✅
+
+User: làm nút "Đăng nhập Zalo" 1-click (đừng để chữ "cookie/session") lấy phiên Zalo từ trình duyệt; tự gia hạn khi rớt; không thấy phiên → báo "đăng nhập https://chat.zalo.me/ trước".
+
+Research 5-agent (workflow) chốt: trang web KHÔNG đọc được cookie zalo.me (khác origin) → phải qua **extension**. zca-js `login()` cần `{cookie, imei, userAgent}` khớp nhau (imei = `uuid + "-" + MD5(userAgent)`). IMEI = `localStorage.z_uuid`/`sh_z_uuid` trên chat.zalo.me (origin-bound → cần content script). Cookie = `chrome.cookies.getAll` (đọc cả httpOnly). Nguồn: ZaloDataExtractor + zca-js src.
+
+**Extension** (`n2store-extension` v1.0.26→1.0.27, CWS auto-publish):
+
+- Content script MỚI `content/zalo-creds.js` trên `*://chat.zalo.me/*` (ISOLATED world → đọc được page localStorage): đọc imei (`z_uuid`/`sh_z_uuid`) + userAgent → cache lên background (`ZALO_CREDS_CACHE`) + trả tươi khi hỏi (`ZALO_READ_CREDS`).
+- `background/service-worker.js`: handler `GET_ZALO_CREDS` (cookies `chrome.cookies.getAll({url:'https://chat.zalo.me/'})` → shape zca-js Cookie[]; imei từ storage cache, fallback hỏi tab chat.zalo.me; thiếu cookie phiên → `no_session`, thiếu imei → `no_imei`) + `ZALO_CREDS_CACHE` (lưu chrome.storage.local).
+- `content/contentscript.js`: thêm `GET_ZALO_CREDS` (INBOUND) + `_SUCCESS`/`_FAILURE` (OUTBOUND) cho cầu nối page↔ext (`Web2Ext.request`, taskId).
+- `manifest.json`: thêm content_scripts chat.zalo.me. Quyền `cookies`/`storage`/`tabs`/`<all_urls>` đã có sẵn.
+
+**Backend** (`render.com`):
+
+- Route `POST /accounts/:key/login-cookie` {cookie,imei,userAgent} → `zca.loginWithCredentials(key, {…,language:'vi'}, label, {expectedUid})`. `_afterLogin` tự lưu session + status connected + SSE.
+- **GUARD danh tính** (`web2-zalo-zca.js`): `_afterLogin` thêm `opts.expectedUid` — nếu slot đã biết uid mà phiên login ra uid KHÁC → throw `WRONG_ACCOUNT`, KHÔNG lưu (chống "lấy nhầm" phiên Zalo gắn vào slot tài khoản khác → corrupt). Nhờ guard này, auto-renew loop mọi TK an toàn (TK không khớp bị từ chối, chỉ TK đúng kết nối).
+
+**Page** (`web2/zalo`):
+
+- `web2-zalo-api.js`: `loginCookie(key, creds)`.
+- `web2-extension-bridge.js`: failure trả kèm `data:m` (đọc được `reason` no_session/no_imei).
+- `web2-zalo-accounts.js`: TK cá nhân chưa kết nối → nút CHÍNH **"Đăng nhập Zalo"** (data-act=zalologin) + phụ "Kết nối lại"/"QR". `loginZaloCookie()`: không có extension → nhắc cài; `no_session`/`no_imei` → Popup confirm "đăng nhập chat.zalo.me trước" (+ nút Mở chat.zalo.me). **Auto-renew**: `autoRenewZalo()` chạy 1 lần sau load — TK cá nhân rớt + có extension → silent cookie-login (guard backend đảm bảo đúng danh tính).
+- index.html: load `web2-extension-bridge.js` + bump versions.
+
+Files: `n2store-extension/{manifest.json, content/zalo-creds.js (mới), content/contentscript.js, background/service-worker.js}`, `render.com/{routes/web2-zalo.js, services/web2-zalo-zca.js}`, `web2/shared/{web2-zalo-api.js, web2-extension-bridge.js}`, `web2/zalo/{index.html, js/web2-zalo-accounts.js}`. `node --check` + manifest JSON PASS. ⚠ Cần: extension 1.0.27 live (CWS duyệt / load unpacked) + user đăng nhập chat.zalo.me bằng đúng TK rồi bấm "Đăng nhập Zalo".
+
 ### [render.com] Tách tuyệt đối Web 1.0 ⊥ Web 2.0 — DB/jobs/router + chống nhầm `chatDb` ✅
 
 User: "tiếp tục làm triệt để tách biệt hoàn toàn web 1.0 và web 2.0" + "hàm và router phải nằm đúng chỗ" + "chatDb/chatDbPool không có 2.0/1.0 nên dễ nhầm". Đọc env cả 3 Render service qua API, audit 4 tầng:

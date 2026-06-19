@@ -284,7 +284,7 @@ function _attachListener(accountKey, api) {
     listener.start();
 }
 
-async function _afterLogin(accountKey, api, label) {
+async function _afterLogin(accountKey, api, label, opts) {
     const s = _sessions.get(accountKey) || {};
     s.api = api;
     s.qr = null;
@@ -315,6 +315,18 @@ async function _afterLogin(accountKey, api, label) {
         avatar: profile.avatar || null,
     };
     _sessions.set(accountKey, s);
+
+    // GUARD: cookie-login chỉ cho TK khớp danh tính phiên trình duyệt. Nếu slot này đã biết uid
+    // (đăng nhập trước đó) mà phiên vừa login là uid KHÁC → từ chối, KHÔNG lưu, KHÔNG nghe →
+    // tránh "lấy nhầm" 1 phiên Zalo gắn vào slot tài khoản khác (corrupt identity).
+    if (opts && opts.expectedUid && s.info.uid && String(s.info.uid) !== String(opts.expectedUid)) {
+        _sessions.delete(accountKey); // listener CHƯA attach ở bước này → chỉ cần bỏ session
+        const err = new Error(
+            `Phiên Zalo trên trình duyệt là tài khoản khác (uid ${s.info.uid}) — không khớp tài khoản này. Đăng nhập đúng tài khoản trên chat.zalo.me rồi thử lại.`
+        );
+        err.code = 'WRONG_ACCOUNT';
+        throw err;
+    }
 
     try {
         await _cb.persistSession?.(accountKey, credentials, s.info, label);
@@ -373,8 +385,9 @@ function startQrLogin(accountKey, label) {
     return { status: 'qr_pending' };
 }
 
-// ── Đăng nhập bằng credentials đã lưu (boot restore / manual) ───────────
-async function loginWithCredentials(accountKey, credentials, label) {
+// ── Đăng nhập bằng credentials đã lưu (boot restore / manual / cookie 1-click) ──
+// opts.expectedUid: chỉ chấp nhận nếu phiên login ra đúng uid này (guard cookie-login slot khác).
+async function loginWithCredentials(accountKey, credentials, label, opts) {
     if (!Zalo) throw new Error('zca-js không khả dụng');
     if (!credentials?.cookie || !credentials?.imei || !credentials?.userAgent) {
         throw new Error('Credentials không đủ (cookie/imei/userAgent)');
@@ -384,7 +397,7 @@ async function loginWithCredentials(accountKey, credentials, label) {
     _setStatus(accountKey, 'connecting');
     const zalo = new Zalo({ selfListen: true, checkUpdate: false, logging: false });
     const api = await zalo.login(credentials);
-    await _afterLogin(accountKey, api, label);
+    await _afterLogin(accountKey, api, label, opts);
     return { status: 'connected' };
 }
 

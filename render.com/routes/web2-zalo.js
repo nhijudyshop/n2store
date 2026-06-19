@@ -588,13 +588,15 @@ router.post('/accounts/:key/login-cookie', async (req, res) => {
         const r = await zca.loginWithCredentials(
             req.params.key,
             creds,
-            rows[0].label || rows[0].display_name
+            rows[0].label || rows[0].display_name,
+            { expectedUid: rows[0].zalo_uid || null } // guard: chặn login nhầm danh tính khác
         );
         res.json({ success: true, ...r });
     } catch (e) {
+        const wrong = e && e.code === 'WRONG_ACCOUNT';
         res.status(400).json({
             success: false,
-            error: 'Đăng nhập Zalo lỗi: ' + (e.message || 'phiên không hợp lệ'),
+            error: wrong ? e.message : 'Đăng nhập Zalo lỗi: ' + (e.message || 'phiên không hợp lệ'),
         });
     }
 });

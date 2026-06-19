@@ -36,6 +36,7 @@
             state.accounts = res.accounts || [];
             renderAccounts();
             renderStatusStrip(res);
+            autoRenewZalo(); // tự gia hạn nền nếu TK rớt + còn phiên Zalo trên trình duyệt (1 lần)
         } catch (e) {
             // Backend chưa deploy / lỗi mạng → vẫn cho onboarding (2 lựa chọn) thay vì màn lỗi cụt
             state.accounts = [];
@@ -78,13 +79,19 @@
                 acts.push(
                     `<button class="wz-btn wz-btn-sm" data-act="disconnect" data-key="${esc(a.accountKey)}" aria-label="Ngắt kết nối ${esc(dn)}" title="Ngắt kết nối"><i data-lucide="power"></i></button>`
                 );
-            } else if (a.hasSession) {
-                acts.push(
-                    `<button class="wz-btn wz-btn-sm wz-btn-primary" data-act="reconnect" data-key="${esc(a.accountKey)}"><i data-lucide="refresh-cw"></i> Kết nối lại</button>`
-                );
             } else {
+                // CHÍNH: Đăng nhập Zalo 1-click (lấy phiên chat.zalo.me qua extension — không quét QR).
                 acts.push(
-                    `<button class="wz-btn wz-btn-sm wz-btn-primary" data-act="qr" data-key="${esc(a.accountKey)}"><i data-lucide="qr-code"></i> Đăng nhập QR</button>`
+                    `<button class="wz-btn wz-btn-sm wz-btn-primary" data-act="zalologin" data-key="${esc(a.accountKey)}" title="Đăng nhập bằng phiên Zalo đang mở trên trình duyệt (cần đăng nhập chat.zalo.me)"><i data-lucide="log-in"></i> Đăng nhập Zalo</button>`
+                );
+                // Phụ: kết nối lại bằng session đã lưu (nếu có).
+                if (a.hasSession)
+                    acts.push(
+                        `<button class="wz-btn wz-btn-sm" data-act="reconnect" data-key="${esc(a.accountKey)}" title="Dùng lại phiên đã lưu"><i data-lucide="refresh-cw"></i> Kết nối lại</button>`
+                    );
+                // Phụ: quét QR (dự phòng khi không có extension / phiên trình duyệt).
+                acts.push(
+                    `<button class="wz-btn wz-btn-sm" data-act="qr" data-key="${esc(a.accountKey)}" title="Đăng nhập bằng quét mã QR"><i data-lucide="qr-code"></i> QR</button>`
                 );
             }
         } else {
@@ -152,6 +159,11 @@
         const a = state.accounts.find((x) => x.accountKey === key);
         try {
             if (act === 'qr') return startQr(key);
+            if (act === 'zalologin') {
+                setBusy(btn, true);
+                await loginZaloCookie(key);
+                return;
+            }
             if (act === 'reconnect') {
                 setBusy(btn, true);
                 await window.ZaloApi.reconnect(key);
@@ -188,6 +200,58 @@
             notify('✗ ' + e.message, 'error');
         } finally {
             setBusy(btn, false);
+        }
+    }
+
+    // ── Đăng nhập Zalo 1-click (cookie phiên chat.zalo.me qua extension) ──────
+    // silent=true: tự gia hạn nền khi mở trang (KHÔNG popup/toast nếu không lấy được phiên).
+    async function loginZaloCookie(key, silent) {
+        const ext = window.Web2Ext;
+        if (!ext || !ext.hasExtension || !ext.hasExtension()) {
+            if (!silent)
+                await Popup.warning(
+                    'Cần cài tiện ích N2Store trên trình duyệt để "Đăng nhập Zalo" 1 chạm. Hoặc dùng nút QR.'
+                );
+            return false;
+        }
+        const r = await ext.request('GET_ZALO_CREDS', {}, 15000);
+        if (!r || !r.ok) {
+            if (silent) return false;
+            const reason = (r && r.data && r.data.reason) || (r && r.error) || '';
+            if (reason === 'no_session' || reason === 'no_imei') {
+                const go = await Popup.confirm(
+                    'Chưa thấy phiên Zalo trên trình duyệt. Hãy đăng nhập https://chat.zalo.me/ trước (hoặc tải lại tab Zalo nếu đã đăng nhập), rồi bấm lại "Đăng nhập Zalo".',
+                    { okText: 'Mở chat.zalo.me', cancelText: 'Đóng' }
+                );
+                if (go) window.open('https://chat.zalo.me/', '_blank', 'noopener');
+            } else {
+                notify('✗ ' + ((r && r.error) || 'Không lấy được phiên Zalo'), 'error');
+            }
+            return false;
+        }
+        const { cookie, imei, userAgent } = r.data;
+        await window.ZaloApi.loginCookie(key, { cookie, imei, userAgent });
+        if (!silent) notify('Đăng nhập Zalo thành công — đang kết nối…', 'success');
+        setTimeout(loadAccounts, 1500);
+        return true;
+    }
+
+    // Tự gia hạn: khi mở trang, TK cá nhân đang rớt kết nối + có extension + còn phiên Zalo trên
+    // trình duyệt → tự login lại nền (1 lần/lần mở trang). Không có phiên → im lặng, không nag.
+    let _autoRenewTried = false;
+    async function autoRenewZalo() {
+        if (_autoRenewTried) return;
+        _autoRenewTried = true;
+        if (!window.Web2Ext?.hasExtension?.()) return;
+        const stale = (state.accounts || []).filter(
+            (a) => a.accountType === 'personal' && a.isActive && a.status !== 'connected'
+        );
+        for (const a of stale) {
+            try {
+                await loginZaloCookie(a.accountKey, true); // silent
+            } catch (e) {
+                /* im lặng */
+            }
         }
     }
 
