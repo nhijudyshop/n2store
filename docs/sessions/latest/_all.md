@@ -3,16 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `221665a` — fix(web2/jt-tracking + zalo-chat): sort theo giờ Zalo (src_at) + bỏ Chuyển tiếp + fix react z-index + reply quote thật
-**Last updated**: 2026-06-19 13:33:22 +07
-**Latest session**: [`RESUME:20260619-133322-221665a`](../20260619-133322-221665a.md)
-**Summary**: jt-tracking sort theo giờ Zalo (src_at) + bỏ Chuyển tiếp + fix react z-index + reply quote thật
+**Latest commit**: `d49b450` — fix(web2/jt-tracking): backfill src_at từ tin Zalo cho row cũ → sort theo giờ tin nhắn nhận chạy được ngay
+**Last updated**: 2026-06-19 13:44:10 +07
+**Latest session**: [`RESUME:20260619-134410-d49b450`](../20260619-134410-d49b450.md)
+**Summary**: fix(web2/jt-tracking): backfill src_at từ tin Zalo cho row cũ → sort theo giờ tin nhắn nhận chạy đượ...
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 3 file(s)
-- [`render.com/`](./render.com.md) — 2 file(s)
-- [`web2/`](./web2.md) — 10 file(s)
+- [`render.com/`](./render.com.md) — 1 file(s)
+- [`web2/`](./web2.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -55,7 +54,7 @@
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-06-16 00:35
-- [`render.com/`](./render.com.md) — updated 2026-06-19 13:33
+- [`render.com/`](./render.com.md) — updated 2026-06-19 13:44
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-19 09:25
 - [`service-costs/`](./service-costs.md) — updated 2026-06-16 11:15
@@ -75,4 +74,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-19 13:33
+- [`web2/`](./web2.md) — updated 2026-06-19 13:44
