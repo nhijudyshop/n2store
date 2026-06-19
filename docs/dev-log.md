@@ -2,6 +2,17 @@
 
 ## 2026-06-19
 
+### [native-orders] Phase 1 split (9457→23) + Task 1 chat-unification ✅
+
+**Phase 1 (`73016bf9e`)** — tách `native-orders-app.js` 9457 dòng (file lớn thứ 2) → 23 module qua AST scope-aware codemod (acorn+magic-string), namespace `window.NativeOrders` (NO), max 786L. `window.NativeOrdersApp` 36 key byte-identical (36 inline onclick), 294 binding mỗi cái 1 lần, equivalence proven, STATE hoist-order fix. Verified live: 0 JS err, openEdit/openInteractions/toggleExpand OK, 4 rows.
+
+**Task 1 chat-unification (`d6c0c7b71`)** — `openInteractions` giờ dùng **Web2CustomerChat** (3-cột Pancake shared, 1 nguồn) thay modal chat riêng. Comments của đơn + info → cột INFO bên phải (`panels.info`), reply (public/private/Ctrl+Enter) bind lại trong `onReady`.
+
+- Enhanced shared `web2-customer-chat-modal.js`: render `panels.info` thành cột 3 (`.w2cc-info`) + fire `onReady(handle,back)` + `getInfoEl()` — **additive** (consumer cũ không truyền panels.info → 2-cột như cũ, đã regression-test).
+- `_refreshInteractionsIfOpen` no-op khi `viaCustomerChat` (Web2ChatPanel tự realtime). Modal chat cũ giữ làm **fallback**.
+- Verified live: native-orders chat = Web2CustomerChat 3-cột (150 conv sidebar + thread + comments info), 0 JS err; no-info path vẫn 2-cột.
+- ⏳ **Step 2b defer**: xoá ~1500 dòng chat trùng — ENTANGLED (`chat-send.js` chứa `_handleReplyComment` flow mới vẫn dùng; `inbox-resolve` helpers share) → cần trace kỹ, làm pass riêng có verify. Modal cũ hiện = fallback vô hại.
+
 ### [web2-modular] live-comment-list.js (2459 dòng) → 7 module ✅ MOVE-only
 
 `live-chat/js/live/live-comment-list.js` (object literal `LiveCommentList`, 2459 dòng) → 7 module nhỏ (<800L, max 742L):
