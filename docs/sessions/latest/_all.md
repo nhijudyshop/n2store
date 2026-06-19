@@ -3,13 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `71322c6` — fix(web2-image-editor): Photopea ảnh kết quả lỗi (broken) với ảnh SP thật lớn
-**Last updated**: 2026-06-19 12:50:03 +07
-**Latest session**: [`RESUME:20260619-125003-71322c6`](../20260619-125003-71322c6.md)
-**Summary**: fix(web2-image-editor): Photopea ảnh kết quả lỗi (broken) với ảnh SP thật lớn
+**Latest commit**: `0e163a4` — fix(web2-image-editor): Filerobot ảnh kết quả lỗi → nút 'Lấy ảnh về' (getCurrentImgData)
+**Last updated**: 2026-06-19 13:01:14 +07
+**Latest session**: [`RESUME:20260619-130114-0e163a4`](../20260619-130114-0e163a4.md)
+**Summary**: fix(web2-image-editor): Filerobot ảnh kết quả lỗi → nút 'Lấy ảnh về' (getCurrentImgData)
 
 ## Folders affected in this commit
 
+- [`downloads/`](./downloads.md) — 1 file(s)
 - [`web2/`](./web2.md) — 3 file(s)
 
 ## All folder snapshots
@@ -28,7 +29,7 @@
 - [`docs/`](./docs.md) — updated 2026-06-19 12:19
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-16 14:31
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-16 14:31
-- [`downloads/`](./downloads.md) — updated 2026-06-19 12:30
+- [`downloads/`](./downloads.md) — updated 2026-06-19 13:01
 - [`facebook-services/`](./facebook-services.md) — updated 2026-06-16 00:35
 - [`fb-ads/`](./fb-ads.md) — updated 2026-05-21 15:39
 - [`firebase-stats/`](./firebase-stats.md) — updated 2026-05-21 15:39
@@ -73,4 +74,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-19 12:50
+- [`web2/`](./web2.md) — updated 2026-06-19 13:01
