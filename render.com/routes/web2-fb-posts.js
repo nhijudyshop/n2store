@@ -454,6 +454,26 @@ router.get('/list', async (req, res) => {
     }
 });
 
+// GET /post-detail?pageId=&postId= — chi tiết 1 bài (đủ ảnh + comment + tương tác)
+router.get('/post-detail', async (req, res) => {
+    try {
+        const db = getDb(req);
+        const { pageId, postId } = req.query;
+        if (!pageId || !postId)
+            return res.status(400).json({ success: false, error: 'Thiếu pageId/postId' });
+        const row = await loadToken(db);
+        const page = row && findPage(row.pages, pageId);
+        if (!page || !page.access_token)
+            return res
+                .status(400)
+                .json({ success: false, error: 'Chưa kết nối / không có page token' });
+        const post = await fb.getPostDetail(postId, page.access_token);
+        res.json({ success: true, post });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
 // POST /delete { pageId, postId }
 router.post('/delete', async (req, res) => {
     try {

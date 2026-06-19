@@ -106,8 +106,8 @@
                     .map(
                         (p) => `
                     <div class="fbp-post">
-                        ${p.picture ? `<img class="fbp-post-thumb" src="${esc(p.picture)}" loading="lazy" alt="" />` : ''}
-                        <div class="fbp-post-body">
+                        ${p.picture ? `<img class="fbp-post-thumb" src="${esc(p.picture)}" data-view="${esc(p.id)}" style="cursor:pointer" loading="lazy" alt="" />` : ''}
+                        <div class="fbp-post-body" data-view="${esc(p.id)}" style="cursor:pointer">
                             <p class="fbp-post-msg">${esc(p.message) || '<i>(không có nội dung)</i>'}</p>
                             <div class="fbp-post-meta">
                                 <span>${fmt(p.createdTime)}</span>
@@ -115,7 +115,7 @@
                             </div>
                         </div>
                         <div class="fbp-post-actions">
-                            ${p.permalink ? `<a class="fbp-btn ghost sm" href="${esc(p.permalink)}" target="_blank" rel="noopener"><i data-lucide="external-link"></i> Xem</a>` : ''}
+                            <button class="fbp-btn ghost sm" data-view="${esc(p.id)}" type="button"><i data-lucide="eye"></i> Xem</button>
                             <button class="fbp-btn danger sm" data-del="${esc(p.id)}" type="button"><i data-lucide="trash-2"></i> Xoá</button>
                         </div>
                     </div>`
@@ -125,6 +125,9 @@
             postsEl
                 .querySelectorAll('[data-del]')
                 .forEach((b) => b.addEventListener('click', () => del(b.dataset.del)));
+            postsEl
+                .querySelectorAll('[data-view]')
+                .forEach((b) => b.addEventListener('click', () => openViewer(b.dataset.view)));
             if (window.lucide?.createIcons) window.lucide.createIcons();
         } catch (e) {
             postsEl.innerHTML = `<div class="fbp-empty">${esc(e.message)}</div>`;
@@ -145,6 +148,74 @@
             } else notify(r.error || 'Lỗi xoá', 'error');
         } catch (e) {
             notify(e.message, 'error');
+        }
+    }
+
+    // Xem nguyên bài như trên Facebook (đủ ảnh + nội dung + tương tác + bình luận).
+    async function openViewer(postId) {
+        const overlay = document.createElement('div');
+        overlay.style.cssText =
+            'position:fixed;inset:0;background:rgba(15,23,42,.6);z-index:10000;display:flex;align-items:flex-start;justify-content:center;padding:20px;overflow:auto';
+        overlay.innerHTML =
+            '<div class="fbp-card" style="max-width:600px;width:100%;margin:auto"><div class="fbp-empty"><i data-lucide="loader"></i> Đang tải bài…</div></div>';
+        document.body.appendChild(overlay);
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) overlay.remove();
+        });
+        if (window.lucide?.createIcons) window.lucide.createIcons();
+        const box = overlay.querySelector('.fbp-card');
+        try {
+            const r = await Api().postDetail(_pageId, postId);
+            if (!r.success) {
+                box.innerHTML = `<div class="fbp-empty">${esc(r.error || 'Lỗi tải bài')}</div>`;
+                return;
+            }
+            const p = r.post || {};
+            const eng = [
+                p.likes != null ? `👍 ${p.likes}` : '',
+                p.comments != null ? `💬 ${p.comments}` : '',
+                p.shares != null ? `🔁 ${p.shares}` : '',
+            ]
+                .filter(Boolean)
+                .join('   ');
+            const media =
+                (p.images || [])
+                    .map(
+                        (u) =>
+                            `<img src="${esc(u)}" loading="lazy" style="width:100%;border-radius:10px;display:block" alt="" />`
+                    )
+                    .join('') +
+                (p.videos || [])
+                    .map(
+                        (u) =>
+                            `<video src="${esc(u)}" controls style="width:100%;border-radius:10px"></video>`
+                    )
+                    .join('');
+            const cms = (p.commentList || [])
+                .map(
+                    (
+                        c
+                    ) => `<div style="display:flex;gap:8px;padding:8px 0;border-top:1px solid #eef2f7">
+                        ${c.picture ? `<img src="${esc(c.picture)}" style="width:30px;height:30px;border-radius:50%;flex:0 0 auto" alt="" />` : ''}
+                        <div style="min-width:0"><b style="font-size:.84rem">${esc(c.name || 'Khách')}</b>
+                        <div style="font-size:.85rem;white-space:pre-wrap;word-break:break-word">${esc(c.message)}</div></div></div>`
+                )
+                .join('');
+            box.innerHTML = `
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+                    <strong style="flex:1">Bài viết · ${esc(fmt(p.createdTime))}</strong>
+                    ${p.permalink ? `<a class="fbp-btn ghost sm" href="${esc(p.permalink)}" target="_blank" rel="noopener"><i data-lucide="external-link"></i> Mở FB</a>` : ''}
+                    <button class="fbp-btn ghost sm" id="fbpVwClose" type="button">Đóng</button>
+                </div>
+                ${p.message ? `<p style="white-space:pre-wrap;line-height:1.5;font-size:.92rem;word-break:break-word">${esc(p.message)}</p>` : ''}
+                ${media ? `<div style="display:grid;gap:8px;margin:10px 0">${media}</div>` : ''}
+                ${eng ? `<div style="font-weight:700;color:#5a6b80;padding:6px 0">${eng}</div>` : ''}
+                ${cms ? `<div><h3 style="font-size:.9rem;margin:10px 0 4px"><i data-lucide="message-circle"></i> Bình luận</h3>${cms}</div>` : ''}
+            `;
+            box.querySelector('#fbpVwClose').onclick = () => overlay.remove();
+            if (window.lucide?.createIcons) window.lucide.createIcons();
+        } catch (e) {
+            box.innerHTML = `<div class="fbp-empty">${esc(e.message)}</div>`;
         }
     }
 

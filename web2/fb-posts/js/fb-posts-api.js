@@ -58,6 +58,10 @@
         publish: (payload) => jpost('/publish', payload),
         list: (pageId, limit) =>
             jget(`/list?pageId=${encodeURIComponent(pageId)}&limit=${limit || 25}`),
+        postDetail: (pageId, postId) =>
+            jget(
+                `/post-detail?pageId=${encodeURIComponent(pageId)}&postId=${encodeURIComponent(postId)}`
+            ),
         del: (pageId, postId) => jpost('/delete', { pageId, postId }),
         drafts: (status) => jget(`/drafts?status=${status || 'all'}`),
         saveDraft: (payload) => jpost('/draft', payload),

@@ -283,6 +283,68 @@ async function listPagePosts(pageId, pageToken, limit = 25) {
     }));
 }
 
+/** Chuẩn hoá 1 post detail (ảnh từ attachments+subattachments, comment, engagement). */
+function shapePostDetail(p) {
+    const images = [];
+    const videos = [];
+    const collect = (m) => {
+        if (!m || !m.media) return;
+        if (m.media.source) videos.push(m.media.source);
+        const src = m.media.image && m.media.image.src;
+        if (src) images.push(src);
+    };
+    const att = p.attachments && p.attachments.data && p.attachments.data[0];
+    if (att) {
+        const subs = att.subattachments && att.subattachments.data;
+        if (subs && subs.length) subs.forEach(collect);
+        else collect(att);
+    }
+    if (!images.length && p.full_picture) images.push(p.full_picture);
+    return {
+        id: String(p.id),
+        message: p.message || '',
+        createdTime: p.created_time || null,
+        permalink: p.permalink_url || '',
+        statusType: p.status_type || '',
+        images: [...new Set(images)],
+        videos,
+        likes: p.likes && p.likes.summary ? p.likes.summary.total_count : null,
+        comments: p.comments && p.comments.summary ? p.comments.summary.total_count : null,
+        shares: p.shares ? p.shares.count : null,
+        commentList: ((p.comments && p.comments.data) || []).map((c) => ({
+            name: (c.from && c.from.name) || '',
+            picture:
+                (c.from && c.from.picture && c.from.picture.data && c.from.picture.data.url) || '',
+            message: c.message || '',
+            createdTime: c.created_time || null,
+        })),
+    };
+}
+
+/** Chi tiết 1 bài (đủ ảnh + comment + engagement) để xem như trên Facebook.
+ * Thử field giàu (cần pages_read_user_content cho comment); lỗi → fallback chỉ ảnh+text. */
+async function getPostDetail(postId, pageToken) {
+    const rich =
+        'id,message,created_time,permalink_url,status_type,full_picture,' +
+        'attachments{type,media,subattachments{media}},' +
+        'likes.summary(true).limit(0),' +
+        'comments.summary(true).limit(30){from{name,picture},message,created_time},shares';
+    const basic =
+        'id,message,created_time,permalink_url,status_type,full_picture,' +
+        'attachments{type,media,subattachments{media}}';
+    const fetchWith = (fields) =>
+        gfetch(
+            `${GRAPH}/${postId}?fields=${encodeURIComponent(fields)}&access_token=${encodeURIComponent(pageToken)}`
+        );
+    let data;
+    try {
+        data = await fetchWith(rich);
+    } catch (_) {
+        data = await fetchWith(basic); // page thiếu quyền đọc comment → vẫn xem được ảnh+text
+    }
+    return shapePostDetail(data);
+}
+
 /** Liệt kê bài ĐÃ LÊN LỊCH (chưa đăng) của page. */
 async function listScheduledPosts(pageId, pageToken, limit = 25) {
     const fields = 'id,message,scheduled_publish_time,created_time';
@@ -315,5 +377,6 @@ module.exports = {
     updatePostMessage,
     listPagePosts,
     listScheduledPosts,
+    getPostDetail,
     normalizeScheduleSec,
 };
