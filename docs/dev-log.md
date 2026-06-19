@@ -10,6 +10,10 @@ Phát hiện khi vieneu-registry trả trang 404 TPOS. **Gốc**: worker `getRou
 - **Verify live**: vieneu-registry trả JSON + register/list OK; route web2- bịa `/api/web2-khong-ton-tai-test-xyz` → `{"error":"Not Found"}` của web2-api (KHÔNG TPOS). Probe 95 route: 0 web2 dính TPOS. 5 route "không khớp" (image-proxy/odata/token → render đúng; aikol/delivery-report-telegram → app gọi thẳng `n2store-fallback.onrender.com`, bypass worker, KHÔNG bug).
 - **`catch-all TPOS`** = quy tắc cuối worker: path `/api/*` không nhận ra → tomato.tpos.vn (vì Web 1.0 dùng TPOS thật). Web 2.0 KHÔNG dùng TPOS, phải match tường minh/generic TRƯỚC catch-all.
 
+### [web2/fb-caption] Tông giọng shop dễ thương (xưng em/bọn em, gọi khách "chị") ✅
+
+User: "sửa chúng tôi thành thân thiện như em/bọn em" + "gọi khách bằng chị (các chị/mấy chị/chị đẹp)". Sửa 1 chỗ shared `SYSTEM_VI` (áp dụng cả AI đơn + tổng hợp): shop xưng em/bọn em/shop, gọi khách các chị/mấy chị/chị đẹp/chị dễ thương/các nàng/cả nhà; CẤM "chúng tôi/chúng tớ/công ty" + "các bạn/bạn". Lưới an toàn `_friendlyTone` hậu xử lý thay nếu AI lỡ dùng. ✅ Verify live (groq): "Mới về shop các chị ơi! Bọn em… các nàng… chị đẹp" — 0 "chúng tôi", 0 "các bạn". Commits `d710a31ae`+`b936b1705`.
+
 ### [web2/fb-posts] Chọn NHIỀU SP từ Kho cho AI + thứ tự page Store→House→Ơi→Nè ✅
 
 User: "cho chọn nhiều sản phẩm từ kho lấy thông tin cho AI làm việc" + "module riêng nhiều trang đọc vào" + "thứ tự page: Store, House, Ơi, Nè".
