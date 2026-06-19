@@ -1,10 +1,10 @@
 {
-    "generatedAt": "2026-06-19 01:31",
+    "generatedAt": "2026-06-19 01:32",
     "totals": {
         "files": 338,
         "sharedModules": 89,
         "functions": 2480,
-        "oversized": 1
+        "oversized": 0
     },
     "sharedModules": [
         {
@@ -2624,7 +2624,7 @@
                 },
                 {
                     "file": "live-chat/js/pancake/pancake-token-manager.js",
-                    "lines": 801,
+                    "lines": 799,
                     "purpose": "WEB2.0 module.",
                     "globals": ["PancakeTokenManager"],
                     "uses": ["Web2Chat", "Web2PancakeAccounts"],
@@ -9465,10 +9465,5 @@
             "count": 3
         }
     ],
-    "oversized": [
-        {
-            "file": "live-chat/js/pancake/pancake-token-manager.js",
-            "lines": 801
-        }
-    ]
+    "oversized": []
 }

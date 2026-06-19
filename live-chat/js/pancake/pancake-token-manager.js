@@ -5,11 +5,9 @@
 // localStorage canonical; add/deleteAccount qua Web2PancakeAccounts. KHÔNG đọc/ghi
 // Firestore `pancake_tokens` (stale, gây "Cannot activate expired account") — method
 // *Firestore* còn lại no-op. getToken: memory → localStorage → Web2Chat sync.
-// 2026-06-18 (MOVE-only split): pure helpers tách ra namespace modules, class CHỈ giữ
-// instance state + orchestration, methods DELEGATE sang: PancakeTokenCodec (codec) /
-// PancakeTokenStorage (localStorage) / PancakeTokenSources (cookie/Web2Chat) /
-// PancakePageAccessTokens (PAT) / PancakeFirestoreAccounts (Firestore accounts).
-// Load order BẮT BUỘC: codec → storage → sources → page-access → firestore → manager.
+// 2026-06-18 (MOVE-only split): class giữ state+orchestration, DELEGATE sang namespace
+// modules PancakeToken{Codec,Storage,Sources,PageAccessTokens}/PancakeFirestoreAccounts.
+// Load order: codec → storage → sources → page-access → firestore → manager.
 
 class PancakeTokenManager {
     constructor() {

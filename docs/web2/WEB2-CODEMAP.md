@@ -2,7 +2,7 @@
 
 # WEB2-CODEMAP — Bản đồ code Web 2.0
 
-> **Auto-generated** • 2026-06-19 01:31 • 338 files, 89 shared modules, 2480 hàm, 1 file > 800 dòng.
+> **Auto-generated** • 2026-06-19 01:32 • 338 files, 89 shared modules, 2480 hàm, 0 file > 800 dòng.
 > Sinh lại: `node scripts/gen-web2-codemap.js` (chạy sau khi đổi cấu trúc/ tách module / thêm trang).
 
 ## 0. Cách dùng (Claude / dev đọc TRƯỚC khi code)
@@ -696,7 +696,7 @@ WEB2.0 module — Zalo chat sticker picker.
 - **[pancake-token-codec.js](../../live-chat/js/pancake/pancake-token-codec.js)** ·225 — WEB2.0 module.
     - exposes: `PancakeTokenCodec`
     - funcs (5): analyzeToken, base64UrlDecode, cleanToken, decodeToken, isTokenExpired
-- **[pancake-token-manager.js](../../live-chat/js/pancake/pancake-token-manager.js)** ⚠️801 — WEB2.0 module.
+- **[pancake-token-manager.js](../../live-chat/js/pancake/pancake-token-manager.js)** ·799 — WEB2.0 module.
     - exposes: `PancakeTokenManager`
     - uses shared: `Web2Chat`, `Web2PancakeAccounts`
     - funcs (35): addAccount, base64UrlDecode, clearPageAccessTokensFromLocalStorage, clearToken, clearTokenFromLocalStorage, debugToken, decodeToken, deleteAccount, genPromise, generatePageAccessToken, getAccountInfo, getAllAccounts, getAllPageAccessTokens, getOrGeneratePageAccessToken, getPageAccessToken, getPageAccessTokensFromLocalStorage, getToken, getTokenFromCookie, getTokenFromFirestore, getTokenFromLocalStorage, getTokenFromWeb2Chat, getTokenInfo, initialize, isTokenExpired, loadAccounts, loadFromLocalStorage, loadPageAccessTokens, savePageAccessToken, savePageAccessTokensToLocalStorage, saveTokenToFirestore, saveTokenToLocalStorage, setActiveAccount, setTokenManual, valid, withTimeout
@@ -1833,6 +1833,5 @@ _…và 50 hàm trùng khác (xem web2-codemap.json)._
 
 ## 5. File quá lớn (> 800 dòng) — cần tách module
 
-| File                                                                                                 | Dòng |
-| ---------------------------------------------------------------------------------------------------- | ---- |
-| [live-chat/js/pancake/pancake-token-manager.js](../../live-chat/js/pancake/pancake-token-manager.js) | 801  |
+| File | Dòng |
+| ---- | ---- |
