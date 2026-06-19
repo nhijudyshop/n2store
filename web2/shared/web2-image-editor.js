@@ -83,11 +83,23 @@
         ensureStyles();
         return new Promise((resolve) => {
             const back = document.createElement('div');
-            back.className = 'w2ie-back';
+            back.className = 'w2ie-back w2ie-fr';
+            // Thanh trên: nút "Lấy ảnh về" lấy ảnh đã chỉnh qua getCurrentImgData (TIN
+            // CẬY) — KHÔNG dựa vào nút "Lưu" của Filerobot (chỉ tải file, onSave không
+            // fire ổn định → trước đây ảnh kết quả bị rỗng/lỗi).
+            const bar = document.createElement('div');
+            bar.className = 'w2ie-ppbar';
+            bar.innerHTML =
+                '<b><i data-lucide="image"></i> Chỉnh sửa ảnh</b>' +
+                '<span style="flex:1"></span>' +
+                '<button class="w2ie-ppbtn primary" data-fr="take">Lấy ảnh về</button>' +
+                '<button class="w2ie-ppbtn" data-fr="close">Đóng</button>';
             const host = document.createElement('div');
             host.className = 'w2ie-host';
+            back.appendChild(bar);
             back.appendChild(host);
             document.body.appendChild(back);
+            global.lucide?.createIcons?.();
 
             let editor = null;
             let done = false;
@@ -100,12 +112,26 @@
             const finish = (val) => {
                 if (done) return;
                 done = true;
-                // defer để không terminate giữa callback của Filerobot
                 setTimeout(() => {
                     cleanup();
                     resolve(val);
                 }, 0);
             };
+            const take = () => {
+                try {
+                    const r = editor?.getCurrentImgData?.();
+                    finish(r?.imageData?.imageBase64 || null);
+                } catch (e) {
+                    console.error('[Web2ImageEditor] getCurrentImgData lỗi:', e);
+                    global.notificationManager?.show?.('Không lấy được ảnh đã chỉnh', 'error');
+                    finish(null);
+                }
+            };
+            bar.addEventListener('click', (e) => {
+                const a = e.target.closest('[data-fr]')?.dataset.fr;
+                if (a === 'close') finish(null);
+                else if (a === 'take') take();
+            });
 
             const config = {
                 source: src,
@@ -126,13 +152,15 @@
                 defaultToolId: TOOLS.CROP,
                 savingPixelRatio: 1,
                 previewPixelRatio: 1,
-                // Lưu → lấy base64, đóng editor, resolve. KHÔNG tự tải file (caller quyết).
-                onSave: (edited) => finish(edited?.imageBase64 || null),
-                onClose: () => finish(null),
+                // Nút "Lưu" của Filerobot (nếu user bấm) cũng cố lấy base64; nguồn CHÍNH
+                // vẫn là nút "Lấy ảnh về" trên thanh (getCurrentImgData).
+                onSave: (edited) => {
+                    if (edited?.imageBase64) finish(edited.imageBase64);
+                },
             };
             try {
                 editor = new FIE(host, config);
-                editor.render({ onClose: () => finish(null) });
+                editor.render({});
             } catch (e) {
                 console.error('[Web2ImageEditor] init lỗi:', e);
                 cleanup();
@@ -251,7 +279,7 @@
 .w2ie-back{position:fixed;inset:0;z-index:100001;background:#0b1220;display:flex}
 .w2ie-host{flex:1;min-width:0;min-height:0}
 .w2ie-host .SfxModal-Wrapper,.w2ie-host>div{height:100%}
-.w2ie-pp{flex-direction:column}
+.w2ie-pp,.w2ie-fr{flex-direction:column}
 .w2ie-ppbar{display:flex;align-items:center;gap:10px;padding:10px 14px;background:#111827;color:#fff;font-size:14px}
 .w2ie-ppbar i{width:17px;height:17px;vertical-align:-3px}
 .w2ie-ppframe{flex:1;width:100%;border:0;min-height:0}
