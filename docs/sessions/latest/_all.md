@@ -3,17 +3,18 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `5cea5d2` — chore(web2): regen codemap (349 files, +product-card +video-maker)
-**Last updated**: 2026-06-19 10:39:36 +07
-**Latest session**: [`RESUME:20260619-103936-5cea5d2`](../20260619-103936-5cea5d2.md)
-**Summary**: 2 trang Đa dụng Web 2.0 mới: product-card (canvas→PNG) + video-maker (slideshow MP4 + TTS tiếng Việt on-device MMS-TTS-vie)
+**Latest commit**: `53623e2` — chore(web2): regen codemap (video-maker multi-voice)
+**Last updated**: 2026-06-19 11:14:56 +07
+**Latest session**: [`RESUME:20260619-111456-53623e2`](../20260619-111456-53623e2.md)
+**Summary**: chore(web2): regen codemap (video-maker multi-voice)
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 3 file(s)
-- [`downloads/`](./downloads.md) — 2 file(s)
-- [`native-orders/`](./native-orders.md) — 3 file(s)
-- [`web2/`](./web2.md) — 14 file(s)
+- [`downloads/`](./downloads.md) — 1 file(s)
+- [`inventory-tracking/`](./inventory-tracking.md) — 1 file(s)
+- [`render.com/`](./render.com.md) — 2 file(s)
+- [`web2/`](./web2.md) — 4 file(s)
 
 ## All folder snapshots
 
@@ -28,16 +29,16 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-18 13:23
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-16 14:31
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-18 12:17
-- [`docs/`](./docs.md) — updated 2026-06-19 10:39
+- [`docs/`](./docs.md) — updated 2026-06-19 11:14
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-16 14:31
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-16 14:31
-- [`downloads/`](./downloads.md) — updated 2026-06-19 10:39
+- [`downloads/`](./downloads.md) — updated 2026-06-19 11:14
 - [`facebook-services/`](./facebook-services.md) — updated 2026-06-16 00:35
 - [`fb-ads/`](./fb-ads.md) — updated 2026-05-21 15:39
 - [`firebase-stats/`](./firebase-stats.md) — updated 2026-05-21 15:39
 - [`hanghoan/`](./hanghoan.md) — updated 2026-06-16 14:31
 - [`inbox/`](./inbox.md) — updated 2026-06-15 20:20
-- [`inventory-tracking/`](./inventory-tracking.md) — updated 2026-06-16 14:31
+- [`inventory-tracking/`](./inventory-tracking.md) — updated 2026-06-19 11:14
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-06-16 14:31
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-16 14:31
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
@@ -56,7 +57,7 @@
 - [`purchase-orders/`](./purchase-orders.md) — updated 2026-05-25 09:02
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-06-16 00:35
-- [`render.com/`](./render.com.md) — updated 2026-06-18 16:31
+- [`render.com/`](./render.com.md) — updated 2026-06-19 11:14
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-19 09:25
 - [`service-costs/`](./service-costs.md) — updated 2026-06-16 11:15
@@ -76,4 +77,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-19 10:39
+- [`web2/`](./web2.md) — updated 2026-06-19 11:14
