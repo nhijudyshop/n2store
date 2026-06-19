@@ -3,15 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `b2b899b` — fix(web2/pwa): bo start_url co dinh -> them man hinh chinh luu DUNG trang dang mo (share trang nao luu trang do)
-**Last updated**: 2026-06-20 00:37:19 +07
-**Latest session**: [`RESUME:20260620-003719-b2b899b`](../20260620-003719-b2b899b.md)
-**Summary**: fix(web2/pwa): bo start_url co dinh -> them man hinh chinh luu DUNG trang dang mo (share trang nao luu trang do)
+**Latest commit**: `09ed855` — auto: session update
+**Last updated**: 2026-06-20 01:09:41 +07
+**Latest session**: [`RESUME:20260620-010941-09ed855`](../20260620-010941-09ed855.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`live-chat/`](./live-chat.md) — 2 file(s)
-- [`web2/`](./web2.md) — 1 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -26,7 +25,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-19 23:05
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-16 14:31
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-18 12:17
-- [`docs/`](./docs.md) — updated 2026-06-20 00:10
+- [`docs/`](./docs.md) — updated 2026-06-20 01:09
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-16 14:31
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-16 14:31
 - [`downloads/`](./downloads.md) — updated 2026-06-19 14:27
