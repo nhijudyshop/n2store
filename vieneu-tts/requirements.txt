@@ -1,0 +1,6 @@
+# VieNeu-TTS service (Web 2.0) — CPU/ONNX torch-free
+# `vieneu` minimal install kéo theo onnxruntime (không PyTorch).
+vieneu
+fastapi
+uvicorn[standard]
+python-multipart
