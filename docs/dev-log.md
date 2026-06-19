@@ -2,6 +2,13 @@
 
 ## 2026-06-19
 
+### [web2/fb-posts] Nhận diện loại bài + bộ lọc + bỏ auto-chọn page + ghi giá kiểu shop ✅
+
+- **Phân loại bài** (`add3a5bcf`): video có `attachments.target.id` ∈ `live_videos.video.id` → **Livestream** (status LIVE=đang/VOD=đã); còn lại video/album-photo/text. Backend `getLiveVideoMap` (cache 60s) + `classifyPost`; `/list` trả `post.type`+`living`. (Đã verify Graph matching thủ công: target.id khớp video.id.)
+- **Bộ lọc tab Bài viết** (`add3a5bcf`): chip Tất cả/🔴Livestream/🎬Video/🖼️Hình/📝Bài viết (lọc client-side trên `_posts` đã tải) + badge mỗi bài. Đếm hiện `X/Y` khi lọc.
+- **Bỏ auto-chọn page** (`add3a5bcf`): `loadStatus` không tự tick page nữa (tránh đăng nhầm 4 page) — user tự chọn page muốn đăng. Validate publish vẫn yêu cầu ≥1 page.
+- **Ghi giá kiểu shop** (`9e9e52245`): `fmtMoney` → rút gọn vui nhộn, hậu tố ngẫu nhiên k/xu/kk/kkk (14.000→14k/14xu/14kkk), triệu→1tr/1tr5; KHÔNG ghi "14.000đ"/"đ". AI prompt + SYSTEM_VI buộc dùng kiểu này. User chốt qua AskUserQuestion.
+
 ### [web2/video-maker] Tích hợp "chất Remotion" vào video-maker (spring/easing, KHÔNG Remotion) ✅
 
 User muốn "tích hợp github.com/remotion-dev/remotion vào web 2.0". Research: Remotion = React + bundler + xuất MP4 nặng (Chromium/FFmpeg server hoặc Lambda) + **license CÓ PHÍ cho công ty ≥4 người**; đường client-side (webcodecs) đang bị Remotion phase-out sang Mediabunny + không chạy Safari/iOS. Web 2.0 lại vanilla JS no-bundler + đã có video-maker in-browser. → Hỏi user, chọn **hướng A: port Ý HAY của Remotion sang vanilla, KHÔNG ôm Remotion** (free, đúng kiến trúc).
