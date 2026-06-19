@@ -384,6 +384,12 @@ export function matchRoute(pathname) {
     // own any /api/v2/* paths — every v2 route we've shipped lives on the Render server).
     if (pathname.startsWith('/api/v2/')) return 'RENDER_V2_FALLBACK';
 
+    // CHẶN LỖ HỔNG HỆ THỐNG (2026-06-19): generic '/api/web2/' (dòng trên) CHỈ match dấu '/',
+    // KHÔNG match '/api/web2-<x>' (gạch ngang) → route web2-* quên khai báo riêng sẽ rơi
+    // catch-all TPOS bên dưới (bug vieneu-registry). Bắt MỌI '/api/web2-*' còn lại → web2-api.
+    // Route Web 2.0 mới prefix 'web2-' KHỎI cần đăng ký từng cái; KHÔNG bao giờ chạm TPOS.
+    if (pathname.startsWith('/api/web2-')) return 'WEB2_GENERIC';
+
     // Catch-all for /api/* (TPOS generic)
     if (pathname.startsWith('/api/')) return 'TPOS_GENERIC';
 
