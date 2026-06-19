@@ -3,15 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `c1d37ac` — refactor(render): tách tuyệt đối Web1⊥Web2 — boot-guard fail-fast mặc định + alias web1Db + sửa comment chatDb stale
-**Last updated**: 2026-06-19 18:35:31 +07
-**Latest session**: [`RESUME:20260619-183531-c1d37ac`](../20260619-183531-c1d37ac.md)
-**Summary**: refactor(render): tách tuyệt đối Web1⊥Web2 — boot-guard fail-fast mặc định + alias web1Db + sửa comm...
+**Latest commit**: `0ce7129` — fix(web2/fb-posts): trả aiAvailable cả khi chưa kết nối → nút 'AI viết lại' không bị disable sớm
+**Last updated**: 2026-06-19 18:49:17 +07
+**Latest session**: [`RESUME:20260619-184917-0ce7129`](../20260619-184917-0ce7129.md)
+**Summary**: fix(web2/fb-posts): trả aiAvailable cả khi chưa kết nối → nút 'AI viết lại' không bị disable sớm
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 3 file(s)
+- [`render.com/`](./render.com.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -55,7 +54,7 @@
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`referenceUI/`](./referenceUI.md) — updated 2026-06-19 14:27
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-06-16 00:35
-- [`render.com/`](./render.com.md) — updated 2026-06-19 18:35
+- [`render.com/`](./render.com.md) — updated 2026-06-19 18:49
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-19 14:27
 - [`service-costs/`](./service-costs.md) — updated 2026-06-16 11:15
