@@ -3,16 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `d15dd5f` — auto: session update
-**Last updated**: 2026-06-19 14:41:17 +07
-**Latest session**: [`RESUME:20260619-144117-d15dd5f`](../20260619-144117-d15dd5f.md)
+**Latest commit**: `ede1dca` — auto: session update
+**Last updated**: 2026-06-19 14:54:19 +07
+**Latest session**: [`RESUME:20260619-145419-ede1dca`](../20260619-145419-ede1dca.md)
 **Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
+- [`cloudflare-worker/`](./cloudflare-worker.md) — 2 file(s)
 - [`render.com/`](./render.com.md) — 1 file(s)
-- [`web2/`](./web2.md) — 8 file(s)
 
 ## All folder snapshots
 
@@ -24,7 +23,7 @@
 - [`balance-history-home/`](./balance-history-home.md) — updated 2026-06-18 13:09
 - [`balance-history/`](./balance-history.md) — updated 2026-06-16 14:31
 - [`bangkiemhang/`](./bangkiemhang.md) — updated 2026-05-21 15:39
-- [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-18 13:23
+- [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-19 14:54
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-16 14:31
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-18 12:17
 - [`docs/`](./docs.md) — updated 2026-06-19 14:41
@@ -56,7 +55,7 @@
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`referenceUI/`](./referenceUI.md) — updated 2026-06-19 14:27
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-06-16 00:35
-- [`render.com/`](./render.com.md) — updated 2026-06-19 14:41
+- [`render.com/`](./render.com.md) — updated 2026-06-19 14:54
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-19 14:27
 - [`service-costs/`](./service-costs.md) — updated 2026-06-16 11:15
