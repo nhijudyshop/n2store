@@ -60,10 +60,24 @@ const TEMPLATES = {
         `${p.desc || 'Inbox shop để được tư vấn nhé!'} 💕`,
 };
 
+// Ghi giá kiểu shop livestream (vui nhộn) — KHÔNG ghi "14.000đ". Hậu tố ngẫu nhiên
+// k/xu/kk/kkk để mỗi bài hơi khác (user chốt 2026-06-19). Triệu → "1tr"/"1tr5".
+const _PRICE_SUFFIX = ['k', 'xu', 'kk', 'kkk'];
 function fmtMoney(v) {
     const n = Number(String(v).replace(/[^\d]/g, ''));
     if (!n) return String(v || '');
-    return n.toLocaleString('vi-VN') + 'đ';
+    if (n >= 1000000) {
+        const tr = n / 1000000;
+        const whole = Math.floor(tr);
+        const dec = Math.round((tr - whole) * 10);
+        return dec ? `${whole}tr${dec}` : `${whole}tr`;
+    }
+    const suf = _PRICE_SUFFIX[Math.floor(Math.random() * _PRICE_SUFFIX.length)];
+    const k = n / 1000;
+    if (Number.isInteger(k)) return `${k}${suf}`; // 14000 → 14k / 14xu / 14kkk
+    const wholeK = Math.floor(k);
+    const dec = Math.round((k - wholeK) * 10);
+    return `${wholeK}k${dec}`; // 14500 → 14k5
 }
 
 /** Sinh hashtag offline từ tên/danh mục SP. */
@@ -104,7 +118,9 @@ const SYSTEM_VI =
     'cuốn hút, KHÔNG bịa thông tin sai. Trả về chỉ phần caption (không kèm giải thích). ' +
     'KHÔNG dùng mồi tương tác (đừng yêu cầu tag bạn bè / share / comment từ khoá / để lại ' +
     'SĐT công khai). KHÔNG bịa khuyến mãi/giá. Tránh viết HOA toàn bộ và câu khẩn cấp giả tạo ' +
-    '("kẻo hết", "số lượng có hạn"). CTA an toàn: mời inbox shop.';
+    '("kẻo hết", "số lượng có hạn"). CTA an toàn: mời inbox shop. ' +
+    'GIÁ ghi kiểu rút gọn shop (14k / 14xu / 14kkk cho 14.000; 150k cho 150.000; 1tr cho 1 triệu) ' +
+    '— TUYỆT ĐỐI KHÔNG ghi "14.000đ" hay "đ".';
 
 async function callGroq(prompt) {
     const key = process.env.GROQ_API_KEY;
@@ -175,10 +191,12 @@ async function generateAI(product = {}, style = 'sale') {
     const prompt =
         `Viết caption Facebook bán hàng phong cách "${style}" cho sản phẩm:\n` +
         `- Tên: ${product.name || ''}\n` +
-        (product.price ? `- Giá: ${product.price}\n` : '') +
+        (product.price
+            ? `- Giá (ghi y nguyên kiểu rút gọn này, KHÔNG đổi sang đ): ${fmtMoney(product.price)}\n`
+            : '') +
         (product.discount ? `- Khuyến mãi: ${product.discount}\n` : '') +
         (product.desc ? `- Mô tả: ${product.desc}\n` : '') +
-        `\nYêu cầu: 3-5 dòng, có emoji, có lời kêu gọi inbox/chốt đơn.`;
+        `\nYêu cầu: 3-5 dòng, có emoji, có lời kêu gọi inbox/chốt đơn. Giá ghi rút gọn (vd 14k/150k/1tr), KHÔNG ghi "đ".`;
 
     let out = null;
     let provider = 'groq';
