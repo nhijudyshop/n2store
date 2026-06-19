@@ -2,6 +2,15 @@
 
 ## 2026-06-19
 
+### [web2-modular] "Làm tất cả" — Phase A/B/C/D + codemap accuracy ✅
+
+Hoàn tất các phần còn lại sau modularization:
+
+- **Phase A** (`f32834f09`,`952ee0199`) — TAIL: `so-order-storage.js` 962→`so-order-storage.js`(795)+`so-order-storage-sync.js`(212) (SoOrderStorage API + `.Sync` byte-identical, `_internal` bridge cho IDB private); `pancake-token-manager.js` 802→798 (trim comment). **→ 0 file > 800 dòng.**
+- **Phase C** (`27296dea5`,`030dc573f`) — ADOPTION §4 dedup (thin-delegate + fallback): 41 file delegate `escapeHtml→Web2Escape`, `fmtVnd/fmtMoney→Web2Format.vnd|num` (₫-aware), `fmtDate/fmtTime→Web2Format.date|dateTime`, `authHeaders/_authHeaders/_w2Auth→Web2Auth.authHeaders`, `normPhone→Web2PhoneUtils.norm` — body delegate, GIỮ inline fallback. KHÔNG delegate khi behavior khác (đ vs ₫, local-time vs GMT+7, char-set khác) → giữ nguyên (không phải dup thật). Codemap §4 loại trừ thin-delegate → đếm dup THẬT: escapeHtml 31→12, fmtTime 17→11, normPhone 10→6; auth/fmtVnd family consolidated. Verified live: native-orders/so-order/supplier-wallet/balance-history 0 JS err.
+- **Phase B** (`9b476a757`) — 6 shared module mới (additive, extract canonical từ dup): `Web2JwtUtils` (decode/base64UrlDecode/isExpired/expiresAt/shortToken) · `Web2AvatarUtils` (color/initial/proxyUrl/html) · `Web2CanvasUtils` (canvas/blob/dataUrl/loadImage) · `Web2SoOrderUtils` (orderGroupKey/parseReceivedItems/groupByOrder) · `Web2ImageLightbox` (open/thumbStripHtml) · `Web2PancakeImport` (searchByPhone/lookupDeep kho-first/convToCustomer). Auto-load jwt/avatar/lightbox qua sidebar; canvas/so-order/pancake-import feature-load. node --check 6/6 + behavior-smoke 34/34 PASS, verified live. Adoption incremental (divergence notes ở commit).
+- **Phase D** — `scripts/smoke-live-chat-server.sh`: smoke post-deploy cho server live-chat (12 module split). Test /ping + /health/detailed + /api/status (+ /api/events với RELAY_SECRET) + checklist Render boot-log. ⚠ Chạy SAU khi deploy split (404 nếu deploy đang chạy code cũ hơn repo).
+
 ### [native-orders + live-chat] Step 2b dead-code removal + server.js split (Node) ✅
 
 **Step 2b (`4f087ac1a`)** — gỡ ~1500 dòng chat trùng native-orders sau chat-unification. Trace-first: xoá 6 file old-chat engine (chat-state/chat-render/message-render/inbox-sidebar/inbox-realtime/chat-css) + gỡ hàm chết in-place. GIỮ: `_handleReplyComment`+extension bridge (comment-reply mới), `inbox-resolve` (3 consumer thật: `_resolveInboxConvByPhone`/`_searchPancakeCustomers` cho inbox-add tạo đơn + `_hydrateInboxAvatars` cho render), inbox-add. `_avatarUrl` relocate → inbox-resolve. openInteractions bỏ fallback. native-orders 26→20 file, `window.NativeOrdersApp` giữ 36 key. Verified live: chat Web2CustomerChat + comments-info + reply OK, `_close/_refreshInteractions` no-op safe, 0 JS err, 0 dangling ref, 0 404.
