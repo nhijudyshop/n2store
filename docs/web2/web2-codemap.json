@@ -1,5 +1,5 @@
 {
-    "generatedAt": "2026-06-19 01:16",
+    "generatedAt": "2026-06-19 01:18",
     "totals": {
         "files": 337,
         "sharedModules": 89,
@@ -3117,7 +3117,7 @@
                 },
                 {
                     "file": "native-orders/js/native-orders-inbox-resolve.js",
-                    "lines": 255,
+                    "lines": 254,
                     "purpose": "WEB2.0 module.",
                     "globals": ["NativeOrders"],
                     "uses": ["API_CONFIG", "Web2Chat", "Web2CustomerChat"],

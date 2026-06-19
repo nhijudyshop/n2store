@@ -2,7 +2,7 @@
 
 # WEB2-CODEMAP — Bản đồ code Web 2.0
 
-> **Auto-generated** • 2026-06-19 01:16 • 337 files, 89 shared modules, 2478 hàm, 2 file > 800 dòng.
+> **Auto-generated** • 2026-06-19 01:18 • 337 files, 89 shared modules, 2478 hàm, 2 file > 800 dòng.
 > Sinh lại: `node scripts/gen-web2-codemap.js` (chạy sau khi đổi cấu trúc/ tách module / thêm trang).
 
 ## 0. Cách dùng (Claude / dev đọc TRƯỚC khi code)
@@ -799,7 +799,7 @@ WEB2.0 module — Zalo chat sticker picker.
     - exposes: `NativeOrders`
     - uses shared: `Web2Bill`, `Web2UserInfo`
     - funcs (9): addToCart, close, ensureProdCache, openAddInboxOrder, pkItemHtml, renderCart, renderProdResults, setFbStatus, whItemHtml
-- **[native-orders-inbox-resolve.js](../../native-orders/js/native-orders-inbox-resolve.js)** ·255 — WEB2.0 module.
+- **[native-orders-inbox-resolve.js](../../native-orders/js/native-orders-inbox-resolve.js)** ·254 — WEB2.0 module.
     - exposes: `NativeOrders`
     - uses shared: `API_CONFIG`, `Web2Chat`, `Web2CustomerChat`
     - funcs (7): \_avatarUrl, \_getSidebarPageIds, \_hydrateInboxAvatars, \_normPhone, \_resolveInboxConvByPhone, \_searchPancakeCustomers, job
