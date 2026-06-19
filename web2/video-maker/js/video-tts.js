@@ -105,6 +105,14 @@
         return { samples: buf.getChannelData(0).slice(), sampleRate: buf.sampleRate };
     }
 
+    // ---------------- VieNeu (server, clone giọng) ----------------
+    async function _vieneuChunk(text, v, onStatus) {
+        if (!global.Web2Vieneu) throw new Error('Chưa tải module VieNeu (web2-vieneu.js)');
+        onStatus && onStatus('Đang tạo giọng VieNeu trên server máy shop…');
+        if (v.cloneRef) return global.Web2Vieneu.clone(text, v.cloneRef); // nhái giọng mẫu
+        return global.Web2Vieneu.synthesize(text, v.vieneuVoice || v.voiceId || v.id);
+    }
+
     let _dctx = null;
     function _decodeCtx() {
         if (!_dctx) _dctx = new (global.AudioContext || global.webkitAudioContext)();
@@ -141,7 +149,9 @@
             const r =
                 v.engine === 'mms'
                     ? await _mmsChunk(chunks[i], onStatus)
-                    : await _piperChunk(chunks[i], v.voiceId, onStatus);
+                    : v.engine === 'vieneu'
+                      ? await _vieneuChunk(chunks[i], v, onStatus)
+                      : await _piperChunk(chunks[i], v.voiceId, onStatus);
             sampleRate = r.sampleRate;
             parts.push(r.samples);
             if (i < chunks.length - 1) parts.push(new Float32Array(Math.round(sampleRate * 0.18)));
@@ -211,6 +221,31 @@
         } catch {}
     }
 
+    // Thêm/cập nhật giọng VieNeu (server) + giọng đã clone vào danh sách VOICES.
+    // serverVoices: [{label, voice_id}] từ Web2Vieneu.listVoices(); clonedRef: Blob|null.
+    function registerVieneuVoices(serverVoices, clonedRef) {
+        for (let i = VOICES.length - 1; i >= 0; i--) {
+            if (VOICES[i].engine === 'vieneu') VOICES.splice(i, 1);
+        }
+        if (clonedRef) {
+            VOICES.push({
+                id: 'vieneu-clone',
+                engine: 'vieneu',
+                label: '⭐ Giọng của tôi (clone)',
+                cloneRef: clonedRef,
+            });
+        }
+        (serverVoices || []).forEach((sv) => {
+            VOICES.push({
+                id: 'vieneu-' + sv.voice_id,
+                engine: 'vieneu',
+                label: '🎙️ ' + (sv.label || sv.voice_id),
+                vieneuVoice: sv.voice_id,
+            });
+        });
+        return VOICES.filter((v) => v.engine === 'vieneu');
+    }
+
     global.Web2VideoTTS = {
         VOICES,
         TONES,
@@ -219,5 +254,6 @@
         toAudioBuffer,
         speakPreview,
         cancelPreview,
+        registerVieneuVoices,
     };
 })(window);

@@ -35,6 +35,8 @@
         _raf: null,
         _sampleCache: {}, // key voiceId|tone → {samples,sampleRate}
         _sampling: false,
+        vieneuRef: null, // Blob giọng mẫu để clone (VieNeu)
+        vieneuVoices: [], // giọng preset từ server VieNeu
     };
 
     let canvas, ctx;
@@ -833,6 +835,8 @@
         renderScenes();
         wireSceneList();
         wireAudioUi();
+        if (global.Web2VideoVieneuUI)
+            global.Web2VideoVieneuUI.init({ state, onChange: renderVoices });
         applyCanvasSize();
 
         $('#vmRandom')?.addEventListener('click', randomGenerate);

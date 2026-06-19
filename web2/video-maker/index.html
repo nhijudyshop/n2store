@@ -160,6 +160,44 @@
                             <div class="vm-split-stat" id="vmSplitStat"></div>
                         </details>
 
+                        <!-- ===== Giọng cao cấp / CLONE giọng (VieNeu — server máy shop) ===== -->
+                        <details class="vm-section">
+                            <summary>
+                                <i data-lucide="badge-check"></i> Giọng cao cấp / Clone giọng
+                                (VieNeu)
+                            </summary>
+                            <p class="vm-hint2">
+                                Giọng Việt chất lượng cao + <b>clone giọng của bạn</b> (mẫu 3–5s).
+                                Chạy trên <b>máy shop</b> (chạy
+                                <code>vieneu-tts/run_local.sh</code>) — dán URL máy đang bật vào đây
+                                (mỗi máy 1 URL).
+                            </p>
+                            <div class="vm-row">
+                                <input
+                                    type="url"
+                                    id="vmVnUrl"
+                                    class="vm-topic-in"
+                                    placeholder="https://…trycloudflare.com (URL server máy shop)"
+                                />
+                                <button class="vm-btn sm" id="vmVnConnect">
+                                    <i data-lucide="plug"></i> Kết nối
+                                </button>
+                            </div>
+                            <div class="vm-voice-stat" id="vmVnStat">
+                                Chưa kết nối server giọng VieNeu.
+                            </div>
+                            <div class="vm-row" id="vmVnCloneRow" hidden>
+                                <button class="vm-btn sm" id="vmVnRec">
+                                    <i data-lucide="mic"></i> Thu giọng mẫu (5s)
+                                </button>
+                                <label class="vm-btn sm vm-upload">
+                                    <i data-lucide="upload"></i> Tải file giọng mẫu
+                                    <input type="file" id="vmVnRefFile" accept="audio/*" />
+                                </label>
+                                <button class="vm-btn sm" id="vmVnCloneClear" hidden>Bỏ mẫu</button>
+                            </div>
+                        </details>
+
                         <div class="vm-label">Giọng đọc (bấm 🔊 để nghe mẫu)</div>
                         <div class="vm-voices" id="vmVoices"></div>
                         <div class="vm-label">Tông giọng</div>
@@ -218,13 +256,15 @@
         <script src="../shared/web2-auth.js?v=20260613guard"></script>
         <script src="../shared/web2-sidebar.js?v=20260615db"></script>
         <script src="../shared/web2-products-cache.js?v=20260619a"></script>
-        <script src="./js/video-tts.js?v=20260619e"></script>
+        <script src="../shared/web2-vieneu.js?v=20260619a"></script>
+        <script src="./js/video-tts.js?v=20260619f"></script>
         <script src="./js/video-anim.js?v=20260619a"></script>
         <script src="./js/video-render.js?v=20260619d"></script>
         <script src="./js/video-scene-editor.js?v=20260619a"></script>
         <script src="./js/video-audio.js?v=20260619a"></script>
         <script src="./js/video-ai-script.js?v=20260619a"></script>
-        <script src="./js/video-maker.js?v=20260619d"></script>
+        <script src="./js/video-vieneu.js?v=20260619a"></script>
+        <script src="./js/video-maker.js?v=20260619e"></script>
         <script>
             document.addEventListener('DOMContentLoaded', () => {
                 if (window.Web2Sidebar)
