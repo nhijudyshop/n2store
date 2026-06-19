@@ -2,6 +2,18 @@
 
 ## 2026-06-19
 
+### [upload/Render] FIX up ảnh BILL lỗi (inventory-tracking + balance-history) — bỏ Firebase Storage → Postgres bytea ✅
+
+**Bug (user báo):** "UP HÌNH BILL SP KO ĐƯỢC" — up ảnh lỗi (hiện "Lỗi") ở **2 chỗ**: `inventory-tracking` modal "Thêm Đợt Hàng Mới" → ô "Ảnh hóa đơn", và `balance-history` modal "Duyệt giao dịch" → ô "Hình ảnh xác nhận chuyển khoản".
+
+**RCA:** 2 frontend ĐỘC LẬP (`modal-shipment.js`, `accountant.js`) cùng POST 1 endpoint chung `POST /api/upload/image` → worker → Render `n2store-fallback` → `firebaseStorageService.uploadBase64Image()` → Firebase Storage. Loại trừ live: Render khoẻ (`/api/upload/health`=200), worker proxy OK, **Firebase init OK** (probe DELETE chạm logic, không phải 500 "Missing credentials"), body limit 100mb, code upload không đổi nhiều tháng. **Diagnostic POST thật chốt lỗi:** `500 {"error":"Invalid response body while trying to fetch https://www.googleapis.com/oauth2/v4/token: Premature close"}` → **Firebase Admin SDK lấy OAuth2 token từ Google FAIL** ở bước GHI file (server-side, không phải code Render). Không fix được trong code nếu giữ Firebase.
+
+**Fix (user chốt "chuyển hoàn toàn sang Postgres bytea, bỏ Firebase"):** migrate `/api/upload/image` sang Postgres `upload_images` (BYTEA) — đúng pattern `purchase_order_images` (migration 046). **Giữ NGUYÊN contract** (`POST /api/upload/image` base64 in → `{success,url}`) ⇒ **2 frontend KHÔNG đổi**. URL trả `https://n2store-fallback.onrender.com/api/upload/images/<id>` (serve trực tiếp Render cho `<img src>`, cache-immutable).
+- `render.com/migrations/050_create_upload_images.sql` (mirror 046) + lazy `ensureUploadImagesTable` trong route (fresh-deploy an toàn).
+- `render.com/routes/upload.js` viết lại: `POST /image` (base64→BYTEA), `GET /images/:id` (serve), `DELETE /image` (route theo URL: Postgres mới vs Firebase legacy best-effort). Pool `chatDb` thuần (Web 1.0, KHÔNG web2_ / web2Db).
+- `firebase-storage-service.js` **GIỮ NGUYÊN** (Telegram bot `telegram-bot.js` + `quy-trinh.js` còn dùng `uploadImageBuffer`/`getFirestore`) — chỉ thôi gọi upload từ `upload.js`.
+- Ảnh cũ (URL firebasestorage…) vẫn ĐỌC được qua download-token (GET công khai, không cần OAuth) → không cần backfill gấp.
+
 ### [web2/video-maker] Trang MỚI "Tạo video sản phẩm" + giọng đọc tiếng Việt on-device (Đa dụng Web 2.0) ✅
 
 Tiện ích in-browser ghép ảnh SP → video slideshow (Ken Burns zoom + crossfade + overlay chữ) kèm **giọng đọc tiếng Việt tạo NGAY TRÊN MÁY** → xuất MP4/WebM. 100% trình duyệt, không server, không gửi data đi.
