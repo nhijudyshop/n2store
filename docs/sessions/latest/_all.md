@@ -3,19 +3,16 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `f599421` — feat(live-chat): Phase D — smoke-live-chat-server.sh (post-deploy verify cho server.js split) + dev-log tổng hợp A/B/C/D
-**Last updated**: 2026-06-19 09:02:19 +07
-**Latest session**: [`RESUME:20260619-090219-f599421`](../20260619-090219-f599421.md)
-**Summary**: Làm tất cả XONG: 0 oversized + adoption §4 (41 file) + 6 shared module + server.js smoke script. Modularization Web2 hoàn chỉnh
+**Latest commit**: `7d9fc8e` — refactor(web2): adoption sâu hơn — JWT/SoOrderUtils/PancakeImport delegate (4) + load feature modules
+**Last updated**: 2026-06-19 09:19:13 +07
+**Latest session**: [`RESUME:20260619-091913-7d9fc8e`](../20260619-091913-7d9fc8e.md)
+**Summary**: Deploy server.js (web2-realtime LIVE, smoke 3/3, client 265 events) + adoption sâu hơn (4 delegation JWT/SoOrder/PancakeImport) XONG
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 3 file(s)
-- [`live-chat/`](./live-chat.md) — 1 file(s)
-- [`native-orders/`](./native-orders.md) — 4 file(s)
-- [`scripts/`](./scripts.md) — 2 file(s)
-- [`so-order/`](./so-order.md) — 4 file(s)
-- [`web2/`](./web2.md) — 43 file(s)
+- [`docs/`](./docs.md) — 4 file(s)
+- [`scripts/`](./scripts.md) — 1 file(s)
+- [`web2/`](./web2.md) — 6 file(s)
 
 ## All folder snapshots
 
@@ -30,7 +27,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-18 13:23
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-16 14:31
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-18 12:17
-- [`docs/`](./docs.md) — updated 2026-06-19 09:02
+- [`docs/`](./docs.md) — updated 2026-06-19 09:19
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-16 14:31
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-16 14:31
 - [`downloads/`](./downloads.md) — updated 2026-06-18 19:26
@@ -60,7 +57,7 @@
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-06-16 00:35
 - [`render.com/`](./render.com.md) — updated 2026-06-18 16:31
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
-- [`scripts/`](./scripts.md) — updated 2026-06-19 09:02
+- [`scripts/`](./scripts.md) — updated 2026-06-19 09:19
 - [`service-costs/`](./service-costs.md) — updated 2026-06-16 11:15
 - [`shared/`](./shared.md) — updated 2026-06-16 14:31
 - [`showroom/`](./showroom.md) — updated 2026-06-10 19:04
@@ -78,4 +75,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-19 09:02
+- [`web2/`](./web2.md) — updated 2026-06-19 09:19
