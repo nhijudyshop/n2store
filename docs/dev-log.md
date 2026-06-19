@@ -2,6 +2,10 @@
 
 ## 2026-06-19
 
+### [web2/shared] Tách "Tải bộ cài máy POS" → shared Web2PosInstaller (dùng chung) ✅
+
+User: "cho cái tải file cài đặt vào shared web 2.0 → trang nào cần thì tải về cài". Tách logic sinh bat ra khỏi printer-settings thành **`web2/shared/web2-pos-installer.js`** (`Web2PosInstaller`): `downloadInstaller()`/`downloadUninstaller()`/`renderButtons(el)`/`batContent()`. URL tải tính từ **siteRoot** (regex `/web2/` trong pathname) → chạy đúng từ MỌI trang web2 + mọi domain (nhijudy.store / github.io). printer-settings refactor dùng module (xoá 2 hàm trùng); **video-maker thêm nút "Chưa có máy? Tải bộ cài cho máy shop"** (mục Giọng VieNeu). Validate node: sinh bat 2268 ký tự đúng, siteRoot OK. MEDIA-KIT cập nhật.
+
 ### [printer-settings + vieneu-tts] Gộp VieNeu vào bat cài máy POS — auto-start nền, xoá auto cũ ✅
 
 User: "tích hợp VieNeu vào bat ở printer-settings, chạy luôn + tắt các bat auto cũ". Trước đó hỏi "bat tự chạy nền khi khởi động đúng không?" → bản cũ KHÔNG (chỉ chạy tay foreground).
