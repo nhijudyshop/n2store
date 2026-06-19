@@ -2,6 +2,14 @@
 
 ## 2026-06-20
 
+### [web2/shared] Picker SP — đổi lưới ảnh → DANH SÁCH (ảnh + tên + mã + giá) ✅
+
+User: "xem sản phẩm theo danh sách hình ảnh, tên, giá". Picker chọn SP từ Kho (modal "Chọn sản phẩm cho bài đăng" ở Đăng bài FB) trước hiển thị lưới ảnh card → tên/giá nhỏ khó nhìn. Đổi sang dạng **danh sách dọc, mỗi dòng = thumbnail vuông 52px + tên (đậm) + mã (xám nhỏ) + giá (xanh, canh phải) + tick chọn**.
+
+- **`web2/shared/web2-product-picker.js`**: `[data-list]` `grid` → `flex column`; `cellHtml` → `rowHtml` (layout dòng); thêm `applyRowState(el,on)` cập nhật RIÊNG 1 dòng khi toggle (border/bg/tick) thay vì vẽ lại cả list → **giữ vị trí cuộn** khi chọn nhiều.
+- Bump `web2-product-picker.js?v=20260620a` ở `web2/fb-posts/index.html`.
+- ✅ Verify Playwright: seed 3 SP ảo → list `display:flex`, 3 dòng render đủ ảnh/📦 + tên + mã + giá; toggle multi → count "Đã chọn 1" + tick xanh + border xanh #0068ff. Screenshot duyệt layout.
+
 ### [web2/shared] PWA dùng chung — "Thêm vào Màn hình chính" (iOS/Android), không App Store ✅
 
 User hỏi build app iOS không + không có Apple dev account cài ngoài App Store được không. Tư vấn: native iOS không đáng (không account = chỉ sideload 7-ngày, không bền); **PWA là giải pháp đúng** (miễn phí, không account, không App Store). Build PWA dùng chung:
