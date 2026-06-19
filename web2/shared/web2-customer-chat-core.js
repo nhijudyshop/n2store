@@ -301,7 +301,11 @@
                     attachments,
                 });
         }
-        if (!res || !res.ok) throw new Error(res?.reason || 'Gửi tin thất bại');
+        if (!res || !res.ok)
+            throw new Error(
+                (res?.reason ? res.reason + '. ' : '') +
+                    'Gửi tin không được — hãy ĐĂNG NHẬP Facebook (business.facebook.com) và Pancake (pancake.vn) trong cùng trình duyệt này rồi thử lại.'
+            );
         const m = res.message && typeof res.message === 'object' ? res.message : {};
         const sent = {
             id: m.id || 'pk_' + Date.now(),

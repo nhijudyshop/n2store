@@ -239,19 +239,22 @@
             ctx.fillText(opts.badge.toUpperCase(), pad + pad * 0.45, by + Math.round(W * 0.05));
             by += Math.round(W * 0.1);
         }
-        // tên SP
-        ctx.fillStyle = tpl.ink;
-        ctx.font = `800 ${Math.round(W * 0.058)}px ${FONT}`;
-        const nameLines = wrapText(
-            ctx,
-            opts.name || 'Tên sản phẩm',
-            pad,
-            by + Math.round(W * 0.05),
-            W - pad * 2,
-            Math.round(W * 0.066),
-            2
-        );
-        let ty = by + Math.round(W * 0.05) + nameLines * Math.round(W * 0.066);
+        // tên SP (rỗng → KHÔNG vẽ placeholder)
+        let ty = by;
+        if (opts.name) {
+            ctx.fillStyle = tpl.ink;
+            ctx.font = `800 ${Math.round(W * 0.058)}px ${FONT}`;
+            const nameLines = wrapText(
+                ctx,
+                opts.name,
+                pad,
+                by + Math.round(W * 0.05),
+                W - pad * 2,
+                Math.round(W * 0.066),
+                2
+            );
+            ty = by + Math.round(W * 0.05) + nameLines * Math.round(W * 0.066);
+        }
         // giá
         if (opts.price) {
             ty += Math.round(W * 0.02);
@@ -305,18 +308,20 @@
             ctx.fillText(opts.badge.toUpperCase(), pad, ty);
             ty += Math.round(W * 0.05);
         }
-        ctx.fillStyle = tpl.ink;
-        ctx.font = `800 ${Math.round(W * 0.058)}px ${FONT}`;
-        const nl = wrapText(
-            ctx,
-            opts.name || 'Tên sản phẩm',
-            pad,
-            ty,
-            imgX - pad * 1.5,
-            Math.round(W * 0.064),
-            4
-        );
-        ty += nl * Math.round(W * 0.064) + Math.round(W * 0.03);
+        if (opts.name) {
+            ctx.fillStyle = tpl.ink;
+            ctx.font = `800 ${Math.round(W * 0.058)}px ${FONT}`;
+            const nl = wrapText(
+                ctx,
+                opts.name,
+                pad,
+                ty,
+                imgX - pad * 1.5,
+                Math.round(W * 0.064),
+                4
+            );
+            ty += nl * Math.round(W * 0.064) + Math.round(W * 0.03);
+        }
         if (opts.price) {
             ctx.fillStyle = accent;
             ctx.font = `900 ${Math.round(W * 0.07)}px ${FONT}`;
@@ -334,21 +339,24 @@
     // Bố cục pop: ảnh trong khung bo góc giữa, chữ trên/dưới.
     function _renderFrame(ctx, c) {
         const { W, H, pad, tpl, accent, opts } = c;
-        // tên trên
-        ctx.fillStyle = tpl.ink;
-        ctx.font = `900 ${Math.round(W * 0.06)}px ${FONT}`;
-        ctx.textAlign = 'center';
-        const nl = wrapText(
-            ctx,
-            opts.name || 'Tên sản phẩm',
-            W / 2,
-            pad + Math.round(W * 0.06),
-            W - pad * 2,
-            Math.round(W * 0.07),
-            2
-        );
-        const top = pad + Math.round(W * 0.06) + nl * Math.round(W * 0.07);
-        ctx.textAlign = 'left';
+        // tên trên (rỗng → KHÔNG vẽ placeholder)
+        let top = pad;
+        if (opts.name) {
+            ctx.fillStyle = tpl.ink;
+            ctx.font = `900 ${Math.round(W * 0.06)}px ${FONT}`;
+            ctx.textAlign = 'center';
+            const nl = wrapText(
+                ctx,
+                opts.name,
+                W / 2,
+                pad + Math.round(W * 0.06),
+                W - pad * 2,
+                Math.round(W * 0.07),
+                2
+            );
+            top = pad + Math.round(W * 0.06) + nl * Math.round(W * 0.07);
+            ctx.textAlign = 'left';
+        }
         // khung ảnh
         const fy = top + Math.round(W * 0.02);
         const fh = Math.round(H * 0.5);
