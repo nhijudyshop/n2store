@@ -5,6 +5,10 @@
     const Api = () => window.FBPostsApi;
     const S = () => window.FBPosts.state;
     let _pageId = null;
+    let _after = null; // cursor trang kế (infinite scroll)
+    let _loading = false;
+    let _count = 0;
+    let _observer = null;
 
     function notify(msg, type) {
         if (window.notificationManager) window.notificationManager[type || 'info'](msg);
@@ -67,18 +71,61 @@
         load();
     }
 
+    function postRowHtml(p) {
+        return `
+            <div class="fbp-post">
+                ${p.picture ? `<img class="fbp-post-thumb" src="${esc(p.picture)}" data-view="${esc(p.id)}" style="cursor:pointer" loading="lazy" alt="" />` : ''}
+                <div class="fbp-post-body" data-view="${esc(p.id)}" style="cursor:pointer">
+                    <p class="fbp-post-msg">${esc(p.message) || '<i>(không có nội dung)</i>'}</p>
+                    <div class="fbp-post-meta">
+                        <span>${fmt(p.createdTime)}</span>
+                        <span>${esc(p.statusType || '')}</span>
+                    </div>
+                </div>
+                <div class="fbp-post-actions">
+                    <button class="fbp-btn ghost sm" data-view="${esc(p.id)}" type="button"><i data-lucide="eye"></i> Xem</button>
+                    <button class="fbp-btn danger sm" data-del="${esc(p.id)}" type="button"><i data-lucide="trash-2"></i> Xoá</button>
+                </div>
+            </div>`;
+    }
+
+    function wireRows(container) {
+        if (!container) return;
+        container.querySelectorAll('[data-del]').forEach((b) => {
+            if (b._wired) return;
+            b._wired = 1;
+            b.addEventListener('click', (e) => {
+                e.stopPropagation();
+                del(b.dataset.del);
+            });
+        });
+        container.querySelectorAll('[data-view]').forEach((b) => {
+            if (b._wired) return;
+            b._wired = 1;
+            b.addEventListener('click', () => openViewer(b.dataset.view));
+        });
+        if (window.lucide?.createIcons) window.lucide.createIcons();
+    }
+
     async function load() {
+        // Trang ĐẦU: reset + scheduled + bài page 1, rồi bật infinite scroll.
+        _after = null;
+        _count = 0;
+        _loading = false;
+        if (_observer) {
+            _observer.disconnect();
+            _observer = null;
+        }
         const postsEl = document.getElementById('fbpPosts');
         const schedEl = document.getElementById('fbpScheduled');
         if (!postsEl) return;
         postsEl.innerHTML = '<div class="fbp-empty"><i data-lucide="loader"></i> Đang tải…</div>';
         try {
-            const r = await Api().list(_pageId, 25);
+            const r = await Api().list(_pageId, 25, null);
             if (!r.success) {
                 postsEl.innerHTML = `<div class="fbp-empty">${esc(r.error || 'Lỗi tải bài')}</div>`;
                 return;
             }
-            // Scheduled
             if (r.scheduled && r.scheduled.length) {
                 schedEl.innerHTML =
                     `<div class="fbp-card"><h3><i data-lucide="calendar-clock"></i> Đã lên lịch (${r.scheduled.length})</h3>` +
@@ -93,44 +140,72 @@
                         .join('') +
                     '</div>';
             } else schedEl.innerHTML = '';
-            // Published
             const posts = r.posts || [];
             if (!posts.length) {
                 postsEl.innerHTML =
                     '<div class="fbp-empty"><div class="empty-state-icon">📝</div>Chưa có bài viết.</div>';
                 return;
             }
+            _count = posts.length;
+            _after = r.after || null;
             postsEl.innerHTML =
-                `<div class="fbp-card"><h3><i data-lucide="check-circle-2"></i> Đã đăng (${posts.length})</h3>` +
-                posts
-                    .map(
-                        (p) => `
-                    <div class="fbp-post">
-                        ${p.picture ? `<img class="fbp-post-thumb" src="${esc(p.picture)}" data-view="${esc(p.id)}" style="cursor:pointer" loading="lazy" alt="" />` : ''}
-                        <div class="fbp-post-body" data-view="${esc(p.id)}" style="cursor:pointer">
-                            <p class="fbp-post-msg">${esc(p.message) || '<i>(không có nội dung)</i>'}</p>
-                            <div class="fbp-post-meta">
-                                <span>${fmt(p.createdTime)}</span>
-                                <span>${esc(p.statusType || '')}</span>
-                            </div>
-                        </div>
-                        <div class="fbp-post-actions">
-                            <button class="fbp-btn ghost sm" data-view="${esc(p.id)}" type="button"><i data-lucide="eye"></i> Xem</button>
-                            <button class="fbp-btn danger sm" data-del="${esc(p.id)}" type="button"><i data-lucide="trash-2"></i> Xoá</button>
-                        </div>
-                    </div>`
-                    )
-                    .join('') +
+                `<div class="fbp-card"><h3><i data-lucide="check-circle-2"></i> Đã đăng <span id="fbpPostCount">${_count}</span></h3>` +
+                `<div id="fbpPostsList">${posts.map(postRowHtml).join('')}</div>` +
+                `<div id="fbpSentinel" style="height:1px"></div>` +
+                `<div id="fbpMoreHint" class="fbp-empty" style="padding:14px;display:none"><i data-lucide="loader"></i> Đang tải thêm…</div>` +
                 '</div>';
-            postsEl
-                .querySelectorAll('[data-del]')
-                .forEach((b) => b.addEventListener('click', () => del(b.dataset.del)));
-            postsEl
-                .querySelectorAll('[data-view]')
-                .forEach((b) => b.addEventListener('click', () => openViewer(b.dataset.view)));
+            wireRows(document.getElementById('fbpPostsList'));
+            setupInfinite();
             if (window.lucide?.createIcons) window.lucide.createIcons();
         } catch (e) {
             postsEl.innerHTML = `<div class="fbp-empty">${esc(e.message)}</div>`;
+        }
+    }
+
+    function setupInfinite() {
+        const sentinel = document.getElementById('fbpSentinel');
+        if (!sentinel || typeof IntersectionObserver === 'undefined') return;
+        const root = document.querySelector('main.web2-main') || null;
+        _observer = new IntersectionObserver(
+            (entries) => {
+                if (entries.some((e) => e.isIntersecting)) loadMore();
+            },
+            { root, rootMargin: '400px' }
+        );
+        _observer.observe(sentinel);
+    }
+
+    async function loadMore() {
+        if (_loading || !_after) return;
+        _loading = true;
+        const hint = document.getElementById('fbpMoreHint');
+        if (hint) hint.style.display = '';
+        try {
+            const r = await Api().list(_pageId, 25, _after);
+            const posts = (r && r.posts) || [];
+            const listEl = document.getElementById('fbpPostsList');
+            if (listEl && posts.length) {
+                listEl.insertAdjacentHTML('beforeend', posts.map(postRowHtml).join(''));
+                wireRows(listEl);
+                _count += posts.length;
+                const cnt = document.getElementById('fbpPostCount');
+                if (cnt) cnt.textContent = _count;
+            }
+            _after = (r && r.after) || null;
+            if (!_after) {
+                if (_observer) {
+                    _observer.disconnect();
+                    _observer = null;
+                }
+                if (hint) {
+                    hint.innerHTML = '— Đã hết bài —';
+                    hint.style.display = '';
+                }
+            } else if (hint) hint.style.display = 'none';
+        } catch (_) {
+            if (hint) hint.style.display = 'none'; // giữ _after để scroll lần sau thử lại
+        } finally {
+            _loading = false;
         }
     }
 

@@ -437,6 +437,7 @@ router.get('/list', async (req, res) => {
         const db = getDb(req);
         const pageId = req.query.pageId;
         const limit = Math.min(50, parseInt(req.query.limit, 10) || 25);
+        const after = req.query.after || null;
         if (!pageId) return res.status(400).json({ success: false, error: 'Thiếu pageId' });
         const row = await loadToken(db);
         const page = row && findPage(row.pages, pageId);
@@ -444,11 +445,12 @@ router.get('/list', async (req, res) => {
             return res
                 .status(400)
                 .json({ success: false, error: 'Chưa kết nối / không có page token' });
-        const [posts, scheduled] = await Promise.all([
-            fb.listPagePosts(page.id, page.access_token, limit),
-            fb.listScheduledPosts(page.id, page.access_token, limit),
-        ]);
-        res.json({ success: true, posts, scheduled });
+        const postsRes = await fb.listPagePosts(page.id, page.access_token, limit, after);
+        // scheduled chỉ lấy ở trang đầu (after rỗng) — trang sau chỉ append bài đã đăng.
+        const scheduled = after
+            ? []
+            : await fb.listScheduledPosts(page.id, page.access_token, limit);
+        res.json({ success: true, posts: postsRes.posts, after: postsRes.after, scheduled });
     } catch (e) {
         res.status(500).json({ success: false, error: e.message });
     }

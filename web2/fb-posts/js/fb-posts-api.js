@@ -56,8 +56,11 @@
         refreshPages: () => jpost('/refresh-pages', {}),
         caption: (product, style, ai) => jpost('/caption', { product, style, ai }),
         publish: (payload) => jpost('/publish', payload),
-        list: (pageId, limit) =>
-            jget(`/list?pageId=${encodeURIComponent(pageId)}&limit=${limit || 25}`),
+        list: (pageId, limit, after) =>
+            jget(
+                `/list?pageId=${encodeURIComponent(pageId)}&limit=${limit || 25}` +
+                    (after ? `&after=${encodeURIComponent(after)}` : '')
+            ),
         postDetail: (pageId, postId) =>
             jget(
                 `/post-detail?pageId=${encodeURIComponent(pageId)}&postId=${encodeURIComponent(postId)}`

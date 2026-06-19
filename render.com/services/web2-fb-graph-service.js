@@ -269,11 +269,12 @@ async function updatePostMessage(postId, pageToken, message) {
  * "Page Public Content Access" (cần App Review riêng) → gây lỗi (#10) dù đã có
  * pages_read_engagement. Chỉ lấy field nội dung bài (chạy với page token + pages_read_engagement).
  * Số like/cmt xem trực tiếp trên FB qua permalink. */
-async function listPagePosts(pageId, pageToken, limit = 25) {
+async function listPagePosts(pageId, pageToken, limit = 25, after = null) {
     const fields = 'id,message,created_time,full_picture,permalink_url,status_type';
-    const url = `${GRAPH}/${pageId}/posts?fields=${encodeURIComponent(fields)}&limit=${limit}&access_token=${encodeURIComponent(pageToken)}`;
+    let url = `${GRAPH}/${pageId}/posts?fields=${encodeURIComponent(fields)}&limit=${limit}&access_token=${encodeURIComponent(pageToken)}`;
+    if (after) url += `&after=${encodeURIComponent(after)}`;
     const data = await gfetch(url);
-    return (data.data || []).map((p) => ({
+    const posts = (data.data || []).map((p) => ({
         id: String(p.id),
         message: p.message || '',
         createdTime: p.created_time || null,
@@ -281,6 +282,9 @@ async function listPagePosts(pageId, pageToken, limit = 25) {
         permalink: p.permalink_url || '',
         statusType: p.status_type || '',
     }));
+    // cursor trang kế (infinite scroll). null = hết bài.
+    const next = (data.paging && data.paging.cursors && data.paging.cursors.after) || null;
+    return { posts, after: next };
 }
 
 /** Chuẩn hoá 1 post detail (ảnh từ attachments+subattachments, comment, engagement). */
