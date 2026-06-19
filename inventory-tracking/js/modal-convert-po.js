@@ -272,6 +272,9 @@ function _renderConvertModal() {
                 <button type="button" id="poBtnAddItem2" class="po-btn-outline">
                     <i data-lucide="plus"></i> Thêm sản phẩm
                 </button>
+                <button type="button" id="poBtnSyncTpos" class="po-btn-outline po-btn-sync-tpos" title="Đồng bộ TOÀN BỘ sản phẩm (tên, giá, tồn, ảnh) từ TPOS về kho web — có thể mất vài phút">
+                    <i data-lucide="cloud-download"></i> Cập nhật TPOS
+                </button>
                 <button type="button" id="poBtnGenAllCodes" class="po-btn-outline po-btn-gen-all" title="Tự tạo mã SP cho mọi dòng còn thiếu">
                     <i data-lucide="refresh-cw"></i> Tạo mã tất cả
                 </button>
@@ -429,6 +432,10 @@ function _bindMainEvents() {
     [addBtn1, addBtn2].forEach((btn) => {
         if (btn) btn.onclick = () => _addBlankItem();
     });
+
+    // Full sync ALL products from TPOS → web_warehouse (refresh tên/giá/tồn/ảnh)
+    const syncTposBtn = document.getElementById('poBtnSyncTpos');
+    if (syncTposBtn) syncTposBtn.onclick = () => _fullSyncFromTpos(syncTposBtn);
 
     // Generate codes for all items
     const genAllBtn = document.getElementById('poBtnGenAllCodes');
@@ -740,6 +747,123 @@ function _onItemClick(e) {
  * - Dùng generateProductCodeFromMax (async: check form items + Firestore + TPOS)
  * - Firebase không load trong inventory → check DB trả 0 (OK, fallback an toàn).
  */
+/**
+ * Đồng bộ TOÀN BỘ catalog sản phẩm từ TPOS → web_warehouse (full sync).
+ * Dùng khi vừa sửa thông tin SP bên TPOS mà gợi ý/giá/tồn ở kho web chưa cập nhật.
+ *
+ * Endpoint `/sync?type=full` chạy NỀN ở server (trả về ngay, không block), nên ở đây:
+ *   1. confirm (full sync nặng, quét hết TPOS, rate-limit 5 req/s → vài phút)
+ *   2. POST trigger
+ *   3. poll `/sync/status` mỗi 4s tới khi có bản ghi sync KẾT THÚC trong lúc đang theo dõi
+ *   4. toast kết quả (+mới / cập nhật / không đổi / ẩn)
+ * Phân biệt sync mới vs cũ bằng (id khác trước) HOẶC (trước đó đang chạy → giờ xong).
+ */
+async function _fullSyncFromTpos(btn) {
+    const base =
+        (window.WarehouseAPI && window.WarehouseAPI.BASE_URL) ||
+        'https://chatomni-proxy.nhijudyshop.workers.dev/api/v2/web-warehouse';
+
+    const ok = window.confirm(
+        'Đồng bộ TOÀN BỘ sản phẩm từ TPOS về kho web?\n\n' +
+            'Thao tác quét hết catalog TPOS (có thể mất vài phút) và cập nhật tên, ' +
+            'giá, tồn, ảnh cho mọi sản phẩm. Bạn vẫn có thể thao tác khác trong lúc chờ.'
+    );
+    if (!ok) return;
+
+    const originalHTML = btn?.innerHTML;
+    const setBtn = (html, disabled = true) => {
+        if (!btn) return;
+        btn.disabled = disabled;
+        btn.innerHTML = html;
+        if (window.lucide) lucide.createIcons();
+    };
+
+    // 1. Ghi nhận trạng thái sync TRƯỚC khi trigger (để phân biệt với lần mới)
+    let beforeId = null;
+    let beforeRunning = false;
+    try {
+        const st = await fetch(`${base}/sync/status`).then((r) => r.json());
+        beforeId = st?.lastSync?.id ?? null;
+        beforeRunning = !!st?.isRunning;
+    } catch (_) {
+        /* ignore — vẫn trigger được, chỉ kém chính xác khi nhận diện lần xong */
+    }
+
+    // 2. Trigger full sync (server chạy nền)
+    setBtn('<i data-lucide="loader"></i> Đang đồng bộ…');
+    try {
+        const res = await fetch(`${base}/sync?type=full`, { method: 'POST' }).then((r) => r.json());
+        if (!res || res.success === false) {
+            throw new Error(res?.error || 'Không khởi động được đồng bộ');
+        }
+    } catch (err) {
+        window.notificationManager?.error('Lỗi đồng bộ TPOS: ' + (err.message || ''));
+        setBtn(originalHTML, false);
+        return;
+    }
+    window.notificationManager?.info('Đã bắt đầu đồng bộ toàn bộ từ TPOS — có thể mất vài phút…');
+
+    // 3. Poll status tới khi xong (hoặc quá hạn)
+    const startedAt = Date.now();
+    const MAX_MS = 15 * 60 * 1000; // 15 phút — cap an toàn nếu catalog quá lớn
+    const POLL_MS = 4000;
+
+    const finish = (last) => {
+        setBtn(originalHTML, false);
+        if (last?.status === 'failed') {
+            window.notificationManager?.error(
+                'Đồng bộ TPOS thất bại: ' + (last.error_message || 'lỗi không rõ')
+            );
+            return;
+        }
+        const s = last?.stats || {};
+        const ins = s.inserted ?? 0;
+        const upd = s.updated ?? 0;
+        const unch = s.unchanged ?? 0;
+        const deact = s.deactivated ?? 0;
+        window.notificationManager?.success(
+            `Đồng bộ TPOS xong: +${ins} mới, ${upd} cập nhật, ${unch} không đổi` +
+                (deact ? `, ${deact} ẩn` : '')
+        );
+    };
+
+    const poll = async () => {
+        let st;
+        try {
+            st = await fetch(`${base}/sync/status`).then((r) => r.json());
+        } catch (_) {
+            if (Date.now() - startedAt < MAX_MS) return setTimeout(poll, POLL_MS);
+            setBtn(originalHTML, false);
+            return;
+        }
+
+        const running = !!st?.isRunning;
+        const last = st?.lastSync || null;
+        const elapsed = Math.round((Date.now() - startedAt) / 1000);
+
+        const isNewFinished =
+            !running &&
+            last &&
+            (last.status === 'success' || last.status === 'failed') &&
+            (last.id !== beforeId || beforeRunning === true);
+
+        if (isNewFinished) return finish(last);
+
+        if (Date.now() - startedAt >= MAX_MS) {
+            setBtn(originalHTML, false);
+            window.notificationManager?.warning(
+                'Đồng bộ vẫn đang chạy nền — kiểm tra lại sau ít phút.'
+            );
+            return;
+        }
+
+        setBtn(`<i data-lucide="loader"></i> Đang đồng bộ… ${elapsed}s`);
+        setTimeout(poll, POLL_MS);
+    };
+
+    setTimeout(poll, POLL_MS);
+}
+
 /**
  * Sinh mã SP cho TẤT CẢ items còn thiếu (productName có nhưng productCode rỗng).
  * Sequential (không parallel) — mỗi item sinh xong update vào form để iter kế tiếp
