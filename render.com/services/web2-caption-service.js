@@ -181,6 +181,17 @@ async function callGemini(prompt) {
     return j.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || null;
 }
 
+/** Gọi AI theo chuỗi ưu tiên Groq → DeepSeek → Gemini. Trả {out, provider} (out=null nếu thiếu key/lỗi). */
+async function aiComplete(prompt) {
+    let out = await callGroq(prompt).catch(() => null);
+    if (out) return { out, provider: 'groq' };
+    out = await callDeepSeek(prompt).catch(() => null);
+    if (out) return { out, provider: 'deepseek' };
+    out = await callGemini(prompt).catch(() => null);
+    if (out) return { out, provider: 'gemini' };
+    return { out: null, provider: 'template' };
+}
+
 /**
  * Viết lại / sinh caption bằng AI. Ưu tiên Groq (free+nhanh) → DeepSeek → Gemini.
  * Nếu KHÔNG có key nào → fallback template (vẫn FREE, không lỗi).
@@ -198,17 +209,60 @@ async function generateAI(product = {}, style = 'sale') {
         (product.desc ? `- Mô tả: ${product.desc}\n` : '') +
         `\nYêu cầu: 3-5 dòng, có emoji, có lời kêu gọi inbox/chốt đơn. Giá ghi rút gọn (vd 14k/150k/1tr), KHÔNG ghi "đ".`;
 
-    let out = null;
-    let provider = 'groq';
-    out = await callGroq(prompt).catch(() => null);
-    if (!out) {
-        provider = 'deepseek';
-        out = await callDeepSeek(prompt).catch(() => null);
-    }
-    if (!out) {
-        provider = 'gemini';
-        out = await callGemini(prompt).catch(() => null);
-    }
+    const { out, provider } = await aiComplete(prompt);
+    if (!out) return { ...base, provider: 'template' };
+    return {
+        caption: out,
+        hashtags: base.hashtags,
+        text: `${out}\n\n${base.hashtags.join(' ')}`,
+        provider,
+    };
+}
+
+// ── NHIỀU sản phẩm (1 bài tổng hợp / album / livestream nhiều mẫu) ──────────
+const MULTI_HEAD = {
+    sale: '🛍️ SALE NHIỀU MẪU HOT',
+    new: '🆕 LOẠT MẪU MỚI VỀ',
+    livestream: '📣 ĐANG LIVE — NHIỀU MẪU XINH',
+    restock: '🔁 VỀ HÀNG NHIỀU MẪU',
+    simple: '✨ Mẫu shop tuyển chọn',
+};
+
+/** Caption TEMPLATE cho nhiều SP (offline, FREE). */
+function generateMultiTemplate(products = [], style = 'sale') {
+    const list = (products || []).filter((p) => p && p.name);
+    if (!list.length) return generateTemplate({}, style);
+    if (list.length === 1) return generateTemplate(list[0], style);
+    const head = MULTI_HEAD[style] || MULTI_HEAD.sale;
+    const lines = list.map(
+        (p) =>
+            `• ${p.name}${p.price ? ` – ${fmtMoney(p.price)}` : ''}${p.discount ? ` (giảm ${p.discount})` : ''}`
+    );
+    const caption =
+        `${head}\n${lines.join('\n')}\n` +
+        `✨ Chất đẹp, form chuẩn, lên dáng xinh.\n` +
+        `🛒 Inbox shop để được tư vấn size/màu & chốt đơn nha cả nhà ơi 💕`;
+    const hashtags = buildHashtags(list.map((p) => `${p.name} ${p.category || ''}`).join(' '));
+    return { caption, hashtags, text: `${caption}\n\n${hashtags.join(' ')}` };
+}
+
+/** Caption AI cho nhiều SP (1 bài giới thiệu loạt mẫu). Fallback template nếu không có key. */
+async function generateMultiAI(products = [], style = 'sale') {
+    const list = (products || []).filter((p) => p && p.name);
+    if (list.length <= 1) return generateAI(list[0] || {}, style);
+    const base = generateMultiTemplate(list, style);
+    const items = list
+        .map(
+            (p, i) =>
+                `${i + 1}. ${p.name}${p.price ? ` — giá ${fmtMoney(p.price)}` : ''}${p.discount ? ` (KM ${p.discount})` : ''}`
+        )
+        .join('\n');
+    const prompt =
+        `Viết MỘT caption Facebook bán hàng phong cách "${style}" giới thiệu NHIỀU sản phẩm sau trong CÙNG 1 bài ` +
+        `(bài tổng hợp/album/livestream nhiều mẫu):\n${items}\n\n` +
+        `Yêu cầu: mở đầu hấp dẫn, liệt kê gọn các mẫu (kèm giá rút gọn 14k/150k/1tr nếu có, KHÔNG ghi "đ"), ` +
+        `kết bằng 1 lời kêu gọi inbox/chốt đơn. Emoji vừa phải. KHÔNG bịa giá/khuyến mãi, KHÔNG mồi tương tác.`;
+    const { out, provider } = await aiComplete(prompt);
     if (!out) return { ...base, provider: 'template' };
     return {
         caption: out,
@@ -229,6 +283,8 @@ function hasAnyAiKey() {
 module.exports = {
     generateTemplate,
     generateAI,
+    generateMultiTemplate,
+    generateMultiAI,
     buildHashtags,
     hasAnyAiKey,
     STYLES: Object.keys(TEMPLATES),

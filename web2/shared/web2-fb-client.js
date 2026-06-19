@@ -72,7 +72,8 @@
         connect: (token) => jpost('/connect', { token }),
         disconnect: () => jpost('/disconnect', {}),
         refreshPages: () => jpost('/refresh-pages', {}),
-        caption: (product, style, ai) => jpost('/caption', { product, style, ai }),
+        // opts = { product?, products?[], style, ai }. products (nhiều SP) → caption tổng hợp.
+        caption: (opts) => jpost('/caption', opts || {}),
         publish: (payload) => jpost('/publish', payload),
         list: (pageId, limit, after) =>
             jget(

@@ -14,6 +14,22 @@
         simple: '📝 Đơn giản',
     };
     let _style = 'sale';
+    let _selectedProducts = []; // SP chọn từ Kho (cho AI + ảnh) — [{name,price,discount,code,image}]
+
+    function toProd(p) {
+        return {
+            name: p.name || p.code || '',
+            price: p.price || '',
+            discount: p.discount || '',
+            desc: p.desc || '',
+            category: p.category || p.name || '',
+        };
+    }
+    function imgOf(p) {
+        return (
+            p.imageUrl || p.image_url || (Array.isArray(p.images) && p.images[0]) || p.image || ''
+        );
+    }
 
     function notify(msg, type) {
         if (window.notificationManager) window.notificationManager[type || 'info'](msg);
@@ -99,6 +115,11 @@
 
             <div class="fbp-card">
                 <h3><i data-lucide="sparkles"></i> Nội dung</h3>
+                <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
+                    <button class="fbp-btn sm" id="fbpPickKho" type="button"><i data-lucide="package"></i> Chọn SP từ Kho (cho AI)</button>
+                    <span style="font-size:.78rem;color:#94a3b8">Chọn nhiều SP → AI viết caption tổng hợp + tự thêm ảnh SP</span>
+                </div>
+                <div id="fbpKhoChips" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px"></div>
                 <div class="fbp-fields">
                     <div class="fbp-field"><label>Tên sản phẩm (cho AI)</label>
                         <input class="fbp-input" id="fbpPName" placeholder="VD: Áo thun form rộng" /></div>
@@ -190,6 +211,9 @@
         const msg = document.getElementById('fbpMessage');
         const cc = document.getElementById('fbpCharCount');
         msg.addEventListener('input', () => (cc.textContent = `${msg.value.length} ký tự`));
+        // chọn SP từ Kho (cho AI) + render chips đã chọn
+        document.getElementById('fbpPickKho')?.addEventListener('click', openKhoPicker);
+        renderProductChips();
         // generate
         document.getElementById('fbpGenFree').addEventListener('click', () => generate(false));
         document.getElementById('fbpGenAi').addEventListener('click', () => generate(true));
@@ -228,18 +252,86 @@
         };
     }
 
+    // Mở picker Kho SP (đa chọn) → nạp thông tin cho AI + tự thêm ảnh SP.
+    function openKhoPicker() {
+        if (!window.Web2ProductPicker || !window.Web2ProductPicker.open) {
+            notify('Chưa tải được công cụ chọn SP', 'error');
+            return;
+        }
+        window.Web2ProductPicker.open({
+            multi: true,
+            title: 'Chọn sản phẩm cho bài đăng',
+            onConfirm: (products) => {
+                _selectedProducts = (products || []).slice();
+                // 1 SP → đổ vào ô tên/giá/KM để chỉnh tay được; nhiều SP → để AI tổng hợp.
+                if (_selectedProducts.length === 1) {
+                    const p = _selectedProducts[0];
+                    const set = (id, v) => {
+                        const e = document.getElementById(id);
+                        if (e) e.value = v == null ? '' : v;
+                    };
+                    set('fbpPName', p.name || p.code || '');
+                    set('fbpPPrice', p.price || '');
+                }
+                // tự thêm ảnh SP vào media (ảnh có URL công khai từ Kho)
+                let imgs = 0;
+                _selectedProducts.forEach((p) => {
+                    const u = imgOf(p);
+                    if (u && /^https?:\/\//.test(u)) {
+                        Media().add({ type: 'photo', url: u });
+                        imgs++;
+                    }
+                });
+                renderProductChips();
+                notify(
+                    `Đã chọn ${_selectedProducts.length} SP${imgs ? ` + thêm ${imgs} ảnh` : ''} — bấm "Tạo nội dung" để AI viết`,
+                    'success'
+                );
+            },
+        });
+    }
+
+    function renderProductChips() {
+        const wrap = document.getElementById('fbpKhoChips');
+        if (!wrap) return;
+        wrap.innerHTML = _selectedProducts
+            .map(
+                (p, i) =>
+                    `<span class="fbp-status" style="display:inline-flex;align-items:center;gap:6px">
+                        ${esc(p.name || p.code || 'SP')}${p.price ? ` · ${Number(p.price).toLocaleString('vi-VN')}đ` : ''}
+                        <button type="button" data-rm="${i}" title="Bỏ" style="border:none;background:none;cursor:pointer;color:#b91c1c;font-weight:800;font-size:1rem;line-height:1">&times;</button>
+                    </span>`
+            )
+            .join('');
+        wrap.querySelectorAll('[data-rm]').forEach((b) =>
+            b.addEventListener('click', () => {
+                _selectedProducts.splice(Number(b.dataset.rm), 1);
+                renderProductChips();
+            })
+        );
+    }
+
     async function generate(ai) {
         const btn = document.getElementById(ai ? 'fbpGenAi' : 'fbpGenFree');
-        const p = product();
-        if (!p.name) {
-            notify('Nhập tên sản phẩm để AI gợi ý', 'warning');
+        // Ưu tiên SP đã chọn từ Kho (1 hoặc nhiều); không có thì lấy từ ô nhập tay.
+        const useMulti = _selectedProducts.length > 1;
+        const payload = useMulti
+            ? { products: _selectedProducts.map(toProd), style: _style, ai }
+            : {
+                  product: _selectedProducts[0] ? toProd(_selectedProducts[0]) : product(),
+                  style: _style,
+                  ai,
+              };
+        const singleName = useMulti ? 'multi' : payload.product.name;
+        if (!singleName) {
+            notify('Chọn SP từ Kho hoặc nhập tên sản phẩm để AI gợi ý', 'warning');
             return;
         }
         btn.disabled = true;
         const old = btn.innerHTML;
         btn.innerHTML = '<i data-lucide="loader"></i> Đang tạo…';
         try {
-            const r = await Api().caption(p, _style, ai);
+            const r = await Api().caption(payload);
             if (r.success) {
                 const msg = document.getElementById('fbpMessage');
                 msg.value = r.text || r.caption || '';
@@ -363,6 +455,8 @@
             msg.dispatchEvent(new Event('input'));
         }
         Media().clear();
+        _selectedProducts = [];
+        renderProductChips();
         ['fbpPName', 'fbpPPrice', 'fbpPDiscount'].forEach((id) => {
             const e = document.getElementById(id);
             if (e) e.value = '';

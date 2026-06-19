@@ -148,16 +148,33 @@ async function saveToken(db, { userId, userToken, name, pages, expiresAt }) {
     );
 }
 
-/** Trả pages an toàn (không kèm access_token) cho client. */
+// Thứ tự ưu tiên hiển thị page (user chốt 2026-06-19): Store → House → Ơi → Nè.
+// Sort ở 1 nơi (server) → mọi trang (composer/insights/ads) hiển thị nhất quán.
+function _pageRank(name) {
+    const s = String(name || '')
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[̀-ͯ]/g, '') // bỏ dấu: ơi→oi, nè→ne
+        .replace(/đ/g, 'd');
+    if (s.includes('store')) return 0;
+    if (s.includes('house')) return 1;
+    if (/\boi\b|oi$/.test(s)) return 2; // "nhijudy oi"
+    if (/\bne\b|ne$/.test(s)) return 3; // "nhijudy ne"
+    return 50;
+}
+
+/** Trả pages an toàn (không kèm access_token) cho client, sắp theo thứ tự ưu tiên. */
 function safePages(pages) {
-    return (pages || []).map((p) => ({
-        id: p.id,
-        name: p.name,
-        picture: p.picture || '',
-        category: p.category || '',
-        fan_count: p.fan_count || 0,
-        canPost: p.canPost !== false,
-    }));
+    return (pages || [])
+        .map((p) => ({
+            id: p.id,
+            name: p.name,
+            picture: p.picture || '',
+            category: p.category || '',
+            fan_count: p.fan_count || 0,
+            canPost: p.canPost !== false,
+        }))
+        .sort((a, b) => _pageRank(a.name) - _pageRank(b.name) || a.name.localeCompare(b.name));
 }
 function findPage(pages, pageId) {
     return (pages || []).find((p) => String(p.id) === String(pageId)) || null;
@@ -326,13 +343,23 @@ router.post('/refresh-pages', async (req, res) => {
 });
 
 // ── Caption AI (free template / optional AI) ───────────────────────────────
-// POST /caption { product:{name,price,discount,desc,category}, style, ai:bool }
+// POST /caption { product:{name,price,discount,desc,category}, products:[…], style, ai:bool }
+//   products (nhiều SP từ Kho SP) → caption tổng hợp 1 bài. Không có → dùng product đơn.
 router.post('/caption', async (req, res) => {
     try {
-        const { product = {}, style = 'sale', ai = false } = req.body || {};
-        const out = ai
-            ? await caption.generateAI(product, style)
-            : { ...caption.generateTemplate(product, style), provider: 'template' };
+        const { product = {}, products = null, style = 'sale', ai = false } = req.body || {};
+        const list = Array.isArray(products) ? products.filter((p) => p && p.name) : [];
+        let out;
+        if (list.length > 1) {
+            out = ai
+                ? await caption.generateMultiAI(list, style)
+                : { ...caption.generateMultiTemplate(list, style), provider: 'template' };
+        } else {
+            const p = list[0] || product;
+            out = ai
+                ? await caption.generateAI(p, style)
+                : { ...caption.generateTemplate(p, style), provider: 'template' };
+        }
         res.json({ success: true, ...out, styles: caption.STYLES });
     } catch (e) {
         res.status(500).json({ success: false, error: e.message });
