@@ -3,7 +3,7 @@
     "short_name": "Comment Live",
     "description": "Xem bình luận livestream (chỉ-xem, tối ưu điện thoại)",
     "lang": "vi",
-    "start_url": "./comments-mobile.html",
+    "_note": "KHÔNG đặt start_url → lưu đúng trang đang mở (chính là comments-mobile.html).",
     "scope": "./",
     "display": "standalone",
     "orientation": "any",

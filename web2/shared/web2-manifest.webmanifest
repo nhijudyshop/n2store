@@ -3,7 +3,7 @@
     "short_name": "N2Store",
     "description": "Quản lý shop N2Store — Web 2.0",
     "lang": "vi",
-    "start_url": "../overview/index.html",
+    "_note": "KHÔNG đặt start_url → trình duyệt lưu ĐÚNG trang đang mở khi 'Thêm màn hình chính' (share trang nào lưu trang đó). scope='../' = /web2/ để điều hướng giữa các trang web2 vẫn standalone.",
     "scope": "../",
     "display": "standalone",
     "orientation": "any",
