@@ -1,0 +1,82 @@
+<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 module. -->
+<!doctype html>
+<html lang="vi">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+        <meta http-equiv="Cache-Control" content="no-cache, must-revalidate" />
+        <title>Chỉnh sửa ảnh — Web 2.0</title>
+
+        <meta name="theme-color" content="#0b1220" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <link rel="apple-touch-icon" href="../shared/img/logo-emblem.png" />
+
+        <link rel="stylesheet" href="../shared/web2-sidebar.css?v=20260613z" />
+        <link rel="stylesheet" href="../shared/web2-theme.css?v=20260613z" />
+        <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
+        <link rel="stylesheet" href="./photo-editor.css?v=20260619a" />
+    </head>
+    <body class="web2-theme">
+        <div class="web2-shell">
+            <aside class="web2-aside" id="web2Aside"></aside>
+            <main class="web2-main">
+                <div class="pe-app">
+                    <h1 class="pe-h"><i data-lucide="wand-2"></i> Chỉnh sửa ảnh</h1>
+                    <p class="pe-sub">
+                        Trình chỉnh sửa ảnh đầy đủ (cắt/xoay, tinh chỉnh sáng-màu, bộ lọc, chèn
+                        chữ/hình/vẽ, watermark, đổi kích thước) — chạy 100% trên máy, không gửi ảnh
+                        đi đâu. Dùng chung cho mọi trang Web 2.0.
+                    </p>
+
+                    <div class="pe-pickrow">
+                        <label class="pe-btn primary pe-upload">
+                            <i data-lucide="upload"></i> Tải ảnh từ máy
+                            <input type="file" id="peUpload" accept="image/*" />
+                        </label>
+                        <div class="pe-field pe-picker">
+                            <input
+                                type="search"
+                                id="peProdSearch"
+                                placeholder="hoặc chọn SP từ kho (gõ tên/mã)…"
+                                autocomplete="off"
+                            />
+                            <div class="pe-drop" id="peProdDrop" hidden></div>
+                        </div>
+                    </div>
+                    <p class="pe-hint">Mẹo: có thể dán ảnh (Ctrl/⌘+V) để chỉnh ngay.</p>
+
+                    <div class="pe-result" id="peResult" hidden>
+                        <img id="peResultImg" alt="Ảnh đã chỉnh" />
+                        <div class="pe-result-actions">
+                            <button class="pe-btn" id="peEditAgain">
+                                <i data-lucide="pencil"></i> Chỉnh tiếp
+                            </button>
+                            <button class="pe-btn" id="peCopy">
+                                <i data-lucide="copy"></i> Copy
+                            </button>
+                            <button class="pe-btn primary" id="peDownload">
+                                <i data-lucide="download"></i> Tải PNG
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+
+        <script src="../../shared/js/notification-system.js?v=20260613a"></script>
+        <script src="../shared/web2-auth.js?v=20260613guard"></script>
+        <script src="../shared/web2-sidebar.js?v=20260615db"></script>
+        <script src="../shared/web2-products-cache.js?v=20260619a"></script>
+        <script src="../shared/web2-image-editor.js?v=20260619a"></script>
+        <script src="./js/photo-editor.js?v=20260619a"></script>
+        <script>
+            document.addEventListener('DOMContentLoaded', () => {
+                if (window.Web2Sidebar)
+                    Web2Sidebar.mount('#web2Aside', { activeRoute: 'photo-editor' });
+                if (window.PhotoEditorPage) window.PhotoEditorPage.init();
+                if (window.lucide) lucide.createIcons();
+            });
+        </script>
+    </body>
+</html>

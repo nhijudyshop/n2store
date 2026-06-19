@@ -133,6 +133,10 @@
                     label: 'Tạo video sản phẩm 🎬',
                     our: '../web2/video-maker/index.html',
                 },
+                {
+                    label: 'Chỉnh sửa ảnh 🪄',
+                    our: '../web2/photo-editor/index.html',
+                },
             ],
         },
         {
@@ -361,6 +365,7 @@
         'web2/product-counter/index.html',
         'web2/product-card/index.html',
         'web2/video-maker/index.html',
+        'web2/photo-editor/index.html',
         'web2/users-permissions/index.html',
         'web2/system/index.html',
         'web2/zalo/index.html',

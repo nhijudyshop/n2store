@@ -1,9 +1,9 @@
 {
-    "generatedAt": "2026-06-19 04:14",
+    "generatedAt": "2026-06-19 05:17",
     "totals": {
-        "files": 349,
-        "sharedModules": 95,
-        "functions": 2559,
+        "files": 352,
+        "sharedModules": 97,
+        "functions": 2572,
         "oversized": 0
     },
     "sharedModules": [
@@ -434,7 +434,7 @@
             "purpose": "WEB2.0 module.",
             "api": [],
             "consumers": [],
-            "lines": 529
+            "lines": 533
         },
         {
             "file": "web2/shared/web2-customer-chat-modal.js",
@@ -572,6 +572,7 @@
                 "web2/kpi/js/kpi-dashboard.js",
                 "web2/multi-tool/js/multi-tool.js",
                 "web2/payment-confirm/js/payment-confirm-app.js",
+                "web2/photo-editor/js/photo-editor.js",
                 "web2/product-card/js/product-card.js",
                 "web2/products/js/web2-product-detail.js",
                 "web2/products/js/web2-products-print-utils.js",
@@ -677,6 +678,17 @@
             "lines": 183
         },
         {
+            "file": "web2/shared/web2-image-editor.js",
+            "globals": ["Web2ImageEditor"],
+            "purpose": "WEB2.0 shared.",
+            "api": [],
+            "consumers": [
+                "web2/photo-editor/js/photo-editor.js",
+                "web2/product-card/js/product-card.js"
+            ],
+            "lines": 156
+        },
+        {
             "file": "web2/shared/web2-image-lightbox.js",
             "globals": ["Web2ImageLightbox"],
             "purpose": "WEB2.0 shared module.",
@@ -720,6 +732,14 @@
                 "web2/shared/web2-pack-counter.js"
             ],
             "lines": 433
+        },
+        {
+            "file": "web2/shared/web2-logo-eraser.js",
+            "globals": ["Web2LogoEraser"],
+            "purpose": "WEB2.0 shared.",
+            "api": [],
+            "consumers": ["web2/product-card/js/product-card.js"],
+            "lines": 379
         },
         {
             "file": "web2/shared/web2-lottie.js",
@@ -956,6 +976,7 @@
                 "so-order/js/so-order-modal-suggest.js",
                 "so-order/js/so-order-receive.js",
                 "so-order/js/so-order-render.js",
+                "web2/photo-editor/js/photo-editor.js",
                 "web2/product-card/js/product-card.js",
                 "web2/products/js/web2-products-actions.js",
                 "web2/products/js/web2-products-app.js",
@@ -1038,7 +1059,7 @@
                 "web2/returns/js/returns-app.js",
                 "web2/system/js/system-app.js"
             ],
-            "lines": 645
+            "lines": 650
         },
         {
             "file": "web2/shared/web2-so-order-reader.js",
@@ -3244,7 +3265,7 @@
                 },
                 {
                     "file": "native-orders/js/native-orders-inbox-resolve.js",
-                    "lines": 254,
+                    "lines": 292,
                     "purpose": "WEB2.0 module.",
                     "globals": ["NativeOrders"],
                     "uses": ["API_CONFIG", "Web2Chat", "Web2CustomerChat"],
@@ -3252,6 +3273,7 @@
                         "_avatarUrl",
                         "_getSidebarPageIds",
                         "_hydrateInboxAvatars",
+                        "_khoFbByPhone",
                         "_normPhone",
                         "_resolveInboxConvByPhone",
                         "_searchPancakeCustomers",
@@ -5090,6 +5112,32 @@
             ]
         },
         {
+            "page": "web2/photo-editor",
+            "files": [
+                {
+                    "file": "web2/photo-editor/js/photo-editor.js",
+                    "lines": 130,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["PhotoEditorPage"],
+                    "uses": ["Web2Escape", "Web2ImageEditor", "Web2ProductsCache"],
+                    "functions": [
+                        "$",
+                        "close",
+                        "copy",
+                        "download",
+                        "edit",
+                        "esc",
+                        "fileToDataUrl",
+                        "init",
+                        "notify",
+                        "onload",
+                        "showResult",
+                        "wirePicker"
+                    ]
+                }
+            ]
+        },
+        {
             "page": "web2/photo-studio",
             "files": [
                 {
@@ -5302,7 +5350,7 @@
             "files": [
                 {
                     "file": "web2/product-card/js/product-card-render.js",
-                    "lines": 431,
+                    "lines": 439,
                     "purpose": "WEB2.0 module.",
                     "globals": ["Web2ProductCard"],
                     "uses": [],
@@ -5326,10 +5374,16 @@
                 },
                 {
                     "file": "web2/product-card/js/product-card.js",
-                    "lines": 326,
+                    "lines": 344,
                     "purpose": "WEB2.0 module.",
                     "globals": ["ProductCardPage"],
-                    "uses": ["Web2Escape", "Web2ProductsCache", "Web2QR"],
+                    "uses": [
+                        "Web2Escape",
+                        "Web2ImageEditor",
+                        "Web2LogoEraser",
+                        "Web2ProductsCache",
+                        "Web2QR"
+                    ],
                     "functions": [
                         "$",
                         "_fitPreview",
@@ -6565,7 +6619,7 @@
                 },
                 {
                     "file": "web2/shared/web2-customer-chat-core.js",
-                    "lines": 529,
+                    "lines": 533,
                     "purpose": "WEB2.0 module.",
                     "globals": [],
                     "uses": [
@@ -6912,6 +6966,24 @@
                     ]
                 },
                 {
+                    "file": "web2/shared/web2-image-editor.js",
+                    "lines": 156,
+                    "purpose": "WEB2.0 shared.",
+                    "globals": ["Web2ImageEditor"],
+                    "uses": [],
+                    "functions": [
+                        "_load",
+                        "cleanup",
+                        "ensureStyles",
+                        "finish",
+                        "onClose",
+                        "onSave",
+                        "onload",
+                        "open",
+                        "tryNext"
+                    ]
+                },
+                {
                     "file": "web2/shared/web2-image-lightbox.js",
                     "lines": 237,
                     "purpose": "WEB2.0 shared module.",
@@ -7013,6 +7085,31 @@
                         "start",
                         "stopTracks",
                         "use"
+                    ]
+                },
+                {
+                    "file": "web2/shared/web2-logo-eraser.js",
+                    "lines": 379,
+                    "purpose": "WEB2.0 shared.",
+                    "globals": ["Web2LogoEraser"],
+                    "uses": [],
+                    "functions": [
+                        "_autoDetect",
+                        "_inpaintRect",
+                        "_loadImage",
+                        "applyErase",
+                        "autoDetect",
+                        "cleanup",
+                        "ensureStyles",
+                        "evtPos",
+                        "fit",
+                        "lum",
+                        "notify",
+                        "onerror",
+                        "onload",
+                        "open",
+                        "redraw",
+                        "undo"
                     ]
                 },
                 {
@@ -7565,7 +7662,7 @@
                 },
                 {
                     "file": "web2/shared/web2-sidebar.js",
-                    "lines": 645,
+                    "lines": 650,
                     "purpose": "WEB2-clone sidebar for Web 2.0 pages.",
                     "globals": ["Web2Sidebar"],
                     "uses": [
@@ -8716,7 +8813,9 @@
                 "web2/shared/web2-barcode-scanner.js",
                 "web2/shared/web2-command-palette.js",
                 "web2/shared/web2-customer-chat-core.js",
+                "web2/shared/web2-image-editor.js",
                 "web2/shared/web2-label-ocr.js",
+                "web2/shared/web2-logo-eraser.js",
                 "web2/shared/web2-pack-counter.js",
                 "web2/shared/web2-product-counter.js",
                 "web2/shared/web2-qr-modal.js",
@@ -8724,7 +8823,7 @@
                 "web2/shared/web2-wallet-balance.js",
                 "web2/shared/web2-zalo.js"
             ],
-            "count": 14
+            "count": 16
         },
         {
             "fn": "escapeHtml",
@@ -9028,6 +9127,17 @@
             "count": 5
         },
         {
+            "fn": "finish",
+            "files": [
+                "live-chat/js/live/live-livestream-gallery.js",
+                "live-chat/js/live/live-livestream-snap-stream.js",
+                "so-order/js/so-order-confirm.js",
+                "so-order/js/so-order-inline-edit.js",
+                "web2/shared/web2-image-editor.js"
+            ],
+            "count": 5
+        },
+        {
             "fn": "flush",
             "files": [
                 "live-chat/js/live/live-kho-enricher.js",
@@ -9148,16 +9258,6 @@
                 "live-chat/js/pancake/pancake-token-manager.js",
                 "web2/pancake-settings/js/pancake-settings-actions.js",
                 "web2/shared/web2-zalo-api.js"
-            ],
-            "count": 4
-        },
-        {
-            "fn": "finish",
-            "files": [
-                "live-chat/js/live/live-livestream-gallery.js",
-                "live-chat/js/live/live-livestream-snap-stream.js",
-                "so-order/js/so-order-confirm.js",
-                "so-order/js/so-order-inline-edit.js"
             ],
             "count": 4
         },
@@ -9558,6 +9658,15 @@
                 "web2/shared/popup.js",
                 "web2/shared/web2-lottie.js",
                 "web2/shared/web2-notify.js"
+            ],
+            "count": 3
+        },
+        {
+            "fn": "fileToDataUrl",
+            "files": [
+                "so-order/js/so-order-modal-image.js",
+                "web2/photo-editor/js/photo-editor.js",
+                "web2/shared/web2-canvas-utils.js"
             ],
             "count": 3
         },

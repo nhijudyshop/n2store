@@ -2,6 +2,13 @@
 
 ## 2026-06-19
 
+### [web2/photo-editor] Trang MỚI "Chỉnh sửa ảnh" + module dùng chung Web2ImageEditor (Picsart-lite) ✅
+
+User hỏi tích hợp editor ảnh kiểu Picsart/Meitu vào web HTML → build **module dùng chung** (rule Web 2.0) `web2/shared/web2-image-editor.js` (`Web2ImageEditor.open(src)→Promise<dataURL>`) bọc **Filerobot Image Editor** (MIT, vanilla, on-device, lazy-load CDN). Tabs: Cắt&Xoay/Tinh chỉnh/Bộ lọc/Annotate/Watermark/Kích thước (dịch VI). Trang mới `web2/photo-editor/` (Đa dụng) = launcher (tải máy/dán/kho SP → editor → Tải PNG/Copy). **Wire reuse** vào product-card (nút "Chỉnh sửa"). Đăng ký sidebar + WEB2_PAGES.
+
+- Verified live: Filerobot lazy-load + render OK (canvas + tabs VI + Lưu), 0 JS err.
+- **"Full Picsart/Meitu" verdict**: không có OSS clone 1:1. Picsart-full nhất = Filerobot (MIT, đang dùng) hoặc Photopea (Photoshop-grade, free nhưng proprietary iframe). Meitu-full (AI beautify) = KHÔNG có OSS — chỉ ghép MediaPipe+WebGL. Link LobeHub user gửi = **Meitu AI Open Platform cloud API** (MCP skill): full tính năng (cutout/beauty/gen/try-on) NHƯNG **trả phí + cần API key + chạy server-side** (upload ảnh lên Meitu), KHÔNG nhúng in-browser.
+
 ### [native-orders] Đơn Inbox hiện avatar — resolve fbId từ KHO trước (không cần login Pancake) ✅
 
 User: đơn thêm ở tab "Đơn Inbox" không hiện avatar (đơn livestream/web có). RCA: `_hydrateInboxAvatars` chỉ resolve fbId qua `_resolveInboxConvByPhone` (Pancake — cần login); chưa login → không avatar. Kho KH (`/api/web2/customers/<phone>`) THỰC CÓ `fbId` (verify 0908123456 → 24948162744877764).

@@ -323,6 +323,16 @@
             const cleaned = await global.Web2LogoEraser.open(state.opts._imgSrc);
             if (cleaned) setImage(cleaned, { cutout: state.opts.cutout });
         });
+        // Chỉnh sửa ảnh đầy đủ (cắt/lọc/chữ/watermark) — module dùng chung Web2ImageEditor
+        $('#pcardEditImg')?.addEventListener('click', async () => {
+            if (!state.opts._imgSrc) return notify('Hãy chọn/tải ảnh SP trước', 'warning');
+            if (!global.Web2ImageEditor?.open)
+                return notify('Chưa tải được trình chỉnh sửa ảnh', 'error');
+            const edited = await global.Web2ImageEditor.open(state.opts._imgSrc, {
+                name: state.opts.name || 'sp',
+            });
+            if (edited) setImage(edited, { cutout: state.opts.cutout });
+        });
         // product cache (im lặng nếu lỗi)
         global.Web2ProductsCache?.init?.().catch(() => {});
         window.addEventListener('resize', _fitPreview);
