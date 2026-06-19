@@ -3,15 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `fddf008` — docs(dev-log): FB reach deprecation pivot + shared FB client
-**Last updated**: 2026-06-19 22:43:15 +07
-**Latest session**: [`RESUME:20260619-224315-fddf008`](../20260619-224315-fddf008.md)
-**Summary**: FB Graph: read_insights thật (clicks/video views, reach FB đã khai tử), sửa caption, handoff Đăng lên FB, đăng ảnh bytes (bỏ imgbb), FB client → shared
+**Latest commit**: `e94dbe6` — auto: session update
+**Last updated**: 2026-06-19 22:44:04 +07
+**Latest session**: [`RESUME:20260619-224404-e94dbe6`](../20260619-224404-e94dbe6.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 3 file(s)
-- [`web2/`](./web2.md) — 4 file(s)
+- [`render.com/`](./render.com.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -55,7 +54,7 @@
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`referenceUI/`](./referenceUI.md) — updated 2026-06-19 14:27
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-06-16 00:35
-- [`render.com/`](./render.com.md) — updated 2026-06-19 22:39
+- [`render.com/`](./render.com.md) — updated 2026-06-19 22:44
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-19 14:27
 - [`service-costs/`](./service-costs.md) — updated 2026-06-16 11:15
