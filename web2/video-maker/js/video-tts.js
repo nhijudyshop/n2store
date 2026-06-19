@@ -41,6 +41,21 @@
         return VOICES.find((v) => v.id === id) || VOICES[0];
     }
 
+    // ---------------- SERIALIZE inference (BẮT BUỘC) ----------------
+    // ONNX Runtime Web KHÔNG an toàn khi 2 inference chạy ĐỒNG THỜI trên cùng
+    // 1 session → input tensor hỏng → "Gather idx out of bounds" / "reading null".
+    // Tái hiện: bấm "Nghe mẫu" (đang chạy) rồi "Tạo giọng đọc" → 2 synth() chồng.
+    // → Khoá toàn cục: mọi inference (MMS + Piper) xếp hàng, mỗi lúc chỉ 1 chạy.
+    let _ttsLock = Promise.resolve();
+    function _serialize(fn) {
+        const run = _ttsLock.then(fn, fn); // chạy sau khi cái trước settle (kể cả lỗi)
+        _ttsLock = run.then(
+            () => {},
+            () => {}
+        ); // giữ chuỗi sống, không lan lỗi sang job sau
+        return run;
+    }
+
     // ---------------- MMS (transformers.js) ----------------
     let _mmsPromise = null;
     async function _getMms(onStatus) {
@@ -62,7 +77,7 @@
     }
     async function _mmsChunk(text, onStatus) {
         const synth = await _getMms(onStatus);
-        const out = await synth(text);
+        const out = await _serialize(() => synth(text)); // không để 2 inference chồng
         return { samples: out.audio, sampleRate: out.sampling_rate || 16000 };
     }
 
@@ -83,7 +98,7 @@
     async function _piperChunk(text, voiceId, onStatus) {
         const tts = await _getPiper(onStatus);
         onStatus && onStatus('Đang tạo giọng (lần đầu tải model giọng ~vài chục MB)…');
-        const wav = await tts.predict({ text, voiceId });
+        const wav = await _serialize(() => tts.predict({ text, voiceId })); // serialize như MMS
         const ab = await wav.arrayBuffer();
         const ac = _decodeCtx();
         const buf = await ac.decodeAudioData(ab);
