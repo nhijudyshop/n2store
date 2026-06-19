@@ -9,6 +9,7 @@
 
     // Sprint 5 KPI: inject Web2Auth token vào mọi request để backend apply scope.
     function _authHeaders() {
+        if (window.Web2Auth?.authHeaders) return window.Web2Auth.authHeaders(); // 1 nguồn
         try {
             const stored = window.Web2Auth?.getStored?.();
             if (stored?.token) return { 'x-web2-token': stored.token };

@@ -22,6 +22,8 @@
     const API_FALLBACK = 'https://web2-api-kv04.onrender.com/api/web2-supplier-wallet';
 
     function authHeaders() {
+        if (window.Web2Auth?.authHeaders)
+            return window.Web2Auth.authHeaders({ 'Content-Type': 'application/json' });
         const h = { 'Content-Type': 'application/json' };
         const token = window.Web2Auth?.getStored?.()?.token;
         if (token) h['x-web2-token'] = token;

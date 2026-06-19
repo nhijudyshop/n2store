@@ -33,6 +33,7 @@
     const _inflight = new Map(); // phone -> Promise<number>
 
     function normPhone(p) {
+        if (window.Web2PhoneUtils) return window.Web2PhoneUtils.norm(p);
         let s = String(p || '').replace(/\D/g, '');
         if (!s) return '';
         if (s.startsWith('84') && s.length >= 11) s = '0' + s.slice(2);
@@ -40,6 +41,7 @@
     }
 
     function fmtVnd(n) {
+        if (window.Web2Format) return window.Web2Format.vnd(n);
         return Math.round(Number(n) || 0).toLocaleString('vi-VN') + '₫';
     }
 

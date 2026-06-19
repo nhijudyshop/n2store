@@ -23,15 +23,19 @@
         return document.querySelector(sel);
     }
     function escapeHtml(s) {
+        if (window.Web2Escape) return window.Web2Escape.escapeHtml(s);
         if (s == null) return '';
         const d = document.createElement('div');
         d.textContent = String(s);
         return d.innerHTML;
     }
     function fmtVnd(n) {
+        // NOTE: dùng glyph 'đ' (không phải '₫' của Web2Format.vnd) → giữ nguyên,
+        // KHÔNG delegate (tránh đổi ký hiệu tiền hiển thị).
         return (Number(n) || 0).toLocaleString('vi-VN') + 'đ';
     }
     function fmtDate(ts) {
+        if (window.Web2Format) return window.Web2Format.dateTime(ts);
         if (!ts) return '';
         return new Date(Number(ts)).toLocaleString('vi-VN');
     }
@@ -70,6 +74,7 @@
     // KPI base-delta, tách Dự báo (đơn draft) / Thực (đơn đã thành PBH). Scope theo
     // token: admin thấy hết, staff thấy của mình. Xem render.com/routes/v2/kpi.js GET /kpi.
     function _authHeaders() {
+        if (window.Web2Auth?.authHeaders) return window.Web2Auth.authHeaders();
         try {
             const t = window.Web2Auth?.getStored?.()?.token;
             if (t) return { 'x-web2-token': t };

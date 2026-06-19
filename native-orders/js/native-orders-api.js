@@ -16,6 +16,7 @@
     // Sprint 3 KPI: extract Web2Auth token để backend resolve visibility scope.
     // Header `x-web2-token` được kpi.js middleware đọc.
     function _authHeaders() {
+        if (window.Web2Auth) return window.Web2Auth.authHeaders();
         try {
             const stored = global.Web2Auth?.getStored?.();
             if (stored?.token) return { 'x-web2-token': stored.token };

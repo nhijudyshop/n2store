@@ -15,6 +15,7 @@
     // 'include' (cookie) vô nghĩa với backend; thiếu header thì bật enforce là
     // bell chết im lặng (catch {} nuốt lỗi).
     function _authHeaders() {
+        if (global.Web2Auth?.authHeaders) return global.Web2Auth.authHeaders({});
         try {
             const t = global.Web2Auth?.getStored?.()?.token;
             return t ? { 'x-web2-token': t } : {};
@@ -163,6 +164,7 @@
         return d.toLocaleString('vi-VN');
     }
     function escapeHtml(s) {
+        if (global.Web2Escape) return global.Web2Escape.escapeHtml(s);
         const d = document.createElement('div');
         d.textContent = String(s ?? '');
         return d.innerHTML;

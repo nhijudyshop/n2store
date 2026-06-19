@@ -33,14 +33,17 @@
 
     // ─── Helpers ──────────────────────────────────────────────────────
     function esc(s) {
+        if (window.Web2Escape) return window.Web2Escape.escapeHtml(s);
         const d = document.createElement('div');
         d.textContent = String(s ?? '');
         return d.innerHTML;
     }
     function fmtMoney(n) {
+        if (window.Web2Format) return window.Web2Format.num(n);
         return Number(n || 0).toLocaleString('vi-VN');
     }
     function fmtTime(ts) {
+        if (window.Web2Format) return window.Web2Format.dateTime(ts);
         if (!ts) return '';
         const n = Number(ts);
         return new Date(n).toLocaleString('vi-VN');

@@ -24,11 +24,13 @@
     };
 
     function esc(s) {
+        if (window.Web2Escape) return window.Web2Escape.escapeHtml(s);
         const d = document.createElement('div');
         d.textContent = String(s ?? '');
         return d.innerHTML;
     }
     function fmtTime(ts) {
+        if (window.Web2Format) return window.Web2Format.dateTime(ts);
         if (!ts) return '';
         const n = typeof ts === 'number' ? ts : Date.parse(ts);
         return Number.isNaN(n) ? '' : new Date(n).toLocaleString('vi-VN');

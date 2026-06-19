@@ -24,6 +24,7 @@
     const DIRECT_BASE = 'https://web2-api-kv04.onrender.com/api/web2/wallets';
 
     function normPhone(p) {
+        if (global.Web2PhoneUtils) return global.Web2PhoneUtils.norm(p);
         const s = String(p || '').replace(/\D/g, '');
         if (!s) return '';
         if (s.startsWith('84') && s.length >= 11) return '0' + s.slice(2);
@@ -195,6 +196,7 @@
     }
 
     function formatVnd(n) {
+        if (global.Web2Format) return global.Web2Format.vnd(n);
         return Math.round(Number(n) || 0).toLocaleString('vi-VN') + '₫';
     }
 

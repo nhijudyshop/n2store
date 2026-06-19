@@ -44,6 +44,7 @@
     // S6 fix 2026-06-11: escape đủ 5 ký tự (DOM textContent→innerHTML KHÔNG
     // escape quote → attribute-injection khi nhúng vào title="..."/src="...").
     W.escapeHtml = function escapeHtml(s) {
+        if (window.Web2Escape) return window.Web2Escape.escapeHtml(s); // 1 nguồn
         if (s == null) return '';
         return String(s)
             .replace(/&/g, '&amp;')

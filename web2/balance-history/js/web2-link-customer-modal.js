@@ -17,6 +17,7 @@
     let _searchSeq = 0;
 
     function escapeHtml(v) {
+        if (window.Web2Escape) return window.Web2Escape.escapeHtml(v); // 1 nguồn
         if (v == null) return '';
         return String(v)
             .replace(/&/g, '&amp;')
@@ -26,6 +27,7 @@
             .replace(/'/g, '&#39;');
     }
     function fmtVnd(n) {
+        if (window.Web2Format) return window.Web2Format.vnd(n); // 1 nguồn (₫)
         return Math.round(Number(n) || 0).toLocaleString('vi-VN') + '₫';
     }
     function notify(msg, type) {

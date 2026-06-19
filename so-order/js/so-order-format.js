@@ -10,6 +10,7 @@
     // ---------- helpers ----------
 
     SO.fmtVnd = function fmtVnd(n) {
+        if (window.Web2Format) return window.Web2Format.vnd(n);
         const v = Math.round(Number(n) || 0);
         return v.toLocaleString('vi-VN') + '₫';
     };
@@ -48,6 +49,7 @@
     };
 
     SO.escapeHtml = function escapeHtml(s) {
+        if (window.Web2Escape) return window.Web2Escape.escapeHtml(s);
         return String(s == null ? '' : s)
             .replace(/&/g, '&amp;')
             .replace(/</g, '&lt;')

@@ -91,6 +91,7 @@
     }
 
     function escapeHtml(value) {
+        if (window.Web2Escape) return window.Web2Escape.escapeHtml(value); // 1 nguồn
         if (value == null) return '';
         return String(value)
             .replace(/&/g, '&amp;')
@@ -101,6 +102,7 @@
     }
 
     function fmtVnd(n) {
+        if (window.Web2Format) return window.Web2Format.vnd(n); // 1 nguồn (₫)
         return Math.round(Number(n) || 0).toLocaleString('vi-VN') + '₫';
     }
 

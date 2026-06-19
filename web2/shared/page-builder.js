@@ -33,6 +33,7 @@
     // S6 fix 2026-06-11: escape đủ 5 ký tự (DOM textContent→innerHTML KHÔNG
     // escape quote → attribute-injection khi nhúng vào value="..."/title="...").
     function escapeHtml(s) {
+        if (global.Web2Escape) return global.Web2Escape.escapeHtml(s);
         if (s == null) return '';
         return String(s)
             .replace(/&/g, '&amp;')
@@ -76,6 +77,7 @@
         minute: '2-digit',
     });
     function fmtTime(ms) {
+        if (global.Web2Format) return global.Web2Format.dateTime(ms);
         if (!ms) return '';
         const d = new Date(Number(ms));
         return Number.isNaN(d.getTime()) ? '' : _fmtTimeVn.format(d);

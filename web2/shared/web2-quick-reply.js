@@ -62,6 +62,7 @@
     }
 
     function _escapeHtml(s) {
+        if (global.Web2Escape) return global.Web2Escape.escapeHtml(s);
         return String(s == null ? '' : s)
             .replace(/&/g, '&amp;')
             .replace(/</g, '&lt;')

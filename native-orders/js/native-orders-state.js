@@ -227,6 +227,7 @@
 
     // ---------- Helpers ----------
     NO.escapeHtml = function escapeHtml(s) {
+        if (window.Web2Escape) return window.Web2Escape.escapeHtml(s);
         if (s == null) return '';
         const div = document.createElement('div');
         div.textContent = String(s);

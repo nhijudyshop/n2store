@@ -70,6 +70,7 @@
 
     // ---------- helpers ----------
     function escapeHtml(s) {
+        if (window.Web2Escape) return window.Web2Escape.escapeHtml(s); // 1 nguồn
         return String(s == null ? '' : s)
             .replace(/&/g, '&amp;')
             .replace(/</g, '&lt;')

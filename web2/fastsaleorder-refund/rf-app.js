@@ -14,14 +14,18 @@
     const $ = (s) => document.querySelector(s);
 
     function fmtMoney(n) {
+        // NOTE: dùng glyph 'đ' (không phải '₫' của Web2Format.vnd) → giữ nguyên,
+        // KHÔNG delegate (tránh đổi ký hiệu tiền hiển thị).
         return (Number(n) || 0).toLocaleString('vi-VN') + 'đ';
     }
     function fmtDate(s) {
+        if (window.Web2Format) return window.Web2Format.dateTime(s);
         if (!s) return '';
         const d = new Date(s);
         return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
     }
     function escapeHtml(s) {
+        if (window.Web2Escape) return window.Web2Escape.escapeHtml(s);
         if (s == null) return '';
         const d = document.createElement('div');
         d.textContent = String(s);

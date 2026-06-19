@@ -64,6 +64,7 @@
     SW._dbg = _dbg;
 
     function fmtVnd(n) {
+        if (window.Web2Format) return window.Web2Format.vnd(n);
         return Math.round(Number(n) || 0).toLocaleString('vi-VN') + '₫';
     }
     // A2 (2026-06-13): 1 dòng mua được coi "đã trả ĐỦ" khi qty đã trả >= qty mua.
@@ -91,6 +92,7 @@
         );
     }
     function escapeHtml(s) {
+        if (window.Web2Escape) return window.Web2Escape.escapeHtml(s);
         return String(s == null ? '' : s)
             .replace(/&/g, '&amp;')
             .replace(/</g, '&lt;')

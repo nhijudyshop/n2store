@@ -14,6 +14,7 @@
     const DIRECT = 'https://web2-api-kv04.onrender.com/api/web2-zalo';
 
     function _authHeaders() {
+        if (window.Web2Auth?.authHeaders) return window.Web2Auth.authHeaders();
         try {
             const t =
                 window.Web2Auth?.getStored?.()?.token ||

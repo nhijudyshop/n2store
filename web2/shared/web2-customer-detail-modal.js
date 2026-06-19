@@ -30,6 +30,7 @@
     }
 
     function esc(v) {
+        if (window.Web2Escape) return window.Web2Escape.escapeHtml(v);
         if (v == null) return '';
         return String(v)
             .replace(/&/g, '&amp;')
@@ -38,9 +39,11 @@
             .replace(/"/g, '&quot;');
     }
     function fmtVnd(n) {
+        if (window.Web2Format) return window.Web2Format.num(n);
         return Math.round(Number(n) || 0).toLocaleString('vi-VN');
     }
     function fmtDate(iso) {
+        if (window.Web2Format) return window.Web2Format.dateTime(iso);
         if (!iso) return '—';
         try {
             const d = new Date(iso);
@@ -54,6 +57,7 @@
         }
     }
     function normPhone(p) {
+        if (window.Web2PhoneUtils) return window.Web2PhoneUtils.norm(p);
         let s = String(p || '').replace(/\D/g, '');
         if (s && !s.startsWith('0')) s = '0' + s.slice(-9);
         return s;

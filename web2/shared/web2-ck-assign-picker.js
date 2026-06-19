@@ -17,14 +17,17 @@
     const BH = '/api/web2/balance-history';
 
     function esc(v) {
+        if (global.Web2Escape) return global.Web2Escape.escapeHtml(v);
         const d = document.createElement('div');
         d.textContent = String(v ?? '');
         return d.innerHTML;
     }
     function fmtVnd(n) {
+        if (global.Web2Format) return global.Web2Format.num(n);
         return Math.round(Number(n) || 0).toLocaleString('vi-VN');
     }
     function fmtDate(v) {
+        if (global.Web2Format) return global.Web2Format.dateTime(v);
         if (!v) return '';
         const d = new Date(v);
         return Number.isNaN(d.getTime())

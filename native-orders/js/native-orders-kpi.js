@@ -16,6 +16,7 @@
     const KPI_URL = `${WORKER}/api/web2/kpi/kpi`;
 
     function authHeaders() {
+        if (window.Web2Auth) return window.Web2Auth.authHeaders();
         try {
             const t = global.Web2Auth?.getStored?.()?.token;
             if (t) return { 'x-web2-token': t };
@@ -26,6 +27,7 @@
         return (Number(n) || 0).toLocaleString('vi-VN') + 'đ';
     }
     function esc(s) {
+        if (window.Web2Escape) return window.Web2Escape.escapeHtml(s);
         const d = document.createElement('div');
         d.textContent = String(s == null ? '' : s);
         return d.innerHTML;

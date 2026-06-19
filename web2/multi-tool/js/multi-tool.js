@@ -12,6 +12,7 @@
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
     function esc(s) {
+        if (window.Web2Escape) return window.Web2Escape.escapeHtml(s);
         return String(s == null ? '' : s).replace(
             /[&<>"]/g,
             (m) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[m]

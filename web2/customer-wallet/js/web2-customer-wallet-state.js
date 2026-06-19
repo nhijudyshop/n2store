@@ -72,9 +72,11 @@
     const EXCLUDED_PBH_STATES = new Set(['cancelled', 'cancel', 'canceled', 'huy', 'hủy']);
 
     function fmtVnd(n) {
+        if (window.Web2Format) return window.Web2Format.vnd(n); // 1 nguồn (₫)
         return Math.round(Number(n) || 0).toLocaleString('vi-VN') + '₫';
     }
     function escapeHtml(s) {
+        if (window.Web2Escape) return window.Web2Escape.escapeHtml(s); // 1 nguồn
         if (s == null) return '';
         return String(s)
             .replace(/&/g, '&amp;')

@@ -33,12 +33,14 @@
         return document.querySelector(sel);
     }
     function escapeHtml(s) {
+        if (window.Web2Escape) return window.Web2Escape.escapeHtml(s);
         if (s == null) return '';
         const d = document.createElement('div');
         d.textContent = String(s);
         return d.innerHTML;
     }
     function fmtDate(ts) {
+        if (window.Web2Format) return window.Web2Format.dateTime(ts);
         if (!ts) return '';
         const d = ts instanceof Date ? ts : new Date(ts);
         return d.toLocaleString('vi-VN');

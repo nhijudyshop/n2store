@@ -29,6 +29,7 @@
     const DIRECT_BASE = 'https://web2-api-kv04.onrender.com/api/web2-zalo';
 
     function _authHeaders() {
+        if (global.Web2Auth?.authHeaders) return global.Web2Auth.authHeaders();
         try {
             const t =
                 global.Web2Auth?.getStored?.()?.token ||

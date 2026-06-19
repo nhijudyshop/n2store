@@ -83,10 +83,12 @@
 
     // ----- Helpers -----
     function fmtVnd(n) {
+        if (window.Web2Format) return window.Web2Format.num(n); // 1 nguồn (no suffix)
         return Math.round(Number(n) || 0).toLocaleString('vi-VN');
     }
     function fmtTime(iso) {
         if (!iso) return '—';
+        if (window.Web2Format) return window.Web2Format.dateTime(iso) || '—'; // 1 nguồn (GMT+7)
         try {
             const d = new Date(iso);
             // GMT+7 (quy tắc 10)
@@ -104,6 +106,7 @@
         }
     }
     function escapeHtml(v) {
+        if (window.Web2Escape) return window.Web2Escape.escapeHtml(v); // 1 nguồn
         if (v == null) return '';
         return String(v)
             .replace(/&/g, '&amp;')

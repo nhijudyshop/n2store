@@ -23,11 +23,13 @@
     let _onCount = null;
 
     function esc(s) {
+        if (global.Web2Escape) return global.Web2Escape.escapeHtml(s);
         const d = document.createElement('div');
         d.textContent = String(s ?? '');
         return d.innerHTML;
     }
     function fmtTime(ts) {
+        if (global.Web2Format) return global.Web2Format.dateTime(ts);
         if (!ts) return '';
         const n = typeof ts === 'number' ? ts : Date.parse(ts);
         return Number.isNaN(n) ? '' : new Date(n).toLocaleString('vi-VN');

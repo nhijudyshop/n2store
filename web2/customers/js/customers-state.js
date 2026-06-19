@@ -40,10 +40,13 @@
     // ─── DOM helpers ────────────────────────────────────────────────────
     const $ = (sel) => document.querySelector(sel);
     const esc = (s) =>
-        String(s == null ? '' : s).replace(
-            /[&<>"']/g,
-            (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]
-        );
+        window.Web2Escape // 1 nguồn
+            ? window.Web2Escape.escapeHtml(s)
+            : String(s == null ? '' : s).replace(
+                  /[&<>"']/g,
+                  (c) =>
+                      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]
+              );
     const fmtMoney = (n) => (Number(n) || 0).toLocaleString('vi-VN') + '₫';
     const notify = (msg, type) => window.notificationManager?.show?.(msg, type || 'info');
 

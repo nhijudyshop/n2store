@@ -26,19 +26,23 @@
 
     // ─── Helpers ──────────────────────────────────────────────────────
     function esc(s) {
+        if (global.Web2Escape) return global.Web2Escape.escapeHtml(s);
         const d = document.createElement('div');
         d.textContent = String(s ?? '');
         return d.innerHTML;
     }
     function fmtMoney(n) {
+        if (global.Web2Format) return global.Web2Format.num(n);
         return Number(n || 0).toLocaleString('vi-VN');
     }
     function fmtTime(ts) {
+        if (global.Web2Format) return global.Web2Format.dateTime(ts);
         if (!ts) return '';
         const n = typeof ts === 'number' ? ts : Date.parse(ts);
         return Number.isNaN(n) ? '' : new Date(n).toLocaleString('vi-VN');
     }
     function normPhone(p) {
+        if (global.Web2PhoneUtils) return global.Web2PhoneUtils.norm(p);
         let s = String(p || '').replace(/\D/g, '');
         if (s.startsWith('84') && s.length >= 11) s = '0' + s.slice(2);
         return s;
