@@ -71,6 +71,32 @@
         return { samples: buf.getChannelData(0).slice(), sampleRate: buf.sampleRate };
     }
 
+    // base worker để gọi registry (sổ máy online) — 1 nguồn WEB2_CONFIG
+    function _registryBase() {
+        return (
+            (global.WEB2_CONFIG && global.WEB2_CONFIG.WORKER_URL) ||
+            (global.API_CONFIG && global.API_CONFIG.WORKER_URL) ||
+            'https://chatomni-proxy.nhijudyshop.workers.dev'
+        );
+    }
+    // Danh sách máy shop đang online (tự báo danh). [{name, url, note, ageSec}]
+    async function listServers(timeoutMs) {
+        const ctrl = new AbortController();
+        const t = setTimeout(() => ctrl.abort(), timeoutMs || 7000);
+        try {
+            const r = await fetch(`${_registryBase()}/api/web2-vieneu-registry/list`, {
+                signal: ctrl.signal,
+            });
+            if (!r.ok) return [];
+            const d = await r.json();
+            return (d && d.servers) || [];
+        } catch {
+            return [];
+        } finally {
+            clearTimeout(t);
+        }
+    }
+
     async function health(timeoutMs) {
         const u = _need();
         const ctrl = new AbortController();
@@ -132,6 +158,7 @@
         getSecret,
         setSecret,
         health,
+        listServers,
         listVoices,
         synthesize,
         clone,
