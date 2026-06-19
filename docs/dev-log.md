@@ -2,6 +2,18 @@
 
 ## 2026-06-19
 
+### [web2/jt-tracking] Tự cập nhật trạng thái J&T khi MỞ trang (bỏ nút "Làm mới tất cả") ✅
+
+User: "cập nhật trạng thái realtime được không? Bỏ nút cập nhật trạng thái đi nếu có realtime — cần thông tin chính xác để làm việc với shipper." Trạng thái = "Đang giao/Vấn đề/…". Chốt: **auto khi MỞ trang** (không cron 24/7) + **bỏ nút bulk, GIỮ nút từng dòng**.
+
+J&T KHÔNG push realtime → phải tra lại. Tra dồn dập dễ bị jtexpress chặn (đã từng giới hạn bulk 15/06). Giải pháp browser-driven (chỉ chạy khi đang xem trang → nhẹ J&T nhất):
+
+- **Backend** `/refresh` thêm `mode:'active'`: tra các đơn `approved_at IS NULL AND status NOT IN ('delivered','returned')` (Đang giao/Trung chuyển/Vấn đề/Chưa tra/Không thấy), `ORDER BY last_fetched_at ASC`, batch 15, paced (CONC 3 + 350ms). Đổi trạng thái → `_notify('refresh')` → SSE `web2:jt-tracking` → mọi tab/máy reload.
+- **Frontend** `jt-tracking-actions.js`: `autoRefreshActive()` (gọi `/refresh {mode:'active'}` im lặng, gate `visibilityState==='visible'`, throttle 30s) + `startAutoRefresh()` (chạy 1 lần sau load + mỗi 90s khi tab visible + tra ngay khi quay lại foreground). `app.js` gọi `A.startAutoRefresh()` sau `load()`.
+- **UI**: bỏ nút "Làm mới tất cả" → thay bằng chip non-click **"🔄 Tự động cập nhật"** (`#jtAutoStatus`, xoay khi đang tra). GIỮ nút làm mới ↻ TỪNG DÒNG (force tra 1 đơn ngay trước khi gọi shipper). CSS `.jt-auto-indicator`/`.is-syncing`.
+
+Files: `render.com/routes/web2-jt-tracking.js`, `web2/jt-tracking/{index.html, css/jt-tracking.css, js/jt-tracking-actions.js, js/jt-tracking-app.js}`. `node --check` PASS. Vòng đủ ~66 đơn active / batch 15 mỗi 90s ≈ 7 phút/vòng — tươi đủ làm việc với shipper, không hammer J&T.
+
 ### [web2/zalo + render] Tài khoản Zalo CHÍNH gửi tin KH 1-1 (mặc định "Nhijudy Ơi") + nút đổi ✅
 
 User: gửi tin nhắn KH (bấm SĐT ở jt-tracking…) phải dùng tài khoản **"Nhijudy Ơi"** (UID 711743163298674606), KHÔNG để hệ thống tự chọn. Chốt phạm vi: **toàn hệ thống + nút đổi ở trang Zalo**.

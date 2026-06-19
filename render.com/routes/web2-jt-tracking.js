@@ -818,6 +818,19 @@ router.post('/refresh', async (req, res) => {
                     [onlyCodes, limit]
                 )
             ).rows;
+        } else if (req.body?.mode === 'active') {
+            // AUTO khi mở trang: tra lại các đơn ĐANG HOẠT ĐỘNG (Đang giao/Trung chuyển/Vấn đề/
+            // Chưa tra/Không thấy) — BỎ đơn đã chốt (delivered/returned) + đã duyệt. Nhỏ giọt
+            // theo last_fetched_at ASC để jtexpress KHÔNG chặn (chỉ chạy khi user đang xem trang).
+            rows = (
+                await db.query(
+                    `SELECT billcode, cellphone FROM web2_jt_tracking
+                      WHERE approved_at IS NULL AND status NOT IN ('delivered','returned')
+                      ORDER BY last_fetched_at ASC NULLS FIRST
+                      LIMIT $1`,
+                    [limit]
+                )
+            ).rows;
         } else {
             // "Làm mới tất cả" CHỈ tra các đơn 'Chưa tra' (pending) — đơn đã có trạng thái
             // muốn cập nhật lại thì dùng nút làm mới TỪNG DÒNG (user 2026-06-15). Tránh tra

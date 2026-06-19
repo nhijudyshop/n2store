@@ -117,6 +117,51 @@
         }
     }
 
+    // ── AUTO cập nhật trạng thái khi MỞ trang (browser-driven, nhẹ J&T) ──────
+    // Tra lại nhỏ giọt các đơn ĐANG HOẠT ĐỘNG khi tab đang xem. KHÔNG cron 24/7 →
+    // đóng trang là ngừng (ít rủi ro jtexpress chặn). SSE đẩy update sang tab/máy khác.
+    const AUTO_INTERVAL_MS = 90000; // 90s/lần khi tab visible
+    const AUTO_MIN_GAP_MS = 30000; // chặn gọi dồn (vd visibilitychange liên tục)
+    let _autoBusy = false;
+    let _autoTimer = null;
+    let _lastAuto = 0;
+    async function autoRefreshActive() {
+        if (_autoBusy || _refreshing) return;
+        if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return;
+        const t = Date.now();
+        if (t - _lastAuto < AUTO_MIN_GAP_MS) return;
+        _lastAuto = t;
+        _autoBusy = true;
+        const ind = $('jtAutoStatus');
+        ind?.classList.add('is-syncing');
+        try {
+            // mode:'active' → server tra các đơn chưa chốt, nhỏ giọt. Đổi trạng thái → _notify
+            // → SSE web2:jt-tracking → mọi tab reload. Reload tab này luôn cho chắc.
+            const r = await api('/refresh', {
+                method: 'POST',
+                body: { mode: 'active', limit: 15 },
+            });
+            if (r && (r.ok || r.rederived)) await window.JtTrackingApp.load();
+        } catch (e) {
+            /* im lặng — auto chạy nền, không toast để khỏi phiền khi mạng/J&T chập chờn */
+        } finally {
+            ind?.classList.remove('is-syncing');
+            _autoBusy = false;
+        }
+    }
+    function startAutoRefresh() {
+        if (_autoTimer) return;
+        const tick = () => {
+            if (document.visibilityState === 'visible') autoRefreshActive();
+        };
+        setTimeout(tick, 2500); // chạy 1 lần sau khi list load xong
+        _autoTimer = setInterval(tick, AUTO_INTERVAL_MS);
+        // Quay lại tab (foreground) → tra ngay để fresh đúng lúc bắt đầu làm việc.
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') autoRefreshActive();
+        });
+    }
+
     async function rowAction(act, code) {
         // refresh = tra cứu J&T server-side (NẶNG) → giữ await + reload (không optimistic).
         if (act === 'refresh') {
@@ -305,6 +350,8 @@
         scanZalo,
         scanHistory,
         refreshAll,
+        autoRefreshActive,
+        startAutoRefresh,
         rowAction,
         getPancakePageIds,
         resolvePancakeConv,

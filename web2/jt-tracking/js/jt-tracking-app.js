@@ -83,7 +83,7 @@
         $('jtScan').addEventListener('click', A.scanZalo);
         $('jtScanHistory')?.addEventListener('click', A.scanHistory);
         $('jtPaste')?.addEventListener('click', M.openPasteModal);
-        $('jtRefreshAll').addEventListener('click', A.refreshAll);
+        // "Làm mới tất cả" đã bỏ — trạng thái tự cập nhật khi mở trang (A.startAutoRefresh).
         $('jtKpis').addEventListener('click', (e) => {
             const k = e.target.closest('.jt-kpi');
             if (!k) return;
@@ -121,6 +121,8 @@
         if (window.Web2SSE?.subscribe) window.Web2SSE.subscribe('web2:jt-tracking', reload);
 
         load();
+        // Tự cập nhật trạng thái J&T khi MỞ trang (nhỏ giọt, nhẹ J&T) — thay nút "Làm mới tất cả".
+        A.startAutoRefresh?.();
     }
 
     // Public surface (orchestrator) — gom các entrypoint chính qua 1 namespace để

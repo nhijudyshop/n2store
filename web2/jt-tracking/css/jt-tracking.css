@@ -108,6 +108,34 @@ body {
     flex-wrap: wrap;
 }
 
+/* Chỉ báo "Tự động cập nhật" (thay nút Làm mới tất cả) — không bấm được, xoay khi đang tra */
+.jt-auto-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--jt-ink-mute);
+    padding: 7px 12px;
+    border-radius: 9px;
+    border: 1px solid var(--jt-line);
+    background: var(--jt-surface);
+    white-space: nowrap;
+    user-select: none;
+    cursor: default;
+}
+.jt-auto-indicator i {
+    width: 15px;
+    height: 15px;
+}
+.jt-auto-indicator.is-syncing {
+    color: var(--jt-primary, #2563eb);
+    border-color: color-mix(in srgb, var(--jt-primary, #2563eb) 35%, var(--jt-line));
+}
+.jt-auto-indicator.is-syncing i {
+    animation: jt-spin 0.8s linear infinite;
+}
+
 /* ── Buttons ────────────────────────────────────────────────────── */
 .jt-btn {
     appearance: none;
