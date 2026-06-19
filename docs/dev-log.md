@@ -2,6 +2,15 @@
 
 ## 2026-06-19
 
+### [web2/fb-ads-stats] Sổ quảng cáo NHẬP TAY (gắn bài + tiền QC + số đơn) + ad account qua BM ✅
+
+Login (Lê Minh Tú) có 3 ad account nhưng **0 chi tiêu** + không có ad account qua BM → số liệu QC thật không lấy được từ login này (QC chạy ở account/BM khác). User chốt: làm **nhập tay** (`f1e733d18`).
+
+- **Nhập tay**: chọn bài/đợt live (picker /list) → nhập tiền QC / số đơn / doanh thu / reach / tin nhắn / ghi chú + ngày → bảng theo **ngày/tuần/tháng** + tổng hợp (tổng chi, tổng đơn, **CP/đơn**, doanh thu, **ROAS**). Bảng `web2_fb_ad_entries` (web2Db) + route `/ad-entries` (GET list), `/ad-entry` (POST upsert), DELETE `/ad-entry/:id`. Module `FBAdsManual` (`fb-ads-manual.js`). CRUD verified round-trip.
+- **Toggle** trang fb-ads-stats: ✍️ Nhập tay (mặc định) / 📊 Tự động (FB Ads). `box()`→#fbaContent.
+- **getAdAccounts** gom thêm ad account qua **Business Manager** (`/me/businesses`→owned/client) + gắn nguồn → KHÔNG cần đăng nhập đúng người chạy QC, chỉ cần là thành viên BM. (Login hiện vẫn chỉ thấy 3 account cá nhân.)
+- ⚠ Ad data luôn thuộc **ad account**, KHÔNG lấy từ page. Page-level Insights deprecated. Chi tiết [[reference_web2_fb_posts]].
+
 ### [web2] Group "Facebook" riêng + 2 trang Thống kê tương tác & Thống kê quảng cáo ✅
 
 User: tách group Facebook (chuyển Đăng bài vào), thêm trang thống kê tương tác + thống kê quảng cáo "chi tiết nhất có thể" (`c799ddd14`).
