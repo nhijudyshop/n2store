@@ -893,6 +893,16 @@ web2JtTrackingRoutes
     .catch((e) => console.warn('[web2-jt-tracking] schema warn:', e.message));
 app.use('/api/web2-jt-tracking', web2JtTrackingRoutes);
 
+// WEB2.0 — "Đăng bài Facebook": quản lý + soạn/đăng/lên lịch bài cho 2 page qua
+// Graph API (Pancake KHÔNG đăng được). Bảng web2_fb_post_tokens / web2_fb_posts
+// (web2Db). SSE web2:fb-posts. Mount root-level → KHÔNG bị shadow bởi /api/web2.
+const web2FbPostsRoutes = require('./routes/web2-fb-posts');
+web2FbPostsRoutes.initializeNotifiers(web2RealtimeSseRoutes.notifyClients);
+web2FbPostsRoutes
+    .ensureSchema(web2Pool || chatDbPool)
+    .catch((e) => console.warn('[web2-fb-posts] schema warn:', e.message));
+app.use('/api/web2-fb-posts', web2FbPostsRoutes);
+
 // 2026-06-07: config Web 2.0 (deliveryzone, printer) tách khỏi kho generic
 // web2_records → bảng RIÊNG (web2_delivery_zones, web2_printers). Mount TRƯỚC
 // catch-all để chiếm slug. Shape/path giữ nguyên → consumer không đổi. Auto

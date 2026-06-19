@@ -154,6 +154,8 @@ export const ROUTES = {
     WEB2_ZALO: { pattern: '/api/web2-zalo/*' },
     // Web 2.0 Tra cứu vận đơn J&T (Báo cáo)
     WEB2_JT_TRACKING: { pattern: '/api/web2-jt-tracking/*' },
+    // Web 2.0 Đăng bài Facebook — quản lý + soạn/đăng/lên lịch 2 page (Graph API)
+    WEB2_FB_POSTS: { pattern: '/api/web2-fb-posts/*' },
     // Web 2.0 Livestream snapshot per-customer (capture frame Pancake live)
     WEB2_LIVESTREAM: { pattern: '/api/livestream/*' },
     // Web 2.0 kho "Hình Livestream" (manual iframe capture)
@@ -276,6 +278,8 @@ export function matchRoute(pathname) {
     if (pathname.startsWith('/api/web2-zalo/') || pathname === '/api/web2-zalo') return 'WEB2_ZALO';
     if (pathname.startsWith('/api/web2-jt-tracking/') || pathname === '/api/web2-jt-tracking')
         return 'WEB2_JT_TRACKING';
+    if (pathname.startsWith('/api/web2-fb-posts/') || pathname === '/api/web2-fb-posts')
+        return 'WEB2_FB_POSTS';
     // /api/livestream-images/* TRƯỚC /api/livestream/* (prefix riêng biệt, an toàn thứ tự).
     if (pathname.startsWith('/api/livestream-images/') || pathname === '/api/livestream-images')
         return 'WEB2_LIVESTREAM_IMAGES';
