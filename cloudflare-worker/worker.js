@@ -225,6 +225,8 @@ async function routeRequest(request, env, ctx) {
                 return handleCustomer360Proxy(request, url, pathname);
             case 'WEB2_FB_POSTS':
                 return handleCustomer360Proxy(request, url, pathname);
+            case 'WEB2_VIENEU_REGISTRY':
+                return handleCustomer360Proxy(request, url, pathname);
             case 'WEB2_LIVESTREAM':
                 return handleCustomer360Proxy(request, url, pathname);
             case 'WEB2_LIVESTREAM_IMAGES':

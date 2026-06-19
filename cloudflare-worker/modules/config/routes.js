@@ -156,6 +156,8 @@ export const ROUTES = {
     WEB2_JT_TRACKING: { pattern: '/api/web2-jt-tracking/*' },
     // Web 2.0 Đăng bài Facebook — quản lý + soạn/đăng/lên lịch 2 page (Graph API)
     WEB2_FB_POSTS: { pattern: '/api/web2-fb-posts/*' },
+    // Web 2.0 Sổ đăng ký server giọng VieNeu (máy shop tự báo URL → trang tự dò máy)
+    WEB2_VIENEU_REGISTRY: { pattern: '/api/web2-vieneu-registry/*' },
     // Web 2.0 Livestream snapshot per-customer (capture frame Pancake live)
     WEB2_LIVESTREAM: { pattern: '/api/livestream/*' },
     // Web 2.0 kho "Hình Livestream" (manual iframe capture)
@@ -280,6 +282,11 @@ export function matchRoute(pathname) {
         return 'WEB2_JT_TRACKING';
     if (pathname.startsWith('/api/web2-fb-posts/') || pathname === '/api/web2-fb-posts')
         return 'WEB2_FB_POSTS';
+    if (
+        pathname.startsWith('/api/web2-vieneu-registry/') ||
+        pathname === '/api/web2-vieneu-registry'
+    )
+        return 'WEB2_VIENEU_REGISTRY';
     // /api/livestream-images/* TRƯỚC /api/livestream/* (prefix riêng biệt, an toàn thứ tự).
     if (pathname.startsWith('/api/livestream-images/') || pathname === '/api/livestream-images')
         return 'WEB2_LIVESTREAM_IMAGES';
