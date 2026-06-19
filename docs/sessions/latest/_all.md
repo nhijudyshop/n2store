@@ -3,18 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `ed7cdd7` — feat(web2/photo-editor): trang Chỉnh sửa ảnh + module dùng chung Web2ImageEditor (Filerobot, on-device)
-**Last updated**: 2026-06-19 12:19:36 +07
-**Latest session**: [`RESUME:20260619-121936-ed7cdd7`](../20260619-121936-ed7cdd7.md)
-**Summary**: feat(web2/photo-editor): trang Chỉnh sửa ảnh + module dùng chung Web2ImageEditor (Filerobot, on-device)
+**Latest commit**: `4261386` — feat(web2/photo-editor): thêm Photopea nâng cao (Photoshop-grade) vào Web2ImageEditor
+**Last updated**: 2026-06-19 12:30:23 +07
+**Latest session**: [`RESUME:20260619-123023-4261386`](../20260619-123023-4261386.md)
+**Summary**: feat(web2/photo-editor): thêm Photopea nâng cao (Photoshop-grade) vào Web2ImageEditor
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 3 file(s)
 - [`downloads/`](./downloads.md) — 1 file(s)
-- [`inventory-tracking/`](./inventory-tracking.md) — 3 file(s)
-- [`native-orders/`](./native-orders.md) — 2 file(s)
-- [`web2/`](./web2.md) — 13 file(s)
+- [`web2/`](./web2.md) — 5 file(s)
 
 ## All folder snapshots
 
@@ -32,7 +29,7 @@
 - [`docs/`](./docs.md) — updated 2026-06-19 12:19
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-16 14:31
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-16 14:31
-- [`downloads/`](./downloads.md) — updated 2026-06-19 12:19
+- [`downloads/`](./downloads.md) — updated 2026-06-19 12:30
 - [`facebook-services/`](./facebook-services.md) — updated 2026-06-16 00:35
 - [`fb-ads/`](./fb-ads.md) — updated 2026-05-21 15:39
 - [`firebase-stats/`](./firebase-stats.md) — updated 2026-05-21 15:39
@@ -77,4 +74,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-19 12:19
+- [`web2/`](./web2.md) — updated 2026-06-19 12:30
