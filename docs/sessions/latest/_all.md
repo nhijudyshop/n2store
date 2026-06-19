@@ -3,15 +3,17 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `e53a1ef` — auto: session update
-**Last updated**: 2026-06-19 22:34:25 +07
-**Latest session**: [`RESUME:20260619-223425-e53a1ef`](../20260619-223425-e53a1ef.md)
-**Summary**: auto: session update
+**Latest commit**: `3d3b9a0` — fix(web2/fb): FB khai tử post reach/impressions → dùng metric còn sống (clicks/reactions/video_views/activity); fb-insights hiện Lượt bấm thay reach
+**Last updated**: 2026-06-19 22:39:40 +07
+**Latest session**: [`RESUME:20260619-223940-3d3b9a0`](../20260619-223940-3d3b9a0.md)
+**Summary**: fix(web2/fb): FB khai tử post reach/impressions → dùng metric còn sống (clicks/reactions/video_views/activity...
 
 ## Folders affected in this commit
 
-- [`render.com/`](./render.com.md) — 2 file(s)
-- [`web2/`](./web2.md) — 3 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
+- [`render.com/`](./render.com.md) — 1 file(s)
+- [`vieneu-tts/`](./vieneu-tts.md) — 2 file(s)
+- [`web2/`](./web2.md) — 4 file(s)
 
 ## All folder snapshots
 
@@ -26,7 +28,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-19 16:28
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-16 14:31
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-18 12:17
-- [`docs/`](./docs.md) — updated 2026-06-19 22:21
+- [`docs/`](./docs.md) — updated 2026-06-19 22:39
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-16 14:31
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-16 14:31
 - [`downloads/`](./downloads.md) — updated 2026-06-19 14:27
@@ -55,7 +57,7 @@
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`referenceUI/`](./referenceUI.md) — updated 2026-06-19 14:27
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-06-16 00:35
-- [`render.com/`](./render.com.md) — updated 2026-06-19 22:34
+- [`render.com/`](./render.com.md) — updated 2026-06-19 22:39
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-19 14:27
 - [`service-costs/`](./service-costs.md) — updated 2026-06-16 11:15
@@ -71,9 +73,9 @@
 - [`tests/`](./tests.md) — updated 2026-06-10 19:04
 - [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-06-07 19:41
 - [`user-management/`](./user-management.md) — updated 2026-05-21 15:39
-- [`vieneu-tts/`](./vieneu-tts.md) — updated 2026-06-19 22:21
+- [`vieneu-tts/`](./vieneu-tts.md) — updated 2026-06-19 22:39
 - [`web2-extension/`](./web2-extension.md) — updated 2026-05-24 11:53
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-19 22:34
+- [`web2/`](./web2.md) — updated 2026-06-19 22:39
