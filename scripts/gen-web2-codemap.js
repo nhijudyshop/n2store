@@ -298,6 +298,23 @@ const NOISE = new Set([
     'create',
     'remove',
 ]);
+// Thin-delegate detector: hàm đã delegate về shared (Phase C adoption) KHÔNG còn
+// là dup thật (logic 1 nguồn, chỉ giữ fallback). Bỏ khỏi đếm §4 nếu file có marker
+// shared tương ứng tên hàm.
+const DELEGATE_MARKER = (fn, src) => {
+    if (/^escapeHtml$|^_esc$|^esc$/.test(fn)) return /window\.Web2Escape\b/.test(src);
+    if (/^fmt(Vnd|Money)$/.test(fn)) return /Web2Format\.(vnd|num)\b/.test(src);
+    if (/^fmt(Date|Time)$/.test(fn)) return /Web2Format\.(date|time|dateTime)\b/.test(src);
+    if (/^_?authHeaders$|^_w2Auth$/.test(fn)) return /Web2Auth\.authHeaders\b/.test(src);
+    if (/^normPhone$/.test(fn)) return /Web2PhoneUtils\.norm\b/.test(src);
+    return false;
+};
+const _fileSrcCache = new Map();
+const fileSrc = (rel) => {
+    if (!_fileSrcCache.has(rel))
+        _fileSrcCache.set(rel, fs.readFileSync(path.join(ROOT, rel), 'utf8'));
+    return _fileSrcCache.get(rel);
+};
 const fnIndex = new Map(); // fnName -> Set(file)
 for (const f of files) {
     if (f.isServer) continue;
@@ -305,6 +322,7 @@ for (const f of files) {
         if (fn.length < 4) continue; // bỏ tên quá ngắn (nhiễu)
         if (NOISE.has(fn)) continue;
         if (/^on[a-zA-Z]/.test(fn)) continue; // DOM handler / callback option
+        if (DELEGATE_MARKER(fn, fileSrc(f.file))) continue; // đã thin-delegate về shared
         if (!fnIndex.has(fn)) fnIndex.set(fn, new Set());
         fnIndex.get(fn).add(f.file);
     }

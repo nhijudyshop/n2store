@@ -1,9 +1,9 @@
 {
-    "generatedAt": "2026-06-19 01:46",
+    "generatedAt": "2026-06-19 01:48",
     "totals": {
         "files": 338,
         "sharedModules": 89,
-        "functions": 2480,
+        "functions": 2479,
         "oversized": 0
     },
     "sharedModules": [
@@ -8400,109 +8400,6 @@
     ],
     "duplicateFunctions": [
         {
-            "fn": "escapeHtml",
-            "files": [
-                "live-chat/js/pancake/inventory-panel-state.js",
-                "live-chat/js/shared/utils.js",
-                "native-orders/js/native-orders-state.js",
-                "so-order/js/so-order-format.js",
-                "web2/balance-history/js/web2-bh-core.js",
-                "web2/balance-history/js/web2-link-customer-modal.js",
-                "web2/balance-history/js/web2-manual-deposit.js",
-                "web2/balance-history/js/web2-partner-enricher.js",
-                "web2/balance-history/js/web2-pm-core.js",
-                "web2/customer-wallet/js/web2-customer-wallet-state.js",
-                "web2/fastsaleorder-delivery/dlv-app.js",
-                "web2/fastsaleorder-invoice/pbh-state.js",
-                "web2/fastsaleorder-refund/rf-app.js",
-                "web2/kpi/js/kpi-assignments.js",
-                "web2/kpi/js/kpi-dashboard.js",
-                "web2/pancake-settings/js/pancake-settings-state.js",
-                "web2/products/js/web2-products-print-utils.js",
-                "web2/products/js/web2-products-state.js",
-                "web2/purchase-refund/js/purchase-refund-state.js",
-                "web2/reconcile/js/reconcile-state.js",
-                "web2/shared/page-builder.js",
-                "web2/shared/web2-command-palette.js",
-                "web2/shared/web2-escape.js",
-                "web2/shared/web2-import.js",
-                "web2/shared/web2-notification-bell.js",
-                "web2/shared/web2-sidebar.js",
-                "web2/supplier-debt/js/supplier-debt-state.js",
-                "web2/supplier-wallet/js/supplier-wallet-state.js",
-                "web2/system/js/system-services.js",
-                "web2/users/js/users-app.js",
-                "web2/variants/js/web2-variants-app.js"
-            ],
-            "count": 31
-        },
-        {
-            "fn": "_authHeaders",
-            "files": [
-                "native-orders/js/native-orders-api.js",
-                "web2/customers/js/customers-api.js",
-                "web2/fastsaleorder-invoice/pbh-api.js",
-                "web2/kpi/js/kpi-dashboard.js",
-                "web2/purchase-refund/js/purchase-refund-api.js",
-                "web2/shared/web2-api.js",
-                "web2/shared/web2-chat-utils.js",
-                "web2/shared/web2-msg-template-core.js",
-                "web2/shared/web2-notification-bell.js",
-                "web2/shared/web2-pancake-accounts.js",
-                "web2/shared/web2-quick-reply.js",
-                "web2/shared/web2-so-order-reader.js",
-                "web2/shared/web2-suppliers-cache.js",
-                "web2/shared/web2-wallet-api.js",
-                "web2/shared/web2-zalo-api.js",
-                "web2/shared/web2-zalo.js",
-                "web2/supplier-wallet/js/supplier-wallet-storage.js"
-            ],
-            "count": 17
-        },
-        {
-            "fn": "fmtTime",
-            "files": [
-                "live-chat/js/live/comments-mobile-state.js",
-                "live-chat/js/live/live-order-history.js",
-                "web2/balance-history/js/web2-bh-core.js",
-                "web2/balance-history/js/web2-pm-core.js",
-                "web2/ck-dashboard/js/ck-dashboard-app.js",
-                "web2/customer-wallet/js/web2-customer-wallet-state.js",
-                "web2/payment-confirm/js/payment-confirm-app.js",
-                "web2/products/js/web2-product-detail.js",
-                "web2/shared/chat-panel/web2-chat-panel-state.js",
-                "web2/shared/page-builder.js",
-                "web2/shared/web2-ck-review.js",
-                "web2/shared/web2-unread-panel.js",
-                "web2/shared/zalo-chat/chat-store.js",
-                "web2/supplier-debt/js/supplier-debt-state.js",
-                "web2/supplier-wallet/js/supplier-wallet-state.js",
-                "web2/system/js/system-sse.js",
-                "web2/zalo/js/web2-zalo-utils.js"
-            ],
-            "count": 17
-        },
-        {
-            "fn": "authHeaders",
-            "files": [
-                "native-orders/js/native-orders-kpi.js",
-                "web2/balance-history/js/web2-bh-core.js",
-                "web2/balance-history/js/web2-link-customer-modal.js",
-                "web2/balance-history/js/web2-manual-deposit.js",
-                "web2/balance-history/js/web2-pm-core.js",
-                "web2/multi-tool/js/multi-tool.js",
-                "web2/payment-confirm/js/payment-confirm-app.js",
-                "web2/photo-studio/photo-studio-bg.js",
-                "web2/shared/web2-api-fetch.js",
-                "web2/shared/web2-auth.js",
-                "web2/shared/web2-ck-assign-picker.js",
-                "web2/shared/web2-ck-review.js",
-                "web2/shared/web2-customer-store.js",
-                "web2/supplier-debt/js/supplier-debt-api.js"
-            ],
-            "count": 14
-        },
-        {
             "fn": "ensureStyles",
             "files": [
                 "web2/balance-history/js/web2-link-customer-modal.js",
@@ -8523,71 +8420,39 @@
             "count": 14
         },
         {
-            "fn": "fmtVnd",
+            "fn": "escapeHtml",
             "files": [
-                "native-orders/js/native-orders-kpi.js",
-                "so-order/js/so-order-format.js",
-                "web2/balance-history/js/web2-bh-core.js",
-                "web2/balance-history/js/web2-link-customer-modal.js",
+                "live-chat/js/pancake/inventory-panel-state.js",
+                "live-chat/js/shared/utils.js",
+                "web2/balance-history/js/web2-partner-enricher.js",
+                "web2/fastsaleorder-invoice/pbh-state.js",
+                "web2/pancake-settings/js/pancake-settings-state.js",
+                "web2/shared/page-builder.js",
+                "web2/shared/web2-command-palette.js",
+                "web2/shared/web2-escape.js",
+                "web2/shared/web2-import.js",
+                "web2/shared/web2-notification-bell.js",
+                "web2/shared/web2-sidebar.js",
+                "web2/system/js/system-services.js"
+            ],
+            "count": 12
+        },
+        {
+            "fn": "fmtTime",
+            "files": [
+                "live-chat/js/live/comments-mobile-state.js",
+                "live-chat/js/live/live-order-history.js",
                 "web2/balance-history/js/web2-pm-core.js",
                 "web2/customer-wallet/js/web2-customer-wallet-state.js",
-                "web2/kpi/js/kpi-dashboard.js",
                 "web2/products/js/web2-product-detail.js",
-                "web2/shared/web2-ck-assign-picker.js",
-                "web2/shared/web2-customer-detail-modal.js",
-                "web2/shared/web2-wallet-balance.js",
+                "web2/shared/chat-panel/web2-chat-panel-state.js",
+                "web2/shared/zalo-chat/chat-store.js",
                 "web2/supplier-debt/js/supplier-debt-state.js",
-                "web2/supplier-wallet/js/supplier-wallet-state.js"
+                "web2/supplier-wallet/js/supplier-wallet-state.js",
+                "web2/system/js/system-sse.js",
+                "web2/zalo/js/web2-zalo-utils.js"
             ],
-            "count": 13
-        },
-        {
-            "fn": "_w2Auth",
-            "files": [
-                "live-chat/js/shared/debt-manager.js",
-                "so-order/js/so-order-state.js",
-                "web2/products/js/web2-products-api.js",
-                "web2/products/js/web2-products-print-utils.js",
-                "web2/returns/js/returns-api.js",
-                "web2/shared/web2-customer-detail-modal.js",
-                "web2/shared/web2-printer.js",
-                "web2/shared/web2-qr-modal.js",
-                "web2/shared/web2-wallet-balance.js",
-                "web2/variants/js/web2-variants-api.js"
-            ],
-            "count": 10
-        },
-        {
-            "fn": "fmtDate",
-            "files": [
-                "web2/customer-wallet/js/web2-customer-wallet-state.js",
-                "web2/fastsaleorder-delivery/dlv-app.js",
-                "web2/fastsaleorder-invoice/pbh-state.js",
-                "web2/fastsaleorder-refund/rf-app.js",
-                "web2/kpi/js/kpi-assignments.js",
-                "web2/kpi/js/kpi-dashboard.js",
-                "web2/multi-tool/js/multi-tool.js",
-                "web2/purchase-refund/js/purchase-refund-state.js",
-                "web2/shared/web2-ck-assign-picker.js",
-                "web2/shared/web2-customer-detail-modal.js"
-            ],
-            "count": 10
-        },
-        {
-            "fn": "normPhone",
-            "files": [
-                "live-chat/js/live/live-kho-enricher.js",
-                "web2/balance-history/js/web2-partner-enricher.js",
-                "web2/customer-wallet/js/web2-customer-wallet-state.js",
-                "web2/customers/js/customers-state.js",
-                "web2/shared/web2-ck-review.js",
-                "web2/shared/web2-customer-detail-modal.js",
-                "web2/shared/web2-customer-store.js",
-                "web2/shared/web2-wallet-api.js",
-                "web2/shared/web2-wallet-balance.js",
-                "web2/shared/web2-zalo.js"
-            ],
-            "count": 10
+            "count": 11
         },
         {
             "fn": "renderPagination",
@@ -8635,20 +8500,6 @@
             "count": 8
         },
         {
-            "fn": "fmtMoney",
-            "files": [
-                "live-chat/js/live/live-order-history.js",
-                "web2/customers/js/customers-state.js",
-                "web2/fastsaleorder-invoice/pbh-state.js",
-                "web2/fastsaleorder-refund/rf-app.js",
-                "web2/payment-confirm/js/payment-confirm-app.js",
-                "web2/purchase-refund/js/purchase-refund-state.js",
-                "web2/reconcile/js/reconcile-state.js",
-                "web2/shared/web2-ck-review.js"
-            ],
-            "count": 8
-        },
-        {
             "fn": "renderList",
             "files": [
                 "web2/customer-wallet/js/web2-customer-wallet-render.js",
@@ -8675,19 +8526,6 @@
                 "web2/variants/js/web2-variants-app.js"
             ],
             "count": 8
-        },
-        {
-            "fn": "_esc",
-            "files": [
-                "live-chat/js/live/live-chat-modal.js",
-                "live-chat/js/live/live-hidden-commenters.js",
-                "live-chat/js/live/live-livestream-gallery.js",
-                "live-chat/js/live/live-livestream-snap-state.js",
-                "native-orders/js/native-orders-packing-slip.js",
-                "web2/shared/web2-bill-service.js",
-                "web2/system/js/system-app.js"
-            ],
-            "count": 7
         },
         {
             "fn": "reload",
@@ -8727,6 +8565,18 @@
                 "web2/zalo/js/web2-zalo-app.js"
             ],
             "count": 7
+        },
+        {
+            "fn": "_esc",
+            "files": [
+                "live-chat/js/live/live-chat-modal.js",
+                "live-chat/js/live/live-hidden-commenters.js",
+                "live-chat/js/live/live-livestream-gallery.js",
+                "live-chat/js/live/live-livestream-snap-state.js",
+                "web2/shared/web2-bill-service.js",
+                "web2/system/js/system-app.js"
+            ],
+            "count": 6
         },
         {
             "fn": "_fetchJson",
@@ -8785,6 +8635,18 @@
                 "web2/shared/web2-customer-store.js",
                 "web2/shared/web2-unread-panel.js",
                 "web2/supplier-wallet/js/supplier-wallet-storage.js"
+            ],
+            "count": 6
+        },
+        {
+            "fn": "normPhone",
+            "files": [
+                "live-chat/js/live/live-kho-enricher.js",
+                "web2/balance-history/js/web2-partner-enricher.js",
+                "web2/customer-wallet/js/web2-customer-wallet-state.js",
+                "web2/customers/js/customers-state.js",
+                "web2/shared/web2-customer-store.js",
+                "web2/shared/web2-zalo.js"
             ],
             "count": 6
         },
@@ -8853,6 +8715,17 @@
                 "so-order/js/so-order-storage.js",
                 "web2/balance-history/js/web2-partner-enricher.js",
                 "web2/supplier-wallet/js/supplier-wallet-storage.js"
+            ],
+            "count": 5
+        },
+        {
+            "fn": "fmtMoney",
+            "files": [
+                "live-chat/js/live/live-order-history.js",
+                "web2/customers/js/customers-state.js",
+                "web2/fastsaleorder-invoice/pbh-state.js",
+                "web2/purchase-refund/js/purchase-refund-state.js",
+                "web2/reconcile/js/reconcile-state.js"
             ],
             "count": 5
         },
@@ -8975,6 +8848,16 @@
                 "live-chat/js/live/live-livestream-snap-stream.js",
                 "so-order/js/so-order-confirm.js",
                 "so-order/js/so-order-inline-edit.js"
+            ],
+            "count": 4
+        },
+        {
+            "fn": "fmtDate",
+            "files": [
+                "web2/customer-wallet/js/web2-customer-wallet-state.js",
+                "web2/fastsaleorder-invoice/pbh-state.js",
+                "web2/multi-tool/js/multi-tool.js",
+                "web2/purchase-refund/js/purchase-refund-state.js"
             ],
             "count": 4
         },
