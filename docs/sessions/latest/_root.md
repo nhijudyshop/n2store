@@ -3,23 +3,23 @@
 > Snapshot tự động ghi đè sau mỗi commit chạm folder này. **Không edit thủ công.**
 > Mục đích: khi session cũ chết (vd lỗi image limit), session mới chỉ cần đọc file này là có đủ context để tiếp tục.
 
-**Latest session**: `RESUME:20260618-215204-36ed8a7`
-**Session file**: [`./20260618-215204-36ed8a7.md`](../20260618-215204-36ed8a7.md)
-**Commit**: `36ed8a7` — feat(web2): bản đồ code "thông minh" (codemap auto-gen) + master plan tách module toàn bộ Web 2.0
-**Last updated**: 2026-06-18 21:52:04 +07
-**Summary**: codemap thông minh (gen-web2-codemap) + master plan tách module toàn bộ Web 2.0 (discovery 29-agent)
+**Latest session**: `RESUME:20260619-140731-46d037b`
+**Session file**: [`./20260619-140731-46d037b.md`](../20260619-140731-46d037b.md)
+**Commit**: `46d037b` — perf(web2/photo-editor): preload model nhận diện mặt ở nền khi tải ảnh → bấm công cụ làm đẹp mặt nhanh ~1s (thay vì ~3.5s cold)
+**Last updated**: 2026-06-19 14:07:31 +07
+**Summary**: perf(web2/photo-editor): preload model nhận diện mặt ở nền khi tải ảnh → bấm công cụ làm đẹp...
 
 ## Files changed in this commit (`_root/`)
 
-- `CLAUDE.md`
+- `.gitignore`
 
 ## Last 5 commits touching `_root/`
 
-- `36ed8a744` feat(web2): bản đồ code "thông minh" (codemap auto-gen) + master plan tách module toàn bộ Web 2.0 _(2026-06-18)_
-- `148365232` docs(convention): Web 2.0 — tách module nhỏ + share dùng chung (CLAUDE.md item 0, dev-log, memory) _(2026-06-18)_
-- `d45779ee6` chore(docs): xoá docs Pancake cũ (lỗi thời) → browser-test trang thật _(2026-06-18)_
-- `2a02bff32` refactor(web2): hợp nhất base-URL về 1 nguồn (web2-auth.js) + fix livestream 404 worker + ck-dashboard 401 _(2026-06-15)_
-- `f6e3c7171` docs(web2): chốt quy ước REALTIME, KHÔNG POLLER (CLAUDE.md + overview #conventions + dev-log) _(2026-06-15)_
+- `46d037b38` perf(web2/photo-editor): preload model nhận diện mặt ở nền khi tải ảnh → bấm công cụ làm đẹp mặt nhanh ~1s (thay vì ~3.5s cold) _(2026-06-19)_
+- `7f8f2f8bf` auto: session update _(2026-06-05)_
+- `a3e3aca2c` feat(orders-report): đối soát KPI theo MÓN + đổi sang ExportFileDetail _(2026-06-03)_
+- `37f2713eb` chore: gitignore TPOS test captures (chứa auth tokens) _(2026-05-25)_
+- `0d625dacf` auto: session update _(2026-05-25)_
 
 ---
 
@@ -27,4 +27,4 @@
 
 1. Đọc file session ở trên để xem Files Modified + Next Steps đã điền (nếu Claude turn trước fill rồi).
 2. Cần lùi xa hơn → `git show <sha>` theo list commit trên.
-3. Hoặc paste token `RESUME:20260618-215204-36ed8a7` cho Claude walk chain theo CLAUDE.md protocol.
+3. Hoặc paste token `RESUME:20260619-140731-46d037b` cho Claude walk chain theo CLAUDE.md protocol.

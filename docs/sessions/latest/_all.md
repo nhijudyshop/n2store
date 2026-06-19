@@ -3,21 +3,22 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `90e1604` — auto: session update
-**Last updated**: 2026-06-19 13:45:22 +07
-**Latest session**: [`RESUME:20260619-134522-90e1604`](../20260619-134522-90e1604.md)
-**Summary**: auto: session update
+**Latest commit**: `46d037b` — perf(web2/photo-editor): preload model nhận diện mặt ở nền khi tải ảnh → bấm công cụ làm đẹp mặt nhanh ~1s (thay vì ~3.5s cold)
+**Last updated**: 2026-06-19 14:07:31 +07
+**Latest session**: [`RESUME:20260619-140731-46d037b`](../20260619-140731-46d037b.md)
+**Summary**: perf(web2/photo-editor): preload model nhận diện mặt ở nền khi tải ảnh → bấm công cụ làm đẹp...
 
 ## Folders affected in this commit
 
-- [`web2/`](./web2.md) — 3 file(s)
+- [`_root/`](./_root.md) — 1 file(s)
+- [`web2/`](./web2.md) — 7 file(s)
 
 ## All folder snapshots
 
 - [`.claude/`](./.claude.md) — updated 2026-06-05 10:42
 - [`.github/`](./.github.md) — updated 2026-06-13 11:30
 - [`AI/`](./AI.md) — updated 2026-05-21 15:39
-- [`_root/`](./_root.md) — updated 2026-06-18 21:52
+- [`_root/`](./_root.md) — updated 2026-06-19 14:07
 - [`aikol-studio/`](./aikol-studio.md) — updated 2026-05-21 15:39
 - [`balance-history-home/`](./balance-history-home.md) — updated 2026-06-18 13:09
 - [`balance-history/`](./balance-history.md) — updated 2026-06-16 14:31
@@ -73,4 +74,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-19 13:45
+- [`web2/`](./web2.md) — updated 2026-06-19 14:07
