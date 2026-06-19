@@ -3,18 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `dc07206` — docs(web2): dev-log + codemap cho PWA dùng chung
-**Last updated**: 2026-06-20 00:10:22 +07
-**Latest session**: [`RESUME:20260620-001022-dc07206`](../20260620-001022-dc07206.md)
-**Summary**: docs(web2): dev-log + codemap cho PWA dùng chung
+**Latest commit**: `071ae45` — fix(live-chat): comments-mobile thêm apple-touch-icon + apple meta → 'Thêm màn hình chính' hiện logo (thay chữ C)
+**Last updated**: 2026-06-20 00:20:41 +07
+**Latest session**: [`RESUME:20260620-002041-071ae45`](../20260620-002041-071ae45.md)
+**Summary**: fix(live-chat): comments-mobile thêm apple-touch-icon + apple meta → 'Thêm màn hình chính' hiện logo (thay c...
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 3 file(s)
-- [`live-chat/`](./live-chat.md) — 2 file(s)
-- [`native-orders/`](./native-orders.md) — 1 file(s)
-- [`so-order/`](./so-order.md) — 1 file(s)
-- [`web2/`](./web2.md) — 45 file(s)
+- [`live-chat/`](./live-chat.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -42,7 +38,7 @@
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-06-16 14:31
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-16 14:31
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
-- [`live-chat/`](./live-chat.md) — updated 2026-06-20 00:10
+- [`live-chat/`](./live-chat.md) — updated 2026-06-20 00:20
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-06-19 19:21
 - [`n2store-facebook/`](./n2store-facebook.md) — updated 2026-06-14 13:09
 - [`n2store-realtime/`](./n2store-realtime.md) — updated 2026-06-16 11:15
