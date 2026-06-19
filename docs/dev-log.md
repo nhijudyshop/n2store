@@ -2,6 +2,21 @@
 
 ## 2026-06-19
 
+### [web2/zalo + render] Tài khoản Zalo CHÍNH gửi tin KH 1-1 (mặc định "Nhijudy Ơi") + nút đổi ✅
+
+User: gửi tin nhắn KH (bấm SĐT ở jt-tracking…) phải dùng tài khoản **"Nhijudy Ơi"** (UID 711743163298674606), KHÔNG để hệ thống tự chọn. Chốt phạm vi: **toàn hệ thống + nút đổi ở trang Zalo**.
+
+Điều tra: 2 TK cá nhân — `zca_7c8093f1…`=Nhijudy Ơi, `zca_55477969…`=My Njd. Nhóm J&T "XỬ LÝ NJD" thuộc **My Njd** (Nhijudy Ơi không là thành viên nhóm nào) → reply TRONG nhóm buộc My Njd (Zalo chỉ cho member gửi). Còn **nhắn KH 1-1** trước đây `/conversation/ensure` chọn "TK personal connected đầu tiên theo updated_at" → không cố định.
+
+Giải pháp (khái niệm "TK chính"):
+
+- DB: thêm cột `web2_zalo_accounts.is_primary` (ALTER idempotent + CREATE). Seed `zca_7c8093f1…` làm primary KHI chưa có primary nào (idempotent, đổi sau bằng UI).
+- Route `POST /accounts/:key/primary` (personal-only, atomic `is_primary=(account_key=$1)`) + SSE `web2:zalo:accounts`. `_safeAccount` trả `isPrimary`.
+- `/conversation/:phone` + `/conversation/ensure`: ƯU TIÊN hội thoại/TK dưới **primary** (`_getPrimaryKey`), pick account `ORDER BY is_primary DESC`. Chưa đặt primary → fallback hành vi cũ (an toàn).
+- Frontend trang Zalo: badge **"⭐ TK chính"** trên card primary + nút **"Đặt làm chính"** trên card personal khác → `ZaloApi.setPrimary(key)` → reload. CSS `.wz-acc-primary`/`.is-primary`.
+
+Files: `render.com/routes/web2-zalo.js`, `render.com/db/web2-zalo-schema.js`, `web2/shared/web2-zalo-api.js`, `web2/zalo/{index.html, js/web2-zalo-accounts.js, css/web2-zalo.css}`. `node --check` PASS. ⚠ 2 TK đang ngắt kết nối → cần quét QR lại "Nhijudy Ơi" thì gửi tin mới chạy; preference đã set sẵn.
+
 ### [web2/video-beauty] Trang MỚI "Làm đẹp video" on-device + fix treo nhận diện mặt (CPU) + preload ✅
 
 User: "tất cả chức năng beauty video như hình ảnh" + "render bằng cpu chứ không phải gpu?".
