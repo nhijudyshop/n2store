@@ -1,9 +1,9 @@
 {
-    "generatedAt": "2026-06-19 02:18",
+    "generatedAt": "2026-06-19 03:38",
     "totals": {
-        "files": 344,
+        "files": 349,
         "sharedModules": 95,
-        "functions": 2499,
+        "functions": 2543,
         "oversized": 0
     },
     "sharedModules": [
@@ -434,7 +434,7 @@
             "purpose": "WEB2.0 module.",
             "api": [],
             "consumers": [],
-            "lines": 517
+            "lines": 529
         },
         {
             "file": "web2/shared/web2-customer-chat-modal.js",
@@ -572,6 +572,7 @@
                 "web2/kpi/js/kpi-dashboard.js",
                 "web2/multi-tool/js/multi-tool.js",
                 "web2/payment-confirm/js/payment-confirm-app.js",
+                "web2/product-card/js/product-card.js",
                 "web2/products/js/web2-product-detail.js",
                 "web2/products/js/web2-products-print-utils.js",
                 "web2/products/js/web2-products-state.js",
@@ -591,7 +592,8 @@
                 "web2/supplier-debt/js/supplier-debt-state.js",
                 "web2/supplier-wallet/js/supplier-wallet-state.js",
                 "web2/users/js/users-app.js",
-                "web2/variants/js/web2-variants-app.js"
+                "web2/variants/js/web2-variants-app.js",
+                "web2/video-maker/js/video-maker.js"
             ],
             "lines": 64
         },
@@ -954,6 +956,7 @@
                 "so-order/js/so-order-modal-suggest.js",
                 "so-order/js/so-order-receive.js",
                 "so-order/js/so-order-render.js",
+                "web2/product-card/js/product-card.js",
                 "web2/products/js/web2-products-actions.js",
                 "web2/products/js/web2-products-app.js",
                 "web2/products/js/web2-products-modal.js",
@@ -964,7 +967,8 @@
                 "web2/purchase-refund/js/purchase-refund-modal.js",
                 "web2/purchase-refund/js/purchase-refund-render.js",
                 "web2/supplier-wallet/js/supplier-wallet-actions.js",
-                "web2/supplier-wallet/js/supplier-wallet-app.js"
+                "web2/supplier-wallet/js/supplier-wallet-app.js",
+                "web2/video-maker/js/video-maker.js"
             ],
             "lines": 450
         },
@@ -982,6 +986,7 @@
             "purpose": "WEB2.0 shared — 1 NGUỒN sinh QR \"trang trí\" đen trắng cho tem SP + PBH.",
             "api": [],
             "consumers": [
+                "web2/product-card/js/product-card.js",
                 "web2/products/js/web2-products-print-modal.js",
                 "web2/products/js/web2-products-print-render.js",
                 "web2/shared/web2-bill-service.js"
@@ -1033,7 +1038,7 @@
                 "web2/returns/js/returns-app.js",
                 "web2/system/js/system-app.js"
             ],
-            "lines": 635
+            "lines": 645
         },
         {
             "file": "web2/shared/web2-so-order-reader.js",
@@ -3255,7 +3260,7 @@
                 },
                 {
                     "file": "native-orders/js/native-orders-interactions.js",
-                    "lines": 246,
+                    "lines": 251,
                     "purpose": "WEB2.0 module.",
                     "globals": ["NativeOrders"],
                     "uses": ["Web2ChatPanel", "Web2Chat", "Web2CustomerChat"],
@@ -3264,15 +3269,14 @@
                         "_extensionRequest",
                         "_hasChatClient",
                         "_hasExtension",
+                        "_parseNoteComments",
                         "_refreshInteractionsIfOpen",
                         "_renderCommentsPanel",
                         "_renderInteractionsInfoHtml",
                         "_wireCommentReplies",
-                        "fbPermalink",
                         "onMsg",
                         "onReady",
-                        "openInteractions",
-                        "pancakeUrl"
+                        "openInteractions"
                     ]
                 },
                 {
@@ -5294,6 +5298,61 @@
             ]
         },
         {
+            "page": "web2/product-card",
+            "files": [
+                {
+                    "file": "web2/product-card/js/product-card-render.js",
+                    "lines": 431,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["Web2ProductCard"],
+                    "uses": [],
+                    "functions": [
+                        "_alpha",
+                        "_footer",
+                        "_placeholder",
+                        "_renderBottomBar",
+                        "_renderFrame",
+                        "_renderSideText",
+                        "drawContain",
+                        "drawCover",
+                        "fmtPrice",
+                        "loadImage",
+                        "onerror",
+                        "onload",
+                        "render",
+                        "roundRect",
+                        "wrapText"
+                    ]
+                },
+                {
+                    "file": "web2/product-card/js/product-card.js",
+                    "lines": 326,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["ProductCardPage"],
+                    "uses": ["Web2Escape", "Web2ProductsCache", "Web2QR"],
+                    "functions": [
+                        "$",
+                        "_fitPreview",
+                        "bindField",
+                        "close",
+                        "copyPng",
+                        "doRender",
+                        "esc",
+                        "exportPng",
+                        "init",
+                        "notify",
+                        "onload",
+                        "pickProduct",
+                        "renderPickers",
+                        "scheduleRender",
+                        "setImage",
+                        "setQr",
+                        "wireProductPicker"
+                    ]
+                }
+            ]
+        },
+        {
             "page": "web2/product-counter",
             "files": [
                 {
@@ -6506,7 +6565,7 @@
                 },
                 {
                     "file": "web2/shared/web2-customer-chat-core.js",
-                    "lines": 517,
+                    "lines": 529,
                     "purpose": "WEB2.0 module.",
                     "globals": [],
                     "uses": [
@@ -7506,7 +7565,7 @@
                 },
                 {
                     "file": "web2/shared/web2-sidebar.js",
-                    "lines": 635,
+                    "lines": 645,
                     "purpose": "WEB2-clone sidebar for Web 2.0 pages.",
                     "globals": ["Web2Sidebar"],
                     "uses": [
@@ -8466,6 +8525,78 @@
             ]
         },
         {
+            "page": "web2/video-maker",
+            "files": [
+                {
+                    "file": "web2/video-maker/js/video-maker.js",
+                    "lines": 434,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["VideoMakerPage"],
+                    "uses": ["Web2Escape", "Web2ProductsCache"],
+                    "functions": [
+                        "$",
+                        "_stopSrc",
+                        "addImagesFromFiles",
+                        "applyCanvasSize",
+                        "audioCtx",
+                        "dims",
+                        "drawAt",
+                        "esc",
+                        "exportVideo",
+                        "findScene",
+                        "fitPreview",
+                        "genNarration",
+                        "init",
+                        "loadImage",
+                        "loop",
+                        "narrationBuffer",
+                        "notify",
+                        "ondataavailable",
+                        "onerror",
+                        "onload",
+                        "pickMime",
+                        "play",
+                        "renderPickers",
+                        "renderScenes",
+                        "setStat",
+                        "stop",
+                        "totalDur",
+                        "wireSceneList"
+                    ]
+                },
+                {
+                    "file": "web2/video-maker/js/video-render.js",
+                    "lines": 156,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["Web2VideoRender"],
+                    "uses": [],
+                    "functions": [
+                        "_drawImageZoom",
+                        "_drawScene",
+                        "_wrap",
+                        "drawFrame",
+                        "totalDuration"
+                    ]
+                },
+                {
+                    "file": "web2/video-maker/js/video-tts.js",
+                    "lines": 137,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["Web2VideoTTS"],
+                    "uses": [],
+                    "functions": [
+                        "_getPipe",
+                        "_splitSentences",
+                        "cancelPreview",
+                        "progress_callback",
+                        "speakPreview",
+                        "synthesize",
+                        "toAudioBuffer"
+                    ]
+                }
+            ]
+        },
+        {
             "page": "web2/zalo",
             "files": [
                 {
@@ -9413,6 +9544,15 @@
             "count": 3
         },
         {
+            "fn": "fmtPrice",
+            "files": [
+                "live-chat/js/pancake/inventory-panel-state.js",
+                "web2/product-card/js/product-card-render.js",
+                "web2/products/js/web2-products-state.js"
+            ],
+            "count": 3
+        },
+        {
             "fn": "getPageAccessToken",
             "files": [
                 "live-chat/js/pancake/pancake-api.js",
@@ -9472,6 +9612,15 @@
                 "live-chat/js/live/live-init-lifecycle.js",
                 "web2/shared/web2-jwt-utils.js",
                 "web2/shared/web2-pancake-accounts.js"
+            ],
+            "count": 3
+        },
+        {
+            "fn": "loadImage",
+            "files": [
+                "web2/product-card/js/product-card-render.js",
+                "web2/shared/web2-canvas-utils.js",
+                "web2/video-maker/js/video-maker.js"
             ],
             "count": 3
         },
