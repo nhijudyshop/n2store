@@ -2,6 +2,15 @@
 
 ## 2026-06-19
 
+### [web2/shared] Giao diện điện thoại DÙNG CHUNG — web2-mobile.css (1 nguồn mọi trang) ✅
+
+User: "giao diện điện thoại cho vào shared để tất cả trang đọc chung… đọc lại tất cả trang, tổng hợp + cải tiến". Workflow 7-agent audit 33 file CSS trang → tổng hợp.
+
+- **MỚI `web2/shared/web2-mobile.css`** — lớp responsive SHARED, additive, bọc `@media` (tablet ≤900 / phone ≤600 / small ≤380 + reduced-motion). Scope `body:has(.web2-shell)`. Phủ: container guard tràn ngang, lưới chung→1 cột (`!important` override grid cứng), bảng cuộn ngang mượt + thu font/padding, form full-width + font≥16px (chống iOS zoom) + min-height chạm, header trang stack, tab/chips/toolbar wrap-scroll, modal panel gần full-screen + footer nút dọc, sticky bar safe-area iOS, media stage giảm cao.
+- **Nạp toàn cục KHÔNG sửa 40 HTML**: `web2-sidebar.js` inject `<link web2-mobile.css>` (cascade SAU theme.css) — pattern như web2-lottie. Bump `web2-sidebar.js?v=20260619m` ở 46 trang.
+- **Robust**: broaden selector `.web2-main` → `main` (bắt cả trang dùng `main.main-content` như balance-history) + thêm class header/toolbar bespoke (`.w2bh-head`, `.w2bh-head-actions`).
+- ✅ Verify Playwright @390px (5 trang fb-posts/balance-history/products/supplier-wallet/reconcile): cssLink inject, 4 @media parse, **docOverflowX=0** (không tràn ngang), hamburger OK; screenshot balance-history nút stack đầy đủ + chips wrap. Commit `d7296bcfa`. DEDUP: nhiều @media trang giờ thừa (xem output workflow) — chưa xoá.
+
 ### [web2/shared] Tách "Tải bộ cài máy POS" → shared Web2PosInstaller (dùng chung) ✅
 
 User: "cho cái tải file cài đặt vào shared web 2.0 → trang nào cần thì tải về cài". Tách logic sinh bat ra khỏi printer-settings thành **`web2/shared/web2-pos-installer.js`** (`Web2PosInstaller`): `downloadInstaller()`/`downloadUninstaller()`/`renderButtons(el)`/`batContent()`. URL tải tính từ **siteRoot** (regex `/web2/` trong pathname) → chạy đúng từ MỌI trang web2 + mọi domain (nhijudy.store / github.io). printer-settings refactor dùng module (xoá 2 hàm trùng); **video-maker thêm nút "Chưa có máy? Tải bộ cài cho máy shop"** (mục Giọng VieNeu). Validate node: sinh bat 2268 ký tự đúng, siteRoot OK. MEDIA-KIT cập nhật.

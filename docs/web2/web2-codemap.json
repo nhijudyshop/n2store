@@ -1,9 +1,9 @@
 {
-    "generatedAt": "2026-06-19 16:26",
+    "generatedAt": "2026-06-19 16:51",
     "totals": {
-        "files": 376,
-        "sharedModules": 105,
-        "functions": 2777,
+        "files": 377,
+        "sharedModules": 106,
+        "functions": 2785,
         "oversized": 1
     },
     "sharedModules": [
@@ -1015,6 +1015,14 @@
             "lines": 38
         },
         {
+            "file": "web2/shared/web2-pos-installer.js",
+            "globals": ["Web2PosInstaller"],
+            "purpose": "WEB2.0 shared — kho đa dụng.",
+            "api": [],
+            "consumers": ["web2/video-maker/js/video-vieneu.js"],
+            "lines": 168
+        },
+        {
             "file": "web2/shared/web2-printer.js",
             "globals": ["Web2Printer"],
             "purpose": "WEB2.0 — DANH SÁCH máy in + gán máy in theo chức năng + in ESC/POS raster qua print-bridge.",
@@ -1161,7 +1169,7 @@
                 "web2/returns/js/returns-app.js",
                 "web2/system/js/system-app.js"
             ],
-            "lines": 673
+            "lines": 690
         },
         {
             "file": "web2/shared/web2-so-order-reader.js",
@@ -7890,6 +7898,23 @@
                     "functions": ["display", "isValid", "norm"]
                 },
                 {
+                    "file": "web2/shared/web2-pos-installer.js",
+                    "lines": 168,
+                    "purpose": "WEB2.0 shared — kho đa dụng.",
+                    "globals": ["Web2PosInstaller"],
+                    "uses": [],
+                    "functions": [
+                        "_download",
+                        "_ensureStyle",
+                        "batContent",
+                        "downloadInstaller",
+                        "downloadUninstaller",
+                        "renderButtons",
+                        "siteRoot",
+                        "uninstallBatContent"
+                    ]
+                },
+                {
                     "file": "web2/shared/web2-printer.js",
                     "lines": 704,
                     "purpose": "WEB2.0 — DANH SÁCH máy in + gán máy in theo chức năng + in ESC/POS raster qua print-bridge.",
@@ -8194,7 +8219,7 @@
                 },
                 {
                     "file": "web2/shared/web2-sidebar.js",
-                    "lines": 673,
+                    "lines": 690,
                     "purpose": "WEB2-clone sidebar for Web 2.0 pages.",
                     "globals": ["Web2Sidebar"],
                     "uses": [
@@ -8220,6 +8245,7 @@
                         "autoLoadSharedModules",
                         "escapeHtml",
                         "inject",
+                        "injectMobileCss",
                         "isCollapsed",
                         "isOurRoute",
                         "isWeb2Item",
@@ -9418,10 +9444,10 @@
                 },
                 {
                     "file": "web2/video-maker/js/video-vieneu.js",
-                    "lines": 164,
+                    "lines": 170,
                     "purpose": "WEB2.0 module.",
                     "globals": ["Web2VideoVieneuUI"],
-                    "uses": ["Web2Vieneu"],
+                    "uses": ["Web2PosInstaller", "Web2Vieneu"],
                     "functions": [
                         "$",
                         "applyRef",
@@ -10351,6 +10377,15 @@
                 "native-orders/js/native-orders-packing-slip.js",
                 "web2/shared/web2-msg-template-ui.js",
                 "web2/shared/web2-wallet-balance.js"
+            ],
+            "count": 3
+        },
+        {
+            "fn": "_ensureStyle",
+            "files": [
+                "web2/shared/web2-new-msg-badge.js",
+                "web2/shared/web2-pos-installer.js",
+                "web2/shared/web2-quick-reply.js"
             ],
             "count": 3
         },

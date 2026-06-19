@@ -2,7 +2,7 @@
 
 # WEB2-CODEMAP — Bản đồ code Web 2.0
 
-> **Auto-generated** • 2026-06-19 16:26 • 376 files, 105 shared modules, 2777 hàm, 1 file > 800 dòng.
+> **Auto-generated** • 2026-06-19 16:51 • 377 files, 106 shared modules, 2785 hàm, 1 file > 800 dòng.
 > Sinh lại: `node scripts/gen-web2-codemap.js` (chạy sau khi đổi cấu trúc/ tách module / thêm trang).
 
 ## 0. Cách dùng (Claude / dev đọc TRƯỚC khi code)
@@ -87,6 +87,7 @@
 | `Web2PancakeImport`                        | [web2-pancake-import.js](../../web2/shared/web2-pancake-import.js)                    | WEB2.0 shared module.                                                                                   | 1         |
 | `Web2PancakeToken`                         | [web2-pancake-token.js](../../web2/shared/web2-pancake-token.js)                      | Web 2.0 — Pancake JWT token monitor + auto-refresh                                                      | 2         |
 | `Web2PhoneUtils`                           | [web2-phone-utils.js](../../web2/shared/web2-phone-utils.js)                          | WEB2.0 shared — 1 NGUỒN chuẩn hoá SĐT VN cho Web 2.0.                                                   | 5         |
+| `Web2PosInstaller`                         | [web2-pos-installer.js](../../web2/shared/web2-pos-installer.js)                      | WEB2.0 shared — kho đa dụng.                                                                            | 1         |
 | `Web2Printer`                              | [web2-printer.js](../../web2/shared/web2-printer.js)                                  | WEB2.0 — DANH SÁCH máy in + gán máy in theo chức năng + in ESC/POS raster qua print-bridge.             | 3         |
 | `Web2ProductCode`                          | [web2-product-code.js](../../web2/shared/web2-product-code.js)                        | WEB2.0 module.                                                                                          | 5         |
 | `Web2ProductCounter`                       | [web2-product-counter.js](../../web2/shared/web2-product-counter.js)                  | WEB2.0 — Web2ProductCounter: đếm số SP qua camera realtime, DÙNG CHUNG mọi trang.                       | 4         |
@@ -407,6 +408,11 @@ Web 2.0 — Pancake JWT token monitor + auto-refresh
 WEB2.0 shared — 1 NGUỒN chuẩn hoá SĐT VN cho Web 2.0.
 **Dùng bởi:** `web2/shared/web2-ck-review.js`, `web2/shared/web2-customer-detail-modal.js`, `web2/shared/web2-sidebar.js`, `web2/shared/web2-wallet-api.js`, `web2/shared/web2-wallet-balance.js`
 
+#### `Web2PosInstaller` — [web2/shared/web2-pos-installer.js](../../web2/shared/web2-pos-installer.js) · 168 dòng
+
+WEB2.0 shared — kho đa dụng.
+**Dùng bởi:** `web2/video-maker/js/video-vieneu.js`
+
 #### `Web2Printer` — [web2/shared/web2-printer.js](../../web2/shared/web2-printer.js) · 704 dòng
 
 WEB2.0 — DANH SÁCH máy in + gán máy in theo chức năng + in ESC/POS raster qua print-bridge.
@@ -457,7 +463,7 @@ Web 2.0 — Realtime client (Pancake WS)
 WEB2.0 module.
 **Dùng bởi:** `native-orders/js/native-orders-pbh-bill.js`
 
-#### `Web2Sidebar` — [web2/shared/web2-sidebar.js](../../web2/shared/web2-sidebar.js) · 673 dòng
+#### `Web2Sidebar` — [web2/shared/web2-sidebar.js](../../web2/shared/web2-sidebar.js) · 690 dòng
 
 WEB2-clone sidebar for Web 2.0 pages.
 **Dùng bởi:** `web2/ck-dashboard/js/ck-dashboard-app.js`, `web2/fb-ads-stats/js/fb-ads-stats.js`, `web2/fb-insights/js/fb-insights.js`, `web2/fb-posts/js/fb-posts-app.js`, `web2/jt-tracking/js/jt-tracking-app.js`, `web2/multi-tool/js/multi-tool.js`, `web2/pancake-settings/js/pancake-settings.js`, `web2/payment-confirm/js/payment-confirm-app.js`, `web2/purchase-refund/js/purchase-refund-app.js`, `web2/returns/js/returns-app.js`, `web2/system/js/system-app.js`
@@ -1610,9 +1616,9 @@ WEB2.0 module — Zalo chat sticker picker.
     - exposes: `Web2VideoTTS`
     - uses shared: `Web2Vieneu`
     - funcs (16): \_concat, \_decodeCtx, \_getMms, \_getPiper, \_mmsChunk, \_piperChunk, \_resample, \_serialize, \_splitSentences, \_vieneuChunk, \_voice, cancelPreview, registerVieneuVoices, speakPreview, synthesize, toAudioBuffer
-- **[video-vieneu.js](../../web2/video-maker/js/video-vieneu.js)** ·164 — WEB2.0 module.
+- **[video-vieneu.js](../../web2/video-maker/js/video-vieneu.js)** ·170 — WEB2.0 module.
     - exposes: `Web2VideoVieneuUI`
-    - uses shared: `Web2Vieneu`
+    - uses shared: `Web2PosInstaller`, `Web2Vieneu`
     - funcs (10): $, applyRef, connect, init, notify, ondataavailable, onstop, refreshServers, renderServers, setStat
 
 ### web2/zalo — WEB2.0 module.
@@ -1881,6 +1887,9 @@ WEB2.0 module — Zalo chat sticker picker.
     - exposes: `Web2PhoneUtils`
     - uses shared: `Web2CustomerStore`
     - funcs (3): display, isValid, norm
+- **[web2-pos-installer.js](../../web2/shared/web2-pos-installer.js)** ·168 — WEB2.0 shared — kho đa dụng.
+    - exposes: `Web2PosInstaller`
+    - funcs (8): \_download, \_ensureStyle, batContent, downloadInstaller, downloadUninstaller, renderButtons, siteRoot, uninstallBatContent
 - **[web2-printer.js](../../web2/shared/web2-printer.js)** ·704 — WEB2.0 — DANH SÁCH máy in + gán máy in theo chức năng + in ESC/POS raster qua print-bridge.
     - exposes: `Web2Printer`
     - uses shared: `API_CONFIG`, `Web2Auth`, `Web2SSE`
@@ -1920,10 +1929,10 @@ WEB2.0 module — Zalo chat sticker picker.
     - exposes: `NativeReturnBill`
     - uses shared: `Popup`, `API_CONFIG`
     - funcs (3): \_normPhone, collect, fetchQueued
-- **[web2-sidebar.js](../../web2/shared/web2-sidebar.js)** ·673 — WEB2-clone sidebar for Web 2.0 pages.
+- **[web2-sidebar.js](../../web2/shared/web2-sidebar.js)** ·690 — WEB2-clone sidebar for Web 2.0 pages.
     - exposes: `Web2Sidebar`
     - uses shared: `DeliveryMethodPicker`, `Popup`, `Web2ApiFetch`, `Web2Auth`, `Web2AvatarUtils`, `Web2CommandPalette`, `Web2Escape`, `Web2Format`, `Web2ImageLightbox`, `Web2JwtUtils`, `Web2Lottie`, `Web2Notify`, `Web2PhoneUtils`, `Web2TextUtils`
-    - funcs (17): SCRIPT_BASE_URL, \_isAdmin, alertSoon, autoLoadSharedModules, escapeHtml, inject, isCollapsed, isOurRoute, isWeb2Item, mount, onclick, renderGroup, renderItem, renderUserFooter, resolveOur, setCollapsed, toggleCollapse
+    - funcs (18): SCRIPT_BASE_URL, \_isAdmin, alertSoon, autoLoadSharedModules, escapeHtml, inject, injectMobileCss, isCollapsed, isOurRoute, isWeb2Item, mount, onclick, renderGroup, renderItem, renderUserFooter, resolveOur, setCollapsed, toggleCollapse
 - **[web2-so-order-reader.js](../../web2/shared/web2-so-order-reader.js)** ·53 — WEB2.0 module.
     - exposes: `Web2SoOrder`
     - uses shared: `API_CONFIG`, `Web2Auth`
@@ -2086,7 +2095,7 @@ WEB2.0 module — Zalo chat sticker picker.
 | `rowHtml`          | 4       |                                                       | so-order-render.js, fb-ads-manual.js, fb-posts-drafts.js, jt-tracking-render.js                                                                                                                                                                                                                                                                                                 |
 | `safeImageUrl`     | 4       |                                                       | web2-products-state.js, purchase-refund-state.js, web2-escape.js, web2-image-lightbox.js                                                                                                                                                                                                                                                                                        |
 
-_…và 70 hàm trùng khác (xem web2-codemap.json)._
+_…và 71 hàm trùng khác (xem web2-codemap.json)._
 
 ## 5. File quá lớn (> 800 dòng) — cần tách module
 
