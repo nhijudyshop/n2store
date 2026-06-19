@@ -819,13 +819,15 @@ router.post('/refresh', async (req, res) => {
                 )
             ).rows;
         } else if (req.body?.mode === 'active') {
-            // AUTO khi mở trang: tra lại các đơn ĐANG HOẠT ĐỘNG (Đang giao/Trung chuyển/Vấn đề/
-            // Chưa tra/Không thấy) — BỎ đơn đã chốt (delivered/returned) + đã duyệt. Nhỏ giọt
-            // theo last_fetched_at ASC để jtexpress KHÔNG chặn (chỉ chạy khi user đang xem trang).
+            // AUTO khi mở trang: tra lại các đơn CHƯA XONG — Đang giao/Trung chuyển/Vấn đề/
+            // Chưa tra/Không thấy + ĐÃ HOÀN (vì 'returned' gồm cả "đang chuyển hoàn" → "về kho" →
+            // "hoàn thành công", chi tiết còn đổi khi hàng đang về). CHỈ bỏ 'delivered' (khách đã
+            // ký nhận = chốt) + đã duyệt. Nhỏ giọt theo last_fetched_at ASC để jtexpress KHÔNG
+            // chặn (chỉ chạy khi user đang xem trang). Đơn hoàn đã xong → user "Duyệt" để ngừng tra.
             rows = (
                 await db.query(
                     `SELECT billcode, cellphone FROM web2_jt_tracking
-                      WHERE approved_at IS NULL AND status NOT IN ('delivered','returned')
+                      WHERE approved_at IS NULL AND status <> 'delivered'
                       ORDER BY last_fetched_at ASC NULLS FIRST
                       LIMIT $1`,
                     [limit]

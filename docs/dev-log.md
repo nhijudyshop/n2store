@@ -14,6 +14,8 @@ J&T KHÔNG push realtime → phải tra lại. Tra dồn dập dễ bị jtexpre
 
 Files: `render.com/routes/web2-jt-tracking.js`, `web2/jt-tracking/{index.html, css/jt-tracking.css, js/jt-tracking-actions.js, js/jt-tracking-app.js}`. `node --check` PASS. Vòng đủ ~66 đơn active / batch 15 mỗi 90s ≈ 7 phút/vòng — tươi đủ làm việc với shipper, không hammer J&T.
 
+**Follow-up**: gồm cả **'returned' (Đã hoàn)** vào auto (đổi `status NOT IN ('delivered','returned')` → `status <> 'delivered'`) — vì 'returned' gồm cả "đang chuyển hoàn → về kho → hoàn thành công", chi tiết còn đổi khi hàng đang về shop. CHỈ 'delivered' (khách ký nhận) là chốt. Đơn hoàn xong → user "Duyệt" để ngừng tra.
+
 ### [web2/zalo + render] Tài khoản Zalo CHÍNH gửi tin KH 1-1 (mặc định "Nhijudy Ơi") + nút đổi ✅
 
 User: gửi tin nhắn KH (bấm SĐT ở jt-tracking…) phải dùng tài khoản **"Nhijudy Ơi"** (UID 711743163298674606), KHÔNG để hệ thống tự chọn. Chốt phạm vi: **toàn hệ thống + nút đổi ở trang Zalo**.
