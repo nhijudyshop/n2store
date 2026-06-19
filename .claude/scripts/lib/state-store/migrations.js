@@ -1,3 +1,4 @@
+// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes.
 'use strict';
 
 const INITIAL_SCHEMA_SQL = `
@@ -108,15 +109,15 @@ CREATE INDEX IF NOT EXISTS idx_governance_events_session_id_created_at
 `;
 
 const MIGRATIONS = [
-  {
-    version: 1,
-    name: '001_initial_state_store',
-    sql: INITIAL_SCHEMA_SQL,
-  },
+    {
+        version: 1,
+        name: '001_initial_state_store',
+        sql: INITIAL_SCHEMA_SQL,
+    },
 ];
 
 function ensureMigrationTable(db) {
-  db.exec(`
+    db.exec(`
     CREATE TABLE IF NOT EXISTS schema_migrations (
       version INTEGER PRIMARY KEY,
       name TEXT NOT NULL,
@@ -126,53 +127,58 @@ function ensureMigrationTable(db) {
 }
 
 function getAppliedMigrations(db) {
-  ensureMigrationTable(db);
-  return db
-    .prepare(`
+    ensureMigrationTable(db);
+    return db
+        .prepare(
+            `
       SELECT version, name, applied_at
       FROM schema_migrations
       ORDER BY version ASC
-    `)
-    .all()
-    .map(row => ({
-      version: row.version,
-      name: row.name,
-      appliedAt: row.applied_at,
-    }));
+    `
+        )
+        .all()
+        .map((row) => ({
+            version: row.version,
+            name: row.name,
+            appliedAt: row.applied_at,
+        }));
 }
 
 function applyMigrations(db) {
-  ensureMigrationTable(db);
+    ensureMigrationTable(db);
 
-  const appliedVersions = new Set(
-    db.prepare('SELECT version FROM schema_migrations').all().map(row => row.version)
-  );
-  const insertMigration = db.prepare(`
+    const appliedVersions = new Set(
+        db
+            .prepare('SELECT version FROM schema_migrations')
+            .all()
+            .map((row) => row.version)
+    );
+    const insertMigration = db.prepare(`
     INSERT INTO schema_migrations (version, name, applied_at)
     VALUES (@version, @name, @applied_at)
   `);
 
-  const applyPending = db.transaction(() => {
-    for (const migration of MIGRATIONS) {
-      if (appliedVersions.has(migration.version)) {
-        continue;
-      }
+    const applyPending = db.transaction(() => {
+        for (const migration of MIGRATIONS) {
+            if (appliedVersions.has(migration.version)) {
+                continue;
+            }
 
-      db.exec(migration.sql);
-      insertMigration.run({
-        version: migration.version,
-        name: migration.name,
-        applied_at: new Date().toISOString(),
-      });
-    }
-  });
+            db.exec(migration.sql);
+            insertMigration.run({
+                version: migration.version,
+                name: migration.name,
+                applied_at: new Date().toISOString(),
+            });
+        }
+    });
 
-  applyPending();
-  return getAppliedMigrations(db);
+    applyPending();
+    return getAppliedMigrations(db);
 }
 
 module.exports = {
-  MIGRATIONS,
-  applyMigrations,
-  getAppliedMigrations,
+    MIGRATIONS,
+    applyMigrations,
+    getAppliedMigrations,
 };

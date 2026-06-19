@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes.
 /**
  * Refactored ECC installer runtime.
  *
@@ -8,19 +9,19 @@
 
 const os = require('os');
 const {
-  SUPPORTED_INSTALL_TARGETS,
-  listLegacyCompatibilityLanguages,
+    SUPPORTED_INSTALL_TARGETS,
+    listLegacyCompatibilityLanguages,
 } = require('./lib/install-manifests');
 const {
-  LEGACY_INSTALL_TARGETS,
-  normalizeInstallRequest,
-  parseInstallArgs,
+    LEGACY_INSTALL_TARGETS,
+    normalizeInstallRequest,
+    parseInstallArgs,
 } = require('./lib/install/request');
 
 function getHelpText() {
-  const languages = listLegacyCompatibilityLanguages();
+    const languages = listLegacyCompatibilityLanguages();
 
-  return `
+    return `
 Usage: install.sh [--target <${LEGACY_INSTALL_TARGETS.join('|')}>] [--dry-run] [--json] <language> [<language> ...]
        install.sh [--target <${SUPPORTED_INSTALL_TARGETS.join('|')}>] [--dry-run] [--json] --profile <name> [--with <component>]... [--without <component>]...
        install.sh [--target <${SUPPORTED_INSTALL_TARGETS.join('|')}>] [--dry-run] [--json] --modules <id,id,...> [--with <component>]... [--without <component>]...
@@ -43,108 +44,108 @@ Options:
   --help       Show this help text
 
 Available languages:
-${languages.map(language => `  - ${language}`).join('\n')}
+${languages.map((language) => `  - ${language}`).join('\n')}
 `;
 }
 
 function showHelp(exitCode = 0) {
-  console.log(getHelpText());
-  process.exit(exitCode);
+    console.log(getHelpText());
+    process.exit(exitCode);
 }
 
 function printHumanPlan(plan, dryRun) {
-  console.log(`${dryRun ? 'Dry-run install plan' : 'Applying install plan'}:\n`);
-  console.log(`Mode: ${plan.mode}`);
-  console.log(`Target: ${plan.target}`);
-  console.log(`Adapter: ${plan.adapter.id}`);
-  console.log(`Install root: ${plan.installRoot}`);
-  console.log(`Install-state: ${plan.installStatePath}`);
-  if (plan.mode === 'legacy') {
-    console.log(`Languages: ${plan.languages.join(', ')}`);
-  } else {
-    if (plan.mode === 'legacy-compat') {
-      console.log(`Legacy languages: ${plan.legacyLanguages.join(', ')}`);
+    console.log(`${dryRun ? 'Dry-run install plan' : 'Applying install plan'}:\n`);
+    console.log(`Mode: ${plan.mode}`);
+    console.log(`Target: ${plan.target}`);
+    console.log(`Adapter: ${plan.adapter.id}`);
+    console.log(`Install root: ${plan.installRoot}`);
+    console.log(`Install-state: ${plan.installStatePath}`);
+    if (plan.mode === 'legacy') {
+        console.log(`Languages: ${plan.languages.join(', ')}`);
+    } else {
+        if (plan.mode === 'legacy-compat') {
+            console.log(`Legacy languages: ${plan.legacyLanguages.join(', ')}`);
+        }
+        console.log(`Profile: ${plan.profileId || '(custom modules)'}`);
+        console.log(`Included components: ${plan.includedComponentIds.join(', ') || '(none)'}`);
+        console.log(`Excluded components: ${plan.excludedComponentIds.join(', ') || '(none)'}`);
+        console.log(`Requested modules: ${plan.requestedModuleIds.join(', ') || '(none)'}`);
+        console.log(`Selected modules: ${plan.selectedModuleIds.join(', ') || '(none)'}`);
+        if (plan.skippedModuleIds.length > 0) {
+            console.log(`Skipped modules: ${plan.skippedModuleIds.join(', ')}`);
+        }
+        if (plan.excludedModuleIds.length > 0) {
+            console.log(`Excluded modules: ${plan.excludedModuleIds.join(', ')}`);
+        }
     }
-    console.log(`Profile: ${plan.profileId || '(custom modules)'}`);
-    console.log(`Included components: ${plan.includedComponentIds.join(', ') || '(none)'}`);
-    console.log(`Excluded components: ${plan.excludedComponentIds.join(', ') || '(none)'}`);
-    console.log(`Requested modules: ${plan.requestedModuleIds.join(', ') || '(none)'}`);
-    console.log(`Selected modules: ${plan.selectedModuleIds.join(', ') || '(none)'}`);
-    if (plan.skippedModuleIds.length > 0) {
-      console.log(`Skipped modules: ${plan.skippedModuleIds.join(', ')}`);
-    }
-    if (plan.excludedModuleIds.length > 0) {
-      console.log(`Excluded modules: ${plan.excludedModuleIds.join(', ')}`);
-    }
-  }
-  console.log(`Operations: ${plan.operations.length}`);
+    console.log(`Operations: ${plan.operations.length}`);
 
-  if (plan.warnings.length > 0) {
-    console.log('\nWarnings:');
-    for (const warning of plan.warnings) {
-      console.log(`- ${warning}`);
+    if (plan.warnings.length > 0) {
+        console.log('\nWarnings:');
+        for (const warning of plan.warnings) {
+            console.log(`- ${warning}`);
+        }
     }
-  }
 
-  console.log('\nPlanned file operations:');
-  for (const operation of plan.operations) {
-    console.log(`- ${operation.sourceRelativePath} -> ${operation.destinationPath}`);
-  }
+    console.log('\nPlanned file operations:');
+    for (const operation of plan.operations) {
+        console.log(`- ${operation.sourceRelativePath} -> ${operation.destinationPath}`);
+    }
 
-  if (!dryRun) {
-    console.log(`\nDone. Install-state written to ${plan.installStatePath}`);
-  }
+    if (!dryRun) {
+        console.log(`\nDone. Install-state written to ${plan.installStatePath}`);
+    }
 }
 
 function main() {
-  try {
-    const options = parseInstallArgs(process.argv);
+    try {
+        const options = parseInstallArgs(process.argv);
 
-    if (options.help) {
-      showHelp(0);
+        if (options.help) {
+            showHelp(0);
+        }
+
+        const { findDefaultInstallConfigPath, loadInstallConfig } = require('./lib/install/config');
+        const { applyInstallPlan } = require('./lib/install-executor');
+        const { createInstallPlanFromRequest } = require('./lib/install/runtime');
+        const defaultConfigPath =
+            options.configPath || options.languages.length > 0
+                ? null
+                : findDefaultInstallConfigPath({ cwd: process.cwd() });
+        const config = options.configPath
+            ? loadInstallConfig(options.configPath, { cwd: process.cwd() })
+            : defaultConfigPath
+              ? loadInstallConfig(defaultConfigPath, { cwd: process.cwd() })
+              : null;
+        const request = normalizeInstallRequest({
+            ...options,
+            config,
+        });
+        const plan = createInstallPlanFromRequest(request, {
+            projectRoot: process.cwd(),
+            homeDir: process.env.HOME || os.homedir(),
+            claudeRulesDir: process.env.CLAUDE_RULES_DIR || null,
+        });
+
+        if (options.dryRun) {
+            if (options.json) {
+                console.log(JSON.stringify({ dryRun: true, plan }, null, 2));
+            } else {
+                printHumanPlan(plan, true);
+            }
+            return;
+        }
+
+        const result = applyInstallPlan(plan);
+        if (options.json) {
+            console.log(JSON.stringify({ dryRun: false, result }, null, 2));
+        } else {
+            printHumanPlan(result, false);
+        }
+    } catch (error) {
+        process.stderr.write(`Error: ${error.message}${getHelpText()}`);
+        process.exit(1);
     }
-
-    const {
-      findDefaultInstallConfigPath,
-      loadInstallConfig,
-    } = require('./lib/install/config');
-    const { applyInstallPlan } = require('./lib/install-executor');
-    const { createInstallPlanFromRequest } = require('./lib/install/runtime');
-    const defaultConfigPath = options.configPath || options.languages.length > 0
-      ? null
-      : findDefaultInstallConfigPath({ cwd: process.cwd() });
-    const config = options.configPath
-      ? loadInstallConfig(options.configPath, { cwd: process.cwd() })
-      : (defaultConfigPath ? loadInstallConfig(defaultConfigPath, { cwd: process.cwd() }) : null);
-    const request = normalizeInstallRequest({
-      ...options,
-      config,
-    });
-    const plan = createInstallPlanFromRequest(request, {
-      projectRoot: process.cwd(),
-      homeDir: process.env.HOME || os.homedir(),
-      claudeRulesDir: process.env.CLAUDE_RULES_DIR || null,
-    });
-
-    if (options.dryRun) {
-      if (options.json) {
-        console.log(JSON.stringify({ dryRun: true, plan }, null, 2));
-      } else {
-        printHumanPlan(plan, true);
-      }
-      return;
-    }
-
-    const result = applyInstallPlan(plan);
-    if (options.json) {
-      console.log(JSON.stringify({ dryRun: false, result }, null, 2));
-    } else {
-      printHumanPlan(result, false);
-    }
-  } catch (error) {
-    process.stderr.write(`Error: ${error.message}${getHelpText()}`);
-    process.exit(1);
-  }
 }
 
 main();

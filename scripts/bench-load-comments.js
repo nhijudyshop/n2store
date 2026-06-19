@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes.
 // BENCHMARK: load 50 comments của 1 live post cũ, qua 4 approaches.
 // Đo: latency, status, comment count, có cursor next không.
 //

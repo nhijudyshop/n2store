@@ -1,1021 +1,1757 @@
-<!DOCTYPE html>
+<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes. -->
+<!doctype html>
 <html lang="vi">
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>NHI JUDY — Hàng Mới Về</title>
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,500&family=Be+Vietnam+Pro:wght@300;400;500;600&display=swap" rel="stylesheet" />
-<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
-<style>
-  :root {
-    --ink: #1a1714;
-    --ink-soft: #4a443d;
-    --muted: #8d8576;
-    --faint: #b7afa1;
-    --cream: #f6f3ee;
-    --paper: #fbfaf7;
-    --card: #ece7dd;
-    --card-2: #e6e0d4;
-    --card-3: #e9e6df;
-    --hairline: #e3ddd2;
-    --hairline-2: #d8d1c4;
-    --accent: #6f2233;
-    --font-ui: 'Be Vietnam Pro', -apple-system, system-ui, sans-serif;
-    --font-display: 'Cormorant Garamond', Georgia, serif;
-  }
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>NHI JUDY — Hàng Mới Về</title>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,500&family=Be+Vietnam+Pro:wght@300;400;500;600&display=swap"
+            rel="stylesheet"
+        />
+        <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+        <style>
+            :root {
+                --ink: #1a1714;
+                --ink-soft: #4a443d;
+                --muted: #8d8576;
+                --faint: #b7afa1;
+                --cream: #f6f3ee;
+                --paper: #fbfaf7;
+                --card: #ece7dd;
+                --card-2: #e6e0d4;
+                --card-3: #e9e6df;
+                --hairline: #e3ddd2;
+                --hairline-2: #d8d1c4;
+                --accent: #6f2233;
+                --font-ui: 'Be Vietnam Pro', -apple-system, system-ui, sans-serif;
+                --font-display: 'Cormorant Garamond', Georgia, serif;
+            }
 
-  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-  html, body { margin: 0; padding: 0; }
-  /* Chặn gesture vuốt-ngang-quay-về của trình duyệt/webview (Chrome/Android history swipe).
+            * {
+                box-sizing: border-box;
+                -webkit-tap-highlight-color: transparent;
+            }
+            html,
+            body {
+                margin: 0;
+                padding: 0;
+            }
+            /* Chặn gesture vuốt-ngang-quay-về của trình duyệt/webview (Chrome/Android history swipe).
      Khách quay về thì bấm mũi tên trên thanh trình duyệt. */
-  html, body { overscroll-behavior-x: none; }
+            html,
+            body {
+                overscroll-behavior-x: none;
+            }
 
-  body {
-    font-family: var(--font-ui);
-    background:
-      radial-gradient(120% 90% at 50% 0%, #e8e2d6 0%, #d8d1c3 60%, #cfc7b8 100%);
-    min-height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 28px 16px;
-    color: var(--ink);
-  }
+            body {
+                font-family: var(--font-ui);
+                background: radial-gradient(
+                    120% 90% at 50% 0%,
+                    #e8e2d6 0%,
+                    #d8d1c3 60%,
+                    #cfc7b8 100%
+                );
+                min-height: 100vh;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                padding: 28px 16px;
+                color: var(--ink);
+            }
 
-  /* ---------- Phone frame ---------- */
-  .phone {
-    position: relative;
-    width: 390px;
-    height: 844px;
-    background: #0c0b0a;
-    border-radius: 54px;
-    padding: 11px;
-    box-shadow:
-      0 2px 6px rgba(0,0,0,.3),
-      0 30px 70px -20px rgba(40,33,24,.55),
-      0 0 0 1px rgba(255,255,255,.04) inset;
-    flex: none;
-  }
-  .screen {
-    position: relative;
-    width: 100%;
-    height: 100%;
-    background: var(--paper);
-    border-radius: 44px;
-    overflow: hidden;
-  }
+            /* ---------- Phone frame ---------- */
+            .phone {
+                position: relative;
+                width: 390px;
+                height: 844px;
+                background: #0c0b0a;
+                border-radius: 54px;
+                padding: 11px;
+                box-shadow:
+                    0 2px 6px rgba(0, 0, 0, 0.3),
+                    0 30px 70px -20px rgba(40, 33, 24, 0.55),
+                    0 0 0 1px rgba(255, 255, 255, 0.04) inset;
+                flex: none;
+            }
+            .screen {
+                position: relative;
+                width: 100%;
+                height: 100%;
+                background: var(--paper);
+                border-radius: 44px;
+                overflow: hidden;
+            }
 
-  /* Status bar */
-  .statusbar {
-    position: absolute;
-    top: 0; left: 0; right: 0;
-    height: 54px;
-    z-index: 60;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0 30px 0 34px;
-    font-size: 15px;
-    font-weight: 500;
-    color: var(--ink);
-    background: linear-gradient(var(--paper) 62%, rgba(251,250,247,0));
-    pointer-events: none;
-  }
-  .statusbar .time { letter-spacing: .02em; padding-top: 6px; font-variant-numeric: tabular-nums; }
-  .status-right { display: flex; align-items: center; gap: 7px; padding-top: 6px; }
-  .signal { display: flex; align-items: flex-end; gap: 2px; height: 11px; }
-  .signal i { width: 3px; border-radius: 1px; background: var(--ink); }
-  .signal i:nth-child(1){ height: 4px; }
-  .signal i:nth-child(2){ height: 6px; }
-  .signal i:nth-child(3){ height: 8px; }
-  .signal i:nth-child(4){ height: 11px; }
-  .wifi { width: 16px; height: 12px; position: relative; }
-  .wifi svg { display:block; }
-  .battery { width: 25px; height: 12px; border: 1px solid rgba(26,23,20,.4); border-radius: 3px; position: relative; padding: 1.5px; }
-  .battery::after { content:""; position:absolute; right:-3px; top:3.5px; width:2px; height:4px; background:rgba(26,23,20,.4); border-radius:0 1px 1px 0; }
-  .battery span { display:block; height:100%; width:78%; background: var(--ink); border-radius:1px; }
+            /* Status bar */
+            .statusbar {
+                position: absolute;
+                top: 0;
+                left: 0;
+                right: 0;
+                height: 54px;
+                z-index: 60;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding: 0 30px 0 34px;
+                font-size: 15px;
+                font-weight: 500;
+                color: var(--ink);
+                background: linear-gradient(var(--paper) 62%, rgba(251, 250, 247, 0));
+                pointer-events: none;
+            }
+            .statusbar .time {
+                letter-spacing: 0.02em;
+                padding-top: 6px;
+                font-variant-numeric: tabular-nums;
+            }
+            .status-right {
+                display: flex;
+                align-items: center;
+                gap: 7px;
+                padding-top: 6px;
+            }
+            .signal {
+                display: flex;
+                align-items: flex-end;
+                gap: 2px;
+                height: 11px;
+            }
+            .signal i {
+                width: 3px;
+                border-radius: 1px;
+                background: var(--ink);
+            }
+            .signal i:nth-child(1) {
+                height: 4px;
+            }
+            .signal i:nth-child(2) {
+                height: 6px;
+            }
+            .signal i:nth-child(3) {
+                height: 8px;
+            }
+            .signal i:nth-child(4) {
+                height: 11px;
+            }
+            .wifi {
+                width: 16px;
+                height: 12px;
+                position: relative;
+            }
+            .wifi svg {
+                display: block;
+            }
+            .battery {
+                width: 25px;
+                height: 12px;
+                border: 1px solid rgba(26, 23, 20, 0.4);
+                border-radius: 3px;
+                position: relative;
+                padding: 1.5px;
+            }
+            .battery::after {
+                content: '';
+                position: absolute;
+                right: -3px;
+                top: 3.5px;
+                width: 2px;
+                height: 4px;
+                background: rgba(26, 23, 20, 0.4);
+                border-radius: 0 1px 1px 0;
+            }
+            .battery span {
+                display: block;
+                height: 100%;
+                width: 78%;
+                background: var(--ink);
+                border-radius: 1px;
+            }
 
-  /* ---------- Scroll area ---------- */
-  .scroll {
-    position: absolute;
-    inset: 0;
-    overflow-y: auto;
-    overflow-x: hidden;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-    overscroll-behavior: contain; /* không chain overscroll ra ngoài → không kích hoạt gesture quay về */
-  }
-  .scroll::-webkit-scrollbar { display: none; }
+            /* ---------- Scroll area ---------- */
+            .scroll {
+                position: absolute;
+                inset: 0;
+                overflow-y: auto;
+                overflow-x: hidden;
+                -webkit-overflow-scrolling: touch;
+                scrollbar-width: none;
+                overscroll-behavior: contain; /* không chain overscroll ra ngoài → không kích hoạt gesture quay về */
+            }
+            .scroll::-webkit-scrollbar {
+                display: none;
+            }
 
-  /* ---------- Header ---------- */
-  header.bar {
-    position: sticky;
-    top: 0;
-    z-index: 40;
-    padding: 50px 18px 12px;
-    background: rgba(251,250,247,.86);
-    backdrop-filter: saturate(140%) blur(14px);
-    -webkit-backdrop-filter: saturate(140%) blur(14px);
-    border-bottom: 1px solid var(--hairline);
-  }
-  .bar-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-  }
-  .bar-side { display: flex; align-items: center; gap: 16px; width: 92px; }
-  .bar-side.right { justify-content: flex-end; }
-  .iconbtn {
-    appearance: none;
-    border: 0; background: none; padding: 0; margin: 0;
-    color: var(--ink);
-    display: inline-flex; align-items: center; justify-content: center;
-    cursor: pointer;
-    position: relative;
-    transition: opacity .18s ease;
-  }
-  .iconbtn:active { opacity: .5; }
-  .iconbtn i { width: 21px; height: 21px; }
-  .iconbtn i svg { stroke-width: 1.4; }
-  .wordmark {
-    font-family: var(--font-display);
-    font-weight: 600;
-    font-size: 22px;
-    letter-spacing: .3em;
-    text-indent: .3em;
-    white-space: nowrap;
-    line-height: 1;
-    color: var(--ink);
-    text-align: center;
-    flex: 1;
-    padding-top: 3px;
-  }
-  .count-dot {
-    position: absolute;
-    top: -6px; right: -8px;
-    min-width: 15px; height: 15px;
-    padding: 0 3px;
-    border-radius: 8px;
-    background: var(--ink);
-    color: var(--paper);
-    font-size: 9px;
-    font-weight: 500;
-    display: flex; align-items: center; justify-content: center;
-    letter-spacing: 0;
-  }
+            /* ---------- Header ---------- */
+            header.bar {
+                position: sticky;
+                top: 0;
+                z-index: 40;
+                padding: 50px 18px 12px;
+                background: rgba(251, 250, 247, 0.86);
+                backdrop-filter: saturate(140%) blur(14px);
+                -webkit-backdrop-filter: saturate(140%) blur(14px);
+                border-bottom: 1px solid var(--hairline);
+            }
+            .bar-row {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+            }
+            .bar-side {
+                display: flex;
+                align-items: center;
+                gap: 16px;
+                width: 92px;
+            }
+            .bar-side.right {
+                justify-content: flex-end;
+            }
+            .iconbtn {
+                appearance: none;
+                border: 0;
+                background: none;
+                padding: 0;
+                margin: 0;
+                color: var(--ink);
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                cursor: pointer;
+                position: relative;
+                transition: opacity 0.18s ease;
+            }
+            .iconbtn:active {
+                opacity: 0.5;
+            }
+            .iconbtn i {
+                width: 21px;
+                height: 21px;
+            }
+            .iconbtn i svg {
+                stroke-width: 1.4;
+            }
+            .wordmark {
+                font-family: var(--font-display);
+                font-weight: 600;
+                font-size: 22px;
+                letter-spacing: 0.3em;
+                text-indent: 0.3em;
+                white-space: nowrap;
+                line-height: 1;
+                color: var(--ink);
+                text-align: center;
+                flex: 1;
+                padding-top: 3px;
+            }
+            .count-dot {
+                position: absolute;
+                top: -6px;
+                right: -8px;
+                min-width: 15px;
+                height: 15px;
+                padding: 0 3px;
+                border-radius: 8px;
+                background: var(--ink);
+                color: var(--paper);
+                font-size: 9px;
+                font-weight: 500;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                letter-spacing: 0;
+            }
 
-  /* Promo banner */
-  .promo {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    padding: 13px 16px;
-    background: var(--ink);
-    color: #efe9df;
-    font-size: 11px;
-    font-weight: 300;
-    letter-spacing: .14em;
-    text-transform: uppercase;
-  }
-  .promo .star { font-family: var(--font-display); font-size: 13px; opacity: .7; }
+            /* Promo banner */
+            .promo {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 8px;
+                padding: 13px 16px;
+                background: var(--ink);
+                color: #efe9df;
+                font-size: 11px;
+                font-weight: 300;
+                letter-spacing: 0.14em;
+                text-transform: uppercase;
+            }
+            .promo .star {
+                font-family: var(--font-display);
+                font-size: 13px;
+                opacity: 0.7;
+            }
 
-  /* Sub bar: sort + category filters */
-  .subbar {
-    position: sticky;
-    top: 92px;
-    z-index: 35;
-    background: var(--paper);
-    border-bottom: 1px solid var(--hairline);
-  }
-  .sortrow {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    padding: 12px 16px 2px;
-  }
-  .lbl { font-size: 10.5px; letter-spacing: .13em; text-transform: uppercase; white-space: nowrap; }
-  .rescount { color: var(--muted); }
-  .sortbtn {
-    appearance: none; border: 0; background: none;
-    display: flex; align-items: center; gap: 7px;
-    cursor: pointer; font-family: var(--font-ui); color: var(--ink);
-    padding: 4px 0;
-    transition: opacity .18s ease;
-  }
-  .sortbtn:active { opacity: .5; }
-  .sortbtn .val { color: var(--muted); }
-  .sortbtn i { width: 15px; height: 15px; }
-  .sortbtn i svg { stroke-width: 1.4; }
-  .catrow {
-    display: flex;
-    gap: 8px;
-    padding: 10px 16px 14px;
-    overflow-x: auto;
-    scrollbar-width: none;
-    cursor: grab;
-    overscroll-behavior-x: contain;
-  }
-  .catrow.dragging { cursor: grabbing; scroll-behavior: auto; }
-  .catrow::-webkit-scrollbar { display: none; }
-  .cat {
-    flex: none;
-    appearance: none;
-    cursor: pointer;
-    font-family: var(--font-ui);
-    padding: 11px 17px;
-    border: 1px solid var(--hairline-2);
-    background: var(--paper);
-    color: var(--ink);
-    font-size: 11px;
-    letter-spacing: .12em;
-    text-transform: uppercase;
-    transition: background .18s ease, color .18s ease, border-color .18s ease;
-  }
-  .cat.on { background: var(--ink); border-color: var(--ink); color: var(--paper); }
-  .cat.sale-chip { color: var(--accent); border-color: rgba(111,34,51,.45); }
-  .cat.sale-chip.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+            /* Sub bar: sort + category filters */
+            .subbar {
+                position: sticky;
+                top: 92px;
+                z-index: 35;
+                background: var(--paper);
+                border-bottom: 1px solid var(--hairline);
+            }
+            .sortrow {
+                display: flex;
+                align-items: center;
+                justify-content: flex-end;
+                padding: 12px 16px 2px;
+            }
+            .lbl {
+                font-size: 10.5px;
+                letter-spacing: 0.13em;
+                text-transform: uppercase;
+                white-space: nowrap;
+            }
+            .rescount {
+                color: var(--muted);
+            }
+            .sortbtn {
+                appearance: none;
+                border: 0;
+                background: none;
+                display: flex;
+                align-items: center;
+                gap: 7px;
+                cursor: pointer;
+                font-family: var(--font-ui);
+                color: var(--ink);
+                padding: 4px 0;
+                transition: opacity 0.18s ease;
+            }
+            .sortbtn:active {
+                opacity: 0.5;
+            }
+            .sortbtn .val {
+                color: var(--muted);
+            }
+            .sortbtn i {
+                width: 15px;
+                height: 15px;
+            }
+            .sortbtn i svg {
+                stroke-width: 1.4;
+            }
+            .catrow {
+                display: flex;
+                gap: 8px;
+                padding: 10px 16px 14px;
+                overflow-x: auto;
+                scrollbar-width: none;
+                cursor: grab;
+                overscroll-behavior-x: contain;
+            }
+            .catrow.dragging {
+                cursor: grabbing;
+                scroll-behavior: auto;
+            }
+            .catrow::-webkit-scrollbar {
+                display: none;
+            }
+            .cat {
+                flex: none;
+                appearance: none;
+                cursor: pointer;
+                font-family: var(--font-ui);
+                padding: 11px 17px;
+                border: 1px solid var(--hairline-2);
+                background: var(--paper);
+                color: var(--ink);
+                font-size: 11px;
+                letter-spacing: 0.12em;
+                text-transform: uppercase;
+                transition:
+                    background 0.18s ease,
+                    color 0.18s ease,
+                    border-color 0.18s ease;
+            }
+            .cat.on {
+                background: var(--ink);
+                border-color: var(--ink);
+                color: var(--paper);
+            }
+            .cat.sale-chip {
+                color: var(--accent);
+                border-color: rgba(111, 34, 51, 0.45);
+            }
+            .cat.sale-chip.on {
+                background: var(--accent);
+                border-color: var(--accent);
+                color: #fff;
+            }
 
-  /* Load earlier */
-  .load-earlier {
-    margin: 16px 16px 4px;
-    padding: 15px;
-    text-align: center;
-    border: 1px solid var(--hairline-2);
-    background: var(--paper);
-    font-size: 11px;
-    letter-spacing: .16em;
-    text-transform: uppercase;
-    color: var(--ink);
-    cursor: pointer;
-    transition: background .18s ease, color .18s ease;
-  }
-  .load-earlier:active { background: var(--ink); color: var(--paper); }
+            /* Load earlier */
+            .load-earlier {
+                margin: 16px 16px 4px;
+                padding: 15px;
+                text-align: center;
+                border: 1px solid var(--hairline-2);
+                background: var(--paper);
+                font-size: 11px;
+                letter-spacing: 0.16em;
+                text-transform: uppercase;
+                color: var(--ink);
+                cursor: pointer;
+                transition:
+                    background 0.18s ease,
+                    color 0.18s ease;
+            }
+            .load-earlier:active {
+                background: var(--ink);
+                color: var(--paper);
+            }
 
-  /* ---------- Product grid ---------- */
-  .grid {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    gap: 34px 16px;
-    padding: 18px 18px 10px;
-    background: var(--paper);
-  }
-  .grid::before { content: none; }
-  .card {
-    background: var(--paper);
-    padding: 0;
-    position: relative;
-    min-width: 0;
-  }
-  .card .imgwrap {
-    position: relative;
-    width: 100%;
-    aspect-ratio: 9 / 10;
-    background: var(--card);
-    overflow: hidden;
-    touch-action: pan-y;
-    cursor: grab;
-  }
-  .card .imgwrap:active { cursor: grabbing; }
-  .track {
-    display: flex;
-    width: 100%;
-    height: 100%;
-    transition: transform .32s cubic-bezier(.32,.72,0,1);
-    will-change: transform;
-  }
-  .slide {
-    flex: 0 0 100%;
-    position: relative;
-    height: 100%;
-  }
-  .card:nth-child(4n+2) .imgwrap, .card:nth-child(4n+3) .imgwrap { background: var(--card-2); }
-  .card:nth-child(4n) .imgwrap { background: var(--card-3); }
-  .pimg {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    user-select: none;
-    -webkit-user-drag: none;
-    pointer-events: none;
-  }
-  .badge {
-    position: absolute;
-    top: 12px; left: 12px;
-    z-index: 3;
-    font-size: 9.5px;
-    letter-spacing: .18em;
-    text-transform: uppercase;
-    color: var(--ink);
-    pointer-events: none;
-    font-weight: 400;
-  }
-  .badge.sale { color: var(--accent); }
-  /* nút thêm vào giỏ trên mỗi card (thay icon trái tim cũ) */
-  .addbag {
-    position: absolute;
-    top: 9px; right: 9px;
-    z-index: 4;
-    width: 38px; height: 38px;
-    border-radius: 50%;
-    display: flex; align-items: center; justify-content: center;
-    border: 1px solid var(--hairline-2);
-    background: var(--paper);
-    cursor: pointer; padding: 0;
-    color: var(--ink);
-    box-shadow: 0 4px 14px -4px rgba(40,33,24,.4);
-    transition: transform .15s ease;
-  }
-  .addbag i { width: 20px; height: 20px; }
-  .addbag i svg { stroke-width: 1.7; }
-  .addbag:active { transform: scale(.82); }
-  .dots {
-    position: absolute;
-    bottom: 10px; left: 12px; right: auto;
-    z-index: 3;
-    display: flex; justify-content: flex-start; gap: 5px;
-    pointer-events: none;
-  }
-  .dots span {
-    width: 5px; height: 5px; border-radius: 50%;
-    background: rgba(26,23,20,.22);
-  }
-  .dots span.active { background: rgba(26,23,20,.72); }
-  .meta { padding: 14px 6px 0; text-align: center; min-width: 0; }
-  .pname {
-    font-size: 10.5px;
-    letter-spacing: .09em;
-    text-transform: uppercase;
-    color: var(--ink);
-    line-height: 1.5;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    font-weight: 400;
-  }
-  .price {
-    margin-top: 7px;
-    font-family: var(--font-display);
-    font-size: 17px;
-    color: var(--ink-soft);
-    letter-spacing: .02em;
-  }
-  .price .was { color: var(--faint); text-decoration: line-through; margin-right: 7px; }
-  .price .now { color: var(--accent); }
-  .vsizes { margin-top: 9px; display: flex; flex-wrap: wrap; justify-content: center; gap: 5px; }
-  .vsizes span {
-    font-size: 9.5px; letter-spacing: .08em; padding: 3px 7px;
-    border: 1px solid var(--hairline-2); color: var(--ink-soft);
-    text-transform: uppercase; line-height: 1;
-  }
-  .vcolors { margin-top: 7px; font-size: 10px; letter-spacing: .07em; color: var(--muted); text-transform: uppercase; }
+            /* ---------- Product grid ---------- */
+            .grid {
+                display: grid;
+                grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+                gap: 34px 16px;
+                padding: 18px 18px 10px;
+                background: var(--paper);
+            }
+            .grid::before {
+                content: none;
+            }
+            .card {
+                background: var(--paper);
+                padding: 0;
+                position: relative;
+                min-width: 0;
+            }
+            .card .imgwrap {
+                position: relative;
+                width: 100%;
+                aspect-ratio: 9 / 10;
+                background: var(--card);
+                overflow: hidden;
+                touch-action: pan-y;
+                cursor: grab;
+            }
+            .card .imgwrap:active {
+                cursor: grabbing;
+            }
+            .track {
+                display: flex;
+                width: 100%;
+                height: 100%;
+                transition: transform 0.32s cubic-bezier(0.32, 0.72, 0, 1);
+                will-change: transform;
+            }
+            .slide {
+                flex: 0 0 100%;
+                position: relative;
+                height: 100%;
+            }
+            .card:nth-child(4n + 2) .imgwrap,
+            .card:nth-child(4n + 3) .imgwrap {
+                background: var(--card-2);
+            }
+            .card:nth-child(4n) .imgwrap {
+                background: var(--card-3);
+            }
+            .pimg {
+                position: absolute;
+                inset: 0;
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+                user-select: none;
+                -webkit-user-drag: none;
+                pointer-events: none;
+            }
+            .badge {
+                position: absolute;
+                top: 12px;
+                left: 12px;
+                z-index: 3;
+                font-size: 9.5px;
+                letter-spacing: 0.18em;
+                text-transform: uppercase;
+                color: var(--ink);
+                pointer-events: none;
+                font-weight: 400;
+            }
+            .badge.sale {
+                color: var(--accent);
+            }
+            /* nút thêm vào giỏ trên mỗi card (thay icon trái tim cũ) */
+            .addbag {
+                position: absolute;
+                top: 9px;
+                right: 9px;
+                z-index: 4;
+                width: 38px;
+                height: 38px;
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                border: 1px solid var(--hairline-2);
+                background: var(--paper);
+                cursor: pointer;
+                padding: 0;
+                color: var(--ink);
+                box-shadow: 0 4px 14px -4px rgba(40, 33, 24, 0.4);
+                transition: transform 0.15s ease;
+            }
+            .addbag i {
+                width: 20px;
+                height: 20px;
+            }
+            .addbag i svg {
+                stroke-width: 1.7;
+            }
+            .addbag:active {
+                transform: scale(0.82);
+            }
+            .dots {
+                position: absolute;
+                bottom: 10px;
+                left: 12px;
+                right: auto;
+                z-index: 3;
+                display: flex;
+                justify-content: flex-start;
+                gap: 5px;
+                pointer-events: none;
+            }
+            .dots span {
+                width: 5px;
+                height: 5px;
+                border-radius: 50%;
+                background: rgba(26, 23, 20, 0.22);
+            }
+            .dots span.active {
+                background: rgba(26, 23, 20, 0.72);
+            }
+            .meta {
+                padding: 14px 6px 0;
+                text-align: center;
+                min-width: 0;
+            }
+            .pname {
+                font-size: 10.5px;
+                letter-spacing: 0.09em;
+                text-transform: uppercase;
+                color: var(--ink);
+                line-height: 1.5;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                font-weight: 400;
+            }
+            .price {
+                margin-top: 7px;
+                font-family: var(--font-display);
+                font-size: 17px;
+                color: var(--ink-soft);
+                letter-spacing: 0.02em;
+            }
+            .price .was {
+                color: var(--faint);
+                text-decoration: line-through;
+                margin-right: 7px;
+            }
+            .price .now {
+                color: var(--accent);
+            }
+            .vsizes {
+                margin-top: 9px;
+                display: flex;
+                flex-wrap: wrap;
+                justify-content: center;
+                gap: 5px;
+            }
+            .vsizes span {
+                font-size: 9.5px;
+                letter-spacing: 0.08em;
+                padding: 3px 7px;
+                border: 1px solid var(--hairline-2);
+                color: var(--ink-soft);
+                text-transform: uppercase;
+                line-height: 1;
+            }
+            .vcolors {
+                margin-top: 7px;
+                font-size: 10px;
+                letter-spacing: 0.07em;
+                color: var(--muted);
+                text-transform: uppercase;
+            }
 
-  /* footer */
-  .foot {
-    text-align: center;
-    padding: 30px 24px 120px;
-    background: var(--paper);
-  }
-  .foot .more {
-    display: inline-block;
-    padding: 14px 34px;
-    border: 1px solid var(--ink);
-    font-size: 11px;
-    letter-spacing: .2em;
-    text-transform: uppercase;
-    color: var(--ink);
-    cursor: pointer;
-    transition: background .2s ease, color .2s ease;
-  }
-  .foot .more:active { background: var(--ink); color: var(--paper); }
-  .foot .seam { margin-top: 26px; font-size: 10px; letter-spacing: .22em; text-transform: uppercase; color: var(--faint); }
-  .foot .mk { font-family: var(--font-display); font-size: 19px; letter-spacing: .4em; text-indent: .4em; color: var(--muted); margin-top: 16px; }
+            /* footer */
+            .foot {
+                text-align: center;
+                padding: 30px 24px 120px;
+                background: var(--paper);
+            }
+            .foot .more {
+                display: inline-block;
+                padding: 14px 34px;
+                border: 1px solid var(--ink);
+                font-size: 11px;
+                letter-spacing: 0.2em;
+                text-transform: uppercase;
+                color: var(--ink);
+                cursor: pointer;
+                transition:
+                    background 0.2s ease,
+                    color 0.2s ease;
+            }
+            .foot .more:active {
+                background: var(--ink);
+                color: var(--paper);
+            }
+            .foot .seam {
+                margin-top: 26px;
+                font-size: 10px;
+                letter-spacing: 0.22em;
+                text-transform: uppercase;
+                color: var(--faint);
+            }
+            .foot .mk {
+                font-family: var(--font-display);
+                font-size: 19px;
+                letter-spacing: 0.4em;
+                text-indent: 0.4em;
+                color: var(--muted);
+                margin-top: 16px;
+            }
 
-  /* ---------- Floating buttons ---------- */
-  /* bottom 54px: nằm rõ trên mép bo tròn của khung phone + home indicator */
-  .floaties { position: absolute; bottom: 54px; left: 0; right: 0; z-index: 50; pointer-events: none; }
-  .fab {
-    position: absolute;
-    width: 52px; height: 52px;
-    border-radius: 50%;
-    display: flex; align-items: center; justify-content: center;
-    cursor: pointer; border: 0;
-    pointer-events: auto;
-    box-shadow: 0 8px 22px -6px rgba(40,33,24,.5);
-    transition: transform .15s ease;
-  }
-  .fab:active { transform: scale(.9); }
-  .fab i { width: 22px; height: 22px; }
-  .fab i svg { stroke-width: 1.5; }
+            /* ---------- Floating buttons ---------- */
+            /* bottom 54px: nằm rõ trên mép bo tròn của khung phone + home indicator */
+            .floaties {
+                position: absolute;
+                bottom: 54px;
+                left: 0;
+                right: 0;
+                z-index: 50;
+                pointer-events: none;
+            }
+            .fab {
+                position: absolute;
+                width: 52px;
+                height: 52px;
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                cursor: pointer;
+                border: 0;
+                pointer-events: auto;
+                box-shadow: 0 8px 22px -6px rgba(40, 33, 24, 0.5);
+                transition: transform 0.15s ease;
+            }
+            .fab:active {
+                transform: scale(0.9);
+            }
+            .fab i {
+                width: 22px;
+                height: 22px;
+            }
+            .fab i svg {
+                stroke-width: 1.5;
+            }
 
-  /* Home indicator */
-  .home-ind {
-    position: absolute;
-    bottom: 9px; left: 50%;
-    transform: translateX(-50%);
-    width: 134px; height: 5px;
-    border-radius: 3px;
-    background: rgba(26,23,20,.85);
-    z-index: 70;
-  }
+            /* Home indicator */
+            .home-ind {
+                position: absolute;
+                bottom: 9px;
+                left: 50%;
+                transform: translateX(-50%);
+                width: 134px;
+                height: 5px;
+                border-radius: 3px;
+                background: rgba(26, 23, 20, 0.85);
+                z-index: 70;
+            }
 
-  /* ---------- Bottom sheet ---------- */
-  .sheet-scrim {
-    position: absolute; inset: 0; z-index: 80;
-    background: rgba(20,16,12,.34);
-    opacity: 0; pointer-events: none;
-    transition: opacity .28s ease;
-    backdrop-filter: blur(1px);
-  }
-  .sheet-scrim.open { opacity: 1; pointer-events: auto; }
-  .sheet {
-    position: absolute; left: 0; right: 0; bottom: 0;
-    background: var(--paper);
-    border-radius: 26px 26px 44px 44px;
-    transform: translateY(105%);
-    transition: transform .34s cubic-bezier(.32,.72,0,1);
-    max-height: 80%;
-    display: flex; flex-direction: column;
-    box-shadow: 0 -12px 40px -10px rgba(40,33,24,.4);
-  }
-  .sheet.open { transform: translateY(0); }
-  .sheet .grab { width: 40px; height: 4px; border-radius: 2px; background: var(--hairline-2); margin: 12px auto 4px; }
-  .sheet h3 {
-    margin: 6px 0 0;
-    text-align: center;
-    font-family: var(--font-display);
-    font-weight: 500;
-    font-size: 22px;
-    letter-spacing: .04em;
-    padding-bottom: 14px;
-    border-bottom: 1px solid var(--hairline);
-  }
-  .sheet-body { overflow-y: auto; padding: 6px 0 0; }
-  .opt {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 17px 26px;
-    font-size: 12px; letter-spacing: .1em; text-transform: uppercase;
-    color: var(--ink-soft); cursor: pointer;
-    border-bottom: 1px solid var(--hairline);
-  }
-  .opt:active { background: #f0ece4; }
-  .opt.sel { color: var(--ink); }
-  .opt.sel .tick { opacity: 1; }
-  .opt .tick { opacity: 0; width: 16px; height: 16px; color: var(--ink); }
-  .opt .tick svg { stroke-width: 2; }
-  .filter-group { padding: 18px 26px; border-bottom: 1px solid var(--hairline); }
-  .filter-group .gh { font-size: 10px; letter-spacing: .2em; text-transform: uppercase; color: var(--muted); margin-bottom: 14px; }
-  .chips { display: flex; flex-wrap: wrap; gap: 9px; }
-  .chip {
-    padding: 9px 16px; border: 1px solid var(--hairline-2);
-    font-size: 11px; letter-spacing: .08em; text-transform: uppercase;
-    color: var(--ink-soft); cursor: pointer; background: var(--paper);
-    transition: all .16s ease;
-  }
-  .chip.on { background: var(--ink); color: var(--paper); border-color: var(--ink); }
-  .swatches { display: flex; gap: 12px; }
-  .sw { width: 30px; height: 30px; border-radius: 50%; cursor: pointer; position: relative; border: 1px solid rgba(0,0,0,.12); }
-  .sw.on { box-shadow: 0 0 0 2px var(--paper), 0 0 0 3.5px var(--ink); }
-  .sheet-foot { padding: 16px 22px calc(16px + env(safe-area-inset-bottom)); border-top: 1px solid var(--hairline); display: flex; gap: 12px; }
-  .btn-apply { flex: 1; padding: 16px; background: var(--ink); color: var(--paper); border: 0; cursor: pointer; font-family: var(--font-ui); font-size: 11px; letter-spacing: .2em; text-transform: uppercase; }
-  .btn-apply:active { opacity: .8; }
-  .btn-clear { padding: 16px 22px; background: none; border: 1px solid var(--hairline-2); color: var(--ink); cursor: pointer; font-family: var(--font-ui); font-size: 11px; letter-spacing: .16em; text-transform: uppercase; }
+            /* ---------- Bottom sheet ---------- */
+            .sheet-scrim {
+                position: absolute;
+                inset: 0;
+                z-index: 80;
+                background: rgba(20, 16, 12, 0.34);
+                opacity: 0;
+                pointer-events: none;
+                transition: opacity 0.28s ease;
+                backdrop-filter: blur(1px);
+            }
+            .sheet-scrim.open {
+                opacity: 1;
+                pointer-events: auto;
+            }
+            .sheet {
+                position: absolute;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: var(--paper);
+                border-radius: 26px 26px 44px 44px;
+                transform: translateY(105%);
+                transition: transform 0.34s cubic-bezier(0.32, 0.72, 0, 1);
+                max-height: 80%;
+                display: flex;
+                flex-direction: column;
+                box-shadow: 0 -12px 40px -10px rgba(40, 33, 24, 0.4);
+            }
+            .sheet.open {
+                transform: translateY(0);
+            }
+            .sheet .grab {
+                width: 40px;
+                height: 4px;
+                border-radius: 2px;
+                background: var(--hairline-2);
+                margin: 12px auto 4px;
+            }
+            .sheet h3 {
+                margin: 6px 0 0;
+                text-align: center;
+                font-family: var(--font-display);
+                font-weight: 500;
+                font-size: 22px;
+                letter-spacing: 0.04em;
+                padding-bottom: 14px;
+                border-bottom: 1px solid var(--hairline);
+            }
+            .sheet-body {
+                overflow-y: auto;
+                padding: 6px 0 0;
+            }
+            .opt {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding: 17px 26px;
+                font-size: 12px;
+                letter-spacing: 0.1em;
+                text-transform: uppercase;
+                color: var(--ink-soft);
+                cursor: pointer;
+                border-bottom: 1px solid var(--hairline);
+            }
+            .opt:active {
+                background: #f0ece4;
+            }
+            .opt.sel {
+                color: var(--ink);
+            }
+            .opt.sel .tick {
+                opacity: 1;
+            }
+            .opt .tick {
+                opacity: 0;
+                width: 16px;
+                height: 16px;
+                color: var(--ink);
+            }
+            .opt .tick svg {
+                stroke-width: 2;
+            }
+            .filter-group {
+                padding: 18px 26px;
+                border-bottom: 1px solid var(--hairline);
+            }
+            .filter-group .gh {
+                font-size: 10px;
+                letter-spacing: 0.2em;
+                text-transform: uppercase;
+                color: var(--muted);
+                margin-bottom: 14px;
+            }
+            .chips {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 9px;
+            }
+            .chip {
+                padding: 9px 16px;
+                border: 1px solid var(--hairline-2);
+                font-size: 11px;
+                letter-spacing: 0.08em;
+                text-transform: uppercase;
+                color: var(--ink-soft);
+                cursor: pointer;
+                background: var(--paper);
+                transition: all 0.16s ease;
+            }
+            .chip.on {
+                background: var(--ink);
+                color: var(--paper);
+                border-color: var(--ink);
+            }
+            .swatches {
+                display: flex;
+                gap: 12px;
+            }
+            .sw {
+                width: 30px;
+                height: 30px;
+                border-radius: 50%;
+                cursor: pointer;
+                position: relative;
+                border: 1px solid rgba(0, 0, 0, 0.12);
+            }
+            .sw.on {
+                box-shadow:
+                    0 0 0 2px var(--paper),
+                    0 0 0 3.5px var(--ink);
+            }
+            .sheet-foot {
+                padding: 16px 22px calc(16px + env(safe-area-inset-bottom));
+                border-top: 1px solid var(--hairline);
+                display: flex;
+                gap: 12px;
+            }
+            .btn-apply {
+                flex: 1;
+                padding: 16px;
+                background: var(--ink);
+                color: var(--paper);
+                border: 0;
+                cursor: pointer;
+                font-family: var(--font-ui);
+                font-size: 11px;
+                letter-spacing: 0.2em;
+                text-transform: uppercase;
+            }
+            .btn-apply:active {
+                opacity: 0.8;
+            }
+            .btn-clear {
+                padding: 16px 22px;
+                background: none;
+                border: 1px solid var(--hairline-2);
+                color: var(--ink);
+                cursor: pointer;
+                font-family: var(--font-ui);
+                font-size: 11px;
+                letter-spacing: 0.16em;
+                text-transform: uppercase;
+            }
 
-  /* Toast */
-  .toast {
-    position: absolute; left: 50%; bottom: 96px; z-index: 90;
-    transform: transl(-50%, 14px);
-    transform: translateX(-50%) translateY(14px);
-    background: var(--ink); color: #efe9df;
-    padding: 12px 20px; border-radius: 30px;
-    font-size: 11px; letter-spacing: .12em; text-transform: uppercase;
-    opacity: 0; pointer-events: none;
-    transition: opacity .25s ease, transform .25s ease;
-    white-space: nowrap;
-    box-shadow: 0 10px 30px -8px rgba(0,0,0,.5);
-  }
-  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+            /* Toast */
+            .toast {
+                position: absolute;
+                left: 50%;
+                bottom: 96px;
+                z-index: 90;
+                transform: transl(-50%, 14px);
+                transform: translateX(-50%) translateY(14px);
+                background: var(--ink);
+                color: #efe9df;
+                padding: 12px 20px;
+                border-radius: 30px;
+                font-size: 11px;
+                letter-spacing: 0.12em;
+                text-transform: uppercase;
+                opacity: 0;
+                pointer-events: none;
+                transition:
+                    opacity 0.25s ease,
+                    transform 0.25s ease;
+                white-space: nowrap;
+                box-shadow: 0 10px 30px -8px rgba(0, 0, 0, 0.5);
+            }
+            .toast.show {
+                opacity: 1;
+                transform: translateX(-50%) translateY(0);
+            }
 
-  /* On real phones: drop the bezel, fill the viewport */
-  @media (max-width: 520px) {
-    body { padding: 0; background: var(--paper); display: block; }
-    .phone {
-      width: 100%;
-      height: 100dvh;
-      border-radius: 0;
-      padding: 0;
-      background: none;
-      box-shadow: none;
-    }
-    .screen { border-radius: 0; }
-    .statusbar { display: none; }
-    .home-ind { display: none; }
-    header.bar { padding-top: 14px; }
-    .subbar { top: 52px; }
-  }
-</style>
-<link rel="stylesheet" href="admin.css?v=20260611d" />
-<link rel="stylesheet" href="cart.css?v=20260611c" />
-<link rel="stylesheet" href="detail.css?v=20260611d" />
-</head>
-<body>
-  <!-- Admin panel (desktop + logged in only; filled by admin.js) -->
-  <div id="adminPane"></div>
+            /* On real phones: drop the bezel, fill the viewport */
+            @media (max-width: 520px) {
+                body {
+                    padding: 0;
+                    background: var(--paper);
+                    display: block;
+                }
+                .phone {
+                    width: 100%;
+                    height: 100dvh;
+                    border-radius: 0;
+                    padding: 0;
+                    background: none;
+                    box-shadow: none;
+                }
+                .screen {
+                    border-radius: 0;
+                }
+                .statusbar {
+                    display: none;
+                }
+                .home-ind {
+                    display: none;
+                }
+                header.bar {
+                    padding-top: 14px;
+                }
+                .subbar {
+                    top: 52px;
+                }
+            }
+        </style>
+        <link rel="stylesheet" href="admin.css?v=20260611d" />
+        <link rel="stylesheet" href="cart.css?v=20260611c" />
+        <link rel="stylesheet" href="detail.css?v=20260611d" />
+    </head>
+    <body>
+        <!-- Admin panel (desktop + logged in only; filled by admin.js) -->
+        <div id="adminPane"></div>
 
-  <div class="phone-pane">
-  <div class="phone">
-    <div class="screen">
+        <div class="phone-pane">
+            <div class="phone">
+                <div class="screen">
+                    <!-- status bar -->
+                    <div class="statusbar">
+                        <div class="time">9:41</div>
+                        <div class="status-right">
+                            <div class="signal"><i></i><i></i><i></i><i></i></div>
+                            <div class="wifi">
+                                <svg width="16" height="12" viewBox="0 0 16 12" fill="none">
+                                    <path d="M8 10.5a1 1 0 100-2 1 1 0 000 2z" fill="#1a1714" />
+                                    <path
+                                        d="M3.2 5.6a7 7 0 019.6 0M5.1 7.6a4.2 4.2 0 015.8 0M1.3 3.6a9.8 9.8 0 0113.4 0"
+                                        stroke="#1a1714"
+                                        stroke-width="1.2"
+                                        stroke-linecap="round"
+                                    />
+                                </svg>
+                            </div>
+                            <div class="battery"><span></span></div>
+                        </div>
+                    </div>
 
-      <!-- status bar -->
-      <div class="statusbar">
-        <div class="time">9:41</div>
-        <div class="status-right">
-          <div class="signal"><i></i><i></i><i></i><i></i></div>
-          <div class="wifi">
-            <svg width="16" height="12" viewBox="0 0 16 12" fill="none"><path d="M8 10.5a1 1 0 100-2 1 1 0 000 2z" fill="#1a1714"/><path d="M3.2 5.6a7 7 0 019.6 0M5.1 7.6a4.2 4.2 0 015.8 0M1.3 3.6a9.8 9.8 0 0113.4 0" stroke="#1a1714" stroke-width="1.2" stroke-linecap="round"/></svg>
-          </div>
-          <div class="battery"><span></span></div>
+                    <div class="scroll" id="scroll">
+                        <!-- header -->
+                        <header class="bar">
+                            <div class="bar-row">
+                                <div class="wordmark">NHI JUDY</div>
+                            </div>
+                        </header>
+
+                        <!-- sub bar -->
+                        <div class="subbar">
+                            <div class="catrow" id="catRow">
+                                <button class="cat on" data-cat="all">Tất cả</button>
+                                <button class="cat" data-cat="quan">Quần</button>
+                                <button class="cat" data-cat="ao">Áo</button>
+                                <button class="cat" data-cat="set">Set</button>
+                                <button class="cat" data-cat="dam">Đầm</button>
+                                <button class="cat" data-cat="phukien">Phụ kiện</button>
+                                <button class="cat sale-chip" data-cat="sale">Sale</button>
+                            </div>
+                        </div>
+
+                        <div class="grid" id="grid">
+                            <div class="card" data-cat="dam">
+                                <div class="imgwrap">
+                                    <div class="track">
+                                        <div class="slide">
+                                            <img
+                                                class="pimg"
+                                                src="assets/dam.png"
+                                                alt=""
+                                                draggable="false"
+                                            />
+                                        </div>
+                                        <div class="slide">
+                                            <img
+                                                class="pimg"
+                                                src="assets/dam_b.png"
+                                                alt=""
+                                                draggable="false"
+                                            />
+                                        </div>
+                                        <div class="slide">
+                                            <img
+                                                class="pimg"
+                                                src="assets/dam_c.png"
+                                                alt=""
+                                                draggable="false"
+                                            />
+                                        </div>
+                                    </div>
+                                    <span class="badge">Mới về</span>
+                                    <button class="addbag" aria-label="Thêm vào giỏ">
+                                        <i data-lucide="shopping-cart"></i>
+                                    </button>
+                                    <div class="dots">
+                                        <span class="active"></span><span></span><span></span>
+                                    </div>
+                                </div>
+                                <div class="meta">
+                                    <div class="pname">Đầm Lụa Hai Dây</div>
+                                    <div class="price">1.890.000₫</div>
+                                </div>
+                            </div>
+
+                            <div class="card" data-cat="ao">
+                                <div class="imgwrap">
+                                    <div class="track">
+                                        <div class="slide">
+                                            <img
+                                                class="pimg"
+                                                src="assets/ao.png"
+                                                alt=""
+                                                draggable="false"
+                                            />
+                                        </div>
+                                        <div class="slide">
+                                            <img
+                                                class="pimg"
+                                                src="assets/ao_b.png"
+                                                alt=""
+                                                draggable="false"
+                                            />
+                                        </div>
+                                    </div>
+                                    <span class="badge">Mới về</span>
+                                    <button class="addbag" aria-label="Thêm vào giỏ">
+                                        <i data-lucide="shopping-cart"></i>
+                                    </button>
+                                    <div class="dots">
+                                        <span class="active"></span><span></span>
+                                    </div>
+                                </div>
+                                <div class="meta">
+                                    <div class="pname">Áo Blouse Lụa Kem</div>
+                                    <div class="price">1.290.000₫</div>
+                                </div>
+                            </div>
+
+                            <div class="card" data-cat="quan">
+                                <div class="imgwrap">
+                                    <div class="track">
+                                        <div class="slide">
+                                            <img
+                                                class="pimg"
+                                                src="assets/quan.png"
+                                                alt=""
+                                                draggable="false"
+                                            />
+                                        </div>
+                                        <div class="slide">
+                                            <img
+                                                class="pimg"
+                                                src="assets/quan_b.png"
+                                                alt=""
+                                                draggable="false"
+                                            />
+                                        </div>
+                                    </div>
+                                    <span class="badge">Mới về</span>
+                                    <button class="addbag" aria-label="Thêm vào giỏ">
+                                        <i data-lucide="shopping-cart"></i>
+                                    </button>
+                                    <div class="dots">
+                                        <span class="active"></span><span></span>
+                                    </div>
+                                </div>
+                                <div class="meta">
+                                    <div class="pname">Quần Ống Suông Đen</div>
+                                    <div class="price">1.150.000₫</div>
+                                </div>
+                            </div>
+
+                            <div class="card" data-cat="set sale">
+                                <div class="imgwrap">
+                                    <div class="track">
+                                        <div class="slide">
+                                            <img
+                                                class="pimg"
+                                                src="assets/set.png"
+                                                alt=""
+                                                draggable="false"
+                                            />
+                                        </div>
+                                        <div class="slide">
+                                            <img
+                                                class="pimg"
+                                                src="assets/set_b.png"
+                                                alt=""
+                                                draggable="false"
+                                            />
+                                        </div>
+                                        <div class="slide">
+                                            <img
+                                                class="pimg"
+                                                src="assets/set_c.png"
+                                                alt=""
+                                                draggable="false"
+                                            />
+                                        </div>
+                                    </div>
+                                    <span class="badge sale">Số lượng cuối</span>
+                                    <button class="addbag" aria-label="Thêm vào giỏ">
+                                        <i data-lucide="shopping-cart"></i>
+                                    </button>
+                                    <div class="dots">
+                                        <span class="active"></span><span></span><span></span>
+                                    </div>
+                                </div>
+                                <div class="meta">
+                                    <div class="pname">Set Áo &amp; Chân Váy</div>
+                                    <div class="price">
+                                        <span class="was">2.480.000₫</span
+                                        ><span class="now">1.730.000₫</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="card">
+                                <div class="imgwrap">
+                                    <div class="track">
+                                        <div class="slide">
+                                            <img
+                                                class="pimg"
+                                                src="assets/p1.png"
+                                                alt=""
+                                                draggable="false"
+                                            />
+                                        </div>
+                                        <div class="slide">
+                                            <img
+                                                class="pimg"
+                                                src="assets/p1b.png"
+                                                alt=""
+                                                draggable="false"
+                                            />
+                                        </div>
+                                        <div class="slide">
+                                            <img
+                                                class="pimg"
+                                                src="assets/p1c.png"
+                                                alt=""
+                                                draggable="false"
+                                            />
+                                        </div>
+                                    </div>
+                                    <span class="badge">Mới về</span>
+                                    <button class="fav" aria-label="Add to wishlist">
+                                        <i data-lucide="heart"></i>
+                                    </button>
+                                    <div class="dots">
+                                        <span class="active"></span><span></span><span></span>
+                                    </div>
+                                </div>
+                                <div class="meta">
+                                    <div class="pname">Túi Đeo Vai Lụa Kem</div>
+                                    <div class="price">9.200.000₫</div>
+                                </div>
+                            </div>
+
+                            <div class="card">
+                                <div class="imgwrap">
+                                    <div class="track">
+                                        <div class="slide">
+                                            <img
+                                                class="pimg"
+                                                src="assets/p2.png"
+                                                alt=""
+                                                draggable="false"
+                                            />
+                                        </div>
+                                        <div class="slide">
+                                            <img
+                                                class="pimg"
+                                                src="assets/p2b.png"
+                                                alt=""
+                                                draggable="false"
+                                            />
+                                        </div>
+                                    </div>
+                                    <span class="badge">Mới về</span>
+                                    <button class="fav" aria-label="Add to wishlist">
+                                        <i data-lucide="heart"></i>
+                                    </button>
+                                    <div class="dots">
+                                        <span class="active"></span><span></span>
+                                    </div>
+                                </div>
+                                <div class="meta">
+                                    <div class="pname">Ví Đựng Thẻ Da Đen</div>
+                                    <div class="price">3.800.000₫</div>
+                                </div>
+                            </div>
+
+                            <div class="card">
+                                <div class="imgwrap">
+                                    <div class="track">
+                                        <div class="slide">
+                                            <img
+                                                class="pimg"
+                                                src="assets/p3.png"
+                                                alt=""
+                                                draggable="false"
+                                            />
+                                        </div>
+                                        <div class="slide">
+                                            <img
+                                                class="pimg"
+                                                src="assets/p3b.png"
+                                                alt=""
+                                                draggable="false"
+                                            />
+                                        </div>
+                                        <div class="slide">
+                                            <img
+                                                class="pimg"
+                                                src="assets/p3c.png"
+                                                alt=""
+                                                draggable="false"
+                                            />
+                                        </div>
+                                    </div>
+                                    <span class="badge">Mới về</span>
+                                    <button class="fav" aria-label="Add to wishlist">
+                                        <i data-lucide="heart"></i>
+                                    </button>
+                                    <div class="dots">
+                                        <span class="active"></span><span></span><span></span>
+                                    </div>
+                                </div>
+                                <div class="meta">
+                                    <div class="pname">Ví Tim Sắc Chanh</div>
+                                    <div class="price">3.500.000₫</div>
+                                </div>
+                            </div>
+
+                            <div class="card" data-cat="phukien sale">
+                                <div class="imgwrap">
+                                    <div class="track">
+                                        <div class="slide">
+                                            <img
+                                                class="pimg"
+                                                src="assets/p4.png"
+                                                alt=""
+                                                draggable="false"
+                                            />
+                                        </div>
+                                        <div class="slide">
+                                            <img
+                                                class="pimg"
+                                                src="assets/p4b.png"
+                                                alt=""
+                                                draggable="false"
+                                            />
+                                        </div>
+                                    </div>
+                                    <span class="badge sale">Số lượng cuối</span>
+                                    <button class="fav" aria-label="Add to wishlist">
+                                        <i data-lucide="heart"></i>
+                                    </button>
+                                    <div class="dots">
+                                        <span class="active"></span><span></span>
+                                    </div>
+                                </div>
+                                <div class="meta">
+                                    <div class="pname">Ví Gập Da Đen</div>
+                                    <div class="price">
+                                        <span class="was">4.900.000₫</span
+                                        ><span class="now">3.400.000₫</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="card">
+                                <div class="imgwrap">
+                                    <div class="track">
+                                        <div class="slide">
+                                            <img
+                                                class="pimg"
+                                                src="assets/p5.png"
+                                                alt=""
+                                                draggable="false"
+                                            />
+                                        </div>
+                                        <div class="slide">
+                                            <img
+                                                class="pimg"
+                                                src="assets/p5b.png"
+                                                alt=""
+                                                draggable="false"
+                                            />
+                                        </div>
+                                        <div class="slide">
+                                            <img
+                                                class="pimg"
+                                                src="assets/p5c.png"
+                                                alt=""
+                                                draggable="false"
+                                            />
+                                        </div>
+                                    </div>
+                                    <span class="badge">Mới về</span>
+                                    <button class="fav" aria-label="Add to wishlist">
+                                        <i data-lucide="heart"></i>
+                                    </button>
+                                    <div class="dots">
+                                        <span class="active"></span><span></span><span></span>
+                                    </div>
+                                </div>
+                                <div class="meta">
+                                    <div class="pname">Túi Tote Mini Da Nâu</div>
+                                    <div class="price">7.600.000₫</div>
+                                </div>
+                            </div>
+
+                            <div class="card">
+                                <div class="imgwrap">
+                                    <div class="track">
+                                        <div class="slide">
+                                            <img
+                                                class="pimg"
+                                                src="assets/p6.png"
+                                                alt=""
+                                                draggable="false"
+                                            />
+                                        </div>
+                                        <div class="slide">
+                                            <img
+                                                class="pimg"
+                                                src="assets/p6b.png"
+                                                alt=""
+                                                draggable="false"
+                                            />
+                                        </div>
+                                    </div>
+                                    <span class="badge">Mới về</span>
+                                    <button class="fav" aria-label="Add to wishlist">
+                                        <i data-lucide="heart"></i>
+                                    </button>
+                                    <div class="dots">
+                                        <span class="active"></span><span></span>
+                                    </div>
+                                </div>
+                                <div class="meta">
+                                    <div class="pname">Hoa Tai Ngọc Trai</div>
+                                    <div class="price">4.200.000₫</div>
+                                </div>
+                            </div>
+
+                            <div class="card">
+                                <div class="imgwrap">
+                                    <div class="track">
+                                        <div class="slide">
+                                            <img
+                                                class="pimg"
+                                                src="assets/p7.png"
+                                                alt=""
+                                                draggable="false"
+                                            />
+                                        </div>
+                                        <div class="slide">
+                                            <img
+                                                class="pimg"
+                                                src="assets/p7b.png"
+                                                alt=""
+                                                draggable="false"
+                                            />
+                                        </div>
+                                        <div class="slide">
+                                            <img
+                                                class="pimg"
+                                                src="assets/p7c.png"
+                                                alt=""
+                                                draggable="false"
+                                            />
+                                        </div>
+                                    </div>
+                                    <span class="badge">Mới về</span>
+                                    <button class="fav" aria-label="Add to wishlist">
+                                        <i data-lucide="heart"></i>
+                                    </button>
+                                    <div class="dots">
+                                        <span class="active"></span><span></span><span></span>
+                                    </div>
+                                </div>
+                                <div class="meta">
+                                    <div class="pname">Khăn Lụa Họa Tiết</div>
+                                    <div class="price">2.900.000₫</div>
+                                </div>
+                            </div>
+
+                            <div class="card">
+                                <div class="imgwrap">
+                                    <div class="track">
+                                        <div class="slide">
+                                            <img
+                                                class="pimg"
+                                                src="assets/p8.png"
+                                                alt=""
+                                                draggable="false"
+                                            />
+                                        </div>
+                                        <div class="slide">
+                                            <img
+                                                class="pimg"
+                                                src="assets/p8b.png"
+                                                alt=""
+                                                draggable="false"
+                                            />
+                                        </div>
+                                    </div>
+                                    <span class="badge">Mới về</span>
+                                    <button class="fav" aria-label="Add to wishlist">
+                                        <i data-lucide="heart"></i>
+                                    </button>
+                                    <div class="dots">
+                                        <span class="active"></span><span></span>
+                                    </div>
+                                </div>
+                                <div class="meta">
+                                    <div class="pname">Thắt Lưng Da Cổ Điển</div>
+                                    <div class="price">3.100.000₫</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- footer -->
+                        <div class="foot">
+                            <div class="more" id="loadMore">Xem thêm</div>
+                            <div class="seam">Hiển thị 12 / 312 sản phẩm</div>
+                            <div class="mk">NHI JUDY</div>
+                        </div>
+                    </div>
+
+                    <!-- floating buttons -->
+                    <div class="floaties">
+                        <!-- pill mã khách + giỏ hàng (cart.js điền số + bind click) -->
+                        <button
+                            class="fab idpill"
+                            id="idPill"
+                            aria-label="Giỏ hàng và mã khách của bạn"
+                        >
+                            <i data-lucide="shopping-bag"></i><b id="pillId">…</b
+                            ><span class="pill-n" id="pillN" hidden>0</span>
+                        </button>
+                    </div>
+
+                    <div class="home-ind"></div>
+
+                    <!-- toast -->
+                    <div class="toast" id="toast">Đã thêm vào yêu thích</div>
+                </div>
+            </div>
         </div>
-      </div>
+        <!-- /.phone-pane -->
 
-      <div class="scroll" id="scroll">
+        <script>
+            lucide.createIcons();
 
-        <!-- header -->
-        <header class="bar">
-          <div class="bar-row">
-            <div class="wordmark">NHI JUDY</div>
-          </div>
-        </header>
+            const $ = (s, r = document) => r.querySelector(s);
+            const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 
-        <!-- sub bar -->
-        <div class="subbar">
-          <div class="catrow" id="catRow">
-            <button class="cat on" data-cat="all">Tất cả</button>
-            <button class="cat" data-cat="quan">Quần</button>
-            <button class="cat" data-cat="ao">Áo</button>
-            <button class="cat" data-cat="set">Set</button>
-            <button class="cat" data-cat="dam">Đầm</button>
-            <button class="cat" data-cat="phukien">Phụ kiện</button>
-            <button class="cat sale-chip" data-cat="sale">Sale</button>
-          </div>
-        </div>
+            // toast
+            const toast = $('#toast');
+            let toastT;
+            function showToast(msg) {
+                toast.textContent = msg;
+                toast.classList.add('show');
+                clearTimeout(toastT);
+                toastT = setTimeout(() => toast.classList.remove('show'), 1800);
+            }
 
-        <div class="grid" id="grid">
+            // nút giỏ hàng trên card → mở sheet chọn size/màu rồi thêm vào giỏ (cart.js)
+            function bindAddBag(btn) {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const card = btn.closest('.card');
+                    const name = card.querySelector('.pname').textContent;
+                    const id = card.dataset.id;
+                    const p =
+                        id && window.Showroom._products ? window.Showroom._products[id] : null;
+                    if (p && window.ShowroomCart) {
+                        // truyền ảnh SP làm điểm xuất phát cho animation "bay vào giỏ"
+                        window.ShowroomCart.addWithOptions(
+                            p,
+                            card.querySelector('.imgwrap') || btn
+                        );
+                    } else {
+                        showToast('Đã thêm vào giỏ · ' + name); // card demo (không có id)
+                    }
+                });
+            }
 
-          <div class="card" data-cat="dam">
-            <div class="imgwrap">
-              <div class="track">
-                <div class="slide"><img class="pimg" src="assets/dam.png" alt="" draggable="false"></div>
-                <div class="slide"><img class="pimg" src="assets/dam_b.png" alt="" draggable="false"></div>
-                <div class="slide"><img class="pimg" src="assets/dam_c.png" alt="" draggable="false"></div>
-              </div>
-              <span class="badge">Mới về</span>
-              <button class="addbag" aria-label="Thêm vào giỏ"><i data-lucide="shopping-cart"></i></button>
-              <div class="dots"><span class="active"></span><span></span><span></span></div>
-            </div>
-            <div class="meta">
-              <div class="pname">Đầm Lụa Hai Dây</div>
-              <div class="price">1.890.000₫</div>
-            </div>
-          </div>
+            // image carousel (swipe only — thêm giỏ qua nút .addbag, KHÔNG bấm ảnh)
+            function bindImgwrap(w) {
+                const track = w.querySelector('.track');
+                const dots = [...w.querySelectorAll('.dots span')];
+                const n = track ? track.children.length : 1;
+                let idx = 0,
+                    sx = 0,
+                    dx = 0,
+                    drag = false;
+                w.__moved = false;
+                w.__idx = 0;
+                function go(i) {
+                    idx = Math.max(0, Math.min(n - 1, i));
+                    w.__idx = idx; // detail viewer mở đúng tấm đang xem
+                    track.style.transform = 'translateX(' + -idx * 100 + '%)';
+                    dots.forEach((d, k) => d.classList.toggle('active', k === idx));
+                }
+                if (track) {
+                    w.addEventListener('pointerdown', (e) => {
+                        if (e.target.closest('.addbag')) return;
+                        drag = true;
+                        w.__moved = false;
+                        sx = e.clientX;
+                        dx = 0;
+                        track.style.transition = 'none';
+                        try {
+                            w.setPointerCapture(e.pointerId);
+                        } catch (_) {}
+                    });
+                    w.addEventListener('pointermove', (e) => {
+                        if (!drag) return;
+                        dx = e.clientX - sx;
+                        if (Math.abs(dx) > 8) w.__moved = true;
+                        track.style.transform =
+                            'translateX(calc(' + -idx * 100 + '% + ' + dx + 'px))';
+                    });
+                    const end = () => {
+                        if (!drag) return;
+                        drag = false;
+                        track.style.transition = '';
+                        if (Math.abs(dx) > w.offsetWidth * 0.18) go(idx + (dx < 0 ? 1 : -1));
+                        else go(idx);
+                        dx = 0;
+                    };
+                    w.addEventListener('pointerup', end);
+                    w.addEventListener('pointercancel', end);
+                    // Chặn webview Zalo/Messenger hiểu nhầm vuốt ảnh = "quay về trang trước":
+                    // 1) touch khởi phát sát mép màn hình → chặn luôn (edge-swipe gesture của hệ thống)
+                    w.addEventListener(
+                        'touchstart',
+                        (e) => {
+                            const t = e.touches[0];
+                            if (t && (t.clientX < 26 || t.clientX > window.innerWidth - 26))
+                                e.preventDefault();
+                        },
+                        { passive: false }
+                    );
+                    // 2) đang vuốt ngang trong carousel → nuốt gesture, không cho webview xử lý
+                    w.addEventListener(
+                        'touchmove',
+                        (e) => {
+                            if (drag && w.__moved) e.preventDefault();
+                        },
+                        { passive: false }
+                    );
+                }
+                // tap ảnh (không phải vuốt) → mở trang xem ảnh lớn + thông tin SP
+                w.addEventListener('click', (e) => {
+                    if (e.target.closest('.addbag')) return;
+                    if (w.__moved) {
+                        w.__moved = false;
+                        return;
+                    }
+                    const card = w.closest('.card');
+                    const id = card.dataset.id;
+                    const p =
+                        id && window.Showroom._products ? window.Showroom._products[id] : null;
+                    if (p && window.ShowroomDetail) window.ShowroomDetail.open(p, w.__idx || 0);
+                });
+            }
 
-          <div class="card" data-cat="ao">
-            <div class="imgwrap">
-              <div class="track">
-                <div class="slide"><img class="pimg" src="assets/ao.png" alt="" draggable="false"></div>
-                <div class="slide"><img class="pimg" src="assets/ao_b.png" alt="" draggable="false"></div>
-              </div>
-              <span class="badge">Mới về</span>
-              <button class="addbag" aria-label="Thêm vào giỏ"><i data-lucide="shopping-cart"></i></button>
-              <div class="dots"><span class="active"></span><span></span></div>
-            </div>
-            <div class="meta">
-              <div class="pname">Áo Blouse Lụa Kem</div>
-              <div class="price">1.290.000₫</div>
-            </div>
-          </div>
+            // bind one card's interactive bits (nút thêm giỏ + carousel)
+            function bindCard(card) {
+                const ab = card.querySelector('.addbag');
+                if (ab) bindAddBag(ab);
+                const w = card.querySelector('.imgwrap');
+                if (w) bindImgwrap(w);
+            }
 
-          <div class="card" data-cat="quan">
-            <div class="imgwrap">
-              <div class="track">
-                <div class="slide"><img class="pimg" src="assets/quan.png" alt="" draggable="false"></div>
-                <div class="slide"><img class="pimg" src="assets/quan_b.png" alt="" draggable="false"></div>
-              </div>
-              <span class="badge">Mới về</span>
-              <button class="addbag" aria-label="Thêm vào giỏ"><i data-lucide="shopping-cart"></i></button>
-              <div class="dots"><span class="active"></span><span></span></div>
-            </div>
-            <div class="meta">
-              <div class="pname">Quần Ống Suông Đen</div>
-              <div class="price">1.150.000₫</div>
-            </div>
-          </div>
+            // initial bind for the hardcoded fallback cards (replaced once admin.js loads real data)
+            $$('.card').forEach(bindCard);
 
-          <div class="card" data-cat="set sale">
-            <div class="imgwrap">
-              <div class="track">
-                <div class="slide"><img class="pimg" src="assets/set.png" alt="" draggable="false"></div>
-                <div class="slide"><img class="pimg" src="assets/set_b.png" alt="" draggable="false"></div>
-                <div class="slide"><img class="pimg" src="assets/set_c.png" alt="" draggable="false"></div>
-              </div>
-              <span class="badge sale">Số lượng cuối</span>
-              <button class="addbag" aria-label="Thêm vào giỏ"><i data-lucide="shopping-cart"></i></button>
-              <div class="dots"><span class="active"></span><span></span><span></span></div>
-            </div>
-            <div class="meta">
-              <div class="pname">Set Áo &amp; Chân Váy</div>
-              <div class="price"><span class="was">2.480.000₫</span><span class="now">1.730.000₫</span></div>
-            </div>
-          </div>
+            // category filter chips
+            $$('#catRow .cat').forEach((ch) => {
+                ch.addEventListener('click', () => {
+                    const row = $('#catRow');
+                    if (row.__moved) {
+                        return;
+                    }
+                    $$('#catRow .cat').forEach((c) => c.classList.remove('on'));
+                    ch.classList.add('on');
+                    const v = ch.dataset.cat;
+                    let n = 0;
+                    $$('.card').forEach((card) => {
+                        const cats = (card.dataset.cat || 'phukien').split(' ');
+                        const ok = v === 'all' || cats.includes(v);
+                        card.style.display = ok ? '' : 'none';
+                        if (ok) n++;
+                    });
+                    const rc = $('#resCount');
+                    if (rc) rc.textContent = n + ' sản phẩm';
+                    showToast(v === 'all' ? 'Tất cả sản phẩm' : 'Lọc: ' + ch.textContent.trim());
+                });
+            });
 
-          <div class="card">
-            <div class="imgwrap">
-              <div class="track">
-                <div class="slide"><img class="pimg" src="assets/p1.png" alt="" draggable="false"></div>
-                <div class="slide"><img class="pimg" src="assets/p1b.png" alt="" draggable="false"></div>
-                <div class="slide"><img class="pimg" src="assets/p1c.png" alt="" draggable="false"></div>
-              </div>
-              <span class="badge">Mới về</span>
-              <button class="fav" aria-label="Add to wishlist"><i data-lucide="heart"></i></button>
-              <div class="dots"><span class="active"></span><span></span><span></span></div>
-            </div>
-            <div class="meta">
-              <div class="pname">Túi Đeo Vai Lụa Kem</div>
-              <div class="price">9.200.000₫</div>
-            </div>
-          </div>
+            // drag-to-slide the filter chip row
+            (function () {
+                const row = $('#catRow');
+                let down = false,
+                    sx = 0,
+                    sl = 0;
+                row.__moved = false;
+                row.addEventListener('pointerdown', (e) => {
+                    down = true;
+                    row.__moved = false;
+                    sx = e.clientX;
+                    sl = row.scrollLeft;
+                });
+                row.addEventListener('pointermove', (e) => {
+                    if (!down) return;
+                    const dx = e.clientX - sx;
+                    if (Math.abs(dx) > 6 && !row.__moved) {
+                        row.__moved = true;
+                        row.classList.add('dragging');
+                        try {
+                            row.setPointerCapture(e.pointerId);
+                        } catch (_) {}
+                    }
+                    if (row.__moved) row.scrollLeft = sl - dx;
+                });
+                const up = () => {
+                    down = false;
+                    row.classList.remove('dragging');
+                    setTimeout(() => {
+                        row.__moved = false;
+                    }, 0);
+                };
+                row.addEventListener('pointerup', up);
+                row.addEventListener('pointercancel', up);
+            })();
 
-          <div class="card">
-            <div class="imgwrap">
-              <div class="track">
-                <div class="slide"><img class="pimg" src="assets/p2.png" alt="" draggable="false"></div>
-                <div class="slide"><img class="pimg" src="assets/p2b.png" alt="" draggable="false"></div>
-              </div>
-              <span class="badge">Mới về</span>
-              <button class="fav" aria-label="Add to wishlist"><i data-lucide="heart"></i></button>
-              <div class="dots"><span class="active"></span><span></span></div>
-            </div>
-            <div class="meta">
-              <div class="pname">Ví Đựng Thẻ Da Đen</div>
-              <div class="price">3.800.000₫</div>
-            </div>
-          </div>
+            // load more
+            $('#loadMore').addEventListener('click', function () {
+                this.textContent = 'Đang tải…';
+                setTimeout(() => {
+                    this.textContent = 'Xem thêm';
+                    showToast('Bạn đã xem hết sản phẩm');
+                }, 700);
+            });
 
-          <div class="card">
-            <div class="imgwrap">
-              <div class="track">
-                <div class="slide"><img class="pimg" src="assets/p3.png" alt="" draggable="false"></div>
-                <div class="slide"><img class="pimg" src="assets/p3b.png" alt="" draggable="false"></div>
-                <div class="slide"><img class="pimg" src="assets/p3c.png" alt="" draggable="false"></div>
-              </div>
-              <span class="badge">Mới về</span>
-              <button class="fav" aria-label="Add to wishlist"><i data-lucide="heart"></i></button>
-              <div class="dots"><span class="active"></span><span></span><span></span></div>
-            </div>
-            <div class="meta">
-              <div class="pname">Ví Tim Sắc Chanh</div>
-              <div class="price">3.500.000₫</div>
-            </div>
-          </div>
+            // ---------- Dynamic grid render (driven by admin.js with real data) ----------
+            function vnd(n) {
+                return (Number(n) || 0).toLocaleString('vi-VN') + '₫';
+            }
+            function escH(s) {
+                return String(s == null ? '' : s).replace(
+                    /[&<>"']/g,
+                    (c) =>
+                        ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]
+                );
+            }
+            function variantsMarkup(p) {
+                var out = '';
+                if (Array.isArray(p.sizes) && p.sizes.length) {
+                    out +=
+                        '<div class="vsizes">' +
+                        p.sizes.map((s) => '<span>' + escH(s) + '</span>').join('') +
+                        '</div>';
+                }
+                if (Array.isArray(p.colors) && p.colors.length) {
+                    out +=
+                        '<div class="vcolors">' +
+                        p.colors.map((c) => escH(c)).join(' · ') +
+                        '</div>';
+                }
+                return out;
+            }
+            function priceMarkup(p) {
+                const sale = p.salePrice != null && p.salePrice > 0 && p.salePrice < p.price;
+                return sale
+                    ? '<span class="was">' +
+                          vnd(p.price) +
+                          '</span><span class="now">' +
+                          vnd(p.salePrice) +
+                          '</span>'
+                    : vnd(p.price);
+            }
+            function buildCardEl(p) {
+                const images = Array.isArray(p.images) && p.images.length ? p.images : [];
+                const sale = p.salePrice != null && p.salePrice > 0 && p.salePrice < p.price;
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.dataset.cat = (p.category || 'phukien') + (sale ? ' sale' : '');
+                if (p.id) {
+                    card.dataset.id = p.id;
+                    card.dataset.price = String(sale ? p.salePrice : p.price); // giá hiệu lực cho giỏ hàng
+                }
+                const slides = (images.length ? images : [null])
+                    .map(
+                        (src) =>
+                            '<div class="slide">' +
+                            (src
+                                ? '<img class="pimg" src="' + src + '" alt="" draggable="false">'
+                                : '') +
+                            '</div>'
+                    )
+                    .join('');
+                const dots =
+                    images.length > 1
+                        ? '<div class="dots">' +
+                          images
+                              .map(
+                                  (_, i) =>
+                                      '<span class="' + (i === 0 ? 'active' : '') + '"></span>'
+                              )
+                              .join('') +
+                          '</div>'
+                        : '';
+                const badge = p.badge
+                    ? '<span class="badge' + (sale ? ' sale' : '') + '">' + p.badge + '</span>'
+                    : '';
+                card.innerHTML =
+                    '<div class="imgwrap"><div class="track">' +
+                    slides +
+                    '</div>' +
+                    badge +
+                    '<button class="addbag" aria-label="Thêm vào giỏ"><i data-lucide="shopping-cart"></i></button>' +
+                    dots +
+                    '</div>' +
+                    '<div class="meta"><div class="pname">' +
+                    escH(p.name || '') +
+                    '</div>' +
+                    '<div class="price">' +
+                    priceMarkup(p) +
+                    '</div>' +
+                    variantsMarkup(p) +
+                    '</div>';
+                return card;
+            }
+            function renderGrid(products) {
+                const grid = $('#grid');
+                if (!grid) return;
+                // map SP theo id — cart.js cần full product (sizes/colors/images) cho sheet chọn size/màu
+                window.Showroom._products = {};
+                (products || []).forEach((p) => {
+                    if (p.id) window.Showroom._products[p.id] = p;
+                });
+                grid.innerHTML = '';
+                (products || []).forEach((p) => {
+                    const el = buildCardEl(p);
+                    grid.appendChild(el);
+                    bindCard(el);
+                });
+                lucide.createIcons();
+            }
 
-          <div class="card" data-cat="phukien sale">
-            <div class="imgwrap">
-              <div class="track">
-                <div class="slide"><img class="pimg" src="assets/p4.png" alt="" draggable="false"></div>
-                <div class="slide"><img class="pimg" src="assets/p4b.png" alt="" draggable="false"></div>
-              </div>
-              <span class="badge sale">Số lượng cuối</span>
-              <button class="fav" aria-label="Add to wishlist"><i data-lucide="heart"></i></button>
-              <div class="dots"><span class="active"></span><span></span></div>
-            </div>
-            <div class="meta">
-              <div class="pname">Ví Gập Da Đen</div>
-              <div class="price"><span class="was">4.900.000₫</span><span class="now">3.400.000₫</span></div>
-            </div>
-          </div>
+            // expose for admin.js + cart.js
+            window.Showroom = { renderGrid: renderGrid, showToast: showToast, _products: {} };
+        </script>
 
-          <div class="card">
-            <div class="imgwrap">
-              <div class="track">
-                <div class="slide"><img class="pimg" src="assets/p5.png" alt="" draggable="false"></div>
-                <div class="slide"><img class="pimg" src="assets/p5b.png" alt="" draggable="false"></div>
-                <div class="slide"><img class="pimg" src="assets/p5c.png" alt="" draggable="false"></div>
-              </div>
-              <span class="badge">Mới về</span>
-              <button class="fav" aria-label="Add to wishlist"><i data-lucide="heart"></i></button>
-              <div class="dots"><span class="active"></span><span></span><span></span></div>
-            </div>
-            <div class="meta">
-              <div class="pname">Túi Tote Mini Da Nâu</div>
-              <div class="price">7.600.000₫</div>
-            </div>
-          </div>
-
-          <div class="card">
-            <div class="imgwrap">
-              <div class="track">
-                <div class="slide"><img class="pimg" src="assets/p6.png" alt="" draggable="false"></div>
-                <div class="slide"><img class="pimg" src="assets/p6b.png" alt="" draggable="false"></div>
-              </div>
-              <span class="badge">Mới về</span>
-              <button class="fav" aria-label="Add to wishlist"><i data-lucide="heart"></i></button>
-              <div class="dots"><span class="active"></span><span></span></div>
-            </div>
-            <div class="meta">
-              <div class="pname">Hoa Tai Ngọc Trai</div>
-              <div class="price">4.200.000₫</div>
-            </div>
-          </div>
-
-          <div class="card">
-            <div class="imgwrap">
-              <div class="track">
-                <div class="slide"><img class="pimg" src="assets/p7.png" alt="" draggable="false"></div>
-                <div class="slide"><img class="pimg" src="assets/p7b.png" alt="" draggable="false"></div>
-                <div class="slide"><img class="pimg" src="assets/p7c.png" alt="" draggable="false"></div>
-              </div>
-              <span class="badge">Mới về</span>
-              <button class="fav" aria-label="Add to wishlist"><i data-lucide="heart"></i></button>
-              <div class="dots"><span class="active"></span><span></span><span></span></div>
-            </div>
-            <div class="meta">
-              <div class="pname">Khăn Lụa Họa Tiết</div>
-              <div class="price">2.900.000₫</div>
-            </div>
-          </div>
-
-          <div class="card">
-            <div class="imgwrap">
-              <div class="track">
-                <div class="slide"><img class="pimg" src="assets/p8.png" alt="" draggable="false"></div>
-                <div class="slide"><img class="pimg" src="assets/p8b.png" alt="" draggable="false"></div>
-              </div>
-              <span class="badge">Mới về</span>
-              <button class="fav" aria-label="Add to wishlist"><i data-lucide="heart"></i></button>
-              <div class="dots"><span class="active"></span><span></span></div>
-            </div>
-            <div class="meta">
-              <div class="pname">Thắt Lưng Da Cổ Điển</div>
-              <div class="price">3.100.000₫</div>
-            </div>
-          </div>
-
-        </div>
-
-        <!-- footer -->
-        <div class="foot">
-          <div class="more" id="loadMore">Xem thêm</div>
-          <div class="seam">Hiển thị 12 / 312 sản phẩm</div>
-          <div class="mk">NHI JUDY</div>
-        </div>
-
-      </div>
-
-      <!-- floating buttons -->
-      <div class="floaties">
-        <!-- pill mã khách + giỏ hàng (cart.js điền số + bind click) -->
-        <button class="fab idpill" id="idPill" aria-label="Giỏ hàng và mã khách của bạn">
-          <i data-lucide="shopping-bag"></i><b id="pillId">…</b><span class="pill-n" id="pillN" hidden>0</span>
-        </button>
-      </div>
-
-      <div class="home-ind"></div>
-
-      <!-- toast -->
-      <div class="toast" id="toast">Đã thêm vào yêu thích</div>
-
-    </div>
-  </div>
-  </div><!-- /.phone-pane -->
-
-<script>
-  lucide.createIcons();
-
-  const $ = (s, r=document) => r.querySelector(s);
-  const $$ = (s, r=document) => [...r.querySelectorAll(s)];
-
-  // toast
-  const toast = $('#toast');
-  let toastT;
-  function showToast(msg){
-    toast.textContent = msg;
-    toast.classList.add('show');
-    clearTimeout(toastT);
-    toastT = setTimeout(()=>toast.classList.remove('show'), 1800);
-  }
-
-  // nút giỏ hàng trên card → mở sheet chọn size/màu rồi thêm vào giỏ (cart.js)
-  function bindAddBag(btn){
-    btn.addEventListener('click', e => {
-      e.stopPropagation();
-      const card = btn.closest('.card');
-      const name = card.querySelector('.pname').textContent;
-      const id = card.dataset.id;
-      const p = id && window.Showroom._products ? window.Showroom._products[id] : null;
-      if(p && window.ShowroomCart){
-        // truyền ảnh SP làm điểm xuất phát cho animation "bay vào giỏ"
-        window.ShowroomCart.addWithOptions(p, card.querySelector('.imgwrap') || btn);
-      } else {
-        showToast('Đã thêm vào giỏ · ' + name); // card demo (không có id)
-      }
-    });
-  }
-
-  // image carousel (swipe only — thêm giỏ qua nút .addbag, KHÔNG bấm ảnh)
-  function bindImgwrap(w){
-    const track = w.querySelector('.track');
-    const dots = [...w.querySelectorAll('.dots span')];
-    const n = track ? track.children.length : 1;
-    let idx = 0, sx = 0, dx = 0, drag = false;
-    w.__moved = false;
-    w.__idx = 0;
-    function go(i){
-      idx = Math.max(0, Math.min(n - 1, i));
-      w.__idx = idx; // detail viewer mở đúng tấm đang xem
-      track.style.transform = 'translateX(' + (-idx * 100) + '%)';
-      dots.forEach((d, k) => d.classList.toggle('active', k === idx));
-    }
-    if(track){
-      w.addEventListener('pointerdown', e => {
-        if(e.target.closest('.addbag')) return;
-        drag = true; w.__moved = false; sx = e.clientX; dx = 0;
-        track.style.transition = 'none';
-        try { w.setPointerCapture(e.pointerId); } catch(_) {}
-      });
-      w.addEventListener('pointermove', e => {
-        if(!drag) return;
-        dx = e.clientX - sx;
-        if(Math.abs(dx) > 8) w.__moved = true;
-        track.style.transform = 'translateX(calc(' + (-idx * 100) + '% + ' + dx + 'px))';
-      });
-      const end = () => {
-        if(!drag) return;
-        drag = false;
-        track.style.transition = '';
-        if(Math.abs(dx) > w.offsetWidth * 0.18) go(idx + (dx < 0 ? 1 : -1));
-        else go(idx);
-        dx = 0;
-      };
-      w.addEventListener('pointerup', end);
-      w.addEventListener('pointercancel', end);
-      // Chặn webview Zalo/Messenger hiểu nhầm vuốt ảnh = "quay về trang trước":
-      // 1) touch khởi phát sát mép màn hình → chặn luôn (edge-swipe gesture của hệ thống)
-      w.addEventListener('touchstart', e => {
-        const t = e.touches[0];
-        if(t && (t.clientX < 26 || t.clientX > window.innerWidth - 26)) e.preventDefault();
-      }, { passive: false });
-      // 2) đang vuốt ngang trong carousel → nuốt gesture, không cho webview xử lý
-      w.addEventListener('touchmove', e => {
-        if(drag && w.__moved) e.preventDefault();
-      }, { passive: false });
-    }
-    // tap ảnh (không phải vuốt) → mở trang xem ảnh lớn + thông tin SP
-    w.addEventListener('click', e => {
-      if(e.target.closest('.addbag')) return;
-      if(w.__moved){ w.__moved = false; return; }
-      const card = w.closest('.card');
-      const id = card.dataset.id;
-      const p = id && window.Showroom._products ? window.Showroom._products[id] : null;
-      if(p && window.ShowroomDetail) window.ShowroomDetail.open(p, w.__idx || 0);
-    });
-  }
-
-  // bind one card's interactive bits (nút thêm giỏ + carousel)
-  function bindCard(card){
-    const ab = card.querySelector('.addbag');
-    if(ab) bindAddBag(ab);
-    const w = card.querySelector('.imgwrap');
-    if(w) bindImgwrap(w);
-  }
-
-  // initial bind for the hardcoded fallback cards (replaced once admin.js loads real data)
-  $$('.card').forEach(bindCard);
-
-  // category filter chips
-  $$('#catRow .cat').forEach(ch => {
-    ch.addEventListener('click', () => {
-      const row = $('#catRow');
-      if(row.__moved){ return; }
-      $$('#catRow .cat').forEach(c => c.classList.remove('on'));
-      ch.classList.add('on');
-      const v = ch.dataset.cat;
-      let n = 0;
-      $$('.card').forEach(card => {
-        const cats = (card.dataset.cat || 'phukien').split(' ');
-        const ok = v === 'all' || cats.includes(v);
-        card.style.display = ok ? '' : 'none';
-        if(ok) n++;
-      });
-      const rc = $('#resCount');
-      if(rc) rc.textContent = n + ' sản phẩm';
-      showToast(v === 'all' ? 'Tất cả sản phẩm' : 'Lọc: ' + ch.textContent.trim());
-    });
-  });
-
-  // drag-to-slide the filter chip row
-  (function(){
-    const row = $('#catRow');
-    let down = false, sx = 0, sl = 0;
-    row.__moved = false;
-    row.addEventListener('pointerdown', e => {
-      down = true; row.__moved = false;
-      sx = e.clientX; sl = row.scrollLeft;
-    });
-    row.addEventListener('pointermove', e => {
-      if(!down) return;
-      const dx = e.clientX - sx;
-      if(Math.abs(dx) > 6 && !row.__moved){
-        row.__moved = true;
-        row.classList.add('dragging');
-        try { row.setPointerCapture(e.pointerId); } catch(_) {}
-      }
-      if(row.__moved) row.scrollLeft = sl - dx;
-    });
-    const up = () => {
-      down = false;
-      row.classList.remove('dragging');
-      setTimeout(()=>{ row.__moved = false; }, 0);
-    };
-    row.addEventListener('pointerup', up);
-    row.addEventListener('pointercancel', up);
-  })();
-
-  // load more
-  $('#loadMore').addEventListener('click', function(){
-    this.textContent = 'Đang tải…';
-    setTimeout(()=>{ this.textContent = 'Xem thêm'; showToast('Bạn đã xem hết sản phẩm'); }, 700);
-  });
-
-  // ---------- Dynamic grid render (driven by admin.js with real data) ----------
-  function vnd(n){ return (Number(n)||0).toLocaleString('vi-VN') + '₫'; }
-  function escH(s){ return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-  function variantsMarkup(p){
-    var out = '';
-    if(Array.isArray(p.sizes) && p.sizes.length){
-      out += '<div class="vsizes">' + p.sizes.map(s=>'<span>'+escH(s)+'</span>').join('') + '</div>';
-    }
-    if(Array.isArray(p.colors) && p.colors.length){
-      out += '<div class="vcolors">' + p.colors.map(c=>escH(c)).join(' · ') + '</div>';
-    }
-    return out;
-  }
-  function priceMarkup(p){
-    const sale = (p.salePrice != null && p.salePrice > 0 && p.salePrice < p.price);
-    return sale
-      ? '<span class="was">'+vnd(p.price)+'</span><span class="now">'+vnd(p.salePrice)+'</span>'
-      : vnd(p.price);
-  }
-  function buildCardEl(p){
-    const images = Array.isArray(p.images) && p.images.length ? p.images : [];
-    const sale = (p.salePrice != null && p.salePrice > 0 && p.salePrice < p.price);
-    const card = document.createElement('div');
-    card.className = 'card';
-    card.dataset.cat = (p.category || 'phukien') + (sale ? ' sale' : '');
-    if(p.id){
-      card.dataset.id = p.id;
-      card.dataset.price = String(sale ? p.salePrice : p.price); // giá hiệu lực cho giỏ hàng
-    }
-    const slides = (images.length ? images : [null]).map(src =>
-      '<div class="slide">' + (src ? '<img class="pimg" src="'+src+'" alt="" draggable="false">' : '') + '</div>'
-    ).join('');
-    const dots = (images.length > 1)
-      ? '<div class="dots">' + images.map((_,i)=> '<span class="'+(i===0?'active':'')+'"></span>').join('') + '</div>'
-      : '';
-    const badge = p.badge ? '<span class="badge'+(sale?' sale':'')+'">'+p.badge+'</span>' : '';
-    card.innerHTML =
-      '<div class="imgwrap"><div class="track">'+slides+'</div>'+badge+
-        '<button class="addbag" aria-label="Thêm vào giỏ"><i data-lucide="shopping-cart"></i></button>'+dots+
-      '</div>'+
-      '<div class="meta"><div class="pname">'+escH(p.name||'')+'</div>'+
-        '<div class="price">'+priceMarkup(p)+'</div>'+variantsMarkup(p)+'</div>';
-    return card;
-  }
-  function renderGrid(products){
-    const grid = $('#grid');
-    if(!grid) return;
-    // map SP theo id — cart.js cần full product (sizes/colors/images) cho sheet chọn size/màu
-    window.Showroom._products = {};
-    (products||[]).forEach(p => { if(p.id) window.Showroom._products[p.id] = p; });
-    grid.innerHTML = '';
-    (products||[]).forEach(p => { const el = buildCardEl(p); grid.appendChild(el); bindCard(el); });
-    lucide.createIcons();
-  }
-
-  // expose for admin.js + cart.js
-  window.Showroom = { renderGrid: renderGrid, showToast: showToast, _products: {} };
-
-</script>
-
-<!-- Giỏ hàng khách vãng lai (visitor ID) — load TRƯỚC admin.js -->
-<script src="cart.js?v=20260611c"></script>
-<!-- Trang xem chi tiết SP (bấm vào ảnh) -->
-<script src="detail.js?v=20260611e"></script>
-<!-- Shared auth (auto-inits window.authManager) + admin panel -->
-<script type="module" src="../shared/esm/compat.js"></script>
-<script src="admin.js?v=20260611d"></script>
-</body>
+        <!-- Giỏ hàng khách vãng lai (visitor ID) — load TRƯỚC admin.js -->
+        <script src="cart.js?v=20260611c"></script>
+        <!-- Trang xem chi tiết SP (bấm vào ảnh) -->
+        <script src="detail.js?v=20260611e"></script>
+        <!-- Shared auth (auto-inits window.authManager) + admin panel -->
+        <script type="module" src="../shared/esm/compat.js"></script>
+        <script src="admin.js?v=20260611d"></script>
+    </body>
 </html>

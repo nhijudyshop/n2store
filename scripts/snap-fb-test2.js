@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes.
 // Test 2: Verify getDisplayMedia + auto-select Facebook tab works
 // Bypass TPOS UI — directly test browser API trên tab tpos-pancake.
 const { chromium } = require('playwright');

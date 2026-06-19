@@ -1,3 +1,4 @@
+// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes.
 'use strict';
 
 /**
@@ -6,81 +7,81 @@
  * Redirection operators (&>, >&, 2>&1) are NOT treated as separators.
  */
 function splitShellSegments(command) {
-  const segments = [];
-  let current = '';
-  let quote = null;
+    const segments = [];
+    let current = '';
+    let quote = null;
 
-  for (let i = 0; i < command.length; i++) {
-    const ch = command[i];
+    for (let i = 0; i < command.length; i++) {
+        const ch = command[i];
 
-    // Inside quotes: handle escapes and closing quote
-    if (quote) {
-      if (ch === '\\' && i + 1 < command.length) {
-        current += ch + command[i + 1];
-        i++;
-        continue;
-      }
-      if (ch === quote) quote = null;
-      current += ch;
-      continue;
-    }
+        // Inside quotes: handle escapes and closing quote
+        if (quote) {
+            if (ch === '\\' && i + 1 < command.length) {
+                current += ch + command[i + 1];
+                i++;
+                continue;
+            }
+            if (ch === quote) quote = null;
+            current += ch;
+            continue;
+        }
 
-    // Backslash escape outside quotes
-    if (ch === '\\' && i + 1 < command.length) {
-      current += ch + command[i + 1];
-      i++;
-      continue;
-    }
+        // Backslash escape outside quotes
+        if (ch === '\\' && i + 1 < command.length) {
+            current += ch + command[i + 1];
+            i++;
+            continue;
+        }
 
-    // Opening quote
-    if (ch === '"' || ch === "'") {
-      quote = ch;
-      current += ch;
-      continue;
-    }
+        // Opening quote
+        if (ch === '"' || ch === "'") {
+            quote = ch;
+            current += ch;
+            continue;
+        }
 
-    const next = command[i + 1] || '';
-    const prev = i > 0 ? command[i - 1] : '';
+        const next = command[i + 1] || '';
+        const prev = i > 0 ? command[i - 1] : '';
 
-    // && operator
-    if (ch === '&' && next === '&') {
-      if (current.trim()) segments.push(current.trim());
-      current = '';
-      i++;
-      continue;
-    }
+        // && operator
+        if (ch === '&' && next === '&') {
+            if (current.trim()) segments.push(current.trim());
+            current = '';
+            i++;
+            continue;
+        }
 
-    // || operator
-    if (ch === '|' && next === '|') {
-      if (current.trim()) segments.push(current.trim());
-      current = '';
-      i++;
-      continue;
-    }
+        // || operator
+        if (ch === '|' && next === '|') {
+            if (current.trim()) segments.push(current.trim());
+            current = '';
+            i++;
+            continue;
+        }
 
-    // ; separator
-    if (ch === ';') {
-      if (current.trim()) segments.push(current.trim());
-      current = '';
-      continue;
-    }
+        // ; separator
+        if (ch === ';') {
+            if (current.trim()) segments.push(current.trim());
+            current = '';
+            continue;
+        }
 
-    // Single & — but skip redirection patterns (&>, >&, digit>&)
-    if (ch === '&' && next !== '&') {
-      if (next === '>' || prev === '>') {
+        // Single & — but skip redirection patterns (&>, >&, digit>&)
+        if (ch === '&' && next !== '&') {
+            if (next === '>' || prev === '>') {
+                current += ch;
+                continue;
+            }
+            if (current.trim()) segments.push(current.trim());
+            current = '';
+            continue;
+        }
+
         current += ch;
-        continue;
-      }
-      if (current.trim()) segments.push(current.trim());
-      current = '';
-      continue;
     }
 
-    current += ch;
-  }
-
-  if (current.trim()) segments.push(current.trim());
-  return segments;
+    if (current.trim()) segments.push(current.trim());
+    return segments;
 }
 
 module.exports = { splitShellSegments };

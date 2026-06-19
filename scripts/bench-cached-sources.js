@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes.
 // Test các nguồn cached khả thi cho comments của post đã xóa khỏi FB:
 //   1. TPOS chatomni dictionarybytimestamp — user metadata (đã capture trước)
 //   2. TPOS POST /rest/v1.0/facebookpost/get_saved_by_ids — "saved by IDs" (đáng nghi cache cached post + comments)

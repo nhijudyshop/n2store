@@ -1,3 +1,4 @@
+// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes.
 'use strict';
 const { Pool } = require('../render.com/node_modules/pg');
 const ws = require('../render.com/services/web2-wallet-service');

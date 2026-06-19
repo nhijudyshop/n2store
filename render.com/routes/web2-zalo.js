@@ -77,10 +77,23 @@ function _safeAccount(a, liveStatus) {
         status: liveStatus || a.status,
         statusMsg: a.status_msg,
         isActive: a.is_active,
+        isPrimary: !!a.is_primary, // TK cá nhân CHÍNH gửi tin KH 1-1
         lastConnectedAt: a.last_connected_at,
         createdAt: a.created_at,
         updatedAt: a.updated_at,
     };
+}
+
+// account_key của TK cá nhân CHÍNH (gửi tin KH 1-1). null nếu chưa đặt → caller fallback hành vi cũ.
+async function _getPrimaryKey(db) {
+    try {
+        const { rows } = await db.query(
+            `SELECT account_key FROM web2_zalo_accounts WHERE is_primary=true AND account_type='personal' LIMIT 1`
+        );
+        return rows[0]?.account_key || null;
+    } catch {
+        return null;
+    }
 }
 
 // =====================================================================
@@ -560,6 +573,33 @@ router.post('/accounts/:key/disconnect', async (req, res) => {
         );
         _notify('web2:zalo:accounts', 'update', req.params.key);
         res.json({ success: true });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+// Đặt 1 TK cá nhân làm CHÍNH (gửi tin KH 1-1 dùng TK này). 1 dòng is_primary=true.
+router.post('/accounts/:key/primary', async (req, res) => {
+    try {
+        const db = getDb(req);
+        const key = req.params.key;
+        const { rows } = await db.query(
+            `SELECT account_type FROM web2_zalo_accounts WHERE account_key=$1`,
+            [key]
+        );
+        if (!rows[0])
+            return res.status(404).json({ success: false, error: 'Không tìm thấy tài khoản' });
+        if (rows[0].account_type !== 'personal')
+            return res
+                .status(400)
+                .json({ success: false, error: 'Chỉ tài khoản cá nhân mới làm TK chính được' });
+        // Atomic: bỏ cờ mọi TK rồi set cờ TK này.
+        await db.query(
+            `UPDATE web2_zalo_accounts SET is_primary = (account_key=$1), updated_at=$2`,
+            [key, now()]
+        );
+        _notify('web2:zalo:accounts', 'update', key);
+        res.json({ success: true, accountKey: key });
     } catch (e) {
         res.status(500).json({ success: false, error: e.message });
     }
@@ -1139,10 +1179,18 @@ router.get('/conversation/:phone', async (req, res) => {
     try {
         const db = getDb(req);
         const p = String(req.params.phone).replace(/\D/g, '');
-        const { rows } = await db.query(
-            `SELECT * FROM web2_zalo_conversations WHERE phone=$1 ORDER BY last_msg_at DESC NULLS LAST LIMIT 1`,
-            [p]
-        );
+        // Ưu tiên hội thoại dưới TK CHÍNH (gửi KH 1-1 từ đúng TK đó). Chưa đặt primary →
+        // hành vi cũ (hội thoại mới nhất bất kỳ TK).
+        const primary = await _getPrimaryKey(db);
+        const { rows } = primary
+            ? await db.query(
+                  `SELECT * FROM web2_zalo_conversations WHERE phone=$1 AND account_key=$2 ORDER BY last_msg_at DESC NULLS LAST LIMIT 1`,
+                  [p, primary]
+              )
+            : await db.query(
+                  `SELECT * FROM web2_zalo_conversations WHERE phone=$1 ORDER BY last_msg_at DESC NULLS LAST LIMIT 1`,
+                  [p]
+              );
         res.json({ success: true, data: rows[0] || null });
     } catch (e) {
         res.status(500).json({ success: false, error: e.message });
@@ -1156,17 +1204,24 @@ router.post('/conversation/ensure', async (req, res) => {
         const db = getDb(req);
         const phone = String(req.body?.phone || '').replace(/\D/g, '');
         if (!phone) return res.status(400).json({ success: false, error: 'Thiếu phone' });
-        // Đã có hội thoại (đã từng chat / đã sync danh bạ) → trả luôn.
-        const ex = await db.query(
-            `SELECT * FROM web2_zalo_conversations WHERE phone=$1 ORDER BY last_msg_at DESC NULLS LAST LIMIT 1`,
-            [phone]
-        );
+        // Đã có hội thoại DƯỚI TK CHÍNH → trả luôn (gửi từ đúng TK chính). Bỏ qua hội thoại
+        // dưới TK khác (vd nhóm) để KH 1-1 luôn đi từ TK chính. Chưa đặt primary → cũ.
+        const primary = await _getPrimaryKey(db);
+        const ex = primary
+            ? await db.query(
+                  `SELECT * FROM web2_zalo_conversations WHERE phone=$1 AND account_key=$2 ORDER BY last_msg_at DESC NULLS LAST LIMIT 1`,
+                  [phone, primary]
+              )
+            : await db.query(
+                  `SELECT * FROM web2_zalo_conversations WHERE phone=$1 ORDER BY last_msg_at DESC NULLS LAST LIMIT 1`,
+                  [phone]
+              );
         if (ex.rows[0]) return res.json({ success: true, data: ex.rows[0], created: false });
-        // Chọn 1 tài khoản personal đang KẾT NỐI.
+        // Chọn tài khoản personal đang KẾT NỐI — ƯU TIÊN TK CHÍNH (is_primary) trước.
         let accountKey = req.body?.accountKey;
         if (!accountKey) {
             const accs = await db.query(
-                `SELECT account_key FROM web2_zalo_accounts WHERE is_active=true AND account_type='personal' ORDER BY updated_at DESC`
+                `SELECT account_key FROM web2_zalo_accounts WHERE is_active=true AND account_type='personal' ORDER BY is_primary DESC, updated_at DESC`
             );
             accountKey = accs.rows.map((r) => r.account_key).find((k) => zca.isConnected(k));
         }

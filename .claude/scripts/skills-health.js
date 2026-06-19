@@ -1,11 +1,12 @@
 #!/usr/bin/env node
+// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes.
 'use strict';
 
 const { collectSkillHealth, formatHealthReport } = require('./lib/skill-evolution/health');
 const { renderDashboard } = require('./lib/skill-evolution/dashboard');
 
 function showHelp() {
-  console.log(`
+    console.log(`
 Usage: node scripts/skills-health.js [options]
 
 Options:
@@ -24,109 +25,111 @@ Options:
 }
 
 function requireValue(argv, index, argName) {
-  const value = argv[index + 1];
-  if (!value || value.startsWith('--')) {
-    throw new Error(`Missing value for ${argName}`);
-  }
+    const value = argv[index + 1];
+    if (!value || value.startsWith('--')) {
+        throw new Error(`Missing value for ${argName}`);
+    }
 
-  return value;
+    return value;
 }
 
 function parseArgs(argv) {
-  const options = {};
+    const options = {};
 
-  for (let index = 0; index < argv.length; index += 1) {
-    const arg = argv[index];
+    for (let index = 0; index < argv.length; index += 1) {
+        const arg = argv[index];
 
-    if (arg === '--json') {
-      options.json = true;
-      continue;
+        if (arg === '--json') {
+            options.json = true;
+            continue;
+        }
+
+        if (arg === '--help' || arg === '-h') {
+            options.help = true;
+            continue;
+        }
+
+        if (arg === '--skills-root') {
+            options.skillsRoot = requireValue(argv, index, '--skills-root');
+            index += 1;
+            continue;
+        }
+
+        if (arg === '--learned-root') {
+            options.learnedRoot = requireValue(argv, index, '--learned-root');
+            index += 1;
+            continue;
+        }
+
+        if (arg === '--imported-root') {
+            options.importedRoot = requireValue(argv, index, '--imported-root');
+            index += 1;
+            continue;
+        }
+
+        if (arg === '--home') {
+            options.homeDir = requireValue(argv, index, '--home');
+            index += 1;
+            continue;
+        }
+
+        if (arg === '--runs-file') {
+            options.runsFilePath = requireValue(argv, index, '--runs-file');
+            index += 1;
+            continue;
+        }
+
+        if (arg === '--now') {
+            options.now = requireValue(argv, index, '--now');
+            index += 1;
+            continue;
+        }
+
+        if (arg === '--warn-threshold') {
+            options.warnThreshold = Number(requireValue(argv, index, '--warn-threshold'));
+            index += 1;
+            continue;
+        }
+
+        if (arg === '--dashboard') {
+            options.dashboard = true;
+            continue;
+        }
+
+        if (arg === '--panel') {
+            options.panel = requireValue(argv, index, '--panel');
+            index += 1;
+            continue;
+        }
+
+        throw new Error(`Unknown argument: ${arg}`);
     }
 
-    if (arg === '--help' || arg === '-h') {
-      options.help = true;
-      continue;
-    }
-
-    if (arg === '--skills-root') {
-      options.skillsRoot = requireValue(argv, index, '--skills-root');
-      index += 1;
-      continue;
-    }
-
-    if (arg === '--learned-root') {
-      options.learnedRoot = requireValue(argv, index, '--learned-root');
-      index += 1;
-      continue;
-    }
-
-    if (arg === '--imported-root') {
-      options.importedRoot = requireValue(argv, index, '--imported-root');
-      index += 1;
-      continue;
-    }
-
-    if (arg === '--home') {
-      options.homeDir = requireValue(argv, index, '--home');
-      index += 1;
-      continue;
-    }
-
-    if (arg === '--runs-file') {
-      options.runsFilePath = requireValue(argv, index, '--runs-file');
-      index += 1;
-      continue;
-    }
-
-    if (arg === '--now') {
-      options.now = requireValue(argv, index, '--now');
-      index += 1;
-      continue;
-    }
-
-    if (arg === '--warn-threshold') {
-      options.warnThreshold = Number(requireValue(argv, index, '--warn-threshold'));
-      index += 1;
-      continue;
-    }
-
-    if (arg === '--dashboard') {
-      options.dashboard = true;
-      continue;
-    }
-
-    if (arg === '--panel') {
-      options.panel = requireValue(argv, index, '--panel');
-      index += 1;
-      continue;
-    }
-
-    throw new Error(`Unknown argument: ${arg}`);
-  }
-
-  return options;
+    return options;
 }
 
 function main() {
-  try {
-    const options = parseArgs(process.argv.slice(2));
+    try {
+        const options = parseArgs(process.argv.slice(2));
 
-    if (options.help) {
-      showHelp();
-      process.exit(0);
-    }
+        if (options.help) {
+            showHelp();
+            process.exit(0);
+        }
 
-    if (options.dashboard || options.panel) {
-      const result = renderDashboard(options);
-      process.stdout.write(options.json ? `${JSON.stringify(result.data, null, 2)}\n` : result.text);
-    } else {
-      const report = collectSkillHealth(options);
-      process.stdout.write(formatHealthReport(report, { json: options.json }));
+        if (options.dashboard || options.panel) {
+            const result = renderDashboard(options);
+            process.stdout.write(
+                options.json ? `${JSON.stringify(result.data, null, 2)}\n` : result.text
+            );
+        } else {
+            const report = collectSkillHealth(options);
+            process.stdout.write(formatHealthReport(report, { json: options.json }));
+        }
+    } catch (error) {
+        process.stderr.write(`Error: ${error.message}\n`);
+        process.exit(1);
     }
-  } catch (error) {
-    process.stderr.write(`Error: ${error.message}\n`);
-    process.exit(1);
-  }
 }
 
 main();

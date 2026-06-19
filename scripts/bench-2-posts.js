@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes.
 // Test 2 SPECIFIC posts user thấy 500 trong console log.
 // So sánh 3 approach: CF worker / TPOS via TPOS-session-page / FB Graph direct.
 

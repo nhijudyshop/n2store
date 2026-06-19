@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes.
 /**
  * Doc file warning hook (PreToolUse - Write)
  *
@@ -22,22 +23,23 @@ let data = '';
 const ADHOC_FILENAMES = /^(NOTES|TODO|SCRATCH|TEMP|DRAFT|BRAINSTORM|SPIKE|DEBUG|WIP)\.(md|txt)$/;
 
 // Structured directories where even ad-hoc names are intentional
-const STRUCTURED_DIRS = /(^|\/)(docs|\.claude|\.github|commands|skills|benchmarks|templates|\.history|memory)\//;
+const STRUCTURED_DIRS =
+    /(^|\/)(docs|\.claude|\.github|commands|skills|benchmarks|templates|\.history|memory)\//;
 
 function isSuspiciousDocPath(filePath) {
-  const normalized = filePath.replace(/\\/g, '/');
-  const basename = path.basename(normalized);
+    const normalized = filePath.replace(/\\/g, '/');
+    const basename = path.basename(normalized);
 
-  // Only inspect .md and .txt files (case-sensitive, consistent with ADHOC_FILENAMES)
-  if (!/\.(md|txt)$/.test(basename)) return false;
+    // Only inspect .md and .txt files (case-sensitive, consistent with ADHOC_FILENAMES)
+    if (!/\.(md|txt)$/.test(basename)) return false;
 
-  // Only flag known ad-hoc filenames
-  if (!ADHOC_FILENAMES.test(basename)) return false;
+    // Only flag known ad-hoc filenames
+    if (!ADHOC_FILENAMES.test(basename)) return false;
 
-  // Allow ad-hoc names inside structured directories (intentional usage)
-  if (STRUCTURED_DIRS.test(normalized)) return false;
+    // Allow ad-hoc names inside structured directories (intentional usage)
+    if (STRUCTURED_DIRS.test(normalized)) return false;
 
-  return true;
+    return true;
 }
 
 /**
@@ -45,46 +47,49 @@ function isSuspiciousDocPath(filePath) {
  * Avoids the ~50-100ms spawnSync overhead when available.
  */
 function run(inputOrRaw, _options = {}) {
-  let input;
-  try {
-    input = typeof inputOrRaw === 'string'
-      ? (inputOrRaw.trim() ? JSON.parse(inputOrRaw) : {})
-      : (inputOrRaw || {});
-  } catch {
+    let input;
+    try {
+        input =
+            typeof inputOrRaw === 'string'
+                ? inputOrRaw.trim()
+                    ? JSON.parse(inputOrRaw)
+                    : {}
+                : inputOrRaw || {};
+    } catch {
+        return { exitCode: 0 };
+    }
+    const filePath = String(input?.tool_input?.file_path || '');
+
+    if (filePath && isSuspiciousDocPath(filePath)) {
+        return {
+            exitCode: 0,
+            stderr:
+                '[Hook] WARNING: Ad-hoc documentation filename detected\n' +
+                `[Hook] File: ${filePath}\n` +
+                '[Hook] Consider using a structured path (e.g. docs/, .claude/, skills/, .github/, benchmarks/, templates/)',
+        };
+    }
+
     return { exitCode: 0 };
-  }
-  const filePath = String(input?.tool_input?.file_path || '');
-
-  if (filePath && isSuspiciousDocPath(filePath)) {
-    return {
-      exitCode: 0,
-      stderr:
-        '[Hook] WARNING: Ad-hoc documentation filename detected\n' +
-        `[Hook] File: ${filePath}\n` +
-        '[Hook] Consider using a structured path (e.g. docs/, .claude/, skills/, .github/, benchmarks/, templates/)',
-    };
-  }
-
-  return { exitCode: 0 };
 }
 
 module.exports = { run };
 
 // Stdin fallback for spawnSync execution
 process.stdin.setEncoding('utf8');
-process.stdin.on('data', c => {
-  if (data.length < MAX_STDIN) {
-    const remaining = MAX_STDIN - data.length;
-    data += c.substring(0, remaining);
-  }
+process.stdin.on('data', (c) => {
+    if (data.length < MAX_STDIN) {
+        const remaining = MAX_STDIN - data.length;
+        data += c.substring(0, remaining);
+    }
 });
 
 process.stdin.on('end', () => {
-  const result = run(data);
+    const result = run(data);
 
-  if (result.stderr) {
-    process.stderr.write(result.stderr + '\n');
-  }
+    if (result.stderr) {
+        process.stderr.write(result.stderr + '\n');
+    }
 
-  process.stdout.write(data);
+    process.stdout.write(data);
 });

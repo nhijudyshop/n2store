@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes.
 'use strict';
 
 /**
@@ -33,12 +34,12 @@ const { spawnSync } = require('child_process');
 const CURRENT_PLUGIN_SLUG = 'ecc';
 const LEGACY_PLUGIN_SLUG = 'everything-claude-code';
 const KNOWN_PLUGIN_PATHS = [
-  [CURRENT_PLUGIN_SLUG],
-  [`${CURRENT_PLUGIN_SLUG}@${CURRENT_PLUGIN_SLUG}`],
-  ['marketplace', CURRENT_PLUGIN_SLUG],
-  [LEGACY_PLUGIN_SLUG],
-  [`${LEGACY_PLUGIN_SLUG}@${LEGACY_PLUGIN_SLUG}`],
-  ['marketplace', LEGACY_PLUGIN_SLUG],
+    [CURRENT_PLUGIN_SLUG],
+    [`${CURRENT_PLUGIN_SLUG}@${CURRENT_PLUGIN_SLUG}`],
+    ['marketplace', CURRENT_PLUGIN_SLUG],
+    [LEGACY_PLUGIN_SLUG],
+    [`${LEGACY_PLUGIN_SLUG}@${LEGACY_PLUGIN_SLUG}`],
+    ['marketplace', LEGACY_PLUGIN_SLUG],
 ];
 const CACHE_PLUGIN_SLUGS = [CURRENT_PLUGIN_SLUG, LEGACY_PLUGIN_SLUG];
 
@@ -56,8 +57,8 @@ const rel = path.join('scripts', 'hooks', 'run-with-flags.js');
  * @returns {boolean}
  */
 function hasRunnerRoot(candidate) {
-  const value = typeof candidate === 'string' ? candidate.trim() : '';
-  return value.length > 0 && fs.existsSync(path.join(path.resolve(value), rel));
+    const value = typeof candidate === 'string' ? candidate.trim() : '';
+    return value.length > 0 && fs.existsSync(path.join(path.resolve(value), rel));
 }
 
 /**
@@ -71,91 +72,93 @@ function hasRunnerRoot(candidate) {
  * @returns {string}
  */
 function resolvePluginRoot() {
-  const envRoot = process.env.CLAUDE_PLUGIN_ROOT || '';
-  if (hasRunnerRoot(envRoot)) {
-    return path.resolve(envRoot.trim());
-  }
-
-  const home = require('os').homedir();
-  const claudeDir = path.join(home, '.claude');
-
-  if (hasRunnerRoot(claudeDir)) {
-    return claudeDir;
-  }
-
-  const knownPaths = KNOWN_PLUGIN_PATHS.map((segments) =>
-    path.join(claudeDir, 'plugins', ...segments)
-  );
-
-  for (const candidate of knownPaths) {
-    if (hasRunnerRoot(candidate)) {
-      return candidate;
+    const envRoot = process.env.CLAUDE_PLUGIN_ROOT || '';
+    if (hasRunnerRoot(envRoot)) {
+        return path.resolve(envRoot.trim());
     }
-  }
 
-  // Walk versioned cache: ~/.claude/plugins/cache/{ecc,everything-claude-code}/<org>/<version>/
-  try {
-    for (const slug of CACHE_PLUGIN_SLUGS) {
-      const cacheBase = path.join(claudeDir, 'plugins', 'cache', slug);
-      for (const org of fs.readdirSync(cacheBase, { withFileTypes: true })) {
-        if (!org.isDirectory()) continue;
-        for (const version of fs.readdirSync(path.join(cacheBase, org.name), { withFileTypes: true })) {
-          if (!version.isDirectory()) continue;
-          const candidate = path.join(cacheBase, org.name, version.name);
-          if (hasRunnerRoot(candidate)) {
+    const home = require('os').homedir();
+    const claudeDir = path.join(home, '.claude');
+
+    if (hasRunnerRoot(claudeDir)) {
+        return claudeDir;
+    }
+
+    const knownPaths = KNOWN_PLUGIN_PATHS.map((segments) =>
+        path.join(claudeDir, 'plugins', ...segments)
+    );
+
+    for (const candidate of knownPaths) {
+        if (hasRunnerRoot(candidate)) {
             return candidate;
-          }
         }
-      }
     }
-  } catch {
-    // cache directory may not exist; that's fine
-  }
 
-  return claudeDir;
+    // Walk versioned cache: ~/.claude/plugins/cache/{ecc,everything-claude-code}/<org>/<version>/
+    try {
+        for (const slug of CACHE_PLUGIN_SLUGS) {
+            const cacheBase = path.join(claudeDir, 'plugins', 'cache', slug);
+            for (const org of fs.readdirSync(cacheBase, { withFileTypes: true })) {
+                if (!org.isDirectory()) continue;
+                for (const version of fs.readdirSync(path.join(cacheBase, org.name), {
+                    withFileTypes: true,
+                })) {
+                    if (!version.isDirectory()) continue;
+                    const candidate = path.join(cacheBase, org.name, version.name);
+                    if (hasRunnerRoot(candidate)) {
+                        return candidate;
+                    }
+                }
+            }
+        }
+    } catch {
+        // cache directory may not exist; that's fine
+    }
+
+    return claudeDir;
 }
 
 const root = resolvePluginRoot();
 const script = path.join(root, rel);
 
 if (fs.existsSync(script)) {
-  const result = spawnSync(
-    process.execPath,
-    [script, 'session:start', 'scripts/hooks/session-start.js', 'minimal,standard,strict'],
-    {
-      input: raw,
-      encoding: 'utf8',
-      env: process.env,
-      cwd: process.cwd(),
-      timeout: 30000,
+    const result = spawnSync(
+        process.execPath,
+        [script, 'session:start', 'scripts/hooks/session-start.js', 'minimal,standard,strict'],
+        {
+            input: raw,
+            encoding: 'utf8',
+            env: process.env,
+            cwd: process.cwd(),
+            timeout: 30000,
+        }
+    );
+
+    const stdout = typeof result.stdout === 'string' ? result.stdout : '';
+    if (stdout) {
+        process.stdout.write(stdout);
+    } else {
+        process.stdout.write(raw);
     }
-  );
 
-  const stdout = typeof result.stdout === 'string' ? result.stdout : '';
-  if (stdout) {
-    process.stdout.write(stdout);
-  } else {
-    process.stdout.write(raw);
-  }
+    if (result.stderr) {
+        process.stderr.write(result.stderr);
+    }
 
-  if (result.stderr) {
-    process.stderr.write(result.stderr);
-  }
+    if (result.error || result.status === null || result.signal) {
+        const reason = result.error
+            ? result.error.message
+            : result.signal
+              ? 'signal ' + result.signal
+              : 'missing exit status';
+        process.stderr.write('[SessionStart] ERROR: session-start hook failed: ' + reason + '\n');
+        process.exit(1);
+    }
 
-  if (result.error || result.status === null || result.signal) {
-    const reason = result.error
-      ? result.error.message
-      : result.signal
-        ? 'signal ' + result.signal
-        : 'missing exit status';
-    process.stderr.write('[SessionStart] ERROR: session-start hook failed: ' + reason + '\n');
-    process.exit(1);
-  }
-
-  process.exit(Number.isInteger(result.status) ? result.status : 0);
+    process.exit(Number.isInteger(result.status) ? result.status : 0);
 }
 
 process.stderr.write(
-  '[SessionStart] WARNING: could not resolve ECC plugin root; skipping session-start hook\n'
+    '[SessionStart] WARNING: could not resolve ECC plugin root; skipping session-start hook\n'
 );
 process.stdout.write(raw);

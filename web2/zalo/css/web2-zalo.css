@@ -425,6 +425,29 @@
     background: var(--wz-ok-soft);
     color: var(--wz-ok);
 }
+/* Badge "TK chính" — TK cá nhân gửi tin KH 1-1 */
+.wz-acc-primary {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 3px 8px;
+    border-radius: 7px;
+    background: #fff4d6;
+    color: #b45309;
+    white-space: nowrap;
+}
+.wz-acc-primary i {
+    width: 12px;
+    height: 12px;
+}
+.wz-acc-card.is-primary {
+    border-color: #f5c451;
+    box-shadow: 0 0 0 1px #f5c45133;
+}
 .wz-acc-actions {
     display: flex;
     gap: 7px;

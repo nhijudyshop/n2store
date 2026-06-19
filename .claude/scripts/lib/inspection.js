@@ -1,3 +1,4 @@
+// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes.
 'use strict';
 
 const DEFAULT_FAILURE_THRESHOLD = 3;
@@ -10,22 +11,24 @@ const FAILURE_OUTCOMES = new Set(['failure', 'failed', 'error']);
  * Strips timestamps, UUIDs, file paths, and numeric suffixes.
  */
 function normalizeFailureReason(reason) {
-  if (!reason || typeof reason !== 'string') {
-    return 'unknown';
-  }
+    if (!reason || typeof reason !== 'string') {
+        return 'unknown';
+    }
 
-  return reason
-    .trim()
-    .toLowerCase()
-    // Strip ISO timestamps (note: already lowercased, so t/z not T/Z)
-    .replace(/\d{4}-\d{2}-\d{2}[t ]\d{2}:\d{2}:\d{2}[.\dz]*/g, '<timestamp>')
-    // Strip UUIDs (already lowercased)
-    .replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g, '<uuid>')
-    // Strip file paths
-    .replace(/\/[\w./-]+/g, '<path>')
-    // Collapse whitespace
-    .replace(/\s+/g, ' ')
-    .trim();
+    return (
+        reason
+            .trim()
+            .toLowerCase()
+            // Strip ISO timestamps (note: already lowercased, so t/z not T/Z)
+            .replace(/\d{4}-\d{2}-\d{2}[t ]\d{2}:\d{2}:\d{2}[.\dz]*/g, '<timestamp>')
+            // Strip UUIDs (already lowercased)
+            .replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g, '<uuid>')
+            // Strip file paths
+            .replace(/\/[\w./-]+/g, '<path>')
+            // Collapse whitespace
+            .replace(/\s+/g, ' ')
+            .trim()
+    );
 }
 
 /**
@@ -35,29 +38,29 @@ function normalizeFailureReason(reason) {
  * @returns {Map<string, { skillId: string, normalizedReason: string, runs: Array }>}
  */
 function groupFailures(skillRuns) {
-  const groups = new Map();
+    const groups = new Map();
 
-  for (const run of skillRuns) {
-    const outcome = String(run.outcome || '').toLowerCase();
-    if (!FAILURE_OUTCOMES.has(outcome)) {
-      continue;
+    for (const run of skillRuns) {
+        const outcome = String(run.outcome || '').toLowerCase();
+        if (!FAILURE_OUTCOMES.has(outcome)) {
+            continue;
+        }
+
+        const normalizedReason = normalizeFailureReason(run.failureReason);
+        const key = `${run.skillId}::${normalizedReason}`;
+
+        if (!groups.has(key)) {
+            groups.set(key, {
+                skillId: run.skillId,
+                normalizedReason,
+                runs: [],
+            });
+        }
+
+        groups.get(key).runs.push(run);
     }
 
-    const normalizedReason = normalizeFailureReason(run.failureReason);
-    const key = `${run.skillId}::${normalizedReason}`;
-
-    if (!groups.has(key)) {
-      groups.set(key, {
-        skillId: run.skillId,
-        normalizedReason,
-        runs: [],
-      });
-    }
-
-    groups.get(key).runs.push(run);
-  }
-
-  return groups;
+    return groups;
 }
 
 /**
@@ -69,45 +72,45 @@ function groupFailures(skillRuns) {
  * @returns {Array<Object>} Array of detected patterns sorted by count descending
  */
 function detectPatterns(skillRuns, options = {}) {
-  const threshold = options.threshold ?? DEFAULT_FAILURE_THRESHOLD;
-  const groups = groupFailures(skillRuns);
-  const patterns = [];
+    const threshold = options.threshold ?? DEFAULT_FAILURE_THRESHOLD;
+    const groups = groupFailures(skillRuns);
+    const patterns = [];
 
-  for (const [, group] of groups) {
-    if (group.runs.length < threshold) {
-      continue;
+    for (const [, group] of groups) {
+        if (group.runs.length < threshold) {
+            continue;
+        }
+
+        const sortedRuns = [...group.runs].sort((a, b) =>
+            (b.createdAt || '').localeCompare(a.createdAt || '')
+        );
+
+        const firstSeen = sortedRuns[sortedRuns.length - 1].createdAt || null;
+        const lastSeen = sortedRuns[0].createdAt || null;
+        const sessionIds = [...new Set(sortedRuns.map((r) => r.sessionId).filter(Boolean))];
+        const versions = [...new Set(sortedRuns.map((r) => r.skillVersion).filter(Boolean))];
+
+        // Collect unique raw failure reasons for this normalized group
+        const rawReasons = [...new Set(sortedRuns.map((r) => r.failureReason).filter(Boolean))];
+
+        patterns.push({
+            skillId: group.skillId,
+            normalizedReason: group.normalizedReason,
+            count: group.runs.length,
+            firstSeen,
+            lastSeen,
+            sessionIds,
+            versions,
+            rawReasons,
+            runIds: sortedRuns.map((r) => r.id),
+        });
     }
 
-    const sortedRuns = [...group.runs].sort(
-      (a, b) => (b.createdAt || '').localeCompare(a.createdAt || '')
-    );
-
-    const firstSeen = sortedRuns[sortedRuns.length - 1].createdAt || null;
-    const lastSeen = sortedRuns[0].createdAt || null;
-    const sessionIds = [...new Set(sortedRuns.map(r => r.sessionId).filter(Boolean))];
-    const versions = [...new Set(sortedRuns.map(r => r.skillVersion).filter(Boolean))];
-
-    // Collect unique raw failure reasons for this normalized group
-    const rawReasons = [...new Set(sortedRuns.map(r => r.failureReason).filter(Boolean))];
-
-    patterns.push({
-      skillId: group.skillId,
-      normalizedReason: group.normalizedReason,
-      count: group.runs.length,
-      firstSeen,
-      lastSeen,
-      sessionIds,
-      versions,
-      rawReasons,
-      runIds: sortedRuns.map(r => r.id),
+    // Sort by count descending, then by lastSeen descending
+    return patterns.sort((a, b) => {
+        if (b.count !== a.count) return b.count - a.count;
+        return (b.lastSeen || '').localeCompare(a.lastSeen || '');
     });
-  }
-
-  // Sort by count descending, then by lastSeen descending
-  return patterns.sort((a, b) => {
-    if (b.count !== a.count) return b.count - a.count;
-    return (b.lastSeen || '').localeCompare(a.lastSeen || '');
-  });
 }
 
 /**
@@ -119,65 +122,65 @@ function detectPatterns(skillRuns, options = {}) {
  * @returns {Object} Inspection report
  */
 function generateReport(patterns, options = {}) {
-  const generatedAt = options.generatedAt || new Date().toISOString();
+    const generatedAt = options.generatedAt || new Date().toISOString();
 
-  if (patterns.length === 0) {
+    if (patterns.length === 0) {
+        return {
+            generatedAt,
+            status: 'clean',
+            patternCount: 0,
+            patterns: [],
+            summary: 'No recurring failure patterns detected.',
+        };
+    }
+
+    const totalFailures = patterns.reduce((sum, p) => sum + p.count, 0);
+    const affectedSkills = [...new Set(patterns.map((p) => p.skillId))];
+
     return {
-      generatedAt,
-      status: 'clean',
-      patternCount: 0,
-      patterns: [],
-      summary: 'No recurring failure patterns detected.',
+        generatedAt,
+        status: 'attention_needed',
+        patternCount: patterns.length,
+        totalFailures,
+        affectedSkills,
+        patterns: patterns.map((p) => ({
+            skillId: p.skillId,
+            normalizedReason: p.normalizedReason,
+            count: p.count,
+            firstSeen: p.firstSeen,
+            lastSeen: p.lastSeen,
+            sessionIds: p.sessionIds,
+            versions: p.versions,
+            rawReasons: p.rawReasons.slice(0, 5),
+            suggestedAction: suggestAction(p),
+        })),
+        summary: `Found ${patterns.length} recurring failure pattern(s) across ${affectedSkills.length} skill(s) (${totalFailures} total failures).`,
     };
-  }
-
-  const totalFailures = patterns.reduce((sum, p) => sum + p.count, 0);
-  const affectedSkills = [...new Set(patterns.map(p => p.skillId))];
-
-  return {
-    generatedAt,
-    status: 'attention_needed',
-    patternCount: patterns.length,
-    totalFailures,
-    affectedSkills,
-    patterns: patterns.map(p => ({
-      skillId: p.skillId,
-      normalizedReason: p.normalizedReason,
-      count: p.count,
-      firstSeen: p.firstSeen,
-      lastSeen: p.lastSeen,
-      sessionIds: p.sessionIds,
-      versions: p.versions,
-      rawReasons: p.rawReasons.slice(0, 5),
-      suggestedAction: suggestAction(p),
-    })),
-    summary: `Found ${patterns.length} recurring failure pattern(s) across ${affectedSkills.length} skill(s) (${totalFailures} total failures).`,
-  };
 }
 
 /**
  * Suggest a remediation action based on pattern characteristics.
  */
 function suggestAction(pattern) {
-  const reason = pattern.normalizedReason;
+    const reason = pattern.normalizedReason;
 
-  if (reason.includes('timeout')) {
-    return 'Increase timeout or optimize skill execution time.';
-  }
-  if (reason.includes('permission') || reason.includes('denied') || reason.includes('auth')) {
-    return 'Check tool permissions and authentication configuration.';
-  }
-  if (reason.includes('not found') || reason.includes('missing')) {
-    return 'Verify required files/dependencies exist before skill execution.';
-  }
-  if (reason.includes('parse') || reason.includes('syntax') || reason.includes('json')) {
-    return 'Review input/output format expectations and add validation.';
-  }
-  if (pattern.versions.length > 1) {
-    return 'Failure spans multiple versions. Consider rollback to last stable version.';
-  }
+    if (reason.includes('timeout')) {
+        return 'Increase timeout or optimize skill execution time.';
+    }
+    if (reason.includes('permission') || reason.includes('denied') || reason.includes('auth')) {
+        return 'Check tool permissions and authentication configuration.';
+    }
+    if (reason.includes('not found') || reason.includes('missing')) {
+        return 'Verify required files/dependencies exist before skill execution.';
+    }
+    if (reason.includes('parse') || reason.includes('syntax') || reason.includes('json')) {
+        return 'Review input/output format expectations and add validation.';
+    }
+    if (pattern.versions.length > 1) {
+        return 'Failure spans multiple versions. Consider rollback to last stable version.';
+    }
 
-  return 'Investigate root cause and consider adding error handling.';
+    return 'Investigate root cause and consider adding error handling.';
 }
 
 /**
@@ -190,23 +193,23 @@ function suggestAction(pattern) {
  * @returns {Object} Inspection report
  */
 function inspect(store, options = {}) {
-  const windowSize = options.windowSize ?? DEFAULT_WINDOW_SIZE;
-  const threshold = options.threshold ?? DEFAULT_FAILURE_THRESHOLD;
+    const windowSize = options.windowSize ?? DEFAULT_WINDOW_SIZE;
+    const threshold = options.threshold ?? DEFAULT_FAILURE_THRESHOLD;
 
-  const status = store.getStatus({ recentSkillRunLimit: windowSize });
-  const skillRuns = status.skillRuns.recent || [];
+    const status = store.getStatus({ recentSkillRunLimit: windowSize });
+    const skillRuns = status.skillRuns.recent || [];
 
-  const patterns = detectPatterns(skillRuns, { threshold });
-  return generateReport(patterns, { generatedAt: status.generatedAt });
+    const patterns = detectPatterns(skillRuns, { threshold });
+    return generateReport(patterns, { generatedAt: status.generatedAt });
 }
 
 module.exports = {
-  DEFAULT_FAILURE_THRESHOLD,
-  DEFAULT_WINDOW_SIZE,
-  detectPatterns,
-  generateReport,
-  groupFailures,
-  inspect,
-  normalizeFailureReason,
-  suggestAction,
+    DEFAULT_FAILURE_THRESHOLD,
+    DEFAULT_WINDOW_SIZE,
+    detectPatterns,
+    generateReport,
+    groupFailures,
+    inspect,
+    normalizeFailureReason,
+    suggestAction,
 };

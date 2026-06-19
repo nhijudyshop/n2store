@@ -1,27 +1,28 @@
 #!/usr/bin/env node
+// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes.
 'use strict';
 
 const MAX_STDIN = 1024 * 1024;
 let raw = '';
 
 process.stdin.setEncoding('utf8');
-process.stdin.on('data', chunk => {
-  if (raw.length < MAX_STDIN) {
-    const remaining = MAX_STDIN - raw.length;
-    raw += chunk.substring(0, remaining);
-  }
+process.stdin.on('data', (chunk) => {
+    if (raw.length < MAX_STDIN) {
+        const remaining = MAX_STDIN - raw.length;
+        raw += chunk.substring(0, remaining);
+    }
 });
 
 process.stdin.on('end', () => {
-  try {
-    const input = JSON.parse(raw);
-    const cmd = String(input.tool_input?.command || '');
-    if (/(npm run build|pnpm build|yarn build)/.test(cmd)) {
-      console.error('[Hook] Build completed - async analysis running in background');
+    try {
+        const input = JSON.parse(raw);
+        const cmd = String(input.tool_input?.command || '');
+        if (/(npm run build|pnpm build|yarn build)/.test(cmd)) {
+            console.error('[Hook] Build completed - async analysis running in background');
+        }
+    } catch {
+        // ignore parse errors and pass through
     }
-  } catch {
-    // ignore parse errors and pass through
-  }
 
-  process.stdout.write(raw);
+    process.stdout.write(raw);
 });

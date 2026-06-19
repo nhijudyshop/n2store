@@ -1,246 +1,233 @@
 #!/usr/bin/env node
+// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes.
 
 const fs = require('fs');
 const path = require('path');
 
 const repoRoot = process.env.ECC_UNICODE_SCAN_ROOT
-  ? path.resolve(process.env.ECC_UNICODE_SCAN_ROOT)
-  : path.resolve(__dirname, '..', '..');
+    ? path.resolve(process.env.ECC_UNICODE_SCAN_ROOT)
+    : path.resolve(__dirname, '..', '..');
 
 const writeMode = process.argv.includes('--write');
 
-const ignoredDirs = new Set([
-  '.git',
-  'node_modules',
-  '.dmux',
-  '.next',
-  'coverage',
-]);
+const ignoredDirs = new Set(['.git', 'node_modules', '.dmux', '.next', 'coverage']);
 
 const textExtensions = new Set([
-  '.md',
-  '.mdx',
-  '.txt',
-  '.js',
-  '.cjs',
-  '.mjs',
-  '.ts',
-  '.tsx',
-  '.jsx',
-  '.json',
-  '.toml',
-  '.yml',
-  '.yaml',
-  '.sh',
-  '.bash',
-  '.zsh',
-  '.ps1',
-  '.py',
-  '.rs',
+    '.md',
+    '.mdx',
+    '.txt',
+    '.js',
+    '.cjs',
+    '.mjs',
+    '.ts',
+    '.tsx',
+    '.jsx',
+    '.json',
+    '.toml',
+    '.yml',
+    '.yaml',
+    '.sh',
+    '.bash',
+    '.zsh',
+    '.ps1',
+    '.py',
+    '.rs',
 ]);
 
-const writableExtensions = new Set([
-  '.md',
-  '.mdx',
-  '.txt',
-]);
+const writableExtensions = new Set(['.md', '.mdx', '.txt']);
 
 const writeModeSkip = new Set([
-  path.normalize('scripts/ci/check-unicode-safety.js'),
-  path.normalize('tests/scripts/check-unicode-safety.test.js'),
+    path.normalize('scripts/ci/check-unicode-safety.js'),
+    path.normalize('tests/scripts/check-unicode-safety.test.js'),
 ]);
 
 const emojiRe = /(?:\p{Extended_Pictographic}|\p{Regional_Indicator})/gu;
-const allowedSymbolCodePoints = new Set([
-  0x00A9,
-  0x00AE,
-  0x2122,
-]);
+const allowedSymbolCodePoints = new Set([0x00a9, 0x00ae, 0x2122]);
 
 const targetedReplacements = [
-  [new RegExp(`${String.fromCodePoint(0x26A0)}(?:\\uFE0F)?`, 'gu'), 'WARNING:'],
-  [new RegExp(`${String.fromCodePoint(0x23ED)}(?:\\uFE0F)?`, 'gu'), 'SKIPPED:'],
-  [new RegExp(String.fromCodePoint(0x2705), 'gu'), 'PASS:'],
-  [new RegExp(String.fromCodePoint(0x274C), 'gu'), 'FAIL:'],
-  [new RegExp(String.fromCodePoint(0x2728), 'gu'), ''],
+    [new RegExp(`${String.fromCodePoint(0x26a0)}(?:\\uFE0F)?`, 'gu'), 'WARNING:'],
+    [new RegExp(`${String.fromCodePoint(0x23ed)}(?:\\uFE0F)?`, 'gu'), 'SKIPPED:'],
+    [new RegExp(String.fromCodePoint(0x2705), 'gu'), 'PASS:'],
+    [new RegExp(String.fromCodePoint(0x274c), 'gu'), 'FAIL:'],
+    [new RegExp(String.fromCodePoint(0x2728), 'gu'), ''],
 ];
 
 function shouldSkip(entryPath) {
-  return entryPath.split(path.sep).some(part => ignoredDirs.has(part));
+    return entryPath.split(path.sep).some((part) => ignoredDirs.has(part));
 }
 
 function isTextFile(filePath) {
-  return textExtensions.has(path.extname(filePath).toLowerCase());
+    return textExtensions.has(path.extname(filePath).toLowerCase());
 }
 
 function canAutoWrite(relativePath) {
-  return writableExtensions.has(path.extname(relativePath).toLowerCase());
+    return writableExtensions.has(path.extname(relativePath).toLowerCase());
 }
 
 function listFiles(dirPath) {
-  const results = [];
-  for (const entry of fs.readdirSync(dirPath, { withFileTypes: true })) {
-    const entryPath = path.join(dirPath, entry.name);
-    if (shouldSkip(entryPath)) continue;
-    if (entry.isDirectory()) {
-      results.push(...listFiles(entryPath));
-      continue;
+    const results = [];
+    for (const entry of fs.readdirSync(dirPath, { withFileTypes: true })) {
+        const entryPath = path.join(dirPath, entry.name);
+        if (shouldSkip(entryPath)) continue;
+        if (entry.isDirectory()) {
+            results.push(...listFiles(entryPath));
+            continue;
+        }
+        if (entry.isFile() && isTextFile(entryPath)) {
+            results.push(entryPath);
+        }
     }
-    if (entry.isFile() && isTextFile(entryPath)) {
-      results.push(entryPath);
-    }
-  }
-  return results;
+    return results;
 }
 
 function lineAndColumn(text, index) {
-  const line = text.slice(0, index).split('\n').length;
-  const lastNewline = text.lastIndexOf('\n', index - 1);
-  const column = index - lastNewline;
-  return { line, column };
+    const line = text.slice(0, index).split('\n').length;
+    const lastNewline = text.lastIndexOf('\n', index - 1);
+    const column = index - lastNewline;
+    return { line, column };
 }
 
 function isAllowedEmojiLikeSymbol(char) {
-  return allowedSymbolCodePoints.has(char.codePointAt(0));
+    return allowedSymbolCodePoints.has(char.codePointAt(0));
 }
 
 function isDangerousInvisibleCodePoint(codePoint) {
-  return (
-    (codePoint >= 0x200B && codePoint <= 0x200D) ||
-    codePoint === 0x2060 ||
-    codePoint === 0xFEFF ||
-    (codePoint >= 0x202A && codePoint <= 0x202E) ||
-    (codePoint >= 0x2066 && codePoint <= 0x2069) ||
-    (codePoint >= 0xFE00 && codePoint <= 0xFE0F) ||
-    (codePoint >= 0xE0100 && codePoint <= 0xE01EF)
-  );
+    return (
+        (codePoint >= 0x200b && codePoint <= 0x200d) ||
+        codePoint === 0x2060 ||
+        codePoint === 0xfeff ||
+        (codePoint >= 0x202a && codePoint <= 0x202e) ||
+        (codePoint >= 0x2066 && codePoint <= 0x2069) ||
+        (codePoint >= 0xfe00 && codePoint <= 0xfe0f) ||
+        (codePoint >= 0xe0100 && codePoint <= 0xe01ef)
+    );
 }
 
 function stripDangerousInvisibleChars(text) {
-  let next = '';
-  for (const char of text) {
-    if (!isDangerousInvisibleCodePoint(char.codePointAt(0))) {
-      next += char;
+    let next = '';
+    for (const char of text) {
+        if (!isDangerousInvisibleCodePoint(char.codePointAt(0))) {
+            next += char;
+        }
     }
-  }
-  return next;
+    return next;
 }
 
 function sanitizeText(text) {
-  let next = text;
-  next = stripDangerousInvisibleChars(next);
+    let next = text;
+    next = stripDangerousInvisibleChars(next);
 
-  for (const [pattern, replacement] of targetedReplacements) {
-    next = next.replace(pattern, replacement);
-  }
+    for (const [pattern, replacement] of targetedReplacements) {
+        next = next.replace(pattern, replacement);
+    }
 
-  next = next.replace(emojiRe, match => (isAllowedEmojiLikeSymbol(match) ? match : ''));
-  next = next.replace(/^ +(?=\*\*)/gm, '');
-  next = next.replace(/^(\*\*)\s+/gm, '$1');
-  next = next.replace(/^(#+)\s{2,}/gm, '$1 ');
-  next = next.replace(/^>\s{2,}/gm, '> ');
-  next = next.replace(/^-\s{2,}/gm, '- ');
-  next = next.replace(/^(\d+\.)\s{2,}/gm, '$1 ');
-  next = next.replace(/[ \t]+$/gm, '');
+    next = next.replace(emojiRe, (match) => (isAllowedEmojiLikeSymbol(match) ? match : ''));
+    next = next.replace(/^ +(?=\*\*)/gm, '');
+    next = next.replace(/^(\*\*)\s+/gm, '$1');
+    next = next.replace(/^(#+)\s{2,}/gm, '$1 ');
+    next = next.replace(/^>\s{2,}/gm, '> ');
+    next = next.replace(/^-\s{2,}/gm, '- ');
+    next = next.replace(/^(\d+\.)\s{2,}/gm, '$1 ');
+    next = next.replace(/[ \t]+$/gm, '');
 
-  return next;
+    return next;
 }
 
 function collectMatches(text, regex, kind) {
-  const matches = [];
-  for (const match of text.matchAll(regex)) {
-    const char = match[0];
-    if (kind === 'emoji' && isAllowedEmojiLikeSymbol(char)) {
-      continue;
+    const matches = [];
+    for (const match of text.matchAll(regex)) {
+        const char = match[0];
+        if (kind === 'emoji' && isAllowedEmojiLikeSymbol(char)) {
+            continue;
+        }
+        const index = match.index ?? 0;
+        const { line, column } = lineAndColumn(text, index);
+        matches.push({
+            kind,
+            char,
+            codePoint: `U+${char.codePointAt(0).toString(16).toUpperCase()}`,
+            line,
+            column,
+        });
     }
-    const index = match.index ?? 0;
-    const { line, column } = lineAndColumn(text, index);
-    matches.push({
-      kind,
-      char,
-      codePoint: `U+${char.codePointAt(0).toString(16).toUpperCase()}`,
-      line,
-      column,
-    });
-  }
-  return matches;
+    return matches;
 }
 
 function collectDangerousInvisibleMatches(text) {
-  const matches = [];
-  let index = 0;
+    const matches = [];
+    let index = 0;
 
-  for (const char of text) {
-    const codePoint = char.codePointAt(0);
-    if (isDangerousInvisibleCodePoint(codePoint)) {
-      const { line, column } = lineAndColumn(text, index);
-      matches.push({
-        kind: 'dangerous-invisible',
-        char,
-        codePoint: `U+${codePoint.toString(16).toUpperCase()}`,
-        line,
-        column,
-      });
+    for (const char of text) {
+        const codePoint = char.codePointAt(0);
+        if (isDangerousInvisibleCodePoint(codePoint)) {
+            const { line, column } = lineAndColumn(text, index);
+            matches.push({
+                kind: 'dangerous-invisible',
+                char,
+                codePoint: `U+${codePoint.toString(16).toUpperCase()}`,
+                line,
+                column,
+            });
+        }
+        index += char.length;
     }
-    index += char.length;
-  }
 
-  return matches;
+    return matches;
 }
 
 const changedFiles = [];
 const violations = [];
 
 for (const filePath of listFiles(repoRoot)) {
-  const relativePath = path.relative(repoRoot, filePath);
-  let text;
-  try {
-    text = fs.readFileSync(filePath, 'utf8');
-  } catch {
-    continue;
-  }
-
-  if (
-    writeMode &&
-    !writeModeSkip.has(path.normalize(relativePath)) &&
-    canAutoWrite(relativePath)
-  ) {
-    const sanitized = sanitizeText(text);
-    if (sanitized !== text) {
-      fs.writeFileSync(filePath, sanitized, 'utf8');
-      changedFiles.push(relativePath);
-      text = sanitized;
+    const relativePath = path.relative(repoRoot, filePath);
+    let text;
+    try {
+        text = fs.readFileSync(filePath, 'utf8');
+    } catch {
+        continue;
     }
-  }
 
-  const fileViolations = [
-    ...collectDangerousInvisibleMatches(text),
-    ...collectMatches(text, emojiRe, 'emoji'),
-  ];
+    if (
+        writeMode &&
+        !writeModeSkip.has(path.normalize(relativePath)) &&
+        canAutoWrite(relativePath)
+    ) {
+        const sanitized = sanitizeText(text);
+        if (sanitized !== text) {
+            fs.writeFileSync(filePath, sanitized, 'utf8');
+            changedFiles.push(relativePath);
+            text = sanitized;
+        }
+    }
 
-  for (const violation of fileViolations) {
-    violations.push({
-      file: relativePath,
-      ...violation,
-    });
-  }
+    const fileViolations = [
+        ...collectDangerousInvisibleMatches(text),
+        ...collectMatches(text, emojiRe, 'emoji'),
+    ];
+
+    for (const violation of fileViolations) {
+        violations.push({
+            file: relativePath,
+            ...violation,
+        });
+    }
 }
 
 if (changedFiles.length > 0) {
-  console.log(`Sanitized ${changedFiles.length} files:`);
-  for (const file of changedFiles) {
-    console.log(`- ${file}`);
-  }
+    console.log(`Sanitized ${changedFiles.length} files:`);
+    for (const file of changedFiles) {
+        console.log(`- ${file}`);
+    }
 }
 
 if (violations.length > 0) {
-  console.error('Unicode safety violations detected:');
-  for (const violation of violations) {
-    console.error(
-      `${violation.file}:${violation.line}:${violation.column} ${violation.kind} ${violation.codePoint}`
-    );
-  }
-  process.exit(1);
+    console.error('Unicode safety violations detected:');
+    for (const violation of violations) {
+        console.error(
+            `${violation.file}:${violation.line}:${violation.column} ${violation.kind} ${violation.codePoint}`
+        );
+    }
+    process.exit(1);
 }
 
 console.log('Unicode safety check passed.');

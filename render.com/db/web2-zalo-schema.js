@@ -55,6 +55,8 @@ async function ensureWeb2ZaloSchema(pool) {
                     ADD COLUMN IF NOT EXISTS muted_until      BIGINT,
                     ADD COLUMN IF NOT EXISTS last_msg_sender_uid VARCHAR(100),
                     ADD COLUMN IF NOT EXISTS info_synced_at   BIGINT;
+                ALTER TABLE IF EXISTS web2_zalo_accounts
+                    ADD COLUMN IF NOT EXISTS is_primary       BOOLEAN NOT NULL DEFAULT false;
             `);
             // Backfill last_msg_sender_uid từ tin gần nhất (chỉ rows còn NULL → idempotent).
             await pool.query(`
@@ -97,6 +99,7 @@ async function ensureWeb2ZaloSchema(pool) {
                                 -- disconnected|qr_pending|scanned|connected|banned|error|token_ok
                 status_msg    TEXT,
                 is_active     BOOLEAN NOT NULL DEFAULT true,
+                is_primary    BOOLEAN NOT NULL DEFAULT false, -- TK cá nhân CHÍNH gửi tin KH 1-1 (1 dòng true)
                 meta          JSONB NOT NULL DEFAULT '{}'::jsonb,
                 last_connected_at BIGINT,
                 created_at    BIGINT NOT NULL,
@@ -106,6 +109,18 @@ async function ensureWeb2ZaloSchema(pool) {
             CREATE INDEX IF NOT EXISTS idx_web2_zalo_acc_active ON web2_zalo_accounts(is_active);
             CREATE INDEX IF NOT EXISTS idx_web2_zalo_acc_oa     ON web2_zalo_accounts(oa_id) WHERE oa_id IS NOT NULL;
         `);
+        // Seed TK CHÍNH gửi tin KH 1-1 = "Nhijudy Ơi" (chỉ khi CHƯA có TK chính nào →
+        // user đổi sau bằng nút "Đặt làm chính" ở trang Zalo). Idempotent, chạy 1 lần.
+        try {
+            await pool.query(
+                `UPDATE web2_zalo_accounts SET is_primary=true
+                  WHERE account_key='zca_7c8093f1-545b-4941-8917-1945ee009fd4'
+                    AND account_type='personal'
+                    AND NOT EXISTS (SELECT 1 FROM web2_zalo_accounts WHERE is_primary=true)`
+            );
+        } catch (e) {
+            console.error('[web2-zalo-schema] seed primary warn:', e.message);
+        }
 
         // ── 2. Hội thoại (1 dòng / account × thread) ────────────────────────────
         await pool.query(`

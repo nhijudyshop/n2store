@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes.
 // Browser test: đo tốc độ + verify capture full video frame
 // 1. Load tpos-pancake → time đến khi iframe FB ready
 // 2. Auto-accept getDisplayMedia via Chrome flag

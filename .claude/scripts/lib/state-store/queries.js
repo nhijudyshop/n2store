@@ -1,3 +1,4 @@
+// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes.
 'use strict';
 
 const { assertValidEntity } = require('./schema');
@@ -7,313 +8,319 @@ const SUCCESS_OUTCOMES = new Set(['success', 'succeeded', 'passed']);
 const FAILURE_OUTCOMES = new Set(['failure', 'failed', 'error']);
 
 function normalizeLimit(value, fallback) {
-  if (value === undefined || value === null) {
-    return fallback;
-  }
+    if (value === undefined || value === null) {
+        return fallback;
+    }
 
-  const parsed = Number.parseInt(value, 10);
-  if (!Number.isFinite(parsed) || parsed <= 0) {
-    throw new Error(`Invalid limit: ${value}`);
-  }
+    const parsed = Number.parseInt(value, 10);
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+        throw new Error(`Invalid limit: ${value}`);
+    }
 
-  return parsed;
+    return parsed;
 }
 
 function parseJsonColumn(value, fallback) {
-  if (value === null || value === undefined || value === '') {
-    return fallback;
-  }
+    if (value === null || value === undefined || value === '') {
+        return fallback;
+    }
 
-  return JSON.parse(value);
+    return JSON.parse(value);
 }
 
 function stringifyJson(value, label) {
-  try {
-    return JSON.stringify(value);
-  } catch (error) {
-    throw new Error(`Failed to serialize ${label}: ${error.message}`);
-  }
+    try {
+        return JSON.stringify(value);
+    } catch (error) {
+        throw new Error(`Failed to serialize ${label}: ${error.message}`);
+    }
 }
 
 function mapSessionRow(row) {
-  const snapshot = parseJsonColumn(row.snapshot, {});
-  return {
-    id: row.id,
-    adapterId: row.adapter_id,
-    harness: row.harness,
-    state: row.state,
-    repoRoot: row.repo_root,
-    startedAt: row.started_at,
-    endedAt: row.ended_at,
-    snapshot,
-    workerCount: Array.isArray(snapshot && snapshot.workers) ? snapshot.workers.length : 0,
-  };
+    const snapshot = parseJsonColumn(row.snapshot, {});
+    return {
+        id: row.id,
+        adapterId: row.adapter_id,
+        harness: row.harness,
+        state: row.state,
+        repoRoot: row.repo_root,
+        startedAt: row.started_at,
+        endedAt: row.ended_at,
+        snapshot,
+        workerCount: Array.isArray(snapshot && snapshot.workers) ? snapshot.workers.length : 0,
+    };
 }
 
 function mapSkillRunRow(row) {
-  return {
-    id: row.id,
-    skillId: row.skill_id,
-    skillVersion: row.skill_version,
-    sessionId: row.session_id,
-    taskDescription: row.task_description,
-    outcome: row.outcome,
-    failureReason: row.failure_reason,
-    tokensUsed: row.tokens_used,
-    durationMs: row.duration_ms,
-    userFeedback: row.user_feedback,
-    createdAt: row.created_at,
-  };
+    return {
+        id: row.id,
+        skillId: row.skill_id,
+        skillVersion: row.skill_version,
+        sessionId: row.session_id,
+        taskDescription: row.task_description,
+        outcome: row.outcome,
+        failureReason: row.failure_reason,
+        tokensUsed: row.tokens_used,
+        durationMs: row.duration_ms,
+        userFeedback: row.user_feedback,
+        createdAt: row.created_at,
+    };
 }
 
 function mapSkillVersionRow(row) {
-  return {
-    skillId: row.skill_id,
-    version: row.version,
-    contentHash: row.content_hash,
-    amendmentReason: row.amendment_reason,
-    promotedAt: row.promoted_at,
-    rolledBackAt: row.rolled_back_at,
-  };
+    return {
+        skillId: row.skill_id,
+        version: row.version,
+        contentHash: row.content_hash,
+        amendmentReason: row.amendment_reason,
+        promotedAt: row.promoted_at,
+        rolledBackAt: row.rolled_back_at,
+    };
 }
 
 function mapDecisionRow(row) {
-  return {
-    id: row.id,
-    sessionId: row.session_id,
-    title: row.title,
-    rationale: row.rationale,
-    alternatives: parseJsonColumn(row.alternatives, []),
-    supersedes: row.supersedes,
-    status: row.status,
-    createdAt: row.created_at,
-  };
+    return {
+        id: row.id,
+        sessionId: row.session_id,
+        title: row.title,
+        rationale: row.rationale,
+        alternatives: parseJsonColumn(row.alternatives, []),
+        supersedes: row.supersedes,
+        status: row.status,
+        createdAt: row.created_at,
+    };
 }
 
 function mapInstallStateRow(row) {
-  const modules = parseJsonColumn(row.modules, []);
-  const operations = parseJsonColumn(row.operations, []);
-  const status = row.source_version && row.installed_at ? 'healthy' : 'warning';
+    const modules = parseJsonColumn(row.modules, []);
+    const operations = parseJsonColumn(row.operations, []);
+    const status = row.source_version && row.installed_at ? 'healthy' : 'warning';
 
-  return {
-    targetId: row.target_id,
-    targetRoot: row.target_root,
-    profile: row.profile,
-    modules,
-    operations,
-    installedAt: row.installed_at,
-    sourceVersion: row.source_version,
-    moduleCount: Array.isArray(modules) ? modules.length : 0,
-    operationCount: Array.isArray(operations) ? operations.length : 0,
-    status,
-  };
+    return {
+        targetId: row.target_id,
+        targetRoot: row.target_root,
+        profile: row.profile,
+        modules,
+        operations,
+        installedAt: row.installed_at,
+        sourceVersion: row.source_version,
+        moduleCount: Array.isArray(modules) ? modules.length : 0,
+        operationCount: Array.isArray(operations) ? operations.length : 0,
+        status,
+    };
 }
 
 function mapGovernanceEventRow(row) {
-  return {
-    id: row.id,
-    sessionId: row.session_id,
-    eventType: row.event_type,
-    payload: parseJsonColumn(row.payload, null),
-    resolvedAt: row.resolved_at,
-    resolution: row.resolution,
-    createdAt: row.created_at,
-  };
+    return {
+        id: row.id,
+        sessionId: row.session_id,
+        eventType: row.event_type,
+        payload: parseJsonColumn(row.payload, null),
+        resolvedAt: row.resolved_at,
+        resolution: row.resolution,
+        createdAt: row.created_at,
+    };
 }
 
 function classifyOutcome(outcome) {
-  const normalized = String(outcome || '').toLowerCase();
-  if (SUCCESS_OUTCOMES.has(normalized)) {
-    return 'success';
-  }
+    const normalized = String(outcome || '').toLowerCase();
+    if (SUCCESS_OUTCOMES.has(normalized)) {
+        return 'success';
+    }
 
-  if (FAILURE_OUTCOMES.has(normalized)) {
-    return 'failure';
-  }
+    if (FAILURE_OUTCOMES.has(normalized)) {
+        return 'failure';
+    }
 
-  return 'unknown';
+    return 'unknown';
 }
 
 function toPercent(numerator, denominator) {
-  if (denominator === 0) {
-    return null;
-  }
+    if (denominator === 0) {
+        return null;
+    }
 
-  return Number(((numerator / denominator) * 100).toFixed(1));
+    return Number(((numerator / denominator) * 100).toFixed(1));
 }
 
 function summarizeSkillRuns(skillRuns) {
-  const summary = {
-    totalCount: skillRuns.length,
-    knownCount: 0,
-    successCount: 0,
-    failureCount: 0,
-    unknownCount: 0,
-    successRate: null,
-    failureRate: null,
-  };
+    const summary = {
+        totalCount: skillRuns.length,
+        knownCount: 0,
+        successCount: 0,
+        failureCount: 0,
+        unknownCount: 0,
+        successRate: null,
+        failureRate: null,
+    };
 
-  for (const skillRun of skillRuns) {
-    const classification = classifyOutcome(skillRun.outcome);
-    if (classification === 'success') {
-      summary.successCount += 1;
-      summary.knownCount += 1;
-    } else if (classification === 'failure') {
-      summary.failureCount += 1;
-      summary.knownCount += 1;
-    } else {
-      summary.unknownCount += 1;
+    for (const skillRun of skillRuns) {
+        const classification = classifyOutcome(skillRun.outcome);
+        if (classification === 'success') {
+            summary.successCount += 1;
+            summary.knownCount += 1;
+        } else if (classification === 'failure') {
+            summary.failureCount += 1;
+            summary.knownCount += 1;
+        } else {
+            summary.unknownCount += 1;
+        }
     }
-  }
 
-  summary.successRate = toPercent(summary.successCount, summary.knownCount);
-  summary.failureRate = toPercent(summary.failureCount, summary.knownCount);
-  return summary;
+    summary.successRate = toPercent(summary.successCount, summary.knownCount);
+    summary.failureRate = toPercent(summary.failureCount, summary.knownCount);
+    return summary;
 }
 
 function summarizeInstallHealth(installations) {
-  if (installations.length === 0) {
-    return {
-      status: 'missing',
-      totalCount: 0,
-      healthyCount: 0,
-      warningCount: 0,
-      installations: [],
-    };
-  }
-
-  const summary = installations.reduce((result, installation) => {
-    if (installation.status === 'healthy') {
-      result.healthyCount += 1;
-    } else {
-      result.warningCount += 1;
+    if (installations.length === 0) {
+        return {
+            status: 'missing',
+            totalCount: 0,
+            healthyCount: 0,
+            warningCount: 0,
+            installations: [],
+        };
     }
-    return result;
-  }, {
-    totalCount: installations.length,
-    healthyCount: 0,
-    warningCount: 0,
-  });
 
-  return {
-    status: summary.warningCount > 0 ? 'warning' : 'healthy',
-    ...summary,
-    installations,
-  };
+    const summary = installations.reduce(
+        (result, installation) => {
+            if (installation.status === 'healthy') {
+                result.healthyCount += 1;
+            } else {
+                result.warningCount += 1;
+            }
+            return result;
+        },
+        {
+            totalCount: installations.length,
+            healthyCount: 0,
+            warningCount: 0,
+        }
+    );
+
+    return {
+        status: summary.warningCount > 0 ? 'warning' : 'healthy',
+        ...summary,
+        installations,
+    };
 }
 
 function normalizeSessionInput(session) {
-  return {
-    id: session.id,
-    adapterId: session.adapterId,
-    harness: session.harness,
-    state: session.state,
-    repoRoot: session.repoRoot ?? null,
-    startedAt: session.startedAt ?? null,
-    endedAt: session.endedAt ?? null,
-    snapshot: session.snapshot ?? {},
-  };
+    return {
+        id: session.id,
+        adapterId: session.adapterId,
+        harness: session.harness,
+        state: session.state,
+        repoRoot: session.repoRoot ?? null,
+        startedAt: session.startedAt ?? null,
+        endedAt: session.endedAt ?? null,
+        snapshot: session.snapshot ?? {},
+    };
 }
 
 function normalizeSkillRunInput(skillRun) {
-  return {
-    id: skillRun.id,
-    skillId: skillRun.skillId,
-    skillVersion: skillRun.skillVersion,
-    sessionId: skillRun.sessionId,
-    taskDescription: skillRun.taskDescription,
-    outcome: skillRun.outcome,
-    failureReason: skillRun.failureReason ?? null,
-    tokensUsed: skillRun.tokensUsed ?? null,
-    durationMs: skillRun.durationMs ?? null,
-    userFeedback: skillRun.userFeedback ?? null,
-    createdAt: skillRun.createdAt || new Date().toISOString(),
-  };
+    return {
+        id: skillRun.id,
+        skillId: skillRun.skillId,
+        skillVersion: skillRun.skillVersion,
+        sessionId: skillRun.sessionId,
+        taskDescription: skillRun.taskDescription,
+        outcome: skillRun.outcome,
+        failureReason: skillRun.failureReason ?? null,
+        tokensUsed: skillRun.tokensUsed ?? null,
+        durationMs: skillRun.durationMs ?? null,
+        userFeedback: skillRun.userFeedback ?? null,
+        createdAt: skillRun.createdAt || new Date().toISOString(),
+    };
 }
 
 function normalizeSkillVersionInput(skillVersion) {
-  return {
-    skillId: skillVersion.skillId,
-    version: skillVersion.version,
-    contentHash: skillVersion.contentHash,
-    amendmentReason: skillVersion.amendmentReason ?? null,
-    promotedAt: skillVersion.promotedAt ?? null,
-    rolledBackAt: skillVersion.rolledBackAt ?? null,
-  };
+    return {
+        skillId: skillVersion.skillId,
+        version: skillVersion.version,
+        contentHash: skillVersion.contentHash,
+        amendmentReason: skillVersion.amendmentReason ?? null,
+        promotedAt: skillVersion.promotedAt ?? null,
+        rolledBackAt: skillVersion.rolledBackAt ?? null,
+    };
 }
 
 function normalizeDecisionInput(decision) {
-  return {
-    id: decision.id,
-    sessionId: decision.sessionId,
-    title: decision.title,
-    rationale: decision.rationale,
-    alternatives: decision.alternatives === undefined || decision.alternatives === null
-      ? []
-      : decision.alternatives,
-    supersedes: decision.supersedes ?? null,
-    status: decision.status,
-    createdAt: decision.createdAt || new Date().toISOString(),
-  };
+    return {
+        id: decision.id,
+        sessionId: decision.sessionId,
+        title: decision.title,
+        rationale: decision.rationale,
+        alternatives:
+            decision.alternatives === undefined || decision.alternatives === null
+                ? []
+                : decision.alternatives,
+        supersedes: decision.supersedes ?? null,
+        status: decision.status,
+        createdAt: decision.createdAt || new Date().toISOString(),
+    };
 }
 
 function normalizeInstallStateInput(installState) {
-  return {
-    targetId: installState.targetId,
-    targetRoot: installState.targetRoot,
-    profile: installState.profile ?? null,
-    modules: installState.modules === undefined || installState.modules === null
-      ? []
-      : installState.modules,
-    operations: installState.operations === undefined || installState.operations === null
-      ? []
-      : installState.operations,
-    installedAt: installState.installedAt || new Date().toISOString(),
-    sourceVersion: installState.sourceVersion ?? null,
-  };
+    return {
+        targetId: installState.targetId,
+        targetRoot: installState.targetRoot,
+        profile: installState.profile ?? null,
+        modules:
+            installState.modules === undefined || installState.modules === null
+                ? []
+                : installState.modules,
+        operations:
+            installState.operations === undefined || installState.operations === null
+                ? []
+                : installState.operations,
+        installedAt: installState.installedAt || new Date().toISOString(),
+        sourceVersion: installState.sourceVersion ?? null,
+    };
 }
 
 function normalizeGovernanceEventInput(governanceEvent) {
-  return {
-    id: governanceEvent.id,
-    sessionId: governanceEvent.sessionId ?? null,
-    eventType: governanceEvent.eventType,
-    payload: governanceEvent.payload ?? null,
-    resolvedAt: governanceEvent.resolvedAt ?? null,
-    resolution: governanceEvent.resolution ?? null,
-    createdAt: governanceEvent.createdAt || new Date().toISOString(),
-  };
+    return {
+        id: governanceEvent.id,
+        sessionId: governanceEvent.sessionId ?? null,
+        eventType: governanceEvent.eventType,
+        payload: governanceEvent.payload ?? null,
+        resolvedAt: governanceEvent.resolvedAt ?? null,
+        resolution: governanceEvent.resolution ?? null,
+        createdAt: governanceEvent.createdAt || new Date().toISOString(),
+    };
 }
 
 function createQueryApi(db) {
-  const listRecentSessionsStatement = db.prepare(`
+    const listRecentSessionsStatement = db.prepare(`
     SELECT *
     FROM sessions
     ORDER BY COALESCE(started_at, ended_at, '') DESC, id DESC
     LIMIT ?
   `);
-  const countSessionsStatement = db.prepare(`
+    const countSessionsStatement = db.prepare(`
     SELECT COUNT(*) AS total_count
     FROM sessions
   `);
-  const getSessionStatement = db.prepare(`
+    const getSessionStatement = db.prepare(`
     SELECT *
     FROM sessions
     WHERE id = ?
   `);
-  const getSessionSkillRunsStatement = db.prepare(`
+    const getSessionSkillRunsStatement = db.prepare(`
     SELECT *
     FROM skill_runs
     WHERE session_id = ?
     ORDER BY created_at DESC, id DESC
   `);
-  const getSessionDecisionsStatement = db.prepare(`
+    const getSessionDecisionsStatement = db.prepare(`
     SELECT *
     FROM decisions
     WHERE session_id = ?
     ORDER BY created_at DESC, id DESC
   `);
-  const listActiveSessionsStatement = db.prepare(`
+    const listActiveSessionsStatement = db.prepare(`
     SELECT *
     FROM sessions
     WHERE ended_at IS NULL
@@ -321,42 +328,42 @@ function createQueryApi(db) {
     ORDER BY COALESCE(started_at, ended_at, '') DESC, id DESC
     LIMIT ?
   `);
-  const countActiveSessionsStatement = db.prepare(`
+    const countActiveSessionsStatement = db.prepare(`
     SELECT COUNT(*) AS total_count
     FROM sessions
     WHERE ended_at IS NULL
       AND state IN ('active', 'running', 'idle')
   `);
-  const listRecentSkillRunsStatement = db.prepare(`
+    const listRecentSkillRunsStatement = db.prepare(`
     SELECT *
     FROM skill_runs
     ORDER BY created_at DESC, id DESC
     LIMIT ?
   `);
-  const listInstallStateStatement = db.prepare(`
+    const listInstallStateStatement = db.prepare(`
     SELECT *
     FROM install_state
     ORDER BY installed_at DESC, target_id ASC
   `);
-  const countPendingGovernanceStatement = db.prepare(`
+    const countPendingGovernanceStatement = db.prepare(`
     SELECT COUNT(*) AS total_count
     FROM governance_events
     WHERE resolved_at IS NULL
   `);
-  const listPendingGovernanceStatement = db.prepare(`
+    const listPendingGovernanceStatement = db.prepare(`
     SELECT *
     FROM governance_events
     WHERE resolved_at IS NULL
     ORDER BY created_at DESC, id DESC
     LIMIT ?
   `);
-  const getSkillVersionStatement = db.prepare(`
+    const getSkillVersionStatement = db.prepare(`
     SELECT *
     FROM skill_versions
     WHERE skill_id = ? AND version = ?
   `);
 
-  const upsertSessionStatement = db.prepare(`
+    const upsertSessionStatement = db.prepare(`
     INSERT INTO sessions (
       id,
       adapter_id,
@@ -386,7 +393,7 @@ function createQueryApi(db) {
       snapshot = excluded.snapshot
   `);
 
-  const insertSkillRunStatement = db.prepare(`
+    const insertSkillRunStatement = db.prepare(`
     INSERT INTO skill_runs (
       id,
       skill_id,
@@ -425,7 +432,7 @@ function createQueryApi(db) {
       created_at = excluded.created_at
   `);
 
-  const upsertSkillVersionStatement = db.prepare(`
+    const upsertSkillVersionStatement = db.prepare(`
     INSERT INTO skill_versions (
       skill_id,
       version,
@@ -448,7 +455,7 @@ function createQueryApi(db) {
       rolled_back_at = excluded.rolled_back_at
   `);
 
-  const insertDecisionStatement = db.prepare(`
+    const insertDecisionStatement = db.prepare(`
     INSERT INTO decisions (
       id,
       session_id,
@@ -478,7 +485,7 @@ function createQueryApi(db) {
       created_at = excluded.created_at
   `);
 
-  const upsertInstallStateStatement = db.prepare(`
+    const upsertInstallStateStatement = db.prepare(`
     INSERT INTO install_state (
       target_id,
       target_root,
@@ -504,7 +511,7 @@ function createQueryApi(db) {
       source_version = excluded.source_version
   `);
 
-  const insertGovernanceEventStatement = db.prepare(`
+    const insertGovernanceEventStatement = db.prepare(`
     INSERT INTO governance_events (
       id,
       session_id,
@@ -531,167 +538,171 @@ function createQueryApi(db) {
       created_at = excluded.created_at
   `);
 
-  function getSessionById(id) {
-    const row = getSessionStatement.get(id);
-    return row ? mapSessionRow(row) : null;
-  }
-
-  function listRecentSessions(options = {}) {
-    const limit = normalizeLimit(options.limit, 10);
-    return {
-      totalCount: countSessionsStatement.get().total_count,
-      sessions: listRecentSessionsStatement.all(limit).map(mapSessionRow),
-    };
-  }
-
-  function getSessionDetail(id) {
-    const session = getSessionById(id);
-    if (!session) {
-      return null;
+    function getSessionById(id) {
+        const row = getSessionStatement.get(id);
+        return row ? mapSessionRow(row) : null;
     }
 
-    const workers = Array.isArray(session.snapshot && session.snapshot.workers)
-      ? session.snapshot.workers.map(worker => ({ ...worker }))
-      : [];
+    function listRecentSessions(options = {}) {
+        const limit = normalizeLimit(options.limit, 10);
+        return {
+            totalCount: countSessionsStatement.get().total_count,
+            sessions: listRecentSessionsStatement.all(limit).map(mapSessionRow),
+        };
+    }
+
+    function getSessionDetail(id) {
+        const session = getSessionById(id);
+        if (!session) {
+            return null;
+        }
+
+        const workers = Array.isArray(session.snapshot && session.snapshot.workers)
+            ? session.snapshot.workers.map((worker) => ({ ...worker }))
+            : [];
+
+        return {
+            session,
+            workers,
+            skillRuns: getSessionSkillRunsStatement.all(id).map(mapSkillRunRow),
+            decisions: getSessionDecisionsStatement.all(id).map(mapDecisionRow),
+        };
+    }
+
+    function getStatus(options = {}) {
+        const activeLimit = normalizeLimit(options.activeLimit, 5);
+        const recentSkillRunLimit = normalizeLimit(options.recentSkillRunLimit, 20);
+        const pendingLimit = normalizeLimit(options.pendingLimit, 5);
+
+        const activeSessions = listActiveSessionsStatement.all(activeLimit).map(mapSessionRow);
+        const recentSkillRuns = listRecentSkillRunsStatement
+            .all(recentSkillRunLimit)
+            .map(mapSkillRunRow);
+        const installations = listInstallStateStatement.all().map(mapInstallStateRow);
+        const pendingGovernanceEvents = listPendingGovernanceStatement
+            .all(pendingLimit)
+            .map(mapGovernanceEventRow);
+
+        return {
+            generatedAt: new Date().toISOString(),
+            activeSessions: {
+                activeCount: countActiveSessionsStatement.get().total_count,
+                sessions: activeSessions,
+            },
+            skillRuns: {
+                windowSize: recentSkillRunLimit,
+                summary: summarizeSkillRuns(recentSkillRuns),
+                recent: recentSkillRuns,
+            },
+            installHealth: summarizeInstallHealth(installations),
+            governance: {
+                pendingCount: countPendingGovernanceStatement.get().total_count,
+                events: pendingGovernanceEvents,
+            },
+        };
+    }
 
     return {
-      session,
-      workers,
-      skillRuns: getSessionSkillRunsStatement.all(id).map(mapSkillRunRow),
-      decisions: getSessionDecisionsStatement.all(id).map(mapDecisionRow),
+        getSessionById,
+        getSessionDetail,
+        getStatus,
+        insertDecision(decision) {
+            const normalized = normalizeDecisionInput(decision);
+            assertValidEntity('decision', normalized);
+            insertDecisionStatement.run({
+                id: normalized.id,
+                session_id: normalized.sessionId,
+                title: normalized.title,
+                rationale: normalized.rationale,
+                alternatives: stringifyJson(normalized.alternatives, 'decision.alternatives'),
+                supersedes: normalized.supersedes,
+                status: normalized.status,
+                created_at: normalized.createdAt,
+            });
+            return normalized;
+        },
+        insertGovernanceEvent(governanceEvent) {
+            const normalized = normalizeGovernanceEventInput(governanceEvent);
+            assertValidEntity('governanceEvent', normalized);
+            insertGovernanceEventStatement.run({
+                id: normalized.id,
+                session_id: normalized.sessionId,
+                event_type: normalized.eventType,
+                payload: stringifyJson(normalized.payload, 'governanceEvent.payload'),
+                resolved_at: normalized.resolvedAt,
+                resolution: normalized.resolution,
+                created_at: normalized.createdAt,
+            });
+            return normalized;
+        },
+        insertSkillRun(skillRun) {
+            const normalized = normalizeSkillRunInput(skillRun);
+            assertValidEntity('skillRun', normalized);
+            insertSkillRunStatement.run({
+                id: normalized.id,
+                skill_id: normalized.skillId,
+                skill_version: normalized.skillVersion,
+                session_id: normalized.sessionId,
+                task_description: normalized.taskDescription,
+                outcome: normalized.outcome,
+                failure_reason: normalized.failureReason,
+                tokens_used: normalized.tokensUsed,
+                duration_ms: normalized.durationMs,
+                user_feedback: normalized.userFeedback,
+                created_at: normalized.createdAt,
+            });
+            return normalized;
+        },
+        listRecentSessions,
+        upsertInstallState(installState) {
+            const normalized = normalizeInstallStateInput(installState);
+            assertValidEntity('installState', normalized);
+            upsertInstallStateStatement.run({
+                target_id: normalized.targetId,
+                target_root: normalized.targetRoot,
+                profile: normalized.profile,
+                modules: stringifyJson(normalized.modules, 'installState.modules'),
+                operations: stringifyJson(normalized.operations, 'installState.operations'),
+                installed_at: normalized.installedAt,
+                source_version: normalized.sourceVersion,
+            });
+            return normalized;
+        },
+        upsertSession(session) {
+            const normalized = normalizeSessionInput(session);
+            assertValidEntity('session', normalized);
+            upsertSessionStatement.run({
+                id: normalized.id,
+                adapter_id: normalized.adapterId,
+                harness: normalized.harness,
+                state: normalized.state,
+                repo_root: normalized.repoRoot,
+                started_at: normalized.startedAt,
+                ended_at: normalized.endedAt,
+                snapshot: stringifyJson(normalized.snapshot, 'session.snapshot'),
+            });
+            return getSessionById(normalized.id);
+        },
+        upsertSkillVersion(skillVersion) {
+            const normalized = normalizeSkillVersionInput(skillVersion);
+            assertValidEntity('skillVersion', normalized);
+            upsertSkillVersionStatement.run({
+                skill_id: normalized.skillId,
+                version: normalized.version,
+                content_hash: normalized.contentHash,
+                amendment_reason: normalized.amendmentReason,
+                promoted_at: normalized.promotedAt,
+                rolled_back_at: normalized.rolledBackAt,
+            });
+            const row = getSkillVersionStatement.get(normalized.skillId, normalized.version);
+            return row ? mapSkillVersionRow(row) : null;
+        },
     };
-  }
-
-  function getStatus(options = {}) {
-    const activeLimit = normalizeLimit(options.activeLimit, 5);
-    const recentSkillRunLimit = normalizeLimit(options.recentSkillRunLimit, 20);
-    const pendingLimit = normalizeLimit(options.pendingLimit, 5);
-
-    const activeSessions = listActiveSessionsStatement.all(activeLimit).map(mapSessionRow);
-    const recentSkillRuns = listRecentSkillRunsStatement.all(recentSkillRunLimit).map(mapSkillRunRow);
-    const installations = listInstallStateStatement.all().map(mapInstallStateRow);
-    const pendingGovernanceEvents = listPendingGovernanceStatement.all(pendingLimit).map(mapGovernanceEventRow);
-
-    return {
-      generatedAt: new Date().toISOString(),
-      activeSessions: {
-        activeCount: countActiveSessionsStatement.get().total_count,
-        sessions: activeSessions,
-      },
-      skillRuns: {
-        windowSize: recentSkillRunLimit,
-        summary: summarizeSkillRuns(recentSkillRuns),
-        recent: recentSkillRuns,
-      },
-      installHealth: summarizeInstallHealth(installations),
-      governance: {
-        pendingCount: countPendingGovernanceStatement.get().total_count,
-        events: pendingGovernanceEvents,
-      },
-    };
-  }
-
-  return {
-    getSessionById,
-    getSessionDetail,
-    getStatus,
-    insertDecision(decision) {
-      const normalized = normalizeDecisionInput(decision);
-      assertValidEntity('decision', normalized);
-      insertDecisionStatement.run({
-        id: normalized.id,
-        session_id: normalized.sessionId,
-        title: normalized.title,
-        rationale: normalized.rationale,
-        alternatives: stringifyJson(normalized.alternatives, 'decision.alternatives'),
-        supersedes: normalized.supersedes,
-        status: normalized.status,
-        created_at: normalized.createdAt,
-      });
-      return normalized;
-    },
-    insertGovernanceEvent(governanceEvent) {
-      const normalized = normalizeGovernanceEventInput(governanceEvent);
-      assertValidEntity('governanceEvent', normalized);
-      insertGovernanceEventStatement.run({
-        id: normalized.id,
-        session_id: normalized.sessionId,
-        event_type: normalized.eventType,
-        payload: stringifyJson(normalized.payload, 'governanceEvent.payload'),
-        resolved_at: normalized.resolvedAt,
-        resolution: normalized.resolution,
-        created_at: normalized.createdAt,
-      });
-      return normalized;
-    },
-    insertSkillRun(skillRun) {
-      const normalized = normalizeSkillRunInput(skillRun);
-      assertValidEntity('skillRun', normalized);
-      insertSkillRunStatement.run({
-        id: normalized.id,
-        skill_id: normalized.skillId,
-        skill_version: normalized.skillVersion,
-        session_id: normalized.sessionId,
-        task_description: normalized.taskDescription,
-        outcome: normalized.outcome,
-        failure_reason: normalized.failureReason,
-        tokens_used: normalized.tokensUsed,
-        duration_ms: normalized.durationMs,
-        user_feedback: normalized.userFeedback,
-        created_at: normalized.createdAt,
-      });
-      return normalized;
-    },
-    listRecentSessions,
-    upsertInstallState(installState) {
-      const normalized = normalizeInstallStateInput(installState);
-      assertValidEntity('installState', normalized);
-      upsertInstallStateStatement.run({
-        target_id: normalized.targetId,
-        target_root: normalized.targetRoot,
-        profile: normalized.profile,
-        modules: stringifyJson(normalized.modules, 'installState.modules'),
-        operations: stringifyJson(normalized.operations, 'installState.operations'),
-        installed_at: normalized.installedAt,
-        source_version: normalized.sourceVersion,
-      });
-      return normalized;
-    },
-    upsertSession(session) {
-      const normalized = normalizeSessionInput(session);
-      assertValidEntity('session', normalized);
-      upsertSessionStatement.run({
-        id: normalized.id,
-        adapter_id: normalized.adapterId,
-        harness: normalized.harness,
-        state: normalized.state,
-        repo_root: normalized.repoRoot,
-        started_at: normalized.startedAt,
-        ended_at: normalized.endedAt,
-        snapshot: stringifyJson(normalized.snapshot, 'session.snapshot'),
-      });
-      return getSessionById(normalized.id);
-    },
-    upsertSkillVersion(skillVersion) {
-      const normalized = normalizeSkillVersionInput(skillVersion);
-      assertValidEntity('skillVersion', normalized);
-      upsertSkillVersionStatement.run({
-        skill_id: normalized.skillId,
-        version: normalized.version,
-        content_hash: normalized.contentHash,
-        amendment_reason: normalized.amendmentReason,
-        promoted_at: normalized.promotedAt,
-        rolled_back_at: normalized.rolledBackAt,
-      });
-      const row = getSkillVersionStatement.get(normalized.skillId, normalized.version);
-      return row ? mapSkillVersionRow(row) : null;
-    },
-  };
 }
 
 module.exports = {
-  ACTIVE_SESSION_STATES,
-  FAILURE_OUTCOMES,
-  SUCCESS_OUTCOMES,
-  createQueryApi,
+    ACTIVE_SESSION_STATES,
+    FAILURE_OUTCOMES,
+    SUCCESS_OUTCOMES,
+    createQueryApi,
 };

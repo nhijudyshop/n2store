@@ -1,26 +1,27 @@
 #!/usr/bin/env node
+// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes.
 
-const fs = require("node:fs")
-const path = require("node:path")
-const { execFileSync } = require("node:child_process")
+const fs = require('node:fs');
+const path = require('node:path');
+const { execFileSync } = require('node:child_process');
 
-const rootDir = path.resolve(__dirname, "..")
-const opencodeDir = path.join(rootDir, ".opencode")
-const distDir = path.join(opencodeDir, "dist")
+const rootDir = path.resolve(__dirname, '..');
+const opencodeDir = path.join(rootDir, '.opencode');
+const distDir = path.join(opencodeDir, 'dist');
 
-fs.rmSync(distDir, { recursive: true, force: true })
+fs.rmSync(distDir, { recursive: true, force: true });
 
-let tscEntrypoint
+let tscEntrypoint;
 
 try {
-  tscEntrypoint = require.resolve("typescript/bin/tsc", { paths: [rootDir] })
+    tscEntrypoint = require.resolve('typescript/bin/tsc', { paths: [rootDir] });
 } catch {
-  throw new Error(
-    "TypeScript compiler not found. Install root dev dependencies before publishing so .opencode/dist can be built."
-  )
+    throw new Error(
+        'TypeScript compiler not found. Install root dev dependencies before publishing so .opencode/dist can be built.'
+    );
 }
 
-execFileSync(process.execPath, [tscEntrypoint, "-p", path.join(opencodeDir, "tsconfig.json")], {
-  cwd: rootDir,
-  stdio: "inherit",
-})
+execFileSync(process.execPath, [tscEntrypoint, '-p', path.join(opencodeDir, 'tsconfig.json')], {
+    cwd: rootDir,
+    stdio: 'inherit',
+});

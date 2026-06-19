@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes.
 // Test yt-dlp lấy URL stream của FB live đang chạy + check:
 //   - HLS hay DASH?
 //   - URL có CORS không (browser fetch được không)?

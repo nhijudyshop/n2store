@@ -1,3 +1,4 @@
+// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes.
 'use strict';
 
 const fs = require('fs');
@@ -10,12 +11,12 @@ const CURRENT_PLUGIN_HANDLE = `${CURRENT_PLUGIN_SLUG}@${CURRENT_PLUGIN_SLUG}`;
 const LEGACY_PLUGIN_HANDLE = `${LEGACY_PLUGIN_SLUG}@${LEGACY_PLUGIN_SLUG}`;
 const PLUGIN_CACHE_SLUGS = [CURRENT_PLUGIN_SLUG, LEGACY_PLUGIN_SLUG];
 const PLUGIN_ROOT_SEGMENTS = [
-  [CURRENT_PLUGIN_SLUG],
-  [CURRENT_PLUGIN_HANDLE],
-  ['marketplace', CURRENT_PLUGIN_SLUG],
-  [LEGACY_PLUGIN_SLUG],
-  [LEGACY_PLUGIN_HANDLE],
-  ['marketplace', LEGACY_PLUGIN_SLUG],
+    [CURRENT_PLUGIN_SLUG],
+    [CURRENT_PLUGIN_HANDLE],
+    ['marketplace', CURRENT_PLUGIN_SLUG],
+    [LEGACY_PLUGIN_SLUG],
+    [LEGACY_PLUGIN_HANDLE],
+    ['marketplace', LEGACY_PLUGIN_SLUG],
 ];
 
 /**
@@ -36,67 +37,66 @@ const PLUGIN_ROOT_SEGMENTS = [
  * @returns {string} Resolved ECC root path
  */
 function resolveEccRoot(options = {}) {
-  const envRoot = options.envRoot !== undefined
-    ? options.envRoot
-    : (process.env.CLAUDE_PLUGIN_ROOT || '');
+    const envRoot =
+        options.envRoot !== undefined ? options.envRoot : process.env.CLAUDE_PLUGIN_ROOT || '';
 
-  if (envRoot && envRoot.trim()) {
-    return envRoot.trim();
-  }
-
-  const homeDir = options.homeDir || os.homedir();
-  const claudeDir = path.join(homeDir, '.claude');
-  const probe = options.probe || path.join('scripts', 'lib', 'utils.js');
-
-  // Standard install — files are copied directly into ~/.claude/
-  if (fs.existsSync(path.join(claudeDir, probe))) {
-    return claudeDir;
-  }
-
-  // Exact legacy plugin install locations. These preserve backwards
-  // compatibility without scanning arbitrary plugin trees.
-  const legacyPluginRoots = PLUGIN_ROOT_SEGMENTS.map((segments) =>
-    path.join(claudeDir, 'plugins', ...segments)
-  );
-
-  for (const candidate of legacyPluginRoots) {
-    if (fs.existsSync(path.join(candidate, probe))) {
-      return candidate;
+    if (envRoot && envRoot.trim()) {
+        return envRoot.trim();
     }
-  }
 
-  // Plugin cache — Claude Code stores marketplace plugins under
-  // ~/.claude/plugins/cache/<plugin-name>/<org>/<version>/
-  try {
-    for (const slug of PLUGIN_CACHE_SLUGS) {
-      const cacheBase = path.join(claudeDir, 'plugins', 'cache', slug);
-      const orgDirs = fs.readdirSync(cacheBase, { withFileTypes: true });
+    const homeDir = options.homeDir || os.homedir();
+    const claudeDir = path.join(homeDir, '.claude');
+    const probe = options.probe || path.join('scripts', 'lib', 'utils.js');
 
-      for (const orgEntry of orgDirs) {
-        if (!orgEntry.isDirectory()) continue;
-        const orgPath = path.join(cacheBase, orgEntry.name);
+    // Standard install — files are copied directly into ~/.claude/
+    if (fs.existsSync(path.join(claudeDir, probe))) {
+        return claudeDir;
+    }
 
-        let versionDirs;
-        try {
-          versionDirs = fs.readdirSync(orgPath, { withFileTypes: true });
-        } catch {
-          continue;
-        }
+    // Exact legacy plugin install locations. These preserve backwards
+    // compatibility without scanning arbitrary plugin trees.
+    const legacyPluginRoots = PLUGIN_ROOT_SEGMENTS.map((segments) =>
+        path.join(claudeDir, 'plugins', ...segments)
+    );
 
-        for (const verEntry of versionDirs) {
-          if (!verEntry.isDirectory()) continue;
-          const candidate = path.join(orgPath, verEntry.name);
-          if (fs.existsSync(path.join(candidate, probe))) {
+    for (const candidate of legacyPluginRoots) {
+        if (fs.existsSync(path.join(candidate, probe))) {
             return candidate;
-          }
         }
-      }
     }
-  } catch {
-    // Plugin cache doesn't exist or isn't readable — continue to fallback
-  }
 
-  return claudeDir;
+    // Plugin cache — Claude Code stores marketplace plugins under
+    // ~/.claude/plugins/cache/<plugin-name>/<org>/<version>/
+    try {
+        for (const slug of PLUGIN_CACHE_SLUGS) {
+            const cacheBase = path.join(claudeDir, 'plugins', 'cache', slug);
+            const orgDirs = fs.readdirSync(cacheBase, { withFileTypes: true });
+
+            for (const orgEntry of orgDirs) {
+                if (!orgEntry.isDirectory()) continue;
+                const orgPath = path.join(cacheBase, orgEntry.name);
+
+                let versionDirs;
+                try {
+                    versionDirs = fs.readdirSync(orgPath, { withFileTypes: true });
+                } catch {
+                    continue;
+                }
+
+                for (const verEntry of versionDirs) {
+                    if (!verEntry.isDirectory()) continue;
+                    const candidate = path.join(orgPath, verEntry.name);
+                    if (fs.existsSync(path.join(candidate, probe))) {
+                        return candidate;
+                    }
+                }
+            }
+        }
+    } catch {
+        // Plugin cache doesn't exist or isn't readable — continue to fallback
+    }
+
+    return claudeDir;
 }
 
 /**
@@ -113,6 +113,6 @@ function resolveEccRoot(options = {}) {
 const INLINE_RESOLVE = `(()=>{var e=process.env.CLAUDE_PLUGIN_ROOT;if(e&&e.trim())return e.trim();var p=require('path'),f=require('fs'),h=require('os').homedir(),d=p.join(h,'.claude'),q=p.join('scripts','lib','utils.js');if(f.existsSync(p.join(d,q)))return d;for(var s of ${JSON.stringify(PLUGIN_ROOT_SEGMENTS)}){var l=p.join(d,'plugins',...s);if(f.existsSync(p.join(l,q)))return l}try{for(var g of ${JSON.stringify(PLUGIN_CACHE_SLUGS)}){var b=p.join(d,'plugins','cache',g);for(var o of f.readdirSync(b,{withFileTypes:true})){if(!o.isDirectory())continue;for(var v of f.readdirSync(p.join(b,o.name),{withFileTypes:true})){if(!v.isDirectory())continue;var c=p.join(b,o.name,v.name);if(f.existsSync(p.join(c,q)))return c}}}}catch(x){}return d})()`;
 
 module.exports = {
-  resolveEccRoot,
-  INLINE_RESOLVE,
+    resolveEccRoot,
+    INLINE_RESOLVE,
 };

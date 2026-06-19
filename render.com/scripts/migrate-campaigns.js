@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes.
 /**
  * =====================================================
  * CAMPAIGN MIGRATION: Firebase Firestore → PostgreSQL
@@ -35,15 +36,16 @@ const path = require('path');
 const args = process.argv.slice(2);
 const isDryRun = args.includes('--dry-run');
 const isExportOnly = args.includes('--export-only');
-const phaseArg = args.find(a => a.startsWith('--phase='));
+const phaseArg = args.find((a) => a.startsWith('--phase='));
 const targetPhase = phaseArg ? parseInt(phaseArg.split('=')[1]) : null;
 
-const DATABASE_URL = process.env.DATABASE_URL ||
+const DATABASE_URL =
+    process.env.DATABASE_URL ||
     'postgresql://n2store_user:iKxWmQEh1PcUSRRJXrlMueaGci1Id6Z0@dpg-d4kr80npm1nc738em3j0-a.singapore-postgres.render.com/n2store_chat';
 
 const pool = new Pool({
     connectionString: DATABASE_URL,
-    ssl: { rejectUnauthorized: false }
+    ssl: { rejectUnauthorized: false },
 });
 
 // Firebase Admin SDK
@@ -51,10 +53,12 @@ if (!admin.apps.length) {
     admin.initializeApp({
         credential: admin.credential.cert({
             projectId: 'n2shop-69e37',
-            clientEmail: process.env.FIREBASE_CLIENT_EMAIL || 'firebase-adminsdk-cmdro@n2shop-69e37.iam.gserviceaccount.com',
+            clientEmail:
+                process.env.FIREBASE_CLIENT_EMAIL ||
+                'firebase-adminsdk-cmdro@n2shop-69e37.iam.gserviceaccount.com',
             privateKey: (process.env.FIREBASE_PRIVATE_KEY || '').replace(/\\n/g, '\n'),
         }),
-        projectId: 'n2shop-69e37'
+        projectId: 'n2shop-69e37',
     });
 }
 
@@ -75,7 +79,9 @@ function saveBackup(filename, data) {
     ensureBackupDir();
     const filepath = path.join(backupDir, filename);
     fs.writeFileSync(filepath, JSON.stringify(data, null, 2));
-    console.log(`  ✅ Backup saved: ${filepath} (${data.length || Object.keys(data).length} records)`);
+    console.log(
+        `  ✅ Backup saved: ${filepath} (${data.length || Object.keys(data).length} records)`
+    );
 }
 
 function log(msg) {
@@ -92,7 +98,7 @@ async function migrateCampaigns() {
     // 1. Read from Firestore
     const snapshot = await db.collection('campaigns').get();
     const campaigns = [];
-    snapshot.forEach(doc => {
+    snapshot.forEach((doc) => {
         campaigns.push({ id: doc.id, ...doc.data() });
     });
     log(`Found ${campaigns.length} campaigns in Firestore`);
@@ -110,7 +116,8 @@ async function migrateCampaigns() {
             await client.query('BEGIN');
             let inserted = 0;
             for (const c of campaigns) {
-                await client.query(`
+                await client.query(
+                    `
                     INSERT INTO campaigns (id, name, time_frame, time_frame_label, custom_start_date, custom_end_date, created_at, updated_at)
                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
                     ON CONFLICT (id) DO UPDATE SET
@@ -120,16 +127,18 @@ async function migrateCampaigns() {
                         custom_start_date = EXCLUDED.custom_start_date,
                         custom_end_date = EXCLUDED.custom_end_date,
                         updated_at = EXCLUDED.updated_at
-                `, [
-                    c.id,
-                    c.name || '',
-                    c.timeFrame || 'custom',
-                    c.timeFrameLabel || '',
-                    c.customStartDate || '',
-                    c.customEndDate || '',
-                    c.createdAt || new Date().toISOString(),
-                    c.updatedAt || new Date().toISOString()
-                ]);
+                `,
+                    [
+                        c.id,
+                        c.name || '',
+                        c.timeFrame || 'custom',
+                        c.timeFrameLabel || '',
+                        c.customStartDate || '',
+                        c.customEndDate || '',
+                        c.createdAt || new Date().toISOString(),
+                        c.updatedAt || new Date().toISOString(),
+                    ]
+                );
                 inserted++;
             }
             await client.query('COMMIT');
@@ -157,7 +166,7 @@ async function migrateUserPreferences() {
     // 1. Read from Firestore
     const snapshot = await db.collection('user_preferences').get();
     const prefs = [];
-    snapshot.forEach(doc => {
+    snapshot.forEach((doc) => {
         prefs.push({ userId: doc.id, ...doc.data() });
     });
     log(`Found ${prefs.length} user preferences in Firestore`);
@@ -175,21 +184,22 @@ async function migrateUserPreferences() {
             if (!p.activeCampaignId && !p.dateMode) continue; // skip empty prefs
 
             // Check if the campaign exists in campaigns table
-            const campaignExists = await pool.query('SELECT id FROM campaigns WHERE id = $1', [p.activeCampaignId]);
+            const campaignExists = await pool.query('SELECT id FROM campaigns WHERE id = $1', [
+                p.activeCampaignId,
+            ]);
             const activeCampaignId = campaignExists.rows.length > 0 ? p.activeCampaignId : null;
 
-            await pool.query(`
+            await pool.query(
+                `
                 INSERT INTO user_campaign_preferences (user_id, active_campaign_id, filter_preferences)
                 VALUES ($1, $2, $3)
                 ON CONFLICT (user_id) DO UPDATE SET
                     active_campaign_id = EXCLUDED.active_campaign_id,
                     filter_preferences = EXCLUDED.filter_preferences,
                     updated_at = NOW()
-            `, [
-                p.userId,
-                activeCampaignId,
-                p.dateMode ? JSON.stringify(p.dateMode) : null
-            ]);
+            `,
+                [p.userId, activeCampaignId, p.dateMode ? JSON.stringify(p.dateMode) : null]
+            );
             inserted++;
         }
         log(`Inserted/updated ${inserted} user preferences`);
@@ -217,9 +227,14 @@ async function migrateReports() {
 
         // Handle chunked data
         if (data.isChunked) {
-            log(`  Report "${doc.id}" is chunked (${data.chunkCount || '?'} chunks), reassembling...`);
+            log(
+                `  Report "${doc.id}" is chunked (${data.chunkCount || '?'} chunks), reassembling...`
+            );
             orders = [];
-            const chunksSnapshot = await doc.ref.collection('order_chunks').orderBy('chunkIndex').get();
+            const chunksSnapshot = await doc.ref
+                .collection('order_chunks')
+                .orderBy('chunkIndex')
+                .get();
             for (const chunk of chunksSnapshot.docs) {
                 const chunkData = chunk.data();
                 if (chunkData.orders && Array.isArray(chunkData.orders)) {
@@ -245,10 +260,10 @@ async function migrateReports() {
 
     // Backup (without orders for size)
     const timestamp = new Date().toISOString().slice(0, 10);
-    const backupMeta = reports.map(r => ({
+    const backupMeta = reports.map((r) => ({
         ...r,
         orders: `[${r.orders.length} orders omitted]`,
-        orderCount: r.orders.length
+        orderCount: r.orders.length,
     }));
     saveBackup(`backup-report-orders-meta-${timestamp}.json`, backupMeta);
 
@@ -262,7 +277,8 @@ async function migrateReports() {
         let inserted = 0;
         for (const r of reports) {
             try {
-                await pool.query(`
+                await pool.query(
+                    `
                     INSERT INTO campaign_reports (table_name, orders, total_orders, success_count, error_count, fetched_at, is_saved_copy, original_campaign)
                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
                     ON CONFLICT (table_name) DO UPDATE SET
@@ -274,16 +290,18 @@ async function migrateReports() {
                         is_saved_copy = EXCLUDED.is_saved_copy,
                         original_campaign = EXCLUDED.original_campaign,
                         updated_at = NOW()
-                `, [
-                    r.tableName,
-                    JSON.stringify(r.orders),
-                    r.totalOrders,
-                    r.successCount,
-                    r.errorCount,
-                    r.fetchedAt,
-                    r.isSavedCopy,
-                    r.originalCampaign
-                ]);
+                `,
+                    [
+                        r.tableName,
+                        JSON.stringify(r.orders),
+                        r.totalOrders,
+                        r.successCount,
+                        r.errorCount,
+                        r.fetchedAt,
+                        r.isSavedCopy,
+                        r.originalCampaign,
+                    ]
+                );
                 inserted++;
                 log(`  ✅ Report "${r.tableName}" (${r.orders.length} orders)`);
             } catch (e) {
@@ -331,13 +349,16 @@ async function migrateEmployeeRanges() {
             // Convert object format {0: {...}, 1: {...}} to array
             const rangesArray = Array.isArray(ranges) ? ranges : Object.values(ranges);
 
-            await pool.query(`
+            await pool.query(
+                `
                 INSERT INTO campaign_employee_ranges (campaign_name, employee_ranges)
                 VALUES ($1, $2)
                 ON CONFLICT (campaign_name) DO UPDATE SET
                     employee_ranges = EXCLUDED.employee_ranges,
                     updated_at = NOW()
-            `, [campaignName, JSON.stringify(rangesArray)]);
+            `,
+                [campaignName, JSON.stringify(rangesArray)]
+            );
             inserted++;
         }
         log(`Inserted/updated ${inserted} campaign employee ranges`);

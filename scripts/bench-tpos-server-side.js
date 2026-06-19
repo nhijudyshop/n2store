@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes.
 // Test TPOS endpoints SERVER-SIDE (như Render gọi) — không qua browser/CORS.
 // Token Bearer trong header, không cần session cookies.
 

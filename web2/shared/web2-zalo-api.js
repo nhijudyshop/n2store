@@ -92,6 +92,10 @@
         deleteAccount(key) {
             return _fetch(`/accounts/${encodeURIComponent(key)}`, { method: 'DELETE' });
         },
+        // Đặt TK cá nhân làm CHÍNH (gửi tin KH 1-1 dùng TK này, mọi trang).
+        setPrimary(key) {
+            return _fetch(`/accounts/${encodeURIComponent(key)}/primary`, { method: 'POST' });
+        },
         self(key) {
             return _fetch(`/accounts/${encodeURIComponent(key)}/self`, { method: 'GET' });
         },

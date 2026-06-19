@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes.
 /**
  * PostToolUse Hook: Accumulate edited JS/TS file paths for batch processing
  *
@@ -22,13 +23,13 @@ const path = require('path');
 const MAX_STDIN = 1024 * 1024;
 
 function getAccumFile() {
-  const raw =
-    process.env.CLAUDE_SESSION_ID ||
-    crypto.createHash('sha1').update(process.cwd()).digest('hex').slice(0, 12);
-  // Strip path separators and traversal sequences so the value is safe to embed
-  // directly in a filename regardless of what CLAUDE_SESSION_ID contains.
-  const sessionId = raw.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 64);
-  return path.join(os.tmpdir(), `ecc-edited-${sessionId}.txt`);
+    const raw =
+        process.env.CLAUDE_SESSION_ID ||
+        crypto.createHash('sha1').update(process.cwd()).digest('hex').slice(0, 12);
+    // Strip path separators and traversal sequences so the value is safe to embed
+    // directly in a filename regardless of what CLAUDE_SESSION_ID contains.
+    const sessionId = raw.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 64);
+    return path.join(os.tmpdir(), `ecc-edited-${sessionId}.txt`);
 }
 
 /**
@@ -38,9 +39,9 @@ function getAccumFile() {
 const JS_TS_EXT = /\.(ts|tsx|js|jsx)$/;
 
 function appendPath(filePath) {
-  if (filePath && JS_TS_EXT.test(filePath)) {
-    fs.appendFileSync(getAccumFile(), filePath + '\n', 'utf8');
-  }
+    if (filePath && JS_TS_EXT.test(filePath)) {
+        fs.appendFileSync(getAccumFile(), filePath + '\n', 'utf8');
+    }
 }
 
 /**
@@ -48,31 +49,31 @@ function appendPath(filePath) {
  * @returns {string} The original input (pass-through)
  */
 function run(rawInput) {
-  try {
-    const input = JSON.parse(rawInput);
-    // Edit / Write: single file_path
-    appendPath(input.tool_input?.file_path);
-    // MultiEdit: array of edits, each with its own file_path
-    const edits = input.tool_input?.edits;
-    if (Array.isArray(edits)) {
-      for (const edit of edits) appendPath(edit?.file_path);
+    try {
+        const input = JSON.parse(rawInput);
+        // Edit / Write: single file_path
+        appendPath(input.tool_input?.file_path);
+        // MultiEdit: array of edits, each with its own file_path
+        const edits = input.tool_input?.edits;
+        if (Array.isArray(edits)) {
+            for (const edit of edits) appendPath(edit?.file_path);
+        }
+    } catch {
+        // Invalid input — pass through
     }
-  } catch {
-    // Invalid input — pass through
-  }
-  return rawInput;
+    return rawInput;
 }
 
 if (require.main === module) {
-  let data = '';
-  process.stdin.setEncoding('utf8');
-  process.stdin.on('data', chunk => {
-    if (data.length < MAX_STDIN) data += chunk.substring(0, MAX_STDIN - data.length);
-  });
-  process.stdin.on('end', () => {
-    process.stdout.write(run(data));
-    process.exit(0);
-  });
+    let data = '';
+    process.stdin.setEncoding('utf8');
+    process.stdin.on('data', (chunk) => {
+        if (data.length < MAX_STDIN) data += chunk.substring(0, MAX_STDIN - data.length);
+    });
+    process.stdin.on('end', () => {
+        process.stdout.write(run(data));
+        process.exit(0);
+    });
 }
 
 module.exports = { run };

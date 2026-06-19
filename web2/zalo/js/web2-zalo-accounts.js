@@ -92,16 +92,27 @@
                 `<button class="wz-btn wz-btn-sm" data-act="sync" data-key="${esc(a.accountKey)}"><i data-lucide="refresh-cw"></i> Đồng bộ template</button>`
             );
         }
+        // TK cá nhân chưa phải TK chính → cho đặt làm chính (gửi tin KH 1-1 dùng TK này).
+        if (t === 'personal' && !a.isPrimary) {
+            acts.push(
+                `<button class="wz-btn wz-btn-sm" data-act="primary" data-key="${esc(a.accountKey)}" title="Dùng tài khoản này để gửi tin nhắn khách 1-1 (mọi trang)"><i data-lucide="star"></i> Đặt làm chính</button>`
+            );
+        }
         acts.push(
             `<button class="wz-btn wz-btn-sm" data-act="delete" data-key="${esc(a.accountKey)}" aria-label="Xoá tài khoản ${esc(dn)}" title="Xoá"><i data-lucide="trash-2"></i></button>`
         );
-        return `<div class="wz-acc-card">
+        const primaryBadge =
+            t === 'personal' && a.isPrimary
+                ? `<span class="wz-acc-primary" title="Tài khoản gửi tin nhắn khách 1-1 cho mọi trang"><i data-lucide="star"></i> TK chính</span>`
+                : '';
+        return `<div class="wz-acc-card${a.isPrimary ? ' is-primary' : ''}">
             <div class="wz-acc-top">
                 ${avatar}
                 <div style="min-width:0;flex:1">
                     <div class="wz-acc-name">${esc(dn)}</div>
                     <div class="wz-acc-sub">${sub}</div>
                 </div>
+                ${primaryBadge}
                 <span class="wz-acc-type ${t}">${t === 'oa' ? 'OA' : 'Cá nhân'}</span>
             </div>
             <div class="wz-statustxt"><span class="wz-dot ${esc(a.status)}"></span>${esc(STATUS_LABEL[a.status] || a.status)}${a.statusMsg ? ' · <span class="wz-err" style="font-weight:400">' + esc(String(a.statusMsg).slice(0, 60)) + '</span>' : ''}</div>
@@ -164,6 +175,11 @@
                 setBusy(btn, true);
                 const r = await window.ZaloApi.syncTemplates(key);
                 notify(`Đã đồng bộ ${r.synced || 0} template`, 'success');
+            } else if (act === 'primary') {
+                setBusy(btn, true);
+                await window.ZaloApi.setPrimary(key);
+                notify(`Đã đặt "${a?.displayName || key}" làm TK chính gửi tin khách`, 'success');
+                loadAccounts();
             } else if (act === 'chat') {
                 state.conv.accountKey = key;
                 WZApp.switchTab('chat');

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes.
 // One-shot: open Pancake admin, type real query into search input,
 // capture every fetch/XHR/WS frame + Redux action dispatched while
 // the filter runs. Prints a JSON summary.
