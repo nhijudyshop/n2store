@@ -2,6 +2,22 @@
 
 ## 2026-06-19
 
+### [native-orders] Step 2b — xoá old-chat dead-code (chat unified) ✅
+
+Sau Task 1 (chat hợp nhất vào `Web2CustomerChat`), modal chat cũ + engine thread/sidebar đã DEAD. Trace-first rồi mới xoá (TRÁNH gold-plate, conservative).
+
+**Files DELETED (6, fully unreferenced bởi kept code):**
+`native-orders-chat-state.js`, `native-orders-chat-render.js`, `native-orders-message-render.js`, `native-orders-inbox-sidebar.js`, `native-orders-inbox-realtime.js`, `native-orders-chat-css.js`. → 26→20 module.
+
+**Files KEPT, xoá hàm chết tại chỗ:**
+
+- `native-orders-interactions.js`: xoá nhánh fallback `_renderInteractionsModal` trong `openInteractions` (→ `notify('Chat chưa sẵn sàng…')`); xoá `_renderInteractionsModal`/`_renderChatHeaderInner`/`_applyChatHeaderForOrder`/`_renderInboxSidebarShell`/`_renderInboxRightPanel`/`_renderInfoTab`/`_renderMessagesPanel`/`W2_DEFAULT_QUICK_TAGS`/`_loadQuickTags`/`_renderQuickReplyTags`/`_wireQuickReplyTags`/`_wireRightPanelTabs`. **GIỮ**: `openInteractions` (Web2CustomerChat path), `_renderInteractionsInfoHtml`, `_wireCommentReplies`, `_renderCommentsPanel`, extension bridge (`_hasExtension`/`_extensionRequest`/`_extensionReady`/EXTENSION_LOADED listener), `_hasChatClient`. `_closeInteractions`/`_refreshInteractionsIfOpen` → rút gọn no-op an toàn (vẫn trên public-api).
+- `native-orders-chat-send.js`: xoá `_handleSendMessage` (old inbox-send). **GIỮ** `_handleReplyComment` (flow comment-reply mới dùng — chỉ gọi `_extensionRequest`/`_hasExtension`/`_hasChatClient`).
+- `native-orders-inbox-resolve.js`: file MIXED — GIỮ vì có **3 live consumer**: `_resolveInboxConvByPhone`+`_searchPancakeCustomers` (inbox-add tạo đơn), `_hydrateInboxAvatars` (render.js). **Relocate `_avatarUrl`** từ message-render.js (đã xoá) vào đây. Xoá dead-only `_fetchConvsMerged`/`_fmtVnTime`/`_convRowHtml`.
+- `native-orders-public-api.js`: `_debug` bỏ `chatState` getter + `injectFakeMessage` (tham chiếu `_chatState`/`_onIncomingWsMessage` đã xoá). 36 key giữ nguyên.
+
+**Verify**: 20/20 file pass `node --check`; `window.NativeOrdersApp` vẫn đủ **36 key** (gồm openInteractions/\_closeInteractions/\_refreshInteractionsIfOpen); 0 dangling ref tới hàm/file đã xoá; index.html gỡ 6 script tag (giữ thứ tự, bump `?v=20260619a` cho 4 file đụng); inbox-add tạo đơn nguyên vẹn + deps OK. **CHƯA** browser-test (cần user verify).
+
 ### [native-orders] Phase 1 split (9457→23) + Task 1 chat-unification ✅
 
 **Phase 1 (`73016bf9e`)** — tách `native-orders-app.js` 9457 dòng (file lớn thứ 2) → 23 module qua AST scope-aware codemod (acorn+magic-string), namespace `window.NativeOrders` (NO), max 786L. `window.NativeOrdersApp` 36 key byte-identical (36 inline onclick), 294 binding mỗi cái 1 lần, equivalence proven, STATE hoist-order fix. Verified live: 0 JS err, openEdit/openInteractions/toggleExpand OK, 4 rows.

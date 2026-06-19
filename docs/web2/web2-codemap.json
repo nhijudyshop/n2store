@@ -1,10 +1,10 @@
 {
-    "generatedAt": "2026-06-19 00:55",
+    "generatedAt": "2026-06-19 01:16",
     "totals": {
-        "files": 332,
+        "files": 337,
         "sharedModules": 89,
-        "functions": 2567,
-        "oversized": 3
+        "functions": 2478,
+        "oversized": 2
     },
     "sharedModules": [
         {
@@ -56,8 +56,8 @@
                 "live-chat/js/live/live-chat-modal.js",
                 "live-chat/js/pancake/inventory-panel-render.js",
                 "live-chat/js/pancake/pancake-chat-window.js",
-                "native-orders/js/native-orders-chat-state.js",
                 "native-orders/js/native-orders-interactions.js",
+                "native-orders/js/native-orders-public-api.js",
                 "web2/shared/chat-panel/web2-chat-emoji-data.js",
                 "web2/shared/chat-panel/web2-chat-panel-compose.js",
                 "web2/shared/chat-panel/web2-chat-panel-render.js",
@@ -189,10 +189,9 @@
                 "live-chat/js/shared/live-customer-sync.js",
                 "native-orders/js/native-orders-api.js",
                 "native-orders/js/native-orders-bulk-operations.js",
-                "native-orders/js/native-orders-chat-state.js",
                 "native-orders/js/native-orders-customer-panel.js",
+                "native-orders/js/native-orders-inbox-resolve.js",
                 "native-orders/js/native-orders-kpi.js",
-                "native-orders/js/native-orders-message-render.js",
                 "native-orders/js/native-orders-product-picker.js",
                 "native-orders/js/native-orders-snapshots.js",
                 "native-orders/js/native-orders-state.js",
@@ -313,14 +312,9 @@
                 "live-chat/js/pancake/pancake-token-manager.js",
                 "live-chat/js/pancake/pancake-token-sources.js",
                 "native-orders/js/native-orders-bulk-operations.js",
-                "native-orders/js/native-orders-chat-render.js",
                 "native-orders/js/native-orders-chat-send.js",
-                "native-orders/js/native-orders-chat-state.js",
-                "native-orders/js/native-orders-inbox-realtime.js",
                 "native-orders/js/native-orders-inbox-resolve.js",
-                "native-orders/js/native-orders-inbox-sidebar.js",
                 "native-orders/js/native-orders-interactions.js",
-                "native-orders/js/native-orders-message-render.js",
                 "web2/balance-history/js/web2-pm-customer-search.js",
                 "web2/customers/js/customers-events.js",
                 "web2/jt-tracking/js/jt-tracking-actions.js",
@@ -437,7 +431,10 @@
             "purpose": "WEB2.0 module.",
             "api": [],
             "consumers": [
+                "native-orders/js/native-orders-chat-send.js",
+                "native-orders/js/native-orders-inbox-resolve.js",
                 "native-orders/js/native-orders-interactions.js",
+                "native-orders/js/native-orders-public-api.js",
                 "web2/balance-history/js/web2-balance-history-app.js",
                 "web2/balance-history/js/web2-bh-chat-export.js",
                 "web2/balance-history/js/web2-pm-render.js",
@@ -702,11 +699,7 @@
             "globals": ["Web2NewMsgBadge"],
             "purpose": "Web 2.0 — New-message badge for native-orders rows",
             "api": [],
-            "consumers": [
-                "native-orders/js/native-orders-chat-send.js",
-                "native-orders/js/native-orders-chat-state.js",
-                "native-orders/js/native-orders-render.js"
-            ],
+            "consumers": ["native-orders/js/native-orders-render.js"],
             "lines": 305
         },
         {
@@ -886,10 +879,7 @@
             "globals": ["Web2QuickReply"],
             "purpose": "Web 2.0 — Quick Reply system",
             "api": [],
-            "consumers": [
-                "native-orders/js/native-orders-interactions.js",
-                "web2/shared/chat-panel/web2-chat-panel-compose.js"
-            ],
+            "consumers": ["web2/shared/chat-panel/web2-chat-panel-compose.js"],
             "lines": 656
         },
         {
@@ -898,9 +888,9 @@
             "purpose": "Web 2.0 — Realtime client (Pancake WS)",
             "api": [],
             "consumers": [
-                "live-chat/server/server.js",
-                "native-orders/js/native-orders-chat-state.js",
-                "native-orders/js/native-orders-inbox-realtime.js",
+                "live-chat/server/browser-broker.js",
+                "live-chat/server/pancake-client.js",
+                "live-chat/server/routes.js",
                 "native-orders/js/native-orders-public-api.js",
                 "web2/shared/web2-new-msg-badge.js"
             ],
@@ -2824,6 +2814,38 @@
                     ]
                 },
                 {
+                    "file": "live-chat/server/browser-broker.js",
+                    "lines": 82,
+                    "purpose": "WEB2.0 module.",
+                    "globals": [],
+                    "uses": ["Web2Realtime"],
+                    "functions": ["_bDedupKey", "broadcastToBrowsers", "createBrowserBroker"]
+                },
+                {
+                    "file": "live-chat/server/client-manager.js",
+                    "lines": 133,
+                    "purpose": "WEB2.0 module.",
+                    "globals": [],
+                    "uses": [],
+                    "functions": ["autoConnect", "createClientManager", "startClient"]
+                },
+                {
+                    "file": "live-chat/server/db.js",
+                    "lines": 36,
+                    "purpose": "WEB2.0 module.",
+                    "globals": [],
+                    "uses": [],
+                    "functions": ["createDbPool"]
+                },
+                {
+                    "file": "live-chat/server/event-store.js",
+                    "lines": 43,
+                    "purpose": "WEB2.0 module.",
+                    "globals": [],
+                    "uses": [],
+                    "functions": ["createEventStore", "storeEvent"]
+                },
+                {
                     "file": "live-chat/server/facebook-routes.js",
                     "lines": 452,
                     "purpose": "Facebook Graph API routes — merged into web2-realtime (2026-06-14).",
@@ -2837,38 +2859,89 @@
                     ]
                 },
                 {
-                    "file": "live-chat/server/server.js",
-                    "lines": 1216,
-                    "purpose": "N2STORE PANCAKE WEBSOCKET CLIENT (Multi-Account)",
+                    "file": "live-chat/server/firebase-loader.js",
+                    "lines": 77,
+                    "purpose": "WEB2.0 module.",
+                    "globals": [],
+                    "uses": [],
+                    "functions": ["initFirebase", "loadTokensFromFirebase"]
+                },
+                {
+                    "file": "live-chat/server/middleware.js",
+                    "lines": 54,
+                    "purpose": "WEB2.0 module.",
+                    "globals": [],
+                    "uses": [],
+                    "functions": ["applyMiddleware", "makeRequireRelaySecret", "requireRelaySecret"]
+                },
+                {
+                    "file": "live-chat/server/page-selection-db.js",
+                    "lines": 67,
+                    "purpose": "WEB2.0 module.",
+                    "globals": [],
+                    "uses": [],
+                    "functions": [
+                        "createPageSelection",
+                        "ensureSelectionTable",
+                        "getDisabledPageIds",
+                        "savePageSelection"
+                    ]
+                },
+                {
+                    "file": "live-chat/server/pancake-api.js",
+                    "lines": 64,
+                    "purpose": "WEB2.0 module.",
+                    "globals": [],
+                    "uses": [],
+                    "functions": ["discoverPageIds"]
+                },
+                {
+                    "file": "live-chat/server/pancake-client.js",
+                    "lines": 326,
+                    "purpose": "WEB2.0 module.",
                     "globals": [],
                     "uses": ["Web2Realtime"],
                     "functions": [
-                        "_bDedupKey",
-                        "autoConnect",
-                        "broadcastToBrowsers",
                         "connect",
-                        "discoverPageIds",
-                        "doPost",
-                        "ensureSelectionTable",
-                        "forwardToFallback",
                         "generateClientSession",
-                        "getDisabledPageIds",
                         "getStatus",
-                        "gracefulShutdown",
                         "handleMessage",
-                        "initFirebase",
                         "joinChannels",
-                        "loadTokensFromFirebase",
                         "makeRef",
-                        "requireRelaySecret",
-                        "savePageSelection",
                         "start",
-                        "startClient",
                         "startHeartbeat",
                         "stop",
                         "stopHeartbeat",
-                        "storeEvent",
                         "tag"
+                    ]
+                },
+                {
+                    "file": "live-chat/server/relay.js",
+                    "lines": 45,
+                    "purpose": "WEB2.0 module.",
+                    "globals": [],
+                    "uses": [],
+                    "functions": ["createRelay", "doPost", "forwardToFallback"]
+                },
+                {
+                    "file": "live-chat/server/routes.js",
+                    "lines": 352,
+                    "purpose": "WEB2.0 module.",
+                    "globals": [],
+                    "uses": ["Web2Realtime"],
+                    "functions": ["registerRoutes"]
+                },
+                {
+                    "file": "live-chat/server/server.js",
+                    "lines": 174,
+                    "purpose": "WEB2.0 module.",
+                    "globals": [],
+                    "uses": [],
+                    "functions": [
+                        "_broadcastImpl",
+                        "broadcastToBrowsers",
+                        "createClient",
+                        "gracefulShutdown"
                     ]
                 },
                 {
@@ -2932,79 +3005,12 @@
                     ]
                 },
                 {
-                    "file": "native-orders/js/native-orders-chat-css.js",
-                    "lines": 776,
-                    "purpose": "WEB2.0 module.",
-                    "globals": ["NativeOrders"],
-                    "uses": [],
-                    "functions": ["_ensureChatModalCss"]
-                },
-                {
-                    "file": "native-orders/js/native-orders-chat-render.js",
-                    "lines": 265,
-                    "purpose": "WEB2.0 module.",
-                    "globals": ["NativeOrders"],
-                    "uses": ["Web2Chat"],
-                    "functions": [
-                        "_appendBubbleDom",
-                        "_attachScrollLoader",
-                        "_bubbleSlotHtml",
-                        "_loadOlderIndicatorHtml",
-                        "_loadOlderMessages",
-                        "_onChatScroll",
-                        "_onScrollRaw",
-                        "_prependBubblesDom",
-                        "_renderChatThread",
-                        "_skeletonThreadHtml"
-                    ]
-                },
-                {
                     "file": "native-orders/js/native-orders-chat-send.js",
-                    "lines": 332,
+                    "lines": 72,
                     "purpose": "WEB2.0 module.",
                     "globals": ["NativeOrders"],
-                    "uses": ["Web2Chat", "Web2NewMsgBadge"],
-                    "functions": ["_handleReplyComment", "_handleSendMessage", "_restore"]
-                },
-                {
-                    "file": "native-orders/js/native-orders-chat-state.js",
-                    "lines": 769,
-                    "purpose": "WEB2.0 module.",
-                    "globals": ["NativeOrders"],
-                    "uses": [
-                        "Web2ChatPanel",
-                        "Web2Auth",
-                        "Web2Chat",
-                        "Web2NewMsgBadge",
-                        "Web2Realtime"
-                    ],
-                    "functions": [
-                        "_appendOutgoing",
-                        "_attachLabel",
-                        "_attachmentKind",
-                        "_buildNativeAdapter",
-                        "_clearPendingAttachment",
-                        "_fileToDataUrl",
-                        "_loadAndRenderThread",
-                        "_mountChatPanel",
-                        "_onIncomingWsMessage",
-                        "_performNativeSend",
-                        "_removeOutgoing",
-                        "_renderReplyBar",
-                        "_setPendingAttachment",
-                        "_setReplyTarget",
-                        "_teardownChatState",
-                        "loadMessages",
-                        "loadOlder",
-                        "markRead",
-                        "onAddEntity",
-                        "onEvent",
-                        "onerror",
-                        "onload",
-                        "quickReplies",
-                        "send",
-                        "sendSticker"
-                    ]
+                    "uses": ["Web2Chat", "Web2CustomerChat"],
+                    "functions": ["_handleReplyComment"]
                 },
                 {
                     "file": "native-orders/js/native-orders-customer-panel.js",
@@ -3110,31 +3116,13 @@
                     ]
                 },
                 {
-                    "file": "native-orders/js/native-orders-inbox-realtime.js",
-                    "lines": 387,
-                    "purpose": "WEB2.0 module.",
-                    "globals": ["NativeOrders"],
-                    "uses": ["Web2Chat", "Web2Realtime"],
-                    "functions": [
-                        "_handleSidebarWsEvent",
-                        "_mergeSidebarConvs",
-                        "_pollSidebarOnce",
-                        "_startSidebarPoll",
-                        "_switchChatToCustomer",
-                        "_wireSidebarRealtime",
-                        "onEvent"
-                    ]
-                },
-                {
                     "file": "native-orders/js/native-orders-inbox-resolve.js",
-                    "lines": 354,
+                    "lines": 255,
                     "purpose": "WEB2.0 module.",
                     "globals": ["NativeOrders"],
-                    "uses": ["Web2Chat"],
+                    "uses": ["API_CONFIG", "Web2Chat", "Web2CustomerChat"],
                     "functions": [
-                        "_convRowHtml",
-                        "_fetchConvsMerged",
-                        "_fmtVnTime",
+                        "_avatarUrl",
                         "_getSidebarPageIds",
                         "_hydrateInboxAvatars",
                         "_normPhone",
@@ -3144,66 +3132,23 @@
                     ]
                 },
                 {
-                    "file": "native-orders/js/native-orders-inbox-sidebar.js",
-                    "lines": 617,
-                    "purpose": "WEB2.0 module.",
-                    "globals": ["NativeOrders"],
-                    "uses": ["Web2Chat"],
-                    "functions": [
-                        "_applySidebarFilter",
-                        "_bindConvRowClicks",
-                        "_filterActiveCount",
-                        "_loadFilterStateFor",
-                        "_loadInboxSidebar",
-                        "_loadPageTagsForFilter",
-                        "_persistFilterState",
-                        "_renderFilterSub",
-                        "_renderFilterSubConditions",
-                        "_renderFilterSubTags",
-                        "_rowMatchesFilter",
-                        "_tagDictForCurrentPage",
-                        "_updateFilterButtonVisual",
-                        "_updateFilterCatCounts",
-                        "_wireFilterSubConditions",
-                        "_wireFilterSubTags",
-                        "_wireSidebarFilter",
-                        "_wireSidebarSearch",
-                        "close",
-                        "doSearch",
-                        "open"
-                    ]
-                },
-                {
                     "file": "native-orders/js/native-orders-interactions.js",
-                    "lines": 779,
+                    "lines": 246,
                     "purpose": "WEB2.0 module.",
                     "globals": ["NativeOrders"],
-                    "uses": ["Web2ChatPanel", "Web2Chat", "Web2CustomerChat", "Web2QuickReply"],
+                    "uses": ["Web2ChatPanel", "Web2Chat", "Web2CustomerChat"],
                     "functions": [
-                        "_applyChatHeaderForOrder",
                         "_closeInteractions",
                         "_extensionRequest",
                         "_hasChatClient",
                         "_hasExtension",
-                        "_loadQuickTags",
                         "_refreshInteractionsIfOpen",
-                        "_renderChatHeaderInner",
                         "_renderCommentsPanel",
-                        "_renderInboxRightPanel",
-                        "_renderInboxSidebarShell",
-                        "_renderInfoTab",
                         "_renderInteractionsInfoHtml",
-                        "_renderInteractionsModal",
-                        "_renderMessagesPanel",
-                        "_renderQuickReplyTags",
                         "_wireCommentReplies",
-                        "_wireQuickReplyTags",
-                        "_wireRightPanelTabs",
                         "fbPermalink",
-                        "onAutoSend",
                         "onMsg",
                         "onReady",
-                        "onSelect",
                         "openInteractions",
                         "pancakeUrl"
                     ]
@@ -3222,39 +3167,6 @@
                         "load",
                         "render",
                         "scheduleReload"
-                    ]
-                },
-                {
-                    "file": "native-orders/js/native-orders-message-render.js",
-                    "lines": 391,
-                    "purpose": "WEB2.0 module.",
-                    "globals": ["NativeOrders"],
-                    "uses": ["API_CONFIG", "Web2Chat"],
-                    "functions": [
-                        "_avatarHtml",
-                        "_avatarInitial",
-                        "_avatarUrl",
-                        "_bubbleHtml",
-                        "_dateLabel",
-                        "_dateSeparatorHtml",
-                        "_msgPlain",
-                        "_msgTimestamp",
-                        "_renderAdClick",
-                        "_renderAddress",
-                        "_renderAttachment",
-                        "_renderAudio",
-                        "_renderAudioCall",
-                        "_renderFile",
-                        "_renderImage",
-                        "_renderLinkPreview",
-                        "_renderQuotedReply",
-                        "_renderReactions",
-                        "_renderSticker",
-                        "_renderSystemMessage",
-                        "_renderTemplate",
-                        "_renderVideo",
-                        "_workerProxy",
-                        "vnFmt"
                     ]
                 },
                 {
@@ -3360,11 +3272,16 @@
                 },
                 {
                     "file": "native-orders/js/native-orders-public-api.js",
-                    "lines": 104,
+                    "lines": 86,
                     "purpose": "WEB2.0 module.",
                     "globals": ["NativeOrders", "NativeOrdersApp"],
-                    "uses": ["Web2MsgTemplate", "Web2Realtime"],
-                    "functions": ["injectFakeMessage", "simulateLineCommentId"]
+                    "uses": [
+                        "Web2ChatPanel",
+                        "Web2CustomerChat",
+                        "Web2MsgTemplate",
+                        "Web2Realtime"
+                    ],
+                    "functions": ["simulateLineCommentId"]
                 },
                 {
                     "file": "native-orders/js/native-orders-realtime-init.js",
@@ -8782,17 +8699,6 @@
             "count": 5
         },
         {
-            "fn": "loadOlder",
-            "files": [
-                "live-chat/js/pancake/pancake-chat-window.js",
-                "native-orders/js/native-orders-chat-state.js",
-                "web2/shared/chat-panel/web2-chat-panel-render.js",
-                "web2/shared/web2-customer-chat-core.js",
-                "web2/shared/zalo-chat/chat-view.js"
-            ],
-            "count": 5
-        },
-        {
             "fn": "norm",
             "files": [
                 "live-chat/js/live/live-init-lifecycle.js",
@@ -8810,16 +8716,6 @@
                 "web2/fastsaleorder-invoice/pbh-api.js",
                 "web2/shared/web2-zalo-api.js",
                 "web2/shared/web2-zalo.js"
-            ],
-            "count": 4
-        },
-        {
-            "fn": "_fileToDataUrl",
-            "files": [
-                "live-chat/js/pancake/pancake-chat-window.js",
-                "native-orders/js/native-orders-chat-state.js",
-                "web2/shared/web2-customer-chat-core.js",
-                "web2/shared/web2-effects.js"
             ],
             "count": 4
         },
@@ -8964,6 +8860,16 @@
             "count": 4
         },
         {
+            "fn": "loadOlder",
+            "files": [
+                "live-chat/js/pancake/pancake-chat-window.js",
+                "web2/shared/chat-panel/web2-chat-panel-render.js",
+                "web2/shared/web2-customer-chat-core.js",
+                "web2/shared/zalo-chat/chat-view.js"
+            ],
+            "count": 4
+        },
+        {
             "fn": "openEdit",
             "files": [
                 "native-orders/js/native-orders-modal-edit.js",
@@ -8980,16 +8886,6 @@
                 "web2/multi-tool/js/multi-tool.js",
                 "web2/shared/chat-panel/web2-chat-panel-state.js",
                 "web2/shared/web2-format.js"
-            ],
-            "count": 4
-        },
-        {
-            "fn": "quickReplies",
-            "files": [
-                "live-chat/js/pancake/pancake-chat-window.js",
-                "native-orders/js/native-orders-chat-state.js",
-                "web2/shared/web2-customer-chat-core.js",
-                "web2/shared/web2-zalo-api.js"
             ],
             "count": 4
         },
@@ -9138,6 +9034,15 @@
                 "native-orders/js/native-orders-packing-slip.js",
                 "web2/shared/web2-msg-template-ui.js",
                 "web2/shared/web2-wallet-balance.js"
+            ],
+            "count": 3
+        },
+        {
+            "fn": "_fileToDataUrl",
+            "files": [
+                "live-chat/js/pancake/pancake-chat-window.js",
+                "web2/shared/web2-customer-chat-core.js",
+                "web2/shared/web2-effects.js"
             ],
             "count": 3
         },
@@ -9331,15 +9236,6 @@
             "count": 3
         },
         {
-            "fn": "loadMessages",
-            "files": [
-                "live-chat/js/pancake/pancake-chat-window.js",
-                "native-orders/js/native-orders-chat-state.js",
-                "web2/shared/web2-customer-chat-core.js"
-            ],
-            "count": 3
-        },
-        {
             "fn": "loadPages",
             "files": [
                 "live-chat/js/pancake/pancake-page-selector.js",
@@ -9390,6 +9286,15 @@
                 "web2/shared/chat-panel/web2-chat-emoji-data.js",
                 "web2/shared/zalo-chat/emoji-picker.js",
                 "web2/shared/zalo-chat/sticker-picker.js"
+            ],
+            "count": 3
+        },
+        {
+            "fn": "quickReplies",
+            "files": [
+                "live-chat/js/pancake/pancake-chat-window.js",
+                "web2/shared/web2-customer-chat-core.js",
+                "web2/shared/web2-zalo-api.js"
             ],
             "count": 3
         },
@@ -9462,24 +9367,6 @@
                 "web2/balance-history/js/web2-bh-core.js",
                 "web2/customer-wallet/js/web2-customer-wallet-state.js",
                 "web2/shared/web2-text-utils.js"
-            ],
-            "count": 3
-        },
-        {
-            "fn": "send",
-            "files": [
-                "live-chat/js/pancake/pancake-chat-window.js",
-                "native-orders/js/native-orders-chat-state.js",
-                "web2/shared/web2-customer-chat-core.js"
-            ],
-            "count": 3
-        },
-        {
-            "fn": "sendSticker",
-            "files": [
-                "live-chat/js/pancake/pancake-chat-window.js",
-                "native-orders/js/native-orders-chat-state.js",
-                "web2/shared/web2-zalo-api.js"
             ],
             "count": 3
         },
@@ -9566,10 +9453,6 @@
         }
     ],
     "oversized": [
-        {
-            "file": "live-chat/server/server.js",
-            "lines": 1216
-        },
         {
             "file": "so-order/js/so-order-storage.js",
             "lines": 962

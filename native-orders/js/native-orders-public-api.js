@@ -50,35 +50,17 @@
         onCustAvatarLeave: NO._onCustAvatarLeave,
         // 2026-06-01: nút "Lấy WEB2" thủ công khi đơn từ web2-pancake rỗng phone/address
         fetchCustomerFromWeb2: NO.fetchCustomerFromWeb2,
-        // Debug surface — inspect realtime + chat state from devtools.
-        // Verify realtime is WS-driven (not polling): open chat then run
-        // `NativeOrdersApp._debug.injectFakeMessage('hello')` — bubble
-        // should appear instantly; if not, WS path is broken.
+        // Debug surface — inspect realtime + livestream snapshot cache from devtools.
+        // (Chat-thread debug helpers — chatState/injectFakeMessage — removed when the
+        // bespoke chat modal was retired; chat now lives in Web2CustomerChat which has
+        // its own realtime via Web2ChatPanel.)
         _debug: {
-            get chatState() {
-                return NO._chatState;
-            },
             get realtimeStatus() {
                 return {
                     wsConnected: !!window.Web2Realtime?.isConnected(),
                     wsUrl: window.Web2Realtime?._internal?.WS_URL,
                     subscriberCount: window.Web2Realtime?._internal?.subscribers?.length,
                 };
-            },
-            injectFakeMessage(text) {
-                if (!NO._chatState) return { ok: false, reason: 'no_chat_open' };
-                NO._onIncomingWsMessage({
-                    conversation: {
-                        id: NO._chatState.convId,
-                        last_message: {
-                            id: 'fake_' + Date.now(),
-                            message: text || 'fake realtime test',
-                            inserted_at: new Date().toISOString().replace('Z', ''),
-                            from: { id: NO._chatState.customerId, name: 'Test Khách' },
-                        },
-                    },
-                });
-                return { ok: true, convId: NO._chatState.convId };
             },
             // Inspect livestream snapshot cache (per-line thumbnails từ WEB2-Pancake).
             get snapCache() {
