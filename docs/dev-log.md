@@ -2,6 +2,29 @@
 
 ## 2026-06-19
 
+### [web2/fb-posts] Trang MỚI "Đăng bài Facebook" — quản lý + soạn/đăng/lên lịch 2 page (Graph API) ✅
+
+User: "Thêm 1 group Facebook ở menu. Đọc hiểu Pancake (cookies serect) cho NhiJudyStore + NhiJudyHouse.VietNam. Chia 2 page quản lý bài viết, đăng bài, tự động tạo nội dung, lên lịch, ảnh/video, thông minh." + "tìm github hỗ trợ cho dễ" + "caption/hashtag free github? Gemini mất tiền/lâu".
+
+**Phát hiện then chốt (research 1 agent GitHub/web)**: Pancake/pages.fm **CHỈ đọc** bài viết (`GET pages/{id}/posts`) — **KHÔNG có API tạo/lên lịch/upload bài**. Bài trong Pancake do app livestream (PRISM Live) đẩy lên. → Đăng/lên lịch **PHẢI qua Meta Graph API**. May là repo **đã có FB App** (`FB_APP_ID/SECRET` + `fb-ads.js`: OAuth long-lived, `/me/accounts` → page token, list posts) → tái dùng được. Quyết định user: **auto-publish + lịch THẬT qua Graph API** + AI free.
+
+**Backend** (WEB2.0, web2Db, KHÔNG đụng Web 1.0):
+
+- `services/web2-fb-graph-service.js` — publish/schedule (feed/photos/multi-photo carousel/videos), `scheduled_publish_time` (10'–30 ngày), delete, list posts + scheduled. Hàm thuần nhận pageToken.
+- `services/web2-caption-service.js` — caption+hashtag tiếng Việt **template offline FREE** (mặc định, tức thì) + AI rewrite tuỳ chọn ưu tiên **Groq (free, nhanh)** → DeepSeek → Gemini (đọc env, fallback template nếu thiếu key). Hashtag bank theo danh mục.
+- `routes/web2-fb-posts.js` — connect (dán user token → exchange long-lived → /me/accounts → lưu page token), /status, /pages, /caption, /publish (đa page), /list, /delete, /draft CRUD. Bảng `web2_fb_post_tokens` + `web2_fb_posts` (web2Db). SSE `web2:fb-posts`. **Page token KHÔNG bao giờ trả browser.** Media gửi FB qua URL công khai (Kho SP / imgbb-upload).
+- `server.js`: mount `/api/web2-fb-posts` + initializeNotifiers + ensureSchema (root-level, không bị shadow `/api/web2`).
+
+**Worker**: `WEB2_FB_POSTS` (config/routes.js pattern+matcher + worker.js switch → handleCustomer360Proxy). **CẦN deploy worker.**
+
+**Frontend** `web2/fb-posts/` (modular): `index.html` + `fb-posts.css` (token web2-theme, xanh `--web2-primary`) + js: `fb-posts-api` (1 nguồn fetch), `-media` (URL/upload imgbb/Kho SP picker), `-composer` (page chips đa chọn + product fields + style chips + tạo free/AI + media + lịch GMT+7 + đăng/lưu nháp), `-list` (quản lý bài đã đăng + đã lên lịch, xoá), `-drafts` (Lịch & Nháp agenda theo ngày, sửa→composer/đăng/xoá), `-app` (orchestrator: sidebar, tabs, kết nối FB overlay, SSE).
+
+**Sidebar**: thêm "Đăng bài Facebook 📢" trong nhóm Sale Online.
+
+Verify: `node --check` PASS hết. Browser-test localhost (nav overview→fb-posts): title OK, sidebar mount, 3 tab render, 4 card composer, style chip, connect overlay (token + link Graph Explorer + 4 bước), **0 console error**. (Backend chưa deploy → pill "Chưa kết nối" đúng kỳ vọng.)
+
+**Cần để chạy LIVE**: (1) deploy Render (server.js) + deploy worker Cloudflare; (2) set `GROQ_API_KEY` env trên Render (giá trị #38 serect_dont_push.txt) cho nút "AI viết lại" — template free chạy không cần; (3) FB_APP_ID/SECRET đã có ở Render (fb-ads dùng); (4) user bấm "Kết nối" → dán user token có quyền `pages_show_list,pages_manage_posts,pages_read_engagement`.
+
 ### [web2/jt-tracking] Tự cập nhật trạng thái J&T khi MỞ trang (bỏ nút "Làm mới tất cả") ✅
 
 User: "cập nhật trạng thái realtime được không? Bỏ nút cập nhật trạng thái đi nếu có realtime — cần thông tin chính xác để làm việc với shipper." Trạng thái = "Đang giao/Vấn đề/…". Chốt: **auto khi MỞ trang** (không cron 24/7) + **bỏ nút bulk, GIỮ nút từng dòng**.

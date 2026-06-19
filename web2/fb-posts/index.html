@@ -1,0 +1,79 @@
+<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 module — Đăng bài Facebook (quản lý + soạn/đăng/lên lịch 2 page qua Graph API). -->
+<!doctype html>
+<html lang="vi">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Đăng bài Facebook — WEB 2.0</title>
+        <meta name="web2-db" content="render" />
+
+        <link rel="stylesheet" href="../shared/web2-sidebar.css?v=20260613z" />
+        <link rel="stylesheet" href="../shared/web2-theme.css?v=20260613ns1" />
+        <link rel="stylesheet" href="fb-posts.css?v=20260619a" />
+
+        <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
+        <script src="../../shared/js/notification-system.js?v=20260521b"></script>
+    </head>
+    <body>
+        <div class="web2-shell">
+            <aside class="web2-aside" id="web2Aside"></aside>
+            <main>
+                <div class="fbp-main">
+                    <!-- Header -->
+                    <header class="fbp-head">
+                        <div class="fbp-head-titles">
+                            <h1><i data-lucide="facebook"></i> Đăng bài Facebook</h1>
+                            <p>
+                                Quản lý bài viết, soạn nội dung (AI tiếng Việt miễn phí), đính kèm
+                                ảnh/video, đăng ngay hoặc lên lịch — cho cả 2 page cùng lúc.
+                            </p>
+                        </div>
+                        <div class="fbp-conn">
+                            <span class="fbp-pill" id="fbpConnPill">
+                                <i data-lucide="loader"></i> Đang kiểm tra…
+                            </span>
+                            <button class="fbp-btn ghost sm" id="fbpConnBtn" type="button">
+                                <i data-lucide="link"></i> Kết nối
+                            </button>
+                        </div>
+                    </header>
+
+                    <!-- Tabs -->
+                    <nav class="fbp-tabs" id="fbpTabs">
+                        <button class="fbp-tab on" data-tab="composer" type="button">
+                            <i data-lucide="pen-line"></i> Soạn bài
+                        </button>
+                        <button class="fbp-tab" data-tab="list" type="button">
+                            <i data-lucide="layout-list"></i> Bài viết
+                        </button>
+                        <button class="fbp-tab" data-tab="drafts" type="button">
+                            <i data-lucide="calendar-clock"></i> Lịch &amp; Nháp
+                        </button>
+                    </nav>
+
+                    <!-- Panel: Composer -->
+                    <section class="fbp-panel on" id="panel-composer"></section>
+                    <!-- Panel: List -->
+                    <section class="fbp-panel" id="panel-list"></section>
+                    <!-- Panel: Drafts / Calendar -->
+                    <section class="fbp-panel" id="panel-drafts"></section>
+                </div>
+            </main>
+        </div>
+
+        <!-- Shared infra (load before page app) -->
+        <script src="../shared/web2-auth.js?v=20260613guard"></script>
+        <script src="../shared/web2-optimistic.js?v=20260601a"></script>
+        <script src="../shared/web2-sidebar.js?v=20260615db"></script>
+        <script src="../shared/web2-sse-bridge.js?v=20260614ux2"></script>
+        <script src="../shared/web2-products-cache.js?v=20260618a"></script>
+
+        <!-- Page app — modules, app LAST -->
+        <script src="js/fb-posts-api.js?v=20260619a"></script>
+        <script src="js/fb-posts-media.js?v=20260619a"></script>
+        <script src="js/fb-posts-composer.js?v=20260619a"></script>
+        <script src="js/fb-posts-list.js?v=20260619a"></script>
+        <script src="js/fb-posts-drafts.js?v=20260619a"></script>
+        <script src="js/fb-posts-app.js?v=20260619a"></script>
+    </body>
+</html>

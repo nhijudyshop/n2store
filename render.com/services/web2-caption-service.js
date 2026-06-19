@@ -1,0 +1,210 @@
+// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 MODULE — tạo caption + hashtag bán hàng (FREE template, optional AI).
+// =====================================================================
+// Web 2.0 — Sinh nội dung bài đăng Facebook tiếng Việt cho shop thời trang.
+//
+// MẶC ĐỊNH = template offline (FREE, tức thì, KHÔNG gọi API) → trả lời đúng yêu
+// cầu user "có github nào miễn phí không, Gemini mất tiền/lâu".
+//
+// AI rewrite (TUỲ CHỌN, chỉ khi user bấm) ưu tiên Groq (FREE + cực nhanh,
+// llama-3.3-70b) → fallback DeepSeek → Gemini. Key đọc từ env (KHÔNG hardcode).
+//   - GROQ_API_KEY   (free, nhanh nhất)  → set ở Render env (giá trị #38 serect_dont_push.txt)
+//   - DEEPSEEK_API_KEY / GEMINI_API_KEY (đã có sẵn)
+// =====================================================================
+
+'use strict';
+
+// ── Hashtag bank (offline, FREE) — theo từ khoá danh mục thời trang VN ──────
+const HASHTAG_BASE = ['#NhiJudy', '#thoitrang', '#shoponline', '#sale', '#xinhxan'];
+const HASHTAG_MAP = [
+    {
+        kw: ['áo', 'sơ mi', 'thun', 'croptop', 'kiểu'],
+        tags: ['#ao', '#aodep', '#aothun', '#aosomi'],
+    },
+    { kw: ['quần', 'jean', 'short', 'tây', 'baggy'], tags: ['#quan', '#quanjean', '#quandep'] },
+    { kw: ['váy', 'đầm', 'maxi'], tags: ['#vay', '#dam', '#vaydep', '#damdep'] },
+    { kw: ['set', 'bộ', 'jumpsuit'], tags: ['#setbo', '#dobo', '#bodep'] },
+    { kw: ['giày', 'dép', 'sandal', 'sneaker'], tags: ['#giay', '#dep', '#giaydep'] },
+    { kw: ['túi', 'balo', 'ví'], tags: ['#tui', '#tuixach', '#balo'] },
+    { kw: ['phụ kiện', 'kính', 'nón', 'mũ', 'dây'], tags: ['#phukien', '#accessories'] },
+    { kw: ['đông', 'len', 'khoác', 'hoodie', 'nỉ'], tags: ['#aokhoac', '#dodong', '#len'] },
+];
+
+// ── Caption templates (offline, FREE) — nhiều phong cách ──────────────────
+const TEMPLATES = {
+    sale: (p) =>
+        `🔥 SALE SỐC 🔥 ${p.name}${p.price ? ` chỉ còn ${fmtMoney(p.price)}` : ''}${
+            p.discount ? ` (giảm ${p.discount})` : ''
+        }!\n` +
+        `✨ Chất đẹp – form chuẩn – lên dáng cực xinh.\n` +
+        `🛒 Inbox shop chốt đơn ngay kẻo hết size nha cả nhà ơi! 👇`,
+    new: (p) =>
+        `🆕 HÀNG MỚI VỀ 🆕 ${p.name} đã có mặt tại shop!\n` +
+        `${p.price ? `💸 Giá yêu thương: ${fmtMoney(p.price)}\n` : ''}` +
+        `😍 Mẫu này xinh xỉu, số lượng có hạn — nhanh tay các nàng ơi!\n` +
+        `📩 Inbox để được tư vấn size + màu nhé.`,
+    livestream: (p) =>
+        `📣 LÊN SÓNG LIVE 📣 Hôm nay shop xả kho ${p.name}${
+            p.price ? ` giá chỉ từ ${fmtMoney(p.price)}` : ''
+        }!\n` +
+        `🎁 Cmt "GIÁ" + số điện thoại để được chốt nhanh nha.\n` +
+        `⏰ Vào live ngay kẻo lỡ deal hời!`,
+    restock: (p) =>
+        `🔁 CÓ HÀNG LẠI RỒI 🔁 ${p.name} các nàng hỏi quá trời!\n` +
+        `${p.price ? `Giá: ${fmtMoney(p.price)}\n` : ''}` +
+        `Lần này về đủ size đủ màu — chốt liền tay kẻo lại hết nha! 💕`,
+    simple: (p) =>
+        `${p.name}${p.price ? ` – ${fmtMoney(p.price)}` : ''}\n` +
+        `${p.desc || 'Inbox shop để được tư vấn nhé!'} 💕`,
+};
+
+function fmtMoney(v) {
+    const n = Number(String(v).replace(/[^\d]/g, ''));
+    if (!n) return String(v || '');
+    return n.toLocaleString('vi-VN') + 'đ';
+}
+
+/** Sinh hashtag offline từ tên/danh mục SP. */
+function buildHashtags(text) {
+    const low = (text || '').toLowerCase();
+    const set = new Set(HASHTAG_BASE);
+    for (const grp of HASHTAG_MAP) {
+        if (grp.kw.some((k) => low.includes(k))) grp.tags.forEach((t) => set.add(t));
+    }
+    return [...set].slice(0, 12);
+}
+
+/**
+ * Sinh caption + hashtag bằng TEMPLATE (FREE, offline, tức thì).
+ * @param {object} product {name, price, discount, desc, category}
+ * @param {string} style sale|new|livestream|restock|simple
+ * @returns {{caption, hashtags, text}}
+ */
+function generateTemplate(product = {}, style = 'sale') {
+    const p = {
+        name: (product.name || 'Sản phẩm').trim(),
+        price: product.price || '',
+        discount: product.discount || '',
+        desc: product.desc || '',
+    };
+    const tpl = TEMPLATES[style] || TEMPLATES.sale;
+    const caption = tpl(p);
+    const hashtags = buildHashtags(`${p.name} ${product.category || ''} ${p.desc}`);
+    return { caption, hashtags, text: `${caption}\n\n${hashtags.join(' ')}` };
+}
+
+// ── AI rewrite (tuỳ chọn) ──────────────────────────────────────────────────
+
+const SYSTEM_VI =
+    'Bạn là chuyên gia content bán hàng thời trang nữ trên Facebook (giọng văn Việt Nam, ' +
+    'thân thiện, dùng emoji vừa phải, kêu gọi inbox/chốt đơn). Viết caption NGẮN GỌN, ' +
+    'cuốn hút, KHÔNG bịa thông tin sai. Trả về chỉ phần caption (không kèm giải thích).';
+
+async function callGroq(prompt) {
+    const key = process.env.GROQ_API_KEY;
+    if (!key) return null;
+    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
+        body: JSON.stringify({
+            model: 'llama-3.3-70b-versatile',
+            temperature: 0.8,
+            max_tokens: 400,
+            messages: [
+                { role: 'system', content: SYSTEM_VI },
+                { role: 'user', content: prompt },
+            ],
+        }),
+    });
+    if (!res.ok) return null;
+    const j = await res.json();
+    return j.choices?.[0]?.message?.content?.trim() || null;
+}
+
+async function callDeepSeek(prompt) {
+    const key = process.env.DEEPSEEK_API_KEY;
+    if (!key) return null;
+    const res = await fetch('https://api.deepseek.com/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
+        body: JSON.stringify({
+            model: 'deepseek-chat',
+            temperature: 0.8,
+            max_tokens: 400,
+            messages: [
+                { role: 'system', content: SYSTEM_VI },
+                { role: 'user', content: prompt },
+            ],
+        }),
+    });
+    if (!res.ok) return null;
+    const j = await res.json();
+    return j.choices?.[0]?.message?.content?.trim() || null;
+}
+
+async function callGemini(prompt) {
+    const key = process.env.GEMINI_API_KEY;
+    if (!key) return null;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`;
+    const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            contents: [{ parts: [{ text: `${SYSTEM_VI}\n\n${prompt}` }] }],
+            generationConfig: { temperature: 0.8, maxOutputTokens: 400 },
+        }),
+    });
+    if (!res.ok) return null;
+    const j = await res.json();
+    return j.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || null;
+}
+
+/**
+ * Viết lại / sinh caption bằng AI. Ưu tiên Groq (free+nhanh) → DeepSeek → Gemini.
+ * Nếu KHÔNG có key nào → fallback template (vẫn FREE, không lỗi).
+ * @returns {{caption, hashtags, text, provider}}
+ */
+async function generateAI(product = {}, style = 'sale') {
+    const base = generateTemplate(product, style);
+    const prompt =
+        `Viết caption Facebook bán hàng phong cách "${style}" cho sản phẩm:\n` +
+        `- Tên: ${product.name || ''}\n` +
+        (product.price ? `- Giá: ${product.price}\n` : '') +
+        (product.discount ? `- Khuyến mãi: ${product.discount}\n` : '') +
+        (product.desc ? `- Mô tả: ${product.desc}\n` : '') +
+        `\nYêu cầu: 3-5 dòng, có emoji, có lời kêu gọi inbox/chốt đơn.`;
+
+    let out = null;
+    let provider = 'groq';
+    out = await callGroq(prompt).catch(() => null);
+    if (!out) {
+        provider = 'deepseek';
+        out = await callDeepSeek(prompt).catch(() => null);
+    }
+    if (!out) {
+        provider = 'gemini';
+        out = await callGemini(prompt).catch(() => null);
+    }
+    if (!out) return { ...base, provider: 'template' };
+    return {
+        caption: out,
+        hashtags: base.hashtags,
+        text: `${out}\n\n${base.hashtags.join(' ')}`,
+        provider,
+    };
+}
+
+function hasAnyAiKey() {
+    return !!(
+        process.env.GROQ_API_KEY ||
+        process.env.DEEPSEEK_API_KEY ||
+        process.env.GEMINI_API_KEY
+    );
+}
+
+module.exports = {
+    generateTemplate,
+    generateAI,
+    buildHashtags,
+    hasAnyAiKey,
+    STYLES: Object.keys(TEMPLATES),
+};
