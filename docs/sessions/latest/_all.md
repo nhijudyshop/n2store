@@ -3,15 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `91f12f3` — docs(web2): dev-log + codemap cho multi-SP picker shared + page order
-**Last updated**: 2026-06-19 23:05:24 +07
-**Latest session**: [`RESUME:20260619-230524-91f12f3`](../20260619-230524-91f12f3.md)
-**Summary**: Chọn nhiều SP từ Kho cho AI (shared Web2ProductPicker) + caption tổng hợp + thứ tự page Store→House→Ơi→Nè
+**Latest commit**: `b936b17` — fix(web2/fb-caption): gọi khách bằng 'chị' (các chị/mấy chị/chị đẹp), tránh 'các bạn'
+**Last updated**: 2026-06-19 23:12:36 +07
+**Latest session**: [`RESUME:20260619-231236-b936b17`](../20260619-231236-b936b17.md)
+**Summary**: fix(web2/fb-caption): gọi khách bằng 'chị' (các chị/mấy chị/chị đẹp), tránh 'các bạn'
 
 ## Folders affected in this commit
 
-- [`cloudflare-worker/`](./cloudflare-worker.md) — 1 file(s)
-- [`docs/`](./docs.md) — 3 file(s)
+- [`render.com/`](./render.com.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -55,7 +54,7 @@
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`referenceUI/`](./referenceUI.md) — updated 2026-06-19 14:27
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-06-16 00:35
-- [`render.com/`](./render.com.md) — updated 2026-06-19 22:57
+- [`render.com/`](./render.com.md) — updated 2026-06-19 23:12
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-19 14:27
 - [`service-costs/`](./service-costs.md) — updated 2026-06-16 11:15
