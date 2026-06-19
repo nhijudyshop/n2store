@@ -2,6 +2,21 @@
 
 ## 2026-06-19
 
+### [native-orders] Đơn Inbox hiện avatar — resolve fbId từ KHO trước (không cần login Pancake) ✅
+
+User: đơn thêm ở tab "Đơn Inbox" không hiện avatar (đơn livestream/web có). RCA: `_hydrateInboxAvatars` chỉ resolve fbId qua `_resolveInboxConvByPhone` (Pancake — cần login); chưa login → không avatar. Kho KH (`/api/web2/customers/<phone>`) THỰC CÓ `fbId` (verify 0908123456 → 24948162744877764).
+
+- `native-orders-inbox-resolve.js`: thêm `_khoFbByPhone(phone)` (kho local) → `_hydrateInboxAvatars` **kho trước, Pancake sau**. Relax `_avatarUrl`: pageId TÙY CHỌN (avatar lấy được chỉ với fbId, khớp `renderAvatar`).
+- Verified live: tab Đơn Inbox → "Huỳnh Thành Đạt" resolve fbId từ kho → avatar hiện (không cần login Pancake); 0 JS err.
+
+### [web2/product-card] Công cụ Xoá logo/watermark + bỏ placeholder tên rỗng ✅
+
+`Web2LogoEraser` (`web2/shared/web2-logo-eraser.js`): kéo chọn vùng logo / Tự dò (edge-density) → fill content-aware → ảnh sạch; wire nút "Xoá logo" vào product-card. Tên SP rỗng → KHÔNG vẽ "Tên sản phẩm" (3 layout). Verified: open→auto→erase→done trả PNG.
+
+### [web2-chat] Pancake bypass-extension "lỗi" = chưa login (revert + nhắc đăng nhập) ✅
+
+User xác nhận lỗi bypass chỉ do CHƯA đăng nhập Pancake/Facebook (không phải bug). Revert phần surface-error/ping. Giữ: gửi tin lỗi → nhắc đăng nhập business.facebook.com + pancake.vn.
+
 ### [web2/video-maker] NHIỀU GIỌNG + giọng mẫu + nút Tạo ngẫu nhiên ✅
 
 Mở rộng video-maker theo yêu cầu user:
@@ -38,8 +53,9 @@ Bổ sung sau nút full-sync ở footer: mỗi dòng SP **chọn từ kho TPOS**
 **RCA:** 2 frontend ĐỘC LẬP (`modal-shipment.js`, `accountant.js`) cùng POST 1 endpoint chung `POST /api/upload/image` → worker → Render `n2store-fallback` → `firebaseStorageService.uploadBase64Image()` → Firebase Storage. Loại trừ live: Render khoẻ (`/api/upload/health`=200), worker proxy OK, **Firebase init OK** (probe DELETE chạm logic, không phải 500 "Missing credentials"), body limit 100mb, code upload không đổi nhiều tháng. **Diagnostic POST thật chốt lỗi:** `500 {"error":"Invalid response body while trying to fetch https://www.googleapis.com/oauth2/v4/token: Premature close"}` → **Firebase Admin SDK lấy OAuth2 token từ Google FAIL** ở bước GHI file (server-side, không phải code Render). Không fix được trong code nếu giữ Firebase.
 
 **Fix (user chốt "chuyển hoàn toàn sang Postgres bytea, bỏ Firebase"):** migrate `/api/upload/image` sang Postgres `upload_images` (BYTEA) — đúng pattern `purchase_order_images` (migration 046). **Giữ NGUYÊN contract** (`POST /api/upload/image` base64 in → `{success,url}`) ⇒ **2 frontend KHÔNG đổi**. URL trả `https://n2store-fallback.onrender.com/api/upload/images/<id>` (serve trực tiếp Render cho `<img src>`, cache-immutable).
+
 - `render.com/migrations/050_create_upload_images.sql` (mirror 046) + lazy `ensureUploadImagesTable` trong route (fresh-deploy an toàn).
-- `render.com/routes/upload.js` viết lại: `POST /image` (base64→BYTEA), `GET /images/:id` (serve), `DELETE /image` (route theo URL: Postgres mới vs Firebase legacy best-effort). Pool `chatDb` thuần (Web 1.0, KHÔNG web2_ / web2Db).
+- `render.com/routes/upload.js` viết lại: `POST /image` (base64→BYTEA), `GET /images/:id` (serve), `DELETE /image` (route theo URL: Postgres mới vs Firebase legacy best-effort). Pool `chatDb` thuần (Web 1.0, KHÔNG web2\_ / web2Db).
 - `firebase-storage-service.js` **GIỮ NGUYÊN** (Telegram bot `telegram-bot.js` + `quy-trinh.js` còn dùng `uploadImageBuffer`/`getFirestore`) — chỉ thôi gọi upload từ `upload.js`.
 - Ảnh cũ (URL firebasestorage…) vẫn ĐỌC được qua download-token (GET công khai, không cần OAuth) → không cần backfill gấp.
 

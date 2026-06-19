@@ -14,13 +14,34 @@
      * `_hydrateInboxAvatars` below (inbox tab avatar resolve).
      */
     NO._avatarUrl = function _avatarUrl(fbId, pageId) {
-        if (!fbId || !pageId) return '';
+        // pageId TÙY CHỌN: avatar vẫn lấy được chỉ với fbId (giống renderAvatar) →
+        // hiện được avatar đơn Inbox khi chỉ có fbId từ kho KH (không có page).
+        if (!fbId) return '';
         const base =
             window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
         const jwt = window.Web2Chat?.getJwt() || '';
-        const params = new URLSearchParams({ id: fbId, page: pageId });
+        const params = new URLSearchParams({ id: fbId });
+        if (pageId) params.set('page', pageId);
         if (jwt) params.set('token', jwt);
         return `${base}/api/fb-avatar?${params.toString()}`;
+    };
+
+    // Lấy fbId của KH từ KHO web2_customers theo SĐT (LOCAL — không cần đăng nhập
+    // Pancake). Dùng cho hydrate avatar đơn Inbox: kho trước, Pancake sau.
+    NO._khoFbByPhone = async function _khoFbByPhone(phone) {
+        const p = String(phone || '').trim();
+        if (!p) return null;
+        const base =
+            window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
+        try {
+            const r = await fetch(`${base}/api/web2/customers/${encodeURIComponent(p)}`);
+            const j = await r.json();
+            const c = j && (j.customer || j.data);
+            const fbId = c && (c.fbId || c.fb_id);
+            return fbId ? { fbId: String(fbId), name: c.name || '' } : null;
+        } catch {
+            return null;
+        }
     };
 
     /**
@@ -220,24 +241,41 @@
                 wrap.dataset.avatarHydrated = '1';
                 const phone = wrap.dataset.customerPhone;
                 const code = wrap.closest('tr')?.dataset?.code;
-                let r = null;
+                let fbId = null;
+                let pageId = null;
+                let avatarUrl = null;
+                // 1) KHO KH trước (local, không cần Pancake login) — đủ để hiện avatar.
                 try {
-                    r = await NO._resolveInboxConvByPhone(phone);
+                    const k = await NO._khoFbByPhone(phone);
+                    if (k && k.fbId) fbId = k.fbId;
                 } catch {
                     /* tolerate */
                 }
-                if (!r || !r.fbId) continue;
+                // 2) Kho không có → Pancake (cần login) để lấy fbId + page + avatar thật.
+                if (!fbId) {
+                    try {
+                        const r = await NO._resolveInboxConvByPhone(phone);
+                        if (r && r.fbId) {
+                            fbId = r.fbId;
+                            pageId = r.pageId;
+                            avatarUrl = r.avatarUrl;
+                        }
+                    } catch {
+                        /* tolerate */
+                    }
+                }
+                if (!fbId) continue;
                 const o = NO.STATE.orders.find((x) => x.code === code);
                 if (o) {
                     // Giữ fb id thật nếu đã có; bỏ qua giá trị rác (vd sentinel).
-                    o.fbUserId = NO._isRealFbId(o.fbUserId) ? o.fbUserId : r.fbId;
-                    o.fbPageId = o.fbPageId || r.pageId;
+                    o.fbUserId = NO._isRealFbId(o.fbUserId) ? o.fbUserId : fbId;
+                    o.fbPageId = o.fbPageId || pageId;
                 }
-                wrap.dataset.fbUserId = r.fbId;
-                wrap.dataset.fbPageId = r.pageId;
+                wrap.dataset.fbUserId = fbId;
+                if (pageId) wrap.dataset.fbPageId = pageId;
                 const av = wrap.querySelector('.cust-avatar');
                 if (av && !av.querySelector('.cust-avatar-img')) {
-                    const url = r.avatarUrl || NO._avatarUrl(r.fbId, r.pageId);
+                    const url = avatarUrl || NO._avatarUrl(fbId, pageId);
                     if (url) {
                         const initial = av.textContent.trim();
                         av.innerHTML =
