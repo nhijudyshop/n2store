@@ -2,6 +2,17 @@
 
 ## 2026-06-19
 
+### [web2/multi-tool] Fix "Tăng số lượng comment" — lần 2 trở đi không tăng số (reply vào root, không reply vào boost) ✅
+
+User: lần TĂNG ĐẦU thì số bình luận FB của bài live tăng; nhưng "khi đã tăng rồi thì bình luận nội dung sẽ khác nên nó không tăng số lượng bình luận nữa".
+
+**RCA (browser-test live, read-only)**: `run()` chọn target reply bằng `msgs.filter(m=>m&&m.id).pop()` = message MỚI NHẤT. fetchMessages trả mảng xếp **cũ→mới** (verified: first2 ts `05:45:17/19` < last2 `05:45:30`) → `.pop()` = mới nhất. Hội thoại "Hong Ngoc Nguyen Thi" đã boost trước đó nên 25 message mới nhất ĐỀU là **comment boost do page tự tạo** (from=`117267091364524`, text random `iMy5d6w7`…). ⇒ Lần 2 reply_comment target = một **boost reply (nested)**. Reply vào nested-reply **KHÔNG cộng** số đếm bình luận của BÀI VIẾT trên FB như reply vào **comment GỐC top-level** → gửi OK (0 lỗi) nhưng số không nhúc nhích. Lần đầu chạy được vì hội thoại còn mới → `.pop()` == comment gốc (`conv.id`).
+
+**Fix** ([web2/multi-tool/js/multi-tool.js](../web2/multi-tool/js/multi-tool.js) `run()`): bỏ block fetchMessages `.pop()`, dùng thẳng `const messageId = conv.id` (comment GỐC top-level = `<post_id>_<comment_id>` của KH). Mỗi run reply vào root → mỗi reply = +1 đúng như lần đầu, ổn định qua mọi lần chạy. Gỡ `custId` (không còn dùng).
+
+- Verified: page reload sạch (0 console err, Web2Chat ready, 5 page). Live count-test (gửi reply thật so root vs reply target) bị chặn đúng (outward-facing FB write) → KHÔNG chạy; kết luận dựa trên bằng chứng code + ordering thực nghiệm + khớp mô tả user.
+- Follow-up (đề xuất, chưa làm): rải đều target qua NHIỀU comment gốc (round-robin các hội thoại) để chống FB giới hạn 1 thread khi tăng số lớn lặp lại.
+
 ### [web2/photo-editor] Trang MỚI "Chỉnh sửa ảnh" + module dùng chung Web2ImageEditor (Picsart-lite) ✅
 
 User hỏi tích hợp editor ảnh kiểu Picsart/Meitu vào web HTML → build **module dùng chung** (rule Web 2.0) `web2/shared/web2-image-editor.js` (`Web2ImageEditor.open(src)→Promise<dataURL>`) bọc **Filerobot Image Editor** (MIT, vanilla, on-device, lazy-load CDN). Tabs: Cắt&Xoay/Tinh chỉnh/Bộ lọc/Annotate/Watermark/Kích thước (dịch VI). Trang mới `web2/photo-editor/` (Đa dụng) = launcher (tải máy/dán/kho SP → editor → Tải PNG/Copy). **Wire reuse** vào product-card (nút "Chỉnh sửa"). Đăng ký sidebar + WEB2_PAGES.

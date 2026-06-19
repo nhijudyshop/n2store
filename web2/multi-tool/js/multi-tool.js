@@ -321,22 +321,20 @@
         const tpl = ($('boostText').value || '').trim();
         const W = await waitWeb2Chat();
         if (!W) return;
-        const custId = (conv.customers && conv.customers[0] && conv.customers[0].id) || undefined;
         // post_id để dựng conv.id THẬT của comment boost (`<post_id>_<comment_id>`).
         const postId = conv.post_id || String(conv.id || '').split('_')[0] || null;
 
-        // reply_comment BẮT BUỘC message_id = comment để reply vào. COMMENT conv.id =
-        // format <post_id>_<comment_id> (= message id) → dùng trực tiếp; nâng cấp bằng
-        // comment MỚI NHẤT của hội thoại nếu fetch được (chính xác hơn).
-        let messageId = conv.id;
-        try {
-            const mr = await W.fetchMessages(pageId, conv.id, custId);
-            const msgs = mr && mr.ok && Array.isArray(mr.messages) ? mr.messages : [];
-            const last = msgs.filter((m) => m && m.id).pop();
-            if (last && last.id) messageId = last.id;
-        } catch (_) {
-            /* fallback conv.id */
-        }
+        // reply_comment message_id = comment GỐC (top-level) của hội thoại = conv.id
+        // (format <post_id>_<comment_id> của comment KH gốc — luôn là target hợp lệ).
+        //
+        // ⚠ KHÔNG fetch "comment MỚI NHẤT" của hội thoại làm target (bug 2026-06-19):
+        // sau LẦN TĂNG ĐẦU, message mới nhất của hội thoại chính là COMMENT BOOST do
+        // page tự tạo (nested reply, page-authored, text random — verified browser-test:
+        // msgs xếp cũ→mới nên .pop() = mới nhất = boost reply). Reply vào một nested-reply
+        // KHÔNG cộng vào số đếm bình luận của BÀI VIẾT trên Facebook như reply vào comment
+        // top-level → từ lần tăng thứ 2 trở đi "số lượng bình luận không tăng" dù gửi OK.
+        // Reply vào comment GỐC top-level thì mỗi reply = +1 (đúng như lần tăng đầu).
+        const messageId = conv.id;
 
         _running = true;
         _stop = false;
