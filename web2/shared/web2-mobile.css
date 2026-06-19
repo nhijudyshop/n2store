@@ -1,0 +1,386 @@
+/* #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 — shared mobile responsive overlay. */
+/* =====================================================
+ * WEB 2.0 — SHARED MOBILE RESPONSIVE OVERLAY
+ *
+ * MỌI trang Web 2.0 đọc CHUNG file này (1 nguồn responsive duy nhất).
+ * Mục tiêu: chuẩn hoá hành vi mobile cho TẤT CẢ trang mà KHÔNG sửa HTML
+ * từng trang — chỉ nhắm vào primitive shell + class shared phổ biến.
+ *
+ * NGUYÊN TẮC (BẮT BUỘC):
+ *  - CHỈ ADDITIVE: mọi rule bọc trong @media (max-width). KHÔNG đụng
+ *    layout desktop (không có rule nào áp ở > breakpoint).
+ *  - KHÔNG sửa logic sidebar drawer/hamburger/scrim (web2-theme.css đã có
+ *    đầy đủ ở block 900px). File này CHỈ bổ sung những gì theme còn THIẾU.
+ *  - Dùng token --web2-primary (#0068ff). KHÔNG hardcode màu tím cũ.
+ *  - Hạn chế !important — chỉ dùng khi phải override inline-style hoặc
+ *    width/grid cứng do trang tự khai (đã ghi chú lý do tại chỗ).
+ *  - An toàn iOS: -webkit-overflow-scrolling:touch + env(safe-area-inset-*).
+ *
+ * BREAKPOINT CHUẨN (khớp web2-theme.css đang dùng 900/760):
+ *  - TABLET  ≤ 900px : shell stack (theme lo), bắt đầu thu gọn lưới/header/toolbar.
+ *  - PHONE   ≤ 600px : 1 cột mọi lưới chung, form full-width, table scroll, nút chạm to.
+ *  - SMALL   ≤ 380px : scale tiếp padding/font/gap cho điện thoại hẹp.
+ *
+ * File load SAU web2-theme.css (xem "CÁCH NẠP" trong PR note) → override
+ * an toàn các grid/width cứng của trang.
+ * ===================================================== */
+
+/* =====================================================================
+ * [TABLET ≤ 900px] — bổ trợ shell + bắt đầu thu gọn
+ * (theme.css đã lo drawer/hamburger/scrim/main padding/modal full-screen)
+ * ===================================================================== */
+@media (max-width: 900px) {
+    /* Guard tràn ngang toàn cục: container cuộn dọc, chặn cuộn ngang vô ý.
+       Nhắm .web2-main (container cuộn duy nhất) — KHÔNG đụng <body>/<html>. */
+    body:has(.web2-shell) main,
+    body:has(.web2-shell) main.web2-main {
+        max-width: 100%;
+        overflow-x: hidden; /* nội dung tràn ngang sẽ được wrap/scroll cục bộ bên dưới */
+    }
+
+    /* Chừa chỗ cho hamburger (theme: fixed top:10 left:10) — đẩy tiêu đề
+       trang qua phải để không bị nút che. Nhắm header phổ biến. */
+    body:has(.web2-shell) main > .page-header,
+    body:has(.web2-shell) main > header,
+    body:has(.web2-shell) main > .fbp-head,
+    body:has(.web2-shell) main > .w2-page-head,
+    body:has(.web2-shell) main > .sys-header,
+    body:has(.web2-shell) main > .kpi-page-head,
+    body:has(.web2-shell) main > .wz-page-head,
+    body:has(.web2-shell) main > .w2bh-head {
+        padding-left: 48px; /* né nút ☰ ~40px + lề */
+    }
+
+    /* Header trang: bố cục ngang → xếp dọc, căng đều. */
+    body:has(.web2-shell) .page-header,
+    body:has(.web2-shell) .fbp-head,
+    body:has(.web2-shell) .w2-page-head,
+    body:has(.web2-shell) .header-content,
+    body:has(.web2-shell) .live-mode-header,
+    body:has(.web2-shell) .kpi-page-head,
+    body:has(.web2-shell) .sys-header,
+    body:has(.web2-shell) .wz-page-head,
+    body:has(.web2-shell) .sw-page-head,
+    body:has(.web2-shell) .w2bh-head {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+    }
+
+    /* Thanh tab ngang dễ tràn → cho cuộn ngang mượt, không xuống dòng vỡ. */
+    body:has(.web2-shell) .main-tabs,
+    body:has(.web2-shell) .kpi-tabs,
+    body:has(.web2-shell) .pc-tabs,
+    body:has(.web2-shell) .sys-tabs,
+    body:has(.web2-shell) .wz-tabs,
+    body:has(.web2-shell) .w2-tabs {
+        display: flex;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: thin;
+    }
+    body:has(.web2-shell) .main-tabs > *,
+    body:has(.web2-shell) .kpi-tabs > *,
+    body:has(.web2-shell) .pc-tabs > *,
+    body:has(.web2-shell) .sys-tabs > *,
+    body:has(.web2-shell) .wz-tabs > * {
+        flex: 0 0 auto; /* mỗi tab giữ bề ngang, không co méo */
+    }
+
+    /* Chips/tags hàng dài → wrap thay vì tràn ngang. */
+    body:has(.web2-shell) .w2-chips,
+    body:has(.web2-shell) .vm-chips,
+    body:has(.web2-shell) .vb-chips,
+    body:has(.web2-shell) .fbp-actions,
+    body:has(.web2-shell) .vbp-transport,
+    body:has(.web2-shell) .cw-chips,
+    body:has(.web2-shell) .sw-page-counters,
+    body:has(.web2-shell) .filter-chips,
+    body:has(.web2-shell) .w2bh-head-actions,
+    body:has(.web2-shell) .w2bh-title,
+    body:has(.web2-shell) .ts-stats-summary {
+        flex-wrap: wrap;
+    }
+}
+
+/* =====================================================================
+ * [PHONE ≤ 600px] — 1 cột, form full-width, table scroll, chạm thoải mái
+ * ===================================================================== */
+@media (max-width: 600px) {
+    /* ---- Container: thu padding để tận dụng bề ngang ---- */
+    body:has(.web2-shell) main,
+    body:has(.web2-shell) main.web2-main {
+        padding: 12px 10px 64px;
+    }
+
+    /* ---- LƯỚI CHUNG → 1 CỘT ----
+       Không nhắm được [style*=grid] inline an toàn → nhắm các class lưới
+       shared/phổ biến nhất. Trang riêng vẫn có @media của nó (vô hại). */
+    body:has(.web2-shell) .fbp-fields,
+    body:has(.web2-shell) .fbp-cards,
+    body:has(.web2-shell) .w2-grid,
+    body:has(.web2-shell) .w2-grid-2,
+    body:has(.web2-shell) .w2-grid-3,
+    body:has(.web2-shell) .w2-autogrid,
+    body:has(.web2-shell) .field-row-grid,
+    body:has(.web2-shell) .ncp-stats,
+    body:has(.web2-shell) .form-grid,
+    body:has(.web2-shell) .stats-container,
+    body:has(.web2-shell) .stats-section,
+    body:has(.web2-shell) .wc-form-grid,
+    body:has(.web2-shell) .wc-grid-3,
+    body:has(.web2-shell) .pr-form-grid,
+    body:has(.web2-shell) .pr-quick-grid,
+    body:has(.web2-shell) .w2pd-form-row,
+    body:has(.web2-shell) .rt-grid,
+    body:has(.web2-shell) .u-field-row,
+    body:has(.web2-shell) .wz-acc-grid,
+    body:has(.web2-shell) .sd-filter-row,
+    body:has(.web2-shell) .ckd-hist-filter {
+        grid-template-columns: 1fr !important; /* override 2/3-col cứng của trang */
+    }
+
+    /* Cụm stat/KPI cards: ép 2 cột (đọc tốt hơn 1 cột cho số liệu ngắn). */
+    body:has(.web2-shell) .sw-detail-stats,
+    body:has(.web2-shell) .sd-detail-stats,
+    body:has(.web2-shell) .cw-stats-row,
+    body:has(.web2-shell) .ckd-stats,
+    body:has(.web2-shell) .acc-dashboard,
+    body:has(.web2-shell) .ov-hero-stats {
+        grid-template-columns: repeat(2, 1fr) !important;
+    }
+
+    /* Master-detail / split-pane 2 cột → xếp dọc. */
+    body:has(.web2-shell) .rc-layout,
+    body:has(.web2-shell) .pr-layout,
+    body:has(.web2-shell) .vm-app,
+    body:has(.web2-shell) .vb-app,
+    body:has(.web2-shell) .pcard-app,
+    body:has(.web2-shell) .pe-source,
+    body:has(.web2-shell) .wz-chat,
+    body:has(.web2-shell) .cw-qr-content,
+    body:has(.web2-shell) .w2pd-grid,
+    body:has(.web2-shell) .sse-panels,
+    body:has(.web2-shell) .sd-db-grid {
+        grid-template-columns: 1fr !important;
+    }
+    /* Khi split-pane stack dọc: đổi vạch ngăn cách dọc → ngang. */
+    body:has(.web2-shell) .vm-panel,
+    body:has(.web2-shell) .vb-panel,
+    body:has(.web2-shell) .pcard-panel,
+    body:has(.web2-shell) .wz-conv-list {
+        border-right: 0;
+        border-bottom: 1px solid rgba(15, 23, 42, 0.1);
+    }
+
+    /* ---- BẢNG: cuộn ngang mượt + thu font/padding (KHÔNG ép table→card
+            toàn cục vì dễ vỡ; chỉ wrap-scroll an toàn) ---- */
+    body:has(.web2-shell) main table {
+        font-size: 12px;
+        white-space: nowrap; /* giữ cột không gãy, để cuộn ngang */
+    }
+    body:has(.web2-shell) main table:not(.no-mobile-scroll) {
+        display: block;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        max-width: 100%;
+    }
+    body:has(.web2-shell) main th,
+    body:has(.web2-shell) main td {
+        padding: 7px 8px;
+    }
+    /* Wrapper bảng quen dùng (đảm bảo có scroll dù trang quên set). */
+    body:has(.web2-shell) .table-container,
+    body:has(.web2-shell) .table-scroll,
+    body:has(.web2-shell) .w2-table-scroll,
+    body:has(.web2-shell) .w2bh-table-wrap,
+    body:has(.web2-shell) .wc-table-wrap,
+    body:has(.web2-shell) .sd-table-wrap,
+    body:has(.web2-shell) .sw-table-wrap,
+    body:has(.web2-shell) .kpi-table-wrap,
+    body:has(.web2-shell) .acc-table-wrap {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        max-width: 100%;
+    }
+
+    /* ---- FORM CONTROL: full-width + chống iOS zoom (font ≥16px) + đủ chạm ---- */
+    body:has(.web2-shell) main input:not([type='checkbox']):not([type='radio']):not([type='range']),
+    body:has(.web2-shell) main select,
+    body:has(.web2-shell) main textarea {
+        font-size: 16px; /* iOS không auto-zoom khi focus nếu ≥16px */
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+    body:has(.web2-shell) main input:not([type='checkbox']):not([type='radio']):not([type='range']),
+    body:has(.web2-shell) main select {
+        min-height: 42px; /* vùng chạm */
+    }
+    /* Bỏ min-width cứng của ô search/select để không tràn. */
+    body:has(.web2-shell) .kpi-select,
+    body:has(.web2-shell) .wc-page-search,
+    body:has(.web2-shell) .acc-input-search,
+    body:has(.web2-shell) .w2bh-search,
+    body:has(.web2-shell) .live-search,
+    body:has(.web2-shell) .ts-filter-group input,
+    body:has(.web2-shell) .inline-input {
+        min-width: 0 !important;
+        width: 100% !important;
+    }
+
+    /* ---- THANH FILTER/TOOLBAR → xếp dọc, control full-width ---- */
+    body:has(.web2-shell) .filters,
+    body:has(.web2-shell) .filters-section,
+    body:has(.web2-shell) .filter-group,
+    body:has(.web2-shell) .toolbar,
+    body:has(.web2-shell) .w2bh-toolbar,
+    body:has(.web2-shell) .acc-filters-bar,
+    body:has(.web2-shell) .pc-tools,
+    body:has(.web2-shell) .kpi-toolbar,
+    body:has(.web2-shell) .ts-filters,
+    body:has(.web2-shell) .u-toolbar-row,
+    body:has(.web2-shell) .sse-toolbar,
+    body:has(.web2-shell) .pr-toolbar-row,
+    body:has(.web2-shell) .rc-toolbar-row {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+    }
+    body:has(.web2-shell) .filter-group > *,
+    body:has(.web2-shell) .ts-filter-group,
+    body:has(.web2-shell) .w2bh-search,
+    body:has(.web2-shell) .pc-tools > * {
+        width: 100%;
+    }
+
+    /* ---- NÚT / CHIP: touch target ≥ 40-44px, wrap thay vì tràn ---- */
+    body:has(.web2-shell) main .btn,
+    body:has(.web2-shell) main button:not(.w2-mobile-menu-btn):not(.btn-link) {
+        min-height: 40px;
+        padding-top: 8px;
+        padding-bottom: 8px;
+        font-size: 13.5px;
+    }
+    /* Icon-button nhỏ trong bảng/toolbar → phóng tới vùng chạm vuông. */
+    body:has(.web2-shell) .btn-xs,
+    body:has(.web2-shell) .btn-icon-round,
+    body:has(.web2-shell) .wc-act,
+    body:has(.web2-shell) .jt-icobtn,
+    body:has(.web2-shell) .ckd-more {
+        min-width: 40px;
+        min-height: 40px;
+    }
+    /* Hàng nút hành động → wrap, mỗi nút giãn đều. */
+    body:has(.web2-shell) .pc-actions,
+    body:has(.web2-shell) .qr-actions,
+    body:has(.web2-shell) .w2-actions,
+    body:has(.web2-shell) .modal-actions {
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+    body:has(.web2-shell) .pc-actions > .btn,
+    body:has(.web2-shell) .qr-actions > .btn {
+        flex: 1 1 auto; /* nút chia đều bề ngang */
+    }
+
+    /* ---- MODAL: gần full-screen (theme đã set .modal-content/.popup-content
+            full ở 900px; ở đây phủ cả modal panel TỰ KHAI của vài trang +
+            set .modal-body cuộn được, chừa chỗ header/footer) ---- */
+    body:has(.web2-shell) .sw-modal-panel,
+    body:has(.web2-shell) .sd-modal-panel,
+    body:has(.web2-shell) .wc-modal-panel,
+    body:has(.web2-shell) .jt-modal,
+    body:has(.web2-shell) .jt-msg-modal,
+    body:has(.web2-shell) .pr-modal,
+    body:has(.web2-shell) .rc-audit-modal,
+    body:has(.web2-shell) .u-modal-panel,
+    body:has(.web2-shell) .wz-modal-panel {
+        width: 100% !important;
+        max-width: 100% !important;
+        max-height: 96vh !important;
+        border-radius: 12px 12px 0 0 !important; /* sheet-style đáy màn */
+    }
+    /* Body modal cuộn trong, không đẩy footer ra ngoài viewport. */
+    body:has(.web2-shell) .modal-body {
+        max-height: calc(96vh - 120px); /* chừa ~header 56 + footer 64 */
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior: contain;
+    }
+    /* Footer modal: nút xếp dọc full-width cho dễ bấm. */
+    body:has(.web2-shell) .modal-footer,
+    body:has(.web2-shell) .u-modal-foot {
+        flex-direction: column-reverse; /* nút chính (thường ở cuối) lên trên */
+        gap: 8px;
+    }
+    body:has(.web2-shell) .modal-footer > .btn,
+    body:has(.web2-shell) .u-modal-foot > .btn {
+        width: 100%;
+    }
+
+    /* ---- STICKY ACTION BAR: an toàn vùng tai thỏ/home-bar iOS ----
+       Áp cho slot opt-in .w2-sticky-bottom (theme đã có) + chuẩn safe-area. */
+    body:has(.web2-shell) .w2-sticky-bottom {
+        padding-bottom: calc(10px + env(safe-area-inset-bottom));
+    }
+
+    /* ---- MEDIA stage: ảnh/canvas preview không tràn + giảm chiều cao ---- */
+    body:has(.web2-shell) .vm-stage,
+    body:has(.web2-shell) .vb-stagewrap,
+    body:has(.web2-shell) .pcard-stage,
+    body:has(.web2-shell) .pe-result {
+        min-height: 40vh; /* nhường chỗ cho controls bên dưới */
+    }
+    body:has(.web2-shell) main canvas,
+    body:has(.web2-shell) main .pe-result img,
+    body:has(.web2-shell) main img.preview {
+        max-width: 100%;
+        height: auto;
+    }
+}
+
+/* =====================================================================
+ * [SMALL ≤ 380px] — điện thoại hẹp: scale tiếp padding/font/gap
+ * ===================================================================== */
+@media (max-width: 380px) {
+    body:has(.web2-shell) main,
+    body:has(.web2-shell) main.web2-main {
+        padding: 10px 8px 64px;
+    }
+    /* Stat cards về 1 cột khi quá hẹp (2 cột bắt đầu vỡ số dài). */
+    body:has(.web2-shell) .sw-detail-stats,
+    body:has(.web2-shell) .sd-detail-stats,
+    body:has(.web2-shell) .cw-stats-row,
+    body:has(.web2-shell) .ckd-stats,
+    body:has(.web2-shell) .acc-dashboard,
+    body:has(.web2-shell) .ov-hero-stats {
+        grid-template-columns: 1fr !important;
+    }
+    body:has(.web2-shell) main table {
+        font-size: 11.5px;
+    }
+    body:has(.web2-shell) main th,
+    body:has(.web2-shell) main td {
+        padding: 6px 6px;
+    }
+    /* Tiêu đề trang gọn lại để không tràn 2 dòng dài. */
+    body:has(.web2-shell) main h1 {
+        font-size: 20px;
+        line-height: 1.25;
+    }
+}
+
+/* =====================================================================
+ * REDUCED MOTION — nâng thành global toàn Web 2.0 (theme chỉ scope .web2-theme)
+ * ===================================================================== */
+@media (prefers-reduced-motion: reduce) {
+    body:has(.web2-shell) *,
+    body:has(.web2-shell) *::before,
+    body:has(.web2-shell) *::after {
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.001ms !important;
+        scroll-behavior: auto !important;
+    }
+}

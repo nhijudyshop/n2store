@@ -35,6 +35,23 @@
     })();
     const LOGO_URL = new URL('./img/logo-emblem.png?v=20260530', SCRIPT_BASE_URL).toString();
 
+    // Mobile responsive overlay DÙNG CHUNG (web2-mobile.css) — nạp SAU web2-theme.css
+    // (theme là <link> trong <head> trước sidebar.js → link này chèn cuối head =
+    // cascade-last → override grid/width cứng của trang trên màn nhỏ). Có mặt MỌI trang Web 2.0,
+    // KHÔNG cần sửa HTML từng trang. 1 nguồn responsive duy nhất.
+    (function injectMobileCss() {
+        try {
+            if (document.querySelector('link[data-w2-mobile-css]')) return;
+            const link = document.createElement('link');
+            link.rel = 'stylesheet';
+            link.href = new URL('./web2-mobile.css?v=20260619a', SCRIPT_BASE_URL).toString();
+            link.setAttribute('data-w2-mobile-css', '1');
+            (document.head || document.documentElement).appendChild(link);
+        } catch (_) {
+            /* ignore */
+        }
+    })();
+
     // Auto-load shared Web 2.0 modules (popup + delivery picker).
     // Resolves URLs relative to this script so it works regardless of which
     // depth the host page sits at (/web2/foo/, /native-orders/, /web2-pancake/, etc.).
