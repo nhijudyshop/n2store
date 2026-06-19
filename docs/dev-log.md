@@ -2,6 +2,17 @@
 
 ## 2026-06-19
 
+### [web2] Group "Facebook" riêng + 2 trang Thống kê tương tác & Thống kê quảng cáo ✅
+
+User: tách group Facebook (chuyển Đăng bài vào), thêm trang thống kê tương tác + thống kê quảng cáo "chi tiết nhất có thể" (`c799ddd14`).
+
+- **Sidebar**: group mới **Facebook** (icon facebook) = Đăng bài 📢 / Thống kê tương tác 📊 / Thống kê quảng cáo 💰; bỏ "Đăng bài Facebook" khỏi Sale Online.
+- **Probe Graph**: page-level Insights (page_impressions/page_fans…) **đã deprecated v21** (#100 invalid). → engagement tính từ **bài đăng** (likes/comments/shares.summary chạy được nhờ pages_read_user_content). Ads: token có `ads_read` → `/me/adaccounts` + `/act_X/insights`.
+- **Backend** (web2-fb-graph-service + route): `getPageBasic`, `getEngagementPosts` (per-post like/cmt/share + classify, fallback nếu thiếu quyền), `getAdAccounts`, `getAdInsights` (summary + campaign breakdown). Route `/engagement`, `/ad-accounts`, `/ad-insights`.
+- **web2/fb-insights**: follower/đang-nói-đến, tổng tương tác + like/cmt/share, phân loại bài, **khung giờ + thứ đăng hiệu quả** (TB tương tác theo giờ GMT+7/DOW), top 10 bài. Verified: NhiJudy Store follower 160.723, tổng tương tác 5.895/25 bài.
+- **web2/fb-ads-stats**: chọn tài khoản QC + khoảng (today/7d/30d/90d/max) → chi tiêu/hiển thị/reach/click/CTR/CPC/CPM/tần suất + kết quả (actions) + bảng chiến dịch + list tài khoản. ⚠ 3 tài khoản của login (Lê Minh Tú) **chưa có chi tiêu** → empty state + gợi ý đăng nhập tài khoản chạy QC. Verified endpoint OK.
+- Tái dùng `fb-posts/fb-posts.css` + `fb-posts-api.js` (thêm engagement/adAccounts/adInsights). Chi tiết [[reference_web2_fb_posts]].
+
 ### [web2/fb-posts] Nhận diện loại bài + bộ lọc + bỏ auto-chọn page + ghi giá kiểu shop ✅
 
 - **Phân loại bài** (`add3a5bcf`): video có `attachments.target.id` ∈ `live_videos.video.id` → **Livestream** (status LIVE=đang/VOD=đã); còn lại video/album-photo/text. Backend `getLiveVideoMap` (cache 60s) + `classifyPost`; `/list` trả `post.type`+`living`. (Đã verify Graph matching thủ công: target.id khớp video.id.)
