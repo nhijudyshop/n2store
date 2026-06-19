@@ -940,6 +940,12 @@ web2FbPostsRoutes
     .ensureSchema(web2Pool || chatDbPool)
     .catch((e) => console.warn('[web2-fb-posts] schema warn:', e.message));
 app.use('/api/web2-fb-posts', web2FbPostsRoutes);
+// Sổ đăng ký server giọng VieNeu (máy shop tự báo URL tunnel → trang tự dò máy online).
+try {
+    app.use('/api/web2-vieneu-registry', require('./routes/web2-vieneu-registry'));
+} catch (e) {
+    console.warn('[web2-vieneu-registry] mount bỏ qua:', e.message);
+}
 
 // 2026-06-07: config Web 2.0 (deliveryzone, printer) tách khỏi kho generic
 // web2_records → bảng RIÊNG (web2_delivery_zones, web2_printers). Mount TRƯỚC
