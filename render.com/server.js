@@ -739,7 +739,18 @@ app.use('/api/web2-products', web2ProductsRoutes);
 app.use('/api/web2-returns', web2ReturnsRoutes); // WEB2.0 — Thu về (goods return)
 app.use('/api/web2-variants', web2VariantsRoutes);
 app.use('/api/web2/cutout', require('./routes/web2-cutout')); // WEB2.0 photo-studio cutout (PhotoRoom) — TRƯỚC generic
-app.use('/api/web2/ai-script', require('./routes/web2-ai-script')); // WEB2.0 video-maker: AI viết kịch bản (Gemini RIÊNG, key WEB2_GEMINI_API_KEY) — TRƯỚC generic
+// WEB2.0 video-maker: AI viết kịch bản (Gemini RIÊNG, key WEB2_GEMINI_API_KEY).
+// ⚠ server.js DÙNG CHUNG cho web2-api LẪN n2store-fallback (Web 1.0). Route Web 2.0
+// CHỈ mount khi WEB2_SERVICE=1 (đặt trên service web2-api) → Web 1.0 KHÔNG load,
+// KHÔNG bị ảnh hưởng. Try/catch để file lỗi/thiếu cũng không sập server.
+if (process.env.WEB2_SERVICE === '1') {
+    try {
+        app.use('/api/web2/ai-script', require('./routes/web2-ai-script'));
+        console.log('[web2-ai-script] mounted (WEB2_SERVICE=1)');
+    } catch (e) {
+        console.warn('[web2-ai-script] mount bỏ qua (không sập server):', e.message);
+    }
+}
 // NOTE 2026-06-03: generic catch-all `/api/web2` (web2GenericRoutes) ĐÃ DỜI
 // xuống SAU tất cả route dedicated `/api/web2/<entity>` bên dưới (notifications,
 // audit-log, dashboard-kpi, ...). Lý do: generic có route `/:entity/list`
