@@ -85,25 +85,49 @@
         }
     }
 
-    // Backward map toàn ảnh, CHAIN nhiều brush → 1 ImageData mới (bất biến).
+    // Backward map, CHAIN nhiều brush → 1 ImageData mới (bất biến).
+    // ⚡ Tối ưu: chỉ xử lý VÙNG BAO của các brush (mặt thường rất nhỏ so với ảnh
+    // full-body) — pixel ngoài mọi brush = giữ NGUYÊN (copy). Ảnh 2MP × 15 brush
+    // trước đây kẹt main-thread chục giây; giờ chỉ chạy quanh khuôn mặt → ~ms.
     function warp(srcImageData, brushes) {
         const w = srcImageData.width;
         const h = srcImageData.height;
         const src = srcImageData.data;
         const dst = new ImageData(w, h);
         const out = dst.data;
+        out.set(src); // copy nguyên ảnh (nhanh) — vùng ngoài brush không đổi
+        const n = brushes.length;
+        if (!n) return dst;
+        // vùng bao (union) của mọi brush
+        let minX = w;
+        let minY = h;
+        let maxX = 0;
+        let maxY = 0;
+        for (let i = 0; i < n; i++) {
+            const b = brushes[i];
+            if (b.cx - b.r < minX) minX = b.cx - b.r;
+            if (b.cy - b.r < minY) minY = b.cy - b.r;
+            if (b.cx + b.r > maxX) maxX = b.cx + b.r;
+            if (b.cy + b.r > maxY) maxY = b.cy + b.r;
+        }
+        minX = Math.max(0, Math.floor(minX));
+        minY = Math.max(0, Math.floor(minY));
+        maxX = Math.min(w, Math.ceil(maxX));
+        maxY = Math.min(h, Math.ceil(maxY));
         const px = [0, 0, 0, 0];
         const o = { x: 0, y: 0 };
-        const n = brushes.length;
-        for (let y = 0; y < h; y++) {
-            for (let x = 0; x < w; x++) {
+        for (let y = minY; y < maxY; y++) {
+            for (let x = minX; x < maxX; x++) {
                 let sx = x;
                 let sy = y;
+                let moved = false;
                 for (let i = 0; i < n; i++) {
                     applyBrushBackward(brushes[i], sx, sy, o);
+                    if (o.x !== sx || o.y !== sy) moved = true;
                     sx = o.x;
                     sy = o.y;
                 }
+                if (!moved) continue; // ngoài mọi brush → giữ pixel đã copy
                 sampleBilinear(src, w, h, sx, sy, px);
                 const di = (y * w + x) << 2;
                 out[di] = px[0];
