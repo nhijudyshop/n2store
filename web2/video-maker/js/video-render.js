@@ -14,6 +14,30 @@
 (function (global) {
     'use strict';
 
+    // Bộ chuyển động kiểu Remotion (spring/easing) — defensive fallback nếu chưa load.
+    const AN = global.Web2VideoAnim || null;
+    const _easeIO = AN ? AN.Easing.easeInOutCubic : (x) => x; // mượt vào–ra
+    const _easeOut = AN ? AN.Easing.easeOutCubic : (x) => x; // giảm tốc cuối
+    const _easeSine = AN ? AN.Easing.easeInOutSine : (x) => x; // Ken Burns êm
+    // Lò xo cho chữ "settle" tự nhiên (nảy nhẹ). Trả raw (có thể vượt 1).
+    function _springText(localSec) {
+        if (!AN) return Math.min(1, localSec / 0.32); // fallback tuyến tính ~0.32s
+        return AN.spring({
+            frame: localSec,
+            fps: 1,
+            config: { damping: 13, stiffness: 130, mass: 1 },
+        });
+    }
+    // Lò xo cho ảnh "Nảy vào" (scale vượt nhẹ rồi về 1).
+    function _springScale(localSec) {
+        if (!AN) return Math.min(1, localSec / 0.4);
+        return AN.spring({
+            frame: localSec,
+            fps: 1,
+            config: { damping: 12, stiffness: 120, mass: 1 },
+        });
+    }
+
     const DEFAULT_TDUR = 0.5;
     const FONT =
         '-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif';
@@ -24,11 +48,13 @@
         { id: 'zoomout', label: 'Thu nhỏ' },
         { id: 'panleft', label: 'Lia trái' },
         { id: 'panright', label: 'Lia phải' },
+        { id: 'springin', label: 'Nảy vào' }, // spring scale (Remotion-style)
         { id: 'static', label: 'Tĩnh' },
     ];
     const TRANSITIONS = [
         { id: 'fade', label: 'Mờ dần' },
         { id: 'slide', label: 'Trượt' },
+        { id: 'springslide', label: 'Trượt nảy' }, // slide + spring overshoot
         { id: 'zoom', label: 'Phóng' },
         { id: 'black', label: 'Qua đen' },
         { id: 'none', label: 'Cắt thẳng' },
@@ -101,17 +127,23 @@
         }
         const motion = scene.motion || 'zoomin';
         const pp = clamp01(p);
+        const pe = _easeSine(pp); // Ken Burns êm: chậm đầu/cuối thay vì tuyến tính
+        const dur = Number(scene.dur) || 3;
         let z = 1.06;
-        if (motion === 'zoomin') z = 1.04 + 0.1 * pp;
-        else if (motion === 'zoomout') z = 1.14 - 0.1 * pp;
+        if (motion === 'zoomin') z = 1.04 + 0.1 * pe;
+        else if (motion === 'zoomout') z = 1.14 - 0.1 * pe;
         else if (motion === 'static') z = 1.0;
-        else z = 1.12; // panleft / panright
+        else if (motion === 'springin') {
+            // "Nảy vào": ảnh phóng to hơn rồi co về theo lò xo trong ~0.6s đầu, sau giữ.
+            const s = _springScale(pp * dur); // 0 → ~1 (có overshoot nhẹ)
+            z = 1.02 + 0.12 * (1 - clamp01(s));
+        } else z = 1.12; // panleft / panright
         const dw = bw * z;
         const dh = bh * z;
         let ox = 0;
         const maxox = (dw - W) / 2;
-        if (motion === 'panleft') ox = maxox * (1 - 2 * pp);
-        else if (motion === 'panright') ox = maxox * (2 * pp - 1);
+        if (motion === 'panleft') ox = maxox * (1 - 2 * pe);
+        else if (motion === 'panright') ox = maxox * (2 * pe - 1);
         ctx.drawImage(img, (W - dw) / 2 + ox, (H - dh) / 2, dw, dh);
         ctx.restore();
     }
@@ -135,7 +167,7 @@
     }
 
     // Vẽ chữ (tiêu đề/phụ đề) theo VỊ TRÍ (bottom/center/top).
-    function _drawText(ctx, W, H, scene, alpha, tin, accent) {
+    function _drawText(ctx, W, H, scene, alpha, tin, accent, slideRaw) {
         const title = scene.title || '';
         const sub = scene.subtitle || '';
         if (!title && !sub) return;
@@ -162,9 +194,10 @@
             ctx.fillRect(0, 0, W, H);
         }
 
-        // chữ trượt + mờ vào
+        // chữ trượt + mờ vào (lò xo: overshoot làm chữ trồi nhẹ rồi settle)
         ctx.globalAlpha = alpha * tin;
-        const slide = (1 - tin) * Math.round(H * 0.03);
+        const sr = slideRaw != null ? slideRaw : tin;
+        const slide = (1 - sr) * Math.round(H * 0.035);
 
         // tính chiều cao khối chữ để canh giữa khi pos=center
         ctx.font = `800 ${Math.round(W * 0.058)}px ${FONT}`;
@@ -213,43 +246,54 @@
         ctx.globalAlpha = alpha;
         _drawImageMotion(ctx, scene, W, H, p);
         ctx.restore();
-        const tin = clamp01(p / 0.12);
-        _drawText(ctx, W, H, scene, alpha, tin, accent);
+        const dur = Number(scene.dur) || 3;
+        const sp = _springText(clamp01(p) * dur); // lò xo: chữ trồi lên & settle (raw có overshoot)
+        _drawText(ctx, W, H, scene, alpha, clamp01(sp), accent, sp);
     }
 
     // Hiệu ứng chuyển cảnh: cur (ra) → next (vào) theo loại của NEXT, f: 0→1.
     function _drawTransition(ctx, W, H, cur, next, pCur, f, accent) {
         const type = next.transition || 'fade';
-        if (type === 'slide') {
+        const fe = _easeIO(f); // mượt vào–ra cho mọi loại (thay vì tuyến tính)
+        if (type === 'slide' || type === 'springslide') {
+            // "Trượt nảy": tiến độ theo lò xo (giảm tốc + overshoot nhỏ ~1%).
+            const fm =
+                type === 'springslide' && AN
+                    ? AN.spring({
+                          frame: f,
+                          fps: 1,
+                          config: { damping: 18, stiffness: 130, mass: 1 },
+                      })
+                    : fe;
             ctx.save();
-            ctx.translate(-f * W, 0);
+            ctx.translate(-fm * W, 0);
             _drawScene(ctx, W, H, cur, pCur, 1, accent);
             ctx.restore();
             ctx.save();
-            ctx.translate((1 - f) * W, 0);
+            ctx.translate((1 - fm) * W, 0);
             _drawScene(ctx, W, H, next, 0, 1, accent);
             ctx.restore();
         } else if (type === 'zoom') {
             _drawScene(ctx, W, H, cur, pCur, 1, accent);
             ctx.save();
-            const s = 0.8 + 0.2 * f;
+            const s = 0.8 + 0.2 * fe;
             ctx.translate(W / 2, H / 2);
             ctx.scale(s, s);
             ctx.translate(-W / 2, -H / 2);
-            _drawScene(ctx, W, H, next, 0, f, accent);
+            _drawScene(ctx, W, H, next, 0, fe, accent);
             ctx.restore();
         } else if (type === 'black') {
-            const a1 = Math.max(0, 1 - 2 * f);
-            const a2 = Math.max(0, 2 * f - 1);
+            const a1 = Math.max(0, 1 - 2 * fe);
+            const a2 = Math.max(0, 2 * fe - 1);
             if (a1 > 0) _drawScene(ctx, W, H, cur, pCur, a1, accent);
             if (a2 > 0) _drawScene(ctx, W, H, next, 0, a2, accent);
         } else if (type === 'none') {
             if (f < 1) _drawScene(ctx, W, H, cur, pCur, 1, accent);
             else _drawScene(ctx, W, H, next, 0, 1, accent);
         } else {
-            // fade (crossfade)
+            // fade (crossfade) — eased
             _drawScene(ctx, W, H, cur, pCur, 1, accent);
-            _drawScene(ctx, W, H, next, 0, f, accent);
+            _drawScene(ctx, W, H, next, 0, fe, accent);
         }
     }
 

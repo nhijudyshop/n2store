@@ -2,6 +2,14 @@
 
 ## 2026-06-19
 
+### [web2/video-maker] Tích hợp "chất Remotion" vào video-maker (spring/easing, KHÔNG Remotion) ✅
+
+User muốn "tích hợp github.com/remotion-dev/remotion vào web 2.0". Research: Remotion = React + bundler + xuất MP4 nặng (Chromium/FFmpeg server hoặc Lambda) + **license CÓ PHÍ cho công ty ≥4 người**; đường client-side (webcodecs) đang bị Remotion phase-out sang Mediabunny + không chạy Safari/iOS. Web 2.0 lại vanilla JS no-bundler + đã có video-maker in-browser. → Hỏi user, chọn **hướng A: port Ý HAY của Remotion sang vanilla, KHÔNG ôm Remotion** (free, đúng kiến trúc).
+
+- **MỚI `web2/video-maker/js/video-anim.js` (`Web2VideoAnim`)** — port 3 cốt lõi Remotion thuần vanilla on-device: `spring()` (nghiệm giải tích dao động tắt dần, overshoot + settle), `interpolate(x,[in],[out],{easing,extrapolate})` (clamp/extend), `Easing` (cubic/sine/easeOutBack + `cubicBezier` Newton-Raphson như CSS). Deterministic theo thời gian → preview & export khớp khung.
+- **`video-render.js` cắm spring/easing** (defensive fallback nếu chưa load): transition ease `easeInOutCubic`; chữ tiêu đề/phụ đề "settle" theo lò xo (trồi lên + nảy nhẹ); Ken Burns êm bằng `easeInOutSine`. Thêm 2 preset: motion **"Nảy vào"** (`springin`) + transition **"Trượt nảy"** (`springslide`, overshoot ~1%) — tự hiện trong scene-editor.
+- **Verify**: unit test spring 1.12→1.0 + interpolate/bezier/clamp 0 NaN (node); browser-test localhost — module load đúng thứ tự, `drawFrame` 41 khung qua transition **0 lỗi**, chụp preview render đẹp. KHÔNG React/bundler/license/server.
+
 ### [web2/fb-posts] Tab Bài viết: xem nguyên bài in-app + fix khoá scroll + infinite scroll ✅
 
 - **Xem như FB** (`30071c024`): bấm thumbnail/Xem → popup `openViewer` render full bài — mọi ảnh (attachments+subattachments), nội dung giữ xuống dòng, like/cmt/share + 30 comment đầu (thấy cả comment chốt đơn KH), nút Mở FB. Backend `getPostDetail` (fallback ảnh+text nếu page thiếu pages_read_user_content). Verified: 6 ảnh, 9 cmt, 8 like.
