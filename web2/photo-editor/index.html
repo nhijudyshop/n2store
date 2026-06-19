@@ -15,7 +15,7 @@
         <link rel="stylesheet" href="../shared/web2-sidebar.css?v=20260613z" />
         <link rel="stylesheet" href="../shared/web2-theme.css?v=20260613z" />
         <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
-        <link rel="stylesheet" href="./photo-editor.css?v=20260619b" />
+        <link rel="stylesheet" href="./photo-editor.css?v=20260619c" />
     </head>
     <body class="web2-theme">
         <div class="web2-shell">
@@ -24,9 +24,9 @@
                 <div class="pe-app">
                     <h1 class="pe-h"><i data-lucide="wand-2"></i> Chỉnh sửa ảnh</h1>
                     <p class="pe-sub">
-                        Trình chỉnh sửa ảnh đầy đủ (cắt/xoay, tinh chỉnh sáng-màu, bộ lọc, chèn
-                        chữ/hình/vẽ, watermark, đổi kích thước) — chạy 100% trên máy, không gửi ảnh
-                        đi đâu. Dùng chung cho mọi trang Web 2.0.
+                        Làm đẹp nhanh kiểu Meitu (mịn da, mắt to, mũi thon, mặt V-line, kéo chân,
+                        xoá logo…) + chỉnh nâng cao Photoshop-grade (Photopea). Chạy 100% trên máy,
+                        không gửi ảnh đi đâu. Dùng chung cho mọi trang Web 2.0.
                     </p>
 
                     <div class="pe-pickrow">
@@ -44,13 +44,65 @@
                             <div class="pe-drop" id="peProdDrop" hidden></div>
                         </div>
                     </div>
-                    <label class="pe-adv">
-                        <input type="checkbox" id="peAdv" /> Dùng <b>Photopea</b> (nâng cao —
-                        Photoshop-grade: layers, mask, nhiều công cụ hơn)
-                    </label>
-                    <p class="pe-hint">Mẹo: có thể dán ảnh (Ctrl/⌘+V) để chỉnh ngay.</p>
+                    <p class="pe-hint">Mẹo: có thể dán ảnh (Ctrl/⌘+V) để bắt đầu.</p>
+
+                    <!-- Ảnh nguồn hiện tại + thanh công cụ làm đẹp nhanh -->
+                    <div class="pe-source" id="peSource" hidden>
+                        <div class="pe-source-img">
+                            <img id="peSourceImg" alt="Ảnh đang chỉnh" />
+                            <span class="pe-source-tag" id="peSourceMeta"></span>
+                        </div>
+
+                        <div class="pe-tools">
+                            <div class="pe-tools-h">
+                                <i data-lucide="sparkles"></i> Làm đẹp nhanh
+                                <span class="pe-tools-note"
+                                    >chỉnh khuôn mặt nhận diện tự động • bấm nhiều lần để tăng
+                                    dần</span
+                                >
+                            </div>
+                            <div class="pe-tools-grid" id="peToolsGrid">
+                                <button class="pe-tool" data-tool="auto">
+                                    <i data-lucide="sparkles"></i><span>Làm đẹp tự động</span>
+                                </button>
+                                <button class="pe-tool" data-tool="smooth">
+                                    <i data-lucide="droplets"></i><span>Mịn da</span>
+                                </button>
+                                <button class="pe-tool" data-tool="tone">
+                                    <i data-lucide="palette"></i><span>Màu da</span>
+                                </button>
+                                <button class="pe-tool" data-tool="eyes">
+                                    <i data-lucide="eye"></i><span>Mắt to</span>
+                                </button>
+                                <button class="pe-tool" data-tool="nose">
+                                    <i data-lucide="triangle"></i><span>Mũi thon</span>
+                                </button>
+                                <button class="pe-tool" data-tool="face">
+                                    <i data-lucide="scan-face"></i><span>Mặt V-line</span>
+                                </button>
+                                <button class="pe-tool" data-tool="lips">
+                                    <i data-lucide="smile"></i><span>Môi</span>
+                                </button>
+                                <button class="pe-tool" data-tool="legs">
+                                    <i data-lucide="move-vertical"></i><span>Kéo chân</span>
+                                </button>
+                                <button class="pe-tool" data-tool="erase">
+                                    <i data-lucide="eraser"></i><span>Xoá logo</span>
+                                </button>
+                                <button class="pe-tool pe-tool-adv" data-tool="advanced">
+                                    <i data-lucide="layers"></i><span>Chỉnh nâng cao</span>
+                                </button>
+                            </div>
+                            <label class="pe-adv">
+                                <input type="checkbox" id="peAdv" checked /> "Chỉnh nâng cao" dùng
+                                <b>Photopea</b> (Photoshop-grade: layers, mask). Bỏ chọn = trình
+                                cắt/lọc cơ bản.
+                            </label>
+                        </div>
+                    </div>
 
                     <div class="pe-result" id="peResult" hidden>
+                        <div class="pe-result-h"><i data-lucide="image"></i> Ảnh đã chỉnh</div>
                         <img id="peResultImg" alt="Ảnh đã chỉnh" />
                         <div class="pe-result-actions">
                             <button class="pe-btn" id="peEditAgain">
@@ -73,7 +125,11 @@
         <script src="../shared/web2-sidebar.js?v=20260615db"></script>
         <script src="../shared/web2-products-cache.js?v=20260619a"></script>
         <script src="../shared/web2-image-editor.js?v=20260619d"></script>
-        <script src="./js/photo-editor.js?v=20260619b"></script>
+        <script src="../shared/web2-logo-eraser.js?v=20260619a"></script>
+        <script src="../shared/beauty/web2-beauty-filters.js?v=20260619a"></script>
+        <script src="../shared/beauty/web2-beauty-face.js?v=20260619a"></script>
+        <script src="../shared/beauty/web2-beauty-studio.js?v=20260619a"></script>
+        <script src="./js/photo-editor.js?v=20260619c"></script>
         <script>
             document.addEventListener('DOMContentLoaded', () => {
                 if (window.Web2Sidebar)

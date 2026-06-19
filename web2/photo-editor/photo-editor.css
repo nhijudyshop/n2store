@@ -1,6 +1,6 @@
 /* #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 module. */
 .pe-app {
-    max-width: 760px;
+    max-width: 940px;
     margin: 0 auto;
     padding: 28px 20px;
     display: flex;
@@ -138,15 +138,155 @@
     display: flex;
     align-items: center;
     gap: 7px;
-    font-size: 13px;
+    font-size: 12.5px;
     color: var(--web2-text-mute, #475569);
     cursor: pointer;
-    margin-top: 2px;
+    margin-top: 4px;
+    line-height: 1.5;
 }
 .pe-hint {
     font-size: 12px;
     color: var(--web2-text-mute, #94a3b8);
     margin: -4px 0 0;
+}
+
+/* ---- Ảnh nguồn + thanh công cụ làm đẹp nhanh ---- */
+.pe-source {
+    margin-top: 8px;
+    display: grid;
+    grid-template-columns: minmax(0, 280px) minmax(0, 1fr);
+    gap: 18px;
+    align-items: start;
+    border: 1px solid var(--web2-border, #e5e7eb);
+    border-radius: 16px;
+    padding: 16px;
+    background: var(--web2-surface, #fff);
+}
+.pe-source-img {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: repeating-conic-gradient(#eef2f7 0 25%, #fff 0 50%) 50% / 18px 18px;
+    border-radius: 12px;
+    overflow: hidden;
+    min-height: 160px;
+}
+.pe-source-img img {
+    max-width: 100%;
+    max-height: 320px;
+    display: block;
+    border-radius: 12px;
+}
+.pe-source-tag {
+    position: absolute;
+    left: 8px;
+    bottom: 8px;
+    padding: 3px 8px;
+    border-radius: 8px;
+    background: rgba(2, 8, 23, 0.66);
+    color: #fff;
+    font-size: 11px;
+    font-family: ui-monospace, Menlo, monospace;
+    letter-spacing: 0.02em;
+}
+.pe-tools-h {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 800;
+    font-size: 15px;
+    color: var(--web2-text, #0f172a);
+    flex-wrap: wrap;
+}
+.pe-tools-h i {
+    width: 18px;
+    height: 18px;
+    color: var(--web2-primary, #0068ff);
+}
+.pe-tools-note {
+    font-weight: 500;
+    font-size: 11.5px;
+    color: var(--web2-text-mute, #94a3b8);
+}
+.pe-tools-grid {
+    margin-top: 12px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+    gap: 9px;
+}
+.pe-tool {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    padding: 13px 8px;
+    border: 1px solid var(--web2-border, #e2e8f0);
+    border-radius: 13px;
+    background: var(--web2-bg, #fff);
+    color: var(--web2-text, #1e293b);
+    font-weight: 700;
+    font-size: 12px;
+    cursor: pointer;
+    transition:
+        transform 0.12s ease,
+        border-color 0.12s ease,
+        box-shadow 0.12s ease,
+        background 0.12s ease;
+}
+.pe-tool i {
+    width: 22px;
+    height: 22px;
+    color: var(--web2-primary, #0068ff);
+    transition: transform 0.18s ease;
+}
+.pe-tool span {
+    text-align: center;
+    line-height: 1.25;
+}
+.pe-tool:hover {
+    border-color: var(--web2-primary, #0068ff);
+    background: var(--web2-primary-soft, #eef4ff);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 18px rgba(0, 104, 255, 0.14);
+}
+.pe-tool:hover i {
+    transform: scale(1.12);
+}
+.pe-tool:active {
+    transform: translateY(0);
+}
+.pe-tool.pe-tool-adv {
+    background: linear-gradient(135deg, #0f172a, #1e293b);
+    border-color: #0f172a;
+    color: #fff;
+}
+.pe-tool.pe-tool-adv i {
+    color: #93c5fd;
+}
+.pe-tool.pe-tool-adv:hover {
+    background: linear-gradient(135deg, #1e293b, #334155);
+    box-shadow: 0 8px 18px rgba(15, 23, 42, 0.3);
+}
+.pe-result-h {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-weight: 800;
+    font-size: 14px;
+    color: var(--web2-text, #0f172a);
+    align-self: flex-start;
+}
+.pe-result-h i {
+    width: 17px;
+    height: 17px;
+    color: var(--web2-primary, #0068ff);
+}
+@media (max-width: 640px) {
+    .pe-source {
+        grid-template-columns: 1fr;
+    }
 }
 .pe-result {
     margin-top: 14px;
