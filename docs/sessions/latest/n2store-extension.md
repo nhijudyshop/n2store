@@ -3,23 +3,25 @@
 > Snapshot tự động ghi đè sau mỗi commit chạm folder này. **Không edit thủ công.**
 > Mục đích: khi session cũ chết (vd lỗi image limit), session mới chỉ cần đọc file này là có đủ context để tiếp tục.
 
-**Latest session**: `RESUME:20260619-142720-1940a8e`
-**Session file**: [`./20260619-142720-1940a8e.md`](../20260619-142720-1940a8e.md)
-**Commit**: `1940a8e` — auto: session update
-**Last updated**: 2026-06-19 14:27:20 +07
+**Latest session**: `RESUME:20260619-191219-a420110`
+**Session file**: [`./20260619-191219-a420110.md`](../20260619-191219-a420110.md)
+**Commit**: `a420110` — auto: session update
+**Last updated**: 2026-06-19 19:12:19 +07
 **Summary**: auto: session update
 
 ## Files changed in this commit (`n2store-extension/`)
 
-- `n2store-extension/content/tpos-interceptor.js`
+- `n2store-extension/background/service-worker.js`
+- `n2store-extension/content/contentscript.js`
+- `n2store-extension/manifest.json`
 
 ## Last 5 commits touching `n2store-extension/`
 
+- `a4201105a` auto: session update _(2026-06-19)_
 - `1940a8e00` auto: session update _(2026-06-19)_
 - `b3e40adbf` auto: session update _(2026-06-04)_
 - `c9f6ba89c` auto: session update _(2026-05-30)_
 - `916df85c9` auto: session update _(2026-05-30)_
-- `783636441` auto: session update _(2026-05-30)_
 
 ---
 
@@ -27,4 +29,4 @@
 
 1. Đọc file session ở trên để xem Files Modified + Next Steps đã điền (nếu Claude turn trước fill rồi).
 2. Cần lùi xa hơn → `git show <sha>` theo list commit trên.
-3. Hoặc paste token `RESUME:20260619-142720-1940a8e` cho Claude walk chain theo CLAUDE.md protocol.
+3. Hoặc paste token `RESUME:20260619-191219-a420110` cho Claude walk chain theo CLAUDE.md protocol.
