@@ -2,16 +2,16 @@
 # #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 — smoke test server live-chat sau khi split server.js (12 module).
 # =====================================================================
 # smoke-live-chat-server.sh — SMOKE post-deploy cho server live-chat
-# (folder live-chat/server/, deploy Render service `n2store-tpos-pancake`).
+# (folder live-chat/server/, deploy Render service `web2-realtime` (host n2store-tpos-pancake là alias cũ)).
 #
-# DÙNG KHI NÀO: sau mỗi lần deploy Render service live-chat — đặc biệt sau
+# DÙNG KHI NÀO: sau mỗi lần deploy Render service web2-realtime (live-chat) — đặc biệt sau
 # refactor split server.js → 12 module (2026-06-19). Xác nhận server BOOT +
 # routes wired + WS broker attach (chỉ chạy được trên server thật, không
 # local vì cần node_modules + env + DB/Firebase/Pancake).
 #
 # CÁCH CHẠY:
 #   bash scripts/smoke-live-chat-server.sh
-#   bash scripts/smoke-live-chat-server.sh https://n2store-tpos-pancake.onrender.com
+#   bash scripts/smoke-live-chat-server.sh https://web2-realtime.onrender.com
 #   RELAY_SECRET=xxx bash scripts/smoke-live-chat-server.sh   # + test route gated
 #
 # RELAY_SECRET (tùy chọn): lấy từ serect_dont_push.txt (block relay) để test
@@ -23,7 +23,7 @@
 # =====================================================================
 set -u
 
-BASE="${1:-https://n2store-tpos-pancake.onrender.com}"
+BASE="${1:-https://web2-realtime.onrender.com}"
 PASS=0
 FAIL=0
 
@@ -78,7 +78,7 @@ fi
 say "────────────────────────────────────────────────────────────"
 say " KẾT QUẢ: $PASS pass, $FAIL fail"
 say ""
-say " 👉 Kiểm thêm trên Render Dashboard logs (n2store-tpos-pancake) — boot phải có:"
+say " 👉 Kiểm thêm trên Render Dashboard logs (web2-realtime) — boot phải có:"
 say "    • '[STARTUP]' env validate (Firebase ok/disabled)"
 say "    • DB pool + Firebase init (firebase-loader)"
 say "    • Pancake WS client connect per account (pancake-client) — 'phx_join pages:<id>'"
