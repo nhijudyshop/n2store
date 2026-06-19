@@ -1,12 +1,10 @@
 // #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 module.
-// PANCAKE TOKEN MANAGER (Web 2.0 live-chat) — 1 NGUỒN: pancake_accounts
-// 2026-06-09: NGUỒN DUY NHẤT của token = bảng `pancake_accounts` (server auto-login
-// pure-Node, quản lý ở web2/pancake-settings). initialize() sync qua
-// Web2Chat.syncFromRenderDB → /api/pancake-accounts (tự chọn account CÒN HẠN) → ghi
-// localStorage canonical. addAccount/deleteAccount ghi/xóa ở pancake_accounts (qua
-// Web2PancakeAccounts). KHÔNG còn đọc/ghi Firestore `pancake_tokens` (nguồn cũ stale
-// gây "Cannot activate expired account"). Firestore + manager Web 1.0 KHÔNG đụng.
-// getToken: memory → localStorage → Web2Chat sync. Method *Firestore* còn lại no-op.
+// PANCAKE TOKEN MANAGER (Web 2.0 live-chat) — 1 NGUỒN: bảng `pancake_accounts`
+// (server auto-login pure-Node, quản lý ở web2/pancake-settings). initialize() sync
+// qua Web2Chat.syncFromRenderDB → /api/pancake-accounts (chọn account CÒN HẠN) → ghi
+// localStorage canonical; add/deleteAccount qua Web2PancakeAccounts. KHÔNG đọc/ghi
+// Firestore `pancake_tokens` (stale, gây "Cannot activate expired account") — method
+// *Firestore* còn lại no-op. getToken: memory → localStorage → Web2Chat sync.
 // 2026-06-18 (MOVE-only split): pure helpers tách ra namespace modules, class CHỈ giữ
 // instance state + orchestration, methods DELEGATE sang: PancakeTokenCodec (codec) /
 // PancakeTokenStorage (localStorage) / PancakeTokenSources (cookie/Web2Chat) /

@@ -1,5 +1,12 @@
-// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi.
-// Sổ Order — IndexedDB cache + Postgres sync (web2Db).
+// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 module.
+// Sổ Order — IndexedDB cache + data API (tabs/shipments/rows/trash/columns).
+//
+// Tách module (2026-06-19): file gốc 962 dòng → 2 module <800 dòng (MOVE-only):
+//   - so-order-storage.js (FILE NÀY): data layer — IndexedDB cache +
+//     tabs/shipments/rows/trash/columns API. Expose `window.SoOrderStorage`.
+//   - so-order-storage-sync.js: Sync sub-system (init/_loadFromServer/
+//     _subscribeSSE/pullOnce/pushToFirestore) — gắn `window.SoOrderStorage.Sync`.
+//     Load SAU file này. Truy cập internal data-layer qua `SoOrderStorage._internal`.
 //
 // C8 (2026-06-13): nguồn chuẩn chuyển từ Firestore `web2_so_order/main` →
 // Postgres `web2_so_order` (`/api/web2-so-order`, optimistic version, auth, SSE).
@@ -769,193 +776,20 @@
     };
 
     // -----------------------------------------------------------
-    // Firestore sync layer — independent of the localStorage CRUD
-    // above so the page works offline. Doc: `web2_so_order/main`.
+    // Internal bridge cho Sync sub-system (so-order-storage-sync.js).
+    // Sync layer cần đọc/ghi `_cachedState` + truy cập `_getStore` của data
+    // layer này. Vì cả 2 là IIFE-private, expose qua _internal (KHÔNG phải
+    // public API — callers app KHÔNG dùng; chỉ Sync file load sau truy cập).
     // -----------------------------------------------------------
-
-    // C8 (2026-06-13): Sync layer chuyển từ Firestore → Postgres web2Db
-    // (`/api/web2-so-order`). GIỮ NGUYÊN 5 method public
-    // (init/pullOnce/pushToFirestore/flush/teardown) → so-order-app.js KHÔNG đổi.
-    // Cải thiện: single source Postgres, optimistic concurrency qua `version`
-    // (hết last-write-wins — ghi đè stale → 409 báo conflict), auth (enforce),
-    // SSE `web2:so-order` realtime push (thay pull-on-focus đơn thuần).
-    // Migration 1 LẦN: server rỗng + Firestore còn data → copy lên server.
-    const SO_API_BASE =
-        (typeof window !== 'undefined' &&
-            (window.API_CONFIG?.WORKER_URL || window.LiveState?.workerUrl)) ||
-        'https://chatomni-proxy.nhijudyshop.workers.dev';
-    const PUSH_DEBOUNCE_MS = 400;
-
-    function _soAuthHeaders(extra) {
-        const h = { 'Content-Type': 'application/json', ...(extra || {}) };
-        try {
-            if (window.Web2Auth?.authHeaders) return window.Web2Auth.authHeaders(h);
-            const t = JSON.parse(localStorage.getItem('web2_auth') || '{}')?.token;
-            if (t) h['x-web2-token'] = t;
-        } catch {
-            /* ignore */
-        }
-        return h;
-    }
-
-    const Sync = {
-        _onRemoteUpdate: null,
-        _onConflict: null,
-        _localLastUpdated: 0,
-        _localVersion: 0, // optimistic concurrency token (server bump mỗi save)
-        _pushTimer: null,
-        _pendingState: null,
-        _sseUnsub: null,
-
-        async init(onRemoteUpdate, onConflict) {
-            this._onRemoteUpdate = onRemoteUpdate || null;
-            this._onConflict = onConflict || null;
-            try {
-                const loaded = await this._loadFromServer();
-                if (loaded && !loaded.empty) {
-                    _cachedState = loaded.data;
-                    const store = _getStore();
-                    if (store) await store.set(loaded.data);
-                    this._localLastUpdated = loaded.lastUpdated || 0;
-                    this._localVersion = loaded.version || 0;
-                }
-                // C8-cleanup (2026-06-13): bỏ migration Firestore (đã migrate xong;
-                // server Postgres là nguồn chuẩn). Server rỗng → dùng state mặc định.
-                this._subscribeSSE();
-                return true;
-            } catch (e) {
-                console.warn('[SoOrderStorage.Sync] init failed:', e.message);
-                return false;
-            }
+    SoOrderStorage._internal = {
+        getStore: _getStore,
+        getCachedState() {
+            return _cachedState;
         },
-
-        async _loadFromServer() {
-            try {
-                const r = await fetch(`${SO_API_BASE}/api/web2-so-order/get`, {
-                    headers: _soAuthHeaders(),
-                });
-                if (!r.ok) return null;
-                const j = await r.json();
-                if (!j || !j.success) return null;
-                if (j.empty || !j.data) return { empty: true };
-                return {
-                    data: j.data,
-                    lastUpdated: j.lastUpdated || 0,
-                    version: j.version || 0,
-                };
-            } catch (e) {
-                console.warn('[SoOrderStorage.Sync] load failed:', e.message);
-                return null;
-            }
-        },
-
-        _subscribeSSE() {
-            try {
-                if (this._sseUnsub || !window.Web2SSE || !window.Web2SSE.subscribe) return;
-                this._sseUnsub = window.Web2SSE.subscribe('web2:so-order', (evt) => {
-                    // Bỏ qua event do chính mình vừa ghi (version <= local).
-                    const v = Number(evt && evt.data && evt.data.version) || 0;
-                    if (v && v <= this._localVersion) return;
-                    this.pullOnce();
-                });
-            } catch {
-                /* ignore */
-            }
-        },
-
-        // Pull latest from server (SSE remote change / visibilitychange/focus).
-        // Áp dụng chỉ khi server version > local (không đè local edit in-flight).
-        async pullOnce() {
-            const loaded = await this._loadFromServer();
-            if (!loaded || loaded.empty) return false;
-            if ((loaded.version || 0) <= this._localVersion) return false;
-            // Server mới hơn. Có local pending push → conflict thay vì đè.
-            if (this._pushTimer && this._onConflict) {
-                this._onConflict({ data: loaded.data, lastUpdated: loaded.lastUpdated });
-                return false;
-            }
-            this._localVersion = loaded.version || 0;
-            this._localLastUpdated = loaded.lastUpdated || 0;
-            _cachedState = loaded.data;
-            const store = _getStore();
-            if (store) await store.set(loaded.data);
-            if (this._onRemoteUpdate) this._onRemoteUpdate(loaded.data);
-            return true;
-        },
-
-        // Debounced push (giữ TÊN pushToFirestore — giờ ghi Postgres). Gom mutation
-        // liên tiếp thành 1 write sau PUSH_DEBOUNCE_MS.
-        pushToFirestore(state) {
-            this._pendingState = state;
-            if (this._pushTimer) return true;
-            this._pushTimer = setTimeout(() => {
-                this._pushTimer = null;
-                this._flushPending();
-            }, PUSH_DEBOUNCE_MS);
-            return true;
-        },
-
-        async _flushPending() {
-            if (!this._pendingState) return;
-            const stateSnapshot = this._pendingState;
-            this._pendingState = null;
-            try {
-                const r = await fetch(`${SO_API_BASE}/api/web2-so-order/save`, {
-                    method: 'POST',
-                    headers: _soAuthHeaders(),
-                    body: JSON.stringify({
-                        data: stateSnapshot,
-                        baseVersion: this._localVersion,
-                    }),
-                });
-                const j = await r.json().catch(() => ({}));
-                if (j && j.success) {
-                    this._localVersion = j.version || this._localVersion + 1;
-                    this._localLastUpdated = j.lastUpdated || Date.now();
-                } else if (r.status === 409 && j && j.conflict && j.server) {
-                    // Máy khác vừa ghi giữa chừng → cập nhật version + báo conflict
-                    // (giữ behavior cũ: user chọn refresh / giữ chỉnh sửa). Lần push
-                    // kế tiếp dùng version mới → thắng (last-writer sau khi user biết).
-                    this._localVersion = j.server.version || this._localVersion;
-                    this._localLastUpdated = j.server.lastUpdated || this._localLastUpdated;
-                    if (this._onConflict)
-                        this._onConflict({
-                            data: j.server.data,
-                            lastUpdated: j.server.lastUpdated,
-                        });
-                } else {
-                    console.warn('[SoOrderStorage.Sync] push failed:', (j && j.error) || r.status);
-                }
-            } catch (e) {
-                console.warn('[SoOrderStorage.Sync] push failed:', e.message);
-            }
-        },
-
-        // Force-flush pending debounced write (visibilitychange→hidden / beforeunload).
-        async flush() {
-            if (!this._pushTimer) return;
-            clearTimeout(this._pushTimer);
-            this._pushTimer = null;
-            await this._flushPending();
-        },
-
-        teardown() {
-            if (this._pushTimer) {
-                clearTimeout(this._pushTimer);
-                this._pushTimer = null;
-            }
-            if (this._sseUnsub) {
-                try {
-                    this._sseUnsub();
-                } catch {
-                    /* ignore */
-                }
-                this._sseUnsub = null;
-            }
+        setCachedState(state) {
+            _cachedState = state;
         },
     };
-
-    SoOrderStorage.Sync = Sync;
 
     if (typeof window !== 'undefined') window.SoOrderStorage = SoOrderStorage;
 })();

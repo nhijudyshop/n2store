@@ -1,10 +1,10 @@
 {
-    "generatedAt": "2026-06-19 01:18",
+    "generatedAt": "2026-06-19 01:31",
     "totals": {
-        "files": 337,
+        "files": 338,
         "sharedModules": 89,
-        "functions": 2478,
-        "oversized": 2
+        "functions": 2480,
+        "oversized": 1
     },
     "sharedModules": [
         {
@@ -196,7 +196,7 @@
                 "native-orders/js/native-orders-snapshots.js",
                 "native-orders/js/native-orders-state.js",
                 "so-order/js/so-order-state.js",
-                "so-order/js/so-order-storage.js",
+                "so-order/js/so-order-storage-sync.js",
                 "web2/balance-history/js/web2-bh-core.js",
                 "web2/balance-history/js/web2-link-customer-modal.js",
                 "web2/balance-history/js/web2-manual-deposit.js",
@@ -955,7 +955,7 @@
                 "live-chat/js/shared/live-comments-stream.js",
                 "native-orders/js/native-orders-kpi.js",
                 "native-orders/js/native-orders-realtime-init.js",
-                "so-order/js/so-order-storage.js",
+                "so-order/js/so-order-storage-sync.js",
                 "web2/balance-history/js/web2-bh-data.js",
                 "web2/balance-history/js/web2-pending-match.js",
                 "web2/ck-dashboard/js/ck-dashboard-app.js",
@@ -2624,7 +2624,7 @@
                 },
                 {
                     "file": "live-chat/js/pancake/pancake-token-manager.js",
-                    "lines": 803,
+                    "lines": 801,
                     "purpose": "WEB2.0 module.",
                     "globals": ["PancakeTokenManager"],
                     "uses": ["Web2Chat", "Web2PancakeAccounts"],
@@ -3779,22 +3779,36 @@
                     "functions": ["_w2Auth", "editTableMode"]
                 },
                 {
+                    "file": "so-order/js/so-order-storage-sync.js",
+                    "lines": 213,
+                    "purpose": "WEB2.0 module.",
+                    "globals": [],
+                    "uses": ["API_CONFIG", "Web2Auth", "Web2SSE"],
+                    "functions": [
+                        "_flushPending",
+                        "_loadFromServer",
+                        "_soAuthHeaders",
+                        "_subscribeSSE",
+                        "flush",
+                        "init",
+                        "pullOnce",
+                        "pushToFirestore",
+                        "teardown"
+                    ]
+                },
+                {
                     "file": "so-order/js/so-order-storage.js",
-                    "lines": 962,
-                    "purpose": "Sổ Order — IndexedDB cache + Postgres sync (web2Db).",
+                    "lines": 796,
+                    "purpose": "WEB2.0 module.",
                     "globals": ["SoOrderStorage"],
-                    "uses": ["API_CONFIG", "Web2Auth", "Web2IdbStore", "Web2SSE"],
+                    "uses": ["Web2IdbStore"],
                     "functions": [
                         "_defaultState",
-                        "_flushPending",
                         "_flushWrite",
                         "_getStore",
-                        "_loadFromServer",
                         "_migrateTab",
                         "_mkId",
                         "_read",
-                        "_soAuthHeaders",
-                        "_subscribeSSE",
                         "_write",
                         "addRow",
                         "addShipment",
@@ -3805,25 +3819,23 @@
                         "findShipment",
                         "flush",
                         "getActiveTab",
+                        "getCachedState",
                         "getColumnVisibility",
                         "getOrderAdjustment",
                         "getShipmentAdjustTotals",
                         "getTrash",
-                        "init",
                         "load",
                         "loadCached",
                         "moveRow",
-                        "pullOnce",
                         "purgeFromTrash",
                         "purgeOldTrash",
-                        "pushToFirestore",
                         "restoreFromTrash",
                         "save",
                         "setActiveTab",
+                        "setCachedState",
                         "setColumnVisibility",
                         "setOrderAdjustment",
                         "softDeleteShipment",
-                        "teardown",
                         "updateFooter",
                         "updateInvoiceImageForGroup",
                         "updateRow",
@@ -8688,6 +8700,17 @@
             "count": 5
         },
         {
+            "fn": "flush",
+            "files": [
+                "live-chat/js/live/live-kho-enricher.js",
+                "so-order/js/so-order-storage-sync.js",
+                "so-order/js/so-order-storage.js",
+                "web2/balance-history/js/web2-partner-enricher.js",
+                "web2/supplier-wallet/js/supplier-wallet-storage.js"
+            ],
+            "count": 5
+        },
+        {
             "fn": "initialize",
             "files": [
                 "live-chat/js/layout/column-manager.js",
@@ -8806,16 +8829,6 @@
                 "live-chat/js/live/live-livestream-snap-stream.js",
                 "so-order/js/so-order-confirm.js",
                 "so-order/js/so-order-inline-edit.js"
-            ],
-            "count": 4
-        },
-        {
-            "fn": "flush",
-            "files": [
-                "live-chat/js/live/live-kho-enricher.js",
-                "so-order/js/so-order-storage.js",
-                "web2/balance-history/js/web2-partner-enricher.js",
-                "web2/supplier-wallet/js/supplier-wallet-storage.js"
             ],
             "count": 4
         },
@@ -9059,7 +9072,7 @@
             "fn": "_subscribeSSE",
             "files": [
                 "live-chat/js/pancake/inventory-panel-actions.js",
-                "so-order/js/so-order-storage.js",
+                "so-order/js/so-order-storage-sync.js",
                 "web2/shared/web2-notification-bell.js"
             ],
             "count": 3
@@ -9454,12 +9467,8 @@
     ],
     "oversized": [
         {
-            "file": "so-order/js/so-order-storage.js",
-            "lines": 962
-        },
-        {
             "file": "live-chat/js/pancake/pancake-token-manager.js",
-            "lines": 803
+            "lines": 801
         }
     ]
 }
