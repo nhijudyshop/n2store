@@ -3,16 +3,19 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `d12aa52` — chore(web2): regen codemap sau Step 2b + server.js split
-**Last updated**: 2026-06-19 08:19:07 +07
-**Latest session**: [`RESUME:20260619-081907-d12aa52`](../20260619-081907-d12aa52.md)
-**Summary**: Step 2b dead-code removal (native-orders 26→20, ~1500 dòng) + server.js → 12 module XONG. Modularization Web2 hoàn tất (chỉ còn 2 file 962/803 optional)
+**Latest commit**: `f599421` — feat(live-chat): Phase D — smoke-live-chat-server.sh (post-deploy verify cho server.js split) + dev-log tổng hợp A/B/C/D
+**Last updated**: 2026-06-19 09:02:19 +07
+**Latest session**: [`RESUME:20260619-090219-f599421`](../20260619-090219-f599421.md)
+**Summary**: Làm tất cả XONG: 0 oversized + adoption §4 (41 file) + 6 shared module + server.js smoke script. Modularization Web2 hoàn chỉnh
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 4 file(s)
-- [`live-chat/`](./live-chat.md) — 12 file(s)
-- [`native-orders/`](./native-orders.md) — 11 file(s)
+- [`docs/`](./docs.md) — 3 file(s)
+- [`live-chat/`](./live-chat.md) — 1 file(s)
+- [`native-orders/`](./native-orders.md) — 4 file(s)
+- [`scripts/`](./scripts.md) — 2 file(s)
+- [`so-order/`](./so-order.md) — 4 file(s)
+- [`web2/`](./web2.md) — 43 file(s)
 
 ## All folder snapshots
 
@@ -27,7 +30,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-18 13:23
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-16 14:31
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-18 12:17
-- [`docs/`](./docs.md) — updated 2026-06-19 08:19
+- [`docs/`](./docs.md) — updated 2026-06-19 09:02
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-16 14:31
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-16 14:31
 - [`downloads/`](./downloads.md) — updated 2026-06-18 19:26
@@ -40,11 +43,11 @@
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-06-16 14:31
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-16 14:31
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
-- [`live-chat/`](./live-chat.md) — updated 2026-06-19 08:19
+- [`live-chat/`](./live-chat.md) — updated 2026-06-19 09:02
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-06-04 20:02
 - [`n2store-facebook/`](./n2store-facebook.md) — updated 2026-06-14 13:09
 - [`n2store-realtime/`](./n2store-realtime.md) — updated 2026-06-16 11:15
-- [`native-orders/`](./native-orders.md) — updated 2026-06-19 08:19
+- [`native-orders/`](./native-orders.md) — updated 2026-06-19 09:02
 - [`nhanhang/`](./nhanhang.md) — updated 2026-06-13 19:51
 - [`order-management/`](./order-management.md) — updated 2026-05-21 15:39
 - [`orders-report/`](./orders-report.md) — updated 2026-06-16 17:03
@@ -57,12 +60,12 @@
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-06-16 00:35
 - [`render.com/`](./render.com.md) — updated 2026-06-18 16:31
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
-- [`scripts/`](./scripts.md) — updated 2026-06-18 21:52
+- [`scripts/`](./scripts.md) — updated 2026-06-19 09:02
 - [`service-costs/`](./service-costs.md) — updated 2026-06-16 11:15
 - [`shared/`](./shared.md) — updated 2026-06-16 14:31
 - [`showroom/`](./showroom.md) — updated 2026-06-10 19:04
 - [`showroom1/`](./showroom1.md) — updated 2026-06-10 19:52
-- [`so-order/`](./so-order.md) — updated 2026-06-19 00:24
+- [`so-order/`](./so-order.md) — updated 2026-06-19 09:02
 - [`soluong-live/`](./soluong-live.md) — updated 2026-06-16 14:31
 - [`soorder/`](./soorder.md) — updated 2026-05-21 15:39
 - [`soquy/`](./soquy.md) — updated 2026-06-13 19:51
@@ -75,4 +78,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-19 07:58
+- [`web2/`](./web2.md) — updated 2026-06-19 09:02
