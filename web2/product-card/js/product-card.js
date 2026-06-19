@@ -205,6 +205,33 @@
         }
     }
 
+    // ---------- Đăng lên FB (handoff sang trang Đăng bài) ----------
+    function shareToFb() {
+        if (!global.Web2FbShare) {
+            notify('Chưa tải được công cụ chuyển sang Đăng bài', 'error');
+            return;
+        }
+        doRender();
+        let dataUrl;
+        try {
+            dataUrl = canvas.toDataURL('image/png');
+        } catch (e) {
+            // canvas taint do ảnh SP cross-origin → giống lỗi export.
+            notify('Ảnh SP chặn xuất (CORS). Hãy TẢI ẢNH TỪ MÁY rồi thử lại.', 'error');
+            return;
+        }
+        // Caption gợi ý tối thiểu (user sẽ chỉnh / dùng AI ở trang Đăng bài). KHÔNG bịa giá/khuyến mãi.
+        const parts = [];
+        if (state.opts.name) parts.push(state.opts.name);
+        if (state.opts.price) parts.push('Giá: ' + state.opts.price);
+        notify('Đang chuyển sang trang Đăng bài…', 'info');
+        global.Web2FbShare.send({
+            images: [{ dataUrl, name: 'product-card.png' }],
+            caption: parts.join('\n'),
+            source: 'Tạo card SP',
+        });
+    }
+
     // ---------- wire controls ----------
     function bindField(id, key, delay) {
         const el = $('#' + id);
@@ -315,6 +342,7 @@
         wireProductPicker();
         $('#pcardExport')?.addEventListener('click', exportPng);
         $('#pcardCopy')?.addEventListener('click', copyPng);
+        $('#pcardShareFb')?.addEventListener('click', shareToFb);
         // Xoá logo/watermark trên ảnh SP (tool dùng chung Web2LogoEraser)
         $('#pcardEraseLogo')?.addEventListener('click', async () => {
             if (!state.opts._imgSrc) return notify('Hãy chọn/tải ảnh SP trước', 'warning');

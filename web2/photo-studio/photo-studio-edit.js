@@ -555,6 +555,32 @@
         if (blob) PS.saveBlob(blob, `tach-nen-${PS.stamp()}.${fmt}`);
     };
 
+    // Đăng lên FB: chuyển ảnh kết quả (reviewCanvas đã ghép nền/shadow/logo) sang trang Đăng bài.
+    PS.shareReviewToFb = function () {
+        const el = PS.el;
+        if (!window.Web2FbShare) {
+            PS.notify('Chưa tải được công cụ chuyển sang Đăng bài', 'error');
+            return;
+        }
+        const cv = el && el.reviewCanvas;
+        if (!cv) {
+            PS.notify('Chưa có ảnh để đăng', 'warning');
+            return;
+        }
+        let dataUrl;
+        try {
+            dataUrl = cv.toDataURL('image/png');
+        } catch (e) {
+            PS.notify('Ảnh chặn xuất (CORS). Thử tải ảnh từ máy.', 'error');
+            return;
+        }
+        PS.notify('Đang chuyển sang trang Đăng bài…', 'info');
+        window.Web2FbShare.send({
+            images: [{ dataUrl, name: 'photo-studio.png' }],
+            source: 'Studio tách nền',
+        });
+    };
+
     PS.saveBlob = async function (blob, filename) {
         const type = blob.type || 'image/png';
         try {

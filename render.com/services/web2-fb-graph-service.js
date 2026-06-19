@@ -74,10 +74,19 @@ function hasApp() {
     return !!(FB_APP_ID && FB_APP_SECRET);
 }
 
-// Least-privilege: chỉ 3 quyền CẦN để đăng/quản lý bài + đọc tương tác. KHÔNG xin
+// Least-privilege cơ bản: 3 quyền CẦN để đăng/quản lý bài + đọc tương tác. KHÔNG xin
 // pages_manage_engagement (quản lý bình luận — feature này không dùng, lại kéo dep
 // pages_read_user_content). Cả 3 đều Standard Access → app-role admin dùng KHÔNG cần review.
 const SCOPES_POST = 'pages_show_list,pages_read_engagement,pages_manage_posts';
+
+// Bộ quyền ĐẦY ĐỦ (dùng mặc định cho "Kết nối Facebook"): cộng thêm
+//   • read_insights      → số liệu page/bài/video/live THẬT (reach, impressions, reactions, views)
+//   • ads_read           → đọc tài khoản + insights quảng cáo (fb-ads-stats chế độ tự động)
+//   • business_management → bắt được ad account qua Business Manager (không cần là người chạy QC)
+// Tất cả đều dùng được với app-role admin (Standard Access) cho page/BM mình quản lý → KHÔNG cần
+// App Review. Quyền nào FB chưa cấp thì các tính năng tương ứng tự fallback (empty), không vỡ.
+const SCOPES_FULL =
+    'pages_show_list,pages_read_engagement,pages_manage_posts,read_insights,ads_read,business_management';
 
 /**
  * URL dialog OAuth "Đăng nhập bằng Facebook" (như Pancake/TPOS) — user bấm,
@@ -264,6 +273,29 @@ async function updatePostMessage(postId, pageToken, message) {
     return gfetch(`${GRAPH}/${postId}`, { method: 'POST', body });
 }
 
+/**
+ * Cập nhật 1 bài: sửa caption (message) và/hoặc đổi giờ lên lịch (scheduled_publish_time,
+ * chỉ cho bài CHƯA đăng). Truyền field nào thì cập nhật field đó.
+ * @returns {Promise<{message:boolean, rescheduled:boolean}>}
+ */
+async function updatePost(postId, pageToken, { message, scheduledTime } = {}) {
+    if (!postId || !pageToken) throw new Error('Thiếu postId / pageToken');
+    const payload = { access_token: pageToken };
+    let didMessage = false;
+    let didReschedule = false;
+    if (message !== undefined && message !== null) {
+        payload.message = message;
+        didMessage = true;
+    }
+    if (scheduledTime) {
+        payload.scheduled_publish_time = normalizeScheduleSec(scheduledTime);
+        didReschedule = true;
+    }
+    if (!didMessage && !didReschedule) throw new Error('Không có gì để cập nhật');
+    await gfetch(`${GRAPH}/${postId}`, { method: 'POST', body: form(payload) });
+    return { message: didMessage, rescheduled: didReschedule };
+}
+
 /** Liệt kê bài ĐÃ ĐĂNG của page (cho tab quản lý).
  * ⚠ KHÔNG xin likes/comments/shares.summary — các field đếm tương tác đòi feature
  * "Page Public Content Access" (cần App Review riêng) → gây lỗi (#10) dù đã có
@@ -295,18 +327,23 @@ async function listPagePosts(pageId, pageToken, limit = 25, after = null) {
     return { posts, after: next };
 }
 
-// Map video.id → status của các buổi live (để nhận diện bài livestream). Cache 60s/page.
+// Map video.id → {status, liveViews} của các buổi live (để nhận diện bài livestream +
+// số người xem). Cache 60s/page. liveViews = người xem ĐỒNG THỜI (chỉ có ý nghĩa khi LIVE).
 const _liveCache = new Map();
 async function getLiveVideoMap(pageId, pageToken) {
     const c = _liveCache.get(pageId);
     if (c && Date.now() - c.at < 60000) return c.map;
     const map = {};
     try {
-        const url = `${GRAPH}/${pageId}/live_videos?fields=status,video{id}&limit=100&access_token=${encodeURIComponent(pageToken)}`;
+        const url = `${GRAPH}/${pageId}/live_videos?fields=status,live_views,video{id}&limit=100&access_token=${encodeURIComponent(pageToken)}`;
         const data = await gfetch(url);
         (data.data || []).forEach((v) => {
             const vid = v.video && v.video.id;
-            if (vid) map[String(vid)] = v.status || 'VOD';
+            if (vid)
+                map[String(vid)] = {
+                    status: v.status || 'VOD',
+                    liveViews: typeof v.live_views === 'number' ? v.live_views : null,
+                };
         });
     } catch (_) {
         /* page không cho liệt kê live → bỏ, video sẽ xếp loại 'video' */
@@ -315,12 +352,20 @@ async function getLiveVideoMap(pageId, pageToken) {
     return map;
 }
 
-/** Phân loại 1 bài: live | video | photo | text (+ living nếu đang phát). */
+// Lấy entry trong liveMap, chấp nhận cả format cũ (string status) lẫn mới ({status,liveViews}).
+function _liveEntry(liveMap, targetId) {
+    const e = liveMap && targetId ? liveMap[targetId] : null;
+    if (!e) return null;
+    return typeof e === 'string' ? { status: e, liveViews: null } : e;
+}
+
+/** Phân loại 1 bài: live | video | photo | text (+ living nếu đang phát, liveViews nếu có). */
 function classifyPost(p, liveMap = {}) {
     const isVideo =
         p.mediaType === 'video' || p.statusType === 'added_video' || /video/.test(p.attType || '');
-    if (isVideo && p.targetId && liveMap[p.targetId]) {
-        return { type: 'live', living: liveMap[p.targetId] === 'LIVE' };
+    const le = _liveEntry(liveMap, p.targetId);
+    if (isVideo && le) {
+        return { type: 'live', living: le.status === 'LIVE', liveViews: le.liveViews };
     }
     if (isVideo) return { type: 'video', living: false };
     const isPhoto =
@@ -464,6 +509,130 @@ async function getEngagementPosts(pageId, pageToken, limit = 50, liveMap = {}) {
     return { posts, hasEngagement };
 }
 
+// ── Insights THẬT (cần read_insights) ──────────────────────────────────────
+// read_insights cho page/bài mình quản lý KHÔNG cần Page Public Content Access → đây là
+// nguồn reach/impressions/reactions/video-views CHUẨN, thay cho likes/comments.summary
+// (vốn đòi feature review). Mọi hàm dưới đây resilient: thiếu quyền/metric → trả rỗng.
+
+/** Chạy fn cho từng item, giới hạn số request song song (tránh đập rate-limit FB). */
+async function mapPool(items, fn, concurrency = 8) {
+    const out = new Array(items.length);
+    let idx = 0;
+    const workers = new Array(Math.min(concurrency, items.length || 1)).fill(0).map(async () => {
+        while (idx < items.length) {
+            const i = idx++;
+            try {
+                out[i] = await fn(items[i], i);
+            } catch (_) {
+                out[i] = null;
+            }
+        }
+    });
+    await Promise.all(workers);
+    return out;
+}
+
+// Lấy value cuối của 1 metric insight (value có thể là số hoặc object reactions-by-type).
+function _insightVal(metricObj) {
+    const vals = metricObj && metricObj.values;
+    if (!Array.isArray(vals) || !vals.length) return null;
+    return vals[vals.length - 1].value;
+}
+function _sumObj(o) {
+    if (o && typeof o === 'object')
+        return Object.values(o).reduce((s, v) => s + (Number(v) || 0), 0);
+    return Number(o) || 0;
+}
+
+const POST_INSIGHT_METRICS =
+    'post_impressions,post_impressions_unique,post_clicks,post_reactions_by_type_total,post_video_views';
+
+/** Insights 1 bài → {impressions, reach, clicks, reactions, videoViews} (null nếu không có). */
+async function getPostInsights(postId, pageToken) {
+    const url = `${GRAPH}/${postId}/insights?metric=${POST_INSIGHT_METRICS}&access_token=${encodeURIComponent(pageToken)}`;
+    let data;
+    try {
+        data = await gfetch(url);
+    } catch (_) {
+        return null; // bài cũ / không có insights / thiếu quyền
+    }
+    const m = {};
+    (data.data || []).forEach((d) => (m[d.name] = _insightVal(d)));
+    const has = (k) => m[k] !== undefined && m[k] !== null;
+    return {
+        impressions: has('post_impressions') ? Number(m.post_impressions) || 0 : null,
+        reach: has('post_impressions_unique') ? Number(m.post_impressions_unique) || 0 : null,
+        clicks: has('post_clicks') ? Number(m.post_clicks) || 0 : null,
+        reactions: has('post_reactions_by_type_total')
+            ? _sumObj(m.post_reactions_by_type_total)
+            : null,
+        videoViews: has('post_video_views') ? Number(m.post_video_views) || 0 : null,
+    };
+}
+
+// Bao nhiêu bài đầu được enrich insights (giới hạn để không bắn quá nhiều request).
+const INSIGHT_ENRICH_CAP = 80;
+
+/** Gắn insights thật vào danh sách bài (reach/impressions/reactions/videoViews).
+ * Trả {posts, hasInsights}. hasInsights=true nếu ÍT NHẤT 1 bài lấy được insights. */
+async function enrichPostsWithInsights(pageToken, posts) {
+    if (!posts || !posts.length) return { posts: posts || [], hasInsights: false };
+    const head = posts.slice(0, INSIGHT_ENRICH_CAP);
+    const ins = await mapPool(head, (p) => getPostInsights(p.id, pageToken), 8);
+    let hasInsights = false;
+    const enriched = posts.map((p, i) => {
+        const x = i < ins.length ? ins[i] : null;
+        if (!x) return p;
+        if (x.reach != null || x.reactions != null) hasInsights = true;
+        const reactions = x.reactions != null ? x.reactions : p.likes || 0;
+        return {
+            ...p,
+            reach: x.reach,
+            impressions: x.impressions,
+            clicks: x.clicks,
+            videoViews: x.videoViews,
+            reactions,
+            // total tương tác ưu tiên reactions thật từ insights + comment/share đã có
+            total: reactions + (p.comments || 0) + (p.shares || 0),
+        };
+    });
+    return { posts: enriched, hasInsights };
+}
+
+// Metric page-level thử lấy (period 28 ngày). FB đã deprecate nhiều metric → PROBE từng cái,
+// cái nào lỗi thì bỏ, không làm hỏng cả response.
+const PAGE_INSIGHT_METRICS = [
+    'page_impressions_unique', // reach 28 ngày
+    'page_impressions', // hiển thị
+    'page_post_engagements', // lượt tương tác bài
+    'page_views_total', // lượt xem trang
+    'page_fan_adds_unique', // follow mới
+    'page_fan_removes_unique', // bỏ follow
+];
+
+/** Page insights 28 ngày (resilient probe). Trả map metric→số + danh sách available. */
+async function getPageInsights(pageId, pageToken) {
+    const results = await mapPool(
+        PAGE_INSIGHT_METRICS,
+        async (metric) => {
+            const url = `${GRAPH}/${pageId}/insights/${metric}?period=days_28&access_token=${encodeURIComponent(pageToken)}`;
+            const data = await gfetch(url);
+            const v = _insightVal((data.data || [])[0]);
+            return { metric, value: v == null ? null : Number(_sumObj(v)) };
+        },
+        4
+    );
+    const out = {};
+    const available = [];
+    results.forEach((r) => {
+        if (r && r.value != null) {
+            out[r.metric] = r.value;
+            available.push(r.metric);
+        }
+    });
+    return { metrics: out, available };
+}
+
 // ── Thống kê quảng cáo (ads) ─────────────────────────────────────────────────
 
 function _shapeAcct(a, source) {
@@ -546,9 +715,13 @@ module.exports = {
     hasApp,
     getPageBasic,
     getEngagementPosts,
+    enrichPostsWithInsights,
+    getPostInsights,
+    getPageInsights,
     getAdAccounts,
     getAdInsights,
     SCOPES_POST,
+    SCOPES_FULL,
     buildOAuthDialogUrl,
     exchangeCodeForToken,
     exchangeLongLivedToken,
@@ -557,6 +730,7 @@ module.exports = {
     publishToPage,
     deletePost,
     updatePostMessage,
+    updatePost,
     listPagePosts,
     listScheduledPosts,
     getPostDetail,

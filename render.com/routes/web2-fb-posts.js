@@ -199,7 +199,10 @@ router.get('/status', async (req, res) => {
 
 // ── OAuth "Đăng nhập bằng Facebook" (như Pancake/TPOS — KHÔNG dán token) ──
 
-// GET /auth/login-url?return=<url> — trả URL dialog OAuth để frontend điều hướng tới.
+// GET /auth/login-url?return=<url>&scope=full|min — trả URL dialog OAuth.
+//   scope=full (mặc định): xin trọn quyền (đăng bài + read_insights + ads_read + business_management)
+//     → 1 lần đăng nhập chạy được cả thống kê tương tác + quảng cáo tự động.
+//   scope=min: chỉ quyền đăng bài (giữ tối thiểu nếu user không muốn cấp insights/ads).
 router.get('/auth/login-url', (req, res) => {
     if (!fb.hasApp())
         return res.status(400).json({
@@ -207,9 +210,10 @@ router.get('/auth/login-url', (req, res) => {
             error: 'FB App chưa cấu hình trên server (FB_APP_ID/FB_APP_SECRET)',
         });
     const ret = safeReturn(req.query.return) || OAUTH_BASE;
+    const scopes = req.query.scope === 'min' ? fb.SCOPES_POST : fb.SCOPES_FULL;
     const state = b64urlEncode(JSON.stringify({ r: ret, t: now() }));
-    const url = fb.buildOAuthDialogUrl({ redirectUri: OAUTH_CALLBACK, state });
-    res.json({ success: true, url, redirectUri: OAUTH_CALLBACK });
+    const url = fb.buildOAuthDialogUrl({ redirectUri: OAUTH_CALLBACK, state, scopes });
+    res.json({ success: true, url, redirectUri: OAUTH_CALLBACK, scopes });
 });
 
 // GET /auth/callback?code&state — FB redirect về đây (qua worker → Render). Đổi code →
@@ -527,6 +531,30 @@ router.post('/delete', async (req, res) => {
     }
 });
 
+// POST /post-edit { pageId, postId, message?, scheduledTime? } — sửa caption và/hoặc
+// đổi giờ lên lịch (scheduledTime chỉ áp dụng bài CHƯA đăng). Không xoá → giữ nguyên link bài.
+router.post('/post-edit', async (req, res) => {
+    try {
+        const db = getDb(req);
+        const { pageId, postId, message, scheduledTime } = req.body || {};
+        if (!pageId || !postId)
+            return res.status(400).json({ success: false, error: 'Thiếu pageId/postId' });
+        if ((message === undefined || message === null) && !scheduledTime)
+            return res.status(400).json({ success: false, error: 'Không có gì để cập nhật' });
+        const row = await loadToken(db);
+        const page = row && findPage(row.pages, pageId);
+        if (!page || !page.access_token)
+            return res
+                .status(400)
+                .json({ success: false, error: 'Chưa kết nối / không có page token' });
+        const out = await fb.updatePost(postId, page.access_token, { message, scheduledTime });
+        _notify('edit', postId);
+        res.json({ success: true, ...out });
+    } catch (e) {
+        res.status(400).json({ success: false, error: e.message, fbCode: e.fbCode });
+    }
+});
+
 // ── Thống kê tương tác ───────────────────────────────────────────────────
 // GET /engagement?pageId=&limit= — follower + tổng tương tác từ N bài + per-post.
 router.get('/engagement', async (req, res) => {
@@ -542,10 +570,17 @@ router.get('/engagement', async (req, res) => {
                 .status(400)
                 .json({ success: false, error: 'Chưa kết nối / không có page token' });
         const liveMap = await fb.getLiveVideoMap(page.id, page.access_token).catch(() => ({}));
-        const [basic, eng] = await Promise.all([
+        const [basic, eng, pageInsights] = await Promise.all([
             fb.getPageBasic(page.id, page.access_token).catch(() => ({})),
             fb.getEngagementPosts(page.id, page.access_token, limit, liveMap),
+            fb
+                .getPageInsights(page.id, page.access_token)
+                .catch(() => ({ metrics: {}, available: [] })),
         ]);
+        // Insights THẬT per-post (reach/impressions/reactions/video views) — cần read_insights.
+        const enriched = await fb
+            .enrichPostsWithInsights(page.access_token, eng.posts)
+            .catch(() => ({ posts: eng.posts, hasInsights: false }));
         res.json({
             success: true,
             page: {
@@ -554,8 +589,11 @@ router.get('/engagement', async (req, res) => {
                 followers: basic.followers_count ?? null,
                 talkingAbout: basic.talking_about_count ?? null,
             },
-            posts: eng.posts,
+            posts: enriched.posts,
             hasEngagement: eng.hasEngagement,
+            hasInsights: enriched.hasInsights,
+            pageInsights: pageInsights.metrics || {},
+            insightsAvailable: pageInsights.available || [],
         });
     } catch (e) {
         res.status(500).json({ success: false, error: e.message });

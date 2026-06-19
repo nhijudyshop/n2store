@@ -126,9 +126,26 @@
             .sort((a, b) => (b.total || 0) - (a.total || 0))
             .slice(0, 10);
 
-        const engNote = withEng
-            ? ''
-            : '<div class="fbp-card" style="background:#fef3f2;border-color:#fca5a5;color:#b91c1c">⚠ Page này chưa cấp quyền đọc tương tác chi tiết — chỉ hiện số bài, chưa có like/cmt.</div>';
+        // ── Insights THẬT (read_insights) ────────────────────────────────────
+        const hasInsights = !!data.hasInsights;
+        const pi = data.pageInsights || {};
+        const piAvail = (data.insightsAvailable || []).length > 0;
+        const someReach = posts.some((p) => p.reach != null);
+        const totReach = posts.reduce((s, p) => s + (p.reach || 0), 0);
+        const totReactions = posts.reduce(
+            (s, p) => s + (p.reactions != null ? p.reactions : p.likes || 0),
+            0
+        );
+        // số người xem live (đồng thời) — chỉ bài đang/đã live có liveViews
+        const liveRows = posts.filter((p) => p.type === 'live' && p.liveViews != null);
+
+        // Cảnh báo: ưu tiên insights; chỉ cảnh báo khi KHÔNG có cả insights lẫn like/cmt.
+        const engNote =
+            hasInsights || piAvail
+                ? ''
+                : withEng
+                  ? ''
+                  : '<div class="fbp-card" style="background:#fff7ed;border-color:#fed7aa;color:#9a3412">⚠ Chưa lấy được số liệu chi tiết. Vào <a href="../fb-posts/index.html" style="color:#0068ff;font-weight:700">Đăng bài Facebook</a> → "Đăng nhập lại (cấp thêm quyền)" để bật quyền <b>read_insights</b> (reach/impressions thật).</div>';
 
         $('fbiBody').innerHTML = `
             ${pageSelectorHtml()}
@@ -141,10 +158,41 @@
                     ${card('TB tương tác/bài', nfmt(avg))}
                 </div>
             </div>
+            ${
+                piAvail
+                    ? `<div class="fbp-card"><h3><i data-lucide="trending-up"></i> Số liệu trang THẬT (28 ngày qua)</h3>
+                <div style="font-size:.76rem;color:#94a3b8;margin-bottom:8px">Từ Facebook Insights (read_insights) — không phải ước lượng.</div>
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px">
+                    ${pi.page_impressions_unique != null ? card('Tiếp cận (reach)', nfmt(pi.page_impressions_unique), '28 ngày') : ''}
+                    ${pi.page_impressions != null ? card('Lượt hiển thị', nfmt(pi.page_impressions), '28 ngày') : ''}
+                    ${pi.page_post_engagements != null ? card('Lượt tương tác', nfmt(pi.page_post_engagements), '28 ngày') : ''}
+                    ${pi.page_views_total != null ? card('Lượt xem trang', nfmt(pi.page_views_total), '28 ngày') : ''}
+                    ${pi.page_fan_adds_unique != null ? card('Follow mới', nfmt(pi.page_fan_adds_unique), '28 ngày') : ''}
+                    ${pi.page_fan_removes_unique != null ? card('Bỏ follow', nfmt(pi.page_fan_removes_unique), '28 ngày') : ''}
+                </div>
+            </div>`
+                    : ''
+            }
+            ${
+                liveRows.length
+                    ? `<div class="fbp-card"><h3><i data-lucide="radio"></i> Livestream gần đây — người xem</h3>
+                <div style="font-size:.76rem;color:#94a3b8;margin-bottom:6px">👁 = người xem đồng thời (live_views) — dữ liệu Pancake KHÔNG có.</div>
+                ${liveRows
+                    .slice(0, 8)
+                    .map(
+                        (p) =>
+                            `<div class="fbp-post"><div class="fbp-post-body"><p class="fbp-post-msg">${esc(p.message) || '<i>(không nội dung)</i>'}</p>
+                            <div class="fbp-post-meta"><span>${fmtDate(p.createdTime)}</span><span>👁 <b>${nfmt(p.liveViews)}</b> xem</span>${p.videoViews != null ? `<span>▶️ <b>${nfmt(p.videoViews)}</b> lượt xem video</span>` : ''}</div></div></div>`
+                    )
+                    .join('')}
+            </div>`
+                    : ''
+            }
             <div class="fbp-card"><h3><i data-lucide="heart"></i> Tổng tương tác (${posts.length} bài gần nhất)</h3>
                 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px">
-                    ${card('Tổng tương tác', nfmt(totEng))}
-                    ${card('👍 Thích', nfmt(totLike))}
+                    ${someReach ? card('📡 Tiếp cận (reach)', nfmt(totReach), 'tổng các bài') : ''}
+                    ${card('Tổng tương tác', nfmt(hasInsights ? totReactions + totCmt + totShare : totEng))}
+                    ${card('👍 Cảm xúc', nfmt(hasInsights ? totReactions : totLike))}
                     ${card('💬 Bình luận', nfmt(totCmt))}
                     ${card('🔁 Chia sẻ', nfmt(totShare))}
                 </div>
@@ -199,7 +247,9 @@
                 <p class="fbp-post-msg">${esc(p.message) || '<i>(không nội dung)</i>'}</p>
                 <div class="fbp-post-meta">
                     <span>${esc(typeLabel(p))}</span><span>${fmtDate(p.createdTime)}</span>
-                    <span>👍 <b>${nfmt(p.likes)}</b></span><span>💬 <b>${nfmt(p.comments)}</b></span>
+                    ${p.reach != null ? `<span>📡 <b>${nfmt(p.reach)}</b> tiếp cận</span>` : ''}
+                    ${p.videoViews != null && p.videoViews > 0 ? `<span>▶️ <b>${nfmt(p.videoViews)}</b></span>` : ''}
+                    <span>👍 <b>${nfmt(p.reactions != null ? p.reactions : p.likes)}</b></span><span>💬 <b>${nfmt(p.comments)}</b></span>
                     <span>🔁 <b>${nfmt(p.shares)}</b></span><span style="color:var(--web2-primary,#0068ff)">Σ <b>${nfmt(p.total)}</b></span>
                 </div>
             </div>

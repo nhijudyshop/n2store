@@ -62,6 +62,7 @@
             'bgFile:psBgFile',
             'retake:psRetake',
             'save:psSave',
+            'shareFb:psShareFb',
             'aspectRow:psAspectRow',
             'engineGroup:psEngineGroup',
             'chromaGroup:psChromaGroup',
@@ -118,6 +119,7 @@
         el.reviewBack.addEventListener('click', PS.backToCamera);
         el.retake.addEventListener('click', PS.backToCamera);
         el.save.addEventListener('click', PS.saveReview);
+        el.shareFb && el.shareFb.addEventListener('click', PS.shareReviewToFb);
         el.bgFile.addEventListener('change', PS.onBgFile);
         el.resetTransform.addEventListener('click', () => {
             state.tx = 0;

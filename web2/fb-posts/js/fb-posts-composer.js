@@ -29,6 +29,47 @@
         return window.confirm(msg);
     }
 
+    // ── Nhận handoff "Đăng lên FB" từ trang khác (Web2FbShare) ───────────────
+    let _shareConsumed = false;
+    function dataUrlToFile(dataUrl, name) {
+        const parts = String(dataUrl).split(',');
+        const mime = (parts[0].match(/data:(.*?);/) || [])[1] || 'image/png';
+        const bin = atob(parts[1] || '');
+        const arr = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+        return new File([arr], name || 'image.png', { type: mime });
+    }
+    async function maybeConsumeShare() {
+        if (_shareConsumed) return;
+        if (!window.Web2FbShare || !window.Web2FbShare.has || !window.Web2FbShare.has()) return;
+        _shareConsumed = true;
+        const payload = window.Web2FbShare.consume();
+        if (!payload) return;
+        if (payload.caption) {
+            const m = document.getElementById('fbpMessage');
+            if (m) {
+                m.value = payload.caption;
+                m.dispatchEvent(new Event('input'));
+            }
+        }
+        const imgs = payload.images || [];
+        if (!imgs.length) return;
+        notify(`Đang nhận ${imgs.length} ảnh từ ${payload.source || 'trang khác'}…`, 'info');
+        for (const it of imgs) {
+            try {
+                if (it.url && /^https?:\/\//.test(it.url)) {
+                    Media().add({ type: it.type === 'video' ? 'video' : 'photo', url: it.url });
+                } else if (it.dataUrl) {
+                    const url = await Api().uploadImage(dataUrlToFile(it.dataUrl, it.name));
+                    Media().add({ type: 'photo', url });
+                }
+            } catch (e) {
+                notify('Lỗi nhận ảnh: ' + e.message, 'error');
+            }
+        }
+        notify('Đã nhận ảnh — chọn page rồi bấm Đăng', 'success');
+    }
+
     function pageChipsHtml() {
         const pages = S().pages || [];
         if (!pages.length)
@@ -127,6 +168,7 @@
         `;
         wire();
         if (window.lucide?.createIcons) window.lucide.createIcons();
+        maybeConsumeShare();
     }
 
     function wire() {

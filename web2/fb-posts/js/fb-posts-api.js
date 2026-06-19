@@ -49,8 +49,12 @@
     window.FBPostsApi = {
         workerBase,
         status: () => jget('/status'),
-        loginUrl: (ret) =>
-            jget(`/auth/login-url?return=${encodeURIComponent(ret || location.href)}`),
+        // scope: 'full' (mặc định, gồm insights + ads) | 'min' (chỉ đăng bài)
+        loginUrl: (ret, scope) =>
+            jget(
+                `/auth/login-url?return=${encodeURIComponent(ret || location.href)}` +
+                    (scope ? `&scope=${encodeURIComponent(scope)}` : '')
+            ),
         connect: (token) => jpost('/connect', { token }),
         disconnect: () => jpost('/disconnect', {}),
         refreshPages: () => jpost('/refresh-pages', {}),
@@ -66,6 +70,9 @@
                 `/post-detail?pageId=${encodeURIComponent(pageId)}&postId=${encodeURIComponent(postId)}`
             ),
         del: (pageId, postId) => jpost('/delete', { pageId, postId }),
+        // Sửa caption và/hoặc đổi giờ lên lịch (không xoá bài → giữ link).
+        postEdit: (pageId, postId, patch) =>
+            jpost('/post-edit', { pageId, postId, ...(patch || {}) }),
         engagement: (pageId, limit) =>
             jget(`/engagement?pageId=${encodeURIComponent(pageId)}&limit=${limit || 50}`),
         adAccounts: () => jget('/ad-accounts'),

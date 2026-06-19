@@ -322,19 +322,72 @@
             box.innerHTML = `
                 <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
                     <strong style="flex:1">Bài viết · ${esc(fmt(p.createdTime))}</strong>
+                    <button class="fbp-btn ghost sm" id="fbpVwEdit" type="button"><i data-lucide="pencil"></i> Sửa caption</button>
                     ${p.permalink ? `<a class="fbp-btn ghost sm" href="${esc(p.permalink)}" target="_blank" rel="noopener"><i data-lucide="external-link"></i> Mở FB</a>` : ''}
                     <button class="fbp-btn ghost sm" id="fbpVwClose" type="button">Đóng</button>
                 </div>
-                ${p.message ? `<p style="white-space:pre-wrap;line-height:1.5;font-size:.92rem;word-break:break-word">${esc(p.message)}</p>` : ''}
+                <div id="fbpVwMsgWrap">${p.message ? `<p id="fbpVwMsg" style="white-space:pre-wrap;line-height:1.5;font-size:.92rem;word-break:break-word">${esc(p.message)}</p>` : '<p id="fbpVwMsg" style="color:#94a3b8;font-style:italic">(không có nội dung — bấm Sửa caption để thêm)</p>'}</div>
                 ${media ? `<div style="display:grid;gap:8px;margin:10px 0">${media}</div>` : ''}
                 ${eng ? `<div style="font-weight:700;color:#5a6b80;padding:6px 0">${eng}</div>` : ''}
                 ${cms ? `<div><h3 style="font-size:.9rem;margin:10px 0 4px"><i data-lucide="message-circle"></i> Bình luận</h3>${cms}</div>` : ''}
             `;
             box.querySelector('#fbpVwClose').onclick = () => overlay.remove();
+            box.querySelector('#fbpVwEdit').onclick = () =>
+                editCaption(box, postId, p.message || '');
             if (window.lucide?.createIcons) window.lucide.createIcons();
         } catch (e) {
             box.innerHTML = `<div class="fbp-empty">${esc(e.message)}</div>`;
         }
+    }
+
+    // Sửa caption ngay trong viewer (POST /post-edit — giữ nguyên bài, không xoá → giữ link/tương tác).
+    function editCaption(box, postId, current) {
+        const wrap = box.querySelector('#fbpVwMsgWrap');
+        const editBtn = box.querySelector('#fbpVwEdit');
+        if (!wrap) return;
+        if (editBtn) editBtn.style.display = 'none';
+        wrap.innerHTML = `
+            <textarea class="fbp-textarea" id="fbpVwEditTa" style="min-height:120px">${esc(current)}</textarea>
+            <div style="display:flex;gap:8px;margin-top:8px">
+                <button class="fbp-btn" id="fbpVwSave" type="button"><i data-lucide="save"></i> Lưu lên Facebook</button>
+                <button class="fbp-btn ghost" id="fbpVwCancel" type="button">Huỷ</button>
+            </div>`;
+        if (window.lucide?.createIcons) window.lucide.createIcons();
+        const ta = wrap.querySelector('#fbpVwEditTa');
+        ta.focus();
+        wrap.querySelector('#fbpVwCancel').onclick = () => {
+            wrap.innerHTML = `<p id="fbpVwMsg" style="white-space:pre-wrap;line-height:1.5;font-size:.92rem;word-break:break-word">${esc(current)}</p>`;
+            if (editBtn) editBtn.style.display = '';
+        };
+        wrap.querySelector('#fbpVwSave').onclick = async () => {
+            const newMsg = ta.value;
+            const btn = wrap.querySelector('#fbpVwSave');
+            btn.disabled = true;
+            btn.innerHTML = '<i data-lucide="loader"></i> Đang lưu…';
+            if (window.lucide?.createIcons) window.lucide.createIcons();
+            try {
+                const r = await Api().postEdit(_pageId, postId, { message: newMsg });
+                if (r.success) {
+                    notify('Đã cập nhật caption trên Facebook', 'success');
+                    // cập nhật local + render lại danh sách
+                    const it = _posts.find((x) => String(x.id) === String(postId));
+                    if (it) it.message = newMsg;
+                    renderPostsList();
+                    wrap.innerHTML = `<p id="fbpVwMsg" style="white-space:pre-wrap;line-height:1.5;font-size:.92rem;word-break:break-word">${esc(newMsg)}</p>`;
+                    if (editBtn) editBtn.style.display = '';
+                } else {
+                    notify(r.error || 'Lỗi cập nhật caption', 'error');
+                    btn.disabled = false;
+                    btn.innerHTML = '<i data-lucide="save"></i> Lưu lên Facebook';
+                    if (window.lucide?.createIcons) window.lucide.createIcons();
+                }
+            } catch (e) {
+                notify(e.message, 'error');
+                btn.disabled = false;
+                btn.innerHTML = '<i data-lucide="save"></i> Lưu lên Facebook';
+                if (window.lucide?.createIcons) window.lucide.createIcons();
+            }
+        };
     }
 
     window.FBPostsList = { render };

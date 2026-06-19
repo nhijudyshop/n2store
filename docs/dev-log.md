@@ -2,6 +2,18 @@
 
 ## 2026-06-19
 
+### [web2/fb-*] Graph API trực tiếp: read_insights THẬT + sửa caption + handoff "Đăng lên FB" ✅
+
+User: "Tôi đã thêm read_insights" + "Làm theo 4" (3 việc ưu tiên từ audit Graph API). Theo rule module Web 2.0: năng lực dùng chung gom vào shared, trang chỉ gọi.
+
+- **Scopes**: `web2-fb-graph-service.js` thêm `SCOPES_FULL` = `pages_show_list,pages_read_engagement,pages_manage_posts,**read_insights,ads_read,business_management**`. `/auth/login-url?scope=full|min` (mặc định full → 1 lần đăng nhập đủ thống kê + QC). Connect overlay đổi nút khi đã kết nối → "Đăng nhập lại (cấp thêm quyền)" + ghi rõ xin read_insights/ads_read.
+- **Insights THẬT (read_insights)** — resilient (metric FB deprecate thì bỏ, không vỡ): `getPostInsights` (post_impressions/\_unique=reach/clicks/reactions_by_type/video_views) + `enrichPostsWithInsights` (pool 8, cap 80 bài) + `getPageInsights` (probe 6 metric page 28 ngày). `getLiveVideoMap` lấy thêm `live_views` (người xem live đồng thời — Pancake KHÔNG có). Route `/engagement` trả thêm `pageInsights`/`hasInsights`/`insightsAvailable`.
+- **fb-insights**: card "Số liệu trang THẬT (28 ngày)" (reach/hiển thị/tương tác/lượt xem/follow ±) + card "Livestream — người xem" (👁 live_views + ▶️ video views) + per-post hiện 📡 reach + ▶️ views; cảnh báo cũ đổi thành hướng dẫn "đăng nhập lại cấp read_insights".
+- **Sửa caption** (không xoá → giữ link/tương tác): service `updatePost(postId,{message,scheduledTime})` + route `/post-edit` + `FBPostsApi.postEdit` + nút "✏️ Sửa caption" trong post viewer (fb-posts-list inline edit).
+- **Handoff "Đăng lên FB"** — shared MỚI `web2/shared/web2-fb-share.js` (`Web2FbShare.send/consume`, one-shot sessionStorage, images {url}|{dataUrl}): nút ở **product-card** + **photo-studio** (canvas→dataURL→send) → composer `maybeConsumeShare()` tự upload imgbb + prefill caption (KHÔNG tự chọn page, KHÔNG tự đăng).
+- **fb-ads-stats**: auto mode trống → nút "Đăng nhập lại (cấp quyền ads_read)" + "Nhập tay thay thế".
+- An toàn giữ nguyên: không tự đăng, giãn 1.5s/page, cảnh báo bản quyền ảnh/nhạc. Chi tiết [[reference_web2_fb_posts]].
+
 ### [vieneu-tts + docs] VieNeu-TTS (clone giọng, server Web 2.0) + KHO ĐA DỤNG media/AI 🚧
 
 User: "tích hợp VieNeu-TTS" (clone giọng tiếng Việt 3-5s) + "render của web 2.0" + "có module riêng cho AI/giọng/hình/video chưa? như 1 kho đa dụng". Research: VieNeu = fine-tune NeuTTS Air, **0.5B/595MB GGUF, Apache-2.0, KHÔNG có bản browser** → bắt buộc chạy server (user chốt: server riêng Render Web 2.0, chấp nhận phí + data lên server; mục tiêu clone giọng + chất lượng cao).

@@ -220,7 +220,15 @@
         try {
             const r = await Api().adAccounts();
             if (!r.success || !(r.accounts || []).length) {
-                box().innerHTML = `<div class="fbp-empty"><div class="empty-state-icon">💳</div>${r.success ? 'Không thấy tài khoản quảng cáo nào (cần quyền ads_read + là thành viên Business Manager quản lý QC). Dùng "Nhập tay" để theo dõi chi tiêu/đơn thủ công.' : esc(r.error || 'Lỗi')}</div>`;
+                const upgrade = `<div style="margin-top:12px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+                        <a class="fbp-btn" href="../fb-posts/index.html"><i data-lucide="facebook"></i> Đăng nhập lại (cấp quyền ads_read)</a>
+                        <button class="fbp-btn ghost" id="fbaGoManual" type="button"><i data-lucide="pencil"></i> Nhập tay thay thế</button>
+                    </div>`;
+                box().innerHTML = r.success
+                    ? `<div class="fbp-empty"><div class="empty-state-icon">💳</div>Không thấy tài khoản quảng cáo nào.<br/><span style="font-size:.85rem;color:#94a3b8">Cần quyền <b>ads_read</b> + là thành viên Business Manager quản lý QC. Nếu đã kết nối trước khi có quyền này → đăng nhập lại 1 lần. Hoặc dùng "Nhập tay" để theo dõi chi tiêu/đơn thủ công.</span>${upgrade}</div>`
+                    : `<div class="fbp-empty">${esc(r.error || 'Lỗi')}${upgrade}</div>`;
+                const gm = $('fbaGoManual');
+                if (gm) gm.onclick = () => switchMode('manual');
                 if (window.lucide?.createIcons) window.lucide.createIcons();
                 return;
             }
