@@ -68,7 +68,14 @@
         if (_panelPromise) return _panelPromise;
         _panelPromise = (async () => {
             _loadCss(`${SHARED_BASE}/chat-panel/web2-chat-panel.css?v=${PANEL_VER}`);
+            // Load order BẮT BUỘC (sau khi tách module): state → render → compose
+            // (3 file này dựng __Web2ChatPanelNS.utils/buildRender/buildCompose) → emoji/
+            // sticker/entity-detect (global độc lập) → panel.js (entry, LAST). Thiếu 3 file
+            // đầu → web2-chat-panel.js throw "thiếu module phụ thuộc".
             for (const j of [
+                'chat-panel/web2-chat-panel-state.js',
+                'chat-panel/web2-chat-panel-render.js',
+                'chat-panel/web2-chat-panel-compose.js',
                 'chat-panel/web2-chat-emoji-data.js',
                 'chat-panel/web2-chat-sticker-data.js',
                 'chat-panel/web2-chat-entity-detect.js',

@@ -2,6 +2,16 @@
 
 ## 2026-06-19
 
+### [web2-chat] FIX lazy-load chat-panel thiếu state/render/compose (regression modular) ✅
+
+**Bug (browser click-all probe toàn bộ 40 trang Web 2.0):** `web2/balance-history` throw `Uncaught Error: Web2ChatPanel: thiếu module phụ thuộc — load state→render→compose TRƯỚC` khi mở chat KH. Gốc: sau khi tách `web2-chat-panel.js` (1049 dòng) thành state/render/compose, **loader lazy `loadPanelBundle()` trong `web2/shared/web2-customer-chat-core.js` KHÔNG được cập nhật** — chỉ inject emoji/sticker/entity-detect + panel.js, thiếu 3 file NS. Trang static-include (native-orders) load đủ 4 file đúng thứ tự nên OK; mọi trang mở chat qua **Web2CustomerChat lazy-load đều vỡ** (balance-history, customer-wallet, launcher…).
+
+**Fix:** thêm `web2-chat-panel-state.js → -render.js → -compose.js` vào đầu mảng `loadPanelBundle()` (đúng thứ tự: state dựng `NS.utils`; render/compose capture `const U=NS.utils` lúc eval → phải sau state; emoji/sticker/entity-detect global độc lập; panel.js LAST). `_hasScript`/`if(global.Web2ChatPanel)return` dedup → trang static-include không double-load.
+
+- File: `web2/shared/web2-customer-chat-core.js`
+- Verified live (clone phone 0123456788): `hasPanel:true, hasNS:true, depErr:0, totalErrs:0`.
+- Probe khác: kpi/product-counter "context destroyed" = click link nav hợp lệ (không phải crash, load 0 err); pancake-settings/printer-settings toast = môi trường test (chưa login pancake / print bridge off), không phải bug.
+
 ### [web2-modular] Deploy server.js + adoption sâu hơn ✅
 
 **Deploy (auto):** server.js split (12 module) đã LIVE — service thật = `web2-realtime.onrender.com` (auto-deploy main, commit 44a1df8). Smoke `scripts/smoke-live-chat-server.sh` 3/3 PASS: `/health/detailed` báo Pancake WS client **connected:true, 4 pages, 265 events** → split chạy end-to-end OK. (Doc cũ ghi host n2store-tpos-pancake = alias.)

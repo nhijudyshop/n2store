@@ -1,7 +1,7 @@
 [
     {
         "page": "web2/overview",
-        "startUrl": "http://localhost:8080/web2/overview/index.html?t=1781783954814",
+        "startUrl": "http://localhost:8080/web2/overview/index.html?t=1781835871166",
         "totalButtons": 3,
         "clicked": 1,
         "skipDestructive": 2,
@@ -16,7 +16,7 @@
     },
     {
         "page": "web2/dashboard",
-        "startUrl": "http://localhost:8080/web2/dashboard/index.html?t=1781783960408",
+        "startUrl": "http://localhost:8080/web2/dashboard/index.html?t=1781835876029",
         "totalButtons": 2,
         "clicked": 1,
         "skipDestructive": 1,
@@ -31,11 +31,11 @@
     },
     {
         "page": "web2/kpi",
-        "_raw": "[2026-06-18T11:59:31.510Z] eval ERROR: Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+        "_raw": "[2026-06-19T02:24:46.084Z] eval ERROR: Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
     },
     {
         "page": "web2/notifications",
-        "startUrl": "http://localhost:8080/web2/notifications/index.html?t=1781783971513",
+        "startUrl": "http://localhost:8080/web2/notifications/index.html?t=1781835886086",
         "totalButtons": 4,
         "clicked": 3,
         "skipDestructive": 1,
@@ -50,7 +50,7 @@
     },
     {
         "page": "web2/audit-log",
-        "startUrl": "http://localhost:8080/web2/audit-log/index.html?t=1781783977037",
+        "startUrl": "http://localhost:8080/web2/audit-log/index.html?t=1781835891411",
         "totalButtons": 3,
         "clicked": 2,
         "skipDestructive": 1,
@@ -65,7 +65,7 @@
     },
     {
         "page": "web2/customers",
-        "startUrl": "http://localhost:8080/web2/customers/index.html?t=1781783982388",
+        "startUrl": "http://localhost:8080/web2/customers/index.html?t=1781835896510",
         "totalButtons": 44,
         "clicked": 10,
         "skipDestructive": 1,
@@ -80,9 +80,9 @@
     },
     {
         "page": "web2/customer-wallet",
-        "startUrl": "http://localhost:8080/web2/customer-wallet/index.html?t=1781783990085",
+        "startUrl": "http://localhost:8080/web2/customer-wallet/index.html?t=1781835903922",
         "totalButtons": 18,
-        "clicked": 12,
+        "clicked": 9,
         "skipDestructive": 2,
         "skipCommit": 0,
         "navAway": false,
@@ -95,7 +95,7 @@
     },
     {
         "page": "web2/balance-history",
-        "startUrl": "http://localhost:8080/web2/balance-history/index.html?t=1781783998026",
+        "startUrl": "http://localhost:8080/web2/balance-history/index.html?t=1781835910846",
         "totalButtons": 127,
         "clicked": 13,
         "skipDestructive": 2,
@@ -105,12 +105,14 @@
         "modalBtnClicked": 3,
         "inputsFilled": 1,
         "modalInputsFilled": 4,
-        "jsErrors": [],
+        "jsErrors": [
+            "onerror:Uncaught Error: Web2ChatPanel: thiếu module phụ thuộc — load web2-chat-panel-state.js → -render.js → -compose.js TRƯỚC w"
+        ],
         "toastErrors": []
     },
     {
         "page": "web2/ck-dashboard",
-        "startUrl": "http://localhost:8080/web2/ck-dashboard/index.html?t=1781784007177",
+        "startUrl": "http://localhost:8080/web2/ck-dashboard/index.html?t=1781835919263",
         "totalButtons": 5,
         "clicked": 4,
         "skipDestructive": 1,
@@ -125,7 +127,7 @@
     },
     {
         "page": "web2/supplier-wallet",
-        "startUrl": "http://localhost:8080/web2/supplier-wallet/index.html?t=1781784013266",
+        "startUrl": "http://localhost:8080/web2/supplier-wallet/index.html?t=1781835924836",
         "totalButtons": 3,
         "clicked": 2,
         "skipDestructive": 1,
@@ -140,7 +142,7 @@
     },
     {
         "page": "web2/supplier-debt",
-        "startUrl": "http://localhost:8080/web2/supplier-debt/index.html?t=1781784019052",
+        "startUrl": "http://localhost:8080/web2/supplier-debt/index.html?t=1781835930187",
         "totalButtons": 13,
         "clicked": 5,
         "skipDestructive": 2,
@@ -155,7 +157,7 @@
     },
     {
         "page": "web2/purchase-refund",
-        "startUrl": "http://localhost:8080/web2/purchase-refund/index.html?t=1781784025475",
+        "startUrl": "http://localhost:8080/web2/purchase-refund/index.html?t=1781835936239",
         "totalButtons": 3,
         "clicked": 2,
         "skipDestructive": 1,
@@ -170,22 +172,22 @@
     },
     {
         "page": "web2/products",
-        "startUrl": "http://localhost:8080/web2/products/index.html?t=1781784030968",
-        "totalButtons": 157,
-        "clicked": 43,
+        "startUrl": "http://localhost:8080/web2/products/index.html?t=1781835941304",
+        "totalButtons": 172,
+        "clicked": 35,
         "skipDestructive": 2,
         "skipCommit": 0,
         "navAway": false,
         "modalsOpened": 28,
         "modalBtnClicked": 72,
         "inputsFilled": 1,
-        "modalInputsFilled": 68,
+        "modalInputsFilled": 61,
         "jsErrors": [],
         "toastErrors": []
     },
     {
         "page": "web2/variants",
-        "startUrl": "http://localhost:8080/web2/variants/index.html?t=1781784057631",
+        "startUrl": "http://localhost:8080/web2/variants/index.html?t=1781835964587",
         "totalButtons": 4,
         "clicked": 2,
         "skipDestructive": 2,
@@ -200,8 +202,8 @@
     },
     {
         "page": "web2/product-category",
-        "startUrl": "http://localhost:8080/web2/product-category/index.html?t=1781784064038",
-        "totalButtons": 7,
+        "startUrl": "http://localhost:8080/web2/product-category/index.html?t=1781835969994",
+        "totalButtons": 9,
         "clicked": 4,
         "skipDestructive": 2,
         "skipCommit": 0,
@@ -214,8 +216,12 @@
         "toastErrors": []
     },
     {
+        "page": "web2/product-counter",
+        "_raw": "[2026-06-19T02:26:20.391Z] eval ERROR: Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+    },
+    {
         "page": "web2/fastsaleorder-invoice",
-        "startUrl": "http://localhost:8080/web2/fastsaleorder-invoice/index.html?t=1781784070325",
+        "startUrl": "http://localhost:8080/web2/fastsaleorder-invoice/index.html?t=1781835980392",
         "totalButtons": 7,
         "clicked": 4,
         "skipDestructive": 3,
@@ -230,7 +236,7 @@
     },
     {
         "page": "web2/fastsaleorder-delivery",
-        "startUrl": "http://localhost:8080/web2/fastsaleorder-delivery/index.html?t=1781784076424",
+        "startUrl": "http://localhost:8080/web2/fastsaleorder-delivery/index.html?t=1781835986017",
         "totalButtons": 5,
         "clicked": 3,
         "skipDestructive": 2,
@@ -245,7 +251,7 @@
     },
     {
         "page": "web2/fastsaleorder-refund",
-        "startUrl": "http://localhost:8080/web2/fastsaleorder-refund/index.html?t=1781784081798",
+        "startUrl": "http://localhost:8080/web2/fastsaleorder-refund/index.html?t=1781835991337",
         "totalButtons": 5,
         "clicked": 3,
         "skipDestructive": 2,
@@ -260,7 +266,7 @@
     },
     {
         "page": "web2/returns",
-        "startUrl": "http://localhost:8080/web2/returns/index.html?t=1781784087147",
+        "startUrl": "http://localhost:8080/web2/returns/index.html?t=1781835996649",
         "totalButtons": 5,
         "clicked": 2,
         "skipDestructive": 1,
@@ -275,9 +281,9 @@
     },
     {
         "page": "web2/reconcile",
-        "startUrl": "http://localhost:8080/web2/reconcile/index.html?t=1781784092316",
-        "totalButtons": 11,
-        "clicked": 10,
+        "startUrl": "http://localhost:8080/web2/reconcile/index.html?t=1781836001746",
+        "totalButtons": 13,
+        "clicked": 12,
         "skipDestructive": 1,
         "skipCommit": 0,
         "navAway": false,
@@ -290,7 +296,7 @@
     },
     {
         "page": "web2/payment-confirm",
-        "startUrl": "http://localhost:8080/web2/ck-dashboard/index.html?t=1781784100496",
+        "startUrl": "http://localhost:8080/web2/ck-dashboard/index.html?t=1781836010411",
         "totalButtons": 5,
         "clicked": 4,
         "skipDestructive": 1,
@@ -305,8 +311,8 @@
     },
     {
         "page": "web2/report-revenue",
-        "startUrl": "http://localhost:8080/web2/report-revenue/index.html?t=1781784106210",
-        "totalButtons": 14,
+        "startUrl": "http://localhost:8080/web2/report-revenue/index.html?t=1781836016098",
+        "totalButtons": 15,
         "clicked": 5,
         "skipDestructive": 1,
         "skipCommit": 0,
@@ -320,7 +326,7 @@
     },
     {
         "page": "web2/report-delivery",
-        "startUrl": "http://localhost:8080/web2/report-delivery/index.html?t=1781784112193",
+        "startUrl": "http://localhost:8080/web2/report-delivery/index.html?t=1781836021939",
         "totalButtons": 4,
         "clicked": 3,
         "skipDestructive": 1,
@@ -335,7 +341,7 @@
     },
     {
         "page": "web2/delivery-zone",
-        "startUrl": "http://localhost:8080/web2/delivery-zone/index.html?t=1781784117614",
+        "startUrl": "http://localhost:8080/web2/delivery-zone/index.html?t=1781836027241",
         "totalButtons": 7,
         "clicked": 4,
         "skipDestructive": 2,
@@ -350,7 +356,7 @@
     },
     {
         "page": "web2/jt-tracking",
-        "startUrl": "http://localhost:8080/web2/jt-tracking/index.html?t=1781784123425",
+        "startUrl": "http://localhost:8080/web2/jt-tracking/index.html?t=1781836032993",
         "totalButtons": 1653,
         "clicked": 6,
         "skipDestructive": 1,
@@ -365,7 +371,7 @@
     },
     {
         "page": "web2/multi-tool",
-        "startUrl": "http://localhost:8080/web2/multi-tool/index.html?t=1781784130460",
+        "startUrl": "http://localhost:8080/web2/multi-tool/index.html?t=1781836039654",
         "totalButtons": 6,
         "clicked": 5,
         "skipDestructive": 1,
@@ -380,7 +386,7 @@
     },
     {
         "page": "web2/photo-studio",
-        "startUrl": "http://localhost:8080/web2/photo-studio/index.html?t=1781784136417",
+        "startUrl": "http://localhost:8080/web2/photo-studio/index.html?t=1781836045503",
         "totalButtons": 39,
         "clicked": 38,
         "skipDestructive": 1,
@@ -395,7 +401,7 @@
     },
     {
         "page": "web2/zalo",
-        "startUrl": "http://localhost:8080/web2/zalo/index.html?t=1781784150833",
+        "startUrl": "http://localhost:8080/web2/zalo/index.html?t=1781836059909",
         "totalButtons": 10,
         "clicked": 5,
         "skipDestructive": 1,
@@ -410,8 +416,8 @@
     },
     {
         "page": "web2/pancake-settings",
-        "startUrl": "http://localhost:8080/web2/pancake-settings/index.html?t=1781784157054",
-        "totalButtons": 42,
+        "startUrl": "http://localhost:8080/web2/pancake-settings/index.html?t=1781836065924",
+        "totalButtons": 38,
         "clicked": 12,
         "skipDestructive": 5,
         "skipCommit": 4,
@@ -425,7 +431,7 @@
     },
     {
         "page": "web2/printer-settings",
-        "startUrl": "http://localhost:8080/web2/printer-settings/index.html?t=1781784165685",
+        "startUrl": "http://localhost:8080/web2/printer-settings/index.html?t=1781836074369",
         "totalButtons": 20,
         "clicked": 16,
         "skipDestructive": 2,
@@ -447,7 +453,7 @@
     },
     {
         "page": "web2/users",
-        "startUrl": "http://localhost:8080/web2/users/index.html?t=1781784175034",
+        "startUrl": "http://localhost:8080/web2/users/index.html?t=1781836083518",
         "totalButtons": 24,
         "clicked": 3,
         "skipDestructive": 1,
@@ -462,7 +468,7 @@
     },
     {
         "page": "web2/users-permissions",
-        "startUrl": "http://localhost:8080/web2/users-permissions/index.html?t=1781784180572",
+        "startUrl": "http://localhost:8080/web2/users-permissions/index.html?t=1781836089032",
         "totalButtons": 5,
         "clicked": 2,
         "skipDestructive": 2,
@@ -477,7 +483,7 @@
     },
     {
         "page": "web2/system",
-        "startUrl": "http://localhost:8080/web2/system/index.html?t=1781784186081&tab=services",
+        "startUrl": "http://localhost:8080/web2/system/index.html?t=1781836094094&tab=services",
         "totalButtons": 6,
         "clicked": 4,
         "skipDestructive": 1,
@@ -522,10 +528,10 @@
     },
     {
         "page": "web2/livestream-poller",
-        "startUrl": "http://localhost:8080/web2/livestream-poller/index.html?t=1781784203106",
-        "totalButtons": 7,
-        "clicked": 4,
-        "skipDestructive": 3,
+        "startUrl": "http://localhost:8080/web2/livestream-poller/index.html?t=1781836110778",
+        "totalButtons": 9,
+        "clicked": 5,
+        "skipDestructive": 4,
         "skipCommit": 0,
         "navAway": false,
         "modalsOpened": 0,
@@ -537,22 +543,22 @@
     },
     {
         "page": "so-order",
-        "startUrl": "http://localhost:8080/so-order/index.html?t=1781784208648",
-        "totalButtons": 29,
+        "startUrl": "http://localhost:8080/so-order/index.html?t=1781836116520",
+        "totalButtons": 45,
         "clicked": 9,
         "skipDestructive": 2,
         "skipCommit": 0,
         "navAway": false,
-        "modalsOpened": 6,
+        "modalsOpened": 5,
         "modalBtnClicked": 9,
         "inputsFilled": 0,
-        "modalInputsFilled": 10,
+        "modalInputsFilled": 2,
         "jsErrors": [],
         "toastErrors": []
     },
     {
         "page": "native-orders",
-        "startUrl": "http://localhost:8080/native-orders/index.html?t=1781784217324",
+        "startUrl": "http://localhost:8080/native-orders/index.html?t=1781836125020",
         "totalButtons": 10,
         "clicked": 6,
         "skipDestructive": 2,
@@ -567,15 +573,15 @@
     },
     {
         "page": "live-chat",
-        "startUrl": "http://localhost:8080/live-chat/index.html?t=1781784223619",
-        "totalButtons": 2212,
+        "startUrl": "http://localhost:8080/live-chat/index.html?t=1781836131314",
+        "totalButtons": 512,
         "clicked": 6,
         "skipDestructive": 1,
         "skipCommit": 1,
         "navAway": false,
         "modalsOpened": 3,
-        "modalBtnClicked": 5,
-        "inputsFilled": 115,
+        "modalBtnClicked": 4,
+        "inputsFilled": 1,
         "modalInputsFilled": 1,
         "jsErrors": [],
         "toastErrors": []
