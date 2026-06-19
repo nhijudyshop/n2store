@@ -2,6 +2,14 @@
 
 ## 2026-06-19
 
+### [printer-settings + vieneu-tts] Gộp VieNeu vào bat cài máy POS — auto-start nền, xoá auto cũ ✅
+
+User: "tích hợp VieNeu vào bat ở printer-settings, chạy luôn + tắt các bat auto cũ". Trước đó hỏi "bat tự chạy nền khi khởi động đúng không?" → bản cũ KHÔNG (chỉ chạy tay foreground).
+
+- **`vieneu-tts/serve.py`**: thêm `CREATE_NO_WINDOW` (Windows) cho uvicorn + cloudflared → chạy ẩn không cửa sổ.
+- **MỚI `vieneu-tts/vieneu-windows-setup.ps1`**: installer VieNeu Windows: tải app.py/serve.py/requirements.txt từ `$VBase` (GH Pages), winget Python nếu thiếu, venv+pip, tải cloudflared, **warm-up model 595MB**, tạo VBS chạy ẩn (`pythonw serve.py`) + Startup folder (auto-start login). Idempotent.
+- **`web2/printer-settings/index.html` — bat GỘP**: nút "Tải file cài đặt" sinh `cai-may-pos.bat` cài CẢ Print Bridge + Giọng VieNeu. Trình tự: (0) xoá auto/instance CŨ (`N2StorePrintBridge.vbs`+`N2StoreVieNeu.vbs`+schtasks+kill `*N2Store*`) → (1) Print Bridge → (2) tải&chạy `vieneu-windows-setup.ps1`. Uninstall gỡ CẢ HAI. Auto-start = Startup folder VBS (login, không admin). Validate JS sinh bat OK.
+
 ### [web2/fb-posts] Xem trước bài (giống Facebook) + gộp nút tạo nội dung ✅
 
 User: "cho xem post preview trước khi đăng" + "2 nút tạo nội dung dư thừa".

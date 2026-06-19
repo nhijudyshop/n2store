@@ -369,14 +369,18 @@
                     <div id="roleList"></div>
 
                     <div class="ps-section-title">
-                        <i data-lucide="download"></i> Cài Print Bridge (Windows — 1 click)
+                        <i data-lucide="download"></i> Cài máy POS (Windows — 1 click): Print Bridge
+                        + Giọng VieNeu
                     </div>
                     <div class="ps-install">
                         <p class="ps-install-lead">
-                            Print Bridge giúp in <strong>thẳng ra máy in mạng (IP)</strong> không
-                            cần hộp thoại. Bản PowerShell <strong>KHÔNG cần cài Node</strong> — tải
-                            file <code>.bat</code> bên dưới, bấm đúp 1 lần: nó tự cài,
-                            <strong>chạy nền</strong> và <strong>tự bật mỗi khi mở máy</strong>.
+                            1 file <code>.bat</code> cài <strong>cả 2</strong>:
+                            <strong>Print Bridge</strong> (in thẳng máy in IP) +
+                            <strong>Giọng VieNeu</strong> (clone giọng cho video). Bấm đúp 1 lần: tự
+                            cài, <strong>chạy nền</strong>,
+                            <strong>tự bật mỗi khi mở máy</strong> và
+                            <strong>tự tắt các bản auto cũ</strong>. Lần đầu tải model giọng ~595MB
+                            (vài phút) — máy sẽ tự hiện ở trang Tạo video.
                         </p>
                         <div class="ps-actions">
                             <button class="ps-btn ps-btn-primary" id="btnDownloadBat">
@@ -395,11 +399,13 @@
                         <ol class="ps-install-steps">
                             <li>Bấm <strong>Tải file cài đặt (.bat)</strong> → lưu về máy POS.</li>
                             <li>
-                                Bấm đúp file <code>cai-print-bridge.bat</code> (nếu Windows hỏi
-                                SmartScreen → "More info" → "Run anyway").
+                                Bấm đúp file <code>cai-may-pos.bat</code> (nếu Windows hỏi
+                                SmartScreen → "More info" → "Run anyway"). Lần đầu chờ tải model
+                                giọng ~595MB.
                             </li>
                             <li>
-                                Xong! Bridge chạy nền + tự bật khi khởi động. Quay lại đây bấm
+                                Xong! Cả Print Bridge + Giọng VieNeu chạy nền + tự bật khi khởi
+                                động. Máy tự hiện ở trang Tạo video (mục Giọng VieNeu) + bấm
                                 <strong>Test kết nối</strong> ở máy in.
                             </li>
                             <li style="color: #94a3b8">
@@ -818,41 +824,56 @@
                 }, 200);
             }
             function batContent() {
-                // MEDIUM-cleanup (2026-06-13): build URL theo vị trí trang (../../ từ
-                // /web2/printer-settings/ = root) — location.origin + '/scripts/...'
-                // bị 404 trên GH Pages (project dưới /n2store/).
-                const url = new URL('../../scripts/print-bridge.ps1', location.href).href;
-                // .bat: tải .ps1 → tạo launcher chạy ẩn → bỏ vào Startup → chạy ngay.
+                // Combined installer (2026-06-19): Print Bridge + Giọng VieNeu, cùng tự chạy nền +
+                // auto-start. Xoá auto/instance CŨ trước (tránh trùng). URL theo vị trí trang (GH Pages).
+                const pbUrl = new URL('../../scripts/print-bridge.ps1', location.href).href;
+                const vBase = new URL('../../vieneu-tts', location.href).href.replace(/\/$/, '');
+                const vPs1 = vBase + '/vieneu-windows-setup.ps1';
                 return [
                     '@echo off',
                     'chcp 65001 >nul',
                     'setlocal',
                     'set "DIR=%LOCALAPPDATA%\\N2StorePrintBridge"',
                     'set "STARTUP=%APPDATA%\\Microsoft\\Windows\\Start Menu\\Programs\\Startup"',
-                    'set "URL=' + url + '"',
-                    'echo ============================================',
-                    'echo   Cai N2Store Print Bridge (tu chay nen)',
-                    'echo ============================================',
+                    'set "PBURL=' + pbUrl + '"',
+                    'set "VPS1=' + vPs1 + '"',
+                    'set "VBASE=' + vBase + '"',
+                    'echo ===========================================================',
+                    'echo   Cai N2Store POS: Print Bridge + Giong VieNeu (tu chay nen)',
+                    'echo ===========================================================',
+                    'REM --- 0) Tat auto/instance CU (tranh trung) ---',
+                    'del /f /q "%STARTUP%\\N2StorePrintBridge.vbs" 2>nul',
+                    'del /f /q "%STARTUP%\\N2StoreVieNeu.vbs" 2>nul',
+                    'schtasks /delete /tn "VieNeu-TTS" /f >nul 2>nul',
+                    'powershell -NoProfile -Command "Get-CimInstance Win32_Process -Filter \\"Name=\'wscript.exe\'\\" | Where-Object { $_.CommandLine -like \'*N2Store*\' } | ForEach-Object { try{ Stop-Process -Id $_.ProcessId -Force }catch{} }" 2>nul',
+                    'REM --- 1) Print Bridge ---',
                     'if not exist "%DIR%" mkdir "%DIR%"',
-                    'echo Dang tai print-bridge.ps1 ...',
-                    "powershell -NoProfile -Command \"try{ Invoke-WebRequest -Uri '%URL%' -OutFile '%DIR%\\print-bridge.ps1' -UseBasicParsing; exit 0 }catch{ Write-Host $_.Exception.Message; exit 1 }\"",
-                    'if not exist "%DIR%\\print-bridge.ps1" ( echo [LOI] Khong tai duoc tu %URL% & pause & exit /b 1 )',
-                    'REM Launcher chay an khong cua so',
+                    'echo [1/2] Tai Print Bridge ...',
+                    "powershell -NoProfile -Command \"try{ Invoke-WebRequest -Uri '%PBURL%' -OutFile '%DIR%\\print-bridge.ps1' -UseBasicParsing; exit 0 }catch{ exit 1 }\"",
+                    'if not exist "%DIR%\\print-bridge.ps1" ( echo [LOI] Khong tai duoc Print Bridge & pause & exit /b 1 )',
                     '> "%DIR%\\run-hidden.vbs" echo CreateObject("WScript.Shell").Run "powershell -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File ""%DIR%\\print-bridge.ps1""", 0, False',
-                    'REM Tu bat khi dang nhap Windows',
                     'copy /Y "%DIR%\\run-hidden.vbs" "%STARTUP%\\N2StorePrintBridge.vbs" >nul',
-                    'REM Chay ngay',
                     'wscript "%DIR%\\run-hidden.vbs"',
+                    'echo   [OK] Print Bridge chay nen (http://127.0.0.1:17777)',
+                    'REM --- 2) Giong VieNeu (tai ps1 rieng + chay) ---',
+                    'echo [2/2] Cai Giong VieNeu (lan dau ~595MB, vai phut)...',
+                    "powershell -NoProfile -Command \"try{ Invoke-WebRequest -Uri '%VPS1%' -OutFile '%DIR%\\vieneu-setup.ps1' -UseBasicParsing; exit 0 }catch{ exit 1 }\"",
+                    'if not exist "%DIR%\\vieneu-setup.ps1" ( echo [BO QUA] Khong tai duoc VieNeu setup & goto :done )',
+                    'powershell -NoProfile -ExecutionPolicy Bypass -File "%DIR%\\vieneu-setup.ps1" -VBase "%VBASE%"',
+                    ':done',
                     'echo.',
-                    'echo  [OK] Da cai xong. Print Bridge dang chay nen tai http://127.0.0.1:17777',
-                    'echo  No se TU BAT moi khi mo may.',
+                    'echo  [HOAN TAT] Print Bridge + Giong VieNeu dang chay nen, TU BAT moi khi mo may.',
+                    'echo  Vao trang Tao video se tu hien may nay o muc Giong VieNeu.',
                     'echo.',
                     'pause',
                 ].join('\r\n');
             }
             $('btnDownloadBat').addEventListener('click', () => {
-                _download('cai-print-bridge.bat', batContent());
-                toast('Đã tải file cài đặt — bấm đúp để chạy', 'success');
+                _download('cai-may-pos.bat', batContent());
+                toast(
+                    'Đã tải file cài đặt (Print Bridge + Giọng VieNeu) — bấm đúp để chạy',
+                    'success'
+                );
             });
             $('btnDownloadPs1').addEventListener('click', async () => {
                 try {
@@ -867,23 +888,25 @@
                 }
             });
             function uninstallBatContent() {
-                // .bat: tắt tiến trình bridge đang chạy + xoá autostart + xoá thư mục.
+                // .bat: tắt + gỡ CẢ Print Bridge LẪN Giọng VieNeu (autostart + tiến trình + thư mục).
                 return [
                     '@echo off',
                     'chcp 65001 >nul',
                     'set "DIR=%LOCALAPPDATA%\\N2StorePrintBridge"',
+                    'set "VDIR=%LOCALAPPDATA%\\N2StoreVieNeu"',
                     'set "STARTUP=%APPDATA%\\Microsoft\\Windows\\Start Menu\\Programs\\Startup"',
-                    'echo Dang tat va go N2Store Print Bridge ...',
+                    'echo Dang tat va go N2Store Print Bridge + Giong VieNeu ...',
                     'REM Xoa autostart (khong tu bat nua)',
                     'del /f /q "%STARTUP%\\N2StorePrintBridge.vbs" 2>nul',
-                    'REM Tat tien trinh powershell dang chay print-bridge.ps1',
-                    'powershell -NoProfile -Command "Get-CimInstance Win32_Process -Filter \\"Name=\'powershell.exe\'\\" | Where-Object { $_.CommandLine -like \'*print-bridge.ps1*\' } | ForEach-Object { try{ Stop-Process -Id $_.ProcessId -Force }catch{} }" 2>nul',
-                    'REM Tat tien trinh wscript launcher (neu con)',
-                    'powershell -NoProfile -Command "Get-CimInstance Win32_Process -Filter \\"Name=\'wscript.exe\'\\" | Where-Object { $_.CommandLine -like \'*N2StorePrintBridge*\' } | ForEach-Object { try{ Stop-Process -Id $_.ProcessId -Force }catch{} }" 2>nul',
+                    'del /f /q "%STARTUP%\\N2StoreVieNeu.vbs" 2>nul',
+                    'schtasks /delete /tn "VieNeu-TTS" /f >nul 2>nul',
+                    'REM Tat tien trinh: print-bridge.ps1 + serve.py + cloudflared + wscript launcher',
+                    "powershell -NoProfile -Command \"Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like '*print-bridge.ps1*' -or $_.CommandLine -like '*serve.py*' -or $_.CommandLine -like '*N2Store*' -or ($_.Name -eq 'cloudflared.exe' -and $_.CommandLine -like '*N2StoreVieNeu*') } | ForEach-Object { try{ Stop-Process -Id $_.ProcessId -Force }catch{} }\" 2>nul",
                     'REM Xoa thu muc cai dat',
                     'rmdir /s /q "%DIR%" 2>nul',
+                    'rmdir /s /q "%VDIR%" 2>nul',
                     'echo.',
-                    'echo  [OK] Da tat + go Print Bridge. Khong con tu bat khi mo may.',
+                    'echo  [OK] Da tat + go Print Bridge + Giong VieNeu. Khong con tu bat khi mo may.',
                     'echo.',
                     'pause',
                 ].join('\r\n');
