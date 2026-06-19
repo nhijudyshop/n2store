@@ -50,6 +50,7 @@
                         <div class="w2cc-side-list" data-w2cc="list"><div class="w2cc-side-empty">Đang tải hội thoại…</div></div>
                     </aside>
                     <main class="w2cc-main" data-w2cc="thread">${_stateHtml('loading', 'Đang tải…')}</main>
+                    ${showInfo ? `<aside class="w2cc-info" data-w2cc="info">${opts.panels.info}</aside>` : ''}
                 </div>
             </div>`;
         document.body.appendChild(back);
@@ -201,8 +202,22 @@
             if (e.target.closest('[data-w2cc="close"]')) close();
         });
         document.addEventListener('keydown', onEsc);
-        const handle = { close, _back: back, switchTab() {}, getPanel: () => panelInst };
+        const handle = {
+            close,
+            _back: back,
+            switchTab() {},
+            getPanel: () => panelInst,
+            // Cho caller truy cập cột info đã render (vd wire reply handlers).
+            getInfoEl: () => back.querySelector('[data-w2cc="info"]'),
+        };
         setActive(handle);
+        // onReady: caller wire thêm hành vi vào info column / thread sau khi mount
+        // (vd native-orders: bind nút trả lời bình luận trong cột info).
+        try {
+            opts.onReady?.(handle, back);
+        } catch (e) {
+            console.error('[Web2CustomerChat] onReady error:', e);
+        }
         return handle;
     }
 

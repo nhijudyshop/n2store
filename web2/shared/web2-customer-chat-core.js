@@ -409,6 +409,8 @@
 .w2cc-row-time{font-size:10px;color:var(--web2-text-mute,#9ca3af);flex-shrink:0;align-self:flex-start}
 .w2cc-main{display:flex;flex-direction:column;min-height:0;position:relative}
 .w2cc-side-empty{padding:24px 12px;text-align:center;color:var(--web2-text-mute,#9ca3af);font-size:12px}
+.w2cc-info{display:flex;flex-direction:column;min-height:0;overflow-y:auto;overscroll-behavior:contain;border-left:1px solid var(--web2-border,#e5e7eb);background:var(--web2-bg,#f8fafc);padding:12px;gap:10px}
+@media (max-width:900px){.w2cc-grid.has-info{grid-template-columns:280px 1fr}.w2cc-info{display:none}}
 `;
         const el = document.createElement('style');
         el.id = 'w2cc-styles';

@@ -1,9 +1,9 @@
 {
-    "generatedAt": "2026-06-19 00:44",
+    "generatedAt": "2026-06-19 00:55",
     "totals": {
         "files": 332,
         "sharedModules": 89,
-        "functions": 2564,
+        "functions": 2567,
         "oversized": 3
     },
     "sharedModules": [
@@ -421,7 +421,7 @@
             "purpose": "WEB2.0 module.",
             "api": [],
             "consumers": [],
-            "lines": 515
+            "lines": 517
         },
         {
             "file": "web2/shared/web2-customer-chat-modal.js",
@@ -429,7 +429,7 @@
             "purpose": "WEB2.0 module.",
             "api": [],
             "consumers": [],
-            "lines": 211
+            "lines": 226
         },
         {
             "file": "web2/shared/web2-customer-chat.js",
@@ -437,6 +437,7 @@
             "purpose": "WEB2.0 module.",
             "api": [],
             "consumers": [
+                "native-orders/js/native-orders-interactions.js",
                 "web2/balance-history/js/web2-balance-history-app.js",
                 "web2/balance-history/js/web2-bh-chat-export.js",
                 "web2/balance-history/js/web2-pm-render.js",
@@ -2907,7 +2908,7 @@
                 },
                 {
                     "file": "native-orders/js/native-orders-bulk-operations.js",
-                    "lines": 565,
+                    "lines": 567,
                     "purpose": "WEB2.0 module.",
                     "globals": ["NativeOrders"],
                     "uses": [
@@ -2932,7 +2933,7 @@
                 },
                 {
                     "file": "native-orders/js/native-orders-chat-css.js",
-                    "lines": 777,
+                    "lines": 776,
                     "purpose": "WEB2.0 module.",
                     "globals": ["NativeOrders"],
                     "uses": [],
@@ -2940,7 +2941,7 @@
                 },
                 {
                     "file": "native-orders/js/native-orders-chat-render.js",
-                    "lines": 273,
+                    "lines": 265,
                     "purpose": "WEB2.0 module.",
                     "globals": ["NativeOrders"],
                     "uses": ["Web2Chat"],
@@ -2959,7 +2960,7 @@
                 },
                 {
                     "file": "native-orders/js/native-orders-chat-send.js",
-                    "lines": 334,
+                    "lines": 332,
                     "purpose": "WEB2.0 module.",
                     "globals": ["NativeOrders"],
                     "uses": ["Web2Chat", "Web2NewMsgBadge"],
@@ -2967,7 +2968,7 @@
                 },
                 {
                     "file": "native-orders/js/native-orders-chat-state.js",
-                    "lines": 780,
+                    "lines": 769,
                     "purpose": "WEB2.0 module.",
                     "globals": ["NativeOrders"],
                     "uses": [
@@ -3007,7 +3008,7 @@
                 },
                 {
                     "file": "native-orders/js/native-orders-customer-panel.js",
-                    "lines": 414,
+                    "lines": 417,
                     "purpose": "WEB2.0 module.",
                     "globals": ["NativeOrders"],
                     "uses": ["Web2Auth", "Web2Optimistic"],
@@ -3031,7 +3032,7 @@
                 },
                 {
                     "file": "native-orders/js/native-orders-customer360.js",
-                    "lines": 124,
+                    "lines": 125,
                     "purpose": "WEB2.0 module.",
                     "globals": ["NativeOrders"],
                     "uses": [],
@@ -3039,7 +3040,7 @@
                 },
                 {
                     "file": "native-orders/js/native-orders-delivery.js",
-                    "lines": 204,
+                    "lines": 202,
                     "purpose": "WEB2.0 module.",
                     "globals": ["NativeOrders"],
                     "uses": ["DeliveryMethodPicker", "Web2Optimistic"],
@@ -3060,7 +3061,7 @@
                 },
                 {
                     "file": "native-orders/js/native-orders-filters-campaigns.js",
-                    "lines": 360,
+                    "lines": 348,
                     "purpose": "WEB2.0 module.",
                     "globals": ["NativeOrders"],
                     "uses": [],
@@ -3092,7 +3093,7 @@
                 },
                 {
                     "file": "native-orders/js/native-orders-inbox-add.js",
-                    "lines": 422,
+                    "lines": 421,
                     "purpose": "WEB2.0 module.",
                     "globals": ["NativeOrders"],
                     "uses": ["Web2Bill", "Web2UserInfo"],
@@ -3110,7 +3111,7 @@
                 },
                 {
                     "file": "native-orders/js/native-orders-inbox-realtime.js",
-                    "lines": 389,
+                    "lines": 387,
                     "purpose": "WEB2.0 module.",
                     "globals": ["NativeOrders"],
                     "uses": ["Web2Chat", "Web2Realtime"],
@@ -3126,7 +3127,7 @@
                 },
                 {
                     "file": "native-orders/js/native-orders-inbox-resolve.js",
-                    "lines": 362,
+                    "lines": 354,
                     "purpose": "WEB2.0 module.",
                     "globals": ["NativeOrders"],
                     "uses": ["Web2Chat"],
@@ -3144,7 +3145,7 @@
                 },
                 {
                     "file": "native-orders/js/native-orders-inbox-sidebar.js",
-                    "lines": 633,
+                    "lines": 617,
                     "purpose": "WEB2.0 module.",
                     "globals": ["NativeOrders"],
                     "uses": ["Web2Chat"],
@@ -3174,10 +3175,10 @@
                 },
                 {
                     "file": "native-orders/js/native-orders-interactions.js",
-                    "lines": 732,
+                    "lines": 779,
                     "purpose": "WEB2.0 module.",
                     "globals": ["NativeOrders"],
-                    "uses": ["Web2ChatPanel", "Web2Chat", "Web2QuickReply"],
+                    "uses": ["Web2ChatPanel", "Web2Chat", "Web2CustomerChat", "Web2QuickReply"],
                     "functions": [
                         "_applyChatHeaderForOrder",
                         "_closeInteractions",
@@ -3191,14 +3192,17 @@
                         "_renderInboxRightPanel",
                         "_renderInboxSidebarShell",
                         "_renderInfoTab",
+                        "_renderInteractionsInfoHtml",
                         "_renderInteractionsModal",
                         "_renderMessagesPanel",
                         "_renderQuickReplyTags",
+                        "_wireCommentReplies",
                         "_wireQuickReplyTags",
                         "_wireRightPanelTabs",
                         "fbPermalink",
                         "onAutoSend",
                         "onMsg",
+                        "onReady",
                         "onSelect",
                         "openInteractions",
                         "pancakeUrl"
@@ -3222,7 +3226,7 @@
                 },
                 {
                     "file": "native-orders/js/native-orders-message-render.js",
-                    "lines": 415,
+                    "lines": 391,
                     "purpose": "WEB2.0 module.",
                     "globals": ["NativeOrders"],
                     "uses": ["API_CONFIG", "Web2Chat"],
@@ -3255,7 +3259,7 @@
                 },
                 {
                     "file": "native-orders/js/native-orders-modal-edit.js",
-                    "lines": 442,
+                    "lines": 437,
                     "purpose": "WEB2.0 module.",
                     "globals": ["NativeOrders"],
                     "uses": ["Web2Optimistic", "Web2UserInfo"],
@@ -3297,7 +3301,7 @@
                 },
                 {
                     "file": "native-orders/js/native-orders-pbh-bill.js",
-                    "lines": 787,
+                    "lines": 768,
                     "purpose": "WEB2.0 module.",
                     "globals": ["NativeOrders"],
                     "uses": [
@@ -3340,7 +3344,7 @@
                 },
                 {
                     "file": "native-orders/js/native-orders-product-picker.js",
-                    "lines": 186,
+                    "lines": 178,
                     "purpose": "WEB2.0 module.",
                     "globals": ["NativeOrders"],
                     "uses": ["Web2Auth", "Web2UserInfo"],
@@ -3356,7 +3360,7 @@
                 },
                 {
                     "file": "native-orders/js/native-orders-public-api.js",
-                    "lines": 106,
+                    "lines": 104,
                     "purpose": "WEB2.0 module.",
                     "globals": ["NativeOrders", "NativeOrdersApp"],
                     "uses": ["Web2MsgTemplate", "Web2Realtime"],
@@ -3364,7 +3368,7 @@
                 },
                 {
                     "file": "native-orders/js/native-orders-realtime-init.js",
-                    "lines": 308,
+                    "lines": 305,
                     "purpose": "WEB2.0 module.",
                     "globals": ["NativeOrders"],
                     "uses": ["Web2CkAssignPicker", "Web2CkReview", "Web2SSE"],
@@ -3378,7 +3382,7 @@
                 },
                 {
                     "file": "native-orders/js/native-orders-render.js",
-                    "lines": 729,
+                    "lines": 714,
                     "purpose": "WEB2.0 module.",
                     "globals": ["NativeOrders"],
                     "uses": ["Web2Effects", "Web2NewMsgBadge", "Web2WalletBalance"],
@@ -3403,7 +3407,7 @@
                 },
                 {
                     "file": "native-orders/js/native-orders-snapshots.js",
-                    "lines": 183,
+                    "lines": 176,
                     "purpose": "WEB2.0 module.",
                     "globals": ["NativeOrders"],
                     "uses": ["API_CONFIG"],
@@ -3419,7 +3423,7 @@
                 },
                 {
                     "file": "native-orders/js/native-orders-state.js",
-                    "lines": 402,
+                    "lines": 391,
                     "purpose": "WEB2.0 module.",
                     "globals": ["NativeOrders"],
                     "uses": ["Popup", "API_CONFIG"],
@@ -6368,7 +6372,7 @@
                 },
                 {
                     "file": "web2/shared/web2-customer-chat-core.js",
-                    "lines": 515,
+                    "lines": 517,
                     "purpose": "WEB2.0 module.",
                     "globals": [],
                     "uses": [
@@ -6414,12 +6418,13 @@
                 },
                 {
                     "file": "web2/shared/web2-customer-chat-modal.js",
-                    "lines": 211,
+                    "lines": 226,
                     "purpose": "WEB2.0 module.",
                     "globals": [],
                     "uses": ["Web2ChatPanel", "Web2Chat", "Web2CustomerChat", "Web2Lottie"],
                     "functions": [
                         "close",
+                        "getInfoEl",
                         "getPanel",
                         "loadInitial",
                         "markSelected",
@@ -6427,6 +6432,7 @@
                         "openModal",
                         "renderRows",
                         "selectConv",
+                        "switchTab",
                         "wireSearch"
                     ]
                 },
@@ -8635,6 +8641,19 @@
             "count": 7
         },
         {
+            "fn": "switchTab",
+            "files": [
+                "web2/ck-dashboard/js/ck-dashboard-app.js",
+                "web2/payment-confirm/js/payment-confirm-app.js",
+                "web2/returns/js/returns-tabs.js",
+                "web2/shared/web2-customer-chat-modal.js",
+                "web2/shared/web2-customer-detail-modal.js",
+                "web2/shared/web2-import.js",
+                "web2/zalo/js/web2-zalo-app.js"
+            ],
+            "count": 7
+        },
+        {
             "fn": "_fetchJson",
             "files": [
                 "live-chat/js/live/live-native-orders-api.js",
@@ -8703,18 +8722,6 @@
                 "web2/purchase-refund/js/purchase-refund-modal.js",
                 "web2/shared/web2-customer-chat-modal.js",
                 "web2/shared/web2-quick-reply.js"
-            ],
-            "count": 6
-        },
-        {
-            "fn": "switchTab",
-            "files": [
-                "web2/ck-dashboard/js/ck-dashboard-app.js",
-                "web2/payment-confirm/js/payment-confirm-app.js",
-                "web2/returns/js/returns-tabs.js",
-                "web2/shared/web2-customer-detail-modal.js",
-                "web2/shared/web2-import.js",
-                "web2/zalo/js/web2-zalo-app.js"
             ],
             "count": 6
         },

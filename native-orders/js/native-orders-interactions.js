@@ -27,11 +27,71 @@
             NO.notify('Không tìm thấy đơn ' + code, 'error');
             return;
         }
-        // Giao diện chat 3-cột (Pancake-style) — user thích vì có TÌM KIẾM hội thoại
-        // ở sidebar trái. Center tự resolve hội thoại; match fbid fail → fallback SĐT
-        // (xem _loadAndRenderThread) → vẫn không thấy thì mời chọn ở ô tìm kiếm trái.
+        // HỢP NHẤT 1 NGUỒN (2026-06-19): dùng Web2CustomerChat shared (3-cột Pancake
+        // sidebar tìm kiếm + thread) — tin nhắn KH. Comments của đơn + info → cột INFO
+        // bên phải (panels.info), reply bind lại trong onReady. Web2CustomerChat tự lo
+        // resolve hội thoại (phone → fbId) + realtime (Web2ChatPanel) → KHÔNG cần modal
+        // chat riêng của native-orders nữa.
+        if (window.Web2CustomerChat?.open) {
+            NO._interactionsState = { code, viaCustomerChat: true };
+            window.Web2CustomerChat.open({
+                layout: 'modal',
+                phone: order.phone,
+                fbId: order.fbUserId,
+                pageId: order.fbPageId,
+                name: order.customerName || order.fbUserName || '',
+                query: order.phone || order.customerName || '',
+                panels: { info: NO._renderInteractionsInfoHtml(order) },
+                onReady: (handle) => {
+                    const infoEl = handle && handle.getInfoEl && handle.getInfoEl();
+                    if (infoEl) NO._wireCommentReplies(infoEl, order);
+                    window.lucide?.createIcons?.();
+                },
+            });
+            return;
+        }
+        // Fallback (Web2CustomerChat chưa load): modal chat cũ của native-orders.
         NO._interactionsState = { code, tab: initialTab };
         NO._renderInteractionsModal(order, initialTab);
+    };
+
+    // Cột INFO (panels.info) cho Web2CustomerChat: tiêu đề đơn + panel bình luận.
+    NO._renderInteractionsInfoHtml = function _renderInteractionsInfoHtml(order) {
+        const esc = NO.escapeHtml;
+        const head = `
+            <div style="font-weight:700;font-size:13px;color:var(--web2-text,#111827);display:flex;align-items:center;gap:6px;">
+                <i data-lucide="message-square-text" style="width:15px;height:15px;"></i> Bình luận của đơn
+            </div>
+            <div style="font-size:12px;color:var(--web2-text-mute,#6b7280);">
+                ${esc(order.code || '')}${order.customerName ? ' · ' + esc(order.customerName) : ''}${order.phone ? ' · ' + esc(order.phone) : ''}
+            </div>`;
+        return `<div style="display:flex;flex-direction:column;gap:10px;">${head}${NO._renderCommentsPanel(order)}</div>`;
+    };
+
+    // Bind nút trả lời bình luận trong cột info (Web2CustomerChat onReady) — tái dùng
+    // NO._handleReplyComment (giống nhánh tab 'comments' của modal cũ).
+    NO._wireCommentReplies = function _wireCommentReplies(root, order) {
+        if (!root) return;
+        root.querySelectorAll('[data-action="reply-comment"]').forEach((btn) => {
+            btn.addEventListener('click', () =>
+                NO._handleReplyComment(order, btn.dataset.cid, btn.dataset.input, 'public')
+            );
+        });
+        root.querySelectorAll('[data-action="private-reply"]').forEach((btn) => {
+            btn.addEventListener('click', () =>
+                NO._handleReplyComment(order, btn.dataset.cid, btn.dataset.input, 'private')
+            );
+        });
+        root.querySelectorAll('textarea[id^="replyCmt-"]').forEach((ta) => {
+            ta.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                    e.preventDefault();
+                    const cid = ta.parentElement?.querySelector('[data-action="reply-comment"]')
+                        ?.dataset?.cid;
+                    if (cid) NO._handleReplyComment(order, cid, ta.id, 'public');
+                }
+            });
+        });
     };
 
     /**
@@ -704,6 +764,9 @@
     // Hook for realtime refresh — called from WS event handler
     NO._refreshInteractionsIfOpen = function _refreshInteractionsIfOpen(updatedOrder) {
         if (!NO._interactionsState || NO._interactionsState.code !== updatedOrder.code) return;
+        // Web2CustomerChat (viaCustomerChat) tự lo realtime qua Web2ChatPanel → KHÔNG
+        // re-render modal cũ (sẽ tạo modal ẩn xung đột). Chỉ refresh khi đang dùng modal cũ.
+        if (NO._interactionsState.viaCustomerChat) return;
         // Merge updated fields into the live STATE entry (broadcast may carry newer data)
         const idx = NO.STATE.orders.findIndex((o) => o.code === updatedOrder.code);
         if (idx !== -1) NO.STATE.orders[idx] = { ...NO.STATE.orders[idx], ...updatedOrder };

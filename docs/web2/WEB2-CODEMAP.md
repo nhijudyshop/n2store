@@ -2,7 +2,7 @@
 
 # WEB2-CODEMAP — Bản đồ code Web 2.0
 
-> **Auto-generated** • 2026-06-19 00:44 • 332 files, 89 shared modules, 2564 hàm, 3 file > 800 dòng.
+> **Auto-generated** • 2026-06-19 00:55 • 332 files, 89 shared modules, 2567 hàm, 3 file > 800 dòng.
 > Sinh lại: `node scripts/gen-web2-codemap.js` (chạy sau khi đổi cấu trúc/ tách module / thêm trang).
 
 ## 0. Cách dùng (Claude / dev đọc TRƯỚC khi code)
@@ -45,7 +45,7 @@
 | `Web2CommandPalette`                       | [web2-command-palette.js](../../web2/shared/web2-command-palette.js)                  | WEB2.0 shared — Command Palette (Ctrl/Cmd+K) toàn cục.                                                  | 1         |
 | —                                          | [web2-customer-chat-core.js](../../web2/shared/web2-customer-chat-core.js)            | WEB2.0 module.                                                                                          | 0         |
 | —                                          | [web2-customer-chat-modal.js](../../web2/shared/web2-customer-chat-modal.js)          | WEB2.0 module.                                                                                          | 0         |
-| `Web2CustomerChat`                         | [web2-customer-chat.js](../../web2/shared/web2-customer-chat.js)                      | WEB2.0 module.                                                                                          | 8         |
+| `Web2CustomerChat`                         | [web2-customer-chat.js](../../web2/shared/web2-customer-chat.js)                      | WEB2.0 module.                                                                                          | 9         |
 | `Web2CustomerDetailModal`                  | [web2-customer-detail-modal.js](../../web2/shared/web2-customer-detail-modal.js)      | WEB2.0 — modal chi tiết KH (balance-history). Đọc kho KH chung /api/web2/customers/\*.                  | 3         |
 | `PartnerCustomerApi`, `Web2CustomerLookup` | [web2-customer-lookup.js](../../web2/shared/web2-customer-lookup.js)                  | WEB2.0 — shim PartnerCustomerApi → Web2CustomerStore.                                                   | 7         |
 | `Web2CustomerStore`                        | [web2-customer-store.js](../../web2/shared/web2-customer-store.js)                    | WEB2.0 — NGUỒN DUY NHẤT truy cập kho KH web2_customers.                                                 | 8         |
@@ -192,7 +192,7 @@ WEB2.0 shared — Command Palette (Ctrl/Cmd+K) toàn cục.
 #### `Web2CustomerChat` — [web2/shared/web2-customer-chat.js](../../web2/shared/web2-customer-chat.js) · 205 dòng
 
 WEB2.0 module.
-**Dùng bởi:** `web2/balance-history/js/web2-balance-history-app.js`, `web2/balance-history/js/web2-bh-chat-export.js`, `web2/balance-history/js/web2-pm-render.js`, `web2/jt-tracking/js/jt-tracking-modals.js`, `web2/shared/web2-customer-chat-core.js`, `web2/shared/web2-customer-chat-modal.js`, `web2/shared/web2-customer-detail-modal.js`, `web2/shared/web2-product-counter.js`
+**Dùng bởi:** `native-orders/js/native-orders-interactions.js`, `web2/balance-history/js/web2-balance-history-app.js`, `web2/balance-history/js/web2-bh-chat-export.js`, `web2/balance-history/js/web2-pm-render.js`, `web2/jt-tracking/js/jt-tracking-modals.js`, `web2/shared/web2-customer-chat-core.js`, `web2/shared/web2-customer-chat-modal.js`, `web2/shared/web2-customer-detail-modal.js`, `web2/shared/web2-product-counter.js`
 
 #### `Web2CustomerDetailModal` — [web2/shared/web2-customer-detail-modal.js](../../web2/shared/web2-customer-detail-modal.js) · 413 dòng
 
@@ -749,68 +749,68 @@ WEB2.0 module — Zalo chat sticker picker.
     - exposes: `NativeOrdersApi`
     - uses shared: `API_CONFIG`, `Web2Auth`
     - funcs (13): \_authHeaders, \_fetchJson, campaigns, createManual, getByUser, getKpiScope, health, list, markPrinted, markProductsPrinted, remove, searchProducts, update
-- **[native-orders-bulk-operations.js](../../native-orders/js/native-orders-bulk-operations.js)** ·565 — WEB2.0 module.
+- **[native-orders-bulk-operations.js](../../native-orders/js/native-orders-bulk-operations.js)** ·567 — WEB2.0 module.
     - exposes: `NativeOrders`
     - uses shared: `DeliveryMethodPicker`, `Popup`, `Web2Auth`, `Web2Chat`, `Web2MsgTemplate`
     - funcs (10): bulkCreatePbh, bulkCreatePbhShop, bulkMergeOrders, bulkSendMessage, collect, createPbhShopOne, fmt, getSelectedCodes, unselectAllOrders, updateBulkBar
-- **[native-orders-chat-css.js](../../native-orders/js/native-orders-chat-css.js)** ·777 — WEB2.0 module.
+- **[native-orders-chat-css.js](../../native-orders/js/native-orders-chat-css.js)** ·776 — WEB2.0 module.
     - exposes: `NativeOrders`
     - funcs (1): \_ensureChatModalCss
-- **[native-orders-chat-render.js](../../native-orders/js/native-orders-chat-render.js)** ·273 — WEB2.0 module.
+- **[native-orders-chat-render.js](../../native-orders/js/native-orders-chat-render.js)** ·265 — WEB2.0 module.
     - exposes: `NativeOrders`
     - uses shared: `Web2Chat`
     - funcs (10): \_appendBubbleDom, \_attachScrollLoader, \_bubbleSlotHtml, \_loadOlderIndicatorHtml, \_loadOlderMessages, \_onChatScroll, \_onScrollRaw, \_prependBubblesDom, \_renderChatThread, \_skeletonThreadHtml
-- **[native-orders-chat-send.js](../../native-orders/js/native-orders-chat-send.js)** ·334 — WEB2.0 module.
+- **[native-orders-chat-send.js](../../native-orders/js/native-orders-chat-send.js)** ·332 — WEB2.0 module.
     - exposes: `NativeOrders`
     - uses shared: `Web2Chat`, `Web2NewMsgBadge`
     - funcs (3): \_handleReplyComment, \_handleSendMessage, \_restore
-- **[native-orders-chat-state.js](../../native-orders/js/native-orders-chat-state.js)** ·780 — WEB2.0 module.
+- **[native-orders-chat-state.js](../../native-orders/js/native-orders-chat-state.js)** ·769 — WEB2.0 module.
     - exposes: `NativeOrders`
     - uses shared: `Web2ChatPanel`, `Web2Auth`, `Web2Chat`, `Web2NewMsgBadge`, `Web2Realtime`
     - funcs (25): \_appendOutgoing, \_attachLabel, \_attachmentKind, \_buildNativeAdapter, \_clearPendingAttachment, \_fileToDataUrl, \_loadAndRenderThread, \_mountChatPanel, \_onIncomingWsMessage, \_performNativeSend, \_removeOutgoing, \_renderReplyBar, \_setPendingAttachment, \_setReplyTarget, \_teardownChatState, loadMessages, loadOlder, markRead, onAddEntity, onEvent, onerror, onload, quickReplies, send, sendSticker
-- **[native-orders-customer-panel.js](../../native-orders/js/native-orders-customer-panel.js)** ·414 — WEB2.0 module.
+- **[native-orders-customer-panel.js](../../native-orders/js/native-orders-customer-panel.js)** ·417 — WEB2.0 module.
     - exposes: `NativeOrders`
     - uses shared: `Web2Auth`, `Web2Optimistic`
     - funcs (15): \_ensureCustPanelEl, \_fetchCustomerPanelData, \_hideCustPanel, \_onCustAvatarEnter, \_onCustAvatarLeave, \_renderCustPanelContent, \_scheduleCustPanelHide, \_showCustPanel, apply, fetchCustomerFromWeb2, formatTime, onSuccess, rollback, run, snapshot
-- **[native-orders-customer360.js](../../native-orders/js/native-orders-customer360.js)** ·124 — WEB2.0 module.
+- **[native-orders-customer360.js](../../native-orders/js/native-orders-customer360.js)** ·125 — WEB2.0 module.
     - exposes: `NativeOrders`
     - funcs (4): money, onclick, openCustomer, renderRow
-- **[native-orders-delivery.js](../../native-orders/js/native-orders-delivery.js)** ·204 — WEB2.0 module.
+- **[native-orders-delivery.js](../../native-orders/js/native-orders-delivery.js)** ·202 — WEB2.0 module.
     - exposes: `NativeOrders`
     - uses shared: `DeliveryMethodPicker`, `Web2Optimistic`
     - funcs (12): \_closeDeliveryMenu, \_deliveryBadgeHtml, \_deliveryOpts, \_deliveryShort, \_detectDelivery, apply, onSuccess, openDeliveryMenu, rollback, run, setDeliveryMethod, snapshot
-- **[native-orders-filters-campaigns.js](../../native-orders/js/native-orders-filters-campaigns.js)** ·360 — WEB2.0 module.
+- **[native-orders-filters-campaigns.js](../../native-orders/js/native-orders-filters-campaigns.js)** ·348 — WEB2.0 module.
     - exposes: `NativeOrders`
     - funcs (23): \_syncChannelUi, applyFilters, assignPost, clearFilters, clearParentSelection, createParentCampaign, firstMatch, loadAvailableCampaigns, loadCampaignSelection, loadPagePosts, loadParentCampaigns, opts, pickNewestHouseStore, reconcileCampaignSelection, renderCampaignDropdown, renderCampaignLabel, renderPagePosts, renderParentCampaigns, row, saveCampaignSelection, selectParentCampaign, toggleCampaignDropdown, toggleFilter
-- **[native-orders-inbox-add.js](../../native-orders/js/native-orders-inbox-add.js)** ·422 — WEB2.0 module.
+- **[native-orders-inbox-add.js](../../native-orders/js/native-orders-inbox-add.js)** ·421 — WEB2.0 module.
     - exposes: `NativeOrders`
     - uses shared: `Web2Bill`, `Web2UserInfo`
     - funcs (9): addToCart, close, ensureProdCache, openAddInboxOrder, pkItemHtml, renderCart, renderProdResults, setFbStatus, whItemHtml
-- **[native-orders-inbox-realtime.js](../../native-orders/js/native-orders-inbox-realtime.js)** ·389 — WEB2.0 module.
+- **[native-orders-inbox-realtime.js](../../native-orders/js/native-orders-inbox-realtime.js)** ·387 — WEB2.0 module.
     - exposes: `NativeOrders`
     - uses shared: `Web2Chat`, `Web2Realtime`
     - funcs (7): \_handleSidebarWsEvent, \_mergeSidebarConvs, \_pollSidebarOnce, \_startSidebarPoll, \_switchChatToCustomer, \_wireSidebarRealtime, onEvent
-- **[native-orders-inbox-resolve.js](../../native-orders/js/native-orders-inbox-resolve.js)** ·362 — WEB2.0 module.
+- **[native-orders-inbox-resolve.js](../../native-orders/js/native-orders-inbox-resolve.js)** ·354 — WEB2.0 module.
     - exposes: `NativeOrders`
     - uses shared: `Web2Chat`
     - funcs (9): \_convRowHtml, \_fetchConvsMerged, \_fmtVnTime, \_getSidebarPageIds, \_hydrateInboxAvatars, \_normPhone, \_resolveInboxConvByPhone, \_searchPancakeCustomers, job
-- **[native-orders-inbox-sidebar.js](../../native-orders/js/native-orders-inbox-sidebar.js)** ·633 — WEB2.0 module.
+- **[native-orders-inbox-sidebar.js](../../native-orders/js/native-orders-inbox-sidebar.js)** ·617 — WEB2.0 module.
     - exposes: `NativeOrders`
     - uses shared: `Web2Chat`
     - funcs (21): \_applySidebarFilter, \_bindConvRowClicks, \_filterActiveCount, \_loadFilterStateFor, \_loadInboxSidebar, \_loadPageTagsForFilter, \_persistFilterState, \_renderFilterSub, \_renderFilterSubConditions, \_renderFilterSubTags, \_rowMatchesFilter, \_tagDictForCurrentPage, \_updateFilterButtonVisual, \_updateFilterCatCounts, \_wireFilterSubConditions, \_wireFilterSubTags, \_wireSidebarFilter, \_wireSidebarSearch, close, doSearch, open
-- **[native-orders-interactions.js](../../native-orders/js/native-orders-interactions.js)** ·732 — WEB2.0 module.
+- **[native-orders-interactions.js](../../native-orders/js/native-orders-interactions.js)** ·779 — WEB2.0 module.
     - exposes: `NativeOrders`
-    - uses shared: `Web2ChatPanel`, `Web2Chat`, `Web2QuickReply`
-    - funcs (23): \_applyChatHeaderForOrder, \_closeInteractions, \_extensionRequest, \_hasChatClient, \_hasExtension, \_loadQuickTags, \_refreshInteractionsIfOpen, \_renderChatHeaderInner, \_renderCommentsPanel, \_renderInboxRightPanel, \_renderInboxSidebarShell, \_renderInfoTab, \_renderInteractionsModal, \_renderMessagesPanel, \_renderQuickReplyTags, \_wireQuickReplyTags, \_wireRightPanelTabs, fbPermalink, onAutoSend, onMsg, onSelect, openInteractions, pancakeUrl
+    - uses shared: `Web2ChatPanel`, `Web2Chat`, `Web2CustomerChat`, `Web2QuickReply`
+    - funcs (26): \_applyChatHeaderForOrder, \_closeInteractions, \_extensionRequest, \_hasChatClient, \_hasExtension, \_loadQuickTags, \_refreshInteractionsIfOpen, \_renderChatHeaderInner, \_renderCommentsPanel, \_renderInboxRightPanel, \_renderInboxSidebarShell, \_renderInfoTab, \_renderInteractionsInfoHtml, \_renderInteractionsModal, \_renderMessagesPanel, \_renderQuickReplyTags, \_wireCommentReplies, \_wireQuickReplyTags, \_wireRightPanelTabs, fbPermalink, onAutoSend, onMsg, onReady, onSelect, openInteractions, pancakeUrl
 - **[native-orders-kpi.js](../../native-orders/js/native-orders-kpi.js)** ·114 — WEB2.0 module.
     - exposes: `NativeOrdersKpi`
     - uses shared: `API_CONFIG`, `Web2Auth`, `Web2SSE`
     - funcs (7): authHeaders, esc, fmtVnd, init, load, render, scheduleReload
-- **[native-orders-message-render.js](../../native-orders/js/native-orders-message-render.js)** ·415 — WEB2.0 module.
+- **[native-orders-message-render.js](../../native-orders/js/native-orders-message-render.js)** ·391 — WEB2.0 module.
     - exposes: `NativeOrders`
     - uses shared: `API_CONFIG`, `Web2Chat`
     - funcs (24): \_avatarHtml, \_avatarInitial, \_avatarUrl, \_bubbleHtml, \_dateLabel, \_dateSeparatorHtml, \_msgPlain, \_msgTimestamp, \_renderAdClick, \_renderAddress, \_renderAttachment, \_renderAudio, \_renderAudioCall, \_renderFile, \_renderImage, \_renderLinkPreview, \_renderQuotedReply, \_renderReactions, \_renderSticker, \_renderSystemMessage, \_renderTemplate, \_renderVideo, \_workerProxy, vnFmt
-- **[native-orders-modal-edit.js](../../native-orders/js/native-orders-modal-edit.js)** ·442 — WEB2.0 module.
+- **[native-orders-modal-edit.js](../../native-orders/js/native-orders-modal-edit.js)** ·437 — WEB2.0 module.
     - exposes: `NativeOrders`
     - uses shared: `Web2Optimistic`, `Web2UserInfo`
     - funcs (14): apply, changeLineQty, closeEdit, onSuccess, openEdit, quickStatus, removeLine, renderOrderLines, rollback, run, saveEdit, setLineNote, setLineQty, snapshot
@@ -818,31 +818,31 @@ WEB2.0 module — Zalo chat sticker picker.
     - exposes: `NativeOrdersPackingSlip`
     - uses shared: `Web2UserInfo`
     - funcs (10): \_buildPrintHTML, \_ensureModal, \_esc, \_notify, \_print, \_renderRows, \_seller, close, go, open
-- **[native-orders-pbh-bill.js](../../native-orders/js/native-orders-pbh-bill.js)** ·787 — WEB2.0 module.
+- **[native-orders-pbh-bill.js](../../native-orders/js/native-orders-pbh-bill.js)** ·768 — WEB2.0 module.
     - exposes: `NativeOrders`
     - uses shared: `DeliveryMethodPicker`, `Popup`, `Web2Bill`, `Web2Effects`, `NativeReturnBill`
     - funcs (28): \_billShipPriceOf, \_buildPbhShape, \_dateInputToIsoWithNowTime, \_doCreatePbh, \_getDeliveryOpts, \_markPrintedCodes, bulkPrintBills, cancelOrder, cancelPbh, cancelPbhFromEdit, cleanup, collect, copyCode, createPbh, fmt, goPage, onKey, onMount, onPrint, openCustomFormPopup, openNext, pickedHint, printConfirmedBills, removeOrder, splitOrder, splitPbh, validateOrderForPbh, viewOrderBill
-- **[native-orders-product-picker.js](../../native-orders/js/native-orders-product-picker.js)** ·186 — WEB2.0 module.
+- **[native-orders-product-picker.js](../../native-orders/js/native-orders-product-picker.js)** ·178 — WEB2.0 module.
     - exposes: `NativeOrders`
     - uses shared: `Web2Auth`, `Web2UserInfo`
     - funcs (7): \_pickerOutsideClick, \_renderPickItem, addLineFromPicker, ensureVariantMap, loadEditProductsCache, searchPickerProducts, stripVi
-- **[native-orders-public-api.js](../../native-orders/js/native-orders-public-api.js)** ·106 — WEB2.0 module.
+- **[native-orders-public-api.js](../../native-orders/js/native-orders-public-api.js)** ·104 — WEB2.0 module.
     - exposes: `NativeOrders`, `NativeOrdersApp`
     - uses shared: `Web2MsgTemplate`, `Web2Realtime`
     - funcs (2): injectFakeMessage, simulateLineCommentId
-- **[native-orders-realtime-init.js](../../native-orders/js/native-orders-realtime-init.js)** ·308 — WEB2.0 module.
+- **[native-orders-realtime-init.js](../../native-orders/js/native-orders-realtime-init.js)** ·305 — WEB2.0 module.
     - exposes: `NativeOrders`
     - uses shared: `Web2CkAssignPicker`, `Web2CkReview`, `Web2SSE`
     - funcs (5): \_loadAndRenderScopeBanner, \_scheduleReload, \_sseConnect, init, onDone
-- **[native-orders-render.js](../../native-orders/js/native-orders-render.js)** ·729 — WEB2.0 module.
+- **[native-orders-render.js](../../native-orders/js/native-orders-render.js)** ·714 — WEB2.0 module.
     - exposes: `NativeOrders`
     - uses shared: `Web2Effects`, `Web2NewMsgBadge`, `Web2WalletBalance`
     - funcs (16): \_buildOrderHtml, \_renderExpandRow, \_rowSignature, clearCustomerFilter, computeOrderStt, detectCarrier, filterByCustomer, load, orderDerivedBadges, renderCounters, renderCustomerChip, renderPagination, renderRows, swapCaret, toggleExpand, web2StatusText
-- **[native-orders-snapshots.js](../../native-orders/js/native-orders-snapshots.js)** ·183 — WEB2.0 module.
+- **[native-orders-snapshots.js](../../native-orders/js/native-orders-snapshots.js)** ·176 — WEB2.0 module.
     - exposes: `NativeOrders`
     - uses shared: `API_CONFIG`
     - funcs (7): \_flushSnapFetch, \_queueSnapFetch, \_renderCommentReadonlyBlock, \_renderCommentThumbHtml, \_renderLineSnapThumb, close, openSnapLightbox
-- **[native-orders-state.js](../../native-orders/js/native-orders-state.js)** ·402 — WEB2.0 module.
+- **[native-orders-state.js](../../native-orders/js/native-orders-state.js)** ·391 — WEB2.0 module.
     - exposes: `NativeOrders`
     - uses shared: `Popup`, `API_CONFIG`
     - funcs (30): $, \_isRealFbId, \_renderSourceBadge, \_showFbBusinessLoginPrompt, applyColumnVisibility, avatarColor, controlBar, counter, escapeHtml, firstChar, formatFullTime, formatTimeSplit, loadColVisibility, modal, modalBody, modalTitle, notify, pag, renderAvatar, renderColumnTogglePanel, restoreChannel, saveChannel, saveColVisibility, searchCount, statusBadge, tbody, toggleColumnPanel, toggleLabel, w2pAlert, w2pConfirm
@@ -1520,12 +1520,12 @@ WEB2.0 module — Zalo chat sticker picker.
 - **[web2-command-palette.js](../../web2/shared/web2-command-palette.js)** ·269 — WEB2.0 shared — Command Palette (Ctrl/Cmd+K) toàn cục.
     - exposes: `Web2CommandPalette`
     - funcs (13): build, close, collectItems, ensureStyles, escapeHtml, norm, onKey, open, renderList, run, score, scrollActive, toggle
-- **[web2-customer-chat-core.js](../../web2/shared/web2-customer-chat-core.js)** ·515 — WEB2.0 module.
+- **[web2-customer-chat-core.js](../../web2/shared/web2-customer-chat-core.js)** ·517 — WEB2.0 module.
     - uses shared: `Web2ChatPanel`, `API_CONFIG`, `Web2Chat`, `Web2CustomerChat`, `Web2Ext`, `Web2Lottie`
     - funcs (30): \_convRowHtml, \_fileToDataUrl, \_getPageIds, \_hasScript, \_loadCss, \_loadScript, \_mAvatarUrl, \_mColor, \_mInitial, \_mTime, \_mergeConvs, \_pageName, \_performSend, \_resolveConvByFbId, \_stateHtml, \_trySendViaExtension, buildPancakeAdapter, ensureStyles, esc, getActive, loadMessages, loadOlder, loadPanelBundle, notify, onerror, onload, quickReplies, resolvePancakeConv, send, setActive
-- **[web2-customer-chat-modal.js](../../web2/shared/web2-customer-chat-modal.js)** ·211 — WEB2.0 module.
+- **[web2-customer-chat-modal.js](../../web2/shared/web2-customer-chat-modal.js)** ·226 — WEB2.0 module.
     - uses shared: `Web2ChatPanel`, `Web2Chat`, `Web2CustomerChat`, `Web2Lottie`
-    - funcs (9): close, getPanel, loadInitial, markSelected, onEsc, openModal, renderRows, selectConv, wireSearch
+    - funcs (11): close, getInfoEl, getPanel, loadInitial, markSelected, onEsc, openModal, renderRows, selectConv, switchTab, wireSearch
 - **[web2-customer-chat.js](../../web2/shared/web2-customer-chat.js)** ·205 — WEB2.0 module.
     - exposes: `Web2CustomerChat`
     - uses shared: `Web2ChatPanel`, `Web2Chat`, `Web2Ext`, `Web2Lottie`, `Web2Zalo`
@@ -1782,13 +1782,13 @@ WEB2.0 module — Zalo chat sticker picker.
 | `_esc`             | 7       | → `Web2Escape` (web2-escape.js)                       | live-chat-modal.js, live-hidden-commenters.js, live-livestream-gallery.js, live-livestream-snap-state.js, native-orders-packing-slip.js, web2-bill-service.js, system-app.js                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | `reload`           | 7       |                                                       | live-livestream-gallery.js, web2-bh-data.js, pbh-app.js, payment-confirm-app.js, web2-unread-panel.js, chat-view.js, system-sse.js                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | `renderCounters`   | 7       |                                                       | native-orders-render.js, dlv-app.js, pbh-render.js, rf-app.js, web2-products-render.js, page-builder.js, web2-variants-app.js                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| `switchTab`        | 7       |                                                       | ck-dashboard-app.js, payment-confirm-app.js, returns-tabs.js, web2-customer-chat-modal.js, web2-customer-detail-modal.js, web2-import.js, web2-zalo-app.js                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | `_fetchJson`       | 6       |                                                       | live-native-orders-api.js, native-orders-api.js, web2-products-api.js, web2-api.js, web2-chat-utils.js, web2-variants-api.js                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | `clearFilters`     | 6       |                                                       | native-orders-filters-campaigns.js, dlv-app.js, pbh-filters.js, rf-app.js, web2-products-filters.js, page-builder.js                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | `goPage`           | 6       |                                                       | native-orders-pbh-bill.js, dlv-app.js, pbh-filters.js, rf-app.js, web2-products-filters.js, page-builder.js                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | `jsonFetch`        | 6       |                                                       | web2-bh-core.js, web2-link-customer-modal.js, web2-manual-deposit.js, web2-pm-core.js, web2-customer-wallet-state.js, web2-wallet-api.js                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | `normalize`        | 6       |                                                       | live-status.js, payment-confirm-app.js, delivery-method-picker.js, web2-customer-store.js, web2-unread-panel.js, supplier-wallet-storage.js                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | `openModal`        | 6       |                                                       | web2-link-customer-modal.js, web2-pm-modal.js, customers-detail.js, purchase-refund-modal.js, web2-customer-chat-modal.js, web2-quick-reply.js                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
-| `switchTab`        | 6       |                                                       | ck-dashboard-app.js, payment-confirm-app.js, returns-tabs.js, web2-customer-detail-modal.js, web2-import.js, web2-zalo-app.js                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | `toast`            | 6       |                                                       | comments-mobile-actions.js, live-livestream-snap-actions.js, payment-confirm-app.js, returns-core.js, web2-ck-assign-picker.js, web2-ck-review.js                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | `_notify`          | 5       |                                                       | native-orders-packing-slip.js, web2-customer-detail-modal.js, web2-optimistic.js, web2-quick-reply.js, web2-suppliers-cache.js                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | `_w2AuthHeaders`   | 5       | → `Web2Auth.authHeaders`                              | live-api.js, live-campaign-manager.js, live-init-state.js, live-livestream-snap-state.js, pancake-api.js                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
