@@ -264,11 +264,13 @@ async function updatePostMessage(postId, pageToken, message) {
     return gfetch(`${GRAPH}/${postId}`, { method: 'POST', body });
 }
 
-/** Liệt kê bài ĐÃ ĐĂNG của page (cho tab quản lý). */
+/** Liệt kê bài ĐÃ ĐĂNG của page (cho tab quản lý).
+ * ⚠ KHÔNG xin likes/comments/shares.summary — các field đếm tương tác đòi feature
+ * "Page Public Content Access" (cần App Review riêng) → gây lỗi (#10) dù đã có
+ * pages_read_engagement. Chỉ lấy field nội dung bài (chạy với page token + pages_read_engagement).
+ * Số like/cmt xem trực tiếp trên FB qua permalink. */
 async function listPagePosts(pageId, pageToken, limit = 25) {
-    const fields =
-        'id,message,created_time,full_picture,permalink_url,status_type,' +
-        'shares,likes.summary(true),comments.summary(true)';
+    const fields = 'id,message,created_time,full_picture,permalink_url,status_type';
     const url = `${GRAPH}/${pageId}/posts?fields=${encodeURIComponent(fields)}&limit=${limit}&access_token=${encodeURIComponent(pageToken)}`;
     const data = await gfetch(url);
     return (data.data || []).map((p) => ({
@@ -278,9 +280,6 @@ async function listPagePosts(pageId, pageToken, limit = 25) {
         picture: p.full_picture || '',
         permalink: p.permalink_url || '',
         statusType: p.status_type || '',
-        likes: p.likes?.summary?.total_count || 0,
-        comments: p.comments?.summary?.total_count || 0,
-        shares: p.shares?.count || 0,
     }));
 }
 

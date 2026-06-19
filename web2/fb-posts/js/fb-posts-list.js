@@ -111,9 +111,7 @@
                             <p class="fbp-post-msg">${esc(p.message) || '<i>(không có nội dung)</i>'}</p>
                             <div class="fbp-post-meta">
                                 <span>${fmt(p.createdTime)}</span>
-                                <span>👍 <b>${p.likes}</b></span>
-                                <span>💬 <b>${p.comments}</b></span>
-                                <span>🔁 <b>${p.shares}</b></span>
+                                <span>${esc(p.statusType || '')}</span>
                             </div>
                         </div>
                         <div class="fbp-post-actions">
