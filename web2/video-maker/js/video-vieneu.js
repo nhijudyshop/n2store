@@ -96,6 +96,12 @@
             }
         }
         $('#vmVnRefresh')?.addEventListener('click', refreshServers);
+        $('#vmVnInstaller')?.addEventListener('click', () => {
+            if (global.Web2PosInstaller) {
+                global.Web2PosInstaller.downloadInstaller();
+                notify('Đã tải bộ cài — bấm đúp chạy trên máy shop (Windows)', 'success');
+            } else notify('Chưa tải module cài đặt', 'warning');
+        });
         refreshServers();
         setInterval(refreshServers, 20000);
 

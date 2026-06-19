@@ -505,6 +505,8 @@
         <script src="../../web2/shared/web2-sse-bridge.js?v=20260613h"></script>
         <script src="../../web2/shared/web2-optimistic.js?v=20260601a"></script>
         <script src="../../web2/shared/web2-printer.js?v=20260615auth"></script>
+        <!-- Tải bộ cài máy POS (.bat: Print Bridge + Giọng VieNeu) — DÙNG CHUNG -->
+        <script src="../../web2/shared/web2-pos-installer.js?v=20260619a"></script>
         <script>
             if (window.Web2Sidebar)
                 Web2Sidebar.mount('#web2Aside', { activeRoute: 'printer-settings' });
@@ -823,53 +825,10 @@
                     a.remove();
                 }, 200);
             }
-            function batContent() {
-                // Combined installer (2026-06-19): Print Bridge + Giọng VieNeu, cùng tự chạy nền +
-                // auto-start. Xoá auto/instance CŨ trước (tránh trùng). URL theo vị trí trang (GH Pages).
-                const pbUrl = new URL('../../scripts/print-bridge.ps1', location.href).href;
-                const vBase = new URL('../../vieneu-tts', location.href).href.replace(/\/$/, '');
-                const vPs1 = vBase + '/vieneu-windows-setup.ps1';
-                return [
-                    '@echo off',
-                    'chcp 65001 >nul',
-                    'setlocal',
-                    'set "DIR=%LOCALAPPDATA%\\N2StorePrintBridge"',
-                    'set "STARTUP=%APPDATA%\\Microsoft\\Windows\\Start Menu\\Programs\\Startup"',
-                    'set "PBURL=' + pbUrl + '"',
-                    'set "VPS1=' + vPs1 + '"',
-                    'set "VBASE=' + vBase + '"',
-                    'echo ===========================================================',
-                    'echo   Cai N2Store POS: Print Bridge + Giong VieNeu (tu chay nen)',
-                    'echo ===========================================================',
-                    'REM --- 0) Tat auto/instance CU (tranh trung) ---',
-                    'del /f /q "%STARTUP%\\N2StorePrintBridge.vbs" 2>nul',
-                    'del /f /q "%STARTUP%\\N2StoreVieNeu.vbs" 2>nul',
-                    'schtasks /delete /tn "VieNeu-TTS" /f >nul 2>nul',
-                    'powershell -NoProfile -Command "Get-CimInstance Win32_Process -Filter \\"Name=\'wscript.exe\'\\" | Where-Object { $_.CommandLine -like \'*N2Store*\' } | ForEach-Object { try{ Stop-Process -Id $_.ProcessId -Force }catch{} }" 2>nul',
-                    'REM --- 1) Print Bridge ---',
-                    'if not exist "%DIR%" mkdir "%DIR%"',
-                    'echo [1/2] Tai Print Bridge ...',
-                    "powershell -NoProfile -Command \"try{ Invoke-WebRequest -Uri '%PBURL%' -OutFile '%DIR%\\print-bridge.ps1' -UseBasicParsing; exit 0 }catch{ exit 1 }\"",
-                    'if not exist "%DIR%\\print-bridge.ps1" ( echo [LOI] Khong tai duoc Print Bridge & pause & exit /b 1 )',
-                    '> "%DIR%\\run-hidden.vbs" echo CreateObject("WScript.Shell").Run "powershell -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File ""%DIR%\\print-bridge.ps1""", 0, False',
-                    'copy /Y "%DIR%\\run-hidden.vbs" "%STARTUP%\\N2StorePrintBridge.vbs" >nul',
-                    'wscript "%DIR%\\run-hidden.vbs"',
-                    'echo   [OK] Print Bridge chay nen (http://127.0.0.1:17777)',
-                    'REM --- 2) Giong VieNeu (tai ps1 rieng + chay) ---',
-                    'echo [2/2] Cai Giong VieNeu (lan dau ~595MB, vai phut)...',
-                    "powershell -NoProfile -Command \"try{ Invoke-WebRequest -Uri '%VPS1%' -OutFile '%DIR%\\vieneu-setup.ps1' -UseBasicParsing; exit 0 }catch{ exit 1 }\"",
-                    'if not exist "%DIR%\\vieneu-setup.ps1" ( echo [BO QUA] Khong tai duoc VieNeu setup & goto :done )',
-                    'powershell -NoProfile -ExecutionPolicy Bypass -File "%DIR%\\vieneu-setup.ps1" -VBase "%VBASE%"',
-                    ':done',
-                    'echo.',
-                    'echo  [HOAN TAT] Print Bridge + Giong VieNeu dang chay nen, TU BAT moi khi mo may.',
-                    'echo  Vao trang Tao video se tu hien may nay o muc Giong VieNeu.',
-                    'echo.',
-                    'pause',
-                ].join('\r\n');
-            }
+            // bat cài đặt (Print Bridge + Giọng VieNeu) → DÙNG CHUNG Web2PosInstaller (web2-pos-installer.js).
             $('btnDownloadBat').addEventListener('click', () => {
-                _download('cai-may-pos.bat', batContent());
+                if (!window.Web2PosInstaller) return toast('Chưa tải module cài đặt', 'error');
+                Web2PosInstaller.downloadInstaller();
                 toast(
                     'Đã tải file cài đặt (Print Bridge + Giọng VieNeu) — bấm đúp để chạy',
                     'success'
@@ -887,32 +846,9 @@
                     toast('Không tải được print-bridge.ps1: ' + e.message, 'error');
                 }
             });
-            function uninstallBatContent() {
-                // .bat: tắt + gỡ CẢ Print Bridge LẪN Giọng VieNeu (autostart + tiến trình + thư mục).
-                return [
-                    '@echo off',
-                    'chcp 65001 >nul',
-                    'set "DIR=%LOCALAPPDATA%\\N2StorePrintBridge"',
-                    'set "VDIR=%LOCALAPPDATA%\\N2StoreVieNeu"',
-                    'set "STARTUP=%APPDATA%\\Microsoft\\Windows\\Start Menu\\Programs\\Startup"',
-                    'echo Dang tat va go N2Store Print Bridge + Giong VieNeu ...',
-                    'REM Xoa autostart (khong tu bat nua)',
-                    'del /f /q "%STARTUP%\\N2StorePrintBridge.vbs" 2>nul',
-                    'del /f /q "%STARTUP%\\N2StoreVieNeu.vbs" 2>nul',
-                    'schtasks /delete /tn "VieNeu-TTS" /f >nul 2>nul',
-                    'REM Tat tien trinh: print-bridge.ps1 + serve.py + cloudflared + wscript launcher',
-                    "powershell -NoProfile -Command \"Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like '*print-bridge.ps1*' -or $_.CommandLine -like '*serve.py*' -or $_.CommandLine -like '*N2Store*' -or ($_.Name -eq 'cloudflared.exe' -and $_.CommandLine -like '*N2StoreVieNeu*') } | ForEach-Object { try{ Stop-Process -Id $_.ProcessId -Force }catch{} }\" 2>nul",
-                    'REM Xoa thu muc cai dat',
-                    'rmdir /s /q "%DIR%" 2>nul',
-                    'rmdir /s /q "%VDIR%" 2>nul',
-                    'echo.',
-                    'echo  [OK] Da tat + go Print Bridge + Giong VieNeu. Khong con tu bat khi mo may.',
-                    'echo.',
-                    'pause',
-                ].join('\r\n');
-            }
             $('btnUninstallBat').addEventListener('click', () => {
-                _download('tat-print-bridge.bat', uninstallBatContent());
+                if (!window.Web2PosInstaller) return toast('Chưa tải module cài đặt', 'error');
+                Web2PosInstaller.downloadUninstaller();
                 toast('Đã tải file tắt & gỡ — bấm đúp để chạy', 'success');
             });
 

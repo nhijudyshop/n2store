@@ -21,6 +21,8 @@
 
 > ⚠️ `Web2VideoTTS` + `Web2VideoAudio` HIỆN feature-local (video-maker). Khi trang khác cần giọng/audio → **promote lên `web2/shared/`** (vd `web2-voice.js` hợp nhất MMS/Piper/VieNeu) rồi tham chiếu, đừng copy.
 
+| Tải bộ cài máy POS (Print Bridge + Giọng VieNeu, .bat auto-start) | `Web2PosInstaller` ✅ | [shared/web2-pos-installer.js](../../web2/shared/web2-pos-installer.js) | `downloadInstaller()` · `downloadUninstaller()` · `renderButtons(el,{showUninstall})` | Trang cần cho shop tải file cài server (printer-settings, video-maker) |
+
 ## 🎬 VIDEO (render / animation / effect)
 
 | Capability                                                              | Module                                               | File                                                                                    | API ngắn                                                                                       | Dùng khi                                                |
