@@ -2,6 +2,16 @@
 
 ## 2026-06-19
 
+### [web2/video-maker] Trang MỚI "Tạo video sản phẩm" + giọng đọc tiếng Việt on-device (Đa dụng Web 2.0) ✅
+
+Tiện ích in-browser ghép ảnh SP → video slideshow (Ken Burns zoom + crossfade + overlay chữ) kèm **giọng đọc tiếng Việt tạo NGAY TRÊN MÁY** → xuất MP4/WebM. 100% trình duyệt, không server, không gửi data đi.
+
+- **Video**: canvas render từng frame (`Web2VideoRender`) → `canvas.captureStream(30)` → `MediaRecorder` (ưu tiên `video/mp4`, fallback webm). Scenes: ảnh + tiêu đề + phụ đề + thời lượng, đổi thứ tự ↑↓. 3 tỉ lệ (16:9 / 1:1 / 9:16).
+- **TTS tiếng Việt MIỄN PHÍ on-device** (`Web2VideoTTS`): **MMS-TTS-vie** (`Xenova/mms-tts-vie`) chạy bằng transformers.js (ONNX/WASM) trong browser → Float32Array 16kHz → mux vào video qua `AudioContext.createMediaStreamDestination` + `addTrack`. Lazy-load lib+model CDN (lần đầu ~vài chục MB, sau cache). Fallback "Nghe nhanh" = `speechSynthesis` (giọng máy, không mux). **Kokoro-FastAPI KHÔNG có tiếng Việt → chọn MMS-TTS-vie.**
+- Files: `web2/video-maker/{index.html, video-maker.css, js/video-tts.js, js/video-render.js, js/video-maker.js}`. Đăng ký sidebar + WEB2_PAGES.
+- Verified live: render scene OK, export **MP4 thật** (silent 0.1MB & có tiếng 0.7MB/3.4s — audio mux đúng), TTS sinh giọng Việt thật (55040 samples/16kHz = 3.4s "Áo thun trắng…"), 0 JS err.
+- ⚠ Không đụng AI KOL Studio (Web 1.0) — user chốt làm video trong Đa dụng Web 2.0.
+
 ### [web2/product-card] Trang MỚI "Tạo card sản phẩm" (Đa dụng Web 2.0) ✅
 
 Tiện ích in-browser tạo ảnh card/poster SP để đăng FB/Zalo/Story — 100% on-device, không server. Chọn SP từ kho (`Web2ProductsCache`) hoặc tải/paste ảnh tay → render canvas → export PNG / copy clipboard. Ăn khớp Studio tách nền (toggle "ảnh tách nền" → contain ảnh PNG trong suốt).

@@ -129,6 +129,10 @@
                     label: 'Tạo card sản phẩm 🖼️',
                     our: '../web2/product-card/index.html',
                 },
+                {
+                    label: 'Tạo video sản phẩm 🎬',
+                    our: '../web2/video-maker/index.html',
+                },
             ],
         },
         {
@@ -356,6 +360,7 @@
         'web2/photo-studio/index.html',
         'web2/product-counter/index.html',
         'web2/product-card/index.html',
+        'web2/video-maker/index.html',
         'web2/users-permissions/index.html',
         'web2/system/index.html',
         'web2/zalo/index.html',
