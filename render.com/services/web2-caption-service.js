@@ -30,28 +30,31 @@ const HASHTAG_MAP = [
 ];
 
 // ── Caption templates (offline, FREE) — nhiều phong cách ──────────────────
+// ⚠ Tránh engagement-bait (cmt từ khoá / xin SĐT công khai), ALL-CAPS hô hào,
+// khan hiếm giả ("kẻo hết", "số lượng có hạn"). FB demote reach các kiểu này.
+// CTA "Inbox shop" = an toàn (thao tác mua bán cốt lõi) → giữ.
 const TEMPLATES = {
     sale: (p) =>
-        `🔥 SALE SỐC 🔥 ${p.name}${p.price ? ` chỉ còn ${fmtMoney(p.price)}` : ''}${
+        `🛍️ ${p.name}${p.price ? ` – ${fmtMoney(p.price)}` : ''}${
             p.discount ? ` (giảm ${p.discount})` : ''
-        }!\n` +
-        `✨ Chất đẹp – form chuẩn – lên dáng cực xinh.\n` +
-        `🛒 Inbox shop chốt đơn ngay kẻo hết size nha cả nhà ơi! 👇`,
+        }\n` +
+        `✨ Chất đẹp, form chuẩn, lên dáng xinh.\n` +
+        `🛒 Inbox shop để được tư vấn & chốt đơn nha cả nhà ơi 💕`,
     new: (p) =>
-        `🆕 HÀNG MỚI VỀ 🆕 ${p.name} đã có mặt tại shop!\n` +
-        `${p.price ? `💸 Giá yêu thương: ${fmtMoney(p.price)}\n` : ''}` +
-        `😍 Mẫu này xinh xỉu, số lượng có hạn — nhanh tay các nàng ơi!\n` +
-        `📩 Inbox để được tư vấn size + màu nhé.`,
+        `🆕 Hàng mới về: ${p.name}\n` +
+        `${p.price ? `💸 Giá: ${fmtMoney(p.price)}\n` : ''}` +
+        `😍 Mẫu mới xinh lắm nè.\n` +
+        `📩 Inbox shop để được tư vấn size + màu nhé.`,
     livestream: (p) =>
-        `📣 LÊN SÓNG LIVE 📣 Hôm nay shop xả kho ${p.name}${
+        `📣 ĐANG LIVE 📣 Hôm nay shop có ${p.name}${
             p.price ? ` giá chỉ từ ${fmtMoney(p.price)}` : ''
         }!\n` +
-        `🎁 Cmt "GIÁ" + số điện thoại để được chốt nhanh nha.\n` +
-        `⏰ Vào live ngay kẻo lỡ deal hời!`,
+        `😍 Vào live xem mẫu mới + tư vấn size/màu trực tiếp nha.\n` +
+        `📩 Inbox shop để được chốt đơn nhanh.`,
     restock: (p) =>
-        `🔁 CÓ HÀNG LẠI RỒI 🔁 ${p.name} các nàng hỏi quá trời!\n` +
+        `🔁 Có hàng lại: ${p.name}\n` +
         `${p.price ? `Giá: ${fmtMoney(p.price)}\n` : ''}` +
-        `Lần này về đủ size đủ màu — chốt liền tay kẻo lại hết nha! 💕`,
+        `Lần này về đủ size đủ màu, inbox shop để được tư vấn nha 💕`,
     simple: (p) =>
         `${p.name}${p.price ? ` – ${fmtMoney(p.price)}` : ''}\n` +
         `${p.desc || 'Inbox shop để được tư vấn nhé!'} 💕`,
@@ -70,7 +73,8 @@ function buildHashtags(text) {
     for (const grp of HASHTAG_MAP) {
         if (grp.kw.some((k) => low.includes(k))) grp.tags.forEach((t) => set.add(t));
     }
-    return [...set].slice(0, 12);
+    // ≤6 hashtag: FB (4/2025) coi 7+ là spam → chỉ hiện cho follower + mất đề xuất.
+    return [...set].slice(0, 6);
 }
 
 /**
@@ -97,7 +101,10 @@ function generateTemplate(product = {}, style = 'sale') {
 const SYSTEM_VI =
     'Bạn là chuyên gia content bán hàng thời trang nữ trên Facebook (giọng văn Việt Nam, ' +
     'thân thiện, dùng emoji vừa phải, kêu gọi inbox/chốt đơn). Viết caption NGẮN GỌN, ' +
-    'cuốn hút, KHÔNG bịa thông tin sai. Trả về chỉ phần caption (không kèm giải thích).';
+    'cuốn hút, KHÔNG bịa thông tin sai. Trả về chỉ phần caption (không kèm giải thích). ' +
+    'KHÔNG dùng mồi tương tác (đừng yêu cầu tag bạn bè / share / comment từ khoá / để lại ' +
+    'SĐT công khai). KHÔNG bịa khuyến mãi/giá. Tránh viết HOA toàn bộ và câu khẩn cấp giả tạo ' +
+    '("kẻo hết", "số lượng có hạn"). CTA an toàn: mời inbox shop.';
 
 async function callGroq(prompt) {
     const key = process.env.GROQ_API_KEY;

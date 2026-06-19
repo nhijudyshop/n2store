@@ -2,6 +2,20 @@
 
 ## 2026-06-19
 
+### [web2/fb-posts] Audit chống ban page / bản quyền FB → sửa nội dung mặc định + cơ chế đăng ✅
+
+Sau khi user dặn "chắc chắn từ/hình không dính bản quyền hoặc bị FB block/ban page" → chạy workflow audit đa-agent (23 agent: research 5 chính sách FB 2025-26 → audit code → adversarial verify → synthesize). Kết quả: **14 finding gom 5 vấn đề; CHỈ 1 là đường-ban thật (bản quyền media), còn lại là giảm-reach (demote), KHÔNG phải ban.** Đã sửa hết, không over-engineer (không chặn URL/hash/fingerprint — chỉ cảnh báo).
+
+- **M1 (đường-ban thật) — bản quyền/nhạc media**: thêm cảnh báo cố định dưới thanh media (composer) "nên dùng Từ Kho SP, ảnh/video brand khác → gỡ + strike → khoá Page; video nhạc bản quyền → tắt tiếng/chặn"; nút **"Từ Kho SP ✓"** thành primary (an toàn nhất); cảnh báo nhạc khi dán URL video (`fb-posts-media.js promptUrl`). KHÔNG chặn cứng (ảnh shop/NCC hợp lệ).
+- **S1 — engagement-bait + lộ SĐT công khai**: template `livestream` bỏ `Cmt "GIÁ" + số điện thoại` → CTA mời inbox. (Text/hashtag KHÔNG có rủi ro bản quyền — audit xác nhận; chỉ trademark mới tính, không áp dụng.)
+- **S2 — clickbait/khan hiếm giả**: bỏ `SALE SỐC` ALL-CAPS, `kẻo hết size`, `số lượng có hạn—nhanh tay`, `xả kho`, `kẻo lỡ deal`; giữ giảm giá factual. Thêm hint dưới ô Khuyến mãi: "chỉ ghi KM có thật, giá ảo bị FB phạt".
+- **S3 — nhồi hashtag**: `buildHashtags` 12 → **6** (FB 4/2025: 7+ hashtag → chỉ follower thấy + mất đề xuất).
+- **S4 — đăng trùng 2 page dồn dập**: `/publish` thêm giãn cách **1.5s** giữa các page.
+- **S5 — không xử lý rate-limit**: catch detect `fbCode 80001/32/4` → DỪNG vòng lặp (không retry mù) + message "FB tạm giới hạn, thử lại sau".
+- **S6 — AI rewrite tái tạo bait**: `SYSTEM_VI` thêm chặn (không tag/share/comment-từ-khoá/xin SĐT công khai, không bịa KM, không ALL-CAPS/khẩn cấp giả).
+
+GIỮ NGUYÊN (audit xác nhận over-caution): CTA "Inbox shop" (thao tác mua bán cốt lõi, không phải bait); không chặn URL/hash/fingerprint; text/hashtag không phải IP surface. `node --check` PASS 4 file; served file verified.
+
 ### [web2/video-maker] Goal 1 — Tạo video TỪ CHỦ ĐỀ (AI viết kịch bản, Gemini RIÊNG Web 2.0) ✅
 
 User muốn "tự tạo video ngắn từ chủ đề như MoneyPrinter" + "đừng động Web 1.0, đưa key mới".

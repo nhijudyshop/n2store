@@ -332,12 +332,16 @@ router.post('/publish', async (req, res) => {
         if (!row) return res.status(400).json({ success: false, error: 'Chưa kết nối Facebook' });
 
         const results = [];
-        for (const pid of pageIds) {
+        let rateLimited = false;
+        for (let i = 0; i < pageIds.length; i++) {
+            const pid = pageIds[i];
             const page = findPage(row.pages, pid);
             if (!page || !page.access_token) {
                 results.push({ pageId: pid, ok: false, error: 'Không có page token' });
                 continue;
             }
+            // Giãn cách giữa các page → tránh đăng dồn dập (spam/IB) + nhịp FB dễ chịu.
+            if (i > 0) await new Promise((r) => setTimeout(r, 1500));
             try {
                 const r = await fb.publishToPage({
                     pageId: page.id,
@@ -356,6 +360,12 @@ router.post('/publish', async (req, res) => {
                     error: err.message,
                     fbCode: err.fbCode,
                 });
+                // FB rate-limit (80001 app / 32 page) → DỪNG, không retry mù
+                // (gọi quá hạn vẫn tính vào cửa sổ kế → càng kẹt).
+                if (err.fbCode === 80001 || err.fbCode === 32 || err.fbCode === 4) {
+                    rateLimited = true;
+                    break;
+                }
             }
         }
 
@@ -398,7 +408,16 @@ router.post('/publish', async (req, res) => {
             savedId = ins.rows[0].id;
         }
         _notify(status, String(savedId));
-        res.json({ success: anyOk, id: savedId, status, results });
+        res.json({
+            success: anyOk,
+            id: savedId,
+            status,
+            results,
+            rateLimited,
+            ...(rateLimited
+                ? { message: 'Facebook tạm giới hạn (rate-limit) → đã dừng, thử lại sau ít phút.' }
+                : {}),
+        });
     } catch (e) {
         res.status(500).json({ success: false, error: e.message });
     }

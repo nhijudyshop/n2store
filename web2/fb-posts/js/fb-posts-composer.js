@@ -71,6 +71,7 @@
                     <div class="fbp-field"><label>Khuyến mãi</label>
                         <input class="fbp-input" id="fbpPDiscount" placeholder="VD: 20%" /></div>
                 </div>
+                <p style="font-size:.76rem;color:#94a3b8;margin:-4px 0 10px">⚠ Chỉ ghi khuyến mãi/giá CÓ THẬT — giá ảo/giảm giá sai có thể bị Facebook phạt (đánh strike).</p>
                 <div class="fbp-styles" id="fbpStyles">
                     ${Object.entries(STYLE_LABELS)
                         .map(
@@ -96,11 +97,16 @@
             <div class="fbp-card">
                 <h3><i data-lucide="image"></i> Ảnh / Video</h3>
                 <div class="fbp-media-bar">
-                    <button class="fbp-btn ghost sm" id="fbpMedProduct" type="button"><i data-lucide="package"></i> Từ Kho SP</button>
+                    <button class="fbp-btn sm" id="fbpMedProduct" type="button" title="An toàn nhất — ảnh của shop"><i data-lucide="package"></i> Từ Kho SP ✓</button>
                     <button class="fbp-btn ghost sm" id="fbpMedUpload" type="button"><i data-lucide="upload"></i> Tải ảnh lên</button>
                     <button class="fbp-btn ghost sm" id="fbpMedUrl" type="button"><i data-lucide="link-2"></i> Dán URL</button>
                     <input type="file" id="fbpMedFile" accept="image/*" multiple hidden />
                 </div>
+                <p class="fbp-media-note" style="font-size:.78rem;color:#94a3b8;margin:6px 0 0;line-height:1.5">
+                    💡 Nên dùng <strong>"Từ Kho SP"</strong> (ảnh của shop) cho an toàn. Dùng ảnh/video
+                    của shop/brand khác có thể bị Facebook gỡ + tính strike (lặp lại → khoá Page). Video
+                    có nhạc bản quyền có thể bị tắt tiếng/chặn ở một số khu vực.
+                </p>
                 <div class="fbp-media-grid" id="fbpMediaGrid"></div>
             </div>
 
@@ -295,6 +301,7 @@
                 S().editingDraftId = null;
                 resetForm();
             }
+            if (r.rateLimited) notify(r.message || 'Facebook tạm giới hạn — thử lại sau.', 'error');
             if (failed.length) {
                 const detail = failed
                     .map((f) => `• ${f.pageName || f.pageId}: ${f.error}`)

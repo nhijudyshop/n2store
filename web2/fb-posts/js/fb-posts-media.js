@@ -92,6 +92,11 @@
         }
         const u = url.trim();
         const type = /\.(mp4|mov|webm)(\?|$)/i.test(u) ? 'video' : 'photo';
+        if (type === 'video')
+            notify(
+                'Lưu ý: video có nhạc bản quyền có thể bị FB tắt tiếng/chặn ở một số nơi.',
+                'warning'
+            );
         add({ type, url: u });
     }
 
