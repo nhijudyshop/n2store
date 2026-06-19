@@ -17,6 +17,7 @@
     let _src = null; // ảnh nguồn hiện tại (dataURL/URL)
     let _name = 'anh';
     let _result = null;
+    let _warmStarted = false; // chỉ preload model 1 lần
 
     function esc(s) {
         if (global.Web2Escape?.escapeHtml) return global.Web2Escape.escapeHtml(s);
@@ -31,6 +32,12 @@
         if (!src) return;
         _src = src;
         if (name) _name = name;
+        // PRELOAD model nhận diện mặt ở nền NGAY khi có ảnh — để lúc bấm công cụ
+        // làm đẹp mặt thì model đã sẵn sàng (ẩn độ trễ tải ~13MB engine MediaPipe).
+        if (!_warmStarted && global.Web2BeautyFace?.warmup) {
+            _warmStarted = true;
+            global.Web2BeautyFace.warmup().catch(() => {});
+        }
         const img = $('#peSourceImg');
         if (img) img.src = src;
         $('#peSource').hidden = false;

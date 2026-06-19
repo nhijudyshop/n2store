@@ -128,3 +128,6 @@ downloads/n2store-session/tpos-download-*
 docs/orders-report/*.xlsx
 pancake-creds.local.txt
 downloads/n2store-session/pancake-login-capture.log
+
+# test assets (faces/videos cho beauty test — không commit)
+downloads/test/
