@@ -7,8 +7,26 @@
     let _pageId = null;
     let _after = null; // cursor trang kế (infinite scroll)
     let _loading = false;
-    let _count = 0;
     let _observer = null;
+    let _posts = []; // các bài đã tải (mọi loại) — lọc client-side
+    let _filter = 'all'; // all | live | video | photo | text
+
+    const TYPE_FILTERS = [
+        ['all', 'Tất cả'],
+        ['live', '🔴 Livestream'],
+        ['video', '🎬 Video'],
+        ['photo', '🖼️ Hình ảnh'],
+        ['text', '📝 Bài viết'],
+    ];
+    function typeBadge(p) {
+        if (p.type === 'live')
+            return p.living
+                ? '<span class="fbp-status scheduled">🔴 Đang Live</span>'
+                : '<span class="fbp-status">📺 Đã Live</span>';
+        if (p.type === 'video') return '<span class="fbp-status">🎬 Video</span>';
+        if (p.type === 'photo') return '<span class="fbp-status">🖼️ Hình ảnh</span>';
+        return '<span class="fbp-status">📝 Bài viết</span>';
+    }
 
     function notify(msg, type) {
         if (window.notificationManager) window.notificationManager[type || 'info'](msg);
@@ -79,7 +97,7 @@
                     <p class="fbp-post-msg">${esc(p.message) || '<i>(không có nội dung)</i>'}</p>
                     <div class="fbp-post-meta">
                         <span>${fmt(p.createdTime)}</span>
-                        <span>${esc(p.statusType || '')}</span>
+                        ${typeBadge(p)}
                     </div>
                 </div>
                 <div class="fbp-post-actions">
@@ -87,6 +105,33 @@
                     <button class="fbp-btn danger sm" data-del="${esc(p.id)}" type="button"><i data-lucide="trash-2"></i> Xoá</button>
                 </div>
             </div>`;
+    }
+
+    // Render danh sách bài (lọc client-side theo _filter).
+    function renderPostsList() {
+        const listEl = document.getElementById('fbpPostsList');
+        if (!listEl) return;
+        const arr = _filter === 'all' ? _posts : _posts.filter((p) => p.type === _filter);
+        listEl.innerHTML = arr.length
+            ? arr.map(postRowHtml).join('')
+            : '<div class="fbp-empty" style="padding:18px">Chưa có bài loại này trong số đã tải — cuộn để tải thêm.</div>';
+        wireRows(listEl);
+        const cnt = document.getElementById('fbpPostCount');
+        if (cnt)
+            cnt.textContent = _filter === 'all' ? _posts.length : `${arr.length}/${_posts.length}`;
+        if (window.lucide?.createIcons) window.lucide.createIcons();
+    }
+
+    function wireFilterChips() {
+        document.querySelectorAll('#fbpTypeFilters [data-flt]').forEach((b) => {
+            b.addEventListener('click', () => {
+                _filter = b.dataset.flt;
+                document
+                    .querySelectorAll('#fbpTypeFilters .fbp-style')
+                    .forEach((x) => x.classList.toggle('on', x === b));
+                renderPostsList();
+            });
+        });
     }
 
     function wireRows(container) {
@@ -110,7 +155,7 @@
     async function load() {
         // Trang ĐẦU: reset + scheduled + bài page 1, rồi bật infinite scroll.
         _after = null;
-        _count = 0;
+        _posts = [];
         _loading = false;
         if (_observer) {
             _observer.disconnect();
@@ -146,15 +191,17 @@
                     '<div class="fbp-empty"><div class="empty-state-icon">📝</div>Chưa có bài viết.</div>';
                 return;
             }
-            _count = posts.length;
+            _posts = posts;
             _after = r.after || null;
             postsEl.innerHTML =
-                `<div class="fbp-card"><h3><i data-lucide="check-circle-2"></i> Đã đăng <span id="fbpPostCount">${_count}</span></h3>` +
-                `<div id="fbpPostsList">${posts.map(postRowHtml).join('')}</div>` +
+                `<div class="fbp-card"><h3><i data-lucide="check-circle-2"></i> Đã đăng <span id="fbpPostCount">${posts.length}</span></h3>` +
+                `<div class="fbp-styles" id="fbpTypeFilters" style="margin-bottom:12px">${TYPE_FILTERS.map(([k, l]) => `<button type="button" class="fbp-style ${k === _filter ? 'on' : ''}" data-flt="${k}">${l}</button>`).join('')}</div>` +
+                `<div id="fbpPostsList"></div>` +
                 `<div id="fbpSentinel" style="height:1px"></div>` +
                 `<div id="fbpMoreHint" class="fbp-empty" style="padding:14px;display:none"><i data-lucide="loader"></i> Đang tải thêm…</div>` +
                 '</div>';
-            wireRows(document.getElementById('fbpPostsList'));
+            renderPostsList();
+            wireFilterChips();
             setupInfinite();
             if (window.lucide?.createIcons) window.lucide.createIcons();
         } catch (e) {
@@ -183,13 +230,9 @@
         try {
             const r = await Api().list(_pageId, 25, _after);
             const posts = (r && r.posts) || [];
-            const listEl = document.getElementById('fbpPostsList');
-            if (listEl && posts.length) {
-                listEl.insertAdjacentHTML('beforeend', posts.map(postRowHtml).join(''));
-                wireRows(listEl);
-                _count += posts.length;
-                const cnt = document.getElementById('fbpPostCount');
-                if (cnt) cnt.textContent = _count;
+            if (posts.length) {
+                _posts.push(...posts);
+                renderPostsList();
             }
             _after = (r && r.after) || null;
             if (!_after) {

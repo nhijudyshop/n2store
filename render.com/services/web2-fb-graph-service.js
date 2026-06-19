@@ -270,21 +270,66 @@ async function updatePostMessage(postId, pageToken, message) {
  * pages_read_engagement. Chỉ lấy field nội dung bài (chạy với page token + pages_read_engagement).
  * Số like/cmt xem trực tiếp trên FB qua permalink. */
 async function listPagePosts(pageId, pageToken, limit = 25, after = null) {
-    const fields = 'id,message,created_time,full_picture,permalink_url,status_type';
+    const fields =
+        'id,message,created_time,full_picture,permalink_url,status_type,' +
+        'attachments{media_type,type,target{id}}';
     let url = `${GRAPH}/${pageId}/posts?fields=${encodeURIComponent(fields)}&limit=${limit}&access_token=${encodeURIComponent(pageToken)}`;
     if (after) url += `&after=${encodeURIComponent(after)}`;
     const data = await gfetch(url);
-    const posts = (data.data || []).map((p) => ({
-        id: String(p.id),
-        message: p.message || '',
-        createdTime: p.created_time || null,
-        picture: p.full_picture || '',
-        permalink: p.permalink_url || '',
-        statusType: p.status_type || '',
-    }));
+    const posts = (data.data || []).map((p) => {
+        const att = (p.attachments && p.attachments.data && p.attachments.data[0]) || {};
+        return {
+            id: String(p.id),
+            message: p.message || '',
+            createdTime: p.created_time || null,
+            picture: p.full_picture || '',
+            permalink: p.permalink_url || '',
+            statusType: p.status_type || '',
+            mediaType: att.media_type || '',
+            attType: att.type || '',
+            targetId: att.target && att.target.id ? String(att.target.id) : '',
+        };
+    });
     // cursor trang kế (infinite scroll). null = hết bài.
     const next = (data.paging && data.paging.cursors && data.paging.cursors.after) || null;
     return { posts, after: next };
+}
+
+// Map video.id → status của các buổi live (để nhận diện bài livestream). Cache 60s/page.
+const _liveCache = new Map();
+async function getLiveVideoMap(pageId, pageToken) {
+    const c = _liveCache.get(pageId);
+    if (c && Date.now() - c.at < 60000) return c.map;
+    const map = {};
+    try {
+        const url = `${GRAPH}/${pageId}/live_videos?fields=status,video{id}&limit=100&access_token=${encodeURIComponent(pageToken)}`;
+        const data = await gfetch(url);
+        (data.data || []).forEach((v) => {
+            const vid = v.video && v.video.id;
+            if (vid) map[String(vid)] = v.status || 'VOD';
+        });
+    } catch (_) {
+        /* page không cho liệt kê live → bỏ, video sẽ xếp loại 'video' */
+    }
+    _liveCache.set(pageId, { at: Date.now(), map });
+    return map;
+}
+
+/** Phân loại 1 bài: live | video | photo | text (+ living nếu đang phát). */
+function classifyPost(p, liveMap = {}) {
+    const isVideo =
+        p.mediaType === 'video' || p.statusType === 'added_video' || /video/.test(p.attType || '');
+    if (isVideo && p.targetId && liveMap[p.targetId]) {
+        return { type: 'live', living: liveMap[p.targetId] === 'LIVE' };
+    }
+    if (isVideo) return { type: 'video', living: false };
+    const isPhoto =
+        p.mediaType === 'album' ||
+        p.mediaType === 'photo' ||
+        p.statusType === 'added_photos' ||
+        /photo|album/.test(p.attType || '');
+    if (isPhoto) return { type: 'photo', living: false };
+    return { type: 'text', living: false };
 }
 
 /** Chuẩn hoá 1 post detail (ảnh từ attachments+subattachments, comment, engagement). */
@@ -382,5 +427,7 @@ module.exports = {
     listPagePosts,
     listScheduledPosts,
     getPostDetail,
+    getLiveVideoMap,
+    classifyPost,
     normalizeScheduleSec,
 };

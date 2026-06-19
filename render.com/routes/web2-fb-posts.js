@@ -445,12 +445,17 @@ router.get('/list', async (req, res) => {
             return res
                 .status(400)
                 .json({ success: false, error: 'Chưa kết nối / không có page token' });
-        const postsRes = await fb.listPagePosts(page.id, page.access_token, limit, after);
+        const [postsRes, liveMap] = await Promise.all([
+            fb.listPagePosts(page.id, page.access_token, limit, after),
+            fb.getLiveVideoMap(page.id, page.access_token),
+        ]);
+        // Phân loại từng bài: live | video | photo | text (+ living).
+        const posts = postsRes.posts.map((p) => ({ ...p, ...fb.classifyPost(p, liveMap) }));
         // scheduled chỉ lấy ở trang đầu (after rỗng) — trang sau chỉ append bài đã đăng.
         const scheduled = after
             ? []
             : await fb.listScheduledPosts(page.id, page.access_token, limit);
-        res.json({ success: true, posts: postsRes.posts, after: postsRes.after, scheduled });
+        res.json({ success: true, posts, after: postsRes.after, scheduled });
     } catch (e) {
         res.status(500).json({ success: false, error: e.message });
     }

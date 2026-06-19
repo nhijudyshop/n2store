@@ -76,9 +76,7 @@
             state.aiAvailable = !!r.aiAvailable;
             state.oauthAvailable = !!r.oauthAvailable;
             state.user = r.user || null;
-            // mặc định chọn TẤT CẢ page (đăng đồng loạt)
-            if (!state.selectedPages.size)
-                state.selectedPages = new Set(state.pages.map((p) => p.id));
+            // KHÔNG auto-chọn page (tránh đăng nhầm page) — user tự tick page muốn đăng.
         } catch (e) {
             state.connected = false;
         }
