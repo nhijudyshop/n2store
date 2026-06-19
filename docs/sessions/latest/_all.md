@@ -3,15 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `4261386` — feat(web2/photo-editor): thêm Photopea nâng cao (Photoshop-grade) vào Web2ImageEditor
-**Last updated**: 2026-06-19 12:30:23 +07
-**Latest session**: [`RESUME:20260619-123023-4261386`](../20260619-123023-4261386.md)
-**Summary**: feat(web2/photo-editor): thêm Photopea nâng cao (Photoshop-grade) vào Web2ImageEditor
+**Latest commit**: `71322c6` — fix(web2-image-editor): Photopea ảnh kết quả lỗi (broken) với ảnh SP thật lớn
+**Last updated**: 2026-06-19 12:50:03 +07
+**Latest session**: [`RESUME:20260619-125003-71322c6`](../20260619-125003-71322c6.md)
+**Summary**: fix(web2-image-editor): Photopea ảnh kết quả lỗi (broken) với ảnh SP thật lớn
 
 ## Folders affected in this commit
 
-- [`downloads/`](./downloads.md) — 1 file(s)
-- [`web2/`](./web2.md) — 5 file(s)
+- [`web2/`](./web2.md) — 3 file(s)
 
 ## All folder snapshots
 
@@ -74,4 +73,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-19 12:30
+- [`web2/`](./web2.md) — updated 2026-06-19 12:50
