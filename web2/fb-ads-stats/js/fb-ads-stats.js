@@ -74,7 +74,7 @@
         return `<div class="fbp-card"><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
             <span style="font-weight:700">Tài khoản QC:</span>
             <select class="fbp-input" id="fbaAcct" style="max-width:280px">
-                ${_accounts.map((a) => `<option value="${esc(a.accountId)}" ${a.accountId === _actId ? 'selected' : ''}>${esc(a.name)} ${a.status === 1 ? '🟢' : '⚪'} (${esc(a.currency)})</option>`).join('')}
+                ${_accounts.map((a) => `<option value="${esc(a.accountId)}" ${a.accountId === _actId ? 'selected' : ''}>${esc(a.name)} ${a.status === 1 ? '🟢' : '⚪'} (${esc(a.currency)})${a.source ? ' · ' + esc(a.source) : ''}</option>`).join('')}
             </select>
             <div class="fbp-styles" id="fbaPresets">
                 ${PRESETS.map(([k, l]) => `<button type="button" class="fbp-style ${k === _preset ? 'on' : ''}" data-p="${k}">${l}</button>`).join('')}
@@ -128,7 +128,7 @@
                     (a) =>
                         `<div class="fbp-post" style="padding:8px 12px"><div class="fbp-post-body">
                             <b>${esc(a.name)}</b> <span class="fbp-status ${a.status === 1 ? 'published' : ''}">${STATUS[a.status] || 'TT ' + a.status}</span>
-                            <div class="fbp-post-meta"><span>ID ${esc(a.accountId)}</span><span>Tiền tệ ${esc(a.currency)}</span></div>
+                            <div class="fbp-post-meta"><span>ID ${esc(a.accountId)}</span><span>Tiền tệ ${esc(a.currency)}</span>${a.source ? `<span>Nguồn: ${esc(a.source)}</span>` : ''}</div>
                         </div></div>`
                 )
                 .join('')}</div>`;

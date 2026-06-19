@@ -466,19 +466,59 @@ async function getEngagementPosts(pageId, pageToken, limit = 50, liveMap = {}) {
 
 // ── Thống kê quảng cáo (ads) ─────────────────────────────────────────────────
 
-/** Danh sách tài khoản quảng cáo user truy cập được (cần ads_read). */
-async function getAdAccounts(userToken) {
-    const url = `${GRAPH}/me/adaccounts?fields=id,account_id,name,account_status,currency,amount_spent,balance&limit=50&access_token=${encodeURIComponent(userToken)}`;
-    const data = await gfetch(url);
-    return (data.data || []).map((a) => ({
-        id: a.id,
+function _shapeAcct(a, source) {
+    return {
+        id: a.id || `act_${a.account_id}`,
         accountId: a.account_id,
         name: a.name || a.account_id,
         status: a.account_status,
         currency: a.currency || '',
         amountSpent: a.amount_spent || '0',
-        balance: a.balance || '0',
-    }));
+        source: source || '',
+    };
+}
+
+/** Tài khoản quảng cáo user truy cập được: /me/adaccounts (cá nhân + chia sẻ trực tiếp)
+ * + qua Business Manager (owned_ad_accounts + client_ad_accounts). Gom + dedupe.
+ * → KHÔNG cần đăng nhập đúng người chạy QC, chỉ cần là thành viên BM (cần ads_read +
+ * business_management). */
+async function getAdAccounts(userToken) {
+    const enc = encodeURIComponent;
+    const F = 'id,account_id,name,account_status,currency,amount_spent';
+    const map = new Map();
+    const add = (a, src) => {
+        if (a && a.account_id && !map.has(a.account_id)) map.set(a.account_id, _shapeAcct(a, src));
+    };
+    // 1) Trực tiếp
+    try {
+        const d = await gfetch(
+            `${GRAPH}/me/adaccounts?fields=${F}&limit=200&access_token=${enc(userToken)}`
+        );
+        (d.data || []).forEach((a) => add(a, 'Cá nhân / chia sẻ'));
+    } catch (_) {
+        /* tiếp tục với BM */
+    }
+    // 2) Qua Business Manager (bắt được ad account của shop dù không chia sẻ trực tiếp)
+    try {
+        const biz = await gfetch(
+            `${GRAPH}/me/businesses?fields=id,name&limit=50&access_token=${enc(userToken)}`
+        );
+        for (const b of biz.data || []) {
+            for (const edge of ['owned_ad_accounts', 'client_ad_accounts']) {
+                try {
+                    const r = await gfetch(
+                        `${GRAPH}/${b.id}/${edge}?fields=${F}&limit=200&access_token=${enc(userToken)}`
+                    );
+                    (r.data || []).forEach((a) => add(a, b.name || 'Business'));
+                } catch (_) {
+                    /* edge này không truy cập được → bỏ qua */
+                }
+            }
+        }
+    } catch (_) {
+        /* user không có/không xem được BM */
+    }
+    return [...map.values()];
 }
 
 /** Insights 1 tài khoản quảng cáo + breakdown theo campaign (cần ads_read). */
