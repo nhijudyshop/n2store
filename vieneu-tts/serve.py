@@ -27,6 +27,9 @@ REGISTRY = os.environ.get(
 NO_TUNNEL = os.environ.get("NO_TUNNEL") == "1"
 HERE = os.path.dirname(os.path.abspath(__file__))
 
+# Windows: spawn subprocess KHÔNG hiện cửa sổ console (chạy nền ẩn).
+_NOWIN = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
+
 
 def _wait_health():
     for _ in range(90):
