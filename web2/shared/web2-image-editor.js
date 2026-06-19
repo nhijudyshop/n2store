@@ -74,6 +74,8 @@
 
     async function open(src, opts = {}) {
         if (!src) return null;
+        // Chế độ nâng cao = Photopea (ngang Photoshop, nhúng iframe, không cần login).
+        if (opts.engine === 'photopea') return _openPhotopea(src);
         await _load();
         const FIE = global.FilerobotImageEditor;
         const TABS = FIE.TABS || {};
@@ -139,6 +141,82 @@
         });
     }
 
+    // ---- Chế độ NÂNG CAO: Photopea (Photoshop-grade) qua iframe + postMessage API ----
+    // Nhúng hợp lệ (Photopea có API công khai). Không login, xử lý client-side trong
+    // iframe; chỉ tải ảnh vào + lấy ảnh ra qua postMessage (không upload server mình).
+    function _openPhotopea(src) {
+        return new Promise((resolve) => {
+            ensureStyles();
+            const back = document.createElement('div');
+            back.className = 'w2ie-back w2ie-pp';
+            const bar = document.createElement('div');
+            bar.className = 'w2ie-ppbar';
+            bar.innerHTML =
+                '<b><i data-lucide="wand-2"></i> Chỉnh sửa nâng cao — Photopea</b>' +
+                '<span style="flex:1"></span>' +
+                '<button class="w2ie-ppbtn primary" data-pp="save">Lấy ảnh về</button>' +
+                '<button class="w2ie-ppbtn" data-pp="close">Đóng</button>';
+            const frame = document.createElement('iframe');
+            frame.className = 'w2ie-ppframe';
+            frame.allow = 'clipboard-read; clipboard-write';
+            const cfg = { environment: { lang: 'vi' } };
+            frame.src = 'https://www.photopea.com#' + encodeURIComponent(JSON.stringify(cfg));
+            back.appendChild(bar);
+            back.appendChild(frame);
+            document.body.appendChild(back);
+            global.lucide?.createIcons?.();
+
+            let ready = false;
+            let opened = false;
+            let done = false;
+            const finish = (val) => {
+                if (done) return;
+                done = true;
+                global.removeEventListener('message', onMsg);
+                back.remove();
+                resolve(val);
+            };
+            const onMsg = (e) => {
+                if (e.source !== frame.contentWindow) return;
+                const d = e.data;
+                // ArrayBuffer = kết quả saveToOE("png") → ảnh đã chỉnh.
+                if (d instanceof ArrayBuffer) {
+                    const blob = new Blob([d], { type: 'image/png' });
+                    const fr = new FileReader();
+                    fr.onload = () => finish(fr.result);
+                    fr.onerror = () => finish(null);
+                    fr.readAsDataURL(blob);
+                    return;
+                }
+                // String đầu tiên = Photopea sẵn sàng → mở ảnh vào.
+                if (typeof d === 'string' && !ready) {
+                    ready = true;
+                    if (!opened) {
+                        opened = true;
+                        try {
+                            frame.contentWindow.postMessage(
+                                'app.open(' + JSON.stringify(src) + ', null, false);',
+                                '*'
+                            );
+                        } catch {}
+                    }
+                }
+            };
+            global.addEventListener('message', onMsg);
+            bar.addEventListener('click', (e) => {
+                const a = e.target.closest('[data-pp]')?.dataset.pp;
+                if (a === 'close') finish(null);
+                else if (a === 'save') {
+                    try {
+                        frame.contentWindow.postMessage('app.activeDocument.saveToOE("png");', '*');
+                    } catch {
+                        finish(null);
+                    }
+                }
+            });
+        });
+    }
+
     function ensureStyles() {
         if (document.getElementById('w2ie-css')) return;
         const s = document.createElement('style');
@@ -147,6 +225,13 @@
 .w2ie-back{position:fixed;inset:0;z-index:100001;background:#0b1220;display:flex}
 .w2ie-host{flex:1;min-width:0;min-height:0}
 .w2ie-host .SfxModal-Wrapper,.w2ie-host>div{height:100%}
+.w2ie-pp{flex-direction:column}
+.w2ie-ppbar{display:flex;align-items:center;gap:10px;padding:10px 14px;background:#111827;color:#fff;font-size:14px}
+.w2ie-ppbar i{width:17px;height:17px;vertical-align:-3px}
+.w2ie-ppframe{flex:1;width:100%;border:0;min-height:0}
+.w2ie-ppbtn{padding:8px 14px;border:1px solid #334155;background:#1f2937;color:#fff;border-radius:9px;font-weight:700;font-size:13px;cursor:pointer}
+.w2ie-ppbtn.primary{background:#0068ff;border-color:#0068ff}
+.w2ie-ppbtn:hover{filter:brightness(1.08)}
 `;
         document.head.appendChild(s);
     }

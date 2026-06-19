@@ -23,8 +23,9 @@
         if (!src) return;
         _lastSrc = src;
         if (!global.Web2ImageEditor?.open) return notify('Chưa tải được trình chỉnh sửa', 'error');
+        const engine = $('#peAdv')?.checked ? 'photopea' : undefined;
         try {
-            const out = await global.Web2ImageEditor.open(src, { name: name || 'anh' });
+            const out = await global.Web2ImageEditor.open(src, { name: name || 'anh', engine });
             if (out) showResult(out);
         } catch (e) {
             console.error('[photo-editor]', e);

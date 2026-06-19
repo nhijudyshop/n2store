@@ -15,7 +15,7 @@
         <link rel="stylesheet" href="../shared/web2-sidebar.css?v=20260613z" />
         <link rel="stylesheet" href="../shared/web2-theme.css?v=20260613z" />
         <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
-        <link rel="stylesheet" href="./photo-editor.css?v=20260619a" />
+        <link rel="stylesheet" href="./photo-editor.css?v=20260619b" />
     </head>
     <body class="web2-theme">
         <div class="web2-shell">
@@ -44,6 +44,10 @@
                             <div class="pe-drop" id="peProdDrop" hidden></div>
                         </div>
                     </div>
+                    <label class="pe-adv">
+                        <input type="checkbox" id="peAdv" /> Dùng <b>Photopea</b> (nâng cao —
+                        Photoshop-grade: layers, mask, nhiều công cụ hơn)
+                    </label>
                     <p class="pe-hint">Mẹo: có thể dán ảnh (Ctrl/⌘+V) để chỉnh ngay.</p>
 
                     <div class="pe-result" id="peResult" hidden>
@@ -68,8 +72,8 @@
         <script src="../shared/web2-auth.js?v=20260613guard"></script>
         <script src="../shared/web2-sidebar.js?v=20260615db"></script>
         <script src="../shared/web2-products-cache.js?v=20260619a"></script>
-        <script src="../shared/web2-image-editor.js?v=20260619a"></script>
-        <script src="./js/photo-editor.js?v=20260619a"></script>
+        <script src="../shared/web2-image-editor.js?v=20260619b"></script>
+        <script src="./js/photo-editor.js?v=20260619b"></script>
         <script>
             document.addEventListener('DOMContentLoaded', () => {
                 if (window.Web2Sidebar)
