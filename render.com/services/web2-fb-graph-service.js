@@ -179,9 +179,42 @@ function normalizeScheduleSec(scheduledTime) {
     return sec;
 }
 
-/** Upload 1 ảnh ở chế độ unpublished → trả media_fbid (cho carousel nhiều ảnh). */
-async function uploadUnpublishedPhoto(pageId, pageToken, photoUrl) {
-    const body = form({ url: photoUrl, published: 'false', access_token: pageToken });
+/** Decode dataURL/base64 → {buffer, mime} để upload bytes trực tiếp lên FB. */
+function _decodeImageData(s) {
+    let mime = 'image/png';
+    let b64 = String(s || '');
+    const m = /^data:(.*?);base64,(.*)$/s.exec(b64);
+    if (m) {
+        mime = m[1] || mime;
+        b64 = m[2];
+    }
+    return { buffer: Buffer.from(b64, 'base64'), mime };
+}
+
+/** Upload 1 ảnh dạng BYTES (dataURL/base64) ở chế độ unpublished → media_fbid.
+ * Dùng multipart `source` → KHÔNG cần host ảnh công khai (không phụ thuộc imgbb). */
+async function uploadUnpublishedPhotoBytes(pageId, pageToken, dataUrlOrB64) {
+    const { buffer, mime } = _decodeImageData(dataUrlOrB64);
+    const ext = (mime.split('/')[1] || 'png').replace('jpeg', 'jpg');
+    const fd = new FormData();
+    fd.set('published', 'false');
+    fd.set('access_token', pageToken);
+    fd.set('source', new Blob([buffer], { type: mime }), `photo.${ext}`);
+    const data = await gfetch(`${GRAPH}/${pageId}/photos`, {
+        method: 'POST',
+        body: fd,
+        timeoutMs: 60000,
+    });
+    return data.id; // media_fbid
+}
+
+/** Upload 1 ảnh ở chế độ unpublished → trả media_fbid (cho carousel nhiều ảnh).
+ * Nhận object {url} (host công khai) HOẶC {dataUrl|base64} (bytes — upload thẳng). */
+async function uploadUnpublishedPhoto(pageId, pageToken, photo) {
+    if (photo && (photo.dataUrl || photo.base64)) {
+        return uploadUnpublishedPhotoBytes(pageId, pageToken, photo.dataUrl || photo.base64);
+    }
+    const body = form({ url: photo.url, published: 'false', access_token: pageToken });
     const data = await gfetch(`${GRAPH}/${pageId}/photos`, { method: 'POST', body });
     return data.id; // media_fbid
 }
@@ -203,7 +236,8 @@ async function publishToPage({ pageId, pageToken, message, media = [], link, sch
     const sched = normalizeScheduleSec(scheduledTime);
     const schedFields = sched ? { published: 'false', scheduled_publish_time: sched } : {};
 
-    const photos = media.filter((m) => m && m.type === 'photo' && m.url);
+    // ảnh: chấp nhận {url} (host công khai) hoặc {dataUrl|base64} (bytes → upload thẳng FB).
+    const photos = media.filter((m) => m && m.type === 'photo' && (m.url || m.dataUrl || m.base64));
     const videos = media.filter((m) => m && m.type === 'video' && m.url);
 
     // 1) Có video → đăng qua /videos (1 video / bài; lấy video đầu).
@@ -218,11 +252,11 @@ async function publishToPage({ pageId, pageToken, message, media = [], link, sch
         return { postId: data.post_id || data.id, scheduled: !!sched };
     }
 
-    // 2) Nhiều ảnh → upload unpublished từng ảnh → /feed với attached_media.
-    if (photos.length > 1) {
+    // 2) Có ảnh (1 hoặc nhiều) → upload unpublished TỪNG ảnh (url hoặc bytes) → /feed
+    //    với attached_media. Thống nhất 1 luồng cho cả ảnh đơn lẫn carousel + hỗ trợ lên lịch.
+    if (photos.length) {
         const fbids = [];
-        for (const ph of photos)
-            fbids.push(await uploadUnpublishedPhoto(pageId, pageToken, ph.url));
+        for (const ph of photos) fbids.push(await uploadUnpublishedPhoto(pageId, pageToken, ph));
         const attached = {};
         fbids.forEach(
             (id, i) => (attached[`attached_media[${i}]`] = JSON.stringify({ media_fbid: id }))
@@ -238,19 +272,7 @@ async function publishToPage({ pageId, pageToken, message, media = [], link, sch
         return { postId: data.id, scheduled: !!sched };
     }
 
-    // 3) Đúng 1 ảnh → /photos.
-    if (photos.length === 1) {
-        const body = form({
-            url: photos[0].url,
-            message: message || '',
-            access_token: pageToken,
-            ...schedFields,
-        });
-        const data = await gfetch(`${GRAPH}/${pageId}/photos`, { method: 'POST', body });
-        return { postId: data.post_id || data.id, scheduled: !!sched };
-    }
-
-    // 4) Chỉ text (± link) → /feed.
+    // 3) Chỉ text (± link) → /feed.
     const body = form({
         message: message || '',
         link,

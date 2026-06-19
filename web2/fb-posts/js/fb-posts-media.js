@@ -28,9 +28,13 @@
         render();
     }
     function add(item) {
-        if (!item || !item.url) return;
-        if (_media.some((m) => m.url === item.url)) return;
-        _media.push({ type: item.type || 'photo', url: item.url });
+        if (!item || (!item.url && !item.dataUrl)) return;
+        const key = item.url || item.dataUrl;
+        if (_media.some((m) => (m.url || m.dataUrl) === key)) return;
+        const it = { type: item.type || 'photo' };
+        if (item.url) it.url = item.url;
+        if (item.dataUrl) it.dataUrl = item.dataUrl; // ảnh bytes → publish route đăng thẳng FB
+        _media.push(it);
         render();
     }
     function removeAt(i) {
@@ -46,40 +50,46 @@
             return;
         }
         _gridEl.innerHTML = _media
-            .map(
-                (m, i) => `
+            .map((m, i) => {
+                const src = m.url || m.dataUrl || '';
+                return `
             <div class="fbp-media-item">
                 ${
                     m.type === 'video'
-                        ? `<video src="${esc(m.url)}" muted></video><span class="fbp-media-badge">VIDEO</span>`
-                        : `<img src="${esc(m.url)}" alt="" loading="lazy" />`
+                        ? `<video src="${esc(src)}" muted></video><span class="fbp-media-badge">VIDEO</span>`
+                        : `<img src="${esc(src)}" alt="" loading="lazy" />`
                 }
                 <button class="fbp-media-x" data-i="${i}" title="Xoá">&times;</button>
-            </div>`
-            )
+            </div>`;
+            })
             .join('');
         _gridEl.querySelectorAll('.fbp-media-x').forEach((b) => {
             b.addEventListener('click', () => removeAt(Number(b.dataset.i)));
         });
     }
 
-    // Tải nhiều ảnh local → imgbb → thêm vào media.
+    // Đọc ảnh local thành dataURL → thêm vào media (publish route đăng bytes thẳng FB,
+    // KHÔNG cần host công khai/imgbb).
+    function fileToDataUrl(file) {
+        return new Promise((res, rej) => {
+            const fr = new FileReader();
+            fr.onload = () => res(String(fr.result));
+            fr.onerror = rej;
+            fr.readAsDataURL(file);
+        });
+    }
     async function handleFiles(fileList) {
         const files = Array.from(fileList || []);
         for (const f of files) {
             if (f.type.startsWith('video/')) {
-                notify(
-                    'Video local chưa hỗ trợ — dùng URL video (mp4). Ảnh thì tải lên OK.',
-                    'warning'
-                );
+                notify('Video local chưa hỗ trợ — dùng URL video (mp4). Ảnh thì OK.', 'warning');
                 continue;
             }
             try {
-                notify(`Đang tải ${f.name}…`, 'info');
-                const url = await Api().uploadImage(f);
-                add({ type: 'photo', url });
+                const dataUrl = await fileToDataUrl(f);
+                add({ type: 'photo', dataUrl });
             } catch (e) {
-                notify(`Lỗi tải ${f.name}: ${e.message}`, 'error');
+                notify(`Lỗi đọc ${f.name}: ${e.message}`, 'error');
             }
         }
     }
