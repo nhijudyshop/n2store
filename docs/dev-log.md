@@ -2,6 +2,12 @@
 
 ## 2026-06-19
 
+### [web2/fb-posts] Tab Bài viết: xem nguyên bài in-app + fix khoá scroll + infinite scroll ✅
+
+- **Xem như FB** (`30071c024`): bấm thumbnail/Xem → popup `openViewer` render full bài — mọi ảnh (attachments+subattachments), nội dung giữ xuống dòng, like/cmt/share + 30 comment đầu (thấy cả comment chốt đơn KH), nút Mở FB. Backend `getPostDetail` (fallback ảnh+text nếu page thiếu pages_read_user_content). Verified: 6 ảnh, 9 cmt, 8 like.
+- **Fix khoá scroll** (`2c552d62e`): `<main>` thiếu `class="web2-main"` → `.web2-shell{overflow:hidden;100vh}` cắt nội dung, không cuộn. Thêm class (scroll container = `.web2-main{overflow:auto}`). ⚠ Mọi trang web2 phải có class này.
+- **Infinite scroll** (`2c552d62e`): `listPagePosts` trả `{posts, after}` (Graph paging cursor); `/list?after=`; frontend IntersectionObserver trên sentinel (root `main.web2-main`, rootMargin 400px) → cuộn gần đáy tự tải 25 bài/lần, đếm tăng, hết → "— Đã hết bài —". Verified: page2 khác hoàn toàn page1, scheduled chỉ page đầu, còn cursor. Chi tiết [[reference_web2_fb_posts]].
+
 ### [web2/fb-posts] Kết nối Facebook LIVE + fix 2 gotcha Graph (pages_manage_posts use case, /list #10) ✅
 
 Kết nối thật xong: user **Lê Minh Tú**, 8 page bind (NhiJudy Store `270136663390370`…) trên service `web2-api`. Verified `/status` connected, `/list` trả bài thật, token đủ `pages_manage_posts`+`pages_read_engagement`.
