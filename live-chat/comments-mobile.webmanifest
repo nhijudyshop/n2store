@@ -1,0 +1,20 @@
+{
+    "name": "Comment Live — N2Store",
+    "short_name": "Comment Live",
+    "description": "Xem bình luận livestream (chỉ-xem, tối ưu điện thoại)",
+    "lang": "vi",
+    "start_url": "./comments-mobile.html",
+    "scope": "./",
+    "display": "standalone",
+    "orientation": "any",
+    "background_color": "#0b1220",
+    "theme_color": "#0068ff",
+    "icons": [
+        {
+            "src": "../web2/shared/img/logo-emblem.png",
+            "sizes": "256x256",
+            "type": "image/png",
+            "purpose": "any"
+        }
+    ]
+}

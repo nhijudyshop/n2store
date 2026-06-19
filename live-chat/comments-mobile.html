@@ -13,7 +13,9 @@
         <!-- PWA "Thêm vào Màn hình chính": icon + full-screen (trang mobile riêng — không nạp web2-pwa.js) -->
         <link rel="apple-touch-icon" href="../web2/shared/img/logo-emblem.png?v=20260530" />
         <link rel="icon" type="image/png" href="../web2/shared/img/logo-emblem.png?v=20260530" />
-        <link rel="manifest" href="../web2/shared/web2-manifest.webmanifest?v=20260620a" />
+        <!-- Manifest RIÊNG của trang này (start_url = chính nó) — KHÔNG dùng manifest chung
+             (manifest chung start_url=overview → add màn hình chính sẽ mở nhầm overview). -->
+        <link rel="manifest" href="./comments-mobile.webmanifest?v=20260620a" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
