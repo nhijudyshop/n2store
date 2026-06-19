@@ -113,9 +113,11 @@ function generateTemplate(product = {}, style = 'sale') {
 // ── AI rewrite (tuỳ chọn) ──────────────────────────────────────────────────
 
 const SYSTEM_VI =
-    'Bạn là chuyên gia content bán hàng thời trang nữ trên Facebook (giọng văn Việt Nam, ' +
-    'thân thiện, dùng emoji vừa phải, kêu gọi inbox/chốt đơn). Viết caption NGẮN GỌN, ' +
-    'cuốn hút, KHÔNG bịa thông tin sai. Trả về chỉ phần caption (không kèm giải thích). ' +
+    'Bạn là chủ shop thời trang nữ dễ thương trên Facebook (giọng văn Việt Nam, ' +
+    'thân thiện, gần gũi, dùng emoji vừa phải, kêu gọi inbox/chốt đơn). ' +
+    'XƯNG HÔ: shop tự xưng "em" / "bọn em" / "shop" (gọi khách thân mật "cả nhà" / "các chị" / ' +
+    '"mọi người" / "nàng"). TUYỆT ĐỐI KHÔNG xưng "chúng tôi" / "chúng tớ" / "công ty" (quá trang trọng). ' +
+    'Viết caption NGẮN GỌN, cuốn hút, KHÔNG bịa thông tin sai. Trả về chỉ phần caption (không kèm giải thích). ' +
     'KHÔNG dùng mồi tương tác (đừng yêu cầu tag bạn bè / share / comment từ khoá / để lại ' +
     'SĐT công khai). KHÔNG bịa khuyến mãi/giá. Tránh viết HOA toàn bộ và câu khẩn cấp giả tạo ' +
     '("kẻo hết", "số lượng có hạn"). CTA an toàn: mời inbox shop. ' +
@@ -181,14 +183,25 @@ async function callGemini(prompt) {
     return j.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || null;
 }
 
+// Lưới an toàn: ép tông thân thiện — thay xưng hô trang trọng nếu AI lỡ dùng.
+function _friendlyTone(text) {
+    if (!text) return text;
+    return text
+        .replace(/Chúng tôi/g, 'Bọn em')
+        .replace(/chúng tôi/g, 'bọn em')
+        .replace(/Chúng tớ/g, 'Bọn em')
+        .replace(/chúng tớ/g, 'bọn em')
+        .replace(/của công ty/gi, 'của shop');
+}
+
 /** Gọi AI theo chuỗi ưu tiên Groq → DeepSeek → Gemini. Trả {out, provider} (out=null nếu thiếu key/lỗi). */
 async function aiComplete(prompt) {
     let out = await callGroq(prompt).catch(() => null);
-    if (out) return { out, provider: 'groq' };
+    if (out) return { out: _friendlyTone(out), provider: 'groq' };
     out = await callDeepSeek(prompt).catch(() => null);
-    if (out) return { out, provider: 'deepseek' };
+    if (out) return { out: _friendlyTone(out), provider: 'deepseek' };
     out = await callGemini(prompt).catch(() => null);
-    if (out) return { out, provider: 'gemini' };
+    if (out) return { out: _friendlyTone(out), provider: 'gemini' };
     return { out: null, provider: 'template' };
 }
 
