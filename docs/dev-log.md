@@ -2,6 +2,14 @@
 
 ## 2026-06-19
 
+### [cloudflare-worker] FIX lỗ hổng HỆ THỐNG: route /api/web2-\* quên khai báo → rơi catch-all TPOS ✅
+
+Phát hiện khi vieneu-registry trả trang 404 TPOS. **Gốc**: worker `getRouteType` (routes.js) có generic `/api/web2/` nhưng CHỈ match dấu `/` (gạch chéo), KHÔNG match `/api/web2-` (gạch ngang) → mọi route `/api/web2-*` phải khai báo TƯỜNG MINH từng cái; quên 1 cái → rơi catch-all `TPOS_GENERIC` (`/api/` → tomato.tpos.vn — fallback của Web 1.0 dùng TPOS thật). Earlier separation-audit chỉ check `isWeb2Path` (origin) mà BỎ tầng `getRouteType` (proxy-vs-TPOS) → sót.
+
+- **Fix 2 tầng**: (1) khai báo `WEB2_VIENEU_REGISTRY` (routes.js + worker.js) — `febcffc71`; (2) **generic `/api/web2-*` → `WEB2_GENERIC` → web2-api** trước catch-all TPOS — `83b5d75c0`. Route Web 2.0 mới prefix `web2-` KHỎI cần đăng ký worker, KHÔNG bao giờ chạm TPOS.
+- **Verify live**: vieneu-registry trả JSON + register/list OK; route web2- bịa `/api/web2-khong-ton-tai-test-xyz` → `{"error":"Not Found"}` của web2-api (KHÔNG TPOS). Probe 95 route: 0 web2 dính TPOS. 5 route "không khớp" (image-proxy/odata/token → render đúng; aikol/delivery-report-telegram → app gọi thẳng `n2store-fallback.onrender.com`, bypass worker, KHÔNG bug).
+- **`catch-all TPOS`** = quy tắc cuối worker: path `/api/*` không nhận ra → tomato.tpos.vn (vì Web 1.0 dùng TPOS thật). Web 2.0 KHÔNG dùng TPOS, phải match tường minh/generic TRƯỚC catch-all.
+
 ### [web2/fb-posts] Chọn NHIỀU SP từ Kho cho AI + thứ tự page Store→House→Ơi→Nè ✅
 
 User: "cho chọn nhiều sản phẩm từ kho lấy thông tin cho AI làm việc" + "module riêng nhiều trang đọc vào" + "thứ tự page: Store, House, Ơi, Nè".
