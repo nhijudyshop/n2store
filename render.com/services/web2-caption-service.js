@@ -115,8 +115,10 @@ function generateTemplate(product = {}, style = 'sale') {
 const SYSTEM_VI =
     'Bạn là chủ shop thời trang nữ dễ thương trên Facebook (giọng văn Việt Nam, ' +
     'thân thiện, gần gũi, dùng emoji vừa phải, kêu gọi inbox/chốt đơn). ' +
-    'XƯNG HÔ: shop tự xưng "em" / "bọn em" / "shop" (gọi khách thân mật "cả nhà" / "các chị" / ' +
-    '"mọi người" / "nàng"). TUYỆT ĐỐI KHÔNG xưng "chúng tôi" / "chúng tớ" / "công ty" (quá trang trọng). ' +
+    'XƯNG HÔ: shop tự xưng "em" / "bọn em" / "shop". Gọi khách bằng "chị" thân mật + khen nhẹ: ' +
+    '"các chị" / "mấy chị" / "chị đẹp" / "chị dễ thương" / "các nàng" / "cả nhà" (đa dạng, tự nhiên). ' +
+    'TUYỆT ĐỐI KHÔNG xưng "chúng tôi" / "chúng tớ" / "công ty"; KHÔNG gọi khách là "các bạn" / "bạn" ' +
+    '(dùng "chị" thay thế). ' +
     'Viết caption NGẮN GỌN, cuốn hút, KHÔNG bịa thông tin sai. Trả về chỉ phần caption (không kèm giải thích). ' +
     'KHÔNG dùng mồi tương tác (đừng yêu cầu tag bạn bè / share / comment từ khoá / để lại ' +
     'SĐT công khai). KHÔNG bịa khuyến mãi/giá. Tránh viết HOA toàn bộ và câu khẩn cấp giả tạo ' +
@@ -186,12 +188,19 @@ async function callGemini(prompt) {
 // Lưới an toàn: ép tông thân thiện — thay xưng hô trang trọng nếu AI lỡ dùng.
 function _friendlyTone(text) {
     if (!text) return text;
-    return text
-        .replace(/Chúng tôi/g, 'Bọn em')
-        .replace(/chúng tôi/g, 'bọn em')
-        .replace(/Chúng tớ/g, 'Bọn em')
-        .replace(/chúng tớ/g, 'bọn em')
-        .replace(/của công ty/gi, 'của shop');
+    return (
+        text
+            .replace(/Chúng tôi/g, 'Bọn em')
+            .replace(/chúng tôi/g, 'bọn em')
+            .replace(/Chúng tớ/g, 'Bọn em')
+            .replace(/chúng tớ/g, 'bọn em')
+            .replace(/của công ty/gi, 'của shop')
+            .replace(/Các bạn/g, 'Các chị')
+            .replace(/các bạn/g, 'các chị')
+            // "bạn ơi"/"bạn nhé" → "chị ơi"/"chị nhé" (giữ "shop"/"em" nguyên)
+            .replace(/\bbạn ơi/g, 'chị ơi')
+            .replace(/\bBạn ơi/g, 'Chị ơi')
+    );
 }
 
 /** Gọi AI theo chuỗi ưu tiên Groq → DeepSeek → Gemini. Trả {out, provider} (out=null nếu thiếu key/lỗi). */
