@@ -130,8 +130,9 @@
         const hasInsights = !!data.hasInsights;
         const pi = data.pageInsights || {};
         const piAvail = (data.insightsAvailable || []).length > 0;
-        const someReach = posts.some((p) => p.reach != null);
-        const totReach = posts.reduce((s, p) => s + (p.reach || 0), 0);
+        // ⚠ FB đã KHAI TỬ reach/impressions per-post → chỉ còn clicks + video views.
+        const someClicks = posts.some((p) => p.clicks != null);
+        const totClicks = posts.reduce((s, p) => s + (p.clicks || 0), 0);
         const totReactions = posts.reduce(
             (s, p) => s + (p.reactions != null ? p.reactions : p.likes || 0),
             0
@@ -190,11 +191,11 @@
             }
             <div class="fbp-card"><h3><i data-lucide="heart"></i> Tổng tương tác (${posts.length} bài gần nhất)</h3>
                 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px">
-                    ${someReach ? card('📡 Tiếp cận (reach)', nfmt(totReach), 'tổng các bài') : ''}
                     ${card('Tổng tương tác', nfmt(hasInsights ? totReactions + totCmt + totShare : totEng))}
                     ${card('👍 Cảm xúc', nfmt(hasInsights ? totReactions : totLike))}
                     ${card('💬 Bình luận', nfmt(totCmt))}
                     ${card('🔁 Chia sẻ', nfmt(totShare))}
+                    ${someClicks ? card('🖱 Lượt bấm', nfmt(totClicks), 'tổng các bài') : ''}
                 </div>
             </div>
             <div class="fbp-card"><h3><i data-lucide="layers"></i> Phân loại bài</h3>
@@ -247,7 +248,7 @@
                 <p class="fbp-post-msg">${esc(p.message) || '<i>(không nội dung)</i>'}</p>
                 <div class="fbp-post-meta">
                     <span>${esc(typeLabel(p))}</span><span>${fmtDate(p.createdTime)}</span>
-                    ${p.reach != null ? `<span>📡 <b>${nfmt(p.reach)}</b> tiếp cận</span>` : ''}
+                    ${p.clicks != null ? `<span>🖱 <b>${nfmt(p.clicks)}</b> bấm</span>` : ''}
                     ${p.videoViews != null && p.videoViews > 0 ? `<span>▶️ <b>${nfmt(p.videoViews)}</b></span>` : ''}
                     <span>👍 <b>${nfmt(p.reactions != null ? p.reactions : p.likes)}</b></span><span>💬 <b>${nfmt(p.comments)}</b></span>
                     <span>🔁 <b>${nfmt(p.shares)}</b></span><span style="color:var(--web2-primary,#0068ff)">Σ <b>${nfmt(p.total)}</b></span>

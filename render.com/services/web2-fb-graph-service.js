@@ -566,40 +566,37 @@ function _sumObj(o) {
     return Number(o) || 0;
 }
 
-// Metric chung cho MỌI loại bài. `post_video_views` CHỈ hợp lệ cho video/live — nếu gộp
-// chung mà bài là ảnh/text thì Graph reject CẢ cụm → tách riêng + retry không-video.
-const POST_INSIGHT_BASE =
-    'post_impressions,post_impressions_unique,post_clicks,post_reactions_by_type_total';
-const POST_INSIGHT_VIDEO = 'post_video_views';
+// ⚠ FB ĐÃ KHAI TỬ post_impressions / post_impressions_unique (reach) / post_engaged_users
+// (đợt deprecate insights 2024-2025 — verify bằng /insights-probe: trả #100 "not a valid metric").
+// → KHÔNG còn reach/impressions per-post trên Graph cho BẤT KỲ ai. Chỉ còn các metric dưới đây:
+//   post_clicks (lượt bấm), post_reactions_by_type_total (cảm xúc), post_video_views (lượt xem
+//   video — video/live), post_activity_by_action_type (like/comment/share breakdown).
+const POST_INSIGHT_METRICS =
+    'post_clicks,post_reactions_by_type_total,post_video_views,post_activity_by_action_type';
 
-/** Insights 1 bài → {impressions, reach, clicks, reactions, videoViews} (null nếu không có). */
+/** Insights 1 bài → {clicks, reactions, videoViews, comments, shares} (null nếu không có). */
 async function getPostInsights(postId, pageToken) {
     const enc = encodeURIComponent;
-    const call = (metrics) =>
-        gfetch(`${GRAPH}/${postId}/insights?metric=${metrics}&access_token=${enc(pageToken)}`);
     let data;
     try {
-        // thử kèm video views (bài video/live sẽ có)
-        data = await call(`${POST_INSIGHT_BASE},${POST_INSIGHT_VIDEO}`);
+        data = await gfetch(
+            `${GRAPH}/${postId}/insights?metric=${POST_INSIGHT_METRICS}&access_token=${enc(pageToken)}`
+        );
     } catch (_) {
-        // bài ảnh/text → metric video không hợp lệ → retry chỉ metric chung
-        try {
-            data = await call(POST_INSIGHT_BASE);
-        } catch (__) {
-            return null; // bài cũ / không có insights / thiếu quyền
-        }
+        return null; // bài cũ / không có insights / thiếu quyền
     }
     const m = {};
     (data.data || []).forEach((d) => (m[d.name] = _insightVal(d)));
     const has = (k) => m[k] !== undefined && m[k] !== null;
+    const act = m.post_activity_by_action_type || {};
     return {
-        impressions: has('post_impressions') ? Number(m.post_impressions) || 0 : null,
-        reach: has('post_impressions_unique') ? Number(m.post_impressions_unique) || 0 : null,
         clicks: has('post_clicks') ? Number(m.post_clicks) || 0 : null,
         reactions: has('post_reactions_by_type_total')
             ? _sumObj(m.post_reactions_by_type_total)
             : null,
         videoViews: has('post_video_views') ? Number(m.post_video_views) || 0 : null,
+        comments: act && act.comment != null ? Number(act.comment) : null,
+        shares: act && act.share != null ? Number(act.share) : null,
     };
 }
 
@@ -644,17 +641,19 @@ async function enrichPostsWithInsights(pageToken, posts) {
     const enriched = posts.map((p, i) => {
         const x = i < ins.length ? ins[i] : null;
         if (!x) return p;
-        if (x.reach != null || x.reactions != null) hasInsights = true;
+        if (x.clicks != null || x.reactions != null || x.videoViews != null) hasInsights = true;
+        // reactions từ insights nếu có; comment/share fill từ activity nếu summary thiếu.
         const reactions = x.reactions != null ? x.reactions : p.likes || 0;
+        const comments = p.comments || (x.comments != null ? x.comments : 0);
+        const shares = p.shares || (x.shares != null ? x.shares : 0);
         return {
             ...p,
-            reach: x.reach,
-            impressions: x.impressions,
             clicks: x.clicks,
             videoViews: x.videoViews,
             reactions,
-            // total tương tác ưu tiên reactions thật từ insights + comment/share đã có
-            total: reactions + (p.comments || 0) + (p.shares || 0),
+            comments,
+            shares,
+            total: reactions + comments + shares,
         };
     });
     return { posts: enriched, hasInsights };
