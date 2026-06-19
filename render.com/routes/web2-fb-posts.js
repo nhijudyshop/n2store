@@ -151,6 +151,7 @@ router.get('/status', async (req, res) => {
                 connected: false,
                 pages: [],
                 oauthAvailable: fb.hasApp(),
+                aiAvailable: caption.hasAnyAiKey(),
             });
         // "Dính với web luôn" như Pancake/TPOS: page access token (sinh từ user token
         // long-lived) gần như KHÔNG hết hạn → còn page token là còn kết nối, kể cả khi
