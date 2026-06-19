@@ -3,16 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `b062f9d` — auto: session update
-**Last updated**: 2026-06-19 09:35:37 +07
-**Latest session**: [`RESUME:20260619-093537-b062f9d`](../20260619-093537-b062f9d.md)
-**Summary**: auto: session update
+**Latest commit**: `e043512` — fix(web2-chat): lazy-load chat-panel kèm state/render/compose (regression modular)
+**Last updated**: 2026-06-19 09:39:01 +07
+**Latest session**: [`RESUME:20260619-093901-e043512`](../20260619-093901-e043512.md)
+**Summary**: browser click-all test 40 trang Web 2.0 — fix lazy-load chat-panel regression
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
 - [`downloads/`](./downloads.md) — 1 file(s)
-- [`web2/`](./web2.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -30,7 +28,7 @@
 - [`docs/`](./docs.md) — updated 2026-06-19 09:35
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-16 14:31
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-16 14:31
-- [`downloads/`](./downloads.md) — updated 2026-06-19 09:35
+- [`downloads/`](./downloads.md) — updated 2026-06-19 09:39
 - [`facebook-services/`](./facebook-services.md) — updated 2026-06-16 00:35
 - [`fb-ads/`](./fb-ads.md) — updated 2026-05-21 15:39
 - [`firebase-stats/`](./firebase-stats.md) — updated 2026-05-21 15:39
