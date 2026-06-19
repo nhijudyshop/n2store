@@ -600,6 +600,31 @@ router.get('/engagement', async (req, res) => {
     }
 });
 
+// GET /insights-probe?pageId=&postId= — CHẨN ĐOÁN: thử từng metric post riêng lẻ, báo
+// metric nào FB còn cho. postId trống → lấy bài mới nhất của page. Dùng để biết metric
+// nào deprecated thay vì đoán mò.
+router.get('/insights-probe', async (req, res) => {
+    try {
+        const db = getDb(req);
+        const { pageId } = req.query;
+        if (!pageId) return res.status(400).json({ success: false, error: 'Thiếu pageId' });
+        const row = await loadToken(db);
+        const page = row && findPage(row.pages, pageId);
+        if (!page || !page.access_token)
+            return res.status(400).json({ success: false, error: 'Chưa kết nối / không có token' });
+        let postId = req.query.postId;
+        if (!postId) {
+            const r = await fb.listPagePosts(page.id, page.access_token, 1, null);
+            postId = r.posts[0] && r.posts[0].id;
+        }
+        if (!postId) return res.json({ success: true, postId: null, probe: [] });
+        const probe = await fb.probePostMetrics(postId, page.access_token);
+        res.json({ success: true, postId, probe });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message, fbCode: e.fbCode });
+    }
+});
+
 // ── Thống kê quảng cáo ──────────────────────────────────────────────────────
 // GET /ad-accounts — danh sách tài khoản quảng cáo (dùng user token).
 router.get('/ad-accounts', async (req, res) => {

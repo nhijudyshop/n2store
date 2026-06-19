@@ -603,6 +603,34 @@ async function getPostInsights(postId, pageToken) {
     };
 }
 
+// Probe TỪNG metric post riêng lẻ → biết metric nào FB còn cho (chẩn đoán + xác định set hợp lệ).
+const POST_METRIC_CANDIDATES = [
+    'post_impressions',
+    'post_impressions_unique',
+    'post_clicks',
+    'post_reactions_by_type_total',
+    'post_video_views',
+    'post_engaged_users',
+    'post_activity_by_action_type',
+];
+async function probePostMetrics(postId, pageToken) {
+    const enc = encodeURIComponent;
+    return mapPool(
+        POST_METRIC_CANDIDATES,
+        async (metric) => {
+            try {
+                const d = await gfetch(
+                    `${GRAPH}/${postId}/insights/${metric}?access_token=${enc(pageToken)}`
+                );
+                return { metric, ok: true, value: _insightVal((d.data || [])[0]) };
+            } catch (e) {
+                return { metric, ok: false, error: e.message, fbCode: e.fbCode };
+            }
+        },
+        4
+    );
+}
+
 // Bao nhiêu bài đầu được enrich insights (giới hạn để không bắn quá nhiều request).
 const INSIGHT_ENRICH_CAP = 80;
 
@@ -750,6 +778,7 @@ module.exports = {
     getEngagementPosts,
     enrichPostsWithInsights,
     getPostInsights,
+    probePostMetrics,
     getPageInsights,
     getAdAccounts,
     getAdInsights,
