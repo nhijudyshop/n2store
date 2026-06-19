@@ -164,29 +164,55 @@ const chatDbPool = require('./db/pool');
 // Falls back to chatDb khi env unset. KHÔNG dùng Neon nữa (đã migrate sang Render).
 const web2Pool = require('./db/web2-pool');
 
-// 3W7 BOOT GUARD (2026-06-12, audit vòng 3): fallback `web2Pool || chatDbPool`
-// là rủi ro HỆ THỐNG — env WEB2_DATABASE_URL thiếu/sai sau 1 lần deploy thì
-// TOÀN BỘ ensureTables + write Web 2.0 (kể cả bytea livestream, ví) âm thầm
-// rơi xuống chatDb PROD Web 1.0 (2 tiền lệ: web2_* leftover tables; chatDb
-// full 1GB vì bytea — cb45ef604). Mặc định: cảnh báo TO. Set WEB2_REQUIRE_DB=1
-// trên Render → fail-fast exit(1) thay vì chạy sai pool.
+// 3W7 BOOT GUARD (2026-06-12, audit vòng 3; SIẾT "tách tuyệt đối" 2026-06-19):
+// fallback `web2Pool || chatDbPool` là rủi ro HỆ THỐNG — env WEB2_DATABASE_URL
+// thiếu/sai sau 1 lần deploy thì TOÀN BỘ ensureTables + write Web 2.0 (kể cả
+// bytea livestream, ví) âm thầm rơi xuống chatDb PROD Web 1.0 (2 tiền lệ:
+// web2_* leftover tables; chatDb full 1GB vì bytea — cb45ef604).
+//
+// MẶC ĐỊNH GIỜ = FAIL-FAST exit(1) — KHÔNG còn phụ thuộc nhớ set WEB2_REQUIRE_DB.
+// Sau guard này, khi process còn SỐNG thì web2Pool LUÔN non-null → mọi nhánh
+// `web2Db || chatDb` ở 44 route + `web2Pool || chatDbPool` ở ensureSchema trở
+// thành DEAD-SAFE (nhánh `|| chatDb` không bao giờ chạy) → Web 2.0 ⊥ Web 1.0 ở
+// tầng DB được CODE bảo đảm, không phụ thuộc cấu hình env.
+//
+// Escape hatch DUY NHẤT cho monolith/local-dev (CỐ Ý dùng chung 1 DB):
+//   WEB2_ALLOW_CHATDB_FALLBACK=1  → cho phép boot + web2_* ghi vào chatDb.
+// (WEB2_REQUIRE_DB cũ giờ redundant — fail-fast đã là mặc định; vẫn vô hại.)
 if (!web2Pool) {
     console.error(
         '\n' +
             '═'.repeat(70) +
             '\n⚠⚠⚠  [WEB2-DB] WEB2_DATABASE_URL KHÔNG có / pool init fail —\n' +
-            '⚠⚠⚠  Web 2.0 đang FALLBACK sang chatDb (PROD Web 1.0)!\n' +
-            '⚠⚠⚠  Mọi write web2_* sẽ ghi nhầm DB. Kiểm tra env trên Render.\n' +
+            '⚠⚠⚠  Web 2.0 sẽ phải FALLBACK sang chatDb (PROD Web 1.0)!\n' +
             '═'.repeat(70)
     );
-    if (process.env.WEB2_REQUIRE_DB === '1') {
-        console.error('[WEB2-DB] WEB2_REQUIRE_DB=1 → fail-fast, refuse to boot.');
+    if (process.env.WEB2_ALLOW_CHATDB_FALLBACK === '1') {
+        console.warn(
+            '[WEB2-DB] WEB2_ALLOW_CHATDB_FALLBACK=1 → CỐ Ý chạy monolith (web2_* ghi vào chatDb). Chỉ dùng local-dev/migration.'
+        );
+    } else {
+        console.error(
+            '[WEB2-DB] refuse to boot — tách tuyệt đối Web 2.0 ⊥ Web 1.0.\n' +
+                '          → Set WEB2_DATABASE_URL cho instance này,\n' +
+                '          → hoặc WEB2_ALLOW_CHATDB_FALLBACK=1 nếu CỐ Ý dùng chung 1 DB (local-dev).'
+        );
         process.exit(1);
     }
 }
 
 // Make pool available to routes via app.locals
+// ⚠ NAMING (2026-06-19): tên `chatDb`/`chatDbPool` KHÔNG có hậu tố layer → DỄ NHẦM.
+//   • app.locals.chatDb  === app.locals.web1Db  → DB **Web 1.0** (n2store-chat-db).
+//   • app.locals.web2Db                          → DB **Web 2.0** (n2store-web2-db).
+// Code Web 2.0 PHẢI dùng `req.app.locals.web2Db` (idiom `web2Db || chatDb` giờ
+// dead-safe nhờ boot-guard fail-fast ở trên — nhánh `|| chatDb` không bao giờ chạy).
+// Code Web 1.0 dùng `web1Db` (RÕ) hoặc `chatDb` (legacy). TUYỆT ĐỐI không dùng
+// `chatDb` để ghi data Web 2.0 (và ngược lại). Ngoại lệ DUY NHẤT được phép đọc
+// chéo `chatDb` từ Web 2.0: credential Pancake (pancake_accounts /
+// pancake_page_access_tokens) — infra dùng CHUNG, READ-ONLY.
 app.locals.chatDb = chatDbPool;
+app.locals.web1Db = chatDbPool; // alias RÕ LAYER cho code Web 1.0 mới (cùng pool chatDb)
 app.locals.web2Db = web2Pool || chatDbPool;
 // tposTokenManager is set after require() below — see after route imports
 

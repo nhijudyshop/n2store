@@ -230,7 +230,8 @@ function _notifySupplierWallet(req, supplier) {
 // Body: { note?: string }
 // -----------------------------------------------------
 router.post('/:code/approve', async (req, res) => {
-    // P1 2026-05-30: 2 DB pools — records ở web2Db, products ở chatDb
+    // ⚠ Sau tách DB (06/2026): CẢ records VÀ products đều ở **web2Db** (web2_records,
+    // web2_products). `|| chatDb` chỉ là dead-safe fallback (boot-guard fail-fast → không chạy).
     const recordsPool = req.app.locals.web2Db;
     const productsPool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!recordsPool || !productsPool) return res.status(500).json({ error: 'DB unavailable' });

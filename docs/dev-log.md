@@ -2,6 +2,17 @@
 
 ## 2026-06-19
 
+### [render.com] Tách tuyệt đối Web 1.0 ⊥ Web 2.0 — DB/jobs/router + chống nhầm `chatDb` ✅
+
+User: "tiếp tục làm triệt để tách biệt hoàn toàn web 1.0 và web 2.0" + "hàm và router phải nằm đúng chỗ" + "chatDb/chatDbPool không có 2.0/1.0 nên dễ nhầm". Đọc env cả 3 Render service qua API, audit 4 tầng:
+
+- **TẦNG DB (gốc): boot-guard fail-fast MẶC ĐỊNH** (`server.js` ~167). Trước: `web2Pool||chatDbPool` chỉ exit khi `WEB2_REQUIRE_DB=1` (phụ thuộc nhớ set env). Giờ: `!web2Pool` → **exit(1) mặc định**, escape hatch DUY NHẤT `WEB2_ALLOW_CHATDB_FALLBACK=1` (monolith/local-dev). Hệ quả: process còn sống ⇒ `web2Pool` luôn non-null ⇒ **233 nhánh `web2Db||chatDb` ở 44 route + ensureSchema thành DEAD-SAFE** → Web 2.0 không thể ghi nhầm chatDb, đảm bảo bằng CODE không bằng env.
+- **Audit cross-pool**: chiều Web 1.0→web2Db = **0 chỗ** (sạch). Chiều Web 2.0→chatDb = toàn bộ qua idiom (giờ dead-safe); 4 file nghi (livestream-images/snapshots, v2/kpi, purchase-refund) verify code chỉ chạm `web2_*`/`livestream_*` trên web2Db. Ngoại lệ CỐ Ý đọc chéo chatDb từ Web 2.0: **credential Pancake** (`pancake_accounts`/`pancake_page_access_tokens`) — infra dùng CHUNG, READ-ONLY.
+- **TẦNG naming (chống nhầm)**: thêm alias `app.locals.web1Db = chatDbPool` (tên RÕ LAYER cho code Web 1.0) + comment chuẩn (chatDb===web1Db=Web1.0, web2Db=Web2.0). Sửa comment STALE: livestream-images "(chatDb pool)"→web2Db, purchase-refund "products ở chatDb"→web2Db.
+- **TẦNG jobs**: mọi cron Web 2.0 sau `if(!DISABLE_WEB2_JOBS)`; job Web 1.0 (SIP) sau `if(WEB2_ONLY) return`. Đúng.
+- **TẦNG router**: mọi mount `/api/*` Web 2.0 khớp worker `isWeb2Path` → web2-api. 3 mount tên trung tính `/api/users|quick-replies|social-orders/kpi-verify` verify Web 1.0 (chatDb) → đúng để rơi fallback.
+- **Render env (qua API)**: web2-api `WEB2_ONLY=1`+`WEB2_REQUIRE_DB=1`+`WEB2_DATABASE_URL`+`WEB2_GEMINI_API_KEY`; fallback thêm `WEB1_ONLY=1` (đã có `DISABLE_WEB2_JOBS=1`+`WEB2_REQUIRE_DB=1`); **xoá biến chết `WEB2_SERVICE`**. web2-realtime chạy `live-chat/server`. `node --check` PASS.
+
 ### [web2/fb-posts] Audit chống ban page / bản quyền FB → sửa nội dung mặc định + cơ chế đăng ✅
 
 Sau khi user dặn "chắc chắn từ/hình không dính bản quyền hoặc bị FB block/ban page" → chạy workflow audit đa-agent (23 agent: research 5 chính sách FB 2025-26 → audit code → adversarial verify → synthesize). Kết quả: **14 finding gom 5 vấn đề; CHỈ 1 là đường-ban thật (bản quyền media), còn lại là giảm-reach (demote), KHÔNG phải ban.** Đã sửa hết, không over-engineer (không chặn URL/hash/fingerprint — chỉ cảnh báo).

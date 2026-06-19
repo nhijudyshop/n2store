@@ -7,7 +7,9 @@
 // Mục đích: shop lưu lại các khoảnh khắc trong live (mẫu mặc, giá, …) làm tư
 // liệu, filter theo campaign.
 //
-// Storage: Postgres bytea (chatDb pool) — theo policy CLAUDE.md (không Bunny).
+// Storage: Postgres bytea trên **web2Db** (n2store-web2-db) — policy CLAUDE.md (không Bunny).
+//   ⚠ Bảng từng ở chatDb (Web 1.0) trước tách DB → ĐÃ migrate sang web2Db
+//   (web2-livestream-media-migrate.js); code resolve `web2Db || chatDb` (dead-safe).
 // SSE topic: web2:livestream-images — multi-tab/-máy sync.
 //
 // Fallback (khi frontend không lấy được frame): lưu metadata-only với
