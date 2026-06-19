@@ -1,9 +1,9 @@
 {
-    "generatedAt": "2026-06-19 16:51",
+    "generatedAt": "2026-06-19 17:07",
     "totals": {
-        "files": 377,
-        "sharedModules": 106,
-        "functions": 2785,
+        "files": 378,
+        "sharedModules": 107,
+        "functions": 2789,
         "oversized": 1
     },
     "sharedModules": [
@@ -1101,6 +1101,14 @@
             "lines": 450
         },
         {
+            "file": "web2/shared/web2-pwa.js",
+            "globals": ["Web2PWA"],
+            "purpose": "WEB2.0 shared — PWA (Thêm vào Màn hình chính) cho MỌI trang, không cần App Store.",
+            "api": [],
+            "consumers": ["web2/shared/web2-sidebar.js"],
+            "lines": 80
+        },
+        {
             "file": "web2/shared/web2-qr-modal.js",
             "globals": ["Web2QrModal"],
             "purpose": "WEB2.0 shared component — reusable QR modal cho customer-wallet + partner-customer.",
@@ -1169,7 +1177,7 @@
                 "web2/returns/js/returns-app.js",
                 "web2/system/js/system-app.js"
             ],
-            "lines": 690
+            "lines": 693
         },
         {
             "file": "web2/shared/web2-so-order-reader.js",
@@ -8088,6 +8096,14 @@
                     ]
                 },
                 {
+                    "file": "web2/shared/web2-pwa.js",
+                    "lines": 80,
+                    "purpose": "WEB2.0 shared — PWA (Thêm vào Màn hình chính) cho MỌI trang, không cần App Store.",
+                    "globals": ["Web2PWA"],
+                    "uses": [],
+                    "functions": ["SCRIPT_SRC", "asset", "ensureLink", "ensureMeta", "installed"]
+                },
+                {
                     "file": "web2/shared/web2-qr-modal.js",
                     "lines": 299,
                     "purpose": "WEB2.0 shared component — reusable QR modal cho customer-wallet + partner-customer.",
@@ -8219,7 +8235,7 @@
                 },
                 {
                     "file": "web2/shared/web2-sidebar.js",
-                    "lines": 690,
+                    "lines": 693,
                     "purpose": "WEB2-clone sidebar for Web 2.0 pages.",
                     "globals": ["Web2Sidebar"],
                     "uses": [
@@ -8236,6 +8252,7 @@
                         "Web2Lottie",
                         "Web2Notify",
                         "Web2PhoneUtils",
+                        "Web2PWA",
                         "Web2TextUtils"
                     ],
                     "functions": [

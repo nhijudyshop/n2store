@@ -1,5 +1,16 @@
 # Dev Log
 
+## 2026-06-20
+
+### [web2/shared] PWA dùng chung — "Thêm vào Màn hình chính" (iOS/Android), không App Store ✅
+
+User hỏi build app iOS không + không có Apple dev account cài ngoài App Store được không. Tư vấn: native iOS không đáng (không account = chỉ sideload 7-ngày, không bền); **PWA là giải pháp đúng** (miễn phí, không account, không App Store). Build PWA dùng chung:
+
+- **MỚI `web2/shared/web2-manifest.webmanifest`** (name N2Store, standalone, theme #0068ff, icon logo-emblem 256, start_url/scope TƯƠNG ĐỐI → host-agnostic nhijudy.store + github.io/n2store) + **`web2/shared/web2-pwa.js`** (inject manifest link + apple-mobile-web-app-\* + apple-touch-icon + theme-color vào MỌI trang).
+- Auto-nạp qua `web2-sidebar.js` autoLoad (như web2-mobile.css) → KHÔNG sửa 40 HTML. Bump `web2-sidebar.js?v=20260620a` (46 trang). Guard: trang tự khai (photo-studio) giữ manifest riêng.
+- **CỐ Ý KHÔNG service worker**: app data cần luôn mới, SW cache dễ kẹt code cũ sau deploy; iOS "Thêm màn hình chính" không cần SW.
+- ✅ Verify Playwright 3 trang: manifest fetch 200 "N2Store — Web 2.0", appleCapable=yes, apple-touch-icon=yes, theme=#0068ff. Commit `23b5e998a`.
+
 ## 2026-06-19
 
 ### [web2/shared] Giao diện điện thoại DÙNG CHUNG — web2-mobile.css (1 nguồn mọi trang) ✅

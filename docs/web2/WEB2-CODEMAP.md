@@ -2,7 +2,7 @@
 
 # WEB2-CODEMAP — Bản đồ code Web 2.0
 
-> **Auto-generated** • 2026-06-19 16:51 • 377 files, 106 shared modules, 2785 hàm, 1 file > 800 dòng.
+> **Auto-generated** • 2026-06-19 17:07 • 378 files, 107 shared modules, 2789 hàm, 1 file > 800 dòng.
 > Sinh lại: `node scripts/gen-web2-codemap.js` (chạy sau khi đổi cấu trúc/ tách module / thêm trang).
 
 ## 0. Cách dùng (Claude / dev đọc TRƯỚC khi code)
@@ -93,6 +93,7 @@
 | `Web2ProductCounter`                       | [web2-product-counter.js](../../web2/shared/web2-product-counter.js)                  | WEB2.0 — Web2ProductCounter: đếm số SP qua camera realtime, DÙNG CHUNG mọi trang.                       | 4         |
 | `Web2ProductPicker`                        | [web2-product-picker.js](../../web2/shared/web2-product-picker.js)                    | WEB2.0 shared — chọn SP từ Kho SP (1 hoặc NHIỀU) trả full object.                                       | 1         |
 | `Web2ProductsCache`                        | [web2-products-cache.js](../../web2/shared/web2-products-cache.js)                    | Web2 Products — Shared cache + Firestore tickler realtime                                               | 22        |
+| `Web2PWA`                                  | [web2-pwa.js](../../web2/shared/web2-pwa.js)                                          | WEB2.0 shared — PWA (Thêm vào Màn hình chính) cho MỌI trang, không cần App Store.                       | 1         |
 | `Web2QrModal`                              | [web2-qr-modal.js](../../web2/shared/web2-qr-modal.js)                                | WEB2.0 shared component — reusable QR modal cho customer-wallet + partner-customer.                     | 1         |
 | `Web2QR`                                   | [web2-qr.js](../../web2/shared/web2-qr.js)                                            | WEB2.0 shared — 1 NGUỒN sinh QR "trang trí" đen trắng cho tem SP + PBH.                                 | 4         |
 | `Web2QuickReply`                           | [web2-quick-reply.js](../../web2/shared/web2-quick-reply.js)                          | Web 2.0 — Quick Reply system                                                                            | 1         |
@@ -438,6 +439,11 @@ WEB2.0 shared — chọn SP từ Kho SP (1 hoặc NHIỀU) trả full object.
 Web2 Products — Shared cache + Firestore tickler realtime
 **Dùng bởi:** `so-order/js/so-order-app.js`, `so-order/js/so-order-kho-sync.js`, `so-order/js/so-order-modal-core.js`, `so-order/js/so-order-modal-suggest.js`, `so-order/js/so-order-receive.js`, `so-order/js/so-order-render.js`, `web2/fb-posts/js/fb-posts-media.js`, `web2/photo-editor/js/photo-editor.js`, `web2/product-card/js/product-card.js`, `web2/products/js/web2-products-actions.js`, `web2/products/js/web2-products-app.js`, `web2/products/js/web2-products-modal.js`, `web2/products/js/web2-products-render.js`, `web2/products/js/web2-products-variant-picker.js`, `web2/purchase-refund/js/purchase-refund-actions.js`, `web2/purchase-refund/js/purchase-refund-api.js`, `web2/purchase-refund/js/purchase-refund-modal.js`, `web2/purchase-refund/js/purchase-refund-render.js`, `web2/shared/web2-product-picker.js`, `web2/supplier-wallet/js/supplier-wallet-actions.js`, `web2/supplier-wallet/js/supplier-wallet-app.js`, `web2/video-maker/js/video-maker.js`
 
+#### `Web2PWA` — [web2/shared/web2-pwa.js](../../web2/shared/web2-pwa.js) · 80 dòng
+
+WEB2.0 shared — PWA (Thêm vào Màn hình chính) cho MỌI trang, không cần App Store.
+**Dùng bởi:** `web2/shared/web2-sidebar.js`
+
 #### `Web2QrModal` — [web2/shared/web2-qr-modal.js](../../web2/shared/web2-qr-modal.js) · 299 dòng
 
 WEB2.0 shared component — reusable QR modal cho customer-wallet + partner-customer.
@@ -463,7 +469,7 @@ Web 2.0 — Realtime client (Pancake WS)
 WEB2.0 module.
 **Dùng bởi:** `native-orders/js/native-orders-pbh-bill.js`
 
-#### `Web2Sidebar` — [web2/shared/web2-sidebar.js](../../web2/shared/web2-sidebar.js) · 690 dòng
+#### `Web2Sidebar` — [web2/shared/web2-sidebar.js](../../web2/shared/web2-sidebar.js) · 693 dòng
 
 WEB2-clone sidebar for Web 2.0 pages.
 **Dùng bởi:** `web2/ck-dashboard/js/ck-dashboard-app.js`, `web2/fb-ads-stats/js/fb-ads-stats.js`, `web2/fb-insights/js/fb-insights.js`, `web2/fb-posts/js/fb-posts-app.js`, `web2/jt-tracking/js/jt-tracking-app.js`, `web2/multi-tool/js/multi-tool.js`, `web2/pancake-settings/js/pancake-settings.js`, `web2/payment-confirm/js/payment-confirm-app.js`, `web2/purchase-refund/js/purchase-refund-app.js`, `web2/returns/js/returns-app.js`, `web2/system/js/system-app.js`
@@ -1909,6 +1915,9 @@ WEB2.0 module — Zalo chat sticker picker.
     - exposes: `Web2ProductsCache`
     - uses shared: `Web2SSE`
     - funcs (34): \_emit, \_ensureApi, \_generateClientId, \_idbGet, \_idbSet, \_loadFromPersist, \_loadList, \_migrateLegacyLsToIdb, \_normalize, \_openIdb, \_removeLocal, \_saveToPersist, \_scheduleRefresh, \_setupRealtime, \_upsertLocal, findByCode, findByName, findByNameExact, findByNameVariant, getAll, has, hasByName, init, initPromise, isReady, onblocked, onerror, onsuccess, onupgradeneeded, pushTickle, refresh, scoreFor, sortTier, subscribe
+- **[web2-pwa.js](../../web2/shared/web2-pwa.js)** ·80 — WEB2.0 shared — PWA (Thêm vào Màn hình chính) cho MỌI trang, không cần App Store.
+    - exposes: `Web2PWA`
+    - funcs (5): SCRIPT_SRC, asset, ensureLink, ensureMeta, installed
 - **[web2-qr-modal.js](../../web2/shared/web2-qr-modal.js)** ·299 — WEB2.0 shared component — reusable QR modal cho customer-wallet + partner-customer.
     - exposes: `Web2QrModal`
     - uses shared: `Web2Auth`
@@ -1929,9 +1938,9 @@ WEB2.0 module — Zalo chat sticker picker.
     - exposes: `NativeReturnBill`
     - uses shared: `Popup`, `API_CONFIG`
     - funcs (3): \_normPhone, collect, fetchQueued
-- **[web2-sidebar.js](../../web2/shared/web2-sidebar.js)** ·690 — WEB2-clone sidebar for Web 2.0 pages.
+- **[web2-sidebar.js](../../web2/shared/web2-sidebar.js)** ·693 — WEB2-clone sidebar for Web 2.0 pages.
     - exposes: `Web2Sidebar`
-    - uses shared: `DeliveryMethodPicker`, `Popup`, `Web2ApiFetch`, `Web2Auth`, `Web2AvatarUtils`, `Web2CommandPalette`, `Web2Escape`, `Web2Format`, `Web2ImageLightbox`, `Web2JwtUtils`, `Web2Lottie`, `Web2Notify`, `Web2PhoneUtils`, `Web2TextUtils`
+    - uses shared: `DeliveryMethodPicker`, `Popup`, `Web2ApiFetch`, `Web2Auth`, `Web2AvatarUtils`, `Web2CommandPalette`, `Web2Escape`, `Web2Format`, `Web2ImageLightbox`, `Web2JwtUtils`, `Web2Lottie`, `Web2Notify`, `Web2PhoneUtils`, `Web2PWA`, `Web2TextUtils`
     - funcs (18): SCRIPT_BASE_URL, \_isAdmin, alertSoon, autoLoadSharedModules, escapeHtml, inject, injectMobileCss, isCollapsed, isOurRoute, isWeb2Item, mount, onclick, renderGroup, renderItem, renderUserFooter, resolveOur, setCollapsed, toggleCollapse
 - **[web2-so-order-reader.js](../../web2/shared/web2-so-order-reader.js)** ·53 — WEB2.0 module.
     - exposes: `Web2SoOrder`
