@@ -35,6 +35,8 @@ export function isWeb2Path(p) {
     if (p.startsWith('/api/wallet-deposits')) return true;
     if (p.startsWith('/api/purchase-refund')) return true;
     if (p.startsWith('/api/services-overview')) return true;
+    if (p.startsWith('/api/pbh-reports')) return true; // web2 báo cáo doanh thu/giao hàng (web2Db; consumer web2/report-*)
+    if (p.startsWith('/api/admin/web2-')) return true; // admin Web 2.0 (reset ví/wipe data/import KH → web2Db) — KHÔNG đụng admin Web 1.0 (/api/admin/migration|data|firebase|render)
     if (p.startsWith('/api/livestream')) return true; // /api/livestream(-images)
     if (p.startsWith('/api/realtime/web2')) return true; // web2 SSE hub
     // /api/v2/* — CHỈ các feature Web 2.0 piggy-back (Web 1.0 v2 core giữ fallback)
