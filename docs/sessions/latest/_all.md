@@ -3,14 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `9d9fcee` — fix(live-chat): comments-mobile manifest RIÊNG (start_url=chính nó) → add màn hình chính mở đúng trang comment, không nhảy overview
-**Last updated**: 2026-06-20 00:30:46 +07
-**Latest session**: [`RESUME:20260620-003046-9d9fcee`](../20260620-003046-9d9fcee.md)
-**Summary**: fix(live-chat): comments-mobile manifest RIÊNG (start_url=chính nó) → add màn hình chính mở đúng trang co...
+**Latest commit**: `b2b899b` — fix(web2/pwa): bo start_url co dinh -> them man hinh chinh luu DUNG trang dang mo (share trang nao luu trang do)
+**Last updated**: 2026-06-20 00:37:19 +07
+**Latest session**: [`RESUME:20260620-003719-b2b899b`](../20260620-003719-b2b899b.md)
+**Summary**: fix(web2/pwa): bo start_url co dinh -> them man hinh chinh luu DUNG trang dang mo (share trang nao luu trang do)
 
 ## Folders affected in this commit
 
 - [`live-chat/`](./live-chat.md) — 2 file(s)
+- [`web2/`](./web2.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -38,7 +39,7 @@
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-06-16 14:31
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-16 14:31
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
-- [`live-chat/`](./live-chat.md) — updated 2026-06-20 00:30
+- [`live-chat/`](./live-chat.md) — updated 2026-06-20 00:37
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-06-19 19:21
 - [`n2store-facebook/`](./n2store-facebook.md) — updated 2026-06-14 13:09
 - [`n2store-realtime/`](./n2store-realtime.md) — updated 2026-06-16 11:15
@@ -75,4 +76,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-20 00:10
+- [`web2/`](./web2.md) — updated 2026-06-20 00:37
