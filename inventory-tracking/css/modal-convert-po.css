@@ -388,8 +388,9 @@
     color: #111827;
 }
 .po-col-act {
-    width: 60px;
+    width: 92px;
     text-align: center;
+    white-space: nowrap;
 }
 
 .po-it-input {
@@ -473,6 +474,46 @@
 .po-btn-del i {
     width: 16px;
     height: 16px;
+}
+
+/* Per-row "Cập nhật từ TPOS" sync button (chỉ hiện ở dòng chọn từ kho TPOS) */
+.po-btn-sync-row {
+    width: 32px;
+    height: 32px;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    background: transparent;
+    color: #6366f1;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    vertical-align: middle;
+    margin-right: 2px;
+    transition:
+        background 0.15s,
+        border-color 0.15s;
+}
+.po-btn-sync-row:hover {
+    background: #eef2ff;
+    border-color: #c7d2fe;
+}
+.po-btn-sync-row:disabled {
+    opacity: 0.6;
+    cursor: wait;
+}
+.po-btn-sync-row i,
+.po-btn-sync-row svg {
+    width: 16px;
+    height: 16px;
+}
+.po-btn-sync-row:disabled svg {
+    animation: po-spin-row 0.8s linear infinite;
+}
+@keyframes po-spin-row {
+    to {
+        transform: rotate(360deg);
+    }
 }
 
 /* =================== FOOTER TOTALS =================== */

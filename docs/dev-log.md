@@ -13,6 +13,24 @@ Mở rộng video-maker theo yêu cầu user:
 - Files: `web2/video-maker/js/video-tts.js` (rewrite registry), `js/video-maker.js` (voice UI + sample + random), `index.html` (#vmVoices/#vmTones/#vmRandom), `video-maker.css`.
 - **Verified live**: 4 voice cards + 3 tone + 4 nút mẫu render OK; registry route đúng cả 3 path (MMS 23808@16k, pitch-high ngắn hơn, Piper vais 26749@48k); random tạo 5 scene + narration auto + accent/voice random; 0 JS err. (Kokoro vẫn KHÔNG có tiếng Việt → MMS+Piper.)
 
+### [inventory-tracking] Thêm nút "Cập nhật từ TPOS" PER-ROW trong modal Tạo đơn đặt hàng ✅
+
+**User:** "bổ sung tiếp nút Cập nhật từ TPOS cho từng dòng SP (sync nhanh 1 SP, không cần quét hết — dùng WarehouseAPI.syncProductFromTpos đã có sẵn)."
+
+Bổ sung sau nút full-sync ở footer: mỗi dòng SP **chọn từ kho TPOS** (`item.tposProductId`) có thêm nút ☁ ở cột THAO TÁC (cạnh nút xóa) để làm tươi RIÊNG 1 SP, không quét toàn bộ catalog.
+
+**Files:** [inventory-tracking/js/modal-convert-po.js](inventory-tracking/js/modal-convert-po.js), [inventory-tracking/css/modal-convert-po.css](inventory-tracking/css/modal-convert-po.css), [inventory-tracking/index.html](inventory-tracking/index.html)
+
+- `_renderItemRow`: nút `po-btn-sync-row` (icon `cloud-download`) trong `po-col-act`, **chỉ render khi `fromWarehouse`** (dòng gõ tay không có template id → không sync được).
+- `_applySuggestPick`: chèn nút sync in-place vào cột thao tác khi pick từ dropdown (row pick KHÔNG re-render bảng nên phải inject tại đây, idempotent).
+- `_onItemClick`: nhánh `.po-btn-sync-row` → `_syncRowFromTpos(key, btn)`.
+- Hàm mới `_syncRowFromTpos`: guard `tposProductId` → `WarehouseAPI.syncProductFromTpos(id)` (POST `/sync-product/:id`, server ép sync 1 template TPOS → upsert shadow → trả product TPOS-shaped) → cập nhật in-place **tên (strip `[CODE]`) / giá bán / mã / ảnh**, GIỮ NGUYÊN **giá mua + SL** user nhập. Toast `giá + tồn`. Nút spinner (loader) lúc chạy.
+- CSS: `.po-btn-sync-row` (indigo, spin svg khi disabled) + nới `.po-col-act` 60→92px (chứa 2 nút). Bump cache-bust CSS+JS `?v=20260619a`.
+
+**KHÔNG đụng:** backend (endpoint `/sync-product/:id` + `WarehouseAPI.syncProductFromTpos` đã có sẵn — soluong-live dùng), DB, full-sync footer button. node --check OK.
+
+**Status:** ✅ code xong (Web 1.0). Verify sau deploy: chọn SP từ kho trong modal → thấy nút ☁ ở cột thao tác → bấm → spinner → toast giá/tồn mới, dòng cập nhật tên/giá; giá mua + SL giữ nguyên.
+
 ### [upload/Render] FIX up ảnh BILL lỗi (inventory-tracking + balance-history) — bỏ Firebase Storage → Postgres bytea ✅
 
 **Bug (user báo):** "UP HÌNH BILL SP KO ĐƯỢC" — up ảnh lỗi (hiện "Lỗi") ở **2 chỗ**: `inventory-tracking` modal "Thêm Đợt Hàng Mới" → ô "Ảnh hóa đơn", và `balance-history` modal "Duyệt giao dịch" → ô "Hình ảnh xác nhận chuyển khoản".

@@ -382,6 +382,13 @@ function _renderItemRow(it, idx) {
                 <span class="po-it-subtotal" data-key="${it._key}">${_fmtVND(subtotal)} đ</span>
             </td>
             <td class="po-col-act">
+                ${
+                    fromWarehouse
+                        ? `<button type="button" class="po-btn-sync-row" data-key="${it._key}" title="Làm tươi sản phẩm này từ TPOS (tên, giá, tồn, ảnh)">
+                    <i data-lucide="cloud-download"></i>
+                </button>`
+                        : ''
+                }
                 <button type="button" class="po-btn-del" data-key="${it._key}" title="Xóa dòng">
                     <i data-lucide="x"></i>
                 </button>
@@ -670,6 +677,19 @@ function _applySuggestPick(key, code, name, price, extra = {}) {
             sttTd.appendChild(badge);
         }
 
+        // Add per-row "Cập nhật từ TPOS" sync button to action cell (idempotent).
+        // Row pick từ dropdown KHÔNG re-render bảng nên phải chèn nút tại đây.
+        const actTd = tr.querySelector('.po-col-act');
+        if (actTd && !actTd.querySelector('.po-btn-sync-row')) {
+            const syncRowBtn = document.createElement('button');
+            syncRowBtn.type = 'button';
+            syncRowBtn.className = 'po-btn-sync-row';
+            syncRowBtn.dataset.key = item._key;
+            syncRowBtn.title = 'Làm tươi sản phẩm này từ TPOS (tên, giá, tồn, ảnh)';
+            syncRowBtn.innerHTML = '<i data-lucide="cloud-download"></i>';
+            actTd.insertBefore(syncRowBtn, actTd.firstChild);
+        }
+
         if (window.lucide) lucide.createIcons();
     }
     // KHÔNG hide dropdown — user yêu cầu giữ dropdown sau khi chọn,
@@ -692,6 +712,80 @@ function _applySuggestPick(key, code, name, price, extra = {}) {
                 const sellInp = row?.querySelector('.po-it-input[data-field="sellingPrice"]');
                 if (sellInp) sellInp.value = _fmtVND(price);
             }
+        }
+    }
+}
+
+/**
+ * Làm tươi 1 dòng SP từ TPOS (sync nhanh 1 template, KHÔNG quét hết kho).
+ * Dùng nút ☁ ở cột THAO TÁC của dòng đã chọn từ kho TPOS.
+ *
+ * Gọi `WarehouseAPI.syncProductFromTpos(tposProductId)` → server ép sync TPOS →
+ * upsert shadow `web_warehouse` → trả về product (TPOS-shaped) đã tươi. Sau đó cập
+ * nhật in-place tên / giá bán / mã / ảnh cho dòng (GIỮ NGUYÊN GIÁ MUA + SL user nhập).
+ */
+async function _syncRowFromTpos(key, btn) {
+    const item = _convertItems.find((i) => i._key === key);
+    if (!item) return;
+    if (!item.tposProductId) {
+        window.notificationManager?.info('Dòng này chưa gắn sản phẩm TPOS — chọn SP từ kho trước.');
+        return;
+    }
+    if (!window.WarehouseAPI?.syncProductFromTpos) {
+        window.notificationManager?.error('WarehouseAPI chưa load');
+        return;
+    }
+
+    const original = btn?.innerHTML;
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i data-lucide="loader"></i>';
+        if (window.lucide) lucide.createIcons();
+    }
+
+    try {
+        const res = await window.WarehouseAPI.syncProductFromTpos(item.tposProductId);
+        const p = res?.product;
+        if (!p) {
+            window.notificationManager?.warning('Không lấy được dữ liệu mới từ TPOS');
+            return;
+        }
+
+        // Field nguồn-TPOS: tên (strip tiền tố [CODE] cho khớp dropdown), giá bán, mã, ảnh.
+        // KHÔNG đụng purchasePrice (giá mua user nhập) + quantity (SL đặt).
+        const rawName = p.NameGet || p.Name || item.productName;
+        const newName = String(rawName).replace(/^\s*\[[^\]]*\]\s*/, '').trim() || item.productName;
+        const newPrice = parseFloat(p.PriceVariant) || parseFloat(p.ListPrice) || 0;
+        const newImg = p.imageUrl || p.ImageUrl || item.tposImageUrl;
+
+        item.productName = newName;
+        if (newPrice > 0) item.sellingPrice = newPrice;
+        if (newImg) item.tposImageUrl = newImg;
+        if (p.DefaultCode) item.productCode = p.DefaultCode;
+
+        // In-place DOM (không re-render cả bảng để không mất state các dòng khác)
+        const tr = document.querySelector(`#poItemsBody tr[data-key="${key}"]`);
+        if (tr) {
+            const nameInp = tr.querySelector('.po-it-input[data-field="productName"]');
+            const sellInp = tr.querySelector('.po-it-input[data-field="sellingPrice"]');
+            const codeInp = tr.querySelector('.po-it-input[data-field="productCode"]');
+            if (nameInp) nameInp.value = item.productName;
+            if (sellInp && newPrice > 0) sellInp.value = _fmtVND(newPrice);
+            if (codeInp && p.DefaultCode) codeInp.value = p.DefaultCode;
+        }
+        _recalcAll();
+
+        const qty = parseFloat(p.QtyAvailable) || 0;
+        window.notificationManager?.success(
+            `Đã làm tươi "${newName}" từ TPOS — giá ${_fmtVND(newPrice)}đ, tồn ${qty}`
+        );
+    } catch (err) {
+        window.notificationManager?.error('Lỗi cập nhật TPOS: ' + (err.message || ''));
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = original;
+            if (window.lucide) lucide.createIcons();
         }
     }
 }
@@ -723,6 +817,11 @@ function _onItemClick(e) {
     const delBtn = e.target.closest('.po-btn-del');
     const varBtn = e.target.closest('.po-variant-btn, .po-variant-chip');
     const genBtn = e.target.closest('.po-btn-gen-code');
+    const syncRowBtn = e.target.closest('.po-btn-sync-row');
+    if (syncRowBtn) {
+        _syncRowFromTpos(syncRowBtn.dataset.key, syncRowBtn);
+        return;
+    }
     if (delBtn) {
         const key = delBtn.dataset.key;
         _convertItems = _convertItems.filter((i) => i._key !== key);
