@@ -740,13 +740,13 @@ app.use('/api/web2-returns', web2ReturnsRoutes); // WEB2.0 — Thu về (goods r
 app.use('/api/web2-variants', web2VariantsRoutes);
 app.use('/api/web2/cutout', require('./routes/web2-cutout')); // WEB2.0 photo-studio cutout (PhotoRoom) — TRƯỚC generic
 // WEB2.0 video-maker: AI viết kịch bản (Gemini RIÊNG, key WEB2_GEMINI_API_KEY).
-// ⚠ server.js DÙNG CHUNG cho web2-api LẪN n2store-fallback (Web 1.0). Route Web 2.0
-// CHỈ mount khi WEB2_SERVICE=1 (đặt trên service web2-api) → Web 1.0 KHÔNG load,
-// KHÔNG bị ảnh hưởng. Try/catch để file lỗi/thiếu cũng không sập server.
-if (process.env.WEB2_SERVICE === '1') {
+// ⚠ server.js DÙNG CHUNG web2-api + n2store-fallback (Web 1.0). Mount route Web 2.0
+// MẶC ĐỊNH (giống mọi route web2 khác — worker quyết định traffic), nhưng cho phép
+// loại khỏi hub Web 1.0 bằng WEB1_ONLY=1 (đặt trên n2store-fallback). Default an toàn:
+// không set → vẫn mount (web2-api chạy). Try/catch để file lỗi/thiếu không sập server.
+if (process.env.WEB1_ONLY !== '1') {
     try {
         app.use('/api/web2/ai-script', require('./routes/web2-ai-script'));
-        console.log('[web2-ai-script] mounted (WEB2_SERVICE=1)');
     } catch (e) {
         console.warn('[web2-ai-script] mount bỏ qua (không sập server):', e.message);
     }
