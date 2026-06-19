@@ -3,15 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `2c552d6` — fix(web2/fb-posts): tab Bài viết — sửa khoá scroll (thêm class web2-main) + cuộn tải thêm bài (infinite scroll cursor)
-**Last updated**: 2026-06-19 20:15:30 +07
-**Latest session**: [`RESUME:20260619-201530-2c552d6`](../20260619-201530-2c552d6.md)
-**Summary**: fix(web2/fb-posts): tab Bài viết — sửa khoá scroll (thêm class web2-main) + cuộn tải thêm bài (infinit...
+**Latest commit**: `c6e4057` — docs(dev-log): fb-posts tab Bài viết — xem in-app + fix scroll + infinite scroll
+**Last updated**: 2026-06-19 20:19:03 +07
+**Latest session**: [`RESUME:20260619-201903-c6e4057`](../20260619-201903-c6e4057.md)
+**Summary**: docs(dev-log): fb-posts tab Bài viết — xem in-app + fix scroll + infinite scroll
 
 ## Folders affected in this commit
 
-- [`render.com/`](./render.com.md) — 2 file(s)
-- [`web2/`](./web2.md) — 3 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -26,7 +25,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-19 16:28
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-16 14:31
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-18 12:17
-- [`docs/`](./docs.md) — updated 2026-06-19 19:52
+- [`docs/`](./docs.md) — updated 2026-06-19 20:19
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-16 14:31
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-16 14:31
 - [`downloads/`](./downloads.md) — updated 2026-06-19 14:27
