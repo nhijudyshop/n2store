@@ -315,6 +315,14 @@
         wireProductPicker();
         $('#pcardExport')?.addEventListener('click', exportPng);
         $('#pcardCopy')?.addEventListener('click', copyPng);
+        // Xoá logo/watermark trên ảnh SP (tool dùng chung Web2LogoEraser)
+        $('#pcardEraseLogo')?.addEventListener('click', async () => {
+            if (!state.opts._imgSrc) return notify('Hãy chọn/tải ảnh SP trước', 'warning');
+            if (!global.Web2LogoEraser?.open)
+                return notify('Chưa tải được công cụ xoá logo', 'error');
+            const cleaned = await global.Web2LogoEraser.open(state.opts._imgSrc);
+            if (cleaned) setImage(cleaned, { cutout: state.opts.cutout });
+        });
         // product cache (im lặng nếu lỗi)
         global.Web2ProductsCache?.init?.().catch(() => {});
         window.addEventListener('resize', _fitPreview);
