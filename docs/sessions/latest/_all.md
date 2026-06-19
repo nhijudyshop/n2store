@@ -3,15 +3,16 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `da38913` — fix(web2/jt-tracking): auto-refresh gồm cả 'Đã hoàn' (returned) — chỉ 'Đã giao' là chốt
-**Last updated**: 2026-06-19 14:55:48 +07
-**Latest session**: [`RESUME:20260619-145548-da38913`](../20260619-145548-da38913.md)
-**Summary**: fix(web2/jt-tracking): auto-refresh gồm cả 'Đã hoàn' (returned) — chỉ 'Đã giao' là chốt
+**Latest commit**: `3d3b873` — feat(web2/fb-posts): trang Đăng bài Facebook — quản lý + soạn/đăng/lên lịch 2 page qua Graph API + AI caption free (Groq)
+**Last updated**: 2026-06-19 15:07:53 +07
+**Latest session**: [`RESUME:20260619-150753-3d3b873`](../20260619-150753-3d3b873.md)
+**Summary**: feat(web2/fb-posts): trang Đăng bài Facebook 2 page qua Graph API + AI caption free (Groq); Pancake chỉ đọc bài
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 1 file(s)
+- [`render.com/`](./render.com.md) — 3 file(s)
+- [`web2/`](./web2.md) — 12 file(s)
 
 ## All folder snapshots
 
@@ -26,7 +27,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-19 14:54
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-16 14:31
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-18 12:17
-- [`docs/`](./docs.md) — updated 2026-06-19 14:55
+- [`docs/`](./docs.md) — updated 2026-06-19 15:07
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-16 14:31
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-16 14:31
 - [`downloads/`](./downloads.md) — updated 2026-06-19 14:27
@@ -55,7 +56,7 @@
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`referenceUI/`](./referenceUI.md) — updated 2026-06-19 14:27
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-06-16 00:35
-- [`render.com/`](./render.com.md) — updated 2026-06-19 14:55
+- [`render.com/`](./render.com.md) — updated 2026-06-19 15:07
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-19 14:27
 - [`service-costs/`](./service-costs.md) — updated 2026-06-16 11:15
@@ -75,4 +76,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-19 14:41
+- [`web2/`](./web2.md) — updated 2026-06-19 15:07
