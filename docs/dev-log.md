@@ -2,7 +2,14 @@
 
 ## 2026-06-19
 
-### [web2/fb-*] Graph API trực tiếp: read_insights THẬT + sửa caption + handoff "Đăng lên FB" ✅
+### [vieneu-tts + video-maker] Tích hợp VieNeu-TTS (CLONE giọng) — chạy máy shop + tunnel điện thoại ✅
+
+Tích hợp [VieNeu-TTS](https://github.com/pnnbao97/VieNeu-TTS) (clone giọng Việt 3-5s, Apache-2.0, 0.5B). User chốt: chạy **trên máy shop** (free), dùng được **trên điện thoại** (máy shop bật) → tunnel; cài **nhiều máy** → URL cấu hình được. KHÔNG dựng Render now (code chạy cả local lẫn Render, đổi 1 URL là xong).
+
+- **Backend `vieneu-tts/`** verified chạy THẬT trên Mac (CPU, torch-free `vieneu 3.0.5`): init model 54s (tải 595MB, sau cache), synth **~2-4s/câu** @48kHz, **clone giọng OK**. HTTP: `/health`·`/voices` (10 giọng)·`/synthesize`·`/clone` đều PASS qua curl.
+- **`run_local.sh`**: dựng venv + chạy uvicorn + **cloudflared tunnel** → in URL HTTPS cho điện thoại. `NO_TUNNEL=1` chỉ local. Mỗi máy chạy → dán URL vào trang.
+- **Frontend shared `Web2Vieneu`** ([web2/shared/web2-vieneu.js](web2/shared/web2-vieneu.js)) — kho Voice: URL config (localStorage, nhiều máy) + `health/listVoices/synthesize/clone` (WAV→samples). `video-tts.js` thêm engine `vieneu` + `registerVieneuVoices`. `video-vieneu.js` UI: nhập URL + Kết nối (tự nạp 10 giọng) + **Thu mic 5s / tải file → clone giọng** (auto convert WAV vì libsndfile không đọc webm/mp3). Khối UI trong index.html.
+- **Verify end-to-end (browser, trỏ localhost:8123)**: kết nối OK → 10 giọng VieNeu hiện; synth "🎙️ Ngọc Lan" 2.4s; **clone giọng** đăng ký + synth 1.68s; 0 lỗi console. `.venv`/`__pycache__` đã gitignore.
 
 User: "Tôi đã thêm read_insights" + "Làm theo 4" (3 việc ưu tiên từ audit Graph API). Theo rule module Web 2.0: năng lực dùng chung gom vào shared, trang chỉ gọi.
 
