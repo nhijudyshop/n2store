@@ -48,27 +48,144 @@
         jawR: [234, 93, 132, 58, 172],
     };
 
+    const WASM_BASE = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${VISION_VER}/wasm`;
+    const WASM_BIN = WASM_BASE + '/vision_wasm_internal.wasm'; // ~9.5MB (immutable → prewarm an toàn)
+    const WASM_SIZE = 9502124;
+    const MODEL_SIZE = 3758596;
+    const TOTAL_DL = WASM_SIZE + MODEL_SIZE; // ~13.2MB engine + model
+
+    // ── tiến trình tải (0..1) phát cho UI (spinner → thanh %) ──
+    const _progCbs = new Set();
+    let _dlFrac = 0;
+    let _recv = 0;
+    function _emit(f) {
+        _dlFrac = f;
+        _progCbs.forEach((cb) => {
+            try {
+                cb(f);
+            } catch {}
+        });
+    }
+    function onProgress(cb) {
+        _progCbs.add(cb);
+        return () => _progCbs.delete(cb);
+    }
+
     // ── Lazy-load MediaPipe Tasks Vision (ESM) — singleton ──
     let _visionP = null;
     function loadVision() {
         if (_visionP) return _visionP;
-        const url = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${VISION_VER}`;
-        _visionP = import(/* @vite-ignore */ url).catch((e) => {
+        _visionP = import(
+            /* @vite-ignore */ `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${VISION_VER}`
+        ).catch((e) => {
             _visionP = null;
             throw e;
         });
         return _visionP;
     }
 
+    // fetch có theo dõi tiến trình (cộng dồn _recv). Trả Uint8Array.
+    async function _streamFetch(url, opts) {
+        const resp = await fetch(url, opts);
+        if (!resp || !resp.ok) throw new Error('fetch ' + url + ' ' + (resp && resp.status));
+        if (!resp.body || !resp.body.getReader) {
+            const ab = await resp.arrayBuffer();
+            _recv += ab.byteLength;
+            _emit(Math.min(0.99, _recv / TOTAL_DL));
+            return new Uint8Array(ab);
+        }
+        const reader = resp.body.getReader();
+        const chunks = [];
+        let n = 0;
+        for (;;) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            chunks.push(value);
+            n += value.length;
+            _recv += value.length;
+            _emit(Math.min(0.99, _recv / TOTAL_DL));
+        }
+        const out = new Uint8Array(n);
+        let off = 0;
+        for (const c of chunks) {
+            out.set(c, off);
+            off += c.length;
+        }
+        return out;
+    }
+
+    // Prewarm wasm (immutable) vào HTTP cache → forVisionTasks tải lại = hit cache (1 lần).
+    async function _warmWasm() {
+        try {
+            await _streamFetch(WASM_BIN);
+        } catch {
+            /* bỏ qua — forVisionTasks vẫn tự tải được */
+        }
+    }
+
+    // Model: ưu tiên Cache API (googleapis chỉ cache 1h) → tải bền, lần sau tức thì.
+    async function _fetchModelBuffer() {
+        const CACHE = 'web2-mp-models-v1';
+        try {
+            if (global.caches) {
+                const cache = await caches.open(CACHE);
+                const hit = await cache.match(MODEL_URL);
+                if (hit) return await _streamFetch_fromResponse(hit);
+                const net = await fetch(MODEL_URL);
+                if (net && net.ok) {
+                    try {
+                        await cache.put(MODEL_URL, net.clone());
+                    } catch {}
+                    return await _streamFetch_fromResponse(net);
+                }
+            }
+        } catch {}
+        return await _streamFetch(MODEL_URL);
+    }
+    async function _streamFetch_fromResponse(resp) {
+        if (!resp.body || !resp.body.getReader) {
+            const ab = await resp.arrayBuffer();
+            _recv += ab.byteLength;
+            _emit(Math.min(0.99, _recv / TOTAL_DL));
+            return new Uint8Array(ab);
+        }
+        const reader = resp.body.getReader();
+        const chunks = [];
+        let n = 0;
+        for (;;) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            chunks.push(value);
+            n += value.length;
+            _recv += value.length;
+            _emit(Math.min(0.99, _recv / TOTAL_DL));
+        }
+        const out = new Uint8Array(n);
+        let off = 0;
+        for (const c of chunks) {
+            out.set(c, off);
+            off += c.length;
+        }
+        return out;
+    }
+
     let _landmarkerP = null;
     function getLandmarker() {
         if (_landmarkerP) return _landmarkerP;
         _landmarkerP = (async () => {
+            _recv = 0;
+            _emit(0);
             const vision = await loadVision();
             const { FilesetResolver, FaceLandmarker } = vision;
-            const fileset = await FilesetResolver.forVisionTasks(
-                `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${VISION_VER}/wasm`
-            );
+            await _warmWasm(); // hâm nóng wasm (progress) → forVisionTasks hit cache
+            const fileset = await FilesetResolver.forVisionTasks(WASM_BASE);
+            let modelBuf = null;
+            try {
+                modelBuf = await _fetchModelBuffer();
+            } catch {
+                modelBuf = null;
+            }
+            _emit(1);
             const baseCfg = {
                 runningMode: 'IMAGE',
                 numFaces: 1,
@@ -78,18 +195,18 @@
                 outputFacialTransformationMatrixes: false,
             };
             // ⚠ Ảnh TĨNH 1 lần → ưu tiên CPU (XNNPACK): nhanh + ỔN ĐỊNH. GPU
-            // (WebGL) bị "treo" ~chục giây ở lần infer đầu do biên dịch shader
-            // → cảm giác đứng máy. GPU chỉ lợi cho video stream, không phải ở đây.
+            // (WebGL) bị "treo" ~chục giây ở lần infer đầu do biên dịch shader.
+            const mk = (delegate) =>
+                FaceLandmarker.createFromOptions(fileset, {
+                    ...baseCfg,
+                    baseOptions: modelBuf
+                        ? { modelAssetBuffer: modelBuf, delegate }
+                        : { modelAssetPath: MODEL_URL, delegate },
+                });
             try {
-                return await FaceLandmarker.createFromOptions(fileset, {
-                    ...baseCfg,
-                    baseOptions: { modelAssetPath: MODEL_URL, delegate: 'CPU' },
-                });
+                return await mk('CPU');
             } catch (e) {
-                return await FaceLandmarker.createFromOptions(fileset, {
-                    ...baseCfg,
-                    baseOptions: { modelAssetPath: MODEL_URL, delegate: 'GPU' },
-                });
+                return await mk('GPU');
             }
         })();
         _landmarkerP.catch(() => {
@@ -234,5 +351,14 @@
         );
     }
 
-    global.Web2BeautyFace = { detect, buildBrushes, buildAutoBrushes, warmup, IDX };
+    global.Web2BeautyFace = {
+        detect,
+        buildBrushes,
+        buildAutoBrushes,
+        warmup,
+        onProgress, // (cb)=>unsub : nhận tiến trình tải 0..1 (cho UI thanh %)
+        progress: () => _dlFrac,
+        ready: () => !!_landmarkerP, // đã/đang nạp xong chưa
+        IDX,
+    };
 })(window);

@@ -414,12 +414,22 @@
 
             // ── nhận diện khuôn mặt (face tools + auto) ──
             if ((needFace || tool === 'auto') && global.Web2BeautyFace) {
-                setBusy(true, 'Đang tải mô hình nhận diện (lần đầu hơi lâu)…');
-                // watchdog: detect KHÔNG được treo vô hạn — quá 25s thì bỏ qua.
-                const TIMEOUT = 25000;
-                let timer = null;
+                setBusy(true, 'Đang tải bộ nhận diện (lần đầu ~13MB, sau sẽ tức thì)…');
+                // thanh % theo tiến trình tải; watchdog chỉ bỏ cuộc nếu ĐỨNG thật
+                // (không có hoạt động trong 30s) — không timeout khi đang tải/đang chạy.
+                let lastActivity = Date.now();
+                const unsub = global.Web2BeautyFace.onProgress?.((f) => {
+                    lastActivity = Date.now();
+                    busyText.textContent =
+                        f >= 1
+                            ? 'Đang nhận diện khuôn mặt…'
+                            : 'Đang tải bộ nhận diện… ' + Math.round(f * 100) + '% (chỉ lần đầu)';
+                });
+                let iv = null;
                 const guard = new Promise((res) => {
-                    timer = setTimeout(() => res('__timeout__'), TIMEOUT);
+                    iv = setInterval(() => {
+                        if (Date.now() - lastActivity > 30000) res('__timeout__');
+                    }, 2000);
                 });
                 let r;
                 try {
@@ -427,14 +437,15 @@
                 } catch (e) {
                     r = null;
                 }
-                clearTimeout(timer);
+                clearInterval(iv);
+                unsub && unsub();
                 det = r === '__timeout__' ? null : r;
                 setBusy(false);
                 if (r === '__timeout__') {
                     notify(
                         needFace
-                            ? 'Nhận diện khuôn mặt quá lâu — thử lại hoặc dùng Mịn da / Màu da'
-                            : 'Bỏ qua chỉnh khuôn mặt (nhận diện lâu) — vẫn làm mịn da bình thường',
+                            ? 'Nhận diện khuôn mặt quá lâu (mạng?) — thử lại hoặc dùng Mịn da / Màu da'
+                            : 'Bỏ qua chỉnh khuôn mặt (mạng chậm) — vẫn làm mịn da bình thường',
                         'warning'
                     );
                 }
