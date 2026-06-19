@@ -3,15 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `ba7dd15` — auto: session update
-**Last updated**: 2026-06-19 23:18:31 +07
-**Latest session**: [`RESUME:20260619-231831-ba7dd15`](../20260619-231831-ba7dd15.md)
+**Latest commit**: `38f6e8c` — auto: session update
+**Last updated**: 2026-06-19 23:23:55 +07
+**Latest session**: [`RESUME:20260619-232355-38f6e8c`](../20260619-232355-38f6e8c.md)
 **Summary**: auto: session update
 
 ## Folders affected in this commit
 
 - [`vieneu-tts/`](./vieneu-tts.md) — 1 file(s)
-- [`web2/`](./web2.md) — 2 file(s)
+- [`web2/`](./web2.md) — 3 file(s)
 
 ## All folder snapshots
 
@@ -71,9 +71,9 @@
 - [`tests/`](./tests.md) — updated 2026-06-10 19:04
 - [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-06-07 19:41
 - [`user-management/`](./user-management.md) — updated 2026-05-21 15:39
-- [`vieneu-tts/`](./vieneu-tts.md) — updated 2026-06-19 23:18
+- [`vieneu-tts/`](./vieneu-tts.md) — updated 2026-06-19 23:23
 - [`web2-extension/`](./web2-extension.md) — updated 2026-05-24 11:53
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-19 23:18
+- [`web2/`](./web2.md) — updated 2026-06-19 23:23
