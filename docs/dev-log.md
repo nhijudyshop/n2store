@@ -2,6 +2,16 @@
 
 ## 2026-06-19
 
+### [native-orders + web2-chat] Cột info chat = bình luận live-chat (mới nhất trên + giờ) + ẩn cột Bình luận + fix snippet `<b>` ✅
+
+User test trực tiếp modal chat native-orders + bảng. 3 việc:
+
+1. **Cột INFO (phải) của modal chat = bình luận live-chat đã tạo đơn** (kéo SP vào comment), mới nhất ở TRÊN, kèm thời gian + tên page. Trước đó panel key theo `order.commentIds` (rỗng với đơn `/load`) → luôn hiện "Chưa có bình luận". **Nguồn đúng = `order.note`** (chụp lúc tạo đơn, format mỗi comment `[time] [Page] message`, nối `\n---\n`, time đã GMT+7 do server TZ=+7). Đã thử fetch `web2_live_comments` nhưng **không join được**: `order.fbUserId` (PSID) ≠ `fb_id` bảng đó (Pancake global id), `fbCommentId` (`convId_seq`) ≠ `id` bảng đó (`postId_seq`) → bỏ hướng fetch (revert filter server + api method), parse note sync. `_parseNoteComments` + render newest-first + ô trả lời chung (reply `fbCommentId`). File: `native-orders/js/native-orders-interactions.js`. Verified live: hiện "NhiJudy Store · 11:17:45 16/6/2026 · Quần xám", reply box OK, 0 err.
+2. **Ẩn cột "Bình luận" mặc định** trong bảng native-orders (`COL_DEFAULT.comment: true→false`) — comment giờ xem trong modal chat cột info. File: `native-orders/js/native-orders-state.js`. Verified: th display:none.
+3. **Fix cột trái (danh sách hội thoại) hiện literal `<b>0912…</b>`**: Pancake snippet kèm markup highlight → strip tag trước `esc`. File: `web2/shared/web2-customer-chat-core.js` (`_convRowHtml`). Verified: snippet sạch, không còn `<b>`.
+
+Bump `?v` cache-bust: native-orders scripts (api/state/interactions→20260619x) + web2-customer-chat-core.js→20260619b (4 trang includer: native-orders/balance-history/customers/jt-tracking).
+
 ### [web2-chat] FIX lazy-load chat-panel thiếu state/render/compose (regression modular) ✅
 
 **Bug (browser click-all probe toàn bộ 40 trang Web 2.0):** `web2/balance-history` throw `Uncaught Error: Web2ChatPanel: thiếu module phụ thuộc — load state→render→compose TRƯỚC` khi mở chat KH. Gốc: sau khi tách `web2-chat-panel.js` (1049 dòng) thành state/render/compose, **loader lazy `loadPanelBundle()` trong `web2/shared/web2-customer-chat-core.js` KHÔNG được cập nhật** — chỉ inject emoji/sticker/entity-detect + panel.js, thiếu 3 file NS. Trang static-include (native-orders) load đủ 4 file đúng thứ tự nên OK; mọi trang mở chat qua **Web2CustomerChat lazy-load đều vỡ** (balance-history, customer-wallet, launcher…).

@@ -471,7 +471,12 @@
         const name = cust.name || cust.full_name || c.name || 'Khách';
         const fbId = String(cust.fb_id || cust.id || c.from_psid || '');
         const pageId = String(c.page_id || c.fb_page_id || '');
-        const snip = c.snippet || c.last_message || c.last_sent_by?.message || '';
+        // Pancake snippet kèm markup highlight (vd `SĐT: <b>0912...</b>`) → strip tag
+        // trước khi esc, nếu không cột trái hiện literal `<b>…</b>`.
+        const snip = String(c.snippet || c.last_message || c.last_sent_by?.message || '').replace(
+            /<[^>]+>/g,
+            ''
+        );
         const time = _mTime(c.updated_at || c.inserted_at || '');
         const url = fbId && pageId ? _mAvatarUrl(fbId, pageId) : '';
         const initial = _mInitial(name);

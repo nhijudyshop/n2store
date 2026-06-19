@@ -44,6 +44,8 @@
                 panels: { info: NO._renderInteractionsInfoHtml(order) },
                 onReady: (handle) => {
                     const infoEl = handle && handle.getInfoEl && handle.getInfoEl();
+                    // Comment đã render sync từ order.note (đúng nguồn — chụp lúc tạo đơn).
+                    // Chỉ cần bind nút trả lời + vẽ icon.
                     if (infoEl) NO._wireCommentReplies(infoEl, order);
                     window.lucide?.createIcons?.();
                 },
@@ -56,17 +58,47 @@
         NO.notify('Chat chưa sẵn sàng, vui lòng tải lại trang', 'error');
     };
 
-    // Cột INFO (panels.info) cho Web2CustomerChat: tiêu đề đơn + panel bình luận.
+    // Cột INFO (panels.info) cho Web2CustomerChat: tiêu đề đơn + danh sách bình luận
+    // live-chat ĐÃ TẠO ĐƠN (kéo SP vào comment). Nguồn = order.note (chụp lúc tạo đơn,
+    // format mỗi comment `[time] [Page] message`, nối bằng `\n---\n`). KHÔNG fetch
+    // web2_live_comments vì id/fb_id của đơn (PSID) ≠ namespace bảng đó → không join.
     NO._renderInteractionsInfoHtml = function _renderInteractionsInfoHtml(order) {
         const esc = NO.escapeHtml;
         const head = `
             <div style="font-weight:700;font-size:13px;color:var(--web2-text,#111827);display:flex;align-items:center;gap:6px;">
-                <i data-lucide="message-square-text" style="width:15px;height:15px;"></i> Bình luận của đơn
+                <i data-lucide="message-square-text" style="width:15px;height:15px;"></i> Bình luận (live-chat)
             </div>
             <div style="font-size:12px;color:var(--web2-text-mute,#6b7280);">
                 ${esc(order.code || '')}${order.customerName ? ' · ' + esc(order.customerName) : ''}${order.phone ? ' · ' + esc(order.phone) : ''}
             </div>`;
         return `<div style="display:flex;flex-direction:column;gap:10px;">${head}${NO._renderCommentsPanel(order)}</div>`;
+    };
+
+    // Parse order.note → [{time, page, message}] theo từng comment.
+    // Format 1 dòng: `[HH:MM:SS D/M/YYYY] [Page] message` (time đã là GMT+7 do server
+    // TZ=+7 toLocaleString lúc lưu). Nhiều comment nối bằng `---`.
+    NO._parseNoteComments = function _parseNoteComments(note) {
+        if (!note) return [];
+        return String(note)
+            .split('---')
+            .map((s) => s.trim())
+            .filter(Boolean)
+            .map((seg) => {
+                let time = '';
+                let page = '';
+                let message = seg;
+                const tm = message.match(/^\[([^\]]+)\]\s*/);
+                if (tm) {
+                    time = tm[1].trim();
+                    message = message.slice(tm[0].length);
+                }
+                const pm = message.match(/^\[([^\]]+)\]\s*/);
+                if (pm) {
+                    page = pm[1].trim();
+                    message = message.slice(pm[0].length);
+                }
+                return { time, page, message: message.trim() };
+            });
     };
 
     // Bind nút trả lời bình luận trong cột info (Web2CustomerChat onReady) — tái dùng
@@ -158,76 +190,49 @@
     };
 
     NO._renderCommentsPanel = function _renderCommentsPanel(order) {
-        const ids = Array.isArray(order.commentIds) ? order.commentIds : [];
-        if (ids.length === 0) {
+        const esc = NO.escapeHtml;
+        // Bình luận từ order.note (chụp lúc tạo đơn) — MỚI NHẤT Ở TRÊN (note nối tăng
+        // dần theo thời gian → reverse). Mỗi item: [time] [Page] message.
+        const items = NO._parseNoteComments(order.note).reverse();
+        if (items.length === 0) {
             return `<div style="color:#94a3b8;font-style:italic;padding:24px 0;text-align:center;">
                 <i data-lucide="message-square-off" style="width:32px;height:32px;display:block;margin:0 auto 8px;color:#cbd5e1;"></i>
                 Chưa có bình luận nào trong đơn.
             </div>`;
         }
-        // Parse comment lines from `note` (each merge appends "[timestamp] message")
-        const noteLines = order.note
-            ? order.note
-                  .split('---')
-                  .map((s) => s.trim())
-                  .filter(Boolean)
-            : [];
-        const pancakeUrl = (commentId) =>
-            `../live-chat/index.html?focusCommentId=${encodeURIComponent(commentId)}${order.fbPageId ? '&focusPageId=' + encodeURIComponent(order.fbPageId) : ''}`;
-        const fbPermalink = (commentId) => {
-            const postId = order.fbPostId || '';
-            const postShort = postId.includes('_') ? postId.split('_').pop() : postId;
-            const cmtShort = String(commentId).includes('_')
-                ? String(commentId).split('_').pop()
-                : commentId;
-            if (postShort && cmtShort) {
-                return `https://www.facebook.com/${order.fbPageId || ''}/posts/${postShort}?comment_id=${cmtShort}`;
-            }
-            return `https://www.facebook.com/${commentId}`;
-        };
-        const canReply = !!order.fbPageId;
-        return `
-            <div style="display:flex;flex-direction:column;gap:10px;">
-                ${ids
-                    .map((cid, i) => {
-                        const noteLine = noteLines[i] || '';
-                        const replyInputId = `replyCmt-${i}`;
-                        return `
-                <div style="background:#fff;border:1px solid #e5e7eb;border-radius:6px;padding:10px 12px;">
-                    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:6px;">
-                        <code style="font-size:11px;color:#6b7280;font-family:'JetBrains Mono',Menlo,monospace;">#${NO.escapeHtml(String(cid).slice(-16))}</code>
-                        <div style="display:inline-flex;gap:6px;">
-                            <a href="${fbPermalink(cid)}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:#3b82f6;text-decoration:none;padding:4px 8px;border:1px solid #dbeafe;border-radius:4px;">
-                                <i data-lucide="facebook" style="width:11px;height:11px;"></i> Facebook
-                            </a>
-                            <a href="${pancakeUrl(cid)}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:#0068ff;text-decoration:none;padding:4px 8px;border:1px solid #e8f2ff;border-radius:4px;">
-                                <i data-lucide="external-link" style="width:11px;height:11px;"></i> WEB2 Pancake
-                            </a>
-                        </div>
+        const cards = items
+            .map(
+                (c) => `
+                <div style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:10px 12px;">
+                    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px;">
+                        ${
+                            c.page
+                                ? `<span style="font-size:11px;font-weight:600;color:#0068ff;background:#e8f2ff;border-radius:999px;padding:2px 8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:60%;"><i data-lucide="facebook" style="width:10px;height:10px;vertical-align:-1px;"></i> ${esc(c.page)}</span>`
+                                : '<span style="font-size:11px;font-weight:600;color:#64748b;">Bình luận</span>'
+                        }
+                        ${c.time ? `<span style="font-size:11px;color:#94a3b8;flex:none;display:inline-flex;align-items:center;gap:3px;"><i data-lucide="clock" style="width:11px;height:11px;"></i>${esc(c.time)}</span>` : ''}
                     </div>
-                    ${
-                        noteLine
-                            ? `<div style="font-size:13px;color:#334155;line-height:1.5;white-space:pre-wrap;margin-bottom:8px;">${NO.escapeHtml(noteLine)}</div>`
-                            : '<div style="font-size:11px;color:#94a3b8;font-style:italic;margin-bottom:8px;">(chưa có nội dung trong note)</div>'
-                    }
-                    ${
-                        canReply
-                            ? `<div class="reply-row" style="display:flex;gap:6px;align-items:flex-end;border-top:1px dashed #e5e7eb;padding-top:8px;">
-                        <textarea id="${replyInputId}" rows="1" placeholder="Trả lời bình luận này…" style="flex:1;padding:6px 10px;border:1px solid #e2e8f0;border-radius:4px;font-size:12px;font-family:inherit;resize:vertical;min-height:28px;max-height:120px;"></textarea>
-                        <button class="web2-btn web2-btn-success web2-btn-xs" data-action="reply-comment" data-cid="${NO.escapeHtml(cid)}" data-input="${replyInputId}" title="Trả lời công khai (action=reply_comment)">
-                            <i data-lucide="reply" style="width:11px;height:11px;"></i>
-                        </button>
-                        <button class="web2-btn web2-btn-primary web2-btn-xs" data-action="private-reply" data-cid="${NO.escapeHtml(cid)}" data-input="${replyInputId}" title="Trả lời riêng (DM khách qua Messenger)">
-                            <i data-lucide="send" style="width:11px;height:11px;"></i>
-                        </button>
-                    </div>`
-                            : ''
-                    }
-                </div>`;
-                    })
-                    .join('')}
-                ${canReply ? '' : '<div style="background:#fef3c7;color:#92400e;font-size:11px;padding:8px 12px;border-radius:4px;">⚠ Đơn không có fb_page_id → không thể trả lời. Mở trong WEB2 × Pancake.</div>'}
-            </div>`;
+                    <div style="font-size:13px;color:#1e293b;line-height:1.5;white-space:pre-wrap;word-break:break-word;">${c.message ? esc(c.message) : '<span style="color:#94a3b8;font-style:italic;">(không có nội dung)</span>'}</div>
+                </div>`
+            )
+            .join('');
+        // Trả lời: chỉ map được tới fbCommentId của đơn (note không giữ id từng dòng) →
+        // 1 ô trả lời chung (reply vào comment đã tạo đơn). Cần fbPageId + fbCommentId.
+        const canReply = !!order.fbPageId && !!order.fbCommentId;
+        const replyBox = canReply
+            ? `<div class="reply-row" style="display:flex;gap:6px;align-items:flex-end;background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:8px 10px;">
+                    <textarea id="replyCmt-0" rows="1" placeholder="Trả lời bình luận của khách…" style="flex:1;padding:6px 10px;border:1px solid #e2e8f0;border-radius:4px;font-size:12px;font-family:inherit;resize:vertical;min-height:28px;max-height:120px;"></textarea>
+                    <button class="web2-btn web2-btn-success web2-btn-xs" data-action="reply-comment" data-cid="${esc(order.fbCommentId)}" data-input="replyCmt-0" title="Trả lời công khai">
+                        <i data-lucide="reply" style="width:11px;height:11px;"></i>
+                    </button>
+                    <button class="web2-btn web2-btn-primary web2-btn-xs" data-action="private-reply" data-cid="${esc(order.fbCommentId)}" data-input="replyCmt-0" title="Trả lời riêng (DM khách qua Messenger)">
+                        <i data-lucide="send" style="width:11px;height:11px;"></i>
+                    </button>
+                </div>`
+            : order.fbPageId
+              ? ''
+              : '<div style="background:#fef3c7;color:#92400e;font-size:11px;padding:8px 12px;border-radius:6px;">⚠ Đơn không có fb_page_id → không thể trả lời.</div>';
+        return `<div style="display:flex;flex-direction:column;gap:8px;">${cards}${replyBox}</div>`;
     };
 
     // Chat giờ do Web2CustomerChat sở hữu (tự lo overlay + đóng + teardown). Hàm này

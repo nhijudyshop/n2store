@@ -43,7 +43,7 @@
         qty: false, // merged into money
         status: true,
         message: true,
-        comment: true,
+        comment: false, // Bình luận — mặc định ẨN (xem comment trong modal chat cột info)
         customerComment: false, // (cũ 'note') auto FB comment — mặc định ẨN
         userNote: false, // ghi chú NV — mặc định ẨN
         employee: false,
