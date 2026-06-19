@@ -2,6 +2,14 @@
 
 ## 2026-06-19
 
+### [web2/fb-posts] Xem trước bài (giống Facebook) + gộp nút tạo nội dung ✅
+
+User: "cho xem post preview trước khi đăng" + "2 nút tạo nội dung dư thừa".
+
+- **Shared `web2/shared/web2-fb-post-preview.js`** (`Web2FbPostPreview.open({pages,caption,media,scheduledTime})`) — thẻ giống bài FB: header page (avatar+tên+Vừa xong/⏰ lịch), caption giữ xuống dòng + hashtag xanh, lưới ảnh/video kiểu FB (1 full / 2 cột / 4+ → 2×2 +N), ảnh dataURL OK, hàng Thích/Bình luận/Chia sẻ. Nút "👁 Xem trước" cạnh Lưu nháp/Đăng. Nháp/lịch tái dùng được.
+- **Gộp 2 nút** "Tạo nội dung (miễn phí)" + "AI viết lại" → 1 nút "Tạo nội dung (AI miễn phí)" (ưu tiên AI free Groq, tự fallback mẫu nếu lỗi/thiếu key).
+- ✅ Verify browser: preview render đúng (header+caption+hashtag xanh+ảnh, 0 lỗi); 1 nút generate ra caption tông "chị". Commits `c3d009824` + `9e78c109d`.
+
 ### [cloudflare-worker] FIX lỗ hổng HỆ THỐNG: route /api/web2-\* quên khai báo → rơi catch-all TPOS ✅
 
 Phát hiện khi vieneu-registry trả trang 404 TPOS. **Gốc**: worker `getRouteType` (routes.js) có generic `/api/web2/` nhưng CHỈ match dấu `/` (gạch chéo), KHÔNG match `/api/web2-` (gạch ngang) → mọi route `/api/web2-*` phải khai báo TƯỜNG MINH từng cái; quên 1 cái → rơi catch-all `TPOS_GENERIC` (`/api/` → tomato.tpos.vn — fallback của Web 1.0 dùng TPOS thật). Earlier separation-audit chỉ check `isWeb2Path` (origin) mà BỎ tầng `getRouteType` (proxy-vs-TPOS) → sót.

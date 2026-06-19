@@ -2,7 +2,7 @@
 
 # WEB2-CODEMAP — Bản đồ code Web 2.0
 
-> **Auto-generated** • 2026-06-19 16:04 • 375 files, 104 shared modules, 2772 hàm, 1 file > 800 dòng.
+> **Auto-generated** • 2026-06-19 16:26 • 376 files, 105 shared modules, 2777 hàm, 1 file > 800 dòng.
 > Sinh lại: `node scripts/gen-web2-codemap.js` (chạy sau khi đổi cấu trúc/ tách module / thêm trang).
 
 ## 0. Cách dùng (Claude / dev đọc TRƯỚC khi code)
@@ -61,6 +61,7 @@
 | `Web2Export`                               | [web2-export-helpers.js](../../web2/shared/web2-export-helpers.js)                    | WEB2.0 module.                                                                                          | 0         |
 | `Web2Ext`                                  | [web2-extension-bridge.js](../../web2/shared/web2-extension-bridge.js)                | WEB2 EXTENSION BRIDGE                                                                                   | 4         |
 | `Web2FbClient`, `FBPostsApi`               | [web2-fb-client.js](../../web2/shared/web2-fb-client.js)                              | WEB2.0 shared — Facebook Graph API client (1 NGUỒN cho mọi trang FB).                                   | 8         |
+| `Web2FbPostPreview`                        | [web2-fb-post-preview.js](../../web2/shared/web2-fb-post-preview.js)                  | WEB2.0 shared — xem trước bài Facebook (giống FB) trước khi đăng.                                       | 1         |
 | `Web2FbShare`                              | [web2-fb-share.js](../../web2/shared/web2-fb-share.js)                                | WEB2.0 shared — handoff "Đăng lên FB": chuyển ảnh + caption từ 1 trang sang trang Đăng bài.             | 3         |
 | `Web2Format`                               | [web2-format.js](../../web2/shared/web2-format.js)                                    | WEB2.0 shared — 1 NGUỒN format tiền/ngày/giờ (GMT+7) cho Web 2.0.                                       | 21        |
 | `Web2HistoryTimeline`                      | [web2-history-timeline.js](../../web2/shared/web2-history-timeline.js)                | Web2HistoryTimeline — render lịch sử chỉnh sửa kèm tên user                                             | 8         |
@@ -280,6 +281,11 @@ WEB2 EXTENSION BRIDGE
 
 WEB2.0 shared — Facebook Graph API client (1 NGUỒN cho mọi trang FB).
 **Dùng bởi:** `web2/fb-ads-stats/js/fb-ads-manual.js`, `web2/fb-ads-stats/js/fb-ads-stats.js`, `web2/fb-insights/js/fb-insights.js`, `web2/fb-posts/js/fb-posts-app.js`, `web2/fb-posts/js/fb-posts-composer.js`, `web2/fb-posts/js/fb-posts-drafts.js`, `web2/fb-posts/js/fb-posts-list.js`, `web2/fb-posts/js/fb-posts-media.js`
+
+#### `Web2FbPostPreview` — [web2/shared/web2-fb-post-preview.js](../../web2/shared/web2-fb-post-preview.js) · 147 dòng
+
+WEB2.0 shared — xem trước bài Facebook (giống FB) trước khi đăng.
+**Dùng bởi:** `web2/fb-posts/js/fb-posts-composer.js`
 
 #### `Web2FbShare` — [web2/shared/web2-fb-share.js](../../web2/shared/web2-fb-share.js) · 100 dòng
 
@@ -1214,10 +1220,10 @@ WEB2.0 module — Zalo chat sticker picker.
     - exposes: `FBPosts`
     - uses shared: `Popup`, `FBPostsApi`, `Web2Sidebar`, `Web2SSE`
     - funcs (12): Api, close, esc, init, loadStatus, notify, onclick, openConnect, renderActive, renderPill, setupSSE, switchTab
-- **[fb-posts-composer.js](../../web2/fb-posts/js/fb-posts-composer.js)** ·487 — WEB2.0 — Đăng bài FB: soạn bài (page chips + AI caption + media + lịch + đăng).
+- **[fb-posts-composer.js](../../web2/fb-posts/js/fb-posts-composer.js)** ·507 — WEB2.0 — Đăng bài FB: soạn bài (page chips + AI caption + media + lịch + đăng).
     - exposes: `FBPostsComposer`
-    - uses shared: `Popup`, `Web2Auth`, `FBPostsApi`, `Web2FbShare`, `Web2ProductPicker`
-    - funcs (23): Api, Media, S, confirmDo, defaultSchedule, esc, gather, generate, imgOf, loadDraft, maybeConsumeShare, notify, onConfirm, openKhoPicker, pageChipsHtml, product, publish, render, renderProductChips, resetForm, saveDraft, toProd, wire
+    - uses shared: `Popup`, `Web2Auth`, `FBPostsApi`, `Web2FbPostPreview`, `Web2FbShare`, `Web2ProductPicker`
+    - funcs (24): Api, Media, S, confirmDo, defaultSchedule, esc, gather, generate, imgOf, loadDraft, maybeConsumeShare, notify, onConfirm, openKhoPicker, openPreview, pageChipsHtml, product, publish, render, renderProductChips, resetForm, saveDraft, toProd, wire
 - **[fb-posts-drafts.js](../../web2/fb-posts/js/fb-posts-drafts.js)** ·170 — WEB2.0 — Đăng bài FB: Lịch & Nháp (agenda theo ngày, sửa/đăng/xoá).
     - exposes: `FBPostsDrafts`
     - uses shared: `Popup`, `FBPostsApi`
@@ -1781,6 +1787,9 @@ WEB2.0 module — Zalo chat sticker picker.
     - exposes: `Web2FbClient`, `FBPostsApi`
     - uses shared: `WEB2_CONFIG`, `API_CONFIG`, `Web2Auth`
     - funcs (28): BASE, adAccounts, adEntries, adInsights, caption, connect, del, deleteAdEntry, deleteDraft, disconnect, drafts, engagement, headers, insightsProbe, jget, jpost, list, loginUrl, onload, postDetail, postEdit, publish, refreshPages, saveAdEntry, saveDraft, status, uploadImage, workerBase
+- **[web2-fb-post-preview.js](../../web2/shared/web2-fb-post-preview.js)** ·147 — WEB2.0 shared — xem trước bài Facebook (giống FB) trước khi đăng.
+    - exposes: `Web2FbPostPreview`
+    - funcs (8): cell, close, esc, esc2, mediaGrid, open, renderCaption, srcOf
 - **[web2-fb-share.js](../../web2/shared/web2-fb-share.js)** ·100 — WEB2.0 shared — handoff "Đăng lên FB": chuyển ảnh + caption từ 1 trang sang trang Đăng bài.
     - exposes: `Web2FbShare`
     - funcs (4): consume, fbPostsUrl, has, send

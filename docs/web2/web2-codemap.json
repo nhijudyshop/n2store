@@ -1,9 +1,9 @@
 {
-    "generatedAt": "2026-06-19 16:04",
+    "generatedAt": "2026-06-19 16:26",
     "totals": {
-        "files": 375,
-        "sharedModules": 104,
-        "functions": 2772,
+        "files": 376,
+        "sharedModules": 105,
+        "functions": 2777,
         "oversized": 1
     },
     "sharedModules": [
@@ -682,6 +682,14 @@
                 "web2/fb-posts/js/fb-posts-media.js"
             ],
             "lines": 120
+        },
+        {
+            "file": "web2/shared/web2-fb-post-preview.js",
+            "globals": ["Web2FbPostPreview"],
+            "purpose": "WEB2.0 shared — xem trước bài Facebook (giống FB) trước khi đăng.",
+            "api": [],
+            "consumers": ["web2/fb-posts/js/fb-posts-composer.js"],
+            "lines": 147
         },
         {
             "file": "web2/shared/web2-fb-share.js",
@@ -4959,10 +4967,17 @@
                 },
                 {
                     "file": "web2/fb-posts/js/fb-posts-composer.js",
-                    "lines": 487,
+                    "lines": 507,
                     "purpose": "WEB2.0 — Đăng bài FB: soạn bài (page chips + AI caption + media + lịch + đăng).",
                     "globals": ["FBPostsComposer"],
-                    "uses": ["Popup", "Web2Auth", "FBPostsApi", "Web2FbShare", "Web2ProductPicker"],
+                    "uses": [
+                        "Popup",
+                        "Web2Auth",
+                        "FBPostsApi",
+                        "Web2FbPostPreview",
+                        "Web2FbShare",
+                        "Web2ProductPicker"
+                    ],
                     "functions": [
                         "Api",
                         "Media",
@@ -4978,6 +4993,7 @@
                         "notify",
                         "onConfirm",
                         "openKhoPicker",
+                        "openPreview",
                         "pageChipsHtml",
                         "product",
                         "publish",
@@ -7377,6 +7393,23 @@
                         "status",
                         "uploadImage",
                         "workerBase"
+                    ]
+                },
+                {
+                    "file": "web2/shared/web2-fb-post-preview.js",
+                    "lines": 147,
+                    "purpose": "WEB2.0 shared — xem trước bài Facebook (giống FB) trước khi đăng.",
+                    "globals": ["Web2FbPostPreview"],
+                    "uses": [],
+                    "functions": [
+                        "cell",
+                        "close",
+                        "esc",
+                        "esc2",
+                        "mediaGrid",
+                        "open",
+                        "renderCaption",
+                        "srcOf"
                     ]
                 },
                 {
