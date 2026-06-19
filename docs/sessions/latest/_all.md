@@ -3,18 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `e3e76f6` — fix(web2/fb-graph): tách post_video_views khỏi cụm metric (bài ảnh reject cả cụm) → retry không-video lấy reach per-post
-**Last updated**: 2026-06-19 22:21:54 +07
-**Latest session**: [`RESUME:20260619-222154-e3e76f6`](../20260619-222154-e3e76f6.md)
-**Summary**: fix(web2/fb-graph): tách post_video_views khỏi cụm metric (bài ảnh reject cả cụm) → retry không-video ...
+**Latest commit**: `1de201d` — feat(web2/fb): đăng ảnh bytes thẳng lên FB (multipart) — bỏ phụ thuộc imgbb (đang lỗi key); handoff + upload local dùng dataUrl
+**Last updated**: 2026-06-19 22:26:23 +07
+**Latest session**: [`RESUME:20260619-222623-1de201d`](../20260619-222623-1de201d.md)
+**Summary**: feat(web2/fb): đăng ảnh bytes thẳng lên FB (multipart) — bỏ phụ thuộc imgbb (đang lỗi key); handoff...
 
 ## Folders affected in this commit
 
-- [`_root/`](./_root.md) — 1 file(s)
-- [`docs/`](./docs.md) — 2 file(s)
-- [`render.com/`](./render.com.md) — 2 file(s)
-- [`vieneu-tts/`](./vieneu-tts.md) — 4 file(s)
-- [`web2/`](./web2.md) — 15 file(s)
+- [`render.com/`](./render.com.md) — 1 file(s)
+- [`web2/`](./web2.md) — 3 file(s)
 
 ## All folder snapshots
 
@@ -58,7 +55,7 @@
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`referenceUI/`](./referenceUI.md) — updated 2026-06-19 14:27
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-06-16 00:35
-- [`render.com/`](./render.com.md) — updated 2026-06-19 22:21
+- [`render.com/`](./render.com.md) — updated 2026-06-19 22:26
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-19 14:27
 - [`service-costs/`](./service-costs.md) — updated 2026-06-16 11:15
@@ -79,4 +76,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-19 22:21
+- [`web2/`](./web2.md) — updated 2026-06-19 22:26
