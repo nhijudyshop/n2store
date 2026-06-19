@@ -2,6 +2,16 @@
 
 ## 2026-06-19
 
+### [web2/fb-posts] Kết nối Facebook LIVE + fix 2 gotcha Graph (pages_manage_posts use case, /list #10) ✅
+
+Kết nối thật xong: user **Lê Minh Tú**, 8 page bind (NhiJudy Store `270136663390370`…) trên service `web2-api`. Verified `/status` connected, `/list` trả bài thật, token đủ `pages_manage_posts`+`pages_read_engagement`.
+
+**Gotcha 1 — `pages_manage_posts` không có sẵn:** app N2STORE (`1290728302927895`) cấu hình cho Ads → Explorer/consent KHÔNG hiện `pages_manage_posts` để tick (token chỉ có ads\_\*/pages_read_engagement/pages_show_list). Fix: App Dashboard › **Trường hợp sử dụng › thêm "Quản lý mọi thứ trên Trang"** → quyền xuất hiện → token mới có (Standard Access, app Doanh nghiệp + admin, KHÔNG cần App Review). `/connect` vẫn success khi thiếu (chỉ cần pages_show_list) nhưng không đăng được — nên verify `me/permissions`.
+
+**Gotcha 2 — `/list` lỗi `(#10)` dù có pages_read_engagement:** `likes.summary/comments.summary/shares` đòi feature **"Page Public Content Access"** (App Review riêng). Fix (`cf83133e0`): `listPagePosts` chỉ lấy `id,message,created_time,full_picture,permalink_url,status_type` (chạy với page token); bỏ engagement counts ở UI (xem qua permalink). `/feed` cũng #10 → dùng `/posts`.
+
+**OAuth flow** (`77bcfbcb1`): `/auth/login-url`+`/auth/callback`, redirect_uri `chatomni-proxy…/api/web2-fb-posts/auth/callback` (whitelist trong FB App, Strict Mode OK). Scope least-privilege 3 quyền (`077e15168`). "Dính web luôn" = lưu page token (long-lived). Cách connect không-trình-duyệt: dán User Token vào `FB_USER_TOKEN=` serect → `/connect`. Chi tiết MEMORY [[reference_web2_fb_posts]].
+
 ### [web2/zalo + extension + render] "Đăng nhập Zalo" 1-click (cookie phiên chat.zalo.me) + auto-renew + guard danh tính ✅
 
 User: làm nút "Đăng nhập Zalo" 1-click (đừng để chữ "cookie/session") lấy phiên Zalo từ trình duyệt; tự gia hạn khi rớt; không thấy phiên → báo "đăng nhập https://chat.zalo.me/ trước".
