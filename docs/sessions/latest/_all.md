@@ -3,16 +3,16 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `111b43e` — docs(web2): mark native-orders split + Task 1 chat-unification done; note Step 2b deferred (entangled)
-**Last updated**: 2026-06-19 07:58:07 +07
-**Latest session**: [`RESUME:20260619-075807-111b43e`](../20260619-075807-111b43e.md)
-**Summary**: native-orders 9457→23 split + Task 1 chat-unification (Web2CustomerChat, comments→info) XONG. Modularization Web2 hoàn tất; còn Step 2b dead-code + server.js deferred
+**Latest commit**: `d12aa52` — chore(web2): regen codemap sau Step 2b + server.js split
+**Last updated**: 2026-06-19 08:19:07 +07
+**Latest session**: [`RESUME:20260619-081907-d12aa52`](../20260619-081907-d12aa52.md)
+**Summary**: Step 2b dead-code removal (native-orders 26→20, ~1500 dòng) + server.js → 12 module XONG. Modularization Web2 hoàn tất (chỉ còn 2 file 962/803 optional)
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 4 file(s)
-- [`native-orders/`](./native-orders.md) — 25 file(s)
-- [`web2/`](./web2.md) — 2 file(s)
+- [`live-chat/`](./live-chat.md) — 12 file(s)
+- [`native-orders/`](./native-orders.md) — 11 file(s)
 
 ## All folder snapshots
 
@@ -27,7 +27,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-18 13:23
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-16 14:31
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-18 12:17
-- [`docs/`](./docs.md) — updated 2026-06-19 07:58
+- [`docs/`](./docs.md) — updated 2026-06-19 08:19
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-16 14:31
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-16 14:31
 - [`downloads/`](./downloads.md) — updated 2026-06-18 19:26
@@ -40,11 +40,11 @@
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-06-16 14:31
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-16 14:31
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-05-21 15:39
-- [`live-chat/`](./live-chat.md) — updated 2026-06-19 07:05
+- [`live-chat/`](./live-chat.md) — updated 2026-06-19 08:19
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-06-04 20:02
 - [`n2store-facebook/`](./n2store-facebook.md) — updated 2026-06-14 13:09
 - [`n2store-realtime/`](./n2store-realtime.md) — updated 2026-06-16 11:15
-- [`native-orders/`](./native-orders.md) — updated 2026-06-19 07:58
+- [`native-orders/`](./native-orders.md) — updated 2026-06-19 08:19
 - [`nhanhang/`](./nhanhang.md) — updated 2026-06-13 19:51
 - [`order-management/`](./order-management.md) — updated 2026-05-21 15:39
 - [`orders-report/`](./orders-report.md) — updated 2026-06-16 17:03
