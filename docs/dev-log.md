@@ -2,6 +2,14 @@
 
 ## 2026-06-19
 
+### [vieneu-tts] 1-click installer (Win/Mac) + tự dò máy online (registry) + tunnel điện thoại ✅
+
+User: cho file .bat 1-click tự cài; máy shop tắt-mở-lại URL đổi thì sao; nhiều máy thì sao. Giải:
+
+- **Orchestrator `serve.py`** (cross-platform): chạy uvicorn + cloudflared tunnel + đọc URL + **heartbeat POST /register mỗi 30s**. Launcher mỏng: `install-windows.bat` (1-click: winget cài Python + venv + pip + tải `cloudflared.exe` + chạy), `run-mac.command` (nhấp đúp, brew cloudflared), `run_local.sh` (terminal). Tunnel test thật: `https://…trycloudflare.com/health` OK qua internet, 10 giọng.
+- **Tự dò máy (registry)** giải "tắt-mở-lại URL đổi" + "nhiều máy": route `render.com/routes/web2-vieneu-registry.js` (IN-MEMORY trên web2-api, TTL 90s) — máy báo danh `{name,url}`, trang `GET /list` máy online. Worker `/api/web2*` → web2-api sẵn. Frontend `Web2Vieneu.listServers()` + UI `video-vieneu.js` hiện chip "Máy đang online" (auto-refresh 20s) → bấm chọn, KHÔNG cần dán URL; tắt-mở-lại máy tự báo URL mới; nhiều máy hiện hết. Vẫn giữ "dán URL thủ công" (details).
+- Bump version web2-vieneu/video-vieneu/css. `.gitignore` chặn `.venv`/`cloudflared.exe`/`*.wav`.
+
 ### [web2/fb-*] FB khai tử reach per-post + promote FB client → shared module ✅
 
 Verify live phát hiện + xử lý:

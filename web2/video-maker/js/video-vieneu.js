@@ -51,6 +51,54 @@
             }
         }
         $('#vmVnConnect')?.addEventListener('click', connect);
+
+        // --- tự dò máy shop đang online (registry) → bấm chọn, không cần dán URL ---
+        const serversBox = $('#vmVnServers');
+        function renderServers(list) {
+            if (!serversBox) return;
+            if (!list || !list.length) {
+                serversBox.innerHTML =
+                    '<span class="vm-hint2">Chưa thấy máy shop nào online. Bật server trên máy shop (install-windows.bat / run-mac.command).</span>';
+                return;
+            }
+            const cur = V.getUrl();
+            serversBox.innerHTML = list
+                .map(function (s) {
+                    const on = s.url === cur ? ' on' : '';
+                    const age =
+                        s.ageSec < 60 ? 'online' : '~' + Math.round(s.ageSec / 60) + 'p trước';
+                    return (
+                        '<button type="button" class="vm-vn-server' +
+                        on +
+                        '" data-url="' +
+                        encodeURIComponent(s.url) +
+                        '"><i data-lucide="monitor-smartphone"></i> ' +
+                        (s.name || 'Máy shop') +
+                        ' <span class="vm-vn-age">' +
+                        age +
+                        '</span></button>'
+                    );
+                })
+                .join('');
+            serversBox.querySelectorAll('.vm-vn-server').forEach(function (b) {
+                b.addEventListener('click', function () {
+                    if (urlIn) urlIn.value = decodeURIComponent(b.dataset.url);
+                    connect();
+                });
+            });
+            if (global.lucide) global.lucide.createIcons();
+        }
+        async function refreshServers() {
+            try {
+                renderServers(await V.listServers());
+            } catch (e) {
+                /* im lặng */
+            }
+        }
+        $('#vmVnRefresh')?.addEventListener('click', refreshServers);
+        refreshServers();
+        setInterval(refreshServers, 20000);
+
         if (V.getUrl()) connect(); // tự kết nối nếu đã lưu URL
 
         // nạp giọng mẫu (mic/upload) → đảm bảo WAV (libsndfile không đọc webm/mp3) → clone

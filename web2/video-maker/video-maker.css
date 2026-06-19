@@ -546,3 +546,62 @@ textarea.vm-narr {
     margin: 6px 0 2px;
     line-height: 1.5;
 }
+
+/* ===== VieNeu: danh sách máy shop online (tự dò) ===== */
+.vm-vn-servers {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 4px 0 8px;
+}
+.vm-vn-server {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    border: 1px solid var(--web2-border, #2a3550);
+    border-radius: 10px;
+    background: var(--web2-surface-2, #141d33);
+    color: var(--web2-text, #e8eef9);
+    font-size: 0.86rem;
+    cursor: pointer;
+    transition:
+        border-color 0.15s,
+        transform 0.1s;
+}
+.vm-vn-server:hover {
+    border-color: var(--web2-primary, #0068ff);
+    transform: translateY(-1px);
+}
+.vm-vn-server.on {
+    border-color: var(--web2-primary, #0068ff);
+    box-shadow: 0 0 0 2px rgba(0, 104, 255, 0.25) inset;
+}
+.vm-vn-server i {
+    width: 16px;
+    height: 16px;
+}
+.vm-vn-age {
+    font-size: 0.72rem;
+    opacity: 0.65;
+}
+.vm-vn-refresh {
+    border: none;
+    background: transparent;
+    color: var(--web2-text-dim, #93a1c4);
+    cursor: pointer;
+    padding: 2px;
+    vertical-align: middle;
+}
+.vm-vn-refresh i {
+    width: 14px;
+    height: 14px;
+}
+.vm-vn-manual {
+    margin-top: 6px;
+}
+.vm-vn-manual > summary {
+    font-size: 0.8rem;
+    color: var(--web2-text-dim, #93a1c4);
+    cursor: pointer;
+}

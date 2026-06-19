@@ -15,7 +15,7 @@
         <link rel="stylesheet" href="../shared/web2-sidebar.css?v=20260613z" />
         <link rel="stylesheet" href="../shared/web2-theme.css?v=20260613z" />
         <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
-        <link rel="stylesheet" href="./video-maker.css?v=20260619d" />
+        <link rel="stylesheet" href="./video-maker.css?v=20260619e" />
     </head>
     <body class="web2-theme">
         <div class="web2-shell">
@@ -168,21 +168,34 @@
                             </summary>
                             <p class="vm-hint2">
                                 Giọng Việt chất lượng cao + <b>clone giọng của bạn</b> (mẫu 3–5s).
-                                Chạy trên <b>máy shop</b> (chạy
-                                <code>vieneu-tts/run_local.sh</code>) — dán URL máy đang bật vào đây
-                                (mỗi máy 1 URL).
+                                Chạy trên <b>máy shop</b> (nhấp đúp
+                                <code>install-windows.bat</code> / <code>run-mac.command</code>).
+                                Máy bật lên sẽ <b>tự hiện</b> bên dưới — bấm chọn, không cần dán
+                                URL.
                             </p>
-                            <div class="vm-row">
-                                <input
-                                    type="url"
-                                    id="vmVnUrl"
-                                    class="vm-topic-in"
-                                    placeholder="https://…trycloudflare.com (URL server máy shop)"
-                                />
-                                <button class="vm-btn sm" id="vmVnConnect">
-                                    <i data-lucide="plug"></i> Kết nối
+                            <div class="vm-label">
+                                Máy đang online
+                                <button class="vm-vn-refresh" id="vmVnRefresh" title="Làm mới">
+                                    <i data-lucide="refresh-cw"></i>
                                 </button>
                             </div>
+                            <div class="vm-vn-servers" id="vmVnServers">
+                                <span class="vm-hint2">Đang tìm máy shop…</span>
+                            </div>
+                            <details class="vm-vn-manual">
+                                <summary>Dán URL thủ công</summary>
+                                <div class="vm-row">
+                                    <input
+                                        type="url"
+                                        id="vmVnUrl"
+                                        class="vm-topic-in"
+                                        placeholder="https://…trycloudflare.com (URL server máy shop)"
+                                    />
+                                    <button class="vm-btn sm" id="vmVnConnect">
+                                        <i data-lucide="plug"></i> Kết nối
+                                    </button>
+                                </div>
+                            </details>
                             <div class="vm-voice-stat" id="vmVnStat">
                                 Chưa kết nối server giọng VieNeu.
                             </div>
@@ -256,14 +269,14 @@
         <script src="../shared/web2-auth.js?v=20260613guard"></script>
         <script src="../shared/web2-sidebar.js?v=20260615db"></script>
         <script src="../shared/web2-products-cache.js?v=20260619a"></script>
-        <script src="../shared/web2-vieneu.js?v=20260619a"></script>
+        <script src="../shared/web2-vieneu.js?v=20260619b"></script>
         <script src="./js/video-tts.js?v=20260619f"></script>
         <script src="./js/video-anim.js?v=20260619a"></script>
         <script src="./js/video-render.js?v=20260619d"></script>
         <script src="./js/video-scene-editor.js?v=20260619a"></script>
         <script src="./js/video-audio.js?v=20260619a"></script>
         <script src="./js/video-ai-script.js?v=20260619a"></script>
-        <script src="./js/video-vieneu.js?v=20260619a"></script>
+        <script src="./js/video-vieneu.js?v=20260619b"></script>
         <script src="./js/video-maker.js?v=20260619e"></script>
         <script>
             document.addEventListener('DOMContentLoaded', () => {
