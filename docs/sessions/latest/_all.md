@@ -3,16 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `2c73f6a` — feat(web2/fb): chọn NHIỀU SP từ Kho cho AI (caption tổng hợp + tự thêm ảnh) qua shared Web2ProductPicker; sort page Store→House→Ơi→Nè
-**Last updated**: 2026-06-19 22:57:49 +07
-**Latest session**: [`RESUME:20260619-225749-2c73f6a`](../20260619-225749-2c73f6a.md)
-**Summary**: feat(web2/fb): chọn NHIỀU SP từ Kho cho AI (caption tổng hợp + tự thêm ảnh) qua shared Web2ProductPick...
+**Latest commit**: `91f12f3` — docs(web2): dev-log + codemap cho multi-SP picker shared + page order
+**Last updated**: 2026-06-19 23:05:24 +07
+**Latest session**: [`RESUME:20260619-230524-91f12f3`](../20260619-230524-91f12f3.md)
+**Summary**: Chọn nhiều SP từ Kho cho AI (shared Web2ProductPicker) + caption tổng hợp + thứ tự page Store→House→Ơi→Nè
 
 ## Folders affected in this commit
 
-- [`cloudflare-worker/`](./cloudflare-worker.md) — 2 file(s)
-- [`render.com/`](./render.com.md) — 2 file(s)
-- [`web2/`](./web2.md) — 6 file(s)
+- [`cloudflare-worker/`](./cloudflare-worker.md) — 1 file(s)
+- [`docs/`](./docs.md) — 3 file(s)
 
 ## All folder snapshots
 
@@ -24,10 +23,10 @@
 - [`balance-history-home/`](./balance-history-home.md) — updated 2026-06-18 13:09
 - [`balance-history/`](./balance-history.md) — updated 2026-06-16 14:31
 - [`bangkiemhang/`](./bangkiemhang.md) — updated 2026-05-21 15:39
-- [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-19 22:57
+- [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-19 23:05
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-16 14:31
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-18 12:17
-- [`docs/`](./docs.md) — updated 2026-06-19 22:52
+- [`docs/`](./docs.md) — updated 2026-06-19 23:05
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-16 14:31
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-16 14:31
 - [`downloads/`](./downloads.md) — updated 2026-06-19 14:27
