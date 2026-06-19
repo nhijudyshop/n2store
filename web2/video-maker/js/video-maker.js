@@ -24,10 +24,14 @@
         scenes: [], // { id, _img, src, title, subtitle, dur }
         ratioKey: 'landscape',
         accent: '#0068ff',
+        voiceId: 'mms',
+        tone: 'normal',
         narration: { text: '', samples: null, sampleRate: 16000 },
         playing: false,
         recording: false,
         _raf: null,
+        _sampleCache: {}, // key voiceId|tone → {samples,sampleRate}
+        _sampling: false,
     };
 
     let canvas, ctx;
@@ -182,6 +186,8 @@
         };
         try {
             const { samples, sampleRate } = await global.Web2VideoTTS.synthesize(text, {
+                voiceId: state.voiceId,
+                pitch: tonePitch(),
                 onStatus: setStat,
             });
             state.narration = { text, samples, sampleRate };
@@ -391,16 +397,220 @@
         );
     }
 
+    function tonePitch() {
+        const t = (global.Web2VideoTTS.TONES || []).find((x) => x.id === state.tone);
+        return t ? t.pitch : 1;
+    }
+
+    // render thẻ chọn giọng + tông + nút nghe mẫu
+    function renderVoices() {
+        const TTS = global.Web2VideoTTS;
+        const vw = $('#vmVoices');
+        if (vw) {
+            vw.innerHTML = TTS.VOICES.map(
+                (v) => `
+                <div class="vm-voice ${v.id === state.voiceId ? 'on' : ''}" data-v="${v.id}">
+                    <button type="button" class="vm-voice-pick" data-v="${v.id}">
+                        <i data-lucide="${v.id === state.voiceId ? 'check-circle-2' : 'circle'}"></i>
+                        <span>${esc(v.label)}</span>
+                    </button>
+                    <button type="button" class="vm-voice-sample" data-sample="${v.id}" title="Nghe mẫu">
+                        <i data-lucide="volume-2"></i>
+                    </button>
+                </div>`
+            ).join('');
+            vw.querySelectorAll('.vm-voice-pick').forEach((b) =>
+                b.addEventListener('click', () => {
+                    state.voiceId = b.dataset.v;
+                    renderVoices();
+                })
+            );
+            vw.querySelectorAll('.vm-voice-sample').forEach((b) =>
+                b.addEventListener('click', () => playSample(b.dataset.sample))
+            );
+        }
+        const tw = $('#vmTones');
+        if (tw) {
+            tw.innerHTML = TTS.TONES.map(
+                (t) =>
+                    `<button type="button" class="vm-chip ${t.id === state.tone ? 'on' : ''}" data-tone="${t.id}">${esc(t.label)}</button>`
+            ).join('');
+            tw.querySelectorAll('[data-tone]').forEach((b) =>
+                b.addEventListener('click', () => {
+                    state.tone = b.dataset.tone;
+                    tw.querySelectorAll('[data-tone]').forEach((x) =>
+                        x.classList.toggle('on', x === b)
+                    );
+                })
+            );
+        }
+        if (global.lucide) global.lucide.createIcons();
+    }
+
+    // nghe mẫu 1 câu cố định bằng giọng + tông đang chọn (cache theo voice|tone)
+    async function playSample(voiceId) {
+        if (state._sampling) return;
+        const tone = state.tone;
+        const key = voiceId + '|' + tone;
+        const stat = $('#vmVoiceStat');
+        try {
+            state._sampling = true;
+            let cached = state._sampleCache[key];
+            if (!cached) {
+                stat.textContent = 'Đang tạo giọng mẫu…';
+                cached = await global.Web2VideoTTS.synthesize(global.Web2VideoTTS.SAMPLE_TEXT, {
+                    voiceId,
+                    pitch: tonePitch(),
+                    onStatus: (m) => (stat.textContent = m),
+                });
+                state._sampleCache[key] = cached;
+            }
+            stat.textContent = 'Đang phát giọng mẫu…';
+            const ac = audioCtx();
+            await ac.resume?.();
+            const src = ac.createBufferSource();
+            src.buffer = global.Web2VideoTTS.toAudioBuffer(ac, cached.samples, cached.sampleRate);
+            src.connect(ac.destination);
+            src.onended = () =>
+                (stat.textContent = `Giọng: ${voiceLabel(voiceId)} · tông ${toneLabel()}`);
+            src.start();
+        } catch (e) {
+            console.error('[video-maker] sample error:', e);
+            stat.textContent = '❌ Lỗi nghe mẫu: ' + (e.message || e);
+            notify('Không tạo được giọng mẫu', 'error');
+        } finally {
+            state._sampling = false;
+        }
+    }
+    function voiceLabel(id) {
+        const v = (global.Web2VideoTTS.VOICES || []).find((x) => x.id === id);
+        return v ? v.label : id;
+    }
+    function toneLabel() {
+        const t = (global.Web2VideoTTS.TONES || []).find((x) => x.id === state.tone);
+        return t ? t.label : '';
+    }
+
+    // ---------- tạo ngẫu nhiên (auto từ kho SP) ----------
+    function _rand(arr) {
+        return arr[Math.floor(Math.random() * arr.length)];
+    }
+    function _shuffle(arr) {
+        const a = arr.slice();
+        for (let i = a.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [a[i], a[j]] = [a[j], a[i]];
+        }
+        return a;
+    }
+    function fmtPriceShort(n) {
+        const num = Number(String(n).replace(/[^\d.-]/g, ''));
+        if (!num) return '';
+        return new Intl.NumberFormat('vi-VN').format(num) + 'đ';
+    }
+
+    async function randomGenerate() {
+        const btn = $('#vmRandom');
+        btn.disabled = true;
+        try {
+            await global.Web2ProductsCache?.init?.().catch(() => {});
+            const all = (global.Web2ProductsCache?.getAll?.() || []).filter(
+                (p) => p && p.imageUrl && /^(https?:\/\/|\/|data:image\/)/i.test(String(p.imageUrl))
+            );
+            if (!all.length) {
+                notify('Kho chưa có SP kèm ảnh — hãy "+ Thêm ảnh" tay nhé', 'warning');
+                return;
+            }
+            const pick = _shuffle(all).slice(0, Math.min(5, all.length));
+            // tải ảnh song song (crossOrigin để đỡ taint khi xuất)
+            const scenes = [];
+            await Promise.all(
+                pick.map(async (p) => {
+                    const img = await loadImageCors(p.imageUrl);
+                    scenes.push({
+                        id: _sid++,
+                        src: p.imageUrl,
+                        _img: img,
+                        title: p.name || '',
+                        subtitle: fmtPriceShort(p.price ?? p.sellPrice ?? p.salePrice ?? ''),
+                        dur: 2.5 + Math.random(),
+                        _name: p.name || '',
+                        _price: p.price ?? p.sellPrice ?? p.salePrice ?? '',
+                    });
+                })
+            );
+            // giữ đúng thứ tự đã pick
+            scenes.sort(
+                (a, b) =>
+                    pick.findIndex((p) => p.name === a._name) -
+                    pick.findIndex((p) => p.name === b._name)
+            );
+            state.scenes = scenes;
+            state.accent = _rand(ACCENTS);
+            state.voiceId = _rand(global.Web2VideoTTS.VOICES).id;
+            // narration tự động
+            const names = pick
+                .map((p) => p.name)
+                .filter(Boolean)
+                .slice(0, 3);
+            const prices = pick.map((p) => Number(p.price ?? p.sellPrice ?? 0)).filter(Boolean);
+            const minP = prices.length ? Math.min(...prices) : 0;
+            const intro = _rand([
+                'Shop mình vừa về thêm hàng mới nè!',
+                'Các nàng ơi, hàng hot đã có mặt tại shop!',
+                'Săn deal ngay kẻo lỡ nha cả nhà!',
+            ]);
+            const body = names.length ? `Nổi bật có ${names.join(', ')}.` : '';
+            const price = minP ? ` Giá chỉ từ ${fmtPriceShort(minP)}.` : '';
+            const cta = _rand([
+                ' Inbox shop để được tư vấn và chốt đơn nha!',
+                ' Nhắn tin ngay để đặt hàng nhé!',
+                ' Comment hoặc inbox để shop giữ hàng cho mình nha!',
+            ]);
+            $('#vmNarr').value = intro + ' ' + body + price + cta;
+            renderScenes();
+            renderPickers();
+            renderVoices();
+            drawAt(0);
+            notify(
+                `Đã tạo video ngẫu nhiên từ ${scenes.length} SP — bấm "Tạo giọng đọc" rồi "Xuất video"`,
+                'success'
+            );
+        } catch (e) {
+            console.error('[video-maker] random error:', e);
+            notify('Lỗi tạo ngẫu nhiên: ' + (e.message || e), 'error');
+        } finally {
+            btn.disabled = false;
+        }
+    }
+
+    function loadImageCors(src) {
+        return new Promise((res) => {
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            img.onload = () => res(img);
+            img.onerror = () => {
+                const i2 = new Image();
+                i2.onload = () => res(i2);
+                i2.onerror = () => res(null);
+                i2.src = src;
+            };
+            img.src = src;
+        });
+    }
+
     function init() {
         canvas = $('#vmCanvas');
         if (!canvas) return;
         ctx = canvas.getContext('2d');
         if (!global.Web2VideoRender) return notify('Chưa tải bộ dựng video', 'error');
         renderPickers();
+        renderVoices();
         renderScenes();
         wireSceneList();
         applyCanvasSize();
 
+        $('#vmRandom')?.addEventListener('click', randomGenerate);
         $('#vmAdd')?.addEventListener('change', (e) => {
             if (e.target.files?.length) addImagesFromFiles([...e.target.files]);
             e.target.value = '';

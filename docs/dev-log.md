@@ -2,6 +2,17 @@
 
 ## 2026-06-19
 
+### [web2/video-maker] NHIỀU GIỌNG + giọng mẫu + nút Tạo ngẫu nhiên ✅
+
+Mở rộng video-maker theo yêu cầu user:
+
+- **Nhiều giọng THẬT (4)** in-browser, on-device, miễn phí: **MMS** (`Xenova/mms-tts-vie`, transformers.js) + **3 giọng Piper** (`vits-web`: `vi_VN-vais1000-medium`/`25hours_single-low`/`vivos-x_low`). Mỗi engine trả `{samples,sampleRate}` (Piper = WAV Blob → `decodeAudioData`) để mux đồng nhất. Voice registry trong `Web2VideoTTS` (`VOICES`/`TONES`/`synthesize({voiceId,pitch})`).
+- **Tông giọng** (Trầm/Chuẩn/Cao) = pitch resample (ghép pitch+tempo, linear-interp) áp lên bất kỳ giọng nào → nhiều biến thể.
+- **Giọng mẫu**: mỗi giọng có nút 🔊 nghe thử 1 câu mẫu (`SAMPLE_TEXT`), cache theo `voiceId|tone`.
+- **Nút "Tạo ngẫu nhiên từ kho SP"**: lấy ngẫu nhiên ≤5 SP có ảnh (`Web2ProductsCache`) → scenes (ảnh+tên+giá, dur 2.5-3.5s) + **tự sinh lời đọc** (intro+SP+giá+CTA ngẫu nhiên) + random màu nhấn + random giọng. Kho rỗng → báo "thêm ảnh tay".
+- Files: `web2/video-maker/js/video-tts.js` (rewrite registry), `js/video-maker.js` (voice UI + sample + random), `index.html` (#vmVoices/#vmTones/#vmRandom), `video-maker.css`.
+- **Verified live**: 4 voice cards + 3 tone + 4 nút mẫu render OK; registry route đúng cả 3 path (MMS 23808@16k, pitch-high ngắn hơn, Piper vais 26749@48k); random tạo 5 scene + narration auto + accent/voice random; 0 JS err. (Kokoro vẫn KHÔNG có tiếng Việt → MMS+Piper.)
+
 ### [upload/Render] FIX up ảnh BILL lỗi (inventory-tracking + balance-history) — bỏ Firebase Storage → Postgres bytea ✅
 
 **Bug (user báo):** "UP HÌNH BILL SP KO ĐƯỢC" — up ảnh lỗi (hiện "Lỗi") ở **2 chỗ**: `inventory-tracking` modal "Thêm Đợt Hàng Mới" → ô "Ảnh hóa đơn", và `balance-history` modal "Duyệt giao dịch" → ô "Hình ảnh xác nhận chuyển khoản".

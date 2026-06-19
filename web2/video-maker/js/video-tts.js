@@ -1,87 +1,154 @@
 // #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 module.
 /**
- * Web2VideoTTS — giọng đọc tiếng Việt ON-DEVICE (miễn phí, không server).
+ * Web2VideoTTS — giọng đọc tiếng Việt ON-DEVICE, NHIỀU GIỌNG (miễn phí, không server).
  *
- * Engine chính: MMS-TTS tiếng Việt (Xenova/mms-tts-vie) chạy bằng transformers.js
- * (ONNX/WASM) NGAY TRONG TRÌNH DUYỆT → trả Float32Array audio (16kHz) → mux thẳng
- * vào video xuất ra. Lazy-load lib + model từ CDN khi user bấm tạo (lần đầu tải
- * model ~vài chục MB, sau đó cache trong trình duyệt).
+ * 2 engine chạy NGAY TRONG TRÌNH DUYỆT (ONNX/WASM), lazy-load CDN khi cần:
+ *   • MMS    : Xenova/mms-tts-vie  (transformers.js)   → Float32Array 16kHz
+ *   • Piper  : vits-web (Rhasspy Piper)                → WAV Blob → decode
+ *     - vi_VN-vais1000-medium, vi_VN-25hours_single-low, vi_VN-vivos-x_low
+ * → tổng 4 giọng THẬT khác nhau, + "tông" (pitch) Chuẩn/Cao/Trầm = nhiều biến thể.
+ * Tất cả trả `{ samples:Float32Array, sampleRate }` để MUX thẳng vào video.
  *
- *   await Web2VideoTTS.synthesize(text, { onStatus })   → { samples:Float32Array, sampleRate }
- *   Web2VideoTTS.speakPreview(text)                      → đọc nhanh bằng giọng hệ điều hành (fallback, KHÔNG mux)
- *   Web2VideoTTS.cancelPreview()
+ *   Web2VideoTTS.VOICES / .TONES                          → cho UI chọn giọng/tông
+ *   await Web2VideoTTS.synthesize(text,{voiceId,pitch,onStatus}) → { samples, sampleRate }
+ *   Web2VideoTTS.toAudioBuffer(audioCtx, samples, sr)     → AudioBuffer
+ *   Web2VideoTTS.SAMPLE_TEXT                              → câu mẫu nghe thử
  *
- * Vì sao MMS-TTS: Kokoro KHÔNG có tiếng Việt; MMS-TTS-vie (Facebook) có, ONNX-hoá
- * sẵn cho transformers.js, chạy offline trên máy → free + riêng tư + mux được.
+ * Vì sao: Kokoro KHÔNG có tiếng Việt. MMS + Piper đều có, ONNX-hoá sẵn cho web,
+ * chạy offline → free + riêng tư + mux được.
  */
 (function (global) {
     'use strict';
 
-    // CDN transformers.js v3 (esm). Pin version để ổn định.
     const TJS_URL = 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.3.3';
-    const MODEL_ID = 'Xenova/mms-tts-vie';
+    const PIPER_URL = 'https://cdn.jsdelivr.net/npm/@diffusionstudio/vits-web@1.0.3/+esm';
+    const MMS_ID = 'Xenova/mms-tts-vie';
 
-    let _pipePromise = null;
+    const VOICES = [
+        { id: 'mms', label: 'Nữ trong trẻo', engine: 'mms', note: 'MMS' },
+        { id: 'vais', label: 'Nữ ấm áp', engine: 'piper', voiceId: 'vi_VN-vais1000-medium' },
+        { id: 'h25', label: 'Nữ tự nhiên', engine: 'piper', voiceId: 'vi_VN-25hours_single-low' },
+        { id: 'vivos', label: 'Giọng VIVOS', engine: 'piper', voiceId: 'vi_VN-vivos-x_low' },
+    ];
+    const TONES = [
+        { id: 'low', label: 'Trầm', pitch: 0.9 },
+        { id: 'normal', label: 'Chuẩn', pitch: 1.0 },
+        { id: 'high', label: 'Cao', pitch: 1.12 },
+    ];
+    const SAMPLE_TEXT = 'Xin chào, đây là giọng đọc mẫu của shop nhé!';
 
-    async function _getPipe(onStatus) {
-        if (_pipePromise) return _pipePromise;
-        _pipePromise = (async () => {
-            onStatus && onStatus('Đang tải thư viện giọng đọc…');
-            const tjs = await import(/* @vite-ignore */ TJS_URL);
-            const { pipeline, env } = tjs;
-            // Chỉ tải model từ HF CDN, không tìm local; bật cache trình duyệt.
+    function _voice(id) {
+        return VOICES.find((v) => v.id === id) || VOICES[0];
+    }
+
+    // ---------------- MMS (transformers.js) ----------------
+    let _mmsPromise = null;
+    async function _getMms(onStatus) {
+        if (_mmsPromise) return _mmsPromise;
+        _mmsPromise = (async () => {
+            onStatus && onStatus('Đang tải thư viện giọng (MMS)…');
+            const { pipeline, env } = await import(/* @vite-ignore */ TJS_URL);
             try {
                 env.allowLocalModels = false;
                 if (env.backends?.onnx?.wasm) env.backends.onnx.wasm.numThreads = 1;
             } catch {}
-            onStatus &&
-                onStatus('Đang tải model giọng Việt (lần đầu ~vài chục MB, sau cache lại)…');
-            const synth = await pipeline('text-to-speech', MODEL_ID, {
-                progress_callback: (p) => {
-                    if (p && p.status === 'progress' && p.file && onStatus) {
-                        const pct = p.progress ? ` ${Math.round(p.progress)}%` : '';
-                        onStatus(`Tải model: ${p.file}${pct}`);
-                    }
-                },
-            });
-            return synth;
+            onStatus && onStatus('Đang tải model MMS (lần đầu ~vài chục MB, sau cache)…');
+            return pipeline('text-to-speech', MMS_ID);
         })().catch((e) => {
-            _pipePromise = null; // cho phép thử lại
+            _mmsPromise = null;
             throw e;
         });
-        return _pipePromise;
+        return _mmsPromise;
+    }
+    async function _mmsChunk(text, onStatus) {
+        const synth = await _getMms(onStatus);
+        const out = await synth(text);
+        return { samples: out.audio, sampleRate: out.sampling_rate || 16000 };
     }
 
-    // Sinh giọng đọc. text dài → tách câu, ghép samples (MMS xử lý câu ngắn tốt hơn).
+    // ---------------- Piper (vits-web) ----------------
+    let _piperPromise = null;
+    async function _getPiper(onStatus) {
+        if (_piperPromise) return _piperPromise;
+        _piperPromise = (async () => {
+            onStatus && onStatus('Đang tải engine giọng (Piper)…');
+            const mod = await import(/* @vite-ignore */ PIPER_URL);
+            return mod.default || mod;
+        })().catch((e) => {
+            _piperPromise = null;
+            throw e;
+        });
+        return _piperPromise;
+    }
+    async function _piperChunk(text, voiceId, onStatus) {
+        const tts = await _getPiper(onStatus);
+        onStatus && onStatus('Đang tạo giọng (lần đầu tải model giọng ~vài chục MB)…');
+        const wav = await tts.predict({ text, voiceId });
+        const ab = await wav.arrayBuffer();
+        const ac = _decodeCtx();
+        const buf = await ac.decodeAudioData(ab);
+        return { samples: buf.getChannelData(0).slice(), sampleRate: buf.sampleRate };
+    }
+
+    let _dctx = null;
+    function _decodeCtx() {
+        if (!_dctx) _dctx = new (global.AudioContext || global.webkitAudioContext)();
+        return _dctx;
+    }
+
+    // ---------------- pitch (resample, ghép pitch+tempo) ----------------
+    function _resample(samples, factor) {
+        if (!factor || factor === 1) return samples;
+        const outLen = Math.max(1, Math.round(samples.length / factor));
+        const out = new Float32Array(outLen);
+        for (let i = 0; i < outLen; i++) {
+            const src = i * factor;
+            const i0 = Math.floor(src);
+            const frac = src - i0;
+            const a = samples[i0] || 0;
+            const b = samples[i0 + 1] != null ? samples[i0 + 1] : a;
+            out[i] = a + (b - a) * frac;
+        }
+        return out;
+    }
+
+    // ---------------- public synthesize ----------------
     async function synthesize(text, opts = {}) {
         const onStatus = opts.onStatus;
         const clean = String(text || '').trim();
         if (!clean) throw new Error('Chưa có nội dung lời đọc');
-        const synth = await _getPipe(onStatus);
-        onStatus && onStatus('Đang tạo giọng đọc…');
+        const v = _voice(opts.voiceId);
         const chunks = _splitSentences(clean);
         const parts = [];
         let sampleRate = 16000;
         for (let i = 0; i < chunks.length; i++) {
             onStatus && onStatus(`Đang tạo giọng đọc… (${i + 1}/${chunks.length})`);
-            const out = await synth(chunks[i]);
-            sampleRate = out.sampling_rate || sampleRate;
-            parts.push(out.audio);
-            // chèn khoảng lặng ngắn giữa câu (~180ms)
+            const r =
+                v.engine === 'mms'
+                    ? await _mmsChunk(chunks[i], onStatus)
+                    : await _piperChunk(chunks[i], v.voiceId, onStatus);
+            sampleRate = r.sampleRate;
+            parts.push(r.samples);
             if (i < chunks.length - 1) parts.push(new Float32Array(Math.round(sampleRate * 0.18)));
         }
-        const total = parts.reduce((n, a) => n + a.length, 0);
-        const samples = new Float32Array(total);
-        let off = 0;
-        for (const a of parts) {
-            samples.set(a, off);
-            off += a.length;
-        }
+        let samples = _concat(parts);
+        const pitch = Number(opts.pitch) || 1;
+        if (pitch !== 1) samples = _resample(samples, pitch);
         return { samples, sampleRate };
     }
 
+    function _concat(parts) {
+        const total = parts.reduce((n, a) => n + a.length, 0);
+        const out = new Float32Array(total);
+        let off = 0;
+        for (const a of parts) {
+            out.set(a, off);
+            off += a.length;
+        }
+        return out;
+    }
+
     function _splitSentences(text) {
-        // tách theo câu/dòng, gộp lại để mỗi chunk không quá dài (~220 ký tự).
         const raw = text
             .replace(/\s+/g, ' ')
             .split(/(?<=[.!?…\n])\s+|\n+/)
@@ -90,25 +157,22 @@
         const out = [];
         let buf = '';
         for (const s of raw) {
-            if ((buf + ' ' + s).trim().length > 220 && buf) {
+            if ((buf + ' ' + s).trim().length > 200 && buf) {
                 out.push(buf.trim());
                 buf = s;
-            } else {
-                buf = buf ? buf + ' ' + s : s;
-            }
+            } else buf = buf ? buf + ' ' + s : s;
         }
         if (buf) out.push(buf.trim());
         return out.length ? out : [text];
     }
 
-    // Build AudioBuffer từ samples (cần AudioContext của caller).
     function toAudioBuffer(audioCtx, samples, sampleRate) {
         const buf = audioCtx.createBuffer(1, samples.length, sampleRate);
         buf.copyToChannel(samples, 0);
         return buf;
     }
 
-    // ----- fallback: giọng hệ điều hành (KHÔNG mux được, chỉ nghe thử) -----
+    // ----- fallback giọng hệ điều hành (nghe nhanh, KHÔNG mux) -----
     function speakPreview(text) {
         try {
             if (!global.speechSynthesis) return false;
@@ -132,5 +196,13 @@
         } catch {}
     }
 
-    global.Web2VideoTTS = { synthesize, toAudioBuffer, speakPreview, cancelPreview, MODEL_ID };
+    global.Web2VideoTTS = {
+        VOICES,
+        TONES,
+        SAMPLE_TEXT,
+        synthesize,
+        toAudioBuffer,
+        speakPreview,
+        cancelPreview,
+    };
 })(window);

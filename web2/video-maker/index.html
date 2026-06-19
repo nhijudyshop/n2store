@@ -15,7 +15,7 @@
         <link rel="stylesheet" href="../shared/web2-sidebar.css?v=20260613z" />
         <link rel="stylesheet" href="../shared/web2-theme.css?v=20260613z" />
         <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
-        <link rel="stylesheet" href="./video-maker.css?v=20260619a" />
+        <link rel="stylesheet" href="./video-maker.css?v=20260619b" />
     </head>
     <body class="web2-theme">
         <div class="web2-shell">
@@ -30,6 +30,10 @@
                             <b>giọng đọc tiếng Việt</b> tạo ngay trên máy. Xuất file video để đăng
                             FB/Zalo/TikTok. Chạy 100% trong trình duyệt, không gửi dữ liệu đi đâu.
                         </p>
+
+                        <button class="vm-btn random block" id="vmRandom">
+                            <i data-lucide="shuffle"></i> Tạo ngẫu nhiên từ kho SP
+                        </button>
 
                         <div class="vm-label">Tỉ lệ</div>
                         <div class="vm-chips" id="vmRatios"></div>
@@ -46,6 +50,11 @@
 
                         <div class="vm-label">Các cảnh (kéo ↑↓ để đổi thứ tự)</div>
                         <div class="vm-scenes" id="vmScenes"></div>
+
+                        <div class="vm-label">Giọng đọc (bấm 🔊 để nghe mẫu)</div>
+                        <div class="vm-voices" id="vmVoices"></div>
+                        <div class="vm-label">Tông giọng</div>
+                        <div class="vm-chips" id="vmTones"></div>
 
                         <div class="vm-label">Lời đọc (tiếng Việt)</div>
                         <textarea
@@ -100,9 +109,9 @@
         <script src="../shared/web2-auth.js?v=20260613guard"></script>
         <script src="../shared/web2-sidebar.js?v=20260615db"></script>
         <script src="../shared/web2-products-cache.js?v=20260619a"></script>
-        <script src="./js/video-tts.js?v=20260619a"></script>
+        <script src="./js/video-tts.js?v=20260619b"></script>
         <script src="./js/video-render.js?v=20260619a"></script>
-        <script src="./js/video-maker.js?v=20260619a"></script>
+        <script src="./js/video-maker.js?v=20260619b"></script>
         <script>
             document.addEventListener('DOMContentLoaded', () => {
                 if (window.Web2Sidebar)
