@@ -15,7 +15,7 @@
         <link rel="stylesheet" href="../shared/web2-sidebar.css?v=20260613z" />
         <link rel="stylesheet" href="../shared/web2-theme.css?v=20260613z" />
         <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
-        <link rel="stylesheet" href="./video-maker.css?v=20260619b" />
+        <link rel="stylesheet" href="./video-maker.css?v=20260619c" />
     </head>
     <body class="web2-theme">
         <div class="web2-shell">
@@ -48,8 +48,101 @@
                             </label>
                         </div>
 
-                        <div class="vm-label">Các cảnh (kéo ↑↓ để đổi thứ tự)</div>
+                        <div class="vm-label">
+                            Các cảnh (⚙ để chỉnh chi tiết · kéo ↑↓ đổi thứ tự)
+                        </div>
                         <div class="vm-scenes" id="vmScenes"></div>
+
+                        <!-- ===== Hiệu ứng chung ===== -->
+                        <details class="vm-section" open>
+                            <summary><i data-lucide="wand-2"></i> Hiệu ứng chung</summary>
+                            <label class="vm-slabel"
+                                >Thời lượng chuyển cảnh <b id="vmTDurVal">0.5s</b></label
+                            >
+                            <input
+                                type="range"
+                                id="vmTDur"
+                                min="0"
+                                max="1.5"
+                                step="0.1"
+                                value="0.5"
+                                class="vm-range"
+                            />
+                            <div class="vm-label">Áp dụng nhanh cho MỌI cảnh</div>
+                            <div class="vm-bulk">
+                                <select id="vmBulkTransition" class="vm-dsel"></select>
+                                <select id="vmBulkMotion" class="vm-dsel"></select>
+                                <select id="vmBulkFilter" class="vm-dsel"></select>
+                                <button class="vm-btn sm" id="vmBulkApply">Áp dụng</button>
+                            </div>
+                        </details>
+
+                        <!-- ===== Nhạc nền (chèn / ghép) ===== -->
+                        <details class="vm-section">
+                            <summary><i data-lucide="music"></i> Nhạc nền</summary>
+                            <div class="vm-row">
+                                <label class="vm-btn sm vm-upload">
+                                    <i data-lucide="music"></i> Chèn nhạc nền
+                                    <input type="file" id="vmMusic" accept="audio/*,video/*" />
+                                </label>
+                                <button class="vm-btn sm" id="vmMusicClear" hidden>Bỏ nhạc</button>
+                            </div>
+                            <div class="vm-music-name" id="vmMusicName"></div>
+                            <label class="vm-slabel"
+                                >Âm lượng nhạc <b id="vmMusicVolVal">35%</b></label
+                            >
+                            <input
+                                type="range"
+                                id="vmMusicVol"
+                                min="0"
+                                max="1"
+                                step="0.05"
+                                value="0.35"
+                                class="vm-range"
+                            />
+                            <label class="vm-slabel"
+                                >Âm lượng giọng đọc <b id="vmNarrVolVal">100%</b></label
+                            >
+                            <input
+                                type="range"
+                                id="vmNarrVol"
+                                min="0"
+                                max="1"
+                                step="0.05"
+                                value="1"
+                                class="vm-range"
+                            />
+                        </details>
+
+                        <!-- ===== Tách nhạc / Trích audio ===== -->
+                        <details class="vm-section">
+                            <summary>
+                                <i data-lucide="scissors"></i> Tách nhạc / Trích audio
+                            </summary>
+                            <p class="vm-hint2">
+                                Tải file nhạc/video → tách giọng-nhạc (karaoke) hoặc trích audio ra
+                                file <b>.wav</b>. Chạy 100% trên máy.
+                            </p>
+                            <label class="vm-btn sm vm-upload">
+                                <i data-lucide="upload"></i> Chọn file nhạc / video
+                                <input type="file" id="vmSplitFile" accept="audio/*,video/*" />
+                            </label>
+                            <div class="vm-split-actions" id="vmSplitActions" hidden>
+                                <button class="vm-btn sm" data-split="music">
+                                    <i data-lucide="music-2"></i> Tải nhạc (bỏ giọng)
+                                </button>
+                                <button class="vm-btn sm" data-split="vocals">
+                                    <i data-lucide="mic"></i> Tải giọng
+                                </button>
+                                <button class="vm-btn sm" data-split="audio">
+                                    <i data-lucide="download"></i> Trích audio
+                                </button>
+                                <button class="vm-btn sm primary" data-split="usebg">
+                                    <i data-lucide="music"></i> Dùng làm nhạc nền
+                                </button>
+                            </div>
+                            <div class="vm-split-stat" id="vmSplitStat"></div>
+                        </details>
 
                         <div class="vm-label">Giọng đọc (bấm 🔊 để nghe mẫu)</div>
                         <div class="vm-voices" id="vmVoices"></div>
@@ -110,8 +203,10 @@
         <script src="../shared/web2-sidebar.js?v=20260615db"></script>
         <script src="../shared/web2-products-cache.js?v=20260619a"></script>
         <script src="./js/video-tts.js?v=20260619b"></script>
-        <script src="./js/video-render.js?v=20260619a"></script>
-        <script src="./js/video-maker.js?v=20260619b"></script>
+        <script src="./js/video-render.js?v=20260619c"></script>
+        <script src="./js/video-scene-editor.js?v=20260619a"></script>
+        <script src="./js/video-audio.js?v=20260619a"></script>
+        <script src="./js/video-maker.js?v=20260619c"></script>
         <script>
             document.addEventListener('DOMContentLoaded', () => {
                 if (window.Web2Sidebar)

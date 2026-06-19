@@ -21,12 +21,15 @@
     let _sid = 1;
 
     const state = {
-        scenes: [], // { id, _img, src, title, subtitle, dur }
+        scenes: [], // { id, _img, src, title, subtitle, dur, motion, transition, filter, textPos, fit, bg }
         ratioKey: 'landscape',
         accent: '#0068ff',
+        transitionDur: global.Web2VideoRender?.DEFAULT_TDUR ?? 0.5,
         voiceId: 'mms',
         tone: 'normal',
         narration: { text: '', samples: null, sampleRate: 16000 },
+        music: { buffer: null, name: '', volume: 0.35 }, // nhạc nền (chèn/ghép)
+        narrationVolume: 1.0,
         playing: false,
         recording: false,
         _raf: null,
@@ -76,6 +79,7 @@
     function drawAt(t) {
         global.Web2VideoRender.drawFrame(ctx, canvas.width, canvas.height, state.scenes, t, {
             accent: state.accent,
+            transitionDur: state.transitionDur,
         });
     }
 
@@ -95,10 +99,12 @@
                 '<div class="vm-empty">Chưa có cảnh nào. Bấm <b>+ Thêm ảnh</b> để bắt đầu.</div>';
             return;
         }
+        const detail = (sc) =>
+            global.Web2VideoSceneEditor ? global.Web2VideoSceneEditor.detailHtml(sc, esc) : '';
         wrap.innerHTML = state.scenes
             .map(
                 (sc, i) => `
-            <div class="vm-scene" data-id="${sc.id}">
+            <div class="vm-scene${sc._open ? ' open' : ''}" data-id="${sc.id}">
                 <div class="vm-scene-thumb">${
                     sc.src ? `<img src="${esc(sc.src)}" alt="">` : '<i data-lucide="image"></i>'
                 }<span class="vm-scene-idx">${i + 1}</span></div>
@@ -108,11 +114,13 @@
                     <div class="vm-scene-row">
                         <label class="vm-dur">⏱<input type="number" class="vm-in" data-k="dur" min="1" max="15" step="0.5" value="${sc.dur}"> s</label>
                         <span class="vm-scene-ops">
+                            <button class="vm-op" data-op="detail" title="Chỉnh chi tiết"><i data-lucide="sliders-horizontal"></i></button>
                             <button class="vm-op" data-op="up" title="Lên">↑</button>
                             <button class="vm-op" data-op="down" title="Xuống">↓</button>
                             <button class="vm-op vm-op-del" data-op="del" title="Xóa"><i data-lucide="trash-2"></i></button>
                         </span>
                     </div>
+                    ${detail(sc)}
                 </div>
             </div>`
             )
@@ -136,16 +144,33 @@
             sc[k] = k === 'dur' ? Math.max(1, Math.min(15, Number(el.value) || 3)) : el.value;
             if (!state.playing) drawAt(0);
         });
+        // chi tiết: select (chuyển động/hiệu ứng/lọc/vị trí chữ/khung) + màu nền
+        wrap.addEventListener('change', (e) => {
+            const el = e.target.closest('.vm-dsel, .vm-dcolor');
+            if (!el) return;
+            const sc = findScene(el.closest('.vm-scene')?.dataset.id);
+            if (!sc) return;
+            sc[el.dataset.k] = el.value;
+            if (!state.playing) drawAt(0);
+        });
         wrap.addEventListener('click', (e) => {
             const op = e.target.closest('.vm-op');
             if (!op) return;
-            const id = op.closest('.vm-scene')?.dataset.id;
+            const sceneEl = op.closest('.vm-scene');
+            const id = sceneEl?.dataset.id;
             const i = state.scenes.findIndex((s) => String(s.id) === String(id));
             if (i < 0) return;
-            if (op.dataset.op === 'del') state.scenes.splice(i, 1);
-            else if (op.dataset.op === 'up' && i > 0)
+            const which = op.dataset.op;
+            if (which === 'detail') {
+                // toggle inline — không render lại để giữ trạng thái select đang mở
+                state.scenes[i]._open = !state.scenes[i]._open;
+                sceneEl.classList.toggle('open', state.scenes[i]._open);
+                return;
+            }
+            if (which === 'del') state.scenes.splice(i, 1);
+            else if (which === 'up' && i > 0)
                 [state.scenes[i - 1], state.scenes[i]] = [state.scenes[i], state.scenes[i - 1]];
-            else if (op.dataset.op === 'down' && i < state.scenes.length - 1)
+            else if (which === 'down' && i < state.scenes.length - 1)
                 [state.scenes[i + 1], state.scenes[i]] = [state.scenes[i], state.scenes[i + 1]];
             renderScenes();
             drawAt(0);
@@ -206,8 +231,22 @@
 
     let _audioCtx = null;
     function audioCtx() {
+        if (global.Web2VideoAudio) return global.Web2VideoAudio.ac();
         if (!_audioCtx) _audioCtx = new (global.AudioContext || global.webkitAudioContext)();
         return _audioCtx;
+    }
+    // graph trộn giọng đọc + nhạc nền → đích (preview: ac.destination | record: dest)
+    function buildAudioGraph(dest) {
+        const ac = audioCtx();
+        return global.Web2VideoAudio.buildMixGraph({
+            audioCtx: ac,
+            dest: dest || ac.destination,
+            narrationBuffer: narrationBuffer(),
+            narrationVol: state.narrationVolume,
+            musicBuffer: state.music.buffer,
+            musicVol: state.music.volume,
+            loopMusic: true,
+        });
     }
     function narrationBuffer() {
         if (!state.narration.samples) return null;
@@ -226,16 +265,10 @@
         $('#vmStop').hidden = false;
         const total = totalDur();
         const start = performance.now();
-        let srcNode = null;
-        const buf = narrationBuffer();
-        if (buf) {
-            const ac = audioCtx();
-            ac.resume?.();
-            srcNode = ac.createBufferSource();
-            srcNode.buffer = buf;
-            srcNode.connect(ac.destination);
-            srcNode.start();
-        }
+        const ac = audioCtx();
+        ac.resume?.();
+        const graph = buildAudioGraph(ac.destination);
+        graph.start();
         const loop = () => {
             const t = (performance.now() - start) / 1000;
             if (t >= total || !state.playing) {
@@ -245,11 +278,7 @@
             drawAt(t);
             state._raf = requestAnimationFrame(loop);
         };
-        state._stopSrc = () => {
-            try {
-                srcNode && srcNode.stop();
-            } catch {}
-        };
+        state._stopSrc = () => graph.stop();
         loop();
     }
     function stop() {
@@ -295,18 +324,12 @@
 
         try {
             const vstream = canvas.captureStream(FPS);
-            // mux audio narration nếu có
-            const buf = narrationBuffer();
-            let srcNode = null;
-            if (buf) {
-                const ac = audioCtx();
-                await ac.resume?.();
-                const dest = ac.createMediaStreamDestination();
-                srcNode = ac.createBufferSource();
-                srcNode.buffer = buf;
-                srcNode.connect(dest);
-                dest.stream.getAudioTracks().forEach((tr) => vstream.addTrack(tr));
-            }
+            // mux audio: giọng đọc + nhạc nền (ghép)
+            const ac = audioCtx();
+            await ac.resume?.();
+            const adest = ac.createMediaStreamDestination();
+            const graph = buildAudioGraph(adest);
+            if (graph.hasAudio) adest.stream.getAudioTracks().forEach((tr) => vstream.addTrack(tr));
             const rec = new MediaRecorder(
                 vstream,
                 mime ? { mimeType: mime, videoBitsPerSecond: 5_000_000 } : undefined
@@ -318,7 +341,7 @@
             const total = totalDur();
             const start = performance.now();
             rec.start(100);
-            if (srcNode) srcNode.start();
+            graph.start();
             await new Promise((resolve) => {
                 const loop = () => {
                     const t = (performance.now() - start) / 1000;
@@ -330,9 +353,7 @@
                 };
                 loop();
             });
-            try {
-                srcNode && srcNode.stop();
-            } catch {}
+            graph.stop();
             rec.stop();
             await done;
 
@@ -599,6 +620,133 @@
         });
     }
 
+    // ---------- nhạc nền + hiệu ứng chung + tách nhạc ----------
+    function fillBulkSelects() {
+        const O = global.Web2VideoSceneEditor?.OPTIONS;
+        if (!O) return;
+        const fill = (id, list, label) => {
+            const el = $('#' + id);
+            if (!el) return;
+            el.innerHTML =
+                `<option value="">${esc(label)}…</option>` +
+                list.map((o) => `<option value="${o.id}">${esc(o.label)}</option>`).join('');
+        };
+        fill('vmBulkTransition', O.transition, 'Hiệu ứng');
+        fill('vmBulkMotion', O.motion, 'Chuyển động');
+        fill('vmBulkFilter', O.filter, 'Bộ lọc');
+    }
+
+    async function loadMusicFile(f) {
+        const stat = $('#vmMusicName');
+        stat.textContent = 'Đang nạp nhạc…';
+        try {
+            const buf = await global.Web2VideoAudio.decodeFile(f);
+            state.music.buffer = buf;
+            state.music.name = f.name;
+            stat.textContent = `🎵 ${f.name} (${buf.duration.toFixed(1)}s)`;
+            $('#vmMusicClear').hidden = false;
+            notify('Đã chèn nhạc nền — sẽ ghép khi xuất', 'success');
+        } catch (err) {
+            stat.textContent = '';
+            notify('Nhạc không giải mã được (codec không hỗ trợ)', 'error');
+        }
+    }
+
+    function wireAudioUi() {
+        if (!global.Web2VideoAudio) return;
+        fillBulkSelects();
+        const td = $('#vmTDur');
+        td?.addEventListener('input', () => {
+            state.transitionDur = Number(td.value);
+            $('#vmTDurVal').textContent = state.transitionDur.toFixed(1) + 's';
+            if (!state.playing) drawAt(0);
+        });
+        $('#vmBulkApply')?.addEventListener('click', () => {
+            const tr = $('#vmBulkTransition').value;
+            const mo = $('#vmBulkMotion').value;
+            const fi = $('#vmBulkFilter').value;
+            if (!tr && !mo && !fi) return notify('Chọn ít nhất 1 mục để áp dụng', 'warning');
+            state.scenes.forEach((sc) => {
+                if (tr) sc.transition = tr;
+                if (mo) sc.motion = mo;
+                if (fi) sc.filter = fi;
+            });
+            renderScenes();
+            drawAt(0);
+            notify('Đã áp dụng cho mọi cảnh', 'success');
+        });
+        const mv = $('#vmMusicVol');
+        mv?.addEventListener('input', () => {
+            state.music.volume = Number(mv.value);
+            $('#vmMusicVolVal').textContent = Math.round(state.music.volume * 100) + '%';
+        });
+        const nv = $('#vmNarrVol');
+        nv?.addEventListener('input', () => {
+            state.narrationVolume = Number(nv.value);
+            $('#vmNarrVolVal').textContent = Math.round(state.narrationVolume * 100) + '%';
+        });
+        $('#vmMusic')?.addEventListener('change', (e) => {
+            const f = e.target.files?.[0];
+            e.target.value = '';
+            if (f) loadMusicFile(f);
+        });
+        $('#vmMusicClear')?.addEventListener('click', () => {
+            state.music.buffer = null;
+            state.music.name = '';
+            $('#vmMusicName').textContent = '';
+            $('#vmMusicClear').hidden = true;
+            notify('Đã bỏ nhạc nền', 'info');
+        });
+
+        // ---- tách nhạc / trích audio ----
+        let splitBuf = null;
+        let splitName = 'audio';
+        $('#vmSplitFile')?.addEventListener('change', async (e) => {
+            const f = e.target.files?.[0];
+            e.target.value = '';
+            if (!f) return;
+            const stat = $('#vmSplitStat');
+            stat.textContent = 'Đang giải mã…';
+            try {
+                splitBuf = await global.Web2VideoAudio.decodeFile(f);
+                splitName = f.name.replace(/\.[^.]+$/, '');
+                $('#vmSplitActions').hidden = false;
+                stat.textContent = `✅ ${f.name} — ${splitBuf.duration.toFixed(1)}s, ${splitBuf.numberOfChannels} kênh${splitBuf.numberOfChannels < 2 ? ' (MONO — không tách được giọng/nhạc)' : ''}.`;
+            } catch (err) {
+                splitBuf = null;
+                $('#vmSplitActions').hidden = true;
+                stat.textContent = '❌ Không giải mã được audio (codec không hỗ trợ).';
+                notify('File không giải mã được', 'error');
+            }
+        });
+        $('#vmSplitActions')?.addEventListener('click', (e) => {
+            const b = e.target.closest('[data-split]');
+            if (!b || !splitBuf) return;
+            const VA = global.Web2VideoAudio;
+            const act = b.dataset.split;
+            if (act === 'audio') {
+                VA.downloadWav(splitBuf, splitName + '-audio');
+                return notify('Đã tải audio .wav', 'success');
+            }
+            if (act === 'usebg') {
+                state.music.buffer = splitBuf;
+                state.music.name = splitName;
+                $('#vmMusicName').textContent = '🎵 ' + splitName;
+                $('#vmMusicClear').hidden = false;
+                return notify('Đã dùng làm nhạc nền', 'success');
+            }
+            const sp = VA.karaokeSplit(splitBuf);
+            if (sp.mono) return notify('File MONO — cần nhạc stereo để tách', 'warning');
+            if (act === 'music') {
+                VA.downloadWav(sp.music, splitName + '-nhac');
+                notify('Đã tải nhạc (bỏ giọng)', 'success');
+            } else if (act === 'vocals') {
+                VA.downloadWav(sp.vocals, splitName + '-giong');
+                notify('Đã tải giọng', 'success');
+            }
+        });
+    }
+
     function init() {
         canvas = $('#vmCanvas');
         if (!canvas) return;
@@ -608,6 +756,7 @@
         renderVoices();
         renderScenes();
         wireSceneList();
+        wireAudioUi();
         applyCanvasSize();
 
         $('#vmRandom')?.addEventListener('click', randomGenerate);
@@ -639,5 +788,10 @@
         global.addEventListener('resize', fitPreview);
     }
 
-    global.VideoMakerPage = { init, _state: state };
+    function refresh() {
+        renderScenes();
+        if (!state.playing) drawAt(0);
+    }
+
+    global.VideoMakerPage = { init, refresh, _state: state };
 })(window);
