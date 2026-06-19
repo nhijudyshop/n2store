@@ -1,4 +1,4 @@
-# Latest Snapshot — `_root/`
+# Latest Snapshot — `vieneu-tts/`
 
 > Snapshot tự động ghi đè sau mỗi commit chạm folder này. **Không edit thủ công.**
 > Mục đích: khi session cũ chết (vd lỗi image limit), session mới chỉ cần đọc file này là có đủ context để tiếp tục.
@@ -9,17 +9,16 @@
 **Last updated**: 2026-06-19 22:21:54 +07
 **Summary**: fix(web2/fb-graph): tách post_video_views khỏi cụm metric (bài ảnh reject cả cụm) → retry không-video ...
 
-## Files changed in this commit (`_root/`)
+## Files changed in this commit (`vieneu-tts/`)
 
-- `CLAUDE.md`
+- `vieneu-tts/.python-version`
+- `vieneu-tts/README.md`
+- `vieneu-tts/app.py`
+- `vieneu-tts/requirements.txt`
 
-## Last 5 commits touching `_root/`
+## Last 5 commits touching `vieneu-tts/`
 
-- `e4b5c3d35` docs(web2): KHO ĐA DỤNG media/AI (MEDIA-KIT.md) — gom AI/Giọng/Hình/Video + con trỏ CLAUDE.md _(2026-06-19)_
-- `36ed8a744` feat(web2): bản đồ code "thông minh" (codemap auto-gen) + master plan tách module toàn bộ Web 2.0 _(2026-06-18)_
-- `148365232` docs(convention): Web 2.0 — tách module nhỏ + share dùng chung (CLAUDE.md item 0, dev-log, memory) _(2026-06-18)_
-- `d45779ee6` chore(docs): xoá docs Pancake cũ (lỗi thời) → browser-test trang thật _(2026-06-18)_
-- `2a02bff32` refactor(web2): hợp nhất base-URL về 1 nguồn (web2-auth.js) + fix livestream 404 worker + ck-dashboard 401 _(2026-06-15)_
+- `8e8656b6b` feat(vieneu-tts): service VieNeu-TTS (Web 2.0) — giọng Việt + clone giọng, FastAPI/ONNX CPU _(2026-06-19)_
 
 ---
 
