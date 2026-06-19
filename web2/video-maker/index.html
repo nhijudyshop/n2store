@@ -15,7 +15,7 @@
         <link rel="stylesheet" href="../shared/web2-sidebar.css?v=20260613z" />
         <link rel="stylesheet" href="../shared/web2-theme.css?v=20260613z" />
         <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
-        <link rel="stylesheet" href="./video-maker.css?v=20260619c" />
+        <link rel="stylesheet" href="./video-maker.css?v=20260619d" />
     </head>
     <body class="web2-theme">
         <div class="web2-shell">
@@ -30,6 +30,22 @@
                             <b>giọng đọc tiếng Việt</b> tạo ngay trên máy. Xuất file video để đăng
                             FB/Zalo/TikTok. Chạy 100% trong trình duyệt, không gửi dữ liệu đi đâu.
                         </p>
+
+                        <!-- ===== Tạo từ chủ đề (AI viết lời) ===== -->
+                        <div class="vm-topic">
+                            <input
+                                type="text"
+                                id="vmTopic"
+                                class="vm-topic-in"
+                                placeholder="Chủ đề video (vd: Sale hè, đồ đôi denim, hàng mới về)…"
+                            />
+                            <button class="vm-btn primary" id="vmTopicGen">
+                                <i data-lucide="sparkles"></i> Tạo bằng AI
+                            </button>
+                        </div>
+                        <div class="vm-topic-stat" id="vmTopicStat">
+                            AI viết kịch bản từ chủ đề + ghép ảnh SP của bạn + giọng đọc Việt.
+                        </div>
 
                         <button class="vm-btn random block" id="vmRandom">
                             <i data-lucide="shuffle"></i> Tạo ngẫu nhiên từ kho SP
@@ -206,7 +222,8 @@
         <script src="./js/video-render.js?v=20260619c"></script>
         <script src="./js/video-scene-editor.js?v=20260619a"></script>
         <script src="./js/video-audio.js?v=20260619a"></script>
-        <script src="./js/video-maker.js?v=20260619c"></script>
+        <script src="./js/video-ai-script.js?v=20260619a"></script>
+        <script src="./js/video-maker.js?v=20260619d"></script>
         <script>
             document.addEventListener('DOMContentLoaded', () => {
                 if (window.Web2Sidebar)

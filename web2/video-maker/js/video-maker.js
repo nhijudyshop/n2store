@@ -605,6 +605,82 @@
         }
     }
 
+    // ---------- tạo từ CHỦ ĐỀ (AI viết kịch bản) ----------
+    async function topicGenerate() {
+        const topic = $('#vmTopic').value.trim();
+        if (!topic) return notify('Nhập chủ đề video trước', 'warning');
+        if (!global.Web2VideoAiScript) return notify('Chưa tải module AI', 'error');
+        const btn = $('#vmTopicGen');
+        const stat = $('#vmTopicStat');
+        const setStat = (m) => stat && (stat.textContent = m);
+        btn.disabled = true;
+        setStat('Đang lấy sản phẩm + AI viết kịch bản…');
+        try {
+            await global.Web2ProductsCache?.init?.().catch(() => {});
+            const all = (global.Web2ProductsCache?.getAll?.() || []).filter(
+                (p) => p && p.imageUrl && /^(https?:\/\/|\/|data:image\/)/i.test(String(p.imageUrl))
+            );
+            if (!all.length) {
+                setStat('Kho chưa có SP kèm ảnh — bấm "+ Thêm ảnh" tay nhé.');
+                return notify('Kho chưa có SP kèm ảnh', 'warning');
+            }
+            // chọn SP liên quan chủ đề (tên chứa từ khoá) → thiếu thì bù ngẫu nhiên
+            const words = topic
+                .toLowerCase()
+                .split(/\s+/)
+                .filter((w) => w.length > 1);
+            const scored = all.map((p) => ({
+                p,
+                s: words.reduce(
+                    (a, w) => a + ((p.name || '').toLowerCase().includes(w) ? 1 : 0),
+                    0
+                ),
+            }));
+            let picked = scored
+                .filter((x) => x.s > 0)
+                .sort((a, b) => b.s - a.s)
+                .map((x) => x.p);
+            if (picked.length < 5)
+                picked = picked
+                    .concat(_shuffle(all.filter((p) => !picked.includes(p))))
+                    .slice(0, 5);
+            else picked = picked.slice(0, 5);
+            const imgs = await Promise.all(picked.map((p) => loadImageCors(p.imageUrl)));
+            const priceOf = (p) => p.price ?? p.sellPrice ?? p.salePrice ?? '';
+            const ai = await global.Web2VideoAiScript.generate({
+                topic,
+                products: picked.map((p) => ({ name: p.name, price: priceOf(p) })),
+            });
+            state.scenes = picked.map((p, i) => ({
+                id: _sid++,
+                src: p.imageUrl,
+                _img: imgs[i],
+                title: ai.scenes[i]?.title || p.name || '',
+                subtitle: ai.scenes[i]?.subtitle || fmtPriceShort(priceOf(p)),
+                dur: 2.8,
+            }));
+            $('#vmNarr').value = ai.narration || '';
+            state.accent = _rand(ACCENTS);
+            state.voiceId = _rand(global.Web2VideoTTS.VOICES).id;
+            renderScenes();
+            renderPickers();
+            renderVoices();
+            drawAt(0);
+            setStat(
+                ai.ai
+                    ? `✅ AI đã viết kịch bản cho "${topic}". Bấm "Tạo giọng đọc" → "Xuất video".`
+                    : `✅ Tạo kịch bản mẫu cho "${topic}" (AI chưa cấu hình key). Bấm "Tạo giọng đọc".`
+            );
+            notify(`Đã tạo video từ chủ đề "${topic}"`, 'success');
+        } catch (e) {
+            console.error('[video-maker] topic error:', e);
+            setStat('❌ Lỗi: ' + (e.message || e));
+            notify('Lỗi tạo từ chủ đề: ' + (e.message || e), 'error');
+        } finally {
+            btn.disabled = false;
+        }
+    }
+
     function loadImageCors(src) {
         return new Promise((res) => {
             const img = new Image();
@@ -760,6 +836,10 @@
         applyCanvasSize();
 
         $('#vmRandom')?.addEventListener('click', randomGenerate);
+        $('#vmTopicGen')?.addEventListener('click', topicGenerate);
+        $('#vmTopic')?.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') topicGenerate();
+        });
         $('#vmAdd')?.addEventListener('change', (e) => {
             if (e.target.files?.length) addImagesFromFiles([...e.target.files]);
             e.target.value = '';
