@@ -94,6 +94,31 @@ async function ensureSchema(pool) {
         await pool.query(
             `CREATE INDEX IF NOT EXISTS idx_web2_fb_posts_status ON web2_fb_posts(status, scheduled_at)`
         );
+        // Sổ quảng cáo nhập tay: gắn bài/đợt live + tiền QC + số đơn + doanh thu…
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS web2_fb_ad_entries (
+                id             BIGSERIAL PRIMARY KEY,
+                page_id        TEXT,
+                post_id        TEXT,
+                post_message   TEXT,
+                post_permalink TEXT,
+                post_picture   TEXT,
+                post_type      TEXT,
+                entry_date     DATE,
+                ad_spend       NUMERIC DEFAULT 0,
+                orders         INTEGER DEFAULT 0,
+                revenue        NUMERIC DEFAULT 0,
+                reach          INTEGER DEFAULT 0,
+                messages       INTEGER DEFAULT 0,
+                note           TEXT,
+                created_by     TEXT,
+                created_at     BIGINT,
+                updated_at     BIGINT
+            )
+        `);
+        await pool.query(
+            `CREATE INDEX IF NOT EXISTS idx_web2_fb_ad_entries_date ON web2_fb_ad_entries(page_id, entry_date)`
+        );
         console.log('[web2-fb-posts] schema ready (web2Db)');
     } catch (e) {
         console.error('[web2-fb-posts] ensureSchema failed:', e.message);
@@ -565,6 +590,129 @@ router.get('/ad-insights', async (req, res) => {
         res.json({ success: true, ...data });
     } catch (e) {
         res.status(400).json({ success: false, error: e.message });
+    }
+});
+
+// ── Sổ quảng cáo NHẬP TAY (web2_fb_ad_entries) ─────────────────────────────
+// GET /ad-entries?pageId=&from=&to= — danh sách bản ghi (mới → cũ).
+router.get('/ad-entries', async (req, res) => {
+    try {
+        const db = getDb(req);
+        const { pageId, from, to } = req.query;
+        const cond = [];
+        const params = [];
+        if (pageId) {
+            params.push(pageId);
+            cond.push(`page_id = $${params.length}`);
+        }
+        if (from) {
+            params.push(from);
+            cond.push(`entry_date >= $${params.length}`);
+        }
+        if (to) {
+            params.push(to);
+            cond.push(`entry_date <= $${params.length}`);
+        }
+        const where = cond.length ? `WHERE ${cond.join(' AND ')}` : '';
+        const r = await db.query(
+            `SELECT * FROM web2_fb_ad_entries ${where} ORDER BY entry_date DESC NULLS LAST, id DESC LIMIT 1000`,
+            params
+        );
+        res.json({ success: true, entries: r.rows });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+// POST /ad-entry — tạo/sửa bản ghi quảng cáo nhập tay.
+router.post('/ad-entry', async (req, res) => {
+    try {
+        const db = getDb(req);
+        const b = req.body || {};
+        const num = (v) => Number(String(v == null ? 0 : v).replace(/[^\d.-]/g, '')) || 0;
+        const post = b.post || {};
+        const fields = {
+            page_id: b.pageId || null,
+            post_id: post.id || null,
+            post_message: post.message || null,
+            post_permalink: post.permalink || null,
+            post_picture: post.picture || null,
+            post_type: post.type || null,
+            entry_date: b.entryDate || null,
+            ad_spend: num(b.adSpend),
+            orders: Math.round(num(b.orders)),
+            revenue: num(b.revenue),
+            reach: Math.round(num(b.reach)),
+            messages: Math.round(num(b.messages)),
+            note: b.note || null,
+            created_by: b.createdBy || null,
+        };
+        if (!fields.entry_date)
+            return res.status(400).json({ success: false, error: 'Thiếu ngày (entryDate)' });
+        if (b.id) {
+            await db.query(
+                `UPDATE web2_fb_ad_entries SET page_id=$1, post_id=$2, post_message=$3, post_permalink=$4,
+                    post_picture=$5, post_type=$6, entry_date=$7, ad_spend=$8, orders=$9, revenue=$10,
+                    reach=$11, messages=$12, note=$13, updated_at=$14 WHERE id=$15`,
+                [
+                    fields.page_id,
+                    fields.post_id,
+                    fields.post_message,
+                    fields.post_permalink,
+                    fields.post_picture,
+                    fields.post_type,
+                    fields.entry_date,
+                    fields.ad_spend,
+                    fields.orders,
+                    fields.revenue,
+                    fields.reach,
+                    fields.messages,
+                    fields.note,
+                    now(),
+                    b.id,
+                ]
+            );
+            _notify('ad-entry', String(b.id));
+            return res.json({ success: true, id: b.id });
+        }
+        const ins = await db.query(
+            `INSERT INTO web2_fb_ad_entries (page_id, post_id, post_message, post_permalink, post_picture,
+                post_type, entry_date, ad_spend, orders, revenue, reach, messages, note, created_by, created_at, updated_at)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$15) RETURNING id`,
+            [
+                fields.page_id,
+                fields.post_id,
+                fields.post_message,
+                fields.post_permalink,
+                fields.post_picture,
+                fields.post_type,
+                fields.entry_date,
+                fields.ad_spend,
+                fields.orders,
+                fields.revenue,
+                fields.reach,
+                fields.messages,
+                fields.note,
+                fields.created_by,
+                now(),
+            ]
+        );
+        _notify('ad-entry', String(ins.rows[0].id));
+        res.json({ success: true, id: ins.rows[0].id });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+// DELETE /ad-entry/:id
+router.delete('/ad-entry/:id', async (req, res) => {
+    try {
+        const db = getDb(req);
+        await db.query(`DELETE FROM web2_fb_ad_entries WHERE id=$1`, [req.params.id]);
+        _notify('ad-entry-delete', req.params.id);
+        res.json({ success: true });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
     }
 });
 

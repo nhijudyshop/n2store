@@ -73,6 +73,12 @@
             jget(
                 `/ad-insights?actId=${encodeURIComponent(actId)}&preset=${encodeURIComponent(preset || 'last_30d')}`
             ),
+        adEntries: (pageId, from, to) =>
+            jget(
+                `/ad-entries?${[pageId ? `pageId=${encodeURIComponent(pageId)}` : '', from ? `from=${from}` : '', to ? `to=${to}` : ''].filter(Boolean).join('&')}`
+            ),
+        saveAdEntry: (payload) => jpost('/ad-entry', payload),
+        deleteAdEntry: (id) => jpost(`/ad-entry/${id}`, null, 'DELETE'),
         drafts: (status) => jget(`/drafts?status=${status || 'all'}`),
         saveDraft: (payload) => jpost('/draft', payload),
         deleteDraft: (id) => jpost(`/draft/${id}`, null, 'DELETE'),
