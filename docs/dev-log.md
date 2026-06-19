@@ -2,6 +2,16 @@
 
 ## 2026-06-19
 
+### [web2/fb-*] FB khai tử reach per-post + promote FB client → shared module ✅
+
+Verify live phát hiện + xử lý:
+
+- **`/insights-probe` (mới, chẩn đoán)**: thử từng metric post riêng → FB trả `#100 "not a valid metric"` cho `post_impressions`, `post_impressions_unique` (reach), `post_engaged_users` → **FB ĐÃ KHAI TỬ reach/impressions per-post** (deprecate 2024-2025), KHÔNG hãng nào lấy được nữa. Còn sống: `post_clicks`, `post_reactions_by_type_total`, `post_video_views`, `post_activity_by_action_type`.
+- **Pivot `getPostInsights`**: dùng 4 metric còn sống → `clicks/reactions/videoViews/comments/shares`. fb-insights thay "📡 reach" bằng "🖱 Lượt bấm" + giữ ▶️ video views. ✅ Verify live: `hasInsights:true`, 6/6 bài có clicks (12/7/15/8) + reactions + video views.
+- **Page insights** chỉ còn `page_post_engagements` + `page_views_total` (4 metric kia FB bỏ) — probe resilient tự loại đúng, không vỡ.
+- **Promote shared (user: "module riêng nhiều trang đọc vào")**: `fb-posts/js/fb-posts-api.js` → **`web2/shared/web2-fb-client.js`** (`window.Web2FbClient` + alias `FBPostsApi`). 3 trang FB load từ shared; xoá file cũ; regenerate codemap. ✅ Smoke 3 trang: client+alias+postEdit OK, 0 lỗi.
+- Commits `e3e76f658`→`764f9a669`. Reach KHÔNG khả thi nữa = giới hạn FB, không phải bug.
+
 ### [vieneu-tts + video-maker] Tích hợp VieNeu-TTS (CLONE giọng) — chạy máy shop + tunnel điện thoại ✅
 
 Tích hợp [VieNeu-TTS](https://github.com/pnnbao97/VieNeu-TTS) (clone giọng Việt 3-5s, Apache-2.0, 0.5B). User chốt: chạy **trên máy shop** (free), dùng được **trên điện thoại** (máy shop bật) → tunnel; cài **nhiều máy** → URL cấu hình được. KHÔNG dựng Render now (code chạy cả local lẫn Render, đổi 1 URL là xong).
