@@ -2,6 +2,22 @@
 
 ## 2026-06-19
 
+### [web2/photo-editor] Studio làm đẹp kiểu Meitu (on-device) + 10 công cụ nhanh + mặc định Photopea ✅
+
+User: "mặc định photopea với các chức năng chỉnh nhanh ở hình → beauty, xoá logo vùng chọn, làm đẹp, kéo chân, chỉnh màu da, mặt, mắt, mũi, miệng".
+
+Build **engine làm đẹp DÙNG CHUNG** (rule Web 2.0 — module nhỏ, 1 nguồn), 100% on-device (KHÔNG server, KHÔNG upload). Tách 3 module trong `web2/shared/beauty/`:
+
+- **`web2-beauty-filters.js`** (`Web2BeautyFilters`) — nhân pixel thuần: `warp()` liquify backward-map (bloat/pucker/push + bilinear clamp, 0 NaN/0 lỗ) · `buildSkinMask`/`smoothSkin`/`adjustSkinTone`/`beautify` (skin YCbCr Cb77-127 Cr133-173 + frequency-separation lite, giữ chi tiết) · `stretchBand` (kéo dài dọc band-scale native drawImage + seam blur).
+- **`web2-beauty-face.js`** (`Web2BeautyFace`) — MediaPipe **FaceLandmarker** (478 điểm, refined irises, model float16) lazy-load CDN @0.10.18 (GPU→CPU fallback) + bảng index điểm mốc + `buildBrushes(det,tool,strength)` dựng brush liquify cho mắt/mũi/mặt/môi.
+- **`web2-beauty-studio.js`** (`Web2BeautyStudio.open(src,{tool})→Promise<dataURL>`) — UI overlay canvas + slider per-tool + Áp dụng (bấm nhiều lần tăng dần) / Hoàn tác / Đặt lại / Lấy ảnh về. Tool legs có 2 đường kéo chọn vùng. Cap work 1800px.
+
+Trang `web2/photo-editor/` đổi luồng: tải ảnh → hiện ảnh nguồn + **10 tile** (Làm đẹp tự động · Mịn da · Màu da · Mắt to · Mũi thon · Mặt V-line · Môi · Kéo chân · Xoá logo→Web2LogoEraser · Chỉnh nâng cao→Photopea). Checkbox Photopea **mặc định CHECKED**. Reuse Web2LogoEraser + Web2ImageEditor.
+
+Files: `web2/photo-editor/{index.html,photo-editor.css,js/photo-editor.js}` + 3 module beauty mới.
+
+- **Verified live** (browser-test): 3 module load OK · smooth/tone/legs end-to-end (broken:false, 0 err) · legs 900→945px đúng band-scale · **face warp unit-test fabricated landmarks: eyes/nose/face/lips → 0 NaN, brush 2/3/10/2, pixel thay đổi** · MediaPipe FaceLandmarker tải+chạy (CPU delegate) + ảnh không có mặt → banner đúng. Research 4-agent (MediaPipe indices, liquify math, skin smoothing, leg stretch) trước khi code.
+
 ### [web2/multi-tool] Fix "Tăng số lượng comment" — lần 2 trở đi không tăng số (reply vào root, không reply vào boost) ✅
 
 User: lần TĂNG ĐẦU thì số bình luận FB của bài live tăng; nhưng "khi đã tăng rồi thì bình luận nội dung sẽ khác nên nó không tăng số lượng bình luận nữa".

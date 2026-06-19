@@ -1,12 +1,39 @@
 {
-    "generatedAt": "2026-06-19 05:17",
+    "generatedAt": "2026-06-19 06:31",
     "totals": {
-        "files": 352,
-        "sharedModules": 97,
-        "functions": 2572,
+        "files": 355,
+        "sharedModules": 100,
+        "functions": 2610,
         "oversized": 0
     },
     "sharedModules": [
+        {
+            "file": "web2/shared/beauty/web2-beauty-face.js",
+            "globals": ["Web2BeautyFace"],
+            "purpose": "WEB2.0 shared — beauty face landmarks.",
+            "api": [],
+            "consumers": ["web2/shared/beauty/web2-beauty-studio.js"],
+            "lines": 215
+        },
+        {
+            "file": "web2/shared/beauty/web2-beauty-filters.js",
+            "globals": ["Web2BeautyFilters"],
+            "purpose": "WEB2.0 shared — beauty engine (pure pixel ops).",
+            "api": [],
+            "consumers": [
+                "web2/shared/beauty/web2-beauty-face.js",
+                "web2/shared/beauty/web2-beauty-studio.js"
+            ],
+            "lines": 367
+        },
+        {
+            "file": "web2/shared/beauty/web2-beauty-studio.js",
+            "globals": ["Web2BeautyStudio"],
+            "purpose": "WEB2.0 shared — beauty studio UI.",
+            "api": [],
+            "consumers": ["web2/photo-editor/js/photo-editor.js"],
+            "lines": 493
+        },
         {
             "file": "web2/shared/chat-panel/web2-chat-emoji-data.js",
             "globals": ["Web2ChatEmoji"],
@@ -225,6 +252,7 @@
                 "web2/purchase-refund/js/purchase-refund-state.js",
                 "web2/reconcile/js/reconcile-state.js",
                 "web2/returns/js/returns-api.js",
+                "web2/shared/beauty/web2-beauty-face.js",
                 "web2/shared/chat-panel/web2-chat-panel-state.js",
                 "web2/shared/delivery-method-picker.js",
                 "web2/shared/web2-api-fetch.js",
@@ -686,7 +714,7 @@
                 "web2/photo-editor/js/photo-editor.js",
                 "web2/product-card/js/product-card.js"
             ],
-            "lines": 156
+            "lines": 295
         },
         {
             "file": "web2/shared/web2-image-lightbox.js",
@@ -738,7 +766,10 @@
             "globals": ["Web2LogoEraser"],
             "purpose": "WEB2.0 shared.",
             "api": [],
-            "consumers": ["web2/product-card/js/product-card.js"],
+            "consumers": [
+                "web2/photo-editor/js/photo-editor.js",
+                "web2/product-card/js/product-card.js"
+            ],
             "lines": 379
         },
         {
@@ -959,6 +990,7 @@
             "api": [],
             "consumers": [
                 "web2/product-counter/js/product-counter.js",
+                "web2/shared/beauty/web2-beauty-face.js",
                 "web2/shared/web2-barcode-scanner.js",
                 "web2/shared/web2-label-ocr.js"
             ],
@@ -1397,7 +1429,7 @@
                 "web2/shared/zalo-chat/realtime.js",
                 "web2/zalo/js/web2-zalo-chat.js"
             ],
-            "lines": 647
+            "lines": 670
         },
         {
             "file": "web2/shared/zalo-chat/composer.js",
@@ -1477,7 +1509,7 @@
                 "web2/shared/zalo-chat/realtime.js",
                 "web2/zalo/js/web2-zalo-chat.js"
             ],
-            "lines": 65
+            "lines": 68
         },
         {
             "file": "web2/shared/zalo-chat/realtime.js",
@@ -4759,11 +4791,11 @@
                 },
                 {
                     "file": "web2/jt-tracking/js/jt-tracking-api.js",
-                    "lines": 43,
+                    "lines": 65,
                     "purpose": "WEB2.0 module.",
                     "globals": ["JtTrackingApi"],
                     "uses": ["Web2Auth"],
-                    "functions": ["AUTHH", "api", "relTime"]
+                    "functions": ["AUTHH", "api", "fmtAbs", "g", "relTime"]
                 },
                 {
                     "file": "web2/jt-tracking/js/jt-tracking-app.js",
@@ -4801,7 +4833,7 @@
                 },
                 {
                     "file": "web2/jt-tracking/js/jt-tracking-render.js",
-                    "lines": 280,
+                    "lines": 284,
                     "purpose": "WEB2.0 module.",
                     "globals": ["JtTrackingRender"],
                     "uses": [],
@@ -4919,7 +4951,7 @@
             "files": [
                 {
                     "file": "web2/multi-tool/js/multi-tool.js",
-                    "lines": 494,
+                    "lines": 492,
                     "purpose": "WEB2.0 — trang Đa dụng: tab tiện ích nội bộ. Tab \"Tăng comment\" = reply_comment qua Web2Chat (như Pancake gõ+Enter).",
                     "globals": [],
                     "uses": ["Web2Auth", "Web2Chat", "Web2Escape", "Web2Sidebar"],
@@ -5116,21 +5148,28 @@
             "files": [
                 {
                     "file": "web2/photo-editor/js/photo-editor.js",
-                    "lines": 130,
+                    "lines": 174,
                     "purpose": "WEB2.0 module.",
                     "globals": ["PhotoEditorPage"],
-                    "uses": ["Web2Escape", "Web2ImageEditor", "Web2ProductsCache"],
+                    "uses": [
+                        "Web2BeautyStudio",
+                        "Web2Escape",
+                        "Web2ImageEditor",
+                        "Web2LogoEraser",
+                        "Web2ProductsCache"
+                    ],
                     "functions": [
                         "$",
                         "close",
                         "copy",
                         "download",
-                        "edit",
                         "esc",
                         "fileToDataUrl",
                         "init",
                         "notify",
                         "onload",
+                        "runTool",
+                        "setSource",
                         "showResult",
                         "wirePicker"
                     ]
@@ -6050,6 +6089,83 @@
             "page": "web2/shared",
             "files": [
                 {
+                    "file": "web2/shared/beauty/web2-beauty-face.js",
+                    "lines": 215,
+                    "purpose": "WEB2.0 shared — beauty face landmarks.",
+                    "globals": ["Web2BeautyFace"],
+                    "uses": ["Web2BeautyFilters", "WEB2_CONFIG", "Web2ProductCounter"],
+                    "functions": [
+                        "at",
+                        "buildAutoBrushes",
+                        "buildBrushes",
+                        "detect",
+                        "dist",
+                        "getLandmarker",
+                        "has",
+                        "loadVision",
+                        "midOf",
+                        "warmup"
+                    ]
+                },
+                {
+                    "file": "web2/shared/beauty/web2-beauty-filters.js",
+                    "lines": 367,
+                    "purpose": "WEB2.0 shared — beauty engine (pure pixel ops).",
+                    "globals": ["Web2BeautyFilters"],
+                    "uses": [],
+                    "functions": [
+                        "_blurSeam",
+                        "adjustSkinTone",
+                        "applyBrushBackward",
+                        "bandFn",
+                        "beautify",
+                        "boxBlurFloat",
+                        "boxBlurH",
+                        "boxBlurV",
+                        "buildSkinMask",
+                        "clamp01",
+                        "clamp255",
+                        "rgb2ycbcr",
+                        "sampleBilinear",
+                        "smoothSkin",
+                        "stretchBand",
+                        "warp"
+                    ]
+                },
+                {
+                    "file": "web2/shared/beauty/web2-beauty-studio.js",
+                    "lines": 493,
+                    "purpose": "WEB2.0 shared — beauty studio UI.",
+                    "globals": ["Web2BeautyStudio"],
+                    "uses": ["Web2BeautyFace", "Web2BeautyFilters"],
+                    "functions": [
+                        "apply",
+                        "buildWork",
+                        "cleanup",
+                        "doApply",
+                        "drawLegHandles",
+                        "endDrag",
+                        "ensureStyles",
+                        "esc",
+                        "fit",
+                        "loadImage",
+                        "notify",
+                        "onerror",
+                        "onload",
+                        "open",
+                        "pushHistory",
+                        "readControls",
+                        "redraw",
+                        "reset",
+                        "resetLegDefaults",
+                        "setBusy",
+                        "setWork",
+                        "showBanner",
+                        "undo",
+                        "upd"
+                    ]
+                },
+                {
                     "file": "web2/shared/chat-panel/web2-chat-emoji-data.js",
                     "lines": 212,
                     "purpose": "WEB2.0 — emoji dataset + recent helper cho Web2ChatPanel (tách từ pancake-chat-window).",
@@ -6967,19 +7083,24 @@
                 },
                 {
                     "file": "web2/shared/web2-image-editor.js",
-                    "lines": 156,
+                    "lines": 295,
                     "purpose": "WEB2.0 shared.",
                     "globals": ["Web2ImageEditor"],
                     "uses": [],
                     "functions": [
                         "_load",
+                        "_loadIntoPhotopea",
+                        "_openPhotopea",
                         "cleanup",
                         "ensureStyles",
                         "finish",
-                        "onClose",
+                        "notifyWarn",
+                        "onMsg",
                         "onSave",
+                        "onerror",
                         "onload",
                         "open",
+                        "take",
                         "tryNext"
                     ]
                 },
@@ -8073,7 +8194,7 @@
                 },
                 {
                     "file": "web2/shared/zalo-chat/chat-view.js",
-                    "lines": 647,
+                    "lines": 670,
                     "purpose": "WEB2.0 shared — Zalo chat VIEW (mount 1 hội thoại vào bất kỳ container).",
                     "globals": ["WZChat"],
                     "uses": ["Popup", "ZaloApi", "Web2Zalo", "WZChat"],
@@ -8092,6 +8213,7 @@
                         "_updateSearchCount",
                         "bindBody",
                         "body",
+                        "buildReplyQuote",
                         "destroy",
                         "doForward",
                         "doReact",
@@ -8186,7 +8308,7 @@
                 },
                 {
                     "file": "web2/shared/zalo-chat/reactions.js",
-                    "lines": 65,
+                    "lines": 68,
                     "purpose": "WEB2.0 module — Zalo chat reaction bar (add-only).",
                     "globals": ["WZChat"],
                     "uses": ["WZChat"],
@@ -8809,6 +8931,7 @@
                 "web2/balance-history/js/web2-link-customer-modal.js",
                 "web2/balance-history/js/web2-manual-deposit.js",
                 "web2/balance-history/js/web2-pm-modal.js",
+                "web2/shared/beauty/web2-beauty-studio.js",
                 "web2/shared/popup.js",
                 "web2/shared/web2-barcode-scanner.js",
                 "web2/shared/web2-command-palette.js",
@@ -8823,7 +8946,7 @@
                 "web2/shared/web2-wallet-balance.js",
                 "web2/shared/web2-zalo.js"
             ],
-            "count": 16
+            "count": 17
         },
         {
             "fn": "escapeHtml",
@@ -9312,6 +9435,16 @@
             "count": 4
         },
         {
+            "fn": "loadImage",
+            "files": [
+                "web2/product-card/js/product-card-render.js",
+                "web2/shared/beauty/web2-beauty-studio.js",
+                "web2/shared/web2-canvas-utils.js",
+                "web2/video-maker/js/video-maker.js"
+            ],
+            "count": 4
+        },
+        {
             "fn": "loadOlder",
             "files": [
                 "live-chat/js/pancake/pancake-chat-window.js",
@@ -9743,15 +9876,6 @@
             "count": 3
         },
         {
-            "fn": "loadImage",
-            "files": [
-                "web2/product-card/js/product-card-render.js",
-                "web2/shared/web2-canvas-utils.js",
-                "web2/video-maker/js/video-maker.js"
-            ],
-            "count": 3
-        },
-        {
             "fn": "loadList",
             "files": [
                 "web2/purchase-refund/js/purchase-refund-api.js",
@@ -9883,6 +10007,15 @@
                 "web2/balance-history/js/web2-bh-core.js",
                 "web2/customer-wallet/js/web2-customer-wallet-state.js",
                 "web2/shared/web2-text-utils.js"
+            ],
+            "count": 3
+        },
+        {
+            "fn": "setBusy",
+            "files": [
+                "web2/jt-tracking/js/jt-tracking-actions.js",
+                "web2/shared/beauty/web2-beauty-studio.js",
+                "web2/zalo/js/web2-zalo-utils.js"
             ],
             "count": 3
         },
