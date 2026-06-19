@@ -1,0 +1,147 @@
+<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 module. -->
+<!doctype html>
+<html lang="vi">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+        <meta http-equiv="Cache-Control" content="no-cache, must-revalidate" />
+        <title>Tạo card SP — Web 2.0</title>
+
+        <meta name="theme-color" content="#0b1220" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <link rel="apple-touch-icon" href="../shared/img/logo-emblem.png" />
+
+        <link rel="stylesheet" href="../shared/web2-sidebar.css?v=20260613z" />
+        <link rel="stylesheet" href="../shared/web2-theme.css?v=20260613z" />
+        <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
+        <link rel="stylesheet" href="./product-card.css?v=20260619a" />
+    </head>
+    <body class="web2-theme">
+        <div class="web2-shell">
+            <aside class="web2-aside" id="web2Aside"></aside>
+            <main class="web2-main">
+                <div class="pcard-app">
+                    <!-- ============ CONTROLS ============ -->
+                    <section class="pcard-panel">
+                        <h1 class="pcard-h"><i data-lucide="image-plus"></i> Tạo card sản phẩm</h1>
+                        <p class="pcard-sub">
+                            Tạo ảnh card/poster SP để đăng FB / Zalo / Story. Chọn SP từ kho hoặc
+                            tải ảnh tay → xuất PNG. Chạy hoàn toàn trên máy. Mẹo: dùng
+                            <b>Studio tách nền</b> trước rồi bật "Ảnh tách nền".
+                        </p>
+
+                        <div class="pcard-field pcard-picker">
+                            <label>Chọn SP từ kho (gõ tên/mã)</label>
+                            <input
+                                type="search"
+                                id="pcardProdSearch"
+                                placeholder="VD: áo thun trắng…"
+                                autocomplete="off"
+                            />
+                            <div class="pcard-drop" id="pcardProdDrop" hidden></div>
+                        </div>
+
+                        <div class="pcard-field">
+                            <label>Ảnh sản phẩm</label>
+                            <div class="pcard-actions">
+                                <label class="pcard-btn pcard-upload">
+                                    <i data-lucide="upload"></i> Tải ảnh
+                                    <input type="file" id="pcardUpload" accept="image/*" />
+                                </label>
+                            </div>
+                            <label class="pcard-toggle">
+                                <input type="checkbox" id="pcardCutout" /> Ảnh tách nền (giữ nguyên
+                                SP, nền trong suốt)
+                            </label>
+                        </div>
+
+                        <div class="pcard-field">
+                            <label>Tên sản phẩm</label>
+                            <input
+                                type="text"
+                                id="pcardName"
+                                placeholder="Tên hiển thị trên card"
+                            />
+                        </div>
+
+                        <div class="pcard-row2">
+                            <div class="pcard-field">
+                                <label>Giá</label>
+                                <input type="text" id="pcardPrice" placeholder="VD: 150000" />
+                            </div>
+                            <div class="pcard-field">
+                                <label>Nhãn (badge)</label>
+                                <input type="text" id="pcardBadge" placeholder="SALE / MỚI VỀ" />
+                            </div>
+                        </div>
+
+                        <div class="pcard-field">
+                            <label>Mô tả ngắn</label>
+                            <textarea
+                                id="pcardNote"
+                                placeholder="Freeship · Mẫu hot · Còn 5 cái…"
+                            ></textarea>
+                        </div>
+
+                        <div class="pcard-field">
+                            <label>Kích thước</label>
+                            <div class="pcard-chips" id="pcardSizes"></div>
+                        </div>
+
+                        <div class="pcard-field">
+                            <label>Mẫu (template)</label>
+                            <div class="pcard-chips" id="pcardTpls"></div>
+                        </div>
+
+                        <div class="pcard-field">
+                            <label>Màu nhấn</label>
+                            <div class="pcard-swatches" id="pcardAccents"></div>
+                        </div>
+
+                        <div class="pcard-row2">
+                            <div class="pcard-field">
+                                <label>Tên shop (góc dưới)</label>
+                                <input type="text" id="pcardShop" placeholder="NhiJudy Store" />
+                            </div>
+                            <div class="pcard-field">
+                                <label>QR (link/SĐT) — tùy chọn</label>
+                                <input type="text" id="pcardQr" placeholder="dán link hoặc SĐT" />
+                            </div>
+                        </div>
+
+                        <div class="pcard-actions">
+                            <button class="pcard-btn" id="pcardCopy">
+                                <i data-lucide="copy"></i> Copy
+                            </button>
+                            <button class="pcard-btn primary" id="pcardExport">
+                                <i data-lucide="download"></i> Tải PNG
+                            </button>
+                        </div>
+                    </section>
+
+                    <!-- ============ PREVIEW ============ -->
+                    <section class="pcard-stage" id="pcardStage">
+                        <canvas id="pcardCanvas" width="1080" height="1080"></canvas>
+                    </section>
+                </div>
+            </main>
+        </div>
+
+        <script src="../../shared/js/notification-system.js?v=20260613a"></script>
+        <script src="../shared/web2-auth.js?v=20260613guard"></script>
+        <script src="../shared/web2-sidebar.js?v=20260615db"></script>
+        <script src="../shared/web2-products-cache.js?v=20260619a"></script>
+        <script src="../shared/web2-qr.js?v=20260619a"></script>
+        <script src="./js/product-card-render.js?v=20260619a"></script>
+        <script src="./js/product-card.js?v=20260619b"></script>
+        <script>
+            document.addEventListener('DOMContentLoaded', () => {
+                if (window.Web2Sidebar)
+                    Web2Sidebar.mount('#web2Aside', { activeRoute: 'product-card' });
+                if (window.ProductCardPage) window.ProductCardPage.init();
+                if (window.lucide) lucide.createIcons();
+            });
+        </script>
+    </body>
+</html>

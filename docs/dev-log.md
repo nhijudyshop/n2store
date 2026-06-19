@@ -2,6 +2,16 @@
 
 ## 2026-06-19
 
+### [web2/product-card] Trang MỚI "Tạo card sản phẩm" (Đa dụng Web 2.0) ✅
+
+Tiện ích in-browser tạo ảnh card/poster SP để đăng FB/Zalo/Story — 100% on-device, không server. Chọn SP từ kho (`Web2ProductsCache`) hoặc tải/paste ảnh tay → render canvas → export PNG / copy clipboard. Ăn khớp Studio tách nền (toggle "ảnh tách nền" → contain ảnh PNG trong suốt).
+
+- **Vẽ thẳng lên `<canvas>`** (1 nguồn cho preview + export → không lệch, không cần lib DOM→image). 4 template (Sale Bold / Clean / Editorial / Pop), 4 size (vuông 1:1, story 9:16, ngang 1.91:1, dọc 4:5), 7 màu nhấn, badge, giá (format vi-VN), mô tả, tên shop, QR tùy chọn (Web2QR).
+- Ảnh SP `img.crossOrigin='anonymous'` (export không taint nếu host cho CORS); ảnh upload/paste/tách-nền (dataURL) luôn an toàn. toBlob taint → báo user tải ảnh từ máy.
+- Files: `web2/product-card/{index.html, product-card.css, js/product-card-render.js, js/product-card.js}`. Đăng ký sidebar group "Đa dụng Web 2.0" + WEB2_PAGES.
+- Nguồn cảm hứng: research `nexu-io/html-anything` (PNG card surface) — không nhúng repo (Next.js+agent), build mới in-browser.
+- Verified live: 4 size/4 tpl/7 màu render OK, export PNG 86KB không taint, 0 JS err.
+
 ### [native-orders + web2-chat] Cột info chat = bình luận live-chat (mới nhất trên + giờ) + ẩn cột Bình luận + fix snippet `<b>` ✅
 
 User test trực tiếp modal chat native-orders + bảng. 3 việc:

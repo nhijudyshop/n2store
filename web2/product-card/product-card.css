@@ -1,0 +1,279 @@
+/* #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 module. */
+/* Product Card — layout 2 cột: controls trái + preview canvas phải. Dùng token web2-theme. */
+
+.pcard-app {
+    display: grid;
+    grid-template-columns: 380px 1fr;
+    gap: 0;
+    height: 100%;
+    min-height: 0;
+}
+
+/* ----- panel controls ----- */
+.pcard-panel {
+    overflow-y: auto;
+    padding: 20px;
+    border-right: 1px solid var(--web2-border, #e5e7eb);
+    background: var(--web2-surface, #fff);
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+.pcard-h {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--web2-text, #0f172a);
+    margin: 0;
+}
+.pcard-h i {
+    width: 20px;
+    height: 20px;
+    color: var(--web2-primary, #0068ff);
+}
+.pcard-sub {
+    font-size: 12px;
+    color: var(--web2-text-mute, #64748b);
+    margin: -10px 0 0;
+    line-height: 1.5;
+}
+
+.pcard-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.pcard-field > label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--web2-text-mute, #64748b);
+}
+.pcard-field input[type='text'],
+.pcard-field input[type='search'],
+.pcard-field textarea {
+    width: 100%;
+    padding: 9px 11px;
+    border: 1px solid var(--web2-border, #e2e8f0);
+    border-radius: 9px;
+    font-size: 13px;
+    font-family: inherit;
+    background: var(--web2-bg, #fff);
+    color: var(--web2-text, #0f172a);
+    box-sizing: border-box;
+}
+.pcard-field textarea {
+    resize: vertical;
+    min-height: 56px;
+}
+.pcard-field input:focus,
+.pcard-field textarea:focus {
+    outline: none;
+    border-color: var(--web2-primary, #0068ff);
+    box-shadow: 0 0 0 3px rgba(0, 104, 255, 0.12);
+}
+
+.pcard-row2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+/* product picker dropdown */
+.pcard-picker {
+    position: relative;
+}
+.pcard-drop {
+    position: absolute;
+    z-index: 30;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    background: #fff;
+    border: 1px solid var(--web2-border, #e5e7eb);
+    border-radius: 10px;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.14);
+    max-height: 260px;
+    overflow-y: auto;
+    padding: 4px;
+}
+.pcard-drop-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 8px 10px;
+    border: 0;
+    background: transparent;
+    border-radius: 7px;
+    cursor: pointer;
+    text-align: left;
+    font-family: inherit;
+}
+.pcard-drop-row:hover {
+    background: var(--web2-primary-soft, #eef4ff);
+}
+.pcard-drop-name {
+    font-size: 13px;
+    color: var(--web2-text, #0f172a);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.pcard-drop-code {
+    font-size: 11px;
+    color: var(--web2-text-mute, #94a3b8);
+    font-family: ui-monospace, Menlo, monospace;
+    flex: none;
+}
+.pcard-drop-empty {
+    padding: 12px;
+    font-size: 12px;
+    color: var(--web2-text-mute, #94a3b8);
+    font-style: italic;
+    text-align: center;
+}
+
+/* chips + swatches */
+.pcard-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+}
+.pcard-chip {
+    padding: 7px 12px;
+    border: 1px solid var(--web2-border, #e2e8f0);
+    border-radius: 999px;
+    background: var(--web2-bg, #fff);
+    color: var(--web2-text, #334155);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition:
+        background 0.12s,
+        border-color 0.12s,
+        color 0.12s;
+}
+.pcard-chip:hover {
+    border-color: var(--web2-primary, #0068ff);
+}
+.pcard-chip.on {
+    background: var(--web2-primary, #0068ff);
+    border-color: var(--web2-primary, #0068ff);
+    color: #fff;
+}
+.pcard-swatches {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.pcard-swatch {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 2px solid #fff;
+    box-shadow: 0 0 0 1px var(--web2-border, #e2e8f0);
+    cursor: pointer;
+    padding: 0;
+}
+.pcard-swatch.on {
+    box-shadow:
+        0 0 0 2px #fff,
+        0 0 0 4px var(--web2-text, #0f172a);
+}
+
+.pcard-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--web2-text-mute, #64748b);
+    cursor: pointer;
+}
+
+.pcard-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 4px;
+}
+.pcard-btn {
+    flex: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    padding: 11px 14px;
+    border-radius: 11px;
+    border: 1px solid var(--web2-border, #e2e8f0);
+    background: var(--web2-bg, #fff);
+    color: var(--web2-text, #0f172a);
+    font-weight: 700;
+    font-size: 13px;
+    cursor: pointer;
+}
+.pcard-btn i {
+    width: 16px;
+    height: 16px;
+}
+.pcard-btn.primary {
+    background: var(--web2-primary, #0068ff);
+    border-color: var(--web2-primary, #0068ff);
+    color: #fff;
+}
+.pcard-btn:hover {
+    filter: brightness(0.97);
+}
+.pcard-upload {
+    position: relative;
+    overflow: hidden;
+}
+.pcard-upload input[type='file'] {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+}
+
+/* ----- preview stage ----- */
+.pcard-stage {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    min-height: 0;
+    overflow: hidden;
+    background:
+        linear-gradient(45deg, #eef2f7 25%, transparent 25%),
+        linear-gradient(-45deg, #eef2f7 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #eef2f7 75%),
+        linear-gradient(-45deg, transparent 75%, #eef2f7 75%);
+    background-size: 22px 22px;
+    background-position:
+        0 0,
+        0 11px,
+        11px -11px,
+        -11px 0;
+}
+#pcardCanvas {
+    border-radius: 8px;
+    box-shadow: 0 18px 50px rgba(2, 8, 23, 0.25);
+    background: #fff;
+    max-width: 100%;
+    max-height: 100%;
+}
+
+@media (max-width: 880px) {
+    .pcard-app {
+        grid-template-columns: 1fr;
+        height: auto;
+    }
+    .pcard-panel {
+        border-right: 0;
+        border-bottom: 1px solid var(--web2-border, #e5e7eb);
+    }
+    .pcard-stage {
+        min-height: 60vh;
+    }
+}
