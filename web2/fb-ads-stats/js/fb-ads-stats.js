@@ -7,6 +7,8 @@
     let _actId = null;
     let _preset = 'last_30d';
     let _currency = '';
+    let _pages = [];
+    let _mode = 'manual'; // manual (nhập tay) | auto (FB Ads API)
 
     const PRESETS = [
         ['today', 'Hôm nay'],
@@ -44,6 +46,10 @@
 
     function $(id) {
         return document.getElementById(id);
+    }
+    // Auto render vào #fbaContent (dưới toggle); fallback #fbaBody khi chưa kết nối.
+    function box() {
+        return document.getElementById('fbaContent') || document.getElementById('fbaBody');
     }
     function esc(s) {
         return String(s == null ? '' : s).replace(
@@ -134,7 +140,7 @@
                 .join('')}</div>`;
 
         if (!hasData) {
-            $('fbaBody').innerHTML =
+            box().innerHTML =
                 selectorHtml() +
                 (data.error
                     ? `<div class="fbp-card" style="background:#fef3f2;border-color:#fca5a5;color:#b91c1c">⚠ ${esc(data.error)}</div>`
@@ -146,7 +152,7 @@
             return;
         }
         const ctr = s.ctr != null ? dec(s.ctr) + '%' : '—';
-        $('fbaBody').innerHTML =
+        box().innerHTML =
             selectorHtml() +
             `<div class="fbp-card"><h3><i data-lucide="trending-up"></i> Tổng quan — ${esc(acct.name || '')} · ${esc((PRESETS.find((p) => p[0] === _preset) || [])[1] || _preset)}</h3>
                 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px">
@@ -187,7 +193,7 @@
     }
 
     async function load() {
-        $('fbaBody').innerHTML =
+        box().innerHTML =
             selectorHtml() +
             '<div class="fbp-empty"><i data-lucide="loader"></i> Đang tải số liệu quảng cáo…</div>';
         wireSelector();
@@ -195,15 +201,46 @@
         try {
             const r = await Api().adInsights(_actId, _preset);
             if (!r.success) {
-                $('fbaBody').innerHTML =
+                box().innerHTML =
                     selectorHtml() + `<div class="fbp-empty">${esc(r.error || 'Lỗi')}</div>`;
                 wireSelector();
                 return;
             }
             render(r);
         } catch (e) {
-            $('fbaBody').innerHTML = `<div class="fbp-empty">${esc(e.message)}</div>`;
+            box().innerHTML = `<div class="fbp-empty">${esc(e.message)}</div>`;
         }
+    }
+
+    // Tải dữ liệu QC tự động từ FB Ads API (vào #fbaContent).
+    async function loadAuto() {
+        box().innerHTML =
+            '<div class="fbp-empty"><i data-lucide="loader"></i> Đang tải tài khoản quảng cáo…</div>';
+        if (window.lucide?.createIcons) window.lucide.createIcons();
+        try {
+            const r = await Api().adAccounts();
+            if (!r.success || !(r.accounts || []).length) {
+                box().innerHTML = `<div class="fbp-empty"><div class="empty-state-icon">💳</div>${r.success ? 'Không thấy tài khoản quảng cáo nào (cần quyền ads_read + là thành viên Business Manager quản lý QC). Dùng "Nhập tay" để theo dõi chi tiêu/đơn thủ công.' : esc(r.error || 'Lỗi')}</div>`;
+                if (window.lucide?.createIcons) window.lucide.createIcons();
+                return;
+            }
+            _accounts = r.accounts;
+            const active = _accounts.find((a) => a.status === 1) || _accounts[0];
+            _actId = active.accountId;
+            _currency = active.currency || '';
+            load();
+        } catch (e) {
+            box().innerHTML = `<div class="fbp-empty">${esc(e.message)}</div>`;
+        }
+    }
+
+    function switchMode(m) {
+        _mode = m;
+        document
+            .querySelectorAll('#fbaModeTog [data-m]')
+            .forEach((b) => b.classList.toggle('on', b.dataset.m === m));
+        if (m === 'manual') window.FBAdsManual.mount(box(), _pages);
+        else loadAuto();
     }
 
     async function init() {
@@ -216,25 +253,23 @@
                 pill.className = 'fbp-pill is-off';
                 pill.innerHTML = '<i data-lucide="x-circle"></i> Chưa kết nối';
                 $('fbaBody').innerHTML =
-                    '<div class="fbp-empty"><div class="empty-state-icon">🔌</div>Chưa kết nối Facebook. Vào <a href="../fb-posts/index.html" style="color:var(--web2-primary,#0068ff);font-weight:700">Đăng bài Facebook</a> để kết nối.</div>';
+                    '<div class="fbp-empty"><div class="empty-state-icon">🔌</div>Chưa kết nối Facebook. Vào <a href="../fb-posts/index.html" style="color:var(--web2-primary,#0068ff);font-weight:700">Đăng bài Facebook</a> để kết nối (Nhập tay vẫn dùng được nhưng cần page để gắn bài).</div>';
                 if (window.lucide?.createIcons) window.lucide.createIcons();
                 return;
             }
             pill.className = 'fbp-pill is-on';
             pill.innerHTML = `<i data-lucide="check-circle-2"></i> ${esc(st.user?.name || '')}`;
-            const r = await Api().adAccounts();
-            if (!r.success || !(r.accounts || []).length) {
-                $('fbaBody').innerHTML =
-                    `<div class="fbp-empty"><div class="empty-state-icon">💳</div>${r.success ? 'Tài khoản này không có tài khoản quảng cáo nào (cần quyền ads_read + là admin tài khoản QC).' : esc(r.error || 'Lỗi')}</div>`;
-                if (window.lucide?.createIcons) window.lucide.createIcons();
-                return;
-            }
-            _accounts = r.accounts;
-            // ưu tiên tài khoản đang hoạt động
-            const active = _accounts.find((a) => a.status === 1) || _accounts[0];
-            _actId = active.accountId;
-            _currency = active.currency || '';
-            load();
+            _pages = st.pages || [];
+            $('fbaBody').innerHTML =
+                `<div class="fbp-card" style="padding:8px 12px"><div class="fbp-styles" id="fbaModeTog" style="margin:0">
+                    <button class="fbp-style on" data-m="manual" type="button">✍️ Nhập tay (chi tiêu + đơn)</button>
+                    <button class="fbp-style" data-m="auto" type="button">📊 Tự động (FB Ads)</button>
+                </div></div><div id="fbaContent"></div>`;
+            document
+                .querySelectorAll('#fbaModeTog [data-m]')
+                .forEach((b) => b.addEventListener('click', () => switchMode(b.dataset.m)));
+            if (window.lucide?.createIcons) window.lucide.createIcons();
+            switchMode('manual');
         } catch (e) {
             $('fbaBody').innerHTML = `<div class="fbp-empty">${esc(e.message)}</div>`;
         }
