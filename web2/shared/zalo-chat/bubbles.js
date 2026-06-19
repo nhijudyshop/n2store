@@ -133,14 +133,14 @@
     }
 
     function tools(m) {
-        // hover toolbar: reply / react / more(recall+forward)
+        // hover toolbar: reply / react / recall (đã bỏ "Chuyển tiếp" theo yêu cầu shop —
+        // tránh forward nhầm tin sang nhóm khác; ít dùng trong luồng xử lý đơn).
         const id = esc(m.msg_id || m.cli_msg_id || '');
         if (!id) return '';
         return `<div class="wz-msg-tools" role="group" aria-label="Hành động tin nhắn">
             <button class="wz-msg-tool" data-act="reply" title="Trả lời" aria-label="Trả lời"><i data-lucide="reply"></i></button>
             <button class="wz-msg-tool" data-wz-react-btn data-act="react" title="Thả cảm xúc" aria-label="Thả cảm xúc"><i data-lucide="smile"></i></button>
             ${m.direction === 'out' && !m.recalled ? `<button class="wz-msg-tool" data-act="recall" title="Thu hồi" aria-label="Thu hồi"><i data-lucide="rotate-ccw"></i></button>` : ''}
-            <button class="wz-msg-tool" data-act="forward" title="Chuyển tiếp" aria-label="Chuyển tiếp"><i data-lucide="forward"></i></button>
         </div>`;
     }
 

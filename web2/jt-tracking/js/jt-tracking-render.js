@@ -6,7 +6,7 @@
 
     const { ST, KPI_ORDER, KPI_META, APPROVE_TTL_DAYS, $, esc, notify, icons } =
         window.JtTrackingConst;
-    const { api, relTime } = window.JtTrackingApi;
+    const { api, relTime, fmtAbs } = window.JtTrackingApi;
     const S = window.JtTrackingState;
 
     // ── KPI ─────────────────────────────────────────────────────────
@@ -98,9 +98,13 @@
         const s = ST(r.status);
         const approved = !!r.approved_at;
         const code = esc(r.billcode); // luôn 12 số, vẫn esc để chắc chắn an toàn attr
-        const when = r.latest_at_text
-            ? `${esc(r.latest_at_text)} · ${esc(relTime(r.latest_at))}`
-            : 'Chưa tra cứu';
+        // Hiển thị THỜI GIAN ZALO (src_at — lúc mã xuất hiện trong nhóm) chi tiết + tương đối;
+        // đây cũng là khóa sort (mới nhất ở trên). Row chưa có src_at → fallback giờ J&T.
+        const when = r.src_at
+            ? `${esc(fmtAbs(r.src_at))} · ${esc(relTime(r.src_at))}`
+            : r.latest_at_text
+              ? `${esc(r.latest_at_text)} · ${esc(relTime(r.latest_at))}`
+              : 'Chưa tra cứu';
         // nút mở chat nhóm J&T: dùng conv của row, hoặc fallback conv nhóm J&T (suy từ row khác)
         // → mã dán tay (không có zalo_conv_id) vẫn mở được nhóm + nhảy tới tin có mã.
         const convForChat = r.zalo_conv_id || S.getGroupConvId();

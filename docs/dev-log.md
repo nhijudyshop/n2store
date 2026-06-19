@@ -2,6 +2,20 @@
 
 ## 2026-06-19
 
+### [web2/jt-tracking + shared/zalo-chat] Sort theo giờ Zalo + bỏ "Chuyển tiếp" + fix react/reply ✅
+
+User (2 ảnh): **(1) Trang Tra cứu vận đơn J&T** — sắp xếp theo **thời gian Zalo mới nhất ở trên cùng** + hiển thị thời gian chi tiết. **(2) Khung chat "Nhóm Zalo nguồn"** — bỏ nút **Chuyển tiếp**, fix nút **react bấm không được**, fix **bug reply tin nhắn**. ⚠ User dặn KHÔNG test vì Zalo đang là dữ liệu THẬT → chỉ sửa code, không gửi thử.
+
+**(1) Sort theo giờ Zalo** — trước đây `/list` ORDER BY `latest_at` (giờ sự kiện J&T) → mã có cập nhật J&T mới nhảy lên đầu, không theo lúc đơn xuất hiện trong nhóm Zalo. Thêm cột `src_at BIGINT` (epoch ms tin Zalo chứa mã) vào `web2_jt_tracking` (idempotent ALTER + index). Bắt giá trị ở cả 3 đường quét: `/scan` (SELECT thêm `m.sent_at`, ORDER BY sent_at DESC → lần gặp đầu = mới nhất), `/scan-history` (track max `m.sentAt`/mã), `/scan-text` (`_parsePasteDate`). Upsert `src_at = GREATEST(cũ, mới)` (mã post lại → bump). `/list`: trả `src_at`, `ORDER BY (approved), COALESCE(src_at, created_at) DESC, updated_at DESC`. Frontend: `fmtAbs(epoch)` (GMT+7 `YYYY-MM-DD HH:MM:SS`) + row meta hiện giờ Zalo chi tiết (fallback giờ J&T nếu row cũ chưa có src_at).
+
+**(2a) Bỏ "Chuyển tiếp"** — gỡ button `data-act="forward"` khỏi `tools()` ([web2/shared/zalo-chat/bubbles.js](../web2/shared/zalo-chat/bubbles.js)). Áp dụng cho MỌI surface chat Zalo (shared).
+
+**(2b) React bấm không được = z-index** — thanh cảm xúc (`reactions.js`) append vào `document.body` với `zIndex:1250`, nhưng drawer chat KH `.w2cc-back` = `z-index:1300` (nền trắng đục) → thanh react nằm SAU drawer → không thấy/không bấm được. Bump lên `100000`.
+
+**(2c) Reply không thành quote thật** — client chỉ gửi `{msgId, preview}`, backend `/send-message` cần `replyTo.quote` = OBJECT thô (SendMessageQuote) để zca-js dựng reply → quote=null → tin gửi đi KHÔNG phải reply. Fix `chat-view.js`: `buildReplyQuote(m)` dựng `{content(string), msgType:'webchat', uidFrom, msgId, cliMsgId, ts, ttl, propertyExt}` từ field tin gốc đã lưu. Backend `web2-zalo-zca.js send()`: **try quote → nếu Zalo từ chối (shape dựng lại lệch) gửi LẠI không quote** (degrade về tin thường, không nuốt tin user). Verify zca-js `dist/apis/sendMessage.js`: text content string qua được validate `webchat`.
+
+Files: `render.com/routes/web2-jt-tracking.js`, `render.com/services/web2-zalo-zca.js`, `web2/shared/zalo-chat/{bubbles,reactions,chat-view}.js`, `web2/shared/web2-zalo.js` (ENGINE_VER bump), `web2/jt-tracking/{index.html,js/jt-tracking-api.js,js/jt-tracking-render.js}`. `node --check` toàn bộ PASS. KHÔNG browser-test (user dặn — Zalo data thật).
+
 ### [web2/photo-editor] Studio làm đẹp kiểu Meitu (on-device) + 10 công cụ nhanh + mặc định Photopea ✅
 
 User: "mặc định photopea với các chức năng chỉnh nhanh ở hình → beauty, xoá logo vùng chọn, làm đẹp, kéo chân, chỉnh màu da, mặt, mắt, mũi, miệng".

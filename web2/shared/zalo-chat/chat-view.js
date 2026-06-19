@@ -176,6 +176,23 @@
             temp._retry = () => sendTextRaw(text, reply, temp.cli_msg_id, mentions);
             await sendTextRaw(text, reply, temp.cli_msg_id, mentions);
         }
+        // zca-js cần OBJECT quote thô (SendMessageQuote) để dựng reply thật, KHÔNG chỉ msgId.
+        // Trước đây client chỉ gửi {msgId,preview} → backend nhận quote=null → tin gửi đi
+        // KHÔNG phải reply (bug "reply tin nhắn"). Dựng lại từ field đã lưu của tin gốc.
+        // Cần msg_id server thật; tin optimistic (chưa reconcile) → bỏ quote, gửi thường.
+        function buildReplyQuote(m) {
+            if (!m || !m.msg_id) return null;
+            return {
+                content: String(m.content == null ? '' : m.content), // string → qua validate webchat
+                msgType: 'webchat',
+                propertyExt: null,
+                uidFrom: String(m.sender_uid || ''),
+                msgId: String(m.msg_id),
+                cliMsgId: String(m.cli_msg_id || ''),
+                ts: String(m.sent_at || ''),
+                ttl: 0,
+            };
+        }
         async function sendTextRaw(text, reply, tempCli, mentions) {
             try {
                 const r = await Api.sendMessage({
@@ -183,7 +200,13 @@
                     threadId: conv.thread_id,
                     text,
                     threadType: conv.thread_type,
-                    replyTo: reply ? { msgId: reply.msg_id, preview: reply.content || '' } : null,
+                    replyTo: reply
+                        ? {
+                              msgId: reply.msg_id,
+                              preview: reply.content || '',
+                              quote: buildReplyQuote(reply),
+                          }
+                        : null,
                     mentions: Array.isArray(mentions) && mentions.length ? mentions : undefined,
                 });
                 reconcile(tempCli, { msg_id: r.msgId, cli_msg_id: r.cliMsgId || tempCli }, true);

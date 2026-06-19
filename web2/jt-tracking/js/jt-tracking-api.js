@@ -38,5 +38,27 @@
         return d + ' ngày trước';
     }
 
-    window.JtTrackingApi = { api, AUTHH, relTime, API };
+    // epoch ms → 'YYYY-MM-DD HH:MM:SS' theo GMT+7 (Asia/Ho_Chi_Minh) — thời gian chi tiết.
+    function fmtAbs(epoch) {
+        if (!epoch) return '';
+        try {
+            const parts = new Intl.DateTimeFormat('en-CA', {
+                timeZone: 'Asia/Ho_Chi_Minh',
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: false,
+            }).formatToParts(new Date(Number(epoch)));
+            const g = (t) => (parts.find((x) => x.type === t) || {}).value || '';
+            const hh = g('hour') === '24' ? '00' : g('hour'); // Intl đôi khi trả '24' cho nửa đêm
+            return `${g('year')}-${g('month')}-${g('day')} ${hh}:${g('minute')}:${g('second')}`;
+        } catch {
+            return '';
+        }
+    }
+
+    window.JtTrackingApi = { api, AUTHH, relTime, fmtAbs, API };
 })();

@@ -59,6 +59,7 @@ async function ensureSchema(pool) {
                 `ALTER TABLE IF EXISTS web2_jt_tracking
                     ADD COLUMN IF NOT EXISTS approved_at  BIGINT,
                     ADD COLUMN IF NOT EXISTS zalo_conv_id BIGINT,
+                    ADD COLUMN IF NOT EXISTS src_at       BIGINT,
                     ADD COLUMN IF NOT EXISTS src_message  TEXT;`
             )
             .catch(() => {});
@@ -76,6 +77,7 @@ async function ensureSchema(pool) {
                 source          VARCHAR(12) NOT NULL DEFAULT 'manual', -- zalo|manual
                 note            TEXT,                   -- ngữ cảnh (nhóm Zalo / SĐT gần mã)
                 src_message     TEXT,                   -- TOÀN BỘ tin nhắn chứa mã (tên/SĐT/ghi chú KH)
+                src_at          BIGINT,                 -- epoch ms thời điểm tin Zalo chứa mã (để sort theo Zalo)
                 last_fetched_at BIGINT,
                 approved_at     BIGINT,                 -- đã DUYỆT (xong) → mờ đi + tự xoá sau 7 ngày
                 zalo_conv_id    BIGINT,                 -- conv Zalo nguồn (mở chat nhóm từ row)
@@ -84,6 +86,7 @@ async function ensureSchema(pool) {
             );
             CREATE INDEX IF NOT EXISTS idx_web2_jt_status   ON web2_jt_tracking(status);
             CREATE INDEX IF NOT EXISTS idx_web2_jt_latest   ON web2_jt_tracking(latest_at DESC NULLS LAST);
+            CREATE INDEX IF NOT EXISTS idx_web2_jt_srcat    ON web2_jt_tracking(src_at DESC NULLS LAST);
             CREATE INDEX IF NOT EXISTS idx_web2_jt_updated  ON web2_jt_tracking(updated_at DESC);
             CREATE INDEX IF NOT EXISTS idx_web2_jt_approved ON web2_jt_tracking(approved_at) WHERE approved_at IS NOT NULL;
             -- Thẻ "XỬ LÝ BC" theo SĐT KH (đồng bộ đa máy, thay localStorage device-local).
@@ -424,7 +427,7 @@ router.post('/scan', async (req, res) => {
         const db = getDb(req);
         // Lấy tin có chứa chuỗi 12 số (lọc sơ bộ ở DB cho nhẹ) + id/tên conv nguồn.
         const { rows } = await db.query(
-            `SELECT m.content, c.id AS conv_id, c.display_name AS conv_name
+            `SELECT m.content, m.sent_at, c.id AS conv_id, c.display_name AS conv_name
                FROM web2_zalo_messages m
                LEFT JOIN web2_zalo_conversations c
                  ON c.account_key = m.account_key AND c.thread_id = m.thread_id
@@ -432,7 +435,8 @@ router.post('/scan', async (req, res) => {
               ORDER BY m.sent_at DESC
               LIMIT 5000`
         );
-        // mã → ngữ cảnh (nhóm Zalo gặp gần nhất: tên + id + TOÀN BỘ tin chứa mã)
+        // mã → ngữ cảnh (nhóm Zalo gặp gần nhất: tên + id + TOÀN BỘ tin chứa mã + sent_at).
+        // ORDER BY sent_at DESC → lần GẶP ĐẦU = tin MỚI NHẤT chứa mã → src_at = newest.
         const found = new Map();
         for (const r of rows) {
             for (const code of extractOrderCodes(r.content)) {
@@ -441,6 +445,7 @@ router.post('/scan', async (req, res) => {
                         name: r.conv_name || null,
                         id: r.conv_id || null,
                         content: String(r.content || '').slice(0, 2000),
+                        srcAt: r.sent_at != null ? Number(r.sent_at) : null,
                     });
             }
         }
@@ -448,16 +453,18 @@ router.post('/scan', async (req, res) => {
         const ts = now();
         let added = 0;
         for (const [code, ctx] of found) {
-            // upsert: backfill note/conv_id/src_message cho mã CŨ; insert nếu mới.
+            // upsert: backfill note/conv_id/src_message/src_at cho mã CŨ; insert nếu mới.
+            // src_at: giữ MỚI NHẤT (mã được post lại trong Zalo → bump lên đầu danh sách).
             const r = await db.query(
-                `INSERT INTO web2_jt_tracking (billcode, status, source, note, zalo_conv_id, src_message, created_at, updated_at)
-                 VALUES ($1,'pending','zalo',$2,$4,$5,$3,$3)
+                `INSERT INTO web2_jt_tracking (billcode, status, source, note, zalo_conv_id, src_message, src_at, created_at, updated_at)
+                 VALUES ($1,'pending','zalo',$2,$4,$5,$6,$3,$3)
                  ON CONFLICT (billcode) DO UPDATE SET
                     note = COALESCE(web2_jt_tracking.note, EXCLUDED.note),
                     zalo_conv_id = COALESCE(web2_jt_tracking.zalo_conv_id, EXCLUDED.zalo_conv_id),
-                    src_message = COALESCE(EXCLUDED.src_message, web2_jt_tracking.src_message)
+                    src_message = COALESCE(EXCLUDED.src_message, web2_jt_tracking.src_message),
+                    src_at = GREATEST(COALESCE(web2_jt_tracking.src_at, 0), COALESCE(EXCLUDED.src_at, 0))
                  RETURNING (xmax = 0) AS inserted`,
-                [code, ctx.name, ts, ctx.id, ctx.content || null]
+                [code, ctx.name, ts, ctx.id, ctx.content || null, ctx.srcAt]
             );
             if (r.rows[0]?.inserted) added++;
         }
@@ -516,13 +523,20 @@ router.post('/scan-history', async (req, res) => {
                 if (m.sentAt && m.sentAt < cutoff) continue; // ngoài cửa sổ `days`
                 if (!m.content) continue;
                 fetched++;
+                const mAt = m.sentAt != null ? Number(m.sentAt) : null;
                 for (const code of extractOrderCodes(m.content)) {
-                    if (!found.has(code))
+                    const prev = found.get(code);
+                    if (!prev) {
                         found.set(code, {
                             name: g.name || null,
                             id: g.conv_id || null,
                             content: String(m.content).slice(0, 2000),
+                            srcAt: mAt,
                         });
+                    } else if (mAt != null && (prev.srcAt == null || mAt > prev.srcAt)) {
+                        // getGroupHistory không đảm bảo thứ tự → giữ tin MỚI NHẤT cho src_at.
+                        prev.srcAt = mAt;
+                    }
                 }
             }
         }
@@ -530,14 +544,15 @@ router.post('/scan-history', async (req, res) => {
         let added = 0;
         for (const [code, ctx] of found) {
             const r = await db.query(
-                `INSERT INTO web2_jt_tracking (billcode, status, source, note, zalo_conv_id, src_message, created_at, updated_at)
-                 VALUES ($1,'pending','zalo',$2,$4,$5,$3,$3)
+                `INSERT INTO web2_jt_tracking (billcode, status, source, note, zalo_conv_id, src_message, src_at, created_at, updated_at)
+                 VALUES ($1,'pending','zalo',$2,$4,$5,$6,$3,$3)
                  ON CONFLICT (billcode) DO UPDATE SET
                     note = COALESCE(web2_jt_tracking.note, EXCLUDED.note),
                     zalo_conv_id = COALESCE(web2_jt_tracking.zalo_conv_id, EXCLUDED.zalo_conv_id),
-                    src_message = COALESCE(EXCLUDED.src_message, web2_jt_tracking.src_message)
+                    src_message = COALESCE(EXCLUDED.src_message, web2_jt_tracking.src_message),
+                    src_at = GREATEST(COALESCE(web2_jt_tracking.src_at, 0), COALESCE(EXCLUDED.src_at, 0))
                  RETURNING (xmax = 0) AS inserted`,
-                [code, ctx.name, ts, ctx.id, ctx.content || null]
+                [code, ctx.name, ts, ctx.id, ctx.content || null, ctx.srcAt]
             );
             if (r.rows[0]?.inserted) added++;
         }
@@ -587,15 +602,19 @@ router.post('/scan-text', async (req, res) => {
         let added = 0;
         let messagesAdded = 0;
         for (const [code, src] of found) {
+            // src_at: ngày trong dòng dán (nếu parse được) → sort đúng theo thời điểm Zalo;
+            // không có → ts hiện tại (mới dán = đứng đầu, hợp lý).
+            const srcAt = (src && _parsePasteDate(src, ts)) || ts;
             const r = await db.query(
-                `INSERT INTO web2_jt_tracking (billcode, status, source, note, zalo_conv_id, src_message, created_at, updated_at)
-                 VALUES ($1,'pending','zalo',$2,$5,$3,$4,$4)
+                `INSERT INTO web2_jt_tracking (billcode, status, source, note, zalo_conv_id, src_message, src_at, created_at, updated_at)
+                 VALUES ($1,'pending','zalo',$2,$5,$3,$6,$4,$4)
                  ON CONFLICT (billcode) DO UPDATE SET
                     note = COALESCE(web2_jt_tracking.note, EXCLUDED.note),
                     zalo_conv_id = COALESCE(web2_jt_tracking.zalo_conv_id, EXCLUDED.zalo_conv_id),
-                    src_message = COALESCE(EXCLUDED.src_message, web2_jt_tracking.src_message)
+                    src_message = COALESCE(EXCLUDED.src_message, web2_jt_tracking.src_message),
+                    src_at = GREATEST(COALESCE(web2_jt_tracking.src_at, 0), COALESCE(EXCLUDED.src_at, 0))
                  RETURNING (xmax = 0) AS inserted`,
-                [code, 'dán lịch sử', src, ts, conv ? conv.id : null]
+                [code, 'dán lịch sử', src, ts, conv ? conv.id : null, srcAt]
             );
             if (r.rows[0]?.inserted) added++;
             // Nạp dòng dán vào kho tin (nếu có nhóm đích + dòng có nội dung).
@@ -866,13 +885,17 @@ router.get('/list', async (req, res) => {
         }
         const wsql = where.length ? 'WHERE ' + where.join(' AND ') : '';
         params.push(lim);
-        // đã duyệt → đẩy xuống cuối (mờ), chưa duyệt ưu tiên trên.
+        // đã duyệt → đẩy xuống cuối (mờ), chưa duyệt ưu tiên trên. Trong mỗi nhóm: sort theo
+        // THỜI GIAN ZALO (src_at — lúc mã xuất hiện trong nhóm J&T) mới nhất lên đầu; row cũ
+        // chưa có src_at (mã nhập tay / chưa quét lại) → fallback created_at.
         const { rows } = await db.query(
             `SELECT billcode, cellphone, status, latest_event, latest_at, latest_at_text,
                     event_count, source, note, last_fetched_at, approved_at, zalo_conv_id,
-                    src_message, created_at, updated_at
+                    src_message, src_at, created_at, updated_at
                FROM web2_jt_tracking ${wsql}
-              ORDER BY (approved_at IS NOT NULL), latest_at DESC NULLS LAST, updated_at DESC
+              ORDER BY (approved_at IS NOT NULL),
+                       COALESCE(src_at, created_at) DESC NULLS LAST,
+                       updated_at DESC
               LIMIT $${params.length}`,
             params
         );

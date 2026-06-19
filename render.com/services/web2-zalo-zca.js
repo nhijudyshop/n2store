@@ -428,16 +428,27 @@ async function send(accountKey, threadId, text, threadType, quote, mentions) {
     const ms = (Array.isArray(mentions) ? mentions : [])
         .filter((m) => m && m.uid && Number.isFinite(m.pos) && Number.isFinite(m.len) && m.len > 0)
         .map((m) => ({ uid: String(m.uid), pos: m.pos | 0, len: m.len | 0 }));
-    let payload;
-    if (quote || ms.length) {
-        payload = { msg: String(text) };
-        if (quote) payload.quote = quote;
-        if (ms.length) payload.mentions = ms;
-    } else {
-        payload = String(text);
+    const buildPayload = (useQuote) => {
+        if (useQuote || ms.length) {
+            const p = { msg: String(text) };
+            if (useQuote) p.quote = quote;
+            if (ms.length) p.mentions = ms;
+            return p;
+        }
+        return String(text);
+    };
+    try {
+        const res = await api.sendMessage(buildPayload(!!quote), String(threadId), tt);
+        return { success: true, ..._pickSendIds(res), raw: res };
+    } catch (e) {
+        // Quote bị Zalo từ chối (vd propertyExt/shape tin gốc dựng lại chưa khớp) → gửi LẠI
+        // KHÔNG quote để tin vẫn tới (degrade về tin thường, không nuốt tin của user).
+        if (quote) {
+            const res = await api.sendMessage(buildPayload(false), String(threadId), tt);
+            return { success: true, quoteDropped: true, ..._pickSendIds(res), raw: res };
+        }
+        throw e;
     }
-    const res = await api.sendMessage(payload, String(threadId), tt);
-    return { success: true, ..._pickSendIds(res), raw: res };
 }
 
 // Gửi ảnh/file: sources = [{ data: Buffer, filename, metadata:{totalSize,width?,height?} }].

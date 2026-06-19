@@ -42,7 +42,10 @@
         const top = rect.top - 46;
         _bar.style.top = `${top < 8 ? rect.bottom + 6 : top}px`;
         _bar.style.left = `${Math.max(8, Math.min(rect.left, window.innerWidth - 240))}px`;
-        _bar.style.zIndex = 1250;
+        // ⚠ append vào document.body → phải NỔI TRÊN drawer/panel chat. Drawer chat KH
+        // (.w2cc-back) = z-index 1300; cũ để 1250 → thanh cảm xúc nằm SAU drawer trắng
+        // đục → "bấm react không được". 100000 để chắc chắn trên mọi surface chat.
+        _bar.style.zIndex = 100000;
 
         _bar.addEventListener('click', (e) => {
             const b = e.target.closest('.wz-react-opt');
