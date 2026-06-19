@@ -172,6 +172,7 @@
                     <span style="font-size:.78rem;color:#94a3b8">Giờ Việt Nam (GMT+7) · cách hiện tại ≥ 10 phút</span>
                 </div>
                 <div class="fbp-actions">
+                    <button class="fbp-btn ghost" id="fbpPreview" type="button"><i data-lucide="eye"></i> Xem trước</button>
                     <button class="fbp-btn ghost" id="fbpSaveDraft" type="button"><i data-lucide="save"></i> Lưu nháp</button>
                     <button class="fbp-btn" id="fbpPublish" type="button"><i data-lucide="send"></i> Đăng / Lên lịch</button>
                     <span id="fbpEditHint" style="font-size:.8rem;color:#c87f0a;align-self:center"></span>
@@ -234,6 +235,7 @@
                         : 'none';
             });
         });
+        document.getElementById('fbpPreview').addEventListener('click', openPreview);
         document.getElementById('fbpSaveDraft').addEventListener('click', saveDraft);
         document.getElementById('fbpPublish').addEventListener('click', publish);
         // edit hint
@@ -359,6 +361,26 @@
             if (v) scheduledTime = new Date(v).getTime();
         }
         return { pageIds, message, media, scheduledTime };
+    }
+
+    // Xem trước bài như trên Facebook (qua shared Web2FbPostPreview).
+    function openPreview() {
+        const g = gather();
+        if (!g.message && !g.media.length) {
+            notify('Chưa có nội dung hoặc ảnh để xem trước', 'warning');
+            return;
+        }
+        if (!window.Web2FbPostPreview) {
+            notify('Chưa tải được công cụ xem trước', 'error');
+            return;
+        }
+        const pages = (S().pages || []).filter((p) => g.pageIds.includes(p.id));
+        window.Web2FbPostPreview.open({
+            pages,
+            caption: g.message,
+            media: g.media,
+            scheduledTime: g.scheduledTime,
+        });
     }
 
     async function saveDraft() {
