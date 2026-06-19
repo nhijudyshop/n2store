@@ -3,15 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `30071c0` — feat(web2/fb-posts): xem nguyên bài như trên Facebook (popup) — đủ ảnh + nội dung + tương tác + bình luận
-**Last updated**: 2026-06-19 20:07:05 +07
-**Latest session**: [`RESUME:20260619-200705-30071c0`](../20260619-200705-30071c0.md)
-**Summary**: feat(web2/fb-posts): xem nguyên bài như trên Facebook (popup) — đủ ảnh + nội dung + tương tác + bình...
+**Latest commit**: `2c552d6` — fix(web2/fb-posts): tab Bài viết — sửa khoá scroll (thêm class web2-main) + cuộn tải thêm bài (infinite scroll cursor)
+**Last updated**: 2026-06-19 20:15:30 +07
+**Latest session**: [`RESUME:20260619-201530-2c552d6`](../20260619-201530-2c552d6.md)
+**Summary**: fix(web2/fb-posts): tab Bài viết — sửa khoá scroll (thêm class web2-main) + cuộn tải thêm bài (infinit...
 
 ## Folders affected in this commit
 
 - [`render.com/`](./render.com.md) — 2 file(s)
-- [`web2/`](./web2.md) — 2 file(s)
+- [`web2/`](./web2.md) — 3 file(s)
 
 ## All folder snapshots
 
@@ -55,7 +55,7 @@
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`referenceUI/`](./referenceUI.md) — updated 2026-06-19 14:27
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-06-16 00:35
-- [`render.com/`](./render.com.md) — updated 2026-06-19 20:07
+- [`render.com/`](./render.com.md) — updated 2026-06-19 20:15
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-19 14:27
 - [`service-costs/`](./service-costs.md) — updated 2026-06-16 11:15
@@ -75,4 +75,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-19 20:07
+- [`web2/`](./web2.md) — updated 2026-06-19 20:15
