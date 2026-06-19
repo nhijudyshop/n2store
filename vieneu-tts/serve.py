@@ -58,6 +58,7 @@ def _start_tunnel(cf):
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,
+        creationflags=_NOWIN,
     )
     url = None
     for _ in range(90):
@@ -91,6 +92,7 @@ def main():
     srv = subprocess.Popen(
         [sys.executable, "-m", "uvicorn", "app:app", "--host", "0.0.0.0", "--port", str(PORT)],
         cwd=HERE,
+        creationflags=_NOWIN,
     )
     if _wait_health():
         print(f"✅ Server local: http://localhost:{PORT}  (dùng trên CHÍNH máy này)")
