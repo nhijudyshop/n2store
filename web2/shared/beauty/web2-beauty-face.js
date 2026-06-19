@@ -77,15 +77,18 @@
                 outputFaceBlendshapes: false,
                 outputFacialTransformationMatrixes: false,
             };
+            // ⚠ Ảnh TĨNH 1 lần → ưu tiên CPU (XNNPACK): nhanh + ỔN ĐỊNH. GPU
+            // (WebGL) bị "treo" ~chục giây ở lần infer đầu do biên dịch shader
+            // → cảm giác đứng máy. GPU chỉ lợi cho video stream, không phải ở đây.
             try {
                 return await FaceLandmarker.createFromOptions(fileset, {
                     ...baseCfg,
-                    baseOptions: { modelAssetPath: MODEL_URL, delegate: 'GPU' },
+                    baseOptions: { modelAssetPath: MODEL_URL, delegate: 'CPU' },
                 });
             } catch (e) {
                 return await FaceLandmarker.createFromOptions(fileset, {
                     ...baseCfg,
-                    baseOptions: { modelAssetPath: MODEL_URL, delegate: 'CPU' },
+                    baseOptions: { modelAssetPath: MODEL_URL, delegate: 'GPU' },
                 });
             }
         })();
@@ -102,13 +105,26 @@
     }
 
     // Trả về điểm mốc theo PIXEL của khuôn mặt đầu tiên (hoặc null nếu không thấy).
+    // Nhận diện trên BẢN THU NHỎ (≤1024px) cho nhanh — điểm mốc normalize 0..1 nên
+    // map ngược về W,H gốc vẫn đúng. (infer chậm chủ yếu do ảnh lớn + lần đầu.)
+    const DETECT_MAX = 1024;
     async function detect(srcEl) {
         const fl = await getLandmarker();
         const W = srcEl.naturalWidth || srcEl.videoWidth || srcEl.width;
         const H = srcEl.naturalHeight || srcEl.videoHeight || srcEl.height;
+        let target = srcEl;
+        const m = Math.max(W, H);
+        if (m > DETECT_MAX) {
+            const k = DETECT_MAX / m;
+            const tc = document.createElement('canvas');
+            tc.width = Math.max(1, Math.round(W * k));
+            tc.height = Math.max(1, Math.round(H * k));
+            tc.getContext('2d').drawImage(srcEl, 0, 0, tc.width, tc.height);
+            target = tc;
+        }
         let res;
         try {
-            res = fl.detect(srcEl);
+            res = fl.detect(target);
         } catch (e) {
             console.error('[Web2BeautyFace] detect lỗi:', e);
             return null;

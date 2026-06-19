@@ -414,17 +414,34 @@
 
             // ── nhận diện khuôn mặt (face tools + auto) ──
             if ((needFace || tool === 'auto') && global.Web2BeautyFace) {
-                setBusy(true, 'Đang nhận diện khuôn mặt…');
+                setBusy(true, 'Đang tải mô hình nhận diện (lần đầu hơi lâu)…');
+                // watchdog: detect KHÔNG được treo vô hạn — quá 25s thì bỏ qua.
+                const TIMEOUT = 25000;
+                let timer = null;
+                const guard = new Promise((res) => {
+                    timer = setTimeout(() => res('__timeout__'), TIMEOUT);
+                });
+                let r;
                 try {
-                    det = await global.Web2BeautyFace.detect(work);
+                    r = await Promise.race([global.Web2BeautyFace.detect(work), guard]);
                 } catch (e) {
-                    det = null;
+                    r = null;
                 }
+                clearTimeout(timer);
+                det = r === '__timeout__' ? null : r;
                 setBusy(false);
+                if (r === '__timeout__') {
+                    notify(
+                        needFace
+                            ? 'Nhận diện khuôn mặt quá lâu — thử lại hoặc dùng Mịn da / Màu da'
+                            : 'Bỏ qua chỉnh khuôn mặt (nhận diện lâu) — vẫn làm mịn da bình thường',
+                        'warning'
+                    );
+                }
                 if (!det && needFace) {
                     faceMissing = true;
                     showBanner(
-                        '⚠ Không tìm thấy khuôn mặt rõ. Công cụ này cần ảnh chân dung. Hãy thử ảnh khác, hoặc dùng "Mịn da" / "Màu da".'
+                        '⚠ Không tìm thấy khuôn mặt rõ (hoặc nhận diện quá lâu). Công cụ này cần ảnh chân dung. Hãy thử ảnh khác, hoặc dùng "Mịn da" / "Màu da".'
                     );
                 }
             }
