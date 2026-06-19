@@ -2,7 +2,12 @@
 
 ## 2026-06-19
 
-### [web2/video-maker] FIX lỗi "tạo giọng" OrtRun Gather idx=132 — do CHẠY 2 INFERENCE ĐỒNG THỜI ✅
+### [vieneu-tts + docs] VieNeu-TTS (clone giọng, server Web 2.0) + KHO ĐA DỤNG media/AI 🚧
+
+User: "tích hợp VieNeu-TTS" (clone giọng tiếng Việt 3-5s) + "render của web 2.0" + "có module riêng cho AI/giọng/hình/video chưa? như 1 kho đa dụng". Research: VieNeu = fine-tune NeuTTS Air, **0.5B/595MB GGUF, Apache-2.0, KHÔNG có bản browser** → bắt buộc chạy server (user chốt: server riêng Render Web 2.0, chấp nhận phí + data lên server; mục tiêu clone giọng + chất lượng cao).
+
+- **Backend MỚI `vieneu-tts/`** (commit 8e8656b): FastAPI wrap package `vieneu` (ONNX CPU torch-free). Endpoints `/synthesize` (giọng preset) · `/clone` (multipart text+ref_audio → nhái giọng) · `/voices` · `/health`. CORS allowlist + optional `VIENEU_API_SECRET`, **serialize inference** (CPU nặng). Deploy Render Python rootDir `vieneu-tts`, plan standard (2GB cho model 0.5B), buildFilter `vieneu-tts/**`. CHƯA tạo service + CHƯA wire frontend.
+- **MỚI [`docs/web2/MEDIA-KIT.md`](web2/MEDIA-KIT.md) — "KHO ĐA DỤNG"**: gom mọi capability media/AI theo 4 nhóm **Giọng nói / Video / Hình ảnh / AI** (capability→module→file→API→"dùng khi"), đánh dấu ✅shared / ⚠️feature-local / 🛰️backend. Trả lời câu hỏi user: Hình+AI-thị-giác đã shared; **Giọng (Web2VideoTTS/Audio) + Video (Web2VideoRender/Anim/Beauty) CHƯA shared** (kẹt trong video-maker/video-beauty) → lộ trình promote về `web2/shared/` (Web2Voice hợp nhất MMS/Piper/VieNeu…). Con trỏ "ĐỌC VÀO ĐÂY" thêm vào CLAUDE.md Index quick-lookup.
 
 User báo `❌ Lỗi tạo giọng: failed to call OrtRun()... Gather node... idx=132 must be within [-130,129]`. Điều tra (browser-test): KHÔNG phải do ký tự (dump vocab MMS = 96 token maxId 95; mọi text điển hình gồm số/%/emoji/HOA/ngoặc/gạch đều OK id≤93). **Gốc = CONCURRENCY**: bấm "Nghe mẫu" (đang chạy) rồi "Tạo giọng đọc" → 2 `synth()` chồng nhau trên CÙNG 1 ONNX session → input tensor hỏng → index rác 132 (hoặc "reading null"). Tái hiện chắc chắn bằng `Promise.allSettled([synth(a),synth(b)])` → 1 fail; chạy đơn lẻ luôn OK.
 
