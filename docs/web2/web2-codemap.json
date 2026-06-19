@@ -1,10 +1,10 @@
 {
-    "generatedAt": "2026-06-18 23:58",
+    "generatedAt": "2026-06-19 00:04",
     "totals": {
-        "files": 308,
-        "sharedModules": 87,
-        "functions": 2562,
-        "oversized": 5
+        "files": 310,
+        "sharedModules": 89,
+        "functions": 2564,
+        "oversized": 4
     },
     "sharedModules": [
         {
@@ -62,6 +62,8 @@
                 "web2/shared/chat-panel/web2-chat-panel-render.js",
                 "web2/shared/chat-panel/web2-chat-panel-state.js",
                 "web2/shared/chat-panel/web2-chat-sticker-data.js",
+                "web2/shared/web2-customer-chat-core.js",
+                "web2/shared/web2-customer-chat-modal.js",
                 "web2/shared/web2-customer-chat.js"
             ],
             "lines": 120
@@ -217,7 +219,7 @@
                 "web2/shared/web2-chat-utils.js",
                 "web2/shared/web2-ck-assign-picker.js",
                 "web2/shared/web2-ck-review.js",
-                "web2/shared/web2-customer-chat.js",
+                "web2/shared/web2-customer-chat-core.js",
                 "web2/shared/web2-customer-detail-modal.js",
                 "web2/shared/web2-customer-store.js",
                 "web2/shared/web2-msg-template-core.js",
@@ -313,6 +315,8 @@
                 "web2/shared/web2-chat-tags.js",
                 "web2/shared/web2-chat-tokens.js",
                 "web2/shared/web2-chat-utils.js",
+                "web2/shared/web2-customer-chat-core.js",
+                "web2/shared/web2-customer-chat-modal.js",
                 "web2/shared/web2-customer-chat.js",
                 "web2/shared/web2-msg-template-send.js",
                 "web2/shared/web2-pancake-accounts.js",
@@ -389,19 +393,37 @@
             "lines": 269
         },
         {
+            "file": "web2/shared/web2-customer-chat-core.js",
+            "globals": [],
+            "purpose": "WEB2.0 module.",
+            "api": [],
+            "consumers": [],
+            "lines": 515
+        },
+        {
+            "file": "web2/shared/web2-customer-chat-modal.js",
+            "globals": [],
+            "purpose": "WEB2.0 module.",
+            "api": [],
+            "consumers": [],
+            "lines": 211
+        },
+        {
             "file": "web2/shared/web2-customer-chat.js",
             "globals": ["Web2CustomerChat"],
-            "purpose": "WEB2.0 — Web2CustomerChat: launcher chat KH (Pancake + Zalo) dùng chung mọi trang.",
+            "purpose": "WEB2.0 module.",
             "api": [],
             "consumers": [
                 "web2/balance-history/js/web2-balance-history-app.js",
                 "web2/balance-history/js/web2-bh-chat-export.js",
                 "web2/balance-history/js/web2-pm-render.js",
                 "web2/jt-tracking/js/jt-tracking-modals.js",
+                "web2/shared/web2-customer-chat-core.js",
+                "web2/shared/web2-customer-chat-modal.js",
                 "web2/shared/web2-customer-detail-modal.js",
                 "web2/shared/web2-product-counter.js"
             ],
-            "lines": 842
+            "lines": 207
         },
         {
             "file": "web2/shared/web2-customer-detail-modal.js",
@@ -508,6 +530,7 @@
             "api": [],
             "consumers": [
                 "live-chat/js/pancake/pancake-chat-window.js",
+                "web2/shared/web2-customer-chat-core.js",
                 "web2/shared/web2-customer-chat.js"
             ],
             "lines": 86
@@ -582,6 +605,8 @@
             "consumers": [
                 "web2/shared/popup.js",
                 "web2/shared/web2-barcode-scanner.js",
+                "web2/shared/web2-customer-chat-core.js",
+                "web2/shared/web2-customer-chat-modal.js",
                 "web2/shared/web2-customer-chat.js",
                 "web2/shared/web2-optimistic.js",
                 "web2/shared/web2-product-counter.js",
@@ -6110,21 +6135,20 @@
                     ]
                 },
                 {
-                    "file": "web2/shared/web2-customer-chat.js",
-                    "lines": 842,
-                    "purpose": "WEB2.0 — Web2CustomerChat: launcher chat KH (Pancake + Zalo) dùng chung mọi trang.",
-                    "globals": ["Web2CustomerChat"],
+                    "file": "web2/shared/web2-customer-chat-core.js",
+                    "lines": 515,
+                    "purpose": "WEB2.0 module.",
+                    "globals": [],
                     "uses": [
                         "Web2ChatPanel",
                         "API_CONFIG",
                         "Web2Chat",
+                        "Web2CustomerChat",
                         "Web2Ext",
-                        "Web2Lottie",
-                        "Web2Zalo"
+                        "Web2Lottie"
                     ],
                     "functions": [
                         "_convRowHtml",
-                        "_copyPhone",
                         "_fileToDataUrl",
                         "_getPageIds",
                         "_hasScript",
@@ -6138,36 +6162,59 @@
                         "_pageName",
                         "_performSend",
                         "_resolveConvByFbId",
-                        "_scrollZalo",
                         "_stateHtml",
                         "_trySendViaExtension",
                         "buildPancakeAdapter",
-                        "close",
-                        "done",
                         "ensureStyles",
                         "esc",
-                        "getPanel",
-                        "loadInitial",
+                        "getActive",
                         "loadMessages",
                         "loadOlder",
                         "loadPanelBundle",
-                        "markSelected",
-                        "mountPancake",
-                        "mountZalo",
                         "notify",
-                        "onEsc",
                         "onerror",
                         "onload",
-                        "open",
-                        "openModal",
-                        "paneEl",
                         "quickReplies",
-                        "renderRows",
                         "resolvePancakeConv",
-                        "selectConv",
                         "send",
-                        "showTab",
+                        "setActive"
+                    ]
+                },
+                {
+                    "file": "web2/shared/web2-customer-chat-modal.js",
+                    "lines": 211,
+                    "purpose": "WEB2.0 module.",
+                    "globals": [],
+                    "uses": ["Web2ChatPanel", "Web2Chat", "Web2CustomerChat", "Web2Lottie"],
+                    "functions": [
+                        "close",
+                        "getPanel",
+                        "loadInitial",
+                        "markSelected",
+                        "onEsc",
+                        "openModal",
+                        "renderRows",
+                        "selectConv",
                         "wireSearch"
+                    ]
+                },
+                {
+                    "file": "web2/shared/web2-customer-chat.js",
+                    "lines": 207,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["Web2CustomerChat"],
+                    "uses": ["Web2ChatPanel", "Web2Chat", "Web2Ext", "Web2Lottie", "Web2Zalo"],
+                    "functions": [
+                        "_copyPhone",
+                        "_scrollZalo",
+                        "close",
+                        "done",
+                        "mountPancake",
+                        "mountZalo",
+                        "onEsc",
+                        "open",
+                        "paneEl",
+                        "showTab"
                     ]
                 },
                 {
@@ -8151,7 +8198,7 @@
                 "web2/shared/popup.js",
                 "web2/shared/web2-barcode-scanner.js",
                 "web2/shared/web2-command-palette.js",
-                "web2/shared/web2-customer-chat.js",
+                "web2/shared/web2-customer-chat-core.js",
                 "web2/shared/web2-label-ocr.js",
                 "web2/shared/web2-pack-counter.js",
                 "web2/shared/web2-product-counter.js",
@@ -8311,7 +8358,7 @@
                 "web2/fastsaleorder-refund/rf-app.js",
                 "web2/products/js/web2-products-render.js",
                 "web2/shared/page-builder.js",
-                "web2/shared/web2-customer-chat.js",
+                "web2/shared/web2-customer-chat-modal.js",
                 "web2/variants/js/web2-variants-app.js"
             ],
             "count": 8
@@ -8422,7 +8469,7 @@
                 "web2/balance-history/js/web2-pm-modal.js",
                 "web2/customers/js/customers-detail.js",
                 "web2/purchase-refund/js/purchase-refund-modal.js",
-                "web2/shared/web2-customer-chat.js",
+                "web2/shared/web2-customer-chat-modal.js",
                 "web2/shared/web2-quick-reply.js"
             ],
             "count": 6
@@ -8501,7 +8548,7 @@
                 "live-chat/js/pancake/pancake-chat-window.js",
                 "native-orders/js/native-orders-app.js",
                 "web2/shared/chat-panel/web2-chat-panel-render.js",
-                "web2/shared/web2-customer-chat.js",
+                "web2/shared/web2-customer-chat-core.js",
                 "web2/shared/zalo-chat/chat-view.js"
             ],
             "count": 5
@@ -8532,7 +8579,7 @@
             "files": [
                 "live-chat/js/pancake/pancake-chat-window.js",
                 "native-orders/js/native-orders-app.js",
-                "web2/shared/web2-customer-chat.js",
+                "web2/shared/web2-customer-chat-core.js",
                 "web2/shared/web2-effects.js"
             ],
             "count": 4
@@ -8540,7 +8587,7 @@
         {
             "fn": "_loadScript",
             "files": [
-                "web2/shared/web2-customer-chat.js",
+                "web2/shared/web2-customer-chat-core.js",
                 "web2/shared/web2-printer.js",
                 "web2/shared/web2-qr.js",
                 "web2/shared/web2-zalo.js"
@@ -8702,7 +8749,7 @@
             "files": [
                 "live-chat/js/pancake/pancake-chat-window.js",
                 "native-orders/js/native-orders-app.js",
-                "web2/shared/web2-customer-chat.js",
+                "web2/shared/web2-customer-chat-core.js",
                 "web2/shared/web2-zalo-api.js"
             ],
             "count": 4
@@ -9040,7 +9087,7 @@
             "files": [
                 "live-chat/js/pancake/pancake-chat-window.js",
                 "native-orders/js/native-orders-app.js",
-                "web2/shared/web2-customer-chat.js"
+                "web2/shared/web2-customer-chat-core.js"
             ],
             "count": 3
         },
@@ -9175,7 +9222,7 @@
             "files": [
                 "live-chat/js/pancake/pancake-chat-window.js",
                 "native-orders/js/native-orders-app.js",
-                "web2/shared/web2-customer-chat.js"
+                "web2/shared/web2-customer-chat-core.js"
             ],
             "count": 3
         },
@@ -9282,10 +9329,6 @@
         {
             "file": "so-order/js/so-order-storage.js",
             "lines": 962
-        },
-        {
-            "file": "web2/shared/web2-customer-chat.js",
-            "lines": 842
         },
         {
             "file": "live-chat/js/pancake/pancake-token-manager.js",
