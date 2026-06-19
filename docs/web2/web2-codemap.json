@@ -1,5 +1,5 @@
 {
-    "generatedAt": "2026-06-19 01:57",
+    "generatedAt": "2026-06-19 02:18",
     "totals": {
         "files": 344,
         "sharedModules": 95,
@@ -269,7 +269,7 @@
             "purpose": "WEB2.0 shared module.",
             "api": [],
             "consumers": ["web2/shared/web2-sidebar.js"],
-            "lines": 117
+            "lines": 140
         },
         {
             "file": "web2/shared/web2-barcode-scanner.js",
@@ -680,7 +680,7 @@
             "purpose": "WEB2.0 shared module.",
             "api": [],
             "consumers": ["web2/shared/web2-sidebar.js"],
-            "lines": 240
+            "lines": 237
         },
         {
             "file": "web2/shared/web2-import.js",
@@ -700,7 +700,11 @@
             "globals": ["Web2JwtUtils"],
             "purpose": "WEB2.0 shared module.",
             "api": [],
-            "consumers": ["web2/shared/web2-sidebar.js"],
+            "consumers": [
+                "web2/shared/web2-pancake-accounts.js",
+                "web2/shared/web2-pancake-token.js",
+                "web2/shared/web2-sidebar.js"
+            ],
             "lines": 96
         },
         {
@@ -865,15 +869,15 @@
                 "web2/pancake-settings/js/pancake-settings-api.js",
                 "web2/pancake-settings/js/pancake-settings-render.js"
             ],
-            "lines": 299
+            "lines": 300
         },
         {
             "file": "web2/shared/web2-pancake-import.js",
             "globals": ["Web2PancakeImport"],
             "purpose": "WEB2.0 shared module.",
             "api": [],
-            "consumers": [],
-            "lines": 151
+            "consumers": ["web2/balance-history/js/web2-pm-customer-search.js"],
+            "lines": 150
         },
         {
             "file": "web2/shared/web2-pancake-token.js",
@@ -884,7 +888,7 @@
                 "web2/pancake-settings/js/pancake-settings-actions.js",
                 "web2/pancake-settings/js/pancake-settings-render.js"
             ],
-            "lines": 206
+            "lines": 207
         },
         {
             "file": "web2/shared/web2-phone-utils.js",
@@ -1050,8 +1054,8 @@
             "globals": ["Web2SoOrderUtils"],
             "purpose": "WEB2.0 shared module.",
             "api": [],
-            "consumers": [],
-            "lines": 130
+            "consumers": ["web2/purchase-refund/js/purchase-refund-state.js"],
+            "lines": 129
         },
         {
             "file": "web2/shared/web2-sse-bridge.js",
@@ -4200,10 +4204,10 @@
                 },
                 {
                     "file": "web2/balance-history/js/web2-pm-customer-search.js",
-                    "lines": 234,
+                    "lines": 242,
                     "purpose": "WEB2.0 module.",
                     "globals": ["W2PM"],
-                    "uses": ["Web2Chat", "Web2WalletBalance"],
+                    "uses": ["Web2Chat", "Web2PancakeImport", "Web2WalletBalance"],
                     "functions": [
                         "_fbRowHtml",
                         "_fetchFbByTail",
@@ -5696,10 +5700,16 @@
                 },
                 {
                     "file": "web2/purchase-refund/js/purchase-refund-state.js",
-                    "lines": 269,
+                    "lines": 270,
                     "purpose": "WEB2.0 module.",
                     "globals": ["PurchaseRefund"],
-                    "uses": ["API_CONFIG", "Web2Auth", "Web2Escape", "Web2UserInfo"],
+                    "uses": [
+                        "API_CONFIG",
+                        "Web2Auth",
+                        "Web2Escape",
+                        "Web2SoOrderUtils",
+                        "Web2UserInfo"
+                    ],
                     "functions": [
                         "$",
                         "_currentUserInfo",
@@ -6200,7 +6210,7 @@
                 },
                 {
                     "file": "web2/shared/web2-avatar-utils.js",
-                    "lines": 117,
+                    "lines": 140,
                     "purpose": "WEB2.0 shared module.",
                     "globals": ["Web2AvatarUtils"],
                     "uses": ["API_CONFIG", "Web2Chat", "Web2Escape"],
@@ -6844,7 +6854,7 @@
                 },
                 {
                     "file": "web2/shared/web2-image-lightbox.js",
-                    "lines": 240,
+                    "lines": 237,
                     "purpose": "WEB2.0 shared module.",
                     "globals": ["Web2ImageLightbox"],
                     "uses": ["Web2Escape"],
@@ -7149,10 +7159,10 @@
                 },
                 {
                     "file": "web2/shared/web2-pancake-accounts.js",
-                    "lines": 299,
+                    "lines": 300,
                     "purpose": "Web 2.0 — Pancake ACCOUNTS manager (DB-backed)",
                     "globals": ["Web2PancakeAccounts"],
-                    "uses": ["API_CONFIG", "Web2Auth", "Web2Chat"],
+                    "uses": ["API_CONFIG", "Web2Auth", "Web2Chat", "Web2JwtUtils"],
                     "functions": [
                         "_authHeaders",
                         "_decode",
@@ -7173,7 +7183,7 @@
                 },
                 {
                     "file": "web2/shared/web2-pancake-import.js",
-                    "lines": 151,
+                    "lines": 150,
                     "purpose": "WEB2.0 shared module.",
                     "globals": ["Web2PancakeImport"],
                     "uses": ["Web2Chat", "Web2CustomerStore"],
@@ -7187,10 +7197,10 @@
                 },
                 {
                     "file": "web2/shared/web2-pancake-token.js",
-                    "lines": 206,
+                    "lines": 207,
                     "purpose": "Web 2.0 — Pancake JWT token monitor + auto-refresh",
                     "globals": ["Web2PancakeToken"],
-                    "uses": ["Web2Chat"],
+                    "uses": ["Web2Chat", "Web2JwtUtils"],
                     "functions": [
                         "_decode",
                         "applyToken",
@@ -7545,7 +7555,7 @@
                 },
                 {
                     "file": "web2/shared/web2-so-order-utils.js",
-                    "lines": 130,
+                    "lines": 129,
                     "purpose": "WEB2.0 shared module.",
                     "globals": ["Web2SoOrderUtils"],
                     "uses": [],

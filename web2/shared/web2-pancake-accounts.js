@@ -42,6 +42,7 @@
 
     function _decode(token) {
         if (window.Web2Chat?.decodeJwt) return window.Web2Chat.decodeJwt(token);
+        if (window.Web2JwtUtils) return window.Web2JwtUtils.decode(token);
         try {
             const p = String(token).split('.');
             if (p.length !== 3) return null;

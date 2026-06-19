@@ -161,6 +161,7 @@
     // picker theo (NCC + shipment) để SP tạo ở đợt khác nhau tách nhóm riêng,
     // kể cả cùng NCC. Header hiển thị NCC + đợt/ngày cho dễ phân biệt.
     function _orderGroupKey(it) {
+        if (window.Web2SoOrderUtils) return window.Web2SoOrderUtils.orderGroupKey(it);
         return `${it.supplier}::${it.shipmentId || ''}`;
     }
     function _orderGroupLabel(it) {

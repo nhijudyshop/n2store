@@ -2,6 +2,18 @@
 
 ## 2026-06-19
 
+### [web2-modular] Deploy server.js + adoption sâu hơn ✅
+
+**Deploy (auto):** server.js split (12 module) đã LIVE — service thật = `web2-realtime.onrender.com` (auto-deploy main, commit 44a1df8). Smoke `scripts/smoke-live-chat-server.sh` 3/3 PASS: `/health/detailed` báo Pancake WS client **connected:true, 4 pages, 265 events** → split chạy end-to-end OK. (Doc cũ ghi host n2store-tpos-pancake = alias.)
+
+**Adoption sâu hơn (conservative thin-delegate, 4 delegation thật):**
+
+- JWT → `Web2JwtUtils.decode`: `web2-pancake-token.js`, `web2-pancake-accounts.js` (`_decode`). KHÔNG đụng canonical source (pancake-token-codec/web2-chat-tokens) + epoch-isExpired (semantics khác).
+- `_orderGroupKey` → `Web2SoOrderUtils.orderGroupKey` (purchase-refund-state) + load `web2-so-order-utils.js` vào purchase-refund.
+- `_searchPancakeByPhone` → `Web2PancakeImport.searchByPhone` (web2-pm-customer-search) + load `web2-pancake-import.js` vào balance-history.
+- **KHÔNG delegate** (đúng — diverge thật, không phải dup): avatar (palette/gradient khác), canvas (source + maxbound vs exact), lightbox (feature riêng), `_fetchJson` cores (non-JSON/Accept/error-shape khác). Đa số §4 còn lại là biến thể behavior-khác hoặc per-page helper → không consolidate được mà không đổi behavior.
+- Verified live: purchase-refund (Web2SoOrderUtils active) + balance-history (Web2PancakeImport active, 50 rows) 0 JS err.
+
 ### [web2-modular] "Làm tất cả" — Phase A/B/C/D + codemap accuracy ✅
 
 Hoàn tất các phần còn lại sau modularization:

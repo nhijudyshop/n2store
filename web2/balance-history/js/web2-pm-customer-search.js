@@ -57,6 +57,14 @@
         const digits = String(query || '').replace(/\D/g, '');
         if (digits.length < 4) return []; // chỉ tìm Pancake khi giống SĐT
         if (W2PM._pancakeSearchCache.has(digits)) return W2PM._pancakeSearchCache.get(digits);
+        // Delegate to shared Web2PancakeImport (1 nguồn Pancake fallback). Giữ
+        // cache wrapper ở đây (shared cố ý không cache). Caller chỉ đọc name/phone
+        // nên field source ('pancake' vs 'fb' cũ) + fbId/pageId thêm là vô hại.
+        if (window.Web2PancakeImport?.searchByPhone) {
+            const res = await window.Web2PancakeImport.searchByPhone(query);
+            W2PM._pancakeSearchCache.set(digits, res);
+            return res;
+        }
         const Web2Chat = window.Web2Chat;
         if (!Web2Chat || !Web2Chat.searchConversations) return [];
         try {
