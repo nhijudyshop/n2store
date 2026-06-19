@@ -138,15 +138,11 @@
                         .join('')}
                 </div>
                 <div class="fbp-gen-row">
-                    <button class="fbp-btn ghost sm" id="fbpGenFree" type="button">
-                        <i data-lucide="wand-2"></i> Tạo nội dung (miễn phí)
+                    <button class="fbp-btn sm" id="fbpGen" type="button">
+                        <i data-lucide="wand-2"></i> ${S().aiAvailable ? 'Tạo nội dung (AI miễn phí)' : 'Tạo nội dung (miễn phí)'}
                     </button>
-                    <button class="fbp-btn ghost sm" id="fbpGenAi" type="button" ${
-                        S().aiAvailable ? '' : 'disabled title="Chưa cấu hình AI key trên server"'
-                    }>
-                        <i data-lucide="bot"></i> AI viết lại (Groq • free)
-                    </button>
-                    <span class="fbp-charcount" id="fbpCharCount">0 ký tự</span>
+                    <span style="font-size:.76rem;color:#94a3b8">Bấm lại để ra bản khác · sửa tùy ý sau đó</span>
+                    <span class="fbp-charcount" id="fbpCharCount" style="margin-left:auto">0 ký tự</span>
                 </div>
                 <textarea class="fbp-textarea" id="fbpMessage" placeholder="Nội dung bài viết… (bấm 'Tạo nội dung' để AI gợi ý, rồi chỉnh tùy ý)"></textarea>
             </div>
@@ -215,8 +211,10 @@
         document.getElementById('fbpPickKho')?.addEventListener('click', openKhoPicker);
         renderProductChips();
         // generate
-        document.getElementById('fbpGenFree').addEventListener('click', () => generate(false));
-        document.getElementById('fbpGenAi').addEventListener('click', () => generate(true));
+        // 1 nút: ưu tiên AI (free Groq), tự fallback mẫu nếu AI lỗi/chưa có key.
+        document
+            .getElementById('fbpGen')
+            .addEventListener('click', () => generate(!!S().aiAvailable));
         // media
         Media().mountGrid(
             document.getElementById('fbpMediaGrid'),
@@ -312,7 +310,7 @@
     }
 
     async function generate(ai) {
-        const btn = document.getElementById(ai ? 'fbpGenAi' : 'fbpGenFree');
+        const btn = document.getElementById('fbpGen');
         // Ưu tiên SP đã chọn từ Kho (1 hoặc nhiều); không có thì lấy từ ô nhập tay.
         const useMulti = _selectedProducts.length > 1;
         const payload = useMulti
