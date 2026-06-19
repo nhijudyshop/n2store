@@ -3,11 +3,11 @@
 > Snapshot tự động ghi đè sau mỗi commit chạm folder này. **Không edit thủ công.**
 > Mục đích: khi session cũ chết (vd lỗi image limit), session mới chỉ cần đọc file này là có đủ context để tiếp tục.
 
-**Latest session**: `RESUME:20260619-133322-221665a`
-**Session file**: [`./20260619-133322-221665a.md`](../20260619-133322-221665a.md)
-**Commit**: `221665a` — fix(web2/jt-tracking + zalo-chat): sort theo giờ Zalo (src_at) + bỏ Chuyển tiếp + fix react z-index + reply quote thật
-**Last updated**: 2026-06-19 13:33:22 +07
-**Summary**: jt-tracking sort theo giờ Zalo (src_at) + bỏ Chuyển tiếp + fix react z-index + reply quote thật
+**Latest session**: `RESUME:20260619-142720-1940a8e`
+**Session file**: [`./20260619-142720-1940a8e.md`](../20260619-142720-1940a8e.md)
+**Commit**: `1940a8e` — auto: session update
+**Last updated**: 2026-06-19 14:27:20 +07
+**Summary**: auto: session update
 
 ## Files changed in this commit (`docs/`)
 
@@ -17,11 +17,11 @@
 
 ## Last 5 commits touching `docs/`
 
-- `221665adb` fix(web2/jt-tracking + zalo-chat): sort theo giờ Zalo (src*at) + bỏ Chuyển tiếp + fix react z-index + reply quote thật *(2026-06-19)\_
-- `e875d9fc0` feat(web2/photo-editor): Studio làm đẹp kiểu Meitu on-device (mịn da/mắt to/mũi thon/V-line/môi/kéo chân/màu da) + 10 công cụ nhanh, mặc định Photopea _(2026-06-19)_
-- `78ad352af` chore(session): RESUME:20260619-131331-e0cac39 _(2026-06-19)_
-- `4466c6b50` chore(session): RESUME:20260619-131048-61bee14 _(2026-06-19)_
-- `61bee14c4` fix(web2/multi-tool): Tăng comment lần 2+ không tăng số — reply vào comment GỐC (conv.id) thay vì comment mới nhất (boost reply) _(2026-06-19)_
+- `87fc94112` docs(web2): dev-log + codemap cho Làm đẹp video + chỉnh chi tiết video-maker _(2026-06-19)_
+- `0057e94e1` chore(session): RESUME:20260619-140731-46d037b _(2026-06-19)_
+- `9c1608104` chore(session): RESUME:20260619-134522-90e1604 _(2026-06-19)_
+- `3b6c2ef3d` chore(session): RESUME:20260619-134410-d49b450 _(2026-06-19)_
+- `22e73c088` chore(session): RESUME:20260619-133322-221665a _(2026-06-19)_
 
 ---
 
@@ -29,4 +29,4 @@
 
 1. Đọc file session ở trên để xem Files Modified + Next Steps đã điền (nếu Claude turn trước fill rồi).
 2. Cần lùi xa hơn → `git show <sha>` theo list commit trên.
-3. Hoặc paste token `RESUME:20260619-133322-221665a` cho Claude walk chain theo CLAUDE.md protocol.
+3. Hoặc paste token `RESUME:20260619-142720-1940a8e` cho Claude walk chain theo CLAUDE.md protocol.
