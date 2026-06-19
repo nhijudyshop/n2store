@@ -74,6 +74,12 @@
         if (!global.Web2Notify) inject('web2-notify.js', '20260618');
         if (!global.Web2PhoneUtils) inject('web2-phone-utils.js', '20260618');
         if (!global.Web2TextUtils) inject('web2-text-utils.js', '20260618');
+        // Shared utils đợt 2 (dedup, 2026-06-19) — broadly-useful: giải mã JWT,
+        // avatar (màu+chữ+proxy+HTML), lightbox xem ảnh. Pure/nhẹ, mọi trang dùng.
+        // (canvas/so-order/pancake-import là feature-specific → trang tự load.)
+        if (!global.Web2JwtUtils) inject('web2-jwt-utils.js', '20260619a');
+        if (!global.Web2AvatarUtils) inject('web2-avatar-utils.js', '20260619a');
+        if (!global.Web2ImageLightbox) inject('web2-image-lightbox.js', '20260619a');
     })();
 
     // Group definitions matching WEB2 sidebar structure.
