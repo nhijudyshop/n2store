@@ -3,16 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `7d9fc8e` — refactor(web2): adoption sâu hơn — JWT/SoOrderUtils/PancakeImport delegate (4) + load feature modules
-**Last updated**: 2026-06-19 09:19:13 +07
-**Latest session**: [`RESUME:20260619-091913-7d9fc8e`](../20260619-091913-7d9fc8e.md)
-**Summary**: Deploy server.js (web2-realtime LIVE, smoke 3/3, client 265 events) + adoption sâu hơn (4 delegation JWT/SoOrder/PancakeImport) XONG
+**Latest commit**: `c55c0f9` — auto: session update
+**Last updated**: 2026-06-19 09:25:29 +07
+**Latest session**: [`RESUME:20260619-092529-c55c0f9`](../20260619-092529-c55c0f9.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 4 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
 - [`scripts/`](./scripts.md) — 1 file(s)
-- [`web2/`](./web2.md) — 6 file(s)
 
 ## All folder snapshots
 
@@ -27,7 +26,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-18 13:23
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-16 14:31
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-18 12:17
-- [`docs/`](./docs.md) — updated 2026-06-19 09:19
+- [`docs/`](./docs.md) — updated 2026-06-19 09:25
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-16 14:31
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-16 14:31
 - [`downloads/`](./downloads.md) — updated 2026-06-18 19:26
@@ -57,7 +56,7 @@
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-06-16 00:35
 - [`render.com/`](./render.com.md) — updated 2026-06-18 16:31
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
-- [`scripts/`](./scripts.md) — updated 2026-06-19 09:19
+- [`scripts/`](./scripts.md) — updated 2026-06-19 09:25
 - [`service-costs/`](./service-costs.md) — updated 2026-06-16 11:15
 - [`shared/`](./shared.md) — updated 2026-06-16 14:31
 - [`showroom/`](./showroom.md) — updated 2026-06-10 19:04
