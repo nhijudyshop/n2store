@@ -69,6 +69,42 @@ function form(obj) {
 
 // ── Auth helpers ─────────────────────────────────────────────────────────
 
+/** FB App đã cấu hình env chưa (cần cho OAuth login). */
+function hasApp() {
+    return !!(FB_APP_ID && FB_APP_SECRET);
+}
+
+const SCOPES_POST =
+    'pages_show_list,pages_read_engagement,pages_manage_posts,pages_manage_engagement';
+
+/**
+ * URL dialog OAuth "Đăng nhập bằng Facebook" (như Pancake/TPOS) — user bấm,
+ * duyệt quyền page, KHÔNG cần dán token. APP_ID không bí mật (public).
+ */
+function buildOAuthDialogUrl({ redirectUri, state, scopes }) {
+    const p = new URLSearchParams({
+        client_id: FB_APP_ID,
+        redirect_uri: redirectUri,
+        response_type: 'code',
+        scope: scopes || SCOPES_POST,
+        state: state || '',
+    });
+    return `https://www.facebook.com/${GRAPH_VERSION}/dialog/oauth?${p.toString()}`;
+}
+
+/** Đổi `code` (từ callback OAuth) → user access token. redirectUri PHẢI khớp dialog. */
+async function exchangeCodeForToken(code, redirectUri) {
+    if (!hasApp()) throw new Error('FB App chưa cấu hình (FB_APP_ID/FB_APP_SECRET)');
+    const url =
+        `${GRAPH}/oauth/access_token?client_id=${encodeURIComponent(FB_APP_ID)}` +
+        `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+        `&client_secret=${encodeURIComponent(FB_APP_SECRET)}` +
+        `&code=${encodeURIComponent(code)}`;
+    const data = await gfetch(url);
+    if (!data.access_token) throw new Error('Không lấy được access_token từ code');
+    return data.access_token;
+}
+
 /** Đổi short-lived user token → long-lived (~60 ngày). Trả {token, expiresAt}. */
 async function exchangeLongLivedToken(userToken) {
     if (!FB_APP_ID || !FB_APP_SECRET) {
@@ -266,6 +302,10 @@ module.exports = {
     GRAPH_VERSION,
     SCHEDULE_MIN_SEC,
     SCHEDULE_MAX_SEC,
+    hasApp,
+    SCOPES_POST,
+    buildOAuthDialogUrl,
+    exchangeCodeForToken,
     exchangeLongLivedToken,
     getMe,
     getPages,

@@ -2,6 +2,19 @@
 
 ## 2026-06-19
 
+### [web2/fb-posts] "Đăng nhập bằng Facebook" (OAuth) — liên kết 1 lần, dính web luôn (như Pancake/TPOS) ✅
+
+User: "kết nối FB có quyền page như Pancake/TPOS được không? Tôi KHÔNG muốn dán token. Liên kết account 1 lần → account đó dính với web luôn."
+
+→ Thêm **OAuth login flow** (Facebook Login), thay cho dán token thủ công (giữ làm fallback nâng cao):
+
+- `web2-fb-graph-service.js`: `buildOAuthDialogUrl()` (dialog `facebook.com/v21.0/dialog/oauth`, scope `pages_show_list,pages_read_engagement,pages_manage_posts,pages_manage_engagement`), `exchangeCodeForToken(code, redirectUri)`, `hasApp()`.
+- `routes/web2-fb-posts.js`: `GET /auth/login-url?return=` (trả URL dialog, state=b64(return), redirect_uri=`OAUTH_CALLBACK`) + `GET /auth/callback?code&state` (đổi code→token→long-lived→/me/accounts→lưu→HTML redirect về trang kèm `?fb_connected=1`). `safeReturn()` chống open-redirect. `OAUTH_BASE` = env `WEB2_FB_OAUTH_BASE` || worker URL.
+- **"Dính web luôn"**: lưu **page access token** (sinh từ user token long-lived → gần như KHÔNG hết hạn). `/status` `connected = có page token` (không phụ thuộc user-token 60 ngày; `expired` chỉ cảnh báo mềm). Publish dùng page token.
+- Frontend: overlay Kết nối có nút chính **"Đăng nhập bằng Facebook"** (khi `oauthAvailable`) + `<details>` "Cách nâng cao: dán token". Xử lý `?fb_connected=1`. `fb-posts-api.loginUrl()`.
+
+**Setup 1 lần ở FB App**: thêm product **Facebook Login** → Valid OAuth Redirect URIs thêm `https://chatomni-proxy.nhijudyshop.workers.dev/api/web2-fb-posts/auth/callback`. App Live mode HOẶC user là admin/dev/tester (admin chủ shop đăng `pages_manage_posts` không cần App Review). Verify `node --check` PASS + browser-test nút OAuth render, 0 lỗi.
+
 ### [web2/fb-posts] Trang MỚI "Đăng bài Facebook" — quản lý + soạn/đăng/lên lịch 2 page (Graph API) ✅
 
 User: "Thêm 1 group Facebook ở menu. Đọc hiểu Pancake (cookies serect) cho NhiJudyStore + NhiJudyHouse.VietNam. Chia 2 page quản lý bài viết, đăng bài, tự động tạo nội dung, lên lịch, ảnh/video, thông minh." + "tìm github hỗ trợ cho dễ" + "caption/hashtag free github? Gemini mất tiền/lâu".

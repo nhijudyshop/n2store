@@ -49,6 +49,8 @@
     window.FBPostsApi = {
         workerBase,
         status: () => jget('/status'),
+        loginUrl: (ret) =>
+            jget(`/auth/login-url?return=${encodeURIComponent(ret || location.href)}`),
         connect: (token) => jpost('/connect', { token }),
         disconnect: () => jpost('/disconnect', {}),
         refreshPages: () => jpost('/refresh-pages', {}),

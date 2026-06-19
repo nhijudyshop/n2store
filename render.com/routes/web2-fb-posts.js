@@ -22,6 +22,32 @@ const caption = require('../services/web2-caption-service');
 const getDb = (req) => req.app.locals.web2Db || req.app.locals.chatDb;
 const now = () => Date.now();
 
+// Base công khai mà BROWSER dùng để gọi /api/web2-fb-posts (qua worker). redirect_uri
+// OAuth PHẢI khớp giữa dialog + lúc đổi code → dùng cùng 1 hằng. Whitelist URI này
+// trong FB App › Facebook Login › Valid OAuth Redirect URIs.
+const OAUTH_BASE = (
+    process.env.WEB2_FB_OAUTH_BASE || 'https://chatomni-proxy.nhijudyshop.workers.dev'
+).replace(/\/+$/, '');
+const OAUTH_CALLBACK = `${OAUTH_BASE}/api/web2-fb-posts/auth/callback`;
+
+function b64urlEncode(s) {
+    return Buffer.from(String(s), 'utf8').toString('base64url');
+}
+function b64urlDecode(s) {
+    try {
+        return Buffer.from(String(s || ''), 'base64url').toString('utf8');
+    } catch (_) {
+        return '';
+    }
+}
+// Chỉ cho redirect về site của mình (chống open-redirect).
+function safeReturn(u) {
+    const s = String(u || '');
+    if (/^https?:\/\/(localhost|127\.0\.0\.1|[\w.-]*nhijudy\.(store|github\.io))/i.test(s))
+        return s;
+    return '';
+}
+
 // ── SSE notifier ────────────────────────────────────────────────────────
 let _notifyClients = null;
 function initializeNotifiers(fn) {
@@ -119,18 +145,91 @@ router.get('/status', async (req, res) => {
     try {
         const db = getDb(req);
         const row = await loadToken(db);
-        if (!row) return res.json({ success: true, connected: false, pages: [] });
-        const expired = row.expires_at && row.expires_at < now();
+        if (!row)
+            return res.json({
+                success: true,
+                connected: false,
+                pages: [],
+                oauthAvailable: fb.hasApp(),
+            });
+        // "Dính với web luôn" như Pancake/TPOS: page access token (sinh từ user token
+        // long-lived) gần như KHÔNG hết hạn → còn page token là còn kết nối, kể cả khi
+        // user token 60 ngày đã hết. expired = cảnh báo mềm (nên đăng nhập lại để đồng bộ).
+        const hasPageTokens = (row.pages || []).some((p) => p.access_token);
+        const userExpired = row.expires_at && row.expires_at < now();
         res.json({
             success: true,
-            connected: !expired,
-            expired: !!expired,
+            connected: hasPageTokens,
+            expired: !!userExpired,
             user: { id: row.user_id, name: row.name },
             pages: safePages(row.pages),
             aiAvailable: caption.hasAnyAiKey(),
+            oauthAvailable: fb.hasApp(),
         });
     } catch (e) {
         res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+// ── OAuth "Đăng nhập bằng Facebook" (như Pancake/TPOS — KHÔNG dán token) ──
+
+// GET /auth/login-url?return=<url> — trả URL dialog OAuth để frontend điều hướng tới.
+router.get('/auth/login-url', (req, res) => {
+    if (!fb.hasApp())
+        return res.status(400).json({
+            success: false,
+            error: 'FB App chưa cấu hình trên server (FB_APP_ID/FB_APP_SECRET)',
+        });
+    const ret = safeReturn(req.query.return) || OAUTH_BASE;
+    const state = b64urlEncode(JSON.stringify({ r: ret, t: now() }));
+    const url = fb.buildOAuthDialogUrl({ redirectUri: OAUTH_CALLBACK, state });
+    res.json({ success: true, url, redirectUri: OAUTH_CALLBACK });
+});
+
+// GET /auth/callback?code&state — FB redirect về đây (qua worker → Render). Đổi code →
+// token → /me/accounts → lưu → trả HTML tự điều hướng về trang fb-posts.
+router.get('/auth/callback', async (req, res) => {
+    const db = getDb(req);
+    let ret = OAUTH_BASE;
+    try {
+        const st = JSON.parse(b64urlDecode(req.query.state) || '{}');
+        ret = safeReturn(st.r) || OAUTH_BASE;
+    } catch (_) {}
+    const fail = (msg) =>
+        res.set('Content-Type', 'text/html; charset=utf-8').send(
+            `<!doctype html><meta charset=utf-8><body style="font-family:sans-serif;padding:24px">
+             <h3>❌ Kết nối Facebook thất bại</h3><p>${String(msg).replace(/[<>&]/g, '')}</p>
+             <p><a href="${ret}">← Quay lại</a></p></body>`
+        );
+    try {
+        if (req.query.error)
+            return fail(req.query.error_description || req.query.error || 'Bị từ chối');
+        const code = req.query.code;
+        if (!code) return fail('Thiếu code');
+        const short = await fb.exchangeCodeForToken(code, OAUTH_CALLBACK);
+        const { token: longLived, expiresAt } = await fb.exchangeLongLivedToken(short);
+        const me = await fb.getMe(longLived);
+        const pages = await fb.getPages(longLived);
+        if (!pages.length)
+            return fail(
+                'Tài khoản không quản lý page nào (cần quyền pages_show_list + pages_manage_posts).'
+            );
+        await saveToken(db, {
+            userId: me.id,
+            userToken: longLived,
+            name: me.name,
+            pages,
+            expiresAt,
+        });
+        _notify('connect', me.id);
+        const back = ret + (ret.includes('?') ? '&' : '?') + 'fb_connected=1';
+        res.set('Content-Type', 'text/html; charset=utf-8').send(
+            `<!doctype html><meta charset=utf-8><body style="font-family:sans-serif;padding:24px">
+             <h3>✅ Đã kết nối Facebook (${pages.length} page)</h3><p>Đang quay lại…</p>
+             <script>location.replace(${JSON.stringify(back)})</script></body>`
+        );
+    } catch (e) {
+        fail(e.message);
     }
 });
 

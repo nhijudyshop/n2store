@@ -10,6 +10,7 @@
         expired: false,
         pages: [],
         aiAvailable: false,
+        oauthAvailable: false,
         user: null,
         selectedPages: new Set(),
         editingDraftId: null,
@@ -73,6 +74,7 @@
             state.expired = !!r.expired;
             state.pages = r.pages || [];
             state.aiAvailable = !!r.aiAvailable;
+            state.oauthAvailable = !!r.oauthAvailable;
             state.user = r.user || null;
             // mặc định chọn TẤT CẢ page (đăng đồng loạt)
             if (!state.selectedPages.size)
@@ -101,18 +103,31 @@
                         ? `<div class="fbp-connect-help">Đang kết nối: <b>${esc(state.user?.name || '')}</b> · ${state.pages.length} page (${esc(state.pages.map((p) => p.name).join(', '))}).</div>`
                         : ''
                 }
-                <div class="fbp-connect-help">
-                    Dán <b>User Access Token</b> (có quyền <code>pages_show_list</code>, <code>pages_manage_posts</code>, <code>pages_read_engagement</code>):
-                    <ol>
-                        <li>Mở <a href="https://developers.facebook.com/tools/explorer" target="_blank" rel="noopener">Graph API Explorer</a></li>
-                        <li>Chọn app, bấm <i>Add a Permission</i> → tick 3 quyền trên</li>
-                        <li><i>Generate Access Token</i> → đăng nhập + duyệt page → copy token</li>
-                        <li>Dán vào ô dưới rồi bấm <b>Kết nối</b></li>
-                    </ol>
-                </div>
-                <textarea id="fbpCxToken" class="fbp-textarea" style="min-height:90px;font-size:.8rem" placeholder="EAAB... (dán token vào đây)"></textarea>
-                <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap">
-                    <button id="fbpCxConnect" class="fbp-btn"><i data-lucide="link"></i> Kết nối</button>
+                ${
+                    state.oauthAvailable
+                        ? `<div style="text-align:center;margin:6px 0 14px">
+                        <button id="fbpCxOauth" class="fbp-btn" style="font-size:1rem;padding:12px 22px">
+                            <i data-lucide="facebook"></i> Đăng nhập bằng Facebook
+                        </button>
+                        <div style="font-size:.78rem;color:#94a3b8;margin-top:8px">Bấm → Facebook hỏi duyệt quyền page → xong. KHÔNG cần dán token (giống Pancake/TPOS).</div>
+                       </div>`
+                        : `<div class="fbp-connect-help" style="background:#fef3f2;border-color:#fca5a5;color:#b91c1c">⚠ FB App chưa cấu hình trên server — chỉ dùng được cách dán token thủ công bên dưới.</div>`
+                }
+                <details ${state.oauthAvailable ? '' : 'open'} style="margin-top:6px">
+                    <summary style="cursor:pointer;font-size:.85rem;font-weight:700;color:#6b7a8d">Cách nâng cao: dán token thủ công</summary>
+                    <div class="fbp-connect-help" style="margin-top:8px">
+                        Dán <b>User Access Token</b> (quyền <code>pages_show_list</code>, <code>pages_manage_posts</code>, <code>pages_read_engagement</code>):
+                        <ol>
+                            <li>Mở <a href="https://developers.facebook.com/tools/explorer" target="_blank" rel="noopener">Graph API Explorer</a></li>
+                            <li>Chọn app, bấm <i>Add a Permission</i> → tick 3 quyền trên</li>
+                            <li><i>Generate Access Token</i> → đăng nhập + duyệt page → copy token</li>
+                            <li>Dán vào ô dưới rồi bấm <b>Kết nối</b></li>
+                        </ol>
+                    </div>
+                    <textarea id="fbpCxToken" class="fbp-textarea" style="min-height:80px;font-size:.8rem" placeholder="EAAB... (dán token vào đây)"></textarea>
+                    <button id="fbpCxConnect" class="fbp-btn ghost sm" style="margin-top:8px"><i data-lucide="link"></i> Kết nối bằng token</button>
+                </details>
+                <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap">
                     ${state.connected ? '<button id="fbpCxRefresh" class="fbp-btn ghost"><i data-lucide="refresh-cw"></i> Đồng bộ page</button>' : ''}
                     ${state.connected ? '<button id="fbpCxLogout" class="fbp-btn danger" style="margin-left:auto"><i data-lucide="log-out"></i> Ngắt kết nối</button>' : ''}
                 </div>
@@ -124,28 +139,47 @@
         overlay.addEventListener('click', (e) => {
             if (e.target === overlay) close();
         });
-        overlay.querySelector('#fbpCxConnect').onclick = async () => {
-            const token = overlay.querySelector('#fbpCxToken').value.trim();
-            if (!token) {
-                notify('Dán token trước', 'warning');
-                return;
-            }
-            const b = overlay.querySelector('#fbpCxConnect');
-            b.disabled = true;
-            b.innerHTML = '<i data-lucide="loader"></i> Đang kết nối…';
-            try {
-                const r = await Api().connect(token);
-                if (r.success) {
-                    notify(`Đã kết nối ${r.pages.length} page`, 'success');
-                    close();
-                    await loadStatus();
-                } else notify(r.error || 'Kết nối thất bại', 'error');
-            } catch (e) {
-                notify(e.message, 'error');
-            } finally {
-                b.disabled = false;
-            }
-        };
+        const oauthBtn = overlay.querySelector('#fbpCxOauth');
+        if (oauthBtn)
+            oauthBtn.onclick = async () => {
+                oauthBtn.disabled = true;
+                oauthBtn.innerHTML = '<i data-lucide="loader"></i> Đang mở Facebook…';
+                try {
+                    const r = await Api().loginUrl(location.href.split('#')[0]);
+                    if (r.success && r.url) location.href = r.url;
+                    else {
+                        notify(r.error || 'Không tạo được link đăng nhập', 'error');
+                        oauthBtn.disabled = false;
+                    }
+                } catch (e) {
+                    notify(e.message, 'error');
+                    oauthBtn.disabled = false;
+                }
+            };
+        const connectBtn = overlay.querySelector('#fbpCxConnect');
+        if (connectBtn)
+            connectBtn.onclick = async () => {
+                const token = overlay.querySelector('#fbpCxToken').value.trim();
+                if (!token) {
+                    notify('Dán token trước', 'warning');
+                    return;
+                }
+                const b = overlay.querySelector('#fbpCxConnect');
+                b.disabled = true;
+                b.innerHTML = '<i data-lucide="loader"></i> Đang kết nối…';
+                try {
+                    const r = await Api().connect(token);
+                    if (r.success) {
+                        notify(`Đã kết nối ${r.pages.length} page`, 'success');
+                        close();
+                        await loadStatus();
+                    } else notify(r.error || 'Kết nối thất bại', 'error');
+                } catch (e) {
+                    notify(e.message, 'error');
+                } finally {
+                    b.disabled = false;
+                }
+            };
         const refreshBtn = overlay.querySelector('#fbpCxRefresh');
         if (refreshBtn)
             refreshBtn.onclick = async () => {
@@ -195,6 +229,11 @@
             .forEach((t) => t.addEventListener('click', () => switchTab(t.dataset.tab)));
         document.getElementById('fbpConnBtn').addEventListener('click', openConnect);
         if (window.lucide?.createIcons) window.lucide.createIcons();
+        // Quay lại sau OAuth (FB redirect) → dọn URL + báo thành công.
+        if (/[?&]fb_connected=1/.test(location.search)) {
+            notify('Đã kết nối Facebook 🎉', 'success');
+            history.replaceState(null, '', location.pathname);
+        }
         loadStatus();
         setupSSE();
     }
