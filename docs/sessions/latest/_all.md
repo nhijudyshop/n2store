@@ -3,14 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `54f30a1` — auto: session update
-**Last updated**: 2026-06-20 07:00:25 +07
-**Latest session**: [`RESUME:20260620-070025-54f30a1`](../20260620-070025-54f30a1.md)
-**Summary**: auto: session update
+**Latest commit**: `1e4c4ab` — feat(vieneu-tts): thêm engine OmniVoice (Apache-2.0) cạnh VieNeu qua TTS_ENGINE, giữ nguyên frontend
+**Last updated**: 2026-06-20 08:01:35 +07
+**Latest session**: [`RESUME:20260620-080135-1e4c4ab`](../20260620-080135-1e4c4ab.md)
+**Summary**: feat(vieneu-tts): thêm engine OmniVoice (Apache-2.0) cạnh VieNeu qua TTS_ENGINE, giữ nguyên frontend
 
 ## Folders affected in this commit
 
-- [`_root/`](./_root.md) — 1 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
+- [`vieneu-tts/`](./vieneu-tts.md) — 9 file(s)
 
 ## All folder snapshots
 
@@ -25,7 +26,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-19 23:05
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-16 14:31
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-18 12:17
-- [`docs/`](./docs.md) — updated 2026-06-20 06:39
+- [`docs/`](./docs.md) — updated 2026-06-20 08:01
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-16 14:31
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-16 14:31
 - [`downloads/`](./downloads.md) — updated 2026-06-19 14:27
@@ -70,7 +71,7 @@
 - [`tests/`](./tests.md) — updated 2026-06-10 19:04
 - [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-06-07 19:41
 - [`user-management/`](./user-management.md) — updated 2026-05-21 15:39
-- [`vieneu-tts/`](./vieneu-tts.md) — updated 2026-06-19 23:27
+- [`vieneu-tts/`](./vieneu-tts.md) — updated 2026-06-20 08:01
 - [`web2-extension/`](./web2-extension.md) — updated 2026-05-24 11:53
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
