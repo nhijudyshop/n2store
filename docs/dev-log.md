@@ -2,6 +2,16 @@
 
 ## 2026-06-20
 
+### [shared/worker/render] TPOS đổi password → bỏ hardcode creds client, dùng proxy-auth toàn bộ ✅
+
+User đổi password TPOS (nvkt/nvktlive1 + nvktshop1) → mọi nơi hardcode password CŨ `Aa@28612345678` trong client JS HỎNG + lộ creds. Worker `/api/token` đã proxy-auth (inject creds từ Cloudflare secret). Migrate hết client/server sang proxy-auth:
+
+- **Worker**: company1=nvktlive1 (env TPOS_USERNAME/PASSWORD/CLIENT_ID), company2=nvktshop1 (default + TPOS_PASSWORD chung). Set CF secret `TPOS_PASSWORD` + đã verify **✅ company 1 & 2 đều lấy token OK**.
+- **Client (gửi `{companyId}` JSON, KHÔNG gửi password)**: `shared/js/token-manager.js` + `shared/browser/token-manager.js` (passwordLogin), `shared/js/navigation-modern.js` (SwitchCompany doSwitch), `shared/universal/tpos-client.js`, `soorder/js/soorder-supplier-loader.js`, `hanghoan/js/banhang.js`+`trahang.js`, `orders-report/js/tab-kpi-commission.js`. Bỏ literal username/password khỏi path active (helper getCredentials dead còn lại = password cũ vô hại, đã rotate).
+- **Server**: `render.com/services/auth-token-store.js` đã env-based (process.env.TPOS_USERNAME/\_2/PASSWORD/CLIENT_ID). Set Render env `TPOS_PASSWORD` (mới) + `TPOS_USERNAME_2=nvktshop1` trên n2store-fallback.
+- Refresh-token grant giữ nguyên (không cần password). node --check PASS, 0 NUL. Bump `?v=20260620d` (45 HTML).
+- ⚠ Còn `scripts/tpos-fetch-shapes.js` (dev script, không deploy) còn pw cũ — vô hại, để sau.
+
 ### [web2/render/worker] Fix MEDIUM/LOW audit còn lại (workflow 46-agent per-file) ✅
 
 User "làm tất cả fixes". Workflow per-file (đọc report, giữ nguyên fix auth/money/encrypt đợt trước, node --check). 71 medium/low → **25 file đổi NET** (nhiều backend route đã có fix từ đợt 21-file → no-op).

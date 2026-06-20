@@ -850,7 +850,9 @@ const KPICommission = {
         this._bindLivestreamPresets();
         document
             .querySelectorAll('[data-live-preset]')
-            .forEach((b) => b.classList.toggle('is-active', b.dataset.livePreset === this._livePreset));
+            .forEach((b) =>
+                b.classList.toggle('is-active', b.dataset.livePreset === this._livePreset)
+            );
 
         if (forceReload || !this._liveRows) {
             tbody.innerHTML =
@@ -1751,31 +1753,17 @@ const KPICommission = {
         if (tokenManager?.getAuthHeader) {
             authHeader = await tokenManager.getAuthHeader();
         } else {
-            // Fallback to /api/token
+            // Fallback to /api/token (JSON proxy-auth: worker giữ credentials TPOS
+            // server-side, browser CHỈ gửi { companyId } — bỏ hardcode user/pass
+            // trong client JS).
             const companyId =
                 window.ShopConfig?.getConfig?.()?.CompanyId ||
                 window.parent?.ShopConfig?.getConfig?.()?.CompanyId ||
                 1;
-            const creds =
-                companyId === 2
-                    ? {
-                          grant_type: 'password',
-                          username: 'nvktshop1',
-                          password: 'Aa@28612345678',
-                          client_id: 'tmtWebApp',
-                      }
-                    : {
-                          grant_type: 'password',
-                          username: 'nvktlive1',
-                          password: 'Aa@28612345678',
-                          client_id: 'tmtWebApp',
-                      };
-            const formData = new URLSearchParams();
-            for (const [k, v] of Object.entries(creds)) formData.append(k, v);
             const tokenRes = await fetch(`${WORKER}/api/token`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: formData.toString(),
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ companyId }),
             });
             const tokenData = await tokenRes.json();
             authHeader = { Authorization: `Bearer ${tokenData.access_token}` };
@@ -4194,18 +4182,16 @@ const KPICommission = {
             window.API_CONFIG?.WORKER_URL ||
             window.parent?.API_CONFIG?.WORKER_URL ||
             'https://chatomni-proxy.nhijudyshop.workers.dev';
-        const creds = {
-            grant_type: 'password',
-            username: 'nvktlive1',
-            password: 'Aa@28612345678',
-            client_id: 'tmtWebApp',
-        };
-        const body = new URLSearchParams();
-        for (const [k, v] of Object.entries(creds)) body.append(k, v);
+        // JSON proxy-auth: worker giữ credentials TPOS server-side, browser CHỈ
+        // gửi { companyId } — bỏ hardcode user/pass trong client JS.
+        const companyId =
+            window.ShopConfig?.getConfig?.()?.CompanyId ||
+            window.parent?.ShopConfig?.getConfig?.()?.CompanyId ||
+            1;
         const tokenRes = await fetch(`${WORKER}/api/token`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: body.toString(),
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ companyId }),
         });
         if (!tokenRes.ok) throw new Error(`Token HTTP ${tokenRes.status}`);
         const tj = await tokenRes.json();

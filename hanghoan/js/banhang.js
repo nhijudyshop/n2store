@@ -1037,19 +1037,14 @@ const BanHangModule = (function () {
         try {
             console.log('[BanHang] 🔑 Fetching TPOS token...');
 
-            const formData = new URLSearchParams();
-            const creds = getTposCredentials();
-            formData.append('grant_type', creds.grant_type);
-            formData.append('username', creds.username);
-            formData.append('password', creds.password);
-            formData.append('client_id', creds.client_id);
-
+            // Proxy-auth: the worker injects server-side credentials for this company.
+            const companyId = getTposCompanyId();
             const response = await fetch(`${WORKER_URL}/api/token`, {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'Content-Type': 'application/json',
                 },
-                body: formData.toString(),
+                body: JSON.stringify({ companyId }),
             });
 
             if (!response.ok) {

@@ -50,7 +50,7 @@
         <!-- Shared Configuration -->
         <script src="../shared/js/firebase-config.js?v=20260614d"></script>
         <script src="../shared/js/audit-logger.js?v=20260614d"></script>
-        <script defer src="../shared/js/navigation-modern.js?v=20260614d"></script>
+        <script defer src="../shared/js/navigation-modern.js?v=20260620d"></script>
         <script defer src="../shared/js/common-utils.js?v=20260614d"></script>
 
         <!-- Lucide Icons -->
@@ -338,7 +338,9 @@
             <!-- Thẻ tổng + 2 thẻ lấy thẳng từ TPOS SumDeliveryReport (qua worker proxy), KHÔNG tự cộng client-side -->
             <div class="dr-stats-bar" id="drStatsBar">
                 <div class="dr-stat-item">
-                    <div class="dr-stat-icon purple"><i class="fas fa-file-invoice-dollar"></i></div>
+                    <div class="dr-stat-icon purple">
+                        <i class="fas fa-file-invoice-dollar"></i>
+                    </div>
                     <div class="dr-stat-info">
                         <span class="dr-stat-count" id="drStatTotalCount">0 Hóa đơn</span>
                         <span class="dr-stat-value" id="drStatTotalValue">0</span>
@@ -537,7 +539,7 @@
 
         <!-- Token Manager (standalone - needs its own token) -->
         <script src="../shared/js/shop-config.js?v=20260614d"></script>
-        <script src="../shared/js/token-manager.js?v=20260616tok"></script>
+        <script src="../shared/js/token-manager.js?v=20260620d"></script>
         <script src="../shared/js/tpos-config.js?v=20260614d"></script>
 
         <!-- XLSX for Excel export -->

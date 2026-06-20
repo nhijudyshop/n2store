@@ -36,15 +36,17 @@ export class TokenManager {
         this.companyId = options.companyId || TokenManager.getCompanyId();
 
         // Configuration - use company-specific keys
-        this.storageKey = options.storageKey || ('bearer_token_data_' + this.companyId);
+        this.storageKey = options.storageKey || 'bearer_token_data_' + this.companyId;
         this.PROXY_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
         this.API_URL = options.apiUrl || API_ENDPOINTS.WORKER.TOKEN;
-        this.SWITCH_COMPANY_URL = this.PROXY_URL + '/api/odata/ApplicationUser/ODataService.SwitchCompany';
+        this.SWITCH_COMPANY_URL =
+            this.PROXY_URL + '/api/odata/ApplicationUser/ODataService.SwitchCompany';
 
         // Firestore config - Company 1 uses 'tpos_token' (backward compat)
         this.firestoreCollection = options.firestoreCollection || 'tokens';
-        this.firestoreDocId = options.firestoreDocId
-            || (this.companyId === 1 ? 'tpos_token' : 'tpos_token_' + this.companyId);
+        this.firestoreDocId =
+            options.firestoreDocId ||
+            (this.companyId === 1 ? 'tpos_token' : 'tpos_token_' + this.companyId);
 
         this.credentials = options.credentials || TokenManager.getCredentials(this.companyId);
 
@@ -98,7 +100,7 @@ export class TokenManager {
                 this.firestoreReady = true;
                 return;
             }
-            await new Promise(resolve => setTimeout(resolve, 100));
+            await new Promise((resolve) => setTimeout(resolve, 100));
             retries++;
         }
 
@@ -110,8 +112,13 @@ export class TokenManager {
      */
     initFirestore() {
         try {
-            if (typeof window !== 'undefined' && window.firebase?.firestore && this.firestoreReady) {
-                this.firestoreRef = window.firebase.firestore()
+            if (
+                typeof window !== 'undefined' &&
+                window.firebase?.firestore &&
+                this.firestoreReady
+            ) {
+                this.firestoreRef = window.firebase
+                    .firestore()
                     .collection(this.firestoreCollection)
                     .doc(this.firestoreDocId);
                 return true;
@@ -137,8 +144,18 @@ export class TokenManager {
      */
     static getCredentials(companyId) {
         const CREDENTIALS_BY_COMPANY = {
-            1: { grant_type: 'password', username: 'nvktlive1', password: 'Aa@28612345678', client_id: 'tmtWebApp' },
-            2: { grant_type: 'password', username: 'nvktshop1', password: 'Aa@28612345678', client_id: 'tmtWebApp' }
+            1: {
+                grant_type: 'password',
+                username: 'nvktlive1',
+                password: 'Aa@28612345678',
+                client_id: 'tmtWebApp',
+            },
+            2: {
+                grant_type: 'password',
+                username: 'nvktshop1',
+                password: 'Aa@28612345678',
+                client_id: 'tmtWebApp',
+            },
         };
         return CREDENTIALS_BY_COMPANY[companyId] || CREDENTIALS_BY_COMPANY[1];
     }
@@ -155,7 +172,9 @@ export class TokenManager {
                     localStorage.setItem(this.storageKey, oldData);
                     localStorage.removeItem('bearer_token_data');
                 }
-            } catch (e) { /* ignore */ }
+            } catch (e) {
+                /* ignore */
+            }
         }
 
         // Try localStorage first
@@ -195,7 +214,7 @@ export class TokenManager {
             if (!tokenData?.access_token) return null;
 
             const bufferTime = 5 * 60 * 1000; // 5 minutes
-            if (Date.now() < (tokenData.expires_at - bufferTime)) {
+            if (Date.now() < tokenData.expires_at - bufferTime) {
                 return tokenData;
             }
             return null;
@@ -244,7 +263,7 @@ export class TokenManager {
             if (tokenData.expires_at) {
                 expiresAt = tokenData.expires_at;
             } else if (tokenData.expires_in) {
-                expiresAt = Date.now() + (tokenData.expires_in * 1000);
+                expiresAt = Date.now() + tokenData.expires_in * 1000;
             } else {
                 console.error('[TOKEN] Invalid token data');
                 return;
@@ -255,7 +274,7 @@ export class TokenManager {
                 token_type: tokenData.token_type || 'Bearer',
                 expires_in: tokenData.expires_in || Math.floor((expiresAt - Date.now()) / 1000),
                 expires_at: expiresAt,
-                issued_at: tokenData.issued_at || Date.now()
+                issued_at: tokenData.issued_at || Date.now(),
             };
 
             // Preserve refresh_token (used by tpos-search.js for multi-company token refresh)
@@ -270,7 +289,9 @@ export class TokenManager {
                             dataToSave.refresh_token = existingData.refresh_token;
                         }
                     }
-                } catch (e) { /* ignore */ }
+                } catch (e) {
+                    /* ignore */
+                }
             }
 
             localStorage.setItem(this.storageKey, JSON.stringify(dataToSave));
@@ -297,7 +318,7 @@ export class TokenManager {
         if (!this.tokenExpiry) return false;
 
         const bufferTime = 5 * 60 * 1000; // 5 minutes
-        return Date.now() < (this.tokenExpiry - bufferTime);
+        return Date.now() < this.tokenExpiry - bufferTime;
     }
 
     /**
@@ -328,9 +349,13 @@ export class TokenManager {
             if (stored) {
                 const data = JSON.parse(stored);
                 if (data.refresh_token) {
-                    localStorage.setItem(this.storageKey, JSON.stringify({
-                        refresh_token: data.refresh_token, expires_at: 0
-                    }));
+                    localStorage.setItem(
+                        this.storageKey,
+                        JSON.stringify({
+                            refresh_token: data.refresh_token,
+                            expires_at: 0,
+                        })
+                    );
                     return;
                 }
             }
@@ -350,7 +375,9 @@ export class TokenManager {
                 const data = JSON.parse(stored);
                 if (data.refresh_token) return data.refresh_token;
             }
-        } catch (e) { /* ignore */ }
+        } catch (e) {
+            /* ignore */
+        }
         return null;
     }
 
@@ -362,7 +389,7 @@ export class TokenManager {
             const response = await fetch(this.API_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: `grant_type=refresh_token&refresh_token=${encodeURIComponent(refreshToken)}&client_id=tmtWebApp`
+                body: `grant_type=refresh_token&refresh_token=${encodeURIComponent(refreshToken)}&client_id=tmtWebApp`,
             });
             if (!response.ok) {
                 console.warn(`[TOKEN] Refresh token failed: ${response.status}`);
@@ -383,16 +410,12 @@ export class TokenManager {
      * Each company has its own TPOS account, no SwitchCompany needed
      */
     async passwordLogin() {
-        const formData = new URLSearchParams();
-        formData.append('grant_type', this.credentials.grant_type);
-        formData.append('username', this.credentials.username);
-        formData.append('password', this.credentials.password);
-        formData.append('client_id', this.credentials.client_id);
-
+        // PROXY-AUTH: gửi {companyId} JSON → worker /api/token tự inject creds
+        // server-side (KHÔNG gửi password từ client; password TPOS ở Cloudflare secret).
         const response = await fetch(this.API_URL, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: formData.toString()
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ companyId: this.companyId }),
         });
 
         if (!response.ok) throw new Error(`Password login failed: ${response.status}`);
@@ -400,16 +423,20 @@ export class TokenManager {
         if (!data.access_token) throw new Error('Invalid token response');
 
         // Save token for this company
-        const expiresAt = Date.now() + (data.expires_in * 1000);
+        const expiresAt = Date.now() + data.expires_in * 1000;
         const tokenData = {
             access_token: data.access_token,
             refresh_token: data.refresh_token || null,
             token_type: 'Bearer',
             expires_in: data.expires_in,
             expires_at: expiresAt,
-            issued_at: Date.now()
+            issued_at: Date.now(),
         };
-        try { localStorage.setItem(this.storageKey, JSON.stringify(tokenData)); } catch (e) { /* ignore */ }
+        try {
+            localStorage.setItem(this.storageKey, JSON.stringify(tokenData));
+        } catch (e) {
+            /* ignore */
+        }
 
         this.token = data.access_token;
         this.tokenExpiry = expiresAt;
@@ -429,17 +456,17 @@ export class TokenManager {
 
         // Step 1: SwitchCompany
         const tposHeaders = {
-            'Authorization': `Bearer ${accessToken}`,
+            Authorization: `Bearer ${accessToken}`,
             'Content-Type': 'application/json;charset=UTF-8',
-            'Accept': 'application/json',
+            Accept: 'application/json',
             'feature-version': '2',
-            'tposappversion': '6.2.6.1'
+            tposappversion: '6.2.6.1',
         };
 
         const switchResp = await fetch(this.SWITCH_COMPANY_URL, {
             method: 'POST',
             headers: tposHeaders,
-            body: JSON.stringify({ companyId: this.companyId })
+            body: JSON.stringify({ companyId: this.companyId }),
         });
 
         if (!switchResp.ok) throw new Error(`SwitchCompany failed: ${switchResp.status}`);
@@ -449,12 +476,13 @@ export class TokenManager {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
-                'Authorization': `Bearer ${accessToken}`
+                Authorization: `Bearer ${accessToken}`,
             },
-            body: `grant_type=refresh_token&refresh_token=${encodeURIComponent(refreshToken)}&client_id=tmtWebApp`
+            body: `grant_type=refresh_token&refresh_token=${encodeURIComponent(refreshToken)}&client_id=tmtWebApp`,
         });
 
-        if (!refreshResp.ok) throw new Error(`Token refresh after SwitchCompany failed: ${refreshResp.status}`);
+        if (!refreshResp.ok)
+            throw new Error(`Token refresh after SwitchCompany failed: ${refreshResp.status}`);
 
         const newTokenData = await refreshResp.json();
         await this.saveToStorage(newTokenData);
@@ -482,7 +510,6 @@ export class TokenManager {
             await this.passwordLogin();
 
             return this.token;
-
         } catch (error) {
             console.error('[TOKEN] Error fetching token:', error);
             await this.clearToken();
@@ -499,8 +526,8 @@ export class TokenManager {
         const maxWait = 10000;
         const startTime = Date.now();
 
-        while (this.isRefreshing && (Date.now() - startTime) < maxWait) {
-            await new Promise(resolve => setTimeout(resolve, 100));
+        while (this.isRefreshing && Date.now() - startTime < maxWait) {
+            await new Promise((resolve) => setTimeout(resolve, 100));
         }
 
         if (this.isTokenValid()) {
@@ -530,7 +557,7 @@ export class TokenManager {
      */
     async getAuthHeader() {
         const token = await this.getToken();
-        return { 'Authorization': `Bearer ${token}` };
+        return { Authorization: `Bearer ${token}` };
     }
 
     /**
@@ -541,7 +568,7 @@ export class TokenManager {
             const headers = await this.getAuthHeader();
             const response = await fetch(url, {
                 ...options,
-                headers: { ...headers, ...options.headers }
+                headers: { ...headers, ...options.headers },
             });
 
             if (response.status === 401) {
@@ -549,7 +576,7 @@ export class TokenManager {
                 const newHeaders = await this.getAuthHeader();
                 return await fetch(url, {
                     ...options,
-                    headers: { ...newHeaders, ...options.headers }
+                    headers: { ...newHeaders, ...options.headers },
                 });
             }
 
@@ -577,7 +604,7 @@ export class TokenManager {
             isValid: this.isTokenValid(),
             expiresAt: new Date(this.tokenExpiry).toLocaleString('vi-VN'),
             timeRemaining: `${hours}h ${minutes}m`,
-            token: this.token.substring(0, 20) + '...'
+            token: this.token.substring(0, 20) + '...',
         };
     }
 

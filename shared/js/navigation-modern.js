@@ -4874,25 +4874,21 @@ class UnifiedNavigationManager {
         const PROXY_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
         const TOKEN_URL = `${PROXY_URL}/api/token`;
         const SWITCH_URL = `${PROXY_URL}/api/odata/ApplicationUser/ODataService.SwitchCompany`;
-        const CREDENTIALS = {
-            1: { username: 'nvktlive1', password: 'Aa@28612345678' },
-            2: { username: 'nvktshop1', password: 'Aa@28612345678' },
-        };
+        // TPOS creds inject server-side qua worker proxy-auth (KHÔNG hardcode password).
 
         const statusEl = modal.querySelector('#tposSwitchStatus');
 
         const doSwitch = async (sourceCompanyId, targetCompanyId, btn) => {
-            const creds = CREDENTIALS[sourceCompanyId];
             btn.disabled = true;
             btn.textContent = 'Đang xử lý...';
             if (statusEl) statusEl.textContent = '';
 
             try {
-                // Step 1: Login with source account
+                // Step 1: Login source account qua proxy-auth (worker inject creds)
                 const loginResp = await fetch(TOKEN_URL, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                    body: `grant_type=password&username=${creds.username}&password=${encodeURIComponent(creds.password)}&client_id=tmtWebApp`,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ companyId: sourceCompanyId }),
                 });
                 if (!loginResp.ok) throw new Error(`Login failed: ${loginResp.status}`);
                 const loginData = await loginResp.json();
