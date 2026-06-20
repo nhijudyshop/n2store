@@ -2,6 +2,23 @@
 
 ## 2026-06-20
 
+### [web2/multi-tool] Tăng comment: tự mặc định page "NhiJudy Store" → bài mới nhất ✅
+
+User: "Để mặc định page Nhijudy Store → chọn bài mới nhất → để mặc định 1.5 giây" (trang Tăng số lượng comment).
+
+- **File**: `web2/multi-tool/js/multi-tool.js` (`loadPages`) — sau khi dựng `<option>` page, tìm page có tên chuẩn hoá (`lowercase` + bỏ dấu cách) === `nhijudystore` (fallback `includes`), `sel.value = id` rồi gọi `loadPosts()`. `loadPosts()` đã tự `psel.value='0'` (ĐANG live → mới nhất) + `loadConvs()` (hội thoại mới nhất). Bump `multi-tool.js?v=20260620def`.
+- Delay mặc định **1.5 giây** giữ nguyên (HTML `value="1.5"`, min 0.5) — không đụng.
+- **Verified live (browser test)**: page tự chọn "NhiJudy Store" (id 270136663390370), bài mới nhất "13:15 20-06 — DỒN ĐƠN TĂNG CUỐI…" (index 0, 6 bài), hội thoại mới nhất "Trần Minh Hồng" (60 hội thoại) — tất cả không cần click tay. node --check PASS.
+
+### [delivery-report] Báo cáo: thêm tab "BÁN HÀNG SHOP" + hiển thị SL đơn ở 5 thẻ tiền ✅
+
+User (modal Báo cáo TOMATO/NAP/TP): "Thêm BÁN HÀNG SHOP" + "Hiển thị số lượng đơn ở 5 mục tiền (kể cả BÁN HÀNG SHOP mới thêm)".
+
+- **Files**: `delivery-report/js/report.js`, `delivery-report/css/delivery-report.css` (Web 1.0, pool chatDb — KHÔNG đụng web2).
+- **(1) Tab BÁN HÀNG SHOP**: thêm `{ key: 'shop', label: 'BÁN HÀNG SHOP', color: '#059669', bg: '#d1fae5' }` vào `TABS` (màu emerald khớp `.dr-province-header-shop` ở delivery-report.js). `SHIP_FEE_DEFAULTS.shop = 0` (bán tại shop, không phí ship). Toàn bộ render (button, thẻ tiền, bảng, ảnh bill, ship-fee popover) driven bởi `TABS`/`state.activeTab` nên chỉ cần thêm 1 dòng. `group_name='shop'` đã là valid group server-side (`/by-date-group` trả sẵn) + `sendAlongFor` an toàn khi không có channel map (shop → 0).
+- **(2) SL đơn ở 5 thẻ**: `computeTotalLeftForTab` giờ trả `{ total, count }` (cộng dồn `sys.sysCount` ở cả 3 nhánh aggregate/merge/single — khớp logic tiền). `paintTabTotals` render `<span class="dr-tab-total-count">N đơn</span>` phía trên số tiền cho cả 4 nhóm + thẻ TỔNG (count tổng). CSS: thẻ đổi `flex-direction: column`, count nhỏ màu trung tính (#6b7280) không đổi theo +/-.
+- **Verified live (browser test, range 01→20/06)**: TOMATO 483 đơn/$10.680.000, NAP 1.423/$18.973.000, THÀNH PHỐ 978/$112.052.000, BÁN HÀNG SHOP 0/$0, TỔNG 2.884/$141.705.000. Card count TOMATO (483) = footer SL ĐƠN bảng (483) → cross-check khớp. Tab shop click OK (14 cột, 20 row), 0 page error. node --check PASS.
+
 ### [web2/zalo] Chip hiển thị TK Zalo đang dùng để nhắn (badge read-only) ✅
 
 User: khung chat Zalo cần hiển thị account đang dùng + xác nhận là TK chính. Backend đã ưu tiên `is_primary` (route `/conversation/:phone` ORDER BY is_primary DESC) — chỉ thiếu HIỂN THỊ.
