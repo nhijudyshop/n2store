@@ -183,6 +183,17 @@ async function ensureSchema(pool) {
             CREATE INDEX IF NOT EXISTS idx_web2_pending_matches_tx
                 ON web2_pending_matches(transaction_id);
         `);
+        // AUDIT 2026-06-20 #20: chống dup pending cho cùng transaction (race INSERT
+        // không lock). Dedupe pending cũ (giữ id nhỏ nhất) rồi tạo partial unique
+        // index để ON CONFLICT hoạt động.
+        await pool.query(`
+            DELETE FROM web2_pending_matches a
+            USING web2_pending_matches b
+            WHERE a.status = 'pending' AND b.status = 'pending'
+              AND a.transaction_id = b.transaction_id AND a.id > b.id;
+            CREATE UNIQUE INDEX IF NOT EXISTS uq_web2_pending_matches_tx_pending
+                ON web2_pending_matches(transaction_id) WHERE status = 'pending';
+        `);
         _ready = true;
         console.log('[web2-sepay-matching] schema ready');
     } catch (e) {
@@ -682,6 +693,9 @@ async function processWeb2Match(db, web2BhId, fetchWithTimeout) {
                 `INSERT INTO web2_pending_matches
                    (transaction_id, extracted_phone, matched_customers, status)
                  VALUES ($1, $2, $3, 'pending')
+                 ON CONFLICT (transaction_id) WHERE status = 'pending'
+                   DO UPDATE SET extracted_phone = EXCLUDED.extracted_phone,
+                                 matched_customers = EXCLUDED.matched_customers
                  RETURNING id`,
                 [web2BhId, candidates.join(','), JSON.stringify(merged)]
             );
@@ -758,6 +772,9 @@ async function processWeb2Match(db, web2BhId, fetchWithTimeout) {
             `INSERT INTO web2_pending_matches
                (transaction_id, extracted_phone, matched_customers, status)
              VALUES ($1, $2, $3, 'pending')
+             ON CONFLICT (transaction_id) WHERE status = 'pending'
+               DO UPDATE SET extracted_phone = EXCLUDED.extracted_phone,
+                             matched_customers = EXCLUDED.matched_customers
              RETURNING id`,
             [web2BhId, matchedPhone, JSON.stringify(candidatePayload)]
         );

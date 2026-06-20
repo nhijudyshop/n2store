@@ -2,6 +2,20 @@
 
 ## 2026-06-20
 
+### [web2/render] Quét lại TOÀN BỘ 121 audit issue + fix nốt money/cosmetic ✅
+
+User "quét lại hết". Verify 6 agent song song toàn MEDIUM(39)+LOW(32) trong code hiện tại. CRITICAL(6)+HIGH(43)=100% FIXED. Đa số MED/LOW trùng HIGH đã fix. Fix thêm trong đợt này:
+
+- **#19 manual deposit idempotency** (routes/v2/web2-wallets.js): client thiếu `x-idempotency-key` → sinh server-side `mdep_<uuid>` → reference_id không NULL → partial unique index chống double-deposit.
+- **#20 sepay pending_matches unique** (services/web2-sepay-matching.js): dedupe pending cũ + `uq_web2_pending_matches_tx_pending` (partial unique transaction_id WHERE status='pending') + ON CONFLICT DO UPDATE cả 2 INSERT → hết dup pending khi race.
+- **#LOW1** admin-web2-data-reset.js: sửa comment mô tả sai bước per-slug delete web2_records (code không thực thi).
+- **#LOW2** admin-web2-data-reset.js `tsTag`: thêm giây+random → 2 reset cùng phút không trùng tên bảng backup.
+- node --check PASS, 0 NUL. Cần deploy n2store-fallback + web2-api.
+
+**CÒN LẠI (cố ý để xử lý riêng — chạm path gửi tin khách / money-flow tinh tế / cần quyết định sản phẩm):** #24 ck-watcher rollback claim, #26 SePay 2 tin xác nhận (cần cột confirm_msg_sent), #21 msg-send Pancake idem key, #27 msg-template mark-sent (bỏ sai cách lại tăng gửi-trùng), #28 chat replyToId (cần verify Web2Chat downstream), #2 products dedupe (rủi ro chặn tạo SP hợp lệ). Frontend polish LOW: video-beauty rVFC, page-builder rollback, bill iframe, products self-echo, photo mask, product-counter detector — latent, fix sau.
+
+## 2026-06-20
+
 ### [web2/render] Audit sót: gate auth 3 router + cap amount quick-refund (đóng nốt HIGH còn treo) ✅
 
 Verify lại audit Web 2.0 trực tiếp trong code (không tin commit message) → đợt fix trước gate hầu hết router nhưng **sót 3 file bare auth + 1 money-trust**. Đóng nốt:

@@ -59,8 +59,10 @@ const INVENTORY_TABLES = [
 //     partner-customer, deliveryzone, printer, …) — KHÔNG truncate cả bảng.
 // "Xóa tiền giữ KH": ví/giao dịch/SePay wipe; hồ sơ KH giữ nguyên.
 // NCC (web2_suppliers / web2_supplier_wallet) ở Firestore → wipe phía client.
-// PBH shadow `fastsaleorder-invoice` (web2_records) → xoá slug riêng (delete-all),
-// KHÔNG truncate cả web2_records (sẽ mất 92k partner-customer + TPOS shadow).
+// PBH thật nằm ở bảng riêng `fast_sale_orders` (đã có trong WEB2_ALL_TABLES → được
+// TRUNCATE). web2_records KHÔNG bị đụng ở target='web2-all' (giữ 92k partner-customer
+// + TPOS shadow). (AUDIT 2026-06-20 #LOW1: sửa comment cũ mô tả sai 1 bước per-slug
+// delete 'fastsaleorder-invoice' từ web2_records mà code KHÔNG hề thực thi.)
 // KHÔNG dùng CASCADE: nếu 1 bảng GIỮ ref tới bảng WIPE → TRUNCATE fail (an toàn,
 // fail loud) thay vì âm thầm xoá data KH/cấu hình.
 const WEB2_ALL_TABLES = [
@@ -109,9 +111,12 @@ function pickTables(target) {
 const TARGET_TABLES = PRODUCT_TABLES;
 
 function tsTag() {
+    // AUDIT 2026-06-20 #LOW2: thêm giây + random suffix → 2 reset cùng phút KHÔNG
+    // còn trùng tên bảng backup `<t>_bak_<tag>` (đồng bộ admin-web2-wallet-reset.js).
     const d = new Date();
     const p = (n) => String(n).padStart(2, '0');
-    return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}`;
+    const rnd = require('crypto').randomBytes(2).toString('hex');
+    return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}_${rnd}`;
 }
 
 async function tableExists(db, name) {

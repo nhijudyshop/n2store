@@ -201,16 +201,18 @@ router.post('/:phone/deposit', requireWeb2AuthSoft, async (req, res) => {
         if (!amount || Number(amount) <= 0) {
             return res.status(400).json({ success: false, error: 'amount > 0 required' });
         }
-        const idemKey = _idemKey(req);
-        if (idemKey) {
-            const dup = await _findIdempotentTx(db, idemKey, 'DEPOSIT');
-            if (dup) {
-                return res.json({
-                    success: true,
-                    alreadyProcessed: true,
-                    data: { transaction: dup },
-                });
-            }
+        // AUDIT 2026-06-20 #19: nếu client KHÔNG gửi x-idempotency-key thì sinh
+        // server-side (mdep_<uuid>) để reference_id KHÔNG bao giờ NULL → partial
+        // unique index bảo vệ chống double deposit (double-click/retry). Header có
+        // thì vẫn ưu tiên (dedupe theo ý client).
+        const idemKey = _idemKey(req) || `mdep_${require('crypto').randomUUID()}`;
+        const dup = await _findIdempotentTx(db, idemKey, 'DEPOSIT');
+        if (dup) {
+            return res.json({
+                success: true,
+                alreadyProcessed: true,
+                data: { transaction: dup },
+            });
         }
         const result = await web2WalletService.processDeposit(
             db,
