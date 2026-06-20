@@ -16,7 +16,7 @@
 
 const express = require('express');
 // 1D-auth (2026-06-12): route maintenance bulk-mutation gate admin (chuẩn S1).
-const { requireWeb2Admin } = require('../middleware/web2-auth');
+const { requireWeb2Admin, requireWeb2AuthSoft } = require('../middleware/web2-auth');
 const router = express.Router();
 
 // -----------------------------------------------------
@@ -315,7 +315,7 @@ router.get('/:id(\\d+)', async (req, res) => {
     }
 });
 
-router.post('/', async (req, res) => {
+router.post('/', requireWeb2AuthSoft, async (req, res) => {
     const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     try {
@@ -378,7 +378,7 @@ router.post('/', async (req, res) => {
     }
 });
 
-router.patch('/:id', async (req, res) => {
+router.patch('/:id', requireWeb2AuthSoft, async (req, res) => {
     const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     try {
@@ -444,7 +444,7 @@ router.patch('/:id', async (req, res) => {
     }
 });
 
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', requireWeb2AuthSoft, async (req, res) => {
     const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     try {

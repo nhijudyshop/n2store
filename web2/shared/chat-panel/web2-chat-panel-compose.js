@@ -18,7 +18,19 @@
         const { pageIdOf, isOutgoing, nameOf } = ctx;
 
         // ---------- send ----------
+        // In-flight guard: chặn double-send khi double-click / double Enter (IME nhả
+        // 2 keydown, click + Enter trùng nhịp). Khoá ngay khi vào path gửi, nhả khi
+        // gửi xong (onSuccess) hoặc lỗi (rollback). Nút Gửi cũng disable trong lúc gửi.
+        function setSendBusy(busy) {
+            st._sending = !!busy;
+            const btn = $('[data-w2cp-act="send"]');
+            if (btn) {
+                btn.disabled = !!busy;
+                btn.classList.toggle('is-busy', !!busy);
+            }
+        }
         async function doSend() {
+            if (st._sending) return;
             const input = $('[data-w2cp="input"]');
             if (!input || !st.adapter.send) return;
             const text = input.value.trim();
@@ -30,6 +42,7 @@
             const action = conv.type === 'COMMENT' ? 'reply_comment' : 'reply_inbox';
 
             const apply = () => {
+                setSendBusy(true);
                 input.value = '';
                 input.style.height = 'auto';
                 clearAttach();
@@ -49,6 +62,7 @@
                 }
             };
             const onSuccess = (res) => {
+                setSendBusy(false);
                 st.messages = st.messages.filter((m) => m.id !== tempId);
                 // Dedup: realtime setMessages có thể đã push res.sent trước khi onSuccess chạy
                 if (res && res.sent && !st.messages.some((m) => m.id === res.sent.id))
@@ -57,6 +71,7 @@
                 ctx.renderAll();
             };
             const rollback = () => {
+                setSendBusy(false);
                 st.messages = st.messages.filter((m) => m.id !== tempId);
                 ctx.renderAll();
                 if (input && !input.value.trim() && text) {

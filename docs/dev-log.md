@@ -2,6 +2,18 @@
 
 ## 2026-06-20
 
+### [render/worker/shared] FIX audit Web 2.0 — gate auth + SSRF + money + idempotency (21 file, workflow per-file) ✅
+
+User "fix tất cả". Workflow 23-agent (mỗi agent 1 file, đọc report làm spec, `node --check`) → **21 file đổi, 780+ insert**. Tôi verify độc lập: node --check 19 JS OK + 2 worker ESM OK; **bắt + sửa 2 NUL byte agent chèn nhầm** ở `web2-zalo.js:44` (template dedupe key → đổi `\x00`→`|`); xác nhận **KHÔNG GET read nào bị gate** (chỉ writes → giảm rủi ro 401).
+
+- **Auth gating** (14 router): `web2-zalo` (router.use soft + admin disconnect/delete + idempotency 4 send + IDOR /media private), `web2-fb-posts` (admin connect/disconnect/refresh/delete/publish + advisory-lock chống double-publish), `web2-returns`/`purchase-refund`/`web2-supplier-wallet`/`web2-products`/`web2-variants`/`web2-msg-send`/`web2-msg-templates`/`web2-quick-replies`/`web2-jt-tracking`/`web2-ai-script`/`web2-live-comments`/`web2-users` (gate writes; reads mở).
+- **Money**: `web2-returns` server-validate walletCredit (cap giá≤đơn, SL≤đã mua, tổng≤wallet_deducted → không mint tiền) + snapshot per-PBH khi huỷ + dedupe 60s; over-refund server-authoritative (`web2-supplier-wallet`+`purchase-refund` tự tính `ordered`, bỏ tin client).
+- **Race/idempotency**: zalo send guard (cliMsgId), fb publish pg_advisory_lock (409 nếu trùng), products PATCH stock atomic, msg-send counter, jt `/clear` cần confirm/admin, chat-compose double-send guard.
+- **Worker SSRF**: `proxy-handler`+`image-proxy-handler` validate `?url=` (allowlist host exact/subdomain + chặn private/loopback/link-local IPv4+IPv6).
+- **Admin**: bỏ `|| req.query.secret` ở 5 route (chỉ nhận header `x-admin-secret`).
+- **escapeHtml** (`web2-sidebar.js`): escape thêm `"` `'` (an toàn attribute context).
+- ⚠️ **DEFER (cần user)**: (1) đổi mật khẩu TPOS + `wrangler secret` (token-handler Web 1.0, ngoài scope); (2) mã hoá token/session Zalo+FB at-rest (cần key env + schema change); (3) zalo `/media/:id` opaque-token URL (schema) — hiện `<img>` không gửi header được → thumbnail có thể vỡ khi enforce. ⚠️ **RISK**: writes giờ cần `x-web2-token` (trang phải gửi qua Web2Auth.authHeaders); admin-gated routes 403 với non-admin.
+
 ### [docs/web2] Rà soát toàn diện Web 2.0 (read-only audit, multi-agent workflow) → WEB2-FULL-REVIEW-20260620.md ✅
 
 User yêu cầu rà soát toàn bộ Web 2.0 (cloudflare/render/firebase/shared + từng trang: input→handler→hiệu ứng, SSE, console.log, bảo mật, liên kết trang) — KHÔNG gửi gì tới FB/Pancake/Zalo. Chạy workflow ~57 agent audit + verify từng lỗi (adversarial) + null-safe synthesis.

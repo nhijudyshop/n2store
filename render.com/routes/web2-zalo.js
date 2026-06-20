@@ -18,12 +18,58 @@ const crypto = require('crypto');
 const router = express.Router();
 
 const { ensureWeb2ZaloSchema } = require('../db/web2-zalo-schema');
+const { requireWeb2AuthSoft, requireWeb2Admin } = require('../middleware/web2-auth');
 const zca = require('../services/web2-zalo-zca');
 const oa = require('../services/web2-zalo-oa');
+
+// ── Auth gate (BẮT BUỘC) ────────────────────────────────────────────────
+// Toàn bộ router Zalo (đọc PII + gửi tin tới KH thật + media) PHẢI qua gate mềm.
+// Khi WEB2_AUTH_ENFORCE=1 (đang BẬT) → thiếu/sai x-web2-token = 401, chặn truy
+// cập ẩn danh từ Internet (worker proxy pass-through không tự gắn token).
+// Route huỷ/quản-lý tài khoản + admin reset thêm requireWeb2Admin (role='admin').
+router.use(requireWeb2AuthSoft);
 
 let _pool = null;
 const getDb = (req) => req.app.locals.web2Db || req.app.locals.chatDb;
 const now = () => Date.now();
+
+// ── Idempotency gửi tin (chống double-submit / retry / 2 tab) ───────────
+// Khoá theo (accountKey, threadId, cliMsgId) — client gửi cliMsgId ổn định cho
+// mỗi lần soạn; nếu trùng (double-click, network retry) → trả lại kết quả cũ,
+// KHÔNG gọi zca.send lần 2 (KH không nhận tin trùng). In-process Map + TTL.
+const _sendInflight = new Map(); // key → Promise (đang gửi)
+const _sendDone = new Map(); // key → { at, result } (đã gửi xong, giữ TTL ngắn)
+const SEND_DEDUPE_TTL_MS = 60 * 1000;
+function _sendKey(accountKey, threadId, cliMsgId) {
+    return `${accountKey || ''}|${threadId || ''}|${cliMsgId || ''}`;
+}
+function _sweepSendDedupe() {
+    const cutoff = now() - SEND_DEDUPE_TTL_MS;
+    for (const [k, v] of _sendDone) {
+        if (!v || v.at < cutoff) _sendDone.delete(k);
+    }
+}
+// Bọc 1 lần gửi qua guard idempotent. handler() phải trả về object kết quả gửi.
+// Trả { duplicate:true, result } nếu trùng key đang/đã gửi trong TTL.
+async function _withSendGuard(accountKey, threadId, cliMsgId, handler) {
+    // Không có cliMsgId → không thể dedupe an toàn, gửi bình thường.
+    if (!cliMsgId) return { duplicate: false, result: await handler() };
+    const key = _sendKey(accountKey, threadId, cliMsgId);
+    _sweepSendDedupe();
+    const done = _sendDone.get(key);
+    if (done) return { duplicate: true, result: done.result };
+    const inflight = _sendInflight.get(key);
+    if (inflight) return { duplicate: true, result: await inflight };
+    const p = (async () => handler())();
+    _sendInflight.set(key, p);
+    try {
+        const result = await p;
+        _sendDone.set(key, { at: now(), result });
+        return { duplicate: false, result };
+    } finally {
+        _sendInflight.delete(key);
+    }
+}
 
 // ── SSE notifier plumbing ───────────────────────────────────────────────
 let _notifyClients = null;
@@ -601,7 +647,7 @@ router.post('/accounts/:key/login-cookie', async (req, res) => {
     }
 });
 
-router.post('/accounts/:key/disconnect', async (req, res) => {
+router.post('/accounts/:key/disconnect', requireWeb2Admin, async (req, res) => {
     try {
         zca.disconnect(req.params.key);
         await getDb(req).query(
@@ -642,7 +688,7 @@ router.post('/accounts/:key/primary', async (req, res) => {
     }
 });
 
-router.delete('/accounts/:key', async (req, res) => {
+router.delete('/accounts/:key', requireWeb2Admin, async (req, res) => {
     try {
         zca.disconnect(req.params.key);
         await getDb(req).query(`DELETE FROM web2_zalo_accounts WHERE account_key=$1`, [
@@ -1343,38 +1389,49 @@ function _outPreview(p) {
 router.post('/send-message', async (req, res) => {
     try {
         const db = getDb(req);
-        const { accountKey, threadId, text, threadType, replyTo, mentions } = req.body || {};
+        const { accountKey, threadId, text, threadType, replyTo, mentions, cliMsgId } =
+            req.body || {};
         if (!accountKey || !threadId || !text)
             return res
                 .status(400)
                 .json({ success: false, error: 'Thiếu accountKey/threadId/text' });
         // reply: client gửi quote thô (raw tin gốc) → pass thẳng cho zca.
         // mentions: [{uid,pos,len}] @tag thành viên nhóm (chỉ áp dụng nhóm).
-        const r = await zca.send(
+        // cliMsgId: khoá idempotent — double-submit cùng key KHÔNG gửi lại.
+        const { duplicate, result } = await _withSendGuard(
             accountKey,
             threadId,
-            text,
-            threadType,
-            replyTo?.quote || null,
-            Array.isArray(mentions) ? mentions : null
+            cliMsgId,
+            async () => {
+                const r = await zca.send(
+                    accountKey,
+                    threadId,
+                    text,
+                    threadType,
+                    replyTo?.quote || null,
+                    Array.isArray(mentions) ? mentions : null
+                );
+                const saved = await _persistOut(db, {
+                    accountKey,
+                    threadId,
+                    threadType,
+                    msgType: 'text',
+                    content: String(text),
+                    msgId: r.msgId,
+                    cliMsgId: r.cliMsgId,
+                    replyToMsgId: replyTo?.msgId || null,
+                    replyToPreview: replyTo?.preview || null,
+                });
+                return { r, saved };
+            }
         );
-        const saved = await _persistOut(db, {
-            accountKey,
-            threadId,
-            threadType,
-            msgType: 'text',
-            content: String(text),
-            msgId: r.msgId,
-            cliMsgId: r.cliMsgId,
-            replyToMsgId: replyTo?.msgId || null,
-            replyToPreview: replyTo?.preview || null,
-        });
         res.json({
             success: true,
-            msgId: r.msgId,
-            cliMsgId: r.cliMsgId,
-            id: saved.id,
-            sentAt: saved.sentAt,
+            duplicate,
+            msgId: result.r.msgId,
+            cliMsgId: result.r.cliMsgId,
+            id: result.saved.id,
+            sentAt: result.saved.sentAt,
         });
     } catch (e) {
         res.status(400).json({ success: false, error: e.message });
@@ -1385,60 +1442,72 @@ router.post('/send-message', async (req, res) => {
 router.post('/send-image', async (req, res) => {
     try {
         const db = getDb(req);
-        const { accountKey, threadId, threadType, caption, files } = req.body || {};
+        const { accountKey, threadId, threadType, caption, files, cliMsgId } = req.body || {};
         if (!accountKey || !threadId || !Array.isArray(files) || !files.length)
             return res
                 .status(400)
                 .json({ success: false, error: 'Thiếu accountKey/threadId/files' });
-        const sources = [];
-        const attachments = [];
-        for (const f of files.slice(0, 12)) {
-            const buf = _b64ToBuffer(f.base64);
-            if (!buf) continue;
-            const mediaUrl = await _storeMedia(
-                db,
-                accountKey,
-                buf,
-                f.mime || 'image/jpeg',
-                f.filename,
-                f.width,
-                f.height
-            );
-            sources.push({
-                data: buf,
-                filename: _safeFilename(f.filename, 'photo.jpg'),
-                metadata: {
-                    totalSize: buf.length,
-                    width: f.width || undefined,
-                    height: f.height || undefined,
-                },
-            });
-            attachments.push({
-                type: 'image',
-                url: mediaUrl,
-                thumb: mediaUrl,
-                title: f.filename || '',
-            });
-        }
-        if (!sources.length)
-            return res.status(400).json({ success: false, error: 'File ảnh không hợp lệ' });
-        const r = await zca.sendMedia(accountKey, threadId, sources, caption, threadType);
-        const saved = await _persistOut(db, {
+        const { duplicate, result } = await _withSendGuard(
             accountKey,
             threadId,
-            threadType,
-            msgType: 'image',
-            content: caption || '',
-            attachments,
-            msgId: r.msgId,
-            cliMsgId: r.cliMsgId,
-        });
+            cliMsgId,
+            async () => {
+                const sources = [];
+                const attachments = [];
+                for (const f of files.slice(0, 12)) {
+                    const buf = _b64ToBuffer(f.base64);
+                    if (!buf) continue;
+                    const mediaUrl = await _storeMedia(
+                        db,
+                        accountKey,
+                        buf,
+                        f.mime || 'image/jpeg',
+                        f.filename,
+                        f.width,
+                        f.height
+                    );
+                    sources.push({
+                        data: buf,
+                        filename: _safeFilename(f.filename, 'photo.jpg'),
+                        metadata: {
+                            totalSize: buf.length,
+                            width: f.width || undefined,
+                            height: f.height || undefined,
+                        },
+                    });
+                    attachments.push({
+                        type: 'image',
+                        url: mediaUrl,
+                        thumb: mediaUrl,
+                        title: f.filename || '',
+                    });
+                }
+                if (!sources.length) {
+                    const err = new Error('File ảnh không hợp lệ');
+                    err.httpStatus = 400;
+                    throw err;
+                }
+                const r = await zca.sendMedia(accountKey, threadId, sources, caption, threadType);
+                const saved = await _persistOut(db, {
+                    accountKey,
+                    threadId,
+                    threadType,
+                    msgType: 'image',
+                    content: caption || '',
+                    attachments,
+                    msgId: r.msgId,
+                    cliMsgId: r.cliMsgId,
+                });
+                return { r, saved, attachments };
+            }
+        );
         res.json({
             success: true,
-            msgId: r.msgId,
-            attachments,
-            id: saved.id,
-            sentAt: saved.sentAt,
+            duplicate,
+            msgId: result.r.msgId,
+            attachments: result.attachments,
+            id: result.saved.id,
+            sentAt: result.saved.sentAt,
         });
     } catch (e) {
         res.status(400).json({ success: false, error: e.message });
@@ -1449,51 +1518,64 @@ router.post('/send-image', async (req, res) => {
 router.post('/send-file', async (req, res) => {
     try {
         const db = getDb(req);
-        const { accountKey, threadId, threadType, caption, file } = req.body || {};
+        const { accountKey, threadId, threadType, caption, file, cliMsgId } = req.body || {};
         if (!accountKey || !threadId || !file?.base64)
             return res.status(400).json({ success: false, error: 'Thiếu file' });
-        const buf = _b64ToBuffer(file.base64);
-        if (!buf) return res.status(400).json({ success: false, error: 'File không hợp lệ' });
-        const mediaUrl = await _storeMedia(
-            db,
-            accountKey,
-            buf,
-            file.mime || 'application/octet-stream',
-            file.filename
-        );
-        const sources = [
-            {
-                data: buf,
-                filename: _safeFilename(file.filename, 'file.bin'),
-                metadata: { totalSize: buf.length },
-            },
-        ];
-        const r = await zca.sendMedia(accountKey, threadId, sources, caption, threadType);
-        const attachments = [
-            {
-                type: 'file',
-                url: mediaUrl,
-                href: mediaUrl,
-                title: file.filename || 'Tệp đính kèm',
-                size: buf.length,
-            },
-        ];
-        const saved = await _persistOut(db, {
+        const { duplicate, result } = await _withSendGuard(
             accountKey,
             threadId,
-            threadType,
-            msgType: 'file',
-            content: caption || '',
-            attachments,
-            msgId: r.msgId,
-            cliMsgId: r.cliMsgId,
-        });
+            cliMsgId,
+            async () => {
+                const buf = _b64ToBuffer(file.base64);
+                if (!buf) {
+                    const err = new Error('File không hợp lệ');
+                    err.httpStatus = 400;
+                    throw err;
+                }
+                const mediaUrl = await _storeMedia(
+                    db,
+                    accountKey,
+                    buf,
+                    file.mime || 'application/octet-stream',
+                    file.filename
+                );
+                const sources = [
+                    {
+                        data: buf,
+                        filename: _safeFilename(file.filename, 'file.bin'),
+                        metadata: { totalSize: buf.length },
+                    },
+                ];
+                const r = await zca.sendMedia(accountKey, threadId, sources, caption, threadType);
+                const attachments = [
+                    {
+                        type: 'file',
+                        url: mediaUrl,
+                        href: mediaUrl,
+                        title: file.filename || 'Tệp đính kèm',
+                        size: buf.length,
+                    },
+                ];
+                const saved = await _persistOut(db, {
+                    accountKey,
+                    threadId,
+                    threadType,
+                    msgType: 'file',
+                    content: caption || '',
+                    attachments,
+                    msgId: r.msgId,
+                    cliMsgId: r.cliMsgId,
+                });
+                return { r, saved, attachments };
+            }
+        );
         res.json({
             success: true,
-            msgId: r.msgId,
-            attachments,
-            id: saved.id,
-            sentAt: saved.sentAt,
+            duplicate,
+            msgId: result.r.msgId,
+            attachments: result.attachments,
+            id: result.saved.id,
+            sentAt: result.saved.sentAt,
         });
     } catch (e) {
         res.status(400).json({ success: false, error: e.message });
@@ -1504,23 +1586,38 @@ router.post('/send-file', async (req, res) => {
 router.post('/send-sticker', async (req, res) => {
     try {
         const db = getDb(req);
-        const { accountKey, threadId, threadType, sticker } = req.body || {};
+        const { accountKey, threadId, threadType, sticker, cliMsgId } = req.body || {};
         if (!accountKey || !threadId || !sticker?.id)
             return res.status(400).json({ success: false, error: 'Thiếu sticker' });
-        const r = await zca.sendSticker(accountKey, threadId, sticker, threadType);
-        const attachments = sticker.url
-            ? [{ type: 'sticker', url: sticker.url, thumb: sticker.url }]
-            : [];
-        const saved = await _persistOut(db, {
+        const { duplicate, result } = await _withSendGuard(
             accountKey,
             threadId,
-            threadType,
-            msgType: 'sticker',
-            content: '',
-            attachments,
-            msgId: r.msgId,
+            cliMsgId,
+            async () => {
+                const r = await zca.sendSticker(accountKey, threadId, sticker, threadType);
+                const attachments = sticker.url
+                    ? [{ type: 'sticker', url: sticker.url, thumb: sticker.url }]
+                    : [];
+                const saved = await _persistOut(db, {
+                    accountKey,
+                    threadId,
+                    threadType,
+                    msgType: 'sticker',
+                    content: '',
+                    attachments,
+                    msgId: r.msgId,
+                    cliMsgId,
+                });
+                return { r, saved };
+            }
+        );
+        res.json({
+            success: true,
+            duplicate,
+            msgId: result.r.msgId,
+            id: result.saved.id,
+            sentAt: result.saved.sentAt,
         });
-        res.json({ success: true, msgId: r.msgId, id: saved.id, sentAt: saved.sentAt });
     } catch (e) {
         res.status(400).json({ success: false, error: e.message });
     }
@@ -1654,13 +1751,23 @@ router.get('/quick-replies', async (req, res) => {
 router.get('/media/:id', async (req, res) => {
     try {
         const db = getDb(req);
-        const { rows } = await db.query(
-            `SELECT mime, filename, data FROM web2_zalo_media WHERE id=$1`,
-            [req.params.id]
-        );
+        // IDOR hardening: id là BIGSERIAL tuần tự (1,2,3…) → có thể enumerate.
+        // (a) Route nằm sau router.use(requireWeb2AuthSoft) → WEB2_AUTH_ENFORCE=1
+        //     chặn truy cập ẩn danh từ Internet.
+        // (b) Scope thêm theo account_key khi client truyền → không trả media của
+        //     account khác kể cả khi đoán đúng id. Cache PRIVATE (token-gated,
+        //     không cho proxy/CDN chia sẻ giữa các phiên).
+        const acctScope = (req.query.accountKey || req.query.account_key || '').toString().trim();
+        const params = [req.params.id];
+        let sql = `SELECT mime, filename, data, account_key FROM web2_zalo_media WHERE id=$1`;
+        if (acctScope) {
+            params.push(acctScope);
+            sql += ` AND account_key=$2`;
+        }
+        const { rows } = await db.query(sql, params);
         if (!rows[0]) return res.status(404).send('Not found');
         res.setHeader('Content-Type', rows[0].mime || 'application/octet-stream');
-        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+        res.setHeader('Cache-Control', 'private, max-age=31536000, immutable');
         res.send(rows[0].data);
     } catch (e) {
         res.status(500).send('error');
@@ -1871,7 +1978,7 @@ router.delete('/tracked-groups/:accountKey/:threadId', async (req, res) => {
 //    Header x-admin-secret = CLEANUP_SECRET. Body:
 //      { pattern?:'XỬ LÝ NJD', groups?:[{accountKey,threadId,name}], confirm:'YES-RESET', dryRun? }
 //    Giữ NGUYÊN: tài khoản (đăng nhập), bảng ZNS. Xoá: messages/conversations/media/members.
-router.post('/admin/reset-to-tracked', async (req, res) => {
+router.post('/admin/reset-to-tracked', requireWeb2Admin, async (req, res) => {
     const secret = process.env.CLEANUP_SECRET || '';
     const provided = req.headers['x-admin-secret'] || req.query.secret || '';
     if (!secret || provided !== secret)

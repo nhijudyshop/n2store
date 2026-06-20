@@ -17,7 +17,12 @@
 
 const express = require('express');
 const router = express.Router();
-const { requireWeb2Auth, requireWeb2Admin, hashWeb2Token } = require('../middleware/web2-auth');
+const {
+    requireWeb2Auth,
+    requireWeb2Admin,
+    hashWeb2Token,
+    resolveWeb2User,
+} = require('../middleware/web2-auth');
 
 // -----------------------------------------------------
 // SSE notifier — broadcast topic 'web2:users' sau mỗi DB mutation
@@ -335,6 +340,57 @@ function effectivePermissions(role, customPerms) {
     return out;
 }
 
+// ── Server-side granular permission enforcement ─────────────────────
+// Audit (WEB2-FULL-REVIEW-20260620 #8/#24): effectivePermissions was computed
+// + returned to client but NEVER enforced server-side → broken access control
+// (OWASP A01). This middleware factory closes that gap by deriving the caller's
+// effective permissions from req.web2User (role + permissions JSONB, SAME logic
+// as mapRow → zero drift) and 403-ing when the action is absent.
+//
+// Exported (module.exports below) so middleware/web2-auth.js and OTHER web2
+// routers can reuse it WITHOUT duplicating the role-defaults logic. Apply AFTER
+// requireWeb2Auth / requireWeb2Admin so req.web2User is populated; if it is not
+// (e.g. used standalone), it resolves the token itself.
+//
+// admin always passes (defensive — ROLE_DEFAULTS.admin already grants all).
+function userCan(user, slug, action) {
+    if (!user) return false;
+    if (user.role === 'admin') return true;
+    const perms = effectivePermissions(user.role, user.permissions || null);
+    const actions = perms[slug];
+    return Array.isArray(actions) && actions.includes(action);
+}
+
+function requireWeb2Permission(slug, action) {
+    return (req, res, next) => {
+        const proceed = (user) => {
+            if (!user) {
+                return res.status(401).json({
+                    success: false,
+                    error: 'Cần đăng nhập Web 2.0 (thiếu/sai token)',
+                });
+            }
+            req.web2User = user;
+            if (!userCan(user, slug, action)) {
+                return res.status(403).json({
+                    success: false,
+                    error: `Không có quyền "${action}" trên trang "${slug}"`,
+                });
+            }
+            next();
+        };
+        // Reuse req.web2User if an upstream gate (requireWeb2Auth/Admin) already
+        // resolved it; otherwise resolve from the token ourselves.
+        if (req.web2User) return proceed(req.web2User);
+        resolveWeb2User(req)
+            .then(proceed)
+            .catch((e) => {
+                console.error('[WEB2-USERS] requireWeb2Permission error:', e.message);
+                res.status(500).json({ success: false, error: 'Lỗi xác thực' });
+            });
+    };
+}
+
 // ── Schema bootstrap ────────────────────────────────────────────────
 let tablesReady = false;
 async function ensureTables(pool) {
@@ -510,7 +566,7 @@ router.get('/:id(\\d+)', requireWeb2Auth, async (req, res) => {
 });
 
 // ── Create ─────────────────────────────────────────────────────────
-router.post('/', requireWeb2Admin, async (req, res) => {
+router.post('/', requireWeb2Admin, requireWeb2Permission('users', 'create'), async (req, res) => {
     const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     try {
@@ -555,183 +611,205 @@ router.post('/', requireWeb2Admin, async (req, res) => {
 });
 
 // ── Update (không cho đổi password qua endpoint này) ───────────────
-router.patch('/:id(\\d+)', requireWeb2Admin, async (req, res) => {
-    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
-    if (!pool) return res.status(500).json({ error: 'DB unavailable' });
-    try {
-        await ensureTables(pool);
-        const id = Number(req.params.id);
-        const b = req.body || {};
-        const sets = [];
-        const vals = [];
-        let i = 1;
-        if (typeof b.displayName === 'string' && b.displayName.trim()) {
-            sets.push(`display_name = $${i++}`);
-            vals.push(b.displayName.trim());
-        }
-        if (typeof b.email === 'string') {
-            sets.push(`email = $${i++}`);
-            vals.push(b.email.trim() || null);
-        }
-        if (typeof b.phone === 'string') {
-            sets.push(`phone = $${i++}`);
-            vals.push(b.phone.trim() || null);
-        }
-        if (typeof b.role === 'string') {
-            sets.push(`role = $${i++}`);
-            vals.push(validateRole(b.role));
-        }
-        if (typeof b.isActive === 'boolean') {
-            sets.push(`is_active = $${i++}`);
-            vals.push(b.isActive);
-        }
-        if (typeof b.note === 'string') {
-            sets.push(`note = $${i++}`);
-            vals.push(b.note);
-        }
-        if (!sets.length) return res.status(400).json({ error: 'Không có gì để update' });
-        // Guard "admin cuối cùng" (như DELETE): không cho set isActive=false hoặc
-        // đổi role khỏi 'admin' nếu target là admin active CUỐI CÙNG.
-        // 1D TOCTOU fix: gộp check + UPDATE thành 1 câu atomic (trước đây COUNT
-        // rời rồi UPDATE → 2 request demote song song có thể về 0 admin).
-        const demoting =
-            (typeof b.isActive === 'boolean' && b.isActive === false) ||
-            (typeof b.role === 'string' && b.role !== 'admin');
-        sets.push(`updated_at = $${i++}`);
-        vals.push(Date.now());
-        vals.push(id);
-        // Chỉ chặn khi target đang là admin active VÀ không còn admin active khác.
-        const lastAdminGuard = demoting
-            ? ` AND (NOT (role = 'admin' AND is_active = TRUE)
-                 OR EXISTS (SELECT 1 FROM web2_users WHERE role = 'admin' AND is_active = TRUE AND id <> $${i}))`
-            : '';
-        const sql = `UPDATE web2_users SET ${sets.join(', ')} WHERE id = $${i}${lastAdminGuard} RETURNING *`;
-        const r = await pool.query(sql, vals);
-        if (!r.rows.length) {
-            if (demoting) {
-                // rowCount=0: phân biệt "không tồn tại" vs "bị guard admin-cuối chặn".
-                const ex = await pool.query('SELECT 1 FROM web2_users WHERE id = $1', [id]);
-                if (ex.rows.length) {
-                    return res
-                        .status(400)
-                        .json({ error: 'Không thể vô hiệu/hạ quyền admin cuối cùng' });
-                }
+router.patch(
+    '/:id(\\d+)',
+    requireWeb2Admin,
+    requireWeb2Permission('users', 'edit'),
+    async (req, res) => {
+        const pool = req.app.locals.web2Db || req.app.locals.chatDb;
+        if (!pool) return res.status(500).json({ error: 'DB unavailable' });
+        try {
+            await ensureTables(pool);
+            const id = Number(req.params.id);
+            const b = req.body || {};
+            const sets = [];
+            const vals = [];
+            let i = 1;
+            if (typeof b.displayName === 'string' && b.displayName.trim()) {
+                sets.push(`display_name = $${i++}`);
+                vals.push(b.displayName.trim());
             }
-            return res.status(404).json({ error: 'Không tìm thấy' });
+            if (typeof b.email === 'string') {
+                sets.push(`email = $${i++}`);
+                vals.push(b.email.trim() || null);
+            }
+            if (typeof b.phone === 'string') {
+                sets.push(`phone = $${i++}`);
+                vals.push(b.phone.trim() || null);
+            }
+            if (typeof b.role === 'string') {
+                sets.push(`role = $${i++}`);
+                vals.push(validateRole(b.role));
+            }
+            if (typeof b.isActive === 'boolean') {
+                sets.push(`is_active = $${i++}`);
+                vals.push(b.isActive);
+            }
+            if (typeof b.note === 'string') {
+                sets.push(`note = $${i++}`);
+                vals.push(b.note);
+            }
+            if (!sets.length) return res.status(400).json({ error: 'Không có gì để update' });
+            // Guard "admin cuối cùng" (như DELETE): không cho set isActive=false hoặc
+            // đổi role khỏi 'admin' nếu target là admin active CUỐI CÙNG.
+            // 1D TOCTOU fix: gộp check + UPDATE thành 1 câu atomic (trước đây COUNT
+            // rời rồi UPDATE → 2 request demote song song có thể về 0 admin).
+            const demoting =
+                (typeof b.isActive === 'boolean' && b.isActive === false) ||
+                (typeof b.role === 'string' && b.role !== 'admin');
+            sets.push(`updated_at = $${i++}`);
+            vals.push(Date.now());
+            vals.push(id);
+            // Chỉ chặn khi target đang là admin active VÀ không còn admin active khác.
+            const lastAdminGuard = demoting
+                ? ` AND (NOT (role = 'admin' AND is_active = TRUE)
+                 OR EXISTS (SELECT 1 FROM web2_users WHERE role = 'admin' AND is_active = TRUE AND id <> $${i}))`
+                : '';
+            const sql = `UPDATE web2_users SET ${sets.join(', ')} WHERE id = $${i}${lastAdminGuard} RETURNING *`;
+            const r = await pool.query(sql, vals);
+            if (!r.rows.length) {
+                if (demoting) {
+                    // rowCount=0: phân biệt "không tồn tại" vs "bị guard admin-cuối chặn".
+                    const ex = await pool.query('SELECT 1 FROM web2_users WHERE id = $1', [id]);
+                    if (ex.rows.length) {
+                        return res
+                            .status(400)
+                            .json({ error: 'Không thể vô hiệu/hạ quyền admin cuối cùng' });
+                    }
+                }
+                return res.status(404).json({ error: 'Không tìm thấy' });
+            }
+            _notify('update', r.rows[0].id);
+            res.json({ success: true, user: mapRow(r.rows[0]) });
+        } catch (e) {
+            console.error('[WEB2-USERS] update error:', e.message);
+            res.status(e.status || 500).json({ error: e.message });
         }
-        _notify('update', r.rows[0].id);
-        res.json({ success: true, user: mapRow(r.rows[0]) });
-    } catch (e) {
-        console.error('[WEB2-USERS] update error:', e.message);
-        res.status(e.status || 500).json({ error: e.message });
     }
-});
+);
 
 // ── Update permissions (admin only) ────────────────────────────────
 // body: { permissions: { [slug]: [actions] } | null }
 //   null → revert to role defaults
-router.put('/:id(\\d+)/permissions', requireWeb2Admin, async (req, res) => {
-    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
-    if (!pool) return res.status(500).json({ error: 'DB unavailable' });
-    try {
-        await ensureTables(pool);
-        const id = Number(req.params.id);
-        const perms = (req.body || {}).permissions;
-        // Validate: keys must be known slugs; values must be arrays of known actions.
-        if (perms !== null) {
-            if (typeof perms !== 'object')
-                throw Object.assign(new Error('permissions phải object'), { status: 400 });
-            const knownSlugs = new Set(WEB2_PAGES.map((p) => p.slug));
-            const slugActions = new Map(WEB2_PAGES.map((p) => [p.slug, new Set(p.actions)]));
-            for (const slug of Object.keys(perms)) {
-                if (!knownSlugs.has(slug))
-                    throw Object.assign(new Error(`Page "${slug}" không tồn tại`), { status: 400 });
-                if (!Array.isArray(perms[slug]))
-                    throw Object.assign(new Error(`permissions.${slug} phải là array`), {
-                        status: 400,
-                    });
-                const allowed = slugActions.get(slug);
-                for (const a of perms[slug]) {
-                    if (!allowed.has(a))
-                        throw Object.assign(
-                            new Error(`Action "${a}" không hợp lệ cho page "${slug}"`),
-                            { status: 400 }
-                        );
+router.put(
+    '/:id(\\d+)/permissions',
+    requireWeb2Admin,
+    requireWeb2Permission('users', 'changePermissions'),
+    async (req, res) => {
+        const pool = req.app.locals.web2Db || req.app.locals.chatDb;
+        if (!pool) return res.status(500).json({ error: 'DB unavailable' });
+        try {
+            await ensureTables(pool);
+            const id = Number(req.params.id);
+            const perms = (req.body || {}).permissions;
+            // Validate: keys must be known slugs; values must be arrays of known actions.
+            if (perms !== null) {
+                if (typeof perms !== 'object')
+                    throw Object.assign(new Error('permissions phải object'), { status: 400 });
+                const knownSlugs = new Set(WEB2_PAGES.map((p) => p.slug));
+                const slugActions = new Map(WEB2_PAGES.map((p) => [p.slug, new Set(p.actions)]));
+                for (const slug of Object.keys(perms)) {
+                    if (!knownSlugs.has(slug))
+                        throw Object.assign(new Error(`Page "${slug}" không tồn tại`), {
+                            status: 400,
+                        });
+                    if (!Array.isArray(perms[slug]))
+                        throw Object.assign(new Error(`permissions.${slug} phải là array`), {
+                            status: 400,
+                        });
+                    const allowed = slugActions.get(slug);
+                    for (const a of perms[slug]) {
+                        if (!allowed.has(a))
+                            throw Object.assign(
+                                new Error(`Action "${a}" không hợp lệ cho page "${slug}"`),
+                                { status: 400 }
+                            );
+                    }
                 }
             }
+            const r = await pool.query(
+                `UPDATE web2_users SET permissions = $1, updated_at = $2 WHERE id = $3 RETURNING *`,
+                [perms === null ? null : JSON.stringify(perms), Date.now(), id]
+            );
+            if (!r.rows.length) return res.status(404).json({ error: 'Không tìm thấy' });
+            _notify('update-permissions', r.rows[0].id);
+            res.json({ success: true, user: mapRow(r.rows[0]) });
+        } catch (e) {
+            console.error('[WEB2-USERS] update permissions error:', e.message);
+            res.status(e.status || 500).json({ error: e.message });
         }
-        const r = await pool.query(
-            `UPDATE web2_users SET permissions = $1, updated_at = $2 WHERE id = $3 RETURNING *`,
-            [perms === null ? null : JSON.stringify(perms), Date.now(), id]
-        );
-        if (!r.rows.length) return res.status(404).json({ error: 'Không tìm thấy' });
-        _notify('update-permissions', r.rows[0].id);
-        res.json({ success: true, user: mapRow(r.rows[0]) });
-    } catch (e) {
-        console.error('[WEB2-USERS] update permissions error:', e.message);
-        res.status(e.status || 500).json({ error: e.message });
     }
-});
+);
 
 // ── Change password ────────────────────────────────────────────────
-router.post('/:id(\\d+)/password', requireWeb2Admin, async (req, res) => {
-    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
-    if (!pool) return res.status(500).json({ error: 'DB unavailable' });
-    try {
-        await ensureTables(pool);
-        const id = Number(req.params.id);
-        const password = validatePassword((req.body || {}).password);
-        const hash = await bcrypt.hash(password, 10);
-        const r = await pool.query(
-            `UPDATE web2_users SET password_hash = $1, updated_at = $2 WHERE id = $3 RETURNING id`,
-            [hash, Date.now(), id]
-        );
-        if (!r.rows.length) return res.status(404).json({ error: 'Không tìm thấy' });
-        // Invalidate all sessions for this user
-        await pool.query('DELETE FROM web2_user_sessions WHERE user_id = $1', [id]);
-        _notify('change-password', id);
-        res.json({ success: true });
-    } catch (e) {
-        console.error('[WEB2-USERS] change-password error:', e.message);
-        res.status(e.status || 500).json({ error: e.message });
+router.post(
+    '/:id(\\d+)/password',
+    requireWeb2Admin,
+    requireWeb2Permission('users', 'changePassword'),
+    async (req, res) => {
+        const pool = req.app.locals.web2Db || req.app.locals.chatDb;
+        if (!pool) return res.status(500).json({ error: 'DB unavailable' });
+        try {
+            await ensureTables(pool);
+            const id = Number(req.params.id);
+            const password = validatePassword((req.body || {}).password);
+            const hash = await bcrypt.hash(password, 10);
+            const r = await pool.query(
+                `UPDATE web2_users SET password_hash = $1, updated_at = $2 WHERE id = $3 RETURNING id`,
+                [hash, Date.now(), id]
+            );
+            if (!r.rows.length) return res.status(404).json({ error: 'Không tìm thấy' });
+            // Invalidate all sessions for this user
+            await pool.query('DELETE FROM web2_user_sessions WHERE user_id = $1', [id]);
+            _notify('change-password', id);
+            res.json({ success: true });
+        } catch (e) {
+            console.error('[WEB2-USERS] change-password error:', e.message);
+            res.status(e.status || 500).json({ error: e.message });
+        }
     }
-});
+);
 
 // ── Soft delete (deactivate) ───────────────────────────────────────
-router.delete('/:id(\\d+)', requireWeb2Admin, async (req, res) => {
-    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
-    if (!pool) return res.status(500).json({ error: 'DB unavailable' });
-    try {
-        await ensureTables(pool);
-        const id = Number(req.params.id);
-        // Don't allow deactivating the only active admin.
-        // 1D TOCTOU fix: gộp check + UPDATE 1 câu atomic (như PATCH) — giữ semantics
-        // cũ: chặn khi target role='admin' (kể cả đang inactive) và không còn admin
-        // active khác.
-        const r = await pool.query(
-            `UPDATE web2_users SET is_active = FALSE, updated_at = $1
+router.delete(
+    '/:id(\\d+)',
+    requireWeb2Admin,
+    requireWeb2Permission('users', 'delete'),
+    async (req, res) => {
+        const pool = req.app.locals.web2Db || req.app.locals.chatDb;
+        if (!pool) return res.status(500).json({ error: 'DB unavailable' });
+        try {
+            await ensureTables(pool);
+            const id = Number(req.params.id);
+            // Don't allow deactivating the only active admin.
+            // 1D TOCTOU fix: gộp check + UPDATE 1 câu atomic (như PATCH) — giữ semantics
+            // cũ: chặn khi target role='admin' (kể cả đang inactive) và không còn admin
+            // active khác.
+            const r = await pool.query(
+                `UPDATE web2_users SET is_active = FALSE, updated_at = $1
              WHERE id = $2
                AND (role IS DISTINCT FROM 'admin'
                     OR EXISTS (SELECT 1 FROM web2_users WHERE role = 'admin' AND is_active = TRUE AND id <> $2))
              RETURNING id`,
-            [Date.now(), id]
-        );
-        if (!r.rows.length) {
-            // rowCount=0: phân biệt "không tồn tại" vs "bị guard admin-cuối chặn".
-            const ex = await pool.query('SELECT 1 FROM web2_users WHERE id = $1', [id]);
-            if (ex.rows.length) {
-                return res.status(400).json({ error: 'Không thể vô hiệu admin cuối cùng' });
+                [Date.now(), id]
+            );
+            if (!r.rows.length) {
+                // rowCount=0: phân biệt "không tồn tại" vs "bị guard admin-cuối chặn".
+                const ex = await pool.query('SELECT 1 FROM web2_users WHERE id = $1', [id]);
+                if (ex.rows.length) {
+                    return res.status(400).json({ error: 'Không thể vô hiệu admin cuối cùng' });
+                }
+                return res.status(404).json({ error: 'Không tìm thấy' });
             }
-            return res.status(404).json({ error: 'Không tìm thấy' });
+            await pool.query('DELETE FROM web2_user_sessions WHERE user_id = $1', [id]);
+            _notify('deactivate', id);
+            res.json({ success: true });
+        } catch (e) {
+            console.error('[WEB2-USERS] delete error:', e.message);
+            res.status(e.status || 500).json({ error: e.message });
         }
-        await pool.query('DELETE FROM web2_user_sessions WHERE user_id = $1', [id]);
-        _notify('deactivate', id);
-        res.json({ success: true });
-    } catch (e) {
-        console.error('[WEB2-USERS] delete error:', e.message);
-        res.status(e.status || 500).json({ error: e.message });
     }
-});
+);
 
 // ── Login: verify password → issue token ───────────────────────────
 router.post('/login', async (req, res) => {
@@ -849,4 +927,14 @@ router.post('/logout', async (req, res) => {
 });
 
 router.initializeNotifiers = initializeNotifiers;
+// Export permission helpers so middleware/web2-auth.js and OTHER web2 routers
+// can enforce the SAME granular model server-side without duplicating the
+// role-defaults logic (audit WEB2-FULL-REVIEW-20260620 #8/#24 — avoid drift).
+// To enforce on a route in another router:
+//   const { requireWeb2Permission } = require('./web2-users');
+//   router.post('/x', requireWeb2AuthSoft, requireWeb2Permission('<slug>', '<action>'), handler)
+router.effectivePermissions = effectivePermissions;
+router.userCan = userCan;
+router.requireWeb2Permission = requireWeb2Permission;
+router.WEB2_PAGES = WEB2_PAGES;
 module.exports = router;

@@ -12,6 +12,33 @@
 const express = require('express');
 const router = express.Router();
 
+// Auth + rate-limit: gate WRITE /generate để người lạ không hammer drain quota
+// Gemini (key trả phí). Enforce 401 khi WEB2_AUTH_ENFORCE=1.
+const { requireWeb2AuthSoft } = require('../middleware/web2-auth');
+const _aiScriptHits = new Map(); // ip → [timestamps]
+const AI_SCRIPT_RATE_LIMIT = 20; // req/phút/IP (page-flow thật ~1-3 req/phút)
+function aiScriptRateLimit(req, res, next) {
+    const ip =
+        req.headers['cf-connecting-ip'] ||
+        String(req.headers['x-forwarded-for'] || '')
+            .split(',')
+            .pop()
+            .trim() ||
+        req.socket?.remoteAddress ||
+        'unknown';
+    const now = Date.now();
+    const hits = (_aiScriptHits.get(ip) || []).filter((t) => now - t < 60_000);
+    if (hits.length >= AI_SCRIPT_RATE_LIMIT) {
+        return res
+            .status(429)
+            .json({ success: false, error: 'Rate limit: tối đa 20 kịch bản/phút' });
+    }
+    hits.push(now);
+    _aiScriptHits.set(ip, hits);
+    if (_aiScriptHits.size > 1000) _aiScriptHits.clear(); // chống phình map
+    next();
+}
+
 const MODEL = process.env.WEB2_GEMINI_MODEL || 'gemini-2.0-flash';
 const apiKey = () => process.env.WEB2_GEMINI_API_KEY || '';
 
@@ -58,7 +85,7 @@ const RESPONSE_SCHEMA = {
     required: ['narration', 'scenes'],
 };
 
-router.post('/generate', async (req, res) => {
+router.post('/generate', requireWeb2AuthSoft, aiScriptRateLimit, async (req, res) => {
     try {
         const K = apiKey();
         if (!K)

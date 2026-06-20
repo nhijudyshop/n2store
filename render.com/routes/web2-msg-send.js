@@ -30,6 +30,9 @@
 const express = require('express');
 const router = express.Router();
 
+// ─── Web 2.0 auth gate (per-route; honors WEB2_AUTH_ENFORCE=1 → 401) ──
+const { requireWeb2Auth, requireWeb2AuthSoft } = require('../middleware/web2-auth');
+
 // ─── Pool: jobs/items ở web2Db (req.app.locals.web2Db) ────────────
 function getPool(req) {
     return req.app.locals.web2Db || req.app.locals.chatDb;
@@ -107,51 +110,55 @@ async function ensureSchema(pool) {
 }
 
 // ─── Counters helper: aggregate item states → job + SSE broadcast ──
+// ATOMIC: derive counts + state + write job trong MỘT statement (correlated
+// UPDATE đọc thẳng từ items). Read-modify-write cũ (SELECT → derive → UPDATE
+// trên plain pool conn, READ COMMITTED) race giữa /result, /cancel và worker
+// debounce trong cùng process → state có thể lùi. Gộp 1 SQL = không interleave.
 async function _recomputeAndNotify(pool, jobId) {
     const { rows } = await pool.query(
-        `SELECT state, COUNT(*)::int AS n FROM web2_msg_send_items WHERE job_id = $1 GROUP BY state`,
+        `UPDATE web2_msg_send_jobs j
+         SET state = c.new_state,
+             updated_at = NOW(),
+             finished_at = CASE
+                 WHEN c.new_state = 'done' AND j.finished_at IS NULL THEN NOW()
+                 ELSE j.finished_at
+             END
+         FROM (
+             SELECT
+                 COALESCE(SUM(n) FILTER (WHERE state = 'done'), 0)            AS sent,
+                 COALESCE(SUM(n) FILTER (WHERE state = 'error'), 0)           AS failed,
+                 COALESCE(SUM(n) FILTER (WHERE state IN ('needs_extension','ext_inflight')), 0) AS needs_ext,
+                 COALESCE(SUM(n) FILTER (WHERE state IN ('pending','sending')), 0)              AS active,
+                 COALESCE(SUM(n), 0)                                         AS total,
+                 CASE
+                     WHEN COALESCE(SUM(n) FILTER (WHERE state IN ('pending','sending')), 0) > 0 THEN 'running'
+                     WHEN COALESCE(SUM(n) FILTER (WHERE state IN ('needs_extension','ext_inflight')), 0) > 0 THEN 'awaiting_extension'
+                     ELSE 'done'
+                 END AS new_state
+             FROM (
+                 SELECT state, COUNT(*)::int AS n
+                 FROM web2_msg_send_items
+                 WHERE job_id = $1
+                 GROUP BY state
+             ) s
+         ) c
+         WHERE j.id = $1
+         RETURNING c.total::int AS total, c.sent::int AS sent, c.failed::int AS failed,
+                   c.needs_ext::int AS "needsExt", c.active::int AS active, j.state AS state`,
         [jobId]
     );
-    const c = {
-        pending: 0,
-        sending: 0,
-        done: 0,
-        error: 0,
-        needs_extension: 0,
-        ext_inflight: 0,
-        cancelled: 0,
-    };
-    let total = 0;
-    for (const r of rows) {
-        c[r.state] = r.n;
-        total += r.n;
+    if (!rows.length) {
+        // job đã bị xoá hoặc id sai → không broadcast
+        return { jobId, total: 0, sent: 0, failed: 0, needsExt: 0, active: 0, state: 'done' };
     }
-    const sent = c.done;
-    const failed = c.error;
-    const needsExt = c.needs_extension + c.ext_inflight;
-    const active = c.pending + c.sending;
-    // Derive job state: còn item server-side đang chạy → running; hết nhưng còn
-    // chờ extension → awaiting_extension; hết sạch → done.
-    let state;
-    if (active > 0) state = 'running';
-    else if (needsExt > 0) state = 'awaiting_extension';
-    else state = 'done';
-    const finished = state === 'done';
-    await pool.query(
-        `UPDATE web2_msg_send_jobs
-         SET state = $2, updated_at = NOW(),
-             finished_at = CASE WHEN $3 AND finished_at IS NULL THEN NOW() ELSE finished_at END
-         WHERE id = $1`,
-        [jobId, state, finished]
-    );
-    const payload = { jobId, total, sent, failed, needsExt, active, state };
+    const payload = { jobId, ...rows[0] };
     _notify('web2:bulk-send:' + jobId, payload);
     _notify('web2:bulk-send', { action: 'progress', ...payload });
     return payload;
 }
 
 // ─── POST / — tạo job + items ─────────────────────────────────────
-router.post('/', async (req, res) => {
+router.post('/', requireWeb2Auth, async (req, res) => {
     const pool = getPool(req);
     if (!pool) return res.status(503).json({ success: false, error: 'db_unavailable' });
     const body = req.body || {};
@@ -306,7 +313,7 @@ router.get('/:id/extension-items', async (req, res) => {
 });
 
 // ─── POST /:id/items/:itemId/claim-ext — chống double-send ────────
-router.post('/:id/items/:itemId/claim-ext', async (req, res) => {
+router.post('/:id/items/:itemId/claim-ext', requireWeb2AuthSoft, async (req, res) => {
     const pool = getPool(req);
     if (!pool) return res.status(503).json({ success: false, error: 'db_unavailable' });
     try {
@@ -324,19 +331,26 @@ router.post('/:id/items/:itemId/claim-ext', async (req, res) => {
 });
 
 // ─── POST /:id/items/:itemId/result — kết quả extension ───────────
-router.post('/:id/items/:itemId/result', async (req, res) => {
+router.post('/:id/items/:itemId/result', requireWeb2AuthSoft, async (req, res) => {
     const pool = getPool(req);
     if (!pool) return res.status(503).json({ success: false, error: 'db_unavailable' });
     const ok = !!(req.body && req.body.ok);
     const via = String(req.body?.via || 'extension').slice(0, 30);
     const error = req.body?.error ? String(req.body.error).slice(0, 500) : null;
     try {
-        await pool.query(
+        // State-guarded + idempotent: chỉ ghi kết quả khi item vẫn đang chờ/đang
+        // gửi qua extension. Tránh stale clobber khi worker _recoverStuck đã revert
+        // ext_inflight→needs_extension rồi một reporter cũ POST /result trễ về (sẽ
+        // ghi đè kết quả của lần claim/gửi mới). rowCount===0 → đã được xử lý nơi khác.
+        const upd = await pool.query(
             `UPDATE web2_msg_send_items
              SET state = $3, via = $4, error = $5, attempts = attempts + 1, updated_at = NOW()
-             WHERE id = $1 AND job_id = $2`,
+             WHERE id = $1 AND job_id = $2 AND state IN ('ext_inflight','needs_extension')`,
             [req.params.itemId, req.params.id, ok ? 'done' : 'error', via, ok ? null : error]
         );
+        if (upd.rowCount === 0) {
+            return res.json({ success: true, ignored: true });
+        }
         const payload = await _recomputeAndNotify(pool, req.params.id);
         return res.json({ success: true, ...payload });
     } catch (e) {
@@ -345,7 +359,7 @@ router.post('/:id/items/:itemId/result', async (req, res) => {
 });
 
 // ─── POST /:id/cancel ──────────────────────────────────────────────
-router.post('/:id/cancel', async (req, res) => {
+router.post('/:id/cancel', requireWeb2AuthSoft, async (req, res) => {
     const pool = getPool(req);
     if (!pool) return res.status(503).json({ success: false, error: 'db_unavailable' });
     try {

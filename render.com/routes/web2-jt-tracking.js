@@ -19,6 +19,10 @@
 const express = require('express');
 const router = express.Router();
 const zca = require('../services/web2-zalo-zca'); // đọc lịch sử nhóm Zalo (scan-history)
+// Web 2.0 auth: gate các handler GHI (POST/PUT/PATCH/DELETE). requireWeb2AuthSoft
+// honors WEB2_AUTH_ENFORCE=1 (401 ở prod, warn-and-pass khi tắt). /clear (wipe bảng)
+// cần requireWeb2Admin (role=admin). Read GET vẫn mở (frontend chưa gửi token đồng loạt).
+const { requireWeb2AuthSoft, requireWeb2Admin } = require('../middleware/web2-auth');
 
 let _pool = null;
 const getDb = (req) => req.app.locals.web2Db || req.app.locals.chatDb;
@@ -426,21 +430,32 @@ function extractCodes(text) {
 }
 
 // POST /scan — quét web2_zalo_messages tìm mã 12 số mới → thêm (status pending).
-// POST /clear — XÓA TOÀN BỘ data J&T (beta) để quét lại sạch. Cần confirm=YES-CLEAR.
-router.post('/clear', async (req, res) => {
+// POST /clear — XÓA data J&T (beta) để quét lại sạch. PHẢI là admin Web 2.0
+// (requireWeb2Admin) + confirm tường minh. Mặc định CHỈ xoá mã CHƯA fetch (status='pending')
+// để không vô tình mất ngữ cảnh KH (src_message tên/SĐT/ghi chú). Wipe TOÀN BỘ bảng cần
+// confirm='YES-CLEAR-ALL' rõ ràng — KHÔNG bao giờ xoá hết "im lặng".
+router.post('/clear', requireWeb2Admin, async (req, res) => {
     try {
-        if ((req.body?.confirm || req.query.confirm) !== 'YES-CLEAR')
-            return res.status(400).json({ success: false, error: 'Cần confirm=YES-CLEAR' });
+        const confirm = String(req.body?.confirm || req.query.confirm || '');
+        const wipeAll = confirm === 'YES-CLEAR-ALL';
+        // confirm hợp lệ: 'YES-CLEAR' (chỉ pending) hoặc 'YES-CLEAR-ALL' (toàn bộ bảng).
+        if (confirm !== 'YES-CLEAR' && !wipeAll)
+            return res.status(400).json({
+                success: false,
+                error: "Cần confirm='YES-CLEAR' (chỉ mã chưa tra) hoặc confirm='YES-CLEAR-ALL' (toàn bộ)",
+            });
         const db = getDb(req);
-        const r = await db.query(`DELETE FROM web2_jt_tracking`);
+        const r = wipeAll
+            ? await db.query(`DELETE FROM web2_jt_tracking`)
+            : await db.query(`DELETE FROM web2_jt_tracking WHERE status = 'pending'`);
         _notify('clear', String(r.rowCount));
-        res.json({ success: true, removed: r.rowCount });
+        res.json({ success: true, removed: r.rowCount, scope: wipeAll ? 'all' : 'pending' });
     } catch (e) {
         res.status(500).json({ success: false, error: e.message });
     }
 });
 
-router.post('/scan', async (req, res) => {
+router.post('/scan', requireWeb2AuthSoft, async (req, res) => {
     try {
         const db = getDb(req);
         // Lấy tin có chứa chuỗi 12 số (lọc sơ bộ ở DB cho nhẹ) + id/tên conv nguồn.
@@ -497,7 +512,7 @@ router.post('/scan', async (req, res) => {
 // getGroupHistory) → quét mã đơn CŨ / bị thiếu (tin nhắn gửi TRƯỚC khi listener
 // kết nối, chưa có trong web2_zalo_messages). Quét các nhóm trong allowlist
 // (web2_zalo_tracked_groups). count = số tin gần nhất mỗi nhóm (mặc định 200).
-router.post('/scan-history', async (req, res) => {
+router.post('/scan-history', requireWeb2AuthSoft, async (req, res) => {
     try {
         const db = getDb(req);
         const days = Math.min(Math.max(parseInt(req.body?.days, 10) || 14, 1), 60);
@@ -595,7 +610,7 @@ router.post('/scan-history', async (req, res) => {
 // POST /scan-text — DÁN lịch sử: nhận text copy từ Zalo (Web/PC) → quét mã ĐƠN
 // (đúng format "<12 số> Shop NHI JUDY") → thêm. Bù được lịch sử cũ mà Zalo API
 // không trả (more:0). src_message = dòng chứa mã (để hiển thị tên/SĐT khách).
-router.post('/scan-text', async (req, res) => {
+router.post('/scan-text', requireWeb2AuthSoft, async (req, res) => {
     try {
         const db = getDb(req);
         const text = String(req.body?.text || '');
@@ -701,7 +716,7 @@ router.get('/bc-tags', async (req, res) => {
 
 // POST /bc-tag {phone, tagged} — lưu/gỡ thẻ "XỬ LÝ BC" theo SĐT vào DB (đồng bộ đa máy).
 // Pancake vẫn là nơi áp thẻ thật (client gọi toggleTag); endpoint này CHỈ mirror trạng thái.
-router.post('/bc-tag', async (req, res) => {
+router.post('/bc-tag', requireWeb2AuthSoft, async (req, res) => {
     try {
         const db = getDb(req);
         const phone = String((req.body && req.body.phone) || '').trim();
@@ -725,7 +740,7 @@ router.post('/bc-tag', async (req, res) => {
 });
 
 // POST /add — thêm mã thủ công (body {text} hoặc {codes:[]}). Trả mã đã thêm.
-router.post('/add', async (req, res) => {
+router.post('/add', requireWeb2AuthSoft, async (req, res) => {
     try {
         const db = getDb(req);
         const codes = [
@@ -757,7 +772,7 @@ router.post('/add', async (req, res) => {
 });
 
 // POST /track — fetch + lưu 1 vận đơn (body {billcode, cellphone?, source?, note?}).
-router.post('/track', async (req, res) => {
+router.post('/track', requireWeb2AuthSoft, async (req, res) => {
     try {
         const db = getDb(req);
         const billcode = String(req.body?.billcode || '').replace(/\D/g, '');
@@ -798,7 +813,7 @@ async function _rederiveStored(db) {
 }
 
 // POST /refresh — làm mới hàng loạt (mã pending + đơn chưa chốt + cũ). Bounded.
-router.post('/refresh', async (req, res) => {
+router.post('/refresh', requireWeb2AuthSoft, async (req, res) => {
     try {
         const db = getDb(req);
         // sửa status từ events đã lưu trước (rẻ, không gọi J&T) → đơn 'delivered' sai → 'returned'
@@ -862,7 +877,20 @@ router.post('/refresh', async (req, res) => {
                         fetched = await fetchJt(r.billcode, r.cellphone);
                     } catch (e) {
                         await _sleep(700); // bị chặn/timeout → nghỉ rồi thử lại 1 lần
-                        fetched = await fetchJt(r.billcode, r.cellphone);
+                        try {
+                            fetched = await fetchJt(r.billcode, r.cellphone);
+                        } catch (e2) {
+                            // CẢ 2 lần fail (jtexpress timeout/chặn): vẫn BUMP last_fetched_at để mã này
+                            // xoay xuống cuối hàng đợi (query 'active'/'pending' ORDER BY last_fetched_at
+                            // ASC NULLS FIRST) — tránh 1 mã hỏng vĩnh viễn độc chiếm mọi batch refresh.
+                            await db
+                                .query(
+                                    `UPDATE web2_jt_tracking SET last_fetched_at=$2, updated_at=$2 WHERE billcode=$1`,
+                                    [r.billcode, now()]
+                                )
+                                .catch(() => {});
+                            throw e2; // vẫn tính là fail (status giữ nguyên 'pending')
+                        }
                     }
                     await _upsertTracked(db, r.billcode, fetched, {});
                 })
@@ -975,7 +1003,7 @@ router.get('/:billcode', async (req, res) => {
 });
 
 // POST /:billcode/approve — DUYỆT (xong) → mờ đi, tự xoá sau 7 ngày.
-router.post('/:billcode/approve', async (req, res) => {
+router.post('/:billcode/approve', requireWeb2AuthSoft, async (req, res) => {
     try {
         const db = getDb(req);
         const billcode = String(req.params.billcode || '').replace(/\D/g, '');
@@ -995,7 +1023,7 @@ router.post('/:billcode/approve', async (req, res) => {
 });
 
 // POST /:billcode/unapprove — TRỞ LẠI (bỏ duyệt) → hết mờ, không bị tự xoá nữa.
-router.post('/:billcode/unapprove', async (req, res) => {
+router.post('/:billcode/unapprove', requireWeb2AuthSoft, async (req, res) => {
     try {
         const db = getDb(req);
         const billcode = String(req.params.billcode || '').replace(/\D/g, '');

@@ -318,15 +318,20 @@ function _mapWsConvToComment(conv) {
 // broadcast SSE web2:live-comments. GATED bằng x-relay-secret === CLEANUP_SECRET.
 // Body: { conversations:[<conv WS shape>] } HOẶC 1 conv ({...}).
 router.post('/ingest', async (req, res) => {
-    // Gate: secret set → bắt buộc match; secret rỗng (dev) → cho qua + warn.
+    // Gate BẮT BUỘC bằng x-relay-secret === CLEANUP_SECRET. Trước đây secret rỗng
+    // được "cho qua (dev)" → bất kỳ ai cũng POST inject/ghi đè comment livestream
+    // (audit fix 2026-06-20). Secret KHÔNG set → từ chối luôn (fail-closed), không
+    // còn cửa hậu anonymous ingest trên prod.
     const secret = process.env.CLEANUP_SECRET || '';
+    if (!secret) {
+        console.error(
+            '[WEB2-LIVE-COMMENTS] /ingest: CLEANUP_SECRET chưa cấu hình — từ chối (fail-closed)'
+        );
+        return res.status(503).json({ success: false, error: 'ingest secret not configured' });
+    }
     const provided = req.headers['x-relay-secret'] || '';
-    if (secret) {
-        if (provided !== secret) {
-            return res.status(401).json({ success: false, error: 'unauthorized' });
-        }
-    } else {
-        console.warn('[WEB2-LIVE-COMMENTS] /ingest: CLEANUP_SECRET không set — cho qua (dev only)');
+    if (provided !== secret) {
+        return res.status(401).json({ success: false, error: 'unauthorized' });
     }
 
     const pool = getDb(req);

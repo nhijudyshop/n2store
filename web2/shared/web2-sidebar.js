@@ -343,9 +343,15 @@
     // ---------- Helpers ----------
     function escapeHtml(s) {
         if (s == null) return '';
-        const div = document.createElement('div');
-        div.textContent = String(s);
-        return div.innerHTML;
+        // Full escape of & < > " ' / — safe for both element-content AND
+        // attribute-value context (textContent round-trip does NOT escape quotes).
+        return String(s)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;')
+            .replace(/\//g, '&#47;');
     }
 
     function isOurRoute(item) {

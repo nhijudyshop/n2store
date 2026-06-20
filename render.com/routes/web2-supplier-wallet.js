@@ -277,13 +277,24 @@ router.post('/tx', requireWeb2AuthSoft, async (req, res) => {
                     const newQty = (Number(prev.qty) || 0) + (Number(v?.qty) || 0);
                     // HIGH-4 FIX (2026-06-18): SERVER cap over-refund. TRƯỚC đây cap chỉ
                     // ở client (modal remaining) → 2 modal/2 máy mở cùng lúc, hoặc gọi API
-                    // trực tiếp, đều trả vượt SL đã mua mà server NHẬN. Giờ client gửi kèm
-                    // `ordered` (SL đã nhận của row) → server từ chối nếu tích luỹ > ordered.
-                    // Check dưới FOR UPDATE meta nên đóng được race 2 modal đồng thời.
-                    const ordered = Number(v?.ordered);
-                    if (Number.isFinite(ordered) && ordered > 0 && newQty > ordered) {
+                    // trực tiếp, đều trả vượt SL đã mua mà server NHẬN.
+                    // SERVER-AUTHORITATIVE (2026-06-20): KHÔNG tin `ordered` của lần gọi này.
+                    // Trần SL đã nhận của row được PIN vào returned_row_ids[rid].ordered ngay
+                    // lần đầu server thấy nó; các lần sau client gửi `ordered` lớn hơn KHÔNG
+                    // được nâng trần (chỉ chấp nhận giá trị ≤ trần đã pin, để siết thêm nếu
+                    // so-order chỉnh giảm). → client gửi `ordered` phồng để né cap là vô hiệu.
+                    // Check + pin dưới FOR UPDATE meta nên atomic với race 2 modal đồng thời.
+                    const claimedOrdered = Number(v?.ordered);
+                    const prevOrdered = Number(prev.ordered);
+                    let cap = Number.isFinite(prevOrdered) && prevOrdered > 0 ? prevOrdered : null;
+                    if (Number.isFinite(claimedOrdered) && claimedOrdered > 0) {
+                        // Trần hiệu lực = nhỏ nhất giữa trần đã pin và giá trị client gửi
+                        // (chỉ cho phép SIẾT, không cho NỚI). Lần đầu (chưa pin) → dùng client.
+                        cap = cap === null ? claimedOrdered : Math.min(cap, claimedOrdered);
+                    }
+                    if (cap !== null && newQty > cap) {
                         const err = new Error(
-                            `Trả vượt số đã mua (row ${rid}: đã trả+lần này=${newQty} > đã nhận=${ordered})`
+                            `Trả vượt số đã mua (row ${rid}: đã trả+lần này=${newQty} > đã nhận=${cap})`
                         );
                         err.httpStatus = 400;
                         throw err;
@@ -293,6 +304,11 @@ router.post('/tx', requireWeb2AuthSoft, async (req, res) => {
                         amount: (Number(prev.amount) || 0) + (Number(v?.amount) || 0),
                         ts,
                     };
+                    // Pin trần đã nhận để các lần trả sau enforce server-side, bất kể
+                    // `ordered` client gửi về sau (chỉ giữ giá trị siết chặt nhất > 0).
+                    if (cap !== null) cur[rid].ordered = cap;
+                    else if (Number.isFinite(prevOrdered) && prevOrdered > 0)
+                        cur[rid].ordered = prevOrdered;
                     mutated = true;
                 }
             }

@@ -58,6 +58,92 @@ export function renderOriginFor(pathname) {
     return isWeb2Path(pathname) ? WEB2_API_ORIGIN : FALLBACK_ORIGIN;
 }
 
+// =====================================================
+// SSRF GUARD cho /api/proxy (open-proxy fix 2026-06-20)
+// =====================================================
+// `?url=` cho phép caller chọn host đích → phải chặn open-proxy/SSRF.
+// Chỉ cho fetch tới các host thực sự cần (TPOS, Pancake/pages.fm, FB/fbcdn,
+// Render, workers.dev, GitHub Pages + các API địa chỉ/QR Web 1.0 đang dùng
+// qua /api/proxy: 34tinhthanh.com, tienich.vnhub.com, img.vietqr.io).
+// Allowlist match exact-host HOẶC subdomain (`.suffix`). Mọi host khác bị 403.
+const PROXY_HOST_ALLOWLIST = [
+    'tomato.tpos.vn',
+    'tpos.vn', // *.tpos.vn
+    'pancake.vn', // *.pancake.vn (incl content.pancake.vn)
+    'pages.fm', // *.pages.fm
+    'graph.facebook.com',
+    'fbcdn.net', // *.fbcdn.net
+    'onrender.com', // *.onrender.com (n2store-fallback, web2-api)
+    'workers.dev', // *.workers.dev
+    'nhijudy.store', // *.nhijudy.store
+    'nhijudyshop.github.io',
+    // API địa chỉ / QR Web 1.0 hiện đang đi qua /api/proxy
+    '34tinhthanh.com',
+    'tienich.vnhub.com',
+    'img.vietqr.io',
+];
+
+/**
+ * Host có nằm trong allowlist không (exact hoặc subdomain của 1 suffix).
+ * @param {string} hostname (đã lowercase)
+ * @returns {boolean}
+ */
+function isHostAllowed(hostname) {
+    return PROXY_HOST_ALLOWLIST.some(
+        (suffix) => hostname === suffix || hostname.endsWith('.' + suffix)
+    );
+}
+
+/**
+ * Hostname có phải IP riêng tư / loopback / link-local không (chặn SSRF nội bộ).
+ * Bao gồm IPv4 literal (127/10/172.16-31/192.168/169.254/0.x), localhost,
+ * IPv6 loopback ::1 và unique-local fc00::/7.
+ * @param {string} hostname (đã lowercase)
+ * @returns {boolean}
+ */
+function isPrivateHost(hostname) {
+    if (hostname === 'localhost' || hostname.endsWith('.localhost')) return true;
+    // IPv6 literal trong URL có dạng [::1]; hostname đã được URL parse bỏ ngoặc
+    if (hostname === '::1' || hostname === '::') return true;
+    if (hostname.startsWith('fc') || hostname.startsWith('fd')) return true; // fc00::/7 unique-local
+    if (hostname.startsWith('fe80')) return true; // link-local IPv6
+    const ipv4 = hostname.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+    if (ipv4) {
+        const [a, b] = [Number(ipv4[1]), Number(ipv4[2])];
+        if (a === 127 || a === 10 || a === 0) return true; // loopback / private / this-network
+        if (a === 192 && b === 168) return true; // 192.168.0.0/16
+        if (a === 172 && b >= 16 && b <= 31) return true; // 172.16.0.0/12
+        if (a === 169 && b === 254) return true; // 169.254.0.0/16 link-local
+        if (a >= 224) return true; // multicast / reserved
+    }
+    return false;
+}
+
+/**
+ * Validate `?url=` đích trước khi fetch (chống open-proxy / SSRF).
+ * @param {string} targetUrl
+ * @returns {{ ok: true, parsed: URL } | { ok: false, status: number, message: string }}
+ */
+function validateProxyTarget(targetUrl) {
+    let parsed;
+    try {
+        parsed = new URL(targetUrl);
+    } catch (e) {
+        return { ok: false, status: 400, message: 'Invalid url parameter' };
+    }
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+        return { ok: false, status: 400, message: 'Only http(s) URLs are allowed' };
+    }
+    const hostname = parsed.hostname.toLowerCase();
+    if (isPrivateHost(hostname)) {
+        return { ok: false, status: 403, message: 'Target host is not allowed' };
+    }
+    if (!isHostAllowed(hostname)) {
+        return { ok: false, status: 403, message: 'Target host is not allowed' };
+    }
+    return { ok: true, parsed };
+}
+
 /**
  * Handle /api/proxy
  * Generic proxy endpoint
@@ -72,6 +158,13 @@ export async function handleGenericProxy(request, url) {
         return errorResponse('Missing url parameter', 400, {
             usage: '/api/proxy?url=<encoded_url>',
         });
+    }
+
+    // SSRF guard: scheme + private-IP + hostname allowlist
+    const validation = validateProxyTarget(targetUrl);
+    if (!validation.ok) {
+        console.warn('[PROXY] Rejected target:', targetUrl, '-', validation.message);
+        return errorResponse(validation.message, validation.status);
     }
 
     console.log('[PROXY] Fetching:', targetUrl);

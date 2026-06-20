@@ -7,7 +7,9 @@
 
 const express = require('express');
 // 1D-auth (2026-06-12): route maintenance bulk-mutation gate admin (chuẩn S1).
-const { requireWeb2Admin } = require('../middleware/web2-auth');
+// Audit 2026-06-20: gate MỌI handler mutating (POST/PATCH/DELETE) bằng requireWeb2AuthSoft
+// (401 khi WEB2_AUTH_ENFORCE=1 đang BẬT). Đọc/GET vẫn mở.
+const { requireWeb2Admin, requireWeb2AuthSoft } = require('../middleware/web2-auth');
 const router = express.Router();
 
 // -----------------------------------------------------
@@ -599,7 +601,7 @@ router.get('/:code', async (req, res) => {
 // POST /api/web2-products — create
 // Body: { code, name, price?, imageUrl?, stock?, note?, tags?, createdBy? }
 // -----------------------------------------------------
-router.post('/', async (req, res) => {
+router.post('/', requireWeb2AuthSoft, async (req, res) => {
     const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     try {
@@ -668,7 +670,7 @@ router.post('/', async (req, res) => {
 // -----------------------------------------------------
 // PATCH /api/web2/products/:code — update mutable fields
 // -----------------------------------------------------
-router.patch('/:code', async (req, res) => {
+router.patch('/:code', requireWeb2AuthSoft, async (req, res) => {
     const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     // H13: UPDATE products + cascade native_orders + cascade fast_sale_orders
@@ -711,6 +713,27 @@ router.patch('/:code', async (req, res) => {
             req.params.code,
         ]);
         const prevMapped = prevQ.rows[0] ? mapRow(prevQ.rows[0]) : null;
+
+        // Optimistic-concurrency cho stock (audit 2026-06-20): PATCH stock là ABSOLUTE set.
+        // Nếu client gửi expectedStock (giá trị stock đã đọc lúc mở form), so sánh với
+        // stock vừa lock FOR UPDATE. Khác nhau = đã có write đồng thời → ROLLBACK + 409
+        // stale_stock để client re-fetch + re-apply, tránh lost-update (đè mất delta).
+        if (req.body.stock !== undefined && req.body.expectedStock !== undefined && prevMapped) {
+            const expected = Number(req.body.expectedStock);
+            const locked = Number(prevMapped.stock) || 0;
+            if (Number.isFinite(expected) && expected !== locked) {
+                await client.query('ROLLBACK');
+                return res.status(409).json({
+                    error: 'stale_stock',
+                    code: req.params.code,
+                    name: prevMapped.name,
+                    expectedStock: expected,
+                    currentStock: locked,
+                    newStock: Number(req.body.stock),
+                    message: `Tồn kho đã thay đổi (bạn thấy ${expected}, hiện tại ${locked}). Tải lại rồi chỉnh lại.`,
+                });
+            }
+        }
 
         // Guard: nếu user PATCH stock và stock mới < pending_qty hiện tại
         // (SP còn N cái CHỜ MUA chưa nhận) → 409 với message rõ. User phải
@@ -927,7 +950,7 @@ router.patch('/:code', async (req, res) => {
 // Atomic in a single transaction. Returns updated stocks.
 // Stock không bao giờ âm — clamp về 0 nếu tổng < 0 (warn).
 // -----------------------------------------------------
-router.post('/adjust-stock', async (req, res) => {
+router.post('/adjust-stock', requireWeb2AuthSoft, async (req, res) => {
     const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     const adjustments = Array.isArray(req.body?.adjustments) ? req.body.adjustments : null;
@@ -986,7 +1009,7 @@ router.post('/adjust-stock', async (req, res) => {
 // Tăng print_count khi IN TEM mã vạch SP → biết tem in mấy lần, tránh in trùng.
 // Trả counts mới { code: printCount }.
 // -----------------------------------------------------
-router.post('/mark-printed', async (req, res) => {
+router.post('/mark-printed', requireWeb2AuthSoft, async (req, res) => {
     const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     const codes = Array.isArray(req.body && req.body.codes) ? req.body.codes.filter(Boolean) : [];
@@ -1019,7 +1042,7 @@ router.post('/mark-printed', async (req, res) => {
 // Query: ?force=1 để bỏ qua check pending_qty > 0.
 // Trả 409 nếu pending_qty > 0 và không force (để caller cảnh báo user).
 // -----------------------------------------------------
-router.delete('/:code', async (req, res) => {
+router.delete('/:code', requireWeb2AuthSoft, async (req, res) => {
     const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     try {
@@ -1082,7 +1105,7 @@ router.delete('/:code', async (req, res) => {
 //   - Nếu pending=0 AND stock>0 AND status='CHO_MUA' → SET status='DANG_BAN'.
 // Atomic trong 1 transaction. Returns updated info per adjustment.
 // =====================================================
-router.post('/adjust-pending', async (req, res) => {
+router.post('/adjust-pending', requireWeb2AuthSoft, async (req, res) => {
     const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     const adjustments = Array.isArray(req.body?.adjustments) ? req.body.adjustments : null;
@@ -1220,7 +1243,7 @@ router.post('/adjust-pending', async (req, res) => {
 //        - Update supplier nếu chưa có
 // Returns: { success, created, updated, items: [{code, name, action, status, pendingQty, stock}] }
 // =====================================================
-router.post('/upsert-pending', async (req, res) => {
+router.post('/upsert-pending', requireWeb2AuthSoft, async (req, res) => {
     const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     const items = Array.isArray((req.body || {}).items) ? req.body.items : [];
@@ -1409,7 +1432,7 @@ router.post('/upsert-pending', async (req, res) => {
 // Logic: với mỗi SP → status='DANG_BAN', stock += pending_qty, pending_qty=0.
 // Returns: { success, confirmed, items: [{code, name, stock, status}] }
 // =====================================================
-router.post('/confirm-purchase', async (req, res) => {
+router.post('/confirm-purchase', requireWeb2AuthSoft, async (req, res) => {
     const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     const b = req.body || {};
@@ -1486,7 +1509,7 @@ router.post('/confirm-purchase', async (req, res) => {
 //       * pending > 0 && stock == 0 → giữ nguyên CHO_MUA (qtyR == 0 case)
 //       * pending == 0 && stock == 0 → DANG_BAN (edge case sau cleanup)
 // Returns: { success, processed, items: [{code, name, stock, pendingQty, status, qtyReceived}] }
-router.post('/confirm-purchase-partial', async (req, res) => {
+router.post('/confirm-purchase-partial', requireWeb2AuthSoft, async (req, res) => {
     const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     const items = Array.isArray((req.body || {}).items) ? req.body.items : [];

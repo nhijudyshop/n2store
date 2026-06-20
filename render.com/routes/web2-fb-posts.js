@@ -18,6 +18,7 @@ const express = require('express');
 const router = express.Router();
 const fb = require('../services/web2-fb-graph-service');
 const caption = require('../services/web2-caption-service');
+const { requireWeb2AuthSoft, requireWeb2Admin } = require('../middleware/web2-auth');
 
 const getDb = (req) => req.app.locals.web2Db || req.app.locals.chatDb;
 const now = () => Date.now();
@@ -282,7 +283,7 @@ router.get('/auth/callback', async (req, res) => {
 
 // POST /connect { token } — dán user access token (hoặc token session FB) →
 // đổi long-lived → lấy /me + danh sách page (kèm page token) → lưu.
-router.post('/connect', async (req, res) => {
+router.post('/connect', requireWeb2Admin, async (req, res) => {
     try {
         const db = getDb(req);
         const token = (req.body?.token || '').trim();
@@ -311,7 +312,7 @@ router.post('/connect', async (req, res) => {
 });
 
 // POST /disconnect
-router.post('/disconnect', async (req, res) => {
+router.post('/disconnect', requireWeb2Admin, async (req, res) => {
     try {
         const db = getDb(req);
         await db.query(`DELETE FROM web2_fb_post_tokens`);
@@ -323,7 +324,7 @@ router.post('/disconnect', async (req, res) => {
 });
 
 // POST /refresh-pages — đồng bộ lại danh sách page + page token từ FB.
-router.post('/refresh-pages', async (req, res) => {
+router.post('/refresh-pages', requireWeb2Admin, async (req, res) => {
     try {
         const db = getDb(req);
         const row = await loadToken(db);
@@ -345,7 +346,7 @@ router.post('/refresh-pages', async (req, res) => {
 // ── Caption AI (free template / optional AI) ───────────────────────────────
 // POST /caption { product:{name,price,discount,desc,category}, products:[…], style, ai:bool }
 //   products (nhiều SP từ Kho SP) → caption tổng hợp 1 bài. Không có → dùng product đơn.
-router.post('/caption', async (req, res) => {
+router.post('/caption', requireWeb2AuthSoft, async (req, res) => {
     try {
         const { product = {}, products = null, style = 'sale', ai = false } = req.body || {};
         const list = Array.isArray(products) ? products.filter((p) => p && p.name) : [];
@@ -368,22 +369,49 @@ router.post('/caption', async (req, res) => {
 
 // ── Publish / schedule ─────────────────────────────────────────────────────
 // POST /publish { pageIds[], message, media[], link, scheduledTime?, draftId? }
-router.post('/publish', async (req, res) => {
+router.post('/publish', requireWeb2AuthSoft, async (req, res) => {
     const db = getDb(req);
+    const {
+        pageIds = [],
+        message = '',
+        media = [],
+        link = '',
+        scheduledTime = null,
+        draftId = null,
+        createdBy = '',
+    } = req.body || {};
+    if (!Array.isArray(pageIds) || !pageIds.length)
+        return res.status(400).json({ success: false, error: 'Chọn ít nhất 1 page' });
+    if (!message.trim() && !media.length)
+        return res.status(400).json({ success: false, error: 'Cần nội dung hoặc ảnh/video' });
+
+    // ── Chống đăng-trùng (double-publish): publish gọi FB nhiều lần + chờ → 1 cú
+    // double-click / retry mạng có thể đăng 2 lần cùng nội dung. Khoá advisory
+    // theo draftId (re-publish nháp) hoặc theo nội dung (page+message+media) để
+    // serialize. Dùng session-level pg_try_advisory_lock trên 1 client riêng (giữ
+    // suốt vòng publish, KHÔNG ôm transaction qua các call FB chậm); kẹt khoá →
+    // 409 (đang có lần publish y hệt chạy dở), client KHÔNG retry mù.
+    const dedupeKey =
+        'fbpub:' +
+        (draftId
+            ? `draft:${draftId}`
+            : `${[...pageIds].map(String).sort().join(',')}|${message}|${JSON.stringify(media)}`);
+    let lockClient = null;
+    let lockAcquired = false;
     try {
-        const {
-            pageIds = [],
-            message = '',
-            media = [],
-            link = '',
-            scheduledTime = null,
-            draftId = null,
-            createdBy = '',
-        } = req.body || {};
-        if (!Array.isArray(pageIds) || !pageIds.length)
-            return res.status(400).json({ success: false, error: 'Chọn ít nhất 1 page' });
-        if (!message.trim() && !media.length)
-            return res.status(400).json({ success: false, error: 'Cần nội dung hoặc ảnh/video' });
+        if (db && typeof db.connect === 'function') {
+            lockClient = await db.connect();
+            const lk = await lockClient.query('SELECT pg_try_advisory_lock(hashtext($1)) AS got', [
+                dedupeKey,
+            ]);
+            lockAcquired = !!(lk.rows[0] && lk.rows[0].got);
+            if (!lockAcquired) {
+                return res.status(409).json({
+                    success: false,
+                    error: 'Bài này đang được đăng (tránh đăng trùng) → thử lại sau giây lát.',
+                });
+            }
+        }
 
         const row = await loadToken(db);
         if (!row) return res.status(400).json({ success: false, error: 'Chưa kết nối Facebook' });
@@ -477,6 +505,14 @@ router.post('/publish', async (req, res) => {
         });
     } catch (e) {
         res.status(500).json({ success: false, error: e.message });
+    } finally {
+        if (lockClient) {
+            try {
+                if (lockAcquired)
+                    await lockClient.query('SELECT pg_advisory_unlock(hashtext($1))', [dedupeKey]);
+            } catch (_) {}
+            lockClient.release();
+        }
     }
 });
 
@@ -538,7 +574,7 @@ router.get('/post-detail', async (req, res) => {
 });
 
 // POST /delete { pageId, postId }
-router.post('/delete', async (req, res) => {
+router.post('/delete', requireWeb2Admin, async (req, res) => {
     try {
         const db = getDb(req);
         const { pageId, postId } = req.body || {};
@@ -560,7 +596,7 @@ router.post('/delete', async (req, res) => {
 
 // POST /post-edit { pageId, postId, message?, scheduledTime? } — sửa caption và/hoặc
 // đổi giờ lên lịch (scheduledTime chỉ áp dụng bài CHƯA đăng). Không xoá → giữ nguyên link bài.
-router.post('/post-edit', async (req, res) => {
+router.post('/post-edit', requireWeb2AuthSoft, async (req, res) => {
     try {
         const db = getDb(req);
         const { pageId, postId, message, scheduledTime } = req.body || {};
@@ -715,7 +751,7 @@ router.get('/ad-entries', async (req, res) => {
 });
 
 // POST /ad-entry — tạo/sửa bản ghi quảng cáo nhập tay.
-router.post('/ad-entry', async (req, res) => {
+router.post('/ad-entry', requireWeb2AuthSoft, async (req, res) => {
     try {
         const db = getDb(req);
         const b = req.body || {};
@@ -795,7 +831,7 @@ router.post('/ad-entry', async (req, res) => {
 });
 
 // DELETE /ad-entry/:id
-router.delete('/ad-entry/:id', async (req, res) => {
+router.delete('/ad-entry/:id', requireWeb2AuthSoft, async (req, res) => {
     try {
         const db = getDb(req);
         await db.query(`DELETE FROM web2_fb_ad_entries WHERE id=$1`, [req.params.id]);
@@ -826,7 +862,7 @@ router.get('/drafts', async (req, res) => {
 });
 
 // POST /draft { id?, pageIds, message, media, link, scheduledTime } — lưu nháp
-router.post('/draft', async (req, res) => {
+router.post('/draft', requireWeb2AuthSoft, async (req, res) => {
     try {
         const db = getDb(req);
         const {
@@ -860,7 +896,7 @@ router.post('/draft', async (req, res) => {
 });
 
 // DELETE /draft/:id
-router.delete('/draft/:id', async (req, res) => {
+router.delete('/draft/:id', requireWeb2AuthSoft, async (req, res) => {
     try {
         const db = getDb(req);
         await db.query(`DELETE FROM web2_fb_posts WHERE id=$1`, [req.params.id]);

@@ -22,7 +22,7 @@ const router = express.Router();
 
 const ADMIN_SECRET = process.env.CLEANUP_SECRET || '';
 function authOk(req) {
-    const p = req.headers['x-admin-secret'] || req.query.secret || '';
+    const p = req.headers['x-admin-secret'] || '';
     return ADMIN_SECRET && p === ADMIN_SECRET;
 }
 

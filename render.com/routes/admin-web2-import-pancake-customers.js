@@ -17,7 +17,9 @@ const router = express.Router();
 
 const ADMIN_SECRET = process.env.CLEANUP_SECRET || '';
 function authed(req) {
-    const p = req.headers['x-admin-secret'] || req.query.secret || '';
+    // Header-only: KHÔNG nhận secret qua query string (rò rỉ qua access log /
+    // browser history / referrer). Chỉ chấp nhận header x-admin-secret.
+    const p = req.headers['x-admin-secret'] || '';
     return ADMIN_SECRET && p === ADMIN_SECRET;
 }
 

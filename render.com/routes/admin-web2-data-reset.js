@@ -19,7 +19,11 @@ const router = express.Router();
 
 const ADMIN_SECRET = process.env.CLEANUP_SECRET || '';
 function authOk(req) {
-    const p = req.headers['x-admin-secret'] || req.query.secret || '';
+    // [2026-06-20] Require x-admin-secret HEADER only. The ?secret= query
+    // fallback was removed: the global request logger (server.js) prints
+    // req.url (incl. query string) for every admin call, so a secret passed
+    // via ?secret= leaked CLEANUP_SECRET into Render logs in plaintext.
+    const p = req.headers['x-admin-secret'] || '';
     return ADMIN_SECRET && p === ADMIN_SECRET;
 }
 

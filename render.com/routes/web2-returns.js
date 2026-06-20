@@ -27,6 +27,10 @@ const express = require('express');
 const router = express.Router();
 const web2WalletService = require('../services/web2-wallet-service');
 const { withTransaction } = require('../db/with-transaction');
+// Auth gate cho các handler ghi (POST/DELETE). requireWeb2AuthSoft 401 khi
+// WEB2_AUTH_ENFORCE=1 (đang BẬT prod). Đồng bộ với sibling money routers
+// (web2-supplier-wallet.js, web2-payment-signals.js). GET reads để mở.
+const { requireWeb2AuthSoft } = require('../middleware/web2-auth');
 
 // -----------------------------------------------------
 // SSE notifier — injected từ server.js via initializeNotifiers().
@@ -126,6 +130,15 @@ function mapRow(r) {
 }
 
 function _user(req) {
+    // ƯU TIÊN identity từ token (req.web2User do requireWeb2AuthSoft gắn) —
+    // không tin userId/userName client gửi (audit history spoofable). Fallback
+    // body/header chỉ khi chưa enforce auth (soft mode, không có token).
+    if (req.web2User) {
+        return {
+            id: req.web2User.id || null,
+            name: req.web2User.display_name || req.web2User.username || '(ẩn danh)',
+        };
+    }
     const b = req.body || {};
     return {
         id: b.userId || req.headers['x-user-id'] || null,
@@ -189,6 +202,13 @@ async function ensureTables(pool) {
             ADD COLUMN IF NOT EXISTS issue          VARCHAR(20) DEFAULT 'van_de_khach',
             ADD COLUMN IF NOT EXISTS cod_reduction  NUMERIC(14,2) NOT NULL DEFAULT 0,
             ADD COLUMN IF NOT EXISTS payable_carrier NUMERIC(14,2) NOT NULL DEFAULT 0;
+    `);
+    // Snapshot per-PBH wallet_deducted lúc tạo phiếu khong_nhan_hang. Khi huỷ
+    // phiếu phải trả ĐÚNG số tiền gốc về TỪNG PBH (không dồn lump lên PBH đầu →
+    // PBH #2..N kẹt 0, cancel sau không hoàn ví). Mảng [{id, walletDeducted}].
+    await pool.query(`
+        ALTER TABLE IF EXISTS web2_returns
+            ADD COLUMN IF NOT EXISTS pbh_wallet_snapshot JSONB NOT NULL DEFAULT '[]'::jsonb;
     `);
     // 3H2 (2026-06-12): backstop chống 2 phiếu "không nhận hàng" active cùng 1
     // đơn nguồn (double-submit/2 user = cộng ví + cộng kho ×2). Pre-check trong
@@ -493,7 +513,7 @@ router.get('/:code', async (req, res) => {
 //   items: [{productCode, productName, quantity, price}]  (thu_ve_1_phan)
 //   note
 // =====================================================
-router.post('/', async (req, res) => {
+router.post('/', requireWeb2AuthSoft, async (req, res) => {
     const pool = getPool(req);
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     const b = req.body || {};
@@ -642,13 +662,65 @@ router.post('/', async (req, res) => {
                 }))
                 .filter((it) => it.productCode && it.quantity > 0);
             if (!items.length) return res.status(400).json({ error: 'items required' });
-            totalAmount = items.reduce((s, it) => s + it.price * it.quantity, 0);
-            walletCredit = totalAmount; // giá bán × SL, cộng ngay
+
+            // SERVER-VALIDATE giá ví (MONEY): KHÔNG tin giá client gửi. Nếu có
+            // sourceOrderCode → resolve đơn nguồn, lấy giá + SL THẬT theo
+            // productCode; cap giá mỗi dòng ≤ giá trong đơn, cap SL ≤ SL đã mua,
+            // và cap TỔNG walletCredit ≤ wallet_deducted của đơn (số tiền KH
+            // thực trả từ ví). Không có sourceOrderCode → KHÔNG cộng ví (tránh
+            // mint balance bằng giá bịa), chỉ ghi nhận hàng về kho.
+            if (sourceOrderCode) {
+                const src = await _resolveSourceOrder(pool, sourceOrderCode, sourceOrderType);
+                if (!src) return res.status(404).json({ error: 'Đơn nguồn không tồn tại' });
+                const srcByCode = new Map();
+                for (const s of src.items || []) {
+                    if (!s.productCode) continue;
+                    const prev = srcByCode.get(s.productCode);
+                    srcByCode.set(s.productCode, {
+                        price: Number(s.price) || 0,
+                        quantity: (prev?.quantity || 0) + (Number(s.quantity) || 0),
+                    });
+                }
+                items = items
+                    .map((it) => {
+                        const ref = srcByCode.get(it.productCode);
+                        if (!ref) return { ...it, price: 0, quantity: 0 };
+                        return {
+                            ...it,
+                            price: Math.min(it.price, ref.price),
+                            quantity: Math.min(it.quantity, ref.quantity),
+                        };
+                    })
+                    .filter((it) => it.quantity > 0);
+                if (!items.length)
+                    return res.status(400).json({ error: 'SP không khớp đơn nguồn' });
+                totalAmount = items.reduce((s, it) => s + it.price * it.quantity, 0);
+                // Cap tổng cộng ví theo số tiền đơn đã trừ ví (không hoàn quá).
+                const capped = Math.min(totalAmount, Number(src.walletDeducted) || 0);
+                walletCredit = capped > 0 ? capped : 0;
+            } else {
+                // Không truy được đơn nguồn → ghi nhận hàng về, KHÔNG cộng ví.
+                totalAmount = items.reduce((s, it) => s + it.price * it.quantity, 0);
+                walletCredit = 0;
+            }
         }
         items = items.map((it) => ({ ...it, amount: (Number(it.price) || 0) * it.quantity }));
 
         const stockStatus = method === 'shipper_gui' ? 'pending' : 'applied';
         const billStatus = subType === 'thu_ve_1_phan' ? 'queued' : null;
+
+        // Idempotency/dedupe cho thu_ve_1_phan: chữ ký item-set ổn định (sort
+        // theo productCode + quantity) + cửa sổ ngắn để chặn double-submit /
+        // retry cộng ví + cộng kho 2 lần (uq_web2_returns_knh_active chỉ phủ
+        // khong_nhan_hang). Pre-check chạy TRONG transaction trước khi cộng ví.
+        const DEDUPE_WINDOW_MS = 60 * 1000;
+        const partialSig =
+            subType === 'thu_ve_1_phan'
+                ? items
+                      .map((it) => `${it.productCode}:${it.quantity}`)
+                      .sort()
+                      .join('|')
+                : null;
 
         // 2) Transaction ATOMIC: insert phiếu + áp tồn kho + CỘNG VÍ trong CÙNG
         // 1 client transaction. processDeposit nhận client → runWithTx chạy
@@ -674,6 +746,7 @@ router.post('/', async (req, res) => {
                     //     SET stock_restored=TRUE để cancel/bulk-cancel/DELETE
                     //     PBH về sau KHÔNG double hoàn ví + double restock.
                     let knhPbhIds = [];
+                    let pbhWalletSnapshot = [];
                     if (subType === 'khong_nhan_hang') {
                         const dup = await client.query(
                             `SELECT code FROM web2_returns
@@ -703,11 +776,41 @@ router.post('/', async (req, res) => {
                                       [sourceOrderCode]
                                   );
                         knhPbhIds = lockQ.rows.map((r) => r.id);
+                        // Snapshot giá trị wallet_deducted GỐC từng PBH → huỷ
+                        // phiếu trả ĐÚNG về từng PBH (không dồn lump rows[0]).
+                        pbhWalletSnapshot = lockQ.rows.map((r) => ({
+                            id: Number(r.id),
+                            walletDeducted: Number(r.wallet_deducted) || 0,
+                        }));
                         const freshDeducted = lockQ.rows.reduce(
                             (s, r) => s + (Number(r.wallet_deducted) || 0),
                             0
                         );
                         walletCredit = freshDeducted > 0 ? freshDeducted : 0;
+                    }
+                    // Dedupe thu_ve_1_phan: chặn phiếu active trùng (cùng phone +
+                    // item-set) trong cửa sổ ngắn → tránh double-credit/double-stock
+                    // khi double-submit/retry. So sánh chữ ký item-set đã sort.
+                    if (subType === 'thu_ve_1_phan' && partialSig) {
+                        const recent = await client.query(
+                            `SELECT code, items FROM web2_returns
+                             WHERE phone = $1 AND sub_type = 'thu_ve_1_phan'
+                               AND status = 'active' AND created_at > $2`,
+                            [phone, now - DEDUPE_WINDOW_MS]
+                        );
+                        for (const rr of recent.rows) {
+                            const sig = (Array.isArray(rr.items) ? rr.items : [])
+                                .map((x) => `${x.productCode}:${Number(x.quantity) || 0}`)
+                                .sort()
+                                .join('|');
+                            if (sig === partialSig) {
+                                const err = new Error(
+                                    `Đã có phiếu thu về ${rr.code} (active) trùng SP vừa tạo`
+                                );
+                                err.httpStatus = 409;
+                                throw err;
+                            }
+                        }
                     }
                     await _applyStock(client, items, method, +1);
                     const hist = [
@@ -740,8 +843,8 @@ router.post('/', async (req, res) => {
                           (code, phone, customer_name, customer_id, method, sub_type, issue, reason, reason_note,
                            source_order_code, source_order_type, items, total_amount, wallet_credited,
                            wallet_tx_id, stock_status, bill_status, status, note, history, created_at, updated_at,
-                           created_by, created_by_name)
-                         VALUES ($1,$2,$3,$4,$5,$6,'van_de_khach',$7,$8,$9,$10,$11::jsonb,$12,$13,$14,$15,$16,'active',$17,$18::jsonb,$19,$19,$20,$21)
+                           created_by, created_by_name, pbh_wallet_snapshot)
+                         VALUES ($1,$2,$3,$4,$5,$6,'van_de_khach',$7,$8,$9,$10,$11::jsonb,$12,$13,$14,$15,$16,'active',$17,$18::jsonb,$19,$19,$20,$21,$22::jsonb)
                          RETURNING *`,
                         [
                             code,
@@ -765,6 +868,7 @@ router.post('/', async (req, res) => {
                             now,
                             user.id,
                             user.name,
+                            JSON.stringify(pbhWalletSnapshot),
                         ]
                     );
                     // 3H2: đánh dấu PBH nguồn đã quyết toán qua phiếu thu về.
@@ -810,7 +914,7 @@ router.post('/', async (req, res) => {
 // POST /api/web2-returns/:code/approve
 // Duyệt shipper_gui pending → return_qty chuyển sang stock thật.
 // =====================================================
-router.post('/:code/approve', async (req, res) => {
+router.post('/:code/approve', requireWeb2AuthSoft, async (req, res) => {
     const pool = getPool(req);
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     const user = _user(req);
@@ -882,7 +986,7 @@ router.post('/:code/approve', async (req, res) => {
 // POST /api/web2-returns/:code/mark-consumed
 // Body: { pbhCode } — native-orders gọi sau khi tạo PBH dùng SP queued.
 // =====================================================
-router.post('/:code/mark-consumed', async (req, res) => {
+router.post('/:code/mark-consumed', requireWeb2AuthSoft, async (req, res) => {
     const pool = getPool(req);
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     try {
@@ -905,7 +1009,7 @@ router.post('/:code/mark-consumed', async (req, res) => {
 // =====================================================
 // DELETE /api/web2-returns/:code — huỷ phiếu + rollback ví/kho
 // =====================================================
-router.delete('/:code', async (req, res) => {
+router.delete('/:code', requireWeb2AuthSoft, async (req, res) => {
     const pool = getPool(req);
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     const user = _user(req);
@@ -1010,6 +1114,9 @@ router.delete('/:code', async (req, res) => {
                 // trừ lại + ví bị rút lại (ở trên) → trả cờ về như cũ để vòng
                 // đời PBH (cancel sau này) lại restock/hoàn ví đúng.
                 if (row.sub_type === 'khong_nhan_hang' && row.source_order_code) {
+                    // Mirror filter create-time (state <> 'cancel') trên native →
+                    // không re-attach wallet_deducted lên PBH đã huỷ (cancel flow
+                    // không còn với tới → under-refund vĩnh viễn).
                     const lockQ =
                         row.source_order_type === 'pbh'
                             ? await client.query(
@@ -1019,24 +1126,60 @@ router.delete('/:code', async (req, res) => {
                             : await client.query(
                                   `SELECT id FROM fast_sale_orders
                                    WHERE source_type = 'native_order' AND source_code = $1
+                                     AND state <> 'cancel'
                                    ORDER BY id FOR UPDATE`,
                                   [row.source_order_code]
                               );
                     if (lockQ.rows.length) {
+                        const liveIds = new Set(lockQ.rows.map((r) => Number(r.id)));
                         await client.query(
                             `UPDATE fast_sale_orders
                              SET stock_restored = FALSE, date_updated = NOW()
                              WHERE id = ANY($1::bigint[])`,
-                            [lockQ.rows.map((r) => r.id)]
+                            [[...liveIds]]
                         );
                         const creditedBack = Number(row.wallet_credited) || 0;
                         if (creditedBack > 0) {
-                            // Trả lump về PBH đầu (split nhiều PBH hiếm; tổng đúng là đủ
-                            // để cancel sau hoàn đúng số tiền).
-                            await client.query(
-                                `UPDATE fast_sale_orders SET wallet_deducted = $1 WHERE id = $2`,
-                                [creditedBack, lockQ.rows[0].id]
+                            // Trả ĐÚNG giá trị gốc về TỪNG PBH theo snapshot lúc tạo
+                            // (không dồn lump rows[0] → PBH #2..N kẹt 0). Chỉ PBH
+                            // còn lock được (state<>'cancel') mới restore.
+                            const snap = Array.isArray(row.pbh_wallet_snapshot)
+                                ? row.pbh_wallet_snapshot
+                                : [];
+                            const restorable = snap.filter(
+                                (s) => liveIds.has(Number(s.id)) && Number(s.walletDeducted) > 0
                             );
+                            if (restorable.length) {
+                                for (const s of restorable) {
+                                    await client.query(
+                                        `UPDATE fast_sale_orders SET wallet_deducted = $1 WHERE id = $2`,
+                                        [Number(s.walletDeducted) || 0, Number(s.id)]
+                                    );
+                                }
+                                // Phòng lệch (snapshot thiếu / PBH mới): nếu tổng
+                                // restore < creditedBack, dồn phần dư về PBH đầu
+                                // còn live để cancel sau vẫn hoàn đủ tổng.
+                                const restored = restorable.reduce(
+                                    (s2, s) => s2 + (Number(s.walletDeducted) || 0),
+                                    0
+                                );
+                                const remainder = creditedBack - restored;
+                                if (remainder > 0) {
+                                    const firstLive = lockQ.rows[0].id;
+                                    await client.query(
+                                        `UPDATE fast_sale_orders
+                                         SET wallet_deducted = wallet_deducted + $1 WHERE id = $2`,
+                                        [remainder, firstLive]
+                                    );
+                                }
+                            } else {
+                                // Không có snapshot khớp (data cũ) → fallback lump
+                                // về PBH đầu (giữ tổng đúng).
+                                await client.query(
+                                    `UPDATE fast_sale_orders SET wallet_deducted = $1 WHERE id = $2`,
+                                    [creditedBack, lockQ.rows[0].id]
+                                );
+                            }
                         }
                     }
                 }
