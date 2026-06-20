@@ -3,16 +3,16 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `a9cfb54` — auto: session update
-**Last updated**: 2026-06-20 19:41:38 +07
-**Latest session**: [`RESUME:20260620-194138-a9cfb54`](../20260620-194138-a9cfb54.md)
-**Summary**: auto: session update
+**Latest commit**: `8bc94ed` — feat(live-chat): picker livestream chọn chiến dịch cha HOẶC bài live (multi-select); fix(native-orders): 401 chiến dịch cha thiếu x-web2-token
+**Last updated**: 2026-06-20 19:58:27 +07
+**Latest session**: [`RESUME:20260620-195827-8bc94ed`](../20260620-195827-8bc94ed.md)
+**Summary**: live-chat picker chiến dịch cha/bài live + fix native-orders 401
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`live-chat/`](./live-chat.md) — 5 file(s)
-- [`vieneu-tts/`](./vieneu-tts.md) — 1 file(s)
+- [`live-chat/`](./live-chat.md) — 3 file(s)
+- [`native-orders/`](./native-orders.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -27,7 +27,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-20 11:49
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-06-20 19:41
+- [`docs/`](./docs.md) — updated 2026-06-20 19:58
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-19 14:27
@@ -41,11 +41,11 @@
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-06-20 12:07
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-20 12:07
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-06-20 12:07
-- [`live-chat/`](./live-chat.md) — updated 2026-06-20 19:41
+- [`live-chat/`](./live-chat.md) — updated 2026-06-20 19:58
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-06-20 16:16
 - [`n2store-facebook/`](./n2store-facebook.md) — updated 2026-06-14 13:09
 - [`n2store-realtime/`](./n2store-realtime.md) — updated 2026-06-16 11:15
-- [`native-orders/`](./native-orders.md) — updated 2026-06-20 19:21
+- [`native-orders/`](./native-orders.md) — updated 2026-06-20 19:58
 - [`nhanhang/`](./nhanhang.md) — updated 2026-06-20 12:07
 - [`order-management/`](./order-management.md) — updated 2026-06-20 12:07
 - [`orders-report/`](./orders-report.md) — updated 2026-06-20 12:19
