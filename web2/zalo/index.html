@@ -262,8 +262,13 @@
                 </header>
                 <div class="wz-modal-body modal-body">
                     <p class="wz-hint" style="margin: 0 0 12px">
-                        Đặt tên gợi nhớ, rồi quét QR bằng app Zalo trên điện thoại. ⚠ Nên dùng
-                        <b>tài khoản phụ</b> (đăng nhập không chính thức, có thể bị khoá).
+                        Đặt tên gợi nhớ, rồi chọn 1 trong 2 cách:<br />
+                        • <b>Đăng nhập bằng Zalo đang mở</b> — nhanh, không quét QR,
+                        <b>không văng Zalo Web</b>. Cần tiện ích N2Store + đang đăng nhập đúng tài
+                        khoản trên <b>chat.zalo.me</b>.<br />
+                        • <b>Tạo & quét QR</b> — quét bằng app Zalo trên điện thoại.<br />
+                        ⚠ Nên dùng <b>tài khoản phụ</b> (đăng nhập không chính thức, có thể bị
+                        khoá).
                     </p>
                     <div class="wz-field">
                         <label for="wzAddLabel">Tên gợi nhớ</label>
@@ -274,8 +279,11 @@
                     <button class="wz-btn" id="wzAddCancel" type="button">
                         <i data-lucide="x"></i> Hủy
                     </button>
-                    <button class="wz-btn wz-btn-primary" id="wzAddSave" type="button">
+                    <button class="wz-btn" id="wzAddSave" type="button">
                         <i data-lucide="qr-code"></i> Tạo & quét QR
+                    </button>
+                    <button class="wz-btn wz-btn-primary" id="wzAddSaveCookie" type="button">
+                        <i data-lucide="log-in"></i> Đăng nhập bằng Zalo đang mở
                     </button>
                 </footer>
             </div>
@@ -396,10 +404,10 @@
         <script src="../shared/zalo-chat/chat-view.js?v=20260616b"></script>
         <!-- Page app — tách module (utils → accounts → chat → lookup-zns → app), app LAST -->
         <script src="js/web2-zalo-utils.js?v=20260618w1"></script>
-        <script src="js/web2-zalo-accounts.js?v=20260619zalo"></script>
+        <script src="js/web2-zalo-accounts.js?v=20260620cookieadd"></script>
         <script src="js/web2-zalo-chat.js?v=20260618w1"></script>
         <script src="js/web2-zalo-lookup-zns.js?v=20260618w1"></script>
-        <script src="js/web2-zalo-app.js?v=20260618w1"></script>
+        <script src="js/web2-zalo-app.js?v=20260620cookieadd"></script>
 
         <script>
             if (window.Web2Sidebar)

@@ -2,6 +2,17 @@
 
 ## 2026-06-20
 
+### [web2/zalo] Thêm account bằng phiên chat.zalo.me (cookie) — không cần QR ✅
+
+User: nút "Đăng nhập Zalo" (cookie) chỉ RE-CONNECT slot cũ + có guard expectedUid → KHÔNG thêm được account ĐANG MỞ trên chat.zalo.me nếu nó chưa có slot ("Thêm & quét QR" chỉ có QR). Bằng chứng live: chat.zalo.me = My Njd (852368) nhưng web2 chỉ connect Nhijudy Ơi (711743, session cũ).
+
+- **Fix**: thêm nút **"Đăng nhập bằng Zalo đang mở"** vào modal Thêm account (`#wzAddSaveCookie`). Hàm `saveAddPersonalCookie()`: createAccount(label) → slot mới (chưa uid) → `loginZaloCookie(newKey)` → guard `expectedUid=null` nhận đúng account chat.zalo.me. Login fail/hủy → xoá slot rỗng vừa tạo (tránh slot rác).
+- Files: `web2/zalo/index.html` (nút + hint 2 cách), `js/web2-zalo-accounts.js` (saveAddPersonalCookie + export), `js/web2-zalo-app.js` (wire). Bump `?v=20260620cookieadd`.
+- **Verified live (browser test + extension)**: bấm nút → thêm "My Njd" uid 852368 (đúng account chat.zalo.me) → `connected`, 2/2 kết nối. node --check PASS.
+- ⚠ Tech-debt nhỏ: bấm lại khi account đã có slot → tạo slot trùng uid (dedup theo uid nên làm ở backend `_afterLogin`, để sau).
+
+## 2026-06-20
+
 ### [web2/jt-tracking] Chat KH (bấm SĐT) → giao diện 3-cột "Chat khách hàng" giống native-orders ✅
 
 User: "cho chat jt-tracking giống native-orders đi" (drawer phải → modal 3-cột).

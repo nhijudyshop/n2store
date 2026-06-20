@@ -86,6 +86,7 @@
 
         // Add-personal modal
         $('#wzAddSave').addEventListener('click', WZApp.saveAddPersonal);
+        $('#wzAddSaveCookie')?.addEventListener('click', WZApp.saveAddPersonalCookie);
         $('#wzAddCancel').addEventListener('click', () => WZApp.hideModal('#wzAddModal'));
         $('#wzAddClose').addEventListener('click', () => WZApp.hideModal('#wzAddModal'));
         $('#wzAddBackdrop').addEventListener('click', () => WZApp.hideModal('#wzAddModal'));

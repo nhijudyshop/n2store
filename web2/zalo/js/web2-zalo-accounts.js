@@ -345,6 +345,48 @@
         }
     }
 
+    // THÊM tài khoản bằng phiên chat.zalo.me (cookie) — KHÔNG quét QR (2026-06-20).
+    // Tạo slot MỚI (chưa có uid) rồi cookie-login → guard expectedUid=null nhận đúng
+    // account đang mở trên chat.zalo.me. Đây là đường THÊM account mới qua cookie
+    // (trước đây cookie chỉ re-connect slot cũ; thêm account mới chỉ có QR).
+    // Login fail (no_session / hủy / WRONG…) → XOÁ slot rỗng vừa tạo (tránh slot rác).
+    async function saveAddPersonalCookie() {
+        const label = ($('#wzAddLabel').value || '').trim() || 'Zalo shop';
+        const btn = $('#wzAddSaveCookie');
+        if (!window.Web2Ext?.hasExtension?.()) {
+            await Popup.warning(
+                'Cần cài tiện ích N2Store để đăng nhập bằng phiên Zalo đang mở. Hoặc dùng "Tạo & quét QR".'
+            );
+            return;
+        }
+        setBusy(btn, true);
+        let newKey = null;
+        try {
+            const r = await window.ZaloApi.createAccount(label);
+            newKey = r.data?.accountKey;
+            if (!newKey) throw new Error('Không tạo được tài khoản');
+            const ok = await loginZaloCookie(newKey, false); // hiện feedback
+            if (ok) {
+                hideModal('#wzAddModal');
+            } else if (newKey) {
+                // Không lấy được phiên / hủy → xoá slot rỗng vừa tạo.
+                try {
+                    await window.ZaloApi.deleteAccount(newKey);
+                } catch (_) {}
+            }
+            await loadAccounts();
+        } catch (e) {
+            notify('✗ ' + e.message, 'error');
+            if (newKey) {
+                try {
+                    await window.ZaloApi.deleteAccount(newKey);
+                } catch (_) {}
+            }
+        } finally {
+            setBusy(btn, false);
+        }
+    }
+
     // ── OA connect modal ─────────────────────────────────────────────────
     function openOaModal() {
         showModal('#wzOaModal');
@@ -386,6 +428,7 @@
     WZApp.closeQrModal = closeQrModal;
     WZApp.addPersonal = addPersonal;
     WZApp.saveAddPersonal = saveAddPersonal;
+    WZApp.saveAddPersonalCookie = saveAddPersonalCookie;
     WZApp.openOaModal = openOaModal;
     WZApp.closeOaModal = closeOaModal;
     WZApp.saveOa = saveOa;
