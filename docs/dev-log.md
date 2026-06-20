@@ -2,6 +2,16 @@
 
 ## 2026-06-20
 
+### [web2/zalo] Chip nhóm: báo "Cần đăng nhập TK trong nhóm" khi không gửi được ✅
+
+User: nhóm J&T mà không có quyền (TK của nhóm đã xoá/chưa kết nối) thì ghi rõ cần đăng nhập TK Zalo CÓ TRONG nhóm.
+
+- `chat-view.js` `_fillAccChip`: thêm `meta.connected` + check `conv.thread_type==='group'`. NHÓM mà TK đã xoá HOẶC chưa kết nối → chip **"⚠ Cần đăng nhập TK trong nhóm"** (cam) + tooltip giải thích Zalo chỉ cho gửi nhóm bằng tài khoản LÀ THÀNH VIÊN → phải đăng nhập 1 TK có trong nhóm này.
+- Nhóm có TK kết nối → "[tên] · nhóm" (xanh, bình thường, không cảnh báo). 1-1 TK đã xoá → "TK Zalo không còn" (muted, giữ như cũ). 1-1 TK phụ → cam.
+- Bump `ENGINE_VER=20260620grpmsg` + `web2-zalo.js?v=…acc5` (4 page). node --check PASS.
+
+## 2026-06-20
+
 ### [web2/multi-tool] Tăng comment nền: LIVE TEST PASS (Nhi Judy House 97→117) + tuning re-check ✅
 
 Nối tiếp feature "chạy nền server" (commit bedcfb08a). Deploy Render web2-api xong → test thật + fix.

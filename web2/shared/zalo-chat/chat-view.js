@@ -70,6 +70,17 @@
         async function _fillAccChip() {
             const chip = container.querySelector('#wzcvAccChip');
             if (!chip) return;
+            const isGroup = conv.thread_type === 'group';
+            const nameEl = chip.querySelector('.wzcv-acc-name');
+            const dot = chip.firstElementChild;
+            const paint = (text, title, c) => {
+                if (nameEl) nameEl.textContent = text;
+                chip.title = title;
+                chip.style.color = c.fg;
+                chip.style.background = c.bg;
+                chip.style.borderColor = c.bd;
+                if (dot && dot.style) dot.style.background = c.fg;
+            };
             let meta = null;
             try {
                 // ZaloApi luôn có mặt nơi engine chạy (ENGINE_JS[0]); Web2Zalo chỉ ở
@@ -85,38 +96,55 @@
                     meta = {
                         label: a.displayName || a.label || 'Zalo',
                         isPrimary: !!(a.isPrimary || a.is_primary),
+                        connected: a.status === 'connected',
                     };
             } catch (_) {}
-            if (!meta) {
-                // account_key của hội thoại KHÔNG còn trong danh sách (TK đã xoá/đổi
-                // key — vd nhóm nguồn jt-tracking thuộc TK relay cũ đã xoá). KHÔNG ẩn
-                // chip (user muốn LUÔN thấy account đang dùng) → hiện cảnh báo muted.
-                const nm = chip.querySelector('.wzcv-acc-name');
-                if (nm) nm.textContent = 'TK Zalo không còn';
-                chip.title =
-                    'Tài khoản Zalo của hội thoại này (…' +
-                    String(account || '').slice(-6) +
-                    ') không còn trong danh sách — có thể KHÔNG gửi được. Vào trang Zalo đặt lại/đăng nhập TK.';
-                chip.style.color = '#9ca3af';
-                chip.style.background = '#f3f4f6';
-                chip.style.borderColor = '#e5e7eb';
-                const dot = chip.firstElementChild;
-                if (dot && dot.style) dot.style.background = '#9ca3af';
+
+            // NHÓM không gửi được (TK của nhóm đã xoá HOẶC chưa kết nối) → báo ACTIONABLE:
+            // Zalo CHỈ cho gửi nhóm bằng tài khoản LÀ THÀNH VIÊN nhóm → phải đăng nhập 1 TK
+            // có trong nhóm này (vd nhóm J&T) mới gửi được.
+            if (isGroup && (!meta || !meta.connected)) {
+                paint(
+                    '⚠ Cần đăng nhập TK trong nhóm',
+                    (meta
+                        ? 'TK Zalo của nhóm này (' + meta.label + ') CHƯA kết nối'
+                        : 'TK Zalo của nhóm này không còn') +
+                        ' — Zalo chỉ cho gửi tin nhóm bằng tài khoản LÀ THÀNH VIÊN. Vào trang Zalo, đăng nhập 1 tài khoản Zalo CÓ TRONG NHÓM này rồi thử lại.',
+                    { fg: '#b45309', bg: '#fff7ed', bd: '#fed7aa' }
+                );
                 return;
             }
-            const nameEl = chip.querySelector('.wzcv-acc-name');
-            if (nameEl) nameEl.textContent = meta.label;
+            if (!meta) {
+                // 1-1: TK đã xoá → muted (giữ như cũ).
+                paint(
+                    'TK Zalo không còn',
+                    'Tài khoản Zalo của hội thoại này (…' +
+                        String(account || '').slice(-6) +
+                        ') không còn — vào trang Zalo đăng nhập lại.',
+                    { fg: '#9ca3af', bg: '#f3f4f6', bd: '#e5e7eb' }
+                );
+                return;
+            }
+
+            // Có account đang KẾT NỐI → hiện tên TK gửi.
+            if (nameEl) nameEl.textContent = meta.label + (isGroup ? ' · nhóm' : '');
             chip.title =
                 'Nhắn bằng tài khoản Zalo: ' +
                 meta.label +
-                (meta.isPrimary ? ' (TK chính)' : ' — KHÔNG phải TK chính');
+                (meta.isPrimary
+                    ? ' (TK chính)'
+                    : isGroup
+                      ? ' (TK trong nhóm)'
+                      : ' — KHÔNG phải TK chính');
             if (meta.isPrimary) {
                 const tag = document.createElement('span');
                 tag.textContent = 'TK chính';
                 tag.style.cssText =
                     'font-size:9px;font-weight:700;color:#b45309;background:#fff7ed;border:1px solid #fed7aa;border-radius:999px;padding:0 6px;flex-shrink:0';
                 chip.appendChild(tag);
-            } else {
+            } else if (!isGroup) {
+                // 1-1 dùng TK KHÔNG phải chính → cam nhẹ để để ý. (Nhóm dùng TK thành
+                // viên là bình thường → giữ xanh, không cảnh báo.)
                 chip.style.color = '#b45309';
                 chip.style.background = '#fff7ed';
                 chip.style.borderColor = '#fed7aa';
