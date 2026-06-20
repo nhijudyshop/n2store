@@ -329,8 +329,8 @@
             return;
         }
         const total = Math.max(1, Math.min(500, parseInt($('boostCount').value, 10) || 0));
-        // Ô nhập đơn vị GIÂY (thập phân) → ms. Tối thiểu 0.5s (500ms).
-        const delay = Math.round(Math.max(0.5, parseFloat($('boostDelay').value) || 1.5) * 1000);
+        // Ô nhập đơn vị GIÂY (thập phân) → ms. Tối thiểu 1s (1000ms).
+        const delay = Math.round(Math.max(1, parseFloat($('boostDelay').value) || 1) * 1000);
         const tpl = ($('boostText').value || '').trim();
         const W = await waitWeb2Chat();
         if (!W) return;
@@ -486,11 +486,11 @@
             _stop = true;
             $('boostStop').disabled = true;
         });
-        // Gợi ý động: ms → giây (1500 = 1.5 giây).
+        // Gợi ý động: ms → giây (1000 = 1 giây). Tối thiểu 1s.
         const delayEl = $('boostDelay');
         const hintEl = $('boostDelayHint');
         const updateHint = () => {
-            const sec = Math.max(0.5, parseFloat(delayEl.value) || 1.5);
+            const sec = Math.max(1, parseFloat(delayEl.value) || 1);
             hintEl.textContent = `= ${Math.round(sec * 1000)} ms / comment mỗi tài khoản`;
         };
         delayEl.addEventListener('input', updateHint);

@@ -2,6 +2,14 @@
 
 ## 2026-06-20
 
+### [web2/multi-tool] Tăng comment: giãn nhịp mặc định + tối thiểu 1 giây, 6 account chạy độc lập ✅
+
+User: "Cho mặc định và thấp nhất là 1 giây → với 6 account Pancake chạy độc lập với nhau → account nào xong rồi cứ chạy tiếp".
+
+- **Files**: `web2/multi-tool/index.html` (input `boostDelay` `value=1` `min=1` `step=0.5`, label "tối thiểu 1", hint "= 1000 ms", help text nêu rõ chạy song song nhiều account độc lập), `web2/multi-tool/js/multi-tool.js` (`run()` clamp `Math.max(1, … || 1)` + `updateHint` clamp `Math.max(1, … || 1)`). Bump `multi-tool.js?v=20260620d1s`.
+- **6 account độc lập, work-stealing đã có sẵn**: `run()` đã chạy 1 worker / account (`W.getPageAccountJwts(pageId)` → `Promise.all`), mỗi worker tự `nextIdx()` từ counter `claimed` chung + `sleep(delay)` riêng → account nào gửi xong câu trước thì claim câu kế ngay, không chờ nhau. Không đổi kiến trúc, chỉ làm rõ behavior ở help text.
+- **Verified live (browser test)**: page tự chọn "NhiJudy Store", delay `1` / min `1` / hint "= 1000 ms", `getPageAccountJwts` trả **6 account** (Con Nhoc, Thu Lai, Thu Huyền, Huyền Nhi, Kỹ Thuật NJD, longxienc) → 6 luồng song song. node --check PASS.
+
 ### [web2/multi-tool] Tăng comment: tự mặc định page "NhiJudy Store" → bài mới nhất ✅
 
 User: "Để mặc định page Nhijudy Store → chọn bài mới nhất → để mặc định 1.5 giây" (trang Tăng số lượng comment).
