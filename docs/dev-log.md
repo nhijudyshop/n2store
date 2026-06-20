@@ -2,6 +2,23 @@
 
 ## 2026-06-20
 
+### [web2/shared] Fix picker không load SP nếu chưa vào Kho SP + promote API client lên shared ✅
+
+User: "fb-posts phải vào trang Kho SP trước nó mới load danh sách SP, còn chưa vào thì 'Không tìm thấy SP'". Gốc rễ: `Web2ProductsCache` (shared) cần `Web2ProductsApi` để fetch, nhưng API client lại nằm **page-local** `web2/products/js/web2-products-api.js` → 4 trang load cache mà KHÔNG load API (fb-posts, product-card, photo-editor, video-maker) chỉ chạy được khi IDB persist đã được Kho SP ghi sẵn.
+
+- **`git mv web2/products/js/web2-products-api.js → web2/shared/web2-products-api.js`** (cache đã shared thì API client cũng phải shared — 1 nguồn). Repoint 4 trang cross-import (products, purchase-refund, supplier-wallet, so-order) sang `../shared/web2-products-api.js`.
+- **Self-heal trong `web2-products-cache.js`**: `_loadList()` gọi `_ensureApiLoaded()` — nếu `Web2ProductsApi` thiếu, cache TỰ inject `web2-products-api.js` (resolve qua `document.currentScript.src` của chính cache) rồi mới fetch. → **Trang mới chỉ cần load cache là chạy, khỏi sửa từng HTML.**
+- Bump `web2-products-cache.js?v=20260620a` ở 8 trang.
+- ✅ Verify Playwright cold start: xóa IDB → vào THẲNG fb-posts (không qua Kho SP) → mở picker → API tự nạp (`apiScriptInDom:true`), fetch 43 SP từ worker, render 43 dòng list. Screenshot SP thật đủ ảnh/tên/mã/giá.
+
+### [web2/shared] Picker SP — đổi lưới ảnh → DANH SÁCH (ảnh + tên + mã + giá) ✅
+
+User: "xem sản phẩm theo danh sách hình ảnh, tên, giá". Picker chọn SP từ Kho (modal "Chọn sản phẩm cho bài đăng" ở Đăng bài FB) trước hiển thị lưới ảnh card → tên/giá nhỏ khó nhìn. Đổi sang dạng **danh sách dọc, mỗi dòng = thumbnail vuông 52px + tên (đậm) + mã (xám nhỏ) + giá (xanh, canh phải) + tick chọn**.
+
+- **`web2/shared/web2-product-picker.js`**: `[data-list]` `grid` → `flex column`; `cellHtml` → `rowHtml` (layout dòng); thêm `applyRowState(el,on)` cập nhật RIÊNG 1 dòng khi toggle (border/bg/tick) thay vì vẽ lại cả list → **giữ vị trí cuộn** khi chọn nhiều.
+- Bump `web2-product-picker.js?v=20260620a` ở `web2/fb-posts/index.html`.
+- ✅ Verify Playwright: seed 3 SP ảo → list `display:flex`, 3 dòng render đủ ảnh/📦 + tên + mã + giá; toggle multi → count "Đã chọn 1" + tick xanh + border xanh #0068ff. Screenshot duyệt layout.
+
 ### [web2/reconcile] FIX regression: client reconcile thiếu x-web2-token → "Cần đăng nhập Web 2.0" ✅
 
 User báo: `web2/reconcile/index.html` đăng nhập admin vẫn lỗi "Lỗi tải DS PBH: Cần đăng nhập Web 2.0 (thiếu/sai token)". Nguyên nhân: audit trước tôi gate `reconcile.js` (`router.use(requireWeb2AuthSoft)` #43) nhưng `reconcile-state.js api()` chỉ gửi `Content-Type`, KHÔNG `x-web2-token` → backend 401.
@@ -347,14 +364,6 @@ Research 3 repo TTS user gửi (TTS-WebUI/MIT, OmniVoice-Studio/AGPL, **k2-fsa/O
 - **MỚI**: `requirements-omnivoice.txt` (torch cài theo nền tảng trước + omnivoice) · `run-omnivoice-mac.command` (1-click venv riêng `.venv-omnivoice` + torch MPS + omnivoice). venv 2 engine TÁCH RIÊNG (deps khác).
 - **Frontend GIỮ NGUYÊN 100%** — `Web2Vieneu` chỉ gọi `/health /voices /synthesize /clone` + registry `/list`, engine-agnostic. Máy OmniVoice tự hiện trong danh sách (note=omnivoice), `voice` preset → instruct, `/clone` → ref_text auto Whisper.
 - ✅ Verify offline (KHÔNG tải model, không mạng): py_compile 5 file OK; factory chọn đúng vieneu/omnivoice + list preset; `float_to_wav_bytes` ra WAV hợp lệ RIFF/WAVE mono 24kHz PCM16 (đúng thứ `decodeAudioData` frontend đọc). Inference thật cần máy có torch+omnivoice (máy shop) — code khớp README API đã verify.
-
-### [web2/shared] Picker SP — đổi lưới ảnh → DANH SÁCH (ảnh + tên + mã + giá) ✅
-
-User: "xem sản phẩm theo danh sách hình ảnh, tên, giá". Picker chọn SP từ Kho (modal "Chọn sản phẩm cho bài đăng" ở Đăng bài FB) trước hiển thị lưới ảnh card → tên/giá nhỏ khó nhìn. Đổi sang dạng **danh sách dọc, mỗi dòng = thumbnail vuông 52px + tên (đậm) + mã (xám nhỏ) + giá (xanh, canh phải) + tick chọn**.
-
-- **`web2/shared/web2-product-picker.js`**: `[data-list]` `grid` → `flex column`; `cellHtml` → `rowHtml` (layout dòng); thêm `applyRowState(el,on)` cập nhật RIÊNG 1 dòng khi toggle (border/bg/tick) thay vì vẽ lại cả list → **giữ vị trí cuộn** khi chọn nhiều.
-- Bump `web2-product-picker.js?v=20260620a` ở `web2/fb-posts/index.html`.
-- ✅ Verify Playwright: seed 3 SP ảo → list `display:flex`, 3 dòng render đủ ảnh/📦 + tên + mã + giá; toggle multi → count "Đã chọn 1" + tick xanh + border xanh #0068ff. Screenshot duyệt layout.
 
 ### [web2/shared] PWA dùng chung — "Thêm vào Màn hình chính" (iOS/Android), không App Store ✅
 

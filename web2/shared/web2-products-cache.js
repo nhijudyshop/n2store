@@ -33,6 +33,42 @@
 
     if (global.Web2ProductsCache) return; // idempotent
 
+    // Self-heal dependency (2026-06-20): cache cần Web2ProductsApi để fetch.
+    // Vài trang (fb-posts, product-card, photo-editor, video-maker) load cache
+    // nhưng KHÔNG load API client → cold start fetch fail (chỉ chạy khi IDB
+    // persist đã được Kho SP ghi sẵn). Tự nạp bản shared nếu thiếu → trang mới
+    // chỉ cần load cache là chạy, khỏi sửa từng HTML.
+    const _SELF_SRC =
+        (typeof document !== 'undefined' && document.currentScript && document.currentScript.src) ||
+        '';
+    let _apiLoadPromise = null;
+    function _ensureApiLoaded() {
+        if (global.Web2ProductsApi) return Promise.resolve(true);
+        if (_apiLoadPromise) return _apiLoadPromise;
+        _apiLoadPromise = new Promise((resolve) => {
+            try {
+                if (typeof document === 'undefined' || !_SELF_SRC) {
+                    resolve(false);
+                    return;
+                }
+                const url = new URL('web2-products-api.js?v=20260620a', _SELF_SRC).href;
+                const s = document.createElement('script');
+                s.src = url;
+                s.async = false;
+                s.onload = () => resolve(!!global.Web2ProductsApi);
+                s.onerror = () => {
+                    console.warn('[Web2ProductsCache] auto-load Web2ProductsApi failed:', url);
+                    resolve(false);
+                };
+                document.head.appendChild(s);
+            } catch (e) {
+                console.warn('[Web2ProductsCache] auto-load API error:', e.message);
+                resolve(false);
+            }
+        });
+        return _apiLoadPromise;
+    }
+
     const FIRESTORE_COLLECTION = 'web2_products_sync';
     const FIRESTORE_DOC = 'notify';
     const REFRESH_DEBOUNCE_MS = 400;
@@ -209,6 +245,7 @@
     }
 
     async function _loadList() {
+        if (!global.Web2ProductsApi) await _ensureApiLoaded();
         if (!_ensureApi()) return;
         try {
             // Active + inactive both — UI quyết định hiển thị. Pull up
