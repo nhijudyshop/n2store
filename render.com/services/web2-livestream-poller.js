@@ -534,15 +534,13 @@ async function listLivePostsForAssign() {
 // web2_live_comments) rồi resolve. Dùng cho tier-3 "live fetch" của lookup KH:
 // chỉ giúp khi KH đang comment ở livestream HIỆN TẠI (chưa kịp poll 30s).
 // Trả { ok, ran } — ran=false nếu chưa start (thiếu deps).
+// ⛔ BỎ POLLER fetch comment (2026-06-20, user: "bỏ poller, message thì cứ WS live").
+// Comment livestream giờ vào DB DUY NHẤT qua WS /ingest (key `${convId}_${seq}`).
+// Poller fetch (key `${postId}_${mid}`) tạo dòng TRÙNG cùng 1 comment → no-op luôn.
+// GIỮ: reconcileFullText/reconcileRecentTruncated (vá "…" của dòng WS, UPDATE tại chỗ),
+// listLivePostsForAssign (liệt kê bài cho gom chiến dịch). Không tạo dòng comment mới.
 async function pollNow() {
-    if (!_web2Pool || !_liveComments) return { ok: false, ran: false };
-    try {
-        await _cycle();
-        return { ok: true, ran: true };
-    } catch (e) {
-        console.warn('[LIVE-POLLER] pollNow fail:', e.message);
-        return { ok: false, ran: true, error: e.message };
-    }
+    return { ok: true, ran: false, disabled: 'ws-live-only' };
 }
 
 // On-demand TARGETED: fetch comment per-message của ĐÚNG 1 post (page+post) →
@@ -552,49 +550,10 @@ async function pollNow() {
 // Debounce 1.5s/post: gom burst WS event (nhiều comment liên tiếp) thành 1 fetch.
 const _pollPostTimers = new Map(); // `${pageId}:${postId}` → { timer, pending }
 const POLL_POST_DEBOUNCE_MS = 1500;
-async function _doPollPost(pageId, postId) {
-    if (!_web2Pool || !_liveComments) return { ok: false, ran: false };
-    try {
-        const jwt = await getTokenForPage(pageId);
-        if (!jwt) return { ok: false, ran: false, error: 'no jwt' };
-        // pageName best-effort từ enabled pages (không bắt buộc).
-        let pageName = '';
-        try {
-            const pgs = await getEnabledPages();
-            pageName = pgs.find((p) => String(p.page_id) === String(pageId))?.page_name || '';
-        } catch (_) {
-            /* ignore */
-        }
-        const comments = await fetchPostComments(pageId, pageName, String(postId), jwt);
-        let saved = 0;
-        if (comments.length) {
-            saved = await _liveComments.upsertComments(_web2Pool, comments);
-            _liveComments._notify('poll', String(postId));
-        }
-        return { ok: true, ran: true, fetched: comments.length, saved };
-    } catch (e) {
-        console.warn('[LIVE-POLLER] pollPostNow fail:', e.message);
-        return { ok: false, ran: true, error: e.message };
-    }
-}
-function pollPostNow(pageId, postId, { immediate = false } = {}) {
-    if (!pageId || !postId) return Promise.resolve({ ok: false, ran: false });
-    if (immediate) return _doPollPost(pageId, postId);
-    const key = `${pageId}:${postId}`;
-    return new Promise((resolve) => {
-        const existing = _pollPostTimers.get(key);
-        if (existing) {
-            existing.waiters.push(resolve);
-            return;
-        }
-        const entry = { timer: null, waiters: [resolve] };
-        entry.timer = setTimeout(async () => {
-            _pollPostTimers.delete(key);
-            const r = await _doPollPost(pageId, postId);
-            entry.waiters.forEach((w) => w(r));
-        }, POLL_POST_DEBOUNCE_MS);
-        _pollPostTimers.set(key, entry);
-    });
+// ⛔ NO-OP (2026-06-20): bỏ poller fetch comment → KHÔNG tạo dòng `${postId}_${mid}`
+// trùng với dòng WS `${convId}_${seq}`. Comment realtime đã đủ qua WS /ingest.
+function pollPostNow() {
+    return Promise.resolve({ ok: true, ran: false, disabled: 'ws-live-only' });
 }
 
 // RECONCILE NỀN (2026-06-15): WS-direct lưu `conv.snippet` của Pancake — snippet bị

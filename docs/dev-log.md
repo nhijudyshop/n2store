@@ -2,6 +2,16 @@
 
 ## 2026-06-20
 
+### [live-comments O3] Bỏ poller fetch comment → WS-live là nguồn DUY NHẤT (hết dòng trùng) ✅ + deploy Cloudflare worker (O7)
+
+User: "bỏ poller đi luôn → liên quan message thì cứ WS live". O3 = poller ghi key `${postId}_${mid}` trùng dòng WS ghi `${convId}_${seq}` cùng 1 comment.
+
+- **`web2-livestream-poller.js`**: `pollPostNow` + `pollNow` + `_doPollPost` → **NO-OP** (`{ran:false, disabled:'ws-live-only'}`). Không còn fetch+`upsertComments` → KHÔNG tạo dòng `postId_mid`. GIỮ: `reconcileFullText`/`reconcileRecentTruncated` (vá "…" của dòng WS, UPDATE tại chỗ — không tạo dòng mới), `listLivePostsForAssign` (liệt kê bài gom chiến dịch). `_cycle`/`_loop` vốn dead (không schedule) → để nguyên.
+- **`/poll-now` route**: bỏ pollPostNow → gọi `reconcileRecentTruncated({hours:6})` (nút "poll now" giờ vá full-text, không dup).
+- **2 caller degrade an toàn**: web2-customers tier-3 `pollNow()` no-op → đọc DB do WS đổ; comment realtime vào DB DUY NHẤT qua WS `/ingest`. `/bulk` (live-chat auto-save) là path riêng, không đụng.
+- **O7 deploy**: `wrangler deploy` worker `chatomni-proxy` (version `ead1ae3c`) — header denylist LIVE. Verify SSRF guard `file://`→400, metadata IP→403.
+- ✅ `node --check` poller + live-comments pass.
+
 ### [security/perf] Re-verify audit 09:10 + fix các mục còn lại (A3/O7/O2 + N+1 web2-returns) ✅
 
 Re-verify audit `WEB2-FULL-REVIEW-20260620.md` (121 bug) vs code hiện tại (workflow 8 agent): **22/24 mục distinct ĐÃ fix** từ sáng (toàn bộ auth router, money-validate, idempotency, permission, XSS, FB token encrypt). Fix tiếp các mục còn lại user duyệt:

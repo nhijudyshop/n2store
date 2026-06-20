@@ -496,12 +496,18 @@ router.post('/poll-now', requireWeb2AuthSoft, async (req, res) => {
         } catch (_) {
             poller = null;
         }
-        if (!poller?.pollPostNow) return res.json({ success: false, error: 'poller unavailable' });
-        const results = await Promise.all(
-            valid.map((p) => poller.pollPostNow(p.pageId, p.postId, { immediate: true }))
-        );
-        const saved = results.reduce((s, r) => s + (r?.saved || 0), 0);
-        res.json({ success: true, polled: valid.length, saved });
+        // Poller FETCH comment ĐÃ BỎ (2026-06-20, user: "message thì cứ WS live") — comment
+        // realtime vào DB duy nhất qua WS /ingest. Nút "poll now" giờ CHỈ vá full-text cho
+        // comment WS còn bị cắt "…" (reconcileRecentTruncated UPDATE tại chỗ, KHÔNG tạo dòng trùng).
+        if (!poller?.reconcileRecentTruncated)
+            return res.json({ success: true, polled: 0, note: 'ws-live-only' });
+        const r = await poller.reconcileRecentTruncated({ hours: 6, limit: 200 });
+        res.json({
+            success: true,
+            polled: valid.length,
+            fixed: r?.fixed || 0,
+            note: 'ws-live-only',
+        });
     } catch (e) {
         console.error('[WEB2-LIVE-COMMENTS] poll-now error:', e.message);
         res.status(500).json({ success: false, error: e.message });
