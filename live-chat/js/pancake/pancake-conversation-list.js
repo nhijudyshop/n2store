@@ -4,6 +4,10 @@
 // =====================================================
 
 const PancakeConversationList = {
+    // null = lần render đầu (không animate cả list). Sau đó: id hội thoại đã thấy
+    // → so với lần realtime sau để phát hiện KH chat tới MỚI → animate "trượt vào".
+    _seenIds: null,
+
     /**
      * Render full conversation list into #pkConversations
      */
@@ -101,14 +105,31 @@ const PancakeConversationList = {
             return;
         }
 
-        container.innerHTML = filtered.map((conv) => this.renderConversationItem(conv)).join('');
+        // Phát hiện hội thoại MỚI xuất hiện (KH vừa chat tới) để animate "trượt vào".
+        // Diff theo toàn bộ state.conversations (không theo filtered) → đổi tab không
+        // animate lại. Lần đầu (_seenIds=null) bỏ qua. Burst lớn (>8, vd reload trang)
+        // cũng bỏ qua để cả list không nhấp nháy.
+        const allIds = new Set((state.conversations || []).map((c) => c.id));
+        const isFirstRender = this._seenIds === null;
+        let newIds = new Set();
+        if (!isFirstRender) {
+            for (const id of allIds) if (!this._seenIds.has(id)) newIds.add(id);
+            if (newIds.size > 8) newIds = new Set();
+        }
+        this._seenIds = allIds;
+
+        container.innerHTML = filtered
+            .map((conv) => this.renderConversationItem(conv, newIds.has(conv.id)))
+            .join('');
         if (typeof lucide !== 'undefined') lucide.createIcons();
     },
 
     /**
      * Render a single conversation item
+     * @param {object} conv
+     * @param {boolean} [isNew=false] - KH vừa chat tới → thêm class animate trượt vào
      */
-    renderConversationItem(conv) {
+    renderConversationItem(conv, isNew = false) {
         const state = window.PancakeState;
         const { escapeHtml, formatTime, getAvatarUrl } = window.SharedUtils;
 
@@ -158,7 +179,7 @@ const PancakeConversationList = {
         const hasMeta = !!tags || hasDebt;
 
         return `
-            <div class="pk-conversation-item ${isActive ? 'active' : ''} ${isUnread ? 'is-unread' : ''}" data-conv-id="${conv.id}" data-page-id="${conv.page_id}">
+            <div class="pk-conversation-item ${isActive ? 'active' : ''} ${isUnread ? 'is-unread' : ''} ${isNew ? 'pk-conv-enter' : ''}" data-conv-id="${conv.id}" data-page-id="${conv.page_id}">
                 <div class="pk-avatar">
                     ${avatar}
                     ${chBadge}

@@ -2,6 +2,14 @@
 
 ## 2026-06-20
 
+### [live-chat] chat.html: hiệu ứng "KH chat tới" (dòng trượt vào + glow avatar) ✅
+
+User muốn hội thoại mới hiện hiệu ứng khi có KH chat tới (học hiệu ứng GitHub). Làm bằng CSS thuần (không thêm lib nặng — đúng web rule compositor-friendly: transform+opacity).
+
+- **`pancake-conversation-list.js`**: thêm `_seenIds` (Set id hội thoại đã render). Mỗi lần `renderConversationList`, diff id mới so lần trước → hội thoại MỚI (KH vừa chat) nhận class `pk-conv-enter`. Bỏ qua render đầu + burst >8 (reload) để cả list không nhấp nháy. Diff theo `state.conversations` (KHÔNG theo filtered) → đổi tab không animate lại.
+- **`pancake-chat.css`**: `@keyframes pkConvEnter` (trượt vào + fade + sáng xanh nhẹ) + `pkAvatarPing` (vòng glow quanh avatar) + cải tiến `pkConvUpdated` (KH nhắn tiếp nhảy lên đầu). Respect `prefers-reduced-motion`. Bump `?v=20260620ls4`.
+- ✅ Verify Playwright: chèn hội thoại giả → row `pk-conv-enter`, `animationName=pkConvEnter`, avatar `::after`=`pkAvatarPing`.
+
 ### [web2/livestream-poller] FIX 2 lỗi (NOTIFICATION_CONFIG redeclare + 401 /stats,/poller-pages) + audit "trang còn cần không" ✅
 
 User hỏi trang `web2/livestream-poller/index.html` có cần thiết không + liên quan trang nào; kèm console: `Uncaught SyntaxError: NOTIFICATION_CONFIG already declared` + `GET /stats 401` + `/poller-pages 401`.
