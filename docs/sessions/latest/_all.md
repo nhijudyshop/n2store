@@ -3,16 +3,16 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `3e3021e` — feat(native-orders): Đơn Inbox 'Gán FB khác' — gán lại Facebook đúng nếu auto-dò nhầm
-**Last updated**: 2026-06-20 19:21:16 +07
-**Latest session**: [`RESUME:20260620-192116-3e3021e`](../20260620-192116-3e3021e.md)
-**Summary**: native-orders inbox: nut 'Gan FB khac' re-bind Facebook dung neu auto-do nham
+**Latest commit**: `a9cfb54` — auto: session update
+**Last updated**: 2026-06-20 19:41:38 +07
+**Latest session**: [`RESUME:20260620-194138-a9cfb54`](../20260620-194138-a9cfb54.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`native-orders/`](./native-orders.md) — 2 file(s)
-- [`web2/`](./web2.md) — 1 file(s)
+- [`live-chat/`](./live-chat.md) — 5 file(s)
+- [`vieneu-tts/`](./vieneu-tts.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -27,7 +27,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-20 11:49
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-06-20 19:21
+- [`docs/`](./docs.md) — updated 2026-06-20 19:41
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-19 14:27
@@ -41,7 +41,7 @@
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-06-20 12:07
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-20 12:07
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-06-20 12:07
-- [`live-chat/`](./live-chat.md) — updated 2026-06-20 19:05
+- [`live-chat/`](./live-chat.md) — updated 2026-06-20 19:41
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-06-20 16:16
 - [`n2store-facebook/`](./n2store-facebook.md) — updated 2026-06-14 13:09
 - [`n2store-realtime/`](./n2store-realtime.md) — updated 2026-06-16 11:15
@@ -73,7 +73,7 @@
 - [`tests/`](./tests.md) — updated 2026-06-10 19:04
 - [`tpos-pancake/`](./tpos-pancake.md) — updated 2026-06-07 19:41
 - [`user-management/`](./user-management.md) — updated 2026-06-20 12:07
-- [`vieneu-tts/`](./vieneu-tts.md) — updated 2026-06-20 08:26
+- [`vieneu-tts/`](./vieneu-tts.md) — updated 2026-06-20 19:41
 - [`web2-extension/`](./web2-extension.md) — updated 2026-05-24 11:53
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
