@@ -641,6 +641,7 @@ async function handleMessage(msg, tabId, port, asyncSendResponse) {
                     cookie,
                     imei,
                     userAgent: userAgent || navigator.userAgent,
+                    uid: uid || null, // TK đang đăng nhập chat.zalo.me (ưu tiên gửi tin theo TK này)
                 });
             } catch (err) {
                 log.warn(MODULE, 'GET_ZALO_CREDS failed:', err.message);

@@ -282,6 +282,69 @@
         });
     }
 
+    // 2026-06-20: TK web2 ĐANG KẾT NỐI khớp TK đang đăng nhập chat.zalo.me (cookie)
+    // → caller ưu tiên dùng TK này để gửi tin (thay vì luôn is_primary). Chưa kết nối
+    // nhưng có cookie → tự cookie-login (reconnect slot cũ / tạo slot mới — user chốt).
+    // Không có ext/cookie/uid → null (caller fallback TK chính). Cache 30s.
+    let _cookieAcc = { ts: 0, key: undefined };
+    async function getCookieAccountKey(opts = {}) {
+        const now = Date.now();
+        if (!opts.force && _cookieAcc.key !== undefined && now - _cookieAcc.ts < 30000) {
+            return _cookieAcc.key;
+        }
+        let key = null;
+        try {
+            const ext = global.Web2Ext;
+            if (ext?.hasExtension?.()) {
+                const r = await ext.request('GET_ZALO_CREDS', {}, 12000);
+                const d = (r && r.data) || {};
+                const uid = d.uid ? String(d.uid) : null;
+                if (uid) {
+                    await loadChatEngine(); // đảm bảo ZaloApi có mặt
+                    const Api = global.ZaloApi;
+                    const st = await status().catch(() => null);
+                    const accs = (st && st.accounts) || [];
+                    const byUid = accs.filter(
+                        (a) =>
+                            (a.accountType || a.account_type) === 'personal' &&
+                            String(a.zaloUid || a.zalo_uid || '') === uid
+                    );
+                    const connected = byUid.find((a) => a.status === 'connected');
+                    if (connected) {
+                        key = connected.accountKey || connected.account_key;
+                    } else if (Api && d.cookie && d.imei) {
+                        const creds = {
+                            cookie: d.cookie,
+                            imei: d.imei,
+                            userAgent: d.userAgent,
+                            expectedUid: uid,
+                        };
+                        if (byUid[0]) {
+                            // slot tồn tại nhưng chưa kết nối → cookie-login lại slot đó.
+                            const slot = byUid[0].accountKey || byUid[0].account_key;
+                            await Api.loginCookie(slot, creds).catch(() => {});
+                            key = slot;
+                        } else if (opts.autoLogin !== false) {
+                            // chưa có slot cho uid → tạo mới + cookie-login (tự đăng nhập).
+                            const cr = await Api.createAccount('Zalo (cookie)').catch(() => null);
+                            const nk = cr && cr.data && cr.data.accountKey;
+                            if (nk) {
+                                await Api.loginCookie(nk, {
+                                    cookie: d.cookie,
+                                    imei: d.imei,
+                                    userAgent: d.userAgent,
+                                }).catch(() => {});
+                                key = nk;
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (_) {}
+        _cookieAcc = { ts: now, key };
+        return key;
+    }
+
     global.Web2Zalo = {
         sendZNS,
         sendMessage,
@@ -292,5 +355,6 @@
         normPhone,
         loadChatEngine,
         mountChat,
+        getCookieAccountKey,
     };
 })(window);

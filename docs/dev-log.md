@@ -2,6 +2,17 @@
 
 ## 2026-06-20
 
+### [web2/zalo + extension] Nền tảng "ưu tiên TK cookie để gửi tin" — Phase 1+2 (chưa wire) 🚧
+
+User chốt: gửi tin Zalo ưu tiên TK đang đăng nhập chat.zalo.me (cookie), áp dụng cả 1-1 lẫn nhóm; TK chưa kết nối → tự cookie-login.
+
+- **Phase 1 — Extension đưa ra uid** (cần để biết TK nào đang ở chat.zalo.me): content script `zalo-creds.js` đọc thêm `sh_zlast_uid`/`sh_user_ids` → `GET_ZALO_CREDS` (service-worker) trả `uid`. Bump manifest `1.0.27→1.0.28` (CWS auto-publish). node --check PASS.
+- **Phase 2 — Client helper `Web2Zalo.getCookieAccountKey()`**: GET_ZALO_CREDS→uid → match account web2 đang kết nối (theo zalo_uid) → chưa kết nối: reconnect slot cũ / tạo slot mới + cookie-login (autoLogin). Cache 30s. Không ext/cookie/uid → null (caller fallback TK chính). **CHƯA wire vào send path → inert, không đổi hành vi.** Bump `web2-zalo.js?v=…acc3` (4 page).
+- **Phase 3 (CHƯA làm)**: wire vào resolve hội thoại 1-1 (`/conversation/:phone?account=`) + nhóm (dùng conv của TK cookie nếu là thành viên) + chip phản ánh TK thực gửi. = phần ĐỔI HÀNH VI gửi tin khách → cần live-test với chat.zalo.me đang đăng nhập.
+- ⚠ Live-test bị chặn: browser test restart đã mất phiên chat.zalo.me (cần user quét QR lại). Safe-by-fallback: khi không có cookie → vẫn dùng TK chính như cũ.
+
+## 2026-06-20
+
 ### [web2/multi-tool] Tăng comment CHẠY NỀN trên server + re-check tới >= target ✅
 
 User: "Cho chạy background trên server được không? Lúc chạy lấy số comment của bài (vd 362), user chọn 700 → chạy nền, xong check lại phải > 1062; nếu ít hơn thì chạy lại tới >= 1062."
