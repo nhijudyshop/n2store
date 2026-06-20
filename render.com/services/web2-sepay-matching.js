@@ -75,6 +75,10 @@ async function ensureSchema(pool) {
             CREATE INDEX IF NOT EXISTS idx_web2_bh_phone ON web2_balance_history(linked_customer_phone) WHERE linked_customer_phone IS NOT NULL;
             CREATE INDEX IF NOT EXISTS idx_web2_bh_unprocessed ON web2_balance_history(wallet_processed) WHERE wallet_processed = FALSE;
             CREATE INDEX IF NOT EXISTS idx_web2_bh_account_num ON web2_balance_history(account_number);
+            -- Tìm kiếm UI + match SePay dùng ILIKE '%..%' trên content (leading-wildcard → seq scan).
+            -- GIN pg_trgm cho phép LIKE/ILIKE substring dùng index. pg_trgm đã bật (web2-customers-schema).
+            CREATE EXTENSION IF NOT EXISTS pg_trgm;
+            CREATE INDEX IF NOT EXISTS idx_web2_bh_content_trgm ON web2_balance_history USING gin (content gin_trgm_ops);
         `);
 
         // verified_by — user who manually linked/resolved (audit trail).

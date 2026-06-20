@@ -2,6 +2,14 @@
 
 ## 2026-06-20
 
+### [perf] Trigram index web2_balance_history.content (ILIKE substring) ✅ + remaining defer
+
+- **`web2-sepay-matching.js`** ensureTables: `CREATE EXTENSION pg_trgm` + `idx_web2_bh_content_trgm USING gin (content gin_trgm_ops)` → ILIKE `%..%` (tìm kiếm UI + match) dùng index thay seq scan. pg_trgm đã bật web2Db (web2-customers-schema). Self-apply khi Render restart. `node --check` pass.
+- **Defer (cần infra/test riêng, KHÔNG rush)**:
+    - Web 1.0 `balance_history.content` trigram (HOT path webhook SePay) — bảng chatDb tạo qua MIGRATION (không có boot-ensure), migration chạy THỦ CÔNG (`run-migration-NNN.js`) → cần tạo migration + apply tay vào prod money DB. SQL sẵn: `CREATE EXTENSION IF NOT EXISTS pg_trgm; CREATE INDEX CONCURRENTLY idx_bh_content_trgm ON balance_history USING gin (content gin_trgm_ops);`
+    - **KPI N+1** (fast-sale-orders:1899) — cần batch API trong kpi module + giữ dedup `client_event_id`, hot-path tạo PBH, số SP/đơn nhỏ → impact thấp.
+    - **OFFSET→keyset** (fast_sale_orders, web2_customers list) — đổi contract API + frontend; đã thêm `id DESC` tie-break giảm page-drift, keyset đầy đủ để sau.
+
 ### [live-comments O3] Bỏ poller fetch comment → WS-live là nguồn DUY NHẤT (hết dòng trùng) ✅ + deploy Cloudflare worker (O7)
 
 User: "bỏ poller đi luôn → liên quan message thì cứ WS live". O3 = poller ghi key `${postId}_${mid}` trùng dòng WS ghi `${convId}_${seq}` cùng 1 comment.
