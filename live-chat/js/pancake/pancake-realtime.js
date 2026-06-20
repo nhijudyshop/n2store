@@ -126,9 +126,11 @@ const PancakeRealtime = {
             if (state && state.searchResults) return;
             try {
                 await window.PancakeAPI.fetchConversations(true);
-                window.PancakeConversationList &&
-                    window.PancakeConversationList.renderConversationList &&
-                    window.PancakeConversationList.renderConversationList();
+                // INCREMENTAL: realtime KH chat tới → reconcile (chèn/dời/patch từng dòng)
+                // thay vì rebuild cả cột → hết nhấp nháy + animation "trượt vào" chạy mượt.
+                const CL = window.PancakeConversationList;
+                if (CL && CL.reconcileConversationList) CL.reconcileConversationList();
+                else if (CL && CL.renderConversationList) CL.renderConversationList();
             } catch (_) {}
         }, 1000);
     },

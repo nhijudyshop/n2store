@@ -109,14 +109,21 @@ const PancakeChatWindow = {
                         await window.PancakeAPI.markAsRead(pageId, convId);
                         conv.unread_count = 0;
                         conv.seen = true;
-                        window.PancakeConversationList?.renderConversationList?.();
+                        // Incremental: chỉ bỏ pill chưa đọc tại chỗ, không rebuild cả cột.
+                        (
+                            window.PancakeConversationList?.reconcileConversationList ||
+                            window.PancakeConversationList?.renderConversationList
+                        )?.call(window.PancakeConversationList);
                     } catch (_) {}
                 }
             },
 
             onConversationUpdate(c) {
                 c.updated_at = new Date().toISOString();
-                window.PancakeConversationList?.renderConversationList?.();
+                (
+                    window.PancakeConversationList?.reconcileConversationList ||
+                    window.PancakeConversationList?.renderConversationList
+                )?.call(window.PancakeConversationList);
             },
 
             // Feature 2: gửi sticker FB qua extension (REPLY_INBOX_PHOTO STICKER).

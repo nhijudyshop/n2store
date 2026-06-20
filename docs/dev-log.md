@@ -2,6 +2,14 @@
 
 ## 2026-06-20
 
+### [live-chat] chat.html: realtime cập nhật INCREMENTAL (hết "render lại nguyên cột gây rối") ✅
+
+User: khi nhận tin mới từ KH, cột chat **render lại nguyên cột gây rối** (innerHTML rebuild → nhấp nháy, avatar reload, huỷ animation). Học cách chat app làm: **keyed reconcile** thay vì rebuild.
+
+- **`pancake-conversation-list.js`**: tách `_computeFiltered()` (nguồn lọc chung) + `_detectNewIds()` + `_renderEmpty()`; `renderConversationList()` slim lại (full render — chỉ dùng khi đổi filter/search/load đầu). Thêm **`reconcileConversationList()`** (keyed theo `data-conv-id`): chèn dòng MỚI (animate `pk-conv-enter`), dời dòng có tin mới lên đúng vị trí (highlight `pk-conv-updated`), **patch nội dung tại chỗ** (preview/time/unread/active) qua `_patchConversationRow()` — KHÔNG đụng avatar → ảnh không reload, **TÁI DÙNG cùng 1 DOM element** (verify `sameElementReused=true`).
+- **Wiring**: realtime (`pancake-realtime.js` `_scheduleListRefresh`) + `selectConversation` (click) + chat-window `markRead`/`onConversationUpdate` → gọi `reconcileConversationList()` thay `renderConversationList()`. Đổi filter/search vẫn full render.
+- ✅ Verify Playwright: (a) conv cũ có tin mới → nhảy lên đầu, **cùng element**, có highlight, preview patched, row count ổn định; (b) conv MỚI → chèn top + `pk-conv-enter`, dòng kế **không bị đụng**, switch tab vẫn chạy; 0 console error. Bump `?v=20260620ls5`.
+
 ### [live-chat] chat.html: hiệu ứng "KH chat tới" (dòng trượt vào + glow avatar) ✅
 
 User muốn hội thoại mới hiện hiệu ứng khi có KH chat tới (học hiệu ứng GitHub). Làm bằng CSS thuần (không thêm lib nặng — đúng web rule compositor-friendly: transform+opacity).

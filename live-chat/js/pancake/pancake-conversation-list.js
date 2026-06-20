@@ -9,41 +9,15 @@ const PancakeConversationList = {
     _seenIds: null,
 
     /**
-     * Render full conversation list into #pkConversations
+     * Tính danh sách hội thoại đã lọc (page + search + type + tab) theo thứ tự.
+     * Nguồn CHUNG cho renderConversationList (full) + reconcileConversationList (incremental).
      */
-    renderConversationList() {
-        const container = document.getElementById('pkConversations');
-        if (!container) return;
-
+    _computeFiltered() {
         const state = window.PancakeState;
-        const { escapeHtml } = window.SharedUtils;
+        let filtered =
+            (state.searchResults !== null ? state.searchResults : state.conversations) || [];
+        filtered = filtered.slice();
 
-        // isSearching guard removed — local results stay visible while API fetches
-
-        let filtered = state.searchResults !== null ? state.searchResults : state.conversations;
-
-        // Search results empty
-        if (state.searchResults !== null && state.searchResults.length === 0) {
-            container.innerHTML = `
-                <div class="pk-search-empty">
-                    <i data-lucide="search-x"></i>
-                    <span>Không tìm thấy kết quả cho "${escapeHtml(state.searchQuery)}"</span>
-                    <button class="pk-clear-search-btn" onclick="window.PancakeConversationList.clearSearch()">Xóa tìm kiếm</button>
-                </div>`;
-            if (typeof lucide !== 'undefined') lucide.createIcons();
-            return;
-        }
-
-        if (filtered.length === 0) {
-            container.innerHTML = `
-                <div class="pk-empty-state" style="padding: 40px 20px;">
-                    <i data-lucide="inbox"></i><h3>Không có hội thoại</h3><p>Chưa có cuộc trò chuyện nào</p>
-                </div>`;
-            if (typeof lucide !== 'undefined') lucide.createIcons();
-            return;
-        }
-
-        // Filter by selected page
         if (state.selectedPageId && state.searchResults === null) {
             const selectedPage = state.pages.find((p) => p.id === state.selectedPageId);
             const ids = selectedPage
@@ -51,8 +25,6 @@ const PancakeConversationList = {
                 : [state.selectedPageId];
             filtered = filtered.filter((conv) => ids.includes(conv.page_id));
         }
-
-        // Local search filter
         if (state.searchQuery && state.searchResults === null) {
             const q = state.searchQuery.toLowerCase();
             filtered = filtered.filter((conv) => {
@@ -66,34 +38,61 @@ const PancakeConversationList = {
                 );
             });
         }
-
-        // Sub-filter loại hội thoại (áp cho MỌI tab): tin nhắn (INBOX) / bình luận (COMMENT).
+        // Sub-filter loại hội thoại (mọi tab): tin nhắn (INBOX) / bình luận (COMMENT).
         if (state.typeFilter === 'message') {
             filtered = filtered.filter((conv) => (conv.type || 'INBOX') === 'INBOX');
         } else if (state.typeFilter === 'comment') {
             filtered = filtered.filter((conv) => conv.type === 'COMMENT');
         }
-
         // Tab filter theo NGƯỜI: livestream commenter vs còn lại.
         const lsf = window.PancakeLivestreamFilter;
         if (state.activeFilter === 'livestream') {
             filtered = filtered.filter((conv) => lsf?.isLivestreamConv(conv));
         } else if (state.activeFilter === 'inbox') {
-            // Người KHÔNG nằm trong danh sách livestream của chiến dịch đang chọn.
             filtered = filtered.filter((conv) => !lsf?.isLivestreamConv(conv));
         }
+        return filtered;
+    },
 
-        if (filtered.length === 0) {
-            // Tab Livestream chưa chọn chiến dịch → hướng dẫn thay vì "trống".
-            if (state.activeFilter === 'livestream' && !lsf?.hasCampaign?.()) {
-                container.innerHTML = `
-                    <div class="pk-empty-state" style="padding: 40px 20px;">
-                        <i data-lucide="radio"></i><h3>Chưa chọn chiến dịch</h3>
-                        <p>Chọn một chiến dịch livestream ở trên để xem khách đã comment / nhắn tin.</p>
-                    </div>`;
-                if (typeof lucide !== 'undefined') lucide.createIcons();
-                return;
-            }
+    // Set id hội thoại MỚI (KH vừa chat) so lần render trước → animate "trượt vào".
+    // Diff theo state.conversations (không theo filtered) → đổi tab không animate lại.
+    // Lần đầu (_seenIds=null) + burst >8 (reload) bỏ qua để cả list không nhấp nháy.
+    _detectNewIds() {
+        const state = window.PancakeState;
+        const allIds = new Set((state.conversations || []).map((c) => c.id));
+        const isFirst = this._seenIds === null;
+        let newIds = new Set();
+        if (!isFirst) {
+            for (const id of allIds) if (!this._seenIds.has(id)) newIds.add(id);
+            if (newIds.size > 8) newIds = new Set();
+        }
+        this._seenIds = allIds;
+        return newIds;
+    },
+
+    _renderEmpty(container) {
+        const state = window.PancakeState;
+        const { escapeHtml } = window.SharedUtils;
+        const lsf = window.PancakeLivestreamFilter;
+        if (state.searchResults !== null && state.searchResults.length === 0) {
+            container.innerHTML = `
+                <div class="pk-search-empty">
+                    <i data-lucide="search-x"></i>
+                    <span>Không tìm thấy kết quả cho "${escapeHtml(state.searchQuery)}"</span>
+                    <button class="pk-clear-search-btn" onclick="window.PancakeConversationList.clearSearch()">Xóa tìm kiếm</button>
+                </div>`;
+        } else if ((state.conversations || []).length === 0 && !state.searchQuery) {
+            container.innerHTML = `
+                <div class="pk-empty-state" style="padding: 40px 20px;">
+                    <i data-lucide="inbox"></i><h3>Không có hội thoại</h3><p>Chưa có cuộc trò chuyện nào</p>
+                </div>`;
+        } else if (state.activeFilter === 'livestream' && !lsf?.hasCampaign?.()) {
+            container.innerHTML = `
+                <div class="pk-empty-state" style="padding: 40px 20px;">
+                    <i data-lucide="radio"></i><h3>Chưa chọn chiến dịch</h3>
+                    <p>Chọn một chiến dịch livestream ở trên để xem khách đã comment / nhắn tin.</p>
+                </div>`;
+        } else {
             const pageName =
                 state.pages.find((p) => p.id === state.selectedPageId)?.name || 'page này';
             container.innerHTML = `
@@ -101,27 +100,131 @@ const PancakeConversationList = {
                     <i data-lucide="inbox"></i><h3>Không có hội thoại</h3>
                     <p>Không tìm thấy hội thoại nào ${state.selectedPageId ? `trong ${pageName}` : ''}</p>
                 </div>`;
-            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    },
+
+    /**
+     * Render FULL (rebuild innerHTML) — dùng khi đổi filter / search / load lần đầu.
+     * Realtime (KH chat tới) PHẢI dùng reconcileConversationList để không nhấp nháy.
+     */
+    renderConversationList() {
+        const container = document.getElementById('pkConversations');
+        if (!container) return;
+        const filtered = this._computeFiltered();
+        if (filtered.length === 0 || window.PancakeState.searchResults?.length === 0) {
+            this._renderEmpty(container);
             return;
         }
-
-        // Phát hiện hội thoại MỚI xuất hiện (KH vừa chat tới) để animate "trượt vào".
-        // Diff theo toàn bộ state.conversations (không theo filtered) → đổi tab không
-        // animate lại. Lần đầu (_seenIds=null) bỏ qua. Burst lớn (>8, vd reload trang)
-        // cũng bỏ qua để cả list không nhấp nháy.
-        const allIds = new Set((state.conversations || []).map((c) => c.id));
-        const isFirstRender = this._seenIds === null;
-        let newIds = new Set();
-        if (!isFirstRender) {
-            for (const id of allIds) if (!this._seenIds.has(id)) newIds.add(id);
-            if (newIds.size > 8) newIds = new Set();
-        }
-        this._seenIds = allIds;
-
+        const newIds = this._detectNewIds();
         container.innerHTML = filtered
             .map((conv) => this.renderConversationItem(conv, newIds.has(conv.id)))
             .join('');
         if (typeof lucide !== 'undefined') lucide.createIcons();
+    },
+
+    /**
+     * Cập nhật INCREMENTAL — không rebuild cả cột (chống "render lại nguyên cột gây rối").
+     * Keyed reconcile theo data-conv-id: chèn dòng MỚI (animate trượt vào), dời dòng có
+     * tin mới lên đúng vị trí (highlight), patch nội dung tại chỗ (preview/time/unread).
+     * KHÔNG đụng avatar → ảnh không reload, animation không bị huỷ.
+     */
+    reconcileConversationList() {
+        const container = document.getElementById('pkConversations');
+        if (!container) return;
+        const state = window.PancakeState;
+        // Search = replace toàn bộ → full render. List rỗng → full render (lo empty-state).
+        if (state.searchResults !== null) return this.renderConversationList();
+        const filtered = this._computeFiltered();
+        if (filtered.length === 0) return this.renderConversationList();
+        // Chưa có row nào (đang loading/empty) → full render lần đầu.
+        if (!container.querySelector('.pk-conversation-item')) return this.renderConversationList();
+
+        const newIds = this._detectNewIds();
+        const existing = new Map();
+        container
+            .querySelectorAll('.pk-conversation-item')
+            .forEach((el) => existing.set(el.dataset.convId, el));
+
+        let prevEl = null;
+        for (const conv of filtered) {
+            const id = String(conv.id);
+            let el = existing.get(id);
+            let isNewRow = false;
+            let contentChanged = false;
+            if (!el) {
+                const tmp = document.createElement('div');
+                tmp.innerHTML = this.renderConversationItem(conv, newIds.has(conv.id)).trim();
+                el = tmp.firstElementChild;
+                isNewRow = true;
+            } else {
+                contentChanged = this._patchConversationRow(el, conv);
+                existing.delete(id);
+            }
+            const ref = prevEl ? prevEl.nextElementSibling : container.firstElementChild;
+            if (el !== ref) {
+                container.insertBefore(el, ref);
+                // Dòng cũ có tin MỚI nhảy lên đầu → highlight quét (không phải chỉ reorder).
+                if (!isNewRow && contentChanged) {
+                    el.classList.remove('pk-conv-updated');
+                    void el.offsetWidth; // reflow để chạy lại animation
+                    el.classList.add('pk-conv-updated');
+                    setTimeout(() => el.classList.remove('pk-conv-updated'), 1100);
+                }
+            }
+            prevEl = el;
+        }
+        // Bỏ row không còn trong danh sách lọc.
+        existing.forEach((el) => el.remove());
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    },
+
+    // Patch nội dung 1 row TẠI CHỖ (preview/time/unread/active) — KHÔNG đụng avatar
+    // (tránh reload ảnh → nhấp nháy). Trả true nếu có tin mới (snippet đổi / unread tăng).
+    _patchConversationRow(el, conv) {
+        const state = window.PancakeState;
+        let changed = false;
+        const previewEl = el.querySelector('.pk-conversation-preview');
+        if (previewEl) {
+            const newPreview = this._parseMessageHtml(
+                conv.snippet || conv.last_message?.text || ''
+            );
+            if (previewEl.textContent !== newPreview) {
+                previewEl.textContent = newPreview;
+                changed = true;
+            }
+        }
+        const timeEl = el.querySelector('.pk-conversation-time');
+        if (timeEl) timeEl.textContent = window.SharedUtils.formatTime(conv.updated_at);
+
+        const subEl = el.querySelector('.pk-conversation-sub');
+        const unread = conv.unread_count || 0;
+        let pill = el.querySelector('.pk-unread-pill');
+        if (unread > 0) {
+            const txt = unread > 99 ? '99+' : String(unread);
+            if (pill) {
+                if (pill.textContent !== txt) {
+                    pill.textContent = txt;
+                    changed = true;
+                }
+            } else if (subEl) {
+                pill = document.createElement('span');
+                pill.className = 'pk-unread-pill';
+                pill.textContent = txt;
+                subEl.appendChild(pill);
+                changed = true;
+            }
+            el.classList.add('is-unread');
+            if (previewEl) previewEl.classList.add('unread');
+        } else {
+            if (pill) pill.remove();
+            el.classList.remove('is-unread');
+            if (previewEl) previewEl.classList.remove('unread');
+        }
+        const isActive =
+            state.activeConversation && String(state.activeConversation.id) === String(conv.id);
+        el.classList.toggle('active', !!isActive);
+        return changed;
     },
 
     /**
@@ -256,7 +359,8 @@ const PancakeConversationList = {
         if (!conv && state.searchResults) conv = state.searchResults.find((c) => c.id === convId);
         if (!conv) return;
         state.activeConversation = conv;
-        this.renderConversationList();
+        // Incremental: chỉ đổi class active tại chỗ (không rebuild cả cột → click không nhấp nháy).
+        this.reconcileConversationList();
         window.PancakeChatWindow.renderChatWindow(conv);
         // Mobile: chuyển sang view chat full-screen (single-pane swap)
         if (window.Web2PancakeMobile?.showChat) window.Web2PancakeMobile.showChat();
