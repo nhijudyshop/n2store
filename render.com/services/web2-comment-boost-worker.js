@@ -249,8 +249,14 @@ async function runRound(job, tokens, remaining, delay, onProgress, jobId, booste
                 message: text,
                 jwt,
             });
-            if (res.ok) ok++;
-            else {
+            if (res.ok) {
+                ok++;
+                // conv.id THẬT của comment boost = `${post_id}_${id}` → gom để dọn
+                // khỏi live-chat (mark ingest-skip + purge) khi xong job.
+                if (res.id && job.post_id && boostedIds) {
+                    boostedIds.add(`${job.post_id}_${res.id}`);
+                }
+            } else {
                 err++;
                 if (res.rateLimited) {
                     rateLimited = true;
@@ -300,6 +306,8 @@ async function runJob(job) {
         let countFail = 0;
         let stopReason = null;
         let stopped = false;
+        const boostedIds = new Set(); // conv.id THẬT của comment boost → dọn khỏi live-chat
+        await _cleanupBoosted(job, []); // mark conv + purge spam cũ (như foreground markBoost đầu)
 
         while (rounds < MAX_ROUNDS) {
             if (await _isStopped(jobId)) {
@@ -352,12 +360,14 @@ async function runJob(job) {
                     }).catch(() => {});
                     _notifyJob(jobId);
                 },
-                jobId
+                jobId,
+                boostedIds
             );
             sentOk += round.ok;
             sentErr += round.err;
             await _updateJob(jobId, { sent_ok: sentOk, sent_err: sentErr, rounds });
             _notifyJob(jobId);
+            await _cleanupBoosted(job, boostedIds); // dọn comment tăng vòng này khỏi live-chat
 
             if (round.rateLimited) {
                 consecRate++;
@@ -374,6 +384,16 @@ async function runJob(job) {
         }
 
         if (!stopped && rounds >= MAX_ROUNDS) stopReason = 'max_rounds';
+
+        // "Dọn comment đã tăng" lần cuối — đợi 3s cho comment boost cuối kịp ingest
+        // qua relay WS rồi mark+purge toàn bộ khỏi live-chat (như nút Dọn thủ công).
+        await sleep(3000);
+        const cleaned = await _cleanupBoosted(job, boostedIds);
+        if (cleaned) {
+            console.log(
+                `[CMT-BOOST] job ${jobId} cleaned ${boostedIds.size} ids, purged=${cleaned.purged}`
+            );
+        }
 
         // Chốt: re-check count lần cuối.
         const finalCount = await fetchPostCommentCount(

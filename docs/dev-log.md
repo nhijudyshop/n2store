@@ -2,6 +2,14 @@
 
 ## 2026-06-20
 
+### [web2/multi-tool] Tăng comment nền: XONG TỰ DỌN comment đã tăng khỏi live-chat ✅
+
+User: "Xong phải chạy dọn comment đã tăng" (job nền tự dọn như nút "Dọn comment đã tăng").
+
+- **`render.com/routes/web2-live-comments.js`**: tách core `boost-mark` thành hàm export `markBoostAndPurge(pool, ids, ttlMs)` (mark conv → /ingest bỏ qua TTL 20' + XOÁ comment đã ingest `id = cid OR starts_with(id, cid||'_')` + SSE `reconcile`). Route `/boost-mark` gọi lại hàm này.
+- **`render.com/services/web2-comment-boost-worker.js`**: worker gom `boostedIds` = `${post_id}_${reply_id}` của mỗi comment boost (từ `res.id`), gọi `_cleanupBoosted` (in-process `markBoostAndPurge`) **3 nơi**: đầu job (mark conv + purge spam cũ), sau MỖI vòng, và CUỐI job (đợi 3s cho comment cuối kịp ingest rồi mark+purge toàn bộ). → live-chat không hiện comment tăng. Giống foreground markBoost/markBoostIds.
+- Frontend: help job card thêm "Xong tự dọn comment đã tăng khỏi live-chat". `?v=20260620bg3`.
+
 ### [index/login] Fix nối tiếp: login.js không copy previousNames vào loginindex_auth ✅
 
 User: đăng nhập phuoc/phuoc2109 vẫn không hiện data (xác nhận "Phước"="Phước đẹp trai").
