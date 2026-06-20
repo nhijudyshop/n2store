@@ -3,16 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `8bc94ed` — feat(live-chat): picker livestream chọn chiến dịch cha HOẶC bài live (multi-select); fix(native-orders): 401 chiến dịch cha thiếu x-web2-token
-**Last updated**: 2026-06-20 19:58:27 +07
-**Latest session**: [`RESUME:20260620-195827-8bc94ed`](../20260620-195827-8bc94ed.md)
-**Summary**: live-chat picker chiến dịch cha/bài live + fix native-orders 401
+**Latest commit**: `309caf6` — fix(web2/livestream-poller): bỏ double-load notification-system (NOTIFICATION_CONFIG redeclare) + 401 /stats,/poller-pages thiếu x-web2-token
+**Last updated**: 2026-06-20 20:32:26 +07
+**Latest session**: [`RESUME:20260620-203226-309caf6`](../20260620-203226-309caf6.md)
+**Summary**: fix livestream-poller 2 bugs + audit necessity
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`live-chat/`](./live-chat.md) — 3 file(s)
-- [`native-orders/`](./native-orders.md) — 2 file(s)
+- [`web2/`](./web2.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -27,7 +26,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-20 11:49
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-06-20 19:58
+- [`docs/`](./docs.md) — updated 2026-06-20 20:32
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-19 14:27
@@ -78,4 +77,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-20 19:21
+- [`web2/`](./web2.md) — updated 2026-06-20 20:32
