@@ -3,19 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `8059794` — chore(web2): bump ?v=20260620b (sidebar escapeHtml + chat double-send guard) -> deploy frontend security fixes
-**Last updated**: 2026-06-20 10:30:13 +07
-**Latest session**: [`RESUME:20260620-103013-8059794`](../20260620-103013-8059794.md)
-**Summary**: chore(web2): bump ?v=20260620b (sidebar escapeHtml + chat double-send guard) -> deploy frontend security fixes
+**Latest commit**: `37eccde` — docs(ops): ghi lai deploy prod (worker TPOS env + SSRF, WEB2_ENC_KEY 3 service, don 5 env chet, smoke-test 401-gating PASS)
+**Last updated**: 2026-06-20 11:10:58 +07
+**Latest session**: [`RESUME:20260620-111058-37eccde`](../20260620-111058-37eccde.md)
+**Summary**: docs(ops): ghi lai deploy prod (worker TPOS env + SSRF, WEB2_ENC_KEY 3 service, don 5 env chet, smoke-test 401-gating...
 
 ## Folders affected in this commit
 
+- [`cloudflare-worker/`](./cloudflare-worker.md) — 2 file(s)
 - [`docs/`](./docs.md) — 1 file(s)
-- [`live-chat/`](./live-chat.md) — 2 file(s)
-- [`native-orders/`](./native-orders.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 5 file(s)
-- [`so-order/`](./so-order.md) — 1 file(s)
-- [`web2/`](./web2.md) — 42 file(s)
 
 ## All folder snapshots
 
@@ -27,10 +23,10 @@
 - [`balance-history-home/`](./balance-history-home.md) — updated 2026-06-18 13:09
 - [`balance-history/`](./balance-history.md) — updated 2026-06-16 14:31
 - [`bangkiemhang/`](./bangkiemhang.md) — updated 2026-05-21 15:39
-- [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-20 10:09
+- [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-20 11:10
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-16 14:31
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-18 12:17
-- [`docs/`](./docs.md) — updated 2026-06-20 10:30
+- [`docs/`](./docs.md) — updated 2026-06-20 11:10
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-16 14:31
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-16 14:31
 - [`downloads/`](./downloads.md) — updated 2026-06-19 14:27
