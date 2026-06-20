@@ -2,6 +2,21 @@
 
 ## 2026-06-20
 
+### [live-chat/security] comments-mobile.html lộ comment khách khi ẩn danh — fix CLIENT (guard + token) ✅
+
+User: vào `nhijudy.store/live-chat/comments-mobile.html` ở trình duyệt ẩn danh KHÔNG cần đăng nhập vẫn xem được. Trang static (Pages) không chặn HTML được, nhưng nó load DATA comment (fb_id/tên/SĐT khách = PII) từ API KHÔNG auth.
+
+**Nguyên nhân**: comments-mobile.html (a) KHÔNG load web2-auth.js → không có guard redirect login; (b) fetch live-comments `credentials:'omit'`, KHÔNG gửi x-web2-token; (c) backend GET `/`, `/posts`, `/page-posts`, `/campaigns`, `/saved/ids` KHÔNG gate.
+
+**Fix CLIENT (commit này)**:
+
+- comments-mobile.html: inline AUTH GUARD ở <head> (chưa có `web2_auth.token` → `location.replace('../web2/login?next=')`) + load `web2-auth.js`.
+- Mọi fetch read live-comments gửi `Web2Auth.authHeaders()` (x-web2-token): `live-comments-stream.js` (GET /, dùng chung desktop+mobile), `comments-mobile-actions.js` (posts/page-posts/search), `pancake-api.js` (saved/ids).
+- Desktop live-chat đã có web2-auth.js sẵn → authHeaders chạy luôn. Bump `?v=20260620auth`.
+- **Fix BACKEND (gate GET read endpoints) ở commit kế** — sau khi Pages deploy client để không 401 user hợp lệ.
+
+## 2026-06-20
+
 ### [web2/multi-tool] Tăng comment nền: XONG TỰ DỌN comment đã tăng khỏi live-chat ✅
 
 User: "Xong phải chạy dọn comment đã tăng" (job nền tự dọn như nút "Dọn comment đã tăng").

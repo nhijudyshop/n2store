@@ -602,7 +602,9 @@ const PancakeAPI = {
         try {
             // 2026-06-12: dời từ relay /api/live-saved (route không tồn tại — 404,
             // audit 3H8) sang web2-live-comments/saved (web2Db).
-            const resp = await fetch(`${state.proxyBaseUrl}/api/web2-live-comments/saved/ids`);
+            const resp = await fetch(`${state.proxyBaseUrl}/api/web2-live-comments/saved/ids`, {
+                headers: (window.Web2Auth && window.Web2Auth.authHeaders()) || {}, // x-web2-token (API gate)
+            });
             const data = await resp.json();
             state.liveSavedIds = data.success ? new Set(data.data) : new Set();
         } catch {

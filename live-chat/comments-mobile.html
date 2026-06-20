@@ -10,6 +10,20 @@
         <meta name="theme-color" content="#0068ff" />
         <meta http-equiv="Cache-Control" content="no-store" />
         <title>Comment Live — Web 2.0</title>
+        <!-- AUTH GUARD (2026-06-20): trang Web 2.0 chứa comment khách (PII) — chưa đăng
+             nhập web2 thì ĐẨY VỀ LOGIN ngay (chống xem ẩn danh). Backend cũng gate API
+             bằng x-web2-token. Chạy SỚM NHẤT, trước mọi script tải data. -->
+        <script>
+            (function () {
+                try {
+                    var raw = localStorage.getItem('web2_auth');
+                    var a = raw ? JSON.parse(raw) : null;
+                    if (a && a.token) return; // đã đăng nhập → cho qua
+                } catch (e) {}
+                var next = encodeURIComponent(location.pathname + location.search);
+                location.replace('../web2/login/index.html?next=' + next);
+            })();
+        </script>
         <!-- PWA "Thêm vào Màn hình chính": icon + full-screen (trang mobile riêng — không nạp web2-pwa.js) -->
         <link rel="apple-touch-icon" href="../web2/shared/img/logo-emblem.png?v=20260530" />
         <link rel="icon" type="image/png" href="../web2/shared/img/logo-emblem.png?v=20260530" />
@@ -1037,6 +1051,8 @@
 
         <div class="toast" id="toast"></div>
 
+        <!-- Web2Auth: token web2 cho mọi fetch (x-web2-token) — API live-comments đã gate -->
+        <script src="../web2/shared/web2-auth.js?v=20260620auth"></script>
         <!-- SSE bridge (realtime) + toast -->
         <script src="../web2/shared/web2-sse-bridge.js?v=20260614cm4"></script>
         <script src="../shared/js/notification-system.js?v=20260614cm4"></script>
@@ -1050,7 +1066,7 @@
         <script src="../web2/shared/web2-chat-client.js?v=20260618w3"></script>
         <!-- SHARED realtime livestream-comment modules (dùng chung index.html) -->
         <script src="js/shared/live-time.js?v=20260614w2c"></script>
-        <script src="js/shared/live-comments-stream.js?v=20260614w2c"></script>
+        <script src="js/shared/live-comments-stream.js?v=20260620auth"></script>
         <!-- Web2CustomerStore: NGUỒN DUY NHẤT kho KH (load TRƯỚC live-status/live-customer-sync) -->
         <script src="../web2/shared/web2-customer-store.js?v=20260615fix"></script>
         <script src="js/shared/live-status.js?v=20260615store"></script>
@@ -1059,7 +1075,7 @@
              State đặt window.LiveState/LiveCommentList shim cho module ẩn. -->
         <script src="js/live/comments-mobile-state.js?v=20260618w3"></script>
         <script src="js/live/comments-mobile-render.js?v=20260618w3"></script>
-        <script src="js/live/comments-mobile-actions.js?v=20260618w3"></script>
+        <script src="js/live/comments-mobile-actions.js?v=20260620auth"></script>
         <script src="js/live/comments-mobile-entry.js?v=20260618w3"></script>
         <!-- Module ẩn comment theo NGƯỜI — DÙNG CHUNG nguồn server với live-chat/index.html -->
         <script src="js/live/live-hidden-commenters.js?v=20260614w2c"></script>

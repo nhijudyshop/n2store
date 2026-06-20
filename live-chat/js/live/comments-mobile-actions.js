@@ -59,13 +59,16 @@
     }
     async function loadPosts() {
         try {
+            const _h = (window.Web2Auth && window.Web2Auth.authHeaders()) || {}; // x-web2-token (API gate)
             const [a, b] = await Promise.allSettled([
-                fetch(`${WORKER}/api/web2-live-comments/posts`, { credentials: 'omit' }).then((r) =>
-                    r.json()
-                ),
-                fetch(`${WORKER}/api/web2-live-comments/page-posts`, { credentials: 'omit' }).then(
-                    (r) => r.json()
-                ),
+                fetch(`${WORKER}/api/web2-live-comments/posts`, {
+                    credentials: 'omit',
+                    headers: _h,
+                }).then((r) => r.json()),
+                fetch(`${WORKER}/api/web2-live-comments/page-posts`, {
+                    credentials: 'omit',
+                    headers: _h,
+                }).then((r) => r.json()),
             ]);
             const withComments = (a.status === 'fulfilled' && a.value.data) || [];
             const pagePosts = (b.status === 'fulfilled' && b.value.data) || [];
@@ -229,7 +232,10 @@
             } else {
                 q = `?limit=${LIMIT}`;
             }
-            const r = await fetch(`${WORKER}/api/web2-live-comments/${q}`, { credentials: 'omit' });
+            const r = await fetch(`${WORKER}/api/web2-live-comments/${q}`, {
+                credentials: 'omit',
+                headers: (window.Web2Auth && window.Web2Auth.authHeaders()) || {}, // x-web2-token
+            });
             const j = await r.json();
             const data = (j && j.data) || [];
             LCM.ALL = data;

@@ -107,7 +107,10 @@
                     cursorParam +
                     '&limit=' +
                     limit;
-                var resp = await fetch(url, { signal: AbortSignal.timeout(15000) });
+                var resp = await fetch(url, {
+                    signal: AbortSignal.timeout(15000),
+                    headers: (window.Web2Auth && window.Web2Auth.authHeaders()) || {}, // x-web2-token (API đã gate)
+                });
                 var j = await resp.json();
                 if (j && j.success && Array.isArray(j.data) && j.data.length) {
                     // Advance cursor từ RAW rows TRƯỚC khi map (để chính xác epoch).
