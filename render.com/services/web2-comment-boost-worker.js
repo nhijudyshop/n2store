@@ -24,7 +24,9 @@ const PANCAKE_API = 'https://pancake.vn/api/v1';
 const TICK_INTERVAL_MS = 4000; // quét job pending mỗi 4s
 const MAX_CONCURRENT_JOBS = 2; // tối đa 2 job boost chạy cùng lúc
 const MIN_DELAY_MS = 1000; // giãn nhịp tối thiểu / account
-const RECHECK_DELAY_MS = 7000; // chờ Pancake cập nhật count trước khi re-check
+const RECHECK_DELAY_MS = 30000; // chờ Pancake cập nhật comment_count trước khi re-check
+// (FB/Pancake count trễ ~20-40s → delay ngắn khiến re-check thấy count cũ → chạy
+//  thừa 1 vòng = over-send. 30s cho count "đuổi kịp" số đã gửi rồi mới tính deficit.)
 const MAX_ROUNDS = 40; // chặn vòng lặp vô hạn
 const SAFETY_SEND_MULT = 3; // tổng gửi tối đa = add_target * 3 + 50
 const RATE_LIMIT_BACKOFF_MS = 60000; // FB rate-limit → nghỉ 60s
