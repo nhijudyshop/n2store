@@ -3,14 +3,16 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `7f07963` — perf(web2/multi-tool): tang RECHECK_DELAY 7s->30s giam over-send job tang comment nen (live test PASS)
-**Last updated**: 2026-06-20 16:27:53 +07
-**Latest session**: [`RESUME:20260620-162753-7f07963`](../20260620-162753-7f07963.md)
-**Summary**: perf(web2/multi-tool): tang RECHECK_DELAY 7s->30s giam over-send job tang comment nen (live test PASS)
+**Latest commit**: `eea4776` — feat(web2/zalo): chip nhom bao 'Can dang nhap TK trong nhom' khi khong gui duoc (TK nhom xoa/chua ket noi)
+**Last updated**: 2026-06-20 16:33:39 +07
+**Latest session**: [`RESUME:20260620-163339-eea4776`](../20260620-163339-eea4776.md)
+**Summary**: feat(web2/zalo): chip nhom bao 'Can dang nhap TK trong nhom' khi khong gui duoc (TK nhom xoa/chua ket noi)
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
+- [`native-orders/`](./native-orders.md) — 1 file(s)
+- [`web2/`](./web2.md) — 5 file(s)
 
 ## All folder snapshots
 
@@ -25,7 +27,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-20 11:49
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-06-20 16:27
+- [`docs/`](./docs.md) — updated 2026-06-20 16:33
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-19 14:27
@@ -42,7 +44,7 @@
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-06-20 16:16
 - [`n2store-facebook/`](./n2store-facebook.md) — updated 2026-06-14 13:09
 - [`n2store-realtime/`](./n2store-realtime.md) — updated 2026-06-16 11:15
-- [`native-orders/`](./native-orders.md) — updated 2026-06-20 16:22
+- [`native-orders/`](./native-orders.md) — updated 2026-06-20 16:33
 - [`nhanhang/`](./nhanhang.md) — updated 2026-06-20 12:07
 - [`order-management/`](./order-management.md) — updated 2026-06-20 12:07
 - [`orders-report/`](./orders-report.md) — updated 2026-06-20 12:19
@@ -75,4 +77,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-20 16:22
+- [`web2/`](./web2.md) — updated 2026-06-20 16:33
