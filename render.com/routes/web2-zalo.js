@@ -1281,8 +1281,16 @@ router.get('/conversation/:phone', async (req, res) => {
                   `SELECT * FROM web2_zalo_conversations WHERE phone=$1 AND account_key=$2 ORDER BY last_msg_at DESC NULLS LAST LIMIT 1`,
                   [p, acct]
               )
-            : await db.query(
-                  `SELECT * FROM web2_zalo_conversations WHERE phone=$1 ORDER BY last_msg_at DESC NULLS LAST LIMIT 1`,
+            : // Chưa có prefer & chưa đặt TK chính: KHÔNG trả TK bất kỳ (most-recent có
+              // thể sai danh tính). Ưu tiên hội thoại thuộc TK is_primary rồi TK đang
+              // connected, mới tới last_msg_at. (audit MEDIUM 2026-06-20)
+              await db.query(
+                  `SELECT c.* FROM web2_zalo_conversations c
+                   LEFT JOIN web2_zalo_accounts a ON a.account_key = c.account_key
+                   WHERE c.phone=$1
+                   ORDER BY (a.is_primary IS TRUE) DESC, (a.status='connected') DESC,
+                            c.last_msg_at DESC NULLS LAST
+                   LIMIT 1`,
                   [p]
               );
         res.json({ success: true, data: rows[0] || null });
@@ -2144,7 +2152,7 @@ async function restoreSessions() {
     if (!_pool || !zca.isAvailable()) return;
     try {
         const { rows } = await _pool.query(
-            `SELECT account_key, account_type, is_active, session, label, display_name FROM web2_zalo_accounts WHERE account_type='personal' AND is_active=true AND session IS NOT NULL`
+            `SELECT account_key, account_type, is_active, session, label, display_name, zalo_uid FROM web2_zalo_accounts WHERE account_type='personal' AND is_active=true AND session IS NOT NULL`
         );
         // Giải mã session AT-REST trước khi đưa vào zca (no-op nếu chưa bật WEB2_ENC_KEY
         // hoặc data legacy plaintext). Bản copy mới — KHÔNG mutate row gốc.

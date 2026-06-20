@@ -789,8 +789,15 @@ async function restoreAll(accounts) {
         // session (JSONB) giải mã trước khi dùng cho zca login (legacy plaintext trả nguyên).
         const creds = secretCrypto.decryptJson(a.session);
         if (!creds?.cookie || !creds?.imei) continue;
+        // Audit: ghi việc giải mã + dùng credentials (CHỈ account_key, KHÔNG log cookie/imei).
+        console.log('[web2-zalo-zca] boot restore using stored creds for', a.account_key);
         try {
-            await loginWithCredentials(a.account_key, creds, a.label || a.display_name);
+            // expectedUid guard: chỉ chấp nhận phiên re-login ra ĐÚNG uid đã lưu →
+            // chống credentials lẫn slot login nhầm danh tính (audit CRITICAL 2026-06-20).
+            // null (acc cũ chưa có zalo_uid) → KHÔNG guard, vẫn restore như cũ.
+            await loginWithCredentials(a.account_key, creds, a.label || a.display_name, {
+                expectedUid: a.zalo_uid || null,
+            });
             console.log('[web2-zalo-zca] restored', a.account_key);
         } catch (e) {
             console.warn('[web2-zalo-zca] restore fail', a.account_key, e.message);

@@ -304,13 +304,17 @@
         if (!NS.STATE.frameBufferTimer && !NS.STATE.captureStream) return;
         try {
             const url = `${NS._lockApiBase()}/api/web2/capture-lock/release`;
-            const payload = JSON.stringify({ holder: NS._holderId() });
+            // sendBeacon KHÔNG set được header → gửi token trong BODY (server
+            // extractToken đọc header → query → body.token). requireWeb2AuthSoft
+            // 401 nếu thiếu (WEB2_AUTH_ENFORCE=1) → lock kẹt. (audit CRITICAL)
+            const tok = (NS._w2AuthHeaders && NS._w2AuthHeaders()['x-web2-token']) || '';
+            const payload = JSON.stringify({ holder: NS._holderId(), token: tok });
             if (navigator.sendBeacon) {
                 navigator.sendBeacon(url, new Blob([payload], { type: 'application/json' }));
             } else {
                 fetch(url, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: NS._w2AuthHeaders({ 'Content-Type': 'application/json' }),
                     keepalive: true,
                     body: payload,
                 });

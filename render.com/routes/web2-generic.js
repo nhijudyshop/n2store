@@ -163,7 +163,11 @@ const LOCK_SLUG = 'capture-lock';
 const LOCK_CODE = 'global';
 const LOCK_TTL_DEFAULT_MS = 90000;
 
-router.post('/capture-lock/acquire', async (req, res) => {
+// Auth (soft → 401 khi WEB2_AUTH_ENFORCE=1): chống force-acquire/release lock
+// capture livestream bởi client lạ (audit CRITICAL 2026-06-20). acquire gửi token
+// qua header (NS._w2AuthHeaders); release qua sendBeacon (KHÔNG set header được) →
+// token đi trong body, extractToken đọc header → query → body.token.
+router.post('/capture-lock/acquire', requireWeb2AuthSoft, async (req, res) => {
     const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ success: false, error: 'DB unavailable' });
     try {
@@ -206,7 +210,7 @@ router.post('/capture-lock/acquire', async (req, res) => {
     }
 });
 
-router.post('/capture-lock/release', async (req, res) => {
+router.post('/capture-lock/release', requireWeb2AuthSoft, async (req, res) => {
     const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ success: false, error: 'DB unavailable' });
     try {
