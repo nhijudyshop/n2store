@@ -88,7 +88,20 @@
                     };
             } catch (_) {}
             if (!meta) {
-                chip.remove();
+                // account_key của hội thoại KHÔNG còn trong danh sách (TK đã xoá/đổi
+                // key — vd nhóm nguồn jt-tracking thuộc TK relay cũ đã xoá). KHÔNG ẩn
+                // chip (user muốn LUÔN thấy account đang dùng) → hiện cảnh báo muted.
+                const nm = chip.querySelector('.wzcv-acc-name');
+                if (nm) nm.textContent = 'TK Zalo không còn';
+                chip.title =
+                    'Tài khoản Zalo của hội thoại này (…' +
+                    String(account || '').slice(-6) +
+                    ') không còn trong danh sách — có thể KHÔNG gửi được. Vào trang Zalo đặt lại/đăng nhập TK.';
+                chip.style.color = '#9ca3af';
+                chip.style.background = '#f3f4f6';
+                chip.style.borderColor = '#e5e7eb';
+                const dot = chip.firstElementChild;
+                if (dot && dot.style) dot.style.background = '#9ca3af';
                 return;
             }
             const nameEl = chip.querySelector('.wzcv-acc-name');

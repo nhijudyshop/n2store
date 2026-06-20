@@ -2,6 +2,17 @@
 
 ## 2026-06-20
 
+### [web2/zalo] Chip TK Zalo: LUÔN hiện (fallback "TK Zalo không còn" khi account orphaned) ✅
+
+User báo chip không hiện ở khung chat nhóm jt-tracking. Chẩn đoán live: code mới (chat-view.js 20260620zaloacc) ĐÃ load + header render, nhưng nhóm "XỬ LÝ NJD - J&T" có `account_key=zca_55477969` KHÔNG còn trong status() (= My Njd CŨ đã xoá tay) → `_fillAccChip` không match → tự gỡ chip → user thấy trống.
+
+- Fix: thay vì `chip.remove()` khi không resolve được account, hiện cảnh báo muted xám **"TK Zalo không còn"** + title chỉ rõ key tail + gợi ý đăng nhập lại. → Chip LUÔN hiện (đúng ý "luôn thấy account đang dùng").
+- Bump `ENGINE_VER=20260620zaloacc2` + `web2-zalo.js?v=` 4 page.
+- **Verified live**: nhóm orphaned → chip "TK Zalo không còn" (xám rgb(156,163,175)); 1-1 primary vẫn "Nhijudy Ơi · TK chính". node --check PASS.
+- ⚠ Ngụ ý data: nhóm nguồn jt-tracking đang gắn TK relay đã xoá → có thể không gửi được; nên re-link nhóm sang TK hiện có (việc riêng).
+
+## 2026-06-20
+
 ### [soquy + users + navigation] Fix mất data Sổ Quỹ khi account đổi tên (phuoc) + tắt tự đổi tên ✅
 
 User: account **phuoc** hồi trước đổi tên (`Phước đẹp trai` → `Phước`) nên Sổ Quỹ hiển thị thiếu data; "lấy theo userType" + "tắt luôn chức năng đổi tên ở navigation modern".
