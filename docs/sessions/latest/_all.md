@@ -3,15 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `12991c9` — feat(web2/multi-tool): tang comment delay mac dinh va toi thieu 1 giay; 6 account chay doc lap
-**Last updated**: 2026-06-20 15:40:31 +07
-**Latest session**: [`RESUME:20260620-154031-12991c9`](../20260620-154031-12991c9.md)
-**Summary**: feat(web2/multi-tool): tang comment delay mac dinh va toi thieu 1 giay; 6 account chay doc lap
+**Latest commit**: `742572a` — auto: session update
+**Last updated**: 2026-06-20 15:43:59 +07
+**Latest session**: [`RESUME:20260620-154359-742572a`](../20260620-154359-742572a.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`web2/`](./web2.md) — 2 file(s)
+- [`shared/`](./shared.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -59,7 +58,7 @@
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-19 14:27
 - [`service-costs/`](./service-costs.md) — updated 2026-06-20 12:07
-- [`shared/`](./shared.md) — updated 2026-06-20 12:07
+- [`shared/`](./shared.md) — updated 2026-06-20 15:44
 - [`showroom/`](./showroom.md) — updated 2026-06-19 14:27
 - [`showroom1/`](./showroom1.md) — updated 2026-06-19 14:27
 - [`so-order/`](./so-order.md) — updated 2026-06-20 10:30
