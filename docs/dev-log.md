@@ -2,6 +2,14 @@
 
 ## 2026-06-20
 
+### [native-orders] Đơn Inbox: admin xoá đơn rỗng + avatar Facebook trong ô tìm KH ✅
+
+User (ảnh modal "Thêm đơn Inbox"): (1) admin được quyền xoá đơn inbox trạng thái nháp/huỷ + giỏ trống; (2) ô nhập KH hiện avatar/tên/thông tin Facebook theo Pancake để chọn, cho tìm lại nếu nhầm KH.
+
+- **Files**: `native-orders/js/native-orders-state.js` (+`NO.isAdmin()` mirror web2-sidebar `_isAdmin`: Web2Auth role → fallback loginindex_auth/userType), `native-orders/js/native-orders-render.js` (nút 🗑 `web2-btn-danger` ở col-actions, gate `channel==='web2_inbox' && status∈{draft,cancelled} && giỏ rỗng && isAdmin()` → gọi `removeOrder()` có sẵn confirm), `native-orders/js/native-orders-inbox-add.js` (avatar trong suggestion kho KH + Pancake; chip "KH đã chọn" avatar+tên+nguồn + nút "Đổi khách" clear+focus tìm lại), `web2/shared/web2-base.css` (`.no-add-av*`, `.no-add-suggest-flex/main/line`, `.no-add-selected*`). Bump `?v=20260620a` ở index.html.
+- Backend DELETE `/api/native-orders/:code` đã có sẵn (chặn nếu còn PBH liên kết) — không sửa server. removeOrder() đã có confirm + cập nhật state + SSE `_notify('delete')`.
+- ✅ Verify Playwright (localhost, login web2 admin): Inbox tab 3 đơn draft+rỗng → 3 nút xoá; click → confirm "Xóa đơn NJ-…?" → "Xoá đơn" → 3→2 đơn, 0 console error. Gate: nhồi SP vào 1 đơn → nút xoá 2→1; tab Livestream → 0 nút xoá. Modal tìm "01234" → 8 kết quả đều có avatar (FB thật cho KH có fb_id, vòng tròn chữ cái cho KH không có); chọn → chip avatar+tên+"nhắn tin được"+"Đổi khách"; "Đổi khách" → clear chip + focus lại ô tìm. Screenshot xác nhận avatar FB load thật.
+
 ### [live-chat] FIX regression: load comment từ DB thiếu x-web2-token → "Chưa có comment nào" (0 comment) ✅
 
 User báo `live-chat/index.html`: "không thấy comment", console `401` + `[Live-INIT] Loaded 0 comments (DB) from 4 campaigns`. Nguyên nhân: commit `40ec6ff2a` gate GET read endpoints `web2-live-comments` (`requireWeb2AuthSoft`, chống PII leak), nhưng fetch DB comments trong `live-init-wiring.js` (nguồn comment chính) chỉ gửi `{ signal }`, **KHÔNG** `x-web2-token` → backend 401 → 0 comment. (Campaigns load OK vì fetch ở `live-init-lifecycle.js` đã có `_w2AuthHeaders` → log đúng "4 campaigns".)
