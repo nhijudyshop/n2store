@@ -2,6 +2,17 @@
 
 ## 2026-06-20
 
+### [live-chat/security] Gate API live-comments read endpoints (đóng nốt PII leak) ✅
+
+Sau khi Pages deploy CLIENT (guard + x-web2-token — verify prod đã có), gate 5 endpoint ĐỌC của `render.com/routes/web2-live-comments.js` bằng `requireWeb2AuthSoft` (WEB2_AUTH_ENFORCE=1 → 401 nếu thiếu token):
+
+- `GET /` (comment + fb_id/tên/SĐT khách = PII), `GET /campaigns`, `GET /posts`, `GET /page-posts`, `GET /saved/ids`.
+- Đã verify MỌI caller gửi token trước khi gate: `live-comments-stream.js`+`comments-mobile-actions.js`+`pancake-api.js` (đã sửa, commit trước) + `live-campaign-manager.js _api` (đã có `_w2AuthHeaders`). Desktop live-chat có web2-auth.js sẵn.
+- Thứ tự deploy an toàn: client (Pages) TRƯỚC → backend (Render) SAU → user hợp lệ không 401 (trang mở cũ cần reload lấy JS mới).
+- node --check PASS. Cần Render deploy web2-api để có hiệu lực.
+
+## 2026-06-20
+
 ### [live-chat/security] comments-mobile.html lộ comment khách khi ẩn danh — fix CLIENT (guard + token) ✅
 
 User: vào `nhijudy.store/live-chat/comments-mobile.html` ở trình duyệt ẩn danh KHÔNG cần đăng nhập vẫn xem được. Trang static (Pages) không chặn HTML được, nhưng nó load DATA comment (fb_id/tên/SĐT khách = PII) từ API KHÔNG auth.

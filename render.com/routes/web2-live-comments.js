@@ -523,7 +523,9 @@ router.post('/bulk', requireWeb2AuthSoft, async (req, res) => {
 });
 
 // GET / — đọc comment đã lưu (theo post/page/campaign).
-router.get('/', async (req, res) => {
+// AUTH (2026-06-20): comment chứa PII khách (fb_id/tên/SĐT) → BẮT BUỘC x-web2-token
+// (WEB2_AUTH_ENFORCE=1 → 401 nếu thiếu). Chống xem ẩn danh qua comments-mobile.html.
+router.get('/', requireWeb2AuthSoft, async (req, res) => {
     const pool = getDb(req);
     if (!pool) return res.status(500).json({ success: false, error: 'DB unavailable' });
     try {
@@ -641,7 +643,7 @@ async function _persistPostTitles(pool, posts) {
 }
 
 // GET /campaigns — list chiến dịch cha + số bài + số comment.
-router.get('/campaigns', async (req, res) => {
+router.get('/campaigns', requireWeb2AuthSoft, async (req, res) => {
     const pool = getDb(req);
     if (!pool) return res.status(500).json({ success: false, error: 'DB unavailable' });
     try {
@@ -702,7 +704,7 @@ router.delete('/campaigns/:id', requireWeb2AuthSoft, async (req, res) => {
 });
 
 // GET /posts — bài livestream đã có comment (để gán vào chiến dịch).
-router.get('/posts', async (req, res) => {
+router.get('/posts', requireWeb2AuthSoft, async (req, res) => {
     const pool = getDb(req);
     if (!pool) return res.status(500).json({ success: false, error: 'DB unavailable' });
     try {
@@ -730,7 +732,7 @@ router.get('/posts', async (req, res) => {
 // GET /page-posts — TẤT CẢ bài livestream gần đây (14 ngày) của page đã bật, kèm
 // campaign_id hiện tại. Dùng cho UI "gom vào chiến dịch cha" ở native-orders +
 // live-chat (chung dữ liệu). Lấy live từ poller (server-side Pancake JWT).
-router.get('/page-posts', async (req, res) => {
+router.get('/page-posts', requireWeb2AuthSoft, async (req, res) => {
     const pool = getDb(req);
     if (!pool) return res.status(500).json({ success: false, error: 'DB unavailable' });
     try {
@@ -925,7 +927,7 @@ router.post('/saved', requireWeb2AuthSoft, async (req, res) => {
 });
 
 // GET /saved/ids → { success, data: [customer_id, ...] }
-router.get('/saved/ids', async (req, res) => {
+router.get('/saved/ids', requireWeb2AuthSoft, async (req, res) => {
     const pool = getDb(req);
     if (!pool) return res.status(500).json({ success: false, error: 'DB unavailable' });
     try {
