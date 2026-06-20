@@ -3,15 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `37eccde` — docs(ops): ghi lai deploy prod (worker TPOS env + SSRF, WEB2_ENC_KEY 3 service, don 5 env chet, smoke-test 401-gating PASS)
-**Last updated**: 2026-06-20 11:10:58 +07
-**Latest session**: [`RESUME:20260620-111058-37eccde`](../20260620-111058-37eccde.md)
-**Summary**: docs(ops): ghi lai deploy prod (worker TPOS env + SSRF, WEB2_ENC_KEY 3 service, don 5 env chet, smoke-test 401-gating...
+**Latest commit**: `3161a28` — auto: session update
+**Last updated**: 2026-06-20 11:27:40 +07
+**Latest session**: [`RESUME:20260620-112740-3161a28`](../20260620-112740-3161a28.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`cloudflare-worker/`](./cloudflare-worker.md) — 2 file(s)
-- [`docs/`](./docs.md) — 1 file(s)
+- [`render.com/`](./render.com.md) — 13 file(s)
 
 ## All folder snapshots
 
@@ -55,7 +54,7 @@
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`referenceUI/`](./referenceUI.md) — updated 2026-06-19 14:27
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-06-16 00:35
-- [`render.com/`](./render.com.md) — updated 2026-06-20 10:30
+- [`render.com/`](./render.com.md) — updated 2026-06-20 11:27
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-19 14:27
 - [`service-costs/`](./service-costs.md) — updated 2026-06-16 11:15
