@@ -1271,13 +1271,15 @@ router.get('/conversation/:phone', async (req, res) => {
     try {
         const db = getDb(req);
         const p = String(req.params.phone).replace(/\D/g, '');
-        // Ưu tiên hội thoại dưới TK CHÍNH (gửi KH 1-1 từ đúng TK đó). Chưa đặt primary →
+        // 2026-06-20: ?account=<key> → ưu tiên hội thoại dưới TK cookie (TK đang đăng
+        // nhập chat.zalo.me). Không truyền → TK CHÍNH (is_primary). Chưa có cả 2 →
         // hành vi cũ (hội thoại mới nhất bất kỳ TK).
-        const primary = await _getPrimaryKey(db);
-        const { rows } = primary
+        const prefer = String(req.query.account || '').trim() || null;
+        const acct = prefer || (await _getPrimaryKey(db));
+        const { rows } = acct
             ? await db.query(
                   `SELECT * FROM web2_zalo_conversations WHERE phone=$1 AND account_key=$2 ORDER BY last_msg_at DESC NULLS LAST LIMIT 1`,
-                  [p, primary]
+                  [p, acct]
               )
             : await db.query(
                   `SELECT * FROM web2_zalo_conversations WHERE phone=$1 ORDER BY last_msg_at DESC NULLS LAST LIMIT 1`,
@@ -1296,21 +1298,22 @@ router.post('/conversation/ensure', async (req, res) => {
         const db = getDb(req);
         const phone = String(req.body?.phone || '').replace(/\D/g, '');
         if (!phone) return res.status(400).json({ success: false, error: 'Thiếu phone' });
-        // Đã có hội thoại DƯỚI TK CHÍNH → trả luôn (gửi từ đúng TK chính). Bỏ qua hội thoại
-        // dưới TK khác (vd nhóm) để KH 1-1 luôn đi từ TK chính. Chưa đặt primary → cũ.
-        const primary = await _getPrimaryKey(db);
-        const ex = primary
+        // 2026-06-20: accountKey (TK cookie) ưu tiên cho CẢ existing-check + tạo mới →
+        // hội thoại 1-1 đi đúng TK đang đăng nhập chat.zalo.me. Không truyền → TK CHÍNH.
+        const prefer = String(req.body?.accountKey || '').trim() || null;
+        const checkAcct = prefer || (await _getPrimaryKey(db));
+        const ex = checkAcct
             ? await db.query(
                   `SELECT * FROM web2_zalo_conversations WHERE phone=$1 AND account_key=$2 ORDER BY last_msg_at DESC NULLS LAST LIMIT 1`,
-                  [phone, primary]
+                  [phone, checkAcct]
               )
             : await db.query(
                   `SELECT * FROM web2_zalo_conversations WHERE phone=$1 ORDER BY last_msg_at DESC NULLS LAST LIMIT 1`,
                   [phone]
               );
         if (ex.rows[0]) return res.json({ success: true, data: ex.rows[0], created: false });
-        // Chọn tài khoản personal đang KẾT NỐI — ƯU TIÊN TK CHÍNH (is_primary) trước.
-        let accountKey = req.body?.accountKey;
+        // Chọn tài khoản personal đang KẾT NỐI — ƯU TIÊN TK cookie (prefer) rồi TK CHÍNH.
+        let accountKey = prefer;
         if (!accountKey) {
             const accs = await db.query(
                 `SELECT account_key FROM web2_zalo_accounts WHERE is_active=true AND account_type='personal' ORDER BY is_primary DESC, updated_at DESC`

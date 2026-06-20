@@ -122,10 +122,19 @@
                 return;
             }
             try {
+                // 2026-06-20: chat 1-1 (theo SĐT) → ưu tiên TK đang đăng nhập chat.zalo.me
+                // (cookie) để gửi. Nhóm (mở theo convId) giữ TK trong nhóm (không override).
+                let preferKey = null;
+                if (phone && !convId) {
+                    try {
+                        preferKey = await global.Web2Zalo.getCookieAccountKey?.();
+                    } catch (_) {}
+                }
                 zaloHandle = await global.Web2Zalo.mountChat(host.querySelector('#w2ccZaloBody'), {
                     phone,
                     convId: convId || undefined, // mở theo conversationId (vd nhóm Zalo jt-tracking)
                     autoSeen: true,
+                    preferAccountKey: preferKey || undefined,
                 });
                 if (!zaloHandle) {
                     host.innerHTML = _stateHtml('empty', 'Khách chưa có hội thoại Zalo');

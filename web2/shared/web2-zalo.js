@@ -101,10 +101,12 @@
         });
     }
 
-    async function getConversation(phone) {
+    async function getConversation(phone, accountKey) {
         const p = normPhone(phone);
         if (!p) throw new Error('Web2Zalo.getConversation: SĐT không hợp lệ');
-        return _fetch('/conversation/' + encodeURIComponent(p));
+        // accountKey → ?account= ưu tiên hội thoại dưới TK đó (TK cookie). Không → TK chính.
+        const qs = accountKey ? '?account=' + encodeURIComponent(accountKey) : '';
+        return _fetch('/conversation/' + encodeURIComponent(p) + qs);
     }
 
     async function status() {
@@ -251,14 +253,20 @@
         await loadChatEngine();
         let conv = opts.conv || null;
         if (!conv && opts.phone) {
-            const r = await getConversation(opts.phone).catch(() => ({}));
+            // preferAccountKey (TK cookie) → resolve hội thoại 1-1 dưới TK đó để gửi
+            // từ đúng TK đang đăng nhập chat.zalo.me. Không có → backend dùng TK chính.
+            const prefer = opts.preferAccountKey || null;
+            const r = await getConversation(opts.phone, prefer).catch(() => ({}));
             conv = r.data || null;
             // Chưa từng chat → tìm user Zalo theo SĐT + tạo hội thoại rỗng để chat ngay.
             if (!conv && opts.ensure !== false) {
                 const e = await _fetch('/conversation/ensure', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ phone: normPhone(opts.phone) }),
+                    body: JSON.stringify({
+                        phone: normPhone(opts.phone),
+                        accountKey: prefer || undefined,
+                    }),
                 }).catch(() => ({}));
                 conv = (e && e.data) || null;
                 if (!conv && e && e.error) opts._ensureErr = e.error;
