@@ -236,6 +236,93 @@
             .mt-stat .err {
                 color: #b91c1c;
             }
+            /* Note: số comment hiện tại của bài */
+            .mt-note {
+                font-size: 12.5px;
+                color: #334155;
+                background: #eef5ff;
+                border: 1px solid #d6e6ff;
+                border-radius: 8px;
+                padding: 8px 11px;
+                margin-bottom: 14px;
+            }
+            .mt-note:empty {
+                display: none;
+            }
+            /* Job nền */
+            .mt-job {
+                border: 1px solid var(--mt-border);
+                border-radius: 12px;
+                padding: 12px 14px;
+                margin-bottom: 10px;
+                background: #fbfcfe;
+            }
+            .mt-job-top {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                gap: 10px;
+                margin-bottom: 8px;
+            }
+            .mt-job-title {
+                font-weight: 700;
+                font-size: 13px;
+                color: var(--mt-text);
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+            .mt-job-badge {
+                flex-shrink: 0;
+                font-size: 11.5px;
+                font-weight: 700;
+                padding: 3px 9px;
+                border-radius: 999px;
+                background: #eef1f6;
+                color: #475569;
+            }
+            .mt-job-badge.running {
+                background: #dbeafe;
+                color: #1d4ed8;
+            }
+            .mt-job-badge.pending {
+                background: #fef9c3;
+                color: #854d0e;
+            }
+            .mt-job-badge.done {
+                background: #dcfce7;
+                color: #15803d;
+            }
+            .mt-job-badge.stopped {
+                background: #f1f5f9;
+                color: #64748b;
+            }
+            .mt-job-badge.error {
+                background: #fee2e2;
+                color: #b91c1c;
+            }
+            .mt-job-bar {
+                height: 7px;
+                background: #eef1f6;
+                border-radius: 999px;
+                overflow: hidden;
+                margin-bottom: 8px;
+            }
+            .mt-job-bar > i {
+                display: block;
+                height: 100%;
+                width: 0;
+                background: linear-gradient(90deg, #2a96ff, var(--mt-accent));
+                transition: width 0.3s;
+            }
+            .mt-job-meta {
+                display: flex;
+                gap: 14px;
+                flex-wrap: wrap;
+                align-items: center;
+                font-size: 12px;
+                color: var(--mt-muted);
+            }
         </style>
     </head>
     <body class="web2-theme">
@@ -290,10 +377,17 @@
                                 <i data-lucide="refresh-ccw" style="width: 14px; height: 14px"></i>
                             </button>
                         </div>
+                        <div class="mt-note" id="boostPostCount"></div>
                         <div class="mt-row">
-                            <div class="mt-field" style="width: 130px">
-                                <label>Số lượng</label>
-                                <input type="number" id="boostCount" value="20" min="1" max="500" />
+                            <div class="mt-field" style="width: 150px">
+                                <label>Số comment muốn thêm</label>
+                                <input
+                                    type="number"
+                                    id="boostCount"
+                                    value="20"
+                                    min="1"
+                                    max="100000"
+                                />
                             </div>
                             <div class="mt-field" style="width: 180px">
                                 <label>Giãn nhịp (giây) — tối thiểu 1</label>
@@ -314,8 +408,21 @@
                             </div>
                         </div>
                         <div class="mt-row" style="margin-bottom: 0">
-                            <button class="mt-btn primary" id="boostRun">
-                                <i data-lucide="play" style="width: 15px; height: 15px"></i> Bắt đầu
+                            <button
+                                class="mt-btn primary"
+                                id="boostBg"
+                                title="Tạo job chạy NỀN trên server — đóng tab vẫn chạy, tự re-check tới khi đạt số comment mục tiêu"
+                            >
+                                <i data-lucide="server" style="width: 15px; height: 15px"></i> Chạy
+                                nền trên server
+                            </button>
+                            <button
+                                class="mt-btn"
+                                id="boostRun"
+                                title="Chạy ngay trong tab này (đóng tab là dừng)"
+                            >
+                                <i data-lucide="play" style="width: 15px; height: 15px"></i> Chạy
+                                trong tab
                             </button>
                             <button class="mt-btn danger" id="boostStop" disabled>
                                 <i data-lucide="square" style="width: 15px; height: 15px"></i> Dừng
@@ -340,6 +447,17 @@
                             <div class="mt-log" id="boostLog"></div>
                         </div>
                     </div>
+
+                    <!-- Job chạy nền trên server -->
+                    <div class="mt-card">
+                        <div class="mt-help" style="margin-bottom: 12px">
+                            <strong>Job chạy nền trên server</strong> — đóng tab vẫn chạy. Server
+                            chụp số comment hiện tại của bài làm mốc, đăng tới khi
+                            <strong>số comment thật ≥ mốc + số bạn nhập</strong>; nếu chưa đủ thì tự
+                            chạy lại (re-check). Cập nhật realtime.
+                        </div>
+                        <div id="boostJobs"></div>
+                    </div>
                 </section>
             </main>
         </div>
@@ -355,6 +473,7 @@
         <script src="../../web2/shared/web2-chat-live.js?v=20260618w3"></script>
         <script src="../../web2/shared/web2-chat-tags.js?v=20260618w3"></script>
         <script src="../../web2/shared/web2-chat-client.js?v=20260618w3"></script>
-        <script src="js/multi-tool.js?v=20260620d1s"></script>
+        <script src="../shared/web2-sse-bridge.js?v=20260614a"></script>
+        <script src="js/multi-tool.js?v=20260620bg1"></script>
     </body>
 </html>

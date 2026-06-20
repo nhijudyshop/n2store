@@ -2,6 +2,17 @@
 
 ## 2026-06-20
 
+### [web2/multi-tool] Tăng comment CHẠY NỀN trên server + re-check tới >= target ✅
+
+User: "Cho chạy background trên server được không? Lúc chạy lấy số comment của bài (vd 362), user chọn 700 → chạy nền, xong check lại phải > 1062; nếu ít hơn thì chạy lại tới >= 1062."
+
+- **Mới — Server (web2-api)**:
+    - [`render.com/services/web2-comment-boost-worker.js`](render.com/services/web2-comment-boost-worker.js) — worker nền: lấy TẤT CẢ JWT account admin của page (`pancake_accounts` chatDb), đọc `comment_count` THẬT của bài (`pancake.vn/api/v1/pages/{id}/posts` → field `comment_count`), đăng `reply_comment` (giống 100% trang Tăng comment) work-stealing nhiều account + delay/account + rate-limit guard. Sau mỗi vòng RE-CHECK count; `count < target` → chạy tiếp tới `>= target`. Safety: MAX_ROUNDS=40, cap tổng gửi = add×3+50, backoff 60s khi FB rate-limit (3 vòng liên tiếp → dừng), dừng nếu không đọc được count 4 lần.
+    - [`render.com/routes/web2-comment-boost.js`](render.com/routes/web2-comment-boost.js) — bảng `web2_comment_boost_jobs` (web2Db). `POST /create` chụp baseline=comment_count hiện tại → `target = baseline + addTarget`, lưu job pending; `GET /jobs`, `GET /job/:id`, `POST /job/:id/stop`. SSE topic `web2:comment-boost`. Auth `requireWeb2AuthSoft`.
+    - [`render.com/server.js`](render.com/server.js) — mount `/api/web2-comment-boost` + ensureSchema + initializeNotifiers; start worker trong block `!DISABLE_WEB2_JOBS` (cạnh livestream-poller). `/api/web2-*` auto-route web2-api qua worker (không sửa Cloudflare).
+- **Frontend** [`web2/multi-tool/`](web2/multi-tool/index.html): hiện "Bài đang chọn có X comment" (từ `comment_count`), đổi label "Số lượng"→"Số comment muốn thêm", nút **"Chạy nền trên server"** (`boostBg`→POST /create) bên cạnh "Chạy trong tab" (foreground cũ giữ nguyên), panel job realtime (SSE `web2:comment-boost`) hiện baseline→target + progress + sent/rounds + nút Dừng. Load `web2-sse-bridge.js`. Bump `multi-tool.js?v=20260620bg1`.
+- **Feasibility verified (browser probe Pancake)**: post NhiJudy Store có field `comment_count` (vd VOD mới nhất = 1027); `getPageAccountJwts` = 6 account. node --check PASS toàn bộ. ⏳ Cần deploy Render web2-api để worker + route sống (test end-to-end sau deploy).
+
 ### [web2/zalo] Chip TK Zalo: LUÔN hiện (fallback "TK Zalo không còn" khi account orphaned) ✅
 
 User báo chip không hiện ở khung chat nhóm jt-tracking. Chẩn đoán live: code mới (chat-view.js 20260620zaloacc) ĐÃ load + header render, nhưng nhóm "XỬ LÝ NJD - J&T" có `account_key=zca_55477969` KHÔNG còn trong status() (= My Njd CŨ đã xoá tay) → `_fillAccChip` không match → tự gỡ chip → user thấy trống.
