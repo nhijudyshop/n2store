@@ -63,25 +63,33 @@ const PancakeConversationList = {
             });
         }
 
-        // Filter by type
-        if (state.activeFilter === 'live-saved') {
-            filtered = filtered.filter((conv) => {
-                const customer = conv.customers?.[0] || {};
-                const possibleIds = [
-                    conv.from?.id,
-                    conv.from_psid,
-                    customer.psid,
-                    customer.id,
-                ].filter(Boolean);
-                return possibleIds.some((id) => state.liveSavedIds.has(id));
-            });
-        } else if (state.activeFilter === 'inbox') {
-            filtered = filtered.filter((conv) => conv.type === 'INBOX');
-        } else if (state.activeFilter === 'comment') {
+        // Sub-filter loại hội thoại (áp cho MỌI tab): tin nhắn (INBOX) / bình luận (COMMENT).
+        if (state.typeFilter === 'message') {
+            filtered = filtered.filter((conv) => (conv.type || 'INBOX') === 'INBOX');
+        } else if (state.typeFilter === 'comment') {
             filtered = filtered.filter((conv) => conv.type === 'COMMENT');
         }
 
+        // Tab filter theo NGƯỜI: livestream commenter vs còn lại.
+        const lsf = window.PancakeLivestreamFilter;
+        if (state.activeFilter === 'livestream') {
+            filtered = filtered.filter((conv) => lsf?.isLivestreamConv(conv));
+        } else if (state.activeFilter === 'inbox') {
+            // Người KHÔNG nằm trong danh sách livestream của chiến dịch đang chọn.
+            filtered = filtered.filter((conv) => !lsf?.isLivestreamConv(conv));
+        }
+
         if (filtered.length === 0) {
+            // Tab Livestream chưa chọn chiến dịch → hướng dẫn thay vì "trống".
+            if (state.activeFilter === 'livestream' && !lsf?.hasCampaign?.()) {
+                container.innerHTML = `
+                    <div class="pk-empty-state" style="padding: 40px 20px;">
+                        <i data-lucide="radio"></i><h3>Chưa chọn chiến dịch</h3>
+                        <p>Chọn một chiến dịch livestream ở trên để xem khách đã comment / nhắn tin.</p>
+                    </div>`;
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+                return;
+            }
             const pageName =
                 state.pages.find((p) => p.id === state.selectedPageId)?.name || 'page này';
             container.innerHTML = `
@@ -234,12 +242,19 @@ const PancakeConversationList = {
     },
 
     /**
-     * Apply filter type
+     * Apply tab filter (theo người): 'all' | 'inbox' | 'livestream'
      */
     async applyFilter(filter) {
         const state = window.PancakeState;
         state.activeFilter = filter;
-        if (filter === 'live-saved') await window.PancakeAPI.loadLiveSavedIds();
+        this.renderConversationList();
+    },
+
+    /**
+     * Apply sub-filter loại hội thoại (mọi tab): 'all' | 'message' | 'comment'
+     */
+    applyTypeFilter(type) {
+        window.PancakeState.typeFilter = type;
         this.renderConversationList();
     },
 

@@ -143,17 +143,42 @@ const PancakeColumnManager = {
             }
         });
 
-        // Filter Tabs
+        // Filter Tabs (theo người) — dùng closest vì tab Livestream có <i> bên trong.
         var filterTabs = document.querySelectorAll('.pk-filter-tab');
         filterTabs.forEach(function (tab) {
             tab.addEventListener('click', function (e) {
+                var btn = e.target.closest('.pk-filter-tab');
+                if (!btn) return;
                 filterTabs.forEach(function (t) {
                     t.classList.remove('active');
                 });
-                e.target.classList.add('active');
-                window.PancakeConversationList.applyFilter(e.target.dataset.filter);
+                btn.classList.add('active');
+                window.PancakeConversationList.applyFilter(btn.dataset.filter);
             });
         });
+
+        // Sub-filter loại hội thoại (tin nhắn / bình luận) — áp cho mọi tab.
+        var subBtns = document.querySelectorAll('.pk-subfilter-btn');
+        subBtns.forEach(function (b) {
+            b.addEventListener('click', function (e) {
+                var btn = e.target.closest('.pk-subfilter-btn');
+                if (!btn) return;
+                subBtns.forEach(function (t) {
+                    t.classList.remove('active');
+                });
+                btn.classList.add('active');
+                window.PancakeConversationList.applyTypeFilter(btn.dataset.type);
+            });
+        });
+
+        // Khởi tạo bộ lọc chiến dịch livestream (render thanh chọn + load set commenter).
+        if (window.PancakeLivestreamFilter) {
+            try {
+                window.PancakeLivestreamFilter.init();
+            } catch (e) {
+                console.warn('[LS-FILTER] init', e);
+            }
+        }
 
         // Search
         var searchInput = document.getElementById('pkSearchInput');
@@ -299,9 +324,22 @@ const PancakeColumnManager = {
             // Card "Tất cả Pages" (page selector) đã BỎ (2026-06-09) — lọc page
             // giờ qua badge Store/House trên từng hội thoại (#2). Giữ gear settings
             // ở cuối hàng filter-tabs. Badge filter active hiện nút "✕ Bỏ lọc".
-            '<div class="pk-filter-tabs"><button class="pk-filter-tab active" data-filter="all">Tất cả</button><button class="pk-filter-tab" data-filter="inbox">Inbox</button><button class="pk-filter-tab" data-filter="comment">Comment</button><button class="pk-filter-tab" data-filter="live-saved">Lưu Live</button>' +
-            '<button id="pkPageFilterClear" class="pk-page-filter-clear" style="display:none;margin-left:6px;border:0;background:#eef2ff;color:#0058da;border-radius:6px;padding:3px 8px;font-size:11px;font-weight:600;cursor:pointer;" onclick="window.PancakeConversationList.setPageFilter(null)">✕ Bỏ lọc page</button>' +
-            '<button class="pk-action-icon-btn" style="margin-left:auto;" title="Cài đặt Pancake" onclick="openPancakeSettingsModal()"><i data-lucide="settings"></i></button></div>' +
+            // Thanh chọn chiến dịch livestream (PancakeLivestreamFilter render vào).
+            '<div class="pk-ls-bar" id="pkLivestreamBar"></div>' +
+            // Tab theo NGƯỜI: Tất cả / Inbox / Livestream. Gear ghim phải, tabs scroll riêng.
+            '<div class="pk-filter-tabs"><div class="pk-filter-tabs-scroll">' +
+            '<button class="pk-filter-tab active" data-filter="all">Tất cả</button>' +
+            '<button class="pk-filter-tab" data-filter="inbox">Inbox</button>' +
+            '<button class="pk-filter-tab" data-filter="livestream"><i data-lucide="radio"></i>Livestream</button>' +
+            '<button id="pkPageFilterClear" class="pk-page-filter-clear" style="display:none;border:0;background:#eef2ff;color:#0058da;border-radius:6px;padding:3px 8px;font-size:11px;font-weight:600;cursor:pointer;flex-shrink:0;" onclick="window.PancakeConversationList.setPageFilter(null)">✕ Bỏ lọc page</button>' +
+            '</div>' +
+            '<button class="pk-action-icon-btn pk-filter-gear" title="Cài đặt Pancake" onclick="openPancakeSettingsModal()"><i data-lucide="settings"></i></button></div>' +
+            // Sub-filter loại hội thoại (mọi tab): Tất cả / Tin nhắn / Bình luận.
+            '<div class="pk-subfilter" id="pkTypeSubfilter">' +
+            '<button class="pk-subfilter-btn active" data-type="all">Tất cả</button>' +
+            '<button class="pk-subfilter-btn" data-type="message"><i data-lucide="message-circle"></i>Tin nhắn</button>' +
+            '<button class="pk-subfilter-btn" data-type="comment"><i data-lucide="message-square"></i>Bình luận</button>' +
+            '</div>' +
             '<div class="pk-search-header"><div class="pk-search-wrapper"><div class="pk-search-box"><i data-lucide="search"></i><input type="text" id="pkSearchInput" placeholder="Tìm kiếm"></div></div></div>' +
             '<div class="pk-conversations" id="pkConversations"><div class="pk-loading"><div class="pk-loading-spinner"></div></div></div>' +
             '<div class="pk-context-menu" id="pkContextMenu" style="display:none;">' +

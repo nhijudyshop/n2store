@@ -1282,16 +1282,158 @@
     gap: 6px;
     padding: var(--pkr-sp-2) var(--pkr-sp-3);
     background: var(--pkr-surface);
-    overflow-x: auto;
-    scroll-snap-type: x proximity;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
     position: sticky;
     top: 0;
     z-index: var(--pkr-z-sticky);
 }
-.pk-filter-tabs::-webkit-scrollbar {
+/* Tabs cuộn ngang RIÊNG để nút gear ghim phải, không bị đè (fix overlap). */
+.pk-filter-tabs-scroll {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    overflow-x: auto;
+    scroll-snap-type: x proximity;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+}
+.pk-filter-tabs-scroll::-webkit-scrollbar {
     display: none;
+}
+.pk-filter-gear {
+    flex: 0 0 auto;
+    margin-left: 4px;
+}
+/* Tab Livestream có icon — căn icon + chữ. */
+.pk-filter-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+.pk-filter-tab i,
+.pk-filter-tab svg {
+    width: 13px;
+    height: 13px;
+}
+
+/* ===== Thanh chọn chiến dịch livestream ===== */
+.pk-ls-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: var(--pkr-sp-2) var(--pkr-sp-3);
+    background: var(--pkr-surface);
+    border-bottom: 1px solid var(--pkr-divider);
+}
+.pk-ls-bar:empty {
+    display: none;
+}
+.pk-ls-icon {
+    width: 16px;
+    height: 16px;
+    color: var(--pkr-primary, #0068ff);
+    flex-shrink: 0;
+}
+.pk-ls-select {
+    flex: 1 1 auto;
+    min-width: 0;
+    height: 32px;
+    border: 1px solid var(--pkr-border);
+    border-radius: var(--pkr-r-md, 8px);
+    background: var(--pkr-surface);
+    color: var(--pkr-text-primary);
+    font-size: 12.5px;
+    font-weight: 500;
+    padding: 0 8px;
+    cursor: pointer;
+}
+.pk-ls-select:focus-visible {
+    outline: none;
+    border-color: var(--pkr-blue-300);
+    box-shadow: var(--pkr-ring-primary);
+}
+.pk-ls-count {
+    flex-shrink: 0;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--pkr-blue-700, #0058da);
+    background: var(--pkr-blue-50, rgba(0, 104, 255, 0.1));
+    border-radius: var(--pkr-r-full, 999px);
+    padding: 2px 8px;
+    white-space: nowrap;
+}
+.pk-ls-count.loading {
+    color: var(--pkr-text-muted);
+    background: var(--pkr-surface-sunken);
+}
+.pk-ls-refresh {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border: 1px solid var(--pkr-border);
+    border-radius: var(--pkr-r-md, 8px);
+    background: var(--pkr-surface);
+    color: var(--pkr-text-secondary);
+    cursor: pointer;
+    transition:
+        background-color var(--pkr-dur-fast) var(--pkr-ease-standard),
+        color var(--pkr-dur-fast) var(--pkr-ease-standard);
+}
+.pk-ls-refresh:hover {
+    background: var(--pkr-surface-hover);
+    color: var(--pkr-primary, #0068ff);
+}
+.pk-ls-refresh i {
+    width: 15px;
+    height: 15px;
+}
+
+/* ===== Sub-filter loại hội thoại (tin nhắn / bình luận) ===== */
+.pk-subfilter {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0 var(--pkr-sp-3) var(--pkr-sp-2);
+    background: var(--pkr-surface);
+}
+.pk-subfilter-btn {
+    flex: 1 1 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    height: 28px;
+    padding: 0 6px;
+    background: var(--pkr-surface-sunken, #f1f4f9);
+    border: 1px solid transparent;
+    border-radius: var(--pkr-r-md, 8px);
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--pkr-text-secondary);
+    cursor: pointer;
+    white-space: nowrap;
+    transition:
+        background-color var(--pkr-dur-fast) var(--pkr-ease-standard),
+        color var(--pkr-dur-fast) var(--pkr-ease-standard),
+        border-color var(--pkr-dur-fast) var(--pkr-ease-standard);
+}
+.pk-subfilter-btn i,
+.pk-subfilter-btn svg {
+    width: 13px;
+    height: 13px;
+}
+.pk-subfilter-btn:hover {
+    color: var(--pkr-text-strong);
+}
+.pk-subfilter-btn.active {
+    background: var(--pkr-surface);
+    color: var(--pkr-primary, #0068ff);
+    border-color: var(--pkr-blue-200);
+    box-shadow: var(--pkr-shadow-sm, 0 1px 3px rgba(0, 0, 0, 0.1));
 }
 
 .pk-filter-tab {

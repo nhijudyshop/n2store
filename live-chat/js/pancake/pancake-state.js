@@ -32,7 +32,10 @@ const PancakeState = {
     isSearching: false,
 
     // Filters
-    activeFilter: 'all', // 'all' | 'inbox' | 'comment' | 'live-saved'
+    // Tab filter: phân loại theo NGƯỜI (livestream commenter vs còn lại).
+    activeFilter: 'all', // 'all' | 'inbox' | 'livestream'
+    // Sub-filter loại hội thoại trong MỌI tab (req: lọc tin nhắn / bình luận).
+    typeFilter: 'all', // 'all' | 'message' (INBOX) | 'comment' (COMMENT)
     liveSavedIds: new Set(),
 
     // UI state
