@@ -70,6 +70,9 @@ async function ensureTables(pool) {
         CREATE INDEX IF NOT EXISTS idx_w2lc_page ON web2_live_comments(page_id);
         CREATE INDEX IF NOT EXISTS idx_w2lc_campaign ON web2_live_comments(campaign_id);
         CREATE INDEX IF NOT EXISTS idx_w2lc_created ON web2_live_comments(created_time DESC);
+        -- updated_at = cột CURSOR delta-sync (GET /?sinceUpdated=). Thiếu index → mỗi
+        -- lần poll live = seq scan bảng lớn nhất. Index này là quick-win payoff cao nhất.
+        CREATE INDEX IF NOT EXISTS idx_w2lc_updated ON web2_live_comments(updated_at);
     `);
     // MIGRATION one-time (marker-gated) 2026-06-11: created_time từng bị lưu
     // lệch -7h — new Date(inserted_at UTC KHÔNG hậu tố Z) trên server

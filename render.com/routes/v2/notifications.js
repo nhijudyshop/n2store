@@ -86,7 +86,7 @@ router.get('/list', requireWeb2AuthSoft, async (req, res) => {
                     read_at, created_at
              FROM web2_notifications
              ${where}
-             ORDER BY created_at DESC
+             ORDER BY created_at DESC, id DESC
              LIMIT $1`,
             [limit]
         );

@@ -71,6 +71,10 @@ async function ensureSchema(pool) {
             CREATE INDEX IF NOT EXISTS idx_web2_bh_tx_date ON web2_balance_history(transaction_date DESC);
             CREATE INDEX IF NOT EXISTS idx_web2_bh_transfer_type ON web2_balance_history(transfer_type);
             CREATE INDEX IF NOT EXISTS idx_web2_bh_debt_added ON web2_balance_history(debt_added) WHERE debt_added = FALSE;
+            -- Quick-win (audit 2026-06-20): tra SĐT→nạp + lọc tín hiệu chưa xử lý + theo tài khoản.
+            CREATE INDEX IF NOT EXISTS idx_web2_bh_phone ON web2_balance_history(linked_customer_phone) WHERE linked_customer_phone IS NOT NULL;
+            CREATE INDEX IF NOT EXISTS idx_web2_bh_unprocessed ON web2_balance_history(wallet_processed) WHERE wallet_processed = FALSE;
+            CREATE INDEX IF NOT EXISTS idx_web2_bh_account_num ON web2_balance_history(account_number);
         `);
 
         // verified_by — user who manually linked/resolved (audit trail).

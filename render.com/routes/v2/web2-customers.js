@@ -228,7 +228,7 @@ router.get('/list', async (req, res) => {
             const lp = [...params, limit, offset];
             const listR = await db.query(
                 `SELECT * FROM web2_customers ${where}
-                 ORDER BY updated_at DESC NULLS LAST
+                 ORDER BY updated_at DESC NULLS LAST, id DESC
                  LIMIT $${lp.length - 1} OFFSET $${lp.length}`,
                 lp
             );

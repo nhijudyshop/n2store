@@ -2,6 +2,16 @@
 
 ## 2026-06-20
 
+### [render.com] Audit pagination/index toàn dự án (5 agent) + apply quick-win index ✅
+
+Audit cursor pagination + index coverage toàn bộ Render (workflow 5 agent). Cursor/keyset ĐÃ dùng tốt: `web2_live_comments` `?sinceUpdated`, wallet reset `afterId`, zalo messages, Pancake conv list (frontend). Đa số list endpoint dùng OFFSET. Index đa số tốt; thiếu vài cái quan trọng → **apply quick-win** (CREATE INDEX IF NOT EXISTS, idempotent, tự chạy khi Render restart, đã verify cột tồn tại + `node --check` 5 file):
+
+- `web2-live-comments.js` ensureTables: `idx_w2lc_updated ON web2_live_comments(updated_at)` — cột CURSOR delta-sync, bảng lớn nhất → payoff cao nhất.
+- `web2-sepay-matching.js`: `idx_web2_bh_phone` (partial linked_customer_phone), `idx_web2_bh_unprocessed` (partial wallet_processed=FALSE), `idx_web2_bh_account_num`.
+- `web2-pancake-refresh.js` ensureColumns: `idx_pancake_acc_active`, `idx_pancake_acc_last_used`, `idx_pancake_acc_auto_refresh` (partial) — bảng trước đây 0 index.
+- One-line tie-break chống page-drift: `web2-customers.js` /list ORDER BY `+ id DESC` (63k rows), `notifications.js` ORDER BY `+ id DESC`.
+- **Chưa làm (defer)**: chuyển OFFSET→keyset (fast_sale_orders, web2_customers list); fix N+1 (web2-returns stock loop, fast-sale KPI emit); ILIKE '%...%' trên balance_history.content. Đều là việc lớn hơn, ghi nhận để sau.
+
 ### [live-chat] chat.html: realtime cập nhật INCREMENTAL (hết "render lại nguyên cột gây rối") ✅
 
 User: khi nhận tin mới từ KH, cột chat **render lại nguyên cột gây rối** (innerHTML rebuild → nhấp nháy, avatar reload, huỷ animation). Học cách chat app làm: **keyed reconcile** thay vì rebuild.

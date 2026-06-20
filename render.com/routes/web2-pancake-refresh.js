@@ -109,6 +109,14 @@ async function ensureColumns(pool) {
             ADD COLUMN IF NOT EXISTS last_refresh_at TIMESTAMP,
             ADD COLUMN IF NOT EXISTS last_refresh_status TEXT
     `);
+    // Quick-win (audit 2026-06-20): bảng pancake_accounts trước đây KHÔNG có index →
+    // mỗi lần chọn token (is_active) / refresh-cron (auto_refresh) / ORDER BY last_used_at
+    // đều seq-scan. Thêm 3 index nhỏ. Idempotent + chạy sau ALTER (đảm bảo cột tồn tại).
+    await pool.query(`
+        CREATE INDEX IF NOT EXISTS idx_pancake_acc_active ON pancake_accounts(is_active);
+        CREATE INDEX IF NOT EXISTS idx_pancake_acc_last_used ON pancake_accounts(last_used_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_pancake_acc_auto_refresh ON pancake_accounts(auto_refresh) WHERE auto_refresh = TRUE;
+    `);
 }
 
 router.init = async (pool) => {
