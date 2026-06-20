@@ -26,6 +26,7 @@
                 <input type="text" id="noAddCustSearch" placeholder="Gõ tên / SĐT — tìm kho KH, fallback Pancake để nhắn tin được..." autocomplete="off" />
                 <div class="no-add-suggest" id="noAddSuggest" hidden></div>
               </div>
+              <div class="no-add-selected" id="noAddSelected" hidden></div>
               <div class="no-add-fb-status" id="noAddFbStatus" hidden></div>
               <div class="no-add-row">
                 <div><label>Tên</label><input type="text" id="noAddName" /></div>
@@ -56,6 +57,7 @@
         let selectedFbPageId = null;
         let selectedFbUserName = null;
         let selectedConversationId = null;
+        let selectedAvatarUrl = null;
         const cart = []; // [{productCode,name,price,quantity,total,imageUrl}]
         const close = () => overlay.remove();
         overlay.querySelector('.no-add-close').onclick = close;
@@ -72,9 +74,70 @@
         const searchInp = overlay.querySelector('#noAddCustSearch');
         const suggest = overlay.querySelector('#noAddSuggest');
         const fbStatus = overlay.querySelector('#noAddFbStatus');
+        const selectedChip = overlay.querySelector('#noAddSelected');
         let timer = null;
         let searchSeq = 0;
         let selToken = 0; // invalidate background page-resolve khi đổi/bỏ chọn
+
+        // Avatar Facebook KH (theo Pancake) — ưu tiên avatar_url thật từ hội thoại,
+        // fallback proxy /api/fb-avatar theo fbId. Không có fb context → chữ cái đầu.
+        const avatarHtml = (name, fbId, pageId, avatarUrl) => {
+            const initial = NO.escapeHtml(((name || '?').trim().charAt(0) || '?').toUpperCase());
+            const color = (NO.avatarColor && NO.avatarColor(name)) || '#7c8aa0';
+            const url =
+                avatarUrl || (fbId && NO._isRealFbId(fbId) ? NO._avatarUrl(fbId, pageId) : '');
+            if (!url) {
+                return `<span class="no-add-av" style="background:${color}">${initial}</span>`;
+            }
+            return `<span class="no-add-av" style="background:${color}"><span class="no-add-av-ini">${initial}</span><img class="no-add-av-img" src="${NO.escapeHtml(url)}" alt="" loading="lazy" onload="this.classList.add('loaded')" onerror="this.remove()"></span>`;
+        };
+
+        // Chip "KH đã chọn" — hiện avatar + tên + SĐT + nguồn, kèm nút "Đổi khách"
+        // để tìm lại nếu nhầm KH (clear binding + focus lại ô tìm).
+        const renderSelectedChip = () => {
+            if (!selectedFbId && !selectedCustomerId) {
+                selectedChip.hidden = true;
+                selectedChip.innerHTML = '';
+                return;
+            }
+            const name =
+                selectedFbUserName || overlay.querySelector('#noAddName').value.trim() || '—';
+            const phone = overlay.querySelector('#noAddPhone').value.trim();
+            const srcLabel = selectedFbPageId
+                ? 'Facebook · nhắn tin được'
+                : selectedFbId
+                  ? 'Facebook'
+                  : 'Kho KH';
+            selectedChip.innerHTML = `
+                ${avatarHtml(name, selectedFbId, selectedFbPageId, selectedAvatarUrl)}
+                <span class="no-add-selected-info">
+                    <strong>${NO.escapeHtml(name)}</strong>${phone ? ' · ' + NO.escapeHtml(phone) : ''}
+                    <span class="no-add-selected-src">Đã chọn · ${srcLabel}</span>
+                </span>
+                <button type="button" class="no-add-selected-change" title="Đổi khách / tìm lại"><i data-lucide="rotate-ccw"></i> Đổi khách</button>`;
+            selectedChip.hidden = false;
+            if (window.lucide) lucide.createIcons();
+        };
+
+        // Bỏ chọn KH hiện tại → tìm lại từ đầu.
+        const clearSelection = () => {
+            selToken++;
+            selectedCustomerId = null;
+            selectedFbId = null;
+            selectedFbPageId = null;
+            selectedFbUserName = null;
+            selectedConversationId = null;
+            selectedAvatarUrl = null;
+            renderSelectedChip();
+            setFbStatus();
+        };
+
+        selectedChip.addEventListener('click', (e) => {
+            if (!e.target.closest('.no-add-selected-change')) return;
+            clearSelection();
+            searchInp.value = '';
+            searchInp.focus();
+        });
 
         const setFbStatus = (resolving = false) => {
             if (selectedFbId && selectedFbPageId) {
@@ -96,12 +159,20 @@
         };
 
         const whItemHtml = (c) =>
-            `<button type="button" class="no-add-suggest-item" data-src="warehouse" data-id="${c.id || ''}" data-fbid="${NO.escapeHtml(c.fbId || '')}" data-name="${NO.escapeHtml(c.name || '')}" data-phone="${NO.escapeHtml(c.phone || '')}" data-address="${NO.escapeHtml(c.address || '')}"><strong>${NO.escapeHtml(c.name || '—')}</strong> · ${NO.escapeHtml(c.phone || '')}<div class="no-add-suggest-addr">Kho KH${c.address ? ' · ' + NO.escapeHtml(c.address) : ''}</div></button>`;
+            `<button type="button" class="no-add-suggest-item no-add-suggest-flex" data-src="warehouse" data-id="${c.id || ''}" data-fbid="${NO.escapeHtml(c.fbId || '')}" data-name="${NO.escapeHtml(c.name || '')}" data-phone="${NO.escapeHtml(c.phone || '')}" data-address="${NO.escapeHtml(c.address || '')}">
+                ${avatarHtml(c.name, c.fbId, '', '')}
+                <span class="no-add-suggest-main">
+                    <span class="no-add-suggest-line"><strong>${NO.escapeHtml(c.name || '—')}</strong>${c.phone ? ' · ' + NO.escapeHtml(c.phone) : ''}</span>
+                    <span class="no-add-suggest-addr">Kho KH${c.address ? ' · ' + NO.escapeHtml(c.address) : ''}</span>
+                </span>
+            </button>`;
         const pkItemHtml = (c) =>
-            `<button type="button" class="no-add-suggest-item no-add-suggest-pk" data-src="pancake" data-fbid="${NO.escapeHtml(c.fbId)}" data-pageid="${NO.escapeHtml(c.pageId || '')}" data-convid="${NO.escapeHtml(c.conversationId || '')}" data-name="${NO.escapeHtml(c.name || '')}" data-phone="${NO.escapeHtml(c.phone || '')}">
-                <span class="no-add-suggest-badge"><i data-lucide="message-circle"></i> Nhắn được</span>
-                <strong>${NO.escapeHtml(c.name || '—')}</strong>${c.phone ? ' · ' + NO.escapeHtml(c.phone) : ''}
-                <div class="no-add-suggest-addr">Facebook${c.isInbox ? ' · Inbox' : ''} · page …${NO.escapeHtml(String(c.pageId || '').slice(-6))}</div>
+            `<button type="button" class="no-add-suggest-item no-add-suggest-pk no-add-suggest-flex" data-src="pancake" data-fbid="${NO.escapeHtml(c.fbId)}" data-pageid="${NO.escapeHtml(c.pageId || '')}" data-convid="${NO.escapeHtml(c.conversationId || '')}" data-name="${NO.escapeHtml(c.name || '')}" data-phone="${NO.escapeHtml(c.phone || '')}" data-avatar="${NO.escapeHtml(c.avatarUrl || '')}">
+                ${avatarHtml(c.name, c.fbId, c.pageId, c.avatarUrl)}
+                <span class="no-add-suggest-main">
+                    <span class="no-add-suggest-line"><span class="no-add-suggest-badge"><i data-lucide="message-circle"></i> Nhắn được</span><strong>${NO.escapeHtml(c.name || '—')}</strong>${c.phone ? ' · ' + NO.escapeHtml(c.phone) : ''}</span>
+                    <span class="no-add-suggest-addr">Facebook${c.isInbox ? ' · Inbox' : ''} · page …${NO.escapeHtml(String(c.pageId || '').slice(-6))}</span>
+                </span>
             </button>`;
 
         searchInp.addEventListener('input', () => {
@@ -113,6 +184,8 @@
             selectedFbPageId = null;
             selectedFbUserName = null;
             selectedConversationId = null;
+            selectedAvatarUrl = null;
+            renderSelectedChip();
             setFbStatus();
             const q = searchInp.value.trim();
             if (q.length < 2) {
@@ -173,8 +246,10 @@
                 selectedFbPageId = item.dataset.pageid || null;
                 selectedConversationId = item.dataset.convid || null;
                 selectedFbUserName = item.dataset.name || null;
+                selectedAvatarUrl = item.dataset.avatar || null;
                 suggest.hidden = true;
-                searchInp.value = item.dataset.name || item.dataset.phone || '';
+                searchInp.value = '';
+                renderSelectedChip();
                 setFbStatus();
             } else {
                 // Kho KH: có fb_id nhưng thiếu page → dò hội thoại Pancake theo SĐT
@@ -184,8 +259,10 @@
                 selectedFbPageId = null;
                 selectedConversationId = null;
                 selectedFbUserName = item.dataset.name || null;
+                selectedAvatarUrl = null; // avatar lấy qua proxy theo fbId (nếu có)
                 suggest.hidden = true;
-                searchInp.value = item.dataset.name || item.dataset.phone || '';
+                searchInp.value = '';
+                renderSelectedChip();
                 const phoneForResolve = item.dataset.phone || '';
                 if (phoneForResolve) {
                     setFbStatus(true); // "đang dò…"
@@ -197,7 +274,9 @@
                                 selectedFbPageId = r.pageId || selectedFbPageId;
                                 selectedConversationId = r.conversationId || selectedConversationId;
                                 if (!selectedFbUserName && r.name) selectedFbUserName = r.name;
+                                if (r.avatarUrl) selectedAvatarUrl = r.avatarUrl;
                             }
+                            renderSelectedChip();
                             setFbStatus();
                         })
                         .catch(() => {

@@ -345,7 +345,12 @@
                     try {
                         const resp = await fetch(
                             `${state.workerUrl}/api/web2-live-comments?postIds=${encodeURIComponent(postIds.join(','))}&limit=5000`,
-                            { signal: AbortSignal.timeout(15000) }
+                            {
+                                // requireWeb2AuthSoft (WEB2_AUTH_ENFORCE) → phải gửi
+                                // x-web2-token, KHÔNG thì 401 → 0 comment.
+                                headers: window.LiveColumnManager._w2AuthHeaders(),
+                                signal: AbortSignal.timeout(15000),
+                            }
                         );
                         const j = await resp.json();
                         if (j.success && Array.isArray(j.data)) {
