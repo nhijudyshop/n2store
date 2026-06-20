@@ -2,6 +2,15 @@
 
 ## 2026-06-20
 
+### [web2/multi-tool] Tăng comment nền: LIVE TEST PASS (Nhi Judy House 97→117) + tuning re-check ✅
+
+Nối tiếp feature "chạy nền server" (commit bedcfb08a). Deploy Render web2-api xong → test thật + fix.
+
+- **Live test PASS** (Nhi Judy House, post livestream `..._2080575446230098`): tạo job addTarget=10 → server chụp baseline=97, target=107. Worker: vòng 1 gửi 10 (count Pancake còn trễ = 97 < 107) → tự chạy vòng 2 gửi 10 → re-check count=111 ≥ 107 → **done "Đạt 111/107"**. Verify độc lập Pancake: `comment_count` 97 → **117**. Đúng spec "check lại phải hơn, ít hơn thì chạy lại".
+- **Bug fix (correctness)** `f59ae9d5e`: Pancake conversations API lọc `post_id` KHÔNG chặt — trả cả conv của bài KHÁC (bài photo `updated_at` mới hơn) → auto-select-by-newest nhắm SAI bài. Thêm lọc chặt `conv.post_id === selectedPost.id` (fallback nếu format khác). Fix cả tool foreground. (60 conv lọc post X → chỉ 49 thực sự thuộc X.)
+- **Tuning over-send**: `RECHECK_DELAY_MS` 7s→30s. comment_count FB/Pancake trễ ~20-40s → re-check sớm thấy count cũ → chạy thừa vòng (test gửi 20 cho target 10). 30s cho count đuổi kịp rồi mới tính deficit → giảm over-send (vẫn đảm bảo ≥ target).
+- Files: `render.com/services/web2-comment-boost-worker.js` (RECHECK_DELAY + bỏ dead `_getJob`), `web2/multi-tool/js/multi-tool.js` (lọc conv post_id) `?v=20260620bg2`.
+
 ### [web2/zalo] Phase 3 — gửi tin 1-1 ưu tiên TK cookie (wire vào send) ✅ code
 
 Nối tiếp Phase 1+2. Wire `getCookieAccountKey()` vào path gửi 1-1:
