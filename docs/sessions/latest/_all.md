@@ -3,19 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `b16d82b` — auto: session update
-**Last updated**: 2026-06-20 19:04:02 +07
-**Latest session**: [`RESUME:20260620-190402-b16d82b`](../20260620-190402-b16d82b.md)
-**Summary**: auto: session update
+**Latest commit**: `d11c4eb` — fix(live-chat): load comment DB thieu x-web2-token -> 401 -> 0 comment (regression gate web2-live-comments)
+**Last updated**: 2026-06-20 19:05:54 +07
+**Latest session**: [`RESUME:20260620-190554-d11c4eb`](../20260620-190554-d11c4eb.md)
+**Summary**: fix live-chat 0 comment: them x-web2-token vao fetch DB comment (regression gate)
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 3 file(s)
-- [`live-chat/`](./live-chat.md) — 6 file(s)
-- [`native-orders/`](./native-orders.md) — 4 file(s)
-- [`render.com/`](./render.com.md) — 1 file(s)
-- [`so-order/`](./so-order.md) — 1 file(s)
-- [`web2/`](./web2.md) — 12 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
+- [`live-chat/`](./live-chat.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -30,7 +26,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-20 11:49
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-06-20 19:04
+- [`docs/`](./docs.md) — updated 2026-06-20 19:05
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-19 14:27
@@ -44,7 +40,7 @@
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-06-20 12:07
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-20 12:07
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-06-20 12:07
-- [`live-chat/`](./live-chat.md) — updated 2026-06-20 19:04
+- [`live-chat/`](./live-chat.md) — updated 2026-06-20 19:05
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-06-20 16:16
 - [`n2store-facebook/`](./n2store-facebook.md) — updated 2026-06-14 13:09
 - [`n2store-realtime/`](./n2store-realtime.md) — updated 2026-06-16 11:15
