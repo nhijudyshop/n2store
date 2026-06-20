@@ -2,6 +2,14 @@
 
 ## 2026-06-20
 
+### [index/login] Fix nối tiếp: login.js không copy previousNames vào loginindex_auth ✅
+
+User: đăng nhập phuoc/phuoc2109 vẫn không hiện data (xác nhận "Phước"="Phước đẹp trai").
+
+- **Gốc**: backend JWT + `user` response ĐÃ có `previousNames` (verify: login phuoc → JWT payload `previousNames:["Phước đẹp trai"]`), NHƯNG `index/login.js` dựng `loginindex_auth` bằng **field-list tường minh** → bỏ sót `previousNames`. `SoquyPermissions.isMine` đọc `auth.previousNames` = undefined → alias không khớp → phuoc thấy 0 voucher cũ.
+- **Fix**: thêm `previousNames: user.previousNames || []` vào CẢ 2 block authData (login thường line 91 + verify 2FA line 491). node --check PASS.
+- **phuoc cần đăng nhập lại 1 lần nữa** (auth đang lưu vẫn thiếu previousNames) → sau đó thấy đủ 1071 voucher.
+
 ### [web2/zalo] Chip nhóm: báo "Cần đăng nhập TK trong nhóm" khi không gửi được ✅
 
 User: nhóm J&T mà không có quyền (TK của nhóm đã xoá/chưa kết nối) thì ghi rõ cần đăng nhập TK Zalo CÓ TRONG nhóm.
