@@ -25,8 +25,26 @@
         }
     }
 
+    // 2026-06-20: đọc UID tài khoản ĐANG đăng nhập chat.zalo.me → Web 2.0 ưu tiên
+    // dùng đúng tài khoản này để gửi tin (match account web2 theo zalo_uid).
+    function readUid() {
+        try {
+            const direct =
+                window.localStorage.getItem('sh_zlast_uid') ||
+                window.localStorage.getItem('sh_z_recentuid') ||
+                null;
+            if (direct) return String(direct);
+            const ids = window.localStorage.getItem('sh_user_ids');
+            if (ids) {
+                const arr = JSON.parse(ids);
+                if (Array.isArray(arr) && arr[0]) return String(arr[0]);
+            }
+        } catch (e) {}
+        return null;
+    }
+
     function snapshot() {
-        return { imei: readImei(), userAgent: navigator.userAgent };
+        return { imei: readImei(), userAgent: navigator.userAgent, uid: readUid() };
     }
 
     // 1) Cache ngay khi vào chat.zalo.me (nếu đã đăng nhập → có z_uuid).
@@ -38,6 +56,7 @@
                 type: 'ZALO_CREDS_CACHE',
                 imei: s.imei,
                 userAgent: s.userAgent,
+                uid: s.uid,
             });
         } catch (e) {
             /* extension context có thể chưa sẵn — bỏ qua, lần sau thử lại */

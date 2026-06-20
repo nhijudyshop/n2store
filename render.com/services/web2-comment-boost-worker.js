@@ -178,10 +178,6 @@ async function postReplyComment({ pageId, convId, messageId, postId, message, jw
 }
 
 // ── DB job helpers ───────────────────────────────────────────────────
-async function _getJob(id) {
-    const r = await _web2Pool.query('SELECT * FROM web2_comment_boost_jobs WHERE id=$1', [id]);
-    return r.rows[0] || null;
-}
 async function _updateJob(id, fields) {
     const cols = Object.keys(fields);
     if (!cols.length) return;
