@@ -388,4 +388,29 @@
     NO.w2pAlert = function w2pAlert(msg, opts) {
         return window.Popup.alert(msg, opts);
     };
+
+    // Admin check (chỉ ẩn/hiện UI — server vẫn gate độc lập). ƯU TIÊN role từ
+    // Web2Auth (hệ auth Web 2.0); fallback loginindex_auth / userType (Web 1.0).
+    // Mirror web2/shared/web2-sidebar.js `_isAdmin`. Dùng cho nút xoá đơn inbox rỗng.
+    NO.isAdmin = function isAdmin() {
+        try {
+            const w2user = window.Web2Auth?.getStored ? window.Web2Auth.getStored()?.user : null;
+            if (w2user && w2user.role) {
+                return String(w2user.role).toLowerCase() === 'admin';
+            }
+            const authStr =
+                localStorage.getItem('loginindex_auth') ||
+                sessionStorage.getItem('loginindex_auth') ||
+                '{}';
+            const auth = JSON.parse(authStr);
+            const userType = localStorage.getItem('userType') || '';
+            return (
+                auth.isAdmin === true ||
+                auth.roleTemplate === 'admin' ||
+                userType.startsWith('admin')
+            );
+        } catch {
+            return false;
+        }
+    };
 })();

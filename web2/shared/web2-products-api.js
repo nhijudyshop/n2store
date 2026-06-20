@@ -1,6 +1,8 @@
-// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes.
+// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 shared — Web2ProductsApi client (1 NGUỒN cho mọi trang dùng Kho SP).
 /**
- * Web2 Products API client — /api/web2/products/* qua Cloudflare Worker.
+ * Web2 Products API client — /api/web2-products/* qua Cloudflare Worker.
+ * NGUỒN DUY NHẤT (shared): mọi trang cần CRUD/đọc Kho SP load file này, KHÔNG
+ * cross-import bản page-local. `web2-products-cache.js` tự nạp file này nếu thiếu.
  */
 
 (function (global) {
