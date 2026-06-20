@@ -2,6 +2,15 @@
 
 ## 2026-06-20
 
+### [ops] Deploy + kích hoạt toàn bộ fix audit lên prod (worker + Render + mã hoá) ✅
+
+User "làm tất cả, key ở serect_dont_push" + "đã đổi tpos nvkt". Dùng Render API + Cloudflare Global API (từ secrets) thực thi prod:
+
+- **Worker (Cloudflare `chatomni-proxy`)**: `token-handler.js` bỏ hardcode password TPOS → đọc `env.TPOS_PASSWORD`/`TPOS_USERNAME`/`TPOS_CLIENT_ID` (company1), `TPOS_PASSWORD_2`/`TPOS_USERNAME_2` (company2); set CF secret `TPOS_PASSWORD` (password mới); **deploy** (version b6372e3e). Verify: **✅ company1 (live) auth OK**; ⚠️ **company2 (shop) 400 — cần set `TPOS_USERNAME_2`/`TPOS_PASSWORD_2` đúng creds nvktshop1** (ONCALL\_\* worker = PBX/SIP điện thoại, KHÔNG phải TPOS). SSRF proxy/image: **✅ chặn private-IP + host ngoài allowlist**.
+- **Mã hoá at-rest KÍCH HOẠT**: generate `WEB2_ENC_KEY` → set Render env **web2-api + web2-realtime + n2store-fallback** + ghi secrets. Deploy web2-api + n2store-fallback (zca Zalo ở fallback, routes ở web2-api) → live. Row cũ plaintext vẫn đọc (zero-lockout); login/refresh mới mã hoá.
+- **Dọn Render env**: grep usage toàn repo → xoá **5 var chết** khỏi n2store-fallback (`AUTOFB_*` ×4 feature gỡ, `BUNNY_ACCOUNT_API_KEY`). Giữ ambiguous/sensitive (GOOGLE*PLACES, VERIFY_TOKEN, ONCALL_SIP*\* PBX, FALLBACK_BASE/MAX_EVENTS dùng live-chat/server).
+- **Smoke-test prod ✅**: gated writes → 401 không token; reads → 200; app up. Frontend gửi token (93/93 write-call đã verify) → user thật không bị 401.
+
 ### [render] Mã hoá token/session Zalo+FB AT-REST (AES-256-GCM, safe-by-default) ✅
 
 Item HIGH còn lại của audit (token/session lưu plaintext). Build helper dùng chung + wire vào các choke-point.
