@@ -13,21 +13,21 @@
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
         <!-- External CSS -->
-        <link rel="stylesheet" href="../shared/css/modern.css?v=20260521b" />
-        <link rel="stylesheet" href="css/soorder.css?v=20260521b" />
+        <link rel="stylesheet" href="../shared/css/modern.css?v=20260620a" />
+        <link rel="stylesheet" href="css/soorder.css?v=20260620a" />
 
         <!-- Firebase SDKs -->
         <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
         <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 
         <!-- ES Module: Shared utilities (auto-initializes authManager, notificationManager) -->
-        <script type="module" src="../shared/esm/compat.js?v=20260521b"></script>
+        <script type="module" src="../shared/esm/compat.js?v=20260620a"></script>
 
         <!-- Fallback for file:// protocol (ES modules don't work locally) -->
         <script>
             if (window.location.protocol === 'file:') {
                 document.write(
-                    '<script src="../shared/js/shared-auth-manager.js?v=20260521b"><\/script>'
+                    '<script src="../shared/js/shared-auth-manager.js?v=20260620a"><\/script>'
                 );
                 document.write(
                     '<script>if(typeof AuthManager!=="undefined")window.authManager=new AuthManager({redirectUrl:"../index.html"});<\/script>'
@@ -39,14 +39,14 @@
         <script defer src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
 
         <!-- Navigation (deferred) -->
-        <script defer src="../shared/js/navigation-modern.js?v=20260521b"></script>
+        <script defer src="../shared/js/navigation-modern.js?v=20260620a"></script>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
         <link
             href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap"
             rel="stylesheet"
         />
-        <link rel="stylesheet" href="../shared/css/typography.css?v=20260521b" />
+        <link rel="stylesheet" href="../shared/css/typography.css?v=20260620a" />
         <!-- typography:shared -->
     </head>
 
@@ -839,12 +839,12 @@
         <div id="toastContainer" class="toast-container"></div>
 
         <!-- Scripts -->
-        <script src="../shared/js/firebase-config.js?v=20260521b"></script>
-        <script src="js/soorder-config.js?v=20260521b"></script>
-        <script src="js/soorder-utils.js?v=20260521b"></script>
-        <script src="js/soorder-crud.js?v=20260521b"></script>
-        <script src="js/soorder-supplier-loader.js?v=20260521b"></script>
-        <script src="js/soorder-ui.js?v=20260521b"></script>
-        <script src="js/soorder-main.js?v=20260521b"></script>
+        <script src="../shared/js/firebase-config.js?v=20260620a"></script>
+        <script src="js/soorder-config.js?v=20260620a"></script>
+        <script src="js/soorder-utils.js?v=20260620a"></script>
+        <script src="js/soorder-crud.js?v=20260620a"></script>
+        <script src="js/soorder-supplier-loader.js?v=20260620a"></script>
+        <script src="js/soorder-ui.js?v=20260620a"></script>
+        <script src="js/soorder-main.js?v=20260620a"></script>
     </body>
 </html>

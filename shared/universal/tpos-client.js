@@ -20,26 +20,15 @@ export const TPOS_CONFIG = {
     PRIMARY_URL: 'https://chatomni-proxy.nhijudyshop.workers.dev',
     DIRECT_TPOS_URL: 'https://tomato.tpos.vn',
 
-    // Token API
+    // Token API (worker proxy-auth: server injects credentials, never sent from client)
     TOKEN_ENDPOINT: '/api/token',
 
-    // Per-company credentials
-    CREDENTIALS_BY_COMPANY: {
-        1: { grant_type: 'password', username: 'nvktlive1', password: 'Aa@28612345678', client_id: 'tmtWebApp' },
-        2: { grant_type: 'password', username: 'nvktshop1', password: 'Aa@28612345678', client_id: 'tmtWebApp' }
-    },
-
-    // Default credentials (resolves to company 1 for backward compat)
-    get DEFAULT_CREDENTIALS() {
-        return this.CREDENTIALS_BY_COMPANY[1];
-    },
-
     // Timeouts
-    TOKEN_TIMEOUT: 10000,     // 10 seconds for token requests
-    API_TIMEOUT: 15000,       // 15 seconds for API requests
+    TOKEN_TIMEOUT: 10000, // 10 seconds for token requests
+    API_TIMEOUT: 15000, // 15 seconds for API requests
 
     // Token management
-    TOKEN_BUFFER: 5 * 60 * 1000,          // 5 minutes before expiry
+    TOKEN_BUFFER: 5 * 60 * 1000, // 5 minutes before expiry
     TOKEN_STORAGE_KEY: 'tpos_bearer_token',
     FIREBASE_TOKEN_PATH: 'tokens/tpos_bearer',
 };
@@ -51,11 +40,9 @@ export const TPOS_CONFIG = {
 export class TPOSClient {
     constructor(options = {}) {
         this.config = { ...TPOS_CONFIG, ...options };
-        // Use per-company credentials if companyId specified
-        const companyId = options.companyId || 1;
-        this.credentials = options.credentials
-            || this.config.CREDENTIALS_BY_COMPANY?.[companyId]
-            || this.config.DEFAULT_CREDENTIALS;
+        // Worker proxy-auth: only the companyId is sent; the worker injects
+        // server-side credentials (no username/password ever in client source)
+        this.companyId = options.companyId || 1;
         this.baseUrl = this.config.PRIMARY_URL;
 
         // Token state
@@ -108,7 +95,7 @@ export class TPOSClient {
      */
     async getAuthHeader() {
         const token = await this.getToken();
-        return { 'Authorization': `Bearer ${token}` };
+        return { Authorization: `Bearer ${token}` };
     }
 
     /**
@@ -117,7 +104,7 @@ export class TPOSClient {
      */
     isTokenValid() {
         if (!this.token || !this.tokenExpiry) return false;
-        return Date.now() < (this.tokenExpiry - this.config.TOKEN_BUFFER);
+        return Date.now() < this.tokenExpiry - this.config.TOKEN_BUFFER;
     }
 
     /**
@@ -136,7 +123,7 @@ export class TPOSClient {
         try {
             const tokenData = await this.refreshPromise;
             this.token = tokenData.access_token;
-            this.tokenExpiry = Date.now() + (tokenData.expires_in * 1000);
+            this.tokenExpiry = Date.now() + tokenData.expires_in * 1000;
 
             // Save to storage
             await this.saveToStorage(tokenData);
@@ -161,11 +148,17 @@ export class TPOSClient {
     async _fetchNewToken() {
         const url = `${this.baseUrl}${this.config.TOKEN_ENDPOINT}`;
 
-        const response = await fetchWithTimeout(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: new URLSearchParams(this.credentials).toString()
-        }, this.config.TOKEN_TIMEOUT);
+        // Proxy-auth: send only companyId; the worker injects credentials
+        // server-side and returns the TPOS token JSON.
+        const response = await fetchWithTimeout(
+            url,
+            {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ companyId: this.companyId }),
+            },
+            this.config.TOKEN_TIMEOUT
+        );
 
         if (!response.ok) {
             throw new Error(`Token fetch failed: ${response.status}`);
@@ -205,7 +198,7 @@ export class TPOSClient {
             isValid: this.isTokenValid(),
             expiresAt: this.tokenExpiry ? new Date(this.tokenExpiry).toISOString() : null,
             expiresIn: this.tokenExpiry ? Math.max(0, this.tokenExpiry - Date.now()) : 0,
-            server: this.baseUrl
+            server: this.baseUrl,
         };
     }
 
@@ -220,8 +213,8 @@ export class TPOSClient {
         const data = {
             access_token: tokenData.access_token,
             expires_in: tokenData.expires_in,
-            expiry: Date.now() + (tokenData.expires_in * 1000),
-            savedAt: Date.now()
+            expiry: Date.now() + tokenData.expires_in * 1000,
+            savedAt: Date.now(),
         };
 
         // Local storage
@@ -295,14 +288,18 @@ export class TPOSClient {
     async fetch(url, options = {}) {
         const authHeader = await this.getAuthHeader();
 
-        const response = await fetchWithTimeout(url, {
-            ...options,
-            headers: {
-                ...authHeader,
-                'Content-Type': 'application/json',
-                ...options.headers
-            }
-        }, this.config.API_TIMEOUT);
+        const response = await fetchWithTimeout(
+            url,
+            {
+                ...options,
+                headers: {
+                    ...authHeader,
+                    'Content-Type': 'application/json',
+                    ...options.headers,
+                },
+            },
+            this.config.API_TIMEOUT
+        );
 
         // Handle 401 - try refresh and retry
         if (response.status === 401) {
@@ -310,14 +307,18 @@ export class TPOSClient {
             await this.refreshToken();
 
             const newAuthHeader = await this.getAuthHeader();
-            const retryResponse = await fetchWithTimeout(url, {
-                ...options,
-                headers: {
-                    ...newAuthHeader,
-                    'Content-Type': 'application/json',
-                    ...options.headers
-                }
-            }, this.config.API_TIMEOUT);
+            const retryResponse = await fetchWithTimeout(
+                url,
+                {
+                    ...options,
+                    headers: {
+                        ...newAuthHeader,
+                        'Content-Type': 'application/json',
+                        ...options.headers,
+                    },
+                },
+                this.config.API_TIMEOUT
+            );
 
             this._notifyRetry(retryResponse, url);
             return retryResponse;
@@ -336,12 +337,16 @@ export class TPOSClient {
             if (retryCount && parseInt(retryCount) > 0) {
                 console.warn(`[TPOS] Request retried ${retryCount}x: ${url}`);
                 if (typeof window !== 'undefined') {
-                    window.dispatchEvent(new CustomEvent('tpos-retry', {
-                        detail: { retryCount: parseInt(retryCount), url }
-                    }));
+                    window.dispatchEvent(
+                        new CustomEvent('tpos-retry', {
+                            detail: { retryCount: parseInt(retryCount), url },
+                        })
+                    );
                 }
             }
-        } catch (e) { /* ignore */ }
+        } catch (e) {
+            /* ignore */
+        }
     }
 
     /**
@@ -360,7 +365,7 @@ export class TPOSClient {
         const url = this.buildUrl(endpoint, params);
         const response = await this.fetch(url, {
             method: 'POST',
-            body: JSON.stringify(data)
+            body: JSON.stringify(data),
         });
         return response.json();
     }
@@ -372,7 +377,7 @@ export class TPOSClient {
         const url = this.buildUrl(endpoint);
         const response = await this.fetch(url, {
             method: 'PATCH',
-            body: JSON.stringify(data)
+            body: JSON.stringify(data),
         });
         return response.json();
     }
@@ -425,7 +430,7 @@ export class TPOSClient {
     getServerStatus() {
         return {
             primary: this.baseUrl,
-            current: this.baseUrl
+            current: this.baseUrl,
         };
     }
 }
@@ -451,10 +456,12 @@ export function buildODataFilter(conditions) {
             if (value.$gte !== undefined) parts.push(`${field} ge ${formatODataValue(value.$gte)}`);
             if (value.$lt !== undefined) parts.push(`${field} lt ${formatODataValue(value.$lt)}`);
             if (value.$lte !== undefined) parts.push(`${field} le ${formatODataValue(value.$lte)}`);
-            if (value.$contains !== undefined) parts.push(`contains(${field}, '${value.$contains}')`);
-            if (value.$startswith !== undefined) parts.push(`startswith(${field}, '${value.$startswith}')`);
+            if (value.$contains !== undefined)
+                parts.push(`contains(${field}, '${value.$contains}')`);
+            if (value.$startswith !== undefined)
+                parts.push(`startswith(${field}, '${value.$startswith}')`);
             if (value.$in !== undefined) {
-                const inParts = value.$in.map(v => `${field} eq ${formatODataValue(v)}`);
+                const inParts = value.$in.map((v) => `${field} eq ${formatODataValue(v)}`);
                 parts.push(`(${inParts.join(' or ')})`);
             }
         } else {
@@ -528,12 +535,12 @@ export function createBrowserTPOSClient(options = {}) {
     const storage = {
         getItem: (key) => localStorage.getItem(key),
         setItem: (key, value) => localStorage.setItem(key, value),
-        removeItem: (key) => localStorage.removeItem(key)
+        removeItem: (key) => localStorage.removeItem(key),
     };
 
     return new TPOSClient({
         storage,
-        ...options
+        ...options,
     });
 }
 
@@ -546,12 +553,12 @@ export function createNodeTPOSClient(options = {}) {
     const storage = {
         getItem: (key) => cache.get(key),
         setItem: (key, value) => cache.set(key, value),
-        removeItem: (key) => cache.delete(key)
+        removeItem: (key) => cache.delete(key),
     };
 
     return new TPOSClient({
         storage,
-        ...options
+        ...options,
     });
 }
 

@@ -11,12 +11,9 @@ const TraHangModule = (function () {
     // Cloudflare Worker proxy URL for TPOS API
     const WORKER_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
 
-    // TPOS credentials - per-company accounts
-    function getTposCredentials() {
-        const companyId = window.ShopConfig?.getConfig?.()?.CompanyId || 1;
-        return companyId === 2
-            ? { grant_type: 'password', username: 'nvktshop1', password: 'Aa@28612345678', client_id: 'tmtWebApp' }
-            : { grant_type: 'password', username: 'nvktlive1', password: 'Aa@28612345678', client_id: 'tmtWebApp' };
+    // Resolve active company (1 or 2) the same way as elsewhere
+    function getCompanyId() {
+        return window.ShopConfig?.getConfig?.()?.CompanyId || 1;
     }
 
     // Background fetch state
@@ -46,7 +43,7 @@ const TraHangModule = (function () {
         endDate: null,
         statTotal: null,
         statConfirmed: null,
-        statDraft: null
+        statDraft: null,
     };
 
     // Initialize Firebase
@@ -57,7 +54,7 @@ const TraHangModule = (function () {
                 firebase.initializeApp(firebaseConfig);
             }
             db = firebase.firestore();
-            traHangCollectionRef = db.collection("tra_hang");
+            traHangCollectionRef = db.collection('tra_hang');
             console.log('✅ TraHang Firebase initialized');
             return true;
         } catch (error) {
@@ -231,7 +228,7 @@ const TraHangModule = (function () {
             const snapshot = await traHangCollectionRef.get();
             let allOrders = [];
 
-            snapshot.forEach(doc => {
+            snapshot.forEach((doc) => {
                 const data = doc.data();
                 if (data.orders && Array.isArray(data.orders)) {
                     allOrders = allOrders.concat(data.orders);
@@ -277,7 +274,7 @@ const TraHangModule = (function () {
             // Delete all existing documents first
             const snapshot = await traHangCollectionRef.get();
             const deletePromises = [];
-            snapshot.forEach(doc => {
+            snapshot.forEach((doc) => {
                 deletePromises.push(doc.ref.delete());
             });
             await Promise.all(deletePromises);
@@ -294,16 +291,18 @@ const TraHangModule = (function () {
                     orders: chunk,
                     chunkIndex: index,
                     lastUpdated: new Date().toISOString(),
-                    count: chunk.length
+                    count: chunk.length,
                 });
             });
 
             // Also save metadata
-            savePromises.push(traHangCollectionRef.doc('_metadata').set({
-                totalCount: data.length,
-                chunkCount: chunks.length,
-                lastUpdated: new Date().toISOString()
-            }));
+            savePromises.push(
+                traHangCollectionRef.doc('_metadata').set({
+                    totalCount: data.length,
+                    chunkCount: chunks.length,
+                    lastUpdated: new Date().toISOString(),
+                })
+            );
 
             await Promise.all(savePromises);
             console.log(`✅ Saved ${data.length} records to Firebase in ${chunks.length} chunks`);
@@ -339,7 +338,9 @@ const TraHangModule = (function () {
 
         hideEmptyState();
 
-        const html = data.map((item, index) => `
+        const html = data
+            .map(
+                (item, index) => `
             <tr data-index="${index}">
                 <td class="text-center">${item.stt || index + 1}</td>
                 <td>${escapeHtml(item.khachHang || '')}</td>
@@ -356,7 +357,9 @@ const TraHangModule = (function () {
                 </td>
                 <td>${escapeHtml(item.congTy || '')}</td>
             </tr>
-        `).join('');
+        `
+            )
+            .join('');
 
         elements.tableBody.innerHTML = html;
 
@@ -386,7 +389,7 @@ const TraHangModule = (function () {
         // Search filter
         const searchTerm = elements.searchInput?.value?.toLowerCase()?.trim() || '';
         if (searchTerm) {
-            result = result.filter(item => {
+            result = result.filter((item) => {
                 return (
                     (item.khachHang || '').toLowerCase().includes(searchTerm) ||
                     (item.dienThoai || '').toLowerCase().includes(searchTerm) ||
@@ -400,7 +403,7 @@ const TraHangModule = (function () {
         // Status filter
         const statusValue = elements.statusFilter?.value || 'all';
         if (statusValue !== 'all') {
-            result = result.filter(item => {
+            result = result.filter((item) => {
                 const statusClass = getStatusClass(item.trangThai);
                 return statusClass === statusValue;
             });
@@ -411,7 +414,7 @@ const TraHangModule = (function () {
         const endDate = elements.endDate?.value;
 
         if (startDate || endDate) {
-            result = result.filter(item => {
+            result = result.filter((item) => {
                 if (!item.ngayBan) return false;
 
                 const itemDate = new Date(item.ngayBan);
@@ -440,8 +443,12 @@ const TraHangModule = (function () {
     // Update stats
     function updateStats() {
         const total = filteredData.length;
-        const confirmed = filteredData.filter(item => getStatusClass(item.trangThai) === 'confirmed').length;
-        const draft = filteredData.filter(item => getStatusClass(item.trangThai) === 'draft').length;
+        const confirmed = filteredData.filter(
+            (item) => getStatusClass(item.trangThai) === 'confirmed'
+        ).length;
+        const draft = filteredData.filter(
+            (item) => getStatusClass(item.trangThai) === 'draft'
+        ).length;
 
         if (elements.statTotal) elements.statTotal.textContent = total;
         if (elements.statConfirmed) elements.statConfirmed.textContent = confirmed;
@@ -479,7 +486,7 @@ const TraHangModule = (function () {
             // Read with header row starting at row 3 (skip title rows)
             const rows = XLSX.utils.sheet_to_json(firstSheet, {
                 range: 2, // Start from row 3 (0-indexed, so 2)
-                defval: null // Default value for empty cells
+                defval: null, // Default value for empty cells
             });
 
             console.log(`Read ${rows.length} rows from Excel`);
@@ -508,7 +515,7 @@ const TraHangModule = (function () {
                 conNo: parseFloat(row['Còn nợ'] || 0),
                 trangThai: row['Trạng thái'] || 'Nháp',
                 congTy: row['Công ty'] || '',
-                importedAt: new Date().toISOString()
+                importedAt: new Date().toISOString(),
             }));
 
             if (typeof showNotification === 'function') {
@@ -516,8 +523,10 @@ const TraHangModule = (function () {
             }
 
             // Merge with existing data (avoid duplicates by checking 'so' - invoice number)
-            const existingInvoices = new Set(traHangData.map(item => item.so));
-            const newData = importedData.filter(item => !existingInvoices.has(item.so) || !item.so);
+            const existingInvoices = new Set(traHangData.map((item) => item.so));
+            const newData = importedData.filter(
+                (item) => !existingInvoices.has(item.so) || !item.so
+            );
             const duplicateCount = importedData.length - newData.length;
 
             // Merge: new data first, then existing
@@ -549,7 +558,6 @@ const TraHangModule = (function () {
                     showNotification('Lỗi khi lưu lên Firebase', 'error');
                 }
             }
-
         } catch (error) {
             console.error('Error importing Excel:', error);
             hideLoading();
@@ -574,7 +582,7 @@ const TraHangModule = (function () {
         if (!id) return false;
 
         try {
-            const updatedData = traHangData.filter(item => item.id !== id);
+            const updatedData = traHangData.filter((item) => item.id !== id);
             const saveSuccess = await saveToFirebase(updatedData);
 
             if (saveSuccess) {
@@ -602,25 +610,20 @@ const TraHangModule = (function () {
     // =====================================================
 
     /**
-     * Get TPOS access token via Cloudflare Worker
+     * Get TPOS access token via Cloudflare Worker (proxy-auth)
+     * The worker injects server-side credentials based on companyId,
+     * so no username/password ever lives in client source.
      */
     async function getTPOSToken() {
         try {
             console.log('[TraHang] 🔑 Fetching TPOS token...');
 
-            const formData = new URLSearchParams();
-            const creds = getTposCredentials();
-            formData.append('grant_type', creds.grant_type);
-            formData.append('username', creds.username);
-            formData.append('password', creds.password);
-            formData.append('client_id', creds.client_id);
-
             const response = await fetch(`${WORKER_URL}/api/token`, {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded'
+                    'Content-Type': 'application/json',
                 },
-                body: formData.toString()
+                body: JSON.stringify({ companyId: getCompanyId() }),
             });
 
             if (!response.ok) {
@@ -634,7 +637,6 @@ const TraHangModule = (function () {
 
             console.log('[TraHang] ✅ Token retrieved successfully');
             return data.access_token;
-
         } catch (error) {
             console.error('[TraHang] ❌ Error fetching token:', error);
             throw error;
@@ -652,19 +654,23 @@ const TraHangModule = (function () {
 
         // Format dates for TPOS API (ISO 8601 with timezone offset)
         // TPOS expects UTC time, Vietnam is UTC+7
-        const startISO = new Date(startDate.setHours(0, 0, 0, 0) - 7 * 60 * 60 * 1000).toISOString();
-        const endISO = new Date(endDate.setHours(23, 59, 59, 999) - 7 * 60 * 60 * 1000).toISOString();
+        const startISO = new Date(
+            startDate.setHours(0, 0, 0, 0) - 7 * 60 * 60 * 1000
+        ).toISOString();
+        const endISO = new Date(
+            endDate.setHours(23, 59, 59, 999) - 7 * 60 * 60 * 1000
+        ).toISOString();
 
         return {
             Filter: {
-                logic: "and",
+                logic: 'and',
                 filters: [
-                    { field: "Type", operator: "eq", value: "refund" },
-                    { field: "DateInvoice", operator: "gte", value: startISO },
-                    { field: "DateInvoice", operator: "lte", value: endISO },
-                    { field: "IsMergeCancel", operator: "neq", value: true }
-                ]
-            }
+                    { field: 'Type', operator: 'eq', value: 'refund' },
+                    { field: 'DateInvoice', operator: 'gte', value: startISO },
+                    { field: 'DateInvoice', operator: 'lte', value: endISO },
+                    { field: 'IsMergeCancel', operator: 'neq', value: true },
+                ],
+            },
         };
     }
 
@@ -678,18 +684,18 @@ const TraHangModule = (function () {
         const filter = buildTPOSExportFilterRefund();
         const body = {
             data: JSON.stringify(filter),
-            ids: []
+            ids: [],
         };
 
         // Use the proxy endpoint for ExportFileRefund
         const response = await fetch(`${WORKER_URL}/api/FastSaleOrder/ExportFileRefund?TagIds=`, {
             method: 'POST',
             headers: {
-                'Accept': '*/*',
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
+                Accept: '*/*',
+                Authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json',
             },
-            body: JSON.stringify(body)
+            body: JSON.stringify(body),
         });
 
         if (!response.ok) {
@@ -726,7 +732,7 @@ const TraHangModule = (function () {
         // Read with header row starting at row 3 (skip title rows)
         const rows = XLSX.utils.sheet_to_json(firstSheet, {
             range: 2,
-            defval: null
+            defval: null,
         });
 
         console.log('[TraHang] Parsed', rows.length, 'rows from TPOS Excel');
@@ -747,7 +753,7 @@ const TraHangModule = (function () {
             trangThai: row['Trạng thái'] || 'Nháp',
             congTy: row['Công ty'] || '',
             importedAt: new Date().toISOString(),
-            source: 'tpos_background'
+            source: 'tpos_background',
         }));
 
         return parsedData;
@@ -760,7 +766,7 @@ const TraHangModule = (function () {
      */
     function mergeTPOSData(tposData, existingData) {
         const existingSet = new Set();
-        existingData.forEach(item => {
+        existingData.forEach((item) => {
             if (item.so) {
                 existingSet.add(item.so);
             }
@@ -793,7 +799,7 @@ const TraHangModule = (function () {
         return {
             data: mergedData,
             newCount,
-            updatedCount: 0
+            updatedCount: 0,
         };
     }
 
@@ -868,7 +874,6 @@ const TraHangModule = (function () {
             }
 
             lastBackgroundFetchTime = new Date();
-
         } catch (error) {
             console.error('[TraHang] ❌ Background fetch error:', error);
             // Show error for debugging
@@ -947,7 +952,7 @@ const TraHangModule = (function () {
         backgroundFetchFromTPOS,
         getData: () => traHangData,
         getFilteredData: () => filteredData,
-        isBackgroundFetching: () => isBackgroundFetching
+        isBackgroundFetching: () => isBackgroundFetching,
     };
 })();
 
@@ -1043,8 +1048,8 @@ function initMainTabs() {
 
         if (savedTabBtn && savedTabContent) {
             // Remove active from all
-            tabBtns.forEach(b => b.classList.remove('active'));
-            tabContents.forEach(c => c.classList.remove('active'));
+            tabBtns.forEach((b) => b.classList.remove('active'));
+            tabContents.forEach((c) => c.classList.remove('active'));
 
             // Activate saved tab
             savedTabBtn.classList.add('active');
@@ -1057,7 +1062,7 @@ function initMainTabs() {
         }
     }
 
-    tabBtns.forEach(btn => {
+    tabBtns.forEach((btn) => {
         btn.addEventListener('click', function () {
             const targetTab = this.dataset.tab;
 
@@ -1065,8 +1070,8 @@ function initMainTabs() {
             localStorage.setItem(STORAGE_KEY, targetTab);
 
             // Remove active from all tabs
-            tabBtns.forEach(b => b.classList.remove('active'));
-            tabContents.forEach(c => c.classList.remove('active'));
+            tabBtns.forEach((b) => b.classList.remove('active'));
+            tabContents.forEach((c) => c.classList.remove('active'));
 
             // Add active to clicked tab
             this.classList.add('active');
@@ -1090,4 +1095,3 @@ function initMainTabs() {
 
 // Initialize tabs when DOM is ready
 document.addEventListener('DOMContentLoaded', initMainTabs);
-

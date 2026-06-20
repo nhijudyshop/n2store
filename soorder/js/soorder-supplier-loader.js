@@ -9,12 +9,9 @@ window.SoOrderSupplierLoader = {
     // Cloudflare Worker proxy URL
     WORKER_URL: 'https://chatomni-proxy.nhijudyshop.workers.dev',
 
-    // TPOS credentials - per-company accounts
-    get TPOS_CREDENTIALS() {
-        const companyId = window.ShopConfig?.getConfig?.()?.CompanyId || 1;
-        return companyId === 2
-            ? { grant_type: 'password', username: 'nvktshop1', password: 'Aa@28612345678', client_id: 'tmtWebApp' }
-            : { grant_type: 'password', username: 'nvktlive1', password: 'Aa@28612345678', client_id: 'tmtWebApp' };
+    // Company selector - worker injects server-side TPOS credentials per company
+    get companyId() {
+        return window.ShopConfig?.getConfig?.()?.CompanyId || 1;
     },
 
     // Queue for duplicate suppliers pending user selection
@@ -28,19 +25,14 @@ window.SoOrderSupplierLoader = {
         try {
             console.log('[Supplier Loader] 🔑 Fetching TPOS token...');
 
-            // Create form data with all required parameters
-            const formData = new URLSearchParams();
-            formData.append('grant_type', this.TPOS_CREDENTIALS.grant_type);
-            formData.append('username', this.TPOS_CREDENTIALS.username);
-            formData.append('password', this.TPOS_CREDENTIALS.password);
-            formData.append('client_id', this.TPOS_CREDENTIALS.client_id);
-
+            // Proxy-auth: worker injects server-side credentials per company.
+            // No password sent from the client.
             const response = await fetch(`${this.WORKER_URL}/api/token`, {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded'
+                    'Content-Type': 'application/json',
                 },
-                body: formData.toString()
+                body: JSON.stringify({ companyId: this.companyId }),
             });
 
             if (!response.ok) {
@@ -58,7 +50,6 @@ window.SoOrderSupplierLoader = {
             console.log('[Supplier Loader] ✅ Token retrieved successfully');
 
             return data.access_token;
-
         } catch (error) {
             console.error('[Supplier Loader] ❌ Error fetching token:', error);
             throw error;
@@ -74,10 +65,10 @@ window.SoOrderSupplierLoader = {
 
             // OData query parameters
             const params = new URLSearchParams({
-                '$top': '1000',  // Tăng từ 50 lên 1000 để lấy nhiều NCC hơn
-                '$orderby': 'Name',
-                '$filter': '(Supplier eq true and Active eq true)',
-                '$count': 'true'
+                $top: '1000', // Tăng từ 50 lên 1000 để lấy nhiều NCC hơn
+                $orderby: 'Name',
+                $filter: '(Supplier eq true and Active eq true)',
+                $count: 'true',
             });
 
             // Build full URL through worker proxy
@@ -86,11 +77,11 @@ window.SoOrderSupplierLoader = {
             const response = await fetch(apiUrl, {
                 method: 'GET',
                 headers: {
-                    'Accept': 'application/json, text/javascript, */*; q=0.01',
-                    'Authorization': `Bearer ${token}`,
+                    Accept: 'application/json, text/javascript, */*; q=0.01',
+                    Authorization: `Bearer ${token}`,
                     'Content-Type': 'application/json',
-                    'tposappversion': window.TPOS_CONFIG?.tposAppVersion || '5.11.16.1'
-                }
+                    tposappversion: window.TPOS_CONFIG?.tposAppVersion || '5.11.16.1',
+                },
             });
 
             if (!response.ok) {
@@ -99,16 +90,20 @@ window.SoOrderSupplierLoader = {
 
             const data = await response.json();
 
-            console.log(`[Supplier Loader] ✅ Fetched ${data.value?.length || 0} suppliers (Total: ${data['@odata.count'] || 'unknown'})`);
+            console.log(
+                `[Supplier Loader] ✅ Fetched ${data.value?.length || 0} suppliers (Total: ${data['@odata.count'] || 'unknown'})`
+            );
 
             // Debug: Log raw API response structure
             console.log('[Supplier Loader] 📋 Raw API response keys:', Object.keys(data));
             if (data.value && data.value.length > 0) {
-                console.log('[Supplier Loader] 📋 First item from API:', JSON.stringify(data.value[0], null, 2));
+                console.log(
+                    '[Supplier Loader] 📋 First item from API:',
+                    JSON.stringify(data.value[0], null, 2)
+                );
             }
 
             return data.value || [];
-
         } catch (error) {
             console.error('[Supplier Loader] ❌ Error fetching suppliers:', error);
             throw error;
@@ -137,7 +132,9 @@ window.SoOrderSupplierLoader = {
     sanitizeDocId(id) {
         if (!id) return null;
         // Replace invalid characters with underscore
-        return String(id).replace(/[\/\\\.#$\[\]]/g, '_').trim();
+        return String(id)
+            .replace(/[\/\\\.#$\[\]]/g, '_')
+            .trim();
     },
 
     // =====================================================
@@ -169,7 +166,9 @@ window.SoOrderSupplierLoader = {
             const chunks = this.chunkArray(docs, BATCH_SIZE);
             let totalDeleted = 0;
 
-            console.log(`[Supplier Loader] 🗑️ Deleting ${docs.length} documents in ${chunks.length} batches...`);
+            console.log(
+                `[Supplier Loader] 🗑️ Deleting ${docs.length} documents in ${chunks.length} batches...`
+            );
 
             for (let i = 0; i < chunks.length; i++) {
                 const chunk = chunks[i];
@@ -181,7 +180,9 @@ window.SoOrderSupplierLoader = {
 
                 await batch.commit();
                 totalDeleted += chunk.length;
-                console.log(`[Supplier Loader] ✅ Deleted batch ${i + 1}/${chunks.length} (${chunk.length} docs)`);
+                console.log(
+                    `[Supplier Loader] ✅ Deleted batch ${i + 1}/${chunks.length} (${chunk.length} docs)`
+                );
             }
 
             return totalDeleted;
@@ -212,7 +213,10 @@ window.SoOrderSupplierLoader = {
 
             // Debug: Log first supplier to see structure
             if (suppliers.length > 0) {
-                console.log('[Supplier Loader] 📋 Sample supplier object:', JSON.stringify(suppliers[0], null, 2));
+                console.log(
+                    '[Supplier Loader] 📋 Sample supplier object:',
+                    JSON.stringify(suppliers[0], null, 2)
+                );
                 console.log('[Supplier Loader] 📋 Available keys:', Object.keys(suppliers[0]));
             }
 
@@ -234,7 +238,10 @@ window.SoOrderSupplierLoader = {
                 const tposId = supplier.Id || supplier.id || null;
 
                 if (!name || !tposCode) {
-                    console.warn('[Supplier Loader] ⚠️ Skipping supplier without name or code:', JSON.stringify(supplier));
+                    console.warn(
+                        '[Supplier Loader] ⚠️ Skipping supplier without name or code:',
+                        JSON.stringify(supplier)
+                    );
                     continue;
                 }
 
@@ -252,17 +259,24 @@ window.SoOrderSupplierLoader = {
                         name: name.trim(),
                         axCode: axCode || null,
                         tposCode: tposCode, // Lưu lại TPOS code gốc
-                        tposId: tposId      // TPOS Partner Id (số nguyên)
-                    }
+                        tposId: tposId, // TPOS Partner Id (số nguyên)
+                    },
                 });
             }
 
-            console.log(`[Supplier Loader] 📋 Prepared ${suppliersToSave.length} suppliers to save`);
+            console.log(
+                `[Supplier Loader] 📋 Prepared ${suppliersToSave.length} suppliers to save`
+            );
 
             // Debug: If no suppliers to save, log more info
             if (suppliersToSave.length === 0 && suppliers.length > 0) {
-                console.error('[Supplier Loader] ❌ No valid suppliers to save! Check data structure.');
-                console.error('[Supplier Loader] ❌ First 3 suppliers:', JSON.stringify(suppliers.slice(0, 3), null, 2));
+                console.error(
+                    '[Supplier Loader] ❌ No valid suppliers to save! Check data structure.'
+                );
+                console.error(
+                    '[Supplier Loader] ❌ First 3 suppliers:',
+                    JSON.stringify(suppliers.slice(0, 3), null, 2)
+                );
             }
 
             // Step 3: Lưu theo batches
@@ -282,13 +296,14 @@ window.SoOrderSupplierLoader = {
 
                 await batch.commit();
                 totalSaved += chunk.length;
-                console.log(`[Supplier Loader] ✅ Saved batch ${i + 1}/${chunks.length} (${chunk.length} docs)`);
+                console.log(
+                    `[Supplier Loader] ✅ Saved batch ${i + 1}/${chunks.length} (${chunk.length} docs)`
+                );
             }
 
             console.log(`[Supplier Loader] ✅ Total saved: ${totalSaved} suppliers to Firebase`);
 
             return { success: true, count: totalSaved };
-
         } catch (error) {
             console.error('[Supplier Loader] ❌ Error saving to Firebase:', error);
             console.error('[Supplier Loader] ❌ Error details:', error.message, error.code);
@@ -306,7 +321,11 @@ window.SoOrderSupplierLoader = {
             const existingName = existingNames.get(group.code.toUpperCase());
 
             // Show modal for user to select
-            const selected = await this.showDuplicateSelectionModal(group.code, group.suppliers, existingName);
+            const selected = await this.showDuplicateSelectionModal(
+                group.code,
+                group.suppliers,
+                existingName
+            );
 
             if (selected) {
                 selectedSuppliers.push(selected);
@@ -329,12 +348,12 @@ window.SoOrderSupplierLoader = {
 
             // Add existing name as an option if it's different from all new suppliers
             if (existingName) {
-                const existingMatches = suppliers.some(s => s.name === existingName);
+                const existingMatches = suppliers.some((s) => s.name === existingName);
                 if (!existingMatches) {
                     options.unshift({
                         code: code,
                         name: existingName,
-                        isExisting: true
+                        isExisting: true,
                     });
                 }
             }
@@ -379,7 +398,7 @@ window.SoOrderSupplierLoader = {
                     code: data.axCode || doc.id.toUpperCase(), // Dùng axCode nếu có
                     tposCode: data.tposCode || doc.id, // Mã TPOS gốc
                     docId: doc.id, // Document ID (sanitized)
-                    name: data.name
+                    name: data.name,
                 });
             });
 
@@ -401,8 +420,9 @@ window.SoOrderSupplierLoader = {
                 return a.name.localeCompare(b.name);
             });
 
-            console.log(`[Supplier Loader] ✅ State updated with ${state.nccNames.length} suppliers from Firebase`);
-
+            console.log(
+                `[Supplier Loader] ✅ State updated with ${state.nccNames.length} suppliers from Firebase`
+            );
         } catch (error) {
             console.error('[Supplier Loader] ❌ Error updating state from Firebase:', error);
             throw error;
@@ -433,11 +453,13 @@ window.SoOrderSupplierLoader = {
                 const code = this.parseNCCCode(name);
                 if (code) {
                     // Check if code already exists (avoid duplicates in state)
-                    const exists = state.nccNames.some(n => n.code.toUpperCase() === code.toUpperCase());
+                    const exists = state.nccNames.some(
+                        (n) => n.code.toUpperCase() === code.toUpperCase()
+                    );
                     if (!exists) {
                         state.nccNames.push({
                             code: code.toUpperCase(),
-                            name: name.trim()
+                            name: name.trim(),
                         });
                     }
                 }
@@ -450,8 +472,9 @@ window.SoOrderSupplierLoader = {
                 return numA - numB;
             });
 
-            console.log(`[Supplier Loader] ✅ State updated with ${state.nccNames.length} suppliers`);
-
+            console.log(
+                `[Supplier Loader] ✅ State updated with ${state.nccNames.length} suppliers`
+            );
         } catch (error) {
             console.error('[Supplier Loader] ❌ Error updating state:', error);
             throw error;
@@ -501,7 +524,6 @@ window.SoOrderSupplierLoader = {
             console.log('[Supplier Loader] ✅ Supplier load process completed successfully');
 
             return { success: true, count: result.count };
-
         } catch (error) {
             console.error('[Supplier Loader] ❌ Error in load process:', error);
 
@@ -522,5 +544,5 @@ window.SoOrderSupplierLoader = {
 
             return { success: false, error: error.message };
         }
-    }
+    },
 };

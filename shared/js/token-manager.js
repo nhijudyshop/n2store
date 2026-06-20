@@ -429,62 +429,43 @@ class TokenManager {
      * Password login → gets token directly for this company
      */
     async passwordLogin() {
-        // Try primary credentials first, fallback on 400
-        const credentialsList = [this.credentials, TokenManager.getFallbackCredentials()];
+        // PROXY-AUTH: gửi {companyId} JSON → worker /api/token tự inject creds
+        // server-side (KHÔNG gửi username/password từ client; password TPOS chỉ
+        // nằm ở Cloudflare secret, đã rotate). Không hardcode creds nữa.
+        const response = await fetch(this.API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ companyId: this.companyId }),
+        });
 
-        for (let i = 0; i < credentialsList.length; i++) {
-            const creds = credentialsList[i];
-            const isFallback = i > 0;
-            const formData = new URLSearchParams();
-            formData.append('grant_type', creds.grant_type);
-            formData.append('username', creds.username);
-            formData.append('password', creds.password);
-            formData.append('client_id', creds.client_id);
-
-            const response = await fetch(this.API_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: formData.toString(),
-            });
-
-            if (!response.ok) {
-                if (response.status === 400 && !isFallback) {
-                    console.warn(`[TOKEN] Primary login 400, trying fallback...`);
-                    continue;
-                }
-                throw new Error(`Password login failed: ${response.status}`);
-            }
-
-            const data = await response.json();
-            if (!data.access_token) {
-                if (!isFallback) {
-                    continue;
-                }
-                throw new Error('Invalid token response');
-            }
-
-            const expiresAt = Date.now() + data.expires_in * 1000;
-            const tokenData = {
-                access_token: data.access_token,
-                refresh_token: data.refresh_token || null,
-                token_type: 'Bearer',
-                expires_in: data.expires_in,
-                expires_at: expiresAt,
-                issued_at: Date.now(),
-            };
-            try {
-                localStorage.setItem(this.storageKey, JSON.stringify(tokenData));
-            } catch (e) {
-                /* ignore */
-            }
-
-            this.token = data.access_token;
-            this.tokenExpiry = expiresAt;
-
-            return { data, tokenData };
+        if (!response.ok) {
+            throw new Error(`Password login failed: ${response.status}`);
         }
 
-        throw new Error('All login attempts failed');
+        const data = await response.json();
+        if (!data.access_token) {
+            throw new Error('Invalid token response');
+        }
+
+        const expiresAt = Date.now() + data.expires_in * 1000;
+        const tokenData = {
+            access_token: data.access_token,
+            refresh_token: data.refresh_token || null,
+            token_type: 'Bearer',
+            expires_in: data.expires_in,
+            expires_at: expiresAt,
+            issued_at: Date.now(),
+        };
+        try {
+            localStorage.setItem(this.storageKey, JSON.stringify(tokenData));
+        } catch (e) {
+            /* ignore */
+        }
+
+        this.token = data.access_token;
+        this.tokenExpiry = expiresAt;
+
+        return { data, tokenData };
     }
 
     /**

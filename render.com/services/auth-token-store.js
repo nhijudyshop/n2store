@@ -17,7 +17,6 @@ const _locks = new Map();
  * @param {import('pg').Pool} pool
  */
 function createAuthTokenStore(pool) {
-
     // ── Pancake fallback ─────────────────────────────────────────────────
     // Web 2.0 auto-renews `pancake_accounts.token` (cron/extension/saved-creds
     // login). The legacy auth_token_cache row for 'pancake' is only filled by a
@@ -49,10 +48,17 @@ function createAuthTokenStore(pool) {
                         Buffer.from(token.split('.')[1], 'base64url').toString('utf8')
                     );
                     if (payload && payload.exp) exp = Number(payload.exp);
-                } catch (_) { /* leave null */ }
+                } catch (_) {
+                    /* leave null */
+                }
             }
             const expires_at = exp ? new Date(exp * 1000) : null;
-            return { token, refresh_token: null, expires_at, metadata: { source: 'pancake_accounts' } };
+            return {
+                token,
+                refresh_token: null,
+                expires_at,
+                metadata: { source: 'pancake_accounts' },
+            };
         } catch (e) {
             console.warn('[AUTH-STORE] pancake_accounts fallback failed:', e.message);
             return null;
@@ -74,31 +80,54 @@ function createAuthTokenStore(pool) {
             // cache row (preserves the old "always return what we have" behavior).
             if (provider === 'pancake') {
                 if (msUntilExpire > 0) {
-                    return { token: t.token, refresh_token: null, expires_at: t.expires_at, metadata: t.metadata };
+                    return {
+                        token: t.token,
+                        refresh_token: null,
+                        expires_at: t.expires_at,
+                        metadata: t.metadata,
+                    };
                 }
                 const fresh = await _getFreshPancakeAccountToken();
                 if (fresh) {
-                    console.log('[AUTH-STORE] pancake cache stale → served fresh token from pancake_accounts');
+                    console.log(
+                        '[AUTH-STORE] pancake cache stale → served fresh token from pancake_accounts'
+                    );
                     return fresh;
                 }
-                return { token: t.token, refresh_token: null, expires_at: t.expires_at, metadata: t.metadata };
+                return {
+                    token: t.token,
+                    refresh_token: null,
+                    expires_at: t.expires_at,
+                    metadata: t.metadata,
+                };
             }
 
             if (msUntilExpire > REFRESH_BUFFER_MS) {
-                return { token: t.token, refresh_token: t.refresh_token, expires_at: t.expires_at, metadata: t.metadata };
+                return {
+                    token: t.token,
+                    refresh_token: t.refresh_token,
+                    expires_at: t.expires_at,
+                    metadata: t.metadata,
+                };
             }
             // Token near expiry → try refresh
-            console.log(`[AUTH-STORE] Token ${provider} expiring soon (${Math.round(msUntilExpire / 3600000)}h), refreshing...`);
+            console.log(
+                `[AUTH-STORE] Token ${provider} expiring soon (${Math.round(msUntilExpire / 3600000)}h), refreshing...`
+            );
         } else if (provider === 'pancake') {
             // No pancake token in auth_token_cache — try the auto-renewed token in
             // pancake_accounts before giving up.
             const fresh = await _getFreshPancakeAccountToken();
             if (fresh) {
-                console.log('[AUTH-STORE] pancake cache empty → served fresh token from pancake_accounts');
+                console.log(
+                    '[AUTH-STORE] pancake cache empty → served fresh token from pancake_accounts'
+                );
                 return fresh;
             }
             // No usable token in either store — browser hasn't pushed one
-            throw new Error('pancake:not_found — browser must push token via /api/realtime/start first');
+            throw new Error(
+                'pancake:not_found — browser must push token via /api/realtime/start first'
+            );
         }
         // No token or expired → refresh
         return await refreshAndStore(provider);
@@ -112,14 +141,18 @@ function createAuthTokenStore(pool) {
         }
         const promise = _doRefresh(provider);
         _locks.set(provider, promise);
-        try { return await promise; }
-        finally { _locks.delete(provider); }
+        try {
+            return await promise;
+        } finally {
+            _locks.delete(provider);
+        }
     }
 
     async function _doRefresh(provider) {
         // Pancake JWT is browser-session based — no server-side refresh available.
         // Token must be pushed by browser via /api/realtime/start.
-        if (provider === 'pancake') throw new Error(`pancake token must be pushed by browser — cannot auto-refresh`);
+        if (provider === 'pancake')
+            throw new Error(`pancake token must be pushed by browser — cannot auto-refresh`);
 
         const creds = _getCredentials(provider);
         if (!creds) throw new Error(`Unknown provider: ${provider}`);
@@ -149,11 +182,12 @@ function createAuthTokenStore(pool) {
             token: tokenData.access_token,
             refresh_token: tokenData.refresh_token || null,
             expires_at: expiresAt,
-            metadata: { username: creds.username, provider }
+            metadata: { username: creds.username, provider },
         };
 
         // Upsert DB
-        await pool.query(`
+        await pool.query(
+            `
             INSERT INTO auth_token_cache (provider, token, refresh_token, expires_at, metadata, updated_at)
             VALUES ($1, $2, $3, $4, $5, NOW())
             ON CONFLICT (provider) DO UPDATE SET
@@ -162,9 +196,19 @@ function createAuthTokenStore(pool) {
                 expires_at = EXCLUDED.expires_at,
                 metadata = EXCLUDED.metadata,
                 updated_at = NOW()
-        `, [provider, result.token, result.refresh_token, result.expires_at, JSON.stringify(result.metadata)]);
+        `,
+            [
+                provider,
+                result.token,
+                result.refresh_token,
+                result.expires_at,
+                JSON.stringify(result.metadata),
+            ]
+        );
 
-        console.log(`[AUTH-STORE] ✅ Token ${provider} cached (expires ${expiresAt.toISOString()})`);
+        console.log(
+            `[AUTH-STORE] ✅ Token ${provider} cached (expires ${expiresAt.toISOString()})`
+        );
         return result;
     }
 
@@ -173,13 +217,19 @@ function createAuthTokenStore(pool) {
             const body = new URLSearchParams({
                 grant_type: 'refresh_token',
                 refresh_token: refreshToken,
-                client_id: clientId || 'tmtWebApp'
+                client_id: clientId || 'tmtWebApp',
             });
-            const resp = await fetchWithRetry(CF_TOKEN_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: body.toString()
-            }, 1, 1000, 10000);
+            const resp = await fetchWithRetry(
+                CF_TOKEN_URL,
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: body.toString(),
+                },
+                1,
+                1000,
+                10000
+            );
             if (!resp.ok) return null;
             const data = await resp.json();
             return data.access_token ? data : null;
@@ -194,13 +244,19 @@ function createAuthTokenStore(pool) {
             grant_type: 'password',
             username: creds.username,
             password: creds.password,
-            client_id: creds.client_id || 'tmtWebApp'
+            client_id: creds.client_id || 'tmtWebApp',
         });
-        const resp = await fetchWithRetry(CF_TOKEN_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: body.toString()
-        }, 2, 2000, 15000);
+        const resp = await fetchWithRetry(
+            CF_TOKEN_URL,
+            {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: body.toString(),
+            },
+            2,
+            2000,
+            15000
+        );
         if (!resp.ok) {
             const text = await resp.text().catch(() => '');
             throw new Error(`Password login failed (${resp.status}): ${text.slice(0, 200)}`);
@@ -210,26 +266,30 @@ function createAuthTokenStore(pool) {
 
     function _getCredentials(provider) {
         // provider format: 'tpos_1', 'tpos_2'
+        // Creds come from env only — TPOS password is rotated server-side and must
+        // never be hardcoded in source. Shared password via TPOS_PASSWORD.
+        const password = process.env.TPOS_PASSWORD;
+        const clientId = process.env.TPOS_CLIENT_ID || 'tmtWebApp';
         if (provider === 'tpos_1') {
             return {
                 username: process.env.TPOS_USERNAME || 'nvktlive1',
-                password: process.env.TPOS_PASSWORD || 'Aa@28612345678',
-                client_id: process.env.TPOS_CLIENT_ID || 'tmtWebApp'
+                password,
+                client_id: clientId,
             };
         }
         if (provider === 'tpos_2') {
             return {
-                username: 'nvktshop1',
-                password: 'Aa@28612345678',
-                client_id: 'tmtWebApp'
+                username: process.env.TPOS_USERNAME_2 || 'nvktshop1',
+                password,
+                client_id: clientId,
             };
         }
         // Server's own TPOS token (env-based, for server-side OData calls)
         if (provider === 'tpos_server') {
             return {
                 username: process.env.TPOS_USERNAME,
-                password: process.env.TPOS_PASSWORD,
-                client_id: process.env.TPOS_CLIENT_ID || 'tmtWebApp'
+                password,
+                client_id: clientId,
             };
         }
         return null;

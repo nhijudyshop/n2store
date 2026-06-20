@@ -11,12 +11,10 @@ const BanHangModule = (function () {
     // Cloudflare Worker proxy URL for TPOS API
     const WORKER_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
 
-    // TPOS credentials - per-company accounts
-    function getTposCredentials() {
-        const companyId = window.ShopConfig?.getConfig?.()?.CompanyId || 1;
-        return companyId === 2
-            ? { grant_type: 'password', username: 'nvktshop1', password: 'Aa@28612345678', client_id: 'tmtWebApp' }
-            : { grant_type: 'password', username: 'nvktlive1', password: 'Aa@28612345678', client_id: 'tmtWebApp' };
+    // Resolve which TPOS company this shop is configured for.
+    // Credentials live server-side in the worker (proxy-auth) — never in client JS.
+    function getTposCompanyId() {
+        return window.ShopConfig?.getConfig?.()?.CompanyId || 1;
     }
 
     // Background fetch state
@@ -63,7 +61,7 @@ const BanHangModule = (function () {
         firstPage: null,
         prevPage: null,
         nextPage: null,
-        lastPage: null
+        lastPage: null,
     };
 
     // Initialize Firebase
@@ -74,7 +72,7 @@ const BanHangModule = (function () {
                 firebase.initializeApp(firebaseConfig);
             }
             db = firebase.firestore();
-            banHangCollectionRef = db.collection("ban_hang");
+            banHangCollectionRef = db.collection('ban_hang');
             console.log('✅ BanHang Firebase initialized');
             return true;
         } catch (error) {
@@ -239,7 +237,8 @@ const BanHangModule = (function () {
         const startIndex = (currentPage - 1) * pageSize + 1;
         const endIndex = Math.min(currentPage * pageSize, totalRecords);
 
-        if (elements.showingFrom) elements.showingFrom.textContent = totalRecords > 0 ? startIndex : 0;
+        if (elements.showingFrom)
+            elements.showingFrom.textContent = totalRecords > 0 ? startIndex : 0;
         if (elements.showingTo) elements.showingTo.textContent = endIndex;
         if (elements.totalRecords) elements.totalRecords.textContent = totalRecords;
         if (elements.currentPageEl) elements.currentPageEl.textContent = currentPage;
@@ -342,7 +341,7 @@ const BanHangModule = (function () {
             const snapshot = await banHangCollectionRef.get();
             let allOrders = [];
 
-            snapshot.forEach(doc => {
+            snapshot.forEach((doc) => {
                 const data = doc.data();
                 if (data.orders && Array.isArray(data.orders)) {
                     allOrders = allOrders.concat(data.orders);
@@ -389,7 +388,7 @@ const BanHangModule = (function () {
             // Delete all existing documents first
             const snapshot = await banHangCollectionRef.get();
             const deletePromises = [];
-            snapshot.forEach(doc => {
+            snapshot.forEach((doc) => {
                 deletePromises.push(doc.ref.delete());
             });
             await Promise.all(deletePromises);
@@ -406,16 +405,18 @@ const BanHangModule = (function () {
                     orders: chunk,
                     chunkIndex: index,
                     lastUpdated: new Date().toISOString(),
-                    count: chunk.length
+                    count: chunk.length,
                 });
             });
 
             // Also save metadata
-            savePromises.push(banHangCollectionRef.doc('_metadata').set({
-                totalCount: data.length,
-                chunkCount: chunks.length,
-                lastUpdated: new Date().toISOString()
-            }));
+            savePromises.push(
+                banHangCollectionRef.doc('_metadata').set({
+                    totalCount: data.length,
+                    chunkCount: chunks.length,
+                    lastUpdated: new Date().toISOString(),
+                })
+            );
 
             await Promise.all(savePromises);
             console.log(`✅ Saved ${data.length} records to Firebase in ${chunks.length} chunks`);
@@ -455,7 +456,9 @@ const BanHangModule = (function () {
 
         hideEmptyState();
 
-        const html = data.map((item, index) => `
+        const html = data
+            .map(
+                (item, index) => `
             <tr data-index="${startIndex + index}" data-id="${item.id || ''}" data-order-id="${item.so || ''}" class="order-row" style="cursor: pointer;">
                 <td class="text-center">${startIndex + index + 1}</td>
                 <td>${escapeHtml(item.khachHang || '')}</td>
@@ -495,7 +498,9 @@ const BanHangModule = (function () {
                 <td class="text-right">${item.chietKhau || 0}%</td>
                 <td class="text-right">${formatCurrency(item.thanhTienChietKhau)}</td>
             </tr>
-        `).join('');
+        `
+            )
+            .join('');
 
         elements.tableBody.innerHTML = html;
 
@@ -511,7 +516,7 @@ const BanHangModule = (function () {
     // Attach click handlers to rows for expanding order details
     function attachRowClickHandlers() {
         const rows = document.querySelectorAll('.order-row');
-        rows.forEach(row => {
+        rows.forEach((row) => {
             row.addEventListener('click', async (e) => {
                 // Don't expand if clicking on a link or button
                 if (e.target.tagName === 'A' || e.target.closest('a')) {
@@ -573,11 +578,11 @@ const BanHangModule = (function () {
             const response1 = await fetch(fetch1Url, {
                 method: 'GET',
                 headers: {
-                    'Accept': '*/*',
-                    'Authorization': `Bearer ${token}`,
+                    Accept: '*/*',
+                    Authorization: `Bearer ${token}`,
                     'Content-Type': 'application/json;IEEE754Compatible=false;charset=utf-8',
-                    'tposappversion': window.TPOS_CONFIG?.tposAppVersion || '5.12.29.1'
-                }
+                    tposappversion: window.TPOS_CONFIG?.tposAppVersion || '5.12.29.1',
+                },
             });
 
             const result1 = await response1.json();
@@ -606,11 +611,11 @@ const BanHangModule = (function () {
             const response2 = await fetch(fetch2Url, {
                 method: 'GET',
                 headers: {
-                    'Accept': '*/*',
-                    'Authorization': `Bearer ${token}`,
+                    Accept: '*/*',
+                    Authorization: `Bearer ${token}`,
                     'Content-Type': 'application/json;IEEE754Compatible=false;charset=utf-8',
-                    'tposappversion': window.TPOS_CONFIG?.tposAppVersion || '5.12.29.1'
-                }
+                    tposappversion: window.TPOS_CONFIG?.tposAppVersion || '5.12.29.1',
+                },
             });
 
             const result2 = await response2.json();
@@ -629,7 +634,6 @@ const BanHangModule = (function () {
 
             // Render order details with both order info and order lines
             renderOrderDetails(loadingRow, orderLines, orderData);
-
         } catch (error) {
             console.error('[EXPAND] Error fetching order details:', error);
             const errorRow = row.nextElementSibling;
@@ -650,7 +654,7 @@ const BanHangModule = (function () {
 
         // Get order-level data from fetch 1 result
         const deliveryFee = orderData.DeliveryPrice || orderData.AmountDelivery || 0;
-        const totalAmount = orderData.AmountTotal || (productTotal + deliveryFee);
+        const totalAmount = orderData.AmountTotal || productTotal + deliveryFee;
         const amountResidual = orderData.Residual || orderData.AmountResidual || totalAmount;
 
         const detailHtml = `
@@ -668,7 +672,9 @@ const BanHangModule = (function () {
                             </tr>
                         </thead>
                         <tbody>
-                            ${orderLines.map((line, index) => `
+                            ${orderLines
+                                .map(
+                                    (line, index) => `
                                 <tr>
                                     <td class="text-center">${index + 1}</td>
                                     <td>
@@ -680,7 +686,9 @@ const BanHangModule = (function () {
                                     <td class="text-right">${formatCurrency(line.PriceUnit || 0)}</td>
                                     <td class="text-right">${formatCurrency(line.PriceTotal || 0)}</td>
                                 </tr>
-                            `).join('')}
+                            `
+                                )
+                                .join('')}
                         </tbody>
                         <tfoot style="background: #f8f9fa;">
                             <tr>
@@ -743,7 +751,7 @@ const BanHangModule = (function () {
         // Search filter
         const searchTerm = elements.searchInput?.value?.toLowerCase()?.trim() || '';
         if (searchTerm) {
-            result = result.filter(item => {
+            result = result.filter((item) => {
                 return (
                     (item.khachHang || '').toLowerCase().includes(searchTerm) ||
                     (item.dienThoai || '').toLowerCase().includes(searchTerm) ||
@@ -757,7 +765,7 @@ const BanHangModule = (function () {
         // Status filter
         const statusValue = elements.statusFilter?.value || 'all';
         if (statusValue !== 'all') {
-            result = result.filter(item => {
+            result = result.filter((item) => {
                 const statusClass = getStatusClass(item.trangThai);
                 return statusClass === statusValue;
             });
@@ -768,7 +776,7 @@ const BanHangModule = (function () {
         const endDate = elements.endDate?.value;
 
         if (startDate || endDate) {
-            result = result.filter(item => {
+            result = result.filter((item) => {
                 if (!item.ngayBan) return false;
 
                 const itemDate = new Date(item.ngayBan);
@@ -797,14 +805,22 @@ const BanHangModule = (function () {
     // Update stats
     function updateStats() {
         const total = filteredData.length;
-        const confirmed = filteredData.filter(item => getStatusClass(item.trangThai) === 'confirmed').length;
-        const paid = filteredData.filter(item => getStatusClass(item.trangThai) === 'paid').length;
-        const totalAmount = filteredData.reduce((sum, item) => sum + (parseFloat(item.tongTien) || 0), 0);
+        const confirmed = filteredData.filter(
+            (item) => getStatusClass(item.trangThai) === 'confirmed'
+        ).length;
+        const paid = filteredData.filter(
+            (item) => getStatusClass(item.trangThai) === 'paid'
+        ).length;
+        const totalAmount = filteredData.reduce(
+            (sum, item) => sum + (parseFloat(item.tongTien) || 0),
+            0
+        );
 
         if (elements.statTotal) elements.statTotal.textContent = total;
         if (elements.statConfirmed) elements.statConfirmed.textContent = confirmed;
         if (elements.statPaid) elements.statPaid.textContent = paid;
-        if (elements.statTotalAmount) elements.statTotalAmount.textContent = formatCurrency(totalAmount);
+        if (elements.statTotalAmount)
+            elements.statTotalAmount.textContent = formatCurrency(totalAmount);
     }
 
     /**
@@ -838,7 +854,7 @@ const BanHangModule = (function () {
             // Read with header row starting at row 3 (skip title rows)
             const rows = XLSX.utils.sheet_to_json(firstSheet, {
                 range: 2, // Start from row 3 (0-indexed, so 2)
-                defval: null // Default value for empty cells
+                defval: null, // Default value for empty cells
             });
 
             console.log(`Read ${rows.length} rows from Excel`);
@@ -888,7 +904,7 @@ const BanHangModule = (function () {
                 tienGiam: parseFloat(row['Tiền giảm'] || 0),
                 chietKhau: parseFloat(row['Chiết khấu (%)'] || 0),
                 thanhTienChietKhau: parseFloat(row['Thành tiền chiết khấu'] || 0),
-                importedAt: new Date().toISOString()
+                importedAt: new Date().toISOString(),
             }));
 
             if (typeof showNotification === 'function') {
@@ -896,8 +912,10 @@ const BanHangModule = (function () {
             }
 
             // Merge with existing data (avoid duplicates by checking 'so' - invoice number)
-            const existingInvoices = new Set(banHangData.map(item => item.so));
-            const newData = importedData.filter(item => !existingInvoices.has(item.so) || !item.so);
+            const existingInvoices = new Set(banHangData.map((item) => item.so));
+            const newData = importedData.filter(
+                (item) => !existingInvoices.has(item.so) || !item.so
+            );
             const duplicateCount = importedData.length - newData.length;
 
             // Merge: new data first, then existing
@@ -930,7 +948,6 @@ const BanHangModule = (function () {
                     showNotification('Lỗi khi lưu lên Firebase', 'error');
                 }
             }
-
         } catch (error) {
             console.error('Error importing Excel:', error);
             hideLoading();
@@ -955,7 +972,7 @@ const BanHangModule = (function () {
         if (!id) return false;
 
         try {
-            const updatedData = banHangData.filter(item => item.id !== id);
+            const updatedData = banHangData.filter((item) => item.id !== id);
             const saveSuccess = await saveToFirebase(updatedData);
 
             if (saveSuccess) {
@@ -1030,9 +1047,9 @@ const BanHangModule = (function () {
             const response = await fetch(`${WORKER_URL}/api/token`, {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded'
+                    'Content-Type': 'application/x-www-form-urlencoded',
                 },
-                body: formData.toString()
+                body: formData.toString(),
             });
 
             if (!response.ok) {
@@ -1046,7 +1063,6 @@ const BanHangModule = (function () {
 
             console.log('[BanHang] ✅ Token retrieved successfully');
             return data.access_token;
-
         } catch (error) {
             console.error('[BanHang] ❌ Error fetching token:', error);
             throw error;
@@ -1064,19 +1080,23 @@ const BanHangModule = (function () {
 
         // Format dates for TPOS API (ISO 8601 with timezone offset)
         // TPOS expects UTC time, Vietnam is UTC+7
-        const startISO = new Date(startDate.setHours(0, 0, 0, 0) - 7 * 60 * 60 * 1000).toISOString();
-        const endISO = new Date(endDate.setHours(23, 59, 59, 999) - 7 * 60 * 60 * 1000).toISOString();
+        const startISO = new Date(
+            startDate.setHours(0, 0, 0, 0) - 7 * 60 * 60 * 1000
+        ).toISOString();
+        const endISO = new Date(
+            endDate.setHours(23, 59, 59, 999) - 7 * 60 * 60 * 1000
+        ).toISOString();
 
         return {
             Filter: {
-                logic: "and",
+                logic: 'and',
                 filters: [
-                    { field: "Type", operator: "eq", value: "invoice" },
-                    { field: "DateInvoice", operator: "gte", value: startISO },
-                    { field: "DateInvoice", operator: "lte", value: endISO },
-                    { field: "IsMergeCancel", operator: "neq", value: true }
-                ]
-            }
+                    { field: 'Type', operator: 'eq', value: 'invoice' },
+                    { field: 'DateInvoice', operator: 'gte', value: startISO },
+                    { field: 'DateInvoice', operator: 'lte', value: endISO },
+                    { field: 'IsMergeCancel', operator: 'neq', value: true },
+                ],
+            },
         };
     }
 
@@ -1090,18 +1110,18 @@ const BanHangModule = (function () {
         const filter = buildTPOSExportFilter();
         const body = {
             data: JSON.stringify(filter),
-            ids: []
+            ids: [],
         };
 
         // Use the proxy endpoint
         const response = await fetch(`${WORKER_URL}/api/FastSaleOrder/ExportFile?TagIds=`, {
             method: 'POST',
             headers: {
-                'Accept': '*/*',
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
+                Accept: '*/*',
+                Authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json',
             },
-            body: JSON.stringify(body)
+            body: JSON.stringify(body),
         });
 
         if (!response.ok) {
@@ -1138,7 +1158,7 @@ const BanHangModule = (function () {
         // Read with header row starting at row 3 (skip title rows)
         const rows = XLSX.utils.sheet_to_json(firstSheet, {
             range: 2,
-            defval: null
+            defval: null,
         });
 
         console.log('[BanHang] Parsed', rows.length, 'rows from TPOS Excel');
@@ -1180,7 +1200,7 @@ const BanHangModule = (function () {
             chietKhau: parseFloat(row['Chiết khấu (%)'] || 0),
             thanhTienChietKhau: parseFloat(row['Thành tiền chiết khấu'] || 0),
             importedAt: new Date().toISOString(),
-            source: 'tpos_background'
+            source: 'tpos_background',
         }));
 
         return parsedData;
@@ -1193,7 +1213,7 @@ const BanHangModule = (function () {
      */
     function mergeTPOSData(tposData, existingData) {
         const existingSet = new Set();
-        existingData.forEach(item => {
+        existingData.forEach((item) => {
             if (item.so) {
                 existingSet.add(item.so);
             }
@@ -1226,7 +1246,7 @@ const BanHangModule = (function () {
         return {
             data: mergedData,
             newCount,
-            updatedCount: 0
+            updatedCount: 0,
         };
     }
 
@@ -1301,7 +1321,6 @@ const BanHangModule = (function () {
             }
 
             lastBackgroundFetchTime = new Date();
-
         } catch (error) {
             console.error('[BanHang] ❌ Background fetch error:', error);
             // Show error for debugging
@@ -1349,7 +1368,7 @@ const BanHangModule = (function () {
         backgroundFetchFromTPOS,
         getData: () => banHangData,
         getFilteredData: () => filteredData,
-        isBackgroundFetching: () => isBackgroundFetching
+        isBackgroundFetching: () => isBackgroundFetching,
     };
 })();
 
