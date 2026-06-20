@@ -2,6 +2,18 @@
 
 ## 2026-06-20
 
+### [security/perf] Re-verify audit 09:10 + fix các mục còn lại (A3/O7/O2 + N+1 web2-returns) ✅
+
+Re-verify audit `WEB2-FULL-REVIEW-20260620.md` (121 bug) vs code hiện tại (workflow 8 agent): **22/24 mục distinct ĐÃ fix** từ sáng (toàn bộ auth router, money-validate, idempotency, permission, XSS, FB token encrypt). Fix tiếp các mục còn lại user duyệt:
+
+- **A3** `web2-fb-posts.js`: `/draft`+`/ad-entry` (POST+DELETE) `requireWeb2AuthSoft` → **`requireWeb2Admin`** (đồng bộ /connect/publish/delete).
+- **O7** `cloudflare-worker/.../proxy-handler.js`: `/api/proxy?headers=` JSON merge thẳng → thêm **`PROXY_HEADER_DENYLIST`** (host/cookie/authorization/x-forwarded-_/cf-_/via/x-real-ip) chống relay credential + spoof IP. URL đã allowlist sẵn; header an toàn (accept/origin/referer/sec-\*/x-kas cho vnhub) vẫn cho. image-proxy không nhận ?headers= → không dính.
+- **O2** `web2-zalo.js` + `web2-zalo-schema.js`: `/media/:id` IDOR — thêm cột `token` (36 hex bất khả đoán) + unique index; media MỚI trả URL `/media/<token>`; URL legacy numeric id **bắt buộc** `account_key` scope (bỏ param = 404) → hết enumerate BIGSERIAL.
+- **S1**: KIỂM TRA lại → OA secret/token **ĐÃ mã hoá sẵn** ở `web2-zalo-oa.js:154-156` (encryptString khi write, decrypt khi read) — verifier nhầm vì chỉ soi schema/web2-zalo.js. **No-op.**
+- **Perf N+1** `web2-returns.js _applyStock`: vòng `for` UPDATE từng item → **1 UPDATE batch** `FROM (VALUES …)` gom theo code (sign đồng nhất 1 chiều/lần gọi → kết quả y hệt). Đơn 30 dòng: 30 query → 1.
+- **DEFER (báo user, việc lớn/rủi ro hơn, cần focus + test riêng)**: O3 (unify key live-comments — WS ghi/conv-update `convId_count` vs poller ghi/message `postId_mid`, khác granularity + WS thiếu message-id → đụng realtime core); N+1 KPI emit fast-sale-orders:1899 (cần batch API trong kpi module + giữ dedup client_event_id, hot path tạo PBH); ILIKE balance_history.content (bảng tiền, đụng matching SePay); OFFSET→keyset (đổi contract API + frontend).
+- ✅ `node --check` 5 file backend + worker pass. Commits `c2693e8f5`(A3+O7), `9675bcc6c`(O2), `f81bac13c`(N+1).
+
 ### [render.com] Audit pagination/index toàn dự án (5 agent) + apply quick-win index ✅
 
 Audit cursor pagination + index coverage toàn bộ Render (workflow 5 agent). Cursor/keyset ĐÃ dùng tốt: `web2_live_comments` `?sinceUpdated`, wallet reset `afterId`, zalo messages, Pancake conv list (frontend). Đa số list endpoint dùng OFFSET. Index đa số tốt; thiếu vài cái quan trọng → **apply quick-win** (CREATE INDEX IF NOT EXISTS, idempotent, tự chạy khi Render restart, đã verify cột tồn tại + `node --check` 5 file):
