@@ -179,6 +179,25 @@ async function _applyMatch(db, sig, tx, txIdentity, best, deps, now) {
         console.warn('[WEB2-CK-WATCHER] linkTransaction failed:', e.message);
     }
 
+    // 2b) AUDIT 2026-06-20 #24: credit KHÔNG thành (lỗi linkTransaction / không
+    //     credited & không reconciled) → KHÔNG để signal kẹt 'confirmed' với
+    //     matched_tx_id (sẽ không bao giờ retry vì điều kiện CLAIM matched_tx_id IS
+    //     NULL). Rollback CLAIM về trạng thái cũ để tick sau thử lại.
+    if (!credited && !reconciled) {
+        await db
+            .query(
+                `UPDATE web2_payment_signals
+                 SET status = $2, matched_tx_id = NULL, matched_tx_at = NULL
+                 WHERE id = $1 AND matched_tx_id = $3`,
+                [sig.id, sig.status, tx.id]
+            )
+            .catch((e) => console.warn('[WEB2-CK-WATCHER] rollback claim failed:', e.message));
+        console.warn(
+            `[WEB2-CK-WATCHER] credit không thành cho GD#${tx.id} ↔ sig#${sig.id} → rollback claim, sẽ retry`
+        );
+        return 'credit_failed';
+    }
+
     // 3) history.
     const wasPending = sig.status === 'pending';
     const label = _hitLabel(best);
@@ -224,13 +243,39 @@ async function _applyMatch(db, sig, tx, txIdentity, best, deps, now) {
         sig.page_id &&
         sig.conversation_id
     ) {
-        const amt = `\nSố tiền chuyển khoản: ${Number(tx.transfer_amount).toLocaleString('vi-VN')}₫.`;
-        deps.sendMessage(
-            sig.page_id,
-            sig.conversation_id,
-            sig.psid || null,
-            `Shop đã nhận được chuyển khoản của mình rồi nha 💕${amt}\nCảm ơn mình nhiều ạ!`
-        ).catch(() => {});
+        // AUDIT 2026-06-20 #26: claim cờ confirm_msg_sent NGAY trước khi gửi → nếu QR
+        // matcher (_sendQrConfirmMessage) đã gửi tin cho GD này thì claim trả 0 row →
+        // KHÔNG gửi tin thứ 2. Gửi fail → trả cờ FALSE để không nuốt mất tin của KH.
+        const claim = await db
+            .query(
+                `UPDATE web2_balance_history SET confirm_msg_sent = TRUE
+                 WHERE id = $1 AND confirm_msg_sent IS NOT TRUE RETURNING id`,
+                [tx.id]
+            )
+            .catch(() => ({ rowCount: 0 }));
+        if (claim.rowCount) {
+            const amt = `\nSố tiền chuyển khoản: ${Number(tx.transfer_amount).toLocaleString('vi-VN')}₫.`;
+            deps.sendMessage(
+                sig.page_id,
+                sig.conversation_id,
+                sig.psid || null,
+                `Shop đã nhận được chuyển khoản của mình rồi nha 💕${amt}\nCảm ơn mình nhiều ạ!`
+            )
+                .then((r) => {
+                    if (!r || !r.ok) {
+                        db.query(
+                            `UPDATE web2_balance_history SET confirm_msg_sent = FALSE WHERE id = $1`,
+                            [tx.id]
+                        ).catch(() => {});
+                    }
+                })
+                .catch(() => {
+                    db.query(
+                        `UPDATE web2_balance_history SET confirm_msg_sent = FALSE WHERE id = $1`,
+                        [tx.id]
+                    ).catch(() => {});
+                });
+        }
     }
     return 'applied';
 }

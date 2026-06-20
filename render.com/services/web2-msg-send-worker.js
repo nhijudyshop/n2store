@@ -184,7 +184,7 @@ async function _mintPAT(pageId, accountToken) {
 }
 
 // ─── Send 1 message qua Pancake official API ───────────────────────
-async function _sendPancake(pageId, convId, customerId, message, pat) {
+async function _sendPancake(pageId, convId, customerId, message, pat, cliMsgId) {
     const url = `${WORKER_URL}/api/pancake-official/pages/${encodeURIComponent(
         pageId
     )}/conversations/${encodeURIComponent(convId)}/messages?page_access_token=${encodeURIComponent(
@@ -192,6 +192,9 @@ async function _sendPancake(pageId, convId, customerId, message, pat) {
     )}`;
     const payload = { action: 'reply_inbox', message, conversation_id: convId };
     if (customerId) payload.customer_id = customerId;
+    // AUDIT 2026-06-20 #21: idempotency key ổn định (= item.id) để retry proxy/recover
+    // không sinh tin trùng cho khách (Pancake/worker có thể dedupe theo field này).
+    if (cliMsgId) payload.client_message_id = String(cliMsgId);
     const { httpOk, status, data, text } = await _fetchJson(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -242,7 +245,7 @@ async function _processItem(item) {
     let pat = await _getCachedPAT(pageId);
     let last = null;
     if (pat) {
-        last = await _sendPancake(pageId, convId, customerId, message, pat);
+        last = await _sendPancake(pageId, convId, customerId, message, pat, item.id);
         if (last.ok) return _finishItem(item, 'done', { via: 'pancake' });
         if (_is24hError(last.eCode, last.eSubcode)) {
             return _finishItem(item, 'needs_extension', _errFields(last));
@@ -265,7 +268,7 @@ async function _processItem(item) {
         }
         if (!fresh || fresh === pat) continue;
         pat = fresh;
-        const r = await _sendPancake(pageId, convId, customerId, message, pat);
+        const r = await _sendPancake(pageId, convId, customerId, message, pat, item.id);
         last = r;
         if (r.ok) return _finishItem(item, 'done', { via: 'pancake' });
         if (_is24hError(r.eCode, r.eSubcode)) {

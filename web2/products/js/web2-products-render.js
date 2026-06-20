@@ -239,6 +239,12 @@
     function _updateRowInPlace(code, newProduct) {
         const idx = STATE.products.findIndex((p) => p.code === code);
         if (idx === -1) return false; // not on current page → caller should full-reload
+        // AUDIT 2026-06-20 #LOW28: chống SSE self-echo đè bản mới hơn bằng bản cũ.
+        // Bỏ qua nếu row hiện tại có updatedAt MỚI HƠN payload (echo trễ của chính tab).
+        const cur = STATE.products[idx];
+        const curTs = Number(cur?.updatedAt) || 0;
+        const newTs = Number(newProduct?.updatedAt) || 0;
+        if (curTs && newTs && newTs < curTs) return true; // đã hiển thị bản mới hơn
         STATE.products[idx] = newProduct;
         const tr = tbody().querySelector(`tr[data-code="${cssEscape(code)}"]`);
         if (!tr) return false;

@@ -231,6 +231,11 @@ function getPool(req) {
 }
 
 // Sinh code TV-YYYYMMDD-XXXX (sequence theo ngày).
+// AUDIT 2026-06-20 #LOW8: sinh code TV-YYYYMMDD-NNNN bằng MAX+1. Race 2 create cùng
+// lúc → 23505 (code UNIQUE) → caller (van_de_shipper/khach branch) đã bọc retry-on-23505
+// (RETRY_MAX=5) re-gọi _genCode → seq mới. Đây là chiến lược concurrency CỐ Ý &
+// đúng (audit xác nhận acceptable) — KHÔNG đổi sang sequence/counter (sequence không
+// reset theo ngày; counter cần seed-from-legacy + migration, rủi ro hơn lợi).
 async function _genCode(pool) {
     const d = new Date();
     const ymd =

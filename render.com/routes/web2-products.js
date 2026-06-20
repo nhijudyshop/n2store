@@ -618,8 +618,32 @@ router.post('/', requireWeb2AuthSoft, async (req, res) => {
             });
         }
         const now = Date.now();
+        const client = await pool.connect();
         try {
-            const r = await pool.query(
+            await client.query('BEGIN');
+            // AUDIT 2026-06-20 #2: dedupe logic (name+variant+supplier) TRONG transaction
+            // + FOR UPDATE → 2 create đồng thời (code khác nhau) không sinh SP trùng.
+            // Khớp CẢ variant+supplier nên KHÔNG chặn SP thật khác biến thể/NCC.
+            const dup = await client.query(
+                `SELECT code FROM web2_products
+                 WHERE LOWER(name) = LOWER($1)
+                   AND LOWER(COALESCE(variant, '')) = LOWER($2)
+                   AND LOWER(COALESCE(supplier, '')) = LOWER($3)
+                 LIMIT 1 FOR UPDATE`,
+                [
+                    b.name.trim(),
+                    b.variant ? String(b.variant).trim() : '',
+                    String(b.supplier).trim(),
+                ]
+            );
+            if (dup.rows.length) {
+                await client.query('ROLLBACK');
+                return res.status(409).json({
+                    error: `SP trùng (tên + biến thể + NCC) đã tồn tại: ${dup.rows[0].code}`,
+                    existingCode: dup.rows[0].code,
+                });
+            }
+            const r = await client.query(
                 `INSERT INTO web2_products
                  (code, name, price, image_url, stock, note, tags, is_active,
                   original_price, barcode, category, variant, supplier,
@@ -645,6 +669,7 @@ router.post('/', requireWeb2AuthSoft, async (req, res) => {
                     now,
                 ]
             );
+            await client.query('COMMIT');
             _notify('create', r.rows[0].code);
             await _logHistory(
                 pool,
@@ -656,10 +681,13 @@ router.post('/', requireWeb2AuthSoft, async (req, res) => {
             );
             res.json({ success: true, product: mapRow(r.rows[0]) });
         } catch (err) {
+            await client.query('ROLLBACK').catch(() => {});
             if (err.code === '23505') {
                 return res.status(409).json({ error: `Mã SP "${b.code}" đã tồn tại` });
             }
             throw err;
+        } finally {
+            client.release();
         }
     } catch (e) {
         console.error('[WEB2-PRODUCTS] POST / error:', e);

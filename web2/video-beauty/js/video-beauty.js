@@ -21,6 +21,7 @@
         exporting: false,
         _raf: 0,
         _vfc: 0,
+        _gen: 0, // AUDIT #31: token chống 2 previewLoop chạy chồng (double Play)
         _url: null,
         settings: { filter: 'none', smooth: 0.5, whiten: 0.12, warmth: 0.05, face: 0 },
     };
@@ -71,27 +72,31 @@
         state.vctx.drawImage(state.work, 0, 0, state.view.width, state.view.height);
     }
 
-    function previewLoop() {
-        if (!state.playing) return;
+    function previewLoop(gen) {
+        // AUDIT #31: bail nếu là chain cũ (gen lệch) → không double drawCurrent.
+        if (gen !== state._gen || !state.playing) return;
         const v = state.videoEl;
         if (v.ended || v.paused) return stopPreview();
         drawCurrent();
-        if (v.requestVideoFrameCallback) state._vfc = v.requestVideoFrameCallback(previewLoop);
-        else state._raf = requestAnimationFrame(previewLoop);
+        if (v.requestVideoFrameCallback)
+            state._vfc = v.requestVideoFrameCallback(() => previewLoop(gen));
+        else state._raf = requestAnimationFrame(() => previewLoop(gen));
     }
     async function playPreview() {
         if (!state.file || state.exporting) return;
         state.playing = true;
+        const gen = ++state._gen; // huỷ mọi loop trước, bắt đầu chain mới
         $('#vbPlay').hidden = true;
         $('#vbPause').hidden = false;
         state.videoEl.muted = false;
         try {
             await state.videoEl.play();
         } catch {}
-        previewLoop();
+        previewLoop(gen);
     }
     function stopPreview() {
         state.playing = false;
+        state._gen++; // vô hiệu loop đang chạy (rVFC/rAF đã queue)
         try {
             state.videoEl.pause();
         } catch {}

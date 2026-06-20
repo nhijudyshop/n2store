@@ -85,6 +85,19 @@ async function ensureSchema(pool) {
             END $$;
         `);
 
+        // AUDIT 2026-06-20 #26: cờ chống gửi 2 tin xác nhận CK cho cùng 1 GD.
+        // QR matcher (_sendQrConfirmMessage) + ck-watcher (_applyMatch auto-reply)
+        // đều gửi "Shop đã nhận CK" → set TRUE sau khi 1 bên gửi ok, bên kia skip.
+        await pool.query(`
+            DO $$
+            BEGIN
+                ALTER TABLE web2_balance_history
+                    ADD COLUMN IF NOT EXISTS confirm_msg_sent BOOLEAN DEFAULT FALSE;
+            EXCEPTION WHEN OTHERS THEN
+                RAISE NOTICE 'confirm_msg_sent column add skipped: %', SQLERRM;
+            END $$;
+        `);
+
         // Match-method CHECK constraint — Web 2.0 enumerated values.
         // 'manual_entry' giữ lại vì 1500+ row hiện có đã set value đó (read-only,
         // không tạo mới qua flow Web 2.0). Idempotent.
@@ -344,7 +357,7 @@ async function _gateBlock(db, web2BhId, phone) {
 // customer_id, fallback psid qua web2_customers.fb_id). Không có hội thoại → bỏ
 // qua (KH chưa từng chat → không gửi mù). User spec: QR → báo NGAY khi nhận CK,
 // không chờ tín hiệu "CK xong", không cần đơn hàng.
-async function _sendQrConfirmMessage(db, { phone, customerId, balance, amount }) {
+async function _sendQrConfirmMessage(db, { phone, customerId, balance, amount, bhId }) {
     let conv = null;
     // 1. Theo customer_id (QR luôn có customer_id = web2_customers.id)
     if (customerId != null) {
@@ -382,6 +395,23 @@ async function _sendQrConfirmMessage(db, { phone, customerId, balance, amount })
         );
         return;
     }
+    // AUDIT 2026-06-20 #26: claim cờ confirm_msg_sent NGAY trước khi gửi (atomic) →
+    // ck-watcher _applyMatch sẽ thấy TRUE và KHÔNG gửi tin thứ 2 cho cùng GD.
+    if (bhId != null) {
+        const claim = await db
+            .query(
+                `UPDATE web2_balance_history SET confirm_msg_sent = TRUE
+                 WHERE id = $1 AND confirm_msg_sent IS NOT TRUE RETURNING id`,
+                [bhId]
+            )
+            .catch(() => ({ rowCount: 0 }));
+        if (!claim.rowCount) {
+            console.log(
+                `[web2-sepay-matching] QR ${_maskPhone(phone)}: tin xác nhận đã gửi (skip double)`
+            );
+            return;
+        }
+    }
     const amountStr = Number(amount || 0).toLocaleString('vi-VN') + '₫';
     const balanceStr = balance != null ? Number(balance).toLocaleString('vi-VN') + '₫' : null;
     const msg = balanceStr
@@ -390,6 +420,12 @@ async function _sendQrConfirmMessage(db, { phone, customerId, balance, amount })
     const worker = require('./web2-msg-send-worker');
     if (!worker.sendSingleMessage) return;
     const res = await worker.sendSingleMessage(conv.page_id, conv.conversation_id, customerId, msg);
+    // Gửi fail → trả cờ về FALSE để ck-watcher còn cơ hội gửi (tránh KH mất tin).
+    if (bhId != null && !res?.ok) {
+        await db
+            .query(`UPDATE web2_balance_history SET confirm_msg_sent = FALSE WHERE id = $1`, [bhId])
+            .catch(() => {});
+    }
     console.log(
         `[web2-sepay-matching] QR confirm → ${_maskPhone(phone)} (conv ${conv.conversation_id}): ok=${res?.ok}` +
             `${res?.needsExtension ? ' (needs ext)' : ''}${res?.error ? ' err=' + res.error : ''}`
@@ -904,6 +940,7 @@ async function processWeb2Match(db, web2BhId, fetchWithTimeout) {
             customerId,
             balance: walletResult.wallet?.balance,
             amount,
+            bhId: web2BhId, // AUDIT #26: để claim cờ confirm_msg_sent (chống 2 tin)
         }).catch((e) => console.warn('[web2-sepay-matching] QR confirm message fail:', e.message));
     }
 
@@ -952,6 +989,11 @@ async function resolveWeb2PendingMatch(db, pendingId, selectedPhone, selectedNam
     // vẫn bị ghi đè history sang KH B (tiền 1 nơi, sổ 1 nơi, im lặng).
     const isPool = typeof db.connect === 'function';
     const client = isPool ? await db.connect() : db;
+    // AUDIT 2026-06-20 #LOW21: ta tự quản BEGIN/COMMIT (không qua withTransaction) →
+    // tạo queue _afterCommit để emitAfterCommit của wallet-service đăng ký hook chạy
+    // SAU COMMIT (thay vì process.nextTick emit TRƯỚC commit → stale-read). Drain ở
+    // dưới sau COMMIT. Chỉ khi isPool (client của ta); !isPool thì parent lo.
+    if (isPool) client._afterCommit = [];
     const _normPhone = (p) => {
         let s = String(p || '').replace(/\D/g, '');
         if (s.startsWith('84') && s.length >= 11) s = '0' + s.slice(2);
@@ -1058,6 +1100,18 @@ async function resolveWeb2PendingMatch(db, pendingId, selectedPhone, selectedNam
 
         if (isPool) await client.query('COMMIT');
 
+        // AUDIT #LOW21: COMMIT xong → flush hook _afterCommit (emit wallet SSE sau khi
+        // data durable). Best-effort, 1 hook lỗi không chặn hook khác.
+        if (isPool && Array.isArray(client._afterCommit)) {
+            for (const hook of client._afterCommit) {
+                try {
+                    hook();
+                } catch (he) {
+                    console.error('[resolveWeb2PendingMatch] afterCommit hook failed:', he.message);
+                }
+            }
+        }
+
         // Audit log SAU commit, best-effort trên db gốc (log() nuốt lỗi bên
         // trong — để nó TRONG tx thì statement fail sẽ abort tx im lặng mà
         // code vẫn tưởng COMMIT thành công).
@@ -1089,7 +1143,11 @@ async function resolveWeb2PendingMatch(db, pendingId, selectedPhone, selectedNam
         if (isPool) await client.query('ROLLBACK').catch(() => {});
         throw e;
     } finally {
-        if (isPool) client.release();
+        // Xoá queue trước release để pooled connection tái dùng không giữ hook cũ.
+        if (isPool) {
+            client._afterCommit = null;
+            client.release();
+        }
     }
 }
 

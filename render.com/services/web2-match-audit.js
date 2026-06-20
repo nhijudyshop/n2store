@@ -168,6 +168,9 @@ async function revert(db, auditId, revertedBy, windowMs = UNDO_WINDOW_MS) {
     // Giờ: lock row → guard → withdraw TRONG tx (lỗi ví = throw rollback hết).
     const isPool = typeof db.connect === 'function';
     const client = isPool ? await db.connect() : db;
+    // AUDIT 2026-06-20 #LOW21: queue _afterCommit để emitAfterCommit (wallet-service)
+    // chạy hook SAU COMMIT thay vì process.nextTick (emit trước commit → stale-read).
+    if (isPool) client._afterCommit = [];
     try {
         if (isPool) await client.query('BEGIN');
 
@@ -244,6 +247,16 @@ async function revert(db, auditId, revertedBy, windowMs = UNDO_WINDOW_MS) {
         );
 
         if (isPool) await client.query('COMMIT');
+        // AUDIT #LOW21: flush hook _afterCommit sau COMMIT (emit wallet SSE durable).
+        if (isPool && Array.isArray(client._afterCommit)) {
+            for (const hook of client._afterCommit) {
+                try {
+                    hook();
+                } catch (he) {
+                    console.error('[revertMatchAudit] afterCommit hook failed:', he.message);
+                }
+            }
+        }
         return {
             auditId,
             transactionId: audit.transaction_id,
@@ -255,7 +268,10 @@ async function revert(db, auditId, revertedBy, windowMs = UNDO_WINDOW_MS) {
         if (isPool) await client.query('ROLLBACK').catch(() => {});
         throw e;
     } finally {
-        if (isPool) client.release();
+        if (isPool) {
+            client._afterCommit = null;
+            client.release();
+        }
     }
 }
 

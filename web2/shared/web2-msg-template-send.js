@@ -81,7 +81,10 @@
             });
             const d = await r.json().catch(() => null);
             if (!r.ok || !d?.success) throw new Error(d?.error || 'HTTP ' + r.status);
-            // Optimistic 24h-skip cho lần mở modal sau.
+            // AUDIT 2026-06-20 #27: blanket mark NGAY khi tạo job để chống RE-QUEUE
+            // (mở lại modal lúc job đang chạy không tạo job thứ 2 cho cùng đơn → tránh
+            // gửi-trùng cho khách). Đơn GỬI LỖI sẽ được gỡ mark khi job xong (xem
+            // _stopWatch → /failed-codes) → cho phép gửi lại.
             items.forEach((it) => it.orderCode && W2MT._markSent(it.orderCode));
             W2MT._toast(`Đã tạo job gửi ${d.total} khách — đang chạy ở server`, 'success');
             document.getElementById('w2tplProgress').classList.add('show');
@@ -173,8 +176,26 @@
             W2MT._toast(msg, finalJob.failed ? 'warning' : 'success');
             _updatePill(finalJob, true);
             setTimeout(_hidePill, 6000);
+            // AUDIT #27: gỡ mark "đã gửi" cho các đơn GỬI LỖI/HUỶ → mở lại modal sẽ
+            // hiện lại để gửi tay. Đơn 'done' giữ mark (24h). Best-effort.
+            if (finalJob.failed && S.activeJobId) _unmarkFailed(S.activeJobId);
         } else {
             _hidePill();
+        }
+    }
+
+    // Fetch order_code các đơn gửi lỗi/huỷ → _unmarkSent để cho phép gửi lại.
+    async function _unmarkFailed(jobId) {
+        try {
+            const r = await fetch(API_BASE + '/' + jobId + '/failed-codes', {
+                headers: W2MT._authHeaders(),
+            });
+            const d = await r.json().catch(() => null);
+            if (d?.success && Array.isArray(d.codes) && W2MT._unmarkSent) {
+                d.codes.forEach((c) => c && W2MT._unmarkSent(c));
+            }
+        } catch (_) {
+            /* best-effort */
         }
     }
 

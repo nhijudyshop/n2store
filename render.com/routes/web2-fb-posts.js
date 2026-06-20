@@ -163,6 +163,10 @@ async function saveToken(db, { userId, userToken, name, pages, expiresAt }) {
             now(),
         ]
     );
+    // AUDIT 2026-06-20 #LOW11: model 1-account. loadToken lấy row updated_at mới nhất
+    // → 2 FB account để 2 row gây "ai connect sau thành active" mơ hồ. Xoá row account
+    // khác khi account mới connect → luôn đúng 1 row = kết nối shop hiện tại.
+    await db.query(`DELETE FROM web2_fb_post_tokens WHERE user_id <> $1`, [userId]).catch(() => {});
 }
 
 // Thứ tự ưu tiên hiển thị page (user chốt 2026-06-19): Store → House → Ơi → Nè.

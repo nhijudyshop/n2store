@@ -155,33 +155,40 @@
     }
 
     // ── Detector dùng chung (1 instance/model cho cả trang) ──────────
-    const _detectorCache = new Map(); // modelUrl -> Promise<ObjectDetector>
-    async function getDetector(opts) {
-        const key = `${opts.modelUrl}|${opts.scoreThreshold}|${opts.maxResults}`;
-        if (_detectorCache.has(key)) return _detectorCache.get(key);
+    // AUDIT 2026-06-20 #29: KHÔNG share ObjectDetector giữa các controller — detector
+    // VIDEO-mode có state thời gian nội bộ, dùng chung làm lệch frame/timestamp khi
+    // 2 instance chạy song song. Chỉ cache FILESET/WASM (phần nặng, stateless) theo
+    // visionVersion; mỗi controller tạo ObjectDetector RIÊNG + close() khi stop/destroy.
+    const _filesetCache = new Map(); // visionVersion -> Promise<{FilesetResolver,ObjectDetector,fileset}>
+    function getVisionFileset(visionVersion) {
+        if (_filesetCache.has(visionVersion)) return _filesetCache.get(visionVersion);
         const p = (async () => {
-            const vision = await loadVision(opts.visionVersion);
+            const vision = await loadVision(visionVersion);
             const { FilesetResolver, ObjectDetector } = vision;
             const fileset = await FilesetResolver.forVisionTasks(
-                `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${opts.visionVersion}/wasm`
+                `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${visionVersion}/wasm`
             );
-            const make = (delegate) =>
-                ObjectDetector.createFromOptions(fileset, {
-                    baseOptions: { modelAssetPath: opts.modelUrl, delegate },
-                    scoreThreshold: opts.scoreThreshold,
-                    maxResults: opts.maxResults,
-                    runningMode: 'VIDEO',
-                });
-            try {
-                return await make('GPU');
-            } catch (_e) {
-                // iOS Safari / máy yếu → CPU (WASM)
-                return await make('CPU');
-            }
+            return { ObjectDetector, fileset };
         })();
-        _detectorCache.set(key, p);
-        p.catch(() => _detectorCache.delete(key));
+        _filesetCache.set(visionVersion, p);
+        p.catch(() => _filesetCache.delete(visionVersion));
         return p;
+    }
+    async function getDetector(opts) {
+        const { ObjectDetector, fileset } = await getVisionFileset(opts.visionVersion);
+        const make = (delegate) =>
+            ObjectDetector.createFromOptions(fileset, {
+                baseOptions: { modelAssetPath: opts.modelUrl, delegate },
+                scoreThreshold: opts.scoreThreshold,
+                maxResults: opts.maxResults,
+                runningMode: 'VIDEO',
+            });
+        try {
+            return await make('GPU');
+        } catch (_e) {
+            // iOS Safari / máy yếu → CPU (WASM)
+            return await make('CPU');
+        }
     }
 
     // ── Helpers ──────────────────────────────────────────────────────
@@ -420,13 +427,18 @@
             } catch (_) {}
         }
         function stop() {
-            if (!running && !stream) return;
+            if (!running && !stream && !detector) return;
             running = false;
             if (raf) {
                 global.cancelAnimationFrame(raf);
                 raf = 0;
             }
             stopTracks();
+            // AUDIT #29: giải phóng ObjectDetector riêng của controller này.
+            try {
+                detector?.close?.();
+            } catch (_) {}
+            detector = null;
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             countBox.hidden = true;
             emptyBox.hidden = false;

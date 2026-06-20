@@ -292,6 +292,23 @@ router.get('/:id', async (req, res) => {
     }
 });
 
+// ─── GET /:id/failed-codes — order_code các đơn gửi LỖI/HUỶ (AUDIT #27) ──
+// Client gỡ mark "đã gửi" cho các đơn này sau khi job xong → cho phép gửi lại.
+router.get('/:id/failed-codes', async (req, res) => {
+    const pool = getPool(req);
+    if (!pool) return res.status(503).json({ success: false, error: 'db_unavailable' });
+    try {
+        const { rows } = await pool.query(
+            `SELECT order_code FROM web2_msg_send_items
+             WHERE job_id = $1 AND state IN ('error', 'cancelled') AND order_code IS NOT NULL`,
+            [req.params.id]
+        );
+        return res.json({ success: true, codes: rows.map((r) => r.order_code) });
+    } catch (e) {
+        return res.status(500).json({ success: false, error: e.message });
+    }
+});
+
 // ─── GET /:id/extension-items — đơn cần extension drain ───────────
 router.get('/:id/extension-items', async (req, res) => {
     const pool = getPool(req);

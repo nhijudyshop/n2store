@@ -99,6 +99,12 @@
         W2MT.state.sentOrders.set(code, { ts: Date.now() });
         _saveSent();
     }
+    // AUDIT 2026-06-20 #27: gỡ mark cho đơn GỬI LỖI sau khi job xong → cho phép gửi
+    // lại (blanket mark lúc tạo job chống re-queue khi đang chạy; lỗi thì nhả ra).
+    function _unmarkSent(code) {
+        if (!code) return;
+        if (W2MT.state.sentOrders.delete(code)) _saveSent();
+    }
     function _isSent(code) {
         if (!code) return false;
         const e = W2MT.state.sentOrders.get(code);
@@ -112,6 +118,7 @@
     W2MT._loadSent = _loadSent;
     W2MT._saveSent = _saveSent;
     W2MT._markSent = _markSent;
+    W2MT._unmarkSent = _unmarkSent;
     W2MT._isSent = _isSent;
 
     // ─── Postgres: load templates (Hướng D, thay Firestore) ───────

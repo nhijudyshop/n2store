@@ -2,6 +2,38 @@
 
 ## 2026-06-20
 
+### [web2/render] "Làm tất cả" — fix HẾT phần audit còn treo (16 mục) ✅
+
+Đóng nốt toàn bộ MEDIUM/LOW còn lại sau scan 121 issue. node --check PASS 17 file, 0 NUL.
+
+**Money/correctness (backend):**
+
+- **#26** SePay 2 tin xác nhận → cột `confirm_msg_sent` + claim atomic ở CẢ 2 sender (`_sendQrConfirmMessage` + ck-watcher `_applyMatch`); gửi fail thì reset cờ (KH không mất tin). Khách chỉ nhận 1 tin.
+- **#24** ck-watcher rollback CLAIM khi credit không thành (`!credited && !reconciled`) → signal về trạng thái cũ, tick sau retry (hết kẹt 'confirmed' không cộng ví).
+- **#2** products create: transaction + dedupe `LOWER(name)+variant+supplier` FOR UPDATE (khớp cả biến thể+NCC → không chặn SP thật) → hết SP trùng khi 2 create race.
+- **#21** msg-send: `client_message_id = item.id` vào payload Pancake (idempotency proxy/recover).
+- **#LOW21** emitAfterCommit: 2 caller raw-client (resolveWeb2PendingMatch + revertMatchAudit) tạo+drain `_afterCommit` → emit wallet SSE SAU commit (hết nextTick stale-read).
+- **#LOW11** fb-posts: saveToken `DELETE user_id<>$1` → model 1-account rõ ràng.
+- **#LOW8** web2-returns `_genCode`: giữ retry-on-23505 (đúng, audit xác nhận) + ghi chú chống "fix" nhầm.
+
+**Messaging (an toàn, chỉ guard, KHÔNG gửi gì):**
+
+- **#28** chat reply-to: forward `replyToId` end-to-end (sendMessage đã map → `replied_message_id`).
+- **#27** msg-template: GIỮ blanket mark (chống re-queue khi job chạy = chống gửi-trùng) + endpoint `/:id/failed-codes` + `_unmarkSent` gỡ mark đơn LỖI sau job → cho gửi lại. (Bỏ blanket naive sẽ TĂNG gửi-trùng → không làm.)
+
+**Frontend (local, no customer-send):**
+
+- **#32** photo-studio: `freshAiMask` segment đúng frame vừa chụp (fallback maskC, no regression).
+- **#29** product-counter: detector RIÊNG mỗi controller + close() (chỉ cache fileset/WASM).
+- **#31** video-beauty: generation token chống 2 previewLoop chồng.
+- **#23** page-builder: rollback xoá → `load()` resync (bỏ splice idx stale).
+- **#25** bill-service: iframe RIÊNG mỗi job + afterprint cleanup (hết clobber 2 print song song).
+- **#LOW28** products: SSE self-echo freshness guard (`updatedAt`).
+
+→ **Toàn bộ 121 audit issue (CRITICAL+HIGH+MEDIUM+LOW) đã đóng.** Cần deploy n2store-fallback + web2-api.
+
+## 2026-06-20
+
 ### [web2/render] Quét lại TOÀN BỘ 121 audit issue + fix nốt money/cosmetic ✅
 
 User "quét lại hết". Verify 6 agent song song toàn MEDIUM(39)+LOW(32) trong code hiện tại. CRITICAL(6)+HIGH(43)=100% FIXED. Đa số MED/LOW trùng HIGH đã fix. Fix thêm trong đợt này:

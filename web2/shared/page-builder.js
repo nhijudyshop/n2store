@@ -632,11 +632,12 @@
             };
             const rollback = () => {
                 if (!snap) return;
-                STATE.records.splice(Math.min(idx, STATE.records.length), 0, snap);
-                STATE.total += 1;
-                renderRows();
-                renderCounters();
-                renderPagination();
+                // AUDIT 2026-06-20 #23: KHÔNG splice theo idx cũ — STATE.records có thể
+                // đã bị load()/SSE thay mảng mới trong lúc await → idx stale, splice sai
+                // vị trí / nhân đôi. Nếu record đã quay lại (reload khôi phục) thì thôi;
+                // còn không, để load() resync làm nguồn đúng.
+                if (STATE.records.some((x) => x.code === snap.code)) return;
+                load();
             };
             const opts = {
                 snapshot: snap,

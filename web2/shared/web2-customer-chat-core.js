@@ -256,7 +256,7 @@
             return false;
         }
     }
-    async function _performSend(conv, text, att) {
+    async function _performSend(conv, text, att, replyToId) {
         const pageId = conv.page_id;
         const convId = conv.id;
         const customerId = conv.customers?.[0]?.id || null;
@@ -285,6 +285,8 @@
             action,
             customerId,
             attachments,
+            // AUDIT 2026-06-20 #28: forward reply-to (sendMessage map → replied_message_id).
+            repliedMessageId: replyToId || undefined,
         });
         if (
             res &&
@@ -299,6 +301,7 @@
                     action,
                     customerId,
                     attachments,
+                    repliedMessageId: replyToId || undefined,
                 });
         }
         if (!res || !res.ok)
@@ -357,8 +360,8 @@
                     r && r.ok && Array.isArray(r.messages) ? r.messages.slice().reverse() : [];
                 return { messages: older };
             },
-            async send({ text, attachment }) {
-                const res = await _performSend(conv, text, attachment || null);
+            async send({ text, attachment, replyToId }) {
+                const res = await _performSend(conv, text, attachment || null, replyToId);
                 if (res?.via === 'extension')
                     notify('Đã gửi qua N2 Extension (bypass 24h)', 'success');
                 return res;

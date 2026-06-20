@@ -53,6 +53,57 @@
         }
     };
 
+    /**
+     * AUDIT 2026-06-20 #32: segment TƯƠI đúng frame vừa chụp (frameCv) thay vì dùng
+     * PS.maskC của loop (lệch ≥1 frame khi chủ thể chuyển động → cutout lệch viền).
+     * Chỉ engine 'tasks' (segmentForVideo đồng bộ). Lỗi/engine khác → trả null để
+     * makeCutout fallback PS.maskC (KHÔNG regression). Timestamp dùng chung chuỗi
+     * tăng dần với loop (state._tasksLastMs) để không phá monotonic của segmenter.
+     */
+    PS.freshAiMask = function (frameCv, W, H) {
+        const state = PS.state;
+        if (state._aiEngine !== 'tasks' || !state._segmenter) return null;
+        try {
+            const scale = Math.min(1, PS.SEG_INPUT_W / W);
+            const sw = Math.max(1, Math.round(W * scale));
+            const sh = Math.max(1, Math.round(H * scale));
+            const seg = document.createElement('canvas');
+            seg.width = sw;
+            seg.height = sh;
+            seg.getContext('2d').drawImage(frameCv, 0, 0, sw, sh);
+            const ts = Math.max(performance.now(), (state._tasksLastMs || 0) + 1);
+            state._tasksLastMs = ts;
+            let maskCv = null;
+            state._segmenter.segmentForVideo(seg, ts, (result) => {
+                const m = result.confidenceMasks && result.confidenceMasks[0];
+                if (!m) return;
+                const mw = m.width,
+                    mh = m.height;
+                const f = m.getAsFloat32Array();
+                const raw = document.createElement('canvas');
+                raw.width = mw;
+                raw.height = mh;
+                const rctx = raw.getContext('2d');
+                const id = rctx.createImageData(mw, mh);
+                for (let i = 0; i < f.length; i++) id.data[i * 4 + 3] = (f[i] * 255) | 0;
+                rctx.putImageData(id, 0, 0);
+                if (m.close) m.close();
+                const out = document.createElement('canvas');
+                out.width = W;
+                out.height = H;
+                const octx = out.getContext('2d');
+                if (state.feather > 0) octx.filter = `blur(${state.feather}px)`;
+                octx.drawImage(raw, 0, 0, W, H);
+                octx.filter = 'none';
+                maskCv = out;
+            });
+            return maskCv;
+        } catch (e) {
+            console.warn('[photo-studio] freshAiMask fail → maskC:', e?.message);
+            return null;
+        }
+    };
+
     /** Tạo cutout (chủ thể nền trong suốt) theo mode hiện tại. Trả canvas WxH. */
     PS.makeCutout = async function (frameCv, W, H) {
         const state = PS.state;
@@ -73,7 +124,8 @@
             cv.width = W;
             cv.height = H;
             const c = cv.getContext('2d');
-            c.drawImage(PS.maskC, 0, 0, W, H); // latest realtime mask (scaled)
+            const fresh = PS.freshAiMask(frameCv, W, H); // mask tươi đúng frame vừa chụp
+            c.drawImage(fresh || PS.maskC, 0, 0, W, H); // fallback maskC nếu fresh null
             c.globalCompositeOperation = 'source-in';
             c.drawImage(frameCv, 0, 0);
             return cv;

@@ -511,28 +511,36 @@ html, body { margin: 0; padding: 0; background: #fff; }
     // In qua IFRAME ẩn TÁI SỬ DỤNG — KHÔNG mở popup window mỗi lần (popup tạo
     // cửa sổ mới rất chậm + dễ bị chặn). Iframe tạo 1 lần, các lần in sau chỉ
     // ghi lại nội dung → in bật ngay. Đây là nguyên nhân chính "in bill lâu".
-    let _printFrame = null;
     function _printViaIframe(html) {
-        let f = _printFrame;
-        if (!f || !f.isConnected) {
-            f = document.createElement('iframe');
-            f.setAttribute('aria-hidden', 'true');
-            f.style.cssText =
-                'position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden;';
-            document.body.appendChild(f);
-            _printFrame = f;
-        }
+        // AUDIT 2026-06-20 #25: mỗi job in 1 iframe RIÊNG (không tái dùng singleton)
+        // → 2 lệnh in song song KHÔNG ghi đè document của nhau. Gỡ iframe sau khi in
+        // (afterprint) + fallback timeout xa để không cắt hộp thoại in đang mở.
+        const f = document.createElement('iframe');
+        f.setAttribute('aria-hidden', 'true');
+        f.style.cssText =
+            'position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden;';
+        document.body.appendChild(f);
         const win = f.contentWindow;
+        const cleanup = () => {
+            try {
+                f.remove();
+            } catch (_) {}
+        };
         let printed = false;
         const go = () => {
             if (printed) return;
             printed = true;
+            try {
+                win.addEventListener('afterprint', cleanup, { once: true });
+            } catch (_) {}
+            setTimeout(cleanup, 60000); // fallback xa, không cắt dialog in
             try {
                 win.focus();
                 win.print();
             } catch (e) {
                 // Fallback popup nếu iframe print bị chặn (hiếm).
                 console.warn('[Web2Bill] iframe print lỗi, fallback popup:', e.message);
+                cleanup();
                 const w = global.open('', '_blank');
                 if (w) {
                     w.document.write(html);
