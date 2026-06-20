@@ -771,7 +771,7 @@ router.get('/ad-entries', async (req, res) => {
 });
 
 // POST /ad-entry — tạo/sửa bản ghi quảng cáo nhập tay.
-router.post('/ad-entry', requireWeb2AuthSoft, async (req, res) => {
+router.post('/ad-entry', requireWeb2Admin, async (req, res) => {
     try {
         const db = getDb(req);
         const b = req.body || {};
@@ -851,7 +851,7 @@ router.post('/ad-entry', requireWeb2AuthSoft, async (req, res) => {
 });
 
 // DELETE /ad-entry/:id
-router.delete('/ad-entry/:id', requireWeb2AuthSoft, async (req, res) => {
+router.delete('/ad-entry/:id', requireWeb2Admin, async (req, res) => {
     try {
         const db = getDb(req);
         await db.query(`DELETE FROM web2_fb_ad_entries WHERE id=$1`, [req.params.id]);
@@ -882,7 +882,7 @@ router.get('/drafts', async (req, res) => {
 });
 
 // POST /draft { id?, pageIds, message, media, link, scheduledTime } — lưu nháp
-router.post('/draft', requireWeb2AuthSoft, async (req, res) => {
+router.post('/draft', requireWeb2Admin, async (req, res) => {
     try {
         const db = getDb(req);
         const {
@@ -916,7 +916,7 @@ router.post('/draft', requireWeb2AuthSoft, async (req, res) => {
 });
 
 // DELETE /draft/:id
-router.delete('/draft/:id', requireWeb2AuthSoft, async (req, res) => {
+router.delete('/draft/:id', requireWeb2Admin, async (req, res) => {
     try {
         const db = getDb(req);
         await db.query(`DELETE FROM web2_fb_posts WHERE id=$1`, [req.params.id]);

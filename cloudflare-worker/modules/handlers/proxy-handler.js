@@ -186,6 +186,29 @@ function isPrivateHost(hostname) {
     return false;
 }
 
+// Header nguy hiểm KHÔNG cho client set qua ?headers= (chống relay credential +
+// spoof IP/Host). Lowercase. Header an toàn khác (accept*, origin, referer, sec-*,
+// content-type, user-agent, x-kas…) vẫn được phép cho các API đích cần (vd vnhub).
+const PROXY_HEADER_DENYLIST = new Set([
+    'host',
+    'cookie',
+    'authorization',
+    'proxy-authorization',
+    'x-forwarded-for',
+    'x-forwarded-host',
+    'x-forwarded-proto',
+    'x-forwarded-port',
+    'forwarded',
+    'via',
+    'x-real-ip',
+    'true-client-ip',
+    'x-cluster-client-ip',
+    'cf-connecting-ip',
+    'cf-ipcountry',
+    'cf-ray',
+    'cf-visitor',
+]);
+
 /**
  * Validate `?url=` đích trước khi fetch (chống open-proxy / SSRF).
  * @param {string} targetUrl
@@ -264,12 +287,20 @@ export async function handleGenericProxy(request, url) {
             fetchOptions.headers['Content-Type'] = originalContentType;
         }
 
-        // Custom headers from query param
+        // Custom headers from query param — LỌC denylist (SSRF/credential-relay).
+        // URL đã allowlist host; nhưng merge thẳng ?headers= cho phép bơm Cookie/
+        // Authorization (relay credential tới host allowlist) hoặc X-Forwarded-*/CF-*/
+        // Host (spoof IP, request smuggling, cache poisoning). Drop các header này;
+        // header an toàn (accept*, origin, referer, sec-*, content-type, x-kas…) vẫn cho.
         const customHeadersStr = url.searchParams.get('headers');
         if (customHeadersStr) {
             try {
                 const customHeaders = JSON.parse(customHeadersStr);
-                Object.assign(fetchOptions.headers, customHeaders);
+                for (const [k, v] of Object.entries(customHeaders || {})) {
+                    if (typeof k !== 'string') continue;
+                    if (PROXY_HEADER_DENYLIST.has(k.toLowerCase().trim())) continue;
+                    fetchOptions.headers[k] = v;
+                }
             } catch (e) {
                 console.error('[PROXY] Failed to parse custom headers:', e);
             }
