@@ -2,6 +2,16 @@
 
 ## 2026-06-20
 
+### [web2/livestream-poller] FIX 2 lỗi (NOTIFICATION_CONFIG redeclare + 401 /stats,/poller-pages) + audit "trang còn cần không" ✅
+
+User hỏi trang `web2/livestream-poller/index.html` có cần thiết không + liên quan trang nào; kèm console: `Uncaught SyntaxError: NOTIFICATION_CONFIG already declared` + `GET /stats 401` + `/poller-pages 401`.
+
+- **Bug 1 (redeclare)**: trang include thủ công `notification-system.js?v=20260610` (line 146) TRONG KHI `web2-sidebar.js autoLoadSharedModules` đã tự nạp `notification-system.js?v=20260613a` → nạp 2 lần → `const NOTIFICATION_CONFIG` khai báo lại → SyntaxError (chặn cả script sau). Fix: **bỏ include thủ công** (sidebar lo).
+- **Bug 2 (401)**: `loadStat()` + `loadPages()` dùng `fetch()` TRẦN không `x-web2-token` (route GET `/stats`,`/poller-pages` soft-gated `requireWeb2AuthSoft`), trong khi mutation (`_httpJson`) đã có token. Fix: route 2 GET qua `_httpJson`.
+- **Audit kết luận (evidence backend)**: poller nền ĐÃ TẮT (`web2-livestream-poller.js:481` "background poll DISABLED, event-driven only"; `_loop` không schedule). Comment realtime giờ vào DB qua **WS relay → POST /ingest (WS-DIRECT)** — KHÔNG đọc `web2_live_poller_pages`. Bảng config (trang này sửa) chỉ còn được đọc bởi `listLivePostsForAssign()` + `pollNow()` (on-demand) + `_loop` (chết). ⇒ Trang = **admin cấu hình nguồn page + xem tổng comment (17.259)**, dùng hiếm (2 trang House/Store đã seed sẵn), KHÔNG điều khiển luồng thu realtime. Verdict: **GIỮ + đã fix** (không xoá vì còn là UI duy nhất quản `web2_live_poller_pages` + stat). Liên quan: sidebar "Lấy comment Live (poller)", overview, live-chat Live Comment (cùng kho `web2_live_comments`), route `web2-live-comments.js`, service `web2-livestream-poller.js`, picker chiến dịch cha (chat.html + native-orders).
+- **Files**: `web2/livestream-poller/index.html` (bỏ include noti + 2 GET qua \_httpJson).
+- ✅ Verify Playwright: stat "17.259 comment", 2 trang (House+Store) load, 0 lỗi NOTIFICATION_CONFIG, 0 console error.
+
 ### [live-chat + native-orders] Picker livestream: chọn CHIẾN DỊCH CHA hoặc BÀI LIVE (multi-select) + fix native-orders 401 chiến dịch cha ✅
 
 User: (1) chat.html cho "chọn chiến dịch cha **hoặc như hình**" (ảnh: checklist bài live + "Hôm nay/Bỏ chọn" + badge House/Store); (2) `native-orders/index.html` **chưa load được chiến dịch cha** (console `GET /api/web2-live-comments/campaigns 401` + `/page-posts 401`).

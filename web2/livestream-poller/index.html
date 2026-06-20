@@ -143,7 +143,8 @@
 
         <script src="../../web2/shared/web2-auth.js?v=20260613guard"></script>
         <script src="../../web2/shared/web2-sidebar.js?v=20260620b"></script>
-        <script src="../../shared/js/notification-system.js?v=20260610"></script>
+        <!-- notification-system.js KHÔNG include thủ công: web2-sidebar.js
+             autoLoadSharedModules đã nạp (include lại → redeclare NOTIFICATION_CONFIG). -->
         <script src="../../web2/shared/web2-optimistic.js?v=20260610"></script>
         <script src="../../web2/shared/web2-sse-bridge.js?v=20260613h"></script>
         <script>
@@ -169,7 +170,8 @@
 
                 async function loadStat() {
                     try {
-                        const d = await fetch(`${API}/stats`).then((r) => r.json());
+                        // GET /stats soft-gated → PHẢI gửi x-web2-token (_httpJson), bare fetch = 401.
+                        const d = await _httpJson(`${API}/stats`).then((r) => r.json());
                         $('#lpStat').textContent =
                             (d.count || 0).toLocaleString('vi-VN') + ' comment';
                     } catch {
@@ -180,7 +182,8 @@
                 async function loadPages() {
                     const list = $('#lpList');
                     try {
-                        const d = await fetch(`${API}/poller-pages`).then((r) => r.json());
+                        // GET /poller-pages soft-gated → PHẢI gửi x-web2-token (_httpJson).
+                        const d = await _httpJson(`${API}/poller-pages`).then((r) => r.json());
                         const rows = d.data || [];
                         if (!rows.length) {
                             list.innerHTML = '<div class="lp-sub">Chưa có trang nào.</div>';
