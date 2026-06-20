@@ -257,19 +257,33 @@ async function _genCode(pool) {
 
 // Áp tồn kho cho 1 list item theo method. delta>0 = cộng.
 // khach_gui → stock; shipper_gui → return_qty.
+// PERF: gom theo code (cộng dồn) → 1 UPDATE batch thay N round-trip (chống N+1 trong
+// transaction; đơn 30 dòng = 30 query). `sign` đồng nhất 1 chiều/lần gọi nên cộng dồn
+// trước GREATEST(0,…) cho kết quả y hệt vòng lặp tuần tự. `${col}` từ nhánh cố định (an toàn).
 async function _applyStock(client, items, method, sign) {
     const col = method === 'shipper_gui' ? 'return_qty' : 'stock';
+    const deltas = new Map();
     for (const it of items || []) {
         const code = it.productCode;
         const qty = Number(it.quantity) || 0;
         if (!code || qty <= 0) continue;
-        await client.query(
-            `UPDATE web2_products
-             SET ${col} = GREATEST(0, ${col} + $1), updated_at = $2
-             WHERE code = $3`,
-            [sign * qty, Date.now(), code]
-        );
+        deltas.set(code, (deltas.get(code) || 0) + sign * qty);
     }
+    if (!deltas.size) return;
+    const params = [Date.now()];
+    const valuesSql = [...deltas.entries()]
+        .map(([code, delta]) => {
+            params.push(code, delta);
+            return `($${params.length - 1}::text, $${params.length}::numeric)`;
+        })
+        .join(',');
+    await client.query(
+        `UPDATE web2_products AS p
+         SET ${col} = GREATEST(0, COALESCE(p.${col}, 0) + v.delta), updated_at = $1
+         FROM (VALUES ${valuesSql}) AS v(code, delta)
+         WHERE p.code = v.code`,
+        params
+    );
 }
 
 // Lấy items + wallet_deducted của 1 đơn cũ (cho khong_nhan_hang / boom).
