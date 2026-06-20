@@ -35,6 +35,7 @@
         _raf: null,
         _sampleCache: {}, // key voiceId|tone → {samples,sampleRate}
         _sampling: false,
+        _ttsBusy: false, // khoá UI chung cho tạo lời đọc + nghe mẫu
         vieneuRef: null, // Blob giọng mẫu để clone (VieNeu)
         vieneuVoices: [], // giọng preset từ server VieNeu
     };
@@ -202,12 +203,22 @@
     }
 
     // ---------- narration (TTS) ----------
+    // Khoá chung cho MỌI tác vụ tổng hợp giọng (tạo lời đọc + nghe mẫu) — chống
+    // double-trigger giữa #vmGenVoice và các nút nghe mẫu. video-tts.js có khoá
+    // serialize cấp engine, nhưng UI cũng cần phản ánh trạng thái thống nhất.
+    function setTtsBusy(busy) {
+        state._ttsBusy = !!busy;
+        const gen = $('#vmGenVoice');
+        if (gen) gen.disabled = !!busy;
+        document.querySelectorAll('.vm-voice-sample').forEach((b) => (b.disabled = !!busy));
+    }
+
     async function genNarration() {
+        if (state._ttsBusy) return;
         const text = $('#vmNarr').value.trim();
         if (!text) return notify('Nhập nội dung lời đọc trước', 'warning');
-        const btn = $('#vmGenVoice');
         const stat = $('#vmVoiceStat');
-        btn.disabled = true;
+        setTtsBusy(true);
         const setStat = (m) => {
             stat.textContent = m;
         };
@@ -227,7 +238,7 @@
             setStat('❌ Lỗi tạo giọng: ' + (e.message || e) + ' — thử "Nghe nhanh" (giọng máy).');
             notify('Không tạo được giọng MMS, dùng tạm "Nghe nhanh"', 'error');
         } finally {
-            btn.disabled = false;
+            setTtsBusy(false);
         }
     }
 
@@ -240,7 +251,7 @@
     // graph trộn giọng đọc + nhạc nền → đích (preview: ac.destination | record: dest)
     function buildAudioGraph(dest) {
         const ac = audioCtx();
-        return global.Web2VideoAudio.buildMixGraph({
+        const graph = global.Web2VideoAudio.buildMixGraph({
             audioCtx: ac,
             dest: dest || ac.destination,
             narrationBuffer: narrationBuffer(),
@@ -249,6 +260,18 @@
             musicVol: state.music.volume,
             loopMusic: true,
         });
+        state._liveGraph = graph; // để slider chỉnh âm lượng tác động graph đang chạy
+        return graph;
+    }
+
+    // Cập nhật âm lượng cho graph đang phát/ghi (nếu engine có expose gain node).
+    function applyLiveVolumes() {
+        const g = state._liveGraph;
+        if (!g) return;
+        try {
+            if (g.musicGain?.gain) g.musicGain.gain.value = state.music.volume;
+            if (g.narrationGain?.gain) g.narrationGain.gain.value = state.narrationVolume;
+        } catch {}
     }
     function narrationBuffer() {
         if (!state.narration.samples) return null;
@@ -288,6 +311,7 @@
         if (state._raf) cancelAnimationFrame(state._raf);
         state._stopSrc && state._stopSrc();
         state._stopSrc = null;
+        state._liveGraph = null;
         $('#vmPlay').hidden = false;
         $('#vmStop').hidden = true;
         drawAt(0);
@@ -313,6 +337,12 @@
     async function exportVideo() {
         if (state.recording) return;
         if (!state.scenes.length) return notify('Thêm ít nhất 1 cảnh', 'warning');
+        if (hasTaintedScene()) {
+            return notify(
+                'Có ảnh SP không cho phép tải chéo miền (CORS) — không thể xuất video. Hãy "+ Thêm ảnh" tay hoặc thay ảnh khác.',
+                'error'
+            );
+        }
         if (state.playing) stop();
         const mime = pickMime();
         if (!global.MediaRecorder) return notify('Trình duyệt không hỗ trợ ghi video', 'error');
@@ -341,9 +371,11 @@
             const done = new Promise((res) => (rec.onstop = res));
 
             const total = totalDur();
-            const start = performance.now();
+            // Khởi động recorder + graph audio back-to-back, lấy mốc thời gian NGAY
+            // trước đó để giảm lệch tiếng/hình (race recorder-lifecycle).
             rec.start(100);
             graph.start();
+            const start = performance.now();
             await new Promise((resolve) => {
                 const loop = () => {
                     const t = (performance.now() - start) / 1000;
@@ -376,6 +408,7 @@
             notify('Lỗi xuất video: ' + (e.message || e), 'error');
         } finally {
             state.recording = false;
+            state._liveGraph = null;
             btn.disabled = false;
             $('#vmProg').hidden = true;
             $('#vmProgFill').style.width = '0%';
@@ -472,12 +505,13 @@
 
     // nghe mẫu 1 câu cố định bằng giọng + tông đang chọn (cache theo voice|tone)
     async function playSample(voiceId) {
-        if (state._sampling) return;
+        if (state._sampling || state._ttsBusy) return;
         const tone = state.tone;
         const key = voiceId + '|' + tone;
         const stat = $('#vmVoiceStat');
         try {
             state._sampling = true;
+            setTtsBusy(true);
             let cached = state._sampleCache[key];
             if (!cached) {
                 stat.textContent = 'Đang tạo giọng mẫu…';
@@ -503,6 +537,7 @@
             notify('Không tạo được giọng mẫu', 'error');
         } finally {
             state._sampling = false;
+            setTtsBusy(false);
         }
     }
     function voiceLabel(id) {
@@ -537,6 +572,8 @@
         btn.disabled = true;
         try {
             await global.Web2ProductsCache?.init?.().catch(() => {});
+            // SSE realtime không bật trên trang này → revalidate tay để tránh dùng kho cũ
+            await global.Web2ProductsCache?.refresh?.().catch(() => {});
             const all = (global.Web2ProductsCache?.getAll?.() || []).filter(
                 (p) => p && p.imageUrl && /^(https?:\/\/|\/|data:image\/)/i.test(String(p.imageUrl))
             );
@@ -548,7 +585,7 @@
             // tải ảnh song song (crossOrigin để đỡ taint khi xuất)
             const scenes = [];
             await Promise.all(
-                pick.map(async (p) => {
+                pick.map(async (p, idx) => {
                     const img = await loadImageCors(p.imageUrl);
                     scenes.push({
                         id: _sid++,
@@ -559,15 +596,12 @@
                         dur: 2.5 + Math.random(),
                         _name: p.name || '',
                         _price: p.price ?? p.sellPrice ?? p.salePrice ?? '',
+                        _order: idx, // mốc ổn định (tên có thể trùng → không dùng name để sort)
                     });
                 })
             );
-            // giữ đúng thứ tự đã pick
-            scenes.sort(
-                (a, b) =>
-                    pick.findIndex((p) => p.name === a._name) -
-                    pick.findIndex((p) => p.name === b._name)
-            );
+            // giữ đúng thứ tự đã pick — sort theo index ổn định, KHÔNG theo name
+            scenes.sort((a, b) => a._order - b._order);
             state.scenes = scenes;
             state.accent = _rand(ACCENTS);
             state.voiceId = _rand(global.Web2VideoTTS.VOICES).id;
@@ -619,6 +653,8 @@
         setStat('Đang lấy sản phẩm + AI viết kịch bản…');
         try {
             await global.Web2ProductsCache?.init?.().catch(() => {});
+            // SSE realtime không bật trên trang này → revalidate tay để tránh dùng kho cũ
+            await global.Web2ProductsCache?.refresh?.().catch(() => {});
             const all = (global.Web2ProductsCache?.getAll?.() || []).filter(
                 (p) => p && p.imageUrl && /^(https?:\/\/|\/|data:image\/)/i.test(String(p.imageUrl))
             );
@@ -689,13 +725,21 @@
             img.crossOrigin = 'anonymous';
             img.onload = () => res(img);
             img.onerror = () => {
+                // Fallback KHÔNG CORS → ảnh sẽ "taint" canvas → MediaRecorder/captureStream
+                // ném SecurityError khi xuất. Đánh dấu để cảnh báo sớm trước khi xuất.
                 const i2 = new Image();
+                i2._tainted = true;
                 i2.onload = () => res(i2);
                 i2.onerror = () => res(null);
                 i2.src = src;
             };
             img.src = src;
         });
+    }
+
+    // Có cảnh nào dùng ảnh non-CORS (taint canvas) → không xuất được video.
+    function hasTaintedScene() {
+        return state.scenes.some((sc) => sc && sc._img && sc._img._tainted);
     }
 
     // ---------- nhạc nền + hiệu ứng chung + tách nhạc ----------
@@ -757,11 +801,13 @@
         mv?.addEventListener('input', () => {
             state.music.volume = Number(mv.value);
             $('#vmMusicVolVal').textContent = Math.round(state.music.volume * 100) + '%';
+            applyLiveVolumes(); // áp ngay nếu đang xem trước/ghi
         });
         const nv = $('#vmNarrVol');
         nv?.addEventListener('input', () => {
             state.narrationVolume = Number(nv.value);
             $('#vmNarrVolVal').textContent = Math.round(state.narrationVolume * 100) + '%';
+            applyLiveVolumes();
         });
         $('#vmMusic')?.addEventListener('change', (e) => {
             const f = e.target.files?.[0];

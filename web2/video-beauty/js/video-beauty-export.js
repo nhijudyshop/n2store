@@ -57,47 +57,68 @@
     async function exportRealtime(o) {
         const { videoEl, work, wctx, view, vctx, settings, fps = 30, onProgress } = o;
         const stream = work.captureStream(fps);
+        let vs = null;
         try {
-            const vs = videoEl.captureStream
+            vs = videoEl.captureStream
                 ? videoEl.captureStream()
                 : videoEl.mozCaptureStream
                   ? videoEl.mozCaptureStream()
                   : null;
             if (vs) vs.getAudioTracks().forEach((t) => stream.addTrack(t));
         } catch {}
-        const mime = pickMime();
-        const rec = new MediaRecorder(
-            stream,
-            mime ? { mimeType: mime, videoBitsPerSecond: 6_000_000 } : undefined
-        );
-        const chunks = [];
-        rec.ondataavailable = (e) => e.data && e.data.size && chunks.push(e.data);
-        const done = new Promise((r) => (rec.onstop = r));
-        videoEl.muted = false;
-        await seek(videoEl, 0);
-        await videoEl.play();
-        rec.start(100);
-        const dur = videoEl.duration || 0;
-        await new Promise((resolve) => {
-            const step = () => {
-                if (videoEl.ended || videoEl.paused) return resolve();
-                R().applyFrame(videoEl, work, wctx, settings, null);
-                if (vctx) vctx.drawImage(work, 0, 0, view.width, view.height);
-                onProgress && onProgress(dur ? videoEl.currentTime / dur : 0);
+        try {
+            const mime = pickMime();
+            const rec = new MediaRecorder(
+                stream,
+                mime ? { mimeType: mime, videoBitsPerSecond: 6_000_000 } : undefined
+            );
+            const chunks = [];
+            rec.ondataavailable = (e) => e.data && e.data.size && chunks.push(e.data);
+            const done = new Promise((r) => (rec.onstop = r));
+            videoEl.muted = false;
+            await seek(videoEl, 0);
+            await videoEl.play();
+            rec.start(100);
+            const dur = videoEl.duration || 0;
+            await new Promise((resolve) => {
+                const step = () => {
+                    if (videoEl.ended || videoEl.paused) return resolve();
+                    R().applyFrame(videoEl, work, wctx, settings, null);
+                    if (vctx && view.width > 0 && view.height > 0)
+                        vctx.drawImage(work, 0, 0, view.width, view.height);
+                    onProgress && onProgress(dur ? videoEl.currentTime / dur : 0);
+                    if (videoEl.requestVideoFrameCallback) videoEl.requestVideoFrameCallback(step);
+                    else requestAnimationFrame(step);
+                };
+                videoEl.onended = () => resolve();
                 if (videoEl.requestVideoFrameCallback) videoEl.requestVideoFrameCallback(step);
                 else requestAnimationFrame(step);
-            };
-            videoEl.onended = () => resolve();
-            if (videoEl.requestVideoFrameCallback) videoEl.requestVideoFrameCallback(step);
-            else requestAnimationFrame(step);
-        });
-        try {
-            videoEl.pause();
-        } catch {}
-        rec.stop();
-        await done;
-        const outMime = (mime || 'video/webm').split(';')[0];
-        return new Blob(chunks, { type: outMime });
+            });
+            try {
+                videoEl.pause();
+            } catch {}
+            rec.stop();
+            await done;
+            const outMime = (mime || 'video/webm').split(';')[0];
+            return new Blob(chunks, { type: outMime });
+        } finally {
+            // dừng mọi track capture (canvas + video) tránh rò luồng giữ chạy nền
+            try {
+                stream.getTracks().forEach((t) => {
+                    try {
+                        t.stop();
+                    } catch {}
+                });
+            } catch {}
+            try {
+                vs &&
+                    vs.getTracks().forEach((t) => {
+                        try {
+                            t.stop();
+                        } catch {}
+                    });
+            } catch {}
+        }
     }
 
     // ---- render-pass (CHỈNH MẶT từng khung, WebCodecs + mp4-muxer) ----
@@ -154,44 +175,52 @@
             framerate: fps,
         });
 
-        onStatus && onStatus('Đang xử lý từng khung…');
-        const wantFace = (settings.face || 0) > 0 && global.Web2BeautyFace;
-        for (let i = 0; i < frameCount; i++) {
-            const t = i / fps;
-            await seek(videoEl, t);
-            // vẽ khung thô để nhận diện mặt (nếu cần)
-            let det = null;
-            if (wantFace) {
-                wctx.filter = 'none';
-                try {
-                    wctx.drawImage(videoEl, 0, 0, W, H);
-                } catch {}
-                det = await global.Web2BeautyFace.detect(work).catch(() => null);
+        try {
+            onStatus && onStatus('Đang xử lý từng khung…');
+            const wantFace = (settings.face || 0) > 0 && global.Web2BeautyFace;
+            for (let i = 0; i < frameCount; i++) {
+                const t = i / fps;
+                await seek(videoEl, t);
+                // vẽ khung thô để nhận diện mặt (nếu cần)
+                let det = null;
+                if (wantFace) {
+                    wctx.filter = 'none';
+                    try {
+                        wctx.drawImage(videoEl, 0, 0, W, H);
+                    } catch {}
+                    det = await global.Web2BeautyFace.detect(work).catch(() => null);
+                }
+                R().applyFrame(videoEl, work, wctx, settings, det);
+                if (vctx && view.width > 0 && view.height > 0)
+                    vctx.drawImage(work, 0, 0, view.width, view.height);
+                const frame = new global.VideoFrame(work, {
+                    timestamp: Math.round(t * 1e6),
+                    duration: Math.round(1e6 / fps),
+                });
+                venc.encode(frame, { keyFrame: i % fps === 0 });
+                frame.close();
+                if (venc.encodeQueueSize > 8) await new Promise((r) => setTimeout(r, 6));
+                onProgress && onProgress((i / frameCount) * (audioBuf ? 0.9 : 1));
             }
-            R().applyFrame(videoEl, work, wctx, settings, det);
-            if (vctx) vctx.drawImage(work, 0, 0, view.width, view.height);
-            const frame = new global.VideoFrame(work, {
-                timestamp: Math.round(t * 1e6),
-                duration: Math.round(1e6 / fps),
-            });
-            venc.encode(frame, { keyFrame: i % fps === 0 });
-            frame.close();
-            if (venc.encodeQueueSize > 8) await new Promise((r) => setTimeout(r, 6));
-            onProgress && onProgress((i / frameCount) * (audioBuf ? 0.9 : 1));
-        }
-        await venc.flush();
+            await venc.flush();
 
-        // mux tiếng gốc (AAC) nếu giải mã được + có AudioEncoder
-        if (audioBuf && typeof global.AudioEncoder !== 'undefined') {
-            try {
-                onStatus && onStatus('Đang ghép tiếng…');
-                await encodeAudio(audioBuf, aCh, muxer, onProgress);
-            } catch (e) {
-                console.warn('[video-beauty] audio mux lỗi, xuất không tiếng:', e);
+            // mux tiếng gốc (AAC) nếu giải mã được + có AudioEncoder
+            if (audioBuf && typeof global.AudioEncoder !== 'undefined') {
+                try {
+                    onStatus && onStatus('Đang ghép tiếng…');
+                    await encodeAudio(audioBuf, aCh, muxer, onProgress);
+                } catch (e) {
+                    console.warn('[video-beauty] audio mux lỗi, xuất không tiếng:', e);
+                }
             }
+            muxer.finalize();
+            return new Blob([muxer.target.buffer], { type: 'video/mp4' });
+        } finally {
+            // luôn đóng video encoder dù thành công hay lỗi (tránh rò WebCodecs)
+            try {
+                if (venc.state !== 'closed') venc.close();
+            } catch {}
         }
-        muxer.finalize();
-        return new Blob([muxer.target.buffer], { type: 'video/mp4' });
     }
 
     // Mã hoá AudioBuffer → AAC chunks vào muxer (f32-planar).
@@ -207,28 +236,35 @@
             numberOfChannels: aCh,
             bitrate: 128000,
         });
-        const total = audioBuf.length;
-        const CH = 1024;
-        const chans = [];
-        for (let c = 0; c < aCh; c++) chans.push(audioBuf.getChannelData(c));
-        for (let off = 0; off < total; off += CH) {
-            const n = Math.min(CH, total - off);
-            const data = new Float32Array(n * aCh); // planar: [ch0...][ch1...]
-            for (let c = 0; c < aCh; c++) data.set(chans[c].subarray(off, off + n), c * n);
-            const ad = new global.AudioData({
-                format: 'f32-planar',
-                sampleRate: sr,
-                numberOfFrames: n,
-                numberOfChannels: aCh,
-                timestamp: Math.round((off / sr) * 1e6),
-                data,
-            });
-            aenc.encode(ad);
-            ad.close();
-            if (aenc.encodeQueueSize > 16) await new Promise((r) => setTimeout(r, 4));
-            onProgress && onProgress(0.9 + (off / total) * 0.1);
+        try {
+            const total = audioBuf.length;
+            const CH = 1024;
+            const chans = [];
+            for (let c = 0; c < aCh; c++) chans.push(audioBuf.getChannelData(c));
+            for (let off = 0; off < total; off += CH) {
+                const n = Math.min(CH, total - off);
+                const data = new Float32Array(n * aCh); // planar: [ch0...][ch1...]
+                for (let c = 0; c < aCh; c++) data.set(chans[c].subarray(off, off + n), c * n);
+                const ad = new global.AudioData({
+                    format: 'f32-planar',
+                    sampleRate: sr,
+                    numberOfFrames: n,
+                    numberOfChannels: aCh,
+                    timestamp: Math.round((off / sr) * 1e6),
+                    data,
+                });
+                aenc.encode(ad);
+                ad.close();
+                if (aenc.encodeQueueSize > 16) await new Promise((r) => setTimeout(r, 4));
+                onProgress && onProgress(0.9 + (off / total) * 0.1);
+            }
+            await aenc.flush();
+        } finally {
+            // luôn đóng audio encoder dù thành công hay lỗi (tránh rò WebCodecs)
+            try {
+                if (aenc.state !== 'closed') aenc.close();
+            } catch {}
         }
-        await aenc.flush();
     }
 
     global.Web2VideoBeautyExport = { exportRealtime, exportRenderPass, hasWebCodecs, pickMime };

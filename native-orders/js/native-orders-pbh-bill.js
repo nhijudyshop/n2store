@@ -681,8 +681,10 @@
         );
         if (!ok) return;
         try {
-            const url = `${window.NativeOrdersApi._getBaseUrl().replace('/native-orders', '')}/fast-sale-orders/from-native-order`;
-            const r = await fetch(url, {
+            // `window.NativeOrdersApi._getBaseUrl()` không tồn tại → gọi splitPbh
+            // sẽ ném TypeError trước khi fetch. Dùng `NO.WORKER_URL` trực tiếp như
+            // _doCreatePbh / cancelOrder (cùng endpoint from-native-order).
+            const r = await fetch(`${NO.WORKER_URL}/api/fast-sale-orders/from-native-order`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ nativeOrderCode: code, split: true }),

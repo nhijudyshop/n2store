@@ -20,6 +20,8 @@
         playing: false,
         exporting: false,
         _raf: 0,
+        _vfc: 0,
+        _url: null,
         settings: { filter: 'none', smooth: 0.5, whiten: 0.12, warmth: 0.05, face: 0 },
     };
 
@@ -74,7 +76,7 @@
         const v = state.videoEl;
         if (v.ended || v.paused) return stopPreview();
         drawCurrent();
-        if (v.requestVideoFrameCallback) v.requestVideoFrameCallback(previewLoop);
+        if (v.requestVideoFrameCallback) state._vfc = v.requestVideoFrameCallback(previewLoop);
         else state._raf = requestAnimationFrame(previewLoop);
     }
     async function playPreview() {
@@ -96,13 +98,26 @@
         $('#vbPlay').hidden = false;
         $('#vbPause').hidden = true;
         if (state._raf) cancelAnimationFrame(state._raf);
+        state._raf = 0;
+        if (state._vfc && state.videoEl?.cancelVideoFrameCallback) {
+            try {
+                state.videoEl.cancelVideoFrameCallback(state._vfc);
+            } catch {}
+        }
+        state._vfc = 0;
     }
 
     async function loadFile(file) {
         if (!file || !file.type.startsWith('video/'))
             return notify('Hãy chọn file video', 'warning');
         state.file = file;
+        if (state._url) {
+            try {
+                URL.revokeObjectURL(state._url);
+            } catch {}
+        }
         const url = URL.createObjectURL(file);
+        state._url = url;
         const v = state.videoEl;
         v.src = url;
         v.__file = file;

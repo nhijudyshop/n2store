@@ -9,6 +9,7 @@
 
     const ProductCounterPage = {
         _ctrl: null,
+        _lifecycleBound: false,
 
         init() {
             if (!global.Web2ProductCounter) {
@@ -29,6 +30,30 @@
                     document.title =
                         n > 0 ? `(${n}) Đếm SP — Web 2.0` : 'Đếm SP qua camera — Web 2.0';
                 },
+            });
+
+            // Giải phóng camera khi rời trang/ẩn tab — tránh leak MediaStream
+            // (LED/sensor còn sáng tới khi GC). #pcBack dùng history.back()/location
+            // nên không có unmount tường minh; bắt qua pagehide + visibilitychange.
+            this._bindLifecycle();
+        },
+
+        // Dừng engine (cancel RAF + stopTracks) an toàn, nuốt lỗi.
+        _stop() {
+            try {
+                this._ctrl?.stop?.();
+            } catch (_) {
+                /* no-op */
+            }
+        },
+
+        _bindLifecycle() {
+            if (this._lifecycleBound) return;
+            this._lifecycleBound = true;
+            const stopCam = () => this._stop();
+            global.addEventListener('pagehide', stopCam);
+            document.addEventListener('visibilitychange', () => {
+                if (document.hidden) stopCam();
             });
         },
     };

@@ -98,8 +98,37 @@
         }
         if (btn) btn.disabled = true; // chống double-click ghi ledger 2 lần
         try {
+            // FIX (logic): GHI LEDGER TRƯỚC (tiền là nguồn sự thật), CHỈ điều chỉnh
+            // tồn kho SAU khi ledger ghi thành công. Trước đây stock adjust chạy
+            // trước → nếu ledger fail thì kho đã bị giảm nhưng không có giao dịch trả
+            // tương ứng (lệch tồn kho ↔ sổ ví).
+            // ĐỢT E: money op — await server ledger; rowReturns lưu qty/amount
+            // THẬT từng dòng (server merge vào returned_row_ids).
+            const rowReturns = {};
+            for (const r of selectedRows)
+                rowReturns[r.rowId] = { qty: r.qty, amount: r.amount, ordered: r.ordered };
+            try {
+                await window.SupplierWalletStorage.addTransaction(
+                    SW.walletState,
+                    SW.activeSupplier,
+                    {
+                        type: 'return',
+                        amount: total,
+                        note: `Trả ${selectedRows.length} dòng`,
+                        ref: { rowIds: selectedRows.map((r) => r.rowId), rows: selectedRows },
+                        rowReturns,
+                        // HIGH-3: txId idempotent sinh khi mở modal (chống double-submit).
+                        txId: document.getElementById('swReturnModal').dataset.txid || undefined,
+                        performedBy: SW._swBy(), // audit: ai ghi trả hàng
+                    }
+                );
+            } catch (e) {
+                notify(`Ghi trả hàng thất bại: ${e.message}`, 'error');
+                return; // ledger fail → KHÔNG đụng tồn kho
+            }
             // Stock adjust: trả NCC = xuất kho (giảm stock đã +qty khi sync).
-            // Match qua productName. Best-effort, không chặn ledger nếu fail.
+            // Match qua productName. Best-effort, không chặn flow nếu fail (ledger
+            // đã ghi xong → tiền là nguồn sự thật; lệch kho có thể sync lại sau).
             try {
                 const agg = SW.suppliers[SW.activeSupplier];
                 const adjustments = [];
@@ -126,30 +155,6 @@
                 }
             } catch (e) {
                 console.warn('[supplier-wallet] stock adjust fail:', e.message);
-            }
-            // ĐỢT E: money op — await server ledger; rowReturns lưu qty/amount
-            // THẬT từng dòng (server merge vào returned_row_ids).
-            const rowReturns = {};
-            for (const r of selectedRows)
-                rowReturns[r.rowId] = { qty: r.qty, amount: r.amount, ordered: r.ordered };
-            try {
-                await window.SupplierWalletStorage.addTransaction(
-                    SW.walletState,
-                    SW.activeSupplier,
-                    {
-                        type: 'return',
-                        amount: total,
-                        note: `Trả ${selectedRows.length} dòng`,
-                        ref: { rowIds: selectedRows.map((r) => r.rowId), rows: selectedRows },
-                        rowReturns,
-                        // HIGH-3: txId idempotent sinh khi mở modal (chống double-submit).
-                        txId: document.getElementById('swReturnModal').dataset.txid || undefined,
-                        performedBy: SW._swBy(), // audit: ai ghi trả hàng
-                    }
-                );
-            } catch (e) {
-                notify(`Ghi trả hàng thất bại: ${e.message}`, 'error');
-                return;
             }
             notify(`Đã ghi trả hàng ${fmtVnd(total)} cho ${SW.activeSupplier}`, 'success');
             document.getElementById('swReturnModal').hidden = true;
@@ -185,11 +190,9 @@
             document.getElementById('swCreateModal').hidden = true;
             return;
         }
-        // Tạo wallet entry rỗng + push Firestore qua SupplierWalletStorage để
-        // bảo toàn migration shape. Sau đó cũng đồng bộ Web2SuppliersCache
-        // (giúp các trang khác đang mở thấy ngay qua snapshot listener).
-        window.SupplierWalletStorage.getOrCreateWallet(SW.walletState, rawName);
-        window.SupplierWalletStorage.save(SW.walletState);
+        // FIX (data-loss): ghi server TRƯỚC, chỉ mutate state local SAU khi server
+        // xác nhận. Tránh để lại NCC "mồ côi" chỉ tồn tại ở local IDB/localStorage/RAM
+        // khi ensure() thất bại (trước đây getOrCreateWallet+save chạy trước await).
         // ĐỢT E: NCC mới ghi vào meta server (atomic ON CONFLICT) qua cache.
         if (window.Web2SuppliersCache?.ensure) {
             try {
@@ -199,6 +202,10 @@
                 return;
             }
         }
+        // Server đã xác nhận → tạo wallet entry rỗng + lưu local cache (bảo toàn
+        // migration shape). Web2SuppliersCache cũng phát SSE cho các trang khác.
+        window.SupplierWalletStorage.getOrCreateWallet(SW.walletState, rawName);
+        window.SupplierWalletStorage.save(SW.walletState);
         notify(`Đã tạo NCC "${rawName}"`, 'success');
         document.getElementById('swCreateModal').hidden = true;
         SW.renderList();

@@ -6,8 +6,75 @@
  * @module cloudflare-worker/modules/handlers/proxy-handler
  */
 
-import { fetchWithRetry } from '../utils/fetch-utils.js';
+import { fetchWithRetry, fetchWithTimeout } from '../utils/fetch-utils.js';
 import { errorResponse, proxyResponseWithCors, CORS_HEADERS } from '../utils/cors-utils.js';
+
+// =====================================================
+// LOG REDACTION + RETRY/STREAM HELPERS (audit medium/low fixes 2026-06-20)
+// =====================================================
+// Query params nhạy cảm xuất hiện trong targetUrl (Pancake access_token, /me?token=,
+// jwt…). KHÔNG log nguyên văn — strip giá trị trước khi console.log để token không rơi
+// vào Worker logs / access logs.
+const SENSITIVE_QUERY_PARAMS = ['token', 'jwt', 'access_token', 'admintoken', 'api_key', 'apikey'];
+
+/**
+ * Trả về targetUrl đã che các query param nhạy cảm (giá trị → REDACTED) để log an toàn.
+ * Không ném lỗi: nếu parse thất bại, fallback về chuỗi gốc đã cắt query.
+ * @param {string} targetUrl
+ * @returns {string}
+ */
+function redactUrlForLog(targetUrl) {
+    try {
+        const u = new URL(targetUrl);
+        let changed = false;
+        for (const key of SENSITIVE_QUERY_PARAMS) {
+            if (u.searchParams.has(key)) {
+                u.searchParams.set(key, 'REDACTED');
+                changed = true;
+            }
+        }
+        return changed ? u.toString() : targetUrl;
+    } catch (e) {
+        // URL không parse được → bỏ phần sau '?' cho chắc, tránh lộ token
+        const q = targetUrl.indexOf('?');
+        return q === -1 ? targetUrl : targetUrl.slice(0, q) + '?<redacted>';
+    }
+}
+
+/**
+ * HTTP method có an toàn để retry không (idempotent: GET/HEAD/OPTIONS).
+ * Non-idempotent (POST/PUT/PATCH/DELETE) chỉ retry khi caller cung cấp idempotency key
+ * (đã được whitelist forward) → tránh re-fire mutation trên timeout/5xx/429.
+ * @param {string} method
+ * @param {Request} request
+ * @returns {boolean}
+ */
+function canRetryMethod(method, request) {
+    const m = (method || 'GET').toUpperCase();
+    if (m === 'GET' || m === 'HEAD' || m === 'OPTIONS') return true;
+    // Cho retry mutation CHỈ khi có idempotency key (upstream tự dedupe)
+    return !!(
+        request &&
+        (request.headers.get('x-idempotency-key') || request.headers.get('idempotency-key'))
+    );
+}
+
+/**
+ * Path có phải streaming/long-poll endpoint không (SSE-ish) → dùng plain fetch, không
+ * retry/timeout để giữ stream mở. Bao gồm /sse, /stream, /events, /tpos-events và cờ
+ * ?stream=1 cho endpoint stream không kết thúc bằng /sse.
+ * @param {string} pathname
+ * @param {URL} url
+ * @param {string} acceptHeader
+ * @returns {boolean}
+ */
+function isStreamingRequest(pathname, url, acceptHeader) {
+    if (acceptHeader && acceptHeader.includes('text/event-stream')) return true;
+    if (pathname.endsWith('/sse') || pathname.endsWith('/stream')) return true;
+    if (pathname.endsWith('/events') || pathname.endsWith('/tpos-events')) return true;
+    if (url && url.searchParams.get('stream') === '1') return true;
+    return false;
+}
 
 // =====================================================
 // WEB 2.0 BACKEND SPLIT (2026-06-14)
@@ -163,11 +230,16 @@ export async function handleGenericProxy(request, url) {
     // SSRF guard: scheme + private-IP + hostname allowlist
     const validation = validateProxyTarget(targetUrl);
     if (!validation.ok) {
-        console.warn('[PROXY] Rejected target:', targetUrl, '-', validation.message);
+        console.warn(
+            '[PROXY] Rejected target:',
+            redactUrlForLog(targetUrl),
+            '-',
+            validation.message
+        );
         return errorResponse(validation.message, validation.status);
     }
 
-    console.log('[PROXY] Fetching:', targetUrl);
+    console.log('[PROXY] Fetching:', redactUrlForLog(targetUrl));
 
     try {
         // Read body first
@@ -513,9 +585,9 @@ async function handleRenderFallbackProxy(request, url, pathname, tag) {
     const targetUrl = `${renderOriginFor(pathname)}${pathname}${url.search}`;
 
     const acceptHeader = request.headers.get('Accept') || '';
-    const isSSE = acceptHeader.includes('text/event-stream') || pathname.endsWith('/sse');
+    const isSSE = isStreamingRequest(pathname, url, acceptHeader);
 
-    console.log(`[${tag}] Forwarding to:`, targetUrl, isSSE ? '(SSE stream)' : '');
+    console.log(`[${tag}] Forwarding to:`, redactUrlForLog(targetUrl), isSSE ? '(SSE stream)' : '');
 
     try {
         const forwardHeaders = new Headers(request.headers);
@@ -524,31 +596,26 @@ async function handleRenderFallbackProxy(request, url, pathname, tag) {
         forwardHeaders.delete('cf-connecting-ip');
         forwardHeaders.delete('cf-ray');
 
-        const body =
-            request.method !== 'GET' && request.method !== 'HEAD'
-                ? await request.arrayBuffer()
-                : null;
+        const fetchInit = {
+            method: request.method,
+            headers: forwardHeaders,
+            body:
+                request.method !== 'GET' && request.method !== 'HEAD'
+                    ? await request.arrayBuffer()
+                    : null,
+        };
 
         let response;
         if (isSSE) {
-            // SSE: plain fetch, no timeout/retry — we need the stream to stay open
-            response = await fetch(targetUrl, {
-                method: request.method,
-                headers: forwardHeaders,
-                body,
-            });
+            // SSE/stream: plain fetch, no timeout/retry — we need the stream to stay open
+            response = await fetch(targetUrl, fetchInit);
+        } else if (canRetryMethod(request.method, request)) {
+            // Idempotent (or idempotency-keyed) → safe to retry transient 5xx/429
+            response = await fetchWithRetry(targetUrl, fetchInit, 3, 1000, 15000);
         } else {
-            response = await fetchWithRetry(
-                targetUrl,
-                {
-                    method: request.method,
-                    headers: forwardHeaders,
-                    body,
-                },
-                3,
-                1000,
-                15000
-            );
+            // Non-idempotent mutation (POST/PUT/PATCH/DELETE) → single attempt, no retry
+            // so a transient timeout/5xx never re-fires the write twice.
+            response = await fetchWithTimeout(targetUrl, fetchInit, 15000);
         }
 
         return proxyResponseWithCors(response);
@@ -652,23 +719,24 @@ export async function handleCustomer360Proxy(request, url, pathname) {
 
     const targetUrl = `${renderOriginFor(pathname)}/api/${apiPath}${url.search}`;
 
-    console.log('[CUSTOMER360] Proxying to:', targetUrl);
+    console.log('[CUSTOMER360] Proxying to:', redactUrlForLog(targetUrl));
 
     try {
-        const response = await fetchWithRetry(
-            targetUrl,
-            {
-                method: request.method,
-                headers: new Headers(request.headers),
-                body:
-                    request.method !== 'GET' && request.method !== 'HEAD'
-                        ? await request.arrayBuffer()
-                        : null,
-            },
-            3,
-            1000,
-            15000
-        );
+        const fetchInit = {
+            method: request.method,
+            headers: new Headers(request.headers),
+            body:
+                request.method !== 'GET' && request.method !== 'HEAD'
+                    ? await request.arrayBuffer()
+                    : null,
+        };
+
+        // Web 2.0 writes (native-orders/fast-sale-orders/purchase-refund/wallet-deposits…)
+        // flow through here. Retry ONLY idempotent (or idempotency-keyed) requests so a
+        // transient 5xx/429/timeout never re-fires a mutation twice.
+        const response = canRetryMethod(request.method, request)
+            ? await fetchWithRetry(targetUrl, fetchInit, 3, 1000, 15000)
+            : await fetchWithTimeout(targetUrl, fetchInit, 15000);
 
         return proxyResponseWithCors(response);
     } catch (error) {

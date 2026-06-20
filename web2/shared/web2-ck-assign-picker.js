@@ -46,10 +46,15 @@
         const s = String(p || '').replace(/\D/g, '');
         return s.length >= 9 ? s.slice(-9) : '';
     }
+    // GET balance-history (chứa nội dung CK = PII KH) → gắn x-web2-token cho nhất quán với write
+    // + để backend gate được khi cần (header thừa vô hại nếu route chưa enforce read).
     async function getJSON(path) {
         for (const base of [PROXY, FALLBACK]) {
             try {
-                const r = await fetch(base + path, { credentials: 'include' });
+                const r = await fetch(base + path, {
+                    headers: authHeaders(),
+                    credentials: 'include',
+                });
                 if (r.ok) return await r.json();
             } catch (e) {
                 /* next base */
@@ -90,6 +95,7 @@
     let _el = null;
     let _ctx = null;
     let _unassignedOnly = true;
+    let _searchTimer = null; // debounce timer — cleared in close() để load() không chạy khi modal đã đóng
 
     function ensureDom() {
         if (_el) return _el;
@@ -142,10 +148,9 @@
         document.body.appendChild(_el);
         _el.querySelectorAll('[data-close]').forEach((b) => (b.onclick = close));
         const se = _el.querySelector('#w2capSearch');
-        let t = null;
         se.oninput = () => {
-            if (t) clearTimeout(t);
-            t = setTimeout(load, 350);
+            if (_searchTimer) clearTimeout(_searchTimer);
+            _searchTimer = setTimeout(load, 350);
         };
         _el.querySelector('#w2capUnassigned').onchange = (e) => {
             _unassignedOnly = e.target.checked;
@@ -155,12 +160,18 @@
     }
 
     function close() {
+        if (_searchTimer) {
+            clearTimeout(_searchTimer);
+            _searchTimer = null;
+        }
         if (_el) _el.hidden = true;
         document.body.style.overflow = '';
         _ctx = null;
     }
 
     async function load() {
+        // Guard: modal đã đóng (close() xoá _ctx) → bỏ qua load() đang chờ debounce
+        if (!_ctx || !_el || _el.hidden) return;
         const list = _el.querySelector('#w2capList');
         list.innerHTML = '<div class="w2cap-empty">Đang tải…</div>';
         const q = _el.querySelector('#w2capSearch').value.trim();
@@ -199,12 +210,11 @@
         const amt = Number(row.dataset.amt) || 0;
         const linked = row.dataset.linked;
         if (linked && last9(linked) !== last9(_ctx.phone)) {
-            if (
-                !(await global.Popup.confirm(
-                    `Giao dịch này đã gán cho SĐT ${linked}. Không thể gán lại trực tiếp — dùng "Đổi KH" ở trang Số dư. Tiếp tục bỏ qua?`
-                ))
-            )
-                return;
+            // GD đã gán cho SĐT khác → không thể gán lại trực tiếp (phải dùng "Đổi KH" ở trang Số dư).
+            // Chỉ thông báo; mọi lựa chọn đều là no-op (xác nhận = bỏ qua, huỷ = ở lại). Không gán.
+            await global.Popup.confirm(
+                `Giao dịch này đã gán cho SĐT ${linked}. Không thể gán lại trực tiếp — dùng "Đổi KH" ở trang Số dư.`
+            );
             return;
         }
         if (

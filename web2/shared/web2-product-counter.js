@@ -204,6 +204,7 @@
         let detector = null;
         let raf = 0;
         let running = false;
+        let starting = false; // chống double-start trong cửa sổ async (vd flipCamera double-tap)
         let destroyed = false;
         let lastDetect = 0;
         let currentCount = 0;
@@ -344,7 +345,11 @@
 
         // ── start / stop ──
         async function start() {
-            if (running || destroyed) return;
+            // `running` chỉ bật SAU khi getUserMedia + getDetector xong, nên một
+            // double-tap (vd flipCamera) có thể chạy 2 start() chồng nhau → 2 stream.
+            // `starting` đóng cửa sổ async đó: lần thứ 2 trả về ngay.
+            if (running || starting || destroyed) return;
+            starting = true;
             setToggleUi(false, true);
             setStatus('Đang mở camera…');
             emptyBox.hidden = true;
@@ -358,6 +363,7 @@
                     audio: false,
                 });
             } catch (e) {
+                starting = false;
                 setToggleUi(false, false);
                 emptyBox.hidden = false;
                 setStatus('');
@@ -378,6 +384,7 @@
             try {
                 detector = await getDetector(opts);
             } catch (e) {
+                starting = false;
                 stopTracks();
                 setToggleUi(false, false);
                 emptyBox.hidden = false;
@@ -387,10 +394,12 @@
                 return;
             }
             if (destroyed) {
+                starting = false;
                 stopTracks();
                 return;
             }
             running = true;
+            starting = false;
             lastDetect = 0;
             history.length = 0;
             countBox.hidden = false;
@@ -430,10 +439,17 @@
             return running ? stop() : start();
         }
         async function flipCamera() {
+            // Bỏ qua tap khi đang mở dở → tránh stop()+start() chồng nhau (2 stream).
+            if (starting) return;
             opts.facingMode = opts.facingMode === 'environment' ? 'user' : 'environment';
             if (running) {
+                flipBtn.disabled = true; // khoá nút trong lúc chuyển
                 stop();
-                await start();
+                try {
+                    await start();
+                } finally {
+                    if (!destroyed && running) flipBtn.disabled = false;
+                }
             }
         }
         function destroy() {
@@ -510,19 +526,22 @@
             } catch (_) {}
         const host = root.querySelector('.w2pc-host');
         const ctrl = createController(host, Object.assign({ autoStart: true }, opts || {}));
+        let _closed = false;
+        const onKey = (e) => {
+            if (e.key === 'Escape') close();
+        };
         const close = () => {
+            if (_closed) return; // idempotent — tránh double destroy/remove
+            _closed = true;
+            // Gỡ keydown listener ở MỌI đường đóng (X-button, Escape, lập trình),
+            // không chỉ nhánh Escape → tránh leak listener + closure giữ controller đã destroy.
+            doc.removeEventListener('keydown', onKey);
             try {
                 ctrl.destroy();
             } catch (_) {}
             root.remove();
         };
         root.querySelector('.w2pc-overlay-close').addEventListener('click', close);
-        const onKey = (e) => {
-            if (e.key === 'Escape') {
-                close();
-                doc.removeEventListener('keydown', onKey);
-            }
-        };
         doc.addEventListener('keydown', onKey);
         ctrl.close = close;
         return ctrl;

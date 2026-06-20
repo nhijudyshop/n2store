@@ -610,10 +610,20 @@
             // luồng PUSH-only không còn ai emit sau khi bỏ polling (audit vòng 3).
             // Emit SAU khi state cập nhật, TRƯỚC mọi early-return của đường render
             // (full render fallback cũng phải snap). isStaff = page tự comment.
-            // Cap 50: batch lớn = backfill/dump cursor reset, KHÔNG phải comment
-            // realtime — auto-snap chụp frame HIỆN TẠI gán cho comment cũ sẽ sai ảnh.
-            if (window.eventBus?.emit && fresh.length <= 50) {
+            //
+            // Backfill/cursor-reset dump (comment CŨ) phải KHÔNG snap (auto-snap chụp
+            // frame HIỆN TẠI gán cho comment cũ → sai ảnh). Audit LOW (2026-06-20):
+            // gate theo độ MỚI của created_time (so với now), KHÔNG chỉ batch-size —
+            // batch lớn nhưng comment thật-sự-mới (burst live) vẫn được snap. Cap
+            // batch giữ làm chốt phụ chống dump backfill khổng lồ vô tình còn mới.
+            const SNAP_RECENT_MS = 3 * 60 * 1000; // comment trong 3 phút gần đây = realtime
+            const SNAP_BATCH_MAX = 200; // dump > 200 = backfill, không snap dù còn mới
+            if (window.eventBus?.emit && fresh.length <= SNAP_BATCH_MAX) {
+                const nowMs = Date.now();
                 for (const c of fresh) {
+                    // created_time cũ (backfill) → skip snap, chỉ comment mới mới snap.
+                    const ageMs = nowMs - ts(c);
+                    if (!(ageMs >= 0 ? ageMs <= SNAP_RECENT_MS : true)) continue;
                     try {
                         window.eventBus.emit('live:newComment', {
                             comment: c,

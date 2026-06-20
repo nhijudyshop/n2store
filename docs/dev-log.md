@@ -2,6 +2,15 @@
 
 ## 2026-06-20
 
+### [web2/render/worker] Fix MEDIUM/LOW audit còn lại (workflow 46-agent per-file) ✅
+
+User "làm tất cả fixes". Workflow per-file (đọc report, giữ nguyên fix auth/money/encrypt đợt trước, node --check). 71 medium/low → **25 file đổi NET** (nhiều backend route đã có fix từ đợt 21-file → no-op).
+
+- **Backend (NEW)**: `proxy-handler.js` (worker, medium), `web2-msg-send-worker.js` (medium race counter). Các route khác (admin-wallet-reset tsTag/timing-safe/assertSafeTable, jt-tracking PURGE_THROTTLE chống write-storm GET /list, products stock atomic, …) đã có sẵn trong HEAD.
+- **Frontend (23 file)**: video-beauty (camera/canvas leak), photo-studio (ui/canvas/bg), products (modal/detail/actions), reconcile (api/actions), supplier-wallet-actions, page-builder, ck-assign-picker, product-counter, msg-template, variants-app, video-maker, fb-posts-app, live-chat (init-wiring listener leak, comment-list-render, pancake-chat-window), native-orders-pbh-bill. Chủ yếu: EventSource/listener/camera leak cleanup, debounce/guard, escaping, optimistic rollback closure.
+- Agents **skip hợp lý** item rủi ro (đổi money/auth logic cần test runtime) + item đã fix.
+- ✅ Verify độc lập: node --check 100% PASS, **0 NUL corruption** (0x1F trong live-comment-list là delimiter có sẵn, không phải agent thêm). Bump `?v=20260620c` (14 HTML). Worker redeploy cho proxy-handler.
+
 ### [ops] Deploy + kích hoạt toàn bộ fix audit lên prod (worker + Render + mã hoá) ✅
 
 User "làm tất cả, key ở serect_dont_push" + "đã đổi tpos nvkt". Dùng Render API + Cloudflare Global API (từ secrets) thực thi prod:

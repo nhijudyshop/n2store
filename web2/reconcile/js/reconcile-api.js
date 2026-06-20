@@ -101,6 +101,9 @@
         _sseDetailTimer = setTimeout(() => {
             api('GET', `/${encodeURIComponent(number)}`)
                 .then((res) => {
+                    // Chống race: user đã chuyển sang PBH khác trong lúc debounce/fetch
+                    // → bỏ qua, không clobber detail/lịch sử của PBH đang mở (mirror selectPbh).
+                    if (STATE.selectedNumber !== number) return;
                     STATE.currentPbh = res.pbh;
                     RC.renderDetail();
                     loadHistory(number);

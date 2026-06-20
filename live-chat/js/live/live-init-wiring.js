@@ -257,6 +257,14 @@
                 // tránh Set phình + để KH của campaign mới được re-enrich từ kho.
                 window.LiveKhoEnricher?.reset?.();
 
+                // MEDIUM-cleanup (2026-06-20, audit WEB2-FULL-REVIEW): reset dedup Set
+                // của LiveCustomerSync (_seen/_queue) + _altSeen khi đổi campaign. Trên
+                // livestream dài (hàng nghìn comment) các Set này phình vô hạn vì desktop
+                // không bao giờ gọi reset() — clear ở đây giống LiveKhoEnricher để KH của
+                // campaign mới được harvest lại + tránh leak bộ nhớ theo phiên.
+                window.LiveCustomerSync?.reset?.();
+                this._altSeen = null;
+
                 // Stop all SSE
                 window.LiveRealtime.stopSSE();
             }

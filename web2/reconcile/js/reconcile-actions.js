@@ -32,7 +32,7 @@
             const res = await api('GET', `/${encodeURIComponent(number)}`);
             // Chống race: user bấm PBH khác trong lúc fetch → bỏ kết quả cũ, không đè
             // STATE.currentPbh bằng PBH không còn được chọn (tránh hiện sai chi tiết).
-            if (STATE.selectedNumber !== number) return;
+            if (STATE.selectedNumber !== number) return false;
             STATE.currentPbh = res.pbh;
             RC.renderDetail();
             // Cuộn panel chi tiết lên đầu → thấy toàn bộ danh sách SP cần quét.
@@ -40,8 +40,12 @@
             if (panel) panel.scrollTop = 0;
             focusScanner();
             // Lịch sử lazy: chỉ tải khi user mở (ẩn mặc định).
+            return true;
         } catch (e) {
+            // Trả false (không throw) để caller như onScannerSubmit biết bill-scan THẤT BẠI,
+            // tránh báo "Mở PBH" nhầm khi GET lỗi. Vẫn notify như cũ cho click danh sách.
             notify('Lỗi tải PBH: ' + e.message, 'error');
+            return false;
         }
     }
 
@@ -50,9 +54,24 @@
     // Lưu NGAY mỗi lần tích (không cần quét đủ cả đơn). Dùng cho SP barcode không quét được.
     // User 06/06: BẮT BUỘC confirm + ghi lịch sử "đối chiếu camera" — vì tích tay KHÔNG
     // quét barcode → cần xác nhận + lưu vết để soi lại camera khi đối chứng.
+    const _manualPickInFlight = new Set();
     async function toggleManualPick(productCode, checked, need) {
         const number = STATE.currentPbh?.number;
         if (!number) return;
+
+        // Khóa per-line khi đang xử lý: double-click không stack 2 confirm + 2 POST
+        // (last-write-wins server làm UI flip-flop). Bỏ qua change event khi còn in-flight.
+        const lockKey = `${number}::${productCode}`;
+        if (_manualPickInFlight.has(lockKey)) {
+            RC.renderDetail(); // checkbox vừa toggle visually → vẽ lại theo state server
+            return;
+        }
+        if (!window.Popup) {
+            notify('Đang tải thành phần xác nhận, thử lại sau giây lát', 'error');
+            RC.renderDetail();
+            return;
+        }
+        _manualPickInFlight.add(lockKey);
 
         // Confirm trước khi áp dụng. Hủy → revert checkbox về trạng thái server.
         const ok = checked
@@ -64,6 +83,7 @@
               )
             : await Popup.confirm(`Bỏ tích tay "${productCode}" (đưa về 0)?`);
         if (!ok) {
+            _manualPickInFlight.delete(lockKey);
             RC.renderDetail(); // checkbox đã toggle visually → vẽ lại theo state server
             return;
         }
@@ -90,11 +110,14 @@
         } catch (err) {
             notify(err.message, 'error');
             RC.renderDetail(); // revert về trạng thái server
+        } finally {
+            _manualPickInFlight.delete(lockKey);
         }
     }
 
     async function resetPick() {
         if (!STATE.currentPbh) return;
+        if (!window.Popup) return notify('Đang tải thành phần xác nhận, thử lại', 'error');
         if (!(await Popup.danger('Reset toàn bộ pick về 0?', { okText: 'Reset' }))) return;
         try {
             const res = await api(
@@ -131,6 +154,7 @@
 
     async function cancelPack() {
         if (!STATE.currentPbh) return;
+        if (!window.Popup) return notify('Đang tải thành phần xác nhận, thử lại', 'error');
         if (
             !(await Popup.danger(
                 `Hủy đóng gói PBH ${STATE.currentPbh.number}? (đưa về trạng thái pick)`,
@@ -169,6 +193,7 @@
 
     async function deliverOrder() {
         if (!STATE.currentPbh) return;
+        if (!window.Popup) return notify('Đang tải thành phần xác nhận, thử lại', 'error');
         if (!(await Popup.confirm('Xác nhận đã giao thành công cho khách?'))) return;
         try {
             const res = await api(
@@ -187,6 +212,7 @@
 
     async function returnFailedOrder() {
         if (!STATE.currentPbh) return;
+        if (!window.Popup) return notify('Đang tải thành phần xác nhận, thử lại', 'error');
         const reason = await Popup.prompt('Lý do giao thất bại / trả về kho (optional):', {
             defaultValue: 'Khách từ chối nhận',
         });
@@ -224,18 +250,19 @@
 
     // ---------- scanner ----------
     // Quét barcode bill → switch PBH đó. Vẫn nhận HD-... cũ cho data legacy (PBH_NUMBER_RE).
+    // Chống race quét đôi: gun nhanh / giữ phím → 2 POST /scan trước khi cái đầu resolve.
+    // Server atomic (FOR UPDATE, cap maxQty) nên DB an toàn, nhưng client áp response
+    // sai thứ tự sẽ render đè + báo "đủ hàng" nhầm. Dùng seq token: chỉ áp response mới nhất.
+    let _scanSeq = 0;
     async function onScannerSubmit(value) {
         value = (value || '').trim();
         if (!value) return;
 
-        // Quét barcode bill → switch PBH
+        // Quét barcode bill → switch PBH. selectPbh không throw mà trả boolean → chỉ báo
+        // "Mở PBH" khi load thành công (tránh báo nhầm khi GET lỗi → selectPbh đã notify).
         if (PBH_NUMBER_RE.test(value)) {
-            try {
-                await selectPbh(value);
-                feedback(`📦 Mở PBH ${value}`);
-            } catch (e) {
-                feedback('✗ ' + e.message, true);
-            }
+            const ok = await selectPbh(value);
+            if (ok) feedback(`📦 Mở PBH ${value}`);
             return;
         }
 
@@ -244,23 +271,24 @@
             feedback('Quét barcode trên bill trước, hoặc chọn 1 PBH', true);
             return;
         }
+        const seq = ++_scanSeq;
+        const targetNumber = STATE.selectedNumber;
         try {
             const scanBody = { productCode: value };
             if (window.Web2UserInfo?.attachToBody) window.Web2UserInfo.attachToBody(scanBody);
-            const res = await api(
-                'POST',
-                `/${encodeURIComponent(STATE.selectedNumber)}/scan`,
-                scanBody
-            );
+            const res = await api('POST', `/${encodeURIComponent(targetNumber)}/scan`, scanBody);
+            // Bỏ kết quả cũ (response về sau lần quét mới hơn) hoặc đã switch PBH khác →
+            // không đè STATE.currentPbh bằng dữ liệu lỗi thời.
+            if (seq !== _scanSeq || STATE.selectedNumber !== targetNumber) return;
             STATE.currentPbh = res.pbh;
             RC.renderDetail();
-            RC.loadHistory(STATE.selectedNumber);
+            RC.loadHistory(targetNumber);
             const t = res.pbh?.totals || {};
             if (t.isComplete) {
                 // Đủ hết SP → server tự set 'packed' (đã đối soát + đóng gói luôn,
                 // không cần bấm nút Đóng gói).
                 feedback(
-                    `✓✓ ĐỦ HÀNG — ĐÃ ĐỐI SOÁT XONG ${STATE.selectedNumber} (tự đóng gói). Quét bill kế tiếp →`,
+                    `✓✓ ĐỦ HÀNG — ĐÃ ĐỐI SOÁT XONG ${targetNumber} (tự đóng gói). Quét bill kế tiếp →`,
                     false,
                     true
                 );
@@ -282,12 +310,21 @@
     function pad2(n) {
         return String(n).padStart(2, '0');
     }
+    // Hiển thị GMT+7 (Asia/Ho_Chi_Minh) theo quy ước Web 2.0, không phụ thuộc TZ trình duyệt.
+    const _tsFmt = new Intl.DateTimeFormat('vi-VN', {
+        timeZone: 'Asia/Ho_Chi_Minh',
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false,
+    });
     function fmtTsFull(ts) {
-        const d = new Date(Number(ts));
-        return (
-            `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}/${d.getFullYear()} ` +
-            `${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`
-        );
+        const p = {};
+        for (const part of _tsFmt.formatToParts(new Date(Number(ts)))) p[part.type] = part.value;
+        return `${p.day}/${p.month}/${p.year} ${p.hour}:${p.minute}:${p.second}`;
     }
     // ms → 'YYYY-MM-DDTHH:MM' (giá trị input datetime-local, theo local time)
     function tsToInput(ts) {

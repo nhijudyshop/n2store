@@ -34,17 +34,33 @@
     PS.blobToImage = function (blob) {
         return new Promise((res, rej) => {
             const img = new Image();
-            img.onload = () => res(img);
-            img.onerror = rej;
-            img.src = URL.createObjectURL(blob);
+            const url = URL.createObjectURL(blob);
+            // Revoke ngay khi decode xong/lỗi: bitmap đã nằm trong bộ nhớ,
+            // không ai đọc lại img.src → tránh rò blob: URL (OOM mobile).
+            img.onload = () => {
+                URL.revokeObjectURL(url);
+                res(img);
+            };
+            img.onerror = (e) => {
+                URL.revokeObjectURL(url);
+                rej(e);
+            };
+            img.src = url;
         });
     };
     PS.fileToImage = function (file) {
         return new Promise((res, rej) => {
             const img = new Image();
-            img.onload = () => res(img);
-            img.onerror = rej;
-            img.src = URL.createObjectURL(file);
+            const url = URL.createObjectURL(file);
+            img.onload = () => {
+                URL.revokeObjectURL(url);
+                res(img);
+            };
+            img.onerror = (e) => {
+                URL.revokeObjectURL(url);
+                rej(e);
+            };
+            img.src = url;
         });
     };
 

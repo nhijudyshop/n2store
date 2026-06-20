@@ -11,7 +11,10 @@
 //
 // Pools (CROSS-POOL — đã research, chấp nhận):
 //   - web2Db  : web2_msg_send_jobs / _items  (require('../db/web2-pool'))
-//   - chatDb  : pancake_accounts / pancake_page_access_tokens (Web 1.0 shared)
+//   - chatDb  : pancake_accounts (READ), pancake_page_access_tokens (READ + WRITE)
+//             ↑ Web 1.0 shared Pancake creds. _mintPAT GHI vào pancake_page_access_tokens
+//               (ON CONFLICT page_id DO UPDATE) — đồng nhất với 6h refresh cron, an toàn
+//               ghi đồng thời nhờ upsert. Đây là ngoại lệ Web2⊥Web1 cho creds dùng chung.
 //
 // Loop pattern: copy aikol-queue-worker (FOR UPDATE SKIP LOCKED claim, stuck
 // recovery, setInterval + unref). Counters + SSE qua route._recomputeAndNotify.
@@ -44,6 +47,24 @@ const inFlight = new Set();
 const _patMem = new Map(); // pageId → { pat, ts }
 let _accountsCache = { ts: 0, list: [] };
 const _recomputeTimers = new Map(); // jobId → timeout (debounce SSE)
+
+// Cache template_name + created_by per job (tránh query lặp mỗi item).
+const _jobMetaCache = new Map(); // job_id → { templateName, createdBy }
+
+// Chống memory creep trên process sống lâu: prune _patMem hết hạn + cap _jobMetaCache.
+const JOB_META_CACHE_MAX = 500;
+function _pruneCaches() {
+    const now = Date.now();
+    for (const [pageId, v] of _patMem) {
+        if (!v || now - v.ts >= PAT_MEM_TTL_MS) _patMem.delete(pageId);
+    }
+    // Map giữ thứ tự insert → xoá entry cũ nhất khi vượt cap (FIFO đơn giản).
+    while (_jobMetaCache.size > JOB_META_CACHE_MAX) {
+        const oldest = _jobMetaCache.keys().next().value;
+        if (oldest === undefined) break;
+        _jobMetaCache.delete(oldest);
+    }
+}
 
 // ─── HTTP helper với timeout ───────────────────────────────────────
 async function _fetchJson(url, init) {
@@ -126,6 +147,13 @@ async function _getCachedPAT(pageId) {
         console.warn('[WEB2-MSG-WORKER] read PAT failed:', e.message);
     }
     return null;
+}
+
+// Xoá PAT khỏi cache mem khi send lỗi token/permission — tránh "PAT poisoning"
+// (PAT vừa mint nhưng thiếu quyền page bị cache 30' khiến mọi item sau cùng fail).
+// Chỉ xoá cache mem; bản chatDb để 6h-refresh-cron / lần mint kế ghi đè.
+function _invalidatePAT(pageId) {
+    _patMem.delete(pageId);
 }
 
 async function _mintPAT(pageId, accountToken) {
@@ -222,7 +250,8 @@ async function _processItem(item) {
         if (_isRateLimit(last.eSubcode)) {
             return _maybeRetryOrExt(item, last);
         }
-        // token/permission/unknown → xoay account.
+        // token/permission/unknown → PAT cache có thể đã hỏng → xoá rồi xoay account.
+        _invalidatePAT(pageId);
     }
 
     // 2. Account rotation: mint PAT mới từ từng account quản page này, thử lại.
@@ -245,6 +274,8 @@ async function _processItem(item) {
         if (_isRateLimit(r.eSubcode)) {
             return _maybeRetryOrExt(item, r);
         }
+        // PAT vừa mint nhưng send lỗi token/permission → xoá cache, thử account khác.
+        _invalidatePAT(pageId);
         // tiếp account khác
     }
 
@@ -293,8 +324,6 @@ async function _finishItem(item, state, fields = {}) {
     _scheduleRecompute(item.job_id);
 }
 
-// Cache template_name + created_by per job (tránh query lặp mỗi item).
-const _jobMetaCache = new Map(); // job_id → { templateName, createdBy }
 async function _getJobMeta(jobId) {
     if (_jobMetaCache.has(jobId)) return _jobMetaCache.get(jobId);
     const r = await JOB_POOL.query(
@@ -396,6 +425,7 @@ async function tick() {
         await _recoverStuck().catch((e) =>
             console.warn('[WEB2-MSG-WORKER] recover failed:', e.message)
         );
+        _pruneCaches();
         const slots = MAX_CONCURRENT - inFlight.size;
         const batch = await _claimPending(slots);
         for (const item of batch) {
@@ -452,6 +482,8 @@ async function sendSingleMessage(pageId, convId, customerId, message) {
             const r = await _sendPancake(pageId, convId, customerId, message, pat);
             if (r.ok) return { ok: true };
             if (_is24hError(r.eCode, r.eSubcode)) return { ok: false, needsExtension: true };
+            // token/permission/unknown → PAT cache có thể hỏng → xoá rồi xoay account.
+            _invalidatePAT(pageId);
         }
         // Account rotation: mint PAT mới từ account quản page.
         const accounts = await _accountsForPage(pageId);
@@ -467,6 +499,8 @@ async function sendSingleMessage(pageId, convId, customerId, message) {
             const r = await _sendPancake(pageId, convId, customerId, message, pat);
             if (r.ok) return { ok: true };
             if (_is24hError(r.eCode, r.eSubcode)) return { ok: false, needsExtension: true };
+            // PAT vừa mint nhưng send lỗi → xoá cache, thử account khác.
+            _invalidatePAT(pageId);
         }
         return { ok: false, error: 'send-failed' };
     } catch (e) {

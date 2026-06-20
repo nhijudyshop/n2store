@@ -359,8 +359,11 @@
         updateImagePreview('');
         // populateSupplierDropdown async (await load tabs từ Firestore) → set KHO
         // SAU khi rebuild xong, nếu set trước thì option KHO chưa tồn tại → value rớt "".
+        // Audit (2026-06-20): chỉ ép lại 'KHO' nếu user CHƯA đổi select trong lúc
+        // dropdown đang populate (tránh đè lựa chọn của user — race sync vs .then()).
         populateSupplierDropdown().then(() => {
-            if ($('#pmSupplier')) $('#pmSupplier').value = 'KHO';
+            const sel = $('#pmSupplier');
+            if (sel && (sel.value === 'KHO' || sel.value === '')) sel.value = 'KHO';
         });
         modal().classList.add('active');
         if (window.lucide) lucide.createIcons();
@@ -422,8 +425,15 @@
         if (window.lucide) lucide.createIcons();
 
         try {
+            // Audit (2026-06-20): gắn x-web2-token cho consistency với mọi API khác
+            // (phòng WEB2_AUTH_ENFORCE mở rộng sang GET → tránh 401 im lặng).
+            const authH =
+                window.Web2Auth && window.Web2Auth.authHeaders
+                    ? window.Web2Auth.authHeaders({ Accept: 'application/json' })
+                    : { Accept: 'application/json' };
             const r = await fetch(
-                `${PROXY_BASE}/api/web2-products/${encodeURIComponent(code)}/history?limit=100`
+                `${PROXY_BASE}/api/web2-products/${encodeURIComponent(code)}/history?limit=100`,
+                { headers: authH }
             );
             const data = await r.json();
             const list = data?.history || [];

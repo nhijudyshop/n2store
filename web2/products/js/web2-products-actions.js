@@ -70,14 +70,24 @@
         }
     }
 
+    // Chống double-submit: theo dõi code đang trong luồng xoá (await confirm + DELETE +
+    // 409 force-confirm). Click lặp / double-click bị bỏ qua tới khi luồng kết thúc.
+    const _removingCodes = new Set();
+
     async function remove(code) {
-        const ok = await window.Popup.danger(`Không thể hoàn tác.`, {
-            title: `Xoá SP ${code}?`,
-            okText: 'Xoá sản phẩm',
-            cancelText: 'Đóng',
-        });
-        if (!ok) return;
-        await _doRemove(code, false);
+        if (_removingCodes.has(code)) return; // bỏ qua click reentrant
+        _removingCodes.add(code);
+        try {
+            const ok = await window.Popup.danger(`Không thể hoàn tác.`, {
+                title: `Xoá SP ${code}?`,
+                okText: 'Xoá sản phẩm',
+                cancelText: 'Đóng',
+            });
+            if (!ok) return;
+            await _doRemove(code, false);
+        } finally {
+            _removingCodes.delete(code);
+        }
     }
 
     async function _doRemove(code, force) {
@@ -85,6 +95,9 @@
             await window.Web2ProductsApi.remove(code, { force });
             STATE.products = STATE.products.filter((x) => x.code !== code);
             STATE.total = Math.max(0, STATE.total - 1);
+            // Dọn code khỏi multi-select để bulk-bar không giữ entry "ma" của SP đã xoá
+            // (chỉ luồng SSE-echo ở app.js mới xoá khỏi Set → local delete cũng phải xoá).
+            if (STATE.selectedCodes?.delete(code)) W._updateBulkBar?.();
             W.renderRows();
             W.renderPagination();
             W.renderCounters();

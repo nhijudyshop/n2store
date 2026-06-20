@@ -77,11 +77,22 @@
 
     // Boot: sau refresh, nếu còn job đang chạy ở server → tự bám lại (hiện pill
     // tiến độ) + tiếp tục drain đơn 24h qua extension. Không cần mở modal.
-    setTimeout(() => {
-        try {
-            W2MT._maybeReattachActive();
-        } catch (_) {
-            /* ignore */
-        }
-    }, 2500);
+    //
+    // ⚠ Chỉ chạy trên trang HOST của tính năng bulk-send. File này được nạp
+    // chung trên nhiều trang (sidebar/chat stack) — nếu reattach vô điều kiện sẽ
+    // GET /msg-send/active + start poll 3s + extension drain trên cả những trang
+    // không liên quan, gây background churn toàn site. (audit 2026-06-20, logic 1518)
+    //
+    // Host = trang tạo job bulk-send (hiện chỉ native-orders, expose
+    // window.NativeOrders) HOẶC trang opt-in tường minh qua window.__w2BulkSendHost.
+    const _isBulkSendHost = !!(window.__w2BulkSendHost || window.NativeOrders);
+    if (_isBulkSendHost) {
+        setTimeout(() => {
+            try {
+                W2MT._maybeReattachActive();
+            } catch (_) {
+                /* ignore */
+            }
+        }, 2500);
+    }
 })();

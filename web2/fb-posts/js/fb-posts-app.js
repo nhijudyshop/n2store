@@ -159,9 +159,18 @@
         const connectBtn = overlay.querySelector('#fbpCxConnect');
         if (connectBtn)
             connectBtn.onclick = async () => {
-                const token = overlay.querySelector('#fbpCxToken').value.trim();
+                const tokenEl = overlay.querySelector('#fbpCxToken');
+                const token = tokenEl.value.trim();
+                // Xoá token khỏi DOM ngay sau khi đọc (tránh lưu lại trong textarea
+                // nếu user rời trang mà chưa đóng overlay).
+                tokenEl.value = '';
                 if (!token) {
                     notify('Dán token trước', 'warning');
+                    return;
+                }
+                // Guard nhẹ: token FB user/page bắt đầu bằng "EAA".
+                if (!/^EAA[A-Za-z0-9]/.test(token)) {
+                    notify('Token không hợp lệ (cần bắt đầu bằng EAA…)', 'warning');
                     return;
                 }
                 const b = overlay.querySelector('#fbpCxConnect');
@@ -213,13 +222,23 @@
     function setupSSE() {
         if (!window.Web2SSE || !window.Web2SSE.subscribe) return;
         let t;
-        window.Web2SSE.subscribe('web2:fb-posts', () => {
+        const unsub = window.Web2SSE.subscribe('web2:fb-posts', () => {
             clearTimeout(t);
             t = setTimeout(() => {
                 if (state.activeTab === 'drafts') window.FBPostsDrafts.render();
                 else if (state.activeTab === 'list') window.FBPostsList.render();
             }, 600);
         });
+        // Dọn subscription + debounce timer khi rời trang (tránh leak nếu Web2SSE
+        // còn giữ callback sau khi trang đóng).
+        window.addEventListener(
+            'pagehide',
+            () => {
+                clearTimeout(t);
+                if (typeof unsub === 'function') unsub();
+            },
+            { once: true }
+        );
     }
 
     function init() {

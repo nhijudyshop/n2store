@@ -326,7 +326,7 @@ const PancakeChatWindow = {
                     60000
                 );
                 const fbId = up?.data?.fbId;
-                if (!up.ok || !fbId) {
+                if (!up?.ok || !fbId) {
                     console.warn('[PK-CHAT] extension upload failed:', up?.error);
                     return false;
                 }
@@ -354,7 +354,7 @@ const PancakeChatWindow = {
                 },
                 60000
             );
-            return !!r.ok;
+            return !!r?.ok;
         } catch (e) {
             console.warn('[PK-CHAT] extension send failed:', e.message);
             return false;

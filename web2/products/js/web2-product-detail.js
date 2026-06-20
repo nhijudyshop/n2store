@@ -389,8 +389,15 @@
         pane.innerHTML = `<div class="w2pd-loading"><i data-lucide="loader"></i> Đang tải lịch sử...</div>`;
         icons();
         try {
+            // Audit (2026-06-20): gắn x-web2-token cho consistency với mọi API khác
+            // (phòng WEB2_AUTH_ENFORCE mở rộng sang GET → tránh 401 im lặng).
+            const authH =
+                window.Web2Auth && window.Web2Auth.authHeaders
+                    ? window.Web2Auth.authHeaders({ Accept: 'application/json' })
+                    : { Accept: 'application/json' };
             const r = await fetch(
-                `${proxyBase()}/api/web2-products/${encodeURIComponent(p.code)}/history?limit=100`
+                `${proxyBase()}/api/web2-products/${encodeURIComponent(p.code)}/history?limit=100`,
+                { headers: authH }
             );
             const data = await r.json();
             const list = data?.history || [];

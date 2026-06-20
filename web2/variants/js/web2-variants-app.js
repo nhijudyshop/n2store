@@ -46,8 +46,8 @@
             const filtering = STATE.search || STATE.group;
             // Task 5: empty state with lucide 'layers' icon for visual discoverability.
             tbody().innerHTML = filtering
-                ? `<tr><td colspan="6" class="empty-row">Không tìm thấy biến thể phù hợp — thử bỏ filter hoặc đổi từ khoá.</td></tr>`
-                : `<tr><td colspan="6" class="empty-row"><div style="display:flex;flex-direction:column;align-items:center;gap:8px;padding:8px 0;"><i data-lucide="layers" style="width:28px;height:28px;color:#94a3b8;"></i><span>Chưa có biến thể nào — bấm "Thêm Biến Thể" để tạo</span></div></td></tr>`;
+                ? `<tr><td colspan="7" class="empty-row">Không tìm thấy biến thể phù hợp — thử bỏ filter hoặc đổi từ khoá.</td></tr>`
+                : `<tr><td colspan="7" class="empty-row"><div style="display:flex;flex-direction:column;align-items:center;gap:8px;padding:8px 0;"><i data-lucide="layers" style="width:28px;height:28px;color:#94a3b8;"></i><span>Chưa có biến thể nào — bấm "Thêm Biến Thể" để tạo</span></div></td></tr>`;
             if (window.lucide) lucide.createIcons();
             return;
         }
@@ -108,7 +108,7 @@
     async function load() {
         if (STATE.loading) return;
         STATE.loading = true;
-        tbody().innerHTML = `<tr><td colspan="6" class="loading-row">
+        tbody().innerHTML = `<tr><td colspan="7" class="loading-row">
             <div class="spinner"></div>Đang tải dữ liệu...
         </td></tr>`;
         try {
@@ -126,7 +126,7 @@
             renderCounters();
         } catch (e) {
             console.error(e);
-            tbody().innerHTML = `<tr><td colspan="6" class="empty-row" style="color:#ef4444;">
+            tbody().innerHTML = `<tr><td colspan="7" class="empty-row" style="color:#ef4444;">
                 Lỗi tải: ${escapeHtml(e.message)}
             </td></tr>`;
             notify('Lỗi tải dữ liệu: ' + e.message, 'error');
@@ -346,12 +346,16 @@
         const numId = Number(id);
         const idx = STATE.variants.findIndex((x) => x.id === numId);
         if (idx === -1) return;
-        const prev = STATE.variants[idx];
+        // Snapshot bằng deep-ish copy ngay lúc capture (giá trị, không phải tham chiếu live).
+        const prev = { ...STATE.variants[idx] };
         if (window.Web2Optimistic?.run) {
             Web2Optimistic.run({
                 snapshot: () => ({ ...prev }),
+                // Re-find index theo id ở mỗi write — tránh stale idx khi SSE load()
+                // thay/đảo STATE.variants giữa apply và lúc PATCH resolve (mirror UPDATE branch).
                 apply: () => {
-                    STATE.variants[idx] = { ...prev, isActive: newState };
+                    const i = STATE.variants.findIndex((x) => x.id === numId);
+                    if (i !== -1) STATE.variants[i] = { ...prev, isActive: newState };
                     renderRows();
                 },
                 run: async () => {
@@ -359,13 +363,17 @@
                 },
                 onSuccess: (resp) => {
                     if (resp.variant) {
-                        STATE.variants[idx] = resp.variant;
-                        renderRows();
+                        const i = STATE.variants.findIndex((x) => x.id === numId);
+                        if (i !== -1) {
+                            STATE.variants[i] = resp.variant;
+                            renderRows();
+                        }
                     }
                     window.Web2VariantsCache?.pushTickle?.({ action: 'update', id: numId });
                 },
                 rollback: (snap) => {
-                    STATE.variants[idx] = snap;
+                    const i = STATE.variants.findIndex((x) => x.id === numId);
+                    if (i !== -1 && snap) STATE.variants[i] = snap;
                     renderRows();
                 },
                 successMsg: newState ? 'Đã bật dùng lại' : 'Đã ẩn biến thể',
@@ -375,7 +383,8 @@
             (async () => {
                 try {
                     const resp = await window.Web2VariantsApi.update(numId, { isActive: newState });
-                    if (idx !== -1 && resp.variant) STATE.variants[idx] = resp.variant;
+                    const i = STATE.variants.findIndex((x) => x.id === numId);
+                    if (i !== -1 && resp.variant) STATE.variants[i] = resp.variant;
                     renderRows();
                     notify(newState ? 'Đã bật dùng lại' : 'Đã ẩn biến thể', 'success');
                     window.Web2VariantsCache?.pushTickle?.({ action: 'update', id: numId });

@@ -681,10 +681,14 @@
         root.querySelector('#w2pModalClose').addEventListener('click', closeModal);
         root.querySelector('#w2pModalCancel').addEventListener('click', closeModal);
         root.querySelector('#w2pModalSave').addEventListener('click', saveModal);
-        document.addEventListener('keydown', (e) => {
+        // MEDIUM (listener leak): keydown được gắn lên document (global) — nếu page
+        // mount/remount nhiều lần mà không gỡ thì handler chồng chất + giữ ref `root`.
+        // Giữ tham chiếu để destroy() removeEventListener.
+        const _escHandler = (e) => {
             if (e.key === 'Escape' && root.querySelector('#w2pModal')?.classList.contains('active'))
                 closeModal();
-        });
+        };
+        document.addEventListener('keydown', _escHandler);
 
         // ---- SSE: realtime refresh khi entity mutate ở máy/tab khác ----
         // Topic convention: 'web2:<entity-slug>'. Server (web2-generic.js)
@@ -714,13 +718,14 @@
             reload: load,
             openCreate,
             STATE,
-            // Allow caller to tear down SSE (vd khi page navigate đi).
+            // Allow caller to tear down SSE + global listener (vd khi page navigate đi).
             destroy: () => {
                 if (_sseUnsubscribe) {
                     _sseUnsubscribe();
                     _sseUnsubscribe = null;
                 }
                 if (_sseReloadTimer) clearTimeout(_sseReloadTimer);
+                document.removeEventListener('keydown', _escHandler);
             },
         };
     }

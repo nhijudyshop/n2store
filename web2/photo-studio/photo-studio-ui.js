@@ -11,6 +11,9 @@
 
     const PS = (global.PS = global.PS || {});
 
+    // Throttle tối đa cho vòng segment 'tasks' (~30fps) — chống dồn lệnh nếu callback bất đồng bộ
+    PS.TASKS_MIN_INTERVAL_MS = 33;
+
     // ---- DOM cache + event bind -----------------------------------------
     PS.cache = function () {
         const el = PS.el;
@@ -324,6 +327,8 @@
             else if (st.state === 'denied')
                 PS.showPermissionHelp('Quyền camera đang bị chặn cho trang này.');
             st.onchange = () => {
+                // No-op khi đang mở camera dở (in-flight) hoặc trang ẩn → tránh race 2 luồng startCamera
+                if (state._camStarting || document.hidden) return;
                 if (st.state === 'granted' && state.source !== 'image' && !state.stream)
                     PS.startCamera({ silent: true });
             };
@@ -338,6 +343,9 @@
         if (!isSecureContext) return PS.notify('Camera cần HTTPS.', 'error');
         if (!navigator.mediaDevices?.getUserMedia)
             return PS.notify('Trình duyệt không hỗ trợ camera.', 'error');
+        // Chống mở camera đồng thời (manual nhấn + permission onchange) → tránh leak stream
+        if (state._camStarting) return;
+        state._camStarting = true;
         PS.stopStream();
         PS.showLoading('Đang mở camera…');
         try {
@@ -374,6 +382,8 @@
                 else PS.showStageError(PS.cameraErrorMsg(e));
                 PS.notify(PS.cameraErrorMsg(e), 'error');
             }
+        } finally {
+            state._camStarting = false;
         }
     };
 
@@ -474,11 +484,25 @@
     };
 
     // ---- Source: image upload ------------------------------------------
+    // Thu hồi blob: URL của ảnh nguồn trước đó (tránh leak khi tải lại nhiều ảnh)
+    PS.revokeSourceImgUrl = function () {
+        const state = PS.state;
+        const prev = state._sourceImg && state._sourceImg.src;
+        if (prev && prev.startsWith('blob:')) {
+            try {
+                URL.revokeObjectURL(prev);
+            } catch {}
+        }
+    };
+
     PS.onSourceFile = function (e) {
         const state = PS.state,
             el = PS.el;
         const file = e.target.files?.[0];
         if (!file) return;
+        // Thu hồi URL ảnh nguồn cũ trước khi gán mới (ảnh được vẽ live nên không revoke ngay sau onload)
+        PS.revokeSourceImgUrl();
+        const url = URL.createObjectURL(file);
         const img = new Image();
         img.onload = () => {
             PS.stopStream();
@@ -498,8 +522,13 @@
             PS.updateHqHint();
             PS.startLoop();
         };
-        img.onerror = () => PS.notify('Không đọc được ảnh.', 'error');
-        img.src = URL.createObjectURL(file);
+        img.onerror = () => {
+            try {
+                URL.revokeObjectURL(url);
+            } catch {}
+            PS.notify('Không đọc được ảnh.', 'error');
+        };
+        img.src = url;
         e.target.value = '';
     };
 
@@ -580,13 +609,17 @@
         if (!state.running) return;
         if (state.mode === 'ai' && state.segReady) {
             if (state._aiEngine === 'tasks') {
-                // segmentForVideo (VIDEO mode) chạy đồng bộ → không cần busy gate
-                try {
-                    const inp = PS.segInputFrame();
-                    if (inp)
-                        state._segmenter.segmentForVideo(inp, performance.now(), PS.onTasksResult);
-                } catch (e) {
-                    /* bỏ qua frame lỗi */
+                // segmentForVideo (VIDEO mode) thường chạy đồng bộ; throttle ~30fps để
+                // tránh dồn lệnh nếu delegate trả callback bất đồng bộ (race in-flight)
+                const now = performance.now();
+                if (now - (state._tasksLastMs || 0) >= PS.TASKS_MIN_INTERVAL_MS) {
+                    state._tasksLastMs = now;
+                    try {
+                        const inp = PS.segInputFrame();
+                        if (inp) state._segmenter.segmentForVideo(inp, now, PS.onTasksResult);
+                    } catch (e) {
+                        /* bỏ qua frame lỗi */
+                    }
                 }
             } else if (!state.busy) {
                 state.busy = true;

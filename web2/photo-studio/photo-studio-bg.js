@@ -72,26 +72,48 @@
     };
 
     /** Tasks Vision callback: confidence mask (0..1) → alpha → maskC + composite. */
+    PS._tasksBusy = false;
     PS.onTasksResult = function (result) {
-        const state = PS.state;
-        if (!state.modelLoaded) {
-            state.modelLoaded = true;
-            PS.hideLoading();
+        // In-flight gate: nếu delegate (GPU/CPU) lỡ gọi callback chồng nhau, bỏ qua
+        // kết quả đến giữa chừng để tránh ghi đè maskC/maskRaw đang xử lý dở.
+        if (PS._tasksBusy) {
+            if (result && result.confidenceMasks && result.confidenceMasks[0]?.close) {
+                result.confidenceMasks[0].close();
+            }
+            return;
         }
-        const m = result.confidenceMasks && result.confidenceMasks[0];
-        if (!m) return;
-        const mw = m.width,
-            mh = m.height;
-        const f = m.getAsFloat32Array();
-        PS.sizeCanvas(PS.maskRaw, mw, mh);
-        const id = PS.maskRawCtx.createImageData(mw, mh);
-        const px = id.data;
-        for (let i = 0; i < f.length; i++) px[i * 4 + 3] = (f[i] * 255) | 0;
-        PS.maskRawCtx.putImageData(id, 0, 0);
-        if (m.close) m.close();
-        PS.populateMaskC(PS.maskRaw, mw, mh);
-        PS.composeAI(PS.octx, state.W, state.H, PS.currentSourceEl(), PS.maskC, state.crop, true);
-        PS.tickFps();
+        PS._tasksBusy = true;
+        try {
+            const state = PS.state;
+            if (!state.modelLoaded) {
+                state.modelLoaded = true;
+                PS.hideLoading();
+            }
+            const m = result.confidenceMasks && result.confidenceMasks[0];
+            if (!m) return;
+            const mw = m.width,
+                mh = m.height;
+            const f = m.getAsFloat32Array();
+            PS.sizeCanvas(PS.maskRaw, mw, mh);
+            const id = PS.maskRawCtx.createImageData(mw, mh);
+            const px = id.data;
+            for (let i = 0; i < f.length; i++) px[i * 4 + 3] = (f[i] * 255) | 0;
+            PS.maskRawCtx.putImageData(id, 0, 0);
+            if (m.close) m.close();
+            PS.populateMaskC(PS.maskRaw, mw, mh);
+            PS.composeAI(
+                PS.octx,
+                state.W,
+                state.H,
+                PS.currentSourceEl(),
+                PS.maskC,
+                state.crop,
+                true
+            );
+            PS.tickFps();
+        } finally {
+            PS._tasksBusy = false;
+        }
     };
 
     /** Vẽ mask (đã crop) vào maskC ở preview res, có feather. Dùng chung 2 engine. */
@@ -244,8 +266,16 @@
         return PS.lanczos2x(src);
     };
 
+    // Chặn OOM: không cấp phát canvas dài cạnh vượt ngưỡng an toàn (mobile dễ crash).
+    PS.UPSCALE_MAX_OUT = 4096;
+
     /** Phóng to ×2 chất lượng cao bằng resample 2 bước (fallback khi không có AI). */
     PS.lanczos2x = function (src) {
+        // Guard OOM: nếu ×2 vượt cạnh dài an toàn → trả nguyên bản (không phóng to),
+        // tránh allocate canvas khổng lồ gây crash trên điện thoại.
+        if (Math.max(src.width, src.height) * 2 > PS.UPSCALE_MAX_OUT) {
+            return src;
+        }
         const w = src.width * 2,
             h = src.height * 2;
         const cv = document.createElement('canvas');
