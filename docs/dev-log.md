@@ -2,6 +2,17 @@
 
 ## 2026-06-20
 
+### [live-chat] Chat Pancake (`chat.html`): tab Comment→Livestream theo chiến dịch + sub-filter tin nhắn/bình luận + fix overlap ✅
+
+User (ảnh `live-chat/chat.html`): (1) fix giao diện 2 hàng tab bị đè (gear ⚙ đè "Lưu Live"); (2) đổi tab **Comment → Livestream** + đổi chức năng; (3) cho **chọn chiến dịch** như `index.html` → lấy danh sách khách comment → đưa người đó (cả comment + inbox) vào tab **Livestream**; (4) người KHÔNG trong danh sách → tab **Inbox**; (5) bỏ tab **Lưu Live** → còn 3 tab; (6) thêm **filter tin nhắn / bình luận** ở mọi tab.
+
+- **Module mới** `js/pancake/pancake-livestream-filter.js` (`window.PancakeLivestreamFilter`): thanh chọn chiến dịch (render vào `#pkLivestreamBar`) → `GET /api/web2-live-comments/campaigns` + `/?campaignId=X&limit=5000` (gắn `x-web2-token` qua `Web2Auth.authHeaders`) → build Set `fbIds`+`phones` (dedupe commenter). `isLivestreamConv(conv)` đối chiếu `from.id/from_psid/customer.psid/id/fb_id` + SĐT chuẩn hoá. Lưu chiến dịch chọn vào `localStorage` (sống qua reload). **SSE** `web2:live-comments` debounce 4s → refetch set khi live chạy (realtime, KHÔNG poller).
+- **Tab filter (theo NGƯỜI)** `pancake-conversation-list.js`: `livestream` = `isLivestreamConv` true; `inbox` = false (người không trong chiến dịch); `all` = tất cả. **Sub-filter (loại hội thoại, mọi tab)** `typeFilter`: `message`=INBOX / `comment`=COMMENT / `all`. Áp sub-filter TRƯỚC tab. Empty-state Livestream khi chưa chọn chiến dịch → hướng dẫn.
+- **Shell** `pancake-init.js` `_renderShell`: 3 tab `Tất cả|Inbox|Livestream` + `#pkLivestreamBar` (trên) + hàng `.pk-subfilter` (Tất cả/Tin nhắn/Bình luận). Wiring dùng `closest()` (tab Livestream có `<i>`) + `applyTypeFilter`. `pancake-state.js`: `activeFilter` thêm `livestream`, bỏ `comment/live-saved`; thêm `typeFilter`.
+- **Fix overlap (#1)**: tabs cuộn trong `.pk-filter-tabs-scroll` riêng (flex:1, overflow-x), nút gear `.pk-filter-gear` ghim phải `flex:0 0 auto` → hết đè (trước: 4 tab + gear `margin-left:auto` tràn 339px). CSS bar/subfilter thêm vào `pancake-chat.css`.
+- **Files**: `js/pancake/pancake-livestream-filter.js` (mới), `js/pancake/pancake-state.js`, `js/pancake/pancake-conversation-list.js`, `js/pancake/pancake-init.js`, `css/pancake-chat.css`, `chat.html` (+script + bump `?v=20260620ls`).
+- ✅ Verify Playwright (localhost, web2 admin): 3 tab `["Tất cả","Inbox","Livestream"]` + sub-filter `["Tất cả","Tin nhắn","Bình luận"]`; gear `gearOverlapsTabs:false`; chọn chiến dịch "10/06/2026…(156)" → 149 fbId + 10 SĐT, bar "149 khách"; partition CHÍNH XÁC: Livestream 7 + Inbox 69 = Tất cả 76; sub-filter Bình luận 61 + Tin nhắn 15 = 76. 0 console error, 0 page error. Screenshot xác nhận layout sạch, không đè.
+
 ### [printer-settings/vieneu-tts] FIX file cài giọng lỗi PowerShell "Unexpected token '}'" @line 48 ✅
 
 User: trang `web2/printer-settings/` → tải `cai-may-pos.bat` → cài Print Bridge OK nhưng **VieNeu + OmniVoice fail**: `engine-setup.ps1:48 char:1 + } Unexpected token '}' in expression or statement.`
