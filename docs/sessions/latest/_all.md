@@ -3,17 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `5c4f6d9` — feat(web2/pos-installer): bo cai .bat -> MENU bam so (Print Bridge / VieNeu / OmniVoice / cai het) + rule doc shared truoc khi code
-**Last updated**: 2026-06-20 08:26:47 +07
-**Latest session**: [`RESUME:20260620-082647-5c4f6d9`](../20260620-082647-5c4f6d9.md)
-**Summary**: feat(web2/pos-installer): bo cai .bat -> MENU bam so (Print Bridge / VieNeu / OmniVoice / cai het) + rule doc shared ...
+**Latest commit**: `d4d347a` — docs(web2): bao cao ra soat toan dien Web 2.0 (read-only audit) — 121 loi xac nhan (6 critical, 43 high)
+**Last updated**: 2026-06-20 09:11:26 +07
+**Latest session**: [`RESUME:20260620-091126-d4d347a`](../20260620-091126-d4d347a.md)
+**Summary**: docs(web2): bao cao ra soat toan dien Web 2.0 (read-only audit) — 121 loi xac nhan (6 critical, 43 high)
 
 ## Folders affected in this commit
 
-- [`_root/`](./_root.md) — 1 file(s)
-- [`docs/`](./docs.md) — 1 file(s)
-- [`vieneu-tts/`](./vieneu-tts.md) — 2 file(s)
-- [`web2/`](./web2.md) — 3 file(s)
+- [`docs/`](./docs.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -28,7 +25,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-19 23:05
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-16 14:31
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-18 12:17
-- [`docs/`](./docs.md) — updated 2026-06-20 08:26
+- [`docs/`](./docs.md) — updated 2026-06-20 09:11
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-16 14:31
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-16 14:31
 - [`downloads/`](./downloads.md) — updated 2026-06-19 14:27
