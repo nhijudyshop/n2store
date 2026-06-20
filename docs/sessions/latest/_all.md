@@ -3,15 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `43c92f7` — feat(web2/jt-tracking): chat KH bam SDT -> modal 3-cot 'Chat khach hang' giong native-orders
-**Last updated**: 2026-06-20 14:20:40 +07
-**Latest session**: [`RESUME:20260620-142040-43c92f7`](../20260620-142040-43c92f7.md)
-**Summary**: web2/jt-tracking: chat KH bam SDT -> modal 3-cot Chat khach hang giong native-orders
+**Latest commit**: `9c2cc47` — docs(session): fill 20260620-142040-43c92f7 (jt-tracking chat modal)
+**Last updated**: 2026-06-20 14:21:38 +07
+**Latest session**: [`RESUME:20260620-142138-9c2cc47`](../20260620-142138-9c2cc47.md)
+**Summary**: docs(session): fill 20260620-142040-43c92f7 (jt-tracking chat modal)
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`web2/`](./web2.md) — 2 file(s)
+_(no folders affected — chỉ commit session file)_
 
 ## All folder snapshots
 
