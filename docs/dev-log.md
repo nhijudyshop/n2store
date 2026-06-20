@@ -2,6 +2,18 @@
 
 ## 2026-06-20
 
+### [web2/zalo] Phase 3 — gửi tin 1-1 ưu tiên TK cookie (wire vào send) ✅ code
+
+Nối tiếp Phase 1+2. Wire `getCookieAccountKey()` vào path gửi 1-1:
+- **Backend** `render.com/routes/web2-zalo.js`: `/conversation/:phone?account=<key>` + `/conversation/ensure {accountKey}` → resolve/tạo hội thoại dưới TK truyền vào (TK cookie); không truyền → TK CHÍNH (is_primary) như cũ. Safe-by-fallback.
+- **Client** `web2-zalo.js`: `getConversation(phone, accountKey)` thêm `?account=`; `mountChat(opts.preferAccountKey)` truyền vào getConversation + ensure body.
+- **Web2CustomerChat** `mountZalo`: chat 1-1 (theo SĐT) → `await Web2Zalo.getCookieAccountKey()` → preferAccountKey. Nhóm (mở theo convId) KHÔNG override (giữ TK nhóm).
+- Verified client (Phase 1+2): ext trả uid 852368 (My Njd), getCookieAccountKey→zca_5aa5d9c5 (My Njd), không tạo trùng. zaloUid là string (không lỗi BIGINT precision).
+- Bump `web2-zalo.js?v=…acc4` + `web2-customer-chat.js?v=20260620cookieacc` (4 page). node --check PASS 3 file.
+- ⏳ Cần Render deploy (backend) mới test end-to-end. Nhóm jt-tracking (TK relay đã xoá) = follow-up riêng.
+
+## 2026-06-20
+
 ### [web2/zalo + extension] Nền tảng "ưu tiên TK cookie để gửi tin" — Phase 1+2 (chưa wire) 🚧
 
 User chốt: gửi tin Zalo ưu tiên TK đang đăng nhập chat.zalo.me (cookie), áp dụng cả 1-1 lẫn nhóm; TK chưa kết nối → tự cookie-login.

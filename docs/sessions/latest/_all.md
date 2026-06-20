@@ -3,17 +3,16 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `df34bdd` — feat(web2/zalo): nen tang uu tien TK cookie de gui tin - Phase1 extension uid + Phase2 getCookieAccountKey (inert, chua wire)
-**Last updated**: 2026-06-20 16:16:47 +07
-**Latest session**: [`RESUME:20260620-161647-df34bdd`](../20260620-161647-df34bdd.md)
-**Summary**: feat(web2/zalo): nen tang uu tien TK cookie de gui tin - Phase1 extension uid + Phase2 getCookieAccountKey (inert, ch...
+**Latest commit**: `2546b67` — auto: session update
+**Last updated**: 2026-06-20 16:22:52 +07
+**Latest session**: [`RESUME:20260620-162252-2546b67`](../20260620-162252-2546b67.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`n2store-extension/`](./n2store-extension.md) — 2 file(s)
 - [`native-orders/`](./native-orders.md) — 1 file(s)
-- [`web2/`](./web2.md) — 4 file(s)
+- [`render.com/`](./render.com.md) — 1 file(s)
+- [`web2/`](./web2.md) — 7 file(s)
 
 ## All folder snapshots
 
@@ -45,7 +44,7 @@
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-06-20 16:16
 - [`n2store-facebook/`](./n2store-facebook.md) — updated 2026-06-14 13:09
 - [`n2store-realtime/`](./n2store-realtime.md) — updated 2026-06-16 11:15
-- [`native-orders/`](./native-orders.md) — updated 2026-06-20 16:16
+- [`native-orders/`](./native-orders.md) — updated 2026-06-20 16:22
 - [`nhanhang/`](./nhanhang.md) — updated 2026-06-20 12:07
 - [`order-management/`](./order-management.md) — updated 2026-06-20 12:07
 - [`orders-report/`](./orders-report.md) — updated 2026-06-20 12:19
@@ -57,7 +56,7 @@
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-06-20 12:07
 - [`referenceUI/`](./referenceUI.md) — updated 2026-06-19 14:27
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-06-20 12:07
-- [`render.com/`](./render.com.md) — updated 2026-06-20 16:10
+- [`render.com/`](./render.com.md) — updated 2026-06-20 16:22
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-19 14:27
 - [`service-costs/`](./service-costs.md) — updated 2026-06-20 12:07
@@ -78,4 +77,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-20 16:16
+- [`web2/`](./web2.md) — updated 2026-06-20 16:22
