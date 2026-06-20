@@ -2,6 +2,15 @@
 
 ## 2026-06-20
 
+### [live-chat + native-orders] Picker livestream: chọn CHIẾN DỊCH CHA hoặc BÀI LIVE (multi-select) + fix native-orders 401 chiến dịch cha ✅
+
+User: (1) chat.html cho "chọn chiến dịch cha **hoặc như hình**" (ảnh: checklist bài live + "Hôm nay/Bỏ chọn" + badge House/Store); (2) `native-orders/index.html` **chưa load được chiến dịch cha** (console `GET /api/web2-live-comments/campaigns 401` + `/page-posts 401`).
+
+- **chat.html — nâng picker** (`pancake-livestream-filter.js` viết lại): thay `<select>` đơn bằng **dropdown 2 mục**: `CHIẾN DỊCH CHA` (radio, `/campaigns`) **HOẶC** `BÀI LIVESTREAM` (checkbox đa chọn, `/posts` = 53 bài, badge Store/House theo `page_id`, count comment, nhãn `Live HH:mm DD-MM` vì `/posts` không có title) + nút **"Hôm nay"** (lọc bài `last_at` = hôm nay GMT+7) / **"Bỏ chọn"**. Loại trừ 2 chiều (chọn cha → bỏ bài; chọn bài → bỏ cha). Build commenter set: cha → `/?campaignId=`, bài → `/?postIds=`. Persist `{mode,campaignId,postIds}` localStorage. SSE `web2:live-comments` debounce 4s refetch. Fix z-index dropdown (`--pkr-z-dropdown` 400 > sticky 100 → search box hết đè).
+- **native-orders FIX 401**: 6 fetch `web2-live-comments` (`/campaigns`,`/posts`,`/page-posts`,`POST /campaigns`,`/assign`,`/unassign`) THIẾU `x-web2-token` → 401 (route soft-gated) → "Chưa có chiến dịch cha". Thêm helper `NO._liveCommentsHeaders()` (Web2Auth.authHeaders / fallback localStorage web2_auth) cho cả 6. Cùng regression đã fix cho live-chat 19/06. Bump `native-orders-filters-campaigns.js?v=20260620lc`. (⚠ `/page-posts` vẫn trả 0 bài trên web2-api — tech-debt riêng, ngoài scope.)
+- **Files**: `live-chat/js/pancake/pancake-livestream-filter.js` (viết lại), `live-chat/css/pancake-chat.css` (dropdown/section/row/badge/mini), `live-chat/chat.html` (bump `?v=20260620ls3`), `native-orders/js/native-orders-filters-campaigns.js`, `native-orders/index.html`.
+- ✅ Verify Playwright (localhost, web2 admin): native-orders 2 chiến dịch cha load (hết 401). chat.html dropdown 2 radio cha + 53 checkbox bài (badge Store/House, sort mới→cũ); "Hôm nay" → 5 bài → 399 khách → Livestream 63 + Inbox 9 = 72; chọn cha "10/06…" → posts cleared, 149 khách (loại trừ 2 chiều OK); 0 console error. Screenshot xác nhận layout sạch.
+
 ### [live-chat] Chat Pancake (`chat.html`): tab Comment→Livestream theo chiến dịch + sub-filter tin nhắn/bình luận + fix overlap ✅
 
 User (ảnh `live-chat/chat.html`): (1) fix giao diện 2 hàng tab bị đè (gear ⚙ đè "Lưu Live"); (2) đổi tab **Comment → Livestream** + đổi chức năng; (3) cho **chọn chiến dịch** như `index.html` → lấy danh sách khách comment → đưa người đó (cả comment + inbox) vào tab **Livestream**; (4) người KHÔNG trong danh sách → tab **Inbox**; (5) bỏ tab **Lưu Live** → còn 3 tab; (6) thêm **filter tin nhắn / bình luận** ở mọi tab.

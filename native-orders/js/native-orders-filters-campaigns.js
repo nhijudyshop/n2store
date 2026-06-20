@@ -138,9 +138,25 @@
     // ===== Chiến dịch cha (parent campaign) — chung dữ liệu live-chat =====
     NO.LIVE_COMMENTS_API = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/web2-live-comments';
 
+    // web2-live-comments GET/POST đều soft-gated (requireWeb2AuthSoft) → BẮT BUỘC
+    // gắn x-web2-token, thiếu → 401 → "Chưa có chiến dịch cha" (regression 2026-06-20).
+    NO._liveCommentsHeaders = function _liveCommentsHeaders(extra) {
+        if (window.Web2Auth?.authHeaders) return window.Web2Auth.authHeaders(extra || {});
+        const h = { ...(extra || {}) };
+        try {
+            const t = JSON.parse(localStorage.getItem('web2_auth') || 'null')?.token;
+            if (t) h['x-web2-token'] = t;
+        } catch (_) {
+            /* no token */
+        }
+        return h;
+    };
+
     NO.loadParentCampaigns = async function loadParentCampaigns() {
         try {
-            const r = await fetch(NO.LIVE_COMMENTS_API + '/campaigns');
+            const r = await fetch(NO.LIVE_COMMENTS_API + '/campaigns', {
+                headers: NO._liveCommentsHeaders(),
+            });
             const d = await r.json().catch(() => ({}));
             NO.STATE.parentCampaigns = d.data || [];
             NO.renderParentCampaigns();
@@ -184,7 +200,9 @@
         }
         if (id) {
             try {
-                const r = await fetch(NO.LIVE_COMMENTS_API + '/posts');
+                const r = await fetch(NO.LIVE_COMMENTS_API + '/posts', {
+                    headers: NO._liveCommentsHeaders(),
+                });
                 const d = await r.json().catch(() => ({}));
                 NO.STATE.parentPostIds = (d.data || [])
                     .filter((p) => String(p.campaign_id) === String(id))
@@ -206,7 +224,7 @@
         try {
             await fetch(NO.LIVE_COMMENTS_API + '/campaigns', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: NO._liveCommentsHeaders({ 'Content-Type': 'application/json' }),
                 body: JSON.stringify({ name }),
             });
             if (inp) inp.value = '';
@@ -219,7 +237,9 @@
 
     NO.loadPagePosts = async function loadPagePosts() {
         try {
-            const r = await fetch(NO.LIVE_COMMENTS_API + '/page-posts');
+            const r = await fetch(NO.LIVE_COMMENTS_API + '/page-posts', {
+                headers: NO._liveCommentsHeaders(),
+            });
             const d = await r.json().catch(() => ({}));
             NO.STATE.pagePosts = d.data || [];
             NO.renderPagePosts();
@@ -263,13 +283,13 @@
             if (campaignId) {
                 await fetch(NO.LIVE_COMMENTS_API + '/campaigns/' + campaignId + '/assign', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: NO._liveCommentsHeaders({ 'Content-Type': 'application/json' }),
                     body: JSON.stringify({ postId, postTitle: title, pageId }),
                 });
             } else {
                 await fetch(NO.LIVE_COMMENTS_API + '/unassign', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: NO._liveCommentsHeaders({ 'Content-Type': 'application/json' }),
                     body: JSON.stringify({ postId }),
                 });
             }
