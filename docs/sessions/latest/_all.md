@@ -3,22 +3,21 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `04af663` — feat(web2/picker): xem SP dang DANH SACH (anh + ten + ma + gia) thay vi luoi anh
-**Last updated**: 2026-06-20 06:39:53 +07
-**Latest session**: [`RESUME:20260620-063953-04af663`](../20260620-063953-04af663.md)
-**Summary**: Picker SP doi luoi anh -> danh sach (anh+ten+ma+gia)
+**Latest commit**: `54f30a1` — auto: session update
+**Last updated**: 2026-06-20 07:00:25 +07
+**Latest session**: [`RESUME:20260620-070025-54f30a1`](../20260620-070025-54f30a1.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`web2/`](./web2.md) — 2 file(s)
+- [`_root/`](./_root.md) — 1 file(s)
 
 ## All folder snapshots
 
 - [`.claude/`](./.claude.md) — updated 2026-06-19 14:27
 - [`.github/`](./.github.md) — updated 2026-06-13 11:30
 - [`AI/`](./AI.md) — updated 2026-05-21 15:39
-- [`_root/`](./_root.md) — updated 2026-06-19 22:21
+- [`_root/`](./_root.md) — updated 2026-06-20 07:00
 - [`aikol-studio/`](./aikol-studio.md) — updated 2026-05-21 15:39
 - [`balance-history-home/`](./balance-history-home.md) — updated 2026-06-18 13:09
 - [`balance-history/`](./balance-history.md) — updated 2026-06-16 14:31
