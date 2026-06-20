@@ -2,12 +2,13 @@
 /**
  * Web2PosInstaller — NGUỒN DÙNG CHUNG cho "Tải file cài đặt máy POS" (.bat).
  *
- * 1 bat `cai-may-pos.bat` cài CẢ: Print Bridge (in máy IP) + Giọng VieNeu (clone giọng) —
- * chạy nền ẩn + AUTO-START mỗi khi mở máy + tự xoá auto/instance CŨ (chống trùng).
+ * 1 bat `cai-may-pos.bat` = MENU bấm số: [1] Print Bridge (in máy IP), [2] Giọng VieNeu,
+ * [3] Giọng OmniVoice (đa ngôn ngữ + Voice Design), [0] cài hết. Chạy nền ẩn + AUTO-START
+ * mỗi khi mở máy + tự xoá auto/instance CŨ (chống trùng). Mỗi giọng 1 port riêng (8123/8124).
  * Trang nào cần (printer-settings, video-maker, …) chỉ load script này rồi gọi:
  *
- *   Web2PosInstaller.downloadInstaller()      // tải cai-may-pos.bat
- *   Web2PosInstaller.downloadUninstaller()    // tải go-may-pos.bat (gỡ cả 2)
+ *   Web2PosInstaller.downloadInstaller()      // tải cai-may-pos.bat (menu)
+ *   Web2PosInstaller.downloadUninstaller()    // tải go-may-pos.bat (gỡ cả 3)
  *   Web2PosInstaller.renderButtons(target, { showUninstall, installLabel, onInstall })
  *   Web2PosInstaller.batContent() / .uninstallBatContent()   // chuỗi bat thô
  *
@@ -36,7 +37,8 @@
         }, 200);
     }
 
-    // bat GỘP: xoá auto cũ → Print Bridge → tải&chạy vieneu-windows-setup.ps1
+    // bat MENU: bấm số chọn Print Bridge / VieNeu / OmniVoice / cài hết.
+    // Mỗi engine giọng cài qua vieneu-windows-setup.ps1 -Engine <vieneu|omnivoice>.
     function batContent() {
         const root = siteRoot();
         const pbUrl = root + '/scripts/print-bridge.ps1';
@@ -46,39 +48,86 @@
             '@echo off',
             'chcp 65001 >nul',
             'setlocal',
+            'title N2Store POS - Cai dat',
             'set "DIR=%LOCALAPPDATA%\\N2StorePrintBridge"',
             'set "STARTUP=%APPDATA%\\Microsoft\\Windows\\Start Menu\\Programs\\Startup"',
             'set "PBURL=' + pbUrl + '"',
             'set "VPS1=' + vPs1 + '"',
             'set "VBASE=' + vBase + '"',
-            'echo ===========================================================',
-            'echo   Cai N2Store POS: Print Bridge + Giong VieNeu (tu chay nen)',
-            'echo ===========================================================',
-            'REM --- 0) Tat auto/instance CU (tranh trung) ---',
-            'del /f /q "%STARTUP%\\N2StorePrintBridge.vbs" 2>nul',
-            'del /f /q "%STARTUP%\\N2StoreVieNeu.vbs" 2>nul',
-            'schtasks /delete /tn "VieNeu-TTS" /f >nul 2>nul',
-            'powershell -NoProfile -Command "Get-CimInstance Win32_Process -Filter \\"Name=\'wscript.exe\'\\" | Where-Object { $_.CommandLine -like \'*N2Store*\' } | ForEach-Object { try{ Stop-Process -Id $_.ProcessId -Force }catch{} }" 2>nul',
-            'REM --- 1) Print Bridge ---',
+            ':MENU',
+            'cls',
+            'echo =========================================================',
+            'echo   N2Store POS - Cai dat (bam so roi Enter)',
+            'echo =========================================================',
+            'echo.',
+            'echo   [1] May in (Print Bridge)   - in bill may IP, chay nen',
+            'echo   [2] Giong VieNeu            - tieng Viet, clone 3-5s (~595MB)',
+            'echo   [3] Giong OmniVoice         - 600+ ngon ngu, clone + Voice Design (~vai GB)',
+            'echo   [0] Cai HET (ca 3)',
+            'echo   [Q] Thoat',
+            'echo.',
+            'set "CHOICE="',
+            'set /p "CHOICE=Bam so roi Enter: "',
+            'if "%CHOICE%"=="1" goto DO_PRINTER',
+            'if "%CHOICE%"=="2" goto DO_VIENEU',
+            'if "%CHOICE%"=="3" goto DO_OMNI',
+            'if "%CHOICE%"=="0" goto DO_ALL',
+            'if /i "%CHOICE%"=="Q" exit /b',
+            'echo [!] Lua chon khong hop le.',
+            'timeout /t 2 >nul',
+            'goto MENU',
+            ':DO_PRINTER',
+            'call :PRINTER',
+            'goto FIN',
+            ':DO_VIENEU',
+            'call :VIENEU',
+            'goto FIN',
+            ':DO_OMNI',
+            'call :OMNIVOICE',
+            'goto FIN',
+            ':DO_ALL',
+            'call :PRINTER',
+            'call :VIENEU',
+            'call :OMNIVOICE',
+            'goto FIN',
+            ':FIN',
+            'echo.',
+            'echo [HOAN TAT] Thanh phan da chon dang chay nen + TU BAT khi mo may.',
+            'echo Vao trang Tao video / Cai dat may in se tu hien.',
+            'echo.',
+            'pause',
+            'exit /b',
+            ':PRINTER',
+            'echo.',
+            'echo [May in] Cai Print Bridge...',
             'if not exist "%DIR%" mkdir "%DIR%"',
-            'echo [1/2] Tai Print Bridge ...',
+            'del /f /q "%STARTUP%\\N2StorePrintBridge.vbs" 2>nul',
             "powershell -NoProfile -Command \"try{ Invoke-WebRequest -Uri '%PBURL%' -OutFile '%DIR%\\print-bridge.ps1' -UseBasicParsing; exit 0 }catch{ exit 1 }\"",
-            'if not exist "%DIR%\\print-bridge.ps1" ( echo [LOI] Khong tai duoc Print Bridge & pause & exit /b 1 )',
+            'if not exist "%DIR%\\print-bridge.ps1" ( echo   [LOI] Khong tai duoc Print Bridge & exit /b 1 )',
             '> "%DIR%\\run-hidden.vbs" echo CreateObject("WScript.Shell").Run "powershell -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File ""%DIR%\\print-bridge.ps1""", 0, False',
             'copy /Y "%DIR%\\run-hidden.vbs" "%STARTUP%\\N2StorePrintBridge.vbs" >nul',
             'wscript "%DIR%\\run-hidden.vbs"',
-            'echo   [OK] Print Bridge chay nen (http://127.0.0.1:17777)',
-            'REM --- 2) Giong VieNeu (tai ps1 rieng + chay) ---',
-            'echo [2/2] Cai Giong VieNeu (lan dau ~595MB, vai phut)...',
-            "powershell -NoProfile -Command \"try{ Invoke-WebRequest -Uri '%VPS1%' -OutFile '%DIR%\\vieneu-setup.ps1' -UseBasicParsing; exit 0 }catch{ exit 1 }\"",
-            'if not exist "%DIR%\\vieneu-setup.ps1" ( echo [BO QUA] Khong tai duoc VieNeu setup & goto :done )',
-            'powershell -NoProfile -ExecutionPolicy Bypass -File "%DIR%\\vieneu-setup.ps1" -VBase "%VBASE%"',
-            ':done',
+            'echo   [OK] May in chay nen (http://127.0.0.1:17777)',
+            'exit /b 0',
+            ':VIENEU',
             'echo.',
-            'echo  [HOAN TAT] Print Bridge + Giong VieNeu dang chay nen, TU BAT moi khi mo may.',
-            'echo  Vao trang Tao video se tu hien may nay o muc Giong VieNeu.',
+            'echo [VieNeu] Cai giong VieNeu (lan dau ~595MB, vai phut)...',
+            'if not exist "%DIR%" mkdir "%DIR%"',
+            'del /f /q "%STARTUP%\\N2StoreVieNeu.vbs" 2>nul',
+            'schtasks /delete /tn "VieNeu-TTS" /f >nul 2>nul',
+            "powershell -NoProfile -Command \"try{ Invoke-WebRequest -Uri '%VPS1%' -OutFile '%DIR%\\engine-setup.ps1' -UseBasicParsing; exit 0 }catch{ exit 1 }\"",
+            'if not exist "%DIR%\\engine-setup.ps1" ( echo   [BO QUA] Khong tai duoc setup & exit /b 1 )',
+            'powershell -NoProfile -ExecutionPolicy Bypass -File "%DIR%\\engine-setup.ps1" -VBase "%VBASE%" -Engine vieneu',
+            'exit /b 0',
+            ':OMNIVOICE',
             'echo.',
-            'pause',
+            'echo [OmniVoice] Cai giong OmniVoice (lan dau ~vai GB, cho lau)...',
+            'if not exist "%DIR%" mkdir "%DIR%"',
+            'del /f /q "%STARTUP%\\N2StoreOmniVoice.vbs" 2>nul',
+            "powershell -NoProfile -Command \"try{ Invoke-WebRequest -Uri '%VPS1%' -OutFile '%DIR%\\engine-setup.ps1' -UseBasicParsing; exit 0 }catch{ exit 1 }\"",
+            'if not exist "%DIR%\\engine-setup.ps1" ( echo   [BO QUA] Khong tai duoc setup & exit /b 1 )',
+            'powershell -NoProfile -ExecutionPolicy Bypass -File "%DIR%\\engine-setup.ps1" -VBase "%VBASE%" -Engine omnivoice',
+            'exit /b 0',
         ].join('\r\n');
     }
 
@@ -88,16 +137,19 @@
             'chcp 65001 >nul',
             'set "DIR=%LOCALAPPDATA%\\N2StorePrintBridge"',
             'set "VDIR=%LOCALAPPDATA%\\N2StoreVieNeu"',
+            'set "ODIR=%LOCALAPPDATA%\\N2StoreOmniVoice"',
             'set "STARTUP=%APPDATA%\\Microsoft\\Windows\\Start Menu\\Programs\\Startup"',
-            'echo Dang tat va go N2Store Print Bridge + Giong VieNeu ...',
+            'echo Dang tat va go N2Store POS (Print Bridge + VieNeu + OmniVoice) ...',
             'del /f /q "%STARTUP%\\N2StorePrintBridge.vbs" 2>nul',
             'del /f /q "%STARTUP%\\N2StoreVieNeu.vbs" 2>nul',
+            'del /f /q "%STARTUP%\\N2StoreOmniVoice.vbs" 2>nul',
             'schtasks /delete /tn "VieNeu-TTS" /f >nul 2>nul',
-            "powershell -NoProfile -Command \"Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like '*print-bridge.ps1*' -or $_.CommandLine -like '*serve.py*' -or $_.CommandLine -like '*N2Store*' -or ($_.Name -eq 'cloudflared.exe' -and $_.CommandLine -like '*N2StoreVieNeu*') } | ForEach-Object { try{ Stop-Process -Id $_.ProcessId -Force }catch{} }\" 2>nul",
+            "powershell -NoProfile -Command \"Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like '*print-bridge.ps1*' -or $_.CommandLine -like '*serve.py*' -or $_.CommandLine -like '*N2Store*' } | ForEach-Object { try{ Stop-Process -Id $_.ProcessId -Force }catch{} }\" 2>nul",
             'rmdir /s /q "%DIR%" 2>nul',
             'rmdir /s /q "%VDIR%" 2>nul',
+            'rmdir /s /q "%ODIR%" 2>nul',
             'echo.',
-            'echo  [OK] Da tat + go Print Bridge + Giong VieNeu. Khong con tu bat khi mo may.',
+            'echo  [OK] Da tat + go het (Print Bridge + VieNeu + OmniVoice). Khong con tu bat khi mo may.',
             'echo.',
             'pause',
         ].join('\r\n');
@@ -144,7 +196,7 @@
             downloadInstaller();
             if (global.notificationManager?.show)
                 global.notificationManager.show(
-                    'Đã tải bộ cài — bấm đúp để chạy trên máy POS',
+                    'Đã tải bộ cài — bấm đúp để chạy trên máy POS (menu bấm số)',
                     'success'
                 );
             opts.onInstall && opts.onInstall();

@@ -2,6 +2,23 @@
 
 ## 2026-06-20
 
+### [CLAUDE.md/MEMORY] Rule BƯỚC 0: đọc web2/shared/ TRƯỚC khi code Web 2.0 ✅
+
+User: "memory/claude/dev-log vẫn chưa nắm rõ thông tin dự án → nhớ xem shared web 2.0 trước khi code để lấy được toàn bộ module web 2.0".
+
+- **`CLAUDE.md`** mục "Quy tắc khi code": thêm callout **⚠️ BƯỚC 0 BẮT BUỘC** — mở/đọc `web2/shared/` (~90+ module) + `docs/web2/WEB2-CODEMAP.md` §1 Shared Modules Registry TRƯỚC khi viết dòng nào → tái dùng, KHÔNG fork.
+- **MEMORY**: file mới `feedback_web2_read_shared_first.md` + pointer đầu `MEMORY.md` (Why: tránh trùng lặp/drift; How: ls web2/shared + tra CODEMAP §1 trước).
+
+### [vieneu-tts/web2-pos-installer] Bộ cài máy POS (.bat) → MENU bấm số: Print Bridge / VieNeu / OmniVoice / cài hết ✅
+
+User: "VieNeu / OmniVoice / printer… tất cả file cài bằng bat của Web 2.0 → mở .bat cho chọn option hoặc cài hết bấm số 0,1,2,3".
+
+- **`web2/shared/web2-pos-installer.js`** `batContent()` → sinh `cai-may-pos.bat` dạng **MENU**: `[1]` Print Bridge (in máy IP), `[2]` VieNeu (~595MB), `[3]` OmniVoice (~vài GB, 600+ ngôn ngữ + Voice Design), `[0]` cài hết, `[Q]` thoát. `uninstallBatContent()` gỡ cả 3 (thêm `N2StoreOmniVoice`).
+- **`vieneu-tts/vieneu-windows-setup.ps1`** thêm `-Engine <vieneu|omnivoice>` + `-Port` (8123/8124, chạy song song được): thư mục riêng `N2StoreVieNeu`/`N2StoreOmniVoice`, venv riêng, deps riêng (omnivoice kéo torch + `requirements-omnivoice.txt`), launcher `start.cmd` set `TTS_ENGINE`+`PORT` chạy ẩn + auto-start. **Sửa regression**: app.py giờ import `engine_base/engine_vieneu` → ps1 tải thêm các file engine (trước chỉ tải app/serve/requirements → sẽ vỡ).
+- **`vieneu-tts/install-windows.bat`** (chạy từ folder) cũng thành menu `[1]` VieNeu `[2]` OmniVoice `[0]` cài hết.
+- Bump `web2-pos-installer.js?v=20260620a` (video-maker + printer-settings).
+- ✅ Verify: py_compile OK; node render `cai-may-pos.bat` (menu 3 engine, `-Engine` param đúng, VBASE đúng, paren cân, uninstall có OmniVoice). Bat/ps1 thật chạy trên máy Windows shop.
+
 ### [vieneu-tts] Thêm engine OmniVoice (k2-fsa, Apache-2.0) cạnh VieNeu — chọn qua TTS_ENGINE, GIỮ NGUYÊN frontend ✅
 
 Research 3 repo TTS user gửi (TTS-WebUI/MIT, OmniVoice-Studio/AGPL, **k2-fsa/OmniVoice/Apache-2.0**). Verdict: OmniVoice là bản nâng cấp khít VieNeu (cùng hình dạng server máy shop, Apache-2.0, **tiếng Việt thật** — ngôn ngữ #607, 8.481h data; clone SOTA + **Voice Design** chỉnh giới tính/tuổi/cao độ/accent không cần mẫu). User chọn **(A)** thêm engine vào `vieneu-tts/` server.
