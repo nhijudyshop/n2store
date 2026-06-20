@@ -2,6 +2,14 @@
 
 ## 2026-06-20
 
+### [docs/web2] Rà soát toàn diện Web 2.0 (read-only audit, multi-agent workflow) → WEB2-FULL-REVIEW-20260620.md ✅
+
+User yêu cầu rà soát toàn bộ Web 2.0 (cloudflare/render/firebase/shared + từng trang: input→handler→hiệu ứng, SSE, console.log, bảo mật, liên kết trang) — KHÔNG gửi gì tới FB/Pancake/Zalo. Chạy workflow ~57 agent audit + verify từng lỗi (adversarial) + null-safe synthesis.
+
+- **Kết quả `docs/web2/WEB2-FULL-REVIEW-20260620.md`**: 56 unit, **121 lỗi xác nhận** (đã khử trùng) — 🔴 6 critical · 🟠 43 high · 🟡 39 medium · ⚪ 32 low. Mỗi lỗi qua 1 agent kiểm chứng độc lập (đa số confidence=high) + `file:line` + fix.
+- **Phát hiện nổi bật (CRITICAL/HIGH)**: hàng loạt router Web 2.0 **KHÔNG có auth** (`web2-zalo` 44 routes gồm gửi tin + IDOR /media, `web2-fb-posts` token theft + publish, `web2-returns`/`purchase-refund` tiền + over-refund client-controlled, `web2-products`/`web2-variants` mutations, `web2-msg-send`, `web2-jt-tracking` + `/clear` DELETE-all, `web2-ai-script`); worker **hardcode plaintext TPOS creds** (token-handler.js:42) + **open-proxy/SSRF** (`?url=` không validate); admin secret lộ qua `?secret=` query (5 route); Zalo/FB token + session lưu plaintext; `web2-users` permission không enforce server-side; double-send (Zalo) + double-publish (FB) thiếu idempotency.
+- Rà soát tĩnh hoàn toàn (Read/Grep), KHÔNG gọi mạng, KHÔNG gửi gì tới khách. Verify dừng sớm ở 122 verdict do candidate trùng lặp nhiều (lỗi auth bị nhiều agent xác nhận) — critical/high đã phủ đủ. Lộ trình fix ưu tiên: gắn auth router hở + đổi mật khẩu TPOS + validate `?url=` worker.
+
 ### [CLAUDE.md/MEMORY] Rule BƯỚC 0: đọc web2/shared/ TRƯỚC khi code Web 2.0 ✅
 
 User: "memory/claude/dev-log vẫn chưa nắm rõ thông tin dự án → nhớ xem shared web 2.0 trước khi code để lấy được toàn bộ module web 2.0".
