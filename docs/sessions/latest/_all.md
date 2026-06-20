@@ -3,17 +3,17 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `846c541` — auto: session update
-**Last updated**: 2026-06-20 16:10:23 +07
-**Latest session**: [`RESUME:20260620-161023-846c541`](../20260620-161023-846c541.md)
-**Summary**: auto: session update
+**Latest commit**: `df34bdd` — feat(web2/zalo): nen tang uu tien TK cookie de gui tin - Phase1 extension uid + Phase2 getCookieAccountKey (inert, chua wire)
+**Last updated**: 2026-06-20 16:16:47 +07
+**Latest session**: [`RESUME:20260620-161647-df34bdd`](../20260620-161647-df34bdd.md)
+**Summary**: feat(web2/zalo): nen tang uu tien TK cookie de gui tin - Phase1 extension uid + Phase2 getCookieAccountKey (inert, ch...
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
 - [`n2store-extension/`](./n2store-extension.md) — 2 file(s)
-- [`render.com/`](./render.com.md) — 2 file(s)
-- [`web2/`](./web2.md) — 1 file(s)
+- [`native-orders/`](./native-orders.md) — 1 file(s)
+- [`web2/`](./web2.md) — 4 file(s)
 
 ## All folder snapshots
 
@@ -28,7 +28,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-20 11:49
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-06-20 16:10
+- [`docs/`](./docs.md) — updated 2026-06-20 16:16
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-19 14:27
@@ -42,10 +42,10 @@
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-20 12:07
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-06-20 12:07
 - [`live-chat/`](./live-chat.md) — updated 2026-06-20 12:07
-- [`n2store-extension/`](./n2store-extension.md) — updated 2026-06-20 16:10
+- [`n2store-extension/`](./n2store-extension.md) — updated 2026-06-20 16:16
 - [`n2store-facebook/`](./n2store-facebook.md) — updated 2026-06-14 13:09
 - [`n2store-realtime/`](./n2store-realtime.md) — updated 2026-06-16 11:15
-- [`native-orders/`](./native-orders.md) — updated 2026-06-20 16:02
+- [`native-orders/`](./native-orders.md) — updated 2026-06-20 16:16
 - [`nhanhang/`](./nhanhang.md) — updated 2026-06-20 12:07
 - [`order-management/`](./order-management.md) — updated 2026-06-20 12:07
 - [`orders-report/`](./orders-report.md) — updated 2026-06-20 12:19
@@ -78,4 +78,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-20 16:10
+- [`web2/`](./web2.md) — updated 2026-06-20 16:16
