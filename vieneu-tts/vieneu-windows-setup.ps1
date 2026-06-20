@@ -1,4 +1,4 @@
-# #Note: WEB2.0 — cài + chạy nền + AUTO-START engine giọng (VieNeu HOẶC OmniVoice) trên máy POS (Windows). Gọi từ cai-may-pos.bat.
+﻿# #Note: WEB2.0 — cài + chạy nền + AUTO-START engine giọng (VieNeu HOẶC OmniVoice) trên máy POS (Windows). Gọi từ cai-may-pos.bat.
 # Tải app.py/serve.py + engine_*.py + requirements từ $VBase, dựng venv, cài deps, tải cloudflared, warm-up model,
 # tạo launcher chạy ẩn (pythonw serve.py qua start.cmd có env) + bỏ vào Startup (tự bật mỗi khi mở máy). Idempotent.
 #   -Engine vieneu   (mặc định) — package vieneu, port 8123, thư mục N2StoreVieNeu
@@ -27,7 +27,7 @@ foreach ($f in $files) {
     try { Invoke-WebRequest -Uri "$VBase/$f" -OutFile (Join-Path $DIR $f) -UseBasicParsing }
     catch { Write-Host "  [loi] tai $f : $($_.Exception.Message)" }
 }
-if (-not (Test-Path (Join-Path $DIR "serve.py"))) { Write-Host "[$Label] Khong tai duoc file — bo qua."; return }
+if (-not (Test-Path (Join-Path $DIR "serve.py"))) { Write-Host "[$Label] Khong tai duoc file - bo qua."; return }
 
 # --- Python (winget cai neu thieu) ---
 $py = (Get-Command python -ErrorAction SilentlyContinue).Source
@@ -42,7 +42,7 @@ if (-not $py) {
     } catch {}
     $py = (Get-Command python -ErrorAction SilentlyContinue).Source
     if (-not $py) {
-        Write-Host "[$Label] Da cai Python — CHAY LAI file cai dat de tiep tuc (PATH can refresh)."
+        Write-Host "[$Label] Da cai Python - CHAY LAI file cai dat de tiep tuc (PATH can refresh)."
         return
     }
 }

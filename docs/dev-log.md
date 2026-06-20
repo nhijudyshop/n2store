@@ -2,6 +2,15 @@
 
 ## 2026-06-20
 
+### [printer-settings/vieneu-tts] FIX file cài giọng lỗi PowerShell "Unexpected token '}'" @line 48 ✅
+
+User: trang `web2/printer-settings/` → tải `cai-may-pos.bat` → cài Print Bridge OK nhưng **VieNeu + OmniVoice fail**: `engine-setup.ps1:48 char:1 + } Unexpected token '}' in expression or statement.`
+
+- **Root cause**: `vieneu-tts/vieneu-windows-setup.ps1` (file mà bat tải về thành `engine-setup.ps1`) có **em-dash `—` (U+2014) NẰM TRONG string literal** ở line 30 + 45 (`Write-Host "... Khong tai duoc file — bo qua."` / `"... Da cai Python — CHAY LAI ..."`). File serve **UTF-8 KHÔNG BOM** → Windows PowerShell 5.1 đọc theo ANSI codepage → 3 byte em-dash decode thành rác chứa ký tự giống dấu nháy → vỡ chuỗi → lệch ngoặc → báo `}` thừa ở line 48 (ngoặc kế tiếp sau chỗ hỏng). Mọi `Write-Host` khác trong file đã cố ý né dấu tiếng Việt; 2 em-dash này lọt. `scripts/print-bridge.ps1` không có non-ASCII ngoài comment → cài OK.
+- **Fix**: (1) đổi 2 em-dash trong string literal → ASCII `-` (code lines giờ thuần ASCII, độc lập encoding). (2) Thêm **UTF-8 BOM** (`EF BB BF`) → PowerShell đọc đúng UTF-8 tuyệt đối + comment tiếng Việt decode đúng + chống tái phát nếu sau này lỡ thêm tiếng Việt vào string. Comment lines 1-5 còn tiếng Việt nhưng `#` an toàn mọi encoding.
+- **Files**: `vieneu-tts/vieneu-windows-setup.ps1` (2 string literal + BOM).
+- ✅ Verify: brace/paren balance 0/0; grep non-ASCII ngoài comment = rỗng. bat tự re-download `%VPS1%` mỗi lần chạy → chạy lại bat là lấy file đã sửa (không cần gỡ thủ công).
+
 ### [native-orders] Đơn Inbox: "Gán FB khác" — gán lại Facebook đúng nếu auto-dò nhầm ✅
 
 User: "Cho gán lại facebook khác nếu nhầm" — sau khi chọn KH từ kho, hệ thống tự dò hội thoại Pancake theo SĐT có thể gắn nhầm Facebook (nhiều profile cùng SĐT). Thêm nút **"Gán FB khác"** trong chip "KH đã chọn" → mở panel tìm hội thoại Pancake (CHỈ Pancake) → chọn đúng FB → re-bind, **GIỮ NGUYÊN tên + SĐT** đơn (chỉ bù field rỗng).
