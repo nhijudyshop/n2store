@@ -3885,7 +3885,10 @@ class UnifiedNavigationManager {
         if (!userInfo) return;
 
         const userName = document.getElementById('userName');
-        if (userName) {
+        if (userName && !this.enableDisplayNameEdit) {
+            // Self-rename disabled: just render the name, no edit button.
+            userName.textContent = userInfo.displayName || 'User';
+        } else if (userName) {
             // Check if edit button already exists
             const existingEditBtn = userName.parentElement.querySelector('.edit-displayname-btn');
             if (!existingEditBtn) {
@@ -4008,6 +4011,10 @@ class UnifiedNavigationManager {
     // =====================================================
 
     showEditDisplayNameModal() {
+        // Self-rename disabled (2026-06-20). Renaming breaks identity matching on
+        // historical records keyed by display name (see soquy creator filter).
+        if (!this.enableDisplayNameEdit) return;
+
         const userInfo = window.authManager?.getUserInfo();
         const currentDisplayName = userInfo?.displayName || '';
 
