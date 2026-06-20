@@ -1134,6 +1134,10 @@ class UnifiedNavigationManager {
         this.isEditMode = false; // Menu edit mode (admin only)
         this.groupSortable = null; // SortableJS instance for groups
         this.itemSortables = []; // SortableJS instances for items
+        // Self-service display-name editing disabled (2026-06-20): renaming mutates the
+        // string stored as `createdBy` on historical records (e.g. soquy_vouchers),
+        // hiding a user's own past data. Identity must stay tied to the stable username.
+        this.enableDisplayNameEdit = false;
         this.init();
     }
 
@@ -1536,9 +1540,14 @@ class UnifiedNavigationManager {
                     <div class="mobile-user-details">
                         <div class="mobile-user-name-wrapper">
                             <div class="mobile-user-name">${userInfo?.displayName || 'User'}</div>
+                            ${
+                                this.enableDisplayNameEdit
+                                    ? `
                             <button class="edit-displayname-btn" id="editDisplayNameMobile" title="Chỉnh sửa tên hiển thị">
                                 <i data-lucide="edit-2"></i>
-                            </button>
+                            </button>`
+                                    : ''
+                            }
                         </div>
                         <div class="mobile-user-role">${roleName}</div>
                     </div>
