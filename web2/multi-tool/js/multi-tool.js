@@ -90,6 +90,19 @@
                 .map((p) => `<option value="${esc(p.id)}">${esc(p.name || p.id)}</option>`)
                 .join('');
         sel.onchange = () => loadPosts();
+        // Mặc định chọn page "Nhijudy Store" (chuẩn hoá: lowercase + bỏ dấu cách) → tự
+        // tải bài live → loadPosts() tự chọn bài MỚI NHẤT (index 0) + hội thoại mới nhất.
+        const norm = (s) =>
+            String(s || '')
+                .toLowerCase()
+                .replace(/\s+/g, '');
+        const def =
+            pages.find((p) => norm(p.name) === 'nhijudystore') ||
+            pages.find((p) => norm(p.name).includes('nhijudystore'));
+        if (def) {
+            sel.value = String(def.id);
+            loadPosts();
+        }
     }
 
     // Parse timestamp Pancake — inserted_at là UTC KHÔNG hậu tố Z → phải append Z
