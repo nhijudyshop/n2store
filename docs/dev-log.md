@@ -1,5 +1,20 @@
 # Dev Log
 
+## 2026-06-21
+
+### [audit] Web 2.0 full-surface audit (adversarial-verified) → fix 25 bug ✅
+
+Workflow audit 8 mặt (sse/ws, render-route, pancake, zalo, frontend-js, css-modal-ui, click-path, firebase) → 47 finding raw → skeptic refute → **27 confirmed** → fix 25 (6 commit r1a-r1f), 1 false-positive (native-orders-modal-edit: `#productPickerInput` rebuild mỗi lần mở modal nên listener KHÔNG tích lũy).
+
+- **r1a** — QR-write auth (`v2/web2-customer-wallet` POST `/:phone/qr` + client gắn `x-web2-token`); `web2-live-comments` seq fallback non-empty numeric (hết đè comment) + N+1 DELETE → 1 query `unnest+EXISTS`; relay 401 log rõ; so-order-storage-sync conflict clear `_pushTimer` (giữ `_pendingState`).
+- **r1b** (CRITICAL) — `web2-generic` capture-lock acquire/release `requireWeb2AuthSoft` (release qua sendBeacon → token đi trong **body**, client gắn vào payload); `web2-zalo-zca` restoreAll truyền `expectedUid=a.zalo_uid||null` (chống boot login nhầm danh tính) + audit log + `web2-zalo` restoreSessions SELECT thêm `zalo_uid`; `web2-zalo` GET `/conversation/:phone` fallback ưu tiên TK `is_primary`/`connected`.
+- **r1c** — cleanup SSE/timer leak khi `pagehide` (web2-bh-data, web2-pending-match, web2-wallet-balance shared); web2-msg-template-send poll 3s→10s + pagehide clear.
+- **r1d** — purchase-refund modal anti-lag (bỏ `backdrop-filter:blur`, box-shadow 32px→8px24px ×2).
+- **r1e** — native-orders dup listener filterStatus/filterLimit; purchase-refund + products modal double-submit guard.
+- **r1f** — native-orders-snapshots check `r.ok`; web2-qr-modal `last_used_at` GMT+7; so-order-app remoteHandler hoãn renderAll khi đang focus ô nhập.
+- Tất cả `node --check` pass; bump `?v=` các file shared/page (wallet-balance, msg-template-send, qr-modal, purchase-refund.css, products-modal, …). **Cần verify browser-test**: capture-lock leader/heartbeat/release end-to-end (sendBeacon+token body), Zalo boot restore trên Render.
+- Bối cảnh: từ task "đọc hiểu 10 repo (redis/tanstack-query/glide/dragonfly/sdwebimage/nextchat/chatwoot/chatui/simplex/wunjo) → tích hợp Web 2.0". Ground-truth: phần cache/async (dedup/LRU/onSettled) phần lớn ĐÃ có (initPromise dedup, SSE invalidate, IDB TTL) → pivot sang audit+fix toàn bộ Web 2.0.
+
 ## 2026-06-20
 
 ### [perf] Trigram index web2_balance_history.content (ILIKE substring) ✅ + remaining defer
