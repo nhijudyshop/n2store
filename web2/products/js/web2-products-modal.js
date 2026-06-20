@@ -545,7 +545,23 @@
         }
     }
 
+    // Guard chống double-click Save (audit HIGH 2026-06-20): wrapper re-entrancy +
+    // disable nút trong lúc xử lý. finally bao MỌI nhánh return (validate/optimistic/
+    // legacy/bulk) → không kẹt _busy. Optimistic đã closeModal() nên nhả ngay là an toàn.
     async function saveModal() {
+        if (saveModal._busy) return;
+        saveModal._busy = true;
+        const _saveBtn = document.getElementById('btnSaveProduct');
+        if (_saveBtn) _saveBtn.disabled = true;
+        try {
+            return await _saveModalImpl();
+        } finally {
+            saveModal._busy = false;
+            if (_saveBtn) _saveBtn.disabled = false;
+        }
+    }
+
+    async function _saveModalImpl() {
         const user = window.AuthManager?.getCurrentUser?.() || {};
         const supplierInput = ($('#pmSupplier')?.value || '').trim();
         const fields = {

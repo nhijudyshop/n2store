@@ -182,8 +182,8 @@
                 NO.load();
             }
         });
-        NO.$('#filterStatus')?.addEventListener('change', NO.applyFilters);
-        NO.$('#filterLimit')?.addEventListener('change', NO.applyFilters);
+        // (đã gỡ cặp listener filterStatus/filterLimit trùng — trước gắn 2 lần làm
+        //  applyFilters chạy đôi mỗi lần đổi dropdown. Giữ bản ở trên, audit 2026-06-20)
 
         // Campaign filter wiring
         NO.STATE.selectedCampaignIds = NO.loadCampaignSelection();

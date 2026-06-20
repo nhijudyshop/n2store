@@ -82,6 +82,11 @@
     async function handleFormSubmit(e) {
         e.preventDefault();
         const form = e.target;
+        // Chống double-submit (audit HIGH 2026-06-20): click nhanh 2 lần tạo 2 phiếu.
+        if (handleFormSubmit._busy) return;
+        handleFormSubmit._busy = true;
+        const submitBtn = form.querySelector('[type="submit"]') || e.submitter || null;
+        if (submitBtn) submitBtn.disabled = true;
         const fd = new FormData(form);
         const productsText = fd.get('productsText') || '';
         const products = parseProducts(String(productsText));
@@ -136,6 +141,9 @@
             PR.render.selectRefund(payload.code);
         } catch (e) {
             notify(`Lưu thất bại: ${e.message}`, 'error');
+        } finally {
+            handleFormSubmit._busy = false;
+            if (submitBtn) submitBtn.disabled = false;
         }
     }
 
