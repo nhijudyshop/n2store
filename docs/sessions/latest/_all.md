@@ -3,13 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `b93a2f2` — feat(web2/chat-modal): cot trai hien TAT CA hoi thoai + pill ten page moi dong
-**Last updated**: 2026-06-20 14:53:41 +07
-**Latest session**: [`RESUME:20260620-145341-b93a2f2`](../20260620-145341-b93a2f2.md)
-**Summary**: web2 chat-modal: cot trai hien tat ca hoi thoai + pill ten page
+**Latest commit**: `7648b85` — auto: session update
+**Last updated**: 2026-06-20 15:22:03 +07
+**Latest session**: [`RESUME:20260620-152203-7648b85`](../20260620-152203-7648b85.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
+- [`delivery-report/`](./delivery-report.md) — 3 file(s)
 - [`docs/`](./docs.md) — 1 file(s)
 - [`native-orders/`](./native-orders.md) — 1 file(s)
 - [`web2/`](./web2.md) — 5 file(s)
@@ -26,8 +27,8 @@
 - [`bangkiemhang/`](./bangkiemhang.md) — updated 2026-06-20 12:07
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-20 11:49
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
-- [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 12:07
-- [`docs/`](./docs.md) — updated 2026-06-20 14:53
+- [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
+- [`docs/`](./docs.md) — updated 2026-06-20 15:22
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-19 14:27
@@ -44,7 +45,7 @@
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-06-19 19:21
 - [`n2store-facebook/`](./n2store-facebook.md) — updated 2026-06-14 13:09
 - [`n2store-realtime/`](./n2store-realtime.md) — updated 2026-06-16 11:15
-- [`native-orders/`](./native-orders.md) — updated 2026-06-20 14:53
+- [`native-orders/`](./native-orders.md) — updated 2026-06-20 15:22
 - [`nhanhang/`](./nhanhang.md) — updated 2026-06-20 12:07
 - [`order-management/`](./order-management.md) — updated 2026-06-20 12:07
 - [`orders-report/`](./orders-report.md) — updated 2026-06-20 12:19
@@ -77,4 +78,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-20 14:53
+- [`web2/`](./web2.md) — updated 2026-06-20 15:22
