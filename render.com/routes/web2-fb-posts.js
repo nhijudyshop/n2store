@@ -18,6 +18,7 @@ const express = require('express');
 const router = express.Router();
 const fb = require('../services/web2-fb-graph-service');
 const caption = require('../services/web2-caption-service');
+const secretCrypto = require('../lib/web2-secret-crypto');
 const { requireWeb2AuthSoft, requireWeb2Admin } = require('../middleware/web2-auth');
 
 const getDb = (req) => req.app.locals.web2Db || req.app.locals.chatDb;
@@ -133,7 +134,15 @@ async function loadToken(db) {
         const r = await db.query(
             `SELECT * FROM web2_fb_post_tokens ORDER BY updated_at DESC NULLS LAST LIMIT 1`
         );
-        return r.rows[0] || null;
+        const row = r.rows[0] || null;
+        if (row) {
+            // Giải mã AT-REST trước khi dùng (legacy plaintext đi qua nguyên vẹn).
+            // Mọi consumer (status/publish/refresh/list/insights/ads…) đi qua đây →
+            // 1 chỗ giải mã, không sót read site.
+            row.user_token = secretCrypto.decryptString(row.user_token); // TEXT
+            row.pages = secretCrypto.decryptJson(row.pages); // JSONB chứa page access_token
+        }
+        return row;
     } catch (_) {
         return null;
     }
@@ -145,7 +154,14 @@ async function saveToken(db, { userId, userToken, name, pages, expiresAt }) {
          ON CONFLICT (user_id) DO UPDATE SET
             user_token=EXCLUDED.user_token, name=EXCLUDED.name, pages=EXCLUDED.pages,
             expires_at=EXCLUDED.expires_at, updated_at=EXCLUDED.updated_at`,
-        [userId, userToken, name || null, JSON.stringify(pages || []), expiresAt || null, now()]
+        [
+            userId,
+            secretCrypto.encryptString(userToken), // TEXT — mã hoá AT-REST
+            name || null,
+            JSON.stringify(secretCrypto.encryptJson(pages || [])), // JSONB chứa page access_token
+            expiresAt || null,
+            now(),
+        ]
     );
 }
 

@@ -15,6 +15,8 @@
 
 'use strict';
 
+const secretCrypto = require('../lib/web2-secret-crypto');
+
 const OAUTH_URL = 'https://oauth.zaloapp.com/v4/oa/access_token';
 const ZNS_TEMPLATE_URL = 'https://business.openapi.zalo.me/message/template';
 const TEMPLATE_LIST_URL = 'https://business.openapi.zalo.me/template/all';
@@ -77,10 +79,10 @@ async function _doRefresh(pool, account) {
         method: 'POST',
         headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
-            secret_key: account.oa_secret,
+            secret_key: secretCrypto.decryptString(account.oa_secret),
         },
         body: _form({
-            refresh_token: account.refresh_token,
+            refresh_token: secretCrypto.decryptString(account.refresh_token),
             app_id: account.app_id,
             grant_type: 'refresh_token',
         }),
@@ -100,8 +102,10 @@ async function _doRefresh(pool, account) {
                 status='token_ok', status_msg=NULL, updated_at=$4
           WHERE id=$5`,
         [
-            data.access_token,
-            data.refresh_token || account.refresh_token,
+            secretCrypto.encryptString(data.access_token),
+            secretCrypto.encryptString(
+                data.refresh_token || secretCrypto.decryptString(account.refresh_token)
+            ),
             tokenExpires,
             now(),
             account.id,
@@ -147,9 +151,9 @@ async function exchangeCode(pool, { accountKey, appId, secret, code, oaId, oaNam
             oaName || 'Zalo OA',
             oaId || null,
             appId,
-            secret,
-            data.access_token,
-            data.refresh_token || null,
+            secretCrypto.encryptString(secret),
+            secretCrypto.encryptString(data.access_token),
+            data.refresh_token ? secretCrypto.encryptString(data.refresh_token) : null,
             tokenExpires,
             ts,
         ]
@@ -168,7 +172,7 @@ async function getValidToken(pool, ref) {
     ) {
         return { token: await refreshToken(pool, account), account };
     }
-    return { token: account.access_token, account };
+    return { token: secretCrypto.decryptString(account.access_token), account };
 }
 
 // ── Gửi ZNS theo template ───────────────────────────────────────────────

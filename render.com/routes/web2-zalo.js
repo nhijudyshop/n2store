@@ -19,6 +19,7 @@ const router = express.Router();
 
 const { ensureWeb2ZaloSchema } = require('../db/web2-zalo-schema');
 const { requireWeb2AuthSoft, requireWeb2Admin } = require('../middleware/web2-auth');
+const secretCrypto = require('../lib/web2-secret-crypto');
 const zca = require('../services/web2-zalo-zca');
 const oa = require('../services/web2-zalo-oa');
 
@@ -494,7 +495,7 @@ async function _saveSession(accountKey, creds, info, label) {
             status='connected', status_msg=NULL, last_connected_at=$5, updated_at=$5
           WHERE account_key=$6`,
         [
-            creds ? JSON.stringify(creds) : null,
+            creds ? JSON.stringify(secretCrypto.encryptJson(creds)) : null,
             info?.uid || null,
             info?.name || label || null,
             info?.avatar || null,
@@ -603,7 +604,11 @@ router.post('/accounts/:key/reconnect', async (req, res) => {
                 success: false,
                 error: 'Chưa có session để kết nối lại — cần đăng nhập QR',
             });
-        const r = await zca.loginWithCredentials(req.params.key, rows[0].session, rows[0].label);
+        const r = await zca.loginWithCredentials(
+            req.params.key,
+            secretCrypto.decryptJson(rows[0].session),
+            rows[0].label
+        );
         res.json({ success: true, ...r });
     } catch (e) {
         res.status(500).json({ success: false, error: e.message });
@@ -2126,7 +2131,10 @@ async function restoreSessions() {
         const { rows } = await _pool.query(
             `SELECT account_key, account_type, is_active, session, label, display_name FROM web2_zalo_accounts WHERE account_type='personal' AND is_active=true AND session IS NOT NULL`
         );
-        await zca.restoreAll(rows);
+        // Giải mã session AT-REST trước khi đưa vào zca (no-op nếu chưa bật WEB2_ENC_KEY
+        // hoặc data legacy plaintext). Bản copy mới — KHÔNG mutate row gốc.
+        const decrypted = rows.map((r) => ({ ...r, session: secretCrypto.decryptJson(r.session) }));
+        await zca.restoreAll(decrypted);
     } catch (e) {
         console.warn('[WEB2-ZALO] restoreSessions failed:', e.message);
     }

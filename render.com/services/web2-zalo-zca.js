@@ -15,6 +15,8 @@
 
 'use strict';
 
+const secretCrypto = require('../lib/web2-secret-crypto');
+
 // ── Defensive require (không crash server nếu lib lỗi cài) ──────────────
 let Zalo = null;
 let ThreadType = null;
@@ -329,7 +331,13 @@ async function _afterLogin(accountKey, api, label, opts) {
     }
 
     try {
-        await _cb.persistSession?.(accountKey, credentials, s.info, label);
+        // session (JSONB) mã hoá AT-REST trước khi route lưu DB (no-op nếu WEB2_ENC_KEY chưa set).
+        await _cb.persistSession?.(
+            accountKey,
+            secretCrypto.encryptJson(credentials),
+            s.info,
+            label
+        );
     } catch (e) {
         console.warn('[web2-zalo-zca] persistSession err:', e.message);
     }
@@ -766,7 +774,8 @@ async function restoreAll(accounts) {
     if (!Zalo || !Array.isArray(accounts)) return;
     for (const a of accounts) {
         if (a.account_type !== 'personal' || !a.is_active) continue;
-        const creds = a.session;
+        // session (JSONB) giải mã trước khi dùng cho zca login (legacy plaintext trả nguyên).
+        const creds = secretCrypto.decryptJson(a.session);
         if (!creds?.cookie || !creds?.imei) continue;
         try {
             await loginWithCredentials(a.account_key, creds, a.label || a.display_name);

@@ -2,6 +2,15 @@
 
 ## 2026-06-20
 
+### [render] Mã hoá token/session Zalo+FB AT-REST (AES-256-GCM, safe-by-default) ✅
+
+Item HIGH còn lại của audit (token/session lưu plaintext). Build helper dùng chung + wire vào các choke-point.
+
+- **MỚI `render.com/lib/web2-secret-crypto.js`** — AES-256-GCM, đọc env `WEB2_ENC_KEY` (32 byte hex/base64). `encryptString/decryptString` (TEXT) + `encryptJson/decryptJson` (JSONB, bọc `{__enc__:...}` để cột vẫn JSON hợp lệ). **AN-TOÀN-MẶC-ĐỊNH**: không có key → no-op (plaintext như cũ); read path luôn tha legacy plaintext (zero-lockout); sai/thiếu key khi data đã mã hoá → ném (không trả rác). **16/16 unit-test PASS** (roundtrip string/JSONB, passthrough, double-encrypt no-op, sai key).
+- **Wire (workflow 5-agent, 9 write encrypt + 8 read decrypt)**: `web2-zalo-zca.js` (session: encrypt \_afterLogin, decrypt restoreAll trước zca.login), `web2-zalo-oa.js` (oa_secret/access_token/refresh_token: encrypt INSERT/UPDATE, decrypt trước fetch OA, tránh double-encrypt nhánh fallback), `web2-zalo.js` (session: \_saveSession encrypt, reconnect+restoreSessions decrypt; boolean hasSession không đụng), `web2-fb-posts.js` (loadToken decrypt + saveToken encrypt = 1 choke-point phủ mọi downstream read user_token+pages). `web2-fb-graph-service.js` không đổi (nhận token đã giải mã). Auth-gating/advisory-lock đợt trước được giữ.
+- ✅ node --check 5 file OK, 0 NUL byte, import `../lib/web2-secret-crypto` đúng.
+- ⚠️ **KÍCH HOẠT** (chưa bật): `openssl rand -hex 32` → set Render env `WEB2_ENC_KEY=<hex>` cho web2-api (+ realtime/fallback nếu cùng đọc bảng). Row CŨ vẫn plaintext (read tha được); re-login Zalo / re-connect FB sẽ ghi đè = mã hoá dần. **Test trước khi bật prod**: set key ở local → re-login Zalo + re-connect FB xác nhận roundtrip.
+
 ### [render/worker/shared] FIX audit Web 2.0 — gate auth + SSRF + money + idempotency (21 file, workflow per-file) ✅
 
 User "fix tất cả". Workflow 23-agent (mỗi agent 1 file, đọc report làm spec, `node --check`) → **21 file đổi, 780+ insert**. Tôi verify độc lập: node --check 19 JS OK + 2 worker ESM OK; **bắt + sửa 2 NUL byte agent chèn nhầm** ở `web2-zalo.js:44` (template dedupe key → đổi `\x00`→`|`); xác nhận **KHÔNG GET read nào bị gate** (chỉ writes → giảm rủi ro 401).
