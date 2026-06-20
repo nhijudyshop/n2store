@@ -12,8 +12,9 @@
     'use strict';
 
     // Phí ship per đơn theo từng nhóm (user chỉnh được qua nút Cài đặt ⚙).
-    // Default: tomato/nap = 23k, city = 20k. Persist localStorage per machine.
-    const SHIP_FEE_DEFAULTS = { tomato: 23000, nap: 23000, city: 20000 };
+    // Default: tomato/nap = 23k, city = 20k, shop = 0 (bán tại shop, không phí ship).
+    // Persist localStorage per machine.
+    const SHIP_FEE_DEFAULTS = { tomato: 23000, nap: 23000, city: 20000, shop: 0 };
     const SHIP_FEE_STORAGE_KEY = 'dr-report-ship-fees-v1';
     const _shipFees = (() => {
         try {
@@ -249,7 +250,7 @@
             `
             ).join('')}
             <div class="dr-ship-fee-actions">
-                <button type="button" data-action="reset" title="Khôi phục mặc định (TOMATO/NAP=23k, THÀNH PHỐ=20k)">Mặc định</button>
+                <button type="button" data-action="reset" title="Khôi phục mặc định (TOMATO/NAP=23k, THÀNH PHỐ=20k, BÁN HÀNG SHOP=0)">Mặc định</button>
                 <button type="button" data-action="save" class="primary">Lưu</button>
             </div>
         `;
@@ -292,6 +293,7 @@
         { key: 'tomato', label: 'TOMATO', color: '#dc2626', bg: '#fee2e2' },
         { key: 'nap', label: 'NAP', color: '#1e40af', bg: '#dbeafe' },
         { key: 'city', label: 'THÀNH PHỐ', color: '#b45309', bg: '#fef3c7' },
+        { key: 'shop', label: 'BÁN HÀNG SHOP', color: '#059669', bg: '#d1fae5' },
     ];
 
     // Map tab → tên kênh trong Gửi Kèm (send-along.js) để hiển thị 2 cột
@@ -1221,6 +1223,7 @@
         const map = aggregateByDay(tab, [...extDates]);
         const rendered = new Set();
         let total = 0;
+        let count = 0; // tổng SL ĐƠN đã quét của tab trong range (khớp cột SL ĐƠN)
         // ATRƯỜNG NHẬN CK đã xóa hẳn (mọi tab) → không trừ. CK TRƯỚC chỉ trừ ở
         // TOMATO/NAP; THÀNH PHỐ (city) đã xóa cột nên không trừ.
         const showCk = showCkTruocFor(tab);
@@ -1243,6 +1246,7 @@
                     const sys = map[s] || { sysCount: 0, money: 0 };
                     sumMoney += sys.money;
                     sumShipFee += sys.sysCount * getShipFee(tab);
+                    count += sys.sysCount;
                     const ov = getOverride(s, tab);
                     sumSlShip += Number(ov.slShip) || 0;
                     sumThuVe += Number(ov.thuVe) || 0;
@@ -1291,6 +1295,7 @@
                     const sys = map[cd] || { sysCount: 0, money: 0 };
                     sumMoney += sys.money;
                     sumShipFee += sys.sysCount * getShipFee(tab);
+                    count += sys.sysCount;
                     const ovc = getOverride(cd, tab);
                     sumSlShip += Number(ovc.slShip) || 0;
                     sumThuVe += Number(ovc.thuVe) || 0;
@@ -1315,6 +1320,7 @@
             // Single row
             rendered.add(d);
             const sys = map[d] || { sysCount: 0, money: 0 };
+            count += sys.sysCount;
             const shipFee = sys.sysCount * getShipFee(tab);
             const ov = getOverride(d, tab);
             const slShip = Number(ov.slShip) || 0;
@@ -1331,28 +1337,29 @@
             const totalLeftRaw = totalAll - boCK - (showCk ? ckTruoc : 0);
             total += totalLeftRaw;
         }
-        return total;
+        return { total, count };
     }
 
     function paintTabTotals(dates) {
         const el = document.getElementById('drReportTabsTotals');
         if (!el) return;
-        const totals = TABS.map((t) => ({
-            key: t.key,
-            label: t.label,
-            color: t.color,
-            value: computeTotalLeftForTab(t.key, dates),
-        }));
+        const totals = TABS.map((t) => {
+            const { total, count } = computeTotalLeftForTab(t.key, dates);
+            return { key: t.key, label: t.label, color: t.color, value: total, count };
+        });
         const grand = totals.reduce((s, t) => s + t.value, 0);
+        const grandCount = totals.reduce((s, t) => s + t.count, 0);
         const cls = (v) => (v < 0 ? 'negative' : v > 0 ? 'positive' : 'zero');
+        const countHtml = (n) => `<span class="dr-tab-total-count">${formatNumber(n)} đơn</span>`;
+        const grandTitle = `TỔNG = ${TABS.map((t) => t.label).join(' + ')}`;
         el.innerHTML =
             totals
                 .map(
                     (t) =>
-                        `<div class="dr-tab-total ${cls(t.value)}" data-tab="${t.key}" style="--tab-color:${t.color}" title="Tổng còn lại ${t.label}"><span class="dr-tab-total-val">${formatMoney(t.value)}</span></div>`
+                        `<div class="dr-tab-total ${cls(t.value)}" data-tab="${t.key}" style="--tab-color:${t.color}" title="Tổng còn lại ${t.label} — ${formatNumber(t.count)} đơn">${countHtml(t.count)}<span class="dr-tab-total-val">${formatMoney(t.value)}</span></div>`
                 )
                 .join('') +
-            `<div class="dr-tab-total dr-tab-total-grand ${cls(grand)}" title="TỔNG = TOMATO + NAP + THÀNH PHỐ"><span class="dr-tab-total-label">TỔNG</span><span class="dr-tab-total-val">${formatMoney(grand)}</span></div>`;
+            `<div class="dr-tab-total dr-tab-total-grand ${cls(grand)}" title="${grandTitle} — ${formatNumber(grandCount)} đơn"><span class="dr-tab-total-label">TỔNG</span>${countHtml(grandCount)}<span class="dr-tab-total-val">${formatMoney(grand)}</span></div>`;
     }
 
     function paintTable(dates) {
@@ -1399,8 +1406,7 @@
             const gk = sendAlongFor(d, state.activeTab);
             // TỔNG TẤT CẢ: mỗi đơn Gửi Kèm trừ phí ship của kênh + cộng COD GK (gkNet).
             const gkNet = sendAlongNet(gk.count, gk.collectDong, state.activeTab);
-            const totalAll =
-                money - shipFee - slShip * getShipFee(state.activeTab) + thuVe + gkNet;
+            const totalAll = money - shipFee - slShip * getShipFee(state.activeTab) + thuVe + gkNet;
             const boCK = Number(ov.boCK) || 0;
             const ckTruoc = Number(ov.ckTruoc) || 0;
             const approved = !!ov.approved;
