@@ -3,16 +3,16 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `eea4776` — feat(web2/zalo): chip nhom bao 'Can dang nhap TK trong nhom' khi khong gui duoc (TK nhom xoa/chua ket noi)
-**Last updated**: 2026-06-20 16:33:39 +07
-**Latest session**: [`RESUME:20260620-163339-eea4776`](../20260620-163339-eea4776.md)
-**Summary**: feat(web2/zalo): chip nhom bao 'Can dang nhap TK trong nhom' khi khong gui duoc (TK nhom xoa/chua ket noi)
+**Latest commit**: `d4a582e` — auto: session update
+**Last updated**: 2026-06-20 16:43:10 +07
+**Latest session**: [`RESUME:20260620-164310-d4a582e`](../20260620-164310-d4a582e.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`native-orders/`](./native-orders.md) — 1 file(s)
-- [`web2/`](./web2.md) — 5 file(s)
+- [`index/`](./index.md) — 1 file(s)
+- [`render.com/`](./render.com.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -27,7 +27,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-20 11:49
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-06-20 16:33
+- [`docs/`](./docs.md) — updated 2026-06-20 16:43
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-19 14:27
@@ -36,6 +36,7 @@
 - [`firebase-stats/`](./firebase-stats.md) — updated 2026-06-20 12:07
 - [`hanghoan/`](./hanghoan.md) — updated 2026-06-20 12:07
 - [`inbox/`](./inbox.md) — updated 2026-06-20 12:07
+- [`index/`](./index.md) — updated 2026-06-20 16:43
 - [`inventory-tracking/`](./inventory-tracking.md) — updated 2026-06-20 12:07
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-06-20 12:07
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-20 12:07
@@ -56,7 +57,7 @@
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-06-20 12:07
 - [`referenceUI/`](./referenceUI.md) — updated 2026-06-19 14:27
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-06-20 12:07
-- [`render.com/`](./render.com.md) — updated 2026-06-20 16:26
+- [`render.com/`](./render.com.md) — updated 2026-06-20 16:43
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-19 14:27
 - [`service-costs/`](./service-costs.md) — updated 2026-06-20 12:07

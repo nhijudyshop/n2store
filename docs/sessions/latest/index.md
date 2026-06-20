@@ -1,4 +1,4 @@
-# Latest Snapshot — `docs/`
+# Latest Snapshot — `index/`
 
 > Snapshot tự động ghi đè sau mỗi commit chạm folder này. **Không edit thủ công.**
 > Mục đích: khi session cũ chết (vd lỗi image limit), session mới chỉ cần đọc file này là có đủ context để tiếp tục.
@@ -9,17 +9,17 @@
 **Last updated**: 2026-06-20 16:43:10 +07
 **Summary**: auto: session update
 
-## Files changed in this commit (`docs/`)
+## Files changed in this commit (`index/`)
 
-- `docs/dev-log.md`
+- `index/login.js`
 
-## Last 5 commits touching `docs/`
+## Last 5 commits touching `index/`
 
 - `e9eb8f539` fix(login): copy previousNames vao loginindex*auth (alias soquy khong khop) *(2026-06-20)\_
-- `5bc04850e` chore(session): RESUME:20260620-163339-eea4776 _(2026-06-20)_
-- `eea4776d5` feat(web2/zalo): chip nhom bao 'Can dang nhap TK trong nhom' khi khong gui duoc (TK nhom xoa/chua ket noi) _(2026-06-20)_
-- `b1ebe3f7d` chore(session): RESUME:20260620-162753-7f07963 _(2026-06-20)_
-- `7f079633b` perf(web2/multi-tool): tang RECHECK*DELAY 7s->30s giam over-send job tang comment nen (live test PASS) *(2026-06-20)\_
+- `12b2c21d4` fix(login): localhost fallback CF Worker khi Render local (3000) không chạy _(2026-04-28)_
+- `a5d448159` auto: session update _(2026-04-23)_
+- `08f9d2f64` auto: session update _(2026-04-22)_
+- `324935e8c` fix(auth): bỏ prompt "Lưu mật khẩu" của browser trên các page có password input _(2026-04-22)_
 
 ---
 
