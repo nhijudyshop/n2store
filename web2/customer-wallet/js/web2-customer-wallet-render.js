@@ -311,7 +311,10 @@
                 const partner = state.web2Partners[phone];
                 const post = await api.qrFetch(`/${encodeURIComponent(phone)}/qr`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    // x-web2-token bắt buộc (WEB2_AUTH_ENFORCE=1) — POST QR là write.
+                    headers: window.Web2Auth?.authHeaders
+                        ? window.Web2Auth.authHeaders({ 'Content-Type': 'application/json' })
+                        : { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         customerId: partner?.Id || c?.customerId || undefined,
                         customerName: partner?.Name || c?.name || undefined,

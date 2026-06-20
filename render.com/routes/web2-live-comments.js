@@ -305,8 +305,17 @@ function _mapWsConvToComment(conv) {
     // ID DUY NHẤT mỗi comment: conv.id = 1 conversation (1 người); message_count tăng
     // mỗi tin mới → `${conv.id}_${message_count}` phân biệt từng comment của cùng người
     // → mỗi comment 1 dòng (KHÔNG đè khi 1 người comment liên tục). Thiếu message_count
-    // → fallback updated_at (mỗi tin mới đổi). KHÔNG dùng conv.id trần.
-    const seq = conv.message_count != null ? conv.message_count : conv.updated_at || '';
+    // → fallback PHẢI là số non-empty: updated_at (epoch giây mỗi tin mới đổi) → Date.now()
+    // cuối cùng. KHÔNG dùng '' (rỗng) — '' làm 2 comment liên tiếp cùng người gộp về
+    // `${conv.id}_` đè nhau (mất tin); cũng KHÔNG dùng conv.id trần. Seq giữ là số để
+    // split convId (id.replace(/_[^_]*$/,'') trong poller) + purge starts_with vẫn đúng.
+    let seq;
+    if (conv.message_count != null) {
+        seq = conv.message_count;
+    } else {
+        const t = conv.updated_at ? new Date(conv.updated_at).getTime() : NaN;
+        seq = Number.isFinite(t) ? Math.floor(t / 1000) : Date.now();
+    }
     return {
         id: `${conv.id}_${seq}`,
         postId: conv.post_id || null,
@@ -446,13 +455,19 @@ async function markBoostAndPurge(pool, rawIds, ttlMs) {
     let purged = 0;
     if (pool && ids.length) {
         await ensureTables(pool);
-        for (const cid of ids) {
-            const r = await pool.query(
-                `DELETE FROM web2_live_comments WHERE id = $1 OR starts_with(id, $1 || '_')`,
-                [cid]
-            );
-            purged += r.rowCount || 0;
-        }
+        // 1 query thay vòng lặp N+1 (audit MEDIUM 2026-06-20): match exact id HOẶC
+        // prefix `${cid}_` cho MỌI cid trong mảng — qua unnest + EXISTS (giữ nguyên
+        // logic per-cid `id = cid OR starts_with(id, cid||'_')`, KHÔNG dùng LIKE để
+        // tránh '_' wildcard vì conv.id chứa nhiều '_').
+        const r = await pool.query(
+            `DELETE FROM web2_live_comments lc
+             WHERE EXISTS (
+                 SELECT 1 FROM unnest($1::text[]) p
+                 WHERE lc.id = p OR starts_with(lc.id, p || '_')
+             )`,
+            [ids]
+        );
+        purged = r.rowCount || 0;
         if (purged > 0) _notify('reconcile', null); // live-chat reload → bỏ spam
     }
     return { marked: ids.length, purged, ttlMs: ttl > 0 ? ttl : BOOST_TTL_MS };

@@ -124,6 +124,14 @@
             if ((loaded.version || 0) <= this._localVersion) return false;
             // Server mới hơn. Có local pending push → conflict thay vì đè.
             if (this._pushTimer && this._onConflict) {
+                // BẢO THỦ: hủy timer debounce để KHÔNG auto-push đè stale (push đó
+                // chắc chắn 409 vì baseVersion đã cũ — vừa lãng phí vừa gây
+                // double-notify). GIỮ NGUYÊN _pendingState: edit chưa lưu của user
+                // không bị mất — conflictHandler chỉ cảnh báo (không rebase/merge),
+                // user tự quyết refresh hay giữ. Mutation kế tiếp sẽ re-arm timer
+                // (vì _pushTimer=null) và flush _pendingState với version mới.
+                clearTimeout(this._pushTimer);
+                this._pushTimer = null;
                 this._onConflict({ data: loaded.data, lastUpdated: loaded.lastUpdated });
                 return false;
             }

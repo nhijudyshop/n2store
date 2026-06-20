@@ -15,6 +15,11 @@
 const express = require('express');
 const router = express.Router();
 
+// Auth gate cho handler GHI (POST QR thanh toán). requireWeb2AuthSoft 401 khi
+// WEB2_AUTH_ENFORCE=1 (đã bật prod) nếu thiếu/sai x-web2-token → chống fraud ghi
+// QR. Client web2-qr-modal.js đã gửi token qua Web2Auth.authHeaders.
+const { requireWeb2AuthSoft } = require('../../middleware/web2-auth');
+
 function handleError(res, err, msg = 'Internal error') {
     console.error(`[Web2CustomerWallet] ${msg}:`, err.message);
     res.status(500).json({ success: false, error: msg, details: err.message });
@@ -341,7 +346,7 @@ router.get('/:phone/qr', async (req, res) => {
 // qr_code = <slug(name)><customer_id> (customer_id = web2_customers.id),
 // UPSERT theo customer_id PK.
 // =====================================================
-router.post('/:phone/qr', async (req, res) => {
+router.post('/:phone/qr', requireWeb2AuthSoft, async (req, res) => {
     try {
         const db = req.app.locals.web2Db || req.app.locals.chatDb;
         const phone = String(req.params.phone || '').replace(/\D/g, '');

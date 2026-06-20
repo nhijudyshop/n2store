@@ -35,7 +35,10 @@
             };
             const r = await api.qrFetch(`/${encodeURIComponent(phone)}/qr`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                // x-web2-token bắt buộc (WEB2_AUTH_ENFORCE=1) — POST QR là write.
+                headers: window.Web2Auth?.authHeaders
+                    ? window.Web2Auth.authHeaders({ 'Content-Type': 'application/json' })
+                    : { 'Content-Type': 'application/json' },
                 body: JSON.stringify(body),
             });
             render.renderQrData(r.body.data);

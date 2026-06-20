@@ -22,7 +22,17 @@ function createRelay({ base, secret }) {
                 headers: { 'Content-Type': 'application/json', 'x-relay-secret': secret },
                 body: JSON.stringify(body),
             }).then((r) => {
-                if (!r.ok && r.status !== 401) throw new Error(`HTTP ${r.status}`);
+                // 401 = auth fail (RELAY_SECRET/CLEANUP_SECRET lệch giữa relay ↔ web2-api).
+                // KHÔNG nuốt im lặng: log rõ để debug comment rớt, nhưng vẫn không
+                // throw (tránh kích retry vô ích — secret sai thì retry cũng 401).
+                if (r.status === 401) {
+                    console.error(
+                        '[FORWARD] 401 AUTH FAIL — check RELAY_SECRET/CLEANUP_SECRET khớp web2-api:',
+                        path
+                    );
+                    return r;
+                }
+                if (!r.ok) throw new Error(`HTTP ${r.status}`);
                 return r;
             });
         try {
