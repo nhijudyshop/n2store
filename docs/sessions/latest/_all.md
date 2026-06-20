@@ -3,15 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `d11c4eb` — fix(live-chat): load comment DB thieu x-web2-token -> 401 -> 0 comment (regression gate web2-live-comments)
-**Last updated**: 2026-06-20 19:05:54 +07
-**Latest session**: [`RESUME:20260620-190554-d11c4eb`](../20260620-190554-d11c4eb.md)
-**Summary**: fix live-chat 0 comment: them x-web2-token vao fetch DB comment (regression gate)
+**Latest commit**: `dea2c18` — docs(dev-log): native-orders inbox admin delete + FB avatar trong ô tìm KH
+**Last updated**: 2026-06-20 19:10:05 +07
+**Latest session**: [`RESUME:20260620-191005-dea2c18`](../20260620-191005-dea2c18.md)
+**Summary**: native-orders inbox: admin xoa don rong + avatar FB trong o tim KH
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`live-chat/`](./live-chat.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -26,7 +25,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-20 11:49
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-06-20 19:05
+- [`docs/`](./docs.md) — updated 2026-06-20 19:10
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-19 14:27
