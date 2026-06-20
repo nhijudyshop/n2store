@@ -163,6 +163,14 @@
             // FB-sourced data — otherwise raw payload would clobber the
             // post-migration state with un-migrated fields.
             const remoteHandler = async () => {
+                // Tránh clobber edit đang gõ (audit LOW 2026-06-20): đang focus ô nhập
+                // trong app → hoãn re-render, pull-on-focus (visibilitychange/focus)
+                // lần sau sẽ áp remote. Conflict (có pending push) đã được
+                // conflictHandler xử lý riêng nên đây chỉ là cửa sổ "đang gõ chưa push".
+                const ae = document.activeElement;
+                if (ae && (/^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName) || ae.isContentEditable)) {
+                    return;
+                }
                 SO.state = await window.SoOrderStorage.load();
                 SO.renderAll();
             };

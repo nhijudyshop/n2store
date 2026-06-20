@@ -40,6 +40,9 @@
                 `${NO.RENDER_API}/api/livestream/snapshots/by-comment-ids?commentIds=${encodeURIComponent(ids.join(','))}`,
                 { credentials: 'omit' }
             );
+            // Phân biệt lỗi mạng/HTTP với "không có snapshot" (audit MEDIUM 2026-06-20):
+            // r.json() trên response lỗi có thể throw/sai → check r.ok trước.
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
             const d = await r.json();
             const map = (d && d.byCommentId) || {};
             for (const id of ids) {

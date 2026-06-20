@@ -192,7 +192,9 @@
         document.getElementById('w2qrPartnerId').textContent = qr.customer_id || '—';
         document.getElementById('w2qrUseCount').textContent = qr.use_count || 0;
         document.getElementById('w2qrLastUsed').textContent = qr.last_used_at
-            ? new Date(qr.last_used_at).toLocaleString('vi-VN')
+            ? new Date(qr.last_used_at).toLocaleString('vi-VN', {
+                  timeZone: 'Asia/Ho_Chi_Minh',
+              })
             : '(chưa dùng)';
         document.getElementById('w2qrOpenImg').href = qr.vietqr_url;
         if (qr.bank) {
