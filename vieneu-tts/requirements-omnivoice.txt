@@ -1,0 +1,13 @@
+# Engine OmniVoice (k2-fsa/OmniVoice, Apache-2.0) — NẶNG hơn VieNeu, dùng venv RIÊNG.
+#
+# ⚠ Cài PyTorch THEO NỀN TẢNG TRƯỚC (xem README OmniVoice), rồi mới cài file này:
+#   - NVIDIA GPU:  pip install torch torchaudio --extra-index-url https://download.pytorch.org/whl/cu128
+#   - Apple Silicon: pip install torch torchaudio
+#   - CPU-only:    pip install torch torchaudio        (chậm — chỉ hợp clip ngắn)
+#
+# Launcher run-omnivoice-mac.command tự lo bước này cho Mac.
+fastapi
+uvicorn[standard]
+numpy
+soundfile
+omnivoice

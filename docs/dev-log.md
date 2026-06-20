@@ -2,6 +2,17 @@
 
 ## 2026-06-20
 
+### [vieneu-tts] Thêm engine OmniVoice (k2-fsa, Apache-2.0) cạnh VieNeu — chọn qua TTS_ENGINE, GIỮ NGUYÊN frontend ✅
+
+Research 3 repo TTS user gửi (TTS-WebUI/MIT, OmniVoice-Studio/AGPL, **k2-fsa/OmniVoice/Apache-2.0**). Verdict: OmniVoice là bản nâng cấp khít VieNeu (cùng hình dạng server máy shop, Apache-2.0, **tiếng Việt thật** — ngôn ngữ #607, 8.481h data; clone SOTA + **Voice Design** chỉnh giới tính/tuổi/cao độ/accent không cần mẫu). User chọn **(A)** thêm engine vào `vieneu-tts/` server.
+
+- **MỚI engine abstraction trong `vieneu-tts/`**: `engine_base.py` (interface `TTSEngine` + `float_to_wav_bytes` stdlib WAV PCM16, không cần soundfile), `engine_vieneu.py` (tách hành vi gốc, KHÔNG đổi logic), `engine_omnivoice.py` (wrap `OmniVoice.from_pretrained().generate(text,ref_audio,instruct,num_step,speed)`, tự dò device cuda/mps/xpu/cpu, preset Voice Design tiếng Việt).
+- **`app.py` rewrite**: factory chọn engine qua env `TTS_ENGINE` (mặc định `vieneu` → hành vi cũ y nguyên). Cùng contract `/health`(+field `engine`)·`/voices`·`/synthesize`·`/clone` + **MỚI `/design {text,instruct}`** (501 nếu engine không hỗ trợ). Lock serialize giữ nguyên.
+- **`serve.py`**: engine-aware (env `TTS_ENGINE` → tên máy hậu tố "(OmniVoice)", heartbeat thêm `note=engine` để UI phân biệt, print khởi động theo engine). Mặc định vieneu KHÔNG đổi.
+- **MỚI**: `requirements-omnivoice.txt` (torch cài theo nền tảng trước + omnivoice) · `run-omnivoice-mac.command` (1-click venv riêng `.venv-omnivoice` + torch MPS + omnivoice). venv 2 engine TÁCH RIÊNG (deps khác).
+- **Frontend GIỮ NGUYÊN 100%** — `Web2Vieneu` chỉ gọi `/health /voices /synthesize /clone` + registry `/list`, engine-agnostic. Máy OmniVoice tự hiện trong danh sách (note=omnivoice), `voice` preset → instruct, `/clone` → ref_text auto Whisper.
+- ✅ Verify offline (KHÔNG tải model, không mạng): py_compile 5 file OK; factory chọn đúng vieneu/omnivoice + list preset; `float_to_wav_bytes` ra WAV hợp lệ RIFF/WAVE mono 24kHz PCM16 (đúng thứ `decodeAudioData` frontend đọc). Inference thật cần máy có torch+omnivoice (máy shop) — code khớp README API đã verify.
+
 ### [web2/shared] Picker SP — đổi lưới ảnh → DANH SÁCH (ảnh + tên + mã + giá) ✅
 
 User: "xem sản phẩm theo danh sách hình ảnh, tên, giá". Picker chọn SP từ Kho (modal "Chọn sản phẩm cho bài đăng" ở Đăng bài FB) trước hiển thị lưới ảnh card → tên/giá nhỏ khó nhìn. Đổi sang dạng **danh sách dọc, mỗi dòng = thumbnail vuông 52px + tên (đậm) + mã (xám nhỏ) + giá (xanh, canh phải) + tick chọn**.

@@ -19,7 +19,12 @@ import time
 import urllib.request
 
 PORT = int(os.environ.get("PORT", "8123"))
-NAME = os.environ.get("VIENEU_NAME") or socket.gethostname().split(".")[0] or "May-shop"
+ENGINE = (os.environ.get("TTS_ENGINE") or "vieneu").strip().lower()
+_HOST = socket.gethostname().split(".")[0] or "May-shop"
+# Tên hiện trên trang. Khác engine -> hậu tố để phân biệt máy (registry key theo name).
+NAME = os.environ.get("VIENEU_NAME") or (
+    f"{_HOST} (OmniVoice)" if ENGINE == "omnivoice" else _HOST
+)
 REGISTRY = os.environ.get(
     "VIENEU_REGISTRY",
     "https://chatomni-proxy.nhijudyshop.workers.dev/api/web2-vieneu-registry/register",
@@ -77,7 +82,7 @@ def _start_tunnel(cf):
 def _heartbeat(url):
     while True:
         try:
-            body = json.dumps({"name": NAME, "url": url}).encode()
+            body = json.dumps({"name": NAME, "url": url, "note": ENGINE}).encode()
             req = urllib.request.Request(
                 REGISTRY, data=body, headers={"content-type": "application/json"}
             )
@@ -88,7 +93,12 @@ def _heartbeat(url):
 
 
 def main():
-    print(f"▶ Khởi động server giọng VieNeu (cổng {PORT})… lần đầu tải model ~595MB, chờ chút.")
+    if ENGINE == "omnivoice":
+        print(
+            f"▶ Khởi động server giọng OmniVoice (cổng {PORT})… lần đầu tải model (~vài GB), chờ chút."
+        )
+    else:
+        print(f"▶ Khởi động server giọng VieNeu (cổng {PORT})… lần đầu tải model ~595MB, chờ chút.")
     srv = subprocess.Popen(
         [sys.executable, "-m", "uvicorn", "app:app", "--host", "0.0.0.0", "--port", str(PORT)],
         cwd=HERE,
