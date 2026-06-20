@@ -126,10 +126,13 @@
         });
     }
 
-    // Bấm SĐT → mở FULL chat khách (Pancake + Zalo) qua launcher dùng chung Web2CustomerChat.
+    // Bấm SĐT → mở FULL chat khách (Pancake) qua launcher dùng chung Web2CustomerChat.
+    // layout:'modal' → giao diện 3-cột "Chat khách hàng" (sidebar danh sách hội thoại +
+    // thread) giống native-orders, thay drawer phải. Tự auto-chọn hội thoại theo SĐT.
     function openMsgModal(phone, name) {
         if (!phone) return;
-        if (window.Web2CustomerChat?.open) window.Web2CustomerChat.open({ phone, name });
+        if (window.Web2CustomerChat?.open)
+            window.Web2CustomerChat.open({ layout: 'modal', phone, name });
         else notify('Khung chat chưa sẵn sàng', 'warning');
     }
 

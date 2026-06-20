@@ -2,6 +2,16 @@
 
 ## 2026-06-20
 
+### [web2/jt-tracking] Chat KH (bấm SĐT) → giao diện 3-cột "Chat khách hàng" giống native-orders ✅
+
+User: "cho chat jt-tracking giống native-orders đi" (drawer phải → modal 3-cột).
+
+- **Files**: `web2/jt-tracking/js/jt-tracking-modals.js` (`openMsgModal`), `web2/jt-tracking/index.html` (bump `jt-tracking-modals.js?v=20260620chat`).
+- **Đổi**: `Web2CustomerChat.open({ phone, name })` → `Web2CustomerChat.open({ layout: 'modal', phone, name })`. `layout:'modal'` route sang `openModal` (web2-customer-chat-modal.js) = giao diện 3-cột "Chat khách hàng" (sidebar danh sách hội thoại + ô tìm + thread) — đúng module dùng chung native-orders đang dùng (image 2). Tự auto-chọn hội thoại theo SĐT.
+- **Không thêm script/CSS**: modal CSS nằm trong `web2-customer-chat-core.js` `ensureStyles()` (auto-inject), panel bundle lazy-load sẵn → 0 file mới.
+- **Giữ nguyên** `openChat` (nhóm Zalo nguồn của mã vận đơn) = drawer Zalo-only (đúng, không có hội thoại Pancake để liệt kê sidebar).
+- **Verify Playwright** (login web2 admin → click SĐT 0911607768): `drawer:false`, `modal3col:true`, header "Chat khách hàng", 150 hội thoại sidebar, ô tìm "Tìm hội thoại theo tên / SĐT…" → khớp image 2. Screenshot xác nhận.
+
 ### [web2/render] "Làm tất cả" — fix HẾT phần audit còn treo (16 mục) ✅
 
 Đóng nốt toàn bộ MEDIUM/LOW còn lại sau scan 121 issue. node --check PASS 17 file, 0 NUL.
