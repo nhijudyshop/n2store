@@ -2,6 +2,14 @@
 
 ## 2026-06-20
 
+### [live-chat] FIX regression: load comment từ DB thiếu x-web2-token → "Chưa có comment nào" (0 comment) ✅
+
+User báo `live-chat/index.html`: "không thấy comment", console `401` + `[Live-INIT] Loaded 0 comments (DB) from 4 campaigns`. Nguyên nhân: commit `40ec6ff2a` gate GET read endpoints `web2-live-comments` (`requireWeb2AuthSoft`, chống PII leak), nhưng fetch DB comments trong `live-init-wiring.js` (nguồn comment chính) chỉ gửi `{ signal }`, **KHÔNG** `x-web2-token` → backend 401 → 0 comment. (Campaigns load OK vì fetch ở `live-init-lifecycle.js` đã có `_w2AuthHeaders` → log đúng "4 campaigns".)
+
+- Fix: fetch `GET /api/web2-live-comments?postIds=…` thêm `headers: window.LiveColumnManager._w2AuthHeaders()` (đúng pattern shared dùng khắp live-chat). Bump `live-init-wiring.js?v=20260620f` ở index.html.
+- Audit các fetch gated khác (`/saved/ids`, `/saved`, `/bulk`, `/posts`, `/page-posts`, `/{q}`) — đều ĐÃ có `Web2Auth.authHeaders()`/`_w2AuthHeaders`. `live-init-wiring.js` là fetch DUY NHẤT sót → 1 chỗ fix đủ.
+- ✅ Verify: `curl GET /api/web2-live-comments` (no token) → 401 (confirm gate). Fix gắn token → request đi đúng.
+
 ### [web2/shared] Fix picker không load SP nếu chưa vào Kho SP + promote API client lên shared ✅
 
 User: "fb-posts phải vào trang Kho SP trước nó mới load danh sách SP, còn chưa vào thì 'Không tìm thấy SP'". Gốc rễ: `Web2ProductsCache` (shared) cần `Web2ProductsApi` để fetch, nhưng API client lại nằm **page-local** `web2/products/js/web2-products-api.js` → 4 trang load cache mà KHÔNG load API (fb-posts, product-card, photo-editor, video-maker) chỉ chạy được khi IDB persist đã được Kho SP ghi sẵn.
