@@ -527,15 +527,10 @@ class BillTokenManager {
             setTimeout(() => this._retryLoadFromRender(), 2000);
         }
 
-        // Default credentials nếu chưa có account nào (giữ behaviour cũ)
-        if (this.accounts.length === 0) {
-            await this.saveAccount({
-                label: 'Mặc định',
-                username: 'nvqldonhang',
-                password: 'Aa@123456987',
-                setActive: true,
-            });
-        }
+        // KHÔNG fallback account dùng chung: bill PHẢI dùng TPOS account GẮN với
+        // user Web 1.0 (nạp từ Render qua loadFromRender). Chưa gắn → accounts rỗng
+        // → hasCredentials() = false → getBillAuthHeader báo "Chưa cấu hình tài
+        // khoản TPOS cho bill" (không ra bill, KHÔNG dùng account dùng chung).
     }
 
     async _retryLoadFromRender() {
@@ -543,14 +538,7 @@ class BillTokenManager {
         if (this.getWebUserId()) {
             await this.loadFromRender();
         }
-        if (this.accounts.length === 0) {
-            await this.saveAccount({
-                label: 'Mặc định',
-                username: 'nvqldonhang',
-                password: 'Aa@123456987',
-                setActive: true,
-            });
-        }
+        // KHÔNG tạo account default — chưa gắn TPOS thì để rỗng (báo lỗi khi xuất bill).
     }
 
     async ensureCredentialsLoaded() {

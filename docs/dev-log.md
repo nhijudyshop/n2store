@@ -2,6 +2,14 @@
 
 ## 2026-06-20
 
+### [orders-report/bill] Bỏ default account hardcode `nvqldonhang` — chưa gắn TPOS thì báo "không ra bill" ✅
+
+User: bill phải ra theo TPOS account GẮN với user Web 1.0; chưa gắn thì báo lỗi, KHÔNG fallback account dùng chung. `bill-token-manager.js` `init()`+`_retryLoadFromRender()` đang tạo default `{label:'Mặc định', username:'nvqldonhang', password:'Aa@123456987'}` khi `accounts.length===0` → `hasCredentials()` LUÔN true → guard báo lỗi không bao giờ chạy + lộ password billing dùng chung.
+
+- Bỏ 2 block fallback hardcode → chưa gắn account thì `accounts` rỗng → `hasCredentials()`=false → `getBillAuthHeader` (tab1-fast-sale.js:294) báo sẵn **"Chưa cấu hình tài khoản TPOS cho bill. Vui lòng vào 'Tài khoản TPOS' để cài đặt."** + throw (không ra bill).
+- Account chính vẫn nạp per-user từ Render (`loadFromRender` theo Web 1.0 userId) — không đổi. `setCredentials` legacy (nhận creds từ caller) giữ nguyên.
+- Bỏ luôn password `Aa@123456987` khỏi client (lộ creds). node --check OK. Bump `?v=20260620e`.
+
 ### [shared/worker/render] TPOS đổi password → bỏ hardcode creds client, dùng proxy-auth toàn bộ ✅
 
 User đổi password TPOS (nvkt/nvktlive1 + nvktshop1) → mọi nơi hardcode password CŨ `Aa@28612345678` trong client JS HỎNG + lộ creds. Worker `/api/token` đã proxy-auth (inject creds từ Cloudflare secret). Migrate hết client/server sang proxy-auth:
