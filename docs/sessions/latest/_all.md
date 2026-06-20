@@ -3,15 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `9af3a0c` — fix(O3): bỏ poller fetch comment -> WS-live nguồn duy nhất (hết dòng trùng postId_mid vs convId_seq)
-**Last updated**: 2026-06-20 21:54:43 +07
-**Latest session**: [`RESUME:20260620-215443-9af3a0c`](../20260620-215443-9af3a0c.md)
-**Summary**: fix(O3): bỏ poller fetch comment -> WS-live nguồn duy nhất (hết dòng trùng postId_mid vs convId_seq)
+**Latest commit**: `40c30af` — perf: trigram GIN index web2_balance_history.content (ILIKE substring dùng index thay seq scan)
+**Last updated**: 2026-06-20 22:00:00 +07
+**Latest session**: [`RESUME:20260620-220000-40c30af`](../20260620-220000-40c30af.md)
+**Summary**: deploy CF worker O7 + bỏ poller O3 + trigram web2_balance_history; defer Web1 trigram/KPI N+1/keyset
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 2 file(s)
+- [`render.com/`](./render.com.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -26,7 +26,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-20 21:39
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-06-20 21:54
+- [`docs/`](./docs.md) — updated 2026-06-20 22:00
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-19 14:27
@@ -56,7 +56,7 @@
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-06-20 12:07
 - [`referenceUI/`](./referenceUI.md) — updated 2026-06-19 14:27
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-06-20 12:07
-- [`render.com/`](./render.com.md) — updated 2026-06-20 21:54
+- [`render.com/`](./render.com.md) — updated 2026-06-20 22:00
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-19 14:27
 - [`service-costs/`](./service-costs.md) — updated 2026-06-20 12:07
