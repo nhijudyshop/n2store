@@ -2,6 +2,18 @@
 
 ## 2026-06-20
 
+### [web2/zalo] Chip hiển thị TK Zalo đang dùng để nhắn (badge read-only) ✅
+
+User: khung chat Zalo cần hiển thị account đang dùng + xác nhận là TK chính. Backend đã ưu tiên `is_primary` (route `/conversation/:phone` ORDER BY is_primary DESC) — chỉ thiếu HIỂN THỊ.
+
+- Thêm chip read-only vào header engine chat dùng chung `zalo-chat/chat-view.js` (`#wzcvAccChip` + `_fillAccChip()`): hiện tên account của hội thoại (= `conv.account_key`), tag **"TK chính"** + màu xanh nếu `isPrimary`; account phụ → màu cam cảnh báo. Account không xác định (conv mồ côi account đã xoá) → ẩn chip.
+- Nguồn meta: `ZaloApi.status()` (luôn có nơi engine chạy = ENGINE_JS[0]), fallback `Web2Zalo.status()`. Inline style, KHÔNG đụng file CSS.
+- Dùng CHUNG: mọi trang mở chat Zalo qua `WZChat.mountConversation` đều có (web2/zalo Hội thoại + Web2Zalo.mountChat → jt-tracking/native-orders/customers/balance-history + Web2CustomerChat tab Zalo).
+- Bump `ENGINE_VER=20260620zaloacc` + `web2-zalo.js?v=20260620zaloacc` ở 4 page.
+- **Verified live (browser test)**: primary → "Nhijudy Ơi · TK chính" (xanh); phụ → "My Njd" (cam). node --check PASS.
+
+## 2026-06-20
+
 ### [web2/shared chat-modal] Cột trái hiện TẤT CẢ hội thoại + pill tên page mỗi dòng ✅
 
 User: "chat left panel hiện tất cả đoạn hội thoại, hiện luôn tên page" (trang jt-tracking).

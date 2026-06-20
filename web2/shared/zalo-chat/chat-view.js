@@ -63,12 +63,62 @@
                 if (avNew) avOld.replaceWith(avNew);
             }
         }
+        // Feature 2026-06-20: badge read-only hiển thị TÀI KHOẢN Zalo đang dùng để
+        // nhắn (= account_key của hội thoại này). Có tag "TK chính" nếu là is_primary;
+        // nếu KHÔNG phải primary → đổi màu cảnh báo để user để ý đang dùng TK phụ.
+        // Lấy meta từ Web2Zalo.status() (1 lần/lần mở chat). Lỗi → ẩn chip (không hiện sai).
+        async function _fillAccChip() {
+            const chip = container.querySelector('#wzcvAccChip');
+            if (!chip) return;
+            let meta = null;
+            try {
+                // ZaloApi luôn có mặt nơi engine chạy (ENGINE_JS[0]); Web2Zalo chỉ ở
+                // 1 số trang → ưu tiên ZaloApi.status(), fallback Web2Zalo.status().
+                const r =
+                    (window.ZaloApi?.status && (await window.ZaloApi.status())) ||
+                    (window.Web2Zalo?.status && (await window.Web2Zalo.status())) ||
+                    null;
+                const accs = (r && (r.accounts || r.data?.accounts)) || [];
+                const k = String(account || '');
+                const a = accs.find((x) => String(x.accountKey || x.account_key) === k);
+                if (a)
+                    meta = {
+                        label: a.displayName || a.label || 'Zalo',
+                        isPrimary: !!(a.isPrimary || a.is_primary),
+                    };
+            } catch (_) {}
+            if (!meta) {
+                chip.remove();
+                return;
+            }
+            const nameEl = chip.querySelector('.wzcv-acc-name');
+            if (nameEl) nameEl.textContent = meta.label;
+            chip.title =
+                'Nhắn bằng tài khoản Zalo: ' +
+                meta.label +
+                (meta.isPrimary ? ' (TK chính)' : ' — KHÔNG phải TK chính');
+            if (meta.isPrimary) {
+                const tag = document.createElement('span');
+                tag.textContent = 'TK chính';
+                tag.style.cssText =
+                    'font-size:9px;font-weight:700;color:#b45309;background:#fff7ed;border:1px solid #fed7aa;border-radius:999px;padding:0 6px;flex-shrink:0';
+                chip.appendChild(tag);
+            } else {
+                chip.style.color = '#b45309';
+                chip.style.background = '#fff7ed';
+                chip.style.borderColor = '#fed7aa';
+            }
+        }
         function shell() {
             const name = headName();
             container.innerHTML = `
                 <div class="wz-chat-head">
                     ${WZ.avatarHtml(conv.avatar_url, name, 'wz-conv-av' + (conv.thread_type === 'group' ? ' is-group' : ''), 'width:34px;height:34px')}
                     <span class="wz-chat-head-name">${esc(name)}</span>
+                    <span id="wzcvAccChip" title="Tài khoản Zalo đang dùng để nhắn khách" style="margin-left:auto;display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:#0068ff;background:#f0f7ff;border:1px solid #d7e9ff;border-radius:999px;padding:2px 9px;max-width:210px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">
+                        <span style="width:6px;height:6px;border-radius:50%;background:#22c55e;flex-shrink:0"></span>
+                        <span class="wzcv-acc-name">Zalo</span>
+                    </span>
                     <button class="wz-head-btn" id="wzcvSearchBtn" title="Tìm trong hội thoại" aria-label="Tìm trong hội thoại"><i data-lucide="search"></i></button>
                 </div>
                 <div class="wz-srch-bar" id="wzcvSrchBar" hidden>
@@ -83,6 +133,7 @@
                 <button class="wz-scroll-fab" id="wzcvFab" hidden aria-label="Cuộn xuống cuối"><i data-lucide="chevron-down"></i></button>
                 <div id="wzcvCompose"></div>`;
             if (window.lucide) lucide.createIcons();
+            _fillAccChip();
             _bindSearch();
             WZ.mountComposer(container.querySelector('#wzcvCompose'), {
                 conv,
