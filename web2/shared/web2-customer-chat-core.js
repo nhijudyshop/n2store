@@ -420,6 +420,7 @@
 .w2cc-row-main{min-width:0;flex:1}
 .w2cc-row-name{font-weight:700;font-size:13px;color:var(--web2-text,#111827);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .w2cc-row-snip{font-size:12px;color:var(--web2-text-mute,#6b7280);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.w2cc-row-page{display:inline-block;margin-top:3px;max-width:100%;font-size:10px;line-height:1.5;font-weight:600;color:var(--web2-primary,#0068ff);background:color-mix(in oklab,var(--web2-primary,#0068ff) 12%,transparent);border-radius:5px;padding:0 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;vertical-align:middle}
 .w2cc-row-time{font-size:10px;color:var(--web2-text-mute,#9ca3af);flex-shrink:0;align-self:flex-start}
 .w2cc-main{display:flex;flex-direction:column;min-height:0;position:relative}
 .w2cc-side-empty{padding:24px 12px;text-align:center;color:var(--web2-text-mute,#9ca3af);font-size:12px}
@@ -491,9 +492,15 @@
         const av = url
             ? `<div class="w2cc-row-av" style="background:${color}"><span>${esc(initial)}</span><img src="${esc(url)}" alt="" loading="lazy" onerror="this.remove()"></div>`
             : `<div class="w2cc-row-av" style="background:${color}">${esc(initial)}</div>`;
+        // Tên page Pancake (vd "NhiJudyStore" / "Nhi Judy House") → pill nhỏ, để biết
+        // hội thoại thuộc page nào khi danh sách gộp nhiều page.
+        const pageName = pageId ? _pageName(pageId) : '';
+        const pageChip = pageName
+            ? `<span class="w2cc-row-page" title="${esc(pageName)}">${esc(pageName)}</span>`
+            : '';
         return `<div class="w2cc-row" data-conv-id="${esc(String(c.id))}" data-page-id="${esc(pageId)}" data-fb-id="${esc(fbId)}" data-name="${esc(name)}">
             ${av}
-            <div class="w2cc-row-main"><div class="w2cc-row-name">${esc(name)}</div><div class="w2cc-row-snip">${esc(String(snip).slice(0, 64))}</div></div>
+            <div class="w2cc-row-main"><div class="w2cc-row-name">${esc(name)}</div><div class="w2cc-row-snip">${esc(String(snip).slice(0, 64))}</div>${pageChip}</div>
             ${time ? `<span class="w2cc-row-time">${esc(time)}</span>` : ''}
         </div>`;
     }

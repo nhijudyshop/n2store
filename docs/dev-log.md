@@ -2,6 +2,15 @@
 
 ## 2026-06-20
 
+### [web2/shared chat-modal] Cột trái hiện TẤT CẢ hội thoại + pill tên page mỗi dòng ✅
+
+User: "chat left panel hiện tất cả đoạn hội thoại, hiện luôn tên page" (trang jt-tracking).
+
+- **Files**: `web2/shared/web2-customer-chat-modal.js` (seed search), `web2/shared/web2-customer-chat-core.js` (`_convRowHtml` + CSS `.w2cc-row-page`). Bump `web2-customer-chat-core.js?v=20260620p` + `web2-customer-chat-modal.js?v=20260620p` ở 4 trang load (native-orders, web2/customers, web2/jt-tracking, web2/balance-history).
+- **(1) Hiện tất cả hội thoại**: `openModal` đổi `seedQ = opts.query || phone` → `seedQ = opts.query` (CHỈ seed khi caller truyền `query`). Phone-only caller (jt-tracking) → cột trái KHÔNG bị lọc, hiện hết; hội thoại của SĐT vẫn auto-chọn + mở thread (`resolvePancakeConv`). Caller có `query` (native-orders, balance-history, customer-detail, pending-match picker) GIỮ filter — không regression.
+- **(2) Pill tên page**: `_convRowHtml` thêm `<span class="w2cc-row-page">` = `_pageName(pageId)` (pill xanh nhỏ dưới snippet) → biết hội thoại thuộc page nào khi gộp nhiều page. Áp dụng mọi trang dùng modal.
+- **Verify Playwright** (jt-tracking, click SĐT): `searchValue:""`, `totalRows:150` (trước chỉ 3), `pageChips:150`, pages = `["Nhi Judy House","NhiJudy Store","Nhi Judy Ơi"]`, thread vẫn auto-mở (Thiên Kim Lê), 0 console error. Screenshot xác nhận.
+
 ### [web2/zalo] Thêm account bằng phiên chat.zalo.me (cookie) — không cần QR ✅
 
 User: nút "Đăng nhập Zalo" (cookie) chỉ RE-CONNECT slot cũ + có guard expectedUid → KHÔNG thêm được account ĐANG MỞ trên chat.zalo.me nếu nó chưa có slot ("Thêm & quét QR" chỉ có QR). Bằng chứng live: chat.zalo.me = My Njd (852368) nhưng web2 chỉ connect Nhijudy Ơi (711743, session cũ).

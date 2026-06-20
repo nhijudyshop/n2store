@@ -178,8 +178,10 @@
 
         loadInitial();
         wireSearch();
-        // Seed ô tìm kiếm (opts.query cho chế độ tìm-trước, hoặc SĐT) + trigger luôn.
-        const seedQ = String(opts.query || phone || '').trim();
+        // Seed ô tìm kiếm CHỈ khi caller truyền opts.query (chế độ tìm-trước / picker).
+        // KHÔNG seed bằng phone → cột trái luôn hiện TẤT CẢ hội thoại; hội thoại của
+        // SĐT vẫn được auto-chọn + mở thread (logic resolvePancakeConv ở trên).
+        const seedQ = String(opts.query || '').trim();
         if (seedQ) {
             searchEl.value = seedQ;
             searchEl.dispatchEvent(new Event('input', { bubbles: true }));
