@@ -43,22 +43,25 @@ function extractUsernameFromBody(body) {
 // 2026-06-20). Set: `wrangler secret put TPOS_PASSWORD`. Username giữ default theo
 // company (không phải bí mật xoay vòng); có thể override qua TPOS_USERNAME_1/2.
 function credentialsFor(cid, env) {
-    const password = (env && env.TPOS_PASSWORD) || '';
-    const byCompany = {
-        1: {
+    const e = env || {};
+    const clientId = e.TPOS_CLIENT_ID || 'tmtWebApp';
+    // Company 2 (shop) → secret ONCALL_*; company 1 (live) → secret TPOS_*.
+    // Đọc TỪ env (đúng thiết kế worker live); fallback username default + dùng
+    // chung TPOS_PASSWORD nếu ONCALL_PASSWORD chưa set.
+    if (cid === 2) {
+        return {
             grant_type: 'password',
-            username: (env && env.TPOS_USERNAME_1) || 'nvktlive1',
-            password,
-            client_id: 'tmtWebApp',
-        },
-        2: {
-            grant_type: 'password',
-            username: (env && env.TPOS_USERNAME_2) || 'nvktshop1',
-            password,
-            client_id: 'tmtWebApp',
-        },
+            username: e.ONCALL_USERNAME || e.TPOS_USERNAME || 'nvktshop1',
+            password: e.ONCALL_PASSWORD || e.TPOS_PASSWORD || '',
+            client_id: clientId,
+        };
+    }
+    return {
+        grant_type: 'password',
+        username: e.TPOS_USERNAME || 'nvktlive1',
+        password: e.TPOS_PASSWORD || '',
+        client_id: clientId,
     };
-    return byCompany[cid] || byCompany[1];
 }
 
 /**
