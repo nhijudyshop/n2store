@@ -3,16 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `cb305e9` — fix(bill): bo default account hardcode nvqldonhang/Aa@123456987 — chua gan TPOS thi bao 'khong ra bill'
-**Last updated**: 2026-06-20 12:19:27 +07
-**Latest session**: [`RESUME:20260620-121927-cb305e9`](../20260620-121927-cb305e9.md)
-**Summary**: fix(bill): bo default account hardcode nvqldonhang/Aa@123456987 — chua gan TPOS thi bao 'khong ra bill'
+**Latest commit**: `90e4366` — fix(web2): gate auth 3 router con sot (reconcile/unread/customer-intents) + cap amount quick-refund — dong not HIGH audit con treo
+**Last updated**: 2026-06-20 12:31:41 +07
+**Latest session**: [`RESUME:20260620-123141-90e4366`](../20260620-123141-90e4366.md)
+**Summary**: fix(web2): gate auth 3 router con sot (reconcile/unread/customer-intents) + cap amount quick-refund — dong not HIGH...
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`don-inbox/`](./don-inbox.md) — 1 file(s)
-- [`orders-report/`](./orders-report.md) — 2 file(s)
+- [`render.com/`](./render.com.md) — 4 file(s)
 
 ## All folder snapshots
 
@@ -27,7 +26,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-20 11:49
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 12:07
-- [`docs/`](./docs.md) — updated 2026-06-20 12:19
+- [`docs/`](./docs.md) — updated 2026-06-20 12:31
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-19 14:27
@@ -56,7 +55,7 @@
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-06-20 12:07
 - [`referenceUI/`](./referenceUI.md) — updated 2026-06-19 14:27
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-06-20 12:07
-- [`render.com/`](./render.com.md) — updated 2026-06-20 12:07
+- [`render.com/`](./render.com.md) — updated 2026-06-20 12:31
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-19 14:27
 - [`service-costs/`](./service-costs.md) — updated 2026-06-20 12:07
