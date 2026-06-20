@@ -12,6 +12,7 @@
 'use strict';
 const express = require('express');
 const router = express.Router();
+const { requireWeb2AuthSoft } = require('../middleware/web2-auth');
 
 function getPool(req) {
     return req.app.locals.web2Db || req.app.locals.chatDb;
@@ -87,11 +88,13 @@ router.get('/stats', async (req, res) => {
     }
 });
 
-router.post('/:id/done', async (req, res) => {
+// AUTH GATE (audit 2026-06-20 #9/#26): trước đây bare → ai cũng đánh dấu done.
+router.post('/:id/done', requireWeb2AuthSoft, async (req, res) => {
     const pool = getPool(req);
     if (!pool) return res.status(500).json({ success: false, error: 'DB unavailable' });
     const id = Number(req.params.id);
-    const by = (req.body && (req.body.userName || req.body.by)) || '(ẩn danh)';
+    const by =
+        (req.body && (req.web2User?.name || req.body.userName || req.body.by)) || '(ẩn danh)';
     try {
         const { rows } = await pool.query(
             `UPDATE web2_customer_intents SET status='done', done_at=$2, done_by=$3

@@ -24,6 +24,13 @@
 const express = require('express');
 const router = express.Router();
 const { withTransaction } = require('../db/with-transaction');
+const { requireWeb2AuthSoft } = require('../middleware/web2-auth');
+
+// AUTH GATE (audit 2026-06-20 #43): mọi route PBH đối soát (scan/pack/ship/
+// deliver/return-failed…) PHẢI qua web2-auth — trước đây bare, ai cũng POST được
+// và userFromReq tin body. requireWeb2AuthSoft → 401 khi WEB2_AUTH_ENFORCE=1
+// (trang reconcile đã gửi x-web2-token sẵn), warn-and-pass khi transition.
+router.use(requireWeb2AuthSoft);
 
 // -----------------------------------------------------
 // SSE notifier
@@ -113,9 +120,11 @@ function findLineByCode(lines, productCode) {
 }
 
 function userFromReq(req) {
+    // Ưu tiên danh tính ĐÃ VERIFY từ token (requireWeb2AuthSoft set req.web2User);
+    // chỉ fallback body/header khi soft-mode chưa có token (transition).
     return {
-        id: req.body?.userId || req.headers['x-user-id'] || null,
-        name: req.body?.userName || req.headers['x-user-name'] || null,
+        id: req.web2User?.id || req.body?.userId || req.headers['x-user-id'] || null,
+        name: req.web2User?.name || req.body?.userName || req.headers['x-user-name'] || null,
     };
 }
 

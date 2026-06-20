@@ -17,6 +17,7 @@
 
 const express = require('express');
 const router = express.Router();
+const { requireWeb2AuthSoft } = require('../middleware/web2-auth');
 
 const tracker = require('../services/web2-unread-tracker');
 
@@ -72,7 +73,9 @@ router.get('/stats', async (req, res) => {
 
 // ─── POST /reconcile — trigger reconcile thủ công (dọn row kẹt ngay) ──
 // Hỏi Pancake trạng thái thật → xoá row đã đọc / thêm row unread bị miss.
-router.post('/reconcile', async (req, res) => {
+// AUTH GATE (audit 2026-06-20 #9/#26): trước đây bare → ai cũng trigger được
+// reconcile hammer Pancake toàn bộ hội thoại. requireWeb2AuthSoft → 401 khi enforce.
+router.post('/reconcile', requireWeb2AuthSoft, async (req, res) => {
     const web2Db = req.app.locals.web2Db;
     const chatDb = req.app.locals.chatDb;
     if (!web2Db || !chatDb) {

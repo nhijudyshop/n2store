@@ -384,8 +384,24 @@ router.post('/quick-refund', async (req, res) => {
     const lines = normalizeLines(products);
     if (lines.size === 0)
         return res.status(400).json({ error: 'products rỗng (không có SP hợp lệ)' });
-    const amount = Number(b.totalAmount) || 0;
+    let amount = Number(b.totalAmount) || 0;
     if (amount <= 0) return res.status(400).json({ error: 'totalAmount phải > 0' });
+    // SERVER-AUTHORITATIVE (audit 2026-06-20 #42): credit ledger NCC PHẢI nhất quán
+    // với CHÍNH line items đã trừ kho — trước đây tin `totalAmount` client tách rời
+    // → client gửi qty=1 (trừ 1 kho) nhưng totalAmount phồng → credit ví NCC quá tay.
+    // Tính Σ(qty×price) từ products đã submit; nếu client vượt >1% → CAP về computed
+    // (cho phép shop refund ÍT hơn: giảm giá/đối trừ; chỉ chặn phồng lên).
+    const computedAmount = (products || []).reduce((s, p) => {
+        const q = Number(p?.qty || p?.quantity || 0);
+        const pr = Number(p?.price || p?.unitPrice || 0);
+        return s + (q > 0 && pr > 0 ? q * pr : 0);
+    }, 0);
+    if (computedAmount > 0 && amount > computedAmount * 1.01) {
+        console.warn(
+            `[PURCHASE-REFUND] quick-refund ${code}: client amount=${amount} > computed=${computedAmount} → cap`
+        );
+        amount = computedAmount;
+    }
     const userName = b.userName || '(ẩn danh)';
     const userId = b.userId || null;
     const now = Date.now();

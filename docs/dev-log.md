@@ -2,6 +2,18 @@
 
 ## 2026-06-20
 
+### [web2/render] Audit sót: gate auth 3 router + cap amount quick-refund (đóng nốt HIGH còn treo) ✅
+
+Verify lại audit Web 2.0 trực tiếp trong code (không tin commit message) → đợt fix trước gate hầu hết router nhưng **sót 3 file bare auth + 1 money-trust**. Đóng nốt:
+
+- **`reconcile.js`** (#43): `router.use(requireWeb2AuthSoft)` toàn router (8 route PBH scan/pack/ship/deliver/return-failed…); `userFromReq` ưu tiên `req.web2User` (token đã verify) thay vì tin body.
+- **`web2-unread.js`** (#9/#26): gate `POST /reconcile` — chống ai cũng trigger reconcile hammer Pancake toàn bộ hội thoại.
+- **`web2-customer-intents.js`** (#9/#26): gate `POST /:id/done` + lấy `done_by` từ `req.web2User`.
+- **`purchase-refund.js` `/quick-refund`** (#42): credit ledger NCC nay CAP về `Σ(qty×price)` của chính line items đã trừ kho (cho refund ÍT hơn, chặn phồng >1%) — trước tin `totalAmount` client tách rời số kho.
+- node --check PASS cả 4, 0 NUL. requireWeb2AuthSoft → 401 khi WEB2_AUTH_ENFORCE=1 (trang web2 đã gửi x-web2-token sẵn), warn-pass khi transition. Cần deploy n2store-fallback + web2-api để áp prod.
+
+**Đã verify FIXED từ đợt trước (code hiện tại):** TPOS creds worker, SSRF, admin `?secret=`, mã hoá token Zalo/FB at-rest, requireWeb2Permission enforce, `/ingest` fail-closed, over-refund qty cap (#4/#20), msg-send `/result` state-guard (#35), sidebar escapeHtml, chat double-send, live-comments dedup key.
+
 ### [orders-report/bill] Bỏ default account hardcode `nvqldonhang` — chưa gắn TPOS thì báo "không ra bill" ✅
 
 User: bill phải ra theo TPOS account GẮN với user Web 1.0; chưa gắn thì báo lỗi, KHÔNG fallback account dùng chung. `bill-token-manager.js` `init()`+`_retryLoadFromRender()` đang tạo default `{label:'Mặc định', username:'nvqldonhang', password:'Aa@123456987'}` khi `accounts.length===0` → `hasCredentials()` LUÔN true → guard báo lỗi không bao giờ chạy + lộ password billing dùng chung.
