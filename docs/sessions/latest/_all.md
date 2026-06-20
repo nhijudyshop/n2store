@@ -3,17 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `7648b85` — auto: session update
-**Last updated**: 2026-06-20 15:22:03 +07
-**Latest session**: [`RESUME:20260620-152203-7648b85`](../20260620-152203-7648b85.md)
-**Summary**: auto: session update
+**Latest commit**: `deb86fd` — feat(web2/multi-tool): tang comment tu mac dinh page NhiJudy Store + bai live moi nhat
+**Last updated**: 2026-06-20 15:32:42 +07
+**Latest session**: [`RESUME:20260620-153242-deb86fd`](../20260620-153242-deb86fd.md)
+**Summary**: delivery-report Bao cao: them tab BAN HANG SHOP + hien SL don o 5 the tien
 
 ## Folders affected in this commit
 
-- [`delivery-report/`](./delivery-report.md) — 3 file(s)
 - [`docs/`](./docs.md) — 1 file(s)
-- [`native-orders/`](./native-orders.md) — 1 file(s)
-- [`web2/`](./web2.md) — 5 file(s)
 
 ## All folder snapshots
 
@@ -28,7 +25,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-20 11:49
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-06-20 15:22
+- [`docs/`](./docs.md) — updated 2026-06-20 15:32
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-19 14:27
