@@ -552,6 +552,7 @@ async function handleMessage(msg, tabId, port, asyncSendResponse) {
                         zaloCreds: {
                             imei: msg.imei,
                             userAgent: msg.userAgent || '',
+                            uid: msg.uid || null, // 2026-06-20: uid TK đang đăng nhập chat.zalo.me
                             ts: Date.now(),
                         },
                     });
@@ -582,19 +583,21 @@ async function handleMessage(msg, tabId, port, asyncSendResponse) {
                     value: c.value,
                 }));
 
-                // 2) imei + userAgent: cache trước; không có → hỏi tươi tab chat.zalo.me đang mở.
+                // 2) imei + userAgent + uid: cache trước; không có → hỏi tươi tab chat.zalo.me.
                 let imei = null;
                 let userAgent = '';
+                let uid = null; // uid TK đang đăng nhập chat.zalo.me (ưu tiên gửi theo TK này)
                 try {
                     const st = await chrome.storage.local.get('zaloCreds');
                     if (st && st.zaloCreds && st.zaloCreds.imei) {
                         imei = st.zaloCreds.imei;
                         userAgent = st.zaloCreds.userAgent || '';
+                        uid = st.zaloCreds.uid || null;
                     }
                 } catch (e) {
                     /* storage có thể trống */
                 }
-                if (!imei) {
+                if (!imei || !uid) {
                     try {
                         const tabs = await chrome.tabs.query({ url: '*://chat.zalo.me/*' });
                         for (const t of tabs) {
@@ -602,8 +605,9 @@ async function handleMessage(msg, tabId, port, asyncSendResponse) {
                                 .sendMessage(t.id, { type: 'ZALO_READ_CREDS' })
                                 .catch(() => null);
                             if (r && r.imei) {
-                                imei = r.imei;
+                                imei = imei || r.imei;
                                 userAgent = r.userAgent || userAgent;
+                                uid = uid || r.uid || null;
                                 break;
                             }
                         }
