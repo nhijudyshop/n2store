@@ -209,8 +209,25 @@ async function _isStopped(id) {
     }
 }
 
+// "Dọn comment đã tăng" tự động (như nút ở trang Đa dụng): mark conv để /ingest bỏ
+// qua + XOÁ comment boost đã ingest khỏi web2_live_comments + SSE reconcile → live-chat
+// không hiện spam. Gọi in-process module web2-live-comments (cùng process web2-api).
+const BOOST_CLEAN_TTL_MS = 20 * 60 * 1000;
+async function _cleanupBoosted(job, boostedIds) {
+    try {
+        const lc = require('../routes/web2-live-comments');
+        if (!lc.markBoostAndPurge) return null;
+        const ids = [job.conv_id, ...(boostedIds || [])].filter(Boolean);
+        if (!ids.length) return null;
+        return await lc.markBoostAndPurge(_web2Pool, ids, BOOST_CLEAN_TTL_MS);
+    } catch (e) {
+        console.warn('[CMT-BOOST] cleanup error:', e.message);
+        return null;
+    }
+}
+
 // ── 1 vòng đăng comment: work-stealing N account, delay/account, rate-limit guard ──
-async function runRound(job, tokens, remaining, delay, onProgress, jobId) {
+async function runRound(job, tokens, remaining, delay, onProgress, jobId, boostedIds) {
     const tpl = (job.tpl || '').trim();
     let claimed = 0;
     let ok = 0;

@@ -428,36 +428,42 @@ router.post('/ingest', async (req, res) => {
 // WS gán page-reply vào hội thoại của KHÁCH (không có field "page-authored"), cách
 // duy nhất tin cậy là deterministic: tool biết chính xác conv nào đang tăng.
 // Body: { convIds:[...] } | { convId }, ttlMs? (mặc định 20 phút). Soft-auth.
+// Core dọn comment tăng — mark (ingest bỏ qua, TTL) + XOÁ comment đã ingest +
+// SSE reconcile. Export để worker chạy nền (web2-comment-boost-worker) gọi
+// in-process sau khi job xong (KHÔNG cần HTTP roundtrip). Trả { marked, purged }.
+async function markBoostAndPurge(pool, rawIds, ttlMs) {
+    const ids = (Array.isArray(rawIds) ? rawIds : rawIds ? [rawIds] : [])
+        .map((x) => String(x || '').trim())
+        .filter(Boolean);
+    const ttl = Number(ttlMs);
+    ids.forEach((id) => _markBoost(id, ttl));
+    // Dọn comment đã ingest của các conv này. Row id = conv.id (comment gốc) hoặc
+    // `${conv.id}_${message_count}` (reply). starts_with → prefix LITERAL (tránh '_'
+    // bị coi là wildcard trong LIKE vì conv.id có nhiều '_').
+    let purged = 0;
+    if (pool && ids.length) {
+        await ensureTables(pool);
+        for (const cid of ids) {
+            const r = await pool.query(
+                `DELETE FROM web2_live_comments WHERE id = $1 OR starts_with(id, $1 || '_')`,
+                [cid]
+            );
+            purged += r.rowCount || 0;
+        }
+        if (purged > 0) _notify('reconcile', null); // live-chat reload → bỏ spam
+    }
+    return { marked: ids.length, purged, ttlMs: ttl > 0 ? ttl : BOOST_TTL_MS };
+}
+
 router.post('/boost-mark', requireWeb2AuthSoft, async (req, res) => {
     try {
         const b = req.body || {};
-        const ids = (Array.isArray(b.convIds) ? b.convIds : b.convId ? [b.convId] : [])
-            .map((x) => String(x || '').trim())
-            .filter(Boolean);
-        const ttl = Number(b.ttlMs);
-        ids.forEach((id) => _markBoost(id, ttl));
-        // Dọn comment đã ingest của các conv này. Row id = conv.id (comment gốc) hoặc
-        // `${conv.id}_${message_count}` (reply). starts_with → prefix LITERAL (tránh
-        // '_' bị coi là wildcard trong LIKE vì conv.id có nhiều '_').
-        let purged = 0;
-        const pool = getDb(req);
-        if (pool && ids.length) {
-            await ensureTables(pool);
-            for (const cid of ids) {
-                const r = await pool.query(
-                    `DELETE FROM web2_live_comments WHERE id = $1 OR starts_with(id, $1 || '_')`,
-                    [cid]
-                );
-                purged += r.rowCount || 0;
-            }
-            if (purged > 0) _notify('reconcile', null); // live-chat reload → bỏ spam
-        }
-        res.json({
-            success: true,
-            marked: ids.length,
-            purged,
-            ttlMs: ttl > 0 ? ttl : BOOST_TTL_MS,
-        });
+        const out = await markBoostAndPurge(
+            getDb(req),
+            Array.isArray(b.convIds) ? b.convIds : b.convId,
+            b.ttlMs
+        );
+        res.json({ success: true, ...out });
     } catch (e) {
         res.status(500).json({ success: false, error: e.message });
     }
@@ -952,3 +958,4 @@ module.exports.upsertComments = upsertComments;
 module.exports.ensureTables = ensureTables;
 module.exports._notify = _notify;
 module.exports.parseUtcTs = parseUtcTs;
+module.exports.markBoostAndPurge = markBoostAndPurge; // worker tăng comment nền dọn sau job
