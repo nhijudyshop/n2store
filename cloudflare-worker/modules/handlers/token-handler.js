@@ -38,11 +38,28 @@ function extractUsernameFromBody(body) {
     return '_default';
 }
 
-// Server-side TPOS credentials — browser no longer sends these
-const CREDENTIALS_BY_COMPANY = {
-    1: { grant_type: 'password', username: 'nvktlive1', password: 'Aa@28612345678', client_id: 'tmtWebApp' },
-    2: { grant_type: 'password', username: 'nvktshop1', password: 'Aa@28612345678', client_id: 'tmtWebApp' }
-};
+// Server-side TPOS credentials — browser no longer sends these.
+// Password đọc từ Cloudflare secret `env.TPOS_PASSWORD` (KHÔNG hardcode — đã rotate
+// 2026-06-20). Set: `wrangler secret put TPOS_PASSWORD`. Username giữ default theo
+// company (không phải bí mật xoay vòng); có thể override qua TPOS_USERNAME_1/2.
+function credentialsFor(cid, env) {
+    const password = (env && env.TPOS_PASSWORD) || '';
+    const byCompany = {
+        1: {
+            grant_type: 'password',
+            username: (env && env.TPOS_USERNAME_1) || 'nvktlive1',
+            password,
+            client_id: 'tmtWebApp',
+        },
+        2: {
+            grant_type: 'password',
+            username: (env && env.TPOS_USERNAME_2) || 'nvktshop1',
+            password,
+            client_id: 'tmtWebApp',
+        },
+    };
+    return byCompany[cid] || byCompany[1];
+}
 
 /**
  * Handle POST /api/token
@@ -55,7 +72,7 @@ const CREDENTIALS_BY_COMPANY = {
  * @param {Request} request
  * @returns {Promise<Response>}
  */
-export async function handleTokenRequest(request) {
+export async function handleTokenRequest(request, env) {
     // Read body once
     const bodyBuffer = await request.arrayBuffer();
     const bodyText = new TextDecoder().decode(bodyBuffer);
@@ -72,7 +89,10 @@ export async function handleTokenRequest(request) {
         try {
             const { companyId } = JSON.parse(bodyText);
             const cid = parseInt(companyId, 10) || 1;
-            const creds = CREDENTIALS_BY_COMPANY[cid] || CREDENTIALS_BY_COMPANY[1];
+            const creds = credentialsFor(cid, env);
+            if (!creds.password) {
+                return errorResponse('TPOS_PASSWORD chưa cấu hình (Cloudflare secret)', 500);
+            }
             cacheKey = creds.username;
 
             // Build form body for TPOS
@@ -119,13 +139,17 @@ export async function handleTokenRequest(request) {
                 headers: headers,
                 body: tposBody,
             },
-            3, 1000, 10000
+            3,
+            1000,
+            10000
         );
 
         if (!tposResponse.ok) {
             const errorText = await tposResponse.text();
             console.error(`[TOKEN-HANDLER] TPOS error ${tposResponse.status}:`, errorText);
-            throw new Error(`TPOS API responded with ${tposResponse.status}: ${tposResponse.statusText}`);
+            throw new Error(
+                `TPOS API responded with ${tposResponse.status}: ${tposResponse.statusText}`
+            );
         }
 
         const tokenData = await tposResponse.json();
@@ -142,7 +166,6 @@ export async function handleTokenRequest(request) {
         console.log(`[TOKEN-HANDLER] New token fetched and cached for "${cacheKey}"`);
 
         return jsonResponse(tokenData);
-
     } catch (error) {
         console.error('[TOKEN-HANDLER] Error:', error.message);
         return errorResponse('Failed to fetch token: ' + error.message, 500);

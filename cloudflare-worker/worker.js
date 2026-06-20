@@ -108,7 +108,7 @@ async function routeRequest(request, env, ctx) {
         switch (route) {
             // Token
             case 'TOKEN':
-                return handleTokenRequest(request);
+                return handleTokenRequest(request, env);
 
             // Image proxies
             case 'IMAGE_PROXY':
