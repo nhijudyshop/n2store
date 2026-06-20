@@ -204,6 +204,9 @@ async function ensureWeb2ZaloSchema(pool) {
                 created_at  BIGINT NOT NULL
             );
             CREATE INDEX IF NOT EXISTS idx_web2_zalo_media_created ON web2_zalo_media(created_at DESC);
+            -- token bất khả đoán cho URL /media (chống IDOR enumerate id BIGSERIAL tuần tự).
+            ALTER TABLE web2_zalo_media ADD COLUMN IF NOT EXISTS token VARCHAR(48);
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_web2_zalo_media_token ON web2_zalo_media(token) WHERE token IS NOT NULL;
         `);
 
         // ── 3c. Cache thành viên (uid → tên + avatar) — resolve tên người gửi ──

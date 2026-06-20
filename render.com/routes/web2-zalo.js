@@ -1763,18 +1763,23 @@ router.get('/quick-replies', async (req, res) => {
 router.get('/media/:id', async (req, res) => {
     try {
         const db = getDb(req);
-        // IDOR hardening: id là BIGSERIAL tuần tự (1,2,3…) → có thể enumerate.
-        // (a) Route nằm sau router.use(requireWeb2AuthSoft) → WEB2_AUTH_ENFORCE=1
-        //     chặn truy cập ẩn danh từ Internet.
-        // (b) Scope thêm theo account_key khi client truyền → không trả media của
-        //     account khác kể cả khi đoán đúng id. Cache PRIVATE (token-gated,
-        //     không cho proxy/CDN chia sẻ giữa các phiên).
-        const acctScope = (req.query.accountKey || req.query.account_key || '').toString().trim();
-        const params = [req.params.id];
-        let sql = `SELECT mime, filename, data, account_key FROM web2_zalo_media WHERE id=$1`;
-        if (acctScope) {
-            params.push(acctScope);
-            sql += ` AND account_key=$2`;
+        // IDOR hardening (O2): route đã sau router.use(requireWeb2AuthSoft) (chặn ẩn danh).
+        // Media MỚI dùng `token` bất khả đoán (36 hex) → tra theo token, không enumerate.
+        // URL legacy dạng id BIGSERIAL tuần tự → BẮT BUỘC kèm account_key scope (bỏ param
+        // = 404) nên không thể quét id 1,2,3… của account khác. Cache PRIVATE (token-gated).
+        const ref = String(req.params.id || '');
+        const isNumericId = /^[0-9]+$/.test(ref);
+        let sql, params;
+        if (!isNumericId) {
+            sql = `SELECT mime, data FROM web2_zalo_media WHERE token=$1`;
+            params = [ref];
+        } else {
+            const acctScope = (req.query.accountKey || req.query.account_key || '')
+                .toString()
+                .trim();
+            if (!acctScope) return res.status(404).send('Not found');
+            sql = `SELECT mime, data FROM web2_zalo_media WHERE id=$1 AND account_key=$2`;
+            params = [ref, acctScope];
         }
         const { rows } = await db.query(sql, params);
         if (!rows[0]) return res.status(404).send('Not found');
@@ -1805,9 +1810,11 @@ function _safeFilename(name, fallback) {
 const MEDIA_BASE =
     process.env.WEB2_MEDIA_BASE || 'https://web2-api-kv04.onrender.com/api/web2-zalo/media';
 async function _storeMedia(db, accountKey, buf, mime, filename, width, height) {
+    // token bất khả đoán → URL /media/<token> không enumerate được (chống IDOR).
+    const token = crypto.randomBytes(18).toString('hex'); // 36 hex chars
     const { rows } = await db.query(
-        `INSERT INTO web2_zalo_media (account_key, mime, filename, data, width, height, size, created_at)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id`,
+        `INSERT INTO web2_zalo_media (account_key, mime, filename, data, width, height, size, created_at, token)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id`,
         [
             accountKey,
             mime || 'application/octet-stream',
@@ -1817,9 +1824,10 @@ async function _storeMedia(db, accountKey, buf, mime, filename, width, height) {
             height || null,
             buf.length,
             now(),
+            token,
         ]
     );
-    return `${MEDIA_BASE}/${rows[0].id}`;
+    return `${MEDIA_BASE}/${token}`;
 }
 // emoji hiển thị cho reaction icon enum (lưu vào reactions JSONB cho client render)
 const _REACTION_EMOJI = {
