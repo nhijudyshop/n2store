@@ -28,6 +28,13 @@
               </div>
               <div class="no-add-selected" id="noAddSelected" hidden></div>
               <div class="no-add-fb-status" id="noAddFbStatus" hidden></div>
+              <div class="no-add-fb-rebind" id="noAddFbRebind" hidden>
+                <div class="no-add-fb-rebind-head"><i data-lucide="search"></i> Gán Facebook đúng — tìm hội thoại Pancake theo tên / SĐT (giữ nguyên tên + SĐT đơn)</div>
+                <div class="no-add-search-wrap">
+                  <input type="text" id="noAddFbRebindSearch" placeholder="Tìm hội thoại Pancake (tên / SĐT) để gán đúng Facebook..." autocomplete="off" />
+                  <div class="no-add-suggest" id="noAddFbRebindSuggest" hidden></div>
+                </div>
+              </div>
               <div class="no-add-row">
                 <div><label>Tên</label><input type="text" id="noAddName" /></div>
                 <div><label>SĐT</label><input type="text" id="noAddPhone" /></div>
@@ -114,7 +121,10 @@
                     <strong>${NO.escapeHtml(name)}</strong>${phone ? ' · ' + NO.escapeHtml(phone) : ''}
                     <span class="no-add-selected-src">Đã chọn · ${srcLabel}</span>
                 </span>
-                <button type="button" class="no-add-selected-change" title="Đổi khách / tìm lại"><i data-lucide="rotate-ccw"></i> Đổi khách</button>`;
+                <span class="no-add-selected-actions">
+                    <button type="button" class="no-add-selected-rebind" title="Gán Facebook khác (nếu tự dò nhầm hội thoại) — giữ nguyên tên + SĐT"><i data-lucide="repeat"></i> Gán FB khác</button>
+                    <button type="button" class="no-add-selected-change" title="Đổi khách / tìm lại"><i data-lucide="rotate-ccw"></i> Đổi khách</button>
+                </span>`;
             selectedChip.hidden = false;
             if (window.lucide) lucide.createIcons();
         };
@@ -133,8 +143,15 @@
         };
 
         selectedChip.addEventListener('click', (e) => {
+            // "Gán FB khác" → mở panel tìm hội thoại Pancake để gán lại đúng Facebook
+            // (giữ nguyên tên/SĐT của đơn). Dùng khi auto-dò theo SĐT chọn nhầm FB.
+            if (e.target.closest('.no-add-selected-rebind')) {
+                openFbRebind();
+                return;
+            }
             if (!e.target.closest('.no-add-selected-change')) return;
             clearSelection();
+            closeFbRebind();
             searchInp.value = '';
             searchInp.focus();
         });
@@ -175,6 +192,77 @@
                 </span>
             </button>`;
 
+        // ---- Gán lại Facebook (re-bind) — tìm hội thoại Pancake (CHỈ Pancake) để
+        // gán đúng FB context cho đơn khi auto-dò theo SĐT chọn nhầm. GIỮ NGUYÊN
+        // tên + SĐT đang nhập (chỉ bù khi field rỗng). ----
+        const fbRebind = overlay.querySelector('#noAddFbRebind');
+        const fbRebindInp = overlay.querySelector('#noAddFbRebindSearch');
+        const fbRebindSuggest = overlay.querySelector('#noAddFbRebindSuggest');
+        let fbRebindTimer = null;
+        let fbRebindSeq = 0;
+
+        const openFbRebind = () => {
+            fbRebind.hidden = false;
+            const phone = overlay.querySelector('#noAddPhone').value.trim();
+            const nm = overlay.querySelector('#noAddName').value.trim();
+            fbRebindInp.value = phone || nm || '';
+            fbRebindSuggest.hidden = true;
+            fbRebindInp.focus();
+            if (fbRebindInp.value.trim().length >= 2) {
+                fbRebindInp.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+        };
+        const closeFbRebind = () => {
+            fbRebind.hidden = true;
+            fbRebindSuggest.hidden = true;
+        };
+
+        fbRebindInp.addEventListener('input', () => {
+            clearTimeout(fbRebindTimer);
+            const q = fbRebindInp.value.trim();
+            if (q.length < 2) {
+                fbRebindSuggest.hidden = true;
+                return;
+            }
+            fbRebindTimer = setTimeout(async () => {
+                const seq = ++fbRebindSeq;
+                fbRebindSuggest.innerHTML =
+                    '<div class="no-add-suggest-empty">Đang tìm hội thoại Pancake…</div>';
+                fbRebindSuggest.hidden = false;
+                const pancake = await NO._searchPancakeCustomers(q).catch(() => []);
+                if (seq !== fbRebindSeq) return;
+                if (!pancake.length) {
+                    fbRebindSuggest.innerHTML =
+                        '<div class="no-add-suggest-empty">Không tìm thấy hội thoại Pancake khớp — thử tên/SĐT khác.</div>';
+                    fbRebindSuggest.hidden = false;
+                    return;
+                }
+                fbRebindSuggest.innerHTML = pancake.map(pkItemHtml).join('');
+                fbRebindSuggest.hidden = false;
+                if (window.lucide) lucide.createIcons();
+            }, 320);
+        });
+
+        fbRebindSuggest.addEventListener('click', (e) => {
+            const item = e.target.closest('.no-add-suggest-item');
+            if (!item || item.dataset.src !== 'pancake') return;
+            selToken++; // huỷ background phone-resolve cũ (tránh ghi đè FB vừa gán)
+            selectedFbId = item.dataset.fbid || null;
+            selectedFbPageId = item.dataset.pageid || null;
+            selectedConversationId = item.dataset.convid || null;
+            selectedFbUserName = item.dataset.name || selectedFbUserName;
+            selectedAvatarUrl = item.dataset.avatar || null;
+            // Giữ tên/SĐT đơn; chỉ bù khi đang rỗng.
+            const nameEl = overlay.querySelector('#noAddName');
+            const phoneEl = overlay.querySelector('#noAddPhone');
+            if (!nameEl.value.trim() && item.dataset.name) nameEl.value = item.dataset.name;
+            if (!phoneEl.value.trim() && item.dataset.phone) phoneEl.value = item.dataset.phone;
+            closeFbRebind();
+            renderSelectedChip();
+            setFbStatus();
+            NO.notify('Đã gán lại Facebook cho đơn này', 'success');
+        });
+
         searchInp.addEventListener('input', () => {
             clearTimeout(timer);
             // Gõ lại → bỏ chọn cũ (tránh giữ fb context của khách trước).
@@ -186,6 +274,7 @@
             selectedConversationId = null;
             selectedAvatarUrl = null;
             renderSelectedChip();
+            closeFbRebind();
             setFbStatus();
             const q = searchInp.value.trim();
             if (q.length < 2) {
@@ -444,6 +533,12 @@
             }
             if (!e.target.closest('#noAddCustSearch') && !e.target.closest('#noAddSuggest')) {
                 suggest.hidden = true;
+            }
+            if (
+                !e.target.closest('#noAddFbRebindSearch') &&
+                !e.target.closest('#noAddFbRebindSuggest')
+            ) {
+                fbRebindSuggest.hidden = true;
             }
         });
 

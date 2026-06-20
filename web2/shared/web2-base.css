@@ -2536,27 +2536,68 @@ body {
     font-weight: 600;
     margin-top: 1px;
 }
-.no-add-selected-change {
+.no-add-selected-actions {
     flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+.no-add-selected-rebind,
+.no-add-selected-change {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: 4px;
     padding: 5px 10px;
     font-size: 0.74rem;
     font-weight: 600;
+    border-radius: 8px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.no-add-selected-rebind {
+    color: #1d4ed8;
+    background: #fff;
+    border: 1px solid #93c5fd;
+}
+.no-add-selected-rebind:hover {
+    background: #eff6ff;
+}
+.no-add-selected-change {
     color: #475569;
     background: #fff;
     border: 1px solid #cbd5e1;
-    border-radius: 8px;
-    cursor: pointer;
 }
 .no-add-selected-change:hover {
     background: #f1f5f9;
     color: #0f172a;
 }
+.no-add-selected-rebind i,
 .no-add-selected-change i {
     width: 13px;
     height: 13px;
+}
+/* FB re-bind panel — tìm hội thoại Pancake để gán đúng Facebook */
+.no-add-fb-rebind {
+    margin: 6px 0 2px;
+    padding: 10px;
+    border: 1px solid #bfdbfe;
+    border-radius: 10px;
+    background: #f8fbff;
+}
+.no-add-fb-rebind-head {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.76rem;
+    font-weight: 600;
+    color: #1d4ed8;
+    margin-bottom: 7px;
+}
+.no-add-fb-rebind-head i {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
 }
 /* FB-bind status under the search box */
 .no-add-fb-status {

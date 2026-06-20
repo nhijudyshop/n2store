@@ -2,6 +2,13 @@
 
 ## 2026-06-20
 
+### [native-orders] Đơn Inbox: "Gán FB khác" — gán lại Facebook đúng nếu auto-dò nhầm ✅
+
+User: "Cho gán lại facebook khác nếu nhầm" — sau khi chọn KH từ kho, hệ thống tự dò hội thoại Pancake theo SĐT có thể gắn nhầm Facebook (nhiều profile cùng SĐT). Thêm nút **"Gán FB khác"** trong chip "KH đã chọn" → mở panel tìm hội thoại Pancake (CHỈ Pancake) → chọn đúng FB → re-bind, **GIỮ NGUYÊN tên + SĐT** đơn (chỉ bù field rỗng).
+
+- **Files**: `native-orders/js/native-orders-inbox-add.js` (panel `#noAddFbRebind` + input/suggest, `openFbRebind/closeFbRebind`, pick handler set `selectedFbId/PageId/ConvId/UserName/AvatarUrl` + `selToken++` huỷ background resolve cũ; chip thêm nút `.no-add-selected-rebind`), `web2/shared/web2-base.css` (`.no-add-selected-actions/-rebind`, `.no-add-fb-rebind*`). Bump `?v=20260620b` ở index.html.
+- ✅ Verify Playwright (localhost web2 admin): chọn "Huỳnh Thành Đạt/0908123456" → auto-bind page …390370; bấm "Gán FB khác" → panel prefill SĐT + focus → tìm "huynh thanh dat" → 3 hội thoại Pancake (đều avatar, page khác nhau …364524/…086607/…390370) → chọn page …364524 → fbStatus đổi sang page …364524, name/phone GIỮ NGUYÊN, panel đóng, toast "Đã gán lại Facebook", 0 console error. Screenshot xác nhận.
+
 ### [native-orders] Đơn Inbox: admin xoá đơn rỗng + avatar Facebook trong ô tìm KH ✅
 
 User (ảnh modal "Thêm đơn Inbox"): (1) admin được quyền xoá đơn inbox trạng thái nháp/huỷ + giỏ trống; (2) ô nhập KH hiện avatar/tên/thông tin Facebook theo Pancake để chọn, cho tìm lại nếu nhầm KH.
