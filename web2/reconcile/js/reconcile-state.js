@@ -134,7 +134,15 @@
         if (inp) inp.focus();
     }
     async function api(method, path, body) {
-        const opts = { method, headers: { 'Content-Type': 'application/json' } };
+        const opts = {
+            method,
+            headers: {
+                'Content-Type': 'application/json',
+                // AUTH (2026-06-20): /api/reconcile đã gate requireWeb2AuthSoft →
+                // BẮT BUỘC x-web2-token, nếu không sẽ 401 "thiếu/sai token".
+                ...((window.Web2Auth && window.Web2Auth.authHeaders()) || {}),
+            },
+        };
         if (body !== undefined) opts.body = JSON.stringify(body);
         const r = await fetch(`${API}${path}`, opts);
         const text = await r.text();

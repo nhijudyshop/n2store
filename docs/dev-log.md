@@ -2,6 +2,15 @@
 
 ## 2026-06-20
 
+### [web2/reconcile] FIX regression: client reconcile thiếu x-web2-token → "Cần đăng nhập Web 2.0" ✅
+
+User báo: `web2/reconcile/index.html` đăng nhập admin vẫn lỗi "Lỗi tải DS PBH: Cần đăng nhập Web 2.0 (thiếu/sai token)". Nguyên nhân: audit trước tôi gate `reconcile.js` (`router.use(requireWeb2AuthSoft)` #43) nhưng `reconcile-state.js api()` chỉ gửi `Content-Type`, KHÔNG `x-web2-token` → backend 401.
+
+- Fix: `api()` thêm `...((window.Web2Auth && Web2Auth.authHeaders()) || {})`. Mọi call reconcile qua RC.api (chỉ reconcile-state.js có fetch) → 1 chỗ fix đủ. Bump `?v=20260620auth`.
+- Audit lan rộng: các route khác đã gate (products/variants/returns/purchase-refund/supplier-wallet/jt-tracking/msg-send/ai-script/fb-posts/zalo) — client đều có shared authHeaders (grep file-level confirm). reconcile là NGOẠI LỆ vì có api() helper riêng.
+
+## 2026-06-20
+
 ### [live-chat/security] Gate API live-comments read endpoints (đóng nốt PII leak) ✅
 
 Sau khi Pages deploy CLIENT (guard + x-web2-token — verify prod đã có), gate 5 endpoint ĐỌC của `render.com/routes/web2-live-comments.js` bằng `requireWeb2AuthSoft` (WEB2_AUTH_ENFORCE=1 → 401 nếu thiếu token):
