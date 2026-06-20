@@ -402,11 +402,23 @@ async function loginWithCredentials(accountKey, credentials, label, opts) {
     }
     const existing = _sessions.get(accountKey);
     if (existing?.api) return { status: 'connected', alreadyConnected: true };
+    // GUARD chống đăng nhập đua (boot restore vs manual POST cùng accountKey): đặt sentinel
+    // `connecting` TRƯỚC khi await zalo.login → caller thứ 2 short-circuit, tránh 2 phiên/2 listener.
+    if (existing?.connecting) return { status: 'connecting', alreadyConnecting: true };
+    const seed = _sessions.get(accountKey) || {};
+    seed.connecting = true;
+    _sessions.set(accountKey, seed);
     _setStatus(accountKey, 'connecting');
-    const zalo = new Zalo({ selfListen: true, checkUpdate: false, logging: false });
-    const api = await zalo.login(credentials);
-    await _afterLogin(accountKey, api, label, opts);
-    return { status: 'connected' };
+    try {
+        const zalo = new Zalo({ selfListen: true, checkUpdate: false, logging: false });
+        const api = await zalo.login(credentials);
+        await _afterLogin(accountKey, api, label, opts);
+        return { status: 'connected' };
+    } finally {
+        // _afterLogin/_setStatus dùng cùng entry trong _sessions → chỉ xoá cờ, không ghi đè state.
+        const cur = _sessions.get(accountKey);
+        if (cur) delete cur.connecting;
+    }
 }
 
 function getQr(accountKey) {

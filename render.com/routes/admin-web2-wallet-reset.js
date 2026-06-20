@@ -18,12 +18,30 @@
 // =====================================================================
 
 const express = require('express');
+const crypto = require('crypto');
 const router = express.Router();
 
 const ADMIN_SECRET = process.env.CLEANUP_SECRET || '';
+// So sánh secret hằng-thời-gian (chống timing side-channel). Header-only —
+// KHÔNG nhận ?secret= query (tránh secret rò vào access log qua req.url).
+function secretEquals(provided) {
+    if (!ADMIN_SECRET || !provided) return false;
+    const a = Buffer.from(String(provided));
+    const b = Buffer.from(ADMIN_SECRET);
+    if (a.length !== b.length) return false;
+    return crypto.timingSafeEqual(a, b);
+}
 function authOk(req) {
     const p = req.headers['x-admin-secret'] || '';
-    return ADMIN_SECRET && p === ADMIN_SECRET;
+    return secretEquals(p);
+}
+
+// Defense-in-depth: chỉ cho phép tên bảng từ allowlist hằng được nội suy vào SQL.
+function assertSafeTable(name) {
+    if (!/^[a-z0-9_]+$/.test(name)) {
+        throw new Error(`tên bảng không hợp lệ: ${name}`);
+    }
+    return name;
 }
 
 // 6 bảng ví/matching Web 2.0 (derived). balance_history = SePay log (giữ ở reset-rematch).
@@ -40,7 +58,10 @@ const ALL_TABLES = [...DERIVED, SEPAY_LOG];
 function tsTag() {
     const d = new Date();
     const p = (n) => String(n).padStart(2, '0');
-    return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}`;
+    // Giây + suffix ngẫu nhiên → 2 reset cùng phút (hoặc retry) KHÔNG trùng tên
+    // bảng backup <t>_bak_<tag> (tránh DROP đè backup vừa tạo của call kia).
+    const rnd = Math.random().toString(36).slice(2, 6);
+    return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}_${rnd}`;
 }
 
 async function tableExists(db, name) {
@@ -83,8 +104,10 @@ router.post('/web2-wallet-reset', async (req, res) => {
                 backups.push({ table: t, skipped: 'không tồn tại' });
                 continue;
             }
+            assertSafeTable(t);
             const cnt = Number((await db.query(`SELECT COUNT(*)::bigint n FROM "${t}"`)).rows[0].n);
             const bak = `${t}_bak_${tag}`;
+            assertSafeTable(bak);
             if (!dryRun) {
                 await db.query(`DROP TABLE IF EXISTS "${bak}"`);
                 await db.query(`CREATE TABLE "${bak}" AS TABLE "${t}"`);
@@ -100,6 +123,7 @@ router.post('/web2-wallet-reset', async (req, res) => {
         // 2. WIPE (TRUNCATE)
         if (!dryRun) {
             for (const t of wipeTables) {
+                assertSafeTable(t);
                 if (await tableExists(db, t)) {
                     await db.query(`TRUNCATE TABLE "${t}" RESTART IDENTITY`);
                 }
@@ -163,6 +187,8 @@ router.post('/web2-rematch-all', async (req, res) => {
         ).rows;
         let processed = 0;
         let matched = 0;
+        let errors = 0;
+        const errorSamples = [];
         let lastId = afterId;
         for (const r of rows) {
             lastId = r.id;
@@ -173,13 +199,19 @@ router.post('/web2-rematch-all', async (req, res) => {
                     matched++;
                 }
             } catch (e) {
-                // skip lỗi từng row
+                // KHÔNG nuốt im lặng: đếm + log mẫu để phát hiện lỗi hệ thống
+                // (matching service down → success/matched=0 nhìn giống run sạch).
+                errors++;
+                if (errorSamples.length < 5) errorSamples.push({ id: r.id, error: e.message });
+                console.error(`[web2-rematch-all] row id=${r.id} match error:`, e.message);
             }
         }
         res.json({
             success: true,
             processed,
             matched,
+            errors,
+            errorSamples,
             lastId,
             done: rows.length < batch,
         });
@@ -193,6 +225,12 @@ router.post('/web2-rematch-all', async (req, res) => {
 router.get('/web2-wallet-reset/backups', async (req, res) => {
     if (!authOk(req)) return res.status(403).json({ error: 'forbidden' });
     const db = req.app.locals.web2Db || req.app.locals.chatDb;
+    if (!db) return res.status(500).json({ error: 'web2Db unavailable' });
+    if (db === req.app.locals.chatDb) {
+        return res
+            .status(400)
+            .json({ error: 'web2Db === chatDb — từ chối (không đọc backup Web 1.0)' });
+    }
     try {
         const r = await db.query(
             `SELECT table_name,
@@ -219,19 +257,29 @@ router.post('/web2-wallet-reset/by-phone', async (req, res) => {
     if (!authOk(req)) return res.status(403).json({ error: 'forbidden' });
     const db = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!db) return res.status(500).json({ error: 'web2Db unavailable' });
+    // Guard cô lập Web1/Web2: by-phone DELETE cả native_orders/fast_sale_orders
+    // (bảng PROD nằm trên chatDb) — nếu web2Db rớt về chatDb sẽ xoá nhầm Web 1.0.
+    if (db === req.app.locals.chatDb) {
+        return res.status(400).json({
+            error: 'web2Db === chatDb (WEB2_DATABASE_URL unset) — TỪ CHỐI để không đụng Web 1.0',
+        });
+    }
     const phoneRaw = String(req.body?.phone || '').trim();
     const digits = phoneRaw.replace(/\D/g, '');
-    if (!digits || digits.length < 9) {
-        return res.status(400).json({ error: 'phone không hợp lệ' });
+    // SĐT VN chuẩn xác 10 số bắt đầu bằng 0 → tránh nhầm fb_id/dãy số rác
+    // (chuỗi quá dài có thể over-match unrelated rows qua digits.slice(-10)).
+    const phone = digits.length >= 9 ? '0' + digits.slice(-9) : '';
+    if (!/^0\d{9}$/.test(phone)) {
+        return res.status(400).json({ error: 'phone không hợp lệ (cần SĐT VN 10 số)' });
     }
     if (req.body?.confirm !== 'YES-RESET') {
         return res.status(400).json({ error: "confirm phải = 'YES-RESET'" });
     }
     const dryRun = req.body?.dryRun === true;
-    // Các biến thể SĐT để khớp (lưu khác nhau giữa các bảng).
-    const variants = Array.from(
-        new Set([phoneRaw, digits, digits.slice(-10), '0' + digits.slice(-9)].filter(Boolean))
-    );
+    // Các biến thể SĐT để khớp (lưu khác nhau giữa các bảng): chuẩn 10 số
+    // (vd 0912345678) + 9 số bỏ số 0 đầu (vd 912345678).
+    const variants = Array.from(new Set([phone, phone.slice(1)]));
+    const maskedPhone = phone.replace(/^(\d{2})\d{4}(\d{4})$/, '$1****$2');
     const steps = [];
     const step = async (label, table, whereCol, mutSql) => {
         try {
@@ -296,8 +344,9 @@ router.post('/web2-wallet-reset/by-phone', async (req, res) => {
             'phone',
             `UPDATE web2_payment_signals SET matched_tx_id=NULL, matched_tx_at=NULL WHERE phone = ANY($1)`
         );
+        // Log SĐT đã mask (last-4) theo convention — KHÔNG ghi PII đầy đủ vào log.
         console.log(
-            `[web2-wallet-reset/by-phone] ${dryRun ? 'DRY ' : ''}phone=${variants.join('|')} → ${JSON.stringify(steps)}`
+            `[web2-wallet-reset/by-phone] ${dryRun ? 'DRY ' : ''}phone=${maskedPhone} → ${JSON.stringify(steps)}`
         );
         res.json({ success: true, dryRun, phone: variants, steps });
     } catch (e) {

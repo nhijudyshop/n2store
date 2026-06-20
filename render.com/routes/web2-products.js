@@ -782,7 +782,18 @@ router.patch('/:code', requireWeb2AuthSoft, async (req, res) => {
             name: 'productName', // fast_sale_orders dùng productName key
             price: 'priceUnit', // fast_sale_orders dùng priceUnit; native dùng price
         };
-        const cascadeFields = Object.keys(cascadeMap).filter((k) => req.body[k] !== undefined);
+        // Audit 2026-06-20 (low): KHÔNG cascade price khi value null/NaN/âm.
+        // Trước đây PATCH {price:null} làm Number(null)=0 ghi 0 vào MỌI order line
+        // (zero snapshot prices). Chỉ cascade price khi là số hữu hạn >= 0.
+        const _priceIsCascadable = (v) => {
+            const n = Number(v);
+            return v !== null && v !== undefined && Number.isFinite(n) && n >= 0;
+        };
+        const cascadeFields = Object.keys(cascadeMap).filter((k) => {
+            if (req.body[k] === undefined) return false;
+            if (k === 'price') return _priceIsCascadable(req.body.price);
+            return true;
+        });
         const cascadeCounts = {
             nativeOrders: 0,
             fastSaleOrders: 0,
@@ -809,7 +820,7 @@ router.patch('/:code', requireWeb2AuthSoft, async (req, res) => {
                     pNative.push(newProd.name);
                     setNative.push(`'name', to_jsonb($${pNative.length}::text)`);
                 }
-                if (req.body.price !== undefined) {
+                if (_priceIsCascadable(req.body.price)) {
                     pNative.push(Number(newProd.price) || 0);
                     setNative.push(`'price', to_jsonb($${pNative.length}::numeric)`);
                 }
@@ -861,7 +872,7 @@ router.patch('/:code', requireWeb2AuthSoft, async (req, res) => {
                     pPbh.push(newProd.name);
                     setPbh.push(`'productName', to_jsonb($${pPbh.length}::text)`);
                 }
-                if (req.body.price !== undefined) {
+                if (_priceIsCascadable(req.body.price)) {
                     pPbh.push(Number(newProd.price) || 0);
                     setPbh.push(`'priceUnit', to_jsonb($${pPbh.length}::numeric)`);
                 }
@@ -926,6 +937,25 @@ router.patch('/:code', requireWeb2AuthSoft, async (req, res) => {
             }
         }
         _notify('update', r.rows[0].code);
+        // Audit 2026-06-20 (low): PATCH dùng action 'update' KHÔNG nằm trong
+        // stockAffectingActions → Ví NCC (debt = Σ qty×cost) bị stale khi user
+        // sửa stock/price bằng PATCH. Nếu diff có stock hoặc price thì
+        // cross-broadcast web2:supplier-wallet để pill nợ tự refresh.
+        if (_notifyClients && (changes.stock !== undefined || changes.price !== undefined)) {
+            try {
+                _notifyClients(
+                    'web2:supplier-wallet',
+                    {
+                        action: 'product-edit',
+                        code: r.rows[0].code,
+                        codes: null,
+                        ts: Date.now(),
+                        from: 'web2:products',
+                    },
+                    'update'
+                );
+            } catch {}
+        }
         res.json({
             success: true,
             product: mapRow(r.rows[0]),
@@ -967,12 +997,19 @@ router.post('/adjust-stock', requireWeb2AuthSoft, async (req, res) => {
             const code = String(adj.code || '').trim();
             const delta = Number(adj.delta) || 0;
             if (!code || !Number.isFinite(delta) || delta === 0) continue;
-            // GREATEST clamps negative result to 0
+            // GREATEST clamps negative result to 0.
+            // Audit 2026-06-20 (low): RETURNING prev_stock (giá trị TRƯỚC update qua
+            // sub-select trong CTE) để tính applied vs requested delta — phát hiện
+            // oversell theo MAGNITUDE thay vì chỉ "stock chạm 0".
             const r = await client.query(
-                `UPDATE web2_products
-                 SET stock = GREATEST(0, stock + $1), updated_at = $2
-                 WHERE code = $3
-                 RETURNING code, stock`,
+                `WITH prev AS (
+                     SELECT stock AS old_stock FROM web2_products WHERE code = $3
+                 )
+                 UPDATE web2_products p
+                 SET stock = GREATEST(0, p.stock + $1), updated_at = $2
+                 FROM prev
+                 WHERE p.code = $3
+                 RETURNING p.code, p.stock, prev.old_stock`,
                 [delta, Date.now(), code]
             );
             if (!r.rows.length) {
@@ -980,14 +1017,25 @@ router.post('/adjust-stock', requireWeb2AuthSoft, async (req, res) => {
                 continue;
             }
             // 1D fix: clamp GREATEST(0) trước đây nuốt im lặng xuất-quá-tồn.
-            // Best-effort warning (delta âm + stock chạm 0 = có thể đã clamp),
-            // không đổi behavior.
-            if (delta < 0 && Number(r.rows[0].stock) === 0) {
+            // applied = thay đổi thực tế sau clamp; requested = delta yêu cầu.
+            // oversold = phần âm bị clamp nuốt (chỉ khi delta < 0 và |delta| > tồn cũ).
+            const oldStock = Number(r.rows[0].old_stock) || 0;
+            const newStock = Number(r.rows[0].stock) || 0;
+            const applied = newStock - oldStock; // = delta nếu không clamp, lớn hơn (ít âm hơn) nếu clamp
+            // oversold = phần xuất vượt tồn bị GREATEST(0) nuốt (chỉ khi delta âm và oldStock+delta < 0).
+            const oversold = delta < 0 && oldStock + delta < 0 ? -(oldStock + delta) : 0;
+            if (oversold > 0) {
                 warnings.push(
-                    `Code "${code}" xuất ${-delta} nhưng tồn chạm 0 — có thể vượt tồn (clamped)`
+                    `Code "${code}" xuất ${-delta} nhưng tồn chỉ ${oldStock} — vượt ${oversold} cái (clamped về 0)`
                 );
             }
-            results.push({ code: r.rows[0].code, stock: r.rows[0].stock, delta });
+            results.push({
+                code: r.rows[0].code,
+                stock: newStock,
+                delta,
+                applied,
+                oversold,
+            });
         }
         await client.query('COMMIT');
         if (results.length)

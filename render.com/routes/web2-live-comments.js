@@ -288,6 +288,13 @@ function _isSuppressedConv(conv) {
     return _isBoosted(conv && conv.id) || _isPageAuthored(conv);
 }
 
+// Giới hạn số reconcileFullText chạy đồng thời (audit LOW 2026-06-20): mỗi snippet
+// bị cắt "…" fire 1 fetch Pancake messages riêng; live volume cao → bùng nổ fetch
+// song song, rủi ro rate-limit Pancake. Semaphore mềm: chỉ cho tối đa N reconcile
+// in-flight cùng lúc; vượt thì BỎ QUA (poller sẽ vá ở cycle/delta sau, không mất tin).
+const RECONCILE_MAX_INFLIGHT = 6;
+let _reconcileInflight = 0;
+
 // Map 1 conversation (Pancake WS shape) → comment shape mà upsertComments nhận.
 // Chỉ áp dụng cho livestream comment (conv.type==='COMMENT' && post.type==='livestream').
 function _mapWsConvToComment(conv) {
@@ -381,13 +388,26 @@ router.post('/ingest', async (req, res) => {
                     if (!snip.endsWith('…') && !snip.endsWith('...')) continue;
                     const m = _mapWsConvToComment(conv);
                     if (m && m.id && conv.id) {
+                        // Cap reconcile in-flight: vượt ngưỡng thì bỏ qua (poller vá sau).
+                        if (_reconcileInflight >= RECONCILE_MAX_INFLIGHT) continue;
                         // customer UUID (conv.customers[0].id) BẮT BUỘC cho messages API —
                         // truyền xuống để reconcile fetch được full text (PSID không dùng được).
                         const custUuid =
                             (conv.customers && conv.customers[0] && conv.customers[0].id) || null;
-                        poller
-                            .reconcileFullText(conv.page_id, conv.post_id, conv.id, m.id, custUuid)
-                            .catch(() => {});
+                        _reconcileInflight++;
+                        Promise.resolve(
+                            poller.reconcileFullText(
+                                conv.page_id,
+                                conv.post_id,
+                                conv.id,
+                                m.id,
+                                custUuid
+                            )
+                        )
+                            .catch(() => {})
+                            .finally(() => {
+                                _reconcileInflight--;
+                            });
                     }
                 }
             }
@@ -540,7 +560,9 @@ router.get('/', async (req, res) => {
 });
 
 // GET /stats?postId= — đếm comment đã lưu cho 1 post.
-router.get('/stats', async (req, res) => {
+// Soft-auth (audit LOW 2026-06-20): tổng số comment + cấu hình page là dữ liệu vận
+// hành — gate đồng nhất với các mutation (poller-pages) thay vì để mở cho bất kỳ ai.
+router.get('/stats', requireWeb2AuthSoft, async (req, res) => {
     const pool = getDb(req);
     if (!pool) return res.status(500).json({ success: false, error: 'DB unavailable' });
     try {
@@ -784,8 +806,9 @@ async function ensurePollerTable(pool) {
     `);
 }
 
-// GET /poller-pages — list trang đang cấu hình.
-router.get('/poller-pages', async (req, res) => {
+// GET /poller-pages — list trang đang cấu hình. Soft-auth (audit LOW 2026-06-20):
+// page_id/page_url livestream là cấu hình vận hành — gate đồng nhất với mutation.
+router.get('/poller-pages', requireWeb2AuthSoft, async (req, res) => {
     const pool = getDb(req);
     if (!pool) return res.status(500).json({ success: false, error: 'DB unavailable' });
     try {

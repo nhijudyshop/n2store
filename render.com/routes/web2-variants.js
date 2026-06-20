@@ -129,23 +129,14 @@ function _baseShortCode(asciiClean) {
 }
 
 /**
- * Server-side suggest: tìm shortcode tốt nhất cho value mới.
- * Bắt đầu từ naive (chữ đầu mỗi từ). Nếu trùng với existing locked → extend depth.
- * Trả về { shortCode, collidesWith }.
+ * Pure: tính shortcode free cho value dựa trên Map usedCodes (shortCode → value)
+ * cho-trước. KHÔNG đụng DB → caller có thể reserve mã vừa cấp vào usedCodes để
+ * tránh O(N^2) re-scan và race trong-batch (backfill). Trả { shortCode, collidesWith }.
  */
-async function _suggestShortCode(pool, value, groupName) {
+function _computeShortCode(value, groupName, usedCodes) {
     const stripped = _stripGroupPrefix(value, groupName);
     const ascii = _toAsciiUpper(stripped);
     if (!ascii) return { shortCode: '', collidesWith: null };
-
-    // Load existing locked shortcodes
-    const r = await pool.query(
-        `SELECT value, group_name, short_code FROM web2_variants WHERE short_code IS NOT NULL`
-    );
-    const usedCodes = new Map(); // shortCode → existing value
-    for (const row of r.rows) {
-        if (row.short_code) usedCodes.set(row.short_code, row.value);
-    }
 
     const words = ascii.split(' ').filter(Boolean);
     if (words.length === 0) return { shortCode: '', collidesWith: null };
@@ -184,6 +175,28 @@ async function _suggestShortCode(pool, value, groupName) {
         }
     }
     return { shortCode: words.join(''), collidesWith: lastCollidingValue };
+}
+
+/** Load tất cả locked shortcodes hiện có thành Map (shortCode → value). */
+async function _loadUsedCodes(pool) {
+    const r = await pool.query(
+        `SELECT value, short_code FROM web2_variants WHERE short_code IS NOT NULL`
+    );
+    const usedCodes = new Map();
+    for (const row of r.rows) {
+        if (row.short_code) usedCodes.set(row.short_code, row.value);
+    }
+    return usedCodes;
+}
+
+/**
+ * Server-side suggest: tìm shortcode tốt nhất cho value mới (load DB 1 lần).
+ * Bắt đầu từ naive (chữ đầu mỗi từ). Nếu trùng với existing locked → extend depth.
+ * Trả về { shortCode, collidesWith }.
+ */
+async function _suggestShortCode(pool, value, groupName) {
+    const usedCodes = await _loadUsedCodes(pool);
+    return _computeShortCode(value, groupName, usedCodes);
 }
 
 router.get('/health', async (req, res) => {
@@ -276,19 +289,27 @@ router.post('/backfill-short-codes', requireWeb2Admin, async (req, res) => {
              WHERE short_code IS NULL
              ORDER BY group_name, sort_order, value`
         );
+        // O(N^2) cũ: mỗi row re-SELECT toàn bộ locked codes, và mã vừa gán ở
+        // vòng i không thấy ở vòng i+1 (commit riêng) → 2 row trong batch dễ trùng.
+        // Fix: load locked codes 1 lần, RESERVE mã vừa gán vào Set ngay trong vòng.
+        const usedCodes = await _loadUsedCodes(pool);
         let updated = 0;
         for (const row of r.rows) {
-            const sug = await _suggestShortCode(pool, row.value, row.group_name);
+            const sug = _computeShortCode(row.value, row.group_name, usedCodes);
             if (!sug.shortCode) continue;
             try {
                 await pool.query(
                     `UPDATE web2_variants SET short_code = $1, updated_at = $2 WHERE id = $3`,
                     [sug.shortCode, Date.now(), row.id]
                 );
+                // Reserve để vòng sau không cấp lại mã này.
+                usedCodes.set(sug.shortCode, row.value);
                 updated++;
             } catch (err) {
                 if (err.code !== '23505') throw err;
-                // Conflict — rare since _suggestShortCode checks. Skip.
+                // Conflict — rare (mã đã bị create đồng thời chiếm). Reserve để
+                // các vòng sau tránh, rồi skip row này.
+                usedCodes.set(sug.shortCode, row.value);
             }
         }
         _notify('backfill', null);
@@ -326,6 +347,9 @@ router.post('/', requireWeb2AuthSoft, async (req, res) => {
         const groupName = b.groupName ? String(b.groupName).trim() : null;
 
         // Shortcode REQUIRED. Nếu client không gửi → server tự suggest.
+        // wasAutoSuggested: code do server sinh (không phải user nhập) → an toàn
+        // để retry với suffix số khi đụng race, vì user không gắn với 1 mã cụ thể.
+        const wasAutoSuggested = !b.shortCode;
         let shortCode = b.shortCode ? String(b.shortCode).trim().toUpperCase() : null;
         if (!shortCode) {
             const sug = await _suggestShortCode(pool, value, groupName);
@@ -342,35 +366,53 @@ router.post('/', requireWeb2AuthSoft, async (req, res) => {
         }
 
         const now = Date.now();
-        try {
-            const r = await pool.query(
-                `INSERT INTO web2_variants
-                 (value, group_name, short_code, sort_order, is_active, created_by, created_at, updated_at)
-                 VALUES ($1, $2, $3, $4, true, $5, $6, $6)
-                 RETURNING *`,
-                [
-                    value,
-                    groupName,
-                    shortCode,
-                    Number.isFinite(Number(b.sortOrder)) ? Number(b.sortOrder) : 0,
-                    b.createdBy || null,
-                    now,
-                ]
-            );
-            _notify('create', r.rows[0].id);
-            res.json({ success: true, variant: mapRow(r.rows[0]) });
-        } catch (err) {
-            if (err.code === '23505') {
-                // Phân biệt unique constraint: value hay short_code
-                const msg = err.detail || '';
-                if (msg.includes('short_code')) {
-                    return res.status(409).json({
-                        error: `Viết tắt "${shortCode}" đã được dùng cho biến thể khác`,
-                    });
+        // _suggestShortCode đọc-rồi-insert KHÔNG atomic (không lock/tx). 2 POST
+        // đồng thời với value khác nhau nhưng viết tắt trùng → cái thứ 2 dính
+        // UNIQUE 23505 dù vẫn còn mã hợp lệ. Với code AUTO-SUGGEST, retry vài lần
+        // (re-suggest tránh các mã vừa bị chiếm) thay vì trả 409 nhầm cho user.
+        const MAX_AUTO_RETRY = 5;
+        for (let attempt = 0; ; attempt++) {
+            try {
+                const r = await pool.query(
+                    `INSERT INTO web2_variants
+                     (value, group_name, short_code, sort_order, is_active, created_by, created_at, updated_at)
+                     VALUES ($1, $2, $3, $4, true, $5, $6, $6)
+                     RETURNING *`,
+                    [
+                        value,
+                        groupName,
+                        shortCode,
+                        Number.isFinite(Number(b.sortOrder)) ? Number(b.sortOrder) : 0,
+                        b.createdBy || null,
+                        now,
+                    ]
+                );
+                _notify('create', r.rows[0].id);
+                return res.json({ success: true, variant: mapRow(r.rows[0]) });
+            } catch (err) {
+                if (err.code === '23505') {
+                    // Phân biệt unique constraint: value hay short_code
+                    const msg = err.detail || '';
+                    if (msg.includes('short_code')) {
+                        // Auto-suggest race → tính lại mã free rồi thử lại.
+                        if (wasAutoSuggested && attempt < MAX_AUTO_RETRY) {
+                            const reSug = await _suggestShortCode(pool, value, groupName);
+                            const next = reSug.shortCode || null;
+                            // Re-suggest ra mã khác hợp lệ → retry; nếu không tiến
+                            // triển (vẫn cùng mã / rỗng / sai format) thì dừng.
+                            if (next && next !== shortCode && /^[A-Z0-9]{1,20}$/.test(next)) {
+                                shortCode = next;
+                                continue;
+                            }
+                        }
+                        return res.status(409).json({
+                            error: `Viết tắt "${shortCode}" đã được dùng cho biến thể khác`,
+                        });
+                    }
+                    return res.status(409).json({ error: `Biến thể "${value}" đã tồn tại` });
                 }
-                return res.status(409).json({ error: `Biến thể "${value}" đã tồn tại` });
+                throw err;
             }
-            throw err;
         }
     } catch (e) {
         console.error('[WEB2-VARIANTS] POST / error:', e);

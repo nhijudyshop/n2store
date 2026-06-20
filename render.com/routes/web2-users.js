@@ -392,9 +392,25 @@ function requireWeb2Permission(slug, action) {
 }
 
 // ── Schema bootstrap ────────────────────────────────────────────────
+// Audit #9/#18 (WEB2-FULL-REVIEW-20260620): the old plain-boolean guard let two
+// concurrent cold-start requests both run the body (incl. the check-then-insert
+// seed → TOCTOU). Cache a single in-flight promise so the body runs once; reset
+// it on failure so a transient error can be retried. The seed INSERT is also
+// made idempotent (ON CONFLICT) as belt-and-suspenders.
 let tablesReady = false;
-async function ensureTables(pool) {
-    if (tablesReady) return;
+let _ensurePromise = null;
+function ensureTables(pool) {
+    if (tablesReady) return Promise.resolve();
+    return (_ensurePromise ||= doEnsureTables(pool)
+        .then(() => {
+            tablesReady = true;
+        })
+        .catch((e) => {
+            _ensurePromise = null; // allow retry on next request
+            throw e;
+        }));
+}
+async function doEnsureTables(pool) {
     await pool.query(`
         CREATE TABLE IF NOT EXISTS web2_users (
             id              SERIAL PRIMARY KEY,
@@ -451,15 +467,17 @@ async function ensureTables(pool) {
     if (r.rows[0].n === 0) {
         const hash = await bcrypt.hash('admin@@', 10);
         const now = Date.now();
+        // ON CONFLICT guards the TOCTOU window: if two cold-start callers race
+        // the seed, the loser no-ops instead of erroring on the UNIQUE(username).
         await pool.query(
             `INSERT INTO web2_users
                 (username, password_hash, display_name, role, is_active, note, created_at, updated_at)
-             VALUES ($1, $2, $3, $4, TRUE, $5, $6, $6)`,
+             VALUES ($1, $2, $3, $4, TRUE, $5, $6, $6)
+             ON CONFLICT (username) DO NOTHING`,
             ['admin', hash, 'Quản trị viên', 'admin', 'Auto-seeded on first boot', now]
         );
         console.log('[WEB2-USERS] Created default admin user (username: admin)');
     }
-    tablesReady = true;
 }
 
 function mapRow(row) {
@@ -857,8 +875,12 @@ router.post('/login', async (req, res) => {
             [tokenHash, user.id, now, now + TOKEN_TTL_MS]
         );
         await pool.query('UPDATE web2_users SET last_login_at = $1 WHERE id = $2', [now, user.id]);
-        // Cleanup expired sessions opportunistically (cheap query)
-        pool.query('DELETE FROM web2_user_sessions WHERE expires_at < $1', [now]).catch(() => {});
+        // Cleanup expired sessions opportunistically (cheap query).
+        // Audit #17 (WEB2-FULL-REVIEW-20260620, low): log the swallowed error
+        // instead of discarding it so silent cleanup failures stay visible.
+        pool.query('DELETE FROM web2_user_sessions WHERE expires_at < $1', [now]).catch((e) =>
+            console.warn('[WEB2-USERS] expired session cleanup failed:', e.message)
+        );
         res.json({
             success: true,
             token,

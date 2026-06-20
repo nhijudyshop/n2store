@@ -248,6 +248,14 @@ async function insertWeb2BalanceHistory(db, webhookData) {
 // Sentinel: lỗi truy vấn gate → KHÔNG chặn tiền (nhưng cũng KHÔNG có identity đơn).
 const GATE_ERR = Object.freeze({ __gateError: true });
 
+// 2026-06-20 (audit LOW): mask SĐT khi log (PII trong Render logs). Giữ 3 số cuối
+// để vẫn trace được, che phần còn lại. vd '0912345678' → '*******678'.
+function _maskPhone(phone) {
+    const s = String(phone || '');
+    if (s.length <= 3) return s ? '***' : '';
+    return '*'.repeat(s.length - 3) + s.slice(-3);
+}
+
 // Chuẩn hoá SĐT về list biến thể để so khớp (raw / digits / 10 số / 0+9 số).
 function _phoneVariants(phone) {
     const digits = String(phone || '').replace(/\D/g, '');
@@ -315,7 +323,7 @@ async function _gateBlock(db, web2BhId, phone) {
         /* ignore */
     }
     console.log(
-        `[web2-sepay-matching] GATE: ${phone} không có đơn active → KHÔNG auto-cộng (chờ gán tay)`
+        `[web2-sepay-matching] GATE: ${_maskPhone(phone)} không có đơn active → KHÔNG auto-cộng (chờ gán tay)`
     );
     return { success: false, reason: 'no_active_order', phone, gated: true };
 }
@@ -358,7 +366,9 @@ async function _sendQrConfirmMessage(db, { phone, customerId, balance, amount })
         }
     }
     if (!conv || !conv.page_id || !conv.conversation_id) {
-        console.log(`[web2-sepay-matching] QR ${phone}: chưa có hội thoại FB → bỏ qua gửi tin`);
+        console.log(
+            `[web2-sepay-matching] QR ${_maskPhone(phone)}: chưa có hội thoại FB → bỏ qua gửi tin`
+        );
         return;
     }
     const amountStr = Number(amount || 0).toLocaleString('vi-VN') + '₫';
@@ -370,7 +380,7 @@ async function _sendQrConfirmMessage(db, { phone, customerId, balance, amount })
     if (!worker.sendSingleMessage) return;
     const res = await worker.sendSingleMessage(conv.page_id, conv.conversation_id, customerId, msg);
     console.log(
-        `[web2-sepay-matching] QR confirm → ${phone} (conv ${conv.conversation_id}): ok=${res?.ok}` +
+        `[web2-sepay-matching] QR confirm → ${_maskPhone(phone)} (conv ${conv.conversation_id}): ok=${res?.ok}` +
             `${res?.needsExtension ? ' (needs ext)' : ''}${res?.error ? ' err=' + res.error : ''}`
     );
 }
@@ -930,6 +940,16 @@ async function resolveWeb2PendingMatch(db, pendingId, selectedPhone, selectedNam
         if (s.startsWith('84') && s.length >= 11) s = '0' + s.slice(2);
         return s;
     };
+    // 2026-06-20 (audit LOW): validate + sanitize untrusted request input.
+    //   • selectedPhone PHẢI là SĐT VN 10 số (0 + 9 số) — tránh ghi fb_id / dãy
+    //     rác vào linked_customer_phone + tạo ví sai.
+    //   • selectedName cap 255 (display_name VARCHAR(255)) → chống stored-XSS /
+    //     overflow (frontend vẫn phải render bằng textContent).
+    selectedPhone = _normPhone(selectedPhone);
+    if (!/^0\d{9}$/.test(selectedPhone)) {
+        throw new Error('SĐT không hợp lệ (cần đúng 10 số, bắt đầu bằng 0)');
+    }
+    selectedName = selectedName != null ? String(selectedName).trim().slice(0, 255) || null : null;
     try {
         if (isPool) await client.query('BEGIN');
 
@@ -1075,12 +1095,16 @@ async function reprocessUnmatched(db, fetchWithTimeout, opts = {}) {
     const limit = Math.min(parseInt(opts.limit) || 200, 500);
     const sampleLimit = Number.isFinite(opts.sampleLimit) ? opts.sampleLimit : 50;
 
+    // 2026-06-20 (audit MEDIUM): 'pending_no_order' rows (gated — KH không có đơn
+    // active) cũng phải loại khỏi reprocess. _gateBlock set match_method =
+    // 'pending_no_order' + giữ debt_added=FALSE → nếu không loại, mỗi tick cron
+    // re-select + re-process vô ích (retry storm) và stats đếm nhầm là no_match.
     const rows = await db.query(
         `SELECT id, sepay_id, content, transfer_amount, linked_customer_phone
          FROM web2_balance_history
          WHERE transfer_type = 'in'
            AND debt_added = FALSE
-           AND COALESCE(match_method, '') NOT IN ('pending_match', 'pending_low_confidence')
+           AND COALESCE(match_method, '') NOT IN ('pending_match', 'pending_low_confidence', 'pending_no_order')
          ORDER BY transaction_date DESC NULLS LAST
          LIMIT $1`,
         [limit]

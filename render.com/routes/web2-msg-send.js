@@ -359,6 +359,13 @@ router.post('/:id/items/:itemId/result', requireWeb2AuthSoft, async (req, res) =
 });
 
 // ─── POST /:id/cancel ──────────────────────────────────────────────
+// ⚠ KHÔNG huỷ được item đang state='sending': worker đã CLAIM (FOR UPDATE SKIP
+// LOCKED) và đang gọi Pancake send — không có abort path giữa chừng, tin VẪN tới
+// khách dù user bấm "Huỷ". Chỉ huỷ được item còn pending/needs_extension/
+// ext_inflight (chưa rời hàng đợi). Đây là giới hạn cố ý: không clobber state của
+// item đang gửi để tránh ghi 'cancelled' đè lên kết quả 'done'/'error' worker
+// sắp ghi. Muốn huỷ tức thì item đang gửi → cần job-level cancel flag worker đọc
+// ngay trước lệnh send (chưa làm — defer, low priority).
 router.post('/:id/cancel', requireWeb2AuthSoft, async (req, res) => {
     const pool = getPool(req);
     if (!pool) return res.status(503).json({ success: false, error: 'db_unavailable' });

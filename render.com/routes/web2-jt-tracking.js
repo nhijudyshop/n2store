@@ -229,18 +229,23 @@ async function autoIngestFromZalo(db, msg) {
         }
         const ts = now();
         const srcMsg = String(msg.content || '').slice(0, 2000); // toàn bộ tin chứa mã
+        // src_at = thời điểm tin Zalo chứa mã (giống /scan) để xếp đúng thứ tự trong /list.
+        // Tin realtime thường có msg.sentAt; thiếu → ts hiện tại (vừa nhận = mới nhất).
+        const srcAt = Number(msg.sentAt) || ts;
         const added = [];
         for (const code of codes) {
-            // upsert: backfill conv_id/note/src_message cho row cũ; row MỚI qua xmax=0.
+            // upsert: backfill conv_id/note/src_message/src_at cho row cũ; row MỚI qua xmax=0.
+            // src_at GREATEST giữ mốc MỚI NHẤT (mã post lại → bump lên đầu), nhất quán với /scan.
             const r = await db.query(
-                `INSERT INTO web2_jt_tracking (billcode, status, source, note, zalo_conv_id, src_message, created_at, updated_at)
-                 VALUES ($1,'pending','zalo',$2,$4,$5,$3,$3)
+                `INSERT INTO web2_jt_tracking (billcode, status, source, note, zalo_conv_id, src_message, src_at, created_at, updated_at)
+                 VALUES ($1,'pending','zalo',$2,$4,$5,$6,$3,$3)
                  ON CONFLICT (billcode) DO UPDATE SET
                     zalo_conv_id = COALESCE(web2_jt_tracking.zalo_conv_id, EXCLUDED.zalo_conv_id),
                     note = COALESCE(web2_jt_tracking.note, EXCLUDED.note),
-                    src_message = COALESCE(EXCLUDED.src_message, web2_jt_tracking.src_message)
+                    src_message = COALESCE(EXCLUDED.src_message, web2_jt_tracking.src_message),
+                    src_at = GREATEST(COALESCE(web2_jt_tracking.src_at, 0), COALESCE(EXCLUDED.src_at, 0))
                  RETURNING (xmax = 0) AS inserted`,
-                [code, convName, ts, convId, srcMsg || null]
+                [code, convName, ts, convId, srcMsg || null, srcAt]
             );
             if (r.rows[0]?.inserted) added.push(code);
         }
@@ -266,11 +271,21 @@ async function autoIngestFromZalo(db, msg) {
 }
 
 // Tự xoá các mã ĐÃ DUYỆT quá 7 ngày (best-effort, gọi khi list).
+// THROTTLE: GET /list là endpoint READ nhưng _purgeApproved là DELETE (write). Trang
+// tự reload theo SSE → list bị gọi dồn dập → mỗi lần 1 full-table DELETE scan + race
+// vô ích giữa các call. Gate bằng timestamp in-memory: chỉ thực sự purge tối đa 1 lần /
+// PURGE_THROTTLE_MS, các call /list khác trong cửa sổ đó bỏ qua (TTL 7 ngày không cần
+// chính xác tới giây). Tránh biến read-endpoint thành write-storm.
+const PURGE_THROTTLE_MS = 10 * 60 * 1000; // tối đa 1 lần purge / 10 phút
+let _lastPurgeAt = 0;
 async function _purgeApproved(db) {
+    const tNow = now();
+    if (tNow - _lastPurgeAt < PURGE_THROTTLE_MS) return; // mới purge gần đây → bỏ qua
+    _lastPurgeAt = tNow; // set TRƯỚC await để các call song song không cùng DELETE
     try {
         const r = await db.query(
             `DELETE FROM web2_jt_tracking WHERE approved_at IS NOT NULL AND approved_at < $1`,
-            [now() - APPROVED_TTL_MS]
+            [tNow - APPROVED_TTL_MS]
         );
         if (r.rowCount) _notify('purge', String(r.rowCount));
     } catch (e) {
@@ -721,6 +736,12 @@ router.post('/bc-tag', requireWeb2AuthSoft, async (req, res) => {
         const db = getDb(req);
         const phone = String((req.body && req.body.phone) || '').trim();
         if (!phone) return res.status(400).json({ success: false, error: 'Thiếu phone' });
+        // SĐT VN = đúng 10 số (0xxxxxxxxx) — nhất quán với phần còn lại của Web 2.0.
+        // Chặn fb_id / chuỗi rác làm bẩn web2_jt_bc_tags (phone là PRIMARY KEY).
+        if (!/^0\d{9}$/.test(phone))
+            return res
+                .status(400)
+                .json({ success: false, error: 'SĐT phải đúng 10 số (0xxxxxxxxx)' });
         const tagged = !(req.body && (req.body.tagged === false || req.body.tagged === 'false'));
         const ts = now();
         if (tagged) {

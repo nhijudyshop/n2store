@@ -50,6 +50,14 @@ function initSseNotify(fn) {
     _sseNotify = fn;
 }
 
+// WEB2.0 — PII-safe log helper: mask phone keeping only last 3 digits so Render
+// logs (which persist + may be screenshotted) don't leak full customer numbers.
+function _maskPhone(phone) {
+    const s = String(phone || '');
+    if (s.length < 4) return s ? '***' : '-';
+    return '***' + s.slice(-3);
+}
+
 async function _processWeb2Path(db, webhookData) {
     if (!_web2Sepay || !db) return;
     try {
@@ -63,11 +71,11 @@ async function _processWeb2Path(db, webhookData) {
             const result = await _web2Sepay.processWeb2Match(db, id, fetchWithTimeout);
             if (result?.success) {
                 console.log(
-                    `[WEB2-SEPAY] tx ${id} matched: method=${result.method} phone=${result.phone || '-'} conf=${result.confidenceScore || '-'} wallet_tx=${result.walletTxId || '-'}`
+                    `[WEB2-SEPAY] tx ${id} matched: method=${result.method} phone=${_maskPhone(result.phone)} conf=${result.confidenceScore || '-'} wallet_tx=${result.walletTxId || '-'}`
                 );
             } else {
                 console.log(
-                    `[WEB2-SEPAY] tx ${id} not matched: ${result?.reason || 'unknown'} ${result?.partialPhone ? '(' + result.partialPhone + ')' : ''}`
+                    `[WEB2-SEPAY] tx ${id} not matched: ${result?.reason || 'unknown'} ${result?.partialPhone ? '(' + _maskPhone(result.partialPhone) + ')' : ''}`
                 );
             }
             // WEB2.0 — Watcher "chờ tiền về": GD mới khớp tín hiệu CK đã duyệt
@@ -381,7 +389,15 @@ function registerRoutes(router, deps) {
         console.log('[SEPAY-WEBHOOK] Received webhook at:', new Date().toISOString());
         console.log('[SEPAY-WEBHOOK] Has Authorization header:', !!req.headers['authorization']);
         console.log('[SEPAY-WEBHOOK] Content-Type:', req.headers['content-type']);
-        console.log('[SEPAY-WEBHOOK] Body:', JSON.stringify(req.body).substring(0, 500));
+        // PII-safe: log only non-sensitive identifiers, NOT raw body (transfer
+        // memo + customer content). Render logs persist + may be screenshotted.
+        {
+            const b = req.body || {};
+            console.log(
+                '[SEPAY-WEBHOOK] Tx meta:',
+                `id=${b.id ?? '-'} ref=${b.referenceCode ?? b.code ?? '-'} type=${b.transferType ?? '-'} amount=${b.transferAmount ?? '-'} acct=${b.accountNumber ?? '-'}`
+            );
+        }
 
         // ============================================
         // AUTHENTICATION - Verify API Key (if enabled)
@@ -1532,9 +1548,11 @@ function registerRoutes(router, deps) {
             }
 
             const sepayData = await sepayResponse.json();
+            // PII-safe: log only result count, NOT raw transactions (contain
+            // transfer memo + customer content).
             console.log(
                 '[FETCH-BY-REF] Sepay response:',
-                JSON.stringify(sepayData).substring(0, 500)
+                `status=${sepayData?.status ?? '-'} txCount=${Array.isArray(sepayData?.transactions) ? sepayData.transactions.length : 0}`
             );
 
             // Check if transaction found

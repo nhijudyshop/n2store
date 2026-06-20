@@ -342,7 +342,11 @@ async function _persistIncoming(msg) {
         ]
     );
     const isNew = ins.rowCount > 0;
-    const unreadDelta = isNew && msg.direction === 'in' ? 1 : 0;
+    // Chỉ cộng unread khi tin có msg_id (đã được dedup bởi uq_web2_zalo_msg_id).
+    // Tin thiếu msg_id KHÔNG có chỉ mục dedup (partial index WHERE msg_id IS NOT NULL)
+    // → ON CONFLICT DO NOTHING luôn INSERT lại khi relay/webhook double-fire, khiến
+    // isNew=true mỗi lần và đẩy unread tăng sai. Gate theo msg_id để counter ổn định.
+    const unreadDelta = isNew && msg.direction === 'in' && msg.msgId ? 1 : 0;
     // 2) upsert conversation — chỉ cộng unread khi tin THỰC SỰ mới.
     //    ⚠ Tên/identity hội thoại CHỈ lấy từ tin ĐẾN (in) của USER thread:
     //    - NHÓM: tên = tên NHÓM (sync/getGroupInfo), KHÔNG đụng.

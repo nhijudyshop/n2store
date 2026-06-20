@@ -98,7 +98,9 @@ router.post('/generate', requireWeb2AuthSoft, aiScriptRateLimit, async (req, res
         if (!topic || !products.length)
             return res.status(400).json({ success: false, error: 'Thiếu topic hoặc products' });
 
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${K}`;
+        // Key qua HEADER x-goog-api-key (KHÔNG nhét vào URL query) để tránh lộ key
+        // nếu có tầng trung gian log request URL.
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`;
         const body = {
             contents: [{ role: 'user', parts: [{ text: buildPrompt(topic, products) }] }],
             generationConfig: {
@@ -109,7 +111,7 @@ router.post('/generate', requireWeb2AuthSoft, aiScriptRateLimit, async (req, res
         };
         const r = await fetch(url, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'x-goog-api-key': K },
             body: JSON.stringify(body),
         });
         const data = await r.json();

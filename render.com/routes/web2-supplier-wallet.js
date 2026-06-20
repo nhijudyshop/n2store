@@ -468,16 +468,27 @@ router.delete('/supplier/:name', async (req, res) => {
     }
     const pool = getPool(req);
     if (!pool) return res.status(500).json({ success: false, error: 'DB unavailable' });
+    const name = String(req.params.name || '').trim();
+    if (!name) return res.status(400).json({ success: false, error: 'name required' });
+    const client = await pool.connect();
     try {
         await ensureTables(pool);
-        const name = String(req.params.name || '').trim();
-        if (!name) return res.status(400).json({ success: false, error: 'name required' });
-        const l = await pool.query(`DELETE FROM web2_supplier_ledger WHERE supplier = $1`, [name]);
-        const m = await pool.query(`DELETE FROM web2_supplier_meta WHERE supplier = $1`, [name]);
+        // Atomic (2026-06-20): xoá ledger + meta trong 1 transaction — partial fail
+        // (xoá ledger OK rồi meta throw) trước đây để lại NCC mồ côi ledger đã mất.
+        await client.query('BEGIN');
+        const l = await client.query(`DELETE FROM web2_supplier_ledger WHERE supplier = $1`, [
+            name,
+        ]);
+        const m = await client.query(`DELETE FROM web2_supplier_meta WHERE supplier = $1`, [name]);
+        await client.query('COMMIT');
         _notify('supplier-deleted', name);
         res.json({ success: true, deleted: { ledger: l.rowCount, meta: m.rowCount } });
     } catch (e) {
+        await client.query('ROLLBACK').catch(() => {});
+        console.error('[WEB2-SUPPLIER-WALLET] /supplier delete error:', e.message);
         res.status(500).json({ success: false, error: e.message });
+    } finally {
+        client.release();
     }
 });
 
