@@ -34,10 +34,41 @@ function generateToken(user, rememberMe = false) {
         username: user.username,
         isAdmin: user.is_admin,
         roleTemplate: user.role_template,
-        detailedPermissions: user.detailed_permissions
+        detailedPermissions: user.detailed_permissions,
+        // Historical display names (aliases) so records keyed by an old display
+        // name (e.g. soquy_vouchers.createdBy) still resolve to this account.
+        previousNames: normalizePreviousNames(user.previous_names),
     };
     const expiresIn = rememberMe ? '30d' : '8h';
     return jwt.sign(payload, JWT_SECRET, { expiresIn });
+}
+
+/** Normalize a previous_names value (jsonb/text/array) into a clean string[] */
+function normalizePreviousNames(value) {
+    let arr = value;
+    if (typeof arr === 'string') {
+        try {
+            arr = JSON.parse(arr);
+        } catch {
+            arr = [];
+        }
+    }
+    if (!Array.isArray(arr)) return [];
+    return [...new Set(arr.map((v) => String(v || '').trim()).filter(Boolean))];
+}
+
+// Idempotent: ensure the previous_names column exists (runs once per process).
+let _previousNamesEnsured = false;
+async function ensurePreviousNamesColumn(pool) {
+    if (_previousNamesEnsured) return;
+    try {
+        await pool.query(
+            "ALTER TABLE app_users ADD COLUMN IF NOT EXISTS previous_names JSONB NOT NULL DEFAULT '[]'::jsonb"
+        );
+        _previousNamesEnsured = true;
+    } catch (e) {
+        console.error('[USERS] ensure previous_names column failed:', e.message);
+    }
 }
 
 /** Format user row for API response (never expose password or TOTP secret) */
@@ -50,13 +81,14 @@ function formatUser(row) {
         roleTemplate: row.role_template || 'custom',
         isAdmin: row.is_admin || false,
         detailedPermissions: row.detailed_permissions || {},
+        previousNames: normalizePreviousNames(row.previous_names),
         userId: row.user_id || null,
         totpEnabled: row.totp_enabled || false,
         twoFaEnabledAt: row.two_fa_enabled_at || null,
         createdAt: row.created_at,
         createdBy: row.created_by,
         updatedAt: row.updated_at,
-        updatedBy: row.updated_by
+        updatedBy: row.updated_by,
     };
 }
 
@@ -68,6 +100,7 @@ function formatUser(row) {
 router.post('/login', async (req, res) => {
     try {
         const pool = req.app.locals.chatDb;
+        await ensurePreviousNamesColumn(pool);
         const { username, password, rememberMe } = req.body;
 
         if (!username || !password) {
@@ -76,10 +109,9 @@ router.post('/login', async (req, res) => {
 
         const normalizedUsername = username.trim().toLowerCase();
 
-        const result = await pool.query(
-            'SELECT * FROM app_users WHERE username = $1',
-            [normalizedUsername]
-        );
+        const result = await pool.query('SELECT * FROM app_users WHERE username = $1', [
+            normalizedUsername,
+        ]);
 
         if (result.rows.length === 0) {
             return res.status(401).json({ error: 'Invalid credentials' });
@@ -126,7 +158,7 @@ router.post('/login', async (req, res) => {
             return res.json({
                 success: true,
                 requires2FA: true,
-                tempToken
+                tempToken,
             });
         }
 
@@ -147,10 +179,9 @@ router.post('/login', async (req, res) => {
             token,
             user: {
                 ...formatUser(user),
-                userId
-            }
+                userId,
+            },
         });
-
     } catch (error) {
         console.error('[USERS] Login error:', error);
         res.status(500).json({ error: 'Server error' });
@@ -162,32 +193,13 @@ router.post('/verify-session', verifyToken, (req, res) => {
     res.json({ valid: true, user: req.user });
 });
 
-// PUT /me/display-name - User updates own display name
+// PUT /me/display-name - DISABLED (2026-06-20)
+// Self-service display-name editing is turned off: renaming mutates the string
+// stored as `createdBy` on historical records (e.g. soquy_vouchers), hiding a
+// user's own past data. Admins can still rename via PUT /:username, which now
+// preserves the old name as an alias. The sidebar UI no longer exposes this.
 router.put('/me/display-name', verifyToken, async (req, res) => {
-    try {
-        const pool = req.app.locals.chatDb;
-        const { displayName } = req.body;
-        const username = req.user.username;
-
-        if (!displayName || displayName.trim().length < 2) {
-            return res.status(400).json({ error: 'Display name must be at least 2 characters' });
-        }
-
-        const trimmed = displayName.trim();
-        if (trimmed.length > 100) {
-            return res.status(400).json({ error: 'Display name must be 100 characters or less' });
-        }
-
-        await pool.query(
-            'UPDATE app_users SET display_name = $1, updated_at = NOW(), updated_by = $2 WHERE username = $2',
-            [trimmed, username]
-        );
-
-        res.json({ success: true, displayName: trimmed });
-    } catch (error) {
-        console.error('[USERS] Update display name error:', error);
-        res.status(500).json({ error: 'Server error' });
-    }
+    return res.status(403).json({ error: 'Display name editing is disabled' });
 });
 
 // =====================================================
@@ -198,9 +210,10 @@ router.put('/me/display-name', verifyToken, async (req, res) => {
 router.get('/', verifyToken, requireUserMgmt, async (req, res) => {
     try {
         const pool = req.app.locals.chatDb;
+        await ensurePreviousNamesColumn(pool);
         const result = await pool.query(
             `SELECT username, display_name, identifier, role_template, is_admin,
-                    detailed_permissions, user_id, created_at, created_by, updated_at, updated_by
+                    detailed_permissions, previous_names, user_id, created_at, created_by, updated_at, updated_by
              FROM app_users ORDER BY
                 CASE WHEN role_template = 'admin' THEN 0 ELSE 1 END,
                 display_name`
@@ -208,7 +221,7 @@ router.get('/', verifyToken, requireUserMgmt, async (req, res) => {
 
         res.json({
             success: true,
-            users: result.rows.map(formatUser)
+            users: result.rows.map(formatUser),
         });
     } catch (error) {
         console.error('[USERS] List error:', error);
@@ -220,9 +233,10 @@ router.get('/', verifyToken, requireUserMgmt, async (req, res) => {
 router.get('/:username', verifyToken, async (req, res) => {
     try {
         const pool = req.app.locals.chatDb;
+        await ensurePreviousNamesColumn(pool);
         const result = await pool.query(
             `SELECT username, display_name, identifier, role_template, is_admin,
-                    detailed_permissions, user_id, created_at, created_by, updated_at, updated_by
+                    detailed_permissions, previous_names, user_id, created_at, created_by, updated_at, updated_by
              FROM app_users WHERE username = $1`,
             [req.params.username]
         );
@@ -242,7 +256,15 @@ router.get('/:username', verifyToken, async (req, res) => {
 router.post('/', verifyToken, requireUserMgmt, async (req, res) => {
     try {
         const pool = req.app.locals.chatDb;
-        const { username, password, displayName, identifier, roleTemplate, isAdmin, detailedPermissions } = req.body;
+        const {
+            username,
+            password,
+            displayName,
+            identifier,
+            roleTemplate,
+            isAdmin,
+            detailedPermissions,
+        } = req.body;
 
         if (!username || !password) {
             return res.status(400).json({ error: 'Username and password required' });
@@ -251,7 +273,9 @@ router.post('/', verifyToken, requireUserMgmt, async (req, res) => {
         const normalizedUsername = username.trim().toLowerCase();
 
         if (!/^[a-z0-9_]+$/.test(normalizedUsername)) {
-            return res.status(400).json({ error: 'Username only allows lowercase letters, numbers and underscores' });
+            return res
+                .status(400)
+                .json({ error: 'Username only allows lowercase letters, numbers and underscores' });
         }
 
         if (password.length < 6) {
@@ -259,7 +283,9 @@ router.post('/', verifyToken, requireUserMgmt, async (req, res) => {
         }
 
         // Check if exists
-        const existing = await pool.query('SELECT username FROM app_users WHERE username = $1', [normalizedUsername]);
+        const existing = await pool.query('SELECT username FROM app_users WHERE username = $1', [
+            normalizedUsername,
+        ]);
         if (existing.rows.length > 0) {
             return res.status(409).json({ error: 'Username already exists' });
         }
@@ -271,18 +297,18 @@ router.post('/', verifyToken, requireUserMgmt, async (req, res) => {
              VALUES ($1, $2, $3, $4, 'bcrypt', $5, $6, $7, $8, NOW())`,
             [
                 normalizedUsername,
-                displayName || normalizedUsername.charAt(0).toUpperCase() + normalizedUsername.slice(1),
+                displayName ||
+                    normalizedUsername.charAt(0).toUpperCase() + normalizedUsername.slice(1),
                 identifier || '',
                 passwordHash,
                 roleTemplate || 'custom',
                 isAdmin || false,
                 JSON.stringify(detailedPermissions || {}),
-                req.user.username
+                req.user.username,
             ]
         );
 
         res.json({ success: true, message: 'User created', username: normalizedUsername });
-
     } catch (error) {
         console.error('[USERS] Create error:', error);
         res.status(500).json({ error: 'Server error' });
@@ -293,14 +319,41 @@ router.post('/', verifyToken, requireUserMgmt, async (req, res) => {
 router.put('/:username', verifyToken, requireUserMgmt, async (req, res) => {
     try {
         const pool = req.app.locals.chatDb;
-        const { displayName, identifier, roleTemplate, isAdmin, detailedPermissions, password } = req.body;
+        await ensurePreviousNamesColumn(pool);
+        const {
+            displayName,
+            identifier,
+            roleTemplate,
+            isAdmin,
+            detailedPermissions,
+            password,
+            previousNames,
+        } = req.body;
         const username = req.params.username;
 
-        // Check user exists
-        const existing = await pool.query('SELECT username FROM app_users WHERE username = $1', [username]);
+        // Check user exists (also need current name + aliases to track renames)
+        const existing = await pool.query(
+            'SELECT display_name, previous_names FROM app_users WHERE username = $1',
+            [username]
+        );
         if (existing.rows.length === 0) {
             return res.status(404).json({ error: 'User not found' });
         }
+
+        // Build the alias list. Start from an explicit override if supplied,
+        // otherwise from the stored aliases. On rename, retain the old display
+        // name so historical records keyed by it still resolve to this account.
+        const oldDisplayName = (existing.rows[0].display_name || '').trim();
+        const newDisplayName = (displayName || '').trim();
+        let aliases = Array.isArray(previousNames)
+            ? normalizePreviousNames(previousNames)
+            : normalizePreviousNames(existing.rows[0].previous_names);
+        if (oldDisplayName && newDisplayName && oldDisplayName !== newDisplayName) {
+            aliases.push(oldDisplayName);
+        }
+        // Dedupe and never keep the current name as its own alias.
+        aliases = normalizePreviousNames(aliases).filter((n) => n !== newDisplayName);
+        const aliasesJson = JSON.stringify(aliases);
 
         let query, params;
 
@@ -308,24 +361,40 @@ router.put('/:username', verifyToken, requireUserMgmt, async (req, res) => {
             const passwordHash = await hashPassword(password);
             query = `UPDATE app_users SET
                 display_name = $1, identifier = $2, role_template = $3, is_admin = $4,
-                detailed_permissions = $5, password_hash = $6, salt = NULL, hash_algorithm = 'bcrypt',
-                updated_at = NOW(), updated_by = $7
-                WHERE username = $8`;
-            params = [displayName, identifier || '', roleTemplate || 'custom', isAdmin || false,
-                      JSON.stringify(detailedPermissions || {}), passwordHash, req.user.username, username];
+                detailed_permissions = $5, previous_names = $6::jsonb, password_hash = $7,
+                salt = NULL, hash_algorithm = 'bcrypt', updated_at = NOW(), updated_by = $8
+                WHERE username = $9`;
+            params = [
+                displayName,
+                identifier || '',
+                roleTemplate || 'custom',
+                isAdmin || false,
+                JSON.stringify(detailedPermissions || {}),
+                aliasesJson,
+                passwordHash,
+                req.user.username,
+                username,
+            ];
         } else {
             query = `UPDATE app_users SET
                 display_name = $1, identifier = $2, role_template = $3, is_admin = $4,
-                detailed_permissions = $5, updated_at = NOW(), updated_by = $6
-                WHERE username = $7`;
-            params = [displayName, identifier || '', roleTemplate || 'custom', isAdmin || false,
-                      JSON.stringify(detailedPermissions || {}), req.user.username, username];
+                detailed_permissions = $5, previous_names = $6::jsonb, updated_at = NOW(), updated_by = $7
+                WHERE username = $8`;
+            params = [
+                displayName,
+                identifier || '',
+                roleTemplate || 'custom',
+                isAdmin || false,
+                JSON.stringify(detailedPermissions || {}),
+                aliasesJson,
+                req.user.username,
+                username,
+            ];
         }
 
         await pool.query(query, params);
 
         res.json({ success: true, message: 'User updated' });
-
     } catch (error) {
         console.error('[USERS] Update error:', error);
         res.status(500).json({ error: 'Server error' });
@@ -339,21 +408,28 @@ router.delete('/:username', verifyToken, requireUserMgmt, async (req, res) => {
         const username = req.params.username;
 
         // Check if last admin
-        const adminCount = await pool.query("SELECT COUNT(*) FROM app_users WHERE role_template = 'admin'");
-        const userToDelete = await pool.query('SELECT role_template FROM app_users WHERE username = $1', [username]);
+        const adminCount = await pool.query(
+            "SELECT COUNT(*) FROM app_users WHERE role_template = 'admin'"
+        );
+        const userToDelete = await pool.query(
+            'SELECT role_template FROM app_users WHERE username = $1',
+            [username]
+        );
 
         if (userToDelete.rows.length === 0) {
             return res.status(404).json({ error: 'User not found' });
         }
 
-        if (userToDelete.rows[0].role_template === 'admin' && parseInt(adminCount.rows[0].count) <= 1) {
+        if (
+            userToDelete.rows[0].role_template === 'admin' &&
+            parseInt(adminCount.rows[0].count) <= 1
+        ) {
             return res.status(400).json({ error: 'Cannot delete the last admin user' });
         }
 
         await pool.query('DELETE FROM app_users WHERE username = $1', [username]);
 
         res.json({ success: true, message: 'User deleted' });
-
     } catch (error) {
         console.error('[USERS] Delete error:', error);
         res.status(500).json({ error: 'Server error' });
@@ -394,7 +470,6 @@ router.post('/batch-template', verifyToken, requireUserMgmt, async (req, res) =>
         }
 
         res.json({ success: true, message: `Template applied to ${userIds.length} users` });
-
     } catch (error) {
         console.error('[USERS] Batch template error:', error);
         res.status(500).json({ error: 'Server error' });
@@ -409,11 +484,13 @@ router.post('/batch-template', verifyToken, requireUserMgmt, async (req, res) =>
 router.get('/templates/list', verifyToken, async (req, res) => {
     try {
         const pool = req.app.locals.chatDb;
-        const result = await pool.query('SELECT * FROM permission_templates ORDER BY is_system_default DESC, name');
+        const result = await pool.query(
+            'SELECT * FROM permission_templates ORDER BY is_system_default DESC, name'
+        );
 
         res.json({
             success: true,
-            templates: result.rows.map(row => ({
+            templates: result.rows.map((row) => ({
                 id: row.id,
                 name: row.name,
                 icon: row.icon,
@@ -425,8 +502,8 @@ router.get('/templates/list', verifyToken, async (req, res) => {
                 createdAt: row.created_at,
                 createdBy: row.created_by,
                 updatedAt: row.updated_at,
-                updatedBy: row.updated_by
-            }))
+                updatedBy: row.updated_by,
+            })),
         });
     } catch (error) {
         console.error('[USERS] List templates error:', error);
@@ -438,7 +515,16 @@ router.get('/templates/list', verifyToken, async (req, res) => {
 router.post('/templates', verifyToken, requireUserMgmt, async (req, res) => {
     try {
         const pool = req.app.locals.chatDb;
-        const { id, name, icon, color, description, detailedPermissions, isSystemDefault, permissionsVersion } = req.body;
+        const {
+            id,
+            name,
+            icon,
+            color,
+            description,
+            detailedPermissions,
+            isSystemDefault,
+            permissionsVersion,
+        } = req.body;
 
         if (!id || !name) {
             return res.status(400).json({ error: 'Template id and name required' });
@@ -452,13 +538,20 @@ router.post('/templates', verifyToken, requireUserMgmt, async (req, res) => {
                 description = EXCLUDED.description, detailed_permissions = EXCLUDED.detailed_permissions,
                 is_system_default = EXCLUDED.is_system_default, permissions_version = EXCLUDED.permissions_version,
                 updated_at = NOW(), updated_by = EXCLUDED.created_by`,
-            [id, name, icon || 'sliders', color || '#6366f1', description || '',
-             JSON.stringify(detailedPermissions || {}), isSystemDefault || false,
-             permissionsVersion || 1, req.user.username]
+            [
+                id,
+                name,
+                icon || 'sliders',
+                color || '#6366f1',
+                description || '',
+                JSON.stringify(detailedPermissions || {}),
+                isSystemDefault || false,
+                permissionsVersion || 1,
+                req.user.username,
+            ]
         );
 
         res.json({ success: true, message: 'Template saved' });
-
     } catch (error) {
         console.error('[USERS] Create template error:', error);
         res.status(500).json({ error: 'Server error' });
@@ -469,7 +562,8 @@ router.post('/templates', verifyToken, requireUserMgmt, async (req, res) => {
 router.put('/templates/:id', verifyToken, requireUserMgmt, async (req, res) => {
     try {
         const pool = req.app.locals.chatDb;
-        const { name, icon, color, description, detailedPermissions, permissionsVersion } = req.body;
+        const { name, icon, color, description, detailedPermissions, permissionsVersion } =
+            req.body;
 
         const result = await pool.query(
             `UPDATE permission_templates SET
@@ -478,9 +572,16 @@ router.put('/templates/:id', verifyToken, requireUserMgmt, async (req, res) => {
                 permissions_version = COALESCE($6, permissions_version),
                 updated_at = NOW(), updated_by = $7
              WHERE id = $8`,
-            [name, icon, color, description,
-             detailedPermissions ? JSON.stringify(detailedPermissions) : null,
-             permissionsVersion, req.user.username, req.params.id]
+            [
+                name,
+                icon,
+                color,
+                description,
+                detailedPermissions ? JSON.stringify(detailedPermissions) : null,
+                permissionsVersion,
+                req.user.username,
+                req.params.id,
+            ]
         );
 
         if (result.rowCount === 0) {
@@ -488,7 +589,6 @@ router.put('/templates/:id', verifyToken, requireUserMgmt, async (req, res) => {
         }
 
         res.json({ success: true, message: 'Template updated' });
-
     } catch (error) {
         console.error('[USERS] Update template error:', error);
         res.status(500).json({ error: 'Server error' });
@@ -499,14 +599,15 @@ router.put('/templates/:id', verifyToken, requireUserMgmt, async (req, res) => {
 router.delete('/templates/:id', verifyToken, requireUserMgmt, async (req, res) => {
     try {
         const pool = req.app.locals.chatDb;
-        const result = await pool.query('DELETE FROM permission_templates WHERE id = $1', [req.params.id]);
+        const result = await pool.query('DELETE FROM permission_templates WHERE id = $1', [
+            req.params.id,
+        ]);
 
         if (result.rowCount === 0) {
             return res.status(404).json({ error: 'Template not found' });
         }
 
         res.json({ success: true, message: 'Template deleted' });
-
     } catch (error) {
         console.error('[USERS] Delete template error:', error);
         res.status(500).json({ error: 'Server error' });
@@ -521,7 +622,9 @@ router.delete('/templates/:id', verifyToken, requireUserMgmt, async (req, res) =
 router.get('/settings/:key', async (req, res) => {
     try {
         const pool = req.app.locals.chatDb;
-        const result = await pool.query('SELECT value FROM app_settings WHERE key = $1', [req.params.key]);
+        const result = await pool.query('SELECT value FROM app_settings WHERE key = $1', [
+            req.params.key,
+        ]);
 
         if (result.rows.length === 0) {
             return res.json({ success: true, value: {} });
@@ -548,7 +651,6 @@ router.put('/settings/:key', verifyToken, async (req, res) => {
         );
 
         res.json({ success: true, message: 'Setting saved' });
-
     } catch (error) {
         console.error('[USERS] Put settings error:', error);
         res.status(500).json({ error: 'Server error' });
@@ -564,7 +666,9 @@ router.post('/migrate/bulk', async (req, res) => {
     try {
         const pool = req.app.locals.chatDb;
         const { users, templates, settings } = req.body;
-        let userCount = 0, templateCount = 0, settingCount = 0;
+        let userCount = 0,
+            templateCount = 0,
+            settingCount = 0;
 
         const client = await pool.connect();
         try {
@@ -595,10 +699,14 @@ router.post('/migrate/bulk', async (req, res) => {
                             JSON.stringify(u.detailedPermissions || u.detailed_permissions || {}),
                             u.userId || u.user_id || null,
                             u.userIdCreatedAt ? new Date(u.userIdCreatedAt) : null,
-                            u.createdAt?.seconds ? new Date(u.createdAt.seconds * 1000) : (u.createdAt ? new Date(u.createdAt) : new Date()),
+                            u.createdAt?.seconds
+                                ? new Date(u.createdAt.seconds * 1000)
+                                : u.createdAt
+                                  ? new Date(u.createdAt)
+                                  : new Date(),
                             u.createdBy || u.created_by || 'migration',
                             new Date(),
-                            'migration'
+                            'migration',
                         ]
                     );
                     userCount++;
@@ -625,7 +733,7 @@ router.post('/migrate/bulk', async (req, res) => {
                             JSON.stringify(t.detailedPermissions || t.detailed_permissions || {}),
                             t.isSystemDefault || t.is_system_default || false,
                             t.permissionsVersion || t.permissions_version || 1,
-                            'migration'
+                            'migration',
                         ]
                     );
                     templateCount++;
@@ -655,9 +763,8 @@ router.post('/migrate/bulk', async (req, res) => {
 
         res.json({
             success: true,
-            message: `Migration complete: ${userCount} users, ${templateCount} templates, ${settingCount} settings`
+            message: `Migration complete: ${userCount} users, ${templateCount} templates, ${settingCount} settings`,
         });
-
     } catch (error) {
         console.error('[USERS] Migration error:', error);
         res.status(500).json({ error: 'Migration failed: ' + error.message });
@@ -675,7 +782,7 @@ function verifyTOTP(secret, token) {
         algorithm: 'SHA1',
         digits: 6,
         period: 30,
-        secret: OTPAuth.Secret.fromBase32(secret)
+        secret: OTPAuth.Secret.fromBase32(secret),
     });
     // Allow 1 step window (±30s) for clock drift
     const delta = totp.validate({ token, window: 1 });
@@ -724,7 +831,7 @@ router.post('/login/verify-totp', async (req, res) => {
 
         // Try backup codes if TOTP failed
         if (!verified && user.totp_backup_codes && Array.isArray(user.totp_backup_codes)) {
-            const backupIndex = user.totp_backup_codes.findIndex(bc => bc === code);
+            const backupIndex = user.totp_backup_codes.findIndex((bc) => bc === code);
             if (backupIndex !== -1) {
                 verified = true;
                 // Remove used backup code
@@ -734,7 +841,9 @@ router.post('/login/verify-totp', async (req, res) => {
                     'UPDATE app_users SET totp_backup_codes = $1 WHERE username = $2',
                     [updatedCodes, username]
                 );
-                console.log(`[2FA] Backup code used by ${username}. ${updatedCodes.length} remaining.`);
+                console.log(
+                    `[2FA] Backup code used by ${username}. ${updatedCodes.length} remaining.`
+                );
             }
         }
 
@@ -759,10 +868,9 @@ router.post('/login/verify-totp', async (req, res) => {
             token,
             user: {
                 ...formatUser(user),
-                userId
-            }
+                userId,
+            },
         });
-
     } catch (error) {
         console.error('[2FA] TOTP verify error:', error);
         res.status(500).json({ error: 'Server error' });
@@ -776,12 +884,16 @@ router.post('/2fa/setup', verifyToken, async (req, res) => {
         const username = req.user.username;
 
         // Check if already enabled
-        const result = await pool.query('SELECT totp_enabled FROM app_users WHERE username = $1', [username]);
+        const result = await pool.query('SELECT totp_enabled FROM app_users WHERE username = $1', [
+            username,
+        ]);
         if (result.rows.length === 0) {
             return res.status(404).json({ error: 'User not found' });
         }
         if (result.rows[0].totp_enabled) {
-            return res.status(400).json({ error: '2FA is already enabled. Disable first to re-setup.' });
+            return res
+                .status(400)
+                .json({ error: '2FA is already enabled. Disable first to re-setup.' });
         }
 
         // Generate new TOTP secret
@@ -792,25 +904,24 @@ router.post('/2fa/setup', verifyToken, async (req, res) => {
             algorithm: 'SHA1',
             digits: 6,
             period: 30,
-            secret
+            secret,
         });
 
         const otpauthUrl = totp.toString();
         const qrCodeDataUrl = await QRCode.toDataURL(otpauthUrl);
 
         // Store secret temporarily (not enabled yet until verify-setup)
-        await pool.query(
-            'UPDATE app_users SET totp_secret = $1 WHERE username = $2',
-            [secret.base32, username]
-        );
+        await pool.query('UPDATE app_users SET totp_secret = $1 WHERE username = $2', [
+            secret.base32,
+            username,
+        ]);
 
         res.json({
             success: true,
             qrCode: qrCodeDataUrl,
             secret: secret.base32,
-            otpauthUrl
+            otpauthUrl,
         });
-
     } catch (error) {
         console.error('[2FA] Setup error:', error);
         res.status(500).json({ error: 'Server error' });
@@ -840,7 +951,9 @@ router.post('/2fa/verify-setup', verifyToken, async (req, res) => {
 
         const user = result.rows[0];
         if (!user.totp_secret) {
-            return res.status(400).json({ error: 'No 2FA setup in progress. Call /2fa/setup first.' });
+            return res
+                .status(400)
+                .json({ error: 'No 2FA setup in progress. Call /2fa/setup first.' });
         }
 
         if (user.totp_enabled) {
@@ -870,9 +983,8 @@ router.post('/2fa/verify-setup', verifyToken, async (req, res) => {
         res.json({
             success: true,
             message: '2FA enabled successfully',
-            backupCodes
+            backupCodes,
         });
-
     } catch (error) {
         console.error('[2FA] Verify setup error:', error);
         res.status(500).json({ error: 'Server error' });
@@ -919,7 +1031,6 @@ router.post('/2fa/disable', verifyToken, async (req, res) => {
         console.log(`[2FA] Disabled for user: ${username}`);
 
         res.json({ success: true, message: '2FA disabled successfully' });
-
     } catch (error) {
         console.error('[2FA] Disable error:', error);
         res.status(500).json({ error: 'Server error' });
@@ -944,7 +1055,6 @@ router.post('/2fa/reset', verifyToken, requireUserMgmt, async (req, res) => {
         console.log(`[2FA] Admin ${req.user.username} reset 2FA for user: ${username}`);
 
         res.json({ success: true, message: `2FA reset for ${username}` });
-
     } catch (error) {
         console.error('[2FA] Reset error:', error);
         res.status(500).json({ error: 'Server error' });
@@ -968,9 +1078,8 @@ router.get('/2fa/status', verifyToken, async (req, res) => {
         res.json({
             enabled: user.totp_enabled || false,
             enabledAt: user.two_fa_enabled_at,
-            backupCodesRemaining: user.totp_backup_codes ? user.totp_backup_codes.length : 0
+            backupCodesRemaining: user.totp_backup_codes ? user.totp_backup_codes.length : 0,
         });
-
     } catch (error) {
         console.error('[2FA] Status error:', error);
         res.status(500).json({ error: 'Server error' });

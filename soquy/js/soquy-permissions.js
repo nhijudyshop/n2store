@@ -13,7 +13,6 @@
 // =====================================================
 
 const SoquyPermissions = {
-
     PAGE_ID: 'soquy',
 
     // Admin-only tab hashes (no permission keys needed - purely admin check)
@@ -84,10 +83,10 @@ const SoquyPermissions = {
                 const cashbookBtn = document.getElementById('tabCashBookBtn');
                 if (cashbookBtn) {
                     // Activate cashbook tab
-                    document.querySelectorAll('.tab-header-btn').forEach(b => {
+                    document.querySelectorAll('.tab-header-btn').forEach((b) => {
                         b.classList.toggle('active', b.dataset.tab === 'cashbook');
                     });
-                    document.querySelectorAll('.tab-content').forEach(c => {
+                    document.querySelectorAll('.tab-content').forEach((c) => {
                         c.classList.toggle('active', c.id === 'cashbookTabContent');
                     });
                     location.hash = 'cashbook';
@@ -180,7 +179,7 @@ const SoquyPermissions = {
      */
     checkAction(action) {
         return PermissionHelper.checkBeforeAction(this.PAGE_ID, action, {
-            alertMessage: 'Bạn không có quyền thực hiện thao tác này!'
+            alertMessage: 'Bạn không có quyền thực hiện thao tác này!',
         });
     },
 
@@ -212,9 +211,54 @@ const SoquyPermissions = {
     },
 
     /**
+     * Build the set of display names that belong to the current user:
+     * the current displayName plus any historical names (aliases) carried
+     * in the auth token. Lets vouchers created under an old name still match.
+     *
+     * @param {Object} [auth] - Optional pre-fetched auth object
+     * @returns {Set<string>}
+     */
+    _myNameSet(auth) {
+        const a = auth || PermissionHelper.getAuth();
+        const names = [a?.displayName, ...(Array.isArray(a?.previousNames) ? a.previousNames : [])]
+            .map((n) => String(n || '').trim())
+            .filter(Boolean);
+        return new Set(names);
+    },
+
+    /**
+     * Whether a voucher was created by the current user.
+     * Matches by stable account first (createdByUsername === username),
+     * then falls back to display-name/alias match for legacy vouchers that
+     * only stored createdBy as a (mutable) display-name string.
+     *
+     * @param {Object} voucher - Voucher object
+     * @returns {boolean}
+     */
+    isMine(voucher) {
+        if (!voucher) return false;
+        const auth = PermissionHelper.getAuth();
+
+        // 1) Stable identity match (vouchers created after this change)
+        const myUsername = String(auth?.username || '').trim();
+        if (
+            myUsername &&
+            voucher.createdByUsername &&
+            String(voucher.createdByUsername).trim() === myUsername
+        ) {
+            return true;
+        }
+
+        // 2) Display-name / alias match (legacy vouchers keyed by name)
+        const creator = String(voucher.createdBy || '').trim();
+        return !!creator && this._myNameSet(auth).has(creator);
+    },
+
+    /**
      * Filter vouchers by creator if user doesn't have view_all_transactions permission.
      * Admin or users with view_all_transactions see everything.
-     * Regular users only see vouchers where createdBy matches their displayName.
+     * Regular users only see vouchers they created (matched by stable account,
+     * with display-name aliases for backward compatibility).
      *
      * @param {Array} vouchers - Array of voucher objects
      * @returns {Array} Filtered array
@@ -222,11 +266,7 @@ const SoquyPermissions = {
     filterByCreator(vouchers) {
         if (!Array.isArray(vouchers)) return [];
         if (this.canViewAllTransactions()) return vouchers;
-
-        const auth = PermissionHelper.getAuth();
-        const displayName = auth?.displayName || '';
-
-        return vouchers.filter(v => v.createdBy === displayName);
+        return vouchers.filter((v) => this.isMine(v));
     },
 
     /**
@@ -246,15 +286,15 @@ const SoquyPermissions = {
                 location.hash = 'cashbook';
 
                 // Also update tab UI
-                document.querySelectorAll('.tab-header-btn').forEach(b => {
+                document.querySelectorAll('.tab-header-btn').forEach((b) => {
                     b.classList.toggle('active', b.dataset.tab === 'cashbook');
                 });
-                document.querySelectorAll('.tab-content').forEach(c => {
+                document.querySelectorAll('.tab-content').forEach((c) => {
                     c.classList.toggle('active', c.id === 'cashbookTabContent');
                 });
             }
         });
-    }
+    },
 };
 
 // Export to window for global access

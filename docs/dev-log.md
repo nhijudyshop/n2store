@@ -2,6 +2,18 @@
 
 ## 2026-06-20
 
+### [soquy + users + navigation] Fix mất data Sổ Quỹ khi account đổi tên (phuoc) + tắt tự đổi tên ✅
+
+User: account **phuoc** hồi trước đổi tên (`Phước đẹp trai` → `Phước`) nên Sổ Quỹ hiển thị thiếu data; "lấy theo userType" + "tắt luôn chức năng đổi tên ở navigation modern".
+
+- **Gốc bug**: voucher `soquy_vouchers` lưu `createdBy` = **displayName** (chuỗi đổi được). Non-admin không có `view_all_transactions` chỉ thấy voucher `createdBy === displayName` hiện tại. Đổi tên → 1070 voucher cũ (`createdBy="Phước đẹp trai"`) biến mất, chỉ còn 1 voucher tên mới. Dữ liệu live xác nhận: 1070 "Phước đẹp trai" + 1 "Phước", **không có** account "Phước đẹp trai" khác → chắc chắn là phuoc. Voucher KHÔNG hề lưu id account (`createdByUsername`/`userType` = 0).
+- **Hướng fix (user chọn)**: alias-map, **KHÔNG ghi đè 1070 voucher prod**. Khớp owner theo **account ổn định** (username), legacy khớp theo display-name + alias.
+- **Backend `render.com/routes/users.js`**: thêm cột `previous_names JSONB DEFAULT '[]'` (idempotent `ensurePreviousNamesColumn`, chạy 1 lần/process ở login/GET/PUT). `generateToken` + `formatUser` trả `previousNames`. `PUT /:username`: khi đổi tên → tự lưu tên cũ vào `previous_names` (admin rename cũng track); nhận `previousNames` tường minh để seed. `PUT /me/display-name` → **403 (disabled)**.
+- **Frontend `soquy`**: `createVoucher` lưu thêm `createdByUsername` + `createdByUserId` (voucher mới, immune rename). `SoquyPermissions.isMine(voucher)` = khớp `createdByUsername===username` HOẶC `createdBy ∈ {displayName, ...previousNames}`; `filterByCreator` + `calculateOpeningBalance` dùng `isMine`. (Display vẫn dùng `createdBy` cho cột Người tạo.)
+- **Tắt tự đổi tên `shared/js/navigation-modern.js`**: flag `enableDisplayNameEdit=false` → ẩn nút bút chì "Chỉnh sửa tên hiển thị" (desktop + mobile), `showEditDisplayNameModal` early-return. Admin vẫn đổi tên qua user-management (giờ giữ alias).
+- **Seed phuoc**: sau deploy, PUT phuoc với `previousNames=["Phước đẹp trai"]` (giữ nguyên displayName/permissions). phuoc **phải đăng xuất + đăng nhập lại** để token mang previousNames → thấy đủ 1071 voucher.
+- node --check PASS cả 4 file. Logic `isMine` test 7 case PASS (legacy/post-rename/brand-new/other × token cũ/mới).
+
 ### [web2/multi-tool] Tăng comment: giãn nhịp mặc định + tối thiểu 1 giây, 6 account chạy độc lập ✅
 
 User: "Cho mặc định và thấp nhất là 1 giây → với 6 account Pancake chạy độc lập với nhau → account nào xong rồi cứ chạy tiếp".

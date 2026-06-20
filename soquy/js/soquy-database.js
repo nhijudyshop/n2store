@@ -36,7 +36,7 @@ const SoquyDatabase = (function () {
                 transaction.set(counterRef, {
                     lastNumber: nextNumber,
                     prefix: prefix,
-                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
                 });
 
                 return `${prefix}${String(nextNumber).padStart(6, '0')}`;
@@ -60,9 +60,8 @@ const SoquyDatabase = (function () {
      */
     async function createVoucher(voucherData) {
         try {
-            const fundType = state.fundType === config.FUND_TYPES.ALL
-                ? config.FUND_TYPES.CASH
-                : state.fundType;
+            const fundType =
+                state.fundType === config.FUND_TYPES.ALL ? config.FUND_TYPES.CASH : state.fundType;
 
             const voucherCode = await getNextVoucherCode(voucherData.type, fundType);
 
@@ -95,8 +94,12 @@ const SoquyDatabase = (function () {
                 createdAt: firebase.firestore.FieldValue.serverTimestamp(),
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
                 createdBy: voucherData.createdBy || getCurrentUserName(),
+                // Stable creator identity (immune to display-name renames). createdBy
+                // stays for display; ownership is matched by createdByUsername.
+                createdByUsername: voucherData.createdByUsername || getCurrentUsername(),
+                createdByUserId: voucherData.createdByUserId || getCurrentUserId(),
                 cancelledAt: null,
-                cancelReason: ''
+                cancelReason: '',
             };
 
             const docRef = await config.soquyCollectionRef.add(voucher);
@@ -108,7 +111,7 @@ const SoquyDatabase = (function () {
                 SoquyEditHistory.logEditHistory('create', {
                     voucherCode: voucherCode,
                     voucherType: voucher.type,
-                    description: `Tạo ${typeLabel} ${voucherCode} - ${formatCurrency(voucher.amount)}đ`
+                    description: `Tạo ${typeLabel} ${voucherCode} - ${formatCurrency(voucher.amount)}đ`,
                 });
             }
 
@@ -146,14 +149,14 @@ const SoquyDatabase = (function () {
             const snapshot = await query.get();
 
             let vouchers = [];
-            snapshot.forEach(doc => {
+            snapshot.forEach((doc) => {
                 vouchers.push({ id: doc.id, ...doc.data() });
             });
 
             console.log('[SoquyDB] Raw vouchers from Firestore:', vouchers.length);
 
             // Normalize legacy 'payment' type to payment_cn or payment_kd
-            vouchers = vouchers.map(v => {
+            vouchers = vouchers.map((v) => {
                 if (v.type === 'payment') {
                     v.type = v.businessAccounting ? 'payment_kd' : 'payment_cn';
                 }
@@ -162,19 +165,25 @@ const SoquyDatabase = (function () {
 
             // Fund type filter (client-side to avoid composite index)
             if (state.fundType !== config.FUND_TYPES.ALL) {
-                vouchers = vouchers.filter(v => v.fundType === state.fundType);
-                console.log('[SoquyDB] After fundType filter (' + state.fundType + '):', vouchers.length);
+                vouchers = vouchers.filter((v) => v.fundType === state.fundType);
+                console.log(
+                    '[SoquyDB] After fundType filter (' + state.fundType + '):',
+                    vouchers.length
+                );
             }
 
             // Status filter (client-side to avoid composite index)
             if (state.statusFilter.length > 0) {
-                vouchers = vouchers.filter(v => state.statusFilter.includes(v.status));
-                console.log('[SoquyDB] After status filter (' + state.statusFilter.join(',') + '):', vouchers.length);
+                vouchers = vouchers.filter((v) => state.statusFilter.includes(v.status));
+                console.log(
+                    '[SoquyDB] After status filter (' + state.statusFilter.join(',') + '):',
+                    vouchers.length
+                );
             }
 
             // Voucher type filter (supports multiple selections)
             if (state.voucherTypeFilter.length > 0) {
-                vouchers = vouchers.filter(v => state.voucherTypeFilter.includes(v.type));
+                vouchers = vouchers.filter((v) => state.voucherTypeFilter.includes(v.type));
                 console.log('[SoquyDB] After voucherType filter:', vouchers.length);
             }
 
@@ -218,7 +227,9 @@ const SoquyDatabase = (function () {
                 endDate = new Date(now.getFullYear(), 11, 31, 23, 59, 59);
                 break;
             case config.TIME_FILTERS.CUSTOM:
-                startDate = state.customStartDate ? new Date(state.customStartDate + 'T00:00:00') : null;
+                startDate = state.customStartDate
+                    ? new Date(state.customStartDate + 'T00:00:00')
+                    : null;
                 endDate = state.customEndDate ? new Date(state.customEndDate + 'T23:59:59') : null;
                 break;
             default:
@@ -254,31 +265,39 @@ const SoquyDatabase = (function () {
             if (!startDate) return 0;
 
             // Permission-based creator filter: non-admin only sees own transactions
-            const canViewAll = typeof SoquyPermissions !== 'undefined'
-                ? SoquyPermissions.canViewAllTransactions()
-                : true;
-            const currentUser = !canViewAll ? getCurrentUserName() : '';
+            const canViewAll =
+                typeof SoquyPermissions !== 'undefined'
+                    ? SoquyPermissions.canViewAllTransactions()
+                    : true;
 
             // Server-side filter: only fetch vouchers BEFORE startDate
             const startTimestamp = firebase.firestore.Timestamp.fromDate(startDate);
-            let query = config.soquyCollectionRef
-                .where('voucherDateTime', '<', startTimestamp);
+            let query = config.soquyCollectionRef.where('voucherDateTime', '<', startTimestamp);
 
             const snapshot = await query.get();
             let balance = 0;
 
-            snapshot.forEach(doc => {
+            snapshot.forEach((doc) => {
                 const data = doc.data();
                 // Skip cancelled vouchers
                 if (data.status !== config.VOUCHER_STATUS.PAID) return;
                 // Fund type filter
                 if (fundType !== config.FUND_TYPES.ALL && data.fundType !== fundType) return;
                 // Creator filter: non-admin only counts own transactions
-                if (!canViewAll && data.createdBy !== currentUser) return;
+                // (matched by stable account + display-name aliases)
+                if (
+                    !canViewAll &&
+                    typeof SoquyPermissions !== 'undefined' &&
+                    !SoquyPermissions.isMine(data)
+                )
+                    return;
                 // Normalize legacy type
-                const type = data.type === 'payment'
-                    ? (data.businessAccounting ? 'payment_kd' : 'payment_cn')
-                    : data.type;
+                const type =
+                    data.type === 'payment'
+                        ? data.businessAccounting
+                            ? 'payment_kd'
+                            : 'payment_cn'
+                        : data.type;
                 if (type === config.VOUCHER_TYPES.RECEIPT) {
                     balance += Math.abs(data.amount || 0);
                 } else {
@@ -319,7 +338,7 @@ const SoquyDatabase = (function () {
 
             const cleanData = {
                 ...updateData,
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
             };
 
             // Don't allow changing code
@@ -348,7 +367,7 @@ const SoquyDatabase = (function () {
                         voucherCode: voucherCode,
                         voucherType: voucherType,
                         changes: changes,
-                        description: `Sửa phiếu ${voucherCode}`
+                        description: `Sửa phiếu ${voucherCode}`,
                     });
                 }
             }
@@ -374,13 +393,15 @@ const SoquyDatabase = (function () {
                     voucherCode = doc.data().code || '';
                     voucherType = doc.data().type || '';
                 }
-            } catch (e) { /* ignore */ }
+            } catch (e) {
+                /* ignore */
+            }
 
             await config.soquyCollectionRef.doc(docId).update({
                 status: config.VOUCHER_STATUS.CANCELLED,
                 cancelledAt: firebase.firestore.FieldValue.serverTimestamp(),
                 cancelReason: reason || '',
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
             });
             console.log('[SoquyDB] Voucher cancelled:', docId);
 
@@ -391,7 +412,7 @@ const SoquyDatabase = (function () {
                     voucherCode: voucherCode,
                     voucherType: voucherType,
                     extra: { cancelReason: reason || '' },
-                    description: `Hủy phiếu ${voucherCode}${reasonText}`
+                    description: `Hủy phiếu ${voucherCode}${reasonText}`,
                 });
             }
 
@@ -420,7 +441,9 @@ const SoquyDatabase = (function () {
                     voucherCode = doc.data().code || '';
                     voucherType = doc.data().type || '';
                 }
-            } catch (e) { /* ignore */ }
+            } catch (e) {
+                /* ignore */
+            }
 
             await config.soquyCollectionRef.doc(docId).delete();
             console.log('[SoquyDB] Voucher deleted:', docId);
@@ -430,7 +453,7 @@ const SoquyDatabase = (function () {
                 SoquyEditHistory.logEditHistory('delete', {
                     voucherCode: voucherCode,
                     voucherType: voucherType,
-                    description: `Xóa phiếu ${voucherCode}`
+                    description: `Xóa phiếu ${voucherCode}`,
                 });
             }
 
@@ -459,7 +482,7 @@ const SoquyDatabase = (function () {
             for (let i = 0; i < docs.length; i += batchSize) {
                 const batch = config.soquyCollectionRef.firestore.batch();
                 const chunk = docs.slice(i, i + batchSize);
-                chunk.forEach(doc => batch.delete(doc.ref));
+                chunk.forEach((doc) => batch.delete(doc.ref));
                 await batch.commit();
                 deleted += chunk.length;
                 console.log(`[SoquyDB] Deleted batch: ${deleted}/${total}`);
@@ -469,7 +492,7 @@ const SoquyDatabase = (function () {
             const countersSnapshot = await config.soquyCountersRef.get();
             if (countersSnapshot.size > 0) {
                 const counterBatch = config.soquyCountersRef.firestore.batch();
-                countersSnapshot.forEach(doc => counterBatch.delete(doc.ref));
+                countersSnapshot.forEach((doc) => counterBatch.delete(doc.ref));
                 await counterBatch.commit();
                 console.log('[SoquyDB] Counters reset');
             }
@@ -478,7 +501,7 @@ const SoquyDatabase = (function () {
             if (window.SoquyEditHistory) {
                 SoquyEditHistory.logEditHistory('delete_all', {
                     extra: { deletedCount: deleted },
-                    description: `Xóa toàn bộ ${deleted} phiếu`
+                    description: `Xóa toàn bộ ${deleted} phiếu`,
                 });
             }
 
@@ -512,7 +535,7 @@ const SoquyDatabase = (function () {
         const existingCodes = new Set();
         try {
             const snapshot = await config.soquyCollectionRef.get();
-            snapshot.forEach(doc => {
+            snapshot.forEach((doc) => {
                 const code = (doc.data().code || '').trim();
                 if (code) existingCodes.add(code);
             });
@@ -527,16 +550,19 @@ const SoquyDatabase = (function () {
                 const voucherType = detectVoucherType(row);
                 const detectedFund = detectFundType(row);
                 const fundType = detectedFund || state.fundType;
-                const effectiveFund = fundType === config.FUND_TYPES.ALL
-                    ? config.FUND_TYPES.CASH : fundType;
+                const effectiveFund =
+                    fundType === config.FUND_TYPES.ALL ? config.FUND_TYPES.CASH : fundType;
 
                 // Use Excel code if provided, otherwise generate new one
                 const excelCode = String(row['Mã phiếu'] || row['code'] || '').trim();
-                const voucherCode = excelCode || await getNextVoucherCode(voucherType, effectiveFund);
+                const voucherCode =
+                    excelCode || (await getNextVoucherCode(voucherType, effectiveFund));
 
                 // Skip if voucher code already exists
                 if (existingCodes.has(voucherCode)) {
-                    console.log(`[SoquyDB] Row ${i + 1}: SKIPPED - code "${voucherCode}" already exists`);
+                    console.log(
+                        `[SoquyDB] Row ${i + 1}: SKIPPED - code "${voucherCode}" already exists`
+                    );
                     results.skipped.push({ row: i + 1, code: voucherCode });
                     continue;
                 }
@@ -558,22 +584,28 @@ const SoquyDatabase = (function () {
                     address: String(row['Địa chỉ'] || row['address'] || '').trim(),
                     amount: Math.abs(parseImportAmount(row['Giá trị'] || row['amount'] || 0)),
                     note: String(row['Ghi chú'] || row['note'] || '').trim(),
-                    transferContent: String(row['Nội dung chuyển khoản'] || row['transferContent'] || '').trim(),
+                    transferContent: String(
+                        row['Nội dung chuyển khoản'] || row['transferContent'] || ''
+                    ).trim(),
                     accountName: String(row['Tên tài khoản'] || row['accountName'] || '').trim(),
                     accountNumber: String(row['Số tài khoản'] || row['accountNumber'] || '').trim(),
                     branch: String(row['Chi nhánh'] || row['branch'] || '').trim(),
                     businessAccounting: voucherType === config.VOUCHER_TYPES.PAYMENT_KD,
                     status: config.VOUCHER_STATUS.PAID,
-                    voucherDateTime: parsedDateTime
-                        || firebase.firestore.Timestamp.fromDate(now),
+                    voucherDateTime: parsedDateTime || firebase.firestore.Timestamp.fromDate(now),
                     createdAt: firebase.firestore.FieldValue.serverTimestamp(),
                     updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-                    createdBy: String(row['Người tạo'] || row['createdBy'] || getCurrentUserName()).trim(),
+                    createdBy: String(
+                        row['Người tạo'] || row['createdBy'] || getCurrentUserName()
+                    ).trim(),
                     cancelledAt: null,
-                    cancelReason: ''
+                    cancelReason: '',
                 };
 
-                console.log(`[SoquyDB] Row ${i + 1}: code=${voucher.code}, type=${voucher.type}, fundType=${voucher.fundType}, status=${voucher.status}, dateTime=`, voucher.voucherDateTime);
+                console.log(
+                    `[SoquyDB] Row ${i + 1}: code=${voucher.code}, type=${voucher.type}, fundType=${voucher.fundType}, status=${voucher.status}, dateTime=`,
+                    voucher.voucherDateTime
+                );
 
                 await config.soquyCollectionRef.add(voucher);
 
@@ -600,7 +632,7 @@ const SoquyDatabase = (function () {
         if (window.SoquyEditHistory && results.success > 0) {
             SoquyEditHistory.logEditHistory('import', {
                 extra: { importCount: results.success },
-                description: `Import ${results.success} phiếu từ Excel`
+                description: `Import ${results.success} phiếu từ Excel`,
             });
         }
 
@@ -611,8 +643,10 @@ const SoquyDatabase = (function () {
         // 1. Check explicit type column
         const type = String(row['Loại'] || row['type'] || '').toLowerCase();
         if (type.includes('thu') || type === 'receipt') return config.VOUCHER_TYPES.RECEIPT;
-        if (type.includes('chi kd') || type === 'payment_kd') return config.VOUCHER_TYPES.PAYMENT_KD;
-        if (type.includes('chi cn') || type === 'payment_cn') return config.VOUCHER_TYPES.PAYMENT_CN;
+        if (type.includes('chi kd') || type === 'payment_kd')
+            return config.VOUCHER_TYPES.PAYMENT_KD;
+        if (type.includes('chi cn') || type === 'payment_cn')
+            return config.VOUCHER_TYPES.PAYMENT_CN;
         if (type.includes('chi') || type === 'payment') return config.VOUCHER_TYPES.PAYMENT_KD;
 
         // 2. Detect from voucher code prefix
@@ -623,13 +657,17 @@ const SoquyDatabase = (function () {
         if (code.startsWith('T')) return config.VOUCHER_TYPES.RECEIPT;
 
         // 3. Detect by amount sign
-        const amount = parseFloat(String(row['Giá trị'] || row['amount'] || '0').replace(/[.,\s]/g, ''));
+        const amount = parseFloat(
+            String(row['Giá trị'] || row['amount'] || '0').replace(/[.,\s]/g, '')
+        );
         return amount < 0 ? config.VOUCHER_TYPES.PAYMENT_KD : config.VOUCHER_TYPES.RECEIPT;
     }
 
     function detectFundType(row) {
         // 1. Check explicit fund type column
-        const fund = String(row['Loại sổ quỹ'] || row['Quỹ'] || row['fundType'] || '').toLowerCase();
+        const fund = String(
+            row['Loại sổ quỹ'] || row['Quỹ'] || row['fundType'] || ''
+        ).toLowerCase();
         if (fund.includes('mặt') || fund === 'cash') return config.FUND_TYPES.CASH;
         if (fund.includes('ngân') || fund === 'bank') return config.FUND_TYPES.BANK;
         if (fund.includes('ví') || fund === 'ewallet') return config.FUND_TYPES.EWALLET;
@@ -692,13 +730,15 @@ const SoquyDatabase = (function () {
 
     function getCategoryDynamicList(voucherType) {
         if (voucherType === config.VOUCHER_TYPES.RECEIPT) return state.dynamicReceiptCategories;
-        if (voucherType === config.VOUCHER_TYPES.PAYMENT_CN) return state.dynamicPaymentCNCategories;
+        if (voucherType === config.VOUCHER_TYPES.PAYMENT_CN)
+            return state.dynamicPaymentCNCategories;
         return state.dynamicPaymentKDCategories;
     }
 
     function setCategoryDynamicList(voucherType, list) {
         if (voucherType === config.VOUCHER_TYPES.RECEIPT) state.dynamicReceiptCategories = list;
-        else if (voucherType === config.VOUCHER_TYPES.PAYMENT_CN) state.dynamicPaymentCNCategories = list;
+        else if (voucherType === config.VOUCHER_TYPES.PAYMENT_CN)
+            state.dynamicPaymentCNCategories = list;
         else state.dynamicPaymentKDCategories = list;
     }
 
@@ -709,8 +749,10 @@ const SoquyDatabase = (function () {
     }
 
     function getRemovedStateKey(voucherType) {
-        if (voucherType === config.VOUCHER_TYPES.RECEIPT) return 'removedPredefinedReceiptCategories';
-        if (voucherType === config.VOUCHER_TYPES.PAYMENT_CN) return 'removedPredefinedPaymentCNCategories';
+        if (voucherType === config.VOUCHER_TYPES.RECEIPT)
+            return 'removedPredefinedReceiptCategories';
+        if (voucherType === config.VOUCHER_TYPES.PAYMENT_CN)
+            return 'removedPredefinedPaymentCNCategories';
         return 'removedPredefinedPaymentKDCategories';
     }
 
@@ -718,7 +760,10 @@ const SoquyDatabase = (function () {
      * Helper: check if voucher type uses source-linked categories (receipt & KD)
      */
     function isSourceLinkedType(voucherType) {
-        return voucherType === config.VOUCHER_TYPES.RECEIPT || voucherType === config.VOUCHER_TYPES.PAYMENT_KD;
+        return (
+            voucherType === config.VOUCHER_TYPES.RECEIPT ||
+            voucherType === config.VOUCHER_TYPES.PAYMENT_KD
+        );
     }
 
     /**
@@ -747,8 +792,8 @@ const SoquyDatabase = (function () {
 
         // Check if already exists
         const allNames = [
-            ...predefined.map(c => String(c).toLowerCase()),
-            ...dynamicList.map(c => getCategoryName(c).toLowerCase())
+            ...predefined.map((c) => String(c).toLowerCase()),
+            ...dynamicList.map((c) => getCategoryName(c).toLowerCase()),
         ];
         if (allNames.includes(category.toLowerCase())) return;
 
@@ -767,28 +812,37 @@ const SoquyDatabase = (function () {
 
             // Migrate old string items for source-linked types
             if (useSourceLinked) {
-                items = items.map(c => typeof c === 'string' ? { name: c, sourceCode: '' } : c);
+                items = items.map((c) => (typeof c === 'string' ? { name: c, sourceCode: '' } : c));
             }
 
-            const itemNames = items.map(c => getCategoryName(c).toLowerCase());
+            const itemNames = items.map((c) => getCategoryName(c).toLowerCase());
             if (!itemNames.includes(category.toLowerCase())) {
                 items.push(newItem);
-                await docRef.set({ items, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+                await docRef.set({
+                    items,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                });
             }
 
             // Update local state
-            const existsInLocal = dynamicList.some(c => getCategoryName(c).toLowerCase() === category.toLowerCase());
+            const existsInLocal = dynamicList.some(
+                (c) => getCategoryName(c).toLowerCase() === category.toLowerCase()
+            );
             if (!existsInLocal) {
                 dynamicList.push(newItem);
             }
 
-            console.log('[SoquyDB] Auto-added category:', category, sourceCode ? `(source: ${sourceCode})` : '');
+            console.log(
+                '[SoquyDB] Auto-added category:',
+                category,
+                sourceCode ? `(source: ${sourceCode})` : ''
+            );
 
             // Log edit history (fire and forget)
             if (window.SoquyEditHistory) {
                 SoquyEditHistory.logEditHistory('category_add', {
                     extra: { categoryName: category, categoryType: voucherType },
-                    description: `Thêm danh mục ${category}`
+                    description: `Thêm danh mục ${category}`,
                 });
             }
         } catch (error) {
@@ -805,7 +859,7 @@ const SoquyDatabase = (function () {
         if (!categories || categories.length === 0) return;
 
         const docId = getCategoryDocId(voucherType);
-        const deleteLower = categories.map(c => String(c).toLowerCase());
+        const deleteLower = categories.map((c) => String(c).toLowerCase());
 
         try {
             const docRef = config.soquyMetaRef.doc(docId);
@@ -814,32 +868,44 @@ const SoquyDatabase = (function () {
             if (!doc.exists) return;
 
             let items = doc.data().items || [];
-            items = items.filter(item => !deleteLower.includes(getCategoryName(item).toLowerCase()));
+            items = items.filter(
+                (item) => !deleteLower.includes(getCategoryName(item).toLowerCase())
+            );
 
             await docRef.set({ items, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
 
             // Also remove from old payment_categories doc to prevent migration re-adding
-            if (voucherType === config.VOUCHER_TYPES.PAYMENT_CN || voucherType === config.VOUCHER_TYPES.PAYMENT_KD) {
+            if (
+                voucherType === config.VOUCHER_TYPES.PAYMENT_CN ||
+                voucherType === config.VOUCHER_TYPES.PAYMENT_KD
+            ) {
                 try {
                     const oldDocRef = config.soquyMetaRef.doc('payment_categories');
                     const oldDoc = await oldDocRef.get();
                     if (oldDoc.exists) {
                         let oldItems = oldDoc.data().items || [];
                         const before = oldItems.length;
-                        oldItems = oldItems.filter(item => {
-                            const name = typeof item === 'string' ? item : (item.name || '');
+                        oldItems = oldItems.filter((item) => {
+                            const name = typeof item === 'string' ? item : item.name || '';
                             return !deleteLower.includes(name.toLowerCase());
                         });
                         if (oldItems.length !== before) {
-                            await oldDocRef.set({ items: oldItems, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+                            await oldDocRef.set({
+                                items: oldItems,
+                                updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                            });
                         }
                     }
-                } catch (e) { /* ignore old doc cleanup errors */ }
+                } catch (e) {
+                    /* ignore old doc cleanup errors */
+                }
             }
 
             // Update local state
             const dynamicList = getCategoryDynamicList(voucherType);
-            const filtered = dynamicList.filter(c => !deleteLower.includes(getCategoryName(c).toLowerCase()));
+            const filtered = dynamicList.filter(
+                (c) => !deleteLower.includes(getCategoryName(c).toLowerCase())
+            );
             setCategoryDynamicList(voucherType, filtered);
 
             console.log('[SoquyDB] Deleted categories:', categories);
@@ -848,7 +914,7 @@ const SoquyDatabase = (function () {
             if (window.SoquyEditHistory) {
                 SoquyEditHistory.logEditHistory('category_delete', {
                     extra: { categoryNames: categories },
-                    description: `Xóa danh mục ${categories.join(', ')}`
+                    description: `Xóa danh mục ${categories.join(', ')}`,
                 });
             }
         } catch (error) {
@@ -882,8 +948,8 @@ const SoquyDatabase = (function () {
                 items = doc.data().items || [];
             }
 
-            categories.forEach(cat => {
-                if (!items.some(c => String(c).toLowerCase() === String(cat).toLowerCase())) {
+            categories.forEach((cat) => {
+                if (!items.some((c) => String(c).toLowerCase() === String(cat).toLowerCase())) {
                     items.push(cat);
                 }
             });
@@ -892,7 +958,7 @@ const SoquyDatabase = (function () {
 
             // Update local state
             if (!state[stateKey]) state[stateKey] = [];
-            categories.forEach(cat => {
+            categories.forEach((cat) => {
                 if (!state[stateKey].includes(cat)) {
                     state[stateKey].push(cat);
                 }
@@ -915,7 +981,7 @@ const SoquyDatabase = (function () {
         if (!code || !name) return;
 
         const dynamicList = state.dynamicSources;
-        if (dynamicList.some(s => s.code === code)) return;
+        if (dynamicList.some((s) => s.code === code)) return;
 
         try {
             const docRef = config.soquyMetaRef.doc('sources');
@@ -927,14 +993,17 @@ const SoquyDatabase = (function () {
             }
 
             // Migrate: convert old string items to {code, name} objects
-            items = items.map(s => typeof s === 'string' ? { code: s, name: s } : s);
+            items = items.map((s) => (typeof s === 'string' ? { code: s, name: s } : s));
 
-            if (!items.some(s => s.code === code)) {
+            if (!items.some((s) => s.code === code)) {
                 items.push({ code, name });
-                await docRef.set({ items, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+                await docRef.set({
+                    items,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                });
             }
 
-            if (!state.dynamicSources.some(s => s.code === code)) {
+            if (!state.dynamicSources.some((s) => s.code === code)) {
                 state.dynamicSources.push({ code, name });
             }
 
@@ -944,7 +1013,7 @@ const SoquyDatabase = (function () {
             if (window.SoquyEditHistory) {
                 SoquyEditHistory.logEditHistory('source_add', {
                     extra: { sourceCode: code, sourceName: name },
-                    description: `Thêm nguồn ${name} (${code})`
+                    description: `Thêm nguồn ${name} (${code})`,
                 });
             }
         } catch (error) {
@@ -957,7 +1026,7 @@ const SoquyDatabase = (function () {
      */
     function getSourceByCode(code) {
         if (!code) return null;
-        return state.dynamicSources.find(s => s.code === code) || null;
+        return state.dynamicSources.find((s) => s.code === code) || null;
     }
 
     /**
@@ -1005,12 +1074,12 @@ const SoquyDatabase = (function () {
 
             let items = doc.data().items || [];
             // Migrate old string items
-            items = items.map(s => typeof s === 'string' ? { code: s, name: s } : s);
-            items = items.filter(item => !codes.includes(item.code));
+            items = items.map((s) => (typeof s === 'string' ? { code: s, name: s } : s));
+            items = items.filter((item) => !codes.includes(item.code));
 
             await docRef.set({ items, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
 
-            state.dynamicSources = state.dynamicSources.filter(s => !codes.includes(s.code));
+            state.dynamicSources = state.dynamicSources.filter((s) => !codes.includes(s.code));
 
             console.log('[SoquyDB] Deleted sources:', codes);
 
@@ -1018,7 +1087,7 @@ const SoquyDatabase = (function () {
             if (window.SoquyEditHistory) {
                 SoquyEditHistory.logEditHistory('source_delete', {
                     extra: { sourceCode: codes.join(', '), sourceName: codes.join(', ') },
-                    description: `Xóa nguồn ${codes.join(', ')}`
+                    description: `Xóa nguồn ${codes.join(', ')}`,
                 });
             }
         } catch (error) {
@@ -1046,7 +1115,7 @@ const SoquyDatabase = (function () {
             if (doc.exists) {
                 let items = doc.data().items || [];
 
-                items = items.map(item => {
+                items = items.map((item) => {
                     const name = getCategoryName(item);
                     if (name.toLowerCase() === oldName.toLowerCase()) {
                         metaUpdated = true;
@@ -1059,7 +1128,10 @@ const SoquyDatabase = (function () {
                 });
 
                 if (metaUpdated) {
-                    await docRef.set({ items, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+                    await docRef.set({
+                        items,
+                        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    });
                 }
             }
 
@@ -1071,32 +1143,39 @@ const SoquyDatabase = (function () {
             if (!vouchersSnap.empty) {
                 const batch = firebase.firestore().batch();
                 let batchCount = 0;
-                vouchersSnap.forEach(vDoc => {
+                vouchersSnap.forEach((vDoc) => {
                     batch.update(vDoc.ref, {
                         category: newName,
-                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
                     });
                     batchCount++;
                 });
                 await batch.commit();
-                console.log(`[SoquyDB] Updated ${batchCount} vouchers: category "${oldName}" → "${newName}"`);
+                console.log(
+                    `[SoquyDB] Updated ${batchCount} vouchers: category "${oldName}" → "${newName}"`
+                );
             }
 
             // 3. If oldName was orphaned (not in meta), auto-add newName to meta
             if (!metaUpdated) {
                 const freshDoc = await docRef.get();
-                let items = freshDoc.exists ? (freshDoc.data().items || []) : [];
-                const alreadyExists = items.some(item =>
-                    getCategoryName(item).toLowerCase() === newName.toLowerCase()
+                let items = freshDoc.exists ? freshDoc.data().items || [] : [];
+                const alreadyExists = items.some(
+                    (item) => getCategoryName(item).toLowerCase() === newName.toLowerCase()
                 );
                 if (!alreadyExists) {
                     if (isSourceLinkedType(voucherType)) {
-                        const srcCode = (state.vouchers || []).find(v => v.category === oldName)?.sourceCode || '';
+                        const srcCode =
+                            (state.vouchers || []).find((v) => v.category === oldName)
+                                ?.sourceCode || '';
                         items.push({ name: newName, sourceCode: srcCode });
                     } else {
                         items.push(newName);
                     }
-                    await docRef.set({ items, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+                    await docRef.set({
+                        items,
+                        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    });
                 }
             }
 
@@ -1115,10 +1194,14 @@ const SoquyDatabase = (function () {
                 });
             } else {
                 // Orphaned: add newName to local dynamic list if not already there
-                const alreadyLocal = dynamicList.some(c => getCategoryName(c).toLowerCase() === newName.toLowerCase());
+                const alreadyLocal = dynamicList.some(
+                    (c) => getCategoryName(c).toLowerCase() === newName.toLowerCase()
+                );
                 if (!alreadyLocal) {
                     if (isSourceLinkedType(voucherType)) {
-                        const srcCode = (state.vouchers || []).find(v => v.category === oldName)?.sourceCode || '';
+                        const srcCode =
+                            (state.vouchers || []).find((v) => v.category === oldName)
+                                ?.sourceCode || '';
                         dynamicList.push({ name: newName, sourceCode: srcCode });
                     } else {
                         dynamicList.push(newName);
@@ -1128,7 +1211,7 @@ const SoquyDatabase = (function () {
 
             // 5. Update local state - loaded vouchers
             if (state.vouchers) {
-                state.vouchers.forEach(v => {
+                state.vouchers.forEach((v) => {
                     if (v.category === oldName) {
                         v.category = newName;
                     }
@@ -1140,7 +1223,7 @@ const SoquyDatabase = (function () {
             if (window.SoquyEditHistory) {
                 SoquyEditHistory.logEditHistory('category_rename', {
                     extra: { oldName, newName, voucherType },
-                    description: `Đổi tên danh mục "${oldName}" → "${newName}"`
+                    description: `Đổi tên danh mục "${oldName}" → "${newName}"`,
                 });
             }
         } catch (error) {
@@ -1163,10 +1246,10 @@ const SoquyDatabase = (function () {
             if (!doc.exists) return;
 
             let items = doc.data().items || [];
-            items = items.map(s => typeof s === 'string' ? { code: s, name: s } : s);
+            items = items.map((s) => (typeof s === 'string' ? { code: s, name: s } : s));
 
             let updated = false;
-            items = items.map(s => {
+            items = items.map((s) => {
                 if (s.code === code) {
                     updated = true;
                     return { ...s, name: newName };
@@ -1179,7 +1262,7 @@ const SoquyDatabase = (function () {
             await docRef.set({ items, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
 
             // Update local state
-            const src = state.dynamicSources.find(s => s.code === code);
+            const src = state.dynamicSources.find((s) => s.code === code);
             if (src) src.name = newName;
 
             console.log('[SoquyDB] Renamed source:', code, '→', newName);
@@ -1187,7 +1270,7 @@ const SoquyDatabase = (function () {
             if (window.SoquyEditHistory) {
                 SoquyEditHistory.logEditHistory('source_rename', {
                     extra: { sourceCode: code, newName },
-                    description: `Đổi tên nguồn ${code} → "${newName}"`
+                    description: `Đổi tên nguồn ${code} → "${newName}"`,
                 });
             }
         } catch (error) {
@@ -1204,7 +1287,7 @@ const SoquyDatabase = (function () {
         if (!creatorName) return;
 
         const dynamicList = state.dynamicCreators;
-        if (dynamicList.some(c => String(c).toLowerCase() === creatorName.toLowerCase())) return;
+        if (dynamicList.some((c) => String(c).toLowerCase() === creatorName.toLowerCase())) return;
 
         try {
             const docRef = config.soquyMetaRef.doc('creators');
@@ -1215,9 +1298,12 @@ const SoquyDatabase = (function () {
                 items = doc.data().items || [];
             }
 
-            if (!items.some(c => String(c).toLowerCase() === creatorName.toLowerCase())) {
+            if (!items.some((c) => String(c).toLowerCase() === creatorName.toLowerCase())) {
                 items.push(creatorName);
-                await docRef.set({ items, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+                await docRef.set({
+                    items,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                });
             }
 
             if (!state.dynamicCreators.includes(creatorName)) {
@@ -1235,64 +1321,92 @@ const SoquyDatabase = (function () {
      */
     async function loadDynamicMeta() {
         try {
-            const [rcDoc, pcnDoc, pkdDoc, crDoc, srcDoc, rrcDoc, rpcnDoc, rpkdDoc] = await Promise.all([
-                config.soquyMetaRef.doc('receipt_categories').get(),
-                config.soquyMetaRef.doc('payment_cn_categories').get(),
-                config.soquyMetaRef.doc('payment_kd_categories').get(),
-                config.soquyMetaRef.doc('creators').get(),
-                config.soquyMetaRef.doc('sources').get(),
-                config.soquyMetaRef.doc('removed_receipt_categories').get(),
-                config.soquyMetaRef.doc('removed_payment_cn_categories').get(),
-                config.soquyMetaRef.doc('removed_payment_kd_categories').get()
-            ]);
+            const [rcDoc, pcnDoc, pkdDoc, crDoc, srcDoc, rrcDoc, rpcnDoc, rpkdDoc] =
+                await Promise.all([
+                    config.soquyMetaRef.doc('receipt_categories').get(),
+                    config.soquyMetaRef.doc('payment_cn_categories').get(),
+                    config.soquyMetaRef.doc('payment_kd_categories').get(),
+                    config.soquyMetaRef.doc('creators').get(),
+                    config.soquyMetaRef.doc('sources').get(),
+                    config.soquyMetaRef.doc('removed_receipt_categories').get(),
+                    config.soquyMetaRef.doc('removed_payment_cn_categories').get(),
+                    config.soquyMetaRef.doc('removed_payment_kd_categories').get(),
+                ]);
 
             if (rcDoc.exists) {
                 const rcItems = rcDoc.data().items || [];
                 // Migrate: string items → {name, sourceCode: ''} for receipt
-                state.dynamicReceiptCategories = rcItems.map(c => typeof c === 'string' ? { name: c, sourceCode: '' } : c);
+                state.dynamicReceiptCategories = rcItems.map((c) =>
+                    typeof c === 'string' ? { name: c, sourceCode: '' } : c
+                );
             }
             if (pcnDoc.exists) state.dynamicPaymentCNCategories = pcnDoc.data().items || [];
             if (pkdDoc.exists) {
                 const pkdItems = pkdDoc.data().items || [];
                 // Migrate: string items → {name, sourceCode: ''} for KD
-                state.dynamicPaymentKDCategories = pkdItems.map(c => typeof c === 'string' ? { name: c, sourceCode: '' } : c);
+                state.dynamicPaymentKDCategories = pkdItems.map((c) =>
+                    typeof c === 'string' ? { name: c, sourceCode: '' } : c
+                );
             }
             if (crDoc.exists) state.dynamicCreators = crDoc.data().items || [];
             if (srcDoc.exists) {
                 const srcData = srcDoc.data();
                 const rawSources = srcData.items || [];
                 // Migrate: convert old string items to {code, name} objects
-                state.dynamicSources = rawSources.map(s => typeof s === 'string' ? { code: s, name: s } : s);
+                state.dynamicSources = rawSources.map((s) =>
+                    typeof s === 'string' ? { code: s, name: s } : s
+                );
                 state.defaultSourceCode = srcData.defaultSource || '';
             }
-            state.removedPredefinedReceiptCategories = rrcDoc.exists ? (rrcDoc.data().items || []) : [];
-            state.removedPredefinedPaymentCNCategories = rpcnDoc.exists ? (rpcnDoc.data().items || []) : [];
-            state.removedPredefinedPaymentKDCategories = rpkdDoc.exists ? (rpkdDoc.data().items || []) : [];
+            state.removedPredefinedReceiptCategories = rrcDoc.exists
+                ? rrcDoc.data().items || []
+                : [];
+            state.removedPredefinedPaymentCNCategories = rpcnDoc.exists
+                ? rpcnDoc.data().items || []
+                : [];
+            state.removedPredefinedPaymentKDCategories = rpkdDoc.exists
+                ? rpkdDoc.data().items || []
+                : [];
 
             // Migrate: also load old payment_categories into both CN/KD for backward compat
             try {
                 const oldPcDoc = await config.soquyMetaRef.doc('payment_categories').get();
                 if (oldPcDoc.exists) {
                     const oldItems = oldPcDoc.data().items || [];
-                    oldItems.forEach(cat => {
-                        const catName = typeof cat === 'string' ? cat : (cat.name || '');
-                        if (!state.dynamicPaymentCNCategories.some(c => String(c).toLowerCase() === catName.toLowerCase())) {
+                    oldItems.forEach((cat) => {
+                        const catName = typeof cat === 'string' ? cat : cat.name || '';
+                        if (
+                            !state.dynamicPaymentCNCategories.some(
+                                (c) => String(c).toLowerCase() === catName.toLowerCase()
+                            )
+                        ) {
                             state.dynamicPaymentCNCategories.push(catName);
                         }
-                        if (!state.dynamicPaymentKDCategories.some(c => getCategoryName(c).toLowerCase() === catName.toLowerCase())) {
-                            state.dynamicPaymentKDCategories.push({ name: catName, sourceCode: '' });
+                        if (
+                            !state.dynamicPaymentKDCategories.some(
+                                (c) => getCategoryName(c).toLowerCase() === catName.toLowerCase()
+                            )
+                        ) {
+                            state.dynamicPaymentKDCategories.push({
+                                name: catName,
+                                sourceCode: '',
+                            });
                         }
                     });
                 }
                 const oldRpcDoc = await config.soquyMetaRef.doc('removed_payment_categories').get();
                 if (oldRpcDoc.exists) {
                     const oldRemoved = oldRpcDoc.data().items || [];
-                    oldRemoved.forEach(cat => {
-                        if (!state.removedPredefinedPaymentCNCategories.includes(cat)) state.removedPredefinedPaymentCNCategories.push(cat);
-                        if (!state.removedPredefinedPaymentKDCategories.includes(cat)) state.removedPredefinedPaymentKDCategories.push(cat);
+                    oldRemoved.forEach((cat) => {
+                        if (!state.removedPredefinedPaymentCNCategories.includes(cat))
+                            state.removedPredefinedPaymentCNCategories.push(cat);
+                        if (!state.removedPredefinedPaymentKDCategories.includes(cat))
+                            state.removedPredefinedPaymentKDCategories.push(cat);
                     });
                 }
-            } catch (e) { /* ignore migration errors */ }
+            } catch (e) {
+                /* ignore migration errors */
+            }
 
             console.log('[SoquyDB] Dynamic meta loaded');
         } catch (error) {
@@ -1308,7 +1422,8 @@ const SoquyDatabase = (function () {
      * Export vouchers to CSV format for Excel
      */
     function exportToCSV(vouchers) {
-        const isPayment = (type) => type === config.VOUCHER_TYPES.PAYMENT_CN || type === config.VOUCHER_TYPES.PAYMENT_KD;
+        const isPayment = (type) =>
+            type === config.VOUCHER_TYPES.PAYMENT_CN || type === config.VOUCHER_TYPES.PAYMENT_KD;
 
         const headers = [
             'Mã phiếu',
@@ -1323,10 +1438,10 @@ const SoquyDatabase = (function () {
             'Giá trị',
             'Ghi chú',
             'Trạng thái',
-            'Người tạo'
+            'Người tạo',
         ];
 
-        const rows = vouchers.map(v => {
+        const rows = vouchers.map((v) => {
             const srcCode = v.sourceCode || v.source || '';
             const srcObj = getSourceByCode(srcCode);
             return [
@@ -1342,23 +1457,27 @@ const SoquyDatabase = (function () {
                 isPayment(v.type) ? -Math.abs(v.amount) : Math.abs(v.amount),
                 v.note,
                 config.VOUCHER_STATUS_LABELS[v.status] || v.status,
-                v.createdBy
+                v.createdBy,
             ];
         });
 
         const BOM = '\uFEFF';
-        const csvContent = BOM + [
-            headers.join(','),
-            ...rows.map(row =>
-                row.map(cell => {
-                    const str = String(cell || '');
-                    if (str.includes(',') || str.includes('"') || str.includes('\n')) {
-                        return `"${str.replace(/"/g, '""')}"`;
-                    }
-                    return str;
-                }).join(',')
-            )
-        ].join('\n');
+        const csvContent =
+            BOM +
+            [
+                headers.join(','),
+                ...rows.map((row) =>
+                    row
+                        .map((cell) => {
+                            const str = String(cell || '');
+                            if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+                                return `"${str.replace(/"/g, '""')}"`;
+                            }
+                            return str;
+                        })
+                        .join(',')
+                ),
+            ].join('\n');
 
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
@@ -1419,9 +1538,38 @@ const SoquyDatabase = (function () {
     function getCurrentUserName() {
         try {
             // Read from loginindex_auth (sessionStorage first, then localStorage)
-            const authStr = sessionStorage.getItem('loginindex_auth') || localStorage.getItem('loginindex_auth') || '{}';
+            const authStr =
+                sessionStorage.getItem('loginindex_auth') ||
+                localStorage.getItem('loginindex_auth') ||
+                '{}';
             const authData = JSON.parse(authStr);
             return authData.displayName || authData.username || '';
+        } catch {
+            return '';
+        }
+    }
+
+    /** Stable account login (never changes on rename) — used to tag new vouchers. */
+    function getCurrentUsername() {
+        try {
+            const authStr =
+                sessionStorage.getItem('loginindex_auth') ||
+                localStorage.getItem('loginindex_auth') ||
+                '{}';
+            return JSON.parse(authStr).username || '';
+        } catch {
+            return '';
+        }
+    }
+
+    /** Stable user id — used to tag new vouchers. */
+    function getCurrentUserId() {
+        try {
+            const authStr =
+                sessionStorage.getItem('loginindex_auth') ||
+                localStorage.getItem('loginindex_auth') ||
+                '{}';
+            return JSON.parse(authStr).userId || '';
         } catch {
             return '';
         }
@@ -1435,14 +1583,14 @@ const SoquyDatabase = (function () {
         try {
             const snapshot = await config.db.collection('users').get();
             const users = [];
-            snapshot.forEach(doc => {
+            snapshot.forEach((doc) => {
                 const data = doc.data();
                 users.push({
                     username: doc.id,
                     displayName: data.displayName || doc.id,
                     isAdmin: data.isAdmin || false,
                     roleTemplate: data.roleTemplate || '',
-                    detailedPermissions: data.detailedPermissions || {}
+                    detailedPermissions: data.detailedPermissions || {},
                 });
             });
             state.allUsers = users;
@@ -1501,7 +1649,7 @@ const SoquyDatabase = (function () {
         getCategoryName,
         getCategorySourceCode,
         isSourceLinkedType,
-        getRemovedStateKey
+        getRemovedStateKey,
     };
 })();
 
