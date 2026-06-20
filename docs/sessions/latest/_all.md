@@ -3,14 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `9c2cc47` — docs(session): fill 20260620-142040-43c92f7 (jt-tracking chat modal)
-**Last updated**: 2026-06-20 14:21:38 +07
-**Latest session**: [`RESUME:20260620-142138-9c2cc47`](../20260620-142138-9c2cc47.md)
-**Summary**: docs(session): fill 20260620-142040-43c92f7 (jt-tracking chat modal)
+**Latest commit**: `8a33f82` — feat(web2/zalo): them account bang phien chat.zalo.me (cookie) - khong can QR; them My Njd live OK
+**Last updated**: 2026-06-20 14:32:35 +07
+**Latest session**: [`RESUME:20260620-143235-8a33f82`](../20260620-143235-8a33f82.md)
+**Summary**: feat(web2/zalo): them account bang phien chat.zalo.me (cookie) - khong can QR; them My Njd live OK
 
 ## Folders affected in this commit
 
-_(no folders affected — chỉ commit session file)_
+- [`docs/`](./docs.md) — 1 file(s)
+- [`web2/`](./web2.md) — 3 file(s)
 
 ## All folder snapshots
 
@@ -25,7 +26,7 @@ _(no folders affected — chỉ commit session file)_
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-20 11:49
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 12:07
-- [`docs/`](./docs.md) — updated 2026-06-20 14:20
+- [`docs/`](./docs.md) — updated 2026-06-20 14:32
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-19 14:27
@@ -75,4 +76,4 @@ _(no folders affected — chỉ commit session file)_
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-20 14:20
+- [`web2/`](./web2.md) — updated 2026-06-20 14:32
