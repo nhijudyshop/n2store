@@ -45,21 +45,24 @@ function extractUsernameFromBody(body) {
 function credentialsFor(cid, env) {
     const e = env || {};
     const clientId = e.TPOS_CLIENT_ID || 'tmtWebApp';
-    // Company 2 (shop) → secret ONCALL_*; company 1 (live) → secret TPOS_*.
-    // Đọc TỪ env (đúng thiết kế worker live); fallback username default + dùng
-    // chung TPOS_PASSWORD nếu ONCALL_PASSWORD chưa set.
+    const password = e.TPOS_PASSWORD || ''; // 2 account TPOS dùng CHUNG password
+    // Company 1 (live) = nvktlive1 ; company 2 (shop) = nvktshop1. Username override
+    // qua env TPOS_USERNAME (cty1) / TPOS_USERNAME_2 (cty2). KHÔNG dùng ONCALL_* (đó
+    // là creds PBX/SIP điện thoại, không liên quan TPOS).
     if (cid === 2) {
+        // Company 2 có thể có username/password RIÊNG (vd chỉ đổi account live).
+        // Set secret TPOS_USERNAME_2 / TPOS_PASSWORD_2 khi creds khác company 1.
         return {
             grant_type: 'password',
-            username: e.ONCALL_USERNAME || e.TPOS_USERNAME || 'nvktshop1',
-            password: e.ONCALL_PASSWORD || e.TPOS_PASSWORD || '',
+            username: e.TPOS_USERNAME_2 || 'nvktshop1',
+            password: e.TPOS_PASSWORD_2 || password,
             client_id: clientId,
         };
     }
     return {
         grant_type: 'password',
         username: e.TPOS_USERNAME || 'nvktlive1',
-        password: e.TPOS_PASSWORD || '',
+        password,
         client_id: clientId,
     };
 }
