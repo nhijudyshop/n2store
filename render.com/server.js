@@ -793,6 +793,12 @@ app.use('/api/admin', require('./routes/admin-web2-import-fb-links')); // WEB2.0
 app.use('/api/web2-users', require('./routes/web2-users')); // WEB2.0 user account system
 const web2LiveCommentsRoutes = require('./routes/web2-live-comments'); // WEB2.0 kho comment livestream (auto-save + đọc lại đủ/bền)
 app.use('/api/web2-live-comments', web2LiveCommentsRoutes);
+const web2CommentBoostRoutes = require('./routes/web2-comment-boost'); // WEB2.0 job tăng comment chạy NỀN server (re-check tới >= target)
+app.use('/api/web2-comment-boost', web2CommentBoostRoutes);
+web2CommentBoostRoutes
+    .ensureSchema(web2Pool || chatDbPool)
+    .catch((e) => console.error('[WEB2-CMT-BOOST] ensureSchema fail:', e.message));
+web2CommentBoostRoutes.initializeNotifiers(web2RealtimeSseRoutes.notifyClients);
 app.use('/api/web2-live-relay', require('./routes/web2-live-relay')); // WEB2.0 cấu hình relay WS (chọn trang join per-page) — proxy sang web2-realtime
 // 2026-06-03 Phase 3 tách Web 2.0: dual-mount mỗi route Web 2.0 ở CẢ
 // `/api/web2/<entity>` (mới — chuẩn đi tới) lẫn `/api/v2/<entity>` (alias cũ,
@@ -1026,6 +1032,17 @@ if (!DISABLE_WEB2_JOBS) {
         });
     } catch (e) {
         console.error('[LIVE-POLLER] start fail:', e.message);
+    }
+    // WEB2.0 — worker tăng comment chạy nền (re-check tới >= target). Chỉ chạy ở
+    // instance sở hữu web2 jobs (web2-api). Browser đóng vẫn chạy.
+    try {
+        require('./services/web2-comment-boost-worker').start({
+            web2Pool: web2Pool || chatDbPool,
+            chatPool: chatDbPool,
+            notify: web2RealtimeSseRoutes.notifyClients,
+        });
+    } catch (e) {
+        console.error('[CMT-BOOST] start fail:', e.message);
     }
 }
 // One-time migrate livestream_snapshots + livestream_images chatDb → web2Db

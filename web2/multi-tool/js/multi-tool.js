@@ -174,6 +174,7 @@
                 title: p.message || p.title || '(livestream)',
                 date: p.inserted_at || p.created_time || p.updated_at || null,
                 living: p.live_status === 'LIVE' || !!p.is_living,
+                commentCount: Number(p.comment_count) || 0, // số comment hiện tại của bài (FB)
             }))
             // ĐANG live trước → MỚI NHẤT trước.
             .sort(
@@ -202,10 +203,23 @@
     // Hội thoại COMMENT của BÀI LIVE đang chọn — fetch trực tiếp Pancake
     // (type=COMMENT&post_id) qua worker. fetchConversationsByPage hardcode INBOX nên
     // KHÔNG dùng được. Auto-chọn hội thoại MỚI NHẤT (updated_at desc).
+    // Hiện số comment HIỆN TẠI của bài đang chọn (FB comment_count) — baseline cho job nền.
+    function updatePostCount(post) {
+        const el = $('boostPostCount');
+        if (!el) return;
+        if (!post) {
+            el.textContent = '';
+            return;
+        }
+        const c = Number(post.commentCount) || 0;
+        el.innerHTML = `Bài đang chọn hiện có <strong>${c.toLocaleString('vi-VN')}</strong> comment. Chạy nền → mục tiêu = ${c.toLocaleString('vi-VN')} + số bạn nhập.`;
+    }
+
     async function loadConvs() {
         const pageId = $('boostPage').value;
         const pidx = $('boostPost').value;
         const post = pidx !== '' ? _posts[Number(pidx)] : null;
+        updatePostCount(post);
         const csel = $('boostConv');
         _convs = [];
         if (!pageId || !post) {
@@ -475,6 +489,148 @@
         notify(`Tăng comment xong: ${ok} gửi, ${err} lỗi`, ok ? 'success' : 'warning');
     }
 
+    // ============ Job chạy NỀN trên server (đóng tab vẫn chạy) ============
+    const BOOST_API = () => `${workerBase()}/api/web2-comment-boost`;
+    const JOB_STATE = {
+        pending: { txt: 'Đang chờ', cls: 'pending' },
+        running: { txt: 'Đang chạy', cls: 'running' },
+        done: { txt: 'Hoàn tất ✓', cls: 'done' },
+        stopped: { txt: 'Đã dừng', cls: 'stopped' },
+        error: { txt: 'Chưa đạt', cls: 'error' },
+    };
+    const STOP_REASON = {
+        rate_limit: 'FB giới hạn (rate-limit)',
+        safety_cap: 'chạm giới hạn an toàn',
+        max_rounds: 'đạt số vòng tối đa',
+        count_unreadable: 'không đọc được số comment',
+        no_account_jwt: 'không có tài khoản Pancake',
+        not_reached: 'chưa đạt mục tiêu',
+    };
+
+    async function loadJobs() {
+        const pageId = $('boostPage').value;
+        try {
+            const qs = `limit=20${pageId ? `&pageId=${encodeURIComponent(pageId)}` : ''}`;
+            const r = await fetch(`${BOOST_API()}/jobs?${qs}`, { headers: authHeaders() });
+            const j = await r.json();
+            renderJobs(Array.isArray(j.jobs) ? j.jobs : []);
+        } catch (_) {
+            /* ignore */
+        }
+    }
+
+    function renderJobs(jobs) {
+        const el = $('boostJobs');
+        if (!el) return;
+        if (!jobs.length) {
+            el.innerHTML =
+                '<div style="color:var(--mt-muted);font-size:12.5px">Chưa có job nền nào cho page này.</div>';
+            return;
+        }
+        el.innerHTML = jobs
+            .map((j) => {
+                const st = JOB_STATE[j.state] || JOB_STATE.error;
+                const base = Number(j.baseline_count) || 0;
+                const tgt = Number(j.target_count) || 0;
+                const cur = j.last_count != null ? Number(j.last_count) : base;
+                const span = Math.max(1, tgt - base);
+                const pct = Math.max(0, Math.min(100, ((cur - base) / span) * 100));
+                const reason =
+                    j.state === 'error' && j.error
+                        ? ` · ${esc(STOP_REASON[j.error] || j.error)}`
+                        : '';
+                const active = j.state === 'pending' || j.state === 'running';
+                return `
+                <div class="mt-job">
+                    <div class="mt-job-top">
+                        <span class="mt-job-title">${esc((j.post_title || '(livestream)').slice(0, 46))}</span>
+                        <span class="mt-job-badge ${st.cls}">${st.txt}${reason}</span>
+                    </div>
+                    <div class="mt-job-bar"><i style="width:${pct.toFixed(1)}%"></i></div>
+                    <div class="mt-job-meta">
+                        <span><strong>${cur.toLocaleString('vi-VN')}</strong> / ${tgt.toLocaleString('vi-VN')} comment</span>
+                        <span>+${Number(j.add_target) || 0} (gốc ${base.toLocaleString('vi-VN')})</span>
+                        <span>gửi ${Number(j.sent_ok) || 0}${Number(j.sent_err) ? ` · lỗi ${j.sent_err}` : ''} · ${Number(j.rounds) || 0} vòng</span>
+                        ${active ? `<button class="mt-btn danger mt-job-stop" data-id="${esc(j.id)}" style="padding:4px 11px;font-size:12px">Dừng</button>` : ''}
+                    </div>
+                </div>`;
+            })
+            .join('');
+        el.querySelectorAll('.mt-job-stop').forEach((b) =>
+            b.addEventListener('click', () => stopJob(b.dataset.id))
+        );
+    }
+
+    async function stopJob(id) {
+        if (!id) return;
+        try {
+            await fetch(`${BOOST_API()}/job/${encodeURIComponent(id)}/stop`, {
+                method: 'POST',
+                headers: authHeaders({ 'Content-Type': 'application/json' }),
+            });
+            notify('Đã yêu cầu dừng job', 'info');
+            loadJobs();
+        } catch (_) {
+            notify('Dừng thất bại', 'error');
+        }
+    }
+
+    async function runBackground() {
+        const pageId = $('boostPage').value;
+        const pidx = $('boostPost').value;
+        const post = pidx !== '' ? _posts[Number(pidx)] : null;
+        const cidx = $('boostConv').value;
+        const conv = cidx !== '' ? _convs[Number(cidx)] : null;
+        if (!pageId || !post || !conv) {
+            notify('Chọn page + bài live + hội thoại comment trước', 'warning');
+            return;
+        }
+        const addTarget = Math.max(1, Math.min(100000, parseInt($('boostCount').value, 10) || 0));
+        const delayMs = Math.round(Math.max(1, parseFloat($('boostDelay').value) || 1) * 1000);
+        const tpl = ($('boostText').value || '').trim();
+        const postId = conv.post_id || post.postId || String(conv.id || '').split('_')[0] || null;
+        const btn = $('boostBg');
+        if (btn) btn.disabled = true;
+        try {
+            const r = await fetch(`${BOOST_API()}/create`, {
+                method: 'POST',
+                headers: authHeaders({ 'Content-Type': 'application/json' }),
+                body: JSON.stringify({
+                    pageId,
+                    pageName: $('boostPage').selectedOptions[0]?.text || '',
+                    postId,
+                    convId: conv.id,
+                    messageId: conv.id,
+                    postTitle: post.title || '',
+                    addTarget,
+                    currentCount: Number(post.commentCount) || null,
+                    tpl,
+                    delayMs,
+                }),
+            });
+            const j = await r.json().catch(() => ({}));
+            if (j.success) {
+                notify(
+                    `Đã tạo job nền → mục tiêu ${Number(j.target).toLocaleString('vi-VN')} comment (gốc ${Number(j.baseline).toLocaleString('vi-VN')} + ${addTarget})`,
+                    'success'
+                );
+                loadJobs();
+            } else {
+                notify('Tạo job thất bại: ' + (j.message || j.error || 'lỗi'), 'error');
+            }
+        } catch (e) {
+            notify('Tạo job lỗi: ' + e.message, 'error');
+        } finally {
+            if (btn) btn.disabled = false;
+        }
+    }
+
+    let _jobsReloadTimer = null;
+    function scheduleJobsReload() {
+        clearTimeout(_jobsReloadTimer);
+        _jobsReloadTimer = setTimeout(loadJobs, 600);
+    }
+
     function init() {
         if (window.Web2Sidebar?.mount) window.Web2Sidebar.mount('#web2Aside');
         wireTabs();
@@ -495,7 +651,13 @@
         };
         delayEl.addEventListener('input', updateHint);
         updateHint();
+        // Job chạy nền server: nút + reload theo page + SSE realtime (đóng tab vẫn chạy).
+        $('boostBg')?.addEventListener('click', runBackground);
+        $('boostPage').addEventListener('change', () => setTimeout(loadJobs, 300));
+        if (window.Web2SSE?.subscribe)
+            window.Web2SSE.subscribe('web2:comment-boost', scheduleJobsReload);
         loadPages();
+        loadJobs();
         if (window.lucide?.createIcons) window.lucide.createIcons();
     }
 
