@@ -138,10 +138,31 @@
                 /* ignore */
             }
         }
-        // Poll fallback (SSE rớt) + nguồn chân lý cho state 'done'.
+        // Poll fallback (SSE rớt) + nguồn chân lý cho state 'done'. SSE là realtime
+        // chính → poll giãn còn 10s (trước 3s) cho nhẹ tải, vẫn đủ chốt state 'done'.
         if (S.pollTimer) clearInterval(S.pollTimer);
-        S.pollTimer = setInterval(() => _pollJob(jobId), 3000);
+        S.pollTimer = setInterval(() => _pollJob(jobId), 10000);
         _pollJob(jobId);
+        // Cleanup khi đóng trang đột ngột (không qua _stopWatch) — chống leak poll + SSE.
+        if (!S._pagehideWired) {
+            S._pagehideWired = true;
+            window.addEventListener(
+                'pagehide',
+                () => {
+                    if (S.pollTimer) {
+                        clearInterval(S.pollTimer);
+                        S.pollTimer = null;
+                    }
+                    if (S.sseUnsub) {
+                        try {
+                            S.sseUnsub();
+                        } catch (_) {}
+                        S.sseUnsub = null;
+                    }
+                },
+                { once: true }
+            );
+        }
         // Extension drain cho đơn 24h.
         _drainExtension(jobId);
     }

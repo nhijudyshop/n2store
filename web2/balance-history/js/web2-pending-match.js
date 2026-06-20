@@ -60,15 +60,31 @@
     function init() {
         ensureBadge();
         refresh();
-        // Auto refresh every 30s
-        setInterval(refresh, 30000);
+        // Auto refresh every 30s (supplement SSE, KHÔNG thay) — lưu id để cleanup.
+        let _intervalId = setInterval(refresh, 30000);
+        let _unsub = null;
         // Subscribe SSE for realtime new pending matches
         if (window.Web2SSE?.subscribe) {
-            window.Web2SSE.subscribe('web2:wallet:*', () => {
+            _unsub = window.Web2SSE.subscribe('web2:wallet:*', () => {
                 // Web 2.0 wallet update = có thể có pending mới hoặc resolved → refresh
                 setTimeout(refresh, 500);
             });
         }
+        // Cleanup khi rời trang: chống leak interval + listener.
+        window.addEventListener(
+            'pagehide',
+            () => {
+                if (_intervalId) {
+                    clearInterval(_intervalId);
+                    _intervalId = null;
+                }
+                try {
+                    _unsub && _unsub();
+                } catch {}
+                _unsub = null;
+            },
+            { once: true }
+        );
     }
 
     W2PM.ensureBadge = ensureBadge;

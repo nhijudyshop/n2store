@@ -287,14 +287,32 @@
     }
 
     // SSE: ví đổi → xoá cache để lần render sau lấy số mới.
+    let _sseUnsubs = [];
     function _wireSse() {
         if (!global.Web2SSE?.subscribe) return;
         try {
-            global.Web2SSE.subscribe('web2:wallet:*', (evt) => {
-                const phone = evt?.data?.phone;
-                invalidate(phone || null);
-            });
-            global.Web2SSE.subscribe('web2:customer-wallet', () => invalidate(null));
+            _sseUnsubs.push(
+                global.Web2SSE.subscribe('web2:wallet:*', (evt) => {
+                    const phone = evt?.data?.phone;
+                    invalidate(phone || null);
+                })
+            );
+            _sseUnsubs.push(
+                global.Web2SSE.subscribe('web2:customer-wallet', () => invalidate(null))
+            );
+            // Cleanup khi rời trang (shared module dùng nhiều trang → chống leak).
+            global.addEventListener(
+                'pagehide',
+                () => {
+                    _sseUnsubs.forEach((u) => {
+                        try {
+                            u && u();
+                        } catch {}
+                    });
+                    _sseUnsubs = [];
+                },
+                { once: true }
+            );
         } catch {}
     }
     if (document.readyState === 'loading') {

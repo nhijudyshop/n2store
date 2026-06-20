@@ -47,6 +47,7 @@
     }
 
     // ----- SSE realtime -----
+    let _unsubs = [];
     function setupSSE() {
         if (!window.Web2SSE?.subscribe) return;
         let timer = null;
@@ -57,9 +58,22 @@
                 load();
             }, 800);
         };
-        window.Web2SSE.subscribe('web2:wallet:*', reload);
+        // Lưu unsub để cleanup khi rời trang (chống leak listener khi điều hướng SPA-ish).
+        _unsubs.push(window.Web2SSE.subscribe('web2:wallet:*', reload));
         // GD SePay mới (kể cả chưa gán KH) → reload bảng realtime, khỏi F5.
-        window.Web2SSE.subscribe('web2:balance-history', reload);
+        _unsubs.push(window.Web2SSE.subscribe('web2:balance-history', reload));
+        window.addEventListener(
+            'pagehide',
+            () => {
+                _unsubs.forEach((u) => {
+                    try {
+                        u && u();
+                    } catch {}
+                });
+                _unsubs = [];
+            },
+            { once: true }
+        );
     }
 
     // Expose to namespace
