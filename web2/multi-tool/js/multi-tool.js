@@ -251,12 +251,16 @@
             csel.innerHTML = `<option value="">Lỗi tải hội thoại: ${esc(e.message)}</option>`;
             return;
         }
-        _convs = convs
-            .filter((c) => String(c.type || '').toUpperCase() === 'COMMENT')
-            .sort(
-                (a, b) =>
-                    (Date.parse(b.updated_at || 0) || 0) - (Date.parse(a.updated_at || 0) || 0)
-            );
+        // ⚠ Pancake trả conversations của post_id lọc KHÔNG chặt — gồm cả conv của
+        // bài KHÁC (vd bài photo updated_at mới hơn). PHẢI lọc đúng post_id của BÀI
+        // đang chọn, nếu không comment tăng đổ vào sai bài (re-check count sai bài).
+        const isComment = (c) => String(c.type || '').toUpperCase() === 'COMMENT';
+        const samePost = (c) => String(c.post_id || '') === String(post.postId);
+        let filtered = convs.filter((c) => isComment(c) && samePost(c));
+        if (!filtered.length) filtered = convs.filter(isComment); // fallback nếu post_id format khác
+        _convs = filtered.sort(
+            (a, b) => (Date.parse(b.updated_at || 0) || 0) - (Date.parse(a.updated_at || 0) || 0)
+        );
         if (!_convs.length) {
             csel.innerHTML =
                 '<option value="">Bài này chưa có hội thoại comment (cần có người đã comment)</option>';
