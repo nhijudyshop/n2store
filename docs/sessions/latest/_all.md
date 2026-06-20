@@ -3,14 +3,17 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `d4d347a` — docs(web2): bao cao ra soat toan dien Web 2.0 (read-only audit) — 121 loi xac nhan (6 critical, 43 high)
-**Last updated**: 2026-06-20 09:11:26 +07
-**Latest session**: [`RESUME:20260620-091126-d4d347a`](../20260620-091126-d4d347a.md)
-**Summary**: docs(web2): bao cao ra soat toan dien Web 2.0 (read-only audit) — 121 loi xac nhan (6 critical, 43 high)
+**Latest commit**: `c42670c` — fix(web2): audit fixes — gate auth + SSRF + money + idempotency (21 file)
+**Last updated**: 2026-06-20 10:09:06 +07
+**Latest session**: [`RESUME:20260620-100906-c42670c`](../20260620-100906-c42670c.md)
+**Summary**: fix(web2): audit fixes — gate auth + SSRF + money + idempotency (21 file)
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 2 file(s)
+- [`cloudflare-worker/`](./cloudflare-worker.md) — 2 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
+- [`render.com/`](./render.com.md) — 17 file(s)
+- [`web2/`](./web2.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -22,10 +25,10 @@
 - [`balance-history-home/`](./balance-history-home.md) — updated 2026-06-18 13:09
 - [`balance-history/`](./balance-history.md) — updated 2026-06-16 14:31
 - [`bangkiemhang/`](./bangkiemhang.md) — updated 2026-05-21 15:39
-- [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-19 23:05
+- [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-20 10:09
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-16 14:31
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-18 12:17
-- [`docs/`](./docs.md) — updated 2026-06-20 09:11
+- [`docs/`](./docs.md) — updated 2026-06-20 10:09
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-16 14:31
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-16 14:31
 - [`downloads/`](./downloads.md) — updated 2026-06-19 14:27
@@ -54,7 +57,7 @@
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-05-21 15:39
 - [`referenceUI/`](./referenceUI.md) — updated 2026-06-19 14:27
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-06-16 00:35
-- [`render.com/`](./render.com.md) — updated 2026-06-19 23:12
+- [`render.com/`](./render.com.md) — updated 2026-06-20 10:09
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-19 14:27
 - [`service-costs/`](./service-costs.md) — updated 2026-06-16 11:15
@@ -75,4 +78,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-20 08:26
+- [`web2/`](./web2.md) — updated 2026-06-20 10:09
