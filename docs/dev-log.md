@@ -2,6 +2,15 @@
 
 ## 2026-06-21
 
+### [feature b] Gate worker `/api/facebook-graph` — allowlist read-only + GET-only (chặn open Graph relay)
+
+`handleFacebookGraph` (cloudflare-worker/modules/handlers/facebook-handler.js) là proxy Graph GET MỞ: ai có access_token đọc node Graph tuỳ ý. Audit xác nhận **0 caller frontend** dùng route worker này (web2-fb-posts đi Render riêng; orders-report dùng TPOS `/api/facebook-graph/*` khác host; `/livevideo` là route FACEBOOK_LIVE riêng) → gate an toàn, không ảnh hưởng Web 1.0/2.0.
+
+- `normalizeAllowedGraphPath()` + `FB_GRAPH_ALLOW` (regex): chỉ cho edge READ (`me`, `me/accounts`, `debug_token`, `oauth/access_token`, `{id}`, `{id}/{comments|feed|posts|live_videos|insights|...}`, `act_{id}/{insights|campaigns|...}`). Chặn scheme (`://`), `@`, `\`, `..`, `//`, path > 256 → 403.
+- GET-only → 405 (OPTIONS preflight đã short-circuit ở worker.js:86). Host upstream cố định graph.facebook.com nên `path` không đổi host được.
+- Verify: ESM `node --check` PASS; 9 allow + 10 block case PASS (gồm SSRF `http://169.254.169.254`, traversal, `:80`, `@`).
+- ⚠ **Worker change — chỉ có hiệu lực sau `wrangler deploy`** (git push KHÔNG deploy worker).
+
 ### [feature a] Over-refund cap ví NCC — SERVER-AUTHORITATIVE qua so-order (cả /quick-refund + /tx)
 
 User chọn làm tiếp (a) over-refund feature. Trần (cap) SL trả NCC giờ lấy SL đã mua THẬT từ `web2_so_order` ở CẢ 2 money path, không còn no-op khi client giấu `ordered`.
