@@ -2,6 +2,17 @@
 
 ## 2026-06-21
 
+### [perf] inventory-tracking Quản Lý Ảnh — lưu chậm vì "lưu lại toàn bộ + load lại toàn bộ"
+
+User báo lưu trong modal Quản Lý Ảnh lâu. Chẩn đoán đúng: `open()` nạp TẤT CẢ đợt vào `_rows`, `save()` bucket MỌI đợt → PUT từng đợt → sửa 1 ảnh re-upload cả bảng base64; mỗi PUT server `DELETE+INSERT` cả slot rồi **trả về TOÀN BỘ bảng** (mọi base64) + SSE push full table → tải lại toàn bộ.
+
+- **Client `modal-image-manager.js`**: (1) `_canonicalDotContent()` + snapshot `_originalDotContent` lúc open → `save()` CHỈ PUT đợt thực sự đổi (no-op save = 0 request); (2) rebuild `globalState.productImages` từ `_rows` trong RAM thay vì từ response nặng (không tải full table); refresh snapshot sau lưu.
+- **Server `routes/v2/inventory-tracking.js`**: PUT trả slim `{success,count}` (bỏ SELECT full table); `_scheduleImagesNotify()` gửi SSE nhẹ `{action:'update'}` thay vì cả bảng.
+- **Client SSE `data-loader.js`**: handler `product_images` bỏ qua echo của chính máy vừa lưu (self-write) → không tải lại sau mỗi save; reconcile 1 lần sau cửa sổ self-write để bắt save đồng thời từ máy khác.
+- **Deploy-safe**: client tương thích ngược server cũ (PUT body không đổi, không phụ thuộc shape response, SSE handler chịu cả full-table lẫn lightweight). Server-side benefit kích hoạt sau khi Render deploy; degrade graceful.
+- Web 1.0 (pool `chatDb`), KHÔNG đổi schema/SQL write semantics (vẫn slot DELETE+INSERT). Verify Playwright live trên prod (server cũ): no-op save = 0 PUT (71ms); sửa 1 đợt = đúng 1 PUT đợt đó (đợt khác không đụng); globalState rebuild đúng; seed/sửa/clear đợt-test 99 rồi cleanup sạch (totalImages 82→82). `node --check` 3 file PASS.
+- ⚠ Còn lại (chưa làm): sửa 1 NCC trong đợt lớn (vd Đợt 2 = 81 NCC) vẫn re-upload cả slot đó. Phase 2 (per-NCC upsert `ON CONFLICT (ngay_di_hang,dot_so,ncc)`) cần staged server+client deploy → defer, hỏi user nếu vẫn chậm.
+
 ### [fix] inventory-tracking — đồng bộ 2 chiều tab Đợt giữa "Theo Dõi Đơn Hàng" và "Quản Lý Ảnh"
 
 User báo: tạo Đợt 3 ở tab theo dõi đơn hàng (Hình 1) nhưng modal Quản Lý Ảnh (Hình 2) không có Đợt 3 — và ngược lại. Gốc: 2 surface tính danh sách đợt từ **2 nguồn KHÔNG hợp nhất** — order-tracking (`getAvailableDotSoList`) chỉ đọc `globalState.shipments[].dotSo`; image-manager (`_allDotSos`) chỉ đọc `_rows` (từ `globalState.productImages` + 1 row trống ở đợt active). Đợt chỉ có shipment (chưa có ảnh) hoặc chỉ có ảnh (chưa có shipment) bị thiếu ở surface kia.

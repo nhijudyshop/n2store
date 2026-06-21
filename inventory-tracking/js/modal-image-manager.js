@@ -24,6 +24,22 @@ const ImageManager = (() => {
     let _modalOpen = false; // true between open() and modal-close
     let _saveInProgress = false; // true during save() — used to distinguish own SSE vs external
     let _externalChangeDetected = false; // set when SSE arrives while modal open AND not from our save
+    let _originalDotContent = new Map(); // dotSo -> canonical content at open() — for dirty detection (skip unchanged đợt on save)
+
+    /**
+     * Canonical, order-independent serialization of one đợt's content
+     * (NCCs + their image URLs). Used to detect whether a đợt actually changed
+     * since the modal opened, so save() only re-PUTs đợt that were modified
+     * instead of re-uploading the entire table on every save.
+     */
+    function _canonicalDotContent(entries) {
+        return (entries || [])
+            .map((e) => ({ ncc: parseInt(e.ncc, 10) || 0, urls: e.urls || [] }))
+            .filter((e) => e.ncc > 0 && e.urls.length > 0)
+            .sort((a, b) => a.ncc - b.ncc)
+            .map((e) => e.ncc + '=' + e.urls.join(''))
+            .join('');
+    }
 
     /**
      * Canonical save date for a given đợt.
@@ -127,9 +143,26 @@ const ImageManager = (() => {
                 if (a.dotSo !== b.dotSo) return b.dotSo - a.dotSo;
                 return (parseInt(a.ncc) || 0) - (parseInt(b.ncc) || 0);
             });
+
+            // Snapshot each đợt's loaded content so save() can skip đợt that
+            // weren't modified (instead of re-uploading the whole table).
+            _originalDotContent = new Map();
+            const _byDot = {};
+            _rows.forEach((r) => {
+                (_byDot[r.dotSo] = _byDot[r.dotSo] || []).push({
+                    ncc: r.ncc,
+                    urls: r.uploadedUrls,
+                });
+            });
+            Object.keys(_byDot).forEach((d) => {
+                _originalDotContent.set(parseInt(d, 10), _canonicalDotContent(_byDot[d]));
+            });
         } catch (error) {
             console.error('[IMG-MGR] Error loading product images:', error);
             _knownDotSos = _buildKnownDotSos();
+            // Leave _originalDotContent empty → save() treats every đợt as dirty
+            // (safe fallback: behaves like the old full-save).
+            _originalDotContent = new Map();
         }
 
         // Pick the active tab. Prefer the đợt currently selected in the
@@ -736,9 +769,20 @@ const ImageManager = (() => {
                 seenInRows.add(`${canonicalDate}__${dotSo}__${nccNum}`);
             });
 
-            // Issue one PUT per đợt (parallel; usually small number)
+            // Issue one PUT per đợt — but ONLY for đợt that actually changed since
+            // open(). Re-uploading an unchanged đợt (all its NCC base64) just to
+            // have the server DELETE+INSERT identical rows is the main reason save
+            // felt slow. Skipping them means editing 1 image in 1 đợt no longer
+            // re-writes every other đợt.
             const calls = [];
+            let changedDotCount = 0;
             buckets.forEach((rows, dotSo) => {
+                const currentContent = _canonicalDotContent(rows);
+                const originalContent = _originalDotContent.get(dotSo);
+                if (originalContent !== undefined && currentContent === originalContent) {
+                    return; // unchanged — skip the PUT entirely
+                }
+                changedDotCount++;
                 const canonicalDate = _canonicalDateForDot(dotSo);
                 calls.push(
                     productImagesApi.bulkSave(rows, { date: canonicalDate, dotSo }).catch((err) => {
@@ -773,28 +817,47 @@ const ImageManager = (() => {
                 );
             });
 
-            const results = await Promise.all(calls);
+            await Promise.all(calls);
 
-            // Server returns full table on each call — use the last response
-            const latest = results[results.length - 1];
-            if (latest) {
-                globalState.productImages = latest.map((img) => ({
-                    ...img,
-                    ngayDiHang: img.ngay_di_hang ? String(img.ngay_di_hang).split('T')[0] : null,
-                    dotSo: img.dot_so || 1,
-                    urls: typeof img.urls === 'string' ? JSON.parse(img.urls) : img.urls || [],
+            // Rebuild globalState.productImages from in-memory rows instead of a
+            // server response. _rows holds every đợt loaded at open() minus
+            // removed/moved rows, so the survivors below are exactly the post-save
+            // DB state. This avoids downloading + parsing the whole image table
+            // (all base64) on every save — the other half of the slowness.
+            globalState.productImages = _rows
+                .filter((r) => r.uploadedUrls.length > 0 && parseInt(r.ncc))
+                .map((r) => ({
+                    ngayDiHang: GLOBAL_LEGACY_DATE,
+                    dotSo: parseInt(r.dotSo, 10) || _defaultDotSo(),
+                    ncc: parseInt(r.ncc),
+                    urls: [...r.uploadedUrls],
                 }));
-            }
 
             const totalRows = Array.from(buckets.values()).reduce((s, b) => s + b.length, 0);
-            window.notificationManager?.success(
-                totalRows > 0
-                    ? `Đã lưu ${totalRows} NCC trong ${buckets.size} đợt`
-                    : 'Đã xóa tất cả ảnh sản phẩm'
-            );
+            if (calls.length === 0) {
+                window.notificationManager?.success('Không có thay đổi để lưu');
+            } else {
+                window.notificationManager?.success(
+                    totalRows > 0
+                        ? `Đã lưu ${changedDotCount} đợt (${totalRows} NCC tổng)`
+                        : 'Đã xóa tất cả ảnh sản phẩm'
+                );
+            }
 
             // Refresh snapshot so next save doesn't re-clear
             _initialKey = seenInRows;
+            // Refresh per-đợt content snapshot so a second save in the same
+            // session correctly detects only the newly-changed đợt.
+            _originalDotContent = new Map();
+            const _byDotAfter = {};
+            _rows.forEach((r) => {
+                if (r.uploadedUrls.length === 0 || !parseInt(r.ncc)) return;
+                const d = parseInt(r.dotSo, 10) || _defaultDotSo();
+                (_byDotAfter[d] = _byDotAfter[d] || []).push({ ncc: r.ncc, urls: r.uploadedUrls });
+            });
+            Object.keys(_byDotAfter).forEach((d) => {
+                _originalDotContent.set(parseInt(d, 10), _canonicalDotContent(_byDotAfter[d]));
+            });
             // Update each row's originalDate to canonical (since DB now has them there)
             // Refresh each surviving row's originalDate to the canonical date
             // (now constant). Future calls to `removeRow` / `removeImage` that

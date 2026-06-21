@@ -1540,15 +1540,23 @@ router.get('/product-images', async (req, res) => {
 // 250ms covers the typical N=2-5 parallel PUT burst.
 const _imageSseDebounce = new Map(); // key: 'all', value: { timer, data }
 
-function _scheduleImagesNotify(getLatestRows) {
+function _scheduleImagesNotify() {
     if (_imageSseDebounce.has('all')) {
         clearTimeout(_imageSseDebounce.get('all').timer);
     }
-    const timer = setTimeout(async () => {
+    const timer = setTimeout(() => {
         _imageSseDebounce.delete('all');
         try {
-            const rows = await getLatestRows();
-            sseRouter.notifyClients('product_images', { data: rows }, 'update');
+            // Lightweight signal only — no table payload. Clients that didn't
+            // originate the change re-fetch via GET (see data-loader's
+            // product_images handler). Broadcasting the full base64 table on
+            // every save was a major, avoidable bandwidth cost. Old clients
+            // (no payload) fall through to loadProductImages() — still correct.
+            sseRouter.notifyClients(
+                'product_images',
+                { action: 'update', ts: Date.now() },
+                'update'
+            );
         } catch (err) {
             console.error('[inventory] SSE notify (debounced) failed:', err.message);
         }
@@ -1601,23 +1609,15 @@ router.put('/product-images', async (req, res) => {
 
         await db.query('COMMIT');
 
-        // Return all rows (so cached client has full state)
-        const result = await db.query(
-            'SELECT * FROM inventory_product_images ORDER BY ngay_di_hang DESC, dot_so, ncc'
-        );
+        // Debounced, lightweight SSE notify — coalesces a multi-PUT burst (one
+        // per đợt + orphan slots) into a single broadcast.
+        _scheduleImagesNotify();
 
-        // Debounced SSE notify — coalesces multi-PUT bursts into one broadcast.
-        // Pass a fresh getLatestRows() so the eventual notify reflects the
-        // FINAL state after all bursting PUTs have committed, not whichever
-        // one happened to be the last to enqueue.
-        _scheduleImagesNotify(async () => {
-            const r = await pool.query(
-                'SELECT * FROM inventory_product_images ORDER BY ngay_di_hang DESC, dot_so, ncc'
-            );
-            return r.rows;
-        });
-
-        res.json({ success: true, data: result.rows });
+        // Slim response — the client updates its in-memory state from the rows it
+        // just sent, so we don't re-query and return the (potentially multi-MB)
+        // full base64 table on every save. Old clients that read `data` simply
+        // get undefined and recover via the SSE-triggered re-fetch.
+        res.json({ success: true, count: rows.length });
     } catch (err) {
         await db.query('ROLLBACK').catch(() => {});
         console.error('[inventory] PUT /product-images error:', err.message);

@@ -243,7 +243,42 @@ function setupInventoryRealtimeSync() {
                 ImageManager._onExternalUpdate();
             }
         };
+        let _imgReconcileScheduled = false;
         client.on('product_images', (data) => {
+            const hasPayload = !!(data && data.data);
+            // Lightweight signal (no payload) caused by OUR OWN recent save →
+            // skip the re-fetch/re-render: the image manager already updated
+            // globalState in-memory from the rows it wrote. This is what keeps
+            // saving fast (no full-table download right after every save).
+            // Safety net: schedule ONE reconcile fetch after the self-write
+            // window so a *concurrent* save from another machine (whose signal
+            // also lands in this window) isn't lost.
+            if (!hasPayload && _inventorySelfWroteRecently()) {
+                if (!_imgReconcileScheduled) {
+                    _imgReconcileScheduled = true;
+                    const wait =
+                        _SELF_WRITE_SUPPRESS_MS -
+                        (Date.now() - (window.__inventoryLastLocalWrite || 0)) +
+                        200;
+                    setTimeout(
+                        () => {
+                            _imgReconcileScheduled = false;
+                            // Only reconcile if no longer in our own write window.
+                            if (_inventorySelfWroteRecently()) return;
+                            loadProductImages().then(() => {
+                                const _r = () => {
+                                    if (_inventoryUiBusy()) return setTimeout(_r, 800);
+                                    if (typeof applyFiltersAndRender === 'function')
+                                        applyFiltersAndRender();
+                                };
+                                _r();
+                            });
+                        },
+                        Math.max(200, wait)
+                    );
+                }
+                return;
+            }
             _imgLatest = data;
             if (_imgTimer) clearTimeout(_imgTimer);
             _imgTimer = setTimeout(() => {
