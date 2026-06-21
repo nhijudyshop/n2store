@@ -28,6 +28,9 @@
         _extensionRequest: NO._extensionRequest,
         unselectAllOrders: NO.unselectAllOrders,
         copyCode: NO.copyCode,
+        // 2026-06-21: bấm pill TAG (cột Thẻ) → popup lý do chi tiết (SP chờ hàng /
+        // SP âm mã + ai đang giữ). Web2OrderTagDetail (shared).
+        openTagDetail: NO.openTagDetail,
         goPage: NO.goPage,
         toggleFilter: NO.toggleFilter,
         toggleExpand: NO.toggleExpand,

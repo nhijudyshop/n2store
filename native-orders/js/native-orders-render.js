@@ -81,7 +81,18 @@
     NO._autoTagPills = function _autoTagPills(o) {
         const tags = Array.isArray(o.autoTags) ? o.autoTags : [];
         if (!tags.length) return '<span class="web2-count-empty">—</span>';
-        if (window.Web2OrderTagPill) return window.Web2OrderTagPill.listHtml(tags, { small: true });
+        const code = NO.escapeHtml(o.code);
+        if (window.Web2OrderTagPill) {
+            // Mỗi pill bấm được → mở Web2OrderTagDetail (lý do chi tiết: SP chờ hàng,
+            // SP âm mã + ai đang giữ). stopPropagation để không toggle expand đơn.
+            const pills = tags
+                .map(
+                    (t) =>
+                        `<span class="no-otag-click" title="Bấm xem lý do" onclick="event.stopPropagation();NativeOrdersApp.openTagDetail('${code}','${NO.escapeHtml(t.trigger)}')" style="cursor:pointer;display:inline-flex;">${window.Web2OrderTagPill.html(t, { small: true })}</span>`
+                )
+                .join(' ');
+            return `<span class="w2-otag-list" style="display:inline-flex;flex-wrap:wrap;gap:4px;align-items:center;">${pills}</span>`;
+        }
         // Fallback nếu renderer chưa load.
         return tags
             .map(
@@ -89,6 +100,16 @@
                     `<span class="web2-label web2-label-default">${NO.escapeHtml(t.name || '')}</span>`
             )
             .join(' ');
+    };
+
+    // Bấm 1 pill TAG → mở popup lý do chi tiết (shared Web2OrderTagDetail).
+    NO.openTagDetail = function openTagDetail(code, trigger) {
+        const o = NO.STATE.orders.find((x) => x.code === code);
+        if (!o) return;
+        const tag = (o.autoTags || []).find((t) => t.trigger === trigger);
+        if (!tag) return;
+        if (window.Web2OrderTagDetail) window.Web2OrderTagDetail.open(o, tag);
+        else NO.notify(tag.name, 'info');
     };
 
     // WEB2 Trạng thái column uses PLAIN TEXT (not pill). Color varies by status:

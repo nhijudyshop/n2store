@@ -2,6 +2,14 @@
 
 ## 2026-06-21
 
+### [feat] Bấm TAG đơn hàng → popup lý do chi tiết (SP chờ hàng / âm mã + ai đang giữ)
+
+User: bấm pill tag ở cột Thẻ hiện lý do — chờ hàng → list SP chờ; âm mã → list SP vượt tồn + nếu âm do người khác giữ thì hiện tên người giữ + đơn giữ.
+
+- **Server** `web2-order-tags-service.js`: `tagDetail(trigger,o,ctx)` đính `tag.detail.products` cho 4 trigger SP (cho_hang/am_ma/het_hang/mua_1_phan) ở `/load` — chờ hàng `{code,name,pendingQty}`; âm mã `{code,name,stock,held,orderQty}`. Unit test PASS.
+- **Shared** `web2/shared/web2-order-tag-detail.js` (`Web2OrderTagDetail.open(order,tag)`): popup; SP-tag render list từ `tag.detail`; **âm mã fetch `/api/web2-products/usage?codes=` → "ai đang giữ"** (STT + tên KH + ×SL + trạng thái nháp/PBH, đánh dấu "đơn này"); trigger khác hiện mô tả registry. CSS inject 1 lần, Esc/overlay đóng.
+- **native-orders**: `_autoTagPills` bọc pill clickable → `NativeOrdersApp.openTagDetail(code,trigger)` (stopPropagation chống toggle expand); load detail module. Bump render/public-api/index version.
+
 ### [perf] inventory-tracking Quản Lý Ảnh — Phase 2: lưu per-NCC (chỉ upload NCC vừa sửa)
 
 Tiếp Phase 1: sửa 1 NCC trong đợt lớn (Đợt 2 = 80+ NCC) trước vẫn re-upload cả slot. Phase 2 chuyển sang **diff per-NCC** + upsert.

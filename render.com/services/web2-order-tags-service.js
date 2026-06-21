@@ -240,7 +240,40 @@ function orderProductFlags(o, ctx) {
     return { choHang, hetHang, mua1Phan, amMa };
 }
 
-// computeAutoTags(order, ctx, tagDefs) → { tags:[{code,name,color,icon,trigger}], hasChoHang }
+// Trigger có "lý do chi tiết" theo SẢN PHẨM → đính kèm tag.detail.products để client
+// bấm pill xem (chờ hàng: SP nào chờ; âm mã: SP nào vượt tồn + tồn/đang-giữ).
+const PRODUCT_DETAIL_TRIGGERS = new Set(['cho_hang', 'am_ma', 'het_hang', 'mua_1_phan']);
+
+// Danh sách SP liên quan tới 1 trigger trong đơn này (để hiển thị lý do khi bấm pill).
+// Dedupe theo code. Trả null nếu không có SP nào (tag vẫn hiện nhưng không có detail SP).
+function tagDetail(trigger, o, ctx) {
+    const lines = Array.isArray(o.products) ? o.products : [];
+    const byCode = new Map();
+    for (const l of lines) {
+        const code = l.productCode || l.product_code || l.code;
+        if (!code) continue;
+        const ps = ctx.productStatus.get(code);
+        if (!ps) continue;
+        const name = l.name || l.productName || l.product_name || code;
+        const orderQty = Number(l.quantity || l.qty || 0);
+        if (trigger === 'cho_hang' && ps.status === 'CHO_MUA') {
+            byCode.set(code, { code, name, pendingQty: ps.pending, orderQty });
+        } else if (trigger === 'mua_1_phan' && ps.status === 'MUA_1_PHAN') {
+            byCode.set(code, { code, name, stock: ps.stock, pendingQty: ps.pending, orderQty });
+        } else if (trigger === 'het_hang' && ps.status !== 'CHO_MUA' && ps.stock <= 0) {
+            byCode.set(code, { code, name, stock: ps.stock, orderQty });
+        } else if (trigger === 'am_ma' && ps.status !== 'CHO_MUA') {
+            const held = ctx.heldByCode.get(code) || 0;
+            if (held > ps.stock) {
+                byCode.set(code, { code, name, stock: ps.stock, held, orderQty });
+            }
+        }
+    }
+    const products = [...byCode.values()];
+    return products.length ? { products } : null;
+}
+
+// computeAutoTags(order, ctx, tagDefs) → { tags:[{code,name,color,icon,trigger,detail?}], hasChoHang }
 // tagDefs đã sort theo priority ASC (loadActiveTagDefs) → output giữ thứ tự.
 function computeAutoTags(o, ctx, tagDefs) {
     const f = orderProductFlags(o, ctx);
@@ -261,13 +294,18 @@ function computeAutoTags(o, ctx, tagDefs) {
             match = false;
         }
         if (match) {
-            tags.push({
+            const tag = {
                 code: def.code,
                 name: def.name,
                 color: def.color || '#6b7280',
                 icon: def.icon || null,
                 trigger: def.trigger,
-            });
+            };
+            if (PRODUCT_DETAIL_TRIGGERS.has(def.trigger)) {
+                const detail = tagDetail(def.trigger, o, ctx);
+                if (detail) tag.detail = detail;
+            }
+            tags.push(tag);
         }
     }
     return { tags, hasChoHang: f.choHang };
@@ -411,6 +449,7 @@ module.exports = {
     TRIGGER_IDS,
     PREDICATES,
     orderProductFlags,
+    tagDetail,
     computeAutoTags,
     buildContext,
     ensureTable,
