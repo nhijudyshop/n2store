@@ -2,6 +2,15 @@
 
 ## 2026-06-21
 
+### [audit r6 batch 2] fast-sale-orders — gate auth toàn bộ mutation + chống over-sell race (2 bug cuối)
+
+Hoàn tất 2 finding critical-path còn lại của r6 (PBH/tồn kho). Staged deploy chống 401-window:
+
+- **K — auth gap (MED/HIGH)**: TOÀN BỘ mutation `/api/fast-sale-orders/*` (13 route: POST `/`, `/from-native-order`, `/bulk-confirm`, `/bulk-cancel`, `/merge`, `/backfill-customer-links`, `/reset-stt`, PATCH `/:number`, POST `/:number/cancel`, `/by-source/:code/cancel`, `/:number/confirm`, `/:number/print`, DELETE `/:number`) KHÔNG có auth → ai biết worker URL đều tạo/huỷ/xác nhận PBH + trừ kho + trừ ví. Agent enumerate 11 client call-site thiếu token. **Staged**:
+    - stage1 (`4e3b49217`): client gửi `x-web2-token` — pbh-actions (7), native-orders-pbh-bill (3), bulk-operations (2), print.html (đọc localStorage). Harmless (route chưa gate). Deploy + verify nhijudy.store đã serve client mới (8+3 ref).
+    - stage2 (commit này): gate 13 route bằng `requireWeb2AuthSoft`. Extension KHÔNG gọi fast-sale-orders. ⚠ QA scripts `pbh-qa-test.js`/`test-pbh-wallet-cod.js` sẽ 401 (cần wire token khi chạy — không ảnh hưởng prod).
+- **L — over-sell race (HIGH)** (`b9f7b0f56`): `validateStock` chạy NGOÀI txn + advisory lock chỉ theo `source_id` → 2 PBH khác native-order cùng 1 SP chạy song song đều qua check rồi cùng trừ → `GREATEST(0,stock-qty)` nuốt âm = over-sell thầm lặng. Fix: trong `withTransaction` trước INSERT, `pg_advisory_xact_lock('web2_product_stock:<code>')` (sort tránh deadlock) + re-check tồn tươi → `__overSell` throw → 400 over_sell (format client đã xử lý). `force=true` vẫn bypass.
+
 ### [audit r6] Adversarial audit 7 mặt (28 agent) → 14 bug xác nhận → fix 12 (1 CRITICAL ví)
 
 Workflow 7 finder (worker/sse/money/pancake-zalo/orders-stock/shared-core/write-validation) + skeptic nghiêm/finding → 14 confirmed. Fix đợt này 12 (2 fast-sale-orders để pass sau):

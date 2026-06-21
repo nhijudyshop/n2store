@@ -22,6 +22,11 @@ const express = require('express');
 const router = express.Router();
 const web2WalletService = require('../services/web2-wallet-service');
 const { withTransaction } = require('../db/with-transaction');
+// audit r6 (2026-06-21): gate MỌI mutation PBH/stock (POST/PATCH/DELETE) bằng
+// requireWeb2AuthSoft (401 khi WEB2_AUTH_ENFORCE=1). Trước đây route tiền/tồn này
+// hoàn toàn KHÔNG auth → bất kỳ ai biết worker URL đều tạo/huỷ/xác nhận PBH + trừ
+// kho. Client đã gửi x-web2-token (deploy trước). GET (đọc) vẫn mở.
+const { requireWeb2AuthSoft } = require('../middleware/web2-auth');
 
 // Postgres unique_violation error code — dùng để retry khi sinh số PBH trùng
 // (2 request đồng thời cùng tính ra cùng 1 number → 1 INSERT thắng, cái còn lại
@@ -622,7 +627,7 @@ function computeTotals(lines, deposit, deliveryPrice) {
 // Link existing fast_sale_orders → customers by partner_phone match.
 // Idempotent: only updates where customer_id IS NULL.
 // -----------------------------------------------------
-router.post('/backfill-customer-links', async (req, res) => {
+router.post('/backfill-customer-links', requireWeb2AuthSoft, async (req, res) => {
     const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     try {
@@ -818,7 +823,7 @@ async function _bulkStateChange(req, res, newState) {
         res.status(500).json({ error: e.message });
     }
 }
-router.post('/bulk-confirm', (req, res) => _bulkStateChange(req, res, 'done'));
+router.post('/bulk-confirm', requireWeb2AuthSoft, (req, res) => _bulkStateChange(req, res, 'done'));
 
 // C1 CRITICAL FIX (2026-06-11): bulk-cancel xử lý TỪNG PBH như /:number/cancel.
 // Trước đây chỉ UPDATE state='cancel' hàng loạt → KHÔNG restock, KHÔNG hoàn ví,
@@ -826,7 +831,7 @@ router.post('/bulk-confirm', (req, res) => _bulkStateChange(req, res, 'done'));
 // (guard state !== 'cancel') không bao giờ restock nữa → mất tồn + mất tiền ví.
 // Giờ: mỗi PBH 1 transaction (lock FOR UPDATE → restock + hoàn wallet_deducted
 // + set state) qua _cancelPbhInTx (dùng chung với /cancel). Trả kết quả per-number.
-router.post('/bulk-cancel', async (req, res) => {
+router.post('/bulk-cancel', requireWeb2AuthSoft, async (req, res) => {
     const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     try {
@@ -950,7 +955,7 @@ router.post('/bulk-cancel', async (req, res) => {
 //   - DELETE PBHs gốc
 //   - Notify SSE web2:fast-sale-orders + web2:customer-wallet (cross-bc B2)
 // -----------------------------------------------------
-router.post('/merge', async (req, res) => {
+router.post('/merge', requireWeb2AuthSoft, async (req, res) => {
     const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     const numbers = Array.isArray(req.body?.numbers) ? req.body.numbers : null;
@@ -1311,7 +1316,7 @@ router.get('/:number', async (req, res) => {
 // -----------------------------------------------------
 // POST / — manual create
 // -----------------------------------------------------
-router.post('/', async (req, res) => {
+router.post('/', requireWeb2AuthSoft, async (req, res) => {
     const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     try {
@@ -1530,7 +1535,7 @@ router.post('/', async (req, res) => {
 // POST /from-native-order — convert NativeOrder → PBH
 // Body: { nativeOrderCode, dateInvoice?, deliveryPrice?, deposit?, ...overrides }
 // -----------------------------------------------------
-router.post('/from-native-order', async (req, res) => {
+router.post('/from-native-order', requireWeb2AuthSoft, async (req, res) => {
     const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     try {
@@ -2082,7 +2087,7 @@ router.post('/from-native-order', async (req, res) => {
 // -----------------------------------------------------
 // PATCH /:number — update mutable fields
 // -----------------------------------------------------
-router.patch('/:number', async (req, res) => {
+router.patch('/:number', requireWeb2AuthSoft, async (req, res) => {
     const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     try {
@@ -2333,7 +2338,7 @@ async function syncNativeOrderStatusFromPbh(pool, pbhRow, newState) {
     }
 }
 // 3W4: helper _wsEmit (WS broadcast) đã gỡ — mọi call site đều có _notify SSE kế bên.
-router.post('/:number/cancel', async (req, res) => {
+router.post('/:number/cancel', requireWeb2AuthSoft, async (req, res) => {
     const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     try {
         await ensureTables(pool);
@@ -2473,7 +2478,7 @@ async function _emitRevokeKpi(pool, orderCode, req) {
 // Đồng thời revert native_orders.status từ 'confirmed' về 'draft' để
 // row bên native-orders quay lại trạng thái "có thể tạo PBH lại".
 // Dùng bởi nút "Huỷ PBH" trong native-orders.
-router.post('/by-source/:nativeOrderCode/cancel', async (req, res) => {
+router.post('/by-source/:nativeOrderCode/cancel', requireWeb2AuthSoft, async (req, res) => {
     const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     const code = req.params.nativeOrderCode;
     if (!code) return res.status(400).json({ error: 'nativeOrderCode required' });
@@ -2574,7 +2579,7 @@ router.post('/by-source/:nativeOrderCode/cancel', async (req, res) => {
         res.status(500).json({ error: e.message });
     }
 });
-router.post('/:number/confirm', async (req, res) => {
+router.post('/:number/confirm', requireWeb2AuthSoft, async (req, res) => {
     const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     try {
         await ensureTables(pool);
@@ -2613,7 +2618,7 @@ router.post('/:number/confirm', async (req, res) => {
         res.status(500).json({ error: e.message });
     }
 });
-router.post('/:number/print', async (req, res) => {
+router.post('/:number/print', requireWeb2AuthSoft, async (req, res) => {
     const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     try {
         await ensureTables(pool);
@@ -2633,7 +2638,7 @@ router.post('/:number/print', async (req, res) => {
 // -----------------------------------------------------
 // DELETE /:number — hard delete (draft only by default)
 // -----------------------------------------------------
-router.delete('/:number', async (req, res) => {
+router.delete('/:number', requireWeb2AuthSoft, async (req, res) => {
     const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     try {
         await ensureTables(pool);
@@ -2708,7 +2713,7 @@ router.delete('/:number', async (req, res) => {
 // -----------------------------------------------------
 // POST /reset-stt — atomic seq restart
 // -----------------------------------------------------
-router.post('/reset-stt', async (req, res) => {
+router.post('/reset-stt', requireWeb2AuthSoft, async (req, res) => {
     const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     try {
         await ensureTables(pool);
