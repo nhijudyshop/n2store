@@ -37,8 +37,29 @@
     ];
     const SAMPLE_TEXT = 'Xin chào, đây là giọng đọc mẫu của shop nhé!';
 
+    // Thẻ CẢM XÚC / phi ngôn ngữ (VieNeu-TTS v3 Turbo — thử nghiệm). Chèn token thẳng
+    // vào lời đọc; CHỈ engine 'vieneu' hiểu, engine on-device (MMS/Piper) sẽ bị BỎ token
+    // (stripCues) để không đọc literal "cười". Nguồn: github.com/pnnbao97/VieNeu-TTS.
+    const CUES = [
+        { token: '[cười]', label: 'Cười', icon: 'laugh' },
+        { token: '[thở dài]', label: 'Thở dài', icon: 'wind' },
+        { token: '[hắng giọng]', label: 'Hắng giọng', icon: 'mic-2' },
+    ];
+
     function _voice(id) {
         return VOICES.find((v) => v.id === id) || VOICES[0];
+    }
+
+    // Giọng có hỗ trợ thẻ cảm xúc? (chỉ VieNeu v3 Turbo)
+    function isCueCapable(voiceId) {
+        return _voice(voiceId).engine === 'vieneu';
+    }
+
+    // Bỏ mọi thẻ cảm xúc đã biết khỏi text (cho engine không hỗ trợ) + gom khoảng trắng.
+    function stripCues(text) {
+        let t = String(text || '');
+        for (const c of CUES) t = t.split(c.token).join(' ');
+        return t.replace(/\s{2,}/g, ' ').trim();
     }
 
     // ---------------- SERIALIZE inference (BẮT BUỘC) ----------------
@@ -141,7 +162,9 @@
         const clean = String(text || '').trim();
         if (!clean) throw new Error('Chưa có nội dung lời đọc');
         const v = _voice(opts.voiceId);
-        const chunks = _splitSentences(clean);
+        // Thẻ cảm xúc chỉ VieNeu hiểu — engine khác bỏ token để khỏi đọc literal.
+        const work = v.engine === 'vieneu' ? clean : stripCues(clean);
+        const chunks = _splitSentences(work);
         const parts = [];
         let sampleRate = 16000;
         for (let i = 0; i < chunks.length; i++) {
@@ -251,11 +274,14 @@
     global.Web2VideoTTS = {
         VOICES,
         TONES,
+        CUES,
         SAMPLE_TEXT,
         synthesize,
         toAudioBuffer,
         speakPreview,
         cancelPreview,
         registerVieneuVoices,
+        isCueCapable,
+        stripCues,
     };
 })(window);

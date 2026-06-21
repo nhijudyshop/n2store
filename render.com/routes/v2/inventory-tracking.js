@@ -1568,17 +1568,67 @@ router.put('/product-images', async (req, res) => {
     const pool = getDb(req);
     const db = await pool.connect();
     try {
-        // body: { ngay_di_hang?, dot_so?, rows: [{ ncc, urls }] }
-        // Scoped replace within (ngay_di_hang, dot_so). Empty rows → just clear
-        // the slot (used by client's orphan-cleanup path when a đợt is emptied).
-        const { ngay_di_hang, dot_so, rows } = req.body;
-
-        if (!Array.isArray(rows)) {
-            return res.status(400).json({ success: false, error: 'rows must be an array' });
-        }
+        // Two modes, distinguished by body shape:
+        //   A. Slot replace (legacy/compat): { ngay_di_hang?, dot_so?, rows: [{ncc,urls}] }
+        //      → DELETE the whole (date, dot) slot then INSERT rows. Used by the
+        //        client's orphan-clear path and as a fallback for old clients.
+        //   B. Granular (preferred): { ngay_di_hang?, dot_so?, upserts: [{ncc,urls}], deletes: [ncc...] }
+        //      → upsert only changed NCCs + delete only removed NCCs. Lets the
+        //        client edit 1 NCC in a big đợt without re-uploading the whole slot.
+        const { ngay_di_hang, dot_so, rows, upserts, deletes } = req.body;
+        const isGranular =
+            !Array.isArray(rows) && (Array.isArray(upserts) || Array.isArray(deletes));
 
         const batchDate = ngay_di_hang || '2026-04-10';
         const resolvedDot = parseInt(dot_so, 10) || 1;
+        const lockKey = `product_images:${batchDate}:${resolvedDot}`;
+
+        if (isGranular) {
+            const ups = Array.isArray(upserts) ? upserts : [];
+            const dels = Array.isArray(deletes) ? deletes : [];
+
+            await db.query('BEGIN');
+            // Same per-slot advisory lock as the slot-replace path — serializes
+            // concurrent writes to the same (date, dot) so granular + slot-replace
+            // can't interleave destructively.
+            await db.query('SELECT pg_advisory_xact_lock(hashtext($1)::bigint)', [lockKey]);
+
+            let upserted = 0;
+            for (const row of ups) {
+                const ncc = parseInt(row.ncc, 10);
+                if (!ncc || ncc <= 0 || !Array.isArray(row.urls) || row.urls.length === 0) continue;
+                // Upsert on the (ngay_di_hang, dot_so, ncc) unique key (migration 058).
+                await db.query(
+                    `INSERT INTO inventory_product_images (ngay_di_hang, dot_so, ncc, urls, updated_at)
+                     VALUES ($1, $2, $3, $4, NOW())
+                     ON CONFLICT (ngay_di_hang, dot_so, ncc)
+                     DO UPDATE SET urls = EXCLUDED.urls, updated_at = NOW()`,
+                    [batchDate, resolvedDot, ncc, JSON.stringify(row.urls)]
+                );
+                upserted++;
+            }
+
+            let deleted = 0;
+            for (const d of dels) {
+                const ncc = parseInt(d, 10);
+                if (!ncc || ncc <= 0) continue;
+                const r = await db.query(
+                    `DELETE FROM inventory_product_images
+                     WHERE ngay_di_hang = $1 AND dot_so = $2 AND ncc = $3`,
+                    [batchDate, resolvedDot, ncc]
+                );
+                deleted += r.rowCount || 0;
+            }
+
+            await db.query('COMMIT');
+            _scheduleImagesNotify();
+            return res.json({ success: true, upserted, deleted });
+        }
+
+        // --- Slot replace mode ---
+        if (!Array.isArray(rows)) {
+            return res.status(400).json({ success: false, error: 'rows must be an array' });
+        }
 
         await db.query('BEGIN');
 
@@ -1586,10 +1636,8 @@ router.put('/product-images', async (req, res) => {
         // (date, dot_so) slot. Without this, two parallel PUTs to the same
         // slot would both DELETE then both INSERT — last-writer-wins, no
         // rollback, hard to debug. The lock is per-transaction (auto-released
-        // on COMMIT/ROLLBACK), so it never deadlocks across slots. The key
-        // is derived from a stable hash of the slot identifier so we don't
-        // need a shared lock table.
-        const lockKey = `product_images:${batchDate}:${resolvedDot}`;
+        // on COMMIT/ROLLBACK), so it never deadlocks across slots. `lockKey`
+        // is defined above and shared with the granular path.
         await db.query('SELECT pg_advisory_xact_lock(hashtext($1)::bigint)', [lockKey]);
 
         // Scoped delete for that batch only — preserves other batches
