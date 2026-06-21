@@ -1358,6 +1358,46 @@ router.post('/', requireWeb2AuthSoft, async (req, res) => {
             const number = await nextNumber(pool);
             try {
                 r = await withTransaction(pool, async (client) => {
+                    // audit d-fix #5 (2026-06-21): re-check tồn DƯỚI advisory lock theo MÃ
+                    // SP bên TRONG transaction — giống nhánh from-native-order. validateStock
+                    // ngoài txn (line ~1331) KHÔNG serialize 2 manual create cùng 1 SP → cả 2
+                    // qua check rồi cùng trừ → GREATEST(0,...) nuốt âm = OVER-SELL thầm lặng.
+                    // Khoá theo code (sort tránh deadlock) + so tổng cần với tồn tươi.
+                    if (b.force !== true) {
+                        const needMap = new Map();
+                        for (const line of lines) {
+                            const c = line.productCode || line.product_code;
+                            const q = Number(line.quantity || line.qty) || 0;
+                            if (!c || q <= 0) continue;
+                            needMap.set(c, (needMap.get(c) || 0) + q);
+                        }
+                        const sortedCodes = [...needMap.keys()].sort();
+                        for (const c of sortedCodes) {
+                            await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
+                                'web2_product_stock:' + c,
+                            ]);
+                        }
+                        if (sortedCodes.length) {
+                            const sres = await client.query(
+                                `SELECT code, stock FROM web2_products WHERE code = ANY($1::text[])`,
+                                [sortedCodes]
+                            );
+                            const sMap = new Map(
+                                sres.rows.map((row) => [row.code, Number(row.stock) || 0])
+                            );
+                            const viol = [];
+                            for (const [c, reqd] of needMap) {
+                                const avail = sMap.has(c) ? sMap.get(c) : 0;
+                                if (reqd > avail)
+                                    viol.push({ code: c, requested: reqd, available: avail });
+                            }
+                            if (viol.length) {
+                                const err = new Error('over_sell');
+                                err.__overSell = viol;
+                                throw err;
+                            }
+                        }
+                    }
                     const insRes = await client.query(
                         `INSERT INTO fast_sale_orders (
                         number, display_stt, source,
@@ -1490,7 +1530,7 @@ router.post('/', requireWeb2AuthSoft, async (req, res) => {
                          SET payment_amount = COALESCE(payment_amount,0) + $1,
                              residual = $2,
                              cash_on_delivery = $2,
-                             wallet_deducted = $1,
+                             wallet_deducted = COALESCE(wallet_deducted,0) + $1,
                              date_updated = NOW()
                          WHERE id = $3 RETURNING *`,
                         [wlt.deducted, wlt.residualAfter, r.rows[0].id]
@@ -1526,6 +1566,15 @@ router.post('/', requireWeb2AuthSoft, async (req, res) => {
         }
         res.json({ success: true, order: o });
     } catch (e) {
+        // audit d-fix #5: over_sell từ recheck dưới lock → 400 (client xử lý
+        // data.error==='over_sell' + violations), không phải 500.
+        if (e && e.__overSell) {
+            return res.status(400).json({
+                error: 'over_sell',
+                message: 'Tạo PBH thất bại: số lượng vượt tồn kho ở 1 hoặc nhiều SP',
+                violations: e.__overSell,
+            });
+        }
         console.error('[FAST-SALE-ORDERS] create error:', e.message);
         res.status(500).json({ error: e.message });
     }
@@ -1997,7 +2046,7 @@ router.post('/from-native-order', requireWeb2AuthSoft, async (req, res) => {
                  SET payment_amount = COALESCE(payment_amount,0) + $1,
                      residual = $2,
                      cash_on_delivery = $2,
-                     wallet_deducted = $1,
+                     wallet_deducted = COALESCE(wallet_deducted,0) + $1,
                      date_updated = NOW()
                  WHERE id = $3 RETURNING *`,
                 [wlt.deducted, wlt.residualAfter, r.rows[0].id]
@@ -2146,23 +2195,19 @@ router.patch('/:number', requireWeb2AuthSoft, async (req, res) => {
             params.push(k === 'tags' ? JSON.stringify(b[k]) : b[k]);
             sets.push(`${col} = $${params.length}`);
         }
-        // Special: orderLines triggers recompute
-        if (Array.isArray(b.orderLines)) {
-            const totals = computeTotals(b.orderLines, b.deposit, b.deliveryPrice);
-            params.push(JSON.stringify(b.orderLines));
-            sets.push(`order_lines = $${params.length}::jsonb`);
-            params.push(totals.qty);
-            sets.push(`total_quantity = $${params.length}`);
-            params.push(totals.untaxed);
-            sets.push(`amount_untaxed = $${params.length}`);
-            params.push(totals.tax);
-            sets.push(`amount_tax = $${params.length}`);
-            params.push(totals.discount);
-            sets.push(`amount_discount = $${params.length}`);
-            params.push(totals.total);
-            sets.push(`amount_total = $${params.length}`);
-            params.push(totals.residual);
-            sets.push(`residual = $${params.length}`);
+        // audit d-fix #6 (2026-06-21): KHÔNG cho sửa orderLines qua PATCH.
+        // Stock được trừ lúc tạo PBH theo order_lines gốc; PATCH overwrite order_lines
+        // mà KHÔNG điều chỉnh tồn → (a) thêm/ tăng dòng = oversell thầm lặng (không trừ),
+        // (b) cancel sau đó restock theo qty PATCH'd (sai) → lệch tồn vĩnh viễn không
+        // audit. Hiện KHÔNG client nào PATCH orderLines (sửa dòng = huỷ + tạo lại PBH).
+        // Nếu sau cần sửa dòng tại chỗ: phải làm trong transaction (FOR UPDATE PBH +
+        // advisory lock per code + áp delta tồn + oversell check), KHÔNG mở lại đường này.
+        if (b.orderLines !== undefined) {
+            return res.status(400).json({
+                error: 'order_lines_immutable',
+                message:
+                    'Không sửa được sản phẩm của PBH qua PATCH (gây lệch tồn kho). Huỷ PBH rồi tạo lại.',
+            });
         }
         if (sets.length === 0) return res.status(400).json({ error: 'No update fields' });
         // Phase 12: when partnerPhone is updated, re-link customer_id

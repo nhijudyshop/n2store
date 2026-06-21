@@ -158,10 +158,11 @@ router.post('/:phone/withdraw', requireWeb2AuthSoft, async (req, res) => {
         if (!amount || Number(amount) <= 0) {
             return res.status(400).json({ success: false, error: 'amount > 0 required' });
         }
-        // audit r8 (CRITICAL): mirror deposit #19 — sinh server-side idemKey khi client
-        // KHÔNG gửi x-idempotency-key → reference_id KHÔNG NULL → partial unique index
-        // idx_web2_wallet_tx_unique_manual chống double-debit (double-click / worker
-        // 524 retry / re-submit). Trước đây thiếu header = bỏ qua dedupe hoàn toàn.
+        // idemKey từ header x-idempotency-key (client). Fallback server UUID khi THIẾU
+        // header chỉ bảo đảm reference_id NOT NULL (index + in-tx dup-check chống re-apply
+        // CÙNG request). ⚠ KHÔNG dedupe 2 request RỜI (double-click / 524 retry) vì mỗi
+        // cái mang UUID khác → để chống double-debit thật, CLIENT phải gửi x-idempotency-key
+        // ỔN ĐỊNH per thao tác (Web2WalletApi.withdraw có param idempotencyKey — audit #3).
         const idemKey = _idemKey(req) || `mwdr_${require('crypto').randomUUID()}`;
         const dup = await _findIdempotentTx(db, idemKey, 'WITHDRAW');
         if (dup) {
@@ -205,10 +206,11 @@ router.post('/:phone/deposit', requireWeb2AuthSoft, async (req, res) => {
         if (!amount || Number(amount) <= 0) {
             return res.status(400).json({ success: false, error: 'amount > 0 required' });
         }
-        // AUDIT 2026-06-20 #19: nếu client KHÔNG gửi x-idempotency-key thì sinh
-        // server-side (mdep_<uuid>) để reference_id KHÔNG bao giờ NULL → partial
-        // unique index bảo vệ chống double deposit (double-click/retry). Header có
-        // thì vẫn ưu tiên (dedupe theo ý client).
+        // idemKey từ header x-idempotency-key (client). Fallback server UUID khi THIẾU
+        // header chỉ bảo đảm reference_id NOT NULL (index + MED-6 in-tx dup-check chống
+        // re-apply CÙNG request). ⚠ KHÔNG dedupe 2 request RỜI (double-click / 524 retry):
+        // mỗi cái UUID khác → muốn chống double-credit thật, CLIENT phải gửi x-idempotency-key
+        // ỔN ĐỊNH per thao tác (Web2WalletApi.deposit có param idempotencyKey — audit #3).
         const idemKey = _idemKey(req) || `mdep_${require('crypto').randomUUID()}`;
         const dup = await _findIdempotentTx(db, idemKey, 'DEPOSIT');
         if (dup) {

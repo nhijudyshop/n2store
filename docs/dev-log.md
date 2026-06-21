@@ -2,6 +2,20 @@
 
 ## 2026-06-21
 
+### [audit d] Money-path adversarial audit (25 agent → 20 finding → 9 confirmed) — fix 9/9
+
+User chọn (d) audit thêm 1 vùng. Chọn **money/ledger** (rủi ro cao nhất + regression-check fix a). Workflow 5 finder (supplier-wallet/customer-wallet/PBH/sepay/over-refund-regression) → skeptic verify từng finding. 9 confirmed, fix HẾT:
+
+- **#1+#2 HIGH (regression của fix a)** — over-refund cap: (1) `/tx` pin `min(serverQty,client,prev)` → row partial nhận 2/10 pin 2 → KHOÁ vĩnh viễn dù sau nhận đủ 10; (2) `/quick-refund` không pin `ordered` → cross-path asymmetry. **Gốc**: lib trả `row.qty` (ĐẶT) không phải NHẬN. **Fix**: `loadSoOrderRowQtyMap`→`loadSoOrderReceivedQtyMap` status-aware (received=partial→min(qtyReceived,qty), received→qty, else 0 — khớp client `aggregateSuppliers`); cap = serverQty (received, tính LẠI mỗi lần) khi tra được → bỏ qua client/pin (hết khoá); so-order wipe → fallback tightest(prev,client); không nguồn → reject. Pin `ordered=cap` ở CẢ 2 path. 11-case matrix PASS.
+- **#5 HIGH PBH oversell** — `POST /` (manual create) thiếu advisory lock như `from-native-order` → 2 create cùng SP qua validateStock (ngoài txn) rồi cùng `GREATEST(0,stock-qty)` nuốt âm = oversell thầm lặng. **Fix**: port khối `pg_advisory_xact_lock` per code (sort) + recheck tồn tươi trong txn → throw `__overSell`; catch → 400.
+- **#6 HIGH PBH stock drift** — `PATCH /:number` `orderLines` overwrite order_lines KHÔNG điều chỉnh tồn (thêm dòng=không trừ; cancel sau restock qty sai). 0 client dùng. **Fix**: reject 400 `order_lines_immutable` (sửa dòng = huỷ+tạo lại).
+- **#7 HIGH wallet drift** — `wallet_deducted = $1` (overwrite) race với `applyWalletToUnpaidPbhs` (SePay đến cùng lúc) → ghi đè, hoàn thiếu khi cancel. **Fix**: `wallet_deducted = COALESCE(wallet_deducted,0) + $1` (additive) ở POST / + from-native.
+- **#9 MED→ SePay race** — `processWeb2Match` đọc `debt_added` KHÔNG lock → webhook ↔ reprocess-cron cùng thấy FALSE → double-credit khi index #8 vắng. **Fix**: wrap `processWeb2Match` bằng advisory **XACT** lock per bh-id (`_processWeb2MatchInner` tách ra) → serialize, độc lập index.
+- **#8 HIGH SePay index** — unique index `idx_..._sepay` bị SKIP ở boot nếu có dup → mất backstop. Mitigated bởi #9 (serialize). **Fix**: log CRITICAL + note (KHÔNG auto-DELETE row ví ở boot — đụng balance).
+- **#4 MED customer-wallet withdraw** — `processWithdraw` thiếu in-tx dup-check (deposit có MED-6) → TOCTOU. **Fix**: thêm dup-check `(type=WITHDRAW, reference_id)` sau FOR UPDATE → alreadyProcessed.
+- **#3 HIGH customer-wallet double-click** — server UUID/req fallback KHÔNG dedupe 2 request rời (comment sai). 0 active caller (`Web2WalletApi.deposit/withdraw` chưa dùng). **Fix**: thêm param `idempotencyKey`→ header `x-idempotency-key` ở client (seam cho caller tương lai gửi key ổn định/lần mở modal) + sửa comment server cho đúng. Bump `web2-wallet-api.js?v=20260621d`.
+- 11 finding refuted (false positive) — verifier skeptic loại. Verify: `node --check` 6 file PASS + cap-matrix PASS. ⚠ Money path — chỉ live sau deploy Render.
+
 ### [perf] inventory-tracking Quản Lý Ảnh — lưu chậm vì "lưu lại toàn bộ + load lại toàn bộ"
 
 User báo lưu trong modal Quản Lý Ảnh lâu. Chẩn đoán đúng: `open()` nạp TẤT CẢ đợt vào `_rows`, `save()` bucket MỌI đợt → PUT từng đợt → sửa 1 ảnh re-upload cả bảng base64; mỗi PUT server `DELETE+INSERT` cả slot rồi **trả về TOÀN BỘ bảng** (mọi base64) + SSE push full table → tải lại toàn bộ.

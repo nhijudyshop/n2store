@@ -245,9 +245,16 @@ async function ensureSchema(pool) {
             );
             if (dup.rows.length > 0) {
                 const sample = dup.rows.map((r) => `${r.reference_id}×${r.cnt}`).join(', ');
-                console.warn(
-                    `[web2-wallet-isolation] ⚠ DUP sepay deposits tồn tại — KHÔNG tạo unique index. ` +
-                        `Dọn dup trước (${dup.rows.length} nhóm): ${sample}`
+                // audit d-fix #8 (2026-06-21): log to lên CRITICAL — index VẮNG = mất lá
+                // chắn DB cứng chống double-credit SePay. Race double-credit đã được
+                // processWeb2Match serialize qua advisory xact lock (#9) nên KHÔNG còn
+                // catastrophic, NHƯNG vẫn PHẢI dọn dup rồi restart để tái tạo index
+                // (defense-in-depth). KHÔNG auto-DELETE ở boot (đụng số dư ví — phải sửa
+                // balance kèm). Admin: dọn dup giữ MIN(id)/reference_id + chỉnh balance.
+                console.error(
+                    `[web2-wallet-isolation] 🔴 CRITICAL: ${dup.rows.length} nhóm DUP sepay tồn tại — ` +
+                        `unique index idx_web2_wallet_tx_unique_sepay KHÔNG được tạo (mất backstop ` +
+                        `double-credit; #9 advisory-lock vẫn chặn race). Dọn dup + restart: ${sample}`
                 );
             } else {
                 await pool.query(

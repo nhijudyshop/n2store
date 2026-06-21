@@ -458,8 +458,33 @@ async function _sendQrConfirmMessage(db, { phone, customerId, balance, amount, b
  * @param {Function} fetchWithTimeout
  * @returns {Promise<Object>} result with method/phone/etc
  */
+// audit d-fix #9 (2026-06-21): serialize 2 caller cùng 1 bh id (webhook ↔ reprocess
+// cron) bằng advisory XACT lock (tự nhả khi COMMIT/ROLLBACK — an toàn, không kẹt lock
+// như session-lock nếu lỗi). TRƯỚC đây processWeb2Match đọc debt_added KHÔNG khoá →
+// 2 caller cùng thấy FALSE → cùng processDeposit → double-credit khi unique index #8
+// vắng. Lock này loại race ĐỘC LẬP với index. lockClient chỉ giữ 1 txn rỗng (advisory
+// lock); body inner vẫn dùng pool `db` cho việc thật. Caller sau bị chặn tới khi caller
+// đầu COMMIT (đã set debt_added=TRUE) → re-read thấy TRUE → return sớm.
 async function processWeb2Match(db, web2BhId, fetchWithTimeout) {
-    // 1. Load row
+    const lockClient = await db.connect();
+    try {
+        await lockClient.query('BEGIN');
+        await lockClient.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
+            'web2_sepay_bh:' + String(web2BhId),
+        ]);
+        const result = await _processWeb2MatchInner(db, web2BhId, fetchWithTimeout);
+        await lockClient.query('COMMIT'); // nhả advisory xact lock
+        return result;
+    } catch (e) {
+        await lockClient.query('ROLLBACK').catch(() => {}); // nhả lock kể cả khi lỗi
+        throw e;
+    } finally {
+        lockClient.release();
+    }
+}
+
+async function _processWeb2MatchInner(db, web2BhId, fetchWithTimeout) {
+    // 1. Load row (debt_added đọc DƯỚI advisory lock của wrapper → serialized).
     const r = await db.query(
         `SELECT id, sepay_id, content, transfer_amount, transfer_type, debt_added,
                 linked_customer_phone, display_name, match_method

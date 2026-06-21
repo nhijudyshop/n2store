@@ -348,6 +348,24 @@ async function processWithdraw(
         const wallet = lockResult.rows[0];
         if (!wallet) throw new Error(`Wallet ${normPhone} not found`);
 
+        // audit d-fix #4 (2026-06-21): idempotency IN-TRANSACTION cho withdraw (mirror
+        // MED-6 của processDeposit). Check SAU khi LOCK ví → 2 withdraw cùng referenceId
+        // serialize trên FOR UPDATE; cái thứ 2 thấy tx cái thứ 1 đã commit →
+        // alreadyProcessed (KHÔNG trừ ví 2 lần). Đóng TOCTOU mà route /withdraw
+        // (_findIdempotentTx chạy NGOÀI txn) + unique index (có thể vắng lúc boot nếu có
+        // dup cũ) bỏ sót. Chỉ check khi có referenceId (manual withdraw kèm idemKey).
+        if (referenceId) {
+            const dup = await client.query(
+                `SELECT * FROM web2_wallet_transactions
+                 WHERE type = $1 AND reference_id = $2
+                 LIMIT 1`,
+                [WEB2_TX_TYPES.WITHDRAW, String(referenceId)]
+            );
+            if (dup.rows.length > 0) {
+                return { wallet, transaction: dup.rows[0], alreadyProcessed: true };
+            }
+        }
+
         const balanceBefore = parseFloat(wallet.balance) || 0;
         if (balanceBefore < amt) {
             throw new Error(`Số dư không đủ (${balanceBefore} < ${amt})`);

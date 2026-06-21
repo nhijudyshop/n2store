@@ -115,24 +115,37 @@
         }
     }
 
-    async function deposit(phone, amount, note, customerId) {
+    // audit d-fix #3 (2026-06-21): caller NÊN truyền `idempotencyKey` ỔN ĐỊNH (sinh 1
+    // lần mỗi lần mở modal — KHÔNG sinh lại mỗi click) để double-click / retry 524 được
+    // dedupe: server dùng nó làm reference_id (in-tx dup-check + partial unique index).
+    // THIẾU key → server sinh UUID per-request → 2 request rời (double-click) mang 2 key
+    // KHÁC nhau → KHÔNG dedupe → cộng/trừ ví 2 lần. (UI vẫn nên disable nút khi submit.)
+    async function deposit(phone, amount, note, customerId, idempotencyKey) {
         const p = normPhone(phone);
         if (!p) throw new Error('Phone không hợp lệ');
         const url = `${BASE}/${encodeURIComponent(p)}/deposit`;
+        const headers = _authHeaders({ 'Content-Type': 'application/json' }); // ENFORCE-PREP
+        if (idempotencyKey) headers['x-idempotency-key'] = String(idempotencyKey);
         return await jsonFetch(url, {
             method: 'POST',
-            headers: _authHeaders({ 'Content-Type': 'application/json' }), // ENFORCE-PREP (2026-06-12)
+            headers,
             body: JSON.stringify({ amount, note, customerId, userName: _userName() }),
         });
     }
 
-    async function withdraw(phone, amount, referenceType, referenceId, note) {
+    async function withdraw(phone, amount, referenceType, referenceId, note, idempotencyKey) {
         const p = normPhone(phone);
         if (!p) throw new Error('Phone không hợp lệ');
         const url = `${BASE}/${encodeURIComponent(p)}/withdraw`;
+        const headers = _authHeaders({ 'Content-Type': 'application/json' }); // ENFORCE-PREP
+        // referenceId (business ref, vd PBH) có thể trùng giữa các lần; idempotencyKey
+        // (header) mới là khoá dedupe double-click. Mặc định fallback referenceId nếu
+        // caller chưa truyền key riêng (ổn khi referenceId duy nhất/lần thao tác).
+        const idem = idempotencyKey || referenceId;
+        if (idem) headers['x-idempotency-key'] = String(idem);
         return await jsonFetch(url, {
             method: 'POST',
-            headers: _authHeaders({ 'Content-Type': 'application/json' }), // ENFORCE-PREP (2026-06-12)
+            headers,
             body: JSON.stringify({
                 amount,
                 referenceType,
