@@ -473,6 +473,7 @@
                     <button type="button" class="vm-voice-sample" data-sample="${v.id}" title="Nghe mẫu">
                         <i data-lucide="volume-2"></i>
                     </button>
+                    ${v._lib ? `<button type="button" class="vm-voice-del" data-del="${v.id}" title="Bỏ khỏi danh sách"><i data-lucide="x"></i></button>` : ''}
                 </div>`
             ).join('');
             vw.querySelectorAll('.vm-voice-pick').forEach((b) =>
@@ -483,6 +484,14 @@
             );
             vw.querySelectorAll('.vm-voice-sample').forEach((b) =>
                 b.addEventListener('click', () => playSample(b.dataset.sample))
+            );
+            vw.querySelectorAll('.vm-voice-del').forEach((b) =>
+                b.addEventListener('click', () => {
+                    const id = b.dataset.del;
+                    TTS.removeLibraryVoice(id);
+                    if (state.voiceId === id) state.voiceId = TTS.VOICES[0]?.id || 'mms';
+                    renderVoices();
+                })
             );
         }
         const tw = $('#vmTones');
@@ -925,6 +934,8 @@
         wireAudioUi();
         if (global.Web2VideoVieneuUI)
             global.Web2VideoVieneuUI.init({ state, onChange: renderVoices });
+        if (global.Web2VideoLibraryUI)
+            global.Web2VideoLibraryUI.init({ onChange: renderVoices, audioCtx });
         applyCanvasSize();
 
         $('#vmRandom')?.addEventListener('click', randomGenerate);

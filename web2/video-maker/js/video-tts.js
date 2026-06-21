@@ -287,6 +287,33 @@
         return { samples, sampleRate };
     }
 
+    // Tổng hợp 1 đoạn ngắn cho 1 giọng bất kỳ (CHƯA cần có trong VOICES) — dùng để
+    // NGHE THỬ trong kho giọng. meta: {engine:'piper',key} | {engine:'elevenlabs',elevenId} | {engine:'mms'}
+    async function synthVoiceMeta(meta, text, opts = {}) {
+        const onStatus = opts.onStatus;
+        const t = String(text || '').trim();
+        if (!t) throw new Error('Chưa có nội dung');
+        if (!meta || !meta.engine) throw new Error('Thiếu thông tin giọng');
+        if (meta.engine === 'elevenlabs')
+            return _elevenChunk(
+                t,
+                { elevenId: meta.elevenId, elevenModel: meta.elevenModel },
+                onStatus
+            );
+        if (meta.engine === 'mms') return _mmsChunk(t, onStatus);
+        // piper catalog — đảm bảo đã tải model trước khi predict
+        const key = meta.key || meta.voiceId;
+        const tts = await _getPiper(onStatus);
+        try {
+            const st = (await tts.stored()) || [];
+            if (!st.includes(key)) {
+                onStatus && onStatus('Đang tải giọng về máy…');
+                await tts.download(key, () => {});
+            }
+        } catch {}
+        return _piperChunk(t, key, onStatus);
+    }
+
     function _concat(parts) {
         const total = parts.reduce((n, a) => n + a.length, 0);
         const out = new Float32Array(total);
@@ -462,6 +489,8 @@
         // ElevenLabs (proxy)
         elevenStatus,
         listElevenVoices,
+        // nghe thử 1 giọng bất kỳ (chưa cần trong VOICES)
+        synthVoiceMeta,
         // quản lý giọng đã kéo về
         addLibraryVoice,
         removeLibraryVoice,
