@@ -500,6 +500,48 @@
                 })
             );
         }
+        renderCues();
+        if (global.lucide) global.lucide.createIcons();
+    }
+
+    // chèn token tại vị trí con trỏ trong textarea (thêm khoảng trắng nếu cần)
+    function insertAtCursor(ta, token) {
+        const start = ta.selectionStart != null ? ta.selectionStart : ta.value.length;
+        const end = ta.selectionEnd != null ? ta.selectionEnd : ta.value.length;
+        const before = ta.value.slice(0, start);
+        const after = ta.value.slice(end);
+        const lead = before && !/\s$/.test(before) ? ' ' : '';
+        const trail = after && !/^\s/.test(after) ? ' ' : ' ';
+        const ins = lead + token + trail;
+        ta.value = before + ins + after;
+        const pos = (before + ins).length;
+        ta.focus();
+        try {
+            ta.setSelectionRange(pos, pos);
+        } catch {}
+    }
+
+    // render các chip cảm xúc (VieNeu) + hint theo giọng đang chọn
+    function renderCues() {
+        const TTS = global.Web2VideoTTS;
+        const box = $('#vmCues');
+        const hint = $('#vmCuesHint');
+        if (!box || !TTS || !TTS.CUES) return;
+        box.innerHTML = TTS.CUES.map(
+            (c) =>
+                `<button type="button" class="vm-chip" data-cue="${esc(c.token)}" title="Chèn ${esc(c.label)}"><i data-lucide="${esc(c.icon)}"></i> ${esc(c.label)}</button>`
+        ).join('');
+        box.querySelectorAll('[data-cue]').forEach((b) =>
+            b.addEventListener('click', () => {
+                const ta = $('#vmNarr');
+                if (ta) insertAtCursor(ta, b.dataset.cue);
+            })
+        );
+        if (hint) {
+            hint.textContent = TTS.isCueCapable(state.voiceId)
+                ? 'Thẻ cảm xúc hoạt động với giọng VieNeu (thử nghiệm) — đặt ngay chỗ muốn biểu cảm.'
+                : 'Chọn giọng VieNeu (🎙️/⭐) để cảm xúc có tác dụng — giọng khác sẽ tự bỏ qua thẻ này.';
+        }
         if (global.lucide) global.lucide.createIcons();
     }
 
@@ -908,8 +950,10 @@
             s.start();
         });
         $('#vmQuickVoice')?.addEventListener('click', () => {
-            const t = $('#vmNarr').value.trim();
-            if (!t) return notify('Nhập lời đọc trước', 'warning');
+            const raw = $('#vmNarr').value.trim();
+            if (!raw) return notify('Nhập lời đọc trước', 'warning');
+            // giọng OS không hiểu thẻ cảm xúc → bỏ token trước khi đọc nhanh
+            const t = global.Web2VideoTTS.stripCues(raw);
             if (!global.Web2VideoTTS.speakPreview(t))
                 notify('Trình duyệt không có giọng đọc sẵn', 'warning');
         });

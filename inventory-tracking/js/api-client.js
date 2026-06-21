@@ -528,8 +528,8 @@ const productImagesApi = {
     },
 
     async bulkSave(rows, { date, dotSo } = {}) {
-        // Optional (date, dotSo) — server defaults to canonical batch (2026-04-10, 1)
-        // when missing. Pass when you want scoped per-đợt images.
+        // Slot replace within (date, dotSo): server DELETEs the slot then INSERTs
+        // `rows`. Empty rows clears the slot. Used for orphan-clear + as fallback.
         const body = { rows };
         if (date) body.ngay_di_hang = date;
         if (dotSo) body.dot_so = dotSo;
@@ -538,6 +538,21 @@ const productImagesApi = {
             body: JSON.stringify(body),
         });
         return result.data;
+    },
+
+    async granularSave({ date, dotSo, upserts = [], deletes = [] } = {}) {
+        // Per-NCC diff: upsert only changed/added NCCs, delete only removed ones —
+        // no whole-slot rewrite. Server distinguishes this from slot-replace by the
+        // presence of upserts/deletes and absence of `rows`. Old servers reject it
+        // (400 'rows must be an array'); the caller falls back to bulkSave().
+        const body = { upserts, deletes };
+        if (date) body.ngay_di_hang = date;
+        if (dotSo) body.dot_so = dotSo;
+        const result = await apiFetch('/product-images', {
+            method: 'PUT',
+            body: JSON.stringify(body),
+        });
+        return result;
     },
 
     async remove(id) {
