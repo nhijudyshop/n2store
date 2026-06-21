@@ -87,8 +87,13 @@ async function _httpError(r) {
     let code = '';
     try {
         const j = await r.json();
-        code = j.detail?.status || '';
-        detail = j.detail?.message || j.detail?.status || j.detail || JSON.stringify(j);
+        code = (j.detail && j.detail.status) || '';
+        const d = j.detail;
+        detail =
+            (d && (d.message || d.status)) ||
+            (typeof d === 'string' ? d : null) ||
+            (d ? JSON.stringify(d) : null) ||
+            JSON.stringify(j);
     } catch {}
     const err = new Error(String(detail).slice(0, 300));
     const quotaCode = /quota|limit|exceeded|too_many/i.test(String(code) + ' ' + String(detail));
@@ -161,4 +166,96 @@ async function soundEffect(text, opts = {}) {
     });
 }
 
-module.exports = { configured, keyCount, listVoices, tts, soundEffect, DEFAULT_MODEL, MAX_TEXT };
+// audio Buffer → transcript text (Scribe STT). multipart: file + model_id=scribe_v1.
+async function transcribe(buf, filename, mime) {
+    if (!buf || !buf.length) throw new Error('audio rỗng');
+    return _withKey(async (key) => {
+        const fd = new FormData();
+        fd.append('model_id', 'scribe_v1');
+        fd.append('file', new Blob([buf], { type: mime || 'audio/wav' }), filename || 'audio.wav');
+        const r = await fetch(`${API_BASE}/speech-to-text`, {
+            method: 'POST',
+            headers: { 'xi-api-key': key },
+            body: fd,
+        });
+        if (!r.ok) throw await _httpError(r);
+        const d = await r.json();
+        return { text: d.text || '', language: d.language_code || '' };
+    });
+}
+
+// audio Buffer → audio Buffer đã lọc tạp âm (Voice Isolator). multipart: audio.
+async function audioIsolation(buf, filename, mime) {
+    if (!buf || !buf.length) throw new Error('audio rỗng');
+    return _withKey(async (key) => {
+        const fd = new FormData();
+        fd.append('audio', new Blob([buf], { type: mime || 'audio/wav' }), filename || 'audio.wav');
+        const r = await fetch(`${API_BASE}/audio-isolation`, {
+            method: 'POST',
+            headers: { 'xi-api-key': key },
+            body: fd,
+        });
+        if (!r.ok) throw await _httpError(r);
+        return Buffer.from(await r.arrayBuffer());
+    });
+}
+
+// Voice Design: mô tả → previews [{generated_voice_id, audio (mp3 base64)}] để nghe thử.
+async function designVoicePreviews(description, sampleText) {
+    const desc = String(description || '').trim();
+    if (desc.length < 20)
+        throw new Error('Mô tả giọng cần ≥20 ký tự (vd: giọng nữ miền Nam trẻ trung, ấm)');
+    // ElevenLabs yêu cầu text mẫu ≥100 ký tự — dùng mặc định dài / nối thêm nếu thiếu.
+    const DEF =
+        'Xin chào quý khách, đây là giọng đọc mẫu dùng để lồng tiếng cho video sản phẩm của shop. Cảm ơn các bạn đã quan tâm theo dõi và ủng hộ shop nhé!';
+    let text = String(sampleText || '').trim();
+    if (text.length < 100) text = (text ? text + ' ' + DEF : DEF).slice(0, 1000);
+    return _withKey(async (key) => {
+        const r = await fetch(`${API_BASE}/text-to-voice/create-previews`, {
+            method: 'POST',
+            headers: { 'xi-api-key': key, 'content-type': 'application/json' },
+            body: JSON.stringify({ voice_description: desc, text }),
+        });
+        if (!r.ok) throw await _httpError(r);
+        const d = await r.json();
+        return (d.previews || []).map((p) => ({
+            generated_voice_id: p.generated_voice_id,
+            audio_base64: p.audio_base_64 || p.audio_base64 || '',
+            media_type: p.media_type || 'audio/mpeg',
+        }));
+    });
+}
+
+// Lưu 1 preview thành giọng thật → { voice_id, name } (tốn 1 voice slot, free ~3 slot).
+async function createVoiceFromPreview(name, description, generatedVoiceId) {
+    if (!generatedVoiceId) throw new Error('thiếu generated_voice_id');
+    return _withKey(async (key) => {
+        const r = await fetch(`${API_BASE}/text-to-voice/create-voice-from-preview`, {
+            method: 'POST',
+            headers: { 'xi-api-key': key, 'content-type': 'application/json' },
+            body: JSON.stringify({
+                voice_name: (name || 'Giọng thiết kế').slice(0, 60),
+                voice_description:
+                    String(description || '').slice(0, 400) || 'Giọng thiết kế cho video',
+                generated_voice_id: generatedVoiceId,
+            }),
+        });
+        if (!r.ok) throw await _httpError(r);
+        const d = await r.json();
+        return { voice_id: d.voice_id, name: d.name || name };
+    });
+}
+
+module.exports = {
+    configured,
+    keyCount,
+    listVoices,
+    tts,
+    soundEffect,
+    transcribe,
+    audioIsolation,
+    designVoicePreviews,
+    createVoiceFromPreview,
+    DEFAULT_MODEL,
+    MAX_TEXT,
+};

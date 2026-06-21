@@ -97,6 +97,11 @@
                                     value="0.2"
                                     class="vm-range"
                                 />
+                                <div class="vm-row">
+                                    <button class="vm-btn sm" id="vmImpStt">
+                                        <i data-lucide="captions"></i> Chép lời gốc (AI) → ô lời đọc
+                                    </button>
+                                </div>
                             </div>
                         </details>
 
@@ -192,8 +197,53 @@
                                 <button class="vm-btn sm primary" data-split="usebg">
                                     <i data-lucide="music"></i> Dùng làm nhạc nền
                                 </button>
+                                <button class="vm-btn sm" data-split="isolate">
+                                    <i data-lucide="sparkles"></i> Lọc tạp âm (AI)
+                                </button>
                             </div>
                             <div class="vm-split-stat" id="vmSplitStat"></div>
+                        </details>
+
+                        <!-- ===== Hiệu ứng âm thanh AI (ElevenLabs) ===== -->
+                        <details class="vm-section">
+                            <summary>
+                                <i data-lucide="audio-lines"></i> Tạo hiệu ứng âm thanh (AI)
+                            </summary>
+                            <p class="vm-hint2">
+                                Gõ mô tả tiếng động bằng tiếng Việt/Anh (vd: <i>tiếng vỗ tay</i>,
+                                <i>leng keng tiền</i>, <i>whoosh chuyển cảnh</i>) → AI tạo ra âm
+                                thanh. Cần bật ElevenLabs (server có key).
+                            </p>
+                            <div class="vm-topic">
+                                <input
+                                    type="text"
+                                    id="vmSfxText"
+                                    class="vm-topic-in"
+                                    placeholder="Mô tả âm thanh (vd: tiếng chuông cửa tinstore)…"
+                                />
+                                <button class="vm-btn primary" id="vmSfxGen">
+                                    <i data-lucide="sparkles"></i> Tạo
+                                </button>
+                            </div>
+                            <label class="vm-slabel">Độ dài (giây, để trống = tự động)</label>
+                            <input
+                                type="number"
+                                id="vmSfxDur"
+                                class="vm-topic-in"
+                                min="0.5"
+                                max="22"
+                                step="0.5"
+                                placeholder="vd: 3"
+                            />
+                            <div class="vm-row" style="margin-top: 8px">
+                                <button class="vm-btn sm" id="vmSfxUse" hidden>
+                                    <i data-lucide="music"></i> Dùng làm nhạc nền
+                                </button>
+                                <button class="vm-btn sm" id="vmSfxDownload" hidden>
+                                    <i data-lucide="download"></i> Tải về
+                                </button>
+                            </div>
+                            <div class="vm-voice-stat" id="vmSfxStat">Chưa tạo âm thanh nào.</div>
                         </details>
 
                         <!-- ===== Giọng cao cấp / CLONE giọng (VieNeu — server máy shop) ===== -->
@@ -323,7 +373,7 @@
         <script src="../shared/web2-products-cache.js?v=20260620a"></script>
         <script src="../shared/web2-vieneu.js?v=20260619b"></script>
         <script src="../shared/web2-pos-installer.js?v=20260620a"></script>
-        <script src="./js/video-tts.js?v=20260621vid"></script>
+        <script src="./js/video-tts.js?v=20260621el"></script>
         <script src="./js/video-anim.js?v=20260619a"></script>
         <script src="./js/video-render.js?v=20260619d"></script>
         <script src="./js/video-scene-editor.js?v=20260621scene"></script>
@@ -331,8 +381,8 @@
         <script src="./js/video-ai-script.js?v=20260619a"></script>
         <script src="./js/video-vieneu.js?v=20260619b"></script>
         <script src="./js/video-library.js?v=20260621lib"></script>
-        <script src="./js/video-import.js?v=20260621vid"></script>
-        <script src="./js/video-maker.js?v=20260621scene"></script>
+        <script src="./js/video-import.js?v=20260621el"></script>
+        <script src="./js/video-maker.js?v=20260621el"></script>
         <script>
             document.addEventListener('DOMContentLoaded', () => {
                 if (window.Web2Sidebar)

@@ -234,6 +234,74 @@
         return { samples: buf.getChannelData(0).slice(), sampleRate: buf.sampleRate };
     }
 
+    // ---- ElevenLabs tool calls (sound effect / STT / isolation) qua proxy ----
+    async function _blobB64(blob) {
+        const ab = await blob.arrayBuffer();
+        const bytes = new Uint8Array(ab);
+        let bin = '';
+        const CH = 0x8000;
+        for (let i = 0; i < bytes.length; i += CH)
+            bin += String.fromCharCode.apply(null, bytes.subarray(i, i + CH));
+        return btoa(bin);
+    }
+    function _w2auth() {
+        try {
+            const a = JSON.parse(localStorage.getItem('web2_auth') || '{}');
+            return a && a.token ? { 'x-web2-token': a.token } : {};
+        } catch {
+            return {};
+        }
+    }
+    async function _elPost(path, body, label) {
+        const r = await fetch(_ELEVEN_BASE() + path, {
+            method: 'POST',
+            headers: Object.assign({ 'content-type': 'application/json' }, _w2auth()),
+            body: JSON.stringify(body),
+        });
+        if (!r.ok) {
+            let m = 'HTTP ' + r.status;
+            try {
+                m = (await r.json()).error || m;
+            } catch {}
+            throw new Error((label || 'ElevenLabs') + ' lỗi: ' + m);
+        }
+        return r;
+    }
+    // mô tả → Blob mp3 hiệu ứng âm thanh
+    async function elevenSoundEffect(text, opts = {}) {
+        const r = await _elPost(
+            '/sound',
+            {
+                text: String(text || ''),
+                duration_seconds: opts.durationSeconds,
+                prompt_influence: opts.promptInfluence,
+            },
+            'Tạo âm thanh'
+        );
+        return r.blob();
+    }
+    // audio Blob → { text, language } (chép lời)
+    async function elevenTranscribe(blob) {
+        const audio = await _blobB64(blob);
+        const r = await _elPost(
+            '/stt',
+            { audio, mime: blob.type || 'audio/wav', filename: 'audio.wav' },
+            'Chép lời'
+        );
+        const d = await r.json();
+        return { text: d.text || '', language: d.language || '' };
+    }
+    // audio Blob → Blob mp3 đã lọc tạp âm
+    async function elevenIsolate(blob) {
+        const audio = await _blobB64(blob);
+        const r = await _elPost(
+            '/isolate',
+            { audio, mime: blob.type || 'audio/wav', filename: 'audio.wav' },
+            'Lọc tạp âm'
+        );
+        return r.blob();
+    }
+
     let _dctx = null;
     function _decodeCtx() {
         if (!_dctx) _dctx = new (global.AudioContext || global.webkitAudioContext)();
@@ -491,6 +559,10 @@
         listElevenVoices,
         // nghe thử 1 giọng bất kỳ (chưa cần trong VOICES)
         synthVoiceMeta,
+        // ElevenLabs tools
+        elevenSoundEffect,
+        elevenTranscribe,
+        elevenIsolate,
         // quản lý giọng đã kéo về
         addLibraryVoice,
         removeLibraryVoice,

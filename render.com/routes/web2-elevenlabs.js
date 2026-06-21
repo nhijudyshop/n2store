@@ -81,4 +81,82 @@ router.post(
     }
 );
 
+// text mô tả → hiệu ứng âm thanh (mp3)
+router.post(
+    '/sound',
+    requireWeb2AuthSoft,
+    rateLimit,
+    express.json({ limit: '16kb' }),
+    async (req, res) => {
+        try {
+            if (!svc.configured())
+                return res
+                    .status(503)
+                    .json({ ok: false, error: 'ELEVENLABS_API_KEY chưa cấu hình' });
+            const { text, duration_seconds, prompt_influence } = req.body || {};
+            if (!text) return res.status(400).json({ ok: false, error: 'Thiếu mô tả âm thanh' });
+            const mp3 = await svc.soundEffect(text, {
+                durationSeconds: duration_seconds,
+                promptInfluence: prompt_influence,
+            });
+            res.setHeader('Content-Type', 'audio/mpeg');
+            res.setHeader('Cache-Control', 'no-store');
+            res.send(mp3);
+        } catch (e) {
+            console.error('[web2-elevenlabs] sound', e.message);
+            res.status(500).json({ ok: false, error: String(e.message || e) });
+        }
+    }
+);
+
+// audio (base64) → transcript {text, language} (Scribe STT)
+router.post(
+    '/stt',
+    requireWeb2AuthSoft,
+    rateLimit,
+    express.json({ limit: '48mb' }),
+    async (req, res) => {
+        try {
+            if (!svc.configured())
+                return res
+                    .status(503)
+                    .json({ ok: false, error: 'ELEVENLABS_API_KEY chưa cấu hình' });
+            const { audio, mime, filename } = req.body || {};
+            if (!audio) return res.status(400).json({ ok: false, error: 'Thiếu audio' });
+            const buf = Buffer.from(String(audio).replace(/^data:[^,]+,/, ''), 'base64');
+            const out = await svc.transcribe(buf, filename || 'audio.wav', mime || 'audio/wav');
+            res.json({ ok: true, text: out.text, language: out.language });
+        } catch (e) {
+            console.error('[web2-elevenlabs] stt', e.message);
+            res.status(500).json({ ok: false, error: String(e.message || e) });
+        }
+    }
+);
+
+// audio (base64) → audio đã lọc tạp âm (mp3)
+router.post(
+    '/isolate',
+    requireWeb2AuthSoft,
+    rateLimit,
+    express.json({ limit: '48mb' }),
+    async (req, res) => {
+        try {
+            if (!svc.configured())
+                return res
+                    .status(503)
+                    .json({ ok: false, error: 'ELEVENLABS_API_KEY chưa cấu hình' });
+            const { audio, mime, filename } = req.body || {};
+            if (!audio) return res.status(400).json({ ok: false, error: 'Thiếu audio' });
+            const buf = Buffer.from(String(audio).replace(/^data:[^,]+,/, ''), 'base64');
+            const out = await svc.audioIsolation(buf, filename || 'audio.wav', mime || 'audio/wav');
+            res.setHeader('Content-Type', 'audio/mpeg');
+            res.setHeader('Cache-Control', 'no-store');
+            res.send(out);
+        } catch (e) {
+            console.error('[web2-elevenlabs] isolate', e.message);
+            res.status(500).json({ ok: false, error: String(e.message || e) });
+        }
+    }
+);
+
 module.exports = router;

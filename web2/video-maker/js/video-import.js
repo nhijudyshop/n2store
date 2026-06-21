@@ -25,6 +25,7 @@
         el: null,
         url: '',
         name: '',
+        file: null,
         duration: 0,
         w: 0,
         h: 0,
@@ -39,6 +40,9 @@
     }
     function el() {
         return st.el;
+    }
+    function file() {
+        return st.file;
     }
     function getVolume() {
         return st.volume;
@@ -65,6 +69,7 @@
             const onReady = () => {
                 st.el = v;
                 st.url = url;
+                st.file = file;
                 st.name = file.name || 'video';
                 st.duration = v.duration || 0;
                 st.w = v.videoWidth || 0;
@@ -167,6 +172,7 @@
         clear,
         isActive,
         el,
+        file,
         draw,
         connect,
         disconnect,

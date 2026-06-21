@@ -1019,7 +1019,7 @@
                 notify('File không giải mã được', 'error');
             }
         });
-        $('#vmSplitActions')?.addEventListener('click', (e) => {
+        $('#vmSplitActions')?.addEventListener('click', async (e) => {
             const b = e.target.closest('[data-split]');
             if (!b || !splitBuf) return;
             const VA = global.Web2VideoAudio;
@@ -1035,6 +1035,33 @@
                 $('#vmMusicClear').hidden = false;
                 return notify('Đã dùng làm nhạc nền', 'success');
             }
+            // AI lọc tạp âm (ElevenLabs) — bỏ ồn nền, giữ giọng. Cần ≥4.6s.
+            if (act === 'isolate') {
+                const stat = $('#vmSplitStat');
+                if (splitBuf.duration < 4.6)
+                    return notify('Audio cần ≥4.6 giây để lọc tạp âm', 'warning');
+                b.disabled = true;
+                stat.textContent = 'Đang lọc tạp âm bằng AI (ElevenLabs)…';
+                try {
+                    const wav = VA.bufferToWavBlob(splitBuf);
+                    const cleaned = await global.Web2VideoTTS.elevenIsolate(wav);
+                    const buf = await VA.decodeFile(cleaned);
+                    splitBuf = buf; // cập nhật để tải/dùng tiếp bản đã lọc
+                    state.music.buffer = buf;
+                    state.music.name = splitName + '-loc';
+                    $('#vmMusicName').textContent = '🎵 ' + splitName + '-loc (đã lọc)';
+                    $('#vmMusicClear').hidden = false;
+                    VA.downloadWav(buf, splitName + '-loc-tap-am');
+                    stat.textContent = `✅ Đã lọc tạp âm — ${buf.duration.toFixed(1)}s. Đã tải về + dùng làm nhạc nền.`;
+                    notify('Đã lọc tạp âm (AI)', 'success');
+                } catch (err) {
+                    stat.textContent = '❌ ' + (err.message || err);
+                    notify('Lọc tạp âm lỗi: ' + (err.message || err), 'error');
+                } finally {
+                    b.disabled = false;
+                }
+                return;
+            }
             const sp = VA.karaokeSplit(splitBuf);
             if (sp.mono) return notify('File MONO — cần nhạc stereo để tách', 'warning');
             if (act === 'music') {
@@ -1047,6 +1074,22 @@
         });
     }
 
+    // Trích audio từ file (video/audio) → WAV mono 16kHz nhỏ gọn (cho STT/isolate).
+    async function extractCompactWav(fileOrBlob) {
+        const ac = audioCtx();
+        const ab = await fileOrBlob.arrayBuffer();
+        const decoded = await ac.decodeAudioData(ab.slice(0));
+        const SR = 16000;
+        const OAC = global.OfflineAudioContext || global.webkitOfflineAudioContext;
+        const off = new OAC(1, Math.max(1, Math.ceil(decoded.duration * SR)), SR);
+        const src = off.createBufferSource();
+        src.buffer = decoded;
+        src.connect(off.destination);
+        src.start();
+        const r = await off.startRendering();
+        return global.Web2VideoAudio.bufferToWavBlob(r);
+    }
+
     // ---------- import video để lồng tiếng ----------
     function wireImportUi() {
         if (!global.Web2VideoImport) return;
@@ -1054,6 +1097,33 @@
         const clearBtn = $('#vmImpClear');
         const volRow = $('#vmImpVolRow');
         const setStat = (m) => stat && (stat.textContent = m);
+        // Chép lời gốc (AI STT) → điền vào ô lời đọc để sửa + lồng giọng mới
+        $('#vmImpStt')?.addEventListener('click', async (e) => {
+            const f = global.Web2VideoImport.file?.();
+            if (!f) return notify('Chưa nạp video', 'warning');
+            const btn = e.currentTarget;
+            btn.disabled = true;
+            setStat('Đang trích audio + chép lời (AI)…');
+            try {
+                const wav = await extractCompactWav(f);
+                const out = await global.Web2VideoTTS.elevenTranscribe(wav);
+                const t = (out.text || '').trim();
+                if (!t) {
+                    setStat('Không nghe ra lời nói trong video.');
+                    return notify('Không chép được lời (video không có giọng nói?)', 'warning');
+                }
+                $('#vmNarr').value = t;
+                setStat(
+                    `✅ Đã chép lời (${out.language || '?'}). Sửa lại rồi bấm "Tạo giọng đọc".`
+                );
+                notify('Đã chép lời gốc vào ô lời đọc', 'success');
+            } catch (err) {
+                setStat('❌ ' + (err.message || err));
+                notify('Chép lời lỗi: ' + (err.message || err), 'error');
+            } finally {
+                btn.disabled = false;
+            }
+        });
         $('#vmImpFile')?.addEventListener('change', async (e) => {
             const f = e.target.files?.[0];
             e.target.value = '';
@@ -1093,6 +1163,63 @@
         });
     }
 
+    // ---------- hiệu ứng âm thanh AI (ElevenLabs sound effects) ----------
+    function wireSoundFx() {
+        const stat = $('#vmSfxStat');
+        const setStat = (m) => stat && (stat.textContent = m);
+        let lastBlob = null;
+        $('#vmSfxGen')?.addEventListener('click', async (e) => {
+            const text = ($('#vmSfxText')?.value || '').trim();
+            if (!text) return notify('Mô tả âm thanh muốn tạo (vd: tiếng vỗ tay)', 'warning');
+            const dur = Number($('#vmSfxDur')?.value) || undefined;
+            const btn = e.currentTarget;
+            btn.disabled = true;
+            setStat('Đang tạo âm thanh bằng AI (ElevenLabs)…');
+            try {
+                lastBlob = await global.Web2VideoTTS.elevenSoundEffect(text, {
+                    durationSeconds: dur,
+                });
+                const buf = await global.Web2VideoAudio.decodeFile(lastBlob);
+                // tự nghe thử
+                const ac = audioCtx();
+                await ac.resume?.();
+                const src = ac.createBufferSource();
+                src.buffer = buf;
+                src.connect(ac.destination);
+                src.start();
+                $('#vmSfxUse').hidden = false;
+                $('#vmSfxDownload').hidden = false;
+                $('#vmSfxGen')._buf = buf;
+                setStat(
+                    `✅ Đã tạo (${buf.duration.toFixed(1)}s). Nghe thử xong: dùng làm nhạc nền hoặc tải về.`
+                );
+                notify('Đã tạo hiệu ứng âm thanh', 'success');
+            } catch (err) {
+                setStat('❌ ' + (err.message || err));
+                notify('Tạo âm thanh lỗi: ' + (err.message || err), 'error');
+            } finally {
+                btn.disabled = false;
+            }
+        });
+        $('#vmSfxUse')?.addEventListener('click', () => {
+            const buf = $('#vmSfxGen')._buf;
+            if (!buf) return;
+            state.music.buffer = buf;
+            state.music.name = 'hieu-ung-am-thanh';
+            $('#vmMusicName').textContent = '🎵 Hiệu ứng âm thanh (AI)';
+            $('#vmMusicClear').hidden = false;
+            notify('Đã dùng làm nhạc nền', 'success');
+        });
+        $('#vmSfxDownload')?.addEventListener('click', () => {
+            if (!lastBlob) return;
+            const a = document.createElement('a');
+            a.download = 'hieu-ung-am-thanh.mp3';
+            a.href = URL.createObjectURL(lastBlob);
+            a.click();
+            setTimeout(() => URL.revokeObjectURL(a.href), 6000);
+        });
+    }
+
     function init() {
         canvas = $('#vmCanvas');
         if (!canvas) return;
@@ -1104,6 +1231,7 @@
         wireSceneList();
         wireAudioUi();
         wireImportUi();
+        wireSoundFx();
         if (global.Web2VideoVieneuUI)
             global.Web2VideoVieneuUI.init({ state, onChange: renderVoices });
         if (global.Web2VideoLibraryUI)
