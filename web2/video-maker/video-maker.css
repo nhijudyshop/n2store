@@ -1023,3 +1023,70 @@ textarea.vm-narr {
     flex: 0 0 auto;
     max-width: 48%;
 }
+
+/* ============================================================
+   iPad / TABLET — tối ưu riêng (sau block mobile để override đúng).
+   ============================================================ */
+
+/* ⚠ FIX shell (page-scoped): theme đặt .web2-shell{flex-direction:column} ở ≤900px
+   NHƯNG shell là display:grid (grid-template-columns:260px 1fr) → flex-direction vô
+   tác dụng → grid vẫn chừa cột 260px, aside lại position:fixed (off-canvas) nên MAIN
+   rơi vào track 260px hẹp (kẹt ~260-288px, phí nửa màn iPad/điện thoại). Ép shell 1
+   cột để main full-width (sidebar đã là drawer phủ). Chỉ ảnh hưởng trang này. */
+@media (max-width: 900px) {
+    body:has(.web2-shell) .web2-shell {
+        grid-template-columns: 1fr !important;
+    }
+}
+
+/* PORTRAIT (700–920px): vẫn app-frame nhưng preview cao hơn + tool card 2 cột (masonry). */
+@media (min-width: 700px) and (max-width: 920px) {
+    .vm-app {
+        --vm-prev-h: clamp(300px, 44vh, 480px);
+    }
+    .vm-panel {
+        padding: 16px 20px 0;
+    }
+    .vm-tabbar,
+    .vm-export-bar {
+        margin-left: -20px;
+        margin-right: -20px;
+        padding-left: 20px;
+        padding-right: 20px;
+    }
+    .vm-h {
+        font-size: 18px;
+    }
+    /* tool cards xếp 2 cột kiểu masonry để tận dụng bề ngang tablet */
+    #vmtab-content:checked ~ #vmpanel-content,
+    #vmtab-voice:checked ~ #vmpanel-voice {
+        display: block;
+        column-count: 2;
+        column-gap: 16px;
+    }
+    .vm-tabpanel > .vm-card {
+        break-inside: avoid;
+        margin: 0 0 16px;
+    }
+}
+
+/* LANDSCAPE / màn lớn cảm ứng (≥921px, pointer thô): 2-pane + target chạm to + panel rộng hơn. */
+@media (min-width: 921px) and (pointer: coarse) {
+    .vm-app {
+        grid-template-columns: 440px 1fr;
+    }
+    .vm-btn {
+        min-height: 44px;
+    }
+    .vm-tab {
+        min-height: 46px;
+    }
+    .vm-chip {
+        min-height: 36px;
+        display: inline-flex;
+        align-items: center;
+    }
+    .vm-narr {
+        min-height: 96px;
+    }
+}

@@ -2,6 +2,15 @@
 
 ## 2026-06-21
 
+### [fix+feat] video-maker iPad: full-width main (fix shell bug) + tablet layout (portrait 2-cột, landscape 2-pane touch)
+
+User hỏi "ipad thì sao". Phát hiện **bug shell dùng chung**: `web2-theme.css @media(max-width:900px)` đặt `.web2-shell{flex-direction:column}` NHƯNG shell là `display:grid (grid-template-columns:260px 1fr)` → `flex-direction` VÔ TÁC DỤNG → grid vẫn chừa track 260px; aside `position:fixed` (off-canvas) nên MAIN rơi vào track 260px hẹp → **main kẹt ~260-288px ở MỌI trang ≤900px** (phí nửa màn iPad portrait + điện thoại; phone trước đó fill chỉ ~67%).
+
+- **Fix page-scoped** (`video-maker.css`, chỉ trang này): `@media(max-width:900px){ body:has(.web2-shell) .web2-shell{ grid-template-columns:1fr !important } }` → main full-width. Verify: phone 393 fill 96% (trước ~67%), iPad portrait 820 fill 98% (trước ~35%), 0 overflow/error. ⚠ Bug gốc còn ở theme dùng chung — ảnh hưởng mọi trang web2 trên tablet/phone; chưa sửa global (sửa shared theme đụng 40+ trang, để user quyết).
+- **iPad PORTRAIT (700–920px)**: preview cao hơn `clamp(300px,44vh,480px)` + tool card xếp **2 cột masonry** (`column-count:2` + `break-inside:avoid`) tận dụng bề ngang.
+- **iPad LANDSCAPE / màn lớn cảm ứng (≥921 + pointer:coarse)**: 2-pane editor, panel rộng **440px**, target chạm ≥44px.
+- Verify Playwright 820×1180 + 1180×820 (login web2): portrait masonry full-width, landscape 2-pane `440px 1fr`, 0 pageerror. Bump CSS `?v=20260621ipad2`.
+
 ### [redesign] video-maker mobile = app edit chuyên nghiệp (preview ghim, tab segmented, Xuất ghim đáy)
 
 User: "giao diện điện thoại như 1 app edit chuyên nghiệp". Mobile-only re-skin (`@media max-width:920px` trong `video-maker.css`), KHÔNG đụng desktop / JS / id.
