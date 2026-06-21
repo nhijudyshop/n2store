@@ -750,8 +750,18 @@ app.use('/api/aikol', aikolRoutes);
 app.use('/api/realtime/web2', web2RealtimeSseRoutes);
 // Cross-instance SSE fan-out (Postgres LISTEN/NOTIFY trên web2Db) — fix realtime
 // rớt khi web2-api chạy >1 instance / cửa sổ rolling-deploy. Single-instance: no-op.
+// ⚠ CHỈ chạy trên instance GIỮ SSE client thật (web2-api). KHÔNG chạy trên
+// n2store-fallback (đặt WEB2_API_FORWARD_URL): fallback đã forward notify qua HTTP
+// relay sang web2-api; nếu fallback CŨNG pg-NOTIFY trên CÙNG web2Db thì web2-api
+// nhận event 2 lần (relay + pg) → DOUBLE-DELIVER + đếm instance giả (audit r-sse #1,#7).
 if (web2RealtimeSseRoutes.initCrossInstance) {
-    web2RealtimeSseRoutes.initCrossInstance(app.locals.web2Db);
+    if (process.env.WEB2_API_FORWARD_URL) {
+        console.log(
+            '[SSE-WEB2] instance có WEB2_API_FORWARD_URL (fallback) → BỎ QUA cross-instance fan-out (chỉ forward HTTP relay)'
+        );
+    } else {
+        web2RealtimeSseRoutes.initCrossInstance(app.locals.web2Db);
+    }
 }
 // SSE Web 1.0 (Firebase listener replacement) — celebration, kpi, held_products, tickets, ...
 app.use('/api/realtime', realtimeSseRoutes);
@@ -3053,6 +3063,16 @@ async function gracefulShutdown(signal) {
     _shuttingDown = true;
     console.log(`[SHUTDOWN] Received ${signal}, starting graceful shutdown...`);
     const deadline = Date.now() + 25_000;
+    // Đóng SSE Web 2.0 TRƯỚC (gửi event reconnect + end) để client EventSource
+    // reconnect NHANH sang instance mới + gỡ LISTEN/heartbeat + xoá dòng registry,
+    // trước khi đóng HTTP server. Idempotent (module cũng tự bắt SIGTERM).
+    try {
+        if (web2RealtimeSseRoutes && web2RealtimeSseRoutes.gracefulClose) {
+            web2RealtimeSseRoutes.gracefulClose();
+        }
+    } catch (e) {
+        console.warn('[SHUTDOWN] SSE gracefulClose error:', e.message);
+    }
     try {
         // Stop accepting new HTTP requests
         await new Promise((resolve) => server.close(resolve));
@@ -3070,14 +3090,24 @@ async function gracefulShutdown(signal) {
             }
         }
     } catch (_) {}
-    // Close DB pool
+    // Close DB pools (chatDb + web2Db) — release connections trước khi exit.
     try {
-        if (chatDbPool && typeof chatDbPool.end === 'function') {
+        const ends = [];
+        if (chatDbPool && typeof chatDbPool.end === 'function') ends.push(chatDbPool.end());
+        if (
+            typeof web2Pool !== 'undefined' &&
+            web2Pool &&
+            web2Pool !== chatDbPool &&
+            typeof web2Pool.end === 'function'
+        ) {
+            ends.push(web2Pool.end());
+        }
+        if (ends.length) {
             await Promise.race([
-                chatDbPool.end(),
+                Promise.allSettled(ends),
                 new Promise((r) => setTimeout(r, Math.max(1000, deadline - Date.now()))),
             ]);
-            console.log('[SHUTDOWN] DB pool closed');
+            console.log('[SHUTDOWN] DB pools closed');
         }
     } catch (e) {
         console.warn('[SHUTDOWN] DB close error:', e.message);

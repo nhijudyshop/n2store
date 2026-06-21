@@ -46,6 +46,7 @@ let _crossPool = null; // web2Db pool (publish pg_notify + heartbeat + stats)
 let _pgNotify = null; // (payloadStr) => void — fire-and-forget
 let _listenClient = null; // dedicated PgClient cho LISTEN
 let _heartbeatTimer = null;
+let _listenReconnectTimer = null; // 1 timer reconnect duy nhất (chống double-schedule)
 let _shuttingDown = false;
 // Đếm để verify vòng LISTEN/NOTIFY sống (single-instance: published≈received vì
 // self-NOTIFY quay về; multi-instance: deliveredFromPeers > 0 khi instance khác phát).
@@ -326,17 +327,23 @@ function notifyClients(key, data, eventType = 'update') {
 // Broadcast THUẦN tới subscriber LOCAL của instance này (KHÔNG forward/publish).
 // Gọi bởi notifyClients (event do mình phát) VÀ handler LISTEN (event từ instance
 // khác qua pg NOTIFY) → mọi instance giao tin đồng nhất.
-function _localNotify(key, data, eventType = 'update') {
+function _localNotify(key, data, eventType = 'update', fromPeer = false) {
     const clients = sseClients.get(key);
     if (!clients || clients.size === 0) {
-        console.log(`[SSE-WEB2] No clients listening to key: ${key}`);
-        _pushLog({
-            type: 'notify',
-            topic: key,
-            eventType,
-            clientsNotified: 0,
-            action: data?.action || null,
-        });
+        // fromPeer = nhận qua pg NOTIFY từ instance khác. Khi instance này KHÔNG có
+        // subscriber cho key đó (bình thường — client ở instance khác), ĐỪNG log/
+        // _pushLog 'No clients' (gây nhiễu admin log + crossStats giả). Chỉ log khi
+        // event do CHÍNH instance này phát (fromPeer=false).
+        if (!fromPeer) {
+            console.log(`[SSE-WEB2] No clients listening to key: ${key}`);
+            _pushLog({
+                type: 'notify',
+                topic: key,
+                eventType,
+                clientsNotified: 0,
+                action: data?.action || null,
+            });
+        }
         return 0;
     }
 
@@ -649,9 +656,10 @@ function _onCrossInstance(payloadStr) {
     if (!p || p.origin === BOOT_ID) return; // self → đã broadcast local trực tiếp
     _crossStats.deliveredFromPeers++;
     try {
+        // fromPeer=true → _localNotify im lặng khi 0 subscriber (xem _localNotify).
         if (p.kind === 'wildcard') _localNotifyWildcard(p.key, p.data, p.eventType);
         else if (p.kind === 'broadcast') _localBroadcast(p.data, p.eventType);
-        else _localNotify(p.key, p.data, p.eventType);
+        else _localNotify(p.key, p.data, p.eventType, true);
     } catch (e) {
         console.warn('[SSE-WEB2] _onCrossInstance deliver fail:', e.message);
     }
@@ -698,14 +706,41 @@ async function _heartbeat() {
     } catch (e) {
         /* heartbeat lỗi KHÔNG được làm chết SSE */
     }
+    // Liveness ping LISTEN client: connection mostly-idle (chỉ chờ NOTIFY) → nếu
+    // half-open (TCP chết im) sẽ không tự biết tới event kế. SELECT 1 lỗi → error
+    // handler fire → reconnect. (keepAlive TCP cũng giúp, đây là belt-and-suspenders.)
+    if (_listenClient) {
+        _listenClient.query('SELECT 1').catch(() => {
+            /* error handler của client lo reconnect */
+        });
+    }
+}
+
+// 1 timer reconnect DUY NHẤT — chống double-schedule (catch + 'end' listener cùng
+// gọi cho 1 lần connect-fail → trước đây sinh 2 timer → khuếch đại khi web2Db sập).
+function _scheduleListenReconnect() {
+    if (_shuttingDown || _listenReconnectTimer) return;
+    _listenReconnectTimer = setTimeout(() => {
+        _listenReconnectTimer = null;
+        _connectListen();
+    }, 3000);
+    if (_listenReconnectTimer.unref) _listenReconnectTimer.unref();
 }
 
 // Dedicated PgClient cho LISTEN (KHÔNG mượn pool — tránh idle-reap), tự reconnect.
+// keepAlive + bỏ statement/idle timeout (connection long-lived chỉ chờ NOTIFY).
 async function _connectListen() {
     if (!_crossPool || _shuttingDown) return;
     let client;
     try {
-        client = new PgClient(_crossPool.options || {});
+        client = new PgClient({
+            ...(_crossPool.options || {}),
+            keepAlive: true,
+            keepAliveInitialDelayMillis: 10000,
+            statement_timeout: 0,
+            idle_in_transaction_session_timeout: 0,
+            application_name: 'web2-sse-listen',
+        });
         client._lost = false;
         const onLost = (err) => {
             if (client._lost) return;
@@ -718,7 +753,7 @@ async function _connectListen() {
             try {
                 client.end();
             } catch {}
-            if (!_shuttingDown) setTimeout(_connectListen, 3000);
+            _scheduleListenReconnect();
         };
         client.on('error', onLost);
         client.on('end', () => onLost());
@@ -736,7 +771,7 @@ async function _connectListen() {
         try {
             client && client.end();
         } catch {}
-        if (!_shuttingDown) setTimeout(_connectListen, 3000);
+        _scheduleListenReconnect();
     }
 }
 
@@ -755,10 +790,14 @@ function initCrossInstance(pool) {
     }
     _crossPool = pool;
     _pgNotify = (payloadStr) => {
-        // fire-and-forget — lỗi publish KHÔNG ảnh hưởng broadcast local đã chạy.
-        Promise.resolve()
-            .then(() => pool.query('SELECT pg_notify($1, $2)', [PG_CHANNEL, payloadStr]))
-            .catch((e) => console.warn('[SSE-WEB2] pg_notify fail:', e.message));
+        // Ưu tiên publish qua dedicated LISTEN client (1 connection vừa LISTEN vừa
+        // NOTIFY được) → KHÔNG checkout pool mỗi notify (tránh pool churn lúc /ingest
+        // bắn dồn). LISTEN client đang reconnect (null) → fallback pool. Fire-and-forget.
+        const c = _listenClient;
+        const run = c
+            ? c.query('SELECT pg_notify($1, $2)', [PG_CHANNEL, payloadStr])
+            : pool.query('SELECT pg_notify($1, $2)', [PG_CHANNEL, payloadStr]);
+        Promise.resolve(run).catch((e) => console.warn('[SSE-WEB2] pg_notify fail:', e.message));
     };
     _ensureInstanceTable()
         .then(() => _heartbeat())
