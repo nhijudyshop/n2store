@@ -245,7 +245,13 @@ function orderProductFlags(o, ctx) {
 function computeAutoTags(o, ctx, tagDefs) {
     const f = orderProductFlags(o, ctx);
     const tags = [];
+    // 1 tag / trigger: 2 thẻ cùng trigger = cùng điều kiện = pill trùng (vô nghĩa).
+    // Route đã chặn tạo trùng; dedupe ở đây là phòng thủ (data cũ/seed chồng). Giữ
+    // thẻ ưu tiên thấp nhất (tagDefs đã sort priority ASC).
+    const seenTriggers = new Set();
     for (const def of tagDefs || []) {
+        if (seenTriggers.has(def.trigger)) continue;
+        seenTriggers.add(def.trigger);
         const pred = PREDICATES[def.trigger];
         if (!pred) continue;
         let match = false;

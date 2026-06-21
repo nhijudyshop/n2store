@@ -90,6 +90,16 @@ router.post('/create', requireWeb2AuthSoft, async (req, res) => {
         if (!svc.TRIGGER_IDS.has(trigger)) {
             return res.status(400).json({ error: `trigger không hợp lệ: ${trigger}` });
         }
+        // Mỗi trigger chỉ 1 thẻ (2 thẻ cùng trigger = pill trùng, vô nghĩa).
+        const dupT = await pool.query(
+            `SELECT code FROM web2_order_tags WHERE trigger = $1 LIMIT 1`,
+            [trigger]
+        );
+        if (dupT.rows.length) {
+            return res.status(409).json({
+                error: `Trigger "${trigger}" đã được dùng bởi thẻ "${dupT.rows[0].code}". Mỗi trigger chỉ gắn 1 thẻ.`,
+            });
+        }
         const now = Date.now();
         const color = String(b.color || '#6b7280').trim();
         const icon = b.icon ? String(b.icon).trim() : null;
@@ -142,6 +152,16 @@ router.patch('/update/:code', requireWeb2AuthSoft, async (req, res) => {
             const trigger = String(b.trigger).trim();
             if (!svc.TRIGGER_IDS.has(trigger)) {
                 return res.status(400).json({ error: `trigger không hợp lệ: ${trigger}` });
+            }
+            // Đổi trigger sang cái đã có thẻ khác dùng → chặn (giữ 1 trigger/1 thẻ).
+            const dupT = await pool.query(
+                `SELECT code FROM web2_order_tags WHERE trigger = $1 AND code <> $2 LIMIT 1`,
+                [trigger, code]
+            );
+            if (dupT.rows.length) {
+                return res.status(409).json({
+                    error: `Trigger "${trigger}" đã được dùng bởi thẻ "${dupT.rows[0].code}". Mỗi trigger chỉ gắn 1 thẻ.`,
+                });
             }
             add('trigger', trigger);
         }
