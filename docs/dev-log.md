@@ -2,6 +2,16 @@
 
 ## 2026-06-21
 
+### [perf] inventory-tracking Quản Lý Ảnh — Phase 2: lưu per-NCC (chỉ upload NCC vừa sửa)
+
+Tiếp Phase 1: sửa 1 NCC trong đợt lớn (Đợt 2 = 80+ NCC) trước vẫn re-upload cả slot. Phase 2 chuyển sang **diff per-NCC** + upsert.
+
+- **Server `routes/v2/inventory-tracking.js`** PUT thêm chế độ granular: body `{upserts:[{ncc,urls}], deletes:[ncc...]}` (không có `rows`) → `INSERT ... ON CONFLICT (ngay_di_hang,dot_so,ncc) DO UPDATE` cho upserts + `DELETE ... AND ncc=$` cho deletes, trong 1 transaction + advisory lock. Giữ nguyên slot-replace (rows) cho orphan-clear + fallback. Trả `{success,upserted,deleted}`.
+- **Client `api-client.js`**: thêm `productImagesApi.granularSave({date,dotSo,upserts,deletes})`.
+- **Client `modal-image-manager.js`**: snapshot `_originalDotContent` đổi sang `Map(dotSo→Map(ncc→urlsKey))` (key length-prefixed chống đụng base64). save() diff per-NCC → chỉ gửi NCC đổi/thêm (upserts) + NCC bị xoá (deletes); đợt không đổi gửi rỗng. **Fallback**: server cũ trả 400 'rows must be an array' → tự `bulkSave` slot-replace (deploy-order-independent).
+- Web 1.0, KHÔNG đổi schema (unique key `(ngay_di_hang,dot_so,ncc)` đã có từ migration 058). Verify: unit test client diff 9/9 (add/del/rename/reorder/collision/new-đợt); test SQL granular trên Postgres local 10/10 (upsert đúng NCC, NCC khác + đợt khác không đụng, idempotent, delete-nonexistent no-op) — tạo/drop DB test, KHÔNG đụng prod. `node --check` 3 file PASS. Browser test bỏ qua (1 agent khác đang chiếm session — tránh contention).
+- ⚠ Server granular chỉ live sau khi Render deploy; trong lúc chờ, client tự fallback slot-replace (đúng, chỉ chậm như Phase 1). Sau deploy nên probe granular trên prod (đợt-test 99) rồi cleanup.
+
 ### [feat] Thẻ cảm xúc VieNeu (cười/thở dài/hắng giọng) cho video-maker
 
 User: VieNeu-TTS (github pnnbao97/VieNeu-TTS) có chức năng cảm xúc → thêm vào trang Tạo video (`web2/video-maker/`).
