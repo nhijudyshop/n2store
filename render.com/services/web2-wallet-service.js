@@ -208,6 +208,25 @@ async function processDeposit(
             }
             const wallet = lockResult.rows[0];
 
+            // audit d-fix #9 (2026-06-21): re-check sepay dup SAU khi LOCK ví (mirror
+            // MED-6). Pre-check (bước 1, READ COMMITTED) hở: 2 caller (webhook ↔ reprocess
+            // cron) cùng sepayId+phone đều thấy "no dup" TRƯỚC khi ai commit, rồi serialize
+            // trên FOR UPDATE ví (CÙNG phone) — nhưng caller thứ 2 đã qua pre-check nên vẫn
+            // INSERT trùng = double-credit. Re-check DƯỚI lock → caller 2 thấy tx caller 1
+            // đã commit → alreadyProcessed. Đóng race ĐỘC LẬP unique index (#8) mà KHÔNG
+            // giữ thêm connection (tránh deadlock pool của bản advisory-lock wrapper cũ).
+            if (sepayId) {
+                const dupLocked = await client.query(
+                    `SELECT id, phone, amount FROM web2_wallet_transactions
+                     WHERE reference_type = 'sepay' AND reference_id = $1
+                     LIMIT 1`,
+                    [String(sepayId)]
+                );
+                if (dupLocked.rows.length > 0) {
+                    return { wallet, transaction: dupLocked.rows[0], alreadyProcessed: true };
+                }
+            }
+
             // MED-6 FIX (2026-06-18): idempotency cho manual deposit (sourceId, KHÔNG
             // phải sepay). Check SAU khi LOCK ví → 2 deposit cùng phone+sourceId
             // serialize trên FOR UPDATE; deposit thứ 2 thấy tx đã commit của thứ 1 →
