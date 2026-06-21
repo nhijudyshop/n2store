@@ -2,6 +2,15 @@
 
 ## 2026-06-21
 
+### [fix] GLOBAL: web2 shell ≤900px main full-width (mọi trang tablet/phone) — sửa flex-direction no-op
+
+Nối tiếp fix iPad (page-scoped) → user OK sửa GLOBAL. Gốc: `web2-theme.css @media(max-width:900px)` đặt `.web2-shell{flex-direction:column}` nhưng shell là `display:grid(260px 1fr)` → no-op → aside off-canvas (position:fixed) khiến MAIN kẹt track 260px ở **MỌI trang web2 trên ≤900px** (phí ~⅔ màn).
+
+- **Fix 1 dòng** `web2-theme.css`: `flex-direction:column` → `grid-template-columns:1fr` (ép shell 1 cột → main full-width; sidebar đã là drawer phủ).
+- **Bump cache** `web2-theme.css?v=` → `20260621shellfix` trên **47 file html** (chuẩn hoá từ 7 version cũ) để prod nạp bản mới.
+- Verify Playwright 820px (login web2) 6 trang đa layout: overview/products/customers/kpi/dashboard/so-order → mainW fill **98-101%** (trước ~32-35%), `overflowX:false`, 0 pageerror. Screenshot products full-width OK.
+- Page-scoped fix ở `video-maker.css` GIỮ LẠI (trùng nhưng vô hại, belt-and-suspenders nếu cache theme lệch).
+
 ### [fix+feat] video-maker iPad: full-width main (fix shell bug) + tablet layout (portrait 2-cột, landscape 2-pane touch)
 
 User hỏi "ipad thì sao". Phát hiện **bug shell dùng chung**: `web2-theme.css @media(max-width:900px)` đặt `.web2-shell{flex-direction:column}` NHƯNG shell là `display:grid (grid-template-columns:260px 1fr)` → `flex-direction` VÔ TÁC DỤNG → grid vẫn chừa track 260px; aside `position:fixed` (off-canvas) nên MAIN rơi vào track 260px hẹp → **main kẹt ~260-288px ở MỌI trang ≤900px** (phí nửa màn iPad portrait + điện thoại; phone trước đó fill chỉ ~67%).

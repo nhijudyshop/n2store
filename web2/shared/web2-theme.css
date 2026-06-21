@@ -956,7 +956,10 @@ body:has(.web2-shell) textarea:focus {
         display: block;
     }
     body:has(.web2-shell) .web2-shell {
-        flex-direction: column;
+        /* Shell là display:grid (260px 1fr); flex-direction VÔ TÁC DỤNG trên grid.
+           Aside thành drawer position:fixed (off-canvas) → phải ép grid về 1 cột để
+           MAIN full-width, nếu không main kẹt ở track 260px (phí nửa màn tablet/phone). */
+        grid-template-columns: 1fr;
     }
     body:has(.web2-shell) .web2-aside {
         position: fixed;
