@@ -3,14 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `65333d6` — auto: session update
-**Last updated**: 2026-06-21 17:49:06 +07
-**Latest session**: [`RESUME:20260621-174906-65333d6`](../20260621-174906-65333d6.md)
-**Summary**: auto: session update
+**Latest commit**: `23bc4f1` — feat(video-maker): giọng đọc theo từng cảnh (multi-narrator)
+**Last updated**: 2026-06-21 17:50:34 +07
+**Latest session**: [`RESUME:20260621-175034-23bc4f1`](../20260621-175034-23bc4f1.md)
+**Summary**: video-maker: kho giọng Piper+ElevenLabs, import video lồng tiếng, giọng theo cảnh, thẻ cảm xúc
 
 ## Folders affected in this commit
 
-- [`web2/`](./web2.md) — 5 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -25,7 +25,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-21 15:47
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-06-21 17:43
+- [`docs/`](./docs.md) — updated 2026-06-21 17:50
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-19 14:27
