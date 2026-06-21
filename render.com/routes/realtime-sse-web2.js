@@ -344,12 +344,54 @@ function notifyClients(key, data, eventType = 'update') {
 // Gọi bởi notifyClients (event do mình phát) VÀ handler LISTEN (event từ instance
 // khác qua pg NOTIFY) → mọi instance giao tin đồng nhất.
 function _localNotify(key, data, eventType = 'update', fromPeer = false) {
-    const clients = sseClients.get(key);
-    if (!clients || clients.size === 0) {
-        // fromPeer = nhận qua pg NOTIFY từ instance khác. Khi instance này KHÔNG có
-        // subscriber cho key đó (bình thường — client ở instance khác), ĐỪNG log/
-        // _pushLog 'No clients' (gây nhiễu admin log + crossStats giả). Chỉ log khi
-        // event do CHÍNH instance này phát (fromPeer=false).
+    let successCount = 0;
+    let failureCount = 0;
+    const writeTo = (clients, outKey, extra) => {
+        if (!clients || !clients.size) return;
+        const msg = JSON.stringify({
+            key: outKey,
+            data,
+            timestamp: Date.now(),
+            event: eventType,
+            ...(extra || {}),
+        });
+        clients.forEach((client) => {
+            try {
+                client.write(`event: ${eventType}\n`);
+                client.write(`data: ${msg}\n\n`);
+                successCount++;
+            } catch (error) {
+                console.error('[SSE-WEB2] Error sending to client:', error.message);
+                failureCount++;
+            }
+        });
+    };
+
+    // (1) Subscriber EXACT key.
+    writeTo(sseClients.get(key), key);
+
+    // (2) Subscriber WILDCARD ':*' khớp prefix của key — SERVER-SIDE prefix-match
+    //     (FIX live-test 2026-06-22). Hub đăng ký connection theo ĐÚNG key đã subscribe
+    //     ('web2:wallet:*'), nên notifyClients(exact 'web2:wallet:<phone>') TRƯỚC ĐÂY
+    //     KHÔNG chạm tới nó (clientsNotified:0) → 6 trang ví bỏ lỡ realtime
+    //     PBH-deduct/refund/return-credit/manual-deposit (route chỉ emit exact). Gửi với
+    //     payload.key = ĐÚNG key '*' subscriber → bridge CŨ + MỚI đều exact-match. Bỏ qua
+    //     khi key TỰ là '*' (đến từ _localNotifyWildcard) → tránh double. Đóng CẢ LỚP tại
+    //     1 điểm (không phụ thuộc route nhớ co-emit wildcard → hết drift).
+    if (!key.endsWith(':*')) {
+        sseClients.forEach((subs, subKey) => {
+            if (subKey === key || !subKey.endsWith(':*')) return;
+            const base = subKey.slice(0, -2); // 'web2:wallet:*' → 'web2:wallet'
+            if (key === base || key.startsWith(base + ':')) {
+                writeTo(subs, subKey, { pattern: base });
+            }
+        });
+    }
+
+    if (successCount === 0 && failureCount === 0) {
+        // fromPeer = nhận qua pg NOTIFY từ instance khác — không có subscriber LOCAL là
+        // bình thường (client ở instance khác) → ĐỪNG log 'No clients' (nhiễu admin log
+        // + crossStats giả). Chỉ log khi event do CHÍNH instance này phát.
         if (!fromPeer) {
             console.log(`[SSE-WEB2] No clients listening to key: ${key}`);
             _pushLog({
@@ -362,26 +404,6 @@ function _localNotify(key, data, eventType = 'update', fromPeer = false) {
         }
         return 0;
     }
-
-    const message = JSON.stringify({
-        key,
-        data,
-        timestamp: Date.now(),
-        event: eventType,
-    });
-
-    let successCount = 0;
-    let failureCount = 0;
-    clients.forEach((client) => {
-        try {
-            client.write(`event: ${eventType}\n`);
-            client.write(`data: ${message}\n\n`);
-            successCount++;
-        } catch (error) {
-            console.error('[SSE-WEB2] Error sending to client:', error.message);
-            failureCount++;
-        }
-    });
 
     console.log(
         `[SSE-WEB2] Notified ${successCount} clients for key: ${key}` +
@@ -635,18 +657,11 @@ try {
         // addEventListener update/created/deleted/change.
         const tickle = { action: 'update', phone, ts: Date.now() };
 
-        // Per-phone topic
+        // Per-phone topic. _localNotify (SERVER-SIDE prefix-match, 2026-06-22) tự fan-out
+        // tới subscriber 'web2:wallet:*' (6 trang ví) → KHÔNG cần gọi notifyClientsWildcard
+        // riêng nữa (gọi cả 2 = double-fire). 1 call này phủ cả exact lẫn ':*'.
         try {
             notifyClients(`web2:wallet:${phone}`, tickle, 'update');
-        } catch (_) {}
-
-        // Wildcard topic for list pages (admin) — match 'web2:wallet:*' subscribers.
-        // ⚠ LOAD-BEARING — ĐỪNG XOÁ: bridge prefix-match (rank 3, 2026-06-22) khiến
-        // exact 'web2:wallet:<phone>' cũng tới được subscriber ':*' nhưng CHỈ với bridge
-        // MỚI (v≥20260622r7). Bridge cũ còn cache vẫn cần đường wildcard này → giữ để
-        // backward-compat trong cửa sổ chuyển đổi (belt-and-suspenders).
-        try {
-            notifyClientsWildcard('web2:wallet', tickle, 'update');
         } catch (_) {}
 
         // Canonical Web 2.0 customer-wallet topic (page subscribes 'web2:customer-wallet')

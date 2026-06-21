@@ -82,37 +82,6 @@
         }, 250);
     }
 
-    function _emit(subs, msg) {
-        if (!subs || !subs.size) return;
-        for (const cb of subs) {
-            try {
-                cb(msg);
-            } catch (e) {
-                console.error('[Web2SSE] subscriber error', e);
-            }
-        }
-    }
-
-    // Dispatch 1 event tới (a) subscriber EXACT topic, và (b) subscriber WILDCARD
-    // 'web2:foo:*' khi topic khớp prefix. Rank 3 (2026-06-22): server có route phát
-    // EXACT key 'web2:wallet:<phone>' (KHÔNG qua notifyClientsWildcard) → trang
-    // subscribe 'web2:wallet:*' sẽ MISS nếu chỉ exact-match → ví / balance-history
-    // stale trên PBH trừ ví, returns refund, manual deposit. Prefix-match đóng CẢ LỚP
-    // này (mọi route exact hiện tại + tương lai), mirror server _localNotifyWildcard.
-    function _dispatch(topic, msg) {
-        _emit(subscribers.get(topic), msg);
-        // payload.key TỰ là '*' key (server wildcard path) → đã exact-match ở trên,
-        // KHÔNG prefix-match nữa (tránh double-dispatch cùng subscriber).
-        if (topic.endsWith(':*')) return;
-        for (const [subTopic, subs] of subscribers) {
-            if (subTopic === topic || !subTopic.endsWith(':*')) continue;
-            const base = subTopic.slice(0, -2); // 'web2:wallet:*' → 'web2:wallet'
-            if (topic === base || topic.startsWith(base + ':')) {
-                _emit(subs, { ...msg, topic: subTopic });
-            }
-        }
-    }
-
     function _openConnection() {
         if (reconnectTimer) {
             clearTimeout(reconnectTimer);
@@ -163,12 +132,18 @@
             }
             const topic = payload?.key;
             if (!topic) return;
-            _dispatch(topic, {
-                topic,
-                eventType,
-                data: payload.data,
-                timestamp: payload.timestamp,
-            });
+            // Exact-match dispatch. Wildcard ':*' subscribers (vd 'web2:wallet:*') được
+            // SERVER fan-out tới (server-side prefix-match trong _localNotify, 2026-06-22)
+            // với payload.key = ĐÚNG key '*' đã subscribe → exact-match ở đây luôn đúng.
+            const subs = subscribers.get(topic);
+            if (!subs || !subs.size) return;
+            for (const cb of subs) {
+                try {
+                    cb({ topic, eventType, data: payload.data, timestamp: payload.timestamp });
+                } catch (e) {
+                    console.error('[Web2SSE] subscriber error', e);
+                }
+            }
         };
         // realtime-sse.js emits 'update', 'deleted', 'created'. Also handle generic.
         es.addEventListener('update', handleData('update'));
