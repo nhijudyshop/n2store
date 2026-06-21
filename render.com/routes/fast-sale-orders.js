@@ -1692,6 +1692,47 @@ router.post('/from-native-order', async (req, res) => {
                                     ? src.code
                                     : `${src.code}-${lockedSplitIndex}`;
                         }
+                        // audit r6 L-fix (2026-06-21): re-check tồn DƯỚI lock theo MÃ SP
+                        // bên TRONG transaction. advisory lock theo source_id KHÔNG
+                        // serialize 2 PBH khác native-order cùng 1 SP → cả 2 qua
+                        // validateStock (ngoài txn) rồi cùng trừ → GREATEST(0,...) nuốt
+                        // âm = OVER-SELL thầm lặng. Khoá theo code (sort tránh deadlock)
+                        // + so tổng cần với tồn tươi; thiếu → throw (force=true vẫn bypass).
+                        if (b.force !== true) {
+                            const needMap = new Map();
+                            for (const line of lines) {
+                                const c = line.productCode;
+                                const q = Number(line.quantity) || 0;
+                                if (!c || q <= 0) continue;
+                                needMap.set(c, (needMap.get(c) || 0) + q);
+                            }
+                            const sortedCodes = [...needMap.keys()].sort();
+                            for (const c of sortedCodes) {
+                                await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
+                                    'web2_product_stock:' + c,
+                                ]);
+                            }
+                            if (sortedCodes.length) {
+                                const sres = await client.query(
+                                    `SELECT code, stock FROM web2_products WHERE code = ANY($1::text[])`,
+                                    [sortedCodes]
+                                );
+                                const sMap = new Map(
+                                    sres.rows.map((row) => [row.code, Number(row.stock) || 0])
+                                );
+                                const viol = [];
+                                for (const [c, reqd] of needMap) {
+                                    const avail = sMap.has(c) ? sMap.get(c) : 0;
+                                    if (reqd > avail)
+                                        viol.push({ code: c, requested: reqd, available: avail });
+                                }
+                                if (viol.length) {
+                                    const err = new Error('over_sell');
+                                    err.__overSell = viol;
+                                    throw err;
+                                }
+                            }
+                        }
                         const insRes = await client.query(
                             `INSERT INTO fast_sale_orders (
                 number, display_stt, source,
@@ -2024,6 +2065,15 @@ router.post('/from-native-order', async (req, res) => {
         );
         res.json({ success: true, order: o });
     } catch (e) {
+        // audit r6 L-fix: over-sell phát hiện dưới lock trong txn → trả 400 đúng
+        // format over_sell (client đã xử lý data.error==='over_sell' + violations).
+        if (e && e.__overSell) {
+            return res.status(400).json({
+                error: 'over_sell',
+                message: 'Tạo PBH thất bại: số lượng vượt tồn kho ở 1 hoặc nhiều SP',
+                violations: e.__overSell,
+            });
+        }
         console.error('[FAST-SALE-ORDERS] from-native-order error:', e.message);
         res.status(500).json({ error: e.message });
     }
