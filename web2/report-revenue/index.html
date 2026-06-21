@@ -561,7 +561,7 @@
                                     <td class="right">${c.pbh.count} <span style="color:#9ca3af;font-size:11px;">/ ${fmtMoney(c.pbh.total)}</span></td>
                                     <td class="right" style="color:#10b981;font-weight:700;">${fmtMoney(c.combinedTotal)}</td>
                                     <td>
-                                        <button class="web2-btn web2-btn-default web2-btn-xs" title="Xem khách 360°" aria-label="Xem khách 360°" style="color:#0068ff;" onclick="openCustomerModal(${c.customerId})">
+                                        <button class="web2-btn web2-btn-default web2-btn-xs" title="Xem khách 360°" aria-label="Xem khách 360°" style="color:#0068ff;" onclick="openCustomerModal(${Number(c.customerId) || 0})">
                                             <i data-lucide="user-circle" style="width:12px;height:12px;"></i>
                                         </button>
                                     </td>
@@ -588,7 +588,7 @@
                         <div style="background:#fff;border-radius:10px;max-width:760px;width:100%;padding:0;box-shadow:0 16px 48px rgba(0,0,0,0.15);">
                             <div style="padding:14px 18px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;justify-content:space-between;">
                                 <strong id="c360Title" style="font-size:14px;color:#1f2937;">Khách hàng 360°</strong>
-                                <button id="c360Close" style="background:transparent;border:none;font-size:18px;cursor:pointer;color:#6b7280;">×</button>
+                                <button id="c360Close" aria-label="Đóng" style="background:transparent;border:none;font-size:18px;cursor:pointer;color:#6b7280;padding:8px;min-width:44px;min-height:44px;">×</button>
                             </div>
                             <div id="c360Body" style="padding:16px;font-size:13px;color:#374151;">Đang tải…</div>
                         </div>`;

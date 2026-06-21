@@ -51,10 +51,14 @@ router.get('/', requireWeb2AuthSoft, async (req, res) => {
             const r = await pool.query(
                 // TM-revenue7d-utc FIX (2026-06-12): pin GMT+7 như revenue_today —
                 // ::date trần theo session UTC gom đơn 00:00-07:00 VN về hôm trước.
+                // audit r3 FIX: WHERE lọc theo NGÀY VN (khớp GROUP BY +7) thay vì cửa sổ
+                // rolling 7×24h UTC → bucket sớm nhất không bị cắt nửa ngày (off-by-one).
                 `SELECT (date_invoice AT TIME ZONE 'Asia/Ho_Chi_Minh')::date AS d,
                         COALESCE(SUM(amount_total), 0)::bigint AS s
                  FROM fast_sale_orders
-                 WHERE state = 'done' AND date_invoice > NOW() - INTERVAL '7 days'
+                 WHERE state = 'done'
+                   AND (date_invoice AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
+                       > (NOW() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date - 7
                  GROUP BY d ORDER BY d`
             );
             out.revenue_7d = r.rows.map((x) => ({ date: x.d, amount: Number(x.s) }));

@@ -47,10 +47,15 @@ let _logSeq = 0;
 // web2-api KHÔNG set env này → không forward (tránh loop). Admin topic loại trừ.
 let _forwardTarget = null; // { url, secret }
 function setForwardTarget(target) {
-    _forwardTarget =
-        target && target.url
-            ? { url: String(target.url).replace(/\/$/, ''), secret: target.secret || '' }
-            : null;
+    // Guard SSRF nhẹ (audit r3): forward URL từ env (ops set) nhưng vẫn bắt buộc
+    // https → tránh leak secret qua http / target nội bộ vô tình. Prod = onrender.com https.
+    const rawUrl = target && target.url ? String(target.url).replace(/\/$/, '') : '';
+    if (rawUrl && !/^https:\/\//i.test(rawUrl)) {
+        console.error(`[SSE-WEB2] Forward target REJECTED (không phải https): ${rawUrl}`);
+        _forwardTarget = null;
+        return;
+    }
+    _forwardTarget = rawUrl ? { url: rawUrl, secret: (target && target.secret) || '' } : null;
     if (_forwardTarget) {
         console.log(`[SSE-WEB2] Cross-instance forward ENABLED → ${_forwardTarget.url}`);
     }
@@ -419,9 +424,20 @@ router.post('/sse/relay-notify', (req, res) => {
     }
     const { key, data, event } = req.body || {};
     if (!key) return res.status(400).json({ success: false, error: 'Missing key parameter' });
+    // Hardening relay (audit r3 2026-06-21): (1) KHÔNG cho relay topic admin
+    // (web2:_admin:*) cross-instance; (2) whitelist event type; (3) cap payload
+    // chống DoS amplification (mỗi relay fan-out N client).
+    if (String(key).startsWith('web2:_admin:')) {
+        return res.status(403).json({ success: false, error: 'admin topics cannot be relayed' });
+    }
+    const VALID_EVENTS = ['update', 'created', 'deleted', 'change', 'test', 'log'];
+    const evt = VALID_EVENTS.includes(event) ? event : 'update';
+    if (JSON.stringify(data || {}).length > 10240) {
+        return res.status(413).json({ success: false, error: 'payload too large (max 10KB)' });
+    }
     let clients = 0;
     try {
-        clients = notifyClients(key, data || { ts: Date.now() }, event || 'update');
+        clients = notifyClients(key, data || { ts: Date.now() }, evt);
     } catch (e) {
         console.error('[SSE-WEB2] relay-notify error:', e.message);
         return res.status(500).json({ success: false, error: e.message });

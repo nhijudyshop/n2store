@@ -880,7 +880,12 @@ body {
     font-size: 26px;
     cursor: pointer;
     color: #64748b;
-    padding: 0 8px;
+    /* tap target >=44px cho mobile (audit r3 a11y 2026-06-21) */
+    min-width: 44px;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     line-height: 1;
 }
 #prQuickForm {

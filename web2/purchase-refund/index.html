@@ -11,7 +11,7 @@
 
         <!-- Firebase SDK gỡ 2026-06-14: so-order đã sang Postgres (/api/web2-so-order), picker không dùng Firestore -->
         <script src="../../shared/js/notification-system.js?v=20260521b"></script>
-        <link rel="stylesheet" href="css/purchase-refund.css?v=20260620antilag" />
+        <link rel="stylesheet" href="css/purchase-refund.css?v=20260621a11y" />
         <link rel="stylesheet" href="../../web2/shared/web2-theme.css?v=20260613z" />
     </head>
     <body>
@@ -104,7 +104,7 @@
             <div class="pr-quick-content">
                 <header class="pr-quick-head">
                     <h2><i data-lucide="undo-2"></i> Trả hàng cho NCC</h2>
-                    <button data-pr-quick-close class="pr-quick-close">×</button>
+                    <button data-pr-quick-close class="pr-quick-close" aria-label="Đóng">×</button>
                 </header>
                 <form id="prQuickForm">
                     <div class="pr-quick-info" id="prQuickInfo">
@@ -166,7 +166,7 @@
             <div class="pr-quick-content pr-bulk-content">
                 <header class="pr-quick-head">
                     <h2><i data-lucide="undo-2"></i> Trả hàng cho NCC</h2>
-                    <button data-pr-bulk-close class="pr-quick-close">×</button>
+                    <button data-pr-bulk-close class="pr-quick-close" aria-label="Đóng">×</button>
                 </header>
                 <form id="prBulkForm">
                     <div class="pr-quick-info" id="prBulkInfo">
@@ -238,7 +238,7 @@
             <div class="pr-modal-content">
                 <header>
                     <h2 id="prModalTitle">Phiếu trả hàng NCC mới</h2>
-                    <button data-pr-modal-close class="pr-modal-close">×</button>
+                    <button data-pr-modal-close class="pr-modal-close" aria-label="Đóng">×</button>
                 </header>
                 <form id="prForm">
                     <div class="pr-form-grid">
@@ -362,7 +362,9 @@
             <div class="pr-picker-content">
                 <header class="pr-picker-head">
                     <h2><i data-lucide="package-search"></i> Chọn SP từ Kho — để trả NCC</h2>
-                    <button data-pr-picker-close class="pr-picker-close">×</button>
+                    <button data-pr-picker-close class="pr-picker-close" aria-label="Đóng">
+                        ×
+                    </button>
                 </header>
                 <div class="pr-picker-filters">
                     <input

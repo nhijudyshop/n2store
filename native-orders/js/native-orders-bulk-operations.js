@@ -58,8 +58,13 @@
         }
         const phone = Array.from(phones)[0] || '(chưa có SĐT)';
         const customerName = orders[0].customerName || '';
+        // STT confirm phải khớp list: dùng computeOrderStt (ưu tiên campaignStt cho
+        // đơn livestream) thay vì displayStt trần (audit r3 HIGH 2026-06-21).
         const stts = orders
-            .map((o) => Number(o.displayStt) || 0)
+            .map((o) => {
+                const n = parseInt(NO.computeOrderStt(o), 10);
+                return Number.isFinite(n) ? n : 0;
+            })
             .filter(Boolean)
             .sort((a, b) => a - b);
         const totalQty = orders.reduce(

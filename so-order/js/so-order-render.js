@@ -711,8 +711,11 @@
         // Flatten rows across all shipments for tab-wide totals
         const allRows = (tab.shipments || []).flatMap((s) => s.rows);
         const totalQty = allRows.reduce((s, r) => s + (Number(r.qty) || 0), 0);
+        // Tổng tiền footer = Σ(SL × GIÁ NHẬP) — đơn MUA NCC tính theo giá nhập, KHỚP
+        // modal updateModalTotals (so-order-modal-core:456-458). Trước dùng sellPrice
+        // → footer phồng theo giá bán, lệch tổng tiền thật (audit r3 CRITICAL 2026-06-21).
         const subtotalVnd = allRows.reduce(
-            (s, r) => s + SO.toVnd(Number(r.sellPrice) || 0, tab) * (Number(r.qty) || 0),
+            (s, r) => s + SO.toVnd(Number(r.costPrice) || 0, tab) * (Number(r.qty) || 0),
             0
         );
         // 2026-06-16: footer giảm giá / phí ship = TỔNG các ĐƠN (orderAdjustments)

@@ -759,7 +759,7 @@
             if (data.order) {
                 const i = NO.STATE.orders.findIndex((o) => o.code === code);
                 if (i >= 0) NO.STATE.orders[i] = data.order;
-                renderOrders();
+                NO.renderRows(); // audit r3: trước gọi renderOrders() không tồn tại → ReferenceError, list không refresh sau huỷ
             }
         } catch (e) {
             console.error('[cancelOrder]', e);
