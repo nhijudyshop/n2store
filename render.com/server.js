@@ -649,6 +649,7 @@ const web2VariantsRoutes = require('./routes/web2-variants');
 const web2GenericRoutes = require('./routes/web2-generic');
 const web2OrderTagsRoutes = require('./routes/web2-order-tags'); // WEB2.0 — TAG đơn hàng (auto theo trigger)
 const web2ElevenLabsRoutes = require('./routes/web2-elevenlabs'); // WEB2.0 — ElevenLabs TTS proxy (video-maker)
+const web2CampaignProductsRoutes = require('./routes/web2-campaign-products'); // WEB2.0 — SP trong chiến dịch livestream (TV board)
 const attendanceRoutes = require('./routes/attendance');
 const admsRoutes = require('./routes/adms');
 const usersRoutes = require('./routes/users');
@@ -775,6 +776,7 @@ app.use('/api/pbh-reports', pbhReportsRoutes);
 app.use('/api/web2-products', web2ProductsRoutes);
 app.use('/api/web2-order-tags', web2OrderTagsRoutes); // WEB2.0 — TAG đơn hàng config (auto theo trigger)
 app.use('/api/web2-elevenlabs', web2ElevenLabsRoutes); // WEB2.0 — ElevenLabs TTS proxy (video-maker)
+app.use('/api/web2-campaign-products', web2CampaignProductsRoutes); // WEB2.0 — SP trong chiến dịch livestream (TV board)
 app.use('/api/web2-returns', web2ReturnsRoutes); // WEB2.0 — Thu về (goods return)
 app.use('/api/web2-variants', web2VariantsRoutes);
 app.use('/api/web2/cutout', require('./routes/web2-cutout')); // WEB2.0 photo-studio cutout (PhotoRoom) — TRƯỚC generic
@@ -1144,6 +1146,9 @@ if (process.env.WEB2_API_FORWARD_URL && web2RealtimeSseRoutes.setForwardTarget) 
 // (block scope đã verified bug — SSE event không fire dù require cached).
 if (web2ProductsRoutes.initializeNotifiers) {
     web2ProductsRoutes.initializeNotifiers(web2RealtimeSseRoutes.notifyClients);
+}
+if (web2CampaignProductsRoutes.initializeNotifiers) {
+    web2CampaignProductsRoutes.initializeNotifiers(web2RealtimeSseRoutes.notifyClients);
 }
 if (nativeOrdersRoutes.initializeNotifiers) {
     nativeOrdersRoutes.initializeNotifiers(web2RealtimeSseRoutes.notifyClients);

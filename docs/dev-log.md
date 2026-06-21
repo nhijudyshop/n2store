@@ -2,6 +2,13 @@
 
 ## 2026-06-21
 
+### [feat] TV Livestream Web 2.0 (Phase 1/6 — backend SP⇄chiến dịch)
+
+User: shop live cần 1 màn TV cho người live (user1) xem ẢNH TO + TỒN KHO + SỐ CHỜ HÀNG + biến thể; user2 ở dưới nhập số NCC báo realtime. Board xoay quanh **chiến dịch livestream** (kiểu live-chat), user2 cho SP vào chiến dịch (ưu tiên SP Sổ Order chờ hàng). Chiến dịch = module dùng chung. Chạy **2 workflow audit (7+4 agent)** trước khi code.
+
+- **Phát hiện audit**: kho = `web2_products` (mỗi biến thể 1 row; `stock`=tồn, `pending_qty`+`status=CHO_MUA`=chờ hàng = "số NCC báo" user2 nhập — user chốt dùng pending_qty). Chiến dịch = `web2_live_parent_campaigns` (web2-live-comments.js) **chỉ gom BÀI, chưa có SP**. Logic chiến dịch FORK 2 nơi (live-campaign-manager.js + native-orders-filters-campaigns.js), chưa có shared. TV cũ `soluong-live/` = Web 1.0 (Firebase+TPOS) — chỉ mượn UX.
+- **Phase 1 (backend)**: bảng nối MỚI `web2_campaign_products` (campaign_id, product_code, sort, pinned, added_by, UNIQUE(campaign_id,product_code)) + route `render.com/routes/web2-campaign-products.js` (GET list JOIN kho, POST add bulk sort-cuối, DELETE, PATCH /reorder, PATCH /pin) + SSE topic RIÊNG `web2:campaign-products` (membership; tồn/chờ hàng đã có `web2:products` lo). Wire server.js (require+mount+initializeNotifiers). Worker tự route `/api/web2-*` (routes.js:391) → khỏi sửa. KHÔNG thêm cột web2_products (số NCC báo = pending_qty sẵn có).
+
 ### [refactor+security] Hệ KPI — gom 1 nguồn module (core + Web2Kpi) + enforce scope NV/admin + fix bug
 
 User: "NV nào thấy KPI nv đó, admin thấy tất cả → KPI chính chia module để trang tham chiếu → audit → test → lặp đến hoàn hảo". Chạy **workflow audit 11-agent** (42 findings · 3 critical · 17 high · 5 scope-leak xác nhận) → kế hoạch → thực thi.
