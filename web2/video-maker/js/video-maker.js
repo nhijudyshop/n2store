@@ -56,6 +56,22 @@
     }
 
     function applyCanvasSize() {
+        // Lồng tiếng video → canvas khớp kích thước video gốc (cap 1280 cạnh dài) để
+        // giữ nguyên khung hình, không crop.
+        if (importActive()) {
+            const v = global.Web2VideoImport.el();
+            const vw = v?.videoWidth || 0;
+            const vh = v?.videoHeight || 0;
+            if (vw && vh) {
+                const cap = 1280;
+                const scale = Math.min(1, cap / Math.max(vw, vh));
+                canvas.width = Math.round(vw * scale) || vw;
+                canvas.height = Math.round(vh * scale) || vh;
+                drawAt(0);
+                fitPreview();
+                return;
+            }
+        }
         const d = dims();
         canvas.width = d.w;
         canvas.height = d.h;
@@ -79,7 +95,16 @@
         canvas.style.height = Math.max(40, h) + 'px';
     }
 
+    function importActive() {
+        return global.Web2VideoImport?.isActive?.();
+    }
+
     function drawAt(t) {
+        // Chế độ lồng tiếng video: vẽ khung hình video hiện tại (loop điều khiển playback).
+        if (importActive()) {
+            global.Web2VideoImport.draw(ctx, canvas.width, canvas.height);
+            return;
+        }
         global.Web2VideoRender.drawFrame(ctx, canvas.width, canvas.height, state.scenes, t, {
             accent: state.accent,
             transitionDur: state.transitionDur,
@@ -87,10 +112,14 @@
     }
 
     function totalDur() {
-        const scenes = global.Web2VideoRender.totalDuration(state.scenes);
         const narr = state.narration.samples
             ? state.narration.samples.length / state.narration.sampleRate
             : 0;
+        if (importActive()) {
+            const vid = global.Web2VideoImport.el()?.duration || 0;
+            return Math.max(vid, narr, 0.1);
+        }
+        const scenes = global.Web2VideoRender.totalDuration(state.scenes);
         return Math.max(scenes, narr, 0.1);
     }
 
@@ -284,7 +313,7 @@
 
     // ---------- preview ----------
     function play() {
-        if (state.playing || !state.scenes.length) return;
+        if (state.playing || (!state.scenes.length && !importActive())) return;
         state.playing = true;
         $('#vmPlay').hidden = true;
         $('#vmStop').hidden = false;
@@ -294,16 +323,32 @@
         ac.resume?.();
         const graph = buildAudioGraph(ac.destination);
         graph.start();
+        // lồng tiếng: phát video gốc (tiếng gốc qua graph) đồng bộ với loop vẽ khung
+        const vid = importActive() ? global.Web2VideoImport.el() : null;
+        if (vid) {
+            global.Web2VideoImport.connect(ac, ac.destination);
+            try {
+                vid.currentTime = 0;
+            } catch {}
+            vid.play().catch(() => {});
+        }
         const loop = () => {
             const t = (performance.now() - start) / 1000;
-            if (t >= total || !state.playing) {
+            const ended = vid ? vid.ended || t >= total : t >= total;
+            if (ended || !state.playing) {
                 stop();
                 return;
             }
             drawAt(t);
             state._raf = requestAnimationFrame(loop);
         };
-        state._stopSrc = () => graph.stop();
+        state._stopSrc = () => {
+            graph.stop();
+            if (vid)
+                try {
+                    vid.pause();
+                } catch {}
+        };
         loop();
     }
     function stop() {
@@ -336,8 +381,9 @@
 
     async function exportVideo() {
         if (state.recording) return;
-        if (!state.scenes.length) return notify('Thêm ít nhất 1 cảnh', 'warning');
-        if (hasTaintedScene()) {
+        if (!state.scenes.length && !importActive())
+            return notify('Thêm ít nhất 1 cảnh hoặc import video', 'warning');
+        if (!importActive() && hasTaintedScene()) {
             return notify(
                 'Có ảnh SP không cho phép tải chéo miền (CORS) — không thể xuất video. Hãy "+ Thêm ảnh" tay hoặc thay ảnh khác.',
                 'error'
@@ -361,7 +407,11 @@
             await ac.resume?.();
             const adest = ac.createMediaStreamDestination();
             const graph = buildAudioGraph(adest);
-            if (graph.hasAudio) adest.stream.getAudioTracks().forEach((tr) => vstream.addTrack(tr));
+            // lồng tiếng video: tiếng gốc video → adest (cùng giọng đọc + nhạc nền)
+            const vid = importActive() ? global.Web2VideoImport.el() : null;
+            if (vid) global.Web2VideoImport.connect(ac, adest);
+            const hasAudio = graph.hasAudio || !!vid;
+            if (hasAudio) adest.stream.getAudioTracks().forEach((tr) => vstream.addTrack(tr));
             const rec = new MediaRecorder(
                 vstream,
                 mime ? { mimeType: mime, videoBitsPerSecond: 5_000_000 } : undefined
@@ -375,19 +425,29 @@
             // trước đó để giảm lệch tiếng/hình (race recorder-lifecycle).
             rec.start(100);
             graph.start();
+            if (vid) {
+                try {
+                    vid.currentTime = 0;
+                } catch {}
+                await vid.play().catch(() => {});
+            }
             const start = performance.now();
             await new Promise((resolve) => {
                 const loop = () => {
                     const t = (performance.now() - start) / 1000;
                     const pct = Math.min(100, Math.round((t / total) * 100));
                     barFill.style.width = pct + '%';
-                    if (t >= total) return resolve();
+                    if ((vid && vid.ended) || t >= total) return resolve();
                     drawAt(t);
                     requestAnimationFrame(loop);
                 };
                 loop();
             });
             graph.stop();
+            if (vid)
+                try {
+                    vid.pause();
+                } catch {}
             rec.stop();
             await done;
 
@@ -922,6 +982,52 @@
         });
     }
 
+    // ---------- import video để lồng tiếng ----------
+    function wireImportUi() {
+        if (!global.Web2VideoImport) return;
+        const stat = $('#vmImpStat');
+        const clearBtn = $('#vmImpClear');
+        const volRow = $('#vmImpVolRow');
+        const setStat = (m) => stat && (stat.textContent = m);
+        $('#vmImpFile')?.addEventListener('change', async (e) => {
+            const f = e.target.files?.[0];
+            e.target.value = '';
+            if (!f) return;
+            setStat('Đang đọc video…');
+            try {
+                const info = await global.Web2VideoImport.load(f);
+                applyCanvasSize();
+                drawAt(0);
+                if (clearBtn) clearBtn.hidden = false;
+                if (volRow) volRow.hidden = false;
+                setStat(
+                    `✅ ${info.name} — ${info.duration.toFixed(1)}s, ${info.w}×${info.h}. Nhập lời đọc + chọn giọng rồi bấm "Xuất video".`
+                );
+                notify(
+                    'Đã nạp video — slideshow ảnh tạm ẩn, sẽ lồng tiếng vào video này',
+                    'success'
+                );
+            } catch (err) {
+                setStat('❌ ' + (err.message || err));
+                notify('Không nạp được video', 'error');
+            }
+        });
+        clearBtn?.addEventListener('click', () => {
+            if (state.playing) stop();
+            global.Web2VideoImport.clear();
+            applyCanvasSize();
+            drawAt(0);
+            clearBtn.hidden = true;
+            if (volRow) volRow.hidden = true;
+            setStat('Đã bỏ video — quay lại chế độ slideshow ảnh.');
+        });
+        const iv = $('#vmImpVol');
+        iv?.addEventListener('input', () => {
+            global.Web2VideoImport.setVolume(Number(iv.value));
+            $('#vmImpVolVal').textContent = Math.round(Number(iv.value) * 100) + '%';
+        });
+    }
+
     function init() {
         canvas = $('#vmCanvas');
         if (!canvas) return;
@@ -932,6 +1038,7 @@
         renderScenes();
         wireSceneList();
         wireAudioUi();
+        wireImportUi();
         if (global.Web2VideoVieneuUI)
             global.Web2VideoVieneuUI.init({ state, onChange: renderVoices });
         if (global.Web2VideoLibraryUI)
