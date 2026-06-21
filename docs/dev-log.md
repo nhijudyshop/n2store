@@ -2,6 +2,20 @@
 
 ## 2026-06-21
 
+### [audit r3] Web 2.0 round-3 audit hội tụ (native/so-order app, worker, KPI, a11y) → fix 12 ✅
+
+Audit 5 mặt chưa quét sâu → 18 finding → verify → **13 confirmed**. Fix 12, defer 1 (ambiguous).
+
+- **CRITICAL** `so-order-render.js:715` — footer "Tổng tiền" dùng `sellPrice` (giá bán) thay vì `costPrice` (giá nhập) → đơn MUA NCC hiển thị tổng sai (phồng). Đổi sang costPrice, khớp `so-order-modal-core:456-458` ("Σ SL × GIÁ NHẬP").
+- **HIGH** `native-orders-pbh-bill.js:762` — gọi `renderOrders()` không tồn tại → ReferenceError, list không refresh sau huỷ đơn → `NO.renderRows()`.
+- **HIGH** `native-orders-bulk-operations.js:61` — STT confirm dùng `displayStt` trần → dùng `NO.computeOrderStt()` (ưu tiên campaignStt cho đơn livestream).
+- **HIGH** `realtime-sse-web2.js` relay-notify — chặn relay topic `web2:_admin:*` (403), cap payload 10KB (413), whitelist event type; `setForwardTarget` bắt buộc https (SSRF guard nhẹ).
+- **HIGH** `dashboard-kpi.js:57` — revenue 7d WHERE lọc rolling 7×24h UTC nhưng GROUP BY theo ngày +7 → bucket sớm bị cắt; đổi WHERE lọc theo ngày VN (khớp GROUP BY).
+- **HIGH** `report-revenue/index.html:564` — `onclick="openCustomerModal(${c.customerId})"` chưa escape → coerce `Number(c.customerId)||0` (number literal, hết XSS); `c360Close` thêm aria-label + tap-target.
+- **HIGH/MED a11y** `purchase-refund/index.html` 4 nút `×` thêm `aria-label="Đóng"`; `.pr-quick-close` tap target ≥44px.
+- **DEFER (cần user quyết)**: `dashboard-kpi.js:156` `unrecvProducts += pending.length` — "Y SP chờ" nghĩa là số DÒNG SP hay TỔNG SỐ LƯỢNG? Ambiguous → không đổi number dashboard theo phỏng đoán.
+- `node --check` pass; bump `?v=` (so-order-render, native-orders-pbh-bill/bulk, purchase-refund.css).
+
 ### [audit r2] Web 2.0 round-2 audit sâu (money/sql/xss/auth/race/pages + regression r1) ✅
 
 Workflow audit sâu 7 mặt → 44 finding → verify → **11 confirmed**. Fix 7 thật, defer 2 (money cần design), bỏ 3 false-positive. **Regression check r1: SẠCH** (không lỗi mới từ 25 fix round 1).
