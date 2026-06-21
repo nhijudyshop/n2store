@@ -26,6 +26,11 @@ const get = (name, fallback) => {
 const BASE = (get('base', 'http://localhost:8080') || '').replace(/\/$/, '');
 const USER = get('user', 'admin');
 const PASS = get('pass', 'admin@@');
+// Web 2.0 có hệ login RIÊNG (web2_auth) — capture luôn để browser test web2 "vào thẳng".
+// Mặc định dùng chung cred admin; tắt bằng --no-web2.
+const WEB2_USER = get('web2-user', USER);
+const WEB2_PASS = get('web2-pass', PASS);
+const SKIP_WEB2 = args.includes('--no-web2');
 const SECRET_FILE = get('secret-file', path.join(__dirname, '..', 'serect_dont_push.txt'));
 
 const host = new URL(BASE).host.replace(/[^\w.-]/g, '_');
@@ -49,6 +54,30 @@ const log = (...m) => console.log(`[${ts()}]`, ...m);
     await page.locator('#password').press('Enter');
     await page.waitForFunction(() => !!localStorage.getItem('loginindex_auth'), {
         timeout: 30_000,
+    });
+
+    // Web 2.0 login (cùng origin → web2_auth lưu chung localStorage với loginindex_auth).
+    // Lỗi/timeout → bỏ qua, vẫn lưu phiên Web 1.0 (best-effort).
+    if (!SKIP_WEB2) {
+        try {
+            await page.goto(`${BASE}/web2/login/index.html`, { waitUntil: 'domcontentloaded' });
+            await page.waitForSelector('#loginSubmit', { timeout: 15_000 });
+            await page.fill('#loginUsername', WEB2_USER);
+            await page.fill('#loginPassword', WEB2_PASS);
+            await page.click('#loginSubmit');
+            await page.waitForFunction(() => !!localStorage.getItem('web2_auth'), {
+                timeout: 20_000,
+            });
+            log('Web 2.0 login OK — web2_auth captured.');
+        } catch (e) {
+            log('Web 2.0 login skipped/failed (lưu Web 1.0 thôi):', e.message);
+        }
+    }
+
+    // Ổn định context (web2 login redirect có thể đang chạy) → tránh "context destroyed".
+    await page.goto(`${BASE}/`, { waitUntil: 'domcontentloaded' }).catch(() => {});
+    await page.waitForFunction(() => !!localStorage.getItem('loginindex_auth'), {
+        timeout: 15_000,
     });
 
     const snapshot = await page.evaluate(() => {
