@@ -48,6 +48,8 @@ let _listenClient = null; // dedicated PgClient cho LISTEN
 let _heartbeatTimer = null;
 let _listenReconnectTimer = null; // 1 timer reconnect duy nhất (chống double-schedule)
 let _shuttingDown = false;
+let _listenConnectedOnce = false; // đã LISTEN thành công ≥1 lần
+let _pendingResyncOnReconnect = false; // mất LISTEN sau khi đã connected → resync khi nối lại
 // Đếm để verify vòng LISTEN/NOTIFY sống (single-instance: published≈received vì
 // self-NOTIFY quay về; multi-instance: deliveredFromPeers > 0 khi instance khác phát).
 const _crossStats = { published: 0, received: 0, deliveredFromPeers: 0, lastRecvAt: 0 };
@@ -272,7 +274,14 @@ router.get('/sse', async (req, res) => {
 
     const heartbeat = setInterval(() => {
         try {
-            res.write(`:heartbeat ${Date.now()}\n\n`);
+            // NAMED event (KHÔNG comment ':heartbeat') — bridge nghe 'heartbeat' để
+            // bump lastEventAt (KHÔNG dispatch tới subscriber). Rank 5 (2026-06-22):
+            // comment ':heartbeat' EventSource nuốt im (onmessage không thấy) → bridge
+            // tưởng connection im lặng > 60s → refocus reopen-storm (resync + reload
+            // toàn bộ subscriber) trên tab quiet nhưng connection vẫn SỐNG. Named
+            // event vẫn giữ keep-alive cho bridge cũ (unhandled named event vô hại).
+            res.write(`event: heartbeat\n`);
+            res.write(`data: ${Date.now()}\n\n`);
         } catch (_) {
             clearInterval(heartbeat);
         }
@@ -457,6 +466,28 @@ function _localBroadcast(data, eventType = 'broadcast') {
     return totalNotified;
 }
 
+// Rank 2 (2026-06-22): báo MỌI SSE client LOCAL của instance này "re-fetch 1 lần".
+// Dùng khi LISTEN client (nhận NOTIFY cross-instance) vừa nối lại sau khi MẤT: trong
+// cửa sổ mất LISTEN, NOTIFY từ instance khác KHÔNG được queue (Postgres LISTEN/NOTIFY
+// không buffer cho listener đang rớt) → instance này bỏ lỡ vĩnh viễn các event đó, mà
+// socket SSE tới browser KHÔNG hề đứt nên _dispatchResync phía client KHÔNG fire → trang
+// stale âm thầm. Bắn event 'resync' (bridge map → _dispatchResync) để browser tự lành.
+function _broadcastLocalResync(reason) {
+    let n = 0;
+    const msg = JSON.stringify({ reason: reason || 'resync', bootId: BOOT_ID, ts: Date.now() });
+    sseClients.forEach((clients) => {
+        clients.forEach((client) => {
+            try {
+                client.write(`event: resync\n`);
+                client.write(`data: ${msg}\n\n`);
+                n++;
+            } catch {}
+        });
+    });
+    if (n > 0) console.log(`[SSE-WEB2] local resync → ${n} client (reason=${reason})`);
+    return n;
+}
+
 // =====================================================
 // DIAGNOSTIC ENDPOINTS
 // =====================================================
@@ -632,23 +663,45 @@ try {
 
 // Publish 1 notify ra channel để các instance khác broadcast local. Admin log
 // KHÔNG fan-out. Payload nhỏ (tickle {action,code,ts}) — guard 7KB (limit pg ~8KB).
+// Postgres NOTIFY payload hard-limit ~8000 bytes → giữ < 7800 cho an toàn.
+const CROSS_PAYLOAD_MAX = 7800;
 function _publishCrossInstance(kind, key, data, eventType) {
     if (!_pgNotify || _shuttingDown) return;
     if (key === ADMIN_LOG_TOPIC) return;
-    try {
-        const payload = JSON.stringify({
+    const build = (d) =>
+        JSON.stringify({
             kind,
             key: key || null,
-            data: data || null,
+            data: d,
             eventType: eventType || 'update',
             origin: BOOT_ID,
             ts: Date.now(),
         });
-        if (payload.length > 7000) {
+    try {
+        let payload = build(data || null);
+        if (payload.length > CROSS_PAYLOAD_MAX) {
+            // Rank 1 (2026-06-22): KHÔNG bỏ cả NOTIFY (all-or-nothing) — degrade về
+            // TICKLE nhẹ giữ {action,code,truncated}. Bridge client re-fetch trên MỌI
+            // event nên mảng codes[] nặng (vd web2-products confirm-purchase /
+            // mark-printed bulk theo NCC) KHÔNG load-bearing cho tính đúng → chỉ rớt
+            // DETAIL, KHÔNG rớt tín hiệu cross-instance (tránh tái diễn silent loss
+            // lúc rolling-deploy chồng instance — đúng lớp bug feature này sinh ra để diệt).
+            const lite = {
+                action: (data && data.action) || null,
+                code: (data && data.code) || null,
+                truncated: true,
+                ts: Date.now(),
+            };
+            payload = build(lite);
             console.warn(
-                `[SSE-WEB2] cross-instance payload quá lớn (${payload.length}b) — bỏ NOTIFY key=${key}`
+                `[SSE-WEB2] cross-instance payload > ${CROSS_PAYLOAD_MAX}b — degrade về tickle (key=${key}, action=${lite.action})`
             );
-            return;
+            if (payload.length > CROSS_PAYLOAD_MAX) {
+                console.warn(
+                    `[SSE-WEB2] tickle vẫn > ${CROSS_PAYLOAD_MAX}b (key dài bất thường) — bỏ NOTIFY key=${key}`
+                );
+                return;
+            }
         }
         _crossStats.published++;
         _pgNotify(payload);
@@ -776,6 +829,9 @@ async function _connectListen() {
             if (client._lost) return;
             client._lost = true;
             if (err) console.warn('[SSE-WEB2] LISTEN connection lost:', err.message);
+            // Rank 2: đã từng connected → đánh dấu cần resync khi nối lại (event trong
+            // cửa sổ rớt KHÔNG được pg queue → phải báo client re-fetch khi LISTEN sống lại).
+            if (_listenConnectedOnce) _pendingResyncOnReconnect = true;
             if (_listenClient === client) _listenClient = null;
             try {
                 client.removeAllListeners();
@@ -796,6 +852,15 @@ async function _connectListen() {
         console.log(
             `[SSE-WEB2] cross-instance LISTEN/NOTIFY active (boot=${BOOT_ID}, channel=${PG_CHANNEL})`
         );
+        // Rank 2: nối lại LISTEN sau khi MẤT → bắn resync local để client tự re-fetch
+        // (bù event bỏ lỡ trong cửa sổ rớt). Lần connect ĐẦU (chưa từng mất) KHÔNG resync.
+        if (_pendingResyncOnReconnect) {
+            _pendingResyncOnReconnect = false;
+            try {
+                _broadcastLocalResync('listen-reconnect');
+            } catch {}
+        }
+        _listenConnectedOnce = true;
     } catch (e) {
         console.warn('[SSE-WEB2] LISTEN connect fail (retry 3s):', e.message);
         try {
@@ -819,15 +884,37 @@ function initCrossInstance(pool) {
         return;
     }
     _crossPool = pool;
+    // Rank 7 (2026-06-22): cap pool-fallback đang chạy để 1 web2Db blip + notify burst
+    // KHÔNG vắt kiệt pool (max ~10) làm CHẾT mọi endpoint web2. LISTEN-client path
+    // KHÔNG đếm (1 connection, không checkout pool). Vượt cap → bỏ cross-publish
+    // (local delivery vẫn chạy; rank 2 resync-on-relisten tự lành khi LISTEN nối lại).
+    let _poolNotifyInflight = 0;
+    const POOL_NOTIFY_MAX_INFLIGHT = 12;
+    const poolNotify = (payloadStr) => {
+        if (_poolNotifyInflight >= POOL_NOTIFY_MAX_INFLIGHT) return;
+        _poolNotifyInflight++;
+        Promise.resolve(pool.query('SELECT pg_notify($1, $2)', [PG_CHANNEL, payloadStr]))
+            .catch((e) => console.warn('[SSE-WEB2] pg_notify (pool) fail:', e.message))
+            .finally(() => {
+                _poolNotifyInflight--;
+            });
+    };
     _pgNotify = (payloadStr) => {
         // Ưu tiên publish qua dedicated LISTEN client (1 connection vừa LISTEN vừa
         // NOTIFY được) → KHÔNG checkout pool mỗi notify (tránh pool churn lúc /ingest
-        // bắn dồn). LISTEN client đang reconnect (null) → fallback pool. Fire-and-forget.
+        // bắn dồn). Fire-and-forget.
         const c = _listenClient;
-        const run = c
-            ? c.query('SELECT pg_notify($1, $2)', [PG_CHANNEL, payloadStr])
-            : pool.query('SELECT pg_notify($1, $2)', [PG_CHANNEL, payloadStr]);
-        Promise.resolve(run).catch((e) => console.warn('[SSE-WEB2] pg_notify fail:', e.message));
+        if (c) {
+            // Rank 6 (2026-06-22): half-open (TCP chết im, dead-but-undetected tới
+            // khoảng heartbeat 30s + ping 8s) → query reject → fallback pool 1 lần để
+            // KHÔNG rớt NOTIFY cross-instance (đúng lớp silent-drop layer này sinh ra để diệt).
+            Promise.resolve(c.query('SELECT pg_notify($1, $2)', [PG_CHANNEL, payloadStr])).catch(
+                () => poolNotify(payloadStr)
+            );
+        } else {
+            // LISTEN client đang reconnect (null) → pool fallback CÓ CAP (rank 7).
+            poolNotify(payloadStr);
+        }
     };
     _ensureInstanceTable()
         .then(() => _heartbeat())

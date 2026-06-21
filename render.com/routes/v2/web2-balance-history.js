@@ -1104,13 +1104,11 @@ router.post('/manual-deposit', requireWeb2AuthSoft, async (req, res) => {
                     ts: Date.now(),
                 });
                 if (target === 'KH') {
+                    // Exact per-phone tickle: client bridge prefix-match (rank 3, 2026-06-22)
+                    // đưa nó tới subscriber 'web2:wallet:*' (trang ví KH/NCC). Bỏ
+                    // 'web2:wallet:update' (DEAD — không ai subscribe literal đó; sau
+                    // prefix-match còn double-fire ':*' subscriber).
                     notify(`web2:wallet:${phone}`, {
-                        action: 'manual-deposit',
-                        amount,
-                        ts: Date.now(),
-                    });
-                    notify('web2:wallet:update', {
-                        phone,
                         action: 'manual-deposit',
                         amount,
                         ts: Date.now(),

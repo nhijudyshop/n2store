@@ -9,7 +9,10 @@
 // Server side (TÁCH RIÊNG khỏi Web 1.0 từ 2026-05-26):
 //   render.com/routes/realtime-sse-web2.js — notifyClients(topic, data, eventType)
 //   Endpoint: /api/realtime/web2/sse?keys=web2:foo,web2:bar
-// CF Worker proxies /api/realtime/web2/* → n2store-fallback Render (handleRealtimeProxy).
+// CF Worker (isWeb2Path) proxies /api/realtime/web2/* → web2-api Render (nơi GIỮ SSE
+// client thật). n2store-fallback chỉ HTTP-relay notify Web 2.0 phát sinh ở Web 1.0
+// (SePay→ví KH) qua /sse/relay-notify; cross-instance web2-api↔web2-api = Postgres
+// LISTEN/NOTIFY (channel web2_sse). Xem realtime-sse-web2.js header.
 //
 // Public API:
 //   Web2SSE.subscribe(topic, callback) → unsubscribe fn
@@ -67,6 +70,37 @@
         }
     }
 
+    function _emit(subs, msg) {
+        if (!subs || !subs.size) return;
+        for (const cb of subs) {
+            try {
+                cb(msg);
+            } catch (e) {
+                console.error('[Web2SSE] subscriber error', e);
+            }
+        }
+    }
+
+    // Dispatch 1 event tới (a) subscriber EXACT topic, và (b) subscriber WILDCARD
+    // 'web2:foo:*' khi topic khớp prefix. Rank 3 (2026-06-22): server có route phát
+    // EXACT key 'web2:wallet:<phone>' (KHÔNG qua notifyClientsWildcard) → trang
+    // subscribe 'web2:wallet:*' sẽ MISS nếu chỉ exact-match → ví / balance-history
+    // stale trên PBH trừ ví, returns refund, manual deposit. Prefix-match đóng CẢ LỚP
+    // này (mọi route exact hiện tại + tương lai), mirror server _localNotifyWildcard.
+    function _dispatch(topic, msg) {
+        _emit(subscribers.get(topic), msg);
+        // payload.key TỰ là '*' key (server wildcard path) → đã exact-match ở trên,
+        // KHÔNG prefix-match nữa (tránh double-dispatch cùng subscriber).
+        if (topic.endsWith(':*')) return;
+        for (const [subTopic, subs] of subscribers) {
+            if (subTopic === topic || !subTopic.endsWith(':*')) continue;
+            const base = subTopic.slice(0, -2); // 'web2:wallet:*' → 'web2:wallet'
+            if (topic === base || topic.startsWith(base + ':')) {
+                _emit(subs, { ...msg, topic: subTopic });
+            }
+        }
+    }
+
     function _openConnection() {
         if (reconnectTimer) {
             clearTimeout(reconnectTimer);
@@ -117,15 +151,12 @@
             }
             const topic = payload?.key;
             if (!topic) return;
-            const subs = subscribers.get(topic);
-            if (!subs || !subs.size) return;
-            for (const cb of subs) {
-                try {
-                    cb({ topic, eventType, data: payload.data, timestamp: payload.timestamp });
-                } catch (e) {
-                    console.error('[Web2SSE] subscriber error', e);
-                }
-            }
+            _dispatch(topic, {
+                topic,
+                eventType,
+                data: payload.data,
+                timestamp: payload.timestamp,
+            });
         };
         // realtime-sse.js emits 'update', 'deleted', 'created'. Also handle generic.
         es.addEventListener('update', handleData('update'));
@@ -136,6 +167,20 @@
         // không nghe làm recipe verify CLAUDE.md false-negative ("curl thấy
         // event mà page im lặng").
         es.addEventListener('test', handleData('test'));
+        // Rank 2 (2026-06-22): server bắn 'resync' khi LISTEN client (cross-instance)
+        // nối lại sau khi mất → browser re-fetch toàn bộ (bù event bỏ lỡ trong cửa sổ
+        // rớt — lúc đó socket SSE KHÔNG đứt nên reconnect-resync phía client không fire).
+        es.addEventListener('resync', () => {
+            lastEventAt = Date.now();
+            _dispatchResync();
+        });
+        // Rank 5 (2026-06-22): heartbeat NAMED event 30s → CHỈ bump lastEventAt (biết
+        // connection còn sống), KHÔNG dispatch tới subscriber. Trước server gửi comment
+        // ':heartbeat' EventSource nuốt im → lastEventAt không nhúc nhích → refocus
+        // tưởng im lặng > 60s → reopen-storm (resync + reload toàn bộ) trên tab quiet còn sống.
+        es.addEventListener('heartbeat', () => {
+            lastEventAt = Date.now();
+        });
 
         es.onerror = () => {
             // EventSource auto-reconnects, but if connection is closed by
@@ -237,7 +282,11 @@
                 // vì lastConnectedAt (lúc connect) → chỉ reopen khi im lặng quá lâu
                 // THẬT SỰ, không force-reopen connection đang sống & nhận event đều.
                 const since = Date.now() - (lastEventAt || lastConnectedAt);
-                if (!es || es.readyState !== EventSource.OPEN || since > 60000) {
+                // Rank 5 (2026-06-22): heartbeat NAMED event giờ bump lastEventAt mỗi 30s
+                // nên 'since' chỉ lớn khi connection THẬT SỰ chết. Ngưỡng 90s = 3 nhịp
+                // heartbeat margin → 1 nhịp rớt do hiccup KHÔNG gây reopen oan. Reopen chỉ
+                // khi socket không còn OPEN, hoặc im lặng vượt 90s (suspended/half-open thật).
+                if (!es || es.readyState !== EventSource.OPEN || since > 90000) {
                     _openConnection();
                 }
             }

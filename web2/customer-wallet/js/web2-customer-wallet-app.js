@@ -228,18 +228,39 @@
     let _sseUnsub = null;
     function setupSSE() {
         if (!window.Web2SSE?.subscribe) return;
+        // Coalesce tickle cùng phone trong cửa sổ ngắn → 1 refresh + 1 toast. Rank 3 +
+        // SePay dual-emit (exact 'web2:wallet:<phone>' + wildcard 'web2:wallet') có thể
+        // bắn 2 event cho cùng 1 lần nạp → tránh double-fetch / double-toast (2026-06-22).
+        const _pendingPhones = new Set();
+        let _flushTimer = null;
+        const _flush = () => {
+            _flushTimer = null;
+            const phones = Array.from(_pendingPhones);
+            _pendingPhones.clear();
+            for (const p of phones) refreshSinglePhone(p).catch(() => {});
+            if (phones.length) {
+                notify(
+                    phones.length === 1
+                        ? `💳 Ví Web 2.0 của ${phones[0]} vừa cập nhật`
+                        : `💳 ${phones.length} ví Web 2.0 vừa cập nhật`,
+                    'info'
+                );
+            }
+        };
         // web2:wallet:* — wildcard cho mọi update từ Web 2.0 wallet service
         _sseUnsub = window.Web2SSE.subscribe('web2:wallet:*', (msg) => {
-            // 1D FIX (2026-06-12): payload đã strip PII từ S5 (chỉ {action, phone, ts})
-            // — đọc msg.data.transaction.* luôn undefined nên toast cũ chết im lặng.
-            // Toast generic + re-fetch số dư thật qua refreshSinglePhone.
+            // Rank 4 (2026-06-22): server/bridge bắn 'resync' (data:null) sau khi LISTEN/
+            // SSE nối lại → handler cũ gated trên msg.data.phone sẽ no-op → modal/list giữ
+            // số dư CŨ. resync = re-fetch TOÀN BỘ.
+            if (msg?.eventType === 'resync' || msg?.resync) {
+                load().catch(() => {});
+                return;
+            }
+            // payload đã strip PII (chỉ {action, phone, ts}) — re-fetch số dư thật.
             const phone = msg?.data?.phone;
             if (!phone) return;
-            console.log('[CW4-SSE] web2:wallet:update', phone, msg?.data?.action);
-            refreshSinglePhone(phone).catch(() => {});
-            if (msg?.data?.action === 'update' || msg?.data?.action === 'manual-deposit') {
-                notify(`💳 Ví Web 2.0 của ${phone} vừa cập nhật`, 'info');
-            }
+            _pendingPhones.add(phone);
+            if (!_flushTimer) _flushTimer = setTimeout(_flush, 400);
         });
         // Also subscribe to PBH changes (web2:fast-sale-orders → reload list)
         const reloadDebounced = debounce(() => load(), 1000);
