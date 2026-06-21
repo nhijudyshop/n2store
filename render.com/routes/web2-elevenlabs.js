@@ -41,7 +41,7 @@ function rateLimit(req, res, next) {
 }
 
 router.get('/status', (req, res) => {
-    res.json({ ok: true, configured: svc.configured() });
+    res.json({ ok: true, configured: svc.configured(), keys: svc.keyCount() });
 });
 
 router.get('/voices', async (req, res) => {
