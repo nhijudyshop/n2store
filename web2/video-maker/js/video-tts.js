@@ -24,6 +24,16 @@
     const PIPER_URL = 'https://cdn.jsdelivr.net/npm/@diffusionstudio/vits-web@1.0.3/+esm';
     const MMS_ID = 'Xenova/mms-tts-vie';
 
+    // Base worker URL (1 nguồn WEB2_CONFIG) → proxy ElevenLabs server-side (giấu API key).
+    function _workerBase() {
+        return (
+            (global.WEB2_CONFIG && global.WEB2_CONFIG.WORKER_URL) ||
+            (global.API_CONFIG && global.API_CONFIG.WORKER_URL) ||
+            'https://chatomni-proxy.nhijudyshop.workers.dev'
+        );
+    }
+    const _ELEVEN_BASE = () => _workerBase() + '/api/web2-elevenlabs';
+
     const VOICES = [
         { id: 'mms', label: 'Nữ trong trẻo', engine: 'mms', note: 'MMS' },
         { id: 'vais', label: 'Nữ ấm áp', engine: 'piper', voiceId: 'vi_VN-vais1000-medium' },
@@ -134,6 +144,96 @@
         return global.Web2Vieneu.synthesize(text, v.vieneuVoice || v.voiceId || v.id);
     }
 
+    // ---------------- KHO GIỌNG Piper (catalog 100+ giọng, on-device) ----------------
+    // vits-web có sẵn cả 1 catalog Piper (Hugging Face rhasspy/piper-voices): nhiều
+    // ngôn ngữ + giọng CÓ TÊN (en_US-ryan-high, …). Liệt kê → nghe thử → tải về máy
+    // theo nhu cầu (IndexedDB) → thêm vào danh sách chọn. 100% free, không server.
+    async function listPiperCatalog(onStatus) {
+        const tts = await _getPiper(onStatus);
+        const list = (await tts.voices()) || [];
+        let stored = [];
+        try {
+            stored = (await tts.stored()) || [];
+        } catch {}
+        const storedSet = new Set(stored);
+        return list.map((v) => {
+            const lang = v.language || {};
+            return {
+                key: v.key,
+                name: v.name || v.key,
+                quality: v.quality || '',
+                langCode: lang.code || '',
+                langName: lang.name_english || lang.name_native || lang.code || '',
+                region: lang.country_english || lang.region || '',
+                downloaded: storedSet.has(v.key),
+            };
+        });
+    }
+    async function piperStored() {
+        try {
+            const tts = await _getPiper();
+            return (await tts.stored()) || [];
+        } catch {
+            return [];
+        }
+    }
+    async function downloadPiperVoice(key, onProgress) {
+        const tts = await _getPiper();
+        await tts.download(key, (p) => {
+            // p.loaded / p.total → %
+            if (onProgress && p && p.total) onProgress(Math.round((p.loaded / p.total) * 100), p);
+        });
+        return true;
+    }
+    async function removePiperVoice(key) {
+        const tts = await _getPiper();
+        if (tts.remove) await tts.remove(key);
+        return true;
+    }
+
+    // ---------------- ElevenLabs (proxy server-side, key giấu ở Render) ----------------
+    // Free tier có giọng tên 'Adam'… nhưng KHÔNG có quyền thương mại (cần attribution /
+    // gói trả phí) — chỉ bật khi đã set key. Gọi qua worker /api/web2-elevenlabs.
+    let _elevenAvail = null; // cache {ok, configured}
+    async function elevenStatus() {
+        if (_elevenAvail) return _elevenAvail;
+        try {
+            const r = await fetch(_ELEVEN_BASE() + '/status', { credentials: 'omit' });
+            _elevenAvail = r.ok ? await r.json() : { ok: false, configured: false };
+        } catch {
+            _elevenAvail = { ok: false, configured: false };
+        }
+        return _elevenAvail;
+    }
+    async function listElevenVoices() {
+        const r = await fetch(_ELEVEN_BASE() + '/voices', { credentials: 'omit' });
+        if (!r.ok) throw new Error('ElevenLabs voices HTTP ' + r.status);
+        const d = await r.json();
+        return (d && d.voices) || [];
+    }
+    async function _elevenChunk(text, v, onStatus) {
+        onStatus && onStatus('Đang tạo giọng ElevenLabs…');
+        const r = await fetch(_ELEVEN_BASE() + '/tts', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({
+                text: String(text || ''),
+                voice_id: v.elevenId,
+                model_id: v.elevenModel || undefined,
+            }),
+        });
+        if (!r.ok) {
+            let msg = 'HTTP ' + r.status;
+            try {
+                msg = (await r.json()).error || msg;
+            } catch {}
+            throw new Error('ElevenLabs lỗi: ' + msg);
+        }
+        const ab = await r.arrayBuffer();
+        const buf = await _decodeCtx().decodeAudioData(ab);
+        return { samples: buf.getChannelData(0).slice(), sampleRate: buf.sampleRate };
+    }
+
     let _dctx = null;
     function _decodeCtx() {
         if (!_dctx) _dctx = new (global.AudioContext || global.webkitAudioContext)();
@@ -174,7 +274,9 @@
                     ? await _mmsChunk(chunks[i], onStatus)
                     : v.engine === 'vieneu'
                       ? await _vieneuChunk(chunks[i], v, onStatus)
-                      : await _piperChunk(chunks[i], v.voiceId, onStatus);
+                      : v.engine === 'elevenlabs'
+                        ? await _elevenChunk(chunks[i], v, onStatus)
+                        : await _piperChunk(chunks[i], v.voiceId, onStatus);
             sampleRate = r.sampleRate;
             parts.push(r.samples);
             if (i < chunks.length - 1) parts.push(new Float32Array(Math.round(sampleRate * 0.18)));
@@ -271,6 +373,75 @@
         return VOICES.filter((v) => v.engine === 'vieneu');
     }
 
+    // ---------------- KHO GIỌNG đã "kéo về" (persist localStorage) ----------------
+    // Giọng user chọn từ kho (Piper catalog / ElevenLabs) được thêm vào VOICES và
+    // lưu lại để lần sau mở vẫn còn. KHÔNG đụng 4 giọng built-in / VieNeu / clone.
+    const LIB_KEY = 'web2_vm_lib_voices';
+    function hasVoice(id) {
+        return VOICES.some((v) => v.id === id);
+    }
+    function _persistLib() {
+        try {
+            const lib = VOICES.filter((v) => v._lib).map((v) => ({
+                id: v.id,
+                engine: v.engine,
+                label: v.label,
+                voiceId: v.voiceId || null,
+                elevenId: v.elevenId || null,
+                elevenModel: v.elevenModel || null,
+                lang: v.lang || null,
+            }));
+            localStorage.setItem(LIB_KEY, JSON.stringify(lib));
+        } catch {}
+    }
+    // Thêm 1 giọng từ kho vào danh sách chọn. meta:
+    //   piper:      { engine:'piper', key, label, lang }
+    //   elevenlabs: { engine:'elevenlabs', elevenId, label, elevenModel? }
+    function addLibraryVoice(meta) {
+        if (!meta || !meta.engine) return null;
+        const id =
+            meta.engine === 'elevenlabs'
+                ? 'el-' + meta.elevenId
+                : 'piper-' + (meta.key || meta.voiceId);
+        if (hasVoice(id)) return id;
+        const entry = {
+            id,
+            engine: meta.engine,
+            label: meta.label || id,
+            _lib: true,
+            lang: meta.lang || '',
+        };
+        if (meta.engine === 'elevenlabs') {
+            entry.elevenId = meta.elevenId;
+            entry.elevenModel = meta.elevenModel || '';
+        } else {
+            entry.voiceId = meta.key || meta.voiceId;
+        }
+        VOICES.push(entry);
+        _persistLib();
+        return id;
+    }
+    function removeLibraryVoice(id) {
+        const i = VOICES.findIndex((v) => v.id === id && v._lib);
+        if (i >= 0) {
+            VOICES.splice(i, 1);
+            _persistLib();
+            return true;
+        }
+        return false;
+    }
+    function loadLibraryVoices() {
+        let lib = [];
+        try {
+            lib = JSON.parse(localStorage.getItem(LIB_KEY) || '[]');
+        } catch {}
+        (lib || []).forEach((m) => {
+            if (hasVoice(m.id)) return;
+            VOICES.push({ ...m, _lib: true });
+        });
+        return VOICES.filter((v) => v._lib);
+    }
+
     global.Web2VideoTTS = {
         VOICES,
         TONES,
@@ -283,5 +454,18 @@
         registerVieneuVoices,
         isCueCapable,
         stripCues,
+        // kho giọng Piper (free, on-device)
+        listPiperCatalog,
+        piperStored,
+        downloadPiperVoice,
+        removePiperVoice,
+        // ElevenLabs (proxy)
+        elevenStatus,
+        listElevenVoices,
+        // quản lý giọng đã kéo về
+        addLibraryVoice,
+        removeLibraryVoice,
+        loadLibraryVoices,
+        hasVoice,
     };
 })(window);
