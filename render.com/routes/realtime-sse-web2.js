@@ -378,6 +378,8 @@ function _localNotify(key, data, eventType = 'update', fromPeer = false) {
     //     payload.key = ĐÚNG key '*' subscriber → bridge CŨ + MỚI đều exact-match. Bỏ qua
     //     khi key TỰ là '*' (đến từ _localNotifyWildcard) → tránh double. Đóng CẢ LỚP tại
     //     1 điểm (không phụ thuộc route nhớ co-emit wildcard → hết drift).
+    //     by-design: 1 connection subscribe CẢ exact LẪN '*' cùng prefix sẽ nhận 2 lần/
+    //     event — vô hại (re-fetch idempotent); hiện không trang nào subscribe cả 2.
     if (!key.endsWith(':*')) {
         sseClients.forEach((subs, subKey) => {
             if (subKey === key || !subKey.endsWith(':*')) return;
