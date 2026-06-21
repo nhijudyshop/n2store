@@ -3,10 +3,10 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `4960f1b` — fix(web2) SSE: vá 18 finding audit cross-instance (double-deliver, reconnect, pool churn, keepalive, log noise, shutdown)
-**Last updated**: 2026-06-22 00:29:46 +07
-**Latest session**: [`RESUME:20260622-002946-4960f1b`](../20260622-002946-4960f1b.md)
-**Summary**: fix(web2) SSE: vá 18 finding audit cross-instance (double-deliver, reconnect, pool churn, keepalive, log noise, shut...
+**Latest commit**: `c538ee8` — fix(web2) SSE r2: wildcard/broadcast forward (fix ví regression) + shutdown await + liveness timeout
+**Last updated**: 2026-06-22 00:45:07 +07
+**Latest session**: [`RESUME:20260622-004507-c538ee8`](../20260622-004507-c538ee8.md)
+**Summary**: fix(web2) SSE r2: wildcard/broadcast forward (fix ví regression) + shutdown await + liveness timeout
 
 ## Folders affected in this commit
 
@@ -55,7 +55,7 @@
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-06-20 12:07
 - [`referenceUI/`](./referenceUI.md) — updated 2026-06-19 14:27
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-06-20 12:07
-- [`render.com/`](./render.com.md) — updated 2026-06-22 00:29
+- [`render.com/`](./render.com.md) — updated 2026-06-22 00:45
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-21 21:25
 - [`service-costs/`](./service-costs.md) — updated 2026-06-20 12:07
