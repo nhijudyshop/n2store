@@ -2,6 +2,16 @@
 
 ## 2026-06-21
 
+### [feature a] Over-refund cap ví NCC — SERVER-AUTHORITATIVE qua so-order (cả /quick-refund + /tx)
+
+User chọn làm tiếp (a) over-refund feature. Trần (cap) SL trả NCC giờ lấy SL đã mua THẬT từ `web2_so_order` ở CẢ 2 money path, không còn no-op khi client giấu `ordered`.
+
+- **Lib dùng chung** `render.com/lib/web2-so-order-qty.js` — `loadSoOrderRowQtyMap(client)` build `Map(rowId→Σ qty)` từ so-order doc 'main'. Tách lib vì `purchase-refund.js` đã `require('./web2-supplier-wallet')` → tránh circular require; cả 2 route cùng require lib.
+- **purchase-refund.js `/quick-refund`** (branch rowReturns): bỏ hàm `loadSoOrderRowQtyMap` local → dùng lib. Trần = min(serverQty, clientOrdered) các giá trị >0; **cap===null (không nguồn nào tra được SL mua) → REJECT 400** thay vì cho trả vô hạn (trước đây cap=null = no-op).
+- **web2-supplier-wallet.js `/tx` type=return**: thêm `loadSoOrderRowQtyMap` (đọc 1 lần trong transaction, dưới meta FOR UPDATE). Trần = min(serverQty, prevOrdered-pinned, claimedOrdered) các giá trị >0 — serverQty (so-order) ưu tiên, chỉ cho SIẾT không NỚI; **cap===null → REJECT 400**. Pin `ordered=cap` (trần siết chặt nhất) cho lần trả sau.
+- Flow purchase-refund quick/bulk (KHÔNG gửi rowReturns) + `/tx` payment KHÔNG đổi (negative-stock-by-design giữ nguyên; chỉ siết đường rowReturns). Legacy `updateSupplierWallet` (type=return không rowReturns) không ảnh hưởng.
+- Verify: `node --check` 3 file PASS; offline 8-case cap matrix PASS (server caps inflated client, no-server→client, nothing→reject, pin-tighter-wins). Money path — KHÔNG smoke prod (chỉ deploy Render mới live).
+
 ### [audit r9] Adversarial audit 7 mặt cuối (33 agent) → 16 bug → fix 16 (delivery/refund gate staged)
 
 7 finder (worker-handlers/remaining-pages/generic-entity/zalo-oa-creds/native-orders-modules/sse-notify-completeness/mutation-idempotency). 16 confirmed, fix hết:
