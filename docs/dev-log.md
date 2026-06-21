@@ -2,6 +2,18 @@
 
 ## 2026-06-21
 
+### [audit r4] Web 2.0 round-4 audit (live-chat/ai-media/products/fb/notif/perf) → fix 1, phần lớn FP/out-scope/defer
+
+Audit 6 mặt cuối → 31 finding → verify → 16 confirmed. Nhưng soi kỹ: chỉ **1 fix thật autonomous-safe**, phần lớn là false-positive / Web 1.0 / cần user quyết → tín hiệu **HỘI TỤ** cho phần sửa tự động.
+
+- **FIX ✅** `video-tts.js:196` (HIGH) — `toAudioBuffer` thêm fallback `getChannelData().set()` khi browser cũ (Safari/iOS) thiếu `copyToChannel` → hết crash phát giọng. Khớp web2-video-audio.js.
+- **FALSE-POSITIVE (KHÔNG fix — sẽ phá tính năng)**: 3 "CRITICAL IDOR" + 1 HIGH ở `v2/notifications.js` (unread-count/mark-all-read/:id/read/create thiếu lọc user_id). Thực tế notifications là **shop-wide by design**: cột `user_id` nullable, KHÔNG producer nào set user_id (toàn null = thông báo chung cho mọi NV shop nhỏ). Thêm `WHERE user_id=$1` → mọi NV thấy 0 thông báo. Muốn per-user là **đổi feature**, không phải fix bug.
+- **OUT OF SCOPE (Web 1.0)**: `v2/inventory-tracking.js` 3 HIGH unbounded LIMIT (DoS) + 1 MED NaN — inventory-tracking là **Web 1.0** (CLAUDE.md: /api/v2/\* core). KHÔNG sửa trong đợt Web 2.0; **surface cho user** xử lý riêng (cap LIMIT an toàn).
+- **NEGLIGIBLE / không sửa**: video-maker BufferSource one-shot tự GC (không leak thật); web2-products `newStatus=row.status` giữ NULL cũ (không tạo corruption mới).
+- **DEFER cho user quyết (verify caller trước)**: `web2-fb-posts.js` /list,/post-detail,/ad-insights,/ad-accounts — unauth GET đọc dữ liệu FB post của shop (KHÔNG lộ token — response không chứa token). Nên gate `requireWeb2AuthSoft` NHƯNG frontend fb-posts fetch Pancake browser-direct, chưa xác nhận caller route gửi token → gate ẩu có thể vỡ. `v2/audit-log.js` UNION `created_at` type mismatch (MED) — cần verify cast SQL kỹ.
+
+**KẾT LUẬN 4 vòng**: 51 confirmed → **44 fix đã push** (r1:25, r2:7, r3:12, r4:1) gồm 4 CRITICAL thật (capture-lock auth, zalo boot expectedUid, so-order footer cost, + r2 over-refund được re-grade). Còn lại là FP / Web 1.0 / cần user quyết (over-refund cap design, wallet UNIQUE index, dashboard SP-chờ semantics, fb-posts gate, audit-log cast, inventory-tracking Web1).
+
 ### [audit r3] Web 2.0 round-3 audit hội tụ (native/so-order app, worker, KPI, a11y) → fix 12 ✅
 
 Audit 5 mặt chưa quét sâu → 18 finding → verify → **13 confirmed**. Fix 12, defer 1 (ambiguous).
