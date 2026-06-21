@@ -2,6 +2,15 @@
 
 ## 2026-06-21
 
+### [redesign] video-maker mobile = app edit chuyên nghiệp (preview ghim, tab segmented, Xuất ghim đáy)
+
+User: "giao diện điện thoại như 1 app edit chuyên nghiệp". Mobile-only re-skin (`@media max-width:920px` trong `video-maker.css`), KHÔNG đụng desktop / JS / id.
+
+- **Preview GHIM trên cùng** (`.vm-stage` `order:-1` + `position:sticky;top:0`, height `clamp(210px,40vh,330px)`, bo góc đáy + shadow) — luôn thấy khi chỉnh. Transport "Xem trước/Dừng" = pill nổi trắng-mờ trên nền tối. Hamburger nổi góc trái như app.
+- **Tab segmented GHIM ngay dưới preview** (`.vm-tabbar` `sticky;top:var(--vm-prev-h)`). Vùng công cụ (card) cuộn giữa. **Nút "Xuất video" GHIM đáy** (`.vm-export-bar` sticky bottom + `env(safe-area-inset-bottom)`, nút cao 50px).
+- ⚠ Mấu chốt: `.vm-panel{overflow:visible}` trên mobile để sticky bám `.web2-main` (scroller thật), không bám panel. Header gọn (giấu `.vm-sub`, né hamburger). Touch target ≥44px. Input+nút (chủ đề AI / sfx) full-width (`.vm-topic` wrap).
+- Verify Playwright 393×852 (login web2 + inject): preview pinned `top:20` GIỮ NGUYÊN sau scroll 650px, tabbar pinned `top:350`, export sticky, `docOverflowX:false`, 0 app error (chỉ 2 noise 404). Bump CSS `?v=20260621app`.
+
 ### [feat] TAG KPI User — nút Chốt KPI (admin) + health bar chưa-gán/chưa-chốt + filter NV + amber + deep-link
 
 User: làm #1 (nút Chốt KPI chỉ admin) → dùng nó tạo base → làm #2/#3/#4 test. (Tiếp theo audit "chốt đơn = gửi tin mẫu Chốt đơn", endpoint thủ công `/lock-kpi-base` chưa UI nào gọi.)

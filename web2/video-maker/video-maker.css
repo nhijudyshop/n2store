@@ -507,17 +507,127 @@ textarea.vm-narr {
     transition: width 0.1s linear;
 }
 
+/* ============================================================
+   ĐIỆN THOẠI — khung như app edit chuyên nghiệp (CapCut/VN style):
+   • Preview GHIM trên cùng (sticky), luôn thấy khi chỉnh.
+   • Thanh tab (Nội dung / Giọng) ghim ngay dưới preview.
+   • Vùng công cụ cuộn ở giữa. Nút "Xuất video" ghim đáy (safe-area).
+   Tất cả additive trong @media — KHÔNG đụng desktop, KHÔNG đổi JS/id.
+   ⚠ .vm-panel phải overflow:visible để sticky bám .web2-main (scroller thật).
+   ============================================================ */
 @media (max-width: 920px) {
     .vm-app {
-        grid-template-columns: 1fr;
+        display: flex;
+        flex-direction: column;
         height: auto;
+        gap: 0;
+        --vm-prev-h: clamp(210px, 40vh, 330px);
     }
     .vm-panel {
+        order: 1;
+        overflow: visible; /* để sticky con bám .web2-main, không bám panel */
         border-right: 0;
-        border-bottom: 1px solid var(--web2-border, #e5e7eb);
+        border-bottom: 0;
+        padding: 12px 12px 0;
+        gap: 12px;
+        background: var(--web2-bg-soft, #f4f6fb);
     }
+
+    /* ----- Preview ghim trên cùng ----- */
     .vm-stage {
-        min-height: 60vh;
+        order: -1;
+        position: sticky;
+        top: 0;
+        z-index: 15;
+        height: var(--vm-prev-h);
+        min-height: var(--vm-prev-h);
+        padding: 10px 12px 12px;
+        gap: 8px;
+        border-radius: 0 0 20px 20px;
+        box-shadow: 0 10px 24px -12px rgba(0, 0, 0, 0.55);
+    }
+    #vmCanvas {
+        max-height: calc(var(--vm-prev-h) - 62px);
+        max-width: 100%;
+    }
+    .vm-transport {
+        gap: 8px;
+    }
+    .vm-transport .vm-btn {
+        background: rgba(255, 255, 255, 0.13);
+        color: #fff;
+        border-color: rgba(255, 255, 255, 0.28);
+        min-height: 40px;
+        border-radius: 999px;
+        padding: 8px 18px;
+    }
+
+    /* ----- Header gọn (giấu mô tả dài) ----- */
+    .vm-head {
+        gap: 3px;
+        padding-left: 40px; /* né hamburger fixed top-left */
+    }
+    .vm-h {
+        font-size: 16px;
+    }
+    .vm-sub {
+        display: none;
+    }
+
+    /* ----- Tab segmented ghim ngay dưới preview ----- */
+    .vm-tabbar {
+        position: sticky;
+        top: var(--vm-prev-h);
+        z-index: 14;
+        margin: 0 -12px;
+        padding: 8px 12px;
+        background: var(--web2-bg-soft, #f4f6fb);
+        box-shadow: 0 7px 12px -8px rgba(2, 6, 23, 0.2);
+    }
+    .vm-tab {
+        padding: 12px 8px;
+        font-size: 13.5px;
+        min-height: 46px;
+    }
+
+    /* ----- Touch targets + card gọn ----- */
+    .vm-btn {
+        min-height: 44px;
+    }
+    .vm-chip {
+        min-height: 38px;
+        display: inline-flex;
+        align-items: center;
+    }
+    .vm-card {
+        padding: 13px;
+        border-radius: 16px;
+    }
+    .vm-narr {
+        min-height: 90px;
+    }
+    /* input + nút (chủ đề AI / sound fx) full-width thay vì bị bóp nhỏ */
+    .vm-topic {
+        flex-wrap: wrap;
+    }
+    .vm-topic .vm-topic-in {
+        flex: 1 1 100%;
+    }
+    .vm-topic .vm-btn {
+        flex: 1 1 auto;
+    }
+
+    /* ----- Nút Xuất video ghim đáy như app ----- */
+    .vm-export-bar {
+        margin: 0 -12px;
+        padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px));
+        border-top: 1px solid var(--web2-border, #e5e7eb);
+        box-shadow: 0 -10px 16px -10px rgba(2, 6, 23, 0.22);
+    }
+    .vm-export-bar .vm-btn {
+        min-height: 50px;
+        font-size: 15px;
+        border-radius: 13px;
     }
 }
 
