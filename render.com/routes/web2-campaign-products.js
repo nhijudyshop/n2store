@@ -263,6 +263,47 @@ router.patch('/pin', requireWeb2AuthSoft, async (req, res) => {
     }
 });
 
+// PATCH /pending {campaignId, productCode, pendingQty} — set "SỐ NCC BÁO" tuyệt đối.
+// Cập nhật web2_products.pending_qty + status (KHÔNG auto-delete ghost → SP giữ trên
+// board). Broadcast trên web2:campaign-products (topic mà trang TV nghe) → TV cập nhật
+// ngay. Dùng cho luồng live: user2 nhập số NCC báo → user1 thấy realtime.
+router.patch('/pending', requireWeb2AuthSoft, async (req, res) => {
+    const pool = getPool(req);
+    if (!pool) return res.status(500).json({ success: false, error: 'DB unavailable' });
+    const campaignId = Number(req.body?.campaignId);
+    const code = String(req.body?.productCode || '').trim();
+    const qty = Math.max(0, Math.floor(Number(req.body?.pendingQty)));
+    if (!code || !Number.isFinite(qty)) {
+        return res.status(400).json({ success: false, error: 'productCode + pendingQty required' });
+    }
+    try {
+        await ensureTables(pool);
+        const r = await pool.query(
+            `UPDATE web2_products
+             SET pending_qty = $2,
+                 status = CASE WHEN $2 > 0 THEN 'CHO_MUA'
+                               WHEN stock > 0 THEN 'DANG_BAN'
+                               ELSE status END,
+                 updated_at = $3
+             WHERE code = $1
+             RETURNING pending_qty, stock, status`,
+            [code, qty, Date.now()]
+        );
+        if (!r.rows.length)
+            return res.status(404).json({ success: false, error: 'product not found' });
+        _notify('pending', campaignId);
+        res.json({
+            success: true,
+            pendingQty: Number(r.rows[0].pending_qty) || 0,
+            stock: Number(r.rows[0].stock) || 0,
+            status: r.rows[0].status,
+        });
+    } catch (e) {
+        console.error('[WEB2-CAMPAIGN-PRODUCTS] set pending error:', e.message);
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
 module.exports = router;
 module.exports.initializeNotifiers = initializeNotifiers;
 module.exports.ensureTables = ensureTables;

@@ -246,11 +246,12 @@
             input.classList.remove('saving');
             return;
         }
-        var delta = next - cur;
         input.classList.add('saving');
         input.disabled = true;
         try {
-            await window.Web2ProductsApi.adjustPending([{ code: code, delta: delta }]);
+            // setPending = set tuyệt đối "số NCC báo" + broadcast web2:campaign-products
+            // (topic TV nghe được realtime; adjust-pending dùng web2:products không tới TV).
+            await window.Web2Campaign.setPending(state.campaignId, code, next);
             input.dataset.cur = String(next);
             input.value = String(next);
             input.classList.remove('saving');
@@ -440,6 +441,12 @@
         wire();
         if (window.Web2Campaign && window.Web2Campaign.subscribe)
             window.Web2Campaign.subscribe(onSse);
+        // CŨNG nghe web2:products → đồng bộ tồn/chờ hàng khi máy khác sửa.
+        if (window.Web2SSE && window.Web2SSE.subscribe) {
+            window.Web2SSE.subscribe('web2:products', function (m) {
+                onSse({ topic: 'web2:products', eventType: m.eventType, data: m.data });
+            });
+        }
         await loadCampaigns();
         var saved = localStorage.getItem(LS_KEY);
         var params = new URLSearchParams(location.search);

@@ -147,6 +147,15 @@
         async setPinned(campaignId, productCode, pinned) {
             return _patch(`${CP_BASE()}/pin`, { campaignId, productCode, pinned: !!pinned });
         },
+        // "Số NCC báo" tuyệt đối → web2_products.pending_qty + broadcast web2:campaign-products
+        // (topic trang TV nghe → cập nhật realtime). KHÔNG dùng adjust-pending (web2:products).
+        async setPending(campaignId, productCode, pendingQty) {
+            return _patch(`${CP_BASE()}/pending`, {
+                campaignId,
+                productCode,
+                pendingQty: Math.max(0, Math.floor(Number(pendingQty) || 0)),
+            });
+        },
 
         // ── Realtime ──────────────────────────────────────────────────
         // cb({ topic, eventType, data }). Subscribe CẢ 2 topic: chiến dịch (bài) +

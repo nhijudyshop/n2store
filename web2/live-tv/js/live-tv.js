@@ -263,6 +263,13 @@
             return;
         }
         window.Web2Campaign.subscribe(onSse);
+        // CŨNG nghe web2:products → khi user2 nhập "số NCC báo" (pending_qty) hoặc
+        // tồn kho đổi từ nguồn khác, TV tự cập nhật không refresh.
+        if (window.Web2SSE && window.Web2SSE.subscribe) {
+            window.Web2SSE.subscribe('web2:products', function (m) {
+                onSse({ topic: 'web2:products', eventType: m.eventType, data: m.data });
+            });
+        }
         var params = new URLSearchParams(location.search);
         var cid = params.get('campaign') || localStorage.getItem(LS_KEY);
         if (cid) {
