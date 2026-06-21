@@ -70,6 +70,18 @@
         }
     }
 
+    // Coalesce nhiều trigger resync trong cửa sổ ngắn → 1 đợt re-fetch. Round-2 (2026-06-22):
+    // server resync-on-relisten + client reconnect-resync + liveness-ping false-positive có
+    // thể chồng nhau → tránh thundering-herd (mọi subscriber re-fetch nhiều lần). Trailing 250ms.
+    let _resyncTimer = null;
+    function _scheduleResync() {
+        if (_resyncTimer) return;
+        _resyncTimer = setTimeout(() => {
+            _resyncTimer = null;
+            _dispatchResync();
+        }, 250);
+    }
+
     function _emit(subs, msg) {
         if (!subs || !subs.size) return;
         for (const cb of subs) {
@@ -136,7 +148,7 @@
             // Chỉ resync khi đây là LẦN NỐI LẠI (đứt rồi lên), KHÔNG phải connect đầu
             // tiên, và KHÔNG phải reopen do đổi topic (suppressResyncOnce).
             if (isReconnect && !suppressResyncOnce) {
-                _dispatchResync();
+                _scheduleResync();
             }
             suppressResyncOnce = false;
         });
@@ -172,7 +184,7 @@
         // rớt — lúc đó socket SSE KHÔNG đứt nên reconnect-resync phía client không fire).
         es.addEventListener('resync', () => {
             lastEventAt = Date.now();
-            _dispatchResync();
+            _scheduleResync();
         });
         // Rank 5 (2026-06-22): heartbeat NAMED event 30s → CHỈ bump lastEventAt (biết
         // connection còn sống), KHÔNG dispatch tới subscriber. Trước server gửi comment
@@ -263,6 +275,10 @@
         if (reconnectTimer) {
             clearTimeout(reconnectTimer);
             reconnectTimer = null;
+        }
+        if (_resyncTimer) {
+            clearTimeout(_resyncTimer);
+            _resyncTimer = null;
         }
         if (es) {
             try {

@@ -52,7 +52,13 @@ let _listenConnectedOnce = false; // đã LISTEN thành công ≥1 lần
 let _pendingResyncOnReconnect = false; // mất LISTEN sau khi đã connected → resync khi nối lại
 // Đếm để verify vòng LISTEN/NOTIFY sống (single-instance: published≈received vì
 // self-NOTIFY quay về; multi-instance: deliveredFromPeers > 0 khi instance khác phát).
-const _crossStats = { published: 0, received: 0, deliveredFromPeers: 0, lastRecvAt: 0 };
+const _crossStats = {
+    published: 0,
+    received: 0,
+    deliveredFromPeers: 0,
+    lastRecvAt: 0,
+    poolDropped: 0, // pool-fallback bị bỏ do vượt cap inflight (rank 7) — observability
+};
 
 // =====================================================
 // SSE CLIENT MANAGEMENT
@@ -634,7 +640,11 @@ try {
             notifyClients(`web2:wallet:${phone}`, tickle, 'update');
         } catch (_) {}
 
-        // Wildcard topic for list pages (admin) — match 'web2:wallet:*' subscribers
+        // Wildcard topic for list pages (admin) — match 'web2:wallet:*' subscribers.
+        // ⚠ LOAD-BEARING — ĐỪNG XOÁ: bridge prefix-match (rank 3, 2026-06-22) khiến
+        // exact 'web2:wallet:<phone>' cũng tới được subscriber ':*' nhưng CHỈ với bridge
+        // MỚI (v≥20260622r7). Bridge cũ còn cache vẫn cần đường wildcard này → giữ để
+        // backward-compat trong cửa sổ chuyển đổi (belt-and-suspenders).
         try {
             notifyClientsWildcard('web2:wallet', tickle, 'update');
         } catch (_) {}
@@ -891,7 +901,12 @@ function initCrossInstance(pool) {
     let _poolNotifyInflight = 0;
     const POOL_NOTIFY_MAX_INFLIGHT = 12;
     const poolNotify = (payloadStr) => {
-        if (_poolNotifyInflight >= POOL_NOTIFY_MAX_INFLIGHT) return;
+        if (_poolNotifyInflight >= POOL_NOTIFY_MAX_INFLIGHT) {
+            // Vượt cap → bỏ cross-publish (local delivery vẫn chạy; rank 2 resync-on-
+            // relisten tự lành). Đếm để lộ ở /sse/stats thay vì rớt im lặng.
+            _crossStats.poolDropped++;
+            return;
+        }
         _poolNotifyInflight++;
         Promise.resolve(pool.query('SELECT pg_notify($1, $2)', [PG_CHANNEL, payloadStr]))
             .catch((e) => console.warn('[SSE-WEB2] pg_notify (pool) fail:', e.message))

@@ -100,10 +100,15 @@
         global.Web2SSE.subscribe('web2:livestream-snapshots', (msg) => {
             const data = msg?.data || {};
             const { customerFbUserId, action, snapshotId } = data;
+            // Rank-2 SSE resync (2026-06-22): server bắn 'resync' (data:null) khi LISTEN
+            // client cross-instance nối lại sau khi MẤT → handler gated trên data.* sẽ
+            // no-op → thumbnail/counts kẹt cũ tới event sau (silent stale). resync = wipe
+            // cache + re-queue MỌI row hiển thị (giống purge/wipe-all) để tự lành.
+            const isResync = msg?.eventType === 'resync' || msg?.resync;
             // Admin dọn snapshot (POST /purge | /wipe-all) → clear toàn bộ cache snap
             // + re-queue fetch cho mọi row đang hiển thị → thumbnail đen kẹt biến mất
             // ngay (không cần reload), comment thành "pending" rồi tự chụp lại / force-extract.
-            if (action === 'purge' || action === 'wipe-all') {
+            if (isResync || action === 'purge' || action === 'wipe-all') {
                 NS.STATE.snapByComment.clear();
                 NS.STATE.cacheList.clear();
                 NS.STATE.counts = {};
