@@ -3,18 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `261b4fb` — docs(web2) live-tv: dev-log Phase5-6 + SSE đa-instance finding + regen codemap
-**Last updated**: 2026-06-21 23:24:39 +07
-**Latest session**: [`RESUME:20260621-232439-261b4fb`](../20260621-232439-261b4fb.md)
-**Summary**: feat(web2) TV Livestream: chiến dịch gắn SP + 2 trang TV/điều khiển + số NCC báo realtime + migrate 2 fork → Web2Campaign
+**Latest commit**: `0898d3a` — fix(web2) SSE: BOOT_ID luôn random suffix (slice RENDER_INSTANCE_ID có thể trùng service-id giữa instance → fan-out vỡ)
+**Last updated**: 2026-06-22 00:19:29 +07
+**Latest session**: [`RESUME:20260622-001929-0898d3a`](../20260622-001929-0898d3a.md)
+**Summary**: fix(web2) SSE: BOOT_ID luôn random suffix (slice RENDER_INSTANCE_ID có thể trùng service-id giữa instance → ...
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 3 file(s)
-- [`live-chat/`](./live-chat.md) — 2 file(s)
-- [`native-orders/`](./native-orders.md) — 2 file(s)
-- [`render.com/`](./render.com.md) — 2 file(s)
-- [`web2/`](./web2.md) — 9 file(s)
+- [`render.com/`](./render.com.md) — 3 file(s)
 
 ## All folder snapshots
 
@@ -59,7 +55,7 @@
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-06-20 12:07
 - [`referenceUI/`](./referenceUI.md) — updated 2026-06-19 14:27
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-06-20 12:07
-- [`render.com/`](./render.com.md) — updated 2026-06-21 23:24
+- [`render.com/`](./render.com.md) — updated 2026-06-22 00:19
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-21 21:25
 - [`service-costs/`](./service-costs.md) — updated 2026-06-20 12:07
