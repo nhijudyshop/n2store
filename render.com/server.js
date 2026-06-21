@@ -647,6 +647,7 @@ const web2ProductsRoutes = require('./routes/web2-products');
 const web2ReturnsRoutes = require('./routes/web2-returns'); // WEB2.0 — Thu về (goods return)
 const web2VariantsRoutes = require('./routes/web2-variants');
 const web2GenericRoutes = require('./routes/web2-generic');
+const web2OrderTagsRoutes = require('./routes/web2-order-tags'); // WEB2.0 — TAG đơn hàng (auto theo trigger)
 const attendanceRoutes = require('./routes/attendance');
 const admsRoutes = require('./routes/adms');
 const usersRoutes = require('./routes/users');
@@ -771,6 +772,7 @@ app.use('/api/delivery-invoices', deliveryInvoicesRoutes);
 app.use('/api/refunds', refundsRoutes);
 app.use('/api/pbh-reports', pbhReportsRoutes);
 app.use('/api/web2-products', web2ProductsRoutes);
+app.use('/api/web2-order-tags', web2OrderTagsRoutes); // WEB2.0 — TAG đơn hàng config (auto theo trigger)
 app.use('/api/web2-returns', web2ReturnsRoutes); // WEB2.0 — Thu về (goods return)
 app.use('/api/web2-variants', web2VariantsRoutes);
 app.use('/api/web2/cutout', require('./routes/web2-cutout')); // WEB2.0 photo-studio cutout (PhotoRoom) — TRƯỚC generic
@@ -1143,6 +1145,9 @@ if (web2ProductsRoutes.initializeNotifiers) {
 }
 if (nativeOrdersRoutes.initializeNotifiers) {
     nativeOrdersRoutes.initializeNotifiers(web2RealtimeSseRoutes.notifyClients);
+}
+if (web2OrderTagsRoutes.initializeNotifiers) {
+    web2OrderTagsRoutes.initializeNotifiers(web2RealtimeSseRoutes.notifyClients);
 }
 if (web2ReturnsRoutes.initializeNotifiers) {
     web2ReturnsRoutes.initializeNotifiers(web2RealtimeSseRoutes.notifyClients);
