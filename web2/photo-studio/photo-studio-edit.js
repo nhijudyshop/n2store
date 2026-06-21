@@ -682,6 +682,10 @@
                 PS.batchBlobs.push({ name, blob });
                 cell.className = 'ps-batch-cell';
                 cell.innerHTML = `<div class="ps-batch-thumb" style="background-image:url(${url})"></div>`;
+                // audit r8: revoke object URL sau khi trình duyệt đã vẽ background
+                // (blob bytes vẫn giữ trong PS.batchBlobs cho ZIP) — tránh rò handle
+                // object URL tích luỹ mỗi batch tới khi unload.
+                setTimeout(() => URL.revokeObjectURL(url), 5000);
             } catch (err) {
                 console.warn('[photo-studio] batch item', err?.message);
                 cell.className = 'ps-batch-cell ps-batch-err';

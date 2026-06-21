@@ -39,7 +39,7 @@ function mapRow(r) {
     };
 }
 
-router.get('/', async (req, res) => {
+router.get('/', requireWeb2AuthSoft, async (req, res) => {
     const pool = getPool(req);
     if (!pool) return res.status(500).json({ success: false, error: 'DB unavailable' });
     const status = req.query.status || 'open';
@@ -75,7 +75,7 @@ router.get('/', async (req, res) => {
     }
 });
 
-router.get('/stats', async (req, res) => {
+router.get('/stats', requireWeb2AuthSoft, async (req, res) => {
     const pool = getPool(req);
     if (!pool) return res.status(500).json({ success: false, error: 'DB unavailable' });
     try {

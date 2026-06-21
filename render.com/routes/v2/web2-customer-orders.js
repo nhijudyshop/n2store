@@ -12,6 +12,8 @@
 // và lịch sử của Web 2.0 PHẢI lấy từ Web 2.0 stores riêng.
 
 const express = require('express');
+// audit r8: route lộ PII (tên/SĐT/địa chỉ + lịch sử đơn + số tiền) — gate auth.
+const { requireWeb2AuthSoft } = require('../../middleware/web2-auth');
 const router = express.Router();
 
 // GET /:phone — aggregate orders cho 1 KH
@@ -39,7 +41,7 @@ const router = express.Router();
 //       net: number,        // pbh - refund
 //     }
 //   }
-router.get('/:phoneOrId', async (req, res) => {
+router.get('/:phoneOrId', requireWeb2AuthSoft, async (req, res) => {
     try {
         const pool = req.app.locals.web2Db || req.app.locals.chatDb;
         if (!pool) return res.status(500).json({ success: false, error: 'DB unavailable' });

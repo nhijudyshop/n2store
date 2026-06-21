@@ -295,10 +295,10 @@
             return;
         }
         // Auto-import tất cả kết quả hội thoại (non-destructive).
-        let added = 0;
-        for (const c of rows) {
-            if (await _importPancakeConv(c)) added++;
-        }
+        // audit r8: song song thay vì for-await tuần tự (≤12 RTT serial → ~1 RTT).
+        // Server upsert ON CONFLICT(phone) nên idempotent, an toàn chạy parallel.
+        const _res = await Promise.allSettled(rows.map((c) => _importPancakeConv(c)));
+        const added = _res.filter((r) => r.status === 'fulfilled' && r.value).length;
         if (seq !== NS._pancakeSeq) return;
         if (added) return finishImported(added, 'hội thoại Pancake');
         $('#wcPancakeList').innerHTML =

@@ -171,10 +171,12 @@ async function callDeepSeek(prompt) {
 async function callGemini(prompt) {
     const key = process.env.GEMINI_API_KEY;
     if (!key) return null;
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`;
+    // audit r8: key qua header x-goog-api-key (KHÔNG ?key= URL → lộ vào log Render).
+    // Khớp Groq/DeepSeek (Authorization header) cùng file + aikol-gemini-clone-service.
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent`;
     const res = await fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
         body: JSON.stringify({
             contents: [{ parts: [{ text: `${SYSTEM_VI}\n\n${prompt}` }] }],
             generationConfig: { temperature: 0.8, maxOutputTokens: 400 },

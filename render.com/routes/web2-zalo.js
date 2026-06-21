@@ -491,7 +491,11 @@ async function _updateAccStatus(accountKey, status, txt) {
 }
 
 async function _saveSession(accountKey, creds, info, label) {
-    if (!_pool) return;
+    // audit r8: ném thay vì return im lặng — _pool null (cold-start race trước khi
+    // ensureSchema xong) trước đây nuốt việc lưu → login báo 'connected' nhưng
+    // session KHÔNG vào DB → restart sau mất phiên không dấu vết. Ném để login fail
+    // → status 'error' → user thử lại (lúc đó _pool đã sẵn sàng).
+    if (!_pool) throw new Error('DB pool chưa sẵn sàng (cold-start) — chưa lưu được session');
     await _pool.query(
         `UPDATE web2_zalo_accounts SET
             session=$1, zalo_uid=COALESCE($2, zalo_uid),
@@ -611,7 +615,10 @@ router.post('/accounts/:key/reconnect', async (req, res) => {
         const r = await zca.loginWithCredentials(
             req.params.key,
             secretCrypto.decryptJson(rows[0].session),
-            rows[0].label
+            rows[0].label,
+            // audit r8: guard danh tính — khớp restoreAll/login-cookie. Thiếu →
+            // session thuộc Zalo uid khác có thể gắn nhầm vào slot này (corrupt identity).
+            { expectedUid: rows[0].zalo_uid || null }
         );
         res.json({ success: true, ...r });
     } catch (e) {
@@ -1815,8 +1822,13 @@ function _safeFilename(name, fallback) {
         .slice(0, 80);
     return /\.[a-z0-9]+$/i.test(n) ? n : fallback;
 }
+// audit r8: fallback đi QUA worker proxy thay vì raw Render host — URL media nhúng
+// vào web2_zalo_messages.attachments là tuyệt đối + vĩnh viễn; raw host đổi/đổi tên
+// → vỡ hết. Worker proxy host-agnostic (CF route /api/web2-zalo/*). Vẫn ưu tiên
+// env WEB2_MEDIA_BASE nếu set.
 const MEDIA_BASE =
-    process.env.WEB2_MEDIA_BASE || 'https://web2-api-kv04.onrender.com/api/web2-zalo/media';
+    process.env.WEB2_MEDIA_BASE ||
+    'https://chatomni-proxy.nhijudyshop.workers.dev/api/web2-zalo/media';
 async function _storeMedia(db, accountKey, buf, mime, filename, width, height) {
     // token bất khả đoán → URL /media/<token> không enumerate được (chống IDOR).
     const token = crypto.randomBytes(18).toString('hex'); // 36 hex chars

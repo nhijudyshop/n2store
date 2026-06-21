@@ -114,13 +114,11 @@ router.post('/create', _ensure, requireWeb2AuthSoft, async (req, res) => {
         .catch(() => null);
     if (baseline == null && b.currentCount != null) baseline = num(b.currentCount, null);
     if (baseline == null) {
-        return res
-            .status(502)
-            .json({
-                success: false,
-                error: 'count_unreadable',
-                message: 'Không đọc được số comment hiện tại của bài (thử lại).',
-            });
+        return res.status(502).json({
+            success: false,
+            error: 'count_unreadable',
+            message: 'Không đọc được số comment hiện tại của bài (thử lại).',
+        });
     }
     const target = baseline + addTarget;
     const id = 'cb_' + Date.now().toString(36) + '_' + crypto.randomBytes(3).toString('hex');
@@ -162,7 +160,7 @@ router.post('/create', _ensure, requireWeb2AuthSoft, async (req, res) => {
 });
 
 // GET /jobs — danh sách job gần đây (cho UI panel).
-router.get('/jobs', _ensure, async (req, res) => {
+router.get('/jobs', _ensure, requireWeb2AuthSoft, async (req, res) => {
     const pageId = String(req.query.pageId || '').trim();
     const limit = Math.min(50, num(req.query.limit, 20));
     try {
@@ -184,7 +182,7 @@ router.get('/jobs', _ensure, async (req, res) => {
 });
 
 // GET /job/:id
-router.get('/job/:id', _ensure, async (req, res) => {
+router.get('/job/:id', _ensure, requireWeb2AuthSoft, async (req, res) => {
     try {
         const r = await web2Db(req).query('SELECT * FROM web2_comment_boost_jobs WHERE id=$1', [
             req.params.id,

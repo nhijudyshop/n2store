@@ -2,6 +2,20 @@
 
 ## 2026-06-21
 
+### [audit r8] Adversarial audit 7 mặt còn lại (39 agent) → 19 bug → fix 16, defer 3 + phát hiện secret leak Web 1.0
+
+7 finder mới (zalo/shared-2/wallet-routes/pages-logic/livechat/media-ai/worker-security). livechat=0 (sạch). 19 confirmed, fix 16:
+
+- **CRITICAL ✅ Zalo double-encrypt** `web2-secret-crypto.js` `encryptJson` không idempotent → `web2-zalo` persistSession encrypt rồi `_saveSession` encrypt LẦN 2 (WEB2_ENC_KEY bật ở prod) → ciphertext lồng → decryptJson ra `{__enc__}` thay vì creds → **restore phiên Zalo FAIL toàn bộ**. Fix: `encryptJson` trả nguyên nếu value đã `{__enc__: enc:v1:...}`. (Session đã hỏng cần re-login 1 lần.)
+- **CRITICAL ✅ double-debit /withdraw** `v2/web2-wallets.js` thiếu idemKey server-side khi client không gửi header (deposit đã fix #19, withdraw bỏ sót) → double-click/retry trừ ví 2 lần. Fix: sinh `mwdr_<uuid>` + dup-check luôn (partial unique index bảo vệ).
+- **HIGH ✅ Zalo** reconnect thiếu `expectedUid` guard (gắn nhầm danh tính) + persistSession nuốt lỗi (`_pool` null cold-start → báo 'connected' nhưng session không vào DB → mất sau restart). Fix: thêm guard + ném lỗi thay vì nuốt + `_saveSession` throw khi `_pool` null.
+- **HIGH ✅ rò secret/token vào log**: Pancake JWT trong `?token=` URL avatar (`web2-customer-chat-core.js` → worker log) → bỏ token (avatar FB public); Gemini key trong `?key=` URL (`web2-caption-service.js`) → header `x-goog-api-key`; worker trả `error.stack` cho client (`worker.js`) → message generic + log server; SePay dashboard nhận creds qua GET query + log email (`sepay-dashboard-handler.js`) → chỉ POST + bỏ log email.
+- **HIGH ✅ auth gap (PII)**: `v2/web2-customer-orders.js` GET (tên/SĐT/địa chỉ+đơn+tiền) hoàn toàn không auth → gate + 2 client gửi token (customer360, pbh-render; returns-api đã gửi). `web2-customer-intents` GET `/`+`/stats` (PSID/msg/intent) → gate (ck-dashboard đã gửi token). `web2-comment-boost` GET `/jobs`+`/job/:id` → gate (multi-tool đã gửi token).
+- **MED ✅**: photo-studio batch object URL không revoke → leak handle → revoke sau 5s; cutout (4 fetch) + comment-boost-worker (2 fetch) thiếu timeout → `AbortSignal.timeout` (cạn worker slot); geocode cache vô hạn → trần 5000 + evict oldest; customers tier-3b import tuần tự ≤12 RTT → `Promise.allSettled`; Zalo `MEDIA_BASE` fallback raw-Render host → worker proxy (URL media bền khi đổi host).
+- **DEFER (cần user/feature)**: (1) supplier over-refund cap null khi `ordered` vắng — ép `ordered>0` sẽ chặn return hợp lệ khi SL đặt unknown → cần server tra so-order received-qty (feature, như r5 #1); (2) worker `/api/facebook-graph` open Graph proxy (GET-only) — allowlist rủi ro vỡ Web 1.0 orders-report; (3) imgbb key hardcode trong worker (`image-proxy-handler.js`) — cần xoay key + CF secret.
+- **⚠️ PHÁT HIỆN NGOÀI SCOPE (CRITICAL, Web 1.0)**: SePay email+password+api_key HARDCODE plaintext trong `shared/js/navigation-modern.js` (nạp MỌI trang) + `service-costs/js/service-costs.js` → lộ cho mọi browser xem source. Cần: chuyển creds vào worker env server-side + **xoay password & api_key** + client gọi không kèm creds. SURFACE cho user (cần xoay key = user action).
+- Cache-bust `?v=20260621r8` (customer360/pbh-render/customer-chat-core/photo-studio-edit/customers-events).
+
 ### [audit r7] Adversarial audit 7 mặt mới (29 agent) → 11 bug xác nhận → fix HẾT 11
 
 7 finder mới (cron-workers/native-orders-core/soorder-stock/frontend-xss/auth-session/reconcile-sepay/schema-migrations) + skeptic/finding. XSS surface = 0 (sạch). 11 confirmed, fix hết:

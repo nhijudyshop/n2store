@@ -9,7 +9,8 @@
 
 import { errorResponse, corsResponse } from '../utils/cors-utils.js';
 
-const BROWSER_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36';
+const BROWSER_UA =
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36';
 
 // =========================================================
 // Cookie helpers
@@ -30,7 +31,9 @@ function extractCookies(response, existing = {}) {
 }
 
 function cookieString(cookies) {
-    return Object.entries(cookies).map(([k, v]) => `${k}=${v}`).join('; ');
+    return Object.entries(cookies)
+        .map(([k, v]) => `${k}=${v}`)
+        .join('; ');
 }
 
 // =========================================================
@@ -42,7 +45,7 @@ async function sepayLogin(email, password) {
     const loginPage = await fetch('https://my.sepay.vn/login', {
         headers: {
             'User-Agent': BROWSER_UA,
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
             'Accept-Language': 'vi-VN,vi;q=0.9,en-US;q=0.8,en;q=0.7',
         },
         redirect: 'manual',
@@ -53,7 +56,9 @@ async function sepayLogin(email, password) {
 
     if (!csrfToken) {
         const body = await loginPage.text().catch(() => '');
-        throw new Error(`No CSRF token. Status: ${loginPage.status}, len: ${body.length}, cf: ${body.includes('cf-challenge') || body.includes('__cf_chl')}`);
+        throw new Error(
+            `No CSRF token. Status: ${loginPage.status}, len: ${body.length}, cf: ${body.includes('cf-challenge') || body.includes('__cf_chl')}`
+        );
     }
 
     // Step 2: POST login
@@ -61,11 +66,11 @@ async function sepayLogin(email, password) {
         method: 'POST',
         headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
-            'Cookie': cookieString(cookies),
+            Cookie: cookieString(cookies),
             'User-Agent': BROWSER_UA,
-            'Referer': 'https://my.sepay.vn/login',
-            'Origin': 'https://my.sepay.vn',
-            'Accept': 'application/json, text/javascript, */*; q=0.01',
+            Referer: 'https://my.sepay.vn/login',
+            Origin: 'https://my.sepay.vn',
+            Accept: 'application/json, text/javascript, */*; q=0.01',
             'X-Requested-With': 'XMLHttpRequest',
             'Accept-Language': 'vi-VN,vi;q=0.9,en-US;q=0.8,en;q=0.7',
         },
@@ -105,7 +110,10 @@ function parseDashboard(html) {
     ];
     for (const pat of planPatterns) {
         const m = html.match(pat);
-        if (m) { data.plan = m[1].trim(); break; }
+        if (m) {
+            data.plan = m[1].trim();
+            break;
+        }
     }
 
     // Expiry date
@@ -116,7 +124,10 @@ function parseDashboard(html) {
     ];
     for (const pat of expiryPatterns) {
         const m = html.match(pat);
-        if (m) { data.expiryDate = m[1].trim(); break; }
+        if (m) {
+            data.expiryDate = m[1].trim();
+            break;
+        }
     }
 
     // Transaction usage
@@ -166,7 +177,12 @@ function parseInvoices(html) {
                     invoice.id = cells[i];
                 } else if (/[\d,.]+\s*[đd₫]/i.test(cells[i]) && !invoice.amount) {
                     invoice.amount = cells[i];
-                } else if (/(?:paid|unpaid|[đĐ][aã]\s*thanh|ch[uư]a|pending|ho[aà]n\s*t[aấ]t)/i.test(cells[i]) && !invoice.status) {
+                } else if (
+                    /(?:paid|unpaid|[đĐ][aã]\s*thanh|ch[uư]a|pending|ho[aà]n\s*t[aấ]t)/i.test(
+                        cells[i]
+                    ) &&
+                    !invoice.status
+                ) {
                     invoice.status = cells[i];
                 } else if (/\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4}/.test(cells[i]) && !invoice.date) {
                     invoice.date = cells[i];
@@ -191,7 +207,10 @@ function parsePlansPage(html) {
     function extractTableValue(label) {
         // Match: <td>label</td> ... <td class="...">value</td>
         const escapedLabel = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        const pat = new RegExp(`<td[^>]*>[^<]*${escapedLabel}[^<]*</td>[\\s\\S]*?<td[^>]*>\\s*([\\s\\S]*?)</td>`, 'i');
+        const pat = new RegExp(
+            `<td[^>]*>[^<]*${escapedLabel}[^<]*</td>[\\s\\S]*?<td[^>]*>\\s*([\\s\\S]*?)</td>`,
+            'i'
+        );
         const m = html.match(pat);
         if (m) return m[1].replace(/<[^>]+>/g, '').trim();
         return null;
@@ -228,7 +247,10 @@ function parsePlansPage(html) {
     if (renewal) data.renewal = renewal;
 
     // Expiry: "Ngày hết hạn" or "Hết hạn"
-    const expiry = extractTableValue('Ngày hết hạn') || extractTableValue('Hết hạn') || extractTableValue('Expiry');
+    const expiry =
+        extractTableValue('Ngày hết hạn') ||
+        extractTableValue('Hết hạn') ||
+        extractTableValue('Expiry');
     if (expiry) {
         // Extract date only: "2026-04-27(còn lại 27 ngày)" → "2026-04-27"
         const dateMatch = expiry.match(/(\d{4}-\d{2}-\d{2})/);
@@ -236,7 +258,10 @@ function parsePlansPage(html) {
     }
 
     // Next billing: "Chu kỳ tiếp theo" or "Ngày gia hạn"
-    const nextBilling = extractTableValue('Chu kỳ tiếp theo') || extractTableValue('Ngày gia hạn') || extractTableValue('Gia hạn tiếp');
+    const nextBilling =
+        extractTableValue('Chu kỳ tiếp theo') ||
+        extractTableValue('Ngày gia hạn') ||
+        extractTableValue('Gia hạn tiếp');
     if (nextBilling) data.nextBilling = nextBilling;
 
     return data;
@@ -254,29 +279,31 @@ function parsePlansPage(html) {
 export async function handleSepayDashboard(request, url) {
     let email, password, apiKey;
 
-    if (request.method === 'POST') {
-        try {
-            const body = await request.json();
-            email = body.email;
-            password = body.password;
-            apiKey = body.api_key;
-        } catch {
-            return errorResponse('Invalid JSON body', 400);
-        }
-    } else {
-        // GET: credentials from query params (for testing)
-        email = url.searchParams.get('email');
-        password = url.searchParams.get('password');
-        apiKey = url.searchParams.get('api_key');
+    // audit r8: CHỈ POST (body JSON). Bỏ nhánh GET ?email=&password= — credentials
+    // trong query string lọt vào log Cloudflare/Referer/lịch sử. Cả 2 caller (Web 1.0
+    // navigation-modern + service-costs) đều POST nên gỡ GET an toàn.
+    if (request.method !== 'POST') {
+        return errorResponse('Method not allowed — use POST', 405, {
+            usage: 'POST /api/sepay-dashboard with { email, password, api_key? }',
+        });
+    }
+    try {
+        const body = await request.json();
+        email = body.email;
+        password = body.password;
+        apiKey = body.api_key;
+    } catch {
+        return errorResponse('Invalid JSON body', 400);
     }
 
     if (!email || !password) {
         return errorResponse('Missing email or password', 400, {
-            usage: 'POST /api/sepay-dashboard with { email, password, api_key? }'
+            usage: 'POST /api/sepay-dashboard with { email, password, api_key? }',
         });
     }
 
-    console.log('[SEPAY-DASHBOARD] Starting login for:', email);
+    // audit r8: KHÔNG log email (PII tài khoản) — chỉ báo có request.
+    console.log('[SEPAY-DASHBOARD] Login attempt initiated');
 
     try {
         // Login to SePay
@@ -286,17 +313,23 @@ export async function handleSepayDashboard(request, url) {
         console.log('[SEPAY-DASHBOARD] Login OK, fetching pages...');
 
         const pageHeaders = {
-            'Cookie': ck,
+            Cookie: ck,
             'User-Agent': BROWSER_UA,
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
             'Accept-Language': 'vi-VN,vi;q=0.9,en-US;q=0.8,en;q=0.7',
         };
 
         // Parallel fetch: dashboard, invoices, company/plans, and optionally API data
         const fetches = [
-            fetch('https://my.sepay.vn/', { headers: pageHeaders }).then(r => r.text()).catch(e => `ERROR:${e.message}`),
-            fetch('https://my.sepay.vn/invoices', { headers: pageHeaders }).then(r => r.text()).catch(e => `ERROR:${e.message}`),
-            fetch('https://my.sepay.vn/company/plans', { headers: pageHeaders }).then(r => r.text()).catch(e => `ERROR:${e.message}`),
+            fetch('https://my.sepay.vn/', { headers: pageHeaders })
+                .then((r) => r.text())
+                .catch((e) => `ERROR:${e.message}`),
+            fetch('https://my.sepay.vn/invoices', { headers: pageHeaders })
+                .then((r) => r.text())
+                .catch((e) => `ERROR:${e.message}`),
+            fetch('https://my.sepay.vn/company/plans', { headers: pageHeaders })
+                .then((r) => r.text())
+                .catch((e) => `ERROR:${e.message}`),
         ];
 
         // Note: SePay API calls (/userapi/bankaccounts, /userapi/transactions/count)
@@ -321,7 +354,6 @@ export async function handleSepayDashboard(request, url) {
 
         console.log('[SEPAY-DASHBOARD] Done. Dashboard:', JSON.stringify(data.dashboard));
         return corsResponse({ success: true, data });
-
     } catch (error) {
         console.error('[SEPAY-DASHBOARD] Error:', error.message);
         return errorResponse('SePay dashboard failed: ' + error.message, 500);

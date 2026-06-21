@@ -17,6 +17,9 @@ const router = express.Router();
 const GOONG_KEY = process.env.GOONG_API_KEY || '';
 const TTL_MS = 7 * 24 * 3600 * 1000;
 const _cache = new Map(); // normAddr → { at, data }
+// audit r8: trần cache chống phình bộ nhớ (mỗi địa chỉ distinct cache vĩnh viễn,
+// TTL chỉ check lúc read, không evict). Map giữ thứ tự insert → xoá entry cũ nhất.
+const MAX_CACHE = 5000;
 
 function norm(s) {
     return String(s || '')
@@ -80,6 +83,11 @@ router.get('/', async (req, res) => {
                 province: '',
                 district: '',
             });
+        }
+        // Evict oldest khi vượt trần (Map giữ thứ tự insert → key đầu = cũ nhất).
+        if (_cache.size >= MAX_CACHE) {
+            const oldest = _cache.keys().next().value;
+            if (oldest !== undefined) _cache.delete(oldest);
         }
         _cache.set(key, { at: Date.now(), data });
         res.json({ success: true, source: 'goong', ...data });

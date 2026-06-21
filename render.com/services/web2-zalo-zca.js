@@ -330,17 +330,12 @@ async function _afterLogin(accountKey, api, label, opts) {
         throw err;
     }
 
-    try {
-        // session (JSONB) mã hoá AT-REST trước khi route lưu DB (no-op nếu WEB2_ENC_KEY chưa set).
-        await _cb.persistSession?.(
-            accountKey,
-            secretCrypto.encryptJson(credentials),
-            s.info,
-            label
-        );
-    } catch (e) {
-        console.warn('[web2-zalo-zca] persistSession err:', e.message);
-    }
+    // audit r8: KHÔNG nuốt lỗi persist — trước đây catch chỉ warn rồi vẫn báo
+    // 'connected' dù session chưa vào DB → restart sau mất phiên âm thầm. Ném ra để
+    // caller (_afterLogin .catch / loginWithCredentials catch) set status 'error',
+    // KHÔNG attach listener / báo connected khi chưa lưu được. encryptJson idempotent
+    // (web2-secret-crypto) nên route _saveSession encryptJson lần nữa = no-op.
+    await _cb.persistSession?.(accountKey, secretCrypto.encryptJson(credentials), s.info, label);
     _attachListener(accountKey, api);
     _setStatus(accountKey, 'connected');
     // Sau khi kết nối: route tự sửa lại tên NHÓM (bug cũ lưu tên người nhắn cuối).

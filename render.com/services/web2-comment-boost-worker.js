@@ -127,7 +127,10 @@ async function fetchPostCommentCount(chatPool, pageId, postId, jwtHint) {
         `${PANCAKE_API}/pages/${encodeURIComponent(pageId)}/posts` +
         `?start_time=${now - 31 * 86400}&end_time=${now}&access_token=${encodeURIComponent(jwt)}`;
     try {
-        const r = await fetch(url, { headers: { Accept: 'application/json' } });
+        const r = await fetch(url, {
+            headers: { Accept: 'application/json' },
+            signal: AbortSignal.timeout(15_000), // audit r8: chống treo → cạn worker slot
+        });
         const d = await r.json().catch(() => ({}));
         const posts = Array.isArray(d.posts) ? d.posts : Array.isArray(d.data) ? d.data : [];
         const p = posts.find((x) => String(x.id) === String(postId));
@@ -158,6 +161,7 @@ async function postReplyComment({ pageId, convId, messageId, postId, message, jw
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
             body: JSON.stringify(body),
+            signal: AbortSignal.timeout(15_000), // audit r8: chống treo → cạn worker slot
         });
         const d = await r.json().catch(() => ({}));
         if (d && d.success) return { ok: true, id: d.id };

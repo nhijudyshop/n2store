@@ -453,9 +453,10 @@
     }
     function _mAvatarUrl(fbId, pageId) {
         if (!fbId || !pageId) return '';
-        const jwt = global.Web2Chat?.getJwt?.() || '';
+        // audit r8: KHÔNG đính Pancake JWT vào ?token= URL — worker log ghi nguyên URL
+        // (lộ JWT toàn quyền inbox vào log Cloudflare). FB avatar proxy không cần token
+        // (graph.facebook.com/{id}/picture public). Khớp web2-avatar-utils.proxyUrl.
         const p = new URLSearchParams({ id: String(fbId), page: String(pageId) });
-        if (jwt) p.set('token', jwt);
         return `${WORKER}/api/fb-avatar?${p.toString()}`;
     }
     // GMT+7. Pancake inserted_at = UTC KHÔNG hậu tố Z → append Z (CLAUDE.md note 10).

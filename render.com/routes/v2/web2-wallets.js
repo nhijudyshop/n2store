@@ -158,24 +158,25 @@ router.post('/:phone/withdraw', requireWeb2AuthSoft, async (req, res) => {
         if (!amount || Number(amount) <= 0) {
             return res.status(400).json({ success: false, error: 'amount > 0 required' });
         }
-        const idemKey = _idemKey(req);
-        if (idemKey) {
-            const dup = await _findIdempotentTx(db, idemKey, 'WITHDRAW');
-            if (dup) {
-                return res.json({
-                    success: true,
-                    alreadyProcessed: true,
-                    data: { transaction: dup },
-                });
-            }
+        // audit r8 (CRITICAL): mirror deposit #19 — sinh server-side idemKey khi client
+        // KHÔNG gửi x-idempotency-key → reference_id KHÔNG NULL → partial unique index
+        // idx_web2_wallet_tx_unique_manual chống double-debit (double-click / worker
+        // 524 retry / re-submit). Trước đây thiếu header = bỏ qua dedupe hoàn toàn.
+        const idemKey = _idemKey(req) || `mwdr_${require('crypto').randomUUID()}`;
+        const dup = await _findIdempotentTx(db, idemKey, 'WITHDRAW');
+        if (dup) {
+            return res.json({
+                success: true,
+                alreadyProcessed: true,
+                data: { transaction: dup },
+            });
         }
         const result = await web2WalletService.processWithdraw(
             db,
             req.params.phone,
             Number(amount),
-            // idemKey → reference_type 'manual', reference_id = key (dedupe contract)
-            idemKey ? 'manual' : referenceType,
-            idemKey || referenceId,
+            'manual',
+            idemKey,
             note,
             // performed_by — audit: ƯU TIÊN user từ token (req.web2User), fallback body
             (req.web2User && (req.web2User.display_name || req.web2User.username)) ||

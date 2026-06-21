@@ -64,6 +64,7 @@ async function withoutbgCutout(imageBuffer) {
         let res;
         try {
             res = await fetch(WITHOUTBG_URL, {
+                signal: AbortSignal.timeout(30_000), // audit r8: chống treo vô hạn
                 method: 'POST',
                 headers: { 'X-API-Key': WITHOUTBG_KEYS[idx], 'Content-Type': 'application/json' },
                 body,
@@ -105,6 +106,7 @@ async function birefnetCutout(imageBuffer) {
 
     const dataUri = 'data:image/png;base64,' + imageBuffer.toString('base64');
     const res = await fetch(FAL_BIREFNET_URL, {
+        signal: AbortSignal.timeout(30_000), // audit r8: chống treo vô hạn
         method: 'POST',
         headers: { Authorization: `Key ${FAL_KEY}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -121,7 +123,7 @@ async function birefnetCutout(imageBuffer) {
     const j = await res.json();
     const url = j?.image?.url || j?.images?.[0]?.url;
     if (!url) throw new Error('fal không trả ảnh');
-    const imgRes = await fetch(url);
+    const imgRes = await fetch(url, { signal: AbortSignal.timeout(30_000) }); // audit r8
     if (!imgRes.ok) throw new Error('Tải ảnh fal lỗi ' + imgRes.status);
     return Buffer.from(await imgRes.arrayBuffer());
 }
@@ -141,6 +143,7 @@ async function photoroomCutout(imageBuffer) {
     form.append('format', 'png');
 
     const res = await fetch(PHOTOROOM_SEGMENT_URL, {
+        signal: AbortSignal.timeout(30_000), // audit r8: chống treo vô hạn
         method: 'POST',
         headers: { 'x-api-key': PHOTOROOM_KEY },
         body: form,

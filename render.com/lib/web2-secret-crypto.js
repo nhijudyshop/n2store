@@ -93,6 +93,18 @@ function encryptJson(value) {
     if (value == null) return value;
     const key = _loadKey();
     if (!key) return value;
+    // audit r8 (CRITICAL): idempotent — value ĐÃ mã hoá ({ __enc__: "enc:v1:..." })
+    // thì trả NGUYÊN, KHÔNG bọc lần 2. Gốc bug: web2-zalo persistSession đã
+    // encryptJson(credentials) rồi _saveSession encryptJson lần nữa → ciphertext
+    // lồng → decryptJson ra { __enc__ } thay vì creds → cookie/imei undefined →
+    // restore phiên Zalo FAIL toàn bộ khi WEB2_ENC_KEY bật (đang bật ở prod).
+    if (
+        typeof value === 'object' &&
+        typeof value[ENC_MARK] === 'string' &&
+        isCiphertext(value[ENC_MARK])
+    ) {
+        return value;
+    }
     const plain = typeof value === 'string' ? value : JSON.stringify(value);
     return { [ENC_MARK]: encryptString(plain) };
 }

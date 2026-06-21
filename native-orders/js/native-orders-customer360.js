@@ -51,7 +51,8 @@
             // 2026-06-02 fix: cũ đọc summary.native.count → undefined → "Cannot read
             // properties of undefined" — chuyển sang totals.native.count + tổng item shape.
             const r = await fetch(
-                `${NO.WORKER_URL}/api/web2/customer-orders/${customerId}?limit=20`
+                `${NO.WORKER_URL}/api/web2/customer-orders/${customerId}?limit=20`,
+                { headers: window.Web2Auth?.authHeaders ? window.Web2Auth.authHeaders() : {} }
             );
             const data = await r.json();
             if (!data?.success) throw new Error(data?.error || `HTTP ${r.status}`);

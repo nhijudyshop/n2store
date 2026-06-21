@@ -312,8 +312,10 @@ async function routeRequest(request, env, ctx) {
                 });
         }
     } catch (error) {
-        console.error('[WORKER] Unhandled error:', error);
-        return errorResponse(error.message, 500, { stack: error.stack });
+        // audit r8: KHÔNG trả error.stack (+ message nội bộ) cho client — lộ tên
+        // module/đường dẫn nội bộ. Log đầy đủ server-side, trả message generic.
+        console.error('[WORKER] Unhandled error:', error && error.stack ? error.stack : error);
+        return errorResponse('Internal server error', 500);
     }
 }
 // Trigger deploy 20260115153551
