@@ -14,6 +14,7 @@
 - **sse-notify-completeness (2)**: campaign CRUD (create/delete/assign/unassign) + "Lưu Live" save/delete KHÔNG `_notify` → tab khác stale → thêm `_notify('campaign'|'saved')`.
 - **mutation-idempotency (3)**: supplier-wallet `nextval` tiêu TRƯỚC dup-check → gap số PAY/YEAR/NNNN khi retry → pre-check tx_id trước nextval. msg-templates DELETE không check rowCount → false 200+SSE giả → RETURNING+404. quick-replies seed cold-start race nhân đôi → cache PROMISE (chạy 1 lần).
 - **STAGED**: delivery-invoices.js + refunds.js route gating → làm sau khi client (dlv-app/rf-app ?v=r9) deploy lên nhijudy.store (tránh 401-window như ck-dashboard r8).
+- **STAGED DONE** (commit này, sau khi nhijudy.store serve client ~60s): gate delivery-invoices (from-pbh/ship/deliver/return/cancel/patch/delete) + refunds (approve/complete/cancel/delete) bằng requireWeb2AuthSoft. /from-pbh refunds = 410 stub (bỏ qua).
 - Cache-bust `?v=20260621r9` (native-orders-state/dlv-app/rf-app). report-revenue/printer-settings = inline script (tự fresh khi load trang).
 
 ### [hotfix r8] ck-dashboard 401 — fetchJson thiếu token sau khi gate customer-intents

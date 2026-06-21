@@ -7,6 +7,8 @@
 const express = require('express');
 const router = express.Router();
 const { withTransaction } = require('../db/with-transaction');
+// audit r9: gate mutation (state-change phiếu trả/hoàn tiền) — trước đây không auth.
+const { requireWeb2AuthSoft } = require('../middleware/web2-auth');
 
 // State machine: trạng thái hiện tại → tập trạng thái kế tiếp hợp lệ.
 // Chặn transition vô lý (vd completed→approved, cancel→draft) khi 2 user/2 tab
@@ -336,7 +338,7 @@ for (const [path, st] of [
     ['/:number/complete', 'completed'],
     ['/:number/cancel', 'cancel'],
 ]) {
-    router.post(path, async (req, res) => {
+    router.post(path, requireWeb2AuthSoft, async (req, res) => {
         const pool = req.app.locals.web2Db || req.app.locals.chatDb;
         try {
             await ensureTables(pool);
@@ -367,7 +369,7 @@ for (const [path, st] of [
     });
 }
 
-router.delete('/:number', async (req, res) => {
+router.delete('/:number', requireWeb2AuthSoft, async (req, res) => {
     const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     try {
         await ensureTables(pool);

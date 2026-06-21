@@ -8,6 +8,8 @@
 const express = require('express');
 const router = express.Router();
 const { withTransaction } = require('../db/with-transaction');
+// audit r9: gate mutation (state-change PBH giao/tiền) — trước đây hoàn toàn không auth.
+const { requireWeb2AuthSoft } = require('../middleware/web2-auth');
 
 // State machine: trạng thái hiện tại → tập trạng thái kế tiếp hợp lệ.
 // Chặn transition vô lý (vd delivered→shipping, cancel→shipping) khi 2 user/2
@@ -231,7 +233,7 @@ router.get('/:number', async (req, res) => {
 // POST /from-pbh — Create delivery from PBH (FastSaleOrder)
 // Body: { pbhNumber, dateDelivery?, carrierId?, carrierName?, trackingRef?,
 //   deliveryFee?, cashOnDelivery?, deliveryLines? (subset), note? }
-router.post('/from-pbh', async (req, res) => {
+router.post('/from-pbh', requireWeb2AuthSoft, async (req, res) => {
     const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     try {
         await ensureTables(pool);
@@ -370,7 +372,7 @@ for (const [path, st] of [
     ['/:number/return', 'returned'],
     ['/:number/cancel', 'cancel'],
 ]) {
-    router.post(path, async (req, res) => {
+    router.post(path, requireWeb2AuthSoft, async (req, res) => {
         const pool = req.app.locals.web2Db || req.app.locals.chatDb;
         try {
             await ensureTables(pool);
@@ -400,7 +402,7 @@ for (const [path, st] of [
     });
 }
 
-router.patch('/:number', async (req, res) => {
+router.patch('/:number', requireWeb2AuthSoft, async (req, res) => {
     const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     try {
         await ensureTables(pool);
@@ -447,7 +449,7 @@ router.patch('/:number', async (req, res) => {
     }
 });
 
-router.delete('/:number', async (req, res) => {
+router.delete('/:number', requireWeb2AuthSoft, async (req, res) => {
     const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     try {
         await ensureTables(pool);
