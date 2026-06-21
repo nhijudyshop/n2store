@@ -227,6 +227,177 @@
             isActive: $('otfActive').checked,
         };
     }
+    // ---------- icon picker ----------
+    // Icon hay dùng cho tag đơn — hiện mặc định khi chưa gõ tìm.
+    const COMMON_ICONS = [
+        'clock',
+        'hourglass',
+        'timer',
+        'alarm-clock',
+        'receipt',
+        'file-text',
+        'alert-triangle',
+        'triangle-alert',
+        'alert-circle',
+        'circle-alert',
+        'alert-octagon',
+        'shield-alert',
+        'ban',
+        'octagon-x',
+        'package',
+        'package-x',
+        'package-check',
+        'package-search',
+        'box',
+        'boxes',
+        'truck',
+        'map-pin',
+        'map-pin-off',
+        'map',
+        'phone',
+        'phone-off',
+        'user',
+        'users',
+        'tag',
+        'tags',
+        'bookmark',
+        'flag',
+        'check',
+        'check-check',
+        'circle-check',
+        'badge-check',
+        'badge-alert',
+        'x',
+        'circle-x',
+        'dollar-sign',
+        'credit-card',
+        'wallet',
+        'banknote',
+        'coins',
+        'hand-coins',
+        'shopping-cart',
+        'shopping-bag',
+        'store',
+        'warehouse',
+        'split',
+        'git-merge',
+        'printer',
+        'calendar',
+        'calendar-clock',
+        'flame',
+        'star',
+        'heart',
+        'gift',
+        'send',
+        'inbox',
+        'radio',
+        'bell',
+        'zap',
+        'sparkles',
+        'crown',
+        'gem',
+    ];
+    let _iconNamesCache = null;
+    function allIconNames() {
+        if (_iconNamesCache) return _iconNamesCache;
+        const L = window.lucide;
+        const set = new Set();
+        const toKebab = (s) =>
+            s
+                .replace(/([a-z0-9])([A-Z])/g, '$1-$2')
+                .replace(/([A-Z]+)([A-Z][a-z])/g, '$1-$2')
+                .replace(/([a-zA-Z])([0-9])/g, '$1-$2')
+                .toLowerCase();
+        try {
+            let keys = [];
+            if (L && L.icons && typeof L.icons === 'object') keys = Object.keys(L.icons);
+            else if (L) keys = Object.keys(L);
+            for (const k of keys) {
+                if (!/^[A-Z]/.test(k) || k === 'Icon') continue;
+                set.add(toKebab(k));
+            }
+        } catch {
+            /* lucide chưa load → fallback COMMON */
+        }
+        _iconNamesCache = [...set].sort();
+        return _iconNamesCache;
+    }
+    function renderIconPreview() {
+        const box = $('otfIconPreview');
+        const clr = $('otfIconClear');
+        if (!box) return;
+        const v = $('otfIcon').value.trim();
+        if (v) {
+            box.classList.remove('empty');
+            box.innerHTML = `<i data-lucide="${esc(v)}"></i>`;
+            if (clr) clr.hidden = false;
+        } else {
+            box.classList.add('empty');
+            box.innerHTML = `<i data-lucide="image"></i>`;
+            if (clr) clr.hidden = true;
+        }
+        icons();
+    }
+    function renderIconGrid(query) {
+        const grid = $('otfIconGrid');
+        if (!grid) return;
+        const q = (query || '').trim().toLowerCase();
+        const cur = $('otfIcon').value.trim();
+        let list;
+        if (!q) {
+            const valid = new Set(allIconNames());
+            list = valid.size ? COMMON_ICONS.filter((n) => valid.has(n)) : COMMON_ICONS.slice();
+        } else {
+            const all = allIconNames();
+            const src = all.length ? all : COMMON_ICONS;
+            list = src.filter((n) => n.includes(q)).slice(0, 120);
+        }
+        if (!list.length) {
+            grid.innerHTML = `<div class="ot-icon-empty">Không tìm thấy icon "${esc(q)}"</div>`;
+            grid.hidden = false;
+            return;
+        }
+        grid.innerHTML = list
+            .map(
+                (n) =>
+                    `<button type="button" class="ot-icon-opt ${n === cur ? 'sel' : ''}" data-icon="${esc(n)}" title="${esc(n)}"><i data-lucide="${esc(n)}"></i></button>`
+            )
+            .join('');
+        grid.hidden = false;
+        icons();
+    }
+    function setupIconPicker() {
+        const input = $('otfIcon');
+        const grid = $('otfIconGrid');
+        const clr = $('otfIconClear');
+        if (!input || !grid) return;
+        let t = null;
+        input.addEventListener('focus', () => renderIconGrid(input.value));
+        input.addEventListener('input', () => {
+            renderIconPreview();
+            if (t) clearTimeout(t);
+            t = setTimeout(() => renderIconGrid(input.value), 130);
+        });
+        input.addEventListener('blur', () => setTimeout(() => (grid.hidden = true), 200));
+        // mousedown (trước blur của input) để click chọn không bị đóng grid sớm.
+        grid.addEventListener('mousedown', (e) => {
+            const b = e.target.closest('.ot-icon-opt');
+            if (!b) return;
+            e.preventDefault();
+            input.value = b.dataset.icon;
+            renderIconPreview();
+            grid.hidden = true;
+            updatePreview();
+        });
+        if (clr)
+            clr.addEventListener('click', () => {
+                input.value = '';
+                renderIconPreview();
+                updatePreview();
+                input.focus();
+            });
+    }
+
     function updatePreview() {
         const f = readForm();
         $('otfPreview').innerHTML = window.Web2OrderTagPill
@@ -239,6 +410,7 @@
             : esc(f.name);
         const t = STATE.triggerById.get(f.trigger);
         $('otfTriggerDesc').textContent = t ? t.desc : '—';
+        renderIconPreview();
         icons();
     }
     function openModal() {
@@ -248,6 +420,8 @@
     }
     function closeModal() {
         $('otModal').classList.remove('active');
+        const g = $('otfIconGrid');
+        if (g) g.hidden = true;
         STATE.editingCode = null;
     }
     function fillForm(rec) {
@@ -377,6 +551,7 @@
             if (e.key === 'Escape' && $('otModal').classList.contains('active')) closeModal();
         });
         renderSwatches();
+        setupIconPicker();
     }
 
     function subscribeSSE() {

@@ -322,6 +322,95 @@
                 box-shadow: 0 0 0 1px #d6dbe6;
                 cursor: pointer;
             }
+            /* Icon picker */
+            .ot-icon-row {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+            }
+            .ot-icon-row input {
+                flex: 1;
+            }
+            .ot-icon-preview {
+                flex: 0 0 auto;
+                width: 40px;
+                height: 40px;
+                border: 1px solid #d6dbe6;
+                border-radius: 9px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                color: #0f172a;
+                background: #fff;
+            }
+            .ot-icon-preview svg {
+                width: 20px;
+                height: 20px;
+            }
+            .ot-icon-preview.empty {
+                color: #cbd5e1;
+            }
+            .ot-icon-clear {
+                flex: 0 0 auto;
+                width: 38px;
+                height: 38px;
+                border: 1px solid #d6dbe6;
+                border-radius: 9px;
+                background: #fff;
+                cursor: pointer;
+                color: #64748b;
+                font-size: 19px;
+                line-height: 1;
+            }
+            .ot-icon-clear:hover {
+                background: #fee2e2;
+                color: #b91c1c;
+                border-color: #fecaca;
+            }
+            .ot-icon-grid {
+                margin-top: 8px;
+                border: 1px solid #d6dbe6;
+                border-radius: 10px;
+                background: #fff;
+                padding: 8px;
+                max-height: 220px;
+                overflow: auto;
+                display: grid;
+                grid-template-columns: repeat(auto-fill, minmax(40px, 1fr));
+                gap: 5px;
+            }
+            .ot-icon-opt {
+                border: 1px solid transparent;
+                border-radius: 8px;
+                background: #f8fafc;
+                height: 38px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                cursor: pointer;
+                color: #475569;
+            }
+            .ot-icon-opt:hover {
+                background: #eff6ff;
+                border-color: #bfdbfe;
+                color: #0068ff;
+            }
+            .ot-icon-opt.sel {
+                background: #dbeafe;
+                border-color: #0068ff;
+                color: #0068ff;
+            }
+            .ot-icon-opt svg {
+                width: 18px;
+                height: 18px;
+            }
+            .ot-icon-empty {
+                grid-column: 1 / -1;
+                text-align: center;
+                color: #94a3b8;
+                font-size: 12.5px;
+                padding: 10px;
+            }
             .ot-preview {
                 margin-top: 6px;
                 padding: 14px;
@@ -446,15 +535,32 @@
                         </div>
                     </div>
                     <div class="ot-field">
-                        <label>Icon (tên lucide, tuỳ chọn)</label>
-                        <input
-                            type="text"
-                            id="otfIcon"
-                            placeholder="VD: clock, receipt, alert-triangle"
-                            autocomplete="off"
-                        />
+                        <label>Icon (tuỳ chọn)</label>
+                        <div class="ot-icon-row">
+                            <span
+                                class="ot-icon-preview empty"
+                                id="otfIconPreview"
+                                title="Icon đang chọn"
+                            ></span>
+                            <input
+                                type="text"
+                                id="otfIcon"
+                                placeholder="Gõ để tìm: clock, receipt, truck…"
+                                autocomplete="off"
+                            />
+                            <button
+                                type="button"
+                                class="ot-icon-clear"
+                                id="otfIconClear"
+                                title="Bỏ icon"
+                                hidden
+                            >
+                                ×
+                            </button>
+                        </div>
+                        <div class="ot-icon-grid" id="otfIconGrid" hidden></div>
                         <div class="ot-field-hint">
-                            Tên icon từ lucide.dev (để trống = không icon).
+                            Gõ để tìm rồi bấm chọn — để trống = không icon.
                         </div>
                     </div>
                     <div class="ot-field" style="display: flex; gap: 14px; align-items: flex-end">
@@ -490,6 +596,6 @@
         <script src="../../web2/shared/web2-sidebar.js?v=20260621r7"></script>
         <script src="../../web2/shared/web2-sse-bridge.js?v=20260621r6"></script>
         <script src="../../web2/shared/web2-order-tag-pill.js?v=20260621ot"></script>
-        <script src="js/order-tags-app.js?v=20260621ot"></script>
+        <script src="js/order-tags-app.js?v=20260621icon"></script>
     </body>
 </html>

@@ -2,6 +2,10 @@
 
 ## 2026-06-21
 
+### [feat] TAG đơn — icon picker tìm kiếm (thay ô nhập tay)
+
+Theo yêu cầu: field Icon ở modal Cấu hình TAG đơn → picker hiện list icon tìm kiếm + chọn (thay vì gõ tên lucide tay). `order-tags-app.js`: `allIconNames()` lấy 1373 icon từ `window.lucide.icons` (PascalCase→kebab), `COMMON_ICONS` ~60 icon hay dùng hiện mặc định; ô nhập = ô tìm (focus → grid, gõ → filter full registry ≤120, mousedown chọn beat blur), preview box icon đang chọn + nút × xoá, pill xem-trước cập nhật. Verified browser: 60 icon default · "arrow"→62 match render SVG · chọn flame · clear · edit prefill 'clock' + screenshot. Frontend-only (`order-tags-app.js?v=icon`).
+
 ### [feat] video-maker: kho giọng (Piper + ElevenLabs) + import video lồng tiếng + giọng theo cảnh + thẻ cảm xúc VieNeu
 
 User: (1) thẻ cảm xúc VieNeu; (2) import video để ghép voice; (3) chọn nhiều voice theo list + kho giọng sẵn (kiểu 'Adam'). Hỏi scope → cả 2 nguồn giọng, cả 2 kiểu multi-voice, slider tiếng gốc.
