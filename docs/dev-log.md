@@ -2,6 +2,18 @@
 
 ## 2026-06-21
 
+### [audit r2] Web 2.0 round-2 audit sâu (money/sql/xss/auth/race/pages + regression r1) ✅
+
+Workflow audit sâu 7 mặt → 44 finding → verify → **11 confirmed**. Fix 7 thật, defer 2 (money cần design), bỏ 3 false-positive. **Regression check r1: SẠCH** (không lỗi mới từ 25 fix round 1).
+
+- **r2a** — auth-gate 4 route READ lộ data nhạy cảm không auth: `v2/web2-customers` batch-by-fbid + batch-by-phone (PII KH), `v2/web2-wallets` batch-summary + batch-full (số dư ví) → `requireWeb2AuthSoft`. Vá caller duy nhất thiếu token (`comments-mobile-state.js` postJson gắn x-web2-token) trước khi gate. XSS `multi-tool.js:82` `r.reason` → `esc()`.
+- **r2b** — `reconcile-actions.js` audit date filter (`tsToInput`/`inputToTs`) dùng giờ LOCAL → đổi GMT+7 (offset +07:00 cố định).
+- **DEFER (cần user/design, KHÔNG fix tự động)**:
+    - Over-refund cap `web2-supplier-wallet.js:287` — cap chỉ active khi client gửi `ordered`; client HIỆN KHÔNG gửi (shape `{qty,amount}`) → cap null → không chặn. Fix đúng = server tra SL-đã-nhận authoritative từ so-order (feature, không phải patch); ép reject khi thiếu `ordered` sẽ CHẶN MỌI return hợp lệ → KHÔNG làm.
+    - Wallet manual-deposit UNIQUE index `web2-wallet-service.js:216` — double-credit thực tế ĐÃ chặn bởi `FOR UPDATE` ví (serialize same-phone); UNIQUE index là defense-in-depth nhưng rủi ro fail boot trên money DB nếu có row trùng → cần test-migration trên clone riêng trước.
+- **FALSE-POSITIVE (đã đúng/đã fix sẵn)**: `deductStock` đã atomic value-based (`SET stock = stock - $1`, before/after chỉ để log); products-modal openCreate ĐÃ có guard không đè lựa chọn user (2026-06-20); so-order deeplink ĐÃ có retry 6× re-assert tab (2026-06-14).
+- `node --check` pass; bump `?v=` (comments-mobile-state, multi-tool, reconcile-actions).
+
 ### [audit] Web 2.0 full-surface audit (adversarial-verified) → fix 25 bug ✅
 
 Workflow audit 8 mặt (sse/ws, render-route, pancake, zalo, frontend-js, css-modal-ui, click-path, firebase) → 47 finding raw → skeptic refute → **27 confirmed** → fix 25 (6 commit r1a-r1f), 1 false-positive (native-orders-modal-edit: `#productPickerInput` rebuild mỗi lần mở modal nên listener KHÔNG tích lũy).
