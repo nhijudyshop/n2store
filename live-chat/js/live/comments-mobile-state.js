@@ -222,9 +222,22 @@
 
     async function postJson(path, body) {
         try {
+            // x-web2-token bắt buộc (WEB2_AUTH_ENFORCE=1) — batch-by-phone/fbid đã gate
+            // (audit r2). Thiếu token → 401 → enrich KH rỗng. (2026-06-21)
+            let headers = { 'Content-Type': 'application/json' };
+            if (window.Web2Auth?.authHeaders) {
+                headers = window.Web2Auth.authHeaders(headers);
+            } else {
+                try {
+                    const t = JSON.parse(localStorage.getItem('web2_auth') || 'null')?.token;
+                    if (t) headers['x-web2-token'] = t;
+                } catch {
+                    /* no token */
+                }
+            }
             const r = await fetch(WORKER + path, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers,
                 credentials: 'omit',
                 body: JSON.stringify(body),
             });

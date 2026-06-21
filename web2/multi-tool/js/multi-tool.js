@@ -79,7 +79,7 @@
         }
         const r = await W.listPages();
         if (!r.ok || !Array.isArray(r.pages) || !r.pages.length) {
-            sel.innerHTML = `<option value="">Lỗi/không có page (${r.reason || 'cấu hình token ở Cấu hình Pancake'})</option>`;
+            sel.innerHTML = `<option value="">Lỗi/không có page (${esc(r.reason || 'cấu hình token ở Cấu hình Pancake')})</option>`;
             return;
         }
         // Bỏ Instagram (igo_) — reply_comment chỉ FB.

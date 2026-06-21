@@ -80,7 +80,9 @@ router.get('/by-phone/:phone', async (req, res) => {
 // debt-manager/pancake-api swap URL là xong — nhưng nguồn là ví Web 2.0
 // (web2_customer_wallets), hết cảnh 2 nguồn số dư mâu thuẫn cùng màn hình.
 // =====================================================
-router.post('/batch-summary', async (req, res) => {
+// Auth (soft → 401 khi WEB2_AUTH_ENFORCE=1): số dư ví KH là tài chính nhạy cảm.
+// Callers (web2-wallet-balance) đã gắn x-web2-token. (audit r2 2026-06-21)
+router.post('/batch-summary', requireWeb2AuthSoft, async (req, res) => {
     try {
         const db = req.app.locals.web2Db || req.app.locals.chatDb;
         const raw = Array.isArray(req.body?.phones) ? req.body.phones : [];
@@ -115,7 +117,8 @@ router.post('/batch-summary', async (req, res) => {
 // Body: { phones: [...] } → { success, data: { [phone]: walletRow } }
 // Chống N+1 /by-phone (customer-wallet page enrich). SĐT chưa ví → vắng mặt.
 // =====================================================
-router.post('/batch-full', async (req, res) => {
+// Auth (soft): full ví (nạp/rút/giao dịch) nhạy cảm. Caller web2-wallet-api gắn token.
+router.post('/batch-full', requireWeb2AuthSoft, async (req, res) => {
     try {
         const db = req.app.locals.web2Db || req.app.locals.chatDb;
         const phones = Array.isArray(req.body?.phones) ? req.body.phones : [];

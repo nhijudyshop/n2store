@@ -262,7 +262,10 @@ router.get('/list', async (req, res) => {
 // ─── POST /batch-by-fbid {fbIds:[...]} → {data:{fbId: customer}} ────────
 // Cho enricher tpos-pancake đọc kho KH warehouse theo fb_id (PSID) hàng loạt
 // (thay /api/v2/customers/batch của Web 1.0). 1 SĐT = 1 KH, nhưng fb_id riêng.
-router.post('/batch-by-fbid', async (req, res) => {
+// Auth (soft → 401 khi WEB2_AUTH_ENFORCE=1): lộ PII KH (tên/SĐT/địa chỉ/fb_id)
+// không auth = rò rỉ. Mọi caller đã gắn x-web2-token (customer-store, native-orders,
+// live-api, comments-mobile postJson đã vá). (audit r2 2026-06-21)
+router.post('/batch-by-fbid', requireWeb2AuthSoft, async (req, res) => {
     const db = getPool(req);
     const fbIds = Array.isArray(req.body?.fbIds) ? req.body.fbIds.map(String).filter(Boolean) : [];
     if (!fbIds.length) return res.json({ success: true, data: {} });
@@ -296,7 +299,8 @@ router.post('/batch-by-fbid', async (req, res) => {
 // Cho enricher balance-history/customer-wallet đọc status/info KH theo phone
 // hàng loạt (thay PartnerCustomerApi.listByPhones của TPOS). Shape partner-
 // compat (Id/Name/Phone/Status/Address) để frontend không phải đổi nhiều.
-router.post('/batch-by-phone', async (req, res) => {
+// Auth (soft): lộ PII KH theo SĐT không auth = rò rỉ. (audit r2 2026-06-21)
+router.post('/batch-by-phone', requireWeb2AuthSoft, async (req, res) => {
     const db = getPool(req);
     const raw = Array.isArray(req.body?.phones) ? req.body.phones : [];
     const phones = raw.map((p) => normPhoneWeb2(p)).filter(Boolean);
