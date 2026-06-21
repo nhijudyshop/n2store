@@ -3,14 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `0898d3a` — fix(web2) SSE: BOOT_ID luôn random suffix (slice RENDER_INSTANCE_ID có thể trùng service-id giữa instance → fan-out vỡ)
-**Last updated**: 2026-06-22 00:19:29 +07
-**Latest session**: [`RESUME:20260622-001929-0898d3a`](../20260622-001929-0898d3a.md)
-**Summary**: fix(web2) SSE: BOOT_ID luôn random suffix (slice RENDER_INSTANCE_ID có thể trùng service-id giữa instance → ...
+**Latest commit**: `4960f1b` — fix(web2) SSE: vá 18 finding audit cross-instance (double-deliver, reconnect, pool churn, keepalive, log noise, shutdown)
+**Last updated**: 2026-06-22 00:29:46 +07
+**Latest session**: [`RESUME:20260622-002946-4960f1b`](../20260622-002946-4960f1b.md)
+**Summary**: fix(web2) SSE: vá 18 finding audit cross-instance (double-deliver, reconnect, pool churn, keepalive, log noise, shut...
 
 ## Folders affected in this commit
 
-- [`render.com/`](./render.com.md) — 3 file(s)
+- [`render.com/`](./render.com.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -55,7 +55,7 @@
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-06-20 12:07
 - [`referenceUI/`](./referenceUI.md) — updated 2026-06-19 14:27
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-06-20 12:07
-- [`render.com/`](./render.com.md) — updated 2026-06-22 00:19
+- [`render.com/`](./render.com.md) — updated 2026-06-22 00:29
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-21 21:25
 - [`service-costs/`](./service-costs.md) — updated 2026-06-20 12:07
