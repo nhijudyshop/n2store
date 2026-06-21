@@ -193,7 +193,9 @@
 
     function toAudioBuffer(audioCtx, samples, sampleRate) {
         const buf = audioCtx.createBuffer(1, samples.length, sampleRate);
-        buf.copyToChannel(samples, 0);
+        // Fallback Safari/iOS cũ thiếu copyToChannel (audit r4) — khớp web2-video-audio.js.
+        if (buf.copyToChannel) buf.copyToChannel(samples, 0);
+        else buf.getChannelData(0).set(samples);
         return buf;
     }
 
