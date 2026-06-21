@@ -3068,7 +3068,7 @@ async function gracefulShutdown(signal) {
     // trước khi đóng HTTP server. Idempotent (module cũng tự bắt SIGTERM).
     try {
         if (web2RealtimeSseRoutes && web2RealtimeSseRoutes.gracefulClose) {
-            web2RealtimeSseRoutes.gracefulClose();
+            await web2RealtimeSseRoutes.gracefulClose(); // await: DELETE registry xong trước web2Pool.end()
         }
     } catch (e) {
         console.warn('[SHUTDOWN] SSE gracefulClose error:', e.message);

@@ -98,7 +98,7 @@ function setForwardTarget(target) {
     }
 }
 
-function _forwardNotify(key, data, eventType) {
+function _forwardNotify(key, data, eventType, kind = 'notify') {
     if (!_forwardTarget || key === ADMIN_LOG_TOPIC) return;
     if (typeof fetch !== 'function') return; // Node 18+ global fetch
     const url = `${_forwardTarget.url}/api/realtime/web2/sse/relay-notify`;
@@ -106,6 +106,7 @@ function _forwardNotify(key, data, eventType) {
         key,
         data: data || { ts: Date.now() },
         event: eventType || 'update',
+        kind, // 'notify' (exact) | 'wildcard' (prefix) | 'broadcast' (all)
     });
     const doPost = () =>
         fetch(url, {
@@ -385,6 +386,10 @@ function _localNotify(key, data, eventType = 'update', fromPeer = false) {
 }
 
 function notifyClientsWildcard(keyPrefix, data, eventType = 'update') {
+    // Forward fallback→web2-api (HTTP relay) cho wildcard (vd web2:wallet:* — SePay
+    // deposit refresh trang ví). Audit r2 #1: thiếu forward này → fallback gate khỏi
+    // pg fan-out làm wildcard MẤT đường tới web2-api (regression).
+    if (_forwardTarget) _forwardNotify(keyPrefix, data, eventType, 'wildcard');
     _publishCrossInstance('wildcard', keyPrefix, data, eventType);
     return _localNotifyWildcard(keyPrefix, data, eventType);
 }
@@ -427,6 +432,9 @@ function _localNotifyWildcard(keyPrefix, data, eventType = 'update') {
 }
 
 function broadcastToAll(data, eventType = 'broadcast') {
+    // Audit r2 #2: cùng gap với wildcard — forward để broadcast từ fallback cũng tới
+    // web2-api (hiện chưa caller fallback nào, nhưng đóng gap để khỏi tái diễn).
+    if (_forwardTarget) _forwardNotify('web2:__broadcast__', data, eventType, 'broadcast');
     _publishCrossInstance('broadcast', null, data, eventType);
     return _localBroadcast(data, eventType);
 }
@@ -517,7 +525,7 @@ router.post('/sse/relay-notify', (req, res) => {
     if (provided !== secret) {
         return res.status(401).json({ success: false, error: 'unauthorized' });
     }
-    const { key, data, event } = req.body || {};
+    const { key, data, event, kind } = req.body || {};
     if (!key) return res.status(400).json({ success: false, error: 'Missing key parameter' });
     // Hardening relay (audit r3 2026-06-21): (1) KHÔNG cho relay topic admin
     // (web2:_admin:*) cross-instance; (2) whitelist event type; (3) cap payload
@@ -532,12 +540,20 @@ router.post('/sse/relay-notify', (req, res) => {
     }
     let clients = 0;
     try {
-        clients = notifyClients(key, data || { ts: Date.now() }, evt);
+        // Audit r2 #1/#2: route theo kind. wildcard (web2:wallet:* — SePay deposit)
+        // và broadcast cũng phải fan-out từ fallback qua relay này, không chỉ exact key.
+        if (kind === 'wildcard') {
+            clients = notifyClientsWildcard(key, data || { ts: Date.now() }, evt);
+        } else if (kind === 'broadcast') {
+            clients = broadcastToAll(data || { ts: Date.now() }, evt);
+        } else {
+            clients = notifyClients(key, data || { ts: Date.now() }, evt);
+        }
     } catch (e) {
         console.error('[SSE-WEB2] relay-notify error:', e.message);
         return res.status(500).json({ success: false, error: e.message });
     }
-    res.json({ success: true, server: 'web2', key, clients });
+    res.json({ success: true, server: 'web2', key, kind: kind || 'notify', clients });
 });
 
 /**
@@ -710,8 +726,16 @@ async function _heartbeat() {
     // half-open (TCP chết im) sẽ không tự biết tới event kế. SELECT 1 lỗi → error
     // handler fire → reconnect. (keepAlive TCP cũng giúp, đây là belt-and-suspenders.)
     if (_listenClient) {
-        _listenClient.query('SELECT 1').catch(() => {
-            /* error handler của client lo reconnect */
+        const c = _listenClient;
+        // Bọc timeout: half-open thật (TCP chết im) → query TREO chứ không lỗi ngay.
+        // Timeout 8s → ép client 'error' để onLost đóng + reconnect (audit r2 #5).
+        Promise.race([
+            c.query('SELECT 1'),
+            new Promise((_, rej) => setTimeout(() => rej(new Error('LISTEN ping timeout')), 8000)),
+        ]).catch(() => {
+            try {
+                c.emit('error', new Error('LISTEN liveness ping failed'));
+            } catch {}
         });
     }
 }
@@ -812,7 +836,7 @@ function initCrossInstance(pool) {
 // Graceful shutdown (Render SIGTERM lúc deploy): đóng SSE sạch để client reconnect
 // NHANH sang instance mới (EventSource auto-reconnect → bridge resync re-fetch) →
 // giảm cửa sổ mất event lúc rolling-deploy. Gỡ heartbeat + LISTEN + xoá dòng registry.
-function gracefulClose() {
+async function gracefulClose() {
     if (_shuttingDown) return;
     _shuttingDown = true;
     let n = 0;
@@ -836,18 +860,28 @@ function gracefulClose() {
     try {
         if (_heartbeatTimer) clearInterval(_heartbeatTimer);
     } catch {}
+    if (_listenReconnectTimer) {
+        try {
+            clearTimeout(_listenReconnectTimer);
+        } catch {}
+        _listenReconnectTimer = null;
+    }
     try {
-        if (_listenClient) _listenClient.end();
+        if (_listenClient) await _listenClient.end();
     } catch {}
-    try {
-        if (_crossPool)
-            _crossPool
-                .query('DELETE FROM web2_sse_instances WHERE boot_id = $1', [BOOT_ID])
-                .catch(() => {});
-    } catch {}
+    // Xoá dòng registry — AWAIT để hoàn tất TRƯỚC khi server.js đóng web2Pool (audit
+    // r2 #4). Timeout 3s để không treo shutdown nếu DB chậm.
+    if (_crossPool) {
+        try {
+            await Promise.race([
+                _crossPool.query('DELETE FROM web2_sse_instances WHERE boot_id = $1', [BOOT_ID]),
+                new Promise((r) => setTimeout(r, 3000)),
+            ]);
+        } catch {}
+    }
 }
-process.once('SIGTERM', gracefulClose);
-process.once('SIGINT', gracefulClose);
+// KHÔNG process.once ở module (audit r2 #6): server.js gracefulShutdown là NGUỒN DUY
+// NHẤT gọi gracefulClose() (await) → thứ tự shutdown rõ + DELETE xong trước web2Pool.end().
 
 // =====================================================
 // EXPORTS
