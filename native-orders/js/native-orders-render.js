@@ -102,8 +102,9 @@
             .join(' ');
     };
 
-    // Admin Web 2.0? (role='admin'). Dùng để gate thao tác KPI nhạy cảm (chốt base).
+    // Admin Web 2.0? (role='admin'). 1 nguồn ở Web2Kpi.isAdmin (fallback inline nếu chưa load).
     NO.isAdmin = function isAdmin() {
+        if (window.Web2Kpi && window.Web2Kpi.isAdmin) return window.Web2Kpi.isAdmin();
         try {
             const u = window.Web2Auth?.getStored?.()?.user;
             if (u && u.role) return String(u.role).toLowerCase() === 'admin';

@@ -19,6 +19,7 @@
     let _t = null;
 
     function esc(s) {
+        if (global.Web2Kpi && global.Web2Kpi.escapeHtml) return global.Web2Kpi.escapeHtml(s);
         if (global.Web2Escape) return global.Web2Escape.escapeHtml(s);
         const d = document.createElement('div');
         d.textContent = String(s == null ? '' : s);
@@ -72,11 +73,13 @@
         return bar;
     }
 
-    // Trạng thái 1 pill kpi_user: 'err' | 'notchoted' | 'ok'. nv = tên NV (ok/notchoted).
+    // Trạng thái 1 pill kpi_user: 'masked'|'err'|'notchoted'|'ok'. nv = tên NV (ok/notchoted).
+    // masked = pill '👤 KPI' của NV KHÁC (server đã che cho staff) → KHÔNG gom tên/đếm.
     function pillInfo(pill) {
         const span = pill.querySelector('.w2-otag');
         const color = (span && span.style.color) || '';
         const text = (span ? span.textContent : pill.textContent || '').trim();
+        if (text.startsWith('👤')) return { state: 'masked', nv: null };
         if (color === C_ERR || text.startsWith('⚠')) return { state: 'err', nv: null };
         if (color === C_AMBER) return { state: 'notchoted', nv: text };
         return { state: 'ok', nv: text };

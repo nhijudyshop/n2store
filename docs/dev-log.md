@@ -2,6 +2,17 @@
 
 ## 2026-06-21
 
+### [refactor+security] Hệ KPI — gom 1 nguồn module (core + Web2Kpi) + enforce scope NV/admin + fix bug
+
+User: "NV nào thấy KPI nv đó, admin thấy tất cả → KPI chính chia module để trang tham chiếu → audit → test → lặp đến hoàn hảo". Chạy **workflow audit 11-agent** (42 findings · 3 critical · 17 high · 5 scope-leak xác nhận) → kế hoạch → thực thi.
+
+- **B1 BACKEND core `render.com/services/web2-kpi-core.js` (MỚI, 1 nguồn)**: `RATE_PER_SP`, `sanitizeCampaignName`, `buildProductMap`, `resolveBeneficiaryBySTT`, `computeKpiQty(products,base,mode,metaMap)→{qty,lines}` (mode 'inbox'|'live'), `loadKpiRanges(pool,filterUserId?)`. Trước đây toán KPI FORK y hệt ở kpi.js + web2-order-tags-service.js (mirror lúc làm pill) → drift.
+- **B2 dùng core, XOÁ fork**: `kpi.js` xoá `_productMap/_orderKpiQty/_beneficiaryByStt/sanitizeCampaignName/RATE`; `web2-order-tags-service.js` xoá `_kpi*` (4 hàm) → `kpiUserDetail` gọi core. Unit-test 5 ca khớp (FIX: SP trùng mã giờ cộng dồn đúng).
+- **B3 bug correctness**: (a) `/kpi` Dự báo/Thực tường minh `draft→forecast, else→actual` (trước 'delivered' lọt nhầm dự báo); (b) `resolveBeneficiary` fallback actor non-finite→null+`fallback_actor_invalid`; (c) `_isChotDonTemplate` word-boundary `/\bchot\s+don\b/` (trước substring→false-positive khóa nhầm base); (d) log khi forecast/actual âm bị clamp.
+- **B5 SCOPE (security — gốc lớn nhất)**: `/events` thêm `requireWeb2AuthSoft+applyKpiScope`+self-scope (staff ÉP `beneficiary_user_id=viewer.id`, dò id khác→403); `/forecast`+`/actual` self-scope; `/assignments`+`/employee-ranges`(+/history) thêm `requireWeb2AuthSoft`. **MASK pill server-side**: `enrichOrdersWithTags(pool,orders,{viewerUser})`→`computeAutoTags(...,{viewerUser})`→ đơn NV khác (beneficiaryId≠viewer.id)→ pill `👤 KPI` xám, KHÔNG detail (che tên+tiền). native-orders `/load` truyền `req.kpiUser`. Server = nguồn-tin-duy-nhất.
+- **B4 FRONTEND `web2/shared/web2-kpi.js` (MỚI, `window.Web2Kpi`)**: `authHeaders/isAdmin/fmtVnd/escapeHtml/rateFrom/fetchKpi/fetchEvents`. Migrate fork ở kpi-dashboard/native-orders-kpi(+self-only guard)/kpi-health(skip `👤 KPI`)/render(isAdmin). **FIX kpi-dashboard `loadEvents` thiếu auth** (sẽ 401 sau gate /events) + bỏ hardcode `*5000`→rate API. kpi-assignments reads thêm token.
+- 14 file (2 mới). Backend=Render; FE=GH Pages. Unit mask PASS. Verify live đa-user ở commit kế.
+
 ### [fix] GLOBAL: web2 shell ≤900px main full-width (mọi trang tablet/phone) — sửa flex-direction no-op
 
 Nối tiếp fix iPad (page-scoped) → user OK sửa GLOBAL. Gốc: `web2-theme.css @media(max-width:900px)` đặt `.web2-shell{flex-direction:column}` nhưng shell là `display:grid(260px 1fr)` → no-op → aside off-canvas (position:fixed) khiến MAIN kẹt track 260px ở **MỌI trang web2 trên ≤900px** (phí ~⅔ màn).

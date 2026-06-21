@@ -15,7 +15,9 @@
         'https://chatomni-proxy.nhijudyshop.workers.dev';
     const KPI_URL = `${WORKER}/api/web2/kpi/kpi`;
 
+    // Helper KPI 1 nguồn ở window.Web2Kpi (fallback inline nếu chưa load).
     function authHeaders() {
+        if (window.Web2Kpi && window.Web2Kpi.authHeaders) return window.Web2Kpi.authHeaders();
         if (window.Web2Auth) return window.Web2Auth.authHeaders();
         try {
             const t = global.Web2Auth?.getStored?.()?.token;
@@ -24,9 +26,11 @@
         return {};
     }
     function fmtVnd(n) {
+        if (window.Web2Kpi && window.Web2Kpi.fmtVnd) return window.Web2Kpi.fmtVnd(n);
         return (Number(n) || 0).toLocaleString('vi-VN') + 'đ';
     }
     function esc(s) {
+        if (window.Web2Kpi && window.Web2Kpi.escapeHtml) return window.Web2Kpi.escapeHtml(s);
         if (window.Web2Escape) return window.Web2Escape.escapeHtml(s);
         const d = document.createElement('div');
         d.textContent = String(s == null ? '' : s);
@@ -54,7 +58,9 @@
 
     function render(strip, d) {
         const rows = d.kpi || [];
-        const self = d.viewer?.scope === 'self';
+        // Phòng thủ: CHỈ scope='all' (admin, server xác nhận) mới hiện leaderboard mọi NV.
+        // Thiếu viewer / scope lạ → mặc định self (gọn) → không lỡ lộ KPI người khác.
+        const self = !(d.viewer && d.viewer.scope === 'all');
         if (!rows.length) {
             strip.hidden = true;
             return;

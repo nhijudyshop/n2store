@@ -105,7 +105,8 @@
     async function loadRanges(campaignName) {
         try {
             const r = await fetch(
-                `${CAMPAIGNS_API}/employee-ranges/${encodeURIComponent(campaignName)}`
+                `${CAMPAIGNS_API}/employee-ranges/${encodeURIComponent(campaignName)}`,
+                { headers: { 'x-web2-token': authToken() } } // route nay đã gate auth
             );
             if (r.status === 404) {
                 STATE.ranges = [];
@@ -127,7 +128,8 @@
     async function loadHistory(campaignName) {
         try {
             const r = await fetch(
-                `${CAMPAIGNS_API}/employee-ranges/${encodeURIComponent(campaignName)}/history`
+                `${CAMPAIGNS_API}/employee-ranges/${encodeURIComponent(campaignName)}/history`,
+                { headers: { 'x-web2-token': authToken() } } // route nay đã gate auth
             );
             const d = await r.json();
             STATE.history = d.history || [];

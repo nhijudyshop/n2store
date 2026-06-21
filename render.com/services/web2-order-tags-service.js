@@ -12,6 +12,10 @@
 // trạng thái SP (CHO_MUA) nằm ở web2_products. Client không có sẵn 2 thứ này →
 // tính ở /load (cùng pool web2Db) là đúng chỗ. Xem CLAUDE.md "TAG đơn hàng".
 
+// NGUỒN DUY NHẤT toán KPI (rate/sanitize/productMap/beneficiaryByStt/computeKpiQty).
+// Trước 2026-06-21 file này FORK lại logic của routes/v2/kpi.js → drift. Giờ dùng core.
+const kpiCore = require('./web2-kpi-core');
+
 const _ensured = new WeakSet();
 
 // ---------------------------------------------------------------------------
@@ -303,87 +307,17 @@ function tagDetail(trigger, o, ctx) {
 //   • Inbox: hưởng = người tạo đơn (createdBy). KPI qty = 100% SL.
 //   • Tiền = qty × 5.000đ/SP.
 // ---------------------------------------------------------------------------
-const KPI_RATE_PER_SP = 5000;
-
-function _kpiSanitizeCampaign(name) {
-    if (!name) return null;
-    return String(name)
-        .replace(/[.$#\[\]/]/g, '_')
-        .trim();
-}
-function _kpiProductMap(products) {
-    const m = {};
-    for (const p of Array.isArray(products) ? products : []) {
-        const code = p.productCode || p.product_code || p.code;
-        const qty = Number(p.quantity ?? p.qty) || 0;
-        if (code && qty > 0) m[code] = (m[code] || 0) + qty;
-    }
-    return m;
-}
-function _kpiBeneficiaryByStt(stt, ranges) {
-    if (stt == null) return null;
-    for (const r of ranges || []) {
-        const from = Number(r.fromSTT ?? r.from ?? r.start ?? 0);
-        const to = Number(r.toSTT ?? r.to ?? r.end ?? Infinity);
-        if (stt >= from && stt <= to) {
-            const uid = Number(r.userId ?? r.id);
-            return {
-                id: Number.isFinite(uid) ? uid : 0,
-                name: r.userName || r.name || String(r.userId ?? '?'),
-                from,
-                to,
-            };
-        }
-    }
-    return null;
-}
-
-// Lines per-SP cho popup: { code, name, imageUrl, base, current, delta }. delta =
-// phần được tính KPI cho SP đó.
-//   mode 'inbox'        → base 0, delta = current (100%).
-//   mode 'live'+baseMap → base = kpi_base[code], delta = max(0, current−base) (upsell).
-//   mode 'live'+null    → CHƯA chốt: base null, delta 0 (chưa tính gì cho tới khi chốt).
-function _kpiLines(o, curMap, baseMap, mode, ctx) {
-    const lines = [];
-    const seen = new Set();
-    for (const l of Array.isArray(o.products) ? o.products : []) {
-        const code = l.productCode || l.product_code || l.code;
-        if (!code || seen.has(code)) continue;
-        seen.add(code);
-        const current = curMap[code] || 0;
-        const ps = ctx.productStatus && ctx.productStatus.get(code);
-        let base, delta;
-        if (mode === 'inbox') {
-            base = 0;
-            delta = current;
-        } else if (baseMap == null) {
-            base = null; // livestream chưa chốt
-            delta = 0;
-        } else {
-            base = Number(baseMap[code]) || 0;
-            delta = Math.max(0, current - base);
-        }
-        lines.push({
-            code,
-            name: l.name || l.productName || l.product_name || code,
-            imageUrl: (ps && ps.imageUrl) || l.imageUrl || l.image_url || null,
-            base,
-            current,
-            delta,
-        });
-    }
-    return lines;
-}
-
 // kpiUserDetail(order, ctx) → object mô tả người hưởng + breakdown (gắn vào tag.detail.kpiUser).
+// Toán KPI (qty/lines/beneficiary/sanitize/rate) DÙNG kpiCore — KHÔNG fork. ctx.productStatus
+// (Map code→{imageUrl}) truyền làm metaMap để override ảnh SP từ catalog web2_products.
 function kpiUserDetail(o, ctx) {
     const isInbox = o.channel === 'web2_inbox' || o.channel === 'inbox';
-    const curMap = _kpiProductMap(o.products);
+    const RATE = kpiCore.RATE_PER_SP;
+    const meta = ctx.productStatus; // Map(code→{imageUrl,...})
 
     if (isInbox) {
         const name = o.createdByName || o.createdBy || 'NV inbox';
-        const lines = _kpiLines(o, curMap, null, 'inbox', ctx);
-        const qty = lines.reduce((s, l) => s + l.delta, 0);
+        const { qty, lines } = kpiCore.computeKpiQty(o.products, null, 'inbox', meta);
         return {
             source: 'inbox',
             state: 'ok',
@@ -395,9 +329,9 @@ function kpiUserDetail(o, ctx) {
             campaignName: o.liveCampaignName || null,
             campaignStt: o.campaignStt ?? null,
             kpiQty: qty,
-            kpiAmount: qty * KPI_RATE_PER_SP,
+            kpiAmount: qty * RATE,
             notChoted: false,
-            rate: KPI_RATE_PER_SP,
+            rate: RATE,
             orderStatus: o.status,
             lines,
         };
@@ -406,13 +340,12 @@ function kpiUserDetail(o, ctx) {
     // Livestream
     const ranges =
         ctx.kpiRanges && o.liveCampaignName
-            ? ctx.kpiRanges.get(_kpiSanitizeCampaign(o.liveCampaignName)) || []
+            ? ctx.kpiRanges.get(kpiCore.sanitizeCampaignName(o.liveCampaignName)) || []
             : [];
     const stt = o.campaignStt ?? null;
     const base = o.kpiBase || null;
-    const lines = _kpiLines(o, curMap, base, 'live', ctx);
-    const qty = lines.reduce((s, l) => s + l.delta, 0);
-    const b = _kpiBeneficiaryByStt(stt, ranges);
+    const { qty, lines } = kpiCore.computeKpiQty(o.products, base, 'live', meta);
+    const b = kpiCore.resolveBeneficiaryBySTT(stt, ranges);
 
     if (!b) {
         const hasRanges = Array.isArray(ranges) && ranges.length > 0;
@@ -429,9 +362,9 @@ function kpiUserDetail(o, ctx) {
             campaignName: o.liveCampaignName || null,
             campaignStt: stt,
             kpiQty: qty,
-            kpiAmount: qty * KPI_RATE_PER_SP,
+            kpiAmount: qty * RATE,
             notChoted: base == null,
-            rate: KPI_RATE_PER_SP,
+            rate: RATE,
             orderStatus: o.status,
             lines,
         };
@@ -444,22 +377,24 @@ function kpiUserDetail(o, ctx) {
         label: b.name,
         color: '#16a34a',
         beneficiaryName: b.name,
-        beneficiaryId: b.id,
+        beneficiaryId: Number.isFinite(b.id) ? b.id : 0,
         resolveText: `STT ${stt} ∈ dải ${b.from}–${toLabel} → ${b.name} (livestream${base == null ? ', CHƯA chốt đơn' : ', tính phần upsell sau chốt'}).`,
         campaignName: o.liveCampaignName || null,
         campaignStt: stt,
         kpiQty: qty,
-        kpiAmount: qty * KPI_RATE_PER_SP,
+        kpiAmount: qty * RATE,
         notChoted: base == null,
-        rate: KPI_RATE_PER_SP,
+        rate: RATE,
         orderStatus: o.status,
         lines,
     };
 }
 
-// computeAutoTags(order, ctx, tagDefs) → { tags:[{code,name,color,icon,trigger,detail?}], hasChoHang }
+// computeAutoTags(order, ctx, tagDefs, opts) → { tags:[...], hasChoHang }
 // tagDefs đã sort theo priority ASC (loadActiveTagDefs) → output giữ thứ tự.
-function computeAutoTags(o, ctx, tagDefs) {
+// opts.viewerUser = { id, role } để CHE pill kpi_user của NV khác (NV chỉ thấy KPI mình).
+function computeAutoTags(o, ctx, tagDefs, opts) {
+    const viewer = (opts && opts.viewerUser) || null;
     const f = orderProductFlags(o, ctx);
     const tags = [];
     // 1 tag / trigger: 2 thẻ cùng trigger = cùng điều kiện = pill trùng (vô nghĩa).
@@ -493,18 +428,34 @@ function computeAutoTags(o, ctx, tagDefs) {
                 // chia dải, còn lại theo state. detail.kpiUser cho popup breakdown.
                 try {
                     const info = kpiUserDetail(o, ctx);
-                    tag.name = info.label || def.name;
-                    // Màu: đỏ = lỗi chia dải; hổ phách = đã gán NV nhưng đơn CHƯA chốt
-                    // (base chưa khóa → KPI tạm 0); còn lại = màu thẻ (xanh, đã chốt/inbox).
-                    tag.color =
-                        info.state === 'error'
-                            ? '#dc2626'
-                            : info.notChoted
-                              ? '#f59e0b'
-                              : def.color || info.color;
-                    tag.kpiState = info.state;
-                    tag.notChoted = !!info.notChoted;
-                    tag.detail = { kpiUser: info };
+                    // SCOPE: NV (role≠admin) CHỈ thấy KPI của CHÍNH MÌNH. Đơn của NV khác →
+                    // CHE: nhãn '👤 KPI', màu trung tính, KHÔNG đính detail (tên/tiền NV khác).
+                    // Đây là tầng DUY NHẤT đáng tin (frontend không thể tin). Admin thấy đủ.
+                    // Che KHI có beneficiary thật khác viewer. Đơn "chưa gán" (beneficiaryId
+                    // null) KHÔNG che — không lộ ai, staff thấy lỗi config là vô hại.
+                    const masked =
+                        viewer &&
+                        viewer.role !== 'admin' &&
+                        info.beneficiaryId != null &&
+                        Number(info.beneficiaryId) !== Number(viewer.id);
+                    if (masked) {
+                        tag.name = '👤 KPI';
+                        tag.color = '#94a3b8';
+                        tag.kpiMasked = true;
+                    } else {
+                        tag.name = info.label || def.name;
+                        // Màu: đỏ = lỗi chia dải; hổ phách = đã gán NV nhưng đơn CHƯA chốt
+                        // (base chưa khóa → KPI tạm 0); còn lại = màu thẻ (xanh, đã chốt/inbox).
+                        tag.color =
+                            info.state === 'error'
+                                ? '#dc2626'
+                                : info.notChoted
+                                  ? '#f59e0b'
+                                  : def.color || info.color;
+                        tag.kpiState = info.state;
+                        tag.notChoted = !!info.notChoted;
+                        tag.detail = { kpiUser: info };
+                    }
                 } catch {
                     /* để nguyên def.name/color nếu resolve lỗi */
                 }
@@ -522,26 +473,10 @@ function computeAutoTags(o, ctx, tagDefs) {
 async function buildContext(pool, orders, opts = {}) {
     const productStatus = new Map();
     const heldByCode = new Map();
-    // kpiRanges: sanitized campaign_name → [{userId,userName,fromSTT,toSTT}]. Chỉ load
-    // khi có tag kpi_user active (opts.needKpi) — tránh query thừa mỗi /load.
-    const kpiRanges = new Map();
-    if (opts.needKpi) {
-        try {
-            const ar = await pool.query(
-                `SELECT campaign_name, employee_ranges FROM web2_kpi_assignments`
-            );
-            for (const r of ar.rows) {
-                kpiRanges.set(
-                    r.campaign_name,
-                    Array.isArray(r.employee_ranges) ? r.employee_ranges : []
-                );
-            }
-        } catch (e) {
-            // Bảng chưa tồn tại (route v2/kpi chưa chạy ensureSchema) → để rỗng:
-            // mọi đơn livestream sẽ hiện "chưa phân công" (vẫn đúng nghĩa).
-            console.warn('[WEB2-ORDER-TAGS] load kpi ranges warn:', e.message);
-        }
-    }
+    // kpiRanges: sanitized campaign_name → ranges[]. Chỉ load khi có tag kpi_user active
+    // (opts.needKpi) — tránh query thừa mỗi /load. 1 nguồn ở kpiCore (load FULL mọi NV để
+    // resolve đúng beneficiary; che NV-khác làm ở tầng tag, KHÔNG lọc range — xem masking).
+    const kpiRanges = opts.needKpi ? await kpiCore.loadKpiRanges(pool) : new Map();
     const codeSet = new Set();
     for (const o of orders || []) {
         for (const l of o.products || []) {
@@ -652,15 +587,17 @@ async function loadActiveTagDefs(pool) {
 }
 
 // Tiện ích cho /load: enrich mảng orders tại chỗ (o.autoTags + o.hasChoHang).
-// Defensive — bất kỳ lỗi nào → để autoTags=[] và không vỡ list.
-async function enrichOrdersWithTags(pool, orders) {
+// opts.viewerUser = { id, role } (từ req.kpiUser) → CHE pill kpi_user của NV khác cho
+// staff (server-side mask, nguồn-tin-duy-nhất). Defensive — lỗi → autoTags=[] không vỡ list.
+async function enrichOrdersWithTags(pool, orders, opts) {
     if (!Array.isArray(orders) || !orders.length) return;
+    const viewerUser = (opts && opts.viewerUser) || null;
     try {
         const tagDefs = await loadActiveTagDefs(pool);
         const needKpi = tagDefs.some((d) => d.trigger === 'kpi_user');
         const ctx = await buildContext(pool, orders, { needKpi });
         for (const o of orders) {
-            const { tags, hasChoHang } = computeAutoTags(o, ctx, tagDefs);
+            const { tags, hasChoHang } = computeAutoTags(o, ctx, tagDefs, { viewerUser });
             o.autoTags = tags;
             o.hasChoHang = hasChoHang;
         }

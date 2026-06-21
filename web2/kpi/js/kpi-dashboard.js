@@ -23,6 +23,7 @@
         return document.querySelector(sel);
     }
     function escapeHtml(s) {
+        if (window.Web2Kpi && window.Web2Kpi.escapeHtml) return window.Web2Kpi.escapeHtml(s);
         if (window.Web2Escape) return window.Web2Escape.escapeHtml(s);
         if (s == null) return '';
         const d = document.createElement('div');
@@ -30,8 +31,8 @@
         return d.innerHTML;
     }
     function fmtVnd(n) {
-        // NOTE: dùng glyph 'đ' (không phải '₫' của Web2Format.vnd) → giữ nguyên,
-        // KHÔNG delegate (tránh đổi ký hiệu tiền hiển thị).
+        // Web2Kpi.fmtVnd cũng dùng glyph 'đ' (khớp) → 1 nguồn; fallback inline.
+        if (window.Web2Kpi && window.Web2Kpi.fmtVnd) return window.Web2Kpi.fmtVnd(n);
         return (Number(n) || 0).toLocaleString('vi-VN') + 'đ';
     }
     function fmtDate(ts) {
@@ -73,7 +74,9 @@
 
     // KPI base-delta, tách Dự báo (đơn draft) / Thực (đơn đã thành PBH). Scope theo
     // token: admin thấy hết, staff thấy của mình. Xem render.com/routes/v2/kpi.js GET /kpi.
+    // authHeaders 1 nguồn ở Web2Kpi (gắn x-web2-token → scope đúng). Fallback inline.
     function _authHeaders() {
+        if (window.Web2Kpi && window.Web2Kpi.authHeaders) return window.Web2Kpi.authHeaders();
         if (window.Web2Auth?.authHeaders) return window.Web2Auth.authHeaders();
         try {
             const t = window.Web2Auth?.getStored?.()?.token;
@@ -91,13 +94,15 @@
             unassignedForecast: Number(d.unassigned_forecast_qty) || 0,
             unassignedActual: Number(d.unassigned_actual_qty) || 0,
             viewer: d.viewer || { scope: 'all' },
+            rate: Number(d.rate_per_sp) || (window.Web2Kpi ? window.Web2Kpi.RATE_PER_SP : 5000),
         };
     }
 
     async function loadEvents() {
         const params = new URLSearchParams({ limit: '100' });
         if (STATE.currentCampaignId) params.set('campaign_id', STATE.currentCampaignId);
-        const r = await fetch(`${KPI_API}/events?` + params);
+        // PHẢI gắn auth (server /events nay self-scope theo token; thiếu → 401/sai scope).
+        const r = await fetch(`${KPI_API}/events?` + params, { headers: _authHeaders() });
         const d = await r.json();
         return d.events || [];
     }
@@ -112,6 +117,7 @@
         const rows = data.rows || [];
         const uF = data.unassignedForecast || 0;
         const uA = data.unassignedActual || 0;
+        const RATE = data.rate || (window.Web2Kpi ? window.Web2Kpi.RATE_PER_SP : 5000);
         if (!rows.length && !uF && !uA) {
             root.innerHTML = `<div class="kpi-empty"><i data-lucide="bar-chart-2"></i><p>Chưa có KPI nào trong chiến dịch này.</p></div>`;
             if (window.lucide) lucide.createIcons();
@@ -125,8 +131,8 @@
             uF || uA
                 ? `<tr style="opacity:.7;"><td class="kpi-rank">—</td>
                      <td><i data-lucide="user-x" style="width:14px;height:14px;vertical-align:-2px;"></i> Chưa gán NV (ngoài khoảng STT)</td>
-                     <td class="kpi-qty">${uF}</td><td class="kpi-amount">${fmtVnd(uF * 5000)}</td>
-                     <td class="kpi-qty">${uA}</td><td class="kpi-amount">${fmtVnd(uA * 5000)}</td></tr>`
+                     <td class="kpi-qty">${uF}</td><td class="kpi-amount">${fmtVnd(uF * RATE)}</td>
+                     <td class="kpi-qty">${uA}</td><td class="kpi-amount">${fmtVnd(uA * RATE)}</td></tr>`
                 : '';
         const html = `
             <div class="kpi-leaderboard">

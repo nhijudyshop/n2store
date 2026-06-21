@@ -28,6 +28,9 @@ const {
     requireWeb2AuthSoft,
     hashWeb2Token,
 } = require('../../middleware/web2-auth');
+// NGUỒN DUY NHẤT toán KPI (rate/sanitize/productMap/beneficiaryByStt/computeKpiQty).
+// KHÔNG fork lại ở đây — xem render.com/services/web2-kpi-core.js.
+const kpiCore = require('../../services/web2-kpi-core');
 
 const router = express.Router();
 
@@ -117,7 +120,7 @@ router.use(async (req, res, next) => {
 // CORE HELPERS — public for other route modules
 // =====================================================
 
-const RATE_PER_SP = 5000;
+const RATE_PER_SP = kpiCore.RATE_PER_SP; // 1 nguồn ở web2-kpi-core
 // PHẢI khớp campaigns dropdown — native-orders _campaignsHandler dùng '__no_campaign__'
 // cho đơn không chiến dịch (COALESCE(NULLIF(live_campaign_id,''),'__no_campaign__')).
 // Trước 2026-06-09 dùng 'NO_CAMPAIGN' → lệch dropdown → filter "(Không chiến dịch)" rỗng.
@@ -161,13 +164,8 @@ function _idempotencyKey({
     return crypto.createHash('sha1').update(composite).digest('hex').slice(0, 64);
 }
 
-// Sanitize campaign name (giống Web 1.0 tab1-employee.js:83) — strip Firebase-unsafe chars.
-function sanitizeCampaignName(name) {
-    if (!name) return null;
-    return String(name)
-        .replace(/[.$#\[\]\/]/g, '_')
-        .trim();
-}
+// Sanitize campaign name — 1 nguồn ở web2-kpi-core (giống Web 1.0 tab1-employee.js:83).
+const sanitizeCampaignName = kpiCore.sanitizeCampaignName;
 
 // Beneficiary = NV được assigned khoảng STT chứa đơn này.
 // Query web2_kpi_assignments (web2Db, OWN — KHÔNG dùng campaign_employee_ranges của Web 1.0).
@@ -176,10 +174,14 @@ async function resolveBeneficiary(
     pool,
     { campaign_name, campaign_stt, actor_user_id, actor_name }
 ) {
+    // actor_user_id phải là số (cột beneficiary_user_id INTEGER + GROUP BY). actor lạ
+    // (null/'bot') → null + source 'fallback_actor_invalid' để attribution hỏng LỘ ra,
+    // không âm thầm nhét rác vào ledger.
+    const actorOk = Number.isFinite(Number(actor_user_id));
     const fallback = {
-        beneficiary_user_id: actor_user_id,
+        beneficiary_user_id: actorOk ? Number(actor_user_id) : null,
         beneficiary_name: actor_name,
-        beneficiary_source: 'fallback_actor',
+        beneficiary_source: actorOk ? 'fallback_actor' : 'fallback_actor_invalid',
     };
     if (campaign_stt == null || !campaign_name) return fallback;
 
@@ -192,20 +194,14 @@ async function resolveBeneficiary(
         );
         if (!r.rows.length) return fallback;
         const ranges = Array.isArray(r.rows[0].employee_ranges) ? r.rows[0].employee_ranges : [];
-        for (const range of ranges) {
-            const from = Number(range.fromSTT ?? range.from ?? range.start ?? 0);
-            const to = Number(range.toSTT ?? range.to ?? range.end ?? Infinity);
-            if (campaign_stt >= from && campaign_stt <= to) {
-                const uid = range.userId ?? range.id;
-                // userId trong Web 1.0 có thể là string (firebase uid). Web 2.0
-                // dùng integer (web2_users.id). Cast về integer khi parse được.
-                const parsed = Number(uid);
-                return {
-                    beneficiary_user_id: Number.isFinite(parsed) ? parsed : actor_user_id,
-                    beneficiary_name: range.userName || range.name || String(uid),
-                    beneficiary_source: 'assignment',
-                };
-            }
+        // Matching dùng core (1 nguồn). uid lạ (non-finite) → fallback actor (giữ hành vi cũ).
+        const b = kpiCore.resolveBeneficiaryBySTT(campaign_stt, ranges);
+        if (b) {
+            return {
+                beneficiary_user_id: Number.isFinite(b.id) ? b.id : actor_user_id,
+                beneficiary_name: b.name,
+                beneficiary_source: 'assignment',
+            };
         }
         return fallback;
     } catch (e) {
@@ -493,9 +489,12 @@ router.get('/scope', applyKpiScope, (req, res) => {
 // =====================================================
 
 // GET /events?campaign_id=&beneficiary_id=&limit=50
-router.get('/events', async (req, res) => {
+router.get('/events', requireWeb2AuthSoft, applyKpiScope, async (req, res) => {
     try {
         const pool = req.app.locals.web2Db || req.app.locals.chatDb;
+        // SCOPE: NV (role≠admin) CHỈ xem ledger của CHÍNH MÌNH; admin xem hết.
+        const viewer = req.kpiUser || null;
+        const selfOnly = !!(viewer && viewer.role !== 'admin');
         const limit = Math.min(Number(req.query.limit) || 50, 500);
         const conds = ['1=1'];
         const params = [];
@@ -503,7 +502,19 @@ router.get('/events', async (req, res) => {
         if (req.query.campaign_id) {
             i = _pushCampaignFilter(conds, params, i, req.query.campaign_id);
         }
-        if (req.query.beneficiary_id) {
+        if (selfOnly) {
+            // chặn staff dò beneficiary_id người khác → ÉP về chính mình.
+            if (
+                req.query.beneficiary_id &&
+                Number(req.query.beneficiary_id) !== Number(viewer.id)
+            ) {
+                return res
+                    .status(403)
+                    .json({ success: false, error: 'Chỉ xem được KPI của chính bạn' });
+            }
+            conds.push(`beneficiary_user_id = $${i++}`);
+            params.push(Number(viewer.id));
+        } else if (req.query.beneficiary_id) {
             conds.push(`beneficiary_user_id = $${i++}`);
             params.push(Number(req.query.beneficiary_id));
         }
@@ -526,7 +537,7 @@ router.get('/events', async (req, res) => {
 });
 
 // GET /assignments?campaign_name= — list ranges for campaign (web2_kpi_assignments, web2Db).
-router.get('/assignments', async (req, res) => {
+router.get('/assignments', requireWeb2AuthSoft, async (req, res) => {
     try {
         const pool = req.app.locals.web2Db || req.app.locals.chatDb;
         const name = sanitizeCampaignName(req.query.campaign_name);
@@ -558,7 +569,7 @@ router.get('/assignments', async (req, res) => {
 // =====================================================
 
 // GET /employee-ranges/:campaignName/history
-router.get('/employee-ranges/:campaignName/history', async (req, res) => {
+router.get('/employee-ranges/:campaignName/history', requireWeb2AuthSoft, async (req, res) => {
     try {
         const pool = req.app.locals.web2Db || req.app.locals.chatDb;
         const name = sanitizeCampaignName(req.params.campaignName);
@@ -593,7 +604,7 @@ router.get('/employee-ranges/:campaignName/history', async (req, res) => {
 });
 
 // GET /employee-ranges/:campaignName
-router.get('/employee-ranges/:campaignName', async (req, res) => {
+router.get('/employee-ranges/:campaignName', requireWeb2AuthSoft, async (req, res) => {
     try {
         const pool = req.app.locals.web2Db || req.app.locals.chatDb;
         const name = sanitizeCampaignName(req.params.campaignName);
@@ -712,16 +723,26 @@ router.put('/employee-ranges/:campaignName', requireWeb2Admin, async (req, res) 
 // MEDIUM-cleanup (2026-06-13): DEAD endpoint — kpi-dashboard.js chỉ gọi /kpi +
 // /events (không gọi /forecast, /actual; comment đầu file stale). Giữ làm legacy
 // nhưng gate soft để không lộ KPI ẩn danh; cân nhắc xoá hẳn đợt sau.
-router.get('/forecast', requireWeb2AuthSoft, async (req, res) => {
+router.get('/forecast', requireWeb2AuthSoft, applyKpiScope, async (req, res) => {
     try {
         const pool = req.app.locals.web2Db || req.app.locals.chatDb;
+        const viewer = req.kpiUser || null;
+        const selfOnly = !!(viewer && viewer.role !== 'admin');
         const conds = ['1=1'];
         const params = [];
         let i = 1;
         if (req.query.campaign_id) {
             i = _pushCampaignFilter(conds, params, i, req.query.campaign_id);
         }
-        if (req.query.user_id) {
+        if (selfOnly) {
+            if (req.query.user_id && Number(req.query.user_id) !== Number(viewer.id)) {
+                return res
+                    .status(403)
+                    .json({ success: false, error: 'Chỉ xem được KPI của chính bạn' });
+            }
+            conds.push(`beneficiary_user_id = $${i++}`);
+            params.push(Number(viewer.id));
+        } else if (req.query.user_id) {
             conds.push(`beneficiary_user_id = $${i++}`);
             params.push(Number(req.query.user_id));
         }
@@ -741,7 +762,13 @@ router.get('/forecast', requireWeb2AuthSoft, async (req, res) => {
             params
         );
         const rows = r.rows.map((x) => {
-            const q = Math.max(0, Number(x.forecast_qty) || 0);
+            const raw = Number(x.forecast_qty) || 0;
+            if (raw < 0)
+                console.warn('[web2-kpi] forecast âm bị clamp (double-remove?)', {
+                    beneficiary: x.beneficiary_user_id,
+                    raw,
+                });
+            const q = Math.max(0, raw);
             return { ...x, forecast_qty: q, forecast_amount: q * RATE_PER_SP };
         });
         res.json({ success: true, forecast: rows, rate_per_sp: RATE_PER_SP });
@@ -751,16 +778,26 @@ router.get('/forecast', requireWeb2AuthSoft, async (req, res) => {
 });
 
 // GET /actual?campaign_id=&user_id=
-router.get('/actual', requireWeb2AuthSoft, async (req, res) => {
+router.get('/actual', requireWeb2AuthSoft, applyKpiScope, async (req, res) => {
     try {
         const pool = req.app.locals.web2Db || req.app.locals.chatDb;
+        const viewer = req.kpiUser || null;
+        const selfOnly = !!(viewer && viewer.role !== 'admin');
         const conds = ['1=1'];
         const params = [];
         let i = 1;
         if (req.query.campaign_id) {
             i = _pushCampaignFilter(conds, params, i, req.query.campaign_id);
         }
-        if (req.query.user_id) {
+        if (selfOnly) {
+            if (req.query.user_id && Number(req.query.user_id) !== Number(viewer.id)) {
+                return res
+                    .status(403)
+                    .json({ success: false, error: 'Chỉ xem được KPI của chính bạn' });
+            }
+            conds.push(`beneficiary_user_id = $${i++}`);
+            params.push(Number(viewer.id));
+        } else if (req.query.user_id) {
             conds.push(`beneficiary_user_id = $${i++}`);
             params.push(Number(req.query.user_id));
         }
@@ -783,7 +820,13 @@ router.get('/actual', requireWeb2AuthSoft, async (req, res) => {
             params
         );
         const rows = r.rows.map((x) => {
-            const q = Math.max(0, Number(x.actual_qty) || 0);
+            const raw = Number(x.actual_qty) || 0;
+            if (raw < 0)
+                console.warn('[web2-kpi] actual âm bị clamp (over-revoke?)', {
+                    beneficiary: x.beneficiary_user_id,
+                    raw,
+                });
+            const q = Math.max(0, raw);
             return {
                 ...x,
                 actual_qty: q,
@@ -809,45 +852,9 @@ router.get('/actual', requireWeb2AuthSoft, async (req, res) => {
 // Tính trực tiếp từ native_orders (KHÔNG qua ledger) → luôn khớp trạng thái đơn,
 // không dính bug dedup/idempotency. Ledger web2_kpi_events vẫn giữ cho audit.
 // =====================================================
-function _productMap(products) {
-    const m = {};
-    for (const p of Array.isArray(products) ? products : []) {
-        const code = p.productCode || p.code;
-        const qty = Number(p.quantity ?? p.qty) || 0;
-        if (code && qty > 0) m[code] = (m[code] || 0) + qty;
-    }
-    return m;
-}
-
-// KPI qty của 1 đơn = Σ max(0, cur − base). base=null (livestream chưa chốt) → 0.
-function _orderKpiQty(products, base) {
-    if (base == null) return 0; // livestream chưa chốt
-    const cur = _productMap(products);
-    const codes = new Set([...Object.keys(cur), ...Object.keys(base)]);
-    let qty = 0;
-    for (const c of codes) {
-        const d = (cur[c] || 0) - (Number(base[c]) || 0);
-        if (d > 0) qty += d;
-    }
-    return qty;
-}
-
-// Resolve NV hưởng theo khoảng STT (livestream). ranges = [{userId,userName,fromSTT,toSTT}].
-function _beneficiaryByStt(stt, ranges) {
-    if (stt == null) return null;
-    for (const r of ranges) {
-        const from = Number(r.fromSTT ?? r.from ?? r.start ?? 0);
-        const to = Number(r.toSTT ?? r.to ?? r.end ?? Infinity);
-        if (stt >= from && stt <= to) {
-            const uid = Number(r.userId ?? r.id);
-            return {
-                id: Number.isFinite(uid) ? uid : 0,
-                name: r.userName || r.name || String(r.userId ?? '?'),
-            };
-        }
-    }
-    return null;
-}
+// KPI qty 1 đơn (base-delta) + resolve NV theo STT: DÙNG kpiCore (1 nguồn).
+//   kpiCore.computeKpiQty(products, base, mode) → { qty, lines }  (mode 'inbox'|'live')
+//   kpiCore.resolveBeneficiaryBySTT(stt, ranges) → { id, name, from, to } | null
 
 router.get('/kpi', async (req, res) => {
     try {
@@ -888,22 +895,14 @@ router.get('/kpi', async (req, res) => {
             params
         );
 
-        // Map sanitized campaign_name → ranges (mọi campaign, cho all-campaign mode).
-        const rangeMap = new Map();
-        try {
-            const aq = await pool.query(
-                `SELECT campaign_name, employee_ranges FROM web2_kpi_assignments`
-            );
-            for (const r of aq.rows) {
-                rangeMap.set(
-                    r.campaign_name,
-                    Array.isArray(r.employee_ranges) ? r.employee_ranges : []
-                );
-            }
-        } catch {}
+        // Map sanitized campaign_name → ranges (mọi campaign). 1 nguồn ở kpiCore.
+        const rangeMap = await kpiCore.loadKpiRanges(pool);
 
-        // Gom theo beneficiary, TÁCH dự báo (status=draft) vs thực (status=confirmed).
-        // draft = chưa thành đơn hàng; confirmed = PBH confirmed/done. (cancelled đã loại).
+        // Phân loại Dự báo/Thực: CHỈ 'draft' = DỰ BÁO (chưa thành đơn). Mọi trạng thái khác
+        // (confirmed/delivered/shipped — cancelled đã loại ở query) = THỰC (đã thành sale).
+        // Sửa 2026-06-21: trước là confirmed→actual / else→forecast → 'delivered' bị nhét
+        // nhầm vào Dự báo. Giờ tường minh draft→forecast, còn lại→actual.
+        const kindOf = (status) => (status === 'draft' ? 'forecast' : 'actual');
         const acc = new Map();
         const bucket = (id, name, qty, status) => {
             if (qty <= 0) return;
@@ -914,7 +913,7 @@ router.get('/kpi', async (req, res) => {
                 forecast_qty: 0,
                 actual_qty: 0,
             };
-            if (status === 'confirmed') cur.actual_qty += qty;
+            if (kindOf(status) === 'actual') cur.actual_qty += qty;
             else cur.forecast_qty += qty;
             acc.set(key, cur);
         };
@@ -922,8 +921,12 @@ router.get('/kpi', async (req, res) => {
         let unassignedActual = 0;
         for (const o of ordersQ.rows) {
             const isInbox = o.channel === 'web2_inbox';
-            const base = isInbox ? {} : o.kpi_base || null;
-            const qty = _orderKpiQty(o.products, base);
+            // base-delta qua kpiCore (1 nguồn). inbox → 100%; live → upsell sau chốt.
+            const qty = kpiCore.computeKpiQty(
+                o.products,
+                isInbox ? null : o.kpi_base,
+                isInbox ? 'inbox' : 'live'
+            ).qty;
             if (qty <= 0) continue;
             if (isInbox) {
                 const uid = Number(o.created_by);
@@ -937,9 +940,9 @@ router.get('/kpi', async (req, res) => {
                 const ranges = o.live_campaign_name
                     ? rangeMap.get(sanitizeCampaignName(o.live_campaign_name)) || []
                     : [];
-                const b = _beneficiaryByStt(o.campaign_stt, ranges);
-                if (b) bucket(b.id, b.name, qty, o.status);
-                else if (o.status === 'confirmed') unassignedActual += qty;
+                const b = kpiCore.resolveBeneficiaryBySTT(o.campaign_stt, ranges);
+                if (b) bucket(Number.isFinite(b.id) ? b.id : 0, b.name, qty, o.status);
+                else if (kindOf(o.status) === 'actual') unassignedActual += qty;
                 else unassignedForecast += qty;
             }
         }

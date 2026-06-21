@@ -349,7 +349,8 @@ function _isChotDonTemplate(name) {
         .replace(/[\u0300-\u036f]/g, '')
         .replace(/đ/gi, 'd')
         .toLowerCase();
-    return n.includes('chot don');
+    // WORD-BOUNDARY thay includes() — tránh false-positive 'x_chot don_auto' khóa nhầm base.
+    return /\bchot\s+don\b/.test(n);
 }
 
 async function _maybeSnapshotKpiBase(item) {

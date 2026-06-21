@@ -1797,7 +1797,8 @@ router.get('/load', _kpiModule.applyKpiScope, async (req, res) => {
 
         // 2026-06-21: TAG đơn hàng auto (cột "Thẻ" + hasChoHang chặn PBH). Chạy SAU
         // mọi enrich (cần pbh*/ckSignal/walletBalance đã set). Defensive: lỗi → autoTags=[].
-        await orderTagsSvc.enrichOrdersWithTags(pool, orders);
+        // viewerUser (req.kpiUser từ applyKpiScope) → CHE pill KPI của NV khác cho staff.
+        await orderTagsSvc.enrichOrdersWithTags(pool, orders, { viewerUser: req.kpiUser });
 
         res.json({
             success: true,
