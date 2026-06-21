@@ -434,7 +434,8 @@
                 const bars = d.series
                     .map((s) => {
                         const h = max > 0 ? (s.revenue / max) * 100 : 0;
-                        const day = new Date(s.day);
+                        const [_y, _mo, _d] = String(s.day).split('-').map(Number);
+                        const day = new Date(_y, (_mo || 1) - 1, _d || 1); // audit r9: local midnight (hết lệch -1 ngày GMT+7)
                         const lbl = `${String(day.getDate()).padStart(2, '0')}/${String(day.getMonth() + 1).padStart(2, '0')}`;
                         return `<div class="bar" style="height:${h}%"><span class="tip">${lbl}: ${fmtMoney(s.revenue)} · ${s.orderCount} đơn</span></div>`;
                     })
@@ -443,7 +444,8 @@
                 const xLabels = d.series
                     .map((s, i) => {
                         if (i % skipEvery !== 0) return '<span></span>';
-                        const day = new Date(s.day);
+                        const [_y, _mo, _d] = String(s.day).split('-').map(Number);
+                        const day = new Date(_y, (_mo || 1) - 1, _d || 1); // audit r9: local midnight (hết lệch -1 ngày GMT+7)
                         return `<span>${String(day.getDate()).padStart(2, '0')}/${String(day.getMonth() + 1).padStart(2, '0')}</span>`;
                     })
                     .join('');

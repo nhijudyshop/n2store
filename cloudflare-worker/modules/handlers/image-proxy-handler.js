@@ -107,6 +107,19 @@ export async function handleImageProxy(request, url) {
         });
     }
 
+    // SSRF guard PHẢI chạy TRƯỚC nhánh resize (audit r9): trước đây nhánh wantResize
+    // return sớm → forward nguyên ?url= sang Render (Render fetch không validate) →
+    // SSRF (vd url=http://169.254.169.254/...). Validate ngay sau khi có imageUrl.
+    {
+        const v = validateImageProxyTarget(imageUrl);
+        if (!v.ok) {
+            console.warn('[IMAGE-PROXY] Rejected url:', imageUrl, '-', v.reason);
+            return errorResponse(v.reason, 400, {
+                usage: '/api/image-proxy?url=<encoded_url>[&w=<px>][&q=<1-100>]',
+            });
+        }
+    }
+
     // Forward resize requests to Render (sharp lives there) — CF Workers can't
     // re-encode JPEG without a paid Image Resizing plan, so we proxy through.
     const wantResize = url.searchParams.has('w') || url.searchParams.has('q');

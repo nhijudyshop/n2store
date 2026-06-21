@@ -2,6 +2,20 @@
 
 ## 2026-06-21
 
+### [audit r9] Adversarial audit 7 mặt cuối (33 agent) → 16 bug → fix 16 (delivery/refund gate staged)
+
+7 finder (worker-handlers/remaining-pages/generic-entity/zalo-oa-creds/native-orders-modules/sse-notify-completeness/mutation-idempotency). 16 confirmed, fix hết:
+
+- **worker-handlers (2)**: `pancake-handler` log `targetUrl` chứa `access_token` (mọi chat/settings call) → import+dùng `redactUrlForLog` (export từ proxy-handler). `image-proxy` SSRF guard bị bỏ qua ở nhánh resize (forward `?url=` sang Render không validate → `url=http://169.254.169.254/...`) → validate TRƯỚC nhánh wantResize.
+- **remaining-pages (3)**: report-revenue `new Date(s.day)` UTC → nhãn ngày lệch −1 (GMT+7) → parse local midnight. delivery+refund state-mutation POST KHÔNG gửi token + route không gate → client gửi authHeaders (gate route ở commit staged sau). printer-settings native `confirm()` → `Popup.danger`.
+- **generic-entity (3)**: dedicated-entity history không cap → MAX_HISTORY=300 (khớp generic); `_storage` GET không auth (lộ entity_slug+size) → gate; dedicated-entity `parseInt(page/limit)` NaN khi `?page=` rỗng → `|| default`.
+- **zalo-oa-creds (2)**: ZNS sendZNS không idempotency → gửi trùng tốn phí khi retry → check (phone,template,orderRef) sent/pending 10 phút. `/send-zns` không rate-limit → thêm limiter 5 tin/SĐT/phút (+prune map).
+- **native-orders-modules (1)**: `_showFbBusinessLoginPrompt` nhánh fallback gọi `window.Popup.confirm` KHI Popup undefined → TypeError → dùng `confirm()` native.
+- **sse-notify-completeness (2)**: campaign CRUD (create/delete/assign/unassign) + "Lưu Live" save/delete KHÔNG `_notify` → tab khác stale → thêm `_notify('campaign'|'saved')`.
+- **mutation-idempotency (3)**: supplier-wallet `nextval` tiêu TRƯỚC dup-check → gap số PAY/YEAR/NNNN khi retry → pre-check tx_id trước nextval. msg-templates DELETE không check rowCount → false 200+SSE giả → RETURNING+404. quick-replies seed cold-start race nhân đôi → cache PROMISE (chạy 1 lần).
+- **STAGED**: delivery-invoices.js + refunds.js route gating → làm sau khi client (dlv-app/rf-app ?v=r9) deploy lên nhijudy.store (tránh 401-window như ck-dashboard r8).
+- Cache-bust `?v=20260621r9` (native-orders-state/dlv-app/rf-app). report-revenue/printer-settings = inline script (tự fresh khi load trang).
+
 ### [hotfix r8] ck-dashboard 401 — fetchJson thiếu token sau khi gate customer-intents
 
 User báo `ck-dashboard` 401 `Cần đăng nhập Web 2.0` trên `/api/web2/customer-intents`. Regression r8: gate GET customer-intents nhưng client `ck-dashboard-app.js fetchJson` (dùng cho CẢ payment-signals + customer-intents) chỉ `credentials:'include'`, KHÔNG gửi `x-web2-token`. Fix: `fetchJson` thêm `Web2Auth.authHeaders()`. Bump `?v=20260621r8fix`. (Bài học: khi gate GET, verify ĐÚNG hàm fetch của caller gửi token — ck-dashboard có 2 đường fetch, chỉ POST /done có token, GET list thì không.) Kèm fix icon lucide `message-square-warning` (không có trong 0.294.0) → `message-square`.

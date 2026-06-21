@@ -1902,10 +1902,30 @@ router.get('/zns/templates', async (req, res) => {
 });
 
 // Gửi ZNS (helper Web2Zalo.sendZNS target)
+// audit r9: rate-limit ZNS theo SĐT (tốn phí ~200đ/tin) — chống loop/spam từ 1 phiên
+// authed. Bổ sung cho idempotency (orderRef) ở service: chặn cả gửi nhiều SĐT khác orderRef.
+const _znsRate = new Map(); // phone → [ts,...]
+const ZNS_WINDOW_MS = 60_000;
+const ZNS_MAX_PER_WINDOW = 5;
 router.post('/send-zns', async (req, res) => {
     try {
         const db = getDb(req);
         const { phone, templateId, data, orderRef, oaRef, customerId, sentBy } = req.body || {};
+        const _p = String(phone || '').replace(/\D/g, '');
+        const _nowTs = Date.now();
+        const _hits = (_znsRate.get(_p) || []).filter((t) => _nowTs - t < ZNS_WINDOW_MS);
+        if (_hits.length >= ZNS_MAX_PER_WINDOW) {
+            return res
+                .status(429)
+                .json({ success: false, error: 'Gửi ZNS quá nhanh tới SĐT này, vui lòng đợi' });
+        }
+        _hits.push(_nowTs);
+        _znsRate.set(_p, _hits);
+        if (_znsRate.size > 2000) {
+            for (const [k, v] of _znsRate) {
+                if (!v.some((t) => _nowTs - t < ZNS_WINDOW_MS)) _znsRate.delete(k);
+            }
+        }
         const r = await oa.sendZNS(db, {
             phone,
             templateId,

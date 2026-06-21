@@ -36,10 +36,22 @@ function getPool(req) {
 
 // _ensuredPools: WeakSet key theo pool (không dùng flag boolean share giữa
 // 2 pool — pattern SP-tablescreated đã catalog).
-const _ensuredPools = new WeakSet();
-async function ensureTables(req) {
+// audit r9: cache PROMISE (không WeakSet set-sau-seed) → 2 request cold-start
+// đồng thời share 1 promise → seed chạy ĐÚNG 1 lần (trước đây cả 2 qua guard +
+// COUNT=0 → INSERT seed 2 lần → quick-replies nhân đôi).
+const _ensurePromises = new WeakMap();
+function ensureTables(req) {
     const pool = getPool(req);
-    if (_ensuredPools.has(pool)) return;
+    let p = _ensurePromises.get(pool);
+    if (p) return p;
+    p = _doEnsureTables(req, pool).catch((e) => {
+        _ensurePromises.delete(pool); // lỗi → cho phép thử lại lần sau
+        throw e;
+    });
+    _ensurePromises.set(pool, p);
+    return p;
+}
+async function _doEnsureTables(req, pool) {
     await pool.query(`
         CREATE TABLE IF NOT EXISTS web2_quick_replies (
             id          BIGSERIAL PRIMARY KEY,
@@ -88,7 +100,6 @@ async function ensureTables(req) {
     } catch (e) {
         console.warn('[WEB2-QUICK-REPLIES] seed từ Web 1.0 fail (bỏ qua):', e.message);
     }
-    _ensuredPools.add(pool);
 }
 
 function mapRow(row) {

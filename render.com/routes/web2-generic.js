@@ -97,7 +97,9 @@ function validSlug(s) {
 // Trả disk usage cho web2_records: tổng table + index, breakdown theo entity_slug.
 // Read-only, an toàn dùng để monitor.
 // -----------------------------------------------------
-router.get('/_storage', async (req, res) => {
+// audit r9: gate — lộ toàn bộ entity_slug + record count + DB size cho mọi caller
+// (không client nào gọi → gate an toàn).
+router.get('/_storage', requireWeb2AuthSoft, async (req, res) => {
     const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     try {

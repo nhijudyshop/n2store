@@ -699,6 +699,7 @@ router.post('/campaigns', requireWeb2AuthSoft, async (req, res) => {
             'INSERT INTO web2_live_parent_campaigns (name, note, created_at) VALUES ($1,$2,$3) RETURNING id',
             [name, req.body?.note || null, Date.now()]
         );
+        _notify('campaign', null); // audit r9: SSE → tab khác cập nhật danh sách chiến dịch
         res.json({ success: true, id: r.rows[0].id });
     } catch (e) {
         res.status(500).json({ success: false, error: e.message });
@@ -721,6 +722,7 @@ router.delete('/campaigns/:id', requireWeb2AuthSoft, async (req, res) => {
             [String(id)]
         );
         await pool.query('DELETE FROM web2_live_parent_campaigns WHERE id = $1', [id]);
+        _notify('campaign', null); // audit r9: SSE → tab khác bỏ chiến dịch đã xoá
         res.json({ success: true });
     } catch (e) {
         res.status(500).json({ success: false, error: e.message });
@@ -801,6 +803,7 @@ router.post('/campaigns/:id/assign', requireWeb2AuthSoft, async (req, res) => {
             String(campaignId),
             postId,
         ]);
+        _notify('campaign', postId); // audit r9: SSE → tab khác cập nhật gán bài↔chiến dịch
         res.json({ success: true });
     } catch (e) {
         res.status(500).json({ success: false, error: e.message });
@@ -819,6 +822,7 @@ router.post('/unassign', requireWeb2AuthSoft, async (req, res) => {
         await pool.query('UPDATE web2_live_comments SET campaign_id = NULL WHERE post_id = $1', [
             postId,
         ]);
+        _notify('campaign', postId); // audit r9: SSE → tab khác cập nhật gỡ gán
         res.json({ success: true });
     } catch (e) {
         res.status(500).json({ success: false, error: e.message });
@@ -943,6 +947,7 @@ router.post('/saved', requireWeb2AuthSoft, async (req, res) => {
                 Date.now(),
             ]
         );
+        _notify('saved', null); // audit r9: SSE → tab/máy khác đồng bộ danh sách "Lưu Live"
         res.json({ success: true });
     } catch (e) {
         console.error('[WEB2-LIVE-COMMENTS] saved add error:', e.message);
@@ -972,6 +977,7 @@ router.delete('/saved/:customerId', requireWeb2AuthSoft, async (req, res) => {
         await pool.query('DELETE FROM web2_live_saved WHERE customer_id = $1', [
             String(req.params.customerId),
         ]);
+        _notify('saved', null); // audit r9: SSE → tab/máy khác đồng bộ "Lưu Live"
         res.json({ success: true });
     } catch (e) {
         res.status(500).json({ success: false, error: e.message });

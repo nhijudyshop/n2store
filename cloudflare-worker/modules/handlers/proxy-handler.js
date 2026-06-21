@@ -23,7 +23,7 @@ const SENSITIVE_QUERY_PARAMS = ['token', 'jwt', 'access_token', 'admintoken', 'a
  * @param {string} targetUrl
  * @returns {string}
  */
-function redactUrlForLog(targetUrl) {
+export function redactUrlForLog(targetUrl) {
     try {
         const u = new URL(targetUrl);
         let changed = false;

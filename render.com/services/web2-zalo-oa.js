@@ -183,6 +183,26 @@ async function sendZNS(pool, { phone, templateId, data, orderRef, oaRef, sentBy,
     // Zalo yêu cầu định dạng 84xxxxxxxxx
     const phone84 = p.startsWith('84') ? p : p.startsWith('0') ? '84' + p.slice(1) : p;
 
+    // audit r9: idempotency — KHÔNG gửi ZNS trùng (tốn phí ~200đ/tin) khi retry/
+    // double-click. Chỉ khi có orderRef (khoá dedupe). Cửa sổ 10 phút (sent|pending).
+    if (orderRef) {
+        const dup = await pool.query(
+            `SELECT log_id, zalo_msg_id FROM web2_zns_log
+             WHERE phone=$1 AND template_id=$2 AND order_ref=$3
+               AND status IN ('sent','pending') AND created_at > $4
+             ORDER BY created_at DESC LIMIT 1`,
+            [p, String(templateId), orderRef, now() - 10 * 60 * 1000]
+        );
+        if (dup.rows.length) {
+            return {
+                success: true,
+                duplicate: true,
+                logId: dup.rows[0].log_id,
+                msgId: dup.rows[0].zalo_msg_id || null,
+            };
+        }
+    }
+
     const { token, account } = await getValidToken(pool, oaRef);
     const ts = now();
     // log pending trước

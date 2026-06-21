@@ -163,7 +163,12 @@
                         `${WORKER}/api/delivery-invoices/${encodeURIComponent(number)}/${path}`,
                         {
                             method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
+                            headers: {
+                                'Content-Type': 'application/json',
+                                ...(window.Web2Auth?.authHeaders
+                                    ? window.Web2Auth.authHeaders()
+                                    : {}),
+                            },
                             body: JSON.stringify({}),
                         }
                     );
@@ -186,7 +191,10 @@
                 `${WORKER}/api/delivery-invoices/${encodeURIComponent(number)}/${path}`,
                 {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...(window.Web2Auth?.authHeaders ? window.Web2Auth.authHeaders() : {}),
+                    },
                     body: JSON.stringify({}),
                 }
             );

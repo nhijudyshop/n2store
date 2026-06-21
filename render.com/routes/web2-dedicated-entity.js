@@ -101,8 +101,9 @@ function makeDedicatedEntityRouter(tableName, entitySlug) {
         try {
             await ensure(pool);
             const { search, activeOnly, page = 1, limit = 200 } = req.query;
-            const pageNum = Math.max(1, parseInt(page, 10));
-            const limitNum = Math.min(2000, Math.max(1, parseInt(limit, 10)));
+            // audit r9: `|| default` chống NaN khi ?page=&limit= rỗng → LIMIT NaN → 500.
+            const pageNum = Math.max(1, parseInt(page, 10) || 1);
+            const limitNum = Math.min(2000, Math.max(1, parseInt(limit, 10) || 200));
             const offset = (pageNum - 1) * limitNum;
             const conds = [];
             const params = [];
@@ -232,7 +233,10 @@ function makeDedicatedEntityRouter(tableName, entitySlug) {
                     sourcePage: b.sourcePage || null,
                     note: null,
                 });
-                newData.history = hist;
+                // audit r9: cap history (khớp web2-generic MAX_HISTORY=300) → chống
+                // JSONB phình vô hạn cho record cập nhật nhiều lần.
+                const MAX_HISTORY = 300;
+                newData.history = hist.length > MAX_HISTORY ? hist.slice(-MAX_HISTORY) : hist;
             }
             const r = await client.query(
                 `UPDATE ${tableName}

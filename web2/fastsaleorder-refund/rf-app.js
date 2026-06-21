@@ -172,7 +172,12 @@
                         `${WORKER}/api/refunds/${encodeURIComponent(number)}/${path}`,
                         {
                             method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
+                            headers: {
+                                'Content-Type': 'application/json',
+                                ...(window.Web2Auth?.authHeaders
+                                    ? window.Web2Auth.authHeaders()
+                                    : {}),
+                            },
                             body: JSON.stringify({ by: _by() }),
                         }
                     );
@@ -193,7 +198,10 @@
         } else {
             const r = await fetch(`${WORKER}/api/refunds/${encodeURIComponent(number)}/${path}`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(window.Web2Auth?.authHeaders ? window.Web2Auth.authHeaders() : {}),
+                },
                 body: JSON.stringify({ by: _by() }),
             });
             const d = await r.json();

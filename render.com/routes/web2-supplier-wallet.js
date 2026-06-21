@@ -217,6 +217,16 @@ router.post('/tx', requireWeb2AuthSoft, async (req, res) => {
             `SELECT returned_row_ids FROM web2_supplier_meta WHERE supplier = $1 FOR UPDATE`,
             [supplier]
         );
+        // audit r9: pre-check tx_id TRƯỚC khi tiêu sequence — nextval KHÔNG rollback
+        // nên retry/2-máy của GD đã xử lý sẽ ĐỐT số PAY/YEAR/NNNN (gap số kế toán).
+        // Chạy dưới meta FOR UPDATE lock nên reliable; ON CONFLICT bên dưới vẫn backstop.
+        const pre = await client.query(`SELECT * FROM web2_supplier_ledger WHERE tx_id = $1`, [
+            txId,
+        ]);
+        if (pre.rows.length) {
+            await client.query('COMMIT');
+            return res.json({ success: true, alreadyProcessed: true, tx: mapTx(pre.rows[0]) });
+        }
         // Bút toán: payment không có moveName → sinh từ sequence.
         let moveName = String(b.moveName || '').trim() || null;
         if (!moveName && type === 'payment') {

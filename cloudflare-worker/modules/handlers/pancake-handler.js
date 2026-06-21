@@ -9,6 +9,8 @@
 import { fetchWithRetry } from '../utils/fetch-utils.js';
 import { errorResponse, proxyResponseWithCors, CORS_HEADERS } from '../utils/cors-utils.js';
 import { buildPancakeHeaders } from '../utils/header-learner.js';
+// audit r9: che access_token/jwt/token trong URL trước khi log (worker log lộ token).
+import { redactUrlForLog } from './proxy-handler.js';
 
 /**
  * Handle /api/pancake-direct/*
@@ -32,7 +34,7 @@ export async function handlePancakeDirect(request, url, pathname) {
 
     const targetUrl = `https://pancake.vn/api/v1/${apiPath}${forwardSearch}`;
 
-    console.log('[PANCAKE-DIRECT] Target URL:', targetUrl);
+    console.log('[PANCAKE-DIRECT] Target URL:', redactUrlForLog(targetUrl));
     console.log('[PANCAKE-DIRECT] Page ID:', pageId);
 
     // Determine Referer based on pageId
@@ -57,18 +59,24 @@ export async function handlePancakeDirect(request, url, pathname) {
     }
 
     try {
-        const response = await fetchWithRetry(targetUrl, {
-            method: request.method,
-            headers: headers,
-            body: request.method !== 'GET' && request.method !== 'HEAD'
-                ? await request.arrayBuffer()
-                : null,
-        }, 3, 1000, 15000);
+        const response = await fetchWithRetry(
+            targetUrl,
+            {
+                method: request.method,
+                headers: headers,
+                body:
+                    request.method !== 'GET' && request.method !== 'HEAD'
+                        ? await request.arrayBuffer()
+                        : null,
+            },
+            3,
+            1000,
+            15000
+        );
 
         console.log('[PANCAKE-DIRECT] Response status:', response.status);
 
         return proxyResponseWithCors(response);
-
     } catch (error) {
         console.error('[PANCAKE-DIRECT] Error:', error.message);
         return errorResponse('Pancake direct API failed: ' + error.message, 500);
@@ -87,7 +95,7 @@ export async function handlePancakeOfficial(request, url, pathname) {
     const apiPath = pathname.replace(/^\/api\/pancake-official\//, '');
     const targetUrl = `https://pages.fm/api/public_api/v1/${apiPath}${url.search}`;
 
-    console.log('[PANCAKE-OFFICIAL] Target URL:', targetUrl);
+    console.log('[PANCAKE-OFFICIAL] Target URL:', redactUrlForLog(targetUrl));
 
     // Build headers for pages.fm
     const headers = new Headers();
@@ -109,18 +117,24 @@ export async function handlePancakeOfficial(request, url, pathname) {
     }
 
     try {
-        const response = await fetchWithRetry(targetUrl, {
-            method: request.method,
-            headers: headers,
-            body: request.method !== 'GET' && request.method !== 'HEAD'
-                ? await request.arrayBuffer()
-                : null,
-        }, 3, 1000, 15000);
+        const response = await fetchWithRetry(
+            targetUrl,
+            {
+                method: request.method,
+                headers: headers,
+                body:
+                    request.method !== 'GET' && request.method !== 'HEAD'
+                        ? await request.arrayBuffer()
+                        : null,
+            },
+            3,
+            1000,
+            15000
+        );
 
         console.log('[PANCAKE-OFFICIAL] Response status:', response.status);
 
         return proxyResponseWithCors(response);
-
     } catch (error) {
         console.error('[PANCAKE-OFFICIAL] Error:', error.message);
         return errorResponse('Pancake Official API failed: ' + error.message, 500);
@@ -140,14 +154,16 @@ export async function handlePancakeOfficialV2(request, url, pathname) {
     const apiPath = pathname.replace(/^\/api\/pancake-official-v2\//, '');
     const targetUrl = `https://pages.fm/api/public_api/v2/${apiPath}${url.search}`;
 
-    console.log('[PANCAKE-OFFICIAL-V2] Target URL:', targetUrl);
+    console.log('[PANCAKE-OFFICIAL-V2] Target URL:', redactUrlForLog(targetUrl));
 
     // Edge cache (Cache API) for conversations listing — TTL 60s.
     // Key includes page_access_token in URL → tự động invalidate khi token đổi.
     // Chỉ cache GET request cho endpoint pages/{id}/conversations.
     const isConvList = request.method === 'GET' && /^pages\/[^/]+\/conversations$/.test(apiPath);
     const cache = caches.default;
-    const cacheKey = new Request(`https://cache.pancake-proxy${url.pathname}${url.search}`, { method: 'GET' });
+    const cacheKey = new Request(`https://cache.pancake-proxy${url.pathname}${url.search}`, {
+        method: 'GET',
+    });
     if (isConvList) {
         const cached = await cache.match(cacheKey);
         if (cached) {
@@ -179,13 +195,20 @@ export async function handlePancakeOfficialV2(request, url, pathname) {
     }
 
     try {
-        const response = await fetchWithRetry(targetUrl, {
-            method: request.method,
-            headers: headers,
-            body: request.method !== 'GET' && request.method !== 'HEAD'
-                ? await request.arrayBuffer()
-                : null,
-        }, 3, 1000, 15000);
+        const response = await fetchWithRetry(
+            targetUrl,
+            {
+                method: request.method,
+                headers: headers,
+                body:
+                    request.method !== 'GET' && request.method !== 'HEAD'
+                        ? await request.arrayBuffer()
+                        : null,
+            },
+            3,
+            1000,
+            15000
+        );
 
         console.log('[PANCAKE-OFFICIAL-V2] Response status:', response.status);
 
@@ -205,9 +228,16 @@ export async function handlePancakeOfficialV2(request, url, pathname) {
                     const cacheHeaders = new Headers(response.headers);
                     cacheHeaders.set('Cache-Control', 'public, max-age=60');
                     cacheHeaders.set('X-Cache', 'MISS');
-                    const toCache = new Response(buf, { status: response.status, headers: cacheHeaders });
+                    const toCache = new Response(buf, {
+                        status: response.status,
+                        headers: cacheHeaders,
+                    });
                     // Async write to cache (non-blocking)
-                    cache.put(cacheKey, toCache.clone()).catch(e => console.warn('[PANCAKE-OFFICIAL-V2] cache.put failed:', e.message));
+                    cache
+                        .put(cacheKey, toCache.clone())
+                        .catch((e) =>
+                            console.warn('[PANCAKE-OFFICIAL-V2] cache.put failed:', e.message)
+                        );
                     const respHeaders = new Headers(cacheHeaders);
                     for (const [k, v] of Object.entries(CORS_HEADERS)) respHeaders.set(k, v);
                     return new Response(buf, { status: response.status, headers: respHeaders });
@@ -218,7 +248,6 @@ export async function handlePancakeOfficialV2(request, url, pathname) {
         }
 
         return proxyResponseWithCors(response);
-
     } catch (error) {
         console.error('[PANCAKE-OFFICIAL-V2] Error:', error.message);
         return errorResponse('Pancake Official API v2 failed: ' + error.message, 500);
@@ -237,7 +266,7 @@ export async function handlePancakeGeneric(request, url, pathname) {
     const apiPath = pathname.replace(/^\/api\/pancake\//, '');
     const targetUrl = `https://pancake.vn/api/v1/${apiPath}${url.search}`;
 
-    console.log('[PANCAKE] Target URL:', targetUrl);
+    console.log('[PANCAKE] Target URL:', redactUrlForLog(targetUrl));
 
     // Build headers
     const headers = new Headers();
@@ -259,16 +288,22 @@ export async function handlePancakeGeneric(request, url, pathname) {
     }
 
     try {
-        const response = await fetchWithRetry(targetUrl, {
-            method: request.method,
-            headers: headers,
-            body: request.method !== 'GET' && request.method !== 'HEAD'
-                ? await request.arrayBuffer()
-                : null,
-        }, 3, 1000, 15000);
+        const response = await fetchWithRetry(
+            targetUrl,
+            {
+                method: request.method,
+                headers: headers,
+                body:
+                    request.method !== 'GET' && request.method !== 'HEAD'
+                        ? await request.arrayBuffer()
+                        : null,
+            },
+            3,
+            1000,
+            15000
+        );
 
         return proxyResponseWithCors(response);
-
     } catch (error) {
         console.error('[PANCAKE] Error:', error.message);
         return errorResponse('Pancake API failed: ' + error.message, 500);

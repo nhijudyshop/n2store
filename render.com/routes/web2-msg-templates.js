@@ -185,7 +185,14 @@ router.delete('/:id', requireWeb2AuthSoft, async (req, res) => {
     if (!id) return res.status(400).json({ success: false, error: 'id required' });
     try {
         await ensureTables(pool);
-        await pool.query(`DELETE FROM web2_msg_templates WHERE id=$1`, [id]);
+        // audit r9: RETURNING + rowCount → 404 nếu id không tồn tại (idempotent đúng
+        // semantics), tránh false 200 + SSE 'delete' giả khiến mọi tab reload thừa.
+        const del = await pool.query(`DELETE FROM web2_msg_templates WHERE id=$1 RETURNING id`, [
+            id,
+        ]);
+        if (!del.rows.length) {
+            return res.status(404).json({ success: false, error: 'template not found' });
+        }
         _notify('delete', id);
         res.json({ success: true });
     } catch (e) {

@@ -367,18 +367,16 @@
             });
             return;
         }
-        // Fallback nếu không có Popup
-        window.Popup.confirm(reasonText + '\n\nMở business.facebook.com để đăng nhập?').then(
-            (ok) => {
-                if (ok) {
-                    window.open(
-                        'https://business.facebook.com/latest/inbox/all',
-                        '_blank',
-                        'noopener,noreferrer'
-                    );
-                }
-            }
-        );
+        // Fallback nếu KHÔNG có Popup (audit r9: trước đây vẫn gọi window.Popup.confirm
+        // → TypeError 'reading confirm of undefined' vì nhánh này chạy CHÍNH KHI Popup
+        // vắng). Dùng confirm() native — Popup không có nên native là lựa chọn duy nhất.
+        if (confirm(reasonText + '\n\nMở business.facebook.com để đăng nhập?')) {
+            window.open(
+                'https://business.facebook.com/latest/inbox/all',
+                '_blank',
+                'noopener,noreferrer'
+            );
+        }
     };
 
     NO.w2pConfirm = function w2pConfirm(msg, opts) {

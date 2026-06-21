@@ -718,7 +718,13 @@
                 if (!p) return;
                 if (btn.dataset.act === 'edit') return openModal(p);
                 if (btn.dataset.act === 'del') {
-                    if (!confirm(`Xóa máy in "${p.name}"? (xóa khỏi server — mọi user)`)) return;
+                    // audit r9: dùng Web2 Popup thay confirm() native (chuẩn UX + hoạt động
+                    // trong iframe/PWA). Fallback confirm nếu Popup chưa sẵn.
+                    const _msg = `Xóa máy in "${p.name}"? (xóa khỏi server — mọi user)`;
+                    const _ok = window.Popup?.danger
+                        ? await window.Popup.danger(_msg, { okText: 'Xóa' })
+                        : confirm(_msg);
+                    if (!_ok) return;
                     // UI-first: ẩn card ngay (module cache chỉ cập nhật sau round-trip server,
                     // nên ẩn DOM node thủ công cho cảm giác tức thì); rollback hiện lại nếu lỗi.
                     const card = btn.closest('.prn-card');
