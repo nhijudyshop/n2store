@@ -51,6 +51,18 @@
         NO._sseUnsubCust = window.Web2SSE.subscribe('web2:customers', (msg) =>
             NO._scheduleReload(`web2-customers ${msg.data?.action || ''}`)
         );
+        // 2026-06-21: TAG đơn auto (cột "Thẻ") phụ thuộc tồn kho/SP (cho_hang, âm mã),
+        // PBH (pbh_created), và config thẻ. Đổi ở máy/đơn khác → reload để server tính
+        // lại o.autoTags + o.hasChoHang. Tất cả gom vào _scheduleReload (debounce 600ms).
+        NO._sseUnsubProducts = window.Web2SSE.subscribe('web2:products', (msg) =>
+            NO._scheduleReload(`web2-products ${msg.data?.action || ''}`)
+        );
+        NO._sseUnsubFso = window.Web2SSE.subscribe('web2:fast-sale-orders', (msg) =>
+            NO._scheduleReload(`fast-sale-orders ${msg.data?.action || ''}`)
+        );
+        NO._sseUnsubOrderTags = window.Web2SSE.subscribe('web2:order-tags', (msg) =>
+            NO._scheduleReload(`order-tags ${msg.data?.action || ''}`)
+        );
     };
 
     // ---------- Init ----------

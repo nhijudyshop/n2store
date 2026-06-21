@@ -11,7 +11,7 @@
         if (!lines.length) {
             return `
                 <tr class="expand-row" data-for="${NO.escapeHtml(o.code)}">
-                    <td colspan="16">
+                    <td colspan="17">
                         <div class="expand-empty">
                             <i data-lucide="package-x"></i>
                             Đơn chưa có sản phẩm —
@@ -51,7 +51,7 @@
             .join('');
         return `
             <tr class="expand-row" data-for="${NO.escapeHtml(o.code)}">
-                <td colspan="16">
+                <td colspan="17">
                     <div class="expand-wrap">
                         <div class="expand-header">
                             <span class="expand-title"><i data-lucide="package"></i>Sản phẩm trong đơn ${NO.escapeHtml(o.code)}</span>
@@ -73,6 +73,22 @@
                     </div>
                 </td>
             </tr>`;
+    };
+
+    // 2026-06-21: cột "Thẻ" — TAG đơn hàng auto (server /load tính o.autoTags theo
+    // trigger ở web2_order_tags). Render pill dùng chung Web2OrderTagPill (cùng renderer
+    // với trang Cấu hình). Rỗng → '—' nhạt. KHÔNG nhầm với o.tags (Pancake/keyword ở cột Mã).
+    NO._autoTagPills = function _autoTagPills(o) {
+        const tags = Array.isArray(o.autoTags) ? o.autoTags : [];
+        if (!tags.length) return '<span class="web2-count-empty">—</span>';
+        if (window.Web2OrderTagPill) return window.Web2OrderTagPill.listHtml(tags, { small: true });
+        // Fallback nếu renderer chưa load.
+        return tags
+            .map(
+                (t) =>
+                    `<span class="web2-label web2-label-default">${NO.escapeHtml(t.name || '')}</span>`
+            )
+            .join(' ');
     };
 
     // WEB2 Trạng thái column uses PLAIN TEXT (not pill). Color varies by status:
@@ -342,6 +358,7 @@
                             ${tagBadges ? `<div class="web2-code-tags">${tagBadges}</div>` : `<div class="web2-code-tags"><button class="web2-tag-trigger" onclick="event.stopPropagation();NativeOrdersApp.openEdit('${NO.escapeHtml(o.code)}')"><i data-lucide="tag" style="width:11px;height:11px;"></i></button></div>`}
                         </div>
                     </td>
+                    <td class="col-tag">${NO._autoTagPills(o)}</td>
                     <td class="col-channel web2-cell-center">
                         <div class="web2-channel-cell" style="align-items:center;">
                             <span class="web2-channel-name">${NO.escapeHtml(o.fbUserName || '—')}</span>
@@ -453,6 +470,11 @@
             o.partnerStatus || '',
             o.customerId || '',
             JSON.stringify(o.tags || []),
+            // 2026-06-21: TAG đơn auto (cột Thẻ) + cờ chặn PBH — đổi ở máy/đơn khác qua
+            // SSE products/fast-sale-orders → reload gắn autoTags mới; thiếu ở chữ ký thì
+            // row tái dùng DOM (field kia giống) → cột Thẻ không cập nhật.
+            JSON.stringify(o.autoTags || []),
+            o.hasChoHang ? '1' : '0',
             o.deliveryMethod || '',
             o.deliveryMethodManual ? '1' : '0',
             o.pbhResidual ?? '',

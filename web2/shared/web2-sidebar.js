@@ -331,6 +331,12 @@
                     // Web 2.0-only — quản lý vùng giao + phí + từ khoá auto-detect.
                 },
                 {
+                    label: 'TAG đơn hàng',
+                    icon: 'tags',
+                    our: '../web2/order-tags/index.html',
+                    // Web 2.0-only — thẻ auto theo trigger, hiện ở cột "Thẻ" Đơn Web.
+                },
+                {
                     label: 'Máy in',
                     icon: 'printer',
                     our: '../web2/printer-settings/index.html',
@@ -401,6 +407,7 @@
         'web2/variants/index.html',
         'web2/product-category/index.html',
         'web2/delivery-zone/index.html',
+        'web2/order-tags/index.html',
         'web2/printer-settings/index.html',
         'web2/users/index.html',
         'web2/customer-wallet/index.html',

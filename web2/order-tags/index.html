@@ -1,0 +1,495 @@
+<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 — Cấu hình TAG đơn hàng (auto theo trigger), dùng ở cột "Thẻ" trang Đơn Web. -->
+<!doctype html>
+<html lang="vi">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta http-equiv="Cache-Control" content="no-cache, must-revalidate" />
+        <title>TAG đơn hàng - WEB 2.0</title>
+        <meta name="web2-db" content="render" />
+
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap"
+            rel="stylesheet"
+        />
+
+        <link rel="stylesheet" href="../../web2/shared/web2-sidebar.css?v=20260621ot" />
+        <link rel="stylesheet" href="../shared/web2-base.css?v=20260621ot" />
+        <link rel="stylesheet" href="../shared/web2-components.css?v=20260621ot" />
+
+        <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
+        <script src="../../shared/js/shared-auth-manager.js?v=20260521b"></script>
+        <script src="../../shared/js/notification-system.js?v=20260521b"></script>
+
+        <style>
+            body {
+                margin: 0;
+                font-family: Inter, system-ui, sans-serif;
+                background: #ecf0f5;
+            }
+            .web2-shell {
+                display: flex;
+                min-height: 100vh;
+            }
+            .web2-aside {
+                flex-shrink: 0;
+            }
+            .main-content {
+                flex: 1;
+                overflow: auto;
+                height: 100vh;
+            }
+            #pageRoot {
+                padding: 12px 16px 40px;
+                max-width: 1180px;
+            }
+            .ot-hint {
+                margin: 12px 0 0;
+                padding: 12px 16px;
+                background: #eef2ff;
+                border: 1px solid #c7d2fe;
+                border-radius: 12px;
+                font-size: 13px;
+                color: #3730a3;
+                line-height: 1.55;
+            }
+            .ot-hint strong {
+                color: #1e1b4b;
+            }
+            .ot-hint code {
+                background: #fff;
+                border: 1px solid #c7d2fe;
+                border-radius: 4px;
+                padding: 0 4px;
+                font-size: 12px;
+            }
+            .ot-header {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 12px;
+                margin-top: 16px;
+                flex-wrap: wrap;
+            }
+            .ot-title {
+                font-family: Manrope, Inter, sans-serif;
+                font-weight: 800;
+                font-size: 20px;
+                color: #0f172a;
+                display: flex;
+                align-items: center;
+                gap: 9px;
+            }
+            .ot-title .counter-pill {
+                font-size: 12px;
+            }
+            .ot-actions {
+                display: flex;
+                gap: 8px;
+                align-items: center;
+            }
+            /* Card grid */
+            .ot-grid {
+                margin-top: 14px;
+                display: grid;
+                grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
+                gap: 12px;
+            }
+            .ot-card {
+                position: relative;
+                background: #fff;
+                border: 1px solid #e6e9f0;
+                border-radius: 14px;
+                padding: 14px 14px 12px;
+                box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+                transition:
+                    transform 0.16s cubic-bezier(0.16, 1, 0.3, 1),
+                    box-shadow 0.16s ease,
+                    border-color 0.16s ease;
+                border-left: 4px solid var(--ot-accent, #6b7280);
+            }
+            .ot-card:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 8px 22px rgba(15, 23, 42, 0.1);
+                border-color: #d6dbe6;
+            }
+            .ot-card.is-off {
+                opacity: 0.6;
+            }
+            .ot-card-top {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 8px;
+            }
+            .ot-card-trigger {
+                font-size: 11px;
+                font-weight: 700;
+                color: #64748b;
+                text-transform: uppercase;
+                letter-spacing: 0.03em;
+            }
+            .ot-card-desc {
+                margin-top: 9px;
+                font-size: 12.5px;
+                color: #475569;
+                line-height: 1.5;
+                min-height: 38px;
+            }
+            .ot-card-meta {
+                margin-top: 10px;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                font-size: 11.5px;
+                color: #94a3b8;
+            }
+            .ot-card-foot {
+                margin-top: 12px;
+                padding-top: 10px;
+                border-top: 1px dashed #eef1f6;
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                justify-content: flex-end;
+            }
+            .ot-empty {
+                margin-top: 24px;
+                text-align: center;
+                color: #94a3b8;
+                padding: 40px 12px;
+            }
+            /* Triggers reference */
+            .ot-triggers {
+                margin-top: 22px;
+                background: #fff;
+                border: 1px solid #e6e9f0;
+                border-radius: 14px;
+                padding: 4px 16px 16px;
+            }
+            .ot-triggers summary {
+                cursor: pointer;
+                padding: 12px 0;
+                font-weight: 700;
+                color: #0f172a;
+                list-style: none;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+            }
+            .ot-triggers summary::-webkit-details-marker {
+                display: none;
+            }
+            .ot-trig-group {
+                margin-top: 8px;
+            }
+            .ot-trig-group h4 {
+                margin: 12px 0 6px;
+                font-size: 12px;
+                text-transform: uppercase;
+                letter-spacing: 0.04em;
+                color: #6366f1;
+            }
+            .ot-trig-item {
+                display: flex;
+                gap: 10px;
+                padding: 7px 0;
+                border-bottom: 1px solid #f1f4f9;
+                font-size: 12.5px;
+            }
+            .ot-trig-item code {
+                flex: 0 0 130px;
+                font-family: ui-monospace, monospace;
+                color: #0f172a;
+                font-weight: 600;
+            }
+            .ot-trig-item span {
+                color: #475569;
+                line-height: 1.5;
+            }
+            /* Modal */
+            .ot-modal-overlay {
+                position: fixed;
+                inset: 0;
+                background: rgba(15, 23, 42, 0.5);
+                display: none;
+                align-items: center;
+                justify-content: center;
+                z-index: 1000;
+                padding: 16px;
+            }
+            .ot-modal-overlay.active {
+                display: flex;
+            }
+            .ot-modal {
+                background: #fff;
+                border-radius: 16px;
+                width: 100%;
+                max-width: 540px;
+                max-height: 92vh;
+                overflow: auto;
+                box-shadow: 0 24px 60px rgba(15, 23, 42, 0.28);
+            }
+            .ot-modal-head {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding: 16px 18px;
+                border-bottom: 1px solid #eef1f6;
+            }
+            .ot-modal-head h3 {
+                margin: 0;
+                font-size: 16px;
+                font-weight: 700;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                color: #0f172a;
+            }
+            .ot-modal-body {
+                padding: 16px 18px;
+            }
+            .ot-field {
+                margin-bottom: 14px;
+            }
+            .ot-field > label {
+                display: block;
+                font-size: 12.5px;
+                font-weight: 600;
+                color: #334155;
+                margin-bottom: 5px;
+            }
+            .ot-field input[type='text'],
+            .ot-field input[type='number'],
+            .ot-field select {
+                width: 100%;
+                box-sizing: border-box;
+                padding: 9px 11px;
+                border: 1px solid #d6dbe6;
+                border-radius: 9px;
+                font-size: 13.5px;
+                font-family: inherit;
+                background: #fff;
+            }
+            .ot-field input:focus,
+            .ot-field select:focus {
+                outline: none;
+                border-color: var(--web2-primary, #0068ff);
+                box-shadow: 0 0 0 3px rgba(0, 104, 255, 0.13);
+            }
+            .ot-field-hint {
+                font-size: 11.5px;
+                color: #94a3b8;
+                margin-top: 4px;
+                line-height: 1.45;
+            }
+            .ot-trig-desc {
+                margin-top: 6px;
+                padding: 8px 10px;
+                background: #f8fafc;
+                border: 1px solid #eef1f6;
+                border-radius: 8px;
+                font-size: 12px;
+                color: #475569;
+                line-height: 1.5;
+            }
+            .ot-color-row {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+            }
+            .ot-color-row input[type='color'] {
+                width: 46px;
+                height: 38px;
+                border: 1px solid #d6dbe6;
+                border-radius: 9px;
+                padding: 2px;
+                background: #fff;
+                cursor: pointer;
+            }
+            .ot-swatches {
+                display: flex;
+                gap: 6px;
+                flex-wrap: wrap;
+            }
+            .ot-swatch {
+                width: 24px;
+                height: 24px;
+                border-radius: 7px;
+                border: 2px solid #fff;
+                box-shadow: 0 0 0 1px #d6dbe6;
+                cursor: pointer;
+            }
+            .ot-preview {
+                margin-top: 6px;
+                padding: 14px;
+                border: 1px dashed #d6dbe6;
+                border-radius: 10px;
+                background: repeating-conic-gradient(#f1f5f9 0 25%, #fff 0 50%) 0 0 / 16px 16px;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+            }
+            .ot-modal-foot {
+                display: flex;
+                justify-content: flex-end;
+                gap: 8px;
+                padding: 14px 18px;
+                border-top: 1px solid #eef1f6;
+            }
+            .ot-row-toggle {
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+                font-size: 12px;
+                color: #475569;
+                cursor: pointer;
+            }
+        </style>
+        <link rel="stylesheet" href="../../web2/shared/web2-theme.css?v=20260621ot" />
+    </head>
+    <body class="web2-theme">
+        <div class="web2-shell">
+            <aside class="web2-aside" id="web2Aside"></aside>
+            <main class="main-content">
+                <div id="pageRoot">
+                    <div class="ot-hint">
+                        🏷️ <strong>TAG đơn hàng</strong> tự động gắn vào cột <strong>Thẻ</strong> ở
+                        <strong>Đơn Web (native-orders)</strong> theo <strong>trigger</strong>. Mỗi
+                        thẻ chọn 1 trigger — vd <code>Phiếu bán hàng</code> (khi tạo PBH thành
+                        công), <code>Chờ hàng</code> (đơn có SP chờ hàng → KHÔNG tạo được PBH, chỉ
+                        tạo Phiếu soạn hàng), <code>Âm mã</code> (SP không đủ tồn, nhiều đơn giữ
+                        vượt tồn). Tag được <strong>tính tự động</strong> mỗi lần tải đơn — không
+                        gắn tay, không lưu cứng nên luôn đúng thực tế.
+                    </div>
+
+                    <div class="ot-header">
+                        <div class="ot-title">
+                            <i data-lucide="tags" style="width: 22px; height: 22px"></i>
+                            TAG đơn hàng
+                            <span class="counter-pill" id="otCount">— thẻ</span>
+                        </div>
+                        <div class="ot-actions">
+                            <button class="web2-btn web2-btn-default web2-btn-sm" id="otReload">
+                                <i data-lucide="refresh-cw" style="width: 13px; height: 13px"></i>
+                                Tải lại
+                            </button>
+                            <button class="web2-btn web2-btn-success web2-btn-sm" id="otAdd">
+                                <i data-lucide="plus" style="width: 13px; height: 13px"></i>
+                                Thêm thẻ
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="ot-grid" id="otGrid">
+                        <div class="ot-empty">Đang tải…</div>
+                    </div>
+
+                    <details class="ot-triggers" id="otTriggers">
+                        <summary>
+                            <i data-lucide="zap" style="width: 16px; height: 16px"></i>
+                            Danh sách trigger khả dụng
+                            <span style="color: #94a3b8; font-weight: 500; font-size: 12px"
+                                >(bấm để xem)</span
+                            >
+                        </summary>
+                        <div id="otTriggerList"></div>
+                    </details>
+                </div>
+            </main>
+        </div>
+
+        <!-- Modal -->
+        <div class="ot-modal-overlay" id="otModal">
+            <div class="ot-modal">
+                <div class="ot-modal-head">
+                    <h3>
+                        <i data-lucide="tag" style="width: 18px; height: 18px"></i>
+                        <span id="otModalTitle">Thêm thẻ</span>
+                    </h3>
+                    <button class="btn-icon-round" id="otModalClose">
+                        <i data-lucide="x"></i>
+                    </button>
+                </div>
+                <div class="ot-modal-body">
+                    <div class="ot-field">
+                        <label>Mã thẻ (không đổi sau khi tạo) *</label>
+                        <input
+                            type="text"
+                            id="otfCode"
+                            placeholder="VD: cho_hang"
+                            autocomplete="off"
+                        />
+                        <div class="ot-field-hint">Định danh duy nhất, chữ thường + gạch dưới.</div>
+                    </div>
+                    <div class="ot-field">
+                        <label>Tên hiển thị *</label>
+                        <input
+                            type="text"
+                            id="otfName"
+                            placeholder="VD: Chờ hàng"
+                            autocomplete="off"
+                        />
+                    </div>
+                    <div class="ot-field">
+                        <label>Trigger (điều kiện tự gắn) *</label>
+                        <select id="otfTrigger"></select>
+                        <div class="ot-trig-desc" id="otfTriggerDesc">—</div>
+                    </div>
+                    <div class="ot-field">
+                        <label>Màu</label>
+                        <div class="ot-color-row">
+                            <input type="color" id="otfColor" value="#6b7280" />
+                            <div class="ot-swatches" id="otfSwatches"></div>
+                        </div>
+                    </div>
+                    <div class="ot-field">
+                        <label>Icon (tên lucide, tuỳ chọn)</label>
+                        <input
+                            type="text"
+                            id="otfIcon"
+                            placeholder="VD: clock, receipt, alert-triangle"
+                            autocomplete="off"
+                        />
+                        <div class="ot-field-hint">
+                            Tên icon từ lucide.dev (để trống = không icon).
+                        </div>
+                    </div>
+                    <div class="ot-field" style="display: flex; gap: 14px; align-items: flex-end">
+                        <div style="flex: 1">
+                            <label>Ưu tiên (số nhỏ hiện trước)</label>
+                            <input type="number" id="otfPriority" value="50" />
+                        </div>
+                        <label class="ot-row-toggle" style="padding-bottom: 10px">
+                            <input type="checkbox" id="otfActive" checked />
+                            Đang dùng
+                        </label>
+                    </div>
+                    <div class="ot-field">
+                        <label>Xem trước</label>
+                        <div class="ot-preview" id="otfPreview"></div>
+                    </div>
+                </div>
+                <div class="ot-modal-foot">
+                    <button class="web2-btn web2-btn-default web2-btn-sm" id="otModalCancel">
+                        Hủy
+                    </button>
+                    <button class="web2-btn web2-btn-primary web2-btn-sm" id="otModalSave">
+                        <i data-lucide="save" style="width: 13px; height: 13px"></i> Lưu
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <script src="../../web2/shared/web2-auth.js?v=20260621r7"></script>
+        <script src="../shared/web2-user-info.js?v=20260530a"></script>
+        <script src="../shared/web2-optimistic.js?v=20260601a"></script>
+        <script src="../shared/popup.js?v=20260621ot"></script>
+        <script src="../../web2/shared/web2-sidebar.js?v=20260621r7"></script>
+        <script src="../../web2/shared/web2-sse-bridge.js?v=20260621r6"></script>
+        <script src="../../web2/shared/web2-order-tag-pill.js?v=20260621ot"></script>
+        <script src="js/order-tags-app.js?v=20260621ot"></script>
+    </body>
+</html>

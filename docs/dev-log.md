@@ -2,6 +2,25 @@
 
 ## 2026-06-21
 
+### [feat] TAG đơn hàng (auto theo trigger) + chặn PBH khi có SP chờ hàng (native-orders)
+
+User: (1) đơn có SP "chờ hàng" (web2_products.status=CHO_MUA) → KHÔNG tạo PBH, phải tạo Phiếu soạn hàng; (2) thêm cột TAG ở native-orders + trang Cấu hình "TAG đơn hàng" gắn chức năng theo trigger (Phiếu bán hàng/Chờ hàng/Âm mã + "lấy hết trigger"). 4 quyết định locked: chặn cả đơn→soạn hàng · chỉ CHO_MUA · tag AUTO-only theo trigger · âm mã = đơn nháp giữ + PBH > tồn.
+
+**Kiến trúc — tag tính SERVER-SIDE ở /load (auto-only, không lưu cứng → không drift):**
+
+- **`render.com/services/web2-order-tags-service.js` (MỚI)** — engine 1 nguồn: TRIGGER registry 22 trigger (cho_hang/am_ma/het_hang/mua_1_phan/pbh_created/pbh_chua_tt/is_draft|confirmed|cancelled/chua_nhan_ck/da_nhan_ck/co_coc/thieu_dia_chi/thieu_sdt/ship_tinh/ship_tp/gop_don/don_tach/da_in/tu_livestream/tu_inbox) + PREDICATES + `orderProductFlags` + `buildContext` (query web2_products status/stock + held-in-drafts aggregate) + `computeAutoTags` + `enrichOrdersWithTags` + `ensureTable`/seed 3 tag mặc định. **Âm mã = held_in_drafts > stock_hiện_tại** (PBH đã trừ stock → tương đương held+PBH > tồn_gốc); chỉ áp đơn nháp; loại trừ SP CHO_MUA. 18 unit test pure-logic PASS.
+- **`render.com/routes/web2-order-tags.js` (MỚI)** — CRUD bảng `web2_order_tags` (web2Db) + `GET /triggers` (registry cho UI) + SSE `web2:order-tags`. Mount `/api/web2-order-tags` (worker auto-route qua prefix `/api/web2-`). Mutation gắn `requireWeb2AuthSoft`.
+- **native-orders `/load`** — sau mọi enrich gọi `enrichOrdersWithTags` → mỗi đơn có `o.autoTags` (pills) + `o.hasChoHang` (chặn PBH).
+- **fast-sale-orders `/from-native-order`** — guard: SP CHO_MUA ở dòng bán → 400 `cho_hang_blocked` (force=true bỏ qua). Defense-in-depth.
+
+**Frontend:**
+
+- **`web2/shared/web2-order-tag-pill.js` (MỚI)** — `Web2OrderTagPill` render pill màu (1 nguồn cho cột Thẻ + preview trang config).
+- **`web2/order-tags/` (MỚI)** — trang Cấu hình: card grid + modal (trigger picker nhóm + color + icon + live preview) + danh sách trigger tham chiếu + SSE. Đăng ký sidebar "Cấu hình" + WEB2_PAGES.
+- **native-orders cột "Thẻ"** — th/td `col-tag` (sau Mã), COL_KEYS+COL_DEFAULT (`tag:true`), `NO._autoTagPills`, colspan 16→17 (2 expand row + loading), `autoTags`/`hasChoHang` vào `_rowSignature`.
+- **Chặn PBH** — `createPbh` (chặn sớm `src.hasChoHang` → mời Phiếu soạn hàng), `_doCreatePbh` (handle `cho_hang_blocked`), `bulkCreatePbh` (tách đơn chờ hàng, báo rõ). SSE thêm sub `web2:products`/`web2:fast-sale-orders`/`web2:order-tags` → reload tính lại tag.
+- Verify: `node --check` 13 file PASS + 18 unit test engine PASS. ⚠ Tag/guard chỉ live sau deploy Render (server tính autoTags).
+
 ### [audit d] Money-path adversarial audit (25 agent → 20 finding → 9 confirmed) — fix 9/9
 
 User chọn (d) audit thêm 1 vùng. Chọn **money/ledger** (rủi ro cao nhất + regression-check fix a). Workflow 5 finder (supplier-wallet/customer-wallet/PBH/sepay/over-refund-regression) → skeptic verify từng finding. 9 confirmed, fix HẾT:

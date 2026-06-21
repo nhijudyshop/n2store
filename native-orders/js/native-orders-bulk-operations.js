@@ -224,15 +224,33 @@
         }
         // Đơn "Đơn hàng" (status confirmed) ĐÃ CÓ PBH → KHÔNG tạo PBH lại. Chỉ
         // đơn Nháp mới tạo được PBH.
-        const orders = allSel.filter((o) => o.status === 'draft');
-        const skipped = allSel.length - orders.length;
+        // 2026-06-21: đơn nháp CÓ SP chờ hàng (o.hasChoHang) cũng KHÔNG tạo PBH —
+        // phải tạo Phiếu soạn hàng (dùng "In bill"). Tách riêng để báo rõ.
+        const draftAll = allSel.filter((o) => o.status === 'draft');
+        const choHangOrders = draftAll.filter((o) => o.hasChoHang);
+        const orders = draftAll.filter((o) => !o.hasChoHang);
+        const skipped = allSel.length - draftAll.length;
         if (orders.length === 0) {
-            NO.notify('Đơn "Đơn hàng" đã có PBH — không tạo PBH lại (chỉ đơn Nháp).', 'warning');
+            if (choHangOrders.length) {
+                NO.notify(
+                    `${choHangOrders.length} đơn có SP chờ hàng — không tạo PBH. Dùng "In bill" để tạo Phiếu soạn hàng.`,
+                    'warning'
+                );
+            } else {
+                NO.notify(
+                    'Đơn "Đơn hàng" đã có PBH — không tạo PBH lại (chỉ đơn Nháp).',
+                    'warning'
+                );
+            }
             return;
         }
-        if (skipped > 0)
+        const _skipNotes = [];
+        if (skipped > 0) _skipNotes.push(`${skipped} đơn "Đơn hàng" (đã có PBH)`);
+        if (choHangOrders.length)
+            _skipNotes.push(`${choHangOrders.length} đơn chờ hàng (tạo Phiếu soạn hàng riêng)`);
+        if (_skipNotes.length)
             NO.notify(
-                `Bỏ qua ${skipped} đơn "Đơn hàng" (đã có PBH) — tạo PBH cho ${orders.length} đơn Nháp`,
+                `Bỏ qua ${_skipNotes.join(' + ')} — tạo PBH cho ${orders.length} đơn`,
                 'info'
             );
         const DMP = window.DeliveryMethodPicker;

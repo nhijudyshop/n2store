@@ -12,6 +12,7 @@
         { key: 'actions', label: 'Thao tác' },
         { key: 'stt', label: 'STT (cột riêng)' },
         { key: 'code', label: 'Mã đơn' },
+        { key: 'tag', label: 'Thẻ (auto)' },
         { key: 'channel', label: 'Kênh' },
         { key: 'customer', label: 'Tên khách' },
         { key: 'phone', label: 'SĐT (cột riêng)' },
@@ -35,6 +36,8 @@
         actions: true,
         stt: false, // STT đã hợp nhất vào cột check
         code: false,
+        tag: true, // cột Thẻ (auto theo trigger) — bật mặc định
+
         channel: false,
         customer: true,
         phone: false, // merged into customer

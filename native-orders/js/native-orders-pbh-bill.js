@@ -45,6 +45,22 @@
             );
             return;
         }
+        // 2026-06-21: đơn có SP "chờ hàng" (CHO_MUA) → KHÔNG tạo PBH. o.hasChoHang do
+        // server /load gắn (authoritative). Mời tạo Phiếu soạn hàng thay thế. Server
+        // cũng chặn (error cho_hang_blocked) — đây là chặn sớm trước khi mở modal.
+        if (src.hasChoHang) {
+            const goSlip = await window.Popup.confirm(
+                `Đơn ${code} có sản phẩm CHỜ HÀNG nên không tạo được PBH. Tạo Phiếu soạn hàng thay thế?`,
+                { title: 'Đơn có hàng chờ', okText: 'Tạo Phiếu soạn hàng', cancelText: 'Để sau' }
+            );
+            if (goSlip && window.NativeOrdersPackingSlip) {
+                window.NativeOrdersPackingSlip.open(src, {
+                    sttDisplay: NO.computeOrderStt(src),
+                    onPrint: (od) => NO._markPrintedCodes([od.code]),
+                });
+            }
+            return;
+        }
         // validateOrderForPbh already blocked empty-products orders above —
         // here products are guaranteed non-empty so totals will be > 0.
         const totals = (src.products || []).reduce(
@@ -563,6 +579,31 @@
                         );
                     } else {
                         NO.notify(`${baseMsg}\n${list}`, 'error');
+                    }
+                    return;
+                }
+                // 2026-06-21: server chặn vì đơn có SP chờ hàng (CHO_MUA). Safety-net
+                // (createPbh đã chặn sớm) cho path bulk/đua. Mời tạo Phiếu soạn hàng.
+                if (data.error === 'cho_hang_blocked') {
+                    const chCodes = Array.isArray(data.choHangCodes)
+                        ? data.choHangCodes.join(', ')
+                        : '';
+                    const ord = NO.STATE.orders.find((o) => o.code === code);
+                    const goSlip = window.Popup?.confirm
+                        ? await window.Popup.confirm(
+                              `${baseMsg}${chCodes ? `\n\nSP chờ hàng: ${chCodes}` : ''}`,
+                              {
+                                  title: 'Đơn có hàng chờ',
+                                  okText: 'Tạo Phiếu soạn hàng',
+                                  cancelText: 'Để sau',
+                              }
+                          )
+                        : false;
+                    if (goSlip && ord && window.NativeOrdersPackingSlip) {
+                        window.NativeOrdersPackingSlip.open(ord, {
+                            sttDisplay: NO.computeOrderStt(ord),
+                            onPrint: (od) => NO._markPrintedCodes([od.code]),
+                        });
                     }
                     return;
                 }
