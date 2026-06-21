@@ -184,8 +184,7 @@ function _inventorySelfWroteRecently() {
 // để không vẽ lại bảng làm văng thao tác đang dở của user.
 function _inventoryUiBusy() {
     return (
-        document.body.style.overflow === 'hidden' ||
-        !!document.querySelector('.inline-edit-input')
+        document.body.style.overflow === 'hidden' || !!document.querySelector('.inline-edit-input')
     );
 }
 if (typeof window !== 'undefined') {
@@ -549,13 +548,21 @@ function auditShipmentsData() {
 }
 
 /**
- * List of distinct dotSo values present in current shipments, sorted ASC.
+ * List of distinct dotSo values present in current data, sorted ASC.
  * Used by the đợt section tabs.
+ *
+ * Union of shipment đợt + product-image đợt so the đợt tabs stay in sync with
+ * the image manager (two-way): a đợt created in the image manager appears here,
+ * and a đợt that only has shipments (no images yet) appears in the image manager.
  */
 function getAvailableDotSoList() {
     const set = new Set();
     (globalState.shipments || []).forEach((s) => {
         const n = parseInt(s.dotSo, 10);
+        if (Number.isFinite(n) && n > 0) set.add(n);
+    });
+    (globalState.productImages || []).forEach((img) => {
+        const n = parseInt(img.dotSo, 10);
         if (Number.isFinite(n) && n > 0) set.add(n);
     });
     return [...set].sort((a, b) => a - b);

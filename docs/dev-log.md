@@ -2,6 +2,16 @@
 
 ## 2026-06-21
 
+### [fix] inventory-tracking — đồng bộ 2 chiều tab Đợt giữa "Theo Dõi Đơn Hàng" và "Quản Lý Ảnh"
+
+User báo: tạo Đợt 3 ở tab theo dõi đơn hàng (Hình 1) nhưng modal Quản Lý Ảnh (Hình 2) không có Đợt 3 — và ngược lại. Gốc: 2 surface tính danh sách đợt từ **2 nguồn KHÔNG hợp nhất** — order-tracking (`getAvailableDotSoList`) chỉ đọc `globalState.shipments[].dotSo`; image-manager (`_allDotSos`) chỉ đọc `_rows` (từ `globalState.productImages` + 1 row trống ở đợt active). Đợt chỉ có shipment (chưa có ảnh) hoặc chỉ có ảnh (chưa có shipment) bị thiếu ở surface kia.
+
+- **Fix 1** `data-loader.js getAvailableDotSoList()` → UNION shipment đợt + product-image đợt (order-tracking hiện đợt chỉ-có-ảnh).
+- **Fix 2** `modal-image-manager.js _allDotSos()` → union rows + `_knownDotSos` (shipments+ảnh) → modal hiện đợt chỉ-có-shipment (vd Đợt 3 mới tạo, count 0).
+- **Fix 3** `open()` → đợt active mặc định lấy `UIState.getActiveDotTab()` (mở modal từ Đợt 3 → modal vào Đợt 3).
+- **Fix 4** `save()` → gọi `DotTabs.render()` sau khi cập nhật `globalState.productImages` (đợt tạo trong modal hiện ngay ở order-tracking; `applyFiltersAndRender` không rebuild tab bar).
+- Web 1.0 (pool `chatDb`, không đụng DB/pool). Verify Playwright live: shipments=[1,2,3] images=[2,3] → modal tabs [Đợt 1·0, Đợt 2·81, Đợt 3·2] active Đợt 3 (trước thiếu Đợt 1); inject đợt-ảnh ảo 9 → order-tracking tabs [1,2,3,9] → revert sạch (no DB write). `node --check` 3 file PASS.
+
 ### [feature b] Gate worker `/api/facebook-graph` — allowlist read-only + GET-only (chặn open Graph relay)
 
 `handleFacebookGraph` (cloudflare-worker/modules/handlers/facebook-handler.js) là proxy Graph GET MỞ: ai có access_token đọc node Graph tuỳ ý. Audit xác nhận **0 caller frontend** dùng route worker này (web2-fb-posts đi Render riêng; orders-report dùng TPOS `/api/facebook-graph/*` khác host; `/livevideo` là route FACEBOOK_LIVE riêng) → gate an toàn, không ảnh hưởng Web 1.0/2.0.

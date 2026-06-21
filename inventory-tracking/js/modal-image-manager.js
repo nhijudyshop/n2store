@@ -132,9 +132,17 @@ const ImageManager = (() => {
             _knownDotSos = _buildKnownDotSos();
         }
 
-        // Pick the active tab — latest đợt with data, or latest known shipment đợt, or 1
+        // Pick the active tab. Prefer the đợt currently selected in the
+        // order-tracking view so the modal opens on the same đợt the user is
+        // looking at (e.g. open from Đợt 3 → modal lands on Đợt 3). Fall back to
+        // the latest đợt that has image rows, then the latest known đợt.
         const dotsWithRows = [...new Set(_rows.map((r) => r.dotSo))].sort((a, b) => b - a);
-        _activeDotSo = dotsWithRows[0] || _defaultDotSo();
+        const orderTrackingDot = parseInt(window.UIState?.getActiveDotTab?.(), 10);
+        if (Number.isFinite(orderTrackingDot) && orderTrackingDot > 0) {
+            _activeDotSo = orderTrackingDot;
+        } else {
+            _activeDotSo = dotsWithRows[0] || _defaultDotSo();
+        }
 
         // Always add one empty row in the active đợt for new input
         const newRow = _createRow(_activeDotSo);
@@ -146,12 +154,23 @@ const ImageManager = (() => {
     }
 
     /**
-     * Collect distinct đợt numbers from current rows, sorted ASC.
-     * Used to render the tab bar.
+     * Collect distinct đợt numbers for the tab bar, sorted ASC.
+     *
+     * Union of đợt that currently have rows + all known đợt (`_knownDotSos` =
+     * shipments + saved product images). This keeps the image-manager tabs in
+     * sync with the order-tracking đợt tabs: a đợt that has a shipment but no
+     * images yet (e.g. a freshly-created Đợt 3) still shows up here so the user
+     * can add images to it.
      */
     function _allDotSos() {
         const set = new Set(_rows.map((r) => r.dotSo));
-        return Array.from(set).sort((a, b) => a - b);
+        (_knownDotSos || []).forEach((d) => {
+            const n = parseInt(d, 10);
+            if (Number.isFinite(n) && n > 0) set.add(n);
+        });
+        return Array.from(set)
+            .filter((n) => Number.isFinite(n) && n > 0)
+            .sort((a, b) => a - b);
     }
 
     /**
@@ -786,6 +805,10 @@ const ImageManager = (() => {
                 r.originalDate = GLOBAL_LEGACY_DATE;
             });
 
+            // Rebuild the order-tracking đợt tabs so a đợt created here (image-only,
+            // no shipment yet) shows up there too (two-way sync). applyFiltersAndRender
+            // alone doesn't rebuild the tab bar.
+            if (window.DotTabs?.render) window.DotTabs.render();
             if (typeof applyFiltersAndRender === 'function') applyFiltersAndRender();
         } catch (error) {
             console.error('[IMG-MGR] Save error:', error);
