@@ -2,6 +2,16 @@
 
 ## 2026-06-21
 
+### [feat] video-maker: kho giọng (Piper + ElevenLabs) + import video lồng tiếng + giọng theo cảnh + thẻ cảm xúc VieNeu
+
+User: (1) thẻ cảm xúc VieNeu; (2) import video để ghép voice; (3) chọn nhiều voice theo list + kho giọng sẵn (kiểu 'Adam'). Hỏi scope → cả 2 nguồn giọng, cả 2 kiểu multi-voice, slider tiếng gốc.
+
+- **Thẻ cảm xúc VieNeu** (`31ae0603e`): `CUES` ([cười]/[thở dài]/[hắng giọng]) chèn vào lời đọc — chỉ engine `vieneu` hiểu; engine khác `stripCues`. Chip insert-at-cursor + hint theo giọng.
+- **Kho giọng** (`3248fa8fc`): `video-library.js` modal — tab Piper (catalog ~100+ giọng named, lọc ngôn ngữ, nghe thử, "Kéo về" tải IndexedDB) + tab ElevenLabs (proxy `/api/web2-elevenlabs`, key env `ELEVENLABS_API_KEY`, gated). `video-tts.js` thêm `listPiperCatalog/downloadPiperVoice/synthVoiceMeta` + engine `elevenlabs` + `addLibraryVoice` persist localStorage. ⚠ ElevenLabs free KHÔNG có quyền TM (cần $5) → Piper là mặc định free/commercial-OK. **Cần set key Render mới chạy ElevenLabs.**
+- **Import video lồng tiếng** (`6cc4e479c`): `video-import.js` — load video → vẽ khung hình canvas + nối tiếng gốc MediaElementSource→gain→graph; branch `drawAt/totalDur/applyCanvasSize/play/exportVideo`; slider âm lượng tiếng gốc (20%).
+- **Giọng theo từng cảnh** (commit này): scene-editor thêm input "Lời đọc riêng" + select "Giọng cảnh này"; `genNarrationPerScene` synth từng cảnh giọng riêng, nới `dur` cho vừa lời, mix OfflineAudioContext 44.1kHz canh theo mốc cảnh.
+- Verify browser (localhost+extension, 0 console error): catalog 80 row + 35 ngôn ngữ + add/persist/remove; ElevenLabs "chưa bật"; import canvas 320×180 + clear→1280×720; per-scene dur 3→4.4 khi audio 4s.
+
 ### [feat] Popup lý do tag — thêm ẢNH sản phẩm
 
 Theo yêu cầu "hiện ảnh sản phẩm" trong popup lý do tag. `buildContext` thêm `image_url` (web2_products) vào productStatus; `tagDetail` đính `imageUrl` mỗi SP (ưu tiên catalog, fallback snapshot dòng đơn). `Web2OrderTagDetail` render thumbnail 52px (object-fit cover) + placeholder icon khi lỗi/không ảnh. Unit test imageUrl (catalog + fallback) PASS. Bump `web2-order-tag-detail.js?v=ot3`.
