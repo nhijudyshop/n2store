@@ -2,6 +2,15 @@
 
 ## 2026-06-21
 
+### [feat] TAG đơn — thêm trigger "KPI User" (pill động hiện tên NV nhận KPI + popup breakdown)
+
+User: "TAG KPI User nữa → audit nói lại logic KPI user". Audit (2 Explore agent) → recap logic KPI; chốt thiết kế: pill ĐỘNG hiện TÊN NV + click chi tiết; livestream STT ngoài mọi dải = LỖI chia dải (pill đỏ).
+
+- **Engine** (`web2-order-tags-service.js`): thêm trigger `kpi_user` (nhóm "KPI") + predicate (fire mọi đơn còn sống có SP) + `kpiUserDetail(o,ctx)` MIRROR `routes/v2/kpi.js` (`resolveBeneficiary`+`_orderKpiQty`) → khớp 100% dashboard KPI: **livestream** = NV theo dải STT (`web2_kpi_assignments`), KPI qty = base-delta (Σ max(0, hiện−`kpi_base`) = upsell sau chốt), STT ngoài dải → `state:'error'` pill đỏ "⚠ STT n chưa gán NV"; **inbox** = `created_by`, 100% SL; chưa chốt (`kpi_base` null) → qty 0 vẫn hiện NV. `computeAutoTags` special-case kpi_user: `tag.name`=tên NV/label-lỗi, `tag.color` đỏ khi lỗi, `tag.detail.kpiUser`={source,state,resolveText,kpiQty,kpiAmount,lines[],notChoted}. `buildContext` thêm `kpiRanges` (load `web2_kpi_assignments` chỉ khi có tag kpi_user active). Seed mặc định +1 (`kpi_user`, priority 5) cho install mới.
+- **Popup** (`web2-order-tag-detail.js`): branch `kpi_user` → hero NV/avatar (đỏ+icon khi lỗi) + 3 box (SL KPI · Tiền · đơn giá 5.000đ) + note "chưa chốt" + list SP (base→hiện tại, badge "+N KPI"). Bump `?v=20260621kpi`.
+- **Frontend native-orders KHÔNG đổi**: pill đã render từ `o.autoTags` + clickable sẵn → kpi_user tự hoạt động.
+- Unit-test local 4 ca (live-assigned Hoa +3=15k · live-ERROR STT99 đỏ · inbox Lan 100%=6SP=30k · live chưa-chốt qty0 vẫn hiện Hoa) PASS. Engine = Render deploy; pill/popup = GH Pages.
+
 ### [redesign] video-maker → "Xưởng Video AI": layout 2-tab + card + xoay tua key ElevenLabs + 3 tính năng AI
 
 User: làm lại toàn bộ giao diện + đổi tên trang, audit→commit→debug→lặp. Trước đó: cấp 3 key ElevenLabs (xoay tua) + tích hợp chức năng AI.

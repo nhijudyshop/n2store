@@ -152,6 +152,13 @@ const TRIGGERS = [
         group: 'Kênh',
         desc: 'Đơn từ kênh inbox (web2_inbox).',
     },
+    // KPI
+    {
+        id: 'kpi_user',
+        label: 'KPI User (người nhận KPI)',
+        group: 'KPI',
+        desc: 'Pill ĐỘNG hiện TÊN nhân viên được tính KPI cho đơn. Livestream: theo dải STT đã phân công ở web2_kpi_assignments (khớp 100% dashboard KPI). Inbox: người tạo đơn (created_by, tính 100% SL). Bấm pill xem nguồn, cách resolve, base (lúc chốt) vs SL hiện tại, SL upsell + tiền KPI (×5.000đ/SP). Đơn livestream có STT KHÔNG nằm trong dải nào → pill ĐỎ báo lỗi chia dải (admin cần chia lại range cho đủ).',
+    },
 ];
 
 const TRIGGER_IDS = new Set(TRIGGERS.map((t) => t.id));
@@ -205,6 +212,10 @@ const PREDICATES = {
     tu_livestream: (o) =>
         !o.channel || o.channel === 'web2_livestream' || o.channel === 'livestream',
     tu_inbox: (o) => o.channel === 'web2_inbox' || o.channel === 'inbox',
+
+    // KPI User: pill động (mọi đơn còn sống có SP). Nhãn/màu/đỏ-lỗi tính ở
+    // computeAutoTags qua kpiUserDetail() — predicate chỉ quyết định CÓ hiện hay không.
+    kpi_user: (o) => o.status !== 'cancelled' && Array.isArray(o.products) && o.products.length > 0,
 };
 
 // ---------------------------------------------------------------------------
@@ -282,6 +293,170 @@ function tagDetail(trigger, o, ctx) {
     return products.length ? { products } : null;
 }
 
+// ---------------------------------------------------------------------------
+// KPI USER — resolve "ai được tính KPI cho đơn này" + breakdown. MIRROR logic
+// render.com/routes/v2/kpi.js (resolveBeneficiary + _orderKpiQty) để pill KHỚP
+// 100% dashboard KPI:
+//   • Livestream: hưởng = NV theo dải STT (web2_kpi_assignments). KPI qty = base-delta
+//     (Σ max(0, SL_hiện_tại − kpi_base)) = phần UPSELL sau khi chốt. STT ngoài mọi dải
+//     = LỖI chia dải (pill đỏ). kpi_base null (chưa chốt) → qty 0.
+//   • Inbox: hưởng = người tạo đơn (createdBy). KPI qty = 100% SL.
+//   • Tiền = qty × 5.000đ/SP.
+// ---------------------------------------------------------------------------
+const KPI_RATE_PER_SP = 5000;
+
+function _kpiSanitizeCampaign(name) {
+    if (!name) return null;
+    return String(name)
+        .replace(/[.$#\[\]/]/g, '_')
+        .trim();
+}
+function _kpiProductMap(products) {
+    const m = {};
+    for (const p of Array.isArray(products) ? products : []) {
+        const code = p.productCode || p.product_code || p.code;
+        const qty = Number(p.quantity ?? p.qty) || 0;
+        if (code && qty > 0) m[code] = (m[code] || 0) + qty;
+    }
+    return m;
+}
+function _kpiBeneficiaryByStt(stt, ranges) {
+    if (stt == null) return null;
+    for (const r of ranges || []) {
+        const from = Number(r.fromSTT ?? r.from ?? r.start ?? 0);
+        const to = Number(r.toSTT ?? r.to ?? r.end ?? Infinity);
+        if (stt >= from && stt <= to) {
+            const uid = Number(r.userId ?? r.id);
+            return {
+                id: Number.isFinite(uid) ? uid : 0,
+                name: r.userName || r.name || String(r.userId ?? '?'),
+                from,
+                to,
+            };
+        }
+    }
+    return null;
+}
+
+// Lines per-SP cho popup: { code, name, imageUrl, base, current, delta }. delta =
+// phần được tính KPI cho SP đó.
+//   mode 'inbox'        → base 0, delta = current (100%).
+//   mode 'live'+baseMap → base = kpi_base[code], delta = max(0, current−base) (upsell).
+//   mode 'live'+null    → CHƯA chốt: base null, delta 0 (chưa tính gì cho tới khi chốt).
+function _kpiLines(o, curMap, baseMap, mode, ctx) {
+    const lines = [];
+    const seen = new Set();
+    for (const l of Array.isArray(o.products) ? o.products : []) {
+        const code = l.productCode || l.product_code || l.code;
+        if (!code || seen.has(code)) continue;
+        seen.add(code);
+        const current = curMap[code] || 0;
+        const ps = ctx.productStatus && ctx.productStatus.get(code);
+        let base, delta;
+        if (mode === 'inbox') {
+            base = 0;
+            delta = current;
+        } else if (baseMap == null) {
+            base = null; // livestream chưa chốt
+            delta = 0;
+        } else {
+            base = Number(baseMap[code]) || 0;
+            delta = Math.max(0, current - base);
+        }
+        lines.push({
+            code,
+            name: l.name || l.productName || l.product_name || code,
+            imageUrl: (ps && ps.imageUrl) || l.imageUrl || l.image_url || null,
+            base,
+            current,
+            delta,
+        });
+    }
+    return lines;
+}
+
+// kpiUserDetail(order, ctx) → object mô tả người hưởng + breakdown (gắn vào tag.detail.kpiUser).
+function kpiUserDetail(o, ctx) {
+    const isInbox = o.channel === 'web2_inbox' || o.channel === 'inbox';
+    const curMap = _kpiProductMap(o.products);
+
+    if (isInbox) {
+        const name = o.createdByName || o.createdBy || 'NV inbox';
+        const lines = _kpiLines(o, curMap, null, 'inbox', ctx);
+        const qty = lines.reduce((s, l) => s + l.delta, 0);
+        return {
+            source: 'inbox',
+            state: 'ok',
+            label: name,
+            color: '#0068ff',
+            beneficiaryName: name,
+            beneficiaryId: Number.isFinite(Number(o.createdBy)) ? Number(o.createdBy) : null,
+            resolveText: 'Đơn Inbox → người tạo đơn nhận KPI (tính 100% số lượng).',
+            campaignName: o.liveCampaignName || null,
+            campaignStt: o.campaignStt ?? null,
+            kpiQty: qty,
+            kpiAmount: qty * KPI_RATE_PER_SP,
+            notChoted: false,
+            rate: KPI_RATE_PER_SP,
+            orderStatus: o.status,
+            lines,
+        };
+    }
+
+    // Livestream
+    const ranges =
+        ctx.kpiRanges && o.liveCampaignName
+            ? ctx.kpiRanges.get(_kpiSanitizeCampaign(o.liveCampaignName)) || []
+            : [];
+    const stt = o.campaignStt ?? null;
+    const base = o.kpiBase || null;
+    const lines = _kpiLines(o, curMap, base, 'live', ctx);
+    const qty = lines.reduce((s, l) => s + l.delta, 0);
+    const b = _kpiBeneficiaryByStt(stt, ranges);
+
+    if (!b) {
+        const hasRanges = Array.isArray(ranges) && ranges.length > 0;
+        return {
+            source: 'livestream',
+            state: 'error',
+            label: stt != null ? `⚠ STT ${stt} chưa gán NV` : '⚠ Đơn chưa có STT',
+            color: '#dc2626',
+            beneficiaryName: null,
+            beneficiaryId: null,
+            resolveText: hasRanges
+                ? `STT ${stt} không nằm trong dải phân công nào của chiến dịch "${o.liveCampaignName || ''}". Dải STT phải chia ĐỦ — vào Cấu hình KPI chia lại range cho NV.`
+                : `Chiến dịch "${o.liveCampaignName || '(không chiến dịch)'}" chưa phân công dải STT cho nhân viên. Vào Cấu hình KPI để chia range.`,
+            campaignName: o.liveCampaignName || null,
+            campaignStt: stt,
+            kpiQty: qty,
+            kpiAmount: qty * KPI_RATE_PER_SP,
+            notChoted: base == null,
+            rate: KPI_RATE_PER_SP,
+            orderStatus: o.status,
+            lines,
+        };
+    }
+
+    const toLabel = b.to === Infinity || !Number.isFinite(b.to) ? '∞' : b.to;
+    return {
+        source: 'livestream',
+        state: 'ok',
+        label: b.name,
+        color: '#16a34a',
+        beneficiaryName: b.name,
+        beneficiaryId: b.id,
+        resolveText: `STT ${stt} ∈ dải ${b.from}–${toLabel} → ${b.name} (livestream${base == null ? ', CHƯA chốt đơn' : ', tính phần upsell sau chốt'}).`,
+        campaignName: o.liveCampaignName || null,
+        campaignStt: stt,
+        kpiQty: qty,
+        kpiAmount: qty * KPI_RATE_PER_SP,
+        notChoted: base == null,
+        rate: KPI_RATE_PER_SP,
+        orderStatus: o.status,
+        lines,
+    };
+}
+
 // computeAutoTags(order, ctx, tagDefs) → { tags:[{code,name,color,icon,trigger,detail?}], hasChoHang }
 // tagDefs đã sort theo priority ASC (loadActiveTagDefs) → output giữ thứ tự.
 function computeAutoTags(o, ctx, tagDefs) {
@@ -313,6 +488,18 @@ function computeAutoTags(o, ctx, tagDefs) {
             if (PRODUCT_DETAIL_TRIGGERS.has(def.trigger)) {
                 const detail = tagDetail(def.trigger, o, ctx);
                 if (detail) tag.detail = detail;
+            } else if (def.trigger === 'kpi_user') {
+                // Pill động: nhãn = tên NV hưởng (hoặc "⚠ STT n chưa gán"); màu đỏ khi lỗi
+                // chia dải, còn lại theo state. detail.kpiUser cho popup breakdown.
+                try {
+                    const info = kpiUserDetail(o, ctx);
+                    tag.name = info.label || def.name;
+                    tag.color = info.state === 'error' ? '#dc2626' : def.color || info.color;
+                    tag.kpiState = info.state;
+                    tag.detail = { kpiUser: info };
+                } catch {
+                    /* để nguyên def.name/color nếu resolve lỗi */
+                }
             }
             tags.push(tag);
         }
@@ -324,9 +511,29 @@ function computeAutoTags(o, ctx, tagDefs) {
 // Context builder: query web2_products status/stock + held-in-drafts cho tập
 // product code xuất hiện ở các đơn đang load. Bounded theo codes của trang.
 // ---------------------------------------------------------------------------
-async function buildContext(pool, orders) {
+async function buildContext(pool, orders, opts = {}) {
     const productStatus = new Map();
     const heldByCode = new Map();
+    // kpiRanges: sanitized campaign_name → [{userId,userName,fromSTT,toSTT}]. Chỉ load
+    // khi có tag kpi_user active (opts.needKpi) — tránh query thừa mỗi /load.
+    const kpiRanges = new Map();
+    if (opts.needKpi) {
+        try {
+            const ar = await pool.query(
+                `SELECT campaign_name, employee_ranges FROM web2_kpi_assignments`
+            );
+            for (const r of ar.rows) {
+                kpiRanges.set(
+                    r.campaign_name,
+                    Array.isArray(r.employee_ranges) ? r.employee_ranges : []
+                );
+            }
+        } catch (e) {
+            // Bảng chưa tồn tại (route v2/kpi chưa chạy ensureSchema) → để rỗng:
+            // mọi đơn livestream sẽ hiện "chưa phân công" (vẫn đúng nghĩa).
+            console.warn('[WEB2-ORDER-TAGS] load kpi ranges warn:', e.message);
+        }
+    }
     const codeSet = new Set();
     for (const o of orders || []) {
         for (const l of o.products || []) {
@@ -335,7 +542,7 @@ async function buildContext(pool, orders) {
         }
     }
     const codes = [...codeSet];
-    if (!codes.length) return { productStatus, heldByCode };
+    if (!codes.length) return { productStatus, heldByCode, kpiRanges };
 
     const pr = await pool.query(
         `SELECT code, status, stock, pending_qty, image_url FROM web2_products WHERE code = ANY($1::text[])`,
@@ -364,7 +571,7 @@ async function buildContext(pool, orders) {
     for (const r of hr.rows) {
         if (r.code) heldByCode.set(r.code, Number(r.held) || 0);
     }
-    return { productStatus, heldByCode };
+    return { productStatus, heldByCode, kpiRanges };
 }
 
 // ---------------------------------------------------------------------------
@@ -396,13 +603,16 @@ async function ensureTable(pool) {
             await pool.query(
                 `INSERT INTO web2_order_tags (code, name, trigger, color, icon, priority, created_by, created_at, updated_at)
                  VALUES
+                   ('kpi_user',    'KPI User',       'kpi_user',    '#16a34a', 'user-check',     5,  'system', $1, $1),
                    ('pbh_created', 'Phiếu bán hàng', 'pbh_created', '#16a34a', 'receipt',        10, 'system', $1, $1),
                    ('cho_hang',    'Chờ hàng',       'cho_hang',    '#f59e0b', 'clock',          20, 'system', $1, $1),
                    ('am_ma',       'Âm mã',          'am_ma',       '#dc2626', 'alert-triangle', 30, 'system', $1, $1)
                  ON CONFLICT (code) DO NOTHING`,
                 [now]
             );
-            console.log('[WEB2-ORDER-TAGS] Seeded 3 default tags (pbh_created, cho_hang, am_ma)');
+            console.log(
+                '[WEB2-ORDER-TAGS] Seeded 4 default tags (kpi_user, pbh_created, cho_hang, am_ma)'
+            );
         }
     } catch (e) {
         console.warn('[WEB2-ORDER-TAGS] seed warn:', e.message);
@@ -439,7 +649,8 @@ async function enrichOrdersWithTags(pool, orders) {
     if (!Array.isArray(orders) || !orders.length) return;
     try {
         const tagDefs = await loadActiveTagDefs(pool);
-        const ctx = await buildContext(pool, orders);
+        const needKpi = tagDefs.some((d) => d.trigger === 'kpi_user');
+        const ctx = await buildContext(pool, orders, { needKpi });
         for (const o of orders) {
             const { tags, hasChoHang } = computeAutoTags(o, ctx, tagDefs);
             o.autoTags = tags;
@@ -460,6 +671,7 @@ module.exports = {
     PREDICATES,
     orderProductFlags,
     tagDetail,
+    kpiUserDetail,
     computeAutoTags,
     buildContext,
     ensureTable,

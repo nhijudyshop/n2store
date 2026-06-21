@@ -76,6 +76,24 @@
         .w2otd-muted{font-size:12.5px;color:#94a3b8;padding:6px 0;}
         .w2otd-spin{display:inline-block;width:14px;height:14px;border:2px solid #cbd5e1;border-top-color:#0068ff;border-radius:50%;animation:w2otdspin .7s linear infinite;vertical-align:middle;margin-right:6px;}
         @keyframes w2otdspin{to{transform:rotate(360deg)}}
+        .w2otd-kpi-hero{display:flex;gap:11px;align-items:center;border:1px solid #e2e8f0;border-radius:13px;padding:12px 13px;background:linear-gradient(135deg,#f0fdf4,#fff);margin-bottom:12px;}
+        .w2otd-kpi-hero.err{background:linear-gradient(135deg,#fef2f2,#fff);border-color:#fecaca;}
+        .w2otd-kpi-hero .av{flex:0 0 auto;width:40px;height:40px;border-radius:50%;background:#16a34a;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:17px;}
+        .w2otd-kpi-hero.err > i{flex:0 0 auto;width:26px;height:26px;color:#dc2626;}
+        .w2otd-kpi-hero .nm{font-size:15px;font-weight:800;color:#0f172a;display:flex;align-items:center;gap:7px;flex-wrap:wrap;}
+        .w2otd-kpi-hero.err .nm{color:#b91c1c;}
+        .w2otd-kpi-hero .rs{font-size:12px;color:#64748b;margin-top:3px;line-height:1.45;}
+        .w2otd-kpi-src{font-size:10.5px;font-weight:700;border-radius:999px;padding:1px 8px;}
+        .w2otd-kpi-src.live{background:#dcfce7;color:#15803d;}
+        .w2otd-kpi-src.inbox{background:#dbeafe;color:#1d4ed8;}
+        .w2otd-kpi-money{display:flex;gap:8px;margin-bottom:12px;}
+        .w2otd-kpi-money .box{flex:1;border:1px solid #eef1f6;border-radius:11px;padding:9px 10px;background:#fafbfc;text-align:center;}
+        .w2otd-kpi-money .k{font-size:11px;color:#94a3b8;font-weight:600;margin-bottom:3px;}
+        .w2otd-kpi-money .v{font-size:15px;font-weight:800;color:#0f172a;}
+        .w2otd-kpi-money .v.hl{color:#16a34a;}
+        .w2otd-kpi-note{font-size:12px;color:#92400e;background:#fffbeb;border:1px solid #fde68a;border-radius:9px;padding:8px 10px;margin-bottom:12px;line-height:1.45;}
+        .w2otd-kpi-lines-t{font-size:11.5px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.03em;margin:4px 0 8px;}
+        .w2otd-kpi-bc{font-size:12px;color:#475569;}
         `;
         document.head.appendChild(st);
     }
@@ -210,6 +228,57 @@
         return String(s).replace(/["\\]/g, '\\$&');
     }
 
+    // ----- KPI User render (tag.detail.kpiUser) -----
+    function kpiSrcBadge(src) {
+        return src === 'inbox'
+            ? `<span class="w2otd-kpi-src inbox">Inbox</span>`
+            : `<span class="w2otd-kpi-src live">Livestream</span>`;
+    }
+    function kpiLineRow(info, l) {
+        const isLive = info.source === 'livestream';
+        const bc =
+            l.base == null
+                ? `Chưa chốt · SL hiện tại <strong>${vnNum(l.current)}</strong>`
+                : isLive
+                  ? `Base ${vnNum(l.base)} → SL hiện tại <strong>${vnNum(l.current)}</strong>`
+                  : `Số lượng <strong>${vnNum(l.current)}</strong>`;
+        const badge =
+            Number(l.delta) > 0
+                ? `<span class="w2otd-badge" style="background:#dcfce7;color:#15803d;margin-left:auto;">+${vnNum(l.delta)} KPI</span>`
+                : `<span class="w2otd-badge slate" style="margin-left:auto;">0</span>`;
+        return `<div class="w2otd-prod"><div class="w2otd-prod-row">
+            <div class="w2otd-thumb">${thumbHtml(l)}</div>
+            <div class="w2otd-prod-main">
+                <div class="w2otd-prod-head"><strong>${esc(l.name || l.code)}</strong><span class="w2otd-code">${esc(l.code)}</span>${badge}</div>
+                <div class="w2otd-sub"><span class="w2otd-kpi-bc">${bc}</span></div>
+            </div></div></div>`;
+    }
+    function renderKpiUser(order, info) {
+        const orderRef = `Đơn <strong>${esc(order.code)}</strong>${order.customerName ? ` · ${esc(order.customerName)}` : ''}`;
+        const err = info.state === 'error';
+        const lines = Array.isArray(info.lines) ? info.lines : [];
+        const hero = err
+            ? `<div class="w2otd-kpi-hero err"><i data-lucide="alert-triangle"></i><div><div class="nm">${esc(info.label)}</div><div class="rs">${esc(info.resolveText)}</div></div></div>`
+            : `<div class="w2otd-kpi-hero"><div class="av">${esc(
+                  String(info.beneficiaryName || info.label || '?')
+                      .trim()
+                      .slice(0, 1)
+                      .toUpperCase()
+              )}</div><div><div class="nm">${esc(info.beneficiaryName || info.label)} ${kpiSrcBadge(info.source)}</div><div class="rs">${esc(info.resolveText)}</div></div></div>`;
+        const money = `<div class="w2otd-kpi-money">
+            <div class="box"><div class="k">SL tính KPI</div><div class="v">${vnNum(info.kpiQty)} SP</div></div>
+            <div class="box"><div class="k">Tiền KPI</div><div class="v hl">${vnNum(info.kpiAmount)}đ</div></div>
+            <div class="box"><div class="k">Đơn giá</div><div class="v">${vnNum(info.rate)}đ</div></div>
+        </div>`;
+        const note = info.notChoted
+            ? `<div class="w2otd-kpi-note">Đơn livestream <strong>CHƯA chốt</strong> → KPI tạm tính 0. Chỉ phần bán THÊM sau khi "Chốt đơn" (vượt base) mới được tính KPI.</div>`
+            : '';
+        const linesHtml = lines.length
+            ? `<div class="w2otd-kpi-lines-t">Chi tiết theo sản phẩm (${lines.length})</div>${lines.map((l) => kpiLineRow(info, l)).join('')}`
+            : '';
+        return `<p class="w2otd-lead">${orderRef} — người được tính KPI cho đơn này:</p>${hero}${money}${note}${linesHtml}`;
+    }
+
     async function open(order, tag) {
         if (!order || !tag) return;
         ensureStyles();
@@ -234,6 +303,12 @@
 
         const body = _root.querySelector('#w2otdBody');
         const orderRef = `Đơn <strong>${esc(order.code)}</strong>${order.customerName ? ` · ${esc(order.customerName)}` : ''}`;
+
+        if (tag.trigger === 'kpi_user' && tag.detail && tag.detail.kpiUser) {
+            body.innerHTML = renderKpiUser(order, tag.detail.kpiUser);
+            icons();
+            return;
+        }
 
         if (products.length) {
             const leadMap = {
