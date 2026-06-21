@@ -31,9 +31,9 @@ const supplierWalletRoutes = require('./web2-supplier-wallet');
 // router KHÔNG có auth → mọi máy/khách gọi trực tiếp API là tự duyệt/mint được.
 // requireWeb2AuthSoft = gate mềm: thiếu/sai token → 401 khi WEB2_AUTH_ENFORCE=1 (ĐANG BẬT).
 const { requireWeb2AuthSoft } = require('../middleware/web2-auth');
-// Trần over-refund SERVER-AUTHORITATIVE — đọc SL đã mua THẬT từ web2_so_order.
+// Trần over-refund SERVER-AUTHORITATIVE — đọc SL đã NHẬN THẬT từ web2_so_order.
 // Lib dùng chung với web2-supplier-wallet (/tx) — xem lib/web2-so-order-qty.js.
-const { loadSoOrderRowQtyMap } = require('../lib/web2-so-order-qty');
+const { loadSoOrderReceivedQtyMap } = require('../lib/web2-so-order-qty');
 router.use(requireWeb2AuthSoft);
 
 // -----------------------------------------------------
@@ -483,35 +483,42 @@ router.post('/quick-refund', async (req, res) => {
         const rowReturns = b.rowReturns && typeof b.rowReturns === 'object' ? b.rowReturns : null;
         if (rowReturns) {
             const cur = metaQ.rows[0]?.returned_row_ids || {};
-            // HIGH FIX (audit #4/#20): SL đã mua THẬT lấy từ web2_so_order (server),
-            // KHÔNG tin client `ordered`. Đọc 1 lần trong transaction.
-            const purchasedMap = await loadSoOrderRowQtyMap(client);
+            // SL đã NHẬN THẬT lấy từ web2_so_order (server), KHÔNG tin client `ordered`.
+            // Đọc 1 lần trong transaction.
+            const receivedMap = await loadSoOrderReceivedQtyMap(client);
             for (const [rid, v] of Object.entries(rowReturns)) {
                 // [11]: cộng dồn delta (xem web2-supplier-wallet /tx).
                 const prev = cur[rid] || {};
                 const newQty = (Number(prev.qty) || 0) + (Number(v?.qty) || 0);
-                // HIGH FIX (audit #4/#20 + over-refund 2026-06-21): cap SERVER-AUTHORITATIVE.
-                // Ưu tiên SL mua từ so-order (serverQty — client không sửa được); fallback
-                // client `ordered` chỉ khi so-order không tra được row. Trần = nhỏ nhất các
-                // giá trị > 0 (chỉ cho SIẾT). KHÔNG còn cap=null no-op: không nguồn nào tra
-                // được SL đã mua → REJECT (không mint ví NCC cho dòng không xác thực được).
-                const serverQty = purchasedMap.get(String(rid));
+                // FIX over-refund 2026-06-21 (audit #1/#2): cap SERVER-AUTHORITATIVE.
+                // serverQty = SL đã NHẬN từ so-order, tính LẠI mỗi lần (client không sửa
+                // được) → là trần khi tra được, KHÔNG pin min-với-client (tránh khoá vĩnh
+                // viễn khi client gửi `ordered` nhỏ lần đầu). Pin `ordered = cap` để lần
+                // sau còn trần khi so-order bị wipe. so-order KHÔNG tra được → fallback
+                // tightest(prevOrdered, clientOrdered); không nguồn nào → REJECT.
+                const serverQty = receivedMap.get(String(rid));
                 const clientOrdered = Number(v?.ordered);
-                let cap = null;
-                for (const cand of [serverQty, clientOrdered]) {
-                    if (Number.isFinite(cand) && cand > 0)
-                        cap = cap === null ? cand : Math.min(cap, cand);
+                const prevOrdered = Number(prev.ordered);
+                let cap;
+                if (Number.isFinite(serverQty) && serverQty > 0) {
+                    cap = serverQty; // authoritative — bỏ qua client/pin
+                } else {
+                    cap = null;
+                    for (const cand of [prevOrdered, clientOrdered]) {
+                        if (Number.isFinite(cand) && cand > 0)
+                            cap = cap === null ? cand : Math.min(cap, cand);
+                    }
                 }
                 if (cap === null) {
                     const err = new Error(
-                        `Không xác định được SL đã mua của dòng ${rid} (so-order trống) — không thể trả`
+                        `Không xác định được SL đã nhận của dòng ${rid} (so-order trống) — không thể trả`
                     );
                     err.httpStatus = 400;
                     throw err;
                 }
                 if (newQty > cap) {
                     const err = new Error(
-                        `Trả vượt số đã mua (row ${rid}: đã trả+lần này=${newQty} > đã mua=${cap})`
+                        `Trả vượt số đã nhận (row ${rid}: đã trả+lần này=${newQty} > đã nhận=${cap})`
                     );
                     err.httpStatus = 400;
                     throw err;
@@ -520,6 +527,7 @@ router.post('/quick-refund', async (req, res) => {
                     qty: newQty,
                     amount: (Number(prev.amount) || 0) + (Number(v?.amount) || 0),
                     ts: now,
+                    ordered: cap, // pin trần (audit #2: symmetry với /tx prevOrdered)
                 };
             }
             await client.query(

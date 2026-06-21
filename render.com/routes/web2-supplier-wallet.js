@@ -24,9 +24,9 @@
 const express = require('express');
 const router = express.Router();
 const { requireWeb2AuthSoft } = require('../middleware/web2-auth');
-// Trần over-refund SERVER-AUTHORITATIVE — SL đã mua THẬT từ web2_so_order.
+// Trần over-refund SERVER-AUTHORITATIVE — SL đã NHẬN THẬT từ web2_so_order.
 // Lib dùng chung với purchase-refund (/quick-refund) — xem lib/web2-so-order-qty.js.
-const { loadSoOrderRowQtyMap } = require('../lib/web2-so-order-qty');
+const { loadSoOrderReceivedQtyMap } = require('../lib/web2-so-order-qty');
 
 let _notifyClients = null;
 router.initializeNotifiers = (notifyClients) => {
@@ -280,9 +280,9 @@ router.post('/tx', requireWeb2AuthSoft, async (req, res) => {
                 b.rowReturns && typeof b.rowReturns === 'object' ? b.rowReturns : null;
             let mutated = false;
             if (rowReturns) {
-                // Đọc SL đã mua THẬT từ so-order 1 lần (trong transaction) — nguồn sự thật
-                // cho trần over-refund, client không sửa được.
-                const purchasedMap = await loadSoOrderRowQtyMap(client);
+                // Đọc SL đã NHẬN THẬT từ so-order 1 lần (trong transaction) — nguồn sự
+                // thật cho trần over-refund, client không sửa được.
+                const receivedMap = await loadSoOrderReceivedQtyMap(client);
                 for (const [rid, v] of Object.entries(rowReturns)) {
                     // [11] (2026-06-13): CỘNG DỒN qty/amount thay vì ghi đè. rowReturns
                     // gửi DELTA của lần trả này (xem supplier-wallet-app confirmReturn).
@@ -291,25 +291,28 @@ router.post('/tx', requireWeb2AuthSoft, async (req, res) => {
                     // ⇒ OVER-REFUND. Merge dưới FOR UPDATE meta nên atomic.
                     const prev = cur[rid] || {};
                     const newQty = (Number(prev.qty) || 0) + (Number(v?.qty) || 0);
-                    // HIGH-4 FIX (2026-06-18) + over-refund (2026-06-21): SERVER cap.
+                    // HIGH-4 (2026-06-18) + over-refund FIX (2026-06-21 audit #1): SERVER cap.
                     // TRƯỚC đây cap chỉ ở client (modal remaining) → 2 modal/2 máy mở cùng
-                    // lúc, hoặc gọi API trực tiếp, đều trả vượt SL đã mua mà server NHẬN.
-                    // SERVER-AUTHORITATIVE: trần = NHỎ NHẤT các giá trị > 0 trong 3 nguồn —
-                    //   1) serverQty: SL đã mua THẬT từ so-order (nguồn sự thật, client không
-                    //      sửa được) — ưu tiên cao nhất;
-                    //   2) prevOrdered: trần đã PIN ở returned_row_ids[rid].ordered lần đầu;
-                    //   3) claimedOrdered: `ordered` client gửi lần này (chỉ để SIẾT thêm).
-                    // Chỉ cho SIẾT, không NỚI → client gửi `ordered` phồng để né cap là vô hiệu.
-                    // KHÔNG nguồn nào tra được trần (cap===null) → REJECT (tránh mint ví NCC
-                    // vô hạn cho dòng không xác thực được SL đã nhận). Check + pin dưới
-                    // FOR UPDATE meta nên atomic với race 2 modal đồng thời.
+                    // lúc, hoặc gọi API trực tiếp, đều trả vượt SL đã nhận mà server NHẬN.
+                    // SERVER-AUTHORITATIVE: serverQty = SL đã NHẬN từ so-order, tính LẠI mỗi
+                    // lần (client không sửa được) → là TRẦN khi tra được. KHÔNG pin
+                    // min-với-client nữa (audit #1: client gửi `ordered` nhỏ lần đầu — vd row
+                    // partial nhận 2/10 → pin 2 → KHOÁ VĨNH VIỄN dù sau nhận đủ 10). Pin
+                    // `ordered = cap` để còn trần khi so-order bị wipe lần sau. so-order
+                    // KHÔNG tra được → fallback tightest(prevOrdered, claimedOrdered); không
+                    // nguồn nào → REJECT. Check + pin dưới FOR UPDATE meta nên atomic.
                     const claimedOrdered = Number(v?.ordered);
                     const prevOrdered = Number(prev.ordered);
-                    const serverQty = purchasedMap.get(String(rid));
-                    let cap = null;
-                    for (const cand of [serverQty, prevOrdered, claimedOrdered]) {
-                        if (Number.isFinite(cand) && cand > 0)
-                            cap = cap === null ? cand : Math.min(cap, cand);
+                    const serverQty = receivedMap.get(String(rid));
+                    let cap;
+                    if (Number.isFinite(serverQty) && serverQty > 0) {
+                        cap = serverQty; // authoritative — bỏ qua client/pin
+                    } else {
+                        cap = null;
+                        for (const cand of [prevOrdered, claimedOrdered]) {
+                            if (Number.isFinite(cand) && cand > 0)
+                                cap = cap === null ? cand : Math.min(cap, cand);
+                        }
                     }
                     if (cap === null) {
                         const err = new Error(
@@ -320,7 +323,7 @@ router.post('/tx', requireWeb2AuthSoft, async (req, res) => {
                     }
                     if (newQty > cap) {
                         const err = new Error(
-                            `Trả vượt số đã mua (row ${rid}: đã trả+lần này=${newQty} > đã nhận=${cap})`
+                            `Trả vượt số đã nhận (row ${rid}: đã trả+lần này=${newQty} > đã nhận=${cap})`
                         );
                         err.httpStatus = 400;
                         throw err;
@@ -329,8 +332,7 @@ router.post('/tx', requireWeb2AuthSoft, async (req, res) => {
                         qty: newQty,
                         amount: (Number(prev.amount) || 0) + (Number(v?.amount) || 0),
                         ts,
-                        // Pin trần siết chặt nhất để các lần trả sau enforce server-side.
-                        ordered: cap,
+                        ordered: cap, // pin trần để lần sau enforce khi so-order bị wipe
                     };
                     mutated = true;
                 }
