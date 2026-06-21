@@ -96,18 +96,26 @@
         }
         return groups;
     }
-    function renderTriggerSelect() {
+    // Trigger đã được thẻ KHÁC dùng (loại exceptCode = thẻ đang sửa). Mỗi trigger
+    // chỉ 1 thẻ → ẩn khỏi picker để khỏi tạo trùng (server cũng chặn 409).
+    function usedTriggers(exceptCode) {
+        return new Set(STATE.records.filter((r) => r.code !== exceptCode).map((r) => r.trigger));
+    }
+    function renderTriggerSelect(exceptCode) {
         const sel = $('otfTrigger');
         if (!sel) return;
+        const used = usedTriggers(exceptCode);
         let html = '';
         for (const [group, items] of groupedTriggers()) {
+            const avail = items.filter((t) => !used.has(t.id));
+            if (!avail.length) continue;
             html += `<optgroup label="${esc(group)}">`;
-            html += items
+            html += avail
                 .map((t) => `<option value="${esc(t.id)}">${esc(t.label)} (${esc(t.id)})</option>`)
                 .join('');
             html += `</optgroup>`;
         }
-        sel.innerHTML = html;
+        sel.innerHTML = html || '<option value="">(đã dùng hết trigger)</option>';
     }
     function renderTriggerReference() {
         const box = $('otTriggerList');
@@ -256,6 +264,7 @@
     function openCreate() {
         STATE.editingCode = null;
         $('otModalTitle').textContent = 'Thêm thẻ';
+        renderTriggerSelect(null); // ẩn trigger đã dùng
         fillForm({ color: SWATCHES[0], priority: (STATE.records.length + 1) * 10 });
         $('otfCode').disabled = false;
         openModal();
@@ -266,6 +275,7 @@
         if (!rec) return;
         STATE.editingCode = code;
         $('otModalTitle').textContent = 'Sửa thẻ: ' + code;
+        renderTriggerSelect(code); // giữ trigger hiện tại, ẩn trigger thẻ khác dùng
         fillForm(rec);
         $('otfCode').disabled = true;
         openModal();
