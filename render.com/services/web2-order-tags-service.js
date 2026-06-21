@@ -256,16 +256,25 @@ function tagDetail(trigger, o, ctx) {
         if (!ps) continue;
         const name = l.name || l.productName || l.product_name || code;
         const orderQty = Number(l.quantity || l.qty || 0);
+        // Ảnh SP: ưu tiên catalog web2_products (current), fallback snapshot dòng đơn.
+        const imageUrl = ps.imageUrl || l.imageUrl || l.image_url || null;
         if (trigger === 'cho_hang' && ps.status === 'CHO_MUA') {
-            byCode.set(code, { code, name, pendingQty: ps.pending, orderQty });
+            byCode.set(code, { code, name, imageUrl, pendingQty: ps.pending, orderQty });
         } else if (trigger === 'mua_1_phan' && ps.status === 'MUA_1_PHAN') {
-            byCode.set(code, { code, name, stock: ps.stock, pendingQty: ps.pending, orderQty });
+            byCode.set(code, {
+                code,
+                name,
+                imageUrl,
+                stock: ps.stock,
+                pendingQty: ps.pending,
+                orderQty,
+            });
         } else if (trigger === 'het_hang' && ps.status !== 'CHO_MUA' && ps.stock <= 0) {
-            byCode.set(code, { code, name, stock: ps.stock, orderQty });
+            byCode.set(code, { code, name, imageUrl, stock: ps.stock, orderQty });
         } else if (trigger === 'am_ma' && ps.status !== 'CHO_MUA') {
             const held = ctx.heldByCode.get(code) || 0;
             if (held > ps.stock) {
-                byCode.set(code, { code, name, stock: ps.stock, held, orderQty });
+                byCode.set(code, { code, name, imageUrl, stock: ps.stock, held, orderQty });
             }
         }
     }
@@ -329,7 +338,7 @@ async function buildContext(pool, orders) {
     if (!codes.length) return { productStatus, heldByCode };
 
     const pr = await pool.query(
-        `SELECT code, status, stock, pending_qty FROM web2_products WHERE code = ANY($1::text[])`,
+        `SELECT code, status, stock, pending_qty, image_url FROM web2_products WHERE code = ANY($1::text[])`,
         [codes]
     );
     for (const r of pr.rows) {
@@ -337,6 +346,7 @@ async function buildContext(pool, orders) {
             status: r.status || 'DANG_BAN',
             stock: Number(r.stock) || 0,
             pending: Number(r.pending_qty) || 0,
+            imageUrl: r.image_url || null,
         });
     }
 

@@ -2,6 +2,10 @@
 
 ## 2026-06-21
 
+### [feat] Popup lý do tag — thêm ẢNH sản phẩm
+
+Theo yêu cầu "hiện ảnh sản phẩm" trong popup lý do tag. `buildContext` thêm `image_url` (web2_products) vào productStatus; `tagDetail` đính `imageUrl` mỗi SP (ưu tiên catalog, fallback snapshot dòng đơn). `Web2OrderTagDetail` render thumbnail 52px (object-fit cover) + placeholder icon khi lỗi/không ảnh. Unit test imageUrl (catalog + fallback) PASS. Bump `web2-order-tag-detail.js?v=ot3`.
+
 ### [feat] Bấm TAG đơn hàng → popup lý do chi tiết (SP chờ hàng / âm mã + ai đang giữ)
 
 User: bấm pill tag ở cột Thẻ hiện lý do — chờ hàng → list SP chờ; âm mã → list SP vượt tồn + nếu âm do người khác giữ thì hiện tên người giữ + đơn giữ.

@@ -49,6 +49,12 @@
         .w2otd-body{padding:14px 18px 18px;}
         .w2otd-lead{font-size:13px;color:#475569;line-height:1.5;margin:0 0 12px;}
         .w2otd-prod{border:1px solid #eef1f6;border-radius:11px;padding:11px 12px;margin-bottom:10px;background:#fafbfc;}
+        .w2otd-prod-row{display:flex;gap:11px;align-items:flex-start;}
+        .w2otd-thumb{flex:0 0 auto;width:52px;height:52px;border-radius:9px;overflow:hidden;border:1px solid #e2e8f0;background:#fff;display:flex;align-items:center;justify-content:center;}
+        .w2otd-thumb-img{width:100%;height:100%;object-fit:cover;display:block;}
+        .w2otd-thumb-ph{width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#cbd5e1;}
+        .w2otd-thumb-ph i{width:20px;height:20px;}
+        .w2otd-prod-main{flex:1;min-width:0;}
         .w2otd-prod-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
         .w2otd-prod-head strong{font-size:13.5px;color:#0f172a;}
         .w2otd-code{font-family:ui-monospace,monospace;font-size:11.5px;color:#64748b;background:#fff;border:1px solid #e2e8f0;border-radius:5px;padding:1px 5px;}
@@ -124,17 +130,28 @@
         return '';
     }
 
+    function thumbHtml(p) {
+        if (p.imageUrl) {
+            return `<img class="w2otd-thumb-img" src="${esc(p.imageUrl)}" alt="" loading="lazy" onerror="this.style.display='none';this.parentNode.querySelector('.w2otd-thumb-ph').style.display='flex';"><span class="w2otd-thumb-ph" style="display:none;"><i data-lucide="image"></i></span>`;
+        }
+        return `<span class="w2otd-thumb-ph"><i data-lucide="image"></i></span>`;
+    }
     function productListHtml(trigger, products) {
         return products
             .map(
                 (p) => `
             <div class="w2otd-prod" data-code="${esc(p.code)}">
-                <div class="w2otd-prod-head">
-                    <strong>${esc(p.name || p.code)}</strong>
-                    <span class="w2otd-code">${esc(p.code)}</span>
-                    ${prodBadge(trigger, p)}
+                <div class="w2otd-prod-row">
+                    <div class="w2otd-thumb">${thumbHtml(p)}</div>
+                    <div class="w2otd-prod-main">
+                        <div class="w2otd-prod-head">
+                            <strong>${esc(p.name || p.code)}</strong>
+                            <span class="w2otd-code">${esc(p.code)}</span>
+                            ${prodBadge(trigger, p)}
+                        </div>
+                        ${prodSub(trigger, p) ? `<div class="w2otd-sub">${prodSub(trigger, p)}</div>` : ''}
+                    </div>
                 </div>
-                ${prodSub(trigger, p) ? `<div class="w2otd-sub">${prodSub(trigger, p)}</div>` : ''}
                 ${trigger === 'am_ma' ? `<div class="w2otd-holders" data-holders="${esc(p.code)}"><span class="w2otd-spin"></span><span class="w2otd-muted">Đang tải đơn đang giữ…</span></div>` : ''}
             </div>`
             )
