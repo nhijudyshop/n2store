@@ -3,15 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `b1dd2d0` — fix(web2) audit-d verify: #9 sepay race — connection-safe re-check (revert deadlock-prone advisory wrapper)
-**Last updated**: 2026-06-21 16:20:51 +07
-**Latest session**: [`RESUME:20260621-162051-b1dd2d0`](../20260621-162051-b1dd2d0.md)
-**Summary**: audit-d verify: #9 connection-safe sepay re-check (revert deadlock wrapper)
+**Latest commit**: `0ebd62e` — auto: session update
+**Last updated**: 2026-06-21 16:21:33 +07
+**Latest session**: [`RESUME:20260621-162133-0ebd62e`](../20260621-162133-0ebd62e.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 2 file(s)
+- [`render.com/`](./render.com.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -56,7 +55,7 @@
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-06-20 12:07
 - [`referenceUI/`](./referenceUI.md) — updated 2026-06-19 14:27
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-06-20 12:07
-- [`render.com/`](./render.com.md) — updated 2026-06-21 16:20
+- [`render.com/`](./render.com.md) — updated 2026-06-21 16:21
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-19 14:27
 - [`service-costs/`](./service-costs.md) — updated 2026-06-20 12:07
