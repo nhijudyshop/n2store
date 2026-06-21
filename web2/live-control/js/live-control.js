@@ -438,6 +438,8 @@
     }
 
     async function boot() {
+        if (window.Web2Sidebar && window.Web2Sidebar.mount)
+            window.Web2Sidebar.mount('#web2Aside', { activeRoute: 'live-control' });
         wire();
         if (window.Web2Campaign && window.Web2Campaign.subscribe)
             window.Web2Campaign.subscribe(onSse);

@@ -294,6 +294,14 @@
     opacity: 0.4;
 }
 
+/* [hidden] + display gotcha: author display:grid/flex đè UA [hidden]{display:none}
+   (specificity hoà) → phải ép none, nếu không empty + grid cùng hiện (empty height
+   100% đẩy grid xuống dưới fold). */
+.ltv-empty[hidden],
+.ltv-grid[hidden] {
+    display: none !important;
+}
+
 /* Empty */
 .ltv-empty {
     height: 100%;
