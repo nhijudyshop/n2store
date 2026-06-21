@@ -102,13 +102,77 @@
             .join(' ');
     };
 
+    // Admin Web 2.0? (role='admin'). Dùng để gate thao tác KPI nhạy cảm (chốt base).
+    NO.isAdmin = function isAdmin() {
+        try {
+            const u = window.Web2Auth?.getStored?.()?.user;
+            if (u && u.role) return String(u.role).toLowerCase() === 'admin';
+        } catch {}
+        return false;
+    };
+
+    // Chốt KPI base cho 1 đơn livestream (admin-only). Khóa SL hiện tại làm base bất biến
+    // → từ giờ chỉ phần bán THÊM (upsell) mới tính KPI. Backend requireWeb2Admin → 403 nếu
+    // không phải admin. Thành công → reload (pill hết "chưa chốt").
+    NO.lockKpiBase = async function lockKpiBase(code) {
+        if (!code) return;
+        try {
+            const r = await fetch(
+                `${NO.WORKER_URL}/api/native-orders/${encodeURIComponent(code)}/lock-kpi-base`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'content-type': 'application/json',
+                        ...(window.Web2Auth?.authHeaders ? window.Web2Auth.authHeaders() : {}),
+                    },
+                    body: JSON.stringify({}),
+                }
+            );
+            const j = await r.json().catch(() => ({}));
+            if (!r.ok || !j.success) {
+                const reasonMap = {
+                    'empty-order': 'Đơn chưa có SP — không chốt KPI được',
+                    'no-unbased-order': 'Đơn đã chốt KPI rồi (hoặc không phải đơn livestream)',
+                    'race-already-based': 'Đơn vừa được chốt KPI',
+                };
+                const msg =
+                    r.status === 403
+                        ? 'Chỉ admin mới chốt KPI được'
+                        : reasonMap[j.reason] || j.message || j.error || 'Chốt KPI thất bại';
+                NO.notify(msg, 'error');
+                return;
+            }
+            NO.notify(
+                `Đã chốt KPI đơn ${j.code} · base khóa ${Object.keys(j.base || {}).length} mã SP`,
+                'success'
+            );
+            await NO.load();
+        } catch (e) {
+            NO.notify('Lỗi chốt KPI: ' + e.message, 'error');
+        }
+    };
+
     // Bấm 1 pill TAG → mở popup lý do chi tiết (shared Web2OrderTagDetail).
+    // Với kpi_user: bơm kpiActions (chốt KPI admin-only + deep-link chia dải STT).
     NO.openTagDetail = function openTagDetail(code, trigger) {
         const o = NO.STATE.orders.find((x) => x.code === code);
         if (!o) return;
         const tag = (o.autoTags || []).find((t) => t.trigger === trigger);
         if (!tag) return;
-        if (window.Web2OrderTagDetail) window.Web2OrderTagDetail.open(o, tag);
+        const opts = {};
+        if (trigger === 'kpi_user') {
+            opts.kpiActions = {
+                isAdmin: NO.isAdmin(),
+                onLock: (c) => NO.lockKpiBase(c),
+                onAssign: (camp) => {
+                    const url =
+                        '../web2/kpi/assignments.html' +
+                        (camp ? '?campaign=' + encodeURIComponent(camp) : '');
+                    window.open(url, '_blank');
+                },
+            };
+        }
+        if (window.Web2OrderTagDetail) window.Web2OrderTagDetail.open(o, tag, opts);
         else NO.notify(tag.name, 'info');
     };
 

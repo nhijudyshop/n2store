@@ -20,6 +20,8 @@ const {
     lookupCustomerIdByPhone,
 } = require('../services/web2-order-customer-service');
 const web2WalletService = require('../services/web2-wallet-service');
+// Gate admin cho thao tác KPI nhạy cảm (chốt base = khóa bất biến → chỉ admin).
+const { requireWeb2Admin } = require('../middleware/web2-auth');
 // WEB2.0 — engine TAG đơn hàng auto (registry + eval cho_hang/am_ma/...). /load
 // gọi enrichOrdersWithTags → o.autoTags + o.hasChoHang. Xem services/web2-order-tags-service.
 const orderTagsSvc = require('../services/web2-order-tags-service');
@@ -2985,19 +2987,21 @@ async function snapshotKpiBase(pool, { fbUserId, code, byName } = {}) {
     }
 }
 
-// POST /:code/lock-kpi-base — CHỐT THỦ CÔNG: khóa KPI base cho 1 đơn livestream
+// POST /:code/lock-kpi-base — CHỐT KPI THỦ CÔNG: khóa KPI base cho 1 đơn livestream
 // (dùng khi chốt tại chỗ không qua gửi tin "Chốt đơn"). Cùng anti-cheat: 1 lần,
 // đơn có ≥1 SP, bất biến. Body: { by? }.
-router.post('/:code/lock-kpi-base', async (req, res) => {
+// ⚠ CHỈ ADMIN: base bất biến (khóa sai = lệch KPI vĩnh viễn) → requireWeb2Admin.
+router.post('/:code/lock-kpi-base', requireWeb2Admin, async (req, res) => {
     const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     try {
         await ensureTables(pool);
         const r = await snapshotKpiBase(pool, {
             code: req.params.code,
-            byName: req.body?.by || req.body?._editor?.userName || null,
+            byName: req.web2User?.username || req.body?.by || req.body?._editor?.userName || null,
         });
         if (!r.ok) return res.status(400).json({ success: false, ...r });
+        _notify('kpi-base-locked', r.code); // tab khác reload → pill KPI hết "chưa chốt"
         res.json({ success: true, ...r });
     } catch (e) {
         res.status(500).json({ error: e.message });

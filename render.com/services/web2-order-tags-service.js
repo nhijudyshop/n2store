@@ -494,8 +494,16 @@ function computeAutoTags(o, ctx, tagDefs) {
                 try {
                     const info = kpiUserDetail(o, ctx);
                     tag.name = info.label || def.name;
-                    tag.color = info.state === 'error' ? '#dc2626' : def.color || info.color;
+                    // Màu: đỏ = lỗi chia dải; hổ phách = đã gán NV nhưng đơn CHƯA chốt
+                    // (base chưa khóa → KPI tạm 0); còn lại = màu thẻ (xanh, đã chốt/inbox).
+                    tag.color =
+                        info.state === 'error'
+                            ? '#dc2626'
+                            : info.notChoted
+                              ? '#f59e0b'
+                              : def.color || info.color;
                     tag.kpiState = info.state;
+                    tag.notChoted = !!info.notChoted;
                     tag.detail = { kpiUser: info };
                 } catch {
                     /* để nguyên def.name/color nếu resolve lỗi */

@@ -94,6 +94,16 @@
         .w2otd-kpi-note{font-size:12px;color:#92400e;background:#fffbeb;border:1px solid #fde68a;border-radius:9px;padding:8px 10px;margin-bottom:12px;line-height:1.45;}
         .w2otd-kpi-lines-t{font-size:11.5px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.03em;margin:4px 0 8px;}
         .w2otd-kpi-bc{font-size:12px;color:#475569;}
+        .w2otd-act-row{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 12px;}
+        .w2otd-act{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:700;border-radius:9px;padding:8px 12px;cursor:pointer;border:1px solid #cbd5e1;background:#fff;color:#334155;transition:background .15s,border-color .15s,transform .05s;}
+        .w2otd-act:hover{background:#f1f5f9;border-color:#94a3b8;}
+        .w2otd-act:active{transform:translateY(1px);}
+        .w2otd-act.primary{background:#16a34a;border-color:#16a34a;color:#fff;}
+        .w2otd-act.primary:hover{background:#15803d;border-color:#15803d;}
+        .w2otd-act[disabled]{opacity:.6;cursor:not-allowed;}
+        .w2otd-act i{width:15px;height:15px;}
+        .w2otd-act-note{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#92400e;background:#fffbeb;border:1px solid #fde68a;border-radius:9px;padding:8px 11px;}
+        .w2otd-act-note i{width:14px;height:14px;}
         `;
         document.head.appendChild(st);
     }
@@ -253,7 +263,48 @@
                 <div class="w2otd-sub"><span class="w2otd-kpi-bc">${bc}</span></div>
             </div></div></div>`;
     }
-    function renderKpiUser(order, info) {
+    // Khu nút hành động trong popup KPI: chốt KPI (admin, khi chưa chốt) + chia dải STT
+    // (khi lỗi chưa gán). acts = { isAdmin, onLock, onAssign }.
+    function kpiActionsHtml(info, acts) {
+        const btns = [];
+        if (info.source === 'livestream' && info.notChoted) {
+            if (acts.isAdmin && acts.onLock) {
+                btns.push(
+                    `<button type="button" class="w2otd-act primary" data-kpi-act="lock"><i data-lucide="lock"></i> Chốt KPI ngay</button>`
+                );
+            } else {
+                btns.push(
+                    `<span class="w2otd-act-note"><i data-lucide="shield-alert"></i> Chỉ admin chốt KPI được</span>`
+                );
+            }
+        }
+        if (info.state === 'error' && acts.onAssign) {
+            btns.push(
+                `<button type="button" class="w2otd-act" data-kpi-act="assign"><i data-lucide="sliders-horizontal"></i> Chia dải STT chiến dịch này</button>`
+            );
+        }
+        return btns.length ? `<div class="w2otd-act-row">${btns.join('')}</div>` : '';
+    }
+
+    function wireKpiActions(body, order, info, acts) {
+        const lock = body.querySelector('[data-kpi-act="lock"]');
+        if (lock && acts.onLock) {
+            lock.addEventListener('click', () => {
+                lock.disabled = true;
+                lock.innerHTML = '<span class="w2otd-spin"></span> Đang chốt…';
+                Promise.resolve(acts.onLock(order.code)).finally(() => close());
+            });
+        }
+        const assign = body.querySelector('[data-kpi-act="assign"]');
+        if (assign && acts.onAssign) {
+            assign.addEventListener('click', () => {
+                acts.onAssign(info.campaignName || '');
+            });
+        }
+    }
+
+    function renderKpiUser(order, info, acts) {
+        acts = acts || {};
         const orderRef = `Đơn <strong>${esc(order.code)}</strong>${order.customerName ? ` · ${esc(order.customerName)}` : ''}`;
         const err = info.state === 'error';
         const lines = Array.isArray(info.lines) ? info.lines : [];
@@ -276,11 +327,13 @@
         const linesHtml = lines.length
             ? `<div class="w2otd-kpi-lines-t">Chi tiết theo sản phẩm (${lines.length})</div>${lines.map((l) => kpiLineRow(info, l)).join('')}`
             : '';
-        return `<p class="w2otd-lead">${orderRef} — người được tính KPI cho đơn này:</p>${hero}${money}${note}${linesHtml}`;
+        const actions = kpiActionsHtml(info, acts);
+        return `<p class="w2otd-lead">${orderRef} — người được tính KPI cho đơn này:</p>${hero}${actions}${money}${note}${linesHtml}`;
     }
 
-    async function open(order, tag) {
+    async function open(order, tag, opts) {
         if (!order || !tag) return;
+        opts = opts || {};
         ensureStyles();
         close();
         const products = (tag.detail && tag.detail.products) || [];
@@ -305,7 +358,9 @@
         const orderRef = `Đơn <strong>${esc(order.code)}</strong>${order.customerName ? ` · ${esc(order.customerName)}` : ''}`;
 
         if (tag.trigger === 'kpi_user' && tag.detail && tag.detail.kpiUser) {
-            body.innerHTML = renderKpiUser(order, tag.detail.kpiUser);
+            const acts = opts.kpiActions || {};
+            body.innerHTML = renderKpiUser(order, tag.detail.kpiUser, acts);
+            wireKpiActions(body, order, tag.detail.kpiUser, acts);
             icons();
             return;
         }
