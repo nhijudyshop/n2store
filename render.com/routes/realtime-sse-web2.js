@@ -533,7 +533,7 @@ router.post('/sse/relay-notify', (req, res) => {
     if (String(key).startsWith('web2:_admin:')) {
         return res.status(403).json({ success: false, error: 'admin topics cannot be relayed' });
     }
-    const VALID_EVENTS = ['update', 'created', 'deleted', 'change', 'test', 'log'];
+    const VALID_EVENTS = ['update', 'created', 'deleted', 'change', 'test', 'log', 'broadcast'];
     const evt = VALID_EVENTS.includes(event) ? event : 'update';
     if (JSON.stringify(data || {}).length > 10240) {
         return res.status(413).json({ success: false, error: 'payload too large (max 10KB)' });
@@ -729,14 +729,20 @@ async function _heartbeat() {
         const c = _listenClient;
         // Bọc timeout: half-open thật (TCP chết im) → query TREO chứ không lỗi ngay.
         // Timeout 8s → ép client 'error' để onLost đóng + reconnect (audit r2 #5).
-        Promise.race([
-            c.query('SELECT 1'),
-            new Promise((_, rej) => setTimeout(() => rej(new Error('LISTEN ping timeout')), 8000)),
-        ]).catch(() => {
-            try {
-                c.emit('error', new Error('LISTEN liveness ping failed'));
-            } catch {}
+        // .unref() + clearTimeout (audit r3): không giữ event loop referenced 8s mỗi
+        // chu kỳ khi ping thành công ngay.
+        let _pingTimer;
+        const pingTimeout = new Promise((_, rej) => {
+            _pingTimer = setTimeout(() => rej(new Error('LISTEN ping timeout')), 8000);
+            if (_pingTimer.unref) _pingTimer.unref();
         });
+        Promise.race([c.query('SELECT 1'), pingTimeout])
+            .catch(() => {
+                try {
+                    c.emit('error', new Error('LISTEN liveness ping failed'));
+                } catch {}
+            })
+            .finally(() => clearTimeout(_pingTimer));
     }
 }
 
@@ -867,7 +873,10 @@ async function gracefulClose() {
         _listenReconnectTimer = null;
     }
     try {
-        if (_listenClient) await _listenClient.end();
+        // Bọc timeout (audit r3): _listenClient half-open → end() có thể TREO tới TCP
+        // timeout OS (vài phút) → chặn cả DELETE registry + server.close bên dưới.
+        if (_listenClient)
+            await Promise.race([_listenClient.end(), new Promise((r) => setTimeout(r, 3000))]);
     } catch {}
     // Xoá dòng registry — AWAIT để hoàn tất TRƯỚC khi server.js đóng web2Pool (audit
     // r2 #4). Timeout 3s để không treo shutdown nếu DB chậm.
