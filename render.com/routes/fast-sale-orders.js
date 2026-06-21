@@ -1655,6 +1655,27 @@ router.post('/from-native-order', requireWeb2AuthSoft, async (req, res) => {
             imageUrl: p.imageUrl || p.image_url || null,
             note: p.note || null,
         }));
+        // 2026-06-21: CHẶN PBH khi đơn có SP "chờ hàng" (web2_products.status='CHO_MUA').
+        // User rule: đơn chứa SP chờ hàng → KHÔNG tạo được PBH, phải tạo Phiếu soạn hàng.
+        // Defense-in-depth (frontend cũng chặn qua o.hasChoHang). Chỉ check dòng BÁN
+        // (lines hiện tại, TRƯỚC khi append returnLines 0đ). force=true bỏ qua (giống stock).
+        if (b.force !== true) {
+            const saleCodes = [...new Set(lines.map((l) => l.productCode).filter(Boolean))];
+            if (saleCodes.length) {
+                const chQ = await pool.query(
+                    `SELECT code FROM web2_products WHERE code = ANY($1::text[]) AND status = 'CHO_MUA'`,
+                    [saleCodes]
+                );
+                if (chQ.rows.length) {
+                    return res.status(400).json({
+                        error: 'cho_hang_blocked',
+                        message:
+                            'Đơn có sản phẩm chờ hàng — không tạo được PBH. Hãy tạo Phiếu soạn hàng.',
+                        choHangCodes: chQ.rows.map((r) => r.code),
+                    });
+                }
+            }
+        }
         // 2026-06-06: THU VỀ 1 PHẦN — SP khách đã thu về (web2_returns, bill_status
         // 'queued') lên bill này với giá 0đ (đổi/bù trừ). Frontend native-orders
         // truyền b.returnLines [{productCode, productName, quantity}] + b.returnCodes.

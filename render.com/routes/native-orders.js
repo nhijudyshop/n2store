@@ -20,6 +20,9 @@ const {
     lookupCustomerIdByPhone,
 } = require('../services/web2-order-customer-service');
 const web2WalletService = require('../services/web2-wallet-service');
+// WEB2.0 — engine TAG đơn hàng auto (registry + eval cho_hang/am_ma/...). /load
+// gọi enrichOrdersWithTags → o.autoTags + o.hasChoHang. Xem services/web2-order-tags-service.
+const orderTagsSvc = require('../services/web2-order-tags-service');
 
 // 2026-06-04: HOÀN ví khi huỷ đơn — refund số tiền đã trừ ví (wallet_deducted)
 // của các PBH liên kết, rồi zero-out để không hoàn lặp (idempotent). Trả tổng đã hoàn.
@@ -1789,6 +1792,10 @@ router.get('/load', _kpiModule.applyKpiScope, async (req, res) => {
                 console.warn('[native-orders] enrich wallet balance failed:', e.message);
             }
         }
+
+        // 2026-06-21: TAG đơn hàng auto (cột "Thẻ" + hasChoHang chặn PBH). Chạy SAU
+        // mọi enrich (cần pbh*/ckSignal/walletBalance đã set). Defensive: lỗi → autoTags=[].
+        await orderTagsSvc.enrichOrdersWithTags(pool, orders);
 
         res.json({
             success: true,
