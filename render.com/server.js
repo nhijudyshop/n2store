@@ -748,6 +748,11 @@ app.use('/api/aikol', aikolRoutes);
 // SSE TÁCH RIÊNG cho Web 2.0 (mount TRƯỚC để có path specificity rõ ràng)
 // Endpoint client: /api/realtime/web2/sse?keys=web2:foo,web2:bar
 app.use('/api/realtime/web2', web2RealtimeSseRoutes);
+// Cross-instance SSE fan-out (Postgres LISTEN/NOTIFY trên web2Db) — fix realtime
+// rớt khi web2-api chạy >1 instance / cửa sổ rolling-deploy. Single-instance: no-op.
+if (web2RealtimeSseRoutes.initCrossInstance) {
+    web2RealtimeSseRoutes.initCrossInstance(app.locals.web2Db);
+}
 // SSE Web 1.0 (Firebase listener replacement) — celebration, kpi, held_products, tickets, ...
 app.use('/api/realtime', realtimeSseRoutes);
 // REST API for CRUD operations (replaces Firebase database operations) — Web 1.0

@@ -13,7 +13,34 @@
 
 const express = require('express');
 const router = express.Router();
+const crypto = require('crypto');
+const { Client: PgClient } = require('pg');
 const { requireWeb2Admin, resolveWeb2User } = require('../middleware/web2-auth');
+
+// =====================================================
+// INSTANCE IDENTITY + CROSS-INSTANCE FAN-OUT (2026-06-22)
+// =====================================================
+// BUG nền (điều tra 2026-06-22): hub SSE là Map in-RAM PER-PROCESS. Nếu web2-api
+// chạy >1 instance (Render scale HOẶC cửa sổ rolling-deploy chồng instance vài
+// giây), mutation rơi instance A broadcast tới client LOCAL của A; client SSE bám
+// instance B KHÔNG nhận → realtime rớt ÂM THẦM (delivery all-or-nothing tuỳ việc
+// mutation có trùng instance đang giữ SSE hay không).
+// FIX: fan-out cross-instance qua **Postgres LISTEN/NOTIFY** trên web2Db (KHÔNG
+// cần Redis). Mỗi instance LISTEN channel 'web2_sse'; notifyClients broadcast
+// local + pg_notify; instance khác nhận NOTIFY → broadcast local của nó. Bỏ qua
+// NOTIFY do CHÍNH MÌNH phát (origin === BOOT_ID) → không double. Single-instance:
+// self-NOTIFY bị bỏ → hành vi KHÔNG đổi (an toàn tuyệt đối). Kill-switch:
+// WEB2_SSE_NO_CROSS=1. Quan sát: bootId vào connectionId + /sse/stats; bảng
+// web2_sse_instances (heartbeat) đếm số instance sống → cảnh báo nếu >1.
+const BOOT_ID =
+    (process.env.RENDER_INSTANCE_ID && String(process.env.RENDER_INSTANCE_ID).slice(0, 24)) ||
+    crypto.randomBytes(6).toString('hex');
+const PG_CHANNEL = 'web2_sse';
+let _crossPool = null; // web2Db pool (publish pg_notify + heartbeat + stats)
+let _pgNotify = null; // (payloadStr) => void — fire-and-forget
+let _listenClient = null; // dedicated PgClient cho LISTEN
+let _heartbeatTimer = null;
+let _shuttingDown = false;
 
 // =====================================================
 // SSE CLIENT MANAGEMENT
@@ -196,7 +223,9 @@ router.get('/sse', async (req, res) => {
     res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-    const connectionId = `web2conn_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    // connectionId mang BOOT_ID → 2 client khác process lộ ngay (chẩn đoán
+    // multi-instance từ Admin SSE Monitor, không còn 'im lặng' như bug 2026-06-21).
+    const connectionId = `web2conn_${BOOT_ID}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     res.write(`event: connected\n`);
     res.write(
         `data: ${JSON.stringify({
@@ -204,6 +233,8 @@ router.get('/sse', async (req, res) => {
             connectionId,
             timestamp: new Date().toISOString(),
             server: 'web2',
+            bootId: BOOT_ID,
+            instanceId: process.env.RENDER_INSTANCE_ID || null,
         })}\n\n`
     );
 
@@ -274,9 +305,19 @@ router.get('/sse', async (req, res) => {
 // =====================================================
 
 function notifyClients(key, data, eventType = 'update') {
-    // Cross-instance forward TRƯỚC local broadcast: trên fallback (Web 1.0) thường
-    // có 0 subscriber local nên early-return phía dưới sẽ bỏ qua — phải forward ở đây.
+    // (1) forward fallback→web2-api (HTTP relay, cross-SERVICE) — giữ nguyên.
     if (_forwardTarget) _forwardNotify(key, data, eventType);
+    // (2) fan-out giữa các instance web2-api (Postgres LISTEN/NOTIFY) — instance
+    //     khác sẽ broadcast local của nó. Single-instance: self-NOTIFY bị bỏ.
+    _publishCrossInstance('notify', key, data, eventType);
+    // (3) broadcast tới subscriber LOCAL ngay (độ trễ thấp).
+    return _localNotify(key, data, eventType);
+}
+
+// Broadcast THUẦN tới subscriber LOCAL của instance này (KHÔNG forward/publish).
+// Gọi bởi notifyClients (event do mình phát) VÀ handler LISTEN (event từ instance
+// khác qua pg NOTIFY) → mọi instance giao tin đồng nhất.
+function _localNotify(key, data, eventType = 'update') {
     const clients = sseClients.get(key);
     if (!clients || clients.size === 0) {
         console.log(`[SSE-WEB2] No clients listening to key: ${key}`);
@@ -328,6 +369,11 @@ function notifyClients(key, data, eventType = 'update') {
 }
 
 function notifyClientsWildcard(keyPrefix, data, eventType = 'update') {
+    _publishCrossInstance('wildcard', keyPrefix, data, eventType);
+    return _localNotifyWildcard(keyPrefix, data, eventType);
+}
+
+function _localNotifyWildcard(keyPrefix, data, eventType = 'update') {
     let totalNotified = 0;
     sseClients.forEach((clients, key) => {
         // Convention separator là ':' (KHÔNG '/'): subscriber key match khi
@@ -365,6 +411,11 @@ function notifyClientsWildcard(keyPrefix, data, eventType = 'update') {
 }
 
 function broadcastToAll(data, eventType = 'broadcast') {
+    _publishCrossInstance('broadcast', null, data, eventType);
+    return _localBroadcast(data, eventType);
+}
+
+function _localBroadcast(data, eventType = 'broadcast') {
     let totalNotified = 0;
     const message = JSON.stringify({ data, timestamp: Date.now(), event: eventType });
     sseClients.forEach((clients) => {
@@ -386,11 +437,38 @@ function broadcastToAll(data, eventType = 'broadcast') {
 // DIAGNOSTIC ENDPOINTS
 // =====================================================
 
-router.get('/sse/stats', requireWeb2Admin, (req, res) => {
+router.get('/sse/stats', requireWeb2Admin, async (req, res) => {
     const stats = getConnectionStats();
+    // Lộ bootId + danh sách instance sống (heartbeat) → chẩn đoán multi-instance.
+    let liveInstances = 1;
+    let instances = [];
+    if (_crossPool) {
+        try {
+            const now = Date.now();
+            const r = await _crossPool.query(
+                'SELECT boot_id, render_instance_id, started_at, last_seen FROM web2_sse_instances WHERE last_seen > $1 ORDER BY started_at',
+                [now - 90000]
+            );
+            instances = r.rows.map((x) => ({
+                bootId: x.boot_id,
+                renderInstanceId: x.render_instance_id,
+                startedAt: Number(x.started_at),
+                lastSeen: Number(x.last_seen),
+                self: x.boot_id === BOOT_ID,
+            }));
+            liveInstances = instances.length || 1;
+        } catch (e) {
+            /* registry chưa sẵn — bỏ qua */
+        }
+    }
     res.json({
         success: true,
         server: 'web2',
+        bootId: BOOT_ID,
+        crossInstance: !!_listenClient,
+        liveInstances,
+        multiInstanceWarning: liveInstances > 1,
+        instances,
         ...stats,
         timestamp: new Date().toISOString(),
     });
@@ -516,6 +594,209 @@ try {
 }
 
 // =====================================================
+// CROSS-INSTANCE FAN-OUT — Postgres LISTEN/NOTIFY (2026-06-22)
+// =====================================================
+
+// Publish 1 notify ra channel để các instance khác broadcast local. Admin log
+// KHÔNG fan-out. Payload nhỏ (tickle {action,code,ts}) — guard 7KB (limit pg ~8KB).
+function _publishCrossInstance(kind, key, data, eventType) {
+    if (!_pgNotify || _shuttingDown) return;
+    if (key === ADMIN_LOG_TOPIC) return;
+    try {
+        const payload = JSON.stringify({
+            kind,
+            key: key || null,
+            data: data || null,
+            eventType: eventType || 'update',
+            origin: BOOT_ID,
+            ts: Date.now(),
+        });
+        if (payload.length > 7000) {
+            console.warn(
+                `[SSE-WEB2] cross-instance payload quá lớn (${payload.length}b) — bỏ NOTIFY key=${key}`
+            );
+            return;
+        }
+        _pgNotify(payload);
+    } catch (e) {
+        console.warn('[SSE-WEB2] _publishCrossInstance fail:', e.message);
+    }
+}
+
+// Nhận NOTIFY từ instance khác → broadcast LOCAL. Bỏ qua event do CHÍNH instance
+// này phát (đã broadcast local trực tiếp) → không double-deliver, không loop
+// (handler KHÔNG re-publish).
+function _onCrossInstance(payloadStr) {
+    let p;
+    try {
+        p = JSON.parse(payloadStr);
+    } catch {
+        return;
+    }
+    if (!p || p.origin === BOOT_ID) return;
+    try {
+        if (p.kind === 'wildcard') _localNotifyWildcard(p.key, p.data, p.eventType);
+        else if (p.kind === 'broadcast') _localBroadcast(p.data, p.eventType);
+        else _localNotify(p.key, p.data, p.eventType);
+    } catch (e) {
+        console.warn('[SSE-WEB2] _onCrossInstance deliver fail:', e.message);
+    }
+}
+
+async function _ensureInstanceTable() {
+    if (!_crossPool) return;
+    await _crossPool.query(`
+        CREATE TABLE IF NOT EXISTS web2_sse_instances (
+            boot_id            TEXT PRIMARY KEY,
+            render_instance_id TEXT,
+            started_at         BIGINT,
+            last_seen          BIGINT
+        )
+    `);
+}
+
+// Heartbeat 30s: upsert dòng của instance này + prune stale + cảnh báo nếu >1
+// instance sống (hub in-RAM/process — multi-instance chỉ an toàn khi fan-out chạy).
+async function _heartbeat() {
+    if (!_crossPool || _shuttingDown) return;
+    const now = Date.now();
+    try {
+        await _crossPool.query(
+            `INSERT INTO web2_sse_instances (boot_id, render_instance_id, started_at, last_seen)
+             VALUES ($1, $2, $3, $3)
+             ON CONFLICT (boot_id) DO UPDATE SET last_seen = EXCLUDED.last_seen`,
+            [BOOT_ID, process.env.RENDER_INSTANCE_ID || null, now]
+        );
+        await _crossPool.query('DELETE FROM web2_sse_instances WHERE last_seen < $1', [
+            now - 120000,
+        ]);
+        const r = await _crossPool.query(
+            'SELECT COUNT(*)::int AS n FROM web2_sse_instances WHERE last_seen > $1',
+            [now - 90000]
+        );
+        const live = (r.rows[0] && r.rows[0].n) || 1;
+        if (live > 1) {
+            console.warn(
+                `[SSE-WEB2] ⚠ MULTI-INSTANCE: ${live} web2-api instances live. ` +
+                    `Hub in-RAM/process → fan-out LISTEN/NOTIFY ${_listenClient ? 'ACTIVE ✓' : '⚠ KHÔNG ACTIVE (realtime sẽ rớt — kiểm tra LISTEN connection!)'}.`
+            );
+        }
+    } catch (e) {
+        /* heartbeat lỗi KHÔNG được làm chết SSE */
+    }
+}
+
+// Dedicated PgClient cho LISTEN (KHÔNG mượn pool — tránh idle-reap), tự reconnect.
+async function _connectListen() {
+    if (!_crossPool || _shuttingDown) return;
+    let client;
+    try {
+        client = new PgClient(_crossPool.options || {});
+        client._lost = false;
+        const onLost = (err) => {
+            if (client._lost) return;
+            client._lost = true;
+            if (err) console.warn('[SSE-WEB2] LISTEN connection lost:', err.message);
+            if (_listenClient === client) _listenClient = null;
+            try {
+                client.removeAllListeners();
+            } catch {}
+            try {
+                client.end();
+            } catch {}
+            if (!_shuttingDown) setTimeout(_connectListen, 3000);
+        };
+        client.on('error', onLost);
+        client.on('end', () => onLost());
+        client.on('notification', (msg) => {
+            if (msg && msg.channel === PG_CHANNEL) _onCrossInstance(msg.payload);
+        });
+        await client.connect();
+        await client.query(`LISTEN ${PG_CHANNEL}`);
+        _listenClient = client;
+        console.log(
+            `[SSE-WEB2] cross-instance LISTEN/NOTIFY active (boot=${BOOT_ID}, channel=${PG_CHANNEL})`
+        );
+    } catch (e) {
+        console.warn('[SSE-WEB2] LISTEN connect fail (retry 3s):', e.message);
+        try {
+            client && client.end();
+        } catch {}
+        if (!_shuttingDown) setTimeout(_connectListen, 3000);
+    }
+}
+
+// Gọi từ server.js sau khi có web2Db pool. An toàn nếu pool null hoặc pg lỗi:
+// cross-instance tắt, SSE single-instance vẫn chạy bình thường qua broadcast local.
+function initCrossInstance(pool) {
+    if (process.env.WEB2_SSE_NO_CROSS === '1') {
+        console.log('[SSE-WEB2] WEB2_SSE_NO_CROSS=1 → cross-instance fan-out DISABLED');
+        return;
+    }
+    if (!pool) {
+        console.warn(
+            '[SSE-WEB2] initCrossInstance: no pool → cross-instance fan-out DISABLED (single-instance OK)'
+        );
+        return;
+    }
+    _crossPool = pool;
+    _pgNotify = (payloadStr) => {
+        // fire-and-forget — lỗi publish KHÔNG ảnh hưởng broadcast local đã chạy.
+        Promise.resolve()
+            .then(() => pool.query('SELECT pg_notify($1, $2)', [PG_CHANNEL, payloadStr]))
+            .catch((e) => console.warn('[SSE-WEB2] pg_notify fail:', e.message));
+    };
+    _ensureInstanceTable()
+        .then(() => _heartbeat())
+        .then(() => {
+            _heartbeatTimer = setInterval(_heartbeat, 30000);
+            if (_heartbeatTimer.unref) _heartbeatTimer.unref();
+        })
+        .catch((e) => console.warn('[SSE-WEB2] instance registry init fail:', e.message));
+    _connectListen();
+}
+
+// Graceful shutdown (Render SIGTERM lúc deploy): đóng SSE sạch để client reconnect
+// NHANH sang instance mới (EventSource auto-reconnect → bridge resync re-fetch) →
+// giảm cửa sổ mất event lúc rolling-deploy. Gỡ heartbeat + LISTEN + xoá dòng registry.
+function gracefulClose() {
+    if (_shuttingDown) return;
+    _shuttingDown = true;
+    let n = 0;
+    try {
+        sseClients.forEach((clients) => {
+            clients.forEach((client) => {
+                try {
+                    client.write(`event: reconnect\n`);
+                    client.write(
+                        `data: ${JSON.stringify({ reason: 'shutdown', bootId: BOOT_ID, ts: Date.now() })}\n\n`
+                    );
+                    client.end();
+                    n++;
+                } catch {}
+            });
+        });
+    } catch {}
+    console.log(
+        `[SSE-WEB2] graceful shutdown: đóng ${n} SSE connection (client reconnect sang instance mới)`
+    );
+    try {
+        if (_heartbeatTimer) clearInterval(_heartbeatTimer);
+    } catch {}
+    try {
+        if (_listenClient) _listenClient.end();
+    } catch {}
+    try {
+        if (_crossPool)
+            _crossPool
+                .query('DELETE FROM web2_sse_instances WHERE boot_id = $1', [BOOT_ID])
+                .catch(() => {});
+    } catch {}
+}
+process.once('SIGTERM', gracefulClose);
+process.once('SIGINT', gracefulClose);
+
+// =====================================================
 // EXPORTS
 // =====================================================
 
@@ -524,5 +805,8 @@ router.notifyClientsWildcard = notifyClientsWildcard;
 router.broadcastToAll = broadcastToAll;
 router.getConnectionStats = getConnectionStats;
 router.setForwardTarget = setForwardTarget; // cross-instance forward (fallback → web2-api)
+router.initCrossInstance = initCrossInstance; // Postgres LISTEN/NOTIFY fan-out (web2-api ↔ web2-api)
+router.gracefulClose = gracefulClose;
+router.BOOT_ID = BOOT_ID;
 
 module.exports = router;

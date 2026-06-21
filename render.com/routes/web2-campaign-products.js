@@ -292,6 +292,19 @@ router.patch('/pending', requireWeb2AuthSoft, async (req, res) => {
         if (!r.rows.length)
             return res.status(404).json({ success: false, error: 'product not found' });
         _notify('pending', campaignId);
+        // Cũng báo web2:products → Kho SP + consumer SP khác cũng sync số chờ hàng
+        // (số NCC báo = pending_qty của web2_products), không chỉ trang TV/board.
+        if (_notifyClients) {
+            try {
+                _notifyClients(
+                    'web2:products',
+                    { action: 'pending', code, ts: Date.now() },
+                    'update'
+                );
+            } catch (e) {
+                /* non-fatal */
+            }
+        }
         res.json({
             success: true,
             pendingQty: Number(r.rows[0].pending_qty) || 0,
