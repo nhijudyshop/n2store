@@ -32,9 +32,15 @@ const { requireWeb2Admin, resolveWeb2User } = require('../middleware/web2-auth')
 // self-NOTIFY bị bỏ → hành vi KHÔNG đổi (an toàn tuyệt đối). Kill-switch:
 // WEB2_SSE_NO_CROSS=1. Quan sát: bootId vào connectionId + /sse/stats; bảng
 // web2_sse_instances (heartbeat) đếm số instance sống → cảnh báo nếu >1.
+// BOOT_ID PHẢI unique PER-PROCESS. KHÔNG slice RENDER_INSTANCE_ID (Render có thể
+// đặt = service-id-prefix giống nhau giữa các instance → slice cắt mất phần unique
+// → 2 instance trùng BOOT_ID → self-skip DROP NHẦM event cross-instance, fan-out vỡ).
+// → LUÔN nối random suffix đảm bảo unique tuyệt đối; prefix RENDER_INSTANCE_ID chỉ
+// để dễ đọc khi debug. (bug bắt được lúc test 2026-06-22: slice(0,24) ra service id.)
 const BOOT_ID =
-    (process.env.RENDER_INSTANCE_ID && String(process.env.RENDER_INSTANCE_ID).slice(0, 24)) ||
-    crypto.randomBytes(6).toString('hex');
+    (process.env.RENDER_INSTANCE_ID
+        ? String(process.env.RENDER_INSTANCE_ID).slice(0, 40) + '-'
+        : 'web2-') + crypto.randomBytes(5).toString('hex');
 const PG_CHANNEL = 'web2_sse';
 let _crossPool = null; // web2Db pool (publish pg_notify + heartbeat + stats)
 let _pgNotify = null; // (payloadStr) => void — fire-and-forget
