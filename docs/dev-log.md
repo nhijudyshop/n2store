@@ -2,6 +2,10 @@
 
 ## 2026-06-21
 
+### [hotfix r8] ck-dashboard 401 — fetchJson thiếu token sau khi gate customer-intents
+
+User báo `ck-dashboard` 401 `Cần đăng nhập Web 2.0` trên `/api/web2/customer-intents`. Regression r8: gate GET customer-intents nhưng client `ck-dashboard-app.js fetchJson` (dùng cho CẢ payment-signals + customer-intents) chỉ `credentials:'include'`, KHÔNG gửi `x-web2-token`. Fix: `fetchJson` thêm `Web2Auth.authHeaders()`. Bump `?v=20260621r8fix`. (Bài học: khi gate GET, verify ĐÚNG hàm fetch của caller gửi token — ck-dashboard có 2 đường fetch, chỉ POST /done có token, GET list thì không.) Kèm fix icon lucide `message-square-warning` (không có trong 0.294.0) → `message-square`.
+
 ### [audit r8] Adversarial audit 7 mặt còn lại (39 agent) → 19 bug → fix 16, defer 3 + phát hiện secret leak Web 1.0
 
 7 finder mới (zalo/shared-2/wallet-routes/pages-logic/livechat/media-ai/worker-security). livechat=0 (sạch). 19 confirmed, fix 16:

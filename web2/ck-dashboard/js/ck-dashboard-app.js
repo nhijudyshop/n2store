@@ -45,7 +45,10 @@
     }
 
     async function fetchJson(url) {
-        const r = await fetch(url, { credentials: 'include' });
+        // audit r8 fix: gửi x-web2-token — route customer-intents/payment-signals GET
+        // đã gate requireWeb2AuthSoft (WEB2_AUTH_ENFORCE=1) → thiếu token = 401.
+        const headers = window.Web2Auth?.authHeaders ? window.Web2Auth.authHeaders() : {};
+        const r = await fetch(url, { credentials: 'include', headers });
         return r.json();
     }
 
