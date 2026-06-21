@@ -2,6 +2,13 @@
 
 ## 2026-06-21
 
+### [feat] TV Livestream Web 2.0 — migrate fork + test realtime (Phase 5-6) + fix
+
+- **Phase 6 (migrate fork → 1 nguồn)**: `native-orders-filters-campaigns.js` (bỏ `LIVE_COMMENTS_API`+`_liveCommentsHeaders`+5 fetch) + `live-chat/js/live/live-campaign-manager.js` (CRUD+posts) đều chuyển sang `Web2Campaign`. Load `web2-campaign.js` 2 trang. → **Web2Campaign = 1 nguồn cho 4 trang** (live-tv, live-control, native-orders, live-chat). Verified live: parent campaigns + modal 📁 render qua Web2Campaign, 0 console error.
+- **⚠ FINDING SSE đa-instance (quan trọng)**: test phát hiện `web2:products` SSE **KHÔNG tới browser** (cả EventSource thô lẫn bridge) dù subscribe đúng — trong khi `web2:campaign-products` thì TỚI. Cả `/api/web2-products` + `/api/web2-campaign-products` + `/api/realtime/web2/sse` đều → service `web2-api` (isWeb2Path), nên KHÔNG phải đa-service; nghi **web2-api chạy nhiều instance, SSE hub in-memory per-instance** → mutation landed instance khác SSE connection → broadcast lệch. `web2:campaign-products` tới được (mutation+SSE cùng instance lúc test). → **Fix feature**: "số NCC báo" đi qua `PATCH /api/web2-campaign-products/pending` (set tuyệt đối pending_qty + `_notify('pending')` trên **web2:campaign-products** = topic tin cậy) thay vì `adjust-pending` (web2:products). TV+control subscribe cả 2 topic (defensive).
+- **Fix khác**: (a) `[hidden]`+display gotcha `.ltv-empty/.ltv-grid` → `display:none!important` (empty `height:100%` đẩy grid xuống fold); (b) control page gọi `Web2Sidebar.mount('#web2Aside')` (sidebar không auto-mount).
+- **✅ VERIFIED LIVE end-to-end** (admin, campaign 2, SP ÁO BLAZER 2 biến thể): add SP → SSE `web2:campaign-products` `{add,c:2}` tới TV → board hiện; gom biến thể đúng (2 biến thể → 1 card 1 ảnh); `setPending`=99 → **TV tự đổi [25→99] KHÔNG refresh** (sync timestamp đổi); picker "Chờ hàng (Sổ Order)" `/pending` 16 SP; sidebar+board+picker render OK. Cleanup pending về gốc (25,15).
+
 ### [feat] TV Livestream Web 2.0 — shared module + 2 trang (Phase 2-4,7)
 
 - **Phase 2 (shared)**: `web2/shared/web2-campaign.js` (`Web2Campaign` — 1 NGUỒN: campaign CRUD + post assign/unassign + **product attach/detach/reorder/pin** + `subscribe()` SSE web2:live-comments + web2:campaign-products) gom logic chiến dịch (sẽ migrate 2 fork về). `web2/shared/web2-variant-group.js` (`Web2VariantGroup.group()` — gom SP cùng `name` → 1 tên + 1 ảnh đại diện + danh sách biến thể có tồn/chờ từng cái; sort màu→size; ghim/sort lên đầu).
