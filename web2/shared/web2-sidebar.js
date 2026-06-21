@@ -207,6 +207,9 @@
                 { label: 'Chat Pancake', our: '../live-chat/chat.html' },
                 // Viewer comment livestream tối ưu ĐIỆN THOẠI (chỉ-xem) — 2026-06-14.
                 { label: 'Comment Live 📱', our: '../live-chat/comments-mobile.html' },
+                // TV livestream — số lượng live (tồn + chờ hàng + biến thể) 2026-06-21.
+                { label: 'Điều khiển TV 🎛️', our: '../web2/live-control/index.html' },
+                { label: 'TV Livestream 📺', our: '../web2/live-tv/index.html' },
             ],
         },
         {

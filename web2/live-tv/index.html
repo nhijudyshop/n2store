@@ -1,0 +1,55 @@
+<!doctype html>
+<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 — TV livestream board (user1 xem). -->
+<html lang="vi">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+        <meta name="theme-color" content="#0068ff" />
+        <title>TV Livestream — Số lượng Live</title>
+        <link rel="stylesheet" href="../shared/web2-theme.css?v=20260621livetv" />
+        <link rel="stylesheet" href="./css/live-tv.css?v=20260621a" />
+    </head>
+    <body class="ltv-body">
+        <header class="ltv-topbar" aria-label="Thanh điều khiển TV">
+            <div class="ltv-brand">
+                <span class="ltv-live-dot" id="ltvLiveDot" title="Trạng thái realtime"></span>
+                <span class="ltv-title" id="ltvCampaignName">Số lượng Live</span>
+            </div>
+            <div class="ltv-meta">
+                <span class="ltv-chip" id="ltvCount">0 sản phẩm</span>
+                <span class="ltv-chip ltv-chip-muted" id="ltvSync">—</span>
+                <button class="ltv-btn" id="ltvPickBtn" type="button">Đổi chiến dịch</button>
+                <button class="ltv-btn" id="ltvFsBtn" type="button" title="Toàn màn hình">⛶</button>
+            </div>
+        </header>
+
+        <main class="ltv-stage" id="ltvStage" aria-live="polite">
+            <div class="ltv-empty" id="ltvEmpty">
+                <div class="ltv-empty-emoji">📺</div>
+                <p id="ltvEmptyMsg">Đang tải…</p>
+            </div>
+            <div class="ltv-grid" id="ltvGrid" hidden></div>
+        </main>
+
+        <!-- Overlay chọn chiến dịch -->
+        <div class="ltv-overlay" id="ltvPicker" hidden>
+            <div class="ltv-picker-card">
+                <h2>Chọn chiến dịch để chiếu</h2>
+                <div class="ltv-picker-list" id="ltvPickerList"></div>
+                <button class="ltv-btn ltv-btn-ghost" id="ltvPickerClose" type="button">
+                    Đóng
+                </button>
+            </div>
+        </div>
+
+        <!-- Shared (standalone — không sidebar, nạp thủ công) -->
+        <script src="../shared/web2-auth.js?v=20260621livetv"></script>
+        <script src="../shared/web2-escape.js?v=20260621livetv"></script>
+        <script src="../shared/web2-format.js?v=20260621livetv"></script>
+        <script src="../shared/web2-sse-bridge.js?v=20260621livetv"></script>
+        <script src="../shared/web2-variant-group.js?v=20260621livetv"></script>
+        <script src="../shared/web2-campaign.js?v=20260621livetv"></script>
+        <script src="../shared/web2-image-lightbox.js?v=20260621livetv"></script>
+        <script src="./js/live-tv.js?v=20260621a"></script>
+    </body>
+</html>

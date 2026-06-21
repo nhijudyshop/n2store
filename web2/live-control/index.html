@@ -1,0 +1,119 @@
+<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 — Điều khiển TV livestream (user2): gắn SP vào chiến dịch + nhập số NCC báo. -->
+<!doctype html>
+<html lang="vi">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta http-equiv="Cache-Control" content="no-cache, must-revalidate" />
+        <title>Điều khiển TV Livestream - WEB 2.0</title>
+        <meta name="web2-db" content="render" />
+
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap"
+            rel="stylesheet"
+        />
+
+        <link rel="stylesheet" href="../shared/web2-sidebar.css?v=20260621lc" />
+        <link rel="stylesheet" href="../shared/web2-base.css?v=20260621lc" />
+        <link rel="stylesheet" href="../shared/web2-components.css?v=20260621lc" />
+        <link rel="stylesheet" href="../shared/web2-theme.css?v=20260621shellfix" />
+        <link rel="stylesheet" href="./css/live-control.css?v=20260621a" />
+
+        <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
+    </head>
+    <body class="web2-theme">
+        <div class="web2-shell">
+            <aside class="web2-aside" id="web2Aside"></aside>
+            <main class="main-content">
+                <div id="pageRoot" class="lc-root">
+                    <div class="lc-header">
+                        <div class="lc-title">
+                            <i data-lucide="tv" style="width: 22px; height: 22px"></i>
+                            Điều khiển TV Livestream
+                        </div>
+                        <div class="lc-toolbar">
+                            <select id="lcCampaign" class="lc-select" aria-label="Chọn chiến dịch">
+                                <option value="">— Chọn chiến dịch —</option>
+                            </select>
+                            <button class="web2-btn web2-btn-default web2-btn-sm" id="lcNewBtn">
+                                <i data-lucide="plus" style="width: 13px; height: 13px"></i> Tạo
+                            </button>
+                            <button
+                                class="web2-btn web2-btn-primary web2-btn-sm"
+                                id="lcOpenTv"
+                                disabled
+                            >
+                                <i
+                                    data-lucide="external-link"
+                                    style="width: 13px; height: 13px"
+                                ></i>
+                                Mở TV
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="lc-hint">
+                        🛰️ Thêm sản phẩm vào chiến dịch (ưu tiên SP <strong>chờ hàng</strong> từ Sổ
+                        Order). Nhập <strong>số NCC báo</strong> ở cột “Chờ hàng” — màn
+                        <strong>TV</strong> của người live cập nhật ngay, không cần refresh.
+                    </div>
+
+                    <div class="lc-cols">
+                        <!-- Panel SP trong chiến dịch -->
+                        <section class="lc-panel" aria-labelledby="lcBoardTitle">
+                            <header class="lc-panel-head">
+                                <h2 id="lcBoardTitle">
+                                    Trên TV <span class="lc-badge" id="lcBoardCount">0</span>
+                                </h2>
+                            </header>
+                            <div class="lc-board" id="lcBoard">
+                                <div class="lc-empty">Chọn chiến dịch để bắt đầu.</div>
+                            </div>
+                        </section>
+
+                        <!-- Panel thêm SP -->
+                        <section class="lc-panel" aria-labelledby="lcAddTitle">
+                            <header class="lc-panel-head">
+                                <h2 id="lcAddTitle">Thêm sản phẩm</h2>
+                                <div class="lc-tabs" role="tablist">
+                                    <button class="lc-tab is-active" data-tab="pending" role="tab">
+                                        Chờ hàng (Sổ Order)
+                                    </button>
+                                    <button class="lc-tab" data-tab="all" role="tab">
+                                        Tất cả SP
+                                    </button>
+                                </div>
+                            </header>
+                            <div class="lc-search">
+                                <i data-lucide="search" style="width: 15px; height: 15px"></i>
+                                <input
+                                    type="text"
+                                    id="lcSearch"
+                                    placeholder="Tìm theo tên / mã / NCC…"
+                                    autocomplete="off"
+                                />
+                            </div>
+                            <div class="lc-picker" id="lcPicker">
+                                <div class="lc-empty">Đang tải…</div>
+                            </div>
+                        </section>
+                    </div>
+                </div>
+            </main>
+        </div>
+
+        <script src="../shared/web2-auth.js?v=20260621lc"></script>
+        <script src="../shared/web2-user-info.js?v=20260530a"></script>
+        <script src="../shared/web2-optimistic.js?v=20260601a"></script>
+        <script src="../shared/popup.js?v=20260621lc"></script>
+        <script src="../shared/web2-escape.js?v=20260621lc"></script>
+        <script src="../shared/web2-sidebar.js?v=20260621lc"></script>
+        <script src="../shared/web2-sse-bridge.js?v=20260621lc"></script>
+        <script src="../shared/web2-products-api.js?v=20260621lc"></script>
+        <script src="../shared/web2-variant-group.js?v=20260621lc"></script>
+        <script src="../shared/web2-campaign.js?v=20260621lc"></script>
+        <script src="./js/live-control.js?v=20260621a"></script>
+    </body>
+</html>

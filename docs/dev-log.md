@@ -2,6 +2,13 @@
 
 ## 2026-06-21
 
+### [feat] TV Livestream Web 2.0 — shared module + 2 trang (Phase 2-4,7)
+
+- **Phase 2 (shared)**: `web2/shared/web2-campaign.js` (`Web2Campaign` — 1 NGUỒN: campaign CRUD + post assign/unassign + **product attach/detach/reorder/pin** + `subscribe()` SSE web2:live-comments + web2:campaign-products) gom logic chiến dịch (sẽ migrate 2 fork về). `web2/shared/web2-variant-group.js` (`Web2VariantGroup.group()` — gom SP cùng `name` → 1 tên + 1 ảnh đại diện + danh sách biến thể có tồn/chờ từng cái; sort màu→size; ghim/sort lên đầu).
+- **Phase 3 (trang TV `web2/live-tv/`)**: fullscreen standalone (KHÔNG sidebar), ảnh TO, card gom biến thể (TỒN xanh + CHỜ vàng per biến thể), chọn chiến dịch, realtime qua `Web2Campaign.subscribe` (re-fetch debounce 500ms, lọc theo code trên board), nút toàn màn hình + tap ảnh phóng to (Web2ImageLightbox). 3 file (html/css/js).
+- **Phase 4 (trang điều khiển `web2/live-control/`)**: web2 page có sidebar. Chọn/tạo chiến dịch, 2 panel: (trái) SP trên TV — gom biến thể, up/down/ghim/xoá nhóm + **nhập "số NCC báo" = pending_qty** per biến thể (adjustPending delta, optimistic saved-state, hoãn re-render khi đang gõ); (phải) picker thêm SP 2 tab "Chờ hàng (Sổ Order)" `/pending` + "Tất cả SP" `/list` + search. Nút "Mở TV". 3 file.
+- **Phase 7 (menu)**: thêm "Điều khiển TV 🎛️" + "TV Livestream 📺" vào nhóm Sale Online (web2-sidebar.js).
+
 ### [feat] TV Livestream Web 2.0 (Phase 1/6 — backend SP⇄chiến dịch)
 
 User: shop live cần 1 màn TV cho người live (user1) xem ẢNH TO + TỒN KHO + SỐ CHỜ HÀNG + biến thể; user2 ở dưới nhập số NCC báo realtime. Board xoay quanh **chiến dịch livestream** (kiểu live-chat), user2 cho SP vào chiến dịch (ưu tiên SP Sổ Order chờ hàng). Chiến dịch = module dùng chung. Chạy **2 workflow audit (7+4 agent)** trước khi code.
