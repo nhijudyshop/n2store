@@ -99,7 +99,10 @@
         const stored = getStored();
         if (!stored?.token) return null;
         try {
-            const r = await fetch(`${API}/me?token=${encodeURIComponent(stored.token)}`);
+            // audit r7: gửi token qua HEADER, KHÔNG qua ?token= URL — server log
+            // (server.js) ghi req.url nguyên văn → token lộ vào log Render bền vững.
+            // /me đã đọc header x-web2-token (web2-users.js).
+            const r = await fetch(`${API}/me`, { headers: { 'x-web2-token': stored.token } });
             if (!r.ok) {
                 clear();
                 return null;

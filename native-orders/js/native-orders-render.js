@@ -462,6 +462,10 @@
             expanded,
             products,
             o.updatedAt || 0,
+            // audit r7: ckSignal (badge "💸 KH báo đã CK") đổi qua SSE web2:payment-signals
+            // KHÔNG bump native_orders.updated_at → nếu thiếu ở chữ ký, row tái dùng DOM
+            // (26 field kia giống) sẽ KHÔNG re-render badge → KH báo CK mà badge không hiện.
+            o.ckSignal ? `${o.ckSignal.id || ''}:${o.ckSignal.status || ''}` : '',
         ].join('||');
     };
 

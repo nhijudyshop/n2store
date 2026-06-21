@@ -35,14 +35,23 @@
             const norm = cache._normalize;
             // Index toàn bộ SP (kể cả stock=0) — receive panel cần biết cả
             // pending của SP đang chờ mua, không lọc stock như _checkRowsHaveStock.
-            const idx = new Map();
+            // audit r7: 2 index — chính xác theo NCC (name|variant|supplier) + fallback
+            // name|variant. Trước đây CHỈ key name|variant "first match wins" → 2 SP
+            // CÙNG tên+biến thể KHÁC NCC (server coi là 2 SP riêng) cùng map về SP đầu
+            // → nhận hàng NCC B cộng tồn nhầm SP của NCC A. Khớp NCC trước, miss mới
+            // fallback name|variant (giữ tương thích SP cũ không gắn NCC).
+            const idxBySup = new Map();
+            const idxByNV = new Map();
             for (const p of all) {
-                const key = norm(p.name) + '|' + norm(p.variant || '');
-                if (!idx.has(key)) idx.set(key, p); // first match wins
+                const nv = norm(p.name) + '|' + norm(p.variant || '');
+                if (!idxByNV.has(nv)) idxByNV.set(nv, p); // fallback first match wins
+                const sk = nv + '|' + norm(p.supplier || '');
+                if (!idxBySup.has(sk)) idxBySup.set(sk, p);
             }
             for (const r of eligibleForLookup) {
-                const key = norm(r.productName) + '|' + norm(r.variant || '');
-                const match = idx.get(key);
+                const nv = norm(r.productName) + '|' + norm(r.variant || '');
+                const sk = nv + '|' + norm(r.supplier || '');
+                const match = idxBySup.get(sk) || idxByNV.get(nv);
                 if (match) {
                     stateByKey.set(r.id, {
                         code: match.code,

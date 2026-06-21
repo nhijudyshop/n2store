@@ -62,7 +62,7 @@ function _normName(name) {
 
 // Resolve danh tính GD từ QR registry (web2_payment_qr_codes) qua nội dung.
 // Trả { phone, name, customerId } | {} — best-effort, KHÔNG ném lỗi.
-async function _resolveTxIdentity(db, tx) {
+async function _resolveTxIdentity(db, tx, qrMap) {
     const out = {
         phone: tx.linked_customer_phone || null,
         name: tx.display_name || null,
@@ -74,22 +74,56 @@ async function _resolveTxIdentity(db, tx) {
         const ex = extractIdentifier(content);
         const candidates = ex.qrCandidates || [];
         if (candidates.length) {
-            const q = await db.query(
-                `SELECT qr_code, phone, customer_name, customer_id
-                 FROM web2_payment_qr_codes WHERE qr_code = ANY($1) LIMIT 1`,
-                [candidates]
-            );
-            if (q.rows.length) {
-                out.phone = out.phone || q.rows[0].phone || null;
-                out.name = out.name || q.rows[0].customer_name || null;
-                out.customerId =
-                    q.rows[0].customer_id != null ? Number(q.rows[0].customer_id) : null;
+            let row = null;
+            // audit r7: nếu caller đã prefetch QR registry (qrMap) → tra in-memory,
+            // KHÔNG query/tx (hết N+1 200 round-trip trong onNewSignal). Không có map
+            // (vd onNewSepayTx, test) → giữ path query lẻ như cũ.
+            if (qrMap) {
+                for (const c of candidates) {
+                    if (qrMap.has(c)) {
+                        row = qrMap.get(c);
+                        break;
+                    }
+                }
+            } else {
+                const q = await db.query(
+                    `SELECT qr_code, phone, customer_name, customer_id
+                     FROM web2_payment_qr_codes WHERE qr_code = ANY($1) LIMIT 1`,
+                    [candidates]
+                );
+                row = q.rows[0] || null;
+            }
+            if (row) {
+                out.phone = out.phone || row.phone || null;
+                out.name = out.name || row.customer_name || null;
+                out.customerId = row.customer_id != null ? Number(row.customer_id) : null;
             }
         }
     } catch (e) {
         /* registry/extractor có thể vắng ở test → bỏ qua */
     }
     return out;
+}
+
+// audit r7: prefetch QR registry 1 query cho nhiều tx → tránh N+1. Trả Map<qr_code,row>.
+async function _prefetchQrMap(db, txRows) {
+    try {
+        const { extractIdentifier } = require('./web2-content-extractor');
+        const set = new Set();
+        for (const tx of txRows) {
+            const ex = extractIdentifier(String(tx.content || tx.description || ''));
+            for (const c of ex.qrCandidates || []) set.add(c);
+        }
+        if (!set.size) return null;
+        const q = await db.query(
+            `SELECT qr_code, phone, customer_name, customer_id
+             FROM web2_payment_qr_codes WHERE qr_code = ANY($1)`,
+            [[...set]]
+        );
+        return new Map(q.rows.map((r) => [r.qr_code, r]));
+    } catch (e) {
+        return null;
+    }
 }
 
 // Score 1 signal với 1 GD (đã resolve identity txId). Trả các cờ hit.
@@ -184,12 +218,21 @@ async function _applyMatch(db, sig, tx, txIdentity, best, deps, now) {
     //     matched_tx_id (sẽ không bao giờ retry vì điều kiện CLAIM matched_tx_id IS
     //     NULL). Rollback CLAIM về trạng thái cũ để tick sau thử lại.
     if (!credited && !reconciled) {
+        // audit r7: KHÔNG ghi đè status bằng sig.status (snapshot lúc fetch, có thể
+        // STALE). Trước đây nếu staff vừa /confirm (status='confirmed', matched_tx_id
+        // vẫn NULL) xen vào giữa fetch↔rollback thì rollback kéo status về 'pending'
+        // → mất xác nhận của staff. Giờ CHỈ revert về 'pending' khi chính watcher là
+        // người confirm (confirmed_by='(watcher tự động)'); staff-confirm giữ nguyên.
+        // matched_tx_id luôn clear để tick sau retry.
         await db
             .query(
                 `UPDATE web2_payment_signals
-                 SET status = $2, matched_tx_id = NULL, matched_tx_at = NULL
-                 WHERE id = $1 AND matched_tx_id = $3`,
-                [sig.id, sig.status, tx.id]
+                 SET matched_tx_id = NULL, matched_tx_at = NULL,
+                     status = CASE WHEN confirmed_by = '(watcher tự động)' THEN 'pending' ELSE status END,
+                     confirmed_at = CASE WHEN confirmed_by = '(watcher tự động)' THEN NULL ELSE confirmed_at END,
+                     confirmed_by = CASE WHEN confirmed_by = '(watcher tự động)' THEN NULL ELSE confirmed_by END
+                 WHERE id = $1 AND matched_tx_id = $2`,
+                [sig.id, tx.id]
             )
             .catch((e) => console.warn('[WEB2-CK-WATCHER] rollback claim failed:', e.message));
         console.warn(
@@ -388,9 +431,11 @@ async function onNewSignal(db, sig, deps = {}) {
         );
         if (!txQ.rows.length) return;
 
+        // audit r7: prefetch QR registry 1 lần cho cả 200 row (hết N+1 per-row query).
+        const qrMap = await _prefetchQrMap(db, txQ.rows);
         const scored = [];
         for (const tx of txQ.rows) {
-            const txIdentity = await _resolveTxIdentity(db, tx);
+            const txIdentity = await _resolveTxIdentity(db, tx, qrMap);
             const sc = _score(sigT, tx, txIdentity);
             if (sc.phoneHit || sc.partnerHit || sc.nameHit || sc.amountHit) {
                 scored.push({

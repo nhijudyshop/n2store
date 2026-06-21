@@ -61,12 +61,42 @@ async function _getPAT(chatPool, pageId) {
 
 // ─── Lấy conversations hiện tại của 1 page từ Pancake (qua worker) ─────
 async function _fetchConversations(pageId, pat) {
-    const url =
-        `${WORKER_URL}/api/pancake-official-v2/pages/${encodeURIComponent(pageId)}/conversations` +
-        `?page_access_token=${encodeURIComponent(pat)}&type=INBOX`;
-    const { ok, data } = await _fetchJson(url, { headers: { Accept: 'application/json' } });
-    if (!ok || !data) return [];
-    return data.conversations || data.data || [];
+    // audit r7: PHÂN TRANG. Trước đây chỉ fetch trang 1 (~20-50 conv) → conversation
+    // cũ ngoài trang 1 mà bị miss WS 'read' (deploy/disconnect) KHÔNG bao giờ được
+    // reconcile → unread badge kẹt không về 0. Lặp page_number tới has_more=false/
+    // trang rỗng; cap MAX_PAGES. Guard: nếu API KHÔNG phân trang (trang 2 lặp lại
+    // trang 1 → 0 row mới) thì dừng để khỏi fetch lãng phí.
+    const MAX_PAGES = 10;
+    const PER_PAGE = 20; // heuristic Pancake ~20 conv/trang
+    const all = [];
+    const seen = new Set();
+    for (let pageNum = 1; pageNum <= MAX_PAGES; pageNum++) {
+        const url =
+            `${WORKER_URL}/api/pancake-official-v2/pages/${encodeURIComponent(pageId)}/conversations` +
+            `?page_access_token=${encodeURIComponent(pat)}&type=INBOX&page_number=${pageNum}`;
+        const { ok, data } = await _fetchJson(url, { headers: { Accept: 'application/json' } });
+        if (!ok || !data) break;
+        const cv = data.conversations || data.data || [];
+        if (!cv.length) break;
+        let added = 0;
+        for (const c of cv) {
+            const id = String(c.id || '');
+            if (id && seen.has(id)) continue;
+            if (id) seen.add(id);
+            all.push(c);
+            added++;
+        }
+        if (pageNum > 1 && added === 0) break; // API không phân trang → dừng
+        const apiHasMore =
+            typeof data.has_more === 'boolean'
+                ? data.has_more
+                : typeof data.total_pages === 'number'
+                  ? pageNum < data.total_pages
+                  : null;
+        if (apiHasMore === false) break;
+        if (apiHasMore === null && cv.length < PER_PAGE) break;
+    }
+    return all;
 }
 
 // ─── Parse 1 conversation Pancake → shape cho syncFromConversation ─────

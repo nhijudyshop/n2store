@@ -122,8 +122,10 @@
             const loaded = await this._loadFromServer();
             if (!loaded || loaded.empty) return false;
             if ((loaded.version || 0) <= this._localVersion) return false;
-            // Server mới hơn. Có local pending push → conflict thay vì đè.
-            if (this._pushTimer && this._onConflict) {
+            // Server mới hơn. Có local pending push HOẶC edit chưa lưu (_pendingState
+            // còn sau 409) → conflict thay vì đè (audit r7: thêm _pendingState để edit
+            // giữ-sau-409 không bị tab-focus pullOnce ghi đè mất).
+            if ((this._pushTimer || this._pendingState) && this._onConflict) {
                 // BẢO THỦ: hủy timer debounce để KHÔNG auto-push đè stale (push đó
                 // chắc chắn 409 vì baseVersion đã cũ — vừa lãng phí vừa gây
                 // double-notify). GIỮ NGUYÊN _pendingState: edit chưa lưu của user
@@ -179,6 +181,12 @@
                     // kế tiếp dùng version mới → thắng (last-writer sau khi user biết).
                     this._localVersion = j.server.version || this._localVersion;
                     this._localLastUpdated = j.server.lastUpdated || this._localLastUpdated;
+                    // audit r7: KHÔI PHỤC _pendingState — trước đây edit của user bị
+                    // null ở đầu hàm rồi DROP luôn ở nhánh 409 → mất trắng (pullOnce
+                    // tab-focus sau đó đè SO.state vì _pushTimer=null). Giữ lại để
+                    // mutation kế tiếp flush với version mới; pullOnce nay cũng guard
+                    // theo _pendingState nên KHÔNG đè khi còn edit chưa lưu.
+                    this._pendingState = stateSnapshot;
                     if (this._onConflict)
                         this._onConflict({
                             data: j.server.data,

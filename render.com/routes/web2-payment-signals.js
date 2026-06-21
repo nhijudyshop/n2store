@@ -519,7 +519,23 @@ router.post('/:id/approve', requireWeb2AuthSoft, async (req, res) => {
             sig.conversation_id
         ) {
             const msg = composeCkReplyMessage(ckAmount);
-            sendCkReply(pool, id, sig, msg).catch((e) =>
+            // audit r7: claim confirm_msg_sent của GD (txId) NGAY trước gửi — nếu
+            // QR-match (web2-sepay-matching) đã gửi tin cho GD này thì TRUE → skip.
+            // Trước đây approve thủ công trên GD đã auto-match QR → gửi tin THỨ 2.
+            const _sendCkOnce = async () => {
+                if (txId != null) {
+                    const claim = await pool
+                        .query(
+                            `UPDATE web2_balance_history SET confirm_msg_sent = TRUE
+                             WHERE id = $1 AND confirm_msg_sent IS NOT TRUE RETURNING id`,
+                            [txId]
+                        )
+                        .catch(() => ({ rowCount: 0 }));
+                    if (!claim.rowCount) return; // tin xác nhận đã gửi → bỏ qua double
+                }
+                await sendCkReply(pool, id, sig, msg);
+            };
+            _sendCkOnce().catch((e) =>
                 console.warn('[WEB2-PAYSIG-API] auto-reply failed:', e.message)
             );
         }

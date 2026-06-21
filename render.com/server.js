@@ -142,9 +142,18 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.urlencoded({ extended: true, limit: '100mb' }));
 
 // Request logging (skip noisy health-check probes — Render pings every ~5s)
+// audit r7: REDACT mọi token=/page_access_token= trong query trước khi log — tránh
+// rò token phiên / Pancake vào log Render bền vững (SSE/avatar/EventSource buộc dùng
+// ?token= vì không gửi header được; web2-auth verify đã chuyển sang header).
+function _redactUrl(u) {
+    return String(u || '').replace(
+        /((?:^|[?&])(?:token|page_access_token|access_token|jwt)=)[^&#\s]+/gi,
+        '$1[REDACTED]'
+    );
+}
 app.use((req, res, next) => {
     if (req.path !== '/health' && req.path !== '/ping' && req.path !== '/health/detailed') {
-        console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+        console.log(`[${new Date().toISOString()}] ${req.method} ${_redactUrl(req.url)}`);
     }
     next();
 });

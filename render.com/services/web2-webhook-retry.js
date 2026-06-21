@@ -47,7 +47,12 @@ async function enqueue(db, sepayId, webhookData, errorMessage) {
              ON CONFLICT (sepay_id) DO UPDATE SET
                 last_error = EXCLUDED.last_error,
                 retry_count = web2_webhook_retry_queue.retry_count + 0,
-                next_retry_at = EXCLUDED.next_retry_at,
+                -- audit r7: GIỮ lịch backoff xa hơn khi SePay re-deliver cùng sepay_id.
+                -- Trước đây ghi đè next_retry_at = 2min (index 0) → sụp backoff: row
+                -- đang ở retry_count=3 (đáng lẽ chờ 60min) bị kéo về 2min. GREATEST
+                -- giữ mốc xa hơn (bảo toàn backoff); row đã resolved (next_retry_at quá
+                -- khứ) → GREATEST với now+2min = now+2min (vẫn retry sớm hợp lý).
+                next_retry_at = GREATEST(web2_webhook_retry_queue.next_retry_at, EXCLUDED.next_retry_at),
                 status = 'pending'`,
             [sepayId, JSON.stringify(webhookData || {}), String(errorMessage || ''), nextRetry]
         );
@@ -60,24 +65,55 @@ async function enqueue(db, sepayId, webhookData, errorMessage) {
 /**
  * Process pending queue. Called by cron job every 2 minutes.
  */
+let _processing = false;
 async function processQueue(db, processFn) {
     if (!db || !processFn) return { picked: 0, success: 0, failed: 0 };
+    // audit r7: chống overlap tick trong CÙNG process (setInterval không đợi async
+    // → tick sau chạy đè tick trước nếu xử lý > 2min → double-process).
+    if (_processing) return { picked: 0, success: 0, failed: 0, skipped: true };
+    _processing = true;
     try {
-        // Pick rows due for retry with row-level lock
-        const r = await db.query(
-            `SELECT id, sepay_id, webhook_data, retry_count
-             FROM web2_webhook_retry_queue
-             WHERE status = 'pending' AND next_retry_at <= NOW()
-             ORDER BY next_retry_at ASC
-             LIMIT 20
-             FOR UPDATE SKIP LOCKED`
-        );
-        const rows = r.rows;
+        const nextRetryDelaysMs = [2 * 60_000, 5 * 60_000, 15 * 60_000, 60 * 60_000, 4 * 3600_000];
+        // audit r7: CLAIM dưới transaction. Trước đây SELECT FOR UPDATE SKIP LOCKED
+        // chạy autocommit (db.query lẻ) → lock nhả NGAY khi SELECT xong → vô hiệu,
+        // 2 instance/2 tick pick trùng row → double processFn (double Pancake call).
+        // Giờ: BEGIN → SELECT FOR UPDATE SKIP LOCKED → lease next_retry_at +10min
+        // (giữ row khỏi bị pick lại khi đang xử lý ngoài txn) → COMMIT. processFn
+        // chạy NGOÀI txn (không giữ lock/connection khi gọi API). Crash giữa chừng →
+        // row vẫn 'pending', lease 10min → tick sau nhặt lại (không mất việc).
+        let rows = [];
+        const client = await db.connect();
+        try {
+            await client.query('BEGIN');
+            const r = await client.query(
+                `SELECT id, sepay_id, webhook_data, retry_count
+                 FROM web2_webhook_retry_queue
+                 WHERE status = 'pending' AND next_retry_at <= NOW()
+                 ORDER BY next_retry_at ASC
+                 LIMIT 20
+                 FOR UPDATE SKIP LOCKED`
+            );
+            rows = r.rows;
+            if (rows.length) {
+                await client.query(
+                    `UPDATE web2_webhook_retry_queue
+                     SET next_retry_at = NOW() + INTERVAL '10 minutes'
+                     WHERE id = ANY($1::bigint[])`,
+                    [rows.map((x) => x.id)]
+                );
+            }
+            await client.query('COMMIT');
+        } catch (e) {
+            await client.query('ROLLBACK').catch(() => {});
+            console.error('[web2-webhook-retry] claim failed:', e.message);
+            return { picked: 0, success: 0, failed: 0, error: e.message };
+        } finally {
+            client.release();
+        }
         if (!rows.length) return { picked: 0, success: 0, failed: 0 };
 
         let success = 0,
             failed = 0;
-        const nextRetryDelaysMs = [2 * 60_000, 5 * 60_000, 15 * 60_000, 60 * 60_000, 4 * 3600_000];
 
         for (const row of rows) {
             try {
@@ -126,6 +162,8 @@ async function processQueue(db, processFn) {
     } catch (e) {
         console.error('[web2-webhook-retry] processQueue failed:', e.message);
         return { picked: 0, success: 0, failed: 0, error: e.message };
+    } finally {
+        _processing = false; // luôn nhả guard kể cả early-return/lỗi
     }
 }
 

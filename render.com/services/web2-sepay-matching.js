@@ -109,13 +109,24 @@ async function ensureSchema(pool) {
         // Match-method CHECK constraint — Web 2.0 enumerated values.
         // 'manual_entry' giữ lại vì 1500+ row hiện có đã set value đó (read-only,
         // không tạo mới qua flow Web 2.0). Idempotent.
+        // audit r7: CHỈ DROP/ADD khi constraint CHƯA tồn tại. Trước đây DROP+ADD chạy
+        // MỌI boot → AccessExclusiveLock + full-scan trên web2_balance_history (bảng
+        // lớn) mỗi lần Render restart → webhook SePay đến trong cửa sổ đó bị block.
+        // Guard pg_constraint → sau lần tạo đầu, block thành catalog-lookup KHÔNG lock.
+        // ⚠ Đổi danh sách match_method về sau: DROP constraint thủ công 1 lần rồi deploy.
         await pool.query(`
             DO $$
             BEGIN
+                IF EXISTS (
+                    SELECT 1 FROM pg_constraint c
+                    JOIN pg_class t ON t.oid = c.conrelid
+                    WHERE t.relname = 'web2_balance_history'
+                      AND c.conname = 'web2_balance_history_match_method_check'
+                ) THEN
+                    RETURN;
+                END IF;
                 ALTER TABLE web2_balance_history
                     DROP CONSTRAINT IF EXISTS balance_history_match_method_check;
-                ALTER TABLE web2_balance_history
-                    DROP CONSTRAINT IF EXISTS web2_balance_history_match_method_check;
                 ALTER TABLE web2_balance_history
                     ADD CONSTRAINT web2_balance_history_match_method_check
                     CHECK (match_method IS NULL OR match_method IN (

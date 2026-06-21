@@ -2,6 +2,18 @@
 
 ## 2026-06-21
 
+### [audit r7] Adversarial audit 7 mặt mới (29 agent) → 11 bug xác nhận → fix HẾT 11
+
+7 finder mới (cron-workers/native-orders-core/soorder-stock/frontend-xss/auth-session/reconcile-sepay/schema-migrations) + skeptic/finding. XSS surface = 0 (sạch). 11 confirmed, fix hết:
+
+- **cron-workers (4)**: `web2-webhook-retry.js` — (a) enqueue ON CONFLICT ghi đè next_retry_at=2min làm SỤP backoff khi SePay re-deliver → `GREATEST(existing, EXCLUDED)` giữ lịch xa hơn; (b) SELECT FOR UPDATE SKIP LOCKED chạy autocommit (lock nhả ngay → vô hiệu) → bọc CLAIM trong transaction + lease next_retry_at +10min, processFn ngoài txn + `_processing` guard chống overlap tick. `web2-ck-watcher.js` N+1 QR lookup (200 query/signal) → `_prefetchQrMap` 1 query + `_resolveTxIdentity(db,tx,qrMap)`. `web2-unread-reconcile.js` `_fetchConversations` chỉ trang 1 → phân trang `page_number` (cap 10) + guard dừng nếu API không phân trang.
+- **native-orders-core (1)**: `native-orders-render.js` `_rowSignature` THIẾU `ckSignal` → badge "💸 KH báo đã CK" (đổi qua SSE, không bump updated_at) không hiện trên row tái dùng DOM → thêm `ckSignal.id:status` vào chữ ký.
+- **soorder-stock (2)**: `so-order-receive.js` index lookup chỉ name|variant "first match wins" → 2 SP cùng tên+biến thể KHÁC NCC cộng tồn nhầm SP → 2 index (name|variant|supplier ưu tiên + fallback name|variant). `so-order-storage-sync.js` 409 conflict DROP `_pendingState` → mất edit (pullOnce tab-focus đè) → khôi phục `_pendingState=stateSnapshot` + pullOnce guard thêm `_pendingState`.
+- **auth-session (1)**: `web2-auth.js` verify() gửi `?token=` URL → lộ token vào log Render (server.js ghi req.url) → chuyển sang header `x-web2-token`. Defense-in-depth: server.js `_redactUrl` che `token=/page_access_token=/jwt=` trước khi log (cũng che SSE/avatar buộc dùng query).
+- **reconcile-sepay (2)**: `web2-payment-signals.js` /approve gửi tin xác nhận KHÔNG claim `confirm_msg_sent` → KH nhận 2 tin khi QR-match + approve cùng GD → claim flag atomic trước `sendCkReply`. `web2-ck-watcher.js` `_applyMatch` rollback ghi `sig.status` (stale) → clobber staff-confirm xen giữa → CASE chỉ revert 'pending' khi `confirmed_by='(watcher tự động)'`.
+- **schema-migrations (1)**: `web2-sepay-matching.js` DROP+ADD CHECK constraint MỌI boot → AccessExclusiveLock + scan web2_balance_history → guard `IF EXISTS pg_constraint THEN RETURN` (sau lần đầu = catalog-lookup không lock).
+- Cache-bust `?v=20260621r7`: web2-auth(49)/web2-sidebar(46)/native-orders-render(1)/so-order-receive(1)/so-order-storage-sync(1) + sidebar inject.
+
 ### [audit r6 batch 2] fast-sale-orders — gate auth toàn bộ mutation + chống over-sell race (2 bug cuối)
 
 Hoàn tất 2 finding critical-path còn lại của r6 (PBH/tồn kho). Staged deploy chống 401-window:
