@@ -511,7 +511,7 @@
         const before = ta.value.slice(0, start);
         const after = ta.value.slice(end);
         const lead = before && !/\s$/.test(before) ? ' ' : '';
-        const trail = after && !/^\s/.test(after) ? ' ' : ' ';
+        const trail = after && /^\s/.test(after) ? '' : ' ';
         const ins = lead + token + trail;
         ta.value = before + ins + after;
         const pos = (before + ins).length;

@@ -2,6 +2,17 @@
 
 ## 2026-06-21
 
+### [feat] Thẻ cảm xúc VieNeu (cười/thở dài/hắng giọng) cho video-maker
+
+User: VieNeu-TTS (github pnnbao97/VieNeu-TTS) có chức năng cảm xúc → thêm vào trang Tạo video (`web2/video-maker/`).
+
+**Bản chất:** cảm xúc VieNeu = **token ngoặc vuông chèn thẳng vào lời đọc** (`[cười]` cười, `[thở dài]` thở dài, `[hắng giọng]` hắng giọng) — v3 Turbo (thử nghiệm). Server `/synthesize`+`/clone` đã forward `text` nguyên văn → **KHÔNG cần đổi server**, chỉ thêm UX chèn token + xử lý engine.
+
+- **`video-tts.js` (Web2VideoTTS)** — thêm `CUES` (3 token, 1 nguồn) + `isCueCapable(voiceId)` (chỉ engine `vieneu`) + `stripCues(text)` (bỏ token + gom space). `synthesize()`: engine ≠ vieneu → `stripCues` trước khi split (MMS/Piper khỏi đọc literal "cười"). Export thêm `CUES`/`isCueCapable`/`stripCues`.
+- **`video-maker.js`** — `renderCues()` (chip từ `CUES` + insert-at-cursor `insertAtCursor`, tự thêm space 2 đầu, không double-space) gọi trong `renderVoices()` (hint đồng bộ khi đổi giọng/kết nối VieNeu). Hint đổi theo giọng: VieNeu = "hoạt động (thử nghiệm)"; giọng khác = "chọn VieNeu mới có tác dụng, giọng khác bỏ qua". "Nghe nhanh" (giọng OS) cũng `stripCues` trước khi đọc.
+- **`index.html`** — hàng chip `#vmCues` + hint `#vmCuesHint` trên textarea lời đọc; bump cache-bust video-tts.js?v=...cue + video-maker.js?v=...cue.
+- Verify browser (localhost, có extension): 3 chip render, `stripCues("Áo trắng [cười] đẹp lắm [thở dài] nhé")`→"Áo trắng đẹp lắm nhé", `isCueCapable` mms=false/vieneu=true, chèn giữa câu 1 space, hint flip đúng khi chọn giọng VieNeu, 0 console error.
+
 ### [feat] TAG đơn hàng (auto theo trigger) + chặn PBH khi có SP chờ hàng (native-orders)
 
 User: (1) đơn có SP "chờ hàng" (web2_products.status=CHO_MUA) → KHÔNG tạo PBH, phải tạo Phiếu soạn hàng; (2) thêm cột TAG ở native-orders + trang Cấu hình "TAG đơn hàng" gắn chức năng theo trigger (Phiếu bán hàng/Chờ hàng/Âm mã + "lấy hết trigger"). 4 quyết định locked: chặn cả đơn→soạn hàng · chỉ CHO_MUA · tag AUTO-only theo trigger · âm mã = đơn nháp giữ + PBH > tồn.
