@@ -12,6 +12,12 @@ const express = require('express');
 const { requireWeb2Admin, requireWeb2AuthSoft } = require('../middleware/web2-auth');
 const router = express.Router();
 
+// audit r6 (2026-06-21): trần số mục/lần cho bulk-write — mỗi item chạy
+// SELECT FOR UPDATE + UPDATE trong 1 transaction nối tiếp. KHÔNG cap → client
+// gửi vài chục nghìn item giữ connection + transaction mở nhiều giây → cạn pg
+// pool (DoS). 1000 đủ rộng cho mọi đợt nhận hàng/đồng bộ thực tế.
+const MAX_BULK_ITEMS = 1000;
+
 // -----------------------------------------------------
 // SSE notifier — injected from server.js via initializeNotifiers().
 // Sau mỗi DB mutation success, gọi _notify('web2:products', { action, code })
@@ -1015,6 +1021,9 @@ router.post('/adjust-stock', requireWeb2AuthSoft, async (req, res) => {
     if (!adjustments || !adjustments.length) {
         return res.status(400).json({ error: 'adjustments array required' });
     }
+    if (adjustments.length > MAX_BULK_ITEMS) {
+        return res.status(400).json({ error: `Tối đa ${MAX_BULK_ITEMS} mục mỗi lần` });
+    }
     const client = await pool.connect();
     try {
         await ensureTables(pool);
@@ -1188,6 +1197,9 @@ router.post('/adjust-pending', requireWeb2AuthSoft, async (req, res) => {
     if (!adjustments || !adjustments.length) {
         return res.status(400).json({ error: 'adjustments array required' });
     }
+    if (adjustments.length > MAX_BULK_ITEMS) {
+        return res.status(400).json({ error: `Tối đa ${MAX_BULK_ITEMS} mục mỗi lần` });
+    }
     const client = await pool.connect();
     try {
         await ensureTables(pool);
@@ -1324,6 +1336,9 @@ router.post('/upsert-pending', requireWeb2AuthSoft, async (req, res) => {
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     const items = Array.isArray((req.body || {}).items) ? req.body.items : [];
     if (!items.length) return res.json({ success: true, created: 0, updated: 0, items: [] });
+    if (items.length > MAX_BULK_ITEMS) {
+        return res.status(400).json({ error: `Tối đa ${MAX_BULK_ITEMS} mục mỗi lần` });
+    }
     // MEDIUM-cleanup (2026-06-13): resolveOnly = chỉ tra/tạo SP lấy MÃ (in tem),
     // KHÔNG cộng pending_qty — path "In tem" so-order trước đây upsert qty gốc
     // → tái nhiễm double-pending (gốc H15). SP mới tạo với pending=0; SP có sẵn
@@ -1591,6 +1606,9 @@ router.post('/confirm-purchase-partial', requireWeb2AuthSoft, async (req, res) =
     const items = Array.isArray((req.body || {}).items) ? req.body.items : [];
     if (!items.length) {
         return res.status(400).json({ error: 'items[] required' });
+    }
+    if (items.length > MAX_BULK_ITEMS) {
+        return res.status(400).json({ error: `Tối đa ${MAX_BULK_ITEMS} mục mỗi lần` });
     }
     // C5: FOR UPDATE chỉ có tác dụng trong transaction — pool.query autocommit
     // làm lock vô hiệu → lost update khi 2 máy cùng nhận hàng. Bọc toàn bộ

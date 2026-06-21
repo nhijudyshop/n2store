@@ -185,6 +185,7 @@
             list.innerHTML = `<div class="ps-loading">Đang tải danh sách trang từ relay…</div>`;
         try {
             const r = await fetch(NS.RELAY_WORKER + '/api/web2-live-relay/pages', {
+                headers: window.Web2Auth?.authHeaders ? window.Web2Auth.authHeaders() : {},
                 signal: AbortSignal.timeout(25000),
             });
             const j = await r.json();

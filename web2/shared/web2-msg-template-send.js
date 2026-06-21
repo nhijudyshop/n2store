@@ -222,7 +222,7 @@
 
     async function _pollJob(jobId) {
         try {
-            const r = await fetch(API_BASE + '/' + jobId);
+            const r = await fetch(API_BASE + '/' + jobId, { headers: W2MT._authHeaders() });
             const d = await r.json().catch(() => null);
             if (d?.success && d.job) {
                 _onProgress(d.job);
@@ -255,7 +255,7 @@
 
     async function _fetchJob(jobId) {
         try {
-            const r = await fetch(API_BASE + '/' + jobId);
+            const r = await fetch(API_BASE + '/' + jobId, { headers: W2MT._authHeaders() });
             const d = await r.json().catch(() => null);
             return d?.success ? d.job : null;
         } catch (_) {
@@ -272,7 +272,9 @@
             while (!S.drainStop) {
                 let items = [];
                 try {
-                    const r = await fetch(API_BASE + '/' + jobId + '/extension-items?limit=10');
+                    const r = await fetch(API_BASE + '/' + jobId + '/extension-items?limit=10', {
+                        headers: W2MT._authHeaders(),
+                    });
                     const d = await r.json().catch(() => null);
                     items = d?.items || [];
                 } catch (_) {
@@ -468,7 +470,7 @@
     async function _maybeReattachActive() {
         if (S.watching) return;
         try {
-            const r = await fetch(API_BASE + '/active');
+            const r = await fetch(API_BASE + '/active', { headers: W2MT._authHeaders() });
             const d = await r.json().catch(() => null);
             const job = d?.success ? d.job : null;
             if (job && (job.state === 'running' || job.state === 'awaiting_extension')) {

@@ -390,6 +390,13 @@ export function matchRoute(pathname) {
     // Route Web 2.0 mới prefix 'web2-' KHỎI cần đăng ký từng cái; KHÔNG bao giờ chạm TPOS.
     if (pathname.startsWith('/api/web2-')) return 'WEB2_GENERIC';
 
+    // audit r6 (2026-06-21): route admin Web 2.0 — /api/admin/web2-* (data-reset,
+    // wallet-reset, import-customers, import-pancake-customers, import-fb-links) —
+    // KHỚP '/api/admin/' chứ KHÔNG '/api/web2-' → trước đây rơi catch-all TPOS
+    // (tomato.tpos.vn/admin/web2-* → 404). Định tuyến về web2-api (isWeb2Path đã
+    // nhận diện '/api/admin/web2-' nhưng matchRoute chưa). Đặt trước catch-all TPOS.
+    if (pathname.startsWith('/api/admin/web2-')) return 'WEB2_GENERIC';
+
     // Catch-all for /api/* (TPOS generic)
     if (pathname.startsWith('/api/')) return 'TPOS_GENERIC';
 

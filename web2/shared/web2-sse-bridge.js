@@ -149,6 +149,11 @@
 
     function _scheduleReconnect() {
         if (reconnectTimer) return;
+        // audit r6 (2026-06-21): reconnect theo lịch = ĐỨT MẠNG thật (không phải
+        // reopen do đổi topic). Nếu reopen-đổi-topic set suppressResyncOnce=true rồi
+        // EventSource lỗi NGAY trước 'connected' → cờ kẹt true, lần connect lại bỏ
+        // qua resync → trang stale. Xoá cờ ở đây để reconnect thật luôn resync.
+        suppressResyncOnce = false;
         reconnectAttempts++;
         const delay = Math.min(
             RECONNECT_BASE_MS * Math.pow(1.6, reconnectAttempts - 1),

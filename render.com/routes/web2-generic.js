@@ -544,7 +544,11 @@ router.patch('/:entity/update/:code', requireWeb2AuthSoft, async (req, res) => {
                 sourcePage: b.sourcePage || null,
                 note: b.updateNote || null,
             });
-            merged.history = history;
+            // audit r6 (2026-06-21): cap history — mỗi PATCH push 1 entry vào JSONB
+            // không giới hạn → row phình to (chậm read/write + payload GET lớn dần)
+            // cho record cập nhật nhiều lần. Giữ MAX_HISTORY entry gần nhất.
+            const MAX_HISTORY = 300;
+            merged.history = history.length > MAX_HISTORY ? history.slice(-MAX_HISTORY) : history;
             if (b.userName) merged.updatedByName = b.userName;
             dataPayload = merged;
         }

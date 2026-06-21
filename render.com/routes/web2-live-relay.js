@@ -42,7 +42,8 @@ async function relayFetch(path, opts = {}) {
 }
 
 // GET /pages — danh sách trang + lựa chọn hiện tại (cho UI checkbox).
-router.get('/pages', async (req, res) => {
+// audit r6: gate — lộ Pancake page IDs/names/avatar/account identity nếu unauth.
+router.get('/pages', requireWeb2AuthSoft, async (req, res) => {
     try {
         const { status, json } = await relayFetch('/api/pages-available');
         res.status(status).json(json);

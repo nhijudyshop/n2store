@@ -150,6 +150,23 @@
         return n ? n.toLocaleString('vi-VN') : '0';
     }
 
+    // audit r6 (2026-06-21): báo user 1 lần (throttle 60s) khi phiên hết hạn — thay
+    // vì im lặng trả {} → cột khách trống không rõ lý do. Vẫn trả {} để không vỡ caller.
+    var _authWarnedAt = 0;
+    function _warnAuthExpired() {
+        var now = Date.now();
+        if (now - _authWarnedAt < 60000) return;
+        _authWarnedAt = now;
+        try {
+            if (global.notificationManager && global.notificationManager.show) {
+                global.notificationManager.show(
+                    'Phiên Web 2.0 hết hạn — đăng nhập lại để xem dữ liệu khách.',
+                    'warning'
+                );
+            }
+        } catch (e) {}
+    }
+
     // ── READ ────────────────────────────────────────────────────────────
     async function _post(path, body, timeoutMs) {
         try {
@@ -162,6 +179,14 @@
             var d = await r.json().catch(function () {
                 return {};
             });
+            // audit r6: TRƯỚC đây không check r.ok → 401 (WEB2_AUTH_ENFORCE=1) trả {}
+            // im lặng → batchByPhones/ByFbIds ra Map rỗng, UI trống không báo lỗi.
+            if (!r.ok) {
+                var msg = (d && d.error) || 'HTTP ' + r.status;
+                if (global.console) console.warn('[Web2CustomerStore] POST ' + path + ' → ' + msg);
+                if (r.status === 401) _warnAuthExpired();
+                return {};
+            }
             return (d && d.data) || {};
         } catch (e) {
             if (global.console)

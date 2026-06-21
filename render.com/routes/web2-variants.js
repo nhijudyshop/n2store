@@ -420,7 +420,7 @@ router.post('/', requireWeb2AuthSoft, async (req, res) => {
     }
 });
 
-router.patch('/:id', requireWeb2AuthSoft, async (req, res) => {
+router.patch('/:id(\\d+)', requireWeb2AuthSoft, async (req, res) => {
     const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     try {
@@ -486,7 +486,7 @@ router.patch('/:id', requireWeb2AuthSoft, async (req, res) => {
     }
 });
 
-router.delete('/:id', requireWeb2AuthSoft, async (req, res) => {
+router.delete('/:id(\\d+)', requireWeb2AuthSoft, async (req, res) => {
     const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     try {

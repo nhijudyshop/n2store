@@ -61,6 +61,12 @@
     };
     const DANGER_ACCENT = '#ef4444';
 
+    // audit r6 (2026-06-21): stack popup đang mở → onKey CHỈ xử lý popup trên cùng.
+    // TRƯỚC đây mỗi open() gắn keydown trên document; 2 popup mở cùng lúc (vd confirm
+    // huỷ đang chờ + 1 error popup async bật lên) thì Enter/Escape kích HOẠT cả hai →
+    // resolve nhầm confirm (true) → chạy thao tác xoá/reset ngoài ý muốn.
+    const _popupStack = [];
+
     // Body scroll-lock đếm chồng (nhiều popup lồng nhau) — iOS-safe pattern.
     let _openCount = 0;
     let _savedScrollY = 0;
@@ -388,6 +394,8 @@
             const cleanup = () => {
                 if (backdrop.parentNode) backdrop.parentNode.removeChild(backdrop);
                 document.removeEventListener('keydown', onKey);
+                const si = _popupStack.indexOf(backdrop);
+                if (si !== -1) _popupStack.splice(si, 1);
                 unlockScroll();
             };
             const finishOk = () => {
@@ -403,6 +411,9 @@
                 cleanup();
             };
             const onKey = (e) => {
+                // Chỉ popup TRÊN CÙNG nhận phím — tránh Enter/Escape resolve nhầm
+                // popup phía dưới khi nhiều popup mở chồng.
+                if (_popupStack[_popupStack.length - 1] !== backdrop) return;
                 if (e.key === 'Escape') {
                     e.preventDefault();
                     finishCancel();
@@ -418,6 +429,7 @@
                     finishOk();
                 }
             };
+            _popupStack.push(backdrop);
             document.addEventListener('keydown', onKey);
             modal.querySelector('[data-action="ok"]').addEventListener('click', finishOk);
             if (showCancel) {

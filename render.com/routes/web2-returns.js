@@ -561,34 +561,15 @@ router.post('/', requireWeb2AuthSoft, async (req, res) => {
                 return res.status(400).json({ error: 'codReduction > 0 required' });
             const doWithdraw = reasonS === 'tru_cong_no_khach';
 
-            // Trừ ví TRƯỚC khi insert (nếu thiếu → 400, không tạo phiếu rác).
-            let walletTxId = null;
-            let walletCredited = 0;
-            if (doWithdraw) {
-                try {
-                    const wd = await web2WalletService.processWithdraw(
-                        pool,
-                        phone,
-                        codReduction,
-                        'return-cod',
-                        sCode,
-                        `Trừ công nợ khách (Sửa COD) đơn ${sCode}`,
-                        user.name
-                    );
-                    walletTxId = wd?.transaction?.id || null;
-                    walletCredited = -codReduction; // âm = đã trừ ví
-                } catch (e) {
-                    if (String(e.message).includes('Số dư không đủ')) {
-                        return res.status(400).json({ error: 'Ví khách không đủ để trừ công nợ' });
-                    }
-                    throw e;
-                }
-            }
-
-            // Retry-on-unique ('23505'): _genCode (MAX+1) không atomic → 2 phiếu
-            // cùng lúc có thể sinh trùng code → INSERT lần sau lấy code mới.
+            // ATOMIC (audit r6 CRITICAL fix): trừ ví + INSERT phiếu trong CÙNG
+            // transaction. TRƯỚC đây processWithdraw(pool) commit ngay rồi INSERT
+            // riêng (pool.query) → nếu INSERT fail (lỗi non-23505 / hết retry) thì
+            // ví ĐÃ trừ mà KHÔNG có phiếu → khách mất tiền không dấu vết. Nay bọc
+            // withTransaction; retry-on-23505 (_genCode MAX+1 không atomic) tạo
+            // transaction MỚI mỗi lần → rollback cả withdraw nếu insert fail.
+            // Mirror đúng pattern van_de_khach bên dưới (processWithdraw nhận client).
             const SHIPPER_RETRY_MAX = 5;
-            let ins;
+            let insRow;
             let code;
             for (let attempt = 0; ; attempt++) {
                 code = await _genCode(pool);
@@ -603,41 +584,72 @@ router.post('/', requireWeb2AuthSoft, async (req, res) => {
                     },
                 ];
                 try {
-                    ins = await pool.query(
-                        `INSERT INTO web2_returns
-                          (code, phone, customer_name, customer_id, method, sub_type, issue, reason,
-                           source_order_code, source_order_type, items, total_amount, wallet_credited,
-                           wallet_tx_id, cod_reduction, payable_carrier, stock_status, status, note,
-                           history, created_at, updated_at, created_by, created_by_name)
-                         VALUES ($1,$2,$3,$4,'shipper_gui','cod_shipper','van_de_shipper',$5,$6,$7,'[]'::jsonb,0,$8,$9,$10,$10,'applied','active',$11,$12::jsonb,$13,$13,$14,$15)
-                         RETURNING *`,
-                        [
-                            code,
-                            phone,
-                            b.customerName || null,
-                            b.customerId || null,
-                            reasonS,
-                            sCode,
-                            sType,
-                            walletCredited,
-                            walletTxId,
-                            codReduction,
-                            b.note || null,
-                            JSON.stringify(hist),
-                            now,
-                            user.id,
-                            user.name,
-                        ]
-                    );
+                    insRow = await withTransaction(pool, async (client) => {
+                        let walletTxId = null;
+                        let walletCredited = 0;
+                        if (doWithdraw) {
+                            let wd;
+                            try {
+                                wd = await web2WalletService.processWithdraw(
+                                    client,
+                                    phone,
+                                    codReduction,
+                                    'return-cod',
+                                    sCode,
+                                    `Trừ công nợ khách (Sửa COD) đơn ${sCode}`,
+                                    user.name
+                                );
+                            } catch (e) {
+                                if (String(e.message).includes('Số dư không đủ')) {
+                                    const err = new Error('Ví khách không đủ để trừ công nợ');
+                                    err.httpStatus = 400;
+                                    throw err;
+                                }
+                                throw e;
+                            }
+                            walletTxId = wd?.transaction?.id || null;
+                            walletCredited = -codReduction; // âm = đã trừ ví
+                        }
+                        const r = await client.query(
+                            `INSERT INTO web2_returns
+                              (code, phone, customer_name, customer_id, method, sub_type, issue, reason,
+                               source_order_code, source_order_type, items, total_amount, wallet_credited,
+                               wallet_tx_id, cod_reduction, payable_carrier, stock_status, status, note,
+                               history, created_at, updated_at, created_by, created_by_name)
+                             VALUES ($1,$2,$3,$4,'shipper_gui','cod_shipper','van_de_shipper',$5,$6,$7,'[]'::jsonb,0,$8,$9,$10,$10,'applied','active',$11,$12::jsonb,$13,$13,$14,$15)
+                             RETURNING *`,
+                            [
+                                code,
+                                phone,
+                                b.customerName || null,
+                                b.customerId || null,
+                                reasonS,
+                                sCode,
+                                sType,
+                                walletCredited,
+                                walletTxId,
+                                codReduction,
+                                b.note || null,
+                                JSON.stringify(hist),
+                                now,
+                                user.id,
+                                user.name,
+                            ]
+                        );
+                        return r.rows[0];
+                    });
                     break;
                 } catch (e) {
+                    if (e && e.httpStatus) {
+                        return res.status(e.httpStatus).json({ error: e.message });
+                    }
                     if (e && e.code === '23505' && attempt < SHIPPER_RETRY_MAX) continue;
                     throw e;
                 }
             }
             if (doWithdraw) _notifyWallet(phone);
             _notify('create', code, { phone });
-            return res.json({ success: true, return: mapRow(ins.rows[0]) });
+            return res.json({ success: true, return: mapRow(insRow) });
         }
 
         // 1) Resolve items + wallet credit amount theo sub_type.
