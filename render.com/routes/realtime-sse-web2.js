@@ -41,6 +41,9 @@ let _pgNotify = null; // (payloadStr) => void — fire-and-forget
 let _listenClient = null; // dedicated PgClient cho LISTEN
 let _heartbeatTimer = null;
 let _shuttingDown = false;
+// Đếm để verify vòng LISTEN/NOTIFY sống (single-instance: published≈received vì
+// self-NOTIFY quay về; multi-instance: deliveredFromPeers > 0 khi instance khác phát).
+const _crossStats = { published: 0, received: 0, deliveredFromPeers: 0, lastRecvAt: 0 };
 
 // =====================================================
 // SSE CLIENT MANAGEMENT
@@ -466,6 +469,7 @@ router.get('/sse/stats', requireWeb2Admin, async (req, res) => {
         server: 'web2',
         bootId: BOOT_ID,
         crossInstance: !!_listenClient,
+        crossStats: _crossStats,
         liveInstances,
         multiInstanceWarning: liveInstances > 1,
         instances,
@@ -617,6 +621,7 @@ function _publishCrossInstance(kind, key, data, eventType) {
             );
             return;
         }
+        _crossStats.published++;
         _pgNotify(payload);
     } catch (e) {
         console.warn('[SSE-WEB2] _publishCrossInstance fail:', e.message);
@@ -633,7 +638,10 @@ function _onCrossInstance(payloadStr) {
     } catch {
         return;
     }
-    if (!p || p.origin === BOOT_ID) return;
+    _crossStats.received++;
+    _crossStats.lastRecvAt = Date.now();
+    if (!p || p.origin === BOOT_ID) return; // self → đã broadcast local trực tiếp
+    _crossStats.deliveredFromPeers++;
     try {
         if (p.kind === 'wildcard') _localNotifyWildcard(p.key, p.data, p.eventType);
         else if (p.kind === 'broadcast') _localBroadcast(p.data, p.eventType);
