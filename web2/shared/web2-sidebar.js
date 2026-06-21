@@ -150,7 +150,7 @@
                     our: '../web2/product-card/index.html',
                 },
                 {
-                    label: 'Tạo video sản phẩm 🎬',
+                    label: 'Xưởng Video AI 🎬',
                     our: '../web2/video-maker/index.html',
                 },
                 {

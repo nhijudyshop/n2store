@@ -2,6 +2,16 @@
 
 ## 2026-06-21
 
+### [redesign] video-maker → "Xưởng Video AI": layout 2-tab + card + xoay tua key ElevenLabs + 3 tính năng AI
+
+User: làm lại toàn bộ giao diện + đổi tên trang, audit→commit→debug→lặp. Trước đó: cấp 3 key ElevenLabs (xoay tua) + tích hợp chức năng AI.
+
+- **Xoay tua 3 key** (`22a05c807`): service đọc `ELEVENLABS_API_KEY1/2/3`, round-robin rải tải + failover 401/quota/429 → cooldown 1h. Verify 3 key OK (22 giọng, có 'Adam').
+- **3 tính năng AI** (`0842d8e5d`): hiệu ứng âm thanh (`/sound`), chép lời STT (`/stt`→điền ô lời đọc từ video import), lọc tạp âm (`/isolate`→mục Tách nhạc). Voice Design DORMANT (API chỉ gói trả phí — verify 403). Verify call thật: sound/stt/isolation OK.
+- **Redesign UI** (commit này): rename trang → **Xưởng Video AI** (title + h1 + sidebar label). Layout left-panel chia **2 tab CSS-only** (Nội dung & Cảnh · Giọng & Âm thanh) + **card** nhóm tính năng (Bắt đầu nhanh / Khung hình / Nguồn / Cảnh / Giọng đọc / VieNeu / Nhạc nền / Hiệu ứng âm thanh / Công cụ audio) + **thanh "Xuất video" sticky** luôn hiện + tabbar sticky top. Panel nền soft, card trắng nổi khối. **GIỮ NGUYÊN mọi id/class/data-attr** → JS không đổi.
+- **Fix bug `[hidden]`**: `.vm-btn{display:inline-flex}` (+`.vm-row`/`.vm-split-actions` flex) đè UA `[hidden]` → nút "Dừng"/clear/clone lỡ hiện. Thêm guard `[hidden]{display:none!important}`.
+- Verify browser (overview→trang, extension): rename OK, 2 tab swap đúng (content flex/voice none ↔), 9 card, ratios/accents/tones/cues/canvas render, cue chèn `[cười]`, Kho giọng mở, #vmStop ẩn đúng sau fix, 0 console error. Screenshot desktop 2 tab OK.
+
 ### [feat] TAG đơn — icon picker tìm kiếm (thay ô nhập tay)
 
 Theo yêu cầu: field Icon ở modal Cấu hình TAG đơn → picker hiện list icon tìm kiếm + chọn (thay vì gõ tên lucide tay). `order-tags-app.js`: `allIconNames()` lấy 1373 icon từ `window.lucide.icons` (PascalCase→kebab), `COMMON_ICONS` ~60 icon hay dùng hiện mặc định; ô nhập = ô tìm (focus → grid, gõ → filter full registry ≤120, mousedown chọn beat blur), preview box icon đang chọn + nút × xoá, pill xem-trước cập nhật. Verified browser: 60 icon default · "arrow"→62 match render SVG · chọn flame · clear · edit prefill 'clock' + screenshot. Frontend-only (`order-tags-app.js?v=icon`).

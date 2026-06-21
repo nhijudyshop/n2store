@@ -5,7 +5,7 @@
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
         <meta http-equiv="Cache-Control" content="no-cache, must-revalidate" />
-        <title>Tạo video SP — Web 2.0</title>
+        <title>Xưởng Video AI — Web 2.0</title>
 
         <meta name="theme-color" content="#0b1220" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -15,7 +15,7 @@
         <link rel="stylesheet" href="../shared/web2-sidebar.css?v=20260613z" />
         <link rel="stylesheet" href="../shared/web2-theme.css?v=20260613z" />
         <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
-        <link rel="stylesheet" href="./video-maker.css?v=20260621scene" />
+        <link rel="stylesheet" href="./video-maker.css?v=20260621ui" />
     </head>
     <body class="web2-theme">
         <div class="web2-shell">
@@ -24,328 +24,436 @@
                 <div class="vm-app">
                     <!-- ============ CONTROLS ============ -->
                     <section class="vm-panel">
-                        <h1 class="vm-h"><i data-lucide="clapperboard"></i> Tạo video sản phẩm</h1>
-                        <p class="vm-sub">
-                            Ghép ảnh SP thành video slideshow (zoom + chuyển cảnh + chữ) kèm
-                            <b>giọng đọc tiếng Việt</b> tạo ngay trên máy. Xuất file video để đăng
-                            FB/Zalo/TikTok. Chạy 100% trong trình duyệt, không gửi dữ liệu đi đâu.
-                        </p>
-
-                        <!-- ===== Tạo từ chủ đề (AI viết lời) ===== -->
-                        <div class="vm-topic">
-                            <input
-                                type="text"
-                                id="vmTopic"
-                                class="vm-topic-in"
-                                placeholder="Chủ đề video (vd: Sale hè, đồ đôi denim, hàng mới về)…"
-                            />
-                            <button class="vm-btn primary" id="vmTopicGen">
-                                <i data-lucide="sparkles"></i> Tạo bằng AI
-                            </button>
-                        </div>
-                        <div class="vm-topic-stat" id="vmTopicStat">
-                            AI viết kịch bản từ chủ đề + ghép ảnh SP của bạn + giọng đọc Việt.
-                        </div>
-
-                        <button class="vm-btn random block" id="vmRandom">
-                            <i data-lucide="shuffle"></i> Tạo ngẫu nhiên từ kho SP
-                        </button>
-
-                        <div class="vm-label">Tỉ lệ</div>
-                        <div class="vm-chips" id="vmRatios"></div>
-
-                        <div class="vm-label">Màu nhấn</div>
-                        <div class="vm-swatches" id="vmAccents"></div>
-
-                        <div class="vm-row">
-                            <label class="vm-btn primary vm-upload">
-                                <i data-lucide="image-plus"></i> + Thêm ảnh
-                                <input type="file" id="vmAdd" accept="image/*" multiple />
-                            </label>
-                        </div>
-
-                        <!-- ===== Lồng tiếng vào video có sẵn ===== -->
-                        <details class="vm-section">
-                            <summary>
-                                <i data-lucide="film"></i> Lồng tiếng vào video có sẵn
-                            </summary>
-                            <p class="vm-hint2">
-                                Tải 1 video lên → ghép <b>giọng đọc</b> (+ nhạc nền) vào video đó →
-                                xuất video mới. Khi có video, slideshow ảnh bên dưới tạm ẩn. Chạy
-                                100% trên máy.
+                        <header class="vm-head">
+                            <h1 class="vm-h"><i data-lucide="clapperboard"></i> Xưởng Video AI</h1>
+                            <p class="vm-sub">
+                                Ghép ảnh SP thành video, <b>lồng tiếng vào video có sẵn</b>, giọng
+                                đọc AI tiếng Việt (nhiều giọng · clone · ElevenLabs), nhạc nền &
+                                hiệu ứng âm thanh — 100% trên máy, xuất đăng FB/Zalo/TikTok.
                             </p>
-                            <div class="vm-row">
-                                <label class="vm-btn sm vm-upload">
-                                    <i data-lucide="upload"></i> Chọn video
-                                    <input type="file" id="vmImpFile" accept="video/*" />
+                        </header>
+
+                        <!-- CSS-only tabs (không phụ thuộc JS) -->
+                        <div class="vm-tabs">
+                            <input
+                                type="radio"
+                                name="vmtab"
+                                id="vmtab-content"
+                                class="vm-tab-radio"
+                                checked
+                            />
+                            <input
+                                type="radio"
+                                name="vmtab"
+                                id="vmtab-voice"
+                                class="vm-tab-radio"
+                            />
+                            <nav class="vm-tabbar" aria-label="Khu vực điều khiển">
+                                <label for="vmtab-content" class="vm-tab">
+                                    <i data-lucide="layout-template"></i> Nội dung &amp; Cảnh
                                 </label>
-                                <button class="vm-btn sm" id="vmImpClear" hidden>Bỏ video</button>
-                            </div>
-                            <div class="vm-voice-stat" id="vmImpStat">
-                                Chưa nạp video — đang ở chế độ slideshow ảnh.
-                            </div>
-                            <div id="vmImpVolRow" hidden>
-                                <label class="vm-slabel"
-                                    >Âm lượng tiếng gốc video <b id="vmImpVolVal">20%</b></label
-                                >
-                                <input
-                                    type="range"
-                                    id="vmImpVol"
-                                    min="0"
-                                    max="1"
-                                    step="0.05"
-                                    value="0.2"
-                                    class="vm-range"
-                                />
-                                <div class="vm-row">
-                                    <button class="vm-btn sm" id="vmImpStt">
-                                        <i data-lucide="captions"></i> Chép lời gốc (AI) → ô lời đọc
+                                <label for="vmtab-voice" class="vm-tab">
+                                    <i data-lucide="mic"></i> Giọng &amp; Âm thanh
+                                </label>
+                            </nav>
+
+                            <!-- ===== TAB 1: NỘI DUNG & CẢNH ===== -->
+                            <div class="vm-tabpanel" id="vmpanel-content">
+                                <!-- Bắt đầu nhanh -->
+                                <div class="vm-card">
+                                    <h3 class="vm-card-h">
+                                        <i data-lucide="sparkles"></i> Bắt đầu nhanh
+                                    </h3>
+                                    <div class="vm-topic">
+                                        <input
+                                            type="text"
+                                            id="vmTopic"
+                                            class="vm-topic-in"
+                                            placeholder="Chủ đề video (vd: Sale hè, đồ đôi denim, hàng mới về)…"
+                                        />
+                                        <button class="vm-btn primary" id="vmTopicGen">
+                                            <i data-lucide="sparkles"></i> Tạo bằng AI
+                                        </button>
+                                    </div>
+                                    <div class="vm-topic-stat" id="vmTopicStat">
+                                        AI viết kịch bản từ chủ đề + ghép ảnh SP của bạn + giọng đọc
+                                        Việt.
+                                    </div>
+                                    <button class="vm-btn random block" id="vmRandom">
+                                        <i data-lucide="shuffle"></i> Tạo ngẫu nhiên từ kho SP
                                     </button>
                                 </div>
-                            </div>
-                        </details>
 
-                        <div class="vm-label">
-                            Các cảnh (⚙ để chỉnh chi tiết · kéo ↑↓ đổi thứ tự)
-                        </div>
-                        <div class="vm-scenes" id="vmScenes"></div>
+                                <!-- Khung hình -->
+                                <div class="vm-card">
+                                    <h3 class="vm-card-h">
+                                        <i data-lucide="frame"></i> Khung hình
+                                    </h3>
+                                    <div class="vm-label">Tỉ lệ</div>
+                                    <div class="vm-chips" id="vmRatios"></div>
+                                    <div class="vm-label">Màu nhấn</div>
+                                    <div class="vm-swatches" id="vmAccents"></div>
+                                </div>
 
-                        <!-- ===== Hiệu ứng chung ===== -->
-                        <details class="vm-section" open>
-                            <summary><i data-lucide="wand-2"></i> Hiệu ứng chung</summary>
-                            <label class="vm-slabel"
-                                >Thời lượng chuyển cảnh <b id="vmTDurVal">0.5s</b></label
-                            >
-                            <input
-                                type="range"
-                                id="vmTDur"
-                                min="0"
-                                max="1.5"
-                                step="0.1"
-                                value="0.5"
-                                class="vm-range"
-                            />
-                            <div class="vm-label">Áp dụng nhanh cho MỌI cảnh</div>
-                            <div class="vm-bulk">
-                                <select id="vmBulkTransition" class="vm-dsel"></select>
-                                <select id="vmBulkMotion" class="vm-dsel"></select>
-                                <select id="vmBulkFilter" class="vm-dsel"></select>
-                                <button class="vm-btn sm" id="vmBulkApply">Áp dụng</button>
-                            </div>
-                        </details>
+                                <!-- Nguồn hình / video -->
+                                <div class="vm-card">
+                                    <h3 class="vm-card-h"><i data-lucide="images"></i> Nguồn</h3>
+                                    <div class="vm-row">
+                                        <label class="vm-btn primary vm-upload">
+                                            <i data-lucide="image-plus"></i> + Thêm ảnh
+                                            <input
+                                                type="file"
+                                                id="vmAdd"
+                                                accept="image/*"
+                                                multiple
+                                            />
+                                        </label>
+                                    </div>
 
-                        <!-- ===== Nhạc nền (chèn / ghép) ===== -->
-                        <details class="vm-section">
-                            <summary><i data-lucide="music"></i> Nhạc nền</summary>
-                            <div class="vm-row">
-                                <label class="vm-btn sm vm-upload">
-                                    <i data-lucide="music"></i> Chèn nhạc nền
-                                    <input type="file" id="vmMusic" accept="audio/*,video/*" />
-                                </label>
-                                <button class="vm-btn sm" id="vmMusicClear" hidden>Bỏ nhạc</button>
-                            </div>
-                            <div class="vm-music-name" id="vmMusicName"></div>
-                            <label class="vm-slabel"
-                                >Âm lượng nhạc <b id="vmMusicVolVal">35%</b></label
-                            >
-                            <input
-                                type="range"
-                                id="vmMusicVol"
-                                min="0"
-                                max="1"
-                                step="0.05"
-                                value="0.35"
-                                class="vm-range"
-                            />
-                            <label class="vm-slabel"
-                                >Âm lượng giọng đọc <b id="vmNarrVolVal">100%</b></label
-                            >
-                            <input
-                                type="range"
-                                id="vmNarrVol"
-                                min="0"
-                                max="1"
-                                step="0.05"
-                                value="1"
-                                class="vm-range"
-                            />
-                        </details>
+                                    <!-- Lồng tiếng vào video có sẵn -->
+                                    <details class="vm-section">
+                                        <summary>
+                                            <i data-lucide="film"></i> Lồng tiếng vào video có sẵn
+                                        </summary>
+                                        <p class="vm-hint2">
+                                            Tải 1 video lên → ghép <b>giọng đọc</b> (+ nhạc nền) vào
+                                            video đó → xuất video mới. Khi có video, slideshow ảnh
+                                            tạm ẩn. Chạy 100% trên máy.
+                                        </p>
+                                        <div class="vm-row">
+                                            <label class="vm-btn sm vm-upload">
+                                                <i data-lucide="upload"></i> Chọn video
+                                                <input
+                                                    type="file"
+                                                    id="vmImpFile"
+                                                    accept="video/*"
+                                                />
+                                            </label>
+                                            <button class="vm-btn sm" id="vmImpClear" hidden>
+                                                Bỏ video
+                                            </button>
+                                        </div>
+                                        <div class="vm-voice-stat" id="vmImpStat">
+                                            Chưa nạp video — đang ở chế độ slideshow ảnh.
+                                        </div>
+                                        <div id="vmImpVolRow" hidden>
+                                            <label class="vm-slabel"
+                                                >Âm lượng tiếng gốc video
+                                                <b id="vmImpVolVal">20%</b></label
+                                            >
+                                            <input
+                                                type="range"
+                                                id="vmImpVol"
+                                                min="0"
+                                                max="1"
+                                                step="0.05"
+                                                value="0.2"
+                                                class="vm-range"
+                                            />
+                                            <div class="vm-row">
+                                                <button class="vm-btn sm" id="vmImpStt">
+                                                    <i data-lucide="captions"></i> Chép lời gốc (AI)
+                                                    → ô lời đọc
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </details>
+                                </div>
 
-                        <!-- ===== Tách nhạc / Trích audio ===== -->
-                        <details class="vm-section">
-                            <summary>
-                                <i data-lucide="scissors"></i> Tách nhạc / Trích audio
-                            </summary>
-                            <p class="vm-hint2">
-                                Tải file nhạc/video → tách giọng-nhạc (karaoke) hoặc trích audio ra
-                                file <b>.wav</b>. Chạy 100% trên máy.
-                            </p>
-                            <label class="vm-btn sm vm-upload">
-                                <i data-lucide="upload"></i> Chọn file nhạc / video
-                                <input type="file" id="vmSplitFile" accept="audio/*,video/*" />
-                            </label>
-                            <div class="vm-split-actions" id="vmSplitActions" hidden>
-                                <button class="vm-btn sm" data-split="music">
-                                    <i data-lucide="music-2"></i> Tải nhạc (bỏ giọng)
-                                </button>
-                                <button class="vm-btn sm" data-split="vocals">
-                                    <i data-lucide="mic"></i> Tải giọng
-                                </button>
-                                <button class="vm-btn sm" data-split="audio">
-                                    <i data-lucide="download"></i> Trích audio
-                                </button>
-                                <button class="vm-btn sm primary" data-split="usebg">
-                                    <i data-lucide="music"></i> Dùng làm nhạc nền
-                                </button>
-                                <button class="vm-btn sm" data-split="isolate">
-                                    <i data-lucide="sparkles"></i> Lọc tạp âm (AI)
-                                </button>
-                            </div>
-                            <div class="vm-split-stat" id="vmSplitStat"></div>
-                        </details>
+                                <!-- Cảnh -->
+                                <div class="vm-card">
+                                    <h3 class="vm-card-h"><i data-lucide="layers"></i> Các cảnh</h3>
+                                    <div class="vm-hint2">
+                                        ⚙ để chỉnh chi tiết · kéo ↑↓ đổi thứ tự · mỗi cảnh có thể
+                                        đặt lời đọc + giọng riêng.
+                                    </div>
+                                    <div class="vm-scenes" id="vmScenes"></div>
 
-                        <!-- ===== Hiệu ứng âm thanh AI (ElevenLabs) ===== -->
-                        <details class="vm-section">
-                            <summary>
-                                <i data-lucide="audio-lines"></i> Tạo hiệu ứng âm thanh (AI)
-                            </summary>
-                            <p class="vm-hint2">
-                                Gõ mô tả tiếng động bằng tiếng Việt/Anh (vd: <i>tiếng vỗ tay</i>,
-                                <i>leng keng tiền</i>, <i>whoosh chuyển cảnh</i>) → AI tạo ra âm
-                                thanh. Cần bật ElevenLabs (server có key).
-                            </p>
-                            <div class="vm-topic">
-                                <input
-                                    type="text"
-                                    id="vmSfxText"
-                                    class="vm-topic-in"
-                                    placeholder="Mô tả âm thanh (vd: tiếng chuông cửa tinstore)…"
-                                />
-                                <button class="vm-btn primary" id="vmSfxGen">
-                                    <i data-lucide="sparkles"></i> Tạo
-                                </button>
+                                    <details class="vm-section" open>
+                                        <summary>
+                                            <i data-lucide="wand-2"></i> Hiệu ứng chung
+                                        </summary>
+                                        <label class="vm-slabel"
+                                            >Thời lượng chuyển cảnh
+                                            <b id="vmTDurVal">0.5s</b></label
+                                        >
+                                        <input
+                                            type="range"
+                                            id="vmTDur"
+                                            min="0"
+                                            max="1.5"
+                                            step="0.1"
+                                            value="0.5"
+                                            class="vm-range"
+                                        />
+                                        <div class="vm-label">Áp dụng nhanh cho MỌI cảnh</div>
+                                        <div class="vm-bulk">
+                                            <select id="vmBulkTransition" class="vm-dsel"></select>
+                                            <select id="vmBulkMotion" class="vm-dsel"></select>
+                                            <select id="vmBulkFilter" class="vm-dsel"></select>
+                                            <button class="vm-btn sm" id="vmBulkApply">
+                                                Áp dụng
+                                            </button>
+                                        </div>
+                                    </details>
+                                </div>
                             </div>
-                            <label class="vm-slabel">Độ dài (giây, để trống = tự động)</label>
-                            <input
-                                type="number"
-                                id="vmSfxDur"
-                                class="vm-topic-in"
-                                min="0.5"
-                                max="22"
-                                step="0.5"
-                                placeholder="vd: 3"
-                            />
-                            <div class="vm-row" style="margin-top: 8px">
-                                <button class="vm-btn sm" id="vmSfxUse" hidden>
-                                    <i data-lucide="music"></i> Dùng làm nhạc nền
-                                </button>
-                                <button class="vm-btn sm" id="vmSfxDownload" hidden>
-                                    <i data-lucide="download"></i> Tải về
-                                </button>
-                            </div>
-                            <div class="vm-voice-stat" id="vmSfxStat">Chưa tạo âm thanh nào.</div>
-                        </details>
 
-                        <!-- ===== Giọng cao cấp / CLONE giọng (VieNeu — server máy shop) ===== -->
-                        <details class="vm-section">
-                            <summary>
-                                <i data-lucide="badge-check"></i> Giọng cao cấp / Clone giọng
-                                (VieNeu)
-                            </summary>
-                            <p class="vm-hint2">
-                                Giọng Việt chất lượng cao + <b>clone giọng của bạn</b> (mẫu 3–5s).
-                                Chạy trên <b>máy shop</b> (nhấp đúp
-                                <code>install-windows.bat</code> / <code>run-mac.command</code>).
-                                Máy bật lên sẽ <b>tự hiện</b> bên dưới — bấm chọn, không cần dán
-                                URL.
-                            </p>
-                            <div class="vm-label">
-                                Máy đang online
-                                <button class="vm-vn-refresh" id="vmVnRefresh" title="Làm mới">
-                                    <i data-lucide="refresh-cw"></i>
-                                </button>
-                            </div>
-                            <div class="vm-vn-servers" id="vmVnServers">
-                                <span class="vm-hint2">Đang tìm máy shop…</span>
-                            </div>
-                            <div class="vm-row">
-                                <button class="vm-btn sm" id="vmVnInstaller">
-                                    <i data-lucide="download"></i> Chưa có máy? Tải bộ cài cho máy
-                                    shop
-                                </button>
-                            </div>
-                            <details class="vm-vn-manual">
-                                <summary>Dán URL thủ công</summary>
-                                <div class="vm-row">
+                            <!-- ===== TAB 2: GIỌNG & ÂM THANH ===== -->
+                            <div class="vm-tabpanel" id="vmpanel-voice">
+                                <!-- Giọng đọc -->
+                                <div class="vm-card">
+                                    <h3 class="vm-card-h"><i data-lucide="mic"></i> Giọng đọc</h3>
+                                    <div class="vm-label vm-voices-label">
+                                        <span>Chọn giọng (bấm 🔊 để nghe mẫu)</span>
+                                        <button class="vm-btn sm" id="vmLibOpen" type="button">
+                                            <i data-lucide="library"></i> Kho giọng
+                                        </button>
+                                    </div>
+                                    <div class="vm-voices" id="vmVoices"></div>
+                                    <div class="vm-label">Tông giọng</div>
+                                    <div class="vm-chips" id="vmTones"></div>
+
+                                    <div class="vm-label">Lời đọc (tiếng Việt)</div>
+                                    <div class="vm-cues-label">Cảm xúc (chèn vào lời đọc)</div>
+                                    <div class="vm-chips" id="vmCues"></div>
+                                    <div class="vm-hint2" id="vmCuesHint"></div>
+                                    <textarea
+                                        class="vm-narr"
+                                        id="vmNarr"
+                                        placeholder="VD: Áo thun trắng form rộng, chất cotton mát, chỉ 150 nghìn [cười]. Inbox shop để đặt nhé!"
+                                    ></textarea>
+                                    <div class="vm-row">
+                                        <button class="vm-btn primary" id="vmGenVoice">
+                                            <i data-lucide="mic"></i> Tạo giọng đọc
+                                        </button>
+                                        <button
+                                            class="vm-btn"
+                                            id="vmQuickVoice"
+                                            title="Nghe nhanh bằng giọng hệ điều hành (không lồng vào video)"
+                                        >
+                                            <i data-lucide="volume-2"></i> Nghe nhanh
+                                        </button>
+                                        <button class="vm-btn" id="vmPlayVoice" hidden>
+                                            <i data-lucide="play"></i> Nghe lại
+                                        </button>
+                                    </div>
+                                    <div class="vm-voice-stat" id="vmVoiceStat">
+                                        Giọng MMS tiếng Việt chạy trên máy — lần đầu tải model ~vài
+                                        chục MB.
+                                    </div>
+                                </div>
+
+                                <!-- Giọng cao cấp / Clone (VieNeu) -->
+                                <div class="vm-card">
+                                    <details class="vm-section">
+                                        <summary>
+                                            <i data-lucide="badge-check"></i> Giọng cao cấp / Clone
+                                            giọng (VieNeu)
+                                        </summary>
+                                        <p class="vm-hint2">
+                                            Giọng Việt chất lượng cao +
+                                            <b>clone giọng của bạn</b> (mẫu 3–5s). Chạy trên
+                                            <b>máy shop</b> (nhấp đúp
+                                            <code>install-windows.bat</code> /
+                                            <code>run-mac.command</code>). Máy bật lên sẽ
+                                            <b>tự hiện</b> bên dưới — bấm chọn, không cần dán URL.
+                                        </p>
+                                        <div class="vm-label">
+                                            Máy đang online
+                                            <button
+                                                class="vm-vn-refresh"
+                                                id="vmVnRefresh"
+                                                title="Làm mới"
+                                            >
+                                                <i data-lucide="refresh-cw"></i>
+                                            </button>
+                                        </div>
+                                        <div class="vm-vn-servers" id="vmVnServers">
+                                            <span class="vm-hint2">Đang tìm máy shop…</span>
+                                        </div>
+                                        <div class="vm-row">
+                                            <button class="vm-btn sm" id="vmVnInstaller">
+                                                <i data-lucide="download"></i> Chưa có máy? Tải bộ
+                                                cài cho máy shop
+                                            </button>
+                                        </div>
+                                        <details class="vm-vn-manual">
+                                            <summary>Dán URL thủ công</summary>
+                                            <div class="vm-row">
+                                                <input
+                                                    type="url"
+                                                    id="vmVnUrl"
+                                                    class="vm-topic-in"
+                                                    placeholder="https://…trycloudflare.com (URL server máy shop)"
+                                                />
+                                                <button class="vm-btn sm" id="vmVnConnect">
+                                                    <i data-lucide="plug"></i> Kết nối
+                                                </button>
+                                            </div>
+                                        </details>
+                                        <div class="vm-voice-stat" id="vmVnStat">
+                                            Chưa kết nối server giọng VieNeu.
+                                        </div>
+                                        <div class="vm-row" id="vmVnCloneRow" hidden>
+                                            <button class="vm-btn sm" id="vmVnRec">
+                                                <i data-lucide="mic"></i> Thu giọng mẫu (5s)
+                                            </button>
+                                            <label class="vm-btn sm vm-upload">
+                                                <i data-lucide="upload"></i> Tải file giọng mẫu
+                                                <input
+                                                    type="file"
+                                                    id="vmVnRefFile"
+                                                    accept="audio/*"
+                                                />
+                                            </label>
+                                            <button class="vm-btn sm" id="vmVnCloneClear" hidden>
+                                                Bỏ mẫu
+                                            </button>
+                                        </div>
+                                    </details>
+                                </div>
+
+                                <!-- Nhạc nền + âm lượng -->
+                                <div class="vm-card">
+                                    <h3 class="vm-card-h">
+                                        <i data-lucide="music"></i> Nhạc nền &amp; âm lượng
+                                    </h3>
+                                    <div class="vm-row">
+                                        <label class="vm-btn sm vm-upload">
+                                            <i data-lucide="music"></i> Chèn nhạc nền
+                                            <input
+                                                type="file"
+                                                id="vmMusic"
+                                                accept="audio/*,video/*"
+                                            />
+                                        </label>
+                                        <button class="vm-btn sm" id="vmMusicClear" hidden>
+                                            Bỏ nhạc
+                                        </button>
+                                    </div>
+                                    <div class="vm-music-name" id="vmMusicName"></div>
+                                    <label class="vm-slabel"
+                                        >Âm lượng nhạc <b id="vmMusicVolVal">35%</b></label
+                                    >
                                     <input
-                                        type="url"
-                                        id="vmVnUrl"
-                                        class="vm-topic-in"
-                                        placeholder="https://…trycloudflare.com (URL server máy shop)"
+                                        type="range"
+                                        id="vmMusicVol"
+                                        min="0"
+                                        max="1"
+                                        step="0.05"
+                                        value="0.35"
+                                        class="vm-range"
                                     />
-                                    <button class="vm-btn sm" id="vmVnConnect">
-                                        <i data-lucide="plug"></i> Kết nối
-                                    </button>
+                                    <label class="vm-slabel"
+                                        >Âm lượng giọng đọc <b id="vmNarrVolVal">100%</b></label
+                                    >
+                                    <input
+                                        type="range"
+                                        id="vmNarrVol"
+                                        min="0"
+                                        max="1"
+                                        step="0.05"
+                                        value="1"
+                                        class="vm-range"
+                                    />
                                 </div>
-                            </details>
-                            <div class="vm-voice-stat" id="vmVnStat">
-                                Chưa kết nối server giọng VieNeu.
+
+                                <!-- Hiệu ứng âm thanh AI -->
+                                <div class="vm-card">
+                                    <h3 class="vm-card-h">
+                                        <i data-lucide="audio-lines"></i> Hiệu ứng âm thanh (AI)
+                                    </h3>
+                                    <p class="vm-hint2">
+                                        Gõ mô tả tiếng động (vd: <i>tiếng vỗ tay</i>,
+                                        <i>leng keng tiền</i>, <i>whoosh chuyển cảnh</i>) → AI tạo
+                                        âm thanh. Cần bật ElevenLabs (server có key).
+                                    </p>
+                                    <div class="vm-topic">
+                                        <input
+                                            type="text"
+                                            id="vmSfxText"
+                                            class="vm-topic-in"
+                                            placeholder="Mô tả âm thanh (vd: tiếng chuông cửa tinh)…"
+                                        />
+                                        <button class="vm-btn primary" id="vmSfxGen">
+                                            <i data-lucide="sparkles"></i> Tạo
+                                        </button>
+                                    </div>
+                                    <label class="vm-slabel"
+                                        >Độ dài (giây, để trống = tự động)</label
+                                    >
+                                    <input
+                                        type="number"
+                                        id="vmSfxDur"
+                                        class="vm-topic-in"
+                                        min="0.5"
+                                        max="22"
+                                        step="0.5"
+                                        placeholder="vd: 3"
+                                    />
+                                    <div class="vm-row" style="margin-top: 8px">
+                                        <button class="vm-btn sm" id="vmSfxUse" hidden>
+                                            <i data-lucide="music"></i> Dùng làm nhạc nền
+                                        </button>
+                                        <button class="vm-btn sm" id="vmSfxDownload" hidden>
+                                            <i data-lucide="download"></i> Tải về
+                                        </button>
+                                    </div>
+                                    <div class="vm-voice-stat" id="vmSfxStat">
+                                        Chưa tạo âm thanh nào.
+                                    </div>
+                                </div>
+
+                                <!-- Công cụ audio -->
+                                <div class="vm-card">
+                                    <details class="vm-section">
+                                        <summary>
+                                            <i data-lucide="scissors"></i> Tách nhạc / Trích / Lọc
+                                            tạp âm
+                                        </summary>
+                                        <p class="vm-hint2">
+                                            Tải file nhạc/video → tách giọng-nhạc (karaoke), trích
+                                            audio <b>.wav</b>, hoặc <b>lọc tạp âm bằng AI</b>. Chạy
+                                            trên máy (riêng lọc tạp âm qua ElevenLabs).
+                                        </p>
+                                        <label class="vm-btn sm vm-upload">
+                                            <i data-lucide="upload"></i> Chọn file nhạc / video
+                                            <input
+                                                type="file"
+                                                id="vmSplitFile"
+                                                accept="audio/*,video/*"
+                                            />
+                                        </label>
+                                        <div class="vm-split-actions" id="vmSplitActions" hidden>
+                                            <button class="vm-btn sm" data-split="music">
+                                                <i data-lucide="music-2"></i> Tải nhạc (bỏ giọng)
+                                            </button>
+                                            <button class="vm-btn sm" data-split="vocals">
+                                                <i data-lucide="mic"></i> Tải giọng
+                                            </button>
+                                            <button class="vm-btn sm" data-split="audio">
+                                                <i data-lucide="download"></i> Trích audio
+                                            </button>
+                                            <button class="vm-btn sm primary" data-split="usebg">
+                                                <i data-lucide="music"></i> Dùng làm nhạc nền
+                                            </button>
+                                            <button class="vm-btn sm" data-split="isolate">
+                                                <i data-lucide="sparkles"></i> Lọc tạp âm (AI)
+                                            </button>
+                                        </div>
+                                        <div class="vm-split-stat" id="vmSplitStat"></div>
+                                    </details>
+                                </div>
                             </div>
-                            <div class="vm-row" id="vmVnCloneRow" hidden>
-                                <button class="vm-btn sm" id="vmVnRec">
-                                    <i data-lucide="mic"></i> Thu giọng mẫu (5s)
-                                </button>
-                                <label class="vm-btn sm vm-upload">
-                                    <i data-lucide="upload"></i> Tải file giọng mẫu
-                                    <input type="file" id="vmVnRefFile" accept="audio/*" />
-                                </label>
-                                <button class="vm-btn sm" id="vmVnCloneClear" hidden>Bỏ mẫu</button>
-                            </div>
-                        </details>
-
-                        <div class="vm-label vm-voices-label">
-                            <span>Giọng đọc (bấm 🔊 để nghe mẫu)</span>
-                            <button class="vm-btn sm" id="vmLibOpen" type="button">
-                                <i data-lucide="library"></i> Kho giọng
-                            </button>
-                        </div>
-                        <div class="vm-voices" id="vmVoices"></div>
-                        <div class="vm-label">Tông giọng</div>
-                        <div class="vm-chips" id="vmTones"></div>
-
-                        <div class="vm-label">Lời đọc (tiếng Việt)</div>
-                        <div class="vm-label" style="font-size: 11px; opacity: 0.85">
-                            Cảm xúc (chèn vào lời đọc)
-                        </div>
-                        <div class="vm-chips" id="vmCues"></div>
-                        <div class="vm-hint2" id="vmCuesHint"></div>
-                        <textarea
-                            class="vm-narr"
-                            id="vmNarr"
-                            placeholder="VD: Áo thun trắng form rộng, chất cotton mát, chỉ 150 nghìn [cười]. Inbox shop để đặt nhé!"
-                        ></textarea>
-                        <div class="vm-row">
-                            <button class="vm-btn primary" id="vmGenVoice">
-                                <i data-lucide="mic"></i> Tạo giọng đọc
-                            </button>
-                            <button
-                                class="vm-btn"
-                                id="vmQuickVoice"
-                                title="Nghe nhanh bằng giọng hệ điều hành (không lồng vào video)"
-                            >
-                                <i data-lucide="volume-2"></i> Nghe nhanh
-                            </button>
-                            <button class="vm-btn" id="vmPlayVoice" hidden>
-                                <i data-lucide="play"></i> Nghe lại
-                            </button>
-                        </div>
-                        <div class="vm-voice-stat" id="vmVoiceStat">
-                            Giọng MMS tiếng Việt chạy trên máy — lần đầu tải model ~vài chục MB.
                         </div>
 
-                        <button class="vm-btn primary block" id="vmExport">
-                            <i data-lucide="download"></i> Xuất video
-                        </button>
+                        <!-- Thanh hành động luôn hiện -->
+                        <div class="vm-export-bar">
+                            <button class="vm-btn primary block" id="vmExport">
+                                <i data-lucide="download"></i> Xuất video
+                            </button>
+                        </div>
                     </section>
 
                     <!-- ============ PREVIEW ============ -->
