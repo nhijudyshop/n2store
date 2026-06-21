@@ -46,6 +46,24 @@
         );
     }
 
+    // Select giọng đọc RIÊNG cho cảnh (multi-narrator). "" = dùng giọng chung.
+    function _voiceSel(scene, esc) {
+        const voices = (global.Web2VideoTTS && global.Web2VideoTTS.VOICES) || [];
+        const cur = scene.voiceId || '';
+        const opts =
+            `<option value=""${cur === '' ? ' selected' : ''}>Giọng chung</option>` +
+            voices
+                .map(
+                    (v) =>
+                        `<option value="${esc(v.id)}"${v.id === cur ? ' selected' : ''}>${esc(v.label)}</option>`
+                )
+                .join('');
+        return (
+            `<label class="vm-d"><span>Giọng cảnh này</span>` +
+            `<select class="vm-dsel" data-k="voiceId">${opts}</select></label>`
+        );
+    }
+
     function detailHtml(scene, esc) {
         applyDefaults(scene);
         return (
@@ -57,6 +75,11 @@
             _sel('Khung hình', 'fit', scene.fit, esc) +
             `<label class="vm-d vm-d-bg"><span>Màu nền</span>` +
             `<input type="color" class="vm-dcolor" data-k="bg" value="${esc(scene.bg || '#000000')}"></label>` +
+            `</div>` +
+            // Lời đọc riêng cho cảnh (multi-narrator). Có chữ ở ≥1 cảnh → bật chế độ theo-cảnh.
+            `<div class="vm-scene-narr">` +
+            `<input type="text" class="vm-in" data-k="narr" placeholder="Lời đọc riêng cảnh này (để trống = dùng lời đọc chung)" value="${esc(scene.narr || '')}">` +
+            _voiceSel(scene, esc) +
             `</div>`
         );
     }

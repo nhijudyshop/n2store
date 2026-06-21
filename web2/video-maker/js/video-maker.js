@@ -242,30 +242,95 @@
         document.querySelectorAll('.vm-voice-sample').forEach((b) => (b.disabled = !!busy));
     }
 
+    // Chế độ "giọng theo từng cảnh" (multi-narrator): ≥1 cảnh có lời đọc riêng.
+    function hasPerSceneNarration() {
+        return state.scenes.some((sc) => (sc.narr || '').trim());
+    }
+
+    // Tổng hợp lời đọc theo từng cảnh: mỗi cảnh đọc dòng riêng bằng giọng riêng, cảnh
+    // tự nới thời lượng cho vừa lời, ghép vào 1 buffer canh theo mốc bắt đầu của cảnh.
+    async function genNarrationPerScene(setStat) {
+        const TTS = global.Web2VideoTTS;
+        // 1) synth từng cảnh (tuần tự — engine serialize) + nới dur cho vừa lời
+        for (const sc of state.scenes) {
+            const t = (sc.narr || '').trim();
+            if (!t) continue;
+            const vId = sc.voiceId || state.voiceId;
+            setStat('Đang tạo giọng theo cảnh…');
+            const r = await TTS.synthesize(t, {
+                voiceId: vId,
+                pitch: tonePitch(),
+                onStatus: setStat,
+            });
+            const sec = r.samples.length / r.sampleRate;
+            sc.dur = Math.max(Number(sc.dur) || 3, +(sec + 0.4).toFixed(2));
+            sc._seg = r;
+        }
+        // 2) mix vào 1 buffer 44.1kHz, đặt audio mỗi cảnh tại mốc bắt đầu (OfflineAudioContext tự resample)
+        const SR = 44100;
+        const total = global.Web2VideoRender.totalDuration(state.scenes);
+        const OAC = global.OfflineAudioContext || global.webkitOfflineAudioContext;
+        // mỗi cảnh đã nới dur cho vừa audio → audio luôn nằm trong tổng; pad nhỏ phòng rounding.
+        const offline = new OAC(1, Math.ceil(total * SR) + Math.ceil(0.15 * SR), SR);
+        let acc = 0;
+        for (const sc of state.scenes) {
+            const d = Number(sc.dur) || 3;
+            if (sc._seg) {
+                const seg = sc._seg;
+                const buf = offline.createBuffer(1, seg.samples.length, seg.sampleRate);
+                buf.copyToChannel
+                    ? buf.copyToChannel(seg.samples, 0)
+                    : buf.getChannelData(0).set(seg.samples);
+                const src = offline.createBufferSource();
+                src.buffer = buf;
+                src.connect(offline.destination);
+                src.start(acc);
+                delete sc._seg;
+            }
+            acc += d;
+        }
+        const rendered = await offline.startRendering();
+        return { samples: rendered.getChannelData(0).slice(), sampleRate: SR };
+    }
+
     async function genNarration() {
         if (state._ttsBusy) return;
+        const perScene = hasPerSceneNarration();
         const text = $('#vmNarr').value.trim();
-        if (!text) return notify('Nhập nội dung lời đọc trước', 'warning');
+        if (!text && !perScene)
+            return notify('Nhập lời đọc chung, hoặc lời đọc riêng cho từng cảnh (⚙)', 'warning');
         const stat = $('#vmVoiceStat');
         setTtsBusy(true);
         const setStat = (m) => {
             stat.textContent = m;
         };
         try {
-            const { samples, sampleRate } = await global.Web2VideoTTS.synthesize(text, {
-                voiceId: state.voiceId,
-                pitch: tonePitch(),
-                onStatus: setStat,
-            });
-            state.narration = { text, samples, sampleRate };
-            const secs = (samples.length / sampleRate).toFixed(1);
-            setStat(`✅ Đã tạo giọng đọc (${secs}s). Sẽ lồng vào video khi xuất.`);
+            const out = perScene
+                ? await genNarrationPerScene(setStat)
+                : await global.Web2VideoTTS.synthesize(text, {
+                      voiceId: state.voiceId,
+                      pitch: tonePitch(),
+                      onStatus: setStat,
+                  });
+            state.narration = {
+                text: perScene ? '(theo từng cảnh)' : text,
+                samples: out.samples,
+                sampleRate: out.sampleRate,
+            };
+            if (perScene) {
+                renderScenes(); // dur cảnh có thể đã nới → cập nhật danh sách
+                drawAt(0);
+            }
+            const secs = (out.samples.length / out.sampleRate).toFixed(1);
+            setStat(
+                `✅ Đã tạo giọng đọc${perScene ? ' (theo từng cảnh)' : ''} (${secs}s). Sẽ lồng vào video khi xuất.`
+            );
             $('#vmPlayVoice').hidden = false;
             notify('Đã tạo giọng đọc tiếng Việt', 'success');
         } catch (e) {
             console.error('[video-maker] TTS error:', e);
             setStat('❌ Lỗi tạo giọng: ' + (e.message || e) + ' — thử "Nghe nhanh" (giọng máy).');
-            notify('Không tạo được giọng MMS, dùng tạm "Nghe nhanh"', 'error');
+            notify('Không tạo được giọng đọc', 'error');
         } finally {
             setTtsBusy(false);
         }
