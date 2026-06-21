@@ -24,21 +24,33 @@ const ImageManager = (() => {
     let _modalOpen = false; // true between open() and modal-close
     let _saveInProgress = false; // true during save() — used to distinguish own SSE vs external
     let _externalChangeDetected = false; // set when SSE arrives while modal open AND not from our save
-    let _originalDotContent = new Map(); // dotSo -> canonical content at open() — for dirty detection (skip unchanged đợt on save)
+    // dotSo -> Map(ncc -> urlsKey) captured at open() / after each save. Drives
+    // both dirty detection (skip unchanged đợt) and the per-NCC diff (upsert only
+    // changed NCCs, delete only removed ones) so editing 1 NCC in a big đợt does
+    // not re-upload the whole slot.
+    let _originalDotContent = new Map();
 
     /**
-     * Canonical, order-independent serialization of one đợt's content
-     * (NCCs + their image URLs). Used to detect whether a đợt actually changed
-     * since the modal opened, so save() only re-PUTs đợt that were modified
-     * instead of re-uploading the entire table on every save.
+     * Stable, collision-proof key for an array of image URLs. Length-prefixed
+     * because base64 data URLs can contain almost any character, so a plain
+     * separator is not safe.
      */
-    function _canonicalDotContent(entries) {
-        return (entries || [])
-            .map((e) => ({ ncc: parseInt(e.ncc, 10) || 0, urls: e.urls || [] }))
-            .filter((e) => e.ncc > 0 && e.urls.length > 0)
-            .sort((a, b) => a.ncc - b.ncc)
-            .map((e) => e.ncc + '=' + e.urls.join(''))
-            .join('');
+    function _urlsKey(urls) {
+        return (urls || []).map((u) => (u || '').length + ':' + (u || '')).join('|');
+    }
+
+    /**
+     * Build Map(nccNum -> urlsKey) for one đợt's entries ([{ ncc, urls }]),
+     * keeping only real entries (ncc > 0 with at least one image).
+     */
+    function _dotNccKeyMap(entries) {
+        const m = new Map();
+        (entries || []).forEach((e) => {
+            const ncc = parseInt(e.ncc, 10) || 0;
+            const urls = e.urls || [];
+            if (ncc > 0 && urls.length > 0) m.set(ncc, _urlsKey(urls));
+        });
+        return m;
     }
 
     /**
@@ -155,7 +167,7 @@ const ImageManager = (() => {
                 });
             });
             Object.keys(_byDot).forEach((d) => {
-                _originalDotContent.set(parseInt(d, 10), _canonicalDotContent(_byDot[d]));
+                _originalDotContent.set(parseInt(d, 10), _dotNccKeyMap(_byDot[d]));
             });
         } catch (error) {
             console.error('[IMG-MGR] Error loading product images:', error);
@@ -769,26 +781,55 @@ const ImageManager = (() => {
                 seenInRows.add(`${canonicalDate}__${dotSo}__${nccNum}`);
             });
 
-            // Issue one PUT per đợt — but ONLY for đợt that actually changed since
-            // open(). Re-uploading an unchanged đợt (all its NCC base64) just to
-            // have the server DELETE+INSERT identical rows is the main reason save
-            // felt slow. Skipping them means editing 1 image in 1 đợt no longer
-            // re-writes every other đợt.
+            // For each đợt, diff current vs the snapshot taken at open() and send
+            // ONLY the changed NCCs (upserts) + removed NCCs (deletes). Editing 1
+            // NCC in a big đợt (e.g. Đợt 2 = 80+ NCC) now uploads just that 1 NCC
+            // instead of re-writing the whole slot. Unchanged đợt send nothing.
             const calls = [];
             let changedDotCount = 0;
             buckets.forEach((rows, dotSo) => {
-                const currentContent = _canonicalDotContent(rows);
-                const originalContent = _originalDotContent.get(dotSo);
-                if (originalContent !== undefined && currentContent === originalContent) {
-                    return; // unchanged — skip the PUT entirely
-                }
+                const currentMap = _dotNccKeyMap(rows); // ncc -> urlsKey
+                const originalMap = _originalDotContent.get(dotSo) || new Map();
+
+                // urls payload per ncc (for upserts)
+                const urlsByNcc = new Map();
+                rows.forEach((r) => {
+                    const n = parseInt(r.ncc, 10) || 0;
+                    if (n > 0 && (r.urls || []).length > 0) urlsByNcc.set(n, r.urls);
+                });
+
+                const upserts = [];
+                currentMap.forEach((key, ncc) => {
+                    if (originalMap.get(ncc) !== key) {
+                        upserts.push({ ncc, urls: urlsByNcc.get(ncc) });
+                    }
+                });
+                const deletes = [];
+                originalMap.forEach((_key, ncc) => {
+                    if (!currentMap.has(ncc)) deletes.push(ncc);
+                });
+
+                if (upserts.length === 0 && deletes.length === 0) return; // unchanged
                 changedDotCount++;
                 const canonicalDate = _canonicalDateForDot(dotSo);
+                // Slot-replace rows kept ready for the old-server fallback below.
+                const slotRows = rows;
                 calls.push(
-                    productImagesApi.bulkSave(rows, { date: canonicalDate, dotSo }).catch((err) => {
-                        console.error(`[IMG-MGR] Save đợt ${dotSo} failed:`, err);
-                        throw err;
-                    })
+                    productImagesApi
+                        .granularSave({ date: canonicalDate, dotSo, upserts, deletes })
+                        .catch((err) => {
+                            // Old server doesn't understand granular → fall back to a
+                            // full slot replace (correct, just heavier). Keeps the
+                            // change deploy-order-independent.
+                            if (/rows must be an array/i.test((err && err.message) || '')) {
+                                return productImagesApi.bulkSave(slotRows, {
+                                    date: canonicalDate,
+                                    dotSo,
+                                });
+                            }
+                            console.error(`[IMG-MGR] Granular save đợt ${dotSo} failed:`, err);
+                            throw err;
+                        })
                 );
             });
 
@@ -856,7 +897,7 @@ const ImageManager = (() => {
                 (_byDotAfter[d] = _byDotAfter[d] || []).push({ ncc: r.ncc, urls: r.uploadedUrls });
             });
             Object.keys(_byDotAfter).forEach((d) => {
-                _originalDotContent.set(parseInt(d, 10), _canonicalDotContent(_byDotAfter[d]));
+                _originalDotContent.set(parseInt(d, 10), _dotNccKeyMap(_byDotAfter[d]));
             });
             // Update each row's originalDate to canonical (since DB now has them there)
             // Refresh each surviving row's originalDate to the canonical date
