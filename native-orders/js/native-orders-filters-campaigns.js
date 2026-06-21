@@ -135,30 +135,14 @@
         list.innerHTML = html;
     };
 
-    // ===== Chiến dịch cha (parent campaign) — chung dữ liệu live-chat =====
-    NO.LIVE_COMMENTS_API = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/web2-live-comments';
-
-    // web2-live-comments GET/POST đều soft-gated (requireWeb2AuthSoft) → BẮT BUỘC
-    // gắn x-web2-token, thiếu → 401 → "Chưa có chiến dịch cha" (regression 2026-06-20).
-    NO._liveCommentsHeaders = function _liveCommentsHeaders(extra) {
-        if (window.Web2Auth?.authHeaders) return window.Web2Auth.authHeaders(extra || {});
-        const h = { ...(extra || {}) };
-        try {
-            const t = JSON.parse(localStorage.getItem('web2_auth') || 'null')?.token;
-            if (t) h['x-web2-token'] = t;
-        } catch (_) {
-            /* no token */
-        }
-        return h;
-    };
+    // ===== Chiến dịch cha (parent campaign) — DÙNG CHUNG qua Web2Campaign =====
+    // Logic chiến dịch (CRUD + gán bài) gom 1 nguồn ở web2/shared/web2-campaign.js;
+    // trang chỉ điều phối UI. KHÔNG fetch /api/web2-live-comments trực tiếp nữa
+    // (trước đây fork y hệt live-chat — gây drift). Auth x-web2-token do module lo.
 
     NO.loadParentCampaigns = async function loadParentCampaigns() {
         try {
-            const r = await fetch(NO.LIVE_COMMENTS_API + '/campaigns', {
-                headers: NO._liveCommentsHeaders(),
-            });
-            const d = await r.json().catch(() => ({}));
-            NO.STATE.parentCampaigns = d.data || [];
+            NO.STATE.parentCampaigns = (await window.Web2Campaign.list()) || [];
             NO.renderParentCampaigns();
         } catch (e) {
             console.warn('[native-orders] parent campaigns fail:', e.message);
@@ -200,11 +184,8 @@
         }
         if (id) {
             try {
-                const r = await fetch(NO.LIVE_COMMENTS_API + '/posts', {
-                    headers: NO._liveCommentsHeaders(),
-                });
-                const d = await r.json().catch(() => ({}));
-                NO.STATE.parentPostIds = (d.data || [])
+                const posts = await window.Web2Campaign.listPosts();
+                NO.STATE.parentPostIds = (posts || [])
                     .filter((p) => String(p.campaign_id) === String(id))
                     .map((p) => String(p.post_id));
             } catch (e) {
@@ -222,11 +203,7 @@
         const name = (inp?.value || '').trim();
         if (!name) return;
         try {
-            await fetch(NO.LIVE_COMMENTS_API + '/campaigns', {
-                method: 'POST',
-                headers: NO._liveCommentsHeaders({ 'Content-Type': 'application/json' }),
-                body: JSON.stringify({ name }),
-            });
+            await window.Web2Campaign.create(name);
             if (inp) inp.value = '';
             await NO.loadParentCampaigns();
             NO.renderPagePosts(); // options select cập nhật theo parent mới
@@ -237,11 +214,7 @@
 
     NO.loadPagePosts = async function loadPagePosts() {
         try {
-            const r = await fetch(NO.LIVE_COMMENTS_API + '/page-posts', {
-                headers: NO._liveCommentsHeaders(),
-            });
-            const d = await r.json().catch(() => ({}));
-            NO.STATE.pagePosts = d.data || [];
+            NO.STATE.pagePosts = (await window.Web2Campaign.listPagePosts()) || [];
             NO.renderPagePosts();
         } catch (e) {
             console.warn('[native-orders] page-posts fail:', e.message);
@@ -281,17 +254,13 @@
     NO.assignPost = async function assignPost(postId, campaignId, pageId, title) {
         try {
             if (campaignId) {
-                await fetch(NO.LIVE_COMMENTS_API + '/campaigns/' + campaignId + '/assign', {
-                    method: 'POST',
-                    headers: NO._liveCommentsHeaders({ 'Content-Type': 'application/json' }),
-                    body: JSON.stringify({ postId, postTitle: title, pageId }),
+                await window.Web2Campaign.assignPost(campaignId, {
+                    postId,
+                    postTitle: title,
+                    pageId,
                 });
             } else {
-                await fetch(NO.LIVE_COMMENTS_API + '/unassign', {
-                    method: 'POST',
-                    headers: NO._liveCommentsHeaders({ 'Content-Type': 'application/json' }),
-                    body: JSON.stringify({ postId }),
-                });
+                await window.Web2Campaign.unassignPost(postId);
             }
             await NO.loadParentCampaigns();
             await NO.loadPagePosts();

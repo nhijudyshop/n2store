@@ -102,9 +102,11 @@
         const body = document.getElementById('lcm-body');
         if (!body) return;
         const gen = ++_renderGen;
-        let cd;
+        let camps;
         try {
-            cd = await _api('/campaigns');
+            // DÙNG CHUNG: campaign CRUD + bài gom 1 nguồn ở web2/shared/web2-campaign.js
+            // (trước đây fork y hệt native-orders → drift). Trang chỉ điều phối UI.
+            camps = await global.Web2Campaign.list();
         } catch (e) {
             if (gen !== _renderGen) return;
             body.innerHTML =
@@ -112,13 +114,13 @@
             return;
         }
         if (gen !== _renderGen) return;
-        _camps = cd.data || [];
+        _camps = camps || [];
         const posts = _pagePosts();
         // map post→campaign từ /posts (assign hiện tại)
         let assignMap = {};
         try {
-            const pd = await _api('/posts');
-            for (const p of pd.data || []) assignMap[String(p.post_id)] = p.campaign_id;
+            const pd = await global.Web2Campaign.listPosts();
+            for (const p of pd || []) assignMap[String(p.post_id)] = p.campaign_id;
         } catch {}
         if (gen !== _renderGen) return;
 
@@ -220,11 +222,7 @@
                 if (act === 'add') {
                     const name = document.getElementById('lcm-newname').value.trim();
                     if (!name) return;
-                    await _api('/campaigns', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ name }),
-                    });
+                    await global.Web2Campaign.create(name);
                     _render();
                 } else if (act === 'del') {
                     const cid = btn.closest('[data-cid]')?.dataset.cid;
@@ -235,7 +233,7 @@
                         }))
                     )
                         return;
-                    await _api('/campaigns/' + cid, { method: 'DELETE' });
+                    await global.Web2Campaign.remove(cid);
                     _render();
                 } else if (act === 'view') {
                     const cid = btn.closest('[data-cid]')?.dataset.cid;
@@ -253,21 +251,13 @@
             const cid = sel.value;
             try {
                 if (cid) {
-                    await _api('/campaigns/' + cid + '/assign', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            postId,
-                            pageId: sel.dataset.page,
-                            postTitle: sel.dataset.title,
-                        }),
+                    await global.Web2Campaign.assignPost(cid, {
+                        postId,
+                        pageId: sel.dataset.page,
+                        postTitle: sel.dataset.title,
                     });
                 } else {
-                    await _api('/unassign', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ postId }),
-                    });
+                    await global.Web2Campaign.unassignPost(postId);
                 }
                 _render();
             } catch (err) {
