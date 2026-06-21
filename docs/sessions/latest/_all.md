@@ -3,18 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `1a411c4` — fix(web2) audit-r8: 16 bug (Zalo double-enc CRIT, double-debit CRIT, secret/PII leaks, timeouts)
-**Last updated**: 2026-06-21 13:51:05 +07
-**Latest session**: [`RESUME:20260621-135105-1a411c4`](../20260621-135105-1a411c4.md)
-**Summary**: audit r8: 16 fix (Zalo double-enc CRIT, double-debit CRIT, token/PII leaks); 3 defer + SePay creds Web1 surface
+**Latest commit**: `2dcf4b5` — fix(web2) hotfix r8: ck-dashboard 401 — fetchJson gửi x-web2-token + lucide icon
+**Last updated**: 2026-06-21 14:23:57 +07
+**Latest session**: [`RESUME:20260621-142357-2dcf4b5`](../20260621-142357-2dcf4b5.md)
+**Summary**: fix(web2) hotfix r8: ck-dashboard 401 — fetchJson gửi x-web2-token + lucide icon
 
 ## Folders affected in this commit
 
-- [`cloudflare-worker/`](./cloudflare-worker.md) — 2 file(s)
 - [`docs/`](./docs.md) — 1 file(s)
-- [`native-orders/`](./native-orders.md) — 2 file(s)
-- [`render.com/`](./render.com.md) — 11 file(s)
-- [`web2/`](./web2.md) — 9 file(s)
+- [`web2/`](./web2.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -29,7 +26,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-21 13:51
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-06-21 13:51
+- [`docs/`](./docs.md) — updated 2026-06-21 14:23
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-19 14:27
@@ -80,4 +77,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-21 13:51
+- [`web2/`](./web2.md) — updated 2026-06-21 14:23
