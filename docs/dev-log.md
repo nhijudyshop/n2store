@@ -10,6 +10,7 @@ User: "TAG KPI User nữa → audit nói lại logic KPI user". Audit (2 Explore
 - **Popup** (`web2-order-tag-detail.js`): branch `kpi_user` → hero NV/avatar (đỏ+icon khi lỗi) + 3 box (SL KPI · Tiền · đơn giá 5.000đ) + note "chưa chốt" + list SP (base→hiện tại, badge "+N KPI"). Bump `?v=20260621kpi`.
 - **Frontend native-orders KHÔNG đổi**: pill đã render từ `o.autoTags` + clickable sẵn → kpi_user tự hoạt động.
 - Unit-test local 4 ca (live-assigned Hoa +3=15k · live-ERROR STT99 đỏ · inbox Lan 100%=6SP=30k · live chưa-chốt qty0 vẫn hiện Hoa) PASS. Engine = Render deploy; pill/popup = GH Pages.
+- **Verified LIVE prod** (browser-test, extension): deploy → /triggers=22 (nhóm "KPI"); tạo tag KPI User qua API (x-web2-token, 200); native-orders 9/9 đơn có pill KPI; trước seed assignment = **đỏ "⚠ STT n chưa gán NV"** (đúng — chưa phân công); seed range 1 chiến dịch (PUT /api/web2/kpi/employee-ranges) → 2 đơn STT 1–2 flip **xanh "NV Test KPI"**, chiến dịch khác giữ đỏ; popup OK (hero xanh + STT∈dải + box 0SP/0đ/5.000đ + note chưa-chốt + line SP) & ERROR (hero đỏ + tên chiến dịch + "Vào Cấu hình KPI chia range") đều render đúng (2 screenshot). Cleanup assignment ảo. Tag KPI User sống trong prod (priority 5).
 
 ### [redesign] video-maker → "Xưởng Video AI": layout 2-tab + card + xoay tua key ElevenLabs + 3 tính năng AI
 
