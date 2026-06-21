@@ -3,15 +3,16 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `0c5bc7d` — feat(web2): over-refund cap ví NCC server-authoritative qua so-order (quick-refund + /tx)
-**Last updated**: 2026-06-21 15:41:10 +07
-**Latest session**: [`RESUME:20260621-154110-0c5bc7d`](../20260621-154110-0c5bc7d.md)
-**Summary**: over-refund cap ví NCC server-authoritative qua so-order
+**Latest commit**: `5b8e242` — auto: session update
+**Last updated**: 2026-06-21 15:46:59 +07
+**Latest session**: [`RESUME:20260621-154659-5b8e242`](../20260621-154659-5b8e242.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
+- [`cloudflare-worker/`](./cloudflare-worker.md) — 1 file(s)
 - [`docs/`](./docs.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 3 file(s)
+- [`inventory-tracking/`](./inventory-tracking.md) — 3 file(s)
 
 ## All folder snapshots
 
@@ -23,10 +24,10 @@
 - [`balance-history-home/`](./balance-history-home.md) — updated 2026-06-20 12:07
 - [`balance-history/`](./balance-history.md) — updated 2026-06-20 12:07
 - [`bangkiemhang/`](./bangkiemhang.md) — updated 2026-06-20 12:07
-- [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-21 14:47
+- [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-21 15:46
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-06-21 15:41
+- [`docs/`](./docs.md) — updated 2026-06-21 15:46
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-19 14:27
@@ -36,7 +37,7 @@
 - [`hanghoan/`](./hanghoan.md) — updated 2026-06-20 12:07
 - [`inbox/`](./inbox.md) — updated 2026-06-20 12:07
 - [`index/`](./index.md) — updated 2026-06-20 16:43
-- [`inventory-tracking/`](./inventory-tracking.md) — updated 2026-06-20 12:07
+- [`inventory-tracking/`](./inventory-tracking.md) — updated 2026-06-21 15:47
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-06-20 12:07
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-20 12:07
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-06-20 12:07
