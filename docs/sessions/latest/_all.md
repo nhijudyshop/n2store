@@ -3,17 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `cca2a9f` — redesign(video-maker): giao diện điện thoại như app edit chuyên nghiệp
-**Last updated**: 2026-06-21 19:34:48 +07
-**Latest session**: [`RESUME:20260621-193448-cca2a9f`](../20260621-193448-cca2a9f.md)
-**Summary**: video-maker mobile = app edit chuyên nghiệp (preview ghim, tab segmented, Xuất ghim đáy)
+**Latest commit**: `306b393` — docs(dev-log): KPI User #1-#4 — verified live (chốt base admin, amber→xanh, health bar, filter NV)
+**Last updated**: 2026-06-21 19:38:10 +07
+**Latest session**: [`RESUME:20260621-193810-306b393`](../20260621-193810-306b393.md)
+**Summary**: docs(dev-log): KPI User #1-#4 — verified live (chốt base admin, amber→xanh, health bar, filter NV)
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`native-orders/`](./native-orders.md) — 3 file(s)
-- [`render.com/`](./render.com.md) — 2 file(s)
-- [`web2/`](./web2.md) — 3 file(s)
 
 ## All folder snapshots
 
@@ -28,7 +25,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-21 15:47
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-06-21 19:34
+- [`docs/`](./docs.md) — updated 2026-06-21 19:38
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-19 14:27
