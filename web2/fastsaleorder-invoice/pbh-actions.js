@@ -33,7 +33,7 @@
                 run: async () => {
                     const r = await fetch(
                         `${WORKER}/api/fast-sale-orders/${encodeURIComponent(number)}/confirm`,
-                        { method: 'POST' }
+                        { method: 'POST', headers: window.PbhApi._authHeaders() }
                     );
                     const data = await r.json();
                     if (!r.ok || !data.success) throw new Error(data.error || `HTTP ${r.status}`);
@@ -52,7 +52,7 @@
         } else {
             const r = await fetch(
                 `${WORKER}/api/fast-sale-orders/${encodeURIComponent(number)}/confirm`,
-                { method: 'POST' }
+                { method: 'POST', headers: window.PbhApi._authHeaders() }
             );
             const data = await r.json();
             if (!r.ok || !data.success) return notify('Lỗi: ' + (data.error || r.status), 'error');
@@ -84,7 +84,7 @@
                 run: async () => {
                     const r = await fetch(
                         `${WORKER}/api/fast-sale-orders/${encodeURIComponent(number)}/cancel`,
-                        { method: 'POST' }
+                        { method: 'POST', headers: window.PbhApi._authHeaders() }
                     );
                     const data = await r.json();
                     if (!r.ok || !data.success) throw new Error(data.error || `HTTP ${r.status}`);
@@ -104,7 +104,7 @@
         } else {
             const r = await fetch(
                 `${WORKER}/api/fast-sale-orders/${encodeURIComponent(number)}/cancel`,
-                { method: 'POST' }
+                { method: 'POST', headers: window.PbhApi._authHeaders() }
             );
             const data = await r.json();
             if (!r.ok || !data.success) return notify('Lỗi: ' + (data.error || r.status), 'error');
@@ -132,7 +132,7 @@
         try {
             const r = await fetch(`${WORKER}/api/delivery-invoices/from-pbh`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...window.PbhApi._authHeaders() },
                 body: JSON.stringify({ pbhNumber: number }),
             });
             const data = await r.json();
@@ -196,7 +196,7 @@
         try {
             const r = await fetch(`${WORKER}/api/fast-sale-orders/${endpoint}`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...window.PbhApi._authHeaders() },
                 body: JSON.stringify({ numbers }),
             });
             const data = await r.json();
@@ -255,7 +255,7 @@
         try {
             const r = await fetch(`${WORKER}/api/fast-sale-orders/merge`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...window.PbhApi._authHeaders() },
                 body: JSON.stringify({ numbers }),
             });
             const data = await r.json();
@@ -333,7 +333,7 @@
         try {
             const r = await fetch(`${WORKER}/api/fast-sale-orders/reset-stt`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...window.PbhApi._authHeaders() },
                 body: JSON.stringify({ renumber }),
             });
             const data = await r.json();

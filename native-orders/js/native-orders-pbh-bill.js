@@ -489,7 +489,13 @@
         try {
             const resp = await fetch(
                 `${NO.WORKER_URL}/api/fast-sale-orders/by-source/${encodeURIComponent(code)}/cancel`,
-                { method: 'POST', headers: { 'Content-Type': 'application/json' } }
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...(window.Web2Auth?.authHeaders ? window.Web2Auth.authHeaders() : {}),
+                    },
+                }
             );
             const data = await resp.json();
             if (!resp.ok || !data.success) throw new Error(data.error || `HTTP ${resp.status}`);
@@ -527,7 +533,10 @@
             }
             const r = await fetch(`${NO.WORKER_URL}/api/fast-sale-orders/from-native-order`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(window.Web2Auth?.authHeaders ? window.Web2Auth.authHeaders() : {}),
+                },
                 body: JSON.stringify(body),
             });
             const data = await r.json();
@@ -686,7 +695,10 @@
             // _doCreatePbh / cancelOrder (cùng endpoint from-native-order).
             const r = await fetch(`${NO.WORKER_URL}/api/fast-sale-orders/from-native-order`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(window.Web2Auth?.authHeaders ? window.Web2Auth.authHeaders() : {}),
+                },
                 body: JSON.stringify({ nativeOrderCode: code, split: true }),
             });
             const data = await r.json();

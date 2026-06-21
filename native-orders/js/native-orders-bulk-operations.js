@@ -429,7 +429,10 @@
                     `${NO.WORKER_URL}/api/fast-sale-orders/from-native-order`,
                     {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: {
+                            'Content-Type': 'application/json',
+                            ...(window.Web2Auth?.authHeaders ? window.Web2Auth.authHeaders() : {}),
+                        },
                         body: JSON.stringify({ nativeOrderCode: r.code, ...extras }),
                     }
                 );
@@ -538,7 +541,10 @@
             try {
                 const r = await fetch(`${NO.WORKER_URL}/api/fast-sale-orders/from-native-order`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...(window.Web2Auth?.authHeaders ? window.Web2Auth.authHeaders() : {}),
+                    },
                     body: JSON.stringify({
                         nativeOrderCode: code,
                         deliveryPrice: 0,

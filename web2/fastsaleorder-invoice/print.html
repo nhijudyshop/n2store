@@ -340,9 +340,21 @@
                         </div>
                     `;
 
-                    // Auto increment print count via API (fire-and-forget)
+                    // Auto increment print count via API (fire-and-forget).
+                    // Trang print standalone không nạp web2-auth → đọc token trực tiếp
+                    // từ localStorage (cùng origin) để qua requireWeb2AuthSoft.
+                    const _w2tok = (() => {
+                        try {
+                            return (
+                                JSON.parse(localStorage.getItem('web2_auth') || 'null')?.token || ''
+                            );
+                        } catch {
+                            return '';
+                        }
+                    })();
                     fetch(`${WORKER}/api/fast-sale-orders/${encodeURIComponent(number)}/print`, {
                         method: 'POST',
+                        headers: _w2tok ? { 'x-web2-token': _w2tok } : {},
                     }).catch(() => {});
                     document.title = `PBH ${o.number} — ${p.name || ''}`;
                 } catch (e) {
