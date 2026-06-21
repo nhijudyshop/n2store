@@ -3,17 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `b9f567b` — fix(web2) audit-d: 9 money-path bugs (over-refund regression, PBH oversell/drift, wallet double-credit, sepay race)
-**Last updated**: 2026-06-21 16:13:38 +07
-**Latest session**: [`RESUME:20260621-161338-b9f567b`](../20260621-161338-b9f567b.md)
-**Summary**: audit-d money-path: 9 confirmed bugs fixed (over-refund regression + PBH/wallet/sepay)
+**Latest commit**: `b1dd2d0` — fix(web2) audit-d verify: #9 sepay race — connection-safe re-check (revert deadlock-prone advisory wrapper)
+**Last updated**: 2026-06-21 16:20:51 +07
+**Latest session**: [`RESUME:20260621-162051-b1dd2d0`](../20260621-162051-b1dd2d0.md)
+**Summary**: audit-d verify: #9 connection-safe sepay re-check (revert deadlock wrapper)
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`inventory-tracking/`](./inventory-tracking.md) — 3 file(s)
-- [`render.com/`](./render.com.md) — 6 file(s)
-- [`web2/`](./web2.md) — 2 file(s)
+- [`render.com/`](./render.com.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -28,7 +26,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-21 15:47
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-06-21 16:13
+- [`docs/`](./docs.md) — updated 2026-06-21 16:20
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-19 14:27
@@ -58,7 +56,7 @@
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-06-20 12:07
 - [`referenceUI/`](./referenceUI.md) — updated 2026-06-19 14:27
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-06-20 12:07
-- [`render.com/`](./render.com.md) — updated 2026-06-21 16:13
+- [`render.com/`](./render.com.md) — updated 2026-06-21 16:20
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-19 14:27
 - [`service-costs/`](./service-costs.md) — updated 2026-06-20 12:07
