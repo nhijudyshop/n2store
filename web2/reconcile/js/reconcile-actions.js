@@ -326,18 +326,20 @@
         for (const part of _tsFmt.formatToParts(new Date(Number(ts)))) p[part.type] = part.value;
         return `${p.day}/${p.month}/${p.year} ${p.hour}:${p.minute}:${p.second}`;
     }
-    // ms → 'YYYY-MM-DDTHH:MM' (giá trị input datetime-local, theo local time)
+    // ms → 'YYYY-MM-DDTHH:MM' theo GMT+7 (Asia/Ho_Chi_Minh) — KHÔNG theo TZ trình
+    // duyệt (audit r2): trước dùng getHours()/getDate() local → filter lệch nếu máy
+    // không +7. Dùng _tsFmt (đã GMT+7) build giá trị input datetime-local.
     function tsToInput(ts) {
         if (!ts) return '';
-        const d = new Date(Number(ts));
-        return (
-            `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}` +
-            `T${pad2(d.getHours())}:${pad2(d.getMinutes())}`
-        );
+        const p = {};
+        for (const part of _tsFmt.formatToParts(new Date(Number(ts)))) p[part.type] = part.value;
+        return `${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}`;
     }
     function inputToTs(val) {
         if (!val) return null;
-        const t = new Date(val).getTime();
+        // val = 'YYYY-MM-DDTHH:MM' hiểu theo GMT+7 (offset cố định +7, VN không DST).
+        const iso = val.length === 16 ? `${val}:00+07:00` : `${val}+07:00`;
+        const t = new Date(iso).getTime();
         return Number.isFinite(t) ? t : null;
     }
     function lockBody() {
