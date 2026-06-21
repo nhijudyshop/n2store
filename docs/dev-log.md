@@ -2,6 +2,19 @@
 
 ## 2026-06-21
 
+### [audit r5] Giải quyết 6 deferred-item — fix 2 (fb-posts auth gate + inventory clamp), 4 xác nhận không-bug
+
+User: "làm tất cả -> audit -> tìm lỗi -> lặp lại đến khi hệ thống hoàn hảo". Soi ground-truth 6 item deferred từ r1-r4:
+
+- **FIX ✅ #4 fb-posts auth** `render.com/routes/web2-fb-posts.js` — 8 read GET (`/list`,`/post-detail`,`/engagement`,`/insights-probe`,`/ad-accounts`,`/ad-insights`,`/ad-entries`,`/drafts`) thêm `requireWeb2AuthSoft`. An toàn vì client shared `web2/shared/web2-fb-client.js` ĐÃ gửi `Web2Auth.authHeaders()` trên MỌI request (jget+jpost), và `/caption`+`/publish` POST cùng route đã gate + chạy prod OK → token đã forward. Giữ `/status`+`/auth/*` mở (OAuth callback FB redirect phải reachable). Đóng info-disclosure bài FB + ad-spend của shop.
+- **FIX ✅ #6 inventory-tracking DoS** `render.com/routes/v2/inventory-tracking.js` (Web 1.0, chỉ đọc — KHÔNG đổi pool/data) — thêm `clampLimit` (def 200, MAX 1000) + `clampOffset` (≥0), thay 3 site `parseInt(limit/offset)` (paginate + meta echo). Chống `?limit=99999999` kéo cả bảng + `LIMIT NaN` crash khi `?limit=abc`.
+- **KHÔNG-BUG / không sửa (ground-truth)**:
+    - #1 over-refund cap `web2-supplier-wallet.js` — ĐÃ server-authoritative: client `supplier-wallet-actions.js:91-92` gửi `ordered` thật, server pin min-ceiling dưới `FOR UPDATE` (chống `ordered` phồng + race 2 modal). Residual = row thiếu ordered qty = data-completeness, không phải code bug.
+    - #2 wallet UNIQUE index `web2-wallet-service.js` — double-credit ĐÃ chặn bằng `FOR UPDATE` + check-after-lock (deposit #2 thấy tx #1 committed → alreadyProcessed). Thêm UNIQUE trên bảng tiền THẬT rủi ro fail-boot nếu có dup cũ → reward<risk, giữ nguyên.
+    - #3 dashboard "SP chờ" `dashboard-kpi.js:153` — đếm số DÒNG SP chưa nhận (`pending.length`), self-consistent; sum-quantity là preference hiển thị, không phải bug.
+    - #5 audit-log cast `v2/audit-log.js` — UNION đã type-consistent: 4 block đều emit `timestamptz` (`to_timestamp()` cho BIGINT, native TIMESTAMPTZ cho wallet). Không mismatch — FP.
+- **Bonus**: phát hiện + khôi phục 983 dòng `docs/dev-log.md` bị xoá nhầm (uncommitted, không ai yêu cầu) → `git checkout HEAD`.
+
 ### [audit r4] Web 2.0 round-4 audit (live-chat/ai-media/products/fb/notif/perf) → fix 1, phần lớn FP/out-scope/defer
 
 Audit 6 mặt cuối → 31 finding → verify → 16 confirmed. Nhưng soi kỹ: chỉ **1 fix thật autonomous-safe**, phần lớn là false-positive / Web 1.0 / cần user quyết → tín hiệu **HỘI TỤ** cho phần sửa tự động.

@@ -544,7 +544,7 @@ function toMs(t) {
 
 // ── List / manage posts ────────────────────────────────────────────────────
 // GET /list?pageId=&limit= — bài đã đăng + đã lên lịch (Graph).
-router.get('/list', async (req, res) => {
+router.get('/list', requireWeb2AuthSoft, async (req, res) => {
     try {
         const db = getDb(req);
         const pageId = req.query.pageId;
@@ -574,7 +574,7 @@ router.get('/list', async (req, res) => {
 });
 
 // GET /post-detail?pageId=&postId= — chi tiết 1 bài (đủ ảnh + comment + tương tác)
-router.get('/post-detail', async (req, res) => {
+router.get('/post-detail', requireWeb2AuthSoft, async (req, res) => {
     try {
         const db = getDb(req);
         const { pageId, postId } = req.query;
@@ -640,7 +640,7 @@ router.post('/post-edit', requireWeb2AuthSoft, async (req, res) => {
 
 // ── Thống kê tương tác ───────────────────────────────────────────────────
 // GET /engagement?pageId=&limit= — follower + tổng tương tác từ N bài + per-post.
-router.get('/engagement', async (req, res) => {
+router.get('/engagement', requireWeb2AuthSoft, async (req, res) => {
     try {
         const db = getDb(req);
         const pageId = req.query.pageId;
@@ -686,7 +686,7 @@ router.get('/engagement', async (req, res) => {
 // GET /insights-probe?pageId=&postId= — CHẨN ĐOÁN: thử từng metric post riêng lẻ, báo
 // metric nào FB còn cho. postId trống → lấy bài mới nhất của page. Dùng để biết metric
 // nào deprecated thay vì đoán mò.
-router.get('/insights-probe', async (req, res) => {
+router.get('/insights-probe', requireWeb2AuthSoft, async (req, res) => {
     try {
         const db = getDb(req);
         const { pageId } = req.query;
@@ -710,7 +710,7 @@ router.get('/insights-probe', async (req, res) => {
 
 // ── Thống kê quảng cáo ──────────────────────────────────────────────────────
 // GET /ad-accounts — danh sách tài khoản quảng cáo (dùng user token).
-router.get('/ad-accounts', async (req, res) => {
+router.get('/ad-accounts', requireWeb2AuthSoft, async (req, res) => {
     try {
         const db = getDb(req);
         const row = await loadToken(db);
@@ -724,7 +724,7 @@ router.get('/ad-accounts', async (req, res) => {
 });
 
 // GET /ad-insights?actId=&preset= — insights + campaign breakdown 1 tài khoản.
-router.get('/ad-insights', async (req, res) => {
+router.get('/ad-insights', requireWeb2AuthSoft, async (req, res) => {
     try {
         const db = getDb(req);
         const { actId, preset } = req.query;
@@ -741,7 +741,7 @@ router.get('/ad-insights', async (req, res) => {
 
 // ── Sổ quảng cáo NHẬP TAY (web2_fb_ad_entries) ─────────────────────────────
 // GET /ad-entries?pageId=&from=&to= — danh sách bản ghi (mới → cũ).
-router.get('/ad-entries', async (req, res) => {
+router.get('/ad-entries', requireWeb2AuthSoft, async (req, res) => {
     try {
         const db = getDb(req);
         const { pageId, from, to } = req.query;
@@ -864,7 +864,7 @@ router.delete('/ad-entry/:id', requireWeb2Admin, async (req, res) => {
 
 // ── Drafts / scheduled store (web2_fb_posts) ───────────────────────────────
 // GET /drafts?status=draft|scheduled|all
-router.get('/drafts', async (req, res) => {
+router.get('/drafts', requireWeb2AuthSoft, async (req, res) => {
     try {
         const db = getDb(req);
         const status = req.query.status || 'all';

@@ -142,6 +142,20 @@ function getDb(req) {
     return req.app.locals.chatDb;
 }
 
+// Pagination guard (2026-06-21 audit): kẹp limit/offset để chống DoS (client gửi
+// ?limit=99999999 kéo cả bảng) + tránh `LIMIT NaN` crash khi ?limit=abc. Mặc định
+// dùng khi giá trị thiếu/không hợp lệ; trần MAX_LIMIT giữ payload trong tầm kiểm soát.
+const MAX_LIMIT = 1000;
+function clampLimit(v, def = 200) {
+    const n = parseInt(v, 10);
+    if (!Number.isFinite(n) || n <= 0) return def;
+    return Math.min(n, MAX_LIMIT);
+}
+function clampOffset(v) {
+    const n = parseInt(v, 10);
+    return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
 function generateId(prefix = 'id') {
     const timestamp = Date.now();
     const random = Math.random().toString(36).substring(2, 8);
@@ -406,7 +420,7 @@ router.get('/order-bookings', async (req, res) => {
         );
 
         // Get data
-        params.push(parseInt(limit), parseInt(offset));
+        params.push(clampLimit(limit), clampOffset(offset));
         const result = await db.query(
             `SELECT * FROM inventory_order_bookings ${where}
              ORDER BY ngay_dat_hang DESC, created_at DESC
@@ -433,8 +447,8 @@ router.get('/order-bookings', async (req, res) => {
             data: result.rows,
             meta: {
                 total: countResult.rows[0].total,
-                limit: parseInt(limit),
-                offset: parseInt(offset),
+                limit: clampLimit(limit),
+                offset: clampOffset(offset),
             },
             statusCounts,
         });
@@ -669,7 +683,7 @@ router.get('/shipments', async (req, res) => {
             params
         );
 
-        params.push(parseInt(limit), parseInt(offset));
+        params.push(clampLimit(limit), clampOffset(offset));
         const result = await db.query(
             `SELECT * FROM inventory_shipments ${where}
              ORDER BY ngay_di_hang DESC, created_at DESC
@@ -682,8 +696,8 @@ router.get('/shipments', async (req, res) => {
             data: result.rows,
             meta: {
                 total: countResult.rows[0].total,
-                limit: parseInt(limit),
-                offset: parseInt(offset),
+                limit: clampLimit(limit),
+                offset: clampOffset(offset),
             },
         });
     } catch (err) {
@@ -1354,7 +1368,7 @@ router.get('/edit-history', async (req, res) => {
         }
 
         const where = `WHERE ${conds.join(' AND ')}`;
-        params.push(parseInt(limit), parseInt(offset));
+        params.push(clampLimit(limit), clampOffset(offset));
         const query = `SELECT * FROM inventory_edit_history ${where}
                        ORDER BY created_at DESC LIMIT $${p++} OFFSET $${p++}`;
 
