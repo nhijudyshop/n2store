@@ -417,6 +417,19 @@
                         });
                     }
                     loadStats();
+                    // SSE realtime (2026-06-22): phiếu giao / đơn đổi → reload báo cáo
+                    // giao hàng (debounce 600ms). Trước đây trang KHÔNG subscribe → số liệu
+                    // chỉ cập nhật khi bấm tay (sweep consumer-robustness flag).
+                    if (window.Web2SSE?.subscribe) {
+                        let _sseTimer = null;
+                        const sseReload = () => {
+                            clearTimeout(_sseTimer);
+                            _sseTimer = setTimeout(loadStats, 600);
+                        };
+                        window.Web2SSE.subscribe('web2:delivery', sseReload);
+                        window.Web2SSE.subscribe('web2:fast-sale-orders', sseReload);
+                        window.Web2SSE.subscribe('web2:native-orders', sseReload);
+                    }
                 }
                 if (document.readyState === 'loading') {
                     document.addEventListener('DOMContentLoaded', init);

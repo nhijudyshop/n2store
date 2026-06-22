@@ -63,14 +63,17 @@
         // Auto refresh every 30s (supplement SSE, KHÔNG thay) — lưu id để cleanup.
         let _intervalId = setInterval(refresh, 30000);
         let _unsub = null;
+        let _debTimer = null; // debounce SSE burst (2026-06-22): lưu timer + clear
         // Subscribe SSE for realtime new pending matches
         if (window.Web2SSE?.subscribe) {
             _unsub = window.Web2SSE.subscribe('web2:wallet:*', () => {
-                // Web 2.0 wallet update = có thể có pending mới hoặc resolved → refresh
-                setTimeout(refresh, 500);
+                // Web 2.0 wallet update = có thể có pending mới hoặc resolved → refresh.
+                // Debounce: nhiều event dồn (SePay burst) → 1 refresh, không xếp chồng.
+                clearTimeout(_debTimer);
+                _debTimer = setTimeout(refresh, 500);
             });
         }
-        // Cleanup khi rời trang: chống leak interval + listener.
+        // Cleanup khi rời trang: chống leak interval + listener + debounce timer.
         window.addEventListener(
             'pagehide',
             () => {
@@ -78,6 +81,7 @@
                     clearInterval(_intervalId);
                     _intervalId = null;
                 }
+                clearTimeout(_debTimer);
                 try {
                     _unsub && _unsub();
                 } catch {}

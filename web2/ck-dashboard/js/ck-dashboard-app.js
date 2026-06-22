@@ -451,7 +451,13 @@
                     if (!document.getElementById('ckdHistoryPane').hidden) loadHistory(true);
                 }, 550);
             });
-            window.Web2SSE.subscribe('web2:customer-intents', () => loadCol('intents', true));
+            // Debounce 450ms (2026-06-22): nhất quán với handler payment-signals (sibling)
+            // — burst intents → 1 loadCol thay vì nhiều fetch xếp chồng.
+            let _intentsT = null;
+            window.Web2SSE.subscribe('web2:customer-intents', () => {
+                clearTimeout(_intentsT);
+                _intentsT = setTimeout(() => loadCol('intents', true), 450);
+            });
             // Badge "Tin nhắn chưa đọc" cập nhật ngầm dù đang ở tab Đối soát.
             window.Web2SSE.subscribe('web2:unread', () => {
                 if (_unreadMounted) return; // panel tự lo khi đã mount

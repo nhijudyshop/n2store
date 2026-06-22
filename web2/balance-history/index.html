@@ -396,7 +396,7 @@
         <script src="js/web2-pm-picker.js?v=20260618w2"></script>
         <script src="js/web2-pm-resolve.js?v=20260618w2"></script>
         <script src="js/web2-pm-render.js?v=20260618w2"></script>
-        <script src="js/web2-pending-match.js?v=20260618w2"></script>
+        <script src="js/web2-pending-match.js?v=20260622d"></script>
         <script src="js/web2-link-customer-modal.js?v=20260612en"></script>
         <script src="../shared/web2-suppliers-cache.js?v=20260615store"></script>
         <script src="js/web2-manual-deposit.js?v=20260615store"></script>
@@ -453,8 +453,14 @@
                     btn.onclick = () =>
                         window.Web2CkReview?.openSignalList({ onDone: refreshCount });
                 refreshCount();
-                if (window.Web2SSE?.subscribe)
-                    window.Web2SSE.subscribe('web2:payment-signals', refreshCount);
+                if (window.Web2SSE?.subscribe) {
+                    // Debounce 400ms (2026-06-22): burst payment-signals → 1 fetch /stats.
+                    let _rcT = null;
+                    window.Web2SSE.subscribe('web2:payment-signals', () => {
+                        clearTimeout(_rcT);
+                        _rcT = setTimeout(refreshCount, 400);
+                    });
+                }
             })();
         </script>
     </body>
