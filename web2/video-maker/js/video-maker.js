@@ -1194,6 +1194,14 @@
         const stat = $('#vmSfxStat');
         const setStat = (m) => stat && (stat.textContent = m);
         let lastBlob = null;
+        // preset 1-chạm: điền mô tả + tạo luôn (mô tả tiếng Việt được backend dịch sang prompt EN)
+        document.querySelectorAll('#vmSfxPresets [data-sfx]').forEach((b) =>
+            b.addEventListener('click', () => {
+                const inp = $('#vmSfxText');
+                if (inp) inp.value = b.dataset.sfx;
+                $('#vmSfxGen')?.click();
+            })
+        );
         $('#vmSfxGen')?.addEventListener('click', async (e) => {
             const text = ($('#vmSfxText')?.value || '').trim();
             if (!text) return notify('Mô tả âm thanh muốn tạo (vd: tiếng vỗ tay)', 'warning');

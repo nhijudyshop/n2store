@@ -2,6 +2,14 @@
 
 ## 2026-06-22
 
+### [fix] video-maker "Hiệu ứng âm thanh (AI)" — đọc chữ thay vì tạo tiếng động (prompt VN→EN)
+
+User: gõ "tiếng vỗ tay"/"tiếng mưa" → ra GIỌNG ĐỌC chứ không phải tiếng động. Code path đúng (gọi ElevenLabs `sound-generation`, không phải TTS). Gốc: **sound-generation cần prompt TIẾNG ANH**; prompt tiếng Việt bị hiểu là lời nói → đọc thành giọng (verify live: "tiếng vỗ tay" auto→0.6s giọng; "applause" auto→1.1s tiếng vỗ tay thật).
+
+- **web2-elevenlabs-service.js**: thêm `toSoundPrompt()` — bỏ từ đệm ("tiếng"/"âm thanh"…) rồi map ~26 mô tả VN phổ biến → prompt EN mô tả tiếng động (vỗ tay→applause, mưa→rain, leng keng tiền→coins cha-ching, whoosh, sấm, pháo hoa, chim, còi xe, đồng hồ…); không khớp + còn tiếng Việt → `sound effect of <…>`; tiếng Anh giữ nguyên. `soundEffect()` dịch trước khi gọi API. ⚠ bẫy đã fix: "tiếng" chứa "tien" → khớp nhầm coins → phải bỏ từ đệm TRƯỚC + `\btien\b`.
+- **video-maker**: thêm 6 chip preset 1-chạm (Vỗ tay/Mưa/Tiền/Whoosh/Chuông/Pháo hoa) → điền + tạo luôn; sửa hint "tạo TIẾNG ĐỘNG thật, không đọc chữ". Bump video-maker.js?v=20260622g.
+- Cần Render deploy web2-api (đụng service) để có hiệu lực. Unit-test 13 mẫu PASS.
+
 ### [change] so-order — bỏ nốt nút "Quét mã" (camera barcode) trong modal Tạo Đơn Hàng
 
 Tiếp yêu cầu: gỡ luôn nút "Quét mã" (sau khi đã gỡ "Đọc nhãn"). Modal giờ chỉ còn nút "Thêm sản phẩm" để thêm dòng SP thủ công.

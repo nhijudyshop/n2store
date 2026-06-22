@@ -176,10 +176,68 @@ async function tts(text, voiceId, opts = {}) {
     });
 }
 
+// ElevenLabs sound-generation hiểu prompt TIẾNG ANH mô tả tiếng động. Prompt tiếng Việt
+// (vd "tiếng vỗ tay") bị hiểu là LỜI NÓI → model ĐỌC thành giọng thay vì tạo tiếng động.
+// → dịch mô tả phổ biến sang prompt tiếng Anh. So khớp trên chuỗi đã bỏ dấu.
+const _SFX_MAP = [
+    [/vo tay|clap|applause/, 'applause, crowd clapping hands'],
+    [/mua|rain/, 'heavy rain falling, rain ambience'],
+    [/sam|thunder/, 'thunder rumble and crack'],
+    [/gio|wind/, 'wind blowing gust'],
+    [/whoosh|swoosh|chuyen canh|transition|vut /, 'fast whoosh swoosh transition'],
+    [
+        /leng keng|\btien\b|\bxu\b|coin|money|cha.?ching|ka.?ching/,
+        'coins jingling, cash register cha-ching',
+    ],
+    [/chuong|bell|ding|ting/, 'bell ding chime'],
+    [/thong bao|notification|chime/, 'notification chime ding'],
+    [/phao|firework/, 'fireworks explosion crackle'],
+    [/song bien|bien|ocean|wave/, 'ocean waves on the shore'],
+    [/chim|bird/, 'birds chirping ambience'],
+    [/coi xe|horn/, 'car horn honk'],
+    [/xe|car|traffic|giao thong/, 'cars passing by, traffic ambience'],
+    [/dong ho|tich tac|clock|tick/, 'clock ticking'],
+    [/nuoc|water/, 'water flowing and splashing'],
+    [/lua|fire|chay/, 'crackling fire'],
+    [/pop|bong bong|bubble/, 'pop bubble sound'],
+    [/tada|ta.?da|thanh cong|success|fanfare|chuc mung/, 'success fanfare, ta-da'],
+    [/camera|chup hinh|chup anh|shutter/, 'camera shutter click'],
+    [/click|bam nut|button|nhap chuot/, 'UI click, button tap'],
+    [/trong|drum/, 'drum hit'],
+    [/gong|chieng/, 'gong hit'],
+    [/lap lanh|long lanh|lung linh|magic|sparkle|shimmer/, 'magic sparkle shimmer chime'],
+    [/cuoi|laugh/, 'people laughing'],
+    [/reo ho|cheer|co vu|vo tay reo/, 'crowd cheering'],
+    [/dien thoai|phone|ring/, 'phone ringing'],
+    [/keyboard|go phim|typing/, 'keyboard typing'],
+];
+function _stripDiacritics(s) {
+    return s.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D');
+}
+function _hasVietnamese(s) {
+    return /[ăâđêôơưáàảãạấầẩẫậắằẳẵặéèẻẽẹếềểễệíìỉĩịóòỏõọốồổỗộớờởỡợúùủũụứừửữựýỳỷỹỵ]/i.test(s);
+}
+function toSoundPrompt(text) {
+    const raw = String(text || '').trim();
+    if (!raw) return raw;
+    // Bỏ TỪ ĐỆM trước khi so khớp ("tieng" chứa "tien" → nếu không bỏ sẽ khớp nhầm coins).
+    const n = _stripDiacritics(raw)
+        .toLowerCase()
+        .replace(/\b(tieng|am thanh|tao ra|tao|hieu ung|nghe nhu|cua|gi do)\b/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    for (const [re, en] of _SFX_MAP) if (re.test(n)) return en;
+    // Không khớp từ điển + còn tiếng Việt → bọc generic tiếng Anh (giảm khả năng bị đọc chữ).
+    if (_hasVietnamese(raw)) return 'sound effect of ' + (n || 'ambience');
+    return raw; // đã là tiếng Anh → giữ nguyên
+}
+
 // text prompt → hiệu ứng âm thanh (mp3). durationSeconds optional (0.5–22), promptInfluence 0–1.
+// text tiếng Việt được dịch sang prompt tiếng Anh (toSoundPrompt) để ra TIẾNG ĐỘNG, không đọc chữ.
 async function soundEffect(text, opts = {}) {
-    const t = String(text || '').trim();
-    if (!t) throw new Error('mô tả âm thanh rỗng');
+    const t0 = String(text || '').trim();
+    if (!t0) throw new Error('mô tả âm thanh rỗng');
+    const t = toSoundPrompt(t0);
     const body = { text: t.slice(0, 450) };
     if (opts.durationSeconds)
         body.duration_seconds = Math.max(0.5, Math.min(22, +opts.durationSeconds));
@@ -350,6 +408,7 @@ module.exports = {
     addSharedVoice,
     tts,
     soundEffect,
+    toSoundPrompt,
     transcribe,
     audioIsolation,
     designVoicePreviews,
