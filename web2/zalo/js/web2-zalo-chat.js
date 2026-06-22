@@ -33,9 +33,16 @@
         else if (state.conv.accountKey) el.value = state.conv.accountKey;
     }
 
+    let _firstConvLoad = true;
     async function loadConversations() {
         if (!state.accounts.length) await WZApp.loadAccounts();
         fillAccountSelect('#wzChatAccount');
+        // Snapshot unread TRƯỚC khi ghi đè list → thông báo tin mới. Bỏ qua lần đầu
+        // (tránh báo loạt khi mới mở trang) + khi đang tìm kiếm (list bị lọc).
+        const prevMap =
+            window.WZApp.zaloNotify && !_firstConvLoad && !state.conv.search
+                ? WZApp.zaloNotify.snapshot()
+                : null;
         try {
             const res = await window.ZaloApi.conversations({
                 accountKey: state.conv.accountKey,
@@ -45,6 +52,11 @@
             state.conv.list = res.data || [];
             state.conv.total = res.total || 0;
             renderConvList();
+            if (window.WZApp.zaloNotify) {
+                if (prevMap) WZApp.zaloNotify.notify(prevMap);
+                else WZApp.zaloNotify.setTabBadge();
+            }
+            _firstConvLoad = false;
             maybeAutoSync();
         } catch (e) {
             $('#wzConvList').innerHTML = `<div class="wz-empty">✗ ${esc(e.message)}</div>`;
@@ -153,6 +165,7 @@
     let _view = null; // controller hội thoại đang mở (WZChat.mountConversation — shared)
 
     async function openConversation(id) {
+        window.WZApp.zaloNotify?.ensurePermission(); // user gesture → xin quyền Web Notification
         state.conv.activeId = id;
         if (_view) {
             _view.destroy();
