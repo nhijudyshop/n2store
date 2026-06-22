@@ -27,11 +27,18 @@
         'https://chatomni-proxy.nhijudyshop.workers.dev';
     const API = WORKER + '/api/web2/audit-log';
 
+    // Nhãn hiển thị cho entity. 4 nguồn bảng riêng + nguồn event-sink (purchase-refund,
+    // customer, payment-signal, return, kpi-assignment) + entity generic (slug) hiện raw.
     const ENTITY_LABELS = {
         product: 'Sản phẩm',
         pbh: 'PBH',
         reconcile: 'Đối soát',
         wallet: 'Ví',
+        'purchase-refund': 'Hoàn NCC',
+        customer: 'Khách hàng',
+        'payment-signal': 'Tín hiệu CK',
+        return: 'Trả hàng',
+        'kpi-assignment': 'Phân công KPI',
     };
     const COLSPAN = 7;
 
@@ -71,11 +78,16 @@
 .w2al-scope{font-size:12px;font-weight:600;color:var(--web2-primary-hover,#0058da);display:inline-flex;align-items:center;gap:5px}
 .w2al-scroll{overflow-x:auto}
 .w2al-tbl td{vertical-align:top}
-.w2al-pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:11px;font-weight:700;white-space:nowrap}
+.w2al-pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:11px;font-weight:700;white-space:nowrap;background:#eef2f7;color:#475569}
 .w2al-pill.product{background:#e0f4fc;color:#0891b2}
 .w2al-pill.pbh{background:var(--web2-primary-soft,#eef5ff);color:var(--web2-primary,#0068ff)}
 .w2al-pill.reconcile{background:#e3f7e8;color:#16a34a}
 .w2al-pill.wallet{background:#fffbeb;color:#d97706}
+.w2al-pill.purchase-refund{background:#fdeef0;color:#be123c}
+.w2al-pill.customer{background:#eef0ff;color:#4f46e5}
+.w2al-pill.payment-signal{background:#ecfdf5;color:#059669}
+.w2al-pill.return{background:#fff7ed;color:#c2410c}
+.w2al-pill.kpi-assignment{background:#f5f3ff;color:#7c3aed}
 .w2al-diff{font-size:11px;max-width:360px;max-height:90px;overflow:auto;background:var(--gray-50,#f8fafc);border:1px dashed var(--border,#e5e7eb);padding:6px;margin:0;border-radius:6px;white-space:pre-wrap;word-break:break-word}
 .w2al-msg{padding:20px;text-align:center;color:#94a3b8}
 .w2al-msg.err{color:#dc2626}
@@ -89,13 +101,35 @@
         document.head.appendChild(st);
     }
 
-    function entityOptions() {
+    function entityOptions(entities) {
+        const list = entities && entities.length ? entities : Object.keys(ENTITY_LABELS);
         return (
             '<option value="">Tất cả entity</option>' +
-            Object.entries(ENTITY_LABELS)
-                .map(([k, v]) => `<option value="${k}">${esc(v)}</option>`)
+            list
+                .map((k) => `<option value="${esc(k)}">${esc(ENTITY_LABELS[k] || k)}</option>`)
                 .join('')
         );
+    }
+
+    // Lấy danh sách entity ĐỘNG từ server (4 bảng + entity-sink) → dropdown đủ.
+    async function populateEntities(host) {
+        const sel = host.querySelector('.w2al-entity');
+        if (!sel) return;
+        try {
+            const r = await fetch(API + '/entities', {
+                credentials: 'include',
+                headers: authHeaders(),
+            });
+            const d = await r.json();
+            const entities = (d.entities || []).filter(Boolean);
+            if (entities.length) {
+                const cur = sel.value;
+                sel.innerHTML = entityOptions(entities);
+                sel.value = cur; // giữ lựa chọn hiện tại nếu còn
+            }
+        } catch {
+            /* giữ dropdown tĩnh fallback */
+        }
     }
 
     function buildShell(host, opts) {
@@ -253,6 +287,7 @@
             });
             const entitySel = host.querySelector('.w2al-entity');
             if (entitySel) entitySel.addEventListener('change', () => load(host, opts));
+            if (opts.showFilters !== false) populateEntities(host);
             if (opts.autoLoad !== false) load(host, opts);
         },
         reload(target) {

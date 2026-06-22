@@ -23,6 +23,7 @@ const router = express.Router();
 
 const detector = require('../services/web2-payment-signal-detector');
 const { requireWeb2AuthSoft } = require('../middleware/web2-auth');
+const { recordAuditEvent } = require('../services/web2-audit-sink');
 
 function getPool(req) {
     return req.app.locals.web2Db || req.app.locals.chatDb;
@@ -76,6 +77,22 @@ function _user(req) {
         userId: b.userId || null,
         userName: b.userName || b.by || req.headers['x-user'] || '(ẩn danh)',
     };
+}
+
+// EVENT-SINK audit toàn bộ (2026-06-22): ghi web2_audit_events sau thao tác xác
+// nhận CK (confirm/dismiss/link/approve). Best-effort, post-commit.
+function _auditSignal(req, action, id, note) {
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
+    const u = _user(req);
+    recordAuditEvent(pool, {
+        entity: 'payment-signal',
+        entityId: id != null ? String(id) : null,
+        action,
+        userId: u.userId,
+        userName: u.userName,
+        sourcePage: 'payment-confirm',
+        changes: note ? { note } : {},
+    });
 }
 
 // ─── Auto-reply: compose tin báo "đã nhận CK + số tiền chuyển khoản" (pure) ──
@@ -296,6 +313,7 @@ router.post('/:id/confirm', requireWeb2AuthSoft, async (req, res) => {
         await _appendHistory(client, id, { action: 'confirm', ...u });
         await client.query('COMMIT');
         _notify('confirm', id);
+        _auditSignal(req, 'confirm', id, 'Xác nhận tín hiệu CK');
         res.json({ success: true });
     } catch (e) {
         await client.query('ROLLBACK').catch(() => {});
@@ -335,6 +353,7 @@ router.post('/:id/dismiss', requireWeb2AuthSoft, async (req, res) => {
         await _appendHistory(client, id, { action: 'dismiss', ...u });
         await client.query('COMMIT');
         _notify('dismiss', id);
+        _auditSignal(req, 'dismiss', id, 'Bỏ qua tín hiệu CK');
         res.json({ success: true });
     } catch (e) {
         await client.query('ROLLBACK').catch(() => {});
@@ -369,6 +388,7 @@ router.post('/:id/link-order', requireWeb2AuthSoft, async (req, res) => {
             note: `${orderType}:${orderCode}`,
         });
         _notify('link', id);
+        _auditSignal(req, 'link', id, 'Liên kết đơn');
         res.json({ success: true });
     } catch (e) {
         res.status(500).json({ success: false, error: e.message });
@@ -498,6 +518,7 @@ router.post('/:id/approve', requireWeb2AuthSoft, async (req, res) => {
         });
         await client.query('COMMIT');
         _notify('approve', id);
+        _auditSignal(req, 'approve', id, 'Duyệt cộng ví KH');
         if (txId && _notifyClients) {
             try {
                 _notifyClients(

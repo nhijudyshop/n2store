@@ -13,6 +13,8 @@
 
 const express = require('express');
 const { requireWeb2Admin, requireWeb2AuthSoft } = require('../middleware/web2-auth');
+// EVENT-SINK audit toàn bộ (2026-06-22): ghi web2_audit_events mỗi create/update/delete.
+const { recordAuditEvent } = require('../services/web2-audit-sink');
 
 let _notifyClients = null;
 function initializeNotifiers(notifyClients) {
@@ -191,6 +193,15 @@ function makeDedicatedEntityRouter(tableName, entitySlug) {
                 ]
             );
             _notify(entitySlug, 'create', r.rows[0].code);
+            recordAuditEvent(pool, {
+                entity: entitySlug,
+                entityId: r.rows[0].code || r.rows[0].name,
+                action: 'create',
+                userId: req.web2User?.id ?? (b.userId || b.createdBy || null),
+                userName: req.web2User?.display_name || b.userName || null,
+                sourcePage: b.sourcePage || null,
+                changes: { name: r.rows[0].name },
+            });
             res.json({ success: true, record: mapRow(r.rows[0]) });
         } catch (e) {
             if (e.code === '23505') return res.status(409).json({ error: 'code đã tồn tại' });
@@ -255,6 +266,20 @@ function makeDedicatedEntityRouter(tableName, entitySlug) {
             );
             await client.query('COMMIT');
             _notify(entitySlug, 'update', r.rows[0].code);
+            recordAuditEvent(pool, {
+                entity: entitySlug,
+                entityId: r.rows[0].code || r.rows[0].name,
+                action: 'update',
+                userId: req.web2User?.id ?? (b.userId || null),
+                userName: req.web2User?.display_name || b.userName || null,
+                sourcePage: b.sourcePage || null,
+                changes: {
+                    fields:
+                        b.data && typeof b.data === 'object'
+                            ? Object.keys(b.data).filter((k) => k !== 'history')
+                            : undefined,
+                },
+            });
             res.json({ success: true, record: mapRow(r.rows[0]) });
         } catch (e) {
             await client.query('ROLLBACK').catch(() => {});
@@ -276,6 +301,15 @@ function makeDedicatedEntityRouter(tableName, entitySlug) {
             ]);
             if (!r.rows.length) return res.status(404).json({ error: 'Not found' });
             _notify(entitySlug, 'delete', req.params.code);
+            recordAuditEvent(pool, {
+                entity: entitySlug,
+                entityId: req.params.code,
+                action: 'delete',
+                userId: req.web2User?.id ?? (req.body?.userId || null),
+                userName: req.web2User?.display_name || req.body?.userName || null,
+                sourcePage: req.body?.sourcePage || null,
+                changes: {},
+            });
             res.json({ success: true });
         } catch (e) {
             res.status(500).json({ error: e.message });

@@ -31,6 +31,7 @@ const supplierWalletRoutes = require('./web2-supplier-wallet');
 // router KHÔNG có auth → mọi máy/khách gọi trực tiếp API là tự duyệt/mint được.
 // requireWeb2AuthSoft = gate mềm: thiếu/sai token → 401 khi WEB2_AUTH_ENFORCE=1 (ĐANG BẬT).
 const { requireWeb2AuthSoft } = require('../middleware/web2-auth');
+const { recordAuditEvent } = require('../services/web2-audit-sink');
 // Trần over-refund SERVER-AUTHORITATIVE — đọc SL đã NHẬN THẬT từ web2_so_order.
 // Lib dùng chung với web2-supplier-wallet (/tx) — xem lib/web2-so-order-qty.js.
 const { loadSoOrderReceivedQtyMap } = require('../lib/web2-so-order-qty');
@@ -54,6 +55,22 @@ function _notify(action, code) {
     } catch (e) {
         console.warn('[PURCHASE-REFUND] _notify failed:', e.message);
     }
+}
+
+// EVENT-SINK audit toàn bộ (2026-06-22): ghi 1 dòng web2_audit_events sau mỗi
+// chuyển trạng thái phiếu hoàn → trang Lịch sử thao tác phủ luôn purchase-refund.
+// Best-effort, post-commit, pool riêng (KHÔNG nằm trong transaction phiếu).
+function _auditRefund(req, action, code, note) {
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
+    recordAuditEvent(pool, {
+        entity: 'purchase-refund',
+        entityId: code,
+        action,
+        userId: req.body?.userId ?? req.web2User?.id ?? null,
+        userName: req.body?.userName || req.web2User?.display_name || null,
+        sourcePage: 'purchase-refund',
+        changes: note ? { note } : {},
+    });
 }
 
 // -----------------------------------------------------
@@ -309,6 +326,7 @@ router.post('/:code/approve', async (req, res) => {
         await client.query('COMMIT');
         committed = true;
         _notify('approve', code);
+        _auditRefund(req, 'approve', code, `Duyệt phiếu + trừ kho ${stockResults.length} dòng SP`);
         res.json({
             success: true,
             refund: { code, status: 'approved' },
@@ -539,6 +557,7 @@ router.post('/quick-refund', async (req, res) => {
         await client.query('COMMIT');
         committed = true;
         _notify('approve', code);
+        _auditRefund(req, 'quick-refund', code, 'Tạo + duyệt nhanh phiếu hoàn');
         try {
             req.app.locals.web2RealtimeSseNotify?.(
                 'web2:supplier-wallet',
@@ -622,6 +641,12 @@ router.post('/:code/cancel-approve', async (req, res) => {
         await client.query('COMMIT');
         committed = true;
         _notify('cancel-approve', code);
+        _auditRefund(
+            req,
+            'cancel-approve',
+            code,
+            `Hủy duyệt${ledgerRev.reversed ? ' + đảo ghi ví NCC' : ''}`
+        );
         _notifySupplierWallet(req, ledgerRev.supplier);
         res.json({
             success: true,
@@ -700,6 +725,7 @@ router.post('/:code/refunded', async (req, res) => {
         await client.query('COMMIT');
         committed = true;
         _notify('refunded', code);
+        _auditRefund(req, 'refunded', code, 'NCC đã hoàn tiền');
         res.json({ success: true, refund: { code, status: 'refunded' } });
     } catch (e) {
         if (!committed) {
@@ -778,6 +804,12 @@ router.post('/:code/reject', async (req, res) => {
         await client.query('COMMIT');
         committed = true;
         _notify('reject', code);
+        _auditRefund(
+            req,
+            'reject',
+            code,
+            `NCC từ chối${ledgerRev.reversed ? ' + đảo ghi ví NCC' : ''}`
+        );
         _notifySupplierWallet(req, ledgerRev.supplier);
         res.json({
             success: true,

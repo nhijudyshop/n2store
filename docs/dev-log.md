@@ -2,6 +2,16 @@
 
 ## 2026-06-22
 
+### [feat] Audit-log "THẬT SỰ toàn bộ" — event-sink chung web2_audit_events (gom 6 nguồn lịch sử riêng)
+
+Tiếp theo việc gộp audit-log: user phát hiện purchase-refund (+ nhiều trang) vẫn có lịch sử RIÊNG mà audit-log union (4 bảng) chưa phủ. Chốt **Event-sink chung**: 1 bảng `web2_audit_events`, mọi mutation ghi thêm 1 dòng → audit-log union đọc → thật sự toàn bộ. Timeline inline từng record GIỮ NGUYÊN (đây là bản ghi song song, best-effort).
+
+- **Helper mới** `render.com/services/web2-audit-sink.js`: `recordAuditEvent(pool, {entity,entityId,action,userId,userName,sourcePage,changes})` + `ensureAuditSinkTable`. Best-effort (nuốt lỗi, KHÔNG chặn flow chính), `_ensured` cache CREATE TABLE, cap `changes` JSON ~8KB. Unit-test mock pool PASS.
+- **audit-log.js**: thêm block union thứ 5 `web2_audit_events` (ensure bảng đầu /list, include thẳng KHÔNG qua `_tableExists` để tránh stale-false 5'). `/entities` trả entity ĐỘNG (4 bảng + DISTINCT entity sink). KHÔNG đếm 2 lần (sink chỉ ghi nguồn chưa có bảng riêng).
+- **Wire 7 route** (post-commit, user-attributed): `web2-generic.js` + `web2-dedicated-entity.js` create/update/delete (phủ 78+ entity generic) · `purchase-refund.js` 5 endpoint (approve/quick-refund/cancel-approve/refunded/reject) · `web2-customers.js` create/update/archive/delete/merge · `web2-payment-signals.js` confirm/dismiss/link/approve · `web2-returns.js` create×2/approve · `kpi.js` PUT employee-ranges (đổi phân công STT). Bỏ qua import/harvest/enrich tự động (không user).
+- **Frontend** `web2-audit-log.js`: thêm 5 nhãn entity (Hoàn NCC/Khách hàng/Tín hiệu CK/Trả hàng/Phân công KPI) + pill màu + **dropdown lọc ĐỘNG** từ `/entities`. Bump `?v=20260622al2`.
+- Cần Render deploy. Scope NV/admin giữ nguyên (sink rows cũng qua filter scope vì có user_id/user_name). Local syntax sweep 10 file PASS.
+
 ### [feat] Web 2.0 — module DỊCH THUẬT dùng chung (LLM free + fallback Google) + cắm sound-fx
 
 Research GitHub (LibreTranslate self-host, Lingva/Google free proxy) + tái dùng chuỗi LLM sẵn có. Build module dịch dùng chung cho Web 2.0 (động cơ: tự dịch mô tả tiếng động VN→EN bất kỳ, thay từ điển 26 từ cứng).

@@ -10,6 +10,9 @@ const router = express.Router();
 // 3H21 (2026-06-12): CRUD generic wire SOFT để bật được WEB2_AUTH_ENFORCE=1
 // (trước đây không tham chiếu middleware nào → bật enforce vẫn mở toang 78 entity).
 const { requireWeb2Admin, requireWeb2AuthSoft } = require('../middleware/web2-auth');
+// EVENT-SINK audit toàn bộ (2026-06-22): mỗi create/update generic ghi 1 dòng
+// web2_audit_events → trang Lịch sử thao tác phủ luôn 78+ entity generic.
+const { recordAuditEvent } = require('../services/web2-audit-sink');
 
 // -----------------------------------------------------
 // SSE notifier — injected từ server.js. Sau mỗi DB mutation, broadcast
@@ -469,6 +472,15 @@ router.post('/:entity/create', requireWeb2AuthSoft, async (req, res) => {
                 ]
             );
             _notify(req.params.entity, 'create', r.rows[0].code);
+            recordAuditEvent(pool, {
+                entity: req.params.entity,
+                entityId: r.rows[0].code || r.rows[0].name,
+                action: 'create',
+                userId: req.web2User?.id ?? (b.userId || b.createdBy || null),
+                userName: req.web2User?.display_name || b.userName || null,
+                sourcePage: b.sourcePage || null,
+                changes: { name: r.rows[0].name },
+            });
             res.json({ success: true, record: mapRow(r.rows[0]) });
         } catch (err) {
             if (err.code === '23505') {
@@ -583,6 +595,21 @@ router.patch('/:entity/update/:code', requireWeb2AuthSoft, async (req, res) => {
         }
         await client.query('COMMIT');
         _notify(req.params.entity, 'update', r.rows[0].code);
+        recordAuditEvent(pool, {
+            entity: req.params.entity,
+            entityId: r.rows[0].code || r.rows[0].name,
+            action: 'update',
+            userId: req.web2User?.id ?? (b.userId || null),
+            userName: req.web2User?.display_name || b.userName || null,
+            sourcePage: b.sourcePage || null,
+            changes: {
+                note: b.updateNote || null,
+                fields:
+                    dataPayload && typeof dataPayload === 'object'
+                        ? Object.keys(dataPayload).filter((k) => k !== 'history')
+                        : undefined,
+            },
+        });
         res.json({ success: true, record: mapRow(r.rows[0]) });
     } catch (e) {
         await client.query('ROLLBACK').catch(() => {});
@@ -676,6 +703,15 @@ router.delete('/:entity/delete/:code', requireWeb2AuthSoft, async (req, res) => 
         );
         if (!r.rows.length) return res.status(404).json({ error: 'Not found' });
         _notify(req.params.entity, 'delete', req.params.code);
+        recordAuditEvent(pool, {
+            entity: req.params.entity,
+            entityId: req.params.code,
+            action: 'delete',
+            userId: req.web2User?.id ?? (req.body?.userId || null),
+            userName: req.web2User?.display_name || req.body?.userName || null,
+            sourcePage: req.body?.sourcePage || null,
+            changes: {},
+        });
         res.json({ success: true });
     } catch (e) {
         res.status(500).json({ error: e.message });

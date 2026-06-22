@@ -31,6 +31,8 @@ const {
 // NGUỒN DUY NHẤT toán KPI (rate/sanitize/productMap/beneficiaryByStt/computeKpiQty).
 // KHÔNG fork lại ở đây — xem render.com/services/web2-kpi-core.js.
 const kpiCore = require('../../services/web2-kpi-core');
+// EVENT-SINK audit toàn bộ (2026-06-22): đổi phân công STT cũng lên Lịch sử thao tác.
+const { recordAuditEvent } = require('../../services/web2-audit-sink');
 
 const router = express.Router();
 
@@ -711,6 +713,15 @@ router.put('/employee-ranges/:campaignName', requireWeb2Admin, async (req, res) 
             ).catch((e) =>
                 console.warn('[web2-kpi] assignments history insert failed:', e?.message)
             );
+            recordAuditEvent(pool, {
+                entity: 'kpi-assignment',
+                entityId: name,
+                action,
+                userId: req.web2User?.id ?? (userId || null),
+                userName: req.web2User?.display_name || userName || null,
+                sourcePage: 'kpi/assignments',
+                changes: { campaign: campaignLabel || name, rangesCount: ranges.length },
+            });
         }
 
         // Ranges đổi → invalidate scope cache mọi user.

@@ -12,6 +12,8 @@
 const express = require('express');
 // 1D-auth (2026-06-12): audit log lộ wallet adjustments + SĐT + tên user nội bộ → gate SOFT.
 const { requireWeb2AuthSoft } = require('../../middleware/web2-auth');
+// Event-sink chung (2026-06-22) — ensure bảng tồn tại để union đọc kể cả trước mutation đầu.
+const { ensureAuditSinkTable } = require('../../services/web2-audit-sink');
 const router = express.Router();
 
 // Cache kết quả _tableExists (MEDIUM perf): 4 lần check serial/request ~40ms.
@@ -48,6 +50,9 @@ router.get('/list', requireWeb2AuthSoft, async (req, res) => {
         const filterUser = req.query.user || null;
         const from = req.query.from || null;
         const to = req.query.to || null;
+
+        // Ensure bảng event-sink (no-op sau lần đầu nhờ _ensured guard) → union đọc được.
+        await ensureAuditSinkTable(pool).catch(() => {});
 
         const blocks = [];
 
@@ -100,6 +105,21 @@ router.get('/list', requireWeb2AuthSoft, async (req, res) => {
                 FROM pbh_fulfillment_logs
             `);
         }
+
+        // 5. web2_audit_events — EVENT-SINK chung (purchase-refund, customers,
+        // payment-signals, returns, kpi-assignments, generic entities…). Đã có
+        // entity/entity_id/action/user/source_page/changes/created_at đúng shape
+        // → SELECT thẳng. Xem services/web2-audit-sink.js. KHÔNG trùng 4 bảng trên
+        // (sink chỉ ghi nguồn CHƯA có bảng riêng → không đếm 2 lần). Bảng đã được
+        // ensureAuditSinkTable ở trên → include thẳng (KHÔNG qua _tableExists cache
+        // tránh stale 'false' 5 phút ngay sau lần tạo bảng đầu).
+        blocks.push(`
+            SELECT
+                entity, entity_id, action,
+                user_id, user_name, source_page, changes,
+                created_at
+            FROM web2_audit_events
+        `);
 
         // 4. web2_wallet_adjustments (isolated Web 2.0 copy — sync từ legacy qua Postgres trigger)
         if (await _tableExists(pool, 'web2_wallet_adjustments')) {
@@ -234,10 +254,11 @@ router.get('/list', requireWeb2AuthSoft, async (req, res) => {
     }
 });
 
-// GET /entities — danh sách entity types có data
+// GET /entities — danh sách entity types có data (4 bảng cố định + entity động
+// từ event-sink web2_audit_events). Dùng để build dropdown lọc động ở frontend.
 router.get('/entities', requireWeb2AuthSoft, async (req, res) => {
     const pool = req.app.locals.web2Db || req.app.locals.chatDb;
-    const out = [];
+    const out = new Set();
     const map = [
         ['product', 'web2_product_history'],
         ['pbh', 'fast_sale_order_history'],
@@ -245,9 +266,20 @@ router.get('/entities', requireWeb2AuthSoft, async (req, res) => {
         ['wallet', 'web2_wallet_adjustments'],
     ];
     for (const [name, tbl] of map) {
-        if (await _tableExists(pool, tbl)) out.push(name);
+        if (await _tableExists(pool, tbl)) out.add(name);
     }
-    res.json({ success: true, entities: out });
+    // Entity động từ sink (purchase-refund, customer, payment-signal, return, …).
+    if (await _tableExists(pool, 'web2_audit_events')) {
+        try {
+            const r = await pool.query(
+                `SELECT DISTINCT entity FROM web2_audit_events WHERE entity IS NOT NULL ORDER BY entity LIMIT 100`
+            );
+            for (const row of r.rows) if (row.entity) out.add(row.entity);
+        } catch {
+            /* best-effort */
+        }
+    }
+    res.json({ success: true, entities: [...out].sort() });
 });
 
 module.exports = router;

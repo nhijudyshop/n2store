@@ -22,6 +22,7 @@
 const express = require('express');
 // 3H14 (2026-06-12): mutation kho KH gate SOFT — enforce khi env WEB2_AUTH_ENFORCE=1.
 const { requireWeb2AuthSoft } = require('../../middleware/web2-auth');
+const { recordAuditEvent } = require('../../services/web2-audit-sink');
 const router = express.Router();
 const {
     getOrCreateWeb2Customer,
@@ -45,6 +46,20 @@ function _notify(action, id) {
     } catch (e) {
         console.warn('[web2-customers] _notify failed:', e.message);
     }
+}
+// EVENT-SINK audit toàn bộ (2026-06-22): ghi web2_audit_events cho thao tác KH có
+// user (tạo/sửa/lưu trữ/xoá/gộp). Bỏ qua import/harvest/enrich tự động (không user).
+function _auditCustomer(req, action, id, changes) {
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
+    recordAuditEvent(pool, {
+        entity: 'customer',
+        entityId: id != null ? String(id) : null,
+        action,
+        userId: req.web2User?.id ?? (req.body?.userId || null),
+        userName: req.web2User?.display_name || req.body?.userName || null,
+        sourcePage: 'customers',
+        changes: changes || {},
+    });
 }
 
 function getPool(req) {
@@ -666,6 +681,7 @@ router.post('/create', requireWeb2AuthSoft, async (req, res) => {
             ]
         );
         _notify('create', r.rows[0].id);
+        _auditCustomer(req, 'create', r.rows[0].id, { name: r.rows[0].name });
         res.json({ success: true, customer: rowToFull(r.rows[0]) });
     } catch (e) {
         if (e.code === '23505') {
@@ -872,6 +888,7 @@ router.post('/merge', requireWeb2AuthSoft, async (req, res) => {
         await client.query('DELETE FROM web2_customers WHERE id = $1', [secondaryId]);
         await client.query('COMMIT');
         _notify('merge', primaryId);
+        _auditCustomer(req, 'merge', primaryId, {});
         res.json({ success: true, primaryId, merged: secondaryId });
     } catch (e) {
         await client.query('ROLLBACK').catch(() => {});
@@ -971,6 +988,7 @@ router.patch('/:id', requireWeb2AuthSoft, async (req, res) => {
             params
         );
         _notify('update', id);
+        _auditCustomer(req, 'update', id, {});
         res.json({ success: true, customer: rowToFull(r.rows[0]) });
     } catch (e) {
         if (e.code === '23505') {
@@ -1003,10 +1021,12 @@ router.delete('/:id', requireWeb2AuthSoft, async (req, res) => {
                 [id, Date.now()]
             );
             _notify('archive', id);
+            _auditCustomer(req, 'archive', id, { orderCount });
             return res.json({ success: true, archived: true, orderCount });
         }
         await db.query('DELETE FROM web2_customers WHERE id = $1', [id]);
         _notify('delete', id);
+        _auditCustomer(req, 'delete', id, {});
         res.json({ success: true, deleted: true });
     } catch (e) {
         console.error('[web2-customers] delete error:', e.message);

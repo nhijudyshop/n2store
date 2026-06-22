@@ -31,6 +31,7 @@ const { withTransaction } = require('../db/with-transaction');
 // WEB2_AUTH_ENFORCE=1 (đang BẬT prod). Đồng bộ với sibling money routers
 // (web2-supplier-wallet.js, web2-payment-signals.js). GET reads để mở.
 const { requireWeb2AuthSoft } = require('../middleware/web2-auth');
+const { recordAuditEvent } = require('../services/web2-audit-sink');
 
 // -----------------------------------------------------
 // SSE notifier — injected từ server.js via initializeNotifiers().
@@ -144,6 +145,22 @@ function _user(req) {
         id: b.userId || req.headers['x-user-id'] || null,
         name: b.userName || req.headers['x-user-name'] || '(ẩn danh)',
     };
+}
+
+// EVENT-SINK audit toàn bộ (2026-06-22): ghi web2_audit_events sau thao tác phiếu
+// trả hàng (tạo/duyệt). Best-effort, post-commit.
+function _auditReturn(req, action, code, note) {
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
+    const u = _user(req);
+    recordAuditEvent(pool, {
+        entity: 'return',
+        entityId: code,
+        action,
+        userId: u.id,
+        userName: u.name,
+        sourcePage: 'fastsaleorder-refund',
+        changes: note ? { note } : {},
+    });
 }
 
 // -----------------------------------------------------
@@ -649,6 +666,7 @@ router.post('/', requireWeb2AuthSoft, async (req, res) => {
             }
             if (doWithdraw) _notifyWallet(phone);
             _notify('create', code, { phone });
+            _auditReturn(req, 'create', code, 'Tạo phiếu trả hàng');
             return res.json({ success: true, return: mapRow(insRow) });
         }
 
@@ -934,6 +952,7 @@ router.post('/', requireWeb2AuthSoft, async (req, res) => {
 
         if (walletCreditedFinal) _notifyWallet(phone);
         _notify('create', inserted.code, { phone });
+        _auditReturn(req, 'create', inserted.code, 'Tạo phiếu trả hàng');
         res.json({ success: true, return: mapRow(inserted) });
     } catch (e) {
         console.error('[WEB2-RETURNS] create error:', e.message);
@@ -1006,6 +1025,7 @@ router.post('/:code/approve', requireWeb2AuthSoft, async (req, res) => {
             throw e;
         }
         _notify('approve', req.params.code);
+        _auditReturn(req, 'approve', req.params.code, 'Duyệt phiếu trả hàng');
         res.json({ success: true });
     } catch (e) {
         console.error('[WEB2-RETURNS] approve error:', e.message);
