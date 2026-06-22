@@ -497,7 +497,12 @@ router.post('/:id/reassign', requireWeb2AuthSoft, async (req, res) => {
         //   bước nào throw → withTransaction ROLLBACK toàn bộ, không cần re-credit
         //   thủ công. Idempotency vẫn giữ: deposit mới dùng reassignRef riêng (không
         //   đụng sepay_id gốc đã dùng cho withdraw audit).
-        const reassignRef = `${tx.sepay_id}:reassign:${newPhoneNorm}`;
+        // FIX 2026-06-23 (audit #3): ref PHẢI duy nhất MỖI lần reassign. Trước chỉ
+        // `:reassign:<newPhone>` → vòng A→B→A→B lần 2 trùng ref lần 1 → dup-check
+        // tưởng "đã chạy" → row đổi sang B NHƯNG tiền không chuyển (B thiếu, A dư).
+        // Thêm oldPhone + timestamp → mỗi thao tác 1 ref. Retry/đồng thời vẫn an toàn
+        // nhờ re-check phone TƯƠI dưới FOR UPDATE (request lặp thấy row đã đổi → 409).
+        const reassignRef = `${tx.sepay_id}:reassign:${oldPhoneNorm}->${newPhoneNorm}:${Date.now()}`;
         let withdrawResult = null;
         let depositResult = null;
         let alreadyReassigned = false;
@@ -527,32 +532,11 @@ router.post('/:id/reassign', requireWeb2AuthSoft, async (req, res) => {
                     throw err;
                 }
 
-                // Step 0 (IDEMPOTENCY — BUG FIX 2026-06-11): deposit có dup-check
-                // qua reassignRef nhưng withdraw thì KHÔNG → reassign lặp vòng
-                // A→B→A→B lần 2: withdraw vẫn trừ ví A mà deposit B bị skip →
-                // MẤT TIỀN im lặng. Check reassignRef đã tồn tại = reassign này
-                // từng chạy → KHÔNG withdraw/deposit nữa, chỉ đảm bảo history row
-                // đúng phone mới (idempotent).
-                const dupRe = await client.query(
-                    `SELECT 1 FROM web2_wallet_transactions
-                     WHERE reference_type = 'sepay' AND reference_id = $1
-                     LIMIT 1`,
-                    [reassignRef]
-                );
-                if (dupRe.rows.length > 0) {
-                    alreadyReassigned = true;
-                    await client.query(
-                        `UPDATE web2_balance_history
-                         SET linked_customer_phone = $2,
-                             display_name = COALESCE($3, display_name),
-                             match_method = 'manual_reassign',
-                             verified_by = COALESCE($4, verified_by),
-                             verified_at = NOW()
-                         WHERE id = $1`,
-                        [id, newPhoneNorm, name || null, verifiedByVal]
-                    );
-                    return;
-                }
+                // FIX 2026-06-23 (audit #3): GỠ dup-check theo reassignRef (BUG FIX
+                // 2026-06-11 cũ) — giờ ref đã duy nhất mỗi lần nên dup-check vừa thừa
+                // vừa HẠI (false-positive khi A→B lặp lại). Idempotency của RETRY do
+                // re-check phone TƯƠI ở trên lo (request lặp thấy freshOld≠oldPhone →
+                // 409). withdraw/deposit cũng idempotent in-tx theo reference_id riêng.
 
                 // Step 1: withdraw từ ví cũ — reference 'sepay_reassign_out' +
                 // reassignRef (KHÔNG dùng 'sepay'+sepay_id: collide partial unique

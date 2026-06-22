@@ -258,6 +258,16 @@ function _notifySupplierWallet(req, supplier) {
 // Body: { note?: string }
 // -----------------------------------------------------
 router.post('/:code/approve', async (req, res) => {
+    // VÔ HIỆU HOÁ 2026-06-23 (audit money #4/#5): state-machine duyệt/hủy-duyệt/hoàn/từ-chối
+    // đã RETIRED từ 2026-05-30 (UI bỏ hết nút — quick-refund auto-create+approve+trừ kho+ghi
+    // ví NCC atomic là đường DUY NHẤT). Endpoint này còn sống = bẫy: trừ kho NHƯNG KHÔNG ghi
+    // ledger ví NCC (#5 divergence) + re-approve trừ kho lại (#4). 410 để chặn dứt.
+    return res.status(410).json({
+        error: 'state_machine_retired',
+        message:
+            'Luồng duyệt phiếu đã gỡ. Dùng /quick-refund (tạo + duyệt + trừ kho + ghi ví atomic).',
+    });
+    /* eslint-disable no-unreachable */
     // ⚠ Sau tách DB (06/2026): CẢ records VÀ products đều ở **web2Db** (web2_records,
     // web2_products). `|| chatDb` chỉ là dead-safe fallback (boot-guard fail-fast → không chạy).
     const recordsPool = req.app.locals.web2Db;
@@ -589,6 +599,13 @@ router.post('/quick-refund', async (req, res) => {
 // Body: { reason?: string }
 // -----------------------------------------------------
 router.post('/:code/cancel-approve', async (req, res) => {
+    // VÔ HIỆU HOÁ 2026-06-23 (audit money #1): state-machine retired (xem /approve). Đường này
+    // gọi reverseRefundLedger — nơi strip mất trần `ordered` (over-refund khi so-order wipe). 410.
+    return res.status(410).json({
+        error: 'state_machine_retired',
+        message: 'Luồng hủy-duyệt đã gỡ. Phiếu quick-refund chốt khi tạo.',
+    });
+    /* eslint-disable no-unreachable */
     const recordsPool = req.app.locals.web2Db;
     const productsPool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!recordsPool || !productsPool) return res.status(500).json({ error: 'DB unavailable' });
@@ -673,6 +690,12 @@ router.post('/:code/cancel-approve', async (req, res) => {
 // Body: { refundMethod?: 'cash'|'bank'|'debt_offset'|'replace', refundAmount?, note? }
 // -----------------------------------------------------
 router.post('/:code/refunded', async (req, res) => {
+    // VÔ HIỆU HOÁ 2026-06-23 (audit money): state-machine retired (xem /approve). 410.
+    return res.status(410).json({
+        error: 'state_machine_retired',
+        message: 'Luồng đánh dấu hoàn tiền đã gỡ. Dùng /quick-refund.',
+    });
+    /* eslint-disable no-unreachable */
     const recordsPool = req.app.locals.web2Db;
     if (!recordsPool) return res.status(500).json({ error: 'DB unavailable' });
     const code = req.params.code;
@@ -746,6 +769,13 @@ router.post('/:code/refunded', async (req, res) => {
 // Body: { reason?: string }
 // -----------------------------------------------------
 router.post('/:code/reject', async (req, res) => {
+    // VÔ HIỆU HOÁ 2026-06-23 (audit money #1): state-machine retired (xem /approve). Gọi
+    // reverseRefundLedger (strip trần ordered). 410.
+    return res.status(410).json({
+        error: 'state_machine_retired',
+        message: 'Luồng từ chối phiếu đã gỡ. Dùng /quick-refund.',
+    });
+    /* eslint-disable no-unreachable */
     const recordsPool = req.app.locals.web2Db;
     const productsPool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!recordsPool || !productsPool) return res.status(500).json({ error: 'DB unavailable' });

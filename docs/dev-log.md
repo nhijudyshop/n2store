@@ -2,6 +2,16 @@
 
 ## 2026-06-23
 
+### [audit/fix] Vòng 3 — money audit module ngoài PBH (ví NCC / ví KH / SePay / hoàn NCC): 5 bug, fix 4
+
+User "lặp đến hoàn hảo". Workflow adversarial 4 module tiền → 5 candidate → **5 confirmed (0 false-pos)**. Fix 4 (clean/safe), 1 defer (rủi ro cao + insider-vector).
+
+- 🔴 **#1+#4+#5 purchase-refund state-machine RETIRED → 410**: `/:code/{approve,cancel-approve,refunded,reject}` đã bỏ UI từ 2026-05-30 (`actions=[]; if(false)`), chỉ `quick-refund` dùng. Endpoint còn sống = bẫy: **#5** approve trừ kho NHƯNG không ghi ledger ví NCC (divergence), **#4** re-approve trừ kho lại, **#1** cancel-approve/reject gọi `reverseRefundLedger` strip mất trần `ordered` → over-refund khi so-order wipe. Fix: 410 cả 4 (giống manual-create/from-pbh). quick-refund = đường DUY NHẤT.
+- 🔴 **#3 SePay reassign ví lặp A→B→A→B lần 2 mất tiền**: `reassignRef` chỉ gồm newPhone → lần 2 A→B trùng ref lần 1 → dup-check tưởng "đã chạy" → row đổi sang B nhưng **tiền không chuyển** (B thiếu, A dư). Fix: ref duy nhất mỗi lần (`+oldPhone+timestamp`) + GỠ dup-check (retry-idempotency do re-check phone TƯƠI dưới FOR UPDATE lo → request lặp thấy row đã đổi → 409).
+- 🟡 **#2 web2-supplier-wallet /tx amount KHÔNG recompute server-side** (DEFER): trần over-refund chỉ chặn QTY, `amount` lấy thẳng body (chỉ check >0) → client tamper amount lớn → mint credit ví NCC giảm nợ. Insider-vector (cần auth + body sửa tay; client thật tính `qty×cost`). Fix đúng = recompute `amount ≤ Σ(cappedQty × cost)` từ so-order (mirror purchase-refund.js:385-390) — **cần xác định field cost trong web2_so_order row trước** (lib hiện chỉ đọc qty/qtyReceived/status). Rủi ro cap nhầm refund thật → để đợt focused.
+
+Tất cả `node --check` PASS. Cần Render deploy.
+
 ### [audit/fix] Hệ PBH vòng 2 — deep money-flow audit (8 bug thật, 2 false-pos refute) + fix
 
 User "audit → debug → fix lặp đến hoàn hảo". Workflow adversarial (4 chiều ví/kho/state/báo-cáo, find→refute→confirm) → 10 candidate → **8 bug thật** (2 false-pos đã loại đúng: KPI-revoke-merged không execute, bulk-confirm native đã confirmed). Verify trước 3 bug deft lần trước: dashboard `amount_total` (KHÔNG bug — dashboard-kpi trả đúng cột), bulkMerge draft-only (by-design, BE cũng chặn), native-auth /from-comment (cart.js loopback KHÔNG token → defer ĐÚNG).
