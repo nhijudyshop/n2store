@@ -3,15 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `e70c44c` — docs(web2) SSE R4 verified live (clientsNotified 0->1, no over-match, reviewer APPROVE) + by-design dbl-subscribe note
-**Last updated**: 2026-06-22 02:31:00 +07
-**Latest session**: [`RESUME:20260622-023100-e70c44c`](../20260622-023100-e70c44c.md)
-**Summary**: docs(web2) SSE R4 verified live (clientsNotified 0->1, no over-match, reviewer APPROVE) + by-design dbl-subscribe note
+**Latest commit**: `519932e` — auto: session update
+**Last updated**: 2026-06-22 08:48:23 +07
+**Latest session**: [`RESUME:20260622-084823-519932e`](../20260622-084823-519932e.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 1 file(s)
+- [`render.com/`](./render.com.md) — 4 file(s)
 
 ## All folder snapshots
 
@@ -26,7 +26,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-21 15:47
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-06-22 02:31
+- [`docs/`](./docs.md) — updated 2026-06-22 08:48
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-19 14:27
@@ -56,7 +56,7 @@
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-06-20 12:07
 - [`referenceUI/`](./referenceUI.md) — updated 2026-06-19 14:27
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-06-20 12:07
-- [`render.com/`](./render.com.md) — updated 2026-06-22 02:31
+- [`render.com/`](./render.com.md) — updated 2026-06-22 08:48
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-21 21:25
 - [`service-costs/`](./service-costs.md) — updated 2026-06-20 12:07
