@@ -22,7 +22,6 @@ const PAGES = [
     'web2/purchase-refund',
     'web2/products',
     'web2/variants',
-    'web2/product-category',
     'web2/fastsaleorder-invoice',
     'web2/fastsaleorder-delivery',
     'web2/fastsaleorder-refund',

@@ -2,7 +2,7 @@
 /**
  * Web 2.0 generic API client — talks to /api/web2/:entity/*
  * Usage:
- *   const api = Web2Api.forEntity('productcategory');
+ *   const api = Web2Api.forEntity('productuom');
  *   await api.list({ search:'X', page:1, limit:200 });
  *   await api.create({ code:'A', name:'Áo', data:{ note:'...' } });
  *   await api.update('A', { name:'Áo mới' });

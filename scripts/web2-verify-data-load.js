@@ -55,7 +55,6 @@ const PAGES = [
     '/web2/customer-wallet/index.html',
     '/web2/products/index.html',
     '/web2/variants/index.html',
-    '/web2/product-category/index.html',
     '/web2/report-revenue/index.html',
     '/web2/report-delivery/index.html',
     '/web2/users/index.html',

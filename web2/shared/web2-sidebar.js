@@ -285,10 +285,6 @@
             children: [
                 { label: 'Kho SP Web 2.0', our: '../web2/products/index.html' },
                 { label: 'Kho Biến Thể', our: '../web2/variants/index.html' },
-                {
-                    label: 'Nhóm sản phẩm',
-                    our: '../web2/product-category/index.html',
-                },
             ],
         },
         {
@@ -411,7 +407,6 @@
         'web2/balance-history/index.html',
         'web2/products/index.html',
         'web2/variants/index.html',
-        'web2/product-category/index.html',
         'web2/delivery-zone/index.html',
         'web2/order-tags/index.html',
         'web2/printer-settings/index.html',

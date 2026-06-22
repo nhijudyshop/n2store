@@ -15,6 +15,13 @@ API="https://chatomni-proxy.nhijudyshop.workers.dev/api/web2-variants"
 
 [[ -f "$INPUT" ]] || { echo "Input file not found: $INPUT" >&2; exit 1; }
 
+# WEB2_AUTH_ENFORCE=1 (từ 2026-06-13) → POST cần admin token. Truyền qua env
+# WEB2_TOKEN (KHÔNG hardcode). Lấy: POST /api/web2-users/login → token.
+AUTH_HEADER=()
+if [[ -n "${WEB2_TOKEN:-}" ]]; then
+    AUTH_HEADER=(-H "x-web2-token: $WEB2_TOKEN")
+fi
+
 total=0
 ok=0
 dup=0
@@ -39,7 +46,7 @@ while IFS= read -r raw; do
         '{value: $v, groupName: ($g | select(length>0) // null), sortOrder: $o, createdBy: "seed-script"}')
 
     resp=$(curl -s -o /tmp/seed-variants-resp.json -w "%{http_code}" \
-        -X POST -H "Content-Type: application/json" \
+        -X POST -H "Content-Type: application/json" "${AUTH_HEADER[@]}" \
         -d "$body" "$API")
 
     case "$resp" in

@@ -847,7 +847,6 @@
                                 <li><a href="#p-balance-history">Lịch sử số dư (SePay)</a></li>
                                 <li><a href="#p-products">Kho sản phẩm</a></li>
                                 <li><a href="#p-variants">Kho biến thể</a></li>
-                                <li><a href="#p-product-category">Nhóm sản phẩm</a></li>
                                 <li><a href="#p-users">Users &amp; phân quyền</a></li>
                             </ol>
                         </li>
@@ -1600,57 +1599,6 @@
                             </div>
                         </article>
 
-                        <!-- ===== 12. PRODUCT CATEGORY ===== -->
-                        <article class="ov-page" id="p-product-category">
-                            <header class="ov-page-head ov-page-head-violet">
-                                <span class="ov-page-num">12</span>
-                                <div>
-                                    <h3>Nhóm sản phẩm</h3>
-                                    <code>web2/product-category/index.html</code>
-                                </div>
-                                <a class="ov-page-open" href="../product-category/index.html">
-                                    Mở trang →
-                                </a>
-                            </header>
-                            <div class="ov-page-body">
-                                <p>
-                                    <strong>Mục đích:</strong> Cây phân loại sản phẩm (parent /
-                                    child) — gắn cho <code>web2_products.category</code>.
-                                </p>
-                                <div class="ov-meta">
-                                    <div class="ov-meta-item">
-                                        <span class="ov-meta-label">Cột</span>
-                                        Mã · Tên nhóm · Nhóm cha · Ghi chú
-                                    </div>
-                                    <div class="ov-meta-item">
-                                        <span class="ov-meta-label">Nút &amp; action</span>
-                                        Generic page-builder · CRUD đầy đủ · Bulk-create ·
-                                        Delete-all · Ref-link parent code
-                                    </div>
-                                    <div class="ov-meta-item">
-                                        <span class="ov-meta-label">API</span>
-                                        <code>/api/web2/productcategory/*</code>
-                                        — list · get/:code · create · bulk-create · delete-all ·
-                                        update/:code · delete/:code
-                                    </div>
-                                    <div class="ov-meta-item">
-                                        <span class="ov-meta-label">Postgres</span>
-                                        <code
-                                            >web2_records WHERE entity_slug='productcategory'</code
-                                        >
-                                    </div>
-                                    <div class="ov-meta-item">
-                                        <span class="ov-meta-label">SSE topic</span>
-                                        <code>web2:productcategory</code>
-                                    </div>
-                                    <div class="ov-meta-item">
-                                        <span class="ov-meta-label">Liên kết</span>
-                                        Gắn vào <code>web2_products.category</code> để filter SP
-                                    </div>
-                                </div>
-                            </div>
-                        </article>
-
                         <!-- ===== 13. USERS ===== -->
                         <article class="ov-page" id="p-users">
                             <header class="ov-page-head ov-page-head-slate">
@@ -1765,9 +1713,6 @@ supplier-debt            ← Trang: báo cáo công nợ</pre
                             <h3>Master data + Auth</h3>
                             <pre>
 web2_variants           ← Trang: variants
-   ↓ tham chiếu
-web2_records (productcategory) ← Trang: product-category
-   ↓ filter
 web2_products           ← Trang: products
 
 app_users               ← Trang: users (auth guard mọi trang)
@@ -1785,7 +1730,6 @@ permission_templates    (role: admin/manager/staff)</pre
                             <span class="ov-pill ov-pill-green">web2:reconcile</span>
                             <span class="ov-pill ov-pill-amber">web2:products</span>
                             <span class="ov-pill ov-pill-indigo">web2:variants</span>
-                            <span class="ov-pill ov-pill-violet">web2:productcategory</span>
                             <span class="ov-pill ov-pill-red">web2:purchase-refund</span>
                             <span class="ov-pill ov-pill-teal">wallet:all</span>
                             <span class="ov-pill ov-pill-emerald">web2:customer-wallet</span>
@@ -1922,8 +1866,7 @@ permission_templates    (role: admin/manager/staff)</pre
                                 </li>
                                 <li>
                                     <code>/api/web2-products</code> ·
-                                    <code>/api/web2-variants</code> ·
-                                    <code>/api/web2/productcategory</code>
+                                    <code>/api/web2-variants</code>
                                 </li>
                                 <li>
                                     <code>/api/web2/purchase-refund</code> ·
@@ -2310,20 +2253,6 @@ permission_templates    (role: admin/manager/staff)</pre
                                     </td>
                                     <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
                                         /api/web2-variants
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
-                                        Nhóm sản phẩm
-                                    </td>
-                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
-                                        ✅ SSE <em>(thêm 6/4)</em>
-                                    </td>
-                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
-                                        <code>web2:productcategory</code>
-                                    </td>
-                                    <td style="padding: 5px 9px; border: 1px solid #e2e8f0">
-                                        /api/web2/productcategory
                                     </td>
                                 </tr>
                                 <tr>
@@ -3213,7 +3142,7 @@ permission_templates    (role: admin/manager/staff)</pre
         <script src="../shared/web2-user-info.js?v=20260530a"></script>
         <script src="../shared/web2-history-timeline.js?v=20260530a"></script>
         <script src="../shared/web2-optimistic.js?v=20260601a"></script>
-        <script src="../shared/web2-sidebar.js?v=20260622a"></script>
+        <script src="../shared/web2-sidebar.js?v=20260623pc"></script>
         <script>
             document.addEventListener('DOMContentLoaded', () => {
                 if (window.Web2Sidebar) {

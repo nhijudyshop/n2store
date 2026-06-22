@@ -126,7 +126,6 @@ const WEB2_PAGES = [
     'overview',
     'pancake-settings',
     'partner-customer',
-    'product-category',
     'products',
     'purchase-refund',
     'reconcile',

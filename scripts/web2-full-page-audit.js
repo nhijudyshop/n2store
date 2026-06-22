@@ -35,7 +35,6 @@ const PAGES = [
     ['Ví Khách Hàng', '/web2/customer-wallet/index.html'],
     ['Kho SP', '/web2/products/index.html'],
     ['Kho Biến Thể', '/web2/variants/index.html'],
-    ['Nhóm sản phẩm', '/web2/product-category/index.html'],
     ['Thống kê doanh thu', '/web2/report-revenue/index.html'],
     ['Thống kê giao hàng', '/web2/report-delivery/index.html'],
     ['Lấy comment Live', '/web2/livestream-poller/index.html'],

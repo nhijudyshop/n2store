@@ -9,7 +9,6 @@
     global.Web2SSETopics = Object.freeze({
         PRODUCTS: 'web2:products',
         VARIANTS: 'web2:variants',
-        PRODUCT_CATEGORY: 'web2:productcategory',
         NATIVE_ORDERS: 'web2:native-orders',
         FAST_SALE_ORDERS: 'web2:fast-sale-orders',
         RECONCILE: 'web2:reconcile',

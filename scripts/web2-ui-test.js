@@ -63,7 +63,6 @@ const PAGES = [
     // Sản phẩm
     '/web2/products/index.html',
     '/web2/variants/index.html',
-    '/web2/product-category/index.html',
     // Báo cáo
     '/web2/report-revenue/index.html',
     '/web2/report-delivery/index.html',

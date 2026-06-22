@@ -9,10 +9,17 @@ window.WEB2_MODULES_MANIFEST = [
         icon: 'dollar-sign',
     },
     {
-        dir: 'product-category',
-        title: 'Nhóm sản phẩm',
-        slug: 'productcategory',
-        category: 'Sản phẩm',
-        icon: 'box',
+        dir: 'delivery-zone',
+        title: 'Phương thức giao hàng',
+        slug: 'deliveryzone',
+        category: 'Giao hàng',
+        icon: 'circle',
+    },
+    {
+        dir: 'product-counter',
+        title: 'Đếm bó / pack',
+        slug: '',
+        category: 'Khác',
+        icon: 'circle',
     },
 ];

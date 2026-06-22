@@ -2,6 +2,26 @@
 
 ## 2026-06-23
 
+### [chore] Xoá trang product-category ("Nhóm sản phẩm") + [data] khôi phục Kho Biến Thể (108)
+
+Audit workflow 2-agent (removal surface + restore sources) → thực hiện → debug → verify.
+
+**Task 1 — XOÁ product-category** (LOW risk: leaf page, generic page-builder entity, KHÔNG cần đổi backend):
+
+- Xoá folder `web2/product-category/`. Xoá menu child + allow-list trong `web2-sidebar.js`. Xoá `PRODUCT_CATEGORY` trong `web2-sse-topics.js`.
+- Regenerate `modules-manifest.js` (`node scripts/web2-build-manifest.js`) + `navigation-modern.js` (`node scripts/web2-build-nav.js`) — auto drop entry (manifest cũ stale, nay picks up delivery-zone + product-counter = đúng).
+- Dọn overview/index.html (card #p-product-category, TOC, diagram, SSE pill, API token, SSE table row) + 6 test script + swap JSDoc example `web2-api.js` sang `productuom`.
+- Bump `web2-sidebar.js?v=20260623pc` (43 trang) để prod nạp menu mới.
+- KHÔNG đụng backend (`web2-generic.js` slug-agnostic phục vụ 78+ entity từ `web2_records` — xoá page chỉ ngừng hit route). Data `web2_records WHERE entity_slug='productcategory'` để lại (beta, vô hại; purge cần x-admin-secret).
+- Tombstone giữ chủ ý (doc/comment, không phải ref sống): page-builder generic JSDoc, menu.json TPOS-crawl, migration 068 comment.
+- Verify: product-category HTTP 404, sidebar chỉ còn "Kho SP Web 2.0" + "Kho Biến Thể".
+
+**Task 2 — KHÔI PHỤC Kho Biến Thể** (`web2_variants` bị TRUNCATE bởi web2-selective-wipe.js, KHÔNG backup):
+
+- Nguồn = `bienthe.txt` (108 biến thể gốc, git-verified byte-identical) + `scripts/seed-web2-variants.sh` (seed gốc). KHÔNG cần Firestore/TPOS/seed mới.
+- WEB2_AUTH_ENFORCE=1 nên POST cần token → thêm header `x-web2-token` OPTIONAL (env `WEB2_TOKEN`) vào seed script (backward-compat). Lấy token qua `POST /api/web2-users/login` admin.
+- Chạy `WEB2_TOKEN=<admin> bash scripts/seed-web2-variants.sh` → 108 created, 0 fail. Verify: total 108 (Màu 80 + Size 28), 108/108 có short_code auto-suggest (BAC/BEO/BO/43/44), sort_order 1-108. Trang render đủ 108 rows.
+
 ### [feat] Per-record history rollout — Wave 3 frontend (🕘 buttons cho 10 trang đã wire sink)
 
 Hoàn tất nhánh FE: 10 trang đã có data chảy vào event-sink (Wave 2) giờ có nút 🕘 mở `Web2AuditLog.openRecord({entity, entityId, title})` per-record. Module auto-load qua sidebar → chỉ thêm nút + handler (defensive `?.`), KHÔNG cần script tag. 5 subagent song song (2 trang/agent), additive thuần, match style nút sẵn có, bump `?v=20260623w3`.
