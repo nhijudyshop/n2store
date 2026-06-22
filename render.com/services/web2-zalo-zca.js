@@ -155,6 +155,38 @@ function _extractAttachment(kind, content) {
         content.thumb ||
         params.thumbUrl ||
         '';
+    // Danh thiếp (chat.recommended): gom uid/phone/tên/avatar để render card liên hệ.
+    if (kind === 'contact') {
+        return {
+            type: 'contact',
+            uid: String(content.userId || content.uid || params.userId || ''),
+            phone: content.phone || content.phoneNumber || params.phone || '',
+            title:
+                content.profileName ||
+                content.name ||
+                content.title ||
+                params.name ||
+                'Liên hệ Zalo',
+            thumb: content.avatar || params.avatar || content.thumb || '',
+            href: content.qrCodeUrl || params.qrCodeUrl || '',
+        };
+    }
+    // Vị trí (chat.location.new): lat/lon + địa chỉ → link bản đồ.
+    if (kind === 'location') {
+        const lat = content.lat ?? params.lat ?? content.latitude ?? '';
+        const lon = content.lon ?? content.lng ?? params.lon ?? content.longitude ?? '';
+        return {
+            type: 'location',
+            lat: lat === '' ? '' : String(lat),
+            lon: lon === '' ? '' : String(lon),
+            title: content.address || content.desc || params.address || 'Vị trí',
+            href:
+                lat !== '' && lon !== ''
+                    ? `https://maps.google.com/?q=${lat},${lon}`
+                    : content.href || '',
+            thumb: content.thumb || params.thumbUrl || '',
+        };
+    }
     const thumb = content.thumb || params.thumbUrl || params.normalUrl || url || '';
     // link: tách riêng title/desc để render card xem trước; kind khác giữ fallback cũ (tên tệp…).
     const title = content.title || (kind === 'link' ? '' : content.description) || '';
@@ -180,9 +212,11 @@ function _normMessage(accountKey, m) {
     if (rawContent && typeof rawContent === 'object') {
         // ảnh/sticker/file/link/... → giữ URL trong attachments, caption ở text
         const att = _extractAttachment(kind, rawContent);
-        if (att && (att.url || att.thumb || att.href)) attachments.push(att);
+        // contact/location có thể không có url/thumb/href → vẫn giữ (có uid/lat).
+        if (att && (att.url || att.thumb || att.href || att.uid || att.lat)) attachments.push(att);
         // caption: chỉ giữ title/description (KHÔNG nhét href làm text — sẽ render media)
         if (kind === 'link') text = rawContent.title || rawContent.href || '';
+        else if (kind === 'contact' || kind === 'location') text = att?.title || '';
         else text = rawContent.title || rawContent.description || '';
     } else {
         text = rawContent == null ? '' : String(rawContent);

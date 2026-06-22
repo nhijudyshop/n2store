@@ -40,6 +40,8 @@
         if (type === 'video') return hasMedia ? 'video' : _legacy(m);
         if (type === 'file') return hasMedia ? 'file' : 'text';
         if (type === 'voice') return hasMedia ? 'voice' : 'text';
+        if (type === 'contact') return a.uid || a.phone || a.title ? 'contact' : _legacy(m);
+        if (type === 'location') return (a.lat && a.lon) || a.href ? 'location' : _legacy(m);
         return _legacy(m);
     };
     function _legacy(m) {
@@ -56,8 +58,9 @@
     // nội dung 1 bong bóng (đã loại recalled)
     function body(m, kind) {
         const atts = Array.isArray(m.attachments) ? m.attachments : [];
+        const noCapKind = kind === 'link' || kind === 'contact' || kind === 'location';
         const cap =
-            m.content && kind !== 'link' && _msgUrl(m) !== (m.content || '').trim()
+            m.content && !noCapKind && _msgUrl(m) !== (m.content || '').trim()
                 ? `<div class="wz-msg-cap">${fmtText(m.content)}</div>`
                 : '';
         const a = atts[0] || {};
@@ -87,15 +90,30 @@
             return `<img class="wz-msg-sticker" src="${esc(a.url || a.thumb || _msgUrl(m))}" alt="sticker" loading="lazy" referrerpolicy="no-referrer">`;
         }
         if (kind === 'video') {
-            return `<a class="wz-msg-media wz-msg-video" href="${esc(a.url || a.href || a.thumb)}" target="_blank" rel="noopener noreferrer">
-                ${a.thumb ? `<img src="${esc(a.thumb)}" alt="video" loading="lazy" referrerpolicy="no-referrer">` : ''}
-                <span class="wz-msg-play"><i data-lucide="play"></i></span></a>${cap}`;
+            // Trình phát inline (thay vì mở tab). poster = thumbnail; tải metadata khi cần.
+            return `<video class="wz-msg-video-player" controls preload="metadata"${a.thumb ? ` poster="${esc(a.thumb)}"` : ''} src="${esc(a.url || a.href)}"></video>${cap}`;
         }
         if (kind === 'voice') {
             return `<audio class="wz-msg-voice" controls preload="none" src="${esc(a.url || a.href)}"></audio>${cap}`;
         }
         if (kind === 'file') {
             return `<a class="wz-msg-file" href="${esc(a.url || a.href || '#')}" target="_blank" rel="noopener noreferrer"><i data-lucide="file"></i><span>${esc(a.title || 'Tệp đính kèm')}</span></a>${cap}`;
+        }
+        if (kind === 'contact') {
+            const name = a.title || 'Liên hệ Zalo';
+            return `<div class="wz-msg-contact">
+                ${WZ.avatarHtml(a.thumb, name, 'wz-mc-av')}
+                <div class="wz-mc-info">
+                    <span class="wz-mc-name">${esc(name)}</span>
+                    ${a.phone ? `<span class="wz-mc-phone">${esc(a.phone)}</span>` : '<span class="wz-mc-sub">Danh thiếp Zalo</span>'}
+                </div>
+            </div>${cap}`;
+        }
+        if (kind === 'location') {
+            return `<a class="wz-msg-location" href="${esc(a.href || '#')}" target="_blank" rel="noopener noreferrer">
+                <span class="wz-ml-ic"><i data-lucide="map-pin"></i></span>
+                <span class="wz-ml-addr">${esc(a.title || 'Vị trí')}</span>
+            </a>${cap}`;
         }
         if (kind === 'link') {
             const href = a.href || a.url || m.content || '';
@@ -193,7 +211,7 @@
             prevKey = groupKey;
 
             const kind = m.recalled ? 'recalled' : WZ.bubbleKind(m);
-            const media = kind !== 'text' && kind !== 'link' && kind !== 'recalled';
+            const media = !['text', 'link', 'recalled', 'contact', 'location'].includes(kind);
             const id = esc(m.msg_id || m.cli_msg_id || '');
             const cls = [
                 'wz-msg',

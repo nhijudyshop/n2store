@@ -2,7 +2,16 @@
 
 ## 2026-06-22
 
-### [chore] Dọn dead-code CSS Web 2.0 — xoá 3 file orphan (1945 dòng)
+### [feat] Zalo rebuild Phase 3 (đợt 2) — render video inline + danh thiếp + vị trí
+
+Lấp các loại tin Zalo chưa hiển thị đẹp (render-side, verify-được full trên localhost không cần TK). Sticker packs đã đủ (picker hiện có: tìm + chip gợi ý + recents → KHÔNG gold-plate).
+
+- **Trình phát video inline**: `bubbles.js` kind `video` đổi từ link mở tab → `<video controls preload=metadata poster=thumb>` (CSS `.wz-msg-video-player` max 280px/360px nền đen).
+- **Danh thiếp (contact)**: `_extractAttachment` (service) gom `uid/phone/tên/avatar` cho kind `contact` (chat.recommended); `bubbleKind`+`body` render card (avatar + tên + SĐT/“Danh thiếp Zalo”). CSS `.wz-msg-contact`.
+- **Vị trí (location)**: `_extractAttachment` gom `lat/lon/địa chỉ` → link Google Maps; `body` render card (icon ghim + địa chỉ). CSS `.wz-msg-location`.
+- **Service normalizer**: nới điều kiện push attachment (`|| att.uid || att.lat`) để contact/location không có url/thumb vẫn lưu; text caption lấy `att.title` cho 2 kind này; cap (caption) bỏ cho contact/location/link; `has-media` loại trừ contact/location (giữ bubble thường).
+- **Verify browser (localhost, 0 lỗi console)**: render video→`wz-msg-video-player`; contact→card có tên+SĐT; location→card có link maps. node --check pass. Bump `?v=20260622p5` (bubbles.js + chat-bubbles.css + ENGINE_VER).
+- **Drop khỏi đợt này**: gửi danh thiếp (`sendCard`) — hoãn vì cần điểm vào UI gọn (ô soạn đã chật 7 nút); sticker packs đã đủ. Phase 4 kế: richness nhóm + tách route 2203 dòng.
 
 Sau đợt đồng nhất giao diện, dọn CSS chết (đã verify kỹ: không HTML/JS nào nạp + class không dùng trong markup + không trong sidebar):
 
