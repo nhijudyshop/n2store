@@ -394,6 +394,7 @@ async function _afterLogin(accountKey, api, label, opts) {
     s.reconnectAttempt = 0;
     s.consecutiveKicks = 0;
     s.disposed = false;
+    s.gaveUp = false;
     clearTimeout(s.reconnectTimer);
     s.reconnectTimer = null;
     _sessions.set(accountKey, s);
@@ -468,6 +469,7 @@ async function _doReconnect(accountKey) {
     if (!s || s.reconnecting || s.disposed || !s.creds) return;
     s.reconnecting = true;
     _sessions.set(accountKey, s);
+    _setStatus(accountKey, 'reconnecting'); // SSE web2:zalo:accounts → UI hiện "đang kết nối lại"
     try {
         try {
             s.listener?.stop?.();
@@ -510,8 +512,9 @@ async function _watchdogTick() {
             if (s.api) {
                 // keepAlive (presence ping) + liveness: ném/khựng → coi như chết → reconnect.
                 await _raceTimeout(s.api.keepAlive(), KEEPALIVE_TIMEOUT_MS);
-            } else if (s.creds && s.status !== 'kicked' && !s.reconnectTimer) {
+            } else if (s.creds && !s.gaveUp && s.status !== 'kicked' && !s.reconnectTimer) {
                 // Có creds nhưng mất api mà không có lịch reconnect → schedule.
+                // gaveUp (đã bỏ cuộc sau MAX_RECONNECT_ATTEMPTS) → chờ login tay, KHÔNG hammer.
                 _scheduleReconnect(key, 1006);
             }
         } catch (e) {

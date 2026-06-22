@@ -118,6 +118,8 @@
         declined: 'Bị từ chối',
         qr_expired: 'QR hết hạn',
         banned: 'Bị khoá',
+        kicked: 'Bị giành phiên (mở nơi khác?)',
+        reconnecting: 'Đang kết nối lại…',
         error: 'Lỗi',
         offline: 'Offline',
     };

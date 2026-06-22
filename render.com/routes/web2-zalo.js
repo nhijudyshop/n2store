@@ -107,7 +107,9 @@ async function _loadTracked() {
 }
 
 // ── Strip dữ liệu nhạy cảm trước khi trả client ─────────────────────────
-function _safeAccount(a, liveStatus) {
+// live = object health từ zca.statusAll() (hoặc undefined). Surface health cho UI
+// đèn sức khoẻ + cảnh báo "không bị văng" (reconnecting / kicked / lastEventAt).
+function _safeAccount(a, live) {
     return {
         id: a.id,
         accountKey: a.account_key,
@@ -121,11 +123,22 @@ function _safeAccount(a, liveStatus) {
         hasSession: !!a.session,
         hasToken: !!a.access_token,
         tokenExpires: a.token_expires,
-        status: liveStatus || a.status,
-        statusMsg: a.status_msg,
+        status: live?.status || a.status,
+        statusMsg: live?.error || a.status_msg,
         isActive: a.is_active,
         isPrimary: !!a.is_primary, // TK cá nhân CHÍNH gửi tin KH 1-1
         lastConnectedAt: a.last_connected_at,
+        // Health watchdog (chỉ personal có live): cho UI hiện đèn + cảnh báo.
+        health: live
+            ? {
+                  healthy: !!live.healthy,
+                  reconnecting: !!live.reconnecting,
+                  lastEventAt: live.lastEventAt || null,
+                  lastCloseCode: live.lastCloseCode || null,
+                  consecutiveKicks: live.consecutiveKicks || 0,
+                  connectedAt: live.connectedAt || null,
+              }
+            : null,
         createdAt: a.created_at,
         updatedAt: a.updated_at,
     };
@@ -524,7 +537,7 @@ router.get('/status', async (req, res) => {
             `SELECT * FROM web2_zalo_accounts WHERE is_active=true ORDER BY account_type, updated_at DESC`
         );
         const live = Object.fromEntries(zca.statusAll().map((s) => [s.accountKey, s]));
-        const accounts = rows.map((a) => _safeAccount(a, live[a.account_key]?.status));
+        const accounts = rows.map((a) => _safeAccount(a, live[a.account_key]));
         res.json({
             success: true,
             zcaAvailable: zca.isAvailable(),
@@ -549,7 +562,7 @@ router.get('/accounts', async (req, res) => {
         const live = Object.fromEntries(zca.statusAll().map((s) => [s.accountKey, s]));
         res.json({
             success: true,
-            data: rows.map((a) => _safeAccount(a, live[a.account_key]?.status)),
+            data: rows.map((a) => _safeAccount(a, live[a.account_key])),
         });
     } catch (e) {
         res.status(500).json({ success: false, error: e.message });

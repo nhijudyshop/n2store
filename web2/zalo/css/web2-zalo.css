@@ -471,16 +471,52 @@
 }
 .wz-dot.qr_pending,
 .wz-dot.scanned,
-.wz-dot.connecting {
+.wz-dot.connecting,
+.wz-dot.reconnecting {
     background: var(--wz-warn);
     animation: wzPulse 1.4s ease-in-out infinite;
 }
 .wz-dot.error,
 .wz-dot.banned,
 .wz-dot.declined,
-.wz-dot.qr_expired {
+.wz-dot.qr_expired,
+.wz-dot.kicked {
     background: var(--wz-danger);
     box-shadow: 0 0 0 3px var(--wz-danger-soft);
+}
+/* Health watchdog (Phase 1 "không bị văng"): cảnh báo bị giành phiên + nhắc realtime trên máy chủ */
+.wz-kick-warn,
+.wz-live-hint {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    margin-top: 8px;
+    padding: 8px 10px;
+    border-radius: var(--wz-radius-sm, 8px);
+    font-size: 12px;
+    line-height: 1.45;
+}
+.wz-kick-warn {
+    background: var(--wz-danger-soft);
+    color: var(--wz-danger);
+    border: 1px solid color-mix(in srgb, var(--wz-danger) 30%, transparent);
+}
+.wz-live-hint {
+    background: var(--wz-ok-soft);
+    color: var(--wz-ok);
+    border: 1px solid color-mix(in srgb, var(--wz-ok) 24%, transparent);
+}
+.wz-kick-warn i,
+.wz-live-hint i {
+    width: 15px;
+    height: 15px;
+    flex-shrink: 0;
+    margin-top: 1px;
+}
+@media (prefers-reduced-motion: reduce) {
+    .wz-dot.reconnecting {
+        animation: none;
+    }
 }
 @keyframes wzPulse {
     0%,

@@ -112,6 +112,19 @@
             t === 'personal' && a.isPrimary
                 ? `<span class="wz-acc-primary" title="Tài khoản gửi tin nhắn khách 1-1 cho mọi trang"><i data-lucide="star"></i> TK chính</span>`
                 : '';
+        // Health watchdog (Phase 1 "không bị văng"): hiện trạng thái sống/đang kết nối lại,
+        // cảnh báo khi bị giành phiên, và nhắc đừng mở Zalo Web TK này ở máy khác.
+        const h = a.health || {};
+        const eff = h.reconnecting ? 'reconnecting' : a.status;
+        const stLabel = STATUS_LABEL[eff] || eff;
+        const kickWarn =
+            t === 'personal' && a.status === 'kicked'
+                ? `<div class="wz-kick-warn"><i data-lucide="alert-triangle"></i> Tài khoản đang mở ở nơi khác — máy chủ tạm dừng nghe. Đừng mở <b>chat.zalo.me</b> tài khoản này trên máy/trình duyệt khác (app điện thoại vẫn dùng được), rồi bấm <b>Kết nối lại</b>.</div>`
+                : '';
+        const liveHint =
+            t === 'personal' && a.status === 'connected'
+                ? `<div class="wz-live-hint"><i data-lucide="shield-check"></i> Đang nghe realtime trên máy chủ → nhân viên dùng được ở mọi máy. Lưu ý: đừng đăng nhập <b>chat.zalo.me</b> tài khoản này ở nơi khác (sẽ làm rớt; máy chủ tự kết nối lại).</div>`
+                : '';
         return `<div class="wz-acc-card${a.isPrimary ? ' is-primary' : ''}">
             <div class="wz-acc-top">
                 ${avatar}
@@ -122,7 +135,8 @@
                 ${primaryBadge}
                 <span class="wz-acc-type ${t}">${t === 'oa' ? 'OA' : 'Cá nhân'}</span>
             </div>
-            <div class="wz-statustxt"><span class="wz-dot ${esc(a.status)}"></span>${esc(STATUS_LABEL[a.status] || a.status)}${a.statusMsg ? ' · <span class="wz-err" style="font-weight:400">' + esc(String(a.statusMsg).slice(0, 60)) + '</span>' : ''}</div>
+            <div class="wz-statustxt"><span class="wz-dot ${esc(eff)}"></span>${esc(stLabel)}${a.statusMsg && a.status !== 'kicked' ? ' · <span class="wz-err" style="font-weight:400">' + esc(String(a.statusMsg).slice(0, 60)) + '</span>' : ''}</div>
+            ${kickWarn}${liveHint}
             <div class="wz-acc-actions">${acts.join('')}</div>
         </div>`;
     }
