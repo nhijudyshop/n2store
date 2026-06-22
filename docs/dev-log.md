@@ -2,6 +2,16 @@
 
 ## 2026-06-22
 
+### [fix] video-maker — giọng tạo "không giống Adam 3": mặc định + tự chọn khi thêm + bỏ pitch giọng server
+
+User chọn Adam 3 (Giọng AI Pro) nhưng tạo ra giọng khác. Probe API: `ttsLongText` ÁP ĐÚNG voice id (Adam 3 nam ≠ Chi Chi nữ, md5 khác) → API không lỗi. Gốc ở pipeline FE:
+
+1. **`state.voiceId` mặc định `'mms'`** (giọng nữ on-device) dù VOICES[0]=pro-adam3 → tạo lời đọc dùng MMS. Đổi mặc định `'pro-adam3'`.
+2. **"Thêm" giọng từ kho KHÔNG tự chọn** → thêm Adam 3 xong vẫn đang chọn MMS. Thêm callback `onSelect` (video-maker init) → addProVoice/addShared/addPiper gọi `_ctx.onSelect(id)` → chọn luôn giọng vừa thêm.
+3. **Pitch (tông Trầm/Cao) resample làm méo giọng server** (pro/vieneu/elevenlabs đã là giọng clone hoàn chỉnh) → synthesize CHỈ áp pitch cho on-device (mms/piper), bỏ qua server.
+
+- Không có method "add community voice → account" qua API key (đều bị chặn) → dùng thẳng community id trong `userVoiceId` (đã verify chạy). Bump video-maker/video-tts/video-library?v=20260622f.
+
 ### [test] Zalo rebuild Phase 5 — test render engine + docs + memory
 
 Khép lại rebuild Zalo. Toàn frontend/docs/test — KHÔNG chạm render.com (không restart server).

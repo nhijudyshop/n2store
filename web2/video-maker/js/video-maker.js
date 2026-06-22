@@ -25,7 +25,7 @@
         ratioKey: 'landscape',
         accent: '#0068ff',
         transitionDur: global.Web2VideoRender?.DEFAULT_TDUR ?? 0.5,
-        voiceId: 'mms',
+        voiceId: 'pro-adam3', // mặc định = Adam 3 (Giọng AI Pro) — khớp VOICES[0], user ưu tiên
         tone: 'normal',
         narration: { text: '', samples: null, sampleRate: 16000 },
         music: { buffer: null, name: '', volume: 0.35 }, // nhạc nền (chèn/ghép)
@@ -1300,7 +1300,17 @@
         if (global.Web2VideoVieneuUI)
             global.Web2VideoVieneuUI.init({ state, onChange: renderVoices });
         if (global.Web2VideoLibraryUI)
-            global.Web2VideoLibraryUI.init({ onChange: renderVoices, audioCtx });
+            global.Web2VideoLibraryUI.init({
+                onChange: renderVoices,
+                audioCtx,
+                // "Thêm" 1 giọng từ kho → CHỌN luôn giọng đó (tránh thêm xong vẫn đọc giọng cũ).
+                onSelect: (id) => {
+                    if (id) {
+                        state.voiceId = id;
+                        renderVoices();
+                    }
+                },
+            });
         applyCanvasSize();
 
         $('#vmRandom')?.addEventListener('click', randomGenerate);

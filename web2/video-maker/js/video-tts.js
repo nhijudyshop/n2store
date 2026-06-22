@@ -516,8 +516,12 @@
             if (i < chunks.length - 1) parts.push(new Float32Array(Math.round(sampleRate * 0.18)));
         }
         let samples = _concat(parts);
+        // Pitch (tông Trầm/Cao) = resample → ĐỔI timbre. Engine server (pro/vieneu/elevenlabs)
+        // đã là giọng hoàn chỉnh/clone → resample làm "méo, không giống". Chỉ áp pitch cho
+        // giọng on-device (mms/piper).
+        const isServer = v.engine === 'pro' || v.engine === 'vieneu' || v.engine === 'elevenlabs';
         const pitch = Number(opts.pitch) || 1;
-        if (pitch !== 1) samples = _resample(samples, pitch);
+        if (pitch !== 1 && !isServer) samples = _resample(samples, pitch);
         return { samples, sampleRate };
     }
 

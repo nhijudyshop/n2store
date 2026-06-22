@@ -450,13 +450,14 @@
                 v.name
             );
             const realId = (res && res.voice_id) || v.voice_id;
-            global.Web2VideoTTS.addLibraryVoice({
+            const addedId = global.Web2VideoTTS.addLibraryVoice({
                 engine: 'elevenlabs',
                 elevenId: realId,
                 label: '✨ ' + v.name + ' (Giọng AI)',
             });
-            notify('Đã thêm giọng "' + v.name + '"', 'success');
+            notify('Đã thêm + chọn giọng "' + v.name + '"', 'success');
             _ctx.onChange && _ctx.onChange();
+            _ctx.onSelect && _ctx.onSelect(addedId);
             btn.innerHTML = '<i data-lucide="check"></i> Đã thêm';
             btn.classList.remove('primary');
         } catch (e) {
@@ -531,15 +532,16 @@
             const meta = (_piperCatalog || []).find((v) => v.key === key) || { key };
             const label =
                 '🌐 ' + (meta.name || key) + (meta.langName ? ' (' + meta.langName + ')' : '');
-            global.Web2VideoTTS.addLibraryVoice({
+            const addedId = global.Web2VideoTTS.addLibraryVoice({
                 engine: 'piper',
                 key,
                 label,
                 lang: meta.langName,
             });
             if (meta) meta.downloaded = true;
-            notify('Đã kéo giọng "' + (meta.name || key) + '" về máy', 'success');
+            notify('Đã kéo về + chọn giọng "' + (meta.name || key) + '"', 'success');
             _ctx.onChange && _ctx.onChange();
+            _ctx.onSelect && _ctx.onSelect(addedId);
             renderFree();
         } catch (e) {
             notify('Tải giọng lỗi: ' + (e.message || e), 'error');
@@ -718,9 +720,14 @@
     }
 
     function addProVoice(v, btn) {
-        global.Web2VideoTTS.addLibraryVoice({ engine: 'pro', proId: v.id, label: v.name });
-        notify('Đã thêm giọng "' + v.name + '"', 'success');
+        const id = global.Web2VideoTTS.addLibraryVoice({
+            engine: 'pro',
+            proId: v.id,
+            label: v.name,
+        });
+        notify('Đã thêm + chọn giọng "' + v.name + '"', 'success');
         _ctx.onChange && _ctx.onChange();
+        _ctx.onSelect && _ctx.onSelect(id); // chọn luôn giọng vừa thêm
         btn.disabled = true;
         btn.classList.remove('primary');
         btn.innerHTML = '<i data-lucide="check"></i> Đã thêm';
