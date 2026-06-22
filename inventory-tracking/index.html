@@ -15,7 +15,7 @@
         <!-- Styles -->
         <link rel="stylesheet" href="../shared/css/modern.css?v=20260621d" />
         <link rel="stylesheet" href="css/modern.css?v=20260621d" />
-        <link rel="stylesheet" href="css/modal-convert-po.css?v=20260621d" />
+        <link rel="stylesheet" href="css/modal-convert-po.css?v=20260622b" />
         <link rel="stylesheet" href="css/product-quick-pick.css?v=20260622a" />
         <link rel="stylesheet" href="css/dot-tabs.css?v=20260621d" />
 
@@ -900,6 +900,9 @@
                     <button class="btn btn-outline" onclick="closeModal('modalConvertPO')">
                         Hủy
                     </button>
+                    <button class="btn btn-outline" id="btnSaveDraftConvertPO" style="display: none" title="Lưu lại toàn bộ thông tin đã điền vào máy này (hiện khi sản phẩm chưa có Mã SP)">
+                        <i data-lucide="save"></i> Lưu nháp
+                    </button>
                     <button class="btn btn-primary" id="btnConfirmConvertPO">
                         <i data-lucide="send"></i> Tạo đơn hàng
                     </button>
@@ -1148,7 +1151,7 @@
         <script src="../shared/js/warehouse-api.js?v=20260621d"></script>
         <script src="../shared/js/image-cache.js?v=20260621d"></script>
         <script src="js/po-source-tracker.js?v=20260621d"></script>
-        <script src="js/modal-convert-po.js?v=20260621d"></script>
+        <script src="js/modal-convert-po.js?v=20260622b"></script>
         <script src="js/modal-edit-ncc.js?v=20260621d"></script>
         <script src="js/image-upload.js?v=20260621d"></script>
         <script src="js/modal-image-manager.js?v=20260621d"></script>

@@ -70,6 +70,7 @@ function openConvertToPurchaseOrderModal(invoiceId) {
 
     _renderConvertModal();
     openModal('modalConvertPO');
+    _maybeShowDraftBar(_convertCurrentInvoice.id);
     if (window.lucide) lucide.createIcons();
 }
 
@@ -467,6 +468,10 @@ function _bindMainEvents() {
     const btnConfirm = document.getElementById('btnConfirmConvertPO');
     if (btnConfirm) btnConfirm.onclick = _confirmConvertToPO;
 
+    // Save-draft button in footer (chỉ hiện khi chưa dòng nào có Mã SP)
+    const btnSaveDraft = document.getElementById('btnSaveDraftConvertPO');
+    if (btnSaveDraft) btnSaveDraft.onclick = _saveDraft;
+
     // Click outside → close any open suggestion dropdowns.
     // - Click inside the SAME wrap (input hoặc suggestion item): giữ dropdown mở.
     // - Click inside a DIFFERENT wrap (row khác): đóng dropdown cũ, dropdown mới
@@ -510,7 +515,10 @@ function _onItemInput(e) {
         if (field === 'productName') _scheduleSuggest(key, input);
         // Khi user gõ thủ công productCode → propagate sang siblings cùng productName.
         // Debounce 400ms để tránh propagate sau mỗi ký tự khi gõ dở.
-        if (field === 'productCode') _scheduleCodePropagation(key);
+        if (field === 'productCode') {
+            _scheduleCodePropagation(key);
+            _updateSaveDraftVisibility(); // ẩn nút "Lưu nháp" ngay khi có Mã SP
+        }
     }
 }
 
@@ -1053,6 +1061,7 @@ async function _generateCodesForAll(btn) {
             window.notificationManager?.error('Không tạo được mã nào');
         }
     } finally {
+        _updateSaveDraftVisibility(); // sau khi tạo mã hàng loạt → cập nhật nút "Lưu nháp"
         if (btn) {
             btn.disabled = false;
             btn.innerHTML = originalHTML;
@@ -1178,6 +1187,7 @@ async function _generateCodeForItem(itemKey, btn) {
         // mọi variant của 1 template share parent code; suffix biến thể do TPOS
         // tự sinh khi upload, không cần derive client-side).
         const propagated = _propagateCodeToSiblings(itemKey, code);
+        _updateSaveDraftVisibility(); // có Mã SP → ẩn nút "Lưu nháp"
         const msg =
             propagated > 0
                 ? `Đã tạo mã: ${code} (áp dụng cho ${propagated + 1} biến thể)`
@@ -1229,6 +1239,7 @@ function _rerenderItemsTable() {
     if (!tbody) return;
     tbody.innerHTML = _convertItems.map((it, idx) => _renderItemRow(it, idx)).join('');
     if (window.lucide) lucide.createIcons();
+    _updateSaveDraftVisibility();
 }
 
 function _updateRowSubtotal(key) {
@@ -1253,6 +1264,175 @@ function _recalcAll() {
     if (qEl) qEl.textContent = _fmtVND(totalQty);
     if (aEl) aEl.textContent = _fmtVND(totalAmt) + ' đ';
     if (fEl) fEl.textContent = _fmtVND(final) + ' đ';
+    _updateSaveDraftVisibility();
+}
+
+// =====================================================
+// SAVE DRAFT (localStorage) — lưu form dở khi SP CHƯA có Mã SP
+// Nút "Lưu nháp" CHỈ hiện khi KHÔNG dòng nào có Mã SP; có bất kỳ Mã SP → ẩn
+// (lúc đó dùng "Tạo đơn hàng"). Khôi phục qua thanh báo khi mở lại modal NCC đó.
+// Lưu cục bộ theo máy (localStorage), key theo invoiceId (dotHang.id).
+// =====================================================
+const PO_DRAFT_LS_PREFIX = 'invtrk_convertpo_draft_';
+
+function _draftKeyFor(invoiceId) {
+    return PO_DRAFT_LS_PREFIX + String(invoiceId);
+}
+
+/** Hiện nút "Lưu nháp" chỉ khi CHƯA dòng nào có Mã SP. */
+function _updateSaveDraftVisibility() {
+    const btn = document.getElementById('btnSaveDraftConvertPO');
+    if (!btn) return;
+    const hasAnyCode = _convertItems.some((it) => (it.productCode || '').trim());
+    btn.style.display = hasAnyCode ? 'none' : '';
+}
+
+/** Gom toàn bộ state form hiện tại thành object để lưu. */
+function _collectDraftState() {
+    const val = (id) => document.getElementById(id)?.value || '';
+    return {
+        v: 1,
+        savedAt: Date.now(),
+        supplier: val('poSupplier'),
+        orderDate: val('poOrderDate'),
+        invoiceAmount: val('poInvoiceAmount'),
+        notes: val('poNotes'),
+        discount: _convertDiscount || 0,
+        shipping: _convertShipping || 0,
+        selectedInvoiceImgs: [..._selectedInvoiceImgs],
+        items: _convertItems.map((it) => ({
+            productCode: it.productCode || '',
+            productName: it.productName || '',
+            variant: it.variant || '',
+            quantity: it.quantity ?? 1,
+            purchasePrice: it.purchasePrice ?? 0,
+            sellingPrice: it.sellingPrice ?? '',
+            sourceInvoiceId: it.sourceInvoiceId || null,
+            sourceItemIdx: typeof it.sourceItemIdx === 'number' ? it.sourceItemIdx : null,
+            _fromWarehouse: !!it._fromWarehouse,
+            tposProductId: it.tposProductId || '',
+            tposProductTmplId: it.tposProductTmplId || '',
+            tposImageUrl: it.tposImageUrl || '',
+        })),
+    };
+}
+
+function _saveDraft() {
+    const inv = _convertCurrentInvoice;
+    if (!inv || inv.id == null) {
+        window.notificationManager?.error('Không xác định được hóa đơn để lưu nháp');
+        return;
+    }
+    try {
+        localStorage.setItem(_draftKeyFor(inv.id), JSON.stringify(_collectDraftState()));
+        window.notificationManager?.success('Đã lưu nháp đơn đặt hàng (lưu trên máy này)');
+    } catch (err) {
+        console.error('[CONVERT-PO] Save draft failed:', err);
+        window.notificationManager?.error('Không thể lưu nháp: ' + (err.message || err));
+    }
+}
+
+function _loadDraft(invoiceId) {
+    if (invoiceId == null) return null;
+    try {
+        const raw = localStorage.getItem(_draftKeyFor(invoiceId));
+        if (!raw) return null;
+        const d = JSON.parse(raw);
+        return d && typeof d === 'object' ? d : null;
+    } catch (_) {
+        return null;
+    }
+}
+
+function _clearDraft(invoiceId) {
+    if (invoiceId == null) return;
+    try {
+        localStorage.removeItem(_draftKeyFor(invoiceId));
+    } catch (_) {
+        /* ignore */
+    }
+}
+
+function _fmtDraftTime(ts) {
+    if (!ts) return '';
+    try {
+        return new Date(ts).toLocaleString('vi-VN', {
+            timeZone: 'Asia/Ho_Chi_Minh',
+            hour: '2-digit',
+            minute: '2-digit',
+            day: '2-digit',
+            month: '2-digit',
+        });
+    } catch (_) {
+        return '';
+    }
+}
+
+/** Áp draft đã lưu vào form: set state + re-render + fill input vô hướng. */
+function _applyDraft(draft) {
+    if (!draft) return;
+    _convertItems = (Array.isArray(draft.items) ? draft.items : []).map((d) => {
+        const it = _mkItem(d);
+        it._fromWarehouse = !!d._fromWarehouse;
+        it.tposProductId = d.tposProductId || '';
+        it.tposProductTmplId = d.tposProductTmplId || '';
+        it.tposImageUrl = d.tposImageUrl || '';
+        return it;
+    });
+    _convertDiscount = parseFloat(draft.discount) || 0;
+    _convertShipping = parseFloat(draft.shipping) || 0;
+    _selectedInvoiceImgs = new Set(
+        Array.isArray(draft.selectedInvoiceImgs) ? draft.selectedInvoiceImgs : []
+    );
+
+    _renderConvertModal();
+
+    const setVal = (id, v) => {
+        const el = document.getElementById(id);
+        if (el && v != null) el.value = v;
+    };
+    setVal('poSupplier', draft.supplier);
+    setVal('poOrderDate', draft.orderDate);
+    setVal('poInvoiceAmount', draft.invoiceAmount);
+    setVal('poNotes', draft.notes);
+    setVal('poDiscount', _convertDiscount ? _fmtVND(_convertDiscount) : '');
+    setVal('poShipping', _convertShipping ? _fmtVND(_convertShipping) : '');
+
+    _recalcAll();
+    if (window.lucide) lucide.createIcons();
+    window.notificationManager?.success('Đã khôi phục nháp đã lưu');
+}
+
+/** Hiện thanh "có nháp đã lưu" ở đầu modal nếu tồn tại draft cho NCC này. */
+function _maybeShowDraftBar(invoiceId) {
+    const draft = _loadDraft(invoiceId);
+    if (!draft) return;
+    const body = document.getElementById('modalConvertPOBody');
+    const form = body?.querySelector('.po-form');
+    if (!form) return;
+    form.querySelector('.po-draft-bar')?.remove(); // tránh chèn trùng
+
+    const bar = document.createElement('div');
+    bar.className = 'po-draft-bar';
+    const count = Array.isArray(draft.items) ? draft.items.length : 0;
+    bar.innerHTML =
+        `<span class="po-draft-bar-msg"><i data-lucide="history"></i> Có bản nháp đã lưu lúc <strong>${_esc(_fmtDraftTime(draft.savedAt))}</strong> (${count} SP).</span>` +
+        `<span class="po-draft-bar-actions">` +
+        `<button type="button" class="po-btn-outline" id="poDraftRestore"><i data-lucide="rotate-ccw"></i> Khôi phục</button>` +
+        `<button type="button" class="po-btn-outline" id="poDraftDiscard"><i data-lucide="trash-2"></i> Bỏ nháp</button>` +
+        `</span>`;
+    form.insertBefore(bar, form.firstChild);
+
+    document.getElementById('poDraftRestore')?.addEventListener('click', () => {
+        bar.remove();
+        _applyDraft(draft);
+    });
+    document.getElementById('poDraftDiscard')?.addEventListener('click', () => {
+        _clearDraft(invoiceId);
+        bar.remove();
+        window.notificationManager?.info('Đã bỏ bản nháp đã lưu');
+    });
+    if (window.lucide) lucide.createIcons();
 }
 
 // =====================================================
@@ -1663,6 +1843,8 @@ async function _confirmConvertToPO() {
 
     try {
         await _createPurchaseOrderDraft(orderData);
+        // Đã tạo đơn thật → bỏ bản nháp localStorage (nếu có) cho NCC này.
+        _clearDraft(_convertCurrentInvoice?.id);
         window.notificationManager?.success(
             `Đã tạo đơn Nháp với ${orderData.items.length} sản phẩm`
         );

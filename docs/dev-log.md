@@ -2,6 +2,16 @@
 
 ## 2026-06-22
 
+### [feat] inventory-tracking convert-PO — nút "Lưu nháp" (localStorage) ẩn/hiện theo Mã SP
+
+User: form "Tạo đơn đặt hàng" (modal Convert NCC → PO) thêm nút **Lưu nháp** lưu lại toàn bộ thông tin đã điền; **hiện** nút khi CHƯA dòng nào có Mã SP, **ẩn** khi bất kỳ dòng nào có Mã SP. (Lý do: `_confirmConvertToPO` BẮT BUỘC mọi SP có Mã SP mới "Tạo đơn hàng" được → khi đang dở chưa gán mã, cần lưu nháp để quay lại sau.)
+
+- **Lưu vào (user chọn)**: localStorage máy này, key `invtrk_convertpo_draft_<invoiceId>`. Lưu `_convertItems` + supplier/date/invoiceAmount/notes + discount/shipping + ảnh hóa đơn đã chọn. KHÔNG đụng backend/PO.
+- **Khôi phục**: mở lại modal NCC đó → thanh amber `.po-draft-bar` đầu modal "Có bản nháp đã lưu lúc … (N SP)" + nút **Khôi phục** (`_applyDraft` → set state + re-render + fill input) / **Bỏ nháp** (`_clearDraft`).
+- **Hiện/ẩn nút**: `_updateSaveDraftVisibility()` = `_convertItems.some(it=>productCode)` → ẩn. Hook vào `_recalcAll`, `_rerenderItemsTable`, `_onItemInput` (gõ Mã SP), `_generateCodeForItem`, `_generateCodesForAll`. Tạo đơn thật xong → `_clearDraft` xoá nháp.
+- **Sửa**: `modal-convert-po.js` (+helpers draft, bind nút, restore bar), `index.html` (nút `#btnSaveDraftConvertPO` ẩn sẵn trong footer + bump `?v=20260622b`), `modal-convert-po.css` (`.po-draft-bar` + bump). KHÔNG file mới (state module-local nên phải nằm trong modal-convert-po.js).
+- **Verify (Playwright, localhost, fake dot + stub — KHÔNG ghi prod)**: mở modal 2 SP không mã → nút hiện; bấm Lưu nháp → localStorage có draft (2 SP, supplier đúng); gõ Mã SP → nút ẩn; xoá mã → nút hiện lại; đóng+mở lại → thanh khôi phục + 2 nút hiện. node --check pass. Screenshot khớp: bar amber + footer Hủy/Lưu nháp/Tạo đơn hàng.
+
 ### [feat] inventory-tracking — cây bút ở ô STT: tìm nhanh SP từ kho → điền TÊN vào ô Mã hàng
 
 User: thêm cây bút ở ô STT, bấm → hiện ô tìm nhanh sản phẩm từ kho → chọn → điền **tên** SP vào ô "Mã hàng". (Trang Web 1.0 → KHÔNG import web2/; tham chiếu UX của picker so-order nhưng so-order là Web 2.0 nên KHÔNG dùng được.)

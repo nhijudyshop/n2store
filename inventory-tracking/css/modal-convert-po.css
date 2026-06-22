@@ -875,3 +875,36 @@ tr[data-from-warehouse='1'] {
 .po-suggest {
     z-index: 10050;
 }
+
+/* Thanh "có nháp đã lưu" — hiện đầu modal khi mở lại NCC có draft localStorage */
+.po-draft-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    padding: 8px 12px;
+    margin-bottom: 12px;
+    background: #fffbeb;
+    border: 1px solid #fcd34d;
+    border-radius: 8px;
+    font-size: 13px;
+    color: #92400e;
+}
+.po-draft-bar-msg {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+.po-draft-bar-msg i {
+    width: 15px;
+    height: 15px;
+}
+.po-draft-bar-actions {
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
+}
+.po-draft-bar-actions .po-btn-outline {
+    white-space: nowrap;
+}
