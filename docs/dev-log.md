@@ -2,6 +2,15 @@
 
 ## 2026-06-22
 
+### [feat] Web 2.0 — module DỊCH THUẬT dùng chung (LLM free + fallback Google) + cắm sound-fx
+
+Research GitHub (LibreTranslate self-host, Lingva/Google free proxy) + tái dùng chuỗi LLM sẵn có. Build module dịch dùng chung cho Web 2.0 (động cơ: tự dịch mô tả tiếng động VN→EN bất kỳ, thay từ điển 26 từ cứng).
+
+- **Backend** `services/web2-translate-service.js`: `translate(text,{to,from,context})` ưu tiên **Groq (free llama-3.3-70b) → DeepSeek → Gemini** (mirror web2-caption-service, ngữ cảnh tốt: "tiếng chó sủa"→"dog barking"); thiếu key/lỗi → **fallback FREE KHÔNG KEY** Google public endpoint; kẹt hết → nguyên văn (không vỡ luồng). Route `routes/web2-translate.js` (`GET /status`, `POST /` requireWeb2AuthSoft+rate 60/min). Mount server.js. Worker auto-forward (prefix web2-).
+- **Client** `web2/shared/web2-translate.js` (`Web2Translate.translate/toEn/toVi/status`) — cache phiên, lỗi → nguyên văn; auto-load qua sidebar → mọi trang gọi được, KHÔNG tự fetch.
+- **Cắm sound-fx**: `web2-elevenlabs-service.soundEffect` — mô tả VN không khớp từ điển → gọi translate (LLM) ra prompt EN mô tả tiếng động → ElevenLabs tạo đúng tiếng (giờ MỌI mô tả VN chạy, không chỉ 26 từ).
+- Cần Render deploy web2-api (đụng service). Sidebar autoload entry vào src nhưng KHÔNG sweep bump 44 file (tránh đụng agent khác) → kích hoạt global khi sidebar version bump kế.
+
 ### [change] Lịch sử thao tác Web 2.0 — gộp về 1 NGUỒN (module chính Web2AuditLog) + scope NV/admin
 
 User hỏi: tab "Audit log" trong `web2/kpi` có dùng nguồn của trang `web2/audit-log` không? → KHÔNG, trước đây là 2 nguồn khác nhau (KPI tab = `/api/web2/kpi/events` KPI-events; trang audit-log = `/api/web2/audit-log` union 4 bảng). User chốt: **audit-log = module chính (audit log toàn bộ)**, xóa KPI-events tab cũ, tab KPI làm lại theo audit-log; **NV xem thao tác của chính mình, admin xem tất cả**.

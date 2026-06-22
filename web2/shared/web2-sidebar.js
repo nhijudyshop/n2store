@@ -100,6 +100,8 @@
         if (!global.Web2JwtUtils) inject('web2-jwt-utils.js', '20260619a');
         if (!global.Web2AvatarUtils) inject('web2-avatar-utils.js', '20260619a');
         if (!global.Web2ImageLightbox) inject('web2-image-lightbox.js', '20260619a');
+        // Dịch thuật dùng chung (LLM free + fallback Google) — mọi trang gọi Web2Translate.translate.
+        if (!global.Web2Translate) inject('web2-translate.js', '20260622a');
     })();
 
     // Group definitions matching WEB2 sidebar structure.

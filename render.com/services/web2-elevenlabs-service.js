@@ -237,7 +237,21 @@ function toSoundPrompt(text) {
 async function soundEffect(text, opts = {}) {
     const t0 = String(text || '').trim();
     if (!t0) throw new Error('mô tả âm thanh rỗng');
-    const t = toSoundPrompt(t0);
+    let t = toSoundPrompt(t0);
+    // Không khớp từ điển (generic "sound effect of …") → nhờ module dịch (LLM) ra prompt
+    // tiếng Anh mô tả tiếng động đúng ngữ cảnh (vd "tiếng chó sủa" → "dog barking").
+    if (/^sound effect of /.test(t)) {
+        try {
+            const tr = await require('./web2-translate-service').translate(t0, {
+                to: 'en',
+                context:
+                    'a short English sound-effect description for an AI sound generator (e.g. "dog barking", "glass breaking", "doorbell ringing")',
+            });
+            if (tr && tr.text && tr.provider !== 'none') t = tr.text;
+        } catch {
+            /* giữ generic fallback */
+        }
+    }
     const body = { text: t.slice(0, 450) };
     if (opts.durationSeconds)
         body.duration_seconds = Math.max(0.5, Math.min(22, +opts.durationSeconds));
