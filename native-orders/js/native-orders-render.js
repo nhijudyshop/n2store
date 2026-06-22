@@ -82,13 +82,16 @@
         const tags = Array.isArray(o.autoTags) ? o.autoTags : [];
         if (!tags.length) return '<span class="web2-count-empty">—</span>';
         const code = NO.escapeHtml(o.code);
+        // o._enterTriggers (Set|null) do renderRows gắn transient: chứa trigger của THẺ
+        // vừa MỚI thêm ở lần render này → pill đó chạy animation "pop vào" (mượt, không giật).
+        const enterSet = o._enterTriggers || null;
         if (window.Web2OrderTagPill) {
             // Mỗi pill bấm được → mở Web2OrderTagDetail (lý do chi tiết: SP chờ hàng,
             // SP âm mã + ai đang giữ). stopPropagation để không toggle expand đơn.
             const pills = tags
                 .map(
                     (t) =>
-                        `<span class="no-otag-click" title="Bấm xem lý do" onclick="event.stopPropagation();NativeOrdersApp.openTagDetail('${code}','${NO.escapeHtml(t.trigger)}')" style="cursor:pointer;display:inline-flex;">${window.Web2OrderTagPill.html(t, { small: true })}</span>`
+                        `<span class="no-otag-click" title="Bấm xem lý do" onclick="event.stopPropagation();NativeOrdersApp.openTagDetail('${code}','${NO.escapeHtml(t.trigger)}')" style="cursor:pointer;display:inline-flex;">${window.Web2OrderTagPill.html(t, { small: true, enter: enterSet ? enterSet.has(t.trigger) : false })}</span>`
                 )
                 .join(' ');
             return `<span class="w2-otag-list" style="display:inline-flex;flex-wrap:wrap;gap:4px;align-items:center;">${pills}</span>`;
@@ -556,10 +559,11 @@
             o.partnerStatus || '',
             o.customerId || '',
             JSON.stringify(o.tags || []),
-            // 2026-06-21: TAG đơn auto (cột Thẻ) + cờ chặn PBH — đổi ở máy/đơn khác qua
-            // SSE products/fast-sale-orders → reload gắn autoTags mới; thiếu ở chữ ký thì
-            // row tái dùng DOM (field kia giống) → cột Thẻ không cập nhật.
-            JSON.stringify(o.autoTags || []),
+            // 2026-06-22: autoTags (cột "Thẻ") ĐÃ TÁCH khỏi chữ ký "rest" này → theo dõi
+            // riêng ở _rowTagSignature. Lý do: khi CHỈ tag đổi → cập nhật cell .col-tag
+            // TẠI CHỖ (giữ DOM avatar + cell khác, animate pill mới mượt) thay vì rebuild
+            // cả row (tránh giật + tránh avatar reload). hasChoHang VẪN ở đây vì nó đổi
+            // nút col-actions (chặn PBH) → đổi là phải rebuild cả row.
             o.hasChoHang ? '1' : '0',
             o.deliveryMethod || '',
             o.deliveryMethodManual ? '1' : '0',
@@ -575,6 +579,20 @@
             // (26 field kia giống) sẽ KHÔNG re-render badge → KH báo CK mà badge không hiện.
             o.ckSignal ? `${o.ckSignal.id || ''}:${o.ckSignal.status || ''}` : '',
         ].join('||');
+    };
+
+    // Chữ ký RIÊNG cho cột "Thẻ" (autoTags) — tách khỏi _rowSignature để khi CHỈ tag
+    // đổi thì cập nhật cell .col-tag tại chỗ (mượt, animate pill mới) thay vì rebuild row.
+    NO._rowTagSignature = function _rowTagSignature(o) {
+        return JSON.stringify(o.autoTags || []);
+    };
+    // Set các trigger của tag hiện tại — để diff ra tag MỚI (animate "pop vào").
+    NO._rowTagTriggers = function _rowTagTriggers(o) {
+        const s = new Set();
+        (o.autoTags || []).forEach((t) => {
+            if (t && t.trigger) s.add(t.trigger);
+        });
+        return s;
     };
 
     NO.renderRows = function renderRows() {
@@ -604,10 +622,16 @@
             window._noClearFilters = NO.clearFilters;
             if (window.lucide) lucide.createIcons();
             tb._rowSigs = new Map();
+            tb._rowTagSigs = new Map();
+            tb._rowTagSets = new Map();
             return;
         }
         if (!tb._rowSigs) tb._rowSigs = new Map();
+        if (!tb._rowTagSigs) tb._rowTagSigs = new Map();
+        if (!tb._rowTagSets) tb._rowTagSets = new Map();
         const sigs = tb._rowSigs;
+        const tagSigs = tb._rowTagSigs;
+        const tagSets = tb._rowTagSets;
         // Index existing DOM elements by code (main row + expand-row).
         const existing = new Map();
         Array.from(tb.children).forEach((el) => {
@@ -624,25 +648,68 @@
             newCodes.add(o.code);
             const sig = NO._rowSignature(o);
             const oldSig = sigs.get(o.code);
+            const tagSig = NO._rowTagSignature(o);
+            const oldTagSig = tagSigs.get(o.code);
+            const newTagTriggers = NO._rowTagTriggers(o);
+            const oldTagTriggers = tagSets.get(o.code);
+            // Trigger của THẺ vừa MỚI (có ở lần này, chưa có lần trước) → pill đó "pop vào".
+            // null khi row mới thấy lần đầu → KHÔNG animate (tránh nhảy hết pill lúc load).
+            const enterTriggers = oldTagTriggers
+                ? new Set([...newTagTriggers].filter((tr) => !oldTagTriggers.has(tr)))
+                : null;
             if (oldSig === sig && existing.has(o.code)) {
-                // Reuse existing DOM — move to fragment (no flicker, no image reload).
-                existing.get(o.code).forEach((el) => fragment.appendChild(el));
+                // "rest" giống → tái dùng DOM (no flicker, no image reload).
+                const els = existing.get(o.code);
+                if (oldTagSig !== tagSig) {
+                    // CHỈ cột "Thẻ" đổi → cập nhật cell .col-tag TẠI CHỖ + animate pill mới,
+                    // KHÔNG rebuild cả row (giữ avatar + cell khác → hết giật, hết reload ảnh).
+                    const mainRow =
+                        els.find((el) => el.classList && el.classList.contains('order-row')) ||
+                        els[0];
+                    const cell =
+                        mainRow && mainRow.querySelector ? mainRow.querySelector('.col-tag') : null;
+                    if (cell) {
+                        o._enterTriggers = enterTriggers;
+                        cell.innerHTML = NO._autoTagPills(o);
+                        delete o._enterTriggers;
+                    }
+                }
+                els.forEach((el) => fragment.appendChild(el));
             } else {
-                // Build new HTML for this order and parse to nodes
+                // "rest" đổi (hoặc row mới) → rebuild cả row. Animate tag mới nếu row đã tồn tại.
+                o._enterTriggers = enterTriggers;
                 const html = NO._buildOrderHtml(o);
                 const tmp = document.createElement('tbody');
                 tmp.innerHTML = html;
                 while (tmp.firstChild) fragment.appendChild(tmp.firstChild);
+                delete o._enterTriggers;
                 sigs.set(o.code, sig);
                 rebuiltCount++;
             }
+            tagSigs.set(o.code, tagSig);
+            tagSets.set(o.code, newTagTriggers);
         }
         // Clean up sigs for codes no longer present
         for (const code of Array.from(sigs.keys())) {
             if (!newCodes.has(code)) sigs.delete(code);
         }
+        for (const code of Array.from(tagSigs.keys())) {
+            if (!newCodes.has(code)) {
+                tagSigs.delete(code);
+                tagSets.delete(code);
+            }
+        }
         // Single atomic swap
         tb.replaceChildren(fragment);
+
+        // Gỡ class .w2-otag-enter SAU khi animation chạy xong (once) → pill không "pop"
+        // lại mỗi lần render kế. Lý do: renderRows move row reused ra/vào document qua
+        // fragment → class animation còn sót có thể bị trình duyệt chạy lại animation.
+        tb.querySelectorAll('.w2-otag-enter').forEach((p) =>
+            p.addEventListener('animationend', () => p.classList.remove('w2-otag-enter'), {
+                once: true,
+            })
+        );
 
         // Lucide only re-processes <i data-lucide> nodes (idempotent skip <svg>).
         // Reused rows already have <svg> rendered → no work; new rows get icons created.

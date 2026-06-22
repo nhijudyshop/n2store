@@ -68,8 +68,11 @@
             : ` title="${escapeHtml(name)}"`;
         const pad = opts.small ? '1px 6px' : '2px 8px';
         const fs = opts.small ? '11px' : '11.5px';
+        // opts.enter → thêm class w2-otag-enter để chạy animation "pop vào" (web2-effects.css).
+        // Chỉ caller biết pill nào MỚI mới truyền enter:true (tránh re-animate khi render lại).
+        const enterCls = opts.enter ? ' w2-otag-enter' : '';
         return (
-            `<span class="w2-otag"${title} style="` +
+            `<span class="w2-otag${enterCls}"${title} style="` +
             `display:inline-flex;align-items:center;gap:4px;` +
             `padding:${pad};border-radius:999px;font-size:${fs};font-weight:700;line-height:1.4;` +
             `white-space:nowrap;background:${rgba(color, 0.13)};color:${textColor(color)};` +

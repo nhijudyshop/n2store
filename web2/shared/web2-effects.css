@@ -22,7 +22,8 @@
     .w2fx-pop,
     .w2fx-shimmer,
     .w2fx-pulse-soft,
-    .w2fx-spin {
+    .w2fx-spin,
+    .w2-otag-enter {
         animation-duration: 0.01ms !important;
         animation-iteration-count: 1 !important;
     }
@@ -165,6 +166,28 @@
 }
 .w2fx-flash {
     animation: w2fxFlash 1.2s ease-out both;
+}
+
+/* Tag pill entrance — khi 1 THẺ MỚI vừa được thêm vào (vd cột "Thẻ" native-orders).
+   Pop nhẹ scale + fade với overshoot mềm → cảm giác "nảy vào" mượt, KHÔNG giật.
+   Compositor-only (transform + opacity), không đụng layout. Chỉ gắn class vào
+   pill thật sự MỚI (diff ở renderRows) để không re-animate khi render lại field khác. */
+@keyframes w2fxTagIn {
+    0% {
+        opacity: 0;
+        transform: scale(0.5);
+    }
+    60% {
+        opacity: 1;
+        transform: scale(1.12);
+    }
+    100% {
+        transform: scale(1);
+    }
+}
+.w2-otag-enter {
+    animation: w2fxTagIn 340ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+    transform-origin: center;
 }
 
 /* (gỡ 2026-06-22) .w2fx-skeleton + @keyframes w2fxShimmer DEAD (0 ref HTML/JS).
