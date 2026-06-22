@@ -3,26 +3,24 @@
 > Snapshot tự động ghi đè sau mỗi commit chạm folder này. **Không edit thủ công.**
 > Mục đích: khi session cũ chết (vd lỗi image limit), session mới chỉ cần đọc file này là có đủ context để tiếp tục.
 
-**Latest session**: `RESUME:20260622-210628-ea75824`
-**Session file**: [`./20260622-210628-ea75824.md`](../20260622-210628-ea75824.md)
-**Commit**: `ea75824` — change(web2-audit-log): gộp lịch sử thao tác về 1 nguồn (Web2AuditLog) + scope NV/admin
-**Last updated**: 2026-06-22 21:06:28 +07
-**Summary**: change(web2-audit-log): gộp lịch sử thao tác về 1 nguồn (Web2AuditLog) + scope NV/admin
+**Latest session**: `RESUME:20260622-212618-292a771`
+**Session file**: [`./20260622-212618-292a771.md`](../20260622-212618-292a771.md)
+**Commit**: `292a771` — feat(web2): module dịch thuật dùng chung (Groq/DeepSeek/Gemini + fallback Google free) + cắm sound-fx VN→EN
+**Last updated**: 2026-06-22 21:26:18 +07
+**Summary**: feat(web2): module dịch thuật dùng chung (Groq/DeepSeek/Gemini + fallback Google free) + cắm sound-fx VN→EN
 
 ## Files changed in this commit (`web2/`)
 
-- `web2/audit-log/index.html`
-- `web2/kpi/index.html`
-- `web2/kpi/js/kpi-dashboard.js`
-- `web2/shared/web2-audit-log.js`
+- `web2/shared/web2-sidebar.js`
+- `web2/shared/web2-translate.js`
 
 ## Last 5 commits touching `web2/`
 
+- `292a771cd` feat(web2): module dịch thuật dùng chung (Groq/DeepSeek/Gemini + fallback Google free) + cắm sound-fx VN→EN _(2026-06-22)_
 - `ea7582417` change(web2-audit-log): gộp lịch sử thao tác về 1 nguồn (Web2AuditLog) + scope NV/admin _(2026-06-22)_
 - `62899ca09` fix(web2-video-maker): hiệu ứng âm thanh đọc chữ → dịch prompt VN sang EN cho ElevenLabs sound-generation + preset chips _(2026-06-22)_
 - `a9b4a5b13` fix(native-orders) tag-add jank: in-place .col-tag update + smooth pop-in for new pills only (compositor-only, no avatar reload, no re-pop) _(2026-06-22)_
 - `47e48e553` fix(web2-video-maker): default voice = Adam 3 + auto-select khi thêm giọng + bỏ pitch giọng server (giọng tạo ra không giống) _(2026-06-22)_
-- `4f42d371a` feat(web2-zalo): Phase 4 đợt 1 — group system messages (join/leave/rename/pin) _(2026-06-22)_
 
 ---
 
@@ -30,4 +28,4 @@
 
 1. Đọc file session ở trên để xem Files Modified + Next Steps đã điền (nếu Claude turn trước fill rồi).
 2. Cần lùi xa hơn → `git show <sha>` theo list commit trên.
-3. Hoặc paste token `RESUME:20260622-210628-ea75824` cho Claude walk chain theo CLAUDE.md protocol.
+3. Hoặc paste token `RESUME:20260622-212618-292a771` cho Claude walk chain theo CLAUDE.md protocol.
