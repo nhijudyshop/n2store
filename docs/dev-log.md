@@ -2,6 +2,15 @@
 
 ## 2026-06-22
 
+### [fix] inventory-tracking (Web 1.0) — số "Đợt" (dot_so) DUY NHẤT TOÀN CỤC, sửa "đợt 3 hiện data đợt cũ"
+
+User: mở "Thanh Toán CK Theo Đợt" của Đợt 3 → danh sách thanh toán CK là của **đợt cũ** (TT tháng 5), không phải đợt 3 (giao 21/6). Root cause: `dot_so` xưa đánh số **theo từng ngày** (migration 053 "mỗi ngày đếm lại từ 1") nhưng từ **2026-05-31** lại **DÙNG như khoá đợt toàn cục** (`filters.js` bỏ lọc ngày + `getAllDotsAggregated` gom theo dotSo span mọi ngày). → 2 đợt khác ngày trùng số (đợt 3 tháng 5 ↔ đợt 3 tháng 6) bị **GỘP**; POST /shipments còn **kế thừa** thanh toán đợt cũ (`WHERE dot_so=$1 ORDER BY created_at ASC LIMIT 1`). User chốt hướng: **đánh số đợt duy nhất toàn cục**.
+
+- **Backend** `render.com/routes/v2/inventory-tracking.js`: `GET /shipments/next-dot-so` + default `dot_so` ở `POST /shipments` đổi `MAX(dot_so)` từ **theo ngày** → **TOÀN BẢNG** (bỏ `WHERE ngay_di_hang`). Inherit block giữ nguyên (đúng khi số đã unique). `date` query param giữ cho backward-compat nhưng không còn scope.
+- **Frontend** `inventory-tracking/js/modal-shipment.js`: `_computeDefaultDotSo` → global MAX (bỏ lọc theo ngày). Thêm nút **"Đợt mới"** (`setShipmentDotSoNew` → hỏi server MAX rồi +1, fallback local) để cấp số chưa dùng → đợt riêng, không kế thừa.
+- **Migration data cũ** (script mới, manual, DRY-RUN trước) `render.com/scripts/inventory-renumber-dots.js`: tách mỗi `(ngày, dot_so)` đụng số thành số duy nhất (giữ nhóm cũ nhất số gốc, cấp MAX+1… cho nhóm sau), sync `inventory_product_images`, xóa thanh toán **kế thừa** (giống hệt nhóm gốc) trên nhóm tách. NULL-safe, idempotent, transaction. `--self-test` logic thuần PASS. **Chưa chạy prod** — chờ user review dry-run.
+- 2 review song song: regression sweep (dot_so là khoá-gom opaque, **0 regression**) + code-review (3 HIGH đã fix: NULL-safe, image-catch chỉ nuốt 42703, "Đợt mới" hỏi server). Cần Render deploy backend + GH Pages deploy frontend; sau đó user chạy migration.
+
 ### [feat] Audit-log "THẬT SỰ toàn bộ" — event-sink chung web2_audit_events (gom 6 nguồn lịch sử riêng)
 
 Tiếp theo việc gộp audit-log: user phát hiện purchase-refund (+ nhiều trang) vẫn có lịch sử RIÊNG mà audit-log union (4 bảng) chưa phủ. Chốt **Event-sink chung**: 1 bảng `web2_audit_events`, mọi mutation ghi thêm 1 dòng → audit-log union đọc → thật sự toàn bộ. Timeline inline từng record GIỮ NGUYÊN (đây là bản ghi song song, best-effort).

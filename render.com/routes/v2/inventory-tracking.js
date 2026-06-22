@@ -706,23 +706,19 @@ router.get('/shipments', async (req, res) => {
     }
 });
 
-// Default dot_so for a given date — returns current MAX (not MAX+1) so adding
-// an NCC to an existing date merges into the existing đợt by default. User
-// manually types +1 when they want a genuinely new đợt.
-// (Endpoint name kept for backward-compat.)
+// Default đợt number for the modal. Số đợt là DUY NHẤT TOÀN CỤC (2026-06-22):
+// trả về MAX(dot_so) trên TOÀN BẢNG (KHÔNG theo ngày) → mặc định "gộp vào đợt
+// mới nhất". User tự +1 (hoặc nút "Đợt mới") khi muốn đợt hoàn toàn mới.
+//   Lý do bỏ scope theo ngày: dot_so được DÙNG như khoá đợt toàn cục (filters.js
+//   2026-05-31, getAllDotsAggregated gom theo dotSo span mọi ngày). Nếu vẫn đánh
+//   số lại từ 1 mỗi ngày → 2 đợt khác ngày trùng số → gộp nhầm + đợt mới kế thừa
+//   thanh toán đợt cũ (bug "đợt 3 hiện data đợt cũ"). Đánh số global = mỗi đợt 1 số.
+// `date` query param giữ lại cho backward-compat nhưng KHÔNG còn dùng để scope.
 router.get('/shipments/next-dot-so', async (req, res) => {
     try {
         const db = getDb(req);
-        const { date } = req.query;
-        if (!date) {
-            return res
-                .status(400)
-                .json({ success: false, error: 'date query param required (YYYY-MM-DD)' });
-        }
         const result = await db.query(
-            `SELECT COALESCE(MAX(dot_so), 1) AS next_dot_so
-             FROM inventory_shipments WHERE ngay_di_hang = $1`,
-            [date]
+            `SELECT COALESCE(MAX(dot_so), 1) AS next_dot_so FROM inventory_shipments`
         );
         res.json({ success: true, data: { next_dot_so: result.rows[0].next_dot_so } });
     } catch (err) {
@@ -778,13 +774,15 @@ router.post('/shipments', async (req, res) => {
                 .json({ success: false, error: 'stt_ncc and ngay_di_hang required' });
         }
 
-        // Resolve dot_so: use provided, otherwise default to current MAX (or 1 if empty).
-        // Matches client UI default — adding without explicit dot_so merges into latest đợt.
+        // Resolve dot_so: dùng giá trị client gửi; nếu trống → mặc định MAX(dot_so)
+        // TOÀN BẢNG (gộp vào đợt mới nhất). Số đợt DUY NHẤT TOÀN CỤC (2026-06-22):
+        // KHÔNG default theo ngày — default theo ngày làm 2 ngày khác nhau cùng ra
+        // dot_so=1 → gộp nhầm + đợt mới kế thừa thanh toán đợt cũ. Client gửi MAX+1
+        // (nút "Đợt mới") khi muốn đợt hoàn toàn mới.
         let resolvedDotSo = parseInt(dot_so, 10);
         if (!resolvedDotSo || resolvedDotSo < 1) {
             const maxRes = await db.query(
-                `SELECT COALESCE(MAX(dot_so), 1) AS next FROM inventory_shipments WHERE ngay_di_hang = $1`,
-                [ngay_di_hang]
+                `SELECT COALESCE(MAX(dot_so), 1) AS next FROM inventory_shipments`
             );
             resolvedDotSo = maxRes.rows[0].next;
         }

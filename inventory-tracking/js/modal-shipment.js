@@ -66,17 +66,52 @@ function openShipmentModal(shipment = null) {
 }
 
 /**
- * Compute default dotSo for the modal:
- * - Edit: use shipment.dotSo
- * - Add: current MAX dotSo for that date (not +1) so user defaults to merging
- *   into latest đợt. User manually types +1 if they want a new đợt.
- *   Fallback 1 if no shipment on that date.
+ * Compute default dotSo for the modal. Số đợt DUY NHẤT TOÀN CỤC (2026-06-22):
+ * - Edit: giữ nguyên shipment.dotSo
+ * - Add: MAX dotSo trên TOÀN BỘ shipments (KHÔNG theo ngày) → mặc định gộp vào
+ *   đợt mới nhất. User tự +1 (hoặc nút "Đợt mới") khi muốn đợt mới.
+ *   Trước đây tính MAX theo ngày → 2 ngày khác nhau cùng ra đợt 1 → trùng số →
+ *   đợt mới dính thanh toán/HĐ/CP của đợt cũ (bug "đợt 3 hiện data đợt cũ").
+ *   `date` param giữ lại cho backward-compat chữ ký nhưng không còn dùng để scope.
  */
 function _computeDefaultDotSo(shipment, date) {
     if (shipment?.dotSo) return shipment.dotSo;
-    const sameDate = (globalState?.shipments || []).filter((s) => s.ngayDiHang === date);
-    if (sameDate.length === 0) return 1;
-    return Math.max(...sameDate.map((s) => s.dotSo || 1));
+    const all = globalState?.shipments || [];
+    if (all.length === 0) return 1;
+    return Math.max(...all.map((s) => parseInt(s.dotSo, 10) || 1));
+}
+
+/**
+ * Số đợt mới chưa dùng (global MAX + 1). Dùng cho nút "Đợt mới" để tạo đợt
+ * riêng — không trùng số bất kỳ đợt nào đang có → backend không kế thừa thanh
+ * toán/HĐ/CP của đợt cũ.
+ */
+function suggestNewDotSo() {
+    const all = globalState?.shipments || [];
+    if (all.length === 0) return 1;
+    return Math.max(...all.map((s) => parseInt(s.dotSo, 10) || 1)) + 1;
+}
+
+/**
+ * Nút "Đợt mới" trong modal Đợt hàng: set ô số đợt = (server MAX, +1).
+ * Hỏi server MAX(dot_so) thay vì chỉ tin cache local — tránh tab/người khác vừa
+ * thêm đợt làm cache cũ → gợi ý trùng số (lại dính bug kế thừa). Lấy MAX của
+ * server vs local rồi +1; lỗi mạng thì fallback local.
+ */
+async function setShipmentDotSoNew() {
+    const input = document.getElementById('shipmentDotSo');
+    if (!input) return;
+    const localMax = suggestNewDotSo() - 1; // suggestNewDotSo = localMax + 1
+    let serverMax = 0;
+    try {
+        const date = document.getElementById('shipmentDate')?.value;
+        serverMax = parseInt(await shipmentsApi.getNextDotSo(date), 10) || 0; // endpoint trả MAX toàn cục
+    } catch (err) {
+        serverMax = 0; // fallback: chỉ dựa local
+    }
+    const n = Math.max(localMax, serverMax) + 1;
+    input.value = n;
+    window.notificationManager?.info?.(`Đợt mới: ${n} (số chưa dùng — đợt riêng)`);
 }
 
 /**
@@ -111,7 +146,14 @@ function renderShipmentForm(shipment) {
             </div>
             <div class="form-group" style="flex:1">
                 <label>Đợt</label>
-                <input type="number" id="shipmentDotSo" class="form-input" value="${dotSo}" min="1" title="Số thứ tự đợt trong ngày (vd: 1, 2, 3...)">
+                <div style="display:flex;gap:6px;align-items:center">
+                    <input type="number" id="shipmentDotSo" class="form-input" value="${dotSo}" min="1" style="flex:1" title="Số đợt DUY NHẤT toàn cục. Giữ nguyên = gộp vào đợt mới nhất. Bấm 'Đợt mới' để tạo đợt riêng (không dính data đợt cũ).">
+                    ${
+                        isEdit
+                            ? ''
+                            : `<button type="button" class="btn btn-outline" style="white-space:nowrap;padding:8px 10px;font-size:13px" onclick="setShipmentDotSoNew()" title="Cấp số đợt mới chưa dùng (đợt riêng, không kế thừa thanh toán/HĐ/CP đợt cũ)"><i data-lucide="plus" style="width:14px;height:14px;vertical-align:middle"></i> Đợt mới</button>`
+                    }
+                </div>
             </div>
         </div>
 
