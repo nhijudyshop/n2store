@@ -42,6 +42,11 @@
         q: '',
     };
     let _elScrollBound = false;
+    // Kho "Giọng AI Pro" (server, giọng cộng đồng — gồm Adam 3) — search + cuộn nạp thêm.
+    const _pro = { items: [], page: 1, hasMore: true, loading: false, q: '' };
+    let _proScrollBound = false;
+    let _proConfigured = false;
+    let _proStatusChecked = false;
 
     function init(ctx) {
         _ctx = ctx || {};
@@ -83,6 +88,7 @@
                 </div>
                 <div class="vm-lib-tabs">
                     <button class="vm-lib-tab on" data-tab="free"><i data-lucide="hard-drive-download"></i> Miễn phí (trên máy)</button>
+                    <button class="vm-lib-tab" data-tab="pro"><i data-lucide="badge-check"></i> Giọng AI Pro</button>
                     <button class="vm-lib-tab" data-tab="eleven"><i data-lucide="sparkles"></i> Giọng AI</button>
                 </div>
                 <div class="vm-lib-filter">
@@ -111,6 +117,7 @@
             clearTimeout(_deb);
             _deb = setTimeout(() => {
                 if (_tab === 'eleven') _loadShared(true);
+                else if (_tab === 'pro') _loadProVoices(true);
                 else render();
             }, 250);
         });
@@ -146,6 +153,16 @@
                 _elevenConfigured = false;
             }
         }
+        // Giọng AI Pro status (1 lần)
+        if (!_proStatusChecked) {
+            _proStatusChecked = true;
+            try {
+                const st = await TTS.proStatus();
+                _proConfigured = !!(st && st.configured);
+            } catch {
+                _proConfigured = false;
+            }
+        }
         render();
     }
 
@@ -172,6 +189,9 @@
         if (_tab === 'eleven') {
             if (filterRow) filterRow.style.display = 'none';
             renderEleven();
+        } else if (_tab === 'pro') {
+            if (filterRow) filterRow.style.display = 'none';
+            renderPro();
         } else {
             if (filterRow) filterRow.style.display = '';
             renderFree();
@@ -563,6 +583,148 @@
         notify('Đã thêm giọng AI "' + (name || vid) + '"', 'success');
         _ctx.onChange && _ctx.onChange();
         renderEleven();
+    }
+
+    // ===== Tab "Giọng AI Pro": giọng cộng đồng (Adam 3…) — search + cuộn nạp thêm =====
+    function renderPro() {
+        const list = $('#vmLibList');
+        const foot = $('#vmLibFoot');
+        foot.innerHTML =
+            'Giọng AI chất lượng cao tiếng Việt. Gõ ô tìm (vd "adam") để lọc. "Thêm" để chọn nhanh khi tạo video; "Nghe thử" tốn rất ít.';
+        if (!_proConfigured) {
+            list.innerHTML =
+                '<div class="vm-lib-empty"><b>Chưa bật Giọng AI Pro.</b><br>Cần cấu hình trên server → tải lại trang.</div>';
+            return;
+        }
+        list.innerHTML = `
+            <div class="vm-el-rows" id="vmProRows"></div>
+            <div class="vm-lib-more" id="vmProMore"></div>`;
+        if (!_proScrollBound) {
+            list.addEventListener('scroll', _onProScroll, { passive: true });
+            _proScrollBound = true;
+        }
+        _loadProVoices(true);
+        if (global.lucide) global.lucide.createIcons();
+    }
+
+    function _onProScroll(e) {
+        if (_tab !== 'pro') return;
+        const el = e.target;
+        if (el.scrollTop + el.clientHeight >= el.scrollHeight - 140) _loadProVoices(false);
+    }
+
+    async function _loadProVoices(reset) {
+        const TTS = global.Web2VideoTTS;
+        if (_pro.loading) return;
+        if (reset) {
+            _pro.page = 1;
+            _pro.hasMore = true;
+            _pro.items = [];
+            const rows = $('#vmProRows');
+            if (rows) rows.innerHTML = '';
+        }
+        if (!_pro.hasMore) return;
+        _pro.loading = true;
+        _pro.q = ($('#vmLibSearch')?.value || '').trim();
+        const more = $('#vmProMore');
+        if (more) more.textContent = 'Đang nạp giọng…';
+        try {
+            const params = { page: _pro.page, limit: 30, scope: 'community' };
+            if (_pro.q) params.search = _pro.q;
+            const d = await TTS.listProVoices(params);
+            const items = d.voices || [];
+            _pro.items.push(...items);
+            _pro.hasMore = !!d.hasNext && items.length > 0;
+            _pro.page += 1;
+            _appendProRows(items);
+            if (more)
+                more.textContent = _pro.hasMore
+                    ? 'Cuộn xuống để xem thêm…'
+                    : _pro.items.length
+                      ? '— Hết —'
+                      : 'Không tìm thấy giọng phù hợp.';
+        } catch (e) {
+            if (more) more.textContent = 'Lỗi nạp: ' + (e.message || e);
+        } finally {
+            _pro.loading = false;
+        }
+    }
+
+    function _appendProRows(items) {
+        const TTS = global.Web2VideoTTS;
+        const rows = $('#vmProRows');
+        if (!rows) return;
+        const html = items
+            .map((v) => {
+                const added = TTS.hasVoice('pro-' + v.id);
+                const meta = (v.tags || []).join(' · ') || v.description || '';
+                return `
+                <div class="vm-lib-row" data-pid="${esc(v.id)}">
+                    <div class="vm-lib-info">
+                        <div class="vm-lib-name">${esc(v.name)} <span class="vm-el-free">Pro</span></div>
+                        <div class="vm-lib-meta">${esc(meta)}</div>
+                    </div>
+                    <div class="vm-lib-acts">
+                        <button class="vm-btn sm vm-lib-pprev" data-pid="${esc(v.id)}"><i data-lucide="volume-2"></i> Nghe thử</button>
+                        <button class="vm-btn sm ${added ? '' : 'primary'} vm-lib-padd" data-pid="${esc(v.id)}" ${added ? 'disabled' : ''}>
+                            <i data-lucide="${added ? 'check' : 'plus'}"></i> ${added ? 'Đã thêm' : 'Thêm'}
+                        </button>
+                    </div>
+                </div>`;
+            })
+            .join('');
+        rows.insertAdjacentHTML('beforeend', html);
+        rows.querySelectorAll('.vm-lib-pprev:not([data-w])').forEach((b) => {
+            b.setAttribute('data-w', '1');
+            b.addEventListener('click', () => {
+                const v = _pro.items.find((x) => x.id === b.dataset.pid);
+                if (v) previewProVoice(v, b);
+            });
+        });
+        rows.querySelectorAll('.vm-lib-padd:not([data-w])').forEach((b) => {
+            b.setAttribute('data-w', '1');
+            b.addEventListener('click', () => {
+                const v = _pro.items.find((x) => x.id === b.dataset.pid);
+                if (v) addProVoice(v, b);
+            });
+        });
+        if (global.lucide) global.lucide.createIcons();
+    }
+
+    async function previewProVoice(v, btn) {
+        if (_busy) return;
+        _busy = true;
+        _stopPreview();
+        const old = btn.innerHTML;
+        btn.innerHTML = '<i data-lucide="loader"></i> …';
+        if (global.lucide) global.lucide.createIcons();
+        const restore = () => {
+            btn.innerHTML = old;
+            if (global.lucide) global.lucide.createIcons();
+        };
+        try {
+            const r = await global.Web2VideoTTS.synthVoiceMeta(
+                { engine: 'pro', proId: v.id },
+                global.Web2VideoTTS.SAMPLE_TEXT
+            );
+            await _playSamples(r);
+            restore();
+        } catch (e) {
+            restore();
+            notify('Nghe thử lỗi: ' + (e.message || e), 'error');
+        } finally {
+            _busy = false;
+        }
+    }
+
+    function addProVoice(v, btn) {
+        global.Web2VideoTTS.addLibraryVoice({ engine: 'pro', proId: v.id, label: v.name });
+        notify('Đã thêm giọng "' + v.name + '"', 'success');
+        _ctx.onChange && _ctx.onChange();
+        btn.disabled = true;
+        btn.classList.remove('primary');
+        btn.innerHTML = '<i data-lucide="check"></i> Đã thêm';
+        if (global.lucide) global.lucide.createIcons();
     }
 
     global.Web2VideoLibraryUI = { init, open, close };

@@ -33,12 +33,23 @@
         );
     }
     const _ELEVEN_BASE = () => _workerBase() + '/api/web2-elevenlabs';
+    // "Giọng AI Pro" — route TRUNG TÍNH (không lộ nhà cung cấp). Backend relay .wav.
+    const _PRO_BASE = () => _workerBase() + '/api/web2-tts-pro';
 
     // ⚠ CHỈ giữ giọng Piper KNOWN-GOOD trên trình duyệt. vi_VN-25hours_single-low &
     // vi_VN-vivos-x_low có bảng phoneme 130 symbol → espeak-ng (vits-web) sinh id 132
     // → OrtRun "out of data bounds" (crash). vais1000-medium có 256 symbol → an toàn.
     // (Nghiên cứu rhasspy/piper-voices num_symbols; xem dev-log 2026-06-22.)
     const VOICES = [
+        // "Giọng AI Pro" (server) — ưu tiên đầu danh sách (user yêu cầu Adam 3). proId =
+        // id giọng cộng đồng; nhãn hiển thị KHÔNG lộ tên nhà cung cấp.
+        {
+            id: 'pro-adam3',
+            label: 'Adam 3',
+            engine: 'pro',
+            proId: '5r2MVjMfzwsSDzTpaLjbY9',
+            note: 'Pro',
+        },
         { id: 'mms', label: 'Nữ trong trẻo', engine: 'mms', note: 'MMS' },
         { id: 'vais', label: 'Nữ ấm áp', engine: 'piper', voiceId: 'vi_VN-vais1000-medium' },
     ];
@@ -339,6 +350,54 @@
         return { samples: buf.getChannelData(0).slice(), sampleRate: buf.sampleRate };
     }
 
+    // ---------------- "Giọng AI Pro" (server proxy, tên trung tính) ----------------
+    // Giọng Việt chất lượng cao (gồm giọng cộng đồng "Adam 3"…). Gọi qua worker
+    // /api/web2-tts-pro; backend trả .wav (đã relay → KHÔNG lộ domain nhà cung cấp).
+    let _proAvail = null;
+    async function proStatus() {
+        if (_proAvail) return _proAvail;
+        try {
+            const r = await fetch(_PRO_BASE() + '/status', { credentials: 'omit' });
+            _proAvail = r.ok ? await r.json() : { ok: false, configured: false };
+        } catch {
+            _proAvail = { ok: false, configured: false };
+        }
+        return _proAvail;
+    }
+    // Danh sách giọng. params: {search,page,limit,scope}. scope mặc định 'community'
+    // (nơi có Adam 3); 'user' = giọng tài khoản. Trả {ok,voices:[{id,name,tags,description}],total,hasNext}.
+    async function listProVoices(params = {}) {
+        const qs = new URLSearchParams();
+        Object.entries(params).forEach(([k, v]) => {
+            if (v != null && v !== '') qs.set(k, v);
+        });
+        const r = await fetch(_PRO_BASE() + '/voices?' + qs.toString(), { credentials: 'omit' });
+        if (!r.ok) throw new Error('Giọng AI Pro voices HTTP ' + r.status);
+        return r.json();
+    }
+    async function _proChunk(text, v, onStatus) {
+        onStatus && onStatus('Đang tạo giọng AI Pro…');
+        const r = await fetch(_PRO_BASE() + '/tts', {
+            method: 'POST',
+            headers: Object.assign({ 'content-type': 'application/json' }, _w2auth()),
+            body: JSON.stringify({
+                text: String(text || ''),
+                voice_id: v.proId,
+                speed: v.speed || 1.0,
+            }),
+        });
+        if (!r.ok) {
+            let msg = 'HTTP ' + r.status;
+            try {
+                msg = (await r.json()).error || msg;
+            } catch {}
+            throw new Error('Giọng AI Pro lỗi: ' + msg);
+        }
+        const ab = await r.arrayBuffer();
+        const buf = await _decodeCtx().decodeAudioData(ab);
+        return { samples: buf.getChannelData(0).slice(), sampleRate: buf.sampleRate };
+    }
+
     // ---- ElevenLabs tool calls (sound effect / STT / isolation) qua proxy ----
     async function _blobB64(blob) {
         const ab = await blob.arrayBuffer();
@@ -449,7 +508,9 @@
                       ? await _vieneuChunk(chunks[i], v, onStatus)
                       : v.engine === 'elevenlabs'
                         ? await _elevenChunk(chunks[i], v, onStatus)
-                        : await _piperChunk(chunks[i], v.voiceId, onStatus);
+                        : v.engine === 'pro'
+                          ? await _proChunk(chunks[i], v, onStatus)
+                          : await _piperChunk(chunks[i], v.voiceId, onStatus);
             sampleRate = r.sampleRate;
             parts.push(r.samples);
             if (i < chunks.length - 1) parts.push(new Float32Array(Math.round(sampleRate * 0.18)));
@@ -473,6 +534,7 @@
                 { elevenId: meta.elevenId, elevenModel: meta.elevenModel },
                 onStatus
             );
+        if (meta.engine === 'pro') return _proChunk(t, { proId: meta.proId }, onStatus);
         if (meta.engine === 'mms') return _mmsChunk(t, onStatus);
         // piper catalog — đảm bảo đã tải model trước khi predict
         const key = meta.key || meta.voiceId;
@@ -589,6 +651,7 @@
                 voiceId: v.voiceId || null,
                 elevenId: v.elevenId || null,
                 elevenModel: v.elevenModel || null,
+                proId: v.proId || null,
                 lang: v.lang || null,
             }));
             localStorage.setItem(LIB_KEY, JSON.stringify(lib));
@@ -602,7 +665,9 @@
         const id =
             meta.engine === 'elevenlabs'
                 ? 'el-' + meta.elevenId
-                : 'piper-' + (meta.key || meta.voiceId);
+                : meta.engine === 'pro'
+                  ? 'pro-' + meta.proId
+                  : 'piper-' + (meta.key || meta.voiceId);
         if (hasVoice(id)) return id;
         const entry = {
             id,
@@ -614,6 +679,8 @@
         if (meta.engine === 'elevenlabs') {
             entry.elevenId = meta.elevenId;
             entry.elevenModel = meta.elevenModel || '';
+        } else if (meta.engine === 'pro') {
+            entry.proId = meta.proId;
         } else {
             entry.voiceId = meta.key || meta.voiceId;
         }
@@ -663,6 +730,9 @@
         samplePreviewUrl,
         previewUrlForVoice,
         isBrokenVoice,
+        // Giọng AI Pro (proxy, tên trung tính — không lộ nhà cung cấp)
+        proStatus,
+        listProVoices,
         // ElevenLabs (proxy)
         elevenStatus,
         listElevenVoices,
