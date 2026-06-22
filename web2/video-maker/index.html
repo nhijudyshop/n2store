@@ -15,7 +15,7 @@
         <link rel="stylesheet" href="../shared/web2-sidebar.css?v=20260613z" />
         <link rel="stylesheet" href="../shared/web2-theme.css?v=20260622t5" />
         <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
-        <link rel="stylesheet" href="./video-maker.css?v=20260621ipad2" />
+        <link rel="stylesheet" href="./video-maker.css?v=20260622a" />
     </head>
     <body class="web2-theme">
         <div class="web2-shell">
@@ -31,6 +31,24 @@
                                 đọc AI tiếng Việt (nhiều giọng · clone · ElevenLabs), nhạc nền &
                                 hiệu ứng âm thanh — 100% trên máy, xuất đăng FB/Zalo/TikTok.
                             </p>
+                            <div class="vm-mode-toggle" role="group" aria-label="Bố cục">
+                                <button
+                                    class="vm-btn sm"
+                                    id="vmModeWide"
+                                    aria-pressed="true"
+                                    title="Chỉnh rộng — xem trước thu nhỏ ở góc"
+                                >
+                                    <i data-lucide="panel-left"></i> Chỉnh rộng
+                                </button>
+                                <button
+                                    class="vm-btn sm"
+                                    id="vmModeFocus"
+                                    aria-pressed="false"
+                                    title="Xem trước lớn (chia đôi màn hình)"
+                                >
+                                    <i data-lucide="monitor-play"></i> Xem trước lớn
+                                </button>
+                            </div>
                         </header>
 
                         <!-- CSS-only tabs (không phụ thuộc JS) -->
@@ -458,6 +476,14 @@
 
                     <!-- ============ PREVIEW ============ -->
                     <section class="vm-stage" id="vmStage">
+                        <div class="vm-pip-bar">
+                            <button class="vm-btn sm" id="vmPipExpand" title="Phóng to xem trước">
+                                <i data-lucide="maximize-2"></i>
+                            </button>
+                            <button class="vm-btn sm" id="vmPipHide" title="Ẩn xem trước">
+                                <i data-lucide="minimize-2"></i>
+                            </button>
+                        </div>
                         <canvas id="vmCanvas" width="1280" height="720"></canvas>
                         <div class="vm-transport">
                             <button class="vm-btn" id="vmPlay">
@@ -471,6 +497,11 @@
                             <div class="vm-prog-fill" id="vmProgFill"></div>
                         </div>
                     </section>
+
+                    <!-- pill mở lại preview khi đang ẩn (chỉ hiện ở mode preview-hidden) -->
+                    <button class="vm-pip-reopen" id="vmPipReopen">
+                        <i data-lucide="play-circle"></i> Xem trước
+                    </button>
                 </div>
             </main>
         </div>

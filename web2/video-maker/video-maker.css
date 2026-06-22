@@ -7,11 +7,32 @@
     display: none !important;
 }
 
+/* Layout 3 chế độ (desktop) qua [data-vm-mode] trên .vm-app:
+   • (mặc định / preview-hidden) WIDE-EDIT — vùng chỉnh FULL WIDTH (card nhiều cột),
+     khung xem trước = PiP nổi góc dưới-phải (Phóng to / Ẩn).
+   • preview-focus — chia đôi cổ điển (panel 420px + preview lớn) để soát lại.
+   CSS mode nằm trong @media (min-width:921px); mobile/iPad giữ app-frame sticky-top. */
 .vm-app {
+    position: relative; /* mỏ neo cho PiP nổi */
     display: grid;
-    grid-template-columns: 400px 1fr;
+    grid-template-columns: 1fr; /* wide-edit: panel full width */
     height: 100%;
     min-height: 0;
+}
+/* PiP control bar + reopen pill + mode toggle — ẩn mặc định, chỉ bật ở desktop modes */
+.vm-pip-bar,
+.vm-pip-reopen {
+    display: none;
+}
+.vm-mode-toggle {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+.vm-mode-toggle .vm-btn[aria-pressed='true'] {
+    background: var(--web2-primary, #0068ff);
+    border-color: var(--web2-primary, #0068ff);
+    color: #fff;
 }
 .vm-panel {
     overflow-y: auto;
@@ -508,6 +529,101 @@ textarea.vm-narr {
 }
 
 /* ============================================================
+   DESKTOP (≥921px) — chế độ bố cục (wide-edit / preview-focus / preview-hidden).
+   Mobile/iPad ≤920px BỎ QUA (app-frame sticky-top ở @media bên dưới điều khiển).
+   ============================================================ */
+@media (min-width: 921px) {
+    /* preview-focus = chia đôi cổ điển */
+    .vm-app[data-vm-mode='preview-focus'] {
+        grid-template-columns: 420px 1fr;
+    }
+    .vm-app[data-vm-mode='preview-focus'] .vm-panel {
+        border-right: 1px solid var(--web2-border, #e5e7eb);
+    }
+
+    /* WIDE-EDIT (mặc định) + PREVIEW-HIDDEN: card xếp NHIỀU CỘT tận dụng full width */
+    .vm-app:not([data-vm-mode='preview-focus']) #vmtab-content:checked ~ #vmpanel-content,
+    .vm-app:not([data-vm-mode='preview-focus']) #vmtab-voice:checked ~ #vmpanel-voice {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+        align-items: start;
+        gap: 14px;
+    }
+
+    /* Khung xem trước = PiP NỔI góc dưới-phải (trên thanh Xuất) */
+    .vm-app:not([data-vm-mode='preview-focus']) .vm-stage {
+        position: absolute;
+        right: 18px;
+        bottom: 84px;
+        z-index: 30;
+        width: clamp(220px, 24vw, 340px);
+        height: auto;
+        padding: 10px;
+        gap: 8px;
+        border-radius: 16px;
+        box-shadow:
+            0 24px 60px -18px rgba(0, 0, 0, 0.6),
+            0 0 0 1px rgba(255, 255, 255, 0.08);
+    }
+    .vm-app:not([data-vm-mode='preview-focus']) .vm-transport .vm-btn {
+        padding: 6px 12px;
+        min-height: 34px;
+        font-size: 12px;
+    }
+    .vm-app:not([data-vm-mode='preview-focus']) .vm-prog {
+        width: 100%;
+    }
+
+    /* PiP control bar (Phóng to / Ẩn) — chỉ hiện khi đang nổi */
+    .vm-app:not([data-vm-mode='preview-focus']) .vm-pip-bar {
+        display: flex;
+        gap: 6px;
+        align-self: stretch;
+        justify-content: flex-end;
+    }
+    .vm-pip-bar .vm-btn {
+        background: rgba(255, 255, 255, 0.14);
+        color: #fff;
+        border-color: rgba(255, 255, 255, 0.28);
+        min-height: 32px;
+        padding: 5px 9px;
+    }
+
+    /* PREVIEW-HIDDEN: thu PiP về 0 → hiện pill "Xem trước" */
+    .vm-app[data-vm-mode='preview-hidden'] .vm-stage {
+        width: 0;
+        height: 0;
+        min-height: 0;
+        padding: 0;
+        opacity: 0;
+        pointer-events: none;
+        overflow: hidden;
+    }
+    .vm-app[data-vm-mode='preview-hidden'] .vm-pip-reopen {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        position: absolute;
+        right: 18px;
+        bottom: 84px;
+        z-index: 31;
+        padding: 11px 18px;
+        border: 0;
+        border-radius: 999px;
+        background: var(--web2-primary, #0068ff);
+        color: #fff;
+        font-weight: 700;
+        font-size: 13px;
+        cursor: pointer;
+        box-shadow: 0 14px 32px -10px rgba(0, 104, 255, 0.55);
+    }
+    .vm-app[data-vm-mode='preview-hidden'] .vm-pip-reopen i {
+        width: 16px;
+        height: 16px;
+    }
+}
+
+/* ============================================================
    ĐIỆN THOẠI — khung như app edit chuyên nghiệp (CapCut/VN style):
    • Preview GHIM trên cùng (sticky), luôn thấy khi chỉnh.
    • Thanh tab (Nội dung / Giọng) ghim ngay dưới preview.
@@ -522,6 +638,12 @@ textarea.vm-narr {
         height: auto;
         gap: 0;
         --vm-prev-h: clamp(210px, 40vh, 330px);
+    }
+    /* Chế độ desktop không áp dụng trên mobile — ẩn toggle/PiP, dùng app-frame sticky. */
+    .vm-mode-toggle,
+    .vm-pip-bar,
+    .vm-pip-reopen {
+        display: none !important;
     }
     .vm-panel {
         order: 1;

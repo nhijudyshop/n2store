@@ -1246,11 +1246,50 @@
         });
     }
 
+    // ---------- bố cục desktop: wide-edit | preview-focus | preview-hidden ----------
+    // Mặc định wide-edit (vùng chỉnh full width, preview = PiP nổi). Lưu localStorage.
+    // CSS làm hết layout; JS chỉ lật [data-vm-mode] + refit canvas khi đổi (stage đổi cỡ).
+    function wireLayoutMode() {
+        const app = $('.vm-app');
+        if (!app) return;
+        const KEY = 'web2_vm_layout_mode';
+        const VALID = ['wide-edit', 'preview-focus', 'preview-hidden'];
+        const refit = () => {
+            try {
+                fitPreview();
+            } catch {}
+        };
+        const setMode = (m) => {
+            if (!VALID.includes(m)) m = 'wide-edit';
+            app.setAttribute('data-vm-mode', m);
+            try {
+                localStorage.setItem(KEY, m);
+            } catch {}
+            const wide = $('#vmModeWide');
+            const focus = $('#vmModeFocus');
+            if (wide) wide.setAttribute('aria-pressed', String(m !== 'preview-focus'));
+            if (focus) focus.setAttribute('aria-pressed', String(m === 'preview-focus'));
+            refit(); // canvas refit ngay…
+            setTimeout(refit, 280); // …và sau khi transition cỡ stage xong
+        };
+        let saved = 'wide-edit';
+        try {
+            saved = localStorage.getItem(KEY) || 'wide-edit';
+        } catch {}
+        setMode(saved);
+        $('#vmModeWide')?.addEventListener('click', () => setMode('wide-edit'));
+        $('#vmModeFocus')?.addEventListener('click', () => setMode('preview-focus'));
+        $('#vmPipExpand')?.addEventListener('click', () => setMode('preview-focus'));
+        $('#vmPipHide')?.addEventListener('click', () => setMode('preview-hidden'));
+        $('#vmPipReopen')?.addEventListener('click', () => setMode('wide-edit'));
+    }
+
     function init() {
         canvas = $('#vmCanvas');
         if (!canvas) return;
         ctx = canvas.getContext('2d');
         if (!global.Web2VideoRender) return notify('Chưa tải bộ dựng video', 'error');
+        wireLayoutMode();
         renderPickers();
         renderVoices();
         renderScenes();
