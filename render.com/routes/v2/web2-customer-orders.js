@@ -116,7 +116,15 @@ router.get('/:phoneOrId', requireWeb2AuthSoft, async (req, res) => {
                 );
                 for (const row of r.rows) {
                     if (row.source_type === 'native_order' && row.source_code) {
-                        convertedNativeCodes.add(row.source_code);
+                        // source_code có thể là 'NJ-A' hoặc 'NJ-A+NJ-B+...' khi PBH gộp
+                        // nhiều Đơn Web → tách '+' để ẩn TẤT CẢ native gốc (giống
+                        // syncNativeOrderStatusFromPbh). Trước đây chỉ add nguyên chuỗi →
+                        // PBH merged không ẩn được native con (vẫn trùng dòng).
+                        String(row.source_code)
+                            .split('+')
+                            .map((s) => s.trim())
+                            .filter(Boolean)
+                            .forEach((c) => convertedNativeCodes.add(c));
                     }
                     const amt = Number(row.amount_total) || 0;
                     orders.push({

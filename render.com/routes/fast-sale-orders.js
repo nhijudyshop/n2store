@@ -2828,3 +2828,6 @@ module.exports = router;
 // ĐÚNG NGHĨA (restock + hoàn ví idempotent) trong cùng transaction, thay vì
 // chỉ mirror state qua syncPbhStateFromNativeOrder.
 module.exports._cancelPbhInTx = _cancelPbhInTx;
+// 2026-06-23: export cho reconcile /return-failed sync ngược native_orders →
+// 'cancelled' (giống /cancel route) — trước đây return-failed bỏ sót sync này.
+module.exports.syncNativeOrderStatusFromPbh = syncNativeOrderStatusFromPbh;

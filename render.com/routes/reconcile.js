@@ -103,6 +103,11 @@ const FULFILL_STATES = [
 // reconcile return-failed dùng chung 1 logic.
 const fastSaleOrdersRouter = require('./fast-sale-orders');
 const restockOrderLines = fastSaleOrdersRouter.restockOrderLines;
+// 2026-06-23 FIX: return-failed PHẢI huỷ PBH ĐÚNG NGHĨA (restock + HOÀN VÍ + sync
+// native_orders) dùng chung _cancelPbhInTx — trước đây chỉ UPDATE state=cancel +
+// restock, BỎ SÓT hoàn wallet_deducted (mất tiền thu hộ) + không sync đơn web.
+const _cancelPbhInTx = fastSaleOrdersRouter._cancelPbhInTx;
+const syncNativeOrderStatusFromPbh = fastSaleOrdersRouter.syncNativeOrderStatusFromPbh;
 
 // 2026-06-06: chuẩn hoá mã SP khi đối chiếu barcode quét.
 // Lý do: máy quét có thể trả mã khác hoa/thường hoặc kèm khoảng trắng so với
@@ -953,50 +958,102 @@ router.post('/:number/return-failed', async (req, res) => {
         // (mất đồng bộ tồn kho ⊥ state). restockOrderLines nhận client → cùng tx.
         let stateBefore;
         let restockSummary = null;
+        let cancelRes = null;
         try {
-            ({ stateBefore, restockSummary } = await withTransaction(pool, async (client) => {
-                const r = await client.query(
-                    `SELECT id, number, state, stock_restored, order_lines, fulfillment_state
-                     FROM fast_sale_orders WHERE number = $1 FOR UPDATE`,
-                    [number]
-                );
-                if (r.rows.length === 0) {
-                    const err = new Error('PBH not found');
-                    err.httpStatus = 404;
-                    throw err;
-                }
-                const row = r.rows[0];
-                const sBefore = row.fulfillment_state || 'pending';
-                // Cho phép return từ shipped HOẶC delivered (khách nhận rồi trả lại).
-                if (!['shipped', 'delivered'].includes(sBefore)) {
-                    const err = new Error(
-                        `Chỉ có thể đánh dấu trả về sau khi ship/delivered (hiện: ${sBefore})`
+            ({ stateBefore, restockSummary, cancelRes } = await withTransaction(
+                pool,
+                async (client) => {
+                    const r = await client.query(
+                        `SELECT number, fulfillment_state
+                         FROM fast_sale_orders WHERE number = $1 FOR UPDATE`,
+                        [number]
                     );
-                    err.httpStatus = 400;
-                    throw err;
+                    if (r.rows.length === 0) {
+                        const err = new Error('PBH not found');
+                        err.httpStatus = 404;
+                        throw err;
+                    }
+                    const sBefore = r.rows[0].fulfillment_state || 'pending';
+                    // Cho phép return từ shipped HOẶC delivered (khách nhận rồi trả lại).
+                    if (!['shipped', 'delivered'].includes(sBefore)) {
+                        const err = new Error(
+                            `Chỉ có thể đánh dấu trả về sau khi ship/delivered (hiện: ${sBefore})`
+                        );
+                        err.httpStatus = 400;
+                        throw err;
+                    }
+                    // Marker trả về (phân biệt với huỷ thường) — set TRƯỚC khi cancel.
+                    await client.query(
+                        `UPDATE fast_sale_orders SET fulfillment_state = 'returned', date_updated = NOW()
+                         WHERE number = $1`,
+                        [number]
+                    );
+                    // Huỷ PBH ĐÚNG NGHĨA: state=cancel + restock + HOÀN VÍ wallet_deducted
+                    // (idempotent) — dùng chung _cancelPbhInTx (giống /cancel). FIX: trước
+                    // đây chỉ UPDATE state=cancel + restock → BỎ SÓT hoàn ví thu hộ.
+                    const cr = await _cancelPbhInTx(
+                        client,
+                        number,
+                        (user && (user.name || user.id)) || '(thu về)'
+                    );
+                    return {
+                        stateBefore: sBefore,
+                        restockSummary: cr && cr.restock,
+                        cancelRes: cr,
+                    };
                 }
-
-                // Update fulfillment_state + cancel PBH (state='cancel') trong 1 query.
-                await client.query(
-                    `UPDATE fast_sale_orders
-                     SET fulfillment_state = 'returned',
-                         state = 'cancel',
-                         date_updated = NOW()
-                     WHERE number = $1`,
-                    [number]
-                );
-
-                // Restock — idempotent qua stock_restored flag. Trong cùng tx →
-                // rollback luôn nếu có lỗi (giữ tồn kho ⊥ state đồng bộ).
-                let summary = null;
-                if (typeof restockOrderLines === 'function') {
-                    summary = await restockOrderLines(client, row);
-                }
-                return { stateBefore: sBefore, restockSummary: summary };
-            }));
+            ));
         } catch (e) {
             if (e.httpStatus) return res.status(e.httpStatus).json({ error: e.message });
             throw e;
+        }
+
+        // Sau commit: SSE products (restock) + ví (hoàn) + sync ngược native_orders → cancelled.
+        try {
+            if (restockSummary && restockSummary.restored > 0 && _notifyClients) {
+                _notifyClients(
+                    'web2:products',
+                    { action: 'pbh-return-restock', ts: Date.now() },
+                    'update'
+                );
+            }
+            if (
+                cancelRes &&
+                cancelRes.walletRefunded > 0 &&
+                _notifyClients &&
+                cancelRes.prevRow?.partner_phone
+            ) {
+                _notifyClients(
+                    `web2:wallet:${String(cancelRes.prevRow.partner_phone).replace(/\D/g, '')}`,
+                    {
+                        action: 'pbh-return-refund',
+                        phone: cancelRes.prevRow.partner_phone,
+                        ts: Date.now(),
+                    },
+                    'update'
+                );
+            }
+            if (cancelRes && cancelRes.wasNotCancelled && syncNativeOrderStatusFromPbh) {
+                const nativeSync = await syncNativeOrderStatusFromPbh(
+                    pool,
+                    cancelRes.prevRow,
+                    'cancel'
+                );
+                if (nativeSync.synced > 0 && req.app.locals.web2RealtimeSseNotify) {
+                    req.app.locals.web2RealtimeSseNotify(
+                        'web2:native-orders',
+                        {
+                            action: 'pbh-state-sync',
+                            state: 'cancel',
+                            codes: nativeSync.codes,
+                            ts: Date.now(),
+                        },
+                        'update'
+                    );
+                }
+            }
+        } catch (e) {
+            console.warn('[RECONCILE] return-failed post-cancel sync warn:', e.message);
         }
 
         await logAction(
