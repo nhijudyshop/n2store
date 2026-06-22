@@ -3,16 +3,16 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `a412618` — polish(web2) SSE consumer LOW hygiene: report-delivery realtime + debounce 4 badge handlers
-**Last updated**: 2026-06-22 09:32:21 +07
-**Latest session**: [`RESUME:20260622-093221-a412618`](../20260622-093221-a412618.md)
-**Summary**: polish(web2) SSE consumer LOW hygiene: report-delivery realtime + debounce 4 badge handlers
+**Latest commit**: `f2ea3f2` — feat(web2-ui) table: default bảng = look native-orders (grid-line + zebra + header đậm) cho toàn Web 2.0 + delivery emit verified live
+**Last updated**: 2026-06-22 10:00:53 +07
+**Latest session**: [`RESUME:20260622-100053-f2ea3f2`](../20260622-100053-f2ea3f2.md)
+**Summary**: feat(web2-ui) table: default bảng = look native-orders (grid-line + zebra + header đậm) cho toàn Web 2.0 + deli...
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
 - [`live-chat/`](./live-chat.md) — 2 file(s)
-- [`web2/`](./web2.md) — 5 file(s)
+- [`so-order/`](./so-order.md) — 1 file(s)
+- [`web2/`](./web2.md) — 47 file(s)
 
 ## All folder snapshots
 
@@ -41,7 +41,7 @@
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-06-20 12:07
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-20 12:07
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-06-20 12:07
-- [`live-chat/`](./live-chat.md) — updated 2026-06-22 09:32
+- [`live-chat/`](./live-chat.md) — updated 2026-06-22 10:00
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-06-20 16:16
 - [`n2store-facebook/`](./n2store-facebook.md) — updated 2026-06-14 13:09
 - [`n2store-realtime/`](./n2store-realtime.md) — updated 2026-06-16 11:15
@@ -64,7 +64,7 @@
 - [`shared/`](./shared.md) — updated 2026-06-20 15:47
 - [`showroom/`](./showroom.md) — updated 2026-06-19 14:27
 - [`showroom1/`](./showroom1.md) — updated 2026-06-19 14:27
-- [`so-order/`](./so-order.md) — updated 2026-06-22 02:22
+- [`so-order/`](./so-order.md) — updated 2026-06-22 10:00
 - [`soluong-live/`](./soluong-live.md) — updated 2026-06-20 12:07
 - [`soorder/`](./soorder.md) — updated 2026-06-20 12:07
 - [`soquy/`](./soquy.md) — updated 2026-06-20 16:02
@@ -78,4 +78,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-22 09:32
+- [`web2/`](./web2.md) — updated 2026-06-22 10:00
