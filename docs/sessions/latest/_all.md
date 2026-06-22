@@ -3,14 +3,13 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `b488f20` — fix(inventory-tracking): di chuyển đơn giữa đợt đồng bộ thanh toán theo đợt đích + default số đợt hybrid; xoá script renumber (premise sai)
-**Last updated**: 2026-06-22 22:29:42 +07
-**Latest session**: [`RESUME:20260622-222942-b488f20`](../20260622-222942-b488f20.md)
-**Summary**: fix inventory-tracking: di chuyển đơn giữa đợt đồng bộ payment theo đợt đích + default số đợt hybrid (đợt span nhiều ngày là đúng, không renumber)
+**Latest commit**: `642f504` — feat(web2-audit-log): admin DELETE /purge?entity= — housekeeping xoá audit theo entity (web2Db)
+**Last updated**: 2026-06-22 22:35:00 +07
+**Latest session**: [`RESUME:20260622-223500-642f504`](../20260622-223500-642f504.md)
+**Summary**: feat(web2-audit-log): admin DELETE /purge?entity= — housekeeping xoá audit theo entity (web2Db)
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
 - [`render.com/`](./render.com.md) — 1 file(s)
 
 ## All folder snapshots
@@ -56,7 +55,7 @@
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-06-20 12:07
 - [`referenceUI/`](./referenceUI.md) — updated 2026-06-19 14:27
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-06-20 12:07
-- [`render.com/`](./render.com.md) — updated 2026-06-22 22:29
+- [`render.com/`](./render.com.md) — updated 2026-06-22 22:35
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-22 17:10
 - [`service-costs/`](./service-costs.md) — updated 2026-06-20 12:07
