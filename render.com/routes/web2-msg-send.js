@@ -153,7 +153,9 @@ async function _recomputeAndNotify(pool, jobId) {
     }
     const payload = { jobId, ...rows[0] };
     _notify('web2:bulk-send:' + jobId, payload);
-    _notify('web2:bulk-send', { action: 'progress', ...payload });
+    // (gỡ 2026-06-22, audit producer↔consumer) plain 'web2:bulk-send' KHÔNG trang nào
+    // subscribe — chỉ per-job 'web2:bulk-send:<jobId>' được consume. Emit này chạy MỖI
+    // progress tick → churn cross-instance pg NOTIFY + relay vô ích. Per-job đã đủ payload.
     return payload;
 }
 
@@ -213,15 +215,8 @@ router.post('/', requireWeb2Auth, async (req, res) => {
             inserted,
         ]);
         await client.query('COMMIT');
-        _notify('web2:bulk-send', {
-            action: 'created',
-            jobId,
-            total: inserted,
-            sent: 0,
-            failed: 0,
-            needsExt: 0,
-            state: 'running',
-        });
+        // (gỡ plain 'web2:bulk-send' 2026-06-22) client tạo job xong mới biết jobId để
+        // subscribe 'web2:bulk-send:<jobId>' → emit plain lúc create KHÔNG ai nhận.
         return res.json({ success: true, jobId, total: inserted });
     } catch (e) {
         await client.query('ROLLBACK').catch(() => {});

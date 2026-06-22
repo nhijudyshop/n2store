@@ -276,11 +276,13 @@ async function emitKpiEvent(pool, ev) {
                 qty_delta: ev.qty_delta,
                 ts: now,
             };
-            for (const topic of [`web2:kpi:${ev.beneficiary_user_id}`, 'web2:kpi-dashboard']) {
-                try {
-                    _notifyClients(topic, payload, 'update');
-                } catch {}
-            }
+            // (gỡ 'web2:kpi:<beneficiary_id>' 2026-06-22, audit producer↔consumer) KHÔNG
+            // trang nào subscribe per-NV topic đó — Dashboard F01 + KPI leaderboard chỉ
+            // subscribe broadcast 'web2:kpi-dashboard'. Cần realtime per-NV sau → thêm
+            // Web2SSE.subscribe('web2:kpi:'+myUserId,...) ở web2/kpi/ rồi mở lại emit.
+            try {
+                _notifyClients('web2:kpi-dashboard', payload, 'update');
+            } catch {}
         }
         return { id: r.rows[0].id, inserted: true };
     } catch (e) {

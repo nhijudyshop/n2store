@@ -383,6 +383,18 @@ router.delete('/:number', requireWeb2AuthSoft, async (req, res) => {
             return res
                 .status(404)
                 .json({ error: 'Not deletable (state ≠ draft/cancel, use force=1)' });
+        // SSE web2:refunds là kênh realtime DUY NHẤT — DELETE cũng PHẢI báo để tab khác
+        // bỏ phiếu đã xoá (audit producer↔consumer 2026-06-22: trước thiếu emit → phiếu
+        // đã xoá vẫn hiện ở tab khác tới khi F5).
+        if (req.app.locals.web2RealtimeSseNotify) {
+            try {
+                req.app.locals.web2RealtimeSseNotify(
+                    'web2:refunds',
+                    { action: 'delete', number: req.params.number, ts: Date.now() },
+                    'update'
+                );
+            } catch {}
+        }
         res.json({ success: true });
     } catch (e) {
         res.status(500).json({ error: e.message });

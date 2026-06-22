@@ -443,6 +443,17 @@ router.patch('/:number', requireWeb2AuthSoft, async (req, res) => {
             params
         );
         if (!r.rows.length) return res.status(404).json({ error: 'Not found' });
+        // SSE web2:delivery realtime — PATCH metadata cũng báo tab khác cập nhật (audit
+        // 2026-06-22: trước thiếu emit → field vừa sửa bị stale ở tab khác tới khi F5).
+        if (req.app.locals.web2RealtimeSseNotify) {
+            try {
+                req.app.locals.web2RealtimeSseNotify(
+                    'web2:delivery',
+                    { action: 'update', number: req.params.number, ts: Date.now() },
+                    'update'
+                );
+            } catch {}
+        }
         res.json({ success: true, order: mapRow(r.rows[0]) });
     } catch (e) {
         res.status(500).json({ error: e.message });
@@ -463,6 +474,17 @@ router.delete('/:number', requireWeb2AuthSoft, async (req, res) => {
             return res
                 .status(404)
                 .json({ error: 'Not deletable (state ≠ pending/cancel, use force=1)' });
+        // SSE web2:delivery realtime — DELETE báo tab khác bỏ phiếu đã xoá (audit
+        // 2026-06-22: trước thiếu emit → phiếu đã xoá vẫn hiện ở tab khác tới khi F5).
+        if (req.app.locals.web2RealtimeSseNotify) {
+            try {
+                req.app.locals.web2RealtimeSseNotify(
+                    'web2:delivery',
+                    { action: 'delete', number: req.params.number, ts: Date.now() },
+                    'update'
+                );
+            } catch {}
+        }
         res.json({ success: true });
     } catch (e) {
         res.status(500).json({ error: e.message });
