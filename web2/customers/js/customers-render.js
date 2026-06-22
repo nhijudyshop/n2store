@@ -61,6 +61,7 @@
                         <button class="wc-act" data-act="detail" title="Chi tiết / chat / đơn"><i data-lucide="eye"></i></button>
                         <button class="wc-act" data-act="qr" title="QR chuyển khoản"><i data-lucide="qr-code"></i></button>
                         <button class="wc-act" data-act="edit" title="Sửa"><i data-lucide="pencil"></i></button>
+                        <button class="wc-act" data-act="history" title="Lịch sử thao tác"><i data-lucide="history"></i></button>
                         <button class="wc-act wc-act-danger" data-act="delete" title="Xóa"><i data-lucide="trash-2"></i></button>
                     </td>
                 </tr>`;

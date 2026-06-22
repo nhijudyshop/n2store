@@ -95,6 +95,11 @@
             STATE._custTimer = setTimeout(Tabs.loadList, 350);
         });
         $('returnsBody').addEventListener('click', (e) => {
+            const hist = e.target.closest('[data-hist]');
+            if (hist) {
+                window.Web2Returns?.openHistory?.(hist.dataset.hist);
+                return;
+            }
             const del = e.target.closest('[data-del]');
             if (del) Tabs.removeReturn(del.dataset.del);
         });
@@ -191,5 +196,18 @@
         switchTab: Tabs.switchTab,
         approve: Tabs.approve,
         removeReturn: Tabs.removeReturn,
+        // Lịch sử thao tác 1 phiếu (event-sink entity='return') qua module chung.
+        openHistory: (code) => {
+            if (!code) return;
+            if (window.Web2AuditLog?.openRecord) {
+                window.Web2AuditLog.openRecord({
+                    entity: 'return',
+                    entityId: code,
+                    title: 'Lịch sử thu về ' + code,
+                });
+            } else {
+                window.notificationManager?.show?.('Module lịch sử chưa sẵn sàng', 'warning');
+            }
+        },
     };
 })();

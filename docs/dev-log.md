@@ -2,6 +2,18 @@
 
 ## 2026-06-22
 
+### [feat] Per-record history rollout — frontend custom pages (returns + reconcile + customers)
+
+Tiếp rollout lịch sử per-record (audit→implement→debug→verify). Đợt này lo **frontend custom pages** — gắn nút mở `Web2AuditLog.openRecord(...)` đúng theo chức năng từng trang. Phát hiện quan trọng khi audit: nhiều trang ĐÃ có lịch sử per-record sẵn từ nguồn canonical/embedded → KHÔNG downgrade, chỉ bù trang còn thiếu.
+
+- **products / PBH** — đã có modal lịch sử riêng đọc bảng canonical (`/api/web2-products/:code/history` → `web2_product_history`; `/api/fast-sale-orders/:number/history` → `fast_sale_order_history`) = CÙNG bảng audit union đọc → nguồn đã thống nhất, rendering tùy biến (user cho phép). **No-op.**
+- **purchase-refund / customers (edit modal)** — đã render lịch sử embedded (`data.history` JSONB) qua shared `Web2HistoryTimeline`. **Giữ.**
+- **returns** (gap thật) — thêm nút 🕘 mỗi row (`rt-btn-hist`) → `Web2Returns.openHistory(code)` → `openRecord({entity:'return', entityId:code})`. Verify LIVE: modal "Lịch sử thu về TEST-RET-VERIFY" render bảng + API trả scope đúng.
+- **reconcile** (gap thật) — thêm nút "Toàn bộ thao tác" cạnh toggle "Lịch sử đối soát" → `openRecord({entityId:number})` KHÔNG lọc entity = gộp `pbh` (tạo/sửa/huỷ) + `reconcile` (đối soát/giao hàng) cho cùng số PBH (full lifecycle 1 chỗ).
+- **customers** — thêm nút 🕘 quick mỗi row (`data-act="history"`) → `openRecord({entity:'customer', entityId:id})`. Verify LIVE: 50 nút render trên KH thật, click "Kelly Chau" → modal mở. **End-to-end backend sink confirmed**: tạo KH test (id 68102) → sink `web2_audit_events` có event action=create user="Quản trị viên" page=customers → đã xoá KH test.
+- **kpi assignments** — đã có section lịch sử (STATE.history) + tab audit tổng. **No-op.**
+- Files FE: `web2/returns/{js/returns-tabs.js,js/returns-app.js,css/returns.css,index.html}`, `web2/reconcile/{js/reconcile-render.js,css/reconcile.css,index.html}`, `web2/customers/{js/customers-render.js,js/customers-detail.js,index.html}` (bump ?v=20260622hist). Tĩnh GH Pages.
+
 ### [feat] Per-record history rollout — generic pages (page-builder) + sidebar auto-load + wire variants/users
 
 Tiếp foundation openRecord: nhân rộng lịch sử per-record ra hệ thống (audit→implement→debug→lặp).

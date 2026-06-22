@@ -501,6 +501,26 @@ select.rt-input {
 }
 .rt-actions {
     text-align: right;
+    white-space: nowrap;
+}
+.rt-btn-hist {
+    border: 1px solid var(--web2-border-btn, #d1d5db);
+    background: var(--surface, #fff);
+    color: #64748b;
+    border-radius: 7px;
+    padding: 5px 8px;
+    cursor: pointer;
+    vertical-align: middle;
+    margin-right: 4px;
+}
+.rt-btn-hist:hover {
+    color: var(--web2-primary, #0068ff);
+    border-color: var(--web2-primary, #0068ff);
+}
+.rt-btn-hist i {
+    width: 14px;
+    height: 14px;
+    display: block;
 }
 .rt-btn-del {
     border: 1px solid #fecaca;

@@ -553,6 +553,36 @@
 .rc-history-wrap {
     margin: 18px 4px 8px;
 }
+.rc-history-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+.rc-history-all {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: 1px solid var(--web2-border-btn, #d1d5db);
+    background: var(--web2-primary-soft, #eef5ff);
+    color: var(--web2-primary, #0068ff);
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition:
+        background 120ms ease,
+        border-color 120ms ease;
+}
+.rc-history-all:hover {
+    border-color: var(--web2-primary, #0068ff);
+    background: #e0ecff;
+}
+.rc-history-all i {
+    width: 15px;
+    height: 15px;
+}
 .rc-history-toggle {
     display: inline-flex;
     align-items: center;

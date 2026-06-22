@@ -133,11 +133,16 @@
             </div>
 
             <div class="rc-history-wrap">
-                <button class="rc-history-toggle ${STATE.historyOpen ? 'is-open' : ''}" id="rcHistToggle" type="button">
-                    <i data-lucide="history"></i>
-                    <span>Lịch sử đối soát</span>
-                    <i data-lucide="chevron-down" class="rc-history-chev"></i>
-                </button>
+                <div class="rc-history-bar">
+                    <button class="rc-history-toggle ${STATE.historyOpen ? 'is-open' : ''}" id="rcHistToggle" type="button">
+                        <i data-lucide="history"></i>
+                        <span>Lịch sử đối soát</span>
+                        <i data-lucide="chevron-down" class="rc-history-chev"></i>
+                    </button>
+                    <button class="rc-history-all" id="rcHistAll" type="button" title="Toàn bộ thao tác PBH (tạo / sửa / đối soát / giao hàng)">
+                        <i data-lucide="clock"></i><span>Toàn bộ thao tác</span>
+                    </button>
+                </div>
                 <div class="rc-history-section" id="rcHistory" ${STATE.historyOpen ? '' : 'hidden'}>
                     ${STATE.historyHtml || '<div class="rc-history-loading">Đang tải lịch sử…</div>'}
                 </div>
@@ -178,6 +183,20 @@
         b('rcBtnShip', RC.shipOrder);
         b('rcBtnDeliver', RC.deliverOrder);
         b('rcBtnReturnFailed', RC.returnFailedOrder);
+        // Toàn bộ thao tác PBH = module chung Web2AuditLog (gộp 'pbh' tạo/sửa/huỷ +
+        // 'reconcile' đối soát/giao hàng cho cùng số PBH — KHÔNG lọc entity).
+        b('rcHistAll', () => {
+            const num = STATE.currentPbh?.number;
+            if (!num) return;
+            if (window.Web2AuditLog?.openRecord) {
+                window.Web2AuditLog.openRecord({
+                    entityId: num,
+                    title: 'Toàn bộ thao tác PBH ' + num,
+                });
+            } else {
+                window.notificationManager?.show?.('Module lịch sử chưa sẵn sàng', 'warning');
+            }
+        });
 
         if (window.lucide) window.lucide.createIcons();
     }

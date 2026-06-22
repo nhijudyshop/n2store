@@ -242,6 +242,19 @@
     // ─── Row actions ────────────────────────────────────────────────────
     async function onAction(act, row) {
         if (act === 'edit') return openModal(row);
+        if (act === 'history') {
+            // Lịch sử thao tác KH qua module chung (event-sink entity='customer').
+            if (window.Web2AuditLog?.openRecord) {
+                window.Web2AuditLog.openRecord({
+                    entity: 'customer',
+                    entityId: row.id,
+                    title: 'Lịch sử KH: ' + (row.name || row.phone || row.id),
+                });
+            } else {
+                notify('Module lịch sử chưa sẵn sàng', 'warning');
+            }
+            return;
+        }
         if (act === 'detail') {
             if (window.Web2CustomerDetailModal?.open) {
                 window.Web2CustomerDetailModal.open(row.phone || '', row.name || '');
