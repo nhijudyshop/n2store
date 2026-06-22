@@ -3,18 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `1cc2385` — feat(web2-audit-log): per-record history (openRecord modal) + reference native-orders/so-order
-**Last updated**: 2026-06-22 22:50:26 +07
-**Latest session**: [`RESUME:20260622-225026-1cc2385`](../20260622-225026-1cc2385.md)
-**Summary**: feat(web2-audit-log): per-record history (openRecord modal) + reference native-orders/so-order
+**Latest commit**: `b5a5711` — fix(web2-video-maker): tự tắt Tông giọng cho giọng AI Pro/Clone (giữ nguyên gốc)
+**Last updated**: 2026-06-22 23:01:03 +07
+**Latest session**: [`RESUME:20260622-230103-b5a5711`](../20260622-230103-b5a5711.md)
+**Summary**: video-maker: tự tắt Tông giọng cho giọng AI Pro/Clone + giải thích ~80% là ngữ điệu TTS
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`native-orders/`](./native-orders.md) — 3 file(s)
-- [`render.com/`](./render.com.md) — 3 file(s)
-- [`so-order/`](./so-order.md) — 2 file(s)
-- [`web2/`](./web2.md) — 1 file(s)
+- [`web2/`](./web2.md) — 4 file(s)
 
 ## All folder snapshots
 
@@ -29,7 +26,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-21 15:47
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-06-22 22:50
+- [`docs/`](./docs.md) — updated 2026-06-22 23:01
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-19 14:27
@@ -80,4 +77,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-22 22:50
+- [`web2/`](./web2.md) — updated 2026-06-22 23:01
