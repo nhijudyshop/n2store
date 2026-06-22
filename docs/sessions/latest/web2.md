@@ -3,11 +3,11 @@
 > Snapshot tự động ghi đè sau mỗi commit chạm folder này. **Không edit thủ công.**
 > Mục đích: khi session cũ chết (vd lỗi image limit), session mới chỉ cần đọc file này là có đủ context để tiếp tục.
 
-**Latest session**: `RESUME:20260622-114440-a13f26e`
-**Session file**: [`./20260622-114440-a13f26e.md`](../20260622-114440-a13f26e.md)
-**Commit**: `a13f26e` — refactor(web2-css) align --web2-bg-cell-head token theme=base (#f0eeee) — themed table header khớp đúng native-orders
-**Last updated**: 2026-06-22 11:44:40 +07
-**Summary**: refactor(web2-css) align --web2-bg-cell-head token theme=base (#f0eeee) — themed table header khớp đúng native-...
+**Latest session**: `RESUME:20260622-120324-89bfd9d`
+**Session file**: [`./20260622-120324-89bfd9d.md`](../20260622-120324-89bfd9d.md)
+**Commit**: `89bfd9d` — refactor(web2) CSS consolidate: table tokens 1-source + pagination align + drop dead .filters
+**Last updated**: 2026-06-22 12:03:24 +07
+**Summary**: CSS consolidate: table tokens 1-source + pagination align + drop dead .filters (10-agent audit PASS, browser-verified)
 
 ## Files changed in this commit (`web2/`)
 
@@ -49,7 +49,8 @@
 - `web2/report-revenue/index.html`
 - `web2/returns/index.html`
 - `web2/shared/web2-base.css`
-- `web2/shared/web2-effects.css`
+- `web2/shared/web2-mobile.css`
+- `web2/shared/web2-sidebar.js`
 - `web2/shared/web2-theme.css`
 - `web2/supplier-debt/index.html`
 - `web2/supplier-wallet/index.html`
@@ -59,15 +60,18 @@
 - `web2/variants/index.html`
 - `web2/video-beauty/index.html`
 - `web2/video-maker/index.html`
+- `web2/video-maker/js/video-library.js`
+- `web2/video-maker/js/video-maker.js`
+- `web2/video-maker/js/video-tts.js`
 - `web2/zalo/index.html`
 
 ## Last 5 commits touching `web2/`
 
+- `89bfd9d70` refactor(web2) CSS consolidate: table tokens 1-source + pagination align + drop dead .filters _(2026-06-22)_
 - `a13f26e99` refactor(web2-css) align --web2-bg-cell-head token theme=base (#f0eeee) — themed table header khớp đúng native-orders _(2026-06-22)_
 - `e5f61bc72` refactor(web2-css) de-purple base.css chip-select + btn-settings to Zalo blue var(--web2-primary); keep avatar palette _(2026-06-22)_
 - `a714d39de` refactor(web2-css) theme/effects dedup: badge block (1-src status-pill), card dead radius:4px, w2fx-skeleton dead _(2026-06-22)_
 - `b60bc417f` refactor(web2-css) theme: dedup dead tr-level zebra/hover (striping now 1-source at td-level Block A) _(2026-06-22)_
-- `edaa40d97` refactor(web2-css) consolidate toward 1-source/component: rm 4 orphan css + dead page-builder table/modal/pagination blocks _(2026-06-22)_
 
 ---
 
@@ -75,4 +79,4 @@
 
 1. Đọc file session ở trên để xem Files Modified + Next Steps đã điền (nếu Claude turn trước fill rồi).
 2. Cần lùi xa hơn → `git show <sha>` theo list commit trên.
-3. Hoặc paste token `RESUME:20260622-114440-a13f26e` cho Claude walk chain theo CLAUDE.md protocol.
+3. Hoặc paste token `RESUME:20260622-120324-89bfd9d` cho Claude walk chain theo CLAUDE.md protocol.
