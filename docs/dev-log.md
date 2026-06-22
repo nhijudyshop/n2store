@@ -2,7 +2,14 @@
 
 ## 2026-06-22
 
-### [feat] Zalo rebuild Phase 4 (đợt 1) — tin hệ thống nhóm (vào/rời/đổi tên/ghim)
+### [test] Zalo rebuild Phase 5 — test render engine + docs + memory
+
+Khép lại rebuild Zalo. Toàn frontend/docs/test — KHÔNG chạm render.com (không restart server).
+
+- **Test regression**: `scripts/test-web2-zalo-render.js` (Playwright headless, localhost, KHÔNG cần TK Zalo). Khôi phục phiên login từ secret file (fallback form-login) → mở trang Zalo → `page.evaluate` assert **18 điểm** thuần render: text/image/link-card/link-fallback/video-player/voice/contact/location/system bubble + tin hệ thống không phải bubble + grouping + tool xoá-phía-tôi + composer mic/voicebar/quick + ZNS form động (3 ô) + ZaloApi methods (addQuickReply/deleteMessage/pin/mute/mark) + 0 lỗi console. Exit 0/1 (CI-friendly). **Chạy thật: 18/18 PASS, 0 lỗi.** Bổ sung vào bộ 4 script test sẵn có.
+- **Docs**: `docs/web2/ZALO-INTEGRATION.md` thêm §0c "REBUILD v2 (2026-06-22)" tổng hợp 5 phase + cột/route/asset mới + login truth (cookie vs QR).
+- **Memory**: `reference_web2_zalo.md` thêm đoạn rebuild v2 + cập nhật mục hạn chế (voice/delete-me/pin-mute-mark/video-contact-location/system đã XONG; tách route + sendCard HOÃN).
+- **Tổng kết rebuild**: P1 login watchdog · P2 UI 3-pane + thông báo + quản lý hội thoại + quick-reply + ZNS form + link card · P3 voice + xoá-phía-tôi + video/danh thiếp/vị trí · P4đợt1 tin hệ thống nhóm · P5 test+docs. **Hoãn**: tách route 2240 dòng (rủi ro, làm khi login ổn). **Chờ**: deploy Render + login acc thật để verify live.
 
 Group richness: bắt sự kiện nhóm Zalo → hiển thị dòng hệ thống giữa khung chat (giống app Zalo). Trước đây listener CHỈ nghe `message` → sự kiện nhóm bị bỏ hoàn toàn.
 

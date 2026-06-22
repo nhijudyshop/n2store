@@ -1,9 +1,23 @@
 # Zalo Integration cho Web 2.0 — Nghiên cứu + Kiến trúc + Lộ trình
 
-> **Trạng thái:** ✅ **ĐÃ BUILD v1** (2026-06-13) — code Đợt 1 (OA/ZNS) + Đợt 2 (zca-js chat/login/lookup) đã xong, chờ deploy + cấu hình OA/đăng nhập acc thật để chạy live.
-> Doc này tổng hợp nghiên cứu hệ sinh thái Zalo trên GitHub, kiến trúc "**Trang Zalo là nguồn dữ liệu duy nhất**", và lộ trình 3 đợt.
+> **Trạng thái:** ✅ **ĐÃ BUILD v1** (2026-06-13) + ✅ **REBUILD v2** (2026-06-22, xem §0c) — chờ deploy + đăng nhập acc thật để chạy live.
+> Doc này tổng hợp nghiên cứu hệ sinh thái Zalo trên GitHub, kiến trúc "**Trang Zalo là nguồn dữ liệu duy nhất**", và lộ trình.
 >
 > **Nguyên tắc cốt lõi (user yêu cầu 2026-06-13):** Tạo **1 trang Zalo duy nhất** (`web2/zalo/`) quản lý toàn bộ dữ liệu + chức năng Zalo. Mọi trang khác cần Zalo → **tham chiếu tới nguồn này qua API/helper chung** (`Web2Zalo`), KHÔNG tự gọi Zalo API trực tiếp. **Chỉ có 1 nguồn Zalo.**
+
+---
+
+## 0c. REBUILD v2 (2026-06-22) — "đầy đủ tính năng chat như app Zalo"
+
+> Rebuild trên ENGINE cũ (giữ contract `Web2Zalo.mountChat`, `ZaloApi`, `WZChat.mountConversation`, deep-link `?focus=`) — KHÔNG viết lại từ đầu. Module nhỏ trong `web2/shared/zalo-chat/`. 5 phase, mỗi phase verify browser (0 lỗi console):
+
+- **Phase 1 — Login bền ("không văng nick")**: watchdog `web2-zalo-zca.js` (keepAlive ~2', auto-reconnect backoff 1006/network, trần kick 3000/3003 + cooldown, re-login chủ động trong cửa sổ zpw_sek ~7 ngày), `_health()` + đèn sức khoẻ rail, graceful `stopZalo()` lúc SIGTERM. ⚠ Re-login từ cookie QR vẫn flaky — watchdog cứu drop hồi phục được, KHÔNG cứu cookie đã chết. **Cookie-login (chia sẻ phiên chat.zalo.me) KHÔNG đá nhau; QR tạo phiên mới → đá nhau.**
+- **Phase 2 — UI 3-pane Zalo PC** (icon rail · danh sách · khung chat · panel thông tin) + **thông báo** (`web2-zalo-notify.js`: toast + chuông Web Audio + badge tab + Web Notification) + **quản lý hội thoại** (ghim/tắt thông báo/đánh dấu chưa đọc — route `/pin /mute /mark`, cột `is_pinned/is_muted/muted_until`) + **bỏ giới hạn allowlist nhóm** (mặc định hiện hết) + quick-reply lưu mới (`POST /quick-replies` + zca `addQuickMessage`, gõ "/" mở picker) + **ZNS form động** (render ô theo `template.params`) + link preview card.
+- **Phase 3 — Tính năng chat**: **tin thoại** (`MediaRecorder` ở composer → gửi qua đường file, bubble voice) · **xoá ở phía tôi** (zca `deleteMessage(onlyMe)` + cột `hidden_for_me` + lọc query) · **video inline** (`<video controls>`) · **danh thiếp** (card avatar+tên+SĐT) · **vị trí** (card → Google Maps). _(OA/ZNS gỡ khỏi scope theo yêu cầu user; sticker pack picker đã đủ; gửi danh thiếp `sendCard` hoãn — chưa có điểm vào UI gọn.)_
+- **Phase 4 đợt 1 — Tin hệ thống nhóm**: listener bắt `group_event` → `_normGroupEvent`/`_groupEventText` (13 loại VN) → tin `msg_type='system'` (`direction='system'` → KHÔNG cộng unread) → render dòng `.wz-sys-msg` giữa khung. _(Tách module route 2240 dòng: **HOÃN** — refactor lớn rủi ro vỡ login, 0 giá trị user; làm session riêng khi login đã ổn. Polls/notes/reminders: bỏ — YAGNI shop.)_
+- **Phase 5 — Test + docs**: `scripts/test-web2-zalo-render.js` (Playwright headless, localhost, KHÔNG cần acc — assert **18 điểm**: mọi loại bong bóng + link-card/fallback + tin hệ thống + tool xoá + composer mic/ghi-âm + ZNS form động + ZaloApi methods + 0 lỗi console). Chạy: `node scripts/test-web2-zalo-render.js`.
+
+**Cột DB mới**: `web2_zalo_messages.hidden_for_me`. **Route mới**: `POST /quick-replies`, `POST /delete-message`, `POST /conversations/:id/{pin,mute,mark}`. **Asset version** bump → `?v=20260622p6` + `ENGINE_VER='20260622p6'` (trang tiêu thụ native-orders/live-chat tự nạp engine mới qua `web2-zalo.js`).
 
 ---
 
