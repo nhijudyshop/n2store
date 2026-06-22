@@ -883,7 +883,7 @@ router.get('/conversations', async (req, res) => {
                FROM web2_zalo_conversations c
                LEFT JOIN web2_zalo_members m
                  ON m.account_key = c.account_key AND m.uid = c.last_msg_sender_uid
-             ${wsql} ORDER BY c.last_msg_at DESC NULLS LAST LIMIT $${params.length - 1} OFFSET $${params.length}`,
+             ${wsql} ORDER BY c.is_pinned DESC, c.last_msg_at DESC NULLS LAST LIMIT $${params.length - 1} OFFSET $${params.length}`,
             params
         );
         // Resolve 1 lần tên người-nhắn-cuối còn thiếu (nhóm) → 1 call getGroupMembersInfo.
@@ -1767,6 +1767,64 @@ router.post('/seen', async (req, res) => {
             }
         } catch {}
         res.json({ success: true });
+    } catch (e) {
+        res.status(400).json({ success: false, error: e.message });
+    }
+});
+
+// ── Quản lý hội thoại: ghim / tắt thông báo / đánh dấu chưa đọc ─────────
+// DB-driven (cột is_pinned/is_muted/unread_count) → điều khiển danh sách của
+// CHÍNH tool (sắp xếp ghim lên đầu). _notify list refresh để tab khác cập nhật.
+router.post('/conversations/:id/pin', async (req, res) => {
+    try {
+        const db = getDb(req);
+        const pinned = !!(req.body || {}).pinned;
+        const { rowCount } = await db.query(
+            `UPDATE web2_zalo_conversations SET is_pinned=$1, updated_at=$2 WHERE id=$3`,
+            [pinned, now(), req.params.id]
+        );
+        if (!rowCount)
+            return res.status(404).json({ success: false, error: 'Không tìm thấy hội thoại' });
+        _notify('web2:zalo:messages', 'pin', req.params.id);
+        res.json({ success: true, pinned });
+    } catch (e) {
+        res.status(400).json({ success: false, error: e.message });
+    }
+});
+router.post('/conversations/:id/mute', async (req, res) => {
+    try {
+        const db = getDb(req);
+        const muted = !!(req.body || {}).muted;
+        const until = Number((req.body || {}).until) || null; // epoch ms, null = vô thời hạn
+        const { rowCount } = await db.query(
+            `UPDATE web2_zalo_conversations SET is_muted=$1, muted_until=$2, updated_at=$3 WHERE id=$4`,
+            [muted, muted ? until : null, now(), req.params.id]
+        );
+        if (!rowCount)
+            return res.status(404).json({ success: false, error: 'Không tìm thấy hội thoại' });
+        _notify('web2:zalo:messages', 'mute', req.params.id);
+        res.json({ success: true, muted, until });
+    } catch (e) {
+        res.status(400).json({ success: false, error: e.message });
+    }
+});
+// Đánh dấu chưa đọc (unread:true → unread_count≥1) / đã đọc (false → 0).
+router.post('/conversations/:id/mark', async (req, res) => {
+    try {
+        const db = getDb(req);
+        const unread = !!(req.body || {}).unread;
+        const { rowCount } = await db.query(
+            `UPDATE web2_zalo_conversations
+                SET unread_count = CASE WHEN $1 THEN GREATEST(unread_count, 1) ELSE 0 END,
+                    last_read_at = CASE WHEN $1 THEN last_read_at ELSE $2 END,
+                    updated_at = $2
+              WHERE id=$3`,
+            [unread, now(), req.params.id]
+        );
+        if (!rowCount)
+            return res.status(404).json({ success: false, error: 'Không tìm thấy hội thoại' });
+        _notify('web2:zalo:messages', 'mark', req.params.id);
+        res.json({ success: true, unread });
     } catch (e) {
         res.status(400).json({ success: false, error: e.message });
     }

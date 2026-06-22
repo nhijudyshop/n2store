@@ -163,23 +163,7 @@
                 flex: 1;
                 text-align: center;
             }
-            .table-list {
-                width: 100%;
-                border-collapse: collapse;
-            }
-            .table-list th,
-            .table-list td {
-                padding: 8px;
-                text-align: left;
-                border-bottom: 1px solid #f3f4f6;
-                font-size: 13px;
-            }
-            .table-list th {
-                background: #f9fafb;
-                font-size: 11px;
-                color: #6b7280;
-                text-transform: uppercase;
-            }
+            /* Table look uses canonical .data-table; keep only the right-aligned money cell */
             .table-list td.right {
                 text-align: right;
                 font-weight: 600;
@@ -466,7 +450,7 @@
                     return;
                 }
                 $('#topCustomers').innerHTML = `
-                    <table class="table-list">
+                    <table class="data-table table-list">
                         <thead><tr><th>#</th><th>Khách hàng</th><th>SĐT</th><th class="right">Đơn</th><th class="right">Doanh thu</th></tr></thead>
                         <tbody>
                             ${d.customers
@@ -501,7 +485,7 @@
                     return;
                 }
                 $('#byCampaign').innerHTML = `
-                    <table class="table-list">
+                    <table class="data-table table-list">
                         <thead><tr><th>Chiến dịch</th><th class="right">Đơn</th><th class="right">Doanh thu</th></tr></thead>
                         <tbody>
                             ${d.campaigns
@@ -541,7 +525,7 @@
                     return;
                 }
                 $('#topCustomers360').innerHTML = `
-                    <table class="table-list">
+                    <table class="data-table table-list">
                         <thead><tr>
                             <th>#</th>
                             <th>Khách hàng</th>
@@ -622,13 +606,13 @@
                             ${
                                 items.length === 0
                                     ? '<div style="color:#9ca3af;font-style:italic;">Không có</div>'
-                                    : `<table style="width:100%;border-collapse:collapse;font-size:12px;">
-                                        <thead><tr style="background:#f9fafb;text-align:left;"><th style="padding:6px 8px;">Mã</th><th style="padding:6px 8px;text-align:right;">Tổng</th><th style="padding:6px 8px;">Trạng thái</th><th style="padding:6px 8px;">Chiến dịch</th></tr></thead>
+                                    : `<table class="data-table">
+                                        <thead><tr><th>Mã</th><th style="text-align:right;">Tổng</th><th>Trạng thái</th><th>Chiến dịch</th></tr></thead>
                                         <tbody>${items
                                             .slice(0, 10)
                                             .map(
                                                 (it) =>
-                                                    `<tr style="border-top:1px solid #e5e7eb;"><td style="padding:6px 8px;font-weight:600;">${esc(it[codeKey])}</td><td style="padding:6px 8px;text-align:right;">${m(it[totalKey])}</td><td style="padding:6px 8px;">${esc(it[stateKey] || '—')}</td><td style="padding:6px 8px;color:#6b7280;">${esc(it.liveCampaign?.name || '—')}</td></tr>`
+                                                    `<tr><td style="font-weight:600;">${esc(it[codeKey])}</td><td style="text-align:right;">${m(it[totalKey])}</td><td>${esc(it[stateKey] || '—')}</td><td style="color:#6b7280;">${esc(it.liveCampaign?.name || '—')}</td></tr>`
                                             )
                                             .join('')}</tbody>
                                     </table>`

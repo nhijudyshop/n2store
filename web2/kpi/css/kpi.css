@@ -152,31 +152,7 @@
     border-radius: 4px;
     margin-bottom: 16px;
 }
-.kpi-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 13px;
-}
-.kpi-table thead {
-    background: var(--web2-bg-cell-head, #f0eeee);
-}
-.kpi-table th,
-.kpi-table td {
-    padding: 10px 12px;
-    text-align: left;
-    border-bottom: 1px solid var(--web2-border, #cccccc);
-}
-.kpi-table th {
-    font-weight: 600;
-    color: var(--web2-text-3, #58666e);
-    font-size: 12px;
-}
-.kpi-table tbody tr:hover {
-    background: var(--web2-bg-light, #edf1f2);
-}
-.kpi-table tbody tr:last-child td {
-    border-bottom: none;
-}
+/* Table look uses canonical .data-table; keep only cell-specific overrides */
 .kpi-empty-row td {
     text-align: center;
     color: var(--web2-text-3, #58666e);
@@ -285,26 +261,9 @@
     color: var(--web2-text, #333);
 }
 
-/* Dashboard table (forecast/actual) */
+/* Dashboard table (forecast/actual) — table look uses canonical .data-table */
 .kpi-leaderboard {
     padding: 16px;
-}
-.kpi-leaderboard table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 13px;
-}
-.kpi-leaderboard th,
-.kpi-leaderboard td {
-    padding: 10px 12px;
-    text-align: left;
-    border-bottom: 1px solid var(--web2-border, #cccccc);
-}
-.kpi-leaderboard th {
-    background: var(--web2-bg-cell-head, #f0eeee);
-    font-weight: 600;
-    font-size: 12px;
-    color: var(--web2-text-3, #58666e);
 }
 .kpi-leaderboard .kpi-amount {
     font-family: 'JetBrains Mono', 'Menlo', monospace;

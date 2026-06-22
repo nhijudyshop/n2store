@@ -384,7 +384,7 @@
                 </tr>`;
             })
             .join('');
-        return `<table class="sd-detail-table sd-congno-table">
+        return `<table class="data-table sd-detail-table sd-congno-table">
             <thead><tr>
                 <th>Ngày</th><th>Diễn giải</th><th>Bút toán</th>
                 <th class="num">Nợ đầu kỳ</th>
@@ -416,7 +416,7 @@
                 </tr>`
             )
             .join('');
-        return `<table class="sd-detail-table">
+        return `<table class="data-table sd-detail-table">
             <thead><tr>
                 <th>Ngày</th><th>Tab</th><th>Sản phẩm</th><th>Biến thể</th>
                 <th class="num">SL</th><th class="num">Giá</th><th class="num">Thành tiền (VND)</th>
@@ -441,7 +441,7 @@
                 </tr>`;
             })
             .join('');
-        return `<table class="sd-detail-table">
+        return `<table class="data-table sd-detail-table">
             <thead><tr>
                 <th>Thời gian</th><th>Loại</th><th class="num">Số tiền</th><th>Ghi chú</th>
             </tr></thead>

@@ -218,35 +218,11 @@
     box-shadow: var(--web2-shadow-card, 0 1px 3px rgba(15, 23, 42, 0.06));
     contain: layout style;
 }
+/* Canonical .data-table (web2-theme.css) supplies the look: border-collapse,
+   header/cell padding+borders+colors, zebra, hover, sticky head. Keep only the
+   page-specific min-width override here so columns don't crush. */
 .wc-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 13px;
     min-width: 920px;
-}
-.wc-table thead th {
-    position: sticky;
-    top: 0;
-    z-index: 1;
-    background: var(--web2-bg-cell-head, #f8fafc);
-    text-align: left;
-    font-weight: 600;
-    font-size: 12px;
-    color: var(--web2-text-3, #64748b);
-    padding: 11px 12px;
-    border-bottom: 1px solid var(--web2-border, #e2e8f0);
-    white-space: nowrap;
-}
-.wc-table tbody td {
-    padding: 10px 12px;
-    border-bottom: 1px solid var(--web2-border, #eef2f7);
-    vertical-align: middle;
-}
-.wc-table tbody tr {
-    transition: background 0.1s;
-}
-.wc-table tbody tr:hover {
-    background: var(--web2-primary-tint, #f8fafc);
 }
 .wc-col-check {
     width: 36px;

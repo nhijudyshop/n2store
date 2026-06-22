@@ -305,32 +305,10 @@
     overflow-x: auto;
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
 }
-.w2bh-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 13px;
-    color: #1f2937;
-}
-.w2bh-table thead th {
-    background: #f9fafb;
-    color: #4b5563;
-    font-weight: 600;
-    text-align: left;
-    padding: 10px 12px;
-    border-bottom: 1px solid #e5e7eb;
-    white-space: nowrap;
-    position: sticky;
-    top: 0;
-    z-index: 1;
-}
-.w2bh-table tbody td {
-    padding: 10px 12px;
-    border-bottom: 1px solid #f1f5f9;
-    vertical-align: middle;
-}
-.w2bh-table tbody tr:hover {
-    background: #f8fafc;
-}
+/* Table "look" (header bg/color/font/padding/borders, td padding/border,
+   zebra + hover backgrounds) now comes from canonical .data-table
+   (web2-base.css + web2-theme.css). Only column-specific width/align rules
+   remain below. */
 
 .w2bh-cell-time {
     color: #6b7280;

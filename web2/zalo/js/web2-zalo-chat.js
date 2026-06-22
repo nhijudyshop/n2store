@@ -133,13 +133,16 @@
                             c.last_msg_sender_uid === 'me' ? 'Bạn' : c.last_sender_name || '';
                         if (who && who !== name) preview = `${who}: ${preview}`;
                     }
-                    return `<div class="wz-conv-item ${String(c.id) === String(state.conv.activeId) ? 'is-active' : ''}" data-id="${c.id}" role="button" tabindex="0" aria-label="Hội thoại với ${esc(name)}">
+                    return `<div class="wz-conv-item ${String(c.id) === String(state.conv.activeId) ? 'is-active' : ''}${c.is_muted ? ' is-muted' : ''}" data-id="${c.id}" role="button" tabindex="0" aria-label="Hội thoại với ${esc(name)}">
                 ${avatarHtml(c.avatar_url, name, 'wz-conv-av' + (group ? ' is-group' : ''))}
                 <div class="wz-conv-meta">
-                    <div class="wz-conv-name">${esc(name)}</div>
+                    <div class="wz-conv-name">${c.is_pinned ? '<i data-lucide="pin" class="wz-conv-ic"></i>' : ''}<span class="wz-conv-nametext">${esc(name)}</span>${c.is_muted ? '<i data-lucide="bell-off" class="wz-conv-ic"></i>' : ''}</div>
                     <div class="wz-conv-last">${preview ? esc(preview.slice(0, 52)) : '<span class="wz-conv-empty">Chưa có tin nhắn</span>'}</div>
                 </div>
-                ${c.unread_count > 0 ? `<span class="wz-conv-unread">${c.unread_count}</span>` : ''}
+                <div class="wz-conv-side">
+                    ${c.unread_count > 0 ? `<span class="wz-conv-unread">${c.unread_count}</span>` : ''}
+                    <button class="wz-conv-menu" data-id="${c.id}" type="button" title="Tùy chọn" aria-label="Tùy chọn hội thoại"><i data-lucide="more-horizontal"></i></button>
+                </div>
             </div>`;
                 })
                 .join('');
@@ -231,8 +234,86 @@
         if (window.lucide) lucide.createIcons();
     }
 
+    // ── Context menu hội thoại: ghim / tắt thông báo / đánh dấu chưa đọc ────
+    function _closeConvMenu() {
+        document.querySelector('.wz-ctx-menu')?.remove();
+        document.removeEventListener('click', _closeConvMenu, true);
+    }
+    function openConvMenu(btn, id) {
+        _closeConvMenu();
+        const conv = state.conv.list.find((c) => String(c.id) === String(id));
+        if (!conv) return;
+        const pinned = !!conv.is_pinned;
+        const muted = !!conv.is_muted;
+        const unread = (conv.unread_count || 0) > 0;
+        const menu = document.createElement('div');
+        menu.className = 'wz-ctx-menu';
+        menu.setAttribute('role', 'menu');
+        menu.innerHTML = `
+            <button data-mact="pin" role="menuitem"><i data-lucide="pin"></i> ${pinned ? 'Bỏ ghim' : 'Ghim hội thoại'}</button>
+            <button data-mact="mute" role="menuitem"><i data-lucide="${muted ? 'bell' : 'bell-off'}"></i> ${muted ? 'Bật thông báo' : 'Tắt thông báo'}</button>
+            <button data-mact="mark" role="menuitem"><i data-lucide="${unread ? 'mail-open' : 'mail'}"></i> ${unread ? 'Đánh dấu đã đọc' : 'Đánh dấu chưa đọc'}</button>`;
+        document.body.appendChild(menu);
+        const r = btn.getBoundingClientRect();
+        menu.style.top = Math.min(r.bottom + 4, window.innerHeight - menu.offsetHeight - 8) + 'px';
+        menu.style.left = Math.min(r.left - 40, window.innerWidth - menu.offsetWidth - 8) + 'px';
+        if (window.lucide) lucide.createIcons();
+        menu.addEventListener('click', (e) => {
+            const b = e.target.closest('[data-mact]');
+            if (!b) return;
+            e.stopPropagation();
+            _convAction(b.dataset.mact, conv);
+            _closeConvMenu();
+        });
+        setTimeout(() => document.addEventListener('click', _closeConvMenu, true), 0);
+    }
+    // UI-first (Web2Optimistic) — đổi cờ + render ngay, gọi API nền, rollback nếu lỗi.
+    function _convAction(act, conv) {
+        const api = window.ZaloApi;
+        const snap = {
+            is_pinned: conv.is_pinned,
+            is_muted: conv.is_muted,
+            unread_count: conv.unread_count,
+        };
+        const apply = () => {
+            if (act === 'pin') conv.is_pinned = !conv.is_pinned;
+            else if (act === 'mute') conv.is_muted = !conv.is_muted;
+            else if (act === 'mark') conv.unread_count = (conv.unread_count || 0) > 0 ? 0 : 1;
+            renderConvList();
+        };
+        const run = () =>
+            act === 'pin'
+                ? api.pinConversation(conv.id, !snap.is_pinned)
+                : act === 'mute'
+                  ? api.muteConversation(conv.id, !snap.is_muted)
+                  : api.markConversation(conv.id, !((snap.unread_count || 0) > 0));
+        const rollback = () => {
+            Object.assign(conv, snap);
+            renderConvList();
+        };
+        if (window.Web2Optimistic?.run) {
+            window.Web2Optimistic.run({
+                snapshot: snap,
+                apply,
+                run,
+                onSuccess: () => loadConversations(),
+                rollback,
+                errLabel: 'Cập nhật hội thoại',
+            });
+        } else {
+            apply();
+            run()
+                .then(() => loadConversations())
+                .catch((e) => {
+                    rollback();
+                    notify('✗ ' + e.message, 'error');
+                });
+        }
+    }
+
     // ── Export ─────────────────────────────────────────────────────────────
     WZApp.fillAccountSelect = fillAccountSelect;
     WZApp.loadConversations = loadConversations;
     WZApp.openConversation = openConversation;
+    WZApp.openConvMenu = openConvMenu;
 })();

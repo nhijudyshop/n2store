@@ -170,18 +170,18 @@
             <div class="fbp-card"><h3><i data-lucide="megaphone"></i> Chiến dịch (${camps.length})</h3>
                 ${
                     camps.length
-                        ? `<div style="overflow:auto"><table style="width:100%;border-collapse:collapse;font-size:.85rem">
-                    <thead><tr style="text-align:left;color:#6b7a8d;border-bottom:2px solid #eef2f7">
-                        <th style="padding:6px">Chiến dịch</th><th style="padding:6px;text-align:right">Chi tiêu</th><th style="padding:6px;text-align:right">Hiển thị</th><th style="padding:6px;text-align:right">Tiếp cận</th><th style="padding:6px;text-align:right">Click</th><th style="padding:6px;text-align:right">CTR</th></tr></thead>
+                        ? `<div style="overflow:auto"><table class="data-table">
+                    <thead><tr>
+                        <th>Chiến dịch</th><th style="text-align:right">Chi tiêu</th><th style="text-align:right">Hiển thị</th><th style="text-align:right">Tiếp cận</th><th style="text-align:right">Click</th><th style="text-align:right">CTR</th></tr></thead>
                     <tbody>${camps
                         .map(
                             (c) =>
-                                `<tr style="border-bottom:1px solid #f1f5f9"><td style="padding:6px">${esc(c.campaign_name || '')}</td>
-                                <td style="padding:6px;text-align:right">${money(c.spend)}</td>
-                                <td style="padding:6px;text-align:right">${nfmt(c.impressions)}</td>
-                                <td style="padding:6px;text-align:right">${nfmt(c.reach)}</td>
-                                <td style="padding:6px;text-align:right">${nfmt(c.clicks)}</td>
-                                <td style="padding:6px;text-align:right">${c.ctr != null ? dec(c.ctr) + '%' : '—'}</td></tr>`
+                                `<tr><td>${esc(c.campaign_name || '')}</td>
+                                <td style="text-align:right">${money(c.spend)}</td>
+                                <td style="text-align:right">${nfmt(c.impressions)}</td>
+                                <td style="text-align:right">${nfmt(c.reach)}</td>
+                                <td style="text-align:right">${nfmt(c.clicks)}</td>
+                                <td style="text-align:right">${c.ctr != null ? dec(c.ctr) + '%' : '—'}</td></tr>`
                         )
                         .join('')}</tbody></table></div>`
                         : '<div style="color:#94a3b8;font-size:.85rem">Không có chiến dịch trong khoảng này.</div>'

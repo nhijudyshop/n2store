@@ -139,7 +139,7 @@
                 <p style="margin:0 0 8px;font-size:12px;color:#64748b;">
                     <strong>Dự báo</strong> = đơn chưa thành đơn hàng · <strong>Thực</strong> = đơn đã thành PBH · 5.000đ/SP ${scopeBadge}
                 </p>
-                <table>
+                <table class="data-table">
                     <thead>
                         <tr>
                             <th class="kpi-rank">#</th>
@@ -188,7 +188,7 @@
         }
         const html = `
             <div class="kpi-leaderboard">
-                <table>
+                <table class="data-table">
                     <thead>
                         <tr>
                             <th>Thời gian</th>

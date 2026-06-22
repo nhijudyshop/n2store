@@ -152,22 +152,10 @@
     box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
 }
 
-.sd-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 0.875rem;
-}
-
+/* .sd-table base look (width/border-collapse/font-size) + thead th look
+   (bg/color/font-weight/padding/border/sticky) → canonical .data-table.
+   Keep only page-specific: text-align:left already canonical; sticky via canonical. */
 .sd-table thead th {
-    background: #f8fafc;
-    color: #334155;
-    font-weight: 600;
-    text-align: left;
-    padding: 12px 14px;
-    border-bottom: 2px solid #e2e8f0;
-    position: sticky;
-    top: 0;
-    z-index: 2;
     user-select: none;
 }
 
@@ -221,8 +209,9 @@
     color: #fff;
 }
 
-.sd-main-row.is-expanded {
-    background: #f8fafc;
+/* Expanded-row highlight: target > td so it wins over canonical zebra/hover td bg. */
+.sd-table tbody tr.sd-main-row.is-expanded > td {
+    background: #eaf2fb;
 }
 
 .sd-detail-row[hidden] {
@@ -231,7 +220,8 @@
 
 .sd-detail-cell {
     padding: 0 !important;
-    background: #f8fafc;
+    /* !important so canonical zebra (tr:nth-child(even) > td) can't override panel bg */
+    background: #f8fafc !important;
     border-bottom: 1px solid #e2e8f0 !important;
 }
 
@@ -299,19 +289,10 @@
     color: #0058da;
 }
 
+/* tbody tr/td look (border/hover bg/padding/color) → canonical .data-table.
+   Keep only page-specific interaction: cursor pointer (clickable rows). */
 .sd-table tbody tr {
-    border-bottom: 1px solid #f1f5f9;
     cursor: pointer;
-    transition: background-color 80ms;
-}
-
-.sd-table tbody tr:hover {
-    background: #f8fafc;
-}
-
-.sd-table tbody td {
-    padding: 11px 14px;
-    color: #0f172a;
 }
 
 .sd-table tbody td.col-name {
@@ -757,31 +738,13 @@
     display: none;
 }
 
-.sd-detail-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 0.8125rem;
-}
-
-.sd-detail-table thead th {
-    background: #f8fafc;
-    color: #475569;
-    font-weight: 600;
-    text-align: left;
-    padding: 9px 12px;
-    border-bottom: 1px solid #e2e8f0;
-}
-
+/* .sd-detail-table base + thead th + tbody td look (width/border-collapse/
+   font-size/bg/color/font-weight/padding/border) → canonical .data-table.
+   Keep per-column right-align (num) + last-row border cleanup. */
 .sd-detail-table th.num,
 .sd-detail-table td.num {
     text-align: right;
     font-variant-numeric: tabular-nums;
-}
-
-.sd-detail-table tbody td {
-    padding: 8px 12px;
-    color: #0f172a;
-    border-bottom: 1px solid #f1f5f9;
 }
 
 .sd-detail-table tbody tr:last-child td {
@@ -811,12 +774,13 @@
     color: #1e40af;
 }
 
-/* Công nợ tab — running balance table */
-.sd-congno-table tbody tr.is-credit-move {
+/* Công nợ tab — running balance table.
+   Semantic credit-move row tint: target > td so it wins over canonical zebra/white td bg. */
+.sd-congno-table tbody tr.is-credit-move > td {
     background: #f0fdf4;
 }
 
-.sd-congno-table tbody tr.is-credit-move:hover {
+.sd-congno-table tbody tr.is-credit-move:hover > td {
     background: #dcfce7;
 }
 

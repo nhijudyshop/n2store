@@ -117,17 +117,7 @@
             canvas {
                 max-height: 240px;
             }
-            table.recent {
-                width: 100%;
-                font-size: 13px;
-                border-collapse: collapse;
-            }
-            table.recent th,
-            table.recent td {
-                padding: 6px 8px;
-                border-bottom: 1px solid #f3f4f6;
-                text-align: left;
-            }
+            /* Table look uses canonical .data-table; state cells keep their colors below */
             .state-done {
                 color: #16a34a;
                 font-weight: 600;
@@ -203,7 +193,7 @@
 
                 <div class="dash-panel">
                     <h3>10 PBH gần nhất</h3>
-                    <table class="recent">
+                    <table class="data-table recent">
                         <thead>
                             <tr>
                                 <th>Số HĐ</th>

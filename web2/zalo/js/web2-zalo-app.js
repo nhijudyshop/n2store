@@ -113,6 +113,13 @@
             WZApp.loadConversations();
         });
         $('#wzConvList').addEventListener('click', (e) => {
+            // Nút "⋯" mở menu hội thoại (ghim/mute/mark) — KHÔNG mở hội thoại.
+            const menuBtn = e.target.closest('.wz-conv-menu');
+            if (menuBtn) {
+                e.stopPropagation();
+                WZApp.openConvMenu?.(menuBtn, Number(menuBtn.dataset.id));
+                return;
+            }
             const item = e.target.closest('.wz-conv-item');
             if (item) WZApp.openConversation(Number(item.dataset.id));
         });

@@ -36,28 +36,9 @@
                 cursor: pointer;
                 font-weight: 600;
             }
-            table.audit-tbl {
-                width: 100%;
-                border-collapse: collapse;
-                background: #fff;
-                border-radius: 10px;
-                overflow: hidden;
-                box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
-                font-size: 13px;
-            }
-            table.audit-tbl th {
-                background: #f0eeee;
-                padding: 9px 10px;
-                text-align: left;
-                font-weight: 600;
-            }
+            /* Diff cell wants top-aligned content (long JSON), override canonical middle */
             table.audit-tbl td {
-                padding: 8px 10px;
-                border-top: 1px solid #f3f4f6;
                 vertical-align: top;
-            }
-            tr:nth-child(even) td {
-                background: #fafafa;
             }
             .pill {
                 display: inline-block;
@@ -129,7 +110,7 @@
                     <button id="btnLoad">Tải</button>
                 </div>
                 <div style="overflow-x: auto">
-                    <table class="audit-tbl">
+                    <table class="data-table audit-tbl">
                         <thead>
                             <tr>
                                 <th>Thời gian</th>

@@ -102,39 +102,15 @@
     overflow: hidden;
     box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
 }
-.u-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 0.875rem;
-}
+/* Canonical .data-table (web2-theme.css) owns table/thead/tbody look.
+   Only non-"look" forks kept here: sortable-header user-select + inactive-row opacity. */
 .u-table thead th {
-    background: #f8fafc;
-    color: #334155;
-    font-weight: 600;
-    text-align: left;
-    padding: 11px 14px;
-    border-bottom: 2px solid #e2e8f0;
-    position: sticky;
-    top: 0;
-    z-index: 2;
     user-select: none;
-}
-.u-table tbody tr {
-    border-bottom: 1px solid #f1f5f9;
-    transition: background-color 80ms;
-}
-.u-table tbody tr:hover {
-    background: #f8fafc;
 }
 .u-table tbody tr.is-inactive {
     opacity: 0.55;
 }
-.u-table tbody td {
-    padding: 11px 14px;
-    color: #0f172a;
-    vertical-align: middle;
-}
-.u-col-stt {
+.data-table.u-table tbody td.u-col-stt {
     width: 50px;
     text-align: center;
     color: #94a3b8;
@@ -148,7 +124,7 @@
 .u-col-actions {
     width: 170px;
 }
-.u-muted {
+.data-table.u-table tbody td .u-muted {
     color: #94a3b8;
     font-size: 0.8125rem;
 }

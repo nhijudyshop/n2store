@@ -432,31 +432,8 @@ select.rt-input {
 }
 
 /* ---- Tables ---- */
-.rt-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 13.5px;
-}
-.rt-table th {
-    text-align: left;
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
-    color: var(--rt-muted);
-    padding: 8px 10px;
-    border-bottom: 1px solid var(--rt-line);
-}
-.rt-table td {
-    padding: 9px 10px;
-    border-bottom: 1px solid #f3f4f6;
-    vertical-align: middle;
-}
-.rt-table-list {
-    background: #fff;
-    border: 1px solid var(--rt-line);
-    border-radius: var(--rt-radius);
-    overflow: hidden;
-}
+/* Look comes from canonical .data-table (web2-theme.css). Only special-cell
+   rules below remain page-specific. */
 .rt-qty {
     width: 64px;
     height: 32px;

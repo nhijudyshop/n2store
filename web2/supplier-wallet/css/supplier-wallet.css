@@ -347,24 +347,9 @@
     border-bottom-color: #0068ff;
 }
 
-.sw-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 13px;
-}
-.sw-table th,
-.sw-table td {
-    padding: 8px 10px;
-    text-align: left;
-    border-bottom: 1px solid #f1f5f9;
-}
-.sw-table th {
-    font-size: 11px;
-    color: #64748b;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    background: #f8fafc;
-}
+/* Table look = canonical .data-table (web2-base.css + web2-theme.css). Both wallet
+   tables also carry the `data-table` class, so header/zebra/hover/border/padding
+   come from the shared theme. Only column-specific + row-state rules kept below. */
 .sw-table td.num,
 .sw-table th.num {
     text-align: right;

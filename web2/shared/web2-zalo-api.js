@@ -179,6 +179,25 @@
         seen(body) {
             return _fetch('/seen', { method: 'POST', body: JSON.stringify(body) });
         },
+        // Quản lý hội thoại (ghim / tắt thông báo / đánh dấu chưa đọc) — DB-driven.
+        pinConversation(convId, pinned) {
+            return _fetch(`/conversations/${encodeURIComponent(convId)}/pin`, {
+                method: 'POST',
+                body: JSON.stringify({ pinned }),
+            });
+        },
+        muteConversation(convId, muted, until) {
+            return _fetch(`/conversations/${encodeURIComponent(convId)}/mute`, {
+                method: 'POST',
+                body: JSON.stringify({ muted, until }),
+            });
+        },
+        markConversation(convId, unread) {
+            return _fetch(`/conversations/${encodeURIComponent(convId)}/mark`, {
+                method: 'POST',
+                body: JSON.stringify({ unread }),
+            });
+        },
         stickers(accountKey, q) {
             return _fetch('/stickers' + _qs({ accountKey, q }), { method: 'GET' });
         },

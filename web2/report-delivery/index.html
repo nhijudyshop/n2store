@@ -133,27 +133,7 @@
                 border-bottom: 1px solid #e2e8f0;
                 color: #334155;
             }
-            table {
-                width: 100%;
-                border-collapse: collapse;
-            }
-            th,
-            td {
-                padding: 10px 14px;
-                text-align: left;
-                font-size: 13px;
-            }
-            th {
-                background: #f1f5f9;
-                color: #475569;
-                font-weight: 600;
-                text-transform: uppercase;
-                font-size: 11px;
-                letter-spacing: 0.04em;
-            }
-            tr:not(:last-child) td {
-                border-bottom: 1px solid #f1f5f9;
-            }
+            /* Table look uses canonical .data-table; keep only the right-aligned numeric cell */
             .num {
                 text-align: right;
                 font-variant-numeric: tabular-nums;
@@ -288,7 +268,7 @@
                         return;
                     }
                     $('rdGroupTable').innerHTML = `
-                        <table>
+                        <table class="data-table">
                             <thead><tr>
                                 <th>Shipper / Nhóm</th>
                                 <th class="num">Số đơn</th>
@@ -322,7 +302,7 @@
                         return;
                     }
                     $('rdCarrierTable').innerHTML = `
-                        <table>
+                        <table class="data-table">
                             <thead><tr>
                                 <th>Nhà vận chuyển</th>
                                 <th class="num">Số đơn</th>
