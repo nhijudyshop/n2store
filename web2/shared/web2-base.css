@@ -1333,16 +1333,16 @@ body {
     white-space: nowrap;
 }
 
+/* Note cell — phải GIỮ display:table-cell để fill chiều cao hàng.
+   Clamp 2 dòng đặt ở DIV con .web2-note-cell (web2-components.css), KHÔNG đặt
+   -webkit-box trực tiếp lên <td> (sẽ bỏ table-cell → ô co lại 53px, lệch hàng).
+   Pattern khớp native-orders (.web2-note-cell trong td). */
 .note-cell {
     color: var(--gray-600);
     font-size: 12px;
     line-height: 1.4;
     max-width: 280px;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
+    vertical-align: middle;
 }
 
 /* Status badges */

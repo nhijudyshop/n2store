@@ -70,7 +70,7 @@
                     </td>
                     <td class="price-cell price-buy"${buyAttr}>${fmtPrice(priceBuy)}</td>
                     <td class="price-cell price-sell"${sellAttr}>${fmtPrice(priceSell)}</td>
-                    <td class="note-cell" title="${escapeHtml(p.note || '')}">${escapeHtml(p.note || '—')}</td>
+                    <td class="note-cell" title="${escapeHtml(p.note || '')}"><div class="web2-note-cell">${escapeHtml(p.note || '—')}</div></td>
                     <td>
                         ${(() => {
                             // Status ưu tiên hơn isActive:
