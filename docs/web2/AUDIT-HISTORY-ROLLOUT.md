@@ -57,20 +57,22 @@
 
 - `DELETE /api/web2/audit-log/purge?entity=&entityId=` (requireWeb2Admin) — dọn audit theo entity HOẶC entityId (per-record). Cần ≥1 tham số (chống wipe toàn bộ).
 
-## Wave 3 (đề xuất tiếp) — thêm nút 🕘 FE cho các trang đã wire sink ở Wave 2
+## Wave 3 — nút 🕘 FE cho các trang đã wire sink ở Wave 2 ✅ XONG (2026-06-23)
 
-Data đã chảy vào sink, chỉ cần nút mở `openRecord` per-record:
+Data đã chảy vào sink → thêm nút mở `openRecord` per-record. Module auto-load qua sidebar. Bump `?v=20260623w3`. Verified prod: users / balance-history / order-tags (modal mở đúng title; table + card layout).
 
-- ⬜ supplier-wallet (card NCC → 🕘, entity=supplier-wallet, id=tên NCC)
-- ⬜ supplier-debt (ledger NCC → 🕘, id=tên NCC)
-- ⬜ fastsaleorder-refund (bảng phiếu → 🕘, entity=refund, id=number)
-- ⬜ fastsaleorder-delivery (phiếu giao → 🕘, entity=delivery-invoice, id=number)
-- ⬜ jt-tracking (dòng vận đơn → 🕘, entity=jt-tracking, id=billcode)
-- ⬜ fb-posts (draft/scheduled → 🕘, entity=fb-post, id=post id)
-- ⬜ balance-history (giao dịch → 🕘, entity=balance-transaction, id=row.id)
-- ⬜ order-tags (card thẻ → 🕘, entity=order-tag, id=code)
-- ⬜ users (dòng user → 🕘, entity=web2-user, id=u.id)
-- ⬜ live-control (header chiến dịch → 🕘, entity=campaign, id=campaignId)
+- ✅ supplier-wallet (🕘 header card NCC, `SW.openHistory`) — entity=supplier-wallet, id=tên NCC
+- ✅ supplier-debt (🕘 row NCC, `SD.openHistory`) — entity=supplier-wallet, id=tên NCC
+- ✅ fastsaleorder-refund (🕘 row, `RfApp.openHistory`) — entity=refund, id=o.number
+- ✅ fastsaleorder-delivery (🕘 row, `DlvApp.openHistory`) — entity=delivery-invoice, id=o.number
+- ✅ jt-tracking (🕘 row, data-act=history) — entity=jt-tracking, id=billcode
+- ✅ fb-posts (🕘 list `p.id` + drafts `d.id`) — entity=fb-post
+- ✅ balance-history (🕘 row actions, data-action=history) — entity=balance-transaction, id=row.id
+- ✅ order-tags (🕘 card-foot, data-act=history) — entity=order-tag, id=code
+- ✅ users (🕘 row actions, data-act=history) — entity=web2-user, id=u.id
+- ✅ live-control (🕘 header toolbar, guard "Chưa chọn chiến dịch") — entity=campaign, id=state.campaignId
+
+→ **Toàn bộ trang Web 2.0 cần lịch sử per-record giờ đều có nút 🕘 hoặc modal canonical/inline.** Còn lại chỉ tool/dashboard/report/config (không cần).
 
 ## Không cần (tool/dashboard/report/config thuần)
 
