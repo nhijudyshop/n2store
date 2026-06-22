@@ -86,10 +86,14 @@ function _notify(topic, action, code) {
     }
 }
 
-// ── Nhóm được THEO DÕI (allowlist) — chỉ tin các nhóm này mới được lưu ──
+// ── Nhóm được THEO DÕI (allowlist) — opt-in, MẶC ĐỊNH TẮT ──────────────
 // Cache in-memory để _persistIncoming (firehose) khỏi query DB mỗi tin.
-// Bảng web2_zalo_tracked_groups có ≥1 row → _filterActive=true (chỉ lưu nhóm
-// trong set); rỗng → false (lưu tất, an toàn khi chưa cấu hình).
+// ⚠ 2026-06-22 (user "bỏ giới hạn hiện group"): allowlist MẶC ĐỊNH TẮT →
+// HIỆN/LƯU TẤT CẢ nhóm + hội thoại 1-1 (full Zalo như app thật). Bảng
+// web2_zalo_tracked_groups + route /tracked-groups GIỮ LẠI làm opt-in tương lai
+// (vd "nhóm ưu tiên") — CHỈ lọc khi env WEB2_ZALO_GROUP_ALLOWLIST=1. Không xoá
+// capability, chỉ đổi default. (Trước đây ≥1 row = lọc → chỉ 2 nhóm hiển thị.)
+const _ALLOWLIST_ON = process.env.WEB2_ZALO_GROUP_ALLOWLIST === '1';
 let _trackedSet = new Set();
 let _filterActive = false;
 const _tk = (accountKey, threadId) => `${accountKey || ''}\u0000${threadId || ''}`;
@@ -100,7 +104,8 @@ async function _loadTracked() {
             `SELECT account_key, thread_id FROM web2_zalo_tracked_groups`
         );
         _trackedSet = new Set(rows.map((r) => _tk(r.account_key, r.thread_id)));
-        _filterActive = _trackedSet.size > 0;
+        // Chỉ lọc khi BẬT env opt-in (mặc định: hiện TẤT CẢ nhóm + hội thoại).
+        _filterActive = _ALLOWLIST_ON && _trackedSet.size > 0;
     } catch (e) {
         console.warn('[WEB2-ZALO] loadTracked failed:', e.message);
     }
