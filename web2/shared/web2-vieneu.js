@@ -55,7 +55,7 @@
     }
     function _need() {
         const u = getUrl();
-        if (!u) throw new Error('Chưa cấu hình URL server giọng VieNeu');
+        if (!u) throw new Error('Chưa cấu hình URL server giọng');
         return u;
     }
 
@@ -130,7 +130,7 @@
             try {
                 msg = (await r.json()).error || msg;
             } catch {}
-            throw new Error('Tạo giọng VieNeu lỗi: ' + msg);
+            throw new Error('Tạo giọng lỗi: ' + msg);
         }
         return _decode(await r.blob());
     }

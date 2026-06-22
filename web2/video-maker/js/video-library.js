@@ -83,7 +83,7 @@
                 </div>
                 <div class="vm-lib-tabs">
                     <button class="vm-lib-tab on" data-tab="free"><i data-lucide="hard-drive-download"></i> Miễn phí (trên máy)</button>
-                    <button class="vm-lib-tab" data-tab="eleven"><i data-lucide="sparkles"></i> ElevenLabs</button>
+                    <button class="vm-lib-tab" data-tab="eleven"><i data-lucide="sparkles"></i> Giọng AI</button>
                 </div>
                 <div class="vm-lib-filter">
                     <input type="search" id="vmLibSearch" class="vm-topic-in" placeholder="Tìm theo tên / ngôn ngữ (vd: english, ryan, vietnam)…" />
@@ -240,10 +240,10 @@
         const list = $('#vmLibList');
         const foot = $('#vmLibFoot');
         foot.innerHTML =
-            '⚠ ElevenLabs free ~10k ký tự/tháng, KHÔNG quyền thương mại (cần attribution / gói trả phí). "Thêm" tốn 1 slot giọng (free ít) → dùng vài giọng ưng ý.';
+            '⚠ Giọng AI free ~10k ký tự/tháng, KHÔNG quyền thương mại (cần attribution / gói trả phí). "Thêm" tốn 1 slot giọng (free ít) → dùng vài giọng ưng ý.';
         if (!_elevenConfigured) {
             list.innerHTML =
-                '<div class="vm-lib-empty"><b>Chưa bật ElevenLabs.</b><br>Lấy free key tại elevenlabs.io → đặt <code>ELEVENLABS_API_KEY1/2/3</code> trên server Render (web2-api) → tải lại trang.</div>';
+                '<div class="vm-lib-empty"><b>Chưa bật Giọng AI.</b><br>Cần cấu hình API key trên server (web2-api) → tải lại trang.</div>';
             return;
         }
         const langOpts = [
@@ -433,7 +433,7 @@
             global.Web2VideoTTS.addLibraryVoice({
                 engine: 'elevenlabs',
                 elevenId: realId,
-                label: '✨ ' + v.name + ' (ElevenLabs)',
+                label: '✨ ' + v.name + ' (Giọng AI)',
             });
             notify('Đã thêm giọng "' + v.name + '"', 'success');
             _ctx.onChange && _ctx.onChange();
@@ -445,7 +445,7 @@
             const m = String(e.message || e);
             if (/slot|maximum|limit|reached|quota/i.test(m))
                 notify(
-                    'Hết slot giọng ElevenLabs (free ít) — bỏ bớt giọng đã thêm hoặc nâng gói.',
+                    'Hết slot giọng AI (free ít) — bỏ bớt giọng đã thêm hoặc nâng gói.',
                     'warning'
                 );
             else notify('Thêm giọng lỗi: ' + m, 'error');
@@ -558,9 +558,9 @@
         global.Web2VideoTTS.addLibraryVoice({
             engine: 'elevenlabs',
             elevenId: vid,
-            label: '✨ ' + (name || vid) + ' (ElevenLabs)',
+            label: '✨ ' + (name || vid) + ' (Giọng AI)',
         });
-        notify('Đã thêm giọng ElevenLabs "' + (name || vid) + '"', 'success');
+        notify('Đã thêm giọng AI "' + (name || vid) + '"', 'success');
         _ctx.onChange && _ctx.onChange();
         renderEleven();
     }

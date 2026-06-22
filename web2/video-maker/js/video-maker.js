@@ -673,8 +673,8 @@
         );
         if (hint) {
             hint.textContent = TTS.isCueCapable(state.voiceId)
-                ? 'Thẻ cảm xúc hoạt động với giọng VieNeu (thử nghiệm) — đặt ngay chỗ muốn biểu cảm.'
-                : 'Chọn giọng VieNeu (🎙️/⭐) để cảm xúc có tác dụng — giọng khác sẽ tự bỏ qua thẻ này.';
+                ? 'Thẻ cảm xúc hoạt động với giọng cao cấp (thử nghiệm) — đặt ngay chỗ muốn biểu cảm.'
+                : 'Chọn giọng cao cấp (🎙️/⭐) để cảm xúc có tác dụng — giọng khác sẽ tự bỏ qua thẻ này.';
         }
         if (global.lucide) global.lucide.createIcons();
     }
@@ -1067,7 +1067,7 @@
                 if (splitBuf.duration < 4.6)
                     return notify('Audio cần ≥4.6 giây để lọc tạp âm', 'warning');
                 b.disabled = true;
-                stat.textContent = 'Đang lọc tạp âm bằng AI (ElevenLabs)…';
+                stat.textContent = 'Đang lọc tạp âm bằng AI…';
                 try {
                     const wav = VA.bufferToWavBlob(splitBuf);
                     const cleaned = await global.Web2VideoTTS.elevenIsolate(wav);
@@ -1200,7 +1200,7 @@
             const dur = Number($('#vmSfxDur')?.value) || undefined;
             const btn = e.currentTarget;
             btn.disabled = true;
-            setStat('Đang tạo âm thanh bằng AI (ElevenLabs)…');
+            setStat('Đang tạo âm thanh bằng AI…');
             try {
                 lastBlob = await global.Web2VideoTTS.elevenSoundEffect(text, {
                     durationSeconds: dur,

@@ -159,8 +159,8 @@
 
     // ---------------- VieNeu (server, clone giọng) ----------------
     async function _vieneuChunk(text, v, onStatus) {
-        if (!global.Web2Vieneu) throw new Error('Chưa tải module VieNeu (web2-vieneu.js)');
-        onStatus && onStatus('Đang tạo giọng VieNeu trên server máy shop…');
+        if (!global.Web2Vieneu) throw new Error('Chưa tải module giọng cao cấp');
+        onStatus && onStatus('Đang tạo giọng trên server máy shop…');
         if (v.cloneRef) return global.Web2Vieneu.clone(text, v.cloneRef); // nhái giọng mẫu
         return global.Web2Vieneu.synthesize(text, v.vieneuVoice || v.voiceId || v.id);
     }
@@ -252,7 +252,7 @@
     }
     async function listElevenVoices() {
         const r = await fetch(_ELEVEN_BASE() + '/voices', { credentials: 'omit' });
-        if (!r.ok) throw new Error('ElevenLabs voices HTTP ' + r.status);
+        if (!r.ok) throw new Error('Giọng AI voices HTTP ' + r.status);
         const d = await r.json();
         return (d && d.voices) || [];
     }
@@ -308,7 +308,7 @@
     }
 
     async function _elevenChunk(text, v, onStatus) {
-        onStatus && onStatus('Đang tạo giọng ElevenLabs…');
+        onStatus && onStatus('Đang tạo giọng AI…');
         const s = getElevenSettings();
         const r = await fetch(_ELEVEN_BASE() + '/tts', {
             method: 'POST',
@@ -332,7 +332,7 @@
             try {
                 msg = (await r.json()).error || msg;
             } catch {}
-            throw new Error('ElevenLabs lỗi: ' + msg);
+            throw new Error('Giọng AI lỗi: ' + msg);
         }
         const ab = await r.arrayBuffer();
         const buf = await _decodeCtx().decodeAudioData(ab);
@@ -368,7 +368,7 @@
             try {
                 m = (await r.json()).error || m;
             } catch {}
-            throw new Error((label || 'ElevenLabs') + ' lỗi: ' + m);
+            throw new Error((label || 'Giọng AI') + ' lỗi: ' + m);
         }
         return r;
     }

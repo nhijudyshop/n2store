@@ -30,7 +30,7 @@
 
         async function connect() {
             const url = (urlIn?.value || '').trim();
-            if (!url) return notify('Nhập URL server giọng VieNeu (xem run_local.sh)', 'warning');
+            if (!url) return notify('Nhập URL server giọng (xem run_local.sh)', 'warning');
             V.setUrl(url);
             setStat('Đang kết nối server giọng…');
             try {
@@ -41,9 +41,9 @@
                 onChange();
                 if (cloneRow) cloneRow.hidden = false;
                 setStat(
-                    `✅ Kết nối OK — ${voices.length} giọng VieNeu. Chọn giọng 🎙️/⭐ ở mục "Giọng đọc".`
+                    `✅ Kết nối OK — ${voices.length} giọng. Chọn giọng 🎙️/⭐ ở mục "Giọng đọc".`
                 );
-                notify('Đã kết nối server giọng VieNeu', 'success');
+                notify('Đã kết nối server giọng', 'success');
             } catch (e) {
                 setStat(
                     '❌ Không kết nối được: ' + (e.message || e) + ' — máy shop đã bật server chưa?'
