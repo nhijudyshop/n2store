@@ -11,7 +11,8 @@
 
 const express = require('express');
 // 1D-auth (2026-06-12): audit log lộ wallet adjustments + SĐT + tên user nội bộ → gate SOFT.
-const { requireWeb2AuthSoft } = require('../../middleware/web2-auth');
+// requireWeb2Admin cho /purge (housekeeping xoá audit theo entity — chỉ admin).
+const { requireWeb2AuthSoft, requireWeb2Admin } = require('../../middleware/web2-auth');
 // Event-sink chung (2026-06-22) — ensure bảng tồn tại để union đọc kể cả trước mutation đầu.
 const { ensureAuditSinkTable } = require('../../services/web2-audit-sink');
 const router = express.Router();
@@ -280,6 +281,28 @@ router.get('/entities', requireWeb2AuthSoft, async (req, res) => {
         }
     }
     res.json({ success: true, entities: [...out].sort() });
+});
+
+// DELETE /purge?entity=<slug> — ADMIN housekeeping: xoá toàn bộ audit của 1 entity
+// khỏi event-sink web2_audit_events (vd dọn entity test/nhiễu). BẮT BUỘC `entity`
+// (chống xoá nhầm toàn bộ). KHÔNG đụng 4 bảng history riêng (chỉ event-sink).
+router.delete('/purge', requireWeb2Admin, async (req, res) => {
+    try {
+        const pool = req.app.locals.web2Db || req.app.locals.chatDb;
+        const entity = String(req.query.entity || (req.body && req.body.entity) || '').trim();
+        if (!entity) {
+            return res
+                .status(400)
+                .json({ success: false, error: 'entity bắt buộc (chống xoá nhầm toàn bộ audit)' });
+        }
+        if (!(await _tableExists(pool, 'web2_audit_events'))) {
+            return res.json({ success: true, entity, deleted: 0 });
+        }
+        const r = await pool.query(`DELETE FROM web2_audit_events WHERE entity = $1`, [entity]);
+        res.json({ success: true, entity, deleted: r.rowCount });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
 });
 
 module.exports = router;
