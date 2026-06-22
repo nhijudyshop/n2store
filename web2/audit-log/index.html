@@ -1,4 +1,4 @@
-<!-- #Note: WEB2.0 module. F05 Audit Trail UI. -->
+<!-- #Note: WEB2.0 module. F05 Audit Trail UI — MODULE CHÍNH "Lịch sử thao tác". Render qua shared Web2AuditLog. -->
 <!doctype html>
 <html lang="vi">
     <head>
@@ -13,78 +13,6 @@
             .audit-main {
                 padding: 20px 28px;
             }
-            .audit-filters {
-                display: flex;
-                gap: 10px;
-                margin-bottom: 14px;
-                flex-wrap: wrap;
-                align-items: center;
-            }
-            .audit-filters input,
-            .audit-filters select {
-                padding: 7px 10px;
-                border: 1px solid #d1d5db;
-                border-radius: 6px;
-                font-size: 13px;
-            }
-            .audit-filters button {
-                padding: 7px 14px;
-                background: linear-gradient(135deg, #0068ff, #0058da);
-                color: #fff;
-                border: 0;
-                border-radius: 6px;
-                cursor: pointer;
-                font-weight: 600;
-            }
-            /* Diff cell wants top-aligned content (long JSON), override canonical middle */
-            table.audit-tbl td {
-                vertical-align: top;
-            }
-            .pill {
-                display: inline-block;
-                padding: 2px 8px;
-                border-radius: 999px;
-                font-size: 11px;
-                font-weight: 600;
-            }
-            .pill.product {
-                background: #e0f4fc;
-                color: #0891b2;
-            }
-            .pill.pbh {
-                background: #eef5ff;
-                color: #0068ff;
-            }
-            .pill.reconcile {
-                background: #e3f7e8;
-                color: #16a34a;
-            }
-            .pill.wallet {
-                background: #fffbeb;
-                color: #d97706;
-            }
-            pre.diff {
-                font-size: 11px;
-                max-width: 360px;
-                max-height: 90px;
-                overflow: auto;
-                background: #f8fafc;
-                border: 1px dashed #e5e7eb;
-                padding: 6px;
-                margin: 0;
-                border-radius: 4px;
-            }
-            @media (max-width: 768px) {
-                table.audit-tbl th:nth-child(3),
-                table.audit-tbl td:nth-child(3),
-                table.audit-tbl th:nth-child(6),
-                table.audit-tbl td:nth-child(6) {
-                    display: none;
-                }
-                .audit-main {
-                    padding: 14px 10px;
-                }
-            }
         </style>
     </head>
     <body class="web2-theme">
@@ -93,153 +21,23 @@
             <main class="web2-main audit-main">
                 <h1 style="margin: 0 0 6px">Lịch sử thao tác</h1>
                 <p style="color: #58666e; margin: 0 0 14px; font-size: 13px">
-                    Union view qua các bảng audit: web2_product_history, fast_sale_order_history,
-                    pbh_fulfillment_logs, wallet_adjustments.
+                    Nhật ký toàn bộ thao tác Web 2.0 (sửa SP · PBH · đối soát · chỉnh ví). Nhân viên
+                    chỉ thấy thao tác của chính mình; quản trị viên thấy tất cả.
                 </p>
-                <div class="audit-filters">
-                    <select id="fEntity">
-                        <option value="">Tất cả entity</option>
-                        <option value="product">Sản phẩm</option>
-                        <option value="pbh">PBH</option>
-                        <option value="reconcile">Đối soát</option>
-                        <option value="wallet">Ví</option>
-                    </select>
-                    <input id="fUser" type="text" placeholder="Tên / username / user_id…" />
-                    <input id="fFrom" type="date" title="Lọc từ ngày (YYYY-MM-DD)" />
-                    <input id="fTo" type="date" title="Lọc đến ngày (YYYY-MM-DD)" />
-                    <button id="btnLoad">Tải</button>
-                </div>
-                <div style="overflow-x: auto">
-                    <table class="data-table audit-tbl">
-                        <thead>
-                            <tr>
-                                <th>Thời gian</th>
-                                <th>Entity</th>
-                                <th>ID</th>
-                                <th>Action</th>
-                                <th>User</th>
-                                <th>Page</th>
-                                <th>Changes</th>
-                            </tr>
-                        </thead>
-                        <tbody id="auditBody">
-                            <tr>
-                                <td
-                                    colspan="7"
-                                    style="padding: 20px; text-align: center; color: #94a3b8"
-                                >
-                                    Bấm "Tải"…
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
+                <div id="auditMount"></div>
             </main>
         </div>
         <script src="../shared/web2-auth.js?v=20260621r7"></script>
         <script src="../shared/web2-user-info.js?v=20260530a"></script>
-        <script src="../shared/web2-history-timeline.js?v=20260530a"></script>
         <script src="../shared/web2-db-badge.js?v=20260530a"></script>
-        <script src="../shared/web2-optimistic.js?v=20260601a"></script>
+        <script src="../shared/web2-audit-log.js?v=20260622al1"></script>
         <script src="../shared/web2-sidebar.js?v=20260622a"></script>
         <script>
-            (function () {
-                const API = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/web2/audit-log';
-                // ENFORCE-PREP (2026-06-12): gắn x-web2-token cho /api/web2/audit-log/* (soft-gate → WEB2_AUTH_ENFORCE=1)
-                function AUTHH(extra) {
-                    if (window.Web2Auth?.authHeaders) return window.Web2Auth.authHeaders(extra);
-                    try {
-                        const t = JSON.parse(localStorage.getItem('web2_auth'))?.token;
-                        return t ? { ...(extra || {}), 'x-web2-token': t } : { ...(extra || {}) };
-                    } catch {
-                        return { ...(extra || {}) };
-                    }
-                }
-                async function load() {
-                    const e = document.getElementById('fEntity').value;
-                    const u = document.getElementById('fUser').value;
-                    const f = document.getElementById('fFrom').value;
-                    const t = document.getElementById('fTo').value;
-                    const q = new URLSearchParams();
-                    if (e) q.set('entity', e);
-                    if (u) q.set('user', u);
-                    if (f) q.set('from', f);
-                    if (t) q.set('to', t);
-                    q.set('limit', '200');
-                    const body = document.getElementById('auditBody');
-                    body.innerHTML =
-                        '<tr><td colspan="7" style="padding:14px"><span class="w2-skel" style="display:block;height:16px;border-radius:6px;margin:6px 0"></span><span class="w2-skel" style="display:block;height:16px;border-radius:6px;margin:6px 0"></span><span class="w2-skel" style="display:block;height:16px;border-radius:6px;margin:6px 0"></span></td></tr>';
-                    let d;
-                    try {
-                        const r = await fetch(API + '/list?' + q.toString(), {
-                            credentials: 'include',
-                            headers: AUTHH(), // ENFORCE-PREP (2026-06-12)
-                        });
-                        if (!r.ok) throw new Error('HTTP ' + r.status);
-                        d = await r.json();
-                    } catch (err) {
-                        body.innerHTML =
-                            '<tr><td colspan="7" style="padding:20px;text-align:center;color:#dc2626">Lỗi tải: ' +
-                            esc(err.message || err) +
-                            ' <button class="btn btn-sm" style="margin-left:8px" onclick="document.getElementById(\'btnLoad\').click()"><i data-lucide="refresh-cw"></i> Thử lại</button></td></tr>';
-                        if (window.lucide) lucide.createIcons();
-                        if (window.notificationManager)
-                            notificationManager.show(
-                                'Lỗi tải lịch sử: ' + (err.message || err),
-                                'error'
-                            );
-                        return;
-                    }
-                    // Fix 2026-06-03: generic /api/web2/:entity trả `records`, route cũ
-                    // trả `items`. Normalize để không crash `.length` sau tách DB web2Db.
-                    const items = d.items || d.records || d.data || [];
-                    if (!d.success || !items.length) {
-                        body.innerHTML =
-                            '<tr><td colspan="7" style="padding: 20px; text-align: center; color: #94a3b8">Không có nhật ký khớp bộ lọc</td></tr>';
-                        return;
-                    }
-                    body.innerHTML = items
-                        .map(
-                            (it) => `<tr>
-                    <td>${esc(new Date(it.created_at).toLocaleString('vi-VN'))}</td>
-                    <td><span class="pill ${esc(it.entity)}">${esc(it.entity)}</span></td>
-                    <td><code>${esc(it.entity_id || '')}</code></td>
-                    <td>${esc(it.action || '')}</td>
-                    <td>${esc(it.user_name || it.user_id || '—')}</td>
-                    <td>${esc(it.source_page || '—')}</td>
-                    <td><pre class="diff">${(function () {
-                        const raw = JSON.stringify(it.changes, null, 2) || '';
-                        const truncated = raw.length > 600;
-                        return (
-                            esc(raw.slice(0, 600)) +
-                            (truncated
-                                ? '<span class="text-muted" style="font-size:0.8em"> … (đã rút gọn)</span>'
-                                : '')
-                        );
-                    })()}</pre></td>
-                </tr>`
-                        )
-                        .join('');
-                }
-                function esc(s) {
-                    const d = document.createElement('div');
-                    d.textContent = String(s ?? '');
-                    return d.innerHTML;
-                }
-                document.getElementById('btnLoad').onclick = load;
-                // Fix 3: Enter key triggers load on filter inputs
-                ['fUser', 'fFrom', 'fTo'].forEach((id) => {
-                    document.getElementById(id).addEventListener('keydown', (e) => {
-                        if (e.isComposing || e.keyCode === 229) return; // IME tiếng Việt
-                        if (e.key === 'Enter') load();
-                    });
-                });
-                document.addEventListener('DOMContentLoaded', () => {
-                    if (window.Web2Sidebar)
-                        Web2Sidebar.mount('#web2Aside', { activeRoute: 'audit-log' });
-                    load();
-                });
-            })();
+            document.addEventListener('DOMContentLoaded', () => {
+                if (window.Web2Sidebar)
+                    Web2Sidebar.mount('#web2Aside', { activeRoute: 'audit-log' });
+                if (window.Web2AuditLog) Web2AuditLog.mount('#auditMount', { limit: 200 });
+            });
         </script>
     </body>
 </html>

@@ -2,6 +2,16 @@
 
 ## 2026-06-22
 
+### [change] Lịch sử thao tác Web 2.0 — gộp về 1 NGUỒN (module chính Web2AuditLog) + scope NV/admin
+
+User hỏi: tab "Audit log" trong `web2/kpi` có dùng nguồn của trang `web2/audit-log` không? → KHÔNG, trước đây là 2 nguồn khác nhau (KPI tab = `/api/web2/kpi/events` KPI-events; trang audit-log = `/api/web2/audit-log` union 4 bảng). User chốt: **audit-log = module chính (audit log toàn bộ)**, xóa KPI-events tab cũ, tab KPI làm lại theo audit-log; **NV xem thao tác của chính mình, admin xem tất cả**.
+
+- **Backend** `render.com/routes/v2/audit-log.js` `/list`: thêm **scope server-side** theo `req.web2User` (do `requireWeb2AuthSoft` gắn). `role==='admin'` → xem hết + lọc user tự do; NV khác → **ÉP** match chính mình (`user_id`=id/username OR `user_name`=display/username, bỏ qua filterUser); không token → rỗng + `requireAuth`. Trả thêm `viewer:{scope,role,name}`.
+- **Shared module MỚI** `web2/shared/web2-audit-log.js` (`window.Web2AuditLog`) = **1 nguồn dùng chung**: tự inject CSS + filter bar (entity/user/from/to) + bảng `.data-table` + scope-aware (ẩn ô lọc User khi `scope==='self'` + badge "🔒 Chỉ thao tác của bạn" / "🌐 Toàn bộ (admin)"). API `mount(target,opts)` / `reload()`. GMT+7. ~265 dòng.
+- **`web2/audit-log/index.html`**: thin → bỏ inline script + CSS trùng, chỉ `Web2AuditLog.mount('#auditMount')`.
+- **`web2/kpi/`**: tab đổi nhãn "Audit log" → "Lịch sử thao tác"; `kpi-dashboard.js` xóa `loadEvents`/`renderEventsLog` (KPI-events feed) + `fmtDate` dead, thêm `renderAuditLog()` mount module; SSE chỉ refresh khi ở tab KPI; dọn class `w2al` khi về tab KPI. Bump `?v=20260622al1`.
+- **KHÔNG** thêm `web2_kpi_events` vào union (user yêu cầu xóa KPI-events; leaderboard KPI vẫn ở tab "KPI"). Cần Render deploy để scope NV có hiệu lực; frontend verify localhost OK (cả 2 trang mount, 76 rows, 0 page error, switch tab OK).
+
 ### [fix] video-maker "Hiệu ứng âm thanh (AI)" — đọc chữ thay vì tạo tiếng động (prompt VN→EN)
 
 User: gõ "tiếng vỗ tay"/"tiếng mưa" → ra GIỌNG ĐỌC chứ không phải tiếng động. Code path đúng (gọi ElevenLabs `sound-generation`, không phải TTS). Gốc: **sound-generation cần prompt TIẾNG ANH**; prompt tiếng Việt bị hiểu là lời nói → đọc thành giọng (verify live: "tiếng vỗ tay" auto→0.6s giọng; "applause" auto→1.1s tiếng vỗ tay thật).

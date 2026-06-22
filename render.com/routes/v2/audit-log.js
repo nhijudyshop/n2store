@@ -141,9 +141,52 @@ router.get('/list', requireWeb2AuthSoft, async (req, res) => {
             params.push(filterEntity);
             filters.push(`entity = $${params.length}`);
         }
-        if (filterUser) {
-            params.push('%' + filterUser + '%');
-            filters.push(`(user_name ILIKE $${params.length} OR user_id ILIKE $${params.length})`);
+
+        // SCOPE (2026-06-22): NV chỉ xem thao tác của CHÍNH MÌNH, admin xem TẤT CẢ.
+        // req.web2User do requireWeb2AuthSoft gắn ({ id, role, username, display_name }).
+        // - admin            → xem hết + được lọc user tự do (free-text ILIKE).
+        // - staff/manager/... → ÉP scope về chính mình (bỏ qua filterUser nếu gửi lên).
+        // - không token hợp lệ → KHÔNG lộ data của bất kỳ ai (trả rỗng + cờ requireAuth).
+        const viewer = req.web2User || null;
+        const isAdmin = !!viewer && viewer.role === 'admin';
+        if (isAdmin) {
+            if (filterUser) {
+                params.push('%' + filterUser + '%');
+                filters.push(
+                    `(user_name ILIKE $${params.length} OR user_id ILIKE $${params.length})`
+                );
+            }
+        } else if (viewer) {
+            // Match linh hoạt: user_id lưu raw từ client (có thể là id số HOẶC username),
+            // user_name lưu display_name. Khớp bất kỳ định danh nào của viewer.
+            const ors = [];
+            const idStr = viewer.id != null ? String(viewer.id) : '';
+            const uname = viewer.username || '';
+            const dname = viewer.display_name || '';
+            if (idStr) {
+                params.push(idStr);
+                ors.push(`user_id = $${params.length}`);
+            }
+            if (uname) {
+                params.push(uname);
+                ors.push(`user_id = $${params.length}`);
+                params.push(uname);
+                ors.push(`user_name = $${params.length}`);
+            }
+            if (dname) {
+                params.push(dname);
+                ors.push(`user_name = $${params.length}`);
+            }
+            // Phòng trường hợp user không có định danh nào → không khớp gì (an toàn).
+            filters.push(ors.length ? `(${ors.join(' OR ')})` : 'FALSE');
+        } else {
+            return res.json({
+                success: true,
+                items: [],
+                total: 0,
+                viewer: { scope: 'none', role: null, name: null },
+                warning: 'Cần đăng nhập Web 2.0 để xem lịch sử thao tác.',
+            });
         }
         // 1D-GMT+7 FIX (2026-06-12): from/to là date string 'YYYY-MM-DD' theo
         // giờ VN — cast trần theo session UTC lệch 7h so với cột Thời gian đang
@@ -174,7 +217,18 @@ router.get('/list', requireWeb2AuthSoft, async (req, res) => {
         // _total = tổng số rows khớp filter (window fn, trước LIMIT). 0 row → 0.
         const total = rs.rows.length ? Number(rs.rows[0]._total) || 0 : 0;
         const items = rs.rows.map(({ _total, ...row }) => row);
-        res.json({ success: true, items, total, limit, offset });
+        res.json({
+            success: true,
+            items,
+            total,
+            limit,
+            offset,
+            viewer: {
+                scope: isAdmin ? 'all' : 'self',
+                role: viewer.role,
+                name: viewer.display_name || viewer.username || null,
+            },
+        });
     } catch (e) {
         res.status(500).json({ success: false, error: e.message });
     }

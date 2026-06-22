@@ -1,7 +1,8 @@
 // #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 module.
 //
 // KPI Dashboard — Forecast vs Actual per beneficiary per campaign.
-// API: /api/web2/kpi/forecast?campaign_id= và /actual?campaign_id= và /events?...
+// API: /api/web2/kpi/kpi?campaign_id= (leaderboard). Tab "Lịch sử thao tác" dùng
+// MODULE CHÍNH Web2AuditLog (/api/web2/audit-log) — KHÔNG còn KPI-events feed riêng.
 
 (function () {
     'use strict';
@@ -35,12 +36,6 @@
         if (window.Web2Kpi && window.Web2Kpi.fmtVnd) return window.Web2Kpi.fmtVnd(n);
         return (Number(n) || 0).toLocaleString('vi-VN') + 'đ';
     }
-    function fmtDate(ts) {
-        if (window.Web2Format) return window.Web2Format.dateTime(ts);
-        if (!ts) return '';
-        return new Date(Number(ts)).toLocaleString('vi-VN');
-    }
-
     async function loadCampaigns() {
         const sel = $('#kpiCampaignFilter');
         if (sel) {
@@ -96,15 +91,6 @@
             viewer: d.viewer || { scope: 'all' },
             rate: Number(d.rate_per_sp) || (window.Web2Kpi ? window.Web2Kpi.RATE_PER_SP : 5000),
         };
-    }
-
-    async function loadEvents() {
-        const params = new URLSearchParams({ limit: '100' });
-        if (STATE.currentCampaignId) params.set('campaign_id', STATE.currentCampaignId);
-        // PHẢI gắn auth (server /events nay self-scope theo token; thiếu → 401/sai scope).
-        const r = await fetch(`${KPI_API}/events?` + params, { headers: _authHeaders() });
-        const d = await r.json();
-        return d.events || [];
     }
 
     function renderLeaderboard(data) {
@@ -174,57 +160,27 @@
         if (window.lucide) lucide.createIcons();
     }
 
-    function renderEventsLog(events) {
+    // Tab "Lịch sử thao tác" — dùng MODULE CHÍNH Web2AuditLog (chung với trang
+    // web2/audit-log). Server tự scope: NV xem thao tác của mình, admin xem tất cả.
+    // KHÔNG còn KPI-events feed riêng (đã gộp về 1 nguồn audit-log toàn bộ).
+    function renderAuditLog() {
         const root = $('#kpiContent');
-        if (!STATE.currentCampaignId) {
-            root.innerHTML = `<div class="kpi-empty"><i data-lucide="filter"></i><p>Chọn chiến dịch để xem audit log.</p></div>`;
+        if (window.Web2AuditLog) {
+            root.innerHTML = '';
+            window.Web2AuditLog.mount(root, { limit: 200 });
+        } else {
+            root.innerHTML = `<div class="kpi-empty"><i data-lucide="alert-triangle"></i><p>Module lịch sử thao tác chưa tải. Tải lại trang.</p></div>`;
             if (window.lucide) lucide.createIcons();
-            return;
         }
-        if (!events.length) {
-            root.innerHTML = `<div class="kpi-empty"><i data-lucide="inbox"></i><p>Chưa có event nào.</p></div>`;
-            if (window.lucide) lucide.createIcons();
-            return;
-        }
-        const html = `
-            <div class="kpi-leaderboard">
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th>Thời gian</th>
-                            <th>Event</th>
-                            <th>Actor</th>
-                            <th>Beneficiary</th>
-                            <th>Đơn STT</th>
-                            <th>SP</th>
-                            <th class="kpi-qty">Δ Qty</th>
-                            <th>Source</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${events
-                            .map(
-                                (e) => `<tr>
-                            <td>${fmtDate(e.event_time)}</td>
-                            <td><code>${escapeHtml(e.event_type)}</code></td>
-                            <td>${escapeHtml(e.actor_name || '#' + e.actor_user_id)}</td>
-                            <td>${escapeHtml(e.beneficiary_name || '#' + e.beneficiary_user_id)}<small style="color:#9ca3af;"> (${e.beneficiary_source || ''})</small></td>
-                            <td>${e.order_campaign_stt || '—'} <small style="color:#9ca3af;">${escapeHtml(e.order_code)}</small></td>
-                            <td>${escapeHtml(e.product_code)}</td>
-                            <td class="kpi-qty" style="color:${e.qty_delta > 0 ? '#16a34a' : '#dc2626'};">${e.qty_delta > 0 ? '+' : ''}${e.qty_delta}</td>
-                            <td><span class="badge-${escapeHtml(e.source)}">${escapeHtml(e.source)}</span></td>
-                        </tr>`
-                            )
-                            .join('')}
-                    </tbody>
-                </table>
-            </div>
-        `;
-        root.innerHTML = html;
     }
 
     async function refresh() {
         const root = $('#kpiContent');
+        if (STATE.view === 'audit') {
+            renderAuditLog();
+            return;
+        }
+        root.classList.remove('w2al'); // dọn class do Web2AuditLog.mount để lại
         // Skeleton thay text "Đang tải…"
         root.innerHTML =
             `<div class="kpi-empty" style="text-align:left">` +
@@ -234,11 +190,7 @@
             ) +
             `</div>`;
         try {
-            if (STATE.view === 'audit') {
-                renderEventsLog(await loadEvents());
-            } else {
-                renderLeaderboard(await loadKpi());
-            }
+            renderLeaderboard(await loadKpi());
         } catch (e) {
             const msg = (e && e.message ? e.message : String(e)).replace(/[<>&]/g, '');
             root.innerHTML = `<div class="kpi-empty"><i data-lucide="alert-triangle"></i><p>Lỗi tải KPI: ${msg}</p><button class="btn btn-sm" id="kpiRetry"><i data-lucide="refresh-cw"></i> Thử lại</button></div>`;
@@ -275,12 +227,13 @@
 
         // Realtime: KPI event mới (forecast/actual/revoke) → auto refresh leaderboard.
         // emitKpiEvent broadcast topic 'web2:kpi-dashboard'. Debounce gom burst.
+        // Chỉ refresh khi đang ở tab KPI (tab Lịch sử thao tác có nút Tải riêng).
         if (window.Web2SSE) {
             let _sseTimer = null;
             Web2SSE.subscribe('web2:kpi-dashboard', () => {
                 clearTimeout(_sseTimer);
                 _sseTimer = setTimeout(() => {
-                    if (STATE.currentCampaignId) refresh();
+                    if (STATE.currentCampaignId && STATE.view !== 'audit') refresh();
                 }, 600);
             });
         }
