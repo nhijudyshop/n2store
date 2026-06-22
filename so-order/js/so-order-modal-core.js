@@ -300,7 +300,7 @@
                 SO.renderModalRows();
             };
         }
-        // 2026-06-18: Quét mã (camera barcode) / Đọc nhãn (OCR) → thêm dòng SP.
+        // 2026-06-18: Quét mã (camera barcode) → thêm dòng SP (nút "Đọc nhãn" OCR đã gỡ 2026-06-22).
         // Dùng cho nhập kho từ pack NCC. .onclick (re-wire mỗi render, idempotent).
         const scanBtn = document.getElementById('soModalScanBtn');
         if (scanBtn) {
@@ -317,20 +317,7 @@
                 });
             };
         }
-        const ocrBtn = document.getElementById('soModalOcrBtn');
-        if (ocrBtn) {
-            ocrBtn.onclick = () => {
-                if (!window.Web2LabelOcr) {
-                    window.notificationManager?.show?.('Chưa tải được bộ đọc nhãn.', 'error');
-                    return;
-                }
-                window.Web2LabelOcr.open({
-                    title: 'Đọc mã trên nhãn',
-                    hint: 'Ngắm dòng MÃ trên nhãn rồi bấm Chụp',
-                    onResult: (code) => SO._addRowFromScannedCode(code),
-                });
-            };
-        }
+        // (2026-06-22) Nút "Đọc nhãn" (OCR) đã gỡ theo yêu cầu — chỉ giữ "Quét mã".
         // Delete row + image upload via event delegation
         tbody.querySelectorAll('[data-action="remove-row"]').forEach((btn) => {
             btn.addEventListener('click', () => {
