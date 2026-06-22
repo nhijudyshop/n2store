@@ -3,16 +3,16 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `9c458c3` — feat(web2-audit-log): event-sink chung web2_audit_events — audit toàn bộ
-**Last updated**: 2026-06-22 21:46:19 +07
-**Latest session**: [`RESUME:20260622-214619-9c458c3`](../20260622-214619-9c458c3.md)
-**Summary**: feat(web2-audit-log): event-sink chung web2_audit_events — audit toàn bộ
+**Latest commit**: `c4aae83` — fix(inventory-tracking): số Đợt (dot_so) duy nhất toàn cục — sửa 'đợt 3 hiện data đợt cũ'
+**Last updated**: 2026-06-22 22:15:51 +07
+**Latest session**: [`RESUME:20260622-221551-c4aae83`](../20260622-221551-c4aae83.md)
+**Summary**: fix inventory-tracking: số Đợt dot_so duy nhất toàn cục (sửa đợt 3 hiện data đợt cũ) + script renumber data cũ
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 9 file(s)
-- [`web2/`](./web2.md) — 3 file(s)
+- [`inventory-tracking/`](./inventory-tracking.md) — 1 file(s)
+- [`render.com/`](./render.com.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -27,7 +27,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-21 15:47
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-06-22 21:46
+- [`docs/`](./docs.md) — updated 2026-06-22 22:15
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-19 14:27
@@ -37,7 +37,7 @@
 - [`hanghoan/`](./hanghoan.md) — updated 2026-06-20 12:07
 - [`inbox/`](./inbox.md) — updated 2026-06-20 12:07
 - [`index/`](./index.md) — updated 2026-06-20 16:43
-- [`inventory-tracking/`](./inventory-tracking.md) — updated 2026-06-22 19:19
+- [`inventory-tracking/`](./inventory-tracking.md) — updated 2026-06-22 22:15
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-06-20 12:07
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-20 12:07
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-06-20 12:07
@@ -57,7 +57,7 @@
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-06-20 12:07
 - [`referenceUI/`](./referenceUI.md) — updated 2026-06-19 14:27
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-06-20 12:07
-- [`render.com/`](./render.com.md) — updated 2026-06-22 21:46
+- [`render.com/`](./render.com.md) — updated 2026-06-22 22:15
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-22 17:10
 - [`service-costs/`](./service-costs.md) — updated 2026-06-20 12:07
