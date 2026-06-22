@@ -20,7 +20,7 @@
                 ${
                     hasImg
                         ? `<div class="so-img-thumb-wrap">
-                                <img class="so-img-thumb" src="${SO.escapeHtml(val)}" alt="" />
+                                <img class="so-img-thumb" src="${SO.escapeHtml(val)}" alt="" onerror="if(!this.dataset.fb){this.dataset.fb=1;this.src='data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20width=%22300%22%20height=%22300%22%3E%3Crect%20width=%22300%22%20height=%22300%22%20fill=%22%23eef2f7%22/%3E%3Ctext%20x=%22150%22%20y=%22165%22%20font-family=%22sans-serif%22%20font-size=%2248%22%20fill=%22%23b6c2d2%22%20text-anchor=%22middle%22%3E%E2%80%94%3C/text%3E%3C/svg%3E';}" />
                                 <button type="button" class="so-img-thumb-clear" data-uid="${row.uid}" data-img-name="${fieldName}" title="Xóa ảnh"><i data-lucide="x"></i></button>
                                 <div class="so-img-thumb-label"><i data-lucide="check-circle-2"></i> Đã có ảnh</div>
                            </div>`
@@ -53,7 +53,7 @@
                 ${
                     hasImg
                         ? `<div class="so-img-thumb-wrap">
-                                <img class="so-img-thumb" src="${SO.escapeHtml(val)}" alt="" />
+                                <img class="so-img-thumb" src="${SO.escapeHtml(val)}" alt="" onerror="if(!this.dataset.fb){this.dataset.fb=1;this.src='data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20width=%22300%22%20height=%22300%22%3E%3Crect%20width=%22300%22%20height=%22300%22%20fill=%22%23eef2f7%22/%3E%3Ctext%20x=%22150%22%20y=%22165%22%20font-family=%22sans-serif%22%20font-size=%2248%22%20fill=%22%23b6c2d2%22%20text-anchor=%22middle%22%3E%E2%80%94%3C/text%3E%3C/svg%3E';}" />
                                 <button type="button" class="so-img-thumb-clear" data-order-invoice-clear title="Xóa ảnh"><i data-lucide="x"></i></button>
                                 <div class="so-img-thumb-label"><i data-lucide="check-circle-2"></i> Đã có ảnh</div>
                            </div>`

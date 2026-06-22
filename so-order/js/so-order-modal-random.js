@@ -61,8 +61,16 @@
     SO._rInt = function _rInt(min, max) {
         return Math.floor(Math.random() * (max - min + 1)) + min;
     };
-    // Data test KHÔNG kèm hình — productImage/invoiceImage để rỗng (user yêu cầu).
-    SO._randomRow = function _randomRow(isVnd) {
+    // Ảnh ngẫu nhiên cho data test = Lorem Picsum theo SEED (free, KHÔNG cần key, chỉ là
+    // URL string → không fetch, hiển thị thẳng trong <img>). Cùng seed → CÙNG ảnh (ổn định
+    // qua mỗi lần renderModalRows, không nhấp nháy); seed khác → ảnh khác. Seed-based nên
+    // KHÔNG rot (không phụ thuộc photo id cụ thể). CDN Cloudflare → nhanh/ổn ở VN.
+    // Lỗi tải (host chặn / offline) → <img onerror> tự đổi sang placeholder SVG data-URI
+    // LOCAL (không cần mạng → luôn hiển thị, không bao giờ ra icon ảnh vỡ). Xem so-order-modal-image.js.
+    SO._rImg = function _rImg(seed, w, h) {
+        return `https://picsum.photos/seed/${encodeURIComponent(String(seed))}/${w || 400}/${h || 400}`;
+    };
+    SO._randomRow = function _randomRow(isVnd, rowSeed) {
         const cost = isVnd ? SO._rInt(3, 30) * 10000 : SO._rInt(20, 300);
         let sell = cost * (1.5 + Math.random());
         sell = isVnd ? Math.round(sell / 1000) * 1000 : Math.round(sell);
@@ -73,12 +81,13 @@
             qty: SO._rInt(1, 50),
             costPrice: cost,
             sellPrice: Math.max(sell, cost),
-            productImage: '',
-            invoiceImage: '',
+            productImage: SO._rImg(`so-${rowSeed || SO._rInt(1, 1e9)}`, 400, 400),
+            // invoiceImage KHÔNG set ở đây → _newModalRow tự kế thừa SO.modalInvoiceImage
+            // (đã set ở fillModalRandom TRƯỚC khi tạo rows) — ảnh hoá đơn là cấp ĐƠN.
         });
     };
 
-    // Điền dữ liệu ngẫu nhiên vào modal Tạo Đơn Hàng đang mở (1-4 dòng SP, KHÔNG hình).
+    // Điền dữ liệu ngẫu nhiên vào modal Tạo Đơn Hàng đang mở (1-4 dòng SP + ảnh ngẫu nhiên).
     SO.fillModalRandom = function fillModalRandom() {
         const form = document.getElementById('soOrderForm');
         if (!form) return;
@@ -96,8 +105,13 @@
             form.elements.shipExpectedDeliveryDate.value = eta.toISOString().slice(0, 10);
         }
         if (form.elements.note) form.elements.note.value = 'Đơn test ngẫu nhiên';
-        SO.modalInvoiceImage = ''; // data test KHÔNG kèm ảnh hoá đơn
-        SO.modalRows = Array.from({ length: SO._rInt(1, 4) }, () => SO._randomRow(isVnd));
+        // Ảnh hoá đơn ngẫu nhiên (Picsum seed, 600x400 ~ tỉ lệ ảnh scan hoá đơn). Mỗi lần
+        // fill khác seed → ảnh khác. Set TRƯỚC khi tạo rows để rows kế thừa (cấp ĐƠN).
+        const imgBatch = Date.now().toString(36);
+        SO.modalInvoiceImage = SO._rImg(`so-inv-${imgBatch}`, 600, 400);
+        SO.modalRows = Array.from({ length: SO._rInt(1, 4) }, (_, i) =>
+            SO._randomRow(isVnd, `${imgBatch}-r${i}`)
+        );
         SO.renderModalRows();
         SO.updateModalGrandTotals();
     };

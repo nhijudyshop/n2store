@@ -2,6 +2,20 @@
 
 ## 2026-06-22
 
+### [change] so-order — "Điền ngẫu nhiên" GẮN LẠI ảnh ngẫu nhiên (Lorem Picsum, free no-key) + bỏ nút "Đọc nhãn"
+
+User: (1) nút "Điền ngẫu nhiên" tạo data test nhưng không có ảnh → muốn dán ảnh ngẫu nhiên (tìm api/ảnh free dùng nhanh); (2) bỏ nút "Đọc nhãn" (OCR) trong modal.
+
+**(1) Ảnh ngẫu nhiên** (workflow research 5-agent → chốt nguồn): **Lorem Picsum theo seed** = free, KHÔNG key, chỉ là URL string (`https://picsum.photos/seed/{seed}/{w}/{h}` — không fetch, hiển thị thẳng `<img>`), cùng seed→cùng ảnh (ổn định, không nhấp nháy khi re-render), seed-based nên không rot, CDN Cloudflare nhanh ở VN. (Loại LoremFlickr: proxy Flickr hay 500 + chậm 1-1.5s; loại curated DummyJSON/Unsplash: hardcode id dễ rot.)
+
+- `so-order-modal-random.js`: thêm `SO._rImg(seed,w,h)`; `_randomRow(isVnd, rowSeed)` set `productImage` = picsum seed (mỗi dòng seed riêng `${batch}-r${i}` → ảnh khác nhau); `fillModalRandom` set `SO.modalInvoiceImage` = picsum 600x400 (ảnh hoá đơn cấp đơn, mỗi lần fill khác seed). Row kế thừa invoiceImage qua `_newModalRow` default.
+- **Fallback offline-safe** (`so-order-modal-image.js`): `<img onerror>` → **SVG data-URI LOCAL** (không cần mạng → LUÔN hiển thị, không bao giờ ra icon ảnh vỡ; mạnh hơn placehold.co của research vì không phụ thuộc host ngoài). Guard `dataset.fb` chống loop.
+- **Verify browser**: fill → 2-3 dòng đều có `productImage` picsum seed riêng + invoice 600x400, badge "Đã có ảnh" hiện; data-URI fallback render OK (nw=300, test env chặn net ngoài → slot ra placeholder "—" sạch, không vỡ). Trên máy user (net thường) → ảnh picsum thật.
+
+**(2) Bỏ "Đọc nhãn" (OCR)**: gỡ button `#soModalOcrBtn` + handler `ocrBtn.onclick` + `<script web2-label-ocr.js>` khỏi so-order (chỉ so-order dùng qua nút này). **GIỮ** module shared `web2-label-ocr.js` vì reconcile + web2-pack-counter còn dùng. Nút "Quét mã" (camera barcode) giữ nguyên.
+
+- Bump `?v=20260622x2`: so-order-modal-{core,image,random}.js.
+
 ### [feat] inventory-tracking convert-PO — nút "Lưu nháp" (localStorage) ẩn/hiện theo Mã SP
 
 User: form "Tạo đơn đặt hàng" (modal Convert NCC → PO) thêm nút **Lưu nháp** lưu lại toàn bộ thông tin đã điền; **hiện** nút khi CHƯA dòng nào có Mã SP, **ẩn** khi bất kỳ dòng nào có Mã SP. (Lý do: `_confirmConvertToPO` BẮT BUỘC mọi SP có Mã SP mới "Tạo đơn hàng" được → khi đang dở chưa gán mã, cần lưu nháp để quay lại sau.)
