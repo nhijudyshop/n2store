@@ -2,14 +2,14 @@
 
 ## 2026-06-22
 
-### [fix] inventory-tracking (Web 1.0) — số "Đợt" (dot_so) DUY NHẤT TOÀN CỤC, sửa "đợt 3 hiện data đợt cũ"
+### [fix] inventory-tracking (Web 1.0) — sửa "Đợt 3 hiện thanh toán đợt cũ": di chuyển đơn giữa đợt KÉO theo thanh toán + default số đợt an toàn
 
-User: mở "Thanh Toán CK Theo Đợt" của Đợt 3 → danh sách thanh toán CK là của **đợt cũ** (TT tháng 5), không phải đợt 3 (giao 21/6). Root cause: `dot_so` xưa đánh số **theo từng ngày** (migration 053 "mỗi ngày đếm lại từ 1") nhưng từ **2026-05-31** lại **DÙNG như khoá đợt toàn cục** (`filters.js` bỏ lọc ngày + `getAllDotsAggregated` gom theo dotSo span mọi ngày). → 2 đợt khác ngày trùng số (đợt 3 tháng 5 ↔ đợt 3 tháng 6) bị **GỘP**; POST /shipments còn **kế thừa** thanh toán đợt cũ (`WHERE dot_so=$1 ORDER BY created_at ASC LIMIT 1`). User chốt hướng: **đánh số đợt duy nhất toàn cục**.
+User: modal "Thanh Toán CK Theo Đợt" của Đợt 3 hiện danh sách CK của **đợt cũ** (Đợt 2). Điều tra DB thật (read-only `--inspect`): chỉ có 3 đợt (1=11 ngày, 2=17 ngày, 3=1 ngày) — **đợt span nhiều ngày là ĐÚNG model** (2026-05-31 "đợt tách theo dotSo"), KHÔNG phải trùng số. Tổng screenshot 303.112 = đúng payment Đợt 2 (trước khi thêm entry 50k) → **Đợt 3 đã từng hiện payment Đợt 2**. Data hiện tại đã sạch (user nhập lại Đợt 3 = 1 entry 100k đúng, xác nhận). **Root cause**: `PUT /shipments/:id` dùng `COALESCE($20, thanh_toan_ck)` → **đổi số đợt của 1 đơn nhưng GIỮ nguyên mảng thanh toán đợt nguồn** → đơn mang payment đợt 2 sang đợt 3 (aggregation gom theo dotSo → đợt 3 hiện nhầm).
 
-- **Backend** `render.com/routes/v2/inventory-tracking.js`: `GET /shipments/next-dot-so` + default `dot_so` ở `POST /shipments` đổi `MAX(dot_so)` từ **theo ngày** → **TOÀN BẢNG** (bỏ `WHERE ngay_di_hang`). Inherit block giữ nguyên (đúng khi số đã unique). `date` query param giữ cho backward-compat nhưng không còn scope.
-- **Frontend** `inventory-tracking/js/modal-shipment.js`: `_computeDefaultDotSo` → global MAX (bỏ lọc theo ngày). Thêm nút **"Đợt mới"** (`setShipmentDotSoNew` → hỏi server MAX rồi +1, fallback local) để cấp số chưa dùng → đợt riêng, không kế thừa.
-- **Migration data cũ** (script mới, manual, DRY-RUN trước) `render.com/scripts/inventory-renumber-dots.js`: tách mỗi `(ngày, dot_so)` đụng số thành số duy nhất (giữ nhóm cũ nhất số gốc, cấp MAX+1… cho nhóm sau), sync `inventory_product_images`, xóa thanh toán **kế thừa** (giống hệt nhóm gốc) trên nhóm tách. NULL-safe, idempotent, transaction. `--self-test` logic thuần PASS. **Chưa chạy prod** — chờ user review dry-run.
-- 2 review song song: regression sweep (dot_so là khoá-gom opaque, **0 regression**) + code-review (3 HIGH đã fix: NULL-safe, image-catch chỉ nuốt 42703, "Đợt mới" hỏi server). Cần Render deploy backend + GH Pages deploy frontend; sau đó user chạy migration.
+- **Fix chính** `render.com/routes/v2/inventory-tracking.js` `PUT /shipments/:id`: khi `dot_so` đổi sang **đợt khác** mà client không gửi `thanh_toan_ck` riêng → **đồng bộ thanh toán + tỉ giá theo ĐỢT ĐÍCH** (lấy từ 1 dòng đợt đích, ưu tiên non-empty; đợt đích mới toanh → `[]`). Không còn kéo theo payment đợt nguồn.
+- **Default số đợt an toàn (HYBRID)**: `next-dot-so` + default `POST /shipments` + frontend `_computeDefaultDotSo`: ngày ĐÃ có đợt → MAX của ngày đó; ngày MỚI → **MAX toàn cục** (tiếp tục đợt mới nhất, KHÔNG về 1 → tránh nhập nhầm vào Đợt 1 cũ + kế thừa TT). Thêm nút **"Đợt mới"** (`modal-shipment.js`, global MAX+1 hỏi server) cho đợt hoàn toàn mới.
+- **KHÔNG migration data** — đợt 1/2/3 span nhiều ngày là đúng; data hiện sạch. (Script renumber bản nháp đã xóa: premise sai sẽ tách nhầm đợt span-ngày.)
+- 2 review song song trước đó (regression sweep 0 lỗi + code-review) vẫn áp dụng cho phần numbering. Cần Render deploy backend + GH Pages deploy frontend.
 
 ### [feat] Audit-log "THẬT SỰ toàn bộ" — event-sink chung web2_audit_events (gom 6 nguồn lịch sử riêng)
 
