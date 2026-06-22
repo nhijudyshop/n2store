@@ -3,15 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `c4aae83` — fix(inventory-tracking): số Đợt (dot_so) duy nhất toàn cục — sửa 'đợt 3 hiện data đợt cũ'
-**Last updated**: 2026-06-22 22:15:51 +07
-**Latest session**: [`RESUME:20260622-221551-c4aae83`](../20260622-221551-c4aae83.md)
-**Summary**: fix inventory-tracking: số Đợt dot_so duy nhất toàn cục (sửa đợt 3 hiện data đợt cũ) + script renumber data cũ
+**Latest commit**: `95c888f` — auto: session update
+**Last updated**: 2026-06-22 22:26:56 +07
+**Latest session**: [`RESUME:20260622-222656-95c888f`](../20260622-222656-95c888f.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`inventory-tracking/`](./inventory-tracking.md) — 1 file(s)
+- [`inventory-tracking/`](./inventory-tracking.md) — 2 file(s)
 - [`render.com/`](./render.com.md) — 2 file(s)
 
 ## All folder snapshots
@@ -37,7 +36,7 @@
 - [`hanghoan/`](./hanghoan.md) — updated 2026-06-20 12:07
 - [`inbox/`](./inbox.md) — updated 2026-06-20 12:07
 - [`index/`](./index.md) — updated 2026-06-20 16:43
-- [`inventory-tracking/`](./inventory-tracking.md) — updated 2026-06-22 22:15
+- [`inventory-tracking/`](./inventory-tracking.md) — updated 2026-06-22 22:26
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-06-20 12:07
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-20 12:07
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-06-20 12:07
@@ -57,7 +56,7 @@
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-06-20 12:07
 - [`referenceUI/`](./referenceUI.md) — updated 2026-06-19 14:27
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-06-20 12:07
-- [`render.com/`](./render.com.md) — updated 2026-06-22 22:15
+- [`render.com/`](./render.com.md) — updated 2026-06-22 22:26
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-22 17:10
 - [`service-costs/`](./service-costs.md) — updated 2026-06-20 12:07
