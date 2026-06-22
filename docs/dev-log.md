@@ -2,6 +2,24 @@
 
 ## 2026-06-23
 
+### [audit/fix] Hệ PBH "1 nguồn" — audit toàn diện + fix bug (money-leak reconcile + merged dedup + auth)
+
+User: "audit → debug → fix lỗi đến hoàn hảo" + "PBH cho về 1 nguồn, module dễ quản lý". Audit workflow 2-agent (FE 12 access-point + BE routes) → kết luận: **BE đã ~1 nguồn ở data layer** (`fast-sale-orders.js` sở hữu bảng, `/from-native-order` là create DUY NHẤT, `_cancelPbhInTx`/`restockOrderLines`/`validateStock` đã extract dùng chung). **FE bị tản mát** (12 file fetch `/api/fast-sale-orders` riêng) → đề xuất module shared `Web2PBH`.
+
+**Bug đã fix (ưu tiên money-safety):**
+
+- 🔴 **reconcile `/return-failed` MẤT TIỀN THU HỘ**: trước chỉ `UPDATE state=cancel` + restock, BỎ SÓT hoàn `wallet_deducted` cho ví khách + không sync `native_orders→cancelled`. Fix: dùng chung `_cancelPbhInTx` (restock + HOÀN VÍ idempotent) + post-tx `syncNativeOrderStatusFromPbh` + SSE ví/products/native. Export thêm `syncNativeOrderStatusFromPbh`. Verified deploy load OK.
+- 🟡 **customer-orders merged-PBH dedup**: tách `source_code` theo `'+'` để ẩn TẤT CẢ Đơn Web gốc của PBH gộp (trước chỉ match nguyên chuỗi).
+- 🟢 **pbh-render `detail()`/`openHistory()` bare-fetch** → inject `_authHeaders()` (trước 401 cho NV bị KPI-scope; bump `pbh-render.js?v=20260623auth`).
+
+**Bug KHÔNG fix (có lý do — tránh phá vỡ):**
+
+- native-orders mutation thiếu auth: DEFER — caller server-side `v2/cart.js` (Pancake cart→order) có thể không gửi token → thêm auth = 401 phá flow. Hardening, không phải money bug.
+- dashboard `p.amount_total`: KHÔNG đụng — field từ `/api/web2/dashboard-kpi` (endpoint riêng), "sửa" mù có thể phá. Cần verify payload trước.
+- customer-wallet `fetchPbhList` (offset+no-auth): **dead code** (export nhưng không caller; live path = `fetchPbhListForPhone` qua `/by-phone/:phone/orders`). Moot.
+
+**Web2PBH module (thiết kế SẴN, để làm đợt focused tiếp — tránh rush 12 file trang đang dùng):** `web2/shared/web2-pbh.js` expose: base/authHeaders/\_fetch(always-auth)/load/loadAllByOffset/get/history/fromNativeOrder/confirm/cancel/cancelBySource/bulkCancel/merge/markPrinted/normalize(1 field-authority: amount)/money/date/stateBadge/STATE_META/onChange(SSE-debounce). Migrate read-paths trước, writes (native-orders create) sau (giữ nguyên error map over_sell/cho_hang_blocked). 8 bug + duplication cataloged ở MEMORY.
+
 ### [fix] customer-orders: ẩn Đơn Web đã convert sang PBH (hết trùng dòng + double-count)
 
 User thấy trang Thu về "CHỌN ĐƠN" hiện CÙNG mã `NJ-...` 2 dòng: ĐƠN WEB (263k) + PBH (298k). Gốc: `/api/web2/customer-orders/:phone` (`render.com/routes/v2/web2-customer-orders.js`) list `native_orders` + `fast_sale_orders` RIÊNG, KHÔNG dedup. Mà 1 Đơn Web convert → 1 PBH **dùng chung số** (PBH.number = native.code, splitIndex 1; tách = `code-N`; link `fast_sale_orders.source_code = native.code`, `source_type='native_order'`). → trùng dòng ở 5 consumer (returns, report-revenue, 2× customer-360, pbh-render) + **double-count doanh thu** ở report-revenue.

@@ -121,7 +121,11 @@
 
     async function detail(number) {
         try {
-            const r = await fetch(`${WORKER}/api/fast-sale-orders/${encodeURIComponent(number)}`);
+            // FIX 2026-06-23: inject auth (giống openCustomer cùng file) — bare fetch
+            // trước đây 401 cho NV bị KPI-scope khi WEB2_AUTH_ENFORCE=1.
+            const r = await fetch(`${WORKER}/api/fast-sale-orders/${encodeURIComponent(number)}`, {
+                headers: window.PbhApi?._authHeaders ? window.PbhApi._authHeaders() : {},
+            });
             const data = await r.json();
             if (!r.ok || !data.success) throw new Error(data.error || `HTTP ${r.status}`);
             const o = data.order;
@@ -286,8 +290,10 @@
         if (window.lucide) lucide.createIcons();
 
         try {
+            // FIX 2026-06-23: inject auth (bare fetch trước đây 401 cho NV KPI-scope).
             const r = await fetch(
-                `${WORKER}/api/fast-sale-orders/${encodeURIComponent(pbhNumber)}/history?limit=100`
+                `${WORKER}/api/fast-sale-orders/${encodeURIComponent(pbhNumber)}/history?limit=100`,
+                { headers: window.PbhApi?._authHeaders ? window.PbhApi._authHeaders() : {} }
             );
             const data = await r.json();
             const list = data?.history || [];
