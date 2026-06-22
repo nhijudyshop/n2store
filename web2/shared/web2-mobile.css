@@ -67,6 +67,23 @@
         gap: 10px;
     }
 
+    /* GENERIC: mọi <header> trực tiếp con của main → xếp dọc (né whack-a-mole
+       danh sách class header từng trang: rc-page-head/sd-page-head/page-head-mini/
+       u-page-head/so-page-head/wc-page-head/web2-main-header…). Chỉ tác động header
+       đang flex (no-op nếu block/grid); header section lồng trong <section> của
+       overview KHÔNG phải con trực tiếp main nên không bị đụng. */
+    body:has(.web2-shell) main > header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+    }
+    /* Tiêu đề trang quá lớn ở mobile → cắt cho khỏi wrap 4-5 dòng. */
+    body:has(.web2-shell) main > header h1,
+    body:has(.web2-shell) main > header h2 {
+        font-size: clamp(18px, 4.6vw, 24px);
+        line-height: 1.2;
+    }
+
     /* Thanh tab ngang dễ tràn → cho cuộn ngang mượt, không xuống dòng vỡ. */
     body:has(.web2-shell) .main-tabs,
     body:has(.web2-shell) .kpi-tabs,
@@ -252,6 +269,18 @@
         width: 100%;
     }
 
+    /* Reconcile: ô quét barcode (input + chip + nút camera) → wrap, input full-width
+       để nút camera không bị cắt mép phải. */
+    body:has(.web2-shell) .rc-scanner-box {
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+    body:has(.web2-shell) .rc-scanner-box > input,
+    body:has(.web2-shell) .rc-scanner-box > .rc-scanner-input {
+        flex: 1 1 100%;
+        min-width: 0;
+    }
+
     /* ---- NÚT / CHIP: touch target ≥ 40-44px, wrap thay vì tràn ---- */
     body:has(.web2-shell) main .btn,
     body:has(.web2-shell) main button:not(.w2-mobile-menu-btn):not(.btn-link) {
@@ -273,6 +302,9 @@
     body:has(.web2-shell) .pc-actions,
     body:has(.web2-shell) .qr-actions,
     body:has(.web2-shell) .w2-actions,
+    body:has(.web2-shell) .sd-filter-actions,
+    body:has(.web2-shell) .sw-page-actions,
+    body:has(.web2-shell) .rc-actions,
     body:has(.web2-shell) .modal-actions {
         flex-wrap: wrap;
         gap: 8px;
