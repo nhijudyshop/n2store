@@ -3,16 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `3ad35df` — fix(web2-pbh) deep money-flow audit: 8 bug (double-refund/over-sell/orphan/double-count)
-**Last updated**: 2026-06-23 03:05:09 +07
-**Latest session**: [`RESUME:20260623-030509-3ad35df`](../20260623-030509-3ad35df.md)
-**Summary**: fix(web2-pbh) deep money-flow audit: 8 bug (double-refund/over-sell/orphan/double-count)
+**Latest commit**: `2fa39e8` — fix(web2-money) round 3: purchase-refund 410 retired state-machine + SePay reassign idempotency
+**Last updated**: 2026-06-23 03:25:24 +07
+**Latest session**: [`RESUME:20260623-032524-2fa39e8`](../20260623-032524-2fa39e8.md)
+**Summary**: money audit 3 vòng: PBH 8 bug + ngoài-PBH 4 bug (double-refund/over-sell/reassign-mất-tiền/state-machine-410), defer #2 /tx amount
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 5 file(s)
-- [`web2/`](./web2.md) — 1 file(s)
+- [`render.com/`](./render.com.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -27,7 +26,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-21 15:47
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-06-23 03:05
+- [`docs/`](./docs.md) — updated 2026-06-23 03:25
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-19 14:27
@@ -57,7 +56,7 @@
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-06-20 12:07
 - [`referenceUI/`](./referenceUI.md) — updated 2026-06-19 14:27
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-06-20 12:07
-- [`render.com/`](./render.com.md) — updated 2026-06-23 03:05
+- [`render.com/`](./render.com.md) — updated 2026-06-23 03:25
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-23 00:50
 - [`service-costs/`](./service-costs.md) — updated 2026-06-20 12:07
