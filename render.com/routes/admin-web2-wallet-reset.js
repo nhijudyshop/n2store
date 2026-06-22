@@ -469,22 +469,42 @@ router.post('/web2-data-wipe', async (req, res) => {
                 .json({ error: 'FK cascade-risk tới bảng GIỮ — DỪNG', cascadeRisk });
         }
         const toTruncate = delExisting.filter((t) => !WIPE_HARD_KEEP.has(t)).map(assertSafeTable);
-        if (!toTruncate.length) {
-            return res.json({
-                success: true,
-                mode: 'execute',
-                truncated: [],
-                note: 'không có bảng nào để xoá',
-            });
+        if (toTruncate.length) {
+            await db.query(
+                `TRUNCATE TABLE ${toTruncate.map((t) => `"${t}"`).join(', ')} RESTART IDENTITY CASCADE`
+            );
         }
-        await db.query(
-            `TRUNCATE TABLE ${toTruncate.map((t) => `"${t}"`).join(', ')} RESTART IDENTITY CASCADE`
-        );
+        // Tuỳ chọn: DROP bảng backup cũ *_bak_* (bản sao đơn/SP/ví/payment cũ).
+        const extra = { backupsDropped: [], recordsCleared: false };
+        if (req.body.dropBackups === true) {
+            const { rows: baks } = await db.query(
+                `SELECT table_name FROM information_schema.tables
+                 WHERE table_schema='public' AND table_type='BASE TABLE' AND table_name LIKE '%\\_bak\\_%'`
+            );
+            for (const r of baks) {
+                const t = assertSafeTable(r.table_name);
+                if (WIPE_HARD_KEEP.has(t)) continue; // an toàn: không drop bảng guard (bak_ không trùng nhưng phòng hờ)
+                await db.query(`DROP TABLE IF EXISTS "${t}" CASCADE`);
+                extra.backupsDropped.push(t);
+            }
+        }
+        // Tuỳ chọn: clear web2_records (kho generic) — user chọn xoá.
+        if (req.body.clearRecords === true) {
+            const ex = await db.query(
+                `SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='web2_records'`
+            );
+            if (ex.rows.length) {
+                await db.query(`TRUNCATE TABLE web2_records RESTART IDENTITY`);
+                extra.recordsCleared = true;
+            }
+        }
         console.log(
-            `[web2-data-wipe] EXECUTED — truncated ${toTruncate.length} tables, ${totalDelRows} rows`
+            `[web2-data-wipe] EXECUTED — truncated ${toTruncate.length} tables (${totalDelRows} rows), dropped ${extra.backupsDropped.length} backups, recordsCleared=${extra.recordsCleared}`
         );
         return res.json({
             success: true,
+            backupsDropped: extra.backupsDropped,
+            recordsCleared: extra.recordsCleared,
             mode: 'execute',
             truncated: toTruncate,
             rowsDeleted: totalDelRows,
