@@ -3,15 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `95c888f` — auto: session update
-**Last updated**: 2026-06-22 22:26:56 +07
-**Latest session**: [`RESUME:20260622-222656-95c888f`](../20260622-222656-95c888f.md)
-**Summary**: auto: session update
+**Latest commit**: `b488f20` — fix(inventory-tracking): di chuyển đơn giữa đợt đồng bộ thanh toán theo đợt đích + default số đợt hybrid; xoá script renumber (premise sai)
+**Last updated**: 2026-06-22 22:29:42 +07
+**Latest session**: [`RESUME:20260622-222942-b488f20`](../20260622-222942-b488f20.md)
+**Summary**: fix inventory-tracking: di chuyển đơn giữa đợt đồng bộ payment theo đợt đích + default số đợt hybrid (đợt span nhiều ngày là đúng, không renumber)
 
 ## Folders affected in this commit
 
-- [`inventory-tracking/`](./inventory-tracking.md) — 2 file(s)
-- [`render.com/`](./render.com.md) — 2 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
+- [`render.com/`](./render.com.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -26,7 +26,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-21 15:47
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-06-22 22:15
+- [`docs/`](./docs.md) — updated 2026-06-22 22:29
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-19 14:27
@@ -56,7 +56,7 @@
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-06-20 12:07
 - [`referenceUI/`](./referenceUI.md) — updated 2026-06-19 14:27
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-06-20 12:07
-- [`render.com/`](./render.com.md) — updated 2026-06-22 22:26
+- [`render.com/`](./render.com.md) — updated 2026-06-22 22:29
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-22 17:10
 - [`service-costs/`](./service-costs.md) — updated 2026-06-20 12:07
