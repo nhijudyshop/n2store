@@ -621,18 +621,31 @@
         }
         const tw = $('#vmTones');
         if (tw) {
+            // Giọng Pro/clone (server) giữ nguyên gốc → "Tông giọng" không áp được. Tắt
+            // hàng chip + hiện ghi chú để khỏi tưởng tông làm giọng "khác đi".
+            const pitchOk = TTS.isPitchCapable ? TTS.isPitchCapable(state.voiceId) : true;
+            tw.classList.toggle('is-off', !pitchOk);
             tw.innerHTML = TTS.TONES.map(
                 (t) =>
-                    `<button type="button" class="vm-chip ${t.id === state.tone ? 'on' : ''}" data-tone="${t.id}">${esc(t.label)}</button>`
+                    `<button type="button" class="vm-chip ${t.id === state.tone ? 'on' : ''}" data-tone="${t.id}"${pitchOk ? '' : ' disabled'}>${esc(t.label)}</button>`
             ).join('');
-            tw.querySelectorAll('[data-tone]').forEach((b) =>
-                b.addEventListener('click', () => {
-                    state.tone = b.dataset.tone;
-                    tw.querySelectorAll('[data-tone]').forEach((x) =>
-                        x.classList.toggle('on', x === b)
-                    );
-                })
-            );
+            if (pitchOk) {
+                tw.querySelectorAll('[data-tone]').forEach((b) =>
+                    b.addEventListener('click', () => {
+                        state.tone = b.dataset.tone;
+                        tw.querySelectorAll('[data-tone]').forEach((x) =>
+                            x.classList.toggle('on', x === b)
+                        );
+                    })
+                );
+            }
+            const note = $('#vmTonesNote');
+            if (note) {
+                note.textContent = pitchOk
+                    ? ''
+                    : 'Giọng cao cấp / Clone giữ nguyên giọng gốc — tông giọng không áp dụng (đã tắt).';
+                note.hidden = pitchOk;
+            }
         }
         renderCues();
         if (global.lucide) global.lucide.createIcons();

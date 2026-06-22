@@ -2,6 +2,14 @@
 
 ## 2026-06-22
 
+### [fix/ux] video-maker — "Tông giọng" tự TẮT khi chọn giọng AI Pro/Clone (giữ nguyên gốc)
+
+User: chọn Giọng AI Pro "Adam 3", điền văn bản → "Tạo giọng đọc" nghe **giống ~80% chứ không 100%**; hỏi "Tông giọng" (Trầm/Chuẩn/Cao) hay nút "Tạo giọng đọc" có tác động vào vivibe không, nếu có thì thêm nút tắt.
+
+- **Điều tra (không phải bug)**: (1) "Tông giọng" = pitch resample, đã có guard `!isServer` trong `synthesize` → giọng server (pro/vieneu/elevenlabs) KHÔNG bao giờ bị áp pitch; thêm nữa user đang để "Chuẩn" (pitch 1.0 = no-op). (2) Nút "Tạo giọng đọc" (`genNarration`→`synthesize`→`_proChunk`) và "Nghe thử" trong kho giọng (`previewProVoice`→`synthVoiceMeta`→`_proChunk`) gọi **CÙNG 1 API vivibe** (`/api/web2-tts-pro`, chỉ gửi `text`+`voice_id`+`speed=1.0`), **KHÔNG có xử lý/biến đổi client-side**. → ~80% là TTS đọc văn bản khác nhau có ngữ điệu khác, **timbre/giọng giống 100%** (cùng `proId`). Tông giọng KHÔNG phải nguyên nhân.
+- **Sửa UX (làm rõ "đã tắt")**: thêm `Web2VideoTTS.isPitchCapable(voiceId)` (nguồn duy nhất, mirror guard — chỉ mms/piper áp pitch). `renderVoices()` khi giọng Pro/clone: chip Tông giọng `disabled` + `.vm-chips.is-off` mờ + ghi chú `#vmTonesNote` "Giọng cao cấp / Clone giữ nguyên giọng gốc — tông giọng không áp dụng (đã tắt)." KHÔNG đụng `tonePitch()`/per-scene (guard per-voice trong `synthesize` vẫn đúng cho multi-narrator).
+- Files: `web2/video-maker/js/video-tts.js` (+isPitchCapable, export), `js/video-maker.js` (renderVoices), `index.html` (#vmTonesNote + bump ?v=20260622h), `video-maker.css` (.vm-chips.is-off + .vm-chip:disabled). Tĩnh GH Pages — không cần deploy Render.
+
 ### [feat] Per-record history (Web2AuditLog.openRecord) — nền tảng + reference native-orders/so-order
 
 User: mọi trang Web 2.0 tham chiếu module audit để hiện lịch sử chỉnh sửa THEO TỪNG RECORD (vd native-orders/so-order hiện lịch sử ở đơn). Đây là NỀN TẢNG cho rollout toàn hệ thống (audit→implement→debug→lặp).

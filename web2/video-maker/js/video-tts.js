@@ -78,6 +78,15 @@
         return _voice(voiceId).engine === 'vieneu';
     }
 
+    // "Tông giọng" (pitch) chỉ áp được cho giọng ON-DEVICE (mms/piper) — resample đổi
+    // pitch. Giọng SERVER (pro/vieneu/elevenlabs) đã là giọng hoàn chỉnh/clone → resample
+    // làm méo, KHÔNG giống → bỏ pitch (xem guard trong synthesize). Helper này là NGUỒN
+    // DUY NHẤT để UI biết có nên cho đổi tông hay không (mirror đúng guard đó).
+    function isPitchCapable(voiceId) {
+        const e = _voice(voiceId).engine;
+        return e !== 'pro' && e !== 'vieneu' && e !== 'elevenlabs';
+    }
+
     // Bỏ mọi thẻ cảm xúc đã biết khỏi text (cho engine không hỗ trợ) + gom khoảng trắng.
     function stripCues(text) {
         let t = String(text || '');
@@ -724,6 +733,7 @@
         cancelPreview,
         registerVieneuVoices,
         isCueCapable,
+        isPitchCapable,
         stripCues,
         // kho giọng Piper (free, on-device)
         listPiperCatalog,

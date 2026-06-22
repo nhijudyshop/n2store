@@ -216,6 +216,15 @@
     border-color: var(--web2-primary, #0068ff);
     color: #fff;
 }
+/* "Tông giọng" tắt khi chọn giọng Pro/clone (server giữ nguyên gốc → pitch không áp). */
+.vm-chips.is-off {
+    opacity: 0.45;
+}
+.vm-chip:disabled {
+    cursor: not-allowed;
+    background: var(--web2-bg-soft, #f1f5f9);
+    color: var(--web2-text-soft, #94a3b8);
+}
 .vm-swatches {
     display: flex;
     gap: 8px;
