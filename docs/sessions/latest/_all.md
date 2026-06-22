@@ -3,15 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `c56f57e` — fix(web2) buttons rounder (radius 2px→canonical 9px) + reconcile toolbar align
-**Last updated**: 2026-06-22 15:13:42 +07
-**Latest session**: [`RESUME:20260622-151342-c56f57e`](../20260622-151342-c56f57e.md)
-**Summary**: fix(web2) buttons rounder (radius 2px→canonical 9px) + reconcile toolbar align
+**Latest commit**: `50e528e` — auto: session update
+**Last updated**: 2026-06-22 15:18:25 +07
+**Latest session**: [`RESUME:20260622-151825-50e528e`](../20260622-151825-50e528e.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`live-chat/`](./live-chat.md) — 1 file(s)
-- [`web2/`](./web2.md) — 9 file(s)
+- [`web2/`](./web2.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -77,4 +76,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-22 15:13
+- [`web2/`](./web2.md) — updated 2026-06-22 15:18
