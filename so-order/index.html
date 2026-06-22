@@ -59,6 +59,15 @@
                             <i data-lucide="settings-2"></i>
                             Ẩn/Hiện cột
                         </button>
+                        <button
+                            id="soHistoryBtn"
+                            class="btn btn-secondary"
+                            type="button"
+                            title="Lịch sử chỉnh sửa Sổ Order"
+                        >
+                            <i data-lucide="history"></i>
+                            Lịch sử
+                        </button>
                     </div>
                 </header>
 
@@ -624,6 +633,7 @@
 
         <script src="../web2/shared/web2-auth.js?v=20260622w"></script>
         <script src="../web2/shared/web2-optimistic.js?v=20260622w"></script>
+        <script src="../web2/shared/web2-audit-log.js?v=20260622al2"></script>
         <script src="../web2/shared/web2-sidebar.js?v=20260622w"></script>
         <script>
             document.addEventListener('DOMContentLoaded', () =>
@@ -677,7 +687,7 @@
         <script src="js/so-order-import.js?v=20260622w"></script>
         <script src="js/so-order-image-modal.js?v=20260622w"></script>
         <script src="js/so-order-confirm.js?v=20260622w"></script>
-        <script src="js/so-order-toolbar.js?v=20260622w"></script>
+        <script src="js/so-order-toolbar.js?v=20260622hist"></script>
         <script src="js/so-order-app.js?v=20260622w"></script>
     </body>
 </html>

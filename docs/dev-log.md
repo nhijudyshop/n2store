@@ -2,6 +2,16 @@
 
 ## 2026-06-22
 
+### [feat] Per-record history (Web2AuditLog.openRecord) — nền tảng + reference native-orders/so-order
+
+User: mọi trang Web 2.0 tham chiếu module audit để hiện lịch sử chỉnh sửa THEO TỪNG RECORD (vd native-orders/so-order hiện lịch sử ở đơn). Đây là NỀN TẢNG cho rollout toàn hệ thống (audit→implement→debug→lặp).
+
+- **Backend** `audit-log.js`: `/list` thêm lọc `entityId` (lịch sử của 1 record cụ thể) — khớp cột `entity_id` của union. Còn `/purge` (commit trước) đã deploy.
+- **Module** `web2-audit-log.js`: `Web2AuditLog.openRecord({entity, entityId, title})` = modal per-record (tự inject modal CSS, scope NV/admin giữ nguyên, showFilters:false). `load()` ưu tiên `opts.entity/entityId`. Bump `?v=20260622al2`.
+- **Wire sink thêm 2 route**: `native-orders.js` (create/create-manual/update/confirm/cancel → entity='native-order', user từ token/\_editor/createdBy) + `web2-so-order.js` (/save document-level → entity='so-order', id='main'; per-shipment để đợt rollout).
+- **Frontend reference**: native-orders thêm nút 🕘 per-order (col-actions) → `openHistory(code)` → openRecord; so-order thêm nút "Lịch sử" toolbar → openRecord('so-order','main'). Load `web2-audit-log.js` + bump versions.
+- Cần Render deploy. Sau verify 2 trang → audit toàn bộ trang còn lại + nhân rộng.
+
 ### [fix] inventory-tracking (Web 1.0) — sửa "Đợt 3 hiện thanh toán đợt cũ": di chuyển đơn giữa đợt KÉO theo thanh toán + default số đợt an toàn
 
 User: modal "Thanh Toán CK Theo Đợt" của Đợt 3 hiện danh sách CK của **đợt cũ** (Đợt 2). Điều tra DB thật (read-only `--inspect`): chỉ có 3 đợt (1=11 ngày, 2=17 ngày, 3=1 ngày) — **đợt span nhiều ngày là ĐÚNG model** (2026-05-31 "đợt tách theo dotSo"), KHÔNG phải trùng số. Tổng screenshot 303.112 = đúng payment Đợt 2 (trước khi thêm entry 50k) → **Đợt 3 đã từng hiện payment Đợt 2**. Data hiện tại đã sạch (user nhập lại Đợt 3 = 1 entry 100k đúng, xác nhận). **Root cause**: `PUT /shipments/:id` dùng `COALESCE($20, thanh_toan_ck)` → **đổi số đợt của 1 đơn nhưng GIỮ nguyên mảng thanh toán đợt nguồn** → đơn mang payment đợt 2 sang đợt 3 (aggregation gom theo dotSo → đợt 3 hiện nhầm).

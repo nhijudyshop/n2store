@@ -35,6 +35,18 @@
         toggleFilter: NO.toggleFilter,
         toggleExpand: NO.toggleExpand,
         openCustomer: NO.openCustomer,
+        // Lịch sử thao tác per-đơn — dùng module chung Web2AuditLog (entity='native-order').
+        openHistory: (code) => {
+            if (window.Web2AuditLog) {
+                window.Web2AuditLog.openRecord({
+                    entity: 'native-order',
+                    entityId: code,
+                    title: 'Lịch sử đơn ' + code,
+                });
+            } else if (window.notificationManager) {
+                notificationManager.show('Module lịch sử chưa tải', 'error');
+            }
+        },
         filterByCustomer: NO.filterByCustomer,
         clearCustomerFilter: NO.clearCustomerFilter,
         // Phase 18: interactions modal (Tin nhắn + Bình luận)

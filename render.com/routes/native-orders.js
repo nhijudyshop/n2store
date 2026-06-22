@@ -22,6 +22,9 @@ const {
 const web2WalletService = require('../services/web2-wallet-service');
 // Gate admin cho thao tác KPI nhạy cảm (chốt base = khóa bất biến → chỉ admin).
 const { requireWeb2Admin } = require('../middleware/web2-auth');
+// EVENT-SINK audit toàn bộ (2026-06-22): ghi web2_audit_events mỗi thao tác đơn →
+// per-order history (Web2AuditLog.openRecord entity='native-order').
+const { recordAuditEvent } = require('../services/web2-audit-sink');
 // WEB2.0 — engine TAG đơn hàng auto (registry + eval cho_hang/am_ma/...). /load
 // gọi enrichOrdersWithTags → o.autoTags + o.hasChoHang. Xem services/web2-order-tags-service.
 const orderTagsSvc = require('../services/web2-order-tags-service');
@@ -154,6 +157,25 @@ function _notify(action, code) {
     } catch (e) {
         console.warn('[NATIVE-ORDERS] _notify failed:', e.message);
     }
+}
+
+// Ghi 1 dòng audit cho đơn (post-commit, best-effort). User lấy từ token →
+// _editor → createdBy/userName (native-orders truyền user qua body).
+function _auditOrder(req, action, code, note) {
+    if (!code) return;
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
+    const b = req.body || {};
+    const ed = b._editor || {};
+    recordAuditEvent(pool, {
+        entity: 'native-order',
+        entityId: code,
+        action,
+        userId: req.web2User?.id ?? ed.userId ?? b.userId ?? b.createdBy ?? null,
+        userName:
+            req.web2User?.display_name ?? ed.userName ?? b.userName ?? b.createdByName ?? null,
+        sourcePage: 'native-orders',
+        changes: note ? { note } : {},
+    });
 }
 
 // -----------------------------------------------------
@@ -1147,6 +1169,7 @@ router.post('/from-comment', async (req, res) => {
 
         // 3W4: WS broadcast đã gỡ — SSE _notify là kênh realtime duy nhất.
         _notify('create', order.code);
+        _auditOrder(req, 'create', order.code, 'Tạo đơn (live)');
         res.json({ success: true, order, merged: false });
     } catch (error) {
         console.error('[NATIVE-ORDERS] POST /from-comment error:', error);
@@ -1257,6 +1280,7 @@ router.post('/create-manual', async (req, res) => {
         });
         const order = mapRowToOrder(insert.rows[0]);
         _notify('create-manual', order.code);
+        _auditOrder(req, 'create', order.code, 'Tạo đơn (thủ công)');
         res.json({ success: true, order });
     } catch (error) {
         console.error('[NATIVE-ORDERS] POST /create-manual error:', error);
@@ -2020,6 +2044,12 @@ router.patch('/:code', async (req, res) => {
         }
         // 3W4: WS broadcast đã gỡ — SSE _notify là kênh realtime duy nhất.
         _notify('update', order.code);
+        _auditOrder(
+            req,
+            'update',
+            order.code,
+            body?.status ? 'Đổi trạng thái: ' + body.status : 'Sửa đơn'
+        );
 
         // Sprint 1 KPI: diff productsBefore vs productsNew → emit forecast events.
         // Fire-and-forget — KPI lỗi không block response.
@@ -2151,6 +2181,7 @@ router.post('/:code/confirm', async (req, res) => {
         }
         // 3W4: WS broadcast đã gỡ — SSE _notify là kênh realtime duy nhất.
         _notify('confirm', code);
+        _auditOrder(req, 'confirm', code, 'Xác nhận đơn');
         res.json({ success: true, order, pbhSync });
     } catch (e) {
         console.error('[NATIVE-ORDERS] /confirm error:', e.message);
@@ -2302,6 +2333,7 @@ router.post('/:code/cancel', async (req, res) => {
         }
         // 3W4: WS broadcast đã gỡ — SSE _notify là kênh realtime duy nhất.
         _notify('cancel', code);
+        _auditOrder(req, 'cancel', code, 'Hủy đơn');
 
         // Sprint 1 KPI: emit actual_revoked cho từng SP đã có actual_confirmed.
         // Lookup events qua order_code; emit qua deterministic client_event_id.

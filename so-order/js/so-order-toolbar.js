@@ -51,6 +51,18 @@
         document
             .getElementById('soColumnSettingsBtn')
             .addEventListener('click', SO.openColumnModal);
+        // Lịch sử chỉnh sửa Sổ Order (document-level) — module chung Web2AuditLog.
+        document.getElementById('soHistoryBtn')?.addEventListener('click', () => {
+            if (window.Web2AuditLog) {
+                window.Web2AuditLog.openRecord({
+                    entity: 'so-order',
+                    entityId: 'main',
+                    title: 'Lịch sử chỉnh sửa Sổ Order',
+                });
+            } else if (window.notificationManager) {
+                notificationManager.show('Module lịch sử chưa tải', 'error');
+            }
+        });
         document.getElementById('soTabDeleteBtn').addEventListener('click', SO.handleTabDelete);
         SO._wireShipMetaAll();
         const editBtn = document.getElementById('soEditTableBtn');

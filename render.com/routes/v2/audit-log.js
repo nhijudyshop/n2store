@@ -48,6 +48,9 @@ router.get('/list', requireWeb2AuthSoft, async (req, res) => {
         const limit = Math.min(Number(req.query.limit) || 100, 500);
         const offset = Number(req.query.offset) || 0;
         const filterEntity = req.query.entity || null;
+        // entityId: lọc lịch sử của 1 RECORD cụ thể (đơn/SP/KH…) — cho per-record
+        // history viewer (Web2AuditLog.openRecord). Khớp cột entity_id của union.
+        const filterEntityId = req.query.entityId || req.query.entity_id || null;
         const filterUser = req.query.user || null;
         const from = req.query.from || null;
         const to = req.query.to || null;
@@ -161,6 +164,10 @@ router.get('/list', requireWeb2AuthSoft, async (req, res) => {
         if (filterEntity) {
             params.push(filterEntity);
             filters.push(`entity = $${params.length}`);
+        }
+        if (filterEntityId) {
+            params.push(filterEntityId);
+            filters.push(`entity_id = $${params.length}`);
         }
 
         // SCOPE (2026-06-22): NV chỉ xem thao tác của CHÍNH MÌNH, admin xem TẤT CẢ.

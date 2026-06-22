@@ -410,6 +410,10 @@
                             </button>`
                                     : '<span class="web2-action-placeholder"></span>'
                             }
+                            <button class="web2-btn web2-btn-default web2-btn-xs" title="Lịch sử thao tác đơn ${NO.escapeHtml(o.code)}" aria-label="Lịch sử đơn" style="color:#7c3aed;"
+                                onclick="event.stopPropagation();NativeOrdersApp.openHistory('${NO.escapeHtml(o.code)}')">
+                                <i data-lucide="history" style="width:12px;height:12px;"></i>
+                            </button>
                             ${
                                 o.status === 'draft' || o.status === 'confirmed'
                                     ? `<button class="web2-btn web2-btn-default web2-btn-xs" title="Tách đơn (tạo đơn mới ${sttValue}-N với giỏ rỗng — cùng khách. Đơn mới sẽ là draft → có thể Tạo PBH riêng)" aria-label="Tách đơn" style="color:#0ea5e9;"

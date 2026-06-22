@@ -91,6 +91,15 @@
 .w2al-diff{font-size:11px;max-width:360px;max-height:90px;overflow:auto;background:var(--gray-50,#f8fafc);border:1px dashed var(--border,#e5e7eb);padding:6px;margin:0;border-radius:6px;white-space:pre-wrap;word-break:break-word}
 .w2al-msg{padding:20px;text-align:center;color:#94a3b8}
 .w2al-msg.err{color:#dc2626}
+.w2al-ov{position:fixed;inset:0;z-index:10000;display:flex;align-items:center;justify-content:center;background:rgba(15,23,42,.42);padding:16px}
+.w2al-modal{background:var(--surface,#fff);border-radius:var(--web2-radius,12px);box-shadow:0 16px 48px rgba(0,0,0,.22);width:min(860px,96vw);max-height:88vh;display:flex;flex-direction:column;overflow:hidden;animation:w2alIn .16s ease}
+@keyframes w2alIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.w2al-mhead{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--border,#e6e9ef)}
+.w2al-mhead h3{margin:0;font-size:15px;font-weight:700;flex:1;color:var(--web2-text,#1e293b);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.w2al-mhead .w2al-x{border:0;background:var(--gray-50,#f1f5f9);width:30px;height:30px;border-radius:8px;cursor:pointer;font-size:17px;line-height:1;color:#64748b}
+.w2al-mhead .w2al-x:hover{background:#e2e8f0}
+.w2al-mbody{padding:14px 18px;overflow:auto}
+@media (prefers-reduced-motion:reduce){.w2al-modal{animation:none}}
 @media (max-width:768px){
   .w2al-tbl th:nth-child(3),.w2al-tbl td:nth-child(3),
   .w2al-tbl th:nth-child(6),.w2al-tbl td:nth-child(6){display:none}
@@ -192,11 +201,13 @@
             const el = host.querySelector(cls);
             return el ? el.value.trim() : '';
         };
-        const e = get('.w2al-entity');
+        // opts.entity/entityId = chế độ PER-RECORD (cố định, ưu tiên hơn filter UI).
+        const e = opts.entity || get('.w2al-entity');
         const u = get('.w2al-user');
         const f = get('.w2al-from');
         const t = get('.w2al-to');
         if (e) q.set('entity', e);
+        if (opts.entityId) q.set('entityId', opts.entityId);
         if (u) q.set('user', u);
         if (f) q.set('from', f);
         if (t) q.set('to', t);
@@ -294,6 +305,48 @@
             const host = target ? resolveHost(target) : _last && _last.host;
             const opts = (target ? {} : _last && _last.opts) || {};
             if (host) load(host, opts);
+        },
+        // PER-RECORD history viewer (modal). Mọi trang dùng để hiện lịch sử của 1
+        // record cụ thể (đơn/SP/KH/phiếu…). Scope NV/admin vẫn áp dụng server-side.
+        //   opts: { entity (bắt buộc), entityId (bắt buộc), title?, limit? }
+        openRecord(opts) {
+            opts = opts || {};
+            if (!opts.entity || !opts.entityId) {
+                console.warn('[Web2AuditLog] openRecord cần {entity, entityId}');
+                return;
+            }
+            injectStyle();
+            const ov = document.createElement('div');
+            ov.className = 'w2al-ov';
+            const title = opts.title || `Lịch sử: ${opts.entityId}`;
+            ov.innerHTML = `
+                <div class="w2al-modal" role="dialog" aria-modal="true">
+                    <div class="w2al-mhead">
+                        <h3>${esc(title)}</h3>
+                        <button type="button" class="w2al-x" aria-label="Đóng">×</button>
+                    </div>
+                    <div class="w2al-mbody"></div>
+                </div>`;
+            const close = () => {
+                document.removeEventListener('keydown', onKey);
+                ov.remove();
+            };
+            const onKey = (ev) => {
+                if (ev.key === 'Escape') close();
+            };
+            ov.addEventListener('click', (ev) => {
+                if (ev.target === ov) close();
+            });
+            ov.querySelector('.w2al-x').addEventListener('click', close);
+            document.addEventListener('keydown', onKey);
+            document.body.appendChild(ov);
+            this.mount(ov.querySelector('.w2al-mbody'), {
+                showFilters: false,
+                entity: opts.entity,
+                entityId: String(opts.entityId),
+                limit: opts.limit || 100,
+            });
+            return { close };
         },
     };
 

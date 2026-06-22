@@ -20,6 +20,10 @@
 const express = require('express');
 const router = express.Router();
 const { requireWeb2AuthSoft, requireWeb2Admin } = require('../middleware/web2-auth');
+// EVENT-SINK audit (2026-06-22): ghi web2_audit_events mỗi lần lưu Sổ Order
+// (document-level: ai lưu, lúc nào, version). entity='so-order', id='main'.
+// Per-shipment detail = đợt sau (frontend gửi changeNote). Xem audit rollout.
+const { recordAuditEvent } = require('../services/web2-audit-sink');
 
 const DOC_ID = 'main';
 
@@ -121,6 +125,15 @@ router.post('/save', requireWeb2AuthSoft, async (req, res) => {
             );
             if (ins.rows.length) {
                 _notify('create', 1);
+                recordAuditEvent(pool, {
+                    entity: 'so-order',
+                    entityId: 'main',
+                    action: 'create',
+                    userId: req.web2User?.id ?? null,
+                    userName: updatedBy,
+                    sourcePage: 'so-order',
+                    changes: { version: 1, note: b.changeNote || 'Tạo Sổ Order' },
+                });
                 return res.json({ success: true, version: 1, lastUpdated: now });
             }
             // Đã tồn tại → conflict, trả server hiện tại.
@@ -150,6 +163,15 @@ router.post('/save', requireWeb2AuthSoft, async (req, res) => {
         if (upd.rows.length) {
             const v = Number(upd.rows[0].version) || baseVersion + 1;
             _notify('update', v);
+            recordAuditEvent(pool, {
+                entity: 'so-order',
+                entityId: 'main',
+                action: 'update',
+                userId: req.web2User?.id ?? null,
+                userName: updatedBy,
+                sourcePage: 'so-order',
+                changes: { version: v, note: b.changeNote || 'Lưu Sổ Order' },
+            });
             return res.json({ success: true, version: v, lastUpdated: now });
         }
         // version mismatch → ai đó vừa ghi → 409 trả server hiện tại để client xử lý.
