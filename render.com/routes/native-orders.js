@@ -2247,6 +2247,9 @@ router.post('/:code/cancel', async (req, res) => {
         let r;
         let refunded = 0;
         const pbhCancelled = [];
+        // audit d-fix (2026-06-23): mã đơn anh em (member của PBH gộp) bị huỷ lan
+        // truyền — dùng để thu hồi KPI cho TẤT CẢ, không chỉ req.params.code.
+        let cancelledMemberCodes = [];
         try {
             await client.query('BEGIN');
             r = await client.query(
@@ -2290,12 +2293,43 @@ router.post('/:code/cancel', async (req, res) => {
                  FOR UPDATE`,
                 [code, `${code}+%`, `%+${code}+%`, `%+${code}`]
             );
+            // audit d-fix (2026-06-23): khi PBH liên kết là PBH GỘP (source_code
+            // 'NJ-A+NJ-B'), huỷ đơn NJ-A cancel PBH gộp nhưng đơn anh em NJ-B vẫn
+            // status='confirmed' (mồ côi: trông như còn sống, re-convert được, KPI
+            // chưa thu hồi). Gom MỌI mã thành viên từ source_code của PBH đã cancel
+            // → cancel chung trong CÙNG transaction (atomic). Mirror sync 2 chiều
+            // syncNativeOrderStatusFromPbh nhưng chạy in-tx với client.
+            const memberCodeSet = new Set();
             for (const lp of linkedPbh.rows) {
                 const cr = await fastSale._cancelPbhInTx(client, lp.number, performedBy);
                 if (!cr.notFound) {
                     pbhCancelled.push(lp.number);
                     refunded += Number(cr.walletRefunded) || 0;
+                    const srcCode = cr.prevRow?.source_code;
+                    if (srcCode) {
+                        String(srcCode)
+                            .split('+')
+                            .map((s) => s.trim())
+                            .filter(Boolean)
+                            .forEach((mc) => memberCodeSet.add(mc));
+                    }
                 }
+            }
+            // Đơn vừa huỷ (code) đã set ở UPDATE đầu — loại khỏi danh sách lan truyền.
+            memberCodeSet.delete(code);
+            const memberCodes = [...memberCodeSet];
+            if (memberCodes.length) {
+                const propRes = await client.query(
+                    `UPDATE native_orders
+                     SET status = 'cancelled', updated_at = $1,
+                         note = COALESCE(note || E'\n---\n', '')
+                                || '[' || to_char(NOW(),'DD/MM/YYYY HH24:MI') || '] [HUỶ ĐƠN] '
+                                || 'Huỷ theo PBH gộp (đơn ' || $3 || ')'
+                     WHERE code = ANY($2::text[]) AND status <> 'cancelled'
+                     RETURNING code`,
+                    [Date.now(), memberCodes, code]
+                );
+                cancelledMemberCodes = propRes.rows.map((x) => x.code);
             }
             await client.query('COMMIT');
         } catch (txErr) {
@@ -2306,7 +2340,26 @@ router.post('/:code/cancel', async (req, res) => {
         }
 
         const order = mapRowToOrder(r.rows[0]);
-        const pbhSync = { synced: pbhCancelled.length, numbers: pbhCancelled };
+        const pbhSync = {
+            synced: pbhCancelled.length,
+            numbers: pbhCancelled,
+            // audit d-fix (2026-06-23): mã đơn anh em bị huỷ lan truyền theo PBH gộp.
+            cancelledMembers: cancelledMemberCodes,
+        };
+        // SSE: đơn anh em vừa bị huỷ → tab/máy khác refresh danh sách native-orders.
+        if (cancelledMemberCodes.length && req.app.locals.web2RealtimeSseNotify) {
+            try {
+                req.app.locals.web2RealtimeSseNotify(
+                    'web2:native-orders',
+                    {
+                        action: 'merged-sibling-cancel',
+                        codes: cancelledMemberCodes,
+                        ts: Date.now(),
+                    },
+                    'update'
+                );
+            } catch {}
+        }
         if (refunded > 0 && req.app.locals.web2RealtimeSseNotify) {
             try {
                 req.app.locals.web2RealtimeSseNotify(
@@ -2337,22 +2390,26 @@ router.post('/:code/cancel', async (req, res) => {
 
         // Sprint 1 KPI: emit actual_revoked cho từng SP đã có actual_confirmed.
         // Lookup events qua order_code; emit qua deterministic client_event_id.
+        // audit d-fix (2026-06-23): thu hồi KPI cho CẢ đơn anh em bị huỷ lan truyền
+        // (member của PBH gộp), không chỉ req.params.code — nếu không KPI đơn NJ-B
+        // vẫn còn dù đơn đã cancelled.
         try {
             const kpiModule = require('./v2/kpi');
             const editor = (req.body && req.body._editor) || {};
             const actorId = Number(editor.userId) || null;
+            const revokeCodes = [...new Set([code, ...cancelledMemberCodes])];
             const events = await pool.query(
-                `SELECT e.id, e.product_code, e.qty_delta, e.beneficiary_user_id,
+                `SELECT e.id, e.order_code, e.product_code, e.qty_delta, e.beneficiary_user_id,
                         e.beneficiary_name, e.customer_id, e.source,
                         e.campaign_id, e.order_campaign_stt
                  FROM web2_kpi_events e
-                 WHERE e.order_code = $1 AND e.event_type = 'actual_confirmed'
+                 WHERE e.order_code = ANY($1::text[]) AND e.event_type = 'actual_confirmed'
                    AND NOT EXISTS (
                        SELECT 1 FROM web2_kpi_events r
                        WHERE r.event_type = 'actual_revoked'
                          AND r.revokes_event_id = e.id
                    )`,
-                [code]
+                [revokeCodes]
             );
             for (const ev of events.rows) {
                 await kpiModule.emitKpiEvent(pool, {
@@ -2362,7 +2419,7 @@ router.post('/:code/cancel', async (req, res) => {
                     beneficiary_user_id: ev.beneficiary_user_id,
                     beneficiary_name: ev.beneficiary_name,
                     beneficiary_source: 'assignment',
-                    order_code: code,
+                    order_code: ev.order_code,
                     order_campaign_stt: ev.order_campaign_stt,
                     customer_id: ev.customer_id,
                     product_code: ev.product_code,
@@ -2891,6 +2948,45 @@ router.post('/merge-to-pbh', async (req, res) => {
         );
         const newNumber = ins.rows[0].number;
 
+        // audit d-fix (2026-06-23): re-check tồn DƯỚI advisory lock theo MÃ SP bên
+        // TRONG transaction — giống nhánh create (from-native-order / manual create
+        // ở fast-sale-orders.js:1370-1408). validateStock ngoài lock (line ~2841)
+        // KHÔNG serialize 2 merge cùng 1 SP → cả 2 qua check rồi cùng trừ →
+        // GREATEST(0,...) bên dưới nuốt âm = OVER-SELL thầm lặng. Khoá theo code
+        // (sort tránh deadlock) + so tổng cần với tồn tươi. force:true bypass (parity).
+        if (req.body?.force !== true) {
+            const needMap = new Map();
+            for (const line of combinedLines) {
+                const c = line.productCode;
+                const q = Number(line.quantity) || 0;
+                if (!c || q <= 0) continue;
+                needMap.set(c, (needMap.get(c) || 0) + q);
+            }
+            const sortedCodes = [...needMap.keys()].sort();
+            for (const c of sortedCodes) {
+                await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
+                    'web2_product_stock:' + c,
+                ]);
+            }
+            if (sortedCodes.length) {
+                const sres = await client.query(
+                    `SELECT code, stock FROM web2_products WHERE code = ANY($1::text[])`,
+                    [sortedCodes]
+                );
+                const sMap = new Map(sres.rows.map((row) => [row.code, Number(row.stock) || 0]));
+                const viol = [];
+                for (const [c, reqd] of needMap) {
+                    const avail = sMap.has(c) ? sMap.get(c) : 0;
+                    if (reqd > avail) viol.push({ code: c, requested: reqd, available: avail });
+                }
+                if (viol.length) {
+                    const err = new Error('over_sell');
+                    err.__overSell = viol;
+                    throw err;
+                }
+            }
+        }
+
         // 3H5 FIX: trừ kho TRONG cùng transaction (mirror from-native-order —
         // clamp GREATEST(0)); cancel PBH gộp về sau restock đủ qua stock_restored.
         const stockNow = Date.now();
@@ -2961,6 +3057,15 @@ router.post('/merge-to-pbh', async (req, res) => {
         });
     } catch (e) {
         await client.query('ROLLBACK').catch(() => {});
+        // audit d-fix (2026-06-23): over_sell từ recheck dưới lock → 400 (client xử lý
+        // data.error==='over_sell' + violations), không phải 500. Mirror create path.
+        if (e && e.__overSell) {
+            return res.status(400).json({
+                error: 'over_sell',
+                message: 'Gộp → PBH thất bại: số lượng vượt tồn kho ở 1 hoặc nhiều SP',
+                violations: e.__overSell,
+            });
+        }
         console.error('[NATIVE-ORDERS] merge-to-pbh error:', e);
         res.status(500).json({ error: e.message });
     } finally {

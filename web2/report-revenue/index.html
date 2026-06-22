@@ -622,17 +622,17 @@
                         <div style="display:flex;gap:14px;margin-bottom:16px;flex-wrap:wrap;">
                             <div style="background:#e8f2ff;color:#004bb5;padding:10px 14px;border-radius:8px;flex:1;min-width:140px;">
                                 <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.04em;">Đơn web</div>
-                                <div style="font-size:18px;font-weight:700;">${summary.native.count}</div>
-                                <div style="font-size:11px;">${m(summary.native.totalAmount)}</div>
+                                <div style="font-size:18px;font-weight:700;">${summary?.totalNative ?? 0}</div>
+                                <div style="font-size:11px;">${m(summary?.totalNativeAmount ?? 0)}</div>
                             </div>
                             <div style="background:#dbeafe;color:#1e40af;padding:10px 14px;border-radius:8px;flex:1;min-width:140px;">
                                 <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.04em;">PBH</div>
-                                <div style="font-size:18px;font-weight:700;">${summary.pbh.count}</div>
-                                <div style="font-size:11px;">${m(summary.pbh.totalAmount)}</div>
+                                <div style="font-size:18px;font-weight:700;">${summary?.totalPbh ?? 0}</div>
+                                <div style="font-size:11px;">${m(summary?.totalPbhAmount ?? 0)}</div>
                             </div>
                         </div>
-                        ${renderRows('Đơn web', native, 'code', 'totalAmount', 'status')}
-                        ${renderRows('PBH', pbh, 'number', 'amountTotal', 'state')}
+                        ${renderRows('Đơn web', native, 'number', 'totalAmount', 'state')}
+                        ${renderRows('PBH', pbh, 'number', 'totalAmount', 'state')}
                     `;
                 } catch (e) {
                     body.innerHTML = `<div style="color:#dc2626;">Lỗi: ${esc(e.message)}</div>`;

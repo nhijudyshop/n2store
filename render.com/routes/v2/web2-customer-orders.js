@@ -167,7 +167,10 @@ router.get('/:phoneOrId', requireWeb2AuthSoft, async (req, res) => {
                         itemCount: Number(row.total_quantity) || 0,
                     });
                     totals.native.count += 1;
-                    totals.native.amount += amt;
+                    // FIX 2026-06-23: bỏ Đơn Web đã huỷ khỏi TIỀN (đối xứng với PBH
+                    // line ~139 chỉ cộng khi state != 'cancel'). Trước cộng vô điều kiện
+                    // → "Đơn web (NW)" phồng tiền so với PBH bên cạnh.
+                    if (row.status !== 'cancelled') totals.native.amount += amt;
                 }
             } catch (e) {
                 console.warn('[web2-customer-orders] native query fail:', e.message);

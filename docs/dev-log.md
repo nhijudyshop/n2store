@@ -2,6 +2,23 @@
 
 ## 2026-06-23
 
+### [audit/fix] Hệ PBH vòng 2 — deep money-flow audit (8 bug thật, 2 false-pos refute) + fix
+
+User "audit → debug → fix lặp đến hoàn hảo". Workflow adversarial (4 chiều ví/kho/state/báo-cáo, find→refute→confirm) → 10 candidate → **8 bug thật** (2 false-pos đã loại đúng: KPI-revoke-merged không execute, bulk-confirm native đã confirmed). Verify trước 3 bug deft lần trước: dashboard `amount_total` (KHÔNG bug — dashboard-kpi trả đúng cột), bulkMerge draft-only (by-design, BE cũng chặn), native-auth /from-comment (cart.js loopback KHÔNG token → defer ĐÚNG).
+
+**8 bug đã fix:**
+
+- 🔴 **#1 web2-returns thu_ve_1_phan HOÀN VÍ 2 LẦN** (money): trả 1 phần cộng ví nhưng KHÔNG trừ `wallet_deducted` PBH nguồn → huỷ/xoá/return-failed PBH sau hoàn LẠI full = double. Fix: trong tx lock PBH nguồn, trừ `wallet_deducted` (clamp 0) phân bổ + snapshot `{id,dec}`; DELETE phiếu trả cộng lại về PBH còn live. Đối xứng KNH (zero-out) nhưng trừ MỘT PHẦN.
+- 🔴 **#2 native-orders /merge-to-pbh over-sell** (stock): trừ kho `GREATEST(0,...)` không advisory-lock/recheck → over-sell thầm lặng (2 path sibling đã fix, path này sót). Fix: copy pattern `pg_advisory_xact_lock(web2_product_stock:<code>)` + re-check + throw over_sell, gate `force!==true`.
+- 🔴 **#3 native-orders /:code/cancel orphan merged siblings** (state): chỉ UPDATE `WHERE code=$3` → native con của PBH gộp kẹt 'confirmed'. Fix: tách `source_code '+'` → cancel hết member + revoke KPI cho mọi member + SSE.
+- 🔴 **#4 fast-sale-orders PATCH /:number đổi state=cancel/done bare-UPDATE** → bỏ sót restock/hoàn ví/sync. Fix: chặn 400 `state_change_via_patch_forbidden`, ép qua /cancel /confirm.
+- 🟡 **#5 fast-sale-orders DELETE /:number orphan native_order**: không sync. Fix: `syncNativeOrderStatusFromPbh(prevRow,'cancel')` + SSE (tách source_code '+').
+- 🔴 **#6 pbh-reports top-customers-360 double-count doanh thu**: native+pbh cùng đơn cộng 2. Fix: CTE `converted_native` loại native đã có PBH (split '+').
+- 🟡 **#7 customer-orders totals.native cộng cả Đơn Web huỷ**: lệch vs PBH. Fix: `if (status!=='cancelled')`.
+- 🟡 **#8 report-revenue modal đọc sai shape** (`summary.native.count` → TypeError vỡ modal): Fix đọc `summary.totalNative/totalNativeAmount/totalPbh/totalPbhAmount` + key `totalAmount`, optional-chaining.
+
+Tất cả `node --check` PASS. Money/state ĐỀU atomic trong tx + idempotent. Cần Render deploy.
+
 ### [audit/fix] Hệ PBH "1 nguồn" — audit toàn diện + fix bug (money-leak reconcile + merged dedup + auth)
 
 User: "audit → debug → fix lỗi đến hoàn hảo" + "PBH cho về 1 nguồn, module dễ quản lý". Audit workflow 2-agent (FE 12 access-point + BE routes) → kết luận: **BE đã ~1 nguồn ở data layer** (`fast-sale-orders.js` sở hữu bảng, `/from-native-order` là create DUY NHẤT, `_cancelPbhInTx`/`restockOrderLines`/`validateStock` đã extract dùng chung). **FE bị tản mát** (12 file fetch `/api/fast-sale-orders` riêng) → đề xuất module shared `Web2PBH`.

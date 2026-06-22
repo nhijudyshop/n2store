@@ -321,7 +321,19 @@ router.get('/top-customers-360', async (req, res) => {
         const limit = Math.max(1, Math.min(100, parseInt(req.query.limit, 10) || 10));
         const r = await pool.query(
             `
-            WITH nw AS (
+            WITH converted_native AS (
+                -- BUG #6 (2026-06-23): 1 Đơn Web → convert thành 1 PBH dùng CHUNG đơn vật lý
+                -- (fast_sale_orders.source_code = native.code; PBH gộp nhiều đơn = 'NJ-A+NJ-B').
+                -- Đếm CẢ native LẪN PBH → double-count doanh thu cùng 1 đơn. Tách '+' để loại
+                -- TẤT CẢ native gốc đã convert (mirror dedup ở routes/v2/web2-customer-orders.js).
+                SELECT DISTINCT TRIM(c) AS code
+                FROM fast_sale_orders
+                CROSS JOIN LATERAL unnest(string_to_array(source_code, '+')) AS c
+                WHERE source_type = 'native_order'
+                  AND source_code IS NOT NULL
+                  AND TRIM(c) <> ''
+            ),
+            nw AS (
                 SELECT
                     customer_id,
                     COUNT(*)::int AS nw_count,
@@ -331,6 +343,7 @@ router.get('/top-customers-360', async (req, res) => {
                     MAX(customer_name) FILTER (WHERE customer_name IS NOT NULL) AS name_hint
                 FROM native_orders
                 WHERE customer_id IS NOT NULL
+                  AND code NOT IN (SELECT code FROM converted_native) -- BUG #6: loại đơn đã convert sang PBH
                   AND to_timestamp(created_at / 1000) >= (NOW() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date - ($1 || ' days')::interval
                 GROUP BY customer_id
             ),

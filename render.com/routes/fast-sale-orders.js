@@ -2187,6 +2187,16 @@ router.patch('/:number', requireWeb2AuthSoft, async (req, res) => {
                     to: b.state,
                 });
             }
+            // FIX 2026-06-23: 'cancel'/'done' có SIDE-EFFECT (restock + HOÀN VÍ + sync
+            // native_orders + KPI). PATCH chỉ bare-UPDATE cột state → bỏ sót hết side-effect
+            // (mất tiền/lệch kho/đơn web orphan). BẮT BUỘC qua endpoint riêng.
+            if (b.state === 'cancel' || b.state === 'done') {
+                return res.status(400).json({
+                    error: 'state_change_via_patch_forbidden',
+                    message: `Đổi state '${b.state}' phải qua endpoint riêng (restock/hoàn ví/sync), không qua PATCH.`,
+                    useEndpoint: `/api/fast-sale-orders/${req.params.number}/${b.state === 'cancel' ? 'cancel' : 'confirm'}`,
+                });
+            }
         }
         const allowed = {
             partnerName: 'partner_name',
@@ -2727,7 +2737,7 @@ router.delete('/:number', requireWeb2AuthSoft, async (req, res) => {
         const delTx = await withTransaction(pool, async (client) => {
             const prev = await client.query(
                 `SELECT id, number, state, stock_restored, order_lines,
-                        partner_phone, wallet_deducted
+                        partner_phone, wallet_deducted, source_type, source_code
                  FROM fast_sale_orders WHERE number = $1 FOR UPDATE`,
                 [req.params.number]
             );
@@ -2773,6 +2783,27 @@ router.delete('/:number', requireWeb2AuthSoft, async (req, res) => {
                     'update'
                 );
             } catch {}
+        }
+        // FIX 2026-06-23: sync ngược native_orders → 'cancelled' (single + merged) như
+        // /cancel. Trước đây DELETE PBH bỏ sót → Đơn Web kẹt 'confirmed' (orphan: nhìn
+        // active, re-convert được, KPI không revoke). syncNativeOrderStatusFromPbh tách
+        // source_code '+' nên xử lý cả PBH gộp.
+        try {
+            const nativeSync = await syncNativeOrderStatusFromPbh(pool, delTx.prevRow, 'cancel');
+            if (nativeSync.synced > 0 && req.app.locals.web2RealtimeSseNotify) {
+                req.app.locals.web2RealtimeSseNotify(
+                    'web2:native-orders',
+                    {
+                        action: 'pbh-delete-sync',
+                        state: 'cancel',
+                        codes: nativeSync.codes,
+                        ts: Date.now(),
+                    },
+                    'update'
+                );
+            }
+        } catch (e) {
+            console.warn('[FAST-SALE-ORDERS] DELETE native-sync warn:', e.message);
         }
         _notify('delete', req.params.number);
         res.json({

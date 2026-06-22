@@ -837,6 +837,51 @@ router.post('/', requireWeb2AuthSoft, async (req, res) => {
                         );
                         walletCredit = freshDeducted > 0 ? freshDeducted : 0;
                     }
+                    // FIX 2026-06-23 (#1 audit money): thu_ve_1_phan TRƯỚC ĐÂY cộng ví
+                    // nhưng KHÔNG trừ wallet_deducted của PBH nguồn → huỷ/xoá/return-failed
+                    // PBH về sau hoàn LẠI full wallet_deducted = HOÀN VÍ 2 LẦN. Fix đối xứng
+                    // KNH nhưng TRỪ MỘT PHẦN: lock PBH nguồn FOR UPDATE, re-cap theo số TƯƠI,
+                    // trừ walletCredit (clamp 0) phân bổ theo từng PBH, snapshot {id,dec} để
+                    // DELETE phiếu trả cộng lại. KHÔNG set stock_restored (chỉ trả 1 phần).
+                    if (subType === 'thu_ve_1_phan' && walletCredit > 0 && sourceOrderCode) {
+                        const lockQ =
+                            sourceOrderType === 'pbh'
+                                ? await client.query(
+                                      `SELECT id, wallet_deducted FROM fast_sale_orders
+                                       WHERE number = $1 FOR UPDATE`,
+                                      [sourceOrderCode]
+                                  )
+                                : await client.query(
+                                      `SELECT id, wallet_deducted FROM fast_sale_orders
+                                       WHERE source_type = 'native_order' AND source_code = $1
+                                         AND state <> 'cancel'
+                                       ORDER BY id FOR UPDATE`,
+                                      [sourceOrderCode]
+                                  );
+                        const freshTotal = lockQ.rows.reduce(
+                            (s, r) => s + (Number(r.wallet_deducted) || 0),
+                            0
+                        );
+                        // Re-cap theo số TƯƠI (chống race: cancel/return khác vừa trừ).
+                        walletCredit = Math.min(walletCredit, freshTotal);
+                        let remaining = walletCredit;
+                        const decs = [];
+                        for (const r of lockQ.rows) {
+                            if (remaining <= 0) break;
+                            const avail = Number(r.wallet_deducted) || 0;
+                            if (avail <= 0) continue;
+                            const dec = Math.min(avail, remaining);
+                            await client.query(
+                                `UPDATE fast_sale_orders
+                                 SET wallet_deducted = GREATEST(0, wallet_deducted - $2), date_updated = NOW()
+                                 WHERE id = $1`,
+                                [r.id, dec]
+                            );
+                            decs.push({ id: Number(r.id), dec });
+                            remaining -= dec;
+                        }
+                        pbhWalletSnapshot = decs; // {id, dec} — DELETE phiếu trả cộng lại
+                    }
                     // Dedupe thu_ve_1_phan: chặn phiếu active trùng (cùng phone +
                     // item-set) trong cửa sổ ngắn → tránh double-credit/double-stock
                     // khi double-submit/retry. So sánh chữ ký item-set đã sort.
@@ -1231,6 +1276,33 @@ router.delete('/:code', requireWeb2AuthSoft, async (req, res) => {
                                     [creditedBack, lockQ.rows[0].id]
                                 );
                             }
+                        }
+                    }
+                } else if (row.sub_type === 'thu_ve_1_phan' && row.source_order_code) {
+                    // FIX 2026-06-23 (#1 audit): huỷ phiếu trả 1 phần → CỘNG LẠI phần
+                    // wallet_deducted đã trừ về từng PBH nguồn (snapshot {id,dec}). Chỉ
+                    // PBH còn live (state<>'cancel') mới cộng lại; PBH đã huỷ thì cancel
+                    // đã hoàn ví rồi → KHÔNG re-attach (tránh over-refund). Không đụng
+                    // stock_restored (trả 1 phần — _applyStock(-1) lo phần SP trả lại).
+                    const snap = Array.isArray(row.pbh_wallet_snapshot)
+                        ? row.pbh_wallet_snapshot
+                        : [];
+                    const decs = snap.filter((s) => Number(s.dec) > 0);
+                    if (decs.length) {
+                        const liveQ = await client.query(
+                            `SELECT id FROM fast_sale_orders
+                             WHERE id = ANY($1::bigint[]) AND state <> 'cancel' FOR UPDATE`,
+                            [decs.map((s) => Number(s.id))]
+                        );
+                        const liveIds = new Set(liveQ.rows.map((r) => Number(r.id)));
+                        for (const s of decs) {
+                            if (!liveIds.has(Number(s.id))) continue;
+                            await client.query(
+                                `UPDATE fast_sale_orders
+                                 SET wallet_deducted = wallet_deducted + $1, date_updated = NOW()
+                                 WHERE id = $2`,
+                                [Number(s.dec) || 0, Number(s.id)]
+                            );
                         }
                     }
                 }
