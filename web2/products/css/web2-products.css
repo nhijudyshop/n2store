@@ -589,7 +589,7 @@
 .w2p-history-modal {
     position: fixed;
     inset: 0;
-    background: rgba(15, 23, 42, 0.55);
+    background: rgba(15, 23, 42, 0.42);
     z-index: 9500;
     display: flex;
     align-items: flex-start;
@@ -599,35 +599,36 @@
 }
 .w2p-history-box {
     background: #fff;
-    border-radius: 14px;
+    border-radius: var(--web2-radius, 12px);
     width: min(720px, 100%);
     max-height: calc(100vh - 80px);
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.25);
+    box-shadow: var(--shadow-lg, 0 12px 24px rgba(0, 0, 0, 0.18));
 }
 .w2p-history-head {
     padding: 14px 20px;
-    background: linear-gradient(135deg, #2a96ff, #2a96ff);
-    color: #fff;
+    background: linear-gradient(180deg, var(--web2-primary-soft) 0%, #fff 100%);
+    border-bottom: 1px solid var(--web2-border-btn, var(--border));
+    color: var(--native-text);
     display: flex;
     align-items: center;
     gap: 10px;
 }
 .w2p-history-close {
-    background: rgba(255, 255, 255, 0.2);
+    background: rgba(15, 23, 42, 0.06);
     border: 0;
-    color: #fff;
+    color: var(--native-text);
     width: 28px;
     height: 28px;
-    border-radius: 7px;
+    border-radius: var(--web2-radius-sm, 9px);
     cursor: pointer;
     font-size: 18px;
     line-height: 1;
 }
 .w2p-history-close:hover {
-    background: rgba(255, 255, 255, 0.35);
+    background: rgba(15, 23, 42, 0.12);
 }
 
 .w2p-history-body {

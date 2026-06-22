@@ -156,12 +156,15 @@ function _extractAttachment(kind, content) {
         params.thumbUrl ||
         '';
     const thumb = content.thumb || params.thumbUrl || params.normalUrl || url || '';
+    // link: tách riêng title/desc để render card xem trước; kind khác giữ fallback cũ (tên tệp…).
+    const title = content.title || (kind === 'link' ? '' : content.description) || '';
     return {
         type: kind,
         url: url || '',
         thumb: thumb || '',
         href: content.href || '',
-        title: content.title || content.description || '',
+        title,
+        desc: kind === 'link' ? content.description || params.description || '' : '',
     };
 }
 
@@ -763,7 +766,32 @@ async function getStickers(accountKey, keyword) {
 async function getQuickMessages(accountKey) {
     const api = _requireApi(accountKey);
     const r = await api.getQuickMessageList();
-    return { success: true, items: r?.items || r || [] };
+    const raw = Array.isArray(r?.items) ? r.items : Array.isArray(r) ? r : [];
+    // zca QuickMessage = { id, keyword, message:{title} } → chuẩn {id,keyword,title}
+    const items = raw.map((q) => ({
+        id: q.id ?? null,
+        keyword: q.keyword || '',
+        title: (q.message && q.message.title) || q.title || '',
+    }));
+    return { success: true, items };
+}
+
+// Thêm câu trả lời nhanh (keyword gợi nhớ + nội dung tin). zca: addQuickMessage({keyword,title}).
+async function addQuickMessage(accountKey, { keyword, title } = {}) {
+    const api = _requireApi(accountKey);
+    const kw = String(keyword || '').trim();
+    const msg = String(title || '').trim();
+    if (!kw || !msg) throw new Error('Cần từ khoá và nội dung câu trả lời nhanh');
+    const r = await api.addQuickMessage({ keyword: kw, title: msg });
+    const it = r?.item || {};
+    return {
+        success: true,
+        item: {
+            id: it.id ?? null,
+            keyword: it.keyword || kw,
+            title: (it.message && it.message.title) || msg,
+        },
+    };
 }
 
 async function getUserInfo(accountKey, uid) {
@@ -1021,6 +1049,7 @@ module.exports = {
     sendSeen,
     getStickers,
     getQuickMessages,
+    addQuickMessage,
     getUserInfo,
     findUser,
     getMultiUsersByPhones,

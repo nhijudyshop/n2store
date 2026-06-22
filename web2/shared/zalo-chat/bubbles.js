@@ -99,6 +99,23 @@
         }
         if (kind === 'link') {
             const href = a.href || a.url || m.content || '';
+            const title = (a.title || '').trim();
+            const desc = (a.desc || '').trim();
+            const thumb = a.thumb && a.thumb !== href ? a.thumb : '';
+            let host = '';
+            try {
+                host = new URL(href).hostname.replace(/^www\./, '');
+            } catch {}
+            // Card xem trước khi có metadata (tiêu đề/ảnh/mô tả); thiếu → link gọn như cũ.
+            if (title || desc || thumb) {
+                return `<a class="wz-msg-linkcard" href="${esc(href)}" target="_blank" rel="noopener noreferrer">
+                    ${thumb ? `<span class="wz-lc-thumb"><img src="${esc(thumb)}" alt="" loading="lazy" referrerpolicy="no-referrer"></span>` : ''}
+                    <span class="wz-lc-body">
+                        ${title ? `<span class="wz-lc-title">${esc(title)}</span>` : ''}
+                        ${desc ? `<span class="wz-lc-desc">${esc(desc.slice(0, 120))}</span>` : ''}
+                        <span class="wz-lc-host">${esc(host || href)}</span>
+                    </span></a>`;
+            }
             return `<a class="wz-msg-linkbox" href="${esc(href)}" target="_blank" rel="noopener noreferrer">${esc(m.content || href)}</a>`;
         }
         return fmtText(m.content || '') || '<span class="wz-msg-muted">[Tin nhắn]</span>';

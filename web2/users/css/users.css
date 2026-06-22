@@ -302,8 +302,8 @@
     justify-content: flex-end;
     gap: 8px;
     padding: 12px 20px;
-    border-top: 1px solid #e2e8f0;
-    background: #f8fafc;
+    border-top: 1px solid var(--web2-border-btn, #e6e9ef);
+    background: var(--gray-50, #f8fafc);
 }
 
 /* Form fields */

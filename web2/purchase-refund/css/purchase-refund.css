@@ -318,23 +318,26 @@ body {
 .pr-modal-content {
     position: relative;
     background: #fff;
-    border-radius: 12px;
+    border-radius: var(--web2-radius, 12px);
     width: 720px;
     max-width: 95vw;
     max-height: 90vh;
     overflow-y: auto;
-    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
+    box-shadow: var(--shadow-lg);
 }
 .pr-modal-content header {
     display: flex;
     justify-content: space-between;
     align-items: center;
     padding: 14px 20px;
-    border-bottom: 1px solid #e2e8f0;
+    border-bottom: 1px solid var(--web2-border-btn);
+    background: linear-gradient(180deg, var(--web2-primary-soft) 0%, #fff 100%);
 }
 .pr-modal-content header h2 {
     margin: 0;
-    font-size: 17px;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--native-text);
 }
 .pr-modal-close {
     background: none;
@@ -378,7 +381,8 @@ body {
     justify-content: flex-end;
     gap: 8px;
     padding-top: 12px;
-    border-top: 1px solid #e2e8f0;
+    border-top: 1px solid var(--border);
+    background: var(--gray-50);
 }
 
 /* P1 2026-05-30: Product Picker — chọn SP từ Kho group by NCC
@@ -405,7 +409,7 @@ body {
 .pr-picker-content {
     position: relative;
     background: #fff;
-    border-radius: 14px;
+    border-radius: var(--web2-radius, 12px);
     box-shadow: 0 8px 24px rgba(15, 23, 42, 0.2);
     width: min(960px, 95vw);
     max-height: 90vh;
@@ -428,16 +432,16 @@ body {
     justify-content: space-between;
     align-items: center;
     padding: 16px 20px;
-    border-bottom: 1px solid #e2e8f0;
-    background: linear-gradient(180deg, #f0f9ff 0%, #fff 100%);
-    border-radius: 14px 14px 0 0;
+    border-bottom: 1px solid var(--web2-border-btn);
+    background: linear-gradient(180deg, var(--web2-primary-soft) 0%, #fff 100%);
+    border-radius: var(--web2-radius, 12px) var(--web2-radius, 12px) 0 0;
 }
 .pr-picker-head h2 {
     display: flex;
     align-items: center;
     gap: 10px;
     margin: 0;
-    font-size: 17px;
+    font-size: 15px;
     color: #0f172a;
 }
 .pr-picker-head h2 i {
@@ -587,7 +591,7 @@ body {
     padding: 14px 20px;
     border-top: 1px solid #e2e8f0;
     background: #fafbfc;
-    border-radius: 0 0 14px 14px;
+    border-radius: 0 0 var(--web2-radius, 12px) var(--web2-radius, 12px);
 }
 .pr-picker-count {
     font-size: 14px;
@@ -837,7 +841,7 @@ body {
 .pr-quick-content {
     position: relative;
     background: #fff;
-    border-radius: 14px;
+    border-radius: var(--web2-radius, 12px);
     box-shadow: 0 8px 24px rgba(15, 23, 42, 0.2);
     width: min(560px, 95vw);
     max-height: 90vh;
@@ -861,14 +865,14 @@ body {
     padding: 16px 20px;
     border-bottom: 1px solid #fecaca;
     background: linear-gradient(180deg, #fef2f2 0%, #fff 100%);
-    border-radius: 14px 14px 0 0;
+    border-radius: var(--web2-radius, 12px) var(--web2-radius, 12px) 0 0;
 }
 .pr-quick-head h2 {
     display: flex;
     align-items: center;
     gap: 10px;
     margin: 0;
-    font-size: 17px;
+    font-size: 15px;
     color: #991b1b;
 }
 .pr-quick-head h2 i {

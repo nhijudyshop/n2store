@@ -80,29 +80,109 @@
                     )
                     .join('');
             $('#wzZnsTplCount').textContent = state.zns.templates.length;
+            if (!sel._wzBound) {
+                sel.addEventListener('change', renderZnsFields);
+                sel._wzBound = true;
+            }
+            renderZnsFields();
         } catch (e) {
             notify('✗ ' + e.message, 'error');
+        }
+    }
+
+    // params của 1 template có thể là array [{name,...}] hoặc đã JSON-encode string.
+    function _tplParams(t) {
+        let p = t && t.params;
+        if (typeof p === 'string') {
+            try {
+                p = JSON.parse(p);
+            } catch {
+                p = [];
+            }
+        }
+        if (!Array.isArray(p)) return [];
+        // chuẩn hoá tên param (Zalo: {name, require, type, sample_value})
+        return p
+            .map((x) =>
+                typeof x === 'string'
+                    ? { name: x, require: false }
+                    : {
+                          name: x.name || x.param || x.key || '',
+                          require: !!(x.require ?? x.required),
+                          type: x.type || '',
+                          sample: x.sample_value || x.sample || '',
+                      }
+            )
+            .filter((x) => x.name);
+    }
+
+    // Render 1 ô nhập / tham số của template đang chọn. Không có param → ẩn form,
+    // dùng JSON thủ công (details). Có param → form là nguồn chính.
+    function renderZnsFields() {
+        const box = $('#wzZnsFields');
+        const raw = $('#wzZnsRaw');
+        if (!box) return;
+        const tid = $('#wzZnsTemplate').value;
+        const tpl = state.zns.templates.find((t) => String(t.template_id) === String(tid));
+        const params = tpl ? _tplParams(tpl) : [];
+        if (!params.length) {
+            box.innerHTML = '';
+            box.hidden = true;
+            if (raw) raw.open = !!tid; // không có metadata param → mở sẵn ô JSON
+            return;
+        }
+        box.hidden = false;
+        if (raw) raw.open = false;
+        box.innerHTML =
+            `<div class="wz-zns-fields-hd">Điền nội dung (${params.length} trường)</div>` +
+            params
+                .map(
+                    (p) => `<div class="wz-field wz-zns-f">
+                        <label>${esc(p.name)}${p.require ? ' <span class="req">*</span>' : ''}</label>
+                        <input type="${p.type === 'NUMBER' ? 'number' : 'text'}"
+                            data-zns-param="${esc(p.name)}" data-req="${p.require ? '1' : ''}"
+                            placeholder="${esc(p.sample || p.name)}" autocomplete="off">
+                    </div>`
+                )
+                .join('');
+    }
+
+    // Thu data từ form động. Trả {data, error}. error != null → dừng gửi.
+    function _collectZnsData() {
+        const box = $('#wzZnsFields');
+        if (box && !box.hidden && box.querySelector('[data-zns-param]')) {
+            const data = {};
+            for (const el of box.querySelectorAll('[data-zns-param]')) {
+                const key = el.dataset.znsParam;
+                const val = el.value.trim();
+                if (!val && el.dataset.req) return { data: null, error: `Thiếu trường "${key}"` };
+                if (val) data[key] = val;
+            }
+            return { data, error: null };
+        }
+        // fallback: JSON thủ công
+        const rawTxt = ($('#wzZnsData').value || '').trim();
+        if (!rawTxt) return { data: {}, error: null };
+        try {
+            return { data: JSON.parse(rawTxt), error: null };
+        } catch {
+            return { data: null, error: 'template_data phải là JSON hợp lệ' };
         }
     }
 
     async function sendZns() {
         const phone = $('#wzZnsPhone').value.trim();
         const templateId = $('#wzZnsTemplate').value;
-        const raw = $('#wzZnsData').value.trim();
         const errEl = $('#wzZnsErr');
         errEl.textContent = '';
         if (!phone || !templateId) {
             errEl.textContent = 'Cần SĐT và template';
             return;
         }
-        let data = {};
-        if (raw) {
-            try {
-                data = JSON.parse(raw);
-            } catch {
-                errEl.textContent = 'template_data phải là JSON hợp lệ';
-                return;
-            }
+        const { data, error } = _collectZnsData();
+        if (error) {
+            errEl.textContent = error;
+            return;
         }
         const btn = $('#wzZnsSend');
         setBusy(btn, true);
@@ -111,6 +191,10 @@
             await window.ZaloApi.sendZns({ phone, templateId, data, sentBy });
             notify('Đã gửi ZNS', 'success');
             $('#wzZnsPhone').value = '';
+            $('#wzZnsData').value = '';
+            $('#wzZnsFields')
+                ?.querySelectorAll('[data-zns-param]')
+                .forEach((el) => (el.value = ''));
             loadZnsLog();
         } catch (e) {
             errEl.textContent = e.message;

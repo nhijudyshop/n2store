@@ -262,6 +262,69 @@
     word-break: break-all;
 }
 
+/* ── link preview card (tin link có metadata) ───────────────────────── */
+.wz-msg-linkcard {
+    display: flex;
+    flex-direction: column;
+    width: min(280px, 76vw);
+    border-radius: 12px;
+    overflow: hidden;
+    background: var(--wz-surface, #fff);
+    border: 1px solid var(--wz-line);
+    text-decoration: none;
+    color: inherit;
+    transition:
+        box-shadow 0.16s var(--wz-ease),
+        transform 0.16s var(--wz-ease);
+}
+.wz-msg-linkcard:hover {
+    box-shadow: var(--wz-shadow-1);
+    transform: translateY(-1px);
+}
+.wz-lc-thumb {
+    display: block;
+    aspect-ratio: 1.91 / 1;
+    background: var(--wz-line-soft);
+    overflow: hidden;
+}
+.wz-lc-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+.wz-lc-body {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 8px 10px;
+}
+.wz-lc-title {
+    font-weight: 600;
+    font-size: 13px;
+    line-height: 1.3;
+    color: var(--wz-ink);
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+.wz-lc-desc {
+    font-size: 12px;
+    line-height: 1.35;
+    color: var(--wz-muted);
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+.wz-lc-host {
+    font-size: 11px;
+    color: var(--wz-blue);
+    text-transform: lowercase;
+    margin-top: 1px;
+}
+
 /* ── image grid (album nhiều ảnh / 1 tin) ───────────────────────────── */
 .wz-msg-grid {
     display: grid;

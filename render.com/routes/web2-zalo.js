@@ -1849,6 +1849,16 @@ router.get('/quick-replies', async (req, res) => {
         res.status(400).json({ success: false, error: e.message });
     }
 });
+// Lưu câu trả lời nhanh mới (đồng bộ thẳng lên Zalo của tài khoản).
+router.post('/quick-replies', async (req, res) => {
+    try {
+        const { accountKey, keyword, title } = req.body || {};
+        if (!accountKey) return res.status(400).json({ success: false, error: 'Thiếu accountKey' });
+        res.json(await zca.addQuickMessage(accountKey, { keyword, title }));
+    } catch (e) {
+        res.status(400).json({ success: false, error: e.message });
+    }
+});
 
 // ── Serve media tự host (ảnh/file shop đã gửi) ─────────────────────────
 router.get('/media/:id', async (req, res) => {

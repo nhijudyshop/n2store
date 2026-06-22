@@ -120,31 +120,72 @@
         ta.focus();
     }
 
-    async function openQuickReplies(anchor) {
+    // Picker câu trả lời nhanh. opts.replaceSlash = true khi mở bằng cách gõ '/' đầu ô
+    // (chọn xong THAY nguyên text thay vì nối thêm).
+    async function openQuickReplies(anchor, opts) {
+        const replaceSlash = !!(opts && opts.replaceSlash);
+        const ta = _root.querySelector('.wz-compose-input');
+        const insert = (val) => {
+            if (!val) return;
+            ta.value = replaceSlash ? val : (ta.value ? ta.value + ' ' : '') + val;
+            grow(ta);
+            ta.focus();
+        };
         try {
             const r = await window.ZaloApi.quickReplies(_ctx.account);
-            const items = (r.items || []).map((q) => ({
-                keyword: q.keyword || q.title || '',
-                msg: q.message || q.title || q.keyword || '',
-            }));
-            WZ.openMenu?.(
-                anchor,
-                items.length
+            // shape chuẩn từ service: { id, keyword, title }
+            const items = (r.items || [])
+                .map((q) => ({ keyword: q.keyword || '', title: q.title || q.keyword || '' }))
+                .filter((q) => q.title);
+            const menu = [
+                { label: '➕ Lưu câu trả lời nhanh…', value: '__save__' },
+                ...(items.length
                     ? items.map((q) => ({
                           label:
                               (q.keyword ? '/' + q.keyword + ' — ' : '') +
-                              String(q.msg).slice(0, 40),
-                          value: q.msg,
+                              String(q.title).slice(0, 40),
+                          value: q.title,
                       }))
-                    : [{ label: 'Chưa có câu trả lời nhanh', value: '' }],
-                (val) => {
-                    if (!val) return;
-                    const ta = _root.querySelector('.wz-compose-input');
-                    ta.value = (ta.value ? ta.value + ' ' : '') + val;
-                    grow(ta);
-                    ta.focus();
-                }
-            );
+                    : [{ label: 'Chưa có câu trả lời nhanh', value: '' }]),
+            ];
+            WZ.openMenu?.(anchor, menu, (val) => {
+                if (val === '__save__') return saveQuickReply();
+                insert(val);
+            });
+        } catch (e) {
+            WZ.notify('✗ ' + e.message, 'error');
+        }
+    }
+
+    // Hỏi nội dung + từ khoá rồi lưu câu trả lời nhanh lên Zalo (Popup, fallback prompt).
+    async function saveQuickReply() {
+        const ta = _root.querySelector('.wz-compose-input');
+        const cur = (ta.value || '').replace(/^\/\s*/, '').trim();
+        const ask = async (msg, o) =>
+            window.Popup?.prompt
+                ? await window.Popup.prompt(msg, o || {})
+                : window.prompt(msg, (o && o.defaultValue) || '');
+        const title = (
+            await ask('Nội dung câu trả lời nhanh', {
+                defaultValue: cur,
+                multiline: true,
+                placeholder: 'Nội dung tin sẽ chèn vào ô soạn',
+            })
+        )?.trim();
+        if (!title) return;
+        const keyword = (
+            await ask('Từ khoá gợi nhớ (vd: chao)', {
+                placeholder: 'không dấu, không khoảng trắng',
+            })
+        )?.trim();
+        if (!keyword) return;
+        try {
+            await window.ZaloApi.addQuickReply({
+                accountKey: _ctx.account,
+                keyword: keyword.replace(/\s+/g, '_'),
+                title,
+            });
+            WZ.notify('Đã lưu câu trả lời nhanh', 'success');
         } catch (e) {
             WZ.notify('✗ ' + e.message, 'error');
         }
@@ -303,6 +344,8 @@
         ta.addEventListener('input', () => {
             grow(ta);
             _updateMent();
+            // Gõ '/' ở đầu ô (Zalo PC style) → mở picker câu trả lời nhanh.
+            if (ta.value === '/') openQuickReplies(ta, { replaceSlash: true });
         });
         // caret di chuyển bằng click/phím → cập nhật lại ngữ cảnh @ (khi dropdown đóng)
         ta.addEventListener('click', () => _updateMent());

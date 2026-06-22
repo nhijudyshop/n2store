@@ -1055,6 +1055,35 @@
 .wz-field .req {
     color: var(--wz-danger);
 }
+/* ── ZNS dynamic form (render fields từ template params) ─────────────── */
+.wz-zns-fields {
+    margin-top: 12px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 10px 14px;
+}
+.wz-zns-fields-hd {
+    grid-column: 1 / -1;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--wz-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+.wz-zns-f {
+    margin: 0;
+}
+.wz-zns-raw > summary {
+    cursor: pointer;
+    font-size: 12.5px;
+    color: var(--wz-muted);
+    user-select: none;
+    padding: 4px 0;
+    list-style: revert;
+}
+.wz-zns-raw[open] > summary {
+    color: var(--wz-ink);
+}
 .wz-lookup-result {
     margin-top: 18px;
     display: flex;

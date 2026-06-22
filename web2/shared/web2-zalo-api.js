@@ -204,6 +204,13 @@
         quickReplies(accountKey) {
             return _fetch('/quick-replies' + _qs({ accountKey }), { method: 'GET' });
         },
+        // Lưu câu trả lời nhanh mới lên Zalo của tài khoản.
+        addQuickReply({ accountKey, keyword, title }) {
+            return _fetch('/quick-replies', {
+                method: 'POST',
+                body: JSON.stringify({ accountKey, keyword, title }),
+            });
+        },
         // OA + ZNS
         oaConnect(body) {
             return _fetch('/oa/connect', { method: 'POST', body: JSON.stringify(body) });
