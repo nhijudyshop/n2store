@@ -3,15 +3,17 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `1ab47a7` — polish(live-chat): Chụp Live — bỏ toast success sau khi chụp (user req, lỗi vẫn báo)
-**Last updated**: 2026-06-22 10:14:04 +07
-**Latest session**: [`RESUME:20260622-101404-1ab47a7`](../20260622-101404-1ab47a7.md)
-**Summary**: Chụp Live: bỏ toast success sau khi chụp
+**Latest commit**: `b60bc41` — refactor(web2-css) theme: dedup dead tr-level zebra/hover (striping now 1-source at td-level Block A)
+**Last updated**: 2026-06-22 10:27:59 +07
+**Latest session**: [`RESUME:20260622-102759-b60bc41`](../20260622-102759-b60bc41.md)
+**Summary**: refactor(web2-css) theme: dedup dead tr-level zebra/hover (striping now 1-source at td-level Block A)
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`live-chat/`](./live-chat.md) — 1 file(s)
+- [`live-chat/`](./live-chat.md) — 2 file(s)
+- [`so-order/`](./so-order.md) — 1 file(s)
+- [`web2/`](./web2.md) — 52 file(s)
 
 ## All folder snapshots
 
@@ -26,7 +28,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-21 15:47
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-06-22 10:14
+- [`docs/`](./docs.md) — updated 2026-06-22 10:27
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-19 14:27
@@ -40,7 +42,7 @@
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-06-20 12:07
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-20 12:07
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-06-20 12:07
-- [`live-chat/`](./live-chat.md) — updated 2026-06-22 10:14
+- [`live-chat/`](./live-chat.md) — updated 2026-06-22 10:27
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-06-20 16:16
 - [`n2store-facebook/`](./n2store-facebook.md) — updated 2026-06-14 13:09
 - [`n2store-realtime/`](./n2store-realtime.md) — updated 2026-06-16 11:15
@@ -63,7 +65,7 @@
 - [`shared/`](./shared.md) — updated 2026-06-20 15:47
 - [`showroom/`](./showroom.md) — updated 2026-06-19 14:27
 - [`showroom1/`](./showroom1.md) — updated 2026-06-19 14:27
-- [`so-order/`](./so-order.md) — updated 2026-06-22 10:00
+- [`so-order/`](./so-order.md) — updated 2026-06-22 10:27
 - [`soluong-live/`](./soluong-live.md) — updated 2026-06-20 12:07
 - [`soorder/`](./soorder.md) — updated 2026-06-20 12:07
 - [`soquy/`](./soquy.md) — updated 2026-06-20 16:02
@@ -77,4 +79,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-22 10:00
+- [`web2/`](./web2.md) — updated 2026-06-22 10:27
