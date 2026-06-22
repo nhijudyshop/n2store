@@ -1,0 +1,145 @@
+/* #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes. */
+/* =====================================================
+ * PRODUCT QUICK-PICK — INVENTORY TRACKING (Web 1.0)
+ * Cây bút ở ô STT → mở ô tìm nhanh SP từ kho (WarehouseAPI)
+ * → chọn SP → điền TÊN sản phẩm vào ô "Mã hàng".
+ * Dropdown dùng position:fixed để không bị overflow của bảng cắt.
+ * ===================================================== */
+
+/* ---- Nút bút trong ô STT (cùng style nhóm với del/copy/add) ---- */
+.btn-pick-stt {
+    display: none;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 1px 3px;
+    border-radius: 4px;
+    line-height: 1;
+    vertical-align: middle;
+    color: #7c3aed; /* violet — phân biệt với copy (xanh) / del (đỏ) */
+    margin-left: 2px;
+}
+.btn-pick-stt i {
+    width: 12px;
+    height: 12px;
+}
+.btn-pick-stt:hover {
+    background: rgba(124, 58, 237, 0.12);
+}
+/* Reveal cùng lúc với các nút STT khác khi hover ô STT */
+.invoice-table td.col-stt:hover .btn-pick-stt {
+    display: inline-block;
+}
+
+/* ---- Panel tìm nhanh (floating, fixed) ---- */
+.iqp-panel {
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 8px;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.16);
+    overflow: hidden;
+    /* containment + scroll isolation theo MODAL-ANTI-LAG */
+    contain: layout paint;
+    overscroll-behavior: contain;
+}
+
+.iqp-input {
+    box-sizing: border-box;
+    flex: 0 0 auto;
+    width: 100%;
+    padding: 8px 10px;
+    font-size: 14px;
+    border: 1.5px solid #c7d2fe;
+    border-radius: 8px;
+    outline: none;
+}
+.iqp-input:focus {
+    border-color: #6366f1;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+}
+
+.iqp-results {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.iqp-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 6px 8px;
+    border: none;
+    border-radius: 6px;
+    background: none;
+    text-align: left;
+    cursor: pointer;
+    transition: background 0.12s;
+}
+.iqp-item:hover,
+.iqp-item.iqp-active {
+    background: #eef2ff;
+}
+
+.iqp-img {
+    width: 38px;
+    height: 38px;
+    border-radius: 5px;
+    object-fit: cover;
+    background: #f3f4f6;
+    flex-shrink: 0;
+}
+.iqp-img--empty {
+    display: inline-block;
+    background: repeating-linear-gradient(45deg, #f3f4f6 0 6px, #e5e7eb 6px 12px);
+}
+
+.iqp-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.iqp-line1 {
+    font-size: 13px;
+    color: #111827;
+    overflow-wrap: anywhere;
+}
+.iqp-line2 {
+    display: flex;
+    gap: 12px;
+    font-size: 12px;
+    color: #6b7280;
+}
+.iqp-price {
+    color: #059669;
+    font-weight: 600;
+}
+.iqp-qty {
+    color: #2563eb;
+}
+.iqp-qty--zero {
+    color: #dc2626;
+    font-weight: 600;
+}
+
+.iqp-empty,
+.iqp-loading,
+.iqp-hint {
+    padding: 12px 8px;
+    text-align: center;
+    font-size: 13px;
+    color: #9ca3af;
+}

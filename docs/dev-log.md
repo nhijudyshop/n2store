@@ -2,6 +2,16 @@
 
 ## 2026-06-22
 
+### [feat] inventory-tracking — cây bút ở ô STT: tìm nhanh SP từ kho → điền TÊN vào ô Mã hàng
+
+User: thêm cây bút ở ô STT, bấm → hiện ô tìm nhanh sản phẩm từ kho → chọn → điền **tên** SP vào ô "Mã hàng". (Trang Web 1.0 → KHÔNG import web2/; tham chiếu UX của picker so-order nhưng so-order là Web 2.0 nên KHÔNG dùng được.)
+
+- **Nguồn dữ liệu (Web 1.0-safe)**: `window.WarehouseAPI.search(q, 20)` → `GET /api/v2/web-warehouse/search` (đã load sẵn `shared/js/warehouse-api.js` trong trang, dùng cho picker `modal-convert-po.js`). Trả `product_code/name_get/product_name/selling_price/tpos_qty_available/image_url`. Tên hiển thị/điền = `name_get` đã bỏ tiền tố `[CODE]`.
+- **File mới (user chọn tách riêng)**: `inventory-tracking/js/product-quick-pick.js` (global `window.openProductPicker(invoiceId, productIdx, btnEl)` + `closeProductPicker`) + `inventory-tracking/css/product-quick-pick.css` (nút `.btn-pick-stt` + panel `.iqp-*`, floating `position:fixed`, debounce 220ms, điều hướng ↑/↓/Enter/Esc, click-ngoài/scroll đóng, `overscroll-behavior:contain`).
+- **Sửa**: `table-renderer.js` thêm nút `.btn-pick-stt` (icon `pencil-line`) vào ô STT cạnh nút copy (chỉ dòng có SP). `index.html` thêm `<link>`+`<script>` mới + bump `table-renderer.js?v=20260622a`.
+- **Pick → fill**: set `product.maSP = <tên SP>` (UI-first: cập nhật model + ô tại chỗ giữ nguyên nút bút/badge, rồi lưu nền `shipmentsApi.update(invoiceId,{sanPham,tongMon,tongTienHD})`, lỗi → rollback). Cùng đường lưu với `commitInlineEdit`.
+- **Verify (Playwright, localhost, admin)**: panel mở + auto-focus, search trả 20 KQ, `[CODE]` bị strip, ô Mã hàng = TÊN SP, payload save mang đúng tên + invoiceId, giữ nút bút sửa, panel đóng sau khi chọn. Test bằng dot ảo + stub `shipmentsApi.update` → **KHÔNG ghi prod** (inventory-tracking là Web 1.0 PROD). node --check pass. Screenshot panel khớp UX mong muốn (ảnh + mã + tên + giá xanh + Tồn).
+
 ### [change] so-order — "Điền ngẫu nhiên" tạo data test KHÔNG kèm hình
 
 User yêu cầu data ngẫu nhiên trong modal Tạo Đơn Hàng (Nháp) không có ảnh.
