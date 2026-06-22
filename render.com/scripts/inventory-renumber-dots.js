@@ -42,6 +42,7 @@ const path = require('path');
 const ARGS = process.argv.slice(2);
 const IS_APPLY = ARGS.includes('--apply');
 const IS_SELF_TEST = ARGS.includes('--self-test');
+const IS_INSPECT = ARGS.includes('--inspect');
 const CLEAR_INHERITED = !ARGS.includes('--no-clear-inherited');
 
 const log = (...a) => console.log('[RENUMBER-DOTS]', ...a);
@@ -302,6 +303,61 @@ function _printPlan(plan) {
     if (plan.reassigns.length === 0) log('  (không có gì để đổi — data đã sạch)');
 }
 
+// READ-ONLY: in dấu vân tay thanh toán theo từng dotSo để hiểu data thật.
+async function inspectDb(pool) {
+    const { rows } = await pool.query(
+        `SELECT dot_so, ngay_di_hang::text AS ngay_di_hang, thanh_toan_ck, ti_gia
+         FROM inventory_shipments`
+    );
+    const byDot = new Map();
+    for (const r of rows) {
+        const dot = r.dot_so == null ? '(null)' : r.dot_so;
+        if (!byDot.has(dot))
+            byDot.set(dot, { dates: new Set(), payments: new Set(), tiGias: new Set(), n: 0 });
+        const g = byDot.get(dot);
+        g.n++;
+        g.dates.add(r.ngay_di_hang);
+        if (r.ti_gia != null) g.tiGias.add(String(r.ti_gia));
+        const canon = _canonPayment(r.thanh_toan_ck);
+        if (!_isEmptyPayment(canon)) g.payments.add(canon);
+    }
+    // Vân tay payment → đối chiếu trùng giữa các dotSo.
+    const fingerprint = new Map(); // canon -> [dot...]
+    for (const [dot, g] of byDot) {
+        for (const c of g.payments) {
+            if (!fingerprint.has(c)) fingerprint.set(c, []);
+            fingerprint.get(c).push(dot);
+        }
+    }
+    log('=== INSPECT (read-only) — thanh toán theo từng Đợt ===');
+    const dots = [...byDot.keys()].sort((a, b) =>
+        a === '(null)' ? -1 : b === '(null)' ? 1 : a - b
+    );
+    for (const dot of dots) {
+        const g = byDot.get(dot);
+        const pays = [...g.payments];
+        log(
+            `Đợt ${dot}: ${g.n} dòng, ${g.dates.size} ngày, tỉ giá {${[...g.tiGias].join(',')}}, ${pays.length} mảng TT non-empty`
+        );
+        pays.forEach((c, i) => {
+            let arr = [];
+            try {
+                arr = JSON.parse(c);
+            } catch {}
+            const total = arr.reduce((s, p) => s + (parseFloat(p.soTienTT) || 0), 0);
+            const notes = arr
+                .map((p) => `${p.ngayTT || '?'}:${(p.ghiChu || '').slice(0, 18)}`)
+                .slice(0, 6)
+                .join(' | ');
+            const sharedWith = fingerprint.get(c).filter((d) => d !== dot);
+            log(
+                `   • mảng#${i + 1}: ${arr.length} dòng, tổng=${total}${sharedWith.length ? `  ⚠ GIỐNG HỆT Đợt ${sharedWith.join(',')}` : ''}`
+            );
+            log(`       ${notes}`);
+        });
+    }
+}
+
 async function runDb() {
     const DATABASE_URL = process.env.DATABASE_URL;
     if (!DATABASE_URL) {
@@ -314,6 +370,15 @@ async function runDb() {
     const PG_PATH = path.join(__dirname, '..', 'node_modules', 'pg');
     const { Pool } = require(PG_PATH);
     const pool = new Pool({ connectionString: DATABASE_URL, ssl: { rejectUnauthorized: false } });
+
+    if (IS_INSPECT) {
+        try {
+            await inspectDb(pool);
+        } finally {
+            await pool.end();
+        }
+        return;
+    }
 
     try {
         const { rows } = await pool.query(

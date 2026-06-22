@@ -66,18 +66,21 @@ function openShipmentModal(shipment = null) {
 }
 
 /**
- * Compute default dotSo for the modal. Số đợt DUY NHẤT TOÀN CỤC (2026-06-22):
+ * Compute default dotSo for the modal — HYBRID (2026-06-22):
  * - Edit: giữ nguyên shipment.dotSo
- * - Add: MAX dotSo trên TOÀN BỘ shipments (KHÔNG theo ngày) → mặc định gộp vào
- *   đợt mới nhất. User tự +1 (hoặc nút "Đợt mới") khi muốn đợt mới.
- *   Trước đây tính MAX theo ngày → 2 ngày khác nhau cùng ra đợt 1 → trùng số →
- *   đợt mới dính thanh toán/HĐ/CP của đợt cũ (bug "đợt 3 hiện data đợt cũ").
- *   `date` param giữ lại cho backward-compat chữ ký nhưng không còn dùng để scope.
+ * - Add, ngày ĐÃ có đợt → MAX dotSo của NGÀY đó (thêm NCC vào đợt sẵn có).
+ * - Add, ngày MỚI → MAX dotSo TOÀN CỤC (tiếp tục đợt mới nhất). KHÔNG về 1 vì đợt
+ *   span nhiều ngày (đợt 1≈11 ngày, đợt 2≈17 ngày…) → mặc định 1 sẽ gợi ý nhập
+ *   nhầm vào "Đợt 1" cũ rồi kế thừa thanh toán đợt cũ. Đợt hoàn toàn mới = nút "Đợt mới".
  */
 function _computeDefaultDotSo(shipment, date) {
     if (shipment?.dotSo) return shipment.dotSo;
     const all = globalState?.shipments || [];
     if (all.length === 0) return 1;
+    const sameDate = all.filter((s) => s.ngayDiHang === date);
+    if (sameDate.length > 0) {
+        return Math.max(...sameDate.map((s) => parseInt(s.dotSo, 10) || 1));
+    }
     return Math.max(...all.map((s) => parseInt(s.dotSo, 10) || 1));
 }
 

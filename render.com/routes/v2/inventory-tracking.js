@@ -706,19 +706,23 @@ router.get('/shipments', async (req, res) => {
     }
 });
 
-// Default đợt number for the modal. Số đợt là DUY NHẤT TOÀN CỤC (2026-06-22):
-// trả về MAX(dot_so) trên TOÀN BẢNG (KHÔNG theo ngày) → mặc định "gộp vào đợt
-// mới nhất". User tự +1 (hoặc nút "Đợt mới") khi muốn đợt hoàn toàn mới.
-//   Lý do bỏ scope theo ngày: dot_so được DÙNG như khoá đợt toàn cục (filters.js
-//   2026-05-31, getAllDotsAggregated gom theo dotSo span mọi ngày). Nếu vẫn đánh
-//   số lại từ 1 mỗi ngày → 2 đợt khác ngày trùng số → gộp nhầm + đợt mới kế thừa
-//   thanh toán đợt cũ (bug "đợt 3 hiện data đợt cũ"). Đánh số global = mỗi đợt 1 số.
-// `date` query param giữ lại cho backward-compat nhưng KHÔNG còn dùng để scope.
+// Default đợt number for the modal — HYBRID (2026-06-22):
+//   - Ngày ĐÃ có đợt  → MAX(dot_so) CỦA NGÀY ĐÓ (thêm NCC vào đợt sẵn có của ngày).
+//   - Ngày MỚI (chưa) → MAX(dot_so) TOÀN CỤC (tiếp tục đợt mới nhất). KHÔNG về 1 —
+//     vì 1 sẽ gợi ý nhập nhầm vào "Đợt 1" cũ (đợt span nhiều ngày: đợt 1=11 ngày,
+//     đợt 2=17 ngày…) rồi kế thừa thanh toán đợt cũ.
+//   - Đợt HOÀN TOÀN MỚI = nút "Đợt mới" (MAX toàn cục + 1), không phải mặc định.
 router.get('/shipments/next-dot-so', async (req, res) => {
     try {
         const db = getDb(req);
+        const { date } = req.query;
         const result = await db.query(
-            `SELECT COALESCE(MAX(dot_so), 1) AS next_dot_so FROM inventory_shipments`
+            `SELECT COALESCE(
+                (SELECT MAX(dot_so) FROM inventory_shipments WHERE ngay_di_hang = $1),
+                (SELECT MAX(dot_so) FROM inventory_shipments),
+                1
+            ) AS next_dot_so`,
+            [date || null]
         );
         res.json({ success: true, data: { next_dot_so: result.rows[0].next_dot_so } });
     } catch (err) {
@@ -774,15 +778,18 @@ router.post('/shipments', async (req, res) => {
                 .json({ success: false, error: 'stt_ncc and ngay_di_hang required' });
         }
 
-        // Resolve dot_so: dùng giá trị client gửi; nếu trống → mặc định MAX(dot_so)
-        // TOÀN BẢNG (gộp vào đợt mới nhất). Số đợt DUY NHẤT TOÀN CỤC (2026-06-22):
-        // KHÔNG default theo ngày — default theo ngày làm 2 ngày khác nhau cùng ra
-        // dot_so=1 → gộp nhầm + đợt mới kế thừa thanh toán đợt cũ. Client gửi MAX+1
-        // (nút "Đợt mới") khi muốn đợt hoàn toàn mới.
+        // Resolve dot_so (client gửi → dùng luôn). Trống → HYBRID: MAX của NGÀY đó
+        // nếu ngày đã có đợt, ngược lại MAX TOÀN CỤC (tiếp tục đợt mới nhất, KHÔNG về
+        // 1 → tránh nhập nhầm vào đợt 1 cũ + kế thừa thanh toán). Đợt mới = MAX+1.
         let resolvedDotSo = parseInt(dot_so, 10);
         if (!resolvedDotSo || resolvedDotSo < 1) {
             const maxRes = await db.query(
-                `SELECT COALESCE(MAX(dot_so), 1) AS next FROM inventory_shipments`
+                `SELECT COALESCE(
+                    (SELECT MAX(dot_so) FROM inventory_shipments WHERE ngay_di_hang = $1),
+                    (SELECT MAX(dot_so) FROM inventory_shipments),
+                    1
+                ) AS next`,
+                [ngay_di_hang]
             );
             resolvedDotSo = maxRes.rows[0].next;
         }
@@ -917,6 +924,35 @@ router.put('/shipments/:id', async (req, res) => {
         ]);
         const oldRow = oldRes.rows[0] || null;
 
+        // MOVE giữa đợt: nếu dot_so đổi sang ĐỢT KHÁC mà client KHÔNG gửi thanh_toan_ck
+        // riêng → đồng bộ thanh toán/tỉ giá theo ĐỢT ĐÍCH (không kéo theo của đợt
+        // nguồn). Sửa bug "di chuyển đơn sang đợt khác → đợt đích hiện thanh toán đợt
+        // cũ": thanh toán là per-đợt (share mọi dòng cùng dot_so); trước đây
+        // COALESCE($20, thanh_toan_ck) giữ nguyên mảng đợt nguồn khi chỉ đổi số đợt.
+        let effCk = thanh_toan_ck;
+        let effTiGia = ti_gia;
+        const newDotSo = dot_so !== undefined && dot_so !== null ? parseInt(dot_so, 10) : null;
+        if (
+            newDotSo != null &&
+            oldRow &&
+            newDotSo !== (oldRow.dot_so || 1) &&
+            thanh_toan_ck === undefined
+        ) {
+            const tgt = await db.query(
+                `SELECT thanh_toan_ck, ti_gia FROM inventory_shipments
+                 WHERE dot_so = $1 AND id <> $2
+                 ORDER BY (COALESCE(thanh_toan_ck, '[]'::jsonb) <> '[]'::jsonb) DESC, created_at ASC
+                 LIMIT 1`,
+                [newDotSo, req.params.id]
+            );
+            if (tgt.rows[0]) {
+                effCk = tgt.rows[0].thanh_toan_ck; // thanh toán của ĐỢT ĐÍCH
+                if (ti_gia === undefined) effTiGia = tgt.rows[0].ti_gia;
+            } else {
+                effCk = []; // đợt đích hoàn toàn mới → bắt đầu sạch
+            }
+        }
+
         const result = await db.query(
             `
             UPDATE inventory_shipments SET
@@ -964,8 +1000,8 @@ router.put('/shipments/:id', async (req, res) => {
                 ghi_chu_admin !== undefined ? ghi_chu_admin : null,
                 user,
                 dot_so !== undefined && dot_so !== null ? parseInt(dot_so, 10) : null,
-                thanh_toan_ck !== undefined ? JSON.stringify(thanh_toan_ck) : null,
-                ti_gia !== undefined ? ti_gia : null,
+                effCk !== undefined ? JSON.stringify(effCk) : null,
+                effTiGia !== undefined ? effTiGia : null,
             ]
         );
 
