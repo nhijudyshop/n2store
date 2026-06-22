@@ -657,17 +657,9 @@ body:has(.web2-shell) .btn-outline-primary:hover {
     color: var(--web2-primary);
 }
 
-/* ─── Tables — zebra striping + selected row tint ───── */
-.web2-theme .data-table tbody tr:nth-child(even),
-.web2-theme .balance-table tbody tr:nth-child(even),
-body:has(.web2-shell) .data-table tbody tr:nth-child(even) {
-    background: #fafbfc;
-}
-.web2-theme .data-table tbody tr:hover,
-.web2-theme .balance-table tbody tr:hover,
-body:has(.web2-shell) .data-table tbody tr:hover {
-    background: var(--web2-primary-soft) !important;
-}
+/* ─── Tables — selected row tint ────────────────────── */
+/* (gỡ 2026-06-22) zebra + hover tr-level DEAD: block table (L~241) đã set zebra/hover
+   ở tầng TD (> td, che tr-bg vì mọi td opaque #fff) = 1 nguồn striping. Giữ selected tint. */
 .web2-theme .data-table tbody tr.selected,
 .web2-theme .data-table tbody tr.is-selected,
 .web2-theme .data-table tbody tr.active,
