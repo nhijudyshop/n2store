@@ -2,6 +2,15 @@
 
 ## 2026-06-22
 
+### [fix] vieneu-tts OmniVoice — thiếu ffmpeg (pydub) → bundle qua imageio-ffmpeg
+
+User chạy bộ cài máy POS ([0] cài hết): VieNeu OK, OmniVoice cảnh báo `pydub … Couldn't find ffmpeg`. Gốc: package `omnivoice` phụ thuộc pydub (decode audio mẫu clone) cần ffmpeg; máy chưa cài. VieNeu KHÔNG dùng pydub nên không sao. (HF_TOKEN warning = vô hại, chỉ rate-limit tải.)
+
+- **requirements-omnivoice.txt**: thêm `imageio-ffmpeg` (bundle binary ffmpeg qua pip, đa nền tảng).
+- **engine_omnivoice.py**: `_ensure_ffmpeg()` lúc import → trỏ `pydub.AudioSegment.converter` sang binary imageio-ffmpeg + thêm PATH (no-op an toàn nếu thiếu gói).
+- **vieneu-windows-setup.ps1**: nhánh omnivoice luôn `pip install imageio-ffmpeg` + copy → `$DIR\ffmpeg.exe`; start.cmd prepend `%~dp0` vào PATH → pydub tìm thấy ffmpeg, hết cảnh báo + clone chạy.
+- **Fix tới user**: chạy LẠI cai-may-pos.bat — ps1 + engine_omnivoice.py + requirements tải mới từ repo (sau GH Pages deploy). KHÔNG cần tải lại .bat.
+
 ### [feat] Zalo rebuild Phase 2b-rest — quick-replies lưu/“/” trigger + ZNS form động + link preview card
 
 Hoàn tất phần còn lại của Phase 2b (notifications + conv-mgmt đã xong trước). 3 tính năng, tách nhỏ + tái dùng shared chat engine (dùng chung cho native-orders/live-chat qua `Web2Zalo.mountChat`).

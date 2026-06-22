@@ -66,6 +66,19 @@ if ($Engine -eq "omnivoice") {
     }
 }
 
+# --- ffmpeg cho pydub (omnivoice phu thuoc) — bundle qua imageio-ffmpeg, copy thanh
+#     ffmpeg.exe trong $DIR (start.cmd them vao PATH) → het canh bao "Couldn't find ffmpeg". ---
+if ($Engine -eq "omnivoice") {
+    & $venvPy -m pip install -q imageio-ffmpeg 2>$null
+    try {
+        $ff = & $venvPy -c "import imageio_ffmpeg;print(imageio_ffmpeg.get_ffmpeg_exe())" 2>$null
+        if ($ff -and (Test-Path $ff)) {
+            Copy-Item -Force $ff (Join-Path $DIR "ffmpeg.exe")
+            Write-Host "[OmniVoice] ffmpeg san sang (pydub se khong con bao thieu)."
+        }
+    } catch { Write-Host "  [canh bao] khong chuan bi duoc ffmpeg: $($_.Exception.Message)" }
+}
+
 # --- cloudflared (cho dien thoai) ---
 $cf = Join-Path $DIR "cloudflared.exe"
 if (-not (Test-Path $cf)) {
@@ -96,6 +109,7 @@ $startCmd = Join-Path $DIR "start.cmd"
 @(
     '@echo off',
     'cd /d "%~dp0"',
+    'set "PATH=%~dp0;%PATH%"',
     "set `"TTS_ENGINE=$Engine`"",
     "set `"PORT=$Port`"",
     '".venv\Scripts\pythonw.exe" serve.py'
