@@ -23,6 +23,21 @@ const {
     hashWeb2Token,
     resolveWeb2User,
 } = require('../middleware/web2-auth');
+// EVENT-SINK audit toàn bộ (2026-06-22): mọi thao tác tài khoản (tạo/sửa/quyền/
+// đổi mật khẩu/khoá) lên Lịch sử thao tác. entity='web2-user', actor=admin thực hiện.
+const { recordAuditEvent } = require('../services/web2-audit-sink');
+function _auditUser(req, action, id, changes) {
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
+    recordAuditEvent(pool, {
+        entity: 'web2-user',
+        entityId: id != null ? String(id) : null,
+        action,
+        userId: req.web2User?.id ?? null,
+        userName: req.web2User?.display_name || req.web2User?.username || null,
+        sourcePage: 'users',
+        changes: changes || {},
+    });
+}
 
 // -----------------------------------------------------
 // SSE notifier — broadcast topic 'web2:users' sau mỗi DB mutation
@@ -615,6 +630,10 @@ router.post('/', requireWeb2Admin, requireWeb2Permission('users', 'create'), asy
                 ]
             );
             _notify('create', r.rows[0].id);
+            _auditUser(req, 'create', r.rows[0].id, {
+                username: r.rows[0].username,
+                role: r.rows[0].role,
+            });
             res.json({ success: true, user: mapRow(r.rows[0]) });
         } catch (err) {
             if (err.code === '23505') {
@@ -698,6 +717,10 @@ router.patch(
                 return res.status(404).json({ error: 'Không tìm thấy' });
             }
             _notify('update', r.rows[0].id);
+            _auditUser(req, 'update', r.rows[0].id, {
+                username: r.rows[0].username,
+                role: r.rows[0].role,
+            });
             res.json({ success: true, user: mapRow(r.rows[0]) });
         } catch (e) {
             console.error('[WEB2-USERS] update error:', e.message);
@@ -751,6 +774,7 @@ router.put(
             );
             if (!r.rows.length) return res.status(404).json({ error: 'Không tìm thấy' });
             _notify('update-permissions', r.rows[0].id);
+            _auditUser(req, 'update-permissions', r.rows[0].id, {});
             res.json({ success: true, user: mapRow(r.rows[0]) });
         } catch (e) {
             console.error('[WEB2-USERS] update permissions error:', e.message);
@@ -780,6 +804,7 @@ router.post(
             // Invalidate all sessions for this user
             await pool.query('DELETE FROM web2_user_sessions WHERE user_id = $1', [id]);
             _notify('change-password', id);
+            _auditUser(req, 'change-password', id, {});
             res.json({ success: true });
         } catch (e) {
             console.error('[WEB2-USERS] change-password error:', e.message);
@@ -821,6 +846,7 @@ router.delete(
             }
             await pool.query('DELETE FROM web2_user_sessions WHERE user_id = $1', [id]);
             _notify('deactivate', id);
+            _auditUser(req, 'deactivate', id, {});
             res.json({ success: true });
         } catch (e) {
             console.error('[WEB2-USERS] delete error:', e.message);

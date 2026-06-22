@@ -2,6 +2,17 @@
 
 ## 2026-06-22
 
+### [feat] Per-record history rollout — generic pages (page-builder) + sidebar auto-load + wire variants/users
+
+Tiếp foundation openRecord: nhân rộng lịch sử per-record ra hệ thống (audit→implement→debug→lặp).
+
+- **Sidebar auto-load** `web2-audit-log.js` → MỌI trang Web 2.0 có `window.Web2AuditLog` (không cần script tag riêng).
+- **page-builder.js**: nút 🕘 mỗi row + `openHistory()` lazy-load → product-category + delivery-zone (+ mọi generic page) tự có lịch sử. Verified: tạo category → 🕘 → modal "Lịch sử: TESTCAT1" action=create.
+- **openRecord**: `entity` optional (entityId-only = mọi nguồn của id, vd PBH gộp 'pbh'+'reconcile').
+- **Wire sink Wave 2 (backend)**: `web2-variants.js` (create/update/delete → entity='variant') + `web2-users.js` (create/update/permissions/password/deactivate → entity='web2-user', actor=admin — audit bảo mật tài khoản).
+- **Tracker** `docs/web2/AUDIT-HISTORY-ROLLOUT.md` (audit 47 trang: 23 cần history, 24 tool/dashboard không cần). Còn lại: frontend custom pages (products/PBH/customers/purchase-refund/returns/reconcile/kpi — data đã chảy sẵn) + wire ~11 route Wave 2.
+- Cần Render deploy (variants/users sink). Module + page-builder frontend đã push.
+
 ### [fix] video-maker — giọng đã thêm từ kho KHÔNG hiện lần đầu (init ordering) + dedup giọng trùng
 
 User: vào trang chỉ thấy 3 giọng built-in; **đổi radio chọn giọng thì giọng đã thêm mới hiện**. Kèm lỗi phụ: 2 mục "Adam 3" (built-in + thêm từ kho cùng proId).

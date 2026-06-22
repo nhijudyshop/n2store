@@ -17,6 +17,21 @@
 const express = require('express');
 // 1D-auth (2026-06-12): route maintenance bulk-mutation gate admin (chuẩn S1).
 const { requireWeb2Admin, requireWeb2AuthSoft } = require('../middleware/web2-auth');
+// EVENT-SINK audit toàn bộ (2026-06-22): ghi web2_audit_events mỗi create/update/delete
+// biến thể → per-record history (Web2AuditLog.openRecord entity='variant').
+const { recordAuditEvent } = require('../services/web2-audit-sink');
+function _auditVariant(req, action, id, changes) {
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
+    recordAuditEvent(pool, {
+        entity: 'variant',
+        entityId: id != null ? String(id) : null,
+        action,
+        userId: req.web2User?.id ?? (req.body?.userId || null),
+        userName: req.web2User?.display_name || req.body?.userName || null,
+        sourcePage: 'variants',
+        changes: changes || {},
+    });
+}
 const router = express.Router();
 
 // -----------------------------------------------------
@@ -388,6 +403,10 @@ router.post('/', requireWeb2AuthSoft, async (req, res) => {
                     ]
                 );
                 _notify('create', r.rows[0].id);
+                _auditVariant(req, 'create', r.rows[0].id, {
+                    value: r.rows[0].value,
+                    groupName: r.rows[0].group_name,
+                });
                 return res.json({ success: true, variant: mapRow(r.rows[0]) });
             } catch (err) {
                 if (err.code === '23505') {
@@ -462,6 +481,7 @@ router.patch('/:id(\\d+)', requireWeb2AuthSoft, async (req, res) => {
             );
             if (!r.rows.length) return res.status(404).json({ error: 'Not found' });
             _notify('update', r.rows[0].id);
+            _auditVariant(req, 'update', r.rows[0].id, { value: r.rows[0].value });
             res.json({ success: true, variant: mapRow(r.rows[0]) });
         } catch (err) {
             // Unique violation: phân biệt short_code vs value để báo rõ. Check-then-
@@ -496,6 +516,7 @@ router.delete('/:id(\\d+)', requireWeb2AuthSoft, async (req, res) => {
         ]);
         if (!r.rows.length) return res.status(404).json({ error: 'Not found' });
         _notify('delete', req.params.id);
+        _auditVariant(req, 'delete', req.params.id, {});
         res.json({ success: true });
     } catch (e) {
         res.status(500).json({ error: e.message });
