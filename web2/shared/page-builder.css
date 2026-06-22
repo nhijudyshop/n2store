@@ -105,74 +105,10 @@
     color: #58666e;
 }
 
-/* Data table — WEB2 thead darker gray + flat */
-.web2-shell .table-section {
-    background: #ffffff;
-    border: 1px solid #dee5e7;
-    border-top: 0;
-    border-radius: 0 0 2px 2px;
-}
-.web2-shell .data-table thead th {
-    background: #f5f5f5;
-    color: #000000;
-    font-size: 14px;
-    font-weight: 600;
-    padding: 0.5em 0.6em 0.4em; /* 7px 8.4px 5.6px @ 14px font */
-    border-bottom: 1px solid #dddddd;
-    text-transform: none;
-    letter-spacing: 0;
-}
-.web2-shell .data-table tbody td {
-    padding: 0.4em 0.6em; /* 5.6px 8.4px @ 14px font */
-    border-bottom: 1px solid #dddddd;
-    font-size: 14px;
-    color: #333333;
-}
-.web2-shell .data-table tbody tr:hover td {
-    background: #f9fafb;
-}
-
-/* Pagination — WEB2 flat */
-.web2-shell .pagination {
-    background: #ffffff;
-    padding: 8px 12px;
-    border: 1px solid #dee5e7;
-    border-top: 0;
-}
-.web2-shell .page-btn {
-    background: #ffffff;
-    border: 1px solid #dee5e7;
-    color: #58666e;
-    border-radius: 2px;
-    font-size: 12px;
-    padding: 4px 8px;
-}
-.web2-shell .page-btn.active {
-    background: #3c8dbc;
-    border-color: #3c8dbc;
-    color: #ffffff;
-}
-
-/* Modal — keep but flatten radius */
-.web2-shell .modal-content {
-    border-radius: 3px;
-    border: 1px solid #dee5e7;
-}
-.web2-shell .modal-header {
-    background: #f5f5f5;
-    border-bottom: 1px solid #dddddd;
-    padding: 10px 15px;
-    font-size: 14px;
-    color: #58666e;
-}
-.web2-shell .modal-body {
-    padding: 15px;
-}
-.web2-shell .modal-footer {
-    background: #ffffff;
-    border-top: 1px solid #dddddd;
-    padding: 10px 15px;
-}
+/* (gỡ 2026-06-22, CSS consolidation) Block table/pagination/modal AdminLTE-flat cũ
+   đã DEAD — cả 5 trang page-builder load web2-theme.css SAU page-builder.css nên
+   theme override (cùng specificity, load sau thắng). Bảng/pagination/modal giờ lấy
+   từ 1 NGUỒN: web2-theme.css (mirror look native-orders). Xem docs/dev-log. */
 
 /* Form fields inside modal */
 .web2-shell .field-row {
