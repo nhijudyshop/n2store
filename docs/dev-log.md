@@ -2,6 +2,20 @@
 
 ## 2026-06-22
 
+### [refactor] Web 2.0 UI đồng nhất — MODAL về canonical (Step 7) + sửa gốc bán kính 1 nguồn
+
+Tiếp tục đợt đồng nhất giao diện (sau buttons + tables): rà MODAL toàn bộ trang Web 2.0 về **canonical** (header gradient xanh nhạt Zalo + accent strip, bo góc theo token, không `backdrop-filter blur`, padding/footer chuẩn). CSS-only, **giữ nguyên class name** để JS đóng/mở không vỡ. Zalo + video-maker loại trừ (session khác đang code).
+
+- **Workflow 10 trang fork-modal** (audit→restyle, mỗi trang riêng file CSS → parallel-safe): chỉ 2 trang cần sửa lớn (so-order, purchase-refund) + 2 trang sửa nhỏ (products, users); phần còn lại đã canonical từ đợt trước.
+    - **products** `.w2p-history-head`: header **phẳng xanh đặc `#2a96ff` + chữ trắng** → gradient xanh-nhạt + chữ tối (canonical); close trắng-trên-xanh → tối-trên-sáng; backdrop 0.55→0.42; radius/shadow → token.
+    - **so-order** `.so-modal-head` + `.so-modal-head-v2`: thêm gradient canonical + accent `::after`; h2 16/20px → 15px/700; footer border/bg → token; radius → token.
+    - **purchase-refund**: 3 modal (chính + section + modal hoàn/nguy hiểm) → header gradient + border token, h3 17px → 15px/700, footer `var(--gray-50)`, radius → token (modal nguy hiểm giữ header đỏ semantic).
+    - **users**: footer border/bg → token.
+- **balance-history `.w2md-*` (modal Nạp tay — JS-injected `<style>`)**: agent CSS-scoped không chạm được → tự sửa text CSS trong `js/web2-manual-deposit.js` (không đụng logic): backdrop 0.55→0.42, panel shadow `0 24px 48px`(48px blur, quá ngưỡng) → `var(--shadow-lg)`, head thêm gradient canonical + accent strip + h3 15/700, foot/close → token.
+- **GỐC bất nhất bán kính (1-nguồn)**: phát hiện `web2-theme.css:1105` ghi đè `[class*='modal-content']` thành **`border-radius:18px` cứng** (đè base.css 12px), trong khi MỌI fork (đợt trước) đã set 12px theo token `--web2-radius` → shared modal 18px vs fork 12px = lệch. Sửa **1 dòng**: `border-radius:18px` → `var(--web2-radius)` (12px) để modal theo đúng design-token như card/input. Verify browser: fork `.so-modal-panel` = shared `.modal-content` = `[class*='modal-content']` fork đều **12px**.
+- **Verify browser (localhost)**: products head = `linear-gradient(#e8f2ff→#fff)` (hết xanh đặc), so-order head/headv2 canonical, w2md modal "Nạp tay vào ví" mở đúng — radius 12px, shadow `var(--shadow-lg)`, head gradient, backdrop 0.42, 540px, không vỡ layout (screenshot OK).
+- **Cache-bust prod**: bump `web2-theme.css?v=20260622t6` (47 HTML, trừ zalo/video-maker) + page CSS đã sửa (so-order/products/purchase-refund/users) + `web2-manual-deposit.js?v=20260622t6`.
+
 ### [fix] vieneu-tts OmniVoice — thiếu ffmpeg (pydub) → bundle qua imageio-ffmpeg
 
 User chạy bộ cài máy POS ([0] cài hết): VieNeu OK, OmniVoice cảnh báo `pydub … Couldn't find ffmpeg`. Gốc: package `omnivoice` phụ thuộc pydub (decode audio mẫu clone) cần ffmpeg; máy chưa cài. VieNeu KHÔNG dùng pydub nên không sao. (HF_TOKEN warning = vô hại, chỉ rate-limit tải.)
