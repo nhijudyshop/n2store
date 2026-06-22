@@ -210,9 +210,8 @@
                     _removeTile(tempId);
                     finish();
                 },
-                successMsg: frame?.jpegBase64
-                    ? '📷 Đã lưu vào kho Hình Livestream'
-                    : '⏱️ Đã lưu mốc thời gian — bấm ⚡ để lấy frame',
+                // KHÔNG toast success sau khi chụp (user req 2026-06-22) — chụp liên
+                // tục lúc live → toast spam phiền. Lỗi thật vẫn báo qua errLabel + rollback.
                 errLabel: 'Lưu hình livestream',
             });
         } else {
