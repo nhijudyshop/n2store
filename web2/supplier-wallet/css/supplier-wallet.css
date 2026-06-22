@@ -31,14 +31,7 @@
     align-items: center;
     gap: 10px;
 }
-.counter-pill {
-    padding: 6px 12px;
-    border-radius: 999px;
-    background: #f1f5f9;
-    color: #475569;
-    font-size: 12px;
-    font-weight: 600;
-}
+/* .counter-pill: canonical shared (web2-theme.css) — local fork removed */
 
 /* 2026-06-16: chỉ báo "Realtime" thay nút "Đồng bộ" — trang tự cập nhật qua SSE. */
 .sw-live-pill {

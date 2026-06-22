@@ -40,14 +40,7 @@
     gap: 8px;
 }
 
-.sd-page-counters .counter-pill {
-    background: #f1f5f9;
-    color: #334155;
-    padding: 6px 12px;
-    border-radius: 999px;
-    font-size: 0.875rem;
-    font-weight: 500;
-}
+/* .sd-page-counters .counter-pill: canonical shared (web2-theme.css) — local fork removed */
 
 /* ----- Toolbar / filters ----- */
 .sd-toolbar {

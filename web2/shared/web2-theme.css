@@ -704,13 +704,22 @@ body:has(.web2-shell) .stat-card {
     font-variant-numeric: tabular-nums;
 }
 
-/* ─── Counter pill — accent gradient subtle ─────────── */
+/* ─── Counter pill — canonical 1-source (pale-blue stadium).
+   Fully owns shape so per-page forks (.counter-pill in so-order/reconcile/
+   supplier-debt/supplier-wallet/users) render identically. ───────────── */
 .web2-theme .counter-pill,
 body:has(.web2-shell) .counter-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px;
+    border-radius: 999px;
     background: var(--web2-primary-soft);
     color: var(--web2-primary-hover);
     border: 1px solid var(--web2-primary-soft-2);
+    font-size: 12px;
     font-weight: 700;
+    white-space: nowrap;
 }
 
 /* ─── Status pills — 5 colors with soft bg + bold ────── */

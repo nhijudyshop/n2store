@@ -2,6 +2,15 @@
 
 ## 2026-06-22
 
+### [refactor] Web 2.0 UI đồng nhất — `.counter-pill` gom 1-nguồn (DRY pill đếm)
+
+Pill đếm kết quả (`.counter-pill`, vd "12 đơn") bị **copy-paste fork ở 5 trang** (so-order xanh, reconcile teal, supplier-debt/supplier-wallet/users xám) lệch padding/bg/màu/radius/font, dù shared đã có `.web2-theme .counter-pill` (theme.css:708) set màu xanh nhạt — nhưng forks rò radius/padding/font (đều `999px` nhưng padding 4-6px, font 12px↔0.875rem, weight 500↔600).
+
+- **Canonical hoá triệt để** (theme.css `.web2-theme .counter-pill`): rule shared giờ tự sở hữu **toàn bộ shape** — `display:inline-flex; gap:6px; padding:4px 12px; border-radius:999px (stadium, khớp badge family); font 12px/700; bg var(--web2-primary-soft) #e8f2ff; color var(--web2-primary-hover) #0058da; border var(--web2-primary-soft-2)` → đè mọi fork.
+- **Xoá 6 fork page-local** (so-order ×2 gồm `.so-page-counters`, reconcile, `.sd-page-counters`, supplier-wallet, users) → thay bằng comment trỏ nguồn shared.
+- **Verify browser**: reconcile counter-pill `rgb(232,242,255)`/`#0058da`/`999px`/`4px 12px`/`12px/700`/border `#bcdcff` — hết teal, đồng nhất pale-blue stadium mọi trang.
+- theme.css + 5 page CSS đều đã `?v=t6` (đợt modal/toolbar) → không bump thêm.
+
 ### [fix] video-maker VieNeu — tự dò server LOCAL (localhost:8123/8124), khỏi cần tunnel/registry
 
 User cài server NGAY trên máy đang xem trang nhưng "Chưa thấy máy online" (registry rỗng — heartbeat/tunnel không lên). Gốc: trang chỉ dò máy qua registry (cần serve.py heartbeat sau khi tunnel cloudflared lên) → cùng-máy vẫn không thấy nếu tunnel hụt.

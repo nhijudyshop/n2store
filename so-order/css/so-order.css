@@ -1426,14 +1426,7 @@
 
 /* Counter pill in topbar */
 
-.counter-pill {
-    padding: 4px 10px;
-    background: #eef2ff;
-    color: #0058da;
-    border-radius: 999px;
-    font-size: 12px;
-    font-weight: 600;
-}
+/* .counter-pill: canonical shared (web2-theme.css) — local fork removed */
 
 @media (max-width: 768px) {
     .so-form-grid {
@@ -1488,14 +1481,7 @@
     flex-wrap: wrap;
 }
 
-.so-page-counters .counter-pill {
-    padding: 4px 10px;
-    background: #eef2ff;
-    color: #0058da;
-    border-radius: 999px;
-    font-size: 12px;
-    font-weight: 600;
-}
+/* .so-page-counters .counter-pill: canonical shared (web2-theme.css) — local fork removed */
 
 /* ------------ Shipment header row + note cells ------------ */
 

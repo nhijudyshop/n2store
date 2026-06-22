@@ -46,14 +46,7 @@
     align-items: center;
     gap: 8px;
 }
-.counter-pill {
-    background: #ccfbf1;
-    color: #0f766e;
-    padding: 6px 14px;
-    border-radius: 999px;
-    font-size: 0.875rem;
-    font-weight: 600;
-}
+/* .counter-pill: canonical shared (web2-theme.css) — local fork removed */
 
 /* ==================== BUTTONS ====================
    Buttons use canonical .web2-btn / .btn-* from web2/shared/web2-theme.css
