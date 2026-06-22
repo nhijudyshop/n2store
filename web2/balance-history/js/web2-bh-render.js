@@ -78,6 +78,17 @@
                 W2BH.openChatForPhone(btn.getAttribute('data-phone'), btn.getAttribute('data-name'))
             );
         });
+        // Lịch sử thao tác per-record (Web2AuditLog, auto-load qua sidebar).
+        dom.tbody.querySelectorAll('[data-action="history"]').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                const id = btn.getAttribute('data-id');
+                window.Web2AuditLog?.openRecord?.({
+                    entity: 'balance-transaction',
+                    entityId: id,
+                    title: 'Lịch sử giao dịch: ' + id,
+                });
+            });
+        });
         // Row trùng SĐT (pending_match) → mở modal chọn KH, lọc đúng giao dịch này.
         dom.tbody.querySelectorAll('[data-action="dup-phone"]').forEach((btn) => {
             btn.addEventListener('click', () => {
@@ -242,6 +253,9 @@
                             </button>`
                               : ''
                     }
+                    <button type="button" class="w2bh-icon-btn w2bh-icon-history" data-action="history" data-id="${r.id}" title="Lịch sử giao dịch">
+                        <i data-lucide="history" style="width:14px;height:14px;"></i>
+                    </button>
                 </td>
             </tr>
         `;

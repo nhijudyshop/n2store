@@ -110,6 +110,7 @@
                 const actionBtns = `<span class="sd-row-actions">
                     <button class="sd-action-btn sd-action-pay" type="button" data-action-pay="${escapeHtml(r.supplier)}" title="Thanh toán" aria-label="Thanh toán">💳</button>
                     <button class="sd-action-btn sd-action-note ${note ? 'has-note' : ''}" type="button" data-action-note="${escapeHtml(r.supplier)}" title="Sửa ghi chú" aria-label="Sửa ghi chú">✏️</button>
+                    <button class="sd-action-btn sd-action-history" type="button" data-action-history="${escapeHtml(r.supplier)}" title="Lịch sử thao tác" aria-label="Lịch sử thao tác"><i data-lucide="history"></i></button>
                     ${_dlVi}${_dlSo}
                 </span>`;
                 return `<tr class="sd-main-row ${cls} ${isExpanded ? 'is-expanded' : ''}" data-supplier="${escapeHtml(r.supplier)}">
@@ -158,8 +159,25 @@
                 SD.openPayModal(btn.dataset.actionPay);
             });
         });
+        body.querySelectorAll('[data-action-history]').forEach((btn) => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                openHistory(btn.dataset.actionHistory);
+            });
+        });
         wireDetailTabs();
         if (window.lucide?.createIcons) window.lucide.createIcons();
+    }
+
+    // 🕘 Lịch sử thao tác (audit per-record). Giao dịch NCC ghi dưới entity
+    // 'supplier-wallet' (cùng sink với trang Ví NCC), key = TÊN NCC.
+    function openHistory(supplier) {
+        if (!supplier) return;
+        window.Web2AuditLog?.openRecord?.({
+            entity: 'supplier-wallet',
+            entityId: supplier,
+            title: 'Lịch sử NCC: ' + supplier,
+        });
     }
 
     function wireDetailTabs() {
@@ -489,6 +507,7 @@
     // expose to namespace
     SD.applyFilterAndRender = applyFilterAndRender;
     SD.renderTable = renderTable;
+    SD.openHistory = openHistory;
     SD.wireDetailTabs = wireDetailTabs;
     SD.toggleExpand = toggleExpand;
     SD.updateDetailPanel = updateDetailPanel;

@@ -164,6 +164,36 @@
     background: #fef2f2;
     color: #b91c1c;
 }
+.sw-card-head-right {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+.sw-card-history-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: 0;
+    cursor: pointer;
+    padding: 3px;
+    border-radius: 6px;
+    color: #64748b;
+    line-height: 1;
+    transition:
+        background-color 0.12s,
+        color 0.12s,
+        transform 0.08s;
+}
+.sw-card-history-btn:hover {
+    background: #eef2ff;
+    color: #4f46e5;
+    transform: scale(1.12);
+}
+.sw-card-history-btn i {
+    width: 15px;
+    height: 15px;
+}
 .sw-card-stats {
     display: grid;
     grid-template-columns: 1fr 1fr;

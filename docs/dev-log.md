@@ -1,6 +1,21 @@
 # Dev Log
 
-## 2026-06-22
+## 2026-06-23
+
+### [feat] Per-record history rollout — Wave 3 frontend (🕘 buttons cho 10 trang đã wire sink)
+
+Hoàn tất nhánh FE: 10 trang đã có data chảy vào event-sink (Wave 2) giờ có nút 🕘 mở `Web2AuditLog.openRecord({entity, entityId, title})` per-record. Module auto-load qua sidebar → chỉ thêm nút + handler (defensive `?.`), KHÔNG cần script tag. 5 subagent song song (2 trang/agent), additive thuần, match style nút sẵn có, bump `?v=20260623w3`.
+
+- **supplier-wallet** (card NCC → 🕘 header) + **supplier-debt** (row NCC → 🕘) → entity='supplier-wallet', id=tên NCC.
+- **fastsaleorder-refund** (row → 🕘, RfApp.openHistory) → entity='refund', id=o.number.
+- **fastsaleorder-delivery** (row → 🕘, DlvApp.openHistory) → entity='delivery-invoice', id=o.number.
+- **jt-tracking** (row → data-act=history) → entity='jt-tracking', id=billcode.
+- **balance-history** (row actions → 🕘) → entity='balance-transaction', id=row.id.
+- **order-tags** (card-foot → 🕘) → entity='order-tag', id=code.
+- **users** (row actions → data-act=history) → entity='web2-user', id=u.id.
+- **fb-posts** (list published `p.id` + drafts `d.id` → 🕘) → entity='fb-post'.
+- **live-control** (header toolbar → 🕘, guard "Chưa chọn chiến dịch") → entity='campaign', id=state.campaignId.
+- Tất cả 12 file JS `node --check` PASS; 11 openRecord call đúng entity; 10 version bump. Tĩnh GH Pages.
 
 ### [feat] Per-record history rollout — Wave 2 backend wiring (9 route → event-sink) + entityId purge
 

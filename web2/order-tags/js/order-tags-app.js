@@ -191,6 +191,9 @@
                         </span>
                     </div>
                     <div class="ot-card-foot">
+                        <button class="web2-btn web2-btn-default web2-btn-xs" data-act="history" data-code="${esc(r.code)}" title="Lịch sử thao tác">
+                            <i data-lucide="history" style="width:13px;height:13px;"></i>
+                        </button>
                         <button class="web2-btn web2-btn-default web2-btn-xs" data-act="toggle" data-code="${esc(r.code)}" title="${r.isActive ? 'Tạm tắt' : 'Bật lại'}">
                             <i data-lucide="${r.isActive ? 'toggle-right' : 'toggle-left'}" style="width:13px;height:13px;"></i>
                         </button>
@@ -211,6 +214,7 @@
                 if (b.dataset.act === 'edit') openEdit(code);
                 else if (b.dataset.act === 'delete') removeTag(code);
                 else if (b.dataset.act === 'toggle') toggleTag(code);
+                else if (b.dataset.act === 'history') openHistory(code);
             });
         });
     }
@@ -486,6 +490,15 @@
         } finally {
             btn.disabled = false;
         }
+    }
+
+    // Lịch sử thao tác per-thẻ — module shared auto-load qua sidebar.
+    function openHistory(code) {
+        window.Web2AuditLog?.openRecord?.({
+            entity: 'order-tag',
+            entityId: code,
+            title: 'Lịch sử thẻ: ' + code,
+        });
     }
 
     async function toggleTag(code) {

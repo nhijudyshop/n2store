@@ -372,6 +372,21 @@
     background: #fef3c7;
 }
 
+.sd-action-history {
+    color: #64748b;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+.sd-action-history:hover {
+    background: #eef2ff;
+    color: #4f46e5;
+}
+.sd-action-history i {
+    width: 15px;
+    height: 15px;
+}
+
 /* Name + note */
 .sd-name-line {
     display: flex;

@@ -53,6 +53,13 @@
             listEl.querySelectorAll('[data-supplier]').forEach((el) => {
                 el.addEventListener('click', () => openDetail(el.dataset.supplier));
             });
+            // 🕘 Lịch sử thao tác — không mở detail (stopPropagation), mở audit drawer.
+            listEl.querySelectorAll('[data-history]').forEach((btn) => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    openHistory(btn.dataset.history);
+                });
+            });
         }
         // counters
         const totalOutstanding = items.reduce((s, w) => s + Math.max(0, w.balance), 0);
@@ -67,7 +74,10 @@
         return `<div class="sw-card" data-supplier="${escapeHtml(w.supplier)}">
             <div class="sw-card-head">
                 <div class="sw-card-name">${escapeHtml(w.supplier)}</div>
-                <span class="sw-card-badge ${debt ? 'is-debt' : ''}">${debt ? 'Còn nợ' : 'Đủ'}</span>
+                <div class="sw-card-head-right">
+                    <button class="sw-card-history-btn" type="button" data-history="${escapeHtml(w.supplier)}" title="Lịch sử thao tác NCC" aria-label="Lịch sử thao tác NCC"><i data-lucide="history"></i></button>
+                    <span class="sw-card-badge ${debt ? 'is-debt' : ''}">${debt ? 'Còn nợ' : 'Đủ'}</span>
+                </div>
             </div>
             <div class="sw-card-stats">
                 <div><span class="label">Tổng mua</span><span class="value">${fmtVnd(w.totalPurchased)}</span></div>
@@ -76,6 +86,16 @@
                 <div class="balance"><span class="label">Còn nợ</span><span class="value">${fmtVnd(w.balance)}</span></div>
             </div>
         </div>`;
+    }
+
+    // ---------- Lịch sử thao tác (audit per-record, keyed by supplier name) ----------
+    function openHistory(supplier) {
+        if (!supplier) return;
+        window.Web2AuditLog?.openRecord?.({
+            entity: 'supplier-wallet',
+            entityId: supplier,
+            title: 'Lịch sử NCC: ' + supplier,
+        });
     }
 
     // ---------- Detail drawer ----------
@@ -193,6 +213,7 @@
 
     SW.renderList = renderList;
     SW.cardHtml = cardHtml;
+    SW.openHistory = openHistory;
     SW.openDetail = openDetail;
     SW.renderDetailTabs = renderDetailTabs;
     SW.renderPurchases = renderPurchases;

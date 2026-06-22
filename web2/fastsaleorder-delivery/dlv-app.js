@@ -91,6 +91,7 @@
                 <td>
                     <div class="web2-row-actions">
                         <button class="web2-btn web2-btn-primary web2-btn-xs" title="Chi tiết" onclick="DlvApp.detail('${escapeHtml(o.number)}')"><i data-lucide="eye" style="width:12px;height:12px;"></i></button>
+                        <button class="web2-btn web2-btn-xs" title="Lịch sử thao tác" onclick="DlvApp.openHistory('${escapeHtml(o.number)}')"><i data-lucide="history" style="width:12px;height:12px;"></i></button>
                         ${o.state === 'pending' ? `<button class="web2-btn web2-btn-success web2-btn-xs" title="Bắt đầu giao" onclick="DlvApp.ship('${escapeHtml(o.number)}')"><i data-lucide="truck" style="width:12px;height:12px;"></i></button>` : ''}
                         ${o.state === 'shipping' ? `<button class="web2-btn web2-btn-success web2-btn-xs" title="Giao thành công" onclick="DlvApp.deliver('${escapeHtml(o.number)}')"><i data-lucide="check-circle" style="width:12px;height:12px;"></i></button>` : ''}
                         ${o.state === 'shipping' ? `<button class="web2-btn web2-btn-warning web2-btn-xs" title="Bị trả" onclick="DlvApp.return_('${escapeHtml(o.number)}')"><i data-lucide="undo-2" style="width:12px;height:12px;"></i></button>` : ''}
@@ -253,8 +254,18 @@
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
     else init();
 
+    // 🕘 Lịch sử thao tác — module shared (auto-load qua sidebar). Gọi phòng thủ.
+    function openHistory(number) {
+        window.Web2AuditLog?.openRecord?.({
+            entity: 'delivery-invoice',
+            entityId: number,
+            title: 'Lịch sử phiếu giao: ' + number,
+        });
+    }
+
     window.DlvApp = {
         detail,
+        openHistory,
         ship: (n) => changeState(n, 'ship', 'Bắt đầu giao'),
         deliver: (n) => changeState(n, 'deliver', 'Giao thành công'),
         return_: (n) => changeState(n, 'return', 'Đánh dấu bị trả'),

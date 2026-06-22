@@ -116,7 +116,8 @@
         const tagBtn = info.phone
             ? `<button class="jt-icobtn tag ${tagged ? 'is-tagged' : ''}" data-act="tag" data-phone="${esc(info.phone)}" title="${tagged ? 'Khách đã gắn thẻ XỬ LÝ BC (bấm để GỠ)' : 'Gắn thẻ Pancake: XỬ LÝ BC'}"><i data-lucide="${tagged ? 'badge-check' : 'tag'}"></i></button>`
             : '';
-        const right = `${chatBtn}${tagBtn}<button class="jt-icobtn" data-act="refresh" data-code="${code}" title="Làm mới"><i data-lucide="refresh-cw"></i></button>
+        const right = `${chatBtn}${tagBtn}<button class="jt-icobtn" data-act="history" data-code="${code}" title="Lịch sử thao tác vận đơn"><i data-lucide="history"></i></button>
+            <button class="jt-icobtn" data-act="refresh" data-code="${code}" title="Làm mới"><i data-lucide="refresh-cw"></i></button>
             ${
                 approved
                     ? `<button class="jt-icobtn" data-act="unapprove" data-code="${code}" title="Trở lại (bỏ duyệt)"><i data-lucide="rotate-ccw"></i></button>`

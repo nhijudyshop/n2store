@@ -103,6 +103,12 @@
                 e.stopPropagation();
                 if (ab.dataset.act === 'chat') M.openChat(ab.dataset.conv, ab.dataset.billcode);
                 else if (ab.dataset.act === 'tag') A.tagPancake(ab.dataset.phone, ab);
+                else if (ab.dataset.act === 'history')
+                    window.Web2AuditLog?.openRecord?.({
+                        entity: 'jt-tracking',
+                        entityId: ab.dataset.code,
+                        title: 'Lịch sử vận đơn: ' + ab.dataset.code,
+                    });
                 else A.rowAction(ab.dataset.act, ab.dataset.code);
                 return;
             }

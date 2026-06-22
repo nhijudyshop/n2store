@@ -118,6 +118,9 @@
             listEl
                 .querySelectorAll('[data-del]')
                 .forEach((b) => b.addEventListener('click', () => del(b.dataset.del, status)));
+            listEl
+                .querySelectorAll('[data-history]')
+                .forEach((b) => b.addEventListener('click', () => openHistory(b.dataset.history)));
             if (window.lucide?.createIcons) window.lucide.createIcons();
         } catch (e) {
             listEl.innerHTML = `<div class="fbp-empty">${esc(e.message)}</div>`;
@@ -141,6 +144,7 @@
             </div>
             <div class="fbp-post-actions">
                 <button class="fbp-btn ghost sm" data-edit="${esc(String(d.id))}" type="button"><i data-lucide="pencil"></i> Sửa</button>
+                <button class="fbp-btn ghost sm" data-history="${esc(String(d.id))}" type="button" title="Lịch sử thao tác"><i data-lucide="history"></i> Lịch sử</button>
                 <button class="fbp-btn danger sm" data-del="${esc(String(d.id))}" type="button"><i data-lucide="trash-2"></i> Xoá</button>
             </div>
         </div>`;
@@ -163,6 +167,15 @@
         } catch (e) {
             notify(e.message, 'error');
         }
+    }
+
+    // Lịch sử thao tác của 1 bản nháp/lịch FB (module shared Web2AuditLog auto-load qua sidebar).
+    function openHistory(id) {
+        window.Web2AuditLog?.openRecord?.({
+            entity: 'fb-post',
+            entityId: String(id),
+            title: 'Lịch sử bài: ' + id,
+        });
     }
 
     window.FBPostsDrafts = { render };

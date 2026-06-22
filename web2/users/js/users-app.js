@@ -161,6 +161,9 @@
                         <button class="u-icon-btn" type="button" title="Phân công KPI (khoảng STT đơn theo chiến dịch)" data-act="kpi" data-id="${u.id}">
                             <i data-lucide="trophy"></i>
                         </button>
+                        <button class="u-icon-btn" type="button" title="Lịch sử thao tác" data-act="history" data-id="${u.id}">
+                            <i data-lucide="history"></i>
+                        </button>
                         <button class="u-icon-btn u-icon-btn-danger" type="button" title="${u.isActive ? 'Vô hiệu' : 'Đã vô hiệu'}" data-act="delete" data-id="${u.id}" ${u.isActive ? '' : 'disabled'}>
                             <i data-lucide="trash-2"></i>
                         </button>
@@ -184,7 +187,17 @@
         else if (act === 'pwd') openPasswordModal(user);
         else if (act === 'perms') openPermsModal(user);
         else if (act === 'kpi') openKpiAssignments(user);
+        else if (act === 'history') openUserHistory(user);
         else if (act === 'delete') deactivateUser(user);
+    }
+
+    // Lịch sử thao tác per-tài khoản — module shared auto-load qua sidebar.
+    function openUserHistory(user) {
+        window.Web2AuditLog?.openRecord?.({
+            entity: 'web2-user',
+            entityId: user.id,
+            title: 'Lịch sử tài khoản: ' + (user.displayName || user.username || user.id),
+        });
     }
 
     // Mở page Phân công KPI ở tab mới (Sprint 2). User pick campaign rồi

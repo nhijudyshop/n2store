@@ -102,6 +102,7 @@
                 </div>
                 <div class="fbp-post-actions">
                     <button class="fbp-btn ghost sm" data-view="${esc(p.id)}" type="button"><i data-lucide="eye"></i> Xem</button>
+                    <button class="fbp-btn ghost sm" data-history="${esc(p.id)}" type="button" title="Lịch sử thao tác"><i data-lucide="history"></i> Lịch sử</button>
                     <button class="fbp-btn danger sm" data-del="${esc(p.id)}" type="button"><i data-lucide="trash-2"></i> Xoá</button>
                 </div>
             </div>`;
@@ -149,7 +150,24 @@
             b._wired = 1;
             b.addEventListener('click', () => openViewer(b.dataset.view));
         });
+        container.querySelectorAll('[data-history]').forEach((b) => {
+            if (b._wired) return;
+            b._wired = 1;
+            b.addEventListener('click', (e) => {
+                e.stopPropagation();
+                openHistory(b.dataset.history);
+            });
+        });
         if (window.lucide?.createIcons) window.lucide.createIcons();
+    }
+
+    // Lịch sử thao tác của 1 bài FB (module shared Web2AuditLog auto-load qua sidebar).
+    function openHistory(postId) {
+        window.Web2AuditLog?.openRecord?.({
+            entity: 'fb-post',
+            entityId: postId,
+            title: 'Lịch sử bài: ' + postId,
+        });
     }
 
     async function load() {

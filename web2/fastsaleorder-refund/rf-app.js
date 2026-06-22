@@ -101,6 +101,7 @@
                 <td>
                     <div class="web2-row-actions">
                         <button class="web2-btn web2-btn-primary web2-btn-xs" title="Chi tiết" onclick="RfApp.detail('${escapeHtml(o.number)}')"><i data-lucide="eye" style="width:12px;height:12px;"></i></button>
+                        <button class="web2-btn web2-btn-xs" title="Lịch sử thao tác" onclick="RfApp.openHistory('${escapeHtml(o.number)}')"><i data-lucide="history" style="width:12px;height:12px;"></i></button>
                         ${o.state === 'draft' ? `<button class="web2-btn web2-btn-success web2-btn-xs" title="Duyệt" onclick="RfApp.approve('${escapeHtml(o.number)}')"><i data-lucide="check" style="width:12px;height:12px;"></i></button>` : ''}
                         ${o.state === 'approved' ? `<button class="web2-btn web2-btn-success web2-btn-xs" title="Hoàn thành" onclick="RfApp.complete('${escapeHtml(o.number)}')"><i data-lucide="check-circle" style="width:12px;height:12px;"></i></button>` : ''}
                         ${['draft', 'approved'].includes(o.state) ? `<button class="web2-btn web2-btn-danger web2-btn-xs" title="Hủy" onclick="RfApp.cancel('${escapeHtml(o.number)}')"><i data-lucide="x-circle" style="width:12px;height:12px;"></i></button>` : ''}
@@ -259,8 +260,18 @@
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
     else init();
 
+    // 🕘 Lịch sử thao tác — module shared (auto-load qua sidebar). Gọi phòng thủ.
+    function openHistory(number) {
+        window.Web2AuditLog?.openRecord?.({
+            entity: 'refund',
+            entityId: number,
+            title: 'Lịch sử phiếu trả: ' + number,
+        });
+    }
+
     window.RfApp = {
         detail,
+        openHistory,
         approve: (n) => changeState(n, 'approve', 'Duyệt'),
         complete: (n) => changeState(n, 'complete', 'Hoàn thành'),
         cancel: (n) => changeState(n, 'cancel', 'Hủy'),

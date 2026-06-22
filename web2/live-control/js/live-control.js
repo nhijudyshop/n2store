@@ -372,6 +372,20 @@
         }
     }
 
+    // ── Lịch sử thao tác chiến dịch (module shared Web2AuditLog auto-load qua sidebar) ──
+    function openHistory() {
+        if (!state.campaignId) {
+            if (window.notificationManager && window.notificationManager.show)
+                window.notificationManager.show('Chưa chọn chiến dịch', 'warning');
+            return;
+        }
+        window.Web2AuditLog?.openRecord?.({
+            entity: 'campaign',
+            entityId: state.campaignId,
+            title: 'Lịch sử chiến dịch: ' + state.campaignId,
+        });
+    }
+
     // ── SSE ───────────────────────────────────────────
     function onSse(msg) {
         var d = (msg && msg.data) || {};
@@ -394,6 +408,7 @@
             if (state.campaignId)
                 window.open('../live-tv/index.html?campaign=' + state.campaignId, '_blank');
         });
+        $('lcHistory').addEventListener('click', openHistory);
         // Board ops + pending edit (delegated)
         $('lcBoard').addEventListener('click', function (e) {
             var btn = e.target.closest('[data-op]');
@@ -456,6 +471,7 @@
         if (cid && $('lcCampaign').querySelector('option[value="' + cid + '"]'))
             selectCampaign(cid);
         else loadPicker();
+        if (window.lucide && window.lucide.createIcons) window.lucide.createIcons();
     }
 
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
