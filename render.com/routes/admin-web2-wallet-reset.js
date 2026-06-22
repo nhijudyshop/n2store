@@ -354,4 +354,144 @@ router.post('/web2-wallet-reset/by-phone', async (req, res) => {
     }
 });
 
+// =====================================================================
+// SELECTIVE DATA WIPE — xoá data đơn/SP/NCC/ví/KPI/chiến-dịch-cha trên web2Db.
+// GIỮ: khách hàng (web2_customers) + chuyển khoản (web2_balance_history) +
+//      vận hành (live comments, Zalo/chat, FB, noti, J&T) + auth/config.
+// POST /api/admin/web2-data-wipe   body {mode:'audit'}  → CHỈ đọc, đếm dòng + phân loại
+//                                  body {mode:'execute', confirm:'XOA-HET'} → TRUNCATE
+// Header x-admin-secret = CLEANUP_SECRET.
+// =====================================================================
+const WIPE_DELETE_TABLES = [
+    // Đơn hàng
+    'web2_so_order',
+    'web2_order_tags',
+    'web2_returns',
+    'web2_cart_history',
+    'native_orders',
+    'fast_sale_orders',
+    // Sản phẩm
+    'web2_products',
+    'web2_variants',
+    'web2_product_history',
+    'web2_campaign_products',
+    // NCC
+    'web2_supplier_meta',
+    'web2_supplier_ledger',
+    // Tiền/ví KH (user chọn XOÁ — chỉ giữ web2_customers + web2_balance_history)
+    'web2_customer_wallets',
+    'web2_wallet_transactions',
+    'web2_wallet_adjustments',
+    'web2_payment_signals',
+    'web2_payment_qr_codes',
+    'web2_pending_matches',
+    // Chiến dịch cha (live-control / live-tv hiển thị SP đã xoá)
+    'web2_live_parent_campaigns',
+    // KPI (user yêu cầu xoá — vốn tính từ đơn hàng)
+    'web2_kpi_assignments',
+    'web2_kpi_assignments_history',
+    'web2_kpi_events',
+];
+// TUYỆT ĐỐI không bao giờ TRUNCATE — guard chống lỡ tay.
+const WIPE_HARD_KEEP = new Set([
+    'web2_customers',
+    'web2_balance_history',
+    'web2_customer_intents',
+    'web2_users',
+    'web2_user_sessions',
+    'web2_migrations',
+    'web2_zalo_accounts',
+]);
+
+router.post('/web2-data-wipe', async (req, res) => {
+    if (!authOk(req)) return res.status(401).json({ error: 'unauthorized' });
+    const db = req.app.locals.web2Db || req.app.locals.chatDb;
+    if (!db) return res.status(500).json({ error: 'web2Db unavailable' });
+    if (db === req.app.locals.chatDb) {
+        return res.status(400).json({
+            error: 'web2Db === chatDb (WEB2_DATABASE_URL unset) — TỪ CHỐI để không đụng Web 1.0',
+        });
+    }
+    const mode = (req.body && req.body.mode) === 'execute' ? 'execute' : 'audit';
+    try {
+        const { rows: tbls } = await db.query(`
+            SELECT table_name FROM information_schema.tables
+            WHERE table_schema='public' AND table_type='BASE TABLE'
+              AND (table_name LIKE 'web2\\_%' OR table_name IN ('native_orders','fast_sale_orders'))
+            ORDER BY table_name`);
+        const existing = tbls.map((r) => r.table_name);
+        const counts = {};
+        for (const t of existing) {
+            const r = await db.query(`SELECT count(*)::int AS c FROM "${assertSafeTable(t)}"`);
+            counts[t] = r.rows[0].c;
+        }
+        const classify = (n) =>
+            WIPE_HARD_KEEP.has(n)
+                ? 'KEEP_GUARD'
+                : WIPE_DELETE_TABLES.includes(n)
+                  ? 'DELETE'
+                  : 'KEEP';
+        const { rows: fks } = await db.query(`
+            SELECT tc.table_name AS child, ccu.table_name AS parent
+            FROM information_schema.table_constraints tc
+            JOIN information_schema.constraint_column_usage ccu
+              ON tc.constraint_name = ccu.constraint_name AND tc.table_schema = ccu.table_schema
+            WHERE tc.constraint_type='FOREIGN KEY' AND tc.table_schema='public'`);
+        const cascadeRisk = fks.filter(
+            (f) => WIPE_DELETE_TABLES.includes(f.parent) && classify(f.child) !== 'DELETE'
+        );
+        const delExisting = WIPE_DELETE_TABLES.filter((t) => existing.includes(t));
+        const delMissing = WIPE_DELETE_TABLES.filter((t) => !existing.includes(t));
+        const keepRows = existing
+            .filter((t) => classify(t) !== 'DELETE')
+            .map((t) => ({ table: t, rows: counts[t], cls: classify(t) }));
+        const delRows = delExisting.map((t) => ({ table: t, rows: counts[t] }));
+        const totalDelRows = delRows.reduce((s, x) => s + x.rows, 0);
+
+        if (mode === 'audit') {
+            return res.json({
+                success: true,
+                mode: 'audit',
+                deleteTables: delRows,
+                deleteMissing: delMissing,
+                totalDelTables: delExisting.length,
+                totalDelRows,
+                keepTables: keepRows,
+                cascadeRisk,
+            });
+        }
+        if (!req.body || req.body.confirm !== 'XOA-HET') {
+            return res.status(400).json({ error: "execute cần confirm:'XOA-HET'" });
+        }
+        if (cascadeRisk.length) {
+            return res
+                .status(409)
+                .json({ error: 'FK cascade-risk tới bảng GIỮ — DỪNG', cascadeRisk });
+        }
+        const toTruncate = delExisting.filter((t) => !WIPE_HARD_KEEP.has(t)).map(assertSafeTable);
+        if (!toTruncate.length) {
+            return res.json({
+                success: true,
+                mode: 'execute',
+                truncated: [],
+                note: 'không có bảng nào để xoá',
+            });
+        }
+        await db.query(
+            `TRUNCATE TABLE ${toTruncate.map((t) => `"${t}"`).join(', ')} RESTART IDENTITY CASCADE`
+        );
+        console.log(
+            `[web2-data-wipe] EXECUTED — truncated ${toTruncate.length} tables, ${totalDelRows} rows`
+        );
+        return res.json({
+            success: true,
+            mode: 'execute',
+            truncated: toTruncate,
+            rowsDeleted: totalDelRows,
+        });
+    } catch (e) {
+        return res.status(500).json({ success: false, error: e.message });
+    }
+});
+
 module.exports = router;
