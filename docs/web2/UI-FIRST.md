@@ -157,7 +157,7 @@ function someOp(...args) {
 - `web2/bulk-import/`, `web2/print-export/`, `web2/smart-match/`
 - `web2/admin-sse-monitor/`, `web2/services-dashboard/`, `web2/overview/`
 
-### Page-builder pages (87 TPOS-clone)
+### Page-builder pages (87 Web 2.0)
 
 Auto-có qua `web2/shared/page-builder.js` (`Web2Page`) preload. (File `page-shell.js`/`Web2Shell` cũ đã bị xoá 2026-06-13 — dead code, 0 trang dùng; page-builder thay thế hoàn toàn.)
 

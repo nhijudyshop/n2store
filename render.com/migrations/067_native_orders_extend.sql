@@ -1,5 +1,5 @@
 -- =====================================================
--- 067 — Extend native_orders + web2_products to mirror TPOS SaleOnline_Order
+-- 067 — Extend native_orders + web2_products to mirror hệ cũ (SaleOnline_Order)
 -- =====================================================
 -- Auto-applied at first request via routes/native-orders.js + web2-products.js
 -- (each has ALTER TABLE IF NOT EXISTS-style guards). This SQL is for audit.

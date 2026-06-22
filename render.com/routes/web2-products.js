@@ -2,7 +2,7 @@
 // =====================================================
 // WEB 2.0 PRODUCTS REST API
 // Kho sản phẩm riêng cho native_orders flow, tách biệt hoàn toàn với
-// TPOS Product + Excel cache của orders-report.
+// Kho SP Web 2.0 + Excel cache của orders-report.
 // =====================================================
 
 const express = require('express');

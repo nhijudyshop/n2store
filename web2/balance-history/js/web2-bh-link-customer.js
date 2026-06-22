@@ -12,7 +12,8 @@
     const { state, withFallback, notify, _currentUser } = W2BH;
 
     // ----- Manual link via smart customer search modal -----
-    // Dùng Web2LinkCustomerModal (tìm KH qua WEB2 Partner OData fast search).
+    // Dùng Web2LinkCustomerModal (tìm KH qua kho KH Web 2.0 —
+    // Web2CustomerStore / /api/web2/customers — fast search).
     // Fallback prompt nếu modal chưa load.
     async function openLinkPrompt(id) {
         // Seed search bằng extraction_preview (NGUỒN CANONICAL backend — web2-

@@ -1,30 +1,28 @@
 // #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 module.
 /**
- * Web2ProductsPrint — In tem mã vạch matching WEB2 100%.
+ * Web2ProductsPrint — In tem mã vạch (layout chuẩn nội bộ Web 2.0).
  * [SPLIT 2026-06-18] Tách từ web2-products-print.js (1293 dòng) → 5 module nhỏ.
  *   Module này: BASE/UTILS — namespace W2PP, shared state, constants (paper/print
  *   types), escapeHtml / stripBrackets / formatPrice / notify / auth helper.
  *   Source-of-truth cho cross-module functions = window.W2PP.
  *
- * Mirror visual + structure của WEB2:
- *   - /Content/print_barcode.css (label sheet CSS)
- *   - /BarcodeProductLabel/Print Default template (vertical: name → barcode → code → price)
- *   - /BarcodeProductLabel/PrintNew (2-col: code+price | barcode)
- *   - /BarcodeProductLabel/FormModal (modal UI Bootstrap 3 style)
- *   - BarcodeProducLabelPrintController style_label() (dynamic margins)
- *   - /odata/ProductLabelPaper (3 paper presets)
+ * Layout tem (visual + structure, khổ giấy hardcoded theo máy in shop):
+ *   - label sheet CSS (vertical: name → barcode → code → price)
+ *   - bản 2-col (code+price | barcode)
+ *   - modal UI + dynamic margins
+ *   - 3 paper presets (khổ giấy in, hardcoded — KHÔNG gọi API ngoài)
  *
  * Barcode: JsBarcode CDN (jsdelivr) render Code128 SVG client-side. Code128 là
- *   chuẩn ISO/IEC 15417 → bars/spaces pattern identical với WEB2 rendering cho
- *   cùng input. Print size 25mm wide × 25px tall ngang nhau visually.
+ *   chuẩn ISO/IEC 15417 → bars/spaces pattern ổn định cho cùng input.
+ *   Print size 25mm wide × 25px tall.
  *   KHÔNG gọi API ngoài — đảm bảo Web 2.0 hoàn toàn độc lập.
  *
  * Strip-down từ purchase-orders/js/lib/barcode-label-dialog.js (1504 dòng):
- *   - BỎ WEB2Client OData lookup / useWeb2Template / printViaWeb2 / recheck
+ *   - BỎ toàn bộ lookup/template/print qua API ngoài
  *   - GIỮ visual + local HTML render path
  *
- * Font: Helvetica Neue/Arial 13px (modal), Arial (print labels) — WEB2 default,
- * KHÔNG dùng Inter (web2 dùng Inter cho UI khác, riêng print giữ WEB2 font).
+ * Font: Helvetica Neue/Arial 13px (modal), Arial (print labels) — font tem mặc
+ * định, KHÔNG dùng Inter (web2 dùng Inter cho UI khác, riêng print giữ font tem).
  */
 (function () {
     'use strict';
@@ -44,17 +42,17 @@
         return h;
     }
 
-    // ---------- Paper presets — exact mirror WEB2 /odata/ProductLabelPaper ----------
+    // ---------- Paper presets — khổ giấy in (hardcoded, theo máy in shop) ----------
     const PAPERS = [
         {
-            // P1 2026-05-30: WEB2 spec chuẩn (user paste settings).
+            // P1 2026-05-30: khổ giấy chuẩn (user paste settings).
             // Sheet 66×21mm, 2 nhãn × 25mm = 50mm + 0.5mm margin × 4 lề = 2mm.
             // → còn dư 14mm là khoảng cách physical giữa 2 con tem trên roll
             //   nhãn. Trước đây float:left dồn 2 nhãn về trái, gap dư ở phải.
             // → Refactor: sheet dùng flex space-evenly để chia 14mm dư thành
             //   3 vùng đều (~4.7mm/vùng) — 2 tem CHIA ĐỀU + CANH GIỮA trên
             //   sheet. CSS handle bên dưới (.barcode-sheet flex space-evenly).
-            // FontSize giữ 6 đúng WEB2 preset 7.
+            // FontSize giữ 6 đúng preset khổ giấy 7.
             id: 7,
             name: '2 Tem (66×21mm)',
             sheetW: 66,
@@ -124,7 +122,7 @@
     ];
 
     // 2026-06-06: khổ tem MẶC ĐỊNH = "2 Tem (66×21mm)" (id 7) — đúng khổ tem vật lý
-    // chuẩn WEB2 user đang dùng (cuộn 2-con 25mm). Tem rộng 50mm chỉ là option.
+    // user đang dùng (cuộn 2-con 25mm). Tem rộng 50mm chỉ là option.
     const DEFAULT_PAPER_IDX = Math.max(
         0,
         PAPERS.findIndex((p) => p.id === 7)

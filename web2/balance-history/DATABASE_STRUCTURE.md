@@ -37,7 +37,7 @@ Lưu tất cả giao dịch ngân hàng từ Sepay webhook.
 
 - `qr_code` - Gán tự động qua mã QR N2...
 - `exact_phone` - Gán tự động qua SĐT 10 số trong nội dung
-- `single_match` - Gán tự động khi TPOS trả về 1 KH duy nhất
+- `single_match` - Gán tự động khi kho KH Web 2.0 (/api/web2/customers) trả về 1 KH duy nhất
 - `pending_match` - Chờ chọn từ nhiều KH (đã resolve)
 - **`manual_entry`** - NHẬP TAY bởi nhân viên
 - `manual_link` - Kế toán gán thủ công

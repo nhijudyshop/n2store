@@ -1,7 +1,7 @@
 -- =====================================================
 -- NATIVE ORDERS SCHEMA
 -- Web-native orders created from tpos-pancake page,
--- fully isolated from TPOS SaleOnline_Order + social_orders.
+-- fully isolated from hệ cũ (SaleOnline_Order) + social_orders.
 -- =====================================================
 -- Auto-created at first request by routes/native-orders.js
 -- This file exists for documentation / audit.

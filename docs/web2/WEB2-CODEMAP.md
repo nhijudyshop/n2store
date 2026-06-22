@@ -2,7 +2,7 @@
 
 # WEB2-CODEMAP — Bản đồ code Web 2.0
 
-> **Auto-generated** • 2026-06-21 16:23 • 390 files, 113 shared modules, 2974 hàm, 4 file > 800 dòng.
+> **Auto-generated** • 2026-06-22 18:44 • 394 files, 115 shared modules, 3050 hàm, 5 file > 800 dòng.
 > Sinh lại: `node scripts/gen-web2-codemap.js` (chạy sau khi đổi cấu trúc/ tách module / thêm trang).
 
 ## 0. Cách dùng (Claude / dev đọc TRƯỚC khi code)
@@ -30,17 +30,18 @@
 | `Web2ChatStickers`                         | [web2-chat-sticker-data.js](../../web2/shared/chat-panel/web2-chat-sticker-data.js)   | WEB2.0 — bộ sticker built-in cho Web2ChatPanel (Feature 2 sticker-send).                                | 1         |
 | `DeliveryMethodPicker`                     | [delivery-method-picker.js](../../web2/shared/delivery-method-picker.js)              | Web 2.0 — Delivery method picker (Vietnam-aware)                                                        | 4         |
 | `Web2Page`                                 | [page-builder.js](../../web2/shared/page-builder.js)                                  | Web 2.0 generic CRUD page builder — same look as WEB2 list views.                                       | 0         |
-| `Popup`                                    | [popup.js](../../web2/shared/popup.js)                                                | Web 2.0 — Custom Popup (alert / confirm / prompt)                                                       | 47        |
+| `Popup`                                    | [popup.js](../../web2/shared/popup.js)                                                | Web 2.0 — Custom Popup (alert / confirm / prompt)                                                       | 48        |
 | `Web2ApiFetch`                             | [web2-api-fetch.js](../../web2/shared/web2-api-fetch.js)                              | WEB2.0 shared — 1 NGUỒN fetch JSON (auth + fallback base) cho Web 2.0.                                  | 1         |
 | `Web2Api`                                  | [web2-api.js](../../web2/shared/web2-api.js)                                          | Web 2.0 generic API client — talks to /api/web2/:entity/\*                                              | 1         |
-| `WEB2_CONFIG`, `API_CONFIG`, `Web2Auth`    | [web2-auth.js](../../web2/shared/web2-auth.js)                                        | Token storage + verify + page guard.                                                                    | 112       |
+| `Web2AuditLog`                             | [web2-audit-log.js](../../web2/shared/web2-audit-log.js)                              | WEB2.0 module.                                                                                          | 19        |
+| `WEB2_CONFIG`, `API_CONFIG`, `Web2Auth`    | [web2-auth.js](../../web2/shared/web2-auth.js)                                        | Token storage + verify + page guard.                                                                    | 114       |
 | `Web2AvatarUtils`                          | [web2-avatar-utils.js](../../web2/shared/web2-avatar-utils.js)                        | WEB2.0 shared module.                                                                                   | 1         |
-| `Web2BarcodeScanner`                       | [web2-barcode-scanner.js](../../web2/shared/web2-barcode-scanner.js)                  | WEB2.0 — Web2BarcodeScanner: quét barcode/QR bằng CAMERA on-device, dùng chung mọi trang.               | 4         |
+| `Web2BarcodeScanner`                       | [web2-barcode-scanner.js](../../web2/shared/web2-barcode-scanner.js)                  | WEB2.0 — Web2BarcodeScanner: quét barcode/QR bằng CAMERA on-device, dùng chung mọi trang.               | 3         |
 | `Web2Bill`                                 | [web2-bill-service.js](../../web2/shared/web2-bill-service.js)                        | WEB2.0 module.                                                                                          | 3         |
 | `Web2Campaign`                             | [web2-campaign.js](../../web2/shared/web2-campaign.js)                                | WEB2.0 shared.                                                                                          | 4         |
 | `Web2CanvasUtils`                          | [web2-canvas-utils.js](../../web2/shared/web2-canvas-utils.js)                        | WEB2.0 shared module.                                                                                   | 0         |
 | —                                          | [web2-chat-api.js](../../web2/shared/web2-chat-api.js)                                | WEB2.0 module.                                                                                          | 0         |
-| `Web2Chat`                                 | [web2-chat-client.js](../../web2/shared/web2-chat-client.js)                          | WEB2.0 module.                                                                                          | 40        |
+| `Web2Chat`                                 | [web2-chat-client.js](../../web2/shared/web2-chat-client.js)                          | WEB2.0 module.                                                                                          | 41        |
 | —                                          | [web2-chat-live.js](../../web2/shared/web2-chat-live.js)                              | WEB2.0 module.                                                                                          | 0         |
 | —                                          | [web2-chat-settings.js](../../web2/shared/web2-chat-settings.js)                      | WEB2.0 module.                                                                                          | 0         |
 | —                                          | [web2-chat-tags.js](../../web2/shared/web2-chat-tags.js)                              | WEB2.0 module.                                                                                          | 0         |
@@ -54,7 +55,7 @@
 | `Web2CustomerChat`                         | [web2-customer-chat.js](../../web2/shared/web2-customer-chat.js)                      | WEB2.0 module.                                                                                          | 12        |
 | `Web2CustomerDetailModal`                  | [web2-customer-detail-modal.js](../../web2/shared/web2-customer-detail-modal.js)      | WEB2.0 — modal chi tiết KH (balance-history). Đọc kho KH chung /api/web2/customers/\*.                  | 3         |
 | `PartnerCustomerApi`, `Web2CustomerLookup` | [web2-customer-lookup.js](../../web2/shared/web2-customer-lookup.js)                  | WEB2.0 — shim PartnerCustomerApi → Web2CustomerStore.                                                   | 7         |
-| `Web2CustomerStore`                        | [web2-customer-store.js](../../web2/shared/web2-customer-store.js)                    | WEB2.0 — NGUỒN DUY NHẤT truy cập kho KH web2_customers.                                                 | 9         |
+| `Web2CustomerStore`                        | [web2-customer-store.js](../../web2/shared/web2-customer-store.js)                    | WEB2.0 — NGUỒN DUY NHẤT truy cập kho KH web2_customers.                                                 | 11        |
 | `Web2DbBadge`                              | [web2-db-badge.js](../../web2/shared/web2-db-badge.js)                                | Web2DbBadge — hiển thị badge "DB Render 2.0 / Firebase 2.0 / Web 2.0"                                   | 0         |
 | `Web2Deeplink`                             | [web2-deeplink.js](../../web2/shared/web2-deeplink.js)                                | WEB2.0 module.                                                                                          | 7         |
 | `Web2Effects`                              | [web2-effects.js](../../web2/shared/web2-effects.js)                                  | Web 2.0 — Effects / animations library                                                                  | 5         |
@@ -64,7 +65,7 @@
 | `Web2FbClient`, `FBPostsApi`               | [web2-fb-client.js](../../web2/shared/web2-fb-client.js)                              | WEB2.0 shared — Facebook Graph API client (1 NGUỒN cho mọi trang FB).                                   | 8         |
 | `Web2FbPostPreview`                        | [web2-fb-post-preview.js](../../web2/shared/web2-fb-post-preview.js)                  | WEB2.0 shared — xem trước bài Facebook (giống FB) trước khi đăng.                                       | 1         |
 | `Web2FbShare`                              | [web2-fb-share.js](../../web2/shared/web2-fb-share.js)                                | WEB2.0 shared — handoff "Đăng lên FB": chuyển ảnh + caption từ 1 trang sang trang Đăng bài.             | 3         |
-| `Web2Format`                               | [web2-format.js](../../web2/shared/web2-format.js)                                    | WEB2.0 shared — 1 NGUỒN format tiền/ngày/giờ (GMT+7) cho Web 2.0.                                       | 21        |
+| `Web2Format`                               | [web2-format.js](../../web2/shared/web2-format.js)                                    | WEB2.0 shared — 1 NGUỒN format tiền/ngày/giờ (GMT+7) cho Web 2.0.                                       | 20        |
 | `Web2HistoryTimeline`                      | [web2-history-timeline.js](../../web2/shared/web2-history-timeline.js)                | Web2HistoryTimeline — render lịch sử chỉnh sửa kèm tên user                                             | 8         |
 | `Web2IdbStore`                             | [web2-idb-store.js](../../web2/shared/web2-idb-store.js)                              | Web2IdbStore — generic IndexedDB key-value helper cho Web 2.0 stores.                                   | 3         |
 | `Web2ImageEditor`                          | [web2-image-editor.js](../../web2/shared/web2-image-editor.js)                        | WEB2.0 shared.                                                                                          | 2         |
@@ -72,7 +73,7 @@
 | `Web2Import`                               | [web2-import.js](../../web2/shared/web2-import.js)                                    | WEB2.0 module.                                                                                          | 4         |
 | `Web2JwtUtils`                             | [web2-jwt-utils.js](../../web2/shared/web2-jwt-utils.js)                              | WEB2.0 shared module.                                                                                   | 3         |
 | `Web2Kpi`                                  | [web2-kpi.js](../../web2/shared/web2-kpi.js)                                          | WEB2.0 module.                                                                                          | 4         |
-| `Web2LabelOcr`                             | [web2-label-ocr.js](../../web2/shared/web2-label-ocr.js)                              | WEB2.0 — Web2LabelOcr: đọc chữ trên nhãn bằng camera on-device (tesseract.js), dùng chung mọi trang.    | 3         |
+| `Web2LabelOcr`                             | [web2-label-ocr.js](../../web2/shared/web2-label-ocr.js)                              | WEB2.0 — Web2LabelOcr: đọc chữ trên nhãn bằng camera on-device (tesseract.js), dùng chung mọi trang.    | 2         |
 | `Web2LogoEraser`                           | [web2-logo-eraser.js](../../web2/shared/web2-logo-eraser.js)                          | WEB2.0 shared.                                                                                          | 2         |
 | `Web2Lottie`                               | [web2-lottie.js](../../web2/shared/web2-lottie.js)                                    | WEB2.0 module.                                                                                          | 8         |
 | `Web2Motion`                               | [web2-motion.js](../../web2/shared/web2-motion.js)                                    | WEB2.0 — Motion (motion.dev) làm engine animation tái dùng. ESM module.                                 | 0         |
@@ -83,7 +84,7 @@
 | `Web2NewMsgBadge`                          | [web2-new-msg-badge.js](../../web2/shared/web2-new-msg-badge.js)                      | Web 2.0 — New-message badge for native-orders rows                                                      | 1         |
 | `Web2NotificationBell`                     | [web2-notification-bell.js](../../web2/shared/web2-notification-bell.js)              |                                                                                                         | 0         |
 | `Web2Notify`                               | [web2-notify.js](../../web2/shared/web2-notify.js)                                    | WEB2.0 shared — 1 NGUỒN toast/notify cho Web 2.0.                                                       | 1         |
-| `Web2Optimistic`                           | [web2-optimistic.js](../../web2/shared/web2-optimistic.js)                            | Codifies pattern: snapshot → apply optimistic UI → fire backend background →                            | 23        |
+| `Web2Optimistic`                           | [web2-optimistic.js](../../web2/shared/web2-optimistic.js)                            | Codifies pattern: snapshot → apply optimistic UI → fire backend background →                            | 24        |
 | `Web2OrderTagDetail`                       | [web2-order-tag-detail.js](../../web2/shared/web2-order-tag-detail.js)                | WEB2.0 module.                                                                                          | 2         |
 | `Web2OrderTagPill`                         | [web2-order-tag-pill.js](../../web2/shared/web2-order-tag-pill.js)                    | WEB2.0 module.                                                                                          | 2         |
 | `Web2PackCounter`                          | [web2-pack-counter.js](../../web2/shared/web2-pack-counter.js)                        | WEB2.0 — Web2PackCounter: đếm bó/pack bằng camera (opencv.js) + chạm sửa tay, dùng chung.               | 0         |
@@ -111,6 +112,7 @@
 | `Web2SSETopics`                            | [web2-sse-topics.js](../../web2/shared/web2-sse-topics.js)                            | WEB2.0 module.                                                                                          | 0         |
 | `Web2SuppliersCache`                       | [web2-suppliers-cache.js](../../web2/shared/web2-suppliers-cache.js)                  | WEB2.0 module.                                                                                          | 8         |
 | `Web2TextUtils`                            | [web2-text-utils.js](../../web2/shared/web2-text-utils.js)                            | WEB2.0 shared — 1 NGUỒN chuẩn hoá text/tìm kiếm tiếng Việt cho Web 2.0.                                 | 1         |
+| `Web2Translate`                            | [web2-translate.js](../../web2/shared/web2-translate.js)                              | WEB2.0 module dùng chung.                                                                               | 1         |
 | `Web2UnreadPanel`                          | [web2-unread-panel.js](../../web2/shared/web2-unread-panel.js)                        | WEB2.0 — panel "Tin nhắn chưa đọc" dùng chung (gộp từ payment-confirm vào ck-dashboard).                | 1         |
 | `Web2UserInfo`                             | [web2-user-info.js](../../web2/shared/web2-user-info.js)                              | WEB2.0 module.                                                                                          | 24        |
 | `Web2VariantGroup`                         | [web2-variant-group.js](../../web2/shared/web2-variant-group.js)                      | WEB2.0 shared.                                                                                          | 2         |
@@ -174,14 +176,14 @@ WEB2.0 — bộ sticker built-in cho Web2ChatPanel (Feature 2 sticker-send).
 Web 2.0 — Delivery method picker (Vietnam-aware)
 **Dùng bởi:** `native-orders/js/native-orders-bulk-operations.js`, `native-orders/js/native-orders-delivery.js`, `native-orders/js/native-orders-pbh-bill.js`, `web2/shared/web2-sidebar.js`
 
-#### `Web2Page` — [web2/shared/page-builder.js](../../web2/shared/page-builder.js) · 736 dòng
+#### `Web2Page` — [web2/shared/page-builder.js](../../web2/shared/page-builder.js) · 763 dòng
 
 Web 2.0 generic CRUD page builder — same look as WEB2 list views.
 
 #### `Popup` — [web2/shared/popup.js](../../web2/shared/popup.js) · 481 dòng
 
 Web 2.0 — Custom Popup (alert / confirm / prompt)
-**Dùng bởi:** `live-chat/js/layout/settings-manager.js`, `live-chat/js/live/live-campaign-manager.js`, `live-chat/js/live/live-comment-list-events.js`, `live-chat/js/live/live-livestream-gallery.js`, `live-chat/js/live/live-livestream-snap-actions.js`, `live-chat/js/live/live-livestream-snap-lock.js`, `live-chat/js/live/live-livestream-snap-render.js`, `live-chat/js/live/live-livestream-snap-ui.js`, `live-chat/js/pancake/inventory-panel-render.js`, `live-chat/js/pancake/pancake-context-menu.js`, `native-orders/js/native-orders-bulk-operations.js`, `native-orders/js/native-orders-pbh-bill.js`, `native-orders/js/native-orders-state.js`, `so-order/js/so-order-toolbar.js`, `web2/balance-history/js/web2-bh-link-customer.js`, `web2/customer-wallet/js/web2-customer-wallet-app.js`, `web2/customers/js/customers-detail.js`, `web2/fastsaleorder-delivery/dlv-app.js`, `web2/fastsaleorder-invoice/pbh-state.js`, `web2/fastsaleorder-refund/rf-app.js`, `web2/fb-ads-stats/js/fb-ads-manual.js`, `web2/fb-posts/js/fb-posts-app.js`, `web2/fb-posts/js/fb-posts-composer.js`, `web2/fb-posts/js/fb-posts-drafts.js`, `web2/fb-posts/js/fb-posts-list.js`, `web2/live-control/js/live-control.js`, `web2/order-tags/js/order-tags-app.js`, `web2/pancake-settings/js/pancake-settings-actions.js`, `web2/payment-confirm/js/payment-confirm-app.js`, `web2/products/js/web2-products-actions.js`, `web2/purchase-refund/js/purchase-refund-actions.js`, `web2/reconcile/js/reconcile-actions.js`, `web2/returns/js/returns-tabs.js`, `web2/shared/page-builder.js`, `web2/shared/web2-ck-assign-picker.js`, `web2/shared/web2-export-helpers.js`, `web2/shared/web2-msg-template-send.js`, `web2/shared/web2-msg-template-ui.js`, `web2/shared/web2-notify.js`, `web2/shared/web2-quick-reply.js`, `web2/shared/web2-return-bill.js`, `web2/shared/web2-sidebar.js`, `web2/shared/zalo-chat/chat-view.js`, `web2/system/js/system-sse.js`, `web2/users/js/users-app.js`, `web2/variants/js/web2-variants-app.js`, `web2/zalo/js/web2-zalo-accounts.js`
+**Dùng bởi:** `live-chat/js/layout/settings-manager.js`, `live-chat/js/live/live-campaign-manager.js`, `live-chat/js/live/live-comment-list-events.js`, `live-chat/js/live/live-livestream-gallery.js`, `live-chat/js/live/live-livestream-snap-actions.js`, `live-chat/js/live/live-livestream-snap-lock.js`, `live-chat/js/live/live-livestream-snap-render.js`, `live-chat/js/live/live-livestream-snap-ui.js`, `live-chat/js/pancake/inventory-panel-render.js`, `live-chat/js/pancake/pancake-context-menu.js`, `native-orders/js/native-orders-bulk-operations.js`, `native-orders/js/native-orders-pbh-bill.js`, `native-orders/js/native-orders-state.js`, `so-order/js/so-order-toolbar.js`, `web2/balance-history/js/web2-bh-link-customer.js`, `web2/customer-wallet/js/web2-customer-wallet-app.js`, `web2/customers/js/customers-detail.js`, `web2/fastsaleorder-delivery/dlv-app.js`, `web2/fastsaleorder-invoice/pbh-state.js`, `web2/fastsaleorder-refund/rf-app.js`, `web2/fb-ads-stats/js/fb-ads-manual.js`, `web2/fb-posts/js/fb-posts-app.js`, `web2/fb-posts/js/fb-posts-composer.js`, `web2/fb-posts/js/fb-posts-drafts.js`, `web2/fb-posts/js/fb-posts-list.js`, `web2/live-control/js/live-control.js`, `web2/order-tags/js/order-tags-app.js`, `web2/pancake-settings/js/pancake-settings-actions.js`, `web2/payment-confirm/js/payment-confirm-app.js`, `web2/products/js/web2-products-actions.js`, `web2/purchase-refund/js/purchase-refund-actions.js`, `web2/reconcile/js/reconcile-actions.js`, `web2/returns/js/returns-tabs.js`, `web2/shared/page-builder.js`, `web2/shared/web2-ck-assign-picker.js`, `web2/shared/web2-export-helpers.js`, `web2/shared/web2-msg-template-send.js`, `web2/shared/web2-msg-template-ui.js`, `web2/shared/web2-notify.js`, `web2/shared/web2-quick-reply.js`, `web2/shared/web2-return-bill.js`, `web2/shared/web2-sidebar.js`, `web2/shared/zalo-chat/chat-view.js`, `web2/shared/zalo-chat/composer.js`, `web2/system/js/system-sse.js`, `web2/users/js/users-app.js`, `web2/variants/js/web2-variants-app.js`, `web2/zalo/js/web2-zalo-accounts.js`
 
 #### `Web2ApiFetch` — [web2/shared/web2-api-fetch.js](../../web2/shared/web2-api-fetch.js) · 82 dòng
 
@@ -193,10 +195,15 @@ WEB2.0 shared — 1 NGUỒN fetch JSON (auth + fallback base) cho Web 2.0.
 Web 2.0 generic API client — talks to /api/web2/:entity/\*
 **Dùng bởi:** `web2/shared/page-builder.js`
 
+#### `Web2AuditLog` — [web2/shared/web2-audit-log.js](../../web2/shared/web2-audit-log.js) · 380 dòng
+
+WEB2.0 module.
+**Dùng bởi:** `native-orders/js/native-orders-public-api.js`, `so-order/js/so-order-toolbar.js`, `web2/balance-history/js/web2-bh-render.js`, `web2/customers/js/customers-detail.js`, `web2/fastsaleorder-delivery/dlv-app.js`, `web2/fastsaleorder-refund/rf-app.js`, `web2/fb-posts/js/fb-posts-drafts.js`, `web2/fb-posts/js/fb-posts-list.js`, `web2/jt-tracking/js/jt-tracking-app.js`, `web2/kpi/js/kpi-dashboard.js`, `web2/live-control/js/live-control.js`, `web2/order-tags/js/order-tags-app.js`, `web2/reconcile/js/reconcile-render.js`, `web2/returns/js/returns-app.js`, `web2/shared/page-builder.js`, `web2/shared/web2-sidebar.js`, `web2/supplier-debt/js/supplier-debt-render.js`, `web2/supplier-wallet/js/supplier-wallet-render.js`, `web2/users/js/users-app.js`
+
 #### `WEB2_CONFIG`, `API_CONFIG`, `Web2Auth` — [web2/shared/web2-auth.js](../../web2/shared/web2-auth.js) · 246 dòng
 
 Token storage + verify + page guard.
-**Dùng bởi:** `live-chat/js/api-config.js`, `live-chat/js/live/comments-mobile-actions.js`, `live-chat/js/live/comments-mobile-state.js`, `live-chat/js/live/live-api.js`, `live-chat/js/live/live-campaign-manager.js`, `live-chat/js/live/live-comment-list-base.js`, `live-chat/js/live/live-hidden-commenters.js`, `live-chat/js/live/live-init-state.js`, `live-chat/js/live/live-livestream-snap-lock.js`, `live-chat/js/live/live-livestream-snap-state.js`, `live-chat/js/live/live-native-orders-api.js`, `live-chat/js/live/live-state.js`, `live-chat/js/pancake/inventory-panel-state.js`, `live-chat/js/pancake/pancake-api.js`, `live-chat/js/pancake/pancake-chat-window.js`, `live-chat/js/pancake/pancake-livestream-filter.js`, `live-chat/js/pancake/pancake-page-access-tokens.js`, `live-chat/js/pancake/pancake-state.js`, `live-chat/js/shared/debt-manager.js`, `live-chat/js/shared/live-comments-stream.js`, `live-chat/js/shared/live-customer-sync.js`, `native-orders/js/native-orders-api.js`, `native-orders/js/native-orders-bulk-operations.js`, `native-orders/js/native-orders-customer-panel.js`, `native-orders/js/native-orders-customer360.js`, `native-orders/js/native-orders-inbox-resolve.js`, `native-orders/js/native-orders-kpi.js`, `native-orders/js/native-orders-pbh-bill.js`, `native-orders/js/native-orders-product-picker.js`, `native-orders/js/native-orders-render.js`, `native-orders/js/native-orders-snapshots.js`, `native-orders/js/native-orders-state.js`, `so-order/js/so-order-state.js`, `so-order/js/so-order-storage-sync.js`, `web2/balance-history/js/web2-bh-core.js`, `web2/balance-history/js/web2-link-customer-modal.js`, `web2/balance-history/js/web2-manual-deposit.js`, `web2/balance-history/js/web2-pm-core.js`, `web2/ck-dashboard/js/ck-dashboard-app.js`, `web2/customer-wallet/js/web2-customer-wallet-events.js`, `web2/customer-wallet/js/web2-customer-wallet-render.js`, `web2/customer-wallet/js/web2-customer-wallet-state.js`, `web2/customers/js/customers-api.js`, `web2/fastsaleorder-delivery/dlv-app.js`, `web2/fastsaleorder-invoice/pbh-api.js`, `web2/fastsaleorder-invoice/pbh-state.js`, `web2/fastsaleorder-refund/rf-app.js`, `web2/fb-ads-stats/js/fb-ads-manual.js`, `web2/fb-posts/js/fb-posts-composer.js`, `web2/jt-tracking/js/jt-tracking-api.js`, `web2/jt-tracking/js/jt-tracking-constants.js`, `web2/kpi/js/kpi-assignments.js`, `web2/kpi/js/kpi-dashboard.js`, `web2/multi-tool/js/multi-tool.js`, `web2/order-tags/js/order-tags-app.js`, `web2/pancake-settings/js/pancake-settings-api.js`, `web2/pancake-settings/js/pancake-settings-state.js`, `web2/payment-confirm/js/payment-confirm-app.js`, `web2/photo-studio/photo-studio-bg.js`, `web2/products/js/web2-product-detail.js`, `web2/products/js/web2-products-modal.js`, `web2/products/js/web2-products-print-barcode.js`, `web2/products/js/web2-products-print-utils.js`, `web2/products/js/web2-products-state.js`, `web2/purchase-refund/js/purchase-refund-api.js`, `web2/purchase-refund/js/purchase-refund-state.js`, `web2/reconcile/js/reconcile-state.js`, `web2/returns/js/returns-api.js`, `web2/shared/beauty/web2-beauty-face.js`, `web2/shared/chat-panel/web2-chat-panel-state.js`, `web2/shared/delivery-method-picker.js`, `web2/shared/web2-api-fetch.js`, `web2/shared/web2-api.js`, `web2/shared/web2-avatar-utils.js`, `web2/shared/web2-campaign.js`, `web2/shared/web2-chat-utils.js`, `web2/shared/web2-ck-assign-picker.js`, `web2/shared/web2-ck-review.js`, `web2/shared/web2-customer-chat-core.js`, `web2/shared/web2-customer-detail-modal.js`, `web2/shared/web2-customer-store.js`, `web2/shared/web2-fb-client.js`, `web2/shared/web2-kpi.js`, `web2/shared/web2-msg-template-core.js`, `web2/shared/web2-notification-bell.js`, `web2/shared/web2-order-tag-detail.js`, `web2/shared/web2-pancake-accounts.js`, `web2/shared/web2-printer.js`, `web2/shared/web2-product-counter.js`, `web2/shared/web2-products-api.js`, `web2/shared/web2-qr-modal.js`, `web2/shared/web2-quick-reply.js`, `web2/shared/web2-realtime.js`, `web2/shared/web2-return-bill.js`, `web2/shared/web2-sidebar.js`, `web2/shared/web2-so-order-reader.js`, `web2/shared/web2-suppliers-cache.js`, `web2/shared/web2-unread-panel.js`, `web2/shared/web2-user-info.js`, `web2/shared/web2-vieneu.js`, `web2/shared/web2-wallet-api.js`, `web2/shared/web2-wallet-balance.js`, `web2/shared/web2-zalo-api.js`, `web2/shared/web2-zalo.js`, `web2/supplier-debt/js/supplier-debt-api.js`, `web2/supplier-wallet/js/supplier-wallet-storage.js`, `web2/system/js/system-services.js`, `web2/system/js/system-sse.js`, `web2/users/js/users-app.js`, `web2/variants/js/web2-variants-api.js`, `web2/video-maker/js/video-ai-script.js`, `web2/video-maker/js/video-tts.js`
+**Dùng bởi:** `live-chat/js/api-config.js`, `live-chat/js/live/comments-mobile-actions.js`, `live-chat/js/live/comments-mobile-state.js`, `live-chat/js/live/live-api.js`, `live-chat/js/live/live-campaign-manager.js`, `live-chat/js/live/live-comment-list-base.js`, `live-chat/js/live/live-hidden-commenters.js`, `live-chat/js/live/live-init-state.js`, `live-chat/js/live/live-livestream-snap-lock.js`, `live-chat/js/live/live-livestream-snap-state.js`, `live-chat/js/live/live-native-orders-api.js`, `live-chat/js/live/live-state.js`, `live-chat/js/pancake/inventory-panel-state.js`, `live-chat/js/pancake/pancake-api.js`, `live-chat/js/pancake/pancake-chat-window.js`, `live-chat/js/pancake/pancake-livestream-filter.js`, `live-chat/js/pancake/pancake-page-access-tokens.js`, `live-chat/js/pancake/pancake-state.js`, `live-chat/js/shared/debt-manager.js`, `live-chat/js/shared/live-comments-stream.js`, `live-chat/js/shared/live-customer-sync.js`, `native-orders/js/native-orders-api.js`, `native-orders/js/native-orders-bulk-operations.js`, `native-orders/js/native-orders-customer-panel.js`, `native-orders/js/native-orders-customer360.js`, `native-orders/js/native-orders-inbox-resolve.js`, `native-orders/js/native-orders-kpi.js`, `native-orders/js/native-orders-pbh-bill.js`, `native-orders/js/native-orders-product-picker.js`, `native-orders/js/native-orders-render.js`, `native-orders/js/native-orders-snapshots.js`, `native-orders/js/native-orders-state.js`, `so-order/js/so-order-state.js`, `so-order/js/so-order-storage-sync.js`, `web2/balance-history/js/web2-bh-core.js`, `web2/balance-history/js/web2-link-customer-modal.js`, `web2/balance-history/js/web2-manual-deposit.js`, `web2/balance-history/js/web2-pm-core.js`, `web2/ck-dashboard/js/ck-dashboard-app.js`, `web2/customer-wallet/js/web2-customer-wallet-events.js`, `web2/customer-wallet/js/web2-customer-wallet-render.js`, `web2/customer-wallet/js/web2-customer-wallet-state.js`, `web2/customers/js/customers-api.js`, `web2/fastsaleorder-delivery/dlv-app.js`, `web2/fastsaleorder-invoice/pbh-api.js`, `web2/fastsaleorder-invoice/pbh-state.js`, `web2/fastsaleorder-refund/rf-app.js`, `web2/fb-ads-stats/js/fb-ads-manual.js`, `web2/fb-posts/js/fb-posts-composer.js`, `web2/jt-tracking/js/jt-tracking-api.js`, `web2/jt-tracking/js/jt-tracking-constants.js`, `web2/kpi/js/kpi-assignments.js`, `web2/kpi/js/kpi-dashboard.js`, `web2/multi-tool/js/multi-tool.js`, `web2/order-tags/js/order-tags-app.js`, `web2/pancake-settings/js/pancake-settings-api.js`, `web2/pancake-settings/js/pancake-settings-state.js`, `web2/payment-confirm/js/payment-confirm-app.js`, `web2/photo-studio/photo-studio-bg.js`, `web2/products/js/web2-product-detail.js`, `web2/products/js/web2-products-modal.js`, `web2/products/js/web2-products-print-barcode.js`, `web2/products/js/web2-products-print-utils.js`, `web2/products/js/web2-products-state.js`, `web2/purchase-refund/js/purchase-refund-api.js`, `web2/purchase-refund/js/purchase-refund-state.js`, `web2/reconcile/js/reconcile-state.js`, `web2/returns/js/returns-api.js`, `web2/shared/beauty/web2-beauty-face.js`, `web2/shared/chat-panel/web2-chat-panel-state.js`, `web2/shared/delivery-method-picker.js`, `web2/shared/web2-api-fetch.js`, `web2/shared/web2-api.js`, `web2/shared/web2-audit-log.js`, `web2/shared/web2-avatar-utils.js`, `web2/shared/web2-campaign.js`, `web2/shared/web2-chat-utils.js`, `web2/shared/web2-ck-assign-picker.js`, `web2/shared/web2-ck-review.js`, `web2/shared/web2-customer-chat-core.js`, `web2/shared/web2-customer-detail-modal.js`, `web2/shared/web2-customer-store.js`, `web2/shared/web2-fb-client.js`, `web2/shared/web2-kpi.js`, `web2/shared/web2-msg-template-core.js`, `web2/shared/web2-notification-bell.js`, `web2/shared/web2-order-tag-detail.js`, `web2/shared/web2-pancake-accounts.js`, `web2/shared/web2-printer.js`, `web2/shared/web2-product-counter.js`, `web2/shared/web2-products-api.js`, `web2/shared/web2-qr-modal.js`, `web2/shared/web2-quick-reply.js`, `web2/shared/web2-realtime.js`, `web2/shared/web2-return-bill.js`, `web2/shared/web2-sidebar.js`, `web2/shared/web2-so-order-reader.js`, `web2/shared/web2-suppliers-cache.js`, `web2/shared/web2-translate.js`, `web2/shared/web2-unread-panel.js`, `web2/shared/web2-user-info.js`, `web2/shared/web2-vieneu.js`, `web2/shared/web2-wallet-api.js`, `web2/shared/web2-wallet-balance.js`, `web2/shared/web2-zalo-api.js`, `web2/shared/web2-zalo.js`, `web2/supplier-debt/js/supplier-debt-api.js`, `web2/supplier-wallet/js/supplier-wallet-storage.js`, `web2/system/js/system-services.js`, `web2/system/js/system-sse.js`, `web2/users/js/users-app.js`, `web2/variants/js/web2-variants-api.js`, `web2/video-maker/js/video-ai-script.js`, `web2/video-maker/js/video-tts.js`
 
 #### `Web2AvatarUtils` — [web2/shared/web2-avatar-utils.js](../../web2/shared/web2-avatar-utils.js) · 140 dòng
 
@@ -206,7 +213,7 @@ WEB2.0 shared module.
 #### `Web2BarcodeScanner` — [web2/shared/web2-barcode-scanner.js](../../web2/shared/web2-barcode-scanner.js) · 443 dòng
 
 WEB2.0 — Web2BarcodeScanner: quét barcode/QR bằng CAMERA on-device, dùng chung mọi trang.
-**Dùng bởi:** `so-order/js/so-order-modal-core.js`, `web2/reconcile/js/reconcile-app.js`, `web2/shared/web2-label-ocr.js`, `web2/shared/web2-pack-counter.js`
+**Dùng bởi:** `web2/reconcile/js/reconcile-app.js`, `web2/shared/web2-label-ocr.js`, `web2/shared/web2-pack-counter.js`
 
 #### `Web2Bill` — [web2/shared/web2-bill-service.js](../../web2/shared/web2-bill-service.js) · 753 dòng
 
@@ -225,7 +232,7 @@ WEB2.0 shared module.
 #### `Web2Chat` — [web2/shared/web2-chat-client.js](../../web2/shared/web2-chat-client.js) · 107 dòng
 
 WEB2.0 module.
-**Dùng bởi:** `live-chat/js/live/comments-mobile-actions.js`, `live-chat/js/live/comments-mobile-entry.js`, `live-chat/js/live/live-chat-modal.js`, `live-chat/js/live/live-comment-list-state.js`, `live-chat/js/live/live-init-lifecycle.js`, `live-chat/js/pancake/pancake-api.js`, `live-chat/js/pancake/pancake-chat-window.js`, `live-chat/js/pancake/pancake-realtime.js`, `live-chat/js/pancake/pancake-token-manager.js`, `live-chat/js/pancake/pancake-token-sources.js`, `native-orders/js/native-orders-bulk-operations.js`, `native-orders/js/native-orders-chat-send.js`, `native-orders/js/native-orders-inbox-resolve.js`, `native-orders/js/native-orders-interactions.js`, `web2/balance-history/js/web2-pm-customer-search.js`, `web2/customers/js/customers-events.js`, `web2/jt-tracking/js/jt-tracking-actions.js`, `web2/multi-tool/js/multi-tool.js`, `web2/pancake-settings/js/pancake-settings-actions.js`, `web2/pancake-settings/js/pancake-settings-api.js`, `web2/pancake-settings/js/pancake-settings-render.js`, `web2/pancake-settings/js/pancake-settings-state.js`, `web2/pancake-settings/js/pancake-settings.js`, `web2/shared/chat-panel/web2-chat-panel-render.js`, `web2/shared/chat-panel/web2-chat-panel-state.js`, `web2/shared/web2-avatar-utils.js`, `web2/shared/web2-chat-api.js`, `web2/shared/web2-chat-live.js`, `web2/shared/web2-chat-settings.js`, `web2/shared/web2-chat-tags.js`, `web2/shared/web2-chat-tokens.js`, `web2/shared/web2-chat-utils.js`, `web2/shared/web2-customer-chat-core.js`, `web2/shared/web2-customer-chat-modal.js`, `web2/shared/web2-customer-chat.js`, `web2/shared/web2-msg-template-send.js`, `web2/shared/web2-pancake-accounts.js`, `web2/shared/web2-pancake-import.js`, `web2/shared/web2-pancake-token.js`, `web2/shared/web2-realtime.js`
+**Dùng bởi:** `live-chat/js/live/comments-mobile-actions.js`, `live-chat/js/live/comments-mobile-entry.js`, `live-chat/js/live/live-chat-modal.js`, `live-chat/js/live/live-comment-list-state.js`, `live-chat/js/live/live-init-lifecycle.js`, `live-chat/js/live/live-stats-panel.js`, `live-chat/js/pancake/pancake-api.js`, `live-chat/js/pancake/pancake-chat-window.js`, `live-chat/js/pancake/pancake-realtime.js`, `live-chat/js/pancake/pancake-token-manager.js`, `live-chat/js/pancake/pancake-token-sources.js`, `native-orders/js/native-orders-bulk-operations.js`, `native-orders/js/native-orders-chat-send.js`, `native-orders/js/native-orders-inbox-resolve.js`, `native-orders/js/native-orders-interactions.js`, `web2/balance-history/js/web2-pm-customer-search.js`, `web2/customers/js/customers-events.js`, `web2/jt-tracking/js/jt-tracking-actions.js`, `web2/multi-tool/js/multi-tool.js`, `web2/pancake-settings/js/pancake-settings-actions.js`, `web2/pancake-settings/js/pancake-settings-api.js`, `web2/pancake-settings/js/pancake-settings-render.js`, `web2/pancake-settings/js/pancake-settings-state.js`, `web2/pancake-settings/js/pancake-settings.js`, `web2/shared/chat-panel/web2-chat-panel-render.js`, `web2/shared/chat-panel/web2-chat-panel-state.js`, `web2/shared/web2-avatar-utils.js`, `web2/shared/web2-chat-api.js`, `web2/shared/web2-chat-live.js`, `web2/shared/web2-chat-settings.js`, `web2/shared/web2-chat-tags.js`, `web2/shared/web2-chat-tokens.js`, `web2/shared/web2-chat-utils.js`, `web2/shared/web2-customer-chat-core.js`, `web2/shared/web2-customer-chat-modal.js`, `web2/shared/web2-customer-chat.js`, `web2/shared/web2-msg-template-send.js`, `web2/shared/web2-pancake-accounts.js`, `web2/shared/web2-pancake-import.js`, `web2/shared/web2-pancake-token.js`, `web2/shared/web2-realtime.js`
 
 #### `Web2CkAssignPicker` — [web2/shared/web2-ck-assign-picker.js](../../web2/shared/web2-ck-assign-picker.js) · 269 dòng
 
@@ -260,7 +267,7 @@ WEB2.0 — shim PartnerCustomerApi → Web2CustomerStore.
 #### `Web2CustomerStore` — [web2/shared/web2-customer-store.js](../../web2/shared/web2-customer-store.js) · 427 dòng
 
 WEB2.0 — NGUỒN DUY NHẤT truy cập kho KH web2_customers.
-**Dùng bởi:** `live-chat/js/live/live-api.js`, `live-chat/js/live/live-comment-list-actions.js`, `live-chat/js/live/live-comment-list-render-list.js`, `live-chat/js/live/live-comment-list-render-row.js`, `live-chat/js/shared/live-customer-sync.js`, `live-chat/js/shared/live-status.js`, `web2/shared/web2-customer-lookup.js`, `web2/shared/web2-pancake-import.js`, `web2/shared/web2-phone-utils.js`
+**Dùng bởi:** `live-chat/js/live/live-api.js`, `live-chat/js/live/live-comment-list-actions.js`, `live-chat/js/live/live-comment-list-render-list.js`, `live-chat/js/live/live-comment-list-render-row.js`, `live-chat/js/shared/live-customer-sync.js`, `live-chat/js/shared/live-status.js`, `web2/balance-history/js/web2-bh-link-customer.js`, `web2/balance-history/js/web2-partner-enricher.js`, `web2/shared/web2-customer-lookup.js`, `web2/shared/web2-pancake-import.js`, `web2/shared/web2-phone-utils.js`
 
 #### `Web2DbBadge` — [web2/shared/web2-db-badge.js](../../web2/shared/web2-db-badge.js) · 145 dòng
 
@@ -308,7 +315,7 @@ WEB2.0 shared — handoff "Đăng lên FB": chuyển ảnh + caption từ 1 tran
 #### `Web2Format` — [web2/shared/web2-format.js](../../web2/shared/web2-format.js) · 92 dòng
 
 WEB2.0 shared — 1 NGUỒN format tiền/ngày/giờ (GMT+7) cho Web 2.0.
-**Dùng bởi:** `so-order/js/so-order-format.js`, `web2/balance-history/js/web2-bh-core.js`, `web2/balance-history/js/web2-link-customer-modal.js`, `web2/balance-history/js/web2-pm-core.js`, `web2/ck-dashboard/js/ck-dashboard-app.js`, `web2/customer-wallet/js/web2-customer-wallet-state.js`, `web2/fastsaleorder-delivery/dlv-app.js`, `web2/fastsaleorder-refund/rf-app.js`, `web2/kpi/js/kpi-assignments.js`, `web2/kpi/js/kpi-dashboard.js`, `web2/payment-confirm/js/payment-confirm-app.js`, `web2/shared/page-builder.js`, `web2/shared/web2-ck-assign-picker.js`, `web2/shared/web2-ck-review.js`, `web2/shared/web2-customer-detail-modal.js`, `web2/shared/web2-sidebar.js`, `web2/shared/web2-unread-panel.js`, `web2/shared/web2-wallet-api.js`, `web2/shared/web2-wallet-balance.js`, `web2/supplier-debt/js/supplier-debt-state.js`, `web2/supplier-wallet/js/supplier-wallet-state.js`
+**Dùng bởi:** `so-order/js/so-order-format.js`, `web2/balance-history/js/web2-bh-core.js`, `web2/balance-history/js/web2-link-customer-modal.js`, `web2/balance-history/js/web2-pm-core.js`, `web2/ck-dashboard/js/ck-dashboard-app.js`, `web2/customer-wallet/js/web2-customer-wallet-state.js`, `web2/fastsaleorder-delivery/dlv-app.js`, `web2/fastsaleorder-refund/rf-app.js`, `web2/kpi/js/kpi-assignments.js`, `web2/payment-confirm/js/payment-confirm-app.js`, `web2/shared/page-builder.js`, `web2/shared/web2-ck-assign-picker.js`, `web2/shared/web2-ck-review.js`, `web2/shared/web2-customer-detail-modal.js`, `web2/shared/web2-sidebar.js`, `web2/shared/web2-unread-panel.js`, `web2/shared/web2-wallet-api.js`, `web2/shared/web2-wallet-balance.js`, `web2/supplier-debt/js/supplier-debt-state.js`, `web2/supplier-wallet/js/supplier-wallet-state.js`
 
 #### `Web2HistoryTimeline` — [web2/shared/web2-history-timeline.js](../../web2/shared/web2-history-timeline.js) · 238 dòng
 
@@ -348,7 +355,7 @@ WEB2.0 module.
 #### `Web2LabelOcr` — [web2/shared/web2-label-ocr.js](../../web2/shared/web2-label-ocr.js) · 433 dòng
 
 WEB2.0 — Web2LabelOcr: đọc chữ trên nhãn bằng camera on-device (tesseract.js), dùng chung mọi trang.
-**Dùng bởi:** `so-order/js/so-order-modal-core.js`, `web2/reconcile/js/reconcile-app.js`, `web2/shared/web2-pack-counter.js`
+**Dùng bởi:** `web2/reconcile/js/reconcile-app.js`, `web2/shared/web2-pack-counter.js`
 
 #### `Web2LogoEraser` — [web2/shared/web2-logo-eraser.js](../../web2/shared/web2-logo-eraser.js) · 379 dòng
 
@@ -399,14 +406,14 @@ WEB2.0 shared — 1 NGUỒN toast/notify cho Web 2.0.
 #### `Web2Optimistic` — [web2/shared/web2-optimistic.js](../../web2/shared/web2-optimistic.js) · 110 dòng
 
 Codifies pattern: snapshot → apply optimistic UI → fire backend background →
-**Dùng bởi:** `live-chat/js/live/live-comment-list-actions.js`, `live-chat/js/live/live-livestream-gallery.js`, `native-orders/js/native-orders-customer-panel.js`, `native-orders/js/native-orders-delivery.js`, `native-orders/js/native-orders-modal-edit.js`, `so-order/js/so-order-kho-sync.js`, `web2/ck-dashboard/js/ck-dashboard-app.js`, `web2/customers/js/customers-app.js`, `web2/customers/js/customers-state.js`, `web2/fastsaleorder-delivery/dlv-app.js`, `web2/fastsaleorder-invoice/pbh-actions.js`, `web2/fastsaleorder-refund/rf-app.js`, `web2/jt-tracking/js/jt-tracking-actions.js`, `web2/pancake-settings/js/pancake-settings-actions.js`, `web2/payment-confirm/js/payment-confirm-app.js`, `web2/products/js/web2-products-actions.js`, `web2/products/js/web2-products-modal.js`, `web2/shared/chat-panel/web2-chat-panel-compose.js`, `web2/shared/page-builder.js`, `web2/shared/web2-lottie.js`, `web2/shared/zalo-chat/chat-actions.js`, `web2/users/js/users-app.js`, `web2/variants/js/web2-variants-app.js`
+**Dùng bởi:** `live-chat/js/live/live-comment-list-actions.js`, `live-chat/js/live/live-livestream-gallery.js`, `native-orders/js/native-orders-customer-panel.js`, `native-orders/js/native-orders-delivery.js`, `native-orders/js/native-orders-modal-edit.js`, `so-order/js/so-order-kho-sync.js`, `web2/ck-dashboard/js/ck-dashboard-app.js`, `web2/customers/js/customers-app.js`, `web2/customers/js/customers-state.js`, `web2/fastsaleorder-delivery/dlv-app.js`, `web2/fastsaleorder-invoice/pbh-actions.js`, `web2/fastsaleorder-refund/rf-app.js`, `web2/jt-tracking/js/jt-tracking-actions.js`, `web2/pancake-settings/js/pancake-settings-actions.js`, `web2/payment-confirm/js/payment-confirm-app.js`, `web2/products/js/web2-products-actions.js`, `web2/products/js/web2-products-modal.js`, `web2/shared/chat-panel/web2-chat-panel-compose.js`, `web2/shared/page-builder.js`, `web2/shared/web2-lottie.js`, `web2/shared/zalo-chat/chat-actions.js`, `web2/users/js/users-app.js`, `web2/variants/js/web2-variants-app.js`, `web2/zalo/js/web2-zalo-chat.js`
 
 #### `Web2OrderTagDetail` — [web2/shared/web2-order-tag-detail.js](../../web2/shared/web2-order-tag-detail.js) · 389 dòng
 
 WEB2.0 module.
 **Dùng bởi:** `native-orders/js/native-orders-public-api.js`, `native-orders/js/native-orders-render.js`
 
-#### `Web2OrderTagPill` — [web2/shared/web2-order-tag-pill.js](../../web2/shared/web2-order-tag-pill.js) · 90 dòng
+#### `Web2OrderTagPill` — [web2/shared/web2-order-tag-pill.js](../../web2/shared/web2-order-tag-pill.js) · 93 dòng
 
 WEB2.0 module.
 **Dùng bởi:** `native-orders/js/native-orders-render.js`, `web2/order-tags/js/order-tags-app.js`
@@ -500,7 +507,7 @@ Web 2.0 — Realtime client (Pancake WS)
 WEB2.0 module.
 **Dùng bởi:** `native-orders/js/native-orders-pbh-bill.js`
 
-#### `Web2Sidebar` — [web2/shared/web2-sidebar.js](../../web2/shared/web2-sidebar.js) · 709 dòng
+#### `Web2Sidebar` — [web2/shared/web2-sidebar.js](../../web2/shared/web2-sidebar.js) · 719 dòng
 
 WEB2-clone sidebar for Web 2.0 pages.
 **Dùng bởi:** `web2/ck-dashboard/js/ck-dashboard-app.js`, `web2/fb-ads-stats/js/fb-ads-stats.js`, `web2/fb-insights/js/fb-insights.js`, `web2/fb-posts/js/fb-posts-app.js`, `web2/jt-tracking/js/jt-tracking-app.js`, `web2/live-control/js/live-control.js`, `web2/multi-tool/js/multi-tool.js`, `web2/order-tags/js/order-tags-app.js`, `web2/pancake-settings/js/pancake-settings.js`, `web2/payment-confirm/js/payment-confirm-app.js`, `web2/purchase-refund/js/purchase-refund-app.js`, `web2/returns/js/returns-app.js`, `web2/system/js/system-app.js`
@@ -515,12 +522,12 @@ WEB2.0 module.
 WEB2.0 shared module.
 **Dùng bởi:** `web2/purchase-refund/js/purchase-refund-state.js`
 
-#### `Web2SSE` — [web2/shared/web2-sse-bridge.js](../../web2/shared/web2-sse-bridge.js) · 249 dòng
+#### `Web2SSE` — [web2/shared/web2-sse-bridge.js](../../web2/shared/web2-sse-bridge.js) · 289 dòng
 
 WEB2.0 module.
 **Dùng bởi:** `live-chat/js/live/comments-mobile-actions.js`, `live-chat/js/live/comments-mobile-entry.js`, `live-chat/js/live/live-chat-modal.js`, `live-chat/js/live/live-hidden-commenters.js`, `live-chat/js/live/live-init-lifecycle.js`, `live-chat/js/live/live-init.js`, `live-chat/js/live/live-livestream-gallery.js`, `live-chat/js/live/live-livestream-snap-init.js`, `live-chat/js/live/live-livestream-snap-lock.js`, `live-chat/js/pancake/inventory-panel-actions.js`, `live-chat/js/pancake/pancake-livestream-filter.js`, `live-chat/js/pancake/pancake-realtime.js`, `live-chat/js/shared/live-comments-stream.js`, `native-orders/js/native-orders-kpi.js`, `native-orders/js/native-orders-realtime-init.js`, `so-order/js/so-order-storage-sync.js`, `web2/balance-history/js/web2-bh-data.js`, `web2/balance-history/js/web2-pending-match.js`, `web2/ck-dashboard/js/ck-dashboard-app.js`, `web2/customer-wallet/js/web2-customer-wallet-app.js`, `web2/customers/js/customers-app.js`, `web2/fastsaleorder-delivery/dlv-app.js`, `web2/fastsaleorder-invoice/pbh-app.js`, `web2/fastsaleorder-refund/rf-app.js`, `web2/fb-posts/js/fb-posts-app.js`, `web2/jt-tracking/js/jt-tracking-app.js`, `web2/kpi/js/kpi-dashboard.js`, `web2/live-control/js/live-control.js`, `web2/live-tv/js/live-tv.js`, `web2/multi-tool/js/multi-tool.js`, `web2/order-tags/js/order-tags-app.js`, `web2/payment-confirm/js/payment-confirm-app.js`, `web2/products/js/web2-products-app.js`, `web2/purchase-refund/js/purchase-refund-app.js`, `web2/reconcile/js/reconcile-api.js`, `web2/returns/js/returns-app.js`, `web2/shared/page-builder.js`, `web2/shared/web2-campaign.js`, `web2/shared/web2-ck-review.js`, `web2/shared/web2-customer-store.js`, `web2/shared/web2-msg-template-send.js`, `web2/shared/web2-notification-bell.js`, `web2/shared/web2-printer.js`, `web2/shared/web2-products-cache.js`, `web2/shared/web2-sse-topics.js`, `web2/shared/web2-suppliers-cache.js`, `web2/shared/web2-unread-panel.js`, `web2/shared/web2-variants-cache.js`, `web2/shared/web2-wallet-balance.js`, `web2/shared/web2-zalo.js`, `web2/shared/zalo-chat/realtime.js`, `web2/supplier-debt/js/supplier-debt-app.js`, `web2/supplier-wallet/js/supplier-wallet-app.js`, `web2/users/js/users-app.js`, `web2/variants/js/web2-variants-app.js`, `web2/zalo/js/web2-zalo-app.js`
 
-#### `Web2SSETopics` — [web2/shared/web2-sse-topics.js](../../web2/shared/web2-sse-topics.js) · 29 dòng
+#### `Web2SSETopics` — [web2/shared/web2-sse-topics.js](../../web2/shared/web2-sse-topics.js) · 28 dòng
 
 WEB2.0 module.
 
@@ -532,6 +539,11 @@ WEB2.0 module.
 #### `Web2TextUtils` — [web2/shared/web2-text-utils.js](../../web2/shared/web2-text-utils.js) · 41 dòng
 
 WEB2.0 shared — 1 NGUỒN chuẩn hoá text/tìm kiếm tiếng Việt cho Web 2.0.
+**Dùng bởi:** `web2/shared/web2-sidebar.js`
+
+#### `Web2Translate` — [web2/shared/web2-translate.js](../../web2/shared/web2-translate.js) · 74 dòng
+
+WEB2.0 module dùng chung.
 **Dùng bởi:** `web2/shared/web2-sidebar.js`
 
 #### `Web2UnreadPanel` — [web2/shared/web2-unread-panel.js](../../web2/shared/web2-unread-panel.js) · 151 dòng
@@ -559,7 +571,7 @@ WEB2.0 module.
 Web2 Variants — Shared cache + Firestore tickler realtime
 **Dùng bởi:** `so-order/js/so-order-app.js`, `so-order/js/so-order-inline-edit.js`, `so-order/js/so-order-kho-sync.js`, `so-order/js/so-order-modal-random.js`, `so-order/js/so-order-modal-suggest.js`, `web2/products/js/web2-products-app.js`, `web2/products/js/web2-products-modal.js`, `web2/products/js/web2-products-state.js`, `web2/products/js/web2-products-variant-picker.js`, `web2/shared/web2-variant-multi.js`, `web2/variants/js/web2-variants-app.js`
 
-#### `Web2Vieneu` — [web2/shared/web2-vieneu.js](../../web2/shared/web2-vieneu.js) · 167 dòng
+#### `Web2Vieneu` — [web2/shared/web2-vieneu.js](../../web2/shared/web2-vieneu.js) · 205 dòng
 
 WEB2.0 shared — kho Voice.
 **Dùng bởi:** `web2/video-maker/js/video-tts.js`, `web2/video-maker/js/video-vieneu.js`
@@ -574,7 +586,7 @@ WEB2.0 shared — client ví KH /api/web2/wallets (NGUỒN CHUNG).
 WEB2.0 — shared helper hiển thị số dư ví KH.
 **Dùng bởi:** `live-chat/js/live/live-comment-list-render-row.js`, `live-chat/js/live/live-comment-list-state.js`, `live-chat/js/live/live-customer-panel.js`, `native-orders/js/native-orders-render.js`, `web2/balance-history/js/web2-bh-reassign-modal.js`, `web2/balance-history/js/web2-bh-render.js`, `web2/balance-history/js/web2-link-customer-modal.js`, `web2/balance-history/js/web2-pm-customer-search.js`, `web2/balance-history/js/web2-pm-picker.js`, `web2/balance-history/js/web2-pm-render.js`, `web2/ck-dashboard/js/ck-dashboard-app.js`, `web2/customers/js/customers-render.js`, `web2/payment-confirm/js/payment-confirm-app.js`, `web2/returns/js/returns-customer.js`, `web2/returns/js/returns-tabs.js`, `web2/shared/web2-ck-review.js`, `web2/shared/web2-unread-panel.js`, `web2/shared/web2-wallet-api.js`, `web2/shared/web2-zalo.js`
 
-#### `ZaloApi` — [web2/shared/web2-zalo-api.js](../../web2/shared/web2-zalo-api.js) · 212 dòng
+#### `ZaloApi` — [web2/shared/web2-zalo-api.js](../../web2/shared/web2-zalo-api.js) · 242 dòng
 
 WEB2.0 module — ZaloApi wrapper (/api/web2-zalo).
 **Dùng bởi:** `web2/shared/web2-zalo.js`, `web2/shared/zalo-chat/chat-actions.js`, `web2/shared/zalo-chat/chat-view.js`, `web2/shared/zalo-chat/composer.js`, `web2/shared/zalo-chat/sticker-picker.js`, `web2/zalo/js/web2-zalo-accounts.js`, `web2/zalo/js/web2-zalo-chat.js`, `web2/zalo/js/web2-zalo-lookup-zns.js`
@@ -584,12 +596,12 @@ WEB2.0 module — ZaloApi wrapper (/api/web2-zalo).
 WEB2.0 shared — Web2Zalo helper (single-source Zalo).
 **Dùng bởi:** `web2/jt-tracking/js/jt-tracking-modals.js`, `web2/shared/web2-customer-chat.js`, `web2/shared/zalo-chat/chat-view.js`, `web2/zalo/js/web2-zalo-app.js`
 
-#### `WZChat` — [web2/shared/zalo-chat/bubbles.js](../../web2/shared/zalo-chat/bubbles.js) · 227 dòng
+#### `WZChat` — [web2/shared/zalo-chat/bubbles.js](../../web2/shared/zalo-chat/bubbles.js) · 269 dòng
 
 WEB2.0 module — Zalo chat message renderer.
 **Dùng bởi:** `web2/shared/web2-zalo.js`, `web2/shared/zalo-chat/bubbles.js`, `web2/shared/zalo-chat/chat-actions.js`, `web2/shared/zalo-chat/chat-store.js`, `web2/shared/zalo-chat/chat-view.js`, `web2/shared/zalo-chat/composer.js`, `web2/shared/zalo-chat/emoji-picker.js`, `web2/shared/zalo-chat/lightbox.js`, `web2/shared/zalo-chat/reactions.js`, `web2/shared/zalo-chat/realtime.js`, `web2/zalo/js/web2-zalo-chat.js`
 
-#### `WZChat` — [web2/shared/zalo-chat/chat-actions.js](../../web2/shared/zalo-chat/chat-actions.js) · 90 dòng
+#### `WZChat` — [web2/shared/zalo-chat/chat-actions.js](../../web2/shared/zalo-chat/chat-actions.js) · 104 dòng
 
 WEB2.0 module — Zalo chat actions (network + optimistic).
 **Dùng bởi:** `web2/shared/web2-zalo.js`, `web2/shared/zalo-chat/bubbles.js`, `web2/shared/zalo-chat/chat-actions.js`, `web2/shared/zalo-chat/chat-store.js`, `web2/shared/zalo-chat/chat-view.js`, `web2/shared/zalo-chat/composer.js`, `web2/shared/zalo-chat/emoji-picker.js`, `web2/shared/zalo-chat/lightbox.js`, `web2/shared/zalo-chat/reactions.js`, `web2/shared/zalo-chat/realtime.js`, `web2/zalo/js/web2-zalo-chat.js`
@@ -599,12 +611,12 @@ WEB2.0 module — Zalo chat actions (network + optimistic).
 WEB2.0 module — Zalo chat shared store + utils (WZChat.\*).
 **Dùng bởi:** `web2/shared/web2-zalo.js`, `web2/shared/zalo-chat/bubbles.js`, `web2/shared/zalo-chat/chat-actions.js`, `web2/shared/zalo-chat/chat-store.js`, `web2/shared/zalo-chat/chat-view.js`, `web2/shared/zalo-chat/composer.js`, `web2/shared/zalo-chat/emoji-picker.js`, `web2/shared/zalo-chat/lightbox.js`, `web2/shared/zalo-chat/reactions.js`, `web2/shared/zalo-chat/realtime.js`, `web2/zalo/js/web2-zalo-chat.js`
 
-#### `WZChat` — [web2/shared/zalo-chat/chat-view.js](../../web2/shared/zalo-chat/chat-view.js) · 762 dòng
+#### `WZChat` — [web2/shared/zalo-chat/chat-view.js](../../web2/shared/zalo-chat/chat-view.js) · 810 dòng
 
 WEB2.0 shared — Zalo chat VIEW (mount 1 hội thoại vào bất kỳ container).
 **Dùng bởi:** `web2/shared/web2-zalo.js`, `web2/shared/zalo-chat/bubbles.js`, `web2/shared/zalo-chat/chat-actions.js`, `web2/shared/zalo-chat/chat-store.js`, `web2/shared/zalo-chat/chat-view.js`, `web2/shared/zalo-chat/composer.js`, `web2/shared/zalo-chat/emoji-picker.js`, `web2/shared/zalo-chat/lightbox.js`, `web2/shared/zalo-chat/reactions.js`, `web2/shared/zalo-chat/realtime.js`, `web2/zalo/js/web2-zalo-chat.js`
 
-#### `WZChat` — [web2/shared/zalo-chat/composer.js](../../web2/shared/zalo-chat/composer.js) · 457 dòng
+#### `WZChat` — [web2/shared/zalo-chat/composer.js](../../web2/shared/zalo-chat/composer.js) · 597 dòng
 
 WEB2.0 module — Zalo chat composer (input đầy đủ).
 **Dùng bởi:** `web2/shared/web2-zalo.js`, `web2/shared/zalo-chat/bubbles.js`, `web2/shared/zalo-chat/chat-actions.js`, `web2/shared/zalo-chat/chat-store.js`, `web2/shared/zalo-chat/chat-view.js`, `web2/shared/zalo-chat/composer.js`, `web2/shared/zalo-chat/emoji-picker.js`, `web2/shared/zalo-chat/lightbox.js`, `web2/shared/zalo-chat/reactions.js`, `web2/shared/zalo-chat/realtime.js`, `web2/zalo/js/web2-zalo-chat.js`
@@ -699,7 +711,7 @@ WEB2.0 module — Zalo chat sticker picker.
 - **[live-comment-list-render-row.js](../../live-chat/js/live/live-comment-list-render-row.js)** ·283 — WEB2.0 module.
     - uses shared: `Web2CustomerStore`, `Web2WalletBalance`
     - funcs (4): getStatusColor, getStatusOptions, pancakePhone, renderCommentItem
-- **[live-comment-list-state.js](../../live-chat/js/live/live-comment-list-state.js)** ·274 — WEB2.0 module.
+- **[live-comment-list-state.js](../../live-chat/js/live/live-comment-list-state.js)** ·278 — WEB2.0 module.
     - uses shared: `Web2Chat`, `Web2WalletBalance`
     - funcs (12): \_appendOlderBatch, \_attachWalletBalances, \_ensureScrollSentinel, \_filteredAll, \_orderCount, \_shouldAnimateNew, \_updateRealCommentTotal, \_updateTotalBadge, \_visibleComments, resetRenderLimit, schedule, step
 - **[live-customer-panel.js](../../live-chat/js/live/live-customer-panel.js)** ·316 — Live Customer Info Panel
@@ -725,7 +737,7 @@ WEB2.0 module — Zalo chat sticker picker.
 - **[live-kho-enricher.js](../../live-chat/js/live/live-kho-enricher.js)** ·219 — WEB2.0 — enrich live-chat từ kho khách hàng.
     - exposes: `LiveKhoEnricher`
     - funcs (12): commentPhone, flush, gather, init, needsEnrich, normPhone, postBatch, renderComments, reset, scan, scheduleFlush, setKho
-- **[live-livestream-gallery.js](../../live-chat/js/live/live-livestream-gallery.js)** ·577 — WEB2.0 module.
+- **[live-livestream-gallery.js](../../live-chat/js/live/live-livestream-gallery.js)** ·597 — WEB2.0 module.
     - exposes: `LiveLivestreamGallery`
     - uses shared: `Popup`, `Web2Optimistic`, `Web2SSE`
     - funcs (32): \_deleteImage, \_ensurePreview, \_esc, \_extractImage, \_fmtTime, \_hidePreview, \_loadCampaignsInto, \_makeChip, \_prependTempTile, \_removeTile, \_renderGrid, \_setupSSE, \_showPreview, \_snapApi, \_tileHtml, \_toast, \_user, apply, captureAndSave, closeSidebar, doPost, ensureButtons, ensureSidebar, finish, g, init, onSuccess, openSidebar, reload, rollback, run, toggleSidebar
@@ -739,7 +751,7 @@ WEB2.0 module — Zalo chat sticker picker.
 - **[live-livestream-snap-extract.js](../../live-chat/js/live/live-livestream-snap-extract.js)** ·413 — WEB2.0 module.
     - exposes: `LiveSnap`
     - funcs (4): \_captureAtCommentTime, \_extractThumbnailForComment, \_handleNewCommentAuto, \_runSilentForceExtract
-- **[live-livestream-snap-init.js](../../live-chat/js/live/live-livestream-snap-init.js)** ·369 — WEB2.0 module.
+- **[live-livestream-snap-init.js](../../live-chat/js/live/live-livestream-snap-init.js)** ·374 — WEB2.0 module.
     - exposes: `LiveSnap`, `LiveLivestreamSnap`
     - uses shared: `Web2SSE`
     - funcs (17): \_findCommentContainer, \_getBufferCount, \_getLatestFrame, \_getStreamActive, \_wireSnapDelegation, attach, blockFrames, callback, deferRefresh, flushInject, forceStall, init, scheduleInject, scheduleRefresh, setupObserver, subscribeNewComment, subscribeSSE
@@ -754,11 +766,11 @@ WEB2.0 module — Zalo chat sticker picker.
 - **[live-livestream-snap-seek.js](../../live-chat/js/live/live-livestream-snap-seek.js)** ·496 — WEB2.0 module.
     - exposes: `LiveSnap`
     - funcs (19): \_buildSeekPlayer, \_captureExtensionFrameThrottled, \_clientCaptureAtOffset, \_clientCaptureAtOffsetInner, \_clientRestoreLive, \_ensureFbSdk, \_ensureSeekPlayer, \_ensureWorkerStrip, \_forceExtractVideoBlocked, \_removeWorkerStrip, \_runForceExtractParallel, \_runForceExtractSerial, \_workerSeekCapture, doWork, gap, handler, onerror, onload, runWorker
-- **[live-livestream-snap-state.js](../../live-chat/js/live/live-livestream-snap-state.js)** ·388 — WEB2.0 module.
+- **[live-livestream-snap-state.js](../../live-chat/js/live/live-livestream-snap-state.js)** ·391 — WEB2.0 module.
     - exposes: `LiveSnap`
     - uses shared: `Web2Auth`
     - funcs (26): \_buildFbLiveUrl, \_cmpVersions, \_esc, \_fetchLiveVideoInfo, \_findActiveLiveCampaign, \_fmtOffset, \_getSnapMode, \_getSnapPagePref, \_isAutoMode, \_isFrameBlank, \_isInlineThumbOn, \_isStaffComment, \_isVanitySlug, \_pageActiveForCapture, \_resolveActiveCampaign, \_resolveCampaignForComment, \_resolvePageObj, \_resolvePageVanity, \_resolveTopCampaigns, \_setAutoMode, \_setInlineThumb, \_setSnapMode, \_setSnapPagePref, \_toast, \_user, \_w2AuthHeaders
-- **[live-livestream-snap-stream.js](../../live-chat/js/live/live-livestream-snap-stream.js)** ·546 — WEB2.0 module.
+- **[live-livestream-snap-stream.js](../../live-chat/js/live/live-livestream-snap-stream.js)** ·562 — WEB2.0 module.
     - exposes: `LiveSnap`
     - funcs (18): \_enableEmbeddedLiveCapture, \_ensureEmbeddedIframe, \_ensureVideoDock, \_maybeShowAutoSnapBanner, \_requestCaptureStream, \_setupVisibilityWatcher, \_showExtPrompt, \_showPickerTutorial, close, ensureCaptureStream, finish, fire, fireNotification, onclick, startTitleFlash, stopRealSnap, stopTitleFlash, toggleRealSnap
 - **[live-livestream-snap-ui.js](../../live-chat/js/live/live-livestream-snap-ui.js)** ·377 — WEB2.0 module.
@@ -782,6 +794,10 @@ WEB2.0 module — Zalo chat sticker picker.
     - exposes: `LiveState`
     - uses shared: `API_CONFIG`
     - funcs (8): clearAllCaches, getCacheStats, getSavedCampaignSelection, getSavedPageSelection, saveCampaignSelection, savePageSelection, startCacheCleanup, stopCacheCleanup
+- **[live-stats-panel.js](../../live-chat/js/live/live-stats-panel.js)** ·182 — WEB2.0 module.
+    - exposes: `LiveStatsPanel`
+    - uses shared: `Web2Chat`
+    - funcs (6): computeStats, fmt, mount, render, scheduleUpdate, update
 - **[inventory-panel-actions.js](../../live-chat/js/pancake/inventory-panel-actions.js)** ·299 — WEB2.0 module.
     - uses shared: `Web2SSE`
     - funcs (8): \_scheduleRefresh, \_subscribeSSE, addToCart, clearOrder, onUndo, refresh, refreshCartCounts, removeFromCart
@@ -980,18 +996,18 @@ WEB2.0 module — Zalo chat sticker picker.
     - exposes: `NativeOrders`
     - uses shared: `Web2Auth`, `Web2UserInfo`
     - funcs (7): \_pickerOutsideClick, \_renderPickItem, addLineFromPicker, ensureVariantMap, loadEditProductsCache, searchPickerProducts, stripVi
-- **[native-orders-public-api.js](../../native-orders/js/native-orders-public-api.js)** ·89 — WEB2.0 module.
+- **[native-orders-public-api.js](../../native-orders/js/native-orders-public-api.js)** ·101 — WEB2.0 module.
     - exposes: `NativeOrders`, `NativeOrdersApp`
-    - uses shared: `Web2ChatPanel`, `Web2CustomerChat`, `Web2MsgTemplate`, `Web2OrderTagDetail`, `Web2Realtime`
-    - funcs (1): simulateLineCommentId
+    - uses shared: `Web2ChatPanel`, `Web2AuditLog`, `Web2CustomerChat`, `Web2MsgTemplate`, `Web2OrderTagDetail`, `Web2Realtime`
+    - funcs (2): openHistory, simulateLineCommentId
 - **[native-orders-realtime-init.js](../../native-orders/js/native-orders-realtime-init.js)** ·317 — WEB2.0 module.
     - exposes: `NativeOrders`
     - uses shared: `Web2CkAssignPicker`, `Web2CkReview`, `Web2SSE`
     - funcs (5): \_loadAndRenderScopeBanner, \_scheduleReload, \_sseConnect, init, onDone
-- **[native-orders-render.js](../../native-orders/js/native-orders-render.js)** ⚠️844 — WEB2.0 module.
+- **[native-orders-render.js](../../native-orders/js/native-orders-render.js)** ⚠️915 — WEB2.0 module.
     - exposes: `NativeOrders`
     - uses shared: `Web2Auth`, `Web2Effects`, `Web2Kpi`, `Web2NewMsgBadge`, `Web2OrderTagDetail`, `Web2OrderTagPill`, `Web2WalletBalance`
-    - funcs (22): \_autoTagPills, \_buildOrderHtml, \_renderExpandRow, \_rowSignature, clearCustomerFilter, computeOrderStt, detectCarrier, filterByCustomer, isAdmin, load, lockKpiBase, onAssign, onLock, openTagDetail, orderDerivedBadges, renderCounters, renderCustomerChip, renderPagination, renderRows, swapCaret, toggleExpand, web2StatusText
+    - funcs (24): \_autoTagPills, \_buildOrderHtml, \_renderExpandRow, \_rowSignature, \_rowTagSignature, \_rowTagTriggers, clearCustomerFilter, computeOrderStt, detectCarrier, filterByCustomer, isAdmin, load, lockKpiBase, onAssign, onLock, openTagDetail, orderDerivedBadges, renderCounters, renderCustomerChip, renderPagination, renderRows, swapCaret, toggleExpand, web2StatusText
 - **[native-orders-snapshots.js](../../native-orders/js/native-orders-snapshots.js)** ·179 — WEB2.0 module.
     - exposes: `NativeOrders`
     - uses shared: `API_CONFIG`
@@ -1040,10 +1056,10 @@ WEB2.0 module — Zalo chat sticker picker.
     - exposes: `SoOrder`
     - uses shared: `Web2Optimistic`, `Web2ProductCode`, `Web2ProductsApi`, `Web2ProductsCache`, `Web2VariantsCache`
     - funcs (9): \_assignKhoCodes, \_checkRowsHaveStock, \_checkRowsHaveStockSync, \_generateKhoCode, \_isStockCacheReady, \_noteHasLabel, \_rowToKhoMatch, adjustKhoPending, syncRowsToKho
-- **[so-order-modal-core.js](../../so-order/js/so-order-modal-core.js)** ·480 — WEB2.0 module.
+- **[so-order-modal-core.js](../../so-order/js/so-order-modal-core.js)** ·429 — WEB2.0 module.
     - exposes: `SoOrder`
-    - uses shared: `Web2BarcodeScanner`, `Web2LabelOcr`, `Web2ProductsCache`
-    - funcs (17): \_addRowFromScannedCode, \_newModalRow, modalRowHtml, onModalPriceBlur, onModalRowFieldInput, onPick, onResult, onScan, onclick, renderModalRows, updateModalGrandTotals, updateModalTotals, updateRowImagePreview, updateRowMeta, updateRowTotal, wireModalRowInputs, wireModalTotals
+    - uses shared: `Web2ProductsCache`
+    - funcs (14): \_newModalRow, modalRowHtml, onModalPriceBlur, onModalRowFieldInput, onPick, onclick, renderModalRows, updateModalGrandTotals, updateModalTotals, updateRowImagePreview, updateRowMeta, updateRowTotal, wireModalRowInputs, wireModalTotals
 - **[so-order-modal-image.js](../../so-order/js/so-order-modal-image.js)** ·179 — WEB2.0 module.
     - exposes: `SoOrder`
     - uses shared: `Web2Effects`
@@ -1051,7 +1067,7 @@ WEB2.0 module — Zalo chat sticker picker.
 - **[so-order-modal-open.js](../../so-order/js/so-order-modal-open.js)** ·186 — WEB2.0 module.
     - exposes: `SoOrder`
     - funcs (5): \_applyShipMetaUi, \_shipMetaFlags, onPick, openOrderModal, updateContractHint
-- **[so-order-modal-random.js](../../so-order/js/so-order-modal-random.js)** ·129 — WEB2.0 module.
+- **[so-order-modal-random.js](../../so-order/js/so-order-modal-random.js)** ·140 — WEB2.0 module.
     - exposes: `SoOrder`
     - uses shared: `Web2VariantsCache`
     - funcs (7): \_rImg, \_rInt, \_rPick, \_randomRow, \_variantPools, fillModalRandom, generateRandomOrders
@@ -1091,9 +1107,9 @@ WEB2.0 module — Zalo chat sticker picker.
     - exposes: `SoOrderStorage`
     - uses shared: `Web2IdbStore`
     - funcs (38): \_defaultState, \_flushWrite, \_getStore, \_migrateTab, \_mkId, \_read, \_write, addRow, addShipment, addTab, deleteRow, deleteShipment, deleteTab, findShipment, flush, getActiveTab, getCachedState, getColumnVisibility, getOrderAdjustment, getShipmentAdjustTotals, getTrash, load, loadCached, moveRow, purgeFromTrash, purgeOldTrash, restoreFromTrash, save, setActiveTab, setCachedState, setColumnVisibility, setOrderAdjustment, softDeleteShipment, updateFooter, updateInvoiceImageForGroup, updateRow, updateShipment, updateTab
-- **[so-order-toolbar.js](../../so-order/js/so-order-toolbar.js)** ·93 — WEB2.0 module.
+- **[so-order-toolbar.js](../../so-order/js/so-order-toolbar.js)** ·105 — WEB2.0 module.
     - exposes: `SoOrder`
-    - uses shared: `Popup`, `Web2Import`
+    - uses shared: `Popup`, `Web2AuditLog`, `Web2Import`
     - funcs (2): wireFooterInputs, wireToolbar
 
 ### web2/balance-history — WEB2.0 — balance-history app (Phase 3 — 100% Web 2.0).
@@ -1117,31 +1133,31 @@ WEB2.0 module — Zalo chat sticker picker.
     - exposes: `W2BH`
     - uses shared: `Web2SSE`
     - funcs (3): load, reload, setupSSE
-- **[web2-bh-link-customer.js](../../web2/balance-history/js/web2-bh-link-customer.js)** ·66 — WEB2.0 module.
+- **[web2-bh-link-customer.js](../../web2/balance-history/js/web2-bh-link-customer.js)** ·67 — WEB2.0 module.
     - exposes: `W2BH`
-    - uses shared: `Popup`
+    - uses shared: `Popup`, `Web2CustomerStore`
     - funcs (2): linkManual, openLinkPrompt
 - **[web2-bh-reassign-modal.js](../../web2/balance-history/js/web2-bh-reassign-modal.js)** ·287 — WEB2.0 module.
     - exposes: `W2BH`
     - uses shared: `Web2WalletBalance`
     - funcs (7): ensureReassignModalDom, ensureReassignStyles, openReassignModal, parse, searchCustomers, submitReassign, url
-- **[web2-bh-render.js](../../web2/balance-history/js/web2-bh-render.js)** ·294 — WEB2.0 module.
+- **[web2-bh-render.js](../../web2/balance-history/js/web2-bh-render.js)** ·308 — WEB2.0 module.
     - exposes: `W2BH`
-    - uses shared: `Web2CustomerDetailModal`, `Web2WalletBalance`
+    - uses shared: `Web2AuditLog`, `Web2CustomerDetailModal`, `Web2WalletBalance`
     - funcs (8): \_extractUserFromRow, pushBtn, renderChips, renderPagination, renderRow, renderStats, renderTable, verifBadge
 - **[web2-link-customer-modal.js](../../web2/balance-history/js/web2-link-customer-modal.js)** ·297 — WEB2.0 — smart customer search modal cho balance-history.
     - exposes: `Web2LinkCustomerModal`
     - uses shared: `Web2Auth`, `PartnerCustomerApi`, `Web2Escape`, `Web2Format`, `Web2WalletBalance`
     - funcs (15): authHeaders, closeModal, ensureModalDom, ensureStyles, escapeHtml, fmtVnd, jsonFetch, linkAndClose, notify, onManualSubmit, onSearchInput, openModal, renderRow, runSearch, statusBadge
-- **[web2-manual-deposit.js](../../web2/balance-history/js/web2-manual-deposit.js)** ·656 — WEB2.0 — manual deposit modal cho balance-history page.
+- **[web2-manual-deposit.js](../../web2/balance-history/js/web2-manual-deposit.js)** ·659 — WEB2.0 — manual deposit modal cho balance-history page.
     - exposes: `Web2ManualDeposit`
     - uses shared: `Web2Auth`, `PartnerCustomerApi`, `Web2Escape`, `Web2SuppliersCache`
     - funcs (28): \_cacheGet, \_cacheSet, authHeaders, clearKh, close, doKhSearch, ensureStyles, escapeAttr, escapeHtml, getCurrentUserName, getNccValue, hideNccNewInput, init, isAdmin, jsonFetch, loadNccList, notify, open, pickKh, postManualDeposit, renderKhResults, scheduleSearch, searchKh, searchKhAggregate, searchKhWeb2, showNccNewInput, submit, toggleTargetPanel
-- **[web2-partner-enricher.js](../../web2/balance-history/js/web2-partner-enricher.js)** ·148 — WEB2.0 — enrich balance-history rows với WEB2 Partner status.
+- **[web2-partner-enricher.js](../../web2/balance-history/js/web2-partner-enricher.js)** ·149 — WEB2.0 — enrich balance-history rows với trạng thái KH Web 2.0.
     - exposes: `Web2PartnerEnricher`
-    - uses shared: `PartnerCustomerApi`
+    - uses shared: `PartnerCustomerApi`, `Web2CustomerStore`
     - funcs (10): enrichRow, escapeHtml, flush, init, linkHtml, normPhone, scanAll, scheduleFlush, startObserver, statusPillHtml
-- **[web2-pending-match.js](../../web2/balance-history/js/web2-pending-match.js)** ·110 — WEB2.0 module.
+- **[web2-pending-match.js](../../web2/balance-history/js/web2-pending-match.js)** ·114 — WEB2.0 module.
     - exposes: `W2PM`, `Web2PendingMatch`
     - uses shared: `Web2SSE`
     - funcs (4): ensureBadge, init, refresh, updateBadge
@@ -1170,7 +1186,7 @@ WEB2.0 module — Zalo chat sticker picker.
 
 ### web2/ck-dashboard — WEB2.0 module — Dashboard đối soát CK.
 
-- **[ck-dashboard-app.js](../../web2/ck-dashboard/js/ck-dashboard-app.js)** ·463 — WEB2.0 module — Dashboard đối soát CK.
+- **[ck-dashboard-app.js](../../web2/ck-dashboard/js/ck-dashboard-app.js)** ·469 — WEB2.0 module — Dashboard đối soát CK.
     - uses shared: `API_CONFIG`, `Web2Auth`, `Web2CkReview`, `Web2Escape`, `Web2Format`, `Web2HistoryTimeline`, `Web2Optimistic`, `Web2Sidebar`, `Web2SSE`, `Web2UnreadPanel`, `Web2UserInfo`, `Web2WalletBalance`
     - funcs (30): ageTxt, apply, bindIntents, bindSig, doFetch, esc, fetchJson, fmtTime, histCard, historyHtml, intentCard, loadCol, loadHistory, onCount, onDone, onSuccess, onchange, onclick, oninput, reloadAll, renderCol, renderHistory, renderStats, rollback, showColSkeletons, sigCard, snapshot, switchTab, wireHistory, wireTabs
 
@@ -1180,10 +1196,10 @@ WEB2.0 module — Zalo chat sticker picker.
     - exposes: `W2CW`
     - uses shared: `PartnerCustomerApi`, `Web2WalletApi`
     - funcs (14): aggregateFromPbh, fetchAggregateStats, fetchAggregateWeb2Only, fetchAllWeb2Wallets, fetchNativeOrders, fetchOverlay, fetchPbhList, fetchPbhListForPhone, fetchWalletReturns, fetchWeb2ReturnAmountsBatch, fetchWeb2Wallets, mergeNativeOrders, normalizeOrder, qrFetch
-- **[web2-customer-wallet-app.js](../../web2/customer-wallet/js/web2-customer-wallet-app.js)** ·273 — WEB2.0 module.
+- **[web2-customer-wallet-app.js](../../web2/customer-wallet/js/web2-customer-wallet-app.js)** ·294 — WEB2.0 module.
     - exposes: `W2CW`, `Web2CustomerWalletApp`
     - uses shared: `Popup`, `PartnerCustomerApi`, `Web2SSE`, `Web2WalletApi`
-    - funcs (5): hardReset, init, load, refreshSinglePhone, setupSSE
+    - funcs (6): \_flush, hardReset, init, load, refreshSinglePhone, setupSSE
 - **[web2-customer-wallet-events.js](../../web2/customer-wallet/js/web2-customer-wallet-events.js)** ·264 — WEB2.0 module.
     - exposes: `W2CW`
     - uses shared: `Web2Auth`
@@ -1206,13 +1222,13 @@ WEB2.0 module — Zalo chat sticker picker.
 - **[customers-app.js](../../web2/customers/js/customers-app.js)** ·89 — WEB2.0 module — Kho KH warehouse UI. warehouse riêng.
     - uses shared: `Web2Optimistic`, `Web2SSE`
     - funcs (4): init, load, scheduleReload, subscribeSse
-- **[customers-detail.js](../../web2/customers/js/customers-detail.js)** ·348 — WEB2.0 module — Kho KH warehouse detail/edit (modal + SĐT/địa chỉ phụ + status + merge). warehouse riêng.
-    - uses shared: `Popup`, `Web2CustomerDetailModal`, `Web2HistoryTimeline`, `Web2QrModal`, `Web2UserInfo`
+- **[customers-detail.js](../../web2/customers/js/customers-detail.js)** ·361 — WEB2.0 module — Kho KH warehouse detail/edit (modal + SĐT/địa chỉ phụ + status + merge). warehouse riêng.
+    - uses shared: `Popup`, `Web2AuditLog`, `Web2CustomerDetailModal`, `Web2HistoryTimeline`, `Web2QrModal`, `Web2UserInfo`
     - funcs (15): addAltAddress, addAltPhone, closeModal, collectForm, doMerge, exportCsv, g, onAction, openModal, renderAltAddresses, renderAltPhones, saveModal, setPrimaryAltAddr, setPrimaryAltPhone, v
 - **[customers-events.js](../../web2/customers/js/customers-events.js)** ·380 — WEB2.0 module — Kho KH warehouse events (search/filter/sort/paginate wiring + Pancake fallback). warehouse riêng.
     - uses shared: `Web2Chat`, `Web2UserInfo`
     - funcs (8): \_getPageIds, \_importPancakeConv, \_searchPancake, addPancakeToKho, bind, finishImported, hidePancakeResults, runPancakeFallback
-- **[customers-render.js](../../web2/customers/js/customers-render.js)** ·135 — WEB2.0 module — Kho KH warehouse render (list/pagination/cards). warehouse riêng.
+- **[customers-render.js](../../web2/customers/js/customers-render.js)** ·136 — WEB2.0 module — Kho KH warehouse render (list/pagination/cards). warehouse riêng.
     - uses shared: `Web2WalletBalance`
     - funcs (5): fbBadges, mk, renderPagination, renderPancakeCards, renderTable
 - **[customers-state.js](../../web2/customers/js/customers-state.js)** ·81 — WEB2.0 module — Kho KH warehouse state/constants/utils. warehouse riêng.
@@ -1221,22 +1237,22 @@ WEB2.0 module — Zalo chat sticker picker.
 
 ### web2/fastsaleorder-delivery
 
-- **[dlv-app.js](../../web2/fastsaleorder-delivery/dlv-app.js)** ·265
+- **[dlv-app.js](../../web2/fastsaleorder-delivery/dlv-app.js)** ·276
     - exposes: `DlvApp`
-    - uses shared: `Popup`, `API_CONFIG`, `Web2Auth`, `Web2Escape`, `Web2Format`, `Web2Optimistic`, `Web2SSE`
-    - funcs (26): $, apply, applyFilters, badge, cancel, changeState, clearFilters, deliver, detail, escapeHtml, fmtDate, goPage, init, load, notify, onSuccess, renderCounters, renderPagination, renderRows, return\_, rollback, run, ship, snapshot, w2pAlert, w2pConfirm
+    - uses shared: `Popup`, `Web2AuditLog`, `API_CONFIG`, `Web2Auth`, `Web2Escape`, `Web2Format`, `Web2Optimistic`, `Web2SSE`
+    - funcs (27): $, apply, applyFilters, badge, cancel, changeState, clearFilters, deliver, detail, escapeHtml, fmtDate, goPage, init, load, notify, onSuccess, openHistory, renderCounters, renderPagination, renderRows, return\_, rollback, run, ship, snapshot, w2pAlert, w2pConfirm
 
 ### web2/fastsaleorder-invoice — WEB2.0 module.
 
-- **[pbh-actions.js](../../web2/fastsaleorder-invoice/pbh-actions.js)** ·367 — WEB2.0 module.
+- **[pbh-actions.js](../../web2/fastsaleorder-invoice/pbh-actions.js)** ·336 — WEB2.0 module.
     - exposes: `PbhActions`
     - uses shared: `Web2Bill`, `Web2Optimistic`
-    - funcs (19): \_findPbhRow, apply, bulkAction, bulkMerge, bulkPrint, cancelOrder, confirmOrder, createDelivery, createRefund, exportCsv, getSelectedNumbers, load, onSuccess, printOrder, resetStt, rollback, run, snapshot, updateBulkBar
+    - funcs (18): \_findPbhRow, apply, bulkAction, bulkMerge, bulkPrint, cancelOrder, confirmOrder, createDelivery, createRefund, exportCsv, getSelectedNumbers, load, onSuccess, printOrder, rollback, run, snapshot, updateBulkBar
 - **[pbh-api.js](../../web2/fastsaleorder-invoice/pbh-api.js)** ·59 — WEB2.0 module.
     - exposes: `PbhApi`
     - uses shared: `Web2Auth`
     - funcs (3): \_authHeaders, \_fetch, load
-- **[pbh-app.js](../../web2/fastsaleorder-invoice/pbh-app.js)** ·133 — WEB2.0 module.
+- **[pbh-app.js](../../web2/fastsaleorder-invoice/pbh-app.js)** ·131 — WEB2.0 module.
     - exposes: `PbhApp`
     - uses shared: `Web2SSE`
     - funcs (3): \_loadAndRenderScopeBanner, init, reload
@@ -1253,10 +1269,10 @@ WEB2.0 module — Zalo chat sticker picker.
 
 ### web2/fastsaleorder-refund
 
-- **[rf-app.js](../../web2/fastsaleorder-refund/rf-app.js)** ·270
+- **[rf-app.js](../../web2/fastsaleorder-refund/rf-app.js)** ·281
     - exposes: `RfApp`
-    - uses shared: `Popup`, `API_CONFIG`, `Web2Auth`, `Web2Escape`, `Web2Format`, `Web2Optimistic`, `Web2SSE`, `Web2UserInfo`
-    - funcs (27): $, \_by, apply, applyFilters, approve, badge, cancel, changeState, clearFilters, complete, detail, escapeHtml, fmtDate, fmtMoney, goPage, init, load, notify, onSuccess, renderCounters, renderPagination, renderRows, rollback, run, snapshot, w2pAlert, w2pConfirm
+    - uses shared: `Popup`, `Web2AuditLog`, `API_CONFIG`, `Web2Auth`, `Web2Escape`, `Web2Format`, `Web2Optimistic`, `Web2SSE`, `Web2UserInfo`
+    - funcs (28): $, \_by, apply, applyFilters, approve, badge, cancel, changeState, clearFilters, complete, detail, escapeHtml, fmtDate, fmtMoney, goPage, init, load, notify, onSuccess, openHistory, renderCounters, renderPagination, renderRows, rollback, run, snapshot, w2pAlert, w2pConfirm
 
 ### web2/fb-ads-stats — WEB2.0 — Sổ quảng cáo NHẬP TAY: gắn bài/đợt live + tiền QC + số đơn → tổng hợp ngày/tuần/tháng.
 
@@ -1284,14 +1300,14 @@ WEB2.0 module — Zalo chat sticker picker.
     - exposes: `FBPostsComposer`
     - uses shared: `Popup`, `Web2Auth`, `FBPostsApi`, `Web2FbPostPreview`, `Web2FbShare`, `Web2ProductPicker`
     - funcs (24): Api, Media, S, confirmDo, defaultSchedule, esc, gather, generate, imgOf, loadDraft, maybeConsumeShare, notify, onConfirm, openKhoPicker, openPreview, pageChipsHtml, product, publish, render, renderProductChips, resetForm, saveDraft, toProd, wire
-- **[fb-posts-drafts.js](../../web2/fb-posts/js/fb-posts-drafts.js)** ·170 — WEB2.0 — Đăng bài FB: Lịch & Nháp (agenda theo ngày, sửa/đăng/xoá).
+- **[fb-posts-drafts.js](../../web2/fb-posts/js/fb-posts-drafts.js)** ·183 — WEB2.0 — Đăng bài FB: Lịch & Nháp (agenda theo ngày, sửa/đăng/xoá).
     - exposes: `FBPostsDrafts`
-    - uses shared: `Popup`, `FBPostsApi`
-    - funcs (11): Api, S, dayKey, del, esc, load, notify, pageNames, render, rowHtml, timeOf
-- **[fb-posts-list.js](../../web2/fb-posts/js/fb-posts-list.js)** ·395 — WEB2.0 — Đăng bài FB: quản lý bài viết (liệt kê đã đăng + đã lên lịch, xoá).
+    - uses shared: `Popup`, `Web2AuditLog`, `FBPostsApi`
+    - funcs (12): Api, S, dayKey, del, esc, load, notify, openHistory, pageNames, render, rowHtml, timeOf
+- **[fb-posts-list.js](../../web2/fb-posts/js/fb-posts-list.js)** ·413 — WEB2.0 — Đăng bài FB: quản lý bài viết (liệt kê đã đăng + đã lên lịch, xoá).
     - exposes: `FBPostsList`
-    - uses shared: `Popup`, `FBPostsApi`
-    - funcs (17): Api, S, del, editCaption, esc, fmt, load, loadMore, notify, openViewer, postRowHtml, render, renderPostsList, setupInfinite, typeBadge, wireFilterChips, wireRows
+    - uses shared: `Popup`, `Web2AuditLog`, `FBPostsApi`
+    - funcs (18): Api, S, del, editCaption, esc, fmt, load, loadMore, notify, openHistory, openViewer, postRowHtml, render, renderPostsList, setupInfinite, typeBadge, wireFilterChips, wireRows
 - **[fb-posts-media.js](../../web2/fb-posts/js/fb-posts-media.js)** ·201 — WEB2.0 — Đăng bài FB: media picker (URL / upload imgbb / Kho SP).
     - exposes: `FBPostsMedia`
     - uses shared: `FBPostsApi`, `Web2ProductsCache`
@@ -1307,9 +1323,9 @@ WEB2.0 module — Zalo chat sticker picker.
     - exposes: `JtTrackingApi`
     - uses shared: `Web2Auth`
     - funcs (5): AUTHH, api, fmtAbs, g, relTime
-- **[jt-tracking-app.js](../../web2/jt-tracking/js/jt-tracking-app.js)** ·135 — WEB2.0 — Tra cứu vận đơn J&T (orchestrator).
+- **[jt-tracking-app.js](../../web2/jt-tracking/js/jt-tracking-app.js)** ·141 — WEB2.0 — Tra cứu vận đơn J&T (orchestrator).
     - exposes: `JtTrackingApp`
-    - uses shared: `Web2Sidebar`, `Web2SSE`
+    - uses shared: `Web2AuditLog`, `Web2Sidebar`, `Web2SSE`
     - funcs (3): debounce, init, load
 - **[jt-tracking-constants.js](../../web2/jt-tracking/js/jt-tracking-constants.js)** ·116 — WEB2.0 module.
     - exposes: `JtTrackingConst`
@@ -1319,7 +1335,7 @@ WEB2.0 module — Zalo chat sticker picker.
     - exposes: `JtTrackingModals`
     - uses shared: `Web2CustomerChat`, `Web2Zalo`
     - funcs (9): bring, close, done, findMessageInChat, jtConfirm, onReady, openChat, openMsgModal, openPasteModal
-- **[jt-tracking-render.js](../../web2/jt-tracking/js/jt-tracking-render.js)** ·284 — WEB2.0 module.
+- **[jt-tracking-render.js](../../web2/jt-tracking/js/jt-tracking-render.js)** ·285 — WEB2.0 module.
     - exposes: `JtTrackingRender`
     - funcs (15): approvedTag, close, copyText, deriveFromDesc, fallbackCopy, fmtDesc, fmtSrcMsg, ok, onEsc, openTimeline, parseOrderInfo, renderKpi, renderList, rowHtml, timelineHtml
 - **[jt-tracking-state.js](../../web2/jt-tracking/js/jt-tracking-state.js)** ·125 — WEB2.0 module.
@@ -1331,15 +1347,15 @@ WEB2.0 module — Zalo chat sticker picker.
 - **[kpi-assignments.js](../../web2/kpi/js/kpi-assignments.js)** ·417 — WEB2.0 module.
     - uses shared: `API_CONFIG`, `Web2Auth`, `Web2Escape`, `Web2Format`, `Web2UserInfo`
     - funcs (20): $, authToken, escapeHtml, fmtDate, init, loadCampaigns, loadHistory, loadRanges, loadTotalOrders, loadUsers, notify, onAddRow, onCampaignChange, onSave, renderCampaignDropdown, renderHistory, renderRangesTable, renderStats, validateRanges, wireRowEvents
-- **[kpi-dashboard.js](../../web2/kpi/js/kpi-dashboard.js)** ·291 — WEB2.0 module.
-    - uses shared: `API_CONFIG`, `Web2Auth`, `Web2Escape`, `Web2Format`, `Web2Kpi`, `Web2SSE`
-    - funcs (13): $, \_authHeaders, escapeHtml, fmtDate, fmtVnd, init, loadCampaigns, loadEvents, loadKpi, refresh, renderCampaignDropdown, renderEventsLog, renderLeaderboard
+- **[kpi-dashboard.js](../../web2/kpi/js/kpi-dashboard.js)** ·244 — WEB2.0 module.
+    - uses shared: `Web2AuditLog`, `API_CONFIG`, `Web2Auth`, `Web2Escape`, `Web2Kpi`, `Web2SSE`
+    - funcs (11): $, \_authHeaders, escapeHtml, fmtVnd, init, loadCampaigns, loadKpi, refresh, renderAuditLog, renderCampaignDropdown, renderLeaderboard
 
 ### web2/live-control — WEB2.0 — Điều khiển TV livestream (user2): gắn SP vào chiến dịch + nhập số NCC báo (pending_qty).
 
-- **[live-control.js](../../web2/live-control/js/live-control.js)** ·464 — WEB2.0 — Điều khiển TV livestream (user2): gắn SP vào chiến dịch + nhập số NCC báo (pending_qty).
-    - uses shared: `Popup`, `Web2Campaign`, `Web2Escape`, `Web2ProductsApi`, `Web2Sidebar`, `Web2SSE`, `Web2VariantGroup`
-    - funcs (22): $, addGroup, boot, createCampaign, flatCodes, groupByKey, groupHtml, loadBoard, loadCampaigns, loadPicker, onBoardOp, onSse, pickerItemHtml, refreshPickerAddedFlags, renderBoard, renderPicker, savePending, scheduleBoard, selectCampaign, toast, vrowHtml, wire
+- **[live-control.js](../../web2/live-control/js/live-control.js)** ·480 — WEB2.0 — Điều khiển TV livestream (user2): gắn SP vào chiến dịch + nhập số NCC báo (pending_qty).
+    - uses shared: `Popup`, `Web2AuditLog`, `Web2Campaign`, `Web2Escape`, `Web2ProductsApi`, `Web2Sidebar`, `Web2SSE`, `Web2VariantGroup`
+    - funcs (23): $, addGroup, boot, createCampaign, flatCodes, groupByKey, groupHtml, loadBoard, loadCampaigns, loadPicker, onBoardOp, onSse, openHistory, pickerItemHtml, refreshPickerAddedFlags, renderBoard, renderPicker, savePending, scheduleBoard, selectCampaign, toast, vrowHtml, wire
 
 ### web2/live-tv — WEB2.0 — TV livestream board (user1 xem). Realtime, read-only.
 
@@ -1349,7 +1365,7 @@ WEB2.0 module — Zalo chat sticker picker.
 
 ### web2/modules-manifest.js — Re-run script after adding/removing web2/\* pages.
 
-- **[modules-manifest.js](../../web2/modules-manifest.js)** ·19 — Re-run script after adding/removing web2/\* pages.
+- **[modules-manifest.js](../../web2/modules-manifest.js)** ·26 — Re-run script after adding/removing web2/\* pages.
     - exposes: `WEB2_MODULES_MANIFEST`
 
 ### web2/multi-tool — WEB2.0 — trang Đa dụng: tab tiện ích nội bộ. Tab "Tăng comment" = reply_comment qua Web2Chat (như Pancake gõ+Enter).
@@ -1360,9 +1376,9 @@ WEB2.0 module — Zalo chat sticker picker.
 
 ### web2/order-tags — WEB2.0 module.
 
-- **[order-tags-app.js](../../web2/order-tags/js/order-tags-app.js)** ·583 — WEB2.0 module.
-    - uses shared: `Popup`, `WEB2_CONFIG`, `API_CONFIG`, `Web2Auth`, `Web2Escape`, `Web2OrderTagPill`, `Web2Sidebar`, `Web2SSE`
-    - funcs (34): $, allIconNames, apiGet, apiSend, authHeaders, closeModal, esc, fillForm, groupedTriggers, icons, init, load, loadTriggers, notify, openCreate, openEdit, openModal, pill, readForm, removeTag, renderCards, renderIconGrid, renderIconPreview, renderSwatches, renderTriggerReference, renderTriggerSelect, saveModal, setupIconPicker, subscribeSSE, toKebab, toggleTag, updatePreview, usedTriggers, wire
+- **[order-tags-app.js](../../web2/order-tags/js/order-tags-app.js)** ·596 — WEB2.0 module.
+    - uses shared: `Popup`, `Web2AuditLog`, `WEB2_CONFIG`, `API_CONFIG`, `Web2Auth`, `Web2Escape`, `Web2OrderTagPill`, `Web2Sidebar`, `Web2SSE`
+    - funcs (35): $, allIconNames, apiGet, apiSend, authHeaders, closeModal, esc, fillForm, groupedTriggers, icons, init, load, loadTriggers, notify, openCreate, openEdit, openHistory, openModal, pill, readForm, removeTag, renderCards, renderIconGrid, renderIconPreview, renderSwatches, renderTriggerReference, renderTriggerSelect, saveModal, setupIconPicker, subscribeSSE, toKebab, toggleTag, updatePreview, usedTriggers, wire
 
 ### web2/pancake-settings — WEB2.0 module.
 
@@ -1472,7 +1488,7 @@ WEB2.0 module — Zalo chat sticker picker.
     - exposes: `W2PP`
     - uses shared: `Web2QR`
     - funcs (7): buildLabelHTML, draw, fitName, fitText, init, tooTall, tooWide
-- **[web2-products-print-utils.js](../../web2/products/js/web2-products-print-utils.js)** ·188 — WEB2.0 module.
+- **[web2-products-print-utils.js](../../web2/products/js/web2-products-print-utils.js)** ·186 — WEB2.0 module.
     - exposes: `W2PP`
     - uses shared: `Web2Auth`, `Web2Escape`
     - funcs (6): \_qrKey, \_w2Auth, escapeHtml, formatPrice, notify, stripBrackets
@@ -1531,8 +1547,9 @@ WEB2.0 module — Zalo chat sticker picker.
 - **[reconcile-app.js](../../web2/reconcile/js/reconcile-app.js)** ·178 — WEB2.0 module.
     - uses shared: `Web2BarcodeScanner`, `Web2HistoryTimeline`, `Web2LabelOcr`
     - funcs (4): bindUi, init, onResult, onScan
-- **[reconcile-render.js](../../web2/reconcile/js/reconcile-render.js)** ·273 — WEB2.0 module.
+- **[reconcile-render.js](../../web2/reconcile/js/reconcile-render.js)** ·292 — WEB2.0 module.
     - exposes: `RC`
+    - uses shared: `Web2AuditLog`
     - funcs (5): b, renderActionButtons, renderDetail, renderLine, renderList
 - **[reconcile-state.js](../../web2/reconcile/js/reconcile-state.js)** ·169 — WEB2.0 module.
     - exposes: `RC`
@@ -1545,10 +1562,10 @@ WEB2.0 module — Zalo chat sticker picker.
     - exposes: `Web2ReturnsApi`
     - uses shared: `API_CONFIG`, `Web2Auth`, `Web2UserInfo`
     - funcs (13): \_json, \_user, \_w2Auth, approve, create, customerOrders, list, pending, remove, searchCustomers, searchProducts, sourceOrder, walletBalance
-- **[returns-app.js](../../web2/returns/js/returns-app.js)** ·196 — WEB2.0 module.
+- **[returns-app.js](../../web2/returns/js/returns-app.js)** ·214 — WEB2.0 module.
     - exposes: `Web2Returns`
-    - uses shared: `Web2Sidebar`, `Web2SSE`
-    - funcs (3): bind, init, setupSse
+    - uses shared: `Web2AuditLog`, `Web2Sidebar`, `Web2SSE`
+    - funcs (4): bind, init, openHistory, setupSse
 - **[returns-cod.js](../../web2/returns/js/returns-cod.js)** ·65 — WEB2.0 module.
     - exposes: `ReturnsCod`
     - funcs (3): onCodInput, renderCodCalc, renderCodWallet
@@ -1565,7 +1582,7 @@ WEB2.0 module — Zalo chat sticker picker.
 - **[returns-order-items.js](../../web2/returns/js/returns-order-items.js)** ·136 — WEB2.0 module.
     - exposes: `ReturnsItems`
     - funcs (6): pickOrder, renderOrderItems, renderOrderSummary, selectedLines, setLineQty, toggleLine
-- **[returns-tabs.js](../../web2/returns/js/returns-tabs.js)** ·192 — WEB2.0 module.
+- **[returns-tabs.js](../../web2/returns/js/returns-tabs.js)** ·194 — WEB2.0 module.
     - exposes: `ReturnsTabs`
     - uses shared: `Popup`, `Web2WalletBalance`
     - funcs (8): \_typeLabel, approve, loadList, loadPending, removeReturn, renderList, renderPending, switchTab
@@ -1583,9 +1600,9 @@ WEB2.0 module — Zalo chat sticker picker.
 - **[supplier-debt-filters.js](../../web2/supplier-debt/js/supplier-debt-filters.js)** ·72 — WEB2.0 module.
     - uses shared: `Web2SuppliersCache`
     - funcs (5): \_populateNccNameDatalist, currentMonthRange, pad, readFilters, setDefaultDateRange
-- **[supplier-debt-render.js](../../web2/supplier-debt/js/supplier-debt-render.js)** ·505 — WEB2.0 module.
-    - uses shared: `Web2Deeplink`
-    - funcs (14): applyFilterAndRender, buildCongNoEntries, congnoTableHtml, detailPanelHtml, exportCsv, purchasesTableHtml, renderPagination, renderTable, renderTotals, toggleExpand, transactionsTableHtml, updateDetailPanel, updateSortIcons, wireDetailTabs
+- **[supplier-debt-render.js](../../web2/supplier-debt/js/supplier-debt-render.js)** ·524 — WEB2.0 module.
+    - uses shared: `Web2AuditLog`, `Web2Deeplink`
+    - funcs (15): applyFilterAndRender, buildCongNoEntries, congnoTableHtml, detailPanelHtml, exportCsv, openHistory, purchasesTableHtml, renderPagination, renderTable, renderTotals, toggleExpand, transactionsTableHtml, updateDetailPanel, updateSortIcons, wireDetailTabs
 - **[supplier-debt-state.js](../../web2/supplier-debt/js/supplier-debt-state.js)** ·140 — WEB2.0 module.
     - uses shared: `Web2Escape`, `Web2Format`
     - funcs (12): cssAttrEscape, csvEscape, escapeHtml, fmtDateVN, fmtTime, fmtVnd, isBefore, isInPeriod, isoToTs, notify, rateToVnd, vnDate
@@ -1600,9 +1617,9 @@ WEB2.0 module — Zalo chat sticker picker.
 - **[supplier-wallet-app.js](../../web2/supplier-wallet/js/supplier-wallet-app.js)** ·260 — WEB2.0 module.
     - uses shared: `Web2Deeplink`, `Web2ProductsCache`, `Web2SSE`
     - funcs (5): \_sseConnect, init, nfc, scheduleAggregateReload, wireUi
-- **[supplier-wallet-render.js](../../web2/supplier-wallet/js/supplier-wallet-render.js)** ·201 — WEB2.0 module.
-    - uses shared: `Web2Deeplink`
-    - funcs (6): cardHtml, openDetail, renderDetailTabs, renderHistory, renderList, renderPurchases
+- **[supplier-wallet-render.js](../../web2/supplier-wallet/js/supplier-wallet-render.js)** ·222 — WEB2.0 module.
+    - uses shared: `Web2AuditLog`, `Web2Deeplink`
+    - funcs (7): cardHtml, openDetail, openHistory, renderDetailTabs, renderHistory, renderList, renderPurchases
 - **[supplier-wallet-state.js](../../web2/supplier-wallet/js/supplier-wallet-state.js)** ·143 — WEB2.0 module.
     - exposes: `SW_DEBUG`
     - uses shared: `Web2Escape`, `Web2Format`, `Web2UserInfo`
@@ -1628,9 +1645,9 @@ WEB2.0 module — Zalo chat sticker picker.
 
 ### web2/users — WEB2.0 module.
 
-- **[users-app.js](../../web2/users/js/users-app.js)** ·553 — WEB2.0 module.
-    - uses shared: `Popup`, `API_CONFIG`, `Web2Auth`, `Web2Escape`, `Web2Optimistic`, `Web2SSE`
-    - funcs (28): \_currentSessionUserId, \_sseConnect, api, apply, authToken, bulkCheck, confirmPasswordSave, confirmPermsSave, confirmUserSave, deactivateUser, escapeHtml, fmtTs, handleAction, init, loadAll, notify, onSuccess, openKpiAssignments, openPasswordModal, openPermsModal, openUserModal, renderList, renderPermsGrid, resetPermsToRoleDefaults, rollback, run, snapshot, wireUi
+- **[users-app.js](../../web2/users/js/users-app.js)** ·566 — WEB2.0 module.
+    - uses shared: `Popup`, `Web2AuditLog`, `API_CONFIG`, `Web2Auth`, `Web2Escape`, `Web2Optimistic`, `Web2SSE`
+    - funcs (29): \_currentSessionUserId, \_sseConnect, api, apply, authToken, bulkCheck, confirmPasswordSave, confirmPermsSave, confirmUserSave, deactivateUser, escapeHtml, fmtTs, handleAction, init, loadAll, notify, onSuccess, openKpiAssignments, openPasswordModal, openPermsModal, openUserHistory, openUserModal, renderList, renderPermsGrid, resetPermsToRoleDefaults, rollback, run, snapshot, wireUi
 
 ### web2/variants — Web2 Variants API client — /api/web2/variants/\* qua Cloudflare Worker.
 
@@ -1673,47 +1690,50 @@ WEB2.0 module — Zalo chat sticker picker.
 - **[video-import.js](../../web2/video-maker/js/video-import.js)** ·183 — WEB2.0 module.
     - exposes: `Web2VideoImport`
     - funcs (11): clear, connect, disconnect, draw, el, file, getVolume, isActive, load, onReady, setVolume
-- **[video-library.js](../../web2/video-maker/js/video-library.js)** ·395 — WEB2.0 module.
+- **[video-library.js](../../web2/video-maker/js/video-library.js)** ·739 — WEB2.0 module.
     - exposes: `Web2VideoLibraryUI`
-    - funcs (20): $, \_audio, \_buildModal, \_fillLangFilter, \_playSamples, \_stopPreview, \_voiceRow, addEleven, addPiper, close, esc, init, notify, onStatus, open, previewEleven, previewPiper, render, renderEleven, renderFree
-- **[video-maker.js](../../web2/video-maker/js/video-maker.js)** ⚠️1283 — WEB2.0 module.
+    - funcs (34): $, \_appendProRows, \_appendSharedRows, \_audio, \_buildModal, \_fillLangFilter, \_loadProVoices, \_loadShared, \_onElScroll, \_onProScroll, \_playSamples, \_renderElevenSettings, \_slider, \_stopPreview, \_voiceRow, addEleven, addPiper, addProVoice, addShared, bind, close, esc, init, notify, onerror, open, previewEleven, previewPiper, previewProVoice, render, renderEleven, renderFree, renderPro, restore
+- **[video-maker.js](../../web2/video-maker/js/video-maker.js)** ⚠️1385 — WEB2.0 module.
     - exposes: `VideoMakerPage`
     - uses shared: `Web2Escape`, `Web2ProductsCache`
-    - funcs (60): $, \_rand, \_shuffle, \_stopSrc, addImagesFromFiles, applyCanvasSize, applyLiveVolumes, audioCtx, buildAudioGraph, detail, dims, drawAt, esc, exportVideo, extractCompactWav, fill, fillBulkSelects, findScene, fitPreview, fmtPriceShort, genNarration, genNarrationPerScene, hasPerSceneNarration, hasTaintedScene, importActive, init, insertAtCursor, loadImage, loadImageCors, loadMusicFile, loop, narrationBuffer, notify, onStatus, ondataavailable, onended, onerror, onload, pickMime, play, playSample, priceOf, randomGenerate, refresh, renderCues, renderPickers, renderScenes, renderVoices, setStat, setTtsBusy, stop, toneLabel, tonePitch, topicGenerate, totalDur, voiceLabel, wireAudioUi, wireImportUi, wireSceneList, wireSoundFx
+    - funcs (65): $, \_rand, \_shuffle, \_stopSrc, addImagesFromFiles, applyCanvasSize, applyLiveVolumes, audioCtx, buildAudioGraph, detail, dims, drawAt, esc, exportVideo, extractCompactWav, fill, fillBulkSelects, findScene, fitPreview, fmtPriceShort, genNarration, genNarrationPerScene, hasPerSceneNarration, hasTaintedScene, importActive, init, insertAtCursor, loadImage, loadImageCors, loadMusicFile, loop, narrationBuffer, notify, onSelect, onStatus, ondataavailable, onended, onerror, onload, pickMime, play, playSample, priceOf, randomGenerate, refit, refresh, renderCues, renderPickers, renderScenes, renderVoices, setMode, setStat, setTtsBusy, stop, stop_preview_audio, toneLabel, tonePitch, topicGenerate, totalDur, voiceLabel …
 - **[video-render.js](../../web2/video-maker/js/video-render.js)** ·349 — WEB2.0 module.
     - exposes: `Web2VideoRender`
     - funcs (14): \_drawImageMotion, \_drawScene, \_drawText, \_drawTransition, \_filterCss, \_springScale, \_springText, \_wrap, clamp01, drawFrame, easeInOutCubic, easeInOutSine, easeOutCubic, totalDuration
 - **[video-scene-editor.js](../../web2/video-maker/js/video-scene-editor.js)** ·89 — WEB2.0 module.
     - exposes: `Web2VideoSceneEditor`
     - funcs (4): \_sel, \_voiceSel, applyDefaults, detailHtml
-- **[video-tts.js](../../web2/video-maker/js/video-tts.js)** ·573 — WEB2.0 module.
+- **[video-tts.js](../../web2/video-maker/js/video-tts.js)** ·796 — WEB2.0 module.
     - exposes: `Web2VideoTTS`
     - uses shared: `WEB2_CONFIG`, `API_CONFIG`, `Web2Vieneu`
-    - funcs (39): \_ELEVEN_BASE, \_blobB64, \_concat, \_decodeCtx, \_elPost, \_elevenChunk, \_getMms, \_getPiper, \_mmsChunk, \_persistLib, \_piperChunk, \_resample, \_serialize, \_splitSentences, \_vieneuChunk, \_voice, \_w2auth, \_workerBase, addLibraryVoice, cancelPreview, downloadPiperVoice, elevenIsolate, elevenSoundEffect, elevenStatus, elevenTranscribe, hasVoice, isCueCapable, listElevenVoices, listPiperCatalog, loadLibraryVoices, piperStored, registerVieneuVoices, removeLibraryVoice, removePiperVoice, speakPreview, stripCues, synthVoiceMeta, synthesize, toAudioBuffer
-- **[video-vieneu.js](../../web2/video-maker/js/video-vieneu.js)** ·170 — WEB2.0 module.
+    - funcs (53): \_ELEVEN_BASE, \_PRO_BASE, \_blobB64, \_concat, \_decodeCtx, \_elPost, \_elevenChunk, \_findByProvider, \_getMms, \_getPiper, \_mmsChunk, \_persistLib, \_piperChunk, \_proChunk, \_providerId, \_resample, \_serialize, \_splitSentences, \_vieneuChunk, \_voice, \_w2auth, \_workerBase, addLibraryVoice, addSharedVoice, cancelPreview, downloadPiperVoice, elevenIsolate, elevenSoundEffect, elevenStatus, elevenTranscribe, getElevenSettings, hasVoice, isBrokenVoice, isCueCapable, isPitchCapable, listElevenVoices, listPiperCatalog, listProVoices, listSharedVoices, loadLibraryVoices, piperStored, previewUrlForVoice, proStatus, registerVieneuVoices, removeLibraryVoice, removePiperVoice, samplePreviewUrl, setElevenSettings, speakPreview, stripCues, synthVoiceMeta, synthesize, toAudioBuffer
+- **[video-vieneu.js](../../web2/video-maker/js/video-vieneu.js)** ·194 — WEB2.0 module.
     - exposes: `Web2VideoVieneuUI`
     - uses shared: `Web2PosInstaller`, `Web2Vieneu`
     - funcs (10): $, applyRef, connect, init, notify, ondataavailable, onstop, refreshServers, renderServers, setStat
 
 ### web2/zalo — WEB2.0 module.
 
-- **[web2-zalo-accounts.js](../../web2/zalo/js/web2-zalo-accounts.js)** ·436 — WEB2.0 module.
+- **[web2-zalo-accounts.js](../../web2/zalo/js/web2-zalo-accounts.js)** ·458 — WEB2.0 module.
     - exposes: `WZApp`
     - uses shared: `Popup`, `Web2Ext`, `ZaloApi`
     - funcs (19): accCardHtml, addPersonal, autoRenewZalo, choiceCardsHtml, closeOaModal, closeQrModal, loadAccounts, loginZaloCookie, onAccAction, openOaModal, openQrModal, pollQr, renderAccounts, renderStatusStrip, saveAddPersonal, saveAddPersonalCookie, saveOa, skelCards, startQr
-- **[web2-zalo-app.js](../../web2/zalo/js/web2-zalo-app.js)** ·179 — WEB2.0 module — Zalo single-source page app.
+- **[web2-zalo-app.js](../../web2/zalo/js/web2-zalo-app.js)** ·187 — WEB2.0 module — Zalo single-source page app.
     - exposes: `WZApp`
     - uses shared: `Web2SSE`, `Web2Zalo`
     - funcs (6): bind, focusTab, gridActivate, init, subscribeSse, switchTab
-- **[web2-zalo-chat.js](../../web2/zalo/js/web2-zalo-chat.js)** ·185 — WEB2.0 module.
+- **[web2-zalo-chat.js](../../web2/zalo/js/web2-zalo-chat.js)** ·320 — WEB2.0 module.
     - exposes: `WZApp`
-    - uses shared: `ZaloApi`, `WZChat`
-    - funcs (8): bindConvHead, fillAccountSelect, getForwardTargets, loadConversations, maybeAutoSync, openConversation, renderConvList, syncConversations
-- **[web2-zalo-lookup-zns.js](../../web2/zalo/js/web2-zalo-lookup-zns.js)** ·152 — WEB2.0 module.
+    - uses shared: `Web2Optimistic`, `ZaloApi`, `WZChat`
+    - funcs (17): \_closeConvMenu, \_convAction, apply, bindConvHead, fillAccountSelect, getForwardTargets, loadConversations, maybeAutoSync, onSuccess, openConvMenu, openConversation, renderConvList, renderInfoPanel, rollback, row, run, syncConversations
+- **[web2-zalo-lookup-zns.js](../../web2/zalo/js/web2-zalo-lookup-zns.js)** ·237 — WEB2.0 module.
     - exposes: `WZApp`
     - uses shared: `Web2UserInfo`, `ZaloApi`
-    - funcs (5): doLookup, loadTemplates, loadZnsLog, sendZns, showSelf
-- **[web2-zalo-utils.js](../../web2/zalo/js/web2-zalo-utils.js)** ·161 — WEB2.0 module.
+    - funcs (8): \_collectZnsData, \_tplParams, doLookup, loadTemplates, loadZnsLog, renderZnsFields, sendZns, showSelf
+- **[web2-zalo-notify.js](../../web2/zalo/js/web2-zalo-notify.js)** ·164 — WEB2.0 module — Zalo thông báo tin mới (toast + âm thanh + badge tab + Web Notification).
+    - exposes: `WZApp`
+    - funcs (11): \_preview, beep, browserNotify, ensurePermission, notify, onclick, setSound, setTabBadge, snapshot, soundOn, totalUnread
+- **[web2-zalo-utils.js](../../web2/zalo/js/web2-zalo-utils.js)** ·163 — WEB2.0 module.
     - exposes: `WZApp`
     - funcs (11): $, \_\_wzAvErr, \_trap, avatarHtml, esc, fmtTime, hideModal, initial, notify, setBusy, showModal
 
@@ -1757,10 +1777,10 @@ WEB2.0 module — Zalo chat sticker picker.
     - exposes: `DeliveryMethodPicker`
     - uses shared: `API_CONFIG`
     - funcs (17): \_cleanAddress, \_detectProvince, \_goongToOption, \_hasFuzzy, \_isHcmc, \_lev, \_normalizeFromRecord, \_parseKeywords, fetchFromBackend, geocodeGoong, getOptionsAsync, hasKeyword, normalize, pick, pickAsync, pickOffline, pickRobust
-- **[page-builder.js](../../web2/shared/page-builder.js)** ·736 — Web 2.0 generic CRUD page builder — same look as WEB2 list views.
+- **[page-builder.js](../../web2/shared/page-builder.js)** ·763 — Web 2.0 generic CRUD page builder — same look as WEB2 list views.
     - exposes: `Web2Page`
-    - uses shared: `Popup`, `Web2Api`, `Web2Escape`, `Web2Format`, `Web2Optimistic`, `Web2SSE`
-    - funcs (27): \_escHandler, apply, applyFilters, clearFilters, closeModal, destroy, escapeHtml, fmtTime, getPath, goPage, inferRefPageUrl, load, loadName, mount, notify, openCreate, openEdit, removeRecord, renderCounters, renderForm, renderPagination, renderRows, rollback, run, saveModal, setPath, showDropdown
+    - uses shared: `Popup`, `Web2Api`, `Web2AuditLog`, `Web2Escape`, `Web2Format`, `Web2Optimistic`, `Web2SSE`
+    - funcs (29): \_escHandler, apply, applyFilters, clearFilters, closeModal, destroy, escapeHtml, fmtTime, getPath, goPage, inferRefPageUrl, load, loadName, mount, notify, open, openCreate, openEdit, openHistory, removeRecord, renderCounters, renderForm, renderPagination, renderRows, rollback, run, saveModal, setPath, showDropdown
 - **[popup.js](../../web2/shared/popup.js)** ·481 — Web 2.0 — Custom Popup (alert / confirm / prompt)
     - exposes: `Popup`
     - uses shared: `Web2Lottie`
@@ -1773,6 +1793,10 @@ WEB2.0 module — Zalo chat sticker picker.
     - exposes: `Web2Api`
     - uses shared: `API_CONFIG`, `Web2Auth`, `Web2UserInfo`
     - funcs (8): \_authHeaders, \_fetchJson, create, forEntity, health, list, remove, update
+- **[web2-audit-log.js](../../web2/shared/web2-audit-log.js)** ·380 — WEB2.0 module.
+    - exposes: `Web2AuditLog`
+    - uses shared: `WEB2_CONFIG`, `API_CONFIG`, `Web2Auth`
+    - funcs (19): applyScopeUi, authHeaders, buildShell, close, entityOptions, esc, fmtTime, injectStyle, load, mount, onKey, onclick, openRecord, populateEntities, rawChanges, reload, resolveHost, rowHtml, wireRetry
 - **[web2-auth.js](../../web2/shared/web2-auth.js)** ·246 — Token storage + verify + page guard.
     - exposes: `WEB2_CONFIG`, `API_CONFIG`, `Web2Auth`
     - funcs (11): apiUrl, authHeaders, can, clear, getStored, guardPage, loginUrl, logout, requireAuth, storeLogin, verify
@@ -1800,7 +1824,7 @@ WEB2.0 module — Zalo chat sticker picker.
     - funcs (8): enrichCustomer, fetchConversations, fetchConversationsByPage, fetchMessages, replyComment, searchConversations, sendMessage, uploadMedia
 - **[web2-chat-client.js](../../web2/shared/web2-chat-client.js)** ·107 — WEB2.0 module.
     - exposes: `Web2Chat`
-- **[web2-chat-live.js](../../web2/shared/web2-chat-live.js)** ·251 — WEB2.0 module.
+- **[web2-chat-live.js](../../web2/shared/web2-chat-live.js)** ·274 — WEB2.0 module.
     - uses shared: `Web2Chat`
     - funcs (6): fetchLivePosts, generateAllPageAccessTokens, generatePageAccessToken, listPages, push, sendLiveComment
 - **[web2-chat-settings.js](../../web2/shared/web2-chat-settings.js)** ·140 — WEB2.0 module.
@@ -1953,7 +1977,7 @@ WEB2.0 module — Zalo chat sticker picker.
     - exposes: `Web2OrderTagDetail`
     - uses shared: `WEB2_CONFIG`, `API_CONFIG`, `Web2Escape`
     - funcs (21): close, cssEsc, ensureStyles, esc, fillHolders, icons, kpiActionsHtml, kpiLineRow, kpiSrcBadge, onKey, open, prodBadge, prodSub, productListHtml, renderKpiUser, statusLabel, thumbHtml, triggerDesc, vnNum, wireKpiActions, workerBase
-- **[web2-order-tag-pill.js](../../web2/shared/web2-order-tag-pill.js)** ·90 — WEB2.0 module.
+- **[web2-order-tag-pill.js](../../web2/shared/web2-order-tag-pill.js)** ·93 — WEB2.0 module.
     - exposes: `Web2OrderTagPill`
     - uses shared: `Web2Escape`
     - funcs (7): escapeHtml, html, listHtml, normHex, rgb, rgba, textColor
@@ -2026,10 +2050,10 @@ WEB2.0 module — Zalo chat sticker picker.
     - exposes: `NativeReturnBill`
     - uses shared: `Popup`, `API_CONFIG`
     - funcs (3): \_normPhone, collect, fetchQueued
-- **[web2-sidebar.js](../../web2/shared/web2-sidebar.js)** ·709 — WEB2-clone sidebar for Web 2.0 pages.
+- **[web2-sidebar.js](../../web2/shared/web2-sidebar.js)** ·719 — WEB2-clone sidebar for Web 2.0 pages.
     - exposes: `Web2Sidebar`
-    - uses shared: `DeliveryMethodPicker`, `Popup`, `Web2ApiFetch`, `Web2Auth`, `Web2AvatarUtils`, `Web2CommandPalette`, `Web2Escape`, `Web2Format`, `Web2ImageLightbox`, `Web2JwtUtils`, `Web2Lottie`, `Web2Notify`, `Web2PhoneUtils`, `Web2PWA`, `Web2TextUtils`
-    - funcs (18): SCRIPT_BASE_URL, \_isAdmin, alertSoon, autoLoadSharedModules, escapeHtml, inject, injectMobileCss, isCollapsed, isOurRoute, isWeb2Item, mount, onclick, renderGroup, renderItem, renderUserFooter, resolveOur, setCollapsed, toggleCollapse
+    - uses shared: `DeliveryMethodPicker`, `Popup`, `Web2ApiFetch`, `Web2AuditLog`, `Web2Auth`, `Web2AvatarUtils`, `Web2CommandPalette`, `Web2Escape`, `Web2Format`, `Web2ImageLightbox`, `Web2JwtUtils`, `Web2Lottie`, `Web2Notify`, `Web2PhoneUtils`, `Web2PWA`, `Web2TextUtils`, `Web2Translate`
+    - funcs (19): SCRIPT_BASE_URL, \_isAdmin, alertSoon, autoLoadSharedModules, escapeHtml, inject, injectMobileCss, isCollapsed, isOurRoute, isWeb2Item, mount, onGroupHead, onclick, renderGroup, renderItem, renderUserFooter, resolveOur, setCollapsed, toggleCollapse
 - **[web2-so-order-reader.js](../../web2/shared/web2-so-order-reader.js)** ·53 — WEB2.0 module.
     - exposes: `Web2SoOrder`
     - uses shared: `API_CONFIG`, `Web2Auth`
@@ -2037,10 +2061,10 @@ WEB2.0 module — Zalo chat sticker picker.
 - **[web2-so-order-utils.js](../../web2/shared/web2-so-order-utils.js)** ·129 — WEB2.0 shared module.
     - exposes: `Web2SoOrderUtils`
     - funcs (4): \_str, groupByOrder, orderGroupKey, parseReceivedItems
-- **[web2-sse-bridge.js](../../web2/shared/web2-sse-bridge.js)** ·249 — WEB2.0 module.
+- **[web2-sse-bridge.js](../../web2/shared/web2-sse-bridge.js)** ·289 — WEB2.0 module.
     - exposes: `Web2SSE`
-    - funcs (10): \_dispatchResync, \_openConnection, \_refreshConnectionForTopicChange, \_scheduleReconnect, close, handleData, onerror, subscribe, topics, unsubscribe
-- **[web2-sse-topics.js](../../web2/shared/web2-sse-topics.js)** ·29 — WEB2.0 module.
+    - funcs (11): \_dispatchResync, \_openConnection, \_refreshConnectionForTopicChange, \_scheduleReconnect, \_scheduleResync, close, handleData, onerror, subscribe, topics, unsubscribe
+- **[web2-sse-topics.js](../../web2/shared/web2-sse-topics.js)** ·28 — WEB2.0 module.
     - exposes: `Web2SSETopics`
     - uses shared: `Web2SSE`
 - **[web2-suppliers-cache.js](../../web2/shared/web2-suppliers-cache.js)** ·223 — WEB2.0 module.
@@ -2050,6 +2074,10 @@ WEB2.0 module — Zalo chat sticker picker.
 - **[web2-text-utils.js](../../web2/shared/web2-text-utils.js)** ·41 — WEB2.0 shared — 1 NGUỒN chuẩn hoá text/tìm kiếm tiếng Việt cho Web 2.0.
     - exposes: `Web2TextUtils`
     - funcs (4): asciiUpper, includes, searchNormalize, stripDiacritics
+- **[web2-translate.js](../../web2/shared/web2-translate.js)** ·74 — WEB2.0 module dùng chung.
+    - exposes: `Web2Translate`
+    - uses shared: `WEB2_CONFIG`, `API_CONFIG`
+    - funcs (6): \_auth, \_base, status, toEn, toVi, translate
 - **[web2-unread-panel.js](../../web2/shared/web2-unread-panel.js)** ·151 — WEB2.0 — panel "Tin nhắn chưa đọc" dùng chung (gộp từ payment-confirm vào ck-dashboard).
     - exposes: `Web2UnreadPanel`
     - uses shared: `API_CONFIG`, `Web2Escape`, `Web2Format`, `Web2SSE`, `Web2WalletBalance`
@@ -2070,10 +2098,10 @@ WEB2.0 module — Zalo chat sticker picker.
     - exposes: `Web2VariantsCache`
     - uses shared: `Web2ProductCode`, `Web2SSE`
     - funcs (17): \_clientId, \_emit, \_loadList, \_normalize, \_scheduleRefresh, \_setupRealtime, findByValue, findByValueExact, getAll, getAllIncludingInactive, getColorShortMap, has, init, initPromise, pushTickle, refresh, subscribe
-- **[web2-vieneu.js](../../web2/shared/web2-vieneu.js)** ·167 — WEB2.0 shared — kho Voice.
+- **[web2-vieneu.js](../../web2/shared/web2-vieneu.js)** ·205 — WEB2.0 shared — kho Voice.
     - exposes: `Web2Vieneu`
     - uses shared: `WEB2_CONFIG`, `API_CONFIG`
-    - funcs (14): \_ctx, \_decode, \_headers, \_need, \_registryBase, clone, getSecret, getUrl, health, listServers, listVoices, setSecret, setUrl, synthesize
+    - funcs (15): \_ctx, \_decode, \_headers, \_need, \_registryBase, clone, getSecret, getUrl, health, listServers, listVoices, probeLocal, setSecret, setUrl, synthesize
 - **[web2-wallet-api.js](../../web2/shared/web2-wallet-api.js)** ·227 — WEB2.0 shared — client ví KH /api/web2/wallets (NGUỒN CHUNG).
     - exposes: `Web2WalletApi`
     - uses shared: `Web2Auth`, `Web2Format`, `Web2PhoneUtils`, `Web2UserInfo`, `Web2WalletBalance`
@@ -2082,34 +2110,34 @@ WEB2.0 module — Zalo chat sticker picker.
     - exposes: `Web2WalletBalance`
     - uses shared: `Web2Auth`, `Web2CustomerDetailModal`, `Web2Format`, `Web2PhoneUtils`, `Web2SSE`, `Web2WalletApi`
     - funcs (20): \_ensureModal, \_fetchBalance, \_fetchBatch, \_openDetail, \_ownBase, \_w2Auth, \_wireClick, \_wireSse, attachBalances, ensureStyles, fmtVnd, getBalance, getBalances, invalidate, normPhone, onerror, onload, p, pillHtml, tryFetch
-- **[web2-zalo-api.js](../../web2/shared/web2-zalo-api.js)** ·212 — WEB2.0 module — ZaloApi wrapper (/api/web2-zalo).
+- **[web2-zalo-api.js](../../web2/shared/web2-zalo-api.js)** ·242 — WEB2.0 module — ZaloApi wrapper (/api/web2-zalo).
     - exposes: `ZaloApi`
     - uses shared: `API_CONFIG`, `Web2Auth`
-    - funcs (40): \_authHeaders, \_fetch, \_qs, accounts, backfill, conversations, createAccount, deleteAccount, disconnect, forward, friends, groupMembers, groups, loadHistory, loginCookie, loginQr, lookup, messages, oaConnect, qr, quickReplies, react, recall, reconnect, seen, self, sendCs, sendFile, sendImage, sendMessage, sendSticker, sendZns, setPrimary, status, stickers, syncConversations, syncTemplates, typing, znsLog, znsTemplates
+    - funcs (45): \_authHeaders, \_fetch, \_qs, accounts, addQuickReply, backfill, conversations, createAccount, deleteAccount, deleteMessage, disconnect, forward, friends, groupMembers, groups, loadHistory, loginCookie, loginQr, lookup, markConversation, messages, muteConversation, oaConnect, pinConversation, qr, quickReplies, react, recall, reconnect, seen, self, sendCs, sendFile, sendImage, sendMessage, sendSticker, sendZns, setPrimary, status, stickers, syncConversations, syncTemplates, typing, znsLog, znsTemplates
 - **[web2-zalo.js](../../web2/shared/web2-zalo.js)** ·369 — WEB2.0 shared — Web2Zalo helper (single-source Zalo).
     - exposes: `Web2Zalo`
     - uses shared: `API_CONFIG`, `Web2Auth`, `Web2Ext`, `Web2SSE`, `Web2WalletBalance`, `ZaloApi`, `WZChat`
     - funcs (19): \_authHeaders, \_btnHtml, \_fetch, \_hasScript, \_loadCss, \_loadScript, \_wireClick, attachZaloButtons, ensureStyles, getConversation, getCookieAccountKey, loadChatEngine, mountChat, normPhone, onerror, openChat, sendMessage, sendZNS, status
-- **[bubbles.js](../../web2/shared/zalo-chat/bubbles.js)** ·227 — WEB2.0 module — Zalo chat message renderer.
+- **[bubbles.js](../../web2/shared/zalo-chat/bubbles.js)** ·269 — WEB2.0 module — Zalo chat message renderer.
     - exposes: `WZChat`
     - uses shared: `WZChat`
     - funcs (11): \_legacy, \_msgUrl, body, bubbleKind, fmtText, imgTag, reactionsRow, renderMessages, replyRow, statusTick, tools
-- **[chat-actions.js](../../web2/shared/zalo-chat/chat-actions.js)** ·90 — WEB2.0 module — Zalo chat actions (network + optimistic).
+- **[chat-actions.js](../../web2/shared/zalo-chat/chat-actions.js)** ·104 — WEB2.0 module — Zalo chat actions (network + optimistic).
     - exposes: `WZChat`
     - uses shared: `Web2Optimistic`, `ZaloApi`, `WZChat`
-    - funcs (6): emitTyping, forward, markSeen, react, recall, throttled
+    - funcs (7): deleteForMe, emitTyping, forward, markSeen, react, recall, throttled
 - **[chat-store.js](../../web2/shared/zalo-chat/chat-store.js)** ·214 — WEB2.0 module — Zalo chat shared store + utils (WZChat.\*).
     - exposes: `WZChat`
     - uses shared: `WZChat`
     - funcs (24): \_closeMenu, \_find, \_onMenuDoc, \_previewOf, addPending, avatarHtml, clearPending, clearReply, dayKey, dayLabel, esc, fmtTime, getPending, getReplyTarget, initial, markRecalled, markSeen, notify, openMenu, patchReaction, removePending, setConversation, setMessages, setReplyTarget
-- **[chat-view.js](../../web2/shared/zalo-chat/chat-view.js)** ·762 — WEB2.0 shared — Zalo chat VIEW (mount 1 hội thoại vào bất kỳ container).
+- **[chat-view.js](../../web2/shared/zalo-chat/chat-view.js)** ⚠️810 — WEB2.0 shared — Zalo chat VIEW (mount 1 hội thoại vào bất kỳ container).
     - exposes: `WZChat`
     - uses shared: `Popup`, `ZaloApi`, `Web2Zalo`, `WZChat`
-    - funcs (42): \_bindSearch, \_clearSearch, \_computeMatches, \_fillAccChip, \_gotoMatch, \_loadAllForSearch, \_markInline, \_paintSearch, \_retry, \_runSearch, \_srchNorm, \_toggleSearch, \_updateSearchCount, bindBody, body, buildReplyQuote, destroy, doForward, doReact, doRecall, findMsg, headName, loadOlder, mountConversation, near, onSendFile, onSendMedia, onSendSticker, onSendText, onTyping, optimistic, paint, reconcile, refetch, refresh, reload, renderBody, sendMediaRaw, sendTextRaw, setTyping, shell, updateHead
-- **[composer.js](../../web2/shared/zalo-chat/composer.js)** ·457 — WEB2.0 module — Zalo chat composer (input đầy đủ).
+    - funcs (44): \_bindSearch, \_clearSearch, \_computeMatches, \_fillAccChip, \_gotoMatch, \_loadAllForSearch, \_markInline, \_paintSearch, \_retry, \_runSearch, \_srchNorm, \_toggleSearch, \_updateSearchCount, bindBody, body, buildReplyQuote, destroy, doDeleteMe, doForward, doReact, doRecall, findMsg, headName, loadOlder, mountConversation, near, onSendFile, onSendMedia, onSendSticker, onSendText, onSendVoice, onTyping, optimistic, paint, reconcile, refetch, refresh, reload, renderBody, sendMediaRaw, sendTextRaw, setTyping, shell, updateHead
+- **[composer.js](../../web2/shared/zalo-chat/composer.js)** ·597 — WEB2.0 module — Zalo chat composer (input đầy đủ).
     - exposes: `WZChat`
-    - uses shared: `ZaloApi`, `WZChat`
-    - funcs (25): \_applyMent, \_buildMentions, \_closeMent, \_isGroup, \_loadMembers, \_mentionCtx, \_normMent, \_renderMent, \_updateMent, addFiles, doSend, focus, grow, items, mountComposer, onerror, onload, openQuickReplies, readFile, refresh, renderReplyBar, renderTray, reset, setReply, store
+    - uses shared: `Popup`, `ZaloApi`, `WZChat`
+    - funcs (36): \_applyMent, \_buildMentions, \_closeMent, \_fmtRecTime, \_isGroup, \_loadMembers, \_mentionCtx, \_normMent, \_onRecStop, \_recBar, \_renderMent, \_stopTracks, \_tickRec, \_updateMent, addFiles, ask, doSend, focus, grow, insert, items, mountComposer, ondataavailable, onerror, onload, openQuickReplies, readFile, refresh, renderReplyBar, renderTray, reset, saveQuickReply, setReply, startVoice, stopVoice, store
 - **[emoji-picker.js](../../web2/shared/zalo-chat/emoji-picker.js)** ·105 — WEB2.0 module — Zalo chat emoji picker (client-only).
     - exposes: `WZChat`
     - uses shared: `WZChat`
@@ -2137,13 +2165,14 @@ WEB2.0 module — Zalo chat sticker picker.
 | ------------------ | ------- | ----------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `ensureStyles`     | 19      | → CSS shared / theme thay vì inject lặp               | native-orders-kpi-health.js, web2-link-customer-modal.js, web2-manual-deposit.js, web2-pm-modal.js, web2-beauty-studio.js, popup.js, web2-barcode-scanner.js, web2-command-palette.js, web2-customer-chat-core.js, web2-image-editor.js, web2-label-ocr.js, web2-logo-eraser.js, web2-order-tag-detail.js, web2-pack-counter.js, web2-product-counter.js, web2-qr-modal.js, web2-unread-panel.js, web2-wallet-balance.js, web2-zalo.js |
 | `escapeHtml`       | 14      | → `Web2Escape` (web2-escape.js)                       | inventory-panel-state.js, utils.js, web2-partner-enricher.js, pbh-state.js, pancake-settings-state.js, page-builder.js, web2-command-palette.js, web2-escape.js, web2-import.js, web2-kpi.js, web2-notification-bell.js, web2-order-tag-pill.js, web2-sidebar.js, system-services.js                                                                                                                                                   |
-| `fmtTime`          | 12      | → shared format ngày/giờ GMT+7 (nên gom `Web2Format`) | comments-mobile-state.js, live-order-history.js, web2-pm-core.js, web2-customer-wallet-state.js, live-tv.js, web2-product-detail.js, web2-chat-panel-state.js, chat-store.js, supplier-debt-state.js, supplier-wallet-state.js, system-sse.js, web2-zalo-utils.js                                                                                                                                                                      |
+| `fmtTime`          | 13      | → shared format ngày/giờ GMT+7 (nên gom `Web2Format`) | comments-mobile-state.js, live-order-history.js, web2-pm-core.js, web2-customer-wallet-state.js, live-tv.js, web2-product-detail.js, web2-chat-panel-state.js, web2-audit-log.js, chat-store.js, supplier-debt-state.js, supplier-wallet-state.js, system-sse.js, web2-zalo-utils.js                                                                                                                                                   |
+| `openHistory`      | 13      |                                                       | native-orders-public-api.js, dlv-app.js, pbh-render.js, rf-app.js, fb-posts-drafts.js, fb-posts-list.js, live-control.js, order-tags-app.js, web2-products-modal.js, returns-app.js, page-builder.js, supplier-debt-render.js, supplier-wallet-render.js                                                                                                                                                                               |
 | `closeModal`       | 10      | → `Web2Page` (page-builder) nếu là list-page          | live-customer-panel.js, web2-link-customer-modal.js, web2-pm-modal.js, customers-detail.js, order-tags-app.js, web2-products-modal.js, web2-products-print-modal.js, purchase-refund-modal.js, page-builder.js, web2-variants-app.js                                                                                                                                                                                                   |
 | `renderPagination` | 10      | → `Web2Page` (page-builder) nếu là list-page          | native-orders-render.js, web2-bh-render.js, web2-customer-wallet-render.js, customers-render.js, dlv-app.js, pbh-render.js, rf-app.js, web2-products-render.js, page-builder.js, supplier-debt-render.js                                                                                                                                                                                                                               |
 | `_esc`             | 9       | → `Web2Escape` (web2-escape.js)                       | live-chat-modal.js, live-hidden-commenters.js, live-livestream-gallery.js, live-livestream-snap-state.js, pancake-livestream-filter.js, web2-avatar-utils.js, web2-bill-service.js, web2-image-lightbox.js, system-app.js                                                                                                                                                                                                              |
+| `reload`           | 9       |                                                       | live-livestream-gallery.js, web2-bh-data.js, pbh-app.js, live-tv.js, payment-confirm-app.js, web2-audit-log.js, web2-unread-panel.js, chat-view.js, system-sse.js                                                                                                                                                                                                                                                                      |
 | `applyFilters`     | 8       | → `Web2Page` (page-builder) nếu là list-page          | native-orders-filters-campaigns.js, dlv-app.js, pbh-filters.js, rf-app.js, web2-products-filters.js, purchase-refund-render.js, page-builder.js, web2-variants-app.js                                                                                                                                                                                                                                                                  |
 | `openModal`        | 8       |                                                       | web2-link-customer-modal.js, web2-pm-modal.js, customers-detail.js, fb-ads-manual.js, order-tags-app.js, purchase-refund-modal.js, web2-customer-chat-modal.js, web2-quick-reply.js                                                                                                                                                                                                                                                    |
-| `reload`           | 8       |                                                       | live-livestream-gallery.js, web2-bh-data.js, pbh-app.js, live-tv.js, payment-confirm-app.js, web2-unread-panel.js, chat-view.js, system-sse.js                                                                                                                                                                                                                                                                                         |
 | `renderList`       | 8       | → `Web2Page` (page-builder) nếu là list-page          | web2-customer-wallet-render.js, jt-tracking-render.js, purchase-refund-render.js, reconcile-render.js, returns-tabs.js, web2-command-palette.js, supplier-wallet-render.js, users-app.js                                                                                                                                                                                                                                               |
 | `renderRows`       | 8       | → `Web2Page` (page-builder) nếu là list-page          | native-orders-render.js, dlv-app.js, pbh-render.js, rf-app.js, web2-products-render.js, page-builder.js, web2-customer-chat-modal.js, web2-variants-app.js                                                                                                                                                                                                                                                                             |
 | `switchTab`        | 8       |                                                       | ck-dashboard-app.js, fb-posts-app.js, payment-confirm-app.js, returns-tabs.js, web2-customer-chat-modal.js, web2-customer-detail-modal.js, web2-import.js, web2-zalo-app.js                                                                                                                                                                                                                                                            |
@@ -2156,6 +2185,7 @@ WEB2.0 module — Zalo chat sticker picker.
 | `norm`             | 6       |                                                       | live-init-lifecycle.js, live-customer-sync.js, so-order-app.js, multi-tool.js, web2-command-palette.js, web2-phone-utils.js                                                                                                                                                                                                                                                                                                            |
 | `normalize`        | 6       |                                                       | live-status.js, payment-confirm-app.js, delivery-method-picker.js, web2-customer-store.js, web2-unread-panel.js, supplier-wallet-storage.js                                                                                                                                                                                                                                                                                            |
 | `normPhone`        | 6       | → `Web2CustomerStore` (normPhone)                     | live-kho-enricher.js, web2-partner-enricher.js, web2-customer-wallet-state.js, customers-state.js, web2-customer-store.js, web2-zalo.js                                                                                                                                                                                                                                                                                                |
+| `rowHtml`          | 6       |                                                       | so-order-render.js, fb-ads-manual.js, fb-posts-drafts.js, jt-tracking-render.js, web2-audit-log.js, web2-product-picker.js                                                                                                                                                                                                                                                                                                             |
 | `_normalize`       | 5       |                                                       | web2-pm-core.js, web2-image-lightbox.js, web2-products-cache.js, web2-suppliers-cache.js, web2-variants-cache.js                                                                                                                                                                                                                                                                                                                       |
 | `_notify`          | 5       |                                                       | native-orders-packing-slip.js, web2-customer-detail-modal.js, web2-optimistic.js, web2-quick-reply.js, web2-suppliers-cache.js                                                                                                                                                                                                                                                                                                         |
 | `_w2AuthHeaders`   | 5       | → `Web2Auth.authHeaders`                              | live-api.js, live-campaign-manager.js, live-init-state.js, live-livestream-snap-state.js, pancake-api.js                                                                                                                                                                                                                                                                                                                               |
@@ -2170,7 +2200,6 @@ WEB2.0 module — Zalo chat sticker picker.
 | `openEdit`         | 5       |                                                       | native-orders-modal-edit.js, order-tags-app.js, web2-products-modal.js, page-builder.js, web2-variants-app.js                                                                                                                                                                                                                                                                                                                          |
 | `parseTs`          | 5       |                                                       | comments-mobile-state.js, fb-insights.js, multi-tool.js, web2-chat-panel-state.js, web2-format.js                                                                                                                                                                                                                                                                                                                                      |
 | `ready`            | 5       |                                                       | live-init-lifecycle.js, web2-beauty-face.js, web2-idb-store.js, web2-pack-counter.js, web2-qr.js                                                                                                                                                                                                                                                                                                                                       |
-| `rowHtml`          | 5       |                                                       | so-order-render.js, fb-ads-manual.js, fb-posts-drafts.js, jt-tracking-render.js, web2-product-picker.js                                                                                                                                                                                                                                                                                                                                |
 | `saveModal`        | 5       |                                                       | customers-detail.js, order-tags-app.js, web2-products-modal.js, page-builder.js, web2-variants-app.js                                                                                                                                                                                                                                                                                                                                  |
 | `scan`             | 5       |                                                       | live-kho-enricher.js, native-orders-kpi-health.js, web2-chat-entity-detect.js, web2-effects.js, web2-lottie.js                                                                                                                                                                                                                                                                                                                         |
 | `schedule`         | 5       |                                                       | live-comment-list-render-list.js, live-comment-list-state.js, live-comments-stream.js, native-orders-kpi-health.js, photo-studio-edit.js                                                                                                                                                                                                                                                                                               |
@@ -2194,15 +2223,15 @@ WEB2.0 module — Zalo chat sticker picker.
 | `disconnect`       | 4       |                                                       | pancake-realtime.js, web2-fb-client.js, web2-zalo-api.js, video-import.js                                                                                                                                                                                                                                                                                                                                                              |
 | `done`             | 4       |                                                       | jt-tracking-modals.js, web2-product-detail.js, web2-customer-chat.js, video-beauty-export.js                                                                                                                                                                                                                                                                                                                                           |
 | `draw`             | 4       |                                                       | fb-posts-media.js, web2-products-print-render.js, web2-product-picker.js, video-import.js                                                                                                                                                                                                                                                                                                                                              |
-| `error`            | 4       |                                                       | popup.js, web2-lottie.js, web2-notify.js, video-beauty-export.js                                                                                                                                                                                                                                                                                                                                                                       |
 
-_…và 82 hàm trùng khác (xem web2-codemap.json)._
+_…và 85 hàm trùng khác (xem web2-codemap.json)._
 
 ## 5. File quá lớn (> 800 dòng) — cần tách module
 
 | File                                                                                           | Dòng |
 | ---------------------------------------------------------------------------------------------- | ---- |
-| [web2/video-maker/js/video-maker.js](../../web2/video-maker/js/video-maker.js)                 | 1283 |
-| [native-orders/js/native-orders-render.js](../../native-orders/js/native-orders-render.js)     | 844  |
+| [web2/video-maker/js/video-maker.js](../../web2/video-maker/js/video-maker.js)                 | 1385 |
+| [native-orders/js/native-orders-render.js](../../native-orders/js/native-orders-render.js)     | 915  |
 | [native-orders/js/native-orders-pbh-bill.js](../../native-orders/js/native-orders-pbh-bill.js) | 823  |
+| [web2/shared/zalo-chat/chat-view.js](../../web2/shared/zalo-chat/chat-view.js)                 | 810  |
 | [web2/photo-studio/photo-studio-edit.js](../../web2/photo-studio/photo-studio-edit.js)         | 806  |

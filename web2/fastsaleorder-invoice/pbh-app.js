@@ -89,7 +89,6 @@
         $('#pbhApply').addEventListener('click', PbhFilters.applyFilters);
         $('#pbhClear').addEventListener('click', PbhFilters.clearFilters);
         $('#pbhReload').addEventListener('click', load);
-        $('#pbhResetStt').addEventListener('click', PbhActions.resetStt);
         $('#pbhSearch').addEventListener('keydown', (e) => {
             if (e.key === 'Enter') PbhFilters.applyFilters();
         });
@@ -112,7 +111,6 @@
         cancel: PbhActions.cancelOrder,
         print: PbhActions.printOrder,
         goPage: PbhFilters.goPage,
-        resetStt: PbhActions.resetStt,
         createDelivery: PbhActions.createDelivery,
         createRefund: PbhActions.createRefund,
         openCustomer: PbhRender.openCustomer,

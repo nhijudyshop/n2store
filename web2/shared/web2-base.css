@@ -1,8 +1,6 @@
-/* ===== Native Orders — WEB2-clone palette =====
- * Crawled from https://tomato.tpos.vn/#/app/saleOnline/order/list (2026-04-25).
- * Source stylesheets: vendor.min.css + app.min.css.
- * All colors / spacings extracted from computed styles via Playwright.
- * Goal: bảng giống 100% WEB2 — font Segoe UI, palette flat-purple-cyan-green.
+/* ===== Native Orders — palette chuẩn nội bộ Web 2.0 =====
+ * Layout chuẩn nội bộ Web 2.0.
+ * Goal: font Segoe UI, palette flat-purple-cyan-green.
  */
 
 :root {

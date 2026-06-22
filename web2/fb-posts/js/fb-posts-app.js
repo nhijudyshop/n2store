@@ -107,7 +107,7 @@
                         <button id="fbpCxOauth" class="fbp-btn" style="font-size:1rem;padding:12px 22px">
                             <i data-lucide="facebook"></i> ${state.connected ? 'Đăng nhập lại (cấp thêm quyền)' : 'Đăng nhập bằng Facebook'}
                         </button>
-                        <div style="font-size:.78rem;color:#94a3b8;margin-top:8px">Bấm → Facebook hỏi duyệt quyền → xong. KHÔNG cần dán token (giống Pancake/TPOS).</div>
+                        <div style="font-size:.78rem;color:#94a3b8;margin-top:8px">Bấm → Facebook hỏi duyệt quyền → xong. KHÔNG cần dán token (giống Pancake).</div>
                         <div style="font-size:.78rem;color:#0068ff;margin-top:6px;font-weight:600">Lần này xin thêm quyền <b>Thống kê</b> (read_insights) + <b>Quảng cáo</b> (ads_read) → bật thống kê tương tác/live + quảng cáo tự động.</div>
                         ${state.connected ? '<div style="font-size:.74rem;color:#c87f0a;margin-top:6px">⚠ Đang kết nối nhưng nếu thống kê/quảng cáo trống → đăng nhập lại 1 lần để cấp 2 quyền mới.</div>' : ''}
                        </div>`

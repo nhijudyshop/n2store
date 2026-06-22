@@ -224,7 +224,7 @@ New actions on `web2:zalo:conv:<id>`: `reaction`, `recall`, `seen`, `typing`. Pl
 
 ### 3.2 New CSS — `web2/zalo/css/`
 
-- `chat-bubbles.css` — bubble grouping radii, status ticks, reply quote, reactions chips, recall placeholder, date/unread dividers, image grid, file/voice cards. Tokens from `web2-tpos-theme.css`. No `backdrop-filter: blur()`, no box-shadow > 24px (modal anti-lag rule).
+- `chat-bubbles.css` — bubble grouping radii, status ticks, reply quote, reactions chips, recall placeholder, date/unread dividers, image grid, file/voice cards. Tokens from `web2-theme.css`. No `backdrop-filter: blur()`, no box-shadow > 24px (modal anti-lag rule).
 - `chat-composer.css` — composer, thumbnail tray, drag-drop overlay, popovers (emoji/sticker/reaction), reply bar, quick-reply menu.
 - `chat-lightbox.css` — lightbox overlay, controls. `prefers-reduced-motion` disables transitions in all three.
 

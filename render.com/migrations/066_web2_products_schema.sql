@@ -1,7 +1,7 @@
 -- =====================================================
 -- WEB 2.0 PRODUCTS SCHEMA
 -- Simple product catalog used by native_orders (order lines).
--- Fully isolated from TPOS product table + orders-report Excel cache.
+-- Fully isolated from Web 1.0 product table + orders-report Excel cache.
 -- =====================================================
 -- Auto-created at first request by routes/web2-products.js.
 

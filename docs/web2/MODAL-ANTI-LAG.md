@@ -1,7 +1,7 @@
 # Modal Anti-Lag Playbook — Web 2.0
 
 > **Khi nào đọc**: BẮT BUỘC trước khi code modal mới hoặc fix modal đang lag.
-> **TL;DR**: Shared CSS [`web2/shared/web2-tpos-theme.css`](../../web2/shared/web2-tpos-theme.css) đã có Tier 1 fixes global. Code modal mới chỉ cần đặt đúng class (`modal-content` + `modal-body`) là auto inherit. Đọc tiếp nếu modal có > 100 rows hoặc vẫn lag.
+> **TL;DR**: Shared CSS [`web2/shared/web2-theme.css`](../../web2/shared/web2-theme.css) đã có Tier 1 fixes global. Code modal mới chỉ cần đặt đúng class (`modal-content` + `modal-body`) là auto inherit. Đọc tiếp nếu modal có > 100 rows hoặc vẫn lag.
 
 ---
 
@@ -21,27 +21,27 @@
 Shared CSS đã có sẵn cho mọi modal Web 2.0:
 
 ```css
-/* Trong web2/shared/web2-tpos-theme.css */
+/* Trong web2/shared/web2-theme.css */
 
-.tpos-theme .modal-body,
-.tpos-theme .modal-content {
+.web2-theme .modal-body,
+.web2-theme .modal-content {
     contain: layout style paint; /* cô lập reflow + repaint scope */
 }
 
-.tpos-theme .modal-body,
-.tpos-theme .modal-scroll {
+.web2-theme .modal-body,
+.web2-theme .modal-scroll {
     overscroll-behavior: contain; /* chặn scroll chaining ra body */
     -webkit-overflow-scrolling: touch; /* smooth touch iOS */
     scrollbar-gutter: stable; /* tránh layout shift khi scrollbar xuất hiện */
 }
 
-.tpos-theme .modal .cv-row,
-.tpos-theme .modal .modal-row {
+.web2-theme .modal .cv-row,
+.web2-theme .modal .modal-row {
     content-visibility: auto; /* skip render khi ngoài viewport — 7x faster */
     contain-intrinsic-size: 0 64px; /* placeholder height, tránh CLS */
 }
 
-.tpos-theme .modal-content {
+.web2-theme .modal-content {
     will-change: transform, opacity;
     transition:
         transform 0.18s,
@@ -49,7 +49,7 @@ Shared CSS đã có sẵn cho mọi modal Web 2.0:
 }
 ```
 
-**Điều kiện**: page phải `<body class="tpos-theme">` hoặc wrap nội dung trong `.tpos-theme`. Đa số page Web 2.0 đã có.
+**Điều kiện**: page phải `<body class="web2-theme">` hoặc wrap nội dung trong `.web2-theme`. Đa số page Web 2.0 đã có.
 
 ---
 
@@ -221,7 +221,7 @@ const ro = new ResizeObserver(() => {
 ### Native `<dialog>` example (nhẹ nhất)
 
 ```html
-<dialog id="confirmDialog" class="tpos-theme">
+<dialog id="confirmDialog" class="web2-theme">
     <div class="modal-content">
         <div class="modal-body">
             <p>Xác nhận xóa?</p>

@@ -1,7 +1,7 @@
 -- =====================================================
 -- 068 — Web 2.0 generic entity table (universal CRUD)
 -- =====================================================
--- For each TPOS page being cloned (productcategory, productuom, partner-customer,
+-- For each hệ cũ page being cloned (productcategory, productuom, partner-customer,
 -- accountjournal, etc.), we create a row in `web2_entities` registering the
 -- entity, then store records in `web2_records` keyed by (entity_slug, id).
 --

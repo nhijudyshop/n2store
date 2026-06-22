@@ -320,36 +320,6 @@
         }
     }
 
-    async function resetStt() {
-        const renumber = await w2pConfirm(
-            'OK để renumber TẤT CẢ PBH theo ngày HĐ.\nHuỷ để chỉ reset bộ đếm (PBH cũ giữ STT).',
-            {
-                title: 'Reset STT',
-                type: 'warning',
-                okText: 'Renumber tất cả',
-                cancelText: 'Chỉ reset bộ đếm',
-            }
-        );
-        try {
-            const r = await fetch(`${WORKER}/api/fast-sale-orders/reset-stt`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', ...window.PbhApi._authHeaders() },
-                body: JSON.stringify({ renumber }),
-            });
-            const data = await r.json();
-            if (!r.ok || !data.success) throw new Error(data.error || r.status);
-            notify(
-                data.mode === 'renumber'
-                    ? `Đã renumber ${data.renumbered} PBH`
-                    : 'Đã reset bộ đếm — PBH mới từ 1',
-                'success'
-            );
-            load();
-        } catch (e) {
-            notify('Lỗi: ' + e.message, 'error');
-        }
-    }
-
     window.PbhActions = {
         _findPbhRow,
         confirmOrder,
@@ -361,6 +331,5 @@
         bulkAction,
         bulkMerge,
         bulkPrint,
-        resetStt,
     };
 })();

@@ -461,8 +461,8 @@ async function doEnsureTables(pool) {
         CREATE INDEX IF NOT EXISTS idx_web2_user_sessions_exp  ON web2_user_sessions(expires_at);
         CREATE INDEX IF NOT EXISTS idx_web2_user_sessions_hash ON web2_user_sessions(token_hash) WHERE token_hash IS NOT NULL;
 
-        -- TPOS purge (2026-06-15): migrate saved permissions. Slug 'tpos-pancake'→'live-chat'
-        -- (folder đã rename) + bỏ action chết loadTpos/syncTpos. Web 2.0 KHÔNG dùng TPOS.
+        -- Dọn quyền hệ cũ (2026-06-15): migrate saved permissions. Slug 'tpos-pancake'→'live-chat'
+        -- (folder đã rename) + bỏ action chết loadTpos/syncTpos. Web 2.0 độc lập, không phụ thuộc hệ cũ.
         -- Idempotent: WHERE guard → re-run no-op.
         UPDATE web2_users
            SET permissions = (permissions - 'tpos-pancake')

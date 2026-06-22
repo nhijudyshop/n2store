@@ -1,12 +1,12 @@
 // #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes.
 // =====================================================
 // NATIVE ORDERS REST API
-// Web-native order creation, ISOLATED from TPOS SaleOnline_Order
+// Web-native order creation, ISOLATED from hệ cũ (SaleOnline_Order)
 // and from social_orders (which belongs to don-inbox).
 //
-// Used by tpos-pancake "Tạo đơn" button (replaces TPOS flow).
+// Used by tpos-pancake "Tạo đơn" button (replaces the hệ cũ flow).
 // Orders are marked with source='NATIVE_WEB' so they can be
-// distinguished from TPOS orders in any downstream report.
+// distinguished from hệ cũ orders in any downstream report.
 // =====================================================
 
 const express = require('express');
@@ -14,7 +14,7 @@ const router = express.Router();
 // 2026-06-03: tách kho KH đơn hàng Web 2.0 → web2_customers (web2Db).
 // KHÔNG dùng customer-creation-service / customer-helpers (Web 1.0, bảng
 // `customers` ở chatDb) nữa — tránh nhầm + đúng rule no cross-import.
-// 2026-06-07: kho KH warehouse Web 2.0 (web2_customers) — ĐỘC LẬP, KHÔNG TPOS.
+// 2026-06-07: kho KH warehouse Web 2.0 (web2_customers) — ĐỘC LẬP, KHÔNG hệ cũ.
 const {
     getOrCreateWeb2OrderCustomer,
     lookupCustomerIdByPhone,
@@ -185,8 +185,8 @@ const _ensuredPools = new WeakSet();
 async function ensureTables(pool) {
     if (_ensuredPools.has(pool)) return;
     // MIGRATION (ĐẶT ĐẦU — rule MEMORY: ALTER mới phải chạy trước mọi bước khác):
-    // DROP crm_team_id — di tích TPOS, không consumer nào đọc (getPartnerInfo
-    // bỏ qua tường minh, không UI hiển thị); sau gỡ TPOS client còn nhét FB
+    // DROP crm_team_id — di tích hệ cũ, không consumer nào đọc (getPartnerInfo
+    // bỏ qua tường minh, không UI hiển thị); di tích hệ cũ còn nhét FB
     // Page Id 15 chữ số vào làm tràn INT4 → 500 (bug drag-drop 2026-06-12).
     // Page của đơn đọc fb_page_id/fb_page_name. Idempotent: DROP IF EXISTS.
     try {
@@ -240,7 +240,7 @@ async function ensureTables(pool) {
                 ON native_orders(fb_comment_id)
                 WHERE fb_comment_id IS NOT NULL;
 
-            -- Migration 067: extend with TPOS-style fields (idempotent ADD IF NOT EXISTS)
+            -- Migration 067: extend with order fields (idempotent ADD IF NOT EXISTS)
             ALTER TABLE native_orders
                 ADD COLUMN IF NOT EXISTS assigned_employee_id   VARCHAR(100),
                 ADD COLUMN IF NOT EXISTS assigned_employee_name VARCHAR(255),
@@ -253,7 +253,7 @@ async function ensureTables(pool) {
                 ADD COLUMN IF NOT EXISTS print_count            INTEGER NOT NULL DEFAULT 0,
                 -- 2026-06-07: epoch ms lần in gần nhất (hover icon máy in ở list → hiện thời gian).
                 ADD COLUMN IF NOT EXISTS last_printed_at        BIGINT,
-                -- 2026-06-04: kênh đơn — 'web2_livestream' (drag từ TPOS-Pancake/comment)
+                -- 2026-06-04: kênh đơn — 'web2_livestream' (drag từ tpos-pancake/comment)
                 -- vs 'web2_inbox' (tạo tay từ tab Đơn Inbox). Default web2_livestream cho
                 -- đơn cũ + from-comment. (2026-06-05: prefix web2_ — xem migration dưới.)
                 ADD COLUMN IF NOT EXISTS channel                VARCHAR(20) NOT NULL DEFAULT 'web2_livestream',
@@ -299,7 +299,7 @@ async function ensureTables(pool) {
             CREATE INDEX IF NOT EXISTS idx_native_orders_display_stt
                 ON native_orders(display_stt DESC);
 
-            -- Migration 069: mirror TPOS SaleOnline_Order fields cho full clone
+            -- Migration 069: mirror hệ cũ (SaleOnline_Order) fields cho full clone
             ALTER TABLE native_orders
                 ADD COLUMN IF NOT EXISTS city_code         VARCHAR(20),
                 ADD COLUMN IF NOT EXISTS city_name         VARCHAR(120),
@@ -524,7 +524,7 @@ function mapRowToOrder(row) {
         createdByName: row.created_by_name,
         createdAt: Number(row.created_at),
         updatedAt: Number(row.updated_at),
-        // Migration 067 — TPOS-style fields
+        // Migration 067 — order fields
         assignedEmployeeId: row.assigned_employee_id,
         assignedEmployeeName: row.assigned_employee_name,
         liveCampaignId: row.live_campaign_id,
@@ -545,7 +545,7 @@ function mapRowToOrder(row) {
         kpiBase: row.kpi_base || null,
         kpiBaseAt: row.kpi_base_at != null ? Number(row.kpi_base_at) : null,
         kpiBaseBy: row.kpi_base_by || null,
-        // Migration 069 — TPOS SaleOnline_Order mirror fields
+        // Migration 069 — hệ cũ (SaleOnline_Order) mirror fields
         cityCode: row.city_code,
         cityName: row.city_name,
         districtCode: row.district_code,
@@ -859,7 +859,7 @@ router.post('/from-comment', async (req, res) => {
         if (b.fbUserId && b.liveCampaignId) {
             // CHỈ merge vào đơn 'draft' — KHÔNG merge vào 'confirmed' (đã PBH).
             // Lý do: sau khi PBH success, đơn phải bị LOCK. User muốn thêm SP nữa
-            // phải tạo đơn mới (drag SP lên TPOS panel → cart tạo draft mới) hoặc
+            // phải tạo đơn mới (drag SP lên panel → cart tạo draft mới) hoặc
             // hủy PBH. Trước đây cho merge 'confirmed' → vô tình unlock đơn đã PBH.
             const draft = await pool.query(
                 `SELECT * FROM native_orders
@@ -886,7 +886,7 @@ router.post('/from-comment', async (req, res) => {
                     ? `${src.note || ''}${src.note ? '\n---\n' : ''}[${new Date().toLocaleString('vi-VN')}] ${pageTag}${b.message}`
                     : src.note;
                 // 2026-06-09: merge brings phone → upsert vào KHO KH web2_customers
-                // (KHÔNG TPOS). Same logic as fresh create above.
+                // (KHÔNG hệ cũ). Same logic as fresh create above.
                 const mergedPhone = b.phone || src.phone;
                 let mergedCustomerId = src.customer_id;
                 if (mergedPhone && !mergedCustomerId) {
@@ -962,7 +962,7 @@ router.post('/from-comment', async (req, res) => {
               : null;
 
         // Resolve KH từ kho warehouse Web 2.0 (web2_customers) — ĐỘC LẬP, KHÔNG
-        // TPOS, KHÔNG Web 1.0:
+        // hệ cũ, KHÔNG Web 1.0:
         //   1. Có b.phone → get/create KH trong warehouse theo SĐT.
         //   2. Không SĐT nhưng có b.fbUserId → lookup warehouse theo fb_id, enrich
         //      phone/name/address vào đơn.
@@ -989,7 +989,7 @@ router.post('/from-comment', async (req, res) => {
                 customerId = await lookupCustomerIdByPhone(pool, b.phone).catch(() => null);
             }
         } else if (b.fbUserId) {
-            // Phone trống → lookup kho KH warehouse theo fb_id. KHÔNG TPOS
+            // Phone trống → lookup kho KH warehouse theo fb_id. KHÔNG hệ cũ
             // (warehouse là nguồn duy nhất; KH lạ chưa SĐT → để trống, UI tự xử).
             try {
                 const r = await pool.query(
@@ -1928,7 +1928,7 @@ router.patch('/:code', async (req, res) => {
             totalAmount: 'total_amount',
             status: 'status',
             tags: 'tags',
-            // Migration 067 — TPOS-style fields editable via PATCH
+            // Migration 067 — order fields editable via PATCH
             assignedEmployeeId: 'assigned_employee_id',
             assignedEmployeeName: 'assigned_employee_name',
             liveCampaignId: 'live_campaign_id',
@@ -1938,7 +1938,7 @@ router.patch('/:code', async (req, res) => {
             warehouseId: 'warehouse_id',
             reversedCode: 'reversed_code',
             printCount: 'print_count',
-            // Migration 069 — extended TPOS mirror
+            // Migration 069 — extended hệ cũ mirror
             cityCode: 'city_code',
             cityName: 'city_name',
             districtCode: 'district_code',
@@ -1968,7 +1968,7 @@ router.patch('/:code', async (req, res) => {
         }
         if (sets.length === 0) return res.status(400).json({ error: 'No update fields' });
         // 2026-06-09: PATCH phone change → upsert vào KHO KH web2_customers (KHÔNG
-        // TPOS). Sync customerName + address để 2 chiều consistent (chỉ KH info).
+        // hệ cũ). Sync customerName + address để 2 chiều consistent (chỉ KH info).
         if (body.phone !== undefined) {
             let cid = null;
             if (body.phone) {
@@ -1983,7 +1983,7 @@ router.patch('/:code', async (req, res) => {
             params.push(cid);
             sets.push(`customer_id = $${params.length}`);
         }
-        // 2026-06-07: cập nhật KH warehouse (tên/địa chỉ) theo SĐT. KHÔNG TPOS
+        // 2026-06-07: cập nhật KH warehouse (tên/địa chỉ) theo SĐT. KHÔNG hệ cũ
         // (warehouse độc lập — không push CreateUpdatePartner nữa).
         const hasCustomerInfoUpdate =
             body.customerName !== undefined ||

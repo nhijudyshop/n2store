@@ -1,15 +1,15 @@
 // #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi.
 // =====================================================
 // FAST SALE ORDERS (PBH — Phiếu Bán Hàng) REST API
-// Mirror TPOS FastSaleOrder cho Web 2.0 nội bộ.
-// Source có thể là native_order (convert) hoặc manual create.
+// PBH nội bộ Web 2.0 (bảng fast_sale_orders) — KHÔNG đồng bộ hệ ngoài.
+// Nguồn DUY NHẤT: native_order (convert qua /from-native-order). Tạo tay đã gỡ (410).
 // =====================================================
 //
 // Endpoints:
 //   GET    /api/fast-sale-orders/health
 //   GET    /api/fast-sale-orders/load          — list with filter + paging
 //   GET    /api/fast-sale-orders/:number       — get by Number (NJ-...)
-//   POST   /api/fast-sale-orders               — create (manual)
+//   POST   /api/fast-sale-orders               — (VÔ HIỆU 410) tạo tay đã gỡ — chỉ /from-native-order
 //   POST   /api/fast-sale-orders/from-native-order  — convert NativeOrder → PBH
 //   PATCH  /api/fast-sale-orders/:number       — update mutable fields
 //   POST   /api/fast-sale-orders/:number/cancel
@@ -214,8 +214,8 @@ const { lookupCustomerIdByPhone } = require('../services/web2-order-customer-ser
 const _ensuredPools = new WeakSet();
 async function ensureTables(pool) {
     if (_ensuredPools.has(pool)) return;
-    // MIGRATION (ĐẶT ĐẦU): DROP crm_team_id + crm_team_name — di tích TPOS,
-    // không consumer nào đọc (xác nhận 2026-06-12); sau gỡ TPOS giá trị nhét
+    // MIGRATION (ĐẶT ĐẦU): DROP crm_team_id + crm_team_name — di tích hệ cũ,
+    // không consumer nào đọc (xác nhận 2026-06-12); sau khi tách độc lập giá trị nhét
     // vào là FB Page Id (15 chữ số) trùng lặp fb_page_id và từng tràn INT4
     // gây 500. Page của PBH đọc từ đơn nguồn (fb_page_id/fb_page_name).
     // + ADD updated_at: cascade snapshot SP (web2-products PATCH, 8d89d1c06)
@@ -1314,9 +1314,18 @@ router.get('/:number', async (req, res) => {
 });
 
 // -----------------------------------------------------
-// POST / — manual create
+// POST / — manual create  (VÔ HIỆU HOÁ 2026-06-23)
 // -----------------------------------------------------
+// 1 NGUỒN TẠO PBH DUY NHẤT = trang Đơn Web (native-orders) qua /from-native-order
+// (user chốt: "chỉ cho 1 nguồn tạo PBH là ở native-orders thôi"). Tạo tay trực tiếp
+// đã bị gỡ để tránh PBH mồ côi không gắn Đơn Web. Trả 410 (giống /refunds/from-pbh).
+// Code cũ giữ lại bên dưới (unreachable) để tham chiếu logic stock/wallet nếu cần.
 router.post('/', requireWeb2AuthSoft, async (req, res) => {
+    return res.status(410).json({
+        error: 'manual_create_disabled',
+        message: 'Tạo PBH thủ công đã bị gỡ. Tạo PBH từ trang Đơn Web (native-orders).',
+    });
+    /* eslint-disable no-unreachable */
     const pool = req.app.locals.web2Db || req.app.locals.chatDb;
     if (!pool) return res.status(500).json({ error: 'DB unavailable' });
     try {
@@ -2099,7 +2108,7 @@ router.post('/from-native-order', requireWeb2AuthSoft, async (req, res) => {
             } catch {}
         }
 
-        // Tự xóa cart bên TPOS panel (Kho SP) khi PBH tạo thành công.
+        // Tự xóa cart bên panel Kho SP khi PBH tạo thành công.
         // Cart gắn theo customer (fbUserId) → query native_order.fb_user_id để biết
         // customerId. Soft delete tất cả cart_items active của customer này.
         try {

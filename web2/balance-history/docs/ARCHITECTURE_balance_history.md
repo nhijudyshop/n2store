@@ -83,7 +83,7 @@ balance-history/
     ├── COMPLETE_SPECIFICATION.md # This file
     ├── DEPLOYMENT_GUIDE.md
     ├── IMPLEMENTATION_GUIDE.md
-    ├── PARTIAL_PHONE_TPOS_SEARCH.md
+    ├── PARTIAL_PHONE_SEARCH.md
     ├── PHONE_EXTRACTION_FEATURE.md
     ├── PHONE_EXTRACTION_IMPROVEMENTS.md
     ├── PHONE_PARTNER_FETCH_GUIDE.md
@@ -212,7 +212,7 @@ CREATE TABLE balance_customer_info (
     customer_name VARCHAR(255),                  -- Tên khách hàng
     customer_phone VARCHAR(50),                  -- Số điện thoại
     extraction_note VARCHAR(255),                -- Ghi chú cách trích xuất
-    name_fetch_status VARCHAR(50),               -- Trạng thái fetch tên từ TPOS
+    name_fetch_status VARCHAR(50),               -- Trạng thái fetch tên từ kho KH Web 2.0
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -273,13 +273,13 @@ CREATE TABLE pending_customer_matches (
 | POST   | `/api/sepay/pending-matches/{id}/resolve`   | Resolve pending match (chọn KH) |
 | PUT    | `/api/sepay/pending-matches/{id}/customers` | Cập nhật matched customers      |
 
-### 5.4 TPOS Integration
+### 5.4 Customer Lookup (kho KH Web 2.0)
 
-| Method | Endpoint                                | Description               |
-| ------ | --------------------------------------- | ------------------------- |
-| GET    | `/api/sepay/tpos/search/{partialPhone}` | Tìm KH theo partial phone |
-| GET    | `/api/sepay/tpos/customer/{phone}`      | Lấy thông tin KH từ TPOS  |
-| GET    | `/api/customer/{phone}/quick-view`      | Quick view customer info  |
+| Method | Endpoint                              | Description                        |
+| ------ | ------------------------------------- | ---------------------------------- |
+| GET    | `/api/web2/customers/search`          | Tìm KH theo partial phone          |
+| GET    | `/api/web2/customers/batch-by-phones` | Lấy thông tin KH từ kho KH Web 2.0 |
+| GET    | `/api/customer/{phone}/quick-view`    | Quick view customer info           |
 
 ### 5.5 Transfer Stats
 
@@ -439,7 +439,7 @@ let filters = { type: '', gateway: '', startDate: '', endDate: '', search: '', a
 | Function                                                     | Line       | Description                                     |
 | ------------------------------------------------------------ | ---------- | ----------------------------------------------- |
 | `resolvePendingMatch(pendingMatchId, selectElement)`         | 54-131     | Resolve pending match khi user chọn từ dropdown |
-| `refreshPendingMatchList(pendingMatchId, partialPhone, btn)` | 139-233    | Refresh danh sách KH từ TPOS                    |
+| `refreshPendingMatchList(pendingMatchId, partialPhone, btn)` | 139-233    | Refresh danh sách KH từ kho KH Web 2.0          |
 | `copyPhoneToClipboard(phone, button)`                        | 240-264    | Copy SĐT vào clipboard                          |
 | `showNotification(message, type)`                            | 269-304    | Hiển thị toast notification                     |
 | `setDefaultCurrentMonth()`                                   | 307-332    | Set date filter mặc định (30 ngày)              |
@@ -674,7 +674,7 @@ const permissions = {
 2. **Exact Phone** (10 digits) - Full phone match → AUTO_APPROVED
 3. **MOMO Pattern** - Momo transfers → Extract từ content
 4. **VCB Pattern** - Vietcombank MBVCB format
-5. **Partial Phone** (>= 5 digits) - Search TPOS for matches → PENDING_VERIFICATION
+5. **Partial Phone** (>= 5 digits) - Search kho KH Web 2.0 for matches → PENDING_VERIFICATION
 
 **Regex Patterns**:
 
@@ -725,7 +725,7 @@ Khi có nhiều khách hàng khớp với partial phone:
 
 ```
 1. Backend extract partial phone từ content (VD: "57828")
-2. Call TPOS API: GET /odata/Partner?Phone=57828
+2. Call kho KH Web 2.0: GET /api/web2/customers/search?phone=57828
 3. Group kết quả theo unique 10-digit phone
 4. Nếu 1 unique phone → Auto save → AUTO_APPROVED
 5. Nếu nhiều phones → Create pending_customer_matches
@@ -1153,7 +1153,6 @@ API_BASE_URL: 'https://chatomni-proxy.nhijudyshop.workers.dev';
 ```bash
 DATABASE_URL=postgresql://user:password@host:port/database
 SEPAY_API_KEY=sepay_sk_xxx  # Optional, for webhook authentication
-TPOS_TOKEN=xxx              # For TPOS API calls
 ```
 
 ### 11.3 Firebase Config
@@ -1219,15 +1218,15 @@ window.FIREBASE_CONFIG = {
 
 ## APPENDIX A: Extraction Note Values
 
-| Value                               | Meaning                         |
-| ----------------------------------- | ------------------------------- |
-| `QR_CODE_FOUND`                     | Có QR code, không cần tìm phone |
-| `AUTO_MATCHED_FROM_PARTIAL:xxxxx`   | Auto matched từ partial phone   |
-| `PARTIAL_PHONE_NO_TPOS_MATCH:xxxxx` | Không tìm thấy trong TPOS       |
-| `MULTIPLE_NUMBERS_FOUND`            | Có nhiều số trong content       |
-| `MOMO:xxxxxxxxxx`                   | Giao dịch từ Momo               |
-| `VCB:xxxxxxxxxx`                    | Giao dịch từ Vietcombank        |
-| `PARTIAL_PHONE_EXTRACTED`           | Đã extract partial phone        |
+| Value                               | Meaning                             |
+| ----------------------------------- | ----------------------------------- |
+| `QR_CODE_FOUND`                     | Có QR code, không cần tìm phone     |
+| `AUTO_MATCHED_FROM_PARTIAL:xxxxx`   | Auto matched từ partial phone       |
+| `PARTIAL_PHONE_NO_TPOS_MATCH:xxxxx` | Không tìm thấy trong kho KH Web 2.0 |
+| `MULTIPLE_NUMBERS_FOUND`            | Có nhiều số trong content           |
+| `MOMO:xxxxxxxxxx`                   | Giao dịch từ Momo                   |
+| `VCB:xxxxxxxxxx`                    | Giao dịch từ Vietcombank            |
+| `PARTIAL_PHONE_EXTRACTED`           | Đã extract partial phone            |
 
 ## APPENDIX B: Verification Status Values
 

@@ -1,8 +1,9 @@
-// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 — enrich balance-history rows với WEB2 Partner status.
+// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 — enrich balance-history rows với trạng thái KH Web 2.0.
 // =====================================================================
-// Web2PartnerEnricher — quét bảng giao dịch, batch fetch WEB2 Partner
-// theo phone, render status pill (Bom hàng/Cảnh báo/Nguy hiểm/VIP) + link
-// "Mở thẻ KH" cho mỗi row đã link với KH.
+// Web2PartnerEnricher — quét bảng giao dịch, batch fetch KH Web 2.0
+// (kho KH Web 2.0 — Web2CustomerStore / /api/web2/customers) theo phone,
+// render status pill (Bom hàng/Cảnh báo/Nguy hiểm/VIP) + link "Mở thẻ KH"
+// cho mỗi row đã link với KH.
 // =====================================================================
 
 (function () {
@@ -10,7 +11,7 @@
 
     if (typeof window === 'undefined') return;
 
-    // Memory-only cache; WEB2 là source of truth, không persist.
+    // Memory-only cache; kho KH Web 2.0 là source of truth, không persist.
     const cache = new Map();
     let pendingPhones = new Set();
     let flushTimer = null;
@@ -39,7 +40,7 @@
         const text = partner.StatusText || Api.STATUS_TEXT?.[status] || '';
         if (!text || status === 'Normal') return ''; // chỉ show khi khác Bình thường (giảm nhiễu)
         const cls = (Api.statusClass?.(status) || '').replace('pc-status-', 'bh-web2-status-');
-        return `<span class="bh-web2-status-pill ${cls}" title="Trạng thái WEB2">${escapeHtml(text)}</span>`;
+        return `<span class="bh-web2-status-pill ${cls}" title="Trạng thái KH Web 2.0">${escapeHtml(text)}</span>`;
     }
 
     function linkHtml(partner) {
@@ -60,7 +61,7 @@
         }
         if (partner === null) {
             row.__web2Enriched = true;
-            return; // not found in WEB2
+            return; // not found in kho KH Web 2.0
         }
         const cell = row.querySelector('[data-web2-customer-cell="1"]');
         if (!cell) return;

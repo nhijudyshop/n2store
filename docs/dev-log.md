@@ -2,6 +2,24 @@
 
 ## 2026-06-23
 
+### [chore/fix] PBH toolbar gọn + fix khe hở 8px thanh menu (32 trang) + gỡ "chữ TPOS" Web 2.0 + chặn tạo PBH thủ công
+
+4 việc theo yêu cầu (audit → thực hiện → debug → verify), Web 2.0 self-contained hơn.
+
+**1. PBH — bỏ nút "Reset STT"**: xoá button `#pbhResetStt` (index.html) + wiring (pbh-app.js) + handler `resetStt` + export (pbh-actions.js, pbh-app.js public API). Giữ 4 nút chuẩn còn cần (Tải lại / Áp dụng / Xóa lọc / Xuất Excel). Verify: toolbar 4 nút, no error.
+
+**2. Fix lỗi giao diện gần thanh menu (reconcile + returns + 30 trang khác)**: root cause = `body { margin: 8px }` mặc định KHÔNG reset — 32 trang Web 2.0 KHÔNG load `web2-base.css` (chỉ invoice/products… có) → khe hở 8px quanh sidebar. Fix 1 NGUỒN: thêm `html, body { margin: 0 }` vào `web2-sidebar.css` (load ở MỌI trang); CHỈ reset margin, KHÔNG đụng box-sizing (tránh dịch layout 32 trang). Verify: reconcile + returns aside flush (0,0), bodyMargin 0px. Bump `web2-sidebar.css?v=20260623fix` (43 trang).
+
+**3. Gỡ "chữ TPOS" khỏi Web 2.0** (audit workflow 2-agent: **ZERO runtime TPOS dependency** trong Web 2.0 FE+BE → xoá text an toàn):
+
+- **Xoá 19 file rác TPOS**: `docs/api-samples/*.txt` (15 mẫu crawl TPOS gồm ProductVariants.txt) + 3 doc balance-history (PHONE_PARTNER_FETCH_GUIDE / PARTIAL_PHONE_TPOS_SEARCH / PHONE_EXTRACTION_IMPROVEMENTS) + `docs/web2/LIVE-CAMPAIGN-TPOS-API.md` (trang không tồn tại). Đều unreferenced.
+- **Reword comment/label/doc** (27 file): `fast-sale-orders.js` "Mirror TPOS FastSaleOrder"→"PBH nội bộ Web 2.0"; native-orders/web2-products/web2-users/migrations TPOS→"hệ cũ"/"Web 1.0"; balance-history JS+MD "WEB2 Partner OData/TPOS"→"kho KH Web 2.0 (/api/web2/customers)" (runtime vốn đã dùng local store); products-print-utils, web2-base.css/web2-menu.json crawl-attribution; docs "TPOS-clone"→"Web 2.0" + fix stale `web2-tpos-theme.css`→`web2-theme.css`, `.tpos-theme`→`.web2-theme`, `tpos-sidebar.js`→`web2-sidebar.js`.
+- **GIỮ NGUYÊN (preserve)**: false positives (`textPos`/`evtPos`/`boostPost`/`listPosts`/min.js); **Web 1.0 backend thật** (tpos-_.service.js, odata.js, return-orders, web-warehouse, customer-creation, audit-service); **cloudflare worker `TPOS_GENERIC`**; `/api/odata/_`shared infra; module`tpos-pancake/`; **DB column `native_orders.tpos_index`** + permission keys `'tpos-pancake'`/`syncTpos`/`loadTpos`+ value`PARTIAL_PHONE_NO_TPOS_MATCH` (saved values — đổi cần migration, để lại); historical docs (DECOUPLE-AUDIT, WEB2-TOTAL-SEPARATION-PLAN). Codemap regenerated.
+
+**4. Chặn tạo PBH thủ công — 1 nguồn = native-orders**: `POST /api/fast-sale-orders` (manual create) → trả **410** (`manual_create_disabled`), giống pattern `/refunds/from-pbh`. PBH page vốn không có nút tạo (empty-state chỉ dẫn sang Đơn Web). Nguồn DUY NHẤT giờ là `/from-native-order`. Cần Render deploy.
+
+Verify FE: PBH toolbar + balance-history (50 rows, enricher OK, history buttons OK), reconcile/returns layout — 0 error. Backend (410 + comment) cần deploy.
+
 ### [chore] Xoá trang product-category ("Nhóm sản phẩm") + [data] khôi phục Kho Biến Thể (108)
 
 Audit workflow 2-agent (removal surface + restore sources) → thực hiện → debug → verify.

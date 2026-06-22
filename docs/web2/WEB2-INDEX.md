@@ -6,17 +6,17 @@
 
 ## Frontend folders
 
-| Folder                                                 | Vai trò                                            | URL pattern                        |
-| ------------------------------------------------------ | -------------------------------------------------- | ---------------------------------- |
-| [`so-order/`](../../so-order/)                         | Sổ Order — shop mua từ NCC                         | `/so-order/index.html`             |
-| [`native-orders/`](../../native-orders/)               | Đơn Web — tạo PBH                                  | `/native-orders/index.html`        |
-| [`tpos-pancake/`](../../tpos-pancake/)                 | Đối soát TPOS × Pancake                            | `/tpos-pancake/index.html`         |
-| [`web2/products/`](../../web2/products/)               | Kho SP riêng                                       | `/web2/products/index.html`        |
-| [`web2/variants/`](../../web2/variants/)               | Kho Biến Thể                                       | `/web2/variants/index.html`        |
-| [`web2/supplier-wallet/`](../../web2/supplier-wallet/) | Ví NCC (công nợ)                                   | `/web2/supplier-wallet/index.html` |
-| [`web2/customer-wallet/`](../../web2/customer-wallet/) | Ví KH (công nợ)                                    | `/web2/customer-wallet/index.html` |
-| [`web2/`](../../web2/)                                 | TPOS-clone pages khác (placeholder Web2Shell)      | `/web2/<slug>/index.html`          |
-| [`web2/shared/`](../../web2/shared/)                   | Sidebar, page-shell, api client, caches dùng chung | —                                  |
+| Folder                                                 | Vai trò                                    | URL pattern                        |
+| ------------------------------------------------------ | ------------------------------------------ | ---------------------------------- |
+| [`so-order/`](../../so-order/)                         | Sổ Order — shop mua từ NCC                 | `/so-order/index.html`             |
+| [`native-orders/`](../../native-orders/)               | Đơn Web — tạo PBH                          | `/native-orders/index.html`        |
+| [`tpos-pancake/`](../../tpos-pancake/)                 | Đối soát TPOS × Pancake                    | `/tpos-pancake/index.html`         |
+| [`web2/products/`](../../web2/products/)               | Kho SP riêng                               | `/web2/products/index.html`        |
+| [`web2/variants/`](../../web2/variants/)               | Kho Biến Thể                               | `/web2/variants/index.html`        |
+| [`web2/supplier-wallet/`](../../web2/supplier-wallet/) | Ví NCC (công nợ)                           | `/web2/supplier-wallet/index.html` |
+| [`web2/customer-wallet/`](../../web2/customer-wallet/) | Ví KH (công nợ)                            | `/web2/customer-wallet/index.html` |
+| [`web2/`](../../web2/)                                 | Web 2.0 pages khác (placeholder Web2Shell) | `/web2/<slug>/index.html`          |
+| [`web2/shared/`](../../web2/shared/)                   | Sidebar, api client, caches dùng chung     | —                                  |
 
 ## Backend routes (Render)
 
@@ -24,7 +24,7 @@
 | ------------------------- | -------------------------------------------------------------------------------------- | -------------------------------------- |
 | `/api/web2/products/*`    | [`render.com/routes/web2-products.js`](../../render.com/routes/web2-products.js)       | Kho SP CRUD + adjust-stock             |
 | `/api/web2/variants/*`    | [`render.com/routes/web2-variants.js`](../../render.com/routes/web2-variants.js)       | Kho Biến Thể CRUD                      |
-| `/api/web2/:entity/*`     | [`render.com/routes/web2-generic.js`](../../render.com/routes/web2-generic.js)         | Generic CRUD cho 80+ TPOS-clone pages  |
+| `/api/web2/:entity/*`     | [`render.com/routes/web2-generic.js`](../../render.com/routes/web2-generic.js)         | Generic CRUD cho 80+ Web 2.0 pages     |
 | `/api/native-orders/*`    | [`render.com/routes/native-orders.js`](../../render.com/routes/native-orders.js)       | Đơn Web (Web 2.0 dù không prefix web2) |
 | `/api/fast-sale-orders/*` | [`render.com/routes/fast-sale-orders.js`](../../render.com/routes/fast-sale-orders.js) | PBH — Phiếu Bán Hàng                   |
 | `/api/wallet-deposits/*`  | [`render.com/routes/wallet-deposits.js`](../../render.com/routes/wallet-deposits.js)   | Query SePay deposits cho ví NCC + KH   |
@@ -37,7 +37,7 @@ Cloudflare Worker proxy: `https://chatomni-proxy.nhijudyshop.workers.dev` forwar
 | ------------------------------- | ------------------------------------------------------------ | --------------------- |
 | `web2_products`                 | Kho SP                                                       | web2-products.js      |
 | `web2_variants`                 | Kho Biến Thể                                                 | web2-variants.js      |
-| `web2_entities`, `web2_records` | Generic TPOS-clone storage                                   | web2-generic.js       |
+| `web2_entities`, `web2_records` | Generic Web 2.0 storage                                      | web2-generic.js       |
 | `native_orders`                 | Đơn Web (legacy name)                                        | native-orders.js      |
 | `fast_sale_orders`              | PBH                                                          | fast-sale-orders.js   |
 | `balance_history`               | SePay bank transfers (shared infra, used by wallet-deposits) | sepay-webhook-core.js |
@@ -54,8 +54,7 @@ Cloudflare Worker proxy: `https://chatomni-proxy.nhijudyshop.workers.dev` forwar
 
 | Lib                 | File                                                                                   | Vai trò                                                                        |
 | ------------------- | -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| `Web2Sidebar`       | [`web2/shared/tpos-sidebar.js`](../../web2/shared/tpos-sidebar.js)                     | Sidebar NAV mount                                                              |
-| `Web2Shell`         | [`web2/shared/page-shell.js`](../../web2/shared/page-shell.js)                         | Bootstrap cho TPOS-clone pages                                                 |
+| `Web2Sidebar`       | [`web2/shared/web2-sidebar.js`](../../web2/shared/web2-sidebar.js)                     | Sidebar NAV mount                                                              |
 | `Web2Api`           | [`web2/shared/web2-api.js`](../../web2/shared/web2-api.js)                             | Generic API client (`/api/web2/:entity`)                                       |
 | `Web2ProductsApi`   | [`web2/products/js/web2-products-api.js`](../../web2/products/js/web2-products-api.js) | Kho SP API client                                                              |
 | `Web2ProductsCache` | [`web2/shared/web2-products-cache.js`](../../web2/shared/web2-products-cache.js)       | Realtime cache kho SP                                                          |
