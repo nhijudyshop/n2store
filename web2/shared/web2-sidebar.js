@@ -197,10 +197,8 @@
                     label: 'Đơn Web',
                     our: '../native-orders/index.html',
                 },
-                {
-                    label: 'Sổ Order',
-                    our: '../so-order/index.html',
-                },
+                // "Sổ Order" đã gỡ khỏi Sale Online (2026-06-22) — chỉ giữ 1 entry
+                // "Sổ Order NCC" bên group Mua hàng (cùng trang ../so-order/index.html).
                 { label: 'Live Chat', our: '../live-chat/index.html' },
                 // Panel chat Pancake tách thành trang riêng (2026-06-11) —
                 // live-chat/index.html giờ chỉ còn cột comment + capture.
@@ -511,7 +509,7 @@
             : '';
         return `
             <div class="web2-nav-group${open ? ' is-open' : ''}">
-                <div class="web2-nav-group-head" onclick="this.parentElement.classList.toggle('is-open')">
+                <div class="web2-nav-group-head" onclick="Web2Sidebar.onGroupHead(this)">
                     <i data-lucide="${g.icon}" class="icon"></i>
                     <span class="label">${escapeHtml(g.label)}${hasOurChild ? '' : ' <span class="web2-nav-soon">soon</span>'}${web2Badge}</span>
                     <i data-lucide="chevron-right" class="caret"></i>
@@ -684,6 +682,18 @@
         toggleCollapse: () => setCollapsed(!isCollapsed()),
         setCollapsed,
         isCollapsed,
+        // Click group-head: khi sidebar đang THU GỌN (icon-only) → bung sidebar ra +
+        // mở (expand) group đó luôn. Khi đang mở rộng → toggle bình thường.
+        onGroupHead(headEl) {
+            const group = headEl?.parentElement;
+            if (!group) return;
+            if (isCollapsed()) {
+                setCollapsed(false);
+                group.classList.add('is-open');
+            } else {
+                group.classList.toggle('is-open');
+            }
+        },
     };
 
     global.Web2Sidebar = Web2Sidebar;
