@@ -3,15 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `9efdd11` — feat(web2-zalo) bỏ giới hạn allowlist nhóm — mặc định hiện TẤT CẢ nhóm + 1-1 (opt-in env WEB2_ZALO_GROUP_ALLOWLIST)
-**Last updated**: 2026-06-22 15:07:13 +07
-**Latest session**: [`RESUME:20260622-150713-9efdd11`](../20260622-150713-9efdd11.md)
-**Summary**: feat(web2-zalo) bỏ giới hạn allowlist nhóm — mặc định hiện TẤT CẢ nhóm + 1-1 (opt-in env WEB2_ZA...
+**Latest commit**: `c56f57e` — fix(web2) buttons rounder (radius 2px→canonical 9px) + reconcile toolbar align
+**Last updated**: 2026-06-22 15:13:42 +07
+**Latest session**: [`RESUME:20260622-151342-c56f57e`](../20260622-151342-c56f57e.md)
+**Summary**: fix(web2) buttons rounder (radius 2px→canonical 9px) + reconcile toolbar align
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 1 file(s)
+- [`live-chat/`](./live-chat.md) — 1 file(s)
+- [`web2/`](./web2.md) — 9 file(s)
 
 ## All folder snapshots
 
@@ -40,7 +40,7 @@
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-06-20 12:07
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-20 12:07
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-06-20 12:07
-- [`live-chat/`](./live-chat.md) — updated 2026-06-22 14:59
+- [`live-chat/`](./live-chat.md) — updated 2026-06-22 15:13
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-06-20 16:16
 - [`n2store-facebook/`](./n2store-facebook.md) — updated 2026-06-14 13:09
 - [`n2store-realtime/`](./n2store-realtime.md) — updated 2026-06-16 11:15
@@ -77,4 +77,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-22 14:59
+- [`web2/`](./web2.md) — updated 2026-06-22 15:13

@@ -3,11 +3,11 @@
 > Snapshot tự động ghi đè sau mỗi commit chạm folder này. **Không edit thủ công.**
 > Mục đích: khi session cũ chết (vd lỗi image limit), session mới chỉ cần đọc file này là có đủ context để tiếp tục.
 
-**Latest session**: `RESUME:20260622-145932-5b98255`
-**Session file**: [`./20260622-145932-5b98255.md`](../20260622-145932-5b98255.md)
-**Commit**: `5b98255` — auto: session update
-**Last updated**: 2026-06-22 14:59:32 +07
-**Summary**: auto: session update
+**Latest session**: `RESUME:20260622-151342-c56f57e`
+**Session file**: [`./20260622-151342-c56f57e.md`](../20260622-151342-c56f57e.md)
+**Commit**: `c56f57e` — fix(web2) buttons rounder (radius 2px→canonical 9px) + reconcile toolbar align
+**Last updated**: 2026-06-22 15:13:42 +07
+**Summary**: fix(web2) buttons rounder (radius 2px→canonical 9px) + reconcile toolbar align
 
 ## Files changed in this commit (`live-chat/`)
 
@@ -15,11 +15,11 @@
 
 ## Last 5 commits touching `live-chat/`
 
+- `c56f57eb7` fix(web2) buttons rounder (radius 2px→canonical 9px) + reconcile toolbar align _(2026-06-22)_
 - `5adda4014` refactor(web2) unify buttons to canonical across 23 pages (audit-driven) _(2026-06-22)_
 - `774110b93` feat(live-chat): layout 3 cột (comment hẹp _( Kho SP to | video+thống kê livestream)|2026-06-22)_
 - `a13f26e99` refactor(web2-css) align --web2-bg-cell-head token theme=base (#f0eeee) — themed table header khớp đúng native-orders _(2026-06-22)_
 - `a714d39de` refactor(web2-css) theme/effects dedup: badge block (1-src status-pill), card dead radius:4px, w2fx-skeleton dead _(2026-06-22)_
-- `b60bc417f` refactor(web2-css) theme: dedup dead tr-level zebra/hover (striping now 1-source at td-level Block A) _(2026-06-22)_
 
 ---
 
@@ -27,4 +27,4 @@
 
 1. Đọc file session ở trên để xem Files Modified + Next Steps đã điền (nếu Claude turn trước fill rồi).
 2. Cần lùi xa hơn → `git show <sha>` theo list commit trên.
-3. Hoặc paste token `RESUME:20260622-145932-5b98255` cho Claude walk chain theo CLAUDE.md protocol.
+3. Hoặc paste token `RESUME:20260622-151342-c56f57e` cho Claude walk chain theo CLAUDE.md protocol.
