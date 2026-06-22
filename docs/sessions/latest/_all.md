@@ -3,15 +3,16 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `1e34bec` — docs(dev-log): record web2 data-wipe execution result (verified)
-**Last updated**: 2026-06-22 13:28:57 +07
-**Latest session**: [`RESUME:20260622-132857-1e34bec`](../20260622-132857-1e34bec.md)
-**Summary**: docs(dev-log): record web2 data-wipe execution result (verified)
+**Latest commit**: `774110b` — feat(live-chat): layout 3 cột (comment hẹp | Kho SP to | video+thống kê livestream)
+**Last updated**: 2026-06-22 13:40:26 +07
+**Latest session**: [`RESUME:20260622-134026-774110b`](../20260622-134026-774110b.md)
+**Summary**: live-chat layout 3 cột: comment hẹp | Kho SP to | video to + bảng thống kê livestream
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 1 file(s)
+- [`live-chat/`](./live-chat.md) — 7 file(s)
+- [`web2/`](./web2.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -26,7 +27,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-21 15:47
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-06-22 13:28
+- [`docs/`](./docs.md) — updated 2026-06-22 13:40
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-19 14:27
@@ -40,7 +41,7 @@
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-06-20 12:07
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-20 12:07
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-06-20 12:07
-- [`live-chat/`](./live-chat.md) — updated 2026-06-22 11:44
+- [`live-chat/`](./live-chat.md) — updated 2026-06-22 13:40
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-06-20 16:16
 - [`n2store-facebook/`](./n2store-facebook.md) — updated 2026-06-14 13:09
 - [`n2store-realtime/`](./n2store-realtime.md) — updated 2026-06-16 11:15
@@ -77,4 +78,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-22 13:16
+- [`web2/`](./web2.md) — updated 2026-06-22 13:40
