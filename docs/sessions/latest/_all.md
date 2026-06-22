@@ -3,16 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `4be494a` — fix(web2): bỏ Reset STT + fix khe hở 8px thanh menu (32 trang) + gỡ chữ TPOS + chặn tạo PBH tay
-**Last updated**: 2026-06-23 01:47:42 +07
-**Latest session**: [`RESUME:20260623-014742-4be494a`](../20260623-014742-4be494a.md)
-**Summary**: PBH gọn(bỏ ResetSTT)+fix khe 8px menu 32 trang+gỡ chữ TPOS web2+chặn tạo PBH tay(410)
+**Latest commit**: `a7eef5b` — fix(web2) customer-orders: ẩn Đơn Web đã convert sang PBH (hết trùng dòng + double-count)
+**Last updated**: 2026-06-23 02:08:52 +07
+**Latest session**: [`RESUME:20260623-020852-a7eef5b`](../20260623-020852-a7eef5b.md)
+**Summary**: fix(web2) customer-orders: ẩn Đơn Web đã convert sang PBH (hết trùng dòng + double-count)
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 23 file(s)
-- [`render.com/`](./render.com.md) — 8 file(s)
-- [`web2/`](./web2.md) — 57 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
+- [`render.com/`](./render.com.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -27,7 +26,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-21 15:47
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-06-23 01:47
+- [`docs/`](./docs.md) — updated 2026-06-23 02:08
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-19 14:27
@@ -57,7 +56,7 @@
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-06-20 12:07
 - [`referenceUI/`](./referenceUI.md) — updated 2026-06-19 14:27
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-06-20 12:07
-- [`render.com/`](./render.com.md) — updated 2026-06-23 01:47
+- [`render.com/`](./render.com.md) — updated 2026-06-23 02:08
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-23 00:50
 - [`service-costs/`](./service-costs.md) — updated 2026-06-20 12:07
