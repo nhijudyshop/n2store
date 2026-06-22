@@ -167,31 +167,8 @@
     animation: w2fxFlash 1.2s ease-out both;
 }
 
-/* ---------- Skeleton shimmer (loading placeholder) ---------- */
-
-@keyframes w2fxShimmer {
-    0% {
-        background-position: -200% 0;
-    }
-    100% {
-        background-position: 200% 0;
-    }
-}
-.w2fx-skeleton {
-    background: linear-gradient(
-        90deg,
-        rgba(226, 232, 240, 0.4) 0%,
-        rgba(241, 245, 249, 0.9) 50%,
-        rgba(226, 232, 240, 0.4) 100%
-    );
-    background-size: 200% 100%;
-    animation: w2fxShimmer 1.6s ease-in-out infinite;
-    border-radius: 4px;
-    display: inline-block;
-    min-height: 12px;
-    min-width: 80px;
-    color: transparent;
-}
+/* (gỡ 2026-06-22) .w2fx-skeleton + @keyframes w2fxShimmer DEAD (0 ref HTML/JS).
+   Skeleton 1 NGUỒN = .w2-skel trong web2-theme.css. */
 
 /* ---------- Hover micro-interactions (no JS needed) ---------- */
 
