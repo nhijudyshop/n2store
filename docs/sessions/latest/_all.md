@@ -3,16 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `b932b76` — feat(web2-zalo): Phase 3 đợt 2 — inline video player + contact card + location card render
-**Last updated**: 2026-06-22 16:38:49 +07
-**Latest session**: [`RESUME:20260622-163849-b932b76`](../20260622-163849-b932b76.md)
-**Summary**: feat(web2-zalo): Phase 3 đợt 2 — inline video player + contact card + location card render
+**Latest commit**: `0b1ff41` — auto: session update
+**Last updated**: 2026-06-22 16:45:25 +07
+**Latest session**: [`RESUME:20260622-164525-0b1ff41`](../20260622-164525-0b1ff41.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 1 file(s)
-- [`web2/`](./web2.md) — 7 file(s)
+- [`web2/`](./web2.md) — 2 file(s)
 
 ## All folder snapshots
 
@@ -78,4 +76,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-22 16:38
+- [`web2/`](./web2.md) — updated 2026-06-22 16:45
