@@ -2,6 +2,13 @@
 
 ## 2026-06-23
 
+### [fix] customer-orders: ẩn Đơn Web đã convert sang PBH (hết trùng dòng + double-count)
+
+User thấy trang Thu về "CHỌN ĐƠN" hiện CÙNG mã `NJ-...` 2 dòng: ĐƠN WEB (263k) + PBH (298k). Gốc: `/api/web2/customer-orders/:phone` (`render.com/routes/v2/web2-customer-orders.js`) list `native_orders` + `fast_sale_orders` RIÊNG, KHÔNG dedup. Mà 1 Đơn Web convert → 1 PBH **dùng chung số** (PBH.number = native.code, splitIndex 1; tách = `code-N`; link `fast_sale_orders.source_code = native.code`, `source_type='native_order'`). → trùng dòng ở 5 consumer (returns, report-revenue, 2× customer-360, pbh-render) + **double-count doanh thu** ở report-revenue.
+
+- **Fix**: query PBH TRƯỚC → gom `convertedNativeCodes` (source_code của PBH `native_order`) → khi push native, **bỏ qua đơn đã có PBH**. Đơn Web CHƯA convert vẫn hiện. `totals`/`summary` shape giữ nguyên (chỉ hết double-count). 1 nguồn backend → fix mọi consumer.
+- Cần Render deploy. Verify: GET customer-orders trả mỗi mã 1 dòng (PBH).
+
 ### [chore/fix] PBH toolbar gọn + fix khe hở 8px thanh menu (32 trang) + gỡ "chữ TPOS" Web 2.0 + chặn tạo PBH thủ công
 
 4 việc theo yêu cầu (audit → thực hiện → debug → verify), Web 2.0 self-contained hơn.

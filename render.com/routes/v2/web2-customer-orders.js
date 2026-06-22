@@ -92,43 +92,22 @@ router.get('/:phoneOrId', requireWeb2AuthSoft, async (req, res) => {
             refund: { count: 0, amount: 0 },
         };
 
-        // 1. Native orders (Đơn Web)
-        if (include.includes('native')) {
-            try {
-                const r = await pool.query(
-                    `SELECT code, status, total_amount, total_quantity, created_at, updated_at
-                     FROM native_orders
-                     WHERE phone = $1
-                     ORDER BY created_at DESC
-                     LIMIT $2`,
-                    [phone, limit]
-                );
-                for (const row of r.rows) {
-                    const amt = Number(row.total_amount) || 0;
-                    orders.push({
-                        source: 'native',
-                        number: row.code,
-                        date: new Date(Number(row.created_at)).toISOString(),
-                        state: row.status,
-                        totalAmount: amt,
-                        itemCount: Number(row.total_quantity) || 0,
-                    });
-                    totals.native.count += 1;
-                    totals.native.amount += amt;
-                }
-            } catch (e) {
-                console.warn('[web2-customer-orders] native query fail:', e.message);
-            }
-        }
+        // DEDUP (2026-06-23): 1 Đơn Web → convert thành 1 PBH dùng CHUNG số (PBH.number
+        // = native.code, splitIndex 1; tách = native.code-N). Trước đây list trả CẢ
+        // 'native' LẪN 'pbh' cùng số → trùng dòng (returns/customer-360) + double-count
+        // doanh thu (report-revenue). Fix: query PBH TRƯỚC → ghi nhận native.code đã có
+        // PBH (link chuẩn fast_sale_orders.source_code, source_type='native_order') →
+        // ẩn entry 'native' trùng. Đơn Web CHƯA convert vẫn hiện bình thường.
+        const convertedNativeCodes = new Set();
 
-        // 2. Fast-sale-orders (PBH)
+        // 1. Fast-sale-orders (PBH) — query TRƯỚC để biết native nào đã convert.
         if (include.includes('pbh')) {
             try {
                 // fast_sale_orders dùng cột `amount_total` (KHÔNG phải total_amount).
                 // Bug cũ: SELECT total_amount → query throw → catch nuốt → PBH biến mất
                 // khỏi list. Fix 2026-06-07.
                 const r = await pool.query(
-                    `SELECT number, state, amount_total, total_quantity, date_invoice, date_created
+                    `SELECT number, state, amount_total, total_quantity, date_invoice, date_created, source_code, source_type
                      FROM fast_sale_orders
                      WHERE partner_phone = $1
                      ORDER BY date_created DESC
@@ -136,6 +115,9 @@ router.get('/:phoneOrId', requireWeb2AuthSoft, async (req, res) => {
                     [phone, limit]
                 );
                 for (const row of r.rows) {
+                    if (row.source_type === 'native_order' && row.source_code) {
+                        convertedNativeCodes.add(row.source_code);
+                    }
                     const amt = Number(row.amount_total) || 0;
                     orders.push({
                         source: 'pbh',
@@ -150,6 +132,37 @@ router.get('/:phoneOrId', requireWeb2AuthSoft, async (req, res) => {
                 }
             } catch (e) {
                 console.warn('[web2-customer-orders] pbh query fail:', e.message);
+            }
+        }
+
+        // 2. Native orders (Đơn Web) — BỎ đơn đã convert sang PBH (tránh trùng dòng +
+        // double-count doanh thu). Đơn Web chưa có PBH vẫn hiện.
+        if (include.includes('native')) {
+            try {
+                const r = await pool.query(
+                    `SELECT code, status, total_amount, total_quantity, created_at, updated_at
+                     FROM native_orders
+                     WHERE phone = $1
+                     ORDER BY created_at DESC
+                     LIMIT $2`,
+                    [phone, limit]
+                );
+                for (const row of r.rows) {
+                    if (convertedNativeCodes.has(row.code)) continue; // đã có PBH → ẩn Đơn Web trùng
+                    const amt = Number(row.total_amount) || 0;
+                    orders.push({
+                        source: 'native',
+                        number: row.code,
+                        date: new Date(Number(row.created_at)).toISOString(),
+                        state: row.status,
+                        totalAmount: amt,
+                        itemCount: Number(row.total_quantity) || 0,
+                    });
+                    totals.native.count += 1;
+                    totals.native.amount += amt;
+                }
+            } catch (e) {
+                console.warn('[web2-customer-orders] native query fail:', e.message);
             }
         }
 
