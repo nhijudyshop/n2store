@@ -3,17 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `94ad79f` — feat(video-maker): ElevenLabs VN — model flash_v2_5 + kho giọng cộng đồng (lọc/cuộn) + voice settings (P2)
-**Last updated**: 2026-06-22 12:18:06 +07
-**Latest session**: [`RESUME:20260622-121806-94ad79f`](../20260622-121806-94ad79f.md)
-**Summary**: feat(video-maker): ElevenLabs VN — model flash_v2_5 + kho giọng cộng đồng (lọc/cuộn) + voice settings (P2)
+**Latest commit**: `1acc826` — docs(dev-log): Xưởng Video AI P1-P4 (preview-no-download, broken voices, ElevenLabs VN, pro-editor layout)
+**Last updated**: 2026-06-22 12:25:39 +07
+**Latest session**: [`RESUME:20260622-122539-1acc826`](../20260622-122539-1acc826.md)
+**Summary**: docs(dev-log): Xưởng Video AI P1-P4 (preview-no-download, broken voices, ElevenLabs VN, pro-editor layout)
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`native-orders/`](./native-orders.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 2 file(s)
-- [`web2/`](./web2.md) — 16 file(s)
 
 ## All folder snapshots
 
@@ -28,7 +25,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-21 15:47
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-06-22 12:18
+- [`docs/`](./docs.md) — updated 2026-06-22 12:25
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-19 14:27
