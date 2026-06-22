@@ -3,18 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `f7b4ef1` — auto: session update
-**Last updated**: 2026-06-22 16:08:27 +07
-**Latest session**: [`RESUME:20260622-160827-f7b4ef1`](../20260622-160827-f7b4ef1.md)
-**Summary**: auto: session update
+**Latest commit**: `f5c2b93` — docs(dev-log): Web2 modal unify (Step 7) → canonical + 1-source radius fix + cache bump
+**Last updated**: 2026-06-22 16:09:57 +07
+**Latest session**: [`RESUME:20260622-160957-f5c2b93`](../20260622-160957-f5c2b93.md)
+**Summary**: docs(dev-log): Web2 modal unify (Step 7) → canonical + 1-source radius fix + cache bump
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`live-chat/`](./live-chat.md) — 2 file(s)
-- [`so-order/`](./so-order.md) — 1 file(s)
-- [`vieneu-tts/`](./vieneu-tts.md) — 3 file(s)
-- [`web2/`](./web2.md) — 46 file(s)
 
 ## All folder snapshots
 
@@ -29,7 +25,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-21 15:47
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-06-22 16:08
+- [`docs/`](./docs.md) — updated 2026-06-22 16:09
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-19 14:27
