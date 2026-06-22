@@ -2,6 +2,16 @@
 
 ## 2026-06-22
 
+### [fix] Web 2.0 responsive/mobile — header xếp dọc + hàng nút/ô quét không bị cắt (web2-mobile.css)
+
+Audit responsive 13 trang đã unify ở 320/375/768px (Playwright headless + restore session): **document overflow = 0 mọi trang** (web2-mobile.css đã handle tốt). NHƯNG screenshot 375px lộ 3 vấn đề layout (cắt control trong scroll-container, không phải tràn document):
+
+- **Header trang crammed**: nhiều header dùng class riêng (`rc-page-head/sd-page-head/page-head-mini/u-page-head/web2-main-header`…) KHÔNG có trong allowlist xếp-dọc của mobile CSS → tiêu đề wrap 4-5 dòng, nút phải (Lịch sử/Camera, refresh) bị cắt. **Fix tổng quát (hết whack-a-mole)**: `body:has(.web2-shell) main > header { flex-direction:column }` + cap `h1/h2 { font-size: clamp(18px,4.6vw,24px) }`. Chỉ tác động header flex con-trực-tiếp của main (header section lồng trong `<section>` của overview KHÔNG bị đụng).
+- **Hàng nút hành động tràn**: supplier-debt `.sd-filter-actions` (Áp dụng/Reset/Tạo NCC/Xuất CSV) → "Xuất CSV" bị cắt. Thêm `.sd-filter-actions/.sw-page-actions/.rc-actions` vào rule `flex-wrap:wrap`.
+- **Reconcile ô quét barcode tràn**: `.rc-scanner-box` (input + chip "Chưa chọn PBH" + 2 nút camera/OCR) → nút camera bị cắt mép. Thêm `.rc-scanner-box{flex-wrap:wrap}` + input `flex:1 1 100%`.
+- **Verify browser 375px**: supplier-debt tiêu đề 1 dòng + nút wrap đủ; reconcile header gọn + ô quét wrap (2 nút camera hiện đủ); users sạch. **Re-audit overflow = 0/13 (không regression)**. Counter-pill canonical pale-blue hiển thị đồng nhất mọi trang.
+- Bump `web2-mobile.css?v=20260622c` (qua web2-sidebar.js — inject mọi trang).
+
 ### [feat] Zalo rebuild Phase 3 (đợt 2) — render video inline + danh thiếp + vị trí
 
 Lấp các loại tin Zalo chưa hiển thị đẹp (render-side, verify-được full trên localhost không cần TK). Sticker packs đã đủ (picker hiện có: tìm + chip gợi ý + recents → KHÔNG gold-plate).
