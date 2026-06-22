@@ -1700,3 +1700,109 @@
     height: 100% !important;
     min-height: 0 !important;
 }
+
+/* ── Quản lý hội thoại: ghim / tắt thông báo / menu ⋯ (Phase 2b) ────────── */
+.wz-conv-name {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+}
+.wz-conv-nametext {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.wz-conv-ic {
+    width: 13px;
+    height: 13px;
+    flex-shrink: 0;
+    color: var(--wz-muted, #6b7686);
+}
+.wz-conv-item.is-muted .wz-conv-name,
+.wz-conv-item.is-muted .wz-conv-last {
+    opacity: 0.62;
+}
+.wz-conv-side {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+    flex-shrink: 0;
+    margin-left: 6px;
+}
+.wz-conv-menu {
+    appearance: none;
+    border: 0;
+    background: transparent;
+    color: var(--wz-muted, #6b7686);
+    width: 26px;
+    height: 26px;
+    border-radius: 7px;
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+    opacity: 0;
+    transition:
+        opacity var(--wz-fast, 150ms) ease,
+        background var(--wz-fast, 150ms) ease;
+}
+.wz-conv-menu i {
+    width: 16px;
+    height: 16px;
+}
+.wz-conv-item:hover .wz-conv-menu,
+.wz-conv-menu:focus-visible {
+    opacity: 1;
+}
+.wz-conv-menu:hover {
+    background: var(--wz-line-soft);
+    color: var(--wz-ink);
+}
+/* Dropdown context menu (append vào body, định vị theo nút) */
+.wz-ctx-menu {
+    position: fixed;
+    z-index: 100001;
+    min-width: 190px;
+    padding: 6px;
+    background: #fff;
+    border: 1px solid var(--wz-line);
+    border-radius: 12px;
+    box-shadow: 0 12px 28px rgba(16, 24, 40, 0.16);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.wz-ctx-menu button {
+    appearance: none;
+    border: 0;
+    background: transparent;
+    text-align: left;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 9px 11px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--wz-ink);
+    cursor: pointer;
+}
+.wz-ctx-menu button i {
+    width: 16px;
+    height: 16px;
+    color: var(--wz-muted, #6b7686);
+}
+.wz-ctx-menu button:hover {
+    background: var(--wz-blue-soft);
+    color: var(--wz-blue);
+}
+.wz-ctx-menu button:hover i {
+    color: var(--wz-blue);
+}
+@media (prefers-reduced-motion: reduce) {
+    .wz-conv-menu {
+        transition: none;
+    }
+}
