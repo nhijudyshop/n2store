@@ -211,6 +211,27 @@
         if (window.lucide) lucide.createIcons();
 
         // ---- Render ----
+        // Mở lịch sử thao tác record — lazy-load web2-audit-log.js nếu chưa có
+        // (generic page có thể chưa load module qua script tag/sidebar).
+        function openHistory(code) {
+            const open = () =>
+                window.Web2AuditLog &&
+                window.Web2AuditLog.openRecord({
+                    entity: config.slug,
+                    entityId: code,
+                    title: 'Lịch sử: ' + code,
+                });
+            if (window.Web2AuditLog) return open();
+            if (!document.querySelector('script[src*="web2-audit-log.js"]')) {
+                const s = document.createElement('script');
+                s.src = '../shared/web2-audit-log.js?v=20260622al3';
+                s.onload = open;
+                document.head.appendChild(s);
+            } else {
+                setTimeout(open, 300); // đang nạp → chờ chút
+            }
+        }
+
         function renderRows() {
             const tb = root.querySelector('#w2pTbody');
             const colCount = (config.columns?.length || 0) + 5;
@@ -260,6 +281,9 @@
                                 <button class="web2-btn web2-btn-primary web2-btn-xs" title="Sửa" data-act="edit" data-code="${escapeHtml(r.code || '')}">
                                     <i data-lucide="pencil" style="width:12px;height:12px;"></i>
                                 </button>
+                                <button class="web2-btn web2-btn-default web2-btn-xs" title="Lịch sử thao tác" data-act="history" data-code="${escapeHtml(r.code || '')}" style="color:#7c3aed;">
+                                    <i data-lucide="history" style="width:12px;height:12px;"></i>
+                                </button>
                                 <button class="web2-btn web2-btn-danger web2-btn-xs" title="Xóa" data-act="delete" data-code="${escapeHtml(r.code || '')}">
                                     <i data-lucide="trash-2" style="width:12px;height:12px;"></i>
                                 </button>
@@ -279,6 +303,9 @@
                     const code = b.dataset.code;
                     if (b.dataset.act === 'edit') openEdit(code);
                     if (b.dataset.act === 'delete') removeRecord(code);
+                    // Lịch sử thao tác record (generic entity = config.slug). Lazy-load
+                    // module nếu chưa có (không phụ thuộc sidebar đã nạp chưa).
+                    if (b.dataset.act === 'history') openHistory(code);
                 });
             });
         }

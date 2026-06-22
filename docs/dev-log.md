@@ -2,6 +2,16 @@
 
 ## 2026-06-22
 
+### [fix] video-maker — giọng đã thêm từ kho KHÔNG hiện lần đầu (init ordering) + dedup giọng trùng
+
+User: vào trang chỉ thấy 3 giọng built-in; **đổi radio chọn giọng thì giọng đã thêm mới hiện**. Kèm lỗi phụ: 2 mục "Adam 3" (built-in + thêm từ kho cùng proId).
+
+- **Root cause (ordering race)**: `init()` gọi `renderVoices()` (line ~1315) TRƯỚC `Web2VideoLibraryUI.init()` — nơi mới gọi `Web2VideoTTS.loadLibraryVoices()` push giọng kho (localStorage `web2_vm_lib_voices`) vào `VOICES`. → render đầu chỉ có built-in; click radio mới re-render thấy giọng kho.
+- **Fix 1 (ordering)** `video-maker.js`: gọi `global.Web2VideoTTS.loadLibraryVoices()` (try/catch) NGAY TRƯỚC `renderVoices()` trong `init()`. Library UI init vẫn gọi lại loadLibraryVoices (idempotent, có guard `hasVoice`).
+- **Fix 2 (dedup)** `video-tts.js`: thêm `_providerId(v)`+`_findByProvider(meta)` (khoá theo proId/elevenId/voiceId). `addLibraryVoice` trả id entry sẵn có nếu trùng provider (vd built-in `pro-adam3` cùng proId với "Adam 3" trong kho → chọn lại, KHÔNG tạo entry 2). `loadLibraryVoices` bỏ qua entry trùng + `_persistLib()` DỌN khỏi localStorage (tự sửa dup đã lưu).
+- **Verify LIVE** (browser test, seed localStorage 3 giọng kho gồm 1 Adam 3 trùng): first-paint render đủ 5 giọng KHÔNG cần click; `adam3Count=1` (đã dedup); localStorage còn 2 entry (dup bị dọn). **Adversarial review workflow 4 agent (ordering/dedup/regression) = 0 issue.**
+- Files: `js/video-maker.js`, `js/video-tts.js`, `index.html` (bump ?v=20260622i). Tĩnh GH Pages.
+
 ### [fix/ux] video-maker — "Tông giọng" tự TẮT khi chọn giọng AI Pro/Clone (giữ nguyên gốc)
 
 User: chọn Giọng AI Pro "Adam 3", điền văn bản → "Tạo giọng đọc" nghe **giống ~80% chứ không 100%**; hỏi "Tông giọng" (Trầm/Chuẩn/Cao) hay nút "Tạo giọng đọc" có tác động vào vivibe không, nếu có thì thêm nút tắt.

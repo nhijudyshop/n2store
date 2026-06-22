@@ -1312,6 +1312,12 @@
         if (!global.Web2VideoRender) return notify('Chưa tải bộ dựng video', 'error');
         wireLayoutMode();
         renderPickers();
+        // Nạp giọng đã thêm từ kho (localStorage) TRƯỚC khi render lần đầu — nếu không,
+        // lần đầu chỉ hiện giọng built-in, phải đổi radio mới thấy giọng đã thêm
+        // (Web2VideoLibraryUI.init bên dưới mới gọi loadLibraryVoices → quá trễ).
+        try {
+            global.Web2VideoTTS.loadLibraryVoices();
+        } catch {}
         renderVoices();
         renderScenes();
         wireSceneList();

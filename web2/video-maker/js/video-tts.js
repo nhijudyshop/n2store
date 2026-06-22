@@ -670,11 +670,30 @@
             localStorage.setItem(LIB_KEY, JSON.stringify(lib));
         } catch {}
     }
+    // Id của nhà cung cấp cho 1 giọng (built-in HOẶC meta từ kho) — để chống TRÙNG khi
+    // giọng kho thật ra đã có sẵn dạng built-in (vd "Adam 3" built-in `pro-adam3` cùng
+    // proId với mục Adam 3 trong kho → đừng tạo entry thứ 2).
+    function _providerId(v) {
+        if (!v || !v.engine) return '';
+        if (v.engine === 'pro') return 'pro:' + (v.proId || '');
+        if (v.engine === 'elevenlabs') return 'el:' + (v.elevenId || '');
+        if (v.engine === 'piper') return 'piper:' + (v.voiceId || v.key || '');
+        return '';
+    }
+    function _findByProvider(meta) {
+        const k = _providerId(meta);
+        if (!k || k.endsWith(':')) return null;
+        return VOICES.find((v) => _providerId(v) === k) || null;
+    }
+
     // Thêm 1 giọng từ kho vào danh sách chọn. meta:
     //   piper:      { engine:'piper', key, label, lang }
     //   elevenlabs: { engine:'elevenlabs', elevenId, label, elevenModel? }
     function addLibraryVoice(meta) {
         if (!meta || !meta.engine) return null;
+        // Đã có sẵn (kể cả built-in) → chọn lại entry đó, KHÔNG thêm trùng.
+        const dup = _findByProvider(meta);
+        if (dup) return dup.id;
         const id =
             meta.engine === 'elevenlabs'
                 ? 'el-' + meta.elevenId
@@ -715,10 +734,17 @@
         try {
             lib = JSON.parse(localStorage.getItem(LIB_KEY) || '[]');
         } catch {}
+        let cleaned = false;
         (lib || []).forEach((m) => {
             if (hasVoice(m.id)) return;
+            // Trùng giọng đã có (vd built-in Adam 3) → bỏ qua + dọn khỏi localStorage.
+            if (_findByProvider(m)) {
+                cleaned = true;
+                return;
+            }
             VOICES.push({ ...m, _lib: true });
         });
+        if (cleaned) _persistLib();
         return VOICES.filter((v) => v._lib);
     }
 

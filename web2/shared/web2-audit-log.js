@@ -308,11 +308,12 @@
         },
         // PER-RECORD history viewer (modal). Mọi trang dùng để hiện lịch sử của 1
         // record cụ thể (đơn/SP/KH/phiếu…). Scope NV/admin vẫn áp dụng server-side.
-        //   opts: { entity (bắt buộc), entityId (bắt buộc), title?, limit? }
+        //   opts: { entityId (bắt buộc), entity? (lọc thêm — bỏ trống = MỌI nguồn
+        //           của id đó, vd PBH có cả 'pbh' + 'reconcile'), title?, limit? }
         openRecord(opts) {
             opts = opts || {};
-            if (!opts.entity || !opts.entityId) {
-                console.warn('[Web2AuditLog] openRecord cần {entity, entityId}');
+            if (!opts.entityId) {
+                console.warn('[Web2AuditLog] openRecord cần {entityId}');
                 return;
             }
             injectStyle();
@@ -342,7 +343,7 @@
             document.body.appendChild(ov);
             this.mount(ov.querySelector('.w2al-mbody'), {
                 showFilters: false,
-                entity: opts.entity,
+                entity: opts.entity || '', // '' = mọi entity của entityId này
                 entityId: String(opts.entityId),
                 limit: opts.limit || 100,
             });
