@@ -131,11 +131,27 @@
         // Remove iframe wrapper (FB embed + minimize button).
         const wrapper = document.getElementById('live-snap-fb-wrapper');
         if (wrapper) wrapper.remove();
+        // Hiện lại placeholder ô video (cột Video) khi ngắt capture.
+        document.getElementById('liveVideoDockHost')?.classList.remove('has-video');
         NS.renderRealSnapChip();
         NS.renderAutoModeChip();
     };
 
     NS._ensureVideoDock = function () {
+        // Ưu tiên cột Video riêng (#liveVideoDockHost) — layout 3 cột live-chat
+        // (2026-06-22). Video to + bảng thống kê ngay dưới.
+        const vhost = document.getElementById('liveVideoDockHost');
+        if (vhost) {
+            let dock = document.getElementById('live-video-dock');
+            if (!dock) {
+                dock = document.createElement('div');
+                dock.id = 'live-video-dock';
+                vhost.insertBefore(dock, vhost.firstChild);
+            }
+            vhost.classList.add('has-video'); // ẩn placeholder
+            return dock;
+        }
+        // Fallback: đỉnh cột Kho SP (legacy / defensive nếu chưa có cột Video).
         const col = document.getElementById('khoSpColumn');
         if (!col) return null;
         let dock = document.getElementById('live-video-dock');

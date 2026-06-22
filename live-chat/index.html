@@ -119,17 +119,18 @@
             .pk-modal-overlay {
                 z-index: 9999;
             }
-            /* Layout 2026-06-11: panel Pancake tách sang chat.html.
-               Cột Live chiếm toàn bộ phần còn lại; Kho SP là panel phải hẹp
-               (kéo SP vào comment tạo đơn), thu gọn được. */
+            /* Layout 2026-06-22: 3 cột — Comment (Live) | Kho SP | Video+Thống kê.
+               Comment hẹp lại; Kho SP rộng hơn (SP to, dễ kéo/bấm); cột Video phải
+               chứa ô video live to + bảng "Thông tin Livestream". Trước đây video
+               dock vào đỉnh Kho SP — nay tách sang cột riêng (#videoColumn). */
             #liveColumn {
                 flex: 1 1 auto !important;
                 min-width: 0;
                 max-width: none !important;
             }
             #khoSpColumn {
-                flex: 0 0 320px !important;
-                min-width: 280px;
+                flex: 0 0 400px !important;
+                min-width: 320px;
                 border-left: 1px solid var(--gray-200);
             }
             #khoSpColumn.collapsed {
@@ -144,11 +145,18 @@
                 flex-direction: column;
                 gap: 6px;
             }
+            /* Cột Video + Thống kê livestream (phải nhất). */
+            #videoColumn {
+                flex: 0 0 304px !important;
+                min-width: 268px;
+                border-left: 1px solid var(--gray-200);
+            }
             /* ===== Mobile/tablet (html.lc-mobile, detect qua UA script ở dưới) =====
                Ưu tiên ĐỌC COMMENT LIVESTREAM: chỉ hiện cột Live (panel trái) full
                màn hình; ẩn cột chat Pancake + resize handle + topbar phải +
                sidebar (2026-06-11). !important override inline flex column-manager. */
             html.lc-mobile #khoSpColumn,
+            html.lc-mobile #videoColumn,
             html.lc-mobile .top-bar-divider,
             html.lc-mobile .top-bar-right,
             html.lc-mobile .web2-aside,
@@ -220,7 +228,8 @@
             })();
         </script>
         <link rel="stylesheet" href="../web2/shared/web2-theme.css?v=20260622t4" />
-        <link rel="stylesheet" href="css/inventory-panel.css?v=20260620g" />
+        <link rel="stylesheet" href="css/inventory-panel.css?v=20260622lc3col" />
+        <link rel="stylesheet" href="css/live/live-stats.css?v=20260622lc3col" />
         <link rel="stylesheet" href="css/live-livestream-gallery.css?v=20260620g" />
         <!-- Shared FX (native-orders style): glass/soft/glow/anim + barba-style transition -->
         <link rel="stylesheet" href="../web2/shared/web2-effects.css?v=20260622cons" />
@@ -417,6 +426,24 @@
                                 </button>
                             </div>
                             <div class="column-content" id="khoSpHost"></div>
+                        </div>
+
+                        <!-- Cột Video live + Thông tin Livestream (2026-06-22).
+                             Ô video to ở trên (dock được snap-stream chèn vào
+                             #liveVideoDockHost) + bảng thống kê (#liveStatsPanel). -->
+                        <div class="column-wrapper" id="videoColumn" data-column="video">
+                            <div class="column-content" id="videoColumnContent">
+                                <div id="liveVideoDockHost">
+                                    <div class="video-placeholder">
+                                        <span class="vp-ico">📹</span>
+                                        <span class="vp-txt"
+                                            >Chưa kết nối video live. Bấm “Snap live” để xem & chụp
+                                            livestream.</span
+                                        >
+                                    </div>
+                                </div>
+                                <div id="liveStatsPanel"></div>
+                            </div>
                         </div>
                     </div>
                 </section>
@@ -796,7 +823,7 @@
              window._LiveCmtList chứa helpers. Load theo thứ tự phụ thuộc:
              base → state → events → render-list → render-row → actions → orders. -->
         <script src="js/live/live-comment-list-base.js?v=20260620g"></script>
-        <script src="js/live/live-comment-list-state.js?v=20260620g"></script>
+        <script src="js/live/live-comment-list-state.js?v=20260622lc3col"></script>
         <script src="js/live/live-comment-list-events.js?v=20260620g"></script>
         <script src="js/live/live-comment-list-render-list.js?v=20260620g"></script>
         <script src="js/live/live-comment-list-render-row.js?v=20260620g"></script>
@@ -828,9 +855,9 @@
              vào 10 module nhỏ (2026-06-19), chia sẻ state qua window.LiveSnap; public
              API window.LiveLivestreamSnap do snap-init dựng. Load theo thứ tự phụ thuộc:
              state → capture → stream → lock → seek → actions → extract → render → ui → init. -->
-        <script src="js/live/live-livestream-snap-state.js?v=20260620g"></script>
+        <script src="js/live/live-livestream-snap-state.js?v=20260622lc3col"></script>
         <script src="js/live/live-livestream-snap-capture.js?v=20260620g"></script>
-        <script src="js/live/live-livestream-snap-stream.js?v=20260620g"></script>
+        <script src="js/live/live-livestream-snap-stream.js?v=20260622lc3col"></script>
         <script src="js/live/live-livestream-snap-lock.js?v=20260620g"></script>
         <script src="js/live/live-livestream-snap-seek.js?v=20260620g"></script>
         <script src="js/live/live-livestream-snap-actions.js?v=20260620g"></script>
@@ -840,6 +867,15 @@
         <script src="js/live/live-livestream-snap-init.js?v=20260620g"></script>
         <!-- Kho "Hình Livestream" — chụp iframe thủ công + sidebar gallery -->
         <script src="js/live/live-livestream-gallery.js?v=20260620g"></script>
+        <!-- Bảng "Thông tin Livestream" dưới ô video (cột video phải) — event-driven
+             qua LiveCommentList._updateTotalBadge() → scheduleUpdate() (KHÔNG poller). -->
+        <script src="js/live/live-stats-panel.js?v=20260622lc3col"></script>
+        <script>
+            document.addEventListener('DOMContentLoaded', function () {
+                if (window.LiveStatsPanel)
+                    window.LiveStatsPanel.mount(document.getElementById('liveStatsPanel'));
+            });
+        </script>
 
         <!-- Web2Chat client — syncs pancake JWT + page tokens from Render DB
              (same source native-orders uses). Must load BEFORE pancake-token-manager
@@ -848,7 +884,7 @@
         <script src="../web2/shared/web2-chat-tokens.js?v=20260620g"></script>
         <script src="../web2/shared/web2-chat-settings.js?v=20260620g"></script>
         <script src="../web2/shared/web2-chat-api.js?v=20260620g"></script>
-        <script src="../web2/shared/web2-chat-live.js?v=20260620g"></script>
+        <script src="../web2/shared/web2-chat-live.js?v=20260622lc3col"></script>
         <script src="../web2/shared/web2-chat-tags.js?v=20260620g"></script>
         <script src="../web2/shared/web2-chat-client.js?v=20260620g"></script>
         <!-- Nguồn DUY NHẤT quản lý account/token Pancake = pancake_accounts (web2/pancake-settings). -->

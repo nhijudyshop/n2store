@@ -77,6 +77,10 @@
                 else slot.appendChild(oel);
             }
             oel.innerHTML = `🛒 ${this._orderCount().toLocaleString('vi-VN')} đơn`;
+
+            // Bảng "Thông tin Livestream" (cột Video) — cập nhật theo cùng nhịp
+            // render comment (event-driven, debounce nội bộ, KHÔNG poller).
+            window.LiveStatsPanel?.scheduleUpdate?.();
         },
 
         /**

@@ -55,13 +55,36 @@
                   : [];
             const posts = raw
                 .filter((p) => p && (p.type === 'livestream' || p.is_live_video || p.live_video_id))
-                .map((p) => ({
-                    postId: String(p.id),
-                    title: p.message || p.title || '',
-                    date: p.inserted_at || p.created_time || null,
-                    living: p.live_status === 'LIVE' || !!p.is_living,
-                    commentCount: Number(p.comment_count) || 0,
-                }));
+                .map((p) => {
+                    // Reactions = object { like_count, love_count, haha_count, … } trên
+                    // Pancake post API. Tổng = tất cả loại cảm xúc; like riêng = like+love.
+                    const rx = p.reactions && typeof p.reactions === 'object' ? p.reactions : null;
+                    let reactionCount = 0;
+                    let likeCount = 0;
+                    if (rx) {
+                        for (const k of Object.keys(rx)) reactionCount += Number(rx[k]) || 0;
+                        likeCount = (Number(rx.like_count) || 0) + (Number(rx.love_count) || 0);
+                    }
+                    const liveStatus = String(p.live_video_status || '').toLowerCase();
+                    return {
+                        postId: String(p.id),
+                        title: p.message || p.title || '',
+                        date: p.inserted_at || p.created_time || null,
+                        living:
+                            p.live_status === 'LIVE' ||
+                            !!p.is_living ||
+                            !!p.in_progress ||
+                            liveStatus === 'live',
+                        liveStatus, // 'live' | 'vod' | ''
+                        commentCount: Number(p.comment_count) || 0,
+                        viewCount: Number(p.view_count) || 0,
+                        reactionCount,
+                        likeCount,
+                        shareCount: Number(p.share_count) || 0,
+                        savedCount: Number(p.saved_count) || 0,
+                        phoneCount: Number(p.phone_number_count) || 0,
+                    };
+                });
             _livePostsCache.set(key, { at: Date.now(), posts });
             return { ok: true, posts };
         } catch (e) {

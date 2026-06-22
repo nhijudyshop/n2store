@@ -52,7 +52,10 @@
         extCapturePending: new Map(), // requestId → { resolve, reject, timer }
     };
 
-    NS.SNAP_VIDEO_W = 160;
+    // Bề rộng ô video live (px). Cũng là độ phân giải capture (snap-capture đọc
+    // videoWidth động nên an toàn khi đổi). To hơn 2026-06-22: cột Video riêng →
+    // ô video lớn dễ nhìn + frame chụp nét hơn (160 → 224).
+    NS.SNAP_VIDEO_W = 224;
 
     NS.SNAP_VIDEO_HEADER = 30;
 

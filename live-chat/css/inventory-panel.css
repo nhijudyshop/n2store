@@ -372,6 +372,62 @@
 
 /* (Đã bỏ khối @container BENTO — Kho SP luôn LIST ngang ở mọi bề rộng.) */
 
+/* ============================================================
+ * 2026-06-22: Cột Kho SP tách riêng + RỘNG hơn (~400px) → SP card TO hơn,
+ * dễ nhìn + dễ kéo/bấm (user: "SP nhỏ quá khó nhìn và tương tác"). Container
+ * query theo bề rộng panel: ≥ 340px → thumbnail to, chữ to, nút + to, tên 2 dòng.
+ * ============================================================ */
+@container (min-width: 340px) {
+    .inv-list {
+        padding: var(--pkr-sp-4, 16px);
+        gap: var(--pkr-sp-4, 12px);
+    }
+    .inv-card {
+        gap: var(--pkr-sp-4, 14px);
+        padding: var(--pkr-sp-3, 12px);
+        border-radius: var(--pkr-r-xl, 16px);
+    }
+    .inv-img,
+    .inv-img-placeholder {
+        width: 88px;
+        height: 88px;
+        border-radius: var(--pkr-r-lg, 12px);
+    }
+    .inv-img-placeholder {
+        font-size: 30px;
+    }
+    .inv-card-body {
+        gap: 4px;
+    }
+    .inv-card-code {
+        font-size: 12.5px;
+    }
+    .inv-card-name {
+        font-size: 14.5px;
+        -webkit-line-clamp: 2;
+        line-height: 1.35;
+    }
+    .inv-card-price {
+        font-size: 18px;
+    }
+    .inv-card-variant {
+        font-size: 12px;
+        padding: 2px 8px;
+    }
+    .inv-card-stock {
+        font-size: 12px;
+        padding: 3px 10px;
+    }
+    .inv-card-add {
+        width: 42px;
+        height: 42px;
+    }
+    .inv-card-add i {
+        width: 21px;
+        height: 21px;
+    }
+}
+
 /* `inv-has-order` chỉ là marker drop-target (add cho MỌI row để kéo-thả SP),
    KHÔNG phải "khách đã có đơn" → KHÔNG vẽ badge/border ở đây (gây hiểu nhầm
    "✓ có đơn" trên mọi comment, bỏ 2026-06-09). Indicator đơn thật là mã đơn
