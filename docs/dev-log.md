@@ -2,6 +2,15 @@
 
 ## 2026-06-22
 
+### [feat] Zalo rebuild Phase 3 (đợt 1) — tin thoại (ghi âm) + xoá-ở-phía-tôi (bỏ OA/ZNS khỏi scope)
+
+User: "Không cần OA và ZNS → tiếp tục các phần còn lại". Tập trung chat cá nhân (zca-js). Giữ nguyên 2 tab OA/ZNS (code còn, reversible), drop auto-ZNS. Research zca-js: có `sendVoice/sendVideo` (cần URL hosted), `sendCard`, `deleteMessage(onlyMe)`, `getStickersDetail`. Đợt này build 2 tính năng sạch + verify-được nhất.
+
+- **Tin thoại (ghi âm)**: composer (`zalo-chat/composer.js`) thêm nút mic + thanh ghi âm (`.wz-voicebar`: chấm đỏ nhịp + đồng hồ + Gửi/Huỷ) dùng `MediaRecorder` (chọn mime webm/mp4/ogg, bỏ tin < 0.6s/800B, cleanup mic khi đổi hội thoại). Gửi qua `onSendVoice` (chat-view) → đường `sendFile` đã chứng minh (zca auto-upload Buffer lên CDN) nhưng hiển thị bong bóng `voice` (player audio). KHÔNG dùng zca `sendVoice` (cần URL hosted, phức tạp). CSS `.wz-voicebar` (chat-composer.css, pulse respect reduced-motion).
+- **Xoá ở phía tôi (delete-for-me)**: zca `deleteMessage(dest, onlyMe=true)` — KHÁC recall (thu hồi 2 phía). Service `deleteForMe`, route `POST /delete-message` (gọi Zalo + `UPDATE hidden_for_me=true` + `_notifyThread`), cột `web2_zalo_messages.hidden_for_me` (ALTER IF NOT EXISTS — idempotent như 8 cột anh em), messages SELECT lọc `AND NOT COALESCE(hidden_for_me,false)`. `ZaloApi.deleteMessage`, `WZChat.actions.deleteForMe`, nút 🗑 (`data-act=delete-me`) trên MỌI tin (in+out) ở `bubbles.js`, `doDeleteMe` (chat-view, UI-first gỡ khỏi list + rollback) confirm `Popup.danger`.
+- **Verify browser (localhost, 0 lỗi console)**: render 2 tin → 2 nút delete-me; voice bubble = `wz-msg-voice`; mount composer tạm → mic + voicebar (hidden) + stop/cancel đủ; `ZaloApi.deleteMessage`/`actions.deleteForMe` = function. node --check pass 8 file. Bump `?v=20260622p4` (api/composer/bubbles/chat-actions/chat-view/chat-composer.css + ENGINE_VER cho trang tiêu thụ).
+- **Còn lại**: live verify cần TK Zalo kết nối + deploy Render (route + cột mới). Phase 3 đợt sau: contact card (`sendCard`), sticker pack (getStickersDetail), video player. Phase 4: group richness + tách route 2203 dòng.
+
 ### [refactor] Web 2.0 UI đồng nhất — TOOLBAR/bộ lọc tokenize (Step 8, cuối)
 
 Bước cuối đợt đồng nhất giao diện: thanh **toolbar/bộ lọc** mỗi trang dùng class riêng (`.pr-filters/.sd-toolbar/.u-toolbar/.sw-toolbar/.jt-toolbar/.w2bh-toolbar/.rc-toolbar`…) hardcode màu/bo góc lệch nhau. **KHÔNG ép 1 archetype** (giữ nguyên: card nổi vs flush-bar vs bare-flex — đây là lựa chọn layout có chủ đích từng trang), chỉ **thay hardcode → design token** cho nhịp thống nhất.

@@ -7,6 +7,54 @@
     flex-shrink: 0; /* luôn ghim đáy, không bị body đẩy ra ngoài */
     z-index: 3;
 }
+/* ── Thanh ghi âm tin thoại (đè lên compose-row khi đang ghi) ───────── */
+.wz-voicebar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 12px;
+    border-top: 1px solid var(--wz-line);
+    background: var(--wz-blue-soft, #eaf2ff);
+}
+.wz-voice-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--wz-danger, #e03b3b);
+    animation: wzVoicePulse 1s ease-in-out infinite;
+    flex-shrink: 0;
+}
+@keyframes wzVoicePulse {
+    0%,
+    100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 0.35;
+        transform: scale(0.7);
+    }
+}
+@media (prefers-reduced-motion: reduce) {
+    .wz-voice-dot {
+        animation: none;
+    }
+}
+.wz-voice-time {
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+    color: var(--wz-ink);
+    min-width: 38px;
+}
+.wz-voice-hint {
+    color: var(--wz-muted);
+    font-size: 13px;
+    flex: 1;
+}
+.wz-voice-cancel {
+    color: var(--wz-danger, #e03b3b);
+}
+
 .wz-compose-row {
     display: flex;
     align-items: flex-end;

@@ -191,6 +191,90 @@
         }
     }
 
+    // ── Ghi âm tin thoại (MediaRecorder) → gửi như tin voice ───────────────────
+    let _rec = null; // MediaRecorder
+    let _recStream = null;
+    let _recChunks = [];
+    let _recTimer = null;
+    let _recStart = 0;
+    let _recSendOnStop = false;
+
+    function _fmtRecTime(ms) {
+        const s = Math.floor(ms / 1000);
+        return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+    }
+    function _recBar() {
+        return _root.querySelector('.wz-voicebar');
+    }
+    function _tickRec() {
+        const el = _root.querySelector('.wz-voice-time');
+        if (el) el.textContent = _fmtRecTime(Date.now() - _recStart);
+    }
+    async function startVoice() {
+        if (_rec) return;
+        if (!navigator.mediaDevices?.getUserMedia) {
+            WZ.notify('Trình duyệt không hỗ trợ ghi âm', 'warning');
+            return;
+        }
+        try {
+            _recStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        } catch {
+            WZ.notify('Không truy cập được micro (kiểm tra quyền)', 'warning');
+            return;
+        }
+        _recChunks = [];
+        _recSendOnStop = false;
+        const mime = ['audio/webm', 'audio/mp4', 'audio/ogg'].find(
+            (m) => window.MediaRecorder && MediaRecorder.isTypeSupported(m)
+        );
+        _rec = new MediaRecorder(_recStream, mime ? { mimeType: mime } : undefined);
+        _rec.ondataavailable = (e) => e.data && e.data.size && _recChunks.push(e.data);
+        _rec.onstop = _onRecStop;
+        _rec.start();
+        _recStart = Date.now();
+        _recBar().hidden = false;
+        _tickRec();
+        _recTimer = setInterval(_tickRec, 250);
+    }
+    function _stopTracks() {
+        clearInterval(_recTimer);
+        _recTimer = null;
+        if (_recStream) _recStream.getTracks().forEach((t) => t.stop());
+        _recStream = null;
+    }
+    async function _onRecStop() {
+        const bar = _recBar();
+        if (bar) bar.hidden = true;
+        const blob = new Blob(_recChunks, { type: _rec?.mimeType || 'audio/webm' });
+        const dur = Date.now() - _recStart;
+        _rec = null;
+        _stopTracks();
+        // Quá ngắn (lỡ tay) hoặc rỗng → bỏ.
+        if (!_recSendOnStop || blob.size < 800 || dur < 600) return;
+        const ext = (blob.type.split('/')[1] || 'webm').split(';')[0];
+        const dataUrl = await readFile(blob);
+        if (!dataUrl) return;
+        _ctx.onSendVoice?.({
+            dataUrl,
+            blob,
+            name: `voice-${dur}ms.${ext}`,
+            mime: blob.type,
+            duration: dur,
+        });
+    }
+    function stopVoice(send) {
+        if (!_rec) return;
+        _recSendOnStop = !!send;
+        try {
+            _rec.stop();
+        } catch {
+            _stopTracks();
+            const bar = _recBar();
+            if (bar) bar.hidden = true;
+            _rec = null;
+        }
+    }
+
     // ── @mention (chỉ NHÓM) — gõ '@' → dropdown thành viên, chọn để tag ─────────
     let _members = null; // cache [{uid,name,avatar}]
     let _membersConvId = null;
@@ -322,7 +406,15 @@
                 <button class="wz-c-btn" data-act="quick" title="Trả lời nhanh" aria-label="Trả lời nhanh"><i data-lucide="zap"></i></button>
                 <button class="wz-c-btn" data-act="emoji" data-wz-emoji-btn title="Emoji" aria-label="Emoji"><i data-lucide="smile"></i></button>
                 <button class="wz-c-btn" data-act="sticker" data-wz-sticker-btn title="Sticker" aria-label="Sticker"><i data-lucide="sticker"></i></button>
+                <button class="wz-c-btn" data-act="voice" title="Ghi âm tin thoại" aria-label="Ghi âm tin thoại"><i data-lucide="mic"></i></button>
                 <button class="wz-c-send" data-act="send" title="Gửi" aria-label="Gửi"><i data-lucide="send"></i></button>
+            </div>
+            <div class="wz-voicebar" hidden role="group" aria-label="Đang ghi âm">
+                <button class="wz-c-btn wz-voice-cancel" type="button" title="Huỷ ghi âm" aria-label="Huỷ">✕</button>
+                <span class="wz-voice-dot" aria-hidden="true"></span>
+                <span class="wz-voice-time">0:00</span>
+                <span class="wz-voice-hint">Đang ghi âm…</span>
+                <button class="wz-c-send wz-voice-stop" type="button" title="Gửi tin thoại" aria-label="Gửi"><i data-lucide="send"></i></button>
             </div>
             <input type="file" class="wz-file-img" accept="image/*" multiple hidden>
             <input type="file" class="wz-file-doc" hidden>
@@ -340,6 +432,7 @@
         _members = null;
         _membersConvId = null;
         _closeMent();
+        if (_rec) stopVoice(false); // huỷ ghi âm còn dở khi đổi hội thoại / re-mount
 
         ta.addEventListener('input', () => {
             grow(ta);
@@ -440,6 +533,10 @@
             .addEventListener('click', (e) =>
                 WZ.openStickerPicker(e.currentTarget, _ctx.account, (s) => _ctx.onSendSticker?.(s))
             );
+        // ghi âm tin thoại
+        rootEl.querySelector('[data-act=voice]').addEventListener('click', startVoice);
+        rootEl.querySelector('.wz-voice-stop').addEventListener('click', () => stopVoice(true));
+        rootEl.querySelector('.wz-voice-cancel').addEventListener('click', () => stopVoice(false));
 
         // tray remove
         rootEl.querySelector('.wz-tray').addEventListener('click', (e) => {

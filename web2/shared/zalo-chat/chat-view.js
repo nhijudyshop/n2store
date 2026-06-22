@@ -183,6 +183,7 @@
                 onSendMedia,
                 onSendFile,
                 onSendSticker,
+                onSendVoice,
             });
             const ci = container.querySelector('.wz-compose-input');
             ci?.addEventListener('input', () => WZ.actions?.emitTyping(account, conv));
@@ -357,6 +358,33 @@
                 reconcile(temp.cli_msg_id, { msg_id: r.msgId, attachments: r.attachments }, true);
             } catch (e) {
                 notify('✗ Gửi tệp lỗi: ' + e.message, 'error');
+                reconcile(temp.cli_msg_id, {}, false);
+            }
+        }
+        // Tin thoại: gửi qua đường file đã chứng minh (zca auto-upload Buffer lên CDN),
+        // nhưng hiển thị dạng bong bóng voice (player audio) ở phía mình.
+        async function onSendVoice(item) {
+            if (!item) return;
+            const temp = optimistic({
+                direction: 'out',
+                msg_type: 'voice',
+                content: '',
+                attachments: [{ type: 'voice', url: item.dataUrl }],
+            });
+            try {
+                const r = await Api.sendFile({
+                    accountKey: account,
+                    threadId: conv.thread_id,
+                    threadType: conv.thread_type,
+                    file: { base64: item.dataUrl, filename: item.name, mime: item.mime },
+                });
+                reconcile(
+                    temp.cli_msg_id,
+                    { msg_id: r.msgId, attachments: r.attachments || temp.attachments },
+                    true
+                );
+            } catch (e) {
+                notify('✗ Gửi tin thoại lỗi: ' + e.message, 'error');
                 reconcile(temp.cli_msg_id, {}, false);
             }
         }
