@@ -453,20 +453,31 @@
 .wc-modal-panel {
     position: relative;
     background: #fff;
-    border-radius: 14px;
+    border-radius: var(--web2-radius, 12px);
     width: min(760px, 100%);
     max-height: 90vh;
     display: flex;
     flex-direction: column;
-    box-shadow: 0 20px 50px rgba(15, 23, 42, 0.25);
+    box-shadow: var(--shadow-lg, 0 12px 32px rgba(15, 23, 42, 0.18));
     overflow: hidden;
 }
 .wc-modal-head {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 16px 20px;
-    border-bottom: 1px solid var(--web2-border, #e2e8f0);
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--web2-border-btn, var(--web2-border, #e2e8f0));
+    background: linear-gradient(180deg, var(--web2-primary-soft, #eef4ff) 0%, #fff 100%);
+    position: relative;
+}
+.wc-modal-head::after {
+    content: '';
+    position: absolute;
+    left: 20px;
+    bottom: -1px;
+    width: 60px;
+    height: 2px;
+    background: linear-gradient(90deg, var(--web2-primary, #0068ff), var(--web2-info, #0369a1));
 }
 .wc-modal-head h2 {
     margin: 0;
@@ -694,9 +705,9 @@
     display: flex;
     justify-content: flex-end;
     gap: 8px;
-    padding: 14px 20px;
-    border-top: 1px solid var(--web2-border, #e2e8f0);
-    background: var(--web2-bg-light, #fafbfc);
+    padding: 12px 20px;
+    border-top: 1px solid var(--border, var(--web2-border, #e2e8f0));
+    background: var(--gray-50, var(--web2-bg-light, #fafbfc));
 }
 
 /* ── Pancake fallback (kho KH không có → tìm Pancake) ── */

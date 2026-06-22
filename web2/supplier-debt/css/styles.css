@@ -510,8 +510,8 @@
     justify-content: flex-end;
     gap: 8px;
     padding: 12px 20px;
-    border-top: 1px solid #e2e8f0;
-    background: #f8fafc;
+    border-top: 1px solid var(--border, #e2e8f0);
+    background: var(--gray-50, #f8fafc);
 }
 
 .sd-table tbody tr.is-debt td.col-ending {
@@ -599,28 +599,39 @@
 .sd-modal-backdrop {
     position: absolute;
     inset: 0;
-    background: rgba(15, 23, 42, 0.5);
-    backdrop-filter: blur(2px);
+    background: rgba(15, 23, 42, 0.42);
 }
 
 .sd-modal-panel {
     position: relative;
     background: #fff;
-    border-radius: 12px;
+    border-radius: var(--web2-radius, 12px);
     width: min(900px, 92vw);
     max-height: 86vh;
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    box-shadow: 0 16px 48px rgba(15, 23, 42, 0.18);
+    box-shadow: var(--shadow-lg, 0 12px 24px rgba(15, 23, 42, 0.16));
 }
 
 .sd-modal-head {
+    position: relative;
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
-    padding: 18px 20px;
-    border-bottom: 1px solid #e2e8f0;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--web2-border-btn, #e2e8f0);
+    background: linear-gradient(180deg, var(--web2-primary-soft, #eef4ff) 0%, #fff 100%);
+}
+
+.sd-modal-head::after {
+    content: '';
+    position: absolute;
+    left: 20px;
+    bottom: -1px;
+    width: 60px;
+    height: 2px;
+    background: linear-gradient(90deg, var(--web2-primary, #0068ff), var(--web2-info, #38bdf8));
 }
 
 .sd-modal-head h2 {
@@ -653,6 +664,7 @@
 .sd-modal-body {
     padding: 18px 20px;
     overflow-y: auto;
+    overscroll-behavior: contain;
 }
 
 .sd-detail-stats {

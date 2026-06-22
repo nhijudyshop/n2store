@@ -824,7 +824,7 @@
     align-items: center;
     justify-content: center;
     padding: 24px;
-    background: rgba(15, 23, 42, 0.55);
+    background: rgba(15, 23, 42, 0.42);
     overscroll-behavior: contain;
 }
 .rc-audit-overlay[hidden] {
@@ -836,8 +836,8 @@
     display: flex;
     flex-direction: column;
     background: #fff;
-    border-radius: 14px;
-    box-shadow: 0 18px 48px rgba(15, 23, 42, 0.24);
+    border-radius: var(--web2-radius, 12px);
+    box-shadow: var(--shadow-lg, 0 12px 24px rgba(15, 23, 42, 0.18));
     contain: layout style paint;
     overflow: hidden;
 }
@@ -845,8 +845,9 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 16px 20px;
-    border-bottom: 1px solid #e2e8f0;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--web2-border-btn, #e2e8f0);
+    background: linear-gradient(180deg, var(--web2-primary-soft, #eef4ff) 0%, #fff 100%);
 }
 .rc-audit-head h2 {
     margin: 0;
@@ -1056,8 +1057,8 @@
     justify-content: space-between;
     gap: 12px;
     padding: 12px 20px;
-    border-top: 1px solid #e2e8f0;
-    background: #f8fafc;
+    border-top: 1px solid var(--border, #e2e8f0);
+    background: var(--gray-50, #f8fafc);
     font-size: 0.82rem;
     color: #475569;
     font-weight: 600;

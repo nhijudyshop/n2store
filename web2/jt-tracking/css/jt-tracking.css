@@ -741,7 +741,7 @@ body {
 }
 .jt-modal {
     background: var(--jt-surface);
-    border-radius: 18px;
+    border-radius: var(--web2-radius, 12px);
     width: min(620px, 100%);
     box-shadow: var(--jt-shadow-lg);
     transform: translateY(12px) scale(0.985);
@@ -944,7 +944,7 @@ body {
 .jt-msg-modal {
     width: min(440px, 100%);
     background: var(--jt-surface);
-    border-radius: 16px;
+    border-radius: var(--web2-radius, 12px);
     box-shadow: var(--jt-shadow-lg);
     padding: 18px;
     transform: translateY(10px) scale(0.98);
