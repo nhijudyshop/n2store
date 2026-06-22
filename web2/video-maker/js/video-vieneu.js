@@ -90,7 +90,31 @@
         }
         async function refreshServers() {
             try {
-                renderServers(await V.listServers());
+                // gộp: máy LOCAL (cùng máy đang xem, không cần tunnel) + registry (máy khác/điện thoại)
+                const [reg, local] = await Promise.all([
+                    V.listServers().catch(function () {
+                        return [];
+                    }),
+                    V.probeLocal
+                        ? V.probeLocal().catch(function () {
+                              return [];
+                          })
+                        : Promise.resolve([]),
+                ]);
+                const seen = {};
+                const list = [];
+                local.concat(reg).forEach(function (s) {
+                    const u = String(s.url || '').replace(/\/+$/, '');
+                    if (!u || seen[u]) return;
+                    seen[u] = 1;
+                    list.push(s);
+                });
+                renderServers(list);
+                // Cài xong là chạy: tự kết nối máy local nếu chưa cấu hình URL nào.
+                if (!V.getUrl() && local.length) {
+                    if (urlIn) urlIn.value = local[0].url;
+                    connect();
+                }
             } catch (e) {
                 /* im lặng */
             }

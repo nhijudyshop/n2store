@@ -2,6 +2,15 @@
 
 ## 2026-06-22
 
+### [fix] video-maker VieNeu — tự dò server LOCAL (localhost:8123/8124), khỏi cần tunnel/registry
+
+User cài server NGAY trên máy đang xem trang nhưng "Chưa thấy máy online" (registry rỗng — heartbeat/tunnel không lên). Gốc: trang chỉ dò máy qua registry (cần serve.py heartbeat sau khi tunnel cloudflared lên) → cùng-máy vẫn không thấy nếu tunnel hụt.
+
+- **web2-vieneu.js**: thêm `probeLocal()` — fetch `http://localhost:8123|8124/health` (localhost = potentially-trustworthy, trang HTTPS gọi được + server CORS-allow origin shop). Trả `[{name:'Máy này (engine)',url,local:true}]`.
+- **video-vieneu.js**: `refreshServers()` gộp registry + local (local trước, dedupe url); **tự kết nối máy local nếu chưa cấu hình URL** (cài xong là chạy).
+- **Verified** (browser + fake /health 8123): chip "Máy này (vieneu) online" + auto-connect "✅ Kết nối OK" + giọng nạp. Bump web2-vieneu.js/video-vieneu.js?v=20260622e.
+- Same-machine fix; tunnel vẫn cần cho điện thoại/máy khác (vấn đề riêng). Nếu refresh vẫn trống → process server chưa chạy (mở `http://localhost:8123/health` kiểm tra).
+
 ### [feat] Zalo rebuild Phase 3 (đợt 1) — tin thoại (ghi âm) + xoá-ở-phía-tôi (bỏ OA/ZNS khỏi scope)
 
 User: "Không cần OA và ZNS → tiếp tục các phần còn lại". Tập trung chat cá nhân (zca-js). Giữ nguyên 2 tab OA/ZNS (code còn, reversible), drop auto-ZNS. Research zca-js: có `sendVoice/sendVideo` (cần URL hosted), `sendCard`, `deleteMessage(onlyMe)`, `getStickersDetail`. Đợt này build 2 tính năng sạch + verify-được nhất.

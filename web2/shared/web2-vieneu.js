@@ -97,6 +97,43 @@
         }
     }
 
+    // Dò server chạy NGAY trên máy đang xem trang (localhost) — KHÔNG cần tunnel/registry.
+    // 8123 = VieNeu, 8124 = OmniVoice. Trình duyệt cho phép trang HTTPS gọi http://localhost
+    // (potentially-trustworthy, miễn mixed-content) + server CORS-allow origin shop/localhost.
+    const LOCAL_PORTS = [
+        { port: 8123, engine: 'vieneu' },
+        { port: 8124, engine: 'omnivoice' },
+    ];
+    async function probeLocal(timeoutMs) {
+        const out = [];
+        await Promise.all(
+            LOCAL_PORTS.map(async ({ port, engine }) => {
+                const url = 'http://localhost:' + port;
+                const ctrl = new AbortController();
+                const t = setTimeout(() => ctrl.abort(), timeoutMs || 1500);
+                try {
+                    const r = await fetch(url + '/health', { signal: ctrl.signal });
+                    if (!r.ok) return;
+                    const d = await r.json().catch(() => ({}));
+                    if (d && (d.ok || d.model_loaded || d.engine)) {
+                        out.push({
+                            name: 'Máy này (' + (d.engine || engine) + ')',
+                            url,
+                            note: d.engine || engine,
+                            ageSec: 0,
+                            local: true,
+                        });
+                    }
+                } catch {
+                    /* không chạy / không tới — bỏ qua */
+                } finally {
+                    clearTimeout(t);
+                }
+            })
+        );
+        return out;
+    }
+
     async function health(timeoutMs) {
         const u = _need();
         const ctrl = new AbortController();
@@ -159,6 +196,7 @@
         setSecret,
         health,
         listServers,
+        probeLocal,
         listVoices,
         synthesize,
         clone,
