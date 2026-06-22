@@ -389,11 +389,12 @@ body {
     transform: translateY(-1px);
 }
 .chip-select-primary {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    box-shadow: 0 2px 4px rgba(102, 126, 234, 0.3);
+    /* de-purple 2026-06-22 → Zalo blue (đồng bộ theme) */
+    background: linear-gradient(135deg, var(--web2-primary) 0%, var(--web2-primary-hover) 100%);
+    box-shadow: 0 2px 4px rgba(0, 104, 255, 0.3);
 }
 .chip-select-primary:hover {
-    box-shadow: 0 4px 8px rgba(102, 126, 234, 0.4);
+    box-shadow: 0 4px 8px rgba(0, 104, 255, 0.4);
 }
 .chip-select-muted {
     background: linear-gradient(135deg, #94a3b8 0%, #64748b 100%);
@@ -472,20 +473,21 @@ body {
     align-items: center;
     gap: 5px;
     padding: 6px 12px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    /* de-purple 2026-06-22 → Zalo blue (đồng bộ theme) */
+    background: linear-gradient(135deg, var(--web2-primary) 0%, var(--web2-primary-hover) 100%);
     color: white;
     border: none;
     border-radius: 6px;
     font-size: 13px;
     font-weight: 600;
     cursor: pointer;
-    box-shadow: 0 2px 4px rgba(102, 126, 234, 0.3);
+    box-shadow: 0 2px 4px rgba(0, 104, 255, 0.3);
     transition:
         box-shadow 0.15s,
         transform 0.15s;
 }
 .btn-settings:hover {
-    box-shadow: 0 4px 8px rgba(102, 126, 234, 0.4);
+    box-shadow: 0 4px 8px rgba(0, 104, 255, 0.4);
     transform: translateY(-1px);
 }
 .btn-settings i {
