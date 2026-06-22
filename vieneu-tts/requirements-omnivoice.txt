@@ -11,3 +11,6 @@ uvicorn[standard]
 numpy
 soundfile
 omnivoice
+# omnivoice phụ thuộc pydub → cần ffmpeg để decode audio mẫu clone. imageio-ffmpeg
+# bundle sẵn binary ffmpeg (pip, đa nền tảng) → khỏi cài ffmpeg hệ thống.
+imageio-ffmpeg

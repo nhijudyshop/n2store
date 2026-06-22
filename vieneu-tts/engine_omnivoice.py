@@ -19,6 +19,36 @@ import os
 
 from engine_base import TTSEngine, float_to_wav_bytes
 
+
+def _ensure_ffmpeg() -> None:
+    """Package `omnivoice` phụ thuộc pydub → cần ffmpeg để decode audio mẫu clone.
+    Máy chưa cài ffmpeg → pydub cảnh báo "Couldn't find ffmpeg" + clone/convert lỗi.
+    Trỏ pydub sang binary bundle từ imageio-ffmpeg (cài qua pip, đa nền tảng) + thêm
+    vào PATH. No-op an toàn nếu thiếu gói (engine vẫn chạy với mẫu .wav qua soundfile)."""
+    try:
+        import imageio_ffmpeg
+
+        exe = imageio_ffmpeg.get_ffmpeg_exe()
+    except Exception:
+        return
+    if not exe or not os.path.exists(exe):
+        return
+    os.environ.setdefault("FFMPEG_BINARY", exe)
+    d = os.path.dirname(exe)
+    if d and d not in os.environ.get("PATH", ""):
+        os.environ["PATH"] = d + os.pathsep + os.environ.get("PATH", "")
+    try:
+        from pydub import AudioSegment
+
+        AudioSegment.converter = exe
+        AudioSegment.ffmpeg = exe
+    except Exception:
+        pass
+
+
+_ensure_ffmpeg()
+
+
 # Preset Voice Design thân thiện (label hiển thị, instruct gửi model).
 # voice_id = "" => auto voice (model tự chọn). Lưu ý: voice design train chủ yếu
 # trên Trung+Anh; với tiếng Việt có thể chưa ổn định — clone vẫn là chế độ chuẩn nhất.

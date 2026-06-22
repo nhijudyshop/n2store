@@ -1102,7 +1102,9 @@ body:has(.web2-shell) .web2-card {
 .web2-theme .modal-dialog,
 .web2-theme [class*='modal-content'],
 .web2-theme [class*='modal-dialog'] {
-    border-radius: 18px;
+    /* Modal radius follows the design token (--web2-radius = 12px) so shared
+       modals + every page's fork modal box render the SAME corner. */
+    border-radius: var(--web2-radius);
     box-shadow: 0 12px 24px rgba(15, 23, 42, 0.2);
 }
 
