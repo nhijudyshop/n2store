@@ -178,46 +178,81 @@ body:has(.web2-shell) .btn-info:hover {
     border-color: var(--web2-info-hover);
 }
 
-/* ─── Generic tables ────────────────────────────────── */
+/* ─── Generic tables — BẢNG MẶC ĐỊNH TOÀN WEB 2.0 = look của native-orders ──────
+   (2026-06-22, user: "lấy giao diện bảng native-orders làm bảng mặc định cho toàn
+   web 2.0"). Giá trị clone từ web2-base.css `.data-table` (nguồn native-orders dùng):
+   grid-line dọc (border-right), zebra striping, header đậm. Striping/hover dùng
+   selector GENERIC (tbody tr:nth-child) thay vì .order-row để áp MỌI trang.
+   native-orders KHÔNG load file này → giữ nguyên (1 nguồn = web2-base, theme mirror). */
 .web2-theme .data-table,
 .web2-theme .balance-table,
-body:has(.web2-shell) .data-table {
+body:has(.web2-shell) .data-table,
+body:has(.web2-shell) .balance-table {
     width: 100%;
-    border-collapse: collapse;
+    border-collapse: separate;
+    border-spacing: 0;
     background: #fff;
-    font-size: 13px;
-}
-.web2-theme .data-table thead th,
-.web2-theme .balance-table thead th,
-body:has(.web2-shell) .data-table thead th {
-    background: var(--web2-bg-cell-head);
-    color: var(--web2-text-3);
-    font-weight: 600;
-    font-size: 12px;
-    padding: 9px 10px;
-    text-align: left;
-    border-bottom: 1px solid var(--web2-border);
-    position: sticky;
-    top: 0;
-    z-index: 2;
-}
-.web2-theme .data-table tbody td,
-.web2-theme .balance-table tbody td,
-body:has(.web2-shell) .data-table tbody td {
-    padding: 8px 10px;
-    border-bottom: 1px solid #eee;
     font-size: 13px;
     color: var(--web2-text);
 }
-.web2-theme .data-table tbody tr,
-.web2-theme .balance-table tbody tr,
-body:has(.web2-shell) .data-table tbody tr {
-    transition: background 0.1s;
+.web2-theme .data-table thead th,
+.web2-theme .balance-table thead th,
+body:has(.web2-shell) .data-table thead th,
+body:has(.web2-shell) .balance-table thead th {
+    background: var(--web2-bg-cell-head);
+    color: #2b3a45;
+    font-weight: 700;
+    font-size: 13px;
+    padding: 8px 10px;
+    text-align: left;
+    border-bottom: 1px solid #c8ced3;
+    border-right: 1px solid #d9dde0;
+    white-space: nowrap;
+    position: sticky;
+    top: 0;
+    z-index: 10;
 }
-.web2-theme .data-table tbody tr:hover,
-.web2-theme .balance-table tbody tr:hover,
-body:has(.web2-shell) .data-table tbody tr:hover {
-    background: var(--web2-bg-light);
+.web2-theme .data-table thead th:last-child,
+.web2-theme .balance-table thead th:last-child,
+body:has(.web2-shell) .data-table thead th:last-child,
+body:has(.web2-shell) .balance-table thead th:last-child {
+    border-right: none;
+}
+.web2-theme .data-table tbody td,
+.web2-theme .balance-table tbody td,
+body:has(.web2-shell) .data-table tbody td,
+body:has(.web2-shell) .balance-table tbody td {
+    padding: 8px 10px;
+    border-bottom: 1px solid #d9dde0;
+    border-right: 1px solid #e5e8ea;
+    font-size: 13px;
+    color: var(--web2-text);
+    background: #fff;
+    vertical-align: middle;
+    transition: background-color 80ms ease;
+}
+.web2-theme .data-table tbody td:last-child,
+.web2-theme .balance-table tbody td:last-child,
+body:has(.web2-shell) .data-table tbody td:last-child,
+body:has(.web2-shell) .balance-table tbody td:last-child {
+    border-right: none;
+}
+/* Zebra striping (generic — mọi tbody tr, không chỉ .order-row của native-orders) */
+.web2-theme .data-table tbody tr:nth-child(even) > td,
+.web2-theme .balance-table tbody tr:nth-child(even) > td,
+body:has(.web2-shell) .data-table tbody tr:nth-child(even) > td,
+body:has(.web2-shell) .balance-table tbody tr:nth-child(even) > td {
+    background: #f7f9fb;
+}
+.web2-theme .data-table tbody tr:hover > td,
+.web2-theme .data-table tbody tr:nth-child(even):hover > td,
+.web2-theme .balance-table tbody tr:hover > td,
+.web2-theme .balance-table tbody tr:nth-child(even):hover > td,
+body:has(.web2-shell) .data-table tbody tr:hover > td,
+body:has(.web2-shell) .data-table tbody tr:nth-child(even):hover > td,
+body:has(.web2-shell) .balance-table tbody tr:hover > td,
+body:has(.web2-shell) .balance-table tbody tr:nth-child(even):hover > td {
+    background: #eaf2fb;
 }
 
 /* ─── Generic filter/search row ─────────────────────── */
