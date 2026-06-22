@@ -164,6 +164,7 @@
         if (!conv) {
             $('#wzChatMain').innerHTML =
                 `<div class="wz-chat-empty">Không tìm thấy hội thoại</div>`;
+            renderInfoPanel(null);
             return;
         }
         state.conv.activeConv = conv;
@@ -175,6 +176,46 @@
         } else {
             $('#wzChatMain').innerHTML = `<div class="wz-chat-empty">Đang tải khung chat…</div>`;
         }
+        renderInfoPanel(conv);
+    }
+
+    // ── Cột thông tin (panel phải, giống Zalo PC) ───────────────────────────
+    // Hiện avatar/tên/loại + SĐT/UID/tài khoản. Pin/mute/media tabs sẽ bổ sung
+    // ở bước conv-mgmt (Phase 2). Toggle ẩn/hiện qua nút trên header panel.
+    function renderInfoPanel(conv) {
+        const box = $('#wzInfoPanel');
+        if (!box) return;
+        if (!conv) {
+            box.hidden = true;
+            box.innerHTML = '';
+            return;
+        }
+        const group = conv.thread_type === 'group';
+        const name = conv.display_name || (group ? 'Nhóm Zalo' : 'Khách Zalo');
+        const acc = state.accounts.find((a) => a.accountKey === conv.account_key);
+        const accName = acc ? acc.displayName || acc.label || 'Tài khoản' : conv.account_key || '—';
+        const row = (ic, label, val) =>
+            val
+                ? `<div class="wz-info-row"><i data-lucide="${ic}"></i><span class="wz-info-k">${esc(label)}</span><span class="wz-info-v">${esc(String(val))}</span></div>`
+                : '';
+        box.hidden = false;
+        box.innerHTML = `
+            <div class="wz-info-top">
+                <button class="wz-iconbtn wz-info-x" type="button" data-act="info-close" aria-label="Ẩn thông tin" title="Ẩn"><i data-lucide="panel-right-close"></i></button>
+            </div>
+            <div class="wz-info-hd">
+                ${avatarHtml(conv.avatar_url, name, 'wz-info-av' + (group ? ' is-group' : ''))}
+                <div class="wz-info-name">${esc(name)}</div>
+                <div class="wz-info-type">${group ? '<i data-lucide="users"></i> Nhóm' : '<i data-lucide="user"></i> Cá nhân'}</div>
+            </div>
+            <div class="wz-info-rows">
+                ${row('phone', 'SĐT', conv.phone)}
+                ${row('hash', 'UID', conv.zalo_uid || conv.thread_id)}
+                ${row('at-sign', 'Tài khoản', accName)}
+            </div>`;
+        const x = box.querySelector('[data-act="info-close"]');
+        if (x) x.addEventListener('click', () => renderInfoPanel(null));
+        if (window.lucide) lucide.createIcons();
     }
 
     // ── Export ─────────────────────────────────────────────────────────────

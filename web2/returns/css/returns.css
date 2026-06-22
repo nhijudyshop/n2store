@@ -1,6 +1,6 @@
 /* #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 module — Thu về. */
 :root {
-    --rt-accent: #0058da;
+    --rt-accent: var(--web2-primary, #0068ff);
     --rt-accent-soft: #e8f2ff;
     --rt-accent-border: #dbeafe;
     --rt-line: #e5e7eb;
@@ -493,22 +493,20 @@ select.rt-input {
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    background: var(--rt-accent);
+    background: var(--web2-primary, #0068ff);
     color: #fff;
     border: none;
-    border-radius: 9px;
+    border-radius: 2px;
     padding: 11px 18px;
-    font-weight: 700;
-    font-size: 14px;
+    font-weight: 500;
+    font-size: 12px;
     cursor: pointer;
     transition:
         background 0.15s,
-        transform 0.1s,
         opacity 0.15s;
 }
 .rt-submit:hover:not(:disabled) {
-    background: #004bb5;
-    transform: translateY(-1px);
+    background: var(--web2-primary-hover, #0058da);
 }
 .rt-submit:disabled {
     opacity: 0.45;

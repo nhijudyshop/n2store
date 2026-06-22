@@ -47,17 +47,25 @@
         }
     }
 
+    // Đèn sức khoẻ ở chân icon-rail (gọn): N/M kết nối + màu. Cập nhật mỗi loadAccounts
+    // (init + SSE web2:zalo:accounts). #wzStatusStrip cũ đã bỏ khi rebuild 3-pane.
     function renderStatusStrip(res) {
-        const strip = $('#wzStatusStrip');
-        if (!strip) return;
+        const el = $('#wzRailHealth');
+        if (!el) return;
         const conn = state.accounts.filter(
             (a) => a.status === 'connected' || a.status === 'token_ok'
         ).length;
-        strip.innerHTML =
-            `<span class="wz-statustxt"><span class="wz-dot ${conn ? 'connected' : ''}"></span>${conn}/${state.accounts.length} kết nối</span>` +
-            (res && res.zcaAvailable === false
-                ? ` · <span class="wz-err">zca-js chưa sẵn sàng trên server</span>`
-                : '');
+        const total = state.accounts.length;
+        const reconnecting = state.accounts.some((a) => a.status === 'reconnecting');
+        const kicked = state.accounts.some((a) => a.status === 'kicked');
+        const dot = conn ? 'connected' : reconnecting ? 'reconnecting' : total ? 'error' : '';
+        el.innerHTML = `<span class="wz-dot ${dot}"></span><span class="wz-rail-health-n">${conn}/${total}</span>`;
+        el.title =
+            res && res.zcaAvailable === false
+                ? 'zca-js chưa sẵn sàng trên server'
+                : kicked
+                  ? 'Có tài khoản bị giành phiên (mở Zalo Web nơi khác?)'
+                  : `${conn}/${total} tài khoản Zalo đang kết nối`;
     }
 
     function accCardHtml(a) {

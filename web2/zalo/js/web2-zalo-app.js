@@ -18,7 +18,7 @@
     // ===================================================================
     function switchTab(tab, focusPanel) {
         state.tab = tab;
-        document.querySelectorAll('.wz-tab').forEach((b) => {
+        document.querySelectorAll('.wz-rail-tab').forEach((b) => {
             const on = b.dataset.tab === tab;
             b.classList.toggle('is-active', on);
             b.setAttribute('aria-selected', on ? 'true' : 'false');
@@ -45,7 +45,7 @@
         // Tabs: click + keyboard (←/→/Home/End) theo ARIA APG tablist
         // APG manual-activation: ←/→/Home/End CHỈ di chuyển focus (roving tabindex);
         // Enter/Space (hoặc click) mới kích hoạt panel → không fetch mỗi lần bấm mũi tên.
-        const tabs = Array.from(document.querySelectorAll('.wz-tab'));
+        const tabs = Array.from(document.querySelectorAll('.wz-rail-tab'));
         const focusTab = (j) => {
             tabs.forEach((t, k) => (t.tabIndex = k === j ? 0 : -1));
             tabs[j].focus();
@@ -54,8 +54,10 @@
             b.addEventListener('click', () => switchTab(b.dataset.tab));
             b.addEventListener('keydown', (e) => {
                 let j = null;
-                if (e.key === 'ArrowRight') j = (i + 1) % tabs.length;
-                else if (e.key === 'ArrowLeft') j = (i - 1 + tabs.length) % tabs.length;
+                // Rail dọc: ↑/↓ (giữ ←/→ cho thân thiện) di chuyển focus; Enter/Space kích hoạt.
+                if (e.key === 'ArrowDown' || e.key === 'ArrowRight') j = (i + 1) % tabs.length;
+                else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft')
+                    j = (i - 1 + tabs.length) % tabs.length;
                 else if (e.key === 'Home') j = 0;
                 else if (e.key === 'End') j = tabs.length - 1;
                 if (j !== null) {
@@ -144,9 +146,9 @@
 
     function subscribeSse() {
         if (!window.Web2SSE?.subscribe) return;
-        window.Web2SSE.subscribe('web2:zalo:accounts', () => {
-            if (state.tab === 'accounts') WZApp.loadAccounts();
-        });
+        // Luôn refresh accounts (status fetch nhẹ) để đèn sức khoẻ rail + cảnh báo "bị
+        // giành phiên" cập nhật realtime kể cả khi đang ở tab Chat (grid ẩn vẫn render rẻ).
+        window.Web2SSE.subscribe('web2:zalo:accounts', () => WZApp.loadAccounts());
         // CHỈ refresh DANH SÁCH hội thoại ở đây (debounce). Tin của hội thoại
         // đang mở do subscribeRealtime (thread topic) lo → tránh double refetch.
         let _listT;
@@ -159,14 +161,13 @@
 
     function init() {
         bind();
-        WZApp.loadAccounts();
         subscribeSse();
         // focus theo ?focus=<phone> (từ Web2Zalo.openChat của trang khác)
         const focus = new URLSearchParams(location.search).get('focus');
-        if (focus) {
-            switchTab('chat');
-            state.conv.search = focus;
-        }
+        if (focus) state.conv.search = focus;
+        // Mặc định mở khu vực Chat (giống app Zalo). switchTab('chat') → loadConversations()
+        // → loadAccounts() nếu rỗng → đèn sức khoẻ rail cũng được render.
+        switchTab('chat');
     }
 
     // ── Export orchestrator API (switchTab dùng cross-module bởi accounts) ──

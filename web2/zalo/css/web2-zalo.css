@@ -1318,3 +1318,364 @@
         scroll-behavior: auto !important;
     }
 }
+
+/* ====================================================================== */
+/* PHASE 2 REBUILD (2026-06-22) — Layout 3-pane giống app Zalo PC:         */
+/*   icon rail · danh sách hội thoại · khung chat · cột thông tin.         */
+/*   Override .wz-main (cuộn nằm trong từng cột) + bỏ top-tabs.            */
+/* ====================================================================== */
+.wz-main {
+    height: 100vh;
+    height: 100dvh;
+    overflow: hidden; /* cuộn bên trong từng cột, không cuộn cả trang */
+    display: flex;
+    flex-direction: column;
+}
+.wz-app {
+    flex: 1;
+    display: flex;
+    min-width: 0;
+    min-height: 0;
+}
+
+/* ── Icon rail trái (khu vực Zalo) ─────────────────────────────────────── */
+.wz-rail {
+    width: 84px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 10px 0;
+    background: #fff;
+    border-right: 1px solid var(--wz-line);
+    z-index: 3;
+}
+.wz-rail-brand {
+    width: 44px;
+    height: 44px;
+    margin: 2px auto 12px;
+    border-radius: 14px;
+    display: grid;
+    place-items: center;
+    color: #fff;
+    background: linear-gradient(135deg, var(--wz-blue), #2a96ff);
+    box-shadow: 0 6px 16px rgba(0, 104, 255, 0.32);
+}
+.wz-rail-brand i {
+    width: 24px;
+    height: 24px;
+}
+.wz-rail-tab {
+    appearance: none;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 9px 4px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--wz-muted, #6b7686);
+    border-left: 3px solid transparent;
+    transition:
+        color var(--wz-fast, 150ms) ease,
+        background var(--wz-fast, 150ms) ease;
+}
+.wz-rail-tab i {
+    width: 22px;
+    height: 22px;
+}
+.wz-rail-tab span {
+    line-height: 1.1;
+}
+.wz-rail-tab:hover {
+    background: var(--wz-line-soft);
+    color: var(--wz-ink);
+}
+.wz-rail-tab.is-active {
+    color: var(--wz-blue);
+    background: var(--wz-blue-soft);
+    border-left-color: var(--wz-blue);
+}
+.wz-rail-tab:focus-visible {
+    outline: 2px solid var(--wz-blue);
+    outline-offset: -2px;
+}
+.wz-rail-foot {
+    margin-top: auto;
+    padding: 10px 4px 2px;
+    display: grid;
+    place-items: center;
+}
+.wz-rail-health {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--wz-muted, #6b7686);
+}
+.wz-rail-health-n {
+    font-variant-numeric: tabular-nums;
+}
+
+/* ── Vùng panel (view) ─────────────────────────────────────────────────── */
+.wz-view {
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    overflow: hidden;
+}
+.wz-view > .wz-panel {
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+    overflow: auto;
+    padding: 20px 22px;
+}
+.wz-view > .wz-panel[hidden] {
+    display: none;
+}
+.wz-view > .wz-panel-chat {
+    padding: 0;
+    overflow: hidden;
+    display: flex;
+}
+
+/* ── 3-pane chat ───────────────────────────────────────────────────────── */
+.wz-chat3 {
+    flex: 1;
+    display: flex;
+    min-width: 0;
+    min-height: 0;
+    background: var(--wz-card, #fff);
+}
+.wz-conv-col {
+    width: 340px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    border-right: 1px solid var(--wz-line);
+    background: #fbfcfe;
+}
+.wz-conv-acc {
+    padding: 10px 11px;
+    border-bottom: 1px solid var(--wz-line);
+    background: #fbfcfe;
+}
+.wz-conv-acc .wz-select {
+    width: 100%;
+}
+.wz-chat3 .wz-conv-list {
+    flex: 1;
+    min-height: 0;
+    border-right: 0;
+}
+.wz-chat3 > .wz-chat-main {
+    flex: 1;
+    min-width: 0;
+}
+.wz-sr {
+    position: absolute !important;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* ── Cột thông tin (info panel) ────────────────────────────────────────── */
+.wz-info-panel {
+    width: 300px;
+    flex-shrink: 0;
+    border-left: 1px solid var(--wz-line);
+    background: #fff;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    display: flex;
+    flex-direction: column;
+}
+.wz-info-panel[hidden] {
+    display: none;
+}
+.wz-info-top {
+    display: flex;
+    justify-content: flex-end;
+    padding: 8px 8px 0;
+}
+.wz-info-hd {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 16px 18px;
+    border-bottom: 1px solid var(--wz-line-soft);
+}
+.wz-info-av,
+.wz-info-hd img {
+    width: 76px;
+    height: 76px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+.wz-info-av.is-group {
+    border-radius: 22px;
+}
+.wz-info-name {
+    font-weight: 800;
+    font-size: 16px;
+    text-align: center;
+    word-break: break-word;
+}
+.wz-info-type {
+    font-size: 12px;
+    color: var(--wz-muted, #6b7686);
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+.wz-info-type i {
+    width: 13px;
+    height: 13px;
+}
+.wz-info-rows {
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+.wz-info-row {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    font-size: 13px;
+}
+.wz-info-row i {
+    width: 16px;
+    height: 16px;
+    color: var(--wz-muted, #6b7686);
+    flex-shrink: 0;
+}
+.wz-info-k {
+    color: var(--wz-muted, #6b7686);
+    width: 64px;
+    flex-shrink: 0;
+}
+.wz-info-v {
+    color: var(--wz-ink);
+    font-weight: 600;
+    word-break: break-word;
+    min-width: 0;
+}
+
+/* ── Empty state khung chat ────────────────────────────────────────────── */
+.wz-chat-empty {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    color: var(--wz-muted, #6b7686);
+    text-align: center;
+    padding: 24px;
+}
+.wz-chat-empty-ic {
+    width: 64px;
+    height: 64px;
+    border-radius: 22px;
+    display: grid;
+    place-items: center;
+    background: var(--wz-blue-soft);
+    color: var(--wz-blue);
+    margin-bottom: 4px;
+}
+.wz-chat-empty-ic i {
+    width: 30px;
+    height: 30px;
+}
+.wz-chat-empty-t {
+    font-weight: 700;
+    color: var(--wz-ink);
+    font-size: 15px;
+}
+.wz-chat-empty-s {
+    font-size: 12.5px;
+    max-width: 260px;
+}
+
+/* ── Responsive ────────────────────────────────────────────────────────── */
+@media (max-width: 1180px) {
+    /* Info panel thành overlay phải để khung chat đủ rộng */
+    .wz-chat3 {
+        position: relative;
+    }
+    .wz-info-panel {
+        position: absolute;
+        right: 0;
+        top: 0;
+        bottom: 0;
+        z-index: 6;
+        box-shadow: -8px 0 24px rgba(16, 24, 40, 0.12);
+    }
+}
+@media (max-width: 900px) {
+    .wz-conv-col {
+        width: 268px;
+    }
+}
+@media (max-width: 680px) {
+    .wz-app {
+        flex-direction: column;
+    }
+    .wz-rail {
+        width: 100%;
+        flex-direction: row;
+        justify-content: space-around;
+        gap: 0;
+        padding: 4px 6px;
+        border-right: 0;
+        border-bottom: 1px solid var(--wz-line);
+        overflow-x: auto;
+    }
+    .wz-rail-brand {
+        display: none;
+    }
+    .wz-rail-tab {
+        border-left: 0;
+        border-bottom: 3px solid transparent;
+        padding: 7px 12px;
+    }
+    .wz-rail-tab.is-active {
+        border-left: 0;
+        border-bottom-color: var(--wz-blue);
+    }
+    .wz-rail-foot {
+        margin: 0 0 0 auto;
+        padding: 0 6px;
+    }
+    .wz-chat3 {
+        flex-direction: column;
+    }
+    .wz-conv-col {
+        width: 100%;
+        max-height: 42vh;
+        border-right: 0;
+        border-bottom: 1px solid var(--wz-line);
+    }
+    .wz-chat3 > .wz-chat-main {
+        flex: 1;
+        min-height: 0;
+    }
+    .wz-info-panel {
+        width: 84%;
+        max-width: 320px;
+    }
+}

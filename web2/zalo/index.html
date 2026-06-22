@@ -18,7 +18,7 @@
         <link rel="stylesheet" href="../shared/web2-sidebar.css?v=20260613z" />
         <link rel="stylesheet" href="../shared/web2-components.css?v=20260613z" />
         <link rel="stylesheet" href="../shared/web2-theme.css?v=20260622t5" />
-        <link rel="stylesheet" href="css/web2-zalo.css?v=20260619primary" />
+        <link rel="stylesheet" href="css/web2-zalo.css?v=20260622p2" />
         <link rel="stylesheet" href="../shared/zalo-chat/chat-bubbles.css?v=20260616b" />
         <link rel="stylesheet" href="../shared/zalo-chat/chat-composer.css?v=20260616a" />
         <link rel="stylesheet" href="../shared/zalo-chat/chat-lightbox.css?v=20260613L" />
@@ -31,215 +31,248 @@
         <div class="web2-shell">
             <aside class="web2-aside" id="web2Aside"></aside>
             <main class="main-content wz-main">
-                <header class="wz-page-head">
-                    <nav class="wz-breadcrumb" aria-label="Breadcrumb">
-                        <span>Web 2.0</span><span class="sep">/</span><span>Tính năng mới</span
-                        ><span class="sep">/</span><span>Zalo</span>
-                    </nav>
-                    <div class="wz-title-row">
-                        <span class="wz-title-ic"><i data-lucide="message-circle"></i></span>
-                        <h1>Zalo</h1>
-                        <div
-                            class="wz-status-strip"
-                            id="wzStatusStrip"
-                            role="status"
-                            aria-live="polite"
-                        ></div>
-                    </div>
-                </header>
-
-                <nav class="wz-tabs" role="tablist" aria-label="Khu vực Zalo">
-                    <button
-                        class="wz-tab is-active"
-                        role="tab"
-                        id="wzTabAccounts"
-                        data-tab="accounts"
-                        aria-selected="true"
-                        aria-controls="wzPanelAccounts"
-                        tabindex="0"
-                    >
-                        <i data-lucide="users"></i> Tài khoản
-                    </button>
-                    <button
-                        class="wz-tab"
-                        role="tab"
-                        id="wzTabChat"
-                        data-tab="chat"
-                        aria-selected="false"
-                        aria-controls="wzPanelChat"
-                        tabindex="-1"
-                    >
-                        <i data-lucide="messages-square"></i> Hội thoại
-                    </button>
-                    <button
-                        class="wz-tab"
-                        role="tab"
-                        id="wzTabLookup"
-                        data-tab="lookup"
-                        aria-selected="false"
-                        aria-controls="wzPanelLookup"
-                        tabindex="-1"
-                    >
-                        <i data-lucide="user-search"></i> Tra cứu
-                    </button>
-                    <button
-                        class="wz-tab"
-                        role="tab"
-                        id="wzTabZns"
-                        data-tab="zns"
-                        aria-selected="false"
-                        aria-controls="wzPanelZns"
-                        tabindex="-1"
-                    >
-                        <i data-lucide="bell-ring"></i> ZNS
-                    </button>
-                </nav>
-
-                <!-- TAB: Tài khoản -->
-                <section
-                    class="wz-panel"
-                    id="wzPanelAccounts"
-                    role="tabpanel"
-                    aria-labelledby="wzTabAccounts"
-                    tabindex="0"
-                >
-                    <p class="wz-hint">
-                        Quản lý mọi tài khoản Zalo của shop ở một nơi — và đây là
-                        <b>nguồn Zalo duy nhất</b>: các trang khác đều dùng dữ liệu từ đây.
-                    </p>
-                    <div class="wz-acc-grid" id="wzAccGrid" role="status" aria-busy="true"></div>
-                </section>
-
-                <!-- TAB: Hội thoại -->
-                <section
-                    class="wz-panel"
-                    id="wzPanelChat"
-                    role="tabpanel"
-                    aria-labelledby="wzTabChat"
-                    tabindex="0"
-                    hidden
-                >
-                    <div class="wz-row" style="align-items: center">
-                        <div class="wz-field" style="max-width: 300px">
-                            <label for="wzChatAccount">Tài khoản cá nhân</label>
-                            <select id="wzChatAccount" class="wz-select"></select>
+                <div class="wz-app">
+                    <!-- Icon rail (giống Zalo PC): Chat là khu vực mặc định -->
+                    <nav class="wz-rail" role="tablist" aria-label="Khu vực Zalo">
+                        <div class="wz-rail-brand" title="Zalo — Web 2.0" aria-hidden="true">
+                            <i data-lucide="message-circle"></i>
                         </div>
-                    </div>
-                    <div class="wz-chat">
-                        <div class="wz-conv-list" id="wzConvList"></div>
-                        <div class="wz-chat-main" id="wzChatMain">
-                            <div class="wz-chat-empty">Chọn một hội thoại để xem tin nhắn</div>
-                        </div>
-                    </div>
-                </section>
-
-                <!-- TAB: Tra cứu -->
-                <section
-                    class="wz-panel"
-                    id="wzPanelLookup"
-                    role="tabpanel"
-                    aria-labelledby="wzTabLookup"
-                    tabindex="0"
-                    hidden
-                >
-                    <div class="wz-card">
-                        <h3>Xem thông tin người dùng Zalo</h3>
-                        <p class="wz-hint" style="margin: -8px 0 14px">
-                            Tra theo SĐT bằng tài khoản cá nhân đã kết nối.
-                        </p>
-                        <div class="wz-row">
-                            <div class="wz-field" style="max-width: 260px">
-                                <label for="wzLookupAccount">Tài khoản tra cứu (cá nhân)</label>
-                                <select id="wzLookupAccount" class="wz-select"></select>
-                            </div>
-                            <div class="wz-field" style="max-width: 220px">
-                                <label for="wzLookupPhone">Số điện thoại</label>
-                                <input
-                                    id="wzLookupPhone"
-                                    type="tel"
-                                    inputmode="numeric"
-                                    placeholder="0xxxxxxxxx"
-                                    autocomplete="off"
-                                />
-                            </div>
-                            <button class="wz-btn wz-btn-primary" id="wzLookupBtn">
-                                <i data-lucide="search"></i> Tra cứu
-                            </button>
-                            <button class="wz-btn" id="wzLookupSelf">
-                                <i data-lucide="user"></i> Thông tin của tôi
-                            </button>
-                        </div>
-                        <div id="wzLookupResult"></div>
-                    </div>
-                </section>
-
-                <!-- TAB: ZNS -->
-                <section
-                    class="wz-panel"
-                    id="wzPanelZns"
-                    role="tabpanel"
-                    aria-labelledby="wzTabZns"
-                    tabindex="0"
-                    hidden
-                >
-                    <div class="wz-card">
-                        <h3>Gửi ZNS (Zalo Notification Service)</h3>
-                        <p class="wz-hint" style="margin: -8px 0 14px">
-                            Thông báo template chính thức tới bất kỳ SĐT nào (~200đ/tin). Cần kết
-                            nối OA ở tab Tài khoản trước. Template khả dụng:
-                            <b id="wzZnsTplCount">0</b>.
-                        </p>
-                        <div class="wz-row">
-                            <div class="wz-field" style="max-width: 200px">
-                                <label for="wzZnsPhone">SĐT <span class="req">*</span></label>
-                                <input
-                                    id="wzZnsPhone"
-                                    type="tel"
-                                    inputmode="numeric"
-                                    placeholder="0xxxxxxxxx"
-                                    autocomplete="off"
-                                />
-                            </div>
-                            <div class="wz-field">
-                                <label for="wzZnsTemplate"
-                                    >Template <span class="req">*</span></label
-                                >
-                                <select id="wzZnsTemplate" class="wz-select"></select>
-                            </div>
-                        </div>
-                        <div class="wz-field" style="margin-top: 10px">
-                            <label for="wzZnsData">template_data (JSON)</label>
-                            <textarea
-                                id="wzZnsData"
-                                rows="3"
-                                placeholder='{"order_code":"DH123","amount":"250.000đ"}'
-                            ></textarea>
-                        </div>
-                        <div class="wz-err" id="wzZnsErr"></div>
                         <button
-                            class="wz-btn wz-btn-primary"
-                            id="wzZnsSend"
-                            style="margin-top: 8px"
+                            class="wz-rail-tab is-active"
+                            role="tab"
+                            id="wzTabChat"
+                            data-tab="chat"
+                            aria-selected="true"
+                            aria-controls="wzPanelChat"
+                            tabindex="0"
+                            title="Hội thoại"
                         >
-                            <i data-lucide="send"></i> Gửi ZNS
+                            <i data-lucide="messages-square"></i><span>Chat</span>
                         </button>
-                    </div>
-                    <div class="wz-card">
-                        <div
-                            style="
-                                display: flex;
-                                align-items: center;
-                                justify-content: space-between;
-                            "
+                        <button
+                            class="wz-rail-tab"
+                            role="tab"
+                            id="wzTabAccounts"
+                            data-tab="accounts"
+                            aria-selected="false"
+                            aria-controls="wzPanelAccounts"
+                            tabindex="-1"
+                            title="Tài khoản"
                         >
-                            <h3 style="margin: 0">Lịch sử gửi ZNS</h3>
-                            <button class="wz-btn wz-btn-sm" id="wzZnsReloadLog">
-                                <i data-lucide="refresh-cw"></i> Tải lại
-                            </button>
+                            <i data-lucide="users"></i><span>Tài khoản</span>
+                        </button>
+                        <button
+                            class="wz-rail-tab"
+                            role="tab"
+                            id="wzTabLookup"
+                            data-tab="lookup"
+                            aria-selected="false"
+                            aria-controls="wzPanelLookup"
+                            tabindex="-1"
+                            title="Tra cứu"
+                        >
+                            <i data-lucide="user-search"></i><span>Tra cứu</span>
+                        </button>
+                        <button
+                            class="wz-rail-tab"
+                            role="tab"
+                            id="wzTabZns"
+                            data-tab="zns"
+                            aria-selected="false"
+                            aria-controls="wzPanelZns"
+                            tabindex="-1"
+                            title="ZNS"
+                        >
+                            <i data-lucide="bell-ring"></i><span>ZNS</span>
+                        </button>
+                        <div class="wz-rail-foot">
+                            <span
+                                class="wz-rail-health"
+                                id="wzRailHealth"
+                                role="status"
+                                aria-live="polite"
+                                title="Trạng thái kết nối Zalo"
+                            ></span>
                         </div>
-                        <div id="wzZnsLog"></div>
+                    </nav>
+
+                    <div class="wz-view">
+                        <!-- TAB: Hội thoại — 3-pane (danh sách · khung chat · thông tin) -->
+                        <section
+                            class="wz-panel wz-panel-chat"
+                            id="wzPanelChat"
+                            role="tabpanel"
+                            aria-labelledby="wzTabChat"
+                            tabindex="0"
+                        >
+                            <div class="wz-chat3">
+                                <div class="wz-conv-col">
+                                    <div class="wz-conv-acc">
+                                        <label class="wz-sr" for="wzChatAccount"
+                                            >Tài khoản cá nhân</label
+                                        >
+                                        <select id="wzChatAccount" class="wz-select"></select>
+                                    </div>
+                                    <div class="wz-conv-list" id="wzConvList"></div>
+                                </div>
+                                <div class="wz-chat-main" id="wzChatMain">
+                                    <div class="wz-chat-empty">
+                                        <span class="wz-chat-empty-ic"
+                                            ><i data-lucide="messages-square"></i
+                                        ></span>
+                                        <div class="wz-chat-empty-t">
+                                            Chọn một hội thoại để bắt đầu
+                                        </div>
+                                        <div class="wz-chat-empty-s">
+                                            Tin khách gửi tới sẽ tự hiện theo thời gian thực.
+                                        </div>
+                                    </div>
+                                </div>
+                                <aside
+                                    class="wz-info-panel"
+                                    id="wzInfoPanel"
+                                    aria-label="Thông tin hội thoại"
+                                    hidden
+                                ></aside>
+                            </div>
+                        </section>
+
+                        <!-- TAB: Tài khoản -->
+                        <section
+                            class="wz-panel"
+                            id="wzPanelAccounts"
+                            role="tabpanel"
+                            aria-labelledby="wzTabAccounts"
+                            tabindex="0"
+                            hidden
+                        >
+                            <p class="wz-hint">
+                                Quản lý mọi tài khoản Zalo của shop ở một nơi — và đây là
+                                <b>nguồn Zalo duy nhất</b>: các trang khác đều dùng dữ liệu từ đây.
+                            </p>
+                            <div
+                                class="wz-acc-grid"
+                                id="wzAccGrid"
+                                role="status"
+                                aria-busy="true"
+                            ></div>
+                        </section>
+
+                        <!-- TAB: Tra cứu -->
+                        <section
+                            class="wz-panel"
+                            id="wzPanelLookup"
+                            role="tabpanel"
+                            aria-labelledby="wzTabLookup"
+                            tabindex="0"
+                            hidden
+                        >
+                            <div class="wz-card">
+                                <h3>Xem thông tin người dùng Zalo</h3>
+                                <p class="wz-hint" style="margin: -8px 0 14px">
+                                    Tra theo SĐT bằng tài khoản cá nhân đã kết nối.
+                                </p>
+                                <div class="wz-row">
+                                    <div class="wz-field" style="max-width: 260px">
+                                        <label for="wzLookupAccount"
+                                            >Tài khoản tra cứu (cá nhân)</label
+                                        >
+                                        <select id="wzLookupAccount" class="wz-select"></select>
+                                    </div>
+                                    <div class="wz-field" style="max-width: 220px">
+                                        <label for="wzLookupPhone">Số điện thoại</label>
+                                        <input
+                                            id="wzLookupPhone"
+                                            type="tel"
+                                            inputmode="numeric"
+                                            placeholder="0xxxxxxxxx"
+                                            autocomplete="off"
+                                        />
+                                    </div>
+                                    <button class="wz-btn wz-btn-primary" id="wzLookupBtn">
+                                        <i data-lucide="search"></i> Tra cứu
+                                    </button>
+                                    <button class="wz-btn" id="wzLookupSelf">
+                                        <i data-lucide="user"></i> Thông tin của tôi
+                                    </button>
+                                </div>
+                                <div id="wzLookupResult"></div>
+                            </div>
+                        </section>
+
+                        <!-- TAB: ZNS -->
+                        <section
+                            class="wz-panel"
+                            id="wzPanelZns"
+                            role="tabpanel"
+                            aria-labelledby="wzTabZns"
+                            tabindex="0"
+                            hidden
+                        >
+                            <div class="wz-card">
+                                <h3>Gửi ZNS (Zalo Notification Service)</h3>
+                                <p class="wz-hint" style="margin: -8px 0 14px">
+                                    Thông báo template chính thức tới bất kỳ SĐT nào (~200đ/tin).
+                                    Cần kết nối OA ở tab Tài khoản trước. Template khả dụng:
+                                    <b id="wzZnsTplCount">0</b>.
+                                </p>
+                                <div class="wz-row">
+                                    <div class="wz-field" style="max-width: 200px">
+                                        <label for="wzZnsPhone"
+                                            >SĐT <span class="req">*</span></label
+                                        >
+                                        <input
+                                            id="wzZnsPhone"
+                                            type="tel"
+                                            inputmode="numeric"
+                                            placeholder="0xxxxxxxxx"
+                                            autocomplete="off"
+                                        />
+                                    </div>
+                                    <div class="wz-field">
+                                        <label for="wzZnsTemplate"
+                                            >Template <span class="req">*</span></label
+                                        >
+                                        <select id="wzZnsTemplate" class="wz-select"></select>
+                                    </div>
+                                </div>
+                                <div class="wz-field" style="margin-top: 10px">
+                                    <label for="wzZnsData">template_data (JSON)</label>
+                                    <textarea
+                                        id="wzZnsData"
+                                        rows="3"
+                                        placeholder='{"order_code":"DH123","amount":"250.000đ"}'
+                                    ></textarea>
+                                </div>
+                                <div class="wz-err" id="wzZnsErr"></div>
+                                <button
+                                    class="wz-btn wz-btn-primary"
+                                    id="wzZnsSend"
+                                    style="margin-top: 8px"
+                                >
+                                    <i data-lucide="send"></i> Gửi ZNS
+                                </button>
+                            </div>
+                            <div class="wz-card">
+                                <div
+                                    style="
+                                        display: flex;
+                                        align-items: center;
+                                        justify-content: space-between;
+                                    "
+                                >
+                                    <h3 style="margin: 0">Lịch sử gửi ZNS</h3>
+                                    <button class="wz-btn wz-btn-sm" id="wzZnsReloadLog">
+                                        <i data-lucide="refresh-cw"></i> Tải lại
+                                    </button>
+                                </div>
+                                <div id="wzZnsLog"></div>
+                            </div>
+                        </section>
                     </div>
-                </section>
+                    <!-- /.wz-view -->
+                </div>
+                <!-- /.wz-app -->
             </main>
         </div>
 
@@ -403,11 +436,11 @@
         <script src="../shared/zalo-chat/chat-actions.js?v=20260613L"></script>
         <script src="../shared/zalo-chat/chat-view.js?v=20260616b"></script>
         <!-- Page app — tách module (utils → accounts → chat → lookup-zns → app), app LAST -->
-        <script src="js/web2-zalo-utils.js?v=20260618w1"></script>
-        <script src="js/web2-zalo-accounts.js?v=20260620cookieadd"></script>
-        <script src="js/web2-zalo-chat.js?v=20260618w1"></script>
+        <script src="js/web2-zalo-utils.js?v=20260622p2"></script>
+        <script src="js/web2-zalo-accounts.js?v=20260622p2"></script>
+        <script src="js/web2-zalo-chat.js?v=20260622p2"></script>
         <script src="js/web2-zalo-lookup-zns.js?v=20260618w1"></script>
-        <script src="js/web2-zalo-app.js?v=20260620cookieadd"></script>
+        <script src="js/web2-zalo-app.js?v=20260622p2"></script>
 
         <script>
             if (window.Web2Sidebar)
