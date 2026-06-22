@@ -67,7 +67,7 @@
     --web2-border-btn: #e6e9ef;
     --web2-bg-app: #f5f7fb;
     --web2-bg-light: #eef2f7;
-    --web2-bg-cell-head: #f8fafc;
+    --web2-bg-cell-head: #f0eeee; /* khớp web2-base (look bảng native-orders) — chỉ dùng cho thead bảng */
     --web2-link: #0068ff;
     --web2-link-hover: #0058da;
 }
