@@ -3,16 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `4a05118` — docs(web2-audit): update rollout tracker — Wave 1+2 done, Wave 3 roadmap
-**Last updated**: 2026-06-23 00:15:10 +07
-**Latest session**: [`RESUME:20260623-001510-4a05118`](../20260623-001510-4a05118.md)
-**Summary**: per-record history: FE returns/reconcile/customers + Wave 2 backend 9 routes → event-sink + entityId purge
+**Latest commit**: `15b846e` — docs(web2-audit): Wave 3 done — all per-record history pages complete
+**Last updated**: 2026-06-23 00:25:17 +07
+**Latest session**: [`RESUME:20260623-002517-15b846e`](../20260623-002517-15b846e.md)
+**Summary**: Wave 3 done: 🕘 per-record history buttons on 10 sink-wired pages, verified prod
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 2 file(s)
-- [`render.com/`](./render.com.md) — 9 file(s)
-- [`web2/`](./web2.md) — 12 file(s)
+- [`web2/`](./web2.md) — 24 file(s)
 
 ## All folder snapshots
 
@@ -27,7 +26,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-21 15:47
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-06-23 00:15
+- [`docs/`](./docs.md) — updated 2026-06-23 00:25
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-19 14:27
@@ -78,4 +77,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-23 00:15
+- [`web2/`](./web2.md) — updated 2026-06-23 00:25
