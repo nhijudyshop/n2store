@@ -723,6 +723,25 @@ async function recall(accountKey, threadId, msgId, cliMsgId, threadType) {
     return { success: true, status: res?.status, raw: res };
 }
 
+// Xoá tin ở phía mình (deleteMessage onlyMe=true) — KHÁC recall (thu hồi 2 phía).
+// dest cần data{cliMsgId,msgId,uidFrom}. uidFrom = người gửi tin gốc (tin mình gửi → uid mình).
+async function deleteForMe(accountKey, { threadId, msgId, cliMsgId, uidFrom, threadType }) {
+    const api = _requireApi(accountKey);
+    const res = await api.deleteMessage(
+        {
+            data: {
+                cliMsgId: String(cliMsgId || ''),
+                msgId: String(msgId || ''),
+                uidFrom: String(uidFrom || ''),
+            },
+            threadId: String(threadId),
+            type: _tt(threadType),
+        },
+        true
+    );
+    return { success: true, status: res?.status, raw: res };
+}
+
 async function forward(accountKey, message, threadIds, threadType) {
     const api = _requireApi(accountKey);
     const ids = (Array.isArray(threadIds) ? threadIds : [threadIds]).map(String);
@@ -1044,6 +1063,7 @@ module.exports = {
     sendSticker,
     react,
     recall,
+    deleteForMe,
     forward,
     sendTyping,
     sendSeen,

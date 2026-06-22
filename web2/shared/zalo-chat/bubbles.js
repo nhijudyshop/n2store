@@ -158,6 +158,7 @@
             <button class="wz-msg-tool" data-act="reply" title="Trả lời" aria-label="Trả lời"><i data-lucide="reply"></i></button>
             <button class="wz-msg-tool" data-wz-react-btn data-act="react" title="Thả cảm xúc" aria-label="Thả cảm xúc"><i data-lucide="smile"></i></button>
             ${m.direction === 'out' && !m.recalled ? `<button class="wz-msg-tool" data-act="recall" title="Thu hồi" aria-label="Thu hồi"><i data-lucide="rotate-ccw"></i></button>` : ''}
+            <button class="wz-msg-tool" data-act="delete-me" title="Xoá ở phía tôi" aria-label="Xoá ở phía tôi"><i data-lucide="trash-2"></i></button>
         </div>`;
     }
 

@@ -1107,7 +1107,7 @@ router.get('/conversations/:id/messages', async (req, res) => {
         }
         params.push(lim);
         const { rows } = await db.query(
-            `SELECT * FROM web2_zalo_messages WHERE account_key=$1 AND thread_id=$2${beforeSql} ORDER BY sent_at DESC, id DESC LIMIT $${params.length}`,
+            `SELECT * FROM web2_zalo_messages WHERE account_key=$1 AND thread_id=$2 AND NOT COALESCE(hidden_for_me,false)${beforeSql} ORDER BY sent_at DESC, id DESC LIMIT $${params.length}`,
             params
         );
         const hasMore = rows.length === lim;
@@ -1699,6 +1699,26 @@ router.post('/recall', async (req, res) => {
             return res.status(400).json({ success: false, error: 'Thiếu tham số' });
         await zca.recall(accountKey, threadId, msgId, cliMsgId, threadType);
         await _persistRecall({ accountKey, threadId, msgId, cliMsgId, uidFrom: 'me' });
+        res.json({ success: true });
+    } catch (e) {
+        res.status(400).json({ success: false, error: e.message });
+    }
+});
+
+// ── Xoá tin ở phía mình (delete-for-me) — ẩn khỏi DB + Zalo onlyMe ─────
+router.post('/delete-message', async (req, res) => {
+    try {
+        const { accountKey, threadId, msgId, cliMsgId, uidFrom, threadType } = req.body || {};
+        if (!accountKey || !threadId || (!msgId && !cliMsgId))
+            return res.status(400).json({ success: false, error: 'Thiếu tham số' });
+        await zca.deleteForMe(accountKey, { threadId, msgId, cliMsgId, uidFrom, threadType });
+        // Ẩn vĩnh viễn ở DB để không hiện lại sau refresh.
+        await getDb(req).query(
+            `UPDATE web2_zalo_messages SET hidden_for_me=true
+              WHERE account_key=$1 AND (msg_id=$2 OR cli_msg_id=$3)`,
+            [accountKey, msgId || '', cliMsgId || '']
+        );
+        _notifyThread(accountKey, threadId, 'delete', msgId || cliMsgId);
         res.json({ success: true });
     } catch (e) {
         res.status(400).json({ success: false, error: e.message });

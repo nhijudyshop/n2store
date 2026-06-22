@@ -46,6 +46,7 @@ async function ensureWeb2ZaloSchema(pool) {
                     ADD COLUMN IF NOT EXISTS recalled         BOOLEAN NOT NULL DEFAULT false,
                     ADD COLUMN IF NOT EXISTS recalled_at      BIGINT,
                     ADD COLUMN IF NOT EXISTS recalled_by      VARCHAR(100),
+                    ADD COLUMN IF NOT EXISTS hidden_for_me    BOOLEAN NOT NULL DEFAULT false,
                     ADD COLUMN IF NOT EXISTS seen_at          BIGINT;
                 ALTER TABLE IF EXISTS web2_zalo_conversations
                     ADD COLUMN IF NOT EXISTS last_read_msg_id TEXT,
@@ -175,6 +176,7 @@ async function ensureWeb2ZaloSchema(pool) {
                 recalled      BOOLEAN NOT NULL DEFAULT false, -- thu hồi (undo)
                 recalled_at   BIGINT,
                 recalled_by   VARCHAR(100),
+                hidden_for_me BOOLEAN NOT NULL DEFAULT false, -- xoá ở phía tôi (deleteMessage onlyMe)
                 seen_at       BIGINT,                        -- KH đã xem tin out
                 sender_uid    VARCHAR(100),
                 send_status   VARCHAR(20) DEFAULT 'sent',    -- sent|failed|pending

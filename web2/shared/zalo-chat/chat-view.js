@@ -405,6 +405,7 @@
                 if (act === 'reply') return WZ.composer?.setReply(m);
                 if (act === 'react') return WZ.openReactionBar(tool, (key) => doReact(m, key));
                 if (act === 'recall') return doRecall(m);
+                if (act === 'delete-me') return doDeleteMe(m);
                 if (act === 'forward') return doForward(m, tool);
             });
             el.addEventListener(
@@ -434,6 +435,25 @@
                 m.recalled = false;
                 renderBody({ keepScroll: true });
                 notify('✗ Thu hồi lỗi: ' + e.message, 'error');
+            });
+        }
+        async function doDeleteMe(m) {
+            if (
+                !(await window.Popup.danger('Xoá tin này ở phía bạn? (người kia vẫn thấy)', {
+                    okText: 'Xoá',
+                }))
+            )
+                return;
+            const idx = messages.indexOf(m);
+            // UI-first: gỡ khỏi danh sách ngay, rollback nếu backend lỗi.
+            messages = messages.filter((x) => x !== m);
+            WZ.store?.setMessages(messages);
+            renderBody({ keepScroll: true });
+            WZ.actions.deleteForMe(account, conv, m).catch((e) => {
+                if (idx >= 0) messages.splice(idx, 0, m);
+                WZ.store?.setMessages(messages);
+                renderBody({ keepScroll: true });
+                notify('✗ Xoá lỗi: ' + e.message, 'error');
             });
         }
         function doForward(m, anchor) {

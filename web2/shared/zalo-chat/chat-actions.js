@@ -41,6 +41,20 @@
             });
         },
 
+        // Xoá tin ở phía mình (delete-for-me). uidFrom = người gửi tin gốc.
+        deleteForMe(account, conv, msg) {
+            return window.ZaloApi.deleteMessage({
+                accountKey: account,
+                threadId: conv.thread_id,
+                msgId: String(msg.msg_id || ''),
+                cliMsgId: String(msg.cli_msg_id || ''),
+                uidFrom: String(
+                    msg.sender_uid || (msg.direction === 'out' ? conv._selfUid || '' : '')
+                ),
+                threadType: conv.thread_type,
+            });
+        },
+
         // Chuyển tiếp text/URL tới nhiều thread.
         forward(account, conv, msg, threadIds) {
             const message =

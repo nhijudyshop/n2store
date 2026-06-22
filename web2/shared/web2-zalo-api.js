@@ -170,6 +170,10 @@
         recall(body) {
             return _fetch('/recall', { method: 'POST', body: JSON.stringify(body) });
         },
+        // Xoá tin ở phía mình (delete-for-me) — khác recall (thu hồi 2 phía).
+        deleteMessage(body) {
+            return _fetch('/delete-message', { method: 'POST', body: JSON.stringify(body) });
+        },
         forward(body) {
             return _fetch('/forward', { method: 'POST', body: JSON.stringify(body) });
         },
