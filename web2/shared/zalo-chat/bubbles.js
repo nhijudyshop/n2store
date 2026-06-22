@@ -206,6 +206,12 @@
             if (unreadId && (m.msg_id === unreadId || m.cli_msg_id === unreadId)) {
                 html += `<div class="wz-unread-divider"><span>Tin chưa đọc</span></div>`;
             }
+            // Tin hệ thống nhóm (vào/rời/đổi tên…) → dòng giữa khung, không phải bong bóng.
+            if (m.msg_type === 'system') {
+                html += `<div class="wz-sys-msg"><span>${fmtText(m.content || '')}</span></div>`;
+                prevKey = '';
+                return;
+            }
             const groupKey = m.direction + '|' + (m.sender_uid || '');
             const grouped = groupKey === prevKey;
             prevKey = groupKey;

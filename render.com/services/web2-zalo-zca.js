@@ -250,6 +250,70 @@ function _normMessage(accountKey, m) {
     };
 }
 
+// ── Sự kiện NHÓM → câu mô tả tiếng Việt (chỉ trả text cho loại đáng hiển thị) ──
+function _groupEventText(type, who, d) {
+    const g = d?.groupName ? `"${d.groupName}"` : 'nhóm';
+    switch (type) {
+        case 'join':
+            return `${who || 'Thành viên mới'} đã tham gia nhóm`;
+        case 'leave':
+            return `${who || 'Một thành viên'} đã rời nhóm`;
+        case 'remove_member':
+            return `${who || 'Một thành viên'} đã bị xoá khỏi nhóm`;
+        case 'block_member':
+            return `${who || 'Một thành viên'} đã bị chặn khỏi nhóm`;
+        case 'add_admin':
+            return `${who || 'Một thành viên'} được thêm làm phó nhóm`;
+        case 'remove_admin':
+            return `${who || 'Một thành viên'} bị gỡ vai trò phó nhóm`;
+        case 'update':
+            return `Thông tin ${g} đã được cập nhật`;
+        case 'update_avatar':
+            return `Ảnh đại diện nhóm đã thay đổi`;
+        case 'update_setting':
+            return `Cài đặt nhóm đã thay đổi`;
+        case 'new_pin_topic':
+            return `Đã ghim một nội dung trong nhóm`;
+        case 'new_link':
+            return `Liên kết tham gia nhóm đã được tạo`;
+        case 'join_request':
+            return `${who || 'Có người'} xin tham gia nhóm`;
+        default:
+            return null; // loại không đáng hiển thị (reorder pin/board/remind…)
+    }
+}
+
+// GroupEvent (zca) → tin hệ thống dạng message để persist + render giữa khung chat.
+// direction='system' để KHÔNG cộng unread (persist chỉ cộng khi direction==='in').
+function _normGroupEvent(accountKey, e) {
+    const type = e?.type;
+    const d = e?.data || {};
+    const threadId = String(e?.threadId || d.groupId || '');
+    if (!threadId) return null;
+    const names = (Array.isArray(d.updateMembers) ? d.updateMembers : [])
+        .map((m) => m && m.dName)
+        .filter(Boolean);
+    const who = names.join(', ');
+    const text = _groupEventText(type, who, d);
+    if (!text) return null;
+    return {
+        accountKey,
+        msgId: `sys_${threadId}_${type}_${now()}`,
+        cliMsgId: null,
+        threadId,
+        threadType: 'group',
+        direction: 'system',
+        msgType: 'system',
+        content: text,
+        attachments: [],
+        replyTo: null,
+        senderUid: null,
+        senderName: null,
+        sentAt: now(),
+        raw: null,
+    };
+}
+
 // ── Normalizers cho event realtime (typing/seen/reaction/undo) ──────────
 function _normTyping(accountKey, e) {
     const d = e?.data || e || {};
@@ -348,6 +412,14 @@ function _attachListener(accountKey, api) {
     listener.on(
         'undo',
         _safe((e) => _cb.onUndo?.(_normUndo(accountKey, e)), 'undo')
+    );
+    // Sự kiện NHÓM (vào/rời/đổi tên/ghim…) → tin hệ thống hiển thị giữa khung chat.
+    listener.on(
+        'group_event',
+        _safe((e) => {
+            const sys = _normGroupEvent(accountKey, e);
+            if (sys) _cb.onMessage?.(sys); // đi qua persist + SSE như tin thường
+        }, 'group_event')
     );
     listener.onConnected?.(() => {
         _bumpEvent(accountKey);

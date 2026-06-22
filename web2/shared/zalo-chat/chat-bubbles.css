@@ -579,6 +579,22 @@
     border-radius: 999px;
     padding: 3px 12px;
 }
+/* ── tin hệ thống nhóm (vào/rời/đổi tên/ghim…) ──────────────────────── */
+.wz-sys-msg {
+    display: flex;
+    justify-content: center;
+    margin: 6px 0;
+}
+.wz-sys-msg span {
+    font-size: 11.5px;
+    color: var(--wz-muted);
+    background: var(--wz-line-soft, rgba(0, 0, 0, 0.04));
+    border-radius: 999px;
+    padding: 3px 12px;
+    max-width: 80%;
+    text-align: center;
+    line-height: 1.4;
+}
 .wz-unread-divider {
     display: flex;
     align-items: center;

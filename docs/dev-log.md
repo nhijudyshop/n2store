@@ -2,7 +2,15 @@
 
 ## 2026-06-22
 
-### [fix] Web 2.0 responsive/mobile — header xếp dọc + hàng nút/ô quét không bị cắt (web2-mobile.css)
+### [feat] Zalo rebuild Phase 4 (đợt 1) — tin hệ thống nhóm (vào/rời/đổi tên/ghim)
+
+Group richness: bắt sự kiện nhóm Zalo → hiển thị dòng hệ thống giữa khung chat (giống app Zalo). Trước đây listener CHỈ nghe `message` → sự kiện nhóm bị bỏ hoàn toàn.
+
+- **Backend** (`web2-zalo-zca.js`): listener thêm `on('group_event')` → `_normGroupEvent` (đọc `e.threadId/data.groupId`, `updateMembers[].dName`) → `_groupEventText` map sang câu tiếng Việt cho 13 loại đáng hiển thị (join/leave/remove/block/add_admin/remove_admin/update/update_avatar/update_setting/new_pin_topic/new_link/join_request; loại không đáng hiển thị như reorder-pin/board/remind → bỏ qua). Tin hệ thống đi qua `onMessage` → persist + SSE như tin thường. **`direction:'system'`** → KHÔNG cộng unread (persist chỉ +1 khi `direction==='in'`), KHÔNG đụng tên hội thoại.
+- **Frontend** (`bubbles.js`): `renderMessages` bắt `msg_type==='system'` TRƯỚC khối bong bóng → render `.wz-sys-msg` (pill xám căn giữa, max 80%), reset grouping. CSS `.wz-sys-msg` (chat-bubbles.css).
+- **Verify browser (localhost, 0 lỗi console)**: render [text, system, text] → 1 dòng `wz-sys-msg` ("B đã tham gia nhóm"), KHÔNG nằm trong bubble, 2 tin text vẫn là 2 bubble (grouping nguyên). node --check pass. Bump `?v=20260622p6` (bubbles + chat-bubbles.css + ENGINE_VER).
+- **⚠ Push này chạm `render.com` → Render restart server Zalo (lần restart cuối của đợt) — login lại nên làm SAU push này trong cửa sổ yên tĩnh.**
+- **HOÃN trong Phase 4**: tách module route 2240 dòng `web2-zalo.js` — rủi ro cao (refactor lớn, dễ vỡ login), 0 giá trị người dùng, lại đang có nhiều session khác push `render.com` + cần server ổn định để bạn login. Để dành làm trong session riêng khi login đã ổn. Polls/notes/reminders nhóm: bỏ (YAGNI cho shop).
 
 Audit responsive 13 trang đã unify ở 320/375/768px (Playwright headless + restore session): **document overflow = 0 mọi trang** (web2-mobile.css đã handle tốt). NHƯNG screenshot 375px lộ 3 vấn đề layout (cắt control trong scroll-container, không phải tràn document):
 
