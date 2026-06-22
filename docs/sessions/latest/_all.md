@@ -3,16 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `4f42d37` — feat(web2-zalo): Phase 4 đợt 1 — group system messages (join/leave/rename/pin)
-**Last updated**: 2026-06-22 16:58:44 +07
-**Latest session**: [`RESUME:20260622-165844-4f42d37`](../20260622-165844-4f42d37.md)
-**Summary**: feat(web2-zalo): Phase 4 đợt 1 — group system messages (join/leave/rename/pin)
+**Latest commit**: `463e7d5` — test(web2-zalo): Phase 5 — render-engine regression test + docs (no backend change)
+**Last updated**: 2026-06-22 17:10:01 +07
+**Latest session**: [`RESUME:20260622-171001-463e7d5`](../20260622-171001-463e7d5.md)
+**Summary**: test(web2-zalo): Phase 5 — render-engine regression test + docs (no backend change)
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 1 file(s)
-- [`web2/`](./web2.md) — 4 file(s)
+- [`docs/`](./docs.md) — 2 file(s)
+- [`scripts/`](./scripts.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -27,7 +26,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-21 15:47
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-06-22 16:58
+- [`docs/`](./docs.md) — updated 2026-06-22 17:10
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-19 14:27
@@ -59,7 +58,7 @@
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-06-20 12:07
 - [`render.com/`](./render.com.md) — updated 2026-06-22 16:58
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
-- [`scripts/`](./scripts.md) — updated 2026-06-22 09:24
+- [`scripts/`](./scripts.md) — updated 2026-06-22 17:10
 - [`service-costs/`](./service-costs.md) — updated 2026-06-20 12:07
 - [`shared/`](./shared.md) — updated 2026-06-20 15:47
 - [`showroom/`](./showroom.md) — updated 2026-06-19 14:27
