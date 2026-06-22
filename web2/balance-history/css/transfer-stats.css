@@ -74,8 +74,8 @@
     gap: 15px;
     align-items: center;
     padding: 15px;
-    background: #f9fafb;
-    border-radius: 10px;
+    background: var(--gray-50);
+    border-radius: var(--web2-radius-sm, 9px);
     margin-bottom: 15px;
 }
 

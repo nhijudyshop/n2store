@@ -88,12 +88,12 @@ body {
 
 .pr-filters {
     display: flex;
-    gap: 10px;
+    gap: 12px;
     align-items: center;
-    background: #fff;
+    background: var(--surface);
     padding: 10px 14px;
-    border-radius: 8px;
-    border: 1px solid #e2e8f0;
+    border-radius: var(--web2-radius-sm, 9px);
+    border: 1px solid var(--border);
     margin-bottom: 14px;
 }
 .pr-filters label {

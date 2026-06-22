@@ -2,6 +2,19 @@
 
 ## 2026-06-22
 
+### [refactor] Web 2.0 UI đồng nhất — TOOLBAR/bộ lọc tokenize (Step 8, cuối)
+
+Bước cuối đợt đồng nhất giao diện: thanh **toolbar/bộ lọc** mỗi trang dùng class riêng (`.pr-filters/.sd-toolbar/.u-toolbar/.sw-toolbar/.jt-toolbar/.w2bh-toolbar/.rc-toolbar`…) hardcode màu/bo góc lệch nhau. **KHÔNG ép 1 archetype** (giữ nguyên: card nổi vs flush-bar vs bare-flex — đây là lựa chọn layout có chủ đích từng trang), chỉ **thay hardcode → design token** cho nhịp thống nhất.
+
+- **Token hoá** (CSS-only, không đổi markup/layout): `#e2e8f0`/`#e5e7eb` (border) → `var(--border)`; `#fff` (nền) → `var(--surface)`; `#f8fafc`/`#f9fafb` (nền nhạt) → `var(--gray-50)`; `border-radius: 8px|10px` → `var(--web2-radius-sm, 9px)`; `gap: 10px` → `12px` (khớp canonical `.filter-row`).
+    - Sửa: supplier-debt `.sd-toolbar`, purchase-refund `.pr-filters`, users `.u-toolbar`, supplier-wallet `.sw-toolbar`, jt-tracking `.jt-toolbar`, balance-history `.w2bh-toolbar`, reconcile `.rc-toolbar` (giữ viền teal accent — chỉ radius), transfer-stats `.ts-filters` (file orphan, không nạp — no-op vô hại).
+    - **KHÔNG đổi**: customers `.wc-toolbar` (đã bare-flex gap 12px), kpi `.kpi-toolbar` (đã token + radius 6px/gap 16px ngoài phạm vi). **Loại trừ** (archetype riêng chủ đích): live-tv `.ltv-topbar`, live-control `.lc-toolbar`, system `.sse-toolbar`.
+- Canonical `.search-section`/`.filter-row`/`.search-input` + global `input[type=...]` styling (theme) đã unify control bên trong từ trước → toolbar còn lại chỉ là container; token hoá đủ để đồng bộ viền/bo/nhịp, archetype giữ nguyên.
+- **Cache-bust**: bump `?v=20260622t6` cho styles/jt-tracking/supplier-wallet/web2-balance-history/reconcile CSS (purchase-refund + users đã t6 từ đợt modal).
+- ⚠ Workflow 10-agent bị rate-limit 8/10 → 2 trang (supplier-debt edited, kpi skipped) qua agent, 8 trang còn lại sửa tay trực tiếp (token swap, rủi ro ~0).
+
+→ **Hoàn tất 4 trục đồng nhất Web 2.0**: Buttons ✅ · Tables ✅ · Modals ✅ · Toolbars ✅.
+
 ### [refactor] Web 2.0 UI đồng nhất — MODAL về canonical (Step 7) + sửa gốc bán kính 1 nguồn
 
 Tiếp tục đợt đồng nhất giao diện (sau buttons + tables): rà MODAL toàn bộ trang Web 2.0 về **canonical** (header gradient xanh nhạt Zalo + accent strip, bo góc theo token, không `backdrop-filter blur`, padding/footer chuẩn). CSS-only, **giữ nguyên class name** để JS đóng/mở không vỡ. Zalo + video-maker loại trừ (session khác đang code).

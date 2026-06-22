@@ -70,7 +70,7 @@
 .rc-toolbar {
     background: #f8fafc;
     border: 1px solid #ccfbf1;
-    border-radius: 10px;
+    border-radius: var(--web2-radius-sm, 9px);
     padding: 12px 14px;
     margin-bottom: 12px;
     flex-shrink: 0;

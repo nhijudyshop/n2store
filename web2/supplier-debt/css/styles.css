@@ -51,9 +51,9 @@
 
 /* ----- Toolbar / filters ----- */
 .sd-toolbar {
-    background: #fff;
-    border: 1px solid #e2e8f0;
-    border-radius: 10px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--web2-radius-sm, 9px);
     padding: 14px 16px;
     margin-bottom: 14px;
     box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
