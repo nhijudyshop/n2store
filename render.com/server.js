@@ -3073,6 +3073,15 @@ async function gracefulShutdown(signal) {
     } catch (e) {
         console.warn('[SHUTDOWN] SSE gracefulClose error:', e.message);
     }
+    // Dừng watchdog + đóng listener Zalo (zca) → nhường phiên cho instance mới, tránh
+    // deploy chồng instance "đấu" phiên (kick 3000/3003). Không await (chỉ stop in-RAM).
+    try {
+        if (typeof web2ZaloRoutes !== 'undefined' && web2ZaloRoutes.stopZalo) {
+            web2ZaloRoutes.stopZalo();
+        }
+    } catch (e) {
+        console.warn('[SHUTDOWN] Zalo stop error:', e.message);
+    }
     try {
         // Stop accepting new HTTP requests
         await new Promise((resolve) => server.close(resolve));

@@ -2199,5 +2199,14 @@ router.ensureSchema = ensureSchema;
 router.initializeNotifiers = initializeNotifiers;
 router.restoreSessions = restoreSessions;
 router.runZaloRetention = runZaloRetention;
+// Graceful shutdown: dừng watchdog + đóng listener zca để nhường phiên cho instance mới
+// (tránh deploy chồng instance "đấu" phiên — bị kick 3000/3003).
+router.stopZalo = () => {
+    try {
+        zca.stopAll();
+    } catch (e) {
+        console.warn('[WEB2-ZALO] stopZalo:', e.message);
+    }
+};
 
 module.exports = router;

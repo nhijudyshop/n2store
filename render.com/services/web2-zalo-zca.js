@@ -35,8 +35,42 @@ try {
 const QR_TTL_MS = 5 * 60 * 1000; // QR sống 5 phút
 const _tt = (threadType) => (threadType === 'group' ? ThreadType.Group : ThreadType.User);
 
-// accountKey → { api, status, qr, info, lastError, startedAt }
+// ── Watchdog "không bị văng nick" (research 2026-06-22, zca-js issues #153/#198/#293/#333) ──
+// zca-js KHÔNG có API refresh token; phiên hay chết âm thầm (~7 ngày zpw_sek) hoặc bị
+// KICK khi TK mở Zalo Web ở máy khác (close 3000/3003) — bị kick KHÔNG mất cookie, chỉ
+// rớt listener → re-login bằng cookie cũ là sống lại. Vì vậy:
+//  • keepAlive ~2 phút (presence ping, maintainer khuyến nghị),
+//  • auto-reconnect khi close/error (backoff lũy thừa cho 1006/network),
+//  • 3000/3003 (bị giành phiên) → reconnect chậm + TRẦN số lần liên tiếp (tránh "đấu" vô
+//    hạn với máy khác / instance deploy chồng) → đụng trần thì nghỉ dài + báo 'kicked',
+//  • re-login CHỦ ĐỘNG trong cửa sổ 7 ngày để cuốn cookie trước khi hết hạn.
+const KEEPALIVE_TIMEOUT_MS = 8 * 1000;
+const WATCHDOG_MS = 90 * 1000; // chu kỳ kiểm tra sức khoẻ + keepAlive
+const PROACTIVE_RELOGIN_MS = 3.5 * 24 * 60 * 60 * 1000; // re-login chủ động trong cửa sổ zpw_sek ~7 ngày
+const RECONNECT_BACKOFF_MS = [5000, 15000, 30000, 60000, 120000]; // 1006/network
+const KICK_RECONNECT_MS = 30 * 1000; // 3000/3003 reconnect chậm hơn
+const KICK_CAP = 4; // số lần bị kick LIÊN TIẾP trước khi nghỉ dài
+const KICK_COOLDOWN_MS = 10 * 60 * 1000; // nghỉ sau khi đụng trần kick (TK đang mở nơi khác)
+const RECONNECT_COOLDOWN_MS = 3000; // chờ WS cũ đóng hẳn trước re-login (tránh tự-kick)
+const MAX_RECONNECT_ATTEMPTS = 10; // sau ngần này lần fail (cookie hết hạn?) → bỏ cuộc, chờ login lại tay (tránh hammer Zalo → ban)
+let _watchdogTimer = null;
+
+const _sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const _raceTimeout = (promise, ms) =>
+    Promise.race([
+        promise,
+        new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), ms)),
+    ]);
+
+// accountKey → { api, listener, status, qr, info, lastError, startedAt,
+//   creds, label, expectedUid, connectedAt, lastEventAt, lastCloseCode,
+//   reconnecting, reconnectAttempt, consecutiveKicks, reconnectTimer, disposed }
 const _sessions = new Map();
+
+function _bumpEvent(accountKey) {
+    const s = _sessions.get(accountKey);
+    if (s) s.lastEventAt = now();
+}
 
 let _cb = {
     onMessage: null,
@@ -240,6 +274,7 @@ function _attachListener(accountKey, api) {
     _sessions.set(accountKey, s);
 
     listener.on('message', (m) => {
+        _bumpEvent(accountKey); // sống = có event → watchdog biết listener còn nhận tin
         try {
             _cb.onMessage?.(_normMessage(accountKey, m));
         } catch (e) {
@@ -248,6 +283,7 @@ function _attachListener(accountKey, api) {
     });
     // Realtime phụ trợ: gõ phím, đã xem, đã nhận, thả cảm xúc, thu hồi.
     const _safe = (fn, label) => (e) => {
+        _bumpEvent(accountKey);
         try {
             fn(e);
         } catch (err) {
@@ -276,13 +312,21 @@ function _attachListener(accountKey, api) {
         'undo',
         _safe((e) => _cb.onUndo?.(_normUndo(accountKey, e)), 'undo')
     );
-    listener.onConnected?.(() => _setStatus(accountKey, 'connected'));
-    listener.onClosed?.((code, reason) =>
-        _setStatus(accountKey, 'disconnected', `closed ${code} ${reason || ''}`)
-    );
-    listener.onError?.((err) =>
-        _setStatus(accountKey, 'error', String(err?.message || err).slice(0, 200))
-    );
+    listener.onConnected?.(() => {
+        _bumpEvent(accountKey);
+        _setStatus(accountKey, 'connected');
+    });
+    listener.onClosed?.((code, reason) => {
+        const cur = _sessions.get(accountKey) || {};
+        cur.lastCloseCode = code;
+        _sessions.set(accountKey, cur);
+        _setStatus(accountKey, 'disconnected', `closed ${code} ${reason || ''}`);
+        _scheduleReconnect(accountKey, code); // tự sống lại (không đợi watchdog)
+    });
+    listener.onError?.((err) => {
+        _setStatus(accountKey, 'error', String(err?.message || err).slice(0, 200));
+        _scheduleReconnect(accountKey, 1006); // lỗi WS = abnormal → backoff reconnect
+    });
     listener.start();
 }
 
@@ -338,12 +382,160 @@ async function _afterLogin(accountKey, api, label, opts) {
     await _cb.persistSession?.(accountKey, secretCrypto.encryptJson(credentials), s.info, label);
     _attachListener(accountKey, api);
     _setStatus(accountKey, 'connected');
+
+    // Lưu creds + danh tính + reset bộ đếm để watchdog tự re-login khi listener rớt
+    // (không cần đọc lại DB). expectedUid = uid thật vừa login → guard chống re-login
+    // nhầm danh tính ở các lần reconnect sau.
+    if (credentials) s.creds = credentials;
+    s.label = label || s.label;
+    s.expectedUid = (opts && opts.expectedUid) || s.info.uid || s.expectedUid || null;
+    s.connectedAt = now();
+    s.lastEventAt = now();
+    s.reconnectAttempt = 0;
+    s.consecutiveKicks = 0;
+    s.disposed = false;
+    clearTimeout(s.reconnectTimer);
+    s.reconnectTimer = null;
+    _sessions.set(accountKey, s);
+    startWatchdog();
+
     // Sau khi kết nối: route tự sửa lại tên NHÓM (bug cũ lưu tên người nhắn cuối).
     try {
         _cb.onConnected?.(accountKey);
     } catch (e) {
         console.warn('[web2-zalo-zca] onConnected cb err:', e.message);
     }
+}
+
+// ── Watchdog: tự sống lại + keepAlive + re-login chủ động ────────────────
+// Lên lịch reconnect theo close code. 1006/network = backoff lũy thừa; 3000/3003
+// (DuplicateConnection/KickConnection — bị giành phiên) = reconnect chậm + đếm
+// liên tiếp, đụng trần KICK_CAP thì nghỉ dài (TK đang mở ở máy khác → tránh "đấu").
+function _scheduleReconnect(accountKey, code) {
+    const s = _sessions.get(accountKey);
+    if (!s || s.reconnecting || s.disposed) return;
+    if (!s.creds) return; // chưa có creds (QR-only chưa lưu) → đợi boot restore / login lại
+    if (s.reconnectTimer) return; // đã có lịch
+    const isKick = code === 3000 || code === 3003;
+    let delay;
+    if (isKick) {
+        s.consecutiveKicks = (s.consecutiveKicks || 0) + 1;
+        if (s.consecutiveKicks > KICK_CAP) {
+            _setStatus(
+                accountKey,
+                'kicked',
+                'Tài khoản Zalo đang mở ở nơi khác (Zalo Web máy khác?) — tạm dừng kết nối lại'
+            );
+            s.reconnectTimer = setTimeout(() => {
+                const cur = _sessions.get(accountKey);
+                if (cur) {
+                    cur.consecutiveKicks = 0;
+                    cur.reconnectTimer = null;
+                }
+                _doReconnect(accountKey);
+            }, KICK_COOLDOWN_MS);
+            if (s.reconnectTimer.unref) s.reconnectTimer.unref();
+            _sessions.set(accountKey, s);
+            return;
+        }
+        delay = KICK_RECONNECT_MS;
+    } else {
+        const attempt = s.reconnectAttempt || 0;
+        if (attempt >= MAX_RECONNECT_ATTEMPTS) {
+            s.gaveUp = true; // chờ login lại bằng tay / boot restore — watchdog bỏ qua
+            _setStatus(
+                accountKey,
+                'error',
+                'Mất kết nối — cần đăng nhập lại (cookie có thể đã hết hạn)'
+            );
+            _sessions.set(accountKey, s);
+            return;
+        }
+        delay = RECONNECT_BACKOFF_MS[Math.min(attempt, RECONNECT_BACKOFF_MS.length - 1)];
+        s.reconnectAttempt = attempt + 1;
+    }
+    s.reconnectTimer = setTimeout(() => {
+        const cur = _sessions.get(accountKey);
+        if (cur) cur.reconnectTimer = null;
+        _doReconnect(accountKey);
+    }, delay);
+    if (s.reconnectTimer.unref) s.reconnectTimer.unref();
+    _sessions.set(accountKey, s);
+}
+
+async function _doReconnect(accountKey) {
+    const s = _sessions.get(accountKey);
+    if (!s || s.reconnecting || s.disposed || !s.creds) return;
+    s.reconnecting = true;
+    _sessions.set(accountKey, s);
+    try {
+        try {
+            s.listener?.stop?.();
+        } catch {}
+        s.listener = null;
+        s.api = null; // cho phép loginWithCredentials không short-circuit "đã kết nối"
+        await _sleep(RECONNECT_COOLDOWN_MS); // chờ WS cũ đóng hẳn (tránh tự-kick 3000)
+        if (s.disposed) return;
+        // Giữ s.reconnecting=true xuyên suốt login (finally mới clear) → chặn close event
+        // đồng thời double-schedule. loginWithCredentials KHÔNG gate theo reconnecting.
+        await loginWithCredentials(accountKey, s.creds, s.label, { expectedUid: s.expectedUid });
+        console.log('[web2-zalo-zca] reconnected', accountKey);
+    } catch (e) {
+        console.warn('[web2-zalo-zca] reconnect fail', accountKey, e.message);
+        _setStatus(accountKey, 'error', 'reconnect: ' + String(e.message).slice(0, 120));
+        _scheduleReconnect(accountKey, 1006); // thử lại (có backoff cap + kick cap chặn storm)
+    } finally {
+        const cur = _sessions.get(accountKey);
+        if (cur) cur.reconnecting = false;
+    }
+}
+
+function startWatchdog() {
+    if (_watchdogTimer) return;
+    _watchdogTimer = setInterval(_watchdogTick, WATCHDOG_MS);
+    if (_watchdogTimer.unref) _watchdogTimer.unref();
+    console.log('[web2-zalo-zca] watchdog started (keepAlive + auto-reconnect)');
+}
+
+async function _watchdogTick() {
+    for (const [key, s] of _sessions.entries()) {
+        if (s.disposed || s.reconnecting) continue;
+        try {
+            // Re-login CHỦ ĐỘNG trong cửa sổ zpw_sek (~7 ngày) → cuốn cookie trước khi hết hạn.
+            if (s.api && s.connectedAt && now() - s.connectedAt > PROACTIVE_RELOGIN_MS) {
+                console.log('[web2-zalo-zca] proactive re-login', key);
+                _doReconnect(key);
+                continue;
+            }
+            if (s.api) {
+                // keepAlive (presence ping) + liveness: ném/khựng → coi như chết → reconnect.
+                await _raceTimeout(s.api.keepAlive(), KEEPALIVE_TIMEOUT_MS);
+            } else if (s.creds && s.status !== 'kicked' && !s.reconnectTimer) {
+                // Có creds nhưng mất api mà không có lịch reconnect → schedule.
+                _scheduleReconnect(key, 1006);
+            }
+        } catch (e) {
+            console.warn('[web2-zalo-zca] keepAlive fail → reconnect', key, e.message);
+            _scheduleReconnect(key, 1006);
+        }
+    }
+}
+
+// Dừng toàn bộ (graceful shutdown) — nhường phiên cho instance mới + chặn reconnect.
+function stopAll() {
+    if (_watchdogTimer) {
+        clearInterval(_watchdogTimer);
+        _watchdogTimer = null;
+    }
+    for (const [, s] of _sessions.entries()) {
+        s.disposed = true;
+        clearTimeout(s.reconnectTimer);
+        s.reconnectTimer = null;
+        try {
+            s.listener?.stop?.();
+        } catch {}
+    }
+    console.log('[web2-zalo-zca] stopAll (graceful shutdown)');
 }
 
 // ── Đăng nhập QR (không await — trả ngay, browser poll getQr) ───────────
@@ -747,6 +939,11 @@ function getOwnUid(accountKey) {
 
 function disconnect(accountKey) {
     const s = _sessions.get(accountKey);
+    if (s) {
+        s.disposed = true; // chặn watchdog tự reconnect sau khi user chủ động ngắt
+        clearTimeout(s.reconnectTimer);
+        s.reconnectTimer = null;
+    }
     try {
         s?.listener?.stop?.();
     } catch {}
@@ -755,25 +952,29 @@ function disconnect(accountKey) {
     return { success: true };
 }
 
-function status(accountKey) {
-    const s = _sessions.get(accountKey);
+// Health 1 phiên (cho UI đèn sức khoẻ + observability "không bị văng").
+function _health(k, s) {
     return {
-        accountKey,
+        accountKey: k,
         status: s?.status || 'offline',
         info: s?.info || null,
         error: s?.lastError || null,
         hasApi: !!s?.api,
+        healthy: s?.status === 'connected' && !!s?.api,
+        connectedAt: s?.connectedAt || null,
+        lastEventAt: s?.lastEventAt || null,
+        lastCloseCode: s?.lastCloseCode || null,
+        reconnecting: !!s?.reconnecting,
+        consecutiveKicks: s?.consecutiveKicks || 0,
     };
 }
 
+function status(accountKey) {
+    return _health(accountKey, _sessions.get(accountKey));
+}
+
 function statusAll() {
-    return [..._sessions.entries()].map(([k, s]) => ({
-        accountKey: k,
-        status: s.status || 'offline',
-        info: s.info || null,
-        error: s.lastError || null,
-        hasApi: !!s.api,
-    }));
+    return [..._sessions.entries()].map(([k, s]) => _health(k, s));
 }
 
 // ── Boot restore: re-login mọi acc personal có session đã lưu ───────────
@@ -835,4 +1036,6 @@ module.exports = {
     status,
     statusAll,
     restoreAll,
+    startWatchdog,
+    stopAll,
 };
