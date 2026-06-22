@@ -2,6 +2,15 @@
 
 ## 2026-06-22
 
+### [chore] Dọn dead-code CSS Web 2.0 — xoá 3 file orphan (1945 dòng)
+
+Sau đợt đồng nhất giao diện, dọn CSS chết (đã verify kỹ: không HTML/JS nào nạp + class không dùng trong markup + không trong sidebar):
+
+- **`web2/balance-history/css/transfer-stats.css`** (505 dòng) — orphan, `.ts-*` không trang nào nạp/dùng (feature transfer-stats đã refactor đi từ lần clone balance-history `9cd8e13b8`). Match `.ts-` ở products là false-positive (`products-filters`).
+- **`web2/balance-history/css/modern.css`** (1169 dòng) — legacy, balance-history/index.html chỉ nạp `web2-balance-history.css`; modern.css chỉ còn được nhắc trong docs markdown (không phải code).
+- **`web2/payment-confirm/css/payment-confirm.css`** (271 dòng) — trang payment-confirm chỉ nạp `web2-theme.css`, dùng **0 class `pc-*`**, không có trong sidebar → CSS không tác động render.
+- Verify cuối: `grep` 3 tên file across html/js = **0 reference** → xoá an toàn, không ảnh hưởng giao diện.
+
 ### [refactor] Web 2.0 UI đồng nhất — `.counter-pill` gom 1-nguồn (DRY pill đếm)
 
 Pill đếm kết quả (`.counter-pill`, vd "12 đơn") bị **copy-paste fork ở 5 trang** (so-order xanh, reconcile teal, supplier-debt/supplier-wallet/users xám) lệch padding/bg/màu/radius/font, dù shared đã có `.web2-theme .counter-pill` (theme.css:708) set màu xanh nhạt — nhưng forks rò radius/padding/font (đều `999px` nhưng padding 4-6px, font 12px↔0.875rem, weight 500↔600).
