@@ -31,29 +31,8 @@
         };
     };
 
-    // 2026-06-18: thêm dòng SP từ MÃ đọc được bằng camera (barcode / OCR nhãn).
-    // Tra Kho SP (Web2ProductsCache) theo mã → prefill productName + matchedCode;
-    // không thấy → để mã vào productName cho user sửa tên. Dùng nhập kho từ pack:
-    // mỗi mã quét/đọc thêm 1 dòng (continuous).
-    SO._addRowFromScannedCode = function _addRowFromScannedCode(code) {
-        code = (code || '').trim();
-        if (!code) return;
-        const prod = window.Web2ProductsCache?.findByCode?.(code);
-        if (prod) {
-            SO.modalRows.push(
-                SO._newModalRow({ productName: prod.name || '', matchedCode: prod.code, qty: 1 })
-            );
-            SO.renderModalRows();
-            window.notificationManager?.show?.(`✓ Thêm: ${prod.name || prod.code}`, 'success');
-        } else {
-            SO.modalRows.push(SO._newModalRow({ productName: code, matchedCode: null, qty: 1 }));
-            SO.renderModalRows();
-            window.notificationManager?.show?.(
-                `Không thấy mã "${code}" trong Kho SP — đã thêm dòng để bạn sửa tên.`,
-                'info'
-            );
-        }
-    };
+    // (2026-06-22) _addRowFromScannedCode đã gỡ — chỉ dùng cho 2 nút quét/đọc nhãn
+    // (đã bỏ theo yêu cầu user). Thêm SP thủ công qua "Thêm sản phẩm".
 
     SO.modalRowHtml = function modalRowHtml(row, idx, total) {
         const matched = row.matchedCode
@@ -300,24 +279,7 @@
                 SO.renderModalRows();
             };
         }
-        // 2026-06-18: Quét mã (camera barcode) → thêm dòng SP (nút "Đọc nhãn" OCR đã gỡ 2026-06-22).
-        // Dùng cho nhập kho từ pack NCC. .onclick (re-wire mỗi render, idempotent).
-        const scanBtn = document.getElementById('soModalScanBtn');
-        if (scanBtn) {
-            scanBtn.onclick = () => {
-                if (!window.Web2BarcodeScanner) {
-                    window.notificationManager?.show?.('Chưa tải được bộ quét camera.', 'error');
-                    return;
-                }
-                window.Web2BarcodeScanner.open({
-                    title: 'Quét mã thêm SP',
-                    hint: 'Quét barcode/QR từng SP — mỗi mã thêm 1 dòng',
-                    continuous: true,
-                    onScan: (code) => SO._addRowFromScannedCode(code),
-                });
-            };
-        }
-        // (2026-06-22) Nút "Đọc nhãn" (OCR) đã gỡ theo yêu cầu — chỉ giữ "Quét mã".
+        // (2026-06-22) 2 nút "Quét mã" (camera barcode) + "Đọc nhãn" (OCR) đã gỡ theo yêu cầu.
         // Delete row + image upload via event delegation
         tbody.querySelectorAll('[data-action="remove-row"]').forEach((btn) => {
             btn.addEventListener('click', () => {

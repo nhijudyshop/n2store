@@ -2,6 +2,15 @@
 
 ## 2026-06-22
 
+### [change] so-order — bỏ nốt nút "Quét mã" (camera barcode) trong modal Tạo Đơn Hàng
+
+Tiếp yêu cầu: gỡ luôn nút "Quét mã" (sau khi đã gỡ "Đọc nhãn"). Modal giờ chỉ còn nút "Thêm sản phẩm" để thêm dòng SP thủ công.
+
+- `so-order/index.html`: gỡ button `#soModalScanBtn` + `<script web2-barcode-scanner.js>` (so-order không còn dùng).
+- `so-order-modal-core.js`: gỡ handler `scanBtn.onclick` + helper **dead** `_addRowFromScannedCode` (chỉ phục vụ 2 nút quét/đọc đã bỏ).
+- **GIỮ** module shared `web2-barcode-scanner.js` (reconcile + web2-pack-counter + web2-label-ocr còn dùng).
+- **Verify browser**: modal mở OK, `#soModalScanBtn` + `#soModalOcrBtn` đều gone, `#soModalAddRowBtn` còn, `_addRowFromScannedCode` undefined, **0 console error**. Bump `?v=20260622x3` (core.js).
+
 ### [change] so-order — "Điền ngẫu nhiên" GẮN LẠI ảnh ngẫu nhiên (Lorem Picsum, free no-key) + bỏ nút "Đọc nhãn"
 
 User: (1) nút "Điền ngẫu nhiên" tạo data test nhưng không có ảnh → muốn dán ảnh ngẫu nhiên (tìm api/ảnh free dùng nhanh); (2) bỏ nút "Đọc nhãn" (OCR) trong modal.
