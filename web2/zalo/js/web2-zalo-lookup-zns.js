@@ -230,6 +230,7 @@
     WZApp.doLookup = doLookup;
     WZApp.showSelf = showSelf;
     WZApp.loadTemplates = loadTemplates;
+    WZApp.renderZnsFields = renderZnsFields;
     WZApp.sendZns = sendZns;
     WZApp.loadZnsLog = loadZnsLog;
 })();
