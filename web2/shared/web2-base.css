@@ -2841,3 +2841,79 @@ body {
     font-size: 11.5px;
     margin-top: 2px;
 }
+
+/* ============================================================
+   MOBILE SHELL PACK — cho trang BASE-ONLY (native-orders không load web2-theme.css).
+   theme.css đã có block F04 tương đương cho 49 trang themed; mirror Y HỆT ở đây để
+   native-orders (trang base-only DUY NHẤT) cũng ẩn hamburger trên desktop + có drawer
+   off-canvas trên mobile. Hamburger/scrim do web2-sidebar.js tạo + toggle .w2-aside-open.
+   ⚠ Giữ ĐỒNG BỘ giá trị với web2-theme.css block F04 (≤900px).
+   ============================================================ */
+/* Desktop default: ẩn hamburger + scrim — chỉ hiện ≤900px */
+.w2-mobile-menu-btn,
+.web2-aside-scrim {
+    display: none;
+}
+@media (max-width: 900px) {
+    .w2-mobile-menu-btn {
+        display: block;
+    }
+    body:has(.web2-shell) .web2-shell {
+        grid-template-columns: 1fr;
+    }
+    body:has(.web2-shell) .web2-aside {
+        position: fixed;
+        inset: 0 auto 0 0;
+        width: 78%;
+        max-width: 320px;
+        z-index: 9500;
+        transform: translateX(-100%);
+        transition: transform 240ms cubic-bezier(0.16, 1, 0.3, 1);
+        box-shadow: 4px 0 24px rgba(15, 23, 42, 0.2);
+        background: #fff;
+    }
+    body:has(.web2-shell) .web2-aside.w2-aside-open {
+        transform: translateX(0);
+    }
+    body:has(.web2-shell) .web2-aside-scrim {
+        position: fixed;
+        inset: 0;
+        background: rgba(15, 23, 42, 0.45);
+        z-index: 9400;
+        display: none;
+        animation: w2scrimFade 240ms ease;
+    }
+    body:has(.web2-shell) .web2-aside.w2-aside-open ~ .web2-aside-scrim,
+    body:has(.web2-shell) .web2-aside-scrim.show {
+        display: block;
+    }
+    @keyframes w2scrimFade {
+        from {
+            opacity: 0;
+        }
+        to {
+            opacity: 1;
+        }
+    }
+    body:has(.web2-shell) .web2-main,
+    body:has(.web2-shell) main.web2-main {
+        padding: 12px 14px 60px;
+        width: 100%;
+    }
+    body:has(.web2-shell) .w2-mobile-menu-btn {
+        position: fixed;
+        top: 10px;
+        left: 10px;
+        z-index: 9300;
+        background: #fff;
+        border: 1px solid rgba(15, 23, 42, 0.12);
+        border-radius: 8px;
+        padding: 7px 10px;
+        font-size: 18px;
+        cursor: pointer;
+        box-shadow: 0 2px 6px rgba(15, 23, 42, 0.1);
+    }
+    body:has(.web2-shell) .w2-mobile-menu-btn::before {
+        content: '☰';
+    }
+}

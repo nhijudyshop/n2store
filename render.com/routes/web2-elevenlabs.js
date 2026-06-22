@@ -67,10 +67,14 @@ router.post(
                 return res
                     .status(503)
                     .json({ ok: false, error: 'ELEVENLABS_API_KEY chưa cấu hình' });
-            const { text, voice_id, model_id } = req.body || {};
+            const { text, voice_id, model_id, voice_settings, language_code } = req.body || {};
             if (!text) return res.status(400).json({ ok: false, error: 'Thiếu text' });
             if (!voice_id) return res.status(400).json({ ok: false, error: 'Thiếu voice_id' });
-            const mp3 = await svc.tts(text, voice_id, model_id);
+            const mp3 = await svc.tts(text, voice_id, {
+                modelId: model_id,
+                voiceSettings: voice_settings,
+                languageCode: language_code,
+            });
             res.setHeader('Content-Type', 'audio/mpeg');
             res.setHeader('Cache-Control', 'no-store');
             res.send(mp3);
@@ -154,6 +158,43 @@ router.post(
             res.send(out);
         } catch (e) {
             console.error('[web2-elevenlabs] isolate', e.message);
+            res.status(500).json({ ok: false, error: String(e.message || e) });
+        }
+    }
+);
+
+// Kho giọng cộng đồng (shared) — lọc + phân trang. GET ?page&page_size&gender&language&search&sort…
+router.get('/shared-voices', async (req, res) => {
+    try {
+        if (!svc.configured())
+            return res.status(503).json({ ok: false, error: 'ELEVENLABS_API_KEY chưa cấu hình' });
+        const out = await svc.listSharedVoices(req.query || {});
+        res.json({ ok: true, ...out });
+    } catch (e) {
+        console.error('[web2-elevenlabs] shared-voices', e.message);
+        res.status(500).json({ ok: false, error: String(e.message || e) });
+    }
+});
+
+// Thêm giọng shared vào tài khoản để dùng TTS. body {public_owner_id, voice_id, name}.
+router.post(
+    '/add-shared',
+    requireWeb2AuthSoft,
+    rateLimit,
+    express.json({ limit: '16kb' }),
+    async (req, res) => {
+        try {
+            if (!svc.configured())
+                return res
+                    .status(503)
+                    .json({ ok: false, error: 'ELEVENLABS_API_KEY chưa cấu hình' });
+            const { public_owner_id, voice_id, name } = req.body || {};
+            if (!public_owner_id || !voice_id)
+                return res.status(400).json({ ok: false, error: 'Thiếu public_owner_id/voice_id' });
+            const out = await svc.addSharedVoice(public_owner_id, voice_id, name);
+            res.json({ ok: true, voice_id: out.voice_id });
+        } catch (e) {
+            console.error('[web2-elevenlabs] add-shared', e.message);
             res.status(500).json({ ok: false, error: String(e.message || e) });
         }
     }

@@ -1130,6 +1130,62 @@ textarea.vm-narr {
     line-height: 1.5;
 }
 
+/* ===== ElevenLabs tab: header (cài đặt + lọc) sticky + rows + badge ===== */
+.vm-el-head {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: var(--web2-surface, #fff);
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--web2-border, #eef2f7);
+    margin-bottom: 6px;
+}
+.vm-el-settings > summary {
+    cursor: pointer;
+    font-size: 12.5px;
+    font-weight: 700;
+    color: var(--web2-text, #334155);
+    padding: 6px 0;
+    list-style: none;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.vm-el-settings > summary::-webkit-details-marker {
+    display: none;
+}
+.vm-el-settings > summary i {
+    width: 15px;
+    height: 15px;
+    color: var(--web2-primary, #0068ff);
+}
+.vm-el-settings #vmElSet {
+    padding: 4px 2px 8px;
+}
+.vm-el-filters {
+    display: flex;
+    gap: 8px;
+}
+.vm-el-filters .vm-dsel {
+    flex: 1;
+}
+.vm-el-free,
+.vm-el-paid {
+    font-size: 9.5px;
+    font-weight: 700;
+    padding: 1px 6px;
+    border-radius: 999px;
+    vertical-align: middle;
+}
+.vm-el-free {
+    background: #dcfce7;
+    color: #15803d;
+}
+.vm-el-paid {
+    background: #fef3c7;
+    color: #b45309;
+}
+
 /* ===== Lời đọc riêng từng cảnh (multi-narrator) ===== */
 .vm-scene-narr {
     display: flex;

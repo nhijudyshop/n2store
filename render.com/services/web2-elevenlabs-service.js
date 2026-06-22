@@ -16,7 +16,15 @@
 
 const API_BASE = 'https://api.elevenlabs.io/v1';
 const MAX_TEXT = 2500; // chặn đốt credit (1 credit ≈ 1 ký tự)
-const DEFAULT_MODEL = 'eleven_multilingual_v2'; // hỗ trợ tiếng Việt + đa ngôn ngữ
+// ⚠ eleven_multilingual_v2 (29 lang) KHÔNG có tiếng Việt. eleven_flash_v2_5 (32 lang)
+// CÓ tiếng Việt + voice_settings đầy đủ + latency thấp → mặc định cho video bán hàng VN.
+const DEFAULT_MODEL = 'eleven_flash_v2_5';
+const VALID_MODELS = new Set([
+    'eleven_flash_v2_5',
+    'eleven_turbo_v2_5',
+    'eleven_v3',
+    'eleven_multilingual_v2',
+]);
 const COOLDOWN_MS = 60 * 60 * 1000; // 1h sau khi key 401/hết quota
 
 let _rr = 0; // con trỏ round-robin
@@ -126,19 +134,41 @@ async function listVoices() {
     return voices;
 }
 
-// text → mp3 Buffer (mp3_44100_128). voiceId BẮT BUỘC; modelId optional.
-async function tts(text, voiceId, modelId) {
+// Lọc voice_settings hợp lệ (0–1, speed 0.7–1.2) — chống payload rác.
+function _cleanVoiceSettings(vs) {
+    if (!vs || typeof vs !== 'object') return null;
+    const out = {};
+    const clamp01 = (x) => Math.max(0, Math.min(1, Number(x)));
+    if (vs.stability != null) out.stability = clamp01(vs.stability);
+    if (vs.similarity_boost != null) out.similarity_boost = clamp01(vs.similarity_boost);
+    if (vs.style != null) out.style = clamp01(vs.style);
+    if (vs.use_speaker_boost != null) out.use_speaker_boost = !!vs.use_speaker_boost;
+    if (vs.speed != null) out.speed = Math.max(0.7, Math.min(1.2, Number(vs.speed)));
+    return Object.keys(out).length ? out : null;
+}
+
+// text → mp3 Buffer (mp3_44100_128). voiceId BẮT BUỘC. opts: {modelId, voiceSettings, languageCode}.
+async function tts(text, voiceId, opts = {}) {
     const t = String(text || '').trim();
     if (!t) throw new Error('text rỗng');
     if (!voiceId) throw new Error('thiếu voice_id');
     const clipped = t.length > MAX_TEXT ? t.slice(0, MAX_TEXT) : t;
+    const model = VALID_MODELS.has(opts.modelId) ? opts.modelId : DEFAULT_MODEL;
+    const body = { text: clipped, model_id: model };
+    const vs = _cleanVoiceSettings(opts.voiceSettings);
+    if (vs) {
+        // eleven_v3 KHÔNG hỗ trợ use_speaker_boost → bỏ.
+        if (model === 'eleven_v3') delete vs.use_speaker_boost;
+        body.voice_settings = vs;
+    }
+    if (opts.languageCode) body.language_code = String(opts.languageCode).slice(0, 8);
     return _withKey(async (key) => {
         const r = await fetch(
             `${API_BASE}/text-to-speech/${encodeURIComponent(voiceId)}?output_format=mp3_44100_128`,
             {
                 method: 'POST',
                 headers: { 'xi-api-key': key, 'content-type': 'application/json' },
-                body: JSON.stringify({ text: clipped, model_id: modelId || DEFAULT_MODEL }),
+                body: JSON.stringify(body),
             }
         );
         if (!r.ok) throw await _httpError(r);
@@ -246,10 +276,78 @@ async function createVoiceFromPreview(name, description, generatedVoiceId) {
     });
 }
 
+// Kho giọng CỘNG ĐỒNG (shared) — lọc + phân trang. params: {page,page_size,gender,
+// age,accent,language,locale,category,search,sort}. Trả {voices, has_more, total_count}.
+const SHARED_ALLOWED = [
+    'page',
+    'page_size',
+    'gender',
+    'age',
+    'accent',
+    'language',
+    'locale',
+    'category',
+    'search',
+    'sort',
+    'use_cases',
+    'featured',
+];
+async function listSharedVoices(params = {}) {
+    const qs = new URLSearchParams();
+    for (const k of SHARED_ALLOWED) {
+        const v = params[k];
+        if (v != null && v !== '') qs.set(k, String(v));
+    }
+    if (!qs.has('page_size')) qs.set('page_size', '30');
+    return _withKey(async (key) => {
+        const r = await fetch(`${API_BASE}/shared-voices?${qs.toString()}`, {
+            headers: { 'xi-api-key': key },
+        });
+        if (!r.ok) throw await _httpError(r);
+        const d = await r.json();
+        const voices = (d.voices || []).map((v) => ({
+            voice_id: v.voice_id,
+            public_owner_id: v.public_owner_id,
+            name: v.name,
+            gender: v.gender || '',
+            age: v.age || '',
+            accent: v.accent || '',
+            language: v.language || '',
+            locale: v.locale || '',
+            descriptive: v.descriptive || '',
+            use_case: v.use_case || '',
+            category: v.category || '',
+            preview_url: v.preview_url || '',
+            free_users_allowed: v.free_users_allowed !== false,
+        }));
+        return { voices, has_more: !!d.has_more, total_count: d.total_count || voices.length };
+    });
+}
+
+// Thêm 1 giọng shared vào tài khoản (để dùng trong TTS). Tốn 1 voice slot (free ít).
+async function addSharedVoice(publicOwnerId, voiceId, newName) {
+    if (!publicOwnerId || !voiceId) throw new Error('thiếu public_owner_id / voice_id');
+    return _withKey(async (key) => {
+        const r = await fetch(
+            `${API_BASE}/voices/add/${encodeURIComponent(publicOwnerId)}/${encodeURIComponent(voiceId)}`,
+            {
+                method: 'POST',
+                headers: { 'xi-api-key': key, 'content-type': 'application/json' },
+                body: JSON.stringify({ new_name: (newName || 'Giọng shared').slice(0, 60) }),
+            }
+        );
+        if (!r.ok) throw await _httpError(r);
+        const d = await r.json();
+        return { voice_id: d.voice_id || voiceId };
+    });
+}
+
 module.exports = {
     configured,
     keyCount,
     listVoices,
+    listSharedVoices,
+    addSharedVoice,
     tts,
     soundEffect,
     transcribe,

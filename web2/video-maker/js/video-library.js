@@ -31,6 +31,17 @@
     let _elevenConfigured = false;
     let _busy = false; // 1 audition/download tại 1 thời điểm
     let _previewSrc = null;
+    // Kho giọng ElevenLabs cộng đồng (shared) — ưu tiên VN + lọc + cuộn nạp thêm.
+    const _shared = {
+        items: [],
+        page: 0,
+        hasMore: true,
+        loading: false,
+        lang: 'vi',
+        gender: '',
+        q: '',
+    };
+    let _elScrollBound = false;
 
     function init(ctx) {
         _ctx = ctx || {};
@@ -98,7 +109,10 @@
         let _deb;
         $('#vmLibSearch', el).addEventListener('input', () => {
             clearTimeout(_deb);
-            _deb = setTimeout(render, 200);
+            _deb = setTimeout(() => {
+                if (_tab === 'eleven') _loadShared(true);
+                else render();
+            }, 250);
         });
         $('#vmLibLang', el).addEventListener('change', render);
         return el;
@@ -221,70 +235,224 @@
         if (global.lucide) global.lucide.createIcons();
     }
 
+    // ===== Tab ElevenLabs: kho giọng cộng đồng — VN ưu tiên + lọc + cuộn nạp thêm + cài đặt =====
     function renderEleven() {
         const list = $('#vmLibList');
         const foot = $('#vmLibFoot');
-        const TTS = global.Web2VideoTTS;
         foot.innerHTML =
-            '⚠ ElevenLabs free ~10k ký tự/tháng nhưng KHÔNG có quyền thương mại (cần attribution / gói trả phí). Video bán hàng nên cân nhắc.';
+            '⚠ ElevenLabs free ~10k ký tự/tháng, KHÔNG quyền thương mại (cần attribution / gói trả phí). "Thêm" tốn 1 slot giọng (free ít) → dùng vài giọng ưng ý.';
         if (!_elevenConfigured) {
             list.innerHTML =
-                '<div class="vm-lib-empty"><b>Chưa bật ElevenLabs.</b><br>Lấy free key tại elevenlabs.io → đặt <code>ELEVENLABS_API_KEY</code> trên server Render (web2-api) → tải lại trang.</div>';
+                '<div class="vm-lib-empty"><b>Chưa bật ElevenLabs.</b><br>Lấy free key tại elevenlabs.io → đặt <code>ELEVENLABS_API_KEY1/2/3</code> trên server Render (web2-api) → tải lại trang.</div>';
             return;
         }
-        if (!_elevenVoices || !_elevenVoices.length) {
-            list.innerHTML = '<div class="vm-lib-loading">Đang nạp giọng ElevenLabs…</div>';
-            TTS.listElevenVoices()
-                .then((vs) => {
-                    _elevenVoices = vs || [];
-                    if (_tab === 'eleven') renderEleven();
-                })
-                .catch((e) => {
-                    list.innerHTML =
-                        '<div class="vm-lib-empty">Lỗi nạp giọng: ' +
-                        esc(e.message || e) +
-                        '</div>';
-                });
-            return;
+        const langOpts = [
+            ['vi', '🇻🇳 Tiếng Việt'],
+            ['', '🌐 Mọi ngôn ngữ'],
+            ['en', 'English'],
+        ];
+        const genOpts = [
+            ['', 'Mọi giới tính'],
+            ['female', 'Nữ'],
+            ['male', 'Nam'],
+        ];
+        list.innerHTML = `
+            <div class="vm-el-head">
+                <details class="vm-el-settings">
+                    <summary><i data-lucide="sliders-horizontal"></i> Cài đặt giọng (chất lượng đọc)</summary>
+                    <div id="vmElSet"></div>
+                </details>
+                <div class="vm-el-filters">
+                    <select id="vmElLang" class="vm-dsel">${langOpts.map(([v, l]) => `<option value="${v}" ${_shared.lang === v ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select>
+                    <select id="vmElGender" class="vm-dsel">${genOpts.map(([v, l]) => `<option value="${v}" ${_shared.gender === v ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select>
+                </div>
+            </div>
+            <div class="vm-el-rows" id="vmElRows"></div>
+            <div class="vm-lib-more" id="vmElMore"></div>`;
+        _renderElevenSettings();
+        $('#vmElLang')?.addEventListener('change', (e) => {
+            _shared.lang = e.target.value;
+            _loadShared(true);
+        });
+        $('#vmElGender')?.addEventListener('change', (e) => {
+            _shared.gender = e.target.value;
+            _loadShared(true);
+        });
+        if (!_elScrollBound) {
+            list.addEventListener('scroll', _onElScroll, { passive: true });
+            _elScrollBound = true;
         }
-        const q = ($('#vmLibSearch')?.value || '').trim().toLowerCase();
-        const rows = _elevenVoices.filter(
-            (v) =>
-                !q ||
-                (v.name || '').toLowerCase().includes(q) ||
-                JSON.stringify(v.labels || {})
-                    .toLowerCase()
-                    .includes(q)
+        _loadShared(true);
+        if (global.lucide) global.lucide.createIcons();
+    }
+
+    function _slider(id, label, val) {
+        return `<label class="vm-slabel">${esc(label)} <b id="${id}V">${Math.round(val * 100)}%</b></label>
+            <input type="range" id="${id}" class="vm-range" min="0" max="1" step="0.05" value="${val}">`;
+    }
+    function _renderElevenSettings() {
+        const box = $('#vmElSet');
+        const TTS = global.Web2VideoTTS;
+        if (!box || !TTS.getElevenSettings) return;
+        const s = TTS.getElevenSettings();
+        const models = [
+            ['eleven_flash_v2_5', 'Flash v2.5 — nhanh, có Tiếng Việt (khuyên dùng)'],
+            ['eleven_v3', 'v3 — biểu cảm nhất'],
+            ['eleven_turbo_v2_5', 'Turbo v2.5'],
+        ];
+        box.innerHTML = `
+            <label class="vm-slabel">Model</label>
+            <select id="vmElModel" class="vm-dsel">${models.map(([id, lb]) => `<option value="${id}" ${s.model_id === id ? 'selected' : ''}>${esc(lb)}</option>`).join('')}</select>
+            ${_slider('vmElStab', 'Ổn định (stability)', s.stability)}
+            ${_slider('vmElSim', 'Giống giọng gốc (similarity)', s.similarity_boost)}
+            ${_slider('vmElStyle', 'Biểu cảm (style)', s.style)}
+            <label class="vm-slabel">Tốc độ <b id="vmElSpeedV">${s.speed.toFixed(2)}×</b></label>
+            <input type="range" id="vmElSpeed" class="vm-range" min="0.7" max="1.2" step="0.05" value="${s.speed}">`;
+        $('#vmElModel')?.addEventListener('change', (e) =>
+            TTS.setElevenSettings({ model_id: e.target.value })
         );
-        list.innerHTML = rows
+        const bind = (id, key, pct) => {
+            const el = $('#' + id);
+            el?.addEventListener('input', () => {
+                const v = Number(el.value);
+                TTS.setElevenSettings({ [key]: v });
+                const lbl = $('#' + id + 'V');
+                if (lbl) lbl.textContent = pct ? Math.round(v * 100) + '%' : v.toFixed(2) + '×';
+            });
+        };
+        bind('vmElStab', 'stability', true);
+        bind('vmElSim', 'similarity_boost', true);
+        bind('vmElStyle', 'style', true);
+        bind('vmElSpeed', 'speed', false);
+        if (global.lucide) global.lucide.createIcons();
+    }
+
+    function _onElScroll(e) {
+        if (_tab !== 'eleven') return;
+        const el = e.target;
+        if (el.scrollTop + el.clientHeight >= el.scrollHeight - 140) _loadShared(false);
+    }
+
+    async function _loadShared(reset) {
+        const TTS = global.Web2VideoTTS;
+        if (_shared.loading) return;
+        if (reset) {
+            _shared.page = 0;
+            _shared.hasMore = true;
+            _shared.items = [];
+            const rows = $('#vmElRows');
+            if (rows) rows.innerHTML = '';
+        }
+        if (!_shared.hasMore) return;
+        _shared.loading = true;
+        _shared.q = ($('#vmLibSearch')?.value || '').trim();
+        const more = $('#vmElMore');
+        if (more) more.textContent = 'Đang nạp giọng…';
+        try {
+            const params = { page: _shared.page, page_size: 30, sort: 'trending' };
+            if (_shared.lang) params.language = _shared.lang;
+            if (_shared.gender) params.gender = _shared.gender;
+            if (_shared.q) params.search = _shared.q;
+            const d = await TTS.listSharedVoices(params);
+            const items = d.voices || [];
+            _shared.items.push(...items);
+            _shared.hasMore = !!d.has_more && items.length > 0;
+            _shared.page += 1;
+            _appendSharedRows(items);
+            if (more)
+                more.textContent = _shared.hasMore
+                    ? 'Cuộn xuống để xem thêm…'
+                    : _shared.items.length
+                      ? '— Hết —'
+                      : 'Không tìm thấy giọng phù hợp.';
+        } catch (e) {
+            if (more) more.textContent = 'Lỗi nạp: ' + (e.message || e);
+        } finally {
+            _shared.loading = false;
+        }
+    }
+
+    function _appendSharedRows(items) {
+        const TTS = global.Web2VideoTTS;
+        const rows = $('#vmElRows');
+        if (!rows) return;
+        const html = items
             .map((v) => {
                 const added = TTS.hasVoice('el-' + v.voice_id);
-                const lab = v.labels || {};
-                const meta = [lab.gender, lab.accent, lab.age, lab.description, v.category]
+                const meta = [v.gender, v.accent, v.language, v.use_case]
                     .filter(Boolean)
                     .join(' · ');
+                const freeBadge = v.free_users_allowed
+                    ? '<span class="vm-el-free">free OK</span>'
+                    : '<span class="vm-el-paid">cần gói</span>';
                 return `
                 <div class="vm-lib-row" data-vid="${esc(v.voice_id)}">
                     <div class="vm-lib-info">
-                        <div class="vm-lib-name">${esc(v.name)}</div>
+                        <div class="vm-lib-name">${esc(v.name)} ${freeBadge}</div>
                         <div class="vm-lib-meta">${esc(meta)}</div>
                     </div>
                     <div class="vm-lib-acts">
-                        <button class="vm-btn sm vm-lib-eprev" data-vid="${esc(v.voice_id)}" data-prev="${esc(v.preview_url || '')}"><i data-lucide="volume-2"></i> Nghe thử</button>
-                        <button class="vm-btn sm ${added ? '' : 'primary'} vm-lib-eadd" data-vid="${esc(v.voice_id)}" data-name="${esc(v.name)}" ${added ? 'disabled' : ''}>
+                        <button class="vm-btn sm vm-lib-eprev" data-prev="${esc(v.preview_url || '')}"><i data-lucide="volume-2"></i> Nghe thử</button>
+                        <button class="vm-btn sm ${added ? '' : 'primary'} vm-lib-eadd" data-i="${esc(v.voice_id)}" ${added ? 'disabled' : ''}>
                             <i data-lucide="${added ? 'check' : 'plus'}"></i> ${added ? 'Đã thêm' : 'Thêm'}
                         </button>
                     </div>
                 </div>`;
             })
             .join('');
-        list.querySelectorAll('.vm-lib-eprev').forEach((b) =>
-            b.addEventListener('click', () => previewEleven(b.dataset.vid, b.dataset.prev, b))
-        );
-        list.querySelectorAll('.vm-lib-eadd').forEach((b) =>
-            b.addEventListener('click', () => addEleven(b.dataset.vid, b.dataset.name, b))
-        );
+        rows.insertAdjacentHTML('beforeend', html);
+        // wire only the newly-added rows
+        rows.querySelectorAll('.vm-lib-eprev:not([data-w])').forEach((b) => {
+            b.setAttribute('data-w', '1');
+            b.addEventListener('click', () => previewEleven(null, b.dataset.prev, b));
+        });
+        rows.querySelectorAll('.vm-lib-eadd:not([data-w])').forEach((b) => {
+            b.setAttribute('data-w', '1');
+            b.addEventListener('click', () => {
+                const v = _shared.items.find((x) => x.voice_id === b.dataset.i);
+                if (v) addShared(v, b);
+            });
+        });
         if (global.lucide) global.lucide.createIcons();
+    }
+
+    async function addShared(v, btn) {
+        if (_busy) return;
+        _busy = true;
+        const old = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<i data-lucide="loader"></i> …';
+        if (global.lucide) global.lucide.createIcons();
+        try {
+            const res = await global.Web2VideoTTS.addSharedVoice(
+                v.public_owner_id,
+                v.voice_id,
+                v.name
+            );
+            const realId = (res && res.voice_id) || v.voice_id;
+            global.Web2VideoTTS.addLibraryVoice({
+                engine: 'elevenlabs',
+                elevenId: realId,
+                label: '✨ ' + v.name + ' (ElevenLabs)',
+            });
+            notify('Đã thêm giọng "' + v.name + '"', 'success');
+            _ctx.onChange && _ctx.onChange();
+            btn.innerHTML = '<i data-lucide="check"></i> Đã thêm';
+            btn.classList.remove('primary');
+        } catch (e) {
+            btn.disabled = false;
+            btn.innerHTML = old;
+            const m = String(e.message || e);
+            if (/slot|maximum|limit|reached|quota/i.test(m))
+                notify(
+                    'Hết slot giọng ElevenLabs (free ít) — bỏ bớt giọng đã thêm hoặc nâng gói.',
+                    'warning'
+                );
+            else notify('Thêm giọng lỗi: ' + m, 'error');
+        } finally {
+            _busy = false;
+            if (global.lucide) global.lucide.createIcons();
+        }
     }
 
     async function _playSamples(r) {

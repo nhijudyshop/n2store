@@ -256,15 +256,75 @@
         const d = await r.json();
         return (d && d.voices) || [];
     }
+    // Kho giọng cộng đồng (lọc + phân trang). params: {page,page_size,gender,language,search,sort,…}
+    async function listSharedVoices(params = {}) {
+        const qs = new URLSearchParams();
+        Object.entries(params).forEach(([k, v]) => {
+            if (v != null && v !== '') qs.set(k, v);
+        });
+        const r = await fetch(_ELEVEN_BASE() + '/shared-voices?' + qs.toString(), {
+            credentials: 'omit',
+        });
+        if (!r.ok) throw new Error('shared-voices HTTP ' + r.status);
+        return r.json(); // { ok, voices, has_more, total_count }
+    }
+    // Thêm giọng shared vào tài khoản (dùng được trong TTS). Trả {ok, voice_id}.
+    async function addSharedVoice(publicOwnerId, voiceId, name) {
+        const r = await _elPost(
+            '/add-shared',
+            { public_owner_id: publicOwnerId, voice_id: voiceId, name },
+            'Thêm giọng'
+        );
+        return r.json();
+    }
+
+    // Cài đặt ElevenLabs (model + voice_settings) — 1 nguồn, persist localStorage.
+    const ELEVEN_SET_KEY = 'web2_vm_eleven_settings';
+    const ELEVEN_DEFAULTS = {
+        model_id: 'eleven_flash_v2_5', // có tiếng Việt
+        stability: 0.5,
+        similarity_boost: 0.75,
+        style: 0.0,
+        use_speaker_boost: true,
+        speed: 1.0,
+    };
+    function getElevenSettings() {
+        try {
+            return Object.assign(
+                {},
+                ELEVEN_DEFAULTS,
+                JSON.parse(localStorage.getItem(ELEVEN_SET_KEY) || '{}')
+            );
+        } catch {
+            return { ...ELEVEN_DEFAULTS };
+        }
+    }
+    function setElevenSettings(patch) {
+        const s = Object.assign(getElevenSettings(), patch || {});
+        try {
+            localStorage.setItem(ELEVEN_SET_KEY, JSON.stringify(s));
+        } catch {}
+        return s;
+    }
+
     async function _elevenChunk(text, v, onStatus) {
         onStatus && onStatus('Đang tạo giọng ElevenLabs…');
+        const s = getElevenSettings();
         const r = await fetch(_ELEVEN_BASE() + '/tts', {
             method: 'POST',
             headers: { 'content-type': 'application/json' },
             body: JSON.stringify({
                 text: String(text || ''),
                 voice_id: v.elevenId,
-                model_id: v.elevenModel || undefined,
+                model_id: v.elevenModel || s.model_id,
+                language_code: 'vi',
+                voice_settings: {
+                    stability: s.stability,
+                    similarity_boost: s.similarity_boost,
+                    style: s.style,
+                    use_speaker_boost: s.use_speaker_boost,
+                    speed: s.speed,
+                },
             }),
         });
         if (!r.ok) {
@@ -606,6 +666,10 @@
         // ElevenLabs (proxy)
         elevenStatus,
         listElevenVoices,
+        listSharedVoices,
+        addSharedVoice,
+        getElevenSettings,
+        setElevenSettings,
         // nghe thử 1 giọng bất kỳ (chưa cần trong VOICES)
         synthVoiceMeta,
         // ElevenLabs tools
