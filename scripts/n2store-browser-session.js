@@ -61,6 +61,7 @@ const ARGS = (() => {
         else if (a[i] === '--profile-name') out.profileName = a[++i];
         else if (a[i] === '--channel') out.chromeChannel = a[++i];
         else if (a[i] === '--http-port') out.httpPort = Number(a[++i]) || 0;
+        else if (a[i] === '--start' || a[i] === '--landing') out.start = a[++i];
     }
     return out;
 })();
@@ -68,6 +69,7 @@ if (!ARGS.profile && (!ARGS.user || !ARGS.pass)) {
     console.error(
         'Usage: node scripts/n2store-browser-session.js --user U --pass P [--base URL]\n' +
             '  Localhost: --base http://localhost:8080  (cần `python3 -m http.server 8080`)\n' +
+            '  Test WEB 2.0: --start web2/overview/index.html  (KHÔNG để mặc định orders-report = Web 1.0)\n' +
             '  Existing profile: --profile /path/to/Chrome --profile-name "Profile 4" [--channel chrome]'
     );
     process.exit(1);
@@ -75,6 +77,14 @@ if (!ARGS.profile && (!ARGS.user || !ARGS.pass)) {
 
 const BASE = ARGS.base.replace(/\/+$/, '');
 const ORDERS = `${BASE}/orders-report/main.html`;
+// Trang đích sau login. MẶC ĐỊNH orders-report = WEB 1.0. Khi test WEB 2.0 PHẢI truyền
+// `--start web2/overview/index.html` (hoặc URL đầy đủ) để KHÔNG nhảy nhầm vào Web 1.0.
+// (CLAUDE.md: "Browser test Web 2.0 → mở web2/overview TRƯỚC".)
+const START_URL = ARGS.start
+    ? /^https?:\/\//.test(ARGS.start)
+        ? ARGS.start
+        : `${BASE}/${ARGS.start.replace(/^\/+/, '')}`
+    : ORDERS;
 const OUT_DIR = path.join(__dirname, '..', 'downloads', 'n2store-session');
 fs.mkdirSync(OUT_DIR, { recursive: true });
 const SESSION_LOG = path.join(OUT_DIR, 'session.log');
@@ -366,9 +376,10 @@ const sseEmit = (type, data) => {
     }
     log('After login URL:', page.url());
 
-    // Default: navigate to orders
-    log('Navigate to orders-report/main.html');
-    await page.goto(`${ORDERS}?t=${Date.now()}`, { waitUntil: 'domcontentloaded' });
+    // Landing sau login (override bằng --start; mặc định orders-report = Web 1.0).
+    log('Navigate to landing:', START_URL);
+    const _sep = START_URL.includes('?') ? '&' : '?';
+    await page.goto(`${START_URL}${_sep}t=${Date.now()}`, { waitUntil: 'domcontentloaded' });
     await page.waitForLoadState('networkidle', { timeout: 60_000 }).catch(() => {});
     log('Ready. Type help for commands. Browser stays open until quit.');
 

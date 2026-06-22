@@ -510,17 +510,23 @@ FIFO=/tmp/n2s-$$.fifo; PORT=$((9900 + RANDOM % 90)); mkfifo "$FIFO"
 
 > ⚠ **TRÁNH TRANH CHẤP BROWSER TEST (BẮT BUỘC — 2026-06-14)**: KHÔNG hardcode `/tmp/n2store-session.fifo` + `--http-port 9966` cố định. Nếu agent/session Claude khác cũng mở browser test, 2 phiên đọc CHUNG 1 FIFO + đụng cổng → lệnh `nav` rơi nhầm phiên làm trang "tự nhảy" lung tung (đã xảy ra 2026-06-14: 2 phiên `n2store-browser-session.js` chung FIFO/9966 khiến orders-report nhảy sang web2 — tưởng bug app, thực ra là contention). Quy tắc: **(1)** FIFO riêng `/tmp/n2s-$$.fifo` + cổng riêng (random/theo agent); **(2)** gửi lệnh qua **HTTP `/cmd`** (theo PID) thay vì ghi FIFO chung; **(3)** muốn 1 phiên sạch tuyệt đối → `pkill -f n2store-browser-session.js; pkill -f 'tail -f /tmp/n2s'; rm -f /tmp/n2s-*.fifo /tmp/n2store-session.fifo` TRƯỚC khi mở.
 
-### 🧭 Browser test Web 2.0 → MỞ `web2/overview/index.html` TRƯỚC (BẮT BUỘC — 2026-06-13)
+### 🧭 Browser test Web 2.0 → KHỞI ĐỘNG bằng `--start web2/overview/index.html` (BẮT BUỘC — 2026-06-13, cập nhật 2026-06-22)
 
-Khi browser test bất kỳ trang **Web 2.0** nào, **mặc định nav tới [`web2/overview/index.html`](web2/overview/index.html) TRƯỚC**, rồi mới chuyển sang trang cần test.
+⚠️ **`n2store-browser-session.js` MẶC ĐỊNH nhảy `orders-report/main.html` = WEB 1.0 sau login.** Khi test Web 2.0 mà KHÔNG truyền `--start` → browser đứng/flash ở **Web 1.0** (lỗi "cứ vào nhầm web 1.0"). Vì vậy khi browser test bất kỳ trang **Web 2.0** nào, **PHẢI khởi động với cờ `--start web2/overview/index.html`** (lands thẳng Web 2.0 + warm shared bootstrap), rồi mới `nav` sang trang con.
 
 ```bash
-echo "nav http://localhost:8080/web2/overview/index.html?t=$(date +%s)" > /tmp/n2store-session.fifo
-echo "nav http://localhost:8080/web2/<trang-cần-test>/index.html?t=$(date +%s)" > /tmp/n2store-session.fifo
+FIFO=/tmp/n2s-$$.fifo; PORT=$((9900+RANDOM%90)); mkfifo "$FIFO"
+(tail -f "$FIFO") | node scripts/n2store-browser-session.js --user admin --pass admin@@ \
+  --base http://localhost:8080 --ext n2store-extension --http-port "$PORT" \
+  --start web2/overview/index.html &
+# rồi nav trang con qua HTTP /cmd (theo PID):
+curl -s -X POST localhost:$PORT/cmd -H 'content-type: application/json' \
+  -d '{"cmd":"nav http://localhost:8080/web2/<trang>/index.html?t='$(date +%s)'"}'
 ```
 
 - Lý do: overview load shared bootstrap (sidebar, auth, SSE bridge, theme, command palette, notification) + warm session/state → vào thẳng trang con dễ thiếu context/false-negative.
-- KHÔNG áp dụng cho trang Web 1.0 (orders-report, inbox, chat…).
+- ⚠️ Driver điều khiển browser (python/bash gọi `/cmd`): **export PORT** cho subprocess (`source file.env` KHÔNG export → `os.environ` = None → mọi `nav` fail im lặng → browser đứng Web 1.0, tưởng "vào nhầm"). Đọc PORT từ file env trong script.
+- KHÔNG áp dụng cho trang Web 1.0 (orders-report, inbox, chat…) — chúng để mặc định orders-report.
 
 ### ⚡ Quy tắc test — LIVE CODING workflow
 
