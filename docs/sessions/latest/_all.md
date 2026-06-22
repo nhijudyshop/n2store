@@ -3,10 +3,10 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `2b38875` — fix(live-chat): Chụp Live ra ảnh trắng — capture TRƯỚC khi mở sidebar Kho Hình (sidebar che iframe) + ẩn sidebar lúc chụp lần 2+
-**Last updated**: 2026-06-22 10:10:28 +07
-**Latest session**: [`RESUME:20260622-101028-2b38875`](../20260622-101028-2b38875.md)
-**Summary**: fix Chụp Live ảnh trắng — capture trước khi mở sidebar Kho Hình che iframe
+**Latest commit**: `1ab47a7` — polish(live-chat): Chụp Live — bỏ toast success sau khi chụp (user req, lỗi vẫn báo)
+**Last updated**: 2026-06-22 10:14:04 +07
+**Latest session**: [`RESUME:20260622-101404-1ab47a7`](../20260622-101404-1ab47a7.md)
+**Summary**: Chụp Live: bỏ toast success sau khi chụp
 
 ## Folders affected in this commit
 
@@ -26,7 +26,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-21 15:47
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-06-22 10:10
+- [`docs/`](./docs.md) — updated 2026-06-22 10:14
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-19 14:27
@@ -40,7 +40,7 @@
 - [`invoice-compare/`](./invoice-compare.md) — updated 2026-06-20 12:07
 - [`issue-tracking/`](./issue-tracking.md) — updated 2026-06-20 12:07
 - [`lichsuchinhsua/`](./lichsuchinhsua.md) — updated 2026-06-20 12:07
-- [`live-chat/`](./live-chat.md) — updated 2026-06-22 10:10
+- [`live-chat/`](./live-chat.md) — updated 2026-06-22 10:14
 - [`n2store-extension/`](./n2store-extension.md) — updated 2026-06-20 16:16
 - [`n2store-facebook/`](./n2store-facebook.md) — updated 2026-06-14 13:09
 - [`n2store-realtime/`](./n2store-realtime.md) — updated 2026-06-16 11:15
