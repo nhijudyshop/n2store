@@ -28,6 +28,7 @@
 const express = require('express');
 const router = express.Router();
 const { requireWeb2AuthSoft } = require('../middleware/web2-auth');
+const { recordAuditEvent } = require('../services/web2-audit-sink');
 
 function getPool(req) {
     return req.app.locals.web2Db || req.app.locals.chatDb;
@@ -106,6 +107,21 @@ function actorOf(req) {
     );
 }
 
+// Best-effort audit event-sink (web2_audit_events) — KHÔNG await, KHÔNG throw.
+// Chỉ ghi hành động NGHIỆP VỤ (add/remove SP, set "số NCC báo") — bỏ qua reorder/pin
+// (UI prefs, tránh nhiễu log khi đang live).
+function _auditCampaign(req, action, campaignId, note) {
+    recordAuditEvent(getPool(req), {
+        entity: 'campaign',
+        entityId: campaignId != null ? String(campaignId) : null,
+        action,
+        userId: req.body?.userId ?? req.web2User?.id ?? null,
+        userName: actorOf(req),
+        sourcePage: 'live-control',
+        changes: note || {},
+    });
+}
+
 // GET /?campaignId=X — list SP của 1 chiến dịch, JOIN kho (LEFT để giữ SP đã xoá).
 router.get('/', requireWeb2AuthSoft, async (req, res) => {
     const pool = getPool(req);
@@ -176,6 +192,8 @@ router.post('/', requireWeb2AuthSoft, async (req, res) => {
             }
         }
         _notify('add', campaignId);
+        if (added)
+            _auditCampaign(req, 'add-products', campaignId, { added, codes: codes.slice(0, 20) });
         res.json({ success: true, added, total: codes.length });
     } catch (e) {
         console.error('[WEB2-CAMPAIGN-PRODUCTS] add error:', e.message);
@@ -199,6 +217,7 @@ router.delete('/', requireWeb2AuthSoft, async (req, res) => {
             [campaignId, code]
         );
         _notify('remove', campaignId);
+        _auditCampaign(req, 'remove-product', campaignId, { code });
         res.json({ success: true });
     } catch (e) {
         console.error('[WEB2-CAMPAIGN-PRODUCTS] remove error:', e.message);
@@ -292,6 +311,7 @@ router.patch('/pending', requireWeb2AuthSoft, async (req, res) => {
         if (!r.rows.length)
             return res.status(404).json({ success: false, error: 'product not found' });
         _notify('pending', campaignId);
+        _auditCampaign(req, 'set-pending', campaignId, { code, qty });
         // Cũng báo web2:products → Kho SP + consumer SP khác cũng sync số chờ hàng
         // (số NCC báo = pending_qty của web2_products), không chỉ trang TV/board.
         if (_notifyClients) {

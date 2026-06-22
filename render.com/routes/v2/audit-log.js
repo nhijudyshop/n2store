@@ -290,23 +290,51 @@ router.get('/entities', requireWeb2AuthSoft, async (req, res) => {
     res.json({ success: true, entities: [...out].sort() });
 });
 
-// DELETE /purge?entity=<slug> — ADMIN housekeeping: xoá toàn bộ audit của 1 entity
-// khỏi event-sink web2_audit_events (vd dọn entity test/nhiễu). BẮT BUỘC `entity`
-// (chống xoá nhầm toàn bộ). KHÔNG đụng 4 bảng history riêng (chỉ event-sink).
+// DELETE /purge?entity=<slug>&entityId=<id> — ADMIN housekeeping: xoá audit khỏi
+// event-sink web2_audit_events. BẮT BUỘC ít nhất 1 trong `entity` / `entityId`
+// (chống xoá nhầm toàn bộ). entityId → dọn lịch sử 1 RECORD cụ thể (vd row test);
+// entity → dọn cả 1 loại. Có cả 2 = AND. KHÔNG đụng 4 bảng history riêng.
 router.delete('/purge', requireWeb2Admin, async (req, res) => {
     try {
         const pool = req.app.locals.web2Db || req.app.locals.chatDb;
         const entity = String(req.query.entity || (req.body && req.body.entity) || '').trim();
-        if (!entity) {
-            return res
-                .status(400)
-                .json({ success: false, error: 'entity bắt buộc (chống xoá nhầm toàn bộ audit)' });
+        const entityId = String(
+            req.query.entityId || req.query.entity_id || (req.body && req.body.entityId) || ''
+        ).trim();
+        if (!entity && !entityId) {
+            return res.status(400).json({
+                success: false,
+                error: 'cần entity hoặc entityId (chống xoá nhầm toàn bộ audit)',
+            });
         }
         if (!(await _tableExists(pool, 'web2_audit_events'))) {
-            return res.json({ success: true, entity, deleted: 0 });
+            return res.json({
+                success: true,
+                entity: entity || null,
+                entityId: entityId || null,
+                deleted: 0,
+            });
         }
-        const r = await pool.query(`DELETE FROM web2_audit_events WHERE entity = $1`, [entity]);
-        res.json({ success: true, entity, deleted: r.rowCount });
+        const conds = [];
+        const params = [];
+        if (entity) {
+            params.push(entity);
+            conds.push(`entity = $${params.length}`);
+        }
+        if (entityId) {
+            params.push(entityId);
+            conds.push(`entity_id = $${params.length}`);
+        }
+        const r = await pool.query(
+            `DELETE FROM web2_audit_events WHERE ${conds.join(' AND ')}`,
+            params
+        );
+        res.json({
+            success: true,
+            entity: entity || null,
+            entityId: entityId || null,
+            deleted: r.rowCount,
+        });
     } catch (e) {
         res.status(500).json({ success: false, error: e.message });
     }

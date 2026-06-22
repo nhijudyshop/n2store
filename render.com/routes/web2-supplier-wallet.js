@@ -27,6 +27,7 @@ const { requireWeb2AuthSoft } = require('../middleware/web2-auth');
 // Trần over-refund SERVER-AUTHORITATIVE — SL đã NHẬN THẬT từ web2_so_order.
 // Lib dùng chung với purchase-refund (/quick-refund) — xem lib/web2-so-order-qty.js.
 const { loadSoOrderReceivedQtyMap } = require('../lib/web2-so-order-qty');
+const { recordAuditEvent } = require('../services/web2-audit-sink');
 
 let _notifyClients = null;
 router.initializeNotifiers = (notifyClients) => {
@@ -47,6 +48,25 @@ function _notify(action, supplier) {
 
 function getPool(req) {
     return req.app.locals.web2Db || req.app.locals.chatDb;
+}
+
+// Best-effort audit event-sink (web2_audit_events) — KHÔNG await, KHÔNG throw.
+// ADDITIVE — chỉ ghi log thao tác, KHÔNG đụng money math / transaction.
+function _auditSupplier(req, action, supplier, note) {
+    recordAuditEvent(getPool(req), {
+        entity: 'supplier-wallet',
+        entityId: supplier,
+        action,
+        userId: req.body?.userId ?? req.web2User?.id ?? null,
+        userName:
+            req.body?.performedBy ||
+            req.body?.userName ||
+            req.web2User?.display_name ||
+            req.web2User?.username ||
+            null,
+        sourcePage: 'supplier-wallet',
+        changes: note || {},
+    });
 }
 
 const _ensuredPools = new WeakSet();
@@ -348,6 +368,7 @@ router.post('/tx', requireWeb2AuthSoft, async (req, res) => {
         }
         await client.query('COMMIT');
         _notify('tx', supplier);
+        _auditSupplier(req, type, supplier, { txId, amount, moveName, note: b.note || null });
         res.json({ success: true, tx: mapTx(ins.rows[0]) });
     } catch (e) {
         await client.query('ROLLBACK').catch(() => {});
@@ -382,6 +403,7 @@ router.post('/suppliers', requireWeb2AuthSoft, async (req, res) => {
             [name, String(b.code || '').trim(), b.note ?? null, Date.now()]
         );
         _notify('supplier', name);
+        _auditSupplier(req, 'upsert-supplier', name, { code: String(b.code || '').trim() || null });
         const m = r.rows[0];
         res.json({
             success: true,
@@ -471,6 +493,7 @@ router.post('/import', requireWeb2AuthSoft, async (req, res) => {
             `[WEB2-SUPPLIER-WALLET] import one-time: ${metaCount} NCC, ${txCount} giao dịch (từ Firestore)`
         );
         _notify('import', null);
+        _auditSupplier(req, 'import', null, { suppliers: metaCount, transactions: txCount });
         res.json({ success: true, imported: { suppliers: metaCount, transactions: txCount } });
     } catch (e) {
         await client.query('ROLLBACK').catch(() => {});
@@ -507,6 +530,10 @@ router.delete('/supplier/:name', async (req, res) => {
         const m = await client.query(`DELETE FROM web2_supplier_meta WHERE supplier = $1`, [name]);
         await client.query('COMMIT');
         _notify('supplier-deleted', name);
+        _auditSupplier(req, 'delete-supplier', name, {
+            ledgerRows: l.rowCount,
+            metaRows: m.rowCount,
+        });
         res.json({ success: true, deleted: { ledger: l.rowCount, meta: m.rowCount } });
     } catch (e) {
         await client.query('ROLLBACK').catch(() => {});

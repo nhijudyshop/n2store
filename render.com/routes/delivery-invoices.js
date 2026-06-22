@@ -10,6 +10,7 @@ const router = express.Router();
 const { withTransaction } = require('../db/with-transaction');
 // audit r9: gate mutation (state-change PBH giao/tiền) — trước đây hoàn toàn không auth.
 const { requireWeb2AuthSoft } = require('../middleware/web2-auth');
+const { recordAuditEvent } = require('../services/web2-audit-sink');
 
 // State machine: trạng thái hiện tại → tập trạng thái kế tiếp hợp lệ.
 // Chặn transition vô lý (vd delivered→shipping, cancel→shipping) khi 2 user/2
@@ -150,6 +151,20 @@ async function nextNumber(pool) {
         if (m) seq = parseInt(m[1], 10) + 1;
     }
     return prefix + pad(seq, 4);
+}
+
+// Best-effort audit event-sink (web2_audit_events) — KHÔNG await, KHÔNG throw.
+function _auditDelivery(req, action, id, note) {
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
+    recordAuditEvent(pool, {
+        entity: 'delivery-invoice',
+        entityId: id,
+        action,
+        userId: req.body?.userId ?? req.web2User?.id ?? null,
+        userName: req.body?.userName || req.web2User?.display_name || null,
+        sourcePage: 'delivery-invoices',
+        changes: note ? (typeof note === 'string' ? { note } : note) : {},
+    });
 }
 
 // -----------------------------------------------------
@@ -328,6 +343,10 @@ router.post('/from-pbh', requireWeb2AuthSoft, async (req, res) => {
                 );
             } catch {}
         }
+        _auditDelivery(req, 'create', o.number, {
+            fsoNumber: o.fso?.number,
+            totalQuantity: o.totalQuantity,
+        });
         res.json({ success: true, order: o });
     } catch (e) {
         console.error('[DELIVERY-INVOICES] from-pbh error:', e.message);
@@ -395,6 +414,7 @@ for (const [path, st] of [
                     );
                 } catch {}
             }
+            _auditDelivery(req, st, req.params.number, { state: row.state });
             res.json({ success: true, order: o });
         } catch (e) {
             res.status(500).json({ error: e.message });
@@ -454,6 +474,7 @@ router.patch('/:number', requireWeb2AuthSoft, async (req, res) => {
                 );
             } catch {}
         }
+        _auditDelivery(req, 'update', req.params.number, { fields: sets });
         res.json({ success: true, order: mapRow(r.rows[0]) });
     } catch (e) {
         res.status(500).json({ error: e.message });
@@ -485,6 +506,7 @@ router.delete('/:number', requireWeb2AuthSoft, async (req, res) => {
                 );
             } catch {}
         }
+        _auditDelivery(req, 'delete', req.params.number, force ? { force: true } : null);
         res.json({ success: true });
     } catch (e) {
         res.status(500).json({ error: e.message });

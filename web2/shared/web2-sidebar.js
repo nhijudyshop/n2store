@@ -79,7 +79,7 @@
         if (!global.Web2Lottie) inject('web2-lottie.js', '20260615a');
         // Lịch sử thao tác per-record (Web2AuditLog.openRecord) — MỌI trang Web 2.0
         // dùng để hiện lịch sử 1 record. page-builder + custom pages đều gọi được.
-        if (!global.Web2AuditLog) inject('web2-audit-log.js', '20260622al3');
+        if (!global.Web2AuditLog) inject('web2-audit-log.js', '20260622al4');
         // PWA — "Thêm vào Màn hình chính" (iOS/Android), không cần App Store/dev account.
         // Inject manifest + apple meta + apple-touch-icon vào MỌI trang Web 2.0.
         if (!global.Web2PWA) inject('web2-pwa.js', '20260620a');

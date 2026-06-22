@@ -23,6 +23,23 @@ const zca = require('../services/web2-zalo-zca'); // đọc lịch sử nhóm Za
 // honors WEB2_AUTH_ENFORCE=1 (401 ở prod, warn-and-pass khi tắt). /clear (wipe bảng)
 // cần requireWeb2Admin (role=admin). Read GET vẫn mở (frontend chưa gửi token đồng loạt).
 const { requireWeb2AuthSoft, requireWeb2Admin } = require('../middleware/web2-auth');
+const { recordAuditEvent } = require('../services/web2-audit-sink');
+
+// Audit event-sink (additive, best-effort, never throws). Ghi 1 sự kiện cho mỗi
+// mutation do USER kích hoạt (add/approve/unapprove/clear). Đọc userId/userName từ
+// body (frontend) hoặc req.web2User (middleware). KHÔNG audit GET/scrape/cron.
+function _auditJt(req, action, id, note) {
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
+    recordAuditEvent(pool, {
+        entity: 'jt-tracking',
+        entityId: id,
+        action,
+        userId: req.body?.userId ?? req.web2User?.id ?? null,
+        userName: req.body?.userName || req.web2User?.display_name || null,
+        sourcePage: 'jt-tracking',
+        changes: note ? (typeof note === 'string' ? { note } : note) : {},
+    });
+}
 
 let _pool = null;
 const getDb = (req) => req.app.locals.web2Db || req.app.locals.chatDb;
@@ -464,6 +481,7 @@ router.post('/clear', requireWeb2Admin, async (req, res) => {
             ? await db.query(`DELETE FROM web2_jt_tracking`)
             : await db.query(`DELETE FROM web2_jt_tracking WHERE status = 'pending'`);
         _notify('clear', String(r.rowCount));
+        _auditJt(req, 'delete', null, { scope: wipeAll ? 'all' : 'pending', count: r.rowCount });
         res.json({ success: true, removed: r.rowCount, scope: wipeAll ? 'all' : 'pending' });
     } catch (e) {
         res.status(500).json({ success: false, error: e.message });
@@ -517,6 +535,8 @@ router.post('/scan', requireWeb2AuthSoft, async (req, res) => {
             if (r.rows[0]?.inserted) added++;
         }
         if (added) _notify('scan', String(added));
+        if (added)
+            _auditJt(req, 'add', found.keys().next().value || null, { via: 'scan', count: added });
         res.json({ success: true, found: found.size, added });
     } catch (e) {
         res.status(500).json({ success: false, error: e.message });
@@ -605,6 +625,11 @@ router.post('/scan-history', requireWeb2AuthSoft, async (req, res) => {
             if (r.rows[0]?.inserted) added++;
         }
         if (added) _notify('scan', String(added));
+        if (added)
+            _auditJt(req, 'add', found.keys().next().value || null, {
+                via: 'scan-history',
+                count: added,
+            });
         res.json({
             success: true,
             groups: groups.length,
@@ -712,6 +737,11 @@ router.post('/scan-text', requireWeb2AuthSoft, async (req, res) => {
                 /* best-effort */
             }
         }
+        if (added)
+            _auditJt(req, 'add', found.keys().next().value || null, {
+                via: 'scan-text',
+                count: added,
+            });
         res.json({ success: true, found: found.size, added, messagesAdded });
     } catch (e) {
         res.status(500).json({ success: false, error: e.message });
@@ -786,6 +816,7 @@ router.post('/add', requireWeb2AuthSoft, async (req, res) => {
             if (r.rowCount) added++;
         }
         if (added) _notify('add', String(added));
+        if (added) _auditJt(req, 'add', codes[0] || null, { via: 'manual', count: added });
         res.json({ success: true, codes, added });
     } catch (e) {
         res.status(400).json({ success: false, error: e.message });
@@ -805,6 +836,7 @@ router.post('/track', requireWeb2AuthSoft, async (req, res) => {
             note: req.body?.note,
         });
         _notify('track', billcode);
+        _auditJt(req, 'update', billcode, { via: 'track', status: row?.status || null });
         res.json({ success: true, data: row });
     } catch (e) {
         res.status(502).json({ success: false, error: 'J&T lỗi: ' + e.message });
@@ -1037,6 +1069,7 @@ router.post('/:billcode/approve', requireWeb2AuthSoft, async (req, res) => {
         if (!r.rowCount)
             return res.status(404).json({ success: false, error: 'Không tìm thấy mã' });
         _notify('approve', billcode);
+        _auditJt(req, 'approve', billcode);
         res.json({ success: true });
     } catch (e) {
         res.status(500).json({ success: false, error: e.message });
@@ -1055,6 +1088,7 @@ router.post('/:billcode/unapprove', requireWeb2AuthSoft, async (req, res) => {
             [billcode, now()]
         );
         _notify('unapprove', billcode);
+        _auditJt(req, 'update', billcode, { via: 'unapprove' });
         res.json({ success: true });
     } catch (e) {
         res.status(500).json({ success: false, error: e.message });

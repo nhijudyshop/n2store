@@ -2,6 +2,23 @@
 
 ## 2026-06-22
 
+### [feat] Per-record history rollout — Wave 2 backend wiring (9 route → event-sink) + entityId purge
+
+Hoàn tất nhánh backend: mọi mutation NGHIỆP VỤ còn lại của Web 2.0 ghi vào event-sink `web2_audit_events` → audit-log "toàn bộ" + per-record modal đủ nguồn. Pattern ĐỒNG NHẤT: `require('web2-audit-sink')` + helper `_auditX(req, action, id, note)` (best-effort, KHÔNG await/throw) gọi SAU commit, TRƯỚC `res.json` — **additive thuần, không đụng money math / control flow**.
+
+- **supplier-wallet** (`web2-supplier-wallet.js`, money) → entity='supplier-wallet': tx (payment/return — chỉ success thật, BỎ 2 nhánh `alreadyProcessed` idempotent), upsert-supplier, import, delete-supplier.
+- **refunds** (`refunds.js`, phiếu trả PBH — LIVE qua trang fastsaleorder-refund, chỉ `from-pbh` create là 410) → entity='refund': approve/complete/cancel (3 endpoint share 1 handler) + delete.
+- **balance-history** (`v2/web2-balance-history.js`, money) → entity='balance-transaction': manual-deposit, link, reassign, resolve-pending. **BỎ** bulk/auto (auto-match, reprocess-unmatched, auto-assign, cleanup, SePay webhook) tránh nhiễu.
+- **delivery-invoices** → entity='delivery-invoice': create/ship/deliver/return/cancel/update/delete.
+- **fb-posts** → entity='fb-post': create/update/schedule/publish/delete (bỏ token-connect + AI caption + ad-ledger).
+- **jt-tracking** → entity='jt-tracking': add(scan/manual)/approve/update/delete (bỏ scrape GET + cron auto-purge).
+- **order-tags** → entity='order-tag': create/update/delete config.
+- **campaign-products** (live-control) → entity='campaign': add-products/remove-product/set-pending ("số NCC báo"). BỎ reorder/pin (UI prefs, nhiễu khi live).
+- **customer-wallet** (`v2/web2-customer-wallet.js`) — **KHÔNG wire**: chỉ có POST `/:phone/qr` (sinh QR, không đổi số dư); deposit thật qua SePay webhook (tự động, không phải thao tác user) → tránh double-count.
+- **/purge** (`v2/audit-log.js`) — thêm tham số `entityId` (backward-compat: cần entity HOẶC entityId; có cả 2 = AND) → admin dọn lịch sử 1 record cụ thể (vd row test), không phải cả entity.
+- **Module FE** `web2-audit-log.js`: bổ sung ENTITY_LABELS + pill màu cho 12 entity mới (variant/refund/native-order/so-order/web2-user/supplier-wallet/delivery-invoice/jt-tracking/fb-post/order-tag/campaign/balance-transaction). Bump sidebar `?v=20260622al4`.
+- Tất cả 9 route `node --check` PASS; require + audit-call counts verified. Cần Render deploy để nạp.
+
 ### [feat] Per-record history rollout — frontend custom pages (returns + reconcile + customers)
 
 Tiếp rollout lịch sử per-record (audit→implement→debug→verify). Đợt này lo **frontend custom pages** — gắn nút mở `Web2AuditLog.openRecord(...)` đúng theo chức năng từng trang. Phát hiện quan trọng khi audit: nhiều trang ĐÃ có lịch sử per-record sẵn từ nguồn canonical/embedded → KHÔNG downgrade, chỉ bù trang còn thiếu.

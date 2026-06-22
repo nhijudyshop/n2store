@@ -31,6 +31,7 @@
     // customer, payment-signal, return, kpi-assignment) + entity generic (slug) hiện raw.
     const ENTITY_LABELS = {
         product: 'Sản phẩm',
+        variant: 'Biến thể',
         pbh: 'PBH',
         reconcile: 'Đối soát',
         wallet: 'Ví',
@@ -38,7 +39,18 @@
         customer: 'Khách hàng',
         'payment-signal': 'Tín hiệu CK',
         return: 'Trả hàng',
+        refund: 'Phiếu trả PBH',
         'kpi-assignment': 'Phân công KPI',
+        'native-order': 'Đơn Web',
+        'so-order': 'Sổ Order',
+        'web2-user': 'Tài khoản',
+        'supplier-wallet': 'Ví NCC',
+        'delivery-invoice': 'Giao hàng',
+        'jt-tracking': 'Vận đơn J&T',
+        'fb-post': 'Bài FB',
+        'order-tag': 'Thẻ đơn',
+        campaign: 'Chiến dịch',
+        'balance-transaction': 'Giao dịch CK',
     };
     const COLSPAN = 7;
 
@@ -87,7 +99,19 @@
 .w2al-pill.customer{background:#eef0ff;color:#4f46e5}
 .w2al-pill.payment-signal{background:#ecfdf5;color:#059669}
 .w2al-pill.return{background:#fff7ed;color:#c2410c}
+.w2al-pill.refund{background:#fef2f2;color:#dc2626}
 .w2al-pill.kpi-assignment{background:#f5f3ff;color:#7c3aed}
+.w2al-pill.variant{background:#e0f4fc;color:#0d9488}
+.w2al-pill.native-order{background:#eef5ff;color:#2563eb}
+.w2al-pill.so-order{background:#f0fdf4;color:#15803d}
+.w2al-pill.web2-user{background:#fef9c3;color:#a16207}
+.w2al-pill.supplier-wallet{background:#fff7ed;color:#ea580c}
+.w2al-pill.delivery-invoice{background:#ecfeff;color:#0e7490}
+.w2al-pill.jt-tracking{background:#f1f5f9;color:#475569}
+.w2al-pill.fb-post{background:#eff6ff;color:#1d4ed8}
+.w2al-pill.order-tag{background:#fdf4ff;color:#a21caf}
+.w2al-pill.campaign{background:#fff1f2;color:#e11d48}
+.w2al-pill.balance-transaction{background:#ecfdf5;color:#059669}
 .w2al-diff{font-size:11px;max-width:360px;max-height:90px;overflow:auto;background:var(--gray-50,#f8fafc);border:1px dashed var(--border,#e5e7eb);padding:6px;margin:0;border-radius:6px;white-space:pre-wrap;word-break:break-word}
 .w2al-msg{padding:20px;text-align:center;color:#94a3b8}
 .w2al-msg.err{color:#dc2626}

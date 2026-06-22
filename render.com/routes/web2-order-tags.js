@@ -9,9 +9,24 @@ const express = require('express');
 const router = express.Router();
 const { requireWeb2AuthSoft } = require('../middleware/web2-auth');
 const svc = require('../services/web2-order-tags-service');
+const { recordAuditEvent } = require('../services/web2-audit-sink');
 
 function getPool(req) {
     return req.app.locals.web2Db || req.app.locals.chatDb;
+}
+
+// Best-effort audit event-sink (web2_audit_events) — KHÔNG await, KHÔNG throw.
+function _auditTag(req, action, code, note) {
+    recordAuditEvent(getPool(req), {
+        entity: 'order-tag',
+        entityId: code,
+        action,
+        userId: req.body?.userId ?? req.web2User?.id ?? null,
+        userName:
+            req.body?.userName || req.web2User?.display_name || req.web2User?.username || null,
+        sourcePage: 'order-tags',
+        changes: note ? (typeof note === 'string' ? { note } : note) : {},
+    });
 }
 
 // SSE notifier — broadcast topic 'web2:order-tags' sau mỗi mutation.
@@ -120,6 +135,7 @@ router.post('/create', requireWeb2AuthSoft, async (req, res) => {
                 ]
             );
             _notify('create', code);
+            _auditTag(req, 'create', code, { name, trigger });
             res.json({ success: true, record: mapRow(r.rows[0]) });
         } catch (e) {
             if (e.code === '23505') {
@@ -180,6 +196,7 @@ router.patch('/update/:code', requireWeb2AuthSoft, async (req, res) => {
         );
         if (!r.rows.length) return res.status(404).json({ error: 'Not found' });
         _notify('update', code);
+        _auditTag(req, 'update', code, { fields: sets });
         res.json({ success: true, record: mapRow(r.rows[0]) });
     } catch (e) {
         console.error('[WEB2-ORDER-TAGS] update error:', e.message);
@@ -199,6 +216,7 @@ router.delete('/delete/:code', requireWeb2AuthSoft, async (req, res) => {
         ]);
         if (!r.rows.length) return res.status(404).json({ error: 'Not found' });
         _notify('delete', code);
+        _auditTag(req, 'delete', code);
         res.json({ success: true });
     } catch (e) {
         console.error('[WEB2-ORDER-TAGS] delete error:', e.message);

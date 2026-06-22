@@ -9,6 +9,21 @@ const router = express.Router();
 const { withTransaction } = require('../db/with-transaction');
 // audit r9: gate mutation (state-change phiếu trả/hoàn tiền) — trước đây không auth.
 const { requireWeb2AuthSoft } = require('../middleware/web2-auth');
+const { recordAuditEvent } = require('../services/web2-audit-sink');
+
+// Best-effort audit event-sink (web2_audit_events) — KHÔNG await, KHÔNG throw.
+function _auditRefund(req, action, number, note) {
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
+    recordAuditEvent(pool, {
+        entity: 'refund',
+        entityId: number,
+        action,
+        userId: req.body?.by ?? req.body?.userId ?? req.web2User?.id ?? null,
+        userName: req.body?.by || req.body?.userName || req.web2User?.display_name || null,
+        sourcePage: 'fastsaleorder-refund',
+        changes: note ? (typeof note === 'string' ? { note } : note) : {},
+    });
+}
 
 // State machine: trạng thái hiện tại → tập trạng thái kế tiếp hợp lệ.
 // Chặn transition vô lý (vd completed→approved, cancel→draft) khi 2 user/2 tab
@@ -362,6 +377,7 @@ for (const [path, st] of [
                     );
                 } catch {}
             }
+            _auditRefund(req, st, req.params.number);
             res.json({ success: true, order: o });
         } catch (e) {
             res.status(500).json({ error: e.message });
@@ -395,6 +411,7 @@ router.delete('/:number', requireWeb2AuthSoft, async (req, res) => {
                 );
             } catch {}
         }
+        _auditRefund(req, 'delete', req.params.number, force ? { force: true } : null);
         res.json({ success: true });
     } catch (e) {
         res.status(500).json({ error: e.message });

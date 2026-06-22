@@ -20,9 +20,25 @@ const fb = require('../services/web2-fb-graph-service');
 const caption = require('../services/web2-caption-service');
 const secretCrypto = require('../lib/web2-secret-crypto');
 const { requireWeb2AuthSoft, requireWeb2Admin } = require('../middleware/web2-auth');
+const { recordAuditEvent } = require('../services/web2-audit-sink');
 
 const getDb = (req) => req.app.locals.web2Db || req.app.locals.chatDb;
 const now = () => Date.now();
+
+// Best-effort audit event-sink cho "Lịch sử thao tác toàn bộ" Web 2.0. Ghi SONG SONG
+// (không await, không try/catch — recordAuditEvent tự nuốt lỗi) các mutation bài FB.
+function _auditFbPost(req, action, id, note) {
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
+    recordAuditEvent(pool, {
+        entity: 'fb-post',
+        entityId: id,
+        action,
+        userId: req.body?.userId ?? req.web2User?.id ?? null,
+        userName: req.body?.userName || req.web2User?.display_name || null,
+        sourcePage: 'fb-posts',
+        changes: note ? (typeof note === 'string' ? { note } : note) : {},
+    });
+}
 
 // Base công khai mà BROWSER dùng để gọi /api/web2-fb-posts (qua worker). redirect_uri
 // OAuth PHẢI khớp giữa dialog + lúc đổi code → dùng cùng 1 hằng. Whitelist URI này
@@ -513,6 +529,17 @@ router.post('/publish', requireWeb2AuthSoft, async (req, res) => {
             savedId = ins.rows[0].id;
         }
         _notify(status, String(savedId));
+        _auditFbPost(
+            req,
+            scheduledTime ? 'schedule' : status === 'published' ? 'publish' : status,
+            String(savedId),
+            {
+                pageIds,
+                status,
+                scheduled: !!scheduledTime,
+                anyOk,
+            }
+        );
         res.json({
             success: anyOk,
             id: savedId,
@@ -608,6 +635,7 @@ router.post('/delete', requireWeb2Admin, async (req, res) => {
                 .json({ success: false, error: 'Chưa kết nối / không có page token' });
         await fb.deletePost(postId, page.access_token);
         _notify('delete', postId);
+        _auditFbPost(req, 'delete', postId, { pageId });
         res.json({ success: true });
     } catch (e) {
         res.status(400).json({ success: false, error: e.message });
@@ -632,6 +660,11 @@ router.post('/post-edit', requireWeb2AuthSoft, async (req, res) => {
                 .json({ success: false, error: 'Chưa kết nối / không có page token' });
         const out = await fb.updatePost(postId, page.access_token, { message, scheduledTime });
         _notify('edit', postId);
+        _auditFbPost(req, 'update', postId, {
+            pageId,
+            editedMessage: message !== undefined && message !== null,
+            rescheduled: !!scheduledTime,
+        });
         res.json({ success: true, ...out });
     } catch (e) {
         res.status(400).json({ success: false, error: e.message, fbCode: e.fbCode });
@@ -901,6 +934,7 @@ router.post('/draft', requireWeb2Admin, async (req, res) => {
                 [JSON.stringify(pageIds), message, JSON.stringify(media), link, sched, now(), id]
             );
             _notify('draft', String(id));
+            _auditFbPost(req, 'update', String(id), { draft: true, scheduled: !!sched });
             return res.json({ success: true, id });
         }
         const ins = await db.query(
@@ -909,6 +943,7 @@ router.post('/draft', requireWeb2Admin, async (req, res) => {
             [JSON.stringify(pageIds), message, JSON.stringify(media), link, sched, now()]
         );
         _notify('draft', String(ins.rows[0].id));
+        _auditFbPost(req, 'create', String(ins.rows[0].id), { draft: true, scheduled: !!sched });
         res.json({ success: true, id: ins.rows[0].id });
     } catch (e) {
         res.status(500).json({ success: false, error: e.message });
@@ -921,6 +956,7 @@ router.delete('/draft/:id', requireWeb2Admin, async (req, res) => {
         const db = getDb(req);
         await db.query(`DELETE FROM web2_fb_posts WHERE id=$1`, [req.params.id]);
         _notify('draft-delete', req.params.id);
+        _auditFbPost(req, 'delete', req.params.id, { draft: true });
         res.json({ success: true });
     } catch (e) {
         res.status(500).json({ success: false, error: e.message });

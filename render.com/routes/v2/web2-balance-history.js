@@ -19,6 +19,7 @@ const web2SepayMatching = require('../../services/web2-sepay-matching');
 const web2WalletService = require('../../services/web2-wallet-service');
 const web2ContentParser = require('../../services/web2-content-parser');
 const web2MatchAudit = require('../../services/web2-match-audit');
+const { recordAuditEvent } = require('../../services/web2-audit-sink');
 // 3H14 (2026-06-12): mọi route MUTATION tiền gate SOFT — enforce khi env WEB2_AUTH_ENFORCE=1.
 const { requireWeb2AuthSoft } = require('../../middleware/web2-auth');
 const { withTransaction } = require('../../db/with-transaction');
@@ -41,6 +42,24 @@ function web2ExtractionPreview(content) {
 function handleError(res, err, msg = 'Internal error') {
     console.error(`[Web2BalanceHistory] ${msg}:`, err.message);
     res.status(500).json({ success: false, error: msg, details: err.message });
+}
+
+// Best-effort audit event for the global "Lịch sử thao tác" feed. Fire-and-forget
+// — recordAuditEvent never throws, KHÔNG await, KHÔNG try/catch. ADDITIVE-ONLY:
+// không đụng money logic, chỉ ghi log thao tác tay (manual-deposit/link/reassign/
+// resolve-pending) trên success path.
+function _auditBalance(req, action, id, note) {
+    const pool = req.app.locals.web2Db || req.app.locals.chatDb;
+    recordAuditEvent(pool, {
+        entity: 'balance-transaction',
+        entityId: id != null ? String(id) : null,
+        action,
+        userId: req.body?.userId ?? req.web2User?.id ?? null,
+        userName:
+            req.body?.userName || req.web2User?.display_name || req.web2User?.username || null,
+        sourcePage: 'balance-history',
+        changes: note ? (typeof note === 'string' ? { note } : note) : {},
+    });
 }
 
 // =====================================================
@@ -308,6 +327,11 @@ router.post('/pending/:id/resolve', requireWeb2AuthSoft, async (req, res) => {
                 id: result.transactionId || id,
                 ts: Date.now(),
             });
+            _auditBalance(req, 'resolve-pending', req.params.id, {
+                matchedCustomerPhone: phone,
+                matchedCustomerName: name || null,
+                transactionId: result.transactionId || id,
+            });
         }
         res.json({ success: true, data: result });
     } catch (e) {
@@ -367,6 +391,10 @@ router.patch('/:id/link', requireWeb2AuthSoft, async (req, res) => {
         }
         if (result.credited) _tryLinkCkSignal(db, id); // nối tín hiệu CK + gửi tin
         _notifyBalanceHistory(req, { action: 'link', id, ts: Date.now() });
+        _auditBalance(req, 'link', req.params.id, {
+            customerPhone: phone,
+            customerName: name || null,
+        });
         res.json({ success: true, data: result });
     } catch (e) {
         handleError(res, e, 'Link');
@@ -635,6 +663,11 @@ router.post('/:id/reassign', requireWeb2AuthSoft, async (req, res) => {
 
         _tryLinkCkSignal(db, id); // đổi KH → nối tín hiệu CK của KH mới + gửi tin
         _notifyBalanceHistory(req, { action: 'reassign', id, ts: Date.now() });
+        _auditBalance(req, 'reassign', req.params.id, {
+            from: oldPhoneNorm,
+            to: newPhoneNorm,
+            amount,
+        });
         res.json({
             success: true,
             data: {
@@ -1118,6 +1151,15 @@ router.post('/manual-deposit', requireWeb2AuthSoft, async (req, res) => {
         } catch (e) {
             console.warn('[manual-deposit] SSE notify fail:', e.message);
         }
+
+        _auditBalance(req, 'manual-deposit', balanceHistoryId, {
+            type,
+            target,
+            name,
+            amount,
+            customerId,
+            phone: phone || null,
+        });
 
         res.json({
             success: true,
