@@ -297,28 +297,35 @@
         src.start();
     }
 
+    // NGHE THỬ KHÔNG TẢI MODEL: phát clip mẫu HF (~60-90KB) bằng <audio>, KHÔNG tải
+    // model ~vài chục MB. "Kéo về" mới tải model thật. (no crossorigin → no-cors media)
     async function previewPiper(key, btn) {
         if (_busy) return;
-        _busy = true;
         _stopPreview();
+        const url = global.Web2VideoTTS.samplePreviewUrl(key);
+        if (!url) {
+            notify('Giọng này không có clip nghe thử', 'info');
+            return;
+        }
         const old = btn.innerHTML;
-        btn.disabled = true;
-        btn.innerHTML = '<i data-lucide="loader"></i> …';
+        btn.innerHTML = '<i data-lucide="volume-2"></i> …';
         if (global.lucide) global.lucide.createIcons();
-        try {
-            const r = await global.Web2VideoTTS.synthVoiceMeta(
-                { engine: 'piper', key },
-                global.Web2VideoTTS.SAMPLE_TEXT,
-                { onStatus: () => {} }
-            );
-            await _playSamples(r);
-        } catch (e) {
-            notify('Nghe thử lỗi: ' + (e.message || e), 'error');
-        } finally {
-            btn.disabled = false;
+        const restore = () => {
             btn.innerHTML = old;
             if (global.lucide) global.lucide.createIcons();
-            _busy = false;
+        };
+        try {
+            const a = new Audio(url); // KHÔNG set crossOrigin
+            _previewSrc = a;
+            a.onended = restore;
+            a.onerror = () => {
+                restore();
+                notify('Không tải được clip nghe thử (thử "Kéo về")', 'warning');
+            };
+            await a.play();
+        } catch (e) {
+            restore();
+            notify('Nghe thử lỗi: ' + (e.message || e), 'error');
         }
     }
 

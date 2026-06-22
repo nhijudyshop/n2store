@@ -9,6 +9,13 @@
     /* WEB2-derived palette */
     --web2-bg-app: #f0f3f4; /* html background */
     --web2-bg-cell-head: #f0eeee; /* th + td background */
+    /* Table look (native-orders) — 1 NGUỒN, mirror y hệt trong web2-theme.css :root.
+       Đổi giá trị bảng cho TOÀN Web 2.0 → sửa 5 dòng này (cả 2 file). */
+    --web2-table-line-strong: #c8ced3; /* header bottom divider */
+    --web2-table-line: #d9dde0; /* grid line: th-right + td-bottom */
+    --web2-table-line-soft: #e5e8ea; /* lighter vertical grid: td-right */
+    --web2-table-zebra: #f7f9fb; /* even-row stripe */
+    --web2-table-hover: #eaf2fb; /* row hover */
     --web2-bg-light: #edf1f2; /* search input bg */
     --web2-text: #333; /* body cell text */
     --web2-text-2: #4c4c4c; /* body default text */
@@ -583,8 +590,8 @@ body {
     color: #2b3a45;
     font-size: 13px;
     background: var(--web2-bg-cell-head);
-    border-bottom: 1px solid #c8ced3;
-    border-right: 1px solid #d9dde0;
+    border-bottom: 1px solid var(--web2-table-line-strong);
+    border-right: 1px solid var(--web2-table-line);
     white-space: nowrap;
 }
 .data-table th:last-child {
@@ -592,8 +599,8 @@ body {
 }
 .data-table td {
     padding: 8px 10px;
-    border-bottom: 1px solid #d9dde0;
-    border-right: 1px solid #e5e8ea;
+    border-bottom: 1px solid var(--web2-table-line);
+    border-right: 1px solid var(--web2-table-line-soft);
     color: var(--web2-text);
     vertical-align: middle;
     background: #fff;
@@ -604,11 +611,11 @@ body {
 }
 /* Zebra striping — subtle alternating row colors */
 .data-table tbody tr.order-row:nth-child(even) > td {
-    background: #f7f9fb;
+    background: var(--web2-table-zebra);
 }
 .data-table tbody tr.order-row:hover > td,
 .data-table tbody tr.order-row:nth-child(even):hover > td {
-    background: #eaf2fb;
+    background: var(--web2-table-hover);
 }
 .data-table tbody tr.order-row.is-expanded > td,
 .data-table tbody tr.order-row.is-expanded:nth-child(even) > td {
@@ -1406,18 +1413,19 @@ body {
     padding: 8px;
     flex-wrap: wrap;
 }
+/* Metrics khớp web2-theme .page-btn (30/9/3px) → pagination đồng nhất base ↔ themed */
 .page-btn {
-    min-width: 32px;
-    height: 32px;
-    padding: 0 10px;
+    min-width: 30px;
+    height: 30px;
+    padding: 0 9px;
     border: 1px solid var(--border);
     background: white;
-    border-radius: 6px;
-    font-size: 12px;
+    border-radius: 3px;
+    font-size: 12.5px;
     cursor: pointer;
     color: var(--gray-700);
     transition: all 0.12s;
-    font-weight: 600;
+    font-weight: 500;
 }
 .page-btn:hover:not(:disabled) {
     background: var(--gray-50);

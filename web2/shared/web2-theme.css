@@ -68,6 +68,12 @@
     --web2-bg-app: #f5f7fb;
     --web2-bg-light: #eef2f7;
     --web2-bg-cell-head: #f0eeee; /* khớp web2-base (look bảng native-orders) — chỉ dùng cho thead bảng */
+    /* Table look (native-orders) — 1 NGUỒN, mirror y hệt trong web2-base.css :root. */
+    --web2-table-line-strong: #c8ced3; /* header bottom divider */
+    --web2-table-line: #d9dde0; /* grid line: th-right + td-bottom */
+    --web2-table-line-soft: #e5e8ea; /* lighter vertical grid: td-right */
+    --web2-table-zebra: #f7f9fb; /* even-row stripe */
+    --web2-table-hover: #eaf2fb; /* row hover */
     --web2-link: #0068ff;
     --web2-link-hover: #0058da;
 }
@@ -205,8 +211,8 @@ body:has(.web2-shell) .balance-table thead th {
     font-size: 13px;
     padding: 8px 10px;
     text-align: left;
-    border-bottom: 1px solid #c8ced3;
-    border-right: 1px solid #d9dde0;
+    border-bottom: 1px solid var(--web2-table-line-strong);
+    border-right: 1px solid var(--web2-table-line);
     white-space: nowrap;
     position: sticky;
     top: 0;
@@ -223,8 +229,8 @@ body:has(.web2-shell) .balance-table thead th:last-child {
 body:has(.web2-shell) .data-table tbody td,
 body:has(.web2-shell) .balance-table tbody td {
     padding: 8px 10px;
-    border-bottom: 1px solid #d9dde0;
-    border-right: 1px solid #e5e8ea;
+    border-bottom: 1px solid var(--web2-table-line);
+    border-right: 1px solid var(--web2-table-line-soft);
     font-size: 13px;
     color: var(--web2-text);
     background: #fff;
@@ -242,7 +248,7 @@ body:has(.web2-shell) .balance-table tbody td:last-child {
 .web2-theme .balance-table tbody tr:nth-child(even) > td,
 body:has(.web2-shell) .data-table tbody tr:nth-child(even) > td,
 body:has(.web2-shell) .balance-table tbody tr:nth-child(even) > td {
-    background: #f7f9fb;
+    background: var(--web2-table-zebra);
 }
 .web2-theme .data-table tbody tr:hover > td,
 .web2-theme .data-table tbody tr:nth-child(even):hover > td,
@@ -252,37 +258,13 @@ body:has(.web2-shell) .data-table tbody tr:hover > td,
 body:has(.web2-shell) .data-table tbody tr:nth-child(even):hover > td,
 body:has(.web2-shell) .balance-table tbody tr:hover > td,
 body:has(.web2-shell) .balance-table tbody tr:nth-child(even):hover > td {
-    background: #eaf2fb;
+    background: var(--web2-table-hover);
 }
 
-/* ─── Generic filter/search row ─────────────────────── */
-.web2-theme .filters-section input[type='text'],
-.web2-theme .filters-section input[type='search'],
-.web2-theme .filters-section input[type='date'],
-.web2-theme .filters-section input[type='time'],
-.web2-theme .filters-section select,
-.web2-theme .filters input[type='text'],
-.web2-theme .filters input[type='search'],
-.web2-theme .filters input[type='date'],
-.web2-theme .filters input[type='time'],
-.web2-theme .filters select {
-    height: 30px;
-    padding: 0 9px;
-    border: 1px solid var(--web2-border-btn);
-    border-radius: 3px;
-    font-size: 12.5px;
-    font-family: inherit;
-    background: #fff;
-    color: var(--web2-text);
-    outline: none;
-    transition: border-color 0.12s;
-}
-.web2-theme .filters-section input:focus,
-.web2-theme .filters input:focus,
-.web2-theme .filters select:focus {
-    border-color: var(--web2-primary);
-    box-shadow: 0 0 0 2px rgba(0, 104, 255, 0.15);
-}
+/* (gỡ 2026-06-22 CSS consolidation) Block .filters/.filters-section DEAD —
+   0 trang dùng bare class `filters`/`filters-section` (HTML+JS). Input filter các
+   trang đi qua selector input chung `.web2-theme input/select` bên dưới. Toolbar
+   mỗi trang fork namespaced riêng (.pr-filters/.ts-filters/.rc-audit-filters/…). */
 
 /* ─── Pagination ────────────────────────────────────── */
 .web2-theme .pagination,
@@ -1093,10 +1075,6 @@ body:has(.web2-shell) .btn {
 body:has(.web2-shell) .btn-sm {
     border-radius: 8px;
 }
-.web2-theme .filters-section input,
-.web2-theme .filters-section select,
-.web2-theme .filters input,
-.web2-theme .filters select,
 .web2-theme input[type='text'],
 .web2-theme input[type='search'],
 .web2-theme input[type='number'],

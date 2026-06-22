@@ -230,8 +230,6 @@
     }
 
     /* ---- THANH FILTER/TOOLBAR → xếp dọc, control full-width ---- */
-    body:has(.web2-shell) .filters,
-    body:has(.web2-shell) .filters-section,
     body:has(.web2-shell) .filter-group,
     body:has(.web2-shell) .toolbar,
     body:has(.web2-shell) .w2bh-toolbar,

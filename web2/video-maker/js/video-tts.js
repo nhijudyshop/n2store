@@ -34,11 +34,13 @@
     }
     const _ELEVEN_BASE = () => _workerBase() + '/api/web2-elevenlabs';
 
+    // ⚠ CHỈ giữ giọng Piper KNOWN-GOOD trên trình duyệt. vi_VN-25hours_single-low &
+    // vi_VN-vivos-x_low có bảng phoneme 130 symbol → espeak-ng (vits-web) sinh id 132
+    // → OrtRun "out of data bounds" (crash). vais1000-medium có 256 symbol → an toàn.
+    // (Nghiên cứu rhasspy/piper-voices num_symbols; xem dev-log 2026-06-22.)
     const VOICES = [
         { id: 'mms', label: 'Nữ trong trẻo', engine: 'mms', note: 'MMS' },
         { id: 'vais', label: 'Nữ ấm áp', engine: 'piper', voiceId: 'vi_VN-vais1000-medium' },
-        { id: 'h25', label: 'Nữ tự nhiên', engine: 'piper', voiceId: 'vi_VN-25hours_single-low' },
-        { id: 'vivos', label: 'Giọng VIVOS', engine: 'piper', voiceId: 'vi_VN-vivos-x_low' },
     ];
     const TONES = [
         { id: 'low', label: 'Trầm', pitch: 0.9 },
@@ -126,10 +128,29 @@
         });
         return _piperPromise;
     }
+    // Voice Piper hỏng trên trình duyệt (model/phoneme không khớp → OrtRun "out of data
+    // bounds"). Deterministic theo voice → ghi nhận để UI ẩn + không chào lại.
+    const _brokenVoices = new Set();
+    function isBrokenVoice(key) {
+        return _brokenVoices.has(key);
+    }
     async function _piperChunk(text, voiceId, onStatus) {
         const tts = await _getPiper(onStatus);
         onStatus && onStatus('Đang tạo giọng (lần đầu tải model giọng ~vài chục MB)…');
-        const wav = await _serialize(() => tts.predict({ text, voiceId })); // serialize như MMS
+        let wav;
+        try {
+            wav = await _serialize(() => tts.predict({ text, voiceId })); // serialize như MMS
+        } catch (e) {
+            const msg = String((e && e.message) || e);
+            // Lỗi model/phoneme không tương thích (vd vi_VN-25hours_single-low) — đánh dấu hỏng.
+            if (/out of data bounds|OrtRun|Gather|indices element/i.test(msg)) {
+                _brokenVoices.add(voiceId);
+                throw new Error(
+                    'Giọng này không tương thích trên trình duyệt (lỗi model). Hãy chọn giọng khác.'
+                );
+            }
+            throw e;
+        }
         const ab = await wav.arrayBuffer();
         const ac = _decodeCtx();
         const buf = await ac.decodeAudioData(ab);
@@ -189,6 +210,30 @@
         const tts = await _getPiper();
         if (tts.remove) await tts.remove(key);
         return true;
+    }
+
+    // NGHE THỬ KHÔNG TẢI MODEL: Piper có sẵn clip mẫu ~60-90KB trên HuggingFace
+    // (cùng repo rhasspy/piper-voices). Phát bằng <audio> thường (KHÔNG crossorigin →
+    // no-cors media, bỏ qua việc HF thiếu CORS header). key: vi_VN-vais1000-medium.
+    function samplePreviewUrl(voiceKey, speaker = 0) {
+        const k = String(voiceKey || '');
+        const dash = k.indexOf('-');
+        if (dash < 0) return null;
+        const locale = k.slice(0, dash); // vi_VN
+        const rest = k.slice(dash + 1).split('-'); // [vais1000, medium]
+        if (rest.length < 2) return null;
+        const quality = rest.pop(); // medium (token cuối)
+        const name = rest.join('-'); // phần giữa (an toàn nếu name có '-')
+        const lang = locale.split('_')[0]; // vi
+        return `https://huggingface.co/rhasspy/piper-voices/resolve/main/${lang}/${locale}/${name}/${quality}/samples/speaker_${speaker}.mp3`;
+    }
+    // URL nghe thử cho 1 giọng (VOICES entry HOẶC catalog meta). null nếu phải synth.
+    //   piper → clip mẫu HF; elevenlabs → preview_url; mms/vieneu → null (synth/đặc thù).
+    function previewUrlForVoice(v) {
+        if (!v) return null;
+        if (v.engine === 'piper' || v.key) return samplePreviewUrl(v.voiceId || v.key);
+        if (v.engine === 'elevenlabs') return v.previewUrl || v.preview_url || null;
+        return null;
     }
 
     // ---------------- ElevenLabs (proxy server-side, key giấu ở Render) ----------------
@@ -554,6 +599,10 @@
         piperStored,
         downloadPiperVoice,
         removePiperVoice,
+        // nghe thử không tải model + nhận diện giọng hỏng
+        samplePreviewUrl,
+        previewUrlForVoice,
+        isBrokenVoice,
         // ElevenLabs (proxy)
         elevenStatus,
         listElevenVoices,

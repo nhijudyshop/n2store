@@ -679,12 +679,38 @@
         if (global.lucide) global.lucide.createIcons();
     }
 
+    function stop_preview_audio() {
+        try {
+            state._previewAudio?.pause();
+        } catch {}
+        state._previewAudio = null;
+    }
     // nghe mẫu 1 câu cố định bằng giọng + tông đang chọn (cache theo voice|tone)
     async function playSample(voiceId) {
         if (state._sampling || state._ttsBusy) return;
         const tone = state.tone;
         const key = voiceId + '|' + tone;
         const stat = $('#vmVoiceStat');
+        // NGHE THỬ NHANH (không tải model): giọng Piper/ElevenLabs có clip mẫu sẵn →
+        // phát thẳng bằng <audio>, KHÔNG tải model ~vài chục MB. (tông không áp được
+        // cho clip mẫu, nhưng nghe để chọn giọng là đủ.)
+        const v = (global.Web2VideoTTS.VOICES || []).find((x) => x.id === voiceId);
+        const sampleUrl = global.Web2VideoTTS.previewUrlForVoice?.(v);
+        if (sampleUrl) {
+            try {
+                stop_preview_audio();
+                stat.textContent = 'Đang phát giọng mẫu…';
+                const a = new Audio(sampleUrl); // KHÔNG set crossOrigin (no-cors media)
+                state._previewAudio = a;
+                a.onended = () =>
+                    (stat.textContent = `Giọng: ${voiceLabel(voiceId)} · tông ${toneLabel()}`);
+                a.onerror = () => (stat.textContent = `Giọng: ${voiceLabel(voiceId)}`);
+                await a.play();
+                return;
+            } catch (e) {
+                /* fallthrough → synth */
+            }
+        }
         try {
             state._sampling = true;
             setTtsBusy(true);
