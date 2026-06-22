@@ -124,19 +124,40 @@
             _toast('Chưa nhận diện được live đang chạy', 'err');
             return;
         }
-        // Mở sidebar + đặt filter về campaign đang chụp để user thấy ảnh mới.
-        STATE.filterCampaignId = ctx.liveCampaignId || 'all';
-        openSidebar();
-
         const capChip = document.getElementById('live-lsimg-capture-chip');
         if (capChip) capChip.classList.add('is-busy');
 
+        // CHỤP TRƯỚC, MỞ SIDEBAR SAU. Sidebar "Hình Livestream" (position:fixed,
+        // right:0, width:380px, z-index 99400) phủ lên iframe FB live (dock ở cột
+        // Kho SP / fixed góc phải). Nếu mở sidebar TRƯỚC rồi mới capture, extension
+        // captureVisibleTab chụp đúng lúc sidebar che iframe → crop theo rect wrapper
+        // trúng nền trắng #fafafa của sidebar → ảnh trắng (bug user-report 2026-06-22:
+        // "sidebar nhảy ra che iframe nên chụp bị như hình"). Thêm: nếu sidebar đang
+        // mở sẵn (chụp lần 2+), tạm ẩn (visibility:hidden, không transition) suốt lúc
+        // chụp rồi khôi phục — tránh tái diễn ảnh trắng.
+        const aside = document.getElementById('live-lsimg-sidebar');
+        const sidebarWasOpen = STATE.sidebarOpen && !!aside;
+        if (sidebarWasOpen) {
+            aside.style.visibility = 'hidden';
+            void aside.offsetWidth; // ép reflow để repaint bỏ sidebar trước khi chụp
+        }
+
         let frame = null;
         try {
+            // Chờ 2 rAF để compositor xoá sidebar khỏi frame (cả stream lẫn tab-capture)
+            // trước khi captureVisibleTab / grab video frame.
+            await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
             frame = await api.captureCurrentFrame();
         } catch (e) {
             console.warn('[gallery] capture frame fail:', e.message);
+        } finally {
+            if (sidebarWasOpen) aside.style.visibility = '';
         }
+
+        // Chụp xong mới mở/refresh sidebar để user thấy tile mới (filter về campaign đang chụp).
+        STATE.filterCampaignId = ctx.liveCampaignId || 'all';
+        openSidebar();
+
         let offsetSeconds;
         if (!frame?.jpegBase64) {
             // Fallback: chưa lấy được frame → lưu metadata + offset, extract sau.
