@@ -61,9 +61,7 @@
     SO._rInt = function _rInt(min, max) {
         return Math.floor(Math.random() * (max - min + 1)) + min;
     };
-    SO._rImg = function _rImg(tag) {
-        return `https://picsum.photos/seed/so${tag}${SO._rInt(1, 99999)}/500/500`;
-    };
+    // Data test KHÔNG kèm hình — productImage/invoiceImage để rỗng (user yêu cầu).
     SO._randomRow = function _randomRow(isVnd) {
         const cost = isVnd ? SO._rInt(3, 30) * 10000 : SO._rInt(20, 300);
         let sell = cost * (1.5 + Math.random());
@@ -75,12 +73,12 @@
             qty: SO._rInt(1, 50),
             costPrice: cost,
             sellPrice: Math.max(sell, cost),
-            productImage: SO._rImg('p'),
-            invoiceImage: SO._rImg('inv'),
+            productImage: '',
+            invoiceImage: '',
         });
     };
 
-    // Điền dữ liệu ngẫu nhiên vào modal Tạo Đơn Hàng đang mở (1-4 dòng SP, đủ ảnh).
+    // Điền dữ liệu ngẫu nhiên vào modal Tạo Đơn Hàng đang mở (1-4 dòng SP, KHÔNG hình).
     SO.fillModalRandom = function fillModalRandom() {
         const form = document.getElementById('soOrderForm');
         if (!form) return;
@@ -98,9 +96,8 @@
             form.elements.shipExpectedDeliveryDate.value = eta.toISOString().slice(0, 10);
         }
         if (form.elements.note) form.elements.note.value = 'Đơn test ngẫu nhiên';
-        SO.modalInvoiceImage = '';
+        SO.modalInvoiceImage = ''; // data test KHÔNG kèm ảnh hoá đơn
         SO.modalRows = Array.from({ length: SO._rInt(1, 4) }, () => SO._randomRow(isVnd));
-        SO.modalInvoiceImage = SO.modalRows[0]?.invoiceImage || '';
         SO.renderModalRows();
         SO.updateModalGrandTotals();
     };

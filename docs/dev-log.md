@@ -2,6 +2,14 @@
 
 ## 2026-06-22
 
+### [change] so-order — "Điền ngẫu nhiên" tạo data test KHÔNG kèm hình
+
+User yêu cầu data ngẫu nhiên trong modal Tạo Đơn Hàng (Nháp) không có ảnh.
+
+- `so-order/js/so-order-modal-random.js`: bỏ sinh URL `picsum.photos` → `productImage`/`invoiceImage` để rỗng; xoá helper `_rImg` (dead code) + dòng gán `modalInvoiceImage` từ row đầu (luôn rỗng). `fillModalRandom` giữ `modalInvoiceImage=''`.
+- Áp cho cả nút "Điền ngẫu nhiên" trong modal lẫn `generateRandomOrders` (toolbar) vì cùng đi qua `_randomRow`.
+- Verify browser (localhost, ext): mở modal + fill → 3 dòng, mọi `productImage`/`invoiceImage`=`""`, `modalInvoiceImage`=`""`, 0 ảnh picsum trong form; screenshot xác nhận ô "Ảnh hóa đơn" + cột "Hình ảnh sản phẩm" hiện ô dán ảnh trống (không còn badge "Đã có ảnh").
+
 ### [fix] video-maker — giọng tạo "không giống Adam 3": mặc định + tự chọn khi thêm + bỏ pitch giọng server
 
 User chọn Adam 3 (Giọng AI Pro) nhưng tạo ra giọng khác. Probe API: `ttsLongText` ÁP ĐÚNG voice id (Adam 3 nam ≠ Chi Chi nữ, md5 khác) → API không lỗi. Gốc ở pipeline FE:
