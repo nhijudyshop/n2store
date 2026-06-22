@@ -88,7 +88,7 @@
     gap: 8px;
     background: #fff;
     border: 2px solid #0d9488;
-    border-radius: 8px;
+    border-radius: 10px; /* khớp radius .rc-search-input (input theme = 10px) */
     padding: 4px 10px;
     box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.1);
 }
@@ -153,17 +153,19 @@
     color: #0f766e;
 }
 .rc-search-input {
+    box-sizing: border-box;
+    min-height: 50px; /* khớp chiều cao .rc-scanner-box → hàng toolbar thẳng hàng */
     padding: 8px 12px;
     border: 1px solid #cbd5e1;
-    border-radius: 6px;
+    border-radius: 8px; /* khớp radius scanner-box */
     font-size: 0.875rem;
     background: #fff;
     transition: border-color 120ms;
 }
 .rc-search-input:focus {
     outline: none;
-    border-color: #0d9488;
-    box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.1);
+    border-color: var(--web2-primary, #0068ff);
+    box-shadow: 0 0 0 3px rgba(0, 104, 255, 0.12);
 }
 .rc-state-tabs {
     display: flex;

@@ -496,7 +496,7 @@ select.rt-input {
     background: var(--web2-primary, #0068ff);
     color: #fff;
     border: none;
-    border-radius: 2px;
+    border-radius: var(--web2-radius-sm, 9px);
     padding: 11px 18px;
     font-weight: 500;
     font-size: 12px;

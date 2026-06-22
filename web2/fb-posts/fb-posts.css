@@ -62,7 +62,7 @@
 .fbp-btn {
     appearance: none;
     border: 1px solid transparent;
-    border-radius: 2px;
+    border-radius: var(--web2-radius-sm, 9px);
     padding: 9px 16px;
     font-size: 12px;
     font-weight: 500;
@@ -108,7 +108,7 @@
 .fbp-btn.sm {
     padding: 6px 11px;
     font-size: 12px;
-    border-radius: 2px;
+    border-radius: var(--web2-radius-sm, 9px);
 }
 
 /* ── Tabs ── */

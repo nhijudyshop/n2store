@@ -104,7 +104,7 @@
     justify-content: center;
     gap: 7px;
     padding: 11px 16px;
-    border-radius: 2px;
+    border-radius: var(--web2-radius-sm, 9px);
     border: 1px solid var(--web2-border, #e2e8f0);
     background: var(--web2-bg, #fff);
     color: var(--web2-text, #0f172a);

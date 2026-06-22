@@ -70,7 +70,7 @@
     background: #0068ff;
     color: #fff;
     border-color: #0068ff;
-    border-radius: 2px;
+    border-radius: var(--web2-radius-sm, 9px);
 }
 .w2bh-btn-primary:hover {
     background: #0058da;
