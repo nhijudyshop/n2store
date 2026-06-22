@@ -418,12 +418,13 @@
     filter: brightness(0.96);
 }
 .vm-btn.random {
-    background: linear-gradient(135deg, #7c3aed, #0068ff);
-    border: 0;
+    background: var(--web2-primary, #0068ff);
+    border-color: var(--web2-primary, #0068ff);
     color: #fff;
 }
 .vm-btn.random:hover {
-    filter: brightness(1.05);
+    background: var(--web2-primary-hover, #0058da);
+    border-color: var(--web2-primary-hover, #0058da);
 }
 
 textarea.vm-narr {
@@ -452,12 +453,12 @@ textarea.vm-narr {
     justify-content: center;
     gap: 7px;
     padding: 9px 13px;
-    border-radius: 10px;
+    border-radius: 2px;
     border: 1px solid var(--web2-border, #e2e8f0);
     background: var(--web2-bg, #fff);
     color: var(--web2-text, #0f172a);
-    font-weight: 700;
-    font-size: 13px;
+    font-weight: 500;
+    font-size: 12px;
     cursor: pointer;
 }
 .vm-btn i {
@@ -468,6 +469,14 @@ textarea.vm-narr {
     background: var(--web2-primary, #0068ff);
     border-color: var(--web2-primary, #0068ff);
     color: #fff;
+}
+.vm-btn:hover {
+    background: var(--web2-bg-soft, #f1f5f9);
+    border-color: var(--web2-primary, #0068ff);
+}
+.vm-btn.primary:hover {
+    background: var(--web2-primary-hover, #0058da);
+    border-color: var(--web2-primary-hover, #0058da);
 }
 .vm-btn:disabled {
     opacity: 0.55;
@@ -937,13 +946,10 @@ textarea.vm-narr {
     color: var(--web2-text, #e8eef9);
     font-size: 0.86rem;
     cursor: pointer;
-    transition:
-        border-color 0.15s,
-        transform 0.1s;
+    transition: border-color 0.15s;
 }
 .vm-vn-server:hover {
     border-color: var(--web2-primary, #0068ff);
-    transform: translateY(-1px);
 }
 .vm-vn-server.on {
     border-color: var(--web2-primary, #0068ff);

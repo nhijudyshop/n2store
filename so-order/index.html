@@ -47,7 +47,7 @@
                         <span class="counter-pill" id="soTotalQty">SL: 0</span>
                         <button
                             id="soEditTableBtn"
-                            class="btn-secondary"
+                            class="btn btn-secondary"
                             type="button"
                             title="Bật/tắt edit toàn bảng — khi BẬT toàn bộ ô SL, giá, biến thể, ghi chú, trạng thái thành input. Tắt vẫn double-click ô để sửa lẻ."
                             aria-pressed="false"
@@ -55,7 +55,7 @@
                             <i data-lucide="layout-grid"></i>
                             Chỉnh sửa bảng
                         </button>
-                        <button id="soColumnSettingsBtn" class="btn-secondary" type="button">
+                        <button id="soColumnSettingsBtn" class="btn btn-secondary" type="button">
                             <i data-lucide="settings-2"></i>
                             Ẩn/Hiện cột
                         </button>
@@ -73,7 +73,7 @@
                     <div class="so-tab-actions">
                         <button
                             id="soTabSettingsBtn"
-                            class="btn-secondary"
+                            class="btn btn-secondary"
                             type="button"
                             title="Cài đặt tab (tiền tệ, tỉ giá)"
                         >
@@ -82,7 +82,7 @@
                         </button>
                         <button
                             id="soTrashBtn"
-                            class="btn-secondary"
+                            class="btn btn-secondary"
                             type="button"
                             title="Thùng rác — lô đã nhận đủ bị xoá. Tự xoá vĩnh viễn sau 7 ngày."
                         >
@@ -92,7 +92,7 @@
                         </button>
                         <button
                             id="soImportBtn"
-                            class="btn-secondary"
+                            class="btn btn-secondary"
                             type="button"
                             title="Nhập đơn hàng loạt từ file CSV / JSON"
                         >
@@ -101,7 +101,7 @@
                         </button>
                         <button
                             id="soSampleBtn"
-                            class="btn-secondary"
+                            class="btn btn-secondary"
                             type="button"
                             title="Tải file CSV mẫu để xem cấu trúc"
                         >
@@ -110,14 +110,14 @@
                         </button>
                         <button
                             id="soGenRandomBtn"
-                            class="btn-secondary"
+                            class="btn btn-secondary"
                             type="button"
                             title="Tạo nhiều đơn ngẫu nhiên để test (data nháp Web 2.0)"
                         >
                             <i data-lucide="dices"></i>
                             Tạo data ngẫu nhiên
                         </button>
-                        <button id="soCreateOrderBtn" class="btn-primary" type="button">
+                        <button id="soCreateOrderBtn" class="btn btn-primary" type="button">
                             <i data-lucide="plus-square"></i>
                             Tạo Đơn Hàng
                         </button>
@@ -413,7 +413,7 @@
                         <div class="so-modal-add-row-wrap" id="soModalAddRowWrap">
                             <button
                                 type="button"
-                                class="btn-secondary so-modal-add-row-btn"
+                                class="btn btn-secondary so-modal-add-row-btn"
                                 id="soModalAddRowBtn"
                             >
                                 <i data-lucide="plus-circle"></i>
@@ -421,7 +421,7 @@
                             </button>
                             <button
                                 type="button"
-                                class="btn-secondary"
+                                class="btn btn-secondary"
                                 id="soModalScanBtn"
                                 title="Quét barcode/QR bằng camera để thêm SP"
                             >
@@ -430,7 +430,7 @@
                             </button>
                             <button
                                 type="button"
-                                class="btn-secondary"
+                                class="btn btn-secondary"
                                 id="soModalOcrBtn"
                                 title="Đọc mã trên nhãn (OCR) để thêm SP"
                             >
@@ -457,15 +457,15 @@
                             <span class="so-foot-final-value" id="soModalFinalAmount">0₫</span>
                         </div>
                         <button
-                            class="btn-secondary"
+                            class="btn btn-secondary"
                             type="button"
                             id="soModalFillRandomBtn"
                             title="Điền dữ liệu ngẫu nhiên vào form (1-4 SP + ảnh)"
                         >
                             <i data-lucide="dices"></i> Điền ngẫu nhiên
                         </button>
-                        <button class="btn-secondary" type="button" data-so-close>Hủy</button>
-                        <button class="btn-primary" type="submit" form="soOrderForm">
+                        <button class="btn btn-secondary" type="button" data-so-close>Hủy</button>
+                        <button class="btn btn-primary" type="submit" form="soOrderForm">
                             <i data-lucide="save"></i> Lưu (Nháp)
                         </button>
                     </div>
@@ -539,12 +539,12 @@
                     </fieldset>
                 </form>
                 <footer class="so-modal-foot">
-                    <button class="btn-danger" type="button" id="soTabDeleteBtn">
+                    <button class="btn btn-danger" type="button" id="soTabDeleteBtn">
                         <i data-lucide="trash-2"></i> Xóa tab
                     </button>
                     <div class="so-modal-foot-spacer"></div>
-                    <button class="btn-secondary" type="button" data-so-close>Hủy</button>
-                    <button class="btn-primary" type="submit" form="soTabSettingsForm">
+                    <button class="btn btn-secondary" type="button" data-so-close>Hủy</button>
+                    <button class="btn btn-primary" type="submit" form="soTabSettingsForm">
                         <i data-lucide="save"></i> Lưu
                     </button>
                 </footer>
@@ -565,7 +565,7 @@
                     <!-- column toggles injected -->
                 </div>
                 <footer class="so-modal-foot">
-                    <button class="btn-secondary" type="button" data-so-close>Đóng</button>
+                    <button class="btn btn-secondary" type="button" data-so-close>Đóng</button>
                 </footer>
             </div>
         </div>
@@ -606,12 +606,12 @@
                     </div>
                 </div>
                 <footer class="so-modal-foot">
-                    <button class="btn-danger" type="button" id="soInlineImageClearBtn">
+                    <button class="btn btn-danger" type="button" id="soInlineImageClearBtn">
                         <i data-lucide="trash-2"></i> Xóa ảnh
                     </button>
                     <div class="so-modal-foot-spacer"></div>
-                    <button class="btn-secondary" type="button" data-so-close>Hủy</button>
-                    <button class="btn-primary" type="button" id="soInlineImageSaveBtn">
+                    <button class="btn btn-secondary" type="button" data-so-close>Hủy</button>
+                    <button class="btn btn-primary" type="button" id="soInlineImageSaveBtn">
                         <i data-lucide="save"></i> Lưu
                     </button>
                 </footer>

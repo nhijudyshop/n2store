@@ -622,7 +622,7 @@
 }
 .sse-toolbar input[type='text'] {
     padding: 5px 9px;
-    border-radius: 6px;
+    border-radius: 2px;
     border: 1px solid var(--web2-border);
     font-size: 12px;
     min-width: 160px;
@@ -630,7 +630,7 @@
 }
 .sse-toolbar button {
     padding: 5px 10px;
-    border-radius: 6px;
+    border-radius: 2px;
     border: 1px solid var(--web2-border);
     background: #fff;
     font-size: 12px;
@@ -638,15 +638,15 @@
     font-family: inherit;
 }
 .sse-toolbar button.primary {
-    background: linear-gradient(135deg, var(--web2-primary), var(--web2-primary-hover));
+    background: var(--web2-primary);
     color: #fff;
     border: 0;
-    font-weight: 600;
+    font-weight: 500;
 }
 .sse-toolbar button.active {
-    background: #1f2937;
+    background: var(--web2-primary);
     color: #fff;
-    border-color: #1f2937;
+    border-color: var(--web2-primary);
 }
 .sse-log {
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;

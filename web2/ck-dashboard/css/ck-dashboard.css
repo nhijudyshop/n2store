@@ -180,11 +180,11 @@
         border-color 0.15s ease;
 }
 .ckd-tab:hover {
-    color: #0f766e;
+    color: #0068ff;
 }
 .ckd-tab.is-active {
-    color: #0f766e;
-    border-bottom-color: #14b8a6;
+    color: #0068ff;
+    border-bottom-color: #0068ff;
 }
 .ckd-tab .ckd-count {
     background: #ef4444;

@@ -5,7 +5,11 @@
    thừa hưởng anti-lag Tier 1 từ web2-theme.css.
    ===================================================================== */
 
+/* Ensure --web2-primary resolves to canonical Zalo blue (not the #2563eb
+   indigo fallback) even if theme load order ever fails. */
 .wc-main {
+    --web2-primary: #0068ff;
+    --web2-primary-hover: #0058da;
     padding: 20px 24px 40px;
     display: flex;
     flex-direction: column;

@@ -62,24 +62,22 @@
 .fbp-btn {
     appearance: none;
     border: 1px solid transparent;
-    border-radius: 10px;
+    border-radius: 2px;
     padding: 9px 16px;
-    font-size: 0.9rem;
-    font-weight: 700;
+    font-size: 12px;
+    font-weight: 500;
     cursor: pointer;
     display: inline-flex;
     align-items: center;
     gap: 7px;
     transition:
-        transform 0.12s ease,
         box-shadow 0.18s ease,
         background 0.18s ease;
     background: var(--web2-primary, #0068ff);
     color: #fff;
 }
 .fbp-btn:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 6px 18px color-mix(in oklab, var(--web2-primary, #0068ff) 30%, transparent);
+    background: var(--web2-primary-hover, #0058da);
 }
 .fbp-btn:active {
     transform: none;
@@ -98,15 +96,19 @@
 .fbp-btn.ghost:hover {
     border-color: var(--web2-primary, #0068ff);
     color: var(--web2-primary, #0068ff);
+    background: #fff;
     box-shadow: none;
 }
 .fbp-btn.danger {
     background: #e74c3c;
 }
+.fbp-btn.danger:hover {
+    background: #d04030;
+}
 .fbp-btn.sm {
     padding: 6px 11px;
-    font-size: 0.82rem;
-    border-radius: 8px;
+    font-size: 12px;
+    border-radius: 2px;
 }
 
 /* ── Tabs ── */

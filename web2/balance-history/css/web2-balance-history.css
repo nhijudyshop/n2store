@@ -67,13 +67,14 @@
     border-color: #9ca3af;
 }
 .w2bh-btn-primary {
-    background: #0891b2;
+    background: #0068ff;
     color: #fff;
-    border-color: #0891b2;
+    border-color: #0068ff;
+    border-radius: 2px;
 }
 .w2bh-btn-primary:hover {
-    background: #0e7490;
-    border-color: #0e7490;
+    background: #0058da;
+    border-color: #0058da;
 }
 .w2bh-btn i[data-lucide] {
     width: 14px;

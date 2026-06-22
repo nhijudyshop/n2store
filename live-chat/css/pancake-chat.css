@@ -1060,12 +1060,13 @@
 }
 
 .pk-btn-primary {
-    background: #3b82f6;
+    background: var(--web2-primary, #0068ff);
     color: white;
+    border-radius: 2px;
 }
 
 .pk-btn-primary:hover {
-    background: #2563eb;
+    background: var(--web2-primary-hover, #0058da);
 }
 
 .pk-btn-secondary {

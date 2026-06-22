@@ -136,58 +136,7 @@
     margin-left: auto;
 }
 
-.btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 8px 14px;
-    border-radius: 6px;
-    font-size: 0.875rem;
-    font-weight: 500;
-    border: 1px solid transparent;
-    cursor: pointer;
-    transition:
-        background-color 120ms,
-        transform 120ms,
-        box-shadow 120ms;
-    white-space: nowrap;
-}
-
-.btn:hover {
-    transform: translateY(-1px);
-}
-
-.btn:active {
-    transform: translateY(0);
-}
-
-.btn-primary {
-    background: #0058da;
-    color: #fff;
-}
-
-.btn-primary:hover {
-    background: #3730a3;
-}
-
-.btn-secondary {
-    background: #f1f5f9;
-    color: #334155;
-    border-color: #e2e8f0;
-}
-
-.btn-secondary:hover {
-    background: #e2e8f0;
-}
-
-.btn-success {
-    background: #059669;
-    color: #fff;
-}
-
-.btn-success:hover {
-    background: #047857;
-}
+/* Buttons: canonical .btn-* from web2-theme.css (scoped) — local fork removed */
 
 .btn i {
     width: 16px;
@@ -631,7 +580,7 @@
 .btn-page {
     background: #fff;
     border: 1px solid #cbd5e1;
-    border-radius: 6px;
+    border-radius: 3px;
     padding: 6px 10px;
     cursor: pointer;
     color: #334155;

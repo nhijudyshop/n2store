@@ -43,12 +43,12 @@
     justify-content: center;
     gap: 7px;
     padding: 11px 15px;
-    border-radius: 11px;
+    border-radius: 2px;
     border: 1px solid var(--web2-border, #e2e8f0);
     background: var(--web2-bg, #fff);
     color: var(--web2-text, #0f172a);
-    font-weight: 700;
-    font-size: 14px;
+    font-weight: 500;
+    font-size: 12px;
     font-family: inherit;
     cursor: pointer;
 }
@@ -66,7 +66,12 @@
     margin-top: 4px;
 }
 .vb-btn:hover {
-    filter: brightness(0.97);
+    background: var(--web2-bg-soft, #f1f5f9);
+    border-color: var(--web2-primary, #0068ff);
+}
+.vb-btn.primary:hover {
+    background: var(--web2-primary-hover, #0058da);
+    border-color: var(--web2-primary-hover, #0058da);
 }
 .vb-btn:disabled {
     opacity: 0.55;

@@ -142,8 +142,8 @@
                         <div class="so-barcode-list" id="soBarcodeList"></div>
                     </div>
                     <footer class="so-modal-foot">
-                        <button class="btn-secondary" type="button" data-so-barcode-close>Bỏ qua</button>
-                        <button class="btn-primary" type="button" id="soBarcodePrintBtn">
+                        <button class="btn btn-secondary" type="button" data-so-barcode-close>Bỏ qua</button>
+                        <button class="btn btn-primary" type="button" id="soBarcodePrintBtn">
                             <i data-lucide="printer"></i> In mã vạch
                         </button>
                     </footer>

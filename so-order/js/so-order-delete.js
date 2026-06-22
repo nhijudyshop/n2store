@@ -276,10 +276,10 @@
                         </div>
                     </div>
                     <div class="so-trash-card-actions">
-                        <button class="btn-secondary" type="button" data-trash-action="restore" data-trash-id="${SO.escapeHtml(entry.id)}">
+                        <button class="btn btn-secondary" type="button" data-trash-action="restore" data-trash-id="${SO.escapeHtml(entry.id)}">
                             <i data-lucide="rotate-ccw"></i> Khôi phục
                         </button>
-                        <button class="btn-danger" type="button" data-trash-action="purge" data-trash-id="${SO.escapeHtml(entry.id)}">
+                        <button class="btn btn-danger" type="button" data-trash-action="purge" data-trash-id="${SO.escapeHtml(entry.id)}">
                             <i data-lucide="trash-2"></i> Xoá vĩnh viễn
                         </button>
                     </div>

@@ -784,63 +784,7 @@
     color: #0058da;
 }
 
-/* Buttons (local; reuse web2-theme.css if present) */
-
-.btn-primary,
-.btn-secondary,
-.btn-danger {
-    appearance: none;
-    border: none;
-    padding: 8px 14px;
-    border-radius: 8px;
-    cursor: pointer;
-    font:
-        600 13px Inter,
-        sans-serif;
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    transition:
-        background 0.15s,
-        transform 0.08s;
-}
-
-.btn-primary {
-    background: linear-gradient(135deg, #0058da, #0068ff);
-    color: #fff;
-    box-shadow: 0 2px 8px rgba(0, 104, 255, 0.25);
-}
-
-.btn-primary:hover {
-    transform: translateY(-1px);
-}
-
-.btn-secondary {
-    background: #fff;
-    color: #475569;
-    border: 1px solid #d8dee6;
-}
-
-.btn-secondary:hover {
-    background: #f1f5f9;
-}
-
-.btn-danger {
-    background: #fef2f2;
-    color: #b91c1c;
-    border: 1px solid #fecaca;
-}
-
-.btn-danger:hover {
-    background: #fee2e2;
-}
-
-.btn-primary i,
-.btn-secondary i,
-.btn-danger i {
-    width: 14px;
-    height: 14px;
-}
+/* Buttons: canonical .btn-* from web2-theme.css (scoped) — local fork removed */
 
 /* Modal */
 

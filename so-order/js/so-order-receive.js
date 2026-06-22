@@ -288,18 +288,18 @@
                         Sửa qty nhận để chỉ nhận 1 phần. SP đã đủ tự disable.
                     </div>
                     <div class="so-receive-panel-toolbar">
-                        <button type="button" class="btn-secondary btn-sm" id="soReceiveAllFull">
+                        <button type="button" class="btn btn-secondary btn-sm" id="soReceiveAllFull">
                             <i data-lucide="check-check" style="width:14px;height:14px;"></i> Tất cả mua đủ
                         </button>
                         <span class="so-receive-panel-summary" id="soReceiveSummary"></span>
                     </div>
                     <div class="so-receive-list" id="soReceiveList"></div>
                     <footer class="so-receive-panel-foot">
-                        <button class="btn-secondary" type="button" data-so-receive-close>Hủy</button>
-                        <button class="btn-secondary" type="button" id="soReceivePrintBtn" title="In tem QR theo SL (nhập / đã nhận / đặt) — không cần nhận lại">
+                        <button class="btn btn-secondary" type="button" data-so-receive-close>Hủy</button>
+                        <button class="btn btn-secondary" type="button" id="soReceivePrintBtn" title="In tem QR theo SL (nhập / đã nhận / đặt) — không cần nhận lại">
                             <i data-lucide="printer"></i> In tem
                         </button>
-                        <button class="btn-primary" type="button" id="soReceiveConfirmBtn">
+                        <button class="btn btn-primary" type="button" id="soReceiveConfirmBtn">
                             <i data-lucide="check"></i> Xác nhận nhận hàng
                         </button>
                     </footer>

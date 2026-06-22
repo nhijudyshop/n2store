@@ -143,27 +143,21 @@ body {
     background: var(--jt-surface);
     color: var(--jt-ink);
     font: inherit;
-    font-size: 13px;
-    font-weight: 600;
+    font-size: 12px;
+    font-weight: 500;
     padding: 9px 14px;
-    border-radius: var(--jt-radius-sm);
+    border-radius: 2px;
     cursor: pointer;
     display: inline-flex;
     align-items: center;
     gap: 7px;
     transition:
-        transform var(--jt-dur) var(--jt-ease),
         box-shadow var(--jt-dur) var(--jt-ease),
         background var(--jt-dur) var(--jt-ease),
         border-color var(--jt-dur) var(--jt-ease);
 }
 .jt-btn:hover {
-    transform: translateY(-1px);
-    box-shadow: var(--jt-shadow);
     border-color: #cbd5e1;
-}
-.jt-btn:active {
-    transform: translateY(0);
 }
 .jt-btn:focus-visible {
     outline: 2px solid var(--jt-primary);
@@ -172,17 +166,15 @@ body {
 .jt-btn[disabled] {
     opacity: 0.55;
     cursor: not-allowed;
-    transform: none;
     box-shadow: none;
 }
 .jt-btn-primary {
     background: var(--jt-primary);
     color: var(--jt-primary-ink);
     border-color: transparent;
-    box-shadow: 0 8px 20px -8px color-mix(in oklab, var(--jt-primary) 70%, transparent);
 }
 .jt-btn-primary:hover {
-    filter: brightness(1.05);
+    background: var(--web2-primary-hover, #0058da);
 }
 .jt-btn-danger {
     color: var(--st-problem);

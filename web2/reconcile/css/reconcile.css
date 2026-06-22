@@ -55,55 +55,9 @@
     font-weight: 600;
 }
 
-/* ==================== BUTTONS ==================== */
-.btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 8px 14px;
-    border-radius: 6px;
-    font-size: 0.875rem;
-    font-weight: 500;
-    border: 1px solid transparent;
-    cursor: pointer;
-    transition:
-        background-color 120ms,
-        transform 120ms;
-    white-space: nowrap;
-}
-.btn:hover {
-    transform: translateY(-1px);
-}
-.btn-primary {
-    background: #0d9488;
-    color: #fff;
-}
-.btn-primary:hover {
-    background: #0f766e;
-}
-.btn-secondary {
-    background: #f1f5f9;
-    color: #334155;
-    border-color: #e2e8f0;
-}
-.btn-secondary:hover {
-    background: #e2e8f0;
-}
-.btn-danger {
-    background: #fee2e2;
-    color: #b91c1c;
-    border-color: #fecaca;
-}
-.btn-danger:hover {
-    background: #fecaca;
-}
-.btn-success {
-    background: #16a34a;
-    color: #fff;
-}
-.btn-success:hover {
-    background: #15803d;
-}
+/* ==================== BUTTONS ====================
+   Buttons use canonical .web2-btn / .btn-* from web2/shared/web2-theme.css
+   (Zalo-blue var(--web2-primary)). Local .btn-warn icon sizing kept minimal. */
 .btn-warn {
     background: #f59e0b;
     color: #fff;
@@ -111,19 +65,10 @@
 .btn-warn:hover {
     background: #d97706;
 }
-.btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-    transform: none;
-}
-.btn i {
-    width: 16px;
-    height: 16px;
-}
 
 /* ==================== TOOLBAR + SCANNER ==================== */
 .rc-toolbar {
-    background: linear-gradient(to right, #f0fdfa, #ffffff);
+    background: #f8fafc;
     border: 1px solid #ccfbf1;
     border-radius: 10px;
     padding: 12px 14px;
@@ -241,9 +186,9 @@
     color: #1e293b;
 }
 .rc-tab.is-active {
-    background: #0d9488;
+    background: var(--web2-primary, #0068ff);
     color: #fff;
-    border-color: #0d9488;
+    border-color: var(--web2-primary, #0068ff);
 }
 
 /* ==================== LAYOUT: LEFT LIST + RIGHT DETAIL ==================== */
@@ -961,11 +906,11 @@
         color 120ms ease;
 }
 .rc-achip:hover {
-    border-color: #14b8a6;
+    border-color: var(--web2-primary, #0068ff);
 }
 .rc-achip.is-active {
-    background: #14b8a6;
-    border-color: #14b8a6;
+    background: var(--web2-primary, #0068ff);
+    border-color: var(--web2-primary, #0068ff);
     color: #fff;
 }
 .rc-audit-row {

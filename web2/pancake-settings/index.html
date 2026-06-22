@@ -166,41 +166,31 @@
             }
             .ps-btn {
                 padding: 8px 15px;
-                font-size: 13px;
-                font-weight: 600;
+                font-size: 12px;
+                font-weight: 500;
                 border: 1px solid var(--ps-border);
                 background: #fff;
                 color: #1e293b;
-                border-radius: 10px;
+                border-radius: 2px;
                 cursor: pointer;
                 display: inline-flex;
                 align-items: center;
                 gap: 7px;
-                box-shadow: 0 1px 1.5px rgba(15, 23, 42, 0.04);
                 transition:
-                    transform 0.16s var(--ps-ease),
-                    box-shadow 0.16s var(--ps-ease),
                     background 0.16s var(--ps-ease),
                     border-color 0.16s var(--ps-ease);
             }
             .ps-btn:hover {
                 background: #f8fafc;
                 border-color: #d6dce6;
-                transform: translateY(-1px);
-                box-shadow: 0 3px 10px rgba(15, 23, 42, 0.08);
-            }
-            .ps-btn:active {
-                transform: translateY(0);
             }
             .ps-btn.primary {
-                background: linear-gradient(135deg, #2a96ff, var(--ps-accent));
+                background: var(--ps-accent);
                 color: #fff;
                 border-color: transparent;
-                box-shadow: 0 2px 8px rgba(0, 104, 255, 0.32);
             }
             .ps-btn.primary:hover {
-                background: linear-gradient(135deg, #7c4ef0, var(--ps-accent-strong));
-                box-shadow: 0 5px 16px rgba(0, 104, 255, 0.4);
+                background: var(--ps-accent-strong);
             }
             .ps-btn.danger {
                 background: #fff;
@@ -214,7 +204,6 @@
             .ps-btn[disabled] {
                 opacity: 0.45;
                 cursor: not-allowed;
-                transform: none !important;
                 box-shadow: none !important;
             }
             .ps-input,

@@ -45,7 +45,7 @@
                         <span class="counter-pill" id="cwTotalOutstanding">Công nợ: 0₫</span>
                         <button
                             id="cwRefreshBtn"
-                            class="btn-secondary"
+                            class="btn btn-secondary"
                             type="button"
                             title="Reload từ /api/web2/*"
                         >
@@ -54,7 +54,7 @@
                         </button>
                         <button
                             id="cwHardResetBtn"
-                            class="btn-secondary"
+                            class="btn btn-secondary"
                             type="button"
                             title="Xoá cache localStorage và reload dữ liệu từ server"
                             style="color: #b45309; border-color: #f59e0b; margin-left: 4px"
@@ -130,7 +130,7 @@
                     </div>
                     <button
                         type="button"
-                        class="btn-secondary"
+                        class="btn btn-secondary"
                         id="cwExportCsv"
                         title="Xuất CSV theo filter hiện tại"
                     >
@@ -248,7 +248,7 @@
                                             <code id="cwQrCode">—</code>
                                             <button
                                                 type="button"
-                                                class="btn-secondary"
+                                                class="btn btn-secondary"
                                                 id="cwQrCopyCode"
                                             >
                                                 <i data-lucide="copy"></i> Copy mã
@@ -268,12 +268,16 @@
                                         <span>Lần gần nhất: <b id="cwQrLastUsed">—</b></span>
                                     </div>
                                     <div class="cw-qr-actions">
-                                        <button type="button" class="btn-primary" id="cwQrUpsert">
+                                        <button
+                                            type="button"
+                                            class="btn btn-primary"
+                                            id="cwQrUpsert"
+                                        >
                                             <i data-lucide="refresh-cw"></i> Tạo / Refresh QR
                                         </button>
                                         <a
                                             id="cwQrCopyImage"
-                                            class="btn-secondary"
+                                            class="btn btn-secondary"
                                             target="_blank"
                                             rel="noopener"
                                             href="#"
@@ -288,7 +292,7 @@
                                 <p>
                                     Khách chưa có QR đăng ký. Bấm để tạo (cần KH đã có trên WEB2).
                                 </p>
-                                <button type="button" class="btn-primary" id="cwQrCreate">
+                                <button type="button" class="btn btn-primary" id="cwQrCreate">
                                     <i data-lucide="qr-code"></i> Tạo QR cho KH
                                 </button>
                             </div>
