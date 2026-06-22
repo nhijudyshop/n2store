@@ -3,22 +3,23 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `519932e` — auto: session update
-**Last updated**: 2026-06-22 08:48:23 +07
-**Latest session**: [`RESUME:20260622-084823-519932e`](../20260622-084823-519932e.md)
-**Summary**: auto: session update
+**Latest commit**: `e8b26ba` — fix(tooling) browser-session --start flag (stop landing on Web 1.0) + dev-log: 32-page browser SSE test ALL PASS
+**Last updated**: 2026-06-22 09:24:50 +07
+**Latest session**: [`RESUME:20260622-092450-e8b26ba`](../20260622-092450-e8b26ba.md)
+**Summary**: fix(tooling) browser-session --start flag (stop landing on Web 1.0) + dev-log: 32-page browser SSE test ALL PASS
 
 ## Folders affected in this commit
 
+- [`_root/`](./_root.md) — 1 file(s)
 - [`docs/`](./docs.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 4 file(s)
+- [`scripts/`](./scripts.md) — 1 file(s)
 
 ## All folder snapshots
 
 - [`.claude/`](./.claude.md) — updated 2026-06-19 14:27
 - [`.github/`](./.github.md) — updated 2026-06-13 11:30
 - [`AI/`](./AI.md) — updated 2026-06-20 12:07
-- [`_root/`](./_root.md) — updated 2026-06-20 08:26
+- [`_root/`](./_root.md) — updated 2026-06-22 09:24
 - [`aikol-studio/`](./aikol-studio.md) — updated 2026-05-21 15:39
 - [`balance-history-home/`](./balance-history-home.md) — updated 2026-06-20 12:07
 - [`balance-history/`](./balance-history.md) — updated 2026-06-20 12:07
@@ -26,7 +27,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-21 15:47
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-06-22 08:48
+- [`docs/`](./docs.md) — updated 2026-06-22 09:24
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-19 14:27
@@ -58,7 +59,7 @@
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-06-20 12:07
 - [`render.com/`](./render.com.md) — updated 2026-06-22 08:48
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
-- [`scripts/`](./scripts.md) — updated 2026-06-21 21:25
+- [`scripts/`](./scripts.md) — updated 2026-06-22 09:24
 - [`service-costs/`](./service-costs.md) — updated 2026-06-20 12:07
 - [`shared/`](./shared.md) — updated 2026-06-20 15:47
 - [`showroom/`](./showroom.md) — updated 2026-06-19 14:27
