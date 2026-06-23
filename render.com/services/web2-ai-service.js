@@ -83,17 +83,8 @@ const PROVIDERS = {
             { id: 'deepseek/deepseek-r1-0528:free', label: 'DeepSeek R1 — suy luận' },
             { id: 'meta-llama/llama-3.3-70b-instruct:free', label: 'Llama 3.3 70B' },
             { id: 'qwen/qwen3-235b-a22b:free', label: 'Qwen3 235B' },
-            // Vision (nhận ảnh) — free multimodal.
-            {
-                id: 'qwen/qwen2.5-vl-72b-instruct:free',
-                label: 'Qwen2.5-VL 72B 👁 (xem ảnh)',
-                vision: true,
-            },
-            {
-                id: 'meta-llama/llama-4-maverick:free',
-                label: 'Llama 4 Maverick 👁 (xem ảnh)',
-                vision: true,
-            },
+            // ⚠ OpenRouter free vision đã CHẾT 2026 (qwen2.5-vl:free → paid; llama-4-*:free →
+            // "no image input"). Đính ảnh dùng Gemini (👁 mọi model) hoặc Groq Llama-4 Scout.
         ],
     },
 };
