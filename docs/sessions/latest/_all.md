@@ -3,19 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `a47424f` — feat(web2-admin): Người dùng vào group Quản trị viên + bỏ badge số group + smart cache IndexedDB cho Chấm công
-**Last updated**: 2026-06-23 13:36:13 +07
-**Latest session**: [`RESUME:20260623-133613-a47424f`](../20260623-133613-a47424f.md)
-**Summary**: Người dùng vào Quản trị viên + bỏ badge số + smart cache Chấm công + verify gán tên
+**Latest commit**: `f8012d2` — auto: session update
+**Last updated**: 2026-06-23 13:41:08 +07
+**Latest session**: [`RESUME:20260623-134108-f8012d2`](../20260623-134108-f8012d2.md)
+**Summary**: auto: session update
 
 ## Folders affected in this commit
 
-- [`live-chat/`](./live-chat.md) — 2 file(s)
-- [`native-orders/`](./native-orders.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 1 file(s)
-- [`so-order/`](./so-order.md) — 1 file(s)
-- [`web2/`](./web2.md) — 48 file(s)
-- [`web2-attendance-sync/`](./web2-attendance-sync.md) — 1 file(s)
+- [`docs/`](./docs.md) — 1 file(s)
+- [`web2/`](./web2.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -30,7 +26,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-21 15:47
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-06-23 13:06
+- [`docs/`](./docs.md) — updated 2026-06-23 13:41
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-19 14:27
@@ -82,4 +78,4 @@
 - [`web2-products/`](./web2-products.md) — updated 2026-05-18 11:04
 - [`web2-shared/`](./web2-shared.md) — updated 2026-05-18 11:04
 - [`web2-variants/`](./web2-variants.md) — updated 2026-05-18 11:04
-- [`web2/`](./web2.md) — updated 2026-06-23 13:36
+- [`web2/`](./web2.md) — updated 2026-06-23 13:41
