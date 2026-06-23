@@ -231,6 +231,46 @@
     border-color: var(--web2-primary);
     box-shadow: 0 0 0 3px var(--web2-primary-soft, #e7f0ff);
 }
+
+/* Provider chips (chọn nhà cung cấp dạng nút) */
+.aih-chips {
+    display: inline-flex;
+    gap: 4px;
+    padding: 3px;
+    background: var(--web2-bg-light, #f1f5f9);
+    border: 1px solid var(--web2-border);
+    border-radius: 10px;
+}
+.aih-chip {
+    appearance: none;
+    border: 0;
+    background: transparent;
+    color: var(--web2-text-2);
+    font: inherit;
+    font-size: 0.8rem;
+    font-weight: 600;
+    padding: 6px 12px;
+    border-radius: 7px;
+    cursor: pointer;
+    transition:
+        background var(--web2-ease, 0.18s),
+        color var(--web2-ease, 0.18s);
+    white-space: nowrap;
+}
+.aih-chip:hover:not(.active):not(:disabled) {
+    color: var(--web2-text);
+    background: var(--web2-table-hover, #e9eef5);
+}
+.aih-chip.active {
+    background: var(--web2-primary);
+    color: #fff;
+    box-shadow: var(--web2-shadow-primary, 0 3px 9px rgba(0, 104, 255, 0.28));
+}
+.aih-chip.off,
+.aih-chip:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
 .aih-pill {
     font-size: 0.72rem;
     font-weight: 700;
@@ -545,6 +585,40 @@
     font-weight: 700;
     color: var(--web2-text-2);
 }
+.aih-label-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+.aih-enhance {
+    appearance: none;
+    border: 1px solid var(--web2-primary);
+    background: var(--web2-primary-soft, #e7f0ff);
+    color: var(--web2-primary);
+    font: inherit;
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 4px 9px;
+    border-radius: 8px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    transition: all 0.15s;
+}
+.aih-enhance:hover {
+    background: var(--web2-primary);
+    color: #fff;
+}
+.aih-enhance:disabled {
+    opacity: 0.6;
+    cursor: wait;
+}
+.aih-enhance i {
+    width: 13px;
+    height: 13px;
+}
 .aih-img-prompt {
     border: 1.5px solid var(--web2-border);
     border-radius: 10px;
@@ -604,6 +678,23 @@
     grid-auto-rows: min-content;
     gap: 12px;
     align-content: start;
+}
+.aih-img-gallery:empty {
+    display: grid;
+    place-items: center;
+}
+.aih-img-gallery:empty::before {
+    content: '🖼️  Dán ảnh (Ctrl+V) hoặc kéo-thả vào đây để sửa/ghép — ảnh tạo ra sẽ hiện ở đây';
+    color: var(--web2-text-faded, #94a3b8);
+    font-size: 0.85rem;
+    text-align: center;
+    max-width: 320px;
+    line-height: 1.6;
+    padding: 24px;
+}
+.aih-imgcard.source {
+    outline: 2px dashed var(--web2-primary);
+    outline-offset: -2px;
 }
 .aih-imgcard {
     position: relative;

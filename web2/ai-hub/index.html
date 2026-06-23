@@ -110,11 +110,23 @@
                         <div class="aih-img-wrap">
                             <div class="aih-img-controls">
                                 <div class="aih-field">
-                                    <label class="aih-label" for="aihImgPrompt">Mô tả ảnh</label>
+                                    <div class="aih-label-row">
+                                        <label class="aih-label" for="aihImgPrompt"
+                                            >Mô tả ảnh</label
+                                        >
+                                        <button
+                                            type="button"
+                                            class="aih-enhance"
+                                            id="aihImgEnhance"
+                                            title="Nhập ngắn (vd: áo trắng) → AI tự viết mô tả chi tiết để tạo ảnh đẹp hơn"
+                                        >
+                                            <i data-lucide="sparkles"></i> AI viết mô tả
+                                        </button>
+                                    </div>
                                     <textarea
                                         class="aih-img-prompt"
                                         id="aihImgPrompt"
-                                        placeholder="VD: áo sơ mi lụa trắng treo trên móc gỗ, nền tối giản, ánh sáng studio mềm"
+                                        placeholder="Nhập ngắn (vd: áo trắng nữ) rồi bấm ✨ AI viết mô tả — hoặc tả chi tiết tuỳ ý"
                                     ></textarea>
                                 </div>
                                 <div class="aih-field">

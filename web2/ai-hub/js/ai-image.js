@@ -50,6 +50,7 @@
             toggleEditField(e.target.value);
         });
         document.getElementById('aihImgGen').addEventListener('click', generate);
+        document.getElementById('aihImgEnhance')?.addEventListener('click', enhancePrompt);
         document.getElementById('aihImgPrompt').addEventListener('keydown', (e) => {
             if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') generate();
         });
@@ -57,20 +58,110 @@
         if (file)
             file.addEventListener('change', () => {
                 const f = file.files?.[0];
-                if (!f) {
-                    editImageData = null;
-                    return;
-                }
+                if (!f) return;
                 const rd = new FileReader();
-                rd.onload = () => (editImageData = rd.result);
+                rd.onload = () => setSource(rd.result);
                 rd.readAsDataURL(f);
             });
-        // Cho phép DÁN (Ctrl+V) / kéo-thả ảnh — dùng module ảnh chung.
-        if (global.Web2ImagePaste?.enhance) {
-            global.Web2ImagePaste.enhance('#aihImgFile', {
-                dropZone: '#aihImgEditField',
-                hintText: 'hoặc dán ảnh (Ctrl+V) / kéo-thả vào đây để sửa/ghép',
+        // DÁN ảnh (Ctrl+V) khi đang ở tab Tạo ảnh → hiện NGAY ở khung kết quả + dùng làm ảnh gốc.
+        document.addEventListener('paste', (e) => {
+            if (H().state?.activeTab !== 'image') return;
+            const it = [...(e.clipboardData?.items || [])].find((i) => i.type.startsWith('image/'));
+            const f = it && it.getAsFile();
+            if (!f) return;
+            const rd = new FileReader();
+            rd.onload = () => setSource(rd.result);
+            rd.readAsDataURL(f);
+        });
+        // Kéo-thả ảnh vào khung kết quả.
+        const gal = document.getElementById('aihGallery');
+        if (gal) {
+            gal.addEventListener('dragover', (e) => e.preventDefault());
+            gal.addEventListener('drop', (e) => {
+                e.preventDefault();
+                const f = [...(e.dataTransfer?.files || [])].find((x) =>
+                    x.type.startsWith('image/')
+                );
+                if (!f) return;
+                const rd = new FileReader();
+                rd.onload = () => setSource(rd.result);
+                rd.readAsDataURL(f);
             });
+        }
+    }
+
+    // Đặt ảnh gốc (paste/chọn/kéo-thả) → hiện preview ở khung kết quả + auto chuyển Nano Banana.
+    function setSource(dataUrl) {
+        editImageData = dataUrl;
+        showSource(dataUrl);
+        const provSel = document.getElementById('aihImgProvider');
+        const gem = imageProviders().find((p) => p.id === 'gemini' && p.configured);
+        if (provSel && provSel.value !== 'gemini' && gem) {
+            provSel.value = 'gemini';
+            fillModels('gemini');
+            toggleEditField('gemini');
+            H().toast('Đã dán ảnh gốc → chuyển sang Nano Banana để sửa/ghép', 'info');
+        } else {
+            H().toast('Đã dán ảnh gốc', 'success');
+        }
+    }
+    function showSource(dataUrl) {
+        const gallery = document.getElementById('aihGallery');
+        if (!gallery) return;
+        gallery.querySelector('.aih-imgcard.source')?.remove();
+        const card = document.createElement('div');
+        card.className = 'aih-imgcard source';
+        const img = new Image();
+        img.alt = 'Ảnh gốc';
+        img.src = dataUrl;
+        card.appendChild(img);
+        const bar = document.createElement('div');
+        bar.className = 'aih-imgcard-bar';
+        bar.style.opacity = '1';
+        const tag = document.createElement('button');
+        tag.type = 'button';
+        tag.textContent = '🖼 Ảnh gốc — bỏ';
+        tag.onclick = () => {
+            card.remove();
+            editImageData = null;
+            const f = document.getElementById('aihImgFile');
+            if (f) f.value = '';
+        };
+        bar.appendChild(tag);
+        card.appendChild(bar);
+        gallery.prepend(card);
+    }
+
+    // #2 — Nút AI viết mô tả: nhập ngắn → LLM mở rộng thành prompt chi tiết tạo ảnh.
+    async function enhancePrompt() {
+        const ta = document.getElementById('aihImgPrompt');
+        const seed = ta.value.trim();
+        if (!seed) return H().toast('Nhập vài chữ trước (vd: áo trắng nữ)', 'warning');
+        const btn = document.getElementById('aihImgEnhance');
+        const old = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = 'Đang viết…';
+        try {
+            const r = await fetch(H().API() + '/chat', {
+                method: 'POST',
+                headers: H().authHeaders(true),
+                body: JSON.stringify({
+                    system: 'Bạn là chuyên gia viết prompt tạo ảnh sản phẩm thời trang. Mở rộng mô tả NGẮN của người dùng thành MỘT prompt chi tiết (1-3 câu) để AI tạo ảnh đẹp: nêu rõ sản phẩm, bối cảnh/nền, ánh sáng, góc chụp, phong cách, chất liệu. CHỈ trả về prompt thuần, KHÔNG giải thích, KHÔNG markdown, KHÔNG xuống dòng dư.',
+                    messages: [{ role: 'user', content: seed }],
+                    maxTokens: 300,
+                    temperature: 0.8,
+                }),
+            });
+            const j = await r.json();
+            if (!j.ok || !j.text) throw new Error(j.error || 'AI không trả nội dung');
+            ta.value = j.text.trim();
+            H().toast('AI đã viết mô tả chi tiết ✨', 'success');
+        } catch (e) {
+            H().toast('Lỗi AI viết mô tả: ' + (e.message || e), 'error');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = old;
+            if (global.lucide) global.lucide.createIcons();
         }
     }
 
