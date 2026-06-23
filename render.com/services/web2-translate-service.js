@@ -50,7 +50,7 @@ async function _llm(text, to, from, context) {
     try {
         const r = await ai.complete([{ role: 'user', content: prompt }], {
             providers: ['groq', 'gemini', 'openrouter'],
-            modelFor: { groq: 'llama-3.3-70b-versatile', gemini: 'gemini-2.0-flash' },
+            modelFor: { groq: 'llama-3.3-70b-versatile', gemini: 'gemini-2.5-flash' },
             system: SYSTEM,
             temperature: 0.2,
             maxTokens: 1024,

@@ -40,7 +40,7 @@ function aiScriptRateLimit(req, res, next) {
     next();
 }
 
-const MODEL = process.env.WEB2_GEMINI_MODEL || 'gemini-2.0-flash';
+const MODEL = process.env.WEB2_GEMINI_MODEL || 'gemini-2.5-flash';
 // Pool key Gemini xoay (WEB2_GEMINI_API_KEY + GEMINI_API_KEY* gộp trong web2-ai-service).
 const geminiKeys = () => ai.keysOf('gemini');
 

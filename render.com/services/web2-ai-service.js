@@ -51,8 +51,8 @@ const PROVIDERS = {
         defaultModel: 'gemini-2.5-flash',
         models: [
             { id: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash' },
-            { id: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash' },
             { id: 'gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash Lite (nhanh)' },
+            { id: 'gemini-flash-latest', label: 'Gemini Flash (mới nhất)' },
         ],
     },
     openrouter: {

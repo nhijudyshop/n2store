@@ -152,7 +152,7 @@ async function aiComplete(prompt) {
     try {
         const r = await ai.complete([{ role: 'user', content: prompt }], {
             providers: ['groq', 'gemini', 'openrouter'],
-            modelFor: { groq: 'llama-3.3-70b-versatile', gemini: 'gemini-2.0-flash' },
+            modelFor: { groq: 'llama-3.3-70b-versatile', gemini: 'gemini-2.5-flash' },
             system: SYSTEM_VI,
             temperature: 0.8,
             maxTokens: 400,
