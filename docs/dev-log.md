@@ -2,6 +2,23 @@
 
 ## 2026-06-23
 
+### [feat] web2: Smart cache dùng chung (Web2SmartCache) — primitive SWR gom bộ máy cache + audit 8 GitHub repo
+
+**Phần 2 (smart cache):** Audit 4 cache hiện có (Web2ProductsCache 486, Web2CustomerStore 426, Web2VariantsCache 231, Web2SuppliersCache 222 dòng) → đều TỰ CÀI LẶP cùng bộ máy: IDB persist + TTL + stale-while-revalidate + Web2SSE invalidate + echo-suppress (clientId) + debounced refresh + listeners + in-flight dedup (~1000 dòng gần trùng).
+
+- **MỚI `web2/shared/web2-smart-cache.js`** (568 dòng, `window.Web2SmartCache`) — primitive 1 nguồn:
+    - `create({ name, fetcher, topic, ttl, maxAge, persist, swr, debounceMs, applyEvent })` → cache 1 giá trị (list/object). API: `get/init/refresh/peek/set/mutate/invalidate/subscribe/isReady/isStale/dispose`.
+    - `createKeyed({ name, fetcher(key), topicFor, ttl, maxEntries })` → cache theo key (entity-by-id) + **LRU eviction** + TTL.
+    - SWR: trả cache cũ NGAY + revalidate nền; cold load thử IDB persist trước (instant) rồi fetch.
+    - Dedup in-flight (10 caller → 1 fetch). `ttl<=0` = always-revalidate. `applyEvent(msg,cur)` patch tại chỗ từ payload SSE (khỏi refetch).
+    - SSE: subscribe `topic` → echo-suppress (`data.by===clientId`) → debounce → revalidate. Self-load Web2IdbStore nếu thiếu.
+    - Autoload qua `web2-sidebar.js` (mọi trang Web 2.0 có sẵn `Web2SmartCache`).
+- **Adopt tham chiếu: `web2-suppliers-cache.js`** refactor delegate fetch/persist/SSE/dedup sang primitive — public API GIỮ NGUYÊN byte-for-byte (9 consumer: so-order, products, purchase-refund, supplier-debt, supplier-wallet, balance-history không đổi). **Bonus: NCC giờ có IDB persist** (sống qua reload/offline) — trước đây không có. Self-load primitive trong `init()` (async, luôn await → không lệ thuộc thứ tự load); thiếu primitive → fallback fetch trực tiếp (degraded, vẫn chạy).
+- **Test 3 tầng**: (1) unit 24 assertion (dedup/SWR/set/mutate/invalidate/SSE+echo/applyEvent/persist round-trip/keyed LRU) PASS; (2) integration real-files 12 assertion (suppliers trên smart-cache: init/search dấu/ensure/persist/SSE refetch) PASS; (3) **live browser** supplier-debt: `Web2SmartCache` autoload OK + `Web2SuppliersCache.init()` trả 4 NCC thật từ backend, 0 error.
+- **Migration path** (opt-in, chưa làm — load-bearing): products/variants/customer cache có thể migrate sau, mỗi cái shed ~150 dòng IDB+SSE+SWR boilerplate. Suppliers là adopter đầu (rủi ro thấp nhất).
+
+**Phần 1 (audit 8 GitHub repo):** Đọc chi tiết 8 repo. Kết luận: 1 repo là app-feature (MoneyPrinterTurbo → enhance video-maker, MIT, cần Pexels key — chưa có trong secret), phần còn lại là dev-tooling/skill cho Claude Code (free-claude-code, ruflo, claude-mem, codegraph) hoặc skill/agent ĐÃ có sẵn trong môi trường (anthropics/skills, wshobson/agents, taste-skill). Chi tiết bảng audit trong câu trả lời + đề xuất codegraph (dev-tooling, optional) + MoneyPrinterTurbo (chờ Pexels key). KHÔNG ép nhồi dev-tooling vào app.
+
 ### [fix] web2: avatar DiceBear vỡ (transparent→400) + avatar vào trang Người dùng + đổi MK chính mình không bị logout + Zalo CORS
 
 Audit/debug 3 lỗi user báo trên Web 2.0:
