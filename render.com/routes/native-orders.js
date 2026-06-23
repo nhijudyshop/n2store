@@ -2892,6 +2892,29 @@ router.post('/merge-to-pbh', requireWeb2AuthSoft, async (req, res) => {
                 totalAmount += q * price;
             }
         }
+        // BUG FIX (2026-06-24): dedupe order_lines theo mã (đồng bộ /merge fast-sale-
+        // orders.js) — 2 đơn gộp cùng productCode → dòng TRÙNG mã → reconcile (1-bucket/
+        // mã, cap theo dòng đầu) không đóng gói được + restockOrderLines trừ lặp. Cộng
+        // dồn quantity; dòng không-mã (phí ship/free) giữ riêng. (validateStock dưới vẫn
+        // dùng combinedLines gốc — nó tự gộp theo mã nội bộ, không ảnh hưởng.)
+        const _mlByCode = new Map();
+        const combinedLinesDeduped = [];
+        for (const ln of combinedLines) {
+            const code = ln && (ln.productCode || ln.code);
+            if (!code) {
+                combinedLinesDeduped.push(ln);
+                continue;
+            }
+            const key = String(code).trim().toLowerCase();
+            const ex = _mlByCode.get(key);
+            if (ex) {
+                ex.quantity = (Number(ex.quantity) || 0) + (Number(ln.quantity) || 0);
+            } else {
+                const copy = { ...ln };
+                _mlByCode.set(key, copy);
+                combinedLinesDeduped.push(copy);
+            }
+        }
         const mergedStts = sorted.map((r) => Number(r.display_stt) || 0).filter(Boolean);
         const mergedSourceCode = sorted.map((r) => r.code).join('+');
 
@@ -2939,7 +2962,7 @@ router.post('/merge-to-pbh', requireWeb2AuthSoft, async (req, res) => {
                         base.customer_name || '',
                         base.phone || '',
                         base.address || '',
-                        JSON.stringify(combinedLines),
+                        JSON.stringify(combinedLinesDeduped),
                         totalQty,
                         totalAmount,
                         mergedSourceCode,
