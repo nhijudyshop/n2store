@@ -131,3 +131,6 @@ downloads/n2store-session/pancake-login-capture.log
 
 # test assets (faces/videos cho beauty test — không commit)
 downloads/test/
+
+# codegraph local index (dev tooling, not committed)
+.codegraph/

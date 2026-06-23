@@ -655,6 +655,7 @@ const web2ElevenLabsRoutes = require('./routes/web2-elevenlabs'); // WEB2.0 — 
 const web2TtsProRoutes = require('./routes/web2-tts-pro'); // WEB2.0 — "Giọng AI Pro" TTS proxy (video-maker), tên trung tính giấu nhà cung cấp
 const web2TranslateRoutes = require('./routes/web2-translate'); // WEB2.0 — Dịch thuật dùng chung (LLM free + fallback Google)
 const web2AiRoutes = require('./routes/web2-ai'); // WEB2.0 — Trợ lý AI (chat free + tạo ảnh free, xoay nhiều key)
+const web2StockMediaRoutes = require('./routes/web2-stock-media'); // WEB2.0 — Stock media Pexels/Pixabay (Xưởng Video AI)
 const web2CampaignProductsRoutes = require('./routes/web2-campaign-products'); // WEB2.0 — SP trong chiến dịch livestream (TV board)
 const attendanceRoutes = require('./routes/attendance');
 const admsRoutes = require('./routes/adms');
@@ -800,6 +801,7 @@ app.use('/api/web2-elevenlabs', web2ElevenLabsRoutes); // WEB2.0 — ElevenLabs 
 app.use('/api/web2-tts-pro', web2TtsProRoutes); // WEB2.0 — "Giọng AI Pro" TTS proxy (video-maker), tên trung tính
 app.use('/api/web2-translate', web2TranslateRoutes); // WEB2.0 — Dịch thuật dùng chung
 app.use('/api/web2-ai', web2AiRoutes); // WEB2.0 — Trợ lý AI (chat free + tạo ảnh free, xoay nhiều key)
+app.use('/api/web2-stock-media', web2StockMediaRoutes); // WEB2.0 — Stock media Pexels/Pixabay (Xưởng Video AI)
 app.use('/api/web2-campaign-products', web2CampaignProductsRoutes); // WEB2.0 — SP trong chiến dịch livestream (TV board)
 app.use('/api/web2-returns', web2ReturnsRoutes); // WEB2.0 — Thu về (goods return)
 app.use('/api/web2-variants', web2VariantsRoutes);

@@ -2,6 +2,16 @@
 
 ## 2026-06-23
 
+### [feat] web2: MoneyPrinterTurbo stock footage → Xưởng Video AI (Pexels/Pixabay)
+
+Lấy cảm hứng MoneyPrinterTurbo (harry0703, MIT): topic→script→**stock footage**→TTS→phụ đề. video-maker đã có script (`Web2VideoAiScript`) + TTS + render; bổ sung mảnh còn thiếu = **kho ảnh/video bản quyền-free** chèn vào cảnh.
+
+- **Backend** `render.com/services/web2-stock-media-service.js` + `routes/web2-stock-media.js`: search Pexels (ảnh + video) ưu tiên → Pixabay fallback. Key giấu server `PEXELS_API_KEY`/`PIXABAY_API_KEY` (xoay tua `*1..10`). Thiếu key → `{configured:false}` (frontend báo gọn, KHÔNG vỡ). Mount `/api/web2-stock-media` (worker auto-route web2- prefix → web2-api, KHÔNG cần sửa worker). READ-only.
+- **Frontend** `web2/video-maker/js/video-stock.js` (`Web2VideoStock.open`): modal tìm kiếm (ảnh/video, phân trang, ratio theo trang). Ảnh → `VideoMakerPage.addSceneFromUrl` (CORS, không taint canvas → xuất được); video → fetch blob → `Web2VideoImport.load` (lồng tiếng). Nút "Kho ảnh/video miễn phí" cạnh "+ Thêm ảnh".
+- **video-maker.js**: thêm `addSceneFromUrl(url, meta)` + export trên `VideoMakerPage`; wire nút `#vmStock`.
+- **Test**: backend `node --check` + graceful no-key PASS. Live browser: video-maker load 0-error, `Web2VideoStock`+`addSceneFromUrl`+nút present, modal mở đúng (title/tab/search), search degrade gọn khi backend chưa deploy.
+- **⚠ Để KÍCH HOẠT**: (1) thêm `PEXELS_API_KEY` (free tại pexels.com/api) vào env web2-api trên Render (placeholder đã thêm vào serect_dont_push.txt), (2) deploy lại web2-api. Pixabay optional fallback.
+
 ### [refactor] web2: Migrate products/variants/customer caches onto Web2SmartCache + primitive refinements
 
 Tiếp nối smart-cache: migrate 3 cache còn lại sang primitive `Web2SmartCache` (API GIỮ NGUYÊN, test 3 tầng mỗi cái).

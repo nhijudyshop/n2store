@@ -231,6 +231,29 @@
         drawAt(0);
     }
 
+    // Thêm 1 cảnh từ URL ảnh (vd ảnh stock Pexels/Pixabay). CORS để không taint
+    // canvas → xuất video được. Dùng bởi Web2VideoStock (kho ảnh/video miễn phí).
+    async function addSceneFromUrl(url, meta = {}) {
+        if (!url) return false;
+        try {
+            const img = await loadImageCors(url);
+            state.scenes.push({
+                id: _sid++,
+                src: url,
+                _img: img,
+                title: meta.title || '',
+                subtitle: meta.subtitle || '',
+                dur: Number(meta.dur) || 3,
+            });
+            renderScenes();
+            drawAt(0);
+            return true;
+        } catch (e) {
+            notify('Không tải được ảnh từ kho miễn phí (CORS?)', 'error');
+            return false;
+        }
+    }
+
     // ---------- narration (TTS) ----------
     // Khoá chung cho MỌI tác vụ tổng hợp giọng (tạo lời đọc + nghe mẫu) — chống
     // double-trigger giữa #vmGenVoice và các nút nghe mẫu. video-tts.js có khoá
@@ -1377,6 +1400,11 @@
                 notify('Trình duyệt không có giọng đọc sẵn', 'warning');
         });
         $('#vmExport')?.addEventListener('click', exportVideo);
+        // Kho ảnh/video miễn phí (Pexels/Pixabay) — MoneyPrinterTurbo stock footage.
+        $('#vmStock')?.addEventListener('click', () => {
+            if (global.Web2VideoStock?.open) global.Web2VideoStock.open();
+            else notify('Module kho media chưa tải', 'warning');
+        });
         global.Web2ProductsCache?.init?.().catch(() => {});
         global.addEventListener('resize', fitPreview);
     }
@@ -1386,5 +1414,5 @@
         if (!state.playing) drawAt(0);
     }
 
-    global.VideoMakerPage = { init, refresh, _state: state };
+    global.VideoMakerPage = { init, refresh, addSceneFromUrl, _state: state };
 })(window);
