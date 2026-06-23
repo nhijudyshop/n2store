@@ -14,6 +14,8 @@ Ultracode: workflow 5-agent thiết kế test battery (4 recipe + cross-flow cri
 
 KHÔNG tìm thấy bug mới — các flow tiền/kho vững. (Khác đợt trước: browser-test bắt được regression stock_applied thật.) Cleanup pristine: ví 0, HNAO3 50, HNAO2 35, 0 PBH active, 0 lỗi console.
 
+**Battery đợt 2 — Ví NCC quick-refund cross-page (browser test thật):** ✅ quick-refund qty 2 → trừ kho HNAO3 50→48 (linkage purchase-refund→web2-products) + credit ledger NCC; ✅ idempotent (cùng code → idempotent:true, không trừ 2 lần); ✅ **amount-cap**: gửi totalAmount=9999999 nhưng computed qty×price=100000 → ledger ghi 100000 (returnedAmount tổng 300000, KHÔNG phải 9999999) — cap line 395 hoạt động; ✅ **shared cumulative cap** (cross-flow): quick-refund qty2 + /tx qty4 trên CÙNG rowId = 6 > đã nhận 5 → reject "Trả vượt số đã nhận" (cap server-authoritative từ so-order, chia chung 2 endpoint). Stock restore HNAO3=50. ⚠ #2 deferred VẪN mở: `/api/web2-supplier-wallet/tx` amount KHÔNG recompute (chỉ check >0) — reachable cho qty hợp lệ + amount phồng; quick-refund thì CÓ cap amount. Test supplier `TEST-NCC-VITEST` để lại (BETA, marked; xoá cần admin secret + direct web2-api).
+
 ### [fix] Browser-test bắt REGRESSION vòng 4 — DELETE/approve phiếu native-only trừ kho ảo (stock_applied)
 
 Test thật bằng browser (click/nhập như user) trang Thu về phát hiện **bất đối xứng do chính fix vòng 4 (gate `_applyStock`) tạo ra**: tạo phiếu KNH trên đơn native chưa-có-PBH → gate skip restock → kho GIỮ 50 (đúng); NHƯNG huỷ phiếu → nhánh rollback vẫn trừ kho (record `stock_status='applied'`) → **kho rớt 50→48 = mất hàng ảo**. Code-review + agent vòng 4 miss vì chỉ soi create cô lập; chỉ end-to-end create→delete mới lộ.
