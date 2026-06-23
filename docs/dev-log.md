@@ -51,7 +51,11 @@ Thêm group menu **Quản trị viên** chỉ admin thấy (gating group-level `
 - Thu / Chi cá nhân / Chi kinh doanh; quỹ tiền mặt / ngân hàng / ví; mã phiếu tự sinh (TTM/TNH/TVD/CCN/CKD); dải số dư đầu–cuối kỳ; lọc kỳ/loại/quỹ/trạng thái/tìm; danh mục tuỳ chỉnh; nguồn; ảnh hoá đơn (bytea, serve qua route — không CDN ngoài); huỷ mềm + lịch sử chỉnh sửa; tab Báo cáo (breakdown loại/tháng/nguồn/quỹ tính server-side).
 - Bảng `web2_cashbook_vouchers/categories/sources/images/counters/audit`. Schema + helper tách `lib/web2-cashbook-lib.js` (route < 800 dòng).
 
-Verify: test schema+SQL trên DB tạm local (ensureSchema idempotent, date_key GMT+7, idempotent punch, code-gen, số dư đầu kỳ, report group tháng theo +7 — PASS, drop DB). Worker auto-route prefix `web2-`. Bump `web2-sidebar.js?v=20260623adm` toàn bộ trang để group hiện.
+Verify: test schema+SQL trên DB tạm local (ensureSchema idempotent, date_key GMT+7, idempotent punch, code-gen, số dư đầu kỳ, report group tháng theo +7 — PASS, drop DB). Worker auto-route prefix `web2-`. Bump `web2-sidebar.js?v=20260623adm` toàn bộ trang để group hiện. **Verify LIVE sau deploy**: 19 API check (login/CRUD/summary 5M-3M→tồn 2M/report/import→auto device-user/payroll/audit) + browser cả 2 trang 0 console-error + tạo phiếu thu qua UI (+1.234.000đ→tồn cuối cập nhật). Dọn test data sạch.
+
+Fix audit-loop: ① đảo thứ tự `DELETE /records/clear-all` TRƯỚC `/:id` (Express khớp nhầm `:id`='clear-all'). ② `insertRecords` tự tạo device-user cho PIN mới (ADMS/import/manual hiện ngay bảng công). ③ admin-guard client cả 2 trang.
+
+Bảo mật ingest: đã set env **`WEB2_ATTENDANCE_SECRET`** trên Render web2-api (giá trị ở serect_dont_push.txt) + deploy → enforced (no/sai secret=401, đúng=200; agent điền secret vào config.json). Endpoint ADMS `/iclock/*` giữ mở (chuẩn ADMS, máy không gửi header được — dựa cô lập mạng + proxy local).
 
 ### [fix] Đồng bộ quick-refund cap amount theo cost so-order (đóng nốt class bug #2 trên cả 2 đường hoàn NCC)
 
