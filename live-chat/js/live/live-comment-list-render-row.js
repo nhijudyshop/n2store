@@ -228,8 +228,8 @@
                                 ${liveSvgIcon('user', 13)}
                             </button>
                             ${
-                                partner.Id
-                                    ? `<a class="live-action-btn" title="Mở thẻ KH Web 2.0" href="../web2/partner-customer/index.html?id=${encodeURIComponent(partner.Id)}" target="_blank" rel="noopener" style="color:#0891b2;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;">
+                                partner.Phone
+                                    ? `<a class="live-action-btn" title="Mở thẻ KH Web 2.0" href="../web2/customers/index.html?phone=${encodeURIComponent(partner.Phone)}" target="_blank" rel="noopener" style="color:#0891b2;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;">
                                 ${liveSvgIcon('contact', 13)}
                             </a>`
                                     : ''

@@ -66,6 +66,19 @@
     // ─── Init ───────────────────────────────────────────────────────────
     function init() {
         NS.bind();
+        // Deep-link: ?phone= / ?q= → prefill search + filter NGAY (mở thẻ KH từ
+        // live-chat, Đơn Web…). Phải set TRƯỚC load() để fetch đúng từ khoá.
+        try {
+            const sp = new URLSearchParams(window.location.search);
+            const q = (sp.get('phone') || sp.get('q') || '').trim();
+            if (q) {
+                state.search = q;
+                const input = document.getElementById('wcSearchInput');
+                if (input) input.value = q;
+            }
+        } catch (_) {
+            /* ignore */
+        }
         load();
         subscribeSse();
     }

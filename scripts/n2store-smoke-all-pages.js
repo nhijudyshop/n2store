@@ -100,7 +100,6 @@ const PAGES = [
     '/soquy/index.html',
     '/soquy/huong_dan_so_quy.html',
     '/supplier-debt/index.html',
-    '/tpos-pancake/index.html',
     '/user-management/index.html',
     '/web2/products/index.html',
     // stitch_customer
@@ -110,33 +109,59 @@ const PAGES = [
     // web2/* — sample subset (full list in WEB2_PAGES below)
 ];
 
-// web2/* sub-pages — TPOS module mirrors. Many similar — test all to catch broken paths.
+// web2/* sub-pages — full set (keep in sync with web2/<slug>/index.html dirs).
+// Test all to catch broken paths. Dead pages (live-campaign, partner-customer)
+// removed 2026-06-24 — they 404'd because the folders no longer exist.
 const WEB2_PAGES = [
+    'admin-sse-monitor',
+    'ai-hub',
     'audit-log',
     'balance-history',
+    'cham-cong',
+    'chi-tieu',
+    'ck-dashboard',
     'customer-wallet',
+    'customers',
     'dashboard',
+    'delivery-zone',
     'fastsaleorder-delivery',
     'fastsaleorder-invoice',
     'fastsaleorder-refund',
+    'fb-ads-stats',
+    'fb-insights',
+    'fb-posts',
+    'jt-tracking',
     'kpi',
-    'live-campaign',
+    'live-control',
+    'live-tv',
+    'livestream-poller',
     'login',
+    'multi-tool',
     'notifications',
+    'order-tags',
     'overview',
     'pancake-settings',
-    'partner-customer',
+    'photo-editor',
+    'photo-studio',
+    'printer-settings',
+    'product-card',
+    'product-counter',
     'products',
     'purchase-refund',
     'reconcile',
     'report-delivery',
     'report-revenue',
+    'returns',
+    'services-dashboard',
     'supplier-debt',
     'supplier-wallet',
     'system',
     'users',
     'users-permissions',
     'variants',
+    'video-beauty',
+    'video-maker',
+    'zalo',
 ];
 WEB2_PAGES.forEach((p) => PAGES.push(`/web2/${p}/index.html`));
 
