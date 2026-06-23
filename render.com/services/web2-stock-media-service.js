@@ -27,8 +27,11 @@ function _pexelsKeys() {
     const push = (v) => {
         if (v && String(v).trim()) keys.push(String(v).trim());
     };
-    // Hỗ trợ xoay tua nhiều key (mirror web2-ai): PEXELS_API_KEY1..10 + đơn.
+    // Xoay tua nhiều key (convention WEB2_ như web2-ai). WEB2_PEXELS_API_KEY1..10
+    // (chuẩn) + PEXELS_API_KEY1..10 (fallback) + đơn.
+    for (let i = 1; i <= 10; i++) push(process.env['WEB2_PEXELS_API_KEY' + i]);
     for (let i = 1; i <= 10; i++) push(process.env['PEXELS_API_KEY' + i]);
+    push(process.env.WEB2_PEXELS_API_KEY);
     push(process.env.PEXELS_API_KEY);
     return Array.from(new Set(keys));
 }
@@ -37,7 +40,9 @@ function _pixabayKeys() {
     const push = (v) => {
         if (v && String(v).trim()) keys.push(String(v).trim());
     };
+    for (let i = 1; i <= 10; i++) push(process.env['WEB2_PIXABAY_API_KEY' + i]);
     for (let i = 1; i <= 10; i++) push(process.env['PIXABAY_API_KEY' + i]);
+    push(process.env.WEB2_PIXABAY_API_KEY);
     push(process.env.PIXABAY_API_KEY);
     return Array.from(new Set(keys));
 }
