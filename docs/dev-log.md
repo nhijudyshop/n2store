@@ -2,6 +2,18 @@
 
 ## 2026-06-23
 
+### [fix] web2: avatar DiceBear vỡ (transparent→400) + avatar vào trang Người dùng + đổi MK chính mình không bị logout + Zalo CORS
+
+Audit/debug 3 lỗi user báo trên Web 2.0:
+
+1. **Avatar DiceBear vỡ** (modal "Thông tin tài khoản" hiện chữ "avatar" thay vì ảnh). Gốc: `avatarUrl()` set `backgroundColor=transparent` khi nền trong suốt → DiceBear trả **HTTP 400** (`backgroundColor` chỉ chấp nhận HEX). Mọi avatar mặc định (bg=transparent) đều vỡ.
+    - Fix `web2/shared/web2-user-profile.js`: OMIT `backgroundColor` khi transparent (mặc định DiceBear vốn trong suốt); chỉ set khi là HEX hợp lệ (`/^[0-9a-fA-F]{3,8}$/`). Verify browser: preview + 12 thumbnail load (naturalWidth=150, brokenThumbs=0).
+2. **Avatar vào trang Người dùng** (`web2/users`): thêm cột avatar trong ô Username (`userAvatarUrl(u)` → Web2UserProfile.avatarUrl, fallback seed=username). Load `web2-user-profile.js` trực tiếp trong page (tránh sidebar inject async → table render avatar ngay). CSS `.u-user-cell`/`.u-avatar`. Verify: 14 user đều có avatar load OK, 0 console error.
+3. **"Đổi mật khẩu admin lưu nhưng không đổi"**: backend ĐÚNG (test throwaway user: đổi P1→P2, login P2 OK, P1 bị reject). Thực chất khi đổi MK CHÍNH MÌNH, route xoá hết session (kể cả token đang dùng) → request kế 401 → bị "đá" ra login → tưởng "không đổi". Fix `users-app.js`: nếu `isSelf` → `_reauthSelf()` re-login ngay bằng MK mới giữ phiên sống + cập nhật localStorage; SSE handler bỏ qua auto-reload cho self change-password (cờ `_selfPwdChangeAt`).
+4. **Zalo CORS**: trang `web2/zalo` gửi header `x-web2-zalo-owner` (per-máy) → preflight chặn "is not allowed by Access-Control-Allow-Headers". Thêm `X-Web2-Zalo-Owner` vào `shared/universal/cors-headers.js` (worker, cả `buildCorsHeaders` + `CORS_HEADERS`) + `render.com/server.js` allowedHeaders. Cần deploy worker (wrangler) + render.
+
+Bump `web2-user-profile.js` inject → `20260623b`; bulk bump `web2-sidebar.js?v=20260623up1→up2` (46 trang); users.css/js → `20260623up2`.
+
 ### [feat] Trợ lý AI — Pollinations xoay tua nhiều token Seed (bỏ giới hạn anonymous 1 req/15s)
 
 User báo Pollinations free (anonymous ~1 req/15s + watermark) hay bị giới hạn → thêm nhiều token. Pollinations giờ có auth (auth.pollinations.ai): Seed (free) ~1 req/5s, Bearer token PHẢI ở server.

@@ -61,8 +61,12 @@
         }
         if (!cfg || !cfg.style || !cfg.seed) return null;
         const p = new URLSearchParams({ seed: String(cfg.seed) });
-        if (cfg.bg && cfg.bg !== 'transparent') p.set('backgroundColor', cfg.bg);
-        if (cfg.bg === 'transparent') p.set('backgroundColor', 'transparent');
+        // DiceBear chỉ chấp nhận backgroundColor là HEX (^#?[0-9a-f]{3,8}$). Giá trị
+        // 'transparent' → API trả 400 (ảnh vỡ). Nền trong suốt = OMIT backgroundColor
+        // (mặc định DiceBear vốn đã trong suốt). Chỉ set khi là mã màu hex hợp lệ.
+        if (cfg.bg && cfg.bg !== 'transparent' && /^[0-9a-fA-F]{3,8}$/.test(cfg.bg)) {
+            p.set('backgroundColor', cfg.bg);
+        }
         return `${DICEBEAR_BASE}/${encodeURIComponent(cfg.style)}/svg?${p.toString()}`;
     }
 

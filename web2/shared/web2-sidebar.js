@@ -103,7 +103,7 @@
         if (!global.Web2JwtUtils) inject('web2-jwt-utils.js', '20260619a');
         if (!global.Web2AvatarUtils) inject('web2-avatar-utils.js', '20260619a');
         // Hồ sơ user + đổi avatar DiceBear (mở từ footer sidebar) — mọi trang.
-        if (!global.Web2UserProfile) inject('web2-user-profile.js', '20260623a');
+        if (!global.Web2UserProfile) inject('web2-user-profile.js', '20260623b');
         // Ảnh dùng chung (gom 1 nguồn, 2026-06-23):
         //  - canvas-utils: nén/convert ảnh↔canvas↔blob (image-paste phụ thuộc).
         //  - image-lightbox: xem ảnh full-screen + CLICK PHÓNG TO catch-all + con trỏ zoom-in.
@@ -115,6 +115,11 @@
         if (!global.Web2Effects) inject('web2-effects.js', '20260623a');
         // Dịch thuật dùng chung (LLM free + fallback Google) — mọi trang gọi Web2Translate.translate.
         if (!global.Web2Translate) inject('web2-translate.js', '20260622a');
+        // Smart cache dùng chung (2026-06-23) — primitive stale-while-revalidate:
+        // IDB persist + TTL + SWR + Web2SSE invalidate + dedup + LRU. Gom 1 nguồn
+        // bộ máy mà products/variants/suppliers/customer cache tự lặp. Trang/feature
+        // mới chỉ cần Web2SmartCache.create({ name, fetcher, topic }) là có cache đầy đủ.
+        if (!global.Web2SmartCache) inject('web2-smart-cache.js', '20260623a');
     })();
 
     // Group definitions matching WEB2 sidebar structure.

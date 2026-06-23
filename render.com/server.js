@@ -127,6 +127,9 @@ app.use(
             'X-User-Id',
             'X-API-Key',
             'x-web2-token',
+            // x-web2-zalo-owner: trang web2/zalo gửi UUID per-máy (web2-zalo-api.js) khi
+            // gọi THẲNG web2-api (DIRECT fallback). Thiếu → preflight chặn CORS.
+            'x-web2-zalo-owner',
             'x-admin-secret',
             'x-relay-secret',
         ],

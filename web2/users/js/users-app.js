@@ -52,6 +52,18 @@
             /* ignore */
         }
     }
+    // Avatar DiceBear cho 1 user — nguồn URL 1 chỗ qua Web2UserProfile (auto-load qua
+    // sidebar). User chưa đặt avatar → sinh avatar mặc định từ username (đồng nhất mọi
+    // trang). Trả '' nếu module chưa sẵn sàng (cell sẽ rỗng, không vỡ layout).
+    function userAvatarUrl(u) {
+        const up = window.Web2UserProfile;
+        if (!up || !up.avatarUrl) return '';
+        return (
+            (u.avatar && up.avatarUrl(u.avatar)) ||
+            up.avatarUrl({ style: 'lorelei', seed: u.username || 'user', bg: 'transparent' }) ||
+            ''
+        );
+    }
     // Token cho các route admin (create/update/delete/password/permissions).
     // Web2Auth lưu token ở localStorage 'web2_auth'; fallback session JSON cũ.
     function authToken() {
@@ -138,7 +150,12 @@
                     : '';
                 return `<tr class="${inactiveCls}" data-user-id="${u.id}">
                     <td class="u-col-stt">${i + 1}</td>
-                    <td><strong>${escapeHtml(u.username)}</strong></td>
+                    <td>
+                        <div class="u-user-cell">
+                            <img class="u-avatar" src="${escapeHtml(userAvatarUrl(u))}" alt="" loading="lazy" referrerpolicy="no-referrer" />
+                            <strong>${escapeHtml(u.username)}</strong>
+                        </div>
+                    </td>
                     <td class="u-col-pwd">${renderPasswordCell(u)}</td>
                     <td>${escapeHtml(u.displayName || '—')}</td>
                     <td>
@@ -471,15 +488,68 @@
             notify('Mật khẩu phải ≥ 8 ký tự', 'warning');
             return;
         }
+        const isSelf = Number(user.id) === Number(_currentSessionUserId());
         btn.disabled = true;
         try {
             await api('POST', `/${user.id}/password`, { password: pwd });
-            notify(`Đã đổi mật khẩu cho ${user.username}`, 'success');
+            if (isSelf) {
+                // Backend xoá HẾT session của user này (kể cả token đang dùng) →
+                // request kế sẽ 401 và admin bị "đá" ra login → cảm giác "đổi không
+                // ăn". Re-login NGAY bằng mật khẩu mới để giữ phiên sống + xác nhận
+                // mật khẩu mới hoạt động. (Gốc bug "đổi mật khẩu admin lưu nhưng không đổi".)
+                _selfPwdChangeAt = Date.now();
+                const ok = await _reauthSelf(user.username, pwd);
+                notify(
+                    ok
+                        ? 'Đã đổi mật khẩu của bạn. Phiên hiện tại vẫn đăng nhập; lần sau dùng mật khẩu mới.'
+                        : 'Đã đổi mật khẩu. Vui lòng đăng nhập lại bằng mật khẩu mới.',
+                    'success'
+                );
+            } else {
+                notify(`Đã đổi mật khẩu cho ${user.username}`, 'success');
+            }
             document.getElementById('uPasswordModal').hidden = true;
+            await loadAll();
+            renderList();
         } catch (e) {
             notify(e.message || 'Lỗi đổi mật khẩu', 'error');
         } finally {
             btn.disabled = false;
+        }
+    }
+
+    // Re-login chính mình bằng mật khẩu mới → lấy token mới + cập nhật localStorage,
+    // tránh bị logout sau khi tự đổi mật khẩu. Trả true nếu thành công.
+    async function _reauthSelf(username, password) {
+        try {
+            const r = await fetch(`${API}/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password }),
+            });
+            const j = await r.json().catch(() => ({}));
+            if (!j || !j.success || !j.token) return false;
+            if (window.Web2Auth?.storeLogin) {
+                window.Web2Auth.storeLogin({
+                    token: j.token,
+                    expiresAt: j.expiresAt,
+                    user: j.user,
+                });
+            } else {
+                const raw = JSON.parse(localStorage.getItem('web2_auth') || '{}');
+                localStorage.setItem(
+                    'web2_auth',
+                    JSON.stringify({
+                        ...raw,
+                        token: j.token,
+                        expiresAt: j.expiresAt,
+                        user: j.user,
+                    })
+                );
+            }
+            return true;
+        } catch (_) {
+            return false; // re-login lỗi → SSE handler sẽ reload về login như cũ
         }
     }
 
@@ -686,6 +756,7 @@
     // + force-reload sau 3s để áp dụng quyền mới.
     let _sseUnsubscribe = null;
     let _sseReloadTimer = null;
+    let _selfPwdChangeAt = 0; // ta vừa tự đổi MK (re-auth xong) → SSE bỏ qua auto-reload
     function _sseConnect() {
         if (!window.Web2SSE?.subscribe) return;
         if (_sseUnsubscribe) return;
@@ -703,6 +774,11 @@
                 'deactivate',
             ]);
             if (myId && Number(targetId) === Number(myId) && sensitiveActions.has(action)) {
+                // CHÍNH TA vừa tự đổi mật khẩu (đã re-auth giữ phiên) → KHÔNG reload,
+                // tránh gián đoạn + cảm giác "bị đá ra". Chỉ reload khi NGƯỜI KHÁC đổi.
+                if (action === 'change-password' && Date.now() - _selfPwdChangeAt < 8000) {
+                    return;
+                }
                 notify(
                     `⚠️ Quyền/thông tin tài khoản của bạn vừa thay đổi (${action}). Trang sẽ tự reload sau 3s.`,
                     'warning'

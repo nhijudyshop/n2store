@@ -15,9 +15,9 @@
             rel="stylesheet"
         />
 
-        <link rel="stylesheet" href="../shared/web2-sidebar.css?v=20260623up1" />
+        <link rel="stylesheet" href="../shared/web2-sidebar.css?v=20260623up2" />
         <link rel="stylesheet" href="../shared/web2-components.css?v=20260613z" />
-        <link rel="stylesheet" href="css/users.css?v=20260623ph" />
+        <link rel="stylesheet" href="css/users.css?v=20260623up2" />
 
         <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
         <script src="../../shared/js/notification-system.js?v=20260521b"></script>
@@ -247,9 +247,12 @@
         <script src="../shared/web2-history-timeline.js?v=20260530a"></script>
         <script src="../shared/web2-db-badge.js?v=20260530a"></script>
         <script src="../shared/web2-optimistic.js?v=20260601a"></script>
-        <script src="../shared/web2-sidebar.js?v=20260623up1"></script>
+        <script src="../shared/web2-sidebar.js?v=20260623up2"></script>
         <script src="../shared/web2-sse-bridge.js?v=20260622r9"></script>
-        <script src="js/users-app.js?v=20260623ph"></script>
+        <!-- Avatar DiceBear (Web2UserProfile.avatarUrl) — load TRƯỚC app để table render
+             avatar ngay, không chờ sidebar inject async. -->
+        <script src="../shared/web2-user-profile.js?v=20260623b"></script>
+        <script src="js/users-app.js?v=20260623up2"></script>
         <script>
             Web2Sidebar.mount('#web2Aside', { activeUrl: window.location.href });
         </script>

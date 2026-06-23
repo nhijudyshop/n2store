@@ -125,6 +125,28 @@
     font-size: 0.8125rem;
 }
 
+/* ── Avatar trong cột Username ──────────────────────────────────── */
+.u-user-cell {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+.u-user-cell .u-avatar {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    object-fit: cover;
+    background: #f1f5f9;
+    border: 1px solid #e2e8f0;
+}
+.u-user-cell strong {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 /* ── Cột mật khẩu (chỉ admin xem) ───────────────────────────────── */
 .u-pwd-wrap {
     display: inline-flex;
