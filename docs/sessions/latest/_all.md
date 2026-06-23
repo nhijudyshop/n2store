@@ -3,15 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `af2ca38` — fix(web2): cost-cap hoàn NCC server-side + cart race lock + refund SSE web2:products
-**Last updated**: 2026-06-23 18:45:56 +07
-**Latest session**: [`RESUME:20260623-184556-af2ca38`](../20260623-184556-af2ca38.md)
-**Summary**: web2 money-flow audit: cost-cap hoàn NCC server-side + cart race lock + refund SSE web2:products (3 bug verified)
+**Latest commit**: `d52a6b3` — docs(session): fill Key Decisions + Next Steps for money-flow audit round
+**Last updated**: 2026-06-23 18:47:38 +07
+**Latest session**: [`RESUME:20260623-184738-d52a6b3`](../20260623-184738-d52a6b3.md)
+**Summary**: docs(session): fill Key Decisions + Next Steps for money-flow audit round
 
 ## Folders affected in this commit
 
-- [`docs/`](./docs.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 3 file(s)
+_(no folders affected — chỉ commit session file)_
 
 ## All folder snapshots
 
