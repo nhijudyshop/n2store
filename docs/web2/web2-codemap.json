@@ -1,9 +1,9 @@
 {
-    "generatedAt": "2026-06-22 18:44",
+    "generatedAt": "2026-06-23 09:07",
     "totals": {
-        "files": 394,
-        "sharedModules": 115,
-        "functions": 3050,
+        "files": 407,
+        "sharedModules": 116,
+        "functions": 3175,
         "oversized": 5
     },
     "sharedModules": [
@@ -64,7 +64,7 @@
             "purpose": "WEB2.0 module.",
             "api": [],
             "consumers": [],
-            "lines": 472
+            "lines": 475
         },
         {
             "file": "web2/shared/chat-panel/web2-chat-panel-render.js",
@@ -153,7 +153,10 @@
                 "native-orders/js/native-orders-pbh-bill.js",
                 "native-orders/js/native-orders-state.js",
                 "so-order/js/so-order-toolbar.js",
+                "web2/ai-hub/js/ai-chat.js",
                 "web2/balance-history/js/web2-bh-link-customer.js",
+                "web2/cham-cong/js/cham-cong-app.js",
+                "web2/chi-tieu/js/chi-tieu-app.js",
                 "web2/customer-wallet/js/web2-customer-wallet-app.js",
                 "web2/customers/js/customers-detail.js",
                 "web2/fastsaleorder-delivery/dlv-app.js",
@@ -274,10 +277,15 @@
                 "native-orders/js/native-orders-state.js",
                 "so-order/js/so-order-state.js",
                 "so-order/js/so-order-storage-sync.js",
+                "web2/ai-hub/js/ai-hub.js",
                 "web2/balance-history/js/web2-bh-core.js",
                 "web2/balance-history/js/web2-link-customer-modal.js",
                 "web2/balance-history/js/web2-manual-deposit.js",
                 "web2/balance-history/js/web2-pm-core.js",
+                "web2/cham-cong/js/cham-cong-api.js",
+                "web2/cham-cong/js/cham-cong-app.js",
+                "web2/chi-tieu/js/chi-tieu-api.js",
+                "web2/chi-tieu/js/chi-tieu-app.js",
                 "web2/ck-dashboard/js/ck-dashboard-app.js",
                 "web2/customer-wallet/js/web2-customer-wallet-events.js",
                 "web2/customer-wallet/js/web2-customer-wallet-render.js",
@@ -407,7 +415,7 @@
             "globals": ["Web2CanvasUtils"],
             "purpose": "WEB2.0 shared module.",
             "api": [],
-            "consumers": [],
+            "consumers": ["web2/shared/web2-image-paste.js", "web2/shared/web2-sidebar.js"],
             "lines": 139
         },
         {
@@ -654,7 +662,10 @@
                 "native-orders/js/native-orders-render.js",
                 "so-order/js/so-order-image-modal.js",
                 "so-order/js/so-order-modal-image.js",
-                "web2/products/js/web2-products-app.js"
+                "web2/products/js/web2-products-app.js",
+                "web2/shared/web2-image-lightbox.js",
+                "web2/shared/web2-image-paste.js",
+                "web2/shared/web2-sidebar.js"
             ],
             "lines": 794
         },
@@ -698,6 +709,7 @@
                 "web2/shared/web2-ck-review.js",
                 "web2/shared/web2-customer-detail-modal.js",
                 "web2/shared/web2-image-lightbox.js",
+                "web2/shared/web2-image-paste.js",
                 "web2/shared/web2-import.js",
                 "web2/shared/web2-kpi.js",
                 "web2/shared/web2-notification-bell.js",
@@ -827,6 +839,7 @@
             "api": [],
             "consumers": [
                 "so-order/js/so-order-storage.js",
+                "web2/cham-cong/js/cham-cong-app.js",
                 "web2/purchase-refund/js/purchase-refund-api.js",
                 "web2/supplier-wallet/js/supplier-wallet-storage.js"
             ],
@@ -848,8 +861,26 @@
             "globals": ["Web2ImageLightbox"],
             "purpose": "WEB2.0 shared module.",
             "api": [],
-            "consumers": ["web2/live-tv/js/live-tv.js", "web2/shared/web2-sidebar.js"],
-            "lines": 237
+            "consumers": [
+                "web2/live-tv/js/live-tv.js",
+                "web2/purchase-refund/js/purchase-refund-state.js",
+                "web2/shared/chat-panel/web2-chat-panel-compose.js",
+                "web2/shared/web2-image-paste.js",
+                "web2/shared/web2-sidebar.js"
+            ],
+            "lines": 321
+        },
+        {
+            "file": "web2/shared/web2-image-paste.js",
+            "globals": ["Web2ImagePaste"],
+            "purpose": "WEB2.0 shared module.",
+            "api": [],
+            "consumers": [
+                "web2/chi-tieu/js/chi-tieu-app.js",
+                "web2/shared/web2-image-lightbox.js",
+                "web2/shared/web2-sidebar.js"
+            ],
+            "lines": 478
         },
         {
             "file": "web2/shared/web2-import.js",
@@ -1288,6 +1319,8 @@
             "purpose": "WEB2-clone sidebar for Web 2.0 pages.",
             "api": [],
             "consumers": [
+                "web2/cham-cong/js/cham-cong-app.js",
+                "web2/chi-tieu/js/chi-tieu-app.js",
                 "web2/ck-dashboard/js/ck-dashboard-app.js",
                 "web2/fb-ads-stats/js/fb-ads-stats.js",
                 "web2/fb-insights/js/fb-insights.js",
@@ -1302,7 +1335,7 @@
                 "web2/returns/js/returns-app.js",
                 "web2/system/js/system-app.js"
             ],
-            "lines": 719
+            "lines": 757
         },
         {
             "file": "web2/shared/web2-so-order-reader.js",
@@ -1350,6 +1383,8 @@
                 "so-order/js/so-order-storage-sync.js",
                 "web2/balance-history/js/web2-bh-data.js",
                 "web2/balance-history/js/web2-pending-match.js",
+                "web2/cham-cong/js/cham-cong-app.js",
+                "web2/chi-tieu/js/chi-tieu-app.js",
                 "web2/ck-dashboard/js/ck-dashboard-app.js",
                 "web2/customer-wallet/js/web2-customer-wallet-app.js",
                 "web2/customers/js/customers-app.js",
@@ -4382,6 +4417,107 @@
             ]
         },
         {
+            "page": "web2/ai-hub",
+            "files": [
+                {
+                    "file": "web2/ai-hub/js/ai-chat.js",
+                    "lines": 482,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["AiChat"],
+                    "uses": ["Popup"],
+                    "functions": [
+                        "H",
+                        "autoSize",
+                        "current",
+                        "deleteConvo",
+                        "doStream",
+                        "editSystem",
+                        "fallback",
+                        "fillModels",
+                        "init",
+                        "load",
+                        "msgHtml",
+                        "newConvo",
+                        "onDelta",
+                        "paint",
+                        "providers",
+                        "regenerate",
+                        "renderList",
+                        "renderMessages",
+                        "save",
+                        "selectConvo",
+                        "send",
+                        "setStreaming",
+                        "stop",
+                        "streamAssistant",
+                        "syncBar",
+                        "updateKeyPill",
+                        "updateSendState",
+                        "wireMsgActions"
+                    ]
+                },
+                {
+                    "file": "web2/ai-hub/js/ai-hub.js",
+                    "lines": 155,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["AiHub"],
+                    "uses": ["WEB2_CONFIG", "API_CONFIG", "Web2Auth"],
+                    "functions": [
+                        "API",
+                        "authHeaders",
+                        "escapeHtml",
+                        "init",
+                        "isAdmin",
+                        "loadStatus",
+                        "renderMarkdown",
+                        "switchTab",
+                        "toast",
+                        "workerBase"
+                    ]
+                },
+                {
+                    "file": "web2/ai-hub/js/ai-image.js",
+                    "lines": 144,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["AiImage"],
+                    "uses": [],
+                    "functions": [
+                        "H",
+                        "fillModels",
+                        "fillProviders",
+                        "generate",
+                        "imageProviders",
+                        "init",
+                        "onShow",
+                        "onclick",
+                        "onerror",
+                        "onload",
+                        "renderCard",
+                        "toggleEditField",
+                        "value"
+                    ]
+                },
+                {
+                    "file": "web2/ai-hub/js/ai-keys.js",
+                    "lines": 221,
+                    "purpose": "WEB2.0 module.",
+                    "globals": ["AiKeys"],
+                    "uses": [],
+                    "functions": [
+                        "H",
+                        "chatCard",
+                        "imgCard",
+                        "init",
+                        "loadVoice",
+                        "render",
+                        "testProvider",
+                        "voiceBase",
+                        "voiceCard"
+                    ]
+                }
+            ]
+        },
+        {
             "page": "web2/balance-history",
             "files": [
                 {
@@ -4664,6 +4800,196 @@
                     "globals": ["W2PM"],
                     "uses": [],
                     "functions": ["_resolveFromChat", "onCustomResolveClick", "onResolveClick"]
+                }
+            ]
+        },
+        {
+            "page": "web2/cham-cong",
+            "files": [
+                {
+                    "file": "web2/cham-cong/js/cham-cong-api.js",
+                    "lines": 74,
+                    "purpose": "WEB2.0 module — Chấm công: API client.",
+                    "globals": ["ChamCongApi"],
+                    "uses": ["WEB2_CONFIG", "API_CONFIG", "Web2Auth"],
+                    "functions": [
+                        "AUTHH",
+                        "addFullday",
+                        "addHoliday",
+                        "addRecord",
+                        "api",
+                        "call",
+                        "delFullday",
+                        "delHoliday",
+                        "deleteRecord",
+                        "getPayroll",
+                        "getSyncStatus",
+                        "listDeviceUsers",
+                        "listEmployees",
+                        "listFullday",
+                        "listHolidays",
+                        "listRecords",
+                        "patchDeviceUser",
+                        "putPayroll"
+                    ]
+                },
+                {
+                    "file": "web2/cham-cong/js/cham-cong-app.js",
+                    "lines": 613,
+                    "purpose": "WEB2.0 module — Chấm công: app core (state + bảng công + import + sync).",
+                    "globals": ["ChamCong"],
+                    "uses": ["Popup", "Web2Auth", "Web2IdbStore", "Web2Sidebar", "Web2SSE"],
+                    "functions": [
+                        "applyResults",
+                        "cfgFor",
+                        "close",
+                        "confirmBox",
+                        "curMonthKey",
+                        "empName",
+                        "esc",
+                        "fmtDayHeader",
+                        "init",
+                        "isFulldaySet",
+                        "loadAll",
+                        "monthRange",
+                        "onclick",
+                        "openDay",
+                        "payrollFor",
+                        "recordsFor",
+                        "renderActive",
+                        "renderSyncStrip",
+                        "renderTimesheet",
+                        "saveDayDetail",
+                        "setTab",
+                        "shiftMonth",
+                        "toast",
+                        "weekdayShort"
+                    ]
+                },
+                {
+                    "file": "web2/cham-cong/js/cham-cong-employees.js",
+                    "lines": 148,
+                    "purpose": "WEB2.0 module — Chấm công: tab Nhân viên (gán PIN máy ↔ web2_users + cấu hình ca/lương).",
+                    "globals": ["ChamCongEmployees"],
+                    "uses": [],
+                    "functions": ["CC", "empOptions", "render", "rowBody", "saveAll", "saveRow"]
+                },
+                {
+                    "file": "web2/cham-cong/js/cham-cong-payroll.js",
+                    "lines": 264,
+                    "purpose": "WEB2.0 module — Chấm công: tab Bảng lương + modal điều chỉnh.",
+                    "globals": ["ChamCongPayroll"],
+                    "uses": [],
+                    "functions": [
+                        "CC",
+                        "close",
+                        "collect",
+                        "computeRow",
+                        "exportPayroll",
+                        "fmt",
+                        "itemsEditor",
+                        "numOrNull",
+                        "onclick",
+                        "onerror",
+                        "openEdit",
+                        "render"
+                    ]
+                },
+                {
+                    "file": "web2/cham-cong/js/cham-cong-salary.js",
+                    "lines": 262,
+                    "purpose": "WEB2.0 module — Chấm công: tính lương (pure).",
+                    "globals": ["ChamCongSalary"],
+                    "uses": [],
+                    "functions": [
+                        "calcDay",
+                        "calcMonth",
+                        "dayStatus",
+                        "daysOfMonth",
+                        "fmtHM",
+                        "fmtVnd",
+                        "hmToMinutes",
+                        "processDay",
+                        "sumItems",
+                        "vnMoment"
+                    ]
+                }
+            ]
+        },
+        {
+            "page": "web2/chi-tieu",
+            "files": [
+                {
+                    "file": "web2/chi-tieu/js/chi-tieu-api.js",
+                    "lines": 66,
+                    "purpose": "WEB2.0 module — Quản lý chi tiêu: API client.",
+                    "globals": ["ChiTieuApi"],
+                    "uses": ["WEB2_CONFIG", "API_CONFIG", "Web2Auth"],
+                    "functions": [
+                        "AUTHH",
+                        "addCategory",
+                        "addSource",
+                        "api",
+                        "cancelVoucher",
+                        "createVoucher",
+                        "delCategory",
+                        "delSource",
+                        "deleteVoucher",
+                        "getVoucher",
+                        "imageUrl",
+                        "listCategories",
+                        "listSources",
+                        "listVouchers",
+                        "qs",
+                        "report",
+                        "summary",
+                        "updateVoucher",
+                        "uploadImage",
+                        "voucherAudit"
+                    ]
+                },
+                {
+                    "file": "web2/chi-tieu/js/chi-tieu-app.js",
+                    "lines": 617,
+                    "purpose": "WEB2.0 module — Quản lý chi tiêu: app core.",
+                    "globals": ["ChiTieu"],
+                    "uses": ["Popup", "Web2Auth", "Web2ImagePaste", "Web2Sidebar", "Web2SSE"],
+                    "functions": [
+                        "bindFilters",
+                        "catOptions",
+                        "close",
+                        "confirmBox",
+                        "doCancel",
+                        "esc",
+                        "fmtDateTime",
+                        "fmtVnd",
+                        "g",
+                        "init",
+                        "loadAll",
+                        "monthStartVN",
+                        "nowLocalInput",
+                        "onclick",
+                        "openAudit",
+                        "openCatManage",
+                        "openForm",
+                        "render",
+                        "renderBalance",
+                        "renderList",
+                        "srcOptions",
+                        "summaryFilter",
+                        "syncFormCatSelect",
+                        "toast",
+                        "todayVN",
+                        "typeBadge"
+                    ]
+                },
+                {
+                    "file": "web2/chi-tieu/js/chi-tieu-report.js",
+                    "lines": 118,
+                    "purpose": "WEB2.0 module — Quản lý chi tiêu: tab Báo cáo.",
+                    "globals": ["ChiTieuReport"],
+                    "uses": [],
+                    "functions": ["CT", "catBlock", "render"]
                 }
             ]
         },
@@ -5036,7 +5362,7 @@
                 },
                 {
                     "file": "web2/fastsaleorder-invoice/pbh-render.js",
-                    "lines": 425,
+                    "lines": 431,
                     "purpose": "WEB2.0 module.",
                     "globals": ["PbhRender"],
                     "uses": [],
@@ -6592,13 +6918,14 @@
                 },
                 {
                     "file": "web2/purchase-refund/js/purchase-refund-state.js",
-                    "lines": 270,
+                    "lines": 275,
                     "purpose": "WEB2.0 module.",
                     "globals": ["PurchaseRefund"],
                     "uses": [
                         "API_CONFIG",
                         "Web2Auth",
                         "Web2Escape",
+                        "Web2ImageLightbox",
                         "Web2SoOrderUtils",
                         "Web2UserInfo"
                     ],
@@ -6808,7 +7135,7 @@
                 },
                 {
                     "file": "web2/returns/js/returns-tabs.js",
-                    "lines": 194,
+                    "lines": 200,
                     "purpose": "WEB2.0 module.",
                     "globals": ["ReturnsTabs"],
                     "uses": ["Popup", "Web2WalletBalance"],
@@ -6932,13 +7259,14 @@
                 },
                 {
                     "file": "web2/shared/chat-panel/web2-chat-panel-compose.js",
-                    "lines": 472,
+                    "lines": 475,
                     "purpose": "WEB2.0 module.",
                     "globals": [],
                     "uses": [
                         "Web2ChatEmoji",
                         "Web2ChatPanel",
                         "Web2ChatStickers",
+                        "Web2ImageLightbox",
                         "Web2Optimistic",
                         "Web2QuickReply"
                     ],
@@ -7982,14 +8310,16 @@
                 },
                 {
                     "file": "web2/shared/web2-image-lightbox.js",
-                    "lines": 237,
+                    "lines": 321,
                     "purpose": "WEB2.0 shared module.",
                     "globals": ["Web2ImageLightbox"],
-                    "uses": ["Web2Escape"],
+                    "uses": ["Web2Effects", "Web2Escape", "Web2ImagePaste"],
                     "functions": [
                         "_ensureOverlay",
                         "_esc",
+                        "_fullUrl",
                         "_go",
+                        "_isLightboxable",
                         "_normalize",
                         "_onKey",
                         "_render",
@@ -7999,6 +8329,45 @@
                         "safeImageUrl",
                         "setTimeout",
                         "thumbStripHtml"
+                    ]
+                },
+                {
+                    "file": "web2/shared/web2-image-paste.js",
+                    "lines": 478,
+                    "purpose": "WEB2.0 shared module.",
+                    "globals": ["Web2ImagePaste"],
+                    "uses": ["Web2CanvasUtils", "Web2Effects", "Web2Escape", "Web2ImageLightbox"],
+                    "functions": [
+                        "_ensureCss",
+                        "_esc",
+                        "_fileToDataUrl",
+                        "_loadImage",
+                        "_notify",
+                        "addFiles",
+                        "arm",
+                        "clear",
+                        "compress",
+                        "count",
+                        "destroy",
+                        "disarm",
+                        "emit",
+                        "getDataUrls",
+                        "getItems",
+                        "imagesFromClipboard",
+                        "imagesFromDataTransfer",
+                        "mount",
+                        "onAreaPaste",
+                        "onClickDrop",
+                        "onDragLeave",
+                        "onDragOver",
+                        "onDrop",
+                        "onFileChange",
+                        "onKeyDrop",
+                        "onerror",
+                        "onload",
+                        "removeById",
+                        "renderTray",
+                        "setBusy"
                     ]
                 },
                 {
@@ -8794,7 +9163,7 @@
                 },
                 {
                     "file": "web2/shared/web2-sidebar.js",
-                    "lines": 719,
+                    "lines": 757,
                     "purpose": "WEB2-clone sidebar for Web 2.0 pages.",
                     "globals": ["Web2Sidebar"],
                     "uses": [
@@ -8804,10 +9173,13 @@
                         "Web2AuditLog",
                         "Web2Auth",
                         "Web2AvatarUtils",
+                        "Web2CanvasUtils",
                         "Web2CommandPalette",
+                        "Web2Effects",
                         "Web2Escape",
                         "Web2Format",
                         "Web2ImageLightbox",
+                        "Web2ImagePaste",
                         "Web2JwtUtils",
                         "Web2Lottie",
                         "Web2Notify",
@@ -9720,7 +10092,7 @@
             "files": [
                 {
                     "file": "web2/users/js/users-app.js",
-                    "lines": 566,
+                    "lines": 741,
                     "purpose": "WEB2.0 module.",
                     "globals": [],
                     "uses": [
@@ -9742,9 +10114,12 @@
                         "confirmPasswordSave",
                         "confirmPermsSave",
                         "confirmUserSave",
+                        "copyUserPassword",
                         "deactivateUser",
                         "escapeHtml",
+                        "fillGenPassword",
                         "fmtTs",
+                        "genPassword",
                         "handleAction",
                         "init",
                         "loadAll",
@@ -9756,6 +10131,7 @@
                         "openUserHistory",
                         "openUserModal",
                         "renderList",
+                        "renderPasswordCell",
                         "renderPermsGrid",
                         "resetPermsToRoleDefaults",
                         "rollback",
@@ -10366,6 +10742,7 @@
             "files": [
                 "live-chat/js/pancake/inventory-panel-state.js",
                 "live-chat/js/shared/utils.js",
+                "web2/ai-hub/js/ai-hub.js",
                 "web2/balance-history/js/web2-partner-enricher.js",
                 "web2/fastsaleorder-invoice/pbh-state.js",
                 "web2/pancake-settings/js/pancake-settings-state.js",
@@ -10379,7 +10756,7 @@
                 "web2/shared/web2-sidebar.js",
                 "web2/system/js/system-services.js"
             ],
-            "count": 14
+            "count": 15
         },
         {
             "fn": "fmtTime",
@@ -10420,6 +10797,22 @@
             "count": 13
         },
         {
+            "fn": "_esc",
+            "files": [
+                "live-chat/js/live/live-chat-modal.js",
+                "live-chat/js/live/live-hidden-commenters.js",
+                "live-chat/js/live/live-livestream-gallery.js",
+                "live-chat/js/live/live-livestream-snap-state.js",
+                "live-chat/js/pancake/pancake-livestream-filter.js",
+                "web2/shared/web2-avatar-utils.js",
+                "web2/shared/web2-bill-service.js",
+                "web2/shared/web2-image-lightbox.js",
+                "web2/shared/web2-image-paste.js",
+                "web2/system/js/system-app.js"
+            ],
+            "count": 10
+        },
+        {
             "fn": "closeModal",
             "files": [
                 "live-chat/js/live/live-customer-panel.js",
@@ -10432,6 +10825,22 @@
                 "web2/purchase-refund/js/purchase-refund-modal.js",
                 "web2/shared/page-builder.js",
                 "web2/variants/js/web2-variants-app.js"
+            ],
+            "count": 10
+        },
+        {
+            "fn": "renderList",
+            "files": [
+                "web2/ai-hub/js/ai-chat.js",
+                "web2/chi-tieu/js/chi-tieu-app.js",
+                "web2/customer-wallet/js/web2-customer-wallet-render.js",
+                "web2/jt-tracking/js/jt-tracking-render.js",
+                "web2/purchase-refund/js/purchase-refund-render.js",
+                "web2/reconcile/js/reconcile-render.js",
+                "web2/returns/js/returns-tabs.js",
+                "web2/shared/web2-command-palette.js",
+                "web2/supplier-wallet/js/supplier-wallet-render.js",
+                "web2/users/js/users-app.js"
             ],
             "count": 10
         },
@@ -10452,19 +10861,20 @@
             "count": 10
         },
         {
-            "fn": "_esc",
+            "fn": "toast",
             "files": [
-                "live-chat/js/live/live-chat-modal.js",
-                "live-chat/js/live/live-hidden-commenters.js",
-                "live-chat/js/live/live-livestream-gallery.js",
-                "live-chat/js/live/live-livestream-snap-state.js",
-                "live-chat/js/pancake/pancake-livestream-filter.js",
-                "web2/shared/web2-avatar-utils.js",
-                "web2/shared/web2-bill-service.js",
-                "web2/shared/web2-image-lightbox.js",
-                "web2/system/js/system-app.js"
+                "live-chat/js/live/comments-mobile-actions.js",
+                "live-chat/js/live/live-livestream-snap-actions.js",
+                "web2/ai-hub/js/ai-hub.js",
+                "web2/cham-cong/js/cham-cong-app.js",
+                "web2/chi-tieu/js/chi-tieu-app.js",
+                "web2/live-control/js/live-control.js",
+                "web2/payment-confirm/js/payment-confirm-app.js",
+                "web2/returns/js/returns-core.js",
+                "web2/shared/web2-ck-assign-picker.js",
+                "web2/shared/web2-ck-review.js"
             ],
-            "count": 9
+            "count": 10
         },
         {
             "fn": "reload",
@@ -10478,6 +10888,21 @@
                 "web2/shared/web2-unread-panel.js",
                 "web2/shared/zalo-chat/chat-view.js",
                 "web2/system/js/system-sse.js"
+            ],
+            "count": 9
+        },
+        {
+            "fn": "switchTab",
+            "files": [
+                "web2/ai-hub/js/ai-hub.js",
+                "web2/ck-dashboard/js/ck-dashboard-app.js",
+                "web2/fb-posts/js/fb-posts-app.js",
+                "web2/payment-confirm/js/payment-confirm-app.js",
+                "web2/returns/js/returns-tabs.js",
+                "web2/shared/web2-customer-chat-modal.js",
+                "web2/shared/web2-customer-detail-modal.js",
+                "web2/shared/web2-import.js",
+                "web2/zalo/js/web2-zalo-app.js"
             ],
             "count": 9
         },
@@ -10510,20 +10935,6 @@
             "count": 8
         },
         {
-            "fn": "renderList",
-            "files": [
-                "web2/customer-wallet/js/web2-customer-wallet-render.js",
-                "web2/jt-tracking/js/jt-tracking-render.js",
-                "web2/purchase-refund/js/purchase-refund-render.js",
-                "web2/reconcile/js/reconcile-render.js",
-                "web2/returns/js/returns-tabs.js",
-                "web2/shared/web2-command-palette.js",
-                "web2/supplier-wallet/js/supplier-wallet-render.js",
-                "web2/users/js/users-app.js"
-            ],
-            "count": 8
-        },
-        {
             "fn": "renderRows",
             "files": [
                 "native-orders/js/native-orders-render.js",
@@ -10534,20 +10945,6 @@
                 "web2/shared/page-builder.js",
                 "web2/shared/web2-customer-chat-modal.js",
                 "web2/variants/js/web2-variants-app.js"
-            ],
-            "count": 8
-        },
-        {
-            "fn": "switchTab",
-            "files": [
-                "web2/ck-dashboard/js/ck-dashboard-app.js",
-                "web2/fb-posts/js/fb-posts-app.js",
-                "web2/payment-confirm/js/payment-confirm-app.js",
-                "web2/returns/js/returns-tabs.js",
-                "web2/shared/web2-customer-chat-modal.js",
-                "web2/shared/web2-customer-detail-modal.js",
-                "web2/shared/web2-import.js",
-                "web2/zalo/js/web2-zalo-app.js"
             ],
             "count": 8
         },
@@ -10565,19 +10962,6 @@
             "count": 7
         },
         {
-            "fn": "toast",
-            "files": [
-                "live-chat/js/live/comments-mobile-actions.js",
-                "live-chat/js/live/live-livestream-snap-actions.js",
-                "web2/live-control/js/live-control.js",
-                "web2/payment-confirm/js/payment-confirm-app.js",
-                "web2/returns/js/returns-core.js",
-                "web2/shared/web2-ck-assign-picker.js",
-                "web2/shared/web2-ck-review.js"
-            ],
-            "count": 7
-        },
-        {
             "fn": "_fetchJson",
             "files": [
                 "live-chat/js/live/live-native-orders-api.js",
@@ -10586,6 +10970,18 @@
                 "web2/shared/web2-chat-utils.js",
                 "web2/shared/web2-products-api.js",
                 "web2/variants/js/web2-variants-api.js"
+            ],
+            "count": 6
+        },
+        {
+            "fn": "_notify",
+            "files": [
+                "native-orders/js/native-orders-packing-slip.js",
+                "web2/shared/web2-customer-detail-modal.js",
+                "web2/shared/web2-image-paste.js",
+                "web2/shared/web2-optimistic.js",
+                "web2/shared/web2-quick-reply.js",
+                "web2/shared/web2-suppliers-cache.js"
             ],
             "count": 6
         },
@@ -10602,6 +10998,18 @@
             "count": 6
         },
         {
+            "fn": "fmtVnd",
+            "files": [
+                "native-orders/js/native-orders-kpi.js",
+                "web2/cham-cong/js/cham-cong-salary.js",
+                "web2/chi-tieu/js/chi-tieu-app.js",
+                "web2/kpi/js/kpi-dashboard.js",
+                "web2/products/js/web2-product-detail.js",
+                "web2/shared/web2-kpi.js"
+            ],
+            "count": 6
+        },
+        {
             "fn": "goPage",
             "files": [
                 "native-orders/js/native-orders-pbh-bill.js",
@@ -10610,6 +11018,18 @@
                 "web2/fastsaleorder-refund/rf-app.js",
                 "web2/products/js/web2-products-filters.js",
                 "web2/shared/page-builder.js"
+            ],
+            "count": 6
+        },
+        {
+            "fn": "isAdmin",
+            "files": [
+                "native-orders/js/native-orders-render.js",
+                "native-orders/js/native-orders-state.js",
+                "web2/ai-hub/js/ai-hub.js",
+                "web2/balance-history/js/web2-manual-deposit.js",
+                "web2/shared/web2-kpi.js",
+                "web2/system/js/system-sse.js"
             ],
             "count": 6
         },
@@ -10662,6 +11082,18 @@
             "count": 6
         },
         {
+            "fn": "openEdit",
+            "files": [
+                "native-orders/js/native-orders-modal-edit.js",
+                "web2/cham-cong/js/cham-cong-payroll.js",
+                "web2/order-tags/js/order-tags-app.js",
+                "web2/products/js/web2-products-modal.js",
+                "web2/shared/page-builder.js",
+                "web2/variants/js/web2-variants-app.js"
+            ],
+            "count": 6
+        },
+        {
             "fn": "rowHtml",
             "files": [
                 "so-order/js/so-order-render.js",
@@ -10674,6 +11106,18 @@
             "count": 6
         },
         {
+            "fn": "workerBase",
+            "files": [
+                "web2/ai-hub/js/ai-hub.js",
+                "web2/multi-tool/js/multi-tool.js",
+                "web2/shared/web2-campaign.js",
+                "web2/shared/web2-fb-client.js",
+                "web2/shared/web2-order-tag-detail.js",
+                "web2/video-maker/js/video-ai-script.js"
+            ],
+            "count": 6
+        },
+        {
             "fn": "_normalize",
             "files": [
                 "web2/balance-history/js/web2-pm-core.js",
@@ -10681,17 +11125,6 @@
                 "web2/shared/web2-products-cache.js",
                 "web2/shared/web2-suppliers-cache.js",
                 "web2/shared/web2-variants-cache.js"
-            ],
-            "count": 5
-        },
-        {
-            "fn": "_notify",
-            "files": [
-                "native-orders/js/native-orders-packing-slip.js",
-                "web2/shared/web2-customer-detail-modal.js",
-                "web2/shared/web2-optimistic.js",
-                "web2/shared/web2-quick-reply.js",
-                "web2/shared/web2-suppliers-cache.js"
             ],
             "count": 5
         },
@@ -10762,6 +11195,17 @@
             "count": 5
         },
         {
+            "fn": "generate",
+            "files": [
+                "live-chat/js/pancake/pancake-page-access-tokens.js",
+                "web2/ai-hub/js/ai-image.js",
+                "web2/fb-posts/js/fb-posts-composer.js",
+                "web2/shared/web2-product-code.js",
+                "web2/video-maker/js/video-ai-script.js"
+            ],
+            "count": 5
+        },
+        {
             "fn": "health",
             "files": [
                 "native-orders/js/native-orders-api.js",
@@ -10780,28 +11224,6 @@
                 "live-chat/js/live/live-init.js",
                 "live-chat/js/pancake/pancake-init.js",
                 "live-chat/js/pancake/pancake-token-manager.js"
-            ],
-            "count": 5
-        },
-        {
-            "fn": "isAdmin",
-            "files": [
-                "native-orders/js/native-orders-render.js",
-                "native-orders/js/native-orders-state.js",
-                "web2/balance-history/js/web2-manual-deposit.js",
-                "web2/shared/web2-kpi.js",
-                "web2/system/js/system-sse.js"
-            ],
-            "count": 5
-        },
-        {
-            "fn": "openEdit",
-            "files": [
-                "native-orders/js/native-orders-modal-edit.js",
-                "web2/order-tags/js/order-tags-app.js",
-                "web2/products/js/web2-products-modal.js",
-                "web2/shared/page-builder.js",
-                "web2/variants/js/web2-variants-app.js"
             ],
             "count": 5
         },
@@ -10872,17 +11294,6 @@
             "count": 5
         },
         {
-            "fn": "workerBase",
-            "files": [
-                "web2/multi-tool/js/multi-tool.js",
-                "web2/shared/web2-campaign.js",
-                "web2/shared/web2-fb-client.js",
-                "web2/shared/web2-order-tag-detail.js",
-                "web2/video-maker/js/video-ai-script.js"
-            ],
-            "count": 5
-        },
-        {
             "fn": "_emit",
             "files": [
                 "web2/shared/beauty/web2-beauty-face.js",
@@ -10899,6 +11310,16 @@
                 "web2/fastsaleorder-invoice/pbh-api.js",
                 "web2/shared/web2-zalo-api.js",
                 "web2/shared/web2-zalo.js"
+            ],
+            "count": 4
+        },
+        {
+            "fn": "_fileToDataUrl",
+            "files": [
+                "live-chat/js/pancake/pancake-chat-window.js",
+                "web2/shared/web2-customer-chat-core.js",
+                "web2/shared/web2-effects.js",
+                "web2/shared/web2-image-paste.js"
             ],
             "count": 4
         },
@@ -10989,6 +11410,16 @@
                 "web2/customer-wallet/js/web2-customer-wallet-render.js",
                 "web2/live-tv/js/live-tv.js",
                 "web2/supplier-wallet/js/supplier-wallet-render.js"
+            ],
+            "count": 4
+        },
+        {
+            "fn": "collect",
+            "files": [
+                "native-orders/js/native-orders-bulk-operations.js",
+                "native-orders/js/native-orders-pbh-bill.js",
+                "web2/cham-cong/js/cham-cong-payroll.js",
+                "web2/shared/web2-return-bill.js"
             ],
             "count": 4
         },
@@ -11093,26 +11524,6 @@
             "count": 4
         },
         {
-            "fn": "fmtVnd",
-            "files": [
-                "native-orders/js/native-orders-kpi.js",
-                "web2/kpi/js/kpi-dashboard.js",
-                "web2/products/js/web2-product-detail.js",
-                "web2/shared/web2-kpi.js"
-            ],
-            "count": 4
-        },
-        {
-            "fn": "generate",
-            "files": [
-                "live-chat/js/pancake/pancake-page-access-tokens.js",
-                "web2/fb-posts/js/fb-posts-composer.js",
-                "web2/shared/web2-product-code.js",
-                "web2/video-maker/js/video-ai-script.js"
-            ],
-            "count": 4
-        },
-        {
             "fn": "icons",
             "files": [
                 "web2/jt-tracking/js/jt-tracking-constants.js",
@@ -11139,6 +11550,16 @@
                 "live-chat/js/pancake/pancake-token-manager.js",
                 "web2/pancake-settings/js/pancake-settings-api.js",
                 "web2/zalo/js/web2-zalo-accounts.js"
+            ],
+            "count": 4
+        },
+        {
+            "fn": "loadAll",
+            "files": [
+                "web2/cham-cong/js/cham-cong-app.js",
+                "web2/chi-tieu/js/chi-tieu-app.js",
+                "web2/supplier-debt/js/supplier-debt-api.js",
+                "web2/users/js/users-app.js"
             ],
             "count": 4
         },
@@ -11253,12 +11674,32 @@
             "count": 4
         },
         {
+            "fn": "send",
+            "files": [
+                "live-chat/js/pancake/pancake-chat-window.js",
+                "web2/ai-hub/js/ai-chat.js",
+                "web2/shared/web2-customer-chat-core.js",
+                "web2/shared/web2-fb-share.js"
+            ],
+            "count": 4
+        },
+        {
             "fn": "sendMessage",
             "files": [
                 "live-chat/js/pancake/pancake-chat-window.js",
                 "web2/shared/web2-chat-api.js",
                 "web2/shared/web2-zalo-api.js",
                 "web2/shared/web2-zalo.js"
+            ],
+            "count": 4
+        },
+        {
+            "fn": "setBusy",
+            "files": [
+                "web2/jt-tracking/js/jt-tracking-actions.js",
+                "web2/shared/beauty/web2-beauty-studio.js",
+                "web2/shared/web2-image-paste.js",
+                "web2/zalo/js/web2-zalo-utils.js"
             ],
             "count": 4
         },
@@ -11379,15 +11820,6 @@
             "count": 3
         },
         {
-            "fn": "_fileToDataUrl",
-            "files": [
-                "live-chat/js/pancake/pancake-chat-window.js",
-                "web2/shared/web2-customer-chat-core.js",
-                "web2/shared/web2-effects.js"
-            ],
-            "count": 3
-        },
-        {
             "fn": "_injectStyles",
             "files": [
                 "live-chat/js/live/live-campaign-manager.js",
@@ -11451,6 +11883,15 @@
             "count": 3
         },
         {
+            "fn": "AUTHH",
+            "files": [
+                "web2/cham-cong/js/cham-cong-api.js",
+                "web2/chi-tieu/js/chi-tieu-api.js",
+                "web2/jt-tracking/js/jt-tracking-api.js"
+            ],
+            "count": 3
+        },
+        {
             "fn": "authToken",
             "files": [
                 "web2/kpi/js/kpi-assignments.js",
@@ -11492,15 +11933,6 @@
                 "web2/shared/beauty/web2-beauty-filters.js",
                 "web2/video-maker/js/video-anim.js",
                 "web2/video-maker/js/video-render.js"
-            ],
-            "count": 3
-        },
-        {
-            "fn": "collect",
-            "files": [
-                "native-orders/js/native-orders-bulk-operations.js",
-                "native-orders/js/native-orders-pbh-bill.js",
-                "web2/shared/web2-return-bill.js"
             ],
             "count": 3
         },
@@ -11730,6 +12162,15 @@
             "count": 3
         },
         {
+            "fn": "renderMessages",
+            "files": [
+                "live-chat/js/pancake/pancake-chat-window.js",
+                "web2/ai-hub/js/ai-chat.js",
+                "web2/shared/zalo-chat/bubbles.js"
+            ],
+            "count": 3
+        },
+        {
             "fn": "renderTable",
             "files": [
                 "web2/balance-history/js/web2-bh-render.js",
@@ -11753,24 +12194,6 @@
                 "web2/balance-history/js/web2-bh-core.js",
                 "web2/customer-wallet/js/web2-customer-wallet-state.js",
                 "web2/shared/web2-text-utils.js"
-            ],
-            "count": 3
-        },
-        {
-            "fn": "send",
-            "files": [
-                "live-chat/js/pancake/pancake-chat-window.js",
-                "web2/shared/web2-customer-chat-core.js",
-                "web2/shared/web2-fb-share.js"
-            ],
-            "count": 3
-        },
-        {
-            "fn": "setBusy",
-            "files": [
-                "web2/jt-tracking/js/jt-tracking-actions.js",
-                "web2/shared/beauty/web2-beauty-studio.js",
-                "web2/zalo/js/web2-zalo-utils.js"
             ],
             "count": 3
         },
