@@ -3,15 +3,14 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `c586e36` — fix(web2-returns): stock_applied — DELETE/approve đối xứng với create gate (regression vòng 4)
-**Last updated**: 2026-06-23 09:55:48 +07
-**Latest session**: [`RESUME:20260623-095548-c586e36`](../20260623-095548-c586e36.md)
-**Summary**: browser-test bắt+fix regression vòng 4 (stock_applied) — verified live native-only + PBH symmetric
+**Latest commit**: `dcfe887` — docs(dev-log): browser-test battery — 5 money/stock flows PASS, round-5 COD fix verified live
+**Last updated**: 2026-06-23 10:20:04 +07
+**Latest session**: [`RESUME:20260623-102004-dcfe887`](../20260623-102004-dcfe887.md)
+**Summary**: docs(dev-log): browser-test battery — 5 money/stock flows PASS, round-5 COD fix verified live
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -26,7 +25,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-21 15:47
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-06-23 09:55
+- [`docs/`](./docs.md) — updated 2026-06-23 10:20
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-19 14:27
