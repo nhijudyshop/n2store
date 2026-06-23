@@ -11,6 +11,7 @@
 
 const express = require('express');
 const router = express.Router();
+const ai = require('../services/web2-ai-service'); // pool key Gemini xoay TẬP TRUNG (gồm cả WEB2_GEMINI_API_KEY)
 
 // Auth + rate-limit: gate WRITE /generate để người lạ không hammer drain quota
 // Gemini (key trả phí). Enforce 401 khi WEB2_AUTH_ENFORCE=1.
@@ -40,7 +41,8 @@ function aiScriptRateLimit(req, res, next) {
 }
 
 const MODEL = process.env.WEB2_GEMINI_MODEL || 'gemini-2.0-flash';
-const apiKey = () => process.env.WEB2_GEMINI_API_KEY || '';
+// Pool key Gemini xoay (WEB2_GEMINI_API_KEY + GEMINI_API_KEY* gộp trong web2-ai-service).
+const geminiKeys = () => ai.keysOf('gemini');
 
 function fmtPrice(n) {
     const num = Number(String(n ?? '').replace(/[^\d.-]/g, ''));
@@ -87,11 +89,11 @@ const RESPONSE_SCHEMA = {
 
 router.post('/generate', requireWeb2AuthSoft, aiScriptRateLimit, async (req, res) => {
     try {
-        const K = apiKey();
-        if (!K)
+        const keys = geminiKeys();
+        if (!keys.length)
             return res.status(503).json({
                 success: false,
-                error: 'WEB2_GEMINI_API_KEY chưa cấu hình trên server web2-api',
+                error: 'Chưa cấu hình key Gemini (GEMINI_API_KEY / WEB2_GEMINI_API_KEY) trên web2-api',
             });
         const topic = String(req.body?.topic || '').trim();
         const products = Array.isArray(req.body?.products) ? req.body.products.slice(0, 8) : [];
@@ -109,16 +111,30 @@ router.post('/generate', requireWeb2AuthSoft, aiScriptRateLimit, async (req, res
                 responseSchema: RESPONSE_SCHEMA,
             },
         };
-        const r = await fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'x-goog-api-key': K },
-            body: JSON.stringify(body),
-        });
-        const data = await r.json();
-        if (data.error)
+        // XOAY NHIỀU KEY: key sai/hết quota → thử key kế; lỗi nội dung → trả ngay.
+        let data = null,
+            lastErr = '';
+        for (const K of keys) {
+            const r = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'x-goog-api-key': K },
+                body: JSON.stringify(body),
+            });
+            const d = await r.json().catch(() => ({}));
+            if (d.error) {
+                lastErr = d.error.message || 'Gemini error';
+                // auth/quota → đổi key; lỗi khác (nội dung) → dừng.
+                if (r.status === 401 || r.status === 403 || r.status === 429 || r.status === 402)
+                    continue;
+                return res.status(502).json({ success: false, error: lastErr });
+            }
+            data = d;
+            break;
+        }
+        if (!data)
             return res
                 .status(502)
-                .json({ success: false, error: data.error.message || 'Gemini error' });
+                .json({ success: false, error: lastErr || 'Tất cả key Gemini đều lỗi/hết quota' });
         const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
         if (!text)
             return res.status(502).json({ success: false, error: 'Gemini không trả nội dung' });
@@ -142,7 +158,12 @@ router.post('/generate', requireWeb2AuthSoft, aiScriptRateLimit, async (req, res
 
 // healthcheck: cho biết key đã cấu hình chưa (KHÔNG lộ key)
 router.get('/status', (req, res) => {
-    res.json({ success: true, configured: !!apiKey(), model: MODEL });
+    res.json({
+        success: true,
+        configured: geminiKeys().length > 0,
+        keys: geminiKeys().length,
+        model: MODEL,
+    });
 });
 
 // không có bảng DB — no-op để khớp pattern mount ensureSchema (nếu server.js gọi)

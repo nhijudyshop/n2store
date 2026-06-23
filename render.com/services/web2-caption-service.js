@@ -146,14 +146,19 @@ function _friendlyTone(text) {
     );
 }
 
-/** Gọi AI theo chuỗi ưu tiên Groq → DeepSeek → Gemini. Trả {out, provider} (out=null nếu thiếu key/lỗi). */
+/** Gọi AI qua group xoay key TẬP TRUNG (web2-ai-service): failover Groq→Gemini→OpenRouter,
+ *  mỗi provider tự xoay nhiều key + cooldown. Trả {out, provider} (out=null nếu thiếu key/lỗi). */
 async function aiComplete(prompt) {
-    let out = await callGroq(prompt).catch(() => null);
-    if (out) return { out: _friendlyTone(out), provider: 'groq' };
-    out = await callDeepSeek(prompt).catch(() => null);
-    if (out) return { out: _friendlyTone(out), provider: 'deepseek' };
-    out = await callGemini(prompt).catch(() => null);
-    if (out) return { out: _friendlyTone(out), provider: 'gemini' };
+    try {
+        const r = await ai.complete([{ role: 'user', content: prompt }], {
+            providers: ['groq', 'gemini', 'openrouter'],
+            modelFor: { groq: 'llama-3.3-70b-versatile', gemini: 'gemini-2.0-flash' },
+            system: SYSTEM_VI,
+            temperature: 0.8,
+            maxTokens: 400,
+        });
+        if (r && r.text) return { out: _friendlyTone(r.text), provider: r.provider };
+    } catch {}
     return { out: null, provider: 'template' };
 }
 
@@ -238,11 +243,7 @@ async function generateMultiAI(products = [], style = 'sale') {
 }
 
 function hasAnyAiKey() {
-    return !!(
-        process.env.GROQ_API_KEY ||
-        process.env.DEEPSEEK_API_KEY ||
-        process.env.GEMINI_API_KEY
-    );
+    return ['groq', 'gemini', 'openrouter'].some((id) => ai.keysOf(id).length > 0);
 }
 
 module.exports = {

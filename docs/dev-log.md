@@ -2,6 +2,21 @@
 
 ## 2026-06-23
 
+### [fix+refactor] Trợ lý AI: fix chat UI hỏng + gộp translate/caption/ai-script vào group xoay key TẬP TRUNG
+
+**Audit → browser-test → debug → cải thiện** (vòng lặp hoàn thiện Web 2.0).
+
+**🐛 Fix bug chat UI** (`web2/ai-hub/js/ai-chat.js`, bump `?v=20260623b`): `doStream`+`fallback` vừa `.filter()` bỏ assistant placeholder rỗng VỪA `.slice(0,-1)` → chặt nhầm luôn message user → gửi mảng rỗng → "Thiếu nội dung chat". Bỏ `.slice(0,-1)`. Browser-test (clear localStorage, JS bump): chat trả lời thật, **multi-turn AI nhớ context** ("Bạn vừa yêu cầu…"), ảnh Pollinations 768px render gallery, keys tab 6 card — ALL PASS.
+
+**♻️ Consolidation — đưa 3 nơi gọi LLM 1-key-lẻ vào group xoay key** (research agent map toàn Web 2.0):
+
+- `web2-ai-service.js`: + `extraEnv: ['WEB2_GEMINI_API_KEY']` gộp key riêng của ai-script vào pool Gemini (xoay chung — **có thể cứu Gemini nếu GEMINI_API_KEY hỏng**) + helper `complete(messages, {providers, modelFor, system, temperature, maxTokens})` = failover provider + xoay key cho service nội bộ tái dùng.
+- `web2-translate-service.js`: bỏ 3 hàm `_groq/_deepseek/_gemini` 1-key → 1 call `ai.complete(['groq','gemini','openrouter'])`, giữ fallback Google free. Bỏ phụ thuộc DeepSeek (trả phí).
+- `web2-caption-service.js`: bỏ `callGroq/callDeepSeek/callGemini` → `ai.complete()`, giữ template offline fallback + `_friendlyTone`.
+- `web2-ai-script.js` (route): bỏ `WEB2_GEMINI_API_KEY` 1-key-lẻ → lặp `ai.keysOf('gemini')` (pool gộp) xoay key, GIỮ `responseSchema` JSON. Status trả `keys` count.
+
+→ Mọi feature AI Web 2.0 (chat, dịch, caption, video-script) giờ dùng CHUNG 1 pool xoay key + cooldown + failover. Thêm key = set thêm env `<PREFIX>2`,`3`… Verify local: extraEnv gộp key đúng, complete() no-key graceful, 4 file load OK, không dangling ref. Verify Gemini/translate/ai-script thật sau deploy.
+
 ### [feat] Trợ lý AI Web 2.0 — chat giống ChatGPT + tạo ảnh, FREE, xoay nhiều key (group AI free hợp pháp)
 
 User muốn build "group AI" có "ChatGPT key free" + xoay nhiều key. **Research/audit GitHub trước**: repo "free ChatGPT API" (popjane/free_chatgpt_api 6.5k⭐, xtekky/gpt4free…) đều reverse-engineer/scrape → vi phạm ToS (OpenAI dọa kiện gpt4free), hay chết, lộ data → **KHÔNG dùng**. Thay bằng **free-tier hợp pháp + xoay key** (mirror pattern web2-elevenlabs 3-key). OpenAI không phát key free thật; "giống ChatGPT" nhất mà free = **GPT-OSS-20B** (model OpenAI mở Apache-2.0, free trên Groq + OpenRouter).
