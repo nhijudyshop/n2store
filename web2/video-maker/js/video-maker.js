@@ -30,6 +30,8 @@
         narration: { text: '', samples: null, sampleRate: 16000 },
         music: { buffer: null, name: '', volume: 0.35 }, // nhạc nền (chèn/ghép)
         narrationVolume: 1.0,
+        captions: true, // phụ đề tự động (karaoke theo lời đọc) — bật mặc định
+
         playing: false,
         recording: false,
         _raf: null,
@@ -108,7 +110,44 @@
         global.Web2VideoRender.drawFrame(ctx, canvas.width, canvas.height, state.scenes, t, {
             accent: state.accent,
             transitionDur: state.transitionDur,
+            captions: state.captions,
         });
+    }
+
+    // Gán caption cho từng cảnh khi BẬT phụ đề. Per-scene narration (sc.narr) thì
+    // drawFrame tự dùng cur.narr; chỉ cần chia lời đọc CHUNG thành cụm theo cảnh.
+    function _assignGlobalCaptions(text) {
+        const words = String(text || '')
+            .replace(/\s+/g, ' ')
+            .trim()
+            .split(' ')
+            .filter(Boolean);
+        const n = state.scenes.length;
+        if (!n) return;
+        if (!words.length) {
+            state.scenes.forEach((sc) => {
+                if (!sc.narr) sc.caption = '';
+            });
+            return;
+        }
+        const per = Math.ceil(words.length / n);
+        state.scenes.forEach((sc, i) => {
+            // cảnh có narr riêng → giữ (drawFrame ưu tiên cur.caption || cur.narr)
+            sc.caption = words.slice(i * per, (i + 1) * per).join(' ');
+        });
+    }
+
+    function _refreshCaptions() {
+        if (!state.captions) return;
+        if (hasPerSceneNarration()) {
+            // per-scene: drawFrame dùng cur.narr trực tiếp; xoá caption global cũ.
+            state.scenes.forEach((sc) => {
+                sc.caption = (sc.narr || '').trim();
+            });
+        } else {
+            const t = state.narration?.text;
+            if (t && t !== '(theo từng cảnh)') _assignGlobalCaptions(t);
+        }
     }
 
     function totalDur() {
@@ -340,10 +379,11 @@
                 samples: out.samples,
                 sampleRate: out.sampleRate,
             };
+            _refreshCaptions(); // phụ đề tự động bám theo lời đọc vừa tạo
             if (perScene) {
                 renderScenes(); // dur cảnh có thể đã nới → cập nhật danh sách
-                drawAt(0);
             }
+            drawAt(0);
             const secs = (out.samples.length / out.sampleRate).toFixed(1);
             setStat(
                 `✅ Đã tạo giọng đọc${perScene ? ' (theo từng cảnh)' : ''} (${secs}s). Sẽ lồng vào video khi xuất.`
@@ -957,6 +997,37 @@
         }
     }
 
+    // MoneyPrinterTurbo one-click: chủ đề → kịch bản AI + cảnh → giọng đọc + phụ đề
+    // → XUẤT video luôn. Chuỗi 3 bước có sẵn (topicGenerate → genNarration →
+    // exportVideo), thêm trạng thái + dừng sớm nếu 1 bước fail.
+    async function oneClickVideo() {
+        const topic = $('#vmTopic').value.trim();
+        if (!topic) return notify('Nhập chủ đề video trước', 'warning');
+        const btn = $('#vmOneClick');
+        const stat = $('#vmTopicStat');
+        const setStat = (m) => stat && (stat.textContent = m);
+        if (btn) btn.disabled = true;
+        try {
+            setStat('① Viết kịch bản + ghép cảnh…');
+            await topicGenerate();
+            if (!state.scenes.length) return; // topicGenerate đã báo lý do
+            setStat('② Tạo giọng đọc tiếng Việt + phụ đề…');
+            await genNarration();
+            if (!state.narration?.samples) {
+                notify('Chưa tạo được giọng đọc — thử lại bước Tạo giọng', 'warning');
+                return;
+            }
+            setStat('③ Đang xuất video (ghi hình theo thời lượng)…');
+            await exportVideo();
+            setStat('✅ Xong! Video đã tải về (kịch bản + giọng đọc + phụ đề).');
+        } catch (e) {
+            console.error('[video-maker] one-click error:', e);
+            notify('Lỗi tạo video 1 chạm: ' + (e.message || e), 'error');
+        } finally {
+            if (btn) btn.disabled = false;
+        }
+    }
+
     function loadImageCors(src) {
         return new Promise((res) => {
             const img = new Image();
@@ -1365,6 +1436,7 @@
 
         $('#vmRandom')?.addEventListener('click', randomGenerate);
         $('#vmTopicGen')?.addEventListener('click', topicGenerate);
+        $('#vmOneClick')?.addEventListener('click', oneClickVideo);
         $('#vmTopic')?.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') topicGenerate();
         });
@@ -1405,6 +1477,16 @@
             if (global.Web2VideoStock?.open) global.Web2VideoStock.open();
             else notify('Module kho media chưa tải', 'warning');
         });
+        // Phụ đề tự động (karaoke theo lời đọc) — MoneyPrinterTurbo captions.
+        const capChk = $('#vmCaptions');
+        if (capChk) {
+            capChk.checked = state.captions;
+            capChk.addEventListener('change', () => {
+                state.captions = capChk.checked;
+                if (state.captions) _refreshCaptions();
+                if (!state.playing) drawAt(0);
+            });
+        }
         global.Web2ProductsCache?.init?.().catch(() => {});
         global.addEventListener('resize', fitPreview);
     }

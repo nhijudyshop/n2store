@@ -297,6 +297,67 @@
         }
     }
 
+    // ── PHỤ ĐỀ TỰ ĐỘNG (MoneyPrinterTurbo-style captions) ──────────────────────
+    // Chia lời đọc thành cụm ngắn (≤ maxWords / ngắt ở dấu câu) → mỗi cụm hiện 1
+    // lúc theo tiến độ cảnh (karaoke "pop"). Không cần word-timestamp chính xác:
+    // narration mỗi cảnh đã canh đúng window cảnh (genNarrationPerScene) nên chia
+    // đều theo p là đủ khớp tốc độ nói.
+    function _chunkCaption(text, maxWords) {
+        const words = String(text || '')
+            .replace(/\s+/g, ' ')
+            .trim()
+            .split(' ')
+            .filter(Boolean);
+        if (!words.length) return [];
+        const chunks = [];
+        let cur = [];
+        for (const w of words) {
+            cur.push(w);
+            const endsPunct = /[.,!?…:;]$/.test(w);
+            if (cur.length >= maxWords || (endsPunct && cur.length >= 3)) {
+                chunks.push(cur.join(' ').replace(/[.,!?…:;]+$/, ''));
+                cur = [];
+            }
+        }
+        if (cur.length) chunks.push(cur.join(' '));
+        return chunks;
+    }
+
+    function _drawCaption(ctx, W, H, text, p) {
+        const chunks = _chunkCaption(text, 7);
+        if (!chunks.length) return;
+        const pp = clamp01(p);
+        const i = Math.min(chunks.length - 1, Math.floor(pp * chunks.length));
+        const phrase = chunks[i];
+        if (!phrase) return;
+        const slice = 1 / chunks.length;
+        const localP = clamp01((pp - i * slice) / slice);
+        const pop = 0.9 + 0.1 * _easeIO(Math.min(1, localP * 5)); // pop-in nhanh đầu cụm
+
+        ctx.save();
+        const fs = Math.round(W * 0.06);
+        ctx.font = `900 ${fs}px ${FONT}`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.lineJoin = 'round';
+        const lines = _wrap(ctx, phrase.toUpperCase(), W * 0.84, 3);
+        const lh = Math.round(fs * 1.16);
+        const cy = Math.round(H * 0.64); // trên dải tiêu đề/giá ở đáy
+        ctx.translate(W / 2, cy);
+        ctx.scale(pop, pop);
+        ctx.globalAlpha = Math.min(1, localP * 6);
+        let y = -((lines.length - 1) * lh) / 2;
+        for (const ln of lines) {
+            ctx.lineWidth = Math.round(fs * 0.18);
+            ctx.strokeStyle = 'rgba(2,6,23,0.94)';
+            ctx.strokeText(ln, 0, y);
+            ctx.fillStyle = '#ffffff';
+            ctx.fillText(ln, 0, y);
+            y += lh;
+        }
+        ctx.restore();
+    }
+
     function drawFrame(ctx, W, H, scenes, t, opts) {
         opts = opts || {};
         ctx.clearRect(0, 0, W, H);
@@ -332,6 +393,13 @@
             _drawScene(ctx, W, H, cur, p, clamp01(local / tDur), accent);
         } else {
             _drawScene(ctx, W, H, cur, p, 1, accent);
+        }
+
+        // Phụ đề tự động (lớp trên cùng) — text = cur.caption (lời đọc cảnh / cụm
+        // tách từ narration). Bật qua opts.captions. Khớp tốc độ nói theo p cảnh.
+        if (opts.captions) {
+            const capText = cur.caption || cur.narr || '';
+            if (capText) _drawCaption(ctx, W, H, capText, p);
         }
     }
 

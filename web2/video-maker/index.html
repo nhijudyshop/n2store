@@ -100,6 +100,15 @@
                                     <button class="vm-btn random block" id="vmRandom">
                                         <i data-lucide="shuffle"></i> Tạo ngẫu nhiên từ kho SP
                                     </button>
+                                    <button
+                                        class="vm-btn primary block"
+                                        id="vmOneClick"
+                                        style="margin-top: 8px"
+                                        title="Chủ đề → AI viết kịch bản + ghép cảnh + giọng đọc + phụ đề → xuất video luôn"
+                                    >
+                                        <i data-lucide="wand-sparkles"></i> Tạo video 1 chạm (chủ đề
+                                        → xuất luôn)
+                                    </button>
                                 </div>
 
                                 <!-- Khung hình -->
@@ -270,6 +279,22 @@
                                         Giọng MMS tiếng Việt chạy trên máy — lần đầu tải model ~vài
                                         chục MB.
                                     </div>
+                                    <label
+                                        class="vm-row"
+                                        style="
+                                            gap: 8px;
+                                            align-items: center;
+                                            margin-top: 8px;
+                                            cursor: pointer;
+                                        "
+                                        title="Hiện phụ đề chữ to chạy theo lời đọc (kiểu TikTok/Reels)"
+                                    >
+                                        <input type="checkbox" id="vmCaptions" checked />
+                                        <span
+                                            ><i data-lucide="captions"></i> Phụ đề tự động (theo lời
+                                            đọc)</span
+                                        >
+                                    </label>
                                 </div>
 
                                 <!-- Giọng cao cấp / Clone giọng -->
@@ -564,7 +589,7 @@
         <script src="../shared/web2-pos-installer.js?v=20260620a"></script>
         <script src="./js/video-tts.js?v=20260622i"></script>
         <script src="./js/video-anim.js?v=20260619a"></script>
-        <script src="./js/video-render.js?v=20260619d"></script>
+        <script src="./js/video-render.js?v=20260623cap"></script>
         <script src="./js/video-scene-editor.js?v=20260621scene"></script>
         <script src="./js/video-audio.js?v=20260619a"></script>
         <script src="./js/video-ai-script.js?v=20260619a"></script>
@@ -572,7 +597,7 @@
         <script src="./js/video-library.js?v=20260622f"></script>
         <script src="./js/video-import.js?v=20260621el"></script>
         <script src="./js/video-stock.js?v=20260623sc"></script>
-        <script src="./js/video-maker.js?v=20260623stock"></script>
+        <script src="./js/video-maker.js?v=20260623cap"></script>
         <script>
             document.addEventListener('DOMContentLoaded', () => {
                 if (window.Web2Sidebar)
