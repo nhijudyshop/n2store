@@ -6,7 +6,7 @@
 
 2 agent review (silent-failure-hunter + code-reviewer) trên luồng tiền/PBH/tồn. Đã VERIFY từng finding bằng đọc code thật (loại các finding agent tự downgrade: confirm-purchase double-add an toàn READ COMMITTED, idempotency namespacing không collide). Fix các finding xác nhận thật:
 
-**🔴 SERVER (HIGH, cần deploy web2-api)**: `render.com/routes/fast-sale-orders.js` — `POST /by-source/:code/cancel` dùng `LIMIT 1` → khi 1 đơn web tách NHIỀU PBH (migration 078 `split_index`), chỉ huỷ PBH mới nhất; các split còn lại GIỮ trừ kho + `wallet_deducted` → **tồn kẹt vĩnh viễn, ví không hoàn**. Fix: bỏ `LIMIT 1`, loop `_cancelPbhInTx` HẾT PBH còn sống (state≠cancel) của `source_code`, restock GỘP. Single-PBH case không đổi (loop 1 lần).
+**🔴 SERVER (HIGH) — ĐÃ DEPLOY + VERIFY LIVE**: `render.com/routes/fast-sale-orders.js` — `POST /by-source/:code/cancel` dùng `LIMIT 1` → khi 1 đơn web tách NHIỀU PBH (migration 078 `split_index`), chỉ huỷ PBH mới nhất; các split còn lại GIỮ trừ kho + `wallet_deducted` → **tồn kẹt vĩnh viễn, ví không hoàn**. Fix: bỏ `LIMIT 1`, loop `_cancelPbhInTx` HẾT PBH còn sống (state≠cancel) của `source_code`, restock GỘP. Single-PBH case không đổi (loop 1 lần). **Verify live (deploy 66a2f707d)**: order qty3, stock 20→PBH1=17→PBH2(split)=14→cancel→**20** (cả 2 restock), cả 2 PBH state=cancel. ⚠ Bài học test: PBH `number` UNIQUE = mã đơn (NJ-YYYYMMDD-XXXX, reuse khi xoá đơn) → cancelled PBH test `NJ-...-0001` để lại SẼ va chạm đơn THẬT đầu ngày (UNIQUE violation → đơn thật không tạo được PBH). Đã dọn sạch bằng `DELETE /:number?force=1` (state=cancel → skip restock, idempotent).
 
 **🟠 FRONTEND silent-failure (no deploy — GH Pages)**:
 
