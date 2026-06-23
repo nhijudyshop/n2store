@@ -2,6 +2,17 @@
 
 ## 2026-06-23
 
+### [fix] Zalo P4: "Kết nối lại" phiên hết hạn → 400 + Popup mở chat.zalo.me (không còn 500) + sửa icon
+
+User bấm "Kết nối lại" → **500 Internal Server Error**. Gốc: cookie/phiên đã lưu HẾT HẠN → `zalo.login` throw "Đăng nhập thất bại" → route reconnect catch trả `500 e.message`. Fix:
+
+- Route `/reconnect`: lỗi login (không phải WRONG_ACCOUNT) → **400** + thông báo rõ "Phiên hết hạn — mở chat.zalo.me + Đăng nhập Zalo, hoặc QR" + `expired:true` (không phải 500).
+- `loginWithCredentials`: login lỗi → `_setStatus('error', msg)` (trước kẹt 'connecting').
+- Frontend `onAccAction` reconnect: bắt lỗi → **Popup.confirm "Mở chat.zalo.me"** 1 chạm (thay toast tan biến). Bump `?v=20260623pri3`.
+- Icon lucide `user-search` (không có trong 0.294) → `search` (hết spam console "icon name was not found").
+
+Lưu ý DATA: extension báo `GET_ZALO_CREDS_FAILURE reason=no_session` → trình duyệt CHƯA có phiên chat.zalo.me → "Đăng nhập Zalo" cũng cần mở+đăng nhập chat.zalo.me trước (hoặc QR). Code không hồi sinh được cookie chết — user phải đăng nhập lại.
+
 ### [fix] Zalo P3: TỰ LÀNH TK chính (auto-promote khi không/bị xoá) — bỏ hardcode seed key
 
 Audit prod (curl /status + /accounts qua admin token): TK chính **"Nhijudy Ơi" đã bị XOÁ khỏi web2Db** (chỉ còn "My Njd", `is_primary=false`). Với P1: `_primaryKey=null` → KHÔNG TK nào tự kết nối → **Zalo realtime tắt**. Lỗ hổng: seed schema **hardcode** `zca_7c8093f1…` (TK vừa bị xoá) → không phong được TK chính mới. Fix: seed generic (chọn TK active connected→recent→oldest); `_loadPrimaryKey` tự phong + `_connectAccount` khi no-primary (boot+60s); DELETE TK chính → `_loadPrimaryKey()` ngay. Self-healing.
