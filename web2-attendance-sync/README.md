@@ -20,7 +20,7 @@ Có **2 chế độ** — chọn 1:
 ```bash
 cd web2-attendance-sync
 cp config.example.json config.json   # rồi sửa config.json
-# (chỉ chế độ ZK pull mới cần) npm install
+# npm install chạy TỰ ĐỘNG khi bấm install-windows.bat / run-mac.command lần đầu
 ```
 
 Sửa `config.json`:
@@ -64,8 +64,8 @@ Trên **máy chấm công DG-600** (menu _Comm → Cloud Server / ADMS_ — DG-6
 
 ## 3. Giữ agent chạy nền 24/7
 
-- **Windows**: bấm đúp `install-windows.bat` (tạo tác vụ chạy nền), hoặc dùng `pm2`.
-- **Mac/Linux**: `./run-mac.command`, hoặc `pm2 start adms-proxy.js --name web2-attendance`.
+- **Windows**: bấm đúp `install-windows.bat` (giữ cửa sổ mở), hoặc dùng `pm2 start sync.js --name web2-attendance`.
+- **Mac/Linux**: `./run-mac.command`, hoặc `pm2 start sync.js --name web2-attendance`.
 
 ---
 
@@ -79,7 +79,7 @@ WEB2_ATTENDANCE_SECRET = <chuỗi ngẫu nhiên mạnh>
 
 Rồi điền đúng chuỗi đó vào `config.json` (`attendanceSecret`). Deploy lại Render để nạp env.
 
-> Nếu CHƯA đặt `WEB2_ATTENDANCE_SECRET` trên Render, endpoint ingest tạm MỞ (chỉ nên dùng lúc thử). Đặt secret trước khi dùng thật.
+> ✅ ĐÃ set + enforced trên web2-api (2026-06-23). Giá trị secret lưu ở `serect_dont_push.txt` — copy vào `config.json` của máy shop.
 
 ---
 
