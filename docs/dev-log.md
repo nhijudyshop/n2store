@@ -2,6 +2,19 @@
 
 ## 2026-06-23
 
+### [fix+feat] Zalo: CHỈ TK chính tự kết nối + giữ kết nối (bỏ "refresh kết nối liên tục" cho TK phụ)
+
+User: đặt TK nào làm chính thì mới kết nối TK đó, không refresh liên tục. Audit toàn bộ vòng đời kết nối Zalo → trước đây **mọi** TK cá nhân đều auto-restore lúc boot + watchdog keepAlive + auto-reconnect mọi close code → 2 TK đều "đấu" kết nối liên tục.
+
+**Backend gating theo `is_primary` (1 nguồn = callback, luôn khớp DB):**
+
+- `services/web2-zalo-zca.js`: thêm callback `isPrimary(accountKey)` + helper `_isPrimary`. Gate `_scheduleReconnect` (TK phụ rớt → KHÔNG tự reconnect, clear timer) + `_watchdogTick` (TK phụ → KHÔNG keepAlive/respawn/re-login chủ động). Thiếu callback → mặc định true (tương thích ngược).
+- `routes/web2-zalo.js`: cache `_primaryKey` (load lúc boot + refresh 60s + cập nhật NGAY khi đổi TK chính) → cấp cho zca qua `configure({ isPrimary })`. `restoreSessions()` thêm `AND is_primary=true` (boot CHỈ kết nối TK chính; TK phụ dormant). Route `/primary` ("Đặt làm chính") nâng cấp: cập nhật cache → **ngắt các TK cá nhân khác đang nối** (giữ đúng 1 TK) → **kết nối TK chính** bằng session đã lưu (nền, SSE cập nhật UI). `zca.disconnect` đã `disposed=true` + xoá session nên không tự nối lại.
+
+**Frontend** (`web2/zalo/`, bump `?v=20260623pri`): `autoRenewZalo` chỉ tự gia hạn TK **chính** (trước: mọi TK phụ stale cũng silent-reconnect qua extension cookie → nguồn refresh liên tục). Thêm hint trên thẻ TK phụ: "TK phụ — máy chủ không tự kết nối / không refresh liên tục. Bấm Đặt làm chính để hệ thống tự kết nối & giữ realtime."
+
+Verified: frontend 2 thẻ, 1 TK CHÍNH, hint hiện đúng trên TK phụ, nút "Đặt làm chính" có, 0 lỗi. Backend logic review + node -c pass (zca + real Zalo chỉ test được trên Render sau deploy). KHÔNG đổi schema (cột `is_primary` đã có).
+
 ### [feat] cham-cong: thêm NV thủ công + ghi chú theo ngày + modal Chi tiết bảng lương
 
 **Backend** (`render.com/routes/web2-attendance.js`):
