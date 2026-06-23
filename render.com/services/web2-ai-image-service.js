@@ -203,7 +203,7 @@ const GEMINI_IMAGE_MODELS = [
     // 2026-06-24 (user request): Gemini Nano Banana chỉ giữ 1 model Nano Banana.
     { id: 'gemini-2.5-flash-image', label: 'Nano Banana' },
 ];
-async function _gemini(prompt, { model, image }) {
+async function _gemini(prompt, { model, image, images }) {
     if (!keysOf('gemini').length) {
         const e = new Error('Gemini chưa cấu hình key (GEMINI_API_KEY)');
         e._noKey = true;
@@ -211,12 +211,19 @@ async function _gemini(prompt, { model, image }) {
     }
     const mdl = GEMINI_IMAGE_MODELS.some((m) => m.id === model) ? model : GEMINI_IMAGE_MODELS[0].id;
     const parts = [{ text: prompt }];
-    if (image) {
-        // image: dataURL hoặc base64 thuần → đính kèm để SỬA/GHÉP.
-        const m = /^data:([^;]+);base64,(.*)$/.exec(String(image));
+    // Đa ảnh (GHÉP ĐỒ / THỬ ĐỒ): images[] = [ảnh người, ảnh quần áo 1, 2…]. Gemini
+    // 2.5 Flash Image nhận NHIỀU input part → ghép theo prompt. Back-compat 1 ảnh.
+    const MAX_IMAGES = 6;
+    const imgList = (Array.isArray(images) && images.length ? images : image ? [image] : []).slice(
+        0,
+        MAX_IMAGES
+    );
+    for (const img of imgList) {
+        if (!img) continue;
+        const m = /^data:([^;]+);base64,(.*)$/.exec(String(img));
         const mime = m ? m[1] : 'image/png';
-        const data = m ? m[2] : String(image).replace(/^data:[^,]*,/, '');
-        parts.push({ inlineData: { mimeType: mime, data } });
+        const data = m ? m[2] : String(img).replace(/^data:[^,]*,/, '');
+        if (data) parts.push({ inlineData: { mimeType: mime, data } });
     }
     // Xoay TOÀN BỘ pool key Gemini + cooldown CHUNG (qua runWithKey) — 1 key 401/429/503 thì
     // thử key kế thay vì fail oan dù pool còn key tốt.

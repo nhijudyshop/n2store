@@ -186,11 +186,20 @@ router.post(
     '/image',
     requireWeb2AuthSoft,
     rateLimit,
-    express.json({ limit: '12mb' }),
+    express.json({ limit: '20mb' }), // 2026-06-24: tăng cho GHÉP ĐỒ (nhiều ảnh base64)
     async (req, res) => {
         try {
-            const { prompt, provider, model, width, height, image, seed } = req.body || {};
-            const out = await img.generate({ prompt, provider, model, width, height, image, seed });
+            const { prompt, provider, model, width, height, image, images, seed } = req.body || {};
+            const out = await img.generate({
+                prompt,
+                provider,
+                model,
+                width,
+                height,
+                image,
+                images, // GHÉP ĐỒ: [ảnh người, ảnh quần áo…] → Gemini multi-image
+                seed,
+            });
             res.json({ ok: true, ...out });
         } catch (e) {
             console.error('[web2-ai] image', e.message);

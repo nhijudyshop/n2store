@@ -46,6 +46,14 @@
                             </button>
                             <button
                                 class="aih-tab"
+                                data-tab="tryon"
+                                role="tab"
+                                aria-selected="false"
+                            >
+                                <i data-lucide="shirt"></i> Ghép đồ
+                            </button>
+                            <button
+                                class="aih-tab"
                                 data-tab="keys"
                                 role="tab"
                                 aria-selected="false"
@@ -206,6 +214,66 @@
                         </div>
                     </section>
 
+                    <!-- ════════ GHÉP ĐỒ / THỬ ĐỒ ════════ -->
+                    <section class="aih-pane" data-pane="tryon" hidden>
+                        <div class="aih-img-wrap">
+                            <div class="aih-img-controls">
+                                <p
+                                    class="aih-keyhint"
+                                    id="aihTryWarn"
+                                    hidden
+                                    style="color: var(--web2-danger, #dc2626)"
+                                >
+                                    ⚠️ Ghép đồ dùng Gemini Nano Banana — admin cần cấu hình
+                                    GEMINI_API_KEY ở tab Cấu hình.
+                                </p>
+                                <div class="aih-field">
+                                    <label class="aih-label">1) Ảnh người</label>
+                                    <div id="aihTryPerson" style="margin-bottom: 6px"></div>
+                                    <input type="file" id="aihTryPersonFile" accept="image/*" />
+                                </div>
+                                <div class="aih-field">
+                                    <label class="aih-label"
+                                        >2) Ảnh quần áo (1–5 ảnh) để mặc lên người</label
+                                    >
+                                    <div
+                                        id="aihTryGarments"
+                                        style="
+                                            display: flex;
+                                            flex-wrap: wrap;
+                                            gap: 6px;
+                                            margin-bottom: 6px;
+                                        "
+                                    ></div>
+                                    <input
+                                        type="file"
+                                        id="aihTryGarmentFile"
+                                        accept="image/*"
+                                        multiple
+                                    />
+                                </div>
+                                <div class="aih-field">
+                                    <label class="aih-label" for="aihTryPrompt"
+                                        >3) Đổi phong cảnh / chi tiết (tuỳ chọn)</label
+                                    >
+                                    <textarea
+                                        class="aih-img-prompt"
+                                        id="aihTryPrompt"
+                                        placeholder="vd: đứng ở bãi biển hoàng hôn, ánh sáng studio, nền trắng…"
+                                    ></textarea>
+                                </div>
+                                <button class="aih-gen" id="aihTryGo">
+                                    <i data-lucide="shirt"></i> Ghép đồ
+                                </button>
+                                <p class="aih-keyhint">
+                                    🟢 Ghép 1 ảnh người + nhiều ảnh quần áo bằng AI (Nano Banana).
+                                    Ảnh được nén trước khi gửi.
+                                </p>
+                            </div>
+                            <div class="aih-img-gallery" id="aihTryGallery"></div>
+                        </div>
+                    </section>
+
                     <!-- ════════ QUẢN LÝ KEY ════════ -->
                     <section class="aih-pane" data-pane="keys" hidden>
                         <div class="aih-keys-wrap" id="aihKeys"></div>
@@ -221,6 +289,7 @@
         <script src="./js/ai-hub.js?v=20260623c"></script>
         <script src="./js/ai-chat.js?v=20260623g"></script>
         <script src="./js/ai-image.js?v=20260624a"></script>
+        <script src="./js/ai-tryon.js?v=20260624a"></script>
         <script src="./js/ai-keys.js?v=20260623d"></script>
         <script>
             (function () {
