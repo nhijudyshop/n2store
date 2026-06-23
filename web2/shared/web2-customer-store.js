@@ -20,6 +20,82 @@
     'use strict';
     if (typeof global === 'undefined' || global.Web2CustomerStore) return;
 
+    // 2026-06-23: thêm lớp cache cho lookup 1-KH (getByPhone/getByFbId) qua primitive
+    // Web2SmartCache.createKeyed — dedup request trùng + cache ngắn (30s) + invalidate
+    // theo SSE 'web2:customers' (global, lazy) + sau mỗi write. batch/list/enrich vẫn
+    // fetch trực tiếp (bulk, ít lợi từ per-key cache). Store vốn KHÔNG cache → đây là
+    // thêm mới, KHÔNG đổi public API.
+    var _SELF_SRC =
+        (typeof document !== 'undefined' && document.currentScript && document.currentScript.src) ||
+        '';
+    var _smartLoadPromise = null;
+    function _ensureSmartCache() {
+        if (global.Web2SmartCache) return Promise.resolve(true);
+        if (_smartLoadPromise) return _smartLoadPromise;
+        _smartLoadPromise = new Promise(function (resolve) {
+            try {
+                if (typeof document === 'undefined' || !_SELF_SRC) return resolve(false);
+                var url = new URL('web2-smart-cache.js?v=20260623a', _SELF_SRC).href;
+                var s = document.createElement('script');
+                s.src = url;
+                s.async = false;
+                s.onload = function () {
+                    resolve(!!global.Web2SmartCache);
+                };
+                s.onerror = function () {
+                    resolve(false);
+                };
+                document.head.appendChild(s);
+            } catch (e) {
+                resolve(false);
+            }
+        });
+        return _smartLoadPromise;
+    }
+    var _caches = null;
+    var _cachesPromise = null;
+    function _ensureCaches() {
+        if (_caches) return Promise.resolve(_caches);
+        if (_cachesPromise) return _cachesPromise;
+        _cachesPromise = _ensureSmartCache().then(function () {
+            if (!global.Web2SmartCache) {
+                _caches = { phone: null, fbid: null };
+                return _caches;
+            }
+            _caches = {
+                phone: global.Web2SmartCache.createKeyed({
+                    name: 'customer-phone',
+                    fetcher: _getByPhoneRaw,
+                    topic: 'web2:customers', // global → lazy invalidate-all on change
+                    ttl: 30000, // dedup + cache ngắn; freshness bound bởi SSE + write-invalidate
+                    // swr:false → KH nhạy freshness: cache trong TTL (nhanh), nhưng khi
+                    // stale/invalidate (write/SSE) thì AWAIT fetch tươi, KHÔNG trả data cũ.
+                    swr: false,
+                    maxEntries: 3000,
+                }),
+                fbid: global.Web2SmartCache.createKeyed({
+                    name: 'customer-fbid',
+                    fetcher: _getByFbIdRaw,
+                    topic: 'web2:customers',
+                    ttl: 30000,
+                    swr: false,
+                    maxEntries: 3000,
+                }),
+            };
+            return _caches;
+        });
+        return _cachesPromise;
+    }
+    function _invalidateAfterWrite() {
+        if (!_caches) return;
+        try {
+            if (_caches.phone) _caches.phone.invalidate('*');
+            if (_caches.fbid) _caches.fbid.invalidate('*');
+        } catch (e) {
+            /* ignore */
+        }
+    }
+
     function workerUrl() {
         return (
             (global.API_CONFIG && global.API_CONFIG.WORKER_URL) ||
@@ -219,13 +295,28 @@
         return map;
     }
 
-    async function getByFbId(fbId) {
+    // Raw fetchers (fetcher cho keyed cache). Cũng là fallback khi smart cache vắng.
+    async function _getByFbIdRaw(fbId) {
         var m = await batchByFbIds([fbId]);
         return m.get(String(fbId)) || null;
     }
-    async function getByPhone(p) {
+    async function _getByPhoneRaw(p) {
         var m = await batchByPhones([p]);
         return m.get(normPhone(p)) || null;
+    }
+    async function getByFbId(fbId) {
+        var id = String(fbId == null ? '' : fbId);
+        if (!id) return null;
+        var c = await _ensureCaches();
+        if (c.fbid) return c.fbid.get(id);
+        return _getByFbIdRaw(id);
+    }
+    async function getByPhone(p) {
+        var key = normPhone(p);
+        if (!isValidPhone(key)) return null; // tránh fetch fb_id/dãy rác
+        var c = await _ensureCaches();
+        if (c.phone) return c.phone.get(key);
+        return _getByPhoneRaw(key);
     }
 
     function _lite(v, phoneKey) {
@@ -336,6 +427,7 @@
                 body: JSON.stringify(fields || {}),
                 signal: AbortSignal.timeout(15000),
             });
+            if (r.ok) _invalidateAfterWrite(); // KH vừa đổi → cache stale
             return r.ok;
         } catch (e) {
             if (global.console) console.warn('[Web2CustomerStore] patch fail:', e && e.message);
@@ -361,6 +453,7 @@
             var d = await r.json().catch(function () {
                 return {};
             });
+            if (r.ok) _invalidateAfterWrite();
             return { ok: r.ok, data: (d && d.data) || null };
         } catch (e) {
             if (global.console) console.warn('[Web2CustomerStore] upsert fail:', e && e.message);
@@ -378,6 +471,7 @@
             var d = await r.json().catch(function () {
                 return {};
             });
+            if (r.ok) _invalidateAfterWrite();
             return (d && d.success && (d.data || {})) || {};
         } catch (e) {
             if (global.console) console.warn('[Web2CustomerStore] harvest fail:', e && e.message);

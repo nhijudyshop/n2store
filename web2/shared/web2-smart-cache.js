@@ -131,7 +131,6 @@
             sseUnsub: null,
             refreshTimer: null,
             disposed: false,
-            skipEchoUntil: 0, // bỏ qua SSE echo trong cửa sổ ngắn sau set() local
             persistLoaded: false,
         };
 
@@ -250,9 +249,10 @@
             if (!global.Web2SSE || typeof global.Web2SSE.subscribe !== 'function') return;
             try {
                 st.sseUnsub = global.Web2SSE.subscribe(cfg.topic, (msg) => {
-                    // echo-suppress: mutation của chính tab này
+                    // echo-suppress CHÍNH XÁC: chỉ bỏ qua event do chính tab này phát
+                    // (data.by === clientId). KHÔNG blanket-suppress theo thời gian —
+                    // tránh nuốt nhầm mutation của tab/máy khác đến ngay sau set() local.
                     if (msg?.data?.by && msg.data.by === clientId) return;
-                    if (Date.now() < st.skipEchoUntil) return;
                     // (advanced) patch tại chỗ từ payload nếu consumer cung cấp.
                     if (typeof cfg.applyEvent === 'function' && st.has) {
                         try {
@@ -314,14 +314,14 @@
             return st.has ? st.value : null;
         }
 
-        // set thủ công sau khi đã biết giá trị mới (vd vừa POST thành công).
-        // Bỏ qua SSE echo ngắn để tránh refetch thừa do chính mình phát.
+        // set thủ công sau khi đã biết giá trị mới (vd vừa POST thành công). SSE echo
+        // của chính mutation này (nếu server fan-out) cùng lắm gây 1 refetch thừa,
+        // KHÔNG sai — nên không blanket-suppress (tránh nuốt update tab khác).
         function set(value, reason) {
             st.value = value;
             st.has = true;
             st.fetchedAt = Date.now();
             st.initialized = true;
-            st.skipEchoUntil = Date.now() + 1500;
             _saveToPersist();
             _emit(reason || 'set');
             return value;
@@ -396,6 +396,8 @@
         const entries = new Map(); // dùng insertion order làm LRU (Map giữ thứ tự)
         const listeners = new Set();
         let disposed = false;
+        let _globalSseUnsub = null;
+        let _globalSseTimer = null;
 
         function _touchLru(key) {
             // re-insert để đẩy key lên "mới nhất" cuối Map.
@@ -439,9 +441,13 @@
             return e;
         }
 
+        // Per-key SSE: CHỈ khi có topicFor(key) (topic riêng từng entity, vd
+        // web2:customer:<id>) → event của key nào revalidate đúng key đó. Topic
+        // GLOBAL chung (cfg.topic) xử lý ở _setupGlobalRealtime (subscribe 1 lần,
+        // lazy invalidate-all) — tránh refetch storm mọi key khi 1 entity đổi.
         function _setupRealtimeFor(key, e) {
-            const topic =
-                typeof cfg.topicFor === 'function' ? cfg.topicFor(key) : cfg.topic || null;
+            if (typeof cfg.topicFor !== 'function') return;
+            const topic = cfg.topicFor(key);
             if (!topic || e.sseUnsub) return;
             if (!global.Web2SSE || typeof global.Web2SSE.subscribe !== 'function') return;
             try {
@@ -451,6 +457,25 @@
                     if (timer) clearTimeout(timer);
                     timer = setTimeout(() => {
                         if (!disposed) _revalidate(key);
+                    }, cfg.debounceMs);
+                });
+            } catch {}
+        }
+
+        // Global topic (cfg.topic, không có topicFor): 1 subscription cho cả cache.
+        // Event bất kỳ → mark TẤT CẢ entry stale (lazy, get kế revalidate) thay vì
+        // refetch ngay từng key → tránh storm N request khi 1 KH đổi.
+        function _setupGlobalRealtime() {
+            if (typeof cfg.topicFor === 'function' || !cfg.topic) return;
+            if (_globalSseUnsub) return;
+            if (!global.Web2SSE || typeof global.Web2SSE.subscribe !== 'function') return;
+            try {
+                _globalSseUnsub = global.Web2SSE.subscribe(cfg.topic, (msg) => {
+                    if (msg?.data?.by && msg.data.by === clientId) return;
+                    for (const e of entries.values()) e.fetchedAt = 0; // mark stale
+                    if (_globalSseTimer) clearTimeout(_globalSseTimer);
+                    _globalSseTimer = setTimeout(() => {
+                        if (!disposed) _emit('*', null, 'sse-stale');
                     }, cfg.debounceMs);
                 });
             } catch {}
@@ -540,6 +565,13 @@
 
         function dispose() {
             disposed = true;
+            if (_globalSseUnsub) {
+                try {
+                    _globalSseUnsub();
+                } catch {}
+                _globalSseUnsub = null;
+            }
+            if (_globalSseTimer) clearTimeout(_globalSseTimer);
             for (const e of entries.values()) {
                 if (e.sseUnsub) {
                     try {
@@ -550,6 +582,8 @@
             entries.clear();
             listeners.clear();
         }
+
+        _setupGlobalRealtime(); // 1 subscription cho topic global (nếu có)
 
         return {
             get,

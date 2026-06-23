@@ -1,46 +1,74 @@
-// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes.
+// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 module.
 // =====================================================
-// Web2 Products — Shared cache + Firestore tickler realtime
+// Web2 Products — Shared cache (kho SP dùng chung)
 // =====================================================
 //
-// Mục đích: dùng chung giữa "Kho SP Web 2.0" (web2-products) và mọi trang
-// cần tra cứu sản phẩm (so-order, native-orders, …). Mỗi trang chỉ cần
-// `await Web2ProductsCache.init()` 1 lần, sau đó:
-//   - getAll() → mảng SP active
-//   - findByCode(code), findByName(query), has(code), …
-// CRUD đi qua `Web2ProductsApi`; sau khi mutate xong gọi
-//   Web2ProductsCache.pushTickle({ action, code })
-// để các client khác (và các tab khác cùng máy) tự reload cache.
+// Mục đích: dùng chung giữa "Kho SP Web 2.0" và mọi trang cần tra cứu SP
+// (so-order, native-orders, …). Mỗi trang `await Web2ProductsCache.init()` 1 lần.
 //
-// Realtime model:
-//   - Tickler doc Firestore = `web2_products_sync/notify` chứa
-//     `{ lastUpdated, by, action, code }`. Mỗi mutate ghi đè 4 field.
-//   - Tất cả client mở snapshot listener; khi `by` ≠ chính mình → reload list.
-//   - Cùng máy, các tab khác cũng nhận được snapshot → cache stale-while-revalidate.
+// 2026-06-23: bộ máy IDB persist + TTL + SWR + Web2SSE invalidate + dedup +
+// listeners ĐÃ DELEGATE sang primitive `Web2SmartCache` (web2-smart-cache.js) thay
+// vì tự cài lặp (~200 dòng IDB/SSE/SWR boilerplate gỡ bỏ). Domain logic (normalize,
+// findByCode/findByName ranking, findByNameVariant, _upsertLocal/_removeLocal) GIỮ
+// NGUYÊN. Public API KHÔNG đổi. Self-load Web2ProductsApi + Web2SmartCache nếu thiếu.
 //
 // Public API:
-//   await Web2ProductsCache.init()       // load list + bật listener (idempotent)
+//   await Web2ProductsCache.init()       // load list + realtime (idempotent)
 //   Web2ProductsCache.getAll()           // Array<Product>
 //   Web2ProductsCache.findByCode(code)   // Product | null
-//   Web2ProductsCache.findByName(q, n=8) // top-N gợi ý theo tên/mã
-//   Web2ProductsCache.has(code)          // boolean
+//   Web2ProductsCache.findByName(q, n=8) // top-N gợi ý theo tên/mã (ranking)
+//   Web2ProductsCache.findByNameExact(name)
+//   Web2ProductsCache.findByNameVariant(name, variant)
+//   Web2ProductsCache.has(code) / hasByName(name)
 //   Web2ProductsCache.pushTickle(opts)   // gọi sau mỗi CRUD local
 //   Web2ProductsCache.subscribe(cb)      // cb(reason) khi cache thay đổi
 //   Web2ProductsCache.refresh()          // ép reload list từ API
+//   Web2ProductsCache.isReady()
+//   Web2ProductsCache._upsertLocal(p) / _removeLocal(code)
 
 (function (global) {
     'use strict';
 
-    if (global.Web2ProductsCache) return; // idempotent
+    if (global.Web2ProductsCache) return;
 
-    // Self-heal dependency (2026-06-20): cache cần Web2ProductsApi để fetch.
-    // Vài trang (fb-posts, product-card, photo-editor, video-maker) load cache
-    // nhưng KHÔNG load API client → cold start fetch fail (chỉ chạy khi IDB
-    // persist đã được Kho SP ghi sẵn). Tự nạp bản shared nếu thiếu → trang mới
-    // chỉ cần load cache là chạy, khỏi sửa từng HTML.
     const _SELF_SRC =
         (typeof document !== 'undefined' && document.currentScript && document.currentScript.src) ||
         '';
+
+    const state = {
+        byCode: new Map(), // code → product
+        list: [], // ordered snapshot
+        listeners: new Set(),
+        initialized: false,
+        initPromise: null,
+    };
+    let _cache = null;
+
+    function _normalize(text) {
+        return String(text || '')
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[̀-ͯ]/g, '')
+            .replace(/đ/g, 'd')
+            .trim();
+    }
+
+    function _emit(reason) {
+        state.listeners.forEach((cb) => {
+            try {
+                cb(reason);
+            } catch (e) {
+                console.error('[Web2ProductsCache] listener error:', e);
+            }
+        });
+    }
+
+    function _rebuild(list) {
+        state.list = Array.isArray(list) ? list : [];
+        state.byCode = new Map(state.list.map((p) => [p.code, p]));
+    }
+
+    // ── self-load Web2ProductsApi (vài trang load cache nhưng không load API) ──
     let _apiLoadPromise = null;
     function _ensureApiLoaded() {
         if (global.Web2ProductsApi) return Promise.resolve(true);
@@ -56,280 +84,94 @@
                 s.src = url;
                 s.async = false;
                 s.onload = () => resolve(!!global.Web2ProductsApi);
-                s.onerror = () => {
-                    console.warn('[Web2ProductsCache] auto-load Web2ProductsApi failed:', url);
-                    resolve(false);
-                };
+                s.onerror = () => resolve(false);
                 document.head.appendChild(s);
-            } catch (e) {
-                console.warn('[Web2ProductsCache] auto-load API error:', e.message);
+            } catch {
                 resolve(false);
             }
         });
         return _apiLoadPromise;
     }
 
-    const FIRESTORE_COLLECTION = 'web2_products_sync';
-    const FIRESTORE_DOC = 'notify';
-    const REFRESH_DEBOUNCE_MS = 400;
-
-    const state = {
-        byCode: new Map(), // code → product
-        list: [], // ordered snapshot
-        listeners: new Set(),
-        initialized: false,
-        initPromise: null,
-        clientId: _generateClientId(),
-        db: null,
-        unsubscribe: null,
-        lastSeenTickle: 0,
-        refreshTimer: null,
-    };
-
-    function _generateClientId() {
-        try {
-            const key = '__web2ProductsCacheClientId';
-            const existing = sessionStorage.getItem(key);
-            if (existing) return existing;
-            const fresh =
-                'c-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
-            sessionStorage.setItem(key, fresh);
-            return fresh;
-        } catch {
-            return 'c-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
-        }
-    }
-
-    function _normalize(text) {
-        return String(text || '')
-            .toLowerCase()
-            .normalize('NFD')
-            .replace(/[̀-ͯ]/g, '')
-            .replace(/đ/g, 'd')
-            .trim();
-    }
-
-    function _ensureApi() {
-        if (!global.Web2ProductsApi) {
-            console.warn('[Web2ProductsCache] Web2ProductsApi missing — không thể tải kho SP');
-            return false;
-        }
-        return true;
-    }
-
-    // C8-cleanup (2026-06-13): _ensureFirestore() ĐÃ GỠ — Firestore tickle bỏ từ
-    // 2026-05-29 (realtime qua SSE `web2:products`), hàm này không còn caller → dead.
-
-    // P1 2026-05-30: Persistent cache → IndexedDB (chuyển từ localStorage).
-    // Lý do: localStorage limit 5-10MB, sync API block main thread; IndexedDB
-    // 50% disk available, async (chỉ tốn ~10-30ms), structured clone (giữ
-    // type Date, Map nếu cần sau này). Page reload → load IDB (sub-50ms) →
-    // initialized=true → background HTTP fetch revalidate qua SSE.
-    //
-    // Migrate path: nếu thấy key `web2ProductsCache_v1` ở localStorage cũ →
-    // import vào IDB rồi xóa localStorage entry.
-    const LEGACY_LS_KEY = 'web2ProductsCache_v1';
-    const IDB_NAME = 'web2_cache';
-    const IDB_VERSION = 1;
-    const IDB_STORE = 'kv';
-    const IDB_KEY_PRODUCTS = 'products';
-    const PERSIST_TTL_MS = 24 * 60 * 60 * 1000; // 24h hard expire
-
-    let _idbPromise = null;
-    function _openIdb() {
-        if (_idbPromise) return _idbPromise;
-        _idbPromise = new Promise((resolve, reject) => {
-            if (typeof indexedDB === 'undefined') {
-                reject(new Error('IndexedDB unavailable'));
-                return;
-            }
-            const req = indexedDB.open(IDB_NAME, IDB_VERSION);
-            req.onupgradeneeded = (e) => {
-                const db = e.target.result;
-                if (!db.objectStoreNames.contains(IDB_STORE)) {
-                    db.createObjectStore(IDB_STORE);
+    let _smartLoadPromise = null;
+    function _ensureSmartCache() {
+        if (global.Web2SmartCache) return Promise.resolve(true);
+        if (_smartLoadPromise) return _smartLoadPromise;
+        _smartLoadPromise = new Promise((resolve) => {
+            try {
+                if (typeof document === 'undefined' || !_SELF_SRC) {
+                    resolve(false);
+                    return;
                 }
-            };
-            req.onsuccess = () => resolve(req.result);
-            req.onerror = () => reject(req.error);
-            req.onblocked = () => reject(new Error('IDB open blocked'));
-        }).catch((e) => {
-            console.warn('[Web2ProductsCache] IDB open failed:', e.message);
-            _idbPromise = null;
-            return null;
-        });
-        return _idbPromise;
-    }
-
-    function _idbGet(db, key) {
-        return new Promise((resolve, reject) => {
-            try {
-                const tx = db.transaction(IDB_STORE, 'readonly');
-                const store = tx.objectStore(IDB_STORE);
-                const req = store.get(key);
-                req.onsuccess = () => resolve(req.result);
-                req.onerror = () => reject(req.error);
-            } catch (e) {
-                reject(e);
+                const url = new URL('web2-smart-cache.js?v=20260623a', _SELF_SRC).href;
+                const s = document.createElement('script');
+                s.src = url;
+                s.async = false;
+                s.onload = () => resolve(!!global.Web2SmartCache);
+                s.onerror = () => resolve(false);
+                document.head.appendChild(s);
+            } catch {
+                resolve(false);
             }
         });
+        return _smartLoadPromise;
     }
 
-    function _idbSet(db, key, value) {
-        return new Promise((resolve, reject) => {
-            try {
-                const tx = db.transaction(IDB_STORE, 'readwrite');
-                const store = tx.objectStore(IDB_STORE);
-                const req = store.put(value, key);
-                req.onsuccess = () => resolve();
-                req.onerror = () => reject(req.error);
-            } catch (e) {
-                reject(e);
-            }
-        });
-    }
-
-    // Migrate localStorage legacy → IDB rồi xóa key cũ. Idempotent.
-    async function _migrateLegacyLsToIdb() {
-        try {
-            const raw = localStorage.getItem(LEGACY_LS_KEY);
-            if (!raw) return null;
-            const obj = JSON.parse(raw);
-            localStorage.removeItem(LEGACY_LS_KEY);
-            if (!obj || !Array.isArray(obj.list)) return null;
-            const db = await _openIdb();
-            if (db) await _idbSet(db, IDB_KEY_PRODUCTS, obj);
-            return obj;
-        } catch (e) {
-            console.warn('[Web2ProductsCache] LS→IDB migrate failed:', e.message);
-            return null;
-        }
-    }
-
-    async function _loadFromPersist() {
-        try {
-            const db = await _openIdb();
-            let obj = db ? await _idbGet(db, IDB_KEY_PRODUCTS) : null;
-            // Fallback: thử migrate từ localStorage cũ
-            if (!obj || !Array.isArray(obj.list)) {
-                obj = await _migrateLegacyLsToIdb();
-            }
-            if (!obj || !Array.isArray(obj.list)) return false;
-            if (!obj.ts || Date.now() - obj.ts > PERSIST_TTL_MS) {
-                if (db) await _idbSet(db, IDB_KEY_PRODUCTS, null);
-                return false;
-            }
-            state.list = obj.list;
-            state.byCode = new Map(obj.list.map((p) => [p.code, p]));
-            return obj.list.length;
-        } catch (e) {
-            console.warn('[Web2ProductsCache] persist load failed:', e.message);
-            return false;
-        }
-    }
-
-    let _persistDebounceTimer = null;
-    function _saveToPersist() {
-        if (_persistDebounceTimer) clearTimeout(_persistDebounceTimer);
-        _persistDebounceTimer = setTimeout(async () => {
-            _persistDebounceTimer = null;
-            try {
-                const db = await _openIdb();
-                if (!db) return;
-                const payload = { ts: Date.now(), list: state.list };
-                await _idbSet(db, IDB_KEY_PRODUCTS, payload);
-            } catch (e) {
-                console.warn('[Web2ProductsCache] persist save failed:', e.message);
-            }
-        }, 200);
-    }
-
-    async function _loadList() {
+    async function _fetchProducts() {
         if (!global.Web2ProductsApi) await _ensureApiLoaded();
-        if (!_ensureApi()) return;
-        try {
-            // Active + inactive both — UI quyết định hiển thị. Pull up
-            // tới 1000 SP/lần để cover toàn bộ kho hiện tại; phân trang
-            // server-side đến khi hết.
-            const all = [];
-            let page = 1;
-            const limit = 1000;
-            while (true) {
-                const resp = await global.Web2ProductsApi.list({ page, limit });
-                const batch = Array.isArray(resp?.products) ? resp.products : [];
-                all.push(...batch);
-                if (!resp?.hasMore || batch.length === 0) break;
-                page += 1;
-                if (page > 20) break; // safety cap 20k SP
-            }
-            state.list = all;
-            state.byCode = new Map(all.map((p) => [p.code, p]));
-            _saveToPersist();
-            _emit('refresh');
-        } catch (e) {
-            console.warn('[Web2ProductsCache] load failed:', e.message);
+        if (!global.Web2ProductsApi) throw new Error('Web2ProductsApi missing');
+        // Active + inactive — UI quyết định hiển thị. Pull tới 1000 SP/lần,
+        // phân trang server-side đến hết (cap 20k).
+        const all = [];
+        let page = 1;
+        const limit = 1000;
+        while (true) {
+            const resp = await global.Web2ProductsApi.list({ page, limit });
+            const batch = Array.isArray(resp?.products) ? resp.products : [];
+            all.push(...batch);
+            if (!resp?.hasMore || batch.length === 0) break;
+            page += 1;
+            if (page > 20) break; // safety cap
         }
+        return all;
     }
 
-    function _emit(reason) {
-        state.listeners.forEach((cb) => {
-            try {
-                cb(reason);
-            } catch (e) {
-                console.error('[Web2ProductsCache] listener error:', e);
-            }
+    function _getCache() {
+        if (_cache) return _cache;
+        _cache = global.Web2SmartCache.create({
+            name: 'products',
+            topic: 'web2:products',
+            fetcher: _fetchProducts,
+            ttl: 5 * 60 * 1000,
+            maxAge: 24 * 60 * 60 * 1000, // 24h hard persist expire (như cũ)
+            persist: true,
+            debounceMs: 400,
         });
-    }
-
-    function _scheduleRefresh(reason) {
-        if (state.refreshTimer) clearTimeout(state.refreshTimer);
-        state.refreshTimer = setTimeout(async () => {
-            state.refreshTimer = null;
-            await _loadList();
-        }, REFRESH_DEBOUNCE_MS);
-        if (reason) _emit(reason);
-    }
-
-    function _setupRealtime() {
-        // SSE bridge only (server pub/sub on Render). Firestore tickle fallback
-        // removed 2026-05-29 — SSE production verified stable từ 2026-05-19.
-        // Nếu SSE bridge chưa load (race condition), cache vẫn hoạt động qua
-        // _scheduleRefresh thủ công từ pushTickle().
-        if (global.Web2SSE && typeof global.Web2SSE.subscribe === 'function') {
-            state.unsubscribe = global.Web2SSE.subscribe('web2:products', (msg) => {
-                // Don't refresh on our own echo.
-                if (msg?.data?.by && msg.data.by === state.clientId) return;
-                _scheduleRefresh('sse');
-            });
-        } else {
-            console.warn(
-                '[Web2ProductsCache] Web2SSE bridge not loaded — realtime updates disabled. Manual refresh required.'
-            );
-        }
+        _cache.subscribe((list) => {
+            _rebuild(list || []);
+            _emit('refresh');
+        });
+        return _cache;
     }
 
     async function init() {
         if (state.initialized) return state;
         if (state.initPromise) return state.initPromise;
-        // P1 2026-05-30: Stale-while-revalidate — load IDB persist trước khi
-        // await HTTP fetch. IDB read ~10-30ms (vs 200-1500ms HTTP cold). Khi
-        // có persist: initialized=true ngay sau read → background fetch
-        // revalidate; không có persist → fallback fetch HTTP như cũ.
         state.initPromise = (async () => {
-            const persistCount = await _loadFromPersist();
-            if (persistCount) {
-                state.initialized = true;
-                _setupRealtime();
-                _emit('persist-restore');
-                // Background revalidate — không await trong init promise.
-                _loadList().catch((e) =>
-                    console.warn('[Web2ProductsCache] revalidate fail:', e.message)
-                );
-                return state;
+            await _ensureSmartCache();
+            if (global.Web2SmartCache) {
+                try {
+                    _rebuild(await _getCache().get()); // persist-instant + revalidate + SSE
+                } catch (e) {
+                    console.warn('[Web2ProductsCache] smart-cache init fail:', e.message);
+                }
+            } else {
+                try {
+                    _rebuild(await _fetchProducts());
+                } catch (e) {
+                    console.warn('[Web2ProductsCache] fallback fetch fail:', e.message);
+                }
             }
-            // Cold start — fetch HTTP rồi setup realtime.
-            await _loadList();
-            _setupRealtime();
             state.initialized = true;
             return state;
         })();
@@ -337,7 +179,21 @@
     }
 
     async function refresh() {
-        await _loadList();
+        if (_cache) {
+            try {
+                _rebuild(await _cache.refresh());
+                _emit('refresh');
+            } catch (e) {
+                console.warn('[Web2ProductsCache] refresh fail:', e.message);
+            }
+            return;
+        }
+        try {
+            _rebuild(await _fetchProducts());
+            _emit('refresh');
+        } catch (e) {
+            console.warn('[Web2ProductsCache] refresh (fallback) fail:', e.message);
+        }
     }
 
     function getAll() {
@@ -363,17 +219,8 @@
             else if (name.includes(q) || code.includes(q)) contains.push(p);
             if (exact.length + startsWith.length + contains.length > limit * 4) break;
         }
-        // P1 2026-05-30: ranking heuristic — user feedback gõ "b4" trả SP cũ
-        // tên ngắn "B4" stock=1 lên top thay vì SP đầy đủ "2000 QUAN test
-        // nhap b4" stock=6.
-        //
-        // Cách fix:
-        //   - Query NGẮN (<4 chars) → gộp tất cả tier + sort theo composite
-        //     score (stock + name length). Tên ngắn = q exact match KHÔNG
-        //     ưu tiên vì nó thường là noise (SP cũ test, code rút gọn).
-        //   - Query DÀI (>=4 chars) → giữ tier order (exact → startsWith →
-        //     contains) vì user gõ tên đầy đủ chủ ý.
-        //   - Trong cùng tier: sort theo (stock + pending) * 1000 + nameLen.
+        // Ranking heuristic (P1 2026-05-30): query ngắn (<4) gộp tier + sort theo
+        // (stock+pending)*1000 + nameLen; query dài giữ tier order.
         const scoreFor = (p) => {
             const s = Number(p.stock) || 0;
             const pq = Number(p.pendingQty) || 0;
@@ -414,10 +261,8 @@
         return null;
     }
 
-    // Strict name + variant match. Trả SP CHỈ khi khớp ĐÚNG cả tên lẫn biến thể
-    // (so sánh normalized; biến thể rỗng/null xem như nhau). Dùng cho badge so-order:
-    // hàng biến thể "Đỏ" KHÔNG được mượn nhầm mã SP "Trắng" cùng tên (findByNameExact
-    // bỏ qua biến thể). Không khớp → null (UI để trống tới khi SP đúng biến thể tồn tại).
+    // Strict name + variant match (badge so-order: biến thể "Đỏ" KHÔNG mượn nhầm
+    // mã SP "Trắng" cùng tên). Không khớp → null.
     function findByNameVariant(name, variant) {
         const qn = _normalize(name);
         if (!qn) return null;
@@ -429,16 +274,10 @@
         return null;
     }
 
-    /**
-     * Báo cho các client/tab khác là kho SP vừa thay đổi.
-     * Gọi sau khi POST/PATCH/DELETE thành công ở client hiện tại.
-     */
+    // Báo cache thay đổi sau CRUD local. Other clients/tabs nhận qua SSE 'web2:products'.
     async function pushTickle(_opts = {}) {
-        // Refresh local trước cho UI hiện tại.
-        _scheduleRefresh('local');
-        // Firestore tickle write removed 2026-05-29. Server-side notify SSE
-        // topic 'web2:products' đã hoạt động ổn định. Other clients SẼ nhận
-        // qua SSE bridge — không cần Firestore tickle redundant nữa.
+        _emit('local');
+        if (_cache) _cache.invalidate();
     }
 
     function subscribe(callback) {
@@ -449,18 +288,19 @@
 
     function _upsertLocal(product) {
         if (!product || !product.code) return;
-        state.byCode.set(product.code, product);
-        const idx = state.list.findIndex((p) => p.code === product.code);
-        if (idx === -1) state.list.unshift(product);
-        else state.list[idx] = product;
-        _saveToPersist();
+        const list = state.list.slice();
+        const idx = list.findIndex((p) => p.code === product.code);
+        if (idx === -1) list.unshift(product);
+        else list[idx] = product;
+        if (_cache) _cache.set(list);
+        else _rebuild(list);
     }
 
     function _removeLocal(code) {
         if (!code) return;
-        state.byCode.delete(code);
-        state.list = state.list.filter((p) => p.code !== code);
-        _saveToPersist();
+        const list = state.list.filter((p) => p.code !== code);
+        if (_cache) _cache.set(list);
+        else _rebuild(list);
     }
 
     global.Web2ProductsCache = {
@@ -475,9 +315,6 @@
         hasByName,
         pushTickle,
         subscribe,
-        // P1 2026-05-30: expose flag init xong (kể cả khi list rỗng).
-        // Caller cần biết "cache đã chạy 1 lần fetch xong" vs "list rỗng vì
-        // kho thật sự rỗng" để pick fast-path (no loading).
         isReady: () => state.initialized === true,
         _upsertLocal,
         _removeLocal,

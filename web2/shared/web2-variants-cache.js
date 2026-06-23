@@ -1,14 +1,15 @@
-// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes.
+// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 module.
 // =====================================================
-// Web2 Variants — Shared cache + Firestore tickler realtime
+// Web2 Variants — Shared cache (biến thể dùng chung)
 // =====================================================
 //
-// Mục đích: dùng chung giữa "Kho Biến Thể" (web2-variants), Kho SP
-// (web2-products), Sổ Order (so-order). Variant chỉ có 1 nguồn duy
-// nhất; mọi trang gọi `Web2VariantsCache.init()` rồi pick.
+// Mục đích: dùng chung giữa Kho Biến Thể (web2-variants), Kho SP (web2-products),
+// Sổ Order (so-order). Variant 1 nguồn duy nhất; mọi trang gọi init() rồi pick.
 //
-// Realtime: tickler doc Firestore `web2_variants_sync/notify`. Mọi
-// CRUD ghi vào doc; các client snapshot listener auto reload list.
+// 2026-06-23: bộ máy fetch + SSE invalidate + dedup + listeners ĐÃ DELEGATE sang
+// primitive `Web2SmartCache` (web2-smart-cache.js) thay vì tự cài lặp. Bonus: thêm
+// IDB persist (variant sống qua reload). Domain logic (normalize/findByValue/
+// getColorShortMap) giữ nguyên. Public API KHÔNG đổi.
 //
 // Public API:
 //   await Web2VariantsCache.init()
@@ -17,6 +18,7 @@
 //   Web2VariantsCache.findByValue(q, limit=10)
 //   Web2VariantsCache.findByValueExact(v)
 //   Web2VariantsCache.has(value)
+//   Web2VariantsCache.getColorShortMap()
 //   Web2VariantsCache.pushTickle({action})
 //   Web2VariantsCache.subscribe(cb)
 //   Web2VariantsCache.refresh()
@@ -26,9 +28,9 @@
 
     if (global.Web2VariantsCache) return;
 
-    const FIRESTORE_COLLECTION = 'web2_variants_sync';
-    const FIRESTORE_DOC = 'notify';
-    const REFRESH_DEBOUNCE_MS = 400;
+    const _SELF_SRC =
+        (typeof document !== 'undefined' && document.currentScript && document.currentScript.src) ||
+        '';
 
     const state = {
         all: [], // mọi variant (cả inactive)
@@ -36,26 +38,8 @@
         listeners: new Set(),
         initialized: false,
         initPromise: null,
-        clientId: _clientId(),
-        db: null,
-        unsubscribe: null,
-        lastSeenTickle: 0,
-        refreshTimer: null,
     };
-
-    function _clientId() {
-        try {
-            const key = '__web2VariantsCacheClientId';
-            const existing = sessionStorage.getItem(key);
-            if (existing) return existing;
-            const fresh =
-                'v-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
-            sessionStorage.setItem(key, fresh);
-            return fresh;
-        } catch {
-            return 'v-' + Date.now().toString(36);
-        }
-    }
+    let _cache = null;
 
     function _normalize(text) {
         return String(text || '')
@@ -64,35 +48,6 @@
             .replace(/[̀-ͯ]/g, '')
             .replace(/đ/g, 'd')
             .trim();
-    }
-
-    // C8-cleanup (2026-06-13): _ensureFirestore() ĐÃ GỠ — Firestore tickle bỏ từ
-    // 2026-05-29 (realtime qua SSE `web2:variants`), hàm này không còn caller → dead.
-
-    async function _loadList() {
-        if (!global.Web2VariantsApi) return;
-        try {
-            const all = [];
-            let page = 1;
-            while (true) {
-                const resp = await global.Web2VariantsApi.list({ page, limit: 2000 });
-                const batch = Array.isArray(resp?.variants) ? resp.variants : [];
-                all.push(...batch);
-                if (!resp?.hasMore || batch.length === 0) break;
-                page += 1;
-                if (page > 10) break;
-            }
-            state.all = all;
-            _colorShortMap = null; // invalidate memo khi data variant đổi
-            // byValueLower CHỈ build từ variant active — findByValueExact dùng để
-            // validate SP, không được nhận biến thể đã deactivate (isActive false).
-            state.byValueLower = new Map(
-                all.filter((v) => v.isActive).map((v) => [_normalize(v.value), v])
-            );
-            _emit('refresh');
-        } catch (e) {
-            console.warn('[Web2VariantsCache] load failed:', e.message);
-        }
     }
 
     function _emit(reason) {
@@ -105,36 +60,91 @@
         });
     }
 
-    function _scheduleRefresh(reason) {
-        if (state.refreshTimer) clearTimeout(state.refreshTimer);
-        state.refreshTimer = setTimeout(async () => {
-            state.refreshTimer = null;
-            await _loadList();
-        }, REFRESH_DEBOUNCE_MS);
-        if (reason) _emit(reason);
+    let _colorShortMap = null;
+    function _rebuild(all) {
+        state.all = Array.isArray(all) ? all : [];
+        _colorShortMap = null; // invalidate memo khi data variant đổi
+        // byValueLower CHỈ build từ variant active — findByValueExact dùng validate SP,
+        // không được nhận biến thể đã deactivate.
+        state.byValueLower = new Map(
+            state.all.filter((v) => v.isActive).map((v) => [_normalize(v.value), v])
+        );
     }
 
-    function _setupRealtime() {
-        // SSE bridge only — Firestore fallback removed 2026-05-29 (SSE verified
-        // stable từ 2026-05-19). Xem docs/web2/SSE-REALTIME.md.
-        if (global.Web2SSE && typeof global.Web2SSE.subscribe === 'function') {
-            state.unsubscribe = global.Web2SSE.subscribe('web2:variants', (msg) => {
-                if (msg?.data?.by && msg.data.by === state.clientId) return;
-                _scheduleRefresh('sse');
-            });
-        } else {
-            console.warn(
-                '[Web2VariantsCache] Web2SSE bridge not loaded — realtime updates disabled. Manual refresh required.'
-            );
+    async function _fetchVariants() {
+        if (!global.Web2VariantsApi) throw new Error('Web2VariantsApi missing');
+        const all = [];
+        let page = 1;
+        while (true) {
+            const resp = await global.Web2VariantsApi.list({ page, limit: 2000 });
+            const batch = Array.isArray(resp?.variants) ? resp.variants : [];
+            all.push(...batch);
+            if (!resp?.hasMore || batch.length === 0) break;
+            page += 1;
+            if (page > 10) break;
         }
+        return all;
+    }
+
+    let _smartLoadPromise = null;
+    function _ensureSmartCache() {
+        if (global.Web2SmartCache) return Promise.resolve(true);
+        if (_smartLoadPromise) return _smartLoadPromise;
+        _smartLoadPromise = new Promise((resolve) => {
+            try {
+                if (typeof document === 'undefined' || !_SELF_SRC) {
+                    resolve(false);
+                    return;
+                }
+                const url = new URL('web2-smart-cache.js?v=20260623a', _SELF_SRC).href;
+                const s = document.createElement('script');
+                s.src = url;
+                s.async = false;
+                s.onload = () => resolve(!!global.Web2SmartCache);
+                s.onerror = () => resolve(false);
+                document.head.appendChild(s);
+            } catch {
+                resolve(false);
+            }
+        });
+        return _smartLoadPromise;
+    }
+
+    function _getCache() {
+        if (_cache) return _cache;
+        _cache = global.Web2SmartCache.create({
+            name: 'variants',
+            topic: 'web2:variants',
+            fetcher: _fetchVariants,
+            ttl: 5 * 60 * 1000,
+            persist: true,
+            debounceMs: 400,
+        });
+        _cache.subscribe((all) => {
+            _rebuild(all || []);
+            _emit('cache');
+        });
+        return _cache;
     }
 
     async function init() {
         if (state.initialized) return state;
         if (state.initPromise) return state.initPromise;
         state.initPromise = (async () => {
-            await _loadList();
-            _setupRealtime();
+            await _ensureSmartCache();
+            if (global.Web2SmartCache) {
+                try {
+                    _rebuild(await _getCache().get());
+                } catch (e) {
+                    console.warn('[Web2VariantsCache] smart-cache init fail:', e.message);
+                }
+            } else {
+                try {
+                    _rebuild(await _fetchVariants());
+                } catch (e) {
+                    console.warn('[Web2VariantsCache] fallback fetch fail:', e.message);
+                }
+            }
             state.initialized = true;
             return state;
         })();
@@ -142,7 +152,21 @@
     }
 
     async function refresh() {
-        await _loadList();
+        if (_cache) {
+            try {
+                _rebuild(await _cache.refresh());
+                _emit('refresh');
+            } catch (e) {
+                console.warn('[Web2VariantsCache] refresh fail:', e.message);
+            }
+            return;
+        }
+        try {
+            _rebuild(await _fetchVariants());
+            _emit('refresh');
+        } catch (e) {
+            console.warn('[Web2VariantsCache] refresh (fallback) fail:', e.message);
+        }
     }
 
     function getAll() {
@@ -177,11 +201,8 @@
         return !!findByValueExact(value);
     }
 
-    // colorShortMap: { <ASCII_UPPER tên màu đã strip "Màu "> : shortCode locked }.
-    // NGUỒN CHUNG (P5 2026-06-15): trước đây web2-products-app + so-order build
-    // RIÊNG cùng logic này từ getAll(). Gom về đây — memoize, invalidate khi data
-    // variant đổi (_loadList). Cần Web2ProductCode.toAsciiUpper.
-    let _colorShortMap = null;
+    // colorShortMap: { <ASCII_UPPER tên màu strip "Màu "> : shortCode locked }.
+    // NGUỒN CHUNG (P5 2026-06-15): memoize, invalidate khi data variant đổi.
     function getColorShortMap() {
         if (_colorShortMap) return _colorShortMap;
         const PC = global.Web2ProductCode;
@@ -190,7 +211,7 @@
         if (PC && typeof PC.toAsciiUpper === 'function') {
             for (const v of all) {
                 if (!/màu/i.test(v.groupName || '')) continue;
-                if (!v.shortCode) continue; // chỉ dùng locked shortcodes
+                if (!v.shortCode) continue;
                 const stripped = String(v.value || '')
                     .replace(/^\s*M[àáạăâ]u\s+/iu, '')
                     .trim();
@@ -198,14 +219,15 @@
                 if (key) map[key] = v.shortCode;
             }
         }
-        if (all.length) _colorShortMap = map; // chỉ memoize khi cache đã có data
+        if (all.length) _colorShortMap = map;
         return map;
     }
 
     async function pushTickle(_opts = {}) {
-        // Firestore tickle write removed 2026-05-29 — SSE topic 'web2:variants'
-        // đã fan-out qua server (web2RealtimeSseRoutes.notifyClients).
-        _scheduleRefresh('local');
+        // Báo cache thay đổi → revalidate từ server (SSE topic 'web2:variants' cũng
+        // fan-out cho client khác). Emit 'local' ngay cho UI snappy.
+        _emit('local');
+        if (_cache) _cache.invalidate();
     }
 
     function subscribe(cb) {

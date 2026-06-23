@@ -2,6 +2,19 @@
 
 ## 2026-06-23
 
+### [refactor] web2: Migrate products/variants/customer caches onto Web2SmartCache + primitive refinements
+
+Tiếp nối smart-cache: migrate 3 cache còn lại sang primitive `Web2SmartCache` (API GIỮ NGUYÊN, test 3 tầng mỗi cái).
+
+- **`web2-variants-cache.js`** (231→252 dòng): delegate fetch/SSE/dedup/persist sang primitive. Domain logic (findByValue/findByValueExact/getColorShortMap memo) giữ nguyên. Bonus IDB persist. Test: 12 integration assertion + live browser (108 variant trên trang products).
+- **`web2-products-cache.js`** (486→323 dòng, **−163 dòng** IDB/SSE/SWR boilerplate): delegate sang primitive, giữ nguyên findByName ranking heuristic + findByNameVariant strict + `_upsertLocal/_removeLocal` (qua `_cache.set`, sync) + isReady + self-load API. Test: 13 integration assertion (ranking, variant-strict, upsert/remove sync) + live browser (4 SP, isReady, 0 error).
+- **`web2-customer-store.js`** (vốn KHÔNG cache → thêm lớp cache): `getByPhone`/`getByFbId` qua `Web2SmartCache.createKeyed` (dedup + cache 30s + `swr:false` để KH freshness-sensitive: trong TTL→cache nhanh, stale/invalidate→AWAIT fetch tươi). Invalidate sau mỗi write (patch/upsert/harvest) + SSE `web2:customers` (global, lazy invalidate-all). batch/list/enrich vẫn fetch trực tiếp. Test: 11 integration (dedup/cache-hit/write-invalidate/SSE-invalidate) + live browser (KH thật + cache same-ref).
+- **Primitive refinements** (`web2-smart-cache.js`):
+    - Gỡ `skipEchoUntil` blanket-suppress (1.5s sau set) — **bug tiềm ẩn**: nuốt nhầm mutation tab/máy KHÁC đến ngay sau set() local. Giờ chỉ echo-suppress CHÍNH XÁC theo `data.by===clientId`.
+    - `createKeyed`: thêm **global-topic mode** — `cfg.topic` (không `topicFor`) → subscribe 1 LẦN cho cả cache → lazy `invalidate-all` (mark stale), tránh refetch storm N-key khi 1 entity đổi. `topicFor(key)` vẫn per-key precise.
+- Bump `?v=20260623sc`: products-cache (8 trang), variants-cache (3), customer-store (2).
+- **Tổng test: 72 assertion** (primitive 24 + suppliers 12 + variants 12 + products 13 + customer 11) PASS + 3 live browser smoke 0-error.
+
 ### [feat] web2: Smart cache dùng chung (Web2SmartCache) — primitive SWR gom bộ máy cache + audit 8 GitHub repo
 
 **Phần 2 (smart cache):** Audit 4 cache hiện có (Web2ProductsCache 486, Web2CustomerStore 426, Web2VariantsCache 231, Web2SuppliersCache 222 dòng) → đều TỰ CÀI LẶP cùng bộ máy: IDB persist + TTL + stale-while-revalidate + Web2SSE invalidate + echo-suppress (clientId) + debounced refresh + listeners + in-flight dedup (~1000 dòng gần trùng).
