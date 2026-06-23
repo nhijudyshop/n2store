@@ -2,6 +2,23 @@
 
 ## 2026-06-23
 
+### [audit/fix] Vòng 5 — sweep TOÀN BỘ surface tiền/kho liên quan (5 agent song song): 1 HIGH ví + 2 hardening fix
+
+User "audit tất cả những cái liên quan". Map đủ surface tiền/kho: 5 agent adversarial (find→refute→confirm) chia — (1) ví core `web2-wallet-service` + customer-wallet routes, (2) SePay→ví pipeline, (3) `reconcile.js` full, (4) stock authority `web2-products` + inbound `so-order`, (5) `cart.js` + native-orders money paths. **Hầu hết REFUTED** (hệ guard rất chắc: SePay dedup 3 lớp, reconcile chỉ là state-machine không settle tiền, stock đều atomic + advisory-lock, so-order receive idempotent qua status flip).
+
+**Fix:**
+
+- 🔴 **HIGH — withdraw dedupe BỎ SÓT `reference_type` → nuốt 1 lần trừ ví thật** (`web2-wallet-service.js:377`): dedupe in-tx chỉ `type='WITHDRAW' AND reference_id` → 2 luồng KHÁC dùng cùng referenceId = **số PBH** va chạm: `_applyWalletToPbh` (refType `native-order-pbh`, refId=pbh.number) vs Sửa COD "trừ công nợ khách" (refType `return-cod`, refId=cùng số PBH) → lần trừ COD bị coi `alreadyProcessed` = **KH KHÔNG bị trừ nhưng sổ ghi đã trừ** (under-charge). Nhánh DEPOSIT đã scope refType ('sepay'/'balance_history') — withdraw là cái lệch. Fix: thêm `AND reference_type=$3` (mirror deposit). Cùng nghiệp vụ vẫn idempotent (retry cùng refType), khác nghiệp vụ không nuốt nhau. Fix kèm route pre-check `_findIdempotentTx` (web2-wallets.js) cũng thêm refType ('manual' withdraw / 'balance_history' deposit).
+- 🟢 **cart qty trần** (`cart.js`): `b.qty` client không trần → > 2^31 tràn cột INTEGER `total_quantity` (parallel bug crm_team_id INT4). Clamp `MAX_LINE_QTY=100000` ở /add + PATCH set-qty.
+
+**DEFER (cần quyết định / rủi ro regression):**
+
+- 🟡 **cart line price tin client** (`cart.js:193` `Number(input.price)`): giá chảy vào native_orders→PBH→`_applyWalletToPbh` trừ ví thật. NHƯNG `source:'livestream'` = **giá BIẾN THIÊN theo phiên live** (ép giá catalog sẽ HỎNG tính năng bán live) + qua checkpoint staff tạo PBH (không drain ngầm). Cần quyết định sản phẩm: cho phép custom price live? validate ra sao? KHÔNG rush.
+- 🟡 **native-orders PATCH totalAmount/totalQuantity trên đơn đã confirmed bỏ qua guard** (native-orders.js:1855): drift native total vs PBH amount_total (display/reconcile, KHÔNG mất tiền — refund đọc PBH wallet_deducted). Low reachability (UI gửi kèm products → guard fire). Defer.
+- NOTE: unique index anti-dup ví vắng khi boot gặp dup cũ (in-tx FOR-UPDATE re-check vẫn chặn race); `_applyWalletToPbh` debit + bookkeeping wallet_deducted non-atomic trên Pool (one-directional, KH mất nếu crash giữa — không double).
+
+Tất cả `node --check` PASS. Cần Render deploy.
+
 ### [audit/fix] Vòng 4 — trang Thu về (web2/returns) + chuỗi data feed: 2 bug stock thật fix, 2 edge defer
 
 User "audit trang returns + trang nào trigger/feed nó → debug → fix lặp đến hoàn hảo". Map dependency: returns nhận data từ `web2-returns.js` (own), `web2-customer-orders.js` (feed đơn picker), `web2/customers/search`, `web2/wallets/by-phone`, `web2-products/list`; tác động xuống `fast_sale_orders` (wallet_deducted, stock_restored), `web2_products` (stock/return_qty), ví KH, native-orders (consume SP queued bill 0đ). 3 agent adversarial (find→refute→confirm) hội tụ — **ví/credit cap đều vững (KHÔNG mint tiền)**, lỗi tập trung ở **kho (stock)**.

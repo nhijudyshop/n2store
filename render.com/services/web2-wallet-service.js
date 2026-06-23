@@ -374,11 +374,20 @@ async function processWithdraw(
         // (_findIdempotentTx chạy NGOÀI txn) + unique index (có thể vắng lúc boot nếu có
         // dup cũ) bỏ sót. Chỉ check khi có referenceId (manual withdraw kèm idemKey).
         if (referenceId) {
+            // FIX 2026-06-23 (audit vòng 5): dedupe PHẢI scope theo reference_type
+            // (mirror nhánh deposit line 218-246 đã scope 'sepay'/'balance_history').
+            // TRƯỚC: chỉ `type=WITHDRAW AND reference_id` → 2 luồng KHÁC NHAU dùng cùng
+            // referenceId = SỐ PBH va chạm: _applyWalletToPbh (referenceType
+            // 'native-order-pbh', referenceId = pbh.number) vs Sửa COD "trừ công nợ
+            // khách" (referenceType 'return-cod', referenceId = cùng số PBH) → lần trừ
+            // COD bị nuốt thành alreadyProcessed = KH KHÔNG bị trừ nhưng sổ ghi đã trừ.
+            // Thêm reference_type → cùng nghiệp vụ vẫn idempotent (retry cùng type),
+            // khác nghiệp vụ KHÔNG nuốt nhau.
             const dup = await client.query(
                 `SELECT * FROM web2_wallet_transactions
-                 WHERE type = $1 AND reference_id = $2
+                 WHERE type = $1 AND reference_id = $2 AND reference_type = $3
                  LIMIT 1`,
-                [WEB2_TX_TYPES.WITHDRAW, String(referenceId)]
+                [WEB2_TX_TYPES.WITHDRAW, String(referenceId), referenceType || 'manual']
             );
             if (dup.rows.length > 0) {
                 return { wallet, transaction: dup.rows[0], alreadyProcessed: true };

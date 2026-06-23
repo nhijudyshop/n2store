@@ -32,12 +32,15 @@ function _idemKey(req) {
     return k ? k.slice(0, 120) : null;
 }
 
-async function _findIdempotentTx(db, key, type) {
+// FIX 2026-06-23 (audit vòng 5): scope dedupe theo reference_type (mirror service
+// processWithdraw + processDeposit). Tránh idemKey client trùng referenceId của luồng
+// khác (vd số PBH 'NJ-123' của native-order-pbh) → false alreadyProcessed nuốt thao tác.
+async function _findIdempotentTx(db, key, type, refType) {
     const r = await db.query(
         `SELECT * FROM web2_wallet_transactions
-         WHERE reference_id = $1 AND type = $2
+         WHERE reference_id = $1 AND type = $2 AND reference_type = $3
          ORDER BY id DESC LIMIT 1`,
-        [key, type]
+        [key, type, refType]
     );
     return r.rows[0] || null;
 }
@@ -164,7 +167,7 @@ router.post('/:phone/withdraw', requireWeb2AuthSoft, async (req, res) => {
         // cái mang UUID khác → để chống double-debit thật, CLIENT phải gửi x-idempotency-key
         // ỔN ĐỊNH per thao tác (Web2WalletApi.withdraw có param idempotencyKey — audit #3).
         const idemKey = _idemKey(req) || `mwdr_${require('crypto').randomUUID()}`;
-        const dup = await _findIdempotentTx(db, idemKey, 'WITHDRAW');
+        const dup = await _findIdempotentTx(db, idemKey, 'WITHDRAW', 'manual');
         if (dup) {
             return res.json({
                 success: true,
@@ -212,7 +215,7 @@ router.post('/:phone/deposit', requireWeb2AuthSoft, async (req, res) => {
         // mỗi cái UUID khác → muốn chống double-credit thật, CLIENT phải gửi x-idempotency-key
         // ỔN ĐỊNH per thao tác (Web2WalletApi.deposit có param idempotencyKey — audit #3).
         const idemKey = _idemKey(req) || `mdep_${require('crypto').randomUUID()}`;
-        const dup = await _findIdempotentTx(db, idemKey, 'DEPOSIT');
+        const dup = await _findIdempotentTx(db, idemKey, 'DEPOSIT', 'balance_history');
         if (dup) {
             return res.json({
                 success: true,

@@ -159,6 +159,11 @@ async function _logHistory(pool, payload) {
     }
 }
 
+// Trần SL/dòng: chống tràn cột INTEGER total_quantity (parallel bug crm_team_id INT4
+// tràn FB Page Id → BIGINT). qty client > 2^31 làm UPDATE total_quantity throw.
+// 100k đủ rộng cho mọi đơn thật. (audit vòng 5)
+const MAX_LINE_QTY = 100000;
+
 // Lấy giá trị qty từ product (chấp nhận cả 'quantity' lẫn 'qty' cho back-compat
 // với native-orders modal cũ ghi 'quantity' và cart cũ ghi 'qty').
 function _qtyOf(p) {
@@ -345,7 +350,7 @@ router.post('/:commentId/add', async (req, res) => {
             return res.status(400).json({ success: false, error: 'product.code bắt buộc' });
         const cust = b.customer || {};
         const user = b.user || {};
-        const qtyAdd = Number(b.qty) || 1;
+        const qtyAdd = Math.min(MAX_LINE_QTY, Math.max(1, Number(b.qty) || 1));
         const customerId = req.params.commentId;
 
         // 1. Lấy hoặc tạo draft
@@ -560,7 +565,7 @@ router.patch('/:commentId/:productCode', async (req, res) => {
         const productCode = req.params.productCode;
         const b = req.body || {};
         const user = b.user || {};
-        const newQty = Math.max(1, Number(b.qty) || 1);
+        const newQty = Math.min(MAX_LINE_QTY, Math.max(1, Number(b.qty) || 1));
 
         const draft = await _findDraft(pool, customerId);
         if (!draft) return res.status(404).json({ success: false, error: 'no draft order' });
