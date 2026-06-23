@@ -63,7 +63,28 @@ Trên **máy chấm công DG-600** (menu _Comm → Cloud Server / ADMS_ — DG-6
 
 ## 3. Giữ agent chạy nền 24/7
 
-- **Windows**: bấm đúp `install-windows.bat` (giữ cửa sổ mở), hoặc dùng `pm2 start sync.js --name web2-attendance`.
+### ✅ Windows — TỰ ĐỘNG khi bật máy (khuyên dùng nhất)
+
+**Bấm đúp `cai-tu-dong.bat` (1 lần duy nhất).** Từ đó:
+
+- Cứ **bật máy / đăng nhập Windows là tự đồng bộ** (5 phút/lần), **chạy ngầm** — không hiện cửa sổ đen, **không cần mở trang web**.
+- **Tự chạy lại** nếu node lỗi/mất mạng (vòng lặp trong `chay-nen.bat`, đợi 15s rồi thử lại).
+- Đăng ký qua **Windows Task Scheduler** (trigger _khi đăng nhập_) → chạy `run-hidden.vbs` (ẩn cửa sổ) → `chay-nen.bat` (vòng lặp `node sync.js`).
+
+> Nếu `cai-tu-dong.bat` báo **không tạo được tác vụ** (thiếu quyền) → **chuột phải → Run as administrator** rồi chạy lại.
+
+**Tắt tự động:** bấm đúp `go-tu-dong.bat` (gỡ khỏi startup + dừng tiến trình đang chạy).
+
+| File              | Vai trò                                                            |
+| ----------------- | ------------------------------------------------------------------ |
+| `cai-tu-dong.bat` | Cài tự chạy khi bật máy + khởi động ngay                           |
+| `go-tu-dong.bat`  | Gỡ tự chạy + dừng đồng bộ                                          |
+| `chay-nen.bat`    | Vòng lặp `node sync.js`, tự chạy lại nếu lỗi (không bấm trực tiếp) |
+| `run-hidden.vbs`  | Chạy `chay-nen.bat` ẩn cửa sổ (Task Scheduler gọi)                 |
+
+### Cách khác
+
+- **Windows (giữ cửa sổ mở):** bấm đúp `install-windows.bat`, hoặc `pm2 start sync.js --name web2-attendance`.
 - **Mac/Linux**: `./run-mac.command`, hoặc `pm2 start sync.js --name web2-attendance`.
 
 ---
@@ -93,16 +114,20 @@ Rồi điền đúng chuỗi đó vào `config.json` (`attendanceSecret`). Deplo
 
 ---
 
-## 6. Hai cách dùng (chọn 1, đơn giản)
+## 6. Ba cách dùng (chọn 1, đơn giản)
+
+### ✅ Cách 0 — TỰ ĐỘNG khi bật máy (khuyên dùng nhất, Windows)
+
+**Bấm đúp `cai-tu-dong.bat` 1 lần.** Xong — từ đó bật máy là tự đồng bộ ngầm 5 phút/lần, tự chạy lại nếu lỗi, không cần mở cửa sổ, không cần mở web. Tắt: `go-tu-dong.bat`. (Chi tiết ở mục 3.)
 
 ### Cách 1 — Bấm nút LẤY 1 LẦN (khi cùng mạng)
 
 Lúc nào muốn lấy thì **bấm đúp `lay-du-lieu.bat`** (Windows) / `lay-du-lieu.command` (Mac).
 → Kéo dữ liệu 1 lần rồi đóng. Phải đang **cùng mạng LAN** với máy chấm công (tự dò IP).
 
-### Cách 2 — Chạy NỀN 1 PC (tự đồng bộ)
+### Cách 2 — Chạy NỀN giữ cửa sổ mở (tự đồng bộ)
 
 **Bấm đúp `install-windows.bat`** / `run-mac.command` và **giữ cửa sổ mở** → tự đồng bộ mỗi 5 phút.
-Dùng 1 PC luôn bật ở shop.
+Dùng 1 PC luôn bật ở shop. (Như cách 0 nhưng phải giữ cửa sổ + tự bấm lại sau reboot.)
 
 > **Lưu ý:** chỉ chạy nền trên **1 PC** (không cần nhiều máy). Dữ liệu idempotent (`id = PIN_giờ`) nên có lỡ chạy trùng cũng không nhân đôi, nhưng máy chấm công thường chỉ cho 1 kết nối cùng lúc → 1 PC là gọn nhất.

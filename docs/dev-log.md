@@ -2,6 +2,17 @@
 
 ## 2026-06-23
 
+### [feat] cham-cong agent: tự chạy nền khi bật Windows (auto-start + auto-restart)
+
+Agent đồng bộ máy DG-600 (`web2-attendance-sync/`) trước chỉ chạy khi giữ `install-windows.bat` mở → đóng/reboot là dừng (→ "Chưa đồng bộ"). Thêm cơ chế chạy nền tự động:
+
+- `cai-tu-dong.bat` (bấm 1 lần): ensure config+npm → đăng ký **Task Scheduler ONLOGON** chạy `run-hidden.vbs` → khởi động ngay. Bật máy/đăng nhập Windows là tự đồng bộ ngầm 5'/lần, không cần mở web.
+- `chay-nen.bat`: vòng lặp `node sync.js` + **tự chạy lại** nếu node thoát (lỗi/mất mạng), delay bằng `ping` (không lỗi khi chạy ẩn).
+- `run-hidden.vbs`: chạy `chay-nen.bat` ẩn cửa sổ (WScript.Shell.Run …, 0, False), tự resolve thư mục.
+- `go-tu-dong.bat`: gỡ task khỏi startup + `wmic` terminate đúng node chạy sync.js.
+- README mục 3 + mục 6 thêm "Cách 0 — TỰ ĐỘNG khi bật máy".
+- ⚠️ Artifact Windows, không test được trên Mac — viết theo chuẩn `schtasks`/`wscript`; nếu thiếu quyền tạo task → Run as administrator.
+
 ### [fix] Zalo P4: "Kết nối lại" phiên hết hạn → 400 + Popup mở chat.zalo.me (không còn 500) + sửa icon
 
 User bấm "Kết nối lại" → **500 Internal Server Error**. Gốc: cookie/phiên đã lưu HẾT HẠN → `zalo.login` throw "Đăng nhập thất bại" → route reconnect catch trả `500 e.message`. Fix:
