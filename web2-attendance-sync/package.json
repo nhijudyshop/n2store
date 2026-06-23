@@ -3,11 +3,11 @@
     "version": "1.0.0",
     "private": true,
     "description": "WEB2.0 — Agent đồng bộ máy chấm công DG-600 → /api/web2-attendance (ADMS proxy + ZK pull).",
-    "main": "adms-proxy.js",
+    "main": "sync.js",
     "scripts": {
-        "start": "node adms-proxy.js",
-        "proxy": "node adms-proxy.js",
-        "pull": "node sync.js"
+        "start": "node sync.js",
+        "pull": "node sync.js",
+        "proxy": "node adms-proxy.js"
     },
     "dependencies": {
         "node-zklib": "^1.1.10"

@@ -6,10 +6,12 @@ Agent chạy ở **máy tính trong shop** (cùng mạng LAN với máy chấm c
 
 Có **2 chế độ** — chọn 1:
 
-| Chế độ                       | File            | Khi nào dùng                                                              | Cần cài thư viện  |
-| ---------------------------- | --------------- | ------------------------------------------------------------------------- | ----------------- |
-| **ADMS proxy** (khuyên dùng) | `adms-proxy.js` | Máy hỗ trợ "Cloud/ADMS server" (đa số DG-600). Máy tự push, gần realtime. | Không             |
-| **ZK pull**                  | `sync.js`       | Máy KHÔNG có ADMS, hoặc muốn kéo định kỳ qua cổng 4370.                   | Có (`node-zklib`) |
+| Chế độ                       | File            | Khi nào dùng                                                                      | Cần cài thư viện              |
+| ---------------------------- | --------------- | --------------------------------------------------------------------------------- | ----------------------------- |
+| **ZK pull** ✅ (khuyên dùng) | `sync.js`       | **Đã test chạy được với DG-600 thật.** Kéo dữ liệu qua LAN cổng 4370, mỗi 5 phút. | Có (`node-zklib`, bat tự cài) |
+| **ADMS proxy** (dự phòng)    | `adms-proxy.js` | Chỉ khi máy có menu "Cloud/ADMS server" + muốn realtime (DG-600 thường KHÔNG có). | Không                         |
+
+> **Cách nhanh nhất:** copy thư mục `web2-attendance-sync/` sang máy PC shop → sửa `config.json` → **bấm đúp `install-windows.bat`** (tự cài thư viện + chạy ZK pull). Giữ cửa sổ mở.
 
 ---
 
@@ -32,30 +34,31 @@ Sửa `config.json`:
 
 ---
 
-## 2A. Chạy ADMS proxy (khuyên dùng)
+## 2A. Chạy ZK pull (khuyên dùng — đã test)
+
+**Windows:** bấm đúp `install-windows.bat` (tự cài thư viện + chạy). **Mac:** bấm đúp `run-mac.command`.
+
+Hoặc thủ công:
+
+```bash
+npm install      # cài node-zklib (1 lần đầu)
+node sync.js     # hoặc: npm start
+```
+
+Agent kết nối máy qua LAN cổng 4370, kéo NV + lượt chấm mỗi `pollMinutes` phút (mặc định 5) và đẩy lên server. Log in ra cửa sổ: `[sync] users=15 records=2276 inserted=2276`.
+
+## 2B. Chạy ADMS proxy (dự phòng — chỉ khi máy có ADMS)
 
 ```bash
 node adms-proxy.js
 # hoặc: npm run proxy
 ```
 
-Trên **máy chấm công DG-600** (menu _Comm → Cloud Server / ADMS_):
+Trên **máy chấm công DG-600** (menu _Comm → Cloud Server / ADMS_ — DG-600 thường KHÔNG có menu này):
 
-- **Server address** = IP của máy tính đang chạy proxy (vd `192.168.1.27`)
-- **Server port** = `8081` (đúng `proxyPort`)
-- **Mode** = _Auto upload / Tự động tải dữ liệu_
-- Tắt "Khởi động tên miền" nếu có.
-
-Xem log realtime: mở trình duyệt `http://localhost:8081/debug`.
-
-## 2B. Chạy ZK pull (tuỳ chọn)
-
-```bash
-npm install      # cài node-zklib (1 lần)
-node sync.js     # hoặc: npm run pull
-```
-
-Agent kết nối máy qua LAN, kéo NV + punch mỗi `pollMinutes` phút và đẩy lên Render.
+- **Server address** = IP máy tính đang chạy proxy (vd `192.168.1.27`)
+- **Server port** = `8081` (đúng `proxyPort`) · **Mode** = _Auto upload_
+- Xem log realtime: `http://localhost:8081/debug`
 
 ---
 
