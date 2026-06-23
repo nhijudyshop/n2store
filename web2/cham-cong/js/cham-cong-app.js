@@ -111,9 +111,12 @@
 
     async function loadAll() {
         const mk = state.monthKey;
-        // 1) Hydrate tức thì từ cache (nếu có) → không hiện "Đang tải".
+        // Chỉ hydrate cache khi load LẠNH / đổi tháng (tháng này CHƯA có trong RAM).
+        // Reload nóng (sau mutation/SSE) → KHÔNG hydrate (tránh cache cũ đè thay đổi
+        // local vừa sửa, vd vừa gán NV); chỉ revalidate ngầm.
+        const sameMonthInMemory = state._loadedMonth === mk;
         let hydrated = false;
-        if (cacheStore) {
+        if (cacheStore && !sameMonthInMemory) {
             try {
                 const c = await cacheStore.get('m_' + mk);
                 if (c && state.monthKey === mk) {
@@ -127,7 +130,7 @@
                 /* ignore cache lỗi */
             }
         }
-        if (!hydrated) {
+        if (!hydrated && !sameMonthInMemory) {
             state.loading = true;
             renderActive();
         }
@@ -154,6 +157,7 @@
                 sync: sync.status || null,
             };
             applyResults(results);
+            state._loadedMonth = mk;
             if (cacheStore) cacheStore.set('m_' + mk, results).catch(() => {});
         } catch (e) {
             if (!hydrated) toast('Lỗi tải dữ liệu: ' + e.message, 'error');
