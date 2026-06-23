@@ -1,0 +1,710 @@
+// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 MODULE — Chấm công (admin).
+// =====================================================================
+// Chấm công Web 2.0 — quản lý dữ liệu máy chấm công vân tay DG-600.
+//
+// Kiến trúc: máy DG-600 đẩy punch (giờ vào/ra) qua agent chạy máy shop
+//   (đọc LAN cổng 4370) HOẶC ADMS push (text/cdata) → POST vào route này.
+//   Backend CHỈ lưu punch thô + cấu hình NV + điều chỉnh bảng lương; toàn bộ
+//   tính giờ công / đi muộn / OT / lương do FRONTEND tính (web2/cham-cong).
+//
+// Nguồn NHÂN VIÊN: web2_users (map device_user_id → employee_id). Trang
+//   chấm công gọi /api/web2-users/list để lấy danh sách NV gắn vào PIN máy.
+//
+// Pool: req.app.locals.web2Db || req.app.locals.chatDb (Web 2.0 — KHÔNG ghi Web 1.0).
+// Realtime: web2:attendance (SSE). Auth: web UI = requireWeb2Admin; agent đẩy
+//   dữ liệu = shared secret header x-web2-attendance-secret (env WEB2_ATTENDANCE_SECRET).
+// Múi giờ: lưu TIMESTAMPTZ (UTC) — date_key tính theo GMT+7 (Asia/Ho_Chi_Minh).
+// =====================================================================
+
+'use strict';
+
+const express = require('express');
+const router = express.Router();
+const { requireWeb2Admin } = require('../middleware/web2-auth');
+
+const getDb = (req) => req.app.locals.web2Db || req.app.locals.chatDb;
+const now = () => Date.now();
+
+// ── SSE notifier ─────────────────────────────────────────────────────────
+let _notifyClients = null;
+function initializeNotifiers(fn) {
+    _notifyClients = fn;
+}
+function _notify(action, extra) {
+    if (!_notifyClients) return;
+    try {
+        _notifyClients('web2:attendance', { action, ...(extra || {}), ts: now() }, 'update');
+    } catch (e) {
+        console.warn('[WEB2-ATTENDANCE] _notify failed:', e.message);
+    }
+}
+
+// ── Agent shared-secret gate (cho endpoint máy đẩy dữ liệu) ────────────────
+// Có WEB2_ATTENDANCE_SECRET → bắt buộc khớp. Chưa set (dev/beta) → cho qua +
+// warn 1 lần để nhắc cấu hình prod. KHÔNG dùng token user (agent không login).
+let _secretWarned = false;
+function requireAgentSecret(req, res, next) {
+    const expected = String(process.env.WEB2_ATTENDANCE_SECRET || '').trim();
+    if (!expected) {
+        if (!_secretWarned) {
+            _secretWarned = true;
+            console.warn(
+                '[WEB2-ATTENDANCE] WEB2_ATTENDANCE_SECRET chưa set → ingest endpoint MỞ (chỉ nên dùng dev/beta).'
+            );
+        }
+        return next();
+    }
+    const got = String(
+        req.headers['x-web2-attendance-secret'] || (req.query && req.query.secret) || ''
+    ).trim();
+    if (got && got === expected) return next();
+    return res.status(401).json({ success: false, error: 'Sai secret agent chấm công' });
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────
+const VN_TZ = 'Asia/Ho_Chi_Minh';
+// date_key 'YYYY-MM-DD' theo GMT+7 từ 1 Date/ms/ISO. Dùng Intl để KHÔNG phụ thuộc
+// TZ process (memory: Render chạy +7 nhưng không bảo đảm) — luôn ra lịch +7.
+function dateKeyVN(input) {
+    const d = input instanceof Date ? input : new Date(input);
+    if (isNaN(d.getTime())) return null;
+    const parts = new Intl.DateTimeFormat('en-CA', {
+        timeZone: VN_TZ,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+    }).format(d);
+    return parts; // en-CA → 'YYYY-MM-DD'
+}
+// Parse 1 mốc thời gian punch về Date. Chấp nhận:
+//   - epoch ms (number)
+//   - ISO có hậu tố Z/offset → đúng instant
+//   - 'YYYY-MM-DD HH:MM:SS' (naive, từ máy) = giờ LOCAL +7 → append +07:00.
+function parsePunchTime(v) {
+    if (v == null) return null;
+    if (typeof v === 'number') return new Date(v);
+    const s = String(v).trim();
+    if (!s) return null;
+    if (/^\d+$/.test(s)) return new Date(Number(s));
+    // Có timezone (Z hoặc ±hh:mm) → tin thẳng.
+    if (/[zZ]$/.test(s) || /[+-]\d{2}:?\d{2}$/.test(s)) {
+        const d = new Date(s);
+        return isNaN(d.getTime()) ? null : d;
+    }
+    // Naive 'YYYY-MM-DD HH:MM:SS' hoặc 'YYYY-MM-DDTHH:MM:SS' → giờ +7.
+    const iso = s.replace(' ', 'T');
+    const d = new Date(`${iso}+07:00`);
+    return isNaN(d.getTime()) ? null : d;
+}
+function ok(res, data) {
+    return res.json({ success: true, ...data });
+}
+function fail(res, code, error) {
+    return res.status(code).json({ success: false, error });
+}
+
+// ── Schema (idempotent) ────────────────────────────────────────────────────
+async function ensureSchema(pool) {
+    if (!pool) return;
+    await pool.query(`
+        -- NV trên máy (PIN) → map sang web2_users (employee_id) + cấu hình lương/ca.
+        CREATE TABLE IF NOT EXISTS web2_attendance_device_users (
+            device_user_id        VARCHAR(64) PRIMARY KEY,
+            uid                   VARCHAR(64),
+            name                  VARCHAR(120),              -- tên trên máy
+            display_name          VARCHAR(120),             -- tên hiển thị (sửa được)
+            employee_id           INTEGER,                  -- web2_users.id (nullable)
+            daily_rate            BIGINT  NOT NULL DEFAULT 200000,
+            work_start            VARCHAR(5) NOT NULL DEFAULT '08:00',
+            work_end              VARCHAR(5) NOT NULL DEFAULT '20:00', -- mốc kết ca = mốc OT
+            late_penalty_per_min  BIGINT  NOT NULL DEFAULT 5000,
+            ot_multiplier         NUMERIC NOT NULL DEFAULT 2,
+            sunday_full           BOOLEAN NOT NULL DEFAULT FALSE,
+            active                BOOLEAN NOT NULL DEFAULT TRUE,
+            created_at            BIGINT  NOT NULL,
+            updated_at            BIGINT  NOT NULL
+        );
+        -- Punch thô từ máy. id = '{device_user_id}_{epoch_ms}' → idempotent.
+        CREATE TABLE IF NOT EXISTS web2_attendance_records (
+            id              VARCHAR(80) PRIMARY KEY,
+            device_user_id  VARCHAR(64) NOT NULL,
+            check_time      TIMESTAMPTZ NOT NULL,
+            date_key        VARCHAR(10) NOT NULL,            -- YYYY-MM-DD (+7)
+            type            SMALLINT NOT NULL DEFAULT 0,     -- 0=in 1=out 2=break-out 3=break-in 4=OT-in 5=OT-out
+            verify_mode     SMALLINT,
+            source          VARCHAR(16) NOT NULL DEFAULT 'agent', -- agent|adms|file|manual
+            raw             TEXT,
+            synced_at       BIGINT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_w2att_rec_date ON web2_attendance_records(date_key);
+        CREATE INDEX IF NOT EXISTS idx_w2att_rec_user ON web2_attendance_records(device_user_id);
+        CREATE INDEX IF NOT EXISTS idx_w2att_rec_dk_user ON web2_attendance_records(date_key, device_user_id);
+        -- Điều chỉnh bảng lương tháng (thưởng/giảm trừ/đã trả/phụ cấp/ghi chú + override).
+        CREATE TABLE IF NOT EXISTS web2_attendance_payroll (
+            id                       VARCHAR(80) PRIMARY KEY, -- '{emp_id}_{YYYY-MM}'
+            emp_id                   VARCHAR(64) NOT NULL,
+            month_key                VARCHAR(7)  NOT NULL,
+            thuong_items             JSONB NOT NULL DEFAULT '[]'::jsonb,
+            giam_tru_items           JSONB NOT NULL DEFAULT '[]'::jsonb,
+            da_tra_items             JSONB NOT NULL DEFAULT '[]'::jsonb,
+            allowances               JSONB NOT NULL DEFAULT '[]'::jsonb,
+            ghi_chu                  TEXT,
+            salary_days_override     NUMERIC,
+            ot_hours_override        NUMERIC,
+            giam_tru_late_override   BIGINT,
+            updated_at               BIGINT NOT NULL
+        );
+        -- Ngày công đủ (full) override thủ công (vd nghỉ phép có lương / lỗi máy).
+        CREATE TABLE IF NOT EXISTS web2_attendance_fullday (
+            id          VARCHAR(80) PRIMARY KEY, -- '{emp_id}_{date_key}'
+            emp_id      VARCHAR(64) NOT NULL,
+            date_key    VARCHAR(10) NOT NULL,
+            created_at  BIGINT NOT NULL
+        );
+        -- Ngày shop nghỉ (không tính vắng).
+        CREATE TABLE IF NOT EXISTS web2_attendance_holidays (
+            date_key    VARCHAR(10) PRIMARY KEY,
+            note        TEXT,
+            created_at  BIGINT NOT NULL
+        );
+        -- Trạng thái đồng bộ agent (1 dòng id='current').
+        CREATE TABLE IF NOT EXISTS web2_attendance_sync_status (
+            id              VARCHAR(20) PRIMARY KEY,
+            connected       BOOLEAN NOT NULL DEFAULT FALSE,
+            last_sync_time  TIMESTAMPTZ,
+            last_error      TEXT,
+            device_count    INTEGER NOT NULL DEFAULT 0,
+            record_count    INTEGER NOT NULL DEFAULT 0,
+            updated_at      BIGINT NOT NULL
+        );
+        -- Lệnh từ web → agent (vd sync_now / re-pull).
+        CREATE TABLE IF NOT EXISTS web2_attendance_commands (
+            id              SERIAL PRIMARY KEY,
+            action          VARCHAR(40) NOT NULL,
+            status          VARCHAR(20) NOT NULL DEFAULT 'pending',
+            device_user_id  VARCHAR(64),
+            created_by      VARCHAR(120),
+            result          TEXT,
+            created_at      BIGINT NOT NULL,
+            processed_at    BIGINT
+        );
+    `);
+}
+
+// =====================================================================
+// DEVICE USERS (NV trên máy)
+// =====================================================================
+
+// GET /device-users — danh sách NV máy + cấu hình lương/ca (admin).
+router.get('/device-users', requireWeb2Admin, async (req, res) => {
+    try {
+        const db = getDb(req);
+        const r = await db.query(
+            `SELECT * FROM web2_attendance_device_users ORDER BY display_name NULLS LAST, name NULLS LAST, device_user_id`
+        );
+        return ok(res, { items: r.rows });
+    } catch (e) {
+        console.error('[WEB2-ATTENDANCE] device-users list:', e.message);
+        return fail(res, 500, e.message);
+    }
+});
+
+// POST /device-users/bulk — agent upsert NV từ máy (secret).
+router.post('/device-users/bulk', requireAgentSecret, async (req, res) => {
+    try {
+        const db = getDb(req);
+        const users = Array.isArray(req.body?.users) ? req.body.users : [];
+        if (!users.length) return ok(res, { upserted: 0 });
+        const t = now();
+        let upserted = 0;
+        for (const u of users) {
+            const id = String(u.user_id ?? u.uid ?? '').trim();
+            if (!id || id === '0') continue;
+            // Upsert: KHÔNG đè display_name/employee_id/cấu hình lương admin đã chỉnh.
+            await db.query(
+                `INSERT INTO web2_attendance_device_users
+                    (device_user_id, uid, name, display_name, created_at, updated_at)
+                 VALUES ($1,$2,$3,$3,$4,$4)
+                 ON CONFLICT (device_user_id) DO UPDATE SET
+                    uid = EXCLUDED.uid,
+                    name = EXCLUDED.name,
+                    updated_at = EXCLUDED.updated_at`,
+                [id, String(u.uid ?? id), u.name ? String(u.name).slice(0, 120) : null, t]
+            );
+            upserted++;
+        }
+        _notify('device-users', { upserted });
+        return ok(res, { upserted });
+    } catch (e) {
+        console.error('[WEB2-ATTENDANCE] device-users bulk:', e.message);
+        return fail(res, 500, e.message);
+    }
+});
+
+// PATCH /device-users/:id — sửa cấu hình NV (admin).
+router.patch('/device-users/:id', requireWeb2Admin, async (req, res) => {
+    try {
+        const db = getDb(req);
+        const id = String(req.params.id);
+        const b = req.body || {};
+        const sets = [];
+        const vals = [];
+        let i = 1;
+        const map = {
+            display_name: 'display_name',
+            employee_id: 'employee_id',
+            daily_rate: 'daily_rate',
+            work_start: 'work_start',
+            work_end: 'work_end',
+            late_penalty_per_min: 'late_penalty_per_min',
+            ot_multiplier: 'ot_multiplier',
+            sunday_full: 'sunday_full',
+            active: 'active',
+        };
+        for (const [k, col] of Object.entries(map)) {
+            if (b[k] !== undefined) {
+                sets.push(`${col} = $${i++}`);
+                vals.push(b[k] === '' ? null : b[k]);
+            }
+        }
+        if (!sets.length) return fail(res, 400, 'Không có trường cập nhật');
+        sets.push(`updated_at = $${i++}`);
+        vals.push(now());
+        vals.push(id);
+        const r = await db.query(
+            `UPDATE web2_attendance_device_users SET ${sets.join(', ')} WHERE device_user_id = $${i} RETURNING *`,
+            vals
+        );
+        if (!r.rows.length) return fail(res, 404, 'Không tìm thấy NV máy');
+        _notify('device-users', { id });
+        return ok(res, { item: r.rows[0] });
+    } catch (e) {
+        console.error('[WEB2-ATTENDANCE] device-users patch:', e.message);
+        return fail(res, 500, e.message);
+    }
+});
+
+// =====================================================================
+// RECORDS (punch)
+// =====================================================================
+
+// GET /records?start=YYYY-MM-DD&end=YYYY-MM-DD (admin).
+router.get('/records', requireWeb2Admin, async (req, res) => {
+    try {
+        const db = getDb(req);
+        const start = String(req.query.start || '').slice(0, 10);
+        const end = String(req.query.end || '').slice(0, 10);
+        const params = [];
+        let where = '';
+        if (start && end) {
+            where = `WHERE date_key >= $1 AND date_key <= $2`;
+            params.push(start, end);
+        } else if (start) {
+            where = `WHERE date_key >= $1`;
+            params.push(start);
+        }
+        const r = await db.query(
+            `SELECT id, device_user_id, check_time, date_key, type, verify_mode, source
+                 FROM web2_attendance_records ${where}
+              ORDER BY check_time ASC`,
+            params
+        );
+        return ok(res, { items: r.rows });
+    } catch (e) {
+        console.error('[WEB2-ATTENDANCE] records list:', e.message);
+        return fail(res, 500, e.message);
+    }
+});
+
+// Upsert 1 batch punch. Trả số dòng thực sự ghi. Dùng chung agent + import + manual.
+async function insertRecords(db, rows, source) {
+    let inserted = 0;
+    const minTs = new Date('2020-01-01').getTime();
+    const maxTs = now() + 36 * 60 * 60 * 1000; // không nhận tương lai > 36h
+    for (const rec of rows) {
+        const uid = String(rec.device_user_id ?? rec.deviceUserId ?? rec.pin ?? '').trim();
+        if (!uid || uid === '0') continue;
+        const dt = parsePunchTime(rec.check_time ?? rec.checkTime ?? rec.recordTime ?? rec.time);
+        if (!dt) continue;
+        const ms = dt.getTime();
+        if (ms < minTs || ms > maxTs) continue;
+        const id = rec.id && String(rec.id).includes('_') ? String(rec.id) : `${uid}_${ms}`;
+        const dk = dateKeyVN(dt);
+        const type = Number.isFinite(Number(rec.type)) ? Number(rec.type) : 0;
+        const verify = rec.verify_mode != null ? Number(rec.verify_mode) : null;
+        await db.query(
+            `INSERT INTO web2_attendance_records
+                (id, device_user_id, check_time, date_key, type, verify_mode, source, raw, synced_at)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+             ON CONFLICT (id) DO UPDATE SET
+                check_time = EXCLUDED.check_time,
+                date_key = EXCLUDED.date_key,
+                type = EXCLUDED.type,
+                verify_mode = COALESCE(EXCLUDED.verify_mode, web2_attendance_records.verify_mode),
+                synced_at = EXCLUDED.synced_at`,
+            [
+                id,
+                uid,
+                dt.toISOString(),
+                dk,
+                type,
+                verify,
+                source,
+                rec.raw ? String(rec.raw).slice(0, 500) : null,
+                now(),
+            ]
+        );
+        inserted++;
+    }
+    return inserted;
+}
+
+// POST /records/bulk — agent ingest (secret).
+router.post('/records/bulk', requireAgentSecret, async (req, res) => {
+    try {
+        const db = getDb(req);
+        const rows = Array.isArray(req.body?.records) ? req.body.records : [];
+        const inserted = await insertRecords(db, rows, 'agent');
+        if (inserted) _notify('records', { inserted, source: 'agent' });
+        return ok(res, { inserted });
+    } catch (e) {
+        console.error('[WEB2-ATTENDANCE] records bulk:', e.message);
+        return fail(res, 500, e.message);
+    }
+});
+
+// POST /records/import — admin nhập file Excel/TXT (frontend parse → rows).
+router.post('/records/import', requireWeb2Admin, async (req, res) => {
+    try {
+        const db = getDb(req);
+        const rows = Array.isArray(req.body?.records) ? req.body.records : [];
+        if (!rows.length) return fail(res, 400, 'Không có dòng nào để nhập');
+        const inserted = await insertRecords(db, rows, 'file');
+        if (inserted) _notify('records', { inserted, source: 'file' });
+        return ok(res, { inserted, total: rows.length });
+    } catch (e) {
+        console.error('[WEB2-ATTENDANCE] records import:', e.message);
+        return fail(res, 500, e.message);
+    }
+});
+
+// POST /records — admin thêm tay 1 punch.
+router.post('/records', requireWeb2Admin, async (req, res) => {
+    try {
+        const db = getDb(req);
+        const inserted = await insertRecords(db, [req.body || {}], 'manual');
+        if (!inserted) return fail(res, 400, 'Dữ liệu punch không hợp lệ');
+        _notify('records', { inserted, source: 'manual' });
+        return ok(res, { inserted });
+    } catch (e) {
+        console.error('[WEB2-ATTENDANCE] records add:', e.message);
+        return fail(res, 500, e.message);
+    }
+});
+
+// DELETE /records/clear-all — admin xoá hết + queue lệnh re-sync cho agent.
+// ⚠ PHẢI khai báo TRƯỚC '/records/:id' — nếu không Express khớp ':id'='clear-all'.
+router.delete('/records/clear-all', requireWeb2Admin, async (req, res) => {
+    try {
+        const db = getDb(req);
+        await db.query(`DELETE FROM web2_attendance_records`);
+        await db.query(
+            `INSERT INTO web2_attendance_commands (action, device_user_id, created_by, created_at)
+             VALUES ('resync', NULL, $1, $2)`,
+            [req.web2User?.display_name || req.web2User?.username || 'admin', now()]
+        );
+        _notify('records', { clearedAll: true });
+        return ok(res, {});
+    } catch (e) {
+        console.error('[WEB2-ATTENDANCE] records clear-all:', e.message);
+        return fail(res, 500, e.message);
+    }
+});
+
+// DELETE /records/:id — admin xoá 1 punch.
+router.delete('/records/:id', requireWeb2Admin, async (req, res) => {
+    try {
+        const db = getDb(req);
+        await db.query(`DELETE FROM web2_attendance_records WHERE id = $1`, [
+            String(req.params.id),
+        ]);
+        _notify('records', { deleted: req.params.id });
+        return ok(res, {});
+    } catch (e) {
+        console.error('[WEB2-ATTENDANCE] records delete:', e.message);
+        return fail(res, 500, e.message);
+    }
+});
+
+// =====================================================================
+// PAYROLL (điều chỉnh tháng)
+// =====================================================================
+
+// GET /payroll?monthKey=YYYY-MM (admin).
+router.get('/payroll', requireWeb2Admin, async (req, res) => {
+    try {
+        const db = getDb(req);
+        const monthKey = String(req.query.monthKey || '').slice(0, 7);
+        if (!/^\d{4}-\d{2}$/.test(monthKey)) return fail(res, 400, 'monthKey không hợp lệ');
+        const r = await db.query(`SELECT * FROM web2_attendance_payroll WHERE month_key = $1`, [
+            monthKey,
+        ]);
+        return ok(res, { items: r.rows });
+    } catch (e) {
+        console.error('[WEB2-ATTENDANCE] payroll get:', e.message);
+        return fail(res, 500, e.message);
+    }
+});
+
+// PUT /payroll/:id — merge update bảng lương tháng (admin). id = '{emp}_{YYYY-MM}'.
+router.put('/payroll/:id', requireWeb2Admin, async (req, res) => {
+    try {
+        const db = getDb(req);
+        const id = String(req.params.id);
+        const m = id.match(/^(.+)_(\d{4}-\d{2})$/);
+        if (!m) return fail(res, 400, 'id bảng lương không hợp lệ');
+        const empId = m[1];
+        const monthKey = m[2];
+        const b = req.body || {};
+        const r = await db.query(
+            `INSERT INTO web2_attendance_payroll
+                (id, emp_id, month_key, thuong_items, giam_tru_items, da_tra_items, allowances,
+                 ghi_chu, salary_days_override, ot_hours_override, giam_tru_late_override, updated_at)
+             VALUES ($1,$2,$3,
+                 COALESCE($4::jsonb,'[]'::jsonb), COALESCE($5::jsonb,'[]'::jsonb),
+                 COALESCE($6::jsonb,'[]'::jsonb), COALESCE($7::jsonb,'[]'::jsonb),
+                 $8,$9,$10,$11,$12)
+             ON CONFLICT (id) DO UPDATE SET
+                thuong_items   = COALESCE($4::jsonb, web2_attendance_payroll.thuong_items),
+                giam_tru_items = COALESCE($5::jsonb, web2_attendance_payroll.giam_tru_items),
+                da_tra_items   = COALESCE($6::jsonb, web2_attendance_payroll.da_tra_items),
+                allowances     = COALESCE($7::jsonb, web2_attendance_payroll.allowances),
+                ghi_chu        = COALESCE($8, web2_attendance_payroll.ghi_chu),
+                salary_days_override   = $9,
+                ot_hours_override      = $10,
+                giam_tru_late_override = $11,
+                updated_at = $12
+             RETURNING *`,
+            [
+                id,
+                empId,
+                monthKey,
+                b.thuongItems ? JSON.stringify(b.thuongItems) : null,
+                b.giamTruItems ? JSON.stringify(b.giamTruItems) : null,
+                b.daTraItems ? JSON.stringify(b.daTraItems) : null,
+                b.allowances ? JSON.stringify(b.allowances) : null,
+                b.ghiChu !== undefined ? b.ghiChu : null,
+                b.salaryDaysOverride ?? null,
+                b.otHoursOverride ?? null,
+                b.giamTruLateOverride ?? null,
+                now(),
+            ]
+        );
+        _notify('payroll', { id, monthKey });
+        return ok(res, { item: r.rows[0] });
+    } catch (e) {
+        console.error('[WEB2-ATTENDANCE] payroll put:', e.message);
+        return fail(res, 500, e.message);
+    }
+});
+
+// =====================================================================
+// FULLDAY override + HOLIDAYS
+// =====================================================================
+
+router.get('/fullday', requireWeb2Admin, async (req, res) => {
+    try {
+        const db = getDb(req);
+        const r = await db.query(`SELECT id, emp_id, date_key FROM web2_attendance_fullday`);
+        return ok(res, { items: r.rows });
+    } catch (e) {
+        return fail(res, 500, e.message);
+    }
+});
+
+router.post('/fullday', requireWeb2Admin, async (req, res) => {
+    try {
+        const db = getDb(req);
+        const empId = String(req.body?.empId || '').trim();
+        const dateKey = String(req.body?.dateKey || '').slice(0, 10);
+        if (!empId || !/^\d{4}-\d{2}-\d{2}$/.test(dateKey))
+            return fail(res, 400, 'empId/dateKey không hợp lệ');
+        const id = `${empId}_${dateKey}`;
+        await db.query(
+            `INSERT INTO web2_attendance_fullday (id, emp_id, date_key, created_at)
+             VALUES ($1,$2,$3,$4) ON CONFLICT (id) DO NOTHING`,
+            [id, empId, dateKey, now()]
+        );
+        _notify('fullday', { id });
+        return ok(res, { id });
+    } catch (e) {
+        return fail(res, 500, e.message);
+    }
+});
+
+router.delete('/fullday/:id', requireWeb2Admin, async (req, res) => {
+    try {
+        const db = getDb(req);
+        await db.query(`DELETE FROM web2_attendance_fullday WHERE id = $1`, [
+            String(req.params.id),
+        ]);
+        _notify('fullday', { deleted: req.params.id });
+        return ok(res, {});
+    } catch (e) {
+        return fail(res, 500, e.message);
+    }
+});
+
+router.get('/holidays', requireWeb2Admin, async (req, res) => {
+    try {
+        const db = getDb(req);
+        const r = await db.query(
+            `SELECT date_key, note FROM web2_attendance_holidays ORDER BY date_key`
+        );
+        return ok(res, { items: r.rows });
+    } catch (e) {
+        return fail(res, 500, e.message);
+    }
+});
+
+router.post('/holidays', requireWeb2Admin, async (req, res) => {
+    try {
+        const db = getDb(req);
+        const dateKey = String(req.body?.dateKey || '').slice(0, 10);
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) return fail(res, 400, 'dateKey không hợp lệ');
+        await db.query(
+            `INSERT INTO web2_attendance_holidays (date_key, note, created_at)
+             VALUES ($1,$2,$3) ON CONFLICT (date_key) DO UPDATE SET note = EXCLUDED.note`,
+            [dateKey, req.body?.note ? String(req.body.note).slice(0, 200) : null, now()]
+        );
+        _notify('holidays', { dateKey });
+        return ok(res, { dateKey });
+    } catch (e) {
+        return fail(res, 500, e.message);
+    }
+});
+
+router.delete('/holidays/:dateKey', requireWeb2Admin, async (req, res) => {
+    try {
+        const db = getDb(req);
+        await db.query(`DELETE FROM web2_attendance_holidays WHERE date_key = $1`, [
+            String(req.params.dateKey).slice(0, 10),
+        ]);
+        _notify('holidays', { deleted: req.params.dateKey });
+        return ok(res, {});
+    } catch (e) {
+        return fail(res, 500, e.message);
+    }
+});
+
+// =====================================================================
+// SYNC STATUS + COMMANDS (agent ↔ web)
+// =====================================================================
+
+router.get('/sync-status', requireWeb2Admin, async (req, res) => {
+    try {
+        const db = getDb(req);
+        const r = await db.query(`SELECT * FROM web2_attendance_sync_status WHERE id = 'current'`);
+        return ok(res, { status: r.rows[0] || null });
+    } catch (e) {
+        return fail(res, 500, e.message);
+    }
+});
+
+router.put('/sync-status', requireAgentSecret, async (req, res) => {
+    try {
+        const db = getDb(req);
+        const b = req.body || {};
+        const last = b.last_sync_time ? new Date(b.last_sync_time) : null;
+        await db.query(
+            `INSERT INTO web2_attendance_sync_status
+                (id, connected, last_sync_time, last_error, device_count, record_count, updated_at)
+             VALUES ('current',$1,$2,$3,$4,$5,$6)
+             ON CONFLICT (id) DO UPDATE SET
+                connected = EXCLUDED.connected,
+                last_sync_time = COALESCE(EXCLUDED.last_sync_time, web2_attendance_sync_status.last_sync_time),
+                last_error = EXCLUDED.last_error,
+                device_count = COALESCE(EXCLUDED.device_count, web2_attendance_sync_status.device_count),
+                record_count = COALESCE(EXCLUDED.record_count, web2_attendance_sync_status.record_count),
+                updated_at = EXCLUDED.updated_at`,
+            [
+                b.connected === true,
+                last && !isNaN(last.getTime()) ? last.toISOString() : null,
+                b.last_error ? String(b.last_error).slice(0, 500) : null,
+                Number.isFinite(Number(b.device_count)) ? Number(b.device_count) : null,
+                Number.isFinite(Number(b.record_count)) ? Number(b.record_count) : null,
+                now(),
+            ]
+        );
+        _notify('sync', { connected: b.connected === true });
+        return ok(res, {});
+    } catch (e) {
+        return fail(res, 500, e.message);
+    }
+});
+
+router.post('/commands', requireWeb2Admin, async (req, res) => {
+    try {
+        const db = getDb(req);
+        const action = String(req.body?.action || '')
+            .trim()
+            .slice(0, 40);
+        if (!action) return fail(res, 400, 'Thiếu action');
+        const r = await db.query(
+            `INSERT INTO web2_attendance_commands (action, device_user_id, created_by, created_at)
+             VALUES ($1,$2,$3,$4) RETURNING id`,
+            [
+                action,
+                req.body?.deviceUserId ? String(req.body.deviceUserId) : null,
+                req.web2User?.display_name || req.web2User?.username || 'admin',
+                now(),
+            ]
+        );
+        return ok(res, { id: r.rows[0].id });
+    } catch (e) {
+        return fail(res, 500, e.message);
+    }
+});
+
+router.get('/commands/pending', requireAgentSecret, async (req, res) => {
+    try {
+        const db = getDb(req);
+        // Atomic claim — FOR UPDATE SKIP LOCKED tránh 2 agent nhận trùng.
+        const r = await db.query(
+            `UPDATE web2_attendance_commands SET status = 'processing'
+              WHERE id IN (
+                SELECT id FROM web2_attendance_commands WHERE status = 'pending'
+                 ORDER BY id ASC FOR UPDATE SKIP LOCKED LIMIT 10
+              ) RETURNING id, action, device_user_id`
+        );
+        return ok(res, { commands: r.rows });
+    } catch (e) {
+        return fail(res, 500, e.message);
+    }
+});
+
+router.patch('/commands/:id', requireAgentSecret, async (req, res) => {
+    try {
+        const db = getDb(req);
+        const status = String(req.body?.status || 'completed').slice(0, 20);
+        await db.query(
+            `UPDATE web2_attendance_commands SET status = $1, result = $2, processed_at = $3 WHERE id = $4`,
+            [
+                status,
+                req.body?.result ? String(req.body.result).slice(0, 500) : null,
+                now(),
+                Number(req.params.id),
+            ]
+        );
+        return ok(res, {});
+    } catch (e) {
+        return fail(res, 500, e.message);
+    }
+});
+
+module.exports = router;
+module.exports.initializeNotifiers = initializeNotifiers;
+module.exports.ensureSchema = ensureSchema;
+module.exports.insertRecords = insertRecords;
+module.exports.dateKeyVN = dateKeyVN;
+module.exports.parsePunchTime = parsePunchTime;

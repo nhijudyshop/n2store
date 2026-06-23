@@ -2,6 +2,24 @@
 
 ## 2026-06-23
 
+### [feat] Group "Quản trị viên" (admin-only) + 2 module mới: Chấm công (DG-600) + Quản lý chi tiêu (Sổ quỹ)
+
+Thêm group menu **Quản trị viên** chỉ admin thấy (gating group-level `adminOnly` trong `web2-sidebar.js` + server gate `requireWeb2Admin` mọi route). 2 module Web 2.0 ĐỘC LẬP hoàn toàn (bảng `web2_*`, route `/api/web2-*`, pool `web2Db`, SSE riêng) — không dùng chung gì với hệ cũ.
+
+**1) Chấm công — máy vân tay DG-600** (`web2/cham-cong/`, route `/api/web2-attendance` + `/api/web2-attendance-adms`, SSE `web2:attendance`):
+
+- 3 tab: **Bảng công** (lưới giờ vào/ra theo ngày, màu trạng thái + badge muộn/OT, bấm ô xem/sửa punch + đánh dấu công đủ), **Bảng lương** (tính lương: lương ngày, phạt muộn, OT ×hệ số, thưởng/giảm trừ/phụ cấp/đã trả + override, xuất Excel), **Nhân viên** (gán PIN máy ↔ nhân viên + lương/ngày + giờ ca + phạt muộn/phút + hệ số OT).
+- Logic lương PURE ở `cham-cong-salary.js` (cấu hình theo từng NV, mọi mốc giờ GMT+7).
+- 3 cách nạp dữ liệu: **agent** đẩy LAN cổng 4370, **ADMS push** (máy tự POST ATTLOG text), **nhập Excel/TXT** (parse client-side SheetJS). Bảng `web2_attendance_records/device_users/payroll/fullday/holidays/sync_status/commands`. date*key tính GMT+7; punch idempotent `{pin}*{ms}`.
+- Agent máy shop: thư mục riêng `web2-attendance-sync/` (ADMS proxy không deps + ZK pull dùng `node-zklib`), POST ingest kèm secret `WEB2_ATTENDANCE_SECRET`.
+
+**2) Quản lý chi tiêu — Sổ quỹ** (`web2/chi-tieu/`, route `/api/web2-cashbook`, SSE `web2:cashbook`):
+
+- Thu / Chi cá nhân / Chi kinh doanh; quỹ tiền mặt / ngân hàng / ví; mã phiếu tự sinh (TTM/TNH/TVD/CCN/CKD); dải số dư đầu–cuối kỳ; lọc kỳ/loại/quỹ/trạng thái/tìm; danh mục tuỳ chỉnh; nguồn; ảnh hoá đơn (bytea, serve qua route — không CDN ngoài); huỷ mềm + lịch sử chỉnh sửa; tab Báo cáo (breakdown loại/tháng/nguồn/quỹ tính server-side).
+- Bảng `web2_cashbook_vouchers/categories/sources/images/counters/audit`. Schema + helper tách `lib/web2-cashbook-lib.js` (route < 800 dòng).
+
+Verify: test schema+SQL trên DB tạm local (ensureSchema idempotent, date_key GMT+7, idempotent punch, code-gen, số dư đầu kỳ, report group tháng theo +7 — PASS, drop DB). Worker auto-route prefix `web2-`. Bump `web2-sidebar.js?v=20260623adm` toàn bộ trang để group hiện.
+
 ### [fix] Đồng bộ quick-refund cap amount theo cost so-order (đóng nốt class bug #2 trên cả 2 đường hoàn NCC)
 
 User chốt làm + nhắc rõ: **COD giảm trong "Sửa COD shipper" (web2-returns van_de_shipper) là số NHÂN VIÊN nhập tay → giữ free-form, KHÔNG cap** (ví KHÁCH, tiền trả shipper/trừ công nợ, quyết theo ca). Chỉ cap ví **NCC** (hoàn hàng = giá nhập). 2 path tách biệt.

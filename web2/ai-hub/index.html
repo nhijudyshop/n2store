@@ -1,0 +1,204 @@
+<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 module. -->
+<!doctype html>
+<html lang="vi">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+        <meta http-equiv="Cache-Control" content="no-cache, must-revalidate" />
+        <title>Trợ lý AI — Web 2.0</title>
+
+        <meta name="theme-color" content="#0068ff" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <link rel="apple-touch-icon" href="../shared/img/logo-emblem.png" />
+
+        <link rel="stylesheet" href="../shared/web2-sidebar.css?v=20260623fix" />
+        <link rel="stylesheet" href="../shared/web2-theme.css?v=20260622t5" />
+        <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
+        <link rel="stylesheet" href="./ai-hub.css?v=20260623a" />
+    </head>
+    <body class="web2-theme">
+        <div class="web2-shell">
+            <aside class="web2-aside" id="web2Aside"></aside>
+            <main class="web2-main">
+                <div class="aih">
+                    <!-- ── Header + tabs ── -->
+                    <header class="aih-head">
+                        <h1 class="aih-title">
+                            <span class="aih-spark"><i data-lucide="sparkles"></i></span>
+                            Trợ lý AI
+                        </h1>
+                        <p class="aih-sub">
+                            Chat &amp; tạo ảnh <b>miễn phí</b> — xoay nhiều key free (Groq · Gemini
+                            · OpenRouter · Pollinations…). Không dùng key lậu, không lộ data.
+                        </p>
+                        <nav class="aih-tabs" role="tablist">
+                            <button class="aih-tab" data-tab="chat" role="tab" aria-selected="true">
+                                <i data-lucide="message-circle"></i> Chat
+                            </button>
+                            <button
+                                class="aih-tab"
+                                data-tab="image"
+                                role="tab"
+                                aria-selected="false"
+                            >
+                                <i data-lucide="image"></i> Tạo ảnh
+                            </button>
+                            <button
+                                class="aih-tab"
+                                data-tab="keys"
+                                role="tab"
+                                aria-selected="false"
+                            >
+                                <i data-lucide="key-round"></i> Quản lý key
+                            </button>
+                        </nav>
+                    </header>
+
+                    <!-- ════════ CHAT ════════ -->
+                    <section class="aih-pane" data-pane="chat">
+                        <div class="aih-chat-wrap">
+                            <aside class="aih-convos" id="aihConvos">
+                                <button class="aih-newchat" id="aihNewChat">
+                                    <i data-lucide="plus"></i> Cuộc trò chuyện mới
+                                </button>
+                                <div class="aih-convo-list" id="aihConvoList"></div>
+                            </aside>
+
+                            <div class="aih-chat">
+                                <div class="aih-chat-bar">
+                                    <select
+                                        class="aih-select"
+                                        id="aihProvider"
+                                        title="Nhà cung cấp"
+                                    ></select>
+                                    <select class="aih-select" id="aihModel" title="Model"></select>
+                                    <span class="aih-pill" id="aihKeyPill" hidden></span>
+                                    <button
+                                        class="aih-iconbtn"
+                                        id="aihSysBtn"
+                                        title="System prompt — định hướng AI"
+                                    >
+                                        <i data-lucide="settings-2"></i> Vai trò
+                                    </button>
+                                </div>
+
+                                <div class="aih-messages" id="aihMessages"></div>
+
+                                <div class="aih-composer">
+                                    <div class="aih-input-row">
+                                        <textarea
+                                            class="aih-textarea"
+                                            id="aihInput"
+                                            rows="1"
+                                            placeholder="Nhập câu hỏi… (Enter gửi · Shift+Enter xuống dòng)"
+                                        ></textarea>
+                                        <button class="aih-send" id="aihSend" title="Gửi" disabled>
+                                            <i data-lucide="arrow-up"></i>
+                                        </button>
+                                    </div>
+                                    <div class="aih-hint" id="aihStatusHint"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- ════════ TẠO ẢNH ════════ -->
+                    <section class="aih-pane" data-pane="image" hidden>
+                        <div class="aih-img-wrap">
+                            <div class="aih-img-controls">
+                                <div class="aih-field">
+                                    <label class="aih-label" for="aihImgPrompt">Mô tả ảnh</label>
+                                    <textarea
+                                        class="aih-img-prompt"
+                                        id="aihImgPrompt"
+                                        placeholder="VD: áo sơ mi lụa trắng treo trên móc gỗ, nền tối giản, ánh sáng studio mềm"
+                                    ></textarea>
+                                </div>
+                                <div class="aih-field">
+                                    <label class="aih-label" for="aihImgProvider"
+                                        >Nguồn (free)</label
+                                    >
+                                    <select
+                                        class="aih-select"
+                                        id="aihImgProvider"
+                                        style="max-width: none"
+                                    ></select>
+                                </div>
+                                <div class="aih-field">
+                                    <label class="aih-label" for="aihImgModel">Model</label>
+                                    <select
+                                        class="aih-select"
+                                        id="aihImgModel"
+                                        style="max-width: none"
+                                    ></select>
+                                </div>
+                                <div class="aih-row2">
+                                    <div class="aih-field">
+                                        <label class="aih-label" for="aihImgW">Rộng</label>
+                                        <select
+                                            class="aih-select"
+                                            id="aihImgW"
+                                            style="max-width: none"
+                                        >
+                                            <option value="768">768</option>
+                                            <option value="1024" selected>1024</option>
+                                            <option value="1280">1280</option>
+                                        </select>
+                                    </div>
+                                    <div class="aih-field">
+                                        <label class="aih-label" for="aihImgH">Cao</label>
+                                        <select
+                                            class="aih-select"
+                                            id="aihImgH"
+                                            style="max-width: none"
+                                        >
+                                            <option value="768">768</option>
+                                            <option value="1024" selected>1024</option>
+                                            <option value="1280">1280</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="aih-field" id="aihImgEditField" hidden>
+                                    <label class="aih-label"
+                                        >Ảnh gốc để sửa/ghép (Nano Banana)</label
+                                    >
+                                    <input type="file" id="aihImgFile" accept="image/*" />
+                                </div>
+                                <button class="aih-gen" id="aihImgGen">
+                                    <i data-lucide="wand-sparkles"></i> Tạo ảnh
+                                </button>
+                                <p class="aih-keyhint">
+                                    🟢 <b>Pollinations</b> free 100%, không cần key. Cloudflare
+                                    &amp; Gemini cần cấu hình key ở tab Quản lý key.
+                                </p>
+                            </div>
+                            <div class="aih-img-gallery" id="aihGallery"></div>
+                        </div>
+                    </section>
+
+                    <!-- ════════ QUẢN LÝ KEY ════════ -->
+                    <section class="aih-pane" data-pane="keys" hidden>
+                        <div class="aih-keys-wrap" id="aihKeys"></div>
+                    </section>
+                </div>
+            </main>
+        </div>
+
+        <script src="../../shared/js/notification-system.js?v=20260613a"></script>
+        <script src="../shared/web2-auth.js?v=20260621r7"></script>
+        <script src="../shared/web2-sidebar.js?v=20260623adm"></script>
+        <script src="../shared/popup.js?v=20260617a"></script>
+        <script src="./js/ai-hub.js?v=20260623a"></script>
+        <script src="./js/ai-chat.js?v=20260623a"></script>
+        <script src="./js/ai-image.js?v=20260623a"></script>
+        <script src="./js/ai-keys.js?v=20260623a"></script>
+        <script>
+            (function () {
+                if (window.Web2Sidebar) Web2Sidebar.mount('#web2Aside', { activeRoute: 'ai-hub' });
+                if (window.lucide) lucide.createIcons();
+                if (window.AiHub) AiHub.init();
+            })();
+        </script>
+    </body>
+</html>

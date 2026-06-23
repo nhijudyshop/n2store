@@ -1,0 +1,16 @@
+{
+    "_note": "Copy file này thành config.json rồi sửa. KHÔNG commit config.json (chứa secret).",
+
+    "renderBase": "https://chatomni-proxy.nhijudyshop.workers.dev",
+    "attendanceSecret": "ĐẶT_GIỐNG_WEB2_ATTENDANCE_SECRET_TRÊN_RENDER",
+
+    "proxyPort": 8081,
+
+    "device": {
+        "ip": "192.168.1.201",
+        "port": 4370,
+        "commKey": 0,
+        "timeoutMs": 10000
+    },
+    "pollMinutes": 5
+}

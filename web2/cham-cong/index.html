@@ -1,0 +1,92 @@
+<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 module — Chấm công (group Quản trị viên, admin-only). -->
+<!doctype html>
+<html lang="vi">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Chấm công — WEB 2.0</title>
+        <meta name="web2-db" content="render" />
+
+        <link rel="stylesheet" href="../shared/web2-sidebar.css?v=20260623pc" />
+        <link rel="stylesheet" href="../shared/web2-theme.css?v=20260622t6" />
+        <link rel="stylesheet" href="css/cham-cong.css?v=20260623a" />
+
+        <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
+        <script src="../../shared/js/notification-system.js?v=20260521b"></script>
+    </head>
+    <body>
+        <div class="web2-shell">
+            <aside class="web2-aside" id="web2Aside"></aside>
+            <main>
+                <div class="cc-main">
+                    <div class="cc-head">
+                        <div class="cc-head-titles">
+                            <h1><i data-lucide="fingerprint"></i> Chấm công</h1>
+                            <p>
+                                Quản lý giờ công, đi muộn, tăng ca và bảng lương từ máy chấm công
+                                DG-600.
+                            </p>
+                        </div>
+                        <div class="cc-head-actions">
+                            <div class="cc-month-nav">
+                                <button class="cc-btn cc-btn-icon" id="ccPrev" title="Tháng trước">
+                                    ‹
+                                </button>
+                                <input type="month" id="ccMonth" class="cc-month-input" />
+                                <button class="cc-btn cc-btn-icon" id="ccNext" title="Tháng sau">
+                                    ›
+                                </button>
+                            </div>
+                            <button
+                                class="cc-btn cc-btn-ghost"
+                                id="ccSyncBtn"
+                                title="Gửi lệnh đồng bộ tới máy"
+                            >
+                                <i data-lucide="refresh-ccw"></i> Đồng bộ máy
+                            </button>
+                            <button
+                                class="cc-btn cc-btn-ghost"
+                                id="ccImport"
+                                title="Nhập file Excel/TXT xuất từ máy"
+                            >
+                                <i data-lucide="upload"></i> Nhập Excel/TXT
+                            </button>
+                            <button class="cc-btn cc-btn-icon" id="ccReload" title="Tải lại">
+                                <i data-lucide="rotate-cw"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="cc-sync off" id="ccSync"></div>
+
+                    <div class="cc-tabs">
+                        <button class="cc-tab active" data-tab="timesheet">
+                            <i data-lucide="calendar-days"></i> Bảng công
+                        </button>
+                        <button class="cc-tab" data-tab="payroll">
+                            <i data-lucide="wallet"></i> Bảng lương
+                        </button>
+                        <button class="cc-tab" data-tab="employees">
+                            <i data-lucide="users"></i> Nhân viên
+                        </button>
+                    </div>
+
+                    <div id="ccBody" class="cc-body"></div>
+                </div>
+            </main>
+        </div>
+
+        <div id="ccModalMount"></div>
+        <input type="file" id="ccFile" accept=".xlsx,.xls,.txt,.csv,.dat" hidden />
+
+        <script src="../shared/web2-auth.js?v=20260621r7"></script>
+        <script src="../shared/web2-sidebar.js?v=20260623adm"></script>
+        <script src="../shared/web2-sse-bridge.js?v=20260622r9"></script>
+        <!-- Page app — load theo thứ tự phụ thuộc (app LAST) -->
+        <script src="js/cham-cong-salary.js?v=20260623a"></script>
+        <script src="js/cham-cong-api.js?v=20260623a"></script>
+        <script src="js/cham-cong-payroll.js?v=20260623a"></script>
+        <script src="js/cham-cong-employees.js?v=20260623a"></script>
+        <script src="js/cham-cong-app.js?v=20260623a"></script>
+    </body>
+</html>

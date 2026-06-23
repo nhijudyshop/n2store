@@ -139,6 +139,10 @@
             icon: 'wrench',
             children: [
                 {
+                    label: 'Trợ lý AI 🤖',
+                    our: '../web2/ai-hub/index.html',
+                },
+                {
                     label: 'Tăng số lượng comment',
                     our: '../web2/multi-tool/index.html',
                 },
@@ -346,6 +350,25 @@
                 },
             ],
         },
+        {
+            // Group CHỈ ADMIN — gating group-level (adminOnly) + server gate riêng
+            // (requireWeb2Admin) trên mọi route. Nhân viên không thấy group này.
+            label: 'Quản trị viên',
+            icon: 'shield',
+            adminOnly: true,
+            children: [
+                {
+                    label: 'Chấm công',
+                    icon: 'fingerprint',
+                    our: '../web2/cham-cong/index.html',
+                },
+                {
+                    label: 'Quản lý chi tiêu',
+                    icon: 'wallet',
+                    our: '../web2/chi-tieu/index.html',
+                },
+            ],
+        },
     ];
 
     // ---------- Helpers ----------
@@ -423,9 +446,12 @@
         'web2/video-maker/index.html',
         'web2/photo-editor/index.html',
         'web2/video-beauty/index.html',
+        'web2/ai-hub/index.html',
         'web2/users-permissions/index.html',
         'web2/system/index.html',
         'web2/zalo/index.html',
+        'web2/cham-cong/index.html',
+        'web2/chi-tieu/index.html',
     ]);
     function isWeb2Item(item) {
         if (!item || !item.our) return false;
@@ -482,6 +508,9 @@
     }
 
     function renderGroup(g, activeUrl) {
+        // Group-level admin gating — cả group ẩn nếu adminOnly và user không phải
+        // admin (mirror renderItem cho item-level). Server vẫn gate độc lập.
+        if (g.adminOnly && !_isAdmin()) return '';
         if (g.single) {
             const isImpl = isOurRoute(g);
             const href = isImpl ? resolveOur(g.our) : '#';

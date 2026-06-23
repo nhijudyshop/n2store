@@ -651,6 +651,7 @@ const web2OrderTagsRoutes = require('./routes/web2-order-tags'); // WEB2.0 — T
 const web2ElevenLabsRoutes = require('./routes/web2-elevenlabs'); // WEB2.0 — ElevenLabs TTS proxy (video-maker)
 const web2TtsProRoutes = require('./routes/web2-tts-pro'); // WEB2.0 — "Giọng AI Pro" TTS proxy (video-maker), tên trung tính giấu nhà cung cấp
 const web2TranslateRoutes = require('./routes/web2-translate'); // WEB2.0 — Dịch thuật dùng chung (LLM free + fallback Google)
+const web2AiRoutes = require('./routes/web2-ai'); // WEB2.0 — Trợ lý AI (chat free + tạo ảnh free, xoay nhiều key)
 const web2CampaignProductsRoutes = require('./routes/web2-campaign-products'); // WEB2.0 — SP trong chiến dịch livestream (TV board)
 const attendanceRoutes = require('./routes/attendance');
 const admsRoutes = require('./routes/adms');
@@ -795,6 +796,7 @@ app.use('/api/web2-order-tags', web2OrderTagsRoutes); // WEB2.0 — TAG đơn h�
 app.use('/api/web2-elevenlabs', web2ElevenLabsRoutes); // WEB2.0 — ElevenLabs TTS proxy (video-maker)
 app.use('/api/web2-tts-pro', web2TtsProRoutes); // WEB2.0 — "Giọng AI Pro" TTS proxy (video-maker), tên trung tính
 app.use('/api/web2-translate', web2TranslateRoutes); // WEB2.0 — Dịch thuật dùng chung
+app.use('/api/web2-ai', web2AiRoutes); // WEB2.0 — Trợ lý AI (chat free + tạo ảnh free, xoay nhiều key)
 app.use('/api/web2-campaign-products', web2CampaignProductsRoutes); // WEB2.0 — SP trong chiến dịch livestream (TV board)
 app.use('/api/web2-returns', web2ReturnsRoutes); // WEB2.0 — Thu về (goods return)
 app.use('/api/web2-variants', web2VariantsRoutes);
@@ -970,6 +972,32 @@ web2JtTrackingRoutes
     .ensureSchema(web2Pool || chatDbPool)
     .catch((e) => console.warn('[web2-jt-tracking] schema warn:', e.message));
 app.use('/api/web2-jt-tracking', web2JtTrackingRoutes);
+
+// WEB2.0 — Chấm công (group Quản trị viên, admin-only). Quản lý punch máy DG-600
+// (agent đẩy LAN 4370 / ADMS push / nhập Excel) + cấu hình lương + bảng lương.
+// Bảng web2_attendance_* (web2Db). SSE web2:attendance. Mount root-level.
+const web2AttendanceRoutes = require('./routes/web2-attendance');
+web2AttendanceRoutes.initializeNotifiers(web2RealtimeSseRoutes.notifyClients);
+web2AttendanceRoutes
+    .ensureSchema(web2Pool || chatDbPool)
+    .catch((e) => console.warn('[web2-attendance] schema warn:', e.message));
+app.use('/api/web2-attendance', web2AttendanceRoutes);
+
+// WEB2.0 — ADMS / iclock push cho máy DG-600 (text protocol, express.text riêng).
+// Agent ADMS proxy máy shop forward /iclock/* → /api/web2-attendance-adms/iclock/*.
+const web2AttendanceAdmsRoutes = require('./routes/web2-attendance-adms');
+web2AttendanceAdmsRoutes.initializeNotifiers(web2RealtimeSseRoutes.notifyClients);
+app.use('/api/web2-attendance-adms', web2AttendanceAdmsRoutes);
+
+// WEB2.0 — Quản lý chi tiêu / Sổ quỹ (group Quản trị viên, admin-only). Thu/chi,
+// quỹ, loại, nguồn, số dư, báo cáo, ảnh hoá đơn (bytea), lịch sử. Bảng
+// web2_cashbook_* (web2Db). SSE web2:cashbook. Mount root-level.
+const web2CashbookRoutes = require('./routes/web2-cashbook');
+web2CashbookRoutes.initializeNotifiers(web2RealtimeSseRoutes.notifyClients);
+web2CashbookRoutes
+    .ensureSchema(web2Pool || chatDbPool)
+    .catch((e) => console.warn('[web2-cashbook] schema warn:', e.message));
+app.use('/api/web2-cashbook', web2CashbookRoutes);
 
 // WEB2.0 — "Đăng bài Facebook": quản lý + soạn/đăng/lên lịch bài cho 2 page qua
 // Graph API (Pancake KHÔNG đăng được). Bảng web2_fb_post_tokens / web2_fb_posts

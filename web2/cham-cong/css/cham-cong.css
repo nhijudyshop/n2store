@@ -1,0 +1,684 @@
+/* #Note: WEB2.0 module — Chấm công (admin). Dùng token web2-theme.css. */
+
+.cc-main {
+    padding: 20px 22px 60px;
+    max-width: 100%;
+}
+.cc-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+}
+.cc-head-titles h1 {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    font-size: 22px;
+    font-weight: 800;
+    color: var(--web2-text);
+    margin: 0 0 4px;
+}
+.cc-head-titles h1 i {
+    width: 24px;
+    height: 24px;
+    color: var(--web2-primary);
+}
+.cc-head-titles p {
+    margin: 0;
+    color: var(--web2-text-3);
+    font-size: 13px;
+}
+.cc-head-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+/* Buttons */
+.cc-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: 1px solid var(--web2-border-btn);
+    background: #fff;
+    color: var(--web2-text-2);
+    border-radius: var(--web2-radius-sm);
+    padding: 8px 13px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s var(--web2-ease);
+}
+.cc-btn i {
+    width: 16px;
+    height: 16px;
+}
+.cc-btn:hover {
+    border-color: var(--web2-primary-soft-2);
+    background: var(--web2-primary-soft);
+    color: var(--web2-primary);
+}
+.cc-btn-primary {
+    background: var(--web2-primary);
+    border-color: var(--web2-primary);
+    color: #fff;
+}
+.cc-btn-primary:hover {
+    background: var(--web2-primary-hover);
+    border-color: var(--web2-primary-hover);
+    color: #fff;
+}
+.cc-btn-icon {
+    padding: 8px 10px;
+    font-size: 16px;
+    line-height: 1;
+}
+.cc-btn-ghost {
+    background: #fff;
+}
+
+.cc-month-nav {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: #fff;
+    border: 1px solid var(--web2-border-btn);
+    border-radius: var(--web2-radius-sm);
+    padding: 2px;
+}
+.cc-month-nav .cc-btn-icon {
+    border: 0;
+    padding: 6px 9px;
+}
+.cc-month-input {
+    border: 0;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--web2-text);
+    background: transparent;
+    padding: 4px 2px;
+}
+
+/* Sync strip */
+.cc-sync {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12.5px;
+    color: var(--web2-text-3);
+    padding: 9px 14px;
+    border-radius: var(--web2-radius-sm);
+    background: var(--web2-bg-light);
+    border: 1px solid var(--web2-border);
+    margin-bottom: 14px;
+}
+.cc-sync b {
+    color: var(--web2-text-2);
+}
+.cc-sync-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: var(--web2-text-faded);
+    flex: none;
+}
+.cc-sync.ok {
+    background: var(--web2-success-soft);
+    border-color: var(--web2-success-soft-2);
+}
+.cc-sync.ok .cc-sync-dot {
+    background: var(--web2-success);
+    box-shadow: 0 0 0 3px var(--web2-success-tint);
+}
+.cc-sync.off .cc-sync-dot {
+    background: var(--web2-text-faded);
+}
+.cc-sync-sep {
+    color: var(--web2-border);
+}
+.cc-sync-err {
+    color: var(--web2-danger);
+    font-weight: 700;
+    cursor: help;
+}
+
+/* Tabs */
+.cc-tabs {
+    display: flex;
+    gap: 4px;
+    border-bottom: 2px solid var(--web2-border);
+    margin-bottom: 16px;
+}
+.cc-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    border: 0;
+    background: transparent;
+    color: var(--web2-text-3);
+    padding: 10px 16px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    border-bottom: 3px solid transparent;
+    margin-bottom: -2px;
+    transition: all 0.15s var(--web2-ease);
+}
+.cc-tab i {
+    width: 17px;
+    height: 17px;
+}
+.cc-tab:hover {
+    color: var(--web2-text);
+}
+.cc-tab.active {
+    color: var(--web2-primary);
+    border-bottom-color: var(--web2-primary);
+}
+
+/* Empty */
+.cc-empty {
+    text-align: center;
+    padding: 50px 20px;
+    color: var(--web2-text-3);
+}
+.cc-empty p {
+    margin: 6px 0;
+}
+.cc-empty-hint {
+    font-size: 13px;
+    color: var(--web2-text-faded);
+}
+.cc-empty-sm {
+    color: var(--web2-text-faded);
+    font-size: 13px;
+    padding: 10px 0;
+}
+
+/* Grid wrap (horizontal scroll) */
+.cc-grid-wrap {
+    overflow-x: auto;
+    border: 1px solid var(--web2-border);
+    border-radius: var(--web2-radius);
+    background: #fff;
+    box-shadow: var(--web2-shadow-card);
+}
+
+/* Timesheet grid */
+.cc-grid {
+    border-collapse: collapse;
+    font-size: 12px;
+    min-width: 100%;
+}
+.cc-grid th,
+.cc-grid td {
+    border: 1px solid var(--web2-table-line-soft);
+    text-align: center;
+    padding: 0;
+}
+.cc-grid thead th {
+    background: var(--web2-bg-cell-head);
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    font-weight: 700;
+    color: var(--web2-text-3);
+}
+.cc-th-name {
+    text-align: left !important;
+    padding: 8px 12px !important;
+    position: sticky;
+    left: 0;
+    z-index: 3 !important;
+    min-width: 130px;
+    background: var(--web2-bg-cell-head);
+}
+.cc-th-day {
+    width: 42px;
+    min-width: 42px;
+    padding: 5px 0 !important;
+}
+.cc-th-day.sun {
+    color: var(--web2-danger);
+}
+.cc-th-day.today {
+    background: var(--web2-primary-soft);
+    color: var(--web2-primary);
+}
+.cc-d-num {
+    display: block;
+    font-size: 13px;
+    font-weight: 800;
+}
+.cc-d-wd {
+    display: block;
+    font-size: 9px;
+    opacity: 0.7;
+}
+.cc-th-sum {
+    min-width: 50px;
+}
+
+.cc-name {
+    text-align: left !important;
+    padding: 6px 12px !important;
+    font-weight: 600;
+    color: var(--web2-text-2);
+    position: sticky;
+    left: 0;
+    background: #fff;
+    z-index: 1;
+    white-space: nowrap;
+}
+.cc-grid tbody tr:nth-child(even) .cc-name {
+    background: var(--web2-table-zebra);
+}
+.cc-grid tbody tr:nth-child(even) td {
+    background: var(--web2-table-zebra);
+}
+.cc-cell {
+    height: 42px;
+    cursor: pointer;
+    position: relative;
+    font-size: 10.5px;
+    line-height: 1.15;
+    vertical-align: middle;
+}
+.cc-cell:hover {
+    outline: 2px solid var(--web2-primary);
+    outline-offset: -2px;
+    z-index: 1;
+}
+.cc-cell.sun {
+    background: #fff5f5;
+}
+.cc-cell.present {
+    background: var(--web2-success-soft);
+}
+.cc-cell.incomplete {
+    background: var(--web2-warning-soft);
+}
+.cc-cell.late {
+    box-shadow: inset 0 -3px 0 var(--web2-warning);
+}
+.cc-cell.ot {
+    box-shadow: inset 0 -3px 0 var(--web2-info);
+}
+.cc-cell.late.ot {
+    box-shadow:
+        inset 0 -3px 0 var(--web2-warning),
+        inset 3px 0 0 var(--web2-info);
+}
+.cc-cell.full {
+    background: var(--web2-primary-soft);
+}
+.cc-io {
+    font-weight: 600;
+    color: var(--web2-text-2);
+}
+.cc-full {
+    font-weight: 700;
+    color: var(--web2-primary);
+}
+.cc-badge {
+    display: block;
+    font-size: 8.5px;
+    font-weight: 700;
+    margin-top: 1px;
+}
+.cc-badge.late {
+    color: var(--web2-warning-hover);
+}
+.cc-badge.ot {
+    color: var(--web2-info-hover);
+}
+.cc-sum {
+    font-weight: 800;
+    color: var(--web2-primary);
+    background: var(--web2-primary-tint) !important;
+}
+
+.cc-legend {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-top: 12px;
+    font-size: 12px;
+    color: var(--web2-text-3);
+}
+.cc-legend span {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+.cc-legend .lg {
+    width: 13px;
+    height: 13px;
+    border-radius: 3px;
+    display: inline-block;
+}
+.lg.present {
+    background: var(--web2-success-soft);
+    border: 1px solid var(--web2-success);
+}
+.lg.late {
+    background: var(--web2-warning);
+}
+.lg.ot {
+    background: var(--web2-info);
+}
+.lg.incomplete {
+    background: var(--web2-warning-soft);
+    border: 1px solid var(--web2-warning);
+}
+.lg.full {
+    background: var(--web2-primary-soft);
+    border: 1px solid var(--web2-primary);
+}
+
+/* Payroll table */
+.cc-payroll,
+.cc-emp {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 13px;
+}
+.cc-payroll th,
+.cc-emp th {
+    background: var(--web2-bg-cell-head);
+    color: var(--web2-text-3);
+    font-weight: 700;
+    padding: 9px 10px;
+    text-align: left;
+    border-bottom: 2px solid var(--web2-table-line-strong);
+    white-space: nowrap;
+}
+.cc-payroll td,
+.cc-emp td {
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--web2-table-line);
+}
+.cc-payroll td.num,
+.cc-payroll th.num {
+    text-align: right;
+    white-space: nowrap;
+}
+.cc-payroll tbody tr:hover {
+    background: var(--web2-table-hover);
+}
+.cc-pl-name {
+    font-weight: 700;
+    color: var(--web2-text);
+}
+.cc-payroll .ot {
+    color: var(--web2-info-hover);
+}
+.cc-payroll .thuong {
+    color: var(--web2-success);
+}
+.cc-payroll .giam {
+    color: var(--web2-danger);
+}
+.cc-payroll .tong {
+    font-weight: 800;
+    color: var(--web2-text);
+}
+.cc-payroll .con.pos {
+    color: var(--web2-danger);
+    font-weight: 700;
+}
+.cc-payroll tfoot td {
+    background: var(--web2-bg-light);
+    font-weight: 800;
+    border-top: 2px solid var(--web2-table-line-strong);
+}
+.cc-pl-actions {
+    margin-top: 14px;
+}
+
+/* Employees config */
+.cc-emp-hint,
+.cc-emp .cc-emp-mname {
+    color: var(--web2-text-faded);
+    font-size: 12px;
+}
+.cc-emp-hint {
+    margin-bottom: 12px;
+    color: var(--web2-text-3);
+    font-size: 13px;
+}
+.cc-emp input,
+.cc-emp select {
+    border: 1px solid var(--web2-border-btn);
+    border-radius: 7px;
+    padding: 5px 8px;
+    font-size: 13px;
+    width: 100%;
+    box-sizing: border-box;
+}
+.cc-emp input.num {
+    width: 92px;
+    text-align: right;
+}
+.cc-emp input[type='time'] {
+    width: 92px;
+}
+.cc-emp-pin {
+    font-weight: 700;
+    white-space: nowrap;
+}
+.cc-emp-mname {
+    display: block;
+    font-weight: 400;
+}
+.cc-emp td.ctr {
+    text-align: center;
+}
+
+/* Modals */
+.cc-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.42);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    padding: 16px;
+}
+.cc-modal {
+    background: #fff;
+    border-radius: var(--web2-radius);
+    box-shadow: var(--web2-shadow-2);
+    width: 420px;
+    max-width: 100%;
+    max-height: 88vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+.cc-modal-lg {
+    width: 560px;
+}
+.cc-modal-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--web2-border);
+    font-size: 14px;
+}
+.cc-modal-body {
+    padding: 16px 18px;
+    overflow-y: auto;
+}
+.cc-modal-foot {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 12px 18px;
+    border-top: 1px solid var(--web2-border);
+}
+.cc-x {
+    border: 0;
+    background: transparent;
+    font-size: 18px;
+    cursor: pointer;
+    color: var(--web2-text-3);
+    line-height: 1;
+}
+.cc-pill {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-weight: 700;
+}
+.cc-pill.hol {
+    background: var(--web2-warning-soft);
+    color: var(--web2-warning-hover);
+}
+
+.cc-prow {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 10px;
+    border: 1px solid var(--web2-border);
+    border-radius: 8px;
+    margin-bottom: 6px;
+}
+.cc-ptime {
+    font-weight: 800;
+    font-size: 15px;
+    color: var(--web2-text);
+}
+.cc-ptype {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--web2-primary);
+}
+.cc-psrc {
+    font-size: 11px;
+    color: var(--web2-text-faded);
+    margin-left: auto;
+}
+.cc-pdel {
+    border: 0;
+    background: transparent;
+    color: var(--web2-danger);
+    cursor: pointer;
+    font-size: 13px;
+}
+.cc-add-punch {
+    display: flex;
+    gap: 8px;
+    margin: 12px 0;
+    flex-wrap: wrap;
+}
+.cc-add-punch input,
+.cc-add-punch select {
+    border: 1px solid var(--web2-border-btn);
+    border-radius: 7px;
+    padding: 6px 9px;
+    font-size: 13px;
+}
+.cc-check {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--web2-text-2);
+    cursor: pointer;
+    padding-top: 8px;
+    border-top: 1px dashed var(--web2-border);
+}
+
+/* Items editor (thưởng/giảm trừ/...) */
+.cc-item-group {
+    margin-bottom: 14px;
+}
+.cc-item-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--web2-text-2);
+    margin-bottom: 6px;
+}
+.cc-item-row {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 5px;
+}
+.cc-item-label {
+    flex: 1;
+}
+.cc-item-amount {
+    width: 120px;
+    text-align: right;
+}
+.cc-item-row input {
+    border: 1px solid var(--web2-border-btn);
+    border-radius: 7px;
+    padding: 6px 9px;
+    font-size: 13px;
+}
+.cc-item-del {
+    border: 0;
+    background: transparent;
+    color: var(--web2-danger);
+    cursor: pointer;
+}
+.cc-item-add {
+    padding: 3px 9px;
+    font-size: 12px;
+}
+.cc-overrides {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin: 6px 0 12px;
+}
+.cc-overrides label {
+    display: flex;
+    flex-direction: column;
+    font-size: 12px;
+    color: var(--web2-text-3);
+    gap: 3px;
+}
+.cc-overrides input {
+    width: 110px;
+    border: 1px solid var(--web2-border-btn);
+    border-radius: 7px;
+    padding: 6px 9px;
+    font-size: 13px;
+}
+.cc-note-lbl {
+    display: block;
+    font-size: 13px;
+    color: var(--web2-text-3);
+}
+.cc-note-lbl textarea {
+    width: 100%;
+    border: 1px solid var(--web2-border-btn);
+    border-radius: 7px;
+    padding: 8px;
+    font-size: 13px;
+    box-sizing: border-box;
+    margin-top: 4px;
+    resize: vertical;
+}
+
+@media (max-width: 760px) {
+    .cc-main {
+        padding: 14px 12px 50px;
+    }
+    .cc-head-actions {
+        width: 100%;
+    }
+}

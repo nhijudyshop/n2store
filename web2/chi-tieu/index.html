@@ -1,0 +1,100 @@
+<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | WEB2.0 module — Quản lý chi tiêu / Sổ quỹ (group Quản trị viên, admin-only). -->
+<!doctype html>
+<html lang="vi">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Quản lý chi tiêu — WEB 2.0</title>
+        <meta name="web2-db" content="render" />
+
+        <link rel="stylesheet" href="../shared/web2-sidebar.css?v=20260623pc" />
+        <link rel="stylesheet" href="../shared/web2-theme.css?v=20260622t6" />
+        <link rel="stylesheet" href="css/chi-tieu.css?v=20260623a" />
+
+        <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
+        <script src="../../shared/js/notification-system.js?v=20260521b"></script>
+    </head>
+    <body>
+        <div class="web2-shell">
+            <aside class="web2-aside" id="web2Aside"></aside>
+            <main>
+                <div class="ct-main">
+                    <div class="ct-head">
+                        <div class="ct-head-titles">
+                            <h1><i data-lucide="wallet"></i> Quản lý chi tiêu</h1>
+                            <p>
+                                Sổ quỹ: thu/chi, quỹ tiền mặt – ngân hàng – ví, số dư đầu/cuối kỳ,
+                                báo cáo.
+                            </p>
+                        </div>
+                        <div class="ct-head-actions">
+                            <button class="ct-btn ct-btn-in" id="ctNewReceipt">
+                                <i data-lucide="plus"></i> Phiếu thu
+                            </button>
+                            <button class="ct-btn ct-btn-out" id="ctNewCn">
+                                <i data-lucide="minus"></i> Chi cá nhân
+                            </button>
+                            <button class="ct-btn ct-btn-out" id="ctNewKd">
+                                <i data-lucide="minus"></i> Chi kinh doanh
+                            </button>
+                            <button class="ct-btn ct-btn-icon" id="ctReload" title="Tải lại">
+                                <i data-lucide="rotate-cw"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="ct-balance" id="ctBalance"></div>
+
+                    <div class="ct-tabs">
+                        <button class="ct-tab active" data-tab="list">
+                            <i data-lucide="list"></i> Phiếu
+                        </button>
+                        <button class="ct-tab" data-tab="report">
+                            <i data-lucide="bar-chart-3"></i> Báo cáo
+                        </button>
+                    </div>
+
+                    <div class="ct-filters">
+                        <label>Từ <input type="date" id="ctFStart" /></label>
+                        <label>Đến <input type="date" id="ctFEnd" /></label>
+                        <select id="ctFType">
+                            <option value="">Tất cả loại</option>
+                            <option value="receipt">Phiếu thu</option>
+                            <option value="payment_cn">Chi cá nhân</option>
+                            <option value="payment_kd">Chi kinh doanh</option>
+                        </select>
+                        <select id="ctFFund">
+                            <option value="">Tất cả quỹ</option>
+                            <option value="cash">Tiền mặt</option>
+                            <option value="bank">Ngân hàng</option>
+                            <option value="ewallet">Ví điện tử</option>
+                        </select>
+                        <select id="ctFStatus">
+                            <option value="paid">Đã thanh toán</option>
+                            <option value="cancelled">Đã huỷ</option>
+                            <option value="">Tất cả TT</option>
+                        </select>
+                        <input
+                            type="search"
+                            id="ctFSearch"
+                            placeholder="Tìm mã / loại / ghi chú / đối tượng…"
+                        />
+                    </div>
+
+                    <div id="ctBody" class="ct-body"></div>
+                    <div id="ctReportBody" class="ct-report-body" style="display: none"></div>
+                </div>
+            </main>
+        </div>
+
+        <div id="ctModalMount"></div>
+        <div id="ctModalMount2"></div>
+
+        <script src="../shared/web2-auth.js?v=20260621r7"></script>
+        <script src="../shared/web2-sidebar.js?v=20260623adm"></script>
+        <script src="../shared/web2-sse-bridge.js?v=20260622r9"></script>
+        <script src="js/chi-tieu-api.js?v=20260623a"></script>
+        <script src="js/chi-tieu-report.js?v=20260623a"></script>
+        <script src="js/chi-tieu-app.js?v=20260623a"></script>
+    </body>
+</html>
