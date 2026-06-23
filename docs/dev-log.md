@@ -2,6 +2,10 @@
 
 ## 2026-06-23
 
+### [fix] Zalo P3: TỰ LÀNH TK chính (auto-promote khi không/bị xoá) — bỏ hardcode seed key
+
+Audit prod (curl /status + /accounts qua admin token): TK chính **"Nhijudy Ơi" đã bị XOÁ khỏi web2Db** (chỉ còn "My Njd", `is_primary=false`). Với P1: `_primaryKey=null` → KHÔNG TK nào tự kết nối → **Zalo realtime tắt**. Lỗ hổng: seed schema **hardcode** `zca_7c8093f1…` (TK vừa bị xoá) → không phong được TK chính mới. Fix: seed generic (chọn TK active connected→recent→oldest); `_loadPrimaryKey` tự phong + `_connectAccount` khi no-primary (boot+60s); DELETE TK chính → `_loadPrimaryKey()` ngay. Self-healing.
+
 ### [fix] Zalo P2: chặn tự gia hạn nền (silent) cho TK phụ + dọn status stale lúc boot
 
 Verify prod sau deploy P1 (uptime 286s = đã chạy code mới): primary `connected`+`isPrimary` ✓ NHƯNG TK phụ vẫn `connected` (live session, connectedAt 59s SAU boot) → do **frontend bản cache cũ autoRenew** silent-reconnect TK phụ qua `login-cookie`. Watchdog mới KHÔNG nuôi nó (đúng) nhưng nó vẫn nối được 1 lần/lần mở trang.
