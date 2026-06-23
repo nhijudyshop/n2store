@@ -136,17 +136,11 @@
             label: 'Tính năng mới',
             icon: 'sparkles',
             children: [
-                { label: 'Dashboard KPI', our: '../web2/dashboard/index.html' },
                 { label: 'KPI Nhân viên', our: '../web2/kpi/index.html' },
                 { label: 'Thông báo', our: '../web2/notifications/index.html' },
-                { label: 'Lịch sử thao tác', our: '../web2/audit-log/index.html' },
-                { label: 'Đối soát CK', our: '../web2/ck-dashboard/index.html' },
-                { label: 'Zalo', our: '../web2/zalo/index.html' },
-                { label: 'Phân quyền', our: '../web2/users-permissions/index.html' },
-                {
-                    label: 'Cấu hình & Hệ thống',
-                    our: '../web2/system/index.html',
-                },
+                // 2026-06-24 reorg: Dashboard KPI → Báo cáo; Lịch sử thao tác + Cấu hình
+                // & Hệ thống → Cấu hình; Đối soát CK → Chuyển khoản KH; Zalo → Khách hàng;
+                // Phân quyền → gộp vào trang Người dùng (web2/users).
             ],
         },
         {
@@ -167,10 +161,6 @@
             label: 'Đa dụng Web 2.0',
             icon: 'wrench',
             children: [
-                {
-                    label: 'Tăng số lượng comment',
-                    our: '../web2/multi-tool/index.html',
-                },
                 {
                     label: 'Studio chụp tách nền',
                     our: '../web2/photo-studio/index.html',
@@ -230,14 +220,8 @@
                 // "Sổ Order" đã gỡ khỏi Sale Online (2026-06-22) — chỉ giữ 1 entry
                 // "Sổ Order NCC" bên group Mua hàng (cùng trang ../so-order/index.html).
                 { label: 'Live Chat', our: '../live-chat/index.html' },
-                // Panel chat Pancake tách thành trang riêng (2026-06-11) —
-                // live-chat/index.html giờ chỉ còn cột comment + capture.
-                { label: 'Chat Pancake', our: '../live-chat/chat.html' },
-                // Viewer comment livestream tối ưu ĐIỆN THOẠI (chỉ-xem) — 2026-06-14.
-                { label: 'Comment Live 📱', our: '../live-chat/comments-mobile.html' },
-                // TV livestream — số lượng live (tồn + chờ hàng + biến thể) 2026-06-21.
-                { label: 'Điều khiển TV 🎛️', our: '../web2/live-control/index.html' },
-                { label: 'TV Livestream 📺', our: '../web2/live-tv/index.html' },
+                // 2026-06-24 reorg: Chat Pancake → Khách hàng; Comment Live + Điều khiển
+                // TV + TV Livestream → Facebook.
             ],
         },
         {
@@ -256,6 +240,14 @@
                     label: 'Thống kê quảng cáo 💰',
                     our: '../web2/fb-ads-stats/index.html',
                 },
+                // 2026-06-24 reorg: chuyển từ Đa dụng / Sale Online sang đây.
+                {
+                    label: 'Tăng số lượng comment',
+                    our: '../web2/multi-tool/index.html',
+                },
+                { label: 'Comment Live 📱', our: '../live-chat/comments-mobile.html' },
+                { label: 'Điều khiển TV 🎛️', our: '../web2/live-control/index.html' },
+                { label: 'TV Livestream 📺', our: '../web2/live-tv/index.html' },
             ],
         },
         {
@@ -281,13 +273,15 @@
             ],
         },
         {
-            label: 'Tài chính',
+            label: 'Chuyển khoản KH',
             icon: 'dollar-sign',
             children: [
                 {
                     label: 'Lịch sử biến động số dư (SePay)',
                     our: '../web2/balance-history/index.html',
                 },
+                // 2026-06-24 reorg: Đối soát CK chuyển từ "Tính năng mới" sang đây.
+                { label: 'Đối soát CK', our: '../web2/ck-dashboard/index.html' },
             ],
         },
         {
@@ -302,6 +296,9 @@
                     label: 'Ví Khách Hàng',
                     our: '../web2/customer-wallet/index.html',
                 },
+                // 2026-06-24 reorg: Chat Pancake (live-chat/chat.html) + Zalo chuyển vào đây.
+                { label: 'Chat Pancake', our: '../live-chat/chat.html' },
+                { label: 'Zalo', our: '../web2/zalo/index.html' },
             ],
         },
         {
@@ -316,6 +313,8 @@
             label: 'Báo cáo',
             icon: 'bar-chart-3',
             children: [
+                // 2026-06-24 reorg: Dashboard KPI chuyển từ "Tính năng mới" sang đây.
+                { label: 'Dashboard KPI', our: '../web2/dashboard/index.html' },
                 {
                     label: 'Thống kê doanh thu',
                     our: '../web2/report-revenue/index.html',
@@ -364,6 +363,20 @@
                     icon: 'printer',
                     our: '../web2/printer-settings/index.html',
                     // Web 2.0-only — danh sách máy in + gán theo chức năng (PBH/tem).
+                },
+                // 2026-06-24 reorg: Lịch sử thao tác chuyển từ "Tính năng mới" sang đây.
+                {
+                    label: 'Lịch sử thao tác',
+                    icon: 'history',
+                    our: '../web2/audit-log/index.html',
+                },
+                // 2026-06-24 reorg: Cấu hình & Hệ thống chuyển vào đây + CHỈ ADMIN
+                // (item-level adminOnly → renderItem ẩn nếu không phải admin).
+                {
+                    label: 'Cấu hình & Hệ thống',
+                    icon: 'sliders-horizontal',
+                    our: '../web2/system/index.html',
+                    adminOnly: true,
                 },
             ],
         },
