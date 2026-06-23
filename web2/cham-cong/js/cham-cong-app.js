@@ -80,10 +80,56 @@
         return { start: days[0], end: days[days.length - 1], days };
     }
 
-    // ── Data load ──────────────────────────────────────────────────────────
+    // ── Smart cache (IndexedDB) — stale-while-revalidate ─────────────────────
+    // Render NGAY từ cache (load tức thì), rồi revalidate ngầm từ server + SSE.
+    // Cache theo tháng. Cùng pattern Web2*Cache của Web 2.0.
+    const cacheStore =
+        global.Web2IdbStore && global.Web2IdbStore.open
+            ? global.Web2IdbStore.open('cham_cong_cache')
+            : null;
+
+    // Dựng state từ 1 bộ kết quả thô (dùng cho cả cache-hydrate lẫn fetch mới).
+    function applyResults(r) {
+        state.deviceUsers = r.deviceUsers || [];
+        state.employees = r.employees || [];
+        const byUD = {};
+        for (const rec of r.records || []) {
+            byUD[rec.device_user_id] = byUD[rec.device_user_id] || {};
+            (byUD[rec.device_user_id][rec.date_key] =
+                byUD[rec.device_user_id][rec.date_key] || []).push(rec);
+        }
+        state.recordsByUserDate = byUD;
+        state.fulldaySet = new Set((r.fullday || []).map((x) => x.id));
+        state.holidaySet = new Set((r.holidays || []).map((x) => x.date_key));
+        const pById = {};
+        for (const p of r.payroll || []) pById[p.id] = p;
+        state.payrollById = pById;
+        state.sync = r.sync || null;
+    }
+
     async function loadAll() {
-        state.loading = true;
-        renderActive();
+        const mk = state.monthKey;
+        // 1) Hydrate tức thì từ cache (nếu có) → không hiện "Đang tải".
+        let hydrated = false;
+        if (cacheStore) {
+            try {
+                const c = await cacheStore.get('m_' + mk);
+                if (c && state.monthKey === mk) {
+                    applyResults(c);
+                    state.loading = false;
+                    renderActive();
+                    renderSyncStrip();
+                    hydrated = true;
+                }
+            } catch {
+                /* ignore cache lỗi */
+            }
+        }
+        if (!hydrated) {
+            state.loading = true;
+            renderActive();
+        }
+        // 2) Revalidate ngầm từ server.
         const { start, end } = monthRange();
         try {
             const [du, emp, rec, fd, hol, pay, sync] = await Promise.all([
@@ -92,27 +138,23 @@
                 Api.listRecords(start, end).catch(() => ({ items: [] })),
                 Api.listFullday().catch(() => ({ items: [] })),
                 Api.listHolidays().catch(() => ({ items: [] })),
-                Api.getPayroll(state.monthKey).catch(() => ({ items: [] })),
+                Api.getPayroll(mk).catch(() => ({ items: [] })),
                 Api.getSyncStatus().catch(() => ({ status: null })),
             ]);
-            state.deviceUsers = du.items || [];
-            state.employees = emp.users || [];
-            // group records
-            const byUD = {};
-            for (const r of rec.items || []) {
-                byUD[r.device_user_id] = byUD[r.device_user_id] || {};
-                (byUD[r.device_user_id][r.date_key] =
-                    byUD[r.device_user_id][r.date_key] || []).push(r);
-            }
-            state.recordsByUserDate = byUD;
-            state.fulldaySet = new Set((fd.items || []).map((x) => x.id));
-            state.holidaySet = new Set((hol.items || []).map((x) => x.date_key));
-            const pById = {};
-            for (const p of pay.items || []) pById[p.id] = p;
-            state.payrollById = pById;
-            state.sync = sync.status || null;
+            if (state.monthKey !== mk) return; // user đã đổi tháng giữa chừng
+            const results = {
+                deviceUsers: du.items || [],
+                employees: emp.users || [],
+                records: rec.items || [],
+                fullday: fd.items || [],
+                holidays: hol.items || [],
+                payroll: pay.items || [],
+                sync: sync.status || null,
+            };
+            applyResults(results);
+            if (cacheStore) cacheStore.set('m_' + mk, results).catch(() => {});
         } catch (e) {
-            toast('Lỗi tải dữ liệu: ' + e.message, 'error');
+            if (!hydrated) toast('Lỗi tải dữ liệu: ' + e.message, 'error');
         }
         state.loading = false;
         renderActive();

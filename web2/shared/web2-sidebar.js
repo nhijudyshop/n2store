@@ -321,10 +321,6 @@
                     // Web 2.0-only — bật/tắt trang server tự lấy comment livestream.
                 },
                 {
-                    label: 'Người dùng (Web 2.0)',
-                    our: '../web2/users/index.html',
-                },
-                {
                     label: 'Pancake (Token)',
                     icon: 'key-round',
                     our: '../web2/pancake-settings/index.html',
@@ -366,6 +362,11 @@
                     label: 'Quản lý chi tiêu',
                     icon: 'wallet',
                     our: '../web2/chi-tieu/index.html',
+                },
+                {
+                    label: 'Người dùng',
+                    icon: 'user-cog',
+                    our: '../web2/users/index.html',
                 },
             ],
         },
@@ -530,17 +531,11 @@
         const open = (g.children || []).some(
             (c) => isOurRoute(c) && activeUrl && activeUrl.endsWith(c.our.replace(/^(\.\.\/)+/, ''))
         );
-        // Badge số trang Web 2.0 trong group — hiển thị bên cạnh chevron để user
-        // biết group nào có page có code thật mà không cần expand.
-        const web2Count = (g.children || []).filter(isWeb2Item).length;
-        const web2Badge = web2Count
-            ? ` <span class="web2-nav-w2badge" title="${web2Count} trang Web 2.0 có code thật">${web2Count}</span>`
-            : '';
         return `
             <div class="web2-nav-group${open ? ' is-open' : ''}">
                 <div class="web2-nav-group-head" onclick="Web2Sidebar.onGroupHead(this)">
                     <i data-lucide="${g.icon}" class="icon"></i>
-                    <span class="label">${escapeHtml(g.label)}${hasOurChild ? '' : ' <span class="web2-nav-soon">soon</span>'}${web2Badge}</span>
+                    <span class="label">${escapeHtml(g.label)}${hasOurChild ? '' : ' <span class="web2-nav-soon">soon</span>'}</span>
                     <i data-lucide="chevron-right" class="caret"></i>
                 </div>
                 <ul class="web2-nav-sub">
