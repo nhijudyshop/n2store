@@ -665,7 +665,7 @@ router.post('/accounts/:key/reconnect', async (req, res) => {
 router.post('/accounts/:key/login-cookie', async (req, res) => {
     try {
         const db = getDb(req);
-        const { cookie, imei, userAgent } = req.body || {};
+        const { cookie, imei, userAgent, silent } = req.body || {};
         if (!cookie || !imei || !userAgent)
             return res
                 .status(400)
@@ -679,6 +679,16 @@ router.post('/accounts/:key/login-cookie', async (req, res) => {
             return res
                 .status(400)
                 .json({ success: false, error: 'Chỉ tài khoản cá nhân mới đăng nhập kiểu này' });
+        // Tự gia hạn NỀN (silent) chỉ cho TK CHÍNH — chặn frontend (kể cả bản cache cũ)
+        // tự kết nối lại TK phụ "refresh liên tục". Đăng nhập TAY (silent=false) vẫn nối được.
+        if (silent && req.params.key !== _primaryKey) {
+            return res.json({
+                success: true,
+                skipped: true,
+                reason: 'not_primary',
+                message: 'TK phụ — không tự kết nối nền (đặt làm chính nếu muốn giữ kết nối)',
+            });
+        }
         const creds = { cookie, imei, userAgent, language: 'vi' };
         const r = await zca.loginWithCredentials(
             req.params.key,
@@ -2361,6 +2371,16 @@ async function restoreSessions() {
         // hoặc data legacy plaintext). Bản copy mới — KHÔNG mutate row gốc.
         const decrypted = rows.map((r) => ({ ...r, session: secretCrypto.decryptJson(r.session) }));
         await zca.restoreAll(decrypted);
+        // Dọn trạng thái cũ: TK phụ KHÔNG được restore lúc boot → nếu DB còn 'connected'
+        // (stale từ instance trước) thì set 'disconnected' cho đúng thực tế (không listener).
+        await _pool
+            .query(
+                `UPDATE web2_zalo_accounts SET status='disconnected', updated_at=$1
+                 WHERE account_type='personal' AND is_primary=false
+                   AND status IN ('connected','connecting','reconnecting')`,
+                [now()]
+            )
+            .catch(() => {});
     } catch (e) {
         console.warn('[WEB2-ZALO] restoreSessions failed:', e.message);
     }

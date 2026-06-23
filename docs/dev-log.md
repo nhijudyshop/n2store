@@ -2,6 +2,17 @@
 
 ## 2026-06-23
 
+### [fix] Zalo P2: chặn tự gia hạn nền (silent) cho TK phụ + dọn status stale lúc boot
+
+Verify prod sau deploy P1 (uptime 286s = đã chạy code mới): primary `connected`+`isPrimary` ✓ NHƯNG TK phụ vẫn `connected` (live session, connectedAt 59s SAU boot) → do **frontend bản cache cũ autoRenew** silent-reconnect TK phụ qua `login-cookie`. Watchdog mới KHÔNG nuôi nó (đúng) nhưng nó vẫn nối được 1 lần/lần mở trang.
+
+Defense-in-depth (P2):
+
+- Frontend `loginZaloCookie(key, silent)` gửi `silent` xuống `login-cookie`; nhận `skipped` → bỏ qua.
+- Route `login-cookie`: `silent && key !== _primaryKey` → **từ chối** (`{skipped, reason:'not_primary'}`). Frontend cache cũ cũng KHÔNG tự nối TK phụ được nữa. Đăng nhập TAY (silent=false) vẫn nối TK phụ 1 lần.
+- `restoreSessions` boot: set `status='disconnected'` cho TK phụ personal còn 'connected/connecting/reconnecting' stale (không listener thật).
+- Bump `?v=20260623pri2`.
+
 ### [fix+feat] Zalo: CHỈ TK chính tự kết nối + giữ kết nối (bỏ "refresh kết nối liên tục" cho TK phụ)
 
 User: đặt TK nào làm chính thì mới kết nối TK đó, không refresh liên tục. Audit toàn bộ vòng đời kết nối Zalo → trước đây **mọi** TK cá nhân đều auto-restore lúc boot + watchdog keepAlive + auto-reconnect mọi close code → 2 TK đều "đấu" kết nối liên tục.

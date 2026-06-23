@@ -258,7 +258,15 @@
             return false;
         }
         const { cookie, imei, userAgent } = r.data;
-        await window.ZaloApi.loginCookie(key, { cookie, imei, userAgent });
+        // silent (tự gia hạn nền) → backend từ chối nếu KHÔNG phải TK chính (chỉ TK
+        // chính được tự kết nối). Đăng nhập tay (silent=false) vẫn nối TK phụ được.
+        const res = await window.ZaloApi.loginCookie(key, {
+            cookie,
+            imei,
+            userAgent,
+            silent: !!silent,
+        });
+        if (res && res.skipped) return false; // TK phụ — bỏ qua tự gia hạn nền
         if (!silent) notify('Đăng nhập Zalo thành công — đang kết nối…', 'success');
         setTimeout(loadAccounts, 1500);
         return true;
