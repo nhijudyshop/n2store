@@ -2,6 +2,14 @@
 
 ## 2026-06-23
 
+### [fix] Đồng bộ quick-refund cap amount theo cost so-order (đóng nốt class bug #2 trên cả 2 đường hoàn NCC)
+
+User chốt làm + nhắc rõ: **COD giảm trong "Sửa COD shipper" (web2-returns van_de_shipper) là số NHÂN VIÊN nhập tay → giữ free-form, KHÔNG cap** (ví KHÁCH, tiền trả shipper/trừ công nợ, quyết theo ca). Chỉ cap ví **NCC** (hoàn hàng = giá nhập). 2 path tách biệt.
+
+Fix `purchase-refund.js /quick-refund` (commit `45530fad2`): cũ cap amount theo `Σ(qty×price)` với `price` CLIENT gửi trong products → thổi giá → cap vô dụng (giống bug `/tx` đã fix). Thêm tầng cap server-authoritative: đổi import `loadSoOrderReceivedQtyMap`→`loadSoOrderReceivedMap`, sau BEGIN load soMap 1 lần (tái dùng cho qty-cap), cap `amount ≤ Σ(rowReturns[rid].qty × costVnd)` khi MỌI rid tra được cost (cho hoàn ít hơn, chặn phồng); per-row `returned_row_ids.amount` cũng cap. Thiếu cost → giữ flow cũ. Browser-test: quick-refund products qty2 × price **9999999** (cost thật 100000) → ledger mint **cap 200000** (không phải ~20tr); trừ kho đúng 2; qty-cap regression vẫn OK. State sạch (so-order tab xoá, HNAO3=50, 0 lỗi).
+
+→ Giờ CẢ `/tx` (Ví NCC modal) LẪN `/quick-refund` (Phiếu hoàn) đều cap amount theo cost so-order. Ví KHÁCH (Sửa COD) vẫn nhập tay.
+
 ### [fix] Browser-test tương tác (user thật) bắt + fix 2 bug money/stock: over-restock partial + /tx mint ledger NCC
 
 User "1 và 2 cứ browser test tương tác như user thật rồi debug code fix". Cả 2 đều: demo bug qua browser → fix code → deploy → re-test verify.
