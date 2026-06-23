@@ -2,6 +2,29 @@
 
 ## 2026-06-23
 
+### [feat+refactor] Ảnh dùng chung 1 nguồn: Web2ImagePaste (nhập) + Web2ImageLightbox click-phóng-to + hover-zoom
+
+**Audit toàn bộ chỗ import/hiển thị ảnh Web 2.0** (2 explore agent song song) → gom về module chung.
+
+**🆕 `web2/shared/web2-image-paste.js` (`window.Web2ImagePaste`)** — ô NHẬP ẢNH dùng chung:
+
+- `mount(target, opts)` → AREA: **bấm chọn file** + **kéo-thả** + **DÁN ảnh (Ctrl+V)** (hover/focus area → armed → document paste route vào, không cần bấm trước) + nén qua `Web2CanvasUtils` (mặc định JPEG ≤1600px) + dải thumbnail preview (xoá ×, click phóng to qua lightbox). Trả callback `onChange(items)`.
+- Tiện ích tĩnh cho trang chỉ cần nén (chat/zalo/ai-hub): `compress()`, `imagesFromClipboard()`, `imagesFromDataTransfer()`.
+- Verified: 2400×1800 PNG → JPEG 1600×1200 (giữ tỉ lệ) + blob, area mount OK, 0 error.
+
+**♻️ `web2-image-lightbox.js` — thêm CLICK PHÓNG TO catch-all + con trỏ zoom-in** (bump `?v=20260623a`):
+
+- Mọi `<img>` nội dung trong khung Web 2.0 (`.web2-shell`/`body.web2-theme`) → click mở lightbox, hover hiện con trỏ `zoom-in`. Bỏ qua an toàn: icon/avatar <56px, ảnh trong `a`/`button`/`[onclick]`/sidebar, thumb của thumbStrip & Web2ImagePaste, opt-out `data-w2-no-zoom`/`data-w2-no-lightbox`; tôn trọng `e.defaultPrevented` (không cướp handler trang). Đọc `data-full` để mở ảnh gốc to. Gom ảnh anh em trong cùng bảng/gallery cho prev/next.
+- Verified trên products: nhận diện ảnh nội dung, hover→zoom-in, click→lightbox mở + set src.
+
+**🔌 Auto-load qua `web2-sidebar.js`** (mọi trang Web 2.0): thêm `web2-canvas-utils` + `web2-image-paste` + `web2-effects` (HOVER ZOOM ảnh — trước chỉ 3/51 trang load) cạnh `web2-image-lightbox`. → 1 cặp module chung: hover-zoom + click-phóng-to có mặt mọi trang, 0 sửa HTML từng trang.
+
+**Consumer migrate (gom về 1 nguồn):**
+
+- `chi-tieu`: ô ảnh hoá đơn dùng `Web2ImagePaste` (xoá `readCompressed` cục bộ); 🧾 cột ảnh đổi từ mở-tab-mới → lightbox (`data-w2lb-url`); bump `?v=20260623c`.
+- `chat-panel` (compose): ảnh chat bấm → lightbox dùng chung (thay `window.open` tab mới) + preventDefault.
+- `purchase-refund`: `openImageLightbox` delegate sang `Web2ImageLightbox` (giữ fallback overlay cũ).
+
 ### [feat] users: hiện mật khẩu (AES 2 chiều, trừ admin) + username cho 2 ký tự — và cham-cong: scroll + Lưu tất cả + ẩn NV chưa gán
 
 **1. Username cho phép 2 ký tự** (`render.com/routes/web2-users.js` + `web2/users/index.html`): regex `validateUsername` `{3,40}`→`{2,40}` + message + hint frontend "2-40 ký tự".
