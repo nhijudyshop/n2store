@@ -12,14 +12,26 @@ Collector nay doc may DG-600 1 LAN roi day song song len CA 2 backend doc lap:
 2 backend KHONG share DB/bang — chi la 2 HTTP POST rieng. Loi phia Web 2.0 duoc NUOT
 (log + bo qua) nen KHONG bao gio anh huong luong Web 1.0.
 
-**Bat dual-push** (1 trong 2 cach):
+### ✅ Cach de nhat — bam 1 file bat (TURNKEY)
+
+**Bam dup `cai-dat-tu-dong.bat`** (1 lan). No tu lam HET:
+
+1. Kiem tra Node.js + cai dep.
+2. Hoi dan **secret Web 2.0** -> ghi `web2-config.json` (Enter de bo qua neu dung ADMS).
+3. **Tu nhan biet** che do dang chay (ZK pull / ADMS) de KHONG tao collector thu 2.
+4. Dang ky **tu chay khi bat may** (Startup VBS, chay AN cua so) + chay ngay bay gio.
+
+Day du lieu sang **CA Web 1.0 va Web 2.0**. Tat: `go-tu-dong.bat`.
+
+### Hoac bat thu cong (neu khong dung turnkey)
 
 1. **File config** (khuyen dung): copy `web2-config.example.json` -> `web2-config.json`, dan
    `attendanceSecret` GIONG `WEB2_ATTENDANCE_SECRET` tren Render. (file da gitignore.)
 2. **Env**: dat `WEB2_ATTENDANCE_SECRET` (+ tuy chon `WEB2_ATTENDANCE_API_URL`).
 
 Thieu secret -> tu TAT phan Web 2.0 (no-op), Web 1.0 chay binh thuong. Bat xong: log moi sync
-se co dong `web2 uploaded: N`. -> KHONG can chay agent rieng trong `web2-attendance-sync/`.
+se co dong `web2 uploaded: N` (ZK) hoac `Web2 ADMS: 200` (ADMS).
+-> KHONG can chay agent rieng trong `web2-attendance-sync/`.
 
 > Vi may DG-600 chi cho ~1 ket noi cung luc, CHI chay 1 collector (file nay). Dung chay them
 > agent trong `web2-attendance-sync/` song song -> tranh ket noi.
@@ -105,18 +117,22 @@ Giao thuc push HTTP cua ZKTeco. May chu dong day du lieu len server, khong can P
 
 ## Thu muc attendance-sync/
 
-| File              | Mo ta                                                  |
-| ----------------- | ------------------------------------------------------ |
-| `adms-proxy.js`   | **DANG DUNG** - Proxy HTTP→HTTPS, forward may → Render |
-| `setup-adms.bat`  | Cai dat proxy: kill cu, tao autostart, chay background |
-| `zk.js`           | [Legacy] ZK binary protocol (TCP/UDP)                  |
-| `index.js`        | [Legacy] Sync service qua ZK protocol                  |
-| `api.js`          | [Legacy] Upload du lieu len Render API                 |
-| `test.js`         | Test ket noi may qua ZK protocol                       |
-| `diagnose.js`     | Chan doan raw data tu may                              |
-| `find-commkey.js` | Tim CommKey may cham cong                              |
-| `setup.bat`       | [Legacy] Setup cho ZK protocol                         |
-| `stop.bat`        | Dung service                                           |
+| File                       | Mo ta                                                             |
+| -------------------------- | ----------------------------------------------------------------- |
+| `cai-dat-tu-dong.bat`      | **TURNKEY** - bam 1 lan: cau hinh + auto-start + chay (dual-push) |
+| `go-tu-dong.bat`           | Tat cham cong tu dong (go startup + dung tien trinh)              |
+| `web2-push.js`             | Forwarder day THEM sang Web 2.0 (/api/web2-attendance)            |
+| `web2-config.example.json` | Mau config Web 2.0 (copy -> web2-config.json, dan secret)         |
+| `adms-proxy.js`            | Proxy HTTP→HTTPS, forward may → Render + mirror Web 2.0           |
+| `setup-adms.bat`           | Cai dat proxy ADMS: kill cu, tao autostart, chay background       |
+| `zk.js`                    | ZK binary protocol (TCP/UDP)                                      |
+| `index.js`                 | Sync service qua ZK protocol (dual-push Web 1.0 + Web 2.0)        |
+| `api.js`                   | Upload du lieu len Render API (Web 1.0)                           |
+| `test.js`                  | Test ket noi may qua ZK protocol                                  |
+| `diagnose.js`              | Chan doan raw data tu may                                         |
+| `find-commkey.js`          | Tim CommKey may cham cong                                         |
+| `setup.bat`                | Setup ZK protocol (auto-start index.js)                           |
+| `stop.bat`                 | Dung service                                                      |
 
 ## Database (PostgreSQL - Render)
 

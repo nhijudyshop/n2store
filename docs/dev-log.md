@@ -2,6 +2,15 @@
 
 ## 2026-06-23
 
+### [feat] cham-cong: file bat TURNKEY auto-everything cho collector (như Web 1.0 setup.bat)
+
+User muốn 1 bat chạy là auto hết (như Web 1.0). Thêm vào `attendance-sync/`:
+
+- **`cai-dat-tu-dong.bat`**: bấm 1 lần → check Node + npm install → hỏi/ghi secret Web 2.0 (`web2-config.json`, Enter bỏ qua nếu ADMS) → **tự nhận biết mode** (có `adms-proxy.vbs` trong Startup = ADMS, không thì ZK pull) để KHÔNG tạo collector thứ 2 → kill instance cũ → tạo Startup VBS (chạy ẩn khi đăng nhập) → chạy ngay. Dual-push cả Web 1.0 + Web 2.0.
+- **`go-tu-dong.bat`**: gỡ cả 2 Startup VBS + kill tiến trình.
+- README cập nhật mục "Cách dễ nhất — bấm 1 file bat" + bảng file.
+- Idempotent: re-run thay thế Startup VBS (kill old trước), không double collector. ⚠ Artifact Windows, chưa test trên Mac.
+
 ### [refactor] cham-cong: DUAL-PUSH từ collector Web 1.0 (1 máy/1 kết nối DG-600 → cả 2 backend), bỏ agent Web 2.0 riêng
 
 User chỉ ra: Web 1.0 đã chạy sẵn collector chấm công trên 1 máy shop → agent Web 2.0 riêng (`web2-attendance-sync/`) là collector THỨ HAI tranh kết nối cùng máy DG-600 (máy chỉ ~1 kết nối/lúc). Gom về 1 collector dual-push:
