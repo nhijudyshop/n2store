@@ -187,6 +187,10 @@
             'display:flex;align-items:center;justify-content:center;padding:0;}',
             '.w2ip-thumb .w2ip-del:hover{background:#dc2626;}',
             '.w2ip-busy{font-size:12px;color:#6366f1;display:flex;align-items:center;gap:6px;}',
+            // enhance(): highlight khi kéo-thả + hint chip cạnh input gốc.
+            '.w2ip-enh-drag{outline:2px dashed #6366f1;outline-offset:3px;border-radius:8px;',
+            'background:rgba(99,102,241,.06);}',
+            '.w2ip-enh-hint{font-size:11px;color:#94a3b8;margin-top:5px;line-height:1.4;}',
         ].join('');
         document.head.appendChild(st);
     }
@@ -452,6 +456,111 @@
         return ctrl;
     }
 
+    // ── enhance(input) — nâng cấp 1 <input type=file> SẴN CÓ để cũng nhận
+    // DÁN (Ctrl+V) + kéo-thả, GIỮ nút "Chọn file" gốc. Dùng cho trang đã có
+    // file input + handler riêng (ai-hub, video-maker, fb-posts, photo-studio…):
+    // chỉ thêm 1 dòng gọi, KHÔNG đổi handler — ảnh dán/thả được BƠM vào
+    // input.files + dispatch 'change' → handler sẵn có chạy như chọn file.
+    //   enhance(target, { dropZone, onFiles, hint, hintText, hintInto, onError })
+    function enhance(target, opts) {
+        opts = opts || {};
+        _ensureCss();
+        var input = typeof target === 'string' ? document.querySelector(target) : target;
+        if (!input) return { detach: function () {} };
+        if (input.__w2ipEnhanced) return input.__w2ipEnhanced;
+        var zone = opts.dropZone
+            ? typeof opts.dropZone === 'string'
+                ? document.querySelector(opts.dropZone)
+                : opts.dropZone
+            : input.closest('label') || input.parentElement || input;
+        if (!zone) zone = input;
+        var multiple = !!input.multiple;
+        var hintEl = null;
+
+        function deliver(files) {
+            var list = multiple ? files : files.slice(0, 1);
+            if (!list.length) return;
+            if (typeof opts.onFiles === 'function') {
+                opts.onFiles(list);
+                return;
+            }
+            // Bơm vào input.files + dispatch change → handler sẵn có của trang chạy.
+            try {
+                var dt = new DataTransfer();
+                list.forEach(function (f) {
+                    dt.items.add(f);
+                });
+                input.files = dt.files;
+                input.dispatchEvent(new Event('change', { bubbles: true }));
+            } catch (e) {
+                _notify(
+                    opts.onError,
+                    'Trình duyệt không bơm được ảnh dán — dùng nút chọn file',
+                    'warning'
+                );
+            }
+        }
+        function onDragOver(e) {
+            e.preventDefault();
+            zone.classList.add('w2ip-enh-drag');
+        }
+        function onDragLeave() {
+            zone.classList.remove('w2ip-enh-drag');
+        }
+        function onDrop(e) {
+            e.preventDefault();
+            zone.classList.remove('w2ip-enh-drag');
+            deliver(imagesFromDataTransfer(e.dataTransfer));
+        }
+        var sink = { element: zone, addFiles: deliver };
+        function arm() {
+            _armed = sink;
+        }
+        function disarm() {
+            if (_armed === sink) _armed = null;
+        }
+
+        zone.addEventListener('dragover', onDragOver);
+        zone.addEventListener('dragenter', onDragOver);
+        zone.addEventListener('dragleave', onDragLeave);
+        zone.addEventListener('drop', onDrop);
+        zone.addEventListener('mouseenter', arm);
+        zone.addEventListener('mouseleave', disarm);
+        input.addEventListener('focus', arm);
+        input.addEventListener('blur', disarm);
+
+        if (opts.hint !== false) {
+            hintEl = document.createElement('div');
+            hintEl.className = 'w2ip-enh-hint';
+            hintEl.textContent =
+                '📋 ' + (opts.hintText || 'hoặc DÁN ảnh (Ctrl+V) / kéo-thả vào đây');
+            var into = opts.hintInto
+                ? typeof opts.hintInto === 'string'
+                    ? document.querySelector(opts.hintInto)
+                    : opts.hintInto
+                : zone;
+            if (into) into.appendChild(hintEl);
+        }
+
+        var handle = {
+            detach: function () {
+                zone.removeEventListener('dragover', onDragOver);
+                zone.removeEventListener('dragenter', onDragOver);
+                zone.removeEventListener('dragleave', onDragLeave);
+                zone.removeEventListener('drop', onDrop);
+                zone.removeEventListener('mouseenter', arm);
+                zone.removeEventListener('mouseleave', disarm);
+                input.removeEventListener('focus', arm);
+                input.removeEventListener('blur', disarm);
+                if (hintEl && hintEl.parentNode) hintEl.parentNode.removeChild(hintEl);
+                disarm();
+                delete input.__w2ipEnhanced;
+            },
+        };
+        input.__w2ipEnhanced = handle;
+        return handle;
+    }
+
     // Document-level paste → route vào area đang "armed" (hover/focus) nếu ô
     // đó không tự nuốt sự kiện (vd con trỏ ở body). 1 listener toàn cục.
     document.addEventListener('paste', function (e) {
@@ -470,6 +579,7 @@
 
     global.Web2ImagePaste = {
         mount: mount,
+        enhance: enhance,
         compress: compress,
         imagesFromClipboard: imagesFromClipboard,
         imagesFromDataTransfer: imagesFromDataTransfer,

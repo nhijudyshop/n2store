@@ -114,6 +114,18 @@
         el.switchCam.addEventListener('click', PS.switchCamera);
         el.capture.addEventListener('click', PS.capture);
         el.sourceFile.addEventListener('change', PS.onSourceFile);
+        // DÁN (Ctrl+V) / kéo-thả ảnh — module ảnh chung. Ảnh nguồn dán thẳng
+        // lên khung dàn; nền/logo/batch dán khi rê chuột vào vùng tương ứng.
+        if (window.Web2ImagePaste?.enhance) {
+            window.Web2ImagePaste.enhance(el.sourceFile, {
+                dropZone: '#psStage',
+                hintInto: '#psStageEmpty',
+                hintText: 'hoặc dán ảnh (Ctrl+V) / kéo-thả vào đây',
+            });
+            window.Web2ImagePaste.enhance(el.bgFile, { hint: false });
+            window.Web2ImagePaste.enhance(el.logoFile, { hint: false });
+            window.Web2ImagePaste.enhance(el.batchFile, { hint: false });
+        }
         el.optionsToggle.addEventListener('click', PS.openSheet);
         el.reviewOptions.addEventListener('click', PS.openSheet);
         el.sheetClose.addEventListener('click', PS.closeSheet);

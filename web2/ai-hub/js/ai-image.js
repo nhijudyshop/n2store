@@ -65,6 +65,13 @@
                 rd.onload = () => (editImageData = rd.result);
                 rd.readAsDataURL(f);
             });
+        // Cho phép DÁN (Ctrl+V) / kéo-thả ảnh — dùng module ảnh chung.
+        if (global.Web2ImagePaste?.enhance) {
+            global.Web2ImagePaste.enhance('#aihImgFile', {
+                dropZone: '#aihImgEditField',
+                hintText: 'hoặc dán ảnh (Ctrl+V) / kéo-thả vào đây để sửa/ghép',
+            });
+        }
     }
 
     function onShow() {

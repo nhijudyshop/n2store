@@ -1349,6 +1349,12 @@
             if (e.target.files?.length) addImagesFromFiles([...e.target.files]);
             e.target.value = '';
         });
+        // DÁN (Ctrl+V) / kéo-thả ảnh vào khu "Nguồn" — module ảnh chung.
+        window.Web2ImagePaste?.enhance?.('#vmAdd', {
+            dropZone: '.vm-upload',
+            hintInto: '.vm-row',
+            hintText: 'hoặc dán (Ctrl+V) / kéo-thả ảnh vào đây',
+        });
         $('#vmPlay')?.addEventListener('click', play);
         $('#vmStop')?.addEventListener('click', stop);
         $('#vmGenVoice')?.addEventListener('click', genNarration);

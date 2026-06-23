@@ -226,6 +226,11 @@
                 upload: document.getElementById('fbpMedUpload'),
             }
         );
+        // DÁN (Ctrl+V) / kéo-thả ảnh vào thanh media — module ảnh chung.
+        window.Web2ImagePaste?.enhance?.('#fbpMedFile', {
+            dropZone: '.fbp-media-bar',
+            hintText: 'hoặc dán (Ctrl+V) / kéo-thả ảnh vào đây',
+        });
         // schedule toggle
         document.querySelectorAll('input[name="fbpWhen"]').forEach((r) => {
             r.addEventListener('change', () => {
