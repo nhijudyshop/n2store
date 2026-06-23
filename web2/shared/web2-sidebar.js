@@ -102,7 +102,15 @@
         // (canvas/so-order/pancake-import là feature-specific → trang tự load.)
         if (!global.Web2JwtUtils) inject('web2-jwt-utils.js', '20260619a');
         if (!global.Web2AvatarUtils) inject('web2-avatar-utils.js', '20260619a');
-        if (!global.Web2ImageLightbox) inject('web2-image-lightbox.js', '20260619a');
+        // Ảnh dùng chung (gom 1 nguồn, 2026-06-23):
+        //  - canvas-utils: nén/convert ảnh↔canvas↔blob (image-paste phụ thuộc).
+        //  - image-lightbox: xem ảnh full-screen + CLICK PHÓNG TO catch-all + con trỏ zoom-in.
+        //  - image-paste: ô NHẬP ẢNH dùng chung (paste/kéo-thả/chọn file + nén + preview).
+        //  - effects: HOVER ZOOM ảnh nội dung (+ ripple/confetti…) — cặp với click-phóng-to.
+        if (!global.Web2CanvasUtils) inject('web2-canvas-utils.js', '20260619a');
+        if (!global.Web2ImageLightbox) inject('web2-image-lightbox.js', '20260623a');
+        if (!global.Web2ImagePaste) inject('web2-image-paste.js', '20260623a');
+        if (!global.Web2Effects) inject('web2-effects.js', '20260623a');
         // Dịch thuật dùng chung (LLM free + fallback Google) — mọi trang gọi Web2Translate.translate.
         if (!global.Web2Translate) inject('web2-translate.js', '20260622a');
     })();
@@ -135,13 +143,23 @@
             ],
         },
         {
-            label: 'Đa dụng Web 2.0',
-            icon: 'wrench',
+            label: 'AI',
+            icon: 'bot',
             children: [
                 {
                     label: 'Trợ lý AI 🤖',
                     our: '../web2/ai-hub/index.html',
                 },
+                {
+                    label: 'Xưởng Video AI 🎬',
+                    our: '../web2/video-maker/index.html',
+                },
+            ],
+        },
+        {
+            label: 'Đa dụng Web 2.0',
+            icon: 'wrench',
+            children: [
                 {
                     label: 'Tăng số lượng comment',
                     our: '../web2/multi-tool/index.html',
@@ -157,10 +175,6 @@
                 {
                     label: 'Tạo card sản phẩm 🖼️',
                     our: '../web2/product-card/index.html',
-                },
-                {
-                    label: 'Xưởng Video AI 🎬',
-                    our: '../web2/video-maker/index.html',
                 },
                 {
                     label: 'Chỉnh sửa ảnh 🪄',
