@@ -3,20 +3,15 @@
 > Index các folder snapshot. Mỗi snapshot tự động ghi đè sau commit chạm folder đó.
 > Khi session cũ chết, mở file này → tìm folder đang làm → đọc snapshot.
 
-**Latest commit**: `fadcac9` — feat(web2-admin): group Quản trị viên (admin-only) + Chấm công DG-600 + Quản lý chi tiêu
-**Last updated**: 2026-06-23 12:39:07 +07
-**Latest session**: [`RESUME:20260623-123907-fadcac9`](../20260623-123907-fadcac9.md)
-**Summary**: Group Quản trị viên admin-only + Chấm công DG-600 + Quản lý chi tiêu (Sổ quỹ) — module Web 2.0 riêng
+**Latest commit**: `0f689e4` — fix(web2-attendance): auto-tạo device-user khi nhập punch (ADMS/import/manual hiện ngay bảng công)
+**Last updated**: 2026-06-23 12:47:31 +07
+**Latest session**: [`RESUME:20260623-124731-0f689e4`](../20260623-124731-0f689e4.md)
+**Summary**: fix(web2-attendance): auto-tạo device-user khi nhập punch (ADMS/import/manual hiện ngay bảng công)
 
 ## Folders affected in this commit
 
 - [`docs/`](./docs.md) — 1 file(s)
-- [`live-chat/`](./live-chat.md) — 2 file(s)
-- [`native-orders/`](./native-orders.md) — 1 file(s)
-- [`render.com/`](./render.com.md) — 8 file(s)
-- [`so-order/`](./so-order.md) — 1 file(s)
-- [`web2/`](./web2.md) — 62 file(s)
-- [`web2-attendance-sync/`](./web2-attendance-sync.md) — 9 file(s)
+- [`render.com/`](./render.com.md) — 1 file(s)
 
 ## All folder snapshots
 
@@ -31,7 +26,7 @@
 - [`cloudflare-worker/`](./cloudflare-worker.md) — updated 2026-06-21 15:47
 - [`customer-hub/`](./customer-hub.md) — updated 2026-06-20 12:07
 - [`delivery-report/`](./delivery-report.md) — updated 2026-06-20 15:22
-- [`docs/`](./docs.md) — updated 2026-06-23 12:39
+- [`docs/`](./docs.md) — updated 2026-06-23 12:47
 - [`doi-soat/`](./doi-soat.md) — updated 2026-06-20 12:07
 - [`don-inbox/`](./don-inbox.md) — updated 2026-06-20 12:19
 - [`downloads/`](./downloads.md) — updated 2026-06-19 14:27
@@ -61,7 +56,7 @@
 - [`quy-trinh/`](./quy-trinh.md) — updated 2026-06-20 12:07
 - [`referenceUI/`](./referenceUI.md) — updated 2026-06-19 14:27
 - [`render-data-manager/`](./render-data-manager.md) — updated 2026-06-20 12:07
-- [`render.com/`](./render.com.md) — updated 2026-06-23 12:39
+- [`render.com/`](./render.com.md) — updated 2026-06-23 12:47
 - [`resident/`](./resident.md) — updated 2026-05-21 15:39
 - [`scripts/`](./scripts.md) — updated 2026-06-23 00:50
 - [`service-costs/`](./service-costs.md) — updated 2026-06-20 12:07
