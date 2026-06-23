@@ -525,8 +525,8 @@ function validateUsername(u) {
     const s = String(u || '')
         .trim()
         .toLowerCase();
-    if (!/^[a-z0-9_.-]{3,40}$/.test(s)) {
-        throw Object.assign(new Error('Username phải 3-40 ký tự, chỉ chứa a-z, 0-9, _ . -'), {
+    if (!/^[a-z0-9_.-]{2,40}$/.test(s)) {
+        throw Object.assign(new Error('Username phải 2-40 ký tự, chỉ chứa a-z, 0-9, _ . -'), {
             status: 400,
         });
     }
