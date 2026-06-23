@@ -78,7 +78,7 @@
         // Dung sai ±phút (cfg.graceMinutes, mặc định 5): vào trễ / về sớm trong khoảng
         // này coi như ĐÚNG GIỜ (vd ca 08:00 vào 08:05 không tính muộn; ca 20:00 ra 19:55
         // không tính về sớm). Áp đối xứng cho cả vào lẫn ra.
-        const grace = Number.isFinite(Number(cfg.graceMinutes)) ? Number(cfg.graceMinutes) : 5;
+        const grace = Number.isFinite(Number(cfg.graceMinutes)) ? Number(cfg.graceMinutes) : 6;
         const graceMs = Math.max(0, grace) * 60000;
         let checkIn = dayData.checkIn;
         let checkOut = dayData.checkOut || dayData.checkIn;

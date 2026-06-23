@@ -2,6 +2,10 @@
 
 ## 2026-06-23
 
+### [tweak] cham-cong: dung sai mặc định 5→6 phút (8h06 / 19h54 vẫn đúng giờ)
+
+User muốn nới dung sai lên 6'. Đổi mặc định 5→6 ở: backend column DEFAULT + manual create + `cfgFor` + `calcDay` + employees row + hint. Migration idempotent trong `ensureTables`: `ALTER COLUMN grace_minutes SET DEFAULT 6` + `UPDATE ... SET 6 WHERE grace_minutes = 5` (bump các dòng còn ở default cũ; beta nên retire giá trị 5, muốn chặt hơn đặt 0-5 ở UI sau). Bump js salary i/employees j/app k. ⚠ Cần Render deploy để migrate dòng cũ; frontend default 6 đã có hiệu lực ngay sau hard reload.
+
 ### [feat] cham-cong: lương theo THÁNG (cố định) + dung sai ±phút vào/ra
 
 - **Lương tháng** (cố định): tab Nhân viên thêm cột **"Loại lương" (Ngày/Tháng)**. Chọn "Tháng" → ô Lương = lương/tháng, `calcMonth` đặt `luongChinh = số tiền nhập` (KHÔNG nhân số ngày công); ngày nghỉ trừ qua "Giảm trừ" thủ công. NV thủ công (MANUAL-\*) mặc định = monthly. workedDays vẫn đếm để hiển thị.

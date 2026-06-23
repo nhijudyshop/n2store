@@ -58,7 +58,7 @@
             latePenaltyPerMin: Number(du.late_penalty_per_min) || 0,
             otMultiplier: Number(du.ot_multiplier) || 1,
             salaryType: du.salary_type === 'monthly' ? 'monthly' : 'daily',
-            graceMinutes: du.grace_minutes != null ? Number(du.grace_minutes) : 5,
+            graceMinutes: du.grace_minutes != null ? Number(du.grace_minutes) : 6,
         };
     }
     function empName(du) {

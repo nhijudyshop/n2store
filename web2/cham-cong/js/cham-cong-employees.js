@@ -50,7 +50,7 @@
                 ? `<span class="cc-emp-manual-pill">Thủ công</span>`
                 : `${cc.esc(du.device_user_id)}<span class="cc-emp-mname">${cc.esc(du.name || '')}</span>`;
             const isMonthly = du.salary_type === 'monthly';
-            const grace = du.grace_minutes != null ? Number(du.grace_minutes) : 5;
+            const grace = du.grace_minutes != null ? Number(du.grace_minutes) : 6;
             rows += `<tr data-uid="${cc.esc(du.device_user_id)}">
                 <td class="cc-emp-pin">${pinCell}</td>
                 <td><input class="cc-emp-dn" value="${cc.esc(du.display_name || '')}" placeholder="${cc.esc(du.name || '')}"></td>
@@ -74,7 +74,7 @@
         }
         el.innerHTML = `
           <div class="cc-emp-top">
-            <div class="cc-emp-hint">Gán mỗi PIN máy vào 1 nhân viên Web 2.0. <b>Loại lương</b>: Ngày = lương/ngày × số công; Tháng = lương cố định cả tháng. <b>Dung sai</b> = số phút vào trễ / về sớm bỏ qua (vd 5'). Mốc <b>giờ ra</b> cũng là mốc bắt đầu tính tăng ca (OT).</div>
+            <div class="cc-emp-hint">Gán mỗi PIN máy vào 1 nhân viên Web 2.0. <b>Loại lương</b>: Ngày = lương/ngày × số công; Tháng = lương cố định cả tháng. <b>Dung sai</b> = số phút vào trễ / về sớm bỏ qua (mặc định 6'; vd ca 08:00 vào 08:06, ca 20:00 ra 19:54 vẫn đúng giờ). Mốc <b>giờ ra</b> cũng là mốc bắt đầu tính tăng ca (OT).</div>
             <div class="cc-emp-top-btns">
               <button class="cc-btn cc-btn-ghost cc-emp-addmanual" type="button"><i data-lucide="user-plus"></i> Thêm NV thủ công</button>
               <button class="cc-btn cc-btn-primary cc-emp-saveall" type="button"><i data-lucide="save"></i> Lưu tất cả</button>

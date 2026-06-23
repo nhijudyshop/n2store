@@ -121,13 +121,17 @@ async function ensureSchema(pool) {
             ot_multiplier         NUMERIC NOT NULL DEFAULT 2,
             sunday_full           BOOLEAN NOT NULL DEFAULT FALSE,
             salary_type           VARCHAR(10) NOT NULL DEFAULT 'daily', -- 'daily' | 'monthly'
-            grace_minutes         INTEGER NOT NULL DEFAULT 5,            -- dung sai vào/ra (phút)
+            grace_minutes         INTEGER NOT NULL DEFAULT 6,            -- dung sai vào/ra (phút)
             active                BOOLEAN NOT NULL DEFAULT TRUE,
             created_at            BIGINT  NOT NULL,
             updated_at            BIGINT  NOT NULL
         );
         ALTER TABLE web2_attendance_device_users ADD COLUMN IF NOT EXISTS salary_type VARCHAR(10) NOT NULL DEFAULT 'daily';
-        ALTER TABLE web2_attendance_device_users ADD COLUMN IF NOT EXISTS grace_minutes INTEGER NOT NULL DEFAULT 5;
+        ALTER TABLE web2_attendance_device_users ADD COLUMN IF NOT EXISTS grace_minutes INTEGER NOT NULL DEFAULT 6;
+        -- Dung sai mặc định 5→6 (8h06/19h54 vẫn đúng giờ). Idempotent (beta): đổi default
+        -- cột + bump các dòng còn ở mặc định cũ 5. Muốn chặt hơn 6 thì đặt 0-5 ở UI sau bump.
+        ALTER TABLE web2_attendance_device_users ALTER COLUMN grace_minutes SET DEFAULT 6;
+        UPDATE web2_attendance_device_users SET grace_minutes = 6 WHERE grace_minutes = 5;
         -- Punch thô từ máy. id = '{device_user_id}_{epoch_ms}' → idempotent.
         CREATE TABLE IF NOT EXISTS web2_attendance_records (
             id              VARCHAR(80) PRIMARY KEY,
@@ -284,7 +288,7 @@ router.post('/device-users', requireWeb2Admin, async (req, res) => {
                 Number(b.late_penalty_per_min) || 0,
                 b.ot_multiplier != null ? Number(b.ot_multiplier) : 2,
                 salaryType,
-                b.grace_minutes != null ? Number(b.grace_minutes) : 5,
+                b.grace_minutes != null ? Number(b.grace_minutes) : 6,
                 t,
             ]
         );
