@@ -67,6 +67,30 @@ router.get('/models', (req, res) => {
     res.json({ ok: true, models: ai.listModels() });
 });
 
+// ── Complete (failover provider) — cho tác vụ KHÔNG cần chọn provider (vd nút "AI viết
+// mô tả"): tự xoay gemini→groq→openrouter nếu 1 cái quá tải/hết quota. Trả {text, provider}.
+router.post(
+    '/complete',
+    requireWeb2AuthSoft,
+    rateLimit,
+    express.json({ limit: '256kb' }),
+    async (req, res) => {
+        try {
+            const { messages, system, temperature, maxTokens, providers } = req.body || {};
+            const out = await ai.complete(messages, {
+                system,
+                temperature,
+                maxTokens,
+                providers,
+            });
+            res.json({ ok: true, ...out });
+        } catch (e) {
+            console.error('[web2-ai] complete', e.message);
+            res.status(e._noKey ? 503 : 500).json({ ok: false, error: String(e.message || e) });
+        }
+    }
+);
+
 // ── Chat non-stream ──
 router.post(
     '/chat',

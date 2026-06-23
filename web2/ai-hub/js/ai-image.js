@@ -142,13 +142,16 @@
         btn.disabled = true;
         btn.innerHTML = 'Đang viết…';
         try {
-            const r = await fetch(H().API() + '/chat', {
+            // /complete = failover gemini→groq→openrouter (1 provider quá tải vẫn chạy);
+            // maxTokens cao để prompt không bị cắt giữa chừng (model suy luận đốt token).
+            const r = await fetch(H().API() + '/complete', {
                 method: 'POST',
                 headers: H().authHeaders(true),
                 body: JSON.stringify({
+                    providers: ['gemini', 'groq', 'openrouter'],
                     system: 'Bạn là chuyên gia viết prompt tạo ảnh sản phẩm thời trang. Mở rộng mô tả NGẮN của người dùng thành MỘT prompt chi tiết (1-3 câu) để AI tạo ảnh đẹp: nêu rõ sản phẩm, bối cảnh/nền, ánh sáng, góc chụp, phong cách, chất liệu. CHỈ trả về prompt thuần, KHÔNG giải thích, KHÔNG markdown, KHÔNG xuống dòng dư.',
                     messages: [{ role: 'user', content: seed }],
-                    maxTokens: 300,
+                    maxTokens: 1024,
                     temperature: 0.8,
                 }),
             });
