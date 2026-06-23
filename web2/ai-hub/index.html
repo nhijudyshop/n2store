@@ -15,7 +15,7 @@
         <link rel="stylesheet" href="../shared/web2-sidebar.css?v=20260623fix" />
         <link rel="stylesheet" href="../shared/web2-theme.css?v=20260622t5" />
         <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js" defer></script>
-        <link rel="stylesheet" href="./ai-hub.css?v=20260623e" />
+        <link rel="stylesheet" href="./ai-hub.css?v=20260623f" />
     </head>
     <body class="web2-theme">
         <div class="web2-shell">
@@ -88,7 +88,24 @@
                                 <div class="aih-messages" id="aihMessages"></div>
 
                                 <div class="aih-composer">
+                                    <div class="aih-attach-strip" id="aihAttachStrip" hidden></div>
                                     <div class="aih-input-row">
+                                        <button
+                                            type="button"
+                                            class="aih-attach"
+                                            id="aihAttachBtn"
+                                            title="Đính ảnh (model có 👁) — dán/chọn ảnh để hỏi AI"
+                                            hidden
+                                        >
+                                            <i data-lucide="image-plus"></i>
+                                        </button>
+                                        <input
+                                            type="file"
+                                            id="aihAttachFile"
+                                            accept="image/*"
+                                            multiple
+                                            hidden
+                                        />
                                         <textarea
                                             class="aih-textarea"
                                             id="aihInput"
@@ -202,7 +219,7 @@
         <script src="../shared/web2-sidebar.js?v=20260623ai3"></script>
         <script src="../shared/popup.js?v=20260617a"></script>
         <script src="./js/ai-hub.js?v=20260623c"></script>
-        <script src="./js/ai-chat.js?v=20260623e"></script>
+        <script src="./js/ai-chat.js?v=20260623f"></script>
         <script src="./js/ai-image.js?v=20260623f"></script>
         <script src="./js/ai-keys.js?v=20260623d"></script>
         <script>

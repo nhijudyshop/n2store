@@ -14,6 +14,7 @@
     let currentId = null;
     let abortCtrl = null;
     let streaming = false;
+    let pendingImages = []; // ảnh đính kèm cho tin nhắn KẾ TIẾP (dataURL), chỉ model 👁
 
     // ── persistence ──
     function load() {
@@ -26,7 +27,17 @@
     }
     function save() {
         try {
-            localStorage.setItem(STORE_KEY, JSON.stringify(convos.slice(0, MAX_CONVOS)));
+            // KHÔNG persist ảnh base64 (dễ tràn quota localStorage) — chỉ giữ in-memory cho
+            // phiên hiện tại; reload mất ảnh đính kèm (text lịch sử vẫn còn). Lưu cờ hadImages.
+            const slim = convos.slice(0, MAX_CONVOS).map((c) => ({
+                ...c,
+                messages: c.messages.map((m) =>
+                    m.images && m.images.length
+                        ? { role: m.role, content: m.content, hadImages: m.images.length }
+                        : m
+                ),
+            }));
+            localStorage.setItem(STORE_KEY, JSON.stringify(slim));
         } catch {}
     }
     function current() {
@@ -100,6 +111,51 @@
             .join('');
         modelSel.value =
             selModel && p.models.some((m) => m.id === selModel) ? selModel : p.defaultModel;
+        updateAttach();
+    }
+    // ── Đính ảnh (chỉ model vision 👁) ──
+    function currentModelVision() {
+        const c = current();
+        const p = providers().find((x) => x.id === c?.provider);
+        const modelId = document.getElementById('aihModel')?.value || c?.model || p?.defaultModel;
+        return !!p?.models?.find((m) => m.id === modelId)?.vision;
+    }
+    function updateAttach() {
+        const btn = document.getElementById('aihAttachBtn');
+        if (!btn) return;
+        const vision = currentModelVision();
+        btn.hidden = !vision;
+        if (!vision && pendingImages.length) {
+            pendingImages = [];
+            renderAttachStrip();
+        }
+    }
+    function addImageFile(f) {
+        if (!f || !f.type.startsWith('image/')) return;
+        if (pendingImages.length >= 4) return H().toast('Tối đa 4 ảnh/lần', 'warning');
+        const rd = new FileReader();
+        rd.onload = () => {
+            pendingImages.push(rd.result);
+            renderAttachStrip();
+        };
+        rd.readAsDataURL(f);
+    }
+    function renderAttachStrip() {
+        const strip = document.getElementById('aihAttachStrip');
+        if (!strip) return;
+        strip.hidden = !pendingImages.length;
+        strip.innerHTML = pendingImages
+            .map(
+                (url, i) =>
+                    `<div class="aih-attach-thumb"><img src="${url}" alt=""><button type="button" data-rm="${i}" title="Bỏ">×</button></div>`
+            )
+            .join('');
+        strip.querySelectorAll('[data-rm]').forEach((b) =>
+            b.addEventListener('click', () => {
+                pendingImages.splice(+b.dataset.rm, 1);
+                renderAttachStrip();
+            })
+        );
     }
     function updateKeyPill() {
         const pill = document.getElementById('aihKeyPill');
@@ -216,9 +272,16 @@
         const avatar = isUser
             ? '<i data-lucide="user" style="width:17px;height:17px"></i>'
             : '<i data-lucide="sparkles" style="width:17px;height:17px"></i>';
-        const body = isUser
-            ? '<p>' + H().escapeHtml(m.content).replace(/\n/g, '<br>') + '</p>'
-            : H().renderMarkdown(m.content);
+        const imgsHtml =
+            isUser && m.images && m.images.length
+                ? `<div class="aih-msg-imgs">${m.images.map((u) => `<img src="${u}" alt="ảnh đính kèm">`).join('')}</div>`
+                : '';
+        const body =
+            (isUser
+                ? m.content
+                    ? '<p>' + H().escapeHtml(m.content).replace(/\n/g, '<br>') + '</p>'
+                    : ''
+                : H().renderMarkdown(m.content)) + imgsHtml;
         const actions = isUser
             ? ''
             : `<div class="aih-msg-actions">
@@ -266,14 +329,15 @@
     function updateSendState() {
         const send = document.getElementById('aihSend');
         const ta = document.getElementById('aihInput');
-        if (send && !streaming) send.disabled = !ta.value.trim();
+        if (send && !streaming) send.disabled = !ta.value.trim() && !pendingImages.length;
     }
 
     async function send() {
         if (streaming) return stop();
         const ta = document.getElementById('aihInput');
         const text = ta.value.trim();
-        if (!text) return;
+        const imgs = pendingImages.slice();
+        if (!text && !imgs.length) return; // cho gửi nếu chỉ có ảnh
         let c = current();
         if (!c) {
             newConvo();
@@ -281,11 +345,15 @@
         }
         // c.provider đã do chip set; chỉ đồng bộ model đang chọn.
         c.model = document.getElementById('aihModel').value;
-        c.messages.push({ role: 'user', content: text });
-        if (c.title === 'Cuộc trò chuyện mới') c.title = text.slice(0, 42);
+        const userMsg = { role: 'user', content: text };
+        if (imgs.length) userMsg.images = imgs;
+        c.messages.push(userMsg);
+        if (c.title === 'Cuộc trò chuyện mới') c.title = (text || '📷 Ảnh').slice(0, 42);
         c.updatedAt = Date.now();
         ta.value = '';
         autoSize(ta);
+        pendingImages = [];
+        renderAttachStrip();
         save();
         renderList();
         renderMessages();
@@ -469,6 +537,26 @@
             if (c) {
                 c.model = e.target.value;
                 save();
+            }
+            updateAttach();
+        });
+        // Đính ảnh: nút mở chọn file + xử lý chọn + dán (Ctrl+V) trong ô nhập.
+        const attachBtn = document.getElementById('aihAttachBtn');
+        const attachFile = document.getElementById('aihAttachFile');
+        attachBtn?.addEventListener('click', () => attachFile?.click());
+        attachFile?.addEventListener('change', () => {
+            [...(attachFile.files || [])].forEach(addImageFile);
+            attachFile.value = '';
+        });
+        ta.addEventListener('paste', (e) => {
+            if (!currentModelVision()) return;
+            const imgs = [...(e.clipboardData?.items || [])]
+                .filter((i) => i.type.startsWith('image/'))
+                .map((i) => i.getAsFile())
+                .filter(Boolean);
+            if (imgs.length) {
+                e.preventDefault();
+                imgs.forEach(addImageFile);
             }
         });
         sendBtn.addEventListener('click', () => send());

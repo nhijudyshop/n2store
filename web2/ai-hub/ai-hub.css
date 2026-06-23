@@ -521,6 +521,76 @@
 .aih-textarea:focus {
     outline: none;
 }
+/* Đính ảnh vào chat (model vision) */
+.aih-attach {
+    flex: 0 0 auto;
+    width: 36px;
+    height: 36px;
+    border: 1px solid var(--web2-border);
+    background: var(--web2-bg-app, #fff);
+    color: var(--web2-text-2);
+    border-radius: 10px;
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+    transition: all 0.15s;
+}
+.aih-attach:hover {
+    color: var(--web2-primary);
+    border-color: var(--web2-primary);
+}
+.aih-attach i {
+    width: 18px;
+    height: 18px;
+}
+.aih-attach-strip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding-bottom: 8px;
+}
+.aih-attach-thumb {
+    position: relative;
+    width: 56px;
+    height: 56px;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid var(--web2-border);
+}
+.aih-attach-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+.aih-attach-thumb button {
+    position: absolute;
+    top: 1px;
+    right: 1px;
+    width: 18px;
+    height: 18px;
+    border: 0;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.6);
+    color: #fff;
+    cursor: pointer;
+    font-size: 13px;
+    line-height: 1;
+    display: grid;
+    place-items: center;
+    padding: 0;
+}
+.aih-msg-imgs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 6px;
+}
+.aih-msg-imgs img {
+    max-width: 220px;
+    max-height: 220px;
+    border-radius: 10px;
+    border: 1px solid var(--web2-border);
+}
 .aih-send {
     flex: 0 0 auto;
     width: 38px;

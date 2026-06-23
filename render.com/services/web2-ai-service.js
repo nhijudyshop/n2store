@@ -37,10 +37,15 @@ const PROVIDERS = {
         kind: 'gemini',
         envPrefixes: ['WEB2_GEMINI_API_KEY', 'GEMINI_API_KEY'],
         defaultModel: 'gemini-2.5-flash',
+        // Gemini đều multimodal → vision:true (nhận ảnh + PDF).
         models: [
-            { id: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash' },
-            { id: 'gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash Lite (nhanh)' },
-            { id: 'gemini-flash-latest', label: 'Gemini Flash (mới nhất)' },
+            { id: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash 👁', vision: true },
+            {
+                id: 'gemini-2.5-flash-lite',
+                label: 'Gemini 2.5 Flash Lite 👁 (nhanh)',
+                vision: true,
+            },
+            { id: 'gemini-flash-latest', label: 'Gemini Flash (mới nhất) 👁', vision: true },
         ],
     },
     groq: {
@@ -54,6 +59,12 @@ const PROVIDERS = {
             { id: 'openai/gpt-oss-120b', label: 'GPT-OSS 120B (mạnh hơn)' },
             { id: 'llama-3.3-70b-versatile', label: 'Llama 3.3 70B' },
             { id: 'llama-3.1-8b-instant', label: 'Llama 3.1 8B (nhanh)' },
+            // Vision (nhận ảnh) — Llama 4 Scout preview (sunset ~07/2026; thay bằng qwen khi chết).
+            {
+                id: 'meta-llama/llama-4-scout-17b-16e-instruct',
+                label: 'Llama 4 Scout 👁 (xem ảnh)',
+                vision: true,
+            },
         ],
     },
     openrouter: {
@@ -72,6 +83,17 @@ const PROVIDERS = {
             { id: 'deepseek/deepseek-r1-0528:free', label: 'DeepSeek R1 — suy luận' },
             { id: 'meta-llama/llama-3.3-70b-instruct:free', label: 'Llama 3.3 70B' },
             { id: 'qwen/qwen3-235b-a22b:free', label: 'Qwen3 235B' },
+            // Vision (nhận ảnh) — free multimodal.
+            {
+                id: 'qwen/qwen2.5-vl-72b-instruct:free',
+                label: 'Qwen2.5-VL 72B 👁 (xem ảnh)',
+                vision: true,
+            },
+            {
+                id: 'meta-llama/llama-4-maverick:free',
+                label: 'Llama 4 Maverick 👁 (xem ảnh)',
+                vision: true,
+            },
         ],
     },
 };
@@ -185,12 +207,30 @@ function _normMessages(messages, system) {
     for (const m of messages || []) {
         const role = m.role === 'assistant' ? 'assistant' : m.role === 'system' ? 'system' : 'user';
         const content = typeof m.content === 'string' ? m.content : String(m.content ?? '');
-        if (content) out.push({ role, content });
+        // Ảnh đính kèm (chỉ user) — dataURL base64. Giữ lại để gửi tới model vision.
+        const images =
+            role === 'user' && Array.isArray(m.images)
+                ? m.images.filter((x) => typeof x === 'string' && x.startsWith('data:'))
+                : [];
+        if (content || images.length) out.push({ role, content, images });
     }
     return out;
 }
 
-// OpenAI-format messages → Gemini contents + systemInstruction.
+// messages chuẩn → OpenAI messages (content thành ARRAY khi có ảnh: text + image_url).
+function _openaiMessages(messages) {
+    return messages.map((m) => {
+        if (m.role !== 'system' && m.images && m.images.length) {
+            const parts = [];
+            if (m.content) parts.push({ type: 'text', text: m.content });
+            m.images.forEach((url) => parts.push({ type: 'image_url', image_url: { url } }));
+            return { role: m.role, content: parts };
+        }
+        return { role: m.role, content: m.content };
+    });
+}
+
+// messages chuẩn → Gemini contents + systemInstruction (ảnh = inlineData base64).
 function _toGemini(messages) {
     const contents = [];
     let systemText = '';
@@ -199,10 +239,14 @@ function _toGemini(messages) {
             systemText += (systemText ? '\n' : '') + m.content;
             continue;
         }
-        contents.push({
-            role: m.role === 'assistant' ? 'model' : 'user',
-            parts: [{ text: m.content }],
+        const parts = [];
+        if (m.content) parts.push({ text: m.content });
+        (m.images || []).forEach((url) => {
+            const mt = /^data:([^;]+);base64,(.*)$/.exec(url);
+            if (mt) parts.push({ inlineData: { mimeType: mt[1], data: mt[2] } });
         });
+        if (!parts.length) parts.push({ text: '' });
+        contents.push({ role: m.role === 'assistant' ? 'model' : 'user', parts });
     }
     return { contents, systemText };
 }
@@ -226,7 +270,7 @@ async function _openaiChat(p, mdl, messages, opts) {
             },
             body: JSON.stringify({
                 model: mdl,
-                messages,
+                messages: _openaiMessages(messages),
                 temperature: opts.temperature,
                 max_tokens: opts.maxTokens,
                 stream: false,
@@ -350,7 +394,7 @@ async function chatStream(opts = {}, onDelta) {
                 },
                 body: JSON.stringify({
                     model: mdl,
-                    messages,
+                    messages: _openaiMessages(messages),
                     temperature,
                     max_tokens: maxTokens,
                     stream: true,
