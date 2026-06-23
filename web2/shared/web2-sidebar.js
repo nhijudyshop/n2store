@@ -120,6 +120,10 @@
         // bộ máy mà products/variants/suppliers/customer cache tự lặp. Trang/feature
         // mới chỉ cần Web2SmartCache.create({ name, fetcher, topic }) là có cache đầy đủ.
         if (!global.Web2SmartCache) inject('web2-smart-cache.js', '20260623a');
+        // Phân quyền (enforcement) — ẩn menu + page-guard theo quyền 'view' của user.
+        // Default-open: admin/không-có-dữ-liệu/trang-mới → cho phép; chỉ chặn khi
+        // admin chủ động bỏ 'view'. Có mặt MỌI trang Web 2.0.
+        if (!global.Web2Perm) inject('web2-perm.js', '20260624a');
     })();
 
     // Group definitions matching WEB2 sidebar structure.
@@ -539,6 +543,9 @@
 
     function renderItem(item, activeUrl) {
         if (item.adminOnly && !_isAdmin()) return '';
+        // Ẩn item nếu user bị thu hồi 'view' trang này (default-open: admin / chưa
+        // có dữ liệu / trang mới → vẫn hiện). Server vẫn gate độc lập.
+        if (item.our && global.Web2Perm && !global.Web2Perm.canViewUrl(item.our)) return '';
         const isImpl = isOurRoute(item);
         const href = isImpl ? resolveOur(item.our) : '#';
         const isActive =

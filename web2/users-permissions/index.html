@@ -221,6 +221,37 @@
                             'Không lấy được danh sách trang (' + (e?.message || e) + ')'
                         );
                     }
+                    // AUTO-DISCOVER (2026-06-24): bổ sung trang có trong sidebar NAV mà
+                    // THIẾU ở registry backend (trang mới chưa thêm WEB2_PAGES) → hiện với
+                    // action 'view' để admin vẫn chặn được ngay. Slug khớp Web2Perm.
+                    try {
+                        REG.pages = REG.pages || [];
+                        const have = new Set(REG.pages.map((p) => p.slug));
+                        const sf = window.Web2Perm && window.Web2Perm.slugFromUrl;
+                        const nav = (window.Web2Sidebar && window.Web2Sidebar.NAV) || [];
+                        const walk = (items, group) => {
+                            for (const it of items || []) {
+                                if (it.children) walk(it.children, it.label);
+                                if (!it.our || !sf) continue;
+                                const slug = sf(it.our);
+                                if (slug && !have.has(slug)) {
+                                    have.add(slug);
+                                    REG.pages.push({
+                                        slug,
+                                        label:
+                                            (it.label || slug)
+                                                .replace(/\s*[^\w\s].*$/, '')
+                                                .trim() || slug,
+                                        group: group || 'Khác',
+                                        actions: ['view'],
+                                    });
+                                }
+                            }
+                        };
+                        walk(nav, null);
+                    } catch (_) {
+                        /* ignore — backend registry đã đủ */
+                    }
                 }
                 async function loadUsers() {
                     try {

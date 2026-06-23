@@ -2,6 +2,15 @@
 
 ## 2026-06-24
 
+### [feat] web2: phân quyền HOÀN CHỈNH — registry đủ 50 trang + auto-discover + enforcement an toàn
+
+User "Làm đi": vá lỗ hổng #2 (registry stale 18/50 + không enforce).
+
+- **Registry đủ**: `WEB2_PAGES` (web2-users.js) **18 → 49 trang** (mỗi trang ≥ 'view' + action hợp lý) + action labels mới (generate/scan/pack/returnFailed/publish/confirm). Role-default vẫn cấp 'view' mọi trang cho staff/manager/viewer → **an toàn, không khoá nhầm**.
+- **Auto-discover**: matrix frontend (users-permissions) tự bổ sung trang có trong sidebar NAV mà thiếu ở registry (action 'view') → **trang MỚI tự hiện** để admin chặn ngay, không cần sửa WEB2_PAGES.
+- **Enforcement** (`web2/shared/web2-perm.js`, auto-load mọi trang): mô hình **default-open / explicit-deny** — admin LUÔN qua; chưa-có-dữ-liệu / trang-mới (không trong perms) → CHO PHÉP; CHỈ chặn khi admin chủ động bỏ 'view'. (1) sidebar `renderItem` ẩn item bị thu hồi 'view'; (2) page-guard phủ overlay "không có quyền" khi vào thẳng URL trang bị thu hồi (soft-block, không redirect loop, không chặn admin). `slugFromUrl` folder-based khớp registry (overview→tongquan, live-chat/chat→live-chat…).
+- **Verified**: admin thấy đủ 49 item, 0 block; logic deny đúng (revoke `variants:[]`→canView false; `kpi` không-trong-perms→true fail-open; admin→true; action-level `delete` chưa cấp→false). Server vẫn gate độc lập (`requireWeb2Admin` cho trang admin). Cần deploy web2-api cho registry 49 trang.
+
 ### [feat+fix] web2: menu reorg + gộp Phân quyền + fix lightbox stuck + verify avatar/audit-scope (user 9 việc)
 
 User pivot sang 9 việc UI/menu + 2 câu hỏi verify. Kết quả:

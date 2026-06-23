@@ -296,9 +296,118 @@ const WEB2_PAGES = [
     // ─── Tính năng mới ─────────────────────────────────────────────
     {
         slug: 'photo-studio',
-        label: 'Photo Studio',
-        group: 'Tính năng mới',
+        label: 'Studio chụp tách nền',
+        group: 'Đa dụng',
         actions: ['view'],
+    },
+
+    // ════════════════════════════════════════════════════════════════
+    // 2026-06-24: BỔ SUNG đủ 50 trang (trước chỉ 18 → matrix STALE). Mỗi
+    // trang ≥ 'view'. Khi thêm TRANG MỚI → thêm 1 entry ở đây (slug = tên
+    // folder). Matrix frontend cũng tự bổ sung trang có trong sidebar NAV
+    // mà thiếu ở registry (chỉ 'view') → trang mới auto hiện để admin chặn.
+    // ════════════════════════════════════════════════════════════════
+    // ─── AI ────────────────────────────────────────────────────────
+    { slug: 'ai-hub', label: 'Trợ lý AI', group: 'AI', actions: ['view', 'generate'] },
+    {
+        slug: 'video-maker',
+        label: 'Xưởng Video AI',
+        group: 'AI',
+        actions: ['view', 'generate', 'export'],
+    },
+    // ─── Đa dụng ───────────────────────────────────────────────────
+    { slug: 'multi-tool', label: 'Tăng số lượng comment', group: 'Facebook', actions: ['view'] },
+    { slug: 'product-counter', label: 'Đếm SP qua camera', group: 'Đa dụng', actions: ['view'] },
+    { slug: 'product-card', label: 'Tạo card sản phẩm', group: 'Đa dụng', actions: ['view'] },
+    { slug: 'photo-editor', label: 'Chỉnh sửa ảnh', group: 'Đa dụng', actions: ['view'] },
+    { slug: 'video-beauty', label: 'Làm đẹp video', group: 'Đa dụng', actions: ['view'] },
+    // ─── Bán hàng (thêm) ───────────────────────────────────────────
+    {
+        slug: 'reconcile',
+        label: 'Đối soát đóng gói',
+        group: 'Bán hàng',
+        actions: ['view', 'scan', 'pack', 'returnFailed'],
+    },
+    {
+        slug: 'fastsaleorder-refund',
+        label: 'Trả hàng',
+        group: 'Bán hàng',
+        actions: ['view', 'create'],
+    },
+    { slug: 'returns', label: 'Thu về', group: 'Bán hàng', actions: ['view', 'create', 'delete'] },
+    {
+        slug: 'fastsaleorder-delivery',
+        label: 'Phiếu giao hàng',
+        group: 'Bán hàng',
+        actions: ['view'],
+    },
+    // ─── Facebook / Sale Online ────────────────────────────────────
+    {
+        slug: 'comments-mobile',
+        label: 'Comment Live (mobile)',
+        group: 'Facebook',
+        actions: ['view'],
+    },
+    { slug: 'live-control', label: 'Điều khiển TV', group: 'Facebook', actions: ['view', 'edit'] },
+    { slug: 'live-tv', label: 'TV Livestream', group: 'Facebook', actions: ['view'] },
+    {
+        slug: 'fb-posts',
+        label: 'Đăng bài Facebook',
+        group: 'Facebook',
+        actions: ['view', 'create', 'edit', 'delete', 'publish'],
+    },
+    { slug: 'fb-insights', label: 'Thống kê tương tác FB', group: 'Facebook', actions: ['view'] },
+    { slug: 'fb-ads-stats', label: 'Thống kê quảng cáo FB', group: 'Facebook', actions: ['view'] },
+    // ─── Mua hàng (thêm) ───────────────────────────────────────────
+    {
+        slug: 'purchase-refund',
+        label: 'Trả hàng NCC',
+        group: 'Mua hàng',
+        actions: ['view', 'create'],
+    },
+    // ─── Chuyển khoản KH ───────────────────────────────────────────
+    {
+        slug: 'balance-history',
+        label: 'Lịch sử biến động số dư (SePay)',
+        group: 'Chuyển khoản KH',
+        actions: ['view'],
+    },
+    {
+        slug: 'ck-dashboard',
+        label: 'Đối soát CK',
+        group: 'Chuyển khoản KH',
+        actions: ['view', 'confirm'],
+    },
+    // ─── Khách hàng (thêm) ─────────────────────────────────────────
+    {
+        slug: 'customers',
+        label: 'Kho Khách Hàng',
+        group: 'Khách hàng',
+        actions: ['view', 'edit', 'export'],
+    },
+    { slug: 'zalo', label: 'Zalo', group: 'Khách hàng', actions: ['view'] },
+    // ─── Báo cáo (thêm) ────────────────────────────────────────────
+    { slug: 'dashboard', label: 'Dashboard KPI', group: 'Báo cáo', actions: ['view'] },
+    { slug: 'jt-tracking', label: 'Tra cứu vận đơn J&T', group: 'Báo cáo', actions: ['view'] },
+    // ─── Cấu hình (thêm) ───────────────────────────────────────────
+    { slug: 'audit-log', label: 'Lịch sử thao tác', group: 'Cấu hình', actions: ['view'] },
+    { slug: 'order-tags', label: 'TAG đơn hàng', group: 'Cấu hình', actions: ['view', 'edit'] },
+    {
+        slug: 'livestream-poller',
+        label: 'Lấy comment Live (poller)',
+        group: 'Cấu hình',
+        actions: ['view', 'edit'],
+    },
+    // ─── Tính năng mới (thêm) ──────────────────────────────────────
+    { slug: 'kpi', label: 'KPI Nhân viên', group: 'Tính năng mới', actions: ['view'] },
+    { slug: 'notifications', label: 'Thông báo', group: 'Tính năng mới', actions: ['view'] },
+    // ─── Quản trị viên (admin-only, gate qua requireWeb2Admin) ─────
+    { slug: 'cham-cong', label: 'Chấm công', group: 'Quản trị viên', actions: ['view', 'edit'] },
+    {
+        slug: 'chi-tieu',
+        label: 'Quản lý chi tiêu',
+        group: 'Quản trị viên',
+        actions: ['view', 'create', 'edit', 'delete'],
     },
 ];
 
@@ -339,6 +448,13 @@ const ACTION_LABELS = {
     // users
     changePassword: 'Đổi mật khẩu',
     changePermissions: 'Đổi phân quyền',
+    // 2026-06-24 thêm
+    generate: 'Tạo nội dung (AI)',
+    scan: 'Quét đóng gói',
+    pack: 'Xác nhận đóng gói',
+    returnFailed: 'Giao thất bại / trả kho',
+    publish: 'Đăng / lên lịch',
+    confirm: 'Xác nhận',
 };
 
 // Role-based default permissions.
