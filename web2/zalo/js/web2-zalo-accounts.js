@@ -194,9 +194,22 @@
             }
             if (act === 'reconnect') {
                 setBusy(btn, true);
-                await window.ZaloApi.reconnect(key);
-                notify('Đã gửi yêu cầu kết nối lại', 'success');
-                setTimeout(loadAccounts, 1500);
+                try {
+                    await window.ZaloApi.reconnect(key);
+                    notify('Đã kết nối lại', 'success');
+                    setTimeout(loadAccounts, 1500);
+                } catch (e) {
+                    // Phiên đã lưu hết hạn → mời mở chat.zalo.me đăng nhập lại (1 chạm),
+                    // rồi bấm "Đăng nhập Zalo". Tránh chỉ toast tan biến.
+                    const go = await Popup.confirm(
+                        (e.message || 'Phiên Zalo đã hết hạn.') +
+                            '\n\nMở chat.zalo.me để đăng nhập lại tài khoản này?',
+                        { okText: 'Mở chat.zalo.me', cancelText: 'Để sau' }
+                    );
+                    if (go) window.open('https://chat.zalo.me/', '_blank', 'noopener');
+                    setTimeout(loadAccounts, 800);
+                }
+                return;
             } else if (act === 'disconnect') {
                 await window.ZaloApi.disconnect(key);
                 notify('Đã ngắt kết nối', 'success');
