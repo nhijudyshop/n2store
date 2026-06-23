@@ -34,7 +34,7 @@ const { requireWeb2AuthSoft } = require('../middleware/web2-auth');
 const { recordAuditEvent } = require('../services/web2-audit-sink');
 // Trần over-refund SERVER-AUTHORITATIVE — đọc SL đã NHẬN THẬT từ web2_so_order.
 // Lib dùng chung với web2-supplier-wallet (/tx) — xem lib/web2-so-order-qty.js.
-const { loadSoOrderReceivedMap } = require('../lib/web2-so-order-qty');
+const { loadSoOrderReceivedMap, loadSoOrderCostByCodeMap } = require('../lib/web2-so-order-qty');
 router.use(requireWeb2AuthSoft);
 
 // -----------------------------------------------------
@@ -253,6 +253,20 @@ function _notifySupplierWallet(req, supplier) {
     } catch (_) {}
 }
 
+// Stock đổi (trừ kho khi quick-refund) → broadcast web2:products để trang Kho SP +
+// Ví NCC (debt = Σ qty×cost, subscribe web2:products) refresh KHÔNG cần workaround
+// refresh cache tay (audit 2026-06-23 HIGH: trước đây refund chỉ notify
+// web2:purchase-refund → tồn kho + nợ NCC stale trên tab/máy khác).
+function _notifyProducts(req) {
+    try {
+        req.app.locals.web2RealtimeSseNotify?.(
+            'web2:products',
+            { action: 'stock', source: 'purchase-refund', ts: Date.now() },
+            'update'
+        );
+    } catch (_) {}
+}
+
 // -----------------------------------------------------
 // POST /:code/approve — draft|sent → approved + deduct stock
 // Body: { note?: string }
@@ -444,6 +458,32 @@ router.post('/quick-refund', async (req, res) => {
                 );
                 amount = maxAmount;
             }
+        } else {
+            // FIX cost-cap quick/bulk refund KHÔNG gửi rowReturns (audit 2026-06-23, CRITICAL):
+            // UI chính (quick + bulk) gửi products keyed by CODE, KHÔNG rowReturns → nhánh _rr
+            // trên không chạy → cost-cap vô hiệu. Tệ hơn: `price` client gửi = giá BÁN retail
+            // (matched.price) → ledger ví NCC credit theo retail thay vì COST nhập → mint ví NCC.
+            // Cap SERVER-AUTHORITATIVE theo cost THẬT so-order map by product code (client không
+            // sửa được): amount ≤ Σ(line.qty × costByCode[code]) khi MỌI line tra được cost.
+            // Thiếu cost (so-order wipe / SP chưa match name+variant) → fail-open giữ flow cũ
+            // (không block refund hợp lệ). Cho hoàn ÍT hơn (giảm giá/đối trừ); chỉ chặn phồng >1%.
+            const costByCode = await loadSoOrderCostByCodeMap(client);
+            let costCap = 0;
+            let allHaveCost = true;
+            for (const [lcode, lqty] of lines) {
+                const cv = costByCode.get(lcode);
+                if (Number.isFinite(cv) && cv > 0) costCap += lqty * cv;
+                else {
+                    allHaveCost = false;
+                    break;
+                }
+            }
+            if (allHaveCost && costCap > 0 && amount > costCap * 1.01) {
+                console.warn(
+                    `[PURCHASE-REFUND] quick-refund ${code}: code-cost-cap amount=${amount} > cost=${costCap} → cap`
+                );
+                amount = costCap;
+            }
         }
 
         // 1. Tạo phiếu (approved + stock_deducted) — idempotent theo (entity_slug, code).
@@ -606,6 +646,7 @@ router.post('/quick-refund', async (req, res) => {
         await client.query('COMMIT');
         committed = true;
         _notify('approve', code);
+        _notifyProducts(req); // tồn kho đã trừ → trang Kho SP + Ví NCC tự refresh
         _auditRefund(req, 'quick-refund', code, 'Tạo + duyệt nhanh phiếu hoàn');
         try {
             req.app.locals.web2RealtimeSseNotify?.(

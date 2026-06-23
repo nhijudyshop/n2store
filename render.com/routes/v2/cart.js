@@ -335,6 +335,38 @@ router.post('/batch/counts', async (req, res) => {
     }
 });
 
+// Anti-race (audit 2026-06-23 HIGH): read-modify-write trên products JSONB PHẢI atomic.
+// 2 request đồng thời (2 tab/máy thêm SP khác nhau, hoặc sửa qty cùng SP) nếu SELECT
+// rồi UPDATE rời nhau → last-write-wins NUỐT thay đổi của request kia (lost update).
+// Khoá row native_orders bằng SELECT … FOR UPDATE trong 1 transaction → serialize hoá.
+// fn(client, lockedRow) nhận row đã khoá (products TƯƠI đọc trong lock) + chạy UPDATE/DELETE
+// qua client. Row không tồn tại → trả {row:null} (caller tự xử, không mở transaction thừa).
+// ⚠ Mọi _notify*/SSE/log để NGOÀI fn (sau COMMIT) — không broadcast khi có thể ROLLBACK.
+async function _withDraftLock(pool, code, fn) {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const r = await client.query('SELECT * FROM native_orders WHERE code = $1 FOR UPDATE', [
+            code,
+        ]);
+        const row = r.rows[0];
+        if (!row) {
+            await client.query('ROLLBACK');
+            return { row: null, result: null };
+        }
+        const result = await fn(client, row);
+        await client.query('COMMIT');
+        return { row, result };
+    } catch (e) {
+        try {
+            await client.query('ROLLBACK');
+        } catch (_) {}
+        throw e;
+    } finally {
+        client.release();
+    }
+}
+
 // =====================================================
 // WRITE endpoints — direct mutation trên native_orders.products
 // =====================================================
@@ -373,46 +405,53 @@ router.post('/:commentId/add', async (req, res) => {
 
         // 2. Merge SP vào products (qty++ nếu trùng code). Match cả 'code' lẫn
         // 'productCode' vì products[] cũ có thể chỉ có productCode (từ modal).
-        const products = Array.isArray(draft.products) ? [...draft.products] : [];
-        const codeOf = (x) => x?.code || x?.productCode || null;
-        const idx = products.findIndex((x) => codeOf(x) === p.code);
+        // TRONG lock (SELECT … FOR UPDATE) → 2 add đồng thời không nuốt nhau.
         let qtyBefore = 0;
-        let qtyAfter;
+        let qtyAfter = qtyAdd;
         const fbCommentIdMeta = b.fbContext?.fbCommentId || null;
-        if (idx >= 0) {
-            qtyBefore = _qtyOf(products[idx]);
-            qtyAfter = qtyBefore + qtyAdd;
-            products[idx] = {
-                ...products[idx],
-                code: products[idx].code || p.code,
-                productCode: products[idx].productCode || p.code,
-                name: products[idx].name || p.name || null,
-                imageUrl: products[idx].imageUrl || p.imageUrl || p.image_url || null,
-                price: Number(p.price) || products[idx].price || 0,
-                quantity: qtyAfter,
-                qty: qtyAfter,
-                addedAt: Date.now(),
-                addedBy: user.name || products[idx].addedBy,
-                // Cập nhật fbCommentId nếu re-add từ comment mới (hoặc giữ cũ).
-                fbCommentId: fbCommentIdMeta || products[idx].fbCommentId || null,
-                // Re-add qua cart drag → đánh dấu (hoặc nâng cấp) thành livestream.
-                source: products[idx].source || 'livestream',
-            };
-        } else {
-            qtyAfter = qtyAdd;
-            products.push(_buildProduct(p, qtyAdd, user, fbCommentIdMeta));
+        const { row: lockedRow } = await _withDraftLock(pool, draft.code, async (client, lr) => {
+            const products = Array.isArray(lr.products) ? [...lr.products] : [];
+            const codeOf = (x) => x?.code || x?.productCode || null;
+            const idx = products.findIndex((x) => codeOf(x) === p.code);
+            if (idx >= 0) {
+                qtyBefore = _qtyOf(products[idx]);
+                qtyAfter = qtyBefore + qtyAdd;
+                products[idx] = {
+                    ...products[idx],
+                    code: products[idx].code || p.code,
+                    productCode: products[idx].productCode || p.code,
+                    name: products[idx].name || p.name || null,
+                    imageUrl: products[idx].imageUrl || p.imageUrl || p.image_url || null,
+                    price: Number(p.price) || products[idx].price || 0,
+                    quantity: qtyAfter,
+                    qty: qtyAfter,
+                    addedAt: Date.now(),
+                    addedBy: user.name || products[idx].addedBy,
+                    // Cập nhật fbCommentId nếu re-add từ comment mới (hoặc giữ cũ).
+                    fbCommentId: fbCommentIdMeta || products[idx].fbCommentId || null,
+                    // Re-add qua cart drag → đánh dấu (hoặc nâng cấp) thành livestream.
+                    source: products[idx].source || 'livestream',
+                };
+            } else {
+                qtyAfter = qtyAdd;
+                products.push(_buildProduct(p, qtyAdd, user, fbCommentIdMeta));
+            }
+            const t = _totalsOf(products);
+            await client.query(
+                `UPDATE native_orders
+                 SET products = $1::jsonb,
+                     total_quantity = $2,
+                     total_amount = $3,
+                     updated_at = $4
+                 WHERE code = $5`,
+                [JSON.stringify(products), t.qty, t.amt, Date.now(), lr.code]
+            );
+        });
+        if (!lockedRow) {
+            return res
+                .status(500)
+                .json({ success: false, error: 'draft order disappeared during add' });
         }
-        const t = _totalsOf(products);
-
-        await pool.query(
-            `UPDATE native_orders
-             SET products = $1::jsonb,
-                 total_quantity = $2,
-                 total_amount = $3,
-                 updated_at = $4
-             WHERE code = $5`,
-            [JSON.stringify(products), t.qty, t.amt, Date.now(), draft.code]
-        );
 
         // Anti-lag: history log + KPI emit fire-and-forget (audit-only, errors
         // swallowed inside). Cắt 20-50ms khỏi response → drop UX mượt hơn.
@@ -457,31 +496,36 @@ router.post('/:commentId/:productCode/remove', async (req, res) => {
 
         const draft = await _findDraft(pool, customerId);
         if (!draft) return res.json({ success: true, alreadyRemoved: true });
-        const products = Array.isArray(draft.products) ? draft.products : [];
-        const removed = products.find((p) => (p.code || p.productCode) === productCode);
-        if (!removed) return res.json({ success: true, alreadyRemoved: true });
-        const newProducts = products.filter((p) => (p.code || p.productCode) !== productCode);
+        const nativeOrderCode = draft.code;
 
-        let nativeOrderCode = draft.code;
+        // Lọc SP TRONG lock (SELECT … FOR UPDATE) → remove + add/qty đồng thời không nuốt nhau.
+        let removed = null;
         let nativeDeleted = false;
-        if (newProducts.length === 0) {
-            // Cart rỗng → xóa luôn native_order (UX: kéo nhầm rồi undo → đơn biến mất)
-            await pool.query(`DELETE FROM native_orders WHERE code = $1`, [draft.code]);
-            nativeDeleted = true;
-            _notifyNativeOrders('delete', draft.code);
-        } else {
-            const t = _totalsOf(newProducts);
-            await pool.query(
-                `UPDATE native_orders
-                 SET products = $1::jsonb,
-                     total_quantity = $2,
-                     total_amount = $3,
-                     updated_at = $4
-                 WHERE code = $5`,
-                [JSON.stringify(newProducts), t.qty, t.amt, Date.now(), draft.code]
-            );
-            _notifyNativeOrders('update', draft.code);
-        }
+        const { row: lockedRow } = await _withDraftLock(pool, draft.code, async (client, lr) => {
+            const products = Array.isArray(lr.products) ? lr.products : [];
+            removed = products.find((p) => (p.code || p.productCode) === productCode);
+            if (!removed) return; // SP không còn → no-op (alreadyRemoved)
+            const newProducts = products.filter((p) => (p.code || p.productCode) !== productCode);
+            if (newProducts.length === 0) {
+                // Cart rỗng → xóa luôn native_order (UX: kéo nhầm rồi undo → đơn biến mất)
+                await client.query(`DELETE FROM native_orders WHERE code = $1`, [lr.code]);
+                nativeDeleted = true;
+            } else {
+                const t = _totalsOf(newProducts);
+                await client.query(
+                    `UPDATE native_orders
+                     SET products = $1::jsonb,
+                         total_quantity = $2,
+                         total_amount = $3,
+                         updated_at = $4
+                     WHERE code = $5`,
+                    [JSON.stringify(newProducts), t.qty, t.amt, Date.now(), lr.code]
+                );
+            }
+        });
+        if (!lockedRow || !removed) return res.json({ success: true, alreadyRemoved: true });
+        // Notify SAU commit (anti-phantom): chỉ broadcast khi mutation đã chốt.
+        _notifyNativeOrders(nativeDeleted ? 'delete' : 'update', draft.code);
 
         _logHistory(pool, {
             comment_id: customerId,
@@ -569,26 +613,40 @@ router.patch('/:commentId/:productCode', async (req, res) => {
 
         const draft = await _findDraft(pool, customerId);
         if (!draft) return res.status(404).json({ success: false, error: 'no draft order' });
-        const products = Array.isArray(draft.products) ? [...draft.products] : [];
-        const idx = products.findIndex((p) => (p.code || p.productCode) === productCode);
-        if (idx < 0) return res.status(404).json({ success: false, error: 'product not in cart' });
-        const qtyBefore = _qtyOf(products[idx]);
-        products[idx] = {
-            ...products[idx],
-            quantity: newQty,
-            qty: newQty,
-            updatedAt: Date.now(),
-        };
-        const t = _totalsOf(products);
-        await pool.query(
-            `UPDATE native_orders
-             SET products = $1::jsonb,
-                 total_quantity = $2,
-                 total_amount = $3,
-                 updated_at = $4
-             WHERE code = $5`,
-            [JSON.stringify(products), t.qty, t.amt, Date.now(), draft.code]
-        );
+
+        // Cập nhật qty TRONG lock (SELECT … FOR UPDATE) → 2 patch / patch+add đồng thời
+        // không nuốt nhau (lost update). newQty là giá trị TUYỆT ĐỐI (set, không delta).
+        let qtyBefore = 0;
+        let productName = null;
+        let notFound = false;
+        const { row: lockedRow } = await _withDraftLock(pool, draft.code, async (client, lr) => {
+            const products = Array.isArray(lr.products) ? [...lr.products] : [];
+            const idx = products.findIndex((p) => (p.code || p.productCode) === productCode);
+            if (idx < 0) {
+                notFound = true;
+                return;
+            }
+            qtyBefore = _qtyOf(products[idx]);
+            products[idx] = {
+                ...products[idx],
+                quantity: newQty,
+                qty: newQty,
+                updatedAt: Date.now(),
+            };
+            productName = products[idx].name;
+            const t = _totalsOf(products);
+            await client.query(
+                `UPDATE native_orders
+                 SET products = $1::jsonb,
+                     total_quantity = $2,
+                     total_amount = $3,
+                     updated_at = $4
+                 WHERE code = $5`,
+                [JSON.stringify(products), t.qty, t.amt, Date.now(), lr.code]
+            );
+        });
+        if (!lockedRow) return res.status(404).json({ success: false, error: 'no draft order' });
+        if (notFound) return res.status(404).json({ success: false, error: 'product not in cart' });
 
         _logHistory(pool, {
             comment_id: customerId,
@@ -596,7 +654,7 @@ router.patch('/:commentId/:productCode', async (req, res) => {
             customer_phone: draft.phone,
             page_id: draft.fb_page_id,
             product_code: productCode,
-            product_name: products[idx].name,
+            product_name: productName,
             action: 'qty-change',
             qty_before: qtyBefore,
             qty_after: newQty,

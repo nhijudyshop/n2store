@@ -53,6 +53,19 @@ function _rateToVnd(currency, tab) {
     return FALLBACK_RATES_VND[currency] || 1;
 }
 
+// MIRROR client Web2ProductsCache._normalize (web2-products-cache.js): lowercase →
+// NFD → bỏ dấu kết hợp → đ→d → trim. PHẢI khớp 1:1 để map (name,variant)→code
+// server-side trùng kết quả client (so-order row ↔ web2_products). Lệch chuẩn hoá =
+// không match = fail-open (không cap) → an toàn 1 chiều (không block nhầm).
+function _norm(text) {
+    return String(text || '')
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[̀-ͯ]/g, '')
+        .replace(/đ/g, 'd')
+        .trim();
+}
+
 /**
  * Build map String(rowId) → { received, costVnd } từ web2_so_order doc 'main'.
  *
@@ -106,4 +119,66 @@ async function loadSoOrderReceivedQtyMap(client) {
     return map;
 }
 
-module.exports = { loadSoOrderReceivedQtyMap, loadSoOrderReceivedMap };
+/**
+ * Build map String(productCode) → MAX costVnd từ web2_so_order, join sang
+ * web2_products bằng (name, variant) chuẩn-hoá (mirror client _normalize).
+ *
+ * Dùng cho cost-cap quick/bulk refund KHÔNG gửi rowReturns (UI chính gửi products
+ * keyed by CODE). Hoàn NCC = giá NHẬP (cost), KHÔNG phải giá bán retail mà UI gửi →
+ * cap amount ≤ Σ(qty × costByCode[code]). MAX cost giữa các đợt = trần rộng nhất
+ * (không block nhầm refund hợp lệ). KHÔNG match được code → bỏ (caller fail-open).
+ *
+ * @param {{query: Function}} client - Pool/PoolClient (chạy TRONG transaction caller).
+ * @returns {Promise<Map<string, number>>} productCode → costVnd (MAX). Rỗng nếu lỗi đọc.
+ */
+async function loadSoOrderCostByCodeMap(client) {
+    const map = new Map();
+    // 1) web2_products: (name|variant chuẩn-hoá) → code. 1 query toàn kho.
+    let prodRows;
+    try {
+        prodRows = await client.query(`SELECT code, name, variant FROM web2_products`);
+    } catch (e) {
+        return map;
+    }
+    const codeByKey = new Map();
+    for (const p of prodRows.rows || []) {
+        if (!p.code) continue;
+        const key = _norm(p.name) + '|' + _norm(p.variant || '');
+        if (!codeByKey.has(key)) codeByKey.set(key, p.code);
+    }
+    // 2) so-order rows đã NHẬN → costVnd → gộp MAX theo code.
+    let r;
+    try {
+        r = await client.query(`SELECT data FROM web2_so_order WHERE doc_id = 'main' LIMIT 1`);
+    } catch (e) {
+        return map;
+    }
+    const data = r.rows[0]?.data;
+    const tabs = data && Array.isArray(data.tabs) ? data.tabs : [];
+    for (const tab of tabs) {
+        const rate = _rateToVnd(tab && tab.currency, tab);
+        const shipments = tab && Array.isArray(tab.shipments) ? tab.shipments : [];
+        for (const sh of shipments) {
+            const rows = sh && Array.isArray(sh.rows) ? sh.rows : [];
+            for (const row of rows) {
+                if (!row) continue;
+                const st = row.status || 'draft';
+                if (st !== 'received' && st !== 'partial_received') continue;
+                const costVnd = (Number(row.costPrice) || 0) * rate;
+                if (!(costVnd > 0)) continue;
+                const key = _norm(row.productName) + '|' + _norm(row.variant || '');
+                const code = codeByKey.get(key);
+                if (!code) continue;
+                const prev = map.get(code) || 0;
+                if (costVnd > prev) map.set(code, costVnd);
+            }
+        }
+    }
+    return map;
+}
+
+module.exports = {
+    loadSoOrderReceivedQtyMap,
+    loadSoOrderReceivedMap,
+    loadSoOrderCostByCodeMap,
+};

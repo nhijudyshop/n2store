@@ -2,6 +2,15 @@
 
 ## 2026-06-23
 
+### [fix] web2 money-flow audit — 3 bug verify (cost-cap hoàn NCC CRITICAL + cart race HIGH + SSE web2:products HIGH)
+
+Tiếp vòng audit money-flow (user duyệt fix 3 item):
+
+- 🔴 **CRITICAL — cost-cap hoàn NCC vô hiệu ở UI chính**: quick/bulk refund gửi `products` keyed by CODE (KHÔNG `rowReturns`) → nhánh cost-cap `purchase-refund.js` (chỉ chạy khi có `rowReturns`) bị bỏ qua. Tệ hơn: `price` client gửi = giá BÁN retail (`matched.price`) → ledger ví NCC credit theo retail thay vì COST nhập → **mint ví NCC** (hoàn NCC phải theo giá nhập). FIX server-authoritative: thêm `loadSoOrderCostByCodeMap(client)` (`lib/web2-so-order-qty.js`) map `code→MAX costVnd` từ so-order (join web2_products qua name+variant chuẩn-hoá MIRROR client `_normalize`); nhánh `else` (no-rowReturns) cap `amount ≤ Σ(qty×cost)` khi MỌI line tra được cost, fail-open nếu thiếu (so-order wipe / SP chưa match) → không block refund hợp lệ. Mock-test logic PASS (MAX cost, diacritic/case, partial_received, FX rate, draft excluded).
+- 🟠 **HIGH — cart race (lost update)**: `v2/cart.js` `/add`, `/:code/remove`, PATCH qty đọc `products` JSONB rồi UPDATE rời nhau → 2 tab/máy thao tác đồng thời nuốt nhau. FIX: helper `_withDraftLock(pool, code, fn)` = `SELECT … FOR UPDATE` trong 1 transaction; 3 handler chạy read-modify-write TRONG lock; `_notify*`/SSE/log dời ra SAU commit (anti-phantom). `/clear` (DELETE thuần) không cần lock.
+- 🟠 **HIGH — refund không notify `web2:products`**: quick-refund trừ kho nhưng chỉ `_notify('web2:purchase-refund')` → trang Kho SP + Ví NCC (debt=Σqty×cost, subscribe `web2:products`) stale (frontend workaround refresh tay). FIX: thêm `_notifyProducts(req)` broadcast `web2:products` post-commit quick-refund. (`/approve`+`/cancel-approve` đã RETIRED 410 → quick-refund là đường trừ kho DUY NHẤT.)
+- Verify: `node --check` 3 file PASS + mock-test cost-map PASS. Backend-only (không bump frontend). ⚠ Frontend comment "quick-refund KHÔNG notify web2:products" giờ stale (refresh tay còn lại vô hại) — follow-up nhỏ.
+
 ### [refactor] Zalo: BỎ lưu phiên trên server — chỉ đăng nhập qua chat.zalo.me (browser), BỎ QR
 
 User: bỏ hết chức năng lưu Zalo lên server, chạy bằng phiên chat.zalo.me trên trình duyệt máy, hướng dẫn đăng nhập chat.zalo.me rồi ấn đăng nhập, bỏ QR. Audit + plan mode → user duyệt (realtime giữ ở server RAM, KHÔNG lưu DB; xoá sạch phiên DB cũ).
